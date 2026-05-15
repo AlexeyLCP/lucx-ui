@@ -100,7 +100,7 @@ func (s *TelemtService) CreateTelemtInbound(telemt *model.Inbound) (*model.Inbou
 
 	// 7. Restart Xray to pick up new SOCKS5 inbound
 	if needRestart {
-		s.XrayService.RestartXray(false)
+		s.XrayService.SetToNeedRestart()
 	}
 
 	return telemt, nil
@@ -126,7 +126,7 @@ func (s *TelemtService) DeleteTelemtInbound(id int) error {
 	os.RemoveAll(filepath.Join(telemtDataDir, fmt.Sprintf("telemt-%d", id)))
 
 	// 5. Restart Xray
-	s.XrayService.RestartXray(false)
+	s.XrayService.SetToNeedRestart()
 	return nil
 }
 

@@ -130,7 +130,7 @@ func (s *AWGService) CreateAWGInbound(awg *model.Inbound) (*model.Inbound, error
 
 	// 10. Restart Xray
 	if needRestart {
-		s.XrayService.RestartXray(false)
+		s.XrayService.SetToNeedRestart()
 	}
 
 	return awg, nil
@@ -159,7 +159,7 @@ func (s *AWGService) DeleteAWGInbound(awgId int) error {
 	os.Remove(filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-down.sh", awgId)))
 
 	// 5. Restart Xray
-	s.XrayService.RestartXray(false)
+	s.XrayService.SetToNeedRestart()
 	return nil
 }
 
