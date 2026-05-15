@@ -23,6 +23,9 @@ const (
 	WireGuard   Protocol = "wireguard"
 	Hysteria    Protocol = "hysteria"
 	Hysteria2   Protocol = "hysteria2"
+	// LUCX-HOOK: Native Xray TUN inbound protocol
+	TUN Protocol = "tun"
+	// END LUCX-HOOK
 )
 
 // IsHysteria returns true for both "hysteria" and "hysteria2".
@@ -31,6 +34,37 @@ const (
 func IsHysteria(p Protocol) bool {
 	return p == Hysteria || p == Hysteria2
 }
+
+// LUCX-HOOK: Special inbound detection (protocols without listen/port)
+// IsSpecialInbound returns true for protocols that don't use standard listen/port fields.
+func (i *Inbound) IsSpecialInbound() bool {
+	switch i.Protocol {
+	case TUN:
+		return true
+	default:
+		return false
+	}
+}
+
+// END LUCX-HOOK
+
+// LUCX-HOOK: Special config generation for non-standard protocols
+// GenSpecialConfig generates Xray config for protocols that don't use listen/port.
+func (i *Inbound) GenSpecialConfig() *xray.InboundConfig {
+	switch i.Protocol {
+	case TUN:
+		return &xray.InboundConfig{
+			Protocol: string(i.Protocol),
+			Settings: json_util.RawMessage(i.Settings),
+			Tag:      i.Tag,
+			Sniffing: json_util.RawMessage(i.Sniffing),
+		}
+	default:
+		return i.GenXrayInboundConfig()
+	}
+}
+
+// END LUCX-HOOK
 
 // User represents a user account in the 3x-ui panel.
 type User struct {
@@ -98,6 +132,11 @@ type ApiToken struct {
 
 // GenXrayInboundConfig generates an Xray inbound configuration from the Inbound model.
 func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
+	// LUCX-HOOK: Delegate special protocols to GenSpecialConfig
+	if i.IsSpecialInbound() {
+		return i.GenSpecialConfig()
+	}
+	// END LUCX-HOOK
 	listen := i.Listen
 	// Default to 0.0.0.0 (all interfaces) when listen is empty
 	// This ensures proper dual-stack IPv4/IPv6 binding in systems where bindv6only=0
