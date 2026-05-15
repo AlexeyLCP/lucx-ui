@@ -900,6 +900,8 @@
       "comment_prompt": "💬 Стандартный комментарий: {{ .ClientComment }}\n\nВведите ваш комментарий.",
       "inbound_client_data_id": "🔄 Входящие подключения: {{ .InboundRemark }}\n\n🔑 ID: {{ .ClientId }}\n📧 Email: {{ .ClientEmail }}\n📊 Трафик: {{ .ClientTraffic }}\n📅 Срок действия: {{ .ClientExp }}\n💬 Комментарий: {{ .ClientComment }}\n\nТеперь вы можете добавить клиента в входящее подключение!",
       "inbound_client_data_pass": "🔄 Входящие подключения: {{ .InboundRemark }}\n\n🔑 Пароль: {{ .ClientPass }}\n📧 Email: {{ .ClientEmail }}\n📊 Трафик: {{ .ClientTraffic }}\n📅 Срок действия: {{ .ClientExp }}\n💬 Комментарий: {{ .ClientComment }}\n\nТеперь вы можете добавить клиента в входящее подключение!",
+	      "inbound_client_data_awg": "📡 AWG Подключение: {{ .InboundRemark }}\n\n📧 Email: {{ .ClientEmail }}\n📊 Трафик: {{ .ClientTraffic }}\n📅 Срок действия: {{ .ClientExp }}\n🌐 IP Лимит: {{ .IpLimit }}\n💬 Комментарий: {{ .ClientComment }}\n\nТеперь вы можете добавить клиента в AWG!",
+	      "inbound_client_data_telemt": "🔐 Telemt Подключение: {{ .InboundRemark }}\n\n📧 Email: {{ .ClientEmail }}\n📊 Трафик: {{ .ClientTraffic }}\n📅 Срок действия: {{ .ClientExp }}\n🌐 IP Лимит: {{ .IpLimit }}\n💬 Комментарий: {{ .ClientComment }}\n\nТеперь вы можете добавить клиента в Telemt!",
       "cancel": "❌ Процесс отменён! \n\nВы можете снова начать с /start в любое время. 🔄",
       "error_add_client": "⚠️ Ошибка:\n\n {{ .error }}",
       "using_default_value": "Используется значение по умолчанию👌",

@@ -900,6 +900,8 @@
       "comment_prompt": "💬 Default Comment: {{ .ClientComment }}\n\nEnter your Comment.",
       "inbound_client_data_id": "🔄 Inbound: {{ .InboundRemark }}\n\n🔑 ID: {{ .ClientId }}\n📧 Email: {{ .ClientEmail }}\n📊 Traffic: {{ .ClientTraffic }}\n📅 Expire Date: {{ .ClientExp }}\n🌐 IP Limit: {{ .IpLimit }}\n💬 Comment: {{ .ClientComment }}\n\nYou can add the client to inbound now!",
       "inbound_client_data_pass": "🔄 Inbound: {{ .InboundRemark }}\n\n🔑 Password: {{ .ClientPass }}\n📧 Email: {{ .ClientEmail }}\n📊 Traffic: {{ .ClientTraffic }}\n📅 Expire Date: {{ .ClientExp }}\n🌐 IP Limit: {{ .IpLimit }}\n💬 Comment: {{ .ClientComment }}\n\nYou can add the client to inbound now!",
+      "inbound_client_data_awg": "📡 AWG Inbound: {{ .InboundRemark }}\n\n📧 Email: {{ .ClientEmail }}\n📊 Traffic: {{ .ClientTraffic }}\n📅 Expiry: {{ .ClientExp }}\n🌐 IP Limit: {{ .IpLimit }}\n💬 Comment: {{ .ClientComment }}\n\nYou can add the client to AWG now!",
+      "inbound_client_data_telemt": "🔐 Telemt Inbound: {{ .InboundRemark }}\n\n📧 Email: {{ .ClientEmail }}\n📊 Traffic: {{ .ClientTraffic }}\n📅 Expiry: {{ .ClientExp }}\n🌐 IP Limit: {{ .IpLimit }}\n💬 Comment: {{ .ClientComment }}\n\nYou can add the client to Telemt now!",
       "cancel": "❌ Process Canceled! \n\nYou can /start again anytime. 🔄",
       "error_add_client": "⚠️ Error:\n\n {{ .error }}",
       "using_default_value": "Okay, I'll stick with the default value. 😊",

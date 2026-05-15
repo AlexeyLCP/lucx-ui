@@ -2142,6 +2142,12 @@ func (t *Tgbot) BuildInboundClientDataMessage(inbound_remark string, protocol mo
 	case model.Shadowsocks:
 		message = t.I18nBot("tgbot.messages.inbound_client_data_pass", "InboundRemark=="+inbound_remark, "ClientPass=="+client_ShPassword, "ClientEmail=="+client_Email, "ClientTraffic=="+traffic_value, "ClientExp=="+expiryTime, "IpLimit=="+ip_limit, "ClientComment=="+client_Comment)
 
+		// LUCX-HOOK: AWG and Telemt client data
+		case model.AWG:
+			message = t.I18nBot("tgbot.messages.inbound_client_data_awg", "InboundRemark=="+inbound_remark, "ClientEmail=="+client_Email, "ClientTraffic=="+traffic_value, "ClientExp=="+expiryTime, "IpLimit=="+ip_limit, "ClientComment=="+client_Comment)
+		case model.Telemt:
+			message = t.I18nBot("tgbot.messages.inbound_client_data_telemt", "InboundRemark=="+inbound_remark, "ClientEmail=="+client_Email, "ClientTraffic=="+traffic_value, "ClientExp=="+expiryTime, "IpLimit=="+ip_limit, "ClientComment=="+client_Comment)
+		// END LUCX-HOOK
 	default:
 		return "", errors.New("unknown protocol")
 	}
@@ -2221,6 +2227,39 @@ func (t *Tgbot) BuildJSONForProtocol(protocol model.Protocol) (string, error) {
             }]
         }`, client_Method, client_ShPassword, client_Email, client_LimitIP, client_TotalGB, client_ExpiryTime, client_Enable, client_TgID, client_SubID, client_Comment, client_Reset)
 
+		// LUCX-HOOK: AWG and Telemt JSON builder
+		case model.AWG:
+			jsonString = fmt.Sprintf(`{
+				"clients": [{
+					"id": "%s",
+					"password": "%s",
+					"email": "%s",
+					"enable": %t,
+					"limitIP": %d,
+					"totalGB": %d,
+					"expiryTime": %d,
+					"tgId": "%s",
+					"subId": "%s",
+					"comment": "%s",
+					"reset": %d
+				}]
+			}`, client_Id, client_ShPassword, client_Email, client_Enable, client_LimitIP, client_TotalGB, client_ExpiryTime, client_TgID, client_SubID, client_Comment, client_Reset)
+		case model.Telemt:
+			jsonString = fmt.Sprintf(`{
+				"clients": [{
+					"email": "%s",
+					"password": "%s",
+					"enable": %t,
+					"limitIP": %d,
+					"totalGB": %d,
+					"expiryTime": %d,
+					"tgId": "%s",
+					"subId": "%s",
+					"comment": "%s",
+					"reset": %d
+				}]
+			}`, client_Email, client_ShPassword, client_Enable, client_LimitIP, client_TotalGB, client_ExpiryTime, client_TgID, client_SubID, client_Comment, client_Reset)
+		// END LUCX-HOOK
 	default:
 		return "", errors.New("unknown protocol")
 	}
