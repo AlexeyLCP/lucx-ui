@@ -2,6 +2,9 @@
 import { computed, reactive, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { message } from 'ant-design-vue';
+// LUCX-HOOK: SSH Parser import
+import SshParser from '@/lucx/SshParser.vue';
+// END LUCX-HOOK
 
 const props = defineProps({
   open: { type: Boolean, default: false },
@@ -74,6 +77,16 @@ function buildPayload() {
   };
 }
 
+// LUCX-HOOK: Handle parsed SSH output
+function onSshParsed(creds) {
+  form.address = creds.host || '';
+  form.port = creds.port || 2053;
+  form.scheme = creds.scheme || 'https';
+  form.basePath = creds.webBasePath || '/';
+  form.apiToken = creds.apiToken || '';
+}
+// END LUCX-HOOK
+
 async function onTest() {
   testing.value = true;
   testResult.value = null;
@@ -115,6 +128,12 @@ async function onSave() {
 <template>
   <a-modal :open="open" :title="title" :confirm-loading="submitting" :ok-text="t('save')" :cancel-text="t('cancel')"
     :mask-closable="false" width="640px" @ok="onSave" @cancel="close">
+    <!-- LUCX-HOOK: SSH Parser for smart node import -->
+    <SshParser
+      v-if="mode === 'add'"
+      @parsed="onSshParsed"
+    />
+    <!-- END LUCX-HOOK -->
     <a-form layout="vertical" :model="form">
       <a-row :gutter="16">
         <a-col :span="12">

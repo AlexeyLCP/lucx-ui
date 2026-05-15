@@ -14,6 +14,9 @@ import {
   RightOutlined,
 } from '@ant-design/icons-vue';
 import NodeHistoryPanel from './NodeHistoryPanel.vue';
+// LUCX-HOOK: Node badge import
+import NodeBadge from '@/lucx/NodeBadge.vue';
+// END LUCX-HOOK
 
 const props = defineProps({
   nodes: { type: Array, default: () => [] },
@@ -117,6 +120,12 @@ function isExpanded(id) {
           <a-badge
             :status="statusColor(record.status) === 'green' ? 'success' : (statusColor(record.status) === 'red' ? 'error' : 'default')" />
           <span class="node-name">{{ record.name }}</span>
+          <!-- LUCX-HOOK: Node type badge -->
+          <NodeBadge
+            :nodeType="record.nodeType"
+            :nodeFeatures="record.nodeFeatures"
+          />
+          <!-- END LUCX-HOOK -->
           <div class="card-actions" @click.stop>
             <a-tooltip :title="t('info')">
               <InfoCircleOutlined class="row-action-trigger" @click="openStats(record)" />
@@ -213,6 +222,12 @@ function isExpanded(id) {
           <div class="name-cell">
             <span class="name">{{ record.name }}</span>
             <span v-if="record.remark" class="remark">{{ record.remark }}</span>
+            <!-- LUCX-HOOK: Node type badge -->
+            <NodeBadge
+              :nodeType="record.nodeType"
+              :nodeFeatures="record.nodeFeatures"
+            />
+            <!-- END LUCX-HOOK -->
           </div>
         </template>
       </a-table-column>
