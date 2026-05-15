@@ -2255,6 +2255,16 @@ watch(
                 </a-form-item>
               </template>
             </template>
+
+            <!-- LUCX-HOOK: Port hopping -->
+            <a-form-item label="Port Hopping Range">
+              <a-input v-model:value="inbound.stream.hysteria.hopPorts" placeholder="e.g., 31000-32000" />
+              <span style="color: #888; font-size: 12px">1000 ports recommended. Leave empty to disable.</span>
+            </a-form-item>
+            <a-form-item v-if="inbound.stream.hysteria.hopPorts" label="Hop Interval (s)">
+              <a-input-number v-model:value="inbound.stream.hysteria.hopInterval" :min="30" :max="600" />
+            </a-form-item>
+            <!-- END LUCX-HOOK -->
           </template>
         </a-form>
 

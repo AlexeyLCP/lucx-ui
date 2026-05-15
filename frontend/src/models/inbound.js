@@ -625,12 +625,20 @@ export class HysteriaStreamSettings extends XrayCommonClass {
         auth = '',
         udpIdleTimeout = 60,
         masquerade,
+        // LUCX-HOOK: Port hopping fields
+        hopPorts = '',
+        hopInterval = 120,
+        // END LUCX-HOOK
     ) {
         super(protocol);
         this.version = version;
         this.auth = auth;
         this.udpIdleTimeout = udpIdleTimeout;
         this.masquerade = masquerade;
+        // LUCX-HOOK: Port hopping fields
+        this.hopPorts = hopPorts;       // e.g., "31000-32000"
+        this.hopInterval = hopInterval; // seconds between port rotations
+        // END LUCX-HOOK
     }
 
     static fromJson(json = {}) {
@@ -640,6 +648,10 @@ export class HysteriaStreamSettings extends XrayCommonClass {
             json.auth ?? '',
             json.udpIdleTimeout ?? 60,
             json.masquerade ? HysteriaMasquerade.fromJson(json.masquerade) : undefined,
+            // LUCX-HOOK: Port hopping from JSON
+            json.hopPorts || '',
+            json.hopInterval || 120,
+            // END LUCX-HOOK
         );
     }
 
@@ -650,6 +662,10 @@ export class HysteriaStreamSettings extends XrayCommonClass {
             auth: this.auth,
             udpIdleTimeout: this.udpIdleTimeout,
             masquerade: this.masqueradeSwitch ? this.masquerade.toJson() : undefined,
+            // LUCX-HOOK: Port hopping to JSON
+            hopPorts: this.hopPorts || '',
+            hopInterval: this.hopInterval || 120,
+            // END LUCX-HOOK
         };
     }
 
