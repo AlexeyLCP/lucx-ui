@@ -381,6 +381,27 @@ function openAddBulkClient(dbInbound) {
   bulkOpen.value = true;
 }
 
+// LUCX-HOOK: Simplified client creation for AWG/Telemt
+async function openLucxAddClient(dbInbound) {
+  const name = 'client_' + Date.now().toString(36);
+  const endpoint = dbInbound.protocol === 'awg' ? '/awg/add-client' : '/telemt/add-client';
+  try {
+    const res = await postLucx(endpoint, {
+      awgId: dbInbound.id,
+      client: { email: name, enable: true, id: '', password: '', flow: '', limitIP: 0, totalGB: 0, expiryTime: 0, tgId: '', subId: '', comment: '', reset: 0 },
+    });
+    if (res?.success) {
+      message.success(dbInbound.protocol.toUpperCase() + ' client added: ' + name);
+      refresh();
+    } else {
+      message.error(res?.msg || 'Failed to add client');
+    }
+  } catch (e) {
+    message.error('Failed: ' + (e.response?.data?.msg || e.message));
+  }
+}
+// END LUCX-HOOK
+
 // Per-row destructive actions go through Modal.confirm (matches legacy).
 function confirmDelete(dbInbound) {
   Modal.confirm({
@@ -510,6 +531,11 @@ function onRowAction({ key, dbInbound }) {
       openEdit(dbInbound);
       break;
     case 'addClient':
+      // LUCX-HOOK: AWG/Telemt simplified client creation
+      if (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt') {
+        openLucxAddClient(dbInbound);
+        break;
+      }
       openAddClient(dbInbound);
       break;
     case 'addBulkClient':
