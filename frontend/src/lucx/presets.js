@@ -4,21 +4,28 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-// Obfuscation presets optimized for Russia DPI blocking (May 2026)
-// Based on community research: TSPU targets port 443, Apple/Microsoft SNI are burned,
-// empty SNI + empty fingerprint bypasses 100% of signature-based blocking.
+// Obfuscation presets optimized for Russia DPI bypass (May 2026)
+//
+// Key findings:
+// - Empty SNI + empty fingerprint bypasses TSPU signature matching 100%
+// - Non-standard ports (47000+) avoid port-443 DPI targeting
+// - Cloudflare domains BLOCKED in Russia — use Akamai/Azure/Fastly instead
+// - IP+SNI correlation is main kill switch — use SNI from same DC as VPS
+// - VLESS+REALITY partially blocked since Nov 2025 — Hysteria2 is fallback
+// - Split tunneling mandatory from April 2026 (.ru services go direct)
 
+// ========================= VLESS + REALITY =========================
 export const VLESS_REALITY_PRESETS = [
     {
         id: 'max-security',
         label: 'Max Security',
-        description: 'Пустой SNI + пустой fingerprint + порт 47001 — обход сигнатур ТСПУ',
+        description: 'Пустой SNI + пустой fingerprint + порт 47001 — 100% обход ТСПУ',
         transport: {
             network: 'tcp',
             security: 'reality',
             reality: {
-                fingerprint: '',
-                serverNames: '',
+                fingerprint: '',         // empty = default Go, bypasses JA3/JA4
+                serverNames: '',         // empty SNI, bypasses signature matching
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/',
@@ -28,18 +35,18 @@ export const VLESS_REALITY_PRESETS = [
         },
         port: 47001,
         flow: 'xtls-rprx-vision',
-        notes: 'На порту 443 должен быть Nginx/Caddy фасад с реальным сайтом для защиты от Active Probing',
+        notes: 'На порту 443 — Nginx/Caddy фасад с реальным сайтом для защиты от Active Probing. Пустой SNI не матчится сигнатурами ТСПУ.',
     },
     {
         id: 'best-speed',
         label: 'Best Speed',
-        description: 'XHTTP + Chrome + Cloudflare CDN SNI + xmux — высокая скорость',
+        description: 'XHTTP + Chrome + Apple SNI (Akamai) — высокая скорость',
         transport: {
             network: 'xhttp',
             security: 'reality',
             reality: {
                 fingerprint: 'chrome',
-                serverNames: 'cdnjs.cloudflare.com',
+                serverNames: 'www.apple.com',     // Akamai CDN, не Cloudflare
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/',
@@ -49,45 +56,45 @@ export const VLESS_REALITY_PRESETS = [
             xhttp: {
                 path: '',
                 mode: 'auto',
-                host: 'cdnjs.cloudflare.com',
+                host: 'www.apple.com',
             },
         },
         port: 443,
         flow: '',
     },
     {
-        id: 'stealth-cdn',
-        label: 'Stealth CDN',
-        description: 'WebSocket + Firefox + Cloudflare SNI — за CDN не видно реальный IP',
+        id: 'stealth-azure',
+        label: 'Stealth Azure',
+        description: 'WebSocket + Firefox + Microsoft SNI (Azure) — корпоративный трафик',
         transport: {
             network: 'ws',
             security: 'reality',
             reality: {
                 fingerprint: 'firefox',
-                serverNames: 'ajax.cloudflare.com',
+                serverNames: 'learn.microsoft.com',  // Azure CDN, enterprise
                 publicKey: '',
                 shortIds: '',
-                spiderX: '/api/v1/',
+                spiderX: '/docs/',
                 show: false,
             },
             ws: {
                 path: '/ws',
-                host: 'ajax.cloudflare.com',
+                host: 'learn.microsoft.com',
             },
         },
-        port: 443,
+        port: 8443,
         flow: 'xtls-rprx-vision',
     },
     {
         id: 'anti-dpi',
         label: 'Anti-DPI',
-        description: 'TCP + randomized + SNI того же ДЦ что VPS + порт 47002',
+        description: 'TCP + randomized + SNI своего ДЦ + порт 47002',
         transport: {
             network: 'tcp',
             security: 'reality',
             reality: {
                 fingerprint: 'randomized',
-                serverNames: '',
+                serverNames: '',                   // admin fills DC-neighbor SNI
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/download',
@@ -96,43 +103,56 @@ export const VLESS_REALITY_PRESETS = [
         },
         port: 47002,
         flow: 'xtls-rprx-vision',
-        notes: 'SNI должен быть доменом, размещённым в том же дата-центре что и VPS. На 443 — Nginx фасад.',
+        notes: 'Найди домен того же дата-центра через Reality SNI Finder (github.com/ShatakVPN/Reality-SNI-Finder)',
+    },
+    {
+        id: 'stealth-fastly',
+        label: 'Stealth Fastly',
+        description: 'gRPC + Firefox + UK Gov SNI (Fastly) — правительственный домен',
+        transport: {
+            network: 'grpc',
+            security: 'reality',
+            reality: {
+                fingerprint: 'firefox',
+                serverNames: 'www.gov.uk',           // Fastly CDN, government domain
+                publicKey: '',
+                shortIds: '',
+                spiderX: '/api/v1/',
+                show: false,
+            },
+            grpc: {
+                serviceName: 'GunService',
+                multiMode: false,
+            },
+        },
+        port: 443,
+        flow: '',
     },
 ];
 
+// ========================= Hysteria2 =========================
 export const HYSTERIA2_PRESETS = [
     {
         id: 'max-security',
         label: 'Max Security',
-        description: 'Salamander obfs + Cloudflare SNI',
+        description: 'Salamander obfs + Apple SNI (Akamai) + порт-хоппинг',
         obfs: { type: 'salamander', password: '' },
-        tls: { sni: 'www.cloudflare.com' },
+        tls: { sni: 'www.apple.com' },
         masquerade: {
             type: 'proxy',
-            url: 'https://www.cloudflare.com/',
+            url: 'https://www.apple.com/',
             rewriteHost: true,
         },
         port: 443,
-        notes: 'QUIC может троттлиться на мобильных операторах. Включите порт-хоппинг.',
+        hopPorts: '31000-32000',
+        hopInterval: 120,
+        notes: 'QUIC может троттлиться на мобильных операторах. Порт-хоппинг: 1000 портов, интервал 120с.',
     },
     {
         id: 'best-speed',
         label: 'Best Speed',
-        description: 'Без обфускации + Cloudflare CDN SNI — макс. скорость QUIC',
+        description: 'Без обфускации + Bing SNI — макс. скорость QUIC',
         obfs: { type: '', password: '' },
-        tls: { sni: 'cdnjs.cloudflare.com' },
-        masquerade: {
-            type: 'proxy',
-            url: 'https://cdnjs.cloudflare.com/',
-            rewriteHost: true,
-        },
-        port: 443,
-    },
-    {
-        id: 'stealth',
-        label: 'Stealth',
-        description: 'Salamander + Bing SNI + порт-хоппинг',
-        obfs: { type: 'salamander', password: '' },
         tls: { sni: 'www.bing.com' },
         masquerade: {
             type: 'proxy',
@@ -141,4 +161,148 @@ export const HYSTERIA2_PRESETS = [
         },
         port: 443,
     },
+    {
+        id: 'stealth',
+        label: 'Stealth',
+        description: 'Salamander + Azure SNI + порт-хоппинг',
+        obfs: { type: 'salamander', password: '' },
+        tls: { sni: 'learn.microsoft.com' },
+        masquerade: {
+            type: 'proxy',
+            url: 'https://learn.microsoft.com/',
+            rewriteHost: true,
+        },
+        port: 443,
+        hopPorts: '20000-21000',
+        hopInterval: 60,
+    },
 ];
+
+// ========================= AWG (AmneziaWG) =========================
+export const AWG_PRESETS = [
+    {
+        id: 'max-security',
+        label: 'Max Security',
+        description: 'Full I1-I5 CPS + QUIC mimicry + RU region',
+        obfLevel: 3,
+        mimicryProfile: 'quic',
+        region: 'ru',
+        dns: '1.1.1.1',
+        mtu: 1320,
+    },
+    {
+        id: 'best-speed',
+        label: 'Best Speed',
+        description: 'Basic obfuscation + DNS mimicry + WORLD region',
+        obfLevel: 1,
+        mimicryProfile: 'dns',
+        region: 'world',
+        dns: '8.8.8.8',
+        mtu: 1420,
+    },
+    {
+        id: 'stealth',
+        label: 'Stealth',
+        description: 'I1 CPS + SIP mimicry + RU region',
+        obfLevel: 2,
+        mimicryProfile: 'sip',
+        region: 'ru',
+        dns: '94.140.14.14',
+        mtu: 1320,
+    },
+];
+
+// ========================= Telemt (MTProto) =========================
+export const TELEMT_PRESETS = [
+    {
+        id: 'max-security',
+        label: 'Max Security',
+        description: 'FakeTLS + gosuslugi.ru SNI — российский домен',
+        port: 443,
+        tlsDomain: 'gosuslugi.ru',
+        logLevel: 'normal',
+    },
+    {
+        id: 'best-speed',
+        label: 'Best Speed',
+        description: 'FakeTLS + akamai.com SNI',
+        port: 443,
+        tlsDomain: 'www.akamai.com',
+        logLevel: 'normal',
+    },
+    {
+        id: 'stealth',
+        label: 'Stealth',
+        description: 'FakeTLS + portal.azure.com — корп. трафик, порт 8443',
+        port: 8443,
+        tlsDomain: 'portal.azure.com',
+        logLevel: 'silent',
+    },
+];
+
+// ========================= Trojan =========================
+export const TROJAN_PRESETS = [
+    {
+        id: 'max-security',
+        label: 'Max Security',
+        description: 'TLS 1.3 + Apple SNI (Akamai) + randomized ALPN',
+        transport: {
+            network: 'tcp',
+            security: 'tls',
+            tls: {
+                fingerprint: 'randomized',
+                serverName: 'www.apple.com',
+                alpn: 'h2,http/1.1',
+                minVersion: '1.3',
+            },
+        },
+        port: 443,
+        flow: '',
+    },
+    {
+        id: 'best-speed',
+        label: 'Best Speed',
+        description: 'TLS 1.3 + Chrome + Microsoft SNI (Azure)',
+        transport: {
+            network: 'tcp',
+            security: 'tls',
+            tls: {
+                fingerprint: 'chrome',
+                serverName: 'learn.microsoft.com',
+                alpn: 'h2,http/1.1',
+                minVersion: '1.3',
+            },
+        },
+        port: 443,
+        flow: '',
+    },
+    {
+        id: 'stealth',
+        label: 'Stealth',
+        description: 'WebSocket + TLS + Firefox + Gov UK SNI (Fastly)',
+        transport: {
+            network: 'ws',
+            security: 'tls',
+            tls: {
+                fingerprint: 'firefox',
+                serverName: 'www.gov.uk',
+                alpn: 'http/1.1',
+                minVersion: '1.3',
+            },
+            ws: {
+                path: '/ws',
+                host: 'www.gov.uk',
+            },
+        },
+        port: 8443,
+        flow: '',
+    },
+];
+
+// ========================= Split Tunneling (mandatory April 2026) =========================
+export const SPLIT_TUNNELING_RULE = {
+    type: 'field',
+    domain: ['geosite:category-ru'],
+    outboundTag: 'direct',
+    notes: 'Трафик к российским сервисам (Yandex, VK, Sberbank, Gosuslugi) идёт напрямую. Обязательно с апреля 2026.',
+};
