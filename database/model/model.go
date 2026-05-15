@@ -151,6 +151,13 @@ type Node struct {
 	UptimeSecs    uint64  `json:"uptimeSecs"`
 	LastError     string  `json:"lastError"`
 
+	// LUCX-HOOK: Node type detection fields
+	// NodeType stores the detected panel type: "" (unchecked), "lucx", or "vanilla"
+	NodeType string `json:"nodeType" gorm:"default:''"`
+	// NodeFeatures stores JSON with features and versions: {"features":["awg","telemt"],"awgVersion":"2.0.1","telemtVersion":"3.4.11"}
+	NodeFeatures string `json:"nodeFeatures" gorm:"default:'{}'"`
+	// END LUCX-HOOK
+
 	CreatedAt int64 `json:"createdAt" gorm:"autoCreateTime"`
 	UpdatedAt int64 `json:"updatedAt" gorm:"autoUpdateTime"`
 }
