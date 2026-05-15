@@ -1505,6 +1505,14 @@ watch(
       <a-tab-pane v-if="canEnableStream" key="stream"
         tab="Stream"><!-- "Stream" stays literal — it's a wire-format identifier -->
         <a-form :colon="false" :label-col="{ sm: { span: 8 } }" :wrapper-col="{ sm: { span: 14 } }">
+
+		  <!-- LUCX-HOOK: Obfuscation presets -->
+		  <PresetButtons
+		    v-if="protocol === Protocols.VLESS"
+		    :presets="VLESS_REALITY_PRESETS"
+		    @apply="onRealityPresetApply"
+		  />
+		  <!-- END LUCX-HOOK -->
           <a-form-item v-if="protocol !== Protocols.HYSTERIA" label="Transmission">
             <a-select v-model:value="network" :style="{ width: '75%' }">
               <a-select-option value="tcp">TCP (RAW)</a-select-option>
@@ -1979,13 +1987,6 @@ watch(
             </a-form-item>
           </template>
 
-          <!-- LUCX-HOOK: Obfuscation presets -->
-          <PresetButtons
-            v-if="protocol === Protocols.VLESS"
-            :presets="VLESS_REALITY_PRESETS"
-            @apply="onRealityPresetApply"
-          />
-          <!-- END LUCX-HOOK -->
 
           <template v-if="security === 'reality' && inbound.stream.reality">
             <a-form-item label="Show">
