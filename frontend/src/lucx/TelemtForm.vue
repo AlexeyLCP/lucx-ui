@@ -23,6 +23,19 @@ SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
         <a-select-option value="silent">Silent</a-select-option>
       </a-select>
     </a-form-item>
+
+    <a-divider>Client</a-divider>
+
+    <a-form-item label="Client Name">
+      <a-input v-model:value="form.clientName" placeholder="myphone" />
+    </a-form-item>
+
+    <a-form-item label="Secret (FakeTLS)">
+      <a-input-group>
+        <a-input v-model:value="form.clientSecret" :readonly="true" placeholder="ee..." />
+        <a-button type="primary" @click="generateSecret">Generate</a-button>
+      </a-input-group>
+    </a-form-item>
   </div>
 </template>
 
@@ -38,7 +51,24 @@ const form = reactive({
   port: props.modelValue.port || 443,
   tlsDomain: props.modelValue.tlsDomain || 'gosuslugi.ru',
   logLevel: props.modelValue.logLevel || 'normal',
+  clientName: props.modelValue.clientName || '',
+  clientSecret: props.modelValue.clientSecret || '',
 })
 
-watch(form, (val) => emit('update:modelValue', val), { deep: true })
+// Sync external changes (presets) into form
+watch(() => props.modelValue, (val) => {
+  if (!val) return
+  if (val.port !== undefined) form.port = val.port
+  if (val.tlsDomain !== undefined) form.tlsDomain = val.tlsDomain
+  if (val.logLevel !== undefined) form.logLevel = val.logLevel
+}, { deep: true })
+
+watch(form, (val) => emit('update:modelValue', { ...val }), { deep: true })
+
+function generateSecret() {
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
+  form.clientSecret = 'ee' + hex
+}
 </script>

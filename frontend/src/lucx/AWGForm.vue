@@ -8,7 +8,7 @@ SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 <template>
   <div class="awg-form">
-    <a-form-item label="Port" :rules="[{ required: true, message: 'Port is required' }]">
+    <a-form-item label="Port">
       <a-input-number v-model:value="form.port" :min="1024" :max="65535" style="width: 100%" placeholder="Random port" />
     </a-form-item>
 
@@ -67,5 +67,16 @@ const form = reactive({
   mtu: props.modelValue.mtu || 1320,
 })
 
-watch(form, (val) => emit('update:modelValue', val), { deep: true })
+// Sync external changes (presets) into form
+watch(() => props.modelValue, (val) => {
+  if (!val) return
+  if (val.port !== undefined) form.port = val.port
+  if (val.obfLevel !== undefined) form.obfLevel = val.obfLevel
+  if (val.mimicryProfile !== undefined) form.mimicryProfile = val.mimicryProfile
+  if (val.region !== undefined) form.region = val.region
+  if (val.dns !== undefined) form.dns = val.dns
+  if (val.mtu !== undefined) form.mtu = val.mtu
+}, { deep: true })
+
+watch(form, (val) => emit('update:modelValue', { ...val }), { deep: true })
 </script>

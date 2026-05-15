@@ -113,14 +113,14 @@ export const VLESS_REALITY_PRESETS = [
     {
         id: 'stealth-fastly',
         label: 'Stealth Fastly',
-        description: 'gRPC + Firefox + UK Gov (Fastly) — правительственный домен',
+        description: 'gRPC + Firefox + NVIDIA (Azure) — технокомпания',
         transport: {
             network: 'grpc',
             security: 'reality',
             reality: {
                 fingerprint: 'firefox',
-                serverNames: 'www.gov.uk',
-                target: 'www.gov.uk:443',
+                serverNames: 'www.nvidia.com',
+                target: 'www.nvidia.com:443',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/api/v1/',
@@ -289,13 +289,13 @@ export const TROJAN_PRESETS = [
             security: 'tls',
             tls: {
                 fingerprint: 'firefox',
-                serverName: 'www.gov.uk',
+                serverName: 'www.nvidia.com',
                 alpn: 'http/1.1',
                 minVersion: '1.3',
             },
             ws: {
                 path: '/ws',
-                host: 'www.gov.uk',
+                host: 'www.nvidia.com',
             },
         },
         port: 8443,
