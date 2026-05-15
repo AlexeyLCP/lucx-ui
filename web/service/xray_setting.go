@@ -171,6 +171,67 @@ func EnsureStatsRouting(raw string) (string, error) {
 // findApiRule returns the index of the routing rule that targets the
 // internal api inbound (inboundTag contains "api" and outboundTag is
 // "api"), or -1 if no such rule exists.
+// LUCX-HOOK: Ensure split tunneling for Russian services
+// EnsureSplitTunneling adds geosite:category-ru -> direct rule to the Xray config.
+// This is mandatory in Russia from April 15, 2026 - Russian platforms block VPN users.
+// The rule routes traffic to Russian services (Yandex, VK, Sberbank, Gosuslugi, Ozon,
+// Wildberries) directly, bypassing the proxy, while blocked foreign sites go through
+// the proxy.
+func (s *XraySettingService) EnsureSplitTunneling() error {
+	config, err := s.GetXrayConfigTemplate()
+	if err != nil {
+		return err
+	}
+
+	var xrayConfig map[string]any
+	if err := json.Unmarshal([]byte(config), &xrayConfig); err != nil {
+		return err
+	}
+
+	routing, ok := xrayConfig["routing"].(map[string]any)
+	if !ok {
+		routing = map[string]any{}
+		xrayConfig["routing"] = routing
+	}
+
+	rules, _ := routing["rules"].([]any)
+
+	// Check if split tunneling rule already exists
+	for _, rule := range rules {
+		r, ok := rule.(map[string]any)
+		if !ok {
+			continue
+		}
+		if tag, _ := r["outboundTag"].(string); tag != "direct" {
+			continue
+		}
+		domain, _ := r["domain"].([]any)
+		for _, d := range domain {
+			if ds, ok := d.(string); ok && ds == "geosite:category-ru" {
+				return nil // already exists
+			}
+		}
+	}
+
+	// Add split tunneling rule at the beginning (after any special rules
+	// that EnsureStatsRouting will hoist to index 0 on the next save).
+	splitRule := map[string]any{
+		"type":        "field",
+		"domain":      []string{"geosite:category-ru"},
+		"outboundTag": "direct",
+	}
+	rules = append([]any{splitRule}, rules...)
+	routing["rules"] = rules
+
+	newConfig, err := json.MarshalIndent(xrayConfig, "", "  ")
+	if err != nil {
+		return err
+	}
+	return s.SaveXraySetting(string(newConfig))
+}
+
+// END LUCX-HOOK
+
 func findApiRule(rules []map[string]any) int {
 	for i, rule := range rules {
 		if outTag, _ := rule["outboundTag"].(string); outTag != "api" {

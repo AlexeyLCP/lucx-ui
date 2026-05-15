@@ -261,6 +261,14 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 // jobs) which the panel relies on for periodic maintenance and monitoring.
 func (s *Server) startTask(restartXray bool) {
 	s.customGeoService.EnsureOnStartup()
+
+	// LUCX-HOOK: Ensure split tunneling on startup
+	xraySettingSvc := service.XraySettingService{}
+	if err := xraySettingSvc.EnsureSplitTunneling(); err != nil {
+		logger.Warning("Failed to ensure split tunneling:", err)
+	}
+	// END LUCX-HOOK
+
 	if restartXray {
 		err := s.xrayService.RestartXray(true)
 		if err != nil {
