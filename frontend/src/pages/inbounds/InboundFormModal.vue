@@ -36,7 +36,7 @@ import JsonEditor from '@/components/JsonEditor.vue';
 import { useNodeList } from '@/composables/useNodeList.js';
 
 // LUCX-HOOK: Presets import
-import { VLESS_REALITY_PRESETS, HYSTERIA2_PRESETS } from '@/lucx/presets'
+import { VLESS_REALITY_PRESETS, HYSTERIA2_PRESETS, AWG_PRESETS, TELEMT_PRESETS, TROJAN_PRESETS } from '@/lucx/presets'
 import PresetButtons from '@/lucx/PresetButtons.vue'
 // END LUCX-HOOK
 
@@ -939,6 +939,39 @@ watch(
 	  if (inbound.value.port !== val.port && val.port > 0) inbound.value.port = val.port;
 	}, { deep: true });
 	// END LUCX-HOOK
+
+	// LUCX-HOOK: AWG/Trojan/Telemt preset handlers
+	function onAWGPresetApply(preset) {
+	  if (!inbound.value) return;
+	  if (preset.obfLevel) awgSettings.value.obfLevel = preset.obfLevel;
+	  if (preset.mimicryProfile) awgSettings.value.mimicryProfile = preset.mimicryProfile;
+	  if (preset.region) awgSettings.value.region = preset.region;
+	  if (preset.dns) awgSettings.value.dns = preset.dns;
+	  if (preset.mtu) awgSettings.value.mtu = preset.mtu;
+	  if (preset.port) awgSettings.value.port = preset.port;
+	}
+
+	function onTelemtPresetApply(preset) {
+	  if (!inbound.value) return;
+	  if (preset.tlsDomain) telemtSettings.value.tlsDomain = preset.tlsDomain;
+	  if (preset.logLevel) telemtSettings.value.logLevel = preset.logLevel;
+	  if (preset.port) telemtSettings.value.port = preset.port;
+	}
+
+	function onTrojanPresetApply(preset) {
+	  if (!inbound.value || !inbound.value.stream) return;
+	  if (preset.port) inbound.value.port = preset.port;
+	  if (preset.transport.network) inbound.value.stream.network = preset.transport.network;
+	  if (preset.transport.security) inbound.value.stream.security = preset.transport.security;
+	  const t = preset.transport.tls;
+	  if (t && inbound.value.stream.tls) {
+	    if (t.fingerprint) inbound.value.stream.tls.settings.fingerprint = t.fingerprint;
+	    if (t.serverName) inbound.value.stream.tls.settings.serverName = t.serverName;
+	    if (t.alpn) inbound.value.stream.tls.settings.alpn = t.alpn;
+	    if (t.minVersion) inbound.value.stream.tls.settings.minVersion = t.minVersion;
+	  }
+	}
+	// END LUCX-HOOK
 </script>
 
 <template>
@@ -1490,6 +1523,7 @@ watch(
       <!-- LUCX-HOOK: AWG Obfuscation tab -->
       <a-tab-pane v-if="protocol === Protocols.AWG" key="awg-stream"
         tab="Stream">
+        <PresetButtons :presets="AWG_PRESETS" @apply="onAWGPresetApply" />
         <AWGForm v-model="awgSettings" />
       </a-tab-pane>
       <!-- END LUCX-HOOK -->
@@ -1497,6 +1531,7 @@ watch(
       <!-- LUCX-HOOK: Telemt Obfuscation tab -->
       <a-tab-pane v-if="protocol === Protocols.TELEMT" key="telemt-stream"
         tab="Stream">
+        <PresetButtons :presets="TELEMT_PRESETS" @apply="onTelemtPresetApply" />
         <TelemtForm v-model="telemtSettings" />
       </a-tab-pane>
       <!-- END LUCX-HOOK -->
@@ -1869,6 +1904,14 @@ watch(
               <a-select-option v-if="canEnableReality" value="reality">reality</a-select-option>
             </a-select>
           </a-form-item>
+
+          <!-- LUCX-HOOK: Trojan presets -->
+          <PresetButtons
+            v-if="protocol === Protocols.TROJAN && security === 'tls'"
+            :presets="TROJAN_PRESETS"
+            @apply="onTrojanPresetApply"
+          />
+          <!-- END LUCX-HOOK -->
 
           <template v-if="security === 'tls' && inbound.stream.tls">
             <a-form-item label="SNI">
