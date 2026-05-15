@@ -907,7 +907,8 @@
       "AreYouSure": "Вы уверены? 🤔",
       "SuccessResetTraffic": "📧 Почта: {{ .ClientEmail }}\n🏁 Результат: ✅ Успешно",
       "FailedResetTraffic": "📧 Почта: {{ .ClientEmail }}\n🏁 Результат: ❌ Неудача \n\n🛠️ Ошибка: [ {{ .ErrorMessage }} ]",
-      "FinishProcess": "🔚 Сброс трафика завершён для всех клиентов."
+      "FinishProcess": "🔚 Сброс трафика завершён для всех клиентов.",
+      "languageChanged": "Язык изменён."
     },
     "buttons": {
       "closeKeyboard": "❌ Закрыть клавиатуру",
@@ -951,7 +952,14 @@
       "change_email": "⚙️📧 Email",
       "change_comment": "⚙️💬 Комментарий",
       "ResetAllTraffics": "Сбросить весь трафик",
-      "SortedTrafficUsageReport": "Отсортированный отчет об использовании трафика"
+      "SortedTrafficUsageReport": "Отсортированный отчет об использовании трафика",
+      "selectInbound": "Выберите входящее подключение",
+      "selectClient": "Выберите клиента",
+      "generateLinks": "Сгенерировать ссылки",
+      "qrCode": "QR-код",
+      "subscription": "Подписка",
+      "back": "Назад",
+      "mainMenu": "Главное меню"
     },
     "answers": {
       "successfulOperation": "✅ Успешно!",
@@ -974,7 +982,9 @@
       "disableSuccess": "✅ {{ .Email }}: Отключено успешно.",
       "askToAddUserId": "❌ Ваша конфигурация не найдена!\r\n💭 Пожалуйста, попросите администратора использовать ваш Telegram User ID в конфигурации.\r\n\r\n🆔 Ваш User ID: <code>{{ .TgUserID }}</code>",
       "chooseClient": "Выберите клиента для входящего подключения {{ .Inbound }}",
-      "chooseInbound": "Выберите входящее подключение"
+      "chooseInbound": "Выберите входящее подключение",
+      "clientAddedSuccess": "Клиент успешно добавлен",
+      "clientDeleted": "Клиент удалён"
     }
   }
 }

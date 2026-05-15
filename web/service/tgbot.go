@@ -122,6 +122,11 @@ type Tgbot struct {
 	serverService  ServerService
 	xrayService    XrayService
 	lastStatus     *Status
+
+	// LUCX-HOOK: Per-user language preferences
+	userLangs   map[int64]string // chatId → language code
+	userLangsMu sync.RWMutex
+	// END LUCX-HOOK
 }
 
 // NewTgbot creates a new Tgbot instance.
@@ -196,6 +201,10 @@ func (t *Tgbot) Start(i18nFS embed.FS) error {
 
 	// Initialize worker pool for concurrent message processing (max 10 concurrent handlers)
 	messageWorkerPool = make(chan struct{}, 10)
+
+	// LUCX-HOOK: Initialize per-user language preferences
+	t.userLangs = make(map[int64]string)
+	// END LUCX-HOOK
 
 	// Initialize optimized HTTP client with connection pooling
 	optimizedHTTPClient = &http.Client{
@@ -652,6 +661,39 @@ func (t *Tgbot) OnReceive() {
 	}()
 }
 
+// LUCX-HOOK: Language selection
+func (t *Tgbot) sendLanguageMenu(chatId int64) {
+	keyboard := tu.InlineKeyboard(
+		tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton("English").WithCallbackData("lang:en-US"),
+			tu.InlineKeyboardButton("Русский").WithCallbackData("lang:ru-RU"),
+		),
+		tu.InlineKeyboardRow(
+			tu.InlineKeyboardButton("فارسی").WithCallbackData("lang:fa-IR"),
+			tu.InlineKeyboardButton("中文").WithCallbackData("lang:zh-CN"),
+		),
+	)
+	t.SendMsgToTgbot(chatId, "🌐 Выберите язык / Choose language:", keyboard)
+}
+// END LUCX-HOOK
+
+// setUserLang stores the language preference for a given chat.
+func (t *Tgbot) setUserLang(chatId int64, lang string) {
+	t.userLangsMu.Lock()
+	t.userLangs[chatId] = lang
+	t.userLangsMu.Unlock()
+}
+
+// getUserLang retrieves the language preference for a given chat.
+func (t *Tgbot) getUserLang(chatId int64) string {
+	t.userLangsMu.RLock()
+	defer t.userLangsMu.RUnlock()
+	if lang, ok := t.userLangs[chatId]; ok {
+		return lang
+	}
+	return ""
+}
+
 // answerCommand processes incoming command messages from Telegram users.
 func (t *Tgbot) answerCommand(message *telego.Message, chatId int64, isAdmin bool) {
 	msg, onlyMessage := "", false
@@ -719,6 +761,8 @@ func (t *Tgbot) answerCommand(message *telego.Message, chatId int64, isAdmin boo
 		} else {
 			handleUnknownCommand()
 		}
+	case "lang":
+		t.sendLanguageMenu(chatId)
 	default:
 		handleUnknownCommand()
 	}
@@ -761,6 +805,16 @@ func (t *Tgbot) randomShadowSocksPassword() string {
 // answerCallback processes callback queries from inline keyboards.
 func (t *Tgbot) answerCallback(callbackQuery *telego.CallbackQuery, isAdmin bool) {
 	chatId := callbackQuery.Message.GetChat().ID
+
+	// LUCX-HOOK: Language callback
+	if strings.HasPrefix(callbackQuery.Data, "lang:") {
+		lang := strings.TrimPrefix(callbackQuery.Data, "lang:")
+		t.setUserLang(chatId, lang)
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.messages.languageChanged"), nil)
+		t.sendCallbackAnswerTgBot(callbackQuery.ID, "✅")
+		return
+	}
+	// END LUCX-HOOK
 
 	if isAdmin {
 		// get query from hash storage
