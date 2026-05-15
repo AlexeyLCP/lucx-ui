@@ -40,6 +40,11 @@ import { VLESS_REALITY_PRESETS, HYSTERIA2_PRESETS } from '@/lucx/presets'
 import PresetButtons from '@/lucx/PresetButtons.vue'
 // END LUCX-HOOK
 
+// LUCX-HOOK: AWG and Telemt forms
+import AWGForm from '@/lucx/AWGForm.vue'
+import TelemtForm from '@/lucx/TelemtForm.vue'
+// END LUCX-HOOK
+
 const { t } = useI18n();
 
 // Node selector — Phase 1 multi-node deployment. Shows all enabled
@@ -78,6 +83,10 @@ const saving = ref(false);
 const advancedStreamText = ref('');
 const advancedSniffingText = ref('');
 const advancedSettingsText = ref('');
+// LUCX-HOOK: AWG/Telemt settings state
+const awgSettings = ref({ port: 0, obfLevel: 1, mimicryProfile: 'quic', region: 'ru', dns: '1.1.1.1', mtu: 1320 });
+const telemtSettings = ref({ port: 443, tlsDomain: 'gosuslugi.ru', logLevel: 'normal' });
+// END LUCX-HOOK
 const activeTabKey = ref('basic');
 const advancedSectionKey = ref('all');
 // Cached default cert/key paths from /panel/setting/defaultSettings —
@@ -906,6 +915,30 @@ watch(
     }
   },
 );
+
+	// LUCX-HOOK: Sync AWG/Telemt settings to inbound model
+	watch(awgSettings, (val) => {
+	  if (!inbound.value || inbound.value.protocol !== 'awg') return;
+	  if (inbound.value.settings) {
+	    inbound.value.settings.port = val.port;
+	    inbound.value.settings.obfLevel = val.obfLevel;
+	    inbound.value.settings.mimicryProfile = val.mimicryProfile;
+	    inbound.value.settings.region = val.region;
+	    inbound.value.settings.dns = val.dns;
+	    inbound.value.settings.mtu = val.mtu;
+	  }
+	  if (inbound.value.port !== val.port && val.port > 0) inbound.value.port = val.port;
+	}, { deep: true });
+
+	watch(telemtSettings, (val) => {
+	  if (!inbound.value || inbound.value.protocol !== 'telemt') return;
+	  if (inbound.value.settings) {
+	    inbound.value.settings.tlsDomain = val.tlsDomain;
+	    inbound.value.settings.logLevel = val.logLevel;
+	  }
+	  if (inbound.value.port !== val.port && val.port > 0) inbound.value.port = val.port;
+	}, { deep: true });
+	// END LUCX-HOOK
 </script>
 
 <template>
@@ -1454,6 +1487,20 @@ watch(
         </template>
       </a-tab-pane>
 
+      <!-- LUCX-HOOK: AWG Obfuscation tab -->
+      <a-tab-pane v-if="protocol === Protocols.AWG" key="awg-stream"
+        tab="Stream">
+        <AWGForm v-model="awgSettings" />
+      </a-tab-pane>
+      <!-- END LUCX-HOOK -->
+
+      <!-- LUCX-HOOK: Telemt Obfuscation tab -->
+      <a-tab-pane v-if="protocol === Protocols.TELEMT" key="telemt-stream"
+        tab="Stream">
+        <TelemtForm v-model="telemtSettings" />
+      </a-tab-pane>
+      <!-- END LUCX-HOOK -->
+
       <!-- ============================== STREAM ============================== -->
       <a-tab-pane v-if="canEnableStream" key="stream"
         tab="Stream"><!-- "Stream" stays literal — it's a wire-format identifier -->
@@ -1934,7 +1981,7 @@ watch(
 
           <!-- LUCX-HOOK: Obfuscation presets -->
           <PresetButtons
-            v-if="protocol === Protocols.VLESS && security === 'reality' && inbound.stream.reality"
+            v-if="protocol === Protocols.VLESS"
             :presets="VLESS_REALITY_PRESETS"
             @apply="onRealityPresetApply"
           />
