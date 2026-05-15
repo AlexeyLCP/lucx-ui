@@ -391,11 +391,15 @@ function confirmDelete(dbInbound) {
       if (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt') {
         const endpoint = dbInbound.protocol === 'awg' ? '/awg/delete' : '/telemt/delete';
         try {
-          await postLucx(endpoint, { id: dbInbound.id });
-          message.success(dbInbound.protocol.toUpperCase() + ' inbound deleted');
-          refresh();
+          const res = await postLucx(endpoint, { id: dbInbound.id });
+          if (res.success) {
+            message.success(dbInbound.protocol.toUpperCase() + ' inbound deleted');
+            refresh();
+          } else {
+            message.error(res.msg || 'Server error');
+          }
         } catch (e) {
-          message.error('Failed to delete ' + dbInbound.protocol + ' inbound');
+          message.error('Failed to delete: ' + (e.response?.data?.msg || e.response?.status || e.message));
         }
         return;
       }
