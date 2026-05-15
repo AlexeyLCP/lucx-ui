@@ -675,9 +675,9 @@ function showQrCodeMenu(dbInbound) {
           <!-- ============== Remark + TUN child badge ============== -->
           <template v-else-if="column.key === 'remark'">
             <span>{{ record.remark }}</span>
-            <!-- LUCX-HOOK: Grey out auto-created TUN children -->
-            <a-tag v-if="record.parentId" color="default" style="opacity: 0.6; font-style: italic; margin-left: 6px">
-              🔗 auto (AWG)
+            <!-- LUCX-HOOK: Auto child badge for AWG and Telemt -->
+            <a-tag v-if="record.parentId" color="default" style="opacity: 0.6; font-style: italic">
+              🔗 auto ({{ record.protocol === 'socks' ? 'Telemt' : 'AWG' }})
             </a-tag>
             <!-- END LUCX-HOOK -->
           </template>
