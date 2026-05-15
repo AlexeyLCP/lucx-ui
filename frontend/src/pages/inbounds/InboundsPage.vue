@@ -381,23 +381,63 @@ function openAddBulkClient(dbInbound) {
   bulkOpen.value = true;
 }
 
-// LUCX-HOOK: Simplified client creation for AWG/Telemt
+// LUCX-HOOK: Generate AWG/Telemt client data entirely in frontend
+function generateAWGClient() {
+  // Generate a random 32-byte key (matching Curve25519 format)
+  const keyBytes = new Uint8Array(32);
+  crypto.getRandomValues(keyBytes);
+  const pubKey = btoa(String.fromCharCode(...keyBytes));
+  const pskBytes = new Uint8Array(32);
+  crypto.getRandomValues(pskBytes);
+  const psk = btoa(String.fromCharCode(...pskBytes));
+  return { id: pubKey, password: psk };
+}
+
+function generateTelemtClient() {
+  const bytes = new Uint8Array(16);
+  crypto.getRandomValues(bytes);
+  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+  return { id: hex, password: 'ee' + hex };
+}
+
 async function openLucxAddClient(dbInbound) {
   const name = 'client_' + Date.now().toString(36);
-  const endpoint = dbInbound.protocol === 'awg' ? '/awg/add-client' : '/telemt/add-client';
   try {
-    const res = await postLucx(endpoint, {
-      awgId: dbInbound.id,
-      client: { email: name, enable: true, id: '', password: '', flow: '', limitIP: 0, totalGB: 0, expiryTime: 0, tgId: '', subId: '', comment: '', reset: 0 },
+    let clientData;
+    if (dbInbound.protocol === 'awg') {
+      clientData = generateAWGClient();
+    } else {
+      clientData = generateTelemtClient();
+    }
+    const clientObj = {
+      email: name,
+      id: clientData.id,
+      password: clientData.password,
+      enable: true,
+      flow: '',
+      limitIP: 0,
+      totalGB: 0,
+      expiryTime: 0,
+      tgId: '',
+      subId: '',
+      comment: '',
+    };
+    const inbound = dbInbound.toInbound();
+    const clients = inbound?.clients || [];
+    clients.push(clientObj);
+    const settings = JSON.stringify({ clients });
+    const msg = await HttpUtil.post('/panel/api/inbounds/addClient', {
+      id: dbInbound.id,
+      settings,
     });
-    if (res?.success) {
+    if (msg?.success) {
       message.success(dbInbound.protocol.toUpperCase() + ' client added: ' + name);
       refresh();
     } else {
-      message.error(res?.msg || 'Failed to add client');
+      message.error(msg?.msg || 'Failed to add client');
     }
   } catch (e) {
-    message.error('Failed: ' + (e.response?.data?.msg || e.message));
+    message.error('Failed: ' + (e?.msg || e?.message || 'unknown error'));
   }
 }
 // END LUCX-HOOK

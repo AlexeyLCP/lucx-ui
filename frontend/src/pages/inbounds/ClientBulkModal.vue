@@ -108,6 +108,16 @@ function makeNewClient(parsed) {
       return new Inbound.ShadowsocksSettings.Shadowsocks(method);
     }
     case Protocols.HYSTERIA: return new Inbound.HysteriaSettings.Hysteria();
+    // LUCX-HOOK: AWG/Telemt default client
+    case Protocols.AWG: {
+      const key = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+      const psk = btoa(String.fromCharCode(...crypto.getRandomValues(new Uint8Array(32))));
+      return { id: key, password: psk, email: '', enable: true, flow: '', limitIP: 0, totalGB: 0, expiryTime: 0, tgId: '', subId: '', comment: '' };
+    }
+    case Protocols.TELEMT: {
+      const hex = Array.from(crypto.getRandomValues(new Uint8Array(16)), b => b.toString(16).padStart(2, '0')).join('');
+      return { id: hex, password: 'ee' + hex, email: '', enable: true, flow: '', limitIP: 0, totalGB: 0, expiryTime: 0, tgId: '', subId: '', comment: '' };
+    }
     default: return null;
   }
 }
