@@ -13,6 +13,9 @@ export const Protocols = {
     HTTP: 'http',
     TUNNEL: 'tunnel',
     TUN: 'tun',
+    // LUCX-HOOK: AmneziaWG protocol
+    AWG: 'awg',
+    // END LUCX-HOOK
 };
 
 export const SSMethods = {
@@ -2452,6 +2455,9 @@ Inbound.Settings = class extends XrayCommonClass {
             case Protocols.WIREGUARD: return new Inbound.WireguardSettings(protocol);
             case Protocols.TUN: return new Inbound.TunSettings(protocol);
             case Protocols.HYSTERIA: return new Inbound.HysteriaSettings(protocol);
+            // LUCX-HOOK: AWG settings factory
+            case Protocols.AWG: return new Inbound.AWGSettings(protocol);
+            // END LUCX-HOOK
             default: return null;
         }
     }
@@ -2468,6 +2474,9 @@ Inbound.Settings = class extends XrayCommonClass {
             case Protocols.WIREGUARD: return Inbound.WireguardSettings.fromJson(json);
             case Protocols.TUN: return Inbound.TunSettings.fromJson(json);
             case Protocols.HYSTERIA: return Inbound.HysteriaSettings.fromJson(json);
+            // LUCX-HOOK: AWG settings from JSON
+            case Protocols.AWG: return Inbound.AWGSettings.fromJson(json);
+            // END LUCX-HOOK
             default: return null;
         }
     }
@@ -3267,3 +3276,33 @@ Inbound.TunSettings = class extends Inbound.Settings {
     }
     // END LUCX-HOOK
 };
+
+// LUCX-HOOK: AWG Settings class
+Inbound.AWGSettings = class extends Inbound.Settings {
+    constructor(protocol, params) {
+        super(protocol);
+        params = params || {};
+        this.obfLevel = params.obfLevel || 1;
+        this.mimicryProfile = params.mimicryProfile || 'quic';
+        this.region = params.region || 'ru';
+        this.mtu = Number(params.mtu) || 1320;
+        this.dns = params.dns || '1.1.1.1';
+        this.clients = params.clients || [];
+    }
+
+    static fromJson(json) {
+        return new Inbound.AWGSettings(Protocols.AWG, json);
+    }
+
+    toJson() {
+        return {
+            obfLevel: this.obfLevel,
+            mimicryProfile: this.mimicryProfile,
+            region: this.region,
+            mtu: this.mtu,
+            dns: this.dns,
+            clients: this.clients,
+        };
+    }
+};
+// END LUCX-HOOK
