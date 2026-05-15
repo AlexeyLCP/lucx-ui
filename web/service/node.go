@@ -14,6 +14,10 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/database"
 	"github.com/mhsanaei/3x-ui/v3/database/model"
+	// LUCX-HOOK: LucX node type detector
+	lucx_nodetype "github.com/mhsanaei/3x-ui/v3/internal/lucx/nodetype"
+	// END LUCX-HOOK
+	"github.com/mhsanaei/3x-ui/v3/logger"
 	"github.com/mhsanaei/3x-ui/v3/util/common"
 	"github.com/mhsanaei/3x-ui/v3/util/netsafe"
 	"github.com/mhsanaei/3x-ui/v3/web/runtime"
@@ -256,6 +260,22 @@ func (s *NodeService) Probe(ctx context.Context, n *model.Node) (HeartbeatPatch,
 	}
 	patch.XrayVersion = o.Xray.Version
 	patch.UptimeSecs = o.Uptime
+
+	// LUCX-HOOK: Detect LucX vs Vanilla node type after successful probe
+	baseURL := scheme + "://" + net.JoinHostPort(addr, strconv.Itoa(n.Port))
+	basePath := normalizeBasePath(n.BasePath)
+	basePath = strings.TrimRight(basePath, "/")
+	baseURL += basePath
+
+	lucxInfo, lucxErr := lucx_nodetype.DetectNodeType(ctx, baseURL, n.ApiToken)
+	if lucxErr == nil {
+		n.NodeType = lucxInfo.NodeType
+		n.NodeFeatures = lucxInfo.ToJSON()
+	} else {
+		logger.Debugf("lucx node type detection failed for %s: %v", n.Name, lucxErr)
+	}
+	// END LUCX-HOOK
+
 	return patch, nil
 }
 
