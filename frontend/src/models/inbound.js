@@ -3205,10 +3205,13 @@ Inbound.WireguardSettings.Peer = class extends XrayCommonClass {
     }
 };
 
+// LUCX-HOOK: Add address and stack parameters for native Xray TUN
 Inbound.TunSettings = class extends Inbound.Settings {
     constructor(
         protocol,
         name = 'xray0',
+        address = ['172.19.0.1/30'],
+        stack = 'system',
         mtu = 1500,
         gateway = [],
         dns = [],
@@ -3218,6 +3221,8 @@ Inbound.TunSettings = class extends Inbound.Settings {
     ) {
         super(protocol);
         this.name = name;
+        this.address = address;
+        this.stack = stack;
         this.mtu = Number(mtu) || 1500;
         this.gateway = Array.isArray(gateway) ? gateway : [];
         this.dns = Array.isArray(dns) ? dns : [];
@@ -3225,13 +3230,17 @@ Inbound.TunSettings = class extends Inbound.Settings {
         this.autoSystemRoutingTable = Array.isArray(autoSystemRoutingTable) ? autoSystemRoutingTable : [];
         this.autoOutboundsInterface = autoOutboundsInterface;
     }
+    // END LUCX-HOOK
 
+    // LUCX-HOOK: Parse address and stack from JSON
     static fromJson(json = {}) {
         const rawMtu = json.mtu ?? json.MTU;
         const mtu = Array.isArray(rawMtu) ? rawMtu[0] : rawMtu;
         return new Inbound.TunSettings(
             Protocols.TUN,
             json.name ?? 'xray0',
+            json.address ?? ['172.19.0.1/30'],
+            json.stack ?? 'system',
             mtu ?? 1500,
             json.gateway ?? json.Gateway ?? [],
             json.dns ?? json.DNS ?? [],
@@ -3240,10 +3249,14 @@ Inbound.TunSettings = class extends Inbound.Settings {
             Object.prototype.hasOwnProperty.call(json, 'autoOutboundsInterface') ? json.autoOutboundsInterface : 'auto'
         );
     }
+    // END LUCX-HOOK
 
+    // LUCX-HOOK: Include address and stack in JSON output
     toJson() {
         return {
             name: this.name || 'xray0',
+            address: this.address,
+            stack: this.stack || 'system',
             mtu: Number(this.mtu) || 1500,
             gateway: this.gateway,
             dns: this.dns,
@@ -3252,4 +3265,5 @@ Inbound.TunSettings = class extends Inbound.Settings {
             autoOutboundsInterface: this.autoOutboundsInterface,
         };
     }
+    // END LUCX-HOOK
 };
