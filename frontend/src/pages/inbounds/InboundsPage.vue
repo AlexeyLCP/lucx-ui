@@ -11,6 +11,9 @@ import {
 } from '@ant-design/icons-vue';
 
 import { HttpUtil, SizeFormatter, RandomUtil } from '@/utils';
+// LUCX-HOOK: Use AWG delete API for AWG protocol inbounds
+import { postLucx } from '@/api/lucx-api';
+// END LUCX-HOOK
 import { Inbound } from '@/models/inbound.js';
 import { theme as themeState, antdThemeConfig } from '@/composables/useTheme.js';
 import { useMediaQuery } from '@/composables/useMediaQuery.js';
@@ -384,6 +387,18 @@ function confirmDelete(dbInbound) {
     okType: 'danger',
     cancelText: 'Cancel',
     onOk: async () => {
+      // LUCX-HOOK: Route AWG deletes through LucX API
+      if (dbInbound.protocol === 'awg') {
+        try {
+          await postLucx('/awg/delete', { id: dbInbound.id });
+          message.success('AWG inbound deleted');
+          refresh();
+        } catch (e) {
+          message.error('Failed to delete AWG inbound');
+        }
+        return;
+      }
+      // END LUCX-HOOK
       const msg = await HttpUtil.post(`/panel/api/inbounds/del/${dbInbound.id}`);
       if (msg?.success) await refresh();
     },

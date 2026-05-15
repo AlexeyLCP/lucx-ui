@@ -455,9 +455,11 @@ function showQrCodeMenu(dbInbound) {
                     <a-menu-item key="clone">
                       <BlockOutlined /> {{ t('pages.inbounds.clone') }}
                     </a-menu-item>
-                    <a-menu-item key="delete" class="danger-item">
+                    <!-- LUCX-HOOK: Hide delete for auto-created children -->
+                    <a-menu-item key="delete" class="danger-item" :disabled="!!record.parentId">
                       <DeleteOutlined /> {{ t('delete') }}
                     </a-menu-item>
+                    <!-- END LUCX-HOOK -->
                   </a-menu>
                 </template>
               </a-dropdown>
@@ -626,9 +628,11 @@ function showQrCodeMenu(dbInbound) {
                     <a-menu-item key="clone">
                       <BlockOutlined /> {{ t('pages.inbounds.clone') }}
                     </a-menu-item>
-                    <a-menu-item key="delete" class="danger-item">
+                    <!-- LUCX-HOOK: Hide delete for auto-created children -->
+                    <a-menu-item key="delete" class="danger-item" :disabled="!!record.parentId">
                       <DeleteOutlined /> {{ t('delete') }}
                     </a-menu-item>
+                    <!-- END LUCX-HOOK -->
                   </a-menu>
                 </template>
               </a-dropdown>
@@ -666,6 +670,16 @@ function showQrCodeMenu(dbInbound) {
                 <a-tag v-if="record.toInbound().stream.isReality" color="blue">Reality</a-tag>
               </template>
             </div>
+          </template>
+
+          <!-- ============== Remark + TUN child badge ============== -->
+          <template v-else-if="column.key === 'remark'">
+            <span>{{ record.remark }}</span>
+            <!-- LUCX-HOOK: Grey out auto-created TUN children -->
+            <a-tag v-if="record.parentId" color="default" style="opacity: 0.6; font-style: italic; margin-left: 6px">
+              🔗 auto (AWG)
+            </a-tag>
+            <!-- END LUCX-HOOK -->
           </template>
 
           <!-- ============== Clients tag + popovers ============== -->
