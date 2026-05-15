@@ -25,6 +25,8 @@ const (
 	Hysteria2   Protocol = "hysteria2"
 	// LUCX-HOOK: Native Xray TUN inbound protocol
 	TUN Protocol = "tun"
+	// LUCX-HOOK: AmneziaWG protocol
+	AWG Protocol = "awg"
 	// END LUCX-HOOK
 )
 
@@ -41,6 +43,8 @@ func (i *Inbound) IsSpecialInbound() bool {
 	switch i.Protocol {
 	case TUN:
 		return true
+	case AWG:
+		return true
 	default:
 		return false
 	}
@@ -52,6 +56,10 @@ func (i *Inbound) IsSpecialInbound() bool {
 // GenSpecialConfig generates Xray config for protocols that don't use listen/port.
 func (i *Inbound) GenSpecialConfig() *xray.InboundConfig {
 	switch i.Protocol {
+	case AWG:
+		// AWG is managed by kernel interface, not Xray.
+		// The paired TUN child handles all Xray integration.
+		return nil
 	case TUN:
 		return &xray.InboundConfig{
 			Protocol: string(i.Protocol),
@@ -98,6 +106,11 @@ type Inbound struct {
 	Tag            string   `json:"tag" form:"tag" gorm:"unique"`
 	Sniffing       string   `json:"sniffing" form:"sniffing"`
 	NodeID         *int     `json:"nodeId,omitempty" form:"nodeId" gorm:"index"`
+	// LUCX-HOOK: Parent-child inbound linking
+	// ParentID links auto-created child inbounds (TUN for AWG, SOCKS for Telemt)
+	// to their parent protocol inbound. nil for manually created inbounds.
+	ParentID *int `json:"parentId" gorm:"default:null"`
+	// END LUCX-HOOK
 }
 
 // OutboundTraffics tracks traffic statistics for Xray outbound connections.

@@ -154,6 +154,15 @@ func (s *InboundService) GetInboundsByTrafficReset(period string) ([]*model.Inbo
 	return inbounds, nil
 }
 
+// LUCX-HOOK: Get inbounds by parent ID
+func (s *InboundService) GetByParentId(parentId int) ([]*model.Inbound, error) {
+	var inbounds []*model.Inbound
+	err := database.GetDB().Where("parent_id = ?", parentId).Find(&inbounds).Error
+	return inbounds, err
+}
+
+// END LUCX-HOOK
+
 func (s *InboundService) GetClients(inbound *model.Inbound) ([]model.Client, error) {
 	settings := map[string][]model.Client{}
 	json.Unmarshal([]byte(inbound.Settings), &settings)

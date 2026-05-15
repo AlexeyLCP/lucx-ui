@@ -116,6 +116,11 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if inbound.NodeID != nil {
 			continue
 		}
+		// LUCX-HOOK: Skip special protocols (AWG handled by paired TUN child)
+		if inbound.IsSpecialInbound() {
+			continue
+		}
+		// END LUCX-HOOK
 		// get settings clients
 		settings := map[string]any{}
 		json.Unmarshal([]byte(inbound.Settings), &settings)
