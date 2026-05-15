@@ -387,21 +387,14 @@ function confirmDelete(dbInbound) {
     okType: 'danger',
     cancelText: 'Cancel',
     onOk: async () => {
-      // LUCX-HOOK: Route AWG/Telemt deletes through LucX API
-      if (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt') {
-        const endpoint = dbInbound.protocol === 'awg' ? '/awg/delete' : '/telemt/delete';
-        try {
-          const res = await postLucx(endpoint, { id: dbInbound.id });
-          if (res.success) {
-            message.success(dbInbound.protocol.toUpperCase() + ' inbound deleted');
-            refresh();
-          } else {
-            message.error(res.msg || 'Server error');
-          }
-        } catch (e) {
-          message.error('Failed to delete: ' + (e.response?.data?.msg || e.response?.status || e.message));
+      // LUCX-HOOK: Delete AWG/Telemt via standard API + optional LucX cleanup
+      const delMsg = await HttpUtil.post(`/panel/api/inbounds/del/${dbInbound.id}`);
+      if (delMsg?.success) {
+        if (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt') {
+          const endpoint = dbInbound.protocol === 'awg' ? '/awg/delete' : '/telemt/delete';
+          postLucx(endpoint, { id: dbInbound.id }).catch(() => {});
         }
-        return;
+        await refresh();
       }
       // END LUCX-HOOK
       const msg = await HttpUtil.post(`/panel/api/inbounds/del/${dbInbound.id}`);
