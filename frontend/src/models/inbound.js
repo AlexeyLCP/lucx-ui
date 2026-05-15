@@ -1740,6 +1740,9 @@ export class Inbound extends XrayCommonClass {
             case Protocols.TROJAN: return this.settings.trojans;
             case Protocols.SHADOWSOCKS: return this.isSSMultiUser ? this.settings.shadowsockses : null;
             case Protocols.HYSTERIA: return this.settings.hysterias;
+            // LUCX-HOOK: AWG and Telemt clients
+            case Protocols.AWG: return this.settings.clients;
+            case Protocols.TELEMT: return this.settings.clients;
             default: return null;
         }
     }
