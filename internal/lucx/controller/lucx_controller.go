@@ -203,7 +203,7 @@ func (c *LucXController) DeleteAWG(ctx *gin.Context) {
 	}
 	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
 	if err := awgSvc.DeleteAWGInbound(req.ID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		ctx.JSON(http.StatusOK, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"success": true})
@@ -277,7 +277,7 @@ func (c *LucXController) DeleteTelemt(ctx *gin.Context) {
 	}
 	svc := telemt.NewTelemtService(c.InboundService, c.XrayService)
 	if err := svc.DeleteTelemtInbound(req.ID); err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		ctx.JSON(http.StatusOK, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
 	ctx.JSON(http.StatusOK, gin.H{"success": true})
