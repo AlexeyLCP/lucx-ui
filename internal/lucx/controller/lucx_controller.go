@@ -20,6 +20,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/parser"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/telemt"
 	"github.com/mhsanaei/3x-ui/v3/web/service"
+	"fmt"
 )
 
 // LucXController handles LucX-specific API endpoints.
@@ -190,6 +191,11 @@ type deleteAWGRequest struct {
 }
 
 func (c *LucXController) DeleteAWG(ctx *gin.Context) {
+	defer func() {
+		if r := recover(); r != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": fmt.Sprintf("panic: %v", r)})
+		}
+	}()
 	var req deleteAWGRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
