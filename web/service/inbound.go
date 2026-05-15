@@ -302,7 +302,22 @@ func (s *InboundService) normalizeStreamSettings(inbound *model.Inbound) {
 func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, bool, error) {
 	// Normalize streamSettings based on protocol
 	s.normalizeStreamSettings(inbound)
-	
+
+	// LUCX-HOOK: Block AWG/Telemt protocols on vanilla nodes
+	if inbound.Protocol == "awg" || inbound.Protocol == "telemt" {
+		if inbound.NodeID != nil && *inbound.NodeID != 0 {
+			nodeService := &NodeService{}
+			node, err := nodeService.GetById(*inbound.NodeID)
+			if err != nil {
+				return inbound, false, fmt.Errorf("failed to check node type: %w", err)
+			}
+			if node.NodeType == "vanilla" {
+				return inbound, false, fmt.Errorf("protocol '%s' requires a LucX-UI node", inbound.Protocol)
+			}
+		}
+	}
+	// END LUCX-HOOK
+
 	exist, err := s.checkPortConflict(inbound, 0)
 	if err != nil {
 		return inbound, false, err
@@ -552,7 +567,22 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, bool, error) {
 	// Normalize streamSettings based on protocol
 	s.normalizeStreamSettings(inbound)
-	
+
+	// LUCX-HOOK: Block AWG/Telemt protocols on vanilla nodes
+	if inbound.Protocol == "awg" || inbound.Protocol == "telemt" {
+		if inbound.NodeID != nil && *inbound.NodeID != 0 {
+			nodeService := &NodeService{}
+			node, err := nodeService.GetById(*inbound.NodeID)
+			if err != nil {
+				return inbound, false, fmt.Errorf("failed to check node type: %w", err)
+			}
+			if node.NodeType == "vanilla" {
+				return inbound, false, fmt.Errorf("protocol '%s' requires a LucX-UI node", inbound.Protocol)
+			}
+		}
+	}
+	// END LUCX-HOOK
+
 	exist, err := s.checkPortConflict(inbound, inbound.Id)
 	if err != nil {
 		return inbound, false, err
