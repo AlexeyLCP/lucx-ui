@@ -27,6 +27,8 @@ const (
 	TUN Protocol = "tun"
 	// LUCX-HOOK: AmneziaWG protocol
 	AWG Protocol = "awg"
+	// LUCX-HOOK: Telemt MTProto proxy protocol
+	Telemt Protocol = "telemt"
 	// END LUCX-HOOK
 )
 
@@ -45,6 +47,8 @@ func (i *Inbound) IsSpecialInbound() bool {
 		return true
 	case AWG:
 		return true
+	case Telemt:
+		return true
 	default:
 		return false
 	}
@@ -59,6 +63,10 @@ func (i *Inbound) GenSpecialConfig() *xray.InboundConfig {
 	case AWG:
 		// AWG is managed by kernel interface, not Xray.
 		// The paired TUN child handles all Xray integration.
+		return nil
+	case Telemt:
+		// Telemt is managed externally (Rust binary), not by Xray.
+		// The paired SOCKS5 child handles Xray integration.
 		return nil
 	case TUN:
 		return &xray.InboundConfig{
