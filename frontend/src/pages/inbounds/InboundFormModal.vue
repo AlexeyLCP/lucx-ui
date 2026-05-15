@@ -35,6 +35,11 @@ import DateTimePicker from '@/components/DateTimePicker.vue';
 import JsonEditor from '@/components/JsonEditor.vue';
 import { useNodeList } from '@/composables/useNodeList.js';
 
+// LUCX-HOOK: Presets import
+import { VLESS_REALITY_PRESETS, HYSTERIA2_PRESETS } from '@/lucx/presets'
+import PresetButtons from '@/lucx/PresetButtons.vue'
+// END LUCX-HOOK
+
 const { t } = useI18n();
 
 // Node selector — Phase 1 multi-node deployment. Shows all enabled
@@ -623,6 +628,52 @@ function randomizeShortIds() {
   if (!inbound.value?.stream?.reality) return;
   inbound.value.stream.reality.shortIds = RandomUtil.randomShortIds();
 }
+
+// LUCX-HOOK: Apply Reality preset to form
+function onRealityPresetApply(preset) {
+  if (!inbound.value) return;
+  if (preset.port) inbound.value.port = preset.port;
+  if (preset.flow !== undefined) {
+    if (firstClient.value) firstClient.value.flow = preset.flow;
+  }
+  if (preset.transport.network) inbound.value.stream.network = preset.transport.network;
+  if (preset.transport.security) inbound.value.stream.security = preset.transport.security;
+  const r = preset.transport.reality;
+  if (r.fingerprint !== undefined) inbound.value.stream.reality.settings.fingerprint = r.fingerprint;
+  if (r.serverNames !== undefined) inbound.value.stream.reality.serverNames = r.serverNames;
+  if (r.shortIds !== undefined) inbound.value.stream.reality.shortIds = r.shortIds;
+  if (r.spiderX !== undefined) inbound.value.stream.reality.settings.spiderX = r.spiderX;
+  if (r.publicKey && !inbound.value.stream.reality.settings.publicKey) {
+    inbound.value.stream.reality.settings.publicKey = r.publicKey;
+  }
+  if (r.show !== undefined) inbound.value.stream.reality.show = r.show;
+  if (r.xver !== undefined) inbound.value.stream.reality.xver = r.xver;
+  // Transport-specific fields
+  if (preset.transport.xhttp) {
+    if (preset.transport.xhttp.path !== undefined) inbound.value.stream.xhttp.path = preset.transport.xhttp.path;
+    if (preset.transport.xhttp.mode !== undefined) inbound.value.stream.xhttp.mode = preset.transport.xhttp.mode;
+    if (preset.transport.xhttp.host !== undefined) inbound.value.stream.xhttp.host = preset.transport.xhttp.host;
+  }
+  if (preset.transport.ws) {
+    if (preset.transport.ws.path !== undefined) inbound.value.stream.ws.path = preset.transport.ws.path;
+    if (preset.transport.ws.host !== undefined) inbound.value.stream.ws.host = preset.transport.ws.host;
+  }
+}
+
+// LUCX-HOOK: Apply Hysteria2 preset to form
+function onHysteria2PresetApply(preset) {
+  if (!inbound.value) return;
+  if (preset.port) inbound.value.port = preset.port;
+  if (preset.masquerade) {
+    inbound.value.stream.hysteria.masqueradeSwitch = true;
+    if (preset.masquerade.type) inbound.value.stream.hysteria.masquerade.type = preset.masquerade.type;
+    if (preset.masquerade.url) inbound.value.stream.hysteria.masquerade.url = preset.masquerade.url;
+    if (preset.masquerade.rewriteHost !== undefined) {
+      inbound.value.stream.hysteria.masquerade.rewriteHost = preset.masquerade.rewriteHost;
+    }
+  }
+}
+// END LUCX-HOOK
 
 // === ECH cert helpers ================================================
 async function getNewEchCert() {
@@ -1881,6 +1932,14 @@ watch(
             </a-form-item>
           </template>
 
+          <!-- LUCX-HOOK: Obfuscation presets -->
+          <PresetButtons
+            v-if="protocol === Protocols.VLESS && security === 'reality' && inbound.stream.reality"
+            :presets="VLESS_REALITY_PRESETS"
+            @apply="onRealityPresetApply"
+          />
+          <!-- END LUCX-HOOK -->
+
           <template v-if="security === 'reality' && inbound.stream.reality">
             <a-form-item label="Show">
               <a-switch v-model:checked="inbound.stream.reality.show" />
@@ -2057,6 +2116,14 @@ watch(
               </a-select>
             </a-form-item>
           </template>
+
+          <!-- LUCX-HOOK: Hysteria2 presets -->
+          <PresetButtons
+            v-if="protocol === Protocols.HYSTERIA"
+            :presets="HYSTERIA2_PRESETS"
+            @apply="onHysteria2PresetApply"
+          />
+          <!-- END LUCX-HOOK -->
 
           <!-- ====== Hysteria stream settings ====== -->
           <!-- Per https://xtls.github.io/config/transports/hysteria.html -->
