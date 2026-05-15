@@ -8,6 +8,10 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/web/service"
 	"github.com/mhsanaei/3x-ui/v3/web/session"
 
+	// LUCX-HOOK: LucX controller import
+	lucx_controller "github.com/mhsanaei/3x-ui/v3/internal/lucx/controller"
+	// END LUCX-HOOK
+
 	"github.com/gin-gonic/gin"
 )
 
@@ -77,6 +81,12 @@ func (a *APIController) initRouter(g *gin.RouterGroup, customGeo *service.Custom
 
 	// Extra routes
 	api.POST("/backuptotgbot", a.BackuptoTgbot)
+
+	// LUCX-HOOK: Register LucX-UI API routes
+	lucxCtrl := lucx_controller.NewLucXController(&service.NodeService{}, &service.InboundService{})
+	lucxGroup := api.Group("/lucx")
+	lucxCtrl.RegisterRoutes(lucxGroup)
+	// END LUCX-HOOK
 }
 
 // BackuptoTgbot sends a backup of the panel data to Telegram bot admins.
