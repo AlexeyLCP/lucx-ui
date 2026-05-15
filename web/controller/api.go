@@ -83,7 +83,7 @@ func (a *APIController) initRouter(g *gin.RouterGroup, customGeo *service.Custom
 	api.POST("/backuptotgbot", a.BackuptoTgbot)
 
 	// LUCX-HOOK: Register LucX-UI API routes
-	lucxCtrl := lucx_controller.NewLucXController(&service.NodeService{}, &service.InboundService{})
+	lucxCtrl := lucx_controller.NewLucXController(&service.NodeService{}, &service.InboundService{}, &service.XrayService{})
 	lucxGroup := api.Group("/lucx")
 	lucxCtrl.RegisterRoutes(lucxGroup)
 	// END LUCX-HOOK

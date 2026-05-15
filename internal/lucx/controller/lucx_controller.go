@@ -11,6 +11,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/mhsanaei/3x-ui/v3/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/outbound_link"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/parser"
 	"github.com/mhsanaei/3x-ui/v3/web/service"
@@ -20,13 +22,17 @@ import (
 type LucXController struct {
 	NodeService    *service.NodeService
 	InboundService *service.InboundService
+	// LUCX-HOOK: XrayService for AWG restart
+	XrayService *service.XrayService
+	// END LUCX-HOOK
 }
 
 // NewLucXController creates a new LucX controller.
-func NewLucXController(nodeSvc *service.NodeService, inboundSvc *service.InboundService) *LucXController {
+func NewLucXController(nodeSvc *service.NodeService, inboundSvc *service.InboundService, xraySvc *service.XrayService) *LucXController {
 	return &LucXController{
 		NodeService:    nodeSvc,
 		InboundService: inboundSvc,
+		XrayService:    xraySvc,
 	}
 }
 
@@ -35,6 +41,15 @@ func (c *LucXController) RegisterRoutes(g *gin.RouterGroup) {
 	g.GET("/hello", c.Hello)
 	g.POST("/parse-ssh", c.ParseSSH)
 	g.POST("/inbound-to-outbound", c.InboundToOutbound)
+
+	// LUCX-HOOK: AWG endpoints
+	awgGroup := g.Group("/awg")
+	awgGroup.POST("/create", c.CreateAWG)
+	awgGroup.POST("/delete", c.DeleteAWG)
+	awgGroup.POST("/add-client", c.AddAWGClient)
+	awgGroup.POST("/del-client", c.DeleteAWGClient)
+	awgGroup.GET("/prerequisites", c.AWGPrerequisites)
+	// END LUCX-HOOK
 }
 
 // Hello returns node identity info. Used by master to detect LucX vs Vanilla.
@@ -135,3 +150,83 @@ func (c *LucXController) InboundToOutbound(ctx *gin.Context) {
 		"obj":     result,
 	})
 }
+
+// LUCX-HOOK: AWG handler methods
+
+type createAWGRequest struct {
+	Inbound model.Inbound `json:"inbound"`
+}
+
+func (c *LucXController) CreateAWG(ctx *gin.Context) {
+	var req createAWGRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
+	inbound, err := awgSvc.CreateAWGInbound(&req.Inbound)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "obj": inbound})
+}
+
+type deleteAWGRequest struct {
+	ID int `json:"id"`
+}
+
+func (c *LucXController) DeleteAWG(ctx *gin.Context) {
+	var req deleteAWGRequest
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
+	if err := awgSvc.DeleteAWGInbound(req.ID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (c *LucXController) AddAWGClient(ctx *gin.Context) {
+	var req struct {
+		AWGID  int          `json:"awgId"`
+		Client model.Client `json:"client"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
+	if err := awgSvc.AddClient(req.AWGID, &req.Client); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (c *LucXController) DeleteAWGClient(ctx *gin.Context) {
+	var req struct {
+		AWGID     int    `json:"awgId"`
+		PublicKey string `json:"publicKey"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
+	if err := awgSvc.DeleteClient(req.AWGID, req.PublicKey); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (c *LucXController) AWGPrerequisites(ctx *gin.Context) {
+	pre := awg.CheckPrerequisites()
+	ctx.JSON(http.StatusOK, gin.H{"success": pre.OK(), "obj": pre})
+}
+
+// END LUCX-HOOK
