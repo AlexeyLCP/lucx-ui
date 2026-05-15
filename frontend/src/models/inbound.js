@@ -2353,6 +2353,23 @@ export class Inbound extends XrayCommonClass {
         return links.join('\r\n');
     }
 
+    // LUCX-HOOK: AWG client config text generator
+    genAWGConfigText(address = '', port = this.port, remark = '', client) {
+        let conf = '[Interface]\n';
+        conf += 'PrivateKey = <YOUR_PRIVATE_KEY>\n';
+        conf += `Address = 10.0.0.${client ? 2 : 0}/32\n`;
+        conf += 'DNS = 1.1.1.1\n';
+        conf += `MTU = ${this.settings.mtu || 1320}\n`;
+        conf += '\n[Peer]\n';
+        conf += `PublicKey = ${client?.id || '<SERVER_PUBLIC_KEY>'}\n`;
+        conf += `PresharedKey = ${client?.password || '<PSK>'}\n`;
+        conf += `Endpoint = ${address}:${port}\n`;
+        conf += 'AllowedIPs = 0.0.0.0/0\n';
+        conf += 'PersistentKeepalive = 25\n';
+        if (remark) conf = '#' + remark + '\n' + conf;
+        return conf;
+    }
+
     genLink(address = '', port = this.port, forceTls = 'same', remark = '', client) {
         switch (this.protocol) {
             case Protocols.VMESS:
@@ -2365,6 +2382,12 @@ export class Inbound extends XrayCommonClass {
                 return this.genTrojanLink(address, port, forceTls, remark, client.password);
             case Protocols.HYSTERIA:
                 return this.genHysteriaLink(address, port, remark, client.auth.length > 0 ? client.auth : this.stream.hysteria.auth);
+            // LUCX-HOOK: AWG config text
+            case Protocols.AWG:
+                return this.genAWGConfigText(address, port, remark, client);
+            // LUCX-HOOK: Telemt tg://proxy link
+            case Protocols.TELEMT:
+                return `tg://proxy?server=${address}&port=${port}&secret=${client.password || client.secret || ''}`;
             default: return '';
         }
     }

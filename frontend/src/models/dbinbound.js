@@ -159,6 +159,8 @@ export class DBInbound {
             case Protocols.VLESS:
             case Protocols.TROJAN:
             case Protocols.HYSTERIA:
+            case Protocols.AWG:
+            case Protocols.TELEMT:
                 return true;
             case Protocols.SHADOWSOCKS:
                 return this.toInbound().isSSMultiUser;
@@ -174,6 +176,8 @@ export class DBInbound {
             case Protocols.TROJAN:
             case Protocols.SHADOWSOCKS:
             case Protocols.HYSTERIA:
+            case Protocols.AWG:
+            case Protocols.TELEMT:
                 return true;
             default:
                 return false;

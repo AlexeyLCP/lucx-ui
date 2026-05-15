@@ -292,6 +292,9 @@ function getClientId(protocol, client) {
     case 'trojan': return client.password;
     case 'shadowsocks': return client.email;
     case 'hysteria': return client.auth;
+    // LUCX-HOOK: AWG/Telemt client identification
+    case 'awg': return client.id || client.email;
+    case 'telemt': return client.email;
     default: return client.id;
   }
 }
