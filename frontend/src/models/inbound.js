@@ -15,6 +15,8 @@ export const Protocols = {
     TUN: 'tun',
     // LUCX-HOOK: AmneziaWG protocol
     AWG: 'awg',
+    // LUCX-HOOK: Telemt protocol
+    TELEMT: 'telemt',
     // END LUCX-HOOK
 };
 
@@ -2457,6 +2459,8 @@ Inbound.Settings = class extends XrayCommonClass {
             case Protocols.HYSTERIA: return new Inbound.HysteriaSettings(protocol);
             // LUCX-HOOK: AWG settings factory
             case Protocols.AWG: return new Inbound.AWGSettings(protocol);
+            // LUCX-HOOK: Telemt settings factory
+            case Protocols.TELEMT: return new Inbound.TelemtSettings(protocol);
             // END LUCX-HOOK
             default: return null;
         }
@@ -2476,6 +2480,8 @@ Inbound.Settings = class extends XrayCommonClass {
             case Protocols.HYSTERIA: return Inbound.HysteriaSettings.fromJson(json);
             // LUCX-HOOK: AWG settings from JSON
             case Protocols.AWG: return Inbound.AWGSettings.fromJson(json);
+            // LUCX-HOOK: Telemt settings from JSON
+            case Protocols.TELEMT: return Inbound.TelemtSettings.fromJson(json);
             // END LUCX-HOOK
             default: return null;
         }
@@ -3301,6 +3307,32 @@ Inbound.AWGSettings = class extends Inbound.Settings {
             region: this.region,
             mtu: this.mtu,
             dns: this.dns,
+            clients: this.clients,
+        };
+    }
+};
+// END LUCX-HOOK
+
+// LUCX-HOOK: Telemt Settings class
+Inbound.TelemtSettings = class extends Inbound.Settings {
+    constructor(protocol, params) {
+        super(protocol);
+        params = params || {};
+        this.port = params.port || 443;
+        this.tlsDomain = params.tlsDomain || 'gosuslugi.ru';
+        this.logLevel = params.logLevel || 'normal';
+        this.clients = params.clients || [];
+    }
+
+    static fromJson(json) {
+        return new Inbound.TelemtSettings(Protocols.TELEMT, json);
+    }
+
+    toJson() {
+        return {
+            port: this.port,
+            tlsDomain: this.tlsDomain,
+            logLevel: this.logLevel,
             clients: this.clients,
         };
     }
