@@ -650,6 +650,7 @@ function onRealityPresetApply(preset) {
   const r = preset.transport.reality;
   if (r.fingerprint !== undefined) inbound.value.stream.reality.settings.fingerprint = r.fingerprint;
   if (r.serverNames !== undefined) inbound.value.stream.reality.serverNames = r.serverNames;
+  if (r.target !== undefined) inbound.value.stream.reality.target = r.target;
   if (r.shortIds !== undefined) inbound.value.stream.reality.shortIds = r.shortIds;
   if (r.spiderX !== undefined) inbound.value.stream.reality.settings.spiderX = r.spiderX;
   if (r.publicKey && !inbound.value.stream.reality.settings.publicKey) {

@@ -13,6 +13,7 @@
 // - IP+SNI correlation is main kill switch — use SNI from same DC as VPS
 // - VLESS+REALITY partially blocked since Nov 2025 — Hysteria2 is fallback
 // - Split tunneling mandatory from April 2026 (.ru services go direct)
+// - target (dest) MUST match serverNames to avoid cross-domain TLS fingerprints
 
 // ========================= VLESS + REALITY =========================
 export const VLESS_REALITY_PRESETS = [
@@ -24,8 +25,9 @@ export const VLESS_REALITY_PRESETS = [
             network: 'tcp',
             security: 'reality',
             reality: {
-                fingerprint: '',         // empty = default Go, bypasses JA3/JA4
-                serverNames: '',         // empty SNI, bypasses signature matching
+                fingerprint: '',
+                serverNames: '',
+                target: '',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/',
@@ -35,18 +37,19 @@ export const VLESS_REALITY_PRESETS = [
         },
         port: 47001,
         flow: 'xtls-rprx-vision',
-        notes: 'На порту 443 — Nginx/Caddy фасад с реальным сайтом для защиты от Active Probing. Пустой SNI не матчится сигнатурами ТСПУ.',
+        notes: 'На порту 443 — Nginx/Caddy фасад с реальным сайтом для защиты от Active Probing.',
     },
     {
         id: 'best-speed',
         label: 'Best Speed',
-        description: 'XHTTP + Chrome + Apple SNI (Akamai) — высокая скорость',
+        description: 'XHTTP + Chrome + Apple (Akamai) — высокая скорость',
         transport: {
             network: 'xhttp',
             security: 'reality',
             reality: {
                 fingerprint: 'chrome',
-                serverNames: 'www.apple.com',     // Akamai CDN, не Cloudflare
+                serverNames: 'www.apple.com',
+                target: 'www.apple.com:443',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/',
@@ -65,13 +68,14 @@ export const VLESS_REALITY_PRESETS = [
     {
         id: 'stealth-azure',
         label: 'Stealth Azure',
-        description: 'WebSocket + Firefox + Microsoft SNI (Azure) — корпоративный трафик',
+        description: 'WebSocket + Firefox + Microsoft Learn (Azure) — корпоративный трафик',
         transport: {
             network: 'ws',
             security: 'reality',
             reality: {
                 fingerprint: 'firefox',
-                serverNames: 'learn.microsoft.com',  // Azure CDN, enterprise
+                serverNames: 'learn.microsoft.com',
+                target: 'learn.microsoft.com:443',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/docs/',
@@ -94,7 +98,8 @@ export const VLESS_REALITY_PRESETS = [
             security: 'reality',
             reality: {
                 fingerprint: 'randomized',
-                serverNames: '',                   // admin fills DC-neighbor SNI
+                serverNames: '',
+                target: '',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/download',
@@ -103,18 +108,19 @@ export const VLESS_REALITY_PRESETS = [
         },
         port: 47002,
         flow: 'xtls-rprx-vision',
-        notes: 'Найди домен того же дата-центра через Reality SNI Finder (github.com/ShatakVPN/Reality-SNI-Finder)',
+        notes: 'Найди домен того же дата-центра через Reality SNI Finder и впиши в serverNames и target.',
     },
     {
         id: 'stealth-fastly',
         label: 'Stealth Fastly',
-        description: 'gRPC + Firefox + UK Gov SNI (Fastly) — правительственный домен',
+        description: 'gRPC + Firefox + UK Gov (Fastly) — правительственный домен',
         transport: {
             network: 'grpc',
             security: 'reality',
             reality: {
                 fingerprint: 'firefox',
-                serverNames: 'www.gov.uk',           // Fastly CDN, government domain
+                serverNames: 'www.gov.uk',
+                target: 'www.gov.uk:443',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/api/v1/',
@@ -146,7 +152,7 @@ export const HYSTERIA2_PRESETS = [
         port: 443,
         hopPorts: '31000-32000',
         hopInterval: 120,
-        notes: 'QUIC может троттлиться на мобильных операторах. Порт-хоппинг: 1000 портов, интервал 120с.',
+        notes: 'QUIC может троттлиться на мобильных операторах. Порт-хоппинг: 1000 портов.',
     },
     {
         id: 'best-speed',
@@ -217,7 +223,7 @@ export const TELEMT_PRESETS = [
     {
         id: 'max-security',
         label: 'Max Security',
-        description: 'FakeTLS + gosuslugi.ru SNI — российский домен',
+        description: 'FakeTLS + gosuslugi.ru — российский домен',
         port: 443,
         tlsDomain: 'gosuslugi.ru',
         logLevel: 'normal',
@@ -225,7 +231,7 @@ export const TELEMT_PRESETS = [
     {
         id: 'best-speed',
         label: 'Best Speed',
-        description: 'FakeTLS + akamai.com SNI',
+        description: 'FakeTLS + akamai.com (CDN)',
         port: 443,
         tlsDomain: 'www.akamai.com',
         logLevel: 'normal',
@@ -257,7 +263,6 @@ export const TROJAN_PRESETS = [
             },
         },
         port: 443,
-        flow: '',
     },
     {
         id: 'best-speed',
@@ -274,12 +279,11 @@ export const TROJAN_PRESETS = [
             },
         },
         port: 443,
-        flow: '',
     },
     {
         id: 'stealth',
         label: 'Stealth',
-        description: 'WebSocket + TLS + Firefox + Gov UK SNI (Fastly)',
+        description: 'WebSocket + TLS + Firefox + Gov UK (Fastly)',
         transport: {
             network: 'ws',
             security: 'tls',
@@ -295,14 +299,13 @@ export const TROJAN_PRESETS = [
             },
         },
         port: 8443,
-        flow: '',
     },
 ];
 
-// ========================= Split Tunneling (mandatory April 2026) =========================
+// Split tunneling rule for .ru services (mandatory April 2026)
 export const SPLIT_TUNNELING_RULE = {
     type: 'field',
     domain: ['geosite:category-ru'],
     outboundTag: 'direct',
-    notes: 'Трафик к российским сервисам (Yandex, VK, Sberbank, Gosuslugi) идёт напрямую. Обязательно с апреля 2026.',
+    notes: 'Traffic to Russian services (Yandex, VK, Sberbank, Gosuslugi) goes direct.',
 };
