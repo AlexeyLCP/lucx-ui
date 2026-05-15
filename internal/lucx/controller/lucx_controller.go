@@ -7,7 +7,10 @@
 package controller
 
 import (
+	"encoding/json"
 	"net/http"
+	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
@@ -15,6 +18,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/outbound_link"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/parser"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/telemt"
 	"github.com/mhsanaei/3x-ui/v3/web/service"
 )
 
@@ -49,6 +53,15 @@ func (c *LucXController) RegisterRoutes(g *gin.RouterGroup) {
 	awgGroup.POST("/add-client", c.AddAWGClient)
 	awgGroup.POST("/del-client", c.DeleteAWGClient)
 	awgGroup.GET("/prerequisites", c.AWGPrerequisites)
+	// END LUCX-HOOK
+
+	// LUCX-HOOK: Telemt endpoints
+	telemtGroup := g.Group("/telemt")
+	telemtGroup.POST("/create", c.CreateTelemt)
+	telemtGroup.POST("/delete", c.DeleteTelemt)
+	telemtGroup.GET("/status/:id", c.TelemtStatus)
+	telemtGroup.GET("/link/:id", c.TelemtLink)
+	telemtGroup.GET("/version", c.TelemtVersion)
 	// END LUCX-HOOK
 }
 
@@ -227,6 +240,86 @@ func (c *LucXController) DeleteAWGClient(ctx *gin.Context) {
 func (c *LucXController) AWGPrerequisites(ctx *gin.Context) {
 	pre := awg.CheckPrerequisites()
 	ctx.JSON(http.StatusOK, gin.H{"success": pre.OK(), "obj": pre})
+}
+
+// END LUCX-HOOK
+
+// LUCX-HOOK: Telemt handler methods
+
+func (c *LucXController) CreateTelemt(ctx *gin.Context) {
+	var req struct {
+		Inbound model.Inbound `json:"inbound"`
+	}
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	svc := telemt.NewTelemtService(c.InboundService, c.XrayService)
+	inbound, err := svc.CreateTelemtInbound(&req.Inbound)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "obj": inbound})
+}
+
+func (c *LucXController) DeleteTelemt(ctx *gin.Context) {
+	var req struct{ ID int `json:"id"` }
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	svc := telemt.NewTelemtService(c.InboundService, c.XrayService)
+	if err := svc.DeleteTelemtInbound(req.ID); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true})
+}
+
+func (c *LucXController) TelemtLink(ctx *gin.Context) {
+	id, _ := strconv.Atoi(ctx.Param("id"))
+	inbound, err := c.InboundService.GetInbound(id)
+	if err != nil {
+		ctx.JSON(http.StatusNotFound, gin.H{"success": false, "msg": "inbound not found"})
+		return
+	}
+	// Parse first client from settings
+	var settings map[string]interface{}
+	json.Unmarshal([]byte(inbound.Settings), &settings)
+	clients, _ := settings["clients"].([]interface{})
+	if len(clients) == 0 {
+		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": "no clients"})
+		return
+	}
+	firstClient := clients[0].(map[string]interface{})
+	secret, _ := firstClient["secret"].(string)
+	host := ctx.Request.Host
+	if colon := strings.LastIndex(host, ":"); colon != -1 {
+		host = host[:colon]
+	}
+	link := telemt.GenerateProxyLink(host, inbound.Port, secret)
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "obj": gin.H{"link": link}})
+}
+
+func (c *LucXController) TelemtStatus(ctx *gin.Context) {
+	id, _ := strconv.Atoi(ctx.Param("id"))
+	mgr := telemt.NewTelemtManager()
+	if err := mgr.Healthcheck(9090 + id); err != nil {
+		ctx.JSON(http.StatusOK, gin.H{"success": true, "obj": gin.H{"status": "offline"}})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "obj": gin.H{"status": "online"}})
+}
+
+func (c *LucXController) TelemtVersion(ctx *gin.Context) {
+	mgr := telemt.NewTelemtManager()
+	ver, err := mgr.EnsureBinary()
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
+		return
+	}
+	ctx.JSON(http.StatusOK, gin.H{"success": true, "obj": gin.H{"version": ver}})
 }
 
 // END LUCX-HOOK
