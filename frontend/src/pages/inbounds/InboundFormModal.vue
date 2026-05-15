@@ -1908,7 +1908,7 @@ watch(
 
           <!-- LUCX-HOOK: Trojan presets -->
           <PresetButtons
-            v-if="protocol === Protocols.TROJAN && security === 'tls'"
+            v-if="protocol === Protocols.TROJAN"
             :presets="TROJAN_PRESETS"
             @apply="onTrojanPresetApply"
           />
