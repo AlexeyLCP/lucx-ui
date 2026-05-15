@@ -168,9 +168,6 @@ func EnsureStatsRouting(raw string) (string, error) {
 	return string(out), nil
 }
 
-// findApiRule returns the index of the routing rule that targets the
-// internal api inbound (inboundTag contains "api" and outboundTag is
-// "api"), or -1 if no such rule exists.
 // LUCX-HOOK: Ensure split tunneling for Russian services
 // EnsureSplitTunneling adds geosite:category-ru -> direct rule to the Xray config.
 // This is mandatory in Russia from April 15, 2026 - Russian platforms block VPN users.
@@ -232,6 +229,9 @@ func (s *XraySettingService) EnsureSplitTunneling() error {
 
 // END LUCX-HOOK
 
+// findApiRule returns the index of the routing rule that targets the
+// internal api inbound (inboundTag contains "api" and outboundTag is
+// "api"), or -1 if no such rule exists.
 func findApiRule(rules []map[string]any) int {
 	for i, rule := range rules {
 		if outTag, _ := rule["outboundTag"].(string); outTag != "api" {

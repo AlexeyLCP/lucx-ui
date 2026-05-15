@@ -64,6 +64,13 @@
         "type": "field"
       },
       {
+        "type": "field",
+        "domain": [
+          "geosite:category-ru"
+        ],
+        "outboundTag": "direct"
+      },
+      {
         "ip": [
           "geoip:private"
         ],
