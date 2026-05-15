@@ -15,6 +15,7 @@ import { HttpUtil, SizeFormatter, RandomUtil } from '@/utils';
 import { postLucx } from '@/api/lucx-api';
 // END LUCX-HOOK
 import { Inbound } from '@/models/inbound.js';
+import { DBInbound } from '@/models/dbinbound.js';
 import { theme as themeState, antdThemeConfig } from '@/composables/useTheme.js';
 import { useMediaQuery } from '@/composables/useMediaQuery.js';
 import AppSidebar from '@/components/AppSidebar.vue';
@@ -401,7 +402,8 @@ function generateTelemtClient() {
 }
 
 async function openLucxAddClient(dbInbound) {
-  const name = 'client_' + Date.now().toString(36);
+  // Generate unique name with timestamp + random suffix
+  const name = 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
   try {
     let clientData;
     if (dbInbound.protocol === 'awg') {
@@ -422,8 +424,11 @@ async function openLucxAddClient(dbInbound) {
       subId: '',
       comment: '',
     };
-    const inbound = dbInbound.toInbound();
-    const clients = inbound?.clients || [];
+    // Get fresh inbound data to avoid stale client list
+    const fresh = await HttpUtil.get(`/panel/api/inbounds/get/${dbInbound.id}`);
+    const freshInbound = fresh?.obj ? DBInbound.fromJson(fresh.obj) : dbInbound;
+    const inbound = freshInbound.toInbound();
+    const clients = inbound?.clients?.filter(c => c && c.email) || [];
     clients.push(clientObj);
     const settings = JSON.stringify({ clients });
     const msg = await HttpUtil.post('/panel/api/inbounds/addClient', {
