@@ -881,10 +881,23 @@ install_x-ui() {
                 exit 1
             fi
         fi
-        echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
-        curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
-        if [[ $? -ne 0 ]]; then
-            echo -e "${red}Downloading x-ui failed, please be sure that your server can access GitHub ${plain}"
+        echo -e "Got LucX-UI latest version: ${tag_version}, downloading..."
+        # Try API-based download first (bypasses GitHub CDN issues)
+        local release_json=$(curl -s "https://api.github.com/repos/AlexeyLCP/lucx-ui/releases/tags/${tag_version}")
+        local asset_url=$(echo "$release_json" | grep -o '"browser_download_url": *"[^"]*"' | grep -o 'https://[^"]*' | head -1)
+        if [[ -n "$asset_url" ]]; then
+            curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz "$asset_url" 2>/dev/null || true
+        fi
+        # Fallback to direct URL
+        if [[ ! -f ${xui_folder}-linux-$(arch).tar.gz ]]; then
+            curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz "https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz" 2>/dev/null || true
+        fi
+        if [[ ! -f ${xui_folder}-linux-$(arch).tar.gz ]]; then
+            echo -e "${red}Download failed. The release asset may not be available.${plain}"
+            echo -e "${yellow}Try building from source:${plain}"
+            echo -e "${yellow}  git clone https://github.com/AlexeyLCP/lucx-ui${plain}"
+            echo -e "${yellow}  cd lucx-ui/frontend && npm install && npm run build && cd ..${plain}"
+            echo -e "${yellow}  go build -o x-ui . && sudo cp x-ui ${xui_folder}/${plain}"
             exit 1
         fi
     else
