@@ -14,6 +14,9 @@ import { HttpUtil, SizeFormatter, RandomUtil } from '@/utils';
 // LUCX-HOOK: Use AWG delete API for AWG protocol inbounds
 import { postLucx } from '@/api/lucx-api';
 // END LUCX-HOOK
+
+// LUCX-HOOK: AWG/Telemt client generators from isolated module
+import { generateAWGClient, generateTelemtClient } from '@/lucx/client-generators.js';
 import { Inbound } from '@/models/inbound.js';
 import { theme as themeState, antdThemeConfig } from '@/composables/useTheme.js';
 import { useMediaQuery } from '@/composables/useMediaQuery.js';
@@ -381,24 +384,7 @@ function openAddBulkClient(dbInbound) {
   bulkOpen.value = true;
 }
 
-// LUCX-HOOK: Generate AWG/Telemt client data entirely in frontend
-function generateAWGClient() {
-  // Generate a random 32-byte key (matching Curve25519 format)
-  const keyBytes = new Uint8Array(32);
-  crypto.getRandomValues(keyBytes);
-  const pubKey = btoa(String.fromCharCode(...keyBytes));
-  const pskBytes = new Uint8Array(32);
-  crypto.getRandomValues(pskBytes);
-  const psk = btoa(String.fromCharCode(...pskBytes));
-  return { id: pubKey, password: psk };
-}
-
-function generateTelemtClient() {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
-  return { id: hex, password: 'ee' + hex };
-}
+// LUCX-HOOK: Client generators imported from isolated module — see src/lucx/client-generators.js
 
 async function openLucxAddClient(dbInbound) {
   const name = 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);

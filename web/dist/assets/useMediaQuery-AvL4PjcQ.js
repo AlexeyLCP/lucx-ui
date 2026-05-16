@@ -1,0 +1,2 @@
+import{nt as e,tt as t,yt as n}from"./vendor-antd-Bn7Itjxz.js";var r=768;function i(i=r){let a=()=>window.innerWidth<=i,o=n(a()),s=()=>{o.value=a()};return e(()=>{window.addEventListener(`resize`,s)}),t(()=>{window.removeEventListener(`resize`,s)}),{isMobile:o}}export{i as t};
+//# sourceMappingURL=useMediaQuery-AvL4PjcQ.js.map

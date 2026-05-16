@@ -1,6 +1,8 @@
 import dayjs from 'dayjs';
 import { ObjectUtil, RandomUtil, Base64, NumberFormatter, SizeFormatter, Wireguard } from '@/utils';
 import { getRandomRealityTarget } from '@/models/reality-targets';
+// LUCX-HOOK: Import AWG config generator from isolated module
+import { generateAWGConfig } from '@/lucx/awg-config-gen.js';
 
 export const Protocols = {
     VMESS: 'vmess',
@@ -2356,52 +2358,9 @@ export class Inbound extends XrayCommonClass {
         return links.join('\r\n');
     }
 
-    // LUCX-HOOK: AWG client config text generator with real obfuscation params
+    // LUCX-HOOK: AWG config gen delegated to isolated module src/lucx/awg-config-gen.js
     genAWGConfigText(address = '', port = this.port, remark = '', client) {
-        const s = this.settings;
-        const mtu = s.mtu || 1320;
-        const jc = s.jc || 8;
-        const jmin = s.jmin || 50;
-        const jmax = s.jmax || 500;
-        const s1 = s.s1 || 50;
-        const s2 = s.s2 || 80;
-        const s3 = s.s3 || 30;
-        const s4 = s.s4 || 15;
-        const h1 = s.h1 || '88830977-466888999';
-        const h2 = s.h2 || '577571549-1039919960';
-        const h3 = s.h3 || '1167874883-1558472606';
-        const h4 = s.h4 || '1739740840-2061202155';
-        const clientAddr = client?.address || '10.100.0.2/32';
-
-        let conf = '[Interface]\n';
-        conf += `PrivateKey = ${client?.privateKey || '<GENERATE_WITH_AWG>'}\n`;
-        conf += `Address = ${clientAddr}\n`;
-        conf += 'DNS = 1.1.1.1, 1.0.0.1\n';
-        conf += `MTU = ${mtu}\n`;
-        conf += `Jc = ${jc}\n`;
-        conf += `Jmin = ${jmin}\n`;
-        conf += `Jmax = ${jmax}\n`;
-        conf += `S1 = ${s1}\n`;
-        conf += `S2 = ${s2}\n`;
-        conf += `S3 = ${s3}\n`;
-        conf += `S4 = ${s4}\n`;
-        conf += `H1 = ${h1}\n`;
-        conf += `H2 = ${h2}\n`;
-        conf += `H3 = ${h3}\n`;
-        conf += `H4 = ${h4}\n`;
-        if (client?.i1) conf += `I1 = <b 0x${client.i1}>\n`;
-        if (client?.i2) conf += `I2 = <b 0x${client.i2}>\n`;
-        if (client?.i3) conf += `I3 = <b 0x${client.i3}>\n`;
-        if (client?.i4) conf += `I4 = <b 0x${client.i4}>\n`;
-        if (client?.i5) conf += `I5 = <b 0x${client.i5}>\n`;
-        conf += '\n[Peer]\n';
-        conf += `PublicKey = ${client?.id || '<SERVER_PUBKEY>'}\n`;
-        conf += `PresharedKey = ${client?.password || '<PSK>'}\n`;
-        conf += `Endpoint = ${address}:${port}\n`;
-        conf += 'AllowedIPs = 0.0.0.0/0, ::/0\n';
-        conf += 'PersistentKeepalive = 25\n';
-        if (remark) conf = '#' + remark + '\n' + conf;
-        return conf;
+        return generateAWGConfig(this, address, port, remark, client);
     }
 
     genLink(address = '', port = this.port, forceTls = 'same', remark = '', client) {

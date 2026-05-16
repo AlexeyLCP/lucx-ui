@@ -19,8 +19,6 @@ import (
 	"strconv"
 	"strings"
 	"sync"
-	"syscall"
-	"time"
 )
 
 const (
@@ -139,12 +137,14 @@ func (m *TelemtManager) Stop(id int) error {
 		return nil
 	}
 	pidPath := filepath.Join(telemtPIDDir, fmt.Sprintf("telemt-%d.pid", id))
-	exec.Command(telemtBinaryPath, "stop", "--pid-file", pidPath).Run()
-	time.Sleep(5 * time.Second)
-	if proc, err := os.FindProcess(inst.PID); err == nil {
-		proc.Signal(syscall.SIGTERM)
-		time.Sleep(2 * time.Second)
-		proc.Signal(syscall.SIGKILL)
+	// Graceful stop via telemt CLI — Run() blocks until process exits
+	stopCmd := exec.Command(telemtBinaryPath, "stop", "--pid-file", pidPath)
+	if err := stopCmd.Run(); err != nil {
+		// Graceful stop failed — force kill via process handle
+		if proc, ferr := os.FindProcess(inst.PID); ferr == nil {
+			proc.Kill()
+			proc.Wait()
+		}
 	}
 	m.mu.Lock()
 	delete(m.instances, id)

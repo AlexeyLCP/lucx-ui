@@ -9,6 +9,7 @@ package telemt
 import (
 	"crypto/rand"
 	"fmt"
+	"time"
 	"math/big"
 	"net"
 	"os"
@@ -108,16 +109,16 @@ func (s *TelemtService) CreateTelemtInbound(telemt *model.Inbound) (*model.Inbou
 
 // DeleteTelemtInbound tears down a Telemt inbound and its SOCKS5 child.
 func (s *TelemtService) DeleteTelemtInbound(id int) error {
-	// 1. Stop Telemt process
+	// 1. Stop Telemt process synchronously (Run blocks until exit)
 	s.Manager.Stop(id)
 
-	// 2. Delete child SOCKS5 inbounds
+	// 2. Delete child SOCKS5 inbounds BEFORE parent
 	children, _ := s.InboundService.GetByParentId(id)
 	for _, child := range children {
 		s.InboundService.DelInbound(child.Id)
 	}
 
-	// 3. Delete Telemt inbound
+	// 3. Delete Telemt inbound from DB
 	s.InboundService.DelInbound(id)
 
 	// 4. Clean up files
@@ -125,8 +126,18 @@ func (s *TelemtService) DeleteTelemtInbound(id int) error {
 	os.Remove(filepath.Join(telemtPIDDir, fmt.Sprintf("telemt-%d.pid", id)))
 	os.RemoveAll(filepath.Join(telemtDataDir, fmt.Sprintf("telemt-%d", id)))
 
-	// 5. Restart Xray
-	s.XrayService.SetToNeedRestart()
+	// 5. Non-blocking Xray restart with timeout
+	go func() {
+		done := make(chan struct{})
+		go func() {
+			s.XrayService.SetToNeedRestart()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+		}
+	}()
 	return nil
 }
 

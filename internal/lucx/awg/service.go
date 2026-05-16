@@ -9,6 +9,7 @@ package awg
 import (
 	"encoding/json"
 	"fmt"
+	"time"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -137,29 +138,45 @@ func (s *AWGService) CreateAWGInbound(awg *model.Inbound) (*model.Inbound, error
 }
 
 // DeleteAWGInbound tears down an AWG inbound and all its children.
+// Uses synchronous process termination, ordered child-then-parent deletion,
+// and non-blocking Xray restart to prevent rollback on restart failure.
 func (s *AWGService) DeleteAWGInbound(awgId int) error {
-	// 1. Run PostDown
+	// 1. Run PostDown synchronously with Wait() — no time.Sleep
 	downPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-down.sh", awgId))
 	if data, err := os.ReadFile(downPath); err == nil {
-		exec.Command("/bin/bash", "-c", string(data)).Run()
+		cmd := exec.Command("/bin/bash", "-c", string(data))
+		if runErr := cmd.Run(); runErr != nil {
+			_ = runErr // PostDown is best-effort cleanup
+		}
 	}
 
-	// 2. Delete child TUN inbounds
+	// 2. Delete child TUN/SOCKS5 inbounds BEFORE parent (referential integrity)
 	children, _ := s.InboundService.GetByParentId(awgId)
 	for _, child := range children {
 		s.InboundService.DelInbound(child.Id)
 	}
 
-	// 3. Delete AWG inbound
+	// 3. Delete AWG inbound from DB
 	s.InboundService.DelInbound(awgId)
 
-	// 4. Clean up files
+	// 4. Clean up files (best-effort — may not exist)
 	os.Remove(filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgId)))
 	os.Remove(filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgId)))
 	os.Remove(filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-down.sh", awgId)))
 
-	// 5. Restart Xray
-	s.XrayService.SetToNeedRestart()
+	// 5. Non-blocking Xray restart with timeout goroutine
+	go func() {
+		done := make(chan struct{})
+		go func() {
+			s.XrayService.SetToNeedRestart()
+			close(done)
+		}()
+		select {
+		case <-done:
+		case <-time.After(10 * time.Second):
+			// Xray restart hung — do not block inbound deletion
+		}
+	}()
 	return nil
 }
 

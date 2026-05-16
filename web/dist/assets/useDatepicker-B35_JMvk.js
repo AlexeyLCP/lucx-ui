@@ -1,0 +1,2 @@
+import{c as e}from"./_plugin-vue_export-helper-DFNIO2FK.js";import{vt as t,yt as n}from"./vendor-antd-Bn7Itjxz.js";var r=n(`gregorian`),i=!1,a=null;async function o(){if(!i){if(a){await a;return}a=(async()=>{try{let t=await e.post(`/panel/setting/defaultSettings`);t?.success&&(r.value=t.obj?.datepicker||`gregorian`)}finally{i=!0,a=null}})(),await a}}function s(e){i=!0,r.value=e||`gregorian`}function c(){return o(),{datepicker:t(r)}}export{c as n,s as t};
+//# sourceMappingURL=useDatepicker-B35_JMvk.js.map
