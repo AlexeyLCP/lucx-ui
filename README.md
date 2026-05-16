@@ -4,6 +4,17 @@
 
 Long-term maintainable fork of [3x-ui](https://github.com/MHSanaei/3x-ui) with native integration of AmneziaWG, Telemt (MTProto), smart cluster management, and DPI bypass presets for Russia (May 2026).
 
+## Disclaimer
+
+This software is provided "as is", without warranty of any kind, express or implied. It is created solely for educational, research, and network optimization purposes to study the behavior of encrypted protocols under tight network constraints.
+
+The author:
+1. Does not provide any commercial proxy, VPN, or data transmission services.
+2. Does not maintain, control, or monitor any servers deployed by third parties using this software.
+3. Shall not be held liable for any misuse, illegal redistribution, or compliance violations of local laws by end-users.
+
+All responsibility for the deployment, use, and compliance of this software lies entirely with the individual running the installation script.
+
 ## Install
 
 ```bash
