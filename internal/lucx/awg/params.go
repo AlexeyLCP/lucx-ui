@@ -46,7 +46,7 @@ func GenerateAWGParams(obfLevel int, profile string, region string) (*AWGParams,
 	}
 
 	privKey := genKey()
-	pubKey := genKey() // placeholder - will be replaced with awg pubkey CLI call in service
+	pubKey := genKey() // service layer derives real Curve25519 pubkey via awg pubkey
 	psk := genPSK()
 
 	params := &AWGParams{

@@ -33,7 +33,7 @@ export function generateAWGConfig(inbound, address, port, remark, client) {
   const clientAddr = client?.address || '10.100.0.2/32';
 
   let conf = '[Interface]\n';
-  conf += `PrivateKey = ${client?.privateKey || '<GENERATE_WITH_AWG>'}\n`;
+  conf += `PrivateKey = ${client?.privateKey || '<CLIENT_PRIVATE_KEY>'}\n`;
   conf += `Address = ${clientAddr}\n`;
   conf += 'DNS = 1.1.1.1, 1.0.0.1\n';
   conf += `MTU = ${mtu}\n`;
@@ -56,8 +56,8 @@ export function generateAWGConfig(inbound, address, port, remark, client) {
   if (client?.i5) conf += `I5 = <b 0x${client.i5}>\n`;
 
   conf += '\n[Peer]\n';
-  conf += `PublicKey = ${client?.id || '<SERVER_PUBKEY>'}\n`;
-  conf += `PresharedKey = ${client?.password || '<PSK>'}\n`;
+  conf += `PublicKey = ${client?.id || ''}\n`;
+  conf += `PresharedKey = ${client?.password || ''}\n`;
   conf += `Endpoint = ${address}:${port}\n`;
   conf += 'AllowedIPs = 0.0.0.0/0, ::/0\n';
   conf += 'PersistentKeepalive = 25\n';

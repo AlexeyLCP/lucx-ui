@@ -84,5 +84,5 @@ func GetServerIP(inbound model.Inbound) string {
 	if inbound.Listen != "" && inbound.Listen != "0.0.0.0" {
 		return inbound.Listen
 	}
-	return "YOUR_SERVER_IP"
+	return ""
 }
