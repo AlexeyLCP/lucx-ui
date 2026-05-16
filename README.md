@@ -1,63 +1,123 @@
-[English](/README.md) | [فارسی](/README.fa_IR.md) | [العربية](/README.ar_EG.md) | [中文](/README.zh_CN.md) | [Español](/README.es_ES.md) | [Русский](/README.ru_RU.md)
+# LucX-UI
 
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="./media/3x-ui-dark.png">
-    <img alt="3x-ui" src="./media/3x-ui-light.png">
-  </picture>
-</p>
+Long-term maintainable fork of [3x-ui](https://github.com/MHSanaei/3x-ui) with native integration of AmneziaWG, Telemt (MTProto), smart cluster management, and DPI bypass presets for Russia (May 2026).
 
-[![Release](https://img.shields.io/github/v/release/mhsanaei/3x-ui.svg)](https://github.com/MHSanaei/3x-ui/releases)
-[![Build](https://img.shields.io/github/actions/workflow/status/mhsanaei/3x-ui/release.yml.svg)](https://github.com/MHSanaei/3x-ui/actions)
-[![GO Version](https://img.shields.io/github/go-mod/go-version/mhsanaei/3x-ui.svg)](#)
-[![Downloads](https://img.shields.io/github/downloads/mhsanaei/3x-ui/total.svg)](https://github.com/MHSanaei/3x-ui/releases/latest)
-[![License](https://img.shields.io/badge/license-GPL%20V3-blue.svg?longCache=true)](https://www.gnu.org/licenses/gpl-3.0.en.html)
-[![Go Reference](https://pkg.go.dev/badge/github.com/mhsanaei/3x-ui/v3.svg)](https://pkg.go.dev/github.com/mhsanaei/3x-ui/v3)
-[![Go Report Card](https://goreportcard.com/badge/github.com/mhsanaei/3x-ui/v3)](https://goreportcard.com/report/github.com/mhsanaei/3x-ui/v3)
-
-**3X-UI** — advanced, open-source web-based control panel designed for managing Xray-core server. It offers a user-friendly interface for configuring and monitoring various VPN and proxy protocols.
-
-> [!IMPORTANT]
-> This project is only for personal usage, please do not use it for illegal purposes, and please do not use it in a production environment.
-
-As an enhanced fork of the original X-UI project, 3X-UI provides improved stability, broader protocol support, and additional features.
-
-## Quick Start
+## Install
 
 ```bash
-bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)
+bash <(curl -fsSL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install-lucx.sh)
 ```
 
-For full documentation, please visit the [project Wiki](https://github.com/MHSanaei/3x-ui/wiki).
+Access: `http://<server_ip>:2053/` — login `admin` / `admin`.
 
-## A Special Thanks to
+## Added Protocols
 
-- [alireza0](https://github.com/alireza0/)
+| Protocol | Transport | Obfuscation | Traffic Path |
+|----------|-----------|-------------|-------------|
+| **AWG** (AmneziaWG) | UDP kernel module | Jc/Jmin/Jmax, S1-S4, H1-H4, CPS I1-I5 | Client → awgN → Xray TUN → Routing → Outbound |
+| **Telemt** (MTProto) | TCP 443/8443 | FakeTLS (`ee` secret), SOCKS5 upstream via Xray | Client → Telemt → 127.0.0.1:SOCKS5 → Xray Routing |
 
-## Acknowledgment
+Both protocols create invisible child Xray inbounds (TUN for AWG, SOCKS5 for Telemt). Traffic accounting uses Xray's native gRPC API — tagged children are polled for total bytes. Per-user breakdown is delegated to protocol-native tools (`awg show`, Telemt REST API). No custom parsers, no bash hacks.
 
-- [Iran v2ray rules](https://github.com/chocolate4u/Iran-v2ray-rules) (License: **GPL-3.0**): _Enhanced v2ray/xray and v2ray/xray-clients routing rules with built-in Iranian domains and a focus on security and adblocking._
-- [Russia v2ray rules](https://github.com/runetfreedom/russia-v2ray-rules-dat) (License: **GPL-3.0**): _This repository contains automatically updated V2Ray routing rules based on data on blocked domains and addresses in Russia._
+## Cluster (Multi-Node)
 
-## Community Tools
+- **SSH Smart Import:** paste install script output into the Add Node form — fields auto-filled
+- **Node Type Detection:** each node probed via `GET /panel/api/lucx/hello` — LucX vs vanilla 3x-ui badges in UI
+- **Vanilla Guard:** AWG/Telemt protocols blocked at API level for vanilla 3x-ui nodes
+- **Inbound → Outbound:** one-click copy of remote inbound as local outbound config
 
-Tools and integrations built by the community around 3x-ui.
+## DPI Presets (Russia, May 2026)
 
-- [terraform-provider-3x-ui](https://github.com/batonogov/terraform-provider-threexui) (License: **MIT**): _Manage inbounds, clients, panel settings, and Xray configuration as code with Terraform / OpenTofu._
+All presets avoid Cloudflare, Fastly, and Akamai domains. Use Russian critical infrastructure (`gosuslugi.ru`, `online.sberbank.ru`) and system update domains (`update.microsoft.com`, `releases.ubuntu.com`) that cannot be blocked without breaking essential services.
 
-## Support project
+- **VLESS Reality:** Ghost Mode (gosuslugi.ru + randomized fingerprint), Best Speed (XHTTP + update.microsoft.com), RF Critical (Sberbank), Stealth QUIC, Anti-DPI
+- **Trojan Reality:** Ghost Mode, Best Speed (TLS 1.3), Stealth (WS)
+- **Hysteria2:** Salamander obfs + Masquerade + port hopping (1000 ports)
+- **AWG:** Jumbo Random (Jc 3-10, Jmin 50-100, Jmax 150-250)
+- **Telemt:** FakeTLS Neutral (ee + hex domain encoding)
+- **Shadowsocks:** 2022 blake3-aes-128-gcm
 
-**If this project is helpful to you, you may wish to give it a**:star2:
+Port 443 is monitored — presets use ports 47000+ for maximum security. Split tunneling (`geosite:category-ru` → direct) is auto-configured on panel start.
 
-<a href="https://www.buymeacoffee.com/MHSanaei" target="_blank">
-<img src="./media/default-yellow.png" alt="Buy Me A Coffee" style="height: 70px !important;width: 277px !important;" >
-</a>
+## Telegram Bot
 
-</br>
-<a href="https://nowpayments.io/donation/hsanaei" target="_blank" rel="noreferrer noopener">
-   <img src="./media/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
-</a>
+`/lang` — language selection (EN/RU/FA/ZH). AWG clients receive `.conf` files via Telegram Document. Telemt clients receive `tg://proxy` deep links with inline "Connect" button. Language preferences persist across restarts (`/etc/lucx-ui/lucx_tg_langs.json`).
 
-## Stargazers over Time
+## Project Structure
 
-[![Stargazers over time](https://starchart.cc/MHSanaei/3x-ui.svg?variant=adaptive)](https://starchart.cc/MHSanaei/3x-ui)
+```
+internal/lucx/
+├── parser/              SSH output parser (smart import)
+├── nodetype/            LucX vs vanilla detection
+├── outbound_link/       Inbound → outbound generator
+├── awg/                 AWG params, CPS, templates, service
+├── telemt/              Telemt config, process manager, service
+├── telegram/            Bot helpers (lang, AWG/Telemt links)
+├── controller/          HTTP API handlers
+├── integration/         End-to-end integration tests
+└── stress_test.go       Chaos engineering suite
+
+frontend/src/lucx/
+├── presets.js           Obfuscation presets for all protocols
+├── PresetButtons.vue    One-click preset application
+├── AWGForm.vue          AWG inbound creation form
+├── TelemtForm.vue       Telemt inbound creation form
+├── SshParser.vue        SSH output paste & parse
+├── NodeBadge.vue        LucX/Vanilla badge
+├── OutboundLinkButton.vue  Inbound → outbound button
+├── awg-config-gen.js    AWG .conf file generator
+└── client-generators.js AWG/Telemt client key generators
+```
+
+## Tests
+
+```bash
+# Unit + integration (requires Go 1.24+)
+cd frontend && npm install && npm run build && cd ..
+go test ./internal/lucx/... ./internal/lucx/integration/... -v -count=1
+
+# Chaos engineering (skip with -short for CI)
+go test ./internal/lucx/ -v -run "Vector" -count=1
+
+# Run all tests
+go test ./internal/lucx/... ./internal/lucx/integration/... ./database/model/... -count=1
+```
+
+Test categories:
+- **parser:** 7 tests (SSH output, ANSI handling, edge cases)
+- **awg:** 13 tests (params, CPS, templates, config validation)
+- **telemt:** 11 tests (config, secrets, TOML, proxy links, table-driven)
+- **nodetype:** 3 tests (LucX, vanilla, timeout)
+- **outbound_link:** 4 tests (VLESS, rejection, edge cases)
+- **telegram:** 9 tests (AWG config, Telemt links, validation)
+- **integration:** 3 tests (CRUD lifecycle, traffic accounting, parallel clients)
+- **stress:** 6 tests (concurrency 5000 ops, fuzzing, resource leaks, crash recovery)
+
+## Architecture Rules
+
+All new code lives in `internal/lucx/` (Go) and `frontend/src/lucx/` (Vue). Changes to original 3x-ui files are wrapped in:
+
+```
+// LUCX-HOOK:
+// ... new code call ...
+// END LUCX-HOOK
+```
+
+Run `grep -rn "LUCX-HOOK"` to list all integration points. This keeps upstream merges clean — conflicts are limited to marked blocks.
+
+## Credits
+
+- **3x-ui** — [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) (AGPL-3.0)
+- **AWG obfuscation logic** — [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) (MIT)
+- **AmneziaWG** — kernel module and userspace tools (MIT)
+- **Telemt** — MTProto proxy in Rust, [telemt/telemt](https://github.com/telemt/telemt)
+- **Xray-core** — [XTLS/Xray-core](https://github.com/XTLS/Xray-core) (MPL-2.0)
+- **GeoIP/GeoSite** — [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat)
+
+## License
+
+LucX-UI components (`internal/lucx/`, `frontend/src/lucx/`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use — including VPN resale, paid proxy/VPN hosting, managed services — requires explicit written permission from the author.
+
+Original 3x-ui code remains under AGPL-3.0.
+
+See `LICENSE-LucX.md` for full terms.
