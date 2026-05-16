@@ -1,3 +1,5 @@
+[English](/README.md) | [Русский](/README.ru_RU.md)
+
 # LucX-UI
 
 Long-term maintainable fork of [3x-ui](https://github.com/MHSanaei/3x-ui) with native integration of AmneziaWG, Telemt (MTProto), smart cluster management, and DPI bypass presets for Russia (May 2026).
@@ -8,7 +10,7 @@ Long-term maintainable fork of [3x-ui](https://github.com/MHSanaei/3x-ui) with n
 bash <(curl -fsSL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install-lucx.sh)
 ```
 
-Access: `http://<server_ip>:2053/` — login `admin` / `admin`.
+Access: `http://<server_ip>:<port>/<basepath>` — реквизиты выводятся установщиком в конце.
 
 ## Added Protocols
 
