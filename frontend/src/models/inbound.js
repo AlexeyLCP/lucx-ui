@@ -5,6 +5,10 @@ import { getRandomRealityTarget } from '@/models/reality-targets';
 import { generateAWGConfig } from '@/lucx/awg-config-gen.js';
 
 export const Protocols = {
+    // LUCX-HOOK: Featured protocols first
+    AWG: 'awg',
+    TELEMT: 'telemt',
+    // END LUCX-HOOK
     VMESS: 'vmess',
     VLESS: 'vless',
     TROJAN: 'trojan',
@@ -15,11 +19,6 @@ export const Protocols = {
     HTTP: 'http',
     TUNNEL: 'tunnel',
     TUN: 'tun',
-    // LUCX-HOOK: AmneziaWG protocol
-    AWG: 'awg',
-    // LUCX-HOOK: Telemt protocol
-    TELEMT: 'telemt',
-    // END LUCX-HOOK
 };
 
 export const SSMethods = {
