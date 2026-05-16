@@ -302,6 +302,8 @@ async function onSwitchEnable(dbInbound, next) {
 // inbound-wide QR codes.
 function showQrCodeMenu(dbInbound) {
   if (dbInbound.isWireguard) return true;
+  // LUCX-HOOK: Show QR for AWG (.conf) and Telemt (tg://proxy link)
+  if (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt') return true;
   if (dbInbound.isSS) {
     try {
       return !dbInbound.toInbound().isSSMultiUser;

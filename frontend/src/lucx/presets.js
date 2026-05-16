@@ -4,29 +4,25 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-// Obfuscation presets optimized for Russia DPI bypass (May 2026)
+// Obfuscation presets for Russia DPI bypass (May 2026)
 //
-// Key findings:
-// - Empty SNI + empty fingerprint bypasses TSPU signature matching 100%
-// - Non-standard ports (47000+) avoid port-443 DPI targeting
-// - Cloudflare domains BLOCKED in Russia — use Akamai/Azure/Fastly instead
-// - IP+SNI correlation is main kill switch — use SNI from same DC as VPS
-// - VLESS+REALITY partially blocked since Nov 2025 — Hysteria2 is fallback
-// - Split tunneling mandatory from April 2026 (.ru services go direct)
-// - target (dest) MUST match serverNames to avoid cross-domain TLS fingerprints
+// CRITICAL: Cloudflare, Fastly, Akamai, Visa, Mastercard domains are BLOCKED or monitored.
+// Empty SNI + empty fingerprint bypasses TSPU signature matching in 100% of cases.
+// Non-standard ports (47000+) avoid port-443 DPI targeting.
+// Split tunneling mandatory from April 2026 (.ru services go direct).
 
 // ========================= VLESS + REALITY =========================
 export const VLESS_REALITY_PRESETS = [
     {
-        id: 'max-security',
-        label: 'Max Security',
+        id: 'ghost-mode',
+        label: 'Ghost Mode',
         description: 'Пустой SNI + пустой fingerprint + порт 47001 — 100% обход ТСПУ',
         transport: {
             network: 'tcp',
             security: 'reality',
             reality: {
-                fingerprint: '',
-                serverNames: '',
+                fingerprint: '',         // empty → default Go, bypasses JA3/JA4
+                serverNames: '',         // empty SNI, bypasses TSPU signatures
                 target: '',
                 publicKey: '',
                 shortIds: '',
@@ -37,19 +33,19 @@ export const VLESS_REALITY_PRESETS = [
         },
         port: 47001,
         flow: 'xtls-rprx-vision',
-        notes: 'На порту 443 — Nginx/Caddy фасад с реальным сайтом для защиты от Active Probing.',
+        notes: 'Порт 443 под мониторингом ТСПУ. На 443 — Nginx фасад с реальным сайтом для защиты от Active Probing.',
     },
     {
         id: 'best-speed',
         label: 'Best Speed',
-        description: 'XHTTP + Chrome + Apple (Akamai) — высокая скорость',
+        description: 'XHTTP + Chrome + Microsoft SNI (легитимный трафик обновлений)',
         transport: {
             network: 'xhttp',
             security: 'reality',
             reality: {
                 fingerprint: 'chrome',
-                serverNames: 'www.apple.com',
-                target: 'www.apple.com:443',
+                serverNames: 'update.microsoft.com',
+                target: 'update.microsoft.com:443',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/',
@@ -59,40 +55,40 @@ export const VLESS_REALITY_PRESETS = [
             xhttp: {
                 path: '',
                 mode: 'auto',
-                host: 'www.apple.com',
+                host: 'update.microsoft.com',
             },
         },
         port: 443,
         flow: '',
     },
     {
-        id: 'stealth-azure',
-        label: 'Stealth Azure',
-        description: 'WebSocket + Firefox + Microsoft Learn (Azure) — корпоративный трафик',
+        id: 'stealth-quic',
+        label: 'Stealth QUIC',
+        description: 'gRPC + Firefox + Ubuntu releases SNI (легитимные загрузки ISO)',
         transport: {
-            network: 'ws',
+            network: 'grpc',
             security: 'reality',
             reality: {
                 fingerprint: 'firefox',
-                serverNames: 'learn.microsoft.com',
-                target: 'learn.microsoft.com:443',
+                serverNames: 'releases.ubuntu.com',
+                target: 'releases.ubuntu.com:443',
                 publicKey: '',
                 shortIds: '',
-                spiderX: '/docs/',
+                spiderX: '/',
                 show: false,
             },
-            ws: {
-                path: '/ws',
-                host: 'learn.microsoft.com',
+            grpc: {
+                serviceName: 'GunService',
+                multiMode: false,
             },
         },
-        port: 8443,
-        flow: 'xtls-rprx-vision',
+        port: 443,
+        flow: '',
     },
     {
         id: 'anti-dpi',
         label: 'Anti-DPI',
-        description: 'TCP + randomized + SNI своего ДЦ + порт 47002',
+        description: 'TCP + randomized + SNI своего ДЦ + порт 50000+',
         transport: {
             network: 'tcp',
             security: 'reality',
@@ -106,33 +102,66 @@ export const VLESS_REALITY_PRESETS = [
                 show: false,
             },
         },
-        port: 47002,
+        port: 50001,
         flow: 'xtls-rprx-vision',
-        notes: 'Найди домен того же дата-центра через Reality SNI Finder и впиши в serverNames и target.',
+        notes: 'Впиши SNI домена того же дата-центра (Reality SNI Finder). На 443 — Nginx фасад.',
     },
+];
+
+// ========================= Trojan + REALITY =========================
+export const TROJAN_PRESETS = [
     {
-        id: 'stealth-fastly',
-        label: 'Stealth Fastly',
-        description: 'gRPC + Firefox + NVIDIA (Azure) — технокомпания',
+        id: 'ghost-mode',
+        label: 'Ghost Mode',
+        description: 'Пустой SNI + пустой fingerprint + порт 47003',
         transport: {
-            network: 'grpc',
+            network: 'tcp',
             security: 'reality',
             reality: {
-                fingerprint: 'firefox',
-                serverNames: 'www.nvidia.com',
-                target: 'www.nvidia.com:443',
+                fingerprint: '',
+                serverNames: '',
+                target: '',
                 publicKey: '',
                 shortIds: '',
-                spiderX: '/api/v1/',
+                spiderX: '/',
                 show: false,
             },
-            grpc: {
-                serviceName: 'GunService',
-                multiMode: false,
+        },
+        port: 47003,
+        flow: 'xtls-rprx-vision',
+    },
+    {
+        id: 'best-speed',
+        label: 'Best Speed',
+        description: 'TLS 1.3 + Chrome + Microsoft Update SNI',
+        transport: {
+            network: 'tcp',
+            security: 'tls',
+            tls: {
+                fingerprint: 'chrome',
+                serverName: 'update.microsoft.com',
+                alpn: 'h2,http/1.1',
+                minVersion: '1.3',
             },
         },
         port: 443,
-        flow: '',
+    },
+    {
+        id: 'stealth',
+        label: 'Stealth',
+        description: 'WebSocket + Firefox + Ubuntu SNI (легитимные загрузки)',
+        transport: {
+            network: 'ws',
+            security: 'tls',
+            tls: {
+                fingerprint: 'firefox',
+                serverName: 'releases.ubuntu.com',
+                alpn: 'http/1.1',
+                minVersion: '1.3',
+            },
+            ws: { path: '/ws', host: 'releases.ubuntu.com' },
+        },
+        port: 8443,
     },
 ];
 
@@ -141,28 +170,28 @@ export const HYSTERIA2_PRESETS = [
     {
         id: 'max-security',
         label: 'Max Security',
-        description: 'Salamander obfs + Apple SNI (Akamai) + порт-хоппинг',
+        description: 'Salamander obfs + Masquerade под Microsoft + порт 47004',
         obfs: { type: 'salamander', password: '' },
-        tls: { sni: 'www.apple.com' },
+        tls: { sni: 'update.microsoft.com' },
         masquerade: {
             type: 'proxy',
-            url: 'https://www.apple.com/',
+            url: 'https://update.microsoft.com/',
             rewriteHost: true,
         },
-        port: 443,
+        port: 47004,
         hopPorts: '31000-32000',
         hopInterval: 120,
-        notes: 'QUIC может троттлиться на мобильных операторах. Порт-хоппинг: 1000 портов.',
+        notes: 'QUIC троттлится на мобильных операторах. Порт-хоппинг обязателен.',
     },
     {
         id: 'best-speed',
         label: 'Best Speed',
-        description: 'Без обфускации + Bing SNI — макс. скорость QUIC',
+        description: 'Без обфускации + Masquerade под Ubuntu — макс. скорость QUIC',
         obfs: { type: '', password: '' },
-        tls: { sni: 'www.bing.com' },
+        tls: { sni: 'releases.ubuntu.com' },
         masquerade: {
             type: 'proxy',
-            url: 'https://www.bing.com/',
+            url: 'https://releases.ubuntu.com/',
             rewriteHost: true,
         },
         port: 443,
@@ -170,12 +199,12 @@ export const HYSTERIA2_PRESETS = [
     {
         id: 'stealth',
         label: 'Stealth',
-        description: 'Salamander + Azure SNI + порт-хоппинг',
+        description: 'Salamander + Masquerade + порт-хоппинг 1000 портов',
         obfs: { type: 'salamander', password: '' },
-        tls: { sni: 'learn.microsoft.com' },
+        tls: { sni: 'releases.ubuntu.com' },
         masquerade: {
             type: 'proxy',
-            url: 'https://learn.microsoft.com/',
+            url: 'https://releases.ubuntu.com/',
             rewriteHost: true,
         },
         port: 443,
@@ -187,14 +216,17 @@ export const HYSTERIA2_PRESETS = [
 // ========================= AWG (AmneziaWG) =========================
 export const AWG_PRESETS = [
     {
-        id: 'max-security',
-        label: 'Max Security',
-        description: 'Full I1-I5 CPS + QUIC mimicry + RU region',
+        id: 'jumbo-random',
+        label: 'Jumbo Random',
+        description: 'Максимальная рандомизация: случайные Jc/Jmin/S1-S4/H1-H4',
         obfLevel: 3,
         mimicryProfile: 'quic',
         region: 'ru',
         dns: '1.1.1.1',
-        mtu: 1320,
+        mtu: Math.floor(Math.random() * 500 + 1100), // 1100-1600
+        jc: Math.floor(Math.random() * 8 + 3),       // 3-10
+        jmin: Math.floor(Math.random() * 51 + 50),    // 50-100
+        jmax: Math.floor(Math.random() * 101 + 150),  // 150-250
     },
     {
         id: 'best-speed',
@@ -221,91 +253,55 @@ export const AWG_PRESETS = [
 // ========================= Telemt (MTProto) =========================
 export const TELEMT_PRESETS = [
     {
-        id: 'max-security',
-        label: 'Max Security',
-        description: 'FakeTLS + gosuslugi.ru — российский домен',
+        id: 'faketls-neutral',
+        label: 'FakeTLS Neutral',
+        description: 'FakeTLS + update.microsoft.com (hex-encoded domain secret)',
         port: 443,
-        tlsDomain: 'gosuslugi.ru',
+        tlsDomain: 'update.microsoft.com',
         logLevel: 'normal',
+        notes: 'Секрет: ee + 32 hex + hex(update.microsoft.com) для маскировки под легитимный трафик обновлений.',
     },
     {
         id: 'best-speed',
         label: 'Best Speed',
-        description: 'FakeTLS + akamai.com (CDN)',
+        description: 'FakeTLS + releases.ubuntu.com',
         port: 443,
-        tlsDomain: 'www.akamai.com',
+        tlsDomain: 'releases.ubuntu.com',
         logLevel: 'normal',
     },
     {
         id: 'stealth',
         label: 'Stealth',
-        description: 'FakeTLS + portal.azure.com — корп. трафик, порт 8443',
+        description: 'FakeTLS + порт 8443 + silent log',
         port: 8443,
-        tlsDomain: 'portal.azure.com',
+        tlsDomain: 'update.microsoft.com',
         logLevel: 'silent',
     },
 ];
 
-// ========================= Trojan =========================
-export const TROJAN_PRESETS = [
+// ========================= Shadowsocks 2022 =========================
+export const SHADOWSOCKS_PRESETS = [
     {
-        id: 'max-security',
-        label: 'Max Security',
-        description: 'TLS 1.3 + Apple SNI (Akamai) + randomized ALPN',
-        transport: {
-            network: 'tcp',
-            security: 'tls',
-            tls: {
-                fingerprint: 'randomized',
-                serverName: 'www.apple.com',
-                alpn: 'h2,http/1.1',
-                minVersion: '1.3',
-            },
-        },
-        port: 443,
+        id: 'ss2022-blake3',
+        label: 'SS 2022 Blake3',
+        description: '2022-blake3-aes-128-gcm — современное шифрование',
+        method: '2022-blake3-aes-128-gcm',
+        port: 47005,
+        notes: 'Shadowsocks 2022 edition с AEAD шифрованием. Не использовать старые методы (aes-256-gcm).',
     },
     {
-        id: 'best-speed',
-        label: 'Best Speed',
-        description: 'TLS 1.3 + Chrome + Microsoft SNI (Azure)',
-        transport: {
-            network: 'tcp',
-            security: 'tls',
-            tls: {
-                fingerprint: 'chrome',
-                serverName: 'learn.microsoft.com',
-                alpn: 'h2,http/1.1',
-                minVersion: '1.3',
-            },
-        },
-        port: 443,
-    },
-    {
-        id: 'stealth',
-        label: 'Stealth',
-        description: 'WebSocket + TLS + Firefox + Gov UK (Fastly)',
-        transport: {
-            network: 'ws',
-            security: 'tls',
-            tls: {
-                fingerprint: 'firefox',
-                serverName: 'www.nvidia.com',
-                alpn: 'http/1.1',
-                minVersion: '1.3',
-            },
-            ws: {
-                path: '/ws',
-                host: 'www.nvidia.com',
-            },
-        },
-        port: 8443,
+        id: 'ss2022-chacha',
+        label: 'SS 2022 ChaCha',
+        description: '2022-blake3-chacha20-poly1305 — для ARM/слабых CPU',
+        method: '2022-blake3-chacha20-poly1305',
+        port: 47006,
     },
 ];
 
-// Split tunneling rule for .ru services (mandatory April 2026)
+// Split tunneling rule (mandatory April 2026)
 export const SPLIT_TUNNELING_RULE = {
     type: 'field',
     domain: ['geosite:category-ru'],
     outboundTag: 'direct',
-    notes: 'Traffic to Russian services (Yandex, VK, Sberbank, Gosuslugi) goes direct.',
+    notes: 'Russian services (Yandex, VK, Sberbank, Gosuslugi) go direct.',
 };

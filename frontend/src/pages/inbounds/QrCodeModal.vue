@@ -51,11 +51,12 @@ const qrItems = computed(() => {
     });
   });
   wireguardConfigs.value.forEach((cfg, idx) => {
+    const clientName = (props.client?.email || props.dbInbound?.remark || `peer-${idx + 1}`).replace(/[^a-zA-Z0-9_-]/g, '_');
     items.push({
       key: `wc${idx}`,
-      header: `Peer ${idx + 1} config`,
+      header: `${clientName} config`,
       value: cfg,
-      downloadName: `peer-${idx + 1}.conf`,
+      downloadName: `${clientName}.conf`,
     });
     if (wireguardLinks.value[idx]) {
       items.push({
@@ -71,7 +72,22 @@ const qrItems = computed(() => {
 watch(() => props.open, (next) => {
   if (!next || !props.dbInbound) return;
   const inbound = props.dbInbound.toInbound();
-  if (inbound.protocol === Protocols.WIREGUARD) {
+  // LUCX-HOOK: AWG config text → QR code with download
+  if (inbound.protocol === Protocols.AWG) {
+    const addr = props.nodeAddress || inbound._resolveAddr?.('') || 'YOUR_IP';
+    const configText = inbound.genAWGConfigText(addr, inbound.port, props.client?.email || props.dbInbound.remark, props.client);
+    wireguardConfigs.value = [configText];
+    wireguardLinks.value = [];
+    links.value = [];
+  } else if (inbound.protocol === Protocols.TELEMT) {
+    // LUCX-HOOK: Telemt tg://proxy link → QR code
+    const addr = props.nodeAddress || inbound._resolveAddr?.('') || 'YOUR_IP';
+    const secret = props.client?.password || props.client?.secret || '';
+    const proxyLink = `tg://proxy?server=${addr}&port=${inbound.port}&secret=${secret}`;
+    links.value = [{ remark: 'Telemt Proxy', link: proxyLink }];
+    wireguardConfigs.value = [];
+    wireguardLinks.value = [];
+  } else if (inbound.protocol === Protocols.WIREGUARD) {
     const peerRemark = props.client?.email
       ? `${props.dbInbound.remark}-${props.client.email}`
       : props.dbInbound.remark;
