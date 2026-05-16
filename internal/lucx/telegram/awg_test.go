@@ -133,3 +133,71 @@ func TestSanitizeFileName(t *testing.T) {
 		}
 	}
 }
+
+// TestAWGConfig_SpecCompliance verifies the full .conf file matches spec.
+func TestAWGConfig_SpecCompliance(t *testing.T) {
+	client := model.Client{
+		Email:      "client@awg",
+		ID:         "cHVibGljS2V5QmFzZTY0U3RyaW5n",
+		Password:   "cFNLQmFzZTY0U3RyaW5n",
+		PrivateKey: "cHJpdmF0ZUtleUJhc2U2NFN0cmluZw==",
+	}
+	inbound := model.Inbound{
+		Port:   55555,
+		Listen: "5.9.1.2",
+		Settings: `{
+			"mtu": 1320,
+			"jc": 8, "jmin": 50, "jmax": 500,
+			"s1": 108, "s2": 27, "s3": 35, "s4": 16,
+			"h1": "88830977-466888999",
+			"h2": "577571549-1039919960",
+			"h3": "1167874883-1558472606",
+			"h4": "1739740840-2061202155",
+			"clients": []
+		}`,
+	}
+
+	expected := []string{
+		"# client@awg — LucX-UI AWG Client",
+		"[Interface]",
+		"PrivateKey = cHJpdmF0ZUtleUJhc2U2NFN0cmluZw==",
+		"Address = 10.100.0.2/32",
+		"DNS = 1.1.1.1, 1.0.0.1",
+		"MTU = 1320",
+		"Jc = 8",
+		"Jmin = 50",
+		"Jmax = 500",
+		"S1 = 108",
+		"S2 = 27",
+		"S3 = 35",
+		"S4 = 16",
+		"H1 = 88830977-466888999",
+		"H2 = 577571549-1039919960",
+		"H3 = 1167874883-1558472606",
+		"H4 = 1739740840-2061202155",
+		"[Peer]",
+		"PublicKey = cHVibGljS2V5QmFzZTY0U3RyaW5n",
+		"PresharedKey = cFNLQmFzZTY0U3RyaW5n",
+		"Endpoint = 5.9.1.2:55555",
+		"AllowedIPs = 0.0.0.0/0, ::/0",
+		"PersistentKeepalive = 25",
+	}
+
+	config := buildAWGConfigText(client, inbound, "5.9.1.2")
+
+	t.Logf("ACTUAL config:\n%s", config)
+
+	for _, exp := range expected {
+		if !strings.Contains(config, exp) {
+			t.Errorf("MISSING: %s", exp)
+		}
+	}
+
+	// Verify no placeholders remain
+	placeholders := []string{"<CLIENT_PRIVATE_KEY>", "<SERVER_PUBKEY>", "<PSK>", "<GENERATE"}
+	for _, ph := range placeholders {
+		if strings.Contains(config, ph) {
+			t.Errorf("PLACEHOLDER STILL PRESENT: %s", ph)
+		}
+	}
+}

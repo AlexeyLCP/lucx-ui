@@ -391,7 +391,7 @@ async function openLucxAddClient(dbInbound) {
   try {
     let clientData;
     if (dbInbound.protocol === 'awg') {
-      clientData = await generateAWGClient();
+      clientData = generateAWGClient();
     } else {
       clientData = generateTelemtClient();
     }

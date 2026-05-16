@@ -74,13 +74,13 @@ const qrItems = computed(() => {
 watch(() => props.open, (next) => {
   if (!next || !props.dbInbound) return;
   const inbound = props.dbInbound.toInbound();
-  // LUCX-HOOK: AWG config — text-only (no QR, too dense), download button
+  // LUCX-HOOK: AWG config — text in wireguardConfigs (QR + Download)
   if (inbound.protocol === Protocols.AWG) {
     const addr = props.nodeAddress || inbound._resolveAddr?.('') || 'YOUR_IP';
     const configText = inbound.genAWGConfigText(addr, inbound.port, props.client?.email || props.dbInbound.remark, props.client);
-    links.value = [{ remark: 'AWG Config (.conf)', link: configText, noQR: true }];
-    wireguardConfigs.value = [];
+    wireguardConfigs.value = [configText];
     wireguardLinks.value = [];
+    links.value = [];
   } else if (inbound.protocol === Protocols.TELEMT) {
     // LUCX-HOOK: Telemt tg://proxy link → QR code
     const addr = props.nodeAddress || inbound._resolveAddr?.('') || 'YOUR_IP';
