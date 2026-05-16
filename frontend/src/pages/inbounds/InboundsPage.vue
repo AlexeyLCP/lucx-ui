@@ -391,7 +391,7 @@ async function openLucxAddClient(dbInbound) {
   try {
     let clientData;
     if (dbInbound.protocol === 'awg') {
-      clientData = generateAWGClient();
+      clientData = await generateAWGClient();
     } else {
       clientData = generateTelemtClient();
     }
@@ -399,10 +399,7 @@ async function openLucxAddClient(dbInbound) {
       email: name,
       id: clientData.id,
       password: clientData.password,
-      enable: true,
-      flow: '',
-      limitIP: 0,
-      totalGB: 0,
+      privateKey: clientData.privateKey || '',
       expiryTime: 0,
       tgId: '',
       subId: '',

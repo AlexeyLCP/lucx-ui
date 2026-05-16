@@ -33,7 +33,7 @@ export function generateAWGConfig(inbound, address, port, remark, client) {
   const clientAddr = client?.address || '10.100.0.2/32';
 
   let conf = '[Interface]\n';
-  conf += `PrivateKey = ${client?.privateKey || '<CLIENT_PRIVATE_KEY>'}\n`;
+  conf += `PrivateKey = ${client?.privateKey || client?.id || ''}\n`;
   conf += `Address = ${clientAddr}\n`;
   conf += 'DNS = 1.1.1.1, 1.0.0.1\n';
   conf += `MTU = ${mtu}\n`;

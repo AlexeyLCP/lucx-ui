@@ -63,7 +63,11 @@ func buildAWGConfigText(client model.Client, inbound model.Inbound, serverIP str
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s — LucX-UI AWG Client\n\n", client.Email)
 	fmt.Fprintf(&b, "[Interface]\n")
-	fmt.Fprintf(&b, "PrivateKey = <CLIENT_PRIVATE_KEY>\n")
+	if client.PrivateKey != "" {
+		fmt.Fprintf(&b, "PrivateKey = %s\n", client.PrivateKey)
+	} else {
+		fmt.Fprintf(&b, "PrivateKey = %s\n", client.ID) // fallback to stored key
+	}
 	fmt.Fprintf(&b, "Address = 10.100.0.2/32\n")
 	fmt.Fprintf(&b, "DNS = 1.1.1.1, 1.0.0.1\n")
 	fmt.Fprintf(&b, "MTU = %d\n\n", mtu)
