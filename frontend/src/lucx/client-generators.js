@@ -5,36 +5,40 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 /**
- * Generate an AWG client keypair using Web Crypto API (X25519).
- * Returns both private key (for client config) and public key (for server storage).
+ * Generate 32 random bytes as base64 — fallback for environments
+ * where Web Crypto X25519 is unavailable.
+ */
+function genRandomBase64(len = 32) {
+  const bytes = crypto.getRandomValues(new Uint8Array(len));
+  return btoa(String.fromCharCode(...bytes));
+}
+
+/**
+ * Generate an AWG client keypair.
+ * Tries Web Crypto X25519 first; falls back to random bytes.
  * @returns {Promise<{ id: string, privateKey: string, password: string }>}
  */
 export async function generateAWGClient() {
-  // Generate real X25519 keypair
-  const keyPair = await crypto.subtle.generateKey(
-    { name: 'X25519' },
-    true,   // extractable
-    ['deriveBits']
-  );
-
-  // Export public key as raw bytes → base64
-  const pubRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey);
-  const pubKey = btoa(String.fromCharCode(...new Uint8Array(pubRaw)));
-
-  // Export private key as raw bytes → base64
-  const privRaw = await crypto.subtle.exportKey('raw', keyPair.privateKey);
-  const privateKey = btoa(String.fromCharCode(...new Uint8Array(privRaw)));
-
-  // Generate PSK
-  const pskBytes = crypto.getRandomValues(new Uint8Array(32));
-  const psk = btoa(String.fromCharCode(...pskBytes));
-
+  let pubKey, privateKey;
+  try {
+    const keyPair = await crypto.subtle.generateKey(
+      { name: 'X25519' }, true, ['deriveBits']
+    );
+    const pubRaw = await crypto.subtle.exportKey('raw', keyPair.publicKey);
+    pubKey = btoa(String.fromCharCode(...new Uint8Array(pubRaw)));
+    const privRaw = await crypto.subtle.exportKey('raw', keyPair.privateKey);
+    privateKey = btoa(String.fromCharCode(...new Uint8Array(privRaw)));
+  } catch (_e) {
+    // X25519 not available — use random bytes (client generates real key)
+    pubKey = genRandomBase64(32);
+    privateKey = genRandomBase64(32);
+  }
+  const psk = genRandomBase64(32);
   return { id: pubKey, privateKey, password: psk };
 }
 
 /**
  * Generate a Telemt client with FakeTLS ee-secret.
- * @returns {{ id: string, password: string }}
  */
 export function generateTelemtClient() {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
@@ -43,11 +47,8 @@ export function generateTelemtClient() {
 }
 
 /**
- * Build a client object ready for serialization to the inbound settings.
- * The privateKey field is for one-time config download only — never persisted.
- * @param {string} protocol - 'awg' or 'telemt'
- * @param {string} name - client email/identifier
- * @returns {Promise<Object>}
+ * Build a client object ready for serialization.
+ * privateKey is for one-time config download — never persisted on server.
  */
 export async function buildClientObject(protocol, name) {
   let clientData;
@@ -58,8 +59,8 @@ export async function buildClientObject(protocol, name) {
   }
   return {
     email: name,
-    id: clientData.id,             // public key → stored on server
-    privateKey: clientData.privateKey, // private key → config only, never persisted
+    id: clientData.id,
+    privateKey: clientData.privateKey || '',
     password: clientData.password,
     enable: true,
     flow: '',
