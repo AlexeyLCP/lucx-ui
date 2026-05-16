@@ -48,6 +48,8 @@ const qrItems = computed(() => {
       key: `l${idx}`,
       header: link.remark || `Link ${idx + 1}`,
       value: link.link,
+      noQR: link.noQR || false,
+      downloadName: link.noQR ? `${(link.remark || 'config').replace(/[^a-zA-Z0-9_-]/g, '_')}.conf` : '',
     });
   });
   wireguardConfigs.value.forEach((cfg, idx) => {
@@ -72,13 +74,13 @@ const qrItems = computed(() => {
 watch(() => props.open, (next) => {
   if (!next || !props.dbInbound) return;
   const inbound = props.dbInbound.toInbound();
-  // LUCX-HOOK: AWG config text → QR code with download
+  // LUCX-HOOK: AWG config — text-only (no QR, too dense), download button
   if (inbound.protocol === Protocols.AWG) {
     const addr = props.nodeAddress || inbound._resolveAddr?.('') || 'YOUR_IP';
     const configText = inbound.genAWGConfigText(addr, inbound.port, props.client?.email || props.dbInbound.remark, props.client);
-    wireguardConfigs.value = [configText];
+    links.value = [{ remark: 'AWG Config (.conf)', link: configText, noQR: true }];
+    wireguardConfigs.value = [];
     wireguardLinks.value = [];
-    links.value = [];
   } else if (inbound.protocol === Protocols.TELEMT) {
     // LUCX-HOOK: Telemt tg://proxy link → QR code
     const addr = props.nodeAddress || inbound._resolveAddr?.('') || 'YOUR_IP';
@@ -128,7 +130,7 @@ function close() {
       <a-collapse v-model:active-key="activeKeys" ghost class="qr-collapse">
         <a-collapse-panel v-for="item in qrItems" :key="item.key" :header="item.header">
           <QrPanel :value="item.value" :remark="item.header" :download-name="item.downloadName || ''"
-            :show-qr="!item.value.includes('mldsa65') && !item.value.includes('ML-KEM-768')" />
+            :show-qr="!item.noQR && !item.value.includes('mldsa65') && !item.value.includes('ML-KEM-768')" />
         </a-collapse-panel>
       </a-collapse>
     </template>

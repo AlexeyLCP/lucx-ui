@@ -32,9 +32,10 @@ SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
     <a-form-item label="Secret (FakeTLS)">
       <a-input-group>
-        <a-input v-model:value="form.clientSecret" :readonly="true" placeholder="ee..." />
+        <a-input v-model:value="form.clientSecret" placeholder="ee + 32 hex chars" :status="secretValidation.status" @change="validateSecret" />
         <a-button type="primary" @click="generateSecret">Generate</a-button>
       </a-input-group>
+      <span v-if="secretValidation.msg" :style="{ color: secretValidation.status === 'error' ? '#ff4d4f' : '#888', fontSize: '12px' }">{{ secretValidation.msg }}</span>
     </a-form-item>
   </div>
 </template>
@@ -65,10 +66,32 @@ watch(() => props.modelValue, (val) => {
 
 watch(form, (val) => emit('update:modelValue', { ...val }), { deep: true })
 
+const secretValidation = reactive({ status: '', msg: '' })
+const eeHexRe = /^ee[a-f0-9]{32,}$/
+
+function validateSecret() {
+  const v = form.clientSecret
+  if (!v) { secretValidation.status = ''; secretValidation.msg = ''; return }
+  if (!v.startsWith('ee')) {
+    secretValidation.status = 'error'
+    secretValidation.msg = 'Secret must start with "ee" prefix'
+  } else if (v.length < 34) {
+    secretValidation.status = 'error'
+    secretValidation.msg = 'Secret too short: ee + at least 32 hex chars'
+  } else if (!eeHexRe.test(v)) {
+    secretValidation.status = 'error'
+    secretValidation.msg = 'Invalid hex after "ee" prefix'
+  } else {
+    secretValidation.status = 'success'
+    secretValidation.msg = `Valid: ${v.length - 2} hex chars`
+  }
+}
+
 function generateSecret() {
   const bytes = new Uint8Array(16)
   crypto.getRandomValues(bytes)
   const hex = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('')
   form.clientSecret = 'ee' + hex
+  validateSecret()
 }
 </script>

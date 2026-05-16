@@ -16,14 +16,14 @@ export const VLESS_REALITY_PRESETS = [
     {
         id: 'ghost-mode',
         label: 'Ghost Mode',
-        description: 'Пустой SNI + пустой fingerprint + порт 47001 — 100% обход ТСПУ',
+        description: 'gosuslugi.ru SNI + randomized fingerprint + порт 47001',
         transport: {
             network: 'tcp',
             security: 'reality',
             reality: {
-                fingerprint: '',         // empty → default Go, bypasses JA3/JA4
-                serverNames: '',         // empty SNI, bypasses TSPU signatures
-                target: '',
+                fingerprint: 'randomized',    // randomized JA3, harder to pin
+                serverNames: 'gosuslugi.ru',  // CRITICAL: блокировка сломает госуслуги
+                target: 'gosuslugi.ru:443',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/',
@@ -33,7 +33,7 @@ export const VLESS_REALITY_PRESETS = [
         },
         port: 47001,
         flow: 'xtls-rprx-vision',
-        notes: 'Порт 443 под мониторингом ТСПУ. На 443 — Nginx фасад с реальным сайтом для защиты от Active Probing.',
+        notes: 'gosuslugi.ru — критическая инфраструктура РФ. Блокировка невозможна без остановки госуслуг. На 443 — Nginx фасад.',
     },
     {
         id: 'best-speed',
@@ -86,9 +86,30 @@ export const VLESS_REALITY_PRESETS = [
         flow: '',
     },
     {
+        id: 'rf-critical',
+        label: 'RF Critical',
+        description: 'TCP + Sberbank SNI + порт 50001 — блокировка невозможна',
+        transport: {
+            network: 'tcp',
+            security: 'reality',
+            reality: {
+                fingerprint: 'randomized',
+                serverNames: 'online.sberbank.ru',
+                target: 'online.sberbank.ru:443',
+                publicKey: '',
+                shortIds: '',
+                spiderX: '/',
+                show: false,
+            },
+        },
+        port: 50001,
+        flow: 'xtls-rprx-vision',
+        notes: 'online.sberbank.ru — крупнейший банк РФ. Блокировка сломает Сбербанк Онлайн.',
+    },
+    {
         id: 'anti-dpi',
         label: 'Anti-DPI',
-        description: 'TCP + randomized + SNI своего ДЦ + порт 50000+',
+        description: 'TCP + randomized + SNI своего ДЦ + порт 50002',
         transport: {
             network: 'tcp',
             security: 'reality',
@@ -102,7 +123,7 @@ export const VLESS_REALITY_PRESETS = [
                 show: false,
             },
         },
-        port: 50001,
+        port: 50002,
         flow: 'xtls-rprx-vision',
         notes: 'Впиши SNI домена того же дата-центра (Reality SNI Finder). На 443 — Nginx фасад.',
     },
@@ -113,14 +134,14 @@ export const TROJAN_PRESETS = [
     {
         id: 'ghost-mode',
         label: 'Ghost Mode',
-        description: 'Пустой SNI + пустой fingerprint + порт 47003',
+        description: 'gosuslugi.ru SNI + randomized fingerprint + порт 47003',
         transport: {
             network: 'tcp',
             security: 'reality',
             reality: {
-                fingerprint: '',
-                serverNames: '',
-                target: '',
+                fingerprint: 'randomized',
+                serverNames: 'gosuslugi.ru',
+                target: 'gosuslugi.ru:443',
                 publicKey: '',
                 shortIds: '',
                 spiderX: '/',
