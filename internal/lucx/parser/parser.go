@@ -24,6 +24,13 @@ type NodeCreds struct {
 	APIToken    string `json:"apiToken"`
 }
 
+// LUCX-HOOK: ANSI escape code stripper for colored SSH output
+var reANSI = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+
+func stripANSI(s string) string {
+	return reANSI.ReplaceAllString(s, "")
+}
+
 var (
 	reAccessURL  = regexp.MustCompile(`Access URL:\s+(https?)://([^\s:]+)(?::(\d+))?(/\S*)`)
 	reUsername   = regexp.MustCompile(`Username:\s+(.+)`)
@@ -39,6 +46,9 @@ func ParseSSHOutput(text string) (*NodeCreds, error) {
 	if strings.TrimSpace(text) == "" {
 		return nil, fmt.Errorf("empty input")
 	}
+
+	// LUCX-HOOK: Strip ANSI escape codes for robust parsing of colored output
+	text = stripANSI(text)
 
 	creds := &NodeCreds{}
 

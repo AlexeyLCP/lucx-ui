@@ -105,6 +105,29 @@ func TestParseSSHOutput_GarbageInput(t *testing.T) {
 	}
 }
 
+
+func TestParseSSHOutput_ANSIColors(t *testing.T) {
+	// Simulates actual SSH output with ANSI color codes from install script
+	input := "\033[0;32mUsername:    admin12345\033[0m\n" +
+		"\033[0;32mPassword:    xK9mP2vL7q\033[0m\n" +
+		"\033[0;32mPort:        2053\033[0m\n" +
+		"\033[0;32mAccess URL:  https://5.9.1.2:2053/test\033[0m\n" +
+		"\033[0;32mAPI Token:   tok123\033[0m"
+
+	creds, err := ParseSSHOutput(input)
+	if err != nil {
+		t.Fatalf("ANSI colors should not break parsing: %v", err)
+	}
+	if creds.Username != "admin12345" {
+		t.Errorf("expected admin12345, got %s", creds.Username)
+	}
+	if creds.Password != "xK9mP2vL7q" {
+		t.Errorf("expected xK9mP2vL7q, got %s", creds.Password)
+	}
+	if creds.APIToken != "tok123" {
+		t.Errorf("expected tok123, got %s", creds.APIToken)
+	}
+}
 func TestParseSSHOutput_PartialOutput_URLOnly(t *testing.T) {
 	input := `Access URL:  https://5.9.1.2:8443/mybase
 Username:    myuser`
