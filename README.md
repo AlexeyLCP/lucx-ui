@@ -21,9 +21,29 @@ All responsibility for the deployment, use, and compliance of this software lies
 bash <(curl -fsSL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install-lucx.sh)
 ```
 
-Access: `http://<server_ip>:<port>/<basepath>` — реквизиты выводятся установщиком в конце.
+Access URL and credentials are printed by the installer at the end. Credentials are random, unique per installation.
 
-## Added Protocols
+### Requirements
+
+Debian 12/13, Ubuntu 22.04/24.04. Go 1.24+, Node.js 18+ for source builds.
+
+### Build from source
+
+```bash
+git clone https://github.com/AlexeyLCP/lucx-ui
+cd lucx-ui/frontend && npm install && npm run build && cd ..
+go build -o lucx-ui -ldflags="-s -w" .
+```
+
+## Features
+
+- 6 protocol presets optimized for Russia DPI (May 2026) — one click in the Stream tab
+- Auto-paired child Xray inbounds — TUN for AWG, SOCKS5 for Telemt
+- Native traffic accounting via Xray gRPC API, no custom parsers
+- 152 LUCX-HOOK markers — clean upstream merges, ~31 Go + 9 Vue/JS isolated files
+- 68 tests — unit, integration, chaos/stress
+
+## Protocol Support
 
 | Protocol | Transport | Obfuscation | Traffic Path |
 |----------|-----------|-------------|-------------|
