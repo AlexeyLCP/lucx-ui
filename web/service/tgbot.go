@@ -31,6 +31,10 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/web/locale"
 	"github.com/mhsanaei/3x-ui/v3/xray"
 
+	// LUCX-HOOK: Isolated Telegram bot helpers
+	lucx_telegram "github.com/mhsanaei/3x-ui/v3/internal/lucx/telegram"
+	// END LUCX-HOOK
+
 	"github.com/google/uuid"
 	"github.com/mymmrac/telego"
 	th "github.com/mymmrac/telego/telegohandler"
@@ -123,9 +127,8 @@ type Tgbot struct {
 	xrayService    XrayService
 	lastStatus     *Status
 
-	// LUCX-HOOK: Per-user language preferences
-	userLangs   map[int64]string // chatId → language code
-	userLangsMu sync.RWMutex
+	// LUCX-HOOK: Persistent language store in isolated package
+	langStore *lucx_telegram.LangStore
 	// END LUCX-HOOK
 }
 
@@ -202,8 +205,8 @@ func (t *Tgbot) Start(i18nFS embed.FS) error {
 	// Initialize worker pool for concurrent message processing (max 10 concurrent handlers)
 	messageWorkerPool = make(chan struct{}, 10)
 
-	// LUCX-HOOK: Initialize per-user language preferences
-	t.userLangs = make(map[int64]string)
+	// LUCX-HOOK: Initialize persistent language store
+	t.langStore = lucx_telegram.NewLangStore()
 	// END LUCX-HOOK
 
 	// Initialize optimized HTTP client with connection pooling
@@ -661,38 +664,11 @@ func (t *Tgbot) OnReceive() {
 	}()
 }
 
-// LUCX-HOOK: Language selection
+// LUCX-HOOK: Language menu delegated to isolated package
 func (t *Tgbot) sendLanguageMenu(chatId int64) {
-	keyboard := tu.InlineKeyboard(
-		tu.InlineKeyboardRow(
-			tu.InlineKeyboardButton("English").WithCallbackData("lang:en-US"),
-			tu.InlineKeyboardButton("Русский").WithCallbackData("lang:ru-RU"),
-		),
-		tu.InlineKeyboardRow(
-			tu.InlineKeyboardButton("فارسی").WithCallbackData("lang:fa-IR"),
-			tu.InlineKeyboardButton("中文").WithCallbackData("lang:zh-CN"),
-		),
-	)
-	t.SendMsgToTgbot(chatId, "🌐 Выберите язык / Choose language:", keyboard)
+	_ = lucx_telegram.SendLanguageMenu(bot, chatId)
 }
 // END LUCX-HOOK
-
-// setUserLang stores the language preference for a given chat.
-func (t *Tgbot) setUserLang(chatId int64, lang string) {
-	t.userLangsMu.Lock()
-	t.userLangs[chatId] = lang
-	t.userLangsMu.Unlock()
-}
-
-// getUserLang retrieves the language preference for a given chat.
-func (t *Tgbot) getUserLang(chatId int64) string {
-	t.userLangsMu.RLock()
-	defer t.userLangsMu.RUnlock()
-	if lang, ok := t.userLangs[chatId]; ok {
-		return lang
-	}
-	return ""
-}
 
 // answerCommand processes incoming command messages from Telegram users.
 func (t *Tgbot) answerCommand(message *telego.Message, chatId int64, isAdmin bool) {
@@ -806,10 +782,9 @@ func (t *Tgbot) randomShadowSocksPassword() string {
 func (t *Tgbot) answerCallback(callbackQuery *telego.CallbackQuery, isAdmin bool) {
 	chatId := callbackQuery.Message.GetChat().ID
 
-	// LUCX-HOOK: Language callback
-	if strings.HasPrefix(callbackQuery.Data, "lang:") {
-		lang := strings.TrimPrefix(callbackQuery.Data, "lang:")
-		t.setUserLang(chatId, lang)
+	// LUCX-HOOK: Language callback — delegated to isolated package
+	if lang, ok := lucx_telegram.HandleLanguageCallback(callbackQuery.Data); ok {
+		t.langStore.Set(chatId, lang)
 		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.messages.languageChanged"), nil)
 		t.sendCallbackAnswerTgBot(callbackQuery.ID, "✅")
 		return
@@ -2547,7 +2522,63 @@ func (t *Tgbot) sendClientSubLinks(chatId int64, email string) {
 }
 
 // sendClientIndividualLinks fetches the subscription content (individual links) and sends it to the user
+// LUCX-HOOK: Find inbound and client by email for AWG/Telemt dispatch
+func (t *Tgbot) findInboundForClient(email string) (*model.Inbound, *model.Client) {
+	inbounds, err := t.inboundService.GetAllInbounds()
+	if err != nil {
+		return nil, nil
+	}
+	for idx := range inbounds {
+		ib := inbounds[idx]
+		var settings map[string]interface{}
+		if err := json.Unmarshal([]byte(ib.Settings), &settings); err != nil {
+			continue
+		}
+		clients, _ := settings["clients"].([]interface{})
+		for _, c := range clients {
+			cm, _ := c.(map[string]interface{})
+			if clientEmail, _ := cm["email"].(string); clientEmail == email {
+				client := &model.Client{
+					Email:    email,
+					ID:       getStr(cm, "id"),
+					Password: getStr(cm, "password"),
+					Enable:   true,
+				}
+				return ib, client
+			}
+		}
+	}
+	return nil, nil
+}
+
+func getStr(m map[string]interface{}, key string) string {
+	if v, ok := m[key]; ok {
+		if s, ok := v.(string); ok {
+			return s
+		}
+	}
+	return ""
+}
+
 func (t *Tgbot) sendClientIndividualLinks(chatId int64, email string) {
+	// LUCX-HOOK: Intercept AWG/Telemt — send config file or proxy link instead
+	if inbound, client := t.findInboundForClient(email); inbound != nil {
+		serverIP := lucx_telegram.GetServerIP(*inbound)
+		statsText := fmt.Sprintf("<b>%s Client:</b> %s\n<b>Protocol:</b> %s",
+			strings.ToUpper(string(inbound.Protocol)), email, string(inbound.Protocol))
+		switch inbound.Protocol {
+		case model.AWG:
+			if err := lucx_telegram.SendAWGClientConfig(bot, chatId, *client, *inbound, serverIP, statsText); err == nil {
+				return
+			}
+		case model.Telemt:
+			if err := lucx_telegram.SendTelemtClientData(bot, chatId, *client, *inbound, serverIP, statsText); err == nil {
+				return
+			}
+		}
+	}
+	// END LUCX-HOOK
+
 	// Build the HTML sub page URL; we'll call it with header Accept to get raw content
 	subURL, _, err := t.buildSubscriptionURLs(email)
 	if err != nil {
