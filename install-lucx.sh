@@ -8,7 +8,7 @@ plain='\033[0m'
 
 cur_dir=$(pwd)
 
-xui_folder="${XUI_MAIN_FOLDER:=/usr/local/lucx-ui}"
+xui_folder="${XUI_MAIN_FOLDER:=/usr/local/x-ui}"
 xui_service="${XUI_SERVICE:=/etc/systemd/system}"
 
 # check root
@@ -106,23 +106,22 @@ install_base() {
     echo -e "${green}Installing LucX dependencies (iproute2, iptables, AWG)...${plain}"
     case "${release}" in
         ubuntu | debian | armbian)
-            apt-get install -y -q iproute2 iptables wireguard-tools 2>/dev/null || true
+            apt-get install -y -q iproute2 iptables 2>/dev/null || true
             apt-get install -y -q linux-headers-$(uname -r) amneziawg-dkms amneziawg-tools 2>/dev/null || true
             modprobe amneziawg 2>/dev/null || {
                 echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
                 echo -e "${yellow}│ [WARNING] AWG kernel module failed to compile.      │${plain}"
-                echo -e "${yellow}│ Panel works fine — AWG inbounds need manual setup.  │${plain}"
-                echo -e "${yellow}│ See: https://github.com/amnezia-vpn/amneziawg       │${plain}"
+                echo -e "${yellow}│ Panel works — AWG inbounds need manual setup.       │${plain}"
                 echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
             }
             ;;
         centos | fedora | rhel | almalinux | rocky | ol)
-            yum install -y -q iproute iptables wireguard-tools kernel-headers 2>/dev/null || true
+            yum install -y -q iproute iptables kernel-headers 2>/dev/null || true
             yum install -y -q amneziawg-dkms amneziawg-tools 2>/dev/null || true
             modprobe amneziawg 2>/dev/null || true
             ;;
         arch | manjaro)
-            pacman -S --noconfirm iproute2 iptables wireguard-tools linux-headers 2>/dev/null || true
+            pacman -S --noconfirm iproute2 iptables linux-headers 2>/dev/null || true
             pacman -S --noconfirm amneziawg-dkms amneziawg-tools 2>/dev/null || true
             modprobe amneziawg 2>/dev/null || true
             ;;
@@ -798,11 +797,10 @@ config_after_install() {
             echo -e "${green}═══════════════════════════════════════════${plain}"
             echo -e "${green}     Panel Installation Complete!         ${plain}"
             echo -e "${green}═══════════════════════════════════════════${plain}"
-            # LUCX-HOOK: Plain-text format required by SSH parser (internal/lucx/parser)
             echo -e "Username:    ${config_username}"
             echo -e "Password:    ${config_password}"
-            echo -e "Port:        ${config_port}"
-            echo -e "WebBasePath: ${config_webBasePath}"
+            echo -e "${green}Port:        ${config_port}${plain}"
+            echo -e "${green}WebBasePath: ${config_webBasePath}${plain}"
             echo -e "Access URL:  ${SSL_SCHEME}://${SSL_HOST}:${config_port}/${config_webBasePath}"
             echo -e "API Token:   ${config_apiToken}"
             echo -e "${green}═══════════════════════════════════════════${plain}"
@@ -907,9 +905,9 @@ install_x-ui() {
             exit 1
         fi
     fi
-    curl -4fLRo /usr/bin/lucx-ui-temp https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/lucx-ui.sh
+    curl -4fLRo /usr/bin/x-ui-temp https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/x-ui.sh
     if [[ $? -ne 0 ]]; then
-        echo -e "${red}Failed to download lucx-ui.sh${plain}"
+        echo -e "${red}Failed to download x-ui.sh${plain}"
         exit 1
     fi
 
@@ -929,7 +927,7 @@ install_x-ui() {
 
     cd x-ui
     chmod +x x-ui
-    chmod +x lucx-ui.sh
+    chmod +x x-ui.sh
 
     # Check the system's architecture and rename the file accordingly
     if [[ $(arch) == "armv5" || $(arch) == "armv6" || $(arch) == "armv7" ]]; then
@@ -939,16 +937,15 @@ install_x-ui() {
     chmod +x x-ui bin/xray-linux-$(arch)
 
     # Update x-ui cli and se set permission
-    mv -f /usr/bin/lucx-ui-temp /usr/bin/lucx-ui
-    chmod +x /usr/bin/lucx-ui
-    mkdir -p /var/log/lucx-ui
+    mv -f /usr/bin/x-ui-temp /usr/bin/x-ui
+    chmod +x /usr/bin/x-ui
+    mkdir -p /var/log/x-ui
 
     # LUCX-HOOK: Create LucX engine directories
     mkdir -p /etc/amnezia/amneziawg
     mkdir -p /etc/telemt /var/lib/telemt /var/run/telemt
     chmod 755 /etc/amnezia/amneziawg /etc/telemt /var/lib/telemt /var/run/telemt
     # END LUCX-HOOK
-
     config_after_install
 
     # Etckeeper compatibility
@@ -966,9 +963,9 @@ install_x-ui() {
     fi
 
     if [[ $release == "alpine" ]]; then
-        curl -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/lucx-ui.rc
+        curl -4fLRo /etc/init.d/x-ui https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/x-ui.rc
         if [[ $? -ne 0 ]]; then
-            echo -e "${red}Failed to download lucx-ui.rc${plain}"
+            echo -e "${red}Failed to download x-ui.rc${plain}"
             exit 1
         fi
         chmod +x /etc/init.d/x-ui
@@ -978,9 +975,9 @@ install_x-ui() {
         # Install systemd service file
         service_installed=false
 
-        if [ -f "lucx-ui.service" ]; then
-            echo -e "${green}Found lucx-ui.service in extracted files, installing...${plain}"
-            cp -f lucx-ui.service ${xui_service}/ > /dev/null 2>&1
+        if [ -f "x-ui.service" ]; then
+            echo -e "${green}Found x-ui.service in extracted files, installing...${plain}"
+            cp -f x-ui.service ${xui_service}/ > /dev/null 2>&1
             if [[ $? -eq 0 ]]; then
                 service_installed=true
             fi
@@ -989,27 +986,27 @@ install_x-ui() {
         if [ "$service_installed" = false ]; then
             case "${release}" in
                 ubuntu | debian | armbian)
-                    if [ -f "lucx-ui.service.debian" ]; then
-                        echo -e "${green}Found lucx-ui.service.debian in extracted files, installing...${plain}"
-                        cp -f lucx-ui.service.debian ${xui_service}/lucx-ui.service > /dev/null 2>&1
+                    if [ -f "x-ui.service.debian" ]; then
+                        echo -e "${green}Found x-ui.service.debian in extracted files, installing...${plain}"
+                        cp -f x-ui.service.debian ${xui_service}/x-ui.service > /dev/null 2>&1
                         if [[ $? -eq 0 ]]; then
                             service_installed=true
                         fi
                     fi
                     ;;
                 arch | manjaro | parch)
-                    if [ -f "lucx-ui.service.arch" ]; then
-                        echo -e "${green}Found lucx-ui.service.arch in extracted files, installing...${plain}"
-                        cp -f lucx-ui.service.arch ${xui_service}/lucx-ui.service > /dev/null 2>&1
+                    if [ -f "x-ui.service.arch" ]; then
+                        echo -e "${green}Found x-ui.service.arch in extracted files, installing...${plain}"
+                        cp -f x-ui.service.arch ${xui_service}/x-ui.service > /dev/null 2>&1
                         if [[ $? -eq 0 ]]; then
                             service_installed=true
                         fi
                     fi
                     ;;
                 *)
-                    if [ -f "lucx-ui.service.rhel" ]; then
-                        echo -e "${green}Found lucx-ui.service.rhel in extracted files, installing...${plain}"
-                        cp -f lucx-ui.service.rhel ${xui_service}/lucx-ui.service > /dev/null 2>&1
+                    if [ -f "x-ui.service.rhel" ]; then
+                        echo -e "${green}Found x-ui.service.rhel in extracted files, installing...${plain}"
+                        cp -f x-ui.service.rhel ${xui_service}/x-ui.service > /dev/null 2>&1
                         if [[ $? -eq 0 ]]; then
                             service_installed=true
                         fi
@@ -1023,18 +1020,18 @@ install_x-ui() {
             echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
             case "${release}" in
                 ubuntu | debian | armbian)
-                    curl -4fLRo ${xui_service}/lucx-ui.service https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/lucx-ui.service.debian > /dev/null 2>&1
+                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/x-ui.service.debian > /dev/null 2>&1
                     ;;
                 arch | manjaro | parch)
-                    curl -4fLRo ${xui_service}/lucx-ui.service https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/lucx-ui.service.arch > /dev/null 2>&1
+                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/x-ui.service.arch > /dev/null 2>&1
                     ;;
                 *)
-                    curl -4fLRo ${xui_service}/lucx-ui.service https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/lucx-ui.service.rhel > /dev/null 2>&1
+                    curl -4fLRo ${xui_service}/x-ui.service https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/x-ui.service.rhel > /dev/null 2>&1
                     ;;
             esac
 
             if [[ $? -ne 0 ]]; then
-                echo -e "${red}Failed to install lucx-ui.service from GitHub${plain}"
+                echo -e "${red}Failed to install x-ui.service from GitHub${plain}"
                 exit 1
             fi
             service_installed=true
@@ -1042,13 +1039,13 @@ install_x-ui() {
 
         if [ "$service_installed" = true ]; then
             echo -e "${green}Setting up systemd unit...${plain}"
-            chown root:root ${xui_service}/lucx-ui.service > /dev/null 2>&1
-            chmod 644 ${xui_service}/lucx-ui.service > /dev/null 2>&1
+            chown root:root ${xui_service}/x-ui.service > /dev/null 2>&1
+            chmod 644 ${xui_service}/x-ui.service > /dev/null 2>&1
             systemctl daemon-reload
             systemctl enable x-ui
             systemctl start x-ui
         else
-            echo -e "${red}Failed to install lucx-ui.service file${plain}"
+            echo -e "${red}Failed to install x-ui.service file${plain}"
             exit 1
         fi
     fi
