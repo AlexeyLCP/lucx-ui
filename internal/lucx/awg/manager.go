@@ -97,7 +97,10 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 		RoutePref:      rtPref,
 		MTU:            params.MTU,
 	}
-	m.writeConfigFiles(awg, params, tmplData)
+	if err := m.writeConfigFiles(awg, params, tmplData); err != nil {
+		m.rollbackCreate(awg.Id)
+		return nil, fmt.Errorf("write config: %w", err)
+	}
 
 	// 9. Setup routing (creates interface, iptables, routes) — idempotent
 	routingCfg := RoutingConfig{
@@ -328,25 +331,44 @@ func (m *AWGManager) createTUNChild(awg *model.Inbound, params *AWGParams, tunNa
 	return tunInbound, nil
 }
 
-func (m *AWGManager) writeConfigFiles(awg *model.Inbound, params *AWGParams, data TemplateData) {
+func (m *AWGManager) writeConfigFiles(awg *model.Inbound, params *AWGParams, data TemplateData) error {
 	awgID := awg.Id
-	os.MkdirAll(awgConfigDir, 0755)
 
-	postUp, _ := RenderPostUp(data)
-	postDown, _ := RenderPostDown(data)
+	if err := os.MkdirAll(awgConfigDir, 0755); err != nil {
+		return fmt.Errorf("mkdir %s: %w", awgConfigDir, err)
+	}
+
+	postUp, err := RenderPostUp(data)
+	if err != nil {
+		return fmt.Errorf("render PostUp: %w", err)
+	}
+	postDown, err := RenderPostDown(data)
+	if err != nil {
+		return fmt.Errorf("render PostDown: %w", err)
+	}
 
 	upPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgID))
 	downPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-down.sh", awgID))
-	os.WriteFile(upPath, []byte(postUp), 0755)
-	os.WriteFile(downPath, []byte(postDown), 0755)
+	if err := os.WriteFile(upPath, []byte(postUp), 0755); err != nil {
+		return fmt.Errorf("write %s: %w", upPath, err)
+	}
+	if err := os.WriteFile(downPath, []byte(postDown), 0755); err != nil {
+		return fmt.Errorf("write %s: %w", downPath, err)
+	}
+
+	logAWG("BuildServerConfig: Jc=%d Jmin=%d Jmax=%d S1=%d S2=%d S3=%d S4=%d H1=%s",
+		params.Jc, params.Jmin, params.Jmax, params.S1, params.S2, params.S3, params.S4, params.H1)
 
 	conf := BuildServerConfig(awg, params, data, upPath, downPath)
 	confPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgID))
-	os.WriteFile(confPath, []byte(conf), 0600)
+	if err := os.WriteFile(confPath, []byte(conf), 0600); err != nil {
+		return fmt.Errorf("write %s: %w", confPath, err)
+	}
 
 	appendToFile("/etc/iproute2/rt_tables", fmt.Sprintf("%d %s\n", 100+awgID, data.RouteTableName))
 
 	logAWG("writeConfig: inbound=%d conf=%s up=%s down=%s", awgID, confPath, upPath, downPath)
+	return nil
 }
 
 func (m *AWGManager) rollbackCreate(awgID int) {
