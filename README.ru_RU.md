@@ -18,6 +18,9 @@
 ## Установка
 
 ```bash
+# Русская версия установщика
+bash <(curl -fsSL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install-lucx-ru.sh)
+# English version
 bash <(curl -fsSL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install-lucx.sh)
 ```
 
