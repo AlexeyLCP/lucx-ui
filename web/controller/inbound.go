@@ -10,7 +10,6 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/awg"
-	"github.com/mhsanaei/3x-ui/v3/logger"
 	"github.com/mhsanaei/3x-ui/v3/web/service"
 	"github.com/mhsanaei/3x-ui/v3/web/session"
 	"github.com/mhsanaei/3x-ui/v3/web/websocket"
@@ -174,51 +173,29 @@ func (a *InboundController) addInbound(c *gin.Context) {
 		}
 	}
 
-	inbound, needRestart, err := a.inboundService.AddInbound(inbound)
-	if err != nil {
-		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
-		return
-	}
-	// LUCX-HOOK: Ensure AWG obfuscation params + auto-create first client for new AWG inbounds
+	// LUCX-HOOK: AWG inbounds go through full CreateAWGInbound (interface + config + TUN child)
 	if inbound.Protocol == "awg" {
-		if repaired, wasRepaired := awg.RepairAWGOnGet(inbound); wasRepaired {
-			if _, _, updateErr := a.inboundService.UpdateInbound(repaired); updateErr != nil {
-				logger.Warning("[LUCX] addInbound: failed to repair AWG obfuscation for id=%d: %v", inbound.Id, updateErr)
-			} else {
-				inbound = repaired
-				logger.Debug("[LUCX] addInbound: auto-repaired AWG obfuscation for id=%d", inbound.Id)
-			}
+		awgSvc := awg.NewAWGService(&a.inboundService, &a.xrayService)
+		inbound, err = awgSvc.CreateAWGInbound(inbound)
+		if err != nil {
+			jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+			return
 		}
-		// Auto-create first client so the inbound is usable immediately
-		clients, _ := a.inboundService.GetClients(inbound)
-		if len(clients) == 0 {
-			defaultClient := model.Client{
-				ID:         awg.GenKey(),
-				Password:   awg.GenPSK(),
-				PrivateKey: awg.GenKey(),
-				Email:      fmt.Sprintf("c_%d", inbound.Id),
-				Enable:     true,
-				ExpiryTime: 0,
-			}
-			var settings map[string]any
-			if err := json.Unmarshal([]byte(inbound.Settings), &settings); err == nil {
-				settings["clients"] = []model.Client{defaultClient}
-				if updated, err2 := json.MarshalIndent(settings, "", "  "); err2 == nil {
-					inbound.Settings = string(updated)
-					if _, _, updateErr := a.inboundService.UpdateInbound(inbound); updateErr != nil {
-						logger.Warning("[LUCX] addInbound: failed to add default AWG client for id=%d: %v", inbound.Id, updateErr)
-					} else {
-						logger.Debug("[LUCX] addInbound: auto-created default client for AWG id=%d", inbound.Id)
-					}
-				}
-			}
+	} else {
+		inbound, needRestart, err := a.inboundService.AddInbound(inbound)
+		if err != nil {
+			jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+			return
 		}
+		jsonMsgObj(c, I18nWeb(c, "pages.inbounds.toasts.inboundCreateSuccess"), inbound, nil)
+		if needRestart {
+			a.xrayService.SetToNeedRestart()
+		}
+		a.broadcastInboundsUpdate(user.Id)
+		return
 	}
 	// END LUCX-HOOK
 	jsonMsgObj(c, I18nWeb(c, "pages.inbounds.toasts.inboundCreateSuccess"), inbound, nil)
-	if needRestart {
-		a.xrayService.SetToNeedRestart()
-	}
 	a.broadcastInboundsUpdate(user.Id)
 }
 
@@ -427,6 +404,14 @@ func (a *InboundController) delInboundClient(c *gin.Context) {
 	}
 	clientId := c.Param("clientId")
 
+	// LUCX-HOOK: Convert URL-safe base64 back to standard for AWG/Telemt client IDs
+	if inbound, lookupErr := a.inboundService.GetInbound(id); lookupErr == nil {
+		if inbound.Protocol == "awg" || inbound.Protocol == "telemt" {
+			clientId = awg.FromURLSafeKey(clientId)
+		}
+	}
+	// END LUCX-HOOK
+
 	needRestart, err := a.inboundService.DelInboundClient(id, clientId)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
@@ -448,6 +433,12 @@ func (a *InboundController) updateInboundClient(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.inboundUpdateSuccess"), err)
 		return
 	}
+
+	// LUCX-HOOK: Convert URL-safe base64 back to standard for AWG/Telemt client IDs
+	if inbound.Protocol == "awg" || inbound.Protocol == "telemt" {
+		clientId = awg.FromURLSafeKey(clientId)
+	}
+	// END LUCX-HOOK
 
 	needRestart, err := a.inboundService.UpdateInboundClient(inbound, clientId)
 	if err != nil {

@@ -93,11 +93,11 @@ func genKey() string {
 	return base64.StdEncoding.EncodeToString(key)
 }
 
-// GenKey generates a random 32-byte URL-safe base64 key (matches frontend genBase64).
+// GenKey generates a random 32-byte standard base64 key (44 chars, WireGuard compatible).
 func GenKey() string {
 	key := make([]byte, 32)
 	rand.Read(key)
-	return base64.RawURLEncoding.EncodeToString(key)
+	return base64.StdEncoding.EncodeToString(key)
 }
 
 func genPSK() string {
@@ -106,11 +106,24 @@ func genPSK() string {
 	return base64.StdEncoding.EncodeToString(psk)
 }
 
-// GenPSK generates a random 32-byte URL-safe base64 pre-shared key (matches frontend genBase64).
+// GenPSK generates a random 32-byte standard base64 pre-shared key (44 chars, WireGuard compatible).
 func GenPSK() string {
 	psk := make([]byte, 32)
 	rand.Read(psk)
-	return base64.RawURLEncoding.EncodeToString(psk)
+	return base64.StdEncoding.EncodeToString(psk)
+}
+
+// FromURLSafeKey converts a URL-safe base64 key back to standard base64 with padding.
+// Used when receiving client keys from API path parameters (Gin can't handle %2F).
+func FromURLSafeKey(urlSafe string) string {
+	std := strings.ReplaceAll(strings.ReplaceAll(urlSafe, "-", "+"), "_", "/")
+	switch len(std) % 4 {
+	case 2:
+		std += "=="
+	case 3:
+		std += "="
+	}
+	return std
 }
 
 func randInt(min, max int) int {

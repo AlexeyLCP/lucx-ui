@@ -16,7 +16,7 @@ import { postLucx } from '@/api/lucx-api';
 // END LUCX-HOOK
 
 // LUCX-HOOK: AWG/Telemt client generators from isolated module
-import { generateAWGClient, generateTelemtClient } from '@/lucx/client-generators.js';
+import { generateAWGClient, generateTelemtClient, toUrlSafeKey } from '@/lucx/client-generators.js';
 import { Inbound } from '@/models/inbound.js';
 import { theme as themeState, antdThemeConfig } from '@/composables/useTheme.js';
 import { useMediaQuery } from '@/composables/useMediaQuery.js';
@@ -348,8 +348,10 @@ async function onResetTrafficClient({ dbInbound, client }) {
 
 async function onDeleteClient({ dbInbound, client }) {
   const clientId = getClientId(dbInbound.protocol, client);
+  const urlId = (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt')
+    ? toUrlSafeKey(clientId) : clientId;
   try {
-    const msg = await HttpUtil.post(`/panel/api/inbounds/${dbInbound.id}/delClient/${encodeURIComponent(clientId)}`);
+    const msg = await HttpUtil.post(`/panel/api/inbounds/${dbInbound.id}/delClient/${encodeURIComponent(urlId)}`);
     if (!msg?.success) {
       message.error(msg?.msg || 'Failed to delete client');
       return;
@@ -373,7 +375,9 @@ async function onDeleteClient({ dbInbound, client }) {
 async function onDeleteClients({ dbInbound, clients }) {
   for (const client of clients) {
     const clientId = getClientId(dbInbound.protocol, client);
-    await HttpUtil.post(`/panel/api/inbounds/${dbInbound.id}/delClient/${encodeURIComponent(clientId)}`);
+    const urlId = (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt')
+      ? toUrlSafeKey(clientId) : clientId;
+    await HttpUtil.post(`/panel/api/inbounds/${dbInbound.id}/delClient/${encodeURIComponent(urlId)}`);
   }
   await refresh();
 }
@@ -388,8 +392,11 @@ async function onToggleEnableClient({ dbInbound, client, next }) {
   if (idx < 0 || !clients[idx]) return;
   clients[idx].enable = next;
   const clientId = getClientId(dbInbound.protocol, clients[idx]);
+  // LUCX-HOOK: Convert standard base64 to URL-safe for path param (Gin chokes on %2F)
+  const urlId = (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt')
+    ? toUrlSafeKey(clientId) : clientId;
   try {
-    const msg = await HttpUtil.post(`/panel/api/inbounds/updateClient/${encodeURIComponent(clientId)}`, {
+    const msg = await HttpUtil.post(`/panel/api/inbounds/updateClient/${encodeURIComponent(urlId)}`, {
       id: dbInbound.id,
       // LUCX-HOOK: AWG/Telemt clients are plain objects — JSON.stringify needed instead of toString()
       settings: (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt')

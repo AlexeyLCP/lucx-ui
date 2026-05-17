@@ -14,7 +14,30 @@ function genBase64(len = 32) {
   for (let i = 0; i < bytes.length; i++) {
     binary += String.fromCharCode(bytes[i]);
   }
+  // Standard base64 with padding — 44 chars for 32 bytes, required by WireGuard/AWG
   return btoa(binary);
+}
+
+/**
+ * Convert a standard base64 key to URL-safe form (no + / or = padding).
+ * Use when the key appears in API path parameters (Gin chokes on %2F).
+ */
+export function toUrlSafeKey(key) {
+  return (key || '').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+/**
+ * Convert URL-safe key back to standard base64 with padding.
+ * Use on the backend side when receiving a key from a URL path.
+ */
+export function fromUrlSafeKey(key) {
+  if (!key) return '';
+  let std = key.replace(/-/g, '+').replace(/_/g, '/');
+  // Restore padding
+  const mod = std.length % 4;
+  if (mod === 2) std += '==';
+  else if (mod === 3) std += '=';
+  return std;
 }
 
 /**
