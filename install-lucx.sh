@@ -122,16 +122,25 @@ install_base() {
         ubuntu | debian | armbian)
             apt-get install -y -q iproute2 iptables 2>/dev/null || true
             # AWG: build from source (pumbaX/awg-multi-script method)
+            # CRITICAL: upgrade kernel first so headers match running kernel exactly
+            echo -e "${green}Updating system packages (kernel)...${plain}"
+            apt-get upgrade -y -q 2>/dev/null || true
             echo -e "${green}Installing AWG build dependencies...${plain}"
             apt-get install -y -q build-essential git libmnl-dev pkg-config dkms 2>/dev/null || true
+            # Install meta-package so DKMS can rebuild AWG on future kernel updates
             echo -e "${green}Installing kernel headers...${plain}"
-            apt-get install -y -q "linux-headers-$(uname -r)" 2>/dev/null && {
-                echo -e "${green}Kernel headers installed for $(uname -r)${plain}"
-            } || {
-                echo -e "${yellow}Headers for $(uname -r) not found, updating kernel...${plain}"
-                apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || true
-                echo -e "${yellow}Kernel updated — reboot needed before AWG can load${plain}"
+            apt-get install -y -q "linux-headers-$(uname -r)" linux-headers-amd64 2>/dev/null || {
+                echo -e "${yellow}Headers for $(uname -r) not available, trying generic...${plain}"
+                apt-get install -y -q linux-headers-amd64 2>/dev/null || true
+                apt-get install -y -q "linux-headers-$(uname -r)" 2>/dev/null || true
             }
+            # Verify headers match running kernel
+            if [ -d "/lib/modules/$(uname -r)/build" ]; then
+                echo -e "${green}Kernel headers ready for $(uname -r)${plain}"
+            else
+                echo -e "${yellow}Warning: headers may not match running kernel $(uname -r)${plain}"
+                echo -e "${yellow}DKMS will rebuild module after next reboot${plain}"
+            fi
             # Build and install kernel module
             echo -e "${green}Building amneziawg kernel module...${plain}"
             local tmp_mod=/tmp/amneziawg-linux-kernel-module
@@ -157,31 +166,24 @@ install_base() {
                 rm -rf "$tmp_tools"
             }
             # Load module and enable autostart
-            modprobe amneziawg 2>/dev/null || {
-                echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
-                echo -e "${yellow}│ [WARNING] AWG kernel module failed to load.         │${plain}"
-                echo -e "${yellow}│ Panel works — AWG inbounds need manual setup.       │${plain}"
-                echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
-            }
-            if lsmod | grep -qE '^amneziawg\s' 2>/dev/null; then
+            # Load the module — if headers match running kernel, it loads immediately
+            modprobe amneziawg 2>/dev/null && {
                 echo "amneziawg" > /etc/modules-load.d/amneziawg.conf 2>/dev/null || true
                 echo -e "${green}AWG installed and loaded successfully${plain}"
-            else
+            } || {
                 echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
-                echo -e "${yellow}│ AWG module compiled but not loaded.                 │${plain}"
-                echo -e "${yellow}│ Kernel was likely updated — a REBOOT is required.   │${plain}"
-                echo -e "${yellow}│ After reboot, AWG will load automatically.          │${plain}"
+                echo -e "${yellow}│ AWG module needs a reboot to activate.               │${plain}"
+                echo -e "${yellow}│ Kernel was updated — reboot required.                │${plain}"
+                echo -e "${yellow}│ After reboot AWG loads automatically.                │${plain}"
                 echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
-                echo ""
-                read_prompt "Reboot NOW to activate AWG? (10s — default: Y) [Y/n]: " "Y" do_reboot
+                echo "amneziawg" > /etc/modules-load.d/amneziawg.conf 2>/dev/null || true
+                read_prompt "Reboot NOW? (10s — default: Y) [Y/n]: " "Y" do_reboot
                 if [[ "$do_reboot" != "n" && "$do_reboot" != "N" ]]; then
                     echo -e "${green}Rebooting in 5 seconds...${plain}"
                     sleep 5
                     reboot
-                else
-                    echo -e "${yellow}Please reboot manually before creating AWG inbounds.${plain}"
                 fi
-            fi
+            }
             ;;
         centos | fedora | rhel | almalinux | rocky | ol)
             yum install -y -q iproute iptables kernel-headers git dkms make gcc libmnl-devel 2>/dev/null || true

@@ -117,23 +117,32 @@ install_base() {
     esac
 
     # LUCX-HOOK: Install AWG/Telemt system dependencies
-    echo -e "${green}Installing LucX dependencies (iproute2, iptables, AWG)...${plain}"
+    echo -e "${green}Установка зависимостей LucX (iproute2, iptables, AWG)...${plain}"
     case "${release}" in
         ubuntu | debian | armbian)
             apt-get install -y -q iproute2 iptables 2>/dev/null || true
             # AWG: build from source (pumbaX/awg-multi-script method)
-            echo -e "${green}Installing AWG build dependencies...${plain}"
+            # CRITICAL: upgrade kernel first so headers match running kernel exactly
+            echo -e "${green}Обновление системных пакетов (ядро)...${plain}"
+            apt-get upgrade -y -q 2>/dev/null || true
+            echo -e "${green}Установка сборочных зависимостей AWG...${plain}"
             apt-get install -y -q build-essential git libmnl-dev pkg-config dkms 2>/dev/null || true
-            echo -e "${green}Installing kernel headers...${plain}"
-            apt-get install -y -q "linux-headers-$(uname -r)" 2>/dev/null && {
-                echo -e "${green}Kernel headers installed for $(uname -r)${plain}"
-            } || {
-                echo -e "${yellow}Headers for $(uname -r) not found, updating kernel...${plain}"
-                apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || true
-                echo -e "${yellow}Kernel updated — reboot needed before AWG can load${plain}"
+            # Install meta-package so DKMS can rebuild AWG on future kernel updates
+            echo -e "${green}Установка заголовков ядра...${plain}"
+            apt-get install -y -q "linux-headers-$(uname -r)" linux-headers-amd64 2>/dev/null || {
+                echo -e "${yellow}Заголовки для $(uname -r) недоступны, попытка установить generic...${plain}"
+                apt-get install -y -q linux-headers-amd64 2>/dev/null || true
+                apt-get install -y -q "linux-headers-$(uname -r)" 2>/dev/null || true
             }
+            # Verify headers match running kernel
+            if [ -d "/lib/modules/$(uname -r)/build" ]; then
+                echo -e "${green}Заголовки ядра готовы для $(uname -r)${plain}"
+            else
+                echo -e "${yellow}Предупреждение: заголовки могут не совпадать с ядром $(uname -r)${plain}"
+                echo -e "${yellow}DKMS пересоберёт модуль после перезагрузки${plain}"
+            fi
             # Build and install kernel module
-            echo -e "${green}Building amneziawg kernel module...${plain}"
+            echo -e "${green}Сборка модуля ядра amneziawg...${plain}"
             local tmp_mod=/tmp/amneziawg-linux-kernel-module
             rm -rf "$tmp_mod"
             git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git "$tmp_mod" 2>/dev/null && {
@@ -147,7 +156,7 @@ install_base() {
                 rm -rf "$tmp_mod"
             }
             # Build and install userspace tools
-            echo -e "${green}Building amneziawg tools (awg, awg-quick)...${plain}"
+            echo -e "${green}Сборка утилит amneziawg (awg, awg-quick)...${plain}"
             local tmp_tools=/tmp/amneziawg-tools
             rm -rf "$tmp_tools"
             git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git "$tmp_tools" 2>/dev/null && {
@@ -157,31 +166,24 @@ install_base() {
                 rm -rf "$tmp_tools"
             }
             # Load module and enable autostart
-            modprobe amneziawg 2>/dev/null || {
-                echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
-                echo -e "${yellow}│ [WARNING] AWG kernel module failed to load.         │${plain}"
-                echo -e "${yellow}│ Panel works — AWG inbounds need manual setup.       │${plain}"
-                echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
-            }
-            if lsmod | grep -qE '^amneziawg\s' 2>/dev/null; then
+            # Load the module — if headers match running kernel, it loads immediately
+            modprobe amneziawg 2>/dev/null && {
                 echo "amneziawg" > /etc/modules-load.d/amneziawg.conf 2>/dev/null || true
-                echo -e "${green}AWG installed and loaded successfully${plain}"
-            else
+                echo -e "${green}AWG установлен и загружен успешно${plain}"
+            } || {
                 echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
-                echo -e "${yellow}│ AWG module compiled but not loaded.                 │${plain}"
-                echo -e "${yellow}│ Kernel was likely updated — a REBOOT is required.   │${plain}"
-                echo -e "${yellow}│ After reboot, AWG will load automatically.          │${plain}"
+                echo -e "${yellow}│ Модулю AWG нужна перезагрузка для активации.               │${plain}"
+                echo -e "${yellow}│ Ядро обновлено — требуется перезагрузка.                │${plain}"
+                echo -e "${yellow}│ После перезагрузки AWG загрузится автоматически.                │${plain}"
                 echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
-                echo ""
-                read_prompt "Reboot NOW to activate AWG? (10s — default: Y) [Y/n]: " "Y" do_reboot
+                echo "amneziawg" > /etc/modules-load.d/amneziawg.conf 2>/dev/null || true
+                read_prompt "Перезагрузить СЕЙЧАС? (10с — по умолчанию: Y) [Y/n]: " "Y" do_reboot
                 if [[ "$do_reboot" != "n" && "$do_reboot" != "N" ]]; then
-                    echo -e "${green}Rebooting in 5 seconds...${plain}"
+                    echo -e "${green}Перезагрузка через 5 секунд...${plain}"
                     sleep 5
                     reboot
-                else
-                    echo -e "${yellow}Please reboot manually before creating AWG inbounds.${plain}"
                 fi
-            fi
+            }
             ;;
         centos | fedora | rhel | almalinux | rocky | ol)
             yum install -y -q iproute iptables kernel-headers git dkms make gcc libmnl-devel 2>/dev/null || true
