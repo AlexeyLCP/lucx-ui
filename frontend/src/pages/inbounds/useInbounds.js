@@ -105,6 +105,9 @@ export function useInbounds() {
     const next = [];
     const counts = {};
     for (const row of rows) {
+      // LUCX-HOOK: Hide child inbounds (TUN for AWG, SOCKS5 for Telemt)
+      if (row.parentId) continue;
+      // END LUCX-HOOK
       const dbInbound = new DBInbound(row);
       const parsed = dbInbound.toInbound();
       next.push(dbInbound);

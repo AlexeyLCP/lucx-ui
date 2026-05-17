@@ -940,7 +940,12 @@ func (s *InboundService) AddInboundClient(data *model.Inbound) (bool, error) {
 		return false, err
 	}
 
-	oldClients := oldSettings["clients"].([]any)
+		// LUCX-HOOK: Handle nil clients (AWG/Telemt may have no "clients" key)
+		var oldClients []any
+		if raw, ok := oldSettings["clients"]; ok && raw != nil {
+			oldClients = raw.([]any)
+		}
+		// END LUCX-HOOK
 	oldClients = append(oldClients, interfaceClients...)
 
 	oldSettings["clients"] = oldClients
