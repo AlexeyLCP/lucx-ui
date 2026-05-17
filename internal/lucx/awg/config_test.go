@@ -127,5 +127,5 @@ func mustGen(level int, profile, region string) *AWGParams {
 
 func buildAWGConfigRaw(params *AWGParams, data TemplateData) string {
 	awg := &model.Inbound{Port: data.AWGPort}
-	return buildAWGConfig(awg, params, data, "/tmp/up.sh", "/tmp/down.sh")
+	return BuildServerConfig(awg, params, data, "/tmp/up.sh", "/tmp/down.sh")
 }

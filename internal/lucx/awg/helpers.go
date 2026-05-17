@@ -10,14 +10,14 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-
-	"github.com/mhsanaei/3x-ui/v3/database/model"
 )
 
+// logAWG prints a formatted log line with [LUCX-AWG] prefix.
 func logAWG(format string, args ...interface{}) {
 	fmt.Printf("[LUCX-AWG] "+format+"\n", args...)
 }
 
+// getStringFromSettings extracts a string value from a JSON settings blob.
 func getStringFromSettings(settings, key, defaultVal string) string {
 	var m map[string]interface{}
 	if err := json.Unmarshal([]byte(settings), &m); err != nil {
@@ -31,6 +31,7 @@ func getStringFromSettings(settings, key, defaultVal string) string {
 	return defaultVal
 }
 
+// getIntFromSettings extracts an int value from a JSON settings blob.
 func getIntFromSettings(settings, key string, defaultVal int) int {
 	var m map[string]interface{}
 	if err := json.Unmarshal([]byte(settings), &m); err != nil {
@@ -49,36 +50,12 @@ func getIntFromSettings(settings, key string, defaultVal int) int {
 	return defaultVal
 }
 
-func buildAWGConfig(awg *model.Inbound, params *AWGParams, data TemplateData, upPath, downPath string) string {
-	return fmt.Sprintf(`[Interface]
-PrivateKey = %s
-Address = %s/24
-ListenPort = %d
-MTU = %d
-Jc = %d
-Jmin = %d
-Jmax = %d
-S1 = %d
-S2 = %d
-S3 = %d
-S4 = %d
-H1 = %s
-H2 = %s
-H3 = %s
-H4 = %s
-PostUp = %s
-PostDown = %s
-`, params.PrivateKey, data.AWGServerIP, awg.Port, params.MTU,
-		params.Jc, params.Jmin, params.Jmax,
-		params.S1, params.S2, params.S3, params.S4,
-		params.H1, params.H2, params.H3, params.H4,
-		upPath, downPath)
-}
-
+// pickFreeTunSubnet returns an available subnet for a TUN child interface.
 func pickFreeTunSubnet(awgId int) string {
 	return fmt.Sprintf("172.19.%d.%d/30", awgId/64, (awgId%64)*4)
 }
 
+// appendToFile appends a line to a file, creating it if needed.
 func appendToFile(path, line string) {
 	f, err := os.OpenFile(path, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 	if err != nil {

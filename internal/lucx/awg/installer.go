@@ -13,14 +13,6 @@ import (
 	"strings"
 )
 
-// InstallResult reports the outcome of an AWG installation attempt.
-type InstallResult struct {
-	KernelModule bool   // kernel module successfully built and loaded
-	Tools        bool   // awg/awg-quick tools installed
-	RebootNeeded bool   // kernel updated, reboot required
-	Log          string // human-readable installation log
-}
-
 // InstallAWG installs the AmneziaWG kernel module and tools from source.
 // Follows the pumbaX/awg-multi-script approach: git clone + dkms + make install.
 // Idempotent — safe to call if already installed.
