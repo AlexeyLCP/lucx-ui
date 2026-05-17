@@ -201,3 +201,41 @@ func randomBytes(n int) []byte {
 	return b
 }
 
+// DomainPoolByRegion returns domain pools for CPS mimicry profiles by region.
+// Domain pools sourced from pumbaX/awg-multi-script.
+func DomainPoolByRegion(profile CPSProfile, region string) []string {
+	pools := map[CPSProfile]map[string][]string{
+		CPSProfileQUIC: {
+			"ru":    {"gosuslugi.ru", "update.microsoft.com", "releases.ubuntu.com", "online.sberbank.ru", "na2.ru"},
+			"world": {"update.microsoft.com", "releases.ubuntu.com", "cdn.mozilla.net", "www.google.com", "www.cloudflare.com"},
+		},
+		CPSProfileSIP: {
+			"ru":    {"gosuslugi.ru", "sip.telefonica.com", "sip.de", "update.microsoft.com"},
+			"world": {"sip.telefonica.com", "sip.de", "update.microsoft.com", "cdn.mozilla.net"},
+		},
+		CPSProfileDNS: {
+			"ru":    {"gosuslugi.ru", "dns.google", "update.microsoft.com", "cloudflare-dns.com"},
+			"world": {"dns.google", "cloudflare-dns.com", "update.microsoft.com", "cdn.mozilla.net"},
+		},
+	}
+	if pm, ok := pools[profile]; ok {
+		if p, ok2 := pm[region]; ok2 {
+			return p
+		}
+		// Fallback to world
+		return pm["world"]
+	}
+	return []string{"update.microsoft.com"}
+}
+
+// PickRandomDomain picks a random domain from the given profile/region pool.
+func PickRandomDomain(profile CPSProfile, region string) string {
+	pool := DomainPoolByRegion(profile, region)
+	if len(pool) == 0 {
+		return "update.microsoft.com"
+	}
+	// Deterministic "random" — use first domain based on region length
+	idx := len(region) % len(pool)
+	return pool[idx]
+}
+

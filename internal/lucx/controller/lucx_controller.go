@@ -177,8 +177,8 @@ func (c *LucXController) CreateAWG(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
-	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
-	inbound, err := awgSvc.CreateAWGInbound(&req.Inbound)
+	awgMgr := awg.NewAWGManager(c.InboundService, c.XrayService)
+	inbound, err := awgMgr.Create(&req.Inbound)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
 		return
@@ -201,8 +201,8 @@ func (c *LucXController) DeleteAWG(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
-	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
-	if err := awgSvc.DeleteAWGInbound(req.ID); err != nil {
+	awgMgr := awg.NewAWGManager(c.InboundService, c.XrayService)
+	if err := awgMgr.Delete(req.ID); err != nil {
 		ctx.JSON(http.StatusOK, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
@@ -218,8 +218,8 @@ func (c *LucXController) AddAWGClient(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
-	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
-	if err := awgSvc.AddClient(req.AWGID, &req.Client); err != nil {
+	awgMgr := awg.NewAWGManager(c.InboundService, c.XrayService)
+	if err := awgMgr.AddClient(req.AWGID, &req.Client); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
@@ -235,8 +235,8 @@ func (c *LucXController) DeleteAWGClient(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
-	awgSvc := awg.NewAWGService(c.InboundService, c.XrayService)
-	if err := awgSvc.DeleteClient(req.AWGID, req.PublicKey); err != nil {
+	awgMgr := awg.NewAWGManager(c.InboundService, c.XrayService)
+	if err := awgMgr.DeleteClient(req.AWGID, req.PublicKey); err != nil {
 		ctx.JSON(http.StatusInternalServerError, gin.H{"success": false, "msg": err.Error()})
 		return
 	}
