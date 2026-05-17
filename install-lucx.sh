@@ -124,7 +124,6 @@ install_base() {
             # AWG: build from source (pumbaX/awg-multi-script method)
             # CRITICAL: upgrade kernel first so headers match running kernel exactly
             echo -e "${green}Updating system packages (kernel)...${plain}"
-            apt-get upgrade -y -q 2>/dev/null || true
             echo -e "${green}Installing AWG build dependencies...${plain}"
             apt-get install -y -q build-essential git libmnl-dev pkg-config dkms 2>/dev/null || true
             # Install meta-package so DKMS can rebuild AWG on future kernel updates
