@@ -10,6 +10,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/awg"
+	"github.com/mhsanaei/3x-ui/v3/logger"
 	"github.com/mhsanaei/3x-ui/v3/web/service"
 	"github.com/mhsanaei/3x-ui/v3/web/session"
 	"github.com/mhsanaei/3x-ui/v3/web/websocket"
@@ -180,6 +181,21 @@ func (a *InboundController) addInbound(c *gin.Context) {
 		if err != nil {
 			jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 			return
+		}
+		// Auto-create first client so the inbound is usable immediately
+		defaultClient := model.Client{
+			ID:         awg.GenKey(),
+			Password:   awg.GenPSK(),
+			PrivateKey: awg.GenKey(),
+			Email:      fmt.Sprintf("c_%d", inbound.Id),
+			Enable:     true,
+			ExpiryTime: 0,
+		}
+		clientSettings := fmt.Sprintf(`{"clients":[{"id":"%s","password":"%s","privateKey":"%s","email":"%s","enable":true,"expiryTime":0,"tgId":"","subId":"","comment":""}]}`,
+			defaultClient.ID, defaultClient.Password, defaultClient.PrivateKey, defaultClient.Email)
+		clientInbound := &model.Inbound{Id: inbound.Id, Settings: clientSettings}
+		if _, addErr := a.inboundService.AddInboundClient(clientInbound); addErr != nil {
+			logger.Warning("[LUCX] addInbound: failed to auto-create AWG client for id=%d: %v", inbound.Id, addErr)
 		}
 	} else {
 		inbound, needRestart, err := a.inboundService.AddInbound(inbound)
