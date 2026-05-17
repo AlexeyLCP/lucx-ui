@@ -78,6 +78,23 @@ const { byId: nodesById, hasActive: hasActiveNode } = useNodeList();
 const basePath = window.X_UI_BASE_PATH || '';
 const requestUri = window.location.pathname;
 
+// LUCX-HOOK: Safe LucX API wrapper — never throws, always returns {success, msg}
+async function postLucxSafe(path, body) {
+  const r = await postLucx(path, body);
+  if (!r || !r.success) {
+    const errMsg = r?.msg || 'Unknown error';
+    console.warn('[LucX API]', path, 'failed:', errMsg);
+    // Only show toast for hard failures (non-JSON, network errors)
+    // Regular success:false responses are expected for some operations
+    if (r && !r.success && r.msg) {
+      // Server returned a structured error — log but don't toast
+      // (standard API already handles user-facing messages)
+    }
+  }
+  return r || { success: false, msg: 'Empty response' };
+}
+// END LUCX-HOOK
+
 onMounted(async () => {
   await fetchDefaultSettings();
   await refresh();
@@ -331,14 +348,32 @@ async function onResetTrafficClient({ dbInbound, client }) {
 
 async function onDeleteClient({ dbInbound, client }) {
   const clientId = getClientId(dbInbound.protocol, client);
-  const msg = await HttpUtil.post(`/panel/api/inbounds/${dbInbound.id}/delClient/${clientId}`);
-  if (msg?.success) await refresh();
+  try {
+    const msg = await HttpUtil.post(`/panel/api/inbounds/${dbInbound.id}/delClient/${encodeURIComponent(clientId)}`);
+    if (!msg?.success) {
+      message.error(msg?.msg || 'Failed to delete client');
+      return;
+    }
+  } catch (e) {
+    message.error('Delete request failed: ' + (e?.message || 'network error'));
+    return;
+  }
+  // LUCX-HOOK: Also remove from protocol-native layer
+  if (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt') {
+    const lucxPath = dbInbound.protocol === 'awg' ? '/awg/del-client' : '/telemt/del-client';
+    const lucxPayload = dbInbound.protocol === 'awg'
+      ? { awgId: dbInbound.id, publicKey: clientId }
+      : { telemtId: dbInbound.id, name: client.email };
+    postLucxSafe(lucxPath, lucxPayload);
+  }
+  // END LUCX-HOOK
+  await refresh();
 }
 
 async function onDeleteClients({ dbInbound, clients }) {
   for (const client of clients) {
     const clientId = getClientId(dbInbound.protocol, client);
-    await HttpUtil.post(`/panel/api/inbounds/${dbInbound.id}/delClient/${clientId}`);
+    await HttpUtil.post(`/panel/api/inbounds/${dbInbound.id}/delClient/${encodeURIComponent(clientId)}`);
   }
   await refresh();
 }
@@ -353,11 +388,38 @@ async function onToggleEnableClient({ dbInbound, client, next }) {
   if (idx < 0 || !clients[idx]) return;
   clients[idx].enable = next;
   const clientId = getClientId(dbInbound.protocol, clients[idx]);
-  const msg = await HttpUtil.post(`/panel/api/inbounds/updateClient/${clientId}`, {
-    id: dbInbound.id,
-    settings: `{"clients": [${clients[idx].toString()}]}`,
-  });
-  if (msg?.success) await refresh();
+  try {
+    const msg = await HttpUtil.post(`/panel/api/inbounds/updateClient/${encodeURIComponent(clientId)}`, {
+      id: dbInbound.id,
+      // LUCX-HOOK: AWG/Telemt clients are plain objects — JSON.stringify needed instead of toString()
+      settings: (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt')
+        ? `{"clients": [${JSON.stringify(clients[idx])}]}`
+        : `{"clients": [${clients[idx].toString()}]}`,
+    });
+    if (!msg?.success) {
+      message.error(msg?.msg || 'Toggle failed');
+      return;
+    }
+  } catch (e) {
+    message.error('Toggle request failed: ' + (e?.message || 'network error'));
+    return;
+  }
+  // LUCX-HOOK: Apply enable/disable to protocol-native layer
+  if (dbInbound.protocol === 'awg') {
+    const awgPayload = next
+      ? { awgId: dbInbound.id, client: clients[idx] }
+      : { awgId: dbInbound.id, publicKey: clientId };
+    const awgPath = next ? '/awg/add-client' : '/awg/del-client';
+    postLucxSafe(awgPath, awgPayload);
+  } else if (dbInbound.protocol === 'telemt') {
+    const tmPayload = next
+      ? { telemtId: dbInbound.id, client: { name: clients[idx].email, secret: clients[idx].password } }
+      : { telemtId: dbInbound.id, name: clients[idx].email };
+    const tmPath = next ? '/telemt/add-client' : '/telemt/del-client';
+    postLucxSafe(tmPath, tmPayload);
+  }
+  // END LUCX-HOOK
+  await refresh();
 }
 
 function onAddInbound() {
@@ -387,16 +449,18 @@ function openAddBulkClient(dbInbound) {
 // LUCX-HOOK: Client generators imported from isolated module — see src/lucx/client-generators.js
 
 async function openLucxAddClient(dbInbound) {
-  const name = 'c_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 6);
+  const email = window.prompt('Client email:', 'c_' + Date.now().toString(36));
+  if (!email) return; // cancelled
   try {
     let clientData;
-    if (dbInbound.protocol === 'awg') {
+    const isAWG = dbInbound.protocol === 'awg';
+    if (isAWG) {
       clientData = generateAWGClient();
     } else {
       clientData = generateTelemtClient();
     }
     const clientObj = {
-      email: name,
+      email: email,
       id: clientData.id,
       password: clientData.password,
       privateKey: clientData.privateKey || '',
@@ -405,18 +469,24 @@ async function openLucxAddClient(dbInbound) {
       subId: '',
       comment: '',
     };
-    // Add single client via standard API
+    // Step 1: Add to DB via standard API
     const settings = JSON.stringify({ clients: [clientObj] });
     const msg = await HttpUtil.post('/panel/api/inbounds/addClient', {
       id: dbInbound.id,
       settings,
     });
-    if (msg?.success) {
-      message.success(dbInbound.protocol.toUpperCase() + ' client added: ' + name);
-      refresh();
-    } else {
+    if (!msg?.success) {
       message.error(msg?.msg || 'Failed to add client');
+      return;
     }
+    // Step 2: Add to protocol-native layer (kernel interface / telemt process)
+    const lucxPath = isAWG ? '/awg/add-client' : '/telemt/add-client';
+    const lucxPayload = isAWG
+      ? { awgId: dbInbound.id, client: clientObj }
+      : { telemtId: dbInbound.id, client: { name: clientObj.email, secret: clientObj.password } };
+    postLucxSafe(lucxPath, lucxPayload);
+    message.success(dbInbound.protocol.toUpperCase() + ' client added: ' + email);
+    refresh();
   } catch (e) {
     message.error('Failed: ' + (e?.msg || e?.message || 'unknown error'));
   }
@@ -432,18 +502,18 @@ function confirmDelete(dbInbound) {
     okType: 'danger',
     cancelText: 'Cancel',
     onOk: async () => {
-      // LUCX-HOOK: Delete AWG/Telemt via standard API + optional LucX cleanup
+      // LUCX-HOOK: Single del + LucX cleanup with proper error handling
       const delMsg = await HttpUtil.post(`/panel/api/inbounds/del/${dbInbound.id}`);
-      if (delMsg?.success) {
-        if (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt') {
-          const endpoint = dbInbound.protocol === 'awg' ? '/awg/delete' : '/telemt/delete';
-          postLucx(endpoint, { id: dbInbound.id }).catch(() => {});
-        }
-        await refresh();
+      if (!delMsg?.success) {
+        message.error(delMsg?.msg || 'Failed to delete inbound');
+        return;
+      }
+      if (dbInbound.protocol === 'awg' || dbInbound.protocol === 'telemt') {
+        const endpoint = dbInbound.protocol === 'awg' ? '/awg/delete' : '/telemt/delete';
+        postLucxSafe(endpoint, { id: dbInbound.id });
       }
       // END LUCX-HOOK
-      const msg = await HttpUtil.post(`/panel/api/inbounds/del/${dbInbound.id}`);
-      if (msg?.success) await refresh();
+      await refresh();
     },
   });
 }

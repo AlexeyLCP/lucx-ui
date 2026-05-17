@@ -74,11 +74,25 @@ const qrItems = computed(() => {
 watch(() => props.open, (next) => {
   if (!next || !props.dbInbound) return;
   const inbound = props.dbInbound.toInbound();
-  // LUCX-HOOK: AWG config — text in wireguardConfigs (QR + Download)
+  // LUCX-HOOK: AWG config — generate for all clients when bulk, single when per-client
   if (inbound.protocol === Protocols.AWG) {
     const addr = props.nodeAddress || inbound._resolveAddr?.('') || 'YOUR_IP';
-    const configText = inbound.genAWGConfigText(addr, inbound.port, props.client?.email || props.dbInbound.remark, props.client);
-    wireguardConfigs.value = [configText];
+    const clients = inbound.settings?.clients || [];
+    if (props.client) {
+      // Per-client QR from expand-row
+      const configText = inbound.genAWGConfigText(addr, inbound.port, props.client.email || props.dbInbound.remark, props.client);
+      wireguardConfigs.value = [configText];
+    } else if (clients.length > 0) {
+      // Bulk QR — generate config for EVERY client
+      wireguardConfigs.value = clients.map((c, idx) => {
+        const remark = c.email || `AWG Client ${idx + 1}`;
+        return inbound.genAWGConfigText(addr, inbound.port, remark, c);
+      });
+    } else {
+      // No clients yet — bare config
+      const configText = inbound.genAWGConfigText(addr, inbound.port, props.dbInbound.remark);
+      wireguardConfigs.value = [configText];
+    }
     wireguardLinks.value = [];
     links.value = [];
   } else if (inbound.protocol === Protocols.TELEMT) {

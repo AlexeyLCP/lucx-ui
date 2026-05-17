@@ -9,8 +9,13 @@ package awg
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"math/big"
+	"strconv"
+	"strings"
+
+	"github.com/mhsanaei/3x-ui/v3/database/model"
 )
 
 // AWGParams holds all configuration parameters for an AWG interface.
@@ -88,10 +93,24 @@ func genKey() string {
 	return base64.StdEncoding.EncodeToString(key)
 }
 
+// GenKey generates a random 32-byte URL-safe base64 key (matches frontend genBase64).
+func GenKey() string {
+	key := make([]byte, 32)
+	rand.Read(key)
+	return base64.RawURLEncoding.EncodeToString(key)
+}
+
 func genPSK() string {
 	psk := make([]byte, 32)
 	rand.Read(psk)
 	return base64.StdEncoding.EncodeToString(psk)
+}
+
+// GenPSK generates a random 32-byte URL-safe base64 pre-shared key (matches frontend genBase64).
+func GenPSK() string {
+	psk := make([]byte, 32)
+	rand.Read(psk)
+	return base64.RawURLEncoding.EncodeToString(psk)
 }
 
 func randInt(min, max int) int {
@@ -120,4 +139,135 @@ func genQuadrantRange(quadrant int) string {
 		hi = lo + 1000
 	}
 	return fmt.Sprintf("%d-%d", lo, hi)
+}
+
+// ValidateAWGParams checks all obfuscation parameters are within valid ranges.
+// Returns nil if valid, or an error describing the first violation found.
+func ValidateAWGParams(params *AWGParams) error {
+	if params.Jc < 1 || params.Jc > 128 {
+		return fmt.Errorf("jc out of range [1,128]: %d", params.Jc)
+	}
+	if params.Jmin < 1 || params.Jmin > 2000 {
+		return fmt.Errorf("jmin out of range [1,2000]: %d", params.Jmin)
+	}
+	if params.Jmax < 1 || params.Jmax > 2000 {
+		return fmt.Errorf("jmax out of range [1,2000]: %d", params.Jmax)
+	}
+	if params.Jmin >= params.Jmax {
+		return fmt.Errorf("jmin (%d) must be < jmax (%d)", params.Jmin, params.Jmax)
+	}
+	if params.S1 < 1 || params.S1 > 256 {
+		return fmt.Errorf("s1 out of range [1,256]: %d", params.S1)
+	}
+	if params.S2 < 1 || params.S2 > 256 {
+		return fmt.Errorf("s2 out of range [1,256]: %d", params.S2)
+	}
+	if params.S3 < 1 || params.S3 > 256 {
+		return fmt.Errorf("s3 out of range [1,256]: %d", params.S3)
+	}
+	if params.S4 < 1 || params.S4 > 256 {
+		return fmt.Errorf("s4 out of range [1,256]: %d", params.S4)
+	}
+	if params.S1+56 == params.S2 {
+		return fmt.Errorf("s1+56 must not equal s2 (DPI detection risk): s1=%d s2=%d", params.S1, params.S2)
+	}
+	if params.S2+56 == params.S3 {
+		return fmt.Errorf("s2+56 must not equal s3 (DPI detection risk): s2=%d s3=%d", params.S2, params.S3)
+	}
+	if params.S3+56 == params.S4 {
+		return fmt.Errorf("s3+56 must not equal s4 (DPI detection risk): s3=%d s4=%d", params.S3, params.S4)
+	}
+	if err := validateHRange("h1", params.H1, 5, 536870911); err != nil {
+		return err
+	}
+	if err := validateHRange("h2", params.H2, 536870912, 1073741823); err != nil {
+		return err
+	}
+	if err := validateHRange("h3", params.H3, 1073741824, 1610612735); err != nil {
+		return err
+	}
+	if err := validateHRange("h4", params.H4, 1610612736, 2147483647); err != nil {
+		return err
+	}
+	if params.MTU < 1000 || params.MTU > 1500 {
+		return fmt.Errorf("mtu out of range [1000,1500]: %d", params.MTU)
+	}
+	return nil
+}
+
+// MergeParamsToSettings serialises AWGParams and CPS packet data into
+// the inbound's Settings JSON string, preserving existing fields.
+func MergeParamsToSettings(inbound *model.Inbound, params *AWGParams, i1, i2, i3, i4, i5 string) error {
+	var settings map[string]interface{}
+	if inbound.Settings != "" {
+		if err := json.Unmarshal([]byte(inbound.Settings), &settings); err != nil {
+			return fmt.Errorf("unmarshal settings: %w", err)
+		}
+	}
+	if settings == nil {
+		settings = make(map[string]interface{})
+	}
+
+	settings["mtu"] = params.MTU
+	settings["jc"] = params.Jc
+	settings["jmin"] = params.Jmin
+	settings["jmax"] = params.Jmax
+	settings["s1"] = params.S1
+	settings["s2"] = params.S2
+	settings["s3"] = params.S3
+	settings["s4"] = params.S4
+	settings["h1"] = params.H1
+	settings["h2"] = params.H2
+	settings["h3"] = params.H3
+	settings["h4"] = params.H4
+	settings["obfLevel"] = params.ObfLevel
+	settings["mimicryProfile"] = params.MimicryProfile
+	settings["region"] = params.Region
+	settings["privateKey"] = params.PrivateKey
+	settings["publicKey"] = params.PublicKey
+	settings["presharedKey"] = params.PresharedKey
+
+	if i1 != "" {
+		settings["i1"] = i1
+		settings["i2"] = i2
+		settings["i3"] = i3
+		settings["i4"] = i4
+		settings["i5"] = i5
+	}
+
+	b, err := json.Marshal(settings)
+	if err != nil {
+		return fmt.Errorf("marshal settings: %w", err)
+	}
+	inbound.Settings = string(b)
+	return nil
+}
+
+// validateHRange checks an H-parameter is a valid "lo-hi" range within quadrant bounds.
+func validateHRange(name, val string, minLo, maxHi int64) error {
+	if !strings.Contains(val, "-") {
+		return fmt.Errorf("%s must be a range (missing '-'): %s", name, val)
+	}
+	parts := strings.SplitN(val, "-", 2)
+	if len(parts) != 2 {
+		return fmt.Errorf("%s invalid range format: %s", name, val)
+	}
+	lo, err1 := strconv.ParseInt(parts[0], 10, 64)
+	hi, err2 := strconv.ParseInt(parts[1], 10, 64)
+	if err1 != nil || err2 != nil {
+		return fmt.Errorf("%s range values not numeric: %s", name, val)
+	}
+	if lo < minLo || lo > maxHi {
+		return fmt.Errorf("%s lo=%d out of quadrant bounds [%d, %d]", name, lo, minLo, maxHi)
+	}
+	if hi < minLo || hi > maxHi {
+		return fmt.Errorf("%s hi=%d out of quadrant bounds [%d, %d]", name, hi, minLo, maxHi)
+	}
+	if lo >= hi {
+		return fmt.Errorf("%s lo (%d) must be < hi (%d)", name, lo, hi)
+	}
+	if hi-lo < 1000 {
+		return fmt.Errorf("%s range too narrow: %d (min 1000)", name, hi-lo)
+	}
+	return nil
 }

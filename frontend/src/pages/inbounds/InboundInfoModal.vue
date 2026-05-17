@@ -209,11 +209,26 @@ watch(() => props.open, (next) => {
     : null;
 
   // Generate links per protocol — WireGuard has its own .conf body
-  // path; everything else flows through genAllLinks.
+  // path; AWG also generates per-client .conf texts; everything else
+  // flows through genAllLinks.
   if (inbound.value.protocol === Protocols.WIREGUARD) {
     wireguardConfigs.value = inbound.value.genWireguardConfigs(props.dbInbound.remark, '-ieo', props.nodeAddress).split('\r\n');
     wireguardLinks.value = inbound.value.genWireguardLinks(props.dbInbound.remark, '-ieo', props.nodeAddress).split('\r\n');
     links.value = [];
+  } else if (inbound.value.protocol === Protocols.AWG) {
+    const addr = props.nodeAddress || inbound.value._resolveAddr?.('') || 'YOUR_IP';
+    const clients = inbound.value.settings?.clients || [];
+    wireguardConfigs.value = clients.map((c, idx) => {
+      const remark = c.email || `AWG Client ${idx + 1}`;
+      return inbound.value.genAWGConfigText(addr, inbound.value.port, remark, c);
+    });
+    links.value = inbound.value.genAllLinks(
+      props.dbInbound.remark,
+      props.remarkModel,
+      clientSettings.value,
+      props.nodeAddress,
+    );
+    wireguardLinks.value = [];
   } else {
     links.value = inbound.value.genAllLinks(
       props.dbInbound.remark,
@@ -781,6 +796,69 @@ const showSubscriptionTab = computed(
                         </a-tooltip>
                       </div>
                       <code class="link-panel-text">{{ wireguardLinks[idx] }}</code>
+                    </div>
+                  </td>
+                </tr>
+              </template>
+            </tbody>
+          </table>
+
+          <!-- AWG server + per-client configs -->
+          <table v-if="dbInbound.protocol === 'awg'" class="info-table protocol-table wg-table">
+            <tbody>
+              <tr>
+                <td>Private key (server)</td>
+                <td>{{ inbound.settings.privateKey || '-' }}</td>
+              </tr>
+              <tr>
+                <td>Public key (server)</td>
+                <td>{{ inbound.settings.publicKey || '-' }}</td>
+              </tr>
+              <tr>
+                <td>PSK</td>
+                <td>{{ inbound.settings.presharedKey || '-' }}</td>
+              </tr>
+              <tr>
+                <td>MTU</td>
+                <td>{{ inbound.settings.mtu }}</td>
+              </tr>
+              <tr>
+                <td>Obfuscation</td>
+                <td>Jc={{ inbound.settings.jc }} Jmin={{ inbound.settings.jmin }} Jmax={{ inbound.settings.jmax }}</td>
+              </tr>
+              <template v-for="(client, idx) in (inbound.settings.clients || [])" :key="idx">
+                <tr>
+                  <td colspan="2"><a-divider>Client {{ idx + 1 }}{{ client.email ? ' — ' + client.email : '' }}</a-divider></td>
+                </tr>
+                <tr>
+                  <td>Private key</td>
+                  <td>{{ client.privateKey || client.id || inbound.settings.privateKey || '-' }}</td>
+                </tr>
+                <tr>
+                  <td>Public key</td>
+                  <td>{{ client.id || inbound.settings.publicKey || '-' }}</td>
+                </tr>
+                <tr>
+                  <td>PSK</td>
+                  <td>{{ client.password || inbound.settings.presharedKey || '-' }}</td>
+                </tr>
+                <tr v-if="wireguardConfigs[idx]">
+                  <td colspan="2">
+                    <div class="link-panel">
+                      <div class="link-panel-header">
+                        <a-tag color="green">Client {{ idx + 1 }} config</a-tag>
+                        <a-tooltip :title="t('copy')">
+                          <a-button size="small" @click="copyText(wireguardConfigs[idx])">
+                            <template #icon><CopyOutlined /></template>
+                          </a-button>
+                        </a-tooltip>
+                        <a-tooltip :title="t('download')">
+                          <a-button size="small" @click="downloadText(wireguardConfigs[idx], (client.email || 'client-' + (idx+1)) + '.conf')">
+                            <template #icon><DownloadOutlined /></template>
+                          </a-button>
+                        </a-tooltip>
+                      </div>
+                      <code class="link-panel-text">{{ wireguardConfigs[idx] }}</code>
                     </div>
                   </td>
                 </tr>
