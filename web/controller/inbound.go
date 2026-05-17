@@ -451,8 +451,11 @@ func (a *InboundController) updateInboundClient(c *gin.Context) {
 	}
 
 	// LUCX-HOOK: Convert URL-safe base64 back to standard for AWG/Telemt client IDs
-	if inbound.Protocol == "awg" || inbound.Protocol == "telemt" {
-		clientId = awg.FromURLSafeKey(clientId)
+	// Protocol not in form data — load from DB
+	if loaded, lookupErr := a.inboundService.GetInbound(inbound.Id); lookupErr == nil {
+		if loaded.Protocol == "awg" || loaded.Protocol == "telemt" {
+			clientId = awg.FromURLSafeKey(clientId)
+		}
 	}
 	// END LUCX-HOOK
 
