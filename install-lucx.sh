@@ -73,6 +73,20 @@ is_port_in_use() {
     return 1
 }
 
+# LUCX-HOOK: Prompt with 10-second timeout — auto-selects default on timeout
+read_prompt() {
+    local prompt="$1"
+    local default="$2"
+    local var_name="$3"
+    local timeout=10
+    read -t $timeout -rp "$prompt" $var_name
+    if [[ $? -ne 0 ]]; then
+        eval $var_name="$default"
+        echo ""
+        echo -e "${yellow}Timeout (${timeout}s) — using default: ${default}${plain}"
+    fi
+}
+
 install_base() {
     case "${release}" in
         ubuntu | debian | armbian)
@@ -602,7 +616,7 @@ prompt_and_setup_ssl() {
     echo -e "${green}4.${plain} Skip SSL (advanced — behind reverse proxy / SSH tunnel only)"
     echo -e "${blue}Note:${plain} Options 1 & 2 require port 80 open. Option 3 requires manual paths."
     echo -e "${blue}Note:${plain} Option 4 serves the panel over plain HTTP — only safe behind nginx/Caddy or an SSH tunnel."
-    read -rp "Choose an option (default 2 for IP): " ssl_choice
+    read_prompt "SSL option (10s — default: 2=IP cert, 1=Domain, 3=Custom, 4=Skip): " "2" ssl_choice
     ssl_choice="${ssl_choice// /}" # Trim whitespace
 
     # Default to 2 (IP cert) if input is empty or invalid (not 1, 3 or 4)
@@ -802,9 +816,9 @@ config_after_install() {
             local config_username=$(gen_random_string 10)
             local config_password=$(gen_random_string 10)
 
-            read -rp "Would you like to customize the Panel Port settings? (If not, a random port will be applied) [y/n]: " config_confirm
+            read_prompt "Customize Panel Port? (10s — default: random) [y/n]: " "n" config_confirm
             if [[ "${config_confirm}" == "y" || "${config_confirm}" == "Y" ]]; then
-                read -rp "Please set up the panel port: " config_port
+                read_prompt "Panel port (10s — default: random): " "$(shuf -i 1024-62000 -n 1)" config_port
                 echo -e "${yellow}Your Panel Port is: ${config_port}${plain}"
             else
                 local config_port=$(shuf -i 1024-62000 -n 1)
