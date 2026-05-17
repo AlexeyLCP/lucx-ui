@@ -125,9 +125,13 @@ install_base() {
             echo -e "${green}Installing AWG build dependencies...${plain}"
             apt-get install -y -q build-essential git libmnl-dev pkg-config dkms 2>/dev/null || true
             echo -e "${green}Installing kernel headers...${plain}"
-            apt-get install -y -q "linux-headers-$(uname -r)" 2>/dev/null || \
-                apt-get install -y -q linux-headers-amd64 2>/dev/null || \
-                apt-get install -y -q linux-headers-generic 2>/dev/null || true
+            apt-get install -y -q "linux-headers-$(uname -r)" 2>/dev/null && {
+                echo -e "${green}Kernel headers installed for $(uname -r)${plain}"
+            } || {
+                echo -e "${yellow}Headers for $(uname -r) not found, updating kernel...${plain}"
+                apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || true
+                echo -e "${yellow}Kernel updated — reboot needed before AWG can load${plain}"
+            }
             # Build and install kernel module
             echo -e "${green}Building amneziawg kernel module...${plain}"
             local tmp_mod=/tmp/amneziawg-linux-kernel-module
@@ -162,6 +166,21 @@ install_base() {
             if lsmod | grep -qE '^amneziawg\s' 2>/dev/null; then
                 echo "amneziawg" > /etc/modules-load.d/amneziawg.conf 2>/dev/null || true
                 echo -e "${green}AWG installed and loaded successfully${plain}"
+            else
+                echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
+                echo -e "${yellow}│ AWG module compiled but not loaded.                 │${plain}"
+                echo -e "${yellow}│ Kernel was likely updated — a REBOOT is required.   │${plain}"
+                echo -e "${yellow}│ After reboot, AWG will load automatically.          │${plain}"
+                echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
+                echo ""
+                read_prompt "Reboot NOW to activate AWG? (10s — default: Y) [Y/n]: " "Y" do_reboot
+                if [[ "$do_reboot" != "n" && "$do_reboot" != "N" ]]; then
+                    echo -e "${green}Rebooting in 5 seconds...${plain}"
+                    sleep 5
+                    reboot
+                else
+                    echo -e "${yellow}Please reboot manually before creating AWG inbounds.${plain}"
+                fi
             fi
             ;;
         centos | fedora | rhel | almalinux | rocky | ol)
@@ -311,7 +330,7 @@ setup_ip_certificate() {
 
     # Choose port for HTTP-01 listener (default 80, prompt override)
     local WebPort=""
-    read -rp "Port to use for ACME HTTP-01 listener (default 80): " WebPort
+    read_prompt "Порт для ACME HTTP-01 (10с — по умолчанию: 80): " "80" WebPort
     WebPort="${WebPort:-80}"
     if ! [[ "${WebPort}" =~ ^[0-9]+$ ]] || ((WebPort < 1 || WebPort > 65535)); then
         echo -e "${red}Invalid port provided. Falling back to 80.${plain}"
