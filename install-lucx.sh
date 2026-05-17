@@ -107,23 +107,58 @@ install_base() {
     case "${release}" in
         ubuntu | debian | armbian)
             apt-get install -y -q iproute2 iptables 2>/dev/null || true
-            apt-get install -y -q linux-headers-$(uname -r) amneziawg-dkms amneziawg-tools 2>/dev/null || true
+            # AWG: build from source (pumbaX/awg-multi-script method)
+            echo -e "${green}Installing AWG build dependencies...${plain}"
+            apt-get install -y -q build-essential git libmnl-dev pkg-config dkms 2>/dev/null || true
+            echo -e "${green}Installing kernel headers...${plain}"
+            apt-get install -y -q "linux-headers-$(uname -r)" 2>/dev/null || \
+                apt-get install -y -q linux-headers-amd64 2>/dev/null || \
+                apt-get install -y -q linux-headers-generic 2>/dev/null || true
+            # Build and install kernel module
+            echo -e "${green}Building amneziawg kernel module...${plain}"
+            local tmp_mod=/tmp/amneziawg-linux-kernel-module
+            rm -rf "$tmp_mod"
+            git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git "$tmp_mod" 2>/dev/null && {
+                cd "$tmp_mod/src"
+                make dkms-install 2>/dev/null || true
+                local mod_ver=$(grep -oP 'version\s*"\K[^"]+' dkms.conf 2>/dev/null || echo "1.0.0")
+                dkms add -m amneziawg -v "$mod_ver" 2>/dev/null || true
+                dkms build -m amneziawg -v "$mod_ver" 2>/dev/null || true
+                dkms install -m amneziawg -v "$mod_ver" 2>/dev/null || true
+                cd "$cur_dir"
+                rm -rf "$tmp_mod"
+            }
+            # Build and install userspace tools
+            echo -e "${green}Building amneziawg tools (awg, awg-quick)...${plain}"
+            local tmp_tools=/tmp/amneziawg-tools
+            rm -rf "$tmp_tools"
+            git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git "$tmp_tools" 2>/dev/null && {
+                cd "$tmp_tools/src"
+                make 2>/dev/null && make install 2>/dev/null || true
+                cd "$cur_dir"
+                rm -rf "$tmp_tools"
+            }
+            # Load module and enable autostart
             modprobe amneziawg 2>/dev/null || {
                 echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
-                echo -e "${yellow}│ [WARNING] AWG kernel module failed to compile.      │${plain}"
+                echo -e "${yellow}│ [WARNING] AWG kernel module failed to load.         │${plain}"
                 echo -e "${yellow}│ Panel works — AWG inbounds need manual setup.       │${plain}"
                 echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
             }
+            if lsmod | grep -qE '^amneziawg\s' 2>/dev/null; then
+                echo "amneziawg" > /etc/modules-load.d/amneziawg.conf 2>/dev/null || true
+                echo -e "${green}AWG installed and loaded successfully${plain}"
+            fi
             ;;
         centos | fedora | rhel | almalinux | rocky | ol)
-            yum install -y -q iproute iptables kernel-headers 2>/dev/null || true
-            yum install -y -q amneziawg-dkms amneziawg-tools 2>/dev/null || true
-            modprobe amneziawg 2>/dev/null || true
+            yum install -y -q iproute iptables kernel-headers git dkms make gcc libmnl-devel 2>/dev/null || true
+            echo -e "${yellow}AWG: RPM-based build not yet automated — install manually from${plain}"
+            echo -e "${yellow}https://github.com/amnezia-vpn/amneziawg-linux-kernel-module${plain}"
             ;;
         arch | manjaro)
-            pacman -S --noconfirm iproute2 iptables linux-headers 2>/dev/null || true
-            pacman -S --noconfirm amneziawg-dkms amneziawg-tools 2>/dev/null || true
-            modprobe amneziawg 2>/dev/null || true
+            pacman -S --noconfirm iproute2 iptables linux-headers git dkms make gcc libmnl 2>/dev/null || true
+            echo -e "${yellow}AWG: Arch build not yet automated — install manually from${plain}"
+            echo -e "${yellow}https://github.com/amnezia-vpn/amneziawg-linux-kernel-module${plain}"
             ;;
     esac
     # END LUCX-HOOK
