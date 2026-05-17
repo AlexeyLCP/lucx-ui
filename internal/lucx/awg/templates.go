@@ -30,6 +30,7 @@ set -e
 # LucX-UI AWG PostUp - generated, do not edit
 # Interface: {{.AWGInterface}} -> TUN: {{.TUNInterface}}
 
+ip link add {{.AWGInterface}} type amneziawg 2>/dev/null || true
 ip addr add {{.AWGServerIP}}/24 dev {{.AWGInterface}}
 ip link set {{.AWGInterface}} mtu {{.MTU}}
 ip link set {{.AWGInterface}} up
