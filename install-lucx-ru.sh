@@ -83,7 +83,7 @@ read_prompt() {
     if [[ $? -ne 0 ]]; then
         eval $var_name="$default"
         echo ""
-        echo -e "${yellow}Таймаут (${timeout}с) — используется значение по умолчанию: ${default}${plain}"
+        echo -e "${yellow}Таймаут (${timeout}с) — по умолчанию: ${default}${plain}"
     fi
 }
 
@@ -124,13 +124,13 @@ install_base() {
             # AWG: build from source (pumbaX/awg-multi-script method)
             echo -e "${green}Installing AWG build dependencies...${plain}"
             apt-get install -y -q build-essential git libmnl-dev pkg-config dkms 2>/dev/null || true
-            echo -e "${green}Установка заголовков ядра...${plain}"
+            echo -e "${green}Installing kernel headers...${plain}"
             apt-get install -y -q "linux-headers-$(uname -r)" 2>/dev/null && {
-                echo -e "${green}Заголовки ядра установлены для $(uname -r)${plain}"
+                echo -e "${green}Kernel headers installed for $(uname -r)${plain}"
             } || {
-                echo -e "${yellow}Заголовки для $(uname -r) не найдены, обновление ядра...${plain}"
+                echo -e "${yellow}Headers for $(uname -r) not found, updating kernel...${plain}"
                 apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || true
-                echo -e "${yellow}Ядро обновлено — нужна перезагрузка перед загрузкой AWG${plain}"
+                echo -e "${yellow}Kernel updated — reboot needed before AWG can load${plain}"
             }
             # Build and install kernel module
             echo -e "${green}Building amneziawg kernel module...${plain}"
@@ -168,18 +168,18 @@ install_base() {
                 echo -e "${green}AWG installed and loaded successfully${plain}"
             else
                 echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
-                echo -e "${yellow}│ Модуль AWG собран, но не загружен.                 │${plain}"
-                echo -e "${yellow}│ Вероятно, обновлено ядро — требуется ПЕРЕЗАГРУЗКА.   │${plain}"
-                echo -e "${yellow}│ После перезагрузки AWG загрузится автоматически.          │${plain}"
+                echo -e "${yellow}│ AWG module compiled but not loaded.                 │${plain}"
+                echo -e "${yellow}│ Kernel was likely updated — a REBOOT is required.   │${plain}"
+                echo -e "${yellow}│ After reboot, AWG will load automatically.          │${plain}"
                 echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
                 echo ""
-                read_prompt "Перезагрузиться СЕЙЧАС для активации AWG? (10с — по умолчанию: Y) [Y/n]: " "Y" do_reboot
+                read_prompt "Reboot NOW to activate AWG? (10s — default: Y) [Y/n]: " "Y" do_reboot
                 if [[ "$do_reboot" != "n" && "$do_reboot" != "N" ]]; then
-                    echo -e "${green}Перезагрузка через 5 секунд...${plain}"
+                    echo -e "${green}Rebooting in 5 seconds...${plain}"
                     sleep 5
                     reboot
                 else
-                    echo -e "${yellow}Пожалуйста, перезагрузитесь вручную перед созданием AWG-инбаундов.${plain}"
+                    echo -e "${yellow}Please reboot manually before creating AWG inbounds.${plain}"
                 fi
             fi
             ;;
@@ -671,7 +671,7 @@ prompt_and_setup_ssl() {
 
             # Ask for optional IPv6
             local ipv6_addr=""
-            read -rp "Do you have an IPv6 address to include? (leave empty to skip): " ipv6_addr
+            read_prompt "IPv6-адрес? (10с — по умолчанию: пропустить): " "" ipv6_addr
             ipv6_addr="${ipv6_addr// /}" # Trim whitespace
 
             # Stop panel if running (port 80 needed)
