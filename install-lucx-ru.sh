@@ -12,7 +12,7 @@ xui_folder="${XUI_MAIN_FOLDER:=/usr/local/x-ui}"
 xui_service="${XUI_SERVICE:=/etc/systemd/system}"
 
 # check root
-[[ $EUID -ne 0 ]] && echo -e "${red}Критическая ошибка: ${plain} Запустите скрипт с правами root \n " && exit 1
+[[ $EUID -ne 0 ]] && echo -e "${red}Fatal error: ${plain} Please run this script with root privilege \n " && exit 1
 
 # Check OS and set release variable
 if [[ -f /etc/os-release ]]; then
@@ -22,10 +22,10 @@ elif [[ -f /usr/lib/os-release ]]; then
     source /usr/lib/os-release
     release=$ID
 else
-    echo "Не удалось определить ОС, please contact the author!" >&2
+    echo "Failed to check the system OS, please contact the author!" >&2
     exit 1
 fi
-echo "Версия ОС: $release"
+echo "The OS release is: $release"
 
 arch() {
     case "$(uname -m)" in
@@ -36,11 +36,11 @@ arch() {
         armv6* | armv6) echo 'armv6' ;;
         armv5* | armv5) echo 'armv5' ;;
         s390x) echo 's390x' ;;
-        *) echo -e "${green}Неподдерживаемая архитектура! ${plain}" && rm -f install.sh && exit 1 ;;
+        *) echo -e "${green}Unsupported CPU architecture! ${plain}" && rm -f install.sh && exit 1 ;;
     esac
 }
 
-echo "Архитектура: $(arch)"
+echo "Arch: $(arch)"
 
 # Simple helpers
 is_ipv4() {
@@ -83,7 +83,7 @@ read_prompt() {
     if [[ $? -ne 0 ]]; then
         eval $var_name="$default"
         echo ""
-        echo -e "${yellow}Таймаут (${timeout}с) — по умолчанию: ${default}${plain}"
+        echo -e "${yellow}Timeout (${timeout}s) — using default: ${default}${plain}"
     fi
 }
 
@@ -117,17 +117,17 @@ install_base() {
     esac
 
     # LUCX-HOOK: Install AWG/Telemt system dependencies
-    echo -e "${green}Установка зависимостей LucX...${plain}"
+    echo -e "${green}Installing LucX dependencies (iproute2, iptables, AWG)...${plain}"
     case "${release}" in
         ubuntu | debian | armbian)
             apt-get install -y -q iproute2 iptables 2>/dev/null || true
             # AWG: build from source (pumbaX/awg-multi-script method)
             # CRITICAL: upgrade kernel first so headers match running kernel exactly
             echo -e "${green}Updating system packages (kernel)...${plain}"
-            echo -e "${green}Установка сборочных зависимостей AWG...${plain}"
+            echo -e "${green}Installing AWG build dependencies...${plain}"
             apt-get install -y -q build-essential git libmnl-dev pkg-config dkms 2>/dev/null || true
             # Install meta-package so DKMS can rebuild AWG on future kernel updates
-            echo -e "${green}Установка заголовков ядра...${plain}"
+            echo -e "${green}Installing kernel headers...${plain}"
             apt-get install -y -q "linux-headers-$(uname -r)" linux-headers-amd64 2>/dev/null || {
                 echo -e "${yellow}Headers for $(uname -r) not available, trying generic...${plain}"
                 apt-get install -y -q linux-headers-amd64 2>/dev/null || true
@@ -135,13 +135,13 @@ install_base() {
             }
             # Verify headers match running kernel
             if [ -d "/lib/modules/$(uname -r)/build" ]; then
-                echo -e "${green}Заголовки ядра готовы для $(uname -r)${plain}"
+                echo -e "${green}Kernel headers ready for $(uname -r)${plain}"
             else
-                echo -e "${yellow}Заголовки могут не совпадать с ядром $(uname -r)${plain}"
+                echo -e "${yellow}Warning: headers may not match running kernel $(uname -r)${plain}"
                 echo -e "${yellow}DKMS will rebuild module after next reboot${plain}"
             fi
             # Build and install kernel module
-            echo -e "${green}Сборка модуля amneziawg...${plain}"
+            echo -e "${green}Building amneziawg kernel module...${plain}"
             local tmp_mod=/tmp/amneziawg-linux-kernel-module
             rm -rf "$tmp_mod"
             git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git "$tmp_mod" 2>/dev/null && {
@@ -155,7 +155,7 @@ install_base() {
                 rm -rf "$tmp_mod"
             }
             # Build and install userspace tools
-            echo -e "${green}Сборка утилит awg...${plain}"
+            echo -e "${green}Building amneziawg tools (awg, awg-quick)...${plain}"
             local tmp_tools=/tmp/amneziawg-tools
             rm -rf "$tmp_tools"
             git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git "$tmp_tools" 2>/dev/null && {
@@ -168,17 +168,28 @@ install_base() {
             # Load the module — if headers match running kernel, it loads immediately
             modprobe amneziawg 2>/dev/null && {
                 echo "amneziawg" > /etc/modules-load.d/amneziawg.conf 2>/dev/null || true
-                echo -e "${green}AWG установлен и загружен${plain}"
+                echo -e "${green}AWG installed and loaded successfully${plain}"
+
+            # LUCX-HOOK: Install tun2socks for AWG routing
+            echo -e "${green}Installing tun2socks...${plain}"
+            TUN2SOCKS_VER="v3.0.1"
+            curl -sL "https://github.com/xjasonlyu/tun2socks/releases/download/${TUN2SOCKS_VER}/tun2socks-linux-amd64.zip" -o /tmp/tun2socks.zip 2>/dev/null && \
+              unzip -o /tmp/tun2socks.zip tun2socks-linux-amd64 -d /tmp/ 2>/dev/null && \
+              mv /tmp/tun2socks-linux-amd64 /usr/local/bin/tun2socks && \
+              chmod +x /usr/local/bin/tun2socks && \
+              rm -f /tmp/tun2socks.zip && \
+              echo -e "${green}tun2socks installed${plain}" || \
+              echo -e "${yellow}tun2socks download failed — install manually${plain}"
             } || {
                 echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
-                echo -e "${yellow}│ Модулю AWG нужна перезагрузка.               │${plain}"
-                echo -e "${yellow}│ Ядро обновлено — требуется перезагрузка.                │${plain}"
-                echo -e "${yellow}│ После перезагрузки AWG загрузится автоматически.                │${plain}"
+                echo -e "${yellow}│ AWG module needs a reboot to activate.               │${plain}"
+                echo -e "${yellow}│ Kernel was updated — reboot required.                │${plain}"
+                echo -e "${yellow}│ After reboot AWG loads automatically.                │${plain}"
                 echo -e "${yellow}└──────────────────────────────────────────────────────┘${plain}"
                 echo "amneziawg" > /etc/modules-load.d/amneziawg.conf 2>/dev/null || true
-                read_prompt "Перезагрузить СЕЙЧАС? (10с — Y/n): " "Y" do_reboot
+                read_prompt "Reboot NOW? (10s — default: Y) [Y/n]: " "Y" do_reboot
                 if [[ "$do_reboot" != "n" && "$do_reboot" != "N" ]]; then
-                    echo -e "${green}Перезагрузка через 5 секунд...${plain}"
+                    echo -e "${green}Rebooting in 5 seconds...${plain}"
                     sleep 5
                     reboot
                 fi
@@ -947,12 +958,12 @@ install_x-ui() {
             echo -e "${yellow}Trying to fetch version with IPv4...${plain}"
             tag_version=$(curl -4 -Ls "https://api.github.com/repos/AlexeyLCP/lucx-ui/releases" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/' | head -1)
             if [[ ! -n "$tag_version" ]]; then
-                echo -e "${red}Не удалось получить версию. Try specifying a version:${plain}"
+                echo -e "${red}Failed to fetch version. Try specifying a version:${plain}"
                 echo -e "${yellow}  bash install-lucx.sh v0.1.5-pre-MVP${plain}"
                 exit 1
             fi
         fi
-        echo -e "Последняя версия LucX-UI: ${tag_version}, загрузка..."
+        echo -e "Got LucX-UI latest version: ${tag_version}, downloading..."
         # Try API-based download first (bypasses GitHub CDN issues)
         local release_json=$(curl -s "https://api.github.com/repos/AlexeyLCP/lucx-ui/releases/tags/${tag_version}")
         local asset_url=$(echo "$release_json" | grep -o '"browser_download_url": *"[^"]*"' | grep -o 'https://[^"]*' | head -1)
@@ -964,8 +975,8 @@ install_x-ui() {
             curl -4fLRo ${xui_folder}-linux-$(arch).tar.gz "https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz" 2>/dev/null || true
         fi
         if [[ ! -f ${xui_folder}-linux-$(arch).tar.gz ]]; then
-            echo -e "${red}Ошибка загрузки. The release asset may not be available.${plain}"
-            echo -e "${yellow}Соберите из исходников:${plain}"
+            echo -e "${red}Download failed. The release asset may not be available.${plain}"
+            echo -e "${yellow}Try building from source:${plain}"
             echo -e "${yellow}  git clone https://github.com/AlexeyLCP/lucx-ui${plain}"
             echo -e "${yellow}  cd lucx-ui/frontend && npm install && npm run build && cd ..${plain}"
             echo -e "${yellow}  go build -o x-ui . && sudo cp x-ui ${xui_folder}/${plain}"
@@ -991,7 +1002,7 @@ install_x-ui() {
     fi
     curl -4fLRo /usr/bin/x-ui-temp https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/x-ui.sh
     if [[ $? -ne 0 ]]; then
-        echo -e "${red}Не удалось загрузить x-ui.sh${plain}"
+        echo -e "${red}Failed to download x-ui.sh${plain}"
         exit 1
     fi
 
@@ -1122,7 +1133,7 @@ install_x-ui() {
         fi
 
         if [ "$service_installed" = true ]; then
-            echo -e "${green}Настройка systemd...${plain}"
+            echo -e "${green}Setting up systemd unit...${plain}"
             chown root:root ${xui_service}/x-ui.service > /dev/null 2>&1
             chmod 644 ${xui_service}/x-ui.service > /dev/null 2>&1
             systemctl daemon-reload
@@ -1134,7 +1145,7 @@ install_x-ui() {
         fi
     fi
 
-    echo -e "${green}x-ui ${tag_version}${plain} установка завершена, панель запущена..."
+    echo -e "${green}x-ui ${tag_version}${plain} installation finished, it is running now..."
     echo -e ""
     echo -e "┌───────────────────────────────────────────────────────┐
 │  ${blue}x-ui control menu usages (subcommands):${plain}              │
@@ -1156,6 +1167,6 @@ install_x-ui() {
 └───────────────────────────────────────────────────────┘"
 }
 
-echo -e "${green}Запуск...${plain}"
+echo -e "${green}Running...${plain}"
 install_base
 install_x-ui $1
