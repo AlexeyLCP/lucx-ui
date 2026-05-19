@@ -52,7 +52,7 @@ func GenerateAWGParams(obfLevel int, profile string, region string) (*AWGParams,
 	}
 
 	privKey := genKey()
-	pubKey := genKey() // service layer derives real Curve25519 pubkey via awg pubkey
+	pubKey := DerivePubkey(privKey)
 	psk := genPSK()
 
 	params := &AWGParams{
@@ -127,6 +127,25 @@ func genPSK() string {
 // GenPSK generates a random 32-byte standard base64 pre-shared key.
 // PSK is a shared secret, not a Curve25519 key — random bytes are fine.
 func GenPSK() string { return genPSK() }
+
+// DerivePubkey derives a Curve25519 public key from a private key via awg pubkey.
+func DerivePubkey(privKey string) string {
+	cmd := exec.Command("awg", "pubkey")
+	cmd.Stdin = strings.NewReader(privKey)
+	out, err := cmd.Output()
+	if err == nil && len(out) == 44 {
+		return strings.TrimSpace(string(out))
+	}
+	// Fallback: try wg pubkey
+	cmd = exec.Command("wg", "pubkey")
+	cmd.Stdin = strings.NewReader(privKey)
+	out, err = cmd.Output()
+	if err == nil && len(out) == 44 {
+		return strings.TrimSpace(string(out))
+	}
+	// Last resort — return empty, will be caught by validation
+	return ""
+}
 
 // FromURLSafeKey converts a URL-safe base64 key back to standard base64 with padding.
 // Used when receiving client keys from API path parameters (Gin can't handle %2F).

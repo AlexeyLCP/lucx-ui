@@ -71,10 +71,12 @@ func (m *AWGManager) EnsureFirstClientExists(awg *model.Inbound) error {
 		return nil // already has clients
 	}
 
+	privKey := GenKey()
+	pubKey := DerivePubkey(privKey)
 	defaultClient := model.Client{
-		ID:         GenKey(),
+		ID:         pubKey,
 		Password:   GenPSK(),
-		PrivateKey: GenKey(),
+		PrivateKey: privKey,
 		Email:      fmt.Sprintf("default-%d", awg.Id),
 		Enable:     true,
 		ExpiryTime: 0,
