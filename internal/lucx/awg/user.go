@@ -8,6 +8,7 @@ package awg
 
 import (
 	"encoding/json"
+	"strings"
 	"fmt"
 	"os/exec"
 
@@ -35,15 +36,13 @@ func (m *AWGManager) AddClient(awgID int, client *model.Client) error {
 	nextOctet := 2 + len(clients)
 	clientIP := fmt.Sprintf("10.%d.0.%d/32", awgID%255, nextOctet)
 
-	// Register with kernel
-	cmd := exec.Command("awg", "set", iface,
-		"peer", client.ID,
-		"preshared-key", client.Password,
-		"allowed-ips", clientIP,
-		"persistent-keepalive", "25",
-	)
+	// Register with kernel via addconf (awg set peer is unreliable)
+	peerConf := fmt.Sprintf("[Peer]\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s\nPersistentKeepalive = 25\n",
+		client.ID, client.Password, clientIP)
+	cmd := exec.Command("awg", "addconf", iface, "/dev/stdin")
+	cmd.Stdin = strings.NewReader(peerConf)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		return fmt.Errorf("awg set peer: %w\n%s", err, string(out))
+		return fmt.Errorf("awg addconf: %w\n%s", err, string(out))
 	}
 
 	logAWG("AddClient: inbound=%d email=%s ip=%s", awgID, client.Email, clientIP)

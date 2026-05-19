@@ -64,7 +64,12 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 		return nil, fmt.Errorf("socks5 proxy: %w", err)
 	}
 
-	// Write config files (with peers)
+	// Auto-create first client BEFORE writing config (so [Peer] is included)
+	if err := m.EnsureFirstClientExists(awg); err != nil {
+		logAWG("Create: first client warning for inbound=%d: %v", awgID, err)
+	}
+
+	// Write config files (with peers from EnsureFirstClientExists)
 	tmplData := TemplateData{
 		AWGInterface:   iface,
 		TUNInterface:   "tun0",
@@ -107,10 +112,6 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 			"-loglevel", "silent").Start()
 	}
 
-	// Auto-create first client
-	if err := m.EnsureFirstClientExists(awg); err != nil {
-		logAWG("Create: first client warning for inbound=%d: %v", awgID, err)
-	}
 
 	if needRestart {
 		m.XrayService.SetToNeedRestart()
