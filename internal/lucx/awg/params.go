@@ -89,24 +89,18 @@ func GenerateAWGParams(obfLevel int, profile string, region string) (*AWGParams,
 }
 
 // awgGenKey runs `awg genkey` to produce a proper Curve25519 private key.
-// Falls back to `wg genkey` if awg is not installed.
-// Random bytes are NOT valid WireGuard keys — Curve25519 requires clamping.
+// Tries multiple binary paths since x-ui may have restricted PATH.
 func awgGenKey() string {
-	cmd := exec.Command("awg", "genkey")
-	out, err := cmd.Output()
-	if err == nil && len(out) == 44 {
-		return strings.TrimSpace(string(out))
+	for _, bin := range []string{"/usr/bin/awg", "/usr/local/bin/awg", "awg", "/usr/bin/wg", "wg"} {
+		cmd := exec.Command(bin, "genkey")
+		out, err := cmd.Output()
+		if err == nil && len(out) >= 43 {
+			return strings.TrimSpace(string(out))
+		}
 	}
-	// Fallback: try wg genkey
-	cmd = exec.Command("wg", "genkey")
-	out, err = cmd.Output()
-	if err == nil && len(out) == 44 {
-		return strings.TrimSpace(string(out))
-	}
-	// Last resort: random bytes with clamping (not ideal but better than nothing)
+	// Last resort: random bytes with clamping
 	key := make([]byte, 32)
 	rand.Read(key)
-	// Curve25519 clamping
 	key[0] &= 248
 	key[31] &= 127
 	key[31] |= 64
@@ -129,21 +123,16 @@ func genPSK() string {
 func GenPSK() string { return genPSK() }
 
 // DerivePubkey derives a Curve25519 public key from a private key via awg pubkey.
+// Tries multiple binary locations since x-ui may have restricted PATH.
 func DerivePubkey(privKey string) string {
-	cmd := exec.Command("awg", "pubkey")
-	cmd.Stdin = strings.NewReader(privKey)
-	out, err := cmd.Output()
-	if err == nil && len(out) == 44 {
-		return strings.TrimSpace(string(out))
+	for _, bin := range []string{"/usr/bin/awg", "/usr/local/bin/awg", "awg", "/usr/bin/wg", "wg"} {
+		cmd := exec.Command(bin, "pubkey")
+		cmd.Stdin = strings.NewReader(privKey)
+		out, err := cmd.Output()
+		if err == nil && len(out) == 44 {
+			return strings.TrimSpace(string(out))
+		}
 	}
-	// Fallback: try wg pubkey
-	cmd = exec.Command("wg", "pubkey")
-	cmd.Stdin = strings.NewReader(privKey)
-	out, err = cmd.Output()
-	if err == nil && len(out) == 44 {
-		return strings.TrimSpace(string(out))
-	}
-	// Last resort — return empty, will be caught by validation
 	return ""
 }
 
