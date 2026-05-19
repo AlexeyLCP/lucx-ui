@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/big"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -87,18 +88,35 @@ func GenerateAWGParams(obfLevel int, profile string, region string) (*AWGParams,
 	return params, nil
 }
 
-func genKey() string {
+// awgGenKey runs `awg genkey` to produce a proper Curve25519 private key.
+// Falls back to `wg genkey` if awg is not installed.
+// Random bytes are NOT valid WireGuard keys — Curve25519 requires clamping.
+func awgGenKey() string {
+	cmd := exec.Command("awg", "genkey")
+	out, err := cmd.Output()
+	if err == nil && len(out) == 44 {
+		return strings.TrimSpace(string(out))
+	}
+	// Fallback: try wg genkey
+	cmd = exec.Command("wg", "genkey")
+	out, err = cmd.Output()
+	if err == nil && len(out) == 44 {
+		return strings.TrimSpace(string(out))
+	}
+	// Last resort: random bytes with clamping (not ideal but better than nothing)
 	key := make([]byte, 32)
 	rand.Read(key)
+	// Curve25519 clamping
+	key[0] &= 248
+	key[31] &= 127
+	key[31] |= 64
 	return base64.StdEncoding.EncodeToString(key)
 }
 
-// GenKey generates a random 32-byte standard base64 key (44 chars, WireGuard compatible).
-func GenKey() string {
-	key := make([]byte, 32)
-	rand.Read(key)
-	return base64.StdEncoding.EncodeToString(key)
-}
+func genKey() string { return awgGenKey() }
+
+// GenKey generates a proper Curve25519 private key via awg/wg genkey.
+func GenKey() string { return awgGenKey() }
 
 func genPSK() string {
 	psk := make([]byte, 32)
@@ -106,12 +124,9 @@ func genPSK() string {
 	return base64.StdEncoding.EncodeToString(psk)
 }
 
-// GenPSK generates a random 32-byte standard base64 pre-shared key (44 chars, WireGuard compatible).
-func GenPSK() string {
-	psk := make([]byte, 32)
-	rand.Read(psk)
-	return base64.StdEncoding.EncodeToString(psk)
-}
+// GenPSK generates a random 32-byte standard base64 pre-shared key.
+// PSK is a shared secret, not a Curve25519 key — random bytes are fine.
+func GenPSK() string { return genPSK() }
 
 // FromURLSafeKey converts a URL-safe base64 key back to standard base64 with padding.
 // Used when receiving client keys from API path parameters (Gin can't handle %2F).
