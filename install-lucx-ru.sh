@@ -171,28 +171,15 @@ install_base() {
                 echo -e "${green}AWG installed and loaded successfully${plain}"
 
             # LUCX-HOOK: Install tun2socks for AWG routing
-            echo -e "${green}Installing tun2socks...${plain}"
-            TUN2SOCKS_VER="v2.6.0"
-            TUN2SOCKS_URL="https://github.com/xjasonlyu/tun2socks/releases/download/${TUN2SOCKS_VER}/tun2socks-linux-amd64.zip"
-            if curl -sL "$TUN2SOCKS_URL" -o /tmp/tun2socks.zip 2>/dev/null; then
-              if unzip -o /tmp/tun2socks.zip -d /tmp/tun2socks-extract/ 2>/dev/null; then
-                TUN2SOCKS_BIN=$(find /tmp/tun2socks-extract -name "tun2socks*" -type f 2>/dev/null | head -1)
-                if [ -n "$TUN2SOCKS_BIN" ]; then
-                  mv "$TUN2SOCKS_BIN" /usr/local/bin/tun2socks
-                  chmod +x /usr/local/bin/tun2socks
-                  echo -e "${green}tun2socks installed${plain}"
-                fi
-                rm -rf /tmp/tun2socks-extract
-              fi
-              rm -f /tmp/tun2socks.zip
-            fi
-            if ! command -v tun2socks &>/dev/null; then
-              echo -e "${yellow}tun2socks not available — trying go install...${plain}"
-              export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
-              go install github.com/xjasonlyu/tun2socks/v3@latest 2>/dev/null && \
-                cp $HOME/go/bin/tun2socks /usr/local/bin/tun2socks 2>/dev/null && \
-                echo -e "${green}tun2socks installed via go${plain}" || \
-                echo -e "${yellow}tun2socks install failed — AWG routing needs manual setup${plain}"
+            echo -e "${green}Installing tun2socks from release...${plain}"
+            if [ -f bin/tun2socks-linux-amd64 ]; then
+              cp bin/tun2socks-linux-amd64 /usr/local/bin/tun2socks
+              chmod +x /usr/local/bin/tun2socks
+              echo -e "${green}tun2socks installed${plain}"
+            elif command -v tun2socks &>/dev/null; then
+              echo -e "${green}tun2socks already installed${plain}"
+            else
+              echo -e "${yellow}tun2socks not found — install manually${plain}"
             fi
             } || {
                 echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"

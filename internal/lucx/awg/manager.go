@@ -1,8 +1,4 @@
 // Copyright (c) 2025 LucX-UI Project.
-// Licensed under the PolyForm Noncommercial License 1.0.0.
-// LucX-UI Component. Free for personal and educational use.
-// Commercial use (including VPN resale) requires explicit written permission from the author.
-// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 package awg
 
@@ -62,12 +58,13 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 	rtTable := fmt.Sprintf("10%d", awgID)
 	rtPref := 1000 + awgID
 
-	// Ensure shared SOCKS5 proxy exists (all AWG inbounds share port 20000)
+	// Ensure shared SOCKS5 proxy
 	if err := m.ensureDefaultSOCKS5(awg, params); err != nil {
 		m.rollbackCreate(awgID)
 		return nil, fmt.Errorf("socks5 proxy: %w", err)
 	}
 
+	// Write config files (with peers)
 	tmplData := TemplateData{
 		AWGInterface:   iface,
 		TUNInterface:   "tun0",
@@ -85,55 +82,30 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 		return nil, fmt.Errorf("write config: %w", err)
 	}
 
-	// Setup interface and routing via Go (don't run PostUp bash — tun2socks blocks)
 	logAWG("BuildServerConfig: Jc=%d Jmin=%d Jmax=%d S1=%d S2=%d S3=%d S4=%d H1=%s",
 		params.Jc, params.Jmin, params.Jmax, params.S1, params.S2, params.S3, params.S4, params.H1)
 
-	if err := SetupAWGInterface(iface); err != nil {
-		m.rollbackCreate(awgID)
-		return nil, fmt.Errorf("setup interface: %w", err)
-	}
-	// Load config into kernel module
+	// Register route table before awg-quick up
+	appendToFile("/etc/iproute2/rt_tables", fmt.Sprintf("%d %s\n", 100+awgID, tmplData.RouteTableName))
+
+	// Use awg-quick up — correctly handles setconf + interface + PostUp
 	confPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgID))
-	exec.Command("awg", "setconf", iface, confPath).Run()
+	cmd := exec.Command("awg-quick", "up", confPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		// awg-quick might have already created the interface — check
+		if !interfaceExists(iface) {
+			m.rollbackCreate(awgID)
+			return nil, fmt.Errorf("awg-quick up failed: %w\n%s", err, string(out))
+		}
+		logAWG("Create: awg-quick warning (interface exists): %v", err)
+	}
 
-	// Assign IP and bring up
-	exec.Command("ip", "addr", "add", serverIP+"/24", "dev", iface).Run()
-	exec.Command("ip", "link", "set", iface, "mtu", fmt.Sprintf("%d", params.MTU)).Run()
-	exec.Command("ip", "link", "set", iface, "up").Run()
-
-	// Kernel forwarding
-	os.WriteFile("/proc/sys/net/ipv4/ip_forward", []byte("1"), 0644)
-
-	// Ensure tun0 for tun2socks
-	exec.Command("ip", "tuntap", "add", "dev", "tun0", "mode", "tun").Run()
-	exec.Command("ip", "addr", "add", serverIP+"/24", "dev", "tun0").Run()
-	exec.Command("ip", "link", "set", "tun0", "mtu", fmt.Sprintf("%d", params.MTU)).Run()
-	exec.Command("ip", "link", "set", "tun0", "up").Run()
-
-	// Start tun2socks in background (don't wait)
-	exec.Command("pkill", "-f", "tun2socks -device tun0").Run()
-	go exec.Command("tun2socks", "-device", "tun0",
-		"-proxy", fmt.Sprintf("socks5://127.0.0.1:%d", defaultSOCKS5Port),
-		"-loglevel", "silent").Start()
-
-	// Policy routing
-	exec.Command("ip", "rule", "add", "from", subnet, "table", rtTable, "pref", fmt.Sprintf("%d", rtPref)).Run()
-	exec.Command("ip", "route", "add", "default", "dev", "tun0", "table", rtTable).Run()
-
-	// nftables (idempotent)
-	exec.Command("nft", "delete", "table", "ip", "awg_nat").Run()
-	exec.Command("nft", "add", "table", "ip", "awg_nat").Run()
-	exec.Command("nft", "add", "chain", "ip", "awg_nat", "postrouting",
-		"{", "type", "nat", "hook", "postrouting", "priority", "100", ";", "}").Run()
-	exec.Command("nft", "add", "rule", "ip", "awg_nat", "postrouting",
-		"ip", "saddr", subnet, "oifname", "tun0", "masquerade").Run()
-	exec.Command("nft", "add", "chain", "ip", "awg_nat", "forward",
-		"{", "type", "filter", "hook", "forward", "priority", "0", ";", "}").Run()
-	exec.Command("nft", "add", "rule", "ip", "awg_nat", "forward",
-		"iifname", iface, "oifname", "tun0", "accept").Run()
-	exec.Command("nft", "add", "rule", "ip", "awg_nat", "forward",
-		"iifname", "tun0", "oifname", iface, "ct", "state", "related,established", "accept").Run()
+	// Start tun2socks if not running (don't kill existing — avoid SSH disruption)
+	if !tun2socksRunning() {
+		go exec.Command("tun2socks", "-device", "tun0",
+			"-proxy", fmt.Sprintf("socks5://127.0.0.1:%d", defaultSOCKS5Port),
+			"-loglevel", "silent").Start()
+	}
 
 	// Auto-create first client
 	if err := m.EnsureFirstClientExists(awg); err != nil {
@@ -144,7 +116,7 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 		m.XrayService.SetToNeedRestart()
 	}
 
-	logAWG("Create: inbound=%d port=%d iface=%s socks5=%d ok", awgID, awg.Port, iface, defaultSOCKS5Port)
+	logAWG("Create: inbound=%d port=%d iface=%s ok", awgID, awg.Port, iface)
 	return awg, nil
 }
 
@@ -199,17 +171,6 @@ func (m *AWGManager) RepairAWGInbound(awgID int) *RepairResult {
 	}
 	iface := fmt.Sprintf("awg%d", awgID)
 	result.InterfaceOK = interfaceExists(iface)
-	if !result.InterfaceOK {
-		upPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgID))
-		if _, err := os.Stat(upPath); err == nil {
-			exec.Command("/bin/bash", upPath).Run()
-			result.InterfaceOK = interfaceExists(iface)
-			if result.InterfaceOK {
-				result.Fixed = append(result.Fixed, "interface recreated")
-			}
-		}
-	}
-	result.RoutingOK = routeExists(fmt.Sprintf("10.%d.0.0/24", awgID%255), fmt.Sprintf("10%d", awgID))
 	jc := getIntFromSettings(awg.Settings, "jc", 0)
 	result.ObfuscationOK = jc > 0
 	if !result.ObfuscationOK {
@@ -225,27 +186,17 @@ func (m *AWGManager) RepairAWGInbound(awgID int) *RepairResult {
 }
 
 func (m *AWGManager) ensureDefaultSOCKS5(awg *model.Inbound, params *AWGParams) error {
-	awgID := awg.Id
-	// Check if the default SOCKS5 already exists
-	existing, err := m.InboundService.GetByParentId(awgID)
-	_ = existing
-	_ = err
-	// Check if port 20000 is already in use by a hidden SOCKS5
 	db := database.GetDB()
 	var count int64
 	db.Model(&model.Inbound{}).Where("port = ? AND protocol = ? AND listen = ?",
 		defaultSOCKS5Port, "socks", "127.0.0.1").Count(&count)
 	if count > 0 {
-		return nil // already exists
+		return nil
 	}
 
-	settings := jsonMarshal(map[string]interface{}{
-		"auth": "noauth",
-		"udp":  true,
-	})
+	settings := jsonMarshal(map[string]interface{}{"auth": "noauth", "udp": true})
 	socksInbound := &model.Inbound{
 		UserId:   awg.UserId,
-		ParentID: &awgID,
 		Protocol: "socks",
 		Tag:      "awg-socks-default",
 		Port:     defaultSOCKS5Port,
@@ -253,12 +204,16 @@ func (m *AWGManager) ensureDefaultSOCKS5(awg *model.Inbound, params *AWGParams) 
 		Settings: settings,
 		Enable:   true,
 	}
-	_, _, err = m.InboundService.AddInbound(socksInbound)
+	_, _, err := m.InboundService.AddInbound(socksInbound)
 	if err != nil {
-		_ = err // might already exist — non-fatal
+		return nil // might already exist
 	}
 	logAWG("ensureDefaultSOCKS5: port=%d", defaultSOCKS5Port)
 	return nil
+}
+
+func tun2socksRunning() bool {
+	return exec.Command("pgrep", "-f", "tun2socks -device tun0").Run() == nil
 }
 
 func (m *AWGManager) writeConfigFiles(awg *model.Inbound, params *AWGParams, data TemplateData) error {
@@ -276,19 +231,16 @@ func (m *AWGManager) writeConfigFiles(awg *model.Inbound, params *AWGParams, dat
 	}
 	upPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgID))
 	downPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-down.sh", awgID))
-	if err := os.WriteFile(upPath, []byte(postUp), 0755); err != nil {
-		return fmt.Errorf("write %s: %w", upPath, err)
-	}
-	if err := os.WriteFile(downPath, []byte(postDown), 0755); err != nil {
-		return fmt.Errorf("write %s: %w", downPath, err)
-	}
+	os.WriteFile(upPath, []byte(postUp), 0755)
+	os.WriteFile(downPath, []byte(postDown), 0755)
+
 	conf := BuildServerConfig(awg, params, data, upPath, downPath)
 	confPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgID))
 	if err := os.WriteFile(confPath, []byte(conf), 0600); err != nil {
 		return fmt.Errorf("write %s: %w", confPath, err)
 	}
-	appendToFile("/etc/iproute2/rt_tables", fmt.Sprintf("%d %s\n", 100+awgID, data.RouteTableName))
-	logAWG("writeConfig: inbound=%d conf=%s up=%s down=%s socks5=%d", awgID, confPath, upPath, downPath, data.SOCKS5Port)
+
+	logAWG("writeConfig: inbound=%d conf=%s", awgID, confPath)
 	return nil
 }
 
