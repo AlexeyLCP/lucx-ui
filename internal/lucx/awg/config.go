@@ -14,8 +14,44 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/database/model"
 )
 
+// getAWGPeers extracts clients from an AWG inbound settings and returns them as peers.
+func getAWGPeers(awg *model.Inbound) []model.Client {
+	var peers []model.Client
+	var settings map[string]interface{}
+	if err := json.Unmarshal([]byte(awg.Settings), &settings); err != nil {
+		return peers
+	}
+	clientsRaw, ok := settings["clients"]
+	if !ok || clientsRaw == nil {
+		return peers
+	}
+	clientsList, ok := clientsRaw.([]interface{})
+	if !ok {
+		return peers
+	}
+	for _, c := range clientsList {
+		cm, ok := c.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		id, _ := cm["id"].(string)
+		password, _ := cm["password"].(string)
+		email, _ := cm["email"].(string)
+		enable, _ := cm["enable"].(bool)
+		if id == "" || password == "" || !enable {
+			continue
+		}
+		_ = email
+		peers = append(peers, model.Client{
+			ID:       id,
+			Password: password,
+		})
+	}
+	return peers
+}
+
 // BuildServerConfig generates the complete AWG server .conf file content.
-// Includes all obfuscation params in [Interface] section.
+// Includes all obfuscation params in [Interface] section and all [Peer] sections.
 func BuildServerConfig(awg *model.Inbound, params *AWGParams, data TemplateData, upPath, downPath string) string {
 	var b strings.Builder
 
@@ -37,6 +73,18 @@ func BuildServerConfig(awg *model.Inbound, params *AWGParams, data TemplateData,
 		i5Line = fmt.Sprintf("I5 = <b 0x%s>\n", i5)
 	}
 
+	// Build [Peer] sections from clients
+	var peersStr strings.Builder
+	peersList := getAWGPeers(awg)
+	for _, peer := range peersList {
+		peersStr.WriteString("\n[Peer]\n")
+		fmt.Fprintf(&peersStr, "PublicKey = %s\n", peer.ID)
+		fmt.Fprintf(&peersStr, "PresharedKey = %s\n", peer.Password)
+		peersStr.WriteString("AllowedIPs = 0.0.0.0/0, ::/0\n")
+		peersStr.WriteString("PersistentKeepalive = 25\n")
+	}
+	peers := peersStr.String()
+
 	fmt.Fprintf(&b, `[Interface]
 PrivateKey = %s
 ListenPort = %d
@@ -54,13 +102,14 @@ H3 = %s
 H4 = %s
 %s%s%s%s%sPostUp = %s
 PostDown = %s
+	%s
 `,
 		params.PrivateKey, awg.Port, params.MTU,
 		params.Jc, params.Jmin, params.Jmax,
 		params.S1, params.S2, params.S3, params.S4,
 		params.H1, params.H2, params.H3, params.H4,
 		i1Line, i2Line, i3Line, i4Line, i5Line,
-		upPath, downPath,
+		upPath, downPath, peers,
 	)
 
 	return b.String()
