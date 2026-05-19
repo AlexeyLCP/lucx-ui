@@ -1031,6 +1031,17 @@ install_x-ui() {
         chmod +x bin/xray-linux-arm
     fi
     chmod +x x-ui bin/xray-linux-$(arch)
+    # LUCX-HOOK: Install tun2socks from release tarball
+    echo -e "${green}Installing tun2socks from release...${plain}"
+    if [ -f bin/tun2socks-linux-amd64 ]; then
+      cp bin/tun2socks-linux-amd64 /usr/local/bin/tun2socks
+      chmod +x /usr/local/bin/tun2socks
+      echo -e "${green}tun2socks installed${plain}"
+    elif command -v tun2socks &>/dev/null; then
+      echo -e "${green}tun2socks already installed${plain}"
+    else
+      echo -e "${yellow}tun2socks not found — install manually${plain}"
+    fi
 
     # Update x-ui cli and se set permission
     mv -f /usr/bin/x-ui-temp /usr/bin/x-ui
