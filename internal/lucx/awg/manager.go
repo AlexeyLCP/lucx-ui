@@ -9,6 +9,7 @@ package awg
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
 
 	"github.com/mhsanaei/3x-ui/v3/database"
@@ -30,26 +31,18 @@ func NewAWGManager(inboundSvc *service.InboundService, xraySvc *service.XrayServ
 	}
 }
 
-// =============================================================================
-// Lifecycle: Create / Delete
-// =============================================================================
-
-// CreateAWGInbound sets up a complete AWG inbound: saves to DB, creates TUN
-// child, writes config, sets up routing, and auto-creates the first client.
-// Follows pumbaX convention: server + first peer in one step.
+// Create sets up a complete AWG inbound: saves to DB, creates SOCKS5 child,
+// writes config + PostUp/PostDown scripts, executes PostUp, auto-creates first client.
 func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
-	// 1. Check prerequisites
 	pre := CheckPrerequisites()
 	if !pre.OK() {
 		return nil, fmt.Errorf("prerequisites not met: %v", pre.Errors)
 	}
 
-	// 2. Read user parameters from inbound settings
 	obfLevel := getIntFromSettings(awg.Settings, "obfLevel", 2)
 	mimicryProfile := getStringFromSettings(awg.Settings, "mimicryProfile", "quic")
 	region := getStringFromSettings(awg.Settings, "region", "ru")
 
-	// 3. Generate AWG obfuscation params + CPS
 	params, err := GenerateAWGParams(obfLevel, mimicryProfile, region)
 	if err != nil {
 		return nil, fmt.Errorf("generate params: %w", err)
@@ -59,39 +52,37 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 		return nil, fmt.Errorf("validate params: %w", err)
 	}
 
-	// 4. Merge obfuscation into settings BEFORE AddInbound
 	if err := MergeParamsToSettings(awg, params, i1, i2, i3, i4, i5); err != nil {
 		return nil, fmt.Errorf("merge params: %w", err)
 	}
 
-	// 5. Save to DB
 	awg, needRestart, err := m.InboundService.AddInbound(awg)
 	if err != nil {
 		return nil, fmt.Errorf("save: %w", err)
 	}
 	awgID := awg.Id
 
-	// 6. Compute network parameters
 	iface := fmt.Sprintf("awg%d", awgID)
-	tunIface := fmt.Sprintf("awg%dt", awgID)
 	serverIP := fmt.Sprintf("10.%d.0.1", awgID%255)
 	subnet := fmt.Sprintf("10.%d.0.0/24", awgID%255)
 	rtTable := fmt.Sprintf("10%d", awgID)
 	rtPref := 1000 + awgID
 
-	// 7. Create child TUN inbound (invisible — ParentID set)
-	if _, err := m.createTUNChild(awg, params, tunIface); err != nil {
+	// Create SOCKS5 child inbound (invisible — ParentID set)
+	socksPort, err := m.createSOCKS5Child(awg, params)
+	if err != nil {
 		m.rollbackCreate(awgID)
-		return nil, fmt.Errorf("tun child: %w", err)
+		return nil, fmt.Errorf("socks5 child: %w", err)
 	}
 
-	// 8. Write PostUp/PostDown scripts + AWG config
+	// Write configs with SOCKS5 port
 	tmplData := TemplateData{
 		AWGInterface:   iface,
-		TUNInterface:   tunIface,
+		TUNInterface:   "tun0",
 		AWGServerIP:    serverIP,
 		AWGSubnet:      subnet,
 		AWGPort:        awg.Port,
+		SOCKS5Port:     socksPort,
 		RouteTable:     rtTable,
 		RouteTableName: fmt.Sprintf("awg%d", awgID),
 		RoutePref:      rtPref,
@@ -102,69 +93,47 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 		return nil, fmt.Errorf("write config: %w", err)
 	}
 
-	// 9. Setup routing (creates interface, iptables, routes) — idempotent
-	routingCfg := RoutingConfig{
-		AWGInterface: iface,
-		TUNInterface: tunIface,
-		AWGServerIP:  serverIP,
-		AWGSubnet:    subnet,
-		RouteTable:   rtTable,
-		RoutePref:    rtPref,
-		MTU:          params.MTU,
-	}
-	if err := SetupTUNRouting(routingCfg); err != nil {
+	// Execute PostUp (creates awgN interface, tun0, tun2socks, nftables, routes)
+	upPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgID))
+	cmd := exec.Command("/bin/bash", upPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
 		m.rollbackCreate(awgID)
-		return nil, fmt.Errorf("routing: %w", err)
+		return nil, fmt.Errorf("postup failed: %w\n%s", err, string(out))
 	}
 
-	// 10. Auto-create first client (pumbaX: server + first peer in one step)
+	// Auto-create first client
 	if err := m.EnsureFirstClientExists(awg); err != nil {
 		logAWG("Create: first client warning for inbound=%d: %v", awgID, err)
-		// Non-fatal — inbound still works, user can add clients manually
 	}
 
-	// 11. Restart Xray if needed
 	if needRestart {
 		m.XrayService.SetToNeedRestart()
 	}
 
-	logAWG("Create: inbound=%d port=%d iface=%s tun=%s ok", awgID, awg.Port, iface, tunIface)
+	logAWG("Create: inbound=%d port=%d iface=%s socks5=%d ok", awgID, awg.Port, iface, socksPort)
 	return awg, nil
 }
 
-// DeleteAWGInbound tears down an AWG inbound and all its children.
+// Delete tears down an AWG inbound and all its children.
 func (m *AWGManager) Delete(awgID int) error {
-	// 1. Run PostDown (best-effort)
+	// Run PostDown
 	downPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-down.sh", awgID))
 	if data, err := os.ReadFile(downPath); err == nil {
-		runCmd("/bin/bash", "-c", string(data))
+		exec.Command("/bin/bash", "-c", string(data)).Run()
 	}
 
-	// 2. Cleanup routing
-	cfg := RoutingConfig{
-		AWGInterface: fmt.Sprintf("awg%d", awgID),
-		TUNInterface: fmt.Sprintf("awg%dt", awgID),
-		AWGSubnet:    fmt.Sprintf("10.%d.0.0/24", awgID%255),
-		RouteTable:   fmt.Sprintf("10%d", awgID),
-		RoutePref:    1000 + awgID,
-	}
-	CleanupTUNRouting(cfg)
-
-	// 3. Delete child inbounds (TUN, SOCKS5)
+	// Delete child inbounds
 	children, _ := m.InboundService.GetByParentId(awgID)
 	for _, child := range children {
 		m.InboundService.DelInbound(child.Id)
 	}
 
-	// 4. Delete from DB
 	m.InboundService.DelInbound(awgID)
 
-	// 5. Clean up files
 	os.Remove(filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgID)))
 	os.Remove(filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgID)))
 	os.Remove(downPath)
 
-	// 6. Non-blocking Xray restart
 	go func() {
 		m.XrayService.SetToNeedRestart()
 	}()
@@ -173,11 +142,28 @@ func (m *AWGManager) Delete(awgID int) error {
 	return nil
 }
 
-// =============================================================================
-// Repair
-// =============================================================================
+// RepairAllAWGInbounds repairs every AWG inbound at panel startup.
+func (m *AWGManager) RepairAllAWGInbounds() map[int]*RepairResult {
+	db := database.GetDB()
+	var inbounds []model.Inbound
+	if err := db.Where("protocol = ?", "awg").Find(&inbounds).Error; err != nil {
+		logAWG("RepairAll: db error: %v", err)
+		return nil
+	}
+	results := make(map[int]*RepairResult)
+	repaired := 0
+	for _, ib := range inbounds {
+		r := m.RepairAWGInbound(ib.Id)
+		results[ib.Id] = r
+		if len(r.Fixed) > 0 {
+			repaired++
+		}
+	}
+	logAWG("RepairAll: %d inbounds checked, %d repaired", len(inbounds), repaired)
+	return results
+}
 
-// RepairAWGInbound performs a full health check and repair on a single AWG inbound.
+// RepairAWGInbound performs a full health check and repair.
 func (m *AWGManager) RepairAWGInbound(awgID int) *RepairResult {
 	result := &RepairResult{InboundID: awgID}
 
@@ -192,70 +178,24 @@ func (m *AWGManager) RepairAWGInbound(awgID int) *RepairResult {
 	}
 
 	iface := fmt.Sprintf("awg%d", awgID)
-	tunIface := fmt.Sprintf("awg%dt", awgID)
 	subnet := fmt.Sprintf("10.%d.0.0/24", awgID%255)
 	rtTable := fmt.Sprintf("10%d", awgID)
 
-	// 1. Interface
 	result.InterfaceOK = interfaceExists(iface)
 	if !result.InterfaceOK {
-		SetupAWGInterface(iface)
-		result.InterfaceOK = interfaceExists(iface)
-		if result.InterfaceOK {
-			result.Fixed = append(result.Fixed, "interface created")
+		// Re-run PostUp to recreate
+		upPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgID))
+		if _, err := os.Stat(upPath); err == nil {
+			exec.Command("/bin/bash", upPath).Run()
+			result.InterfaceOK = interfaceExists(iface)
+			if result.InterfaceOK {
+				result.Fixed = append(result.Fixed, "interface recreated")
+			}
 		}
 	}
 
-	// 2. TUN
-	result.TUNOK = interfaceExists(tunIface)
-	if !result.TUNOK {
-		result.Fixed = append(result.Fixed, "tun missing (needs Xray restart)")
-	}
-
-	// 3. Routing
 	result.RoutingOK = routeExists(subnet, rtTable)
-	if !result.RoutingOK && result.InterfaceOK {
-		mtu := getIntFromSettings(awg.Settings, "mtu", 1320)
-		cfg := RoutingConfig{
-			AWGInterface: iface, TUNInterface: tunIface,
-			AWGServerIP: fmt.Sprintf("10.%d.0.1", awgID%255),
-			AWGSubnet: subnet, RouteTable: rtTable,
-			RoutePref: 1000 + awgID, MTU: mtu,
-		}
-		SetupTUNRouting(cfg)
-		result.RoutingOK = routeExists(subnet, rtTable)
-		if result.RoutingOK {
-			result.Fixed = append(result.Fixed, "routing repaired")
-		}
-	}
 
-	// 4. Firewall
-	result.FirewallOK = iptablesRuleExists("FORWARD", iface, tunIface)
-	if !result.FirewallOK && result.InterfaceOK {
-		cfg := RoutingConfig{AWGInterface: iface, TUNInterface: tunIface, AWGSubnet: subnet}
-		SetupTUNRouting(cfg)
-		result.FirewallOK = iptablesRuleExists("FORWARD", iface, tunIface)
-		if result.FirewallOK {
-			result.Fixed = append(result.Fixed, "firewall repaired")
-		}
-	}
-
-	// 5. Config file
-	confPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgID))
-	_, err = os.Stat(confPath)
-	result.ConfigOK = (err == nil)
-
-	// 6. Clients
-	clients, _ := m.InboundService.GetClients(awg)
-	result.ClientKeysOK = len(clients) > 0
-	if !result.ClientKeysOK {
-		if err := m.EnsureFirstClientExists(awg); err == nil {
-			result.ClientKeysOK = true
-			result.Fixed = append(result.Fixed, "default client created")
-		}
-	}
-
-	// 7. Obfuscation
 	jc := getIntFromSettings(awg.Settings, "jc", 0)
 	result.ObfuscationOK = jc > 0
 	if !result.ObfuscationOK {
@@ -266,69 +206,39 @@ func (m *AWGManager) RepairAWGInbound(awgID int) *RepairResult {
 		}
 	}
 
-	logAWG("Repair: inbound=%d interface=%v tun=%v routing=%v fw=%v config=%v clients=%v obfs=%v fixed=%v",
-		awgID, result.InterfaceOK, result.TUNOK, result.RoutingOK,
-		result.FirewallOK, result.ConfigOK, result.ClientKeysOK,
-		result.ObfuscationOK, result.Fixed)
+	clients, _ := m.InboundService.GetClients(awg)
+	result.ClientKeysOK = len(clients) > 0
+
 	return result
 }
 
-// RepairAllAWGInbounds repairs every AWG inbound and returns results keyed by ID.
-// Called at panel startup (web.go).
-func (m *AWGManager) RepairAllAWGInbounds() map[int]*RepairResult {
-	db := database.GetDB()
-	var inbounds []model.Inbound
-	if err := db.Where("protocol = ?", "awg").Find(&inbounds).Error; err != nil {
-		logAWG("RepairAll: db error: %v", err)
-		return nil
-	}
-
-	results := make(map[int]*RepairResult)
-	for _, ib := range inbounds {
-		results[ib.Id] = m.RepairAWGInbound(ib.Id)
-	}
-	repaired := 0
-	for _, r := range results {
-		if len(r.Fixed) > 0 {
-			repaired++
-		}
-	}
-	logAWG("RepairAll: %d inbounds checked, %d repaired", len(inbounds), repaired)
-	return results
-}
-
-// =============================================================================
-// Helpers
-// =============================================================================
-
-func (m *AWGManager) createTUNChild(awg *model.Inbound, params *AWGParams, tunName string) (*model.Inbound, error) {
+func (m *AWGManager) createSOCKS5Child(awg *model.Inbound, params *AWGParams) (int, error) {
 	awgID := awg.Id
-	tunSubnet := pickFreeTunSubnet(awgID)
+	socksPort := 20000 + (awgID % 1000)
 
 	settings := jsonMarshal(map[string]interface{}{
-		"name":    tunName,
-		"address": []string{tunSubnet},
-		"stack":   "system",
-		"mtu":     params.MTU,
+		"auth": "noauth",
+		"udp":  true,
 	})
 
-	tunInbound := &model.Inbound{
+	socksInbound := &model.Inbound{
 		UserId:   awg.UserId,
 		NodeID:   awg.NodeID,
-		ParentID: &awgID, // makes it invisible — filtered by frontend
-		Protocol: model.TUN,
-		Tag:      fmt.Sprintf("awg-tun-%d", awgID),
-		Port:     0,
+		ParentID: &awgID,
+		Protocol: "socks",
+		Tag:      fmt.Sprintf("awg-socks-%d", awgID),
+		Port:     socksPort,
+		Listen:   "127.0.0.1",
 		Settings: settings,
 		Enable:   true,
 	}
 
-	_, _, err := m.InboundService.AddInbound(tunInbound)
+	_, _, err := m.InboundService.AddInbound(socksInbound)
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	logAWG("createTUNChild: parent=%d tun=%s subnet=%s", awgID, tunName, tunSubnet)
-	return tunInbound, nil
+	logAWG("createSOCKS5Child: parent=%d port=%d", awgID, socksPort)
+	return socksPort, nil
 }
 
 func (m *AWGManager) writeConfigFiles(awg *model.Inbound, params *AWGParams, data TemplateData) error {
@@ -367,7 +277,7 @@ func (m *AWGManager) writeConfigFiles(awg *model.Inbound, params *AWGParams, dat
 
 	appendToFile("/etc/iproute2/rt_tables", fmt.Sprintf("%d %s\n", 100+awgID, data.RouteTableName))
 
-	logAWG("writeConfig: inbound=%d conf=%s up=%s down=%s", awgID, confPath, upPath, downPath)
+	logAWG("writeConfig: inbound=%d conf=%s up=%s down=%s socks5=%d", awgID, confPath, upPath, downPath, data.SOCKS5Port)
 	return nil
 }
 
