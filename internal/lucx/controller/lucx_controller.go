@@ -171,6 +171,21 @@ type createAWGRequest struct {
 	Inbound model.Inbound `json:"inbound"`
 }
 
+// GenerateAWGKeys returns proper Curve25519 keypair generated via awg genkey/pubkey.
+func (c *LucXController) GenerateAWGKeys(ctx *gin.Context) {
+	privKey := awg.GenKey()
+	pubKey := awg.DerivePubkey(privKey)
+	psk := awg.GenPSK()
+	ctx.JSON(http.StatusOK, gin.H{
+		"success": true,
+		"obj": gin.H{
+			"privateKey": privKey,
+			"publicKey":  pubKey,
+			"psk":        psk,
+		},
+	})
+}
+
 func (c *LucXController) CreateAWG(ctx *gin.Context) {
 	var req createAWGRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {

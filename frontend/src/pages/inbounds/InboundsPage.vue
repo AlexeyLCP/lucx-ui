@@ -462,14 +462,15 @@ async function openLucxAddClient(dbInbound) {
     let clientData;
     const isAWG = dbInbound.protocol === 'awg';
     if (isAWG) {
-      clientData = generateAWGClient();
+      const kr = await postLucx('/awg/generate-keys', {});
+      clientData = (kr && kr.success) ? kr.obj : generateAWGClient();
     } else {
       clientData = generateTelemtClient();
     }
     const clientObj = {
       email: email,
-      id: clientData.id,
-      password: clientData.password,
+      id: clientData.publicKey || clientData.id,
+      password: clientData.psk || clientData.password,
       privateKey: clientData.privateKey || '',
       expiryTime: 0,
       tgId: '',
