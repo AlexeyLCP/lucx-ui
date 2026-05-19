@@ -3314,17 +3314,39 @@ Inbound.TunSettings = class extends Inbound.Settings {
     // END LUCX-HOOK
 };
 
-// LUCX-HOOK: AWG Settings class
+// LUCX-HOOK: AWG Settings class — full passthrough of ALL obfuscation fields
 Inbound.AWGSettings = class extends Inbound.Settings {
     constructor(protocol, params) {
         super(protocol);
         params = params || {};
+        // User-facing fields
         this.obfLevel = params.obfLevel || 1;
         this.mimicryProfile = params.mimicryProfile || 'quic';
         this.region = params.region || 'ru';
         this.mtu = Number(params.mtu) || 1320;
         this.dns = params.dns || '1.1.1.1';
         this.clients = params.clients || [];
+        // Obfuscation params — preserve from server-generated settings
+        // Use ?? not || because 0 is valid for Jc/Jmin/Jmax/S1-S4
+        this.jc = params.jc ?? 0;
+        this.jmin = params.jmin ?? 0;
+        this.jmax = params.jmax ?? 0;
+        this.s1 = params.s1 ?? 0;
+        this.s2 = params.s2 ?? 0;
+        this.s3 = params.s3 ?? 0;
+        this.s4 = params.s4 ?? 0;
+        this.h1 = params.h1 || '';
+        this.h2 = params.h2 || '';
+        this.h3 = params.h3 || '';
+        this.h4 = params.h4 || '';
+        this.i1 = params.i1 || '';
+        this.i2 = params.i2 || '';
+        this.i3 = params.i3 || '';
+        this.i4 = params.i4 || '';
+        this.i5 = params.i5 || '';
+        this.privateKey = params.privateKey || '';
+        this.publicKey = params.publicKey || '';
+        this.presharedKey = params.presharedKey || '';
     }
 
     static fromJson(json) {
@@ -3332,7 +3354,7 @@ Inbound.AWGSettings = class extends Inbound.Settings {
     }
 
     toJson() {
-        return {
+        const out = {
             obfLevel: this.obfLevel,
             mimicryProfile: this.mimicryProfile,
             region: this.region,
@@ -3340,6 +3362,27 @@ Inbound.AWGSettings = class extends Inbound.Settings {
             dns: this.dns,
             clients: this.clients,
         };
+        // Include ALL obfuscation params — use !== undefined, NOT truthiness (0 is falsy)
+        if (this.jc !== undefined) out.jc = this.jc;
+        if (this.jmin !== undefined) out.jmin = this.jmin;
+        if (this.jmax !== undefined) out.jmax = this.jmax;
+        if (this.s1 !== undefined) out.s1 = this.s1;
+        if (this.s2 !== undefined) out.s2 = this.s2;
+        if (this.s3 !== undefined) out.s3 = this.s3;
+        if (this.s4 !== undefined) out.s4 = this.s4;
+        if (this.h1) out.h1 = this.h1;
+        if (this.h2) out.h2 = this.h2;
+        if (this.h3) out.h3 = this.h3;
+        if (this.h4) out.h4 = this.h4;
+        if (this.i1) out.i1 = this.i1;
+        if (this.i2) out.i2 = this.i2;
+        if (this.i3) out.i3 = this.i3;
+        if (this.i4) out.i4 = this.i4;
+        if (this.i5) out.i5 = this.i5;
+        if (this.privateKey) out.privateKey = this.privateKey;
+        if (this.publicKey) out.publicKey = this.publicKey;
+        if (this.presharedKey) out.presharedKey = this.presharedKey;
+        return out;
     }
 };
 // END LUCX-HOOK
