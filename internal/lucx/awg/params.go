@@ -94,8 +94,11 @@ func awgGenKey() string {
 	for _, bin := range []string{"/usr/bin/awg", "/usr/local/bin/awg", "awg", "/usr/bin/wg", "wg"} {
 		cmd := exec.Command(bin, "genkey")
 		out, err := cmd.Output()
-		if err == nil && len(out) >= 43 {
-			return strings.TrimSpace(string(out))
+		if err == nil {
+			s := strings.TrimSpace(string(out))
+			if len(s) >= 43 {
+				return s
+			}
 		}
 	}
 	// Last resort: random bytes with clamping
@@ -129,8 +132,11 @@ func DerivePubkey(privKey string) string {
 		cmd := exec.Command(bin, "pubkey")
 		cmd.Stdin = strings.NewReader(privKey)
 		out, err := cmd.Output()
-		if err == nil && len(out) == 44 {
-			return strings.TrimSpace(string(out))
+		if err == nil {
+			s := strings.TrimSpace(string(out))
+			if len(s) == 44 {
+				return s
+			}
 		}
 	}
 	return ""
