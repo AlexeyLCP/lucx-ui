@@ -39,7 +39,6 @@ func BuildServerConfig(awg *model.Inbound, params *AWGParams, data TemplateData,
 
 	fmt.Fprintf(&b, `[Interface]
 PrivateKey = %s
-Address = %s/24
 ListenPort = %d
 MTU = %d
 Jc = %d
@@ -56,7 +55,7 @@ H4 = %s
 %s%s%s%s%sPostUp = %s
 PostDown = %s
 `,
-		params.PrivateKey, data.AWGServerIP, awg.Port, params.MTU,
+		params.PrivateKey, awg.Port, params.MTU,
 		params.Jc, params.Jmin, params.Jmax,
 		params.S1, params.S2, params.S3, params.S4,
 		params.H1, params.H2, params.H3, params.H4,

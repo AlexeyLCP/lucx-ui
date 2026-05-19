@@ -33,6 +33,8 @@ set -e
 
 # --- Idempotent interface creation ---
 ip link add {{.AWGInterface}} type amneziawg 2>/dev/null || true
+# LUCX-AWG-ROUTING: Load obfuscation from config file (kernel module needs this explicitly)
+awg setconf {{.AWGInterface}} /etc/amnezia/amneziawg/{{.AWGInterface}}.conf 2>/dev/null || true
 ip addr add {{.AWGServerIP}}/24 dev {{.AWGInterface}} 2>/dev/null || true
 ip link set {{.AWGInterface}} mtu {{.MTU}}
 ip link set {{.AWGInterface}} up

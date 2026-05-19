@@ -172,7 +172,7 @@ install_base() {
 
             # LUCX-HOOK: Install tun2socks for AWG routing
             echo -e "${green}Installing tun2socks...${plain}"
-            TUN2SOCKS_VER="v3.0.1"
+            TUN2SOCKS_VER="v2.6.0"
             TUN2SOCKS_URL="https://github.com/xjasonlyu/tun2socks/releases/download/${TUN2SOCKS_VER}/tun2socks-linux-amd64.zip"
             if curl -sL "$TUN2SOCKS_URL" -o /tmp/tun2socks.zip 2>/dev/null; then
               if unzip -o /tmp/tun2socks.zip -d /tmp/tun2socks-extract/ 2>/dev/null; then
