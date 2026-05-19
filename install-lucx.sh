@@ -90,7 +90,7 @@ read_prompt() {
 install_base() {
     case "${release}" in
         ubuntu | debian | armbian)
-            apt-get update && apt-get install -y -q cron curl tar tzdata socat ca-certificates openssl
+            apt-get update && apt-get install -y -q cron curl tar tzdata socat ca-certificates openssl nftables nftables
             ;;
         fedora | amzn | virtuozzo | rhel | almalinux | rocky | ol)
             dnf -y update && dnf install -y -q cronie curl tar tzdata socat ca-certificates openssl
@@ -112,7 +112,7 @@ install_base() {
             apk update && apk add dcron curl tar tzdata socat ca-certificates openssl
             ;;
         *)
-            apt-get update && apt-get install -y -q cron curl tar tzdata socat ca-certificates openssl
+            apt-get update && apt-get install -y -q cron curl tar tzdata socat ca-certificates openssl nftables nftables
             ;;
     esac
 
@@ -173,13 +173,27 @@ install_base() {
             # LUCX-HOOK: Install tun2socks for AWG routing
             echo -e "${green}Installing tun2socks...${plain}"
             TUN2SOCKS_VER="v3.0.1"
-            curl -sL "https://github.com/xjasonlyu/tun2socks/releases/download/${TUN2SOCKS_VER}/tun2socks-linux-amd64.zip" -o /tmp/tun2socks.zip 2>/dev/null && \
-              unzip -o /tmp/tun2socks.zip tun2socks-linux-amd64 -d /tmp/ 2>/dev/null && \
-              mv /tmp/tun2socks-linux-amd64 /usr/local/bin/tun2socks && \
-              chmod +x /usr/local/bin/tun2socks && \
-              rm -f /tmp/tun2socks.zip && \
-              echo -e "${green}tun2socks installed${plain}" || \
-              echo -e "${yellow}tun2socks download failed — install manually${plain}"
+            TUN2SOCKS_URL="https://github.com/xjasonlyu/tun2socks/releases/download/${TUN2SOCKS_VER}/tun2socks-linux-amd64.zip"
+            if curl -sL "$TUN2SOCKS_URL" -o /tmp/tun2socks.zip 2>/dev/null; then
+              if unzip -o /tmp/tun2socks.zip -d /tmp/tun2socks-extract/ 2>/dev/null; then
+                TUN2SOCKS_BIN=$(find /tmp/tun2socks-extract -name "tun2socks*" -type f 2>/dev/null | head -1)
+                if [ -n "$TUN2SOCKS_BIN" ]; then
+                  mv "$TUN2SOCKS_BIN" /usr/local/bin/tun2socks
+                  chmod +x /usr/local/bin/tun2socks
+                  echo -e "${green}tun2socks installed${plain}"
+                fi
+                rm -rf /tmp/tun2socks-extract
+              fi
+              rm -f /tmp/tun2socks.zip
+            fi
+            if ! command -v tun2socks &>/dev/null; then
+              echo -e "${yellow}tun2socks not available — trying go install...${plain}"
+              export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin
+              go install github.com/xjasonlyu/tun2socks/v3@latest 2>/dev/null && \
+                cp $HOME/go/bin/tun2socks /usr/local/bin/tun2socks 2>/dev/null && \
+                echo -e "${green}tun2socks installed via go${plain}" || \
+                echo -e "${yellow}tun2socks install failed — AWG routing needs manual setup${plain}"
+            fi
             } || {
                 echo -e "${yellow}┌──────────────────────────────────────────────────────┐${plain}"
                 echo -e "${yellow}│ AWG module needs a reboot to activate.               │${plain}"
