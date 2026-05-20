@@ -220,9 +220,9 @@ fi
 # --- Save state ---
 mkdir -p /etc/lucx-ui
 cat > "$STATE_FILE" << STATEFILE
-LUCX_PATCH_VERSION=${PATCH_VERSION}
-PATCH_DATE=$(date -Iseconds)
-XUI_VERSION=${XUI_VERSION}
+LUCX_PATCH_VERSION="${PATCH_VERSION}"
+PATCH_DATE="$(date -Iseconds)"
+XUI_VERSION="${XUI_VERSION}"
 STATEFILE
 
 # --- Health check ---
