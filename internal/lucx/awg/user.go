@@ -1,84 +1,60 @@
 // Copyright (c) 2025 LucX-UI Project.
-// Licensed under the PolyForm Noncommercial License 1.0.0.
-// LucX-UI Component. Free for personal and educational use.
-// Commercial use (including VPN resale) requires explicit written permission from the author.
-// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 package awg
 
 import (
-	"encoding/json"
-	"strings"
 	"fmt"
 	"os/exec"
+	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/database/model"
 )
 
-// =============================================================================
-// Client Management
-// =============================================================================
-
-// AddClient adds a peer to an existing AWG interface (kernel-level).
-// The client must already exist in the DB (added via InboundService.AddInboundClient).
+// AddClient registers a peer in AWG kernel via awg addconf.
+// Obfuscation comes from inbound.Settings (not regenerated).
 func (m *AWGManager) AddClient(awgID int, client *model.Client) error {
 	iface := fmt.Sprintf("awg%d", awgID)
-
-	awg, err := m.InboundService.GetInbound(awgID)
-	if err != nil {
-		return fmt.Errorf("get inbound: %w", err)
-	}
-
-	// Determine next client IP
-	var settings map[string]interface{}
-	json.Unmarshal([]byte(awg.Settings), &settings)
-	clients, _ := settings["clients"].([]interface{})
-	nextOctet := 2 + len(clients)
-	clientIP := fmt.Sprintf("10.%d.0.%d/32", awgID%255, nextOctet)
-
-	// Register with kernel via addconf (awg set peer is unreliable)
-	peerConf := fmt.Sprintf("[Peer]\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = %s\nPersistentKeepalive = 25\n",
-		client.ID, client.Password, clientIP)
+	peerConf := fmt.Sprintf("[Peer]\nPublicKey = %s\nPresharedKey = %s\nAllowedIPs = 0.0.0.0/0, ::/0\nPersistentKeepalive = 25\n",
+		client.ID, client.Password)
 	cmd := exec.Command("awg", "addconf", iface, "/dev/stdin")
 	cmd.Stdin = strings.NewReader(peerConf)
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("awg addconf: %w\n%s", err, string(out))
 	}
-
-	logAWG("AddClient: inbound=%d email=%s ip=%s", awgID, client.Email, clientIP)
+	logAWG("AddClient: inbound=%d email=%s", awgID, client.Email)
 	return nil
 }
 
-// RemoveClient removes a peer from an AWG interface by public key.
+// DeleteClient removes a peer from AWG kernel.
 func (m *AWGManager) DeleteClient(awgID int, publicKey string) error {
 	iface := fmt.Sprintf("awg%d", awgID)
-	cmd := exec.Command("awg", "set", iface, "peer", publicKey, "remove")
-	if _, err := cmd.CombinedOutput(); err != nil {
-		logAWG("DeleteClient: inbound=%d key=%s... warning: %v", awgID, publicKey[:min(16, len(publicKey))], err)
-		// Non-fatal — kernel state may already be cleaned
-	}
-	logAWG("DeleteClient: inbound=%d key=%s... ok", awgID, publicKey[:min(16, len(publicKey))])
+	exec.Command("awg", "set", iface, "peer", publicKey, "remove").Run()
+	logAWG("DeleteClient: inbound=%d key=%s...", awgID, publicKey[:min(16, len(publicKey))])
 	return nil
 }
 
 // EnsureFirstClientExists creates a default client if the inbound has no clients.
-// Follows pumbaX convention: server + first peer in one step.
-// Uses "default" as the client email.
+// Uses GenKey/DerivePubkey for proper Curve25519 keys.
+// Obfuscation comes from inbound.Settings (already stored).
 func (m *AWGManager) EnsureFirstClientExists(awg *model.Inbound) error {
 	clients, _ := m.InboundService.GetClients(awg)
 	if len(clients) > 0 {
-		return nil // already has clients
+		return nil
 	}
 
 	privKey := GenKey()
 	pubKey := DerivePubkey(privKey)
+	if pubKey == "" {
+		return fmt.Errorf("DerivePubkey returned empty")
+	}
+	psk := GenPSK()
+
 	defaultClient := model.Client{
 		ID:         pubKey,
-		Password:   GenPSK(),
+		Password:   psk,
 		PrivateKey: privKey,
 		Email:      fmt.Sprintf("default-%d", awg.Id),
 		Enable:     true,
-		ExpiryTime: 0,
 	}
 
 	clientSettings := fmt.Sprintf(
@@ -91,39 +67,19 @@ func (m *AWGManager) EnsureFirstClientExists(awg *model.Inbound) error {
 		return fmt.Errorf("add default client: %w", err)
 	}
 
-	// Also register with kernel
+	// Register in kernel
 	_ = m.AddClient(awg.Id, &defaultClient)
 
-	logAWG("EnsureFirstClientExists: inbound=%d email=%s created", awg.Id, defaultClient.Email)
+	logAWG("EnsureFirstClientExists: inbound=%d email=%s", awg.Id, defaultClient.Email)
 	return nil
 }
 
-// ListClients returns all clients for an AWG inbound.
 func (m *AWGManager) ListClients(awgID int) ([]model.Client, error) {
 	awg, err := m.InboundService.GetInbound(awgID)
 	if err != nil {
 		return nil, err
 	}
 	return m.InboundService.GetClients(awg)
-}
-
-// EnableClient enables or disables a client in the kernel interface.
-func (m *AWGManager) EnableClient(awgID int, publicKey string, enable bool) error {
-	if enable {
-		// Re-add the peer (idempotent — awg set updates existing peer)
-		awg, err := m.InboundService.GetInbound(awgID)
-		if err != nil {
-			return err
-		}
-		clients, _ := m.InboundService.GetClients(awg)
-		for _, c := range clients {
-			if c.ID == publicKey {
-				return m.AddClient(awgID, &c)
-			}
-		}
-		return fmt.Errorf("client %s... not found", publicKey[:16])
-	}
-	return m.DeleteClient(awgID, publicKey)
 }
 
 func min(a, b int) int {

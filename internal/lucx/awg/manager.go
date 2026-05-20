@@ -13,8 +13,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/web/service"
 )
 
-const defaultSOCKS5Port = 20000
-
 type AWGManager struct {
 	InboundService *service.InboundService
 	XrayService    *service.XrayService
@@ -24,16 +22,19 @@ func NewAWGManager(inboundSvc *service.InboundService, xraySvc *service.XrayServ
 	return &AWGManager{InboundService: inboundSvc, XrayService: xraySvc}
 }
 
+// Create generates obfuscation ONCE, saves to DB, writes .conf, runs awg-quick up, starts tun2socks.
 func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 	pre := CheckPrerequisites()
 	if !pre.OK() {
 		return nil, fmt.Errorf("prerequisites not met: %v", pre.Errors)
 	}
 
+	// 1. Read user params
 	obfLevel := getIntFromSettings(awg.Settings, "obfLevel", 2)
 	mimicryProfile := getStringFromSettings(awg.Settings, "mimicryProfile", "quic")
 	region := getStringFromSettings(awg.Settings, "region", "ru")
 
+	// 2. Generate obfuscation ONCE
 	params, err := GenerateAWGParams(obfLevel, mimicryProfile, region)
 	if err != nil {
 		return nil, fmt.Errorf("generate params: %w", err)
@@ -42,76 +43,55 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 	if err := ValidateAWGParams(params); err != nil {
 		return nil, fmt.Errorf("validate params: %w", err)
 	}
+
+	// 3. Merge into inbound.Settings and save to DB
 	if err := MergeParamsToSettings(awg, params, i1, i2, i3, i4, i5); err != nil {
 		return nil, fmt.Errorf("merge params: %w", err)
 	}
-
 	awg, needRestart, err := m.InboundService.AddInbound(awg)
 	if err != nil {
 		return nil, fmt.Errorf("save: %w", err)
 	}
 	awgID := awg.Id
 
-	iface := fmt.Sprintf("awg%d", awgID)
-	serverIP := fmt.Sprintf("10.%d.0.1", awgID%255)
-	subnet := fmt.Sprintf("10.%d.0.0/24", awgID%255)
-	rtTable := fmt.Sprintf("10%d", awgID)
-	rtPref := 1000 + awgID
-
-	// Ensure shared SOCKS5 proxy
-	if err := m.ensureDefaultSOCKS5(awg, params); err != nil {
-		m.rollbackCreate(awgID)
-		return nil, fmt.Errorf("socks5 proxy: %w", err)
-	}
-
-	// Auto-create first client BEFORE writing config (so [Peer] is included)
+	// 4. Create first client (uses obfuscation from saved Settings)
 	if err := m.EnsureFirstClientExists(awg); err != nil {
 		logAWG("Create: first client warning for inbound=%d: %v", awgID, err)
 	}
 
-	// Write config files (with peers from EnsureFirstClientExists)
-	tmplData := TemplateData{
-		AWGInterface:   iface,
-		TUNInterface:   "tun0",
-		AWGServerIP:    serverIP,
-		AWGSubnet:      subnet,
-		AWGPort:        awg.Port,
-		SOCKS5Port:     defaultSOCKS5Port,
-		RouteTable:     rtTable,
-		RouteTableName: fmt.Sprintf("awg%d", awgID),
-		RoutePref:      rtPref,
-		MTU:            params.MTU,
-	}
-	if err := m.writeConfigFiles(awg, params, tmplData); err != nil {
-		m.rollbackCreate(awg.Id)
+	// 5. Write .conf (now has peers from step 4) and scripts
+	iface := fmt.Sprintf("awg%d", awgID)
+	serverIP := fmt.Sprintf("10.%d.0.1", awgID%255)
+	subnet := fmt.Sprintf("10.%d.0.0/24", awgID%255)
+
+	if err := m.writeConfigFiles(awg, iface, serverIP, subnet); err != nil {
+		m.rollbackCreate(awgID)
 		return nil, fmt.Errorf("write config: %w", err)
 	}
 
-	logAWG("BuildServerConfig: Jc=%d Jmin=%d Jmax=%d S1=%d S2=%d S3=%d S4=%d H1=%s",
-		params.Jc, params.Jmin, params.Jmax, params.S1, params.S2, params.S3, params.S4, params.H1)
+	logAWG("Create: Jc=%d Jmin=%d Jmax=%d S1=%d S2=%d H1=%s",
+		params.Jc, params.Jmin, params.Jmax, params.S1, params.S2, params.H1)
 
-	// Register route table before awg-quick up
-	appendToFile("/etc/iproute2/rt_tables", fmt.Sprintf("%d %s\n", 100+awgID, tmplData.RouteTableName))
-
-	// Use awg-quick up — correctly handles setconf + interface + PostUp
+	// 6. Run awg-quick up
 	confPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgID))
 	cmd := exec.Command("awg-quick", "up", confPath)
 	if out, err := cmd.CombinedOutput(); err != nil {
-		// awg-quick might have already created the interface — check
-		if !interfaceExists(iface) {
-			m.rollbackCreate(awgID)
-			return nil, fmt.Errorf("awg-quick up failed: %w\n%s", err, string(out))
+		logAWG("Create: awg-quick up warning: %v\n%s", err, string(out))
+	}
+
+	// 7. Start tun2socks
+	go func() {
+		cmd := exec.Command("tun2socks", "-device", "tun0",
+			"-proxy", "socks5://127.0.0.1:10808",
+			"-loglevel", "silent")
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+		if err := cmd.Start(); err != nil {
+			logAWG("tun2socks start failed: %v", err)
+			return
 		}
-		logAWG("Create: awg-quick warning (interface exists): %v", err)
-	}
-
-	// Start tun2socks if not running (don't kill existing — avoid SSH disruption)
-	if !tun2socksRunning() {
-		go exec.Command("tun2socks", "-device", "tun0",
-			"-proxy", fmt.Sprintf("socks5://127.0.0.1:%d", defaultSOCKS5Port),
-			"-loglevel", "silent").Start()
-	}
-
+		logAWG("tun2socks started pid=%d", cmd.Process.Pid)
+	}()
 
 	if needRestart {
 		m.XrayService.SetToNeedRestart()
@@ -143,19 +123,13 @@ func (m *AWGManager) RepairAllAWGInbounds() map[int]*RepairResult {
 	db := database.GetDB()
 	var inbounds []model.Inbound
 	if err := db.Where("protocol = ?", "awg").Find(&inbounds).Error; err != nil {
-		logAWG("RepairAll: db error: %v", err)
 		return nil
 	}
 	results := make(map[int]*RepairResult)
-	repaired := 0
 	for _, ib := range inbounds {
 		r := m.RepairAWGInbound(ib.Id)
 		results[ib.Id] = r
-		if len(r.Fixed) > 0 {
-			repaired++
-		}
 	}
-	logAWG("RepairAll: %d inbounds checked, %d repaired", len(inbounds), repaired)
 	return results
 }
 
@@ -172,75 +146,41 @@ func (m *AWGManager) RepairAWGInbound(awgID int) *RepairResult {
 	}
 	iface := fmt.Sprintf("awg%d", awgID)
 	result.InterfaceOK = interfaceExists(iface)
-	jc := getIntFromSettings(awg.Settings, "jc", 0)
+	jc := intVal(parseSettings(awg.Settings), "jc", 0)
 	result.ObfuscationOK = jc > 0
-	if !result.ObfuscationOK {
-		if updated, _ := EnsureParams(awg); updated {
-			m.InboundService.UpdateInbound(awg)
-			result.ObfuscationOK = true
-			result.Fixed = append(result.Fixed, "obfuscation repaired")
-		}
-	}
 	clients, _ := m.InboundService.GetClients(awg)
 	result.ClientKeysOK = len(clients) > 0
 	return result
 }
 
-func (m *AWGManager) ensureDefaultSOCKS5(awg *model.Inbound, params *AWGParams) error {
-	db := database.GetDB()
-	var count int64
-	db.Model(&model.Inbound{}).Where("port = ? AND protocol = ? AND listen = ?",
-		defaultSOCKS5Port, "socks", "127.0.0.1").Count(&count)
-	if count > 0 {
-		return nil
-	}
-
-	settings := jsonMarshal(map[string]interface{}{"auth": "noauth", "udp": true})
-	socksInbound := &model.Inbound{
-		UserId:   awg.UserId,
-		Protocol: "socks",
-		Tag:      "awg-socks-default",
-		Port:     defaultSOCKS5Port,
-		Listen:   "127.0.0.1",
-		Settings: settings,
-		Enable:   true,
-	}
-	_, _, err := m.InboundService.AddInbound(socksInbound)
-	if err != nil {
-		return nil // might already exist
-	}
-	logAWG("ensureDefaultSOCKS5: port=%d", defaultSOCKS5Port)
-	return nil
-}
-
-func tun2socksRunning() bool {
-	return exec.Command("pgrep", "-f", "tun2socks -device tun0").Run() == nil
-}
-
-func (m *AWGManager) writeConfigFiles(awg *model.Inbound, params *AWGParams, data TemplateData) error {
+// writeConfigFiles writes up.sh, down.sh, and the .conf with all peers.
+func (m *AWGManager) writeConfigFiles(awg *model.Inbound, iface, serverIP, subnet string) error {
 	awgID := awg.Id
 	if err := os.MkdirAll(awgConfigDir, 0755); err != nil {
-		return fmt.Errorf("mkdir %s: %w", awgConfigDir, err)
+		return err
 	}
-	postUp, err := RenderPostUp(data)
-	if err != nil {
-		return fmt.Errorf("render PostUp: %w", err)
+	data := TemplateData{
+		AWGInterface:   iface,
+		AWGServerIP:    serverIP,
+		AWGSubnet:      subnet,
+		AWGPort:        awg.Port,
+		RouteTable:     fmt.Sprintf("10%d", awgID),
+		RouteTableName: fmt.Sprintf("awg%d", awgID),
+		RoutePref:      1000 + awgID,
+		MTU:            intVal(parseSettings(awg.Settings), "mtu", 1320),
 	}
-	postDown, err := RenderPostDown(data)
-	if err != nil {
-		return fmt.Errorf("render PostDown: %w", err)
-	}
+	up, _ := RenderPostUp(data)
+	down, _ := RenderPostDown(data)
 	upPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgID))
 	downPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-down.sh", awgID))
-	os.WriteFile(upPath, []byte(postUp), 0755)
-	os.WriteFile(downPath, []byte(postDown), 0755)
+	os.WriteFile(upPath, []byte(up), 0755)
+	os.WriteFile(downPath, []byte(down), 0755)
 
-	conf := BuildServerConfig(awg, params, data, upPath, downPath)
+	conf := BuildServerConfig(awg, upPath, downPath)
 	confPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgID))
 	if err := os.WriteFile(confPath, []byte(conf), 0600); err != nil {
-		return fmt.Errorf("write %s: %w", confPath, err)
+		return err
 	}
-
 	logAWG("writeConfig: inbound=%d conf=%s", awgID, confPath)
 	return nil
 }

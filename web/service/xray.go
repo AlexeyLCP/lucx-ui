@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/mhsanaei/3x-ui/v3/logger"
+	"github.com/mhsanaei/3x-ui/v3/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/xray"
 
 	"go.uber.org/atomic"
@@ -116,8 +117,8 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if inbound.NodeID != nil {
 			continue
 		}
-		// LUCX-HOOK: Skip special protocols (AWG handled by paired TUN child)
-		if inbound.IsSpecialInbound() {
+		// LUCX-HOOK: Skip external protocols (AWG/Telemt). TUN is an Xray protocol.
+		if inbound.IsSpecialInbound() && inbound.Protocol != "tun" {
 			continue
 		}
 		// END LUCX-HOOK
@@ -203,6 +204,16 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		inboundConfig := inbound.GenXrayInboundConfig()
 		xrayConfig.InboundConfigs = append(xrayConfig.InboundConfigs, *inboundConfig)
 	}
+	// LUCX-HOOK: Inject hidden SOCKS5 inbound for AWG tun2socks (not in DB)
+	xrayConfig.InboundConfigs = append(xrayConfig.InboundConfigs, xray.InboundConfig{
+		Listen:   json_util.RawMessage(`"127.0.0.1"`),
+		Port:     10808,
+		Protocol: "socks",
+		Settings: json_util.RawMessage(`{"auth":"noauth","udp":true}`),
+		Tag:      "tun2socks-in",
+		Sniffing: json_util.RawMessage(`{"enabled":true,"destOverride":["http","tls"]}`),
+	})
+	// END LUCX-HOOK
 	return xrayConfig, nil
 }
 
