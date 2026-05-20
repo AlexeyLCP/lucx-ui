@@ -7,7 +7,6 @@ import (
 	"sync"
 
 	"github.com/mhsanaei/3x-ui/v3/logger"
-	"github.com/mhsanaei/3x-ui/v3/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/xray"
 
 	"go.uber.org/atomic"
@@ -204,15 +203,8 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		inboundConfig := inbound.GenXrayInboundConfig()
 		xrayConfig.InboundConfigs = append(xrayConfig.InboundConfigs, *inboundConfig)
 	}
-	// LUCX-HOOK: Inject hidden SOCKS5 inbound for AWG tun2socks (not in DB)
-	xrayConfig.InboundConfigs = append(xrayConfig.InboundConfigs, xray.InboundConfig{
-		Listen:   json_util.RawMessage(`"127.0.0.1"`),
-		Port:     10808,
-		Protocol: "socks",
-		Settings: json_util.RawMessage(`{"auth":"noauth","udp":true}`),
-		Tag:      "tun2socks-in",
-		Sniffing: json_util.RawMessage(`{"enabled":true,"destOverride":["http","tls"]}`),
-	})
+	// LUCX-HOOK: Hidden AWG SOCKS5 children are in DB with ParentID set.
+	// They flow through normal inbound loading — no hardcoded injection needed.
 	// END LUCX-HOOK
 	return xrayConfig, nil
 }

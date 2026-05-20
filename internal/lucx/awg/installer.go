@@ -109,6 +109,11 @@ func installKernelModule() error {
 		exec.Command(args[0], args[1:]...).Run()
 	}
 
+	// CRITICAL: update initramfs so module loads automatically after reboot
+	if out, err := exec.Command("update-initramfs", "-u").CombinedOutput(); err != nil {
+		logAWG("update-initramfs warning: %v\n%s", err, string(out))
+	}
+
 	os.RemoveAll(cloneDir)
 	return nil
 }
