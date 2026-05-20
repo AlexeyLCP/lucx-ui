@@ -13,6 +13,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/config"
 	"github.com/mhsanaei/3x-ui/v3/database"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/awg"
 	"github.com/mhsanaei/3x-ui/v3/logger"
 	"github.com/mhsanaei/3x-ui/v3/sub"
 	"github.com/mhsanaei/3x-ui/v3/util/crypto"
@@ -545,6 +546,16 @@ func main() {
 		} else {
 			updateCert(webCertFile, webKeyFile)
 		}
+	// LUCX-HOOK: AWG restore command
+	case "lucx-restore":
+		if err := database.InitDB(config.GetDBPath()); err != nil {
+			fmt.Println("DB init error:", err)
+			return
+		}
+		fmt.Println("Restoring AWG interfaces...")
+		awg.RestoreAllInterfaces()
+		fmt.Println("AWG restore complete.")
+	// END LUCX-HOOK
 	default:
 		fmt.Println("Invalid subcommands")
 		fmt.Println()
