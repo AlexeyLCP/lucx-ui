@@ -21,6 +21,10 @@ func (m *AWGManager) AddClient(awgID int, client *model.Client) error {
 	if out, err := cmd.CombinedOutput(); err != nil {
 		return fmt.Errorf("awg addconf: %w\n%s", err, string(out))
 	}
+	// Rule 5: update server .conf after adding peer
+	if awg, err := m.InboundService.GetInbound(awgID); err == nil {
+		_ = UpdateServerConfig(awg)
+	}
 	logAWG("AddClient: inbound=%d email=%s", awgID, client.Email)
 	return nil
 }
@@ -29,6 +33,10 @@ func (m *AWGManager) AddClient(awgID int, client *model.Client) error {
 func (m *AWGManager) DeleteClient(awgID int, publicKey string) error {
 	iface := fmt.Sprintf("awg%d", awgID)
 	exec.Command("awg", "set", iface, "peer", publicKey, "remove").Run()
+	// Rule 5: update server .conf after removing peer
+	if awg, err := m.InboundService.GetInbound(awgID); err == nil {
+		_ = UpdateServerConfig(awg)
+	}
 	logAWG("DeleteClient: inbound=%d key=%s...", awgID, publicKey[:min(16, len(publicKey))])
 	return nil
 }

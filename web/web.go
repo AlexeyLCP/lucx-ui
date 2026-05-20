@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/config"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/awg"
 	"github.com/mhsanaei/3x-ui/v3/logger"
 	"github.com/mhsanaei/3x-ui/v3/util/common"
 	"github.com/mhsanaei/3x-ui/v3/web/controller"
@@ -275,6 +276,13 @@ func (s *Server) startTask(restartXray bool) {
 			logger.Warning("start xray failed:", err)
 		}
 	}
+
+	// LUCX-HOOK: Restore all AWG interfaces and tun2socks after Xray start (Rule 6)
+	go func() {
+		time.Sleep(3 * time.Second)
+		awg.RestoreAllInterfaces()
+	}()
+	// END LUCX-HOOK
 	// Check whether xray is running every second
 	s.cron.AddJob("@every 1s", job.NewCheckXrayRunningJob())
 

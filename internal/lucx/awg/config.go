@@ -5,6 +5,8 @@ package awg
 import (
 	"encoding/json"
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/database/model"
@@ -61,11 +63,16 @@ func BuildServerConfig(awg *model.Inbound, upPath, downPath string) string {
 }
 
 // BuildClientConfig builds a client .conf — uses THE SAME obfuscation as the server.
-// Client keys come from client object; obfuscation from inbound.Settings.
-func BuildClientConfig(awg *model.Inbound, client model.Client, serverPubKey, endpoint string) string {
+// serverPubKey: if empty, reads from inbound.Settings["publicKey"].
+// serverAddr: server IP/hostname, endpoint computed as serverAddr:awg.Port.
+func BuildClientConfig(awg *model.Inbound, client model.Client, serverPubKey, serverAddr string) string {
 	s := parseSettings(awg.Settings)
 	if s == nil {
 		return ""
+	}
+	// Rule 3: if serverPubKey not passed explicitly, read from inbound.Settings
+	if serverPubKey == "" {
+		serverPubKey = str(s, "publicKey")
 	}
 	var b strings.Builder
 
@@ -104,11 +111,31 @@ func BuildClientConfig(awg *model.Inbound, client model.Client, serverPubKey, en
 	b.WriteString("\n[Peer]\n")
 	fmt.Fprintf(&b, "PublicKey = %s\n", serverPubKey)
 	fmt.Fprintf(&b, "PresharedKey = %s\n", client.Password)
-	fmt.Fprintf(&b, "Endpoint = %s\n", endpoint)
+	fmt.Fprintf(&b, "Endpoint = %s:%d\n", serverAddr, awg.Port)
 	b.WriteString("AllowedIPs = 0.0.0.0/0, ::/0\n")
 	b.WriteString("PersistentKeepalive = 25\n")
 
 	return b.String()
+}
+
+// UpdateServerConfig regenerates and writes the server .conf to disk.
+// Called after adding/removing clients to keep the file in sync.
+func UpdateServerConfig(awg *model.Inbound) error {
+	awgID := awg.Id
+	s := parseSettings(awg.Settings)
+	if s == nil {
+		return fmt.Errorf("parse settings")
+	}
+
+	upPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-up.sh", awgID))
+	downPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d-down.sh", awgID))
+	conf := BuildServerConfig(awg, upPath, downPath)
+	confPath := filepath.Join(awgConfigDir, fmt.Sprintf("awg%d.conf", awgID))
+	if err := os.WriteFile(confPath, []byte(conf), 0600); err != nil {
+		return err
+	}
+	logAWG("UpdateServerConfig: inbound=%d", awgID)
+	return nil
 }
 
 func parseSettings(raw string) map[string]interface{} {
