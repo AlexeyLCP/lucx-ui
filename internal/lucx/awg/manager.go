@@ -76,6 +76,8 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 		m.rollbackCreate(awgID)
 		return nil, fmt.Errorf("write config: %w", err)
 	}
+	// Ensure .conf is synced with latest DB state (peers from EnsureFirstClientExists)
+	_ = UpdateServerConfig(awg)
 
 	logAWG("Create: Jc=%d Jmin=%d Jmax=%d S1=%d S2=%d H1=%s",
 		params.Jc, params.Jmin, params.Jmax, params.S1, params.S2, params.H1)
