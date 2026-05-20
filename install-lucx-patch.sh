@@ -40,6 +40,27 @@ echo ""
 
 [[ $EUID -ne 0 ]] && { echo -e "${RED}Запустите с правами root${NC}"; exit 1; }
 
+# --- Determine source: cloned repo or standalone download ---
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+IS_CLONED_REPO=false
+if [[ -f "${SCRIPT_DIR}/main.go" ]] && [[ -d "${SCRIPT_DIR}/internal/lucx" ]]; then
+    IS_CLONED_REPO=true
+    echo -e "${GREEN}Режим: клонированный репозиторий${NC}"
+else
+    echo -e "${GREEN}Режим: standalone (скачиваю релизный тарболл)${NC}"
+    RELEASE_URL="https://github.com/AlexeyLCP/lucx-ui/releases/download/v0.2.0-pre/x-ui-linux-amd64.tar.gz"
+    TMP_DIR="/tmp/lucx-patch-$$"
+    mkdir -p "$TMP_DIR"
+    echo -e "${GREEN}Загрузка релиза...${NC}"
+    curl -fsSL "$RELEASE_URL" -o "$TMP_DIR/x-ui.tar.gz" || {
+        echo -e "${RED}Не удалось скачать релиз. Скачай вручную:${NC}"
+        echo -e "  git clone https://github.com/AlexeyLCP/lucx-ui && cd lucx-ui && bash install-lucx-patch.sh"
+        exit 1
+    }
+    tar xzf "$TMP_DIR/x-ui.tar.gz" -C "$TMP_DIR"
+    SCRIPT_DIR="$TMP_DIR/x-ui"
+fi
+
 # --- Pre-checks ---
 if [[ ! -f "${XUI_DIR}/x-ui" ]]; then
     echo -e "${RED}3x-ui не найден в ${XUI_DIR}. Сначала выполни этап 1:${NC}"
@@ -71,7 +92,6 @@ echo -e "${GREEN}Бэкап создан.${NC}"
 
 # --- Install AWG kernel module ---
 if [[ "$SKIP_AWG" != "true" ]]; then
-    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     if [[ -f "${SCRIPT_DIR}/bin/install-awg-module.sh" ]]; then
         bash "${SCRIPT_DIR}/bin/install-awg-module.sh"
     else
@@ -102,24 +122,31 @@ if [[ -f "${SCRIPT_DIR}/bin/apply-lucx-hooks.sh" ]]; then
     bash "${SCRIPT_DIR}/bin/apply-lucx-hooks.sh"
 fi
 
-# --- Rebuild ---
+# --- Install binary ---
 if [[ "$SKIP_BUILD" != "true" ]]; then
-    echo -e "${GREEN}Сборка фронтенда...${NC}"
-    if [[ -d "${SCRIPT_DIR}/frontend" ]]; then
-        cd "${SCRIPT_DIR}/frontend"
-        npm install --silent 2>/dev/null || true
-        npm run build 2>&1 | tail -3
-        cd "${SCRIPT_DIR}"
+    if [[ "$IS_CLONED_REPO" == "true" ]]; then
+        echo -e "${GREEN}Сборка из исходников...${NC}"
+        if [[ -d "${SCRIPT_DIR}/frontend" ]]; then
+            cd "${SCRIPT_DIR}/frontend"
+            npm install --silent 2>/dev/null || true
+            npm run build 2>&1 | tail -3
+            cd "${SCRIPT_DIR}"
+        fi
+        go build -o "${XUI_DIR}/x-ui" -ldflags="-s -w" . 2>&1 || {
+            echo -e "${RED}Ошибка сборки Go. Проверь зависимости.${NC}"
+            exit 1
+        }
+    else
+        echo -e "${GREEN}Установка бинарника из релиза...${NC}"
+        if [[ -f "${SCRIPT_DIR}/x-ui" ]]; then
+            cp "${SCRIPT_DIR}/x-ui" "${XUI_DIR}/x-ui"
+            chmod +x "${XUI_DIR}/x-ui"
+            echo -e "${GREEN}Бинарник установлен.${NC}"
+        else
+            echo -e "${RED}Бинарник не найден в релизе!${NC}"
+            exit 1
+        fi
     fi
-
-    echo -e "${GREEN}Сборка Go-бэкенда...${NC}"
-    cd "${SCRIPT_DIR}"
-    go build -o "${XUI_DIR}/x-ui" -ldflags="-s -w" . 2>&1 || {
-        echo -e "${RED}Ошибка сборки Go. Проверь зависимости.${NC}"
-        echo -e "${YELLOW}Восстановление из бэкапа...${NC}"
-        cp "${BACKUP_DIR}/x-ui.bak" "${XUI_DIR}/x-ui" 2>/dev/null || true
-        exit 1
-    }
 fi
 
 # --- Configure systemd ---
