@@ -3,6 +3,7 @@
 package awg
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
@@ -89,8 +90,8 @@ func (m *AWGManager) Create(awg *model.Inbound) (*model.Inbound, error) {
 		logAWG("Create: awg-quick up warning: %v\n%s", err, string(out))
 	}
 
-	// 7. Start tun2socks for this AWG's hidden port
-	m.ensureTun2socks(hiddenPort)
+	// 7. Start tun2socks for this AWG's hidden port (per-AWG tun device)
+	m.ensureTun2socks(awgID, hiddenPort)
 
 	if needRestart {
 		m.XrayService.SetToNeedRestart()
@@ -146,10 +147,10 @@ func (m *AWGManager) RestoreAll() {
 		}
 		restored++
 	}
-	// Start per-AWG tun2socks
+	// Start per-AWG tun2socks with unique tun device
 	for _, ib := range inbounds {
 		hiddenPort := 10800 + (ib.Id % 900)
-		m.ensureTun2socks(hiddenPort)
+		m.ensureTun2socks(ib.Id, hiddenPort)
 	}
 	logAWG("RestoreAll: %d inbounds restored", restored)
 }
@@ -206,8 +207,21 @@ func (m *AWGManager) createHiddenChild(awg *model.Inbound, hiddenPort int) error
 	if err != nil {
 		return err
 	}
-	logAWG("createHiddenChild: awg=%d port=%d", awgID, hiddenPort)
+	// Store hidden port and tag in parent AWG settings
+	storeHiddenInfo(awg, hiddenPort, hidden.Tag)
+	logAWG("createHiddenChild: awg=%d port=%d tag=%s", awgID, hiddenPort, hidden.Tag)
 	return nil
+}
+func storeHiddenInfo(awg *model.Inbound, port int, tag string) {
+	s := parseSettings(awg.Settings)
+	if s == nil {
+		s = make(map[string]interface{})
+	}
+	s["hiddenSOCKSPort"] = float64(port)
+	s["hiddenInboundTag"] = tag
+	if b, err := json.Marshal(s); err == nil {
+		awg.Settings = string(b)
+	}
 }
 
 // syncPeers reads peers from DB and ensures they're in the AWG kernel.
@@ -230,25 +244,26 @@ func (m *AWGManager) syncPeers(awg *model.Inbound) error {
 	return nil
 }
 
-// ensureTun2socks starts a per-AWG tun2socks instance.
-// Each AWG gets its own tun2socks connected to its hidden SOCKS5 port.
-func (m *AWGManager) ensureTun2socks(hiddenPort int) {
+// ensureTun2socks starts a tun2socks instance for the given AWG.
+// Each AWG gets its own tun device (tun{awgID}) and hidden SOCKS5 port.
+func (m *AWGManager) ensureTun2socks(awgID, hiddenPort int) {
 	proxyStr := fmt.Sprintf("socks5://127.0.0.1:%d", hiddenPort)
-	pgrepStr := fmt.Sprintf("tun2socks.*%d", hiddenPort)
+	tunDev := fmt.Sprintf("tun%d", awgID)
+	pgrepStr := fmt.Sprintf("tun2socks.*-device %s", tunDev)
 	if exec.Command("pgrep", "-f", pgrepStr).Run() == nil {
-		return // already running
+		return // already running for this tun device
 	}
 	go func() {
-		cmd := exec.Command("tun2socks", "-device", "tun0",
+		cmd := exec.Command("tun2socks", "-device", tunDev,
 			"-proxy", proxyStr,
 			"-loglevel", "silent")
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 		if err := cmd.Start(); err != nil {
-			logAWG("tun2socks start failed for port %d: %v", hiddenPort, err)
+			logAWG("tun2socks start failed for %s port %d: %v", tunDev, hiddenPort, err)
 			return
 		}
-		logAWG("tun2socks started pid=%d port=%d", cmd.Process.Pid, hiddenPort)
+		logAWG("tun2socks started pid=%d dev=%s port=%d", cmd.Process.Pid, tunDev, hiddenPort)
 	}()
 }
 
@@ -315,17 +330,18 @@ func RestoreAllInterfaces() {
 		}
 		logAWG("RestoreAllInterfaces: awg%d restored", ib.Id)
 	}
-	// Start per-AWG tun2socks
+	// Start per-AWG tun2socks with unique tun device per AWG
 	for _, ib := range inbounds {
 		hiddenPort := 10800 + (ib.Id % 900)
+		tunDev := fmt.Sprintf("tun%d", ib.Id)
 		proxyStr := fmt.Sprintf("socks5://127.0.0.1:%d", hiddenPort)
-		pgrepStr := fmt.Sprintf("tun2socks.*%d", hiddenPort)
+		pgrepStr := fmt.Sprintf("tun2socks.*-device %s", tunDev)
 		if exec.Command("pgrep", "-f", pgrepStr).Run() != nil {
-			cmd := exec.Command("tun2socks", "-device", "tun0",
+			cmd := exec.Command("tun2socks", "-device", tunDev,
 				"-proxy", proxyStr,
 				"-loglevel", "silent")
 			cmd.Start()
-			logAWG("RestoreAllInterfaces: tun2socks started for port %d", hiddenPort)
+			logAWG("RestoreAllInterfaces: tun2socks started dev=%s port=%d", tunDev, hiddenPort)
 		}
 	}
 }

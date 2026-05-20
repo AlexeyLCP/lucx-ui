@@ -19,7 +19,6 @@ import (
 func InstallAWG() (*InstallResult, error) {
 	result := &InstallResult{}
 
-	// Already installed?
 	if IsAWGInstalled() {
 		result.KernelModule = true
 		result.Tools = true
@@ -29,33 +28,33 @@ func InstallAWG() (*InstallResult, error) {
 
 	var logLines []string
 
-	// 1. Kernel module
+	// 1. Kernel module — максимально надёжно
 	if !kernelModuleLoaded() {
-		logLines = append(logLines, "Building kernel module from source...")
+		logLines = append(logLines, "Building kernel module...")
 		if err := installKernelModule(); err != nil {
-			logLines = append(logLines, fmt.Sprintf("Kernel module build failed: %v", err))
+			logLines = append(logLines, fmt.Sprintf("Kernel module failed: %v", err))
 		} else {
-			// Load the module
+			// Load the module now; flag reboot if it fails
 			if out, err := exec.Command("modprobe", "amneziawg").CombinedOutput(); err != nil {
-				logLines = append(logLines, fmt.Sprintf("modprobe failed (reboot may be needed): %v\n%s", err, string(out)))
 				result.RebootNeeded = true
+				logLines = append(logLines, fmt.Sprintf("modprobe failed (reboot needed): %v\n%s", err, string(out)))
 			} else {
-				// Enable autostart
-				os.WriteFile("/etc/modules-load.d/amneziawg.conf", []byte("amneziawg\n"), 0644)
 				result.KernelModule = true
-				logLines = append(logLines, "Kernel module installed and loaded")
+				logLines = append(logLines, "Kernel module loaded")
 			}
 		}
+	} else {
+		result.KernelModule = true
+		logLines = append(logLines, "Kernel module already loaded")
 	}
 
 	// 2. Tools
 	if !toolsInstalled() {
-		logLines = append(logLines, "Building tools from source...")
+		logLines = append(logLines, "Building tools...")
 		if err := installTools(); err != nil {
-			logLines = append(logLines, fmt.Sprintf("Tools build failed: %v", err))
+			logLines = append(logLines, fmt.Sprintf("Tools failed: %v", err))
 		} else {
 			result.Tools = true
-			logLines = append(logLines, "Tools installed")
 		}
 	}
 
@@ -63,7 +62,46 @@ func InstallAWG() (*InstallResult, error) {
 	return result, nil
 }
 
-// IsAWGInstalled checks whether both the kernel module and tools are available.
+func installKernelModule() error {
+	cloneDir := "/tmp/amneziawg-linux-kernel-module"
+	os.RemoveAll(cloneDir)
+
+	// Устанавливаем всё необходимое на голом сервере
+	exec.Command("apt-get", "update", "-qq").Run()
+	exec.Command("apt-get", "install", "-y", "build-essential", "dkms", "linux-headers-$(uname -r)", "git").Run()
+
+	clone := exec.Command("git", "clone", "--depth", "1", "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", cloneDir)
+	if out, err := clone.CombinedOutput(); err != nil {
+		return fmt.Errorf("clone: %w\n%s", err, string(out))
+	}
+
+	// Правильная установка через DKMS (как в pumbaX)
+	cmds := [][]string{
+		{"make", "-C", cloneDir + "/src", "dkms-install"},
+	}
+	for _, args := range cmds {
+		if out, err := exec.Command(args[0], args[1:]...).CombinedOutput(); err != nil {
+			return fmt.Errorf("%s: %w\n%s", args[0], err, string(out))
+		}
+	}
+
+	modVer := "1.0.0"
+	for _, args := range [][]string{
+		{"dkms", "add", "-m", "amneziawg", "-v", modVer},
+		{"dkms", "build", "-m", "amneziawg", "-v", modVer},
+		{"dkms", "install", "-m", "amneziawg", "-v", modVer},
+	} {
+		exec.Command(args[0], args[1:]...).Run()
+	}
+
+	// КРИТИЧНО для ребута
+	exec.Command("modprobe", "amneziawg").Run()
+	os.WriteFile("/etc/modules-load.d/amneziawg.conf", []byte("amneziawg\n"), 0644)
+	exec.Command("update-initramfs", "-u", "-k", "all").Run()
+
+	os.RemoveAll(cloneDir)
+	return nil
+}
 func IsAWGInstalled() bool {
 	return kernelModuleLoaded() && toolsInstalled()
 }
@@ -76,46 +114,6 @@ func kernelModuleLoaded() bool {
 func toolsInstalled() bool {
 	_, err := exec.LookPath("awg")
 	return err == nil
-}
-
-func installKernelModule() error {
-	// Clone and build via DKMS (pumbaX method)
-	cloneDir := "/tmp/amneziawg-linux-kernel-module"
-	os.RemoveAll(cloneDir)
-
-	clone := exec.Command("git", "clone", "--depth", "1",
-		"https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git", cloneDir)
-	if out, err := clone.CombinedOutput(); err != nil {
-		return fmt.Errorf("clone: %w\n%s", err, string(out))
-	}
-
-	cmds := [][]string{
-		{"make", "-C", cloneDir + "/src", "dkms-install"},
-	}
-	for _, args := range cmds {
-		cmd := exec.Command(args[0], args[1:]...)
-		if out, err := cmd.CombinedOutput(); err != nil {
-			return fmt.Errorf("%s: %w\n%s", args[0], err, string(out))
-		}
-	}
-
-	// DKMS add/build/install
-	modVer := "1.0.0"
-	for _, args := range [][]string{
-		{"dkms", "add", "-m", "amneziawg", "-v", modVer},
-		{"dkms", "build", "-m", "amneziawg", "-v", modVer},
-		{"dkms", "install", "-m", "amneziawg", "-v", modVer},
-	} {
-		exec.Command(args[0], args[1:]...).Run()
-	}
-
-	// CRITICAL: update initramfs so module loads automatically after reboot
-	if out, err := exec.Command("update-initramfs", "-u").CombinedOutput(); err != nil {
-		logAWG("update-initramfs warning: %v\n%s", err, string(out))
-	}
-
-	os.RemoveAll(cloneDir)
-	return nil
 }
 
 func installTools() error {
