@@ -11,8 +11,10 @@ set -e
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; BLUE='\033[0;34m'; NC='\033[0m'
 
-MIRROR="https://github.com/AlexeyLCP/3x-ui"
-INSTALL_SCRIPT="install.sh"
+# Default: original 3x-ui. Use --mirror for custom fork.
+MIRROR="https://raw.githubusercontent.com/mhsanaei/3x-ui/master"
+# Для переключения на своё зеркало:
+#   bash install-3xui-mirror.sh --mirror https://raw.githubusercontent.com/AlexeyLCP/3x-ui/main
 
 usage() {
     echo "Usage: bash install-3xui-mirror.sh [--mirror URL]"
@@ -56,7 +58,7 @@ fi
 
 # Download and run the official install script from mirror
 echo -e "${GREEN}Загрузка установщика 3x-ui с зеркала...${NC}"
-INSTALL_URL="${MIRROR}/raw/main/${INSTALL_SCRIPT}"
+INSTALL_URL="${MIRROR}/install.sh"
 TMP_SCRIPT="/tmp/3x-ui-install-$$.sh"
 
 if ! curl -fsSL "$INSTALL_URL" -o "$TMP_SCRIPT"; then
