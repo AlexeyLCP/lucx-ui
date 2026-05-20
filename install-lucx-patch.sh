@@ -92,10 +92,15 @@ echo -e "${GREEN}Бэкап создан.${NC}"
 
 # --- Install AWG kernel module ---
 if [[ "$SKIP_AWG" != "true" ]]; then
-    if [[ -f "${SCRIPT_DIR}/bin/install-awg-module.sh" ]]; then
-        bash "${SCRIPT_DIR}/bin/install-awg-module.sh"
+    # Check both in bin/ and at root (tarball structure varies)
+    AWG_MODULE_SCRIPT=""
+    for candidate in "${SCRIPT_DIR}/bin/install-awg-module.sh" "${SCRIPT_DIR}/install-awg-module.sh"; do
+        [[ -f "$candidate" ]] && { AWG_MODULE_SCRIPT="$candidate"; break; }
+    done
+    if [[ -n "$AWG_MODULE_SCRIPT" ]]; then
+        bash "$AWG_MODULE_SCRIPT"
     else
-        echo -e "${YELLOW}bin/install-awg-module.sh не найден — пропускаю установку модуля${NC}"
+        echo -e "${YELLOW}install-awg-module.sh не найден — пропускаю установку модуля${NC}"
     fi
 fi
 
@@ -107,19 +112,27 @@ fi
 
 # --- Install tun2socks ---
 if ! command -v tun2socks &>/dev/null; then
-    if [[ -f "${SCRIPT_DIR}/bin/tun2socks-linux-amd64" ]]; then
-        cp "${SCRIPT_DIR}/bin/tun2socks-linux-amd64" /usr/local/bin/tun2socks
+    TUN2SOCKS_BIN=""
+    for candidate in "${SCRIPT_DIR}/bin/tun2socks-linux-amd64" "${SCRIPT_DIR}/tun2socks-linux-amd64"; do
+        [[ -f "$candidate" ]] && { TUN2SOCKS_BIN="$candidate"; break; }
+    done
+    if [[ -n "$TUN2SOCKS_BIN" ]]; then
+        cp "$TUN2SOCKS_BIN" /usr/local/bin/tun2socks
         chmod +x /usr/local/bin/tun2socks
-        echo -e "${GREEN}tun2socks установлен из bin/.${NC}"
+        echo -e "${GREEN}tun2socks установлен.${NC}"
     else
         echo -e "${YELLOW}tun2socks не найден — установи вручную${NC}"
     fi
 fi
 
 # --- Apply LucX hooks ---
-if [[ -f "${SCRIPT_DIR}/bin/apply-lucx-hooks.sh" ]]; then
+HOOKS_SCRIPT=""
+for candidate in "${SCRIPT_DIR}/bin/apply-lucx-hooks.sh" "${SCRIPT_DIR}/apply-lucx-hooks.sh"; do
+    [[ -f "$candidate" ]] && { HOOKS_SCRIPT="$candidate"; break; }
+done
+if [[ -n "$HOOKS_SCRIPT" ]]; then
     echo -e "${GREEN}Применение LUCX-HOOK патчей...${NC}"
-    bash "${SCRIPT_DIR}/bin/apply-lucx-hooks.sh"
+    bash "$HOOKS_SCRIPT"
 fi
 
 # --- Install binary ---
@@ -139,6 +152,8 @@ if [[ "$SKIP_BUILD" != "true" ]]; then
     else
         echo -e "${GREEN}Установка бинарника из релиза...${NC}"
         if [[ -f "${SCRIPT_DIR}/x-ui" ]]; then
+            systemctl stop x-ui 2>/dev/null || service x-ui stop 2>/dev/null || true
+            sleep 1
             cp "${SCRIPT_DIR}/x-ui" "${XUI_DIR}/x-ui"
             chmod +x "${XUI_DIR}/x-ui"
             echo -e "${GREEN}Бинарник установлен.${NC}"
@@ -150,13 +165,20 @@ if [[ "$SKIP_BUILD" != "true" ]]; then
 fi
 
 # --- Configure systemd ---
-if [[ -f "${SCRIPT_DIR}/bin/lucx-restore.sh" ]]; then
-    cp "${SCRIPT_DIR}/bin/lucx-restore.sh" /usr/local/bin/lucx-restore
+RESTORE_SCRIPT=""; HEALTH_SCRIPT=""
+for candidate in "${SCRIPT_DIR}/bin/lucx-restore.sh" "${SCRIPT_DIR}/lucx-restore.sh"; do
+    [[ -f "$candidate" ]] && { RESTORE_SCRIPT="$candidate"; break; }
+done
+for candidate in "${SCRIPT_DIR}/bin/lucx-health-check.sh" "${SCRIPT_DIR}/lucx-health-check.sh"; do
+    [[ -f "$candidate" ]] && { HEALTH_SCRIPT="$candidate"; break; }
+done
+
+if [[ -n "$RESTORE_SCRIPT" ]]; then
+    cp "$RESTORE_SCRIPT" /usr/local/bin/lucx-restore
     chmod +x /usr/local/bin/lucx-restore
 fi
-
-if [[ -f "${SCRIPT_DIR}/bin/lucx-health-check.sh" ]]; then
-    cp "${SCRIPT_DIR}/bin/lucx-health-check.sh" /usr/local/bin/lucx-health-check
+if [[ -n "$HEALTH_SCRIPT" ]]; then
+    cp "$HEALTH_SCRIPT" /usr/local/bin/lucx-health-check
     chmod +x /usr/local/bin/lucx-health-check
 fi
 
