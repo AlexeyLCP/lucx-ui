@@ -106,6 +106,12 @@ func initModels() error {
 	if err := normalizeInboundSubSortIndex(); err != nil {
 		return err
 	}
+	// LUCX-HOOK: prune stale hidden SOCKS5 child inbounds left by the old
+	// LucX-UI (pre-sidecar) architecture. No-op on a fresh v3.3.1 DB.
+	if err := pruneLegacyAwgHiddenChildren(); err != nil {
+		return err
+	}
+	// END LUCX-HOOK
 	if IsPostgres() {
 		if err := resyncPostgresSequences(db, models); err != nil {
 			log.Printf("Error resyncing postgres sequences: %v", err)
