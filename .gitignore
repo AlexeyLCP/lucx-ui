@@ -3,6 +3,11 @@
 .vscode/
 .cursor/
 .claude/
+# Ignore AI agent config files (opencode, serena, windsurf, etc.)
+.claudeprompt
+.cursorrules
+.windsurfrules
+.serena/
 .cache/
 .sync*
 
