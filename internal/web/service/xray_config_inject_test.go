@@ -368,3 +368,112 @@ func TestInjectMtprotoEgress_TagCollisionSkips(t *testing.T) {
 		t.Fatal("a real inbound already owning the tag must make the bridge a no-op")
 	}
 }
+
+// LUCX-HOOK: AWG injectAwgEgress tests, mirroring the mtproto suite above.
+
+func awgInbound(tag string, settings string) *model.Inbound {
+	return &model.Inbound{Tag: tag, Protocol: model.AWG, Enable: true, Settings: settings, Id: 1}
+}
+
+func TestInjectAwgEgress_WithOutbound(t *testing.T) {
+	cfg := egressTestConfig()
+	injectAwgEgress(cfg, awgInbound("inbound-awg-1",
+		`{"routeThroughXray":true,"outboundTag":"warp","mtu":1320,"dns":"1.1.1.1"}`))
+
+	if len(cfg.InboundConfigs) != 2 {
+		t.Fatalf("expected the TUN egress inbound to be appended, got %d inbounds", len(cfg.InboundConfigs))
+	}
+	ib := cfg.InboundConfigs[1]
+	if ib.Tag != "inbound-awg-1" || ib.Protocol != "tun" {
+		t.Fatalf("unexpected egress inbound: %+v", ib)
+	}
+	var settings struct {
+		Name    string `json:"name"`
+		MTU     int    `json:"mtu"`
+		Gateway []string `json:"gateway"`
+	}
+	if err := json.Unmarshal(ib.Settings, &settings); err != nil {
+		t.Fatalf("TUN settings unmarshal: %v", err)
+	}
+	if settings.Name != "tun1" {
+		t.Errorf("expected tun name tun1, got %s", settings.Name)
+	}
+	if settings.MTU != 1320 {
+		t.Errorf("expected mtu 1320, got %d", settings.MTU)
+	}
+	if len(settings.Gateway) != 1 || settings.Gateway[0] != "1.1.1.1" {
+		t.Errorf("expected gateway [1.1.1.1], got %v", settings.Gateway)
+	}
+	// Routing rule prepended with outboundTag.
+	var r egressRouting
+	if err := json.Unmarshal(cfg.RouterConfig, &r); err != nil {
+		t.Fatal(err)
+	}
+	if len(r.Rules) != 2 {
+		t.Fatalf("expected 2 rules (awg + original api), got %d", len(r.Rules))
+	}
+	if r.Rules[0].OutboundTag != "warp" || len(r.Rules[0].InboundTag) != 1 || r.Rules[0].InboundTag[0] != "inbound-awg-1" {
+		t.Fatalf("prepended rule wrong: %+v", r.Rules[0])
+	}
+}
+
+func TestInjectAwgEgress_NoOutboundLeavesRouting(t *testing.T) {
+	cfg := egressTestConfig()
+	before := string(cfg.RouterConfig)
+	injectAwgEgress(cfg, awgInbound("inbound-awg-1",
+		`{"routeThroughXray":true,"mtu":1320}`))
+
+	if len(cfg.InboundConfigs) != 2 {
+		t.Fatalf("TUN inbound must still be appended without an outbound, got %d", len(cfg.InboundConfigs))
+	}
+	if string(cfg.RouterConfig) != before {
+		t.Fatal("routing must be untouched when no outboundTag is set")
+	}
+}
+
+func TestInjectAwgEgress_Disabled(t *testing.T) {
+	for _, settings := range []string{
+		`{"routeThroughXray":false,"outboundTag":"warp"}`,
+		`{}`,
+		`not json`,
+	} {
+		cfg := egressTestConfig()
+		before := string(cfg.RouterConfig)
+		injectAwgEgress(cfg, awgInbound("inbound-awg-1", settings))
+		if len(cfg.InboundConfigs) != 1 || string(cfg.RouterConfig) != before {
+			t.Fatalf("settings %s must be a no-op, got %d inbounds", settings, len(cfg.InboundConfigs))
+		}
+	}
+}
+
+func TestInjectAwgEgress_TagCollisionSkips(t *testing.T) {
+	cfg := egressTestConfig()
+	cfg.InboundConfigs = append(cfg.InboundConfigs,
+		xray.InboundConfig{Port: 443, Protocol: "vless", Tag: "inbound-awg-1"})
+	before := string(cfg.RouterConfig)
+	injectAwgEgress(cfg, awgInbound("inbound-awg-1",
+		`{"routeThroughXray":true,"outboundTag":"warp"}`))
+	if len(cfg.InboundConfigs) != 2 || string(cfg.RouterConfig) != before {
+		t.Fatal("a real inbound already owning the tag must make the TUN bridge a no-op")
+	}
+}
+
+func TestInjectAwgEgress_DefaultMTUAndGateway(t *testing.T) {
+	cfg := egressTestConfig()
+	injectAwgEgress(cfg, awgInbound("inbound-awg-1",
+		`{"routeThroughXray":true}`))
+	ib := cfg.InboundConfigs[1]
+	var settings struct {
+		MTU     int      `json:"mtu"`
+		Gateway []string `json:"gateway"`
+	}
+	if err := json.Unmarshal(ib.Settings, &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.MTU != 1320 {
+		t.Errorf("expected default mtu 1320, got %d", settings.MTU)
+	}
+	if len(settings.Gateway) != 1 || settings.Gateway[0] != "1.1.1.1" {
+		t.Errorf("expected default gateway [1.1.1.1], got %v", settings.Gateway)
+	}
+}
