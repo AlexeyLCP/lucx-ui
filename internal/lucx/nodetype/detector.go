@@ -16,10 +16,10 @@ import (
 
 // NodeInfo holds the result of node type detection.
 type NodeInfo struct {
-	NodeType      string   `json:"nodeType"`
-	Features      []string `json:"features"`
-	AWGVersion    string   `json:"awgVersion"`
-	TelemtVersion string   `json:"telemtVersion"`
+	NodeType        string   `json:"nodeType"`
+	Features        []string `json:"features"`
+	AWGVersion      string   `json:"awgVersion"`
+	MTProtoVersion  string   `json:"mtprotoVersion"`
 }
 
 type lucxHelloResponse struct {
@@ -28,7 +28,7 @@ type lucxHelloResponse struct {
 		Version       string   `json:"version"`
 		Features      []string `json:"features"`
 		AWGVersion    string   `json:"awgVersion"`
-		TelemtVersion string   `json:"telemtVersion"`
+		MTProtoVersion string `json:"mtprotoVersion"`
 	} `json:"obj"`
 }
 
@@ -69,24 +69,24 @@ func DetectNodeType(ctx context.Context, baseURL string, apiToken string) (*Node
 	}
 
 	return &NodeInfo{
-		NodeType:      "lucx",
-		Features:      hello.Obj.Features,
-		AWGVersion:    hello.Obj.AWGVersion,
-		TelemtVersion: hello.Obj.TelemtVersion,
+		NodeType:       "lucx",
+		Features:       hello.Obj.Features,
+		AWGVersion:     hello.Obj.AWGVersion,
+		MTProtoVersion: hello.Obj.MTProtoVersion,
 	}, nil
 }
 
 // ToJSON marshals NodeInfo to a JSON string for storage in NodeFeatures.
 func (n *NodeInfo) ToJSON() string {
 	type featuresJSON struct {
-		Features      []string `json:"features"`
-		AWGVersion    string   `json:"awgVersion"`
-		TelemtVersion string   `json:"telemtVersion"`
+		Features       []string `json:"features"`
+		AWGVersion     string   `json:"awgVersion"`
+		MTProtoVersion string   `json:"mtprotoVersion"`
 	}
 	f := featuresJSON{
-		Features:      n.Features,
-		AWGVersion:    n.AWGVersion,
-		TelemtVersion: n.TelemtVersion,
+		Features:       n.Features,
+		AWGVersion:     n.AWGVersion,
+		MTProtoVersion: n.MTProtoVersion,
 	}
 	b, _ := json.Marshal(f)
 	return string(b)
@@ -95,9 +95,9 @@ func (n *NodeInfo) ToJSON() string {
 // FromJSON parses a NodeFeatures JSON string back into NodeInfo.
 func FromJSON(s string) *NodeInfo {
 	type featuresJSON struct {
-		Features      []string `json:"features"`
-		AWGVersion    string   `json:"awgVersion"`
-		TelemtVersion string   `json:"telemtVersion"`
+		Features       []string `json:"features"`
+		AWGVersion     string   `json:"awgVersion"`
+		MTProtoVersion string   `json:"mtprotoVersion"`
 	}
 	info := &NodeInfo{NodeType: "vanilla"}
 	if s == "" || s == "{}" {
@@ -109,7 +109,7 @@ func FromJSON(s string) *NodeInfo {
 	}
 	info.Features = f.Features
 	info.AWGVersion = f.AWGVersion
-	info.TelemtVersion = f.TelemtVersion
+	info.MTProtoVersion = f.MTProtoVersion
 	info.NodeType = "lucx"
 	return info
 }

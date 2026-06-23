@@ -18,7 +18,7 @@ func TestDetectNodeType_LucX(t *testing.T) {
 		if r.URL.Path == "/panel/api/lucx/hello" {
 			w.Header().Set("Content-Type", "application/json")
 			w.WriteHeader(200)
-			w.Write([]byte(`{"success":true,"obj":{"version":"1.0.0","features":["awg","telemt","presets","cluster"],"awgVersion":"2.0.1","telemtVersion":"3.4.11"}}`))
+			w.Write([]byte(`{"success":true,"obj":{"version":"1.0.0","features":["awg","mtproto","presets","cluster"],"awgVersion":"2.0.1","mtprotoVersion":"1.2.3"}}`))
 			return
 		}
 		w.WriteHeader(404)
@@ -38,8 +38,8 @@ func TestDetectNodeType_LucX(t *testing.T) {
 	if info.AWGVersion != "2.0.1" {
 		t.Errorf("expected awgVersion '2.0.1', got '%s'", info.AWGVersion)
 	}
-	if info.TelemtVersion != "3.4.11" {
-		t.Errorf("expected telemtVersion '3.4.11', got '%s'", info.TelemtVersion)
+	if info.MTProtoVersion != "1.2.3" {
+		t.Errorf("expected mtprotoVersion '1.2.3', got '%s'", info.MTProtoVersion)
 	}
 }
 
