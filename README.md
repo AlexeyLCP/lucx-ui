@@ -188,3 +188,41 @@ Tools and integrations built by the community around 3x-ui.
 ## Stargazers over Time
 
 [![Stargazers over time](https://starchart.cc/MHSanaei/3x-ui.svg?variant=adaptive)](https://starchart.cc/MHSanaei/3x-ui)
+
+---
+
+## LucX-UI Extension
+
+This is the **LucX-UI** fork, adding native **AmneziaWG (AWG)** support as a kernel-interface sidecar, mirroring upstream's MTProto (mtg) sidecar architecture. LucX-UI is maintained on top of upstream v3.3.1 via inline `LUCX-HOOK` markers (no `.patch` files, no rebase).
+
+### What LucX adds
+
+- **AmneziaWG protocol** — obfuscated WireGuard (Jc/Jmin/Jmax, S1-S4, H1-H4, CPS I1-I5) as a managed kernel-interface sidecar. Traffic flows: client → `awgN` kernel interface → Xray TUN inbound → Xray routing rules → outbound. Symmetric with MTProto's `mtg → SOCKS → Xray routing`.
+- **Smart Cluster** — SSH-output smart import, LucX vs vanilla node detection, inbound → outbound config generator.
+- **DPI presets** — obfuscation profiles tuned for Russia (May 2026) — see `internal/awg/params.go`.
+
+### Architecture
+
+```
+mtproto:  mtg sidecar (userspace)  → TCP → SOCKS loopback inbound → Xray routing
+AWG:      awg kernel module        → IP   → TUN inbound             → Xray routing
+```
+
+Both sidecars share an identical management pattern: a `Manager` singleton with `Ensure`/`Reconcile`/`StopAll`/`CollectTraffic`, a cron job (`@every 10s`), orphan sweeping at startup, fingerprint-based restart on config change, and `routeThroughXray` egress injection into the generated Xray config.
+
+### LucX-specific files
+
+- `internal/awg/` — AWG sidecar (manager, process, instance, traffic, orphans, obfuscation)
+- `internal/lucx/` — Smart Cluster (parser, nodetype, outbound_link)
+- `internal/database/migrate_awg.go` — legacy DB migration (prunes old hidden SOCKS5 children)
+- `frontend/src/schemas/protocols/inbound/awg.ts` — Zod schema
+- `frontend/src/pages/inbounds/form/protocols/awg.tsx` — React form
+- `bin/install-awg-module.sh` — DKMS install of amneziawg kernel module + tools
+
+Integration points in upstream files are wrapped in `// LUCX-HOOK` / `// END LUCX-HOOK` markers. Run `grep -rn "LUCX-HOOK" internal/ frontend/ install.sh` to find them all.
+
+### License
+
+LucX-UI components are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author. Original 3x-ui code remains under GPL-3.0.
+
+See `AGENTS.md` for the full agent operating manual.
