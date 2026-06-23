@@ -1,5 +1,6 @@
 import { z } from 'zod';
 
+import { AwgInboundSettingsSchema } from './awg'; // LUCX-HOOK: AWG protocol
 import { HttpInboundSettingsSchema } from './http';
 import { HysteriaInboundSettingsSchema } from './hysteria';
 import { MixedInboundSettingsSchema } from './mixed';
@@ -12,6 +13,7 @@ import { VlessInboundSettingsSchema } from './vless';
 import { VmessInboundSettingsSchema } from './vmess';
 import { WireguardInboundSettingsSchema } from './wireguard';
 
+export * from './awg'; // LUCX-HOOK: AWG protocol
 export * from './http';
 export * from './hysteria';
 export * from './mixed';
@@ -41,5 +43,6 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('tunnel'),      settings: TunnelInboundSettingsSchema }),
   z.object({ protocol: z.literal('tun'),         settings: TunInboundSettingsSchema }),
   z.object({ protocol: z.literal('mtproto'),     settings: MtprotoInboundSettingsSchema }),
+  z.object({ protocol: z.literal('awg'),         settings: AwgInboundSettingsSchema }), // LUCX-HOOK: AWG
 ]);
 export type InboundSettings = z.infer<typeof InboundSettingsSchema>;

@@ -4,6 +4,7 @@ import type { HttpInboundSettings } from '@/schemas/protocols/inbound/http';
 import type { HysteriaClient, HysteriaInboundSettings } from '@/schemas/protocols/inbound/hysteria';
 import type { MixedInboundSettings } from '@/schemas/protocols/inbound/mixed';
 import type { MtprotoInboundSettings } from '@/schemas/protocols/inbound/mtproto';
+import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg'; // LUCX-HOOK: AWG
 import type { ShadowsocksClient, ShadowsocksInboundSettings } from '@/schemas/protocols/inbound/shadowsocks';
 import type { TrojanClient, TrojanInboundSettings } from '@/schemas/protocols/inbound/trojan';
 import type { TunInboundSettings } from '@/schemas/protocols/inbound/tun';
@@ -239,6 +240,37 @@ export function createDefaultMtprotoInboundSettings(): MtprotoInboundSettings {
   };
 }
 
+// LUCX-HOOK: AWG — generate a server keypair and default obfuscation so the
+// form has working values before the backend persists them. The backend's
+// internal/awg package regenerates obfuscation when obfLevel/profile change,
+// so the values here are immediate-display defaults only.
+export function createDefaultAwgInboundSettings(): AwgInboundSettings {
+  const kp = Wireguard.generateKeypair();
+  const r = (min: number, max: number) => min + Math.floor(Math.random() * (max - min + 1));
+  return {
+    privateKey: kp.privateKey,
+    publicKey: kp.publicKey,
+    mtu: 1320,
+    dns: '1.1.1.1, 1.0.0.1',
+    obfLevel: 2,
+    mimicryProfile: 'quic',
+    region: 'ru',
+    jc: r(3, 10),
+    jmin: r(50, 100),
+    jmax: r(150, 250),
+    s1: r(20, 100),
+    s2: r(20, 100),
+    s3: r(20, 100),
+    s4: r(20, 100),
+    h1: `${r(100000, 500000)}`,
+    h2: `${r(600000, 900000)}`,
+    h3: `${r(1000000, 1500000)}`,
+    h4: `${r(1600000, 2000000)}`,
+    clients: [],
+  };
+}
+// END LUCX-HOOK
+
 export function createDefaultTunnelInboundSettings(): TunnelInboundSettings {
   return {
     portMap: {},
@@ -301,7 +333,8 @@ export type AnyInboundSettings =
   | TunInboundSettings
   | TunnelInboundSettings
   | WireguardInboundSettings
-  | MtprotoInboundSettings;
+  | MtprotoInboundSettings
+  | AwgInboundSettings; // LUCX-HOOK: AWG
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -316,6 +349,7 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
     case 'tun':         return createDefaultTunInboundSettings();
     case 'wireguard':   return createDefaultWireguardInboundSettings();
     case 'mtproto':     return createDefaultMtprotoInboundSettings();
+    case 'awg':         return createDefaultAwgInboundSettings(); // LUCX-HOOK: AWG
     default:            return null;
   }
 }

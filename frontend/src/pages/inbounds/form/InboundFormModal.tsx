@@ -58,6 +58,7 @@ import {
   HysteriaFields,
   MixedFields,
   MtprotoFields,
+  AwgFields, // LUCX-HOOK: AWG
   ShadowsocksFields,
   TunFields,
   TunnelFields,
@@ -684,6 +685,8 @@ export default function InboundFormModal({
 
       {protocol === Protocols.MTPROTO && <MtprotoFields />}
 
+      {protocol === Protocols.AWG && <AwgFields />}
+
       {protocol === Protocols.SHADOWSOCKS && <ShadowsocksFields form={form} isSSWith2022={isSSWith2022} />}
 
       {protocol === Protocols.VLESS && <VlessFields saving={saving} selectedVlessAuth={selectedVlessAuth} network={network} security={security} getNewVlessEnc={getNewVlessEnc} clearVlessEnc={clearVlessEnc} />}
@@ -1018,6 +1021,7 @@ export default function InboundFormModal({
               Protocols.TUN,
               Protocols.WIREGUARD,
               Protocols.MTPROTO,
+              Protocols.AWG, // LUCX-HOOK: AWG — no stream settings
             ] as string[]).includes(protocol) || isFallbackHost
               ? [{ key: 'protocol', label: t('pages.inbounds.protocol'), children: protocolTab, forceRender: true }]
               : []),
