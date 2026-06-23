@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
@@ -45,6 +46,15 @@ func (l *Local) withAPI(fn func(api *xray.XrayAPI) error) error {
 }
 
 func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
+	// LUCX-HOOK: AWG — delegate to the kernel-interface sidecar manager.
+	if ib.Protocol == model.AWG {
+		inst, ok := awg.InstanceFromInbound(ib)
+		if !ok {
+			return nil
+		}
+		return awg.GetManager().Ensure(inst)
+	}
+	// END LUCX-HOOK
 	if ib.Protocol == model.MTProto {
 		inst, ok := mtproto.InstanceFromInbound(ib)
 		if !ok {
@@ -62,6 +72,12 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 }
 
 func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
+	// LUCX-HOOK: AWG — delegate removal to the sidecar manager.
+	if ib.Protocol == model.AWG {
+		awg.GetManager().Remove(ib.Id)
+		return nil
+	}
+	// END LUCX-HOOK
 	if ib.Protocol == model.MTProto {
 		mtproto.GetManager().Remove(ib.Id)
 		return nil
@@ -80,6 +96,12 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func (l *Local) AddUser(_ context.Context, ib *model.Inbound, userMap map[string]any) error {
+	// LUCX-HOOK: AWG — peer reconciliation is driven by the periodic awg job,
+	// which reads the desired peer set from the DB. No live API call here.
+	if ib.Protocol == model.AWG {
+		return nil
+	}
+	// END LUCX-HOOK
 	if ib.Protocol == model.MTProto {
 		return nil
 	}
@@ -89,6 +111,11 @@ func (l *Local) AddUser(_ context.Context, ib *model.Inbound, userMap map[string
 }
 
 func (l *Local) RemoveUser(_ context.Context, ib *model.Inbound, email string) error {
+	// LUCX-HOOK: AWG — peer removal is picked up by the next Reconcile tick.
+	if ib.Protocol == model.AWG {
+		return nil
+	}
+	// END LUCX-HOOK
 	if ib.Protocol == model.MTProto {
 		return nil
 	}

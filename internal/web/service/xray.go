@@ -138,6 +138,12 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if inbound.Protocol == model.MTProto {
 			continue
 		}
+		// LUCX-HOOK: AWG is a kernel-interface sidecar; skip it when building
+		// the Xray config, mirroring the MTProto exclusion above.
+		if inbound.Protocol == model.AWG {
+			continue
+		}
+		// END LUCX-HOOK
 		settings := map[string]any{}
 		json.Unmarshal([]byte(inbound.Settings), &settings)
 

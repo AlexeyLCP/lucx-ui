@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
+	"github.com/mhsanaei/3x-ui/v3/internal/awg" // LUCX-HOOK: AWG sidecar
 	"github.com/mhsanaei/3x-ui/v3/internal/eventbus"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
@@ -283,6 +284,7 @@ const (
 	cadenceXrayRestart   = "@every 30s"
 	cadenceXrayTraffic   = "@every 5s"
 	cadenceMtproto       = "@every 10s"
+	cadenceAwg           = "@every 10s" // LUCX-HOOK: AWG sidecar reconcile + traffic
 	cadenceClientIPScan  = "@every 10s"
 	cadenceNodeHeartbeat = "@every 5s"
 	cadenceNodeTraffic   = "@every 5s"
@@ -325,6 +327,12 @@ func (s *Server) startTask(restartXray bool) {
 	mtJob := job.NewMtprotoJob()
 	s.cron.AddJob(cadenceMtproto, mtJob)
 	go mtJob.Run()
+
+	// LUCX-HOOK: Reconcile AWG kernel-interface sidecars and scrape their traffic
+	awgJob := job.NewAwgJob()
+	s.cron.AddJob(cadenceAwg, awgJob)
+	go awgJob.Run()
+	// END LUCX-HOOK
 
 	// check client ips from log file every 10 sec
 	s.cron.AddJob(cadenceClientIPScan, job.NewCheckClientIpJob())
@@ -648,6 +656,7 @@ func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 	if stopXray {
 		s.xrayService.StopXray()
 		mtproto.GetManager().StopAll()
+		awg.GetManager().StopAll() // LUCX-HOOK: stop AWG sidecars
 	}
 	if s.cron != nil {
 		s.cron.Stop()
