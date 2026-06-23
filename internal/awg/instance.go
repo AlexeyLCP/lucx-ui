@@ -46,6 +46,11 @@ type Instance struct {
 	// Peers expected on the interface. Each entry maps to one [Peer] in the
 	// generated .conf and is reconciled against the kernel state.
 	Peers []PeerSpec
+	// RouteThroughXray, when set, tells the Xray config builder to inject a
+	// TUN inbound for this AWG interface so decrypted packets flow through
+	// Xray's routing rules. Mirrors mtproto's RouteThroughXray.
+	RouteThroughXray bool
+	OutboundTag      string
 }
 
 // PeerSpec is one desired peer on an AWG interface.
@@ -89,6 +94,8 @@ func (inst Instance) fingerprint() string {
 		inst.I3,
 		inst.I4,
 		inst.I5,
+		strconv.FormatBool(inst.RouteThroughXray),
+		inst.OutboundTag,
 	}
 	for _, p := range inst.Peers {
 		parts = append(parts, p.PublicKey, p.PSK, strconv.Itoa(p.Keepalive), p.AllowedIPs)
@@ -123,7 +130,9 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		I3         string `json:"i3"`
 		I4         string `json:"i4"`
 		I5         string `json:"i5"`
-		Clients    []struct {
+		RouteThroughXray bool   `json:"routeThroughXray"`
+		OutboundTag      string `json:"outboundTag"`
+		Clients          []struct {
 			ID       string `json:"id"`
 			Password string `json:"password"`
 			Enable   bool   `json:"enable"`
@@ -160,6 +169,8 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		I3:         s.I3,
 		I4:         s.I4,
 		I5:         s.I5,
+		RouteThroughXray: s.RouteThroughXray,
+		OutboundTag:      s.OutboundTag,
 	}
 	for _, c := range s.Clients {
 		if c.ID == "" || c.Password == "" || !c.Enable {

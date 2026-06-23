@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Button, Form, Input, InputNumber, Select, Space } from 'antd';
+import { Button, Form, Input, InputNumber, Select, Space, Switch } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 
 import { Wireguard } from '@/utils';
+import { useOutboundTags } from '@/api/queries/useOutboundTags';
 
 // generateAwgObfuscation fills the Jc/Jmin/Jmax, S1-S4, H1-H4 fields for a
 // given obfLevel, mirroring the Go GenerateAWGParams so the form can preview
@@ -31,6 +32,8 @@ export default function AwgFields() {
   const { t } = useTranslation();
   const form = Form.useFormInstance();
   const obfLevel = Form.useWatch(['settings', 'obfLevel'], form) as number | undefined;
+  const routeThroughXray = Form.useWatch(['settings', 'routeThroughXray'], form) as boolean | undefined;
+  const { data: outboundTags } = useOutboundTags();
 
   const regenerateKeys = () => {
     const kp = Wireguard.generateKeypair();
@@ -154,6 +157,29 @@ export default function AwgFields() {
             <Input placeholder={t('pages.inbounds.form.awgCpsHex')} />
           </Form.Item>
         </>
+      )}
+
+      <Form.Item
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.awgRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.awgRouteThroughXrayHint')}
+        valuePropName="checked"
+      >
+        <Switch />
+      </Form.Item>
+      {routeThroughXray && (
+        <Form.Item
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.awgRouteOutbound')}
+          tooltip={t('pages.inbounds.form.awgRouteOutboundHint')}
+        >
+          <Select
+            allowClear
+            showSearch
+            placeholder={t('pages.inbounds.form.awgRouteOutboundPlaceholder')}
+            options={(outboundTags ?? []).map((tag) => ({ value: tag, label: tag }))}
+          />
+        </Form.Item>
       )}
     </>
   );

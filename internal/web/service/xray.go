@@ -297,6 +297,22 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		injectMtprotoEgress(xrayConfig, inbound)
 	}
 
+	// LUCX-HOOK: Route opted-in local AWG inbounds through the core's router.
+	// Each one gets a TUN inbound — tagged with the inbound's own tag so it is
+	// matchable in routing rules — that the AWG kernel interface's decrypted
+	// packets flow into. Mirrors the mtproto egress bridge but uses a TUN
+	// inbound (IP packets from the kernel) instead of a SOCKS loopback (TCP
+	// connections from a userspace sidecar). Done after the subscription merge
+	// so a selected subscription outbound (or balancer) is a valid rule target.
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.AWG || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectAwgEgress(xrayConfig, inbound)
+	}
+	// END LUCX-HOOK
+
 	// Wire the panel's own HTTP traffic through the configured outbound, after
 	// the subscription merge so subscription outbound tags are valid targets.
 	if egressTag, err := s.settingService.GetPanelOutbound(); err != nil {
@@ -561,6 +577,90 @@ func injectMtprotoEgress(cfg *xray.Config, inbound *model.Inbound) {
 		Tag:      tag,
 	})
 }
+
+// LUCX-HOOK: awgEgressTunSettings is the TUN inbound an AWG kernel interface
+// flows its decrypted IP packets into so Xray routing rules apply. Unlike the
+// mtproto SOCKS bridge (TCP from userspace), AWG produces raw IP packets from
+// the kernel module, so a TUN inbound is the correct sink. The TUN device name
+// is derived from the AWG interface name (awgN → tunN) and the MTU/gateway are
+// sourced from the inbound's stored settings.
+const awgEgressTunSettingsFmt = `{"name":"%s","mtu":%d,"gateway":["%s"],"userLevel":0}`
+
+// injectAwgEgress wires one routed AWG inbound into the generated config: it
+// appends a TUN inbound (tagged with the inbound's own tag) and, when an
+// outbound is selected, prepends a routing rule sending that tag to it. Both
+// live only in the generated config — the stored template is untouched — and
+// both are hot-appliable, so toggling routing never forces a full Xray
+// restart. Mirrors injectMtprotoEgress but uses a TUN inbound instead of a
+// loopback SOCKS bridge, because AWG traffic is raw IP from a kernel module,
+// not TCP from a userspace daemon.
+func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
+	var parsed struct {
+		RouteThroughXray bool   `json:"routeThroughXray"`
+		OutboundTag      string `json:"outboundTag"`
+		MTU              int    `json:"mtu"`
+		DNS              string `json:"dns"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
+		return
+	}
+	if !parsed.RouteThroughXray || inbound.Tag == "" {
+		return
+	}
+	tag := inbound.Tag
+	for i := range cfg.InboundConfigs {
+		if cfg.InboundConfigs[i].Tag == tag {
+			logger.Warning("awg egress: inbound tag [", tag, "] already present in generated config, skipping bridge")
+			return
+		}
+	}
+
+	if parsed.OutboundTag != "" {
+		routing := map[string]any{}
+		parseOK := true
+		if len(cfg.RouterConfig) > 0 {
+			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+				logger.Warning("awg egress: routing section is unparsable, skipping rule:", err)
+				parseOK = false
+			}
+		}
+		if parseOK {
+			rules, _ := routing["rules"].([]any)
+			rule := map[string]any{
+				"type":       "field",
+				"inboundTag": []any{tag},
+			}
+			if routingTagIsBalancer(routing, parsed.OutboundTag) {
+				rule["balancerTag"] = parsed.OutboundTag
+			} else {
+				rule["outboundTag"] = parsed.OutboundTag
+			}
+			routing["rules"] = append([]any{rule}, rules...)
+			if newRouting, err := json.Marshal(routing); err == nil {
+				cfg.RouterConfig = json_util.RawMessage(newRouting)
+			} else {
+				logger.Warning("awg egress: failed to rebuild routing section, skipping rule:", err)
+			}
+		}
+	}
+
+	mtu := parsed.MTU
+	if mtu == 0 {
+		mtu = 1320
+	}
+	gateway := parsed.DNS
+	if gateway == "" {
+		gateway = "1.1.1.1"
+	}
+	tunName := fmt.Sprintf("tun%d", inbound.Id)
+	tunSettings := fmt.Sprintf(awgEgressTunSettingsFmt, tunName, mtu, gateway)
+	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
+		Protocol: "tun",
+		Settings: json_util.RawMessage(tunSettings),
+		Tag:      tag,
+	})
+}
+// END LUCX-HOOK
 
 // mergeSubscriptionOutbounds appends the subscription outbounds to the
 // OutboundConfigs array of the xray config. It works on the already-unmarshaled

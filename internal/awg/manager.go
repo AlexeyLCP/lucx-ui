@@ -75,9 +75,6 @@ func (m *Manager) sweepOrphansLocked() {
 	if n := killStrayAwgInterfaces(); n > 0 {
 		logger.Warningf("awg: removed %d orphaned interface(s) from a previous run", n)
 	}
-	if n := killStrayTun2socksProcesses(); n > 0 {
-		logger.Warningf("awg: terminated %d orphaned tun2socks process(es) from a previous run", n)
-	}
 }
 
 func (m *Manager) ensureLocked(inst Instance) error {

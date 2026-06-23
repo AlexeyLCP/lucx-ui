@@ -44,5 +44,11 @@ export const AwgInboundSettingsSchema = z.object({
       }),
     )
     .default([]),
+  // When set, the AWG kernel interface's decrypted packets flow into a TUN
+  // inbound injected into the Xray config so egress obeys routing rules.
+  // Mirrors mtproto's routeThroughXray but uses a TUN inbound (raw IP from
+  // kernel) instead of a SOCKS loopback (TCP from a userspace sidecar).
+  routeThroughXray: z.boolean().optional(),
+  outboundTag: z.string().optional(),
 });
 export type AwgInboundSettings = z.infer<typeof AwgInboundSettingsSchema>;

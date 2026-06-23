@@ -10,7 +10,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 )
+
+// awgQuick runs `awg-quick <verb> <conf>` and returns its combined output.
+func awgQuick(verb, confPath string) ([]byte, error) {
+	return exec.Command("awg-quick", verb, confPath).CombinedOutput()
+}
 
 // logAWG prints a formatted log line with [LUCX-AWG] prefix.
 func logAWG(format string, args ...interface{}) {
