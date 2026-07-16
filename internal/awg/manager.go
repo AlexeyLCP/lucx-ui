@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -61,7 +62,11 @@ func (m *Manager) Ensure(inst Instance) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.sweepOrphansLocked()
-	return m.ensureLocked(inst)
+	if err := m.ensureLocked(inst); err != nil {
+		return err
+	}
+	m.ensureXrayRouting(inst)
+	return nil
 }
 
 // sweepOrphansLocked kills awg interfaces and tun2socks processes left running
@@ -142,7 +147,9 @@ func (m *Manager) Reconcile(desired []Instance) {
 	for _, inst := range desired {
 		if err := m.ensureLocked(inst); err != nil {
 			logger.Warningf("awg: reconcile failed for inbound %d: %v", inst.Id, err)
+			continue
 		}
+		m.ensureXrayRouting(inst)
 	}
 }
 
@@ -247,6 +254,72 @@ func writeServerConfigFile(inst Instance) error {
 	return os.WriteFile(configPathForID(inst.Id), []byte(conf), 0o600)
 }
 
+// tunNameFor returns the name of the Xray TUN inbound device paired with an
+// AWG inbound id (awgN → tunN), matching injectAwgEgress in the web service.
+func tunNameFor(id int) string {
+	return fmt.Sprintf("tun%d", id)
+}
+
+// awgRouteTable returns the per-inbound policy-routing table that carries the
+// default route into tunN. Offset by 1000 to stay clear of the tables admins
+// commonly hand-allocate (100, 200, …) and of the reserved 253-255 range.
+func awgRouteTable(id int) int {
+	return 1000 + id
+}
+
+// ensureXrayRoutingCmds returns the idempotent commands that keep one routed
+// instance converged: the per-inbound table's default route pinned into tunN
+// and loose reverse-path filtering on tunN (Xray writes replies with public
+// source addresses into it, which strict rp_filter would drop).
+func ensureXrayRoutingCmds(inst Instance) [][]string {
+	tunName := tunNameFor(inst.Id)
+	return [][]string{
+		{"ip", "route", "replace", "default", "dev", tunName, "table", strconv.Itoa(awgRouteTable(inst.Id))},
+		{"sysctl", "-qw", "net.ipv4.conf." + tunName + ".rp_filter=2"},
+	}
+}
+
+// ruleMissing reports whether `ip rule show` output lacks a lookup into the
+// given routing table. Suffix-matched per line so table 100 does not shadow
+// 1003.
+func ruleMissing(ruleOutput string, table int) bool {
+	needle := "lookup " + strconv.Itoa(table)
+	for _, line := range strings.Split(ruleOutput, "\n") {
+		if strings.HasSuffix(strings.TrimSpace(line), needle) {
+			return false
+		}
+	}
+	return true
+}
+
+// ensureXrayRouting converges the kernel routing state a routed instance
+// needs around the Xray-owned tunN device. It must run periodically, not once:
+// the table's default route dies with tunN on every Xray restart, and PostUp
+// cannot install it because tunN does not exist yet when awg-quick runs. A
+// no-op (and silent) while tunN is absent — Xray may be down or restarting.
+func (m *Manager) ensureXrayRouting(inst Instance) {
+	if !inst.RouteThroughXray {
+		return
+	}
+	tunName := tunNameFor(inst.Id)
+	if err := exec.CommandContext(context.Background(), "ip", "link", "show", tunName).Run(); err != nil {
+		return
+	}
+	for _, args := range ensureXrayRoutingCmds(inst) {
+		if out, err := exec.CommandContext(context.Background(), args[0], args[1:]...).CombinedOutput(); err != nil {
+			logger.Warningf("awg: ensure xray routing (%s): %v\n%s", strings.Join(args, " "), err, string(out))
+		}
+	}
+	table := awgRouteTable(inst.Id)
+	out, err := exec.CommandContext(context.Background(), "ip", "rule", "show", "iif", inst.Ifname).Output()
+	if err != nil || !ruleMissing(string(out), table) {
+		return
+	}
+	if out2, err2 := exec.CommandContext(context.Background(), "ip", "rule", "add", "iif", inst.Ifname, "lookup", strconv.Itoa(table)).CombinedOutput(); err2 != nil {
+		logger.Warningf("awg: re-add policy rule for %s: %v\n%s", inst.Ifname, err2, string(out2))
+	}
+}
+
 // clientSubnet extracts the network prefix (e.g. "10.8.0.0/24") from the
 // server's tunnel Address (e.g. "10.8.0.1/24"). Returns empty when Address is
 // unset or unparseable, in which case NAT rules are skipped.
@@ -272,47 +345,53 @@ func clientSubnet(address string) string {
 // both directions. This mirrors pumbaX/awg-multi-script.
 //
 // With routeThroughXray: Xray owns the routing via an injected TUN inbound
-// (tunN). But awg-quick up runs BEFORE Xray creates tunN, so we cannot add the
-// route at PostUp time directly. Instead PostUp spawns a background retry-loop
-// (sh -c 'for i in ... do ip route add ... && break; sleep 1; done &') that
-// waits for tunN to appear, then routes the AWG subnet into it. Xray picks the
-// packets off tunN and applies its routing rules. No MASQUERADE here — Xray
-// handles outbound NAT via its own freedom/direct outbound. PostDown removes
-// the route (best-effort, tunN may already be gone).
+// (tunN). PostUp wires the static half — forwarding, loose reverse-path
+// filtering on awgN, FORWARD accepts for both awgN and tunN legs, and an iif
+// policy rule sending everything received on awgN into the per-inbound table
+// awgRouteTable(id). The iif selector (not `from <subnet>`) matches only
+// forwarded client traffic, so server-originated packets sourced from the
+// awgN address still reach clients directly. The table's default route into
+// tunN is NOT set here: tunN does not exist yet at PostUp time and is
+// recreated on every Xray restart, so ensureXrayRouting (called from the
+// reconcile loop) owns it. No MASQUERADE here — Xray terminates the flows in
+// its TUN netstack and dials out with the server's own address.
 func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 	subnet := clientSubnet(inst.Address)
 	if subnet == "" {
 		return "", ""
 	}
 	iface := inst.Ifname
-	tunName := fmt.Sprintf("tun%d", inst.Id)
+	tunName := tunNameFor(inst.Id)
 
 	if inst.RouteThroughXray {
-		// Policy routing: send all traffic FROM the AWG subnet into tunN via
-		// a dedicated routing table (100). This is needed because a plain
-		// `ip route replace <subnet> dev tunN` only routes packets DESTINED to
-		// the subnet through tunN, not packets FROM it. Client packets have
-		// src=10.8.0.x, dst=internet — we need them to go through tunN so
-		// Xray can process them. A separate table avoids disturbing the main
-		// route table (which still needs to deliver return traffic to awgN).
-		// The retry loop waits for tunN to appear (Xray creates it after
-		// awg-quick up). ip rule + ip route in table 100 are idempotent
-		// (replace, not add) so re-runs are safe.
+		table := awgRouteTable(inst.Id)
 		postUp = fmt.Sprintf(
 			"echo 1 > /proc/sys/net/ipv4/ip_forward; "+
-				"ip rule del from %s lookup 100 2>/dev/null || true; "+
-				"ip rule add from %s lookup 100; "+
-				"sh -c 'for i in 1 2 3 4 5 6 7 8 9 10; do "+
-				"ip link show %s >/dev/null 2>&1 && "+
-				"ip route replace default dev %s table 100 2>/dev/null && break; "+
-				"sleep 1; done' &",
-			subnet, subnet,
-			tunName, tunName,
+				"sysctl -qw net.ipv4.conf.%s.rp_filter=2; "+
+				"iptables -C FORWARD -i %s -j ACCEPT 2>/dev/null || "+
+				"iptables -A FORWARD -i %s -j ACCEPT; "+
+				"iptables -C FORWARD -o %s -j ACCEPT 2>/dev/null || "+
+				"iptables -A FORWARD -o %s -j ACCEPT; "+
+				"iptables -C FORWARD -i %s -j ACCEPT 2>/dev/null || "+
+				"iptables -A FORWARD -i %s -j ACCEPT; "+
+				"iptables -C FORWARD -o %s -j ACCEPT 2>/dev/null || "+
+				"iptables -A FORWARD -o %s -j ACCEPT; "+
+				"ip rule del iif %s lookup %d 2>/dev/null || true; "+
+				"ip rule add iif %s lookup %d",
+			iface,
+			iface, iface, iface, iface,
+			tunName, tunName, tunName, tunName,
+			iface, table, iface, table,
 		)
 		postDown = fmt.Sprintf(
-			"ip rule del from %s lookup 100 2>/dev/null || true; "+
-				"ip route flush table 100 2>/dev/null || true",
-			subnet,
+			"ip rule del iif %s lookup %d 2>/dev/null || true; "+
+				"ip route flush table %d 2>/dev/null || true; "+
+				"iptables -D FORWARD -i %s -j ACCEPT 2>/dev/null || true; "+
+				"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true; "+
+				"iptables -D FORWARD -i %s -j ACCEPT 2>/dev/null || true; "+
+				"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true",
+			iface, table, table,
+			iface, iface, tunName, tunName,
 		)
 		return postUp, postDown
 	}

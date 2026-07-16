@@ -23,7 +23,7 @@ var name string
 // LUCX-HOOK: LucX-UI fork version suffix appended to the upstream base version
 // so the dashboard advertises our build (e.g. "3.5.0-lucx.7") instead of the
 // bare upstream "3.5.0". Bump this with each LucX release.
-const lucxVersion = "lucx.29"
+const lucxVersion = "lucx.30"
 
 // buildCommit and buildDate are injected at build time via `-ldflags -X` for
 // CI per-commit (dev channel) builds; see .github/workflows/release.yml. They

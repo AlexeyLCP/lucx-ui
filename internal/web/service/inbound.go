@@ -737,6 +737,23 @@ func mtprotoRoutesThroughXray(inbound *model.Inbound) bool {
 	return parsed.RouteThroughXray
 }
 
+// awgRoutesThroughXray reports whether an AWG inbound is configured to egress
+// through the core's router (the TUN bridge in §xray.go). Such inbounds live
+// only in the generated config, so every mutation of one must force a config
+// regen — the kernel sidecar push alone never touches Xray.
+func awgRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.AWG {
+		return false
+	}
+	var parsed struct {
+		RouteThroughXray bool `json:"routeThroughXray"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
+		return false
+	}
+	return parsed.RouteThroughXray
+}
+
 func settingsRouteXrayPort(parsed map[string]any) int {
 	switch v := parsed["routeXrayPort"].(type) {
 	case float64:
@@ -1009,10 +1026,11 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		postCommitApply()
 	}
 
-	// A routed mtproto inbound is not an Xray inbound itself, so the runtime
-	// push above only (re)starts the mtg sidecar. The egress SOCKS bridge lives
-	// in the generated config, so force a regen to wire it in.
-	if mtprotoRoutesThroughXray(inbound) {
+	// A routed mtproto or AWG inbound is not an Xray inbound itself, so the
+	// runtime push above only (re)starts its sidecar. The egress bridge (SOCKS
+	// loopback for mtproto, TUN for AWG) lives in the generated config, so
+	// force a regen to wire it in.
+	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -1104,8 +1122,8 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 			}
 		}
 	}
-	// Drop the egress SOCKS bridge a routed mtproto inbound left in the config.
-	if mtprotoRoutesThroughXray(&ib) {
+	// Drop the egress bridge a routed mtproto or AWG inbound left in the config.
+	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) {
 		needRestart = true
 	}
 	return needRestart, nil
@@ -1188,6 +1206,12 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	}
 	inbound.Enable = enable
 
+	// A routed mtproto/AWG inbound keeps its egress bridge (SOCKS loopback or
+	// TUN) only in the generated config, so flipping enable in either
+	// direction must regenerate it — the runtime push below only touches the
+	// sidecar process, never Xray.
+	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound)
+
 	needRestart := false
 	rt, push, _, perr := s.nodePushPlan(inbound)
 	if perr != nil {
@@ -1218,7 +1242,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		needRestart = true
 	}
 	if !enable {
-		return needRestart, nil
+		return needRestart || routedBridge, nil
 	}
 
 	runtimeInbound, err := s.buildRuntimeInboundForAPI(db, inbound)
@@ -1230,7 +1254,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		logger.Debug("SetInboundEnable: AddInbound on", rt.Name(), "failed:", err)
 		needRestart = true
 	}
-	return needRestart, nil
+	return needRestart || routedBridge, nil
 }
 
 func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, bool, error) {
@@ -1263,6 +1287,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// inbound keeps a stable egress port (reusing the one already stored).
 	oldProtocol := oldInbound.Protocol
 	oldRoutedMtproto := mtprotoRoutesThroughXray(oldInbound)
+	oldRoutedAwg := awgRoutesThroughXray(oldInbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
@@ -1468,9 +1493,10 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 		}
 		// (Re)generate the Xray config whenever routing was or is now enabled, so
-		// the egress SOCKS bridge is added, moved, or dropped to match the new
-		// settings.
-		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto {
+		// the egress bridge (SOCKS or TUN) is added, moved, or dropped to match
+		// the new settings.
+		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto ||
+			awgRoutesThroughXray(inbound) || oldRoutedAwg {
 			needRestart = true
 		}
 		return nil

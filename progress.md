@@ -424,6 +424,30 @@ PostDown = iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE; 
 
 ---
 
+## Фикс: routeThroughXray для AWG — needRestart, iif policy routing, reconcile-ensure (2026-07-16, v3.5.0-lucx.30)
+
+**Симптом:** при включении тумблера «Маршрутизировать через Xray» на AWG-инбаунде у клиентов пропадал интернет (диагностика на runode: journalctl 18:21–18:24 — awg1 перезапущен, Xray не тронут, tun1 не создан).
+
+**Рут-козы (три независимые):**
+
+1. **Тоггл не перегенерировал конфиг Xray.** `needRestart` поднимался только для MTProto (`mtprotoRoutesThroughXray`) — AWG-путь обновления шёл целиком в kernel-sidecar (`runtime/local.go`), Xray не перезапускался, `injectAwgEgress` не выполнялся → TUN-инбаунд не появлялся. При этом PostUp routeThroughXray-ветки убирает MASQUERADE → трафик клиентов уходил в eth0 с приватным src без NAT → мёртвый интернет.
+2. **Маршрут в таблице умирал при каждом рестарте Xray** (tunN пересоздаётся, device-bound route удаляется ядром), а одноразовый PostUp retry-loop (10×1с) проигрывал гонку 30-секундному cron-рестарту и не переживал последующие рестарты.
+3. **Фиксированные таблица (100) и gateway (10.254.254.1/30)** ломали конфигурацию с двумя routed-инбаундами (затирали друг друга), а `from <subnet>`-правило дополнительно захватывало server-originated трафик с адресом awgN.
+
+**Решение:**
+
+- `inbound.go`: `awgRoutesThroughXray` (зеркало mtproto-хелпера) + `needRestart` в `AddInbound`/`DelInbound`/`UpdateInbound` (`oldRoutedAwg`)/`SetInboundEnable` (в enable-тоггл добавлен и mtproto — та же латентная дыра).
+- `manager.go`: PostUp — статическая половина: ip_forward, loose rp_filter на awgN, FORWARD accepts для awgN и tunN, `ip rule add iif awgN lookup 1000+N` (iif вместо from — не трогает server-originated трафик). Маршрутом владеет `ensureXrayRouting` из reconcile-цикла (каждые 10с): `ip route replace default dev tunN table 1000+N` + loose rp_filter на tunN + самовосстановление ip rule. Молча no-op, пока tunN отсутствует.
+- `xray.go` `injectAwgEgress`: gateway per-inbound `10.254.(N%254).1/30` (`awgTunGateway`) вместо фиксированного; на TUN-инбаунд навешен sniffing `{http,tls,quic, routeOnly:true}` — без него доменные/geosite-правила роутера для AWG-трафика молча не срабатывали (роутер видел только IP). `routeOnly` оставляет снифф домена подсказкой для роутинга, адрес назначения не подменяется.
+
+**Дизайн проверен вживую** на runode до реализации: netns-клиент → veth → `ip rule iif` → tun99 (реальный xray-бинарник) → freedom: ICMP 2/2, HTTPS 200, в xray-логе dispatcher → routing → freedom с IP сервера.
+
+**Тесты:** `TestAwgRouteTable`, `TestRenderServerConf_RouteThroughXrayPolicyRouting`, `TestNatPostUpPostDown_RouteThroughXrayPerInbound`, `TestEnsureXrayRoutingCmds`, `TestRuleMissing` (awg); `TestAwgRoutesThroughXray`, `TestAddInbound_RoutedAwgForcesXrayRegen`, `TestAddInbound_PlainAwgDoesNotForceRegen`, `TestDelInbound_RoutedAwgForcesXrayRegen`, `TestSetInboundEnable_DisableRoutedAwgForcesXrayRegen`, `TestInjectAwgEgress_PerInboundGateway` (service). Полные сьюты awg + web/service зелёные (`-shuffle=on`).
+
+**lucxVersion** → `lucx.30`.
+
+---
+
 ## Заметки
 
 - v3.5.0 релиз 2026-07-12 (вчера)

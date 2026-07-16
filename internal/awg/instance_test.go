@@ -225,29 +225,109 @@ func TestClientSubnet(t *testing.T) {
 	}
 }
 
-func TestRenderServerConf_RouteThroughXrayHasRouteToTun(t *testing.T) {
+func TestAwgRouteTable(t *testing.T) {
+	if got := awgRouteTable(1); got != 1001 {
+		t.Fatalf("awgRouteTable(1) = %d, want 1001", got)
+	}
+	if got := awgRouteTable(42); got != 1042 {
+		t.Fatalf("awgRouteTable(42) = %d, want 1042", got)
+	}
+}
+
+// routeThroughXray steers client-originated traffic into the Xray TUN via an
+// iif policy rule and a per-inbound table. The route itself (default dev tunN)
+// is owned by the reconcile loop — tunN does not exist yet at PostUp time and
+// is recreated on every Xray restart, so a one-shot PostUp cannot own it.
+func TestRenderServerConf_RouteThroughXrayPolicyRouting(t *testing.T) {
 	inst := Instance{
 		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
 		Address: "10.8.0.1/24", RouteThroughXray: true,
 	}
 	conf := renderServerConf(inst)
-	if !strings.Contains(conf, "PostUp") {
-		t.Errorf("PostUp must be present when routeThroughXray is set, got:\n%s", conf)
+	mustContain := []string{
+		"PostUp",
+		"ip rule add iif awg1 lookup 1001",
+		"ip_forward",
+		"net.ipv4.conf.awg1.rp_filter=2",
+		"FORWARD -i awg1 -j ACCEPT",
+		"FORWARD -o awg1 -j ACCEPT",
+		"FORWARD -i tun1 -j ACCEPT",
+		"FORWARD -o tun1 -j ACCEPT",
 	}
-	if !strings.Contains(conf, "tun1") {
-		t.Errorf("PostUp must reference tun1 (Xray TUN inbound), got:\n%s", conf)
+	for _, s := range mustContain {
+		if !strings.Contains(conf, s) {
+			t.Errorf("conf missing %q\nConf:\n%s", s, conf)
+		}
 	}
-	if !strings.Contains(conf, "ip rule add from 10.8.0.0/24 lookup 100") {
-		t.Errorf("PostUp must add policy routing rule for AWG subnet, got:\n%s", conf)
+	mustNotContain := []string{
+		"MASQUERADE",
+		"ip route replace 10.8.0.0/24",
+		"ip rule add from",
+		"sleep",
 	}
-	if !strings.Contains(conf, "table 100") {
-		t.Errorf("PostUp must use routing table 100, got:\n%s", conf)
+	for _, s := range mustNotContain {
+		if strings.Contains(conf, s) {
+			t.Errorf("conf must not contain %q\nConf:\n%s", s, conf)
+		}
 	}
-	if strings.Contains(conf, "MASQUERADE") {
-		t.Errorf("PostUp must NOT contain MASQUERADE when routeThroughXray, got:\n%s", conf)
+	postDown := ""
+	for _, line := range strings.Split(conf, "\n") {
+		if strings.HasPrefix(line, "PostDown") {
+			postDown = line
+		}
 	}
-	if !strings.Contains(conf, "ip_forward") {
-		t.Errorf("PostUp must enable ip_forward even with routeThroughXray, got:\n%s", conf)
+	for _, s := range []string{"ip rule del iif awg1 lookup 1001", "ip route flush table 1001"} {
+		if !strings.Contains(postDown, s) {
+			t.Errorf("PostDown missing %q, got %q", s, postDown)
+		}
+	}
+}
+
+func TestNatPostUpPostDown_RouteThroughXrayPerInbound(t *testing.T) {
+	inst := Instance{
+		Id: 7, Ifname: "awg7", Port: 47007, PrivateKey: "k", MTU: 1320,
+		Address: "10.9.0.1/24", RouteThroughXray: true,
+	}
+	postUp, postDown := natPostUpPostDown(inst)
+	for _, s := range []string{"iif awg7 lookup 1007", "FORWARD -i tun7"} {
+		if !strings.Contains(postUp, s) {
+			t.Errorf("PostUp missing %q, got %q", s, postUp)
+		}
+	}
+	for _, s := range []string{"iif awg7 lookup 1007", "flush table 1007"} {
+		if !strings.Contains(postDown, s) {
+			t.Errorf("PostDown missing %q, got %q", s, postDown)
+		}
+	}
+}
+
+func TestEnsureXrayRoutingCmds(t *testing.T) {
+	inst := Instance{Id: 3, Ifname: "awg3", RouteThroughXray: true}
+	cmds := ensureXrayRoutingCmds(inst)
+	want := []string{
+		"ip route replace default dev tun3 table 1003",
+		"sysctl -qw net.ipv4.conf.tun3.rp_filter=2",
+	}
+	if len(cmds) != len(want) {
+		t.Fatalf("expected %d commands, got %d: %v", len(want), len(cmds), cmds)
+	}
+	for i, w := range want {
+		if strings.Join(cmds[i], " ") != w {
+			t.Errorf("cmd %d = %q, want %q", i, strings.Join(cmds[i], " "), w)
+		}
+	}
+}
+
+func TestRuleMissing(t *testing.T) {
+	withRule := "32765:\tfrom all iif awg3 lookup 1003\n"
+	if ruleMissing(withRule, 1003) {
+		t.Error("rule present in output must not be reported missing")
+	}
+	if !ruleMissing("", 1003) {
+		t.Error("empty output means the rule is missing")
+	}
+	if !ruleMissing("32765:\tfrom all iif awg3 lookup 100\n", 1003) {
+		t.Error("a different table must not satisfy the check")
 	}
 }
 

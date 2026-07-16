@@ -617,24 +617,34 @@ func injectMtprotoEgress(cfg *xray.Config, inbound *model.Inbound) {
 // flows its decrypted IP packets into so Xray routing rules apply. Unlike the
 // mtproto SOCKS bridge (TCP from userspace), AWG produces raw IP packets from
 // the kernel module, so a TUN inbound is the correct sink. The TUN device name
-// is derived from the AWG interface name (awgN → tunN) and the MTU/gateway are
-// sourced from the inbound's stored settings.
+// is derived from the AWG interface name (awgN → tunN); the gateway comes from
+// awgTunGateway, not from the inbound's tunnel address.
 const awgEgressTunSettingsFmt = `{"name":"%s","mtu":%d,"gateway":["%s"],"userLevel":0}`
+
+// awgTunGateway returns the address Xray assigns to tunN. It must lie outside
+// the AWG tunnel subnet — sharing it would give the kernel two connected
+// routes for the same prefix and pull the reply path toward tunN — and must
+// differ between routed inbounds, whose TUN devices coexist. A per-id /30
+// under 10.254/16 satisfies both against the 10.8.0.0/24-style defaults the
+// panel hands out.
+func awgTunGateway(id int) string {
+	return fmt.Sprintf("10.254.%d.1/30", id%254)
+}
 
 // injectAwgEgress wires one routed AWG inbound into the generated config: it
 // appends a TUN inbound (tagged with the inbound's own tag) and, when an
 // outbound is selected, prepends a routing rule sending that tag to it. Both
-// live only in the generated config — the stored template is untouched — and
-// both are hot-appliable, so toggling routing never forces a full Xray
-// restart. Mirrors injectMtprotoEgress but uses a TUN inbound instead of a
-// loopback SOCKS bridge, because AWG traffic is raw IP from a kernel module,
-// not TCP from a userspace daemon.
+// live only in the generated config — the stored template is untouched — so
+// every change to a routed AWG inbound must force a config regen (see
+// awgRoutesThroughXray in §inbound.go); the kernel-side sidecar push alone
+// never reaches Xray. Mirrors injectMtprotoEgress but uses a TUN inbound
+// instead of a loopback SOCKS bridge, because AWG traffic is raw IP from a
+// kernel module, not TCP from a userspace daemon.
 func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 	var parsed struct {
 		RouteThroughXray bool   `json:"routeThroughXray"`
 		OutboundTag      string `json:"outboundTag"`
 		MTU              int    `json:"mtu"`
-		Address          string `json:"address"`
 	}
 	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
 		return
@@ -689,20 +699,22 @@ func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 	if mtu == 0 {
 		mtu = 1320
 	}
-	// The TUN device needs its own IP in CIDR format (Xray rejects bare IPs:
-	// "invalid CIDR address"). We use a fixed /30 in a separate subnet
-	// (10.254.254.0/30) so it never conflicts with the AWG tunnel subnet
-	// (typically 10.8.0.0/24). If both subnets overlapped, the kernel would
-	// auto-add conflicting connected routes and return packets from Xray
-	// could loop back into tunN instead of going to awgN.
 	tunName := fmt.Sprintf("tun%d", inbound.Id)
-	tunSettings := fmt.Sprintf(awgEgressTunSettingsFmt, tunName, mtu, "10.254.254.1/30")
+	tunSettings := fmt.Sprintf(awgEgressTunSettingsFmt, tunName, mtu, awgTunGateway(inbound.Id))
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
 		Protocol: "tun",
 		Settings: json_util.RawMessage(tunSettings),
+		Sniffing: json_util.RawMessage(awgEgressTunSniffing),
 		Tag:      tag,
 	})
 }
+
+// awgEgressTunSniffing lets the router match domain rules against AWG flows:
+// without it the TUN inbound only ever exposes destination IPs, so geosite/
+// domain rules silently never fire for routed AWG traffic. routeOnly keeps
+// the sniffed SNI/Host a routing-time hint — the dial target stays the IP the
+// client resolved, so egress behavior is unchanged.
+const awgEgressTunSniffing = `{"enabled":true,"destOverride":["http","tls","quic"],"routeOnly":true}`
 
 // END LUCX-HOOK
 

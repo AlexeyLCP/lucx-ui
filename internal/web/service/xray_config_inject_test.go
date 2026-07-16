@@ -408,8 +408,8 @@ func TestInjectAwgEgress_WithOutbound(t *testing.T) {
 	if settings.MTU != 1320 {
 		t.Errorf("expected mtu 1320, got %d", settings.MTU)
 	}
-	if len(settings.Gateway) != 1 || settings.Gateway[0] != "10.254.254.1/30" {
-		t.Errorf("expected gateway [10.254.254.1/30] (fixed /30 to avoid subnet conflict), got %v", settings.Gateway)
+	if len(settings.Gateway) != 1 || settings.Gateway[0] != "10.254.1.1/30" {
+		t.Errorf("expected gateway [10.254.1.1/30] (per-inbound /30 outside the AWG subnet), got %v", settings.Gateway)
 	}
 	// Routing rule prepended with outboundTag.
 	var r egressRouting
@@ -480,8 +480,62 @@ func TestInjectAwgEgress_DefaultMTUAndGateway(t *testing.T) {
 	if settings.MTU != 1320 {
 		t.Errorf("expected default mtu 1320, got %d", settings.MTU)
 	}
-	if len(settings.Gateway) != 1 || settings.Gateway[0] != "10.254.254.1/30" {
-		t.Errorf("expected default gateway [10.254.254.1/30] (fixed /30), got %v", settings.Gateway)
+	if len(settings.Gateway) != 1 || settings.Gateway[0] != "10.254.1.1/30" {
+		t.Errorf("expected default gateway [10.254.1.1/30] (per-inbound /30), got %v", settings.Gateway)
+	}
+}
+
+// The router can only match domain rules against AWG traffic when the TUN
+// inbound sniffs the SNI/Host out of the flows. routeOnly keeps the sniffed
+// domain a routing-time hint: the dial target stays the IP the client
+// resolved, so enabling sniffing never changes where traffic actually goes.
+func TestInjectAwgEgress_SniffingRouteOnly(t *testing.T) {
+	cfg := egressTestConfig()
+	injectAwgEgress(cfg, awgInbound("inbound-awg-1", `{"routeThroughXray":true,"mtu":1320}`))
+	ib := cfg.InboundConfigs[1]
+	var sniffing struct {
+		Enabled      bool     `json:"enabled"`
+		DestOverride []string `json:"destOverride"`
+		RouteOnly    bool     `json:"routeOnly"`
+	}
+	if err := json.Unmarshal(ib.Sniffing, &sniffing); err != nil {
+		t.Fatalf("injected TUN inbound must carry a sniffing block, got %q: %v", ib.Sniffing, err)
+	}
+	if !sniffing.Enabled || !sniffing.RouteOnly {
+		t.Fatalf("sniffing must be enabled with routeOnly, got %+v", sniffing)
+	}
+	want := []string{"http", "tls", "quic"}
+	if len(sniffing.DestOverride) != len(want) {
+		t.Fatalf("destOverride = %v, want %v", sniffing.DestOverride, want)
+	}
+	for i, w := range want {
+		if sniffing.DestOverride[i] != w {
+			t.Fatalf("destOverride = %v, want %v", sniffing.DestOverride, want)
+		}
+	}
+}
+
+// Two routed AWG inbounds must not share a TUN address or a routing table, so
+// the gateway is derived from the inbound id, in step with tunN and table
+// 1000+N on the awg side.
+func TestInjectAwgEgress_PerInboundGateway(t *testing.T) {
+	cfg := egressTestConfig()
+	ib := awgInbound("inbound-awg-7", `{"routeThroughXray":true,"mtu":1400}`)
+	ib.Id = 7
+	injectAwgEgress(cfg, ib)
+	got := cfg.InboundConfigs[len(cfg.InboundConfigs)-1]
+	var settings struct {
+		Name    string   `json:"name"`
+		Gateway []string `json:"gateway"`
+	}
+	if err := json.Unmarshal(got.Settings, &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings.Name != "tun7" {
+		t.Errorf("expected tun name tun7, got %s", settings.Name)
+	}
+	if len(settings.Gateway) != 1 || settings.Gateway[0] != "10.254.7.1/30" {
+		t.Errorf("expected gateway [10.254.7.1/30], got %v", settings.Gateway)
 	}
 }
 
