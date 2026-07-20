@@ -748,7 +748,6 @@ const awgEgressTunSniffing = `{"enabled":true,"destOverride":["http","tls","quic
 // left untouched (the user will see the error on Xray start / next save),
 // never silently dropped.
 func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
-	injected := false
 	for _, o := range outbounds {
 		if !o.Enable {
 			continue
@@ -775,11 +774,8 @@ func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 			"streamSettings": streamSettings,
 		}); err != nil {
 			logger.Warning("awg outbound: failed to inject freedom outbound for tag", o.Tag, ":", err)
-			continue
 		}
-		injected = true
 	}
-	_ = injected
 }
 
 // appendAwgOutbound unmarshals cfg.OutboundConfigs (a JSON array blob) into
