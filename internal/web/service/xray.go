@@ -352,6 +352,20 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 	}
 	// END LUCX-HOOK
 
+	// LUCX-HOOK: AWG outbound — inject freedom outbounds bound to awgo-* kernel
+	// interfaces so routing rules can send traffic to upstream VPNs. Runs after
+	// regular outbounds are merged (Tag available for references) and after the
+	// AWG egress bridges (so a routed AWG inbound can target one of these as its
+	// outboundTag), but before balancers/routing are finalized so the tags remain
+	// valid routing targets. AwgOutboundService is in this package, so no
+	// service. prefix.
+	if awgOuts, err := (&AwgOutboundService{}).GetOutbounds(); err == nil {
+		injectAwgOutbounds(xrayConfig, awgOuts)
+	} else {
+		logger.Warning("awg outbound: read enabled outbounds failed:", err)
+	}
+	// END LUCX-HOOK
+
 	// Wire the panel's own HTTP traffic through the configured outbound, after
 	// the subscription merge so subscription outbound tags are valid targets.
 	if egressTag, err := s.settingService.GetPanelOutbound(); err != nil {
@@ -719,6 +733,76 @@ func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 // the sniffed SNI/Host a routing-time hint — the dial target stays the IP the
 // client resolved, so egress behavior is unchanged.
 const awgEgressTunSniffing = `{"enabled":true,"destOverride":["http","tls","quic"],"routeOnly":true}`
+
+// LUCX-HOOK: AWG outbound — inject one freedom outbound per enabled
+// awg_outbounds row so routing rules can send traffic through the upstream
+// VPN. Each outbound is bound to its kernel interface via sockopt.interface
+// (always awgo-{Id}, never the editable Tag) and optionally source-bound via
+// sendThrough (tunnel IP with the CIDR mask stripped — Xray rejects masked
+// IPs). Called after the regular outbounds are merged so the Tag is available
+// for balancer/routing references, but before balancers/routing are added.
+//
+// OutboundConfigs is a json_util.RawMessage (a JSON array blob), not a typed
+// slice, so the existing array is unmarshaled into []any, appended to, and
+// re-marshaled — mirroring mergeSubscriptionOutbounds. A corrupt template is
+// left untouched (the user will see the error on Xray start / next save),
+// never silently dropped.
+func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
+	injected := false
+	for _, o := range outbounds {
+		if !o.Enable {
+			continue
+		}
+		ci, ok := awg.ClientInstanceFromOutbound(o)
+		if !ok {
+			continue
+		}
+		settings := map[string]any{
+			"domainStrategy": "UseIP",
+		}
+		if ip := strings.SplitN(ci.Settings.Address, "/", 2)[0]; ip != "" {
+			settings["sendThrough"] = ip
+		}
+		streamSettings := map[string]any{
+			"sockopt": map[string]any{
+				"interface": ci.Ifname,
+			},
+		}
+		if err := appendAwgOutbound(cfg, map[string]any{
+			"protocol":       "freedom",
+			"tag":            o.Tag,
+			"settings":       settings,
+			"streamSettings": streamSettings,
+		}); err != nil {
+			logger.Warning("awg outbound: failed to inject freedom outbound for tag", o.Tag, ":", err)
+			continue
+		}
+		injected = true
+	}
+	_ = injected
+}
+
+// appendAwgOutbound unmarshals cfg.OutboundConfigs (a JSON array blob) into
+// []any, appends one outbound object, and re-marshals it back. A nil/empty
+// OutboundConfigs becomes a single-element array. A corrupt template aborts
+// the append and leaves the field untouched, mirroring the safety contract of
+// mergeSubscriptionOutbounds.
+func appendAwgOutbound(cfg *xray.Config, ob map[string]any) error {
+	var existing []any
+	if len(cfg.OutboundConfigs) > 0 {
+		if err := json.Unmarshal(cfg.OutboundConfigs, &existing); err != nil {
+			// Corrupt template outbounds — do not touch the field at all.
+			return err
+		}
+	}
+	existing = append(existing, ob)
+	combined, err := json.MarshalIndent(existing, "", "  ")
+	if err != nil {
+		return err
+	}
+	cfg.OutboundConfigs = json_util.RawMessage(combined)
+	return nil
+}
 
 // END LUCX-HOOK
 
