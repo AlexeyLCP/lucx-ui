@@ -669,6 +669,8 @@ PostDown = iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE; 
 
 **lucxVersion** → `lucx.35`.
 
+**Деплой на test2:** stable lucx.34 → lucx.35 (stop, бэкап `x-ui.bak-lucx34`, замена, start). Сервис active, `lucx.35` в бинарнике, awg1 поднялся сам (reconcile), routed-цепочка на месте (`awg show` → awg1 на 52901, jc=4).
+
 ---
 
 ## Заметки
