@@ -95,6 +95,11 @@ func initModels() error {
 			return err
 		}
 	}
+	// LUCX-HOOK: AWG outbound — client-mode AmneziaWG table.
+	if err := db.AutoMigrate(&model.AwgOutbound{}); err != nil {
+		return err
+	}
+	// END LUCX-HOOK
 	if err := dropLegacyInboundPortUnique(); err != nil {
 		return err
 	}
