@@ -33,6 +33,12 @@ interface RoutingTabProps {
   inboundTags: string[];
   clientReverseTags: string[];
   subscriptionOutboundTags?: string[];
+  // LUCX-HOOK: AWG outbound — tags of enabled AWG outbounds, surfaced by the
+  // xray config controller so the outboundTag dropdown can list them. AWG
+  // outbounds are injected into the generated config, not the template, so
+  // without this the routing rules UI cannot reference them.
+  awgOutboundTags?: string[];
+  // END LUCX-HOOK
   isMobile: boolean;
 }
 
@@ -42,6 +48,9 @@ export default function RoutingTab({
   inboundTags,
   clientReverseTags,
   subscriptionOutboundTags,
+  // LUCX-HOOK: AWG outbound — see interface comment.
+  awgOutboundTags,
+  // END LUCX-HOOK
   isMobile,
 }: RoutingTabProps) {
   const { t } = useTranslation();
@@ -139,8 +148,14 @@ export default function RoutingTab({
     for (const tag of subscriptionOutboundTags || []) {
       if (tag) out.add(tag);
     }
+    // LUCX-HOOK: AWG outbound — include AWG outbound tags (injected at runtime,
+    // same shape as subscription outbound tags).
+    for (const tag of awgOutboundTags || []) {
+      if (tag) out.add(tag);
+    }
+    // END LUCX-HOOK
     return [...out];
-  }, [templateSettings?.outbounds, clientReverseTags, subscriptionOutboundTags]);
+  }, [templateSettings?.outbounds, clientReverseTags, subscriptionOutboundTags, awgOutboundTags]);
 
   const balancerTagOptions = useMemo(() => {
     const out: string[] = [''];

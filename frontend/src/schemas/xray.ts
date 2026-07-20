@@ -45,6 +45,12 @@ export const XrayConfigPayloadSchema = z.object({
   // balancers / routing rules.
   subscriptionOutbounds: z.array(z.unknown()).optional(),
   subscriptionOutboundTags: z.array(z.string()).optional(),
+  // LUCX-HOOK: AWG outbound — tags of enabled AWG outbounds, injected into the
+  // generated Xray config (not the editable template). Surfaced here so the
+  // routing rules + balancers dropdowns can reference them. Same shape as
+  // subscriptionOutboundTags.
+  awgOutboundTags: z.array(z.string()).optional(),
+  // END LUCX-HOOK
 }).loose();
 
 export const OutboundTrafficRowSchema = z.object({

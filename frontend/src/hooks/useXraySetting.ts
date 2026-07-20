@@ -60,6 +60,13 @@ export interface UseXraySettingResult {
   clientReverseTags: string[];
   subscriptionOutbounds: unknown[];
   subscriptionOutboundTags: string[];
+  // LUCX-HOOK: AWG outbound — Tags of enabled AWG outbounds, surfaced by the
+  // xray config controller so routing rules + balancers can reference them
+  // in their outboundTag/balancerTag dropdowns. AWG outbounds are injected
+  // into the generated config, not the template, so they would otherwise be
+  // invisible to the routing UI.
+  awgOutboundTags: string[];
+  // END LUCX-HOOK
   outboundsTraffic: OutboundTrafficRow[];
   outboundTestStates: Record<number, OutboundTestState>;
   subscriptionTestStates: Record<string, OutboundTestState>;
@@ -133,6 +140,9 @@ export function useXraySetting(): UseXraySettingResult {
   const [clientReverseTags, setClientReverseTags] = useState<string[]>([]);
   const [subscriptionOutbounds, setSubscriptionOutbounds] = useState<unknown[]>([]);
   const [subscriptionOutboundTags, setSubscriptionOutboundTags] = useState<string[]>([]);
+  // LUCX-HOOK: AWG outbound — tags of enabled AWG outbounds (see interface comment).
+  const [awgOutboundTags, setAwgOutboundTags] = useState<string[]>([]);
+  // END LUCX-HOOK
   const [outboundTestStates, setOutboundTestStates] = useState<Record<number, OutboundTestState>>({});
   // Subscription outbounds aren't in templateSettings.outbounds, so their test
   // results are keyed by tag rather than by index.
@@ -167,6 +177,10 @@ export function useXraySetting(): UseXraySettingResult {
     setClientReverseTags(obj.clientReverseTags || []);
     setSubscriptionOutbounds(obj.subscriptionOutbounds || []);
     setSubscriptionOutboundTags(obj.subscriptionOutboundTags || []);
+    // LUCX-HOOK: AWG outbound — surface AWG outbound tags so routing/balancers
+    // dropdowns can reference them.
+    setAwgOutboundTags(obj.awgOutboundTags || []);
+    // END LUCX-HOOK
     const nextUrl = obj.outboundTestUrl || DEFAULT_TEST_URL;
     setOutboundTestUrlState(nextUrl);
     oldOutboundTestUrlRef.current = nextUrl;
@@ -452,6 +466,9 @@ export function useXraySetting(): UseXraySettingResult {
       clientReverseTags,
       subscriptionOutbounds,
       subscriptionOutboundTags,
+      // LUCX-HOOK: AWG outbound — expose tags to routing/balancers dropdowns.
+      awgOutboundTags,
+      // END LUCX-HOOK
       outboundsTraffic,
       outboundTestStates,
       subscriptionTestStates,
@@ -480,6 +497,9 @@ export function useXraySetting(): UseXraySettingResult {
       clientReverseTags,
       subscriptionOutbounds,
       subscriptionOutboundTags,
+      // LUCX-HOOK: AWG outbound — expose tags to routing/balancers dropdowns.
+      awgOutboundTags,
+      // END LUCX-HOOK
       outboundsTraffic,
       outboundTestStates,
       subscriptionTestStates,

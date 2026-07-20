@@ -42,6 +42,12 @@ interface BalancersTabProps {
   setTemplateSettings: SetTemplate;
   clientReverseTags: string[];
   subscriptionOutboundTags?: string[];
+  // LUCX-HOOK: AWG outbound — tags of enabled AWG outbounds, surfaced by the
+  // xray config controller so the balancer selector can reference them. AWG
+  // outbounds are injected into the generated config, not the template, so
+  // without this they would not be selectable as balancer targets.
+  awgOutboundTags?: string[];
+  // END LUCX-HOOK
   isMobile: boolean;
 }
 
@@ -69,6 +75,9 @@ export default function BalancersTab({
   setTemplateSettings,
   clientReverseTags,
   subscriptionOutboundTags,
+  // LUCX-HOOK: AWG outbound — see interface comment.
+  awgOutboundTags,
+  // END LUCX-HOOK
   isMobile,
 }: BalancersTabProps) {
   const { t } = useTranslation();
@@ -107,8 +116,15 @@ export default function BalancersTab({
     for (const tag of subscriptionOutboundTags || []) {
       if (tag) tags.add(tag);
     }
+    // LUCX-HOOK: AWG outbound — include AWG outbound tags so they can be
+    // selected as balancer targets (injected at runtime, same shape as
+    // subscription outbound tags).
+    for (const tag of awgOutboundTags || []) {
+      if (tag) tags.add(tag);
+    }
+    // END LUCX-HOOK
     return [...tags];
-  }, [templateSettings?.outbounds, clientReverseTags, subscriptionOutboundTags]);
+  }, [templateSettings?.outbounds, clientReverseTags, subscriptionOutboundTags, awgOutboundTags]);
 
   const otherTags = useMemo(() => {
     if (editingIndex == null) return rows.map((b) => b.tag).filter(Boolean);

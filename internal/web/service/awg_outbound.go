@@ -185,6 +185,23 @@ func (s *AwgOutboundService) GetOutbounds() ([]*model.AwgOutbound, error) {
 	return out, err
 }
 
+// ActiveOutboundTags returns the Tags of all enabled AWG outbounds. The tags
+// are injected into the generated Xray config (injectAwgOutbounds) at runtime,
+// not into the editable template, so the routing rules UI needs them surfaced
+// separately — mirroring how subscription outbound tags are exposed to the
+// frontend via xrayResponse["subscriptionOutboundTags"]. Used by the xray
+// config controller so the routing-rules outboundTag dropdown can list AWG
+// outbound tags alongside template/subscription/reverse tags.
+func (s *AwgOutboundService) ActiveOutboundTags() ([]string, error) {
+	db := database.GetDB()
+	var tags []string
+	err := db.Model(&model.AwgOutbound{}).
+		Where("enable = ?", true).
+		Order("id ASC").
+		Pluck("tag", &tags).Error
+	return tags, err
+}
+
 func (s *AwgOutboundService) GetOutbound(id int) (*model.AwgOutbound, error) {
 	db := database.GetDB()
 	o := &model.AwgOutbound{}

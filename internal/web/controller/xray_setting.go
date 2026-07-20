@@ -118,6 +118,16 @@ func (a *XraySettingController) getXraySetting(c *gin.Context) {
 	if subTags, err := a.OutboundSubscriptionService.AllActiveOutboundTags(); err == nil && len(subTags) > 0 {
 		xrayResponse["subscriptionOutboundTags"] = subTags
 	}
+	// LUCX-HOOK: AWG outbound — surface AWG outbound tags so routing rules
+	// and balancers can reference them in their outboundTag/balancerTag
+	// dropdowns. AWG outbounds are injected into the generated Xray config
+	// (injectAwgOutbounds), not the editable template, so they would otherwise
+	// be invisible to the routing UI — same shape as subscription outbound
+	// tags above.
+	if awgTags, err := (&service.AwgOutboundService{}).ActiveOutboundTags(); err == nil && len(awgTags) > 0 {
+		xrayResponse["awgOutboundTags"] = awgTags
+	}
+	// END LUCX-HOOK
 	result, err := json.Marshal(xrayResponse)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "pages.settings.toasts.getSettings"), err)

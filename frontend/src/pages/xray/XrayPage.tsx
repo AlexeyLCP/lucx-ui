@@ -66,6 +66,10 @@ export default function XrayPage() {
     clientReverseTags,
     subscriptionOutbounds,
     subscriptionOutboundTags,
+    // LUCX-HOOK: AWG outbound — tags of enabled AWG outbounds (surfaced by
+    // useXraySetting from the xray config controller).
+    awgOutboundTags,
+    // END LUCX-HOOK
     outboundsTraffic,
     outboundTestStates,
     subscriptionTestStates,
@@ -227,6 +231,9 @@ export default function XrayPage() {
             inboundTags={inboundTags}
             clientReverseTags={clientReverseTags}
             subscriptionOutboundTags={subscriptionOutboundTags}
+            // LUCX-HOOK: AWG outbound — surface tags to routing rules dropdown.
+            awgOutboundTags={awgOutboundTags}
+            // END LUCX-HOOK
             isMobile={isMobile}
           />
         );
@@ -263,6 +270,9 @@ export default function XrayPage() {
             setTemplateSettings={setTemplateSettings}
             clientReverseTags={clientReverseTags}
             subscriptionOutboundTags={subscriptionOutboundTags}
+            // LUCX-HOOK: AWG outbound — surface tags to balancer selector.
+            awgOutboundTags={awgOutboundTags}
+            // END LUCX-HOOK
             isMobile={isMobile}
           />
         );
