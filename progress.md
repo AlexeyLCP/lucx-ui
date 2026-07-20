@@ -673,6 +673,45 @@ PostDown = iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE; 
 
 ---
 
+## Релиз v3.5.0-lucx.37 (2026-07-20) — AWG Outbound (клиентский режим)
+
+**Фича:** AWG outbound — клиентское подключение к upstream AmneziaWG-серверу. Kernel-интерфейс `awgo-{Id}` через `awg-quick` + Xray `freedom` outbound с `sockopt.interface`. Симметрия с AWG inbound (серверным режимом): inbound = принимаем AWG-клиентов → Xray routing; outbound = подключаемся к upstream VPN → Xray routing отправляет трафик через нас.
+
+**Архитектура (10 задач, SDD — subagent-driven development):**
+1. `model.AwgOutbound` + миграция таблицы `awg_outbounds` (LUCX-HOOK в `db.go`)
+2. `ClientInstance` + `renderClientConf` (`Table = off` критично, no ListenPort, DNS опционально)
+3. `Manager.EnsureClient`/`RemoveClient`/`SweepOrphanClients` (sync.Once)/`CollectClientTraffic` (.conf 0600)
+4. `AwgOutboundService` CRUD + `ParseConf` + `checkTagUnique` + `defaultAwgOutboundSettings` (wgutil keypair)
+5. `injectAwgOutbounds` — freedom + sockopt.interface + sendThrough (CIDR strip), после outbounds до balancers/routing (LUCX-HOOK в `xray.go`)
+6. `AwgOutboundController` — 8 REST endpoints + Test (ping -I, IPv6 fallback) + parseConf (LUCX-HOOK в `api.go`)
+7. Reconcile loop — расширение `awg_job` (10с cron + startup orphan sweep)
+8. Frontend: Zod `AwgOutboundSchema` + API клиент (HttpUtil + Msg<T> + parseMsg)
+9. Frontend UI: вкладка "AWG outbounds" в XrayPage + форма (react-hook-form + FormField) + Paste .conf drawer + Status badge + Test button (LUCX-HOOK в XrayPage.tsx + AppSidebar.tsx); i18n en+ru
+
+**Финальный whole-branch review (opus) нашёл 2 Critical + 2 Important — все исправлены:**
+- Critical: `needRestart` на мутациях (SetToNeedRestart в add/update/del/enable) — иначе disable оставляет freedom outbound в Xray, который молча fallback на default route (сafety hazard)
+- Critical: inbound `killStrayAwgInterfaces` удалял `awgo-*` outbound-интерфейсы (фильтр `HasPrefix("awg")` матчил и awgN, и awgo-N) → `isInboundAwgInterface` (digit after "awg") + тест
+- Important: `checkTagUnique` теперь cross-check Xray template outbound tags (`tagInXrayTemplate`)
+- Important: `CollectClientTraffic` через `awg show dump` (не plain) + правильные field indices
+
+**Bonus fix (пойман live на test2):** `parseClientDump` не пропускал interface-строку awg dump (18+ полей: privkey/pubkey/port/jc/jmin/jmax/s1-s4/h1-h4/i1-i5). Эти numeric fields[4..6] затирали peer-строку → status endpoint показывал rx=0 tx=0 при реальном tx=740. Фикс: `lines[1:]` (как в `parseAwgDump`). Тест `TestParseClientDump_RealAwgInterfaceLine` с реалистичной interface-строкой.
+
+**Integration test (test2, lucx.37):** всё работает
+- API: list/add/status/enable/test — все 8 endpoints отвечают
+- awgo-1 создаётся через reconcile (10с), `Table = off`, peer подключён, transfer считает
+- Xray config: freedom outbound с tag=test-upstream, sockopt.interface=awgo-1 — в config.json
+- status endpoint: rx/tx совпадает с `awg show awgo-1 transfer` (0/740) — после parseClientDump fix
+- disable → awgo-1 удалён из kernel; re-enable → вернулся
+- awg1 (inbound) цел — orphan sweep корректно исключает awgo-*
+- Test endpoint: ping -I awgo-1 1.1.1.1 запускается (fail ожидаемо — loopback upstream без reverse route)
+- Nuance: config.json на диске не обновляется на enable/disable (Xray применяет через core API, runtime корректен) — это upstream 3x-ui поведение, не баг
+
+**lucxVersion** → `lucx.37` (lucx.36 был промежуточный — тот же код без parseClientDump fix).
+
+**Деплой на test2:** lucx.35 → lucx.36 (первый деплой фичи) → lucx.37 (parseClientDump fix). Сервис active, awg1 цел, awgo-1 работает.
+
+---
+
 ## Заметки
 
 - v3.5.0 релиз 2026-07-12 (вчера)
