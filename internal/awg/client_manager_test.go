@@ -61,6 +61,27 @@ func TestParseClientDump(t *testing.T) {
 	}
 }
 
+// TestParseClientDump_RealAwgInterfaceLine confirms the parser SKIPS the
+// amneziawg interface row (which has 18+ tab-delimited fields: private key,
+// public key, listen port, jc/jmin/jmax/s1-s4/h1-h4/i1-i5…) and does not
+// mistake its numeric fields for the peer's rx/tx/handshake. Without skipping
+// the first line, the interface row's fields[4..6] (jmin/jmax/s1, all 0 in
+// this fixture) would shadow the peer's real counters.
+func TestParseClientDump_RealAwgInterfaceLine(t *testing.T) {
+	const dump = "clientPrivKey\tclientPubKey\t60920\t4\t40\t70\t15\t88\t15\t25\t123456789\t234567891\t345678912\t456789123\t(null)\t(null)\t(null)\t(null)\t(null)\toff\n" +
+		"upstreamPubKey\t(none)\t127.0.0.1:52901\t0.0.0.0/0,::/0\t0\t0\t3996\t25\n"
+	_, rx, tx, ok := parseClientDump(dump, time.Now())
+	if !ok {
+		t.Fatal("parseClientDump should return ok=true when a peer row is present")
+	}
+	if rx != 0 {
+		t.Errorf("rx = %d, want 0 — interface row must be skipped, peer rx is fields[5]=0", rx)
+	}
+	if tx != 3996 {
+		t.Errorf("tx = %d, want 3996 — interface row must be skipped, peer tx is fields[6]=3996", tx)
+	}
+}
+
 // TestParseClientDump_NoPeerRow confirms an up interface with no parseable
 // peer row (peer added but never connected) returns ok=true with zero
 // counters — the spec's "up but idle" state.

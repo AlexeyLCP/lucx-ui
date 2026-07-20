@@ -159,14 +159,21 @@ func (m *Manager) CollectClientTraffic(ifname string) (handshakeAge time.Duratio
 }
 
 // parseClientDump parses `awg show <iface> dump` output for a client
-// interface. The first line is the interface row; subsequent lines are peers.
+// interface. The first line is the interface row (private key, public key,
+// listen port, jc/jmin/jmax/s1-s4/…); subsequent lines are peer rows in the
+// same 7+ tab-delimited format as the server-side dump (parseAwgDump):
+// fields = pubkey, psk, endpoint, allowed-ips, handshake-epoch, rx, tx, keepalive.
 // A client interface has at most one peer (the upstream server), so the first
 // parseable peer row wins. ok=true with zero counters when the interface
 // exists but produced no parseable peer row (peer added but never connected).
 // Extracted from CollectClientTraffic so the field-index mapping can be unit
 // tested without shelling out to awg.
 func parseClientDump(out string, now time.Time) (handshakeAge time.Duration, rx, tx int64, ok bool) {
-	for _, line := range strings.Split(out, "\n") {
+	lines := strings.Split(out, "\n")
+	if len(lines) < 2 {
+		return 0, 0, 0, true
+	}
+	for _, line := range lines[1:] {
 		line = strings.TrimSpace(line)
 		if line == "" {
 			continue
