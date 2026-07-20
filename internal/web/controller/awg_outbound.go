@@ -17,6 +17,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
 
@@ -28,14 +29,21 @@ import (
 // state via awg.GetManager() for status/test, and mutates the DB row — the
 // reconcile loop is what actually brings the interface up/down.
 //
-// xrayService is held (zero-value is safe — SetToNeedRestart flips a
-// package-level atomic, no fields touched) so the mutating handlers can flag
-// Xray for a restart after a successful DB write. This mirrors the
-// InboundController pattern: AWG outbounds inject `freedom` outbounds with a
-// `sockopt.interface` of `awgo-{Id}` into the Xray config, so any add/del/
-// update/enable change MUST trigger a config regeneration or Xray keeps
-// running with a stale outbound pointing at a now-missing interface (the
-// silent-default-route hazard the spec warns about).
+// xrayService is held (zero-value is safe — RestartXray takes the
+// package-level lock, no fields touched) so the mutating handlers can force
+// Xray to regenerate its config after a successful DB write. This mirrors
+// the InboundController pattern: AWG outbounds inject `freedom` outbounds
+// with a `sockopt.interface` of `awgo-{Id}` into the Xray config, so any
+// add/del/update/enable change MUST trigger a config regeneration or Xray
+// keeps running with a stale outbound pointing at a now-missing interface
+// (the silent-default-route hazard the spec warns about).
+//
+// Force-restart is used rather than SetToNeedRestart (the flag the
+// InboundController uses) because tryHotApply's core-API path silently
+// failed to add freedom outbounds bound to a kernel interface in live
+// testing — config.json stayed stale and the running Xray never saw the
+// new outbound until a manual force-restart. A synchronous restart
+// guarantees the outbound is regenerated into config.json.
 type AwgOutboundController struct {
 	svc         *service.AwgOutboundService
 	xrayService service.XrayService
@@ -115,8 +123,17 @@ func (a *AwgOutboundController) add(c *gin.Context) {
 		return
 	}
 	// A new outbound means a new `freedom` outbound + `awgo-{Id}` interface
-	// reference must be injected into the Xray config — flag for restart.
-	a.xrayService.SetToNeedRestart()
+	// reference must be injected into the Xray config. Force-restart instead
+	// of SetToNeedRestart: tryHotApply's core-API path silently failed to add
+	// freedom outbounds bound to a kernel interface (sockopt.interface) in
+	// live testing — config.json stayed stale and the running Xray never saw
+	// the new outbound until a manual force-restart. A synchronous restart
+	// guarantees the outbound is regenerated into config.json (caught live on
+	// awgo-upstream: hot-apply said "no restart needed" but the outbound was
+	// missing from running Xray for ~6 min until force-restart).
+	if err := a.xrayService.RestartXray(true); err != nil {
+		logger.Warning("awg-outbound: force-restart Xray after add failed:", err)
+	}
 	jsonObj(c, out, nil)
 }
 
@@ -136,8 +153,12 @@ func (a *AwgOutboundController) del(c *gin.Context) {
 	_ = awg.GetManager().RemoveClient("awgo-" + strconv.Itoa(id))
 	// Removed outbounds must be dropped from the Xray config too, otherwise
 	// the `freedom` outbound keeps referencing the now-deleted `awgo-{Id}`
-	// interface and silently falls back to the default route.
-	a.xrayService.SetToNeedRestart()
+	// interface and silently falls back to the default route. Force-restart
+	// for the same reason as add — hot-apply does not reliably drop a
+	// sockopt-bound freedom outbound (see add comment).
+	if err := a.xrayService.RestartXray(true); err != nil {
+		logger.Warning("awg-outbound: force-restart Xray after del failed:", err)
+	}
 	jsonObj(c, nil, nil)
 }
 
@@ -159,8 +180,10 @@ func (a *AwgOutboundController) update(c *gin.Context) {
 		return
 	}
 	// Settings/Tag changes can alter the Xray outbound (e.g. tag rename, MTU,
-	// interface binding) — flag for restart so the config is regenerated.
-	a.xrayService.SetToNeedRestart()
+	// interface binding). Force-restart — see add comment.
+	if err := a.xrayService.RestartXray(true); err != nil {
+		logger.Warning("awg-outbound: force-restart Xray after update failed:", err)
+	}
 	jsonObj(c, o, nil)
 }
 
@@ -181,8 +204,11 @@ func (a *AwgOutboundController) enable(c *gin.Context) {
 		return
 	}
 	// Toggling enable adds/removes the `freedom` outbound (and its
-	// `awgo-{Id}` sockopt binding) from the Xray config — flag for restart.
-	a.xrayService.SetToNeedRestart()
+	// `awgo-{Id}` sockopt binding) from the Xray config. Force-restart —
+	// see add comment.
+	if err := a.xrayService.RestartXray(true); err != nil {
+		logger.Warning("awg-outbound: force-restart Xray after enable failed:", err)
+	}
 	jsonObj(c, nil, nil)
 }
 
