@@ -33,9 +33,14 @@ import { BalancersTab } from './balancers';
 import { cleanupOrphanedBalancerLoopbacks, ensureMissingBalancerLoopbacks, detectBalancerCycles } from './balancers/balancer-loopback';
 import { DnsTab } from './dns';
 import { WarpModal, NordModal } from './overrides';
+// LUCX-HOOK: AWG outbound — client-mode AmneziaWG egress tab.
+import { AwgOutboundsTab } from './awg-outbounds/AwgOutboundsTab';
+// END LUCX-HOOK
 import './XrayPage.css';
 
-const SECTION_SLUGS = ['basic', 'routing', 'outbound', 'balancer', 'dns', 'advanced'];
+// LUCX-HOOK: AWG outbound — add the 'awg-outbound' section slug after 'outbound'.
+const SECTION_SLUGS = ['basic', 'routing', 'outbound', 'awg-outbound', 'balancer', 'dns', 'advanced'];
+// END LUCX-HOOK
 
 type AdvKey = 'xraySetting' | 'inboundSettings' | 'outboundSettings' | 'routingRuleSettings';
 
@@ -247,6 +252,10 @@ export default function XrayPage() {
             onRefreshXrayData={fetchAll}
           />
         );
+      // LUCX-HOOK: AWG outbound — render AwgOutboundsTab for the 'awg-outbound' slug.
+      case 'awg-outbound':
+        return <AwgOutboundsTab />;
+      // END LUCX-HOOK
       case 'balancer':
         return (
           <BalancersTab

@@ -23,6 +23,7 @@ import {
   MessageOutlined,
   MoonFilled,
   MoonOutlined,
+  CloudOutlined,
   ReadOutlined,
   SafetyOutlined,
   SettingOutlined,
@@ -191,6 +192,10 @@ export default function AppSidebar() {
   const xrayChildren = useMemo<NonNullable<MenuProps['items']>>(() => [
     { key: '/xray#basic', icon: <SettingOutlined />, label: t('pages.xray.basicTemplate') },
     { key: '/xray#balancer', icon: <ClusterOutlined />, label: t('pages.xray.Balancers') },
+    // LUCX-HOOK: AWG outbound — Xray outbounds (renamed) + AWG outbounds nav entry.
+    { key: '/xray#outbound', icon: <ExportOutlined />, label: t('pages.xray.tabs.xrayOutbounds') },
+    { key: '/xray#awg-outbound', icon: <CloudOutlined />, label: t('pages.xray.tabs.awgOutbounds') },
+    // END LUCX-HOOK
     { key: '/xray#dns', icon: <DatabaseOutlined />, label: 'DNS' },
     { key: '/xray#advanced', icon: <CodeOutlined />, label: t('pages.xray.advancedTemplate') },
   ], [t]);
