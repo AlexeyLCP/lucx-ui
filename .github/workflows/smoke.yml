@@ -40,7 +40,12 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        # LucX release.yml builds only linux-amd64, so the smoke install test
+        # exercises that platform only. ubuntu-24.04-arm was removed because
+        # there is no arm64 tarball to download — every arm run 404'd since
+        # install.sh was forked (2026-07-13). Add arm64 back alongside an
+        # arm release matrix in release.yml if/when we ship arm builds.
+        runner: [ubuntu-latest]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     steps:
@@ -58,7 +63,8 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
+        # See noninteractive-install above: amd64 only until arm releases ship.
+        runner: [ubuntu-latest]
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 15
     steps:
