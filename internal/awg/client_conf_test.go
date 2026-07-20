@@ -86,6 +86,21 @@ func TestRenderClientConf_ObfuscationOmittedWhenZero(t *testing.T) {
 	}
 }
 
+func TestRenderClientConf_NoI1toI5(t *testing.T) {
+	// I1-I5 crash `awg setconf` (kernel module rejects CPS tags in setconf
+	// input, same as server-side — caught live by a tester on awgo-2: every
+	// reconcile failed with exit status 1). Even when set in Settings, they
+	// must NEVER be written to the .conf. Regression guard.
+	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"aa","i2":"bb","i3":"cc","i4":"dd","i5":"ee"}`}
+	ci, _ := ClientInstanceFromOutbound(o)
+	conf := renderClientConf(ci)
+	for _, bad := range []string{"I1 = aa", "I2 = bb", "I3 = cc", "I4 = dd", "I5 = ee"} {
+		if strings.Contains(conf, bad) {
+			t.Errorf("CPS tag %q must NOT appear in client .conf (crashes awg setconf), got:\n%s", bad, conf)
+		}
+	}
+}
+
 func TestRenderClientConf_IPv6(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"fd00::5/128","publicKey":"pub","endpoint":"up:51820"}`}
 	ci, _ := ClientInstanceFromOutbound(o)

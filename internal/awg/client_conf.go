@@ -16,6 +16,14 @@ import (
 // does NOT override the system default route — Xray's sockopt.interface handles
 // egress), a single [Peer] (the upstream server), and DNS is omitted by default
 // (Xray resolves via domainStrategy: UseIP; operator can opt in via Advanced).
+//
+// I1-I5 (CPS packets) are NEVER written to the .conf, even when set in Settings.
+// The kernel amneziawg module does not accept CPS tags in setconf input —
+// `awg setconf awgo-N /dev/fd/63` returns "Invalid argument" and awg-quick
+// rolls back the interface, so reconcile fails every 10s (caught live by a
+// tester on awgo-2: every reconcile failed with exit status 1). This mirrors
+// renderServerConf, which already documents the same constraint for the server
+// .conf. I1-I5 stay in Settings JSON for a future userspace CPS sender.
 func renderClientConf(ci ClientInstance) string {
 	s := ci.Settings
 	var b strings.Builder
@@ -39,13 +47,6 @@ func renderClientConf(ci ClientInstance) string {
 		fmt.Fprintf(&b, "H2 = %s\n", s.H2)
 		fmt.Fprintf(&b, "H3 = %s\n", s.H3)
 		fmt.Fprintf(&b, "H4 = %s\n", s.H4)
-	}
-	if s.I1 != "" {
-		fmt.Fprintf(&b, "I1 = %s\n", s.I1)
-		fmt.Fprintf(&b, "I2 = %s\n", s.I2)
-		fmt.Fprintf(&b, "I3 = %s\n", s.I3)
-		fmt.Fprintf(&b, "I4 = %s\n", s.I4)
-		fmt.Fprintf(&b, "I5 = %s\n", s.I5)
 	}
 	b.WriteString("\n[Peer]\n")
 	fmt.Fprintf(&b, "PublicKey = %s\n", s.PublicKey)
