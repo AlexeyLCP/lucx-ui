@@ -37,6 +37,14 @@ AWG outbound = **клиентское** подключение к upstream Amnez
 - **Server (inbound):** `awg1`, `awg2`, ... (как сейчас)
 - **Client (outbound):** `awgo-1`, `awgo-2`, ... — короткий префикс, программно отличим от inbound, не путается с `awgN` при парсинге `awg show`
 
+**Tag vs Interface name — разделение (user feedback 2026-07-20):**
+
+- **`Tag` (в Xray routing rules) — редактируемый**, по умолчанию `awgo-N`. Оператор может переименовать (например, `vpn-frankfurt`) для читаемости routing rules.
+- **Interface name — всегда `awgo-{id}`** (id = `AwgOutbound.Id`, БД-стабильный). Никогда не меняется при переименовании Tag — иначе пришлось бы переименовывать kernel-интерфейс и .conf, лишняя сложность.
+- Соответствие Tag ↔ interface: хранится в БД (`AwgOutbound.Tag` + `AwgOutbound.Id → awgo-{Id}`), не выводится из строки.
+- `sockopt.interface` всегда = `awgo-{Id}`, не Tag. `tag` в Xray config = редактируемый `AwgOutbound.Tag`.
+- При удалении и пересоздании с тем же Tag — новый Id → новый интерфейс (Tag не уникален в Xray; уникальность Tag проверяется на add/update, как у обычных Xray outbounds).
+
 ## Client .conf (renderClientConf)
 
 Клиентский AWG-конфиг имеет критические отличия от серверного:
@@ -72,6 +80,15 @@ PersistentKeepalive = 25
 
 **Почему `Address` обязателен:** без него kernel module не инициализируется как клиент. upstream выдаёт tunnel IP (обычно из подсети сервера, например `10.9.0.0/24`).
 
+**DNS в клиентском .conf (user feedback 2026-07-20):**
+
+При `Table = off` строка `DNS =` обычно не нужна — Xray сам резолвит через `domainStrategy: UseIP` и системный DNS. Поэтому:
+
+- `DNS` **не пишется** в `renderClientConf` по умолчанию
+- `dns` поле в Settings — **опциональное**, живёт в секции Advanced формы
+- Если оператор явно задал `dns` (non-empty) — пишем в .conf, но предупреждаем в tooltip что при `Table = off` это обычно избыточно
+- Симметрично с серверным .conf, где DNS тоже не пишется (комментарий в `renderServerConf` уже фиксирует это)
+
 ## Xray integration
 
 При `enable=true` AWG outbound инжектится в generated Xray config:
@@ -96,9 +113,15 @@ PersistentKeepalive = 25
 }
 ```
 
-- `tag` = `awgo-N` — используется в routing rules и `outboundTag` инбаундов
-- `sockopt.interface` = имя kernel-интерфейса → Xray отправляет пакеты через него
+- `tag` = редактируемый `AwgOutbound.Tag` (по умолчанию `awgo-N`) — используется в routing rules и `outboundTag` инбаундов
+- `sockopt.interface` = `awgo-{Id}` (БД-стабильный, не Tag) → Xray отправляет пакеты через него
 - `sendThrough` = tunnel IP (опционально, для дополнительной страховки source-binding)
+
+**Injection order:** `injectAwgOutbounds` вызывается **после** обычных Xray outbounds, но **до** balancers и routing rules — чтобы tag был доступен для ссылок.
+
+**При `enable=false` (или удалении):** outbound **полностью убирается** из Xray-конфига (не blackhole). См. "Interface-down behavior" в Risks — обоснование.
+
+**`needRestart`:** `SetOutboundEnable`, `AddOutbound`, `DelOutbound`, `UpdateOutbound` вызывают `needRestart` (как `awgRoutesThroughXray` в `inbound.go`), чтобы Xray перегенерировал конфиг.
 
 ## Data model
 
@@ -316,6 +339,51 @@ CRUD + defaultAwgOutboundSettings (генерация client keypair, если �
 - **Несколько outbounds одновременно:** каждый `awgo-N` — отдельный интерфейс, отдельный upstream. Нет конфликтов. Routing rules решают, какой использовать.
 - **Upstream без obfuscation:** если upstream не AWG (просто WireGuard), Jc/S/H не задаются → `renderClientConf` пропускает эти строки. Совместимо.
 - **`I1-I5` в клиентском conf:** как у сервера, I1-I5 клиент-только (DPI-evasion перед handshake). Upstream их игнорирует. Записываем всегда, если заданы.
+
+### PrivateKey generation (user feedback 2026-07-20)
+
+**Не генерировать random bytes** — нужен валидный Curve25519 keypair. Два варианта:
+
+1. **Host-side:** вызывать `awg genkey` / `awg pubkey` на сервере (как `awg-quick` — должен быть установлен). Минимум Go-кода, но зависимость от бинарника.
+2. **Pure Go:** `golang.org/x/crypto/curve25519` — уже используется в `internal/util/wireguard` (`wgutil.GenerateWireguardKeypair`). **Рекомендуется** — симметрично с inbound, не требует fork/exec.
+
+`defaultAwgOutboundSettings` вызывает `wgutil.GenerateWireguardKeypair()` (как `createDefaultAwgInboundSettings` во frontend и `defaultAwgClients` в backend). Публичный ключ upstream-сервера оператор вводит сам — его не генерируем.
+
+### Directory scan filter (user feedback 2026-07-20)
+
+Существующий inbound-код менеджера, скорее всего, смотрит на `/etc/amnezia/amneziawg/*.conf` (для orphan sweep). Нужно явно фильтровать:
+
+- **Inbound-менеджер:** обрабатывает только `awgN.conf` (без префикса `awgo-`), игнорирует `awgo-*.conf`
+- **Outbound-менеджер (новый):** обрабатывает только `awgo-*.conf`, игнорирует `awgN.conf`
+- Orphan sweep для outbound: проверяет только `awgo-*` интерфейсы (через `awg show` или `ip link show`), не трогает `awgN` серверные
+
+Реализация: явный `strings.HasPrefix(ifname, "awgo-")` / `!HasPrefix(ifname, "awgo-")` в фильтрах. Документируется в комментариях в коде.
+
+### Interface-down behavior + sockopt fallback (user feedback 2026-07-20)
+
+`sockopt.interface` в Xray при **отсутствии интерфейса** сейчас часто делает **fallback на default route** (известное поведение Xray-core: если интерфейс не существует, sockopt игнорируется и трафик уходит через системный default). Это **опасно** для нашего use case:
+
+- Если `awgo-N` упал, а outbound остался в Xray-конфиге → трафик routing rules молча уходит через default route (мимо VPN), оператор не знает
+- В статусе UI и в Test-кнопке нужно **явно показывать** это состояние: не просто `Down`, а `Down (traffic falls back to default route — WARNING)`
+- Документация (README + tooltip в UI) должна предупреждать: при disable AwgOutbound outbound **полностью убирается** из Xray-конфига (см. ниже), но при **аварийном падении** интерфейса (kernel panic, awg-quick crash) — outbound остаётся в конфиге и Xray fallback на default route. Рекомендуется мониторинг статуса + alert.
+
+**Mitigation в reconcile loop:** если `awgo-N` упал и не поднимается (awg-quick fail) после N попыток → логировать warning + статус в UI = `Down (fallback active)`. Test-кнопка при Down = показывает "interface down — traffic bypasses VPN" вместо ICMP-латентности.
+
+### Xray config injection order (user feedback 2026-07-20)
+
+`injectAwgOutbounds` должен вызываться **после** обычных Xray outbounds, но **до** balancers и routing rules — чтобы tag был доступен в:
+
+- routing rules (`outboundTag: awgo-1`)
+- balancers (`balancerTag` со ссылкой на `awgo-1` в selector)
+- AWG-inbound `outboundTag` (который тоже попадает в routing rules)
+
+**При disable AwgOutbound:** outbound **полностью убирается** из Xray-конфига (не blackhole). Причины:
+
+1. Blackhole- outbound даст молчаливый дроп трафика — оператор не увидит, что routing rule ссылается на несуществующий outbound
+2. Полное удаление → Xray при запуске упадёт с "outbound not found" если routing rule всё ещё ссылается на tag → **явная ошибка**, оператор видит и чинит
+3. Это симметрично с тем, как обычные Xray outbounds обрабатываются (disable = удалить из конфига)
+
+**При enable:** outbound добавляется обратно, Xray перегенерирует конфиг (через `needRestart` в `SetOutboundEnable`, как у `awgRoutesThroughXray`).
 
 ## License
 
