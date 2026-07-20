@@ -719,3 +719,19 @@ PostDown = iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE; 
 - 41 LUCX-HOOK маркер на старой ветке
 - Все 8 upstream-файлов с HOOK-маркерами изменились между v3.3.1 и v3.5.0 — требуется ручное восстановление
 - Тесты AWG на старой ветке проходят: `go test ./internal/awg/... → ok 2.212s`
+
+---
+
+## Релиз v3.5.0-lucx.38 (2026-07-20) — fix AWG Outbound reconcile crash
+
+**Контекст.** Репорт VladufQa в Telegram (20.07 16:55/17:22): awgo-2 reconcile failed every 10s с exit status 1, `awg setconf awgo-2 /dev/fd/63` → interface rollback. Отдельно: awgo-3 ping 1.1.1.1 failed при статусе Up.
+
+**Root cause #1 (reconcile crash):** I1-I5 (CPS-теги) писались в `renderClientConf`, но kernel amneziawg module **не принимает** CPS-теги в setconf-вводе — `awg setconf` падает с "Invalid argument" → awg-quick откатывает интерфейс. Тот же баг, что уже зафиксирован для серверного .conf (`renderServerConf` документировал это в комментарии, но симметрия была нарушена при добавлении `renderClientConf`).
+
+**Фикс:** I1-I5 **never** не пишутся в .conf (ни серверный, ни клиентский), даже когда заданы в Settings JSON. CPS-теги остаются в Settings для будущей userspace реализации. Регресс-тест `TestRenderClientConf_NoI1toI5`.
+
+**Root cause #2 (ping failed при Up):** не баг панели — handshake прошёл (статус Up корректен), но upstream-сервер не роутит тестовый target (1.1.1.1) обратно. Проблема на стороне upstream (NAT/routing/AllowedIPs). Наш `Test` честно репортит `ping failed`.
+
+**Процесс:** `lucxVersion` bump → `lucx.38`, тесты зелёные, коммит `2b264a89`, тег `v3.5.0-lucx.38`. CI release success. Деплой на test2 (stop, бэкап `x-ui.bak-lucx37`, замена, start): active, `awgo-1.conf` без I1-I5 (только `Table = off`), ноль reconcile fails в логах, awgo-1 UP (loopback к awg1).
+
+**lucxVersion** → `lucx.38`.
