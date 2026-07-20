@@ -27,8 +27,18 @@ import (
 // (Task 7) keeps in sync with the DB row; this controller only reads the live
 // state via awg.GetManager() for status/test, and mutates the DB row — the
 // reconcile loop is what actually brings the interface up/down.
+//
+// xrayService is held (zero-value is safe — SetToNeedRestart flips a
+// package-level atomic, no fields touched) so the mutating handlers can flag
+// Xray for a restart after a successful DB write. This mirrors the
+// InboundController pattern: AWG outbounds inject `freedom` outbounds with a
+// `sockopt.interface` of `awgo-{Id}` into the Xray config, so any add/del/
+// update/enable change MUST trigger a config regeneration or Xray keeps
+// running with a stale outbound pointing at a now-missing interface (the
+// silent-default-route hazard the spec warns about).
 type AwgOutboundController struct {
-	svc *service.AwgOutboundService
+	svc         *service.AwgOutboundService
+	xrayService service.XrayService
 }
 
 // NewAwgOutboundController creates a new AwgOutboundController bound to the
@@ -104,6 +114,9 @@ func (a *AwgOutboundController) add(c *gin.Context) {
 		jsonMsg(c, "awg-outbound: add failed", err)
 		return
 	}
+	// A new outbound means a new `freedom` outbound + `awgo-{Id}` interface
+	// reference must be injected into the Xray config — flag for restart.
+	a.xrayService.SetToNeedRestart()
 	jsonObj(c, out, nil)
 }
 
@@ -121,6 +134,10 @@ func (a *AwgOutboundController) del(c *gin.Context) {
 		return
 	}
 	_ = awg.GetManager().RemoveClient("awgo-" + strconv.Itoa(id))
+	// Removed outbounds must be dropped from the Xray config too, otherwise
+	// the `freedom` outbound keeps referencing the now-deleted `awgo-{Id}`
+	// interface and silently falls back to the default route.
+	a.xrayService.SetToNeedRestart()
 	jsonObj(c, nil, nil)
 }
 
@@ -141,6 +158,9 @@ func (a *AwgOutboundController) update(c *gin.Context) {
 		jsonMsg(c, "awg-outbound: update failed", err)
 		return
 	}
+	// Settings/Tag changes can alter the Xray outbound (e.g. tag rename, MTU,
+	// interface binding) — flag for restart so the config is regenerated.
+	a.xrayService.SetToNeedRestart()
 	jsonObj(c, o, nil)
 }
 
@@ -160,6 +180,9 @@ func (a *AwgOutboundController) enable(c *gin.Context) {
 		jsonMsg(c, "awg-outbound: enable failed", err)
 		return
 	}
+	// Toggling enable adds/removes the `freedom` outbound (and its
+	// `awgo-{Id}` sockopt binding) from the Xray config — flag for restart.
+	a.xrayService.SetToNeedRestart()
 	jsonObj(c, nil, nil)
 }
 

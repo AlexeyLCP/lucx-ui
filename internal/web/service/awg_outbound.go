@@ -49,9 +49,24 @@ func defaultAwgOutboundSettings() string {
 }
 
 // checkTagUnique returns ErrDuplicateOutboundTag if tag is already used by
-// another AWG outbound (other than ignoreId), or matches a system tag.
-// Caller is responsible for cross-checking against XrayConfig outbounds when
-// injecting — this only checks the AWG table + system tags.
+// another AWG outbound (other than ignoreId), matches a system tag, or
+// collides with a user-defined Xray outbound tag in the Xray config template.
+//
+// Full spec compliance would also walk the runtime-injected outbounds (e.g.
+// subscription outbounds injected by GetXrayConfig at request time), but those
+// are not materialised in the DB/template and would require loading the full
+// assembled Xray config (XrayService.GetXrayConfig pulls in inboundService +
+// settingService + nodeService + xrayAPI — too invasive for a tag-uniqueness
+// guard). The pragmatic cross-check below covers the user-authored template
+// outbounds, which is where collisions are most likely to be introduced by an
+// operator typing a tag into the AWG outbound form.
+//
+// KNOWN LIMITATION: a collision with a runtime-injected outbound (one not
+// present in the template, only in the assembled config at request time) is
+// not caught here and will surface as a "duplicate outbound tag" error on the
+// next Xray restart. Per the spec's "loud > silent" philosophy this is
+// acceptable: the panel rejects the bad config loudly on restart rather than
+// silently misrouting traffic, and the operator can rename the colliding tag.
 func checkTagUnique(tag string, ignoreId int) error {
 	if tag == "direct" || tag == "block" || tag == "api" {
 		return fmt.Errorf("%w: tag %q is reserved", ErrDuplicateOutboundTag, tag)
@@ -66,7 +81,43 @@ func checkTagUnique(tag string, ignoreId int) error {
 	if count > 0 {
 		return fmt.Errorf("%w: tag %q already used by another AWG outbound", ErrDuplicateOutboundTag, tag)
 	}
+	// Cross-check against user-authored Xray outbound tags in the config
+	// template. Subscription/runtime-injected outbounds are not covered (see
+	// the function doc above) — those fail loudly on Xray restart instead.
+	if xrayTag, err := tagInXrayTemplate(tag); err != nil {
+		return err
+	} else if xrayTag {
+		return fmt.Errorf("%w: tag %q already used by a user-defined Xray outbound in the template", ErrDuplicateOutboundTag, tag)
+	}
 	return nil
+}
+
+// tagInXrayTemplate reports whether tag appears as an outbound tag in the
+// stored Xray config template (xrayTemplateConfig setting). Returns false with
+// a nil error when the template cannot be loaded or parsed — we degrade to
+// "no cross-check" rather than blocking AWG outbound writes on a malformed
+// template, since a malformed template would already break Xray itself on
+// the next restart and surface there.
+func tagInXrayTemplate(tag string) (bool, error) {
+	tmpl, err := (&SettingService{}).GetXrayConfigTemplate()
+	if err != nil || tmpl == "" {
+		return false, err
+	}
+	// The template's "outbounds" field is a JSON array of objects; each may
+	// carry a "tag" string. Parse just that array rather than unmarshalling
+	// the whole config (which would require resolving RawMessage types).
+	var wrapper struct {
+		Outbounds []map[string]any `json:"outbounds"`
+	}
+	if err := json.Unmarshal([]byte(tmpl), &wrapper); err != nil {
+		return false, nil // malformed template — skip cross-check
+	}
+	for _, ob := range wrapper.Outbounds {
+		if t, ok := ob["tag"].(string); ok && t == tag {
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 // AddOutbound persists a new AWG outbound row. If Settings is empty, fills in

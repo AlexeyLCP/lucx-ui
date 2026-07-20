@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -19,12 +20,17 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
-// awgShowIfname runs `awg show <ifname>` and returns the combined stdout+stderr.
-// Used both for liveness probing (a non-nil error means the interface is down
-// or absent) and for CollectClientTraffic's per-peer counter scrape. Kept here
-// rather than in process.go to avoid touching the server-side helper surface.
+// awgShowIfname runs `awg show <ifname> dump` and returns the combined
+// stdout+stderr. The `dump` subcommand emits one tab-delimited line per peer
+// (machine-readable) instead of the default multi-section human-readable
+// output — that is what CollectClientTraffic parses. Used for liveness
+// probing too: a non-nil error means the interface is down or absent, and
+// `awg show <iface> dump` fails identically for a missing interface, so the
+// liveness semantics are unchanged. Kept here rather than in process.go to
+// avoid touching the server-side helper surface (scrapePeers runs its own
+// `awg show <iface> dump` directly and is unaffected).
 func awgShowIfname(ifname string) ([]byte, error) {
-	return exec.CommandContext(context.Background(), "awg", "show", ifname).CombinedOutput()
+	return exec.CommandContext(context.Background(), "awg", "show", ifname, "dump").CombinedOutput()
 }
 
 // clientState tracks one running client interface so EnsureClient can detect
@@ -126,33 +132,61 @@ func (m *Manager) sweepOrphanClientsOnce() {
 }
 
 // CollectClientTraffic reads handshake age and rx/tx byte counters for one
-// client interface via `awg show <iface>`. Returns ok=false if the interface
-// is down or the output is unreadable. Mirrors scrapePeers but for the single
-// peer on the client side. The output is parsed one line per peer with
-// tab-separated fields: pubkey, psk-status, rx, tx, handshake-epoch.
+// client interface via `awg show <iface> dump`. Returns ok=false if the
+// interface is down or `awg` is unavailable; ok=true with zero counters when
+// the interface is up but has no peers yet, or the peer has never completed a
+// handshake. Mirrors scrapePeers but for the single peer on the client side.
+//
+// `awg show <iface> dump` output is one interface line followed by one
+// tab-delimited line per peer, fields (matching scrapePeers / parseAwgDump):
+//
+//	[0]=pubkey  [1]=preshared-key  [2]=endpoint  [3]=allowed-ips
+//	[4]=latest-handshake-epoch  [5]=rx  [6]=tx  [7]=keepalive
+//
+// The previous implementation parsed the plain (non-dump) `awg show` output
+// as if it were tab-delimited, but the plain format is multi-section
+// human-readable — the parser never matched, fell through to `return
+// ..., true`, and so rx/tx/handshakeAge were always 0. That broke the UI
+// status badge and the test endpoint's down-detection. The dump format
+// fixes this; the field indices mirror parseAwgDump (handshake=4, rx=5,
+// tx=6), which is the proven server-side parser.
 func (m *Manager) CollectClientTraffic(ifname string) (handshakeAge time.Duration, rx, tx int64, ok bool) {
 	out, err := awgShowIfname(ifname)
 	if err != nil {
 		return 0, 0, 0, false
 	}
-	now := time.Now()
-	for _, line := range strings.Split(string(out), "\n") {
+	return parseClientDump(string(out), time.Now())
+}
+
+// parseClientDump parses `awg show <iface> dump` output for a client
+// interface. The first line is the interface row; subsequent lines are peers.
+// A client interface has at most one peer (the upstream server), so the first
+// parseable peer row wins. ok=true with zero counters when the interface
+// exists but produced no parseable peer row (peer added but never connected).
+// Extracted from CollectClientTraffic so the field-index mapping can be unit
+// tested without shelling out to awg.
+func parseClientDump(out string, now time.Time) (handshakeAge time.Duration, rx, tx int64, ok bool) {
+	for _, line := range strings.Split(out, "\n") {
 		line = strings.TrimSpace(line)
-		if line == "" || strings.HasPrefix(line, "interface") {
+		if line == "" {
 			continue
 		}
 		fields := strings.Split(line, "\t")
-		if len(fields) < 5 {
+		if len(fields) < 7 {
 			continue
 		}
-		var h int64
-		_, _ = fmt.Sscanf(fields[4], "%d", &h)
-		if h > 0 {
-			handshakeAge = now.Sub(time.Unix(0, h*int64(time.Second)))
+		hsEpoch, errHs := strconv.ParseInt(fields[4], 10, 64)
+		rxVal, errRx := strconv.ParseInt(fields[5], 10, 64)
+		txVal, errTx := strconv.ParseInt(fields[6], 10, 64)
+		if errHs != nil || errRx != nil || errTx != nil {
+			continue
 		}
-		_, _ = fmt.Sscanf(fields[2], "%d", &rx)
-		_, _ = fmt.Sscanf(fields[3], "%d", &tx)
-		return handshakeAge, rx, tx, true
+		if hsEpoch > 0 {
+			handshakeAge = now.Sub(time.Unix(hsEpoch, 0))
+		}
+		return handshakeAge, rxVal, txVal, true
 	}
+	// Interface exists but produced no parseable peer line: treat as up
+	// with zero counters (peer added but never connected).
 	return 0, 0, 0, true
 }
