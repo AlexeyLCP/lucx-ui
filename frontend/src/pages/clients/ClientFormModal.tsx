@@ -368,6 +368,27 @@ export default function ClientFormModal({
     () => (inboundIds || []).some((id) => awgIds.has(id)),
     [inboundIds, awgIds],
   );
+  // LUCX-HOOK: AWG — derive the allowedIPs placeholder from the selected
+  // AWG inbound's tunnel subnet (awgServerAddress, e.g. "10.10.0.1/24" →
+  // "10.10.0.2/32"). The hardcoded "10.8.0.2/32" misled users on non-default
+  // subnets into thinking the client would get an address from a different
+  // pool than the one the server routes (caught by a tester on 10.10.0.1/24).
+  // The backend (defaultAwgClients, lucx.34) already allocates from the
+  // inbound's subnet when the field is left blank — this only fixes the hint.
+  const awgAllowedIPsPlaceholder = useMemo(() => {
+    for (const id of inboundIds || []) {
+      const ib = (inbounds || []).find((row) => row.id === id);
+      if (ib?.protocol !== 'awg') continue;
+      const addr = (ib.awgServerAddress || '').trim();
+      if (!addr) continue;
+      const slash = addr.indexOf('/');
+      const ip = slash >= 0 ? addr.slice(0, slash) : addr;
+      const parts = ip.split('.');
+      if (parts.length !== 4) break;
+      return `${parts[0]}.${parts[1]}.${parts[2]}.2/32`;
+    }
+    return '10.8.0.2/32';
+  }, [inboundIds, inbounds]);
   // END LUCX-HOOK
 
   function regenerateWireguardKeys() {
@@ -883,7 +904,7 @@ export default function ClientFormModal({
                             label={t('pages.clients.wireguardAllowedIPs')}
                             extra={t('pages.clients.wireguardAllowedIPsHint')}
                           >
-                            <Input placeholder={showAwg ? '10.8.0.2/32' : '10.0.0.2/32'} />
+                            <Input placeholder={showAwg ? awgAllowedIPsPlaceholder : '10.0.0.2/32'} />
                           </FormField>
                         </>
                       )}
