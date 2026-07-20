@@ -164,8 +164,13 @@ export default function AppSidebar() {
     { key: '/groups', icon: 'groups', title: t('menu.groups') },
     { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
     { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },
-    { key: '/outbound', icon: 'outbound', title: t('menu.outbounds') },
+    // LUCX-HOOK: AWG outbound — /outbound removed from the top-level menu.
+    // It duplicated the "Xray outbounds" entry inside the "Xray Configs"
+    // submenu (the same XrayPage rendered under two nav entries). The
+    // outbounds tab now lives only under /xray#outbound. /routing stays as a
+    // top-level entry by explicit user request.
     { key: '/routing', icon: 'routing', title: t('menu.routing') },
+    // END LUCX-HOOK
     { key: '/settings', icon: 'setting', title: t('menu.settings') },
     { key: '/xray', icon: 'tool', title: t('menu.xray') },
     { key: '/api-docs', icon: 'apidocs', title: t('menu.apiDocs') },
@@ -191,11 +196,15 @@ export default function AppSidebar() {
 
   const xrayChildren = useMemo<NonNullable<MenuProps['items']>>(() => [
     { key: '/xray#basic', icon: <SettingOutlined />, label: t('pages.xray.basicTemplate') },
-    { key: '/xray#balancer', icon: <ClusterOutlined />, label: t('pages.xray.Balancers') },
     // LUCX-HOOK: AWG outbound — Xray outbounds (renamed) + AWG outbounds nav entry.
+    // Ordered above Routing so the egress targets are visible before the rules
+    // that reference them (user request 2026-07-20). /outbound no longer has a
+    // top-level menu entry — this is the only path to it.
     { key: '/xray#outbound', icon: <ExportOutlined />, label: t('pages.xray.tabs.xrayOutbounds') },
     { key: '/xray#awg-outbound', icon: <CloudOutlined />, label: t('pages.xray.tabs.awgOutbounds') },
+    { key: '/xray#routing', icon: <SwapOutlined />, label: t('menu.routing') },
     // END LUCX-HOOK
+    { key: '/xray#balancer', icon: <ClusterOutlined />, label: t('pages.xray.Balancers') },
     { key: '/xray#dns', icon: <DatabaseOutlined />, label: 'DNS' },
     { key: '/xray#advanced', icon: <CodeOutlined />, label: t('pages.xray.advancedTemplate') },
   ], [t]);
