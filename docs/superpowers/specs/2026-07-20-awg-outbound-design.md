@@ -98,7 +98,7 @@ PersistentKeepalive = 25
   "outbounds": [
     {
       "protocol": "freedom",
-      "tag": "awgo-1",
+      "tag": "vpn-frankfurt",
       "settings": {
         "domainStrategy": "UseIP",
         "sendThrough": "10.9.0.5"
@@ -113,9 +113,45 @@ PersistentKeepalive = 25
 }
 ```
 
-- `tag` = редактируемый `AwgOutbound.Tag` (по умолчанию `awgo-N`) — используется в routing rules и `outboundTag` инбаундов
+- `tag` = редактируемый `AwgOutbound.Tag` (по умолчанию `awgo-N`, оператор может задать `vpn-frankfurt` для читаемости routing rules) — используется в routing rules и `outboundTag` инбаундов
 - `sockopt.interface` = `awgo-{Id}` (БД-стабильный, не Tag) → Xray отправляет пакеты через него
-- `sendThrough` = tunnel IP (опционально, для дополнительной страховки source-binding)
+- `sendThrough` = tunnel IP **без CIDR-маски** (обрезаем `/NN` перед инжектом — см. ниже), опционально, для дополнительной страховки source-binding
+
+### sendThrough: strip CIDR (user feedback 2026-07-20)
+
+`settings.address` хранится как `10.9.0.5/32` (или `fd00::5/128` для IPv6), но `sendThrough` в Xray принимает **только IP**, без маски. Обрезаем явно:
+
+```go
+sendThrough := strings.SplitN(ci.Address, "/", 2)[0]
+```
+
+Иначе Xray может не принять значение с маской (молчаливый fallback или ошибка валидации). Применяется в `injectAwgOutbounds` при формировании outbound JSON.
+
+### Tag uniqueness — против всех Xray outbounds (user feedback 2026-07-20)
+
+Tag проверяется на уникальность не только в таблице `awg_outbounds`, а **против всех outbound-тегов, которые попадут в финальный Xray-конфиг**:
+
+- обычные Xray outbounds (из `XrayConfig.Outbounds`)
+- уже существующие AWG outbounds (из `awg_outbounds`)
+- системные (`direct`, `block`, `api`, и т.д. — из `basics` / настроек Xray)
+
+Иначе при коллизии Xray упадёт с `duplicate outbound tag`. Проверка делается в `AwgOutboundService.AddOutbound` / `UpdateOutbound`:
+
+```go
+// collect all tags that will be in the final Xray config
+existingTags := collectAllOutboundTags(xrayConfig, existingAwgOutbounds, systemTags)
+if slices.Contains(existingTags, newTag) {
+    return ErrDuplicateTag
+}
+```
+
+Список системных тегов берётся из существующего хелпера для Xray outbounds (если есть) или захардкожен (`direct`, `block`, `api`).
+
+### IPv6 / dual-stack (user feedback 2026-07-20)
+
+`address` может быть IPv6 (`fd00::5/128`), `sendThrough` тоже поддерживает IPv6 (strip CIDR работает одинаково), `allowedIPs` по умолчанию `0.0.0.0/0, ::/0` — dual-stack поддерживается. `awg-quick` и kernel module работают с IPv6 нативно. Никакой специальной логики — просто не хардкодить IPv4-предположения.
+
+### Injection order + disable
 
 **Injection order:** `injectAwgOutbounds` вызывается **после** обычных Xray outbounds, но **до** balancers и routing rules — чтобы tag был доступен для ссылок.
 
@@ -187,6 +223,16 @@ type ClientInstance struct {
 // renderClientConf(ci ClientInstance) string
 ```
 
+### .conf file permissions (user feedback 2026-07-20)
+
+`awg-quick` ругается (и в некоторых версиях отказывается читать), если файл world-readable — `.conf` содержит приватный ключ. При записи:
+
+```go
+err := os.WriteFile(confPath, []byte(renderClientConf(ci)), 0600)
+```
+
+`0600` (owner read/write only) — стандарт для WireGuard/AWG конфигов. Симметрично с тем, как должен вести себя серверный `writeServerConfigFile` (проверить и при необходимости поправить существующий код — отдельный mini-task). Конфиги лежат в `/etc/amnezia/amneziawg/` (владелец root, режим 0700 на директорию уже от `install-awg-module.sh`).
+
 ## Manager extensions (internal/awg/manager.go)
 
 Расширяем singleton Manager:
@@ -214,6 +260,16 @@ func (m *Manager) CollectClientTraffic(ifname string) (handshakeAge time.Duratio
 - Для disabled или удалённых → `manager.RemoveClient(ifname)`
 - Fingerprint-based restart (как у inbound)
 
+### Startup orphan cleanup (user feedback 2026-07-20)
+
+Reconcile каждые 10с — хорошо, но при **старте панели** (или после крэша) нужно **один раз явно** пройти по `awgo-*`:
+
+1. Найти все `awgo-*` интерфейсы (`ip link show` или `awg show`) и `awgo-*.conf` в `/etc/amnezia/amneziawg/`
+2. Для каждого: если `awgo-{N}` **не соответствует** записи в `awg_outbounds` с `Id=N` **или** `Enable=false` → `manager.RemoveClient("awgo-N")` (down + rm conf)
+3. После этого — обычный reconcile поднимает нужные
+
+Иначе после падения панели могут остаться «мёртвые» интерфейсы от прошлой сессии. Реализация: метод `Manager.SweepOrphanClients()` вызывается **один раз** при первом `EnsureClient` (через `sync.Once`, как у inbound `killStrayAwgInterfaces`). Не повторяется каждый тик — только на старте.
+
 ## Controller (internal/web/controller/awg.go)
 
 Новые endpoints:
@@ -230,6 +286,26 @@ POST   /panel/api/awg-outbounds/parseConf       — parse pasted .conf → setti
 ```
 
 Все endpoints — в LUCX-HOOK блоках существующего файла или в новом `internal/web/controller/awg_outbound.go`. Auth + CSRF как у остальных.
+
+### Test-кнопка: ping -I (user feedback 2026-07-20)
+
+Самый простой и достаточный способ — **system ping через интерфейс**:
+
+```bash
+ping -c 3 -W 2 -I awgo-{Id} 1.1.1.1
+```
+
+(или `8.8.8.8` / `cloudflare` как target). Через Xray делать сложнее и не нужно для «жив ли туннель».
+
+Реализация `POST /test/:id`:
+- Бэкенд: `exec.Command("ping", "-c", "3", "-W", "2", "-I", fmt.Sprintf("awgo-%d", id), "1.1.1.1")`
+- Парсит вывод → `{ok: bool, latency_ms: int, error: string}`
+- Target `1.1.1.1` (Cloudflare DNS, стабилен) — захардкожен или берётся из настроек
+- Timeout 10с (3 пакета × 2с + overhead)
+- Если интерфейс down → `ok=false, error="interface awgo-N is down"` (не запускаем ping)
+- IPv6-фолбэк: если `address` IPv6, target тоже IPv6 (`2606:4700:4700::1111`), флаг `-6` (или `ping6`)
+
+**Не использовать** curl через Xray freedom outbound — это сложнее (нужен Xray с outbound в конфиге, корректный routing rule) и не отвечает на вопрос «жив ли туннель до upstream».
 
 ## Service (internal/web/service/awg_outbound.go)
 
