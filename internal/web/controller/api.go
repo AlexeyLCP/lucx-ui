@@ -16,6 +16,7 @@ import (
 type APIController struct {
 	BaseController
 	inboundController     *InboundController
+	awgOutboundController *AwgOutboundController
 	serverController      *ServerController
 	nodeController        *NodeController
 	hostController        *HostController
@@ -81,6 +82,12 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// Inbounds API
 	inbounds := api.Group("/inbounds")
 	a.inboundController = NewInboundController(inbounds)
+
+	// LUCX-HOOK: AWG outbound — client-mode AmneziaWG CRUD + status/test.
+	// Routes live under /panel/api/awg-outbounds/* and share the same API
+	// auth + CSRF middleware as the inbound group above.
+	a.awgOutboundController = NewAwgOutboundController(api.Group("/awg-outbounds"))
+	// END LUCX-HOOK
 
 	clients := api.Group("/clients")
 	NewClientController(clients)
