@@ -7,6 +7,8 @@
 package job
 
 import (
+	"strconv"
+
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -132,4 +134,27 @@ func (j *AwgJob) Run() {
 		activeTags = append(activeTags, inst.Tag)
 	}
 	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
+
+	// LUCX-HOOK: AWG outbound — reconcile client interfaces for enabled
+	// awg_outbounds rows, and remove kernel interfaces for disabled/deleted
+	// rows. Manager.SweepOrphanClients runs once on first call (sync.Once).
+	{
+		svc := &service.AwgOutboundService{}
+		outbounds, err := svc.GetOutbounds()
+		if err == nil {
+			m := awg.GetManager()
+			for _, o := range outbounds {
+				if !o.Enable {
+					_ = m.RemoveClient("awgo-" + strconv.Itoa(o.Id))
+					continue
+				}
+				if ci, ok := awg.ClientInstanceFromOutbound(o); ok {
+					if err := m.EnsureClient(ci); err != nil {
+						logger.Warning("awg: outbound reconcile failed for", o.Tag, err)
+					}
+				}
+			}
+		}
+	}
+	// END LUCX-HOOK
 }
