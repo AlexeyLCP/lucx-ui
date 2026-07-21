@@ -71,6 +71,17 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 	for i := range existing {
 		used = append(used, existing[i].AllowedIPs...)
 	}
+	// LUCX-HOOK: AWG outbound collision guard — exclude tunnel IPs already
+	// claimed by enabled AWG outbounds (awgo-N kernel interfaces). Without
+	// this, allocateWireguardAddress can hand a new client the same IP an
+	// awgo-N interface owns (e.g. 10.8.0.2), and the kernel then treats the
+	// client IP as local → return-path packets go to lo instead of awgN →
+	// the client's traffic dies. This is the root cause of "второй клиент не
+	// идёт трафик" when an AWG outbound is enabled on the same panel.
+	if awgOuts, err := (&AwgOutboundService{}).ActiveOutboundAddresses(); err == nil {
+		used = append(used, awgOuts...)
+	}
+	// END LUCX-HOOK
 	base := wireguardAllocationBase(used, awgAllocationFallback(serverAddr))
 	for i := range clients {
 		c := &clients[i]

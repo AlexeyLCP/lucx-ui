@@ -43,3 +43,30 @@ func TestAwgSettingsAddress(t *testing.T) {
 		t.Errorf("empty settings must yield empty, got %q", got)
 	}
 }
+
+// TestParseAwgOutboundAddress covers the pure-function path of
+// ActiveOutboundAddresses — parsing the tunnel Address from one AWG
+// outbound settings JSON blob. This is the collision guard that keeps
+// defaultAwgClients from handing a new client the same IP an awgo-N
+// interface already owns.
+func TestParseAwgOutboundAddress(t *testing.T) {
+	tests := []struct {
+		name string
+		in   string
+		want string
+	}{
+		{"with address", `{"address":"10.8.0.2/32","endpoint":"up:51820"}`, "10.8.0.2/32"},
+		{"no address", `{"endpoint":"up:51820"}`, ""},
+		{"empty address", `{"address":""}`, ""},
+		{"whitespace address", `{"address":"  "}`, ""},
+		{"malformed json", `{broken`, ""},
+		{"empty input", "", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := parseAwgOutboundAddress(tt.in); got != tt.want {
+				t.Errorf("parseAwgOutboundAddress(%q) = %q, want %q", tt.in, got, tt.want)
+			}
+		})
+	}
+}

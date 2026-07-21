@@ -202,6 +202,51 @@ func (s *AwgOutboundService) ActiveOutboundTags() ([]string, error) {
 	return tags, err
 }
 
+// ActiveOutboundAddresses returns the tunnel Address of all enabled AWG
+// outbounds. Used by defaultAwgClients to avoid allocating a client
+// AllowedIPs that collides with an AWG outbound's kernel interface — a
+// collision makes the kernel treat the client IP as local (the outbound's
+// awgo-N interface owns it), so return-path packets to the client go to lo
+// instead of awgN and the client's traffic dies. Caught live on test2:
+// client got 10.8.0.2, awgo-2 already had 10.8.0.2 → 0 packets through the
+// tunnel. Reporter: tester VladufQa ("создаю второго клиента и у второго
+// клиента не идет трафик").
+func (s *AwgOutboundService) ActiveOutboundAddresses() ([]string, error) {
+	db := database.GetDB()
+	var rows []string
+	// Settings is JSON; the address lives under settings.address. SQLite/MySQL
+	// both store Settings as a text blob, so a LIKE scan is portable and the
+	// inbound count is tiny (<100). A JSON_EXTRACT would be cleaner but is
+	// not portable across sqlite/mysql/postgres.
+	err := db.Model(&model.AwgOutbound{}).
+		Where("enable = ?", true).
+		Pluck("settings", &rows).Error
+	if err != nil {
+		return nil, err
+	}
+	out := make([]string, 0, len(rows))
+	for _, s := range rows {
+		if addr := parseAwgOutboundAddress(s); addr != "" {
+			out = append(out, addr)
+		}
+	}
+	return out, nil
+}
+
+// parseAwgOutboundAddress extracts the tunnel Address from one AWG outbound
+// settings JSON blob. Returns "" when the blob is missing/malformed or has
+// no address. Exposed (lowercase, package-private) for unit testing without
+// a database — ActiveOutboundAddresses is the DB-backed caller.
+func parseAwgOutboundAddress(settings string) string {
+	var parsed struct {
+		Address string `json:"address"`
+	}
+	if json.Unmarshal([]byte(settings), &parsed) != nil {
+		return ""
+	}
+	return strings.TrimSpace(parsed.Address)
+}
+
 func (s *AwgOutboundService) GetOutbound(id int) (*model.AwgOutbound, error) {
 	db := database.GetDB()
 	o := &model.AwgOutbound{}
