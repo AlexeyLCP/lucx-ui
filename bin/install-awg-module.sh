@@ -42,7 +42,19 @@ echo -e "${GREEN}Установка сборочных зависимостей.
 apt-get update -qq
 
 # Core build tools + DKMS + git
-apt-get install -y -q build-essential dkms git unzip curl 2>/dev/null || true
+# Core build tools + DKMS + git. List mirrors pumbaX/awg-multi-script so a
+# fresh bare-metal install gets every package `make` for amneziawg-tools
+# needs — libmnl-dev and pkg-config are NOT in build-essential and their
+# absence is the most common reason awg-quick fails to build on a clean
+# server (reported by tester VladufQa: "awg-quick пришлось через тулзу
+# устанавливать зависимости"). qrencode, bc, net-tools and ca-certificates
+# are utilities pumbaX ships; ufw is intentionally omitted — it is a
+# firewall that can conflict with our iptables PostUp rules + fail2ban.
+apt-get install -y -q \
+    build-essential dkms git unzip curl \
+    libmnl-dev pkg-config \
+    python3 net-tools qrencode bc ca-certificates gnupg \
+    2>/dev/null || true
 
 # openresolv — awg-quick вызывает resolvconf при наличии DNS= в .conf.
 # Без него awg-quick up падает с "resolvconf: command not found".

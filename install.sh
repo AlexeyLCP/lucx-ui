@@ -1695,8 +1695,8 @@ install_x-ui() {
             echo -e "${red}╔══════════════════════════════════════════════════════╗${plain}"
             echo -e "${red}║  AWG: awg-quick НЕ установлен!                       ║${plain}"
             echo -e "${red}║  AWG-инбаунды не поднимутся (reconcile будет падать). ║${plain}"
-            echo -e "${red}║  Дособрать: apt install build-essential, затем       ║${plain}"
-            echo -e "${red}║  bash bin/install-awg-module.sh                      ║${plain}"
+            echo -e "${red}║  Дособрать: apt install build-essential libmnl-dev    ║${plain}"
+            echo -e "${red}║  pkg-config dkms git, затем bash bin/install-awg-module.sh ${plain}"
             echo -e "${red}╚══════════════════════════════════════════════════════╝${plain}"
         fi
     fi
