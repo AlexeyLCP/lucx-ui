@@ -398,6 +398,13 @@ func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 
 	if inst.RouteThroughXray {
 		table := awgRouteTable(inst.Id)
+		// MSS clamping: AWG and TUN interfaces carry MTU 1320 (set in the
+		// .conf and the Xray TUN inbound), so TCP sessions crossing them
+		// cannot carry a 1460-byte MSS without fragmentation. Without
+		// clamping, large HTTPS downloads stall or crawl — classic VPN
+		// symptom. `--clamp-mss-to-pmtu` derives MSS from the route MTU
+		// per-packet, so it works regardless of the path MTU between client
+		// and server. Mirrors pumbaX/awg-multi-script's MSS rule.
 		postUp = fmt.Sprintf(
 			"echo 1 > /proc/sys/net/ipv4/ip_forward; "+
 				"sysctl -qw net.ipv4.conf.%s.rp_filter=2; "+
@@ -409,11 +416,21 @@ func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 				"iptables -A FORWARD -i %s -j ACCEPT; "+
 				"iptables -C FORWARD -o %s -j ACCEPT 2>/dev/null || "+
 				"iptables -A FORWARD -o %s -j ACCEPT; "+
+				"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
+				"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu; "+
+				"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
+				"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu; "+
+				"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
+				"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu; "+
+				"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
+				"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu; "+
 				"ip rule del iif %s lookup %d 2>/dev/null || true; "+
 				"ip rule add iif %s lookup %d",
 			iface,
 			iface, iface, iface, iface,
 			tunName, tunName, tunName, tunName,
+			tunName, tunName, tunName, tunName,
+			iface, iface, iface, iface,
 			iface, table, iface, table,
 		)
 		postDown = fmt.Sprintf(
@@ -422,9 +439,14 @@ func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 				"iptables -D FORWARD -i %s -j ACCEPT 2>/dev/null || true; "+
 				"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true; "+
 				"iptables -D FORWARD -i %s -j ACCEPT 2>/dev/null || true; "+
-				"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true",
+				"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true; "+
+				"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true; "+
+				"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true; "+
+				"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true; "+
+				"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true",
 			iface, table, table,
 			iface, iface, tunName, tunName,
+			tunName, tunName, iface, iface,
 		)
 		return postUp, postDown
 	}
@@ -440,15 +462,27 @@ func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 			"iptables -C FORWARD -i %s -j ACCEPT 2>/dev/null || "+
 			"iptables -A FORWARD -i %s -j ACCEPT; "+
 			"iptables -C FORWARD -o %s -j ACCEPT 2>/dev/null || "+
-			"iptables -A FORWARD -o %s -j ACCEPT",
+			"iptables -A FORWARD -o %s -j ACCEPT; "+
+			// MSS clamping for kernel-NAT mode too: awgN carries MTU 1320
+			// (smaller than the 1500 the client assumes), so large TCP
+			// segments crossing the tunnel need their MSS clamped to PMTU
+			// or downloads stall. Same --clamp-mss-to-pmtu as above.
+			"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
+			"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu; "+
+			"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
+			"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu",
 		subnet, extIface, subnet, extIface,
+		iface, iface, iface, iface,
 		iface, iface, iface, iface,
 	)
 	postDown = fmt.Sprintf(
 		"iptables -t nat -D POSTROUTING -s %s -o %s -j MASQUERADE 2>/dev/null || true; "+
 			"iptables -D FORWARD -i %s -j ACCEPT 2>/dev/null || true; "+
-			"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true",
+			"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true; "+
+			"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true; "+
+			"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true",
 		subnet, extIface,
+		iface, iface,
 		iface, iface,
 	)
 	return postUp, postDown
