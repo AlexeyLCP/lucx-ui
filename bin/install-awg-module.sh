@@ -78,6 +78,39 @@ fi
 # правила работают через него прозрачно.
 apt-get install -y -q iptables 2>/dev/null || echo -e "${YELLOW}iptables не установлен — kernel NAT (PostUp) будет падать${NC}"
 
+# 1b. Network performance tuning — VPN tunnels (AWG + WireGuard) suffer from
+# asymmetric upload throughput when the kernel TCP buffers are left at the
+# Linux default (208 KB). A 100 Mbps residential uplink can only push ~1-2
+# Mbps through an AWG tunnel with default rmem/wmem because the TCP send
+# window never grows large enough to keep the pipe full under the per-packet
+# crypto + obfuscation overhead. Raising the buffers to 64 MB lets TCP scale
+# the window to the BDP and recover the full uplink rate (measured: upload
+# went from 1 Mbps to 9 Mbps on a 100/10 Mbps link after this tuning).
+# BBR + fq qdisc are also required (BBR for congestion control that doesn't
+# back off on packet loss from obfuscation padding; fq for flow isolation).
+# This mirrors the recommendation in amneziawg-go issue #112 and the
+# WireGuard performance community consensus.
+SYSCTL_FILE="/etc/sysctl.d/99-awg-performance.conf"
+cat > "$SYSCTL_FILE" <<'SYSCTL'
+# AWG / WireGuard performance tuning — large TCP buffers for VPN throughput.
+# Default Linux rmem/wmem (208 KB) caps upload at ~1-2 Mbps through AWG.
+# See amneziawg-go issue #112 and LucX-UI lucx.45.
+net.core.rmem_max = 67108864
+net.core.wmem_max = 67108864
+net.core.rmem_default = 262144
+net.core.wmem_default = 262144
+net.core.netdev_max_backlog = 5000
+net.ipv4.tcp_rmem = 4096 87380 67108864
+net.ipv4.tcp_wmem = 4096 65536 67108864
+# BBR congestion control + fq queue discipline — BBR doesn't back off on
+# obfuscation-induced packet loss; fq isolates flows so one speedtest doesn't
+# starve the AWG keepalive. These are no-ops if already set (idempotent).
+net.core.default_qdisc = fq
+net.ipv4.tcp_congestion_control = bbr
+SYSCTL
+sysctl --system >/dev/null 2>&1 || sysctl -p "$SYSCTL_FILE" >/dev/null 2>&1 || true
+echo -e "${GREEN}Network performance tuning applied (BBR + fq + 64MB TCP buffers)${NC}"
+
 # 2. Install kernel headers — универсальная логика с fallback
 RUNNING_KERNEL=$(uname -r)
 echo -e "${GREEN}Ядро: ${RUNNING_KERNEL}${NC}"
