@@ -1,6 +1,6 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Form, Input, Modal, Select, Space, Switch, Tooltip } from 'antd';
+import { Button, Form, Input, Modal, Select, Space, Switch, Tooltip, message } from 'antd';
 import { PlusOutlined, MinusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { InputAddon } from '@/components/ui';
@@ -134,7 +134,42 @@ export default function RuleFormModal({
       if (v === '') continue;
       out[k] = v;
     }
+    // Xray rejects a field rule with no effective matchers ("this rule has no
+    // effective fields") and fails to start, taking the whole panel down.
+    // A rule MUST carry at least one of: domain, ip, port, sourcePort, network,
+    // sourceIP, user, inboundTag, protocol, attrs — otherwise the outboundTag/
+    // balancerTag targets nothing. Guard here so the user never saves an
+    // invalid rule (matches AGENTS.md Debug Pattern 5).
+    // "vlessRoute" alone is also a matcher (Xray accepts it), so include it.
+    const matchers = ['domain', 'ip', 'port', 'sourcePort', 'network', 'sourceIP', 'user', 'inboundTag', 'protocol', 'attrs', 'vlessRoute'];
+    const hasMatcher = matchers.some((k) => {
+      const val = (out as Record<string, unknown>)[k];
+      if (val == null || val === '') return false;
+      if (Array.isArray(val)) return val.length > 0;
+      if (typeof val === 'object') return Object.keys(val).length > 0;
+      return true;
+    });
+    if (!hasMatcher) {
+      message.error(t('pages.xray.ruleForm.noMatcherError'));
+      return;
+    }
+    // outboundTag OR balancerTag is also required — a rule with matchers but
+    // no target is silently a no-op in Xray. Warn (don't block) so advanced
+    // users can still save a half-built rule, but surface the issue clearly.
+    if (!out.outboundTag && !out.balancerTag) {
+      message.warning(t('pages.xray.ruleForm.noTargetWarning'));
+    }
     onConfirm(out);
+  }
+
+  // applyMatchAllPreset fills the rule as a catch-all: matches every domain
+  // via "domain:" (Xray's "any domain" wildcard). The user still has to pick
+  // an outboundTag/balancerTag before saving — submit() will warn if not.
+  // Useful for "send all traffic through VPN" rules without hand-typing
+  // regex/wildcard syntax (the most common footgun that produced empty rules).
+  function applyMatchAllPreset() {
+    methods.setValue('domain', 'domain:');
+    message.info(t('pages.xray.ruleForm.matchAllApplied'));
   }
 
   const title = isEdit
@@ -158,6 +193,27 @@ export default function RuleFormModal({
           <FormField name="enabled" label={t('enable')} valueProp="checked">
             <Switch disabled={isApiRule(rule ?? {})} />
           </FormField>
+
+          {/* LUCX-HOOK: AWG outbound — routing-rule validation UX.
+              Xray rejects a field rule with no effective matchers and fails to
+              start (AGENTS.md Pattern 5). A common footgun was creating a rule
+              with only outboundTag set ("send all traffic through VPN") and no
+              domain/ip/inboundTag. Offer a one-click "Match all traffic" preset
+              so the user doesn't have to know Xray's "domain:" wildcard syntax,
+              and guard submit() against saving an invalid rule. */}
+          <Form.Item label=" " colon={false}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <Button
+                size="small"
+                type="dashed"
+                icon={<PlusOutlined />}
+                onClick={applyMatchAllPreset}
+              >
+                {t('pages.xray.ruleForm.matchAllPreset')}
+              </Button>
+            </Space>
+          </Form.Item>
+          {/* END LUCX-HOOK */}
 
           <FormField
             name="sourceIP"

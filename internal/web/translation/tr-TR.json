@@ -1597,7 +1597,11 @@
         "inboundTags": "Gelen Bağlantı Etiketleri",
         "outboundTag": "Giden Bağlantı Etiketi",
         "balancerTag": "Dengeleyici Etiketi",
-        "balancerTagTooltip": "Trafiği yapılandırılmış yük dengeleyicilerden biri üzerinden yönlendirir"
+        "balancerTagTooltip": "Trafiği yapılandırılmış yük dengeleyicilerden biri üzerinden yönlendirir",
+        "matchAllPreset": "Match all traffic",
+        "matchAllApplied": "Preset applied: rule now matches all domains (domain: wildcard). Pick an outbound tag below and save.",
+        "noMatcherError": "Rule has no matcher (domain, IP, port, inbound tag, protocol, ...). Xray rejects empty rules and fails to start. Add at least one matcher, or use the 'Match all traffic' preset above.",
+        "noTargetWarning": "Rule has matchers but no outbound tag or balancer tag. It will match traffic but route it to the default outbound. Add a target if this is intentional."
       },
       "outboundForm": {
         "tagDuplicate": "Etiket başka bir giden bağlantı tarafından kullanılıyor",

@@ -1597,7 +1597,11 @@
         "inboundTags": "入站標籤",
         "outboundTag": "出站標籤",
         "balancerTag": "均衡器標籤",
-        "balancerTagTooltip": "透過其中一個已設定的負載均衡器路由流量"
+        "balancerTagTooltip": "透過其中一個已設定的負載均衡器路由流量",
+        "matchAllPreset": "Match all traffic",
+        "matchAllApplied": "Preset applied: rule now matches all domains (domain: wildcard). Pick an outbound tag below and save.",
+        "noMatcherError": "Rule has no matcher (domain, IP, port, inbound tag, protocol, ...). Xray rejects empty rules and fails to start. Add at least one matcher, or use the 'Match all traffic' preset above.",
+        "noTargetWarning": "Rule has matchers but no outbound tag or balancer tag. It will match traffic but route it to the default outbound. Add a target if this is intentional."
       },
       "outboundForm": {
         "tagDuplicate": "該標籤已被其他出站使用",
