@@ -14,8 +14,7 @@ import (
 // renderClientConf builds the awg-quick .conf for a client AWG instance. Unlike
 // renderServerConf, this has no ListenPort, no peers[], Table = off (so awg-quick
 // does NOT override the system default route — Xray's sockopt.interface handles
-// egress), a single [Peer] (the upstream server), and DNS is omitted by default
-// (Xray resolves via domainStrategy: UseIP; operator can opt in via Advanced).
+// egress), a single [Peer] (the upstream server), and DNS is NEVER written.
 //
 // I1-I5 (CPS packets) are NEVER written to the .conf, even when set in Settings.
 // The kernel amneziawg module does not accept CPS tags in setconf input —
@@ -24,6 +23,19 @@ import (
 // tester on awgo-2: every reconcile failed with exit status 1). This mirrors
 // renderServerConf, which already documents the same constraint for the server
 // .conf. I1-I5 stay in Settings JSON for a future userspace CPS sender.
+//
+// DNS is NEVER written even when set in Settings. With Table = off, the client
+// AWG interface does not carry the system default route, so the panel host's
+// system DNS must NOT be overwritten through the tunnel. Writing DNS makes
+// awg-quick invoke `resolvconf -a awgo-N`, which on a server without a working
+// resolvconf backend (systemd-resolved disabled, openresolv absent) fails with
+// "Failed to set DNS configuration: Unit dbus-org.freedesktop.resolve1.service
+// not found" — awg-quick rolls back the interface and reconcile fails every
+// 10s. Xray resolves via the freedom outbound's domainStrategy: UseIP using
+// the panel host's existing resolver, so the client .conf does not need DNS.
+// Settings.DNS stays in the JSON for forward-compat with a future userspace
+// resolver, but is ignored here. (Caught live by tester VladufQa: awgo-3
+// reconcile failed every 10s until `systemctl enable systemd-resolved`.)
 func renderClientConf(ci ClientInstance) string {
 	s := ci.Settings
 	var b strings.Builder
@@ -32,9 +44,8 @@ func renderClientConf(ci ClientInstance) string {
 	fmt.Fprintf(&b, "Address = %s\n", s.Address)
 	fmt.Fprintf(&b, "MTU = %d\n", s.MTU)
 	b.WriteString("Table = off\n")
-	if dns := strings.TrimSpace(s.DNS); dns != "" {
-		fmt.Fprintf(&b, "DNS = %s\n", dns)
-	}
+	// DNS deliberately NOT written — see function comment. resolvconf crash
+	// on hosts without systemd-resolved/openresolv took down every reconcile.
 	if s.Jc > 0 {
 		fmt.Fprintf(&b, "Jc = %d\n", s.Jc)
 		fmt.Fprintf(&b, "Jmin = %d\n", s.Jmin)

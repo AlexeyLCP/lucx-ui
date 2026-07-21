@@ -60,6 +60,17 @@ apt-get install -y -q \
 # Без него awg-quick up падает с "resolvconf: command not found".
 apt-get install -y -q openresolv 2>/dev/null || echo -e "${YELLOW}openresolv не установлен — awg-quick может падать на DNS=${NC}"
 
+# systemd-resolved — на Debian 13+ resolvconf symlink указывает на
+# systemd-resolved backend, но сам сервис может быть не enabled. Тогда
+# awg-quick up с DNS= падает с "Failed to set DNS configuration: Unit
+# dbus-org.freedesktop.resolve1.service not found" → интерфейс откатывается
+# → reconcile failed every 10s (поймано тестером VladufQa на awgo-3).
+# Enable сервис если он установлен; если нет — openresolv выше уже покрыл.
+if systemctl list-unit-files 2>/dev/null | grep -q systemd-resolved; then
+    systemctl enable --now systemd-resolved 2>/dev/null && \
+        echo -e "${GREEN}systemd-resolved enabled (resolvconf backend)${NC}" || true
+fi
+
 # iptables — PostUp панели ставит MASQUERADE/FORWARD через iptables.
 # На Debian 13+ iptables отсутствует из коробки (только nftables), и
 # awg-quick up падает с "iptables: command not found" (exit 127) — интерфейс

@@ -51,16 +51,26 @@ func TestRenderClientConf_DNS_OmittedByDefault(t *testing.T) {
 	ci, _ := ClientInstanceFromOutbound(o)
 	conf := renderClientConf(ci)
 	if strings.Contains(conf, "DNS =") {
-		t.Error("DNS must NOT be written by default (Xray resolves via UseIP)")
+		t.Error("DNS must NOT be written (Xray resolves via UseIP, resolvconf crashes without systemd-resolved)")
 	}
 }
 
-func TestRenderClientConf_DNS_WhenSet(t *testing.T) {
+// TestRenderClientConf_DNS_NeverWritten is the regression guard for the
+// resolvconf crash: even when Settings.DNS is populated (e.g. via Paste .conf
+// from an upstream that included DNS), renderClientConf MUST NOT write it to
+// the .conf. awg-quick up invokes `resolvconf -a awgo-N` on DNS= lines, which
+// fails on hosts without a working resolvconf backend (systemd-resolved
+// disabled, openresolv absent) with "Unit dbus-org.freedesktop.resolve1.service
+// not found" — awg-quick rolls back the interface, reconcile fails every 10s.
+// Caught live by tester VladufQa (awgo-3 down every 10s until systemd-resolved
+// was enabled manually). With Table = off DNS would not carry the system
+// default route anyway, so omitting it is correct, not just a workaround.
+func TestRenderClientConf_DNS_NeverWritten(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","dns":"1.1.1.1, 1.0.0.1"}`}
 	ci, _ := ClientInstanceFromOutbound(o)
 	conf := renderClientConf(ci)
-	if !strings.Contains(conf, "DNS = 1.1.1.1, 1.0.0.1") {
-		t.Errorf("DNS should appear when set, got:\n%s", conf)
+	if strings.Contains(conf, "DNS =") {
+		t.Errorf("DNS must NEVER be written to client .conf (resolvconf crash), got:\n%s", conf)
 	}
 }
 
