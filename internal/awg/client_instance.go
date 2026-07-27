@@ -52,6 +52,9 @@ type ClientSettings struct {
 	I3         string `json:"i3"`
 	I4         string `json:"i4"`
 	I5         string `json:"i5"`
+	// AWG3 (AmneziaWG 3) header protection key — 32-byte ChaCha20, base64.
+	// Forward-compat for feat/awg3; empty on current AWG.
+	HeaderProtectionKey string `json:"headerProtectionKey"`
 }
 
 // ClientInstanceFromOutbound parses an AwgOutbound row into a ClientInstance.
@@ -110,6 +113,7 @@ func (ci ClientInstance) fingerprint() string {
 		strconv.Itoa(s.S4),
 		s.H1, s.H2, s.H3, s.H4,
 		s.I1, s.I2, s.I3, s.I4, s.I5,
+		s.HeaderProtectionKey,
 	}
 	return strings.Join(parts, "|")
 }

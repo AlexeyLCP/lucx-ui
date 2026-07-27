@@ -261,6 +261,11 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     h2: `${r(600000, 900000)}`,
     h3: `${r(1000000, 1500000)}`,
     h4: `${r(1600000, 2000000)}`,
+    // AWG3 header protection key — left empty by default: the current upstream
+    // master kernel module does not yet parse `HeaderProtectionKey` in setconf,
+    // so writing it would break reconcile. Operators fill it via "Regenerate"
+    // after updating to the AWG3 kernel module (feat/awg3 branch).
+    headerProtectionKey: '',
     clients: [],
   };
 }

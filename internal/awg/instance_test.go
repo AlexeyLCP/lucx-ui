@@ -26,6 +26,7 @@ func TestInstanceFromInbound(t *testing.T) {
 			`"h1":"100000-500000","h2":"600000-900000",` +
 			`"h3":"1000000-1500000","h4":"1600000-2000000",` +
 			`"i1":"<b 0xaa>","i2":"<b 0xbb>","i3":"<b 0xcc>","i4":"<b 0xdd>","i5":"<b 0xee>",` +
+			`"headerProtectionKey":"aBcD...base64hpk==",` +
 			`"routeThroughXray":true,"outboundTag":"warp",` +
 			`"clients":[{"id":"peer-pub-1","password":"psk-1","enable":true},` +
 			`{"id":"peer-pub-2","password":"psk-2","enable":false},` +
@@ -55,6 +56,9 @@ func TestInstanceFromInbound(t *testing.T) {
 	}
 	if inst.I1 != "<b 0xaa>" || inst.I5 != "<b 0xee>" {
 		t.Fatalf("i1-i5 not parsed: %+v", inst)
+	}
+	if inst.HeaderProtectionKey != "aBcD...base64hpk==" {
+		t.Fatalf("headerProtectionKey not parsed: %+v", inst)
 	}
 	if !inst.RouteThroughXray || inst.OutboundTag != "warp" {
 		t.Fatalf("routing not parsed: %+v", inst)
@@ -144,6 +148,16 @@ func TestInstanceFingerprint_ChangesOnRoutingToggle(t *testing.T) {
 	}
 }
 
+func TestInstanceFingerprint_ChangesOnHeaderProtectionKey(t *testing.T) {
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k"}
+	before := inst.fingerprint()
+	inst.HeaderProtectionKey = "aBcD...base64hpk=="
+	after := inst.fingerprint()
+	if before == after {
+		t.Fatal("fingerprint must change when HeaderProtectionKey is set (restart trigger)")
+	}
+}
+
 func TestRenderServerConf_IncludesObfuscationAndPeers(t *testing.T) {
 	inst := Instance{
 		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "server-priv",
@@ -194,6 +208,25 @@ func TestRenderServerConf_NeverWritesDNS(t *testing.T) {
 	conf := renderServerConf(inst)
 	if strings.Contains(conf, "DNS =") {
 		t.Errorf("DNS must never appear in server .conf even when set, got:\n%s", conf)
+	}
+}
+
+func TestRenderServerConf_HeaderProtectionKeyOmittedWhenEmpty(t *testing.T) {
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5}
+	conf := renderServerConf(inst)
+	if strings.Contains(conf, "HeaderProtectionKey =") {
+		t.Errorf("HeaderProtectionKey must be omitted when empty (current master module rejects it), got:\n%s", conf)
+	}
+}
+
+func TestRenderServerConf_HeaderProtectionKeyWrittenWhenSet(t *testing.T) {
+	inst := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5,
+		HeaderProtectionKey: "aBcD...base64hpk==",
+	}
+	conf := renderServerConf(inst)
+	if !strings.Contains(conf, "HeaderProtectionKey = aBcD...base64hpk==") {
+		t.Errorf("HeaderProtectionKey must appear in server .conf when set, got:\n%s", conf)
 	}
 }
 

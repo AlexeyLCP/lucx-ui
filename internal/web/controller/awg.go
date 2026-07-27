@@ -14,6 +14,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/cps"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/signature"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
 )
 
 // awgGenerateObfuscationRequest is the body the AWG inbound form posts to
@@ -90,6 +91,11 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		"i3":   cpsResult.I3,
 		"i4":   cpsResult.I4,
 		"i5":   cpsResult.I5,
+		// AWG3 header protection key — 32-byte ChaCha20 symmetric key, base64
+		// (same format as a WireGuard private key). Forward-compat for the
+		// feat/awg3 kernel module branch; the current master module ignores it
+		// (the .conf renderer omits the line when empty).
+		"headerProtectionKey": random.Base64Bytes(32),
 	}, nil)
 }
 

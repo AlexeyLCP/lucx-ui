@@ -738,6 +738,12 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			params[p.key] = v
 		}
 	}
+	// AWG3 header protection key — only emitted when non-empty (forward-compat
+	// for the feat/awg3 kernel module branch; clients that don't know the
+	// param ignore it).
+	if v, ok := settings["headerProtectionKey"].(string); ok && v != "" {
+		params["headerProtectionKey"] = v
+	}
 	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
 }
 

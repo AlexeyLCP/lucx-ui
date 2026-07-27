@@ -441,23 +441,24 @@ func inboundAwgHints(settings string) (address string, obfuscation string) {
 		return "", ""
 	}
 	var s struct {
-		Address string `json:"address"`
-		Jc      int    `json:"jc"`
-		Jmin    int    `json:"jmin"`
-		Jmax    int    `json:"jmax"`
-		S1      int    `json:"s1"`
-		S2      int    `json:"s2"`
-		S3      int    `json:"s3"`
-		S4      int    `json:"s4"`
-		H1      string `json:"h1"`
-		H2      string `json:"h2"`
-		H3      string `json:"h3"`
-		H4      string `json:"h4"`
-		I1      string `json:"i1"`
-		I2      string `json:"i2"`
-		I3      string `json:"i3"`
-		I4      string `json:"i4"`
-		I5      string `json:"i5"`
+		Address             string `json:"address"`
+		Jc                  int    `json:"jc"`
+		Jmin                int    `json:"jmin"`
+		Jmax                int    `json:"jmax"`
+		S1                  int    `json:"s1"`
+		S2                  int    `json:"s2"`
+		S3                  int    `json:"s3"`
+		S4                  int    `json:"s4"`
+		H1                  string `json:"h1"`
+		H2                  string `json:"h2"`
+		H3                  string `json:"h3"`
+		H4                  string `json:"h4"`
+		I1                  string `json:"i1"`
+		I2                  string `json:"i2"`
+		I3                  string `json:"i3"`
+		I4                  string `json:"i4"`
+		I5                  string `json:"i5"`
+		HeaderProtectionKey string `json:"headerProtectionKey"`
 	}
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
 		return "", ""
@@ -505,6 +506,12 @@ func inboundAwgHints(settings string) (address string, obfuscation string) {
 			// "<r 2><b 0xHEX>") — write as-is, no double wrapping.
 			fmt.Fprintf(&out, "I%s = %s\n", ip.idx, ip.val)
 		}
+	}
+	// AWG3 header protection key — only when non-empty (guard matches
+	// renderServerConf/renderClientConf: the current master kernel module
+	// rejects the unknown field in setconf).
+	if s.HeaderProtectionKey != "" {
+		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 	}
 	return s.Address, out.String()
 }

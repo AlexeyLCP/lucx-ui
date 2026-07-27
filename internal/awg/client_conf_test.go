@@ -119,3 +119,21 @@ func TestRenderClientConf_IPv6(t *testing.T) {
 		t.Errorf("IPv6 address not written, got:\n%s", conf)
 	}
 }
+
+func TestRenderClientConf_HeaderProtectionKeyOmittedWhenEmpty(t *testing.T) {
+	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150}`}
+	ci, _ := ClientInstanceFromOutbound(o)
+	conf := renderClientConf(ci)
+	if strings.Contains(conf, "HeaderProtectionKey =") {
+		t.Errorf("HeaderProtectionKey must be omitted when empty (current master module rejects it), got:\n%s", conf)
+	}
+}
+
+func TestRenderClientConf_HeaderProtectionKeyWrittenWhenSet(t *testing.T) {
+	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"headerProtectionKey":"aBcD...base64hpk=="}`}
+	ci, _ := ClientInstanceFromOutbound(o)
+	conf := renderClientConf(ci)
+	if !strings.Contains(conf, "HeaderProtectionKey = aBcD...base64hpk==") {
+		t.Errorf("HeaderProtectionKey must appear when set, got:\n%s", conf)
+	}
+}

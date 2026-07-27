@@ -366,6 +366,13 @@ export default function AwgFields() {
           <FormField name={['settings', 'i5']} label="I5">
             <Input placeholder={t('pages.inbounds.form.awgCpsHex')} />
           </FormField>
+          <FormField
+            name={['settings', 'headerProtectionKey']}
+            label={t('pages.inbounds.form.awgHpk')}
+            tooltip={t('pages.inbounds.form.awgHpkHint')}
+          >
+            <Input placeholder={t('pages.inbounds.form.awgHpkPlaceholder')} />
+          </FormField>
         </>
       )}
 

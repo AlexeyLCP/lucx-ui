@@ -42,6 +42,13 @@ export const AwgInboundSettingsSchema = z.object({
   i3: z.string().optional(),
   i4: z.string().optional(),
   i5: z.string().optional(),
+  // AWG3 (AmneziaWG 3) — 32-byte ChaCha20 header protection key, base64 (same
+  // shape as a WireGuard private key). Forward-compat: the upstream kernel
+  // module's feat/awg3 branch parses `HeaderProtectionKey` in setconf; on the
+  // current master module the field is left empty so the .conf renderer omits
+  // it (an unknown field would make awg setconf reject the config and break
+  // reconcile). Populate only after updating to the AWG3 kernel module.
+  headerProtectionKey: z.string().default(''),
   // Peers: each client is a WireGuard peer. The client's keypair, PSK, and
   // tunnel address are stored so a full client .conf and share-link can be
   // rendered (mirroring WireGuard). Legacy inbounds stored id/password; the
