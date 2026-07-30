@@ -284,18 +284,17 @@ Herramientas e integraciones construidas por la comunidad alrededor de 3x-ui.
 
 - [terraform-provider-3x-ui](https://github.com/batonogov/terraform-provider-threexui) (Licencia: **MIT**): _Gestiona inbounds, clientes, configuración del panel y configuración de Xray como código con Terraform / OpenTofu._
 
-## Apoyar el Proyecto
+## ☕ Apoyar el proyecto
 
-**Si este proyecto te es útil, puedes darle una**:star2:
+LucX-UI es gratuito para uso personal y no comercial. Si el panel le ahorra tiempo, puede apoyar el desarrollo:
 
-<a href="https://www.buymeacoffee.com/MHSanaei" target="_blank">
-<img src="./media/default-yellow.png" alt="Buy Me A Coffee" style="height: 70px !important;width: 277px !important;" >
-</a>
+| Método | Detalles |
+|---|---|
+| 🇷🇺 **YooMoney** (RUB, Rusia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
+| 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
 
-</br>
-<a href="https://nowpayments.io/donation/hsanaei" target="_blank" rel="noreferrer noopener">
-   <img src="./media/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
-</a>
+Las donaciones son un agradecimiento, no una compra: no otorgan licencia comercial ni modifican los términos de [LICENSING.md](LICENSING.md).
 
 ## Estrellas a lo Largo del Tiempo
 

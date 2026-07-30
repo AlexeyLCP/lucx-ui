@@ -284,17 +284,17 @@ English · فارسی · العربية · 中文（简体） · 中文（繁體
 
 - [terraform-provider-3x-ui](https://github.com/batonogov/terraform-provider-threexui) (الترخيص: **MIT**): _إدارة الاتصالات الواردة والعملاء وإعدادات اللوحة وتكوين Xray كرمز باستخدام Terraform / OpenTofu._
 
-## دعم المشروع
+## ☕ دعم المشروع
 
-**إذا كان هذا المشروع مفيدًا لك، فقد ترغب في إعطائه**:star2:
+مشروع LucX-UI مجاني للاستخدام الشخصي وغير التجاري. إذا كانت اللوحة توفر لك الوقت، يمكنك دعم التطوير:
 
-<a href="https://www.buymeacoffee.com/MHSanaei" target="_blank">
-<img src="./media/default-yellow.png" alt="Buy Me A Coffee" style="height: 70px !important;width: 277px !important;" >
-</a>
-</br>
-<a href="https://nowpayments.io/donation/hsanaei" target="_blank" rel="noreferrer noopener">
-   <img src="./media/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
-</a>
+| الطريقة | التفاصيل |
+|---|---|
+| 🇷🇺 **YooMoney** (روبل، روسيا) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
+| 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+التبرعات هي شكر وتقدير وليست عملية شراء: فهي لا تمنح ترخيصاً تجارياً ولا تغير شروط [LICENSING.md](LICENSING.md).
 
 ## النجوم عبر الزمن
 

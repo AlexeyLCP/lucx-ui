@@ -284,18 +284,17 @@ Katkılarınızı her zaman bekliyoruz. Bir sorun (issue) açmadan veya pull req
 
 - [terraform-provider-3x-ui](https://github.com/batonogov/terraform-provider-threexui) (Lisans: **MIT**): _Gelen bağlantılarnı, kullanıcıları, panel ayarlarını ve Xray yapılandırmasını Terraform / OpenTofu ile kod olarak (as code) yönetin._
 
-## Projeyi Destekleyin
+## ☕ Projeyi Destekleyin
 
-**Eğer bu proje size faydalı olduysa, bir yıldız verebilirsiniz**:star2:
+LucX-UI kişisel ve ticari olmayan kullanım için ücretsizdir. Panel zaman kazanmanızı sağlıyorsa geliştirmeyi destekleyebilirsiniz:
 
-<a href="https://www.buymeacoffee.com/MHSanaei" target="_blank">
-<img src="./media/default-yellow.png" alt="Bana Bir Kahve Ismarla" style="height: 70px !important;width: 277px !important;" >
-</a>
+| Yöntem | Detaylar |
+|---|---|
+| 🇷🇺 **YooMoney** (RUB, Rusya) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
+| 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
 
-</br>
-<a href="https://nowpayments.io/donation/hsanaei" target="_blank" rel="noreferrer noopener">
-   <img src="./media/donation-button-black.svg" alt="NOWPayments üzerinden Kripto Bağış Butonu">
-</a>
+Bağışlar bir teşekkürdür, satın alma değildir: ticari lisans sağlamaz ve [LICENSING.md](LICENSING.md) şartlarını değiştirmez.
 
 ## Yıldız Tablosu
 

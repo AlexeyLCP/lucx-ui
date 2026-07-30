@@ -284,18 +284,17 @@ English · فارسی · العربية · 中文（简体） · 中文（繁體
 
 - [terraform-provider-3x-ui](https://github.com/batonogov/terraform-provider-threexui) (مجوز: **MIT**): _مدیریت اینباندها، کلاینت‌ها، تنظیمات پنل و پیکربندی Xray به‌صورت کد با Terraform / OpenTofu._
 
-## پشتیبانی از پروژه
+## ☕ حمایت از پروژه
 
-**اگر این پروژه برای شما مفید است، می‌توانید به آن یک**:star2: بدهید
+پروژه LucX-UI برای استفاده شخصی و غیرتجاری رایگان است. اگر این پنل به شما کمک کرده، می‌توانید از توسعه آن حمایت کنید:
 
-<a href="https://www.buymeacoffee.com/MHSanaei" target="_blank">
-<img src="./media/default-yellow.png" alt="Buy Me A Coffee" style="height: 70px !important;width: 277px !important;" >
-</a>
+| روش | جزئیات |
+|---|---|
+| 🇷🇺 **YooMoney** (روبل روسیه) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
+| 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
 
-</br>
-<a href="https://nowpayments.io/donation/hsanaei" target="_blank" rel="noreferrer noopener">
-   <img src="./media/donation-button-black.svg" alt="Crypto donation button by NOWPayments">
-</a>
+حمایت‌های مالی صرفاً جهت تشکر است و به منزله خرید یا اعطای مجوز تجاری نمی‌باشد و شرایط [LICENSING.md](LICENSING.md) را تغییر نمی‌دهد.
 
 ## ستاره‌ها در طول زمان
 
