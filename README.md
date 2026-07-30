@@ -18,7 +18,7 @@
 
 ## 🇷🇺 О проекте
 
-**LucX-UI** — форк [3x-ui](https://github.com/MHSanaei/3x-ui) (v3.5.0) с нативной поддержкой **AmneziaWG (AWG)**. AWG работает как kernel-interface сайдкар — в точности по той же архитектуре, по которой в апстриме устроен MTProto (mtg): панель управляет жизненным циклом, учитывает трафик, а Xray при желании маршрутизирует.
+**LucX-UI** — форк [3x-ui](https://github.com/MHSanaei/3x-ui) (v3.6.0) с нативной поддержкой **AmneziaWG (AWG)**. AWG работает как kernel-interface сайдкар — в точности по той же архитектуре, по которой в апстриме устроен MTProto (mtg): панель управляет жизненным циклом, учитывает трафик, а Xray при желании маршрутизирует.
 
 ### Что мы добавили — и что работает
 
@@ -82,7 +82,7 @@ LucX-UI бесплатен для личного и некоммерческог
 
 ## 🇬🇧 About
 
-**LucX-UI** is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (v3.5.0) with native **AmneziaWG (AWG)** support. AWG runs as a kernel-interface sidecar — mirroring the exact architecture upstream uses for MTProto (mtg): the panel owns the lifecycle and traffic accounting, and Xray can optionally route the traffic.
+**LucX-UI** is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (v3.6.0) with native **AmneziaWG (AWG)** support. AWG runs as a kernel-interface sidecar — mirroring the exact architecture upstream uses for MTProto (mtg): the panel owns the lifecycle and traffic accounting, and Xray can optionally route the traffic.
 
 ### What we added — and what works
 
