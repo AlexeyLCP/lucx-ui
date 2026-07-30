@@ -928,3 +928,24 @@ systemctl start x-ui
 - Тестеры (VladufQa, Kirill Rudenko) о v3.6.0 не уведомлены — обновляются сами через `x-ui update`.
 - `awgHpk`/`awgHpkHint`/`awgHpkPlaceholder` лежат непереведёнными в 11 локалях (тест не ловит — проверяется наличие ключа, не значение).
 - В «Благодарностях» README не упомянут 302ba (Alex) — автор влитого PR #24.
+- AWG3: мониторить merge `feat/awg3` → master в `amnezia-vpn/amneziawg-linux-kernel-module` + `amneziawg-tools`. Когда смержится — вернуть HPK в `generateObfuscation` ответ, снять гварды в `renderServerConf`/`renderClientConf`/`inboundAwgHints`, bump lucxVersion, релиз.
+
+---
+
+## Актуализация AGENTS.md (2026-07-30)
+
+Синхронизировал AGENTS.md с реальным состоянием после v3.6.0-lucx.49 (документ отставал на период v3.5.0 + lucx.37–47). Без код-изменений — только доки.
+
+**Что обновлено:**
+- **Шапка:** Active branch — `main`, миграция v3.6.0 завершена, релиз lucx.49 (было «v3.5.0 завершена»).
+- **Core Philosophy + Workflow step 4:** убрана ссылка «19 vs 9» (Known Issue #1 закрыт — core пакет на 9 файлах, паритет с mtproto); ветка v3.5.0 → v3.6.0.
+- **Rule 3 (Sidecar Architecture):** добавлены AWG outbound (`awgo-N`, `client_*.go`, `awg_outbound.go` controller/service, `RestartXray(true)` на мутациях, аллокация адресов с исключением tunnel IPs) и AWG3 forward-compat (`headerProtectionKey` поле — хранится везде, не пишется в .conf до merge `feat/awg3`).
+- **Rule 9 (Frontend):** добавлены `inbound-link.ts`, `wireguardConfig.ts` (`buildAwgClientConfig`), `ClientQrModal.tsx`, упоминание HPK в schema.
+- **Rule 10 (License):** список LucX-файлов расширен — `internal/awg/cps/`, `internal/awg/signature/`, `migrate_awg*.go` (вместо одного), `controller/awg_outbound.go`, `service/awg_outbound.go`, `bin/build-release.sh`.
+- **Architecture Map:** переписана под реальную структуру. Добавлены `client_instance.go`/`client_conf.go`/`client_manager.go` (outbound sidecar), `migrate_awg_outbound.go`/`migrate_awg_hpk.go`, `service/awg_outbound.go`, `controller/awg_outbound.go`. `controller/awg.go` помечен что HPK не отдаёт. `db.go` — добавлен вызов `pruneAwgHeaderProtectionKey`. `check-lucx.sh` — 49 файлов (было 37). `install-awg-module.sh` — HEAD clone (AWG3 подхватится при merge).
+- **Release секция:** пример `v3.5.0-lucx.1` → `v3.6.0-lucx.50`, добавлено правило «тег только после зелёного CI» (урок lucx.48).
+- **Known Issue #5 (новый):** AWG3 / `headerProtectionKey` forward-compat — полностью задокументирована регрессия lucx.47 → фикс lucx.49 (VladufQa: «после генерации обфускации трафик встал»), текущее состояние (3 уровня фикса), условие включения в production, урок про `generateObfuscation` endpoint.
+
+**Что НЕ трогал:** Test Commands, Frontend/Go Conventions, Debugging Patterns (Pattern 1–5 уже актуальны после v3.6.0 sync), Deploy/тестовые серверы (без изменений), Branch Protection (без изменений), Commit Convention (без изменений).
+
+Проверка: `grep -c "v3.5.0-lucx" AGENTS.md` → 0 (все примеры на v3.6.0); `headerProtectionKey` упоминается в Rule 3, Architecture Map, Known Issue #5.

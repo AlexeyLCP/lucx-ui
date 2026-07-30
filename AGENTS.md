@@ -14,7 +14,7 @@ LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.
 - `origin` → `MHSanaei/3x-ui` (upstream)
 - `gh` → `AlexeyLCP/lucx-ui` (our fork)
 
-**Active branch:** `main` (слит с `main`, миграция v3.5.0 завершена).
+**Active branch:** `main` (миграция v3.6.0 завершена, релиз v3.6.0-lucx.49; текущий `lucxVersion` смотри в `internal/config/config.go`).
 
 ---
 
@@ -23,7 +23,7 @@ LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.
 **Minimal invasion for easy upstream sync.** The goal is: every upstream release should be a near-trivial port. This means:
 - LucX code lives in isolated packages (`internal/awg/`, `internal/lucx/`), not scattered across upstream files.
 - Upstream files get ONLY `LUCX-HOOK` blocks — never free-form edits.
-- The AWG sidecar should be as thin as the MTProto sidecar. If mtproto does it in N files, AWG should aim for N too. (See Known Issue #1 — we're currently at 19 vs 9.)
+- The AWG sidecar should be as thin as the MTProto sidecar. If mtproto does it in N files, AWG should aim for N too. (Known Issue #1 is closed — core package is at 9 files, exact parity with mtproto.)
 
 **AWG sidecar = mtproto pattern.** AWG runs as a kernel-interface sidecar exactly symmetric with `internal/mtproto/`:
 
@@ -40,7 +40,7 @@ AWG:      awg kernel module        → IP   → TUN inbound             → Xray
 1. READ    → Read AGENTS.md, progress.md, git log --oneline -15, check latest state
 2. AUDIT   → Read all relevant files, trace data flow end-to-end
 3. PLAN    → Write a short plan: which files, what changes, what tests
-4. BRANCH  → Work on `main` (активная ветка, миграция v3.5.0 слита)
+4. BRANCH  → Work on `main` (активная ветка, миграция v3.6.0 слита)
 5. CODE    → Implement changes inside LUCX-HOOK blocks in upstream files;
              new code goes in internal/awg/ or internal/lucx/
 6. TEST    → Run tests:
@@ -120,6 +120,8 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 - **Controller** (`internal/web/controller/awg.go`): `generateObfuscation` + `captureHost` + `awgDiagnostics` API endpoints.
 - **NAT** (`internal/awg/platform_{linux,other}.go`): `defaultRouteInterface()` for MASQUERADE target.
 - **Inbound needRestart** (`internal/web/service/inbound.go`): `awgRoutesThroughXray` — needRestart on AddInbound/DelInbound/UpdateInbound/SetInboundEnable so Xray regenerates config when routeThroughXray toggles.
+- **AWG outbound** (`internal/awg/client_*.go` + `internal/web/{service,controller}/awg_outbound.go`): symmetric sidecar for chaining VPN-of-VPN. Each `awg_outbounds` row = one `awgo-N` kernel interface (client to an upstream AWG server) exposed as a freedom outbound with `sockopt.interface = awgo-N`. Manager: `EnsureClient`/`RemoveClient`/`SweepOrphanClients` (fingerprint-based restart, mirrors inbound Manager). Client .conf via `renderClientConf` (Table=off, no DNS, no I1-I5, no HPK-on-empty). Controller uses `RestartXray(true)` on mutations (hot-apply can't add a freedom outbound with sockopt.interface). Address allocation (`client_awg.go`) excludes AWG outbound tunnel IPs to avoid collision.
+- **AWG3 forward-compat** (`headerProtectionKey` field): stored across the pipeline (schema → Instance/ClientSettings → fingerprint → genAwgLink) but **never written to .conf and never emitted by generateObfuscation** until upstream `feat/awg3` merges to master. See Known Issue #5.
 
 ### 4. Paranoid Logging
 
@@ -170,7 +172,7 @@ Upstream rewrote the frontend from Vue to React + TypeScript + AntD v6 + Zod. AW
 
 ### 10. License
 
-LucX-UI components (`internal/awg/`, `internal/lucx/`, `internal/database/migrate_awg.go`, `internal/web/controller/awg.go`, `internal/web/job/awg_job.go`, `internal/web/service/client_awg.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`, `frontend/src/pages/clients/wireguardConfig.ts`, `bin/install-awg-module.sh`, `bin/check-lucx.sh`, `bin/pre-push`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author.
+LucX-UI components (`internal/awg/`, `internal/awg/cps/`, `internal/awg/signature/`, `internal/lucx/`, `internal/database/migrate_awg*.go`, `internal/web/controller/awg.go`, `internal/web/controller/awg_outbound.go`, `internal/web/job/awg_job.go`, `internal/web/service/client_awg.go`, `internal/web/service/awg_outbound.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`, `frontend/src/pages/clients/wireguardConfig.ts`, `bin/install-awg-module.sh`, `bin/check-lucx.sh`, `bin/pre-push`, `bin/build-release.sh`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author.
 
 Original 3x-ui code remains under GPL-3.0.
 
@@ -181,16 +183,17 @@ Original 3x-ui code remains under GPL-3.0.
 ## Architecture Map
 
 ```
-internal/awg/                      AWG sidecar (mirrors internal/mtproto/ — 6 source + 3 test, exact parity)
+internal/awg/                      AWG sidecar — INBOUND (mirrors internal/mtproto/) + OUTBOUND (awgo-N clients)
 ├── manager.go                     Manager singleton: Ensure/Reconcile/StopAll/CollectTraffic/SyncPeers + renderServerConf/writeServerConfigFile + natPostUpPostDown + ensureXrayRouting + ensureNatRules/natRulesFor + Traffic/PeerTraffic/scrapePeers (one `awg show dump` per iface: counters + handshakes)
 ├── process.go                     Process wrapping awg-quick up/down + procLogWriter + awgConfigDir + awgQuick
-├── instance.go                    Instance + InstanceFromInbound + fingerprint + PeerSpec
+├── instance.go                    Instance + InstanceFromInbound + fingerprint + PeerSpec (server-side desired state for awgN)
 ├── diagnostics.go                 Diagnose(inst) — read-only probe chain (interface/ip_forward/peers/NAT or TUN rules), prober interface, DiagCheck/Diagnostics
 ├── platform_linux.go              defaultRouteInterface() + killStrayAwgInterfaces (was nat_linux + orphans_linux)
 ├── platform_other.go              no-ops off Linux
-├── instance_test.go               Instance/fingerprint/render/NAT tests
-├── manager_test.go                Manager state-machine tests
-└── diagnostics_test.go            diagnose() with fake prober + parsers (route iface, handshakes)
+├── client_instance.go             ClientInstance + ClientSettings + ClientInstanceFromOutbound + fingerprint (desired state for awgo-N outbounds)
+├── client_conf.go                 renderClientConf — awg-quick .conf for an awgo-N outbound (Table=off, no DNS, no I1-I5, no HPK-on-empty)
+├── client_manager.go              outbound client manager: EnsureClient/RemoveClient/SweepOrphanClients (fingerprint-based restart)
+├── *_test.go                      instance/manager/diagnostics/client_conf/client_instance/client_manager/platform tests
 
 internal/awg/cps/                  CPS packet generators (TLS/DNS/SIP/QUIC) + AWGParams
 ├── cps.go                         GenerateCPS + tlsPacket (Chrome/Firefox/Safari) + buildChromeHello/buildFirefoxHello/buildSafariHello + DNS/SIP/QUIC packet builders (quicInitialPacket respects browserProfile)
@@ -209,33 +212,39 @@ internal/lucx/                     Smart Cluster
 
 internal/database/
 ├── migrate_awg.go                 pruneLegacyAwgHiddenChildren + stripHiddenKeys
-└── migrate_awg_test.go            stripHiddenKeys unit tests
+├── migrate_awg_outbound.go        outbound-side migration (stripHiddenKeys for awg_outbounds)
+├── migrate_awg_hpk.go             pruneAwgHeaderProtectionKey — clears non-empty HPK (regression from lucx.47; see Known Issue #5)
+└── migrate_awg*_test.go           unit tests
 
 internal/web/
 ├── runtime/local.go               AWG delegation in AddInbound/DelInbound (LUCX-HOOK)
-├── job/awg_job.go                 AwgJob cron — Reconcile + CollectTraffic (inbound + per-client + online) + pubkey→email mapping
-├── service/xray.go                injectAwgEgress (TUN inbound + per-inbound gateway + sniffing) + AWG exclusion + ensureAwgRouting (post-restart route restore) (LUCX-HOOK)
-├── service/inbound.go             awgRoutesThroughXray + needRestart (LUCX-HOOK) + inboundAwgHints
-├── service/client_awg.go          defaultAwgClients — keypair + PSK + address allocation
-├── service/xray_config_inject_test.go  injectAwgEgress tests (gateway, sniffing, outboundTag)
-├── controller/awg.go               generateObfuscation + captureHost + awgDiagnostics API endpoints (LUCX-HOOK)
-└── web.go                         cadenceAwg + StopAll wiring (LUCX-HOOK)
+├── job/awg_job.go                 AwgJob cron — Reconcile + CollectTraffic (inbound + per-client + online) + pubkey→email mapping + outbound client reconcile
+├── service/xray.go                injectAwgEgress (TUN inbound + per-inbound gateway + sniffing) + injectAwgOutbounds (freedom per awgo-N with sockopt.interface) + AWG exclusion + ensureAwgRouting (post-restart route restore) (LUCX-HOOK)
+├── service/inbound.go             awgRoutesThroughXray + needRestart (LUCX-HOOK) + inboundAwgHints (pre-renders Jc/S/H/I block + HeaderProtectionKey for client .conf)
+├── service/client_awg.go          defaultAwgClients — keypair + PSK + address allocation (excludes AWG outbound tunnel IPs)
+├── service/awg_outbound.go        AwgOutboundService — CRUD + parseConf + ActiveOutboundTags/ActiveOutboundAddresses (collision guard)
+├── controller/awg.go              generateObfuscation + captureHost + awgDiagnostics API endpoints (LUCX-HOOK). HPK is intentionally NOT emitted (Known Issue #5).
+├── controller/awg_outbound.go     AWG outbound CRUD + parseConf + test endpoints; RestartXray(true) on add/del/update/enable (hot-apply can't add freedom with sockopt.interface)
+├── web.go                         cadenceAwg + StopAll wiring (LUCX-HOOK)
 
 internal/database/model/model.go   AWG Protocol const + validate oneof (LUCX-HOOK)
-internal/database/db.go            pruneLegacyAwgHiddenChildren call (LUCX-HOOK)
+internal/database/db.go            pruneLegacyAwgHiddenChildren + pruneAwgHeaderProtectionKey calls (LUCX-HOOK)
 
 frontend/src/
-├── schemas/protocols/inbound/awg.ts        AwgInboundSettingsSchema (Zod)
-├── pages/inbounds/form/protocols/awg.tsx   AwgFields (React + AntD) + diagnostics modal
+├── schemas/protocols/inbound/awg.ts        AwgInboundSettingsSchema (Zod) — includes headerProtectionKey (AWG3 forward-compat)
+├── pages/inbounds/form/protocols/awg.tsx   AwgFields (React + AntD) + diagnostics modal + HPK field (obfLevel 3)
 ├── pages/inbounds/form/awg-inbound-id-context.ts  editing inbound id provider for diagnostics (LUCX)
 ├── pages/inbounds/form/InboundFormModal.tsx       AwgInboundIdProvider wrap (LUCX-HOOK)
-├── lib/xray/inbound-defaults.ts            createDefaultAwgInboundSettings (LUCX-HOOK)
+├── lib/xray/inbound-defaults.ts            createDefaultAwgInboundSettings (LUCX-HOOK) — HPK defaults to ''
+├── lib/xray/inbound-link.ts                genAwgLink/genAwgConfig (share-link + .conf, I1-I5 as-is)
+├── pages/clients/wireguardConfig.ts        buildAwgClientConfig (full client .conf, reads pre-rendered awgObfuscation block)
+├── pages/clients/ClientQrModal.tsx         AWG panel with QR + download
 ├── schemas/protocols/inbound/index.ts      InboundSettingsSchema union (LUCX-HOOK)
 ├── schemas/primitives/protocol.ts          ProtocolSchema + Protocols map (LUCX-HOOK)
 └── pages/inbounds/form/protocols/index.ts  AwgFields export (LUCX-HOOK)
 
-bin/install-awg-module.sh          DKMS build of amneziawg kernel module + tools
-bin/check-lucx.sh                  gofumpt check for LucX files (37) — run before push; -w autofixes
+bin/install-awg-module.sh          DKMS build of amneziawg kernel module + tools (HEAD of upstream master; AWG3 lands when feat/awg3 merges)
+bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes
 bin/pre-push                       git hook: check-lucx + fast go tests + PR/issues guard (AGENTS.md 11.5)
 install.sh                         Calls bin/install-awg-module.sh (LUCX-HOOK)
 LICENSING.md                       GPL-3.0 / PolyForm-NC split documentation
@@ -297,16 +306,18 @@ CGO-бинарник (mattn/go-sqlite3) нельзя cross-compile с Windows �
 curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/bin/build-release.sh | bash
 # → /tmp/x-ui-linux-amd64.tar.gz
 
-# 2. Создать GitHub-релиз (нужен gh CLI с auth)
-gh release create v3.5.0-lucx.1 /tmp/x-ui-linux-amd64.tar.gz \
+# 2. Создать GitHub-релиз (нужен gh CLI с auth). ВЕРСИЯ = база апстрима + lucx.N
+gh release create v3.6.0-lucx.50 /tmp/x-ui-linux-amd64.tar.gz \
   --repo AlexeyLCP/lucx-ui \
-  --title "v3.5.0-lucx.1" \
-  --notes "LucX-UI v3.5.0 с AWG-сайдкаром"
+  --title "v3.6.0-lucx.50" \
+  --notes "LucX-UI v3.6.0 с AWG-сайдкаром (см. progress.md)"
 
 # 3. Установить панель (на этом или другом VPS)
 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
 # → скачает наш релиз, поставит x-ui + systemd + Xray + mtg + fail2ban + AWG-модуль
 ```
+
+> Тег ставится **только после зелёного CI на main** (урок lucx.48: первый тег уехал до CI-фиксов, пришлось удалять релиз и переставлять тег). `lucxVersion` в `internal/config/config.go` должен совпадать с суффиксом тега — CI guard ловит расхождение.
 
 ### Зависимости VPS для сборки
 - Go 1.23+ (рекомендуется 1.26)
@@ -378,7 +389,24 @@ AWG routeThroughXray **принципиально сложнее** mtproto из-
 
 Not to re-add: tun2socks (заменено TUN inbound), DNS в серверный .conf (ломает системный DNS), фиксированные table 100 + gateway 10.254.254.1/30 (ломают мульти-инбаунд).
 
-**Post-restart window (ЗАКРЫТО 2026-07-19):** рестарт Xray (кнопка в панели) убивал tunN и маршрут `default dev tunN table 1000+N` до следующего тика AWG reconcile-cron (до 10 с routed-клиенты без интернета; «повторный выбор outbound» просто триггерил reconcile раньше cron'а). Фикс: `ensureAwgRouting()` в `RestartXray` сразу после `p.Start()` — маршрут восстанавливается синхронно с появлением нового tunN.
+**Post-restart window (ЗАКРЫТО 2026-07-19):** рестарт Xray (кнопка в панели) убивал tunN и маршрут `default dev tunN table 1000+N` до следующего тика AWG reconcile-cron (до 10 с routed-клиенты без интернета; «повторный выбор outbound» просто триггерил reconcile раньше cron'а). Фикс: `ensureAwgRouting()` в `RestartXray` сразу после `p.Start()` — маршрут восстанавливается синхронно с появлением нового tunN. Проверено на v3.6.0-lucx.48/test2: после `systemctl restart x-ui` на t+8s маршрут на месте, ping 0% loss.
+
+### 5. AWG3 (AmneziaWG 3) — forward-compat поле `headerProtectionKey`
+
+Upstream `amnezia-vpn/amneziawg-linux-kernel-module` имеет ветку **`feat/awg3`** (не слита в master). 24 июля 2026 туда добавлен `WGDEVICE_A_HEADER_PROTECTION_KEY` — 32-byte ChaCha20 symmetric key, base64 (формат WireGuard-ключа). В `.conf` парсится как `HeaderProtectionKey` (`amneziawg-tools` ветка feat/awg3, `parse_key`). AWG3-клиенты уже вышли: `amneziawg-android` v3.0.1 (24 июля), AmneziaVPN desktop v5.0.0.5 (26 июля) — обе с «AWG 3 support».
+
+LucX-UI (с lucx.47) хранит `headerProtectionKey` во всём пайплайне (Zod schema, форма obfLevel 3, Instance/ClientSettings structs, fingerprint, genAwgLink query param, sub `amneziawg://` share-link) — **forward-compat**: когда `feat/awg3` смержится в master, `install-awg-module.sh` (HEAD clone) потянет поддержку автоматически, и оператор сможет заполнить HPK.
+
+**⚠️ Регрессия lucx.47 → фикс lucx.49 (важно для следующих релизов):** `generateObfuscation` (`controller/awg.go`) изначально **всегда** возвращал свежий HPK. Фронтовый `regenerateObfuscation` пишет ВСЕ поля ответа в форму (`Object.entries(obf).forEach(setValue)`) → ключ попадал в settings → в .conf. Master-модуль не парсит `HeaderProtectionKey` → `awg setconf`: `Line unrecognized` → `awg-quick` откатывает интерфейс → reconcile падает каждые 10 с. Тестер VladufQa поймал это вживую: «после генерации обфускации трафик встал».
+
+**Текущее состояние (lucx.49):**
+1. `generateObfuscation` **НЕ** отдаёт `headerProtectionKey` (именно отсутствие поля, не `""` — чтобы не затирать ручное значение оператора на AWG3-модуле).
+2. Рендереры `renderServerConf`/`renderClientConf`/`inboundAwgHints` **никогда** не пишут HPK (тот же принцип что для I1-I5 — CLIENT-ONLY).
+3. Миграция `pruneAwgHeaderProtectionKey` (`migrate_awg_hpk.go`) вычищает непустой HPK из AWG-инбаундов и `awg_outbounds` у пострадавших.
+
+**Когда включать HPK в production:** после merge `feat/awg3` → master в kernel module + tools. Тогда вернуть HPK в `generateObfuscation` ответ и снять гварды в рендерерах (см. TODO в `client_conf.go`/`manager.go`). До merge — поле в schema остаётся, но всегда пустое/невидимое в .conf.
+
+**Урок:** «Regenerate obfuscation» молча пишет в форму всё, что вернул backend. Любое новое поле без поддержки в текущем ядре → краш reconcile. Не возвращать из endpoint'а поля, которые не поддерживаются рантаймом.
 
 ---
 
