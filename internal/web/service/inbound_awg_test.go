@@ -134,24 +134,30 @@ func TestSetInboundEnable_DisableRoutedAwgForcesXrayRegen(t *testing.T) {
 	}
 }
 
-// TestInboundAwgHints_HeaderProtectionKey verifies the AWG3 header protection
-// key flows into the pre-rendered obfuscation block that the frontend client
-// .conf path consumes. Empty HPK must be omitted (the current master kernel
-// module rejects the unknown field in setconf); a set HPK must appear as a
-// `HeaderProtectionKey = <value>` line.
-func TestInboundAwgHints_HeaderProtectionKey(t *testing.T) {
-	t.Run("omitted when empty", func(t *testing.T) {
-		settings := `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000"}`
-		_, obf := inboundAwgHints(settings)
-		if strings.Contains(obf, "HeaderProtectionKey =") {
-			t.Errorf("HeaderProtectionKey must be omitted when empty, got:\n%s", obf)
-		}
-	})
-	t.Run("written when set", func(t *testing.T) {
-		settings := `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000","headerProtectionKey":"aBcD...base64hpk=="}`
-		_, obf := inboundAwgHints(settings)
-		if !strings.Contains(obf, "HeaderProtectionKey = aBcD...base64hpk==") {
-			t.Errorf("HeaderProtectionKey must appear when set, got:\n%s", obf)
-		}
-	})
+// TestInboundAwgHints_NeverEmitsHeaderProtectionKey pins the AWG3 header
+// protection key out of the obfuscation block the clients page renders into a
+// downloadable .conf. AmneziaVPN feeds that file to the same amneziawg tooling,
+// whose master build rejects the whole config with "Line unrecognized", so the
+// line must never be emitted — set or not. The value stays in Settings for
+// forward-compat with the feat/awg3 module.
+func TestInboundAwgHints_NeverEmitsHeaderProtectionKey(t *testing.T) {
+	const base = `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000"`
+	for _, tc := range []struct {
+		name     string
+		settings string
+	}{
+		{"absent", base + `}`},
+		{"empty", base + `,"headerProtectionKey":""}`},
+		{"set", base + `,"headerProtectionKey":"aBcD...base64hpk=="}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf := inboundAwgHints(tc.settings)
+			if strings.Contains(obf, "HeaderProtectionKey") {
+				t.Errorf("HeaderProtectionKey must never appear in the client obfuscation block, got:\n%s", obf)
+			}
+			if !strings.Contains(obf, "Jc = 8") {
+				t.Errorf("the rest of the obfuscation block must survive, got:\n%s", obf)
+			}
+		})
+	}
 }

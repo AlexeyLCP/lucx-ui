@@ -211,22 +211,30 @@ func TestRenderServerConf_NeverWritesDNS(t *testing.T) {
 	}
 }
 
-func TestRenderServerConf_HeaderProtectionKeyOmittedWhenEmpty(t *testing.T) {
-	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5}
-	conf := renderServerConf(inst)
-	if strings.Contains(conf, "HeaderProtectionKey =") {
-		t.Errorf("HeaderProtectionKey must be omitted when empty (current master module rejects it), got:\n%s", conf)
-	}
-}
-
-func TestRenderServerConf_HeaderProtectionKeyWrittenWhenSet(t *testing.T) {
-	inst := Instance{
-		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5,
-		HeaderProtectionKey: "aBcD...base64hpk==",
-	}
-	conf := renderServerConf(inst)
-	if !strings.Contains(conf, "HeaderProtectionKey = aBcD...base64hpk==") {
-		t.Errorf("HeaderProtectionKey must appear in server .conf when set, got:\n%s", conf)
+// The master amneziawg kernel module has no parser for HeaderProtectionKey:
+// the line makes `awg setconf` abort with "Line unrecognized" +
+// "Configuration parsing error", awg-quick deletes the half-built interface and
+// reconcile then fails every 10s, so the inbound never serves traffic. The
+// field must therefore never reach the server .conf, set or not — same rule as
+// I1-I5. It stays in Instance for forward-compat with the feat/awg3 module.
+func TestRenderServerConf_NeverWritesHeaderProtectionKey(t *testing.T) {
+	for _, tc := range []struct {
+		name string
+		hpk  string
+	}{
+		{"empty", ""},
+		{"set", "aBcD...base64hpk=="},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			inst := Instance{
+				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5,
+				HeaderProtectionKey: tc.hpk,
+			}
+			conf := renderServerConf(inst)
+			if strings.Contains(conf, "HeaderProtectionKey") {
+				t.Errorf("HeaderProtectionKey must never appear in server .conf, got:\n%s", conf)
+			}
+		})
 	}
 }
 

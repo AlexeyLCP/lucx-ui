@@ -150,6 +150,12 @@ func initModels() error {
 	if err := pruneLegacyAwgHiddenChildren(); err != nil {
 		return err
 	}
+	// Clear headerProtectionKey values written by lucx.47's generate-obfuscation
+	// button: the current kernel module rejects the field and the interface
+	// never comes up. No-op unless a stored value is actually present.
+	if err := pruneAwgHeaderProtectionKey(); err != nil {
+		return err
+	}
 	// END LUCX-HOOK
 	if IsPostgres() {
 		if err := resyncPostgresSequences(db, models); err != nil {

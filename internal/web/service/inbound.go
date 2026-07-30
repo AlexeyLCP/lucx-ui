@@ -517,12 +517,11 @@ func inboundAwgHints(settings string) (address string, obfuscation string) {
 			fmt.Fprintf(&out, "I%s = %s\n", ip.idx, ip.val)
 		}
 	}
-	// AWG3 header protection key — only when non-empty (guard matches
-	// renderServerConf/renderClientConf: the current master kernel module
-	// rejects the unknown field in setconf).
-	if s.HeaderProtectionKey != "" {
-		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
-	}
+	// HeaderProtectionKey (AWG3) is NEVER emitted, matching
+	// renderServerConf/renderClientConf. AmneziaVPN clients feed the .conf to
+	// the same amneziawg tooling, whose master build has no parser for the
+	// field and rejects the whole config with "Line unrecognized". Kept in
+	// Settings for forward-compat; restore once feat/awg3 lands in master.
 	return s.Address, out.String()
 }
 

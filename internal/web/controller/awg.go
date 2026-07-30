@@ -14,7 +14,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/cps"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/signature"
-	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
 )
 
 // awgGenerateObfuscationRequest is the body the AWG inbound form posts to
@@ -91,11 +90,18 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		"i3":   cpsResult.I3,
 		"i4":   cpsResult.I4,
 		"i5":   cpsResult.I5,
-		// AWG3 header protection key — 32-byte ChaCha20 symmetric key, base64
-		// (same format as a WireGuard private key). Forward-compat for the
-		// feat/awg3 kernel module branch; the current master module ignores it
-		// (the .conf renderer omits the line when empty).
-		"headerProtectionKey": random.Base64Bytes(32),
+		// headerProtectionKey is deliberately NOT returned. It used to be
+		// generated here as AWG3 forward-compat, but the current master
+		// amneziawg kernel module does not parse `HeaderProtectionKey` in
+		// setconf: the line makes `awg setconf` abort with "Line unrecognized"
+		// + "Configuration parsing error", awg-quick deletes the half-built
+		// interface, and the inbound never comes up (reconcile then fails every
+		// 10s). The form writes every key of this response into the inbound
+		// settings, so returning the key at all was enough to break traffic for
+		// anyone who pressed "generate obfuscation" (reported live by tester
+		// VladufQa). Omitting the key — rather than returning "" — also leaves a
+		// value an AWG3-module operator typed in by hand untouched, because the
+		// form only overwrites fields present in the response.
 	}, nil)
 }
 

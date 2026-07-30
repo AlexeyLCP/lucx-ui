@@ -572,15 +572,17 @@ func renderServerConf(inst Instance) string {
 	fmt.Fprintf(&b, "H2 = %s\n", inst.H2)
 	fmt.Fprintf(&b, "H3 = %s\n", inst.H3)
 	fmt.Fprintf(&b, "H4 = %s\n", inst.H4)
-	// AWG3 (AmneziaWG 3) header protection key — only written when non-empty.
-	// The current upstream master kernel module does not parse
-	// `HeaderProtectionKey` in setconf, so writing it unconditionally would
-	// make awg setconf reject the config and break reconcile every 10s. The
-	// feat/awg3 branch adds the parser; once it merges to master this guard
-	// becomes a no-op (the field is always populated when AWG3 is enabled).
-	if inst.HeaderProtectionKey != "" {
-		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", inst.HeaderProtectionKey)
-	}
+	// HeaderProtectionKey (AWG3) is NEVER written, even when set in Settings —
+	// same class of problem as I1-I5 below. The current upstream master kernel
+	// module has no parser for the field: `awg setconf` aborts with "Line
+	// unrecognized: `HeaderProtectionKey=...`" + "Configuration parsing error",
+	// awg-quick deletes the half-built interface, and reconcile then fails
+	// every 10s so the inbound never serves traffic (reproduced on test2 with
+	// module 1.0.20260611 / tools v1.0.20260618-2). Guarding on non-empty was
+	// not enough: the generate-obfuscation endpoint used to hand the form a
+	// fresh key, which is exactly how a tester lost traffic. The field stays in
+	// Instance/Settings/the Zod schema for forward-compat; restore this line
+	// once feat/awg3 lands in the master module.
 	// I1-I5 (CPS packets) are CLIENT-ONLY — the server does not use them.
 	// Writing I1-I5 to the server .conf crashes awg setconf ("Invalid
 	// argument") because the kernel amneziawg module does not accept CPS
