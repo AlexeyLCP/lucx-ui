@@ -893,6 +893,34 @@ systemctl start x-ui
 
 ---
 
+## Релиз v3.6.0-lucx.49 (2026-07-30) — HeaderProtectionKey ломал awg setconf
+
+**Репорт VladufQa:** после клика «Сгенерировать обфускацию» в .conf появилась строка `HeaderProtectionKey =`, трафик встал. Тестер починил сам, удалив эту строку — точное подтверждение диагноза.
+
+### Root cause
+
+Регрессия из lucx.47 (коммит `25a162ac`, «forward-compat для AWG3»). `generateObfuscation` (`internal/web/controller/awg.go`) **всегда** отдавал свежий `headerProtectionKey: random.Base64Bytes(32)`. Фронт (`regenerateObfuscation` в `awg.tsx`) пишет ВСЕ поля ответа в форму (`Object.entries(obf).forEach(setValue)`), ключ попадал в settings → в .conf. Master-модуль amneziawg (1.0.20260611) **не парсит** это поле (только ветка feat/awg3) → `awg setconf`: `Line unrecognized` + `Configuration parsing error` → `awg-quick` удаляет недособранный интерфейс → reconcile падает каждые 10 с. Воспроизведено на test2 в изоляции: без строки — UP, со строкой — `Line unrecognized` и откат.
+
+### Фикс (три уровня)
+
+1. **Источник:** `generateObfuscation` больше не отдаёт `headerProtectionKey` (именно отсутствие поля, не `""` — чтобы цикл `Object.entries` не затёр ручное значение оператора на AWG3-модуле). Убран неиспользуемый импорт `random`.
+2. **Рендереры:** `renderServerConf` (`manager.go`), `renderClientConf` (`client_conf.go`), `inboundAwgHints` (`inbound.go`) НИКОГДА не пишут строку HPK — тот же подход, что уже был для I1-I5 (CLIENT-ONLY, крашат setconf). Поле остаётся в Settings/схеме для forward-compat — вернуть строку, когда feat/awg3 попадёт в master.
+3. **Миграция** `pruneAwgHeaderProtectionKey` (`migrate_awg_hpk.go`, вызов в `db.go` в LUCX-HOOK): вычищает непустой ключ из AWG-инбаундов и `awg_outbounds` у пострадавших. Идемпотентна, no-op на чистой БД. Значение → `""` (не delete, чтобы сохранить форму под Zod).
+
+### Проверка миграции на «отравленной» БД (точный сценарий VladufQa)
+
+Вписал фейковый `headerProtectionKey` в живой AWG-инбаунд на test2 → restart → миграция вычистила (`"headerProtectionKey":""`), лог `[LUCX-AWG] migration: cleared headerProtectionKey from AWG inbound 3`, awg3 поднялся, в `.conf` ключа нет, 0 reconcile-failures.
+
+### Процесс
+
+`lucxVersion` → `lucx.49`, коммит `141a4dff`, тег `v3.6.0-lucx.49` ПОСЛЕ зелёного CI (8/8 job). Release success, `/releases/latest` → `v3.6.0-lucx.49`. Деплой на test2: `3.6.0-lucx.48` → `3.6.0-lucx.49`, AWG работает, 0 ошибок. Бэкап `/root/lucx-backup-20260730-090129/`.
+
+**Урок:** кнопка «Сгенерировать» молча писала в форму всё, что вернул backend, включая поля без поддержки в текущем ядре. UX-фикс формы решили не делать («пока всё норм»); первопричина закрыта на backend.
+
+**lucxVersion** → `lucx.49`.
+
+---
+
 ## Осталось
 
 - Полный API-тест AWG-outbound эндпоинтов с живой сессией (list/add/update/del/enable/status/test/parseConf) — требует пароля панели, делать вручную через UI.
