@@ -710,31 +710,21 @@ PostDown = iptables -t nat -D POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE; 
 
 **lucxVersion** → `lucx.37` (lucx.36 был промежуточный — тот же код без parseClientDump fix).
 
-**Деплой на test2:** lucx.35 → lucx.36 (первый деплой фичи) → lucx.37 (parseClientDump fix). Сервис active, awg1 цел, awgo-1 работает.
-
+**Деплой на test2:** lucx.35 →
 ---
 
-## Заметки
+## Рефакторинг README — многостраничная навигация и перенос на EN (2026-07-30)
 
-- v3.5.0 релиз 2026-07-12 (вчера)
-- 228 коммитов между v3.3.1 и v3.5.0
-- 41 LUCX-HOOK маркер на старой ветке
-- Все 8 upstream-файлов с HOOK-маркерами изменились между v3.3.1 и v3.5.0 — требуется ручное восстановление
-- Тесты AWG на старой ветке проходят: `go test ./internal/awg/... → ok 2.212s`
+**Контекст:** Главная страница `README.md` была гибридной — содержала сразу два блока `## 🇷🇺 О проекте` и `## 🇬🇧 About`. Переделали по схеме многостраничной документации 3x-ui.
 
----
+**Что сделано:**
+- **`README.md` (Главный README):** переведён полностью на **английский язык** (`## About LucX-UI`). В шапку добавлена панель переключения языков (`English | Русский | فارسی | العربية | 中文 | Español | Türkçe`).
+- **`README.ru_RU.md` (Русский README):** в шапку добавлен блок `LUCX-HOOK` с русской презентацией LucX-UI (`## О проекте LucX-UI`, возможности, установка, лицензия, благодарности, донаты), предупреждающим баннером и той же языковой панелью навигации.
+- **`README.*.md` (Остальные языковые файлы):** ссылки в переключателе языков приведены к единообразным относительным путям (`README.md`, `README.ru_RU.md` и т.д.).
+- **Благодарности:** добавлен **302ba (Alex)** (автор PR #24 за фикс Zod-схемы клиента) в списки благодарностей на английском и русском языках.
 
-## Релиз v3.5.0-lucx.38 (2026-07-20) — fix AWG Outbound reconcile crash
-
-**Контекст.** Репорт VladufQa в Telegram (20.07 16:55/17:22): awgo-2 reconcile failed every 10s с exit status 1, `awg setconf awgo-2 /dev/fd/63` → interface rollback. Отдельно: awgo-3 ping 1.1.1.1 failed при статусе Up.
-
-**Root cause #1 (reconcile crash):** I1-I5 (CPS-теги) писались в `renderClientConf`, но kernel amneziawg module **не принимает** CPS-теги в setconf-вводе — `awg setconf` падает с "Invalid argument" → awg-quick откатывает интерфейс. Тот же баг, что уже зафиксирован для серверного .conf (`renderServerConf` документировал это в комментарии, но симметрия была нарушена при добавлении `renderClientConf`).
-
-**Фикс:** I1-I5 **never** не пишутся в .conf (ни серверный, ни клиентский), даже когда заданы в Settings JSON. CPS-теги остаются в Settings для будущей userspace реализации. Регресс-тест `TestRenderClientConf_NoI1toI5`.
-
-**Root cause #2 (ping failed при Up):** не баг панели — handshake прошёл (статус Up корректен), но upstream-сервер не роутит тестовый target (1.1.1.1) обратно. Проблема на стороне upstream (NAT/routing/AllowedIPs). Наш `Test` честно репортит `ping failed`.
-
-**Процесс:** `lucxVersion` bump → `lucx.38`, тесты зелёные, коммит `2b264a89`, тег `v3.5.0-lucx.38`. CI release success. Деплой на test2 (stop, бэкап `x-ui.bak-lucx37`, замена, start): active, `awgo-1.conf` без I1-I5 (только `Table = off`), ноль reconcile fails в логах, awgo-1 UP (loopback к awg1).
+Файлы: `README.md`, `README.ru_RU.md`, `README.ar_EG.md`, `README.es_ES.md`, `README.fa_IR.md`, `README.tr_TR.md`, `README.zh_CN.md`.
+ve, `awgo-1.conf` без I1-I5 (только `Table = off`), ноль reconcile fails в логах, awgo-1 UP (loopback к awg1).
 
 **lucxVersion** → `lucx.38`.
 
@@ -949,3 +939,18 @@ systemctl start x-ui
 **Что НЕ трогал:** Test Commands, Frontend/Go Conventions, Debugging Patterns (Pattern 1–5 уже актуальны после v3.6.0 sync), Deploy/тестовые серверы (без изменений), Branch Protection (без изменений), Commit Convention (без изменений).
 
 Проверка: `grep -c "v3.5.0-lucx" AGENTS.md` → 0 (все примеры на v3.6.0); `headerProtectionKey` упоминается в Rule 3, Architecture Map, Known Issue #5.
+
+---
+
+## Рефакторинг README — многостраничная навигация и перенос на EN (2026-07-30)
+
+**Контекст:** Главная страница `README.md` была гибридной — содержала сразу два блока `## 🇷🇺 О проекте` и `## 🇬🇧 About`. Переделали по схеме многостраничной документации 3x-ui.
+
+**Что сделано:**
+- **`README.md` (Главный README):** переведён полностью на **английский язык** (`## About LucX-UI`). В шапку добавлена панель переключения языков (`English | Русский | فارسی | العربية | 中文 | Español | Türkçe`).
+- **`README.ru_RU.md` (Русский README):** в шапку добавлен блок `LUCX-HOOK` с русской презентацией LucX-UI (`## О проекте LucX-UI`, возможности, установка, лицензия, благодарности, донаты), предупреждающим баннером и той же языковой панелью навигации.
+- **`README.*.md` (Остальные языковые файлы):** ссылки в переключателе языков приведены к единообразным относительным путям (`README.md`, `README.ru_RU.md` и т.д.).
+- **Благодарности:** добавлен **302ba (Alex)** (автор PR #24 за фикс Zod-схемы клиента) в списки благодарностей на английском и русском языках.
+
+Файлы: `README.md`, `README.ru_RU.md`, `README.ar_EG.md`, `README.es_ES.md`, `README.fa_IR.md`, `README.tr_TR.md`, `README.zh_CN.md`.
+

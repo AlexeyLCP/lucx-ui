@@ -1,4 +1,100 @@
-[English](/README.md) | [فارسی](/README.fa_IR.md) | [العربية](/README.ar_EG.md) | [中文](/README.zh_CN.md) | [Español](/README.es_ES.md) | [Русский](/README.ru_RU.md) | [Türkçe](/README.tr_TR.md)
+<!-- LUCX-HOOK: LucX-UI fork README — RU lead section, license, credits, sources. Keep in sync with LICENSING.md and AGENTS.md. -->
+# LucX-UI
+
+<p align="center">
+  <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
+  <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
+  <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
+  <a href="LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> |
+  <b>Русский</b> |
+  <a href="README.fa_IR.md">فارسی</a> |
+  <a href="README.ar_EG.md">العربية</a> |
+  <a href="README.zh_CN.md">中文</a> |
+  <a href="README.es_ES.md">Español</a> |
+  <a href="README.tr_TR.md">Türkçe</a>
+</p>
+
+> [!WARNING]
+> **Только для личного, некоммерческого, научного, исследовательского и образовательного использования.** Коммерческое использование — включая перепродажу VPN-доступа, платные панели и подписки, построенные на этом коде, — только с явного письменного разрешения автора. Не используйте в противоправных целях.
+
+---
+
+## О проекте LucX-UI
+
+**LucX-UI** — форк [3x-ui](https://github.com/MHSanaei/3x-ui) (v3.6.0) с нативной поддержкой **AmneziaWG (AWG)**. AWG работает как kernel-interface сайдкар — в точности по той же архитектуре, по которой в апстриме устроен MTProto (mtg): панель управляет жизненным циклом, учитывает трафик, а Xray при желании маршрутизирует.
+
+### Что мы добавили — и что работает
+
+- ✅ **AWG-инбаунды** — kernel-сайдкар на `awg-quick`: создание, reconcile каждые 10 секунд, подчистка осиротевших интерфейсов, DKMS-установщик модуля ядра.
+- ✅ **AWG-аутбаунды (клиентский режим)** — панель сама подключается к upstream AmneziaWG-серверу: своя вкладка в разделе Xray, вставка готового `.conf`, kernel-интерфейс `awgo-{id}` под управлением reconcile-цикла. В конфиг Xray инжектится `freedom` outbound с `sockopt.interface`, поэтому routing-правила и балансировщики могут гнать трафик через upstream VPN.
+- ✅ **Обфускация** — профили Lite/Standard/Pro (Jc/Jmin/Jmax/S1–S4/H1–H4) и CPS-мимикрия пакетов: TLS, DNS, SIP, QUIC.
+- ✅ **TLS-отпечатки браузеров** — Chrome (GREASE), Firefox 120+ (NSS-порядок, padding), Safari 16+ (Apple-порядок, TLS 1.1). Для TLS и QUIC.
+- ✅ **Захват сигнатуры с живого хоста** — реальное QUIC-рукопожатие с front-домена превращается в I1–I5.
+- ✅ **Клиенты** — QR-коды, скачивание `.conf`, учёт трафика per-peer (`awg show transfer`).
+- ✅ **Два режима маршрутизации:**
+  - **Kernel NAT** — прямая маршрутизация ядра; NAT-правила самовосстанавливаются reconcile-циклом после flush iptables.
+  - **«Маршрутизировать через Xray»** — трафик идёт через весь routing-pipeline Xray (доменные/geosite-правила, балансировщики, каскады-аутбаунды) через TUN-инбаунд с policy routing и sniffing'ом.
+- ✅ **Диагностика из панели** — одна кнопка в форме инбаунда: интерфейс, ip_forward, пиры/рукопожатия, NAT/TUN-правила — сразу видно, где обрыв.
+- ✅ **Проверено в бою** на VPS тестеров: handshake, ICMP, HTTPS, учёт трафика, каскады, оба режима маршрутизации.
+
+### Установка
+
+```bash
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+
+Ставит панель из [последнего релиза](https://github.com/AlexeyLCP/lucx-ui/releases/latest), systemd-юнит, Xray-core и mtg (из апстрим-релиза 3x-ui) и собирает модуль ядра AmneziaWG через DKMS (`bin/install-awg-module.sh`).
+
+### Лицензия
+
+Проект использует **две лицензии** (подробности — [LICENSING.md](LICENSING.md)):
+
+| Часть | Лицензия |
+|---|---|
+| Оригинальный код 3x-ui | **GPL-3.0** (как требует апстрим) |
+| Компоненты LucX (`internal/awg/`, `internal/lucx/`, AWG-frontend, скрипты) | **PolyForm Noncommercial 1.0.0** |
+
+Это значит: **свободно** для личного, некоммерческого, научного, исследовательского и образовательного использования — хоть десять панелей для себя и друзей. **Коммерческое использование** (перепродажа VPN, платные сервисы на этом коде, встраивание в коммерческий продукт) — только с письменного разрешения автора: [issues](https://github.com/AlexeyLCP/lucx-ui/issues) или владелец репозитория. Заголовки `SPDX-License-Identifier` в каждом файле делают границу однозначной: нет заголовка — это GPL-3.0.
+
+### Благодарности
+
+- **VladufQa** — тестирование на боевом VPS (ruvds): первые handshake'и, трафик, каскады, багрепорты по маршрутизации.
+- **Kirill Rudenko** — тестирование (runode) и **PR #13**: needRestart для AWG, iif policy routing, per-inbound таблицы/gateway, reconcile-ensure маршрута, sniffing — то, что заставило «Маршрутизировать через Xray» реально работать.
+- **302ba (Alex)** — **PR #24**: исправление потери полей клиента при парсинге Zod-схемы.
+- Команде **3x-ui** — за отличную базу и архитектуру сайдкаров, которую мы зеркалим.
+
+### Источники идей и кода
+
+- [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) — база форка (GPL-3.0), архитектура MTProto-сайдкара как эталон.
+- [AmneziaVPN](https://github.com/amnezia-vpn) — сам протокол AmneziaWG и kernel-модуль.
+- [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) — паттерн PostUp NAT (MASQUERADE + FORWARD), генераторы QUIC Initial без криптобиблиотек, подход к DKMS-установке.
+- [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) — порт захвата QUIC-сигнатуры (`internal/awg/signature/`), предупреждение о TLS-несовместимости.
+- [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) и [refraction-networking/utls](https://github.com/refraction-networking/utls) — репрезентативные TLS-профили Firefox/Safari для наших ClientHello-пресетов.
+
+### ☕ Поддержать проект
+
+LucX-UI бесплатен для личного и некоммерческого использования. Если панель экономит вам время — можно поддержать разработку:
+
+| Способ | Реквизиты |
+|---|---|
+| 🇷🇺 **ЮMoney** (рубли, РФ) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
+| 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+Донаты — это благодарность, а не оплата: они не дают коммерческой лицензии и не отменяют условия [LICENSING.md](LICENSING.md).
+
+---
+
+*Ниже представлена документация оригинального **3x-ui** на русском языке.*
+
+<!-- END LUCX-HOOK -->
+
+[English](README.md) | [فارسی](README.fa_IR.md) | [العربية](README.ar_EG.md) | [中文](README.zh_CN.md) | [Español](README.es_ES.md) | [Русский](README.ru_RU.md) | [Türkçe](README.tr_TR.md)
 
 <p align="center">
   <picture>
