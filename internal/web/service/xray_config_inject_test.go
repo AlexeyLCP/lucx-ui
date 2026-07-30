@@ -367,7 +367,8 @@ func TestInjectNodeEgresses_BalancerTarget(t *testing.T) {
 
 func TestInjectNodeEgresses_TagCollisionSkips(t *testing.T) {
 	cfg := egressTestConfig()
-	cfg.InboundConfigs = append(cfg.InboundConfigs,
+	cfg.InboundConfigs = append(
+		cfg.InboundConfigs,
 		xray.InboundConfig{Port: 1234, Protocol: "socks", Tag: NodeEgressInboundTag(1)},
 	)
 	before := string(cfg.RouterConfig)
@@ -380,7 +381,8 @@ func TestInjectNodeEgresses_TagCollisionSkips(t *testing.T) {
 
 func TestInjectNodeEgresses_PortCollision(t *testing.T) {
 	cfg := egressTestConfig()
-	cfg.InboundConfigs = append(cfg.InboundConfigs,
+	cfg.InboundConfigs = append(
+		cfg.InboundConfigs,
 		xray.InboundConfig{Port: nodeEgressBasePort + 1, Protocol: "vless", Tag: "in-1"},
 		xray.InboundConfig{Port: nodeEgressBasePort + 2, Protocol: "vless", Tag: "in-2"},
 	)
@@ -559,6 +561,7 @@ func TestInjectMtprotoEgress_BadRoutingSkips(t *testing.T) {
 		t.Fatalf("unparsable routing must be left untouched, got %s", cfg.RouterConfig)
 	}
 }
+
 // LUCX-HOOK: AWG injectAwgEgress tests, mirroring the mtproto suite above.
 
 func awgInbound(tag string, settings string) *model.Inbound {
