@@ -60,7 +60,9 @@ docker compose --profile postgres up -d
 
 ## 🌟 LucX-UI Hakkında
 
-**LucX-UI**, yerel **AmneziaWG (AWG)** çekirdek arabirimi desteğiyle [3x-ui](https://github.com/MHSanaei/3x-ui) projesinden geliştirilmiş gelişmiş bir [Xray-core](https://github.com/XTLS/Xray-core) web yönetim panelidir.
+**LucX-UI**, yerel **AmneziaWG (AWG)** entegrasyonuna sahip, [3x-ui](https://github.com/MHSanaei/3x-ui) projesinden geliştirilmiş gelişmiş bir çoklu protokol [Xray-core](https://github.com/XTLS/Xray-core) sunucu yönetim panelidir.
+
+Proje, engellemelere karşı dirençli AmneziaWG desteğini MTProto mimarisini yansıtan bir çekirdek arabirimi sidecar'ı olarak sunar. İnce ayarlı gizleme profilleri, tarayıcı TLS parmak izi taklidi, istemci modu (AWG Outbounds), panel içi teşhis ve iki yönlendirme modu (Kernel NAT ve Route through Xray) sağlarken üst 3x-ui güncellemeleriyle %100 uyumluluğu korur.
 
 ### 🛡️ AmneziaWG (AWG) Özellikleri
 - **AWG Inbound & Outbound** — Çekirdek sidecar'ı (`awg-quick`), üst AWG sunucularına istemci modunda bağlanma (`awgo-{id}`), 10 saniyelik otomatik uzlaştırma döngüsü ve DKMS modül derleyicisi.

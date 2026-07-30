@@ -60,7 +60,9 @@ docker compose --profile postgres up -d
 
 ## 🌟 关于 LucX-UI
 
-**LucX-UI** 是一款用于管理 [Xray-core](https://github.com/XTLS/Xray-core) 服务器的高级 Web 控制面板，基于 [3x-ui](https://github.com/MHSanaei/3x-ui) 进行增强分叉，原生支持 **AmneziaWG (AWG)** 内核接口 Sidecar。
+**LucX-UI** 是一款用于管理 [Xray-core](https://github.com/XTLS/Xray-core) 服务器的高级多协议 Web 控制面板，基于 [3x-ui](https://github.com/MHSanaei/3x-ui) 进行增强分叉，原生集成 **AmneziaWG (AWG)** 协议。
+
+本项目以内核接口 Sidecar 的形式加入抗封锁的 AmneziaWG 支持，镜像了上游 MTProto 的架构。面板支持精细混淆预设、浏览器 TLS 指纹伪装、客户端模式 (AWG Outbounds)、面板内一键诊断以及双路由模式 (Kernel NAT 与 Route through Xray)，同时保持与上游 3x-ui 更新的 100% 兼容。
 
 ### 🛡️ AmneziaWG (AWG) 特性
 - **AWG 入站与出站** —— 内核 Sidecar (`awg-quick`)、客户端模式连接上游 AWG 服务器 (`awgo-{id}`)、10 秒自动协调循环及 DKMS 内核模块构建器。

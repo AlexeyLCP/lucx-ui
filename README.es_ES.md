@@ -60,7 +60,9 @@ docker compose --profile postgres up -d
 
 ## 🌟 Acerca de LucX-UI
 
-**LucX-UI** es un panel de control web avanzado para administrar servidores [Xray-core](https://github.com/XTLS/Xray-core), creado como un fork mejorado de [3x-ui](https://github.com/MHSanaei/3x-ui) con soporte nativo de **AmneziaWG (AWG)** como sidecar a nivel de kernel.
+**LucX-UI** es un panel de control web multiprotocolo avanzado para administrar servidores [Xray-core](https://github.com/XTLS/Xray-core), creado como un fork mejorado de [3x-ui](https://github.com/MHSanaei/3x-ui) con integración nativa de **AmneziaWG (AWG)**.
+
+El proyecto añade soporte resistente a la censura de AmneziaWG como un sidecar a nivel de kernel, reflejando la arquitectura de MTProto. Ofrece ajustes precisos de ofuscación, imitación de huellas TLS de navegador, modo cliente (AWG Outbounds), diagnósticos integrados y dos modos de enrutamiento (Kernel NAT y Route through Xray) manteniendo total compatibilidad con 3x-ui.
 
 ### 🛡️ Características de AmneziaWG (AWG)
 - **Inbounds y Outbounds AWG** — Sidecar de kernel (`awg-quick`), conexión a servidores AWG externos (`awgo-{id}`), ciclo de conciliación de 10 segundos y creador de módulos DKMS.

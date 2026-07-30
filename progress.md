@@ -949,11 +949,13 @@ systemctl start x-ui
 **Что сделано:**
 - **Лаконичный дизайн всех 7 README (`README.md`, `README.ru_RU.md`, `README.zh_CN.md`, `README.es_ES.md`, `README.tr_TR.md`, `README.fa_IR.md`, `README.ar_EG.md`):**
   1. Блок **⚡ Быстрый старт** с однострочником установки поднят в самый верх под шапку.
-  2. Технические детали (cloud-init, Docker, PostgreSQL, переменные окружения `/etc/default/x-ui`) убраны в аккуратные сворачиваемые блоки `<details>`.
-  3. Скриншоты убраны в аккуратный блок `<details>`.
-  4. Исправлена ссылка на график динамики звёзд Stargazers: с `MHSanaei/3x-ui` на **`AlexeyLCP/lucx-ui`** во всех 7 языковых версиях.
+  2. В раздел **О проекте / About** добавлено краткое, емкое описание предназначения LucX-UI (нативная интеграция AmneziaWG в виде сайдкара ядра, обфускация, TLS-отпечатки, клиентский режим AWG Outbounds, диагностика и 2 режима маршрутизации при 100% совместимости с апстрим-обновлениями 3x-ui).
+  3. Технические детали (cloud-init, Docker, PostgreSQL, переменные окружения `/etc/default/x-ui`) убраны в аккуратные сворачиваемые блоки `<details>`.
+  4. Скриншоты убраны в аккуратный блок `<details>`.
+  5. Исправлена ссылка на график динамики звёзд Stargazers: с `MHSanaei/3x-ui` на **`AlexeyLCP/lucx-ui`** во всех 7 языковых версиях.
 
 Файлы: `README.md`, `README.ru_RU.md`, `README.ar_EG.md`, `README.es_ES.md`, `README.fa_IR.md`, `README.tr_TR.md`, `README.zh_CN.md`.
+
 
 
 

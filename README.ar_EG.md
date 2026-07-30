@@ -60,7 +60,9 @@ docker compose --profile postgres up -d
 
 ## 🌟 حول LucX-UI
 
-مشروع **LucX-UI** هو لوحة تحكم ويب متقدمة لإدارة سيرفرات [Xray-core](https://github.com/XTLS/Xray-core)، تم إنشاؤها كنسخة مفرعة ومتطورة من [3x-ui](https://github.com/MHSanaei/3x-ui) مع دعم أصلي لـ **AmneziaWG (AWG)** على مستوى النواة.
+مشروع **LucX-UI** هو لوحة تحكم ويب متقدمة متعددة البروتوكولات لإدارة سيرفرات [Xray-core](https://github.com/XTLS/Xray-core)، تم إنشاؤها كنسخة مفرعة ومتطورة من [3x-ui](https://github.com/MHSanaei/3x-ui) مع دعم أصلي لـ **AmneziaWG (AWG)**.
+
+يضيف المشروع دعمًا لـ AmneziaWG المقاوم للحجب على شكل Sidecar للنواة محاكياً بنية MTProto. يقدم إعدادات تعتيم دقيقة، محاكاة بصمات TLS للمتصفحات، وضع العميل (AWG Outbounds)، تشخيص مدمج في اللوحة ونمطين للتوجيه (Kernel NAT و Route through Xray) مع الحفاظ على التوافق التام مع تحديثات 3x-ui.
 
 ### 🛡️ ميزات AmneziaWG (AWG)
 - **AWG Inbounds & Outbounds** — Sidecar للنواة (`awg-quick`)، الاتصال بسيرفرات AWG رئيسية (`awgo-{id}`)، دورة توفيق تلقائية كل 10 ثوانٍ، ومثبت موديل النواة عبر DKMS.
