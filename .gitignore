@@ -9,6 +9,7 @@
 .windsurfrules
 .zcode/
 .playwright-mcp/
+.tasks/
 .specify/
 .claude/
 .cache/
