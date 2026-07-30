@@ -1,3 +1,99 @@
+<!-- LUCX-HOOK: LucX-UI fork README — ZH lead section, license, credits, sources. Keep in sync with LICENSING.md and AGENTS.md. -->
+# LucX-UI
+
+<p align="center">
+  <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
+  <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
+  <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
+  <a href="LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.ru_RU.md">Русский</a> |
+  <a href="README.fa_IR.md">فارسی</a> |
+  <a href="README.ar_EG.md">العربية</a> |
+  <b>中文</b> |
+  <a href="README.es_ES.md">Español</a> |
+  <a href="README.tr_TR.md">Türkçe</a>
+</p>
+
+> [!WARNING]
+> **仅限个人、非商业、科学、研究和教育用途。** 商业用途（包括 VPN 转售、付费面板或基于此代码构建的订阅服务）需要获得原作者的明确书面许可。请勿用于非法目的。
+
+---
+
+## 关于 LucX-UI
+
+**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) (v3.6.0) 的分支，具有原生 **AmneziaWG (AWG)** 支持。AWG 作为内核接口 sidecar 运行——完全镜像上游 MTProto (mtg) 的架构：面板负责生命周期和流量统计，Xray 可选择性进行路由。
+
+### 新增与支持的功能
+
+- ✅ **AWG 入站 (Inbounds)** — 基于 `awg-quick` 的内核 sidecar：创建、每 10 秒 reconcile 调和、孤立接口清理、内核模块 DKMS 安装程序。
+- ✅ **AWG 出站 (Outbounds / 客户端模式)** — 面板可直接连接至上游 AmneziaWG 服务器：在 Xray 菜单中有专属标签页，粘贴已有的 `.conf`，并由 reconcile 循环管理 `awgo-{id}` 内核接口。Xray 配置中会注入带有 `sockopt.interface` 的 `freedom` 出站，以便路由规则和负载均衡器将流量送往上游 VPN。
+- ✅ **混淆控制** — Lite/Standard/Pro 预设 (Jc/Jmin/Jmax/S1–S4/H1–H4) 以及 CPS 数据包伪装：TLS、DNS、SIP、QUIC。
+- ✅ **浏览器 TLS 指纹** — Chrome (GREASE)、Firefox 120+ (NSS 排序与 padding)、Safari 16+ (Apple 排序与 TLS 1.1)。适用于 TLS 和 QUIC。
+- ✅ **实时主机签名抓取** — 将前置域名的真实 QUIC 握手自动转换为 I1–I5 混淆参数。
+- ✅ **客户端管理** — 二维码、`.conf` 配置文件下载、按节点/客户端统计流量 (`awg show transfer`)。
+- ✅ **两种路由模式:**
+  - **Kernel NAT** — 内核直接转发；NAT 规则在 iptables 被刷新后由 reconcile 自动恢复。
+  - **Route through Xray (通过 Xray 路由)** — 流量通过 TUN 入站、策略路由和 sniffing 识别，完整流经 Xray 的路由管线（域名/geosite 规则、负载均衡器、链式出站）。
+- ✅ **面板内置诊断** — 入站表单中的一键诊断按钮：实时检测接口状态、ip_forward、节点握手、NAT/TUN 规则，快速排查故障。
+- ✅ **实战验证** — 在测试 VPS 上经过充分验证：握手、ICMP、HTTPS、流量统计、级联路由及两种路由模式均正常工作。
+
+### 安装
+
+```bash
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+
+从 [最新 Release](https://github.com/AlexeyLCP/lucx-ui/releases/latest) 安装面板、systemd 服务、Xray-core 和 mtg（来自 3x-ui 上游），并通过 DKMS 自动编译安装 AmneziaWG 内核模块 (`bin/install-awg-module.sh`)。
+
+### 许可证
+
+本项目采用 **双许可** 机制（详情见 [LICENSING.md](LICENSING.md)）：
+
+| 项目组件 | 许可协议 |
+|---|---|
+| 原始 3x-ui 代码 | **GPL-3.0** （遵循上游要求） |
+| LucX 独创组件 (`internal/awg/`, `internal/lucx/`, AWG 前端及脚本) | **PolyForm Noncommercial 1.0.0** |
+
+在实际使用中：个人、非商业、科学、研究和教育用途 **完全免费**。**商业用途**（VPN 转售、付费面板服务、嵌入商业产品）必须获得作者的明确书面许可——请提交 [issue](https://github.com/AlexeyLCP/lucx-ui/issues) 或联系仓库所有者。文件中的 `SPDX-License-Identifier` 标头明确区分了许可边界：无标头即为 GPL-3.0。
+
+### 致谢
+
+- **VladufQa** — 实战 VPS (ruvds) 测试：首次握手、流量统计、级联转发及路由 bug 反馈。
+- **Kirill Rudenko** — 测试 (runode) 与 **PR #13**：AWG needRestart、iif 策略路由、独立 inbound 路由表/网关、reconcile 路由恢复及 sniffing — 让“通过 Xray 路由”真正稳定运行。
+- **302ba (Alex)** — **PR #24**：修复 Zod schema 解析时客户端字段丢失的问题。
+- **3x-ui** 团队 — 感谢他们优秀的代码基础与我们所镜像的 sidecar 架构。
+
+### 借鉴来源与致谢
+
+- [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) — Fork 基础 (GPL-3.0)，MTProto sidecar 架构参考。
+- [AmneziaVPN](https://github.com/amnezia-vpn) — AmneziaWG 协议本身及内核模块。
+- [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) — PostUp NAT 模式 (MASQUERADE + FORWARD)、无密码学依赖的 QUIC Initial 生成器及 DKMS 安装思路。
+- [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) — QUIC 签名抓取移植 (`internal/awg/signature/`) 及 TLS 兼容性提示。
+- [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) 和 [refraction-networking/utls](https://github.com/refraction-networking/utls) — ClientHello 预设背后的 Firefox/Safari 代表性 TLS 指纹。
+
+### ☕ 支持本项目
+
+LucX-UI 对个人和非商业用途完全免费。如果面板帮您节省了时间，欢迎支持开发：
+
+| 方式 | 详情 |
+|---|---|
+| 🇷🇺 **YooMoney** (卢布, 俄罗斯) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
+| 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+捐赠是对项目的感谢，不属于购买行为：捐赠不代表授予商业许可证，也不改变 [LICENSING.md](LICENSING.md) 中的条款。
+
+---
+
+*以下为原 **3x-ui** 中文文档，完整保留以供参考。*
+
+<!-- END LUCX-HOOK -->
+
 [English](README.md) | [فارسی](README.fa_IR.md) | [العربية](README.ar_EG.md) | [中文](README.zh_CN.md) | [Español](README.es_ES.md) | [Русский](README.ru_RU.md) | [Türkçe](README.tr_TR.md)
 
 <p align="center">

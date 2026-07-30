@@ -1,3 +1,99 @@
+<!-- LUCX-HOOK: LucX-UI fork README — TR lead section, license, credits, sources. Keep in sync with LICENSING.md and AGENTS.md. -->
+# LucX-UI
+
+<p align="center">
+  <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
+  <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
+  <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
+  <a href="LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.ru_RU.md">Русский</a> |
+  <a href="README.fa_IR.md">فارسی</a> |
+  <a href="README.ar_EG.md">العربية</a> |
+  <a href="README.zh_CN.md">中文</a> |
+  <a href="README.es_ES.md">Español</a> |
+  <b>Türkçe</b>
+</p>
+
+> [!WARNING]
+> **Yalnızca kişisel, ticari olmayan, bilimsel, araştırma ve eğitim amaçlı kullanım içindir.** Ticari kullanım — VPN satışı, ücretli paneller veya bu kod üzerine inşa edilen abonelik hizmetleri dahil — yazarın açık yazılı iznini gerektirir. Yasadışı amaçlarla kullanmayın.
+
+---
+
+## LucX-UI Hakkında
+
+**LucX-UI**, yerel **AmneziaWG (AWG)** desteğine sahip bir [3x-ui](https://github.com/MHSanaei/3x-ui) (v3.6.0) çatallamasıdır (fork). AWG, çekirdek arabirimi (kernel-interface) sidecar olarak çalışır — üst projenin MTProto (mtg) için kullandığı mimariyle tam bir simetri oluşturur: panel yaşam döngüsünü ve trafik muhasebesini yönetir, Xray ise isteğe bağlı olarak trafiği yönlendirir.
+
+### Eklenen ve Çalışan Özellikler
+
+- ✅ **AWG Inbound'lar** — `awg-quick` tabanlı çekirdek sidecar'ı: oluşturma, her 10 saniyede bir reconcile (uzlaştırma), yetim arabirim temizliği, DKMS çekirdek modülü yükleyicisi.
+- ✅ **AWG Outbound'lar (İstemci Modu)** — Panel, üst seviye AmneziaWG sunucusuna bağlanabilir: Xray altında özel sekme, mevcut `.conf` yapıştırma ve reconcile döngüsüyle yönetilen `awgo-{id}` çekirdek arabirimi. Xray yapılandırmasına `sockopt.interface` içeren `freedom` outbound enjekte edilir, böylece yönlendirme kuralları ve yük dengeleyiciler trafiği üst VPN'e iletebilir.
+- ✅ **Obfuscation (Karıştırma/Gizleme)** — Lite/Standard/Pro profilleri (Jc/Jmin/Jmax/S1–S4/H1–H4) ve CPS paket taklidi: TLS, DNS, SIP, QUIC.
+- ✅ **Tarayıcı TLS Parmak İzleri** — Chrome (GREASE), Firefox 120+ (NSS sıralaması, padding), Safari 16+ (Apple sıralaması, TLS 1.1). TLS ve QUIC için.
+- ✅ **Canlı Sunucudan İmza Yakalama** — Ön alan adından gerçek QUIC el sıkışmasını I1–I5 değerlerine dönüştürür.
+- ✅ **İstemci Yönetimi** — QR kodları, `.conf` indirme, istemci bazında trafik takibi (`awg show transfer`).
+- ✅ **İki Yönlendirme Modu:**
+  - **Kernel NAT** — Doğrudan çekirdek yönlendirmesi; NAT kuralları iptables sıfırlansa bile reconcile döngüsüyle kendi kendini onarır.
+  - **Xray Üzerinden Yönlendirme (Route through Xray)** — Trafik, TUN inbound, politika yönlendirmesi ve sniffing yardımıyla Xray'in tüm yönlendirme hattından geçer (alan adı/geosite kuralları, yük dengeleyiciler, zincirleme outbound'lar).
+- ✅ **Panel İçi Teşhis (Diagnostics)** — Inbound formunda tek tıkla teşhis: arabirim durumu, ip_forward, eşler/el sıkışmaları, NAT/TUN kuralları anında görünür.
+- ✅ **Saha Testlerinden Geçti** — Test VPS'lerinde başarıyla test edildi: el sıkışma, ICMP, HTTPS, trafik takibi, zincirleme ve her iki yönlendirme modu.
+
+### Kurulum
+
+```bash
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+
+Paneli [en son sürümden](https://github.com/AlexeyLCP/lucx-ui/releases/latest), systemd servisini, Xray-core ve mtg'yi (3x-ui üst sürümünden) yükler ve DKMS aracılığıyla AmneziaWG çekirdek modülünü derler (`bin/install-awg-module.sh`).
+
+### Lisans
+
+Bu proje **çift lisans** altındadır (ayrıntılar [LICENSING.md](LICENSING.md) dosyasında):
+
+| Bileşen | Lisans |
+|---|---|
+| Orijinal 3x-ui kodu | **GPL-3.0** (üst projenin gerektirdiği şekilde) |
+| LucX bileşenleri (`internal/awg/`, `internal/lucx/`, AWG ön yüzü, betikler) | **PolyForm Noncommercial 1.0.0** |
+
+Pratikte: Kişisel, ticari olmayan, bilimsel, araştırma ve eğitim amaçlı kullanım için **ücretsizdir**. **Ticari kullanım** (VPN satışı, ücretli paneller, ticari ürünlere entegrasyon) yazarın açık yazılı iznini gerektirir: bir [issue](https://github.com/AlexeyLCP/lucx-ui/issues) açın veya depo sahibiyle iletişime geçin. Dosyalardaki `SPDX-License-Identifier` başlıkları sınırları net bir şekilde belirler: başlık yoksa GPL-3.0'dır.
+
+### Teşekkürler
+
+- **VladufQa** — Canlı VPS (ruvds) testleri: ilk el sıkışmalar, trafik, zincirleme yönlendirme ve hata bildirimleri.
+- **Kirill Rudenko** — Testler (runode) ve **PR #13**: AWG needRestart, iif politika yönlendirmesi, inbound başına tablolar/ağ geçitleri, rota onarımı ve sniffing.
+- **302ba (Alex)** — **PR #24**: Zod şeması ayrıştırılırken istemci alanlarının kaybolması hatasının düzeltilmesi.
+- **3x-ui** ekibi — Harika bir temel ve yansıttığımız sidecar mimarisi için.
+
+### Kaynaklar ve İlham Alınan Projeler
+
+- [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) — Çatallama tabanı (GPL-3.0), MTProto sidecar mimarisi.
+- [AmneziaVPN](https://github.com/amnezia-vpn) — AmneziaWG protokolü ve çekirdek modülü.
+- [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) — PostUp NAT deseni (MASQUERADE + FORWARD), QUIC Initial üreteçleri ve DKMS yaklaşımı.
+- [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) — QUIC imza yakalama (`internal/awg/signature/`).
+- [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) & [refraction-networking/utls](https://github.com/refraction-networking/utls) — ClientHello profillerimiz için Firefox/Safari TLS parmak izleri.
+
+### ☕ Projeyi Destekleyin
+
+LucX-UI kişisel ve ticari olmayan kullanım için ücretsizdir. Panel zaman kazanmanızı sağlıyorsa geliştirmeyi destekleyebilirsiniz:
+
+| Yöntem | Detaylar |
+|---|---|
+| 🇷🇺 **YooMoney** (RUB, Rusya) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
+| 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+Bağışlar bir teşekkürdür, satın alma değildir: ticari lisans sağlamaz ve [LICENSING.md](LICENSING.md) şartlarını değiştirmez.
+
+---
+
+*Aşağıda orijinal **3x-ui** Türkçe dokümantasyonu yer almaktadır.*
+
+<!-- END LUCX-HOOK -->
+
 [English](README.md) | [فارسی](README.fa_IR.md) | [العربية](README.ar_EG.md) | [中文](README.zh_CN.md) | [Español](README.es_ES.md) | [Русский](README.ru_RU.md) | [Türkçe](README.tr_TR.md)
 
 <p align="center">

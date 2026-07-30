@@ -1,3 +1,99 @@
+<!-- LUCX-HOOK: LucX-UI fork README — AR lead section, license, credits, sources. Keep in sync with LICENSING.md and AGENTS.md. -->
+# LucX-UI
+
+<p align="center">
+  <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
+  <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
+  <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
+  <a href="LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
+</p>
+
+<p align="center">
+  <a href="README.md">English</a> |
+  <a href="README.ru_RU.md">Русский</a> |
+  <a href="README.fa_IR.md">فارسی</a> |
+  <b>العربية</b> |
+  <a href="README.zh_CN.md">中文</a> |
+  <a href="README.es_ES.md">Español</a> |
+  <a href="README.tr_TR.md">Türkçe</a>
+</p>
+
+> [!WARNING]
+> **مخصص للاستخدام الشخصي، غير التجاري، العلمي، البحثي والتعليمي فقط.** الاستخدام التجاري — بما في ذلك إعادة بيع خدمة VPN، أو اللوحات المدفوعة، أو خدمات الاشتراك المبنية على هذا الكود — يتطلب إذناً كتابياً صريحاً من المؤلف. لا تستخدمه لأغراض غير قانونية.
+
+---
+
+## حول LucX-UI
+
+مشروع **LucX-UI** هو مشروع مفرع (Fork) من [3x-ui](https://github.com/MHSanaei/3x-ui) (الإصدار v3.6.0) يقدم دعمًا أصليًا لـ **AmneziaWG (AWG)**. يعمل AWG كـ Sidecar على مستوى واجهة النواة (Kernel Interface) — بشكل متطابق تمامًا مع البنية التي يستخدمها المشروع الأصلي لـ MTProto (mtg): تتولى اللوحة إدارة دورة الحياة وحساب حركة المرور، بينما يقوم Xray بتوجيه الترافيك اختياريًا.
+
+### الميزات المضافة والجاهزة للاستخدام
+
+- ✅ **AWG Inbounds (المنافذ الواردة)** — Sidecar للنواة عبر `awg-quick`: الإنشاء، إعادة التوفيق (Reconcile) كل 10 ثوانٍ، تنظيف الواجهات اليتيمة، ومثبت موديل النواة عبر DKMS.
+- ✅ **AWG Outbounds (المنافذ الصادرة / وضع العميل)** — يمكن للوحة الاتصال بسيرفر AmneziaWG رئيسي: تبويب خاص في قسم Xray، لصق ملف `.conf` جاهز، وإدارة واجهة النواة `awgo-{id}` عبر دورة التوفيق. يتم إنعاش `freedom` outbound مع `sockopt.interface` في إعدادات Xray حتى تتوجه قواعد التوجيه وموازنات الأحمال عبر الـ VPN الرئيسي.
+- ✅ **التعتيم (Obfuscation)** — بروفايلات Lite/Standard/Pro (تشمل Jc/Jmin/Jmax/S1–S4/H1–H4) ومحاكاة حزم CPS لـ: TLS، DNS، SIP، و QUIC.
+- ✅ **بصمات TLS للمتصفحات** — دعم Chrome (GREASE)، و Firefox 120+ (ترتيب NSS و padding)، و Safari 16+ (ترتيب Apple و TLS 1.1) لـ TLS و QUIC.
+- ✅ **التقاط التوقيع المباشر** — تحويل المصافحة الحقيقية لـ QUIC من نطاق فرعي إلى قيم I1–I5.
+- ✅ **إدارة العملاء** — أكواد QR، تحميل ملفات `.conf`، وحساب الترافيك لكل عميل (`awg show transfer`).
+- ✅ **نمطان للتوجيه:**
+  - **Kernel NAT** — توجيه مباشر من النواة؛ تتعافى قواعد NAT تلقائيًا عند إعادة تشغيل iptables عبر دورة التوفيق.
+  - **التوجيه عبر Xray (Route through Xray)** — يمر الترافيك عبر واجهة TUN والتوجيه حسب السياسة (policy routing) والـ sniffing، ليمر عبر مسار التوجيه الكامل لـ Xray (قواعد النطاقات/geosite، موازنات الأحمال، والـ outbounds المتسلسلة).
+- ✅ **تشخيص دائم في اللوحة** — زر تشخيص بنقرة واحدة في نموذج الـ Inbound: فحص حالة الواجهة، ip_forward، العملاء المتصلين، وقواعد NAT/TUN في لحظة.
+- ✅ **مُجرب ومختبر عملياً** — تم اختباره على سيرفرات VPS: المصافحة، ICMP، HTTPS، حساب الترافيك، والتسلسل يعمل بكفاءة في كلا نمطي التوجيه.
+
+### التثبيت
+
+```bash
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+
+يقوم بتثبيت اللوحة من [أحدث إصدار](https://github.com/AlexeyLCP/lucx-ui/releases/latest)، وخدمة systemd، و Xray-core و mtg (من الإصدار الرئيسي لـ 3x-ui)، وبناء موديل النواة لـ AmneziaWG عبر DKMS (`bin/install-awg-module.sh`).
+
+### الترخيص
+
+يعمل هذا المشروع تحت **ترخيصين** (التفاصيل في [LICENSING.md](LICENSING.md)):
+
+| الجزء | الترخيص |
+|---|---|
+| كود 3x-ui الأصلي | **GPL-3.0** (وفقًا لمتطلبات المشروع الرئيسي) |
+| مكونات LucX الخاصة (`internal/awg/`, `internal/lucx/`, واجهة AWG، والسكربتات) | **PolyForm Noncommercial 1.0.0** |
+
+عملياً: **مجاني** للاستخدام الشخصي، غير التجاري، العلمي، البحثي والتعليمي. **الاستخدام التجاري** (إعادة بيع VPN، اللوحات المدفوعة، الدمج في منتج تجاري) يتطلب إذنًا كتابيًا صريحًا من المؤلف — يمكنك فتح [issue](https://github.com/AlexeyLCP/lucx-ui/issues) أو التواصل مع مالك المستودع. تضمن ترويسات `SPDX-License-Identifier` تحديد الحدود بوضوح: عدم وجود الترويسة يعني GPL-3.0.
+
+### شكر وتقدير
+
+- **VladufQa** — الاختبارات الميدانية على سيرفرات VPS (ruvds): المصافحات الأولى، الترافيك، والتقارير الفنية للتوجيه.
+- **Kirill Rudenko** — الاختبارات (runode) و **PR #13**: خاصية needRestart لـ AWG، التوجيه بالسياسات iif، الجداول والبوابات المنفصلة، وإعادة استعادة المسارات والـ sniffing.
+- **302ba (Alex)** — **PR #24**: إصلاح فقدان حقول العميل أثناء تحليل مخطط Zod.
+- فريق **3x-ui** — على القاعدة الممتازة وبنية الـ Sidecar التي قمنا بمحاكاتها.
+
+### المصادر والإلهام
+
+- [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) — أساس المشروع (GPL-3.0) وبنية MTProto sidecar.
+- [AmneziaVPN](https://github.com/amnezia-vpn) — بروتوكول AmneziaWG وموديل النواة.
+- [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) — نمط PostUp NAT (MASQUERADE + FORWARD)، مولدات QUIC Initial، وطريقة تثبيت DKMS.
+- [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) — التقاط توقيع QUIC (`internal/awg/signature/`).
+- [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) و [refraction-networking/utls](https://github.com/refraction-networking/utls) — بصمات TLS لمتصفحي Firefox/Safari المستخدمة في بروفايلات ClientHello.
+
+### ☕ دعم المشروع
+
+مشروع LucX-UI مجاني للاستخدام الشخصي وغير التجاري. إذا كانت اللوحة توفر لك الوقت، يمكنك دعم التطوير:
+
+| الطريقة | التفاصيل |
+|---|---|
+| 🇷🇺 **YooMoney** (روبل، روسيا) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
+| 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+التبرعات هي شكر وتقدير وليست عملية شراء: فهي لا تمنح ترخيصاً تجارياً ولا تغير شروط [LICENSING.md](LICENSING.md).
+
+---
+
+*التوثيق الأصلي لـ **3x-ui** باللغة العربية محفوظ أدناه.*
+
+<!-- END LUCX-HOOK -->
+
 [English](README.md) | [فارسی](README.fa_IR.md) | [العربية](README.ar_EG.md) | [中文](README.zh_CN.md) | [Español](README.es_ES.md) | [Русский](README.ru_RU.md) | [Türkçe](README.tr_TR.md)
 
 <p align="center">
