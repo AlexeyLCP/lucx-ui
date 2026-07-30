@@ -23,6 +23,7 @@
 ### Что мы добавили — и что работает
 
 - ✅ **AWG-инбаунды** — kernel-сайдкар на `awg-quick`: создание, reconcile каждые 10 секунд, подчистка осиротевших интерфейсов, DKMS-установщик модуля ядра.
+- ✅ **AWG-аутбаунды (клиентский режим)** — панель сама подключается к upstream AmneziaWG-серверу: своя вкладка в разделе Xray, вставка готового `.conf`, kernel-интерфейс `awgo-{id}` под управлением reconcile-цикла. В конфиг Xray инжектится `freedom` outbound с `sockopt.interface`, поэтому routing-правила и балансировщики могут гнать трафик через upstream VPN.
 - ✅ **Обфускация** — профили Lite/Standard/Pro (Jc/Jmin/Jmax/S1–S4/H1–H4) и CPS-мимикрия пакетов: TLS, DNS, SIP, QUIC.
 - ✅ **TLS-отпечатки браузеров** — Chrome (GREASE), Firefox 120+ (NSS-порядок, padding), Safari 16+ (Apple-порядок, TLS 1.1). Для TLS и QUIC.
 - ✅ **Захват сигнатуры с живого хоста** — реальное QUIC-рукопожатие с front-домена превращается в I1–I5.
@@ -87,6 +88,7 @@ LucX-UI бесплатен для личного и некоммерческог
 ### What we added — and what works
 
 - ✅ **AWG inbounds** — kernel sidecar on `awg-quick`: creation, 10-second reconcile, orphan sweep, DKMS kernel-module installer.
+- ✅ **AWG outbounds (client mode)** — the panel dials out to an upstream AmneziaWG server: its own tab under Xray, paste an existing `.conf`, and a kernel interface `awgo-{id}` kept in step by the reconcile loop. A `freedom` outbound with `sockopt.interface` is injected into the Xray config, so routing rules and balancers can send traffic through the upstream VPN.
 - ✅ **Obfuscation** — Lite/Standard/Pro presets (Jc/Jmin/Jmax/S1–S4/H1–H4) and CPS packet mimicry: TLS, DNS, SIP, QUIC.
 - ✅ **Browser TLS fingerprints** — Chrome (GREASE), Firefox 120+ (NSS ordering, padding), Safari 16+ (Apple ordering, TLS 1.1). For TLS and QUIC.
 - ✅ **Live signature capture** — a real QUIC handshake from a front domain becomes your I1–I5.

@@ -850,8 +850,53 @@ npm run build                                      exit 0 → internal/web/dist/
 
 **lucxVersion** → `lucx.48`.
 
-### Осталось
+---
 
-- Деплой на test2 (`lucx-test2`, 144.31.157.106) и runtime-проверка AWG на v3.6.0-базе — не делались. Особое внимание — миграции БД апстрима (`migrateTgIDIndex`, новый `BackupSQLite`) на боевой БД с AWG-инбаундами.
-- README не упоминает AWG Outbound (фича из lucx.37) — пробел в доке, не баг.
+## Деплой v3.6.0-lucx.48 на test2 (2026-07-30)
+
+**Цель:** `lucx-test2` (144.31.157.106, Debian 13 trixie, kernel 6.12.90). Было `3.5.0-lucx.46` → стало `3.6.0-lucx.48`. Первый деплой v3.6.0-базы на живой сервер с AWG.
+
+### Бэкап до миграций — обязательно
+
+Апстрим v3.6.0 гонит миграции БД на первом старте, отката средствами панели нет. Процедура: `systemctl stop` → копия `x-ui.db` (+`-wal`/`-shm`) и старого бинарника в `/root/lucx-backup-<stamp>/` → `integrity_check` копии → выгрузка счётчиков трафика в текст (reference для сверки) → только потом новый бинарник. **Копировать БД только при остановленном сервисе** — иначе WAL может оказаться в середине транзакции. Скрипт сам поднимает сервис обратно при любом сбое скачивания/версии.
+
+### Миграции апстрима прошли без потерь
+
+- `migrateTgIDIndex` — индекса до апгрейда не было, после старта появился: `CREATE INDEX idx_clients_tg_id ON clients(tg_id)`.
+- `PRAGMA integrity_check` → `ok` до и после.
+- Данные целы: AWG-инбаунд (id 3, порт 48182), два `awg_outbounds` (`test-upstream`, `awgo-upstream`), счётчики трафика `peer-laptop` (150696944 / 1099990686) совпали с бэкапом байт в байт.
+- `BackupSQLite` (новый апстрим-код) не ломает старт — он вызывается по запросу (backup-эндпоинт/тг-бот), не на инициализации.
+
+### AWG runtime на v3.6.0-базе — работает
+
+- `awg3` поднялся сам после старта, пир `peer-laptop` на месте, обфускация цела (jc=5, S1-S4, H1-H4).
+- `awgo-1`/`awgo-2` (клиентский режим) живые, `awgo-2` с свежим handshake.
+- **routeThroughXray проверен сквозным трафиком, не только наличием интерфейса:** ping с `-I 10.8.0.1` (тот же policy-routing путь, что у реального пира) — 0% loss, 6.2 ms; HTTPS через тот же source — HTTP 301 за 0.05 с.
+- TUN-инбаунд в живом конфиге Xray: `tun3`, mtu 1320, gateway `10.254.3.1/30` (per-inbound /30), `sniffing {http,tls,quic, routeOnly:true}` — всё как задумано.
+- AWG-аутбаунды в конфиге: `test-upstream → awgo-1`, `awgo-upstream → awgo-2` через `sockopt.interface`.
+- **Post-restart окно закрыто (фикс lucx.34 работает на v3.6.0):** после `systemctl restart x-ui` (жёсткий вариант — tun3 пересоздаётся) уже на t+8s: `iif awg3 lookup 1003` и `default dev tun3 table 1003` на месте, ping 0% loss. Ждать reconcile-тика не пришлось.
+- Нуль `reconcile failed` и нуль error/panic в логах, `NRestarts=0`.
+
+### Готча верификации: 404 на API — это НОРМА
+
+Неавторизованный проб `/panel/api/awg-outbounds/list` даёт **404**, и это легко принять за потерю маршрутов при merge. **Как проверять правильно:** сравнить с апстримовым маршрутом — `/panel/api/inbounds/list` и `/panel/api/server/status` тоже отвечают 404 без сессии (панель скрывает API-surface). Доказательство регистрации — `strings /usr/local/x-ui/x-ui | grep awg-outbounds`: все 8 путей и все 8 хендлеров `AwgOutboundController).{add,del,enable,list,parseConf,status,test,update}` в бинарнике. Пароля панели в БД нет (только хеш), так что полный API-тест с сессией — только вручную через UI.
+
+### Откат (если понадобится)
+
+```
+systemctl stop x-ui
+cp -a /root/lucx-backup-20260730-081028/x-ui.bin /usr/local/x-ui/x-ui
+cp -a /root/lucx-backup-20260730-081028/x-ui.db  /etc/x-ui/x-ui.db
+systemctl start x-ui
+```
+⚠️ Откат БД теряет трафик, накопленный после апгрейда; без отката БД старый бинарник переживёт лишний индекс `idx_clients_tg_id` без проблем.
+
+---
+
+## Осталось
+
+- Полный API-тест AWG-outbound эндпоинтов с живой сессией (list/add/update/del/enable/status/test/parseConf) — требует пароля панели, делать вручную через UI.
+- Не проверено на v3.6.0: создание/удаление AWG-инбаунда и клиента из UI, QR/`.conf`-выгрузка, диагностика-модалка, фикс PR #24 на живом клиенте с непустым `comment` (на test2 comment пустой, регресс на нём не виден).
+- Тестеры (VladufQa, Kirill Rudenko) о v3.6.0 не уведомлены — обновляются сами через `x-ui update`.
 - `awgHpk`/`awgHpkHint`/`awgHpkPlaceholder` лежат непереведёнными в 11 локалях (тест не ловит — проверяется наличие ключа, не значение).
+- В «Благодарностях» README не упомянут 302ba (Alex) — автор влитого PR #24.
