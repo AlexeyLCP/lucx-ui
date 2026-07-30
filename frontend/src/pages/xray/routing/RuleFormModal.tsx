@@ -155,9 +155,17 @@ export default function RuleFormModal({
       if (typeof val === 'object') return Object.keys(val).length > 0;
       return true;
     });
+    // Block only when creating: a brand-new empty rule is always the footgun
+    // above. On edit, the rule already lives in the config (it may predate this
+    // guard, come from a template, or be edited for an unrelated field such as
+    // ruleTag), so blocking would trap the user in a modal they cannot save.
+    // Warn instead — same information, no dead end.
     if (!hasMatcher) {
-      message.error(t('pages.xray.ruleForm.noMatcherError'));
-      return;
+      if (!isEdit) {
+        message.error(t('pages.xray.ruleForm.noMatcherError'));
+        return;
+      }
+      message.warning(t('pages.xray.ruleForm.noMatcherError'));
     }
     // outboundTag OR balancerTag is also required — a rule with matchers but
     // no target is silently a no-op in Xray. Warn (don't block) so advanced
