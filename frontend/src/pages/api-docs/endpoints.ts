@@ -279,6 +279,102 @@ export const sections: readonly Section[] = [
     ],
   },
 
+  // LUCX-HOOK: AWG outbound (client-mode AmneziaWG) API documentation. Kept as
+  // a self-contained section rather than entries spliced into the Inbounds
+  // group, so upstream edits to neighbouring groups never collide with ours.
+  // Routes are registered in internal/web/controller/api.go and served by
+  // internal/web/controller/awg_outbound.go.
+  {
+    id: 'awg-outbounds',
+    title: 'AWG Outbounds',
+    description:
+      'Manage client-mode AmneziaWG outbounds — connections from this panel out to an upstream AmneziaWG server (the mirror image of an AWG inbound, which accepts clients). Each row owns a kernel interface named awgo-{id}: the reconcile job converges it with the DB row every 10 seconds, and a freedom outbound bound to that interface via sockopt.interface is injected into the generated Xray config, so routing rules and balancers can send traffic through the upstream VPN. Every mutating endpoint force-restarts Xray rather than hot-applying, because a hot-applied config silently kept stale sockopt-bound outbounds in live testing — and an outbound pointing at a missing interface falls back to the default route, bypassing the VPN. All endpoints live under /panel/api/awg-outbounds and require a logged-in session or Bearer token. LucX-UI only.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/panel/api/awg-outbounds/list',
+        summary: 'List every AWG outbound row, each augmented with a human-readable status string derived from the live kernel interface: "up; handshake <duration> ago; rx=N tx=N" when the interface is up, "down (fallback to default route active — WARNING)" when it is enabled but has no handshake (traffic is bypassing the VPN), or "disabled" when the row is switched off. LucX-UI only.',
+        response: '{\n  "success": true,\n  "obj": [\n    {\n      "id": 1,\n      "tag": "awgo-upstream",\n      "remark": "Amnezia NL",\n      "enable": true,\n      "settings": "{\\"privateKey\\":\\"…\\",\\"address\\":\\"10.9.0.5/32\\",\\"endpoint\\":\\"vpn.example.com:51820\\"}",\n      "created_at": 1753000000,\n      "updated_at": 1753000000,\n      "status": "up; handshake 12s ago; rx=1048576 tx=524288"\n    }\n  ]\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/awg-outbounds/add',
+        summary: 'Create an AWG outbound row. Tag is optional — when omitted the server assigns "awgo-{id}" after the row is inserted; when supplied it must not collide with an existing outbound tag or an outbound tag already present in the Xray template. Settings is optional too: an empty value is replaced with a generated default (fresh keypair, MTU 1320, allowedIPs 0.0.0.0/0, ::/0). The kernel interface itself is brought up by the reconcile job, not by this call. Returns the created row. LucX-UI only.',
+        params: [
+          { name: 'tag', in: 'body (json)', type: 'string', desc: 'Xray outbound tag. Leave empty to auto-assign "awgo-{id}".', optional: true },
+          { name: 'remark', in: 'body (json)', type: 'string', desc: 'Free-form label shown in the UI.', optional: true },
+          { name: 'enable', in: 'body (json)', type: 'boolean', desc: 'Whether the reconcile job should bring the interface up. Defaults to true.', optional: true },
+          { name: 'settings', in: 'body (json)', type: 'string', desc: 'JSON-encoded string (not an object) holding the connection: privateKey, address (mandatory tunnel IP, e.g. "10.9.0.5/32"), publicKey (upstream), psk, endpoint ("host:port"), mtu, keepalive, allowedIPs, dns, plus obfuscation jc/jmin/jmax, s1-s4, h1-h4, i1-i5 and headerProtectionKey. Leave empty for generated defaults.', optional: true },
+        ],
+        body: '{\n  "tag": "awgo-upstream",\n  "remark": "Amnezia NL",\n  "enable": true,\n  "settings": "{\\"privateKey\\":\\"…\\",\\"address\\":\\"10.9.0.5/32\\",\\"publicKey\\":\\"…\\",\\"endpoint\\":\\"vpn.example.com:51820\\",\\"mtu\\":1320,\\"allowedIPs\\":\\"0.0.0.0/0, ::/0\\"}"\n}',
+        errorResponse: '{\n  "success": false,\n  "msg": "awg-outbound: add failed"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/awg-outbounds/update/:id',
+        summary: 'Overwrite an AWG outbound row. The path id wins over any id in the body. Tag uniqueness is re-checked, excluding this row. Settings changes (endpoint, keys, MTU, obfuscation) take effect on the kernel interface at the next reconcile tick. LucX-UI only.',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'AWG outbound ID.' },
+          { name: 'tag', in: 'body (json)', type: 'string', desc: 'Xray outbound tag. Must stay unique across outbounds and the Xray template.' },
+          { name: 'remark', in: 'body (json)', type: 'string', desc: 'Free-form label shown in the UI.', optional: true },
+          { name: 'enable', in: 'body (json)', type: 'boolean', desc: 'Whether the reconcile job should bring the interface up.', optional: true },
+          { name: 'settings', in: 'body (json)', type: 'string', desc: 'JSON-encoded settings string — same shape as on add.', optional: true },
+        ],
+        errorResponse: '{\n  "success": false,\n  "msg": "awg-outbound: update failed"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/awg-outbounds/del/:id',
+        summary: 'Delete an AWG outbound row and tear down its awgo-{id} kernel interface immediately, without waiting for the next reconcile tick, so a removed outbound stops carrying traffic right away. The matching freedom outbound is dropped from the Xray config by the forced restart. Destructive and cannot be undone. LucX-UI only.',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'AWG outbound ID.' },
+        ],
+        errorResponse: '{\n  "success": false,\n  "msg": "awg-outbound: del failed"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/awg-outbounds/enable/:id',
+        summary: 'Toggle only the enable flag without serialising the whole settings JSON — the counterpart of the inbound enable switch. The reconcile job is what actually brings the kernel interface up or down in response. A missing or unparsable body is treated as {"enable": false}. LucX-UI only.',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'AWG outbound ID.' },
+          { name: 'enable', in: 'body (json)', type: 'boolean', desc: 'Target state. Absent or invalid body means false.' },
+        ],
+        body: '{\n  "enable": false\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/awg-outbounds/status/:id',
+        summary: 'Read the live kernel state of one AWG outbound from a single "awg show dump" call. Read-only. When up is false the interface is missing or has never completed a handshake, rx/tx are zero, and the outbound must be treated as down — its traffic is bypassing the VPN via the default route. LucX-UI only.',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'AWG outbound ID.' },
+        ],
+        response: '{\n  "success": true,\n  "obj": {\n    "up": true,\n    "handshakeAge": "12s",\n    "rx": 1048576,\n    "tx": 524288,\n    "ifname": "awgo-1"\n  }\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/awg-outbounds/test/:id',
+        summary: 'Prove the tunnel actually carries traffic by pinging a public target bound to the awgo-{id} interface (ping -I) — a completed handshake is necessary but not sufficient. Sends three probes to 1.1.1.1, or ping6 to 2606:4700:4700::1111 when the row is IPv6. A down interface short-circuits with an explicit warning instead of an opaque ping error. Note that a reachable upstream can still report failure when it does not route the probe target back, which is an upstream-side NAT/AllowedIPs issue, not a panel one. LucX-UI only.',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'AWG outbound ID.' },
+        ],
+        response: '{\n  "success": true,\n  "obj": {\n    "ok": true,\n    "latency_ms": 14,\n    "raw": "3 packets transmitted, 3 received…"\n  }\n}',
+        errorResponse: '{\n  "success": false,\n  "msg": "interface awgo-1 is down — traffic bypasses VPN"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/awg-outbounds/parseConf',
+        summary: 'Parse a pasted awg-quick .conf and return it as a settings object so the "Paste .conf" UI drawer can autofill the form. Reads the [Interface] and [Peer] sections, tolerates comments, blank lines and valueless keys, and does not validate that mandatory fields are present — the caller fills the gaps before saving. Stateless: nothing is written to the database. LucX-UI only.',
+        params: [
+          { name: 'conf', in: 'body (json)', type: 'string', desc: 'Raw awg-quick .conf text.' },
+        ],
+        body: '{\n  "conf": "[Interface]\\nPrivateKey = …\\nAddress = 10.9.0.5/32\\nMTU = 1320\\nJc = 4\\n\\n[Peer]\\nPublicKey = …\\nEndpoint = vpn.example.com:51820\\nAllowedIPs = 0.0.0.0/0, ::/0"\n}',
+        response: '{\n  "success": true,\n  "obj": {\n    "privateKey": "…",\n    "address": "10.9.0.5/32",\n    "mtu": 1320,\n    "publicKey": "…",\n    "psk": "",\n    "endpoint": "vpn.example.com:51820",\n    "keepalive": 25,\n    "allowedIPs": "0.0.0.0/0, ::/0",\n    "dns": "",\n    "jc": 4\n  }\n}',
+        errorResponse: '{\n  "success": false,\n  "msg": "awg-outbound: parse failed"\n}',
+      },
+    ],
+  },
+  // END LUCX-HOOK
+
   {
     id: 'server',
     title: 'Server',

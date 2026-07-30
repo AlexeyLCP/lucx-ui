@@ -7,6 +7,7 @@
 package controller
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strconv"
@@ -267,7 +268,9 @@ func (a *AwgOutboundController) test(c *gin.Context) {
 		binName = "ping6"
 		target = "2606:4700:4700::1111"
 	}
-	cmd := exec.Command(binName, "-c", "3", "-W", "2", "-I", ifname, target)
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 15*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, binName, "-c", "3", "-W", "2", "-I", ifname, target)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		jsonMsg(c, "ping failed: "+string(out), err)
