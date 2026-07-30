@@ -826,9 +826,27 @@ npm run build                                      exit 0 → internal/web/dist/
 
 7 dependabot-PR (#25–#31) закрыты с комментарием (Known Issue #3: version updates отключены, security остаются; зависимости приходят целыми наборами с синком апстрима), ветки удалены. Очередь PR/issues пуста.
 
-### CI
+### CI упал после первого пуша — 4 проблемы, 3 наши
 
-Release LucX-UI (на теге и на main), Docs CI, Deploy Smoke Tests — success. Ассет загружен.
+Релиз собрался, но основной CI на `main` был красный: апстрим v3.6.0 принёс проверки, которых наш AWG-код не проходил. Починено в `adb86559` и `e92e091d`:
+
+**1. `TestRouteRegistryContract` (новый тест, job `race`).** Строит реальный gin-роутер и сверяет с `frontend/src/pages/api-docs/endpoints.ts` в обе стороны: маршрут без записи пропадает из OpenAPI-доков, запись без маршрута документирует 404. Все **8** маршрутов `/panel/api/awg-outbounds` (фича lucx.37) в реестре отсутствовали — добавлена секция `awg-outbounds` в LUCX-HOOK-блоке (отдельная, не вплетать в апстримовую `inbounds` — меньше конфликтов на следующем синке), `npm run gen` перегенерировал `openapi.json`.
+
+**2. `noctx` (job `golangci`).** `exec.Command` в `awg_outbound.go:270` (ping через интерфейс в хендлере Test) → `exec.CommandContext(ctx, ...)` с `c.Request.Context()` и таймаутом 15s + `defer cancel()`. Реальная польза, не только линтер: `ping -c 3 -W 2` живёт до ~8 с и держал горутину даже после отвала клиента.
+
+**3. `gofumpt` (job `golangci`).** 6 LucX-файлов без завершающего LF (последний байт `}` вместо `10`) — pre-existing с lucx.37. **Готча:** CI показал только 3 из 6 — `golangci-lint` обрезает вывод одного линтера (`max-same-issues`). После фикса «трёх из лога» CI снова был бы красным с другими именами — всегда гонять `gofumpt -l` локально по всем LucX-файлам, не верить списку из CI.
+
+**4. `rule-form-preserve-fields` (новый тест, job `frontend`) — поймал наш UX-баг.** Тест редактирует правило `{outboundTag, ruleTag}` без матчеров и ждёт `onConfirm`. Наш guard из lucx.40 (защита от Xray «this rule has no effective fields», Pattern 5) блокировал submit **всегда**, в том числе при редактировании уже существующего правила. Если правило пришло из шаблона или было создано до появления guard'а — пользователь не мог сохранить правку любого другого поля, модалка не закрывалась. **Фикс:** блокируем только при создании (`!isEdit`) — именно там рождается пустое правило; при редактировании — `message.warning` вместо `error`.
+
+Не наше: в job `frontend` также падала storybook-история `ConfigBlock.stories.tsx` на a11y-контрасте (`color-contrast`) — файл, компонент и CSS побайтово идентичны апстриму, AWG-кода не содержат, LUCX-HOOK в них нет. В итоговом прогоне прошла — флак рендера в headless-браузере.
+
+### Перевыпуск тега
+
+Первый тег `v3.6.0-lucx.48` ушёл **до** этих фиксов, то есть бинарник без таймаута ping и без AWG-эндпоинтов в API-доках. Релиз имел **0 скачиваний** → удалён вместе с тегом (`gh release delete --cleanup-tag`), тег переставлен на исправленный `e92e091d`, релиз пересобран. **Правило на будущее: тег ставить ТОЛЬКО после зелёного CI на main**, иначе либо удалять релиз (только пока нет скачиваний), либо выпускать lucx.49.
+
+### CI итог
+
+`CI` → **success** (все 8 job: frontend, golangci, race, go-test, codegen, govulncheck, fuzz-smoke, postgres-durable-first). `Release LucX-UI` на теге → success. `/releases/latest` → `v3.6.0-lucx.48`, `prerelease=false`, ассет 76 МБ. Очередь PR/issues пуста.
 
 **lucxVersion** → `lucx.48`.
 
