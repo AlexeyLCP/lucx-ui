@@ -6,9 +6,9 @@ This file is the law for every agent working on this project. Read it completely
 
 ## Project Overview
 
-LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.5.0**) that adds native AmneziaWG (AWG) support as a kernel-interface sidecar, mirroring upstream's MTProto (mtg) sidecar architecture. LucX-specific code lives in `internal/awg/` and `internal/lucx/`; all integration points in upstream files are wrapped in `LUCX-HOOK` / `END LUCX-HOOK` markers.
+LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.6.0**) that adds native AmneziaWG (AWG) support as a kernel-interface sidecar, mirroring upstream's MTProto (mtg) sidecar architecture. LucX-specific code lives in `internal/awg/` and `internal/lucx/`; all integration points in upstream files are wrapped in `LUCX-HOOK` / `END LUCX-HOOK` markers.
 
-**Upstream sync strategy:** migrate (not rebase). Each upstream release = fresh checkout of `origin/main` + port LucX code on top via LUCX-HOOK markers. The old `.patch`-file system is gone; integration is inline.
+**Upstream sync strategy:** **merge** `origin/main` (not rebase, not fresh-checkout). The v3.5.0→3.6.0 sync proved the isolation works: of 432 upstream-changed files only **7** conflicted, so a plain `git merge origin/main` is now the procedure — see Rule 8. The merge commit keeps upstream history, so each next sync is incremental. The old `.patch`-file system is gone; integration is inline.
 
 **Remotes:**
 - `origin` → `MHSanaei/3x-ui` (upstream)
@@ -146,11 +146,16 @@ The old architecture used a `tun2socks` userspace daemon to bridge the AWG kerne
 
 ### 8. Upstream Sync
 
-When pulling from upstream (`git fetch origin`):
-- Re-run `go build ./internal/awg/... ./internal/lucx/...` — these packages have no upstream dependencies and should always compile.
-- Check `grep -rn "LUCX-HOOK"` integration points for conflicts.
-- Run `go test ./internal/awg/... ./internal/lucx/...` and frontend `typecheck`/`lint`.
-- The migration procedure: fresh branch from `origin/main` → `git checkout <old-branch> -- <isolated-lucx-files>` → manually re-apply LUCX-HOOK blocks to changed upstream files (all upstream files with HOOK markers likely changed between releases).
+Procedure (validated on v3.5.0→v3.6.0, 103 upstream commits / 432 files / 7 conflicts):
+
+1. `git fetch origin --tags`, branch off our current head, then `git merge --no-commit --no-ff origin/main`.
+2. **Record the LUCX-HOOK marker count per file BEFORE resolving** (`git grep -c "LUCX-HOOK"`). After the merge, any file whose count dropped silently lost our code — that is the only reliable detector.
+3. **Resolve conflicts ONLY from the terminal.** Editing a file while it is in conflict state makes the IDE rewrite it from its own merge cache and silently drop content (v3.6.0: `install.sh` lost all 16 LUCX-HOOK blocks, `db.go` lost the new upstream functions).
+4. **Resolve block by block, never one blanket strategy.** Upstream usually *adds* code NEXT TO a HOOK block rather than replacing it, so a wholesale `--ours` yields uncompilable code (v3.6.0: `undefined: database.BackupSQLite`). Rule of thumb: take **both** sides when upstream added a sibling call/test/field; take **ours** only where our block is a deliberate substitution (fork URLs, `prerelease: false`).
+5. Verify: `go build ./...`, `go vet ./...`, `go test ./internal/awg/... ./internal/lucx/...`, `bin/check-lucx.sh`, and frontend `lint` + `typecheck` + `vitest run --project=unit` + `build`.
+6. If upstream added a new cross-cutting invariant test, satisfy it for our code too — v3.6.0 introduced `frontend/src/test/i18n-dead-keys.test.ts`, which demands every locale carry the exact en-US key set (our AWG keys had lived only in en+ru).
+
+Windows caveat: `internal/database` needs CGO (`sqlite3.Backup`), so `go build ./...` fails there without gcc — reproducible on pristine upstream, not our regression. Release binaries are Linux-only with `CGO_ENABLED=1` anyway.
 
 ### 9. Frontend Stack
 
@@ -408,7 +413,16 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 
 ### Pattern 2: LUCX-HOOK конфликт при upstream sync
 - **Cause:** Upstream изменил файл с HOOK-маркером между релизами.
-- **Fix:** Сравнить старую и новую версию upstream-файла, вручную перенести HOOK-блок в новую структуру. Не `git checkout` весь файл — потеряешь upstream-изменения.
+- **Fix:** Решать каждый блок отдельно (см. Rule 8). Не `git checkout` весь файл и не сплошной `--ours` — потеряешь upstream-изменения.
+
+### Pattern 2b: после merge файл потерял LUCX-HOOK-блоки целиком
+- **Cause:** файл в состоянии конфликта правили через IDE — она перезаписывает его из своего merge-кэша и молча выкидывает часть содержимого. На v3.6.0: `install.sh` потерял все 16 блоков, `db.go` — апстрим-функции.
+- **Detect:** `git grep -c "LUCX-HOOK"` до и после — падение числа есть потеря. Проверять также число строк: если результат меньше И нашего, И апстримового варианта — выпал код.
+- **Fix:** `git checkout --merge -- <файлы>` восстанавливает конфликтное состояние с маркерами; дальше резолвить только из терминала, затем `git add` для снятия unmerged-записей (иначе IDE продолжает предлагать свой мастер и может затереть работу).
+
+### Pattern 2c: CI красный на i18n-dead-keys после добавления LucX-фичи
+- **Cause:** `frontend/src/test/i18n-dead-keys.test.ts` (из v3.6.0) требует, чтобы **каждая** из 13 локалей несла ровно тот же набор ключей, что `en-US.json` (и наоборот — ни одного лишнего). Добавил ключ только в en+ru — 11 локалей падают с `missing=N`.
+- **Fix:** добавлять новые ключи сразу во все 13 файлов `internal/web/translation/*.json`, с переводом на язык локали (конвенция проекта); технические термины (`Tag`, `MTU`, `DNS`, `Allowed IPs`, `awg-quick`, `outbound`) оставлять латиницей. Второй тест набора требует обратного: неиспользуемый в коде ключ — тоже падение, удаляй его из всех 13.
 
 ### Pattern 3: Frontend не видит AWG-протокол
 - **Cause:** Забыта регистрация в одном из: `protocols/index.ts`, `schemas/inbound/index.ts`, `primitives/protocol.ts`, `InboundFormModal.tsx`.
