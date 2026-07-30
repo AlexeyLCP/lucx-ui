@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"math"
 	"net/url"
 	"regexp"
@@ -157,9 +158,8 @@ func parseVmess(link string) (*ParseResult, error) {
 	// Map known fields (best effort, matching frontend parser coverage)
 	switch network {
 	case "ws":
-		if host, ok := j["host"].(string); ok {
-			setWS(stream, host, getString(j, "path", "/"))
-		}
+		host, _ := j["host"].(string)
+		setWS(stream, host, getString(j, "path", "/"))
 	case "grpc":
 		svc := getString(j, "path", "")
 		if auth, ok := j["authority"].(string); ok && auth != "" {
@@ -452,7 +452,7 @@ func parseHysteria2(link string) (*ParseResult, error) {
 			"alpn":                 splitCommaOrDefault(params.Get("alpn"), []string{"h3"}),
 			"fingerprint":          params.Get("fp"),
 			"echConfigList":        params.Get("ech"),
-			"verifyPeerCertByName": "",
+			"verifyPeerCertByName": params.Get("vcn"),
 			"pinnedPeerCertSha256": params.Get("pinSHA256"),
 		},
 	}
@@ -622,7 +622,15 @@ func applyTransport(stream map[string]any, p url.Values) {
 		if m := p.Get("mode"); m != "" {
 			xh["mode"] = m
 		}
-		// A few advanced xhttp fields that are commonly carried
+		if v := p.Get("x_padding_bytes"); v != "" {
+			xh["xPaddingBytes"] = v
+		}
+		if extra := p.Get("extra"); extra != "" {
+			var parsed map[string]any
+			if err := json.Unmarshal([]byte(extra), &parsed); err == nil {
+				maps.Copy(xh, parsed)
+			}
+		}
 		for _, k := range []string{"xPaddingBytes", "scMaxEachPostBytes", "scMinPostsIntervalMs", "uplinkChunkSize"} {
 			if v := p.Get(k); v != "" {
 				xh[k] = v

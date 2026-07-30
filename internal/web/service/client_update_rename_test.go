@@ -46,6 +46,36 @@ func TestUpdateInboundClientRenameDoesNotDuplicateRecord(t *testing.T) {
 	}
 }
 
+func TestUpdateInboundClientCaseOnlyRenameDoesNotDuplicateRecord(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	source := []model.Client{{Email: "test", ID: "aaaaaaaa-0000-0000-0000-000000000002", SubID: "sub-case", Enable: true}}
+	ib := mkInbound(t, 22002, model.VLESS, clientsSettings(t, source))
+	if err := svc.SyncInbound(nil, ib.Id, source); err != nil {
+		t.Fatalf("seed linkage: %v", err)
+	}
+	origId := lookupClientRecord(t, "test").Id
+
+	updated := source[0]
+	updated.Email = "Test"
+	if _, err := svc.Update(inboundSvc, origId, updated); err != nil {
+		t.Fatalf("Update case-only email: %v", err)
+	}
+
+	if n := countClientRecords(t); n != 1 {
+		t.Fatalf("client records after case-only rename = %d, want 1", n)
+	}
+	rec := lookupClientRecord(t, "Test")
+	if rec.Id != origId {
+		t.Fatalf("record id after case-only rename = %d, want %d", rec.Id, origId)
+	}
+	if rec.Email != "Test" {
+		t.Fatalf("email after case-only rename = %q, want %q", rec.Email, "Test")
+	}
+}
+
 func TestClientUpdateDuplicateSubIDDoesNotRenameEmail(t *testing.T) {
 	setupBulkDB(t)
 	svc := &ClientService{}
@@ -75,6 +105,45 @@ func TestClientUpdateDuplicateSubIDDoesNotRenameEmail(t *testing.T) {
 	}
 	if got := mustInboundSettings(t, inboundSvc, ib.Id); got != origSettings {
 		t.Fatalf("inbound settings changed after rejected update")
+	}
+}
+
+func TestClientUpdateKeepsSharedSubIDEditable(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	source := []model.Client{
+		{Email: "a@node", ID: "aaaaaaaa-0000-0000-0000-000000000005", SubID: "sub-shared", Enable: true},
+		{Email: "b@node", ID: "aaaaaaaa-0000-0000-0000-000000000006", SubID: "sub-shared", Enable: true},
+	}
+	ib := mkInbound(t, 22004, model.VLESS, clientsSettings(t, source))
+	if err := svc.SyncInbound(nil, ib.Id, source); err != nil {
+		t.Fatalf("seed linkage: %v", err)
+	}
+	first := lookupClientRecord(t, "a@node")
+	if first.SubID != "sub-shared" || lookupClientRecord(t, "b@node").SubID != "sub-shared" {
+		t.Fatalf("seed did not produce a shared subId")
+	}
+
+	updated := source[0]
+	updated.TotalGB = 42
+	if _, err := svc.Update(inboundSvc, first.Id, updated); err != nil {
+		t.Fatalf("Update of a client whose subId is already shared: %v", err)
+	}
+	if got := lookupClientRecord(t, "a@node").TotalGB; got != 42 {
+		t.Fatalf("totalGB after update = %d, want 42", got)
+	}
+
+	omitted := source[0]
+	omitted.SubID = ""
+	omitted.TotalGB = 43
+	if _, err := svc.Update(inboundSvc, first.Id, omitted); err != nil {
+		t.Fatalf("Update with subId omitted entirely: %v", err)
+	}
+	other := lookupClientRecord(t, "b@node")
+	if other.SubID != "sub-shared" {
+		t.Fatalf("other client subId = %q, want %q", other.SubID, "sub-shared")
 	}
 }
 

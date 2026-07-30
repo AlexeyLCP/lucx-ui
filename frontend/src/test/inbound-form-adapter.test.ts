@@ -32,6 +32,7 @@ const vlessRow: RawInboundRow = {
   total: 1_000_000_000,
   expiryTime: 0,
   trafficReset: 'monthly',
+  trafficResetDay: 15,
   lastTrafficResetTime: 0,
   tag: 'inbound-1',
   nodeId: null,
@@ -155,6 +156,22 @@ describe('transportless streamSettings (wireguard / tunnel)', () => {
     }
   });
 
+  it('fills sockopt schema defaults for a stored inbound missing tproxy (#5956)', () => {
+    const values = rawInboundToFormValues({
+      port: 443,
+      protocol: 'vless',
+      settings: { clients: [] },
+      streamSettings: JSON.stringify({
+        network: 'tcp',
+        security: 'none',
+        sockopt: { tcpFastOpen: true },
+      }),
+    });
+    const stream = values.streamSettings as { sockopt?: { tproxy?: string; tcpFastOpen?: boolean } };
+    expect(stream.sockopt?.tproxy).toBe('off');
+    expect(stream.sockopt?.tcpFastOpen).toBe(true);
+  });
+
   it('still rejects a present-but-invalid network value', () => {
     const result = InboundFormSchema.safeParse({
       port: 12345,
@@ -251,6 +268,7 @@ describe('formValuesToWirePayload', () => {
       enable: payload.enable,
       expiryTime: payload.expiryTime,
       trafficReset: payload.trafficReset,
+      trafficResetDay: payload.trafficResetDay,
       lastTrafficResetTime: payload.lastTrafficResetTime,
       nodeId: payload.nodeId ?? null,
     });
@@ -260,7 +278,12 @@ describe('formValuesToWirePayload', () => {
     expect(replay.listen).toBe(original.listen);
     expect(replay.up).toBe(original.up);
     expect(replay.down).toBe(original.down);
+    expect(replay.trafficResetDay).toBe(original.trafficResetDay);
     expect(replay.streamSettings).toEqual(original.streamSettings);
+  });
+
+  it('defaults a missing monthly reset day to the first', () => {
+    expect(rawInboundToFormValues({ ...vlessRow, trafficResetDay: undefined }).trafficResetDay).toBe(1);
   });
 });
 

@@ -2,6 +2,7 @@ package controller
 
 import (
 	"errors"
+	"net/http"
 	"strconv"
 	"time"
 
@@ -38,6 +39,10 @@ type updateSettingForm struct {
 	ClearSmtpPassword bool   `json:"clearSmtpPassword" form:"clearSmtpPassword"`
 }
 
+type validateRegexForm struct {
+	Regex string `json:"regex" form:"regex"`
+}
+
 // SettingController handles settings and user management operations.
 type SettingController struct {
 	settingService  service.SettingService
@@ -60,7 +65,9 @@ func (a *SettingController) initRouter(g *gin.RouterGroup) {
 
 	g.POST("/all", a.getAllSetting)
 	g.POST("/defaultSettings", a.getDefaultSettings)
+	g.POST("/factoryDefaults", a.getFactoryDefaults)
 	g.POST("/update", a.updateSetting)
+	g.POST("/validateRegex", a.validateRegex)
 	g.POST("/updateUser", a.updateUser)
 	g.POST("/restartPanel", a.restartPanel)
 	g.GET("/getDefaultJsonConfig", a.getDefaultXrayConfig)
@@ -70,6 +77,19 @@ func (a *SettingController) initRouter(g *gin.RouterGroup) {
 	g.POST("/apiTokens/setEnabled/:id", a.setApiTokenEnabled)
 	g.POST("/testSmtp", a.testSmtp)
 	g.POST("/testTgBot", a.testTgBot)
+}
+
+func (a *SettingController) validateRegex(c *gin.Context) {
+	form := &validateRegexForm{}
+	if err := c.ShouldBind(form); err != nil {
+		pureJsonMsg(c, http.StatusOK, false, err.Error())
+		return
+	}
+	if err := service.ValidateRegex(form.Regex); err != nil {
+		pureJsonMsg(c, http.StatusOK, false, err.Error())
+		return
+	}
+	pureJsonMsg(c, http.StatusOK, true, "")
 }
 
 // getAllSetting retrieves all current settings as the browser-safe view:
@@ -91,6 +111,10 @@ func (a *SettingController) getDefaultSettings(c *gin.Context) {
 		return
 	}
 	jsonObj(c, result, nil)
+}
+
+func (a *SettingController) getFactoryDefaults(c *gin.Context) {
+	jsonObj(c, a.settingService.GetFactoryDefaults(), nil)
 }
 
 // updateSetting updates all settings with the provided data.

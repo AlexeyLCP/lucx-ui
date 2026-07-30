@@ -248,7 +248,6 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 
 	s.index = controller.NewIndexController(g)
 	s.panel = controller.NewXUIController(g)
-	g.GET("/panel/api/openapi.json", controller.ServeOpenAPISpec)
 	s.api = controller.NewAPIController(g)
 
 	// Initialize WebSocket hub
@@ -304,7 +303,7 @@ const (
 
 // startTask schedules background jobs (Xray checks, traffic jobs, cron
 // jobs) which the panel relies on for periodic maintenance and monitoring.
-func (s *Server) startTask(restartXray bool) {
+func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	if restartXray {
 		err := s.xrayService.RestartXray(true)
 		if err != nil {
@@ -316,12 +315,7 @@ func (s *Server) startTask(restartXray bool) {
 
 	// Check if xray needs to be restarted every 30 seconds
 	_, _ = s.cron.AddFunc(cadenceXrayRestart, func() {
-		if s.xrayService.IsNeedRestartAndSetFalse() {
-			err := s.xrayService.RestartXray(false)
-			if err != nil {
-				logger.Error("restart xray failed:", err)
-			}
-		}
+		s.xrayService.ApplyPendingRestart()
 	})
 
 	go func() {
@@ -356,13 +350,13 @@ func (s *Server) startTask(restartXray bool) {
 
 	// Inbound traffic reset jobs
 	// Run every hour
-	_, _ = s.cron.AddJob("@hourly", job.NewPeriodicTrafficResetJob("hourly"))
+	_, _ = s.cron.AddJob("@hourly", job.NewPeriodicTrafficResetJob("hourly", loc))
 	// Run once a day, midnight
-	_, _ = s.cron.AddJob("@daily", job.NewPeriodicTrafficResetJob("daily"))
+	_, _ = s.cron.AddJob("@daily", job.NewPeriodicTrafficResetJob("daily", loc))
 	// Run once a week, midnight between Sat/Sun
-	_, _ = s.cron.AddJob("@weekly", job.NewPeriodicTrafficResetJob("weekly"))
-	// Run once a month, midnight, first of month
-	_, _ = s.cron.AddJob("@monthly", job.NewPeriodicTrafficResetJob("monthly"))
+	_, _ = s.cron.AddJob("@weekly", job.NewPeriodicTrafficResetJob("weekly", loc))
+	// Check monthly reset days at midnight
+	_, _ = s.cron.AddJob("@daily", job.NewPeriodicTrafficResetJob("monthly", loc))
 
 	// LDAP sync scheduling
 	if ldapEnabled, _ := s.settingService.GetLdapEnable(); ldapEnabled {
@@ -663,7 +657,7 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 		}
 	})
 
-	s.startTask(restartXray)
+	s.startTask(restartXray, loc)
 
 	if startTgBot {
 		isTgbotenabled, err := s.settingService.GetTgbotEnabled()

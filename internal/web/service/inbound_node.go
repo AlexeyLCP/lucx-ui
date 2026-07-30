@@ -125,7 +125,14 @@ func (s *InboundService) ReconcileNode(ctx context.Context, rt *runtime.Remote, 
 				}
 			}
 		}
-		if _, err := rt.ReconcileInbound(ctx, ib, existsOnNode); err != nil {
+		// Reconcile with the same runtime-built payload interactive pushes
+		// send (disabled clients filtered, settings.fallbacks injected) so
+		// fingerprints line up and fallback edits actually reach the node.
+		runtimeIb := ib
+		if built, bErr := s.buildRuntimeInboundForAPI(db, ib); bErr == nil {
+			runtimeIb = built
+		}
+		if _, err := rt.ReconcileInbound(ctx, runtimeIb, existsOnNode); err != nil {
 			errs = append(errs, fmt.Errorf("reconcile inbound %q: %w", ib.Tag, err))
 		}
 	}
@@ -304,7 +311,8 @@ func adoptedWireChanged(c, snapIb *model.Inbound, adoptedSettings string) bool {
 		c.ExpiryTime != snapIb.ExpiryTime ||
 		c.StreamSettings != snapIb.StreamSettings ||
 		c.Sniffing != snapIb.Sniffing ||
-		c.TrafficReset != snapIb.TrafficReset
+		c.TrafficReset != snapIb.TrafficReset ||
+		c.TrafficResetDay != normalizeTrafficResetDay(snapIb.TrafficResetDay)
 }
 
 // adoptedWireInbound is the central inbound as it reads after adopting the
@@ -323,6 +331,7 @@ func adoptedWireInbound(c, snapIb *model.Inbound, adoptedSettings string) *model
 	a.StreamSettings = snapIb.StreamSettings
 	a.Sniffing = snapIb.Sniffing
 	a.TrafficReset = snapIb.TrafficReset
+	a.TrafficResetDay = normalizeTrafficResetDay(snapIb.TrafficResetDay)
 	return &a
 }
 
@@ -554,6 +563,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 				StreamSettings:       snapIb.StreamSettings,
 				Sniffing:             snapIb.Sniffing,
 				TrafficReset:         snapIb.TrafficReset,
+				TrafficResetDay:      normalizeTrafficResetDay(snapIb.TrafficResetDay),
 				LastTrafficResetTime: snapIb.LastTrafficResetTime,
 				Enable:               snapIb.Enable,
 				Remark:               snapIb.Remark,
@@ -609,6 +619,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 			updates["stream_settings"] = snapIb.StreamSettings
 			updates["sniffing"] = snapIb.Sniffing
 			updates["traffic_reset"] = snapIb.TrafficReset
+			updates["traffic_reset_day"] = normalizeTrafficResetDay(snapIb.TrafficResetDay)
 			updates["last_traffic_reset_time"] = snapIb.LastTrafficResetTime
 			if adoptedWireChanged(c, snapIb, adoptedSettings) {
 				adoptedInbounds = append(adoptedInbounds, adoptedWireInbound(c, snapIb, adoptedSettings))
@@ -1025,7 +1036,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 		}
 	}
 
-	if p != nil {
+	if process := currentXrayProcess(); process != nil {
 		tree := snap.OnlineTree
 		switch {
 		case len(tree) == 0 && len(snap.OnlineEmails) > 0:
@@ -1047,17 +1058,18 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 				tree = remapped
 			}
 		}
-		p.SetNodeOnlineTree(nodeID, tree)
+		process.SetNodeOnlineTree(nodeID, tree)
 	}
 
 	return structuralChange, nil
 }
 
 func (s *InboundService) GetOnlineClients() []string {
-	if p == nil {
+	process := currentXrayProcess()
+	if process == nil {
 		return []string{}
 	}
-	return p.GetOnlineClients()
+	return process.GetOnlineClients()
 }
 
 // GetOnlineClientsByGuid returns online emails keyed by the panelGuid of the
@@ -1066,11 +1078,12 @@ func (s *InboundService) GetOnlineClients() []string {
 // node-id keying so a client three hops down is attributed to its real node,
 // not the intermediate one it was synced through.
 func (s *InboundService) GetOnlineClientsByGuid() map[string][]string {
-	if p == nil {
+	process := currentXrayProcess()
+	if process == nil {
 		return map[string][]string{}
 	}
-	out := p.GetMergedNodeTrees()
-	if local := p.GetLocalOnlineClients(); len(local) > 0 {
+	out := process.GetMergedNodeTrees()
+	if local := process.GetLocalOnlineClients(); len(local) > 0 {
 		if guid := s.panelGuid(); guid != "" {
 			out[guid] = mergeEmails(out[guid], local)
 		}
@@ -1083,10 +1096,11 @@ func (s *InboundService) GetOnlineClientsByGuid() map[string][]string {
 // report per-inbound activity, so a GUID missing from the map means "don't
 // gate" for that node's inbounds.
 func (s *InboundService) GetActiveInboundsByGuid() map[string][]string {
-	if p == nil {
+	process := currentXrayProcess()
+	if process == nil {
 		return map[string][]string{}
 	}
-	active := p.GetLocalActiveInbounds()
+	active := process.GetLocalActiveInbounds()
 	if len(active) == 0 {
 		return map[string][]string{}
 	}
@@ -1098,14 +1112,14 @@ func (s *InboundService) GetActiveInboundsByGuid() map[string][]string {
 }
 
 func (s *InboundService) SetNodeOnlineTree(nodeID int, tree map[string][]string) {
-	if p != nil {
-		p.SetNodeOnlineTree(nodeID, tree)
+	if process := currentXrayProcess(); process != nil {
+		process.SetNodeOnlineTree(nodeID, tree)
 	}
 }
 
 func (s *InboundService) ClearNodeOnlineClients(nodeID int) {
-	if p != nil {
-		p.ClearNodeOnlineClients(nodeID)
+	if process := currentXrayProcess(); process != nil {
+		process.ClearNodeOnlineClients(nodeID)
 	}
 }
 
@@ -1166,8 +1180,8 @@ func (s *InboundService) GetClientsLastOnline() (map[string]int64, error) {
 // xray.Process for why the local sets are kept separate from the shared
 // last_online column.
 func (s *InboundService) RefreshLocalOnlineClients(activeEmails, activeInboundTags []string) {
-	if p != nil {
-		p.RefreshLocalOnline(activeEmails, activeInboundTags, time.Now().UnixMilli(), onlineGracePeriodMs)
+	if process := currentXrayProcess(); process != nil {
+		process.RefreshLocalOnline(activeEmails, activeInboundTags, time.Now().UnixMilli(), onlineGracePeriodMs)
 	}
 }
 
