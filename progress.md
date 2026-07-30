@@ -947,18 +947,14 @@ systemctl start x-ui
 **Контекст:** Главная страница `README.md` была гибридной — содержала сразу два блока `## 🇷🇺 О проекте` и `## 🇬🇧 About`. Переделали по схеме многостраничной документации 3x-ui.
 
 **Что сделано:**
-- **Единая структура всех 7 README (`README.md`, `README.ru_RU.md`, `README.zh_CN.md`, `README.es_ES.md`, `README.tr_TR.md`, `README.fa_IR.md`, `README.ar_EG.md`):** Устранено дублирование («два README в одном файле»). Каждая языковая страница содержит единственный цельный документ:
-  1. Заголовок `# LucX-UI`, бейджи и переключатель языков (`English | Русский | فارسی | العربية | 中文 | Español | Türkçe`).
-  2. Предупреждающий баннер (Warning: личное/некоммерческое/научное/образовательное использование под PolyForm NC).
-  3. Раздел «О проекте и возможности»: фичи AmneziaWG (AWG Inbounds, Outbounds/Client Mode, Obfuscation, TLS-отпечатки Chrome/Firefox/Safari, Live Signature Capture, 2 режима маршрутизации, диагностика) + базовые возможности 3x-ui + скриншоты.
-  4. Единый быстрый старт: команда `bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)` + неинтерактивная установка.
-  5. Поддерживаемые платформы, архитектуры и варианты баз данных (SQLite / PostgreSQL / Docker Compose / переменные окружения).
-  6. Лицензия и условия: таблица GPL-3.0 ↔ PolyForm NC 1.0.0 + ссылка на CONTRIBUTING.md.
-  7. Объединённые благодарности и источники: тестеры/контрибьюторы (VladufQa, Kirill Rudenko, 302ba Alex, alireza0, 3x-ui team) + источники кода (3x-ui, AmneziaVPN, pumbaX, hoaxisr, bogdanfinn, rules).
-  8. Единый раздел поддержки проекта: таблицы реквизитов (ЮMoney, USDT TON, USDT ERC-20).
-  9. График Stargazers.
+- **Лаконичный дизайн всех 7 README (`README.md`, `README.ru_RU.md`, `README.zh_CN.md`, `README.es_ES.md`, `README.tr_TR.md`, `README.fa_IR.md`, `README.ar_EG.md`):**
+  1. Блок **⚡ Быстрый старт** с однострочником установки поднят в самый верх под шапку.
+  2. Технические детали (cloud-init, Docker, PostgreSQL, переменные окружения `/etc/default/x-ui`) убраны в аккуратные сворачиваемые блоки `<details>`.
+  3. Скриншоты убраны в аккуратный блок `<details>`.
+  4. Исправлена ссылка на график динамики звёзд Stargazers: с `MHSanaei/3x-ui` на **`AlexeyLCP/lucx-ui`** во всех 7 языковых версиях.
 
 Файлы: `README.md`, `README.ru_RU.md`, `README.ar_EG.md`, `README.es_ES.md`, `README.fa_IR.md`, `README.tr_TR.md`, `README.zh_CN.md`.
+
 
 
 

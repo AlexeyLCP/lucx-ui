@@ -1,4 +1,4 @@
-<!-- LUCX-HOOK: LucX-UI fork README — Unified EN README. Keep in sync with LICENSING.md and AGENTS.md. -->
+<!-- LUCX-HOOK: LucX-UI fork README — Streamlined EN README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
 <p align="center">
@@ -20,46 +20,61 @@
 </p>
 
 > [!WARNING]
-> **For personal, non-commercial, scientific, research, and educational use only.** Commercial use — including VPN resale, paid panels, or subscription services built on this code — requires explicit written permission from the author. Do not use for illegal purposes.
+> **For personal, non-commercial, scientific, research, and educational use only.** Commercial use — including VPN resale or paid panels — requires explicit written permission under PolyForm Noncommercial 1.0.0.
 
 ---
 
-## About LucX-UI
+## ⚡ Quick Start
 
-**LucX-UI** is an advanced web control panel for managing [Xray-core](https://github.com/XTLS/Xray-core) servers, built as an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (v3.6.0) with native **AmneziaWG (AWG)** support. AWG runs as a kernel-interface sidecar — mirroring the exact architecture upstream uses for MTProto (mtg): the panel owns the lifecycle and traffic accounting, and Xray can optionally route the traffic.
+One-line installation on **Linux (Ubuntu / Debian / CentOS / AlmaLinux / Arch, etc.)**:
 
-### Key Features
-
-#### 🛡️ AmneziaWG (AWG) Enhancements
-- **AWG Inbounds** — Kernel sidecar via `awg-quick`: creation, 10-second reconcile, orphan interface cleanup, and DKMS kernel-module installer.
-- **AWG Outbounds (Client Mode)** — Dial out to an upstream AmneziaWG server directly from the panel: dedicated tab in Xray settings, paste `.conf` files, and `awgo-{id}` kernel interfaces managed by the reconcile loop. Injects a `freedom` outbound with `sockopt.interface` into Xray config so routing rules and balancers can send traffic through an upstream VPN.
-- **Obfuscation Control** — Lite/Standard/Pro presets (Jc/Jmin/Jmax/S1–S4/H1–H4) and CPS packet mimicry: TLS, DNS, SIP, and QUIC.
-- **Browser TLS Fingerprints** — Chrome (GREASE), Firefox 120+ (NSS ordering, padding), and Safari 16+ (Apple ordering, TLS 1.1) for TLS and QUIC.
-- **Live Signature Capture** — Convert real QUIC handshakes from front domains into I1–I5 obfuscation parameters.
-- **Client Management** — QR codes, `.conf` download, and per-peer traffic accounting (`awg show transfer`).
-- **Two Routing Modes**:
-  - **Kernel NAT** — Direct kernel forwarding; NAT rules self-heal via the reconcile loop after iptables flushes.
-  - **Route through Xray** — Traffic flows through Xray's full routing pipeline (domain/geosite rules, balancers, chained outbounds) via a TUN inbound with policy routing and sniffing.
-- **In-Panel Diagnostics** — One-button probe in the inbound form checking interface UP, ip_forward, peers/handshakes, and NAT/TUN rules.
-
-#### 🚀 Core 3x-ui Features
-- **Multi-protocol inbounds** — VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS (Mixed), Dokodemo-door, and TUN.
-- **Modern transports & security** — TCP (Raw), mKCP, WebSocket, gRPC, HTTPUpgrade, and XHTTP, secured with TLS, XTLS, and REALITY.
-- **Fallbacks** — Serve multiple protocols on a single port (e.g. VLESS and Trojan on 443) using Xray's fallback support.
-- **Per-client management** — Traffic quotas, expiry dates, IP limits, live online status, and one-click share links, QR codes, and subscriptions.
-- **Traffic statistics** — Per inbound, per client, and per outbound, with reset controls.
-- **Multi-node support** — Manage and scale across multiple servers from a single panel.
-- **Outbound & routing** — WARP, NordVPN, custom routing rules, load balancers, and outbound proxy chaining.
-- **Subscription server** with multiple output formats and custom page templates.
-- **Telegram bot** for remote monitoring and management.
-- **RESTful API** with in-panel Swagger documentation.
-- **Flexible storage** — SQLite (default) or PostgreSQL.
-- **Fail2ban integration** for enforcing per-client IP limits.
-
-### Screenshots
+```bash
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
 
 <details>
-<summary>Click to expand</summary>
+<summary><b>🛠️ Advanced Installation & Configuration (Cloud-Init, Docker, PostgreSQL, Env Vars)</b></summary>
+
+### Non-Interactive Install (Cloud-Init)
+```bash
+XUI_NONINTERACTIVE=1 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+Credentials are saved to `/etc/x-ui/install-result.env`.
+
+### Docker with PostgreSQL
+```bash
+docker compose --profile postgres up -d
+```
+
+### Key Environment Variables (`/etc/default/x-ui`)
+| Variable | Description | Default |
+| --- | --- | --- |
+| `XUI_DB_TYPE` | Database engine (`sqlite` or `postgres`) | `sqlite` |
+| `XUI_DB_DSN` | PostgreSQL DSN | — |
+| `XUI_ENABLE_FAIL2BAN` | Enable Fail2ban IP-limiting | `true` |
+| `XUI_LOG_LEVEL` | Log level (`debug`, `info`, `warning`, `error`) | `info` |
+
+</details>
+
+---
+
+## 🌟 About LucX-UI
+
+**LucX-UI** is an advanced web control panel for managing [Xray-core](https://github.com/XTLS/Xray-core) servers, built as an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) with native **AmneziaWG (AWG)** kernel-interface sidecar support.
+
+### 🛡️ AmneziaWG (AWG) Features
+- **AWG Inbounds & Outbounds** — Kernel sidecar (`awg-quick`), client mode dial-out to upstream AWG servers (`awgo-{id}`), 10-second automatic reconcile loop, and DKMS kernel module builder.
+- **Advanced Obfuscation** — Lite/Standard/Pro presets (Jc/Jmin/Jmax/S1–S4/H1–H4), CPS packet mimicry (TLS, DNS, SIP, QUIC), and browser TLS fingerprints (Chrome, Firefox, Safari).
+- **Live Signature Capture** — Convert real QUIC handshakes from front domains into I1–I5 obfuscation parameters.
+- **Routing & Diagnostics** — Dual routing modes (Kernel NAT and Route through Xray with policy routing & sniffing) + one-click in-panel diagnostics.
+
+### 🚀 Core 3x-ui Features
+- **Protocols:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
+- **Transports & Security:** REALITY, TLS, XTLS, gRPC, WebSocket, XHTTP, Fallbacks.
+- **Management:** Traffic quotas, IP limits (Fail2ban), live online status, subscriptions, Telegram bot, REST API, Multi-node support, SQLite / PostgreSQL.
+
+<details>
+<summary><b>📸 Screenshots</b></summary>
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="./media/01-overview-dark.png">
@@ -71,107 +86,31 @@
   <img alt="Inbounds" src="./media/02-add-inbound-light.png">
 </picture>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./media/03-add-client-dark.png">
-  <img alt="Add client" src="./media/03-add-client-light.png">
-</picture>
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./media/05-add-nodes-dark.png">
-  <img alt="Configs" src="./media/05-add-nodes-light.png">
-</picture>
-
 </details>
 
-## Quick Start
+---
 
-```bash
-bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
-```
-
-Installs the panel from the [latest release](https://github.com/AlexeyLCP/lucx-ui/releases/latest), the systemd unit, Xray-core and mtg (from the upstream 3x-ui release), and builds the AmneziaWG kernel module via DKMS (`bin/install-awg-module.sh`).
-
-During installation a random username, password, and access path are generated. After installation, run `x-ui` to open the management menu.
-
-### Unattended install
-
-The installer also runs **non-interactively** for cloud-init. Set `XUI_NONINTERACTIVE=1` and it installs end-to-end without prompts, writing credentials to `/etc/x-ui/install-result.env`. See [`deploy/`](deploy/) for cloud-init guides.
-
-## Supported Platforms
-
-**Operating systems:** Ubuntu, Debian, Armbian, Fedora, CentOS, RHEL, AlmaLinux, Rocky Linux, Oracle Linux, Amazon Linux, Virtuozzo, Arch, Manjaro, Parch, openSUSE (Tumbleweed / Leap), Alpine, and Windows.
-
-**Architectures:** `amd64` · `386` · `arm64` (aarch64) · `armv7` · `armv6` · `armv5` · `s390x`.
-
-## Database Options
-
-3X-UI supports two backends, chosen during the install:
-
-- **SQLite** (default) — a single file at `/etc/x-ui/x-ui.db`.
-- **PostgreSQL** — recommended for high client counts or multi-node setups.
-
-Environment variables in `/etc/default/x-ui`:
-```
-XUI_DB_TYPE=postgres
-XUI_DB_DSN=postgres://xui:password@127.0.0.1:5432/xui?sslmode=disable
-```
-
-### Docker
-
-To run with PostgreSQL in Docker, uncomment the `XUI_DB_*` env lines in `docker-compose.yml` and run:
-```bash
-docker compose --profile postgres up -d
-```
-
-## Environment Variables
-
-| Variable | Description | Default |
-| --- | --- | --- |
-| `XUI_DB_TYPE` | Database backend: `sqlite` or `postgres` | `sqlite` |
-| `XUI_DB_DSN` | PostgreSQL connection string (when `XUI_DB_TYPE=postgres`) | — |
-| `XUI_DB_FOLDER` | Directory for the SQLite database file | `/etc/x-ui` |
-| `XUI_ENABLE_FAIL2BAN` | Enable Fail2ban-based IP-limit enforcement | `true` |
-| `XUI_LOG_LEVEL` | Log verbosity (`debug`, `info`, `warning`, `error`) | `info` |
-| `XUI_TUNNEL_HEALTH_MONITOR` | Enable the tunnel health monitor | `false` |
-
-## License & Terms
+## 📜 License & Terms
 
 This project is published under **two licenses** (details in [LICENSING.md](LICENSING.md)):
 
 | Component | License |
 |---|---|
-| Original 3x-ui code | **GPL-3.0** (as required by upstream) |
-| LucX components (`internal/awg/`, `internal/lucx/`, AWG frontend, scripts) | **PolyForm Noncommercial 1.0.0** |
+| Original 3x-ui codebase | **GPL-3.0** |
+| LucX-UI components (`internal/awg/`, `internal/lucx/`, frontend) | **PolyForm Noncommercial 1.0.0** |
 
-**Free** for personal, non-commercial, scientific, research, and educational use. **Commercial use** (VPN resale, paid panels, commercial embedding) requires explicit written permission from the author — open an [issue](https://github.com/AlexeyLCP/lucx-ui/issues) or contact the repository owner. Per-file `SPDX-License-Identifier` headers define the exact boundary: no header means GPL-3.0.
+---
 
-## Contributing
+## 🤝 Acknowledgements & Credits
 
-Contributions are welcome. Please read the [Contributing Guide](/CONTRIBUTING.md) before opening an issue or pull request.
+- **Testers & Contributors:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, the **3x-ui team**.
+- **Projects & Inspiration:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
 
-## Acknowledgements & Credits
-
-### Testers & Contributors
-- **VladufQa** — Live VPS testing (ruvds): first handshakes, traffic, cascades, routing bug reports.
-- **Kirill Rudenko** — Testing (runode) and **PR #13**: AWG needRestart, iif policy routing, per-inbound tables/gateways, reconcile route-ensure, sniffing.
-- **302ba (Alex)** — **PR #24**: Fix for client fields loss during Zod schema parsing.
-- **alireza0** — Upstream contributor.
-- The **3x-ui team** — For an excellent base and the sidecar architecture we mirror.
-
-### Source Credits & Inspiration
-- [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) — Fork base (GPL-3.0), MTProto sidecar architecture reference.
-- [AmneziaVPN](https://github.com/amnezia-vpn) — AmneziaWG protocol and kernel module.
-- [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) — PostUp NAT pattern (MASQUERADE + FORWARD), crypto-lib-free QUIC Initial generators, DKMS install approach.
-- [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) — QUIC signature capture (`internal/awg/signature/`).
-- [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) & [refraction-networking/utls](https://github.com/refraction-networking/utls) — Browser TLS profiles for Firefox/Safari presets.
-- [Iran v2ray rules](https://github.com/chocolate4u/Iran-v2ray-rules) & [Russia v2ray rules](https://github.com/runetfreedom/russia-v2ray-rules-dat) — Routing rules datasets.
-
-### Community Tools
-- [terraform-provider-3x-ui](https://github.com/batonogov/terraform-provider-threexui) (License: **MIT**): Manage inbounds, clients, panel settings as code.
+---
 
 ## ☕ Support the project
 
-LucX-UI is free for personal and non-commercial use. If the panel saves you time, you can support development:
+LucX-UI is free for personal use. You can support ongoing development:
 
 | Method | Details |
 |---|---|
@@ -179,10 +118,10 @@ LucX-UI is free for personal and non-commercial use. If the panel saves you time
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
 
-Donations are a thank-you, not a purchase: they do not grant a commercial license and do not change the terms in [LICENSING.md](LICENSING.md).
+---
 
-## Stargazers over Time
+## ⭐ Stargazers over Time
 
-[![Stargazers over time](https://starchart.cc/MHSanaei/3x-ui.svg?variant=adaptive)](https://starchart.cc/MHSanaei/3x-ui)
+[![Stargazers over time](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
 
 <!-- END LUCX-HOOK -->
