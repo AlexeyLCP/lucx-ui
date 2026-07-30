@@ -5,6 +5,14 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { z } from 'zod';
+import { WireguardClientSchema } from './wireguard';
+
+// AWG Client = WireGuard client + legacy поля (id/password)
+// Переиспользуем WireguardClientSchema чтобы не дублировать comment/limitIp/etc.
+const AwgClientSchema = WireguardClientSchema.extend({
+  id: z.string().optional(),
+  password: z.string().optional(),
+});
 
 // AWG (AmneziaWG) inbound. Served by a kernel-interface sidecar managed by
 // internal/awg, not Xray, so it has no stream settings. The settings blob
@@ -53,22 +61,7 @@ export const AwgInboundSettingsSchema = z.object({
   // tunnel address are stored so a full client .conf and share-link can be
   // rendered (mirroring WireGuard). Legacy inbounds stored id/password; the
   // backend maps these to publicKey/preSharedKey.
-  clients: z
-    .array(
-      z.object({
-        publicKey: z.string().default(''),
-        privateKey: z.string().optional(),
-        preSharedKey: z.string().optional(),
-        allowedIPs: z.array(z.string()).default([]),
-        keepAlive: z.number().int().min(0).optional(),
-        email: z.string(),
-        enable: z.boolean().default(true),
-        // Legacy fields (old inbounds): id = public key, password = PSK.
-        id: z.string().optional(),
-        password: z.string().optional(),
-      }),
-    )
-    .default([]),
+  clients: z.array(AwgClientSchema).default([]),
   // When set, the AWG kernel interface's decrypted packets flow into a TUN
   // inbound injected into the Xray config so egress obeys routing rules.
   // Mirrors mtproto's routeThroughXray but uses a TUN inbound (raw IP from
