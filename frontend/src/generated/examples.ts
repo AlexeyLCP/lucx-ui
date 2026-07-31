@@ -472,6 +472,7 @@ export const EXAMPLES: Record<string, unknown> = {
   "InboundOption": {
     "awgObfuscation": "",
     "awgServerAddress": "",
+    "awgVersion": "",
     "enable": true,
     "id": 1,
     "listen": "",

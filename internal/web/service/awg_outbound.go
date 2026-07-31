@@ -282,51 +282,51 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 		key = strings.TrimSpace(key)
 		val = strings.TrimSpace(val)
 		switch section {
-			case "interface":
-				switch key {
-				case "PrivateKey":
-					s.PrivateKey = val
-				case "Address":
-					s.Address = val
-				case "MTU":
-					s.MTU, _ = strconv.Atoi(val)
-				case "DNS":
-					s.DNS = val
-				case "Jc":
-					s.Jc, _ = strconv.Atoi(val)
-				case "Jmin":
-					s.Jmin, _ = strconv.Atoi(val)
-				case "Jmax":
-					s.Jmax, _ = strconv.Atoi(val)
-				case "S1":
-					s.S1, _ = strconv.Atoi(val)
-				case "S2":
-					s.S2, _ = strconv.Atoi(val)
-				case "S3":
-					s.S3, _ = strconv.Atoi(val)
-				case "S4":
-					s.S4, _ = strconv.Atoi(val)
-				case "H1":
-					s.H1 = val
-				case "H2":
-					s.H2 = val
-				case "H3":
-					s.H3 = val
-				case "H4":
-					s.H4 = val
-				case "I1":
-					s.I1 = val
-				case "I2":
-					s.I2 = val
-				case "I3":
-					s.I3 = val
-				case "I4":
-					s.I4 = val
-				case "I5":
-					s.I5 = val
-				case "HeaderProtectionKey":
-					s.HeaderProtectionKey = val
-				}
+		case "interface":
+			switch key {
+			case "PrivateKey":
+				s.PrivateKey = val
+			case "Address":
+				s.Address = val
+			case "MTU":
+				s.MTU, _ = strconv.Atoi(val)
+			case "DNS":
+				s.DNS = val
+			case "Jc":
+				s.Jc, _ = strconv.Atoi(val)
+			case "Jmin":
+				s.Jmin, _ = strconv.Atoi(val)
+			case "Jmax":
+				s.Jmax, _ = strconv.Atoi(val)
+			case "S1":
+				s.S1, _ = strconv.Atoi(val)
+			case "S2":
+				s.S2, _ = strconv.Atoi(val)
+			case "S3":
+				s.S3, _ = strconv.Atoi(val)
+			case "S4":
+				s.S4, _ = strconv.Atoi(val)
+			case "H1":
+				s.H1 = val
+			case "H2":
+				s.H2 = val
+			case "H3":
+				s.H3 = val
+			case "H4":
+				s.H4 = val
+			case "I1":
+				s.I1 = val
+			case "I2":
+				s.I2 = val
+			case "I3":
+				s.I3 = val
+			case "I4":
+				s.I4 = val
+			case "I5":
+				s.I5 = val
+			case "HeaderProtectionKey":
+				s.HeaderProtectionKey = val
+			}
 		case "peer":
 			switch key {
 			case "PublicKey":

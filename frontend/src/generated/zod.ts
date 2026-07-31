@@ -481,6 +481,7 @@ export type InboundFallback = z.infer<typeof InboundFallbackSchema>;
 export const InboundOptionSchema = z.object({
   awgObfuscation: z.string().optional(),
   awgServerAddress: z.string().optional(),
+  awgVersion: z.string().optional(),
   enable: z.boolean(),
   id: z.number().int(),
   listen: z.string().optional(),

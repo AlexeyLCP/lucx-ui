@@ -1977,6 +1977,10 @@
             "description": "AWG obfuscation block — the Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines as they\nappear in a client .conf [Interface] section, plus the server tunnel\naddress. Populated for AWG inbounds so the clients-page QR/.conf path\ncan build a full AmneziaWG client config (mirrors the WG hints above).",
             "type": "string"
           },
+          "awgVersion": {
+            "description": "AwgVersion is the inbound's AWG protocol version (\"1.5\"/\"2\"/\"3\") — the\nclient-config ceiling the clients page uses to gate the per-client export\nversion selector. Empty/absent is treated as \"2\" by the frontend.",
+            "type": "string"
+          },
           "enable": {
             "example": true,
             "type": "boolean"
@@ -3274,6 +3278,7 @@
                     {
                       "awgObfuscation": "",
                       "awgServerAddress": "",
+                      "awgVersion": "",
                       "enable": true,
                       "id": 1,
                       "listen": "",

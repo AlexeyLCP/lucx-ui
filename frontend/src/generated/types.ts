@@ -453,6 +453,7 @@ export interface InboundFallback {
 export interface InboundOption {
   awgObfuscation?: string;
   awgServerAddress?: string;
+  awgVersion?: string;
   enable: boolean;
   id: number;
   listen?: string;
