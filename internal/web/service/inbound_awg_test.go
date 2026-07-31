@@ -134,26 +134,34 @@ func TestSetInboundEnable_DisableRoutedAwgForcesXrayRegen(t *testing.T) {
 	}
 }
 
-// TestInboundAwgHints_NeverEmitsHeaderProtectionKey pins the AWG3 header
-// protection key out of the obfuscation block the clients page renders into a
-// downloadable .conf. AmneziaVPN feeds that file to the same amneziawg tooling,
-// whose master build rejects the whole config with "Line unrecognized", so the
-// line must never be emitted — set or not. The value stays in Settings for
-// forward-compat with the feat/awg3 module.
-func TestInboundAwgHints_NeverEmitsHeaderProtectionKey(t *testing.T) {
+// TestInboundAwgHints_HeaderProtectionKeyVersionGated pins the AWG3 header
+// protection key into the obfuscation block ONLY when awgVersion == "3" and the
+// key is non-empty. The block is the inbound's "ceiling"; the clients page
+// filters it down per export version (filterAwgObfuscation). Upstream kernel
+// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject it,
+// so v1/v2 inbounds must never carry it.
+func TestInboundAwgHints_HeaderProtectionKeyVersionGated(t *testing.T) {
 	const base = `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000"`
 	for _, tc := range []struct {
 		name     string
 		settings string
+		wantHPK  bool
+		wantVer  string
 	}{
-		{"absent", base + `}`},
-		{"empty", base + `,"headerProtectionKey":""}`},
-		{"set", base + `,"headerProtectionKey":"aBcD...base64hpk=="}`},
+		{"absent", base + `}`, false, "2"},
+		{"empty v2", base + `,"awgVersion":"2","headerProtectionKey":""}`, false, "2"},
+		{"set v2", base + `,"awgVersion":"2","headerProtectionKey":"aBcD...base64hpk=="}`, false, "2"},
+		{"set v3", base + `,"awgVersion":"3","headerProtectionKey":"aBcD...base64hpk=="}`, true, "3"},
+		{"empty v3", base + `,"awgVersion":"3","headerProtectionKey":""}`, false, "3"},
+		{"no version", base + `,"headerProtectionKey":"aBcD...base64hpk=="}`, false, "2"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, obf := inboundAwgHints(tc.settings)
-			if strings.Contains(obf, "HeaderProtectionKey") {
-				t.Errorf("HeaderProtectionKey must never appear in the client obfuscation block, got:\n%s", obf)
+			_, obf, ver := inboundAwgHints(tc.settings)
+			if strings.Contains(obf, "HeaderProtectionKey") != tc.wantHPK {
+				t.Errorf("HeaderProtectionKey in block = %v, want %v, got:\n%s", !tc.wantHPK, tc.wantHPK, obf)
+			}
+			if ver != tc.wantVer {
+				t.Errorf("version = %q, want %q", ver, tc.wantVer)
 			}
 			if !strings.Contains(obf, "Jc = 8") {
 				t.Errorf("the rest of the obfuscation block must survive, got:\n%s", obf)

@@ -51,12 +51,20 @@ export const AwgInboundSettingsSchema = z.object({
   i4: z.string().optional(),
   i5: z.string().optional(),
   // AWG3 (AmneziaWG 3) — 32-byte ChaCha20 header protection key, base64 (same
-  // shape as a WireGuard private key). Forward-compat: the upstream kernel
-  // module's feat/awg3 branch parses `HeaderProtectionKey` in setconf; on the
-  // current master module the field is left empty so the .conf renderer omits
-  // it (an unknown field would make awg setconf reject the config and break
-  // reconcile). Populate only after updating to the AWG3 kernel module.
+  // shape as a WireGuard private key). The upstream kernel module
+  // (v3.0.20260731) + tools (v3.0.20260730) parse `HeaderProtectionKey` in
+  // setconf. Written to the .conf only when awgVersion === '3' (the inbound
+  // opts into AWG3); for older versions the field stays empty so v1/v2 kernels
+  // keep accepting the config. S1-S4 must be >= 12 for the kernel to accept the
+  // key (the generator enforces this; the form warns on manual override).
   headerProtectionKey: z.string().default(''),
+  // AWG protocol version this inbound targets: '1.5' (legacy: Jc/Jmin/Jmax +
+  // S1/S2 + H1-H4), '2' (adds S3/S4 + optional I1-I5, Android 2.0.1), or '3'
+  // (adds HeaderProtectionKey, desktop 5.0.0.5 / Android 3.0.1). The server
+  // .conf is generated for this version; client configs may be exported at the
+  // same version or lower (clients-page export-version selector). Defaults to
+  // '2' for compatibility with pre-lucx.50 inbounds.
+  awgVersion: z.enum(['1.5', '2', '3']).default('2'),
   // Peers: each client is a WireGuard peer. The client's keypair, PSK, and
   // tunnel address are stored so a full client .conf and share-link can be
   // rendered (mirroring WireGuard). Legacy inbounds stored id/password; the

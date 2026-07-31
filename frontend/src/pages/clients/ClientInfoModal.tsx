@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Divider, Modal, Popover, Tag, Tooltip, message } from 'antd';
+import { Button, Divider, Modal, Popover, Select, Space, Tag, Tooltip, Typography, message } from 'antd';
 import { CopyOutlined, DownloadOutlined, EyeOutlined, QrcodeOutlined, ReloadOutlined } from '@ant-design/icons';
 
 import { ClipboardManager, FileManager, HttpUtil, IntlUtil, SizeFormatter } from '@/utils';
@@ -8,7 +8,8 @@ import { formatInboundLabel } from '@/lib/inbounds/label';
 import { normalizeClientIps, type ClientIpInfo } from '@/lib/clients/ip-log';
 import { useDatepicker } from '@/hooks/useDatepicker';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
-import { isPostQuantumLink } from '@/lib/xray/inbound-link';
+import { awgVersionAtLeast, awgVersionCeiling, isPostQuantumLink } from '@/lib/xray/inbound-link';
+import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ConfigBlock from '@/components/clients/ConfigBlock';
@@ -148,12 +149,20 @@ export default function ClientInfoModal({
     if (!client || !wgInbound || !isWireguardClient(client)) return '';
     return buildWireguardClientConfig(client, wgInbound, window.location.hostname, subSettings?.publicHost ?? '');
   }, [client, wgInbound, subSettings?.publicHost]);
-  // LUCX-HOOK: AWG — client .conf with obfuscation block.
+  // LUCX-HOOK: AWG — client .conf with obfuscation block + export-version selector.
   const awgInbound = useMemo(() => findAwgInbound(client, inboundsById), [client, inboundsById]);
+  const awgCeiling = useMemo(
+    () => (awgInbound ? awgVersionCeiling(awgInbound.awgVersion) : '2'),
+    [awgInbound],
+  );
+  const [awgExportVersion, setAwgExportVersion] = useState<AwgVersion>('2');
+  useEffect(() => {
+    setAwgExportVersion(awgCeiling);
+  }, [awgCeiling]);
   const awgConfigText = useMemo(() => {
     if (!client || !awgInbound || !isAwgClient(client)) return '';
-    return buildAwgClientConfig(client, awgInbound, window.location.hostname, subSettings?.publicHost ?? '');
-  }, [client, awgInbound, subSettings?.publicHost]);
+    return buildAwgClientConfig(client, awgInbound, window.location.hostname, subSettings?.publicHost ?? '', awgExportVersion);
+  }, [client, awgInbound, subSettings?.publicHost, awgExportVersion]);
   // END LUCX-HOOK
 
   async function copyValue(text: string) {
@@ -545,10 +554,26 @@ export default function ClientInfoModal({
                 />
               </>
             )}
-            {/* LUCX-HOOK: AWG — client .conf block with obfuscation */}
+            {/* LUCX-HOOK: AWG — client .conf block with obfuscation + export-version selector */}
             {awgConfigText && client && (
               <>
                 <Divider>{t('pages.clients.awgConfig')}</Divider>
+                <Space style={{ width: '100%', justifyContent: 'flex-end', marginBottom: 8 }} align="center">
+                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                    {t('pages.clients.awgExportVersion')}
+                  </Typography.Text>
+                  <Select<AwgVersion>
+                    size="small"
+                    style={{ width: 180 }}
+                    value={awgExportVersion}
+                    onChange={setAwgExportVersion}
+                    options={[
+                      { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !awgVersionAtLeast(awgCeiling, '1.5') },
+                      { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !awgVersionAtLeast(awgCeiling, '2') },
+                      { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !awgVersionAtLeast(awgCeiling, '3') },
+                    ]}
+                  />
+                </Space>
                 <ConfigBlock
                   label={t('pages.clients.config')}
                   text={awgConfigText}

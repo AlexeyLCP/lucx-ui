@@ -572,17 +572,18 @@ func renderServerConf(inst Instance) string {
 	fmt.Fprintf(&b, "H2 = %s\n", inst.H2)
 	fmt.Fprintf(&b, "H3 = %s\n", inst.H3)
 	fmt.Fprintf(&b, "H4 = %s\n", inst.H4)
-	// HeaderProtectionKey (AWG3) is NEVER written, even when set in Settings —
-	// same class of problem as I1-I5 below. The current upstream master kernel
-	// module has no parser for the field: `awg setconf` aborts with "Line
+	// HeaderProtectionKey (AWG3) is written ONLY when AwgVersion == "3" and the
+	// key is non-empty. The upstream kernel module (v3.0.20260731) + tools
+	// (v3.0.20260730) now parse the field; older builds reject it with "Line
 	// unrecognized: `HeaderProtectionKey=...`" + "Configuration parsing error",
-	// awg-quick deletes the half-built interface, and reconcile then fails
-	// every 10s so the inbound never serves traffic (reproduced on test2 with
-	// module 1.0.20260611 / tools v1.0.20260618-2). Guarding on non-empty was
-	// not enough: the generate-obfuscation endpoint used to hand the form a
-	// fresh key, which is exactly how a tester lost traffic. The field stays in
-	// Instance/Settings/the Zod schema for forward-compat; restore this line
-	// once feat/awg3 lands in the master module.
+	// awg-quick deletes the half-built interface, and reconcile fails every 10s
+	// so the inbound never serves traffic. Version-gating keeps v1/v2 inbounds
+	// working on any kernel, and lets a v3 inbound opt in once the operator has
+	// installed the AWG3 module. The S1-S4 >= 12 invariant (enforced by the
+	// generator) is required for the kernel to accept the key.
+	if inst.AwgVersion == "3" && inst.HeaderProtectionKey != "" {
+		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", inst.HeaderProtectionKey)
+	}
 	// I1-I5 (CPS packets) are CLIENT-ONLY — the server does not use them.
 	// Writing I1-I5 to the server .conf crashes awg setconf ("Invalid
 	// argument") because the kernel amneziawg module does not accept CPS

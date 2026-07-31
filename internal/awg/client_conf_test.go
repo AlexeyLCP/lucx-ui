@@ -120,24 +120,27 @@ func TestRenderClientConf_IPv6(t *testing.T) {
 	}
 }
 
-// HeaderProtectionKey must never reach the client .conf either — awgo-* is
-// brought up by the same `awg setconf`, which rejects the unknown field and
-// makes awg-quick roll the interface back. See renderServerConf's test for the
-// full reasoning.
-func TestRenderClientConf_NeverWritesHeaderProtectionKey(t *testing.T) {
+// HeaderProtectionKey is version-gated in the client .conf (awgo-N outbounds):
+// written only when awgVersion == "3" AND the key is non-empty. Older builds of
+// the kernel module reject the field, so v1/v2 outbounds must never carry it.
+func TestRenderClientConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 	for _, tc := range []struct {
 		name     string
 		settings string
+		want     bool
 	}{
-		{"empty", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150}`},
-		{"set", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"headerProtectionKey":"aBcD...base64hpk=="}`},
+		{"empty key v3", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"3"}`, false},
+		{"set key v3", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"3","headerProtectionKey":"aBcD...base64hpk=="}`, true},
+		{"set key v2", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"2","headerProtectionKey":"aBcD...base64hpk=="}`, false},
+		{"set key no version", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"headerProtectionKey":"aBcD...base64hpk=="}`, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &model.AwgOutbound{Id: 1, Settings: tc.settings}
 			ci, _ := ClientInstanceFromOutbound(o)
 			conf := renderClientConf(ci)
-			if strings.Contains(conf, "HeaderProtectionKey") {
-				t.Errorf("HeaderProtectionKey must never appear in client .conf, got:\n%s", conf)
+			contains := strings.Contains(conf, "HeaderProtectionKey = ")
+			if contains != tc.want {
+				t.Errorf("want HeaderProtectionKey in conf=%v, got=%v\nConf:\n%s", tc.want, contains, conf)
 			}
 		})
 	}

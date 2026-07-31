@@ -7,26 +7,49 @@
 package cps
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"errors"
 	"fmt"
-	"math/rand"
+	crand "math/rand"
 	"strings"
 )
 
 // rng is the package-level random source. In Go 1.20+ the global rand is
 // automatically seeded, but tests need deterministic output. rand.Seed is
 // deprecated; instead tests call SetRand with a seeded source.
-var rng = rand.New(rand.NewSource(1))
+var rng = crand.New(crand.NewSource(1))
 
 // SetRand replaces the package-level random source. Used by tests for
 // deterministic output; production code leaves the auto-seeded source.
-func SetRand(r *rand.Rand) { rng = r }
+func SetRand(r *crand.Rand) { rng = r }
+
+// MinSForHPK is the minimum value every S1-S4 transport-padding field must
+// reach for the AWG3 (AmneziaWG 3) kernel module to accept a non-empty
+// HeaderProtectionKey: the cipher reads its 12-byte nonce from the first
+// bytes of S-padding, so Sx < 12 makes netlink return -EINVAL on setconf.
+// We enforce this lower bound unconditionally so any generated config is
+// valid for an AWG3 kernel whether or not HeaderProtectionKey is set.
+const MinSForHPK = 12
+
+// enforceSMin lifts v to MinSForHPK when below it. Used by GenerateAWGParams
+// so the profile ranges can never produce an Sx that would break AWG3.
+func enforceSMin(v int) int {
+	if v < MinSForHPK {
+		return MinSForHPK
+	}
+	return v
+}
 
 // AWGParams are the junk/transport obfuscation parameters written into the
 // awg-quick .conf [Interface] section. Jc/Jmin/Jmax control junk-packet
 // insertion ahead of the handshake; S1-S4 are transport padding sizes; H1-H4
-// are msgType replacement ranges. All fields follow the AmneziaWG spec
-// invariants (Jmin < Jmax, |S1+56 − S2| ≥ 10, H1-H4 in disjoint quadrants).
+// are msgType replacement ranges. HeaderProtectionKey is the AWG3
+// (AmneziaWG 3) 32-byte ChaCha20 header-protection key (base64, same shape as
+// a WireGuard private key); it is populated only when the caller asks for an
+// AWG3 (version "3") config — S1-S4 are always >= MinSForHPK so the key, when
+// set, is accepted by the kernel. All fields follow the AmneziaWG spec
+// invariants (Jmin < Jmax, |S1+56 − S2| >= 10, H1-H4 in disjoint quadrants).
 type AWGParams struct {
 	Jc   int
 	Jmin int
@@ -39,6 +62,11 @@ type AWGParams struct {
 	H2   string
 	H3   string
 	H4   string
+	// HeaderProtectionKey is the AWG3 header-protection key, base64-encoded
+	// (empty when version != "3"). Written to the .conf as
+	// `HeaderProtectionKey = <base64>`; the upstream kernel module and tools
+	// parse it since v3.0.20260731 / v3.0.20260730.
+	HeaderProtectionKey string
 }
 
 // randInt returns a random int in [lo, hi] inclusive. lo must be <= hi.
@@ -64,11 +92,14 @@ type profileRanges struct {
 func rangesFor(p ObfProfile) (profileRanges, error) {
 	switch p {
 	case ObfLite:
-		return profileRanges{3, 5, 5, 15, 45, 55, 97, 107, 17, 27, 16, 26, 4, 10}, nil
+		// S lower bounds >= MinSForHPK (12) so the AWG3 kernel accepts a
+		// HeaderProtectionKey without -EINVAL (the cipher nonce is read from
+		// the first 12 bytes of S-padding).
+		return profileRanges{3, 5, 5, 15, 45, 55, MinSForHPK, 30, 17, 27, 16, 26, MinSForHPK, 20}, nil
 	case ObfStandard:
-		return profileRanges{5, 8, 30, 80, 100, 250, 30, 80, 30, 80, 15, 32, 10, 20}, nil
+		return profileRanges{5, 8, 30, 80, 100, 250, 30, 80, 30, 80, 15, 32, MinSForHPK, 24}, nil
 	case ObfPro:
-		return profileRanges{4, 16, 50, 256, 300, 1000, 15, 150, 15, 150, 8, 64, 6, 31}, nil
+		return profileRanges{4, 16, 50, 256, 300, 1000, 15, 150, 15, 150, MinSForHPK, 80, MinSForHPK, 40}, nil
 	default:
 		return profileRanges{}, errors.New("awg params: unknown profile")
 	}
@@ -110,9 +141,12 @@ func genHRange(n int) string {
 
 // GenerateAWGParams produces a fresh set of junk/transport obfuscation
 // parameters for the given strength profile. It enforces the AmneziaWG
-// invariants: Jmin < Jmax (fixed by lifting Jmax), and |S1+56 − S2| ≥ 10
-// (retry S2 up to 10 times, then shift it). H1-H4 are each in their own
-// quadrant, so they never collide.
+// invariants: Jmin < Jmax (fixed by lifting Jmax), |S1+56 − S2| >= 10 (retry
+// S2 up to 10 times, then shift it), and S1-S4 >= MinSForHPK (so the AWG3
+// kernel accepts a HeaderProtectionKey without -EINVAL). H1-H4 are each in
+// their own quadrant, so they never collide. The profile ranges already
+// enforceSMin, but GenerateAWGParams clamps again as a belt-and-braces guard
+// for hand-edited ranges or future profile additions.
 func GenerateAWGParams(profile ObfProfile) (AWGParams, error) {
 	r, err := rangesFor(profile)
 	if err != nil {
@@ -124,11 +158,11 @@ func GenerateAWGParams(profile ObfProfile) (AWGParams, error) {
 	if jmax <= jmin {
 		jmax = jmin + randInt(100, 500)
 	}
-	s1 := randInt(r.s1Lo, r.s1Hi)
-	s2 := randInt(r.s2Lo, r.s2Hi)
+	s1 := enforceSMin(randInt(r.s1Lo, r.s1Hi))
+	s2 := enforceSMin(randInt(r.s2Lo, r.s2Hi))
 	// AmneziaWG requires S1 + 56 != S2; pumbaX strengthens this to a >=10 gap.
 	for i := 0; i < 10 && abs((s1+56)-s2) < 10; i++ {
-		s2 = randInt(r.s2Lo, r.s2Hi)
+		s2 = enforceSMin(randInt(r.s2Lo, r.s2Hi))
 	}
 	if abs((s1+56)-s2) < 10 {
 		if s2 >= s1+56 {
@@ -137,8 +171,8 @@ func GenerateAWGParams(profile ObfProfile) (AWGParams, error) {
 			s2 -= 10
 		}
 	}
-	s3 := randInt(r.s3Lo, r.s3Hi)
-	s4 := randInt(r.s4Lo, r.s4Hi)
+	s3 := enforceSMin(randInt(r.s3Lo, r.s3Hi))
+	s4 := enforceSMin(randInt(r.s4Lo, r.s4Hi))
 	return AWGParams{
 		Jc:   jc,
 		Jmin: jmin,
@@ -154,9 +188,37 @@ func GenerateAWGParams(profile ObfProfile) (AWGParams, error) {
 	}, nil
 }
 
+// WithHeaderProtectionKey returns a copy of the params with a freshly
+// generated AWG3 HeaderProtectionKey. Callers must only invoke this for an
+// AWG version-"3" inbound; S1-S4 are already >= MinSForHPK from
+// GenerateAWGParams, so the kernel will accept the key. Returns an error only
+// if the system RNG fails (effectively never).
+func (p AWGParams) WithHeaderProtectionKey() (AWGParams, error) {
+	k, err := GenerateHeaderProtectionKey()
+	if err != nil {
+		return p, err
+	}
+	p.HeaderProtectionKey = k
+	return p, nil
+}
+
+// GenerateHeaderProtectionKey returns a fresh AWG3 header-protection key:
+// 32 random bytes, base64-encoded (44 chars, same shape as a WireGuard
+// private key). Uses crypto/rand so the key is cryptographically strong and
+// independent of the deterministic test RNG.
+func GenerateHeaderProtectionKey() (string, error) {
+	var b [32]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return "", fmt.Errorf("awg: generate header protection key: %w", err)
+	}
+	return base64.StdEncoding.EncodeToString(b[:]), nil
+}
+
 // AsConfLines returns the AWGParams as awg-quick .conf lines (Jc = …, H1 = lo-hi,
 // …) suitable for the [Interface] section. The fields are emitted in the
-// canonical AmneziaWG order.
+// canonical AmneziaWG order. HeaderProtectionKey is emitted only when set —
+// the AWG3 kernel/tools (v3.0.20260731 / v3.0.20260730) parse it; older
+// builds reject the line, so callers must leave it empty for non-v3 configs.
 func (p AWGParams) AsConfLines() string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "Jc = %d\n", p.Jc)
@@ -170,6 +232,9 @@ func (p AWGParams) AsConfLines() string {
 	fmt.Fprintf(&b, "H2 = %s\n", p.H2)
 	fmt.Fprintf(&b, "H3 = %s\n", p.H3)
 	fmt.Fprintf(&b, "H4 = %s\n", p.H4)
+	if p.HeaderProtectionKey != "" {
+		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", p.HeaderProtectionKey)
+	}
 	return b.String()
 }
 
@@ -181,6 +246,15 @@ func (p AWGParams) Validate() error {
 	}
 	if abs((p.S1+56)-p.S2) < 10 {
 		return fmt.Errorf("awg: |S1+56 − S2| must be >= 10 (S1=%d S2=%d)", p.S1, p.S2)
+	}
+	// S1-S4 must be >= MinSForHPK so an AWG3 (version "3") kernel accepts a
+	// HeaderProtectionKey. We enforce this unconditionally because a config
+	// generated for v2 today may be promoted to v3 tomorrow by editing only
+	// the version, and a too-small S would then break reconcile with -EINVAL.
+	for _, s := range []int{p.S1, p.S2, p.S3, p.S4} {
+		if s < MinSForHPK {
+			return fmt.Errorf("awg: S values must be >= %d for AWG3 header-protection compatibility (got %d)", MinSForHPK, s)
+		}
 	}
 	return nil
 }

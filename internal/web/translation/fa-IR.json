@@ -658,6 +658,13 @@
         "awgPublicKey": "کلید عمومی",
         "awgObfLevel": "پروفایل مبهم‌سازی",
         "awgObfLevelHint": "Lite — سبک (Jc + DNS I1)؛ Standard — متوسط (Jc/S/H + TLS I1)؛ Pro — کامل (Jc/S/H + I1-I5)",
+        "awgVersion": "نسخه AWG",
+        "awgVersionHint": "نسخه پروتکل AmneziaWG که این اینباند هدف آن است (سقف پیکربندی سرور). 1.5 = قدیمی (Jc/S1/S2/H1-H4)؛ 2 = افزودن S3/S4 + I1-I5 (Android 2.0.1)؛ 3 = افزودن HeaderProtectionKey (desktop 5.0.0.5 / Android 3.0.1). سرور v3 مشتریان v1/v2/plain-WG را نمی‌پذیرد — برای ناوگان ترکیبی یک اینباند v2 جداگانه استفاده کنید.",
+        "awgVersion15": "1.5 — قدیمی (کلاینت‌های قدیمی)",
+        "awgVersion2": "2 — استاندارد (Android 2.0.1)",
+        "awgVersion3": "3 — کامل + محافظت سرآیند (AWG3)",
+        "awgVersion3CompatNote": "نسخه ۳ HeaderProtectionKey را فعال می‌کند که از نظر رمزنگاری ارتباط را قطع می‌کند: کلاینت‌های v1/v2 و plain-WireGuard نمی‌توانند به این اینباند متصل شوند.",
+        "awgSRangeWarning": "AWG3 نیازمند S1-S4 ≥ 12 است (رمز محافظت سرآیند nonce خود را از ۱۲ بایت اول S-padding می‌خواند). مولد این را تضمین می‌کند؛ قبل از ویرایش دستی بررسی کنید.",
         "awgMimicryProfile": "پروفایل تقلید",
         "awgMimicryProfileHint": "شکل بسته‌ای که امضای CPS تقلید می‌کند. TLS/QUIC شبیه ترافیک واقعی مرورگر است؛ DNS/SIP سبک‌تر است.",
         "awgRegion": "منطقه",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "I1-I5 از میزبان گرفته شد",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "کلید محافظت سرآیند AWG3 (AmneziaWG 3) — ChaCha20 32 بایتی، base64 (44 کاراکتر). تنها زمانی که نسخه AWG برابر 3 است در .conf نوشته می‌شود (کرنل بالادستی v3.0.20260731 + tools v3.0.20260730 آن را تجزیه می‌کنند). S1-S4 باید ≥ 12 باشند؛ مولد این را تضمین می‌کند. با انتخاب نسخه ۳ از طریق «Regenerate» پر کنید.",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "مسیریابی از طریق Xray",
         "awgRouteThroughXrayHint": "بسته‌های رمزگشایی‌شده رابط هسته AWG را از طریق اینباند TUN تزریقی به روتر Xray بفرستید تا خروجی از قوانین مسیریابی پیروی کند. معادل routeThroughXray در mtproto.",
@@ -894,7 +901,8 @@
         "imported": "{count} کلاینت وارد شد",
         "importedMixed": "{ok} وارد شد، {failed} رد شد"
       },
-      "awgConfig": "پیکربندی AWG"
+      "awgConfig": "پیکربندی AWG",
+      "awgExportVersion": "نسخه پیکربندی کلاینت"
     },
     "groups": {
       "name": "نام",

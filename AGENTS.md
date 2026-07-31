@@ -120,8 +120,8 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 - **Controller** (`internal/web/controller/awg.go`): `generateObfuscation` + `captureHost` + `awgDiagnostics` API endpoints.
 - **NAT** (`internal/awg/platform_{linux,other}.go`): `defaultRouteInterface()` for MASQUERADE target.
 - **Inbound needRestart** (`internal/web/service/inbound.go`): `awgRoutesThroughXray` — needRestart on AddInbound/DelInbound/UpdateInbound/SetInboundEnable so Xray regenerates config when routeThroughXray toggles.
-- **AWG outbound** (`internal/awg/client_*.go` + `internal/web/{service,controller}/awg_outbound.go`): symmetric sidecar for chaining VPN-of-VPN. Each `awg_outbounds` row = one `awgo-N` kernel interface (client to an upstream AWG server) exposed as a freedom outbound with `sockopt.interface = awgo-N`. Manager: `EnsureClient`/`RemoveClient`/`SweepOrphanClients` (fingerprint-based restart, mirrors inbound Manager). Client .conf via `renderClientConf` (Table=off, no DNS, no I1-I5, no HPK-on-empty). Controller uses `RestartXray(true)` on mutations (hot-apply can't add a freedom outbound with sockopt.interface). Address allocation (`client_awg.go`) excludes AWG outbound tunnel IPs to avoid collision.
-- **AWG3 forward-compat** (`headerProtectionKey` field): stored across the pipeline (schema → Instance/ClientSettings → fingerprint → genAwgLink) but **never written to .conf and never emitted by generateObfuscation** until upstream `feat/awg3` merges to master. See Known Issue #5.
+- **AWG outbound** (`internal/awg/client_*.go` + `internal/web/{service,controller}/awg_outbound.go`): symmetric sidecar for chaining VPN-of-VPN. Each `awg_outbounds` row = one `awgo-N` kernel interface (client to an upstream AWG server) exposed as a freedom outbound with `sockopt.interface = awgo-N`. Manager: `EnsureClient`/`RemoveClient`/`SweepOrphanClients` (fingerprint-based restart, mirrors inbound Manager). Client .conf via `renderClientConf` (Table=off, no DNS, no I1-I5; HPK only when `AwgVersion == "3"` and non-empty). `ParseConf` eats a .conf of any version (incl. HPK) and auto-detects `AwgVersion` from the field set. Controller uses `RestartXray(true)` on mutations (hot-apply can't add a freedom outbound with sockopt.interface). Address allocation (`client_awg.go`) excludes AWG outbound tunnel IPs to avoid collision.
+- **AWG3 / version presets** (`headerProtectionKey` + `awgVersion` fields): upstream `feat/awg3` merged to master on 2026-07-30 (kernel `v3.0.20260731`, tools `v3.0.20260730`), so HPK is now **enabled**. The `awgVersion` field (`"1.5"`/`"2"`/`"3"`) lives on the inbound (server ceiling) and gates HPK emission everywhere — `generateObfuscation` returns it only for `"3"`; `renderServerConf`/`renderClientConf`/`inboundAwgHints` write the `.conf` line only when `AwgVersion == "3"` AND the key is non-empty. Generator guarantees S1–S4 ≥ 12 (`MinSForHPK`). Client export selector (`ClientQrModal`/`ClientInfoModal`) clamps to ≤ ceiling. See Known Issue #5 (CLOSED) and Pattern 6 (version compatibility).
 
 ### 4. Paranoid Logging
 
@@ -191,7 +191,7 @@ internal/awg/                      AWG sidecar — INBOUND (mirrors internal/mtp
 ├── platform_linux.go              defaultRouteInterface() + killStrayAwgInterfaces (was nat_linux + orphans_linux)
 ├── platform_other.go              no-ops off Linux
 ├── client_instance.go             ClientInstance + ClientSettings + ClientInstanceFromOutbound + fingerprint (desired state for awgo-N outbounds)
-├── client_conf.go                 renderClientConf — awg-quick .conf for an awgo-N outbound (Table=off, no DNS, no I1-I5, no HPK-on-empty)
+├── client_conf.go                 renderClientConf — awg-quick .conf for an awgo-N outbound (Table=off, no DNS, no I1-I5; HPK only when AwgVersion=="3" and non-empty)
 ├── client_manager.go              outbound client manager: EnsureClient/RemoveClient/SweepOrphanClients (fingerprint-based restart)
 ├── *_test.go                      instance/manager/diagnostics/client_conf/client_instance/client_manager/platform tests
 
@@ -231,7 +231,7 @@ internal/database/model/model.go   AWG Protocol const + validate oneof (LUCX-HOO
 internal/database/db.go            pruneLegacyAwgHiddenChildren + pruneAwgHeaderProtectionKey calls (LUCX-HOOK)
 
 frontend/src/
-├── schemas/protocols/inbound/awg.ts        AwgInboundSettingsSchema (Zod) — includes headerProtectionKey (AWG3 forward-compat)
+├── schemas/protocols/inbound/awg.ts        AwgInboundSettingsSchema (Zod) — includes headerProtectionKey + awgVersion (1.5/2/3 ceiling)
 ├── pages/inbounds/form/protocols/awg.tsx   AwgFields (React + AntD) + diagnostics modal + HPK field (obfLevel 3)
 ├── pages/inbounds/form/awg-inbound-id-context.ts  editing inbound id provider for diagnostics (LUCX)
 ├── pages/inbounds/form/InboundFormModal.tsx       AwgInboundIdProvider wrap (LUCX-HOOK)
@@ -243,7 +243,7 @@ frontend/src/
 ├── schemas/primitives/protocol.ts          ProtocolSchema + Protocols map (LUCX-HOOK)
 └── pages/inbounds/form/protocols/index.ts  AwgFields export (LUCX-HOOK)
 
-bin/install-awg-module.sh          DKMS build of amneziawg kernel module + tools (HEAD of upstream master; AWG3 lands when feat/awg3 merges)
+bin/install-awg-module.sh          DKMS build of amneziawg kernel module + tools (HEAD of upstream master → pulls AWG3 v3.0.20260731 since lucx.50; needs kernel ≥ 6.7 for v3 build)
 bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes
 bin/pre-push                       git hook: check-lucx + fast go tests + PR/issues guard (AGENTS.md 11.5)
 install.sh                         Calls bin/install-awg-module.sh (LUCX-HOOK)
@@ -391,22 +391,21 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 
 **Post-restart window (ЗАКРЫТО 2026-07-19):** рестарт Xray (кнопка в панели) убивал tunN и маршрут `default dev tunN table 1000+N` до следующего тика AWG reconcile-cron (до 10 с routed-клиенты без интернета; «повторный выбор outbound» просто триггерил reconcile раньше cron'а). Фикс: `ensureAwgRouting()` в `RestartXray` сразу после `p.Start()` — маршрут восстанавливается синхронно с появлением нового tunN. Проверено на v3.6.0-lucx.48/test2: после `systemctl restart x-ui` на t+8s маршрут на месте, ping 0% loss.
 
-### 5. AWG3 (AmneziaWG 3) — forward-compat поле `headerProtectionKey`
+### 5. ~~AWG3 (AmneziaWG 3) — forward-compat поле `headerProtectionKey`~~ — ЗАКРЫТО (lucx.50)
 
-Upstream `amnezia-vpn/amneziawg-linux-kernel-module` имеет ветку **`feat/awg3`** (не слита в master). 24 июля 2026 туда добавлен `WGDEVICE_A_HEADER_PROTECTION_KEY` — 32-byte ChaCha20 symmetric key, base64 (формат WireGuard-ключа). В `.conf` парсится как `HeaderProtectionKey` (`amneziawg-tools` ветка feat/awg3, `parse_key`). AWG3-клиенты уже вышли: `amneziawg-android` v3.0.1 (24 июля), AmneziaVPN desktop v5.0.0.5 (26 июля) — обе с «AWG 3 support».
+**Решено (2026-07-31):** AWG3 официально слит в upstream и включён в LucX-UI с lucx.50.
+- `amnezia-vpn/amneziawg-linux-kernel-module`: PR #192 слит в master 30.07.2026, тег **`v3.0.20260731`**. `WGDEVICE_A_HEADER_PROTECTION_KEY` в master. ⚠️ ядро отвергает HPK с `-EINVAL`, если любое из S1–S4 < 12.
+- `amnezia-vpn/amneziawg-tools`: PR #60 слит 30.07.2026, тег **`v3.0.20260730`**. `HeaderProtectionKey` парсится в `.conf` (`config.c`, `parse_key`).
+- ⚠️ Сборка модуля v3.0 падает на ядрах < 6.7 (`nla_put_uint`) — фикс уже в master, но на старых VPS может потребоваться обновление ядра.
 
-LucX-UI (с lucx.47) хранит `headerProtectionKey` во всём пайплайне (Zod schema, форма obfLevel 3, Instance/ClientSettings structs, fingerprint, genAwgLink query param, sub `amneziawg://` share-link) — **forward-compat**: когда `feat/awg3` смержится в master, `install-awg-module.sh` (HEAD clone) потянет поддержку автоматически, и оператор сможет заполнить HPK.
+**Что сделано в lucx.50:**
+1. `generateObfuscation` (`controller/awg.go`) снова отдаёт `headerProtectionKey` — но **только при `awgVersion == "3"`** в запросе. Для v1.5/v2 поле отсутствует в ответе (не `""`), чтобы `regenerateObfuscation` (`Object.entries(obf).forEach(setValue)`) не затёр ручное значение оператора.
+2. Рендереры `renderServerConf` (`manager.go`), `renderClientConf` (`client_conf.go`), `inboundAwgHints` (`inbound.go`) пишут HPK **только при `awgVersion == "3"` И непустом ключе**. Для v1/v2 строка опускается — старые ядра продолжают работать.
+3. Генератор `GenerateAWGParams` (`cps/params.go`) теперь **гарантирует S1–S4 ≥ 12** (`MinSForHPK = 12`, `enforceSMin`) для всех профилей — конфиг валиден для AWG3 независимо от того, установлен ли HPK. `GenerateHeaderProtectionKey()` + `AWGParams.WithHeaderProtectionKey()` генерируют ключ (crypto/rand, 32 байта, base64).
+4. Новое поле `awgVersion` (`"1.5"`/`"2"`/`"3"`) во всём пайплайне — на инбаунде (потолок сервера) и в клиентском экспорте (≤ потолка, runtime-селектор в `ClientQrModal`/`ClientInfoModal`).
+5. Миграция переименована: `pruneAwgHeaderProtectionKey` → `migrateAwgVersion` (`migrate_awg_hpk.go`). Теперь backfill'ит `awgVersion:"2"` на pre-lucx.50 инбаундах/аутбаундах И вычищает непустой HPK с всего, что не v3 (фикс регрессии lucx.47 для пострадавших + защита от будущего bump'а версии).
 
-**⚠️ Регрессия lucx.47 → фикс lucx.49 (важно для следующих релизов):** `generateObfuscation` (`controller/awg.go`) изначально **всегда** возвращал свежий HPK. Фронтовый `regenerateObfuscation` пишет ВСЕ поля ответа в форму (`Object.entries(obf).forEach(setValue)`) → ключ попадал в settings → в .conf. Master-модуль не парсит `HeaderProtectionKey` → `awg setconf`: `Line unrecognized` → `awg-quick` откатывает интерфейс → reconcile падает каждые 10 с. Тестер VladufQa поймал это вживую: «после генерации обфускации трафик встал».
-
-**Текущее состояние (lucx.49):**
-1. `generateObfuscation` **НЕ** отдаёт `headerProtectionKey` (именно отсутствие поля, не `""` — чтобы не затирать ручное значение оператора на AWG3-модуле).
-2. Рендереры `renderServerConf`/`renderClientConf`/`inboundAwgHints` **никогда** не пишут HPK (тот же принцип что для I1-I5 — CLIENT-ONLY).
-3. Миграция `pruneAwgHeaderProtectionKey` (`migrate_awg_hpk.go`) вычищает непустой HPK из AWG-инбаундов и `awg_outbounds` у пострадавших.
-
-**Когда включать HPK в production:** после merge `feat/awg3` → master в kernel module + tools. Тогда вернуть HPK в `generateObfuscation` ответ и снять гварды в рендерерах (см. TODO в `client_conf.go`/`manager.go`). До merge — поле в schema остаётся, но всегда пустое/невидимое в .conf.
-
-**Урок:** «Regenerate obfuscation» молча пишет в форму всё, что вернул backend. Любое новое поле без поддержки в текущем ядре → краш reconcile. Не возвращать из endpoint'а поля, которые не поддерживаются рантаймом.
+**Урок (сохраняется):** «Regenerate obfuscation» молча пишет в форму всё, что вернул backend. Любое поле без поддержки в текущем ядре → краш reconcile. Решение — version-gate эмиссию, а не полное умолчание: поле отдаётся/пишется только когда версия явно его поддерживает.
 
 ---
 
@@ -469,3 +468,15 @@ LucX-UI (с lucx.47) хранит `headerProtectionKey` во всём пайпл
 ### Pattern 5: Xray падает "this rule has no effective fields"
 - **Cause:** Routing rule без `outboundTag`/`balancerTag`/`domain`/`ip` — только `type` и `inboundTag`.
   **Fix:** Проверить routing template config в панели. `injectAwgEgress` не создаёт rule при пустом `outboundTag` (котел Xray). Если rule приходит из template — убрать пустой rule.
+
+### Pattern 6: AWG клиент не подключается — версия сервера vs версия клиента (lucx.50+)
+- **Cause:** Реальная граница совместимости — это **серверный** конфиг, а не длина клиентского. Поля AmneziaWG делятся на:
+  - **must-match** (сервер↔клиент обязаны совпадать): `S1`–`S4`, `H1`–`H4`, `HeaderProtectionKey`. Если сервер v3 (с HPK), а клиент v2 — handshake падает на must-match полях.
+  - **may-differ**: `Jc`/`Jmin`/`Jmax`, `I1`–`I5`.
+  - **version-gated**: `S3`/`S4` + `I1`–`I5` появились в AWG v2 (Android 2.0.1); `HeaderProtectionKey` — в AWG v3 (desktop 5.0.0.5 / Android 3.0.1).
+- **Fix:**
+  - Селектор `awgVersion` на инбаунде задаёт **потолок сервера** — какие поля сервер примет. Сервер v3 НЕ примет v1/v2/plain-WG клиентов (HPK криптографически ломает совместимость).
+  - Для смешанного парка клиентов (часть старая, часть новые) — **создавай отдельный инбаунд v2** (без HPK). v2-сервер принимает и v2, и v1.5 клиентов.
+  - В модалке клиента (`ClientQrModal`/`ClientInfoModal`) селектор «Client config version» позволяет экспортировать конфиг ≤ потолка инбаунда. Это только **избегает ошибок парсинга** в старом клиентском приложении (лишние поля отрезаются), но НЕ даёт совместимости, если клиент старше сервера.
+  - ⚠️ HPK требует S1–S4 ≥ 12 (генератор гарантирует; при ручном вводе проверяй — форма показывает `awgSRangeWarning`).
+- **Симптом:** клиент висит на handshake, в логах сервера `awg0` peer без рукопожатия. Сравни must-match поля в серверном `.conf` (`/etc/awg/awgN.conf`) и клиентском — любое расхождение = причина.

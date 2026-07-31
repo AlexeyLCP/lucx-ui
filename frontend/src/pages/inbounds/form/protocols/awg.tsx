@@ -27,12 +27,15 @@ function levelToFullI1I5(level: number): boolean {
 }
 
 // generateAwgObfuscationFromBackend calls /panel/api/inbounds/awg/generateObfuscation
-// to get a fresh Jc/Jmin/Jmax/S1-S4/H1-H4 + I1-I5 set from the server.
+// to get a fresh Jc/Jmin/Jmax/S1-S4/H1-H4 + I1-I5 set from the server. When the
+// inbound targets AWG version '3', the response also carries a freshly generated
+// HeaderProtectionKey (the generator guarantees S1-S4 >= 12).
 async function generateAwgObfuscationFromBackend(getValue: (name: string) => unknown): Promise<Record<string, unknown> | null> {
   const level = (getValue('settings.obfLevel') as number) ?? 2;
   const mimicryProfile = (getValue('settings.mimicryProfile') as string) || 'quic';
   const browserProfile = (getValue('settings.browserProfile') as string) || 'chrome';
   const region = (getValue('settings.region') as string) || 'world';
+  const awgVersion = (getValue('settings.awgVersion') as string) || '2';
   const obfProfile = OBF_PROFILE[level] ?? 'standard';
   const fullI1I5 = levelToFullI1I5(level);
   const msg = await HttpUtil.post('/panel/api/inbounds/awg/generateObfuscation', {
@@ -42,6 +45,7 @@ async function generateAwgObfuscationFromBackend(getValue: (name: string) => unk
     region,
     domain: '',
     fullI1I5,
+    awgVersion,
   }, { headers: { 'Content-Type': 'application/json' } });
   if (!msg?.success) return null;
   return (msg?.obj ?? null) as Record<string, unknown> | null;
@@ -85,6 +89,7 @@ export default function AwgFields() {
   // "fields don't load/save" bug).
   const { setValue, watch } = useFormContext();
   const obfLevel = watch('settings.obfLevel') as number | undefined;
+  const awgVersion = watch('settings.awgVersion') as '1.5' | '2' | '3' | undefined;
   const routeThroughXray = watch('settings.routeThroughXray') as boolean | undefined;
   const mimicryProfileVal = watch('settings.mimicryProfile') as string | undefined;
   const { data: outboundTags } = useOutboundTags();
@@ -190,6 +195,33 @@ export default function AwgFields() {
           ]}
         />
       </FormField>
+
+      {/* LUCX-HOOK: AWG — protocol version (the server-config ceiling). Sets
+          which obfuscation fields the .conf carries: 1.5 (legacy), 2 (adds
+          S3/S4 + I1-I5, Android 2.0.1), 3 (adds HeaderProtectionKey, desktop
+          5.0.0.5 / Android 3.0.1). A v3 server will NOT accept v1/v2 clients. */}
+      <FormField
+        name={['settings', 'awgVersion']}
+        label={t('pages.inbounds.form.awgVersion')}
+        tooltip={t('pages.inbounds.form.awgVersionHint')}
+      >
+        <Select
+          options={[
+            { value: '1.5', label: t('pages.inbounds.form.awgVersion15') },
+            { value: '2', label: t('pages.inbounds.form.awgVersion2') },
+            { value: '3', label: t('pages.inbounds.form.awgVersion3') },
+          ]}
+        />
+      </FormField>
+      {awgVersion === '3' && (
+        <Alert
+          type="info"
+          showIcon
+          message={t('pages.inbounds.form.awgVersion3CompatNote')}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      {/* END LUCX-HOOK */}
 
       <FormField name={['settings', 'mimicryProfile']} label={t('pages.inbounds.form.awgMimicryProfile')} tooltip={t('pages.inbounds.form.awgMimicryProfileHint')}>
         <Select
@@ -366,6 +398,15 @@ export default function AwgFields() {
           <FormField name={['settings', 'i5']} label="I5">
             <Input placeholder={t('pages.inbounds.form.awgCpsHex')} />
           </FormField>
+        </>
+      )}
+
+      {/* LUCX-HOOK: AWG — HeaderProtectionKey is AWG3-only (version '3'). It is
+          written to the .conf only when awgVersion === '3'; on v1/v2 the field
+          stays empty so older kernels keep accepting the config. The generator
+          guarantees S1-S4 >= 12 (required for the kernel to accept the key). */}
+      {awgVersion === '3' && (
+        <>
           <FormField
             name={['settings', 'headerProtectionKey']}
             label={t('pages.inbounds.form.awgHpk')}
@@ -373,8 +414,15 @@ export default function AwgFields() {
           >
             <Input placeholder={t('pages.inbounds.form.awgHpkPlaceholder')} />
           </FormField>
+          <Alert
+            type="warning"
+            showIcon
+            message={t('pages.inbounds.form.awgSRangeWarning')}
+            style={{ marginBottom: 16 }}
+          />
         </>
       )}
+      {/* END LUCX-HOOK */}
 
       <FormField
         name={['settings', 'routeThroughXray']}

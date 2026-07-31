@@ -658,6 +658,13 @@
         "awgPublicKey": "المفتاح العام",
         "awgObfLevel": "ملف التعتيم",
         "awgObfLevelHint": "Lite — خفيف (Jc + DNS I1)؛ Standard — متوسط (Jc/S/H + TLS I1)؛ Pro — كامل (Jc/S/H + I1-I5)",
+        "awgVersion": "إصدار AWG",
+        "awgVersionHint": "إصدار بروتوكول AmneziaWG الذي يستهدفه هذا الـ inbound (سقف إعداد الخادم). 1.5 = قديم (Jc/S1/S2/H1-H4)؛ 2 = يضيف S3/S4 + I1-I5 (Android 2.0.1)؛ 3 = يضيف HeaderProtectionKey (desktop 5.0.0.5 / Android 3.0.1). خادم v3 لن يقبل عملاء v1/v2/plain-WG — استخدم inbound منفصل v2 لأسطول مختلط.",
+        "awgVersion15": "1.5 — قديم (عملاء قدامى)",
+        "awgVersion2": "2 — قياسي (Android 2.0.1)",
+        "awgVersion3": "3 — كامل + حماية الترويسة (AWG3)",
+        "awgVersion3CompatNote": "الإصدار 3 يفعّل HeaderProtectionKey مما يكسر التوافق تشفيريًا: عملاء v1/v2 و plain-WireGuard لا يمكنهم الاتصال بهذا الـ inbound.",
+        "awgSRangeWarning": "AWG3 يتطلب S1-S4 ≥ 12 (تشفير حماية الترويسة يقرأ nonce من أول 12 بايت من S-padding). المولّد يضمن ذلك؛ تحقق قبل التحرير اليدوي.",
         "awgMimicryProfile": "ملف المحاكاة",
         "awgMimicryProfileHint": "شكل الحزمة الذي تحاكيه بصمة CPS. يبدو TLS/QUIC كحركة متصفح حقيقية؛ DNS/SIP أخف.",
         "awgRegion": "المنطقة",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "تم التقاط I1-I5 من المضيف",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "مفتاح حماية الترويسة AWG3 (AmneziaWG 3) — ChaCha20 32 بايت، base64 (44 حرف). يُكتب في .conf فقط عندما يكون إصدار AWG يساوي 3 (الكرنل upstream v3.0.20260731 + tools v3.0.20260730 يحللانه). يجب أن يكون S1-S4 ≥ 12؛ المولّد يضمن ذلك. املأه عبر «Regenerate» بعد اختيار الإصدار 3.",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "التوجيه عبر Xray",
         "awgRouteThroughXrayHint": "أرسل الحزم المفكوكة لواجهة AWG إلى موجّه Xray عبر إنباوند TUN مُدخل، بحيث تخضع المخرجات لقواعد التوجيه. يعكس routeThroughXray في mtproto.",
@@ -894,7 +901,8 @@
         "imported": "تم استيراد {count} عميل",
         "importedMixed": "{ok} تم استيرادهم، {failed} تم تخطيهم"
       },
-      "awgConfig": "إعدادات AWG"
+      "awgConfig": "إعدادات AWG",
+      "awgExportVersion": "إصدار إعداد العميل"
     },
     "groups": {
       "name": "الاسم",

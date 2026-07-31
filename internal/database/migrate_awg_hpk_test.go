@@ -11,29 +11,69 @@ import (
 	"testing"
 )
 
-func TestStripHeaderProtectionKey(t *testing.T) {
+func TestNormalizeAwgSettings(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
 		in          string
 		wantChanged bool
+		wantVersion string
+		wantHPK     string // "" means the key must be absent or empty; checkHPK verifies presence
+		checkHPK    bool   // when true, assert headerProtectionKey == wantHPK after migration
 	}{
 		{
-			name:        "non-empty key is cleared",
+			name:        "no version + non-empty key → backfill v2 + clear hpk",
 			in:          `{"privateKey":"k","jc":8,"headerProtectionKey":"aBcD...base64hpk=="}`,
 			wantChanged: true,
+			wantVersion: "2",
+			wantHPK:     "",
+			checkHPK:    true,
 		},
 		{
-			name:        "already empty key is left alone",
-			in:          `{"privateKey":"k","headerProtectionKey":""}`,
-			wantChanged: false,
-		},
-		{
-			name:        "missing key is a no-op",
+			name:        "no version + no key → backfill v2 only",
 			in:          `{"privateKey":"k","jc":8}`,
-			wantChanged: false,
+			wantChanged: true,
+			wantVersion: "2",
 		},
 		{
-			name:        "invalid json is returned verbatim",
+			name:        "v2 + non-empty key → clear hpk, keep v2",
+			in:          `{"privateKey":"k","awgVersion":"2","headerProtectionKey":"aBcD...base64hpk=="}`,
+			wantChanged: true,
+			wantVersion: "2",
+			wantHPK:     "",
+			checkHPK:    true,
+		},
+		{
+			name:        "v3 + non-empty key → preserved untouched",
+			in:          `{"privateKey":"k","awgVersion":"3","headerProtectionKey":"aBcD...base64hpk=="}`,
+			wantChanged: false,
+			wantVersion: "3",
+		},
+		{
+			name:        "v2 + empty key → no change",
+			in:          `{"privateKey":"k","awgVersion":"2","headerProtectionKey":""}`,
+			wantChanged: false,
+			wantVersion: "2",
+		},
+		{
+			name:        "v3 + empty key → no change",
+			in:          `{"privateKey":"k","awgVersion":"3","headerProtectionKey":""}`,
+			wantChanged: false,
+			wantVersion: "3",
+		},
+		{
+			name:        "garbage version normalized to v2",
+			in:          `{"privateKey":"k","awgVersion":"banana"}`,
+			wantChanged: true,
+			wantVersion: "2",
+		},
+		{
+			name:        "v1.5 preserved",
+			in:          `{"privateKey":"k","awgVersion":"1.5","headerProtectionKey":""}`,
+			wantChanged: false,
+			wantVersion: "1.5",
+		},
+		{
+			name:        "invalid json is a no-op",
 			in:          `not json`,
 			wantChanged: false,
 		},
@@ -42,14 +82,9 @@ func TestStripHeaderProtectionKey(t *testing.T) {
 			in:          ``,
 			wantChanged: false,
 		},
-		{
-			name:        "non-string key value is still cleared",
-			in:          `{"headerProtectionKey":123}`,
-			wantChanged: true,
-		},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			got, changed := stripHeaderProtectionKey(tc.in)
+			got, changed, _ := normalizeAwgSettings(tc.in)
 			if changed != tc.wantChanged {
 				t.Fatalf("changed = %v, want %v (out=%s)", changed, tc.wantChanged, got)
 			}
@@ -63,28 +98,32 @@ func TestStripHeaderProtectionKey(t *testing.T) {
 			if err := json.Unmarshal([]byte(got), &m); err != nil {
 				t.Fatalf("output is not valid JSON: %v (%s)", err, got)
 			}
-			hpk, ok := m["headerProtectionKey"]
-			if !ok {
-				t.Fatalf("key must be kept (blanked, not deleted) so the Zod shape holds, got %s", got)
+			if tc.wantVersion != "" {
+				if m["awgVersion"] != tc.wantVersion {
+					t.Fatalf("awgVersion = %v, want %q", m["awgVersion"], tc.wantVersion)
+				}
 			}
-			if hpk != "" {
-				t.Fatalf("key must be blanked, got %v", hpk)
+			if tc.checkHPK {
+				hpk, _ := m["headerProtectionKey"].(string)
+				if hpk != tc.wantHPK {
+					t.Fatalf("headerProtectionKey = %q, want %q", hpk, tc.wantHPK)
+				}
 			}
 		})
 	}
 }
 
 // The migration must not collaterally damage the rest of the settings blob:
-// losing privateKey or the obfuscation numbers would break the inbound just as
-// badly as the poisoned key did.
-func TestStripHeaderProtectionKey_PreservesOtherFields(t *testing.T) {
+// losing privateKey, the obfuscation numbers, or the clients array would break
+// the inbound just as badly as the poisoned key did.
+func TestNormalizeAwgSettings_PreservesOtherFields(t *testing.T) {
 	in := `{"privateKey":"serverPriv","publicKey":"serverPub","address":"10.8.0.1/24","mtu":1320,` +
 		`"jc":8,"jmin":50,"jmax":200,"s1":30,"h1":"100-500","i1":"<b 0xAA>",` +
 		`"headerProtectionKey":"aBcD...base64hpk==",` +
 		`"clients":[{"email":"user","publicKey":"peerPub","comment":"keep me"}]}`
-	got, changed := stripHeaderProtectionKey(in)
+	got, changed, _ := normalizeAwgSettings(in)
 	if !changed {
-		t.Fatal("expected the key to be cleared")
+		t.Fatal("expected the settings to be normalized")
 	}
 	var m map[string]any
 	if err := json.Unmarshal([]byte(got), &m); err != nil {
@@ -101,6 +140,7 @@ func TestStripHeaderProtectionKey_PreservesOtherFields(t *testing.T) {
 		"s1":         float64(30),
 		"h1":         "100-500",
 		"i1":         "<b 0xAA>",
+		"awgVersion": "2",
 	} {
 		if m[k] != want {
 			t.Errorf("%s = %v, want %v", k, m[k], want)

@@ -658,6 +658,13 @@
         "awgPublicKey": "Genel anahtar",
         "awgObfLevel": "Gizleme profili",
         "awgObfLevelHint": "Lite — hafif (Jc + DNS I1); Standard — orta (Jc/S/H + TLS I1); Pro — tam (Jc/S/H + I1-I5)",
+        "awgVersion": "AWG sürümü",
+        "awgVersionHint": "Bu inbound'ın hedeflediği AmneziaWG protokol sürümü (sunucu yapılandırması tavanı). 1.5 = eski (Jc/S1/S2/H1-H4); 2 = S3/S4 + I1-I5 ekler (Android 2.0.1); 3 = HeaderProtectionKey ekler (masaüstü 5.0.0.5 / Android 3.0.1). Bir v3 sunucusu v1/v2/plain-WG istemcilerini KABUL ETMEZ — karma istemci filosu için ayrı bir v2 inbound kullanın.",
+        "awgVersion15": "1.5 — eski (eski istemciler)",
+        "awgVersion2": "2 — standart (Android 2.0.1)",
+        "awgVersion3": "3 — tam + başlık koruması (AWG3)",
+        "awgVersion3CompatNote": "Sürüm 3, HeaderProtectionKey'i etkinleştirir; bu şifreleme açısından uyumluluğu bozar: v1/v2 ve plain-WireGuard istemcileri bu inbound'a bağlanamaz.",
+        "awgSRangeWarning": "AWG3, S1-S4 ≥ 12 gerektirir (başlık koruması şifresi nonce'unu S-padding'in ilk 12 baytından okur). Üretici bunu garanti eder; elle düzenlemeden önce doğrulayın.",
         "awgMimicryProfile": "Taklit profili",
         "awgMimicryProfileHint": "CPS imzasının taklit ettiği paket şekli. TLS/QUIC gerçek tarayıcı trafiği gibi görünür; DNS/SIP daha hafiftir.",
         "awgRegion": "Bölge",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "Hosttan I1-I5 yakalandı",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "AWG3 (AmneziaWG 3) başlık koruma anahtarı — 32 bayt ChaCha20, base64 (44 karakter). .conf'a yalnızca AWG sürümü 3 olduğunda yazılır (yukarı akış kernel v3.0.20260731 + tools v3.0.20260730 ayrıştırır). S1-S4 ≥ 12 olmalıdır; üretici garanti eder. Sürüm 3 seçiliyken «Yeniden oluştur» ile doldurun.",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "Xray üzerinden yönlendir",
         "awgRouteThroughXrayHint": "AWG kernel arayüzünün şifresi çözülmüş paketlerini enjekte edilen TUN inbound ile Xray yönlendiricisine gönderir, böylece çıkış yönlendirme kurallarına uyar. mtproto routeThroughXray ile aynıdır.",
@@ -894,7 +901,8 @@
         "imported": "{count} kullanıcı içe aktarıldı",
         "importedMixed": "{ok} içe aktarıldı, {failed} atlandı"
       },
-      "awgConfig": "AWG yapılandırması"
+      "awgConfig": "AWG yapılandırması",
+      "awgExportVersion": "İstemci yapılandırma sürümü"
     },
     "groups": {
       "name": "İsim",

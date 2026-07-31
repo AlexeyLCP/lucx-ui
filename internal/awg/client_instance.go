@@ -53,8 +53,14 @@ type ClientSettings struct {
 	I4         string `json:"i4"`
 	I5         string `json:"i5"`
 	// AWG3 (AmneziaWG 3) header protection key — 32-byte ChaCha20, base64.
-	// Forward-compat for feat/awg3; empty on current AWG.
+	// Written to the .conf only when AwgVersion == "3" (the outbound opts into
+	// AWG3); for older versions it stays empty. Upstream kernel v3.0.20260731 +
+	// tools v3.0.20260730 parse the field.
 	HeaderProtectionKey string `json:"headerProtectionKey"`
+	// AwgVersion targets the AmneziaWG protocol version for this outbound
+	// ("1.5"/"2"/"3"; "" → "2" via normalize). The .conf renderer emits
+	// HeaderProtectionKey only for version "3".
+	AwgVersion string `json:"awgVersion"`
 }
 
 // ClientInstanceFromOutbound parses an AwgOutbound row into a ClientInstance.
@@ -114,6 +120,7 @@ func (ci ClientInstance) fingerprint() string {
 		s.H1, s.H2, s.H3, s.H4,
 		s.I1, s.I2, s.I3, s.I4, s.I5,
 		s.HeaderProtectionKey,
+		s.AwgVersion,
 	}
 	return strings.Join(parts, "|")
 }

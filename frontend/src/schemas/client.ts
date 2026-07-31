@@ -55,10 +55,13 @@ export const InboundOptionSchema = z.object({
   wgMtu: z.number().optional(),
   wgDns: z.string().optional(),
   // LUCX-HOOK: AWG — server public key is reused via wgPublicKey (Curve25519);
-  // awgObfuscation is the pre-rendered Jc/S1-S4/H1-H4/I1-I5 block, awgServerAddress
-  // the server tunnel address, both fed by the backend inboundAwgHints.
+  // awgObfuscation is the pre-rendered Jc/S1-S4/H1-H4/I1-I5/HPK block (the
+  // inbound ceiling), awgServerAddress the server tunnel address, awgVersion
+  // the AWG protocol version ('1.5'/'2'/'3'). All fed by the backend
+  // inboundAwgHints so the clients page can gate the export-version selector.
   awgServerAddress: z.string().optional(),
   awgObfuscation: z.string().optional(),
+  awgVersion: z.string().optional(),
   mtprotoDomain: z.string().optional(),
   // Hosting node id; absent/null for this panel's own inbounds (#4997).
   nodeId: z.number().nullable().optional(),

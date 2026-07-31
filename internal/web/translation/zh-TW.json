@@ -658,6 +658,13 @@
         "awgPublicKey": "公鑰",
         "awgObfLevel": "混淆設定檔",
         "awgObfLevelHint": "Lite — 輕量 (Jc + DNS I1)；Standard — 中等 (Jc/S/H + TLS I1)；Pro — 完整 (Jc/S/H + I1-I5)",
+        "awgVersion": "AWG 版本",
+        "awgVersionHint": "此入站目標的 AmneziaWG 協定版本（伺服器設定上限）。1.5 = 舊版（Jc/S1/S2/H1-H4）；2 = 增加 S3/S4 + I1-I5（Android 2.0.1）；3 = 增加 HeaderProtectionKey（桌面 5.0.0.5 / Android 3.0.1）。v3 伺服器不接受 v1/v2/plain-WG 客戶端——混合客戶端群請使用單獨的 v2 入站。",
+        "awgVersion15": "1.5 — 舊版（舊客戶端）",
+        "awgVersion2": "2 — 標準（Android 2.0.1）",
+        "awgVersion3": "3 — 完整 + 標頭保護（AWG3）",
+        "awgVersion3CompatNote": "版本 3 啟用 HeaderProtectionKey，這在密碼學上破壞了相容性：v1/v2 和 plain-WireGuard 客戶端無法連線至此入站。",
+        "awgSRangeWarning": "AWG3 要求 S1-S4 ≥ 12（標頭保護加密從 S-padding 的前 12 位元組讀取 nonce）。產生器強制執行此要求；手動編輯前請核實。",
         "awgMimicryProfile": "偽裝設定檔",
         "awgMimicryProfileHint": "CPS 特徵模擬的封包形狀。TLS/QUIC 看起來像真實瀏覽器流量；DNS/SIP 更輕量。",
         "awgRegion": "區域",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "已從主機擷取 I1-I5",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "AWG3 (AmneziaWG 3) 標頭保護金鑰 —— 32 位元組 ChaCha20，base64（44 字元）。僅在 AWG 版本為 3 時寫入 .conf（上游 kernel v3.0.20260731 + tools v3.0.20260730 可解析）。S1-S4 必須 ≥ 12；產生器強制執行。選擇版本 3 後透過「重新產生」填入。",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "透過 Xray 路由",
         "awgRouteThroughXrayHint": "透過注入的 TUN 入站將 AWG 核心介面解密後的封包送入 Xray 路由器，使出口遵循路由規則。與 mtproto 的 routeThroughXray 相同。",
@@ -894,7 +901,8 @@
         "imported": "已匯入 {count} 個客戶端",
         "importedMixed": "已匯入 {ok} 個，跳過 {failed} 個"
       },
-      "awgConfig": "AWG 設定"
+      "awgConfig": "AWG 設定",
+      "awgExportVersion": "客戶端設定版本"
     },
     "groups": {
       "name": "名稱",

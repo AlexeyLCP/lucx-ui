@@ -7,14 +7,15 @@
 package cps
 
 import (
+	"encoding/base64"
 	"encoding/hex"
-	"math/rand"
+	crand "math/rand"
 	"strings"
 	"testing"
 )
 
 func TestGenerateAWGParams_Invariants(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(42)))
+	SetRand(crand.New(crand.NewSource(42)))
 	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
 		for i := 0; i < 200; i++ {
 			p, err := GenerateAWGParams(prof)
@@ -23,6 +24,14 @@ func TestGenerateAWGParams_Invariants(t *testing.T) {
 			}
 			if err := p.Validate(); err != nil {
 				t.Fatalf("profile %s iter %d validate: %v", prof, i, err)
+			}
+			// S1-S4 must be >= MinSForHPK so an AWG3 kernel accepts a
+			// HeaderProtectionKey without -EINVAL (the cipher nonce is read
+			// from the first 12 bytes of S-padding).
+			for _, s := range []int{p.S1, p.S2, p.S3, p.S4} {
+				if s < MinSForHPK {
+					t.Fatalf("profile %s iter %d: S value %d < MinSForHPK %d", prof, i, s, MinSForHPK)
+				}
 			}
 			// H1-H4 must be "lo-hi" ranges, non-empty, and in disjoint quadrants.
 			for _, h := range []string{p.H1, p.H2, p.H3, p.H4} {
@@ -34,8 +43,65 @@ func TestGenerateAWGParams_Invariants(t *testing.T) {
 	}
 }
 
+func TestGenerateHeaderProtectionKey_Format(t *testing.T) {
+	for i := 0; i < 32; i++ {
+		k, err := GenerateHeaderProtectionKey()
+		if err != nil {
+			t.Fatalf("iter %d: %v", i, err)
+		}
+		// AWG3 HeaderProtectionKey is 32 random bytes, base64-encoded → 44
+		// chars (no newline), same shape as a WireGuard private key.
+		if len(k) != 44 {
+			t.Fatalf("iter %d: key length = %d, want 44 (base64 of 32 bytes)", i, len(k))
+		}
+		raw, err := base64.StdEncoding.DecodeString(k)
+		if err != nil {
+			t.Fatalf("iter %d: not valid base64: %v", i, err)
+		}
+		if len(raw) != 32 {
+			t.Fatalf("iter %d: decoded length = %d, want 32", i, len(raw))
+		}
+	}
+}
+
+func TestWithHeaderProtectionKey_SetsField(t *testing.T) {
+	SetRand(crand.New(crand.NewSource(7)))
+	p, err := GenerateAWGParams(ObfStandard)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p.HeaderProtectionKey != "" {
+		t.Fatal("GenerateAWGParams must not set HeaderProtectionKey by default")
+	}
+	p2, err := p.WithHeaderProtectionKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p2.HeaderProtectionKey == "" {
+		t.Fatal("WithHeaderProtectionKey must populate the field")
+	}
+	if p2.S1 != p.S1 || p2.H1 != p.H1 {
+		t.Fatal("WithHeaderProtectionKey must preserve the other fields")
+	}
+}
+
+func TestAsConfLines_HeaderProtectionKeyGated(t *testing.T) {
+	SetRand(crand.New(crand.NewSource(9)))
+	p, err := GenerateAWGParams(ObfPro)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(p.AsConfLines(), "HeaderProtectionKey") {
+		t.Fatal("AsConfLines must omit HeaderProtectionKey when empty")
+	}
+	p.HeaderProtectionKey = "aBcD...base64hpk=="
+	if !strings.Contains(p.AsConfLines(), "HeaderProtectionKey = aBcD...base64hpk==") {
+		t.Fatal("AsConfLines must emit HeaderProtectionKey when set")
+	}
+}
+
 func TestGenerateCPS_AllProfilesNonEmpty(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(7)))
+	SetRand(crand.New(crand.NewSource(7)))
 	for _, mp := range []MimicryProfile{ProfileTLS, ProfileDNS, ProfileSIP, ProfileQUIC} {
 		for _, reg := range []Region{RegionRU, RegionWorld} {
 			r1, err := GenerateCPS(mp, reg, "", BrowserChrome, true)
@@ -62,7 +128,7 @@ func TestGenerateCPS_AllProfilesNonEmpty(t *testing.T) {
 }
 
 func TestGenerateCPS_ExplicitDomain(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(1)))
+	SetRand(crand.New(crand.NewSource(1)))
 	r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", BrowserChrome, true)
 	if err != nil {
 		t.Fatal(err)
@@ -73,7 +139,7 @@ func TestGenerateCPS_ExplicitDomain(t *testing.T) {
 }
 
 func TestGenerateCPS_DNSHasR2Prefix(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(3)))
+	SetRand(crand.New(crand.NewSource(3)))
 	r, err := GenerateCPS(ProfileDNS, RegionWorld, "example.com", BrowserChrome, true)
 	if err != nil {
 		t.Fatal(err)
@@ -84,7 +150,7 @@ func TestGenerateCPS_DNSHasR2Prefix(t *testing.T) {
 }
 
 func TestGenerateCPS_NonDNSNoR2Prefix(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(5)))
+	SetRand(crand.New(crand.NewSource(5)))
 	for _, mp := range []MimicryProfile{ProfileTLS, ProfileSIP, ProfileQUIC} {
 		r, err := GenerateCPS(mp, RegionWorld, "example.com", BrowserChrome, true)
 		if err != nil {
@@ -97,7 +163,7 @@ func TestGenerateCPS_NonDNSNoR2Prefix(t *testing.T) {
 }
 
 func TestGenerateCPS_AllBrowsersNonEmpty(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(11)))
+	SetRand(crand.New(crand.NewSource(11)))
 	for _, browser := range []BrowserProfile{BrowserChrome, BrowserFirefox, BrowserSafari} {
 		r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", browser, true)
 		if err != nil {
@@ -113,9 +179,9 @@ func TestGenerateCPS_AllBrowsersNonEmpty(t *testing.T) {
 }
 
 func TestQuicInitialPacket_RespectsBrowser(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(7)))
+	SetRand(crand.New(crand.NewSource(7)))
 	chrome := quicInitialPacket("example.com", BrowserChrome)
-	SetRand(rand.New(rand.NewSource(7)))
+	SetRand(crand.New(crand.NewSource(7)))
 	firefox := quicInitialPacket("example.com", BrowserFirefox)
 	if chrome == firefox {
 		t.Error("chrome and firefox QUIC Initials must differ (embedded ClientHello differs)")
@@ -128,7 +194,7 @@ func TestQuicInitialPacket_RespectsBrowser(t *testing.T) {
 }
 
 func TestBuildFirefoxHello_NoGrease(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(42)))
+	SetRand(crand.New(crand.NewSource(42)))
 	ch := buildFirefoxHello("example.com")
 	hexStr := hex.EncodeToString(ch)
 	if strings.Contains(hexStr, "0a0a") || strings.Contains(hexStr, "fafa") {
@@ -137,7 +203,7 @@ func TestBuildFirefoxHello_NoGrease(t *testing.T) {
 }
 
 func TestBuildSafariHello_NoGrease(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(42)))
+	SetRand(crand.New(crand.NewSource(42)))
 	ch := buildSafariHello("example.com")
 	hexStr := hex.EncodeToString(ch)
 	if strings.Contains(hexStr, "0a0a") || strings.Contains(hexStr, "fafa") {
@@ -146,7 +212,7 @@ func TestBuildSafariHello_NoGrease(t *testing.T) {
 }
 
 func TestBuildChromeHello_HasGrease(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(42)))
+	SetRand(crand.New(crand.NewSource(42)))
 	ch := buildChromeHello("example.com")
 	if len(ch) < 100 {
 		t.Fatalf("Chrome ClientHello too short: %d bytes", len(ch))
@@ -154,7 +220,7 @@ func TestBuildChromeHello_HasGrease(t *testing.T) {
 }
 
 func TestBuildFirefoxHello_HasPadding512(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(42)))
+	SetRand(crand.New(crand.NewSource(42)))
 	ch := buildFirefoxHello("example.com")
 	if len(ch) < 200 {
 		t.Fatalf("Firefox ClientHello too short (padding expected): %d bytes", len(ch))
@@ -162,7 +228,7 @@ func TestBuildFirefoxHello_HasPadding512(t *testing.T) {
 }
 
 func TestBuildSafariHello_HasTls11(t *testing.T) {
-	SetRand(rand.New(rand.NewSource(42)))
+	SetRand(crand.New(crand.NewSource(42)))
 	ch := buildSafariHello("example.com")
 	hexStr := hex.EncodeToString(ch)
 	if !strings.Contains(hexStr, "0302") {

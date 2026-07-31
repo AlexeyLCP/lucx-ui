@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Alert,
   Button,
   Col,
   Drawer,
@@ -15,6 +16,7 @@ import {
   InputNumber,
   Modal,
   Row,
+  Select,
   Space,
   Switch,
   message,
@@ -24,6 +26,7 @@ import { FormProvider, useForm } from 'react-hook-form';
 import { FormField } from '@/components/form/rhf';
 import { awgOutboundsApi } from '@/api/awg-outbounds';
 import type { AwgOutbound, AwgOutboundSettings } from '@/schemas/awg-outbound';
+import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { Wireguard } from '@/utils';
 
 interface Props {
@@ -64,6 +67,8 @@ interface AwgOutboundFormValues {
   i3: string;
   i4: string;
   i5: string;
+  headerProtectionKey: string;
+  awgVersion: AwgVersion;
 }
 
 const DEFAULT_SETTINGS: AwgOutboundSettings = {
@@ -92,6 +97,8 @@ const DEFAULT_SETTINGS: AwgOutboundSettings = {
   i3: '',
   i4: '',
   i5: '',
+  headerProtectionKey: '',
+  awgVersion: '2',
 };
 
 function buildDefaultValues(): AwgOutboundFormValues {
@@ -145,6 +152,8 @@ function settingsToFormValues(initial: AwgOutbound): AwgOutboundFormValues {
     i3: parsed.i3 ?? DEFAULT_SETTINGS.i3,
     i4: parsed.i4 ?? DEFAULT_SETTINGS.i4,
     i5: parsed.i5 ?? DEFAULT_SETTINGS.i5,
+    headerProtectionKey: parsed.headerProtectionKey ?? DEFAULT_SETTINGS.headerProtectionKey,
+    awgVersion: parsed.awgVersion ?? DEFAULT_SETTINGS.awgVersion,
   };
 }
 
@@ -178,6 +187,8 @@ function formValuesToSettings(v: AwgOutboundFormValues): AwgOutboundSettings {
     i3: v.i3,
     i4: v.i4,
     i5: v.i5,
+    headerProtectionKey: v.headerProtectionKey,
+    awgVersion: v.awgVersion,
   };
 }
 
@@ -270,8 +281,9 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
       };
       methods.reset(merged);
       // Surface the obfuscation block if the parsed conf carried it so the
-      // operator sees the values the parse produced.
-      const hasObf = parsed.jc || parsed.jmin || parsed.jmax || parsed.s1 || parsed.h1;
+      // operator sees the values the parse produced — including HPK for a v3
+      // .conf (which lives in the advanced section).
+      const hasObf = parsed.jc || parsed.jmin || parsed.jmax || parsed.s1 || parsed.h1 || parsed.headerProtectionKey;
       if (hasObf) setShowAdvanced(true);
       setPasteOpen(false);
       messageApi.success(t('pages.xray.awgOutbound.parsed'));
@@ -385,6 +397,24 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
               <Input placeholder="0.0.0.0/0, ::/0" />
             </FormField>
 
+            {/* LUCX-HOOK: AWG outbound — protocol version. Determines which fields
+                renderClientConf writes to the awgo-N .conf. Auto-detected by
+                ParseConf when pasting; editable here. Version '3' gates HPK. */}
+            <FormField
+              label={t('pages.inbounds.form.awgVersion')}
+              name="awgVersion"
+              tooltip={t('pages.inbounds.form.awgVersionHint')}
+            >
+              <Select
+                options={[
+                  { value: '1.5', label: t('pages.inbounds.form.awgVersion15') },
+                  { value: '2', label: t('pages.inbounds.form.awgVersion2') },
+                  { value: '3', label: t('pages.inbounds.form.awgVersion3') },
+                ]}
+              />
+            </FormField>
+            {/* END LUCX-HOOK */}
+
             <Space>
               <Button onClick={() => setPasteOpen(true)}>{t('pages.xray.awgOutbound.pasteConf')}</Button>
               <Button type="link" onClick={() => setShowAdvanced((v) => !v)}>
@@ -489,6 +519,24 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                     </FormField>
                   </Col>
                 </Row>
+                {/* LUCX-HOOK: AWG outbound — HeaderProtectionKey (AWG3 only).
+                    Shown in advanced regardless of the version selector so an
+                    operator pasting a v3 conf sees the parsed value; it is only
+                    written to the .conf when awgVersion === '3'. */}
+                <FormField
+                  label={t('pages.inbounds.form.awgHpk')}
+                  name="headerProtectionKey"
+                  tooltip={t('pages.inbounds.form.awgHpkHint')}
+                >
+                  <Input placeholder={t('pages.inbounds.form.awgHpkPlaceholder')} />
+                </FormField>
+                <Alert
+                  type="warning"
+                  showIcon
+                  message={t('pages.inbounds.form.awgSRangeWarning')}
+                  style={{ marginBottom: 16 }}
+                />
+                {/* END LUCX-HOOK */}
               </>
             )}
           </Form>

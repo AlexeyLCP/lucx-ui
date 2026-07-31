@@ -22,7 +22,9 @@ import (
 // packet shape (tls/dns/sip/quic); region selects the front-domain pool
 // (ru/world); domain is an optional explicit front host (empty = random from
 // the pool); fullI1I5 reports whether I1-I5 are all emitted (Pro) or just I1
-// (Lite/Standard).
+// (Lite/Standard). awgVersion targets the AmneziaWG protocol version
+// ("1.5"/"2"/"3"); when "3", the response carries a freshly generated
+// HeaderProtectionKey (the AWG3 kernel/tools now parse it).
 type awgGenerateObfuscationRequest struct {
 	ObfProfile     string `json:"obfProfile"`
 	MimicryProfile string `json:"mimicryProfile"`
@@ -30,6 +32,7 @@ type awgGenerateObfuscationRequest struct {
 	Region         string `json:"region"`
 	Domain         string `json:"domain"`
 	FullI1I5       bool   `json:"fullI1I5"`
+	AwgVersion     string `json:"awgVersion"`
 }
 
 // awgGenerateObfuscation generates a fresh set of AmneziaWG obfuscation
@@ -73,7 +76,7 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		jsonMsg(c, "awg obfuscation: CPS generation failed", err)
 		return
 	}
-	jsonObj(c, gin.H{
+	resp := gin.H{
 		"jc":   params.Jc,
 		"jmin": params.Jmin,
 		"jmax": params.Jmax,
@@ -90,19 +93,26 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		"i3":   cpsResult.I3,
 		"i4":   cpsResult.I4,
 		"i5":   cpsResult.I5,
-		// headerProtectionKey is deliberately NOT returned. It used to be
-		// generated here as AWG3 forward-compat, but the current master
-		// amneziawg kernel module does not parse `HeaderProtectionKey` in
-		// setconf: the line makes `awg setconf` abort with "Line unrecognized"
-		// + "Configuration parsing error", awg-quick deletes the half-built
-		// interface, and the inbound never comes up (reconcile then fails every
-		// 10s). The form writes every key of this response into the inbound
-		// settings, so returning the key at all was enough to break traffic for
-		// anyone who pressed "generate obfuscation" (reported live by tester
-		// VladufQa). Omitting the key — rather than returning "" — also leaves a
-		// value an AWG3-module operator typed in by hand untouched, because the
-		// form only overwrites fields present in the response.
-	}, nil)
+	}
+	// headerProtectionKey is returned ONLY when awgVersion == "3". The upstream
+	// kernel module (v3.0.20260731) + tools (v3.0.20260730) now parse the field
+	// — feat/awg3 was merged to master on 2026-07-30, so the old blocker (the
+	// line made `awg setconf` abort with "Line unrecognized" + "Configuration
+	// parsing error", awg-quick rolled the interface back, reconcile failed
+	// every 10s and the inbound never served traffic) is gone. GenerateAWGParams
+	// already guarantees S1-S4 >= MinSForHPK, so the kernel will accept the key.
+	// For v1.5/v2 the field is omitted (not ""), so the form's
+	// Object.entries(obf).forEach(setValue) leaves any hand-typed key on a v3
+	// module untouched — the same property the old forward-compat relied on.
+	if req.AwgVersion == "3" {
+		params, err := params.WithHeaderProtectionKey()
+		if err != nil {
+			jsonMsg(c, "awg obfuscation: header protection key generation failed", err)
+			return
+		}
+		resp["headerProtectionKey"] = params.HeaderProtectionKey
+	}
+	jsonObj(c, resp, nil)
 }
 
 // awgCaptureHostRequest is the body the AWG inbound form posts to

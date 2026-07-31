@@ -58,11 +58,15 @@ func renderClientConf(ci ClientInstance) string {
 		fmt.Fprintf(&b, "H2 = %s\n", s.H2)
 		fmt.Fprintf(&b, "H3 = %s\n", s.H3)
 		fmt.Fprintf(&b, "H4 = %s\n", s.H4)
-		// HeaderProtectionKey (AWG3) is NEVER written — see renderServerConf.
-		// The master kernel module has no parser for the field, so the line
-		// makes `awg setconf` abort with "Line unrecognized" and awg-quick roll
-		// the interface back, breaking reconcile every 10s. Kept in Settings
-		// for forward-compat; restore once feat/awg3 lands in master.
+		// HeaderProtectionKey (AWG3) is written ONLY when AwgVersion == "3" and
+		// the key is non-empty — mirrors renderServerConf. The upstream kernel
+		// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds
+		// reject it, so version-gating keeps v1/v2 outbounds working. S1-S4
+		// >= 12 is required for the kernel to accept the key (enforced by the
+		// generator when version "3" is selected).
+		if NormalizeAWGVersion(s.AwgVersion) == "3" && s.HeaderProtectionKey != "" {
+			fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
+		}
 	}
 	b.WriteString("\n[Peer]\n")
 	fmt.Fprintf(&b, "PublicKey = %s\n", s.PublicKey)

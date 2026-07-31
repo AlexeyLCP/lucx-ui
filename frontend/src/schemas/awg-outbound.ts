@@ -36,6 +36,13 @@ export const AwgOutboundSettingsSchema = z.object({
   i3: z.string().default(''),
   i4: z.string().default(''),
   i5: z.string().default(''),
+  // AWG3 (AmneziaWG 3) header protection key — 32-byte ChaCha20, base64.
+  // Written to the awgo-N .conf only when awgVersion === '3' and non-empty.
+  headerProtectionKey: z.string().default(''),
+  // AWG protocol version: '1.5' (legacy), '2' (S3/S4 + I1-I5), or '3' (adds
+  // HeaderProtectionKey). Auto-detected by ParseConf from the pasted .conf;
+  // editable in the form. renderClientConf gates HPK emission on '3'.
+  awgVersion: z.enum(['1.5', '2', '3']).default('2'),
 });
 
 export const AwgOutboundSchema = z.object({

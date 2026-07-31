@@ -27,6 +27,7 @@ func TestInstanceFromInbound(t *testing.T) {
 			`"h3":"1000000-1500000","h4":"1600000-2000000",` +
 			`"i1":"<b 0xaa>","i2":"<b 0xbb>","i3":"<b 0xcc>","i4":"<b 0xdd>","i5":"<b 0xee>",` +
 			`"headerProtectionKey":"aBcD...base64hpk==",` +
+			`"awgVersion":"3",` +
 			`"routeThroughXray":true,"outboundTag":"warp",` +
 			`"clients":[{"id":"peer-pub-1","password":"psk-1","enable":true},` +
 			`{"id":"peer-pub-2","password":"psk-2","enable":false},` +
@@ -59,6 +60,9 @@ func TestInstanceFromInbound(t *testing.T) {
 	}
 	if inst.HeaderProtectionKey != "aBcD...base64hpk==" {
 		t.Fatalf("headerProtectionKey not parsed: %+v", inst)
+	}
+	if inst.AwgVersion != "3" {
+		t.Fatalf("awgVersion not parsed: %+v", inst)
 	}
 	if !inst.RouteThroughXray || inst.OutboundTag != "warp" {
 		t.Fatalf("routing not parsed: %+v", inst)
@@ -211,30 +215,58 @@ func TestRenderServerConf_NeverWritesDNS(t *testing.T) {
 	}
 }
 
-// The master amneziawg kernel module has no parser for HeaderProtectionKey:
-// the line makes `awg setconf` abort with "Line unrecognized" +
-// "Configuration parsing error", awg-quick deletes the half-built interface and
-// reconcile then fails every 10s, so the inbound never serves traffic. The
-// field must therefore never reach the server .conf, set or not — same rule as
-// I1-I5. It stays in Instance for forward-compat with the feat/awg3 module.
-func TestRenderServerConf_NeverWritesHeaderProtectionKey(t *testing.T) {
+// HeaderProtectionKey (AWG3) is version-gated in the server .conf: written
+// only when AwgVersion == "3" AND the key is non-empty. The upstream kernel
+// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject it
+// with "Line unrecognized", awg-quick rolls the interface back, and reconcile
+// fails every 10s. Version-gating keeps v1/v2 inbounds working on any kernel,
+// and lets a v3 inbound opt in once the AWG3 module is installed.
+func TestRenderServerConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 	for _, tc := range []struct {
-		name string
-		hpk  string
+		name    string
+		version string
+		hpk     string
+		want    bool
 	}{
-		{"empty", ""},
-		{"set", "aBcD...base64hpk=="},
+		{"empty key v3", "3", "", false},
+		{"set key v3", "3", "aBcD...base64hpk==", true},
+		{"set key v2", "2", "aBcD...base64hpk==", false},
+		{"set key v1.5", "1.5", "aBcD...base64hpk==", false},
+		{"set key no version", "", "aBcD...base64hpk==", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			inst := Instance{
 				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5,
+				AwgVersion:          tc.version,
 				HeaderProtectionKey: tc.hpk,
 			}
 			conf := renderServerConf(inst)
-			if strings.Contains(conf, "HeaderProtectionKey") {
-				t.Errorf("HeaderProtectionKey must never appear in server .conf, got:\n%s", conf)
+			contains := strings.Contains(conf, "HeaderProtectionKey = "+tc.hpk)
+			if contains != tc.want {
+				t.Errorf("version=%q hpk-set=%v: want HeaderProtectionKey in conf=%v, got=%v\nConf:\n%s",
+					tc.version, tc.hpk != "", tc.want, contains, conf)
 			}
 		})
+	}
+}
+
+func TestInstanceFingerprint_ChangesOnAwgVersion(t *testing.T) {
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k"}
+	before := inst.fingerprint()
+	inst.AwgVersion = "3"
+	after := inst.fingerprint()
+	if before == after {
+		t.Fatal("fingerprint must change when AwgVersion is set (restart trigger)")
+	}
+}
+
+func TestNormalizeAwgVersion(t *testing.T) {
+	for _, tc := range []struct{ in, want string }{
+		{"", "2"}, {"1.5", "1.5"}, {"2", "2"}, {"3", "3"}, {"garbage", "2"}, {"4", "2"},
+	} {
+		if got := NormalizeAWGVersion(tc.in); got != tc.want {
+			t.Errorf("NormalizeAWGVersion(%q) = %q, want %q", tc.in, got, tc.want)
+		}
 	}
 }
 

@@ -150,10 +150,11 @@ func initModels() error {
 	if err := pruneLegacyAwgHiddenChildren(); err != nil {
 		return err
 	}
-	// Clear headerProtectionKey values written by lucx.47's generate-obfuscation
-	// button: the current kernel module rejects the field and the interface
-	// never comes up. No-op unless a stored value is actually present.
-	if err := pruneAwgHeaderProtectionKey(); err != nil {
+	// Backfill awgVersion = "2" on pre-lucx.50 AWG inbounds/outbounds and clear
+	// a stale headerProtectionKey from anything that is not version "3" (the
+	// lucx.47 generate-obfuscation regression poisoned v2 inbounds). No-op on a
+	// fresh DB and on an already-migrated DB.
+	if err := migrateAwgVersion(); err != nil {
 		return err
 	}
 	// END LUCX-HOOK

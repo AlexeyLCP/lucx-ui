@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Collapse, Modal, Spin, Tag } from 'antd';
+import { Collapse, Modal, Select, Space, Spin, Tag, Typography } from 'antd';
 import { HttpUtil } from '@/utils';
-import { isPostQuantumLink } from '@/lib/xray/inbound-link';
+import { awgVersionAtLeast, awgVersionCeiling, isPostQuantumLink } from '@/lib/xray/inbound-link';
+import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
@@ -30,6 +31,13 @@ interface ApiMsg<T = unknown> {
 }
 
 const DEFAULT_SUB: SubSettings = { enable: false, subURI: '', subJsonURI: '', subJsonEnable: false, publicHost: '' };
+
+// isVersionAvailable reports whether an export version is selectable given the
+// inbound ceiling (a client config may target any version at or below the
+// server's). Mirrors the clamp logic in buildAwgClientConfig.
+function isVersionAvailable(version: AwgVersion, ceiling: AwgVersion): boolean {
+  return awgVersionAtLeast(ceiling, version);
+}
 
 export default function ClientQrModal({
   open,
@@ -61,10 +69,21 @@ export default function ClientQrModal({
 
   // LUCX-HOOK: AWG — client .conf for AmneziaWG (with obfuscation block).
   const awgInbound = useMemo(() => findAwgInbound(client, inboundsById), [client, inboundsById]);
+  // awgExportVersion is the runtime client-config version selector. Defaults to
+  // the inbound ceiling; the dropdown offers every version at or below it so a
+  // v3 inbound can still hand a v2/v1.5 client a config its app understands.
+  const awgCeiling = useMemo(
+    () => (awgInbound ? awgVersionCeiling(awgInbound.awgVersion) : '2'),
+    [awgInbound],
+  );
+  const [awgExportVersion, setAwgExportVersion] = useState<AwgVersion>('2');
+  useEffect(() => {
+    setAwgExportVersion(awgCeiling);
+  }, [awgCeiling]);
   const awgConfigText = useMemo(() => {
     if (!client || !awgInbound || !isAwgClient(client)) return '';
-    return buildAwgClientConfig(client, awgInbound, window.location.hostname, subSettings?.publicHost ?? '');
-  }, [client, awgInbound, subSettings?.publicHost]);
+    return buildAwgClientConfig(client, awgInbound, window.location.hostname, subSettings?.publicHost ?? '', awgExportVersion);
+  }, [client, awgInbound, subSettings?.publicHost, awgExportVersion]);
   // END LUCX-HOOK
 
   const hasAnything = !!subLink || !!subJsonLink || !!wgConfigText || !!awgConfigText || links.length > 0;
@@ -143,23 +162,41 @@ export default function ClientQrModal({
         ),
       });
     }
-    // LUCX-HOOK: AWG — client .conf panel with QR + download.
+    // LUCX-HOOK: AWG — client .conf panel with QR + download + export-version selector.
     if (awgConfigText) {
       out.push({
         key: 'awg-config',
         label: <Tag color="purple" style={{ margin: 0 }}>{t('pages.clients.awgConfig')}</Tag>,
         children: (
-          <QrPanel
-            value={awgConfigText}
-            remark={client?.email || 'peer'}
-            downloadName={`${client?.email || 'peer'}-awg.conf`}
-          />
+          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+            <Space style={{ width: '100%', justifyContent: 'space-between' }} align="center">
+              <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                {t('pages.clients.awgExportVersion')}
+              </Typography.Text>
+              <Select<AwgVersion>
+                size="small"
+                style={{ width: 180 }}
+                value={awgExportVersion}
+                onChange={setAwgExportVersion}
+                options={[
+                  { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !isVersionAvailable('1.5', awgCeiling) },
+                  { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !isVersionAvailable('2', awgCeiling) },
+                  { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !isVersionAvailable('3', awgCeiling) },
+                ]}
+              />
+            </Space>
+            <QrPanel
+              value={awgConfigText}
+              remark={client?.email || 'peer'}
+              downloadName={`${client?.email || 'peer'}-awg.conf`}
+            />
+          </Space>
         ),
       });
     }
     // END LUCX-HOOK
     return out;
-  }, [subLink, subJsonLink, wgConfigText, awgConfigText, links, client?.email, t]);
+  }, [subLink, subJsonLink, wgConfigText, awgConfigText, links, client?.email, t, awgExportVersion, awgCeiling]);
 
   useEffect(() => {
     if (!open) {

@@ -658,6 +658,13 @@
         "awgPublicKey": "Clave pública",
         "awgObfLevel": "Perfil de ofuscación",
         "awgObfLevelHint": "Lite — ligero (Jc + DNS I1); Standard — medio (Jc/S/H + TLS I1); Pro — completo (Jc/S/H + I1-I5)",
+        "awgVersion": "Versión de AWG",
+        "awgVersionHint": "Versión del protocolo AmneziaWG a la que apunta este inbound (el techo de la configuración del servidor). 1.5 = heredado (Jc/S1/S2/H1-H4); 2 = añade S3/S4 + I1-I5 (Android 2.0.1); 3 = añade HeaderProtectionKey (desktop 5.0.0.5 / Android 3.0.1). Un servidor v3 NO aceptará clientes v1/v2/plain-WG: usa un inbound v2 independiente para una flota mixta.",
+        "awgVersion15": "1.5 — heredado (clientes antiguos)",
+        "awgVersion2": "2 — estándar (Android 2.0.1)",
+        "awgVersion3": "3 — completo + protección de cabecera (AWG3)",
+        "awgVersion3CompatNote": "La versión 3 habilita HeaderProtectionKey, lo que rompe la compatibilidad criptográficamente: los clientes v1/v2 y plain-WireGuard no pueden conectarse a este inbound.",
+        "awgSRangeWarning": "AWG3 requiere S1-S4 ≥ 12 (el cifrado de protección de cabecera lee su nonce de los primeros 12 bytes del S-padding). El generador lo garantiza; verifícalo antes de editar a mano.",
         "awgMimicryProfile": "Perfil de mimetización",
         "awgMimicryProfileHint": "Qué forma de paquete imita la firma CPS. TLS/QUIC parecen tráfico real de navegador; DNS/SIP son más ligeros.",
         "awgRegion": "Región",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "I1-I5 capturados del host",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "Clave de protección de cabecera AWG3 (AmneziaWG 3) — ChaCha20 de 32 bytes, base64 (44 caracteres). Se escribe en el .conf solo cuando la versión de AWG es 3 (el kernel upstream v3.0.20260731 + tools v3.0.20260730 lo analizan). S1-S4 deben ser ≥ 12; el generador lo garantiza. Rellénala con «Regenerar» tras seleccionar la versión 3.",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "Enrutar a través de Xray",
         "awgRouteThroughXrayHint": "Envía los paquetes descifrados de la interfaz kernel AWG al router de Xray mediante un inbound TUN inyectado, para que la salida obedezca las reglas de enrutado. Refleja el routeThroughXray de mtproto.",
@@ -894,7 +901,8 @@
         "imported": "{count} clientes importados",
         "importedMixed": "{ok} importados, {failed} omitidos"
       },
-      "awgConfig": "Configuración AWG"
+      "awgConfig": "Configuración AWG",
+      "awgExportVersion": "Versión de configuración del cliente"
     },
     "groups": {
       "name": "Nombre",

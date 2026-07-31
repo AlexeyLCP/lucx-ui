@@ -658,6 +658,13 @@
         "awgPublicKey": "Khóa công khai",
         "awgObfLevel": "Hồ sơ làm rối",
         "awgObfLevelHint": "Lite — nhẹ (Jc + DNS I1); Standard — vừa (Jc/S/H + TLS I1); Pro — đầy đủ (Jc/S/H + I1-I5)",
+        "awgVersion": "Phiên bản AWG",
+        "awgVersionHint": "Phiên bản giao thức AmneziaWG mà inbound này nhắm tới (trần cấu hình máy chủ). 1.5 = cũ (Jc/S1/S2/H1-H4); 2 = thêm S3/S4 + I1-I5 (Android 2.0.1); 3 = thêm HeaderProtectionKey (desktop 5.0.0.5 / Android 3.0.1). Máy chủ v3 sẽ KHÔNG chấp nhận client v1/v2/plain-WG — dùng một inbound v2 riêng cho đội client hỗn hợp.",
+        "awgVersion15": "1.5 — cũ (client cũ)",
+        "awgVersion2": "2 — tiêu chuẩn (Android 2.0.1)",
+        "awgVersion3": "3 — đầy đủ + bảo vệ tiêu đề (AWG3)",
+        "awgVersion3CompatNote": "Phiên bản 3 bật HeaderProtectionKey, điều này phá vỡ khả năng tương thích về mặt mật mã: client v1/v2 và plain-WireGuard không thể kết nối tới inbound này.",
+        "awgSRangeWarning": "AWG3 yêu cầu S1-S4 ≥ 12 (cipher bảo vệ tiêu đề đọc nonce từ 12 byte đầu của S-padding). Trình tạo đảm bảo điều này; hãy xác minh trước khi chỉnh sửa thủ công.",
         "awgMimicryProfile": "Hồ sơ ngụy trang",
         "awgMimicryProfileHint": "Dạng gói tin mà chữ ký CPS bắt chước. TLS/QUIC trông như lưu lượng trình duyệt thật; DNS/SIP nhẹ hơn.",
         "awgRegion": "Khu vực",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "Đã bắt I1-I5 từ host",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "Khóa bảo vệ tiêu đề AWG3 (AmneziaWG 3) — ChaCha20 32 byte, base64 (44 ký tự). Chỉ ghi vào .conf khi phiên bản AWG là 3 (kernel thượng nguồn v3.0.20260731 + tools v3.0.20260730 phân tích). S1-S4 phải ≥ 12; trình tạo đảm bảo. Điền qua «Tạo lại» với phiên bản 3 đã chọn.",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "Định tuyến qua Xray",
         "awgRouteThroughXrayHint": "Gửi các gói đã giải mã của giao diện kernel AWG vào router Xray qua inbound TUN được chèn, để egress tuân theo quy tắc định tuyến. Tương tự routeThroughXray của mtproto.",
@@ -894,7 +901,8 @@
         "imported": "Đã nhập {count} khách hàng",
         "importedMixed": "Đã nhập {ok}, bỏ qua {failed}"
       },
-      "awgConfig": "Cấu hình AWG"
+      "awgConfig": "Cấu hình AWG",
+      "awgExportVersion": "Phiên bản cấu hình client"
     },
     "groups": {
       "name": "Tên",

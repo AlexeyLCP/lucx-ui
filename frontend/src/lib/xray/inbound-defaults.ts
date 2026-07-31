@@ -261,11 +261,15 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     h2: `${r(600000, 900000)}`,
     h3: `${r(1000000, 1500000)}`,
     h4: `${r(1600000, 2000000)}`,
-    // AWG3 header protection key — left empty by default: the current upstream
-    // master kernel module does not yet parse `HeaderProtectionKey` in setconf,
-    // so writing it would break reconcile. Operators fill it via "Regenerate"
-    // after updating to the AWG3 kernel module (feat/awg3 branch).
+    // AWG3 header protection key — left empty by default. It is written to the
+    // .conf only when awgVersion === '3' (the inbound opts into AWG3); operators
+    // fill it via "Regenerate obfuscation" with version '3' selected. S1-S4 are
+    // always >= 12 (range starts at 20) so the kernel accepts the key for v3.
     headerProtectionKey: '',
+    // AWG protocol version '2' is the safe default — no HeaderProtectionKey,
+    // accepted by any kernel. Bump to '3' for AWG3 clients (desktop 5.0.0.5 /
+    // Android 3.0.1); note a v3 server will NOT accept v1/v2/plain-WG clients.
+    awgVersion: '2',
     clients: [],
   };
 }

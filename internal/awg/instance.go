@@ -46,12 +46,18 @@ type Instance struct {
 	I5   string
 	// HeaderProtectionKey is the AWG3 (AmneziaWG 3) 32-byte ChaCha20 header
 	// protection key, base64-encoded (same shape as a WireGuard private key).
-	// Forward-compat: the upstream feat/awg3 kernel module branch parses
-	// `HeaderProtectionKey` in setconf; the current master module does not, so
-	// the .conf renderer omits the line when this is empty (an unknown field
-	// would make awg setconf reject the config and break reconcile). Populate
-	// only after updating to the AWG3 kernel module.
+	// Upstream kernel module v3.0.20260731 + tools v3.0.20260730 parse the
+	// field in setconf. The .conf renderer writes it only when AwgVersion ==
+	// "3" (the inbound opts into AWG3); for older versions it stays empty and
+	// is omitted so v1/v2 kernels keep accepting the config.
 	HeaderProtectionKey string
+	// AwgVersion is the AmneziaWG protocol version this inbound targets:
+	// "1.5" (legacy, Jc/Jmin/Jmax + S1/S2 + H1-H4 only), "2" (adds S3/S4 +
+	// optional I1-I5, Android 2.0.1), or "3" (adds HeaderProtectionKey,
+	// desktop 5.0.0.5 / Android 3.0.1). The server .conf is generated for this
+	// version; client configs may be exported at the same version or lower.
+	// Defaults to "2" when empty (pre-lucx.50 inbounds) for compatibility.
+	AwgVersion string
 	// Peers expected on the interface. Each entry maps to one [Peer] in the
 	// generated .conf and is reconciled against the kernel state.
 	Peers []PeerSpec
@@ -98,6 +104,7 @@ func (inst Instance) fingerprint() string {
 		inst.I4,
 		inst.I5,
 		inst.HeaderProtectionKey,
+		inst.AwgVersion,
 		strconv.FormatBool(inst.RouteThroughXray),
 		inst.OutboundTag,
 	}
@@ -136,6 +143,7 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		I4                  string `json:"i4"`
 		I5                  string `json:"i5"`
 		HeaderProtectionKey string `json:"headerProtectionKey"`
+		AwgVersion          string `json:"awgVersion"`
 		RouteThroughXray    bool   `json:"routeThroughXray"`
 		OutboundTag         string `json:"outboundTag"`
 		Clients             []struct {
@@ -187,6 +195,7 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		I4:                  s.I4,
 		I5:                  s.I5,
 		HeaderProtectionKey: s.HeaderProtectionKey,
+		AwgVersion:          NormalizeAWGVersion(s.AwgVersion),
 		RouteThroughXray:    s.RouteThroughXray,
 		OutboundTag:         s.OutboundTag,
 	}
@@ -231,6 +240,21 @@ func orDefault(v, def int) int {
 		return def
 	}
 	return v
+}
+
+// NormalizeAWGVersion canonicalizes the stored awgVersion: "1.5"/"2"/"3"
+// pass through, anything else (including "" for pre-lucx.50 inbounds) falls
+// back to "2". Version "2" is the safe default — it matches what every
+// shipped LucX-UI release before AWG3 targeted, emits no HeaderProtectionKey,
+// and is accepted by the current kernel module without S-range constraints.
+// Exported so the web/service layer (inboundAwgHints) shares the single rule.
+func NormalizeAWGVersion(v string) string {
+	switch v {
+	case "1.5", "2", "3":
+		return v
+	default:
+		return "2"
+	}
 }
 
 // ifnameFor returns the canonical AWG interface name for an inbound id.

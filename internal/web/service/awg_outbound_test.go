@@ -45,6 +45,10 @@ PersistentKeepalive = 25
 	if s.Jc != 3 {
 		t.Errorf("Jc = %d", s.Jc)
 	}
+	// No S3/S4, I1-I5, or HeaderProtectionKey → auto-detected as legacy "1.5".
+	if s.AwgVersion != "1.5" {
+		t.Errorf("AwgVersion = %q, want \"1.5\" (legacy field set)", s.AwgVersion)
+	}
 }
 
 func TestParseConf_Empty(t *testing.T) {
@@ -71,5 +75,88 @@ Address = 10.9.0.5/32
 	}
 	if s.Address != "10.9.0.5/32" {
 		t.Errorf("Address = %q", s.Address)
+	}
+}
+
+// TestParseConf_AwgVersions verifies ParseConf eats a .conf of any AWG version
+// and auto-detects the protocol version from the field set, so a pasted v3
+// config keeps its HeaderProtectionKey and renders as version "3".
+func TestParseConf_AwgVersions(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		conf    string
+		wantVer string
+		wantHPK string
+	}{
+		{
+			name: "v3 with HeaderProtectionKey → version 3, HPK kept",
+			conf: `[Interface]
+PrivateKey = k
+Address = 10.9.0.5/32
+Jc = 5
+Jmin = 50
+Jmax = 200
+S1 = 30
+S2 = 60
+S3 = 20
+S4 = 25
+H1 = 100000-500000
+HeaderProtectionKey = aBcD...base64hpk==
+
+[Peer]
+PublicKey = pub
+Endpoint = up:51820
+`,
+			wantVer: "3",
+			wantHPK: "aBcD...base64hpk==",
+		},
+		{
+			name: "v2 with S3/S4 and I1-I5, no HPK → version 2",
+			conf: `[Interface]
+PrivateKey = k
+Address = 10.9.0.5/32
+Jc = 5
+S1 = 30
+S2 = 60
+S3 = 20
+S4 = 25
+I1 = <b 0xaa>
+
+[Peer]
+PublicKey = pub
+Endpoint = up:51820
+`,
+			wantVer: "2",
+			wantHPK: "",
+		},
+		{
+			name: "legacy with Jc/S1/S2 only → version 1.5",
+			conf: `[Interface]
+PrivateKey = k
+Address = 10.9.0.5/32
+Jc = 3
+S1 = 30
+S2 = 60
+
+[Peer]
+PublicKey = pub
+Endpoint = up:51820
+`,
+			wantVer: "1.5",
+			wantHPK: "",
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			s, err := ParseConf(tc.conf)
+			if err != nil {
+				t.Fatalf("ParseConf: %v", err)
+			}
+			if s.AwgVersion != tc.wantVer {
+				t.Errorf("AwgVersion = %q, want %q", s.AwgVersion, tc.wantVer)
+			}
+			if s.HeaderProtectionKey != tc.wantHPK {
+				t.Errorf("HeaderProtectionKey = %q, want %q", s.HeaderProtectionKey, tc.wantHPK)
+			}
+		})
 	}
 }

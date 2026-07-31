@@ -658,6 +658,13 @@
         "awgPublicKey": "公開鍵",
         "awgObfLevel": "難読化プロファイル",
         "awgObfLevelHint": "Lite — 軽量 (Jc + DNS I1); Standard — 中程度 (Jc/S/H + TLS I1); Pro — フル (Jc/S/H + I1-I5)",
+        "awgVersion": "AWG バージョン",
+        "awgVersionHint": "このインバウンドが対象とする AmneziaWG プロトコルバージョン（サーバー設定の上限）。1.5 = レガシー（Jc/S1/S2/H1-H4）；2 = S3/S4 + I1-I5 を追加（Android 2.0.1）；3 = HeaderProtectionKey を追加（デスクトップ 5.0.0.5 / Android 3.0.1）。v3 サーバーは v1/v2/plain-WG クライアントを受け付けません——混合クライアント群には別途 v2 インバウンドを使用してください。",
+        "awgVersion15": "1.5 — レガシー（旧クライアント）",
+        "awgVersion2": "2 — 標準（Android 2.0.1）",
+        "awgVersion3": "3 — 完全 + ヘッダー保護（AWG3）",
+        "awgVersion3CompatNote": "バージョン 3 は HeaderProtectionKey を有効にします。これは暗号学的に互換性を破壊します：v1/v2 および plain-WireGuard クライアントはこのインバウンドに接続できません。",
+        "awgSRangeWarning": "AWG3 は S1-S4 ≥ 12 を要求します（ヘッダー保護暗号は S-padding の先頭 12 バイトから nonce を読み取ります）。ジェネレーターがこれを保証しますが、手動編集前に確認してください。",
         "awgMimicryProfile": "ミミクリープロファイル",
         "awgMimicryProfileHint": "CPSシグネチャが模倣するパケット形状。TLS/QUICは実際のブラウザトラフィックに見え、DNS/SIPはより軽量です。",
         "awgRegion": "リージョン",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "ホストからI1-I5をキャプチャしました",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "AWG3 (AmneziaWG 3) ヘッダー保護キー —— 32 バイト ChaCha20、base64（44 文字）。AWG バージョンが 3 の場合のみ .conf に書き込まれます（上流 kernel v3.0.20260731 + tools v3.0.20260730 が解析します）。S1-S4 は ≥ 12 である必要があります。ジェネレーターが保証します。バージョン 3 を選択して「再生成」で入力してください。",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "Xray経由でルーティング",
         "awgRouteThroughXrayHint": "AWGカーネルインターフェースの復号パケットを注入されたTUNインバウンド経由でXrayルーターに送り、egressがルーティングルールに従うようにします。mtprotoのrouteThroughXrayと同等です。",
@@ -894,7 +901,8 @@
         "imported": "{count} 件のクライアントをインポートしました",
         "importedMixed": "{ok} 件インポート、{failed} 件スキップ"
       },
-      "awgConfig": "AWG設定"
+      "awgConfig": "AWG設定",
+      "awgExportVersion": "クライアント設定バージョン"
     },
     "groups": {
       "name": "名前",

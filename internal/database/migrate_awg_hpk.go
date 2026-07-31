@@ -14,47 +14,50 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
-// pruneAwgHeaderProtectionKey clears a non-empty headerProtectionKey from AWG
-// inbound and AWG outbound settings.
+// migrateAwgVersion backfills the awgVersion field on pre-lucx.50 AWG inbounds
+// and outbounds and prunes a stale headerProtectionKey that would otherwise
+// break reconcile. It does two things in one pass per row:
 //
-// Why this is needed: lucx.47 added the field as AWG3 forward-compat, and the
-// generate-obfuscation endpoint handed the inbound form a freshly generated key
-// on every click. The current master amneziawg kernel module has no parser for
-// `HeaderProtectionKey`, so the rendered .conf made `awg setconf` abort with
-// "Line unrecognized" + "Configuration parsing error"; awg-quick then deleted
-// the half-built interface and reconcile failed every 10 seconds, taking the
-// tunnel down. Operators who pressed the button and saved carry a poisoned
-// settings blob, so shipping the renderer fix alone would leave them broken
-// until they hand-edited the field.
+//  1. If awgVersion is absent, set it to "2" (the safe default — matches every
+//     shipped LucX-UI release before AWG3, emits no HeaderProtectionKey, and is
+//     accepted by the current kernel module without S-range constraints).
+//  2. If awgVersion != "3" and headerProtectionKey is non-empty, clear it.
 //
-// Why clearing is safe rather than lossy: no released kernel module reads the
-// field, so a stored value cannot be in productive use — it can only describe a
-// configuration that refuses to start. The key is a symmetric secret that is
-// regenerated, not derived, so nothing else references it. Once feat/awg3 lands
-// in the master module the field can be populated again (the schema keeps it).
+// Step 2 fixes the lucx.47 regression: the generate-obfuscation endpoint handed
+// the inbound form a freshly generated key on every click, and at the time the
+// master kernel module had no parser for `HeaderProtectionKey`, so the rendered
+// .conf made `awg setconf` abort with "Line unrecognized" + "Configuration
+// parsing error"; awg-quick deleted the half-built interface and reconcile
+// failed every 10 seconds. Operators who pressed the button and saved carry a
+// poisoned settings blob. As of lucx.50 the upstream module (v3.0.20260731) +
+// tools (v3.0.20260730) parse the field, but only a version-"3" inbound opts
+// into writing it — so a key stored on a v1/v2 (or pre-version) inbound is
+// either the lucx.47 poison or a value that would never reach the .conf anyway.
+// Either way it must go; a v3 inbound's hand-typed key is preserved.
 //
-// Idempotent: rows without the key, with an empty key, or with unparsable
-// settings are left untouched, so a fresh DB and an already-migrated DB both
-// take zero writes.
-func pruneAwgHeaderProtectionKey() error {
+// Why clearing is safe rather than lossy: no released LucX-UI version before
+// lucx.50 ever wrote the field to the .conf, so a stored value cannot be in
+// productive use — it can only describe a configuration that refused to start.
+// The key is a symmetric secret that is regenerated, not derived, so nothing
+// else references it.
+//
+// Idempotent: rows already carrying the right version and an empty/absent key
+// take zero writes, so a fresh DB and an already-migrated DB are both no-ops.
+func migrateAwgVersion() error {
 	var inbounds []model.Inbound
 	if err := db.Where("protocol = ?", "awg").Find(&inbounds).Error; err != nil {
 		return err
 	}
 	for _, ib := range inbounds {
-		// Cheap string pre-filter so untouched rows never hit the JSON decoder.
-		if !strings.Contains(ib.Settings, "headerProtectionKey") {
-			continue
-		}
-		cleaned, changed := stripHeaderProtectionKey(ib.Settings)
+		cleaned, changed, reason := normalizeAwgSettings(ib.Settings)
 		if !changed {
 			continue
 		}
 		if err := db.Model(&model.Inbound{}).Where("id = ?", ib.Id).Update("settings", cleaned).Error; err != nil {
-			log.Printf("[LUCX-AWG] migration: failed to clear headerProtectionKey for inbound %d: %v", ib.Id, err)
+			log.Printf("[LUCX-AWG] migration: failed to update AWG inbound %d: %v", ib.Id, err)
 			continue
 		}
-		log.Printf("[LUCX-AWG] migration: cleared headerProtectionKey from AWG inbound %d (unsupported by the current kernel module, broke awg setconf)", ib.Id)
+		log.Printf("[LUCX-AWG] migration: AWG inbound %d %s", ib.Id, reason)
 	}
 
 	var outbounds []model.AwgOutbound
@@ -62,43 +65,59 @@ func pruneAwgHeaderProtectionKey() error {
 		return err
 	}
 	for _, o := range outbounds {
-		if !strings.Contains(o.Settings, "headerProtectionKey") {
-			continue
-		}
-		cleaned, changed := stripHeaderProtectionKey(o.Settings)
+		cleaned, changed, reason := normalizeAwgSettings(o.Settings)
 		if !changed {
 			continue
 		}
 		if err := db.Model(&model.AwgOutbound{}).Where("id = ?", o.Id).Update("settings", cleaned).Error; err != nil {
-			log.Printf("[LUCX-AWG] migration: failed to clear headerProtectionKey for awg outbound %d: %v", o.Id, err)
+			log.Printf("[LUCX-AWG] migration: failed to update AWG outbound %d: %v", o.Id, err)
 			continue
 		}
-		log.Printf("[LUCX-AWG] migration: cleared headerProtectionKey from AWG outbound %d (unsupported by the current kernel module, broke awg setconf)", o.Id)
+		log.Printf("[LUCX-AWG] migration: AWG outbound %d %s", o.Id, reason)
 	}
 	return nil
 }
 
-// stripHeaderProtectionKey blanks a non-empty headerProtectionKey in a settings
-// JSON blob, reporting whether anything changed. The key is set to "" rather
-// than deleted so the shape the frontend Zod schema expects is preserved (it
-// defaults the field to an empty string). Returns changed=false for invalid
-// JSON, a missing key, or a key that is already empty.
-func stripHeaderProtectionKey(settings string) (string, bool) {
+// normalizeAwgSettings applies the migrateAwgVersion rules to one settings blob
+// and returns the cleaned JSON, whether anything changed, and a short human
+// reason for the log line. Returns changed=false for invalid JSON.
+func normalizeAwgSettings(settings string) (string, bool, string) {
 	var m map[string]any
 	if err := json.Unmarshal([]byte(settings), &m); err != nil {
-		return settings, false
+		return settings, false, ""
 	}
-	v, ok := m["headerProtectionKey"]
-	if !ok {
-		return settings, false
+	changed := false
+	var reasons []string
+
+	// Backfill awgVersion = "2" when absent. The renderer normalizes "" to "2"
+	// at runtime too, but persisting it keeps the stored settings explicit so
+	// the clients page sees a real ceiling without relying on the default.
+	v, hasVersion := m["awgVersion"]
+	versionStr, _ := v.(string)
+	if !hasVersion || (versionStr != "1.5" && versionStr != "2" && versionStr != "3") {
+		m["awgVersion"] = "2"
+		versionStr = "2"
+		changed = true
+		reasons = append(reasons, "backfilled awgVersion=\"2\"")
 	}
-	if s, isString := v.(string); isString && s == "" {
-		return settings, false
+
+	// Prune a non-empty headerProtectionKey on anything that is not version
+	// "3". On v1/v2 the key never reaches the .conf, so a stored value can only
+	// be the lucx.47 poison; keeping it would be confusing and risks a future
+	// version bump silently writing a key the operator did not intend.
+	if versionStr != "3" {
+		if hpk, ok := m["headerProtectionKey"].(string); ok && hpk != "" {
+			m["headerProtectionKey"] = ""
+			changed = true
+			reasons = append(reasons, "cleared stale headerProtectionKey (not AWG3)")
+		}
 	}
-	m["headerProtectionKey"] = ""
+	if !changed {
+		return settings, false, ""
+	}
 	out, err := json.Marshal(m)
 	if err != nil {
-		return settings, false
+		return settings, false, ""
 	}
-	return string(out), true
+	return string(out), true, strings.Join(reasons, "; ")
 }

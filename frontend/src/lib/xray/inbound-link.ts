@@ -1318,6 +1318,12 @@ export interface GenAwgLinkInput {
   port: number;
   remark?: string;
   peerIndex: number;
+  // awgVersionOverride clamps the emitted config field set to a version at or
+  // below the inbound's ceiling (settings.awgVersion). Used by the clients-page
+  // export selector so a v3 inbound can hand a v2 client a v2 config. Absent =
+  // the ceiling (what the subscription/share-link path uses). Ignored by
+  // genAwgLink — share-links always use the ceiling.
+  awgVersionOverride?: AwgVersion;
 }
 
 // awgPeerShape projects an AWG client (new publicKey/privateKey/preSharedKey/
@@ -1332,6 +1338,30 @@ function awgPeerShape(c: AwgInboundSettings['clients'][number]): WireguardInboun
     keepAlive: c.keepAlive ?? 0,
     comment: '',
   } as WireguardInboundPeer;
+}
+
+// AwgVersion is the AmneziaWG protocol version a client config / share-link is
+// generated for. '1.5' omits S3/S4, I1-I5, and HeaderProtectionKey; '2' adds
+// S3/S4 + optional I1-I5 but omits HeaderProtectionKey; '3' adds
+// HeaderProtectionKey. The server .conf's version is the ceiling — a client
+// version higher than the server's breaks the handshake on must-match fields.
+export type AwgVersion = '1.5' | '2' | '3';
+
+const AWG_VERSION_ORDER: Record<AwgVersion, number> = { '1.5': 1, '2': 2, '3': 3 };
+
+// awgVersionCeiling normalizes a stored awgVersion to one of the three known
+// values, defaulting to '2' (the safe, universally-accepted version) for
+// absent/garbage values. Mirrors awg.NormalizeAWGVersion on the backend.
+export function awgVersionCeiling(v: string | undefined | null): AwgVersion {
+  if (v === '1.5' || v === '2' || v === '3') return v;
+  return '2';
+}
+
+// awgVersionAtLeast reports whether target includes the feature set of floor
+// (so callers gate per-version field emission: emit HeaderProtectionKey only
+// when awgVersionAtLeast(v, '3'), etc.).
+export function awgVersionAtLeast(target: AwgVersion, floor: AwgVersion): boolean {
+  return AWG_VERSION_ORDER[target] >= AWG_VERSION_ORDER[floor];
 }
 
 export function genAwgLink(input: GenAwgLinkInput): string {
@@ -1353,23 +1383,36 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   if (typeof settings.mtu === 'number' && settings.mtu > 0) {
     url.searchParams.set('mtu', String(settings.mtu));
   }
-  // AWG obfuscation params (absent on plain WireGuard).
+  // AWG obfuscation params, gated by the inbound's awgVersion (the server
+  // ceiling). Jc/Jmin/Jmax + S1/S2 + H1-H4 exist in every AWG version; S3/S4
+  // and I1-I5 were added in AWG v2 (Android 2.0.1); HeaderProtectionKey is
+  // AWG3-only (desktop 5.0.0.5 / Android 3.0.1). A version higher than the
+  // server's must-match fields would break the handshake, so we never emit a
+  // field set the server .conf does not carry.
+  const v = awgVersionCeiling(settings.awgVersion);
   if (settings.jc) url.searchParams.set('jc', String(settings.jc));
   if (settings.jmin) url.searchParams.set('jmin', String(settings.jmin));
   if (settings.jmax) url.searchParams.set('jmax', String(settings.jmax));
   if (settings.s1) url.searchParams.set('s1', String(settings.s1));
   if (settings.s2) url.searchParams.set('s2', String(settings.s2));
-  if (settings.s3) url.searchParams.set('s3', String(settings.s3));
-  if (settings.s4) url.searchParams.set('s4', String(settings.s4));
+  if (awgVersionAtLeast(v, '2')) {
+    if (settings.s3) url.searchParams.set('s3', String(settings.s3));
+    if (settings.s4) url.searchParams.set('s4', String(settings.s4));
+  }
   if (settings.h1) url.searchParams.set('h1', settings.h1);
   if (settings.h2) url.searchParams.set('h2', settings.h2);
   if (settings.h3) url.searchParams.set('h3', settings.h3);
   if (settings.h4) url.searchParams.set('h4', settings.h4);
-  if (settings.i1) url.searchParams.set('i1', settings.i1);
-  if (settings.i2) url.searchParams.set('i2', settings.i2);
-  if (settings.i3) url.searchParams.set('i3', settings.i3);
-  if (settings.i4) url.searchParams.set('i4', settings.i4);
-  if (settings.i5) url.searchParams.set('i5', settings.i5);
+  if (awgVersionAtLeast(v, '2')) {
+    if (settings.i1) url.searchParams.set('i1', settings.i1);
+    if (settings.i2) url.searchParams.set('i2', settings.i2);
+    if (settings.i3) url.searchParams.set('i3', settings.i3);
+    if (settings.i4) url.searchParams.set('i4', settings.i4);
+    if (settings.i5) url.searchParams.set('i5', settings.i5);
+  }
+  if (awgVersionAtLeast(v, '3') && settings.headerProtectionKey) {
+    url.searchParams.set('headerprotectionkey', settings.headerProtectionKey);
+  }
   if (settings.dns) url.searchParams.set('dns', settings.dns);
   if (peer.preSharedKey) url.searchParams.set('presharedkey', peer.preSharedKey);
   if (typeof peer.keepAlive === 'number' && peer.keepAlive > 0) {
@@ -1396,25 +1439,42 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   if (typeof settings.mtu === 'number' && settings.mtu > 0) {
     txt += `MTU = ${settings.mtu}\n`;
   }
-  // AWG obfuscation params in [Interface] (amnezia fields go before [Peer]).
+  // AWG obfuscation params in [Interface], gated by awgVersion (the server
+  // ceiling — see genAwgLink). S3/S4 and I1-I5 are AWG v2+; HeaderProtectionKey
+  // is AWG3-only. versionOverride clamps the emitted set to a version at or
+  // below the ceiling (clients-page export selector); absent = ceiling.
+  const ceiling = awgVersionCeiling(settings.awgVersion);
+  const override = input.awgVersionOverride && awgVersionAtLeast(ceiling, input.awgVersionOverride)
+    ? input.awgVersionOverride
+    : ceiling;
   if (settings.jc) txt += `Jc = ${settings.jc}\n`;
   if (settings.jmin) txt += `Jmin = ${settings.jmin}\n`;
   if (settings.jmax) txt += `Jmax = ${settings.jmax}\n`;
   if (settings.s1) txt += `S1 = ${settings.s1}\n`;
   if (settings.s2) txt += `S2 = ${settings.s2}\n`;
-  if (settings.s3) txt += `S3 = ${settings.s3}\n`;
-  if (settings.s4) txt += `S4 = ${settings.s4}\n`;
+  if (awgVersionAtLeast(override, '2')) {
+    if (settings.s3) txt += `S3 = ${settings.s3}\n`;
+    if (settings.s4) txt += `S4 = ${settings.s4}\n`;
+  }
   if (settings.h1) txt += `H1 = ${settings.h1}\n`;
   if (settings.h2) txt += `H2 = ${settings.h2}\n`;
   if (settings.h3) txt += `H3 = ${settings.h3}\n`;
   if (settings.h4) txt += `H4 = ${settings.h4}\n`;
   // I1-I5 are stored verbatim in CPS tag format ("<b 0xHEX>" or "<r 2><b 0xHEX>")
-  // — write as-is, no double wrapping.
-  if (settings.i1) txt += `I1 = ${settings.i1}\n`;
-  if (settings.i2) txt += `I2 = ${settings.i2}\n`;
-  if (settings.i3) txt += `I3 = ${settings.i3}\n`;
-  if (settings.i4) txt += `I4 = ${settings.i4}\n`;
-  if (settings.i5) txt += `I5 = ${settings.i5}\n`;
+  // — write as-is, no double wrapping. AWG v2+ only.
+  if (awgVersionAtLeast(override, '2')) {
+    if (settings.i1) txt += `I1 = ${settings.i1}\n`;
+    if (settings.i2) txt += `I2 = ${settings.i2}\n`;
+    if (settings.i3) txt += `I3 = ${settings.i3}\n`;
+    if (settings.i4) txt += `I4 = ${settings.i4}\n`;
+    if (settings.i5) txt += `I5 = ${settings.i5}\n`;
+  }
+  // HeaderProtectionKey (AWG3) — written only at version '3'. Older awg-quick
+  // builds reject the line ("Line unrecognized"), so it must never reach a v1/v2
+  // config. S1-S4 >= 12 is required (enforced by the generator for v3).
+  if (awgVersionAtLeast(override, '3') && settings.headerProtectionKey) {
+    txt += `HeaderProtectionKey = ${settings.headerProtectionKey}\n`;
+  }
 
   txt += `\n# ${remark}\n`;
   txt += `[Peer]\n`;

@@ -658,6 +658,13 @@
         "awgPublicKey": "Kunci publik",
         "awgObfLevel": "Profil obfuscation",
         "awgObfLevelHint": "Lite — ringan (Jc + DNS I1); Standard — sedang (Jc/S/H + TLS I1); Pro — penuh (Jc/S/H + I1-I5)",
+        "awgVersion": "Versi AWG",
+        "awgVersionHint": "Versi protokol AmneziaWG yang ditargetkan inbound ini (langit-langit konfigurasi server). 1.5 = lawas (Jc/S1/S2/H1-H4); 2 = menambah S3/S4 + I1-I5 (Android 2.0.1); 3 = menambah HeaderProtectionKey (desktop 5.0.0.5 / Android 3.0.1). Server v3 TIDAK akan menerima klien v1/v2/plain-WG — gunakan inbound v2 terpisah untuk armada klien campuran.",
+        "awgVersion15": "1.5 — lawas (klien lama)",
+        "awgVersion2": "2 — standar (Android 2.0.1)",
+        "awgVersion3": "3 — penuh + perlindungan header (AWG3)",
+        "awgVersion3CompatNote": "Versi 3 mengaktifkan HeaderProtectionKey, yang menghancurkan kompatibilitas secara kriptografis: klien v1/v2 dan plain-WireGuard tidak dapat terhubung ke inbound ini.",
+        "awgSRangeWarning": "AWG3 memerlukan S1-S4 ≥ 12 (cipher perlindungan header membaca nonce dari 12 byte pertama S-padding). Generator menegaskannya; verifikasi sebelum menyunting manual.",
         "awgMimicryProfile": "Profil mimikri",
         "awgMimicryProfileHint": "Bentuk paket yang ditiru signature CPS. TLS/QUIC tampak seperti trafik browser asli; DNS/SIP lebih ringan.",
         "awgRegion": "Region",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "I1-I5 ditangkap dari host",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "Kunci perlindungan header AWG3 (AmneziaWG 3) — ChaCha20 32 byte, base64 (44 karakter). Ditulis ke .conf hanya saat versi AWG adalah 3 (kernel upstream v3.0.20260731 + tools v3.0.20260730 menguraikannya). S1-S4 harus ≥ 12; generator menegaskan. Isi melalui «Buat ulang» dengan versi 3 dipilih.",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "Routing lewat Xray",
         "awgRouteThroughXrayHint": "Kirim paket terdekripsi antarmuka kernel AWG ke router Xray melalui inbound TUN yang diinjeksikan, sehingga egress mengikuti aturan routing. Cermin routeThroughXray milik mtproto.",
@@ -894,7 +901,8 @@
         "imported": "{count} klien diimpor",
         "importedMixed": "{ok} diimpor, {failed} dilewati"
       },
-      "awgConfig": "Konfigurasi AWG"
+      "awgConfig": "Konfigurasi AWG",
+      "awgExportVersion": "Versi konfigurasi klien"
     },
     "groups": {
       "name": "Nama",

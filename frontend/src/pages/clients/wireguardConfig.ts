@@ -5,7 +5,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { formatInboundLabel } from '@/lib/inbounds/label';
-import { preferPublicHost, resolveShareHost } from '@/lib/xray/inbound-link';
+import { awgVersionAtLeast, awgVersionCeiling, preferPublicHost, resolveShareHost } from '@/lib/xray/inbound-link';
+import type { AwgVersion } from '@/lib/xray/inbound-link';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 
 export function isWireguardClient(client: ClientRecord | null | undefined): boolean {
@@ -72,15 +73,42 @@ export function findAwgInbound(
     .find((ib) => ib?.protocol === 'awg');
 }
 
+// filterAwgObfuscation trims the backend's pre-rendered AWG obfuscation block
+// (the inbound "ceiling" — every field the inbound carries, including S3/S4,
+// I1-I5, and HeaderProtectionKey for v3) down to the field set a given export
+// version understands. v1.5 keeps Jc/Jmin/Jmax/S1/S2/H1-H4 only; v2 adds S3/S4
+// + I1-I5; v3 adds HeaderProtectionKey. Older awg-quick builds reject unknown
+// lines ("Line unrecognized"), so a v1/v2 client must never receive a v3 block.
+export function filterAwgObfuscation(block: string, version: AwgVersion): string {
+  const drop: string[] = [];
+  // S3/S4 and I1-I5 are AWG v2+ only.
+  if (!awgVersionAtLeast(version, '2')) {
+    drop.push('S3 =', 'S4 =', 'I1 =', 'I2 =', 'I3 =', 'I4 =', 'I5 =');
+  }
+  // HeaderProtectionKey is AWG3-only.
+  if (!awgVersionAtLeast(version, '3')) {
+    drop.push('HeaderProtectionKey =');
+  }
+  if (drop.length === 0) return block;
+  return block
+    .split('\n')
+    .filter((line) => !drop.some((prefix) => line.startsWith(prefix)))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
 // buildAwgClientConfig builds a full AmneziaWG client .conf: [Interface] with
 // the client's keypair, tunnel address, MTU, DNS, and the AWG obfuscation block
 // (Jc/S1-S4/H1-H4/I1-I5), then [Peer] with the server public key, PSK, the
-// full-tunnel AllowedIPs, and the endpoint.
+// full-tunnel AllowedIPs, and the endpoint. The obfuscation block is trimmed to
+// awgVersionExport when provided (≤ the inbound ceiling); absent = the ceiling.
 export function buildAwgClientConfig(
   client: ClientRecord,
   inbound: InboundOption | undefined,
   host = window.location.hostname,
   publicHost = '',
+  awgVersionExport?: AwgVersion,
 ): string {
   const endpointHost = resolveShareHost(inbound ?? {}, inbound?.nodeAddress ?? '', preferPublicHost(host, publicHost));
   const address = client.allowedIPs || '10.8.0.2/32';
@@ -94,10 +122,15 @@ export function buildAwgClientConfig(
     `DNS = ${inbound?.wgDns || '1.1.1.1, 1.0.0.1'}`,
   ];
   if (inbound?.wgMtu && inbound.wgMtu > 0) lines.push(`MTU = ${inbound.wgMtu}`);
-  // AWG obfuscation block (Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5) — pre-rendered by the
-  // backend (inboundAwgHints) so the client .conf matches the server's .conf.
+  // AWG obfuscation block (Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5/HPK) — pre-rendered by
+  // the backend (inboundAwgHints) as the inbound's ceiling. Clamp it to the
+  // requested export version when the client app predates the ceiling (older
+  // awg-quick rejects unknown fields). Defaults to the ceiling (inbound.awgVersion).
   if (inbound?.awgObfuscation) {
-    lines.push(inbound.awgObfuscation.trimEnd());
+    const ceiling = awgVersionCeiling(inbound.awgVersion);
+    const target = awgVersionExport && awgVersionAtLeast(ceiling, awgVersionExport) ? awgVersionExport : ceiling;
+    const trimmed = filterAwgObfuscation(inbound.awgObfuscation, target).trimEnd();
+    if (trimmed) lines.push(trimmed);
   }
   lines.push('');
   if (remark) lines.push(`# ${remark}`);

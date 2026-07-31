@@ -658,6 +658,13 @@
         "awgPublicKey": "Chave pública",
         "awgObfLevel": "Perfil de ofuscação",
         "awgObfLevelHint": "Lite — leve (Jc + DNS I1); Standard — médio (Jc/S/H + TLS I1); Pro — completo (Jc/S/H + I1-I5)",
+        "awgVersion": "Versão do AWG",
+        "awgVersionHint": "Versão do protocolo AmneziaWG que este inbound visa (o teto da configuração do servidor). 1.5 = legado (Jc/S1/S2/H1-H4); 2 = adiciona S3/S4 + I1-I5 (Android 2.0.1); 3 = adiciona HeaderProtectionKey (desktop 5.0.0.5 / Android 3.0.1). Um servidor v3 NÃO aceitará clientes v1/v2/plain-WG — use um inbound v2 separado para uma frota mista.",
+        "awgVersion15": "1.5 — legado (clientes antigos)",
+        "awgVersion2": "2 — padrão (Android 2.0.1)",
+        "awgVersion3": "3 — completo + proteção de cabeçalho (AWG3)",
+        "awgVersion3CompatNote": "A versão 3 habilita o HeaderProtectionKey, o que quebra a compatibilidade criptograficamente: clientes v1/v2 e plain-WireGuard não podem se conectar a este inbound.",
+        "awgSRangeWarning": "O AWG3 exige S1-S4 ≥ 12 (a cifra de proteção de cabeçalho lê seu nonce dos primeiros 12 bytes do S-padding). O gerador garante isso; verifique antes de editar manualmente.",
         "awgMimicryProfile": "Perfil de mimetização",
         "awgMimicryProfileHint": "Qual formato de pacote a assinatura CPS imita. TLS/QUIC parecem tráfego real de navegador; DNS/SIP são mais leves.",
         "awgRegion": "Região",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "I1-I5 capturados do host",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be >= 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "Chave de proteção de cabeçalho AWG3 (AmneziaWG 3) — ChaCha20 de 32 bytes, base64 (44 caracteres). Escrita no .conf apenas quando a versão do AWG é 3 (o kernel upstream v3.0.20260731 + tools v3.0.20260730 a analisam). S1-S4 devem ser ≥ 12; o gerador garante isso. Preencha via «Regenerar» com a versão 3 selecionada.",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "Rotear via Xray",
         "awgRouteThroughXrayHint": "Envia os pacotes descriptografados da interface kernel AWG ao roteador do Xray por um inbound TUN injetado, para que a saída obedeça às regras de roteamento. Espelha o routeThroughXray do mtproto.",
@@ -894,7 +901,8 @@
         "imported": "{count} clientes importados",
         "importedMixed": "{ok} importados, {failed} ignorados"
       },
-      "awgConfig": "Configuração AWG"
+      "awgConfig": "Configuração AWG",
+      "awgExportVersion": "Versão da configuração do cliente"
     },
     "groups": {
       "name": "Nome",

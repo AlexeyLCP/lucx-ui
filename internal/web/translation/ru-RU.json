@@ -644,6 +644,13 @@
         "awgPublicKey": "Публичный ключ",
         "awgObfLevel": "Профиль обфускации",
         "awgObfLevelHint": "Lite — лёгкая (Jc + DNS I1); Standard — средняя (Jc/S/H + TLS I1); Pro — полная (Jc/S/H + I1-I5)",
+        "awgVersion": "Версия AWG",
+        "awgVersionHint": "Версия протокола AmneziaWG для этого инбаунда (потолок серверного конфига). 1.5 = legacy (Jc/S1/S2/H1-H4); 2 = добавляет S3/S4 + I1-I5 (Android 2.0.1); 3 = добавляет HeaderProtectionKey (desktop 5.0.0.5 / Android 3.0.1). Сервер v3 НЕ примет клиентов v1/v2/plain-WG — для смешанного парка создавай отдельный инбаунд v2.",
+        "awgVersion15": "1.5 — legacy (старые клиенты)",
+        "awgVersion2": "2 — стандарт (Android 2.0.1)",
+        "awgVersion3": "3 — полный + header protection (AWG3)",
+        "awgVersion3CompatNote": "Версия 3 включает HeaderProtectionKey, что криптографически ломает совместимость: клиенты v1/v2 и plain-WireGuard не смогут подключиться к этому инбаунду.",
+        "awgSRangeWarning": "AWG3 требует S1-S4 ≥ 12 (шифр header-protection берёт nonce из первых 12 байт S-padding). Генератор это гарантирует; проверь при ручном вводе.",
         "awgMimicryProfile": "Профиль мимикрии",
         "awgMimicryProfileHint": "Форму какого пакета имитирует CPS-сигнатура. TLS/QUIC похожи на трафик браузера; DNS/SIP легче.",
         "awgBrowserProfile": "Профиль браузера",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "I1-I5 захвачены с хоста",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Ключ защиты заголовков",
-        "awgHpkHint": "Опционально. Фича AWG3 (AmneziaWG 3) — 32-байтный ChaCha20 ключ для обфускации заголовков пакетов. На текущем AWG оставь пустым; заполни после обновления до AWG3-модуля. При включении S1-S4 должны быть ≥ 12 (nonce шифра берётся из первых 12 байт S-padding).",
+        "awgHpkHint": "AWG3 (AmneziaWG 3) ключ защиты заголовков — 32-байтный ChaCha20, base64 (44 символа). Пишется в .conf только при версии AWG 3 (апстрим kernel v3.0.20260731 + tools v3.0.20260730 его парсят). S1-S4 должны быть ≥ 12; генератор это гарантирует. Заполни через «Regenerate» с выбранной версией 3.",
         "awgHpkPlaceholder": "base64 (44 символа), пусто = выключено",
         "awgRouteThroughXray": "Маршрутизировать через Xray",
         "awgRouteThroughXrayHint": "Направить расшифрованные пакеты AWG-интерфейса в маршрутизатор Xray через инжектируемый TUN-inbound, чтобы исходящий трафик подчинялся правилам маршрутизации. Как у mtproto routeThroughXray.",
@@ -894,7 +901,8 @@
         "imported": "Импортировано клиентов: {count}",
         "importedMixed": "Импортировано: {ok}, пропущено: {failed}"
       },
-      "awgConfig": "AWG-конфиг"
+      "awgConfig": "AWG-конфиг",
+      "awgExportVersion": "Версия конфига клиента"
     },
     "groups": {
       "name": "Имя",

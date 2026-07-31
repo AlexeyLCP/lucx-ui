@@ -90,3 +90,70 @@ describe('buildWireguardClientConfig', () => {
     expect(cfg).not.toContain('Endpoint = :51820');
   });
 });
+
+// LUCX-HOOK: AWG — version-gated client config. The obfuscation block is the
+// inbound's "ceiling" (every field the inbound carries); buildAwgClientConfig
+// trims it to the requested export version so older client apps do not choke on
+// unknown fields. v1.5 drops S3/S4 + I1-I5 + HeaderProtectionKey; v2 drops only
+// HeaderProtectionKey; v3 keeps everything.
+import { buildAwgClientConfig, filterAwgObfuscation } from '@/pages/clients/wireguardConfig';
+import type { AwgVersion } from '@/lib/xray/inbound-link';
+
+const awgCeilingBlock = [
+  'Jc = 5', 'Jmin = 50', 'Jmax = 200',
+  'S1 = 30', 'S2 = 60', 'S3 = 20', 'S4 = 25',
+  'H1 = 100000-500000', 'H2 = 600000-900000', 'H3 = 1000000-1500000', 'H4 = 1600000-2000000',
+  'I1 = <b 0xaa>', 'I2 = <b 0xbb>', 'I3 = <b 0xcc>', 'I4 = <b 0xdd>', 'I5 = <b 0xee>',
+  'HeaderProtectionKey = aBcD...base64hpk==',
+].join('\n');
+
+const awgInbound: InboundOption = {
+  id: 7, tag: 'awg-7', remark: 'awg', protocol: 'awg', port: 51820,
+  wgPublicKey: 'DGSYIcEKAUkA7HhzGSjxLZuV67BR3LeyU0BMLJzNVHQ=',
+  awgObfuscation: awgCeilingBlock, awgVersion: '3',
+};
+
+describe('filterAwgObfuscation', () => {
+  it('v3 keeps every field including HeaderProtectionKey', () => {
+    const out = filterAwgObfuscation(awgCeilingBlock, '3');
+    expect(out).toContain('HeaderProtectionKey =');
+    expect(out).toContain('S3 = 20');
+    expect(out).toContain('I5 =');
+  });
+  it('v2 drops HeaderProtectionKey but keeps S3/S4 and I1-I5', () => {
+    const out = filterAwgObfuscation(awgCeilingBlock, '2');
+    expect(out).not.toContain('HeaderProtectionKey');
+    expect(out).toContain('S3 = 20');
+    expect(out).toContain('I5 =');
+  });
+  it('v1.5 drops S3/S4, I1-I5, and HeaderProtectionKey', () => {
+    const out = filterAwgObfuscation(awgCeilingBlock, '1.5');
+    expect(out).not.toContain('HeaderProtectionKey');
+    expect(out).not.toContain('S3 =');
+    expect(out).not.toContain('S4 =');
+    expect(out).not.toContain('I1 =');
+    expect(out).toContain('S1 = 30');
+    expect(out).toContain('H1 = 100000-500000');
+  });
+});
+
+describe('buildAwgClientConfig version override', () => {
+  it('defaults to the inbound ceiling when no version is given', () => {
+    const cfg = buildAwgClientConfig(client, awgInbound, 'example.com', '');
+    expect(cfg).toContain('HeaderProtectionKey =');
+    expect(cfg).toContain('S3 = 20');
+  });
+  it('clamps to the ceiling when an override exceeds it', () => {
+    const v2Inbound: InboundOption = { ...awgInbound, awgVersion: '2' };
+    const cfg = buildAwgClientConfig(client, v2Inbound, 'example.com', '', '3');
+    // ceiling is 2 — a '3' override must be ignored (no HPK emitted).
+    expect(cfg).not.toContain('HeaderProtectionKey');
+  });
+  it('honors a v1.5 override on a v3 inbound', () => {
+    const cfg = buildAwgClientConfig(client, awgInbound, 'example.com', '', '1.5' as AwgVersion);
+    expect(cfg).not.toContain('S3 =');
+    expect(cfg).not.toContain('HeaderProtectionKey');
+    expect(cfg).toContain('Jc = 5');
+  });
+});
+// END LUCX-HOOK

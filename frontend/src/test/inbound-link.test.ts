@@ -345,6 +345,79 @@ describe('genWireguardLink + genWireguardConfig multi allowedIPs', () => {
   });
 });
 
+// LUCX-HOOK: AWG — version-gated share-link + .conf generation. The emitted
+// field set is gated by settings.awgVersion (the server ceiling): S3/S4 and
+// I1-I5 are AWG v2+; HeaderProtectionKey is AWG3-only. An override below the
+// ceiling clamps the .conf set (clients-page export selector); share-links use
+// the ceiling.
+import { genAwgConfig, genAwgLink } from '@/lib/xray/inbound-link';
+import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg';
+
+function awgSettings(version: '1.5' | '2' | '3'): AwgInboundSettings {
+  return {
+    privateKey: 'serverPrivKeyBase64',
+    publicKey: '',
+    address: '10.8.0.1/24',
+    mtu: 1320,
+    obfLevel: 3,
+    mimicryProfile: 'quic',
+    browserProfile: 'chrome',
+    region: 'world',
+    jc: 5, jmin: 50, jmax: 200,
+    s1: 30, s2: 60, s3: 20, s4: 25,
+    h1: '100000-500000', h2: '600000-900000', h3: '1000000-1500000', h4: '1600000-2000000',
+    i1: '<b 0xaa>', i2: '<b 0xbb>', i3: '<b 0xcc>', i4: '<b 0xdd>', i5: '<b 0xee>',
+    headerProtectionKey: 'aBcD...base64hpk==',
+    awgVersion: version,
+    clients: [{ privateKey: 'clientPrivKeyBase64', publicKey: 'peerPub', preSharedKey: 'psk', allowedIPs: ['10.8.0.2/32'], keepAlive: 25 }] as AwgInboundSettings['clients'],
+  };
+}
+
+describe('genAwgLink + genAwgConfig version gating', () => {
+  it('v3 emits S3/S4, I1-I5, and headerprotectionkey', () => {
+    const link = genAwgLink({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const u = new URL(link);
+    expect(u.searchParams.get('s3')).toBe('20');
+    expect(u.searchParams.get('s4')).toBe('25');
+    expect(u.searchParams.get('i5')).toBe('<b 0xee>');
+    expect(u.searchParams.get('headerprotectionkey')).toBe('aBcD...base64hpk==');
+    expect(config).toContain('S3 = 20');
+    expect(config).toContain('HeaderProtectionKey = aBcD...base64hpk==');
+  });
+
+  it('v2 emits S3/S4 and I1-I5 but NOT headerprotectionkey', () => {
+    const link = genAwgLink({ settings: awgSettings('2'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({ settings: awgSettings('2'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const u = new URL(link);
+    expect(u.searchParams.get('s3')).toBe('20');
+    expect(u.searchParams.get('headerprotectionkey')).toBeNull();
+    expect(config).toContain('S3 = 20');
+    expect(config).not.toContain('HeaderProtectionKey');
+  });
+
+  it('v1.5 omits S3/S4, I1-I5, and headerprotectionkey', () => {
+    const link = genAwgLink({ settings: awgSettings('1.5'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({ settings: awgSettings('1.5'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const u = new URL(link);
+    expect(u.searchParams.get('s3')).toBeNull();
+    expect(u.searchParams.get('i1')).toBeNull();
+    expect(u.searchParams.get('headerprotectionkey')).toBeNull();
+    expect(config).not.toContain('S3 =');
+    expect(config).toContain('S1 = 30');
+  });
+
+  it('genAwgConfig clamps an override below the ceiling', () => {
+    const config = genAwgConfig({
+      settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0, awgVersionOverride: '1.5',
+    });
+    expect(config).not.toContain('S3 =');
+    expect(config).not.toContain('HeaderProtectionKey');
+    expect(config).toContain('Jc = 5');
+  });
+});
+// END LUCX-HOOK
+
 describe('resolveAddr precedence', () => {
   const baseInbound = {
     listen: '',

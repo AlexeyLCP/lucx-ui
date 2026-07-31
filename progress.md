@@ -51,7 +51,65 @@
 
 ## Что сделано
 
-### 2026-07-13
+## Релиз v3.6.0-lucx.50 (2026-07-31) — AWG3 включён + пресеты версий клиента (1.5/2/3)
+
+**Контекст:** 30.07.2026 upstream `amnezia-vpn/amneziawg-linux-kernel-module` слил `feat/awg3` в master (PR #192, тег `v3.0.20260731`), а `amnezia-vpn/amneziawg-tools` — PR #60 (тег `v3.0.20260730`). `HeaderProtectionKey` теперь парсится в `.conf`. Known Issue #5 (HPK намеренно не писется в .conf) устарел. Дополнительно: часть клиентских приложений ещё на AWG v1/v2 — нужна генерация конфига под версию клиента.
+
+**Дизайн (согласован с пользователем):**
+- **HPK включаем** с авто-гарантом S1-S4≥12 (ядро отвергает HPK с `-EINVAL` при Sx<12).
+- **Пресеты версий — гибрид:** `awgVersion` на инбаунде = потолок сервера (что ядро принимает); при экспорте клиента в `ClientQrModal`/`ClientInfoModal` версия ≤ потолка выбирается runtime (не в БД). Sub-link использует потолок.
+- **Генератор:** S1-S4 всегда ≥12; HPK генерируется только при версии v3.
+- **Upstream sync 3x-ui** (6 минорных коммитов) — НЕ в этом раунде, отдельный релиз.
+
+### Что сделано
+
+**Backend (Go):**
+- `internal/awg/cps/params.go`: `MinSForHPK = 12` + `enforceSMin`; диапазоны профилей подняты (Lite/Pro нижние границы S до ≥12); `GenerateAWGParams` двойная гарантия S≥12; `AWGParams.HeaderProtectionKey` поле + `WithHeaderProtectionKey()`/`GenerateHeaderProtectionKey()` (crypto/rand, 32 байта, base64); `Validate()` проверяет S≥12; `AsConfLines()` пишет HPK при непустом.
+- `internal/awg/instance.go`: поле `AwgVersion` в `Instance` + парсинг в `InstanceFromInbound` + в `fingerprint()` (рестарт при смене версии); `NormalizeAWGVersion()` (exported, "" → "2").
+- `internal/awg/manager.go` `renderServerConf`: HPK пишется **только при `AwgVersion=="3"` И непустом ключе** (снят старый полный запрет).
+- `internal/awg/client_conf.go` `renderClientConf` (awgo-N outbound): та же version-gate логика. `client_instance.go`: поле `AwgVersion` в `ClientSettings` + fingerprint.
+- `internal/web/controller/awg.go`: `AwgVersion` в запросе `generateObfuscation`; HPK отдаётся в ответе **только при `awgVersion=="3"`** (для v1.5/v2 поле отсутствует, чтобы не затирать ручное значение оператора — урок lucx.49 сохранён).
+- `internal/web/service/inbound.go` `inboundAwgHints`: возвращает `(address, obfuscation, version)`; HPK в блоке при v3. `InboundOption.AwgVersion` поле + заполнение в `GetInboundOptions`.
+- `internal/database/migrate_awg_hpk.go`: переименовано `pruneAwgHeaderProtectionKey` → `migrateAwgVersion` + `normalizeAwgSettings`. Теперь: backfill `awgVersion:"2"` на pre-lucx.50 инбаундах/аутбаундах И вычистка непустого HPK со всего, что не v3. `db.go` — вызов обновлён.
+
+**Frontend (TS):**
+- `schemas/protocols/inbound/awg.ts`: поле `awgVersion: z.enum(['1.5','2','3']).default('2')`.
+- `lib/xray/inbound-defaults.ts`: дефолт `awgVersion: '2'`.
+- `lib/xray/inbound-link.ts`: `AwgVersion` тип + `awgVersionCeiling()`/`awgVersionAtLeast()` helpers; `genAwgLink`/`genAwgConfig` version-gate эмиссию S3/S4 (v2+), I1-I5 (v2+), HPK (v3); `GenAwgLinkInput.awgVersionOverride` (clamp ≤ ceiling) для клиентов-page.
+- `pages/inbounds/form/protocols/awg.tsx`: селектор версии на инбаунде; HPK-поле + `awgSRangeWarning` под v3; `awgVersion3CompatNote` alert; regenerate передаёт версию.
+- `pages/clients/wireguardConfig.ts`: `filterAwgObfuscation()` (построчный фильтр блока под версию); `buildAwgClientConfig(... awgVersionExport?)` (clamp ≤ ceiling).
+- `pages/clients/ClientQrModal.tsx` + `ClientInfoModal.tsx`: runtime state `awgExportVersion` (default = ceiling), `<Select>` с опциями ≤ потолка (disabled выше).
+- `schemas/client.ts`: `awgVersion` в `InboundOptionSchema`.
+
+**i18n (Pattern 2c — все 13 локалей):** новые ключи `awgVersion`, `awgVersionHint`, `awgVersion15`, `awgVersion2`, `awgVersion3`, `awgVersion3CompatNote`, `awgSRangeWarning` (form) + `awgExportVersion` (clients); обновлён `awgHpkHint` (не «forward-compat», а «требуется версия 3»). en-US + 12 локалей (ru, uk, zh-CN, zh-TW, es, fa, ja, pt, ar, tr, vi, id).
+
+**AWG outbound (panel-as-client) — поддержка конфигов любой версии:**
+- `internal/web/service/awg_outbound.go` `ParseConf`: теперь парсит `HeaderProtectionKey` И **авто-определяет `awgVersion`** из набора полей конфига (HPK → "3"; иначе S3/S4 или I1-I5 → "2"; иначе "1.5"). Вставленный v3-конфиг сохраняет HPK и рендерится как "3".
+- `internal/awg/client_instance.go`: `AwgVersion` поле в `ClientSettings` + fingerprint (добавлено в предыдущем раунде); `renderClientConf` пишет HPK только при версии "3" (добавлено ранее).
+- `frontend/src/schemas/awg-outbound.ts`: поля `headerProtectionKey`, `awgVersion` в `AwgOutboundSettingsSchema`.
+- `frontend/src/pages/xray/awg-outbounds/AwgOutboundFormModal.tsx`: селектор версии (переиспользует ключи `pages.inbounds.form.awgVersion*`); поле HPK + `awgSRangeWarning` в advanced-блоке; `handlePaste` раскрывает advanced при наличии HPK; defaultValues/settingsToForm/formValuesToSettings пробрасывают новые поля.
+
+**Тесты:**
+- Go: `cps_test.go` (S≥12 для всех профилей, HPK формат, `WithHeaderProtectionKey`, `AsConfLines` gate), `instance_test.go` (`TestRenderServerConf_HeaderProtectionKeyVersionGated`, `TestInstanceFingerprint_ChangesOnAwgVersion`, `TestNormalizeAwgVersion`, парсинг awgVersion), `client_conf_test.go` (version-gate), `inbound_awg_test.go` (`TestInboundAwgHints_HeaderProtectionKeyVersionGated`), `migrate_awg_hpk_test.go` (`TestNormalizeAwgSettings` + preserves-fields).
+- Frontend: `wireguard-client-config.test.ts` (ПЕРВЫЕ AWG-кейсы: `filterAwgObfuscation` v1.5/v2/v3, `buildAwgClientConfig` override+clamp), `inbound-link.test.ts` (ПЕРВЫЕ AWG share-link кейсы: version-gating genAwgLink/genAwgConfig).
+- Outbound: `awg_outbound_test.go` (`TestParseConf_Client` — авто-версия "1.5"; `TestParseConf_AwgVersions` — v3 с HPK → "3" + HPK сохранён, v2 → "2", legacy → "1.5").
+
+**Проверка (на Windows, без gcc — database-cgo пропущен):**
+- `go test ./internal/awg/... ./internal/lucx/...` — зелёные.
+- `npm run typecheck` — чисто.
+- `npm run lint` — чисто.
+- `npx vitest run --project=unit` — 886/886 тестов, включая i18n-dead-keys (13 локалей синхронны).
+- `bin/check-lucx.sh` — gofumpt OK (49 файлов).
+- ⚠️ `internal/database` тесты (миграция) и полный `go build .` требуют CGO/gcc — на CI/VPS Linux.
+
+**Документация:** `AGENTS.md` — Known Issue #5 → ЗАКРЫТО; Pattern 6 (AWG версия vs совместимость); Rule 3 + Architecture Map обновлены под активный HPK + awgVersion. `config.go` → `lucx.50`.
+
+**Риски/открытые вопросы:**
+- AWG3 модуль v3.0 не собирается на ядрах < 6.7 (нужен фикс `nla_put_uint`, уже в master) — отметить тестерам при деплое.
+- Сервер v3 НЕ примет v1/v2/plain-WG клиентов (HPK криптографически ломает) — для смешанного парка отдельный v2-инбаунд. Задокументировано в Pattern 6 + UI alert `awgVersion3CompatNote`.
+
+---
+
 
 **Очистка мусора:**
 - Закрыты 10 dependabot PR (#1-#12) с ветками на GitHub

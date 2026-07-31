@@ -256,10 +256,13 @@ func (s *AwgOutboundService) GetOutbound(id int) (*model.AwgOutbound, error) {
 	return o, nil
 }
 
-// ParseConf parses a pasted awg-quick .conf and returns ClientSettings. Used by
-// the "Paste .conf" UI drawer to autofill the form. Tolerates whitespace and
-// lines without values. Does NOT validate mandatory fields (caller does).
-// Exported so the controller (Task 6) can call service.ParseConf.
+// ParseConf parses a pasted awg-quick .conf and returns ClientSettings, used by
+// the "Paste .conf" UI drawer to autofill the form. Accepts configs of any AWG
+// version (1.5/2/3): it reads every field the file carries, including the AWG3
+// HeaderProtectionKey, and auto-detects the protocol version from the field set
+// so renderClientConf re-emits exactly the lines the source .conf had. Tolerates
+// whitespace and lines without values. Does NOT validate mandatory fields
+// (caller does). Exported so the controller can call service.ParseConf.
 func ParseConf(text string) (awg.ClientSettings, error) {
 	var s awg.ClientSettings
 	section := ""
@@ -279,49 +282,51 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 		key = strings.TrimSpace(key)
 		val = strings.TrimSpace(val)
 		switch section {
-		case "interface":
-			switch key {
-			case "PrivateKey":
-				s.PrivateKey = val
-			case "Address":
-				s.Address = val
-			case "MTU":
-				s.MTU, _ = strconv.Atoi(val)
-			case "DNS":
-				s.DNS = val
-			case "Jc":
-				s.Jc, _ = strconv.Atoi(val)
-			case "Jmin":
-				s.Jmin, _ = strconv.Atoi(val)
-			case "Jmax":
-				s.Jmax, _ = strconv.Atoi(val)
-			case "S1":
-				s.S1, _ = strconv.Atoi(val)
-			case "S2":
-				s.S2, _ = strconv.Atoi(val)
-			case "S3":
-				s.S3, _ = strconv.Atoi(val)
-			case "S4":
-				s.S4, _ = strconv.Atoi(val)
-			case "H1":
-				s.H1 = val
-			case "H2":
-				s.H2 = val
-			case "H3":
-				s.H3 = val
-			case "H4":
-				s.H4 = val
-			case "I1":
-				s.I1 = val
-			case "I2":
-				s.I2 = val
-			case "I3":
-				s.I3 = val
-			case "I4":
-				s.I4 = val
-			case "I5":
-				s.I5 = val
-			}
+			case "interface":
+				switch key {
+				case "PrivateKey":
+					s.PrivateKey = val
+				case "Address":
+					s.Address = val
+				case "MTU":
+					s.MTU, _ = strconv.Atoi(val)
+				case "DNS":
+					s.DNS = val
+				case "Jc":
+					s.Jc, _ = strconv.Atoi(val)
+				case "Jmin":
+					s.Jmin, _ = strconv.Atoi(val)
+				case "Jmax":
+					s.Jmax, _ = strconv.Atoi(val)
+				case "S1":
+					s.S1, _ = strconv.Atoi(val)
+				case "S2":
+					s.S2, _ = strconv.Atoi(val)
+				case "S3":
+					s.S3, _ = strconv.Atoi(val)
+				case "S4":
+					s.S4, _ = strconv.Atoi(val)
+				case "H1":
+					s.H1 = val
+				case "H2":
+					s.H2 = val
+				case "H3":
+					s.H3 = val
+				case "H4":
+					s.H4 = val
+				case "I1":
+					s.I1 = val
+				case "I2":
+					s.I2 = val
+				case "I3":
+					s.I3 = val
+				case "I4":
+					s.I4 = val
+				case "I5":
+					s.I5 = val
+				case "HeaderProtectionKey":
+					s.HeaderProtectionKey = val
+				}
 		case "peer":
 			switch key {
 			case "PublicKey":
@@ -336,6 +341,20 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 				s.Keepalive, _ = strconv.Atoi(val)
 			}
 		}
+	}
+	// Auto-detect the AWG protocol version from the fields the pasted .conf
+	// carried, so a v3 .conf (with HeaderProtectionKey) is stored as version
+	// "3" and renderClientConf then re-emits the key. Detection order: HPK →
+	// "3"; else S3/S4 or any I1-I5 → "2" (those fields are AWG v2+); else the
+	// legacy field set → "1.5". Matches the version-gate logic in
+	// awg.NormalizeAWGVersion and the inbound form's version presets.
+	switch {
+	case s.HeaderProtectionKey != "":
+		s.AwgVersion = "3"
+	case s.S3 != 0 || s.S4 != 0 || s.I1 != "" || s.I2 != "" || s.I3 != "" || s.I4 != "" || s.I5 != "":
+		s.AwgVersion = "2"
+	default:
+		s.AwgVersion = "1.5"
 	}
 	return s, nil
 }

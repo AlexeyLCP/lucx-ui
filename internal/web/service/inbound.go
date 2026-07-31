@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -319,7 +320,11 @@ type InboundOption struct {
 	// can build a full AmneziaWG client config (mirrors the WG hints above).
 	AwgServerAddress string `json:"awgServerAddress,omitempty"`
 	AwgObfuscation   string `json:"awgObfuscation,omitempty"`
-	MtprotoDomain    string `json:"mtprotoDomain,omitempty"`
+	// AwgVersion is the inbound's AWG protocol version ("1.5"/"2"/"3") — the
+	// client-config ceiling the clients page uses to gate the per-client export
+	// version selector. Empty/absent is treated as "2" by the frontend.
+	AwgVersion    string `json:"awgVersion,omitempty"`
+	MtprotoDomain string `json:"mtprotoDomain,omitempty"`
 	// Hosting node; nil for this panel's own inbounds. Lets the clients
 	// page map a node filter onto inbound IDs (#4997).
 	NodeId *int `json:"nodeId,omitempty"`
@@ -367,10 +372,10 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 		// LUCX-HOOK: AWG — server public key + obfuscation block for the
 		// clients-page QR/.conf path. AWG reuses the WG key derivation
 		// (Curve25519), so wgPublicKey/wgMtu/wgDns are also filled.
-		awgAddr, awgObf := "", ""
+		awgAddr, awgObf, awgVer := "", "", ""
 		if r.Protocol == string(model.AWG) {
 			wgPublicKey, wgMtu, wgDns = inboundWireguardHints(r.Protocol, r.Settings)
-			awgAddr, awgObf = inboundAwgHints(r.Settings)
+			awgAddr, awgObf, awgVer = inboundAwgHints(r.Settings)
 		}
 		// END LUCX-HOOK
 		shareAddrStrategy := r.ShareAddrStrategy
@@ -391,6 +396,7 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			WgDns:             wgDns,
 			AwgServerAddress:  awgAddr,
 			AwgObfuscation:    awgObf,
+			AwgVersion:        awgVer,
 			MtprotoDomain:     inboundMtprotoDomain(r.Protocol, r.Settings),
 			NodeId:            r.NodeId,
 			NodeAddress:       r.NodeAddress,
@@ -440,15 +446,17 @@ func inboundWireguardHints(protocol string, settings string) (string, int, strin
 }
 
 // inboundAwgHints returns the AWG obfuscation block as it should appear in a
-// client .conf [Interface] section (Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines) and
-// the server tunnel address. Both are read from the inbound settings so the
-// clients-page QR/.conf path can render a full AmneziaWG client config. Empty
-// when the settings carry no obfuscation (lite/level-1).
+// client .conf [Interface] section (Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines), the
+// server tunnel address, and the inbound's AWG protocol version. All three are
+// read from the inbound settings so the clients-page QR/.conf path can render a
+// full AmneziaWG client config and gate the per-client export-version selector.
+// The obfuscation block is empty when the settings carry no obfuscation
+// (lite/level-1); version defaults to "2" for pre-lucx.50 inbounds.
 //
 // LUCX-HOOK: AWG obfuscation hints for the clients-page QR/.conf path.
-func inboundAwgHints(settings string) (address string, obfuscation string) {
+func inboundAwgHints(settings string) (address string, obfuscation string, version string) {
 	if strings.TrimSpace(settings) == "" {
-		return "", ""
+		return "", "", ""
 	}
 	var s struct {
 		Address             string `json:"address"`
@@ -469,9 +477,10 @@ func inboundAwgHints(settings string) (address string, obfuscation string) {
 		I4                  string `json:"i4"`
 		I5                  string `json:"i5"`
 		HeaderProtectionKey string `json:"headerProtectionKey"`
+		AwgVersion          string `json:"awgVersion"`
 	}
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
-		return "", ""
+		return "", "", ""
 	}
 	var b strings.Builder
 	if s.Jc > 0 {
@@ -517,12 +526,18 @@ func inboundAwgHints(settings string) (address string, obfuscation string) {
 			fmt.Fprintf(&out, "I%s = %s\n", ip.idx, ip.val)
 		}
 	}
-	// HeaderProtectionKey (AWG3) is NEVER emitted, matching
-	// renderServerConf/renderClientConf. AmneziaVPN clients feed the .conf to
-	// the same amneziawg tooling, whose master build has no parser for the
-	// field and rejects the whole config with "Line unrecognized". Kept in
-	// Settings for forward-compat; restore once feat/awg3 lands in master.
-	return s.Address, out.String()
+	// HeaderProtectionKey (AWG3) is emitted ONLY when awgVersion == "3" and the
+	// key is non-empty — this obfuscation block represents the inbound's
+	// "ceiling" (the full field set for version 3). The clients page then
+	// filters it down to the export version chosen in the QR/info modal
+	// (filterAwgObfuscation in wireguardConfig.ts). Upstream kernel
+	// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject
+	// it, so v1/v2 inbounds must never carry it. S1-S4 >= 12 is required for the
+	// kernel to accept the key (enforced by the generator for v3).
+	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" && s.HeaderProtectionKey != "" {
+		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
+	}
+	return s.Address, out.String(), awg.NormalizeAWGVersion(s.AwgVersion)
 }
 
 // END LUCX-HOOK

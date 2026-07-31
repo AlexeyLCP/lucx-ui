@@ -644,6 +644,13 @@
         "awgPublicKey": "Public key",
         "awgObfLevel": "Obfuscation profile",
         "awgObfLevelHint": "Lite — light (Jc + DNS I1); Standard — medium (Jc/S/H + TLS I1); Pro — full (Jc/S/H + I1-I5)",
+        "awgVersion": "AWG version",
+        "awgVersionHint": "AmneziaWG protocol version this inbound targets (the server-config ceiling). 1.5 = legacy (Jc/S1/S2/H1-H4); 2 = adds S3/S4 + I1-I5 (Android 2.0.1); 3 = adds HeaderProtectionKey (desktop 5.0.0.5 / Android 3.0.1). A v3 server will NOT accept v1/v2/plain-WG clients — use a separate v2 inbound for a mixed client fleet.",
+        "awgVersion15": "1.5 — legacy (old clients)",
+        "awgVersion2": "2 — standard (Android 2.0.1)",
+        "awgVersion3": "3 — full + header protection (AWG3)",
+        "awgVersion3CompatNote": "Version 3 enables HeaderProtectionKey, which is cryptographically breaking: v1/v2 and plain-WireGuard clients cannot connect to this inbound.",
+        "awgSRangeWarning": "AWG3 requires S1-S4 ≥ 12 (the header-protection cipher reads its nonce from the first 12 bytes of S-padding). The generator enforces this; verify before editing by hand.",
         "awgMimicryProfile": "Mimicry profile",
         "awgMimicryProfileHint": "Which packet shape the CPS signature imitates. TLS/QUIC look like real browser traffic; DNS/SIP are lighter.",
         "awgBrowserProfile": "Browser profile",
@@ -676,7 +683,7 @@
         "awgCaptureDone": "Captured I1-I5 from host",
         "awgCpsHex": "<b 0xHEX>",
         "awgHpk": "Header protection key",
-        "awgHpkHint": "Optional. AWG3 (AmneziaWG 3) feature — 32-byte ChaCha20 key for packet header obfuscation. Leave empty on current AWG; set after updating to the AWG3 kernel module. When enabled, S1-S4 must be ≥ 12 (the cipher nonce is read from the first 12 bytes of S-padding).",
+        "awgHpkHint": "AWG3 (AmneziaWG 3) header protection key — 32-byte ChaCha20, base64 (44 chars). Written to the .conf only when the AWG version is 3 (the upstream kernel v3.0.20260731 + tools v3.0.20260730 parse it). S1-S4 must be ≥ 12; the generator enforces this. Fill it via “Regenerate” with version 3 selected.",
         "awgHpkPlaceholder": "base64 (44 chars), empty = disabled",
         "awgRouteThroughXray": "Route through Xray",
         "awgRouteThroughXrayHint": "Send the AWG kernel interface's decrypted packets into Xray's router via an injected TUN inbound, so egress obeys routing rules. Mirrors mtproto's routeThroughXray.",
@@ -894,7 +901,8 @@
         "imported": "{count} clients imported",
         "importedMixed": "{ok} imported, {failed} skipped"
       },
-      "awgConfig": "AWG config"
+      "awgConfig": "AWG config",
+      "awgExportVersion": "Client config version"
     },
     "groups": {
       "name": "Name",
