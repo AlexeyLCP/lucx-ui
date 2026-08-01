@@ -269,6 +269,18 @@ go build -o /tmp/x-ui .
 # Pre-push hygiene (gofumpt on all LucX files — catches Windows/Linux drift before CI)
 bin/check-lucx.sh          # check;  bin/check-lucx.sh -w  # autofix
 
+# CRITICAL before push (CI catches these, check-lucx.sh does NOT):
+#   1. gofumpt on the WHOLE repo (CI's golangci-lint runs on ./..., not just
+#      the 49 LucX files). check-lucx.sh only covers LucX-owned files, so a
+#      pre-existing formatting drift in an upstream file you touched (e.g. a
+#      case-block indentation) will pass locally and fail CI.
+gofumpt -l .               # list;  gofumpt -w <file>  # fix one
+#   2. Regenerate OpenAPI artifacts after editing any Go struct with json:/example:
+#      tags that flows into an API response. CI's `codegen` job fails on stale
+#      generated files. AGENTS.md Rule 9 "Do not edit src/generated/" means no
+#      HAND edits — regenerating via the tool is required and expected.
+cd frontend && npm run gen  # gen:zod (go run ./tools/openapigen) + gen:api
+
 # Optional: install the git hook that runs check-lucx + fast tests + PR/issues guard (step 11.5)
 cp bin/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 ```
@@ -480,3 +492,9 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
   - В модалке клиента (`ClientQrModal`/`ClientInfoModal`) селектор «Client config version» позволяет экспортировать конфиг ≤ потолка инбаунда. Это только **избегает ошибок парсинга** в старом клиентском приложении (лишние поля отрезаются), но НЕ даёт совместимости, если клиент старше сервера.
   - ⚠️ HPK требует S1–S4 ≥ 12 (генератор гарантирует; при ручном вводе проверяй — форма показывает `awgSRangeWarning`).
 - **Симптом:** клиент висит на handshake, в логах сервера `awg0` peer без рукопожатия. Сравни must-match поля в серверном `.conf` (`/etc/awg/awgN.conf`) и клиентском — любое расхождение = причина.
+
+### Pattern 7: CI go-test красный на `TestBuildFirefoxHello_NoGrease`/`TestBuildSafariHello_NoGrease` (pre-existing flaky)
+- **Cause:** CI гоняет `go test -shuffle=on` (рандомный seed каждый прогон). Тесты `NoGrease` утверждают, что Safari/Firefox ClientHello **не содержит** GREASE-паттернов `0a0a`/`fafa` в hex. Но `buildSafariHello`/`buildFirefoxHello` (`cps.go`) **пишут** GREASE через `greaseValue()` — `rng.Intn` над 16 значениями `[0x0A0A … 0xFAFA]`. Тест проходит в 14/16 случаев (когда rng не выдаёт `0x0A0A`/`0xFAFA`), падает в ~1/10 shuffle-прогонов. Воспроизводится локально: `go test ./internal/awg/cps/... -count=20 -shuffle=on`. **НЕ связано с AWG-изменениями** — чужой баг в логике обфускации.
+- **Fix (временный):** `gh run rerun <id> --failed` — другой shuffle-seed с высокой вероятностью проходит.
+- **Fix (корневой, TODO отдельным issue):** либо тест должен проверять GREASE только в extension-позициях (а не по всему hex), либо `buildSafariHello`/`buildFirefoxHello` не должны писать GREASE через rng (Safari/Firefox по реальным fingerprint'ам GREASE не используют — только Chrome). Пробовал `SetRand(t *testing.T, …)` с `t.Cleanup` для изоляции глобального `rng` — не помог (проблема в логике, не в загрязнении); откатил. НЕ чинить наспех — это domain-логика CPS-обфускации.
+- **Урок:** при падении CI-джоба сначала проверь, твой ли это регресс. Воспроизведи локально с точным shuffle-seed из лога CI (`-test.shuffle <N>`). Если проходит локально и не связано с твоими файлами — это flaky, rerun оправдан.
