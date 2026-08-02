@@ -1,6 +1,8 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined ZH README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
+> **3x-ui + 原生 AmneziaWG (AWG)** — 3x-ui 所缺少的抗审查 VPN 面板。
+
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
@@ -58,15 +60,36 @@ docker compose --profile postgres up -d
 
 ---
 
+## 🛡️ 为什么选择 LucX-UI？
+
+[3x-ui](https://github.com/MHSanaei/3x-ui) 是一款出色的多协议面板，前端采用现代化的 React 19 + Ant Design 6。LucX-UI 保留了 3x-ui 的全部功能，并加入了 **原生 AmneziaWG (AWG)** —— 一个抗审查的 WireGuard 分叉 —— 而 3x-ui 并不具备：
+
+| 特性 | 3x-ui | LucX-UI |
+|---|:---:|:---:|
+| AmneziaWG 入站（通过 `awg-quick` 的内核 Sidecar） | ✗ | ✓ |
+| AWG CPS 混淆（TLS / DNS / SIP / QUIC + 浏览器指纹） | ✗ | ✓ |
+| AWG outbound —— VPN 链式连接上游 AWG 服务器 (`awgo-N`) | ✗ | ✓ |
+| AWG3 / HeaderProtectionKey | ✗ | ✓ |
+| 客户端配置版本预设 (1.5 / 2 / 3) | ✗ | ✓ |
+| 面板内 AWG 诊断（路由 / NAT / peers / 握手） | ✗ | ✓ |
+| 智能集群 outbound 链接 | ✗ | ✓ |
+| React 19 + AntD 6 + Vite 8 + Zod 4 前端 | ✓ | ✓（继承） |
+| 所有 Xray 协议（VLESS / VMess / Trojan / Shadowsocks / ...） | ✓ | ✓ |
+| 无摩擦上游同步（LUCX-HOOK 隔离，49 个文件） | — | ✓ |
+
+内核 Sidecar（就像 3x-ui 的 MTProto `mtg` 一样）意味着 AWG 作为真正的内核接口运行 —— 而非用户态垫片 —— 因此 Xray 通过自身的 TUN inbound 路由解密后的流量，让您在 AWG 流量上获得 Xray 完整的路由、嗅探与域名规则能力。
+
+---
+
 ## 🌟 关于 LucX-UI
 
-**LucX-UI** 是一款用于管理 [Xray-core](https://github.com/XTLS/Xray-core) 服务器的高级多协议 Web 控制面板，基于 [3x-ui](https://github.com/MHSanaei/3x-ui) 进行增强分叉，原生集成 **AmneziaWG (AWG)** 协议。
-
-本项目以内核接口 Sidecar 的形式加入抗封锁的 AmneziaWG 支持，镜像了上游 MTProto 的架构。面板支持精细混淆预设、浏览器 TLS 指纹伪装、客户端模式 (AWG Outbounds)、面板内一键诊断以及双路由模式 (Kernel NAT 与 Route through Xray)，同时保持与上游 3x-ui 更新的 100% 兼容。
+**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（当前已同步至上游 **v3.6.0**），以内核接口 Sidecar 的形式原生集成 **AmneziaWG (AWG)** 支持，镜像了上游 MTProto 的架构。它通过严格的 `LUCX-HOOK` 代码隔离，保持与上游 100% 兼容。
 
 ### 🛡️ AmneziaWG (AWG) 特性
 - **AWG 入站与出站** —— 内核 Sidecar (`awg-quick`)、客户端模式连接上游 AWG 服务器 (`awgo-{id}`)、10 秒自动协调循环及 DKMS 内核模块构建器。
 - **高级混淆控制** —— Lite/Standard/Pro 预设 (Jc/Jmin/Jmax/S1–S4/H1–H4)、CPS 数据包伪装 (TLS、DNS、SIP、QUIC) 及浏览器 TLS 指纹 (Chrome、Firefox、Safari)。
+- **AWG3 / HeaderProtectionKey** —— AmneziaWG 3 头部保护，自动生成 32 字节密钥；服务端版本上限按客户端控制特性的下发。
+- **客户端版本预设** —— 从单个入站为 AWG 1.5 / 2 / 3 生成客户端配置，挑选您的客户端应用可识别的格式。
 - **真实签名抓取 (Live Capture)** —— 将真实域名的 QUIC 握手实时转换为 I1–I5 混淆参数。
 - **路由与诊断** —— 双路由模式 (Kernel NAT 与带策略路由及 sniffing 的 Route through Xray) + 面板内一键诊断。
 
@@ -89,6 +112,19 @@ docker compose --profile postgres up -d
 </picture>
 
 </details>
+
+---
+
+## 🔄 从 3x-ui 迁移
+
+LucX-UI 与 3x-ui 共享相同的 Xray-core / SQLite（或 PostgreSQL）数据库架构基础，AWG 表会在首次运行时自动创建。要在已有的 3x-ui 安装上覆盖安装，请先备份数据库，然后运行标准安装命令：
+
+```bash
+cp /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db.bak
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+
+AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建。安装完成后，在控制台运行 `x-ui` 以确认 AWG 内核模块版本，并从面板开始添加 AWG 入站。
 
 ---
 
@@ -119,6 +155,35 @@ LucX-UI 个人使用完全免费。您可以支持后续开发：
 | 🇷🇺 **YooMoney** (卢布, 俄罗斯) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+---
+
+## 🛠️ 开发者指南
+
+<details>
+<summary><b>架构、构建与上游同步（点击展开）</b></summary>
+
+**架构与隔离规则。** 所有 LucX 代码都位于隔离的包中（`internal/awg/`, `internal/lucx/`）；对上游 3x-ui 文件的修改仅放在 `// LUCX-HOOK` / `// END LUCX-HOOK` 标记之间，从而使每次上游发布都近乎平凡的移植。请参阅 [AGENTS.md](AGENTS.md) 了解完整的架构图、10 条规则、已知问题与调试模式。
+
+**源码构建**（需 Go 1.23+、Node.js 20+、gcc —— 仅 Linux，CGO 用于 SQLite）：
+
+```bash
+cd frontend && npm run build && cd ..
+go build -o /tmp/x-ui .
+# 推送前清理：bin/check-lucx.sh  (对 49 个 LucX 拥有的文件运行 gofumpt)
+```
+
+**上游同步流程**（已在 v3.5.0→v3.6.0 验证，103 commits / 432 文件 / 7 冲突）：
+
+```bash
+git fetch origin --tags
+git merge --no-commit --no-ff origin/main
+# 逐块解决（见 AGENTS.md 规则 8）—— 切勿一刀切使用 --ours/--theirs
+git grep -c "LUCX-HOOK"  # 对比前后标记数量以检测丢失的块
+go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
+```
+
+</details>
 
 ---
 

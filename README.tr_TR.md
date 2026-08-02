@@ -1,6 +1,8 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined TR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
+> **3x-ui + yerel AmneziaWG (AWG)** — 3x-ui'nin eksik olduğu sansüre dirençli VPN paneli.
+
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
@@ -20,13 +22,13 @@
 </p>
 
 > [!WARNING]
-> **Yalnızca kişisel, ticari olmayan, bilimsel ve eğitim amaçlı kullanım içindir.** Ticari kullanım (VPN satışı veya ücretli paneller) PolyForm Noncommercial 1.0.0 kapsamında yazarın açık yazılı iznini gerektirir.
+> **Yalnızca kişisel, ticari olmayan, bilimsel, araştırma ve eğitim amaçlı kullanım içindir.** Ticari kullanım — VPN satışı veya ücretli paneller dahil — PolyForm Noncommercial 1.0.0 kapsamında açık yazılı izin gerektirir.
 
 ---
 
 ## ⚡ Hızlı Başlangıç
 
-**Linux (Ubuntu / Debian / CentOS / AlmaLinux / Arch vb.)** üzerinde tek tıkla kurulum:
+**Linux (Ubuntu / Debian / CentOS / AlmaLinux / Arch vb.)** üzerinde tek satırla kurulum:
 
 ```bash
 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
@@ -46,33 +48,54 @@ Giriş bilgileri `/etc/x-ui/install-result.env` dosyasına kaydedilir.
 docker compose --profile postgres up -d
 ```
 
-### Temel Ortam Değişkenleri (`/etc/default/x-ui`)
+### Önemli Ortam Değişkenleri (`/etc/default/x-ui`)
 | Değişken | Açıklama | Varsayılan |
 | --- | --- | --- |
 | `XUI_DB_TYPE` | Veritabanı motoru (`sqlite` veya `postgres`) | `sqlite` |
-| `XUI_DB_DSN` | PostgreSQL adresi | — |
-| `XUI_ENABLE_FAIL2BAN` | IP kısıtlaması için Fail2ban | `true` |
+| `XUI_DB_DSN` | PostgreSQL DSN | — |
+| `XUI_ENABLE_FAIL2BAN` | Fail2ban IP kısıtlamasını etkinleştir | `true` |
 | `XUI_LOG_LEVEL` | Log seviyesi (`debug`, `info`, `warning`, `error`) | `info` |
 
 </details>
 
 ---
 
+## 🛡️ Neden LucX-UI?
+
+[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve 3x-ui'de bulunmayan **yerel AmneziaWG (AWG)** — sansüre dirençli bir WireGuard fork'u — ekler:
+
+| Özellik | 3x-ui | LucX-UI |
+|---|:---:|:---:|
+| AmneziaWG inbound (çekirdek sidecar'ı `awg-quick` ile) | ✗ | ✓ |
+| AWG CPS gizleme (TLS / DNS / SIP / QUIC + tarayıcı parmak izleri) | ✗ | ✓ |
+| AWG outbound — üst AWG sunucularına VPN zincirleme (`awgo-N`) | ✗ | ✓ |
+| AWG3 / HeaderProtectionKey | ✗ | ✓ |
+| İstemci yapılandırması sürüm ön ayarları (1.5 / 2 / 3) | ✗ | ✓ |
+| Panel içi AWG teşhisi (yönlendirme / NAT / eşler / el sıkışmalar) | ✗ | ✓ |
+| Akıllı Cluster outbound bağlantıları | ✗ | ✓ |
+| React 19 + AntD 6 + Vite 8 + Zod 4 ön yüz | ✓ | ✓ (devralınan) |
+| Tüm Xray protokolleri (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
+| Sürtünmesiz üst senkronizasyon (LUCX-HOOK izolasyonu, 49 dosya) | — | ✓ |
+
+Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir çekirdek arabirimi olarak çalıştığı (kullanıcı alanı shim'i değil) anlamına gelir; böylece Xray çözülmüş trafiği kendi TUN inbound'u üzerinden yönlendirir ve AWG trafiğinde Xray'ın tam yönlendirme, sniffing ve alan adı kural gücünü kullanırsınız.
+
+---
+
 ## 🌟 LucX-UI Hakkında
 
-**LucX-UI**, yerel **AmneziaWG (AWG)** entegrasyonuna sahip, [3x-ui](https://github.com/MHSanaei/3x-ui) projesinden geliştirilmiş gelişmiş bir çoklu protokol [Xray-core](https://github.com/XTLS/Xray-core) sunucu yönetim panelidir.
-
-Proje, engellemelere karşı dirençli AmneziaWG desteğini MTProto mimarisini yansıtan bir çekirdek arabirimi sidecar'ı olarak sunar. İnce ayarlı gizleme profilleri, tarayıcı TLS parmak izi taklidi, istemci modu (AWG Outbounds), panel içi teşhis ve iki yönlendirme modu (Kernel NAT ve Route through Xray) sağlarken üst 3x-ui güncellemeleriyle %100 uyumluluğu korur.
+**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun (şu anda üst **v3.6.0** sürümüyle senkronize) yerel **AmneziaWG (AWG)** desteğini, üst MTProto mimarisini yansıtan bir çekirdek arabirimi sidecar'ı olarak ekleyen geliştirilmiş bir fork'udur. Katı `LUCX-HOOK` kod izolasyonu ile %100 üst uyumluluğunu korur.
 
 ### 🛡️ AmneziaWG (AWG) Özellikleri
 - **AWG Inbound & Outbound** — Çekirdek sidecar'ı (`awg-quick`), üst AWG sunucularına istemci modunda bağlanma (`awgo-{id}`), 10 saniyelik otomatik uzlaştırma döngüsü ve DKMS modül derleyicisi.
 - **Gelişmiş Gizleme** — Lite/Standard/Pro profilleri (Jc/Jmin/Jmax/S1–S4/H1–H4), CPS paket taklidi (TLS, DNS, SIP, QUIC) ve tarayıcı TLS parmak izleri (Chrome, Firefox, Safari).
-- **Canlı İmza Yakalama** — Ön alan adından gerçek QUIC el sıkışmasını I1–I5 gizleme parametrelerine dönüştürme.
-- **Yönlendirme & Teşhis** — İki yönlendirme modu (Kernel NAT ve politika yönlendirmeli Route through Xray) + panel içi tek tıkla teşhis.
+- **AWG3 / HeaderProtectionKey** — Otomatik üretilen 32 baytlık anahtarlarla AmneziaWG 3 başlık koruması; sunucu tarafı sürüm tavanı, istemci başına özellik emisyonunu denetler.
+- **İstemci Sürüm Ön Ayarları** — Tek bir inbound'dan AWG 1.5 / 2 / 3 için istemci yapılandırmaları üretin — istemci uygulamanızın anladığı biçimi seçin.
+- **Canlı İmza Yakalama** — Ön alan adlarından gerçek QUIC el sıkışmalarını I1–I5 gizleme parametrelerine dönüştürür.
+- **Yönlendirme & Teşhis** — İki yönlendirme modu (Kernel NAT ve politika yönlendirmeli & sniffing'li Route through Xray) + panel içi tek tıkla teşhis.
 
 ### 🚀 Temel 3x-ui Özellikleri
 - **Protokoller:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
-- **Güvenlik & Taşıma:** REALITY, TLS, XTLS, gRPC, WebSocket, XHTTP, Fallbacks.
+- **Taşımalar & Güvenlik:** REALITY, TLS, XTLS, gRPC, WebSocket, XHTTP, Fallbacks.
 - **Yönetim:** Trafik kotaları, IP limitleri (Fail2ban), canlı çevrimiçi durum, abonelikler, Telegram botu, REST API, Çoklu Düğüm desteği, SQLite / PostgreSQL.
 
 <details>
@@ -92,9 +115,22 @@ Proje, engellemelere karşı dirençli AmneziaWG desteğini MTProto mimarisini y
 
 ---
 
+## 🔄 3x-ui'den Geçiş
+
+LucX-UI, 3x-ui ile aynı Xray-core / SQLite (veya PostgreSQL) veritabanı şema tabanını paylaşır ve AWG tabloları ilk çalıştırmada otomatik olarak oluşturulur. Mevcut bir 3x-ui kurulumunun üzerine yüklemek için önce veritabanınızı yedekleyin ve standart kurulum komutunu çalıştırın:
+
+```bash
+cp /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db.bak
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+
+AWG çekirdek modülü, yükleyici tarafından otomatik olarak derlenir (`bin/install-awg-module.sh`, DKMS). Kurulumdan sonra, AWG çekirdek modülü sürümünü doğrulamak için konsolda `x-ui` komutunu çalıştırın ve panelden AWG inbound'ları eklemeye başlayın.
+
+---
+
 ## 📜 Lisans ve Şartlar
 
-Bu proje **çift lisans** altındadır (detaylar [LICENSING.md](LICENSING.md) dosyasında):
+Bu proje **iki lisans** altında yayınlanır (detaylar [LICENSING.md](LICENSING.md) içinde):
 
 | Bileşen | Lisans |
 |---|---|
@@ -103,7 +139,7 @@ Bu proje **çift lisans** altındadır (detaylar [LICENSING.md](LICENSING.md) do
 
 ---
 
-## 🤝 Teşekkürler ve Kaynaklar
+## 🤝 Teşekkürler ve Katkıda Bulunanlar
 
 - **Test Edenler & Katkıda Bulunanlar:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, **3x-ui ekibi**.
 - **Projeler & İlham Kaynakları:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
@@ -112,18 +148,47 @@ Bu proje **çift lisans** altındadır (detaylar [LICENSING.md](LICENSING.md) do
 
 ## ☕ Projeyi Destekleyin
 
-LucX-UI kişisel kullanım için ücretsizdir. Geliştirmeyi destekleyebilirsiniz:
+LucX-UI kişisel kullanım için ücretsizdir. Süregelen geliştirmeyi destekleyebilirsiniz:
 
-| Yöntem | Detaylar |
+| Method | Details |
 |---|---|
-| 🇷🇺 **YooMoney** (RUB, Rusya) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
+| 🇷🇺 **YooMoney** (RUB, Russia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
 
 ---
 
-## ⭐ Yıldız Tablosu
+## 🛠️ Geliştiriciler İçin
 
-[![Zaman içerisindeki yıldız sayısı](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
+<details>
+<summary><b>Mimari, derleme ve üst senkronizasyon (genişletmek için tıklayın)</b></summary>
+
+**Mimari ve izolasyon kuralı.** Tüm LucX kodu izole paketlerde yaşar (`internal/awg/`, `internal/lucx/`); üst 3x-ui dosyalarındaki değişiklikler yalnızca `// LUCX-HOOK` / `// END LUCX-HOOK` işaretçileri içinde yapılır, böylece her üst sürüm yakın-zamanlı bir port olur. Tam mimari haritası, 10 kural, bilinen sorunlar ve hata ayıklama desenleri için [AGENTS.md](AGENTS.md) dosyasına bakın.
+
+**Kaynaktan derleyin** (Go 1.23+, Node.js 20+, gcc gerekli — yalnızca Linux, SQLite için CGO):
+
+```bash
+cd frontend && npm run build && cd ..
+go build -o /tmp/x-ui .
+# pre-push hygiene: bin/check-lucx.sh  (gofumpt on the 49 LucX-owned files)
+```
+
+**Üst senkronizasyon prosedürü** (v3.5.0→v3.6.0 doğrulandı, 103 commit / 432 dosya / 7 çakışma):
+
+```bash
+git fetch origin --tags
+git merge --no-commit --no-ff origin/main
+# resolve block by block (see AGENTS.md Rule 8) — never blanket --ours/--theirs
+git grep -c "LUCX-HOOK"  # compare marker counts before/after to detect lost blocks
+go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
+```
+
+</details>
+
+---
+
+## ⭐ Zaman İçinde Yıldızlar
+
+[![Stargazers over time](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
 
 <!-- END LUCX-HOOK -->

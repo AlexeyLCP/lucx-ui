@@ -1,6 +1,8 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined ES README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
+> **3x-ui + AmneziaWG (AWG) nativo** — panel VPN resistente a la censura que 3x-ui no tiene.
+
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
@@ -26,7 +28,7 @@
 
 ## ⚡ Inicio Rápido
 
-Instalación rápida en **Linux (Ubuntu / Debian / CentOS / AlmaLinux / Arch, etc.)**:
+Instalación con una sola línea en **Linux (Ubuntu / Debian / CentOS / AlmaLinux / Arch, etc.)**:
 
 ```bash
 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
@@ -58,16 +60,37 @@ docker compose --profile postgres up -d
 
 ---
 
+## 🛡️ ¿Por qué LucX-UI?
+
+[3x-ui](https://github.com/MHSanaei/3x-ui) es un excelente panel multiprotocolo con un frontend moderno en React 19 + Ant Design 6. LucX-UI mantiene todo lo que ofrece 3x-ui y añade **AmneziaWG (AWG) nativo** — un fork resistente a la censura de WireGuard — que 3x-ui no posee:
+
+| Característica | 3x-ui | LucX-UI |
+|---|:---:|:---:|
+| Inbound AmneziaWG (sidecar de kernel vía `awg-quick`) | ✗ | ✓ |
+| Ofuscación AWG CPS (TLS / DNS / SIP / QUIC + huellas de navegador) | ✗ | ✓ |
+| AWG outbound — encadenamiento VPN a servidores AWG externos (`awgo-N`) | ✗ | ✓ |
+| AWG3 / HeaderProtectionKey | ✗ | ✓ |
+| Presets de versión de configuración cliente (1.5 / 2 / 3) | ✗ | ✓ |
+| Diagnóstico AWG en panel (enrutamiento / NAT / peers / handshakes) | ✗ | ✓ |
+| Enlaces outbound de clúster inteligente | ✗ | ✓ |
+| Frontend React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (heredado) |
+| Todos los protocolos Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
+| Sincronización con upstream sin fricción (aislamiento LUCX-HOOK, 49 archivos) | — | ✓ |
+
+Un sidecar de kernel (como el `mtg` de MTProto en 3x-ui) significa que AWG se ejecuta como una interfaz de kernel real — no un shim de espacio de usuario — por lo que Xray enruta el tráfico descifrado a través de su propio TUN inbound, dándole todo el poder de enrutamiento, sniffing y reglas de dominio de Xray sobre el tráfico AWG.
+
+---
+
 ## 🌟 Acerca de LucX-UI
 
-**LucX-UI** es un panel de control web multiprotocolo avanzado para administrar servidores [Xray-core](https://github.com/XTLS/Xray-core), creado como un fork mejorado de [3x-ui](https://github.com/MHSanaei/3x-ui) con integración nativa de **AmneziaWG (AWG)**.
-
-El proyecto añade soporte resistente a la censura de AmneziaWG como un sidecar a nivel de kernel, reflejando la arquitectura de MTProto. Ofrece ajustes precisos de ofuscación, imitación de huellas TLS de navegador, modo cliente (AWG Outbounds), diagnósticos integrados y dos modos de enrutamiento (Kernel NAT y Route through Xray) manteniendo total compatibilidad con 3x-ui.
+**LucX-UI** es un fork mejorado de [3x-ui](https://github.com/MHSanaei/3x-ui) (actualmente sincronizado con upstream **v3.6.0**) que añade soporte nativo de **AmneziaWG (AWG)** como sidecar de interfaz de kernel, reflejando la arquitectura de MTProto de upstream. Mantiene 100% de compatibilidad con upstream mediante el aislamiento estricto de código `LUCX-HOOK`.
 
 ### 🛡️ Características de AmneziaWG (AWG)
-- **Inbounds y Outbounds AWG** — Sidecar de kernel (`awg-quick`), conexión a servidores AWG externos (`awgo-{id}`), ciclo de conciliación de 10 segundos y creador de módulos DKMS.
+- **Inbounds y Outbounds AWG** — Sidecar de kernel (`awg-quick`), conexión en modo cliente a servidores AWG externos (`awgo-{id}`), ciclo de conciliación automática de 10 segundos y creador de módulos DKMS.
 - **Ofuscación Avanzada** — Perfiles Lite/Standard/Pro (Jc/Jmin/Jmax/S1–S4/H1–H4), mimatización de paquetes CPS (TLS, DNS, SIP, QUIC) y huellas TLS de navegador (Chrome, Firefox, Safari).
-- **Captura de Firma en Vivo** — Convierte saludos QUIC reales en parámetros I1–I5.
+- **AWG3 / HeaderProtectionKey** — Protección de cabecera AmneziaWG 3 con claves de 32 bytes autogeneradas; el techo de versión del lado del servidor controla la emisión de características por cliente.
+- **Presets de Versión de Cliente** — Genere configs de cliente para AWG 1.5 / 2 / 3 desde un solo inbound — elija el formato que su app cliente entienda.
+- **Captura de Firma en Vivo** — Convierte saludos QUIC reales de dominios frontales en parámetros I1–I5.
 - **Enrutamiento y Diagnóstico** — Dos modos (Kernel NAT y Route through Xray con policy routing y sniffing) + diagnóstico en panel con un solo clic.
 
 ### 🚀 Características Base de 3x-ui
@@ -89,6 +112,19 @@ El proyecto añade soporte resistente a la censura de AmneziaWG como un sidecar 
 </picture>
 
 </details>
+
+---
+
+## 🔄 Migración desde 3x-ui
+
+LucX-UI comparte la misma base de esquema de base de datos Xray-core / SQLite (o PostgreSQL) que 3x-ui, y las tablas AWG se crean automáticamente en la primera ejecución. Para instalar sobre una configuración 3x-ui existente, primero haga una copia de seguridad de su base de datos y luego ejecute el comando de instalación estándar:
+
+```bash
+cp /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db.bak
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+
+El módulo de kernel AWG se construye automáticamente mediante el instalador (`bin/install-awg-module.sh`, DKMS). Tras la instalación, ejecute `x-ui` en la consola para confirmar la versión del módulo de kernel AWG y empezar a añadir inbounds AWG desde el panel.
 
 ---
 
@@ -119,6 +155,35 @@ LucX-UI es gratuito para uso personal. Puede apoyar el desarrollo:
 | 🇷🇺 **YooMoney** (RUB, Rusia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+---
+
+## 🛠️ Para Desarrolladores
+
+<details>
+<summary><b>Arquitectura, compilación y sincronización con upstream (clic para expandir)</b></summary>
+
+**Arquitectura y regla de aislamiento.** Todo el código de LucX vive en paquetes aislados (`internal/awg/`, `internal/lucx/`); los cambios a archivos de 3x-ui upstream van únicamente dentro de los marcadores `// LUCX-HOOK` / `// END LUCX-HOOK` para que cada release de upstream sea un port casi trivial. Consulte [AGENTS.md](AGENTS.md) para el mapa completo de arquitectura, las 10 reglas, problemas conocidos y patrones de depuración.
+
+**Compilación desde el código fuente** (requiere Go 1.23+, Node.js 20+, gcc — solo Linux, CGO para SQLite):
+
+```bash
+cd frontend && npm run build && cd ..
+go build -o /tmp/x-ui .
+# higiene pre-push: bin/check-lucx.sh  (gofumpt sobre los 49 archivos de LucX)
+```
+
+**Procedimiento de sincronización con upstream** (validado v3.5.0→v3.6.0, 103 commits / 432 archivos / 7 conflictos):
+
+```bash
+git fetch origin --tags
+git merge --no-commit --no-ff origin/main
+# resolver bloque por bloque (ver AGENTS.md Regla 8) — nunca usar --ours/--theirs de forma indiscriminada
+git grep -c "LUCX-HOOK"  # comparar conteos de marcadores antes/después para detectar bloques perdidos
+go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
+```
+
+</details>
 
 ---
 

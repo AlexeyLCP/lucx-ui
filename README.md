@@ -1,6 +1,8 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined EN README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
+> **3x-ui + native AmneziaWG (AWG)** — censorship-resistant VPN panel that 3x-ui is missing.
+
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
@@ -58,15 +60,36 @@ docker compose --profile postgres up -d
 
 ---
 
+## 🛡️ Why LucX-UI?
+
+[3x-ui](https://github.com/MHSanaei/3x-ui) is an excellent multi-protocol panel with a modern React 19 + Ant Design 6 frontend. LucX-UI keeps everything 3x-ui offers and adds **native AmneziaWG (AWG)** — a censorship-resistant WireGuard fork — which 3x-ui does not have:
+
+| Feature | 3x-ui | LucX-UI |
+|---|:---:|:---:|
+| AmneziaWG inbound (kernel sidecar via `awg-quick`) | ✗ | ✓ |
+| AWG CPS obfuscation (TLS / DNS / SIP / QUIC + browser fingerprints) | ✗ | ✓ |
+| AWG outbound — VPN chaining to upstream AWG servers (`awgo-N`) | ✗ | ✓ |
+| AWG3 / HeaderProtectionKey | ✗ | ✓ |
+| Client config version presets (1.5 / 2 / 3) | ✗ | ✓ |
+| In-panel AWG diagnostics (routing / NAT / peers / handshakes) | ✗ | ✓ |
+| Smart Cluster outbound links | ✗ | ✓ |
+| React 19 + AntD 6 + Vite 8 + Zod 4 frontend | ✓ | ✓ (inherited) |
+| All Xray protocols (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
+| Frictionless upstream sync (LUCX-HOOK isolation, 49 files) | — | ✓ |
+
+A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel interface — not a userspace shim — so Xray routes decrypted traffic through its own TUN inbound, giving you the full routing, sniffing and domain-rule power of Xray on AWG traffic.
+
+---
+
 ## 🌟 About LucX-UI
 
-**LucX-UI** is an advanced multi-protocol web control panel for managing [Xray-core](https://github.com/XTLS/Xray-core) servers, built as an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) with native **AmneziaWG (AWG)** integration.
-
-The project adds censorship-resistant AmneziaWG support as a kernel-interface sidecar mirroring the upstream MTProto architecture. It provides fine-grained obfuscation presets, browser TLS fingerprint mimicry, client mode (AWG Outbounds), in-panel diagnostics, and dual routing modes (Kernel NAT & Route through Xray) while maintaining full compatibility with upstream 3x-ui updates.
+**LucX-UI** is an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently synced to upstream **v3.6.0**) that adds native **AmneziaWG (AWG)** support as a kernel-interface sidecar, mirroring upstream's MTProto architecture. It keeps 100% upstream compatibility through strict `LUCX-HOOK` code isolation.
 
 ### 🛡️ AmneziaWG (AWG) Features
 - **AWG Inbounds & Outbounds** — Kernel sidecar (`awg-quick`), client mode dial-out to upstream AWG servers (`awgo-{id}`), 10-second automatic reconcile loop, and DKMS kernel module builder.
 - **Advanced Obfuscation** — Lite/Standard/Pro presets (Jc/Jmin/Jmax/S1–S4/H1–H4), CPS packet mimicry (TLS, DNS, SIP, QUIC), and browser TLS fingerprints (Chrome, Firefox, Safari).
+- **AWG3 / HeaderProtectionKey** — AmneziaWG 3 header protection with auto-generated 32-byte keys; server-side version ceiling gates feature emission per client.
+- **Client Version Presets** — Generate client configs for AWG 1.5 / 2 / 3 from a single inbound — pick the format your client app understands.
 - **Live Signature Capture** — Convert real QUIC handshakes from front domains into I1–I5 obfuscation parameters.
 - **Routing & Diagnostics** — Dual routing modes (Kernel NAT and Route through Xray with policy routing & sniffing) + one-click in-panel diagnostics.
 
@@ -89,6 +112,19 @@ The project adds censorship-resistant AmneziaWG support as a kernel-interface si
 </picture>
 
 </details>
+
+---
+
+## 🔄 Migration from 3x-ui
+
+LucX-UI shares the same Xray-core / SQLite (or PostgreSQL) database schema base as 3x-ui, and AWG tables are created automatically on first run. To install over an existing 3x-ui setup, back up your database first and run the standard install command:
+
+```bash
+cp /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db.bak
+bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+```
+
+The AWG kernel module is built automatically by the installer (`bin/install-awg-module.sh`, DKMS). After install, run `x-ui` in the console to confirm AMW kernel module version and start adding AWG inbounds from the panel.
 
 ---
 
@@ -119,6 +155,35 @@ LucX-UI is free for personal use. You can support ongoing development:
 | 🇷🇺 **YooMoney** (RUB, Russia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+---
+
+## 🛠️ For Developers
+
+<details>
+<summary><b>Architecture, build & upstream sync (click to expand)</b></summary>
+
+**Architecture & isolation rule.** All LucX code lives in isolated packages (`internal/awg/`, `internal/lucx/`); changes to upstream 3x-ui files go only inside `// LUCX-HOOK` / `// END LUCX-HOOK` markers so that every upstream release is a near-trivial port. See [AGENTS.md](AGENTS.md) for the full architecture map, the 10 rules, known issues and debug patterns.
+
+**Build from source** (requires Go 1.23+, Node.js 20+, gcc — Linux only, CGO for SQLite):
+
+```bash
+cd frontend && npm run build && cd ..
+go build -o /tmp/x-ui .
+# pre-push hygiene: bin/check-lucx.sh  (gofumpt on the 49 LucX-owned files)
+```
+
+**Upstream sync procedure** (validated v3.5.0→v3.6.0, 103 commits / 432 files / 7 conflicts):
+
+```bash
+git fetch origin --tags
+git merge --no-commit --no-ff origin/main
+# resolve block by block (see AGENTS.md Rule 8) — never blanket --ours/--theirs
+git grep -c "LUCX-HOOK"  # compare marker counts before/after to detect lost blocks
+go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
+```
+
+</details>
 
 ---
 
