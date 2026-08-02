@@ -20,10 +20,23 @@ RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
 
 echo -e "${GREEN}=== Установка модуля ядра AmneziaWG ===${NC}"
 
+# --force-rebuild: tear down the loaded/DKMS-installed module and rebuild from
+# a fresh git clone. Used by update.sh when the version gate detects that the
+# running module is older than upstream master (e.g. AWG1 → AWG3, lucx.50).
+# Without this flag the script keeps the early-exit no-op: module already
+# loaded → nothing to do. Call: `bash install-awg-module.sh --force-rebuild`.
+FORCE_REBUILD=0
+[[ "${1:-}" == "--force-rebuild" ]] && FORCE_REBUILD=1
+
 [[ $EUID -ne 0 ]] && { echo -e "${RED}Запустите с правами root${NC}"; exit 1; }
 
-# Check if already loaded
-if [[ -d /sys/module/amneziawg ]]; then
+# Marker file written after a successful DKMS install so update.sh can compare
+# the installed module version against upstream master without probing modinfo
+# (modinfo only sees the loaded module, not the flashed DKMS tree).
+AWG_MODULE_MARKER="/etc/x-ui/.awg-module-version"
+
+# Check if already loaded. Skip the early-exit when --force-rebuild is set.
+if [[ -d /sys/module/amneziawg && $FORCE_REBUILD -eq 0 ]]; then
     echo -e "${GREEN}Модуль amneziawg уже загружен.${NC}"
     command -v awg &>/dev/null && { echo -e "${GREEN}awg уже установлен.${NC}"; exit 0; }
 fi
@@ -165,8 +178,27 @@ if [[ ! -d "/lib/modules/${RUNNING_KERNEL}/build" ]]; then
 fi
 echo -e "${GREEN}Заголовки ядра: OK${NC}"
 
-# 3. Build and install kernel module via DKMS
-if [[ ! -d /sys/module/amneziawg ]]; then
+# 3. Build and install kernel module via DKMS.
+#    --force-rebuild: the running module must be removed before rebuilding so
+#    DKMS can install the new tree. update.sh stops x-ui first, so no awgN
+#    interfaces hold the module; if rmmod fails (module still busy) we warn and
+#    continue — DKMS remove+install still updates the on-disk tree, and a reboot
+#    picks it up. The build also runs when the module is simply absent (fresh
+#    install) — the original path.
+if [[ ! -d /sys/module/amneziawg || $FORCE_REBUILD -eq 1 ]]; then
+    if [[ $FORCE_REBUILD -eq 1 ]]; then
+        echo -e "${YELLOW}--force-rebuild: выгрузка старого модуля...${NC}"
+        # Remove the DKMS-installed tree for the running version if any.
+        OLD_DKMS_VER=$(dkms status amneziawg 2>/dev/null | grep -oP 'amneziawg, \K[^,]+(?=,)' | head -1 || true)
+        if [[ -n "$OLD_DKMS_VER" ]]; then
+            dkms remove -m amneziawg -v "$OLD_DKMS_VER" --all 2>/dev/null || true
+        fi
+        # Unload the live module so DKMS can install the new tree without a
+        # "module in use" conflict. Harmless if already unloaded.
+        rmmod amneziawg 2>/dev/null || {
+            echo -e "${YELLOW}Не удалось выгрузить amneziawg (занят?). Перезагрузка подберёт новый модуль.${NC}"
+        }
+    fi
     echo -e "${GREEN}Сборка модуля ядра из исходников...${NC}"
     KERNEL_MOD_DIR="/tmp/amneziawg-kmod-$$"
     rm -rf "$KERNEL_MOD_DIR"
@@ -183,7 +215,11 @@ if [[ ! -d /sys/module/amneziawg ]]; then
     dkms install -m amneziawg -v "$MOD_VER"
 
     cd /tmp; rm -rf "$KERNEL_MOD_DIR"
-    echo -e "${GREEN}Модуль ядра собран и установлен.${NC}"
+    # Write the version marker so update.sh can do the version-gate next time
+    # without re-cloning just to probe dkms.conf.
+    mkdir -p "$(dirname "$AWG_MODULE_MARKER")"
+    echo "$MOD_VER" > "$AWG_MODULE_MARKER"
+    echo -e "${GREEN}Модуль ядра собран и установлен (v${MOD_VER}).${NC}"
 fi
 
 # 4. Build and install userspace tools (awg + awg-quick, both from src/)
@@ -241,4 +277,14 @@ fi
 command -v awg &>/dev/null && echo -e "${GREEN}✓ awg установлен ($(awg version 2>&1 | head -1))${NC}"
 command -v awg-quick &>/dev/null && echo -e "${GREEN}✓ awg-quick установлен${NC}"
 command -v resolvconf &>/dev/null && echo -e "${GREEN}✓ resolvconf (openresolv) установлен${NC}"
+# Fallback marker write: if the build block was skipped (module already loaded
+# from a prior install) the marker may still be absent on pre-lucx.51 systems.
+# Backfill it from modinfo so update.sh's version gate works next time.
+if [[ ! -f "$AWG_MODULE_MARKER" ]]; then
+    MOD_VER_NOW=$(modinfo -F version amneziawg 2>/dev/null | head -1 || true)
+    if [[ -n "$MOD_VER_NOW" ]]; then
+        mkdir -p "$(dirname "$AWG_MODULE_MARKER")"
+        echo "$MOD_VER_NOW" > "$AWG_MODULE_MARKER"
+    fi
+fi
 echo -e "${GREEN}=== Установка AWG завершена ===${NC}"

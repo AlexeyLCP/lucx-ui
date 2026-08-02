@@ -125,6 +125,8 @@ func quadrant(n int) (lo, hi int) {
 
 // genHRange returns one "lo-hi" string for quadrant n, with a width >= 1000
 // (the AmneziaWG minimum recommended span). Mirrors pumbaX _gen_quadrant_pair.
+// Used for AWG version "2" and "3" configs, where H1-H4 are msgType
+// replacement *ranges* (the client picks a random value in [lo,hi] per packet).
 func genHRange(n int) string {
 	qmin, qmax := quadrant(n)
 	span := qmax - qmin + 1
@@ -139,6 +141,21 @@ func genHRange(n int) string {
 	return fmt.Sprintf("%d-%d", lo, hi)
 }
 
+// genHSingle returns one single-integer string for quadrant n. AWG version
+// "1.5" (legacy AmneziaWG 1.x) parses H1-H4 as a fixed msgType replacement
+// value — NOT a range — so the .conf line must be `H1 = 1234567`, not
+// `H1 = 1234567-2345678`. Older awg-quick (v1.x tools) rejects the "-" form
+// with a parse error, which is the user-reported bug ("при выставлении АВГ1.5
+// конф выходит формата 2.0"). The value is drawn from the same disjoint
+// quadrant as genHRange so H1-H4 never collide and stay >= 5 (the lower bound
+// the kernel enforces for type IDs distinct from WireGuard's reserved range).
+func genHSingle(n int) string {
+	qmin, qmax := quadrant(n)
+	span := qmax - qmin + 1
+	val := qmin + randInt(0, span-1)
+	return fmt.Sprintf("%d", val)
+}
+
 // GenerateAWGParams produces a fresh set of junk/transport obfuscation
 // parameters for the given strength profile. It enforces the AmneziaWG
 // invariants: Jmin < Jmax (fixed by lifting Jmax), |S1+56 − S2| >= 10 (retry
@@ -147,7 +164,18 @@ func genHRange(n int) string {
 // their own quadrant, so they never collide. The profile ranges already
 // enforceSMin, but GenerateAWGParams clamps again as a belt-and-braces guard
 // for hand-edited ranges or future profile additions.
-func GenerateAWGParams(profile ObfProfile) (AWGParams, error) {
+//
+// awgVersion selects the H1-H4 wire format:
+//   - "1.5": legacy AmneziaWG 1.x — H1-H4 are single integers (the v1 awg-quick
+//     parser rejects the "lo-hi" range form). See genHSingle.
+//   - "2" or "3": H1-H4 are "lo-hi" ranges (the v2+ form, also accepted by the
+//     AWG3 kernel/tools). See genHRange.
+//
+// An empty awgVersion is treated as "2" (the project default; see
+// awg.NormalizeAWGVersion), so callers that don't care keep the historical
+// range behaviour. The caller is responsible for adding a HeaderProtectionKey
+// (via WithHeaderProtectionKey) only when awgVersion == "3".
+func GenerateAWGParams(profile ObfProfile, awgVersion string) (AWGParams, error) {
 	r, err := rangesFor(profile)
 	if err != nil {
 		return AWGParams{}, err
@@ -173,6 +201,12 @@ func GenerateAWGParams(profile ObfProfile) (AWGParams, error) {
 	}
 	s3 := enforceSMin(randInt(r.s3Lo, r.s3Hi))
 	s4 := enforceSMin(randInt(r.s4Lo, r.s4Hi))
+	var h1, h2, h3, h4 string
+	if awgVersion == "1.5" {
+		h1, h2, h3, h4 = genHSingle(0), genHSingle(1), genHSingle(2), genHSingle(3)
+	} else {
+		h1, h2, h3, h4 = genHRange(0), genHRange(1), genHRange(2), genHRange(3)
+	}
 	return AWGParams{
 		Jc:   jc,
 		Jmin: jmin,
@@ -181,10 +215,10 @@ func GenerateAWGParams(profile ObfProfile) (AWGParams, error) {
 		S2:   s2,
 		S3:   s3,
 		S4:   s4,
-		H1:   genHRange(0),
-		H2:   genHRange(1),
-		H3:   genHRange(2),
-		H4:   genHRange(3),
+		H1:   h1,
+		H2:   h2,
+		H3:   h3,
+		H4:   h4,
 	}, nil
 }
 

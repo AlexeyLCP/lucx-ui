@@ -60,7 +60,7 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 	if req.BrowserProfile == "" {
 		req.BrowserProfile = string(cps.BrowserChrome)
 	}
-	params, err := cps.GenerateAWGParams(cps.ObfProfile(req.ObfProfile))
+	params, err := cps.GenerateAWGParams(cps.ObfProfile(req.ObfProfile), req.AwgVersion)
 	if err != nil {
 		jsonMsg(c, "awg obfuscation: bad profile", err)
 		return

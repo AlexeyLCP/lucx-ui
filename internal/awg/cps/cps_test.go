@@ -16,9 +16,10 @@ import (
 
 func TestGenerateAWGParams_Invariants(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(42)))
+	// Default (empty) version behaves as "2": H1-H4 are "lo-hi" ranges.
 	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
 		for i := 0; i < 200; i++ {
-			p, err := GenerateAWGParams(prof)
+			p, err := GenerateAWGParams(prof, "2")
 			if err != nil {
 				t.Fatalf("profile %s iter %d: %v", prof, i, err)
 			}
@@ -33,10 +34,44 @@ func TestGenerateAWGParams_Invariants(t *testing.T) {
 					t.Fatalf("profile %s iter %d: S value %d < MinSForHPK %d", prof, i, s, MinSForHPK)
 				}
 			}
-			// H1-H4 must be "lo-hi" ranges, non-empty, and in disjoint quadrants.
+			// H1-H4 must be "lo-hi" ranges for version "2"/"3".
 			for _, h := range []string{p.H1, p.H2, p.H3, p.H4} {
 				if !strings.Contains(h, "-") {
 					t.Fatalf("profile %s: H range %q missing '-'", prof, h)
+				}
+			}
+		}
+	}
+}
+
+// TestGenerateAWGParams_HFormatByVersion checks the wire format of H1-H4
+// matches the awgVersion preset: "1.5" → single integer (legacy AmneziaWG 1.x,
+// no "-"); "2" and "3" → "lo-hi" range (the v2+ form). This is the
+// regression guard for the user-reported bug where selecting AWG 1.5 still
+// emitted v2.0-style ranges (which v1.x awg-quick rejects at parse time).
+func TestGenerateAWGParams_HFormatByVersion(t *testing.T) {
+	for _, tc := range []struct {
+		version  string
+		wantDash bool
+	}{
+		{"1.5", false},
+		{"2", true},
+		{"3", true},
+		{"", true}, // empty defaults to "2" behaviour
+	} {
+		for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
+			SetRand(crand.New(crand.NewSource(42)))
+			p, err := GenerateAWGParams(prof, tc.version)
+			if err != nil {
+				t.Fatalf("version %q profile %s: %v", tc.version, prof, err)
+			}
+			for _, h := range []string{p.H1, p.H2, p.H3, p.H4} {
+				if h == "" {
+					t.Fatalf("version %q profile %s: empty H value", tc.version, prof)
+				}
+				hasDash := strings.Contains(h, "-")
+				if hasDash != tc.wantDash {
+					t.Fatalf("version %q profile %s: H %q dash=%v, want %v", tc.version, prof, h, hasDash, tc.wantDash)
 				}
 			}
 		}
@@ -66,7 +101,7 @@ func TestGenerateHeaderProtectionKey_Format(t *testing.T) {
 
 func TestWithHeaderProtectionKey_SetsField(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(7)))
-	p, err := GenerateAWGParams(ObfStandard)
+	p, err := GenerateAWGParams(ObfStandard, "2")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +122,7 @@ func TestWithHeaderProtectionKey_SetsField(t *testing.T) {
 
 func TestAsConfLines_HeaderProtectionKeyGated(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(9)))
-	p, err := GenerateAWGParams(ObfPro)
+	p, err := GenerateAWGParams(ObfPro, "2")
 	if err != nil {
 		t.Fatal(err)
 	}

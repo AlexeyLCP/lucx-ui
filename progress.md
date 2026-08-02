@@ -1026,6 +1026,32 @@ systemctl start x-ui
 
 Файлы: `README.md`, `README.ru_RU.md`, `README.ar_EG.md`, `README.es_ES.md`, `README.fa_IR.md`, `README.tr_TR.md`, `README.zh_CN.md`.
 
+---
+
+## Релиз v3.6.0-lucx.51 (2026-08-02) — version-aware H-формат + авто-пересборка AWG-модуля
+
+**Контекст:** Два багфикса от пользовательских репортов: (1) при выборе AWG версии 1.5 генератор обфускации выдавал H1-H4 в формате "lo-hi" (AWG 2.x), а не одиночным числом — v1.x awg-quick отклонял конфиг; (2) обновление панели через веб-интерфейс не пересобирало DKMS-модуль ядра, что при мажорном апгрейде модуля (AWG1→AWG3) приводило к рассинхону.
+
+**Что сделано:**
+
+### Задача №2 — Version-aware H-формат (fix)
+
+- `internal/awg/cps/params.go`: новая функция `genHSingle(n int) string` — одно случайное число из квадранта n (без "-", формат для AWG 1.x). `GenerateAWGParams` получил параметр `awgVersion string`: при `"1.5"` — `genHSingle(0..3)`, при `"2"`/`"3"`/`""` — `genHRange(0..3)` (историческое поведение). Сигнатура `(profile ObfProfile)` → `(profile ObfProfile, awgVersion string)`.
+- `internal/web/controller/awg.go`: вызов `GenerateAWGParams` теперь передаёт `req.AwgVersion` из запроса.
+- `internal/awg/cps/cps_test.go`: `TestGenerateAWGParams_Invariants` — assertion на "-" теперь только для версии "2". Новый `TestGenerateAWGParams_HFormatByVersion` — таблица версий "1.5"/"2"/"3"/"" × профили × проверка наличия/отсутствия "-". Все остальные call sites обновлены (передаётся "2" для default).
+- `frontend/src/lib/xray/inbound-defaults.ts`: `createDefaultAwgInboundSettings` — H1-H4 теперь генерируются как диапазоны `"lo-hi"` (в непересекающихся квадрантах, совместимых с 2^31-1 верхним bound). При выборе "1.5" и нажатии "Regenerate obfuscation" бекенд вернёт одиночные числа — defaults это только seed.
+
+### Задача №1 — Авто-пересборка AWG-модуля при update
+
+- `bin/install-awg-module.sh`: новый параметр `--force-rebuild` — пропускает early-exit (модуль загружен), делает `dkms remove` старой версии + `rmmod amneziawg`, затем полная пересборка из свежего git clone. Пишет маркерный файл `/etc/x-ui/.awg-module-version` с установленной версией (из dkms.conf). В конце скрипта — fallback: если маркер отсутствует (pre-lucx.51), backfill из `modinfo -F version amneziawg`.
+- `update.sh`: новый LUCX-HOOK перед `systemctl start x-ui` — версионный gate: сравнивает маркер с версией из свежего `git clone --depth 1` upstream dkms.conf. При расхождении — `bash bin/install-awg-module.sh --force-rebuild`. При падении clone (нет сети) — fallback `install-awg-module.sh` без --force-rebuild. Non-fatal. x-ui ещё остановлен на этом этапе (rmmod безопасен).
+- `install.sh`: обновлён комментарий LUCX-HOOK — отмечено что маркер пишется автоматически.
+- `AGENTS.md`: Pattern 1c — статус «ИСПРАВЛЕНО (lucx.51)», TODO убрано.
+
+**Файлы:** `internal/awg/cps/params.go`, `internal/web/controller/awg.go`, `internal/awg/cps/cps_test.go`, `frontend/src/lib/xray/inbound-defaults.ts`, `bin/install-awg-module.sh`, `update.sh`, `install.sh`, `internal/config/config.go`, `AGENTS.md`, `progress.md`.
+
+**Тесты:** `go test ./internal/awg/... ./internal/lucx/... -count=1 -v` — зелёный (18/18). `npm run typecheck && npm run lint` — чисто. `gofumpt -l .` — 2 upstream-файла (не наши регрессии). `bash -n` на 3 скриптах — чисто. `bin/check-lucx.sh` — 49 файлов OK.
+
 
 
 

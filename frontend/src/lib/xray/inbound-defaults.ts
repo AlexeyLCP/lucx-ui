@@ -257,10 +257,10 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     s2: r(20, 100),
     s3: r(20, 100),
     s4: r(20, 100),
-    h1: `${r(100000, 500000)}`,
-    h2: `${r(600000, 900000)}`,
-    h3: `${r(1000000, 1500000)}`,
-    h4: `${r(1600000, 2000000)}`,
+    h1: `${r(100000, 200000)}-${r(300000, 500000)}`,
+    h2: `${r(600000000, 700000000)}-${r(800000000, 900000000)}`,
+    h3: `${r(1100000000, 1200000000)}-${r(1300000000, 1400000000)}`,
+    h4: `${r(1700000000, 1800000000)}-${r(1900000000, 2000000000)}`,
     // AWG3 header protection key — left empty by default. It is written to the
     // .conf only when awgVersion === '3' (the inbound opts into AWG3); operators
     // fill it via "Regenerate obfuscation" with version '3' selected. S1-S4 are
@@ -269,6 +269,11 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     // AWG protocol version '2' is the safe default — no HeaderProtectionKey,
     // accepted by any kernel. Bump to '3' for AWG3 clients (desktop 5.0.0.5 /
     // Android 3.0.1); note a v3 server will NOT accept v1/v2/plain-WG clients.
+    // H1-H4 are "lo-hi" ranges as the v2+ form requires; when the operator
+    // picks version '1.5' and clicks "Regenerate obfuscation", the backend
+    // (GenerateAWGParams with awgVersion) returns single integers instead —
+    // the v1.x awg-quick parser rejects the range form. Defaults are only the
+    // initial seed; the generator is the source of truth for the wire format.
     awgVersion: '2',
     clients: [],
   };

@@ -1681,7 +1681,9 @@ install_x-ui() {
     # an injected TUN inbound (injectAwgEgress), so no tun2socks daemon is
     # needed. Best-effort: a failure logs a warning but does not abort the
     # panel install — AWG inbounds simply won't start until the module is
-    # available.
+    # available. install-awg-module.sh writes /etc/x-ui/.awg-module-version
+    # after a successful build (or backfills it from modinfo on the no-op
+    # path), so update.sh can version-gate future rebuilds without re-cloning.
     if [[ -x bin/install-awg-module.sh ]]; then
         echo -e "${green}Installing AmneziaWG kernel module and tools...${plain}"
         bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"

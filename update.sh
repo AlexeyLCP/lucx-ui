@@ -1196,6 +1196,41 @@ update_x-ui() {
         chmod 644 ${xui_service}/x-ui.service > /dev/null 2>&1
         systemctl daemon-reload > /dev/null 2>&1
         systemctl enable x-ui > /dev/null 2>&1
+
+        # LUCX-HOOK: rebuild AWG kernel module when upstream version changed.
+        # update.sh runs both on web-panel and console `x-ui update`. The panel
+        # is stopped (line ~1019), so awgN interfaces are gone and rmmod is
+        # safe. The version gate compares the marker file (last installed
+        # version) against a fresh upstream clone's dkms.conf; rebuild only on
+        # mismatch. This is what lucx.50 (AWG1→AWG3) needed but the update path
+        # skipped, causing tester outbounds to break after a web-panel update.
+        # Marker is /etc/x-ui/.awg-module-version, written by
+        # bin/install-awg-module.sh on every build. Never fatal: a failed
+        # rebuild leaves the existing module (panel still starts).
+        if [[ -x bin/install-awg-module.sh ]]; then
+            INSTALLED_AWG_VER=""
+            [[ -f /etc/x-ui/.awg-module-version ]] && INSTALLED_AWG_VER=$(cat /etc/x-ui/.awg-module-version 2>/dev/null)
+            AWG_PROBE_DIR="/tmp/awg-version-probe-$$"
+            if git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git "$AWG_PROBE_DIR" >/dev/null 2>&1; then
+                UPSTREAM_AWG_VER=$(grep -oP 'version\s*"\K[^"]+' "$AWG_PROBE_DIR/src/dkms.conf" 2>/dev/null || echo "")
+                rm -rf "$AWG_PROBE_DIR"
+                if [[ -n "$UPSTREAM_AWG_VER" && "$INSTALLED_AWG_VER" != "$UPSTREAM_AWG_VER" ]]; then
+                    echo -e "${green}AWG module ${INSTALLED_AWG_VER:-none} → ${UPSTREAM_AWG_VER}: rebuilding...${plain}"
+                    bash bin/install-awg-module.sh --force-rebuild || \
+                        echo -e "${red}AWG module rebuild failed (non-fatal). Run: bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)${plain}"
+                else
+                    echo -e "${green}AWG module up to date (${INSTALLED_AWG_VER:-none}).${plain}"
+                fi
+            else
+                # Network/GitHub failure: can't probe upstream. Fall back to a
+                # plain install call — it's a no-op if the module is already
+                # loaded and covers the "module absent entirely" case.
+                rm -rf "$AWG_PROBE_DIR"
+                bash bin/install-awg-module.sh || true
+            fi
+        fi
+        # END LUCX-HOOK
+
         systemctl start x-ui > /dev/null 2>&1
     fi
 
