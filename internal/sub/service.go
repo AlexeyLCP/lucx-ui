@@ -713,6 +713,19 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 		params["keepalive"] = strconv.Itoa(client.KeepAlive)
 	}
 	// Obfuscation parameters (AWG-specific; absent on plain WireGuard).
+// Version-gate: S3/S4 and I1-I5 are AWG v2+ (Android 2.0.1); HPK and the
+// device-level timers/padding are AWG v3 only (desktop 5.0.0.5 / Android
+// 3.0.1). Share-link URL params are advisory (client apps ignore unknown
+// params), but version-gating keeps the Go builder consistent with the
+// frontend genAwgLink (inbound-link.ts) and avoids confusing a v1.5 client
+// with v2/v3 params it cannot parse.
+	awgVer, _ := settings["awgVersion"].(string)
+	if awgVer != "1.5" && awgVer != "2" && awgVer != "3" {
+		awgVer = "2"
+	}
+	isV2Plus := awgVer != "1.5"
+	isV3 := awgVer == "3"
+
 	if v, ok := settings["jc"].(float64); ok {
 		params["jc"] = strconv.Itoa(int(v))
 	}
@@ -722,11 +735,18 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	if v, ok := settings["jmax"].(float64); ok {
 		params["jmax"] = strconv.Itoa(int(v))
 	}
-	for _, p := range []struct{ key, jk string }{
-		{"s1", "s1"}, {"s2", "s2"}, {"s3", "s3"}, {"s4", "s4"},
-	} {
-		if v, ok := settings[p.jk].(float64); ok {
-			params[p.key] = strconv.Itoa(int(v))
+	if v, ok := settings["s1"].(float64); ok {
+		params["s1"] = strconv.Itoa(int(v))
+	}
+	if v, ok := settings["s2"].(float64); ok {
+		params["s2"] = strconv.Itoa(int(v))
+	}
+	if isV2Plus {
+		if v, ok := settings["s3"].(float64); ok {
+			params["s3"] = strconv.Itoa(int(v))
+		}
+		if v, ok := settings["s4"].(float64); ok {
+			params["s4"] = strconv.Itoa(int(v))
 		}
 	}
 	for _, p := range []struct{ key, jk string }{
@@ -736,31 +756,32 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			params[p.key] = v
 		}
 	}
-	for _, p := range []struct{ key, jk string }{
-		{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
-	} {
-		if v, ok := settings[p.jk].(string); ok && v != "" {
-			params[p.key] = v
+	if isV2Plus {
+		for _, p := range []struct{ key, jk string }{
+			{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
+		} {
+			if v, ok := settings[p.jk].(string); ok && v != "" {
+				params[p.key] = v
+			}
 		}
 	}
-	// AWG3 header protection key — only emitted when non-empty (forward-compat
-	// for the feat/awg3 kernel module branch; clients that don't know the
-	// param ignore it).
-	if v, ok := settings["headerProtectionKey"].(string); ok && v != "" {
-		params["headerProtectionKey"] = v
-	}
-	// AWG3 device-level timers/padding — 0 = kernel default. Emitted only
-	// when > 0 so non-v3 clients ignore the param.
-	for _, p := range []struct{ key, jk string }{
-		{"contentpaddingaddition", "contentPaddingAddition"},
-		{"rekeyaftertime", "rekeyAfterTime"},
-		{"rekeytimeout", "rekeyTimeout"},
-		{"rejectaftertime", "rejectAfterTime"},
-		{"keepalivetimeout", "keepaliveTimeout"},
-		{"maxhandshakeattempts", "maxHandshakeAttempts"},
-	} {
-		if v, ok := settings[p.jk].(float64); ok && v > 0 {
-			params[p.key] = strconv.Itoa(int(v))
+	// AWG3 (version "3") — HeaderProtectionKey + device-level timers/padding.
+	// All gated by isV3 so a v1/v2 share-link never carries v3-only params.
+	if isV3 {
+		if v, ok := settings["headerProtectionKey"].(string); ok && v != "" {
+			params["headerProtectionKey"] = v
+		}
+		for _, p := range []struct{ key, jk string }{
+			{"contentpaddingaddition", "contentPaddingAddition"},
+			{"rekeyaftertime", "rekeyAfterTime"},
+			{"rekeytimeout", "rekeyTimeout"},
+			{"rejectaftertime", "rejectAfterTime"},
+			{"keepalivetimeout", "keepaliveTimeout"},
+			{"maxhandshakeattempts", "maxHandshakeAttempts"},
+		} {
+			if v, ok := settings[p.jk].(float64); ok && v > 0 {
+				params[p.key] = strconv.Itoa(int(v))
+			}
 		}
 	}
 	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
