@@ -713,12 +713,12 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 		params["keepalive"] = strconv.Itoa(client.KeepAlive)
 	}
 	// Obfuscation parameters (AWG-specific; absent on plain WireGuard).
-// Version-gate: S3/S4 and I1-I5 are AWG v2+ (Android 2.0.1); HPK and the
-// device-level timers/padding are AWG v3 only (desktop 5.0.0.5 / Android
-// 3.0.1). Share-link URL params are advisory (client apps ignore unknown
-// params), but version-gating keeps the Go builder consistent with the
-// frontend genAwgLink (inbound-link.ts) and avoids confusing a v1.5 client
-// with v2/v3 params it cannot parse.
+	// Version-gate: S3/S4 and I1-I5 are AWG v2+ (Android 2.0.1); HPK and the
+	// device-level timers/padding are AWG v3 only (desktop 5.0.0.5 / Android
+	// 3.0.1). Share-link URL params are advisory (client apps ignore unknown
+	// params), but version-gating keeps the Go builder consistent with the
+	// frontend genAwgLink (inbound-link.ts) and avoids confusing a v1.5 client
+	// with v2/v3 params it cannot parse.
 	awgVer, _ := settings["awgVersion"].(string)
 	if awgVer != "1.5" && awgVer != "2" && awgVer != "3" {
 		awgVer = "2"
