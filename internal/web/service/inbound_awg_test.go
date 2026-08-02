@@ -169,3 +169,44 @@ func TestInboundAwgHints_HeaderProtectionKeyVersionGated(t *testing.T) {
 		})
 	}
 }
+
+// TestInboundAwgHints_DeviceFieldsEmission pins the six AWG3 device-level
+// fields into the obfuscation block ONLY when awgVersion == "3" and the field
+// is > 0. The block is the inbound's ceiling — the clients page filters it
+// down per export version.
+func TestInboundAwgHints_DeviceFieldsEmission(t *testing.T) {
+	deviceLines := []string{
+		"ContentPaddingAddition = 32", "RekeyAfterTime = 120", "RekeyTimeout = 5",
+		"RejectAfterTime = 180", "KeepaliveTimeout = 10", "MaxHandshakeAttempts = 18",
+	}
+	const fields = `"contentPaddingAddition":32,"rekeyAfterTime":120,"rekeyTimeout":5,"rejectAfterTime":180,"keepaliveTimeout":10,"maxHandshakeAttempts":18`
+	const base = `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000"`
+	for _, tc := range []struct {
+		name     string
+		settings string
+		want     []bool
+		wantVer  string
+	}{
+		{"v3 all set", base + `,"awgVersion":"3",` + fields + `}`, []bool{true, true, true, true, true, true}, "3"},
+		{"v2 all set", base + `,"awgVersion":"2",` + fields + `}`, []bool{false, false, false, false, false, false}, "2"},
+		{"v3 none", base + `,"awgVersion":"3"}`, []bool{false, false, false, false, false, false}, "3"},
+		{"v3 one set", base + `,"awgVersion":"3","rekeyAfterTime":120}`, []bool{false, true, false, false, false, false}, "3"},
+		{"no version all set", base + `,` + fields + `}`, []bool{false, false, false, false, false, false}, "2"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf, ver := inboundAwgHints(tc.settings)
+			for i, line := range deviceLines {
+				got := strings.Contains(obf, line)
+				if got != tc.want[i] {
+					t.Errorf("%s: want %q in block=%v, got=%v\nBlock:\n%s", tc.name, line, tc.want[i], got, obf)
+				}
+			}
+			if ver != tc.wantVer {
+				t.Errorf("version = %q, want %q", ver, tc.wantVer)
+			}
+			if !strings.Contains(obf, "Jc = 8") {
+				t.Errorf("the rest of the obfuscation block must survive, got:\n%s", obf)
+			}
+		})
+	}
+}

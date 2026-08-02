@@ -111,6 +111,41 @@ func normalizeAwgSettings(settings string) (string, bool, string) {
 			changed = true
 			reasons = append(reasons, "cleared stale headerProtectionKey (not AWG3)")
 		}
+		// AWG3 device-level timers/padding — prune non-zero values on non-v3
+		// inbounds (older kernels reject these lines in setconf). JSON numbers
+		// unmarshal to float64.
+		for _, key := range []string{
+			"contentPaddingAddition", "rekeyAfterTime", "rekeyTimeout",
+			"rejectAfterTime", "keepaliveTimeout", "maxHandshakeAttempts",
+		} {
+			if v, ok := m[key].(float64); ok && v > 0 {
+				m[key] = 0
+				changed = true
+				reasons = append(reasons, "cleared stale "+key+" (not AWG3)")
+			}
+		}
+		// AdvancedSecurity is per-peer — prune it from every client entry.
+		if clients, ok := m["clients"].([]any); ok {
+			for i, c := range clients {
+				cm, ok := c.(map[string]any)
+				if !ok {
+					continue
+				}
+				if v, ok := cm["advancedSecurity"]; ok && v == true {
+					cm["advancedSecurity"] = false
+					clients[i] = cm
+					changed = true
+					reasons = append(reasons, "cleared stale peer advancedSecurity (not AWG3)")
+				}
+			}
+			m["clients"] = clients
+		}
+		// AdvancedSecurity on the outbound side — top-level field (single peer).
+		if v, ok := m["advancedSecurity"]; ok && v == true {
+			m["advancedSecurity"] = false
+			changed = true
+			reasons = append(reasons, "cleared stale advancedSecurity (not AWG3)")
+		}
 	}
 	if !changed {
 		return settings, false, ""

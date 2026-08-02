@@ -420,6 +420,56 @@ export default function AwgFields() {
             message={t('pages.inbounds.form.awgSRangeWarning')}
             style={{ marginBottom: 16 }}
           />
+          {/* AWG3 advanced timers/padding — all optional (0 = kernel default).
+              Kernel defaults: RekeyAfterTime=120, RekeyTimeout=5,
+              RejectAfterTime=180, KeepaliveTimeout=10, MaxHandshakeAttempts=18,
+              ContentPaddingAddition=0. Operators override for DPI-tuning. */}
+          <Form.Item label={t('pages.inbounds.form.awgAdvancedSection')}>
+            <Space direction="vertical" style={{ width: '100%' }}>
+              <FormField
+                name={['settings', 'contentPaddingAddition']}
+                label={t('pages.inbounds.form.awgContentPaddingAddition')}
+                tooltip={t('pages.inbounds.form.awgContentPaddingAdditionHint')}
+              >
+                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+              </FormField>
+              <FormField
+                name={['settings', 'rekeyAfterTime']}
+                label={t('pages.inbounds.form.awgRekeyAfterTime')}
+                tooltip={t('pages.inbounds.form.awgRekeyAfterTimeHint')}
+              >
+                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+              </FormField>
+              <FormField
+                name={['settings', 'rekeyTimeout']}
+                label={t('pages.inbounds.form.awgRekeyTimeout')}
+                tooltip={t('pages.inbounds.form.awgRekeyTimeoutHint')}
+              >
+                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+              </FormField>
+              <FormField
+                name={['settings', 'rejectAfterTime']}
+                label={t('pages.inbounds.form.awgRejectAfterTime')}
+                tooltip={t('pages.inbounds.form.awgRejectAfterTimeHint')}
+              >
+                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+              </FormField>
+              <FormField
+                name={['settings', 'keepaliveTimeout']}
+                label={t('pages.inbounds.form.awgKeepaliveTimeout')}
+                tooltip={t('pages.inbounds.form.awgKeepaliveTimeoutHint')}
+              >
+                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+              </FormField>
+              <FormField
+                name={['settings', 'maxHandshakeAttempts']}
+                label={t('pages.inbounds.form.awgMaxHandshakeAttempts')}
+                tooltip={t('pages.inbounds.form.awgMaxHandshakeAttemptsHint')}
+              >
+                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+              </FormField>
+            </Space>
+          </Form.Item>
         </>
       )}
       {/* END LUCX-HOOK */}

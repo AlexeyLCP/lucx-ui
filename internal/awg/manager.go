@@ -584,6 +584,29 @@ func renderServerConf(inst Instance) string {
 	if inst.AwgVersion == "3" && inst.HeaderProtectionKey != "" {
 		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", inst.HeaderProtectionKey)
 	}
+	// AWG3 device-level timers/padding — all optional (0 = kernel uses the
+	// built-in WireGuard constant). Written only when > 0 and AwgVersion ==
+	// "3"; older kernels reject these lines in setconf.
+	if inst.AwgVersion == "3" {
+		if inst.ContentPaddingAddition > 0 {
+			fmt.Fprintf(&b, "ContentPaddingAddition = %d\n", inst.ContentPaddingAddition)
+		}
+		if inst.RekeyAfterTime > 0 {
+			fmt.Fprintf(&b, "RekeyAfterTime = %d\n", inst.RekeyAfterTime)
+		}
+		if inst.RekeyTimeout > 0 {
+			fmt.Fprintf(&b, "RekeyTimeout = %d\n", inst.RekeyTimeout)
+		}
+		if inst.RejectAfterTime > 0 {
+			fmt.Fprintf(&b, "RejectAfterTime = %d\n", inst.RejectAfterTime)
+		}
+		if inst.KeepaliveTimeout > 0 {
+			fmt.Fprintf(&b, "KeepaliveTimeout = %d\n", inst.KeepaliveTimeout)
+		}
+		if inst.MaxHandshakeAttempts > 0 {
+			fmt.Fprintf(&b, "MaxHandshakeAttempts = %d\n", inst.MaxHandshakeAttempts)
+		}
+	}
 	// I1-I5 (CPS packets) are CLIENT-ONLY — the server does not use them.
 	// Writing I1-I5 to the server .conf crashes awg setconf ("Invalid
 	// argument") because the kernel amneziawg module does not accept CPS
@@ -605,6 +628,9 @@ func renderServerConf(inst Instance) string {
 		fmt.Fprintf(&b, "AllowedIPs = %s\n", allowed)
 		if p.Keepalive > 0 {
 			fmt.Fprintf(&b, "PersistentKeepalive = %d\n", p.Keepalive)
+		}
+		if inst.AwgVersion == "3" && p.AdvancedSecurity {
+			b.WriteString("AdvancedSecurity = on\n")
 		}
 	}
 	return b.String()

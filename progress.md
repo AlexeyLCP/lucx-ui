@@ -1053,6 +1053,53 @@ systemctl start x-ui
 **Тесты:** `go test ./internal/awg/... ./internal/lucx/... -count=1 -v` — зелёный (18/18). `npm run typecheck && npm run lint` — чисто. `gofumpt -l .` — 2 upstream-файла (не наши регрессии). `bash -n` на 3 скриптах — чисто. `bin/check-lucx.sh` — 49 файлов OK.
 
 
+## Релиз v3.6.0-lucx.52 (2026-08-02) — 7 параметров AWG 3.0 (timers, padding, AdvancedSecurity)
+
+**Контекст:** Тестер сообщил, что панель поддерживает не все AWG 3.0-параметры. Аудит upstream-ядра `amneziawg-linux-kernel-module` v3.0.20260731 (UAPI `wireguard.h`) выявил 7 параметров, которые ядро и `awg-quick` парсят, но панель не экспонирует:
+
+- 6 device-level u32: `ContentPaddingAddition`, `RekeyAfterTime`, `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, `MaxHandshakeAttempts` (0 = kernel default: детерминированный WG padding, 120/5/180/10/18 сек)
+- 1 peer-level bool: `AdvancedSecurity` (advisory только — текущее ядро игнорирует на входе в `set_peer`, хардкодит в `get_peer`)
+
+Все 7 version-gated к `awgVersion == "3"` (v1/v2 ядра reject'ят неизвестные строки в setconf). Поля опциональны (ядро подставляет безопасные дефолты WG), оператор может тонко настроить тайминги и padding для DPI-обхода.
+
+**Strategy:** Полный шаблон HeaderProtectionKey ×7 (HPK уже отработан в lucx.50). 6 device-полей идут по пути: `AWGParams` struct → `Instance` struct → `renderServerConf`/`renderClientConf` → `inboundAwgHints` → `ParseConf` (outbound) → `filterAwgObfuscation` (frontend) → Zod schemas ×2 (inbound+outbound) → AWG form → `inbound-link.ts` (genAwgLink/genAwgConfig). AdvancedSecurity — per-peer: `PeerSpec` → `AwgClientSchema` → `ClientFormModal` Switch → `wireguardConfig.ts` [Peer] → `genAwgConfig` [Peer]. UX: default = 0/пусто = «использовать дефолт ядра». `generateObfuscation` НЕ автогенерирует (таймеры — не обфускация).
+
+**Что сделано:**
+
+### Go backend (10 файлов)
+- `internal/awg/cps/params.go`: +6 полей в `AWGParams` struct, `AsConfLines` (+6 lines, guard `> 0`), `Validate` (+проверка 0–65535 u16)
+- `internal/awg/instance.go`: +6 полей в `Instance` struct, +`AdvancedSecurity bool` в `PeerSpec`, fingerprint (device + peer), `InstanceFromInbound` (settings struct + clients struct + Instance literal + PeerSpec literal)
+- `internal/awg/manager.go`: `renderServerConf` — +6 device-полей в `[Interface]` (guard `AwgVersion == "3" && field > 0`), +`AdvancedSecurity = on` в `[Peer]`-loop (guard `AwgVersion == "3" && p.AdvancedSecurity`)
+- `internal/awg/client_conf.go`: `renderClientConf` — +6 device-полей + `AdvancedSecurity = on` в `[Peer]` (guard `NormalizeAWGVersion == "3"`)
+- `internal/awg/client_instance.go`: `ClientSettings` +6 device-полей + `AdvancedSecurity bool`, fingerprint (device + peer)
+- `internal/web/service/inbound.go`: `inboundAwgHints` — +6 json-тегов в settings struct, +6 emission блоков (guard v3)
+- `internal/web/service/awg_outbound.go`: `ParseConf` — +6 case-branches + `AdvancedSecurity` parse, auto-detect v3 расширен (|| device fields || AdvancedSecurity)
+- `internal/sub/service.go`: share-link builder — +6 params (lowercase, guard v3 + `> 0`)
+- `internal/database/migrate_awg_hpk.go`: `normalizeAwgSettings` — prune 6 device-полей (→0) + `clients[].advancedSecurity` (→false) + outbound `advancedSecurity` (→false) на non-v3
+
+### Frontend (10 файлов)
+- `frontend/src/schemas/protocols/inbound/awg.ts`: +6 device-полей в `AwgInboundSettingsSchema`, +`advancedSecurity` в `AwgClientSchema`
+- `frontend/src/schemas/awg-outbound.ts`: +6 device-полей + `AdvancedSecurity` в `AwgOutboundSettingsSchema`
+- `frontend/src/schemas/protocols/inbound/wireguard.ts`: +`advancedSecurity` в `WireguardInboundPeerSchema` (для awgPeerShape)
+- `frontend/src/lib/xray/inbound-defaults.ts`: +6 дефолтов `= 0`
+- `frontend/src/pages/inbounds/form/protocols/awg.tsx`: «AWG3 Advanced (timers & padding)» секция внутри `{awgVersion === '3' && ...}` — 6 `InputNumber min=0 max=65535`
+- `frontend/src/pages/xray/awg-outbounds/AwgOutboundFormModal.tsx`: +6 device-полей + `AdvancedSecurity` Switch, type + defaults + settingsToFormValues + formValuesToSettings
+- `frontend/src/pages/clients/ClientFormModal.tsx`: +`advancedSecurity` в `Values` type, EMPTY, seed (from client record), payload, `Switch` UI (gated `showAwg`)
+- `frontend/src/lib/xray/inbound-link.ts`: `genAwgLink` +6 params (v3), `genAwgConfig` +6 lines (v3 override), `genAwgConfig` [Peer] +`AdvancedSecurity = on`, `awgPeerShape` +`advancedSecurity`
+- `frontend/src/pages/clients/wireguardConfig.ts`: `filterAwgObfuscation` +6 drop-строк для < v3, `buildAwgClientConfig` [Peer] +`AdvancedSecurity = on` (v3 + client flag)
+
+### i18n (13 локалей)
+- 15 новых ключей в `en-US.json` (canonical) + переведены в `ru-RU`, `uk-UA`, `zh-CN`, `zh-TW`, `es-ES`, `pt-BR`, `vi-VN`, `tr-TR`, `fa-IR`, `ar-EG`, `id-ID`, `ja-JP` — 3 параллельных агента
+
+### Тесты
+- Frontend: `wireguard-client-config.test.ts` — filterAwgObfuscation v3 keeps/drops 6 device-полей; `inbound-link.test.ts` — genAwgConfig [Peer] AdvancedSecurity для v3/v2/v1.5, 0-valued defaults не эмитятся
+- Go: `cps_test.go` (AsConfLines device fields, Validate range), `instance_test.go` (fingerprint + renderServerConf version-gate), `client_conf_test.go`, `inbound_awg_test.go`, `migrate_awg_hpk_test.go` — агент
+
+**Файлы:** 20+ кода + 13 i18n + тесты. `internal/config/config.go` — `lucx.52`.
+
+**Тесты:** Frontend `vitest run --project=unit` — 893/893 passed. `npm run typecheck` — чисто. `npm run lint` — чисто. `npm run build` — OK. `npm run gen` — 27 schemas, 181 paths. `gofumpt -l .` — 2 upstream-файла (pre-existing drift). `bin/check-lucx.sh` — 49 файлов OK. i18n-dead-keys — 2/2 passed.
+
+
 
 
 

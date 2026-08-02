@@ -369,7 +369,9 @@ function awgSettings(version: '1.5' | '2' | '3'): AwgInboundSettings {
     i1: '<b 0xaa>', i2: '<b 0xbb>', i3: '<b 0xcc>', i4: '<b 0xdd>', i5: '<b 0xee>',
     headerProtectionKey: 'aBcD...base64hpk==',
     awgVersion: version,
-    clients: [{ privateKey: 'clientPrivKeyBase64', publicKey: 'peerPub', preSharedKey: 'psk', allowedIPs: ['10.8.0.2/32'], keepAlive: 25 }] as AwgInboundSettings['clients'],
+    contentPaddingAddition: 0, rekeyAfterTime: 0, rekeyTimeout: 0,
+    rejectAfterTime: 0, keepaliveTimeout: 0, maxHandshakeAttempts: 0,
+    clients: [{ privateKey: 'clientPrivKeyBase64', publicKey: 'peerPub', preSharedKey: 'psk', allowedIPs: ['10.8.0.2/32'], keepAlive: 25, advancedSecurity: true }] as AwgInboundSettings['clients'],
   };
 }
 
@@ -414,6 +416,31 @@ describe('genAwgLink + genAwgConfig version gating', () => {
     expect(config).not.toContain('S3 =');
     expect(config).not.toContain('HeaderProtectionKey');
     expect(config).toContain('Jc = 5');
+  });
+
+  it('v3 emits AdvancedSecurity in [Peer] when client has the flag', () => {
+    const config = genAwgConfig({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    expect(config).toContain('AdvancedSecurity = on');
+  });
+
+  it('v2 does NOT emit AdvancedSecurity even when the client has the flag', () => {
+    const config = genAwgConfig({ settings: awgSettings('2'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    expect(config).not.toContain('AdvancedSecurity');
+  });
+
+  it('v1.5 does NOT emit AdvancedSecurity', () => {
+    const config = genAwgConfig({ settings: awgSettings('1.5'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    expect(config).not.toContain('AdvancedSecurity');
+  });
+
+  it('v3 config does not emit zero-valued AWG3 device timers', () => {
+    const config = genAwgConfig({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    expect(config).not.toContain('ContentPaddingAddition');
+    expect(config).not.toContain('RekeyAfterTime');
+    expect(config).not.toContain('RekeyTimeout');
+    expect(config).not.toContain('RejectAfterTime');
+    expect(config).not.toContain('KeepaliveTimeout');
+    expect(config).not.toContain('MaxHandshakeAttempts');
   });
 });
 // END LUCX-HOOK

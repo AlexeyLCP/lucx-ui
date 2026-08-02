@@ -51,6 +51,14 @@ type Instance struct {
 	// "3" (the inbound opts into AWG3); for older versions it stays empty and
 	// is omitted so v1/v2 kernels keep accepting the config.
 	HeaderProtectionKey string
+	// AWG3 device-level timers/padding (all 0 = kernel uses built-in WG
+	// constant). Written to the .conf only when > 0 AND AwgVersion == "3".
+	ContentPaddingAddition int
+	RekeyAfterTime         int
+	RekeyTimeout           int
+	RejectAfterTime        int
+	KeepaliveTimeout       int
+	MaxHandshakeAttempts   int
 	// AwgVersion is the AmneziaWG protocol version this inbound targets:
 	// "1.5" (legacy, Jc/Jmin/Jmax + S1/S2 + H1-H4 only), "2" (adds S3/S4 +
 	// optional I1-I5, Android 2.0.1), or "3" (adds HeaderProtectionKey,
@@ -70,11 +78,12 @@ type Instance struct {
 
 // PeerSpec is one desired peer on an AWG interface.
 type PeerSpec struct {
-	PrivateKey string // client Curve25519 private key (stored so we can render a full client .conf/share-link, mirroring WireGuard)
-	PublicKey  string // client Curve25519 public key (stored as Client.ID / clients[].publicKey)
-	PSK        string // PresharedKey (stored as Client.Password / clients[].preSharedKey)
-	Keepalive  int    // PersistentKeepalive, 0 = off
-	AllowedIPs string // client tunnel address, e.g. "10.0.0.2/32"; falls back to "0.0.0.0/0, ::/0" only when unset
+	PrivateKey       string // client Curve25519 private key (stored so we can render a full client .conf/share-link, mirroring WireGuard)
+	PublicKey        string // client Curve25519 public key (stored as Client.ID / clients[].publicKey)
+	PSK              string // PresharedKey (stored as Client.Password / clients[].preSharedKey)
+	Keepalive        int    // PersistentKeepalive, 0 = off
+	AllowedIPs       string // client tunnel address, e.g. "10.0.0.2/32"; falls back to "0.0.0.0/0, ::/0" only when unset
+	AdvancedSecurity bool   // AWG3 peer-level flag; advisory only in current kernel (set_peer ignores on input, get_peer hardcodes). Written to .conf [Peer] as "AdvancedSecurity = on" when true and AwgVersion == "3".
 }
 
 // fingerprint changes whenever any value that ends up in the generated .conf
@@ -104,12 +113,18 @@ func (inst Instance) fingerprint() string {
 		inst.I4,
 		inst.I5,
 		inst.HeaderProtectionKey,
+		strconv.Itoa(inst.ContentPaddingAddition),
+		strconv.Itoa(inst.RekeyAfterTime),
+		strconv.Itoa(inst.RekeyTimeout),
+		strconv.Itoa(inst.RejectAfterTime),
+		strconv.Itoa(inst.KeepaliveTimeout),
+		strconv.Itoa(inst.MaxHandshakeAttempts),
 		inst.AwgVersion,
 		strconv.FormatBool(inst.RouteThroughXray),
 		inst.OutboundTag,
 	}
 	for _, p := range inst.Peers {
-		parts = append(parts, p.PrivateKey, p.PublicKey, p.PSK, strconv.Itoa(p.Keepalive), p.AllowedIPs)
+		parts = append(parts, p.PrivateKey, p.PublicKey, p.PSK, strconv.Itoa(p.Keepalive), p.AllowedIPs, strconv.FormatBool(p.AdvancedSecurity))
 	}
 	return strings.Join(parts, "|")
 }
@@ -153,6 +168,8 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			PreSharedKey string   `json:"preSharedKey"`
 			AllowedIPs   []string `json:"allowedIPs"`
 			KeepAlive    int      `json:"keepAlive"`
+			// AWG3 peer-level flag (advisory; kernel ignores on input).
+			AdvancedSecurity bool `json:"advancedSecurity"`
 			// Legacy fields kept for backward compat (old inbounds created
 			// before this change store id=publicKey, password=PSK). The JSON
 			// tag `enable` defaults to false when absent — but the panel
@@ -161,6 +178,13 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			Password string `json:"password"`
 			Enable   *bool  `json:"enable"`
 		} `json:"clients"`
+		// AWG3 device-level timers/padding (0 = kernel default).
+		ContentPaddingAddition int `json:"contentPaddingAddition"`
+		RekeyAfterTime         int `json:"rekeyAfterTime"`
+		RekeyTimeout           int `json:"rekeyTimeout"`
+		RejectAfterTime        int `json:"rejectAfterTime"`
+		KeepaliveTimeout       int `json:"keepaliveTimeout"`
+		MaxHandshakeAttempts   int `json:"maxHandshakeAttempts"`
 	}
 	if err := json.Unmarshal([]byte(ib.Settings), &s); err != nil {
 		return Instance{}, false
@@ -169,35 +193,41 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		return Instance{}, false
 	}
 	inst := Instance{
-		Id:                  ib.Id,
-		Tag:                 ib.Tag,
-		Listen:              ib.Listen,
-		Port:                ib.Port,
-		Ifname:              ifnameFor(ib.Id),
-		MTU:                 orDefault(s.MTU, 1320),
-		DNS:                 s.DNS,
-		Address:             s.Address,
-		PrivateKey:          s.PrivateKey,
-		Jc:                  s.Jc,
-		Jmin:                s.Jmin,
-		Jmax:                s.Jmax,
-		S1:                  s.S1,
-		S2:                  s.S2,
-		S3:                  s.S3,
-		S4:                  s.S4,
-		H1:                  s.H1,
-		H2:                  s.H2,
-		H3:                  s.H3,
-		H4:                  s.H4,
-		I1:                  s.I1,
-		I2:                  s.I2,
-		I3:                  s.I3,
-		I4:                  s.I4,
-		I5:                  s.I5,
-		HeaderProtectionKey: s.HeaderProtectionKey,
-		AwgVersion:          NormalizeAWGVersion(s.AwgVersion),
-		RouteThroughXray:    s.RouteThroughXray,
-		OutboundTag:         s.OutboundTag,
+		Id:                     ib.Id,
+		Tag:                    ib.Tag,
+		Listen:                 ib.Listen,
+		Port:                   ib.Port,
+		Ifname:                 ifnameFor(ib.Id),
+		MTU:                    orDefault(s.MTU, 1320),
+		DNS:                    s.DNS,
+		Address:                s.Address,
+		PrivateKey:             s.PrivateKey,
+		Jc:                     s.Jc,
+		Jmin:                   s.Jmin,
+		Jmax:                   s.Jmax,
+		S1:                     s.S1,
+		S2:                     s.S2,
+		S3:                     s.S3,
+		S4:                     s.S4,
+		H1:                     s.H1,
+		H2:                     s.H2,
+		H3:                     s.H3,
+		H4:                     s.H4,
+		I1:                     s.I1,
+		I2:                     s.I2,
+		I3:                     s.I3,
+		I4:                     s.I4,
+		I5:                     s.I5,
+		HeaderProtectionKey:    s.HeaderProtectionKey,
+		AwgVersion:             NormalizeAWGVersion(s.AwgVersion),
+		RouteThroughXray:       s.RouteThroughXray,
+		OutboundTag:            s.OutboundTag,
+		ContentPaddingAddition: s.ContentPaddingAddition,
+		RekeyAfterTime:         s.RekeyAfterTime,
+		RekeyTimeout:           s.RekeyTimeout,
+		RejectAfterTime:        s.RejectAfterTime,
+		KeepaliveTimeout:       s.KeepaliveTimeout,
+		MaxHandshakeAttempts:   s.MaxHandshakeAttempts,
 	}
 	for _, c := range s.Clients {
 		// Skip disabled clients. enable is a pointer so we can distinguish
@@ -225,11 +255,12 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			keep = 25
 		}
 		inst.Peers = append(inst.Peers, PeerSpec{
-			PrivateKey: c.PrivateKey,
-			PublicKey:  pub,
-			PSK:        psk,
-			Keepalive:  keep,
-			AllowedIPs: allowed,
+			PrivateKey:       c.PrivateKey,
+			PublicKey:        pub,
+			PSK:              psk,
+			Keepalive:        keep,
+			AllowedIPs:       allowed,
+			AdvancedSecurity: c.AdvancedSecurity,
 		})
 	}
 	return inst, true

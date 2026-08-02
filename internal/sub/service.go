@@ -749,6 +749,20 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	if v, ok := settings["headerProtectionKey"].(string); ok && v != "" {
 		params["headerProtectionKey"] = v
 	}
+	// AWG3 device-level timers/padding — 0 = kernel default. Emitted only
+	// when > 0 so non-v3 clients ignore the param.
+	for _, p := range []struct{ key, jk string }{
+		{"contentpaddingaddition", "contentPaddingAddition"},
+		{"rekeyaftertime", "rekeyAfterTime"},
+		{"rekeytimeout", "rekeyTimeout"},
+		{"rejectaftertime", "rejectAfterTime"},
+		{"keepalivetimeout", "keepaliveTimeout"},
+		{"maxhandshakeattempts", "maxHandshakeAttempts"},
+	} {
+		if v, ok := settings[p.jk].(float64); ok && v > 0 {
+			params[p.key] = strconv.Itoa(int(v))
+		}
+	}
 	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
 }
 

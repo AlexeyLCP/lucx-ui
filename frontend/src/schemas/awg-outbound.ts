@@ -39,6 +39,16 @@ export const AwgOutboundSettingsSchema = z.object({
   // AWG3 (AmneziaWG 3) header protection key — 32-byte ChaCha20, base64.
   // Written to the awgo-N .conf only when awgVersion === '3' and non-empty.
   headerProtectionKey: z.string().default(''),
+  // AWG3 device-level timers/padding (0 = kernel default). Written to .conf
+  // only when > 0 and awgVersion === '3'.
+  contentPaddingAddition: z.number().int().min(0).max(65535).default(0),
+  rekeyAfterTime: z.number().int().min(0).max(65535).default(0),
+  rekeyTimeout: z.number().int().min(0).max(65535).default(0),
+  rejectAfterTime: z.number().int().min(0).max(65535).default(0),
+  keepaliveTimeout: z.number().int().min(0).max(65535).default(0),
+  maxHandshakeAttempts: z.number().int().min(0).max(65535).default(0),
+  // AWG3 peer-level advisory flag (applied to the single upstream [Peer]).
+  advancedSecurity: z.boolean().default(false),
   // AWG protocol version: '1.5' (legacy), '2' (S3/S4 + I1-I5), or '3' (adds
   // HeaderProtectionKey). Auto-detected by ParseConf from the pasted .conf;
   // editable in the form. renderClientConf gates HPK emission on '3'.

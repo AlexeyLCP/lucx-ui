@@ -67,6 +67,27 @@ func renderClientConf(ci ClientInstance) string {
 		if NormalizeAWGVersion(s.AwgVersion) == "3" && s.HeaderProtectionKey != "" {
 			fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 		}
+		// AWG3 device-level timers/padding — 0 = kernel default.
+		if NormalizeAWGVersion(s.AwgVersion) == "3" {
+			if s.ContentPaddingAddition > 0 {
+				fmt.Fprintf(&b, "ContentPaddingAddition = %d\n", s.ContentPaddingAddition)
+			}
+			if s.RekeyAfterTime > 0 {
+				fmt.Fprintf(&b, "RekeyAfterTime = %d\n", s.RekeyAfterTime)
+			}
+			if s.RekeyTimeout > 0 {
+				fmt.Fprintf(&b, "RekeyTimeout = %d\n", s.RekeyTimeout)
+			}
+			if s.RejectAfterTime > 0 {
+				fmt.Fprintf(&b, "RejectAfterTime = %d\n", s.RejectAfterTime)
+			}
+			if s.KeepaliveTimeout > 0 {
+				fmt.Fprintf(&b, "KeepaliveTimeout = %d\n", s.KeepaliveTimeout)
+			}
+			if s.MaxHandshakeAttempts > 0 {
+				fmt.Fprintf(&b, "MaxHandshakeAttempts = %d\n", s.MaxHandshakeAttempts)
+			}
+		}
 	}
 	b.WriteString("\n[Peer]\n")
 	fmt.Fprintf(&b, "PublicKey = %s\n", s.PublicKey)
@@ -77,6 +98,9 @@ func renderClientConf(ci ClientInstance) string {
 	fmt.Fprintf(&b, "AllowedIPs = %s\n", s.AllowedIPs)
 	if s.Keepalive > 0 {
 		fmt.Fprintf(&b, "PersistentKeepalive = %d\n", s.Keepalive)
+	}
+	if NormalizeAWGVersion(s.AwgVersion) == "3" && s.AdvancedSecurity {
+		b.WriteString("AdvancedSecurity = on\n")
 	}
 	return b.String()
 }

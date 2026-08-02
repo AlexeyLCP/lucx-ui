@@ -67,6 +67,21 @@ type AWGParams struct {
 	// `HeaderProtectionKey = <base64>`; the upstream kernel module and tools
 	// parse it since v3.0.20260731 / v3.0.20260730.
 	HeaderProtectionKey string
+	// AWG3 device-level timer/padding fields (all optional — 0 = kernel uses
+	// the built-in WireGuard constant). Parsed by amneziawg-tools config.c
+	// and the kernel module netlink.c since v3.0.20260731. Written to the
+	// .conf only when > 0 AND awgVersion == "3"; emitted as single u16 (the
+	// kernel also accepts the "N-M" range form, but the panel exposes one
+	// number for simplicity). Defaults/semantics from the kernel messages.h
+	// enum limits: RekeyAfterTime=120s, RekeyTimeout=5s, RejectAfterTime=180s,
+	// KeepaliveTimeout=10s, MaxHandshakeAttempts=18 (90/REKEY_TIMEOUT),
+	// ContentPaddingAddition=0 (deterministic WG padding).
+	ContentPaddingAddition int
+	RekeyAfterTime         int
+	RekeyTimeout           int
+	RejectAfterTime        int
+	KeepaliveTimeout       int
+	MaxHandshakeAttempts   int
 }
 
 // randInt returns a random int in [lo, hi] inclusive. lo must be <= hi.
@@ -269,6 +284,24 @@ func (p AWGParams) AsConfLines() string {
 	if p.HeaderProtectionKey != "" {
 		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", p.HeaderProtectionKey)
 	}
+	if p.ContentPaddingAddition > 0 {
+		fmt.Fprintf(&b, "ContentPaddingAddition = %d\n", p.ContentPaddingAddition)
+	}
+	if p.RekeyAfterTime > 0 {
+		fmt.Fprintf(&b, "RekeyAfterTime = %d\n", p.RekeyAfterTime)
+	}
+	if p.RekeyTimeout > 0 {
+		fmt.Fprintf(&b, "RekeyTimeout = %d\n", p.RekeyTimeout)
+	}
+	if p.RejectAfterTime > 0 {
+		fmt.Fprintf(&b, "RejectAfterTime = %d\n", p.RejectAfterTime)
+	}
+	if p.KeepaliveTimeout > 0 {
+		fmt.Fprintf(&b, "KeepaliveTimeout = %d\n", p.KeepaliveTimeout)
+	}
+	if p.MaxHandshakeAttempts > 0 {
+		fmt.Fprintf(&b, "MaxHandshakeAttempts = %d\n", p.MaxHandshakeAttempts)
+	}
 	return b.String()
 }
 
@@ -288,6 +321,21 @@ func (p AWGParams) Validate() error {
 	for _, s := range []int{p.S1, p.S2, p.S3, p.S4} {
 		if s < MinSForHPK {
 			return fmt.Errorf("awg: S values must be >= %d for AWG3 header-protection compatibility (got %d)", MinSForHPK, s)
+		}
+	}
+	for _, v := range []struct {
+		name string
+		val  int
+	}{
+		{"ContentPaddingAddition", p.ContentPaddingAddition},
+		{"RekeyAfterTime", p.RekeyAfterTime},
+		{"RekeyTimeout", p.RekeyTimeout},
+		{"RejectAfterTime", p.RejectAfterTime},
+		{"KeepaliveTimeout", p.KeepaliveTimeout},
+		{"MaxHandshakeAttempts", p.MaxHandshakeAttempts},
+	} {
+		if v.val < 0 || v.val > 65535 {
+			return fmt.Errorf("awg: %s (%d) must be 0-65535 (u16 range, 0 = kernel default)", v.name, v.val)
 		}
 	}
 	return nil

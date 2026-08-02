@@ -281,3 +281,88 @@ func TestDomainPool_NonEmpty(t *testing.T) {
 		}
 	}
 }
+
+// The six AWG3 device-level fields are emitted by AsConfLines on a plain >0
+// guard (no version gate in this layer — the Instance/ClientSettings renderers
+// apply the AwgVersion=="3" gate). 0 means "use the kernel built-in WireGuard
+// constant", so a zero value MUST stay silent on the wire.
+func TestAsConfLines_DeviceFieldsGated(t *testing.T) {
+	SetRand(crand.New(crand.NewSource(9)))
+	p, err := GenerateAWGParams(ObfPro, "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cases := []struct {
+		name string
+		line string
+		set  func(p *AWGParams)
+	}{
+		{"ContentPaddingAddition", "ContentPaddingAddition = 32", func(p *AWGParams) { p.ContentPaddingAddition = 32 }},
+		{"RekeyAfterTime", "RekeyAfterTime = 120", func(p *AWGParams) { p.RekeyAfterTime = 120 }},
+		{"RekeyTimeout", "RekeyTimeout = 5", func(p *AWGParams) { p.RekeyTimeout = 5 }},
+		{"RejectAfterTime", "RejectAfterTime = 180", func(p *AWGParams) { p.RejectAfterTime = 180 }},
+		{"KeepaliveTimeout", "KeepaliveTimeout = 10", func(p *AWGParams) { p.KeepaliveTimeout = 10 }},
+		{"MaxHandshakeAttempts", "MaxHandshakeAttempts = 18", func(p *AWGParams) { p.MaxHandshakeAttempts = 18 }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name+"_emitted", func(t *testing.T) {
+			q := p
+			tc.set(&q)
+			out := q.AsConfLines()
+			if !strings.Contains(out, tc.line) {
+				t.Fatalf("AsConfLines must emit %q when set, got:\n%s", tc.line, out)
+			}
+		})
+		t.Run(tc.name+"_omitted", func(t *testing.T) {
+			out := p.AsConfLines()
+			if strings.Contains(out, tc.name+" =") {
+				t.Fatalf("AsConfLines must omit %q when 0, got:\n%s", tc.name+" =", out)
+			}
+		})
+	}
+}
+
+// Validate bounds the six device fields to the u16 range (0..65535): 0 is the
+// "kernel default" sentinel, 65535 is the max a u16 transport carries, and
+// negatives/overshoots are rejected so a hand-edited settings blob can never
+// produce a .conf the AWG3 kernel rejects at netlink time.
+func TestValidate_DeviceFieldRange(t *testing.T) {
+	base := AWGParams{Jmin: 50, Jmax: 200, S1: 30, S2: 120, S3: 50, S4: 70}
+	cases := []struct {
+		name string
+		set  func(p *AWGParams)
+	}{
+		{"ContentPaddingAddition over 65535", func(p *AWGParams) { p.ContentPaddingAddition = 65536 }},
+		{"ContentPaddingAddition negative", func(p *AWGParams) { p.ContentPaddingAddition = -1 }},
+		{"RekeyAfterTime over 65535", func(p *AWGParams) { p.RekeyAfterTime = 100000 }},
+		{"RekeyAfterTime negative", func(p *AWGParams) { p.RekeyAfterTime = -5 }},
+		{"RekeyTimeout over 65535", func(p *AWGParams) { p.RekeyTimeout = 70000 }},
+		{"RekeyTimeout negative", func(p *AWGParams) { p.RekeyTimeout = -1 }},
+		{"RejectAfterTime over 65535", func(p *AWGParams) { p.RejectAfterTime = 200000 }},
+		{"RejectAfterTime negative", func(p *AWGParams) { p.RejectAfterTime = -1 }},
+		{"KeepaliveTimeout over 65535", func(p *AWGParams) { p.KeepaliveTimeout = 99999 }},
+		{"KeepaliveTimeout negative", func(p *AWGParams) { p.KeepaliveTimeout = -1 }},
+		{"MaxHandshakeAttempts over 65535", func(p *AWGParams) { p.MaxHandshakeAttempts = 100000 }},
+		{"MaxHandshakeAttempts negative", func(p *AWGParams) { p.MaxHandshakeAttempts = -1 }},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			p := base
+			tc.set(&p)
+			if err := p.Validate(); err == nil {
+				t.Fatalf("Validate must reject %s", tc.name)
+			}
+		})
+	}
+}
+
+func TestValidate_DeviceFieldsAccept2Byte(t *testing.T) {
+	p := AWGParams{
+		Jmin: 50, Jmax: 200, S1: 30, S2: 120, S3: 50, S4: 70,
+		ContentPaddingAddition: 65535, RekeyAfterTime: 65535, RekeyTimeout: 65535,
+		RejectAfterTime: 65535, KeepaliveTimeout: 65535, MaxHandshakeAttempts: 65535,
+	}
+	if err := p.Validate(); err != nil {
+		t.Fatalf("Validate must accept 65535 (max u16) for all device fields, got: %v", err)
+	}
+}

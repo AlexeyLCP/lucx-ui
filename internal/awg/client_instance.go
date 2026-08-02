@@ -57,6 +57,18 @@ type ClientSettings struct {
 	// AWG3); for older versions it stays empty. Upstream kernel v3.0.20260731 +
 	// tools v3.0.20260730 parse the field.
 	HeaderProtectionKey string `json:"headerProtectionKey"`
+	// AWG3 device-level timers/padding (0 = kernel default). Written to .conf
+	// only when > 0 and AwgVersion == "3".
+	ContentPaddingAddition int `json:"contentPaddingAddition"`
+	RekeyAfterTime         int `json:"rekeyAfterTime"`
+	RekeyTimeout           int `json:"rekeyTimeout"`
+	RejectAfterTime        int `json:"rejectAfterTime"`
+	KeepaliveTimeout       int `json:"keepaliveTimeout"`
+	MaxHandshakeAttempts   int `json:"maxHandshakeAttempts"`
+	// AdvancedSecurity is the AWG3 peer-level advisory flag (applied to the
+	// single upstream [Peer] in the outbound .conf). Advisory only — the
+	// current kernel ignores it on input.
+	AdvancedSecurity bool `json:"advancedSecurity"`
 	// AwgVersion targets the AmneziaWG protocol version for this outbound
 	// ("1.5"/"2"/"3"; "" → "2" via normalize). The .conf renderer emits
 	// HeaderProtectionKey only for version "3".
@@ -121,6 +133,13 @@ func (ci ClientInstance) fingerprint() string {
 		s.I1, s.I2, s.I3, s.I4, s.I5,
 		s.HeaderProtectionKey,
 		s.AwgVersion,
+		strconv.Itoa(s.ContentPaddingAddition),
+		strconv.Itoa(s.RekeyAfterTime),
+		strconv.Itoa(s.RekeyTimeout),
+		strconv.Itoa(s.RejectAfterTime),
+		strconv.Itoa(s.KeepaliveTimeout),
+		strconv.Itoa(s.MaxHandshakeAttempts),
+		strconv.FormatBool(s.AdvancedSecurity),
 	}
 	return strings.Join(parts, "|")
 }

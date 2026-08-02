@@ -105,6 +105,8 @@ const awgCeilingBlock = [
   'H1 = 100000-500000', 'H2 = 600000-900000', 'H3 = 1000000-1500000', 'H4 = 1600000-2000000',
   'I1 = <b 0xaa>', 'I2 = <b 0xbb>', 'I3 = <b 0xcc>', 'I4 = <b 0xdd>', 'I5 = <b 0xee>',
   'HeaderProtectionKey = aBcD...base64hpk==',
+  'ContentPaddingAddition = 64', 'RekeyAfterTime = 120', 'RekeyTimeout = 5',
+  'RejectAfterTime = 180', 'KeepaliveTimeout = 10', 'MaxHandshakeAttempts = 18',
 ].join('\n');
 
 const awgInbound: InboundOption = {
@@ -134,6 +136,27 @@ describe('filterAwgObfuscation', () => {
     expect(out).not.toContain('I1 =');
     expect(out).toContain('S1 = 30');
     expect(out).toContain('H1 = 100000-500000');
+  });
+  it('v3 keeps AWG3 device-level timers and padding', () => {
+    const out = filterAwgObfuscation(awgCeilingBlock, '3');
+    expect(out).toContain('ContentPaddingAddition = 64');
+    expect(out).toContain('RekeyAfterTime = 120');
+    expect(out).toContain('MaxHandshakeAttempts = 18');
+  });
+  it('v2 drops AWG3 device-level timers and padding', () => {
+    const out = filterAwgObfuscation(awgCeilingBlock, '2');
+    expect(out).not.toContain('ContentPaddingAddition');
+    expect(out).not.toContain('RekeyAfterTime');
+    expect(out).not.toContain('RekeyTimeout');
+    expect(out).not.toContain('RejectAfterTime');
+    expect(out).not.toContain('KeepaliveTimeout');
+    expect(out).not.toContain('MaxHandshakeAttempts');
+  });
+  it('v1.5 drops AWG3 device-level timers and padding', () => {
+    const out = filterAwgObfuscation(awgCeilingBlock, '1.5');
+    expect(out).not.toContain('ContentPaddingAddition');
+    expect(out).not.toContain('RekeyAfterTime');
+    expect(out).not.toContain('MaxHandshakeAttempts');
   });
 });
 

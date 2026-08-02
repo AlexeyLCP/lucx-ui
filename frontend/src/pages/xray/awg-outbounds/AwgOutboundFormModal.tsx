@@ -69,6 +69,13 @@ interface AwgOutboundFormValues {
   i5: string;
   headerProtectionKey: string;
   awgVersion: AwgVersion;
+  contentPaddingAddition: number;
+  rekeyAfterTime: number;
+  rekeyTimeout: number;
+  rejectAfterTime: number;
+  keepaliveTimeout: number;
+  maxHandshakeAttempts: number;
+  advancedSecurity: boolean;
 }
 
 const DEFAULT_SETTINGS: AwgOutboundSettings = {
@@ -99,6 +106,13 @@ const DEFAULT_SETTINGS: AwgOutboundSettings = {
   i5: '',
   headerProtectionKey: '',
   awgVersion: '2',
+  contentPaddingAddition: 0,
+  rekeyAfterTime: 0,
+  rekeyTimeout: 0,
+  rejectAfterTime: 0,
+  keepaliveTimeout: 0,
+  maxHandshakeAttempts: 0,
+  advancedSecurity: false,
 };
 
 function buildDefaultValues(): AwgOutboundFormValues {
@@ -154,6 +168,13 @@ function settingsToFormValues(initial: AwgOutbound): AwgOutboundFormValues {
     i5: parsed.i5 ?? DEFAULT_SETTINGS.i5,
     headerProtectionKey: parsed.headerProtectionKey ?? DEFAULT_SETTINGS.headerProtectionKey,
     awgVersion: parsed.awgVersion ?? DEFAULT_SETTINGS.awgVersion,
+    contentPaddingAddition: parsed.contentPaddingAddition ?? DEFAULT_SETTINGS.contentPaddingAddition,
+    rekeyAfterTime: parsed.rekeyAfterTime ?? DEFAULT_SETTINGS.rekeyAfterTime,
+    rekeyTimeout: parsed.rekeyTimeout ?? DEFAULT_SETTINGS.rekeyTimeout,
+    rejectAfterTime: parsed.rejectAfterTime ?? DEFAULT_SETTINGS.rejectAfterTime,
+    keepaliveTimeout: parsed.keepaliveTimeout ?? DEFAULT_SETTINGS.keepaliveTimeout,
+    maxHandshakeAttempts: parsed.maxHandshakeAttempts ?? DEFAULT_SETTINGS.maxHandshakeAttempts,
+    advancedSecurity: parsed.advancedSecurity ?? DEFAULT_SETTINGS.advancedSecurity,
   };
 }
 
@@ -189,6 +210,13 @@ function formValuesToSettings(v: AwgOutboundFormValues): AwgOutboundSettings {
     i5: v.i5,
     headerProtectionKey: v.headerProtectionKey,
     awgVersion: v.awgVersion,
+    contentPaddingAddition: v.contentPaddingAddition,
+    rekeyAfterTime: v.rekeyAfterTime,
+    rekeyTimeout: v.rekeyTimeout,
+    rejectAfterTime: v.rejectAfterTime,
+    keepaliveTimeout: v.keepaliveTimeout,
+    maxHandshakeAttempts: v.maxHandshakeAttempts,
+    advancedSecurity: v.advancedSecurity,
   };
 }
 
@@ -536,6 +564,33 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                   message={t('pages.inbounds.form.awgSRangeWarning')}
                   style={{ marginBottom: 16 }}
                 />
+                {/* AWG3 advanced timers/padding — 0 = kernel default. */}
+                <Form.Item label={t('pages.inbounds.form.awgAdvancedSection')}>
+                  <Space direction="vertical" style={{ width: '100%' }}>
+                    <FormField name="contentPaddingAddition" label={t('pages.inbounds.form.awgContentPaddingAddition')} tooltip={t('pages.inbounds.form.awgContentPaddingAdditionHint')}>
+                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                    </FormField>
+                    <FormField name="rekeyAfterTime" label={t('pages.inbounds.form.awgRekeyAfterTime')} tooltip={t('pages.inbounds.form.awgRekeyAfterTimeHint')}>
+                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                    </FormField>
+                    <FormField name="rekeyTimeout" label={t('pages.inbounds.form.awgRekeyTimeout')} tooltip={t('pages.inbounds.form.awgRekeyTimeoutHint')}>
+                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                    </FormField>
+                    <FormField name="rejectAfterTime" label={t('pages.inbounds.form.awgRejectAfterTime')} tooltip={t('pages.inbounds.form.awgRejectAfterTimeHint')}>
+                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                    </FormField>
+                    <FormField name="keepaliveTimeout" label={t('pages.inbounds.form.awgKeepaliveTimeout')} tooltip={t('pages.inbounds.form.awgKeepaliveTimeoutHint')}>
+                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                    </FormField>
+                    <FormField name="maxHandshakeAttempts" label={t('pages.inbounds.form.awgMaxHandshakeAttempts')} tooltip={t('pages.inbounds.form.awgMaxHandshakeAttemptsHint')}>
+                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                    </FormField>
+                  </Space>
+                </Form.Item>
+                {/* AdvancedSecurity (AWG3 peer-level, advisory) on the upstream [Peer]. */}
+                <FormField name="advancedSecurity" label={t('pages.inbounds.form.awgAdvancedSecurity')} tooltip={t('pages.inbounds.form.awgAdvancedSecurityHint')} valueProp="checked">
+                  <Switch />
+                </FormField>
                 {/* END LUCX-HOOK */}
               </>
             )}

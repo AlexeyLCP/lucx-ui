@@ -30,6 +30,10 @@ export const WireguardInboundPeerSchema = z.object({
   // Rides along in the settings JSON like privateKey does; xray-core ignores
   // unknown peer fields.
   comment: z.string().optional(),
+  // AWG3 peer-level advisory flag (set by awgPeerShape from AwgClientSchema;
+  // not used by plain WireGuard peers). Advisory only — current kernel ignores
+  // on input.
+  advancedSecurity: z.boolean().optional(),
 });
 export type WireguardInboundPeer = z.infer<typeof WireguardInboundPeerSchema>;
 

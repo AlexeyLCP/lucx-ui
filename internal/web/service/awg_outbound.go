@@ -326,6 +326,18 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 				s.I5 = val
 			case "HeaderProtectionKey":
 				s.HeaderProtectionKey = val
+			case "ContentPaddingAddition":
+				s.ContentPaddingAddition, _ = strconv.Atoi(val)
+			case "RekeyAfterTime":
+				s.RekeyAfterTime, _ = strconv.Atoi(val)
+			case "RekeyTimeout":
+				s.RekeyTimeout, _ = strconv.Atoi(val)
+			case "RejectAfterTime":
+				s.RejectAfterTime, _ = strconv.Atoi(val)
+			case "KeepaliveTimeout":
+				s.KeepaliveTimeout, _ = strconv.Atoi(val)
+			case "MaxHandshakeAttempts":
+				s.MaxHandshakeAttempts, _ = strconv.Atoi(val)
 			}
 		case "peer":
 			switch key {
@@ -339,6 +351,9 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 				s.AllowedIPs = val
 			case "PersistentKeepalive":
 				s.Keepalive, _ = strconv.Atoi(val)
+			case "AdvancedSecurity":
+				v := strings.ToLower(strings.TrimSpace(val))
+				s.AdvancedSecurity = v == "on" || v == "1" || v == "true" || v == "yes"
 			}
 		}
 	}
@@ -349,7 +364,9 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 	// legacy field set → "1.5". Matches the version-gate logic in
 	// awg.NormalizeAWGVersion and the inbound form's version presets.
 	switch {
-	case s.HeaderProtectionKey != "":
+	case s.HeaderProtectionKey != "" || s.ContentPaddingAddition > 0 || s.RekeyAfterTime > 0 ||
+		s.RekeyTimeout > 0 || s.RejectAfterTime > 0 || s.KeepaliveTimeout > 0 ||
+		s.MaxHandshakeAttempts > 0 || s.AdvancedSecurity:
 		s.AwgVersion = "3"
 	case s.S3 != 0 || s.S4 != 0 || s.I1 != "" || s.I2 != "" || s.I3 != "" || s.I4 != "" || s.I5 != "":
 		s.AwgVersion = "2"

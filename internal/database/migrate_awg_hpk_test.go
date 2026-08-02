@@ -158,3 +158,98 @@ func TestNormalizeAwgSettings_PreservesOtherFields(t *testing.T) {
 		t.Errorf("client comment lost: %v", client["comment"])
 	}
 }
+
+// The six AWG3 device-level fields are pruned to 0 by the migration whenever the
+// inbound is NOT version "3" (older kernels reject these lines in setconf),
+// and preserved untouched on a version-"3" inbound. Mirrors the
+// headerProtectionKey pruning rule added in lucx.50.
+func TestNormalizeAwgSettings_PrunesDeviceFieldsOnNonV3(t *testing.T) {
+	const fields = `"contentPaddingAddition":32,"rekeyAfterTime":120,"rekeyTimeout":5,"rejectAfterTime":180,"keepaliveTimeout":10,"maxHandshakeAttempts":18`
+	keys := []string{
+		"contentPaddingAddition", "rekeyAfterTime", "rekeyTimeout",
+		"rejectAfterTime", "keepaliveTimeout", "maxHandshakeAttempts",
+	}
+	for _, tc := range []struct {
+		name        string
+		in          string
+		wantChanged bool
+		wantVersion string
+		wantZero    bool
+	}{
+		{"v2 prunes", `{"privateKey":"k","awgVersion":"2",` + fields + `}`, true, "2", true},
+		{"v1.5 prunes", `{"privateKey":"k","awgVersion":"1.5",` + fields + `}`, true, "1.5", true},
+		{"no version prunes and backfills", `{"privateKey":"k",` + fields + `}`, true, "2", true},
+		{"v3 keeps", `{"privateKey":"k","awgVersion":"3",` + fields + `}`, false, "3", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, changed, _ := normalizeAwgSettings(tc.in)
+			if changed != tc.wantChanged {
+				t.Fatalf("changed = %v, want %v (out=%s)", changed, tc.wantChanged, got)
+			}
+			if !changed && got != tc.in {
+				t.Fatalf("unchanged input must be returned verbatim, got %s", got)
+			}
+			var m map[string]any
+			if err := json.Unmarshal([]byte(got), &m); err != nil {
+				t.Fatalf("output is not valid JSON: %v (%s)", err, got)
+			}
+			if m["awgVersion"] != tc.wantVersion {
+				t.Fatalf("awgVersion = %v, want %q", m["awgVersion"], tc.wantVersion)
+			}
+			for _, k := range keys {
+				v, _ := m[k].(float64)
+				if tc.wantZero && v != 0 {
+					t.Errorf("%s = %v, want 0 (pruned for non-v3)", k, v)
+				}
+				if !tc.wantZero && v == 0 {
+					t.Errorf("%s = %v, want non-zero (preserved for v3)", k, v)
+				}
+			}
+		})
+	}
+}
+
+// AdvancedSecurity is per-peer: the migration resets clients[].advancedSecurity
+// to false when the inbound is NOT version "3", and leaves it true on a
+// version-"3" inbound. An already-false flag is a no-op (no change recorded).
+func TestNormalizeAwgSettings_PrunesAdvancedSecurityPerPeer(t *testing.T) {
+	for _, tc := range []struct {
+		name        string
+		in          string
+		wantChanged bool
+		wantVersion string
+		advStill    bool
+	}{
+		{"v2 prunes peer adv", `{"privateKey":"k","awgVersion":"2","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, true, "2", false},
+		{"v1.5 prunes peer adv", `{"privateKey":"k","awgVersion":"1.5","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, true, "1.5", false},
+		{"v3 keeps peer adv", `{"privateKey":"k","awgVersion":"3","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, false, "3", true},
+		{"v2 false stays false", `{"privateKey":"k","awgVersion":"2","clients":[{"id":"p","password":"psk","advancedSecurity":false}]}`, false, "2", false},
+		{"no version prunes peer adv", `{"privateKey":"k","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, true, "2", false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			got, changed, _ := normalizeAwgSettings(tc.in)
+			if changed != tc.wantChanged {
+				t.Fatalf("changed = %v, want %v (out=%s)", changed, tc.wantChanged, got)
+			}
+			if !changed && got != tc.in {
+				t.Fatalf("unchanged input must be returned verbatim, got %s", got)
+			}
+			var m map[string]any
+			if err := json.Unmarshal([]byte(got), &m); err != nil {
+				t.Fatalf("output is not valid JSON: %v (%s)", err, got)
+			}
+			if m["awgVersion"] != tc.wantVersion {
+				t.Fatalf("awgVersion = %v, want %q", m["awgVersion"], tc.wantVersion)
+			}
+			clients, ok := m["clients"].([]any)
+			if !ok || len(clients) != 1 {
+				t.Fatalf("clients array malformed: %v", m["clients"])
+			}
+			cm, _ := clients[0].(map[string]any)
+			adv, _ := cm["advancedSecurity"].(bool)
+			if adv != tc.advStill {
+				t.Errorf("peer advancedSecurity = %v, want %v", adv, tc.advStill)
+			}
+		})
+	}
+}

@@ -1337,6 +1337,7 @@ function awgPeerShape(c: AwgInboundSettings['clients'][number]): WireguardInboun
     allowedIPs: c.allowedIPs ?? [],
     keepAlive: c.keepAlive ?? 0,
     comment: '',
+    advancedSecurity: c.advancedSecurity,
   } as WireguardInboundPeer;
 }
 
@@ -1413,6 +1414,15 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   if (awgVersionAtLeast(v, '3') && settings.headerProtectionKey) {
     url.searchParams.set('headerprotectionkey', settings.headerProtectionKey);
   }
+  // AWG3 device-level timers/padding — 0 = kernel default. Only emitted for v3.
+  if (awgVersionAtLeast(v, '3')) {
+    if (settings.contentPaddingAddition) url.searchParams.set('contentpaddingaddition', String(settings.contentPaddingAddition));
+    if (settings.rekeyAfterTime) url.searchParams.set('rekeyaftertime', String(settings.rekeyAfterTime));
+    if (settings.rekeyTimeout) url.searchParams.set('rekeytimeout', String(settings.rekeyTimeout));
+    if (settings.rejectAfterTime) url.searchParams.set('rejectaftertime', String(settings.rejectAfterTime));
+    if (settings.keepaliveTimeout) url.searchParams.set('keepalivetimeout', String(settings.keepaliveTimeout));
+    if (settings.maxHandshakeAttempts) url.searchParams.set('maxhandshakeattempts', String(settings.maxHandshakeAttempts));
+  }
   if (settings.dns) url.searchParams.set('dns', settings.dns);
   if (peer.preSharedKey) url.searchParams.set('presharedkey', peer.preSharedKey);
   if (typeof peer.keepAlive === 'number' && peer.keepAlive > 0) {
@@ -1475,6 +1485,15 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   if (awgVersionAtLeast(override, '3') && settings.headerProtectionKey) {
     txt += `HeaderProtectionKey = ${settings.headerProtectionKey}\n`;
   }
+  // AWG3 device-level timers/padding — 0 = kernel default. Only for v3.
+  if (awgVersionAtLeast(override, '3')) {
+    if (settings.contentPaddingAddition) txt += `ContentPaddingAddition = ${settings.contentPaddingAddition}\n`;
+    if (settings.rekeyAfterTime) txt += `RekeyAfterTime = ${settings.rekeyAfterTime}\n`;
+    if (settings.rekeyTimeout) txt += `RekeyTimeout = ${settings.rekeyTimeout}\n`;
+    if (settings.rejectAfterTime) txt += `RejectAfterTime = ${settings.rejectAfterTime}\n`;
+    if (settings.keepaliveTimeout) txt += `KeepaliveTimeout = ${settings.keepaliveTimeout}\n`;
+    if (settings.maxHandshakeAttempts) txt += `MaxHandshakeAttempts = ${settings.maxHandshakeAttempts}\n`;
+  }
 
   txt += `\n# ${remark}\n`;
   txt += `[Peer]\n`;
@@ -1486,6 +1505,11 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   }
   if (typeof peer.keepAlive === 'number' && peer.keepAlive > 0) {
     txt += `\nPersistentKeepalive = ${peer.keepAlive}\n`;
+  }
+  // AdvancedSecurity (AWG3 peer-level) — emitted only for v3 when the peer
+  // has the flag set. Advisory only (current kernel ignores on input).
+  if (awgVersionAtLeast(override, '3') && peer.advancedSecurity) {
+    txt += `\nAdvancedSecurity = on\n`;
   }
   return txt;
 }

@@ -145,3 +145,63 @@ func TestRenderClientConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 		})
 	}
 }
+
+// The six device-level AWG3 fields are version-gated in the client .conf too:
+// emitted only when Jc > 0 (the whole obfuscation block is), AwgVersion == "3",
+// and the field > 0. On a non-v3 outbound the lines must NOT appear even when
+// the field carries a value. Mirrors TestRenderClientConf_HeaderProtectionKeyVersionGated.
+func TestRenderClientConf_DeviceFieldsGated(t *testing.T) {
+	const fields = `"contentPaddingAddition":32,"rekeyAfterTime":120,"rekeyTimeout":5,"rejectAfterTime":180,"keepaliveTimeout":10,"maxHandshakeAttempts":18`
+	const v3 = `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"3",` + fields + `}`
+	const v2 = `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"2",` + fields + `}`
+	wantLines := []string{
+		"ContentPaddingAddition = 32", "RekeyAfterTime = 120", "RekeyTimeout = 5",
+		"RejectAfterTime = 180", "KeepaliveTimeout = 10", "MaxHandshakeAttempts = 18",
+	}
+	t.Run("v3 emits", func(t *testing.T) {
+		o := &model.AwgOutbound{Id: 1, Settings: v3}
+		ci, _ := ClientInstanceFromOutbound(o)
+		conf := renderClientConf(ci)
+		for _, w := range wantLines {
+			if !strings.Contains(conf, w) {
+				t.Errorf("missing %q in:\n%s", w, conf)
+			}
+		}
+	})
+	t.Run("v2 omits", func(t *testing.T) {
+		o := &model.AwgOutbound{Id: 1, Settings: v2}
+		ci, _ := ClientInstanceFromOutbound(o)
+		conf := renderClientConf(ci)
+		for _, w := range wantLines {
+			if strings.Contains(conf, w) {
+				t.Errorf("%q must NOT appear for version 2 in:\n%s", w, conf)
+			}
+		}
+	})
+}
+
+// AdvancedSecurity is written to the single upstream [Peer] in the outbound .conf
+// only when AwgVersion == "3" and the outbound opted in. Mirrors the server-side
+// gating so a v1/v2 outbound never carries an unrecognized line.
+func TestRenderClientConf_AdvancedSecurityInPeer(t *testing.T) {
+	for _, tc := range []struct {
+		name     string
+		settings string
+		want     bool
+	}{
+		{"v3 true", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"3","advancedSecurity":true}`, true},
+		{"v3 false", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"3","advancedSecurity":false}`, false},
+		{"v2 true", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"2","advancedSecurity":true}`, false},
+		{"no version true", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","advancedSecurity":true}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			o := &model.AwgOutbound{Id: 1, Settings: tc.settings}
+			ci, _ := ClientInstanceFromOutbound(o)
+			conf := renderClientConf(ci)
+			contains := strings.Contains(conf, "AdvancedSecurity = on")
+			if contains != tc.want {
+				t.Errorf("want AdvancedSecurity=on in conf=%v, got=%v\nConf:\n%s", tc.want, contains, conf)
+			}
+		})
+	}
+}

@@ -12,6 +12,10 @@ import { WireguardClientSchema } from './wireguard';
 const AwgClientSchema = WireguardClientSchema.extend({
   id: z.string().optional(),
   password: z.string().optional(),
+  // AWG3 peer-level advisory flag (kernel ignores on input in current
+  // builds; advisory/labeling only). Written to [Peer] as
+  // "AdvancedSecurity = on" when true and awgVersion === '3'.
+  advancedSecurity: z.boolean().optional(),
 });
 
 // AWG (AmneziaWG) inbound. Served by a kernel-interface sidecar managed by
@@ -58,6 +62,17 @@ export const AwgInboundSettingsSchema = z.object({
   // keep accepting the config. S1-S4 must be >= 12 for the kernel to accept the
   // key (the generator enforces this; the form warns on manual override).
   headerProtectionKey: z.string().default(''),
+  // AWG3 device-level timers/padding (all 0 = kernel uses the built-in
+  // WireGuard constant). Written to .conf only when > 0 AND awgVersion ===
+  // '3'. Kernel defaults: RekeyAfterTime=120s, RekeyTimeout=5s,
+  // RejectAfterTime=180s, KeepaliveTimeout=10s, MaxHandshakeAttempts=18,
+  // ContentPaddingAddition=0 (deterministic WG padding).
+  contentPaddingAddition: z.number().int().min(0).max(65535).default(0),
+  rekeyAfterTime: z.number().int().min(0).max(65535).default(0),
+  rekeyTimeout: z.number().int().min(0).max(65535).default(0),
+  rejectAfterTime: z.number().int().min(0).max(65535).default(0),
+  keepaliveTimeout: z.number().int().min(0).max(65535).default(0),
+  maxHandshakeAttempts: z.number().int().min(0).max(65535).default(0),
   // AWG protocol version this inbound targets: '1.5' (legacy: Jc/Jmin/Jmax +
   // S1/S2 + H1-H4), '2' (adds S3/S4 + optional I1-I5, Android 2.0.1), or '3'
   // (adds HeaderProtectionKey, desktop 5.0.0.5 / Android 3.0.1). The server

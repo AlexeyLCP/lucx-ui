@@ -483,3 +483,142 @@ func TestNatRulesFor_SkipsUnroutable(t *testing.T) {
 		t.Errorf("no external interface must skip NAT, got %+v", got)
 	}
 }
+
+func TestInstanceFingerprint_ChangesOnDeviceField(t *testing.T) {
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k"}
+	before := inst.fingerprint()
+	inst.RekeyAfterTime = 120
+	after := inst.fingerprint()
+	if before == after {
+		t.Fatal("fingerprint must change when an AWG3 device timer field changes (restart trigger)")
+	}
+}
+
+func TestInstanceFingerprint_ChangesOnAdvancedSecurity(t *testing.T) {
+	inst := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k",
+		Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk"}},
+	}
+	before := inst.fingerprint()
+	inst.Peers[0].AdvancedSecurity = true
+	after := inst.fingerprint()
+	if before == after {
+		t.Fatal("fingerprint must change when a peer's AdvancedSecurity flag is toggled (restart trigger)")
+	}
+}
+
+// The six device-level AWG3 fields are version-gated in the server .conf: they
+// appear in [Interface] only when AwgVersion == "3" AND the field > 0. On a
+// non-v3 inbound the lines must NOT appear even when the field carries a value
+// (older kernels reject them in setconf), and a zero field stays silent on v3
+// too (0 = kernel default). Mirrors the HeaderProtectionKey gating.
+func TestRenderServerConf_DeviceFieldsVersionGated(t *testing.T) {
+	cases := []struct {
+		name    string
+		version string
+		line    string
+		set     func(inst *Instance)
+		want    bool
+	}{
+		{"ContentPaddingAddition v3 set", "3", "ContentPaddingAddition = 32", func(i *Instance) { i.ContentPaddingAddition = 32 }, true},
+		{"ContentPaddingAddition v2 set", "2", "ContentPaddingAddition = 32", func(i *Instance) { i.ContentPaddingAddition = 32 }, false},
+		{"ContentPaddingAddition v3 zero", "3", "ContentPaddingAddition =", func(i *Instance) {}, false},
+		{"RekeyAfterTime v3 set", "3", "RekeyAfterTime = 120", func(i *Instance) { i.RekeyAfterTime = 120 }, true},
+		{"RekeyAfterTime v2 set", "2", "RekeyAfterTime = 120", func(i *Instance) { i.RekeyAfterTime = 120 }, false},
+		{"RekeyAfterTime v3 zero", "3", "RekeyAfterTime =", func(i *Instance) {}, false},
+		{"RekeyTimeout v3 set", "3", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = 5 }, true},
+		{"RekeyTimeout v2 set", "2", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = 5 }, false},
+		{"RekeyTimeout v1.5 set", "1.5", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = 5 }, false},
+		{"RejectAfterTime v3 set", "3", "RejectAfterTime = 180", func(i *Instance) { i.RejectAfterTime = 180 }, true},
+		{"RejectAfterTime v2 set", "2", "RejectAfterTime = 180", func(i *Instance) { i.RejectAfterTime = 180 }, false},
+		{"KeepaliveTimeout v3 set", "3", "KeepaliveTimeout = 10", func(i *Instance) { i.KeepaliveTimeout = 10 }, true},
+		{"KeepaliveTimeout v2 set", "2", "KeepaliveTimeout = 10", func(i *Instance) { i.KeepaliveTimeout = 10 }, false},
+		{"MaxHandshakeAttempts v3 set", "3", "MaxHandshakeAttempts = 18", func(i *Instance) { i.MaxHandshakeAttempts = 18 }, true},
+		{"MaxHandshakeAttempts v2 set", "2", "MaxHandshakeAttempts = 18", func(i *Instance) { i.MaxHandshakeAttempts = 18 }, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			inst := Instance{
+				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5,
+				AwgVersion: tc.version,
+			}
+			tc.set(&inst)
+			conf := renderServerConf(inst)
+			contains := strings.Contains(conf, tc.line)
+			if contains != tc.want {
+				t.Errorf("version=%q want %q in conf=%v, got=%v\nConf:\n%s",
+					tc.version, tc.line, tc.want, contains, conf)
+			}
+		})
+	}
+}
+
+// AdvancedSecurity is the AWG3 peer-level advisory flag, written to [Peer] as
+// "AdvancedSecurity = on" only when AwgVersion == "3" and the peer opted in.
+// The current kernel ignores it on input, but the renderer must keep it out of
+// v1/v2 configs so older kernels never see an unrecognized line.
+func TestRenderServerConf_AdvancedSecurityInPeer(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		version string
+		adv     bool
+		want    bool
+	}{
+		{"v3 true", "3", true, true},
+		{"v3 false", "3", false, false},
+		{"v2 true", "2", true, false},
+		{"v1.5 true", "1.5", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			inst := Instance{
+				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5,
+				AwgVersion: tc.version,
+				Peers:      []PeerSpec{{PublicKey: "p1", PSK: "psk", AdvancedSecurity: tc.adv}},
+			}
+			conf := renderServerConf(inst)
+			contains := strings.Contains(conf, "AdvancedSecurity = on")
+			if contains != tc.want {
+				t.Errorf("want AdvancedSecurity=on in conf=%v, got=%v\nConf:\n%s",
+					tc.want, contains, conf)
+			}
+		})
+	}
+}
+
+func TestInstanceFromInbound_DeviceFields(t *testing.T) {
+	ib := &model.Inbound{
+		Id:       9,
+		Protocol: model.AWG,
+		Settings: `{"privateKey":"k","awgVersion":"3",` +
+			`"contentPaddingAddition":32,"rekeyAfterTime":120,"rekeyTimeout":5,` +
+			`"rejectAfterTime":180,"keepaliveTimeout":10,"maxHandshakeAttempts":18}`,
+	}
+	inst, ok := InstanceFromInbound(ib)
+	if !ok {
+		t.Fatal("expected a usable instance")
+	}
+	if inst.ContentPaddingAddition != 32 || inst.RekeyAfterTime != 120 ||
+		inst.RekeyTimeout != 5 || inst.RejectAfterTime != 180 ||
+		inst.KeepaliveTimeout != 10 || inst.MaxHandshakeAttempts != 18 {
+		t.Fatalf("device fields not parsed: %+v", inst)
+	}
+}
+
+func TestInstanceFromInbound_AdvancedSecurity(t *testing.T) {
+	ib := &model.Inbound{
+		Id:       10,
+		Protocol: model.AWG,
+		Settings: `{"privateKey":"k","awgVersion":"3",` +
+			`"clients":[{"id":"p1","password":"psk","enable":true,"advancedSecurity":true}]}`,
+	}
+	inst, ok := InstanceFromInbound(ib)
+	if !ok {
+		t.Fatal("expected a usable instance")
+	}
+	if len(inst.Peers) != 1 {
+		t.Fatalf("expected 1 enabled peer, got %d", len(inst.Peers))
+	}
+	if !inst.Peers[0].AdvancedSecurity {
+		t.Fatalf("peer AdvancedSecurity not parsed: %+v", inst.Peers[0])
+	}
+}
