@@ -1100,7 +1100,7 @@ systemctl start x-ui
 **Тесты:** Frontend `vitest run --project=unit` — 893/893 passed. `npm run typecheck` — чисто. `npm run lint` — чисто. `npm run build` — OK. `npm run gen` — 27 schemas, 181 paths. `gofumpt -l .` — 2 upstream-файла (pre-existing drift). `bin/check-lucx.sh` — 49 файлов OK. i18n-dead-keys — 2/2 passed.
 
 
-## Релиз v3.6.0-lucx.52.1 (2026-08-02) — module-capability gate (bugfix для lucx.52)
+## Релиз v3.6.0-lucx.53 (2026-08-02) — module-capability gate (bugfix для lucx.52)
 
 **Контекст:** Тестер сообщил «Device awg14 does not exist» после lucx.52. Воспроизведено на test2: host с amneziawg module v1.0.20260611 (НЕ v3), оператор выбрал awgVersion "3" в форме. Migration-prune (lucx.50) гейтит AWG3 поля только по `awgVersion != "3"` — на v3 inbound поля уходят в .conf → v1 module reject'ит «Line unrecognized: ContentPaddingAddition=64» → awg-quick откатывает интерфейс → «Device awgN does not exist».
 
@@ -1120,7 +1120,7 @@ systemctl start x-ui
 - `instance_test.go`: 3 существующих version-gate теста обновлены — добавлен `SetModuleSupportsAwg3(&awg3=true)` override + `t.Cleanup(restore)`. Новый `TestRenderServerConf_HeaderProtectionKeyDroppedOnV1Module` — симулирует v1.x module (override false), проверяет что HPK не эмитится даже при `AwgVersion=="3"`.
 - `client_conf_test.go`: 3 существующих теста обновлены с override.
 
-**Файлы:** `internal/awg/platform_{linux,other}.go` (probe + override), `internal/awg/manager.go`, `internal/awg/client_conf.go`, `internal/web/service/inbound.go` (double-gate), `internal/awg/instance_test.go`, `internal/awg/client_conf_test.go` (test overrides + new v1-module test), `internal/config/config.go` (lucx.52.1), `AGENTS.md` (Pattern 1d), `progress.md`.
+**Файлы:** `internal/awg/platform_{linux,other}.go` (probe + override), `internal/awg/manager.go`, `internal/awg/client_conf.go`, `internal/web/service/inbound.go` (double-gate), `internal/awg/instance_test.go`, `internal/awg/client_conf_test.go` (test overrides + new v1-module test), `internal/config/config.go` (lucx.53), `AGENTS.md` (Pattern 1d), `progress.md`.
 
 **Тесты:** `go test ./internal/awg/...` — зелёный (178 PASS). `GOOS=linux go vet` — чисто. `gofumpt -l` — чисто. `bin/check-lucx.sh` — 49 файлов OK.
 

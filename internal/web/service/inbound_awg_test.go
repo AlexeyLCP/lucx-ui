@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/runtime"
@@ -141,6 +142,9 @@ func TestSetInboundEnable_DisableRoutedAwgForcesXrayRegen(t *testing.T) {
 // v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject it,
 // so v1/v2 inbounds must never carry it.
 func TestInboundAwgHints_HeaderProtectionKeyVersionGated(t *testing.T) {
+	awg3 := true
+	awg.SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { awg.SetModuleSupportsAwg3(nil) })
 	const base = `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000"`
 	for _, tc := range []struct {
 		name     string
@@ -175,6 +179,9 @@ func TestInboundAwgHints_HeaderProtectionKeyVersionGated(t *testing.T) {
 // is > 0. The block is the inbound's ceiling — the clients page filters it
 // down per export version.
 func TestInboundAwgHints_DeviceFieldsEmission(t *testing.T) {
+	awg3 := true
+	awg.SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { awg.SetModuleSupportsAwg3(nil) })
 	deviceLines := []string{
 		"ContentPaddingAddition = 32", "RekeyAfterTime = 120", "RekeyTimeout = 5",
 		"RejectAfterTime = 180", "KeepaliveTimeout = 10", "MaxHandshakeAttempts = 18",
