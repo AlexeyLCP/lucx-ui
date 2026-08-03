@@ -34,10 +34,16 @@ type Diagnostics struct {
 	Checks []DiagCheck `json:"checks"`
 }
 
-// Healthy reports whether every probe passed.
+// awg3SupportCheckName is the DiagCheck.Name of the AWG3 capability line,
+// which Healthy() treats as informational.
+const awg3SupportCheckName = "awg3 support"
+
+// Healthy reports whether every probe passed. The "awg3 support" line is a
+// capability report, not a fault — a pre-AWG3 host simply renders configs
+// without HeaderProtectionKey and serves traffic fine — so it is excluded.
 func (d Diagnostics) Healthy() bool {
 	for _, c := range d.Checks {
-		if !c.OK {
+		if !c.OK && c.Name != awg3SupportCheckName {
 			return false
 		}
 	}
@@ -96,6 +102,8 @@ func diagnose(inst Instance, p prober, now func() time.Time) Diagnostics {
 		"ip_forward", fwd,
 		fmt.Sprintf("net.ipv4.ip_forward=%s (client packets are dropped without it)", strings.TrimSpace(out)),
 	})
+
+	d.Checks = append(d.Checks, awg3CapabilityCheck(p))
 
 	peersOut, peersErr := p.Run("awg", "show", inst.Ifname, "peers")
 	hsOut, hsErr := p.Run("awg", "show", inst.Ifname, "latest-handshakes")

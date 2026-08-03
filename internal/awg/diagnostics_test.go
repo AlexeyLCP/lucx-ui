@@ -44,6 +44,7 @@ func healthyKernelProber() fakeProber {
 			"awg show awg1 peers":             "pubkeyA\npubkeyB\n",
 			"awg show awg1 latest-handshakes": "pubkeyA\t1799999950\npubkeyB\t0\n",
 			"ip -o -4 route show default":     "default via 192.168.1.1 dev eth0 proto static\n",
+			"awg version":                     "amneziawg-tools v3.0.20260730 - https://amnezia.org\n",
 			"iptables -t nat -C POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE": "",
 			"iptables -C FORWARD -i awg1 -j ACCEPT":                               "",
 			"iptables -C FORWARD -o awg1 -j ACCEPT":                               "",
@@ -64,8 +65,8 @@ func TestDiagnose_KernelNATHealthy(t *testing.T) {
 			}
 		}
 	}
-	if len(d.Checks) != 5 {
-		t.Errorf("kernel-nat must run 5 checks, got %d: %+v", len(d.Checks), d.Checks)
+	if len(d.Checks) != 6 {
+		t.Errorf("kernel-nat must run 6 checks, got %d: %+v", len(d.Checks), d.Checks)
 	}
 	var peers DiagCheck
 	for _, c := range d.Checks {

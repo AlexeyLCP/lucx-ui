@@ -189,7 +189,7 @@ internal/awg/                      AWG sidecar — INBOUND (mirrors internal/mtp
 ├── process.go                     Process wrapping awg-quick up/down + procLogWriter + awgConfigDir + awgQuick
 ├── instance.go                    Instance + InstanceFromInbound + fingerprint + PeerSpec (server-side desired state for awgN)
 ├── diagnostics.go                 Diagnose(inst) — read-only probe chain (interface/ip_forward/peers/NAT or TUN rules), prober interface, DiagCheck/Diagnostics
-├── platform_linux.go              defaultRouteInterface() + killStrayAwgInterfaces (was nat_linux + orphans_linux)
+├── platform_linux.go              defaultRouteInterface() + killStrayAwgInterfaces + ModuleSupportsAwg3 (kallsyms-символ + awg version ≥ 3, кэш только true) + awg3CapabilityCheck для диагностики
 ├── platform_other.go              no-ops off Linux
 ├── client_instance.go             ClientInstance + ClientSettings + ClientInstanceFromOutbound + fingerprint (desired state for awgo-N outbounds)
 ├── client_conf.go                 renderClientConf — awg-quick .conf for an awgo-N outbound (Table=off, no DNS, no I1-I5; HPK only when AwgVersion=="3" and non-empty)
@@ -244,7 +244,7 @@ frontend/src/
 ├── schemas/primitives/protocol.ts          ProtocolSchema + Protocols map (LUCX-HOOK)
 └── pages/inbounds/form/protocols/index.ts  AwgFields export (LUCX-HOOK)
 
-bin/install-awg-module.sh          DKMS build of amneziawg kernel module + tools (HEAD of upstream master → pulls AWG3 v3.0.20260731 since lucx.50; needs kernel ≥ 6.7 for v3 build)
+bin/install-awg-module.sh          kernel auto-upgrade (meta-package, каждый вызов) + DKMS build модуля/tools из HEAD upstream master; версия = git describe, маркер = SHA коммита; build-first-safe swap; сборка для всех установленных ядер; tools пересобираются при awg version < v3
 bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes
 bin/pre-push                       git hook: check-lucx + fast go tests + PR/issues guard (AGENTS.md 11.5)
 install.sh                         Calls bin/install-awg-module.sh (LUCX-HOOK)
@@ -332,6 +332,12 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 > Тег ставится **только после зелёного CI на main** (урок lucx.48: первый тег уехал до CI-фиксов, пришлось удалять релиз и переставлять тег). `lucxVersion` в `internal/config/config.go` должен совпадать с суффиксом тега — CI guard ловит расхождение.
 
+### Что делает `x-ui update` (lucx.58+)
+1. Ставит новый бинарник/фронтенд, останавливает панель.
+2. **Авто-апгрейд ядра** до последнего packaged (Debian/Ubuntu meta-package) — при каждом обновлении.
+3. AWG-gate: маркер `/etc/x-ui/.awg-module-version` (**SHA коммита** последней сборки модуля) vs `git ls-remote refs/heads/master` amneziawg-linux-kernel-module. Расхождение (включая legacy-маркеры вида «1.0.0») → `install-awg-module.sh --force-rebuild`: модуль из master (build-first-safe, для всех установленных ядер) + тулзы при `awg version` < v3.
+4. Старт панели, migrate, fail2ban; если установлено новое ядро — **ребут через 10с** (AWG-модуль уже собран для нового ядра; панель поднимает systemd).
+
 ### Зависимости VPS для сборки
 - Go 1.23+ (рекомендуется 1.26)
 - Node.js 20+ и npm
@@ -407,9 +413,10 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 ### 5. ~~AWG3 (AmneziaWG 3) — forward-compat поле `headerProtectionKey`~~ — ЗАКРЫТО (lucx.50)
 
 **Решено (2026-07-31):** AWG3 официально слит в upstream и включён в LucX-UI с lucx.50.
-- `amnezia-vpn/amneziawg-linux-kernel-module`: PR #192 слит в master 30.07.2026, тег **`v3.0.20260731`**. `WGDEVICE_A_HEADER_PROTECTION_KEY` в master. ⚠️ ядро отвергает HPK с `-EINVAL`, если любое из S1–S4 < 12.
-- `amnezia-vpn/amneziawg-tools`: PR #60 слит 30.07.2026, тег **`v3.0.20260730`**. `HeaderProtectionKey` парсится в `.conf` (`config.c`, `parse_key`).
-- ⚠️ Сборка модуля v3.0 падает на ядрах < 6.7 (`nla_put_uint`) — фикс уже в master, но на старых VPS может потребоваться обновление ядра.
+- `amnezia-vpn/amneziawg-linux-kernel-module`: PR #192 «feat: AmneziaWG 3.0» слит в master 30.07.2026T21:54Z, теги **`v3.0.20260730`**/**`v3.0.20260731`**(+ -02…-04). `header_protection.c` есть только начиная с этих тегов; в `v1.0.20260611`/`v1.0.20260725` его НЕТ. ⚠️ ядро отвергает HPK с `-EINVAL`, если любое из S1–S4 < 12.
+- ⚠️ **Нумерация версий модуля НЕ отражает версию протокола (lucx.58):** upstream штампует `PACKAGE_VERSION="1.0.0"` (src/dkms.conf) и `WIREGUARD_VERSION=1.0.0` (src/Makefile) в **каждом** релизе — модуль, собранный из v3-тега, сообщает modinfo/dkms ту же «1.0.0», что и v1-модуль. Единственный надёжный признак AWG3 — функциональный probe: символ `awg_header_protection_set_key` в `/proc/kallsyms` (ядро) + `awg version` ≥ v3 (тулзы). См. Pattern 1j.
+- `amnezia-vpn/amneziawg-tools`: PR #60 слит 30.07.2026, тег **`v3.0.20260730`**. `HeaderProtectionKey` парсится в `.conf` (`config.c`, `parse_key`); `awg version` печатает `amneziawg-tools v3.0.20260730 - https://amnezia.org` (fallback из src/version.h, когда git-describe не сработал).
+- ⚠️ Сборка модуля v3.0 падала на ядрах < 6.7 (`nla_put_uint`) — фикс уже в master, так что текущая сборка из master встаёт и на старые ядра; авто-апгрейд ядра в `bin/install-awg-module.sh` (lucx.58) снимает проблему системно.
 
 **Что сделано в lucx.50:**
 1. `generateObfuscation` (`controller/awg.go`) снова отдаёт `headerProtectionKey` — но **только при `awgVersion == "3"`** в запросе. Для v1.5/v2 поле отсутствует в ответе (не `""`), чтобы `regenerateObfuscation` (`Object.entries(obf).forEach(setValue)`) не затёр ручное значение оператора.
@@ -458,8 +465,8 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 
 ### Pattern 1d: AWG inbound «Device awgN does not exist» когда оператор выбрал v3 на v1.x module — ИСПРАВЛЕНО (lucx.53)
 - **Cause:** Migration-prune (migrateAwgVersion) гейтит AWG3 поля (HPK + 6 device timers/padding + AdvancedSecurity) только по `awgVersion != "3"`. Если оператор выбрал v3 в форме, но host ещё на amneziawg kernel module v1.x, поля уходят в .conf → v1 module reject'ит «Line unrecognized: ContentPaddingAddition=64» в setconf → awg-quick откатывает интерфейс → «Device awgN does not exist». Симптом:AWG inbound не поднимается, в логах `awg setconf ... Configuration parsing error`. Воспроизведено на lucx-test2 (module v1.0.20260611).
-- **Fix (lucx.53):** `ModuleSupportsAwg3()` (platform_{linux,other}.go) — кэшированный probe `modinfo -F version amneziawg`, возвращает true только для v3.x. Все 4 рендерера (renderServerConf, renderClientConf, inboundAwgHints + transitively sub/service.go через Prune AWG3 fields) теперь double-gated: `AwgVersion == "3" && ModuleSupportsAwg3()`. Тесты override через `SetModuleSupportsAwg3(&bool)`.
-- **Урок:** DB-stored `awgVersion` — это потолок, который оператор выбрал, а не capabilities runtime. Нужна explicit module capability check в каждой точке эмиссии AWG3 полей.
+- **Fix (lucx.53, probe переписан в lucx.58):** `ModuleSupportsAwg3()` (platform_{linux,other}.go). Все 4 рендерера (renderServerConf, renderClientConf, inboundAwgHints + transitively sub/service.go через Prune AWG3 fields) double-gated: `AwgVersion == "3" && ModuleSupportsAwg3()`. Тесты override через `SetModuleSupportsAwg3(&bool)`. **lucx.53-реализация (major=="3" из `modinfo -F version`) была сломана в принципе:** upstream штампует `PACKAGE_VERSION="1.0.0"` в dkms.conf/Makefile КАЖДОГО релиза, так что и v1-, и v3-модуль сообщают «1.0.0» — gate не срабатывал никогда, HPK молча дропался на всех хостах. **lucx.58:** функциональный probe — символ `awg_header_protection_set_key` в `/proc/kallsyms` (ядро) + мажорная версия из `awg version` ≥ 3 (тулзы < v3 не парсят строку HPK в .conf). Кэш только положительного результата. См. Pattern 1j.
+- **Урок:** DB-stored `awgVersion` — это потолок, который оператор выбрал, а не capabilities runtime. Нужна explicit capability check в каждой точке эмиссии AWG3 полей — и проверять надо **фичу** (символ/поведение), а не строку версии.
 
 ### Pattern 1e: «коннект есть, трафика нет» — два AWG-инбаунда на одной подсети (kernel route конфликт) — ИСПРАВЛЕНО (lucx.54)
 - **Cause:** Дефолт формы `createDefaultAwgInboundSettings` хардкодит `address: '10.8.0.1/24'` для каждого нового AWG-инбаунда. Два подряд созданных инбаунда получают **идентичную client-подсеть 10.8.0.0/24** → kernel устанавливает две connected-route на один префикс (`10.8.0.0/24 dev awg2` + `10.8.0.0/24 dev awg4`). Linux выбирает одну по метрике/порядку, вторая zombie. Reverse-path от сервера к клиентам второго инбаунда уходит в preferred-интерфейс (awg2), где peer с этим pubkey не зарегистрирован → пакеты dropнуты → клиенты на awg4 видят handshake (UDP port input не зависит от route), но не получают data-трафика.
@@ -493,6 +500,19 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 - **Cause 2:** `ModuleSupportsAwg3` взводил `moduleAwg3Checked=true` ДО `modinfo`; транзиентная ошибка modinfo (модуль пересобирается при update) кэшировала «не v3» на весь процесс → AWG3-поля молча дропались до рестарта.
 - **Fix (lucx.57):** `Remove` удаляет `.conf` безусловно; `Reconcile` добавляет `sweepOrphanInboundConfigs(want)` (чистит `awg{N}.conf` нежеланных id без записи в procs; `parseInboundConfName` не матчит `awgo-*.conf`); `ModuleSupportsAwg3` не кэширует при `err != nil` (повторяет probe).
 - **Урок:** cleanup, привязанный к «запущенным» сущностям, пропускает именно те, что не запустились (они и оставляют мусор). Побочные файлы удалять по id безусловно.
+
+### Pattern 1j: «модуль v1.x / не v3» по версии — ложь; version-gate пересборки никогда не работал — ИСПРАВЛЕНО (lucx.58)
+- **Cause 1 (детект AWG3):** `ModuleSupportsAwg3` парсил major из `modinfo -F version amneziawg` и ждал «3». Upstream штампует `PACKAGE_VERSION="1.0.0"` (dkms.conf) и `WIREGUARD_VERSION=1.0.0` (Makefile) в каждом релизе — и v1-теги (v1.0.20260611), и v3-теги (v3.0.20260731) дают модуль «1.0.0». Gate не срабатывал никогда → HPK не эмиссился НИ на одном хосте (симптом ВладufQa «в конфиге так и не появилась HeaderProtectionKey», даже если модуль пересобран из master).
+- **Cause 2 (gate пересборки в update.sh):** сравнение `grep -oP 'version\s*"\K[^"]+' src/dkms.conf` с маркером. В dkms.conf переменная UPPERCASE (`PACKAGE_VERSION=`) → grep матчил пусто → «up to date» → модуль **ни разу не пересобирался** за всё время существования gate (lucx.51+). У ВладufQa модуль остался июньским (pre-HPK) после всех обновлений.
+- **Fix (lucx.58):**
+  1. `ModuleSupportsAwg3` = функциональный probe: символ `awg_header_protection_set_key` в `/proc/kallsyms` (есть только у AWG3-модуля, и только когда он загружен) + `awg version` major ≥ 3 (тулзы < v3 не парсят HPK-строку в .conf). Кэш только true; false = транзиентно → retry каждый вызов (апгрейд подхватывается без рестарта панели).
+  2. Маркер `/etc/x-ui/.awg-module-version` = **SHA коммита** сборки; gate в update.sh = `git ls-remote refs/heads/master` (без клона). Legacy-маркеры ≠ SHA → одноразовая пересборка на всех хостах при первом lucx.58-обновлении.
+  3. **Авто-апгрейд ядра** (linux-image/headers meta-package) при каждом вызове install-awg-module.sh; update.sh ребутит в новое ядро в конце обновления (AWG-модуль уже собран и для него).
+  4. Build-first-safe: новый DKMS-tree компилируется при загруженном старом; swap только после успешной сборки. Модуль собирается для ВСЕХ установленных ядер с headers. Тулзы пересобираются при `awg version` < v3.
+- **Верификация (test2, 2026-08-03):** ядро 6.12.90→6.12.100; старый модуль (маркер 1.0.20260611, тулзы v1.0.20260618-2) → `--force-rebuild` → модуль v3.0.20260731-04 (kallsyms-символ на месте), тулзы v3.0.20260730, маркер = SHA master; reconcile пересоздал awg3/awgo-* за один тик; старый lucx.49-бинарник + v2-конфиг работает на v3-модуле (back-compat), формат `awg show dump` не изменился.
+- **Нюанс горячего swap'а:** при запущенной панели rmmod может не сработать (интерфейсы держат модуль) — тогда новый модуль подхватится после ребута/рестарта панели. В штатном update.sh панель остановлена до AWG-хука, так что там swap чистый.
+- **Урок 1:** версии внешних компонентов (dkms/modinfo) часто константны между мажорными релизами протокола. Хочешь знать capability — probe'и фичу (символ ядра, поведение бинарника), не строку.
+- **Урок 2:** shell-gate по содержимому чужих файлов проверяй end-to-end на реальном файле: grep, не сматчивший UPPERCASE-переменную, молча отключил gate на 3 релиза. Для «актуальности сборки» сравнивай SHA коммитов — строки версий обманывают.
 
 ### Pattern 2: LUCX-HOOK конфликт при upstream sync
 - **Cause:** Upstream изменил файл с HOOK-маркером между релизами.
@@ -543,8 +563,8 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 - **Fix (корневой, TODO отдельным issue):** либо тест должен проверять GREASE только в extension-позициях (а не по всему hex), либо `buildSafariHello`/`buildFirefoxHello` не должны писать GREASE через rng (Safari/Firefox по реальным fingerprint'ам GREASE не используют — только Chrome). Пробовал `SetRand(t *testing.T, …)` с `t.Cleanup` для изоляции глобального `rng` — не помог (проблема в логике, не в загрязнении); откатил. НЕ чинить наспех — это domain-логика CPS-обфускации.
 - **Урок:** при падении CI-джоба сначала проверь, твой ли это регресс. Воспроизведи локально с точным shuffle-seed из лога CI (`-test.shuffle <N>`). Если проходит локально и не связано с твоими файлами — это flaky, rerun оправдан.
 
-### Pattern 7b: CI frontend красный на storybook a11y `ConfigBlock.stories.tsx → Collapsed` (pre-existing flaky, color-contrast)
-- **Cause:** storybook a11y-addon гоняет `toHaveNoViolations` на story `Clients/ConfigBlock → Collapsed` (после play-функции, разворачивающей блок). `.config-block-text` (`ConfigBlock.css:38`) берёт цвет из `var(--ant-color-text)` / фон `var(--ant-color-fill-tertiary)`; в storybook-chromium переменные иногда резолвятся в низко-контрастную пару (#a7a7a7 на #f8f8f8, 2.26 вместо 4.5) — по таймингу/анимации разворачивания. Плавающий: то проходит, то нет. **НЕ связан с AWG-изменениями** — падал на lucx.54 и lucx.56 при полностью зелёных остальных 1096 тестах.
-- **Fix (временный):** `gh run rerun <id> --failed` — проходит на повторе (проверено на lucx.54, lucx.56).
-- **Fix (корневой, TODO):** задать `.config-block-text` явный высоко-контрастный цвет (не только `body.light #595959`), либо починить storybook-тему/фон чтобы `--ant-color-text` резолвился корректно. Требует отладки storybook-окружения, не чинить наспех (риск поменять внешний вид в приложении).
+### Pattern 7b: ~~CI frontend красный на storybook a11y `ConfigBlock.stories.tsx → Collapsed`~~ — ИСПРАВЛЕНО (lucx.58)
+- **Cause (уточнён по логу CI, attempt 1 run 30816344911):** axe сообщал `insufficient color contrast of 2.29 (foreground #a6a6a6, background #f8f8f8)` на `<code class="config-block-text">`. `#a6a6a6` — это финальный цвет текста (#595959 из `body.light .config-block-text`), **смешанный с фоном при ~54% opacity**: a11y-addon гоняет axe сразу после play(), а antd Collapse ещё в fade-in анимации разворачивания. Гонка по таймингу: axe попадает либо на середину fade (fail), либо после (pass).
+- **Fix (lucx.58):** `token.motion: false` в ConfigProvider storybook-декоратора (`.storybook/preview.tsx`) — анимации antd в stories отключены, разворачивание мгновенное, axe всегда видит финальное состояние. Продакшн-анимации не затронуты (декоратор — только storybook). Проверено 3 последовательными прогонами. CSS не трогали — `--ant-*` переменные резолвятся корректно (cssVar-режим antd даёт переменным scope, а не переименовывает префикс).
+- **Урок:** storybook a11y + анимации появления = плавающие color-contrast-падения (axe меряет элемент в середине fade и видит blended-цвет). Отключение motion в test-декораторе — стандартный фикс; не чинить CSS, если финальный контраст в порядке.
 - **Урок:** если CI frontend падает ЕДИНСТВЕННЫМ тестом `storybook ... ConfigBlock → Collapsed` с `color-contrast` — это этот flake; проверь что твои тесты зелёные и rerun, не трать время на поиск регрессии в своём коде.

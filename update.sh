@@ -1197,36 +1197,47 @@ update_x-ui() {
         systemctl daemon-reload > /dev/null 2>&1
         systemctl enable x-ui > /dev/null 2>&1
 
-        # LUCX-HOOK: rebuild AWG kernel module when upstream version changed.
+        # LUCX-HOOK: rebuild AWG kernel module when upstream moved + reboot
+        # into a freshly upgraded kernel at the very end of the update.
         # update.sh runs both on web-panel and console `x-ui update`. The panel
         # is stopped (line ~1019), so awgN interfaces are gone and rmmod is
-        # safe. The version gate compares the marker file (last installed
-        # version) against a fresh upstream clone's dkms.conf; rebuild only on
-        # mismatch. This is what lucx.50 (AWG1→AWG3) needed but the update path
-        # skipped, causing tester outbounds to break after a web-panel update.
-        # Marker is /etc/x-ui/.awg-module-version, written by
-        # bin/install-awg-module.sh on every build. Never fatal: a failed
-        # rebuild leaves the existing module (panel still starts).
+        # safe. The rebuild gate compares the marker file — the commit SHA the
+        # module was built from, written by bin/install-awg-module.sh — against
+        # upstream master via git ls-remote (no clone). A version string
+        # cannot discriminate: upstream stamps PACKAGE_VERSION="1.0.0" into
+        # every module build, v1 and v3 alike. install-awg-module.sh also
+        # upgrades the kernel meta-packages on every call and compiles the
+        # module for the new kernel; when the booted kernel is older than the
+        # newest installed one, the panel reboots once the update finishes
+        # (systemd brings it back). Never fatal: a failed rebuild/probe keeps
+        # the existing module (panel still starts).
         if [[ -x bin/install-awg-module.sh ]]; then
-            INSTALLED_AWG_VER=""
-            [[ -f /etc/x-ui/.awg-module-version ]] && INSTALLED_AWG_VER=$(cat /etc/x-ui/.awg-module-version 2>/dev/null)
-            AWG_PROBE_DIR="/tmp/awg-version-probe-$$"
-            if git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git "$AWG_PROBE_DIR" >/dev/null 2>&1; then
-                UPSTREAM_AWG_VER=$(grep -oP 'version\s*"\K[^"]+' "$AWG_PROBE_DIR/src/dkms.conf" 2>/dev/null || echo "")
-                rm -rf "$AWG_PROBE_DIR"
-                if [[ -n "$UPSTREAM_AWG_VER" && "$INSTALLED_AWG_VER" != "$UPSTREAM_AWG_VER" ]]; then
-                    echo -e "${green}AWG module ${INSTALLED_AWG_VER:-none} → ${UPSTREAM_AWG_VER}: rebuilding...${plain}"
-                    bash bin/install-awg-module.sh --force-rebuild || \
-                        echo -e "${red}AWG module rebuild failed (non-fatal). Run: bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)${plain}"
-                else
-                    echo -e "${green}AWG module up to date (${INSTALLED_AWG_VER:-none}).${plain}"
-                fi
-            else
+            INSTALLED_AWG_SHA=""
+            [[ -f /etc/x-ui/.awg-module-version ]] && INSTALLED_AWG_SHA=$(cat /etc/x-ui/.awg-module-version 2>/dev/null)
+            UPSTREAM_AWG_SHA=$(git ls-remote https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git refs/heads/master 2>/dev/null | awk '{print $1}')
+            if [[ -n "$UPSTREAM_AWG_SHA" && "$INSTALLED_AWG_SHA" != "$UPSTREAM_AWG_SHA" ]]; then
+                echo -e "${green}AWG module ${INSTALLED_AWG_SHA:-none} → ${UPSTREAM_AWG_SHA:0:12}: rebuilding...${plain}"
+                bash bin/install-awg-module.sh --force-rebuild || \
+                    echo -e "${red}AWG module rebuild failed (non-fatal). Run: bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)${plain}"
+            elif [[ -z "$UPSTREAM_AWG_SHA" ]]; then
                 # Network/GitHub failure: can't probe upstream. Fall back to a
-                # plain install call — it's a no-op if the module is already
-                # loaded and covers the "module absent entirely" case.
-                rm -rf "$AWG_PROBE_DIR"
+                # plain install call — it upgrades the kernel, is a no-op if
+                # the module is already loaded, and covers the "module absent
+                # entirely" case.
                 bash bin/install-awg-module.sh || true
+            else
+                # Module tree current — still run the script so the kernel
+                # meta-packages advance; it no-ops the module build itself.
+                bash bin/install-awg-module.sh || true
+                echo -e "${green}AWG module up to date (${INSTALLED_AWG_SHA:0:12}).${plain}"
+            fi
+            # Kernel upgraded inside install-awg-module.sh: schedule the
+            # reboot once everything else (panel start, migrate, fail2ban)
+            # has finished.
+            NEWEST_KERNEL=$(ls -1 /lib/modules 2>/dev/null | sort -V | tail -1)
+            if [[ -n "$NEWEST_KERNEL" && "$NEWEST_KERNEL" != "$(uname -r)" && -d "/lib/modules/$NEWEST_KERNEL/build" ]]; then
+                xui_kernel_reboot=1
+                xui_newest_kernel="$NEWEST_KERNEL"
             fi
         fi
         # END LUCX-HOOK
@@ -1261,6 +1272,18 @@ update_x-ui() {
 │  ${blue}x-ui install${plain}      - Install                          │
 │  ${blue}x-ui uninstall${plain}    - Uninstall                        │
 └───────────────────────────────────────────────────────┘"
+
+    # LUCX-HOOK: reboot into the freshly upgraded kernel once the update is
+    # fully finished — the panel is running on the old kernel right now;
+    # systemd brings it back after the reboot, and install-awg-module.sh has
+    # already compiled the AWG module for the new kernel. The delay lets the
+    # final output reach the web-panel/console session.
+    if [[ "${xui_kernel_reboot:-0}" == "1" ]]; then
+        echo -e ""
+        echo -e "${green}Ядро обновлено: $(uname -r) → ${xui_newest_kernel}. Перезагрузка через 10 секунд...${plain}"
+        ( sleep 10 && reboot ) > /dev/null 2>&1 &
+    fi
+    # END LUCX-HOOK
 }
 
 echo -e "${green}Running...${plain}"

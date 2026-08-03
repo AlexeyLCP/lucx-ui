@@ -1226,3 +1226,36 @@ systemctl start x-ui
 
 
 
+
+## Релиз v3.6.0-lucx.58 (2026-08-03) — feature-probe AWG3 вместо парсинга версии + авто-апгрейд ядра при обновлении панели
+
+**Контекст:** Тестер ВладufQa (lucx.57): после обновления «не идёт трафик», в клиентском конфиге нет HeaderProtectionKey. Пользователь указал на ошибку: «MODULE: 1.0.20260611 — это v1.x модуль, НЕ v3» — нумерация версий модуля НЕ отражает версию протокола. Проверка GitHub подтвердила: upstream штампует `PACKAGE_VERSION="1.0.0"` (dkms.conf) и `WIREGUARD_VERSION=1.0.0` (Makefile) в **каждом** релизе — и в v1-тегах (v1.0.20260611…), и в v3-тегах (v3.0.20260730…); PR #192 «feat: AmneziaWG 3.0» слит в master 2026-07-30T21:54Z, `header_protection.c` есть только начиная с тега v3.0.20260730. Значит старый `ModuleSupportsAwg3()` (major=="3" из `modinfo -F version`) **не срабатывал никогда** — HPK молча дропался на ВСЕХ хостах, даже с модулем из master.
+
+**Фикс 1 — функциональный probe вместо версии (`internal/awg/platform_linux.go`):**
+- `kernelExportsHeaderProtection()`: ищет символ `awg_header_protection_set_key` в `/proc/kallsyms` — не-static-функция из `header_protection.c`, присутствует в kallsyms только у AWG3-модулей (и только когда модуль загружен).
+- `awgToolsParseHeaderProtectionKey()`: `awg version` → парс мажорной версии (`parseMajorVersion`); тулзы < v3 не парсят строку `HeaderProtectionKey` в .conf («Line unrecognized» → откат интерфейса), поэтому HPK гейтится на ОБА компонента.
+- Кэш только положительного результата: отрицательный — транзиентный (модуль ещё не загружен после boot, тулзы пересобираются) → следующий вызов повторяет probe; хост, апгрейднувшийся до AWG3, подхватывает поля в течение одного reconcile-тика без рестарта панели.
+- `generateObfuscation` (`internal/web/controller/awg.go`) отдаёт HPK только при `awgVersion=="3" && ModuleSupportsAwg3()` — форма больше не показывает ключ, который рендереры всё равно выкинут.
+- Диагностика (`internal/awg/diagnostics.go`): новый инфо-чек `awg3 support` (kernel-символ + версия тулзов), исключён из `Healthy()` — отсутствие AWG3 не неисправность, а capability-отчёт.
+
+**Фикс 2 — пересборка модуля/тулзов и авто-апгрейд ядра (`bin/install-awg-module.sh`, `update.sh`):**
+- Старый version-gate в update.sh был мёртв: `grep -oP 'version\s*"...'` по dkms.conf не матчил ничего (PACKAGE_VERSION — uppercase) → «up to date» → модуль **никогда** не пересобирался при обновлении панели (именно поэтому у ВладufQa модуль июня, хотя релизы AWG3 вышли 31.07).
+- Новый gate: маркер `/etc/x-ui/.awg-module-version` теперь содержит **SHA коммита**, из которого собран модуль; update.sh сравнивает его с `git ls-remote refs/heads/master` (без клона). Legacy-маркеры («1.0.0», «1.0.20260611») ≠ SHA → одноразовая пересборка на всех хостах при первом lucx.58-обновлении.
+- **Авто-апгрейд ядра** (запрос пользователя): скрипт ставит `linux-image-amd64`/`linux-headers-amd64` (meta-package, Debian/Ubuntu-family) при КАЖДОМ вызове, до early-exit — ядро обновляется на каждом обновлении панели, даже когда модуль актуален. update.sh в конце обновления ребутит в новое ядро (10с задержка, systemd поднимает панель; AWG-модуль уже скомпилирован для нового ядра).
+- **Build-first-safe**: новый DKMS-tree компилируется ПОКА старый модуль загружен; swap (rmmod → dkms remove old → dkms install new) только после успешной сборки. Упавшая сборка больше не оставляет хост без модуля (старый порядок rmmod-first мог обездвижить AWG).
+- Модуль собирается для ВСЕХ установленных ядер с headers (не только запущенного) — ребут в свежепоставленное ядро сразу стартует с новым модулем.
+- Тулзы пересобираются не только когда их нет, но и когда `awg version` < v3 (старые не парсят HPK).
+
+**Фикс 3 — a11y flake ConfigBlock (Pattern 7b, блокировал 3 релиза):** корень — гонка: a11y-adddon гоняет axe сразу после play(), а Collapse-контент ещё в fade-in; axe видел текст при ~54% opacity → blended-цвет `#a6a6a6` на `#f8f8f8` (контраст 2.29). Фикс: `token.motion: false` в ConfigProvider storybook-декоратора (`.storybook/preview.tsx`) — анимации в stories отключены, рендер детерминированный; продакшн-анимации не тронуты. Проверено 3 последовательными прогонами.
+
+**Runtime-верификация (test2):** ядро 6.12.90 → 6.12.100 (security-апдейт, ребут); старый модуль (маркер 1.0.20260611, тулзы v1.0.20260618-2, HPK-символа в kallsyms нет) пересобран новым скриптом из master с `--force-rebuild` — результат см. в AGENTS.md.
+
+**Файлы:** `internal/awg/platform_linux.go` (probe-перепись + awg3CapabilityCheck), `internal/awg/platform_linux_test.go` (TestParseMajorVersion, TestKallsymsHasSymbol), `internal/awg/platform_other.go` (stub awg3CapabilityCheck), `internal/awg/diagnostics.go` (awg3 support check + Healthy-exclusion), `internal/awg/diagnostics_test.go` (6 чеков, awg version в fakeProber), `internal/web/controller/awg.go` (gate), `bin/install-awg-module.sh`, `update.sh`, `frontend/.storybook/preview.tsx`, `internal/config/config.go` (lucx.58), `AGENTS.md`, `progress.md`.
+
+**Тесты:** `go test ./internal/awg/... ./internal/lucx/...` PASS; `GOOS=linux go vet ./internal/awg/...` чисто; `npm run typecheck && npm run lint` чисто; storybook ConfigBlock 3/3 PASS ×3.
+
+**Урок 1:** Версия модуля ядра — НЕ индикатор возможностей: dkms.conf/Makefile-версии константны между мажорными релизами протокола. Единственный надёжный capability-check — функциональный probe (символы kallsyms для ядра, `awg version` для тулзов). Любая логика «if version >= X» для внешних компонентов должна проверять фичу, а не строку.
+
+**Урок 2:** Version-gate в shell, построенный на grep'е чужого конфиг-файла, обязан иметь end-to-end проверку на реальном файле (здесь grep по `version\s*"` не матчил UPPERCASE `PACKAGE_VERSION` и gate молча не работал НИ РАЗУ с lucx.51). Сравнение SHA коммитов — единственный не обманываемый вариант для «собрано ли из актуального master».
+
+**Урок 3:** Storybook a11y + antd-анимации = плавающие color-contrast-падения (axe меряет элемент в середине fade). `token.motion: false` в storybook-декораторе — стандартный способ сделать тесты детерминированными; продакшн не затрагивается.

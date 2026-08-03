@@ -24,8 +24,15 @@ export const withTheme: Decorator = (Story, context) => {
     document.body.classList.add(dark ? 'dark' : 'light');
     document.documentElement.removeAttribute('data-theme');
   }, [dark]);
+  // token.motion:false makes antd expand/collapse instant inside stories. The
+  // a11y addon runs axe right after play() resolves; with motion on, Collapse's
+  // content is still fading in and axe samples the text mid-animation at a
+  // partial opacity, computing a blended low-contrast colour (ConfigBlock
+  // "Collapsed" flaked at #a6a6a6 on #f8f8f8, 2.29:1). Deterministic render
+  // removes the race without touching the production app's animations.
+  const themeConfig = buildAntdThemeConfig(dark, false);
   return (
-    <ConfigProvider theme={buildAntdThemeConfig(dark, false)}>
+    <ConfigProvider theme={{ ...themeConfig, token: { ...themeConfig.token, motion: false } }}>
       <div style={{ padding: 24, minWidth: 320 }}>
         <Story />
       </div>

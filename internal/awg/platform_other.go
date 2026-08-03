@@ -36,3 +36,9 @@ func ModuleSupportsAwg3() bool {
 func SetModuleSupportsAwg3(supported *bool) {
 	moduleSupportsAwg3Override = supported
 }
+
+// awg3CapabilityCheck is a stub off Linux: AWG is a Linux kernel module, so
+// AWG3 (HeaderProtectionKey) support is never present on dev hosts.
+func awg3CapabilityCheck(prober) DiagCheck {
+	return DiagCheck{awg3SupportCheckName, false, "AWG is a Linux-only kernel module"}
+}

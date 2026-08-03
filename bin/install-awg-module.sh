@@ -30,16 +30,12 @@ FORCE_REBUILD=0
 
 [[ $EUID -ne 0 ]] && { echo -e "${RED}Запустите с правами root${NC}"; exit 1; }
 
-# Marker file written after a successful DKMS install so update.sh can compare
-# the installed module version against upstream master without probing modinfo
-# (modinfo only sees the loaded module, not the flashed DKMS tree).
+# Marker file written after a successful DKMS install: the upstream commit
+# SHA the module was built from. update.sh compares it against `git ls-remote
+# refs/heads/master` to decide whether a rebuild is due — a version string
+# cannot work because upstream stamps PACKAGE_VERSION="1.0.0" into every
+# module build (v1 and v3 alike).
 AWG_MODULE_MARKER="/etc/x-ui/.awg-module-version"
-
-# Check if already loaded. Skip the early-exit when --force-rebuild is set.
-if [[ -d /sys/module/amneziawg && $FORCE_REBUILD -eq 0 ]]; then
-    echo -e "${GREEN}Модуль amneziawg уже загружен.${NC}"
-    command -v awg &>/dev/null && { echo -e "${GREEN}awg уже установлен.${NC}"; exit 0; }
-fi
 
 # Detect OS
 if [[ -f /etc/os-release ]]; then
@@ -48,6 +44,32 @@ if [[ -f /etc/os-release ]]; then
 else
     echo -e "${RED}Не удалось определить ОС (/etc/os-release отсутствует)${NC}"
     exit 1
+fi
+
+# Upgrade the kernel to the latest packaged version BEFORE the early-exit:
+# update.sh calls this script on every panel update (even when the module
+# tree is current and the build below no-ops), and the kernel must advance
+# on every one of those calls. The meta-packages pull the newest image +
+# headers (a no-op when already current). update.sh reboots into the new
+# kernel at the END of `x-ui update`; the DKMS build compiles the module for
+# it too, so the reboot lands on a host whose amneziawg is already rebuilt.
+# Never fatal: the panel keeps running on the booted kernel.
+case "$OS_ID" in
+    ubuntu|debian|linuxmint|raspbian)
+        apt-get update -qq || true
+        apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || \
+        apt-get install -y -q linux-image-generic linux-headers-generic 2>/dev/null || \
+        echo -e "${YELLOW}Не удалось обновить ядро (meta-package) — работаем на текущем${NC}"
+        ;;
+    *)
+        echo -e "${YELLOW}Авто-апгрейд ядра для ${OS_ID} не поддерживается — пропущен${NC}"
+        ;;
+esac
+
+# Check if already loaded. Skip the early-exit when --force-rebuild is set.
+if [[ -d /sys/module/amneziawg && $FORCE_REBUILD -eq 0 ]]; then
+    echo -e "${GREEN}Модуль amneziawg уже загружен.${NC}"
+    command -v awg &>/dev/null && { echo -e "${GREEN}awg уже установлен.${NC}"; exit 0; }
 fi
 
 # 1. Install build dependencies
@@ -179,51 +201,87 @@ fi
 echo -e "${GREEN}Заголовки ядра: OK${NC}"
 
 # 3. Build and install kernel module via DKMS.
-#    --force-rebuild: the running module must be removed before rebuilding so
-#    DKMS can install the new tree. update.sh stops x-ui first, so no awgN
-#    interfaces hold the module; if rmmod fails (module still busy) we warn and
-#    continue — DKMS remove+install still updates the on-disk tree, and a reboot
-#    picks it up. The build also runs when the module is simply absent (fresh
-#    install) — the original path.
+#    Version = the git tag/SHA of the exact commit built. Upstream hardcodes
+#    PACKAGE_VERSION="1.0.0" / WIREGUARD_VERSION=1.0.0 in EVERY release (the
+#    GitHub tags v1.0.20260611…v3.0.20260731 never reach the module build),
+#    so the git-describe string stamped into DKMS here is the only record of
+#    what the tree contains; the full commit SHA goes to the marker file for
+#    update.sh's rebuild gate (a version string cannot discriminate v1 from
+#    v3 — the module version literally starts with 1.0 on both).
+#    Build-first-safe: the NEW tree is compiled while the running module is
+#    still loaded; only a successful build swaps (unload old, retire the old
+#    DKMS tree, install new). A failed build leaves the host on its existing
+#    module — never module-less (the old rmmod-first order could strand a
+#    host without amneziawg when the new build failed).
 if [[ ! -d /sys/module/amneziawg || $FORCE_REBUILD -eq 1 ]]; then
-    if [[ $FORCE_REBUILD -eq 1 ]]; then
-        echo -e "${YELLOW}--force-rebuild: выгрузка старого модуля...${NC}"
-        # Remove the DKMS-installed tree for the running version if any.
-        OLD_DKMS_VER=$(dkms status amneziawg 2>/dev/null | grep -oP 'amneziawg, \K[^,]+(?=,)' | head -1 || true)
-        if [[ -n "$OLD_DKMS_VER" ]]; then
-            dkms remove -m amneziawg -v "$OLD_DKMS_VER" --all 2>/dev/null || true
-        fi
-        # Unload the live module so DKMS can install the new tree without a
-        # "module in use" conflict. Harmless if already unloaded.
-        rmmod amneziawg 2>/dev/null || {
-            echo -e "${YELLOW}Не удалось выгрузить amneziawg (занят?). Перезагрузка подберёт новый модуль.${NC}"
-        }
-    fi
     echo -e "${GREEN}Сборка модуля ядра из исходников...${NC}"
     KERNEL_MOD_DIR="/tmp/amneziawg-kmod-$$"
     rm -rf "$KERNEL_MOD_DIR"
     git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git "$KERNEL_MOD_DIR"
     cd "$KERNEL_MOD_DIR/src"
 
-    make dkms-install 2>/dev/null || true
-    MOD_VER=$(grep -oP 'version\s*"\K[^"]+' dkms.conf 2>/dev/null || echo "1.0.0")
-    dkms add -m amneziawg -v "$MOD_VER" 2>/dev/null || true
-    dkms build -m amneziawg -v "$MOD_VER" || {
-        echo -e "${RED}Ошибка сборки DKMS. Проверь заголовки ядра.${NC}"
+    MOD_VER=$(git describe --tags --always --dirty 2>/dev/null || echo "1.0.0")
+    MOD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
+    OLD_DKMS_VER=$(dkms status amneziawg 2>/dev/null | grep -oP 'amneziawg, \K[^,]+(?=,)' | head -1 || true)
+
+    # Stage the sources under the real version and compile for the booted kernel.
+    sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"${MOD_VER}\"/" dkms.conf
+    rm -rf "/usr/src/amneziawg-${MOD_VER}"
+    make dkms-install WIREGUARD_VERSION="${MOD_VER}" 2>/dev/null || true
+    dkms add -m amneziawg -v "${MOD_VER}" 2>/dev/null || true
+    dkms build -m amneziawg -v "${MOD_VER}" || {
+        echo -e "${RED}Ошибка сборки DKMS — текущий модуль не тронут. Проверь заголовки ядра.${NC}"
+        cd /tmp; rm -rf "$KERNEL_MOD_DIR"
         exit 1
     }
-    dkms install -m amneziawg -v "$MOD_VER"
+
+    # Build succeeded → swap: unload the old module and retire its DKMS tree,
+    # then install the new one for the booted kernel...
+    if [[ -n "$OLD_DKMS_VER" && "$OLD_DKMS_VER" != "$MOD_VER" ]]; then
+        rmmod amneziawg 2>/dev/null || \
+            echo -e "${YELLOW}Не удалось выгрузить amneziawg (занят?). Перезагрузка подберёт новый модуль.${NC}"
+        dkms remove -m amneziawg -v "$OLD_DKMS_VER" --all 2>/dev/null || true
+    fi
+    dkms install -m amneziawg -v "${MOD_VER}" || {
+        echo -e "${RED}dkms install не удалась — проверь /var/lib/dkms/amneziawg${NC}"
+        cd /tmp; rm -rf "$KERNEL_MOD_DIR"
+        exit 1
+    }
+    # ...and compile for every other installed kernel that has headers, so a
+    # reboot into a freshly upgraded kernel boots straight onto the new module
+    # (the kernel package's dkms autoinstall may have built the OLD tree for
+    # it before this rebuild ran).
+    for KERN in $(ls -1 /lib/modules 2>/dev/null); do
+        [[ "$KERN" == "$(uname -r)" ]] && continue
+        [[ -d "/lib/modules/$KERN/build" ]] || continue
+        dkms build -m amneziawg -v "${MOD_VER}" -k "$KERN" 2>/dev/null && \
+            dkms install -m amneziawg -v "${MOD_VER}" -k "$KERN" 2>/dev/null || \
+            echo -e "${YELLOW}Модуль для ядра $KERN не собран — соберётся при следующем dkms autoinstall${NC}"
+    done
 
     cd /tmp; rm -rf "$KERNEL_MOD_DIR"
-    # Write the version marker so update.sh can do the version-gate next time
-    # without re-cloning just to probe dkms.conf.
+    # Write the commit SHA marker so update.sh's rebuild gate compares like
+    # with like (git ls-remote of upstream master).
     mkdir -p "$(dirname "$AWG_MODULE_MARKER")"
-    echo "$MOD_VER" > "$AWG_MODULE_MARKER"
-    echo -e "${GREEN}Модуль ядра собран и установлен (v${MOD_VER}).${NC}"
+    echo "${MOD_SHA:-$MOD_VER}" > "$AWG_MODULE_MARKER"
+    echo -e "${GREEN}Модуль ядра собран и установлен (${MOD_VER}).${NC}"
 fi
 
-# 4. Build and install userspace tools (awg + awg-quick, both from src/)
+# 4. Build and install userspace tools (awg + awg-quick, both from src/).
+#    Rebuild not only when missing but also when the installed tools predate
+#    AWG3: tools < v3 do not parse the HeaderProtectionKey .conf line and
+#    abort awg-quick with "Line unrecognized", so an AWG3 module behind v1/v2
+#    tools still cannot serve HPK configs. `awg version` prints
+#    "amneziawg-tools v3.0.20260730 - https://amnezia.org"; treat anything
+#    under major 3 (or unparsable) as stale.
+TOOLS_STALE=0
 if ! command -v awg-quick &>/dev/null; then
+    TOOLS_STALE=1
+else
+    TOOLS_MAJOR=$(awg version 2>/dev/null | grep -oP 'v\K[0-9]+' | head -1 || true)
+    [[ "${TOOLS_MAJOR:-0}" -ge 3 ]] || TOOLS_STALE=1
+fi
+if [[ $TOOLS_STALE -eq 1 ]]; then
     echo -e "${GREEN}Сборка утилит awg...${NC}"
     TOOLS_DIR="/tmp/amneziawg-tools-$$"
     rm -rf "$TOOLS_DIR"

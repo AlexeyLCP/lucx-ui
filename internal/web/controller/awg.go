@@ -94,17 +94,17 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		"i4":   cpsResult.I4,
 		"i5":   cpsResult.I5,
 	}
-	// headerProtectionKey is returned ONLY when awgVersion == "3". The upstream
-	// kernel module (v3.0.20260731) + tools (v3.0.20260730) now parse the field
-	// — feat/awg3 was merged to master on 2026-07-30, so the old blocker (the
-	// line made `awg setconf` abort with "Line unrecognized" + "Configuration
-	// parsing error", awg-quick rolled the interface back, reconcile failed
-	// every 10s and the inbound never served traffic) is gone. GenerateAWGParams
-	// already guarantees S1-S4 >= MinSForHPK, so the kernel will accept the key.
-	// For v1.5/v2 the field is omitted (not ""), so the form's
-	// Object.entries(obf).forEach(setValue) leaves any hand-typed key on a v3
-	// module untouched — the same property the old forward-compat relied on.
-	if req.AwgVersion == "3" {
+	// headerProtectionKey is returned ONLY when awgVersion == "3" AND the host
+	// actually runs AWG3 (kernel module + tools, probed functionally by
+	// ModuleSupportsAwg3). Generating a key the renderers would then strip
+	// leaves a form field that never reaches a .conf — worse, a key an operator
+	// copies to an external client implies a server capability the host lacks.
+	// feat/awg3 was merged upstream 2026-07-30; GenerateAWGParams already
+	// guarantees S1-S4 >= MinSForHPK, so the kernel accepts the key. For
+	// v1.5/v2 — or a v3 request on a pre-AWG3 host — the field is omitted (not
+	// ""), so the form's Object.entries(obf).forEach(setValue) leaves any
+	// hand-typed key untouched — the same property forward-compat relied on.
+	if req.AwgVersion == "3" && awg.ModuleSupportsAwg3() {
 		params, err := params.WithHeaderProtectionKey()
 		if err != nil {
 			jsonMsg(c, "awg obfuscation: header protection key generation failed", err)

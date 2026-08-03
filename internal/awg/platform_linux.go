@@ -9,9 +9,13 @@
 package awg
 
 import (
+	"bufio"
 	"context"
+	"fmt"
+	"io"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 )
 
@@ -88,16 +92,28 @@ var (
 	moduleAwg3Supported bool
 )
 
-// ModuleSupportsAwg3 reports whether the installed amneziawg kernel module
-// is v3.x (which parses ContentPaddingAddition/RekeyAfterTime/etc/
-// HeaderProtectionKey in setconf). Cached after the first call. Returns
-// false on non-Linux or when modinfo fails (dev/build hosts, module not
-// loaded yet) so renderers degrade AWG3 fields gracefully — never emit a
-// v3-only line into a .conf unless the running kernel will accept it.
-// Without this gate, an operator who picks awgVersion "3" on a host still
-// running the v1.x module gets "Line unrecognized: ContentPaddingAddition=64"
-// from awg setconf, awg-quick deletes the half-built interface, and every
-// reconcile fails with "Device <awgN> does not exist".
+// ModuleSupportsAwg3 reports whether this host can consume AWG3 fields
+// (HeaderProtectionKey + the device timers/padding). Two independent
+// capabilities are required: the LOADED amneziawg kernel module must export
+// the header-protection symbols (kernel side of setconf), and the installed
+// awg userspace tools must parse the HeaderProtectionKey .conf line
+// (amneziawg-tools v3.0+, config.c parse_key). Either one missing means the
+// renderers must omit every AWG3-only line, or awg setconf / awg-quick dies
+// with "Line unrecognized" + "Configuration parsing error", awg-quick rolls
+// the half-built interface back, and every reconcile fails with "Device
+// <awgN> does not exist".
+//
+// The probe is functional, not version-based. Upstream hardcodes
+// PACKAGE_VERSION="1.0.0" (dkms.conf) and WIREGUARD_VERSION=1.0.0 (Makefile)
+// in EVERY release, so modinfo reports the same "1.0.0" for the pre-AWG3
+// tags (v1.0.20260611 …) and the AWG3 tags (v3.0.20260730 …) — the previous
+// major=="3" parse never matched and silently dropped HPK on every host,
+// including hosts whose module WAS rebuilt from master.
+//
+// Only a positive result is cached. A negative one is transient (module not
+// loaded yet right after boot, tools mid-rebuild during an update), so the
+// next call retries and a host upgraded to AWG3 picks the fields up within
+// one reconcile tick — no panel restart needed.
 func ModuleSupportsAwg3() bool {
 	if moduleSupportsAwg3Override != nil {
 		return *moduleSupportsAwg3Override
@@ -105,22 +121,77 @@ func ModuleSupportsAwg3() bool {
 	if moduleAwg3Checked {
 		return moduleAwg3Supported
 	}
-	out, err := exec.CommandContext(context.Background(), "modinfo", "-F", "version", "amneziawg").Output()
+	supported := kernelExportsHeaderProtection() && awgToolsParseHeaderProtectionKey()
+	if supported {
+		moduleAwg3Checked = true
+		moduleAwg3Supported = true
+	}
+	return supported
+}
+
+// kernelExportsHeaderProtection reports whether the loaded amneziawg module
+// is an AWG3 build. header_protection.c (merged upstream 2026-07-30, first
+// released in tag v3.0.20260730) defines the non-static symbol
+// awg_header_protection_set_key, and a loaded module's global symbols appear
+// in /proc/kallsyms. Pre-AWG3 modules — and no module at all — leave no such
+// line. Unreadable kallsyms degrades to false, which is always safe:
+// renderers simply omit the AWG3 fields.
+func kernelExportsHeaderProtection() bool {
+	f, err := os.Open("/proc/kallsyms")
 	if err != nil {
-		// A failed probe (modinfo missing/busy, module mid-rebuild during an
-		// update) is transient — return false but do NOT set moduleAwg3Checked,
-		// so the next call retries instead of pinning "not v3" for the whole
-		// process lifetime and silently dropping AWG3 fields until a restart.
 		return false
 	}
-	moduleAwg3Checked = true
-	ver := strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])
-	if ver == "" {
+	defer f.Close()
+	return kallsymsHasSymbol(f, "awg_header_protection_set_key")
+}
+
+// kallsymsHasSymbol scans kallsyms output for a symbol name. Extracted for
+// tests; a real /proc/kallsyms line looks like
+// "ffffffffc05a8e10 T awg_header_protection_set_key\t[amneziawg]".
+func kallsymsHasSymbol(r io.Reader, symbol string) bool {
+	sc := bufio.NewScanner(r)
+	for sc.Scan() {
+		if strings.Contains(sc.Text(), symbol) {
+			return true
+		}
+	}
+	return false
+}
+
+// awgToolsParseHeaderProtectionKey reports whether the installed awg tools
+// accept HeaderProtectionKey in a .conf file (amneziawg-tools v3.0+; older
+// tools abort awg-quick with "Line unrecognized"). `awg version` prints
+// "amneziawg-tools v3.0.20260730 - https://amnezia.org" — src/version.h
+// carries a floor version when git-describe fails, so every sane build
+// reports one. A missing binary or an unparsable banner conservatively
+// returns false.
+func awgToolsParseHeaderProtectionKey() bool {
+	out, err := exec.CommandContext(context.Background(), "awg", "version").Output()
+	if err != nil {
 		return false
 	}
-	major := strings.TrimPrefix(strings.SplitN(ver, ".", 2)[0], "v")
-	moduleAwg3Supported = strings.HasPrefix(major, "3")
-	return moduleAwg3Supported
+	return parseMajorVersion(string(out)) >= 3
+}
+
+// parseMajorVersion extracts the major number of the first "v<digits>" token
+// in s ("amneziawg-tools v3.0.20260730 - https://amnezia.org" → 3). Returns
+// -1 when no such token exists.
+func parseMajorVersion(s string) int {
+	for i := 0; i+1 < len(s); i++ {
+		if s[i] != 'v' || s[i+1] < '0' || s[i+1] > '9' {
+			continue
+		}
+		j := i + 1
+		for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+			j++
+		}
+		major, err := strconv.Atoi(s[i+1 : j])
+		if err != nil {
+			return -1
+		}
+		return major
+	}
+	return -1
 }
 
 // SetModuleSupportsAwg3 overrides the module-support probe for tests.
@@ -130,3 +201,31 @@ func SetModuleSupportsAwg3(supported *bool) {
 }
 
 var moduleSupportsAwg3Override *bool
+
+// awg3CapabilityCheck builds the informational diagnostics line for AWG3
+// (HeaderProtectionKey) readiness: the kernel module must export the
+// header-protection symbol and the awg tools must be v3.0+. A failing line
+// does not make the inbound unhealthy (Healthy skips it) — it explains why
+// the panel renders configs without HPK on this host. The tools probe goes
+// through the prober so tests can replay it; the kernel probe reads
+// /proc/kallsyms directly.
+func awg3CapabilityCheck(p prober) DiagCheck {
+	kernelOK := kernelExportsHeaderProtection()
+	toolsOut, err := p.Run("awg", "version")
+	toolsOK := err == nil && parseMajorVersion(toolsOut) >= 3
+	detail := fmt.Sprintf("kernel HPK symbol: %s; tools: %s", yesNo(kernelOK), oneLine(strings.TrimSpace(toolsOut)))
+	if err != nil {
+		detail = "kernel HPK symbol: " + yesNo(kernelOK) + "; tools: awg version failed"
+	}
+	if !kernelOK || !toolsOK {
+		detail += " — HPK/device fields are omitted in rendered configs on this host"
+	}
+	return DiagCheck{awg3SupportCheckName, kernelOK && toolsOK, detail}
+}
+
+func yesNo(b bool) string {
+	if b {
+		return "present"
+	}
+	return "absent"
+}
