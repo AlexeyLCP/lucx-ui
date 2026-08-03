@@ -1208,6 +1208,21 @@ systemctl start x-ui
 **Урок:** Дефолт формы для network-address полей должен быть **уникальным per-inbound** — вычисляться из существующих, а не хардкодиться. Warning (lucx.54) + auto-suggest (lucx.56) = защита в двух слоях: auto-suggest предотвращает при создании, warning ловит ручной ввод.
 
 
+## Релиз v3.6.0-lucx.57 (2026-08-03) — cleanup .conf при удалении инбаунда + кэш ModuleSupportsAwg3
+
+**Контекст:** Тестер ВладufQa (lucx.56, модуль **v1.x** 1.0.20260611): (1) «при удалении инбаунда не удаляются конфиги», (2) awg6 не поднимается после смены адреса — клиент остался со старым AllowedIPs. Диагностика по логам показала точную причину awg6: `ip -4 route add 10.8.0.2/32 dev awg6` → `RTNETLINK: File exists` → откат (см. Pattern 1h — миграция адресов клиентов при смене подсети, отдельная задача).
+
+**Фикс 1 — cleanup `.conf` при удалении инбаунда:** `Manager.Remove(id)` (`internal/awg/manager.go`) удалял `awg{id}.conf` **только если интерфейс запущен** (есть в `m.procs`). Инбаунд, чей интерфейс не поднялся (упал setconf/route на последнем reconcile), не имеет записи в `m.procs` → при его удалении `.conf` оставался. Теперь `Remove` удаляет `.conf` безусловно. Плюс `Reconcile` теперь делает `sweepOrphanInboundConfigs(want)` — вычищает `awg{N}.conf` для нежеланных id даже без записи в procs. Хелпер `parseInboundConfName` матчит только `awg{цифры}.conf`, НЕ трогая `awgo-*.conf` (outbound).
+
+**Фикс 2 — кэш `ModuleSupportsAwg3`:** флаг `moduleAwg3Checked` взводился **до** вызова `modinfo`; при транзиентной ошибке modinfo (модуль пересобирается во время update, modinfo занят) функция возвращала false, но флаг уже стоял → «не v3» кэшировалось на весь процесс и AWG3-поля молча дропались до рестарта. Теперь при `err != nil` флаг НЕ взводится — следующий вызов повторяет probe.
+
+**Файлы:** `internal/awg/manager.go` (Remove + sweepOrphanInboundConfigs + parseInboundConfName + filepath import), `internal/awg/platform_linux.go` (кэш-фикс), `internal/awg/manager_test.go` (TestParseInboundConfName), `internal/config/config.go` (lucx.57), `AGENTS.md` (Pattern 1h + 1i), `progress.md`.
+
+**Тесты:** `go test ./internal/awg/...` — зелёный (новый TestParseInboundConfName PASS, awgo-*.conf не матчится). `GOOS=linux go vet` — чисто.
+
+**Урок:** Cleanup-логика, которая чистит артефакты только для «запущенных» сущностей, пропускает сущности, которые **не запустились** (а именно они чаще всего оставляют мусор). Удалять побочные файлы (.conf) надо безусловно по id, а не по наличию в runtime-реестре.
+
+
 
 
 

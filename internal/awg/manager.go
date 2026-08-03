@@ -12,6 +12,7 @@ import (
 	"net/netip"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -116,16 +117,20 @@ func (m *Manager) ensureLocked(inst Instance) error {
 	return nil
 }
 
-// Remove stops and forgets the AWG interface for an inbound id.
+// Remove stops and forgets the AWG interface for an inbound id. The .conf is
+// removed unconditionally, not only when the interface is in procs: an inbound
+// whose interface never came up (failed setconf/route on the last reconcile)
+// has no procs entry, yet its .conf still sits in awgConfigDir and must not
+// survive deleting the inbound (tester report: deleted inbound left awg6.conf).
 func (m *Manager) Remove(id int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if cur, ok := m.procs[id]; ok {
 		_ = cur.proc.Stop()
 		delete(m.procs, id)
-		_ = os.Remove(configPathForID(id))
 		logger.Infof("awg: stopped interface %s for inbound %d", cur.ifname, id)
 	}
+	_ = os.Remove(configPathForID(id))
 }
 
 // Reconcile drives the running set toward the desired instances: it stops
@@ -146,6 +151,12 @@ func (m *Manager) Reconcile(desired []Instance) {
 			_ = os.Remove(configPathForID(id))
 		}
 	}
+	// Sweep leftover awg{N}.conf whose inbound is no longer wanted even though
+	// no procs entry existed for it — an inbound deleted after its interface
+	// failed to come up (or never started) leaves a stale file the procs loop
+	// above cannot see. Only inbound confs (awg{digits}.conf) are touched; the
+	// outbound subsystem's awgo-*.conf files are never matched.
+	sweepOrphanInboundConfigs(want)
 	for _, inst := range desired {
 		if err := m.ensureLocked(inst); err != nil {
 			logger.Warningf("awg: reconcile failed for inbound %d: %v", inst.Id, err)
@@ -154,6 +165,50 @@ func (m *Manager) Reconcile(desired []Instance) {
 		m.ensureXrayRouting(inst)
 		m.ensureNatRules(inst)
 	}
+}
+
+// sweepOrphanInboundConfigs removes awg{N}.conf files in awgConfigDir whose
+// inbound id N is not in want. Best-effort: a missing/unreadable dir is a
+// no-op. It only matches the inbound naming (awg{digits}.conf); awgo-*.conf
+// (outbound client tunnels) never parse as an inbound id and are left alone.
+func sweepOrphanInboundConfigs(want map[int]struct{}) {
+	entries, err := os.ReadDir(awgConfigDir)
+	if err != nil {
+		return
+	}
+	for _, e := range entries {
+		id, ok := parseInboundConfName(e.Name())
+		if !ok {
+			continue
+		}
+		if _, wanted := want[id]; !wanted {
+			_ = os.Remove(filepath.Join(awgConfigDir, e.Name()))
+		}
+	}
+}
+
+// parseInboundConfName extracts the inbound id from an "awg{N}.conf" file
+// name. Returns false for anything else — notably "awgo-{N}.conf" (outbound
+// tunnels), whose segment after "awg" starts with a letter, not a digit.
+func parseInboundConfName(name string) (int, bool) {
+	const suffix = ".conf"
+	if !strings.HasPrefix(name, "awg") || !strings.HasSuffix(name, suffix) {
+		return 0, false
+	}
+	mid := name[len("awg") : len(name)-len(suffix)]
+	if mid == "" {
+		return 0, false
+	}
+	for _, r := range mid {
+		if r < '0' || r > '9' {
+			return 0, false
+		}
+	}
+	id, err := strconv.Atoi(mid)
+	if err != nil {
+		return 0, false
+	}
+	return id, true
 }
 
 // StopAll stops every managed AWG interface. Called on panel shutdown.

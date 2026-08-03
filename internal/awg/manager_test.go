@@ -103,3 +103,27 @@ func TestParseAwgDump_SkipsMalformed(t *testing.T) {
 		t.Errorf("malformed rows must be skipped, got ok=%v peers=%+v", ok, peers)
 	}
 }
+
+func TestParseInboundConfName(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		wantID int
+		wantOK bool
+	}{
+		{"awg1.conf", 1, true},
+		{"awg6.conf", 6, true},
+		{"awg14.conf", 14, true},
+		{"awgo-1.conf", 0, false}, // outbound tunnel, never an inbound conf
+		{"awgo-3.conf", 0, false},
+		{"awg.conf", 0, false},  // no digits
+		{"awgX.conf", 0, false}, // non-digit segment
+		{"awg1", 0, false},      // missing .conf
+		{"wg1.conf", 0, false},  // wrong prefix
+		{"", 0, false},
+	} {
+		id, ok := parseInboundConfName(tc.name)
+		if id != tc.wantID || ok != tc.wantOK {
+			t.Errorf("parseInboundConfName(%q) = (%d,%v), want (%d,%v)", tc.name, id, ok, tc.wantID, tc.wantOK)
+		}
+	}
+}

@@ -105,20 +105,20 @@ func ModuleSupportsAwg3() bool {
 	if moduleAwg3Checked {
 		return moduleAwg3Supported
 	}
-	moduleAwg3Checked = true
 	out, err := exec.CommandContext(context.Background(), "modinfo", "-F", "version", "amneziawg").Output()
 	if err != nil {
+		// A failed probe (modinfo missing/busy, module mid-rebuild during an
+		// update) is transient — return false but do NOT set moduleAwg3Checked,
+		// so the next call retries instead of pinning "not v3" for the whole
+		// process lifetime and silently dropping AWG3 fields until a restart.
 		return false
 	}
+	moduleAwg3Checked = true
 	ver := strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])
 	if ver == "" {
 		return false
 	}
-	fields := strings.Split(ver, ".")
-	if len(fields) < 1 {
-		return false
-	}
-	major := strings.TrimPrefix(fields[0], "v")
+	major := strings.TrimPrefix(strings.SplitN(ver, ".", 2)[0], "v")
 	moduleAwg3Supported = strings.HasPrefix(major, "3")
 	return moduleAwg3Supported
 }

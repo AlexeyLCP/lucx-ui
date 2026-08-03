@@ -481,6 +481,19 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 - **Fix (lucx.55):** `renderServerConf` omit'ит пустой/whitespace-only PSK (`if psk := strings.TrimSpace(p.PSK); psk != ""`), по образцу renderClientConf/SyncPeers. Отсутствующий `PresharedKey` — WireGuard-конвенция «no PSK». 3 regression-теста в `server_conf_psk_test.go`.
 - **Урок:** Рендерер опционального поля `.conf` обязан **omit'ить пустое значение**, а не писать `Key = ` — awg-tools отвергают пустые значения, awg-quick откатывает интерфейс, reconcile бесконечно падает. Любой peer-level параметр, пустой на каком-либо пути создания клиента, должен быть gated `if value != ""`. Проверять все три рендерера (renderServerConf / renderClientConf / SyncPeers) на консистентность.
 
+### Pattern 1h: смена адреса AWG-инбаунда не мигрирует AllowedIPs клиентов → интерфейс падает — НЕ ЗАКРЫТО (workaround)
+- **Cause:** клиент инбаунда получает AllowedIPs из подсети инбаунда при создании (`defaultAwgClients`). Когда оператор **меняет адрес инбаунда** (напр. 10.8.0.1/24 → 10.8.2.1/24, чтобы уйти от dup-subnet Pattern 1e), AllowedIPs существующих клиентов **остаются на старой подсети** (10.8.0.2/32). При `awg-quick up` awg-quick добавляет route для каждого peer AllowedIPs: `ip -4 route add 10.8.0.2/32 dev awg6`. Если старая подсеть занята другим инбаундом (awg7 на 10.8.0.0/24) → `RTNETLINK answers: File exists` → awg-quick откатывает → «Device awgN does not exist». Воспроизведено по логам ВладufQa (lucx.56).
+- **Симптом:** после смены Address в логах `reconcile failed ... ip -4 route add <старый IP> dev awgN` + `RTNETLINK: File exists` + `ip link delete`.
+- **Workaround (сейчас):** удалить клиента и создать заново — `defaultAwgClients` выделит адрес из НОВОЙ подсети. Либо вручную сменить AllowedIPs клиента на новый /32.
+- **Fix (TODO):** при смене address AWG-инбаунда мигрировать AllowedIPs существующих клиентов в новую подсеть (хук в `InboundService.UpdateInbound`, ре-аллокация с сохранением ключей) ИЛИ блокировать/предупреждать смену при наличии клиентов. Требует аккуратной правки inbound-update пути.
+- **Урок:** client-адреса, выделенные из подсети инбаунда, привязаны к этой подсети на момент создания. Смена подсети инбаунда инвалидирует их — нужен либо migration, либо guard.
+
+### Pattern 1i: удаление инбаунда оставляло .conf + кэш ModuleSupportsAwg3 на ошибке — ИСПРАВЛЕНО (lucx.57)
+- **Cause 1:** `Manager.Remove(id)` удалял `awg{id}.conf` только при запущенном интерфейсе (запись в `m.procs`). Инбаунд, чей интерфейс не поднялся (упал setconf/route), не имел записи → `.conf` переживал удаление инбаунда (вопрос ВладufQa «почему не удаляет конфиги»). Конфиги в `/etc/amnezia/amneziawg/` (awgConfigDir), НЕ в `/etc/awg/`.
+- **Cause 2:** `ModuleSupportsAwg3` взводил `moduleAwg3Checked=true` ДО `modinfo`; транзиентная ошибка modinfo (модуль пересобирается при update) кэшировала «не v3» на весь процесс → AWG3-поля молча дропались до рестарта.
+- **Fix (lucx.57):** `Remove` удаляет `.conf` безусловно; `Reconcile` добавляет `sweepOrphanInboundConfigs(want)` (чистит `awg{N}.conf` нежеланных id без записи в procs; `parseInboundConfName` не матчит `awgo-*.conf`); `ModuleSupportsAwg3` не кэширует при `err != nil` (повторяет probe).
+- **Урок:** cleanup, привязанный к «запущенным» сущностям, пропускает именно те, что не запустились (они и оставляют мусор). Побочные файлы удалять по id безусловно.
+
 ### Pattern 2: LUCX-HOOK конфликт при upstream sync
 - **Cause:** Upstream изменил файл с HOOK-маркером между релизами.
 - **Fix:** Решать каждый блок отдельно (см. Rule 8). Не `git checkout` весь файл и не сплошной `--ours` — потеряешь upstream-изменения.
@@ -529,3 +542,9 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 - **Fix (временный):** `gh run rerun <id> --failed` — другой shuffle-seed с высокой вероятностью проходит.
 - **Fix (корневой, TODO отдельным issue):** либо тест должен проверять GREASE только в extension-позициях (а не по всему hex), либо `buildSafariHello`/`buildFirefoxHello` не должны писать GREASE через rng (Safari/Firefox по реальным fingerprint'ам GREASE не используют — только Chrome). Пробовал `SetRand(t *testing.T, …)` с `t.Cleanup` для изоляции глобального `rng` — не помог (проблема в логике, не в загрязнении); откатил. НЕ чинить наспех — это domain-логика CPS-обфускации.
 - **Урок:** при падении CI-джоба сначала проверь, твой ли это регресс. Воспроизведи локально с точным shuffle-seed из лога CI (`-test.shuffle <N>`). Если проходит локально и не связано с твоими файлами — это flaky, rerun оправдан.
+
+### Pattern 7b: CI frontend красный на storybook a11y `ConfigBlock.stories.tsx → Collapsed` (pre-existing flaky, color-contrast)
+- **Cause:** storybook a11y-addon гоняет `toHaveNoViolations` на story `Clients/ConfigBlock → Collapsed` (после play-функции, разворачивающей блок). `.config-block-text` (`ConfigBlock.css:38`) берёт цвет из `var(--ant-color-text)` / фон `var(--ant-color-fill-tertiary)`; в storybook-chromium переменные иногда резолвятся в низко-контрастную пару (#a7a7a7 на #f8f8f8, 2.26 вместо 4.5) — по таймингу/анимации разворачивания. Плавающий: то проходит, то нет. **НЕ связан с AWG-изменениями** — падал на lucx.54 и lucx.56 при полностью зелёных остальных 1096 тестах.
+- **Fix (временный):** `gh run rerun <id> --failed` — проходит на повторе (проверено на lucx.54, lucx.56).
+- **Fix (корневой, TODO):** задать `.config-block-text` явный высоко-контрастный цвет (не только `body.light #595959`), либо починить storybook-тему/фон чтобы `--ant-color-text` резолвился корректно. Требует отладки storybook-окружения, не чинить наспех (риск поменять внешний вид в приложении).
+- **Урок:** если CI frontend падает ЕДИНСТВЕННЫМ тестом `storybook ... ConfigBlock → Collapsed` с `color-contrast` — это этот flake; проверь что твои тесты зелёные и rerun, не трать время на поиск регрессии в своём коде.
