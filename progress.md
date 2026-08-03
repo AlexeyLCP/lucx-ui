@@ -1127,6 +1127,52 @@ systemctl start x-ui
 **Урок:** DB-stored `awgVersion` — это потолок, который оператор выбрал в UI, а не capability runtime. Module-capability probe в каждой точке эмиссии AWG3 полей — единственный надёжный defense.
 
 
+## Релиз v3.6.0-lucx.54 (2026-08-03) — AdvancedSecurity persistence + подсветка конфликта подсетей
+
+**Контекст:** Два бага, выявленных тестером VladufQa на production-сервере (v3 модуль, awgVersion "3"):
+
+1. **AdvancedSecurity switch откатывается в OFF после save.** Фронтенд отправляет `clientPayload.advancedSecurity = true` (`ClientFormModal.tsx:596`), но backend `model.Client` struct **не имел** поля `AdvancedSecurity` → `json.Unmarshal` молча дропает неизвестный ключ → в Settings JSON поле не записывается → после reload switch OFF. При этом `ClientRecord` (gorm-таблица `clients`) тоже не имел колонки, и `ToRecord`/`ToClient` её не копировали — поле терялось на Client→Record→DB→Record→Client цикле.
+
+2. **Два AWG-инбаунда с одинаковой подсетью 10.8.0.0/24** → kernel даёт две connected-route на один префикс → reverse-path к клиентам второго инбаунда уходит в первый (zombie) → «коннект есть, трафика нет» (ровно баг VladufQa: awg2 + awg4 оба на 10.8.0.1/24). Дефолт формы `createDefaultAwgInboundSettings` хардкодит `10.8.0.1/24` для каждого нового инбаунда.
+
+### Backend — AdvancedSecurity persistence (model.go, 5 точек)
+- `Client` struct: +`AdvancedSecurity bool \`json:"advancedSecurity,omitempty"\`` (LUCX-HOOK после `KeepAlive`).
+- `ClientRecord` struct: +`AdvancedSecurity bool \`json:"advancedSecurity" gorm:"column:awg_advanced_security;default:0"\`` (LUCX-HOOK). AutoMigrate добавит колонку на следующем старте — ручной миграции не нужно.
+- `Client.ToRecord()`: +`AdvancedSecurity: c.AdvancedSecurity` (LUCX-HOOK).
+- `ClientRecord.ToClient()`: +`AdvancedSecurity: r.AdvancedSecurity` (LUCX-HOOK).
+- Merge logic (`applyClientRecordMerge`): +`if incoming.AdvancedSecurity && !existing.AdvancedSecurity` — advisory-only, «true wins, never silently clear» (как PreSharedKey).
+
+### Frontend — подсветка конфликта подсетей
+- `frontend/src/lib/awg/subnet.ts` (новый): чистые функции `maskSubnet(addr)` (→ `10.8.0.0/24`) и `subnetsOverlap(a, b)` — IPv4 CIDR overlap через 32-bit int, без npm-зависимостей.
+- `frontend/src/pages/inbounds/form/protocols/awg.tsx`: `AwgFields` теперь принимает `otherAwgSubnets?: string[]` prop. `watch('settings.address')` + `useMemo` → `conflictSubnet`/`addressSubnetConflict`. `<Alert type="warning">` после Address FormField (advisory, не блокирует save — back-compat для существующих dup-subnet инбаундов).
+- `frontend/src/pages/inbounds/form/InboundFormModal.tsx`: `useMemo` поверх `dbInbounds` → `otherAwgSubnets` (masked networks других AWG-инбаундов, filter `protocol === AWG && id !== dbInbound?.id`), проброшен в `<AwgFields otherAwgSubnets={...} />`.
+
+### i18n × 13 локалей
+- Новые ключи: `awgSubnetConflict` + `awgSubnetConflictHint` (с интерполяцией `{{subnet}}`).
+- EN+RU вручную; 11 локалей через python-скрипт (byte-stable вставка после `awgAddressHint`, JSON-valid). Технические термины — латиницей (`kernel route`, `/24`).
+
+### Тесты
+- `internal/database/model/client_advanced_security_test.go` (новый): 4 теста — ToRecord/ToClient roundtrip, JSON unmarshal capture + default-false, ClientRecord marshal содержит поле.
+- `frontend/src/test/awg-subnet-overlap.test.ts` (новый): 11 тестов — maskSubnet (включая /32, /0, invalid, whitespace), subnetsOverlap (same /24, wide-contains-narrow, non-overlapping, invalid, field-exact dup case awg2+awg4).
+
+### Файлы
+- `internal/database/model/model.go` (5 точек: struct ×2 + ToRecord + ToClient + merge)
+- `internal/database/model/client_advanced_security_test.go` (новый, 4 теста)
+- `frontend/src/lib/awg/subnet.ts` (новый, pure helpers)
+- `frontend/src/pages/inbounds/form/protocols/awg.tsx` (props + Alert + useMemo)
+- `frontend/src/pages/inbounds/form/InboundFormModal.tsx` (useMemo + thread props)
+- `frontend/src/test/awg-subnet-overlap.test.ts` (новый, 11 тестов)
+- `internal/web/translation/*.json` × 13 (awgSubnetConflict + awgSubnetConflictHint)
+- `internal/config/config.go` (lucx.54)
+- `AGENTS.md` (Pattern 1e — dup-subnet kernel route конфликт + AdvancedSecurity persistence урок)
+
+**Тесты:** `go test ./internal/database/model/ ./internal/awg/... ./internal/lucx/...` — зелёный. `npm run typecheck && npm run lint` — чисто. `npm run build` — built in 940ms. `npm run gen` — codegen обновлён (27 schemas, 181 paths). `i18n-dead-keys.test.ts` — PASS (13 локалей паритет). `gofumpt -l` — мои файлы чистые. `bin/check-lucx.sh` — 49 файлов OK.
+
+**Урок №1 (AdvancedSecurity persistence):** Per-client peer-level поле на `model.Client` требует **5 точек** в model.go для full round-trip: struct (Client) + struct (ClientRecord с gorm column) + ToRecord + ToClient + merge logic. Только Client struct недостаточно — поле потеряется на ClientRecord→DB→Client цикле (ClientRecord — gorm-таблица `clients`, используется во всех путях сохранения: db.go, client_crud.go, client_link.go, client_portable.go, client_bulk.go, client_traffic.go). AWG sidecar читает поле через InstanceFromInbound (сырой JSON settings), но универсальный ClientFormModal save-flow идёт через controller/client.go → model.Client → ToRecord → ClientRecord. Без всех 5 точек switch откатывается в OFF после reload.
+
+**Урок №2 (dup-subnet kernel route конфликт):** Два AWG-инбаунда с одинаковой client-подсетью (10.8.0.0/24) → kernel устанавливает две connected-route на один префикс. Linux выбирает одну по метрике/порядку, вторая zombie. Reverse-path к клиентам второго инбаунда уходит в первый → пакеты dropнуты → «коннект есть, трафика нет». Дефолт формы хардкодит одну подсеть для всех новых инбаундов → грабля повторяется. Фикс — advisory warning (не server-side guard, back-compat); auto-suggest следующей свободной /24 — follow-up.
+
+
 
 
 

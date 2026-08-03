@@ -872,20 +872,25 @@ type Client struct {
 	AllowedIPs   []string       `json:"allowedIPs,omitempty"`
 	PreSharedKey string         `json:"preSharedKey,omitempty"`
 	KeepAlive    int            `json:"keepAlive,omitempty"`
-	Secret       string         `json:"secret,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
-	AdTag        string         `json:"adTag,omitempty" example:"0123456789abcdef0123456789abcdef"`
-	Email        string         `json:"email"`                        // Client email identifier
-	LimitIP      int            `json:"limitIp"`                      // IP limit for this client
-	TotalGB      int64          `json:"totalGB" form:"totalGB"`       // Total traffic limit in GB
-	ExpiryTime   int64          `json:"expiryTime" form:"expiryTime"` // Expiration timestamp
-	Enable       bool           `json:"enable" form:"enable"`         // Whether the client is enabled
-	TgID         int64          `json:"tgId" form:"tgId"`             // Telegram user ID for notifications
-	SubID        string         `json:"subId" form:"subId"`           // Subscription identifier
-	Group        string         `json:"group,omitempty" form:"group"` // Logical grouping label
-	Comment      string         `json:"comment" form:"comment"`       // Client comment
-	Reset        int            `json:"reset" form:"reset"`           // Reset period in days
-	CreatedAt    int64          `json:"created_at,omitempty"`         // Creation timestamp
-	UpdatedAt    int64          `json:"updated_at,omitempty"`         // Last update timestamp
+	// LUCX-HOOK: AWG3 AdvancedSecurity (per-peer advisory flag; kernel set_peer
+	// ignores on input, get_peer hardcodes in dumps — emission-only for .conf
+	// parity). Mirrors the Wireguard peer-field placement (inline on Client).
+	AdvancedSecurity bool `json:"advancedSecurity,omitempty"`
+	// END LUCX-HOOK
+	Secret     string `json:"secret,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
+	AdTag      string `json:"adTag,omitempty" example:"0123456789abcdef0123456789abcdef"`
+	Email      string `json:"email"`                        // Client email identifier
+	LimitIP    int    `json:"limitIp"`                      // IP limit for this client
+	TotalGB    int64  `json:"totalGB" form:"totalGB"`       // Total traffic limit in GB
+	ExpiryTime int64  `json:"expiryTime" form:"expiryTime"` // Expiration timestamp
+	Enable     bool   `json:"enable" form:"enable"`         // Whether the client is enabled
+	TgID       int64  `json:"tgId" form:"tgId"`             // Telegram user ID for notifications
+	SubID      string `json:"subId" form:"subId"`           // Subscription identifier
+	Group      string `json:"group,omitempty" form:"group"` // Logical grouping label
+	Comment    string `json:"comment" form:"comment"`       // Client comment
+	Reset      int    `json:"reset" form:"reset"`           // Reset period in days
+	CreatedAt  int64  `json:"created_at,omitempty"`         // Creation timestamp
+	UpdatedAt  int64  `json:"updated_at,omitempty"`         // Last update timestamp
 }
 
 type ClientRecord struct {
@@ -903,18 +908,22 @@ type ClientRecord struct {
 	AllowedIPs   string `json:"allowedIPs" gorm:"column:wg_allowed_ips"`
 	PreSharedKey string `json:"preSharedKey" gorm:"column:wg_pre_shared_key"`
 	KeepAlive    int    `json:"keepAlive" gorm:"column:wg_keep_alive;default:0"`
-	Secret       string `json:"secret" gorm:"column:secret"`
-	AdTag        string `json:"adTag" gorm:"column:ad_tag;default:''"`
-	LimitIP      int    `json:"limitIp" gorm:"column:limit_ip"`
-	TotalGB      int64  `json:"totalGB" gorm:"column:total_gb"`
-	ExpiryTime   int64  `json:"expiryTime" gorm:"column:expiry_time"`
-	Enable       bool   `json:"enable" gorm:"default:true"`
-	TgID         int64  `json:"tgId" gorm:"column:tg_id;index:idx_clients_tg_id"`
-	Group        string `json:"group" gorm:"column:group_name;default:'';index:idx_client_record_group"`
-	Comment      string `json:"comment"`
-	Reset        int    `json:"reset" gorm:"default:0"`
-	CreatedAt    int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
-	UpdatedAt    int64  `json:"updatedAt" gorm:"autoUpdateTime:milli"`
+	// LUCX-HOOK: AWG3 AdvancedSecurity column (mirrors Client.AdvancedSecurity;
+	// AutoMigrate adds the column on next start — no manual migration needed).
+	AdvancedSecurity bool `json:"advancedSecurity" gorm:"column:awg_advanced_security;default:0"`
+	// END LUCX-HOOK
+	Secret     string `json:"secret" gorm:"column:secret"`
+	AdTag      string `json:"adTag" gorm:"column:ad_tag;default:''"`
+	LimitIP    int    `json:"limitIp" gorm:"column:limit_ip"`
+	TotalGB    int64  `json:"totalGB" gorm:"column:total_gb"`
+	ExpiryTime int64  `json:"expiryTime" gorm:"column:expiry_time"`
+	Enable     bool   `json:"enable" gorm:"default:true"`
+	TgID       int64  `json:"tgId" gorm:"column:tg_id;index:idx_clients_tg_id"`
+	Group      string `json:"group" gorm:"column:group_name;default:'';index:idx_client_record_group"`
+	Comment    string `json:"comment"`
+	Reset      int    `json:"reset" gorm:"default:0"`
+	CreatedAt  int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+	UpdatedAt  int64  `json:"updatedAt" gorm:"autoUpdateTime:milli"`
 }
 
 func (ClientRecord) TableName() string { return "clients" }
@@ -1085,8 +1094,11 @@ func (c *Client) ToRecord() *ClientRecord {
 		AllowedIPs:   strings.Join(c.AllowedIPs, ","),
 		PreSharedKey: c.PreSharedKey,
 		KeepAlive:    c.KeepAlive,
-		Secret:       c.Secret,
-		AdTag:        c.AdTag,
+		// LUCX-HOOK: AdvancedSecurity round-trip Client→Record.
+		AdvancedSecurity: c.AdvancedSecurity,
+		// END LUCX-HOOK
+		Secret: c.Secret,
+		AdTag:  c.AdTag,
 	}
 	if c.Reverse != nil {
 		if b, err := json.Marshal(c.Reverse); err == nil {
@@ -1138,8 +1150,11 @@ func (r *ClientRecord) ToClient() *Client {
 		AllowedIPs:   splitWireguardAllowedIPs(r.AllowedIPs),
 		PreSharedKey: r.PreSharedKey,
 		KeepAlive:    r.KeepAlive,
-		Secret:       r.Secret,
-		AdTag:        r.AdTag,
+		// LUCX-HOOK: AdvancedSecurity round-trip Record→Client.
+		AdvancedSecurity: r.AdvancedSecurity,
+		// END LUCX-HOOK
+		Secret: r.Secret,
+		AdTag:  r.AdTag,
 	}
 	if r.Reverse != "" {
 		var rev ClientReverse
@@ -1310,6 +1325,14 @@ func MergeClientRecord(existing *ClientRecord, incoming *ClientRecord) []ClientM
 			existing.KeepAlive = incoming.KeepAlive
 		}
 	}
+	// LUCX-HOOK: AdvancedSecurity — advisory AWG3 peer flag; enable on incoming
+	// true, but never silently clear (matches the PreSharedKey "non-empty wins"
+	// shape — a false incoming never overwrites a true existing).
+	if incoming.AdvancedSecurity && !existing.AdvancedSecurity {
+		keep("advancedSecurity", existing.AdvancedSecurity, incoming.AdvancedSecurity, incoming.AdvancedSecurity)
+		existing.AdvancedSecurity = incoming.AdvancedSecurity
+	}
+	// END LUCX-HOOK
 	if existing.Comment != incoming.Comment && incoming.Comment != "" {
 		if incomingNewer || existing.Comment == "" {
 			keep("comment", existing.Comment, incoming.Comment, incoming.Comment)

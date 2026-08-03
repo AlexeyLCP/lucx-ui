@@ -706,7 +706,9 @@
         "awgRouteOutboundHint": "Tùy chọn. Ép lưu lượng AWG đi ra qua outbound (hoặc balancer) này. Để trống để quy tắc định tuyến quyết định.",
         "awgRouteOutboundPlaceholder": "Dùng quy tắc định tuyến",
         "awgAddress": "Địa chỉ tunnel máy chủ",
-        "awgAddressHint": "IP/CIDR tunnel máy chủ, vd. 10.8.0.1/24. Client nhận địa chỉ từ subnet này."
+        "awgAddressHint": "IP/CIDR tunnel máy chủ, vd. 10.8.0.1/24. Client nhận địa chỉ từ subnet này.",
+        "awgSubnetConflict": "Subnet này chồng lấn với một AWG inbound khác — client của inbound này sẽ không có traffic (xung đột kernel route).",
+        "awgSubnetConflictHint": "Subnet {{subnet}} đã được sử dụng. Đổi Address thành /24 không chồng lấn (ví dụ 10.8.1.1/24)."
       },
       "info": {
         "mode": "Chế độ",

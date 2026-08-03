@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { QuestionCircleOutlined } from '@ant-design/icons';
 import dayjs from 'dayjs';
@@ -88,6 +88,8 @@ import FallbacksCard from './FallbacksCard';
 import SniffingTab from './SniffingTab';
 
 import type { DBInbound } from '@/models/dbinbound';
+import { coerceInboundJsonField } from '@/models/dbinbound';
+import { maskSubnet } from '@/lib/awg/subnet';
 import type { NodeRecord } from '@/api/queries/useNodesQuery';
 
 
@@ -217,6 +219,19 @@ export default function InboundFormModal({
     moveFallback,
     addAllFallbacks,
   } = useInboundFallbacks(dbInbound, dbInbounds);
+
+  // LUCX-HOOK: AWG subnet-collision feed — the masked network prefixes of
+  // every OTHER enabled AWG inbound, so AwgFields can warn when the Address
+  // the operator types overlaps a sibling inbound (two connected routes for
+  // one prefix → reverse path to one inbound's clients egresses via the
+  // other). Filtered to AWG + other ids; invalid addresses are skipped.
+  const otherAwgSubnets = useMemo(() => {
+    return dbInbounds
+      .filter((ib) => ib.protocol === Protocols.AWG && ib.id !== dbInbound?.id)
+      .map((ib) => maskSubnet(String(coerceInboundJsonField(ib.settings).address ?? '')))
+      .filter((s): s is string => s !== null);
+  }, [dbInbounds, dbInbound?.id]);
+  // END LUCX-HOOK
 
   const selectableNodes = (availableNodes || []).filter((n) => n.enable);
   const protocol = (useWatch({ control, name: 'protocol' }) ?? '') as string;
@@ -675,7 +690,7 @@ export default function InboundFormModal({
 
       {protocol === Protocols.MTPROTO && <MtprotoFields />}
       {/* LUCX-HOOK: AWG protocol form */}
-      {protocol === Protocols.AWG && <AwgFields />}
+      {protocol === Protocols.AWG && <AwgFields otherAwgSubnets={otherAwgSubnets} />}
       {/* END LUCX-HOOK */}
 
       {protocol === Protocols.SHADOWSOCKS && <ShadowsocksFields isSSWith2022={isSSWith2022} />}

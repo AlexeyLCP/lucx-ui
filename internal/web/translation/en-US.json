@@ -706,7 +706,9 @@
         "awgRouteOutboundHint": "Optional. Force AWG traffic out through this outbound (or balancer). Leave empty to let your routing rules decide.",
         "awgRouteOutboundPlaceholder": "Use routing rules",
         "awgAddress": "Server tunnel address",
-        "awgAddressHint": "Server tunnel IP/CIDR, e.g. 10.8.0.1/24. Clients get addresses from this subnet."
+        "awgAddressHint": "Server tunnel IP/CIDR, e.g. 10.8.0.1/24. Clients get addresses from this subnet.",
+        "awgSubnetConflict": "This subnet overlaps another AWG inbound — clients of this inbound will get no traffic (kernel route conflict).",
+        "awgSubnetConflictHint": "Subnet {{subnet}} is already in use. Change Address to a non-overlapping /24 (e.g. 10.8.1.1/24)."
       },
       "info": {
         "mode": "Mode",

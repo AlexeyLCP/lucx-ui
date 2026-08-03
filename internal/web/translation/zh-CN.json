@@ -706,7 +706,9 @@
         "awgRouteOutboundHint": "可选。强制 AWG 流量通过此出站（或负载均衡器）发出。留空则由路由规则决定。",
         "awgRouteOutboundPlaceholder": "使用路由规则",
         "awgAddress": "服务器隧道地址",
-        "awgAddressHint": "服务器隧道 IP/CIDR，例如 10.8.0.1/24。客户端从此子网获取地址。"
+        "awgAddressHint": "服务器隧道 IP/CIDR，例如 10.8.0.1/24。客户端从此子网获取地址。",
+        "awgSubnetConflict": "此子网与另一个 AWG 入站重叠 — 此入站的客户端将无法获得流量（kernel route 冲突）。",
+        "awgSubnetConflictHint": "子网 {{subnet}} 已被占用。请将 Address 改为不重叠的 /24（例如 10.8.1.1/24）。"
       },
       "info": {
         "mode": "模式",

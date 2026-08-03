@@ -4,7 +4,7 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useFormContext } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Form, Input, InputNumber, message, Modal, Select, Space, Switch, Tag, Tooltip } from 'antd';
@@ -13,6 +13,7 @@ import { CheckCircleOutlined, CloseCircleOutlined, MedicineBoxOutlined, ReloadOu
 import { FormField } from '@/components/form/rhf';
 import { HttpUtil, Wireguard } from '@/utils';
 import { useOutboundTags } from '@/api/queries/useOutboundTags';
+import { maskSubnet, subnetsOverlap } from '@/lib/awg/subnet';
 import { useAwgInboundId } from '../awg-inbound-id-context';
 
 // LUCX-HOOK: AWG — map the panel obfLevel (1/2/3) and mimicryProfile to the
@@ -79,7 +80,15 @@ async function fetchAwgDiagnostics(id: number): Promise<AwgDiagnostics | null> {
 }
 // END LUCX-HOOK
 
-export default function AwgFields() {
+export interface AwgFieldsProps {
+  // otherAwgSubnets carries the masked network prefixes (e.g. "10.8.0.0/24")
+  // of every OTHER enabled AWG inbound on this node, so the Address field can
+  // warn when the operator types an overlapping subnet (kernel would install
+  // two connected routes for the same prefix — see AGENTS.md Pattern 1e).
+  otherAwgSubnets?: string[];
+}
+
+export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
   const { t } = useTranslation();
   const [messageApi, messageContextHolder] = message.useMessage();
   // react-hook-form context (the inbound form is rhf, NOT AntD form). Use
@@ -92,7 +101,18 @@ export default function AwgFields() {
   const awgVersion = watch('settings.awgVersion') as '1.5' | '2' | '3' | undefined;
   const routeThroughXray = watch('settings.routeThroughXray') as boolean | undefined;
   const mimicryProfileVal = watch('settings.mimicryProfile') as string | undefined;
+  const addressVal = watch('settings.address') as string | undefined;
   const { data: outboundTags } = useOutboundTags();
+
+  // Detect a subnet collision: the operator's Address overlaps with another
+  // AWG inbound's tunnel subnet. Advisory-only (yellow Alert, not a form
+  // error) so existing dup-subnet inbounds still save — back-compat.
+  const conflictSubnet = useMemo(() => {
+    const self = maskSubnet(addressVal ?? '');
+    if (!self) return null;
+    return otherAwgSubnets.find((s) => subnetsOverlap(self, s)) ?? null;
+  }, [addressVal, otherAwgSubnets]);
+  const addressSubnetConflict = conflictSubnet !== null;
 
   const regenerateKeys = () => {
     const kp = Wireguard.generateKeypair();
@@ -258,6 +278,21 @@ export default function AwgFields() {
       <FormField name={['settings', 'address']} label={t('pages.inbounds.form.awgAddress')} tooltip={t('pages.inbounds.form.awgAddressHint')}>
         <Input placeholder="10.8.0.1/24" />
       </FormField>
+
+      {/* LUCX-HOOK: subnet-collision warning — two AWG inbounds on the same /24
+          make the kernel install two connected routes for one prefix; reverse
+          path to one inbound's clients egresses via the other (zombie) →
+          "handshake ok, no traffic". Advisory (not a save blocker). */}
+      {addressSubnetConflict && (
+        <Alert
+          type="warning"
+          showIcon
+          message={t('pages.inbounds.form.awgSubnetConflict')}
+          description={t('pages.inbounds.form.awgSubnetConflictHint', { subnet: conflictSubnet ?? '' })}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      {/* END LUCX-HOOK */}
 
       <FormField name={['settings', 'mtu']} label={t('pages.inbounds.form.awgMtu')}>
         <InputNumber min={576} max={65535} style={{ width: '100%' }} />

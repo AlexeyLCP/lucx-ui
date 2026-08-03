@@ -706,7 +706,9 @@
         "awgRouteOutboundHint": "İsteğe bağlı. AWG trafiğini bu outbound (veya dengeleyici) üzerinden çıkmaya zorla. Yönlendirme kurallarınızın karar vermesi için boş bırakın.",
         "awgRouteOutboundPlaceholder": "Yönlendirme kurallarını kullan",
         "awgAddress": "Sunucu tünel adresi",
-        "awgAddressHint": "Sunucu tünel IP/CIDR si, örn. 10.8.0.1/24. İstemciler bu alt ağdan adres alır."
+        "awgAddressHint": "Sunucu tünel IP/CIDR si, örn. 10.8.0.1/24. İstemciler bu alt ağdan adres alır.",
+        "awgSubnetConflict": "Bu alt ağ başka bir AWG inbound ile çakışıyor — bu inbound'ın istemcileri trafik alamaz (kernel route çakışması).",
+        "awgSubnetConflictHint": "{{subnet}} alt ağı zaten kullanımda. Address'i çakışmayan bir /24 ile değiştirin (örn. 10.8.1.1/24)."
       },
       "info": {
         "mode": "Mod",

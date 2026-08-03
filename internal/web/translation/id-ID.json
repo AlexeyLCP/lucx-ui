@@ -706,7 +706,9 @@
         "awgRouteOutboundHint": "Opsional. Paksa trafik AWG keluar lewat outbound (atau balancer) ini. Kosongkan agar aturan routing yang memutuskan.",
         "awgRouteOutboundPlaceholder": "Pakai aturan routing",
         "awgAddress": "Alamat tunnel server",
-        "awgAddressHint": "IP/CIDR tunnel server, mis. 10.8.0.1/24. Klien mendapat alamat dari subnet ini."
+        "awgAddressHint": "IP/CIDR tunnel server, mis. 10.8.0.1/24. Klien mendapat alamat dari subnet ini.",
+        "awgSubnetConflict": "Subnet ini tumpang tindih dengan AWG inbound lain — klien inbound ini tidak akan mendapat traffic (konflik kernel route).",
+        "awgSubnetConflictHint": "Subnet {{subnet}} sudah digunakan. Ubah Address ke /24 yang tidak tumpang tindih (mis. 10.8.1.1/24)."
       },
       "info": {
         "mode": "Mode",

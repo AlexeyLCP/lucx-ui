@@ -706,7 +706,9 @@
         "awgRouteOutboundHint": "Opcional. Fuerza el tráfico AWG a salir por este outbound (o balanceador). Déjalo vacío para que decidan tus reglas de enrutado.",
         "awgRouteOutboundPlaceholder": "Usar reglas de enrutado",
         "awgAddress": "Dirección del túnel del servidor",
-        "awgAddressHint": "IP/CIDR del túnel del servidor, p. ej. 10.8.0.1/24. Los clientes reciben direcciones de esta subred."
+        "awgAddressHint": "IP/CIDR del túnel del servidor, p. ej. 10.8.0.1/24. Los clientes reciben direcciones de esta subred.",
+        "awgSubnetConflict": "Esta subred se solapa con otro inbound AWG — los clientes de este inbound no tendrán tráfico (conflicto de kernel route).",
+        "awgSubnetConflictHint": "La subred {{subnet}} ya está en uso. Cambie Address a una /24 no superpuesta (p. ej. 10.8.1.1/24)."
       },
       "info": {
         "mode": "Modo",

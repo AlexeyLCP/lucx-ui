@@ -706,7 +706,9 @@
         "awgRouteOutboundHint": "任意。AWGトラフィックをこのアウトバウンド(またはバランサー)経由で強制的に出力します。空のままにするとルーティングルールに従います。",
         "awgRouteOutboundPlaceholder": "ルーティングルールを使用",
         "awgAddress": "サーバートンネルアドレス",
-        "awgAddressHint": "サーバートンネルのIP/CIDR(例: 10.8.0.1/24)。クライアントはこのサブネットからアドレスを取得します。"
+        "awgAddressHint": "サーバートンネルのIP/CIDR(例: 10.8.0.1/24)。クライアントはこのサブネットからアドレスを取得します。",
+        "awgSubnetConflict": "このサブネットは別の AWG インバウンドと重複しています — このインバウンドのクライアントはトラフィックを受信できません（kernel route 競合）。",
+        "awgSubnetConflictHint": "サブネット {{subnet}} は既に使用中です。Address を重複しない /24 に変更してください（例: 10.8.1.1/24）。"
       },
       "info": {
         "mode": "モード",
