@@ -466,42 +466,42 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
                 label={t('pages.inbounds.form.awgContentPaddingAddition')}
                 tooltip={t('pages.inbounds.form.awgContentPaddingAdditionHint')}
               >
-                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                <Input style={{ width: '100%' }} placeholder="0 or 100-500" />
               </FormField>
               <FormField
                 name={['settings', 'rekeyAfterTime']}
                 label={t('pages.inbounds.form.awgRekeyAfterTime')}
                 tooltip={t('pages.inbounds.form.awgRekeyAfterTimeHint')}
               >
-                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                <Input style={{ width: '100%' }} placeholder="0 or 100-500" />
               </FormField>
               <FormField
                 name={['settings', 'rekeyTimeout']}
                 label={t('pages.inbounds.form.awgRekeyTimeout')}
                 tooltip={t('pages.inbounds.form.awgRekeyTimeoutHint')}
               >
-                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                <Input style={{ width: '100%' }} placeholder="0 or 100-500" />
               </FormField>
               <FormField
                 name={['settings', 'rejectAfterTime']}
                 label={t('pages.inbounds.form.awgRejectAfterTime')}
                 tooltip={t('pages.inbounds.form.awgRejectAfterTimeHint')}
               >
-                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                <Input style={{ width: '100%' }} placeholder="0 or 100-500" />
               </FormField>
               <FormField
                 name={['settings', 'keepaliveTimeout']}
                 label={t('pages.inbounds.form.awgKeepaliveTimeout')}
                 tooltip={t('pages.inbounds.form.awgKeepaliveTimeoutHint')}
               >
-                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                <Input style={{ width: '100%' }} placeholder="0 or 100-500" />
               </FormField>
               <FormField
                 name={['settings', 'maxHandshakeAttempts']}
                 label={t('pages.inbounds.form.awgMaxHandshakeAttempts')}
                 tooltip={t('pages.inbounds.form.awgMaxHandshakeAttemptsHint')}
               >
-                <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                <Input style={{ width: '100%' }} placeholder="0 or 100-500" />
               </FormField>
             </Space>
           </Form.Item>

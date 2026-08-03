@@ -7,6 +7,8 @@
 import { z } from 'zod';
 import { WireguardClientSchema } from './wireguard';
 
+import { resolveAwgTimerRange } from '@/lib/awg/timer';
+
 // AWG Client = WireGuard client + legacy поля (id/password)
 // Переиспользуем WireguardClientSchema чтобы не дублировать comment/limitIp/etc.
 const AwgClientSchema = WireguardClientSchema.extend({
@@ -67,12 +69,18 @@ export const AwgInboundSettingsSchema = z.object({
   // '3'. Kernel defaults: RekeyAfterTime=120s, RekeyTimeout=5s,
   // RejectAfterTime=180s, KeepaliveTimeout=10s, MaxHandshakeAttempts=18,
   // ContentPaddingAddition=0 (deterministic WG padding).
-  contentPaddingAddition: z.number().int().min(0).max(65535).default(0),
-  rekeyAfterTime: z.number().int().min(0).max(65535).default(0),
-  rekeyTimeout: z.number().int().min(0).max(65535).default(0),
-  rejectAfterTime: z.number().int().min(0).max(65535).default(0),
-  keepaliveTimeout: z.number().int().min(0).max(65535).default(0),
-  maxHandshakeAttempts: z.number().int().min(0).max(65535).default(0),
+  //
+  // Each field accepts either a single integer ("120") or an inclusive range
+  // ("100-500"); the preprocess resolver rolls one value from a range on
+  // submit (these are interface-level UAPI ints, not per-peer ranges like
+  // H1-H4). The stored value is always a single int, so the backend/kernel
+  // never sees a range string.
+  contentPaddingAddition: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
+  rekeyAfterTime: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
+  rekeyTimeout: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
+  rejectAfterTime: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
+  keepaliveTimeout: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
+  maxHandshakeAttempts: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
   // AWG protocol version this inbound targets: '1.5' (legacy: Jc/Jmin/Jmax +
   // S1/S2 + H1-H4), '2' (adds S3/S4 + optional I1-I5, Android 2.0.1), or '3'
   // (adds HeaderProtectionKey, desktop 5.0.0.5 / Android 3.0.1). The server
