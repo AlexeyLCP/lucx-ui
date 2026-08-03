@@ -290,9 +290,10 @@ cp bin/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 
 ## Deploy
 
-- **Target:** `lucx` (SSH alias in `~/.ssh/config`, GCP Finland) — ⚠️ с 2026-07-18 недоступен (VM остановлена или ephemeral IP сменился, порты фильтруются; нужна консоль GCP)
+- ⚠️ **GCP-прод (`lucx`, 34.88.71.12, GCP Finland) ЗАКРЫТ** (2026-08-03, решение владельца): Google-проекты свёрнуты, сервер больше не цель деплоя. **НЕ стучаться туда, не обновлять, не считать его «недоступным продом, который надо поднять».** Единственный живой сервер проекта — `lucx-test2` (ниже). SSH-алиас `lucx` в `~/.ssh/config` — исторический, не использовать.
+- **Target:** `lucx-test2` (144.31.157.106, poor-rose-snake.play2go.cloud) — единственный тестовый/проверочный сервер.
 - **Service:** `x-ui.service` (systemd)
-- **Procedure:** SCP binary (или tarball релиза на самом сервере) → `sudo systemctl restart x-ui` → verify `systemctl status x-ui` + logs
+- **Procedure:** `x-ui update` на сервере (тянет latest release + новый `update.sh`: SHA-gate пересборки AWG-модуля + kernel-gate) → verify `systemctl status x-ui` + logs. Чистая установка — `install.sh` (см. Release & Install).
 - **AWG runtime check:** `awg show` should list active interfaces; `ip link show awgN` for TUN
 
 ### Тестовые серверы (SSH alias'ы в `~/.ssh/config`, user `root`, ключ `~/.ssh/id_ed25519`)
