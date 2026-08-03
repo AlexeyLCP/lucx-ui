@@ -222,6 +222,9 @@ func TestRenderServerConf_NeverWritesDNS(t *testing.T) {
 // fails every 10s. Version-gating keeps v1/v2 inbounds working on any kernel,
 // and lets a v3 inbound opt in once the AWG3 module is installed.
 func TestRenderServerConf_HeaderProtectionKeyVersionGated(t *testing.T) {
+	awg3 := true
+	SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
 	for _, tc := range []struct {
 		name    string
 		version string
@@ -247,6 +250,26 @@ func TestRenderServerConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 					tc.version, tc.hpk != "", tc.want, contains, conf)
 			}
 		})
+	}
+}
+
+// On a host still running the v1.x amneziawg module, an inbound with
+// awgVersion "3" and a non-empty HeaderProtectionKey must NOT emit the line
+// — the v1 kernel rejects "Line unrecognized: HeaderProtectionKey=..." and
+// awg-quick deletes the half-built interface. ModuleSupportsAwg3() is the
+// last line of defense against that regression.
+func TestRenderServerConf_HeaderProtectionKeyDroppedOnV1Module(t *testing.T) {
+	v1 := false
+	SetModuleSupportsAwg3(&v1)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
+	inst := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5,
+		AwgVersion:          "3",
+		HeaderProtectionKey: "aBcD...base64hpk==",
+	}
+	conf := renderServerConf(inst)
+	if strings.Contains(conf, "HeaderProtectionKey") {
+		t.Errorf("v1.x module must drop HPK even when awgVersion=3, got:\n%s", conf)
 	}
 }
 
@@ -513,6 +536,9 @@ func TestInstanceFingerprint_ChangesOnAdvancedSecurity(t *testing.T) {
 // (older kernels reject them in setconf), and a zero field stays silent on v3
 // too (0 = kernel default). Mirrors the HeaderProtectionKey gating.
 func TestRenderServerConf_DeviceFieldsVersionGated(t *testing.T) {
+	awg3 := true
+	SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
 	cases := []struct {
 		name    string
 		version string
@@ -558,6 +584,9 @@ func TestRenderServerConf_DeviceFieldsVersionGated(t *testing.T) {
 // The current kernel ignores it on input, but the renderer must keep it out of
 // v1/v2 configs so older kernels never see an unrecognized line.
 func TestRenderServerConf_AdvancedSecurityInPeer(t *testing.T) {
+	awg3 := true
+	SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
 	for _, tc := range []struct {
 		name    string
 		version string

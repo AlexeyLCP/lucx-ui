@@ -46,6 +46,7 @@ func renderClientConf(ci ClientInstance) string {
 	b.WriteString("Table = off\n")
 	// DNS deliberately NOT written — see function comment. resolvconf crash
 	// on hosts without systemd-resolved/openresolv took down every reconcile.
+	awg3ok := NormalizeAWGVersion(s.AwgVersion) == "3" && ModuleSupportsAwg3()
 	if s.Jc > 0 {
 		fmt.Fprintf(&b, "Jc = %d\n", s.Jc)
 		fmt.Fprintf(&b, "Jmin = %d\n", s.Jmin)
@@ -62,13 +63,14 @@ func renderClientConf(ci ClientInstance) string {
 		// the key is non-empty — mirrors renderServerConf. The upstream kernel
 		// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds
 		// reject it, so version-gating keeps v1/v2 outbounds working. S1-S4
-		// >= 12 is required for the kernel to accept the key (enforced by the
-		// generator when version "3" is selected).
-		if NormalizeAWGVersion(s.AwgVersion) == "3" && s.HeaderProtectionKey != "" {
+		// >= 12 is required for the kernel to accept the key (enforced by
+		// the generator when version "3" is selected). Module-gated so a v3
+		// outbound on a host with a v1.x module does not emit the line.
+		if awg3ok && s.HeaderProtectionKey != "" {
 			fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 		}
 		// AWG3 device-level timers/padding — 0 = kernel default.
-		if NormalizeAWGVersion(s.AwgVersion) == "3" {
+		if awg3ok {
 			if s.ContentPaddingAddition > 0 {
 				fmt.Fprintf(&b, "ContentPaddingAddition = %d\n", s.ContentPaddingAddition)
 			}
@@ -99,7 +101,7 @@ func renderClientConf(ci ClientInstance) string {
 	if s.Keepalive > 0 {
 		fmt.Fprintf(&b, "PersistentKeepalive = %d\n", s.Keepalive)
 	}
-	if NormalizeAWGVersion(s.AwgVersion) == "3" && s.AdvancedSecurity {
+	if awg3ok && s.AdvancedSecurity {
 		b.WriteString("AdvancedSecurity = on\n")
 	}
 	return b.String()

@@ -540,12 +540,12 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject
 	// it, so v1/v2 inbounds must never carry it. S1-S4 >= 12 is required for the
 	// kernel to accept the key (enforced by the generator for v3).
-	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" && s.HeaderProtectionKey != "" {
+	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" && s.HeaderProtectionKey != "" && awg.ModuleSupportsAwg3() {
 		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — 0 = kernel default. Emitted only for
 	// v3 so the clients-page filterAwgObfuscation can drop them for < v3.
-	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" {
+	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" && awg.ModuleSupportsAwg3() {
 		if s.ContentPaddingAddition > 0 {
 			fmt.Fprintf(&out, "ContentPaddingAddition = %d\n", s.ContentPaddingAddition)
 		}

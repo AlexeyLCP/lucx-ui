@@ -82,3 +82,51 @@ func isInboundAwgInterface(name string) bool {
 	r := rune(rest[0])
 	return r >= '0' && r <= '9'
 }
+
+var (
+	moduleAwg3Checked   bool
+	moduleAwg3Supported bool
+)
+
+// ModuleSupportsAwg3 reports whether the installed amneziawg kernel module
+// is v3.x (which parses ContentPaddingAddition/RekeyAfterTime/etc/
+// HeaderProtectionKey in setconf). Cached after the first call. Returns
+// false on non-Linux or when modinfo fails (dev/build hosts, module not
+// loaded yet) so renderers degrade AWG3 fields gracefully — never emit a
+// v3-only line into a .conf unless the running kernel will accept it.
+// Without this gate, an operator who picks awgVersion "3" on a host still
+// running the v1.x module gets "Line unrecognized: ContentPaddingAddition=64"
+// from awg setconf, awg-quick deletes the half-built interface, and every
+// reconcile fails with "Device <awgN> does not exist".
+func ModuleSupportsAwg3() bool {
+	if moduleSupportsAwg3Override != nil {
+		return *moduleSupportsAwg3Override
+	}
+	if moduleAwg3Checked {
+		return moduleAwg3Supported
+	}
+	moduleAwg3Checked = true
+	out, err := exec.CommandContext(context.Background(), "modinfo", "-F", "version", "amneziawg").Output()
+	if err != nil {
+		return false
+	}
+	ver := strings.TrimSpace(strings.SplitN(string(out), "\n", 2)[0])
+	if ver == "" {
+		return false
+	}
+	fields := strings.Split(ver, ".")
+	if len(fields) < 1 {
+		return false
+	}
+	major := strings.TrimPrefix(fields[0], "v")
+	moduleAwg3Supported = strings.HasPrefix(major, "3")
+	return moduleAwg3Supported
+}
+
+// SetModuleSupportsAwg3 overrides the module-support probe for tests.
+// Pass nil to clear the override (restore real probing). Test-only helper.
+func SetModuleSupportsAwg3(supported *bool) {
+	moduleSupportsAwg3Override = supported
+}
+
+var moduleSupportsAwg3Override *bool

@@ -581,13 +581,19 @@ func renderServerConf(inst Instance) string {
 	// working on any kernel, and lets a v3 inbound opt in once the operator has
 	// installed the AWG3 module. The S1-S4 >= 12 invariant (enforced by the
 	// generator) is required for the kernel to accept the key.
-	if inst.AwgVersion == "3" && inst.HeaderProtectionKey != "" {
+	if inst.AwgVersion == "3" && inst.HeaderProtectionKey != "" && ModuleSupportsAwg3() {
 		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", inst.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — all optional (0 = kernel uses the
 	// built-in WireGuard constant). Written only when > 0 and AwgVersion ==
-	// "3"; older kernels reject these lines in setconf.
-	if inst.AwgVersion == "3" {
+	// "3"; older kernels reject these lines in setconf. Module-gated: if the
+	// installed amneziawg module is < v3.0 (no ContentPaddingAddition/etc
+	// support), even an AwgVersion="3" inbound must not emit the lines — the
+	// kernel rejects "Line unrecognized" and awg-quick deletes the interface,
+	// producing "Device <awgN> does not exist". Blocks the regression seen
+	// when an operator picks v3 on a host still running the v1.x module.
+	awg3ok := inst.AwgVersion == "3" && ModuleSupportsAwg3()
+	if awg3ok {
 		if inst.ContentPaddingAddition > 0 {
 			fmt.Fprintf(&b, "ContentPaddingAddition = %d\n", inst.ContentPaddingAddition)
 		}
@@ -629,7 +635,7 @@ func renderServerConf(inst Instance) string {
 		if p.Keepalive > 0 {
 			fmt.Fprintf(&b, "PersistentKeepalive = %d\n", p.Keepalive)
 		}
-		if inst.AwgVersion == "3" && p.AdvancedSecurity {
+		if awg3ok && p.AdvancedSecurity {
 			b.WriteString("AdvancedSecurity = on\n")
 		}
 	}

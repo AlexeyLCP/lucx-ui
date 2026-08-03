@@ -124,6 +124,9 @@ func TestRenderClientConf_IPv6(t *testing.T) {
 // written only when awgVersion == "3" AND the key is non-empty. Older builds of
 // the kernel module reject the field, so v1/v2 outbounds must never carry it.
 func TestRenderClientConf_HeaderProtectionKeyVersionGated(t *testing.T) {
+	awg3 := true
+	SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
 	for _, tc := range []struct {
 		name     string
 		settings string
@@ -151,6 +154,9 @@ func TestRenderClientConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 // and the field > 0. On a non-v3 outbound the lines must NOT appear even when
 // the field carries a value. Mirrors TestRenderClientConf_HeaderProtectionKeyVersionGated.
 func TestRenderClientConf_DeviceFieldsGated(t *testing.T) {
+	awg3 := true
+	SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
 	const fields = `"contentPaddingAddition":32,"rekeyAfterTime":120,"rekeyTimeout":5,"rejectAfterTime":180,"keepaliveTimeout":10,"maxHandshakeAttempts":18`
 	const v3 = `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"3",` + fields + `}`
 	const v2 = `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"2",` + fields + `}`
@@ -184,6 +190,9 @@ func TestRenderClientConf_DeviceFieldsGated(t *testing.T) {
 // only when AwgVersion == "3" and the outbound opted in. Mirrors the server-side
 // gating so a v1/v2 outbound never carries an unrecognized line.
 func TestRenderClientConf_AdvancedSecurityInPeer(t *testing.T) {
+	awg3 := true
+	SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
 	for _, tc := range []struct {
 		name     string
 		settings string

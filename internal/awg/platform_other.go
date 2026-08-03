@@ -18,3 +18,21 @@ func defaultRouteInterface() string { return "" }
 // so orphan sweeping is unnecessary there. There is no tun2socks daemon to
 // sweep — routing into Xray is via an injected TUN inbound owned by Xray.
 func killStrayAwgInterfaces() int { return 0 }
+
+// ModuleSupportsAwg3 is a no-op off Linux (AWG is a Linux kernel module).
+// Dev/build hosts return false so renderers degrade AWG3 fields gracefully.
+// Tests override via SetModuleSupportsAwg3 to simulate a v3-capable module.
+var moduleSupportsAwg3Override *bool
+
+func ModuleSupportsAwg3() bool {
+	if moduleSupportsAwg3Override != nil {
+		return *moduleSupportsAwg3Override
+	}
+	return false
+}
+
+// SetModuleSupportsAwg3 overrides the module-support probe for tests.
+// Pass nil to clear the override (restore real probing). Test-only helper.
+func SetModuleSupportsAwg3(supported *bool) {
+	moduleSupportsAwg3Override = supported
+}

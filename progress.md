@@ -1100,6 +1100,33 @@ systemctl start x-ui
 **Тесты:** Frontend `vitest run --project=unit` — 893/893 passed. `npm run typecheck` — чисто. `npm run lint` — чисто. `npm run build` — OK. `npm run gen` — 27 schemas, 181 paths. `gofumpt -l .` — 2 upstream-файла (pre-existing drift). `bin/check-lucx.sh` — 49 файлов OK. i18n-dead-keys — 2/2 passed.
 
 
+## Релиз v3.6.0-lucx.52.1 (2026-08-02) — module-capability gate (bugfix для lucx.52)
+
+**Контекст:** Тестер сообщил «Device awg14 does not exist» после lucx.52. Воспроизведено на test2: host с amneziawg module v1.0.20260611 (НЕ v3), оператор выбрал awgVersion "3" в форме. Migration-prune (lucx.50) гейтит AWG3 поля только по `awgVersion != "3"` — на v3 inbound поля уходят в .conf → v1 module reject'ит «Line unrecognized: ContentPaddingAddition=64» → awg-quick откатывает интерфейс → «Device awgN does not exist».
+
+**Что сделано:**
+
+### ModuleSupportsAwg3() — capability probe
+- `internal/awg/platform_linux.go`: кэшированный `modinfo -F version amneziawg` probe → возвращает true только для v3.x (parses ContentPaddingAddition/RekeyAfterTime/.../HeaderProtectionKey в setconf). Кэш после первого вызова.
+- `internal/awg/platform_other.go`: no-op off Linux (dev/build hosts return false).
+- `SetModuleSupportsAwg3(*bool)` — test override (как SetRand в cps/params.go). Pass nil чтобы restore real probing.
+
+### Double-gate во всех 4 рендерерах
+- `internal/awg/manager.go` (`renderServerConf`): HPK, 6 device-полей, AdvancedSecurity — все под `awg3ok := inst.AwgVersion == "3" && ModuleSupportsAwg3()`.
+- `internal/awg/client_conf.go` (`renderClientConf`): то же для outbound side.
+- `internal/web/service/inbound.go` (`inboundAwgHints`): HPK + 6 device-полей под `awg.NormalizeAWGVersion(s.AwgVersion) == "3" && awg.ModuleSupportsAwg3()`.
+
+### Тесты
+- `instance_test.go`: 3 существующих version-gate теста обновлены — добавлен `SetModuleSupportsAwg3(&awg3=true)` override + `t.Cleanup(restore)`. Новый `TestRenderServerConf_HeaderProtectionKeyDroppedOnV1Module` — симулирует v1.x module (override false), проверяет что HPK не эмитится даже при `AwgVersion=="3"`.
+- `client_conf_test.go`: 3 существующих теста обновлены с override.
+
+**Файлы:** `internal/awg/platform_{linux,other}.go` (probe + override), `internal/awg/manager.go`, `internal/awg/client_conf.go`, `internal/web/service/inbound.go` (double-gate), `internal/awg/instance_test.go`, `internal/awg/client_conf_test.go` (test overrides + new v1-module test), `internal/config/config.go` (lucx.52.1), `AGENTS.md` (Pattern 1d), `progress.md`.
+
+**Тесты:** `go test ./internal/awg/...` — зелёный (178 PASS). `GOOS=linux go vet` — чисто. `gofumpt -l` — чисто. `bin/check-lucx.sh` — 49 файлов OK.
+
+**Урок:** DB-stored `awgVersion` — это потолок, который оператор выбрал в UI, а не capability runtime. Module-capability probe в каждой точке эмиссии AWG3 полей — единственный надёжный defense.
+
+
 
 
 
