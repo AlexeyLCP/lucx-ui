@@ -48,6 +48,138 @@ func awgSettingsAddress(settings string) string {
 	return s.Address
 }
 
+// migrateAwgClientSubnets re-allocates AWG client AllowedIPs into the
+// inbound's NEW tunnel subnet when the operator changes the inbound Address.
+// Without it, awg-quick up installs a /32 route per peer on the OLD subnet:
+// if another inbound now owns that subnet → `RTNETLINK: File exists` rolls
+// the interface back ("Device awgN does not exist"); even without a conflict
+// the server routes the new subnet while peers advertise the old one → no
+// traffic (Pattern 1h).
+//
+// Only single-host entries (a bare address or /N with N == addr bit-length)
+// that fall inside the OLD subnet are migrated — each such client is
+// re-allocated a fresh /32 from the new subnet via allocateWireguardAddress,
+// skipping the server's own address and any custom entries (0.0.0.0/0, a
+// different subnet, IPv6) the operator set deliberately. Clients whose
+// allowedIPs are already outside the old subnet are left untouched. The
+// function is a pure JSON→JSON transform; callers wire it into the inbound
+// update path before the settings are persisted. When oldAddr == newAddr or
+// either is unparseable, settingsJSON is returned unchanged.
+//
+// Clients keep their keypair/PSK/email — only the tunnel address moves, so
+// the operator's next client-config export carries the new Address and the
+// peer's AmneziaWG app picks it up on re-import.
+func migrateAwgClientSubnets(oldAddr, newAddr, settingsJSON string) string {
+	oldAddr = strings.TrimSpace(oldAddr)
+	newAddr = strings.TrimSpace(newAddr)
+	if oldAddr == "" || newAddr == "" || oldAddr == newAddr {
+		return settingsJSON
+	}
+	oldP, err := netip.ParsePrefix(oldAddr)
+	if err != nil {
+		return settingsJSON
+	}
+	newP, err := netip.ParsePrefix(newAddr)
+	if err != nil {
+		return settingsJSON
+	}
+	oldNet, newNet := oldP.Masked(), newP.Masked()
+	if !oldNet.Addr().Is4() || !newNet.Addr().Is4() || oldNet.String() == newNet.String() {
+		return settingsJSON
+	}
+	var settings map[string]any
+	if err := json.Unmarshal([]byte(settingsJSON), &settings); err != nil || settings == nil {
+		return settingsJSON
+	}
+	clients, ok := settings["clients"].([]any)
+	if !ok || len(clients) == 0 {
+		return settingsJSON
+	}
+	// used = addresses that must not be re-handed out: the server's own new
+	// address plus any custom (non-old-subnet) client entry.
+	used := []string{newP.Addr().String()}
+	var toRealloc []int
+	for i, it := range clients {
+		m, ok := it.(map[string]any)
+		if !ok {
+			continue
+		}
+		ips, ok := m["allowedIPs"].([]any)
+		if !ok || len(ips) == 0 {
+			continue
+		}
+		migratable := true
+		for _, ip := range ips {
+			s, _ := ip.(string)
+			if !awgSingleHostInSubnet(s, oldNet) {
+				migratable = false
+				break
+			}
+		}
+		if migratable {
+			toRealloc = append(toRealloc, i)
+		} else {
+			for _, ip := range ips {
+				if s, ok := ip.(string); ok {
+					if a, aErr := netip.ParseAddr(strings.TrimSpace(s)); aErr == nil {
+						used = append(used, a.String())
+					} else if p, pErr := netip.ParsePrefix(strings.TrimSpace(s)); pErr == nil {
+						used = append(used, p.Addr().String())
+					}
+				}
+			}
+		}
+	}
+	if len(toRealloc) == 0 {
+		return settingsJSON
+	}
+	base := newNet.String()
+	for _, idx := range toRealloc {
+		m, ok := clients[idx].(map[string]any)
+		if !ok {
+			continue
+		}
+		addr, err := allocateWireguardAddress(used, base)
+		if err != nil {
+			// No free address in the new subnet — leave the settings as the
+			// operator saved them; the runtime reconcile surfaces the mismatch
+			// rather than us silently dropping a client.
+			return settingsJSON
+		}
+		m["allowedIPs"] = []any{addr}
+		used = append(used, addr)
+	}
+	out, err := json.Marshal(settings)
+	if err != nil {
+		return settingsJSON
+	}
+	return string(out)
+}
+
+// awgSingleHostInSubnet reports whether s is a single-host allowedIPs entry
+// (a bare address or a /N with N == the address's bit length) whose address
+// lies inside subnet. Custom entries like 0.0.0.0/0, a different subnet, or
+// IPv6 return false — the operator set them deliberately and they must not be
+// silently rewritten on an address change.
+func awgSingleHostInSubnet(s string, subnet netip.Prefix) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	var addr netip.Addr
+	if p, err := netip.ParsePrefix(s); err == nil {
+		if p.Bits() != p.Addr().BitLen() {
+			return false
+		}
+		addr = p.Addr()
+	} else if a, err := netip.ParseAddr(s); err == nil {
+		addr = a
+	} else {
+		return false
+	}
+	return addr.Is4() && subnet.Contains(addr)
+}
+
 // defaultAwgClients fills in blank AmneziaWG credentials for newly added
 // clients, mirroring defaultWireguardClients: a generated Curve25519 keypair
 // when none was provided, a derived public key when only a private key was

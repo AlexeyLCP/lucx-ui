@@ -6,7 +6,11 @@
 
 package service
 
-import "testing"
+import (
+	"encoding/json"
+	"net/netip"
+	"testing"
+)
 
 func TestAwgAllocationFallback(t *testing.T) {
 	tests := []struct {
@@ -69,4 +73,140 @@ func TestParseAwgOutboundAddress(t *testing.T) {
 			}
 		})
 	}
+}
+
+// TestMigrateAwgClientSubnets covers the Pattern 1h fix: changing an AWG
+// inbound's Address must re-allocate peer AllowedIPs from the old subnet
+// into the new one, leave custom entries untouched, and be a no-op when the
+// subnet didn't really change.
+func TestMigrateAwgClientSubnets(t *testing.T) {
+	cases := []struct {
+		name     string
+		oldAddr  string
+		newAddr  string
+		settings string
+		check    func(t *testing.T, out string)
+	}{
+		{
+			name:     "subnet change reallocates clients",
+			oldAddr:  "10.8.0.1/24",
+			newAddr:  "10.8.5.1/24",
+			settings: `{"address":"10.8.5.1/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]},{"email":"b","allowedIPs":["10.8.0.3/32"]}]}`,
+			check: func(t *testing.T, out string) {
+				var s struct {
+					Address string `json:"address"`
+					Clients []struct {
+						Email      string   `json:"email"`
+						AllowedIPs []string `json:"allowedIPs"`
+					} `json:"clients"`
+				}
+				if err := json.Unmarshal([]byte(out), &s); err != nil {
+					t.Fatalf("settings not valid JSON: %v", out)
+				}
+				if s.Address != "10.8.5.1/24" {
+					t.Errorf("address mutated to %q", s.Address)
+				}
+				seen := map[string]struct{}{}
+				for _, c := range s.Clients {
+					if len(c.AllowedIPs) != 1 {
+						t.Fatalf("client %s: expected 1 allowedIP, got %v", c.Email, c.AllowedIPs)
+					}
+					ip := c.AllowedIPs[0]
+					seen[ip] = struct{}{}
+					p, err := netip.ParsePrefix(ip)
+					if err != nil {
+						t.Fatalf("client %s: %q not a prefix", c.Email, ip)
+					}
+					if !mustParsePrefix("10.8.5.0/24").Contains(p.Addr()) {
+						t.Errorf("client %s: %q not in new subnet 10.8.5.0/24", c.Email, ip)
+					}
+					if p.Addr() == netip.MustParseAddr("10.8.5.1") {
+						t.Errorf("client %s: reused the server's .1", c.Email)
+					}
+				}
+				if len(seen) != len(s.Clients) {
+					t.Errorf("duplicate allowedIPs after migration: %v", seen)
+				}
+			},
+		},
+		{
+			name:     "same subnet different host is a no-op",
+			oldAddr:  "10.8.0.1/24",
+			newAddr:  "10.8.0.5/24",
+			settings: `{"address":"10.8.0.5/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]}]}`,
+			check: func(t *testing.T, out string) {
+				if out != `{"address":"10.8.0.5/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]}]}` {
+					t.Errorf("same-subnet change must be a no-op, got %q", out)
+				}
+			},
+		},
+		{
+			name:     "address unchanged is a no-op",
+			oldAddr:  "10.8.0.1/24",
+			newAddr:  "10.8.0.1/24",
+			settings: `{"address":"10.8.0.1/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]}]}`,
+			check: func(t *testing.T, out string) {
+				if out != `{"address":"10.8.0.1/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]}]}` {
+					t.Errorf("unchanged address must be a no-op, got %q", out)
+				}
+			},
+		},
+		{
+			name:     "custom allowedIPs left untouched",
+			oldAddr:  "10.8.0.1/24",
+			newAddr:  "10.8.5.1/24",
+			settings: `{"address":"10.8.5.1/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]},{"email":"b","allowedIPs":["0.0.0.0/0"]}]}`,
+			check: func(t *testing.T, out string) {
+				var s struct {
+					Clients []struct {
+						Email      string   `json:"email"`
+						AllowedIPs []string `json:"allowedIPs"`
+					} `json:"clients"`
+				}
+				_ = json.Unmarshal([]byte(out), &s)
+				if s.Clients[1].AllowedIPs[0] != "0.0.0.0/0" {
+					t.Errorf("custom 0.0.0.0/0 must be preserved, got %v", s.Clients[1].AllowedIPs)
+				}
+				if s.Clients[0].AllowedIPs[0] == "10.8.0.2/32" {
+					t.Errorf("old-subnet client was not migrated: %v", s.Clients[0].AllowedIPs)
+				}
+			},
+		},
+		{
+			name:     "no clients is a no-op",
+			oldAddr:  "10.8.0.1/24",
+			newAddr:  "10.8.5.1/24",
+			settings: `{"address":"10.8.5.1/24","clients":[]}`,
+			check: func(t *testing.T, out string) {
+				if out != `{"address":"10.8.5.1/24","clients":[]}` {
+					t.Errorf("no-clients must be a no-op, got %q", out)
+				}
+			},
+		},
+		{
+			name:     "invalid new address is a no-op",
+			oldAddr:  "10.8.0.1/24",
+			newAddr:  "not-an-ip",
+			settings: `{"address":"not-an-ip","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]}]}`,
+			check: func(t *testing.T, out string) {
+				if out != `{"address":"not-an-ip","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]}]}` {
+					t.Errorf("invalid address must be a no-op, got %q", out)
+				}
+			},
+		},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			c.check(t, migrateAwgClientSubnets(c.oldAddr, c.newAddr, c.settings))
+		})
+	}
+}
+
+func mustParsePrefix(s string) netip.Prefix {
+	p, err := netip.ParsePrefix(s)
+	if err != nil {
+		panic(err)
+	}
+	return p
 }
