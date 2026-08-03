@@ -1365,6 +1365,17 @@ export function awgVersionAtLeast(target: AwgVersion, floor: AwgVersion): boolea
   return AWG_VERSION_ORDER[target] >= AWG_VERSION_ORDER[floor];
 }
 
+// awgTimerEmit returns the shareable form of an AWG3 device-timer value, or ''
+// when it is the kernel default and must be omitted. The value is a string that
+// may carry an inclusive range ("100-500") — returned verbatim so the native
+// kernel range survives into share-links and exported .conf text.
+function awgTimerEmit(v: string | number | undefined): string {
+  if (v === undefined || v === null) return '';
+  const s = String(v).trim();
+  if (s === '' || s === '0' || s === '0-0') return '';
+  return s;
+}
+
 export function genAwgLink(input: GenAwgLinkInput): string {
   const { settings, address, port, remark = '', peerIndex } = input;
   const peer = awgPeerShape(settings.clients[peerIndex]);
@@ -1414,14 +1425,20 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   if (awgVersionAtLeast(v, '3') && settings.headerProtectionKey) {
     url.searchParams.set('headerprotectionkey', settings.headerProtectionKey);
   }
-  // AWG3 device-level timers/padding — 0 = kernel default. Only emitted for v3.
+  // AWG3 device-level timers/padding — "0"/empty = kernel default. Only emitted
+  // for v3. Values may be inclusive ranges ("100-500") and pass through verbatim.
   if (awgVersionAtLeast(v, '3')) {
-    if (settings.contentPaddingAddition) url.searchParams.set('contentpaddingaddition', String(settings.contentPaddingAddition));
-    if (settings.rekeyAfterTime) url.searchParams.set('rekeyaftertime', String(settings.rekeyAfterTime));
-    if (settings.rekeyTimeout) url.searchParams.set('rekeytimeout', String(settings.rekeyTimeout));
-    if (settings.rejectAfterTime) url.searchParams.set('rejectaftertime', String(settings.rejectAfterTime));
-    if (settings.keepaliveTimeout) url.searchParams.set('keepalivetimeout', String(settings.keepaliveTimeout));
-    if (settings.maxHandshakeAttempts) url.searchParams.set('maxhandshakeattempts', String(settings.maxHandshakeAttempts));
+    const timers: Array<[string, string]> = [
+      ['contentpaddingaddition', awgTimerEmit(settings.contentPaddingAddition)],
+      ['rekeyaftertime', awgTimerEmit(settings.rekeyAfterTime)],
+      ['rekeytimeout', awgTimerEmit(settings.rekeyTimeout)],
+      ['rejectaftertime', awgTimerEmit(settings.rejectAfterTime)],
+      ['keepalivetimeout', awgTimerEmit(settings.keepaliveTimeout)],
+      ['maxhandshakeattempts', awgTimerEmit(settings.maxHandshakeAttempts)],
+    ];
+    for (const [key, val] of timers) {
+      if (val) url.searchParams.set(key, val);
+    }
   }
   if (settings.dns) url.searchParams.set('dns', settings.dns);
   if (peer.preSharedKey) url.searchParams.set('presharedkey', peer.preSharedKey);
@@ -1485,14 +1502,20 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   if (awgVersionAtLeast(override, '3') && settings.headerProtectionKey) {
     txt += `HeaderProtectionKey = ${settings.headerProtectionKey}\n`;
   }
-  // AWG3 device-level timers/padding — 0 = kernel default. Only for v3.
+  // AWG3 device-level timers/padding — "0"/empty = kernel default. Only for v3.
+  // Values may be inclusive ranges ("100-500") and pass through verbatim.
   if (awgVersionAtLeast(override, '3')) {
-    if (settings.contentPaddingAddition) txt += `ContentPaddingAddition = ${settings.contentPaddingAddition}\n`;
-    if (settings.rekeyAfterTime) txt += `RekeyAfterTime = ${settings.rekeyAfterTime}\n`;
-    if (settings.rekeyTimeout) txt += `RekeyTimeout = ${settings.rekeyTimeout}\n`;
-    if (settings.rejectAfterTime) txt += `RejectAfterTime = ${settings.rejectAfterTime}\n`;
-    if (settings.keepaliveTimeout) txt += `KeepaliveTimeout = ${settings.keepaliveTimeout}\n`;
-    if (settings.maxHandshakeAttempts) txt += `MaxHandshakeAttempts = ${settings.maxHandshakeAttempts}\n`;
+    const lines: Array<[string, string]> = [
+      ['ContentPaddingAddition', awgTimerEmit(settings.contentPaddingAddition)],
+      ['RekeyAfterTime', awgTimerEmit(settings.rekeyAfterTime)],
+      ['RekeyTimeout', awgTimerEmit(settings.rekeyTimeout)],
+      ['RejectAfterTime', awgTimerEmit(settings.rejectAfterTime)],
+      ['KeepaliveTimeout', awgTimerEmit(settings.keepaliveTimeout)],
+      ['MaxHandshakeAttempts', awgTimerEmit(settings.maxHandshakeAttempts)],
+    ];
+    for (const [key, val] of lines) {
+      if (val) txt += `${key} = ${val}\n`;
+    }
   }
 
   txt += `\n# ${remark}\n`;

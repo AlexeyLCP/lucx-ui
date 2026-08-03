@@ -510,7 +510,7 @@ func TestNatRulesFor_SkipsUnroutable(t *testing.T) {
 func TestInstanceFingerprint_ChangesOnDeviceField(t *testing.T) {
 	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k"}
 	before := inst.fingerprint()
-	inst.RekeyAfterTime = 120
+	inst.RekeyAfterTime = "120"
 	after := inst.fingerprint()
 	if before == after {
 		t.Fatal("fingerprint must change when an AWG3 device timer field changes (restart trigger)")
@@ -546,21 +546,21 @@ func TestRenderServerConf_DeviceFieldsVersionGated(t *testing.T) {
 		set     func(inst *Instance)
 		want    bool
 	}{
-		{"ContentPaddingAddition v3 set", "3", "ContentPaddingAddition = 32", func(i *Instance) { i.ContentPaddingAddition = 32 }, true},
-		{"ContentPaddingAddition v2 set", "2", "ContentPaddingAddition = 32", func(i *Instance) { i.ContentPaddingAddition = 32 }, false},
+		{"ContentPaddingAddition v3 set", "3", "ContentPaddingAddition = 32", func(i *Instance) { i.ContentPaddingAddition = "32" }, true},
+		{"ContentPaddingAddition v2 set", "2", "ContentPaddingAddition = 32", func(i *Instance) { i.ContentPaddingAddition = "32" }, false},
 		{"ContentPaddingAddition v3 zero", "3", "ContentPaddingAddition =", func(i *Instance) {}, false},
-		{"RekeyAfterTime v3 set", "3", "RekeyAfterTime = 120", func(i *Instance) { i.RekeyAfterTime = 120 }, true},
-		{"RekeyAfterTime v2 set", "2", "RekeyAfterTime = 120", func(i *Instance) { i.RekeyAfterTime = 120 }, false},
+		{"RekeyAfterTime v3 set", "3", "RekeyAfterTime = 120", func(i *Instance) { i.RekeyAfterTime = "120" }, true},
+		{"RekeyAfterTime v2 set", "2", "RekeyAfterTime = 120", func(i *Instance) { i.RekeyAfterTime = "120" }, false},
 		{"RekeyAfterTime v3 zero", "3", "RekeyAfterTime =", func(i *Instance) {}, false},
-		{"RekeyTimeout v3 set", "3", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = 5 }, true},
-		{"RekeyTimeout v2 set", "2", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = 5 }, false},
-		{"RekeyTimeout v1.5 set", "1.5", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = 5 }, false},
-		{"RejectAfterTime v3 set", "3", "RejectAfterTime = 180", func(i *Instance) { i.RejectAfterTime = 180 }, true},
-		{"RejectAfterTime v2 set", "2", "RejectAfterTime = 180", func(i *Instance) { i.RejectAfterTime = 180 }, false},
-		{"KeepaliveTimeout v3 set", "3", "KeepaliveTimeout = 10", func(i *Instance) { i.KeepaliveTimeout = 10 }, true},
-		{"KeepaliveTimeout v2 set", "2", "KeepaliveTimeout = 10", func(i *Instance) { i.KeepaliveTimeout = 10 }, false},
-		{"MaxHandshakeAttempts v3 set", "3", "MaxHandshakeAttempts = 18", func(i *Instance) { i.MaxHandshakeAttempts = 18 }, true},
-		{"MaxHandshakeAttempts v2 set", "2", "MaxHandshakeAttempts = 18", func(i *Instance) { i.MaxHandshakeAttempts = 18 }, false},
+		{"RekeyTimeout v3 set", "3", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = "5" }, true},
+		{"RekeyTimeout v2 set", "2", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = "5" }, false},
+		{"RekeyTimeout v1.5 set", "1.5", "RekeyTimeout = 5", func(i *Instance) { i.RekeyTimeout = "5" }, false},
+		{"RejectAfterTime v3 set", "3", "RejectAfterTime = 180", func(i *Instance) { i.RejectAfterTime = "180" }, true},
+		{"RejectAfterTime v2 set", "2", "RejectAfterTime = 180", func(i *Instance) { i.RejectAfterTime = "180" }, false},
+		{"KeepaliveTimeout v3 set", "3", "KeepaliveTimeout = 10", func(i *Instance) { i.KeepaliveTimeout = "10" }, true},
+		{"KeepaliveTimeout v2 set", "2", "KeepaliveTimeout = 10", func(i *Instance) { i.KeepaliveTimeout = "10" }, false},
+		{"MaxHandshakeAttempts v3 set", "3", "MaxHandshakeAttempts = 18", func(i *Instance) { i.MaxHandshakeAttempts = "18" }, true},
+		{"MaxHandshakeAttempts v2 set", "2", "MaxHandshakeAttempts = 18", func(i *Instance) { i.MaxHandshakeAttempts = "18" }, false},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -626,10 +626,32 @@ func TestInstanceFromInbound_DeviceFields(t *testing.T) {
 	if !ok {
 		t.Fatal("expected a usable instance")
 	}
-	if inst.ContentPaddingAddition != 32 || inst.RekeyAfterTime != 120 ||
-		inst.RekeyTimeout != 5 || inst.RejectAfterTime != 180 ||
-		inst.KeepaliveTimeout != 10 || inst.MaxHandshakeAttempts != 18 {
+	if inst.ContentPaddingAddition != "32" || inst.RekeyAfterTime != "120" ||
+		inst.RekeyTimeout != "5" || inst.RejectAfterTime != "180" ||
+		inst.KeepaliveTimeout != "10" || inst.MaxHandshakeAttempts != "18" {
 		t.Fatalf("device fields not parsed: %+v", inst)
+	}
+}
+
+// TestInstanceFromInbound_DeviceFieldRange pins the lucx.60 passthrough: a
+// timer stored as an inclusive range string ("100-200") — the kernel's native
+// u16_range form — reaches the Instance verbatim instead of being collapsed.
+func TestInstanceFromInbound_DeviceFieldRange(t *testing.T) {
+	ib := &model.Inbound{
+		Id:       9,
+		Protocol: model.AWG,
+		Settings: `{"privateKey":"k","awgVersion":"3",` +
+			`"contentPaddingAddition":"10-64","rekeyAfterTime":"100-200","rekeyTimeout":"3-7",` +
+			`"rejectAfterTime":180,"keepaliveTimeout":"8-12","maxHandshakeAttempts":"15-20"}`,
+	}
+	inst, ok := InstanceFromInbound(ib)
+	if !ok {
+		t.Fatal("expected a usable instance")
+	}
+	if inst.ContentPaddingAddition != "10-64" || inst.RekeyAfterTime != "100-200" ||
+		inst.RekeyTimeout != "3-7" || inst.RejectAfterTime != "180" ||
+		inst.KeepaliveTimeout != "8-12" || inst.MaxHandshakeAttempts != "15-20" {
+		t.Fatalf("range/number mix not parsed verbatim: %+v", inst)
 	}
 }
 

@@ -7,7 +7,7 @@
 import { z } from 'zod';
 import { WireguardClientSchema } from './wireguard';
 
-import { resolveAwgTimerRange } from '@/lib/awg/timer';
+import { normalizeAwgTimer } from '@/lib/awg/timer';
 
 // AWG Client = WireGuard client + legacy поля (id/password)
 // Переиспользуем WireguardClientSchema чтобы не дублировать comment/limitIp/etc.
@@ -64,23 +64,23 @@ export const AwgInboundSettingsSchema = z.object({
   // keep accepting the config. S1-S4 must be >= 12 for the kernel to accept the
   // key (the generator enforces this; the form warns on manual override).
   headerProtectionKey: z.string().default(''),
-  // AWG3 device-level timers/padding (all 0 = kernel uses the built-in
-  // WireGuard constant). Written to .conf only when > 0 AND awgVersion ===
+  // AWG3 device-level timers/padding (empty/"0" = kernel uses the built-in
+  // WireGuard constant). Written to .conf only when non-zero AND awgVersion ===
   // '3'. Kernel defaults: RekeyAfterTime=120s, RekeyTimeout=5s,
   // RejectAfterTime=180s, KeepaliveTimeout=10s, MaxHandshakeAttempts=18,
   // ContentPaddingAddition=0 (deterministic WG padding).
   //
-  // Each field accepts either a single integer ("120") or an inclusive range
-  // ("100-500"); the preprocess resolver rolls one value from a range on
-  // submit (these are interface-level UAPI ints, not per-peer ranges like
-  // H1-H4). The stored value is always a single int, so the backend/kernel
-  // never sees a range string.
-  contentPaddingAddition: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
-  rekeyAfterTime: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
-  rekeyTimeout: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
-  rejectAfterTime: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
-  keepaliveTimeout: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
-  maxHandshakeAttempts: z.preprocess(resolveAwgTimerRange, z.number().int().min(0).max(65535)).default(0),
+  // Each field is a STRING holding either a single value ("120") or an
+  // inclusive range ("100-500"). The kernel's u16_range_t accepts both and
+  // randomizes within a range at rekey (same semantics as H1-H4), so the range
+  // passes through VERBATIM — normalizeAwgTimer only clamps/orders the input,
+  // it never collapses a range to one number.
+  contentPaddingAddition: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  rekeyAfterTime: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  rekeyTimeout: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  rejectAfterTime: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  keepaliveTimeout: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  maxHandshakeAttempts: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
   // AWG protocol version this inbound targets: '1.5' (legacy: Jc/Jmin/Jmax +
   // S1/S2 + H1-H4), '2' (adds S3/S4 + optional I1-I5, Android 2.0.1), or '3'
   // (adds HeaderProtectionKey, desktop 5.0.0.5 / Android 3.0.1). The server

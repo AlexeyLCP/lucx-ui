@@ -369,8 +369,8 @@ function awgSettings(version: '1.5' | '2' | '3'): AwgInboundSettings {
     i1: '<b 0xaa>', i2: '<b 0xbb>', i3: '<b 0xcc>', i4: '<b 0xdd>', i5: '<b 0xee>',
     headerProtectionKey: 'aBcD...base64hpk==',
     awgVersion: version,
-    contentPaddingAddition: 0, rekeyAfterTime: 0, rekeyTimeout: 0,
-    rejectAfterTime: 0, keepaliveTimeout: 0, maxHandshakeAttempts: 0,
+    contentPaddingAddition: '0', rekeyAfterTime: '0', rekeyTimeout: '0',
+    rejectAfterTime: '0', keepaliveTimeout: '0', maxHandshakeAttempts: '0',
     clients: [{ privateKey: 'clientPrivKeyBase64', publicKey: 'peerPub', preSharedKey: 'psk', allowedIPs: ['10.8.0.2/32'], keepAlive: 25, advancedSecurity: true }] as AwgInboundSettings['clients'],
   };
 }

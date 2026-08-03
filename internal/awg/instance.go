@@ -14,6 +14,40 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
+// AwgTimer is the stored form of an AWG3 device-level timer/padding value.
+// The kernel's u16_range_t (device.h) and the tools' u16_range_from_string
+// accept BOTH a single integer ("150") and an inclusive range ("100-500"),
+// randomizing within the range at rekey just like H1-H4 — so the value is kept
+// as a string end-to-end and written to the .conf verbatim. UnmarshalJSON
+// tolerates a JSON number as well (legacy inbounds / panel defaults store 0 as
+// a number), normalizing it to its string form.
+type AwgTimer string
+
+func (t *AwgTimer) UnmarshalJSON(b []byte) error {
+	s := strings.TrimSpace(string(b))
+	if s == "" || s == "null" {
+		*t = ""
+		return nil
+	}
+	if s[0] == '"' {
+		var str string
+		if err := json.Unmarshal(b, &str); err != nil {
+			return err
+		}
+		*t = AwgTimer(strings.TrimSpace(str))
+		return nil
+	}
+	*t = AwgTimer(s)
+	return nil
+}
+
+// IsZero reports whether the value is empty or a zero (the kernel built-in
+// WireGuard default), in which case the renderer omits the line.
+func (t AwgTimer) IsZero() bool {
+	s := strings.TrimSpace(string(t))
+	return s == "" || s == "0" || s == "0-0"
+}
+
 // Instance is the desired runtime configuration of one AWG inbound: the kernel
 // interface, its obfuscation parameters, and the set of peers that should be
 // present. The manager drives the running kernel interface toward this state.
@@ -51,14 +85,17 @@ type Instance struct {
 	// "3" (the inbound opts into AWG3); for older versions it stays empty and
 	// is omitted so v1/v2 kernels keep accepting the config.
 	HeaderProtectionKey string
-	// AWG3 device-level timers/padding (all 0 = kernel uses built-in WG
-	// constant). Written to the .conf only when > 0 AND AwgVersion == "3".
-	ContentPaddingAddition int
-	RekeyAfterTime         int
-	RekeyTimeout           int
-	RejectAfterTime        int
-	KeepaliveTimeout       int
-	MaxHandshakeAttempts   int
+	// AWG3 device-level timers/padding. Stored as AwgTimer (a string that may
+	// be a single value "150" or an inclusive range "100-500" — the kernel
+	// u16_range_t accepts both and randomizes within a range at rekey). Empty /
+	// "0" = kernel built-in WG constant; the renderer omits it. Written to the
+	// .conf only when non-zero AND AwgVersion == "3".
+	ContentPaddingAddition AwgTimer
+	RekeyAfterTime         AwgTimer
+	RekeyTimeout           AwgTimer
+	RejectAfterTime        AwgTimer
+	KeepaliveTimeout       AwgTimer
+	MaxHandshakeAttempts   AwgTimer
 	// AwgVersion is the AmneziaWG protocol version this inbound targets:
 	// "1.5" (legacy, Jc/Jmin/Jmax + S1/S2 + H1-H4 only), "2" (adds S3/S4 +
 	// optional I1-I5, Android 2.0.1), or "3" (adds HeaderProtectionKey,
@@ -113,12 +150,12 @@ func (inst Instance) fingerprint() string {
 		inst.I4,
 		inst.I5,
 		inst.HeaderProtectionKey,
-		strconv.Itoa(inst.ContentPaddingAddition),
-		strconv.Itoa(inst.RekeyAfterTime),
-		strconv.Itoa(inst.RekeyTimeout),
-		strconv.Itoa(inst.RejectAfterTime),
-		strconv.Itoa(inst.KeepaliveTimeout),
-		strconv.Itoa(inst.MaxHandshakeAttempts),
+		string(inst.ContentPaddingAddition),
+		string(inst.RekeyAfterTime),
+		string(inst.RekeyTimeout),
+		string(inst.RejectAfterTime),
+		string(inst.KeepaliveTimeout),
+		string(inst.MaxHandshakeAttempts),
 		inst.AwgVersion,
 		strconv.FormatBool(inst.RouteThroughXray),
 		inst.OutboundTag,
@@ -178,13 +215,15 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			Password string `json:"password"`
 			Enable   *bool  `json:"enable"`
 		} `json:"clients"`
-		// AWG3 device-level timers/padding (0 = kernel default).
-		ContentPaddingAddition int `json:"contentPaddingAddition"`
-		RekeyAfterTime         int `json:"rekeyAfterTime"`
-		RekeyTimeout           int `json:"rekeyTimeout"`
-		RejectAfterTime        int `json:"rejectAfterTime"`
-		KeepaliveTimeout       int `json:"keepaliveTimeout"`
-		MaxHandshakeAttempts   int `json:"maxHandshakeAttempts"`
+		// AWG3 device-level timers/padding. AwgTimer unmarshals a JSON number
+		// (legacy) or a string ("150" / "100-500" range) so native kernel ranges
+		// pass through untouched.
+		ContentPaddingAddition AwgTimer `json:"contentPaddingAddition"`
+		RekeyAfterTime         AwgTimer `json:"rekeyAfterTime"`
+		RekeyTimeout           AwgTimer `json:"rekeyTimeout"`
+		RejectAfterTime        AwgTimer `json:"rejectAfterTime"`
+		KeepaliveTimeout       AwgTimer `json:"keepaliveTimeout"`
+		MaxHandshakeAttempts   AwgTimer `json:"maxHandshakeAttempts"`
 	}
 	if err := json.Unmarshal([]byte(ib.Settings), &s); err != nil {
 		return Instance{}, false

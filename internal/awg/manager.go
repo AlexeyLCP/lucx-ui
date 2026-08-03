@@ -649,23 +649,27 @@ func renderServerConf(inst Instance) string {
 	// when an operator picks v3 on a host still running the v1.x module.
 	awg3ok := inst.AwgVersion == "3" && ModuleSupportsAwg3()
 	if awg3ok {
-		if inst.ContentPaddingAddition > 0 {
-			fmt.Fprintf(&b, "ContentPaddingAddition = %d\n", inst.ContentPaddingAddition)
+		// Values are written verbatim: each is a single integer ("150") or an
+		// inclusive range ("100-500"). The kernel u16_range_t parses both and
+		// randomizes within a range at rekey (same semantics as H1-H4), so a
+		// range must reach the .conf intact — never collapsed to one value.
+		if !inst.ContentPaddingAddition.IsZero() {
+			fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", inst.ContentPaddingAddition)
 		}
-		if inst.RekeyAfterTime > 0 {
-			fmt.Fprintf(&b, "RekeyAfterTime = %d\n", inst.RekeyAfterTime)
+		if !inst.RekeyAfterTime.IsZero() {
+			fmt.Fprintf(&b, "RekeyAfterTime = %s\n", inst.RekeyAfterTime)
 		}
-		if inst.RekeyTimeout > 0 {
-			fmt.Fprintf(&b, "RekeyTimeout = %d\n", inst.RekeyTimeout)
+		if !inst.RekeyTimeout.IsZero() {
+			fmt.Fprintf(&b, "RekeyTimeout = %s\n", inst.RekeyTimeout)
 		}
-		if inst.RejectAfterTime > 0 {
-			fmt.Fprintf(&b, "RejectAfterTime = %d\n", inst.RejectAfterTime)
+		if !inst.RejectAfterTime.IsZero() {
+			fmt.Fprintf(&b, "RejectAfterTime = %s\n", inst.RejectAfterTime)
 		}
-		if inst.KeepaliveTimeout > 0 {
-			fmt.Fprintf(&b, "KeepaliveTimeout = %d\n", inst.KeepaliveTimeout)
+		if !inst.KeepaliveTimeout.IsZero() {
+			fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", inst.KeepaliveTimeout)
 		}
-		if inst.MaxHandshakeAttempts > 0 {
-			fmt.Fprintf(&b, "MaxHandshakeAttempts = %d\n", inst.MaxHandshakeAttempts)
+		if !inst.MaxHandshakeAttempts.IsZero() {
+			fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", inst.MaxHandshakeAttempts)
 		}
 	}
 	// I1-I5 (CPS packets) are CLIENT-ONLY — the server does not use them.

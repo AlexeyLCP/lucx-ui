@@ -113,13 +113,18 @@ func normalizeAwgSettings(settings string) (string, bool, string) {
 		}
 		// AWG3 device-level timers/padding — prune non-zero values on non-v3
 		// inbounds (older kernels reject these lines in setconf). JSON numbers
-		// unmarshal to float64.
+		// unmarshal to float64; since lucx.60 a value may also be a string that
+		// carries an inclusive range ("100-500"), which must be cleared too.
 		for _, key := range []string{
 			"contentPaddingAddition", "rekeyAfterTime", "rekeyTimeout",
 			"rejectAfterTime", "keepaliveTimeout", "maxHandshakeAttempts",
 		} {
 			if v, ok := m[key].(float64); ok && v > 0 {
 				m[key] = 0
+				changed = true
+				reasons = append(reasons, "cleared stale "+key+" (not AWG3)")
+			} else if sv, ok := m[key].(string); ok && sv != "" && sv != "0" && sv != "0-0" {
+				m[key] = ""
 				changed = true
 				reasons = append(reasons, "cleared stale "+key+" (not AWG3)")
 			}

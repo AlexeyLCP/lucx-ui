@@ -270,12 +270,12 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     // constant (RekeyAfterTime=120, RekeyTimeout=5, RejectAfterTime=180,
     // KeepaliveTimeout=10, MaxHandshakeAttempts=18, ContentPadding=0). The
     // operator overrides per-inbound in the AWG3 advanced section.
-    contentPaddingAddition: 0,
-    rekeyAfterTime: 0,
-    rekeyTimeout: 0,
-    rejectAfterTime: 0,
-    keepaliveTimeout: 0,
-    maxHandshakeAttempts: 0,
+    contentPaddingAddition: '0',
+    rekeyAfterTime: '0',
+    rekeyTimeout: '0',
+    rejectAfterTime: '0',
+    keepaliveTimeout: '0',
+    maxHandshakeAttempts: '0',
     // AWG protocol version '2' is the safe default — no HeaderProtectionKey,
     // accepted by any kernel. Bump to '3' for AWG3 clients (desktop 5.0.0.5 /
     // Android 3.0.1); note a v3 server will NOT accept v1/v2/plain-WG clients.

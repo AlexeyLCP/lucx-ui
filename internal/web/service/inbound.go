@@ -459,31 +459,31 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 		return "", "", ""
 	}
 	var s struct {
-		Address                string `json:"address"`
-		Jc                     int    `json:"jc"`
-		Jmin                   int    `json:"jmin"`
-		Jmax                   int    `json:"jmax"`
-		S1                     int    `json:"s1"`
-		S2                     int    `json:"s2"`
-		S3                     int    `json:"s3"`
-		S4                     int    `json:"s4"`
-		H1                     string `json:"h1"`
-		H2                     string `json:"h2"`
-		H3                     string `json:"h3"`
-		H4                     string `json:"h4"`
-		I1                     string `json:"i1"`
-		I2                     string `json:"i2"`
-		I3                     string `json:"i3"`
-		I4                     string `json:"i4"`
-		I5                     string `json:"i5"`
-		HeaderProtectionKey    string `json:"headerProtectionKey"`
-		AwgVersion             string `json:"awgVersion"`
-		ContentPaddingAddition int    `json:"contentPaddingAddition"`
-		RekeyAfterTime         int    `json:"rekeyAfterTime"`
-		RekeyTimeout           int    `json:"rekeyTimeout"`
-		RejectAfterTime        int    `json:"rejectAfterTime"`
-		KeepaliveTimeout       int    `json:"keepaliveTimeout"`
-		MaxHandshakeAttempts   int    `json:"maxHandshakeAttempts"`
+		Address                string       `json:"address"`
+		Jc                     int          `json:"jc"`
+		Jmin                   int          `json:"jmin"`
+		Jmax                   int          `json:"jmax"`
+		S1                     int          `json:"s1"`
+		S2                     int          `json:"s2"`
+		S3                     int          `json:"s3"`
+		S4                     int          `json:"s4"`
+		H1                     string       `json:"h1"`
+		H2                     string       `json:"h2"`
+		H3                     string       `json:"h3"`
+		H4                     string       `json:"h4"`
+		I1                     string       `json:"i1"`
+		I2                     string       `json:"i2"`
+		I3                     string       `json:"i3"`
+		I4                     string       `json:"i4"`
+		I5                     string       `json:"i5"`
+		HeaderProtectionKey    string       `json:"headerProtectionKey"`
+		AwgVersion             string       `json:"awgVersion"`
+		ContentPaddingAddition awg.AwgTimer `json:"contentPaddingAddition"`
+		RekeyAfterTime         awg.AwgTimer `json:"rekeyAfterTime"`
+		RekeyTimeout           awg.AwgTimer `json:"rekeyTimeout"`
+		RejectAfterTime        awg.AwgTimer `json:"rejectAfterTime"`
+		KeepaliveTimeout       awg.AwgTimer `json:"keepaliveTimeout"`
+		MaxHandshakeAttempts   awg.AwgTimer `json:"maxHandshakeAttempts"`
 	}
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
 		return "", "", ""
@@ -543,26 +543,29 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" && s.HeaderProtectionKey != "" && awg.ModuleSupportsAwg3() {
 		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 	}
-	// AWG3 device-level timers/padding — 0 = kernel default. Emitted only for
-	// v3 so the clients-page filterAwgObfuscation can drop them for < v3.
+	// AWG3 device-level timers/padding — empty/"0" = kernel default. Emitted only
+	// for v3 so the clients-page filterAwgObfuscation can drop them for < v3.
+	// Values are written verbatim (a single "150" or an inclusive range
+	// "100-500"); this ceiling block mirrors the H1-H4 ranges already exported,
+	// so client configs carry native kernel ranges intact.
 	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" && awg.ModuleSupportsAwg3() {
-		if s.ContentPaddingAddition > 0 {
-			fmt.Fprintf(&out, "ContentPaddingAddition = %d\n", s.ContentPaddingAddition)
+		if !s.ContentPaddingAddition.IsZero() {
+			fmt.Fprintf(&out, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
 		}
-		if s.RekeyAfterTime > 0 {
-			fmt.Fprintf(&out, "RekeyAfterTime = %d\n", s.RekeyAfterTime)
+		if !s.RekeyAfterTime.IsZero() {
+			fmt.Fprintf(&out, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
 		}
-		if s.RekeyTimeout > 0 {
-			fmt.Fprintf(&out, "RekeyTimeout = %d\n", s.RekeyTimeout)
+		if !s.RekeyTimeout.IsZero() {
+			fmt.Fprintf(&out, "RekeyTimeout = %s\n", s.RekeyTimeout)
 		}
-		if s.RejectAfterTime > 0 {
-			fmt.Fprintf(&out, "RejectAfterTime = %d\n", s.RejectAfterTime)
+		if !s.RejectAfterTime.IsZero() {
+			fmt.Fprintf(&out, "RejectAfterTime = %s\n", s.RejectAfterTime)
 		}
-		if s.KeepaliveTimeout > 0 {
-			fmt.Fprintf(&out, "KeepaliveTimeout = %d\n", s.KeepaliveTimeout)
+		if !s.KeepaliveTimeout.IsZero() {
+			fmt.Fprintf(&out, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
 		}
-		if s.MaxHandshakeAttempts > 0 {
-			fmt.Fprintf(&out, "MaxHandshakeAttempts = %d\n", s.MaxHandshakeAttempts)
+		if !s.MaxHandshakeAttempts.IsZero() {
+			fmt.Fprintf(&out, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
 		}
 	}
 	return s.Address, out.String(), awg.NormalizeAWGVersion(s.AwgVersion)

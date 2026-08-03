@@ -779,8 +779,13 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			{"keepalivetimeout", "keepaliveTimeout"},
 			{"maxhandshakeattempts", "maxHandshakeAttempts"},
 		} {
+			// A timer is either a legacy JSON number or a string that may carry
+			// an inclusive range ("100-500") — pass the range through verbatim
+			// so the share link keeps the kernel's native range semantics.
 			if v, ok := settings[p.jk].(float64); ok && v > 0 {
 				params[p.key] = strconv.Itoa(int(v))
+			} else if sv, ok := settings[p.jk].(string); ok && sv != "" && sv != "0" && sv != "0-0" {
+				params[p.key] = sv
 			}
 		}
 	}
