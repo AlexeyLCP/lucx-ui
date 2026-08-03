@@ -310,27 +310,30 @@ cp bin/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 
 `install.sh` адаптирован под наш форк (`AlexeyLCP/lucx-ui`): скачивает релиз-tarball и raw-скрипты (x-ui.sh, x-ui.rc, service-юниты) из `main`. Xray-core + mtg переиспользуются из апстрим-релиза `MHSanaei/3x-ui`.
 
-### Сборка релиза (на VPS, Linux/amd64, с gcc + go + node)
+### Сборка релиза — только GitHub Actions (НЕ собирать на VPS вручную)
 
-CGO-бинарник (mattn/go-sqlite3) нельзя cross-compile с Windows — сборка только на Linux.
+Все сборки делает `.github/workflows/release.yml` (ubuntu-latest, CGO через
+Bootlin musl-toolchain → статический бинарник, Node из `.nvmrc` (=24, Vite 8
+не собирается на Node 20). Ручные сборки на VPS (`bin/build-release.sh`) —
+legacy, не использовать: расходятся с CI по xray/mtg-версиям.
 
 ```bash
-# 1. Собрать tarball
-curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/bin/build-release.sh | bash
-# → /tmp/x-ui-linux-amd64.tar.gz
+# 1. Дождаться зелёного CI на main, затем поставить тег — Release-workflow
+#    сам соберёт tarball и опубликует stable-релиз:
+git tag v3.6.0-lucx.N && git push gh v3.6.0-lucx.N
+gh run watch --repo AlexeyLCP/lucx-ui          # Release LucX-UI
+gh release view v3.6.0-lucx.N --repo AlexeyLCP/lucx-ui   # asset x-ui-linux-amd64.tar.gz
 
-# 2. Создать GitHub-релиз (нужен gh CLI с auth). ВЕРСИЯ = база апстрима + lucx.N
-gh release create v3.6.0-lucx.50 /tmp/x-ui-linux-amd64.tar.gz \
-  --repo AlexeyLCP/lucx-ui \
-  --title "v3.6.0-lucx.50" \
-  --notes "LucX-UI v3.6.0 с AWG-сайдкаром (см. progress.md)"
-
-# 3. Установить панель (на этом или другом VPS)
+# 2. Установить/обновить панель на VPS:
 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
-# → скачает наш релиз, поставит x-ui + systemd + Xray + mtg + fail2ban + AWG-модуль
+# или на уже установленной: x-ui update (консоль) / кнопка в веб-панели
 ```
 
-> Тег ставится **только после зелёного CI на main** (урок lucx.48: первый тег уехал до CI-фиксов, пришлось удалять релиз и переставлять тег). `lucxVersion` в `internal/config/config.go` должен совпадать с суффиксом тега — CI guard ловит расхождение.
+Тег ставится **только после зелёного CI на main** (урок lucx.48). `lucxVersion`
+в `internal/config/config.go` обязан совпадать с суффиксом тега — guard в
+release.yml роняет сборку при расхождении. Push в main без тега обновляет
+rolling pre-release `dev-latest` (Dev-канал панели); `releases/latest` при
+этом остаётся на последнем stable-теге.
 
 ### Что делает `x-ui update` (lucx.58+)
 1. Ставит новый бинарник/фронтенд, останавливает панель.
