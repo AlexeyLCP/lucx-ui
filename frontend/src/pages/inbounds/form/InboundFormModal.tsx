@@ -89,7 +89,7 @@ import SniffingTab from './SniffingTab';
 
 import type { DBInbound } from '@/models/dbinbound';
 import { coerceInboundJsonField } from '@/models/dbinbound';
-import { maskSubnet } from '@/lib/awg/subnet';
+import { maskSubnet, suggestFreeAwgAddress } from '@/lib/awg/subnet';
 import type { NodeRecord } from '@/api/queries/useNodesQuery';
 
 
@@ -231,6 +231,10 @@ export default function InboundFormModal({
       .map((ib) => maskSubnet(String(coerceInboundJsonField(ib.settings).address ?? '')))
       .filter((s): s is string => s !== null);
   }, [dbInbounds, dbInbound?.id]);
+  // Ref mirror so the protocol-change subscription (created once per mode) reads
+  // the current subnet list instead of a stale closure capture.
+  const otherAwgSubnetsRef = useRef(otherAwgSubnets);
+  otherAwgSubnetsRef.current = otherAwgSubnets;
   // END LUCX-HOOK
 
   const selectableNodes = (availableNodes || []).filter((n) => n.enable);
@@ -453,6 +457,15 @@ export default function InboundFormModal({
       const next = getV('protocol') as string;
       const settings = createDefaultInboundSettings(next) ?? undefined;
       setV('settings', settings);
+      // LUCX-HOOK: AWG auto-suggest a free tunnel subnet for a NEW inbound, so
+      // two AWG inbounds don't both default to 10.8.0.1/24 (the kernel installs
+      // two connected routes for one prefix and the second inbound's clients get
+      // no traffic — AGENTS.md Pattern 1e). Only fires on add-mode protocol
+      // switch; an edited inbound keeps its stored address.
+      if (next === Protocols.AWG) {
+        setV('settings.address', suggestFreeAwgAddress(otherAwgSubnetsRef.current));
+      }
+      // END LUCX-HOOK
       if (!NODE_ELIGIBLE_PROTOCOLS.has(next)) {
         setV('nodeId', null);
       }

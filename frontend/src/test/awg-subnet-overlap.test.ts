@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { maskSubnet, subnetsOverlap } from '@/lib/awg/subnet';
+import { maskSubnet, subnetsOverlap, suggestFreeAwgAddress } from '@/lib/awg/subnet';
 
 describe('maskSubnet', () => {
   it('reduces a host address to its network prefix', () => {
@@ -59,5 +59,33 @@ describe('subnetsOverlap', () => {
 
   it('handles the exact dup-subnet bug from the field (awg2 + awg4 both 10.8.0.1/24)', () => {
     expect(subnetsOverlap('10.8.0.1/24', '10.8.0.1/24')).toBe(true);
+  });
+});
+
+describe('suggestFreeAwgAddress', () => {
+  it('returns the default first subnet when nothing is used', () => {
+    expect(suggestFreeAwgAddress([])).toBe('10.8.0.1/24');
+  });
+
+  it('skips a used /24 and suggests the next one', () => {
+    expect(suggestFreeAwgAddress(['10.8.0.0/24'])).toBe('10.8.1.1/24');
+    expect(suggestFreeAwgAddress(['10.8.0.0/24', '10.8.1.0/24'])).toBe('10.8.2.1/24');
+  });
+
+  it('accepts unmasked addresses and still avoids their subnet', () => {
+    expect(suggestFreeAwgAddress(['10.8.0.1/24'])).toBe('10.8.1.1/24');
+  });
+
+  it('skips a gap-free run of used subnets', () => {
+    const used = ['10.8.0.0/24', '10.8.1.0/24', '10.8.2.0/24'];
+    expect(suggestFreeAwgAddress(used)).toBe('10.8.3.1/24');
+  });
+
+  it('moves to the next /16 when a wide prefix covers the whole 10.8 space', () => {
+    expect(suggestFreeAwgAddress(['10.8.0.0/16'])).toBe('10.9.0.1/24');
+  });
+
+  it('resolves the exact field case: second AWG inbound after one on 10.8.0.0/24', () => {
+    expect(suggestFreeAwgAddress(['10.8.0.0/24'])).toBe('10.8.1.1/24');
   });
 });

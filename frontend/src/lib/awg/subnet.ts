@@ -64,3 +64,23 @@ export function subnetsOverlap(a: string, b: string): boolean {
   const minPrefix = Math.min(na.prefix, nb.prefix);
   return mask(na.ip, minPrefix) === mask(nb.ip, minPrefix);
 }
+
+// suggestFreeAwgAddress returns a server tunnel address ("X.Y.N.1/24") whose
+// /24 does not overlap any of the already-used subnets, so a newly created AWG
+// inbound does not collide with a sibling inbound's client pool (the kernel
+// route conflict behind "handshake ok, no traffic"). It scans the 10.8.0.0/16
+// space first (the panel's default base), then widens to 10.9/10.10/..., and
+// falls back to the plain default when nothing free is found in the window.
+export function suggestFreeAwgAddress(usedSubnets: string[]): string {
+  const used = usedSubnets.filter((s) => maskSubnet(s) !== null);
+  for (let second = 8; second <= 20; second++) {
+    for (let third = 0; third < 256; third++) {
+      const candidate = `10.${second}.${third}.1/24`;
+      const candidateNet = `10.${second}.${third}.0/24`;
+      if (!used.some((u) => subnetsOverlap(candidateNet, u))) {
+        return candidate;
+      }
+    }
+  }
+  return '10.8.0.1/24';
+}

@@ -1189,6 +1189,24 @@ systemctl start x-ui
 
 **Урок:** Рендерер, который пишет опциональное поле `.conf`, обязан **omit'ить пустое значение** (WireGuard-конвенция), а не писать `Key = ` — awg-tools отвергают пустые значения ключей, `awg-quick` откатывает интерфейс, и reconcile бесконечно падает с «Device does not exist». Любой peer-level параметр, который может быть пустым на каком-либо пути создания клиента, должен быть gated `if value != ""`. Проверять все три рендерера (renderServerConf / renderClientConf / SyncPeers) на консистентность обработки пустых значений.
 
+**Проверка AdvancedSecurity (2026-08-03, test2):** валидировано, что `AdvancedSecurity = on` в `[Peer]` **не крашит** `awg setconf` (EXIT=0) — tools распознают его как валидный peer-ключ (мусорный `TotallyBogusKey = on` при этом отвергается, EXIT=1, значит это не «игнор неизвестных ключей»). Ядро игнорирует значение на input и hardcodes в dumps (advisory). Опасение «AdvancedSecurity сломает setconf как пустой PSK» не подтвердилось — рендер безопасен на v1 и v3 tools.
+
+
+## Релиз v3.6.0-lucx.56 (2026-08-03) — auto-suggest свободной подсети для нового AWG-инбаунда
+
+**Контекст:** Follow-up на Pattern 1e (lucx.54). lucx.54 добавил advisory-warning при пересечении подсетей, но оператор всё равно мог создать два инбаунда на одной /24 по дефолту (`createDefaultAwgInboundSettings` хардкодит `10.8.0.1/24`). Auto-suggest устраняет граблю проактивно: новый AWG-инбаунд сразу получает **свободную** подсеть.
+
+**Что сделано:**
+- `frontend/src/lib/awg/subnet.ts`: `suggestFreeAwgAddress(usedSubnets)` — сканирует `10.8.0.0/16` (3-й октет 0..255), затем расширяется на `10.9`..`10.20`, возвращает первый свободный `10.N.M.1/24` (проверка через `subnetsOverlap`, корректно обрабатывает широкие префиксы вроде `10.8.0.0/16`). Fallback `10.8.0.1/24`.
+- `frontend/src/pages/inbounds/form/InboundFormModal.tsx`: в эффекте смены протокола (mode add) при выборе AWG подставляет `suggestFreeAwgAddress(otherAwgSubnetsRef.current)` в `settings.address`. Ref-зеркало `otherAwgSubnets` против stale-closure в watch-подписке. При редактировании существующего инбаунда адрес не трогается.
+- 6 новых юнит-тестов в `frontend/src/test/awg-subnet-overlap.test.ts` (default, skip used, unmasked input, gap-free run, wide /16, field-case).
+
+**Файлы:** `frontend/src/lib/awg/subnet.ts`, `frontend/src/pages/inbounds/form/InboundFormModal.tsx`, `frontend/src/test/awg-subnet-overlap.test.ts`, `internal/config/config.go` (lucx.56), `progress.md`.
+
+**Тесты:** `vitest run src/test/awg-subnet-overlap.test.ts` — 17 PASS. `npm run typecheck && npm run lint` — чисто. `npm run build` — built in 1.15s.
+
+**Урок:** Дефолт формы для network-address полей должен быть **уникальным per-inbound** — вычисляться из существующих, а не хардкодиться. Warning (lucx.54) + auto-suggest (lucx.56) = защита в двух слоях: auto-suggest предотвращает при создании, warning ловит ручной ввод.
+
 
 
 
