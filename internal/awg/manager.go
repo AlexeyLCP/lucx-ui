@@ -626,7 +626,17 @@ func renderServerConf(inst Instance) string {
 	for _, p := range inst.Peers {
 		b.WriteString("\n[Peer]\n")
 		fmt.Fprintf(&b, "PublicKey = %s\n", p.PublicKey)
-		fmt.Fprintf(&b, "PresharedKey = %s\n", p.PSK)
+		// PresharedKey is written ONLY when non-empty. An empty value renders as
+		// "PresharedKey = " which awg setconf rejects ("invalid key"), awg-quick
+		// rolls back the half-built interface, and reconcile reports "Device
+		// <awgN> does not exist" — the crash seen when a client reaches this
+		// renderer without a generated PSK (e.g. the inbound-form update path,
+		// which unlike the clients-page path does not run defaultAwgClients).
+		// Absent PresharedKey is the WireGuard convention for "no PSK" and
+		// matches renderClientConf + SyncPeers, which already omit it.
+		if psk := strings.TrimSpace(p.PSK); psk != "" {
+			fmt.Fprintf(&b, "PresharedKey = %s\n", psk)
+		}
 		allowed := p.AllowedIPs
 		if allowed == "" {
 			allowed = "0.0.0.0/0, ::/0"

@@ -1,0 +1,71 @@
+package awg
+
+import (
+	"strings"
+	"testing"
+)
+
+// TestRenderServerConf_EmptyPSKOmitted is the regression test for the
+// "creating a client drops the interface" bug (VladufQa, 2026-08-03). A client
+// that reaches renderServerConf without a PSK (e.g. added via the inbound-form
+// update path, which does not run defaultAwgClients) used to render
+// "PresharedKey = " with an empty value; awg setconf rejects that line,
+// awg-quick rolls back the interface, and reconcile reports "Device <awgN>
+// does not exist". The empty line must be omitted (WireGuard convention for
+// "no PSK"), matching renderClientConf and SyncPeers.
+func TestRenderServerConf_EmptyPSKOmitted(t *testing.T) {
+	inst := Instance{
+		Id: 4, Ifname: "awg4", Port: 21860, PrivateKey: "server-priv", MTU: 1320,
+		Address: "10.8.0.1/24",
+		Peers: []PeerSpec{
+			{PublicKey: "peer-pub", PSK: "", Keepalive: 25, AllowedIPs: "10.8.0.2/32"},
+		},
+	}
+	conf := renderServerConf(inst)
+
+	if strings.Contains(conf, "PresharedKey") {
+		t.Errorf("empty PSK must be omitted from the server .conf, got:\n%s", conf)
+	}
+	for _, want := range []string{
+		"[Peer]",
+		"PublicKey = peer-pub",
+		"AllowedIPs = 10.8.0.2/32",
+		"PersistentKeepalive = 25",
+	} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("server .conf missing %q\nConf:\n%s", want, conf)
+		}
+	}
+}
+
+// TestRenderServerConf_NonEmptyPSKWritten confirms a client WITH a PSK still
+// gets the line (the fix must not drop legitimate PSKs).
+func TestRenderServerConf_NonEmptyPSKWritten(t *testing.T) {
+	inst := Instance{
+		Id: 4, Ifname: "awg4", Port: 21860, PrivateKey: "server-priv", MTU: 1320,
+		Address: "10.8.0.1/24",
+		Peers: []PeerSpec{
+			{PublicKey: "peer-pub", PSK: "cHJlc2hhcmVkLWtleQ==", Keepalive: 25, AllowedIPs: "10.8.0.2/32"},
+		},
+	}
+	conf := renderServerConf(inst)
+	if !strings.Contains(conf, "PresharedKey = cHJlc2hhcmVkLWtleQ==") {
+		t.Errorf("non-empty PSK must be written to the server .conf, got:\n%s", conf)
+	}
+}
+
+// TestRenderServerConf_WhitespaceOnlyPSKOmitted treats a whitespace-only PSK as
+// empty (matches the strings.TrimSpace guard).
+func TestRenderServerConf_WhitespaceOnlyPSKOmitted(t *testing.T) {
+	inst := Instance{
+		Id: 4, Ifname: "awg4", Port: 21860, PrivateKey: "server-priv", MTU: 1320,
+		Address: "10.8.0.1/24",
+		Peers: []PeerSpec{
+			{PublicKey: "peer-pub", PSK: "   ", Keepalive: 25, AllowedIPs: "10.8.0.2/32"},
+		},
+	}
+	conf := renderServerConf(inst)
+	if strings.Contains(conf, "PresharedKey") {
+		t.Errorf("whitespace-only PSK must be omitted, got:\n%s", conf)
+	}
+}

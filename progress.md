@@ -1173,6 +1173,23 @@ systemctl start x-ui
 **Урок №2 (dup-subnet kernel route конфликт):** Два AWG-инбаунда с одинаковой client-подсетью (10.8.0.0/24) → kernel устанавливает две connected-route на один префикс. Linux выбирает одну по метрике/порядку, вторая zombie. Reverse-path к клиентам второго инбаунда уходит в первый → пакеты dropнуты → «коннект есть, трафика нет». Дефолт формы хардкодит одну подсеть для всех новых инбаундов → грабля повторяется. Фикс — advisory warning (не server-side guard, back-compat); auto-suggest следующей свободной /24 — follow-up.
 
 
+## Релиз v3.6.0-lucx.55 (2026-08-03) — пустой PSK ломал awg setconf («создаёшь клиента → интерфейс падает»)
+
+**Контекст:** Тестер VladufQa: «как только создаёшь клиента к инбаунду, диагностика выдаёт `Device "awg4" does not exist`; удаляешь клиента — интерфейс поднимается, коннект не идёт пока клиент существует». Интерфейс падал при каждом добавлении клиента и восстанавливался при удалении — значит `.conf` с пир-блоком становился невалидным для `awg setconf`.
+
+**Root cause (подтверждён воспроизведением на test2):** `renderServerConf` (`internal/awg/manager.go`) писал `PresharedKey = %s` **безусловно** — даже при пустом PSK, рендеря строку `PresharedKey = ` с пустым значением. awg-tools отвергают её: воспроизведено на test2 (`amneziawg-tools v1.0.20260618`) — `awg setconf` с пустым `PresharedKey = ` возвращает `EXIT=1` + `Line unrecognized: 'PresharedKey='` + `Configuration parsing error`; с **отсутствующей** строкой — `EXIT=0`. Пустой PSK приходит, когда клиент создаётся путём, не вызывающим `defaultAwgClients` (генератор PSK): тот вызывается только из `addInboundClient` (путь Clients page → `ClientService.Create`), а путь формы инбаунда (`InboundService.UpdateInbound`) его не вызывает.
+
+**Несовпадение, выдавшее баг:** `renderClientConf` (client_conf.go:96) и `SyncPeers` (manager.go:659) уже **omit'ят** пустой PSK (`if psk != ""`), и только `renderServerConf` писал его всегда.
+
+**Фикс:** `renderServerConf` теперь omit'ит пустой/whitespace-only PSK (`if psk := strings.TrimSpace(p.PSK); psk != ""`), по образцу `renderClientConf`/`SyncPeers`. Отсутствующий `PresharedKey` — конвенция WireGuard для «no PSK». Клиенты с PSK продолжают его получать.
+
+**Файлы:** `internal/awg/manager.go` (omit empty PSK), `internal/awg/server_conf_psk_test.go` (новый, 3 regression-теста: empty omitted / non-empty written / whitespace-only omitted), `internal/config/config.go` (lucx.55), `AGENTS.md` (Pattern 1g), `progress.md`.
+
+**Тесты:** `go test ./internal/awg/...` — зелёный (3 новых regression-теста PASS). `gofumpt` — чисто. `bin/check-lucx.sh` — 50 файлов OK. Валидация на реальном железе (test2): пустой PSK → setconf EXIT=1, omit → EXIT=0.
+
+**Урок:** Рендерер, который пишет опциональное поле `.conf`, обязан **omit'ить пустое значение** (WireGuard-конвенция), а не писать `Key = ` — awg-tools отвергают пустые значения ключей, `awg-quick` откатывает интерфейс, и reconcile бесконечно падает с «Device does not exist». Любой peer-level параметр, который может быть пустым на каком-либо пути создания клиента, должен быть gated `if value != ""`. Проверять все три рендерера (renderServerConf / renderClientConf / SyncPeers) на консистентность обработки пустых значений.
+
+
 
 
 
