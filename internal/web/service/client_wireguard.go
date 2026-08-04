@@ -48,7 +48,15 @@ func wireguardAllocationBase(used []string, fallback string) string {
 
 const wireguardPoolFloorBits = 16
 
-func allocateWireguardAddress(used []string, base string) (string, error) {
+// allocateWireguardAddress picks the first free single-host address for a new
+// peer. used is the exclusion set (already-claimed addresses); base is the
+// subnet to allocate from. When widen is true (plain WireGuard) an exhausted
+// /24 falls back to its enclosing /16 so large pools keep working; when widen
+// is false (AWG) allocation is strictly confined to base — handing out an
+// address outside the inbound's routed subnet installs a /32 route that
+// collides with whichever inbound actually owns that subnet, and awg-quick up
+// rolls the interface back with RTNETLINK "File exists" (Pattern 1h/1e).
+func allocateWireguardAddress(used []string, base string, widen bool) (string, error) {
 	if base == "" {
 		base = defaultWireguardBase
 	}
@@ -63,7 +71,7 @@ func allocateWireguardAddress(used []string, base string) (string, error) {
 		}
 	}
 	scopes := []netip.Prefix{prefix}
-	if prefix.Addr().Is4() && prefix.Bits() > wireguardPoolFloorBits {
+	if widen && prefix.Addr().Is4() && prefix.Bits() > wireguardPoolFloorBits {
 		if wider, wErr := prefix.Addr().Prefix(wireguardPoolFloorBits); wErr == nil {
 			scopes = append(scopes, wider)
 		}
@@ -150,7 +158,7 @@ func defaultWireguardClients(existing, clients []model.Client, interfaceClients 
 			c.PublicKey = pub
 		}
 		if len(c.AllowedIPs) == 0 {
-			addr, err := allocateWireguardAddress(used, base)
+			addr, err := allocateWireguardAddress(used, base, true)
 			if err != nil {
 				return err
 			}

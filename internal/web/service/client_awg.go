@@ -139,7 +139,7 @@ func migrateAwgClientSubnets(oldAddr, newAddr, settingsJSON string) string {
 		if !ok {
 			continue
 		}
-		addr, err := allocateWireguardAddress(used, base)
+		addr, err := allocateWireguardAddress(used, base, false)
 		if err != nil {
 			// No free address in the new subnet — leave the settings as the
 			// operator saved them; the runtime reconcile surfaces the mismatch
@@ -214,7 +214,16 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 		used = append(used, awgOuts...)
 	}
 	// END LUCX-HOOK
-	base := wireguardAllocationBase(used, awgAllocationFallback(serverAddr))
+	// LUCX-HOOK (lucx.63): allocate strictly from the inbound's OWN tunnel
+	// subnet, not from wireguardAllocationBase. The latter derives the base from
+	// the first already-claimed IP in `used` — which includes awgo-* outbound
+	// tunnel IPs appended by the collision guard above. With an active AWG
+	// outbound on 10.8.0.x the base became 10.8.0.0/24 even for a 15.11.5.0/24
+	// inbound, so the first client got an address the server never routes →
+	// awg-quick up installs a colliding /32 → RTNETLINK "File exists" → the
+	// interface rolls back ("Device awgN does not exist"). `used` stays an
+	// exclusion set; only the base source changes.
+	base := awgAllocationFallback(serverAddr)
 	for i := range clients {
 		c := &clients[i]
 		if c.PrivateKey == "" && c.PublicKey == "" {
@@ -239,7 +248,7 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 			c.PreSharedKey = psk
 		}
 		if len(c.AllowedIPs) == 0 {
-			addr, err := allocateWireguardAddress(used, base)
+			addr, err := allocateWireguardAddress(used, base, false)
 			if err != nil {
 				return err
 			}

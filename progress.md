@@ -51,6 +51,33 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.63 (2026-08-04) — фикс аллокации AWG-клиентов + серверный запрет дубликатов подсетей
+
+**Контекст (tester VladufQa):** клиент AWG получает адрес из чужой подсети → route-конфликт → `awg-quick up` падает («Device awgN does not exist»); после ручной правки IP инбаунд не оживает без перезагрузки Xray; два инбаунда можно создать в одной подсети (warning не блокирует).
+
+**Корень — цепочка из 3 дефектов:**
+
+**Фикс 1 — аллокация из подсети инбаунда (критический):**
+- `defaultAwgClients` (`client_awg.go`) считал базу через `wireguardAllocationBase(used, fallback)` — та берёт **/24 первого занятого IP** из `used` (включая IP awgo-* outbound'ов из collision-guard'а!). При активном AWG-outbound'е на 10.8.0.x база становилась 10.8.0.0/24 даже для инбаунда 15.11.5.0/24 → первый клиент получал адрес, который сервер не маршрутизирует → `awg-quick up` ставит коллизирующий /32 → RTNETLINK "File exists" → интерфейс откатывается.
+- **Фикс:** `base := awgAllocationFallback(serverAddr)` — подсеть инбаунда единственный источник базы; `used` остаётся только exclusion-списком. WireGuard не тронут (продолжает использовать `wireguardAllocationBase`).
+- `allocateWireguardAddress` получил параметр `widen bool`: WireGuard передаёт `true` (расширение /24→/16 для больших пулов), AWG — `false` (строгая привязка к подсети; заполненный /24 → ошибка вместо молчаливого выхода в соседние /24). Обновлены 3 call-site.
+- «Нужна перезагрузка Xray» — **следствие** этого бага: route-конфликт → reconcile падал на каждом 10s-тике бесконечно; `RestartXray → ensureAwgRouting` просто запускал немедленный Reconcile. Фикс аллокации устраняет конфликт → cron сходится.
+
+**Фикс 2 — defaultAwgClients в пути формы инбаунда:**
+- `AddInbound`/`UpdateInbound` (`inbound.go`) не вызывали `defaultAwgClients` — клиенты, добавленные inline в форме инбаунда, сохранялись без ключей/PSK/адреса. Добавлен вызов в обе функции (AddInbound: existing=nil; UpdateInbound: existing=клиенты из oldInbound как exclusion-список, только для новых клиентов с пустыми credentials). Добавлен `case "awg"` в validation switch (без пре-аллокационной валидации ключа).
+
+**Фикс 3 — серверный запрет дубликатов подсетей:**
+- Новая `checkAwgSubnetConflict(newAddr, ignoreId)` (`inbound.go`): парсит адрес → `netip.Prefix.Masked()`, сравнивает через `Overlaps()` со всеми AWG-инбаундами (кроме ignoreId), возвращает ошибку с именем конфликтующего.
+- `AddInbound`: блокирует новый дубликат (ignoreId=0).
+- `UpdateInbound`: блокирует только СМЕНУ подсети на конфликтную; редактирование без смены подсети разрешено (back-compat для существующих дубликатов — сравнение masked-подсетей old vs new).
+- Frontend advisory-warning (Pattern 1e) оставлен — мгновенная обратная связь до server-roundtrip.
+
+**Тесты:** `TestAllocateWireguardAddress_NoWidenForAwg` (заполненный /24 + widen=false → ошибка), `TestAllocateWireguardAddress_StrictSubnetForAwg` (чужой used-IP не утаскивает аллокацию из подсети инбаунда). Существующие wireguard-тесты обновлены под новую сигнатуру (widen=true). Service-тесты требуют CGO — прогоняются CI на Linux.
+
+**Файлы:** `internal/web/service/client_awg.go`, `client_wireguard.go`, `inbound.go`, `client_wireguard_test.go`, `internal/config/config.go`, `AGENTS.md`, `progress.md`
+
+**Out of scope (follow-up):** SyncPeers wiring (`manager.go`, dead code) — live-обновление пиров без 10с cron; авто-миграция существующих wrong-subnet клиентов из третьей подсети.
+
 ## Релиз v3.6.0-lucx.62 (2026-08-04) — полное удаление AdvancedSecurity
 
 **Контекст:** продолжение lucx.61. Проверка upstream-исходников AmneziaWG kernel module подтвердила: `AdvancedSecurity` — вестигиальное поле. `set_peer()` (`netlink.c:612-743`) никогда не читает `attrs[WGPEER_A_ADVANCED_SECURITY]`, `struct wg_peer` не имеет поля, `get_peer()` хардкодит "off" в dumps. Поле НЕ гейтит HPK/таймеры/padding — те независимые device-атрибуты. Эмиссия в .conf бесполезна + ломала парсинг в старых клиентских приложениях.

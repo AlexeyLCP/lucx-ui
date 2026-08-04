@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"net/netip"
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -26,7 +27,7 @@ func TestAllocateWireguardAddress(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got, err := allocateWireguardAddress(tt.used, tt.base)
+			got, err := allocateWireguardAddress(tt.used, tt.base, true)
 			if tt.err {
 				if err == nil {
 					t.Fatalf("expected error, got %q", got)
@@ -138,7 +139,7 @@ func TestAllocateWireguardAddressWidensPastFullSlash24(t *testing.T) {
 		used = append(used, fmt.Sprintf("10.0.0.%d/32", i))
 	}
 
-	got, err := allocateWireguardAddress(used, "10.0.0.0/24")
+	got, err := allocateWireguardAddress(used, "10.0.0.0/24", true)
 	if err != nil {
 		t.Fatalf("allocate with a full /24: %v", err)
 	}
@@ -147,7 +148,7 @@ func TestAllocateWireguardAddressWidensPastFullSlash24(t *testing.T) {
 	}
 
 	used = append(used, got)
-	next, err := allocateWireguardAddress(used, "10.0.0.0/24")
+	next, err := allocateWireguardAddress(used, "10.0.0.0/24", true)
 	if err != nil {
 		t.Fatalf("allocate after widening: %v", err)
 	}
@@ -157,12 +158,45 @@ func TestAllocateWireguardAddressWidensPastFullSlash24(t *testing.T) {
 }
 
 func TestAllocateWireguardAddressFillsItsOwnSlash24First(t *testing.T) {
-	got, err := allocateWireguardAddress([]string{"172.16.0.2/32"}, "172.16.0.0/24")
+	got, err := allocateWireguardAddress([]string{"172.16.0.2/32"}, "172.16.0.0/24", true)
 	if err != nil {
 		t.Fatalf("allocateWireguardAddress: %v", err)
 	}
 	if got != "172.16.0.3/32" {
 		t.Fatalf("address = %q, want 172.16.0.3/32 — the inbound's own /24 comes first", got)
+	}
+}
+
+// lucx.63: AWG passes widen=false so allocation is strictly confined to the
+// inbound's routed subnet. A full /24 must error instead of silently leaking
+// into the enclosing /16 — an address outside the inbound subnet installs a
+// /32 route that collides with whichever inbound owns that subnet (Pattern 1h).
+func TestAllocateWireguardAddress_NoWidenForAwg(t *testing.T) {
+	used := make([]string, 0, 254)
+	for i := 2; i <= 255; i++ {
+		used = append(used, fmt.Sprintf("10.0.0.%d/32", i))
+	}
+	if got, err := allocateWireguardAddress(used, "10.0.0.0/24", false); err == nil {
+		t.Fatalf("widen=false with a full /24 must error, got %q", got)
+	}
+}
+
+// lucx.63: with widen=false the allocator must stay inside the base subnet even
+// when `used` carries addresses from a different subnet (e.g. an awgo-* outbound
+// IP). The old wireguardAllocationBase-derived base would have been hijacked by
+// the first foreign IP; the inbound's own subnet is the only valid source.
+func TestAllocateWireguardAddress_StrictSubnetForAwg(t *testing.T) {
+	// A foreign used IP (10.8.0.5) must not pull allocation into 10.8.0.0/24.
+	got, err := allocateWireguardAddress([]string{"10.8.0.5/32"}, "15.11.5.0/24", false)
+	if err != nil {
+		t.Fatalf("allocateWireguardAddress: %v", err)
+	}
+	p, err := netip.ParsePrefix(got)
+	if err != nil {
+		t.Fatalf("allocated %q not a prefix", got)
+	}
+	if !netip.MustParsePrefix("15.11.5.0/24").Contains(p.Addr()) {
+		t.Fatalf("allocated %q escaped the inbound subnet 15.11.5.0/24", got)
 	}
 }
 

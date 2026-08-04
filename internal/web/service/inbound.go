@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"net/netip"
 	"regexp"
 	"sort"
 	"strings"
@@ -1085,6 +1086,58 @@ func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSet
 	return nil
 }
 
+// LUCX-HOOK: checkAwgSubnetConflict blocks an AWG inbound whose tunnel subnet
+// overlaps another AWG inbound's. Two awg interfaces on the same connected
+// subnet install duplicate kernel routes; the reverse path picks the wrong
+// interface and the second inbound's clients handshake but get no traffic
+// (Pattern 1e). ignoreId excludes the inbound being edited so a pre-existing
+// duplicate can still be saved as long as its subnet does not change. Returns
+// a descriptive error naming the conflicting inbound, or nil when the subnet is
+// unique. An empty or unparseable address is not an error here — other
+// validation owns malformed input.
+func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int) error {
+	newAddr = strings.TrimSpace(newAddr)
+	if newAddr == "" {
+		return nil
+	}
+	newP, err := netip.ParsePrefix(newAddr)
+	if err != nil {
+		return nil
+	}
+	newNet := newP.Masked()
+
+	db := database.GetDB()
+	var candidates []*model.Inbound
+	q := db.Model(model.Inbound{}).Where("protocol = ?", model.AWG)
+	if ignoreId > 0 {
+		q = q.Where("id != ?", ignoreId)
+	}
+	if err := q.Find(&candidates).Error; err != nil {
+		return err
+	}
+
+	for _, c := range candidates {
+		cAddr := awgSettingsAddress(c.Settings)
+		if cAddr == "" {
+			continue
+		}
+		cP, pErr := netip.ParsePrefix(cAddr)
+		if pErr != nil {
+			continue
+		}
+		if newNet.Overlaps(cP.Masked()) {
+			label := c.Remark
+			if label == "" {
+				label = c.Tag
+			}
+			return common.NewError("AWG subnet", newNet.String(), "conflicts with inbound", label, "("+cP.Masked().String()+")", "— two AWG inbounds cannot share a tunnel subnet")
+		}
+	}
+	return nil
+}
+
+// END LUCX-HOOK
+
 // AddInbound creates a new inbound configuration.
 // It validates port uniqueness, client email uniqueness, and required fields,
 // then saves the inbound to the database and optionally adds it to the running Xray instance.
@@ -1116,6 +1169,15 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	if conflict != nil {
 		return inbound, false, common.NewError(conflict.String())
 	}
+
+	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound already owns
+	// (Pattern 1e kernel route conflict). New inbounds have no id to exclude.
+	if inbound.Protocol == model.AWG {
+		if err := s.checkAwgSubnetConflict(awgSettingsAddress(inbound.Settings), 0); err != nil {
+			return inbound, false, err
+		}
+	}
+	// END LUCX-HOOK
 
 	inbound.Tag, err = s.resolveInboundTag(inbound, 0)
 	if err != nil {
@@ -1183,6 +1245,11 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 			if client.PublicKey == "" {
 				return inbound, false, common.NewError("wireguard client requires a key")
 			}
+		case "awg":
+			// LUCX-HOOK: AWG clients receive keypair/PSK/tunnel address from
+			// defaultAwgClients below — nothing to validate before allocation
+			// (unlike wireguard the key may legitimately be blank at this point).
+			// END LUCX-HOOK
 		case "mtproto":
 			if client.Secret == "" {
 				return inbound, false, common.NewError("mtproto client requires a secret")
@@ -1196,6 +1263,28 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 			}
 		}
 	}
+
+	// LUCX-HOOK: AWG — allocate keypair/PSK/tunnel address for AWG clients added
+	// inline via the inbound form. This path (unlike the clients-page
+	// addInboundClient) does not otherwise run defaultAwgClients, so inline AWG
+	// clients would be persisted with blank credentials and no subnet-aware
+	// address. Allocation is confined to the inbound's own tunnel subnet.
+	if inbound.Protocol == model.AWG && len(clients) > 0 {
+		var settings map[string]any
+		if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
+			if ic, ok := settings["clients"].([]any); ok {
+				serverAddr := awgSettingsAddress(inbound.Settings)
+				if err3 := defaultAwgClients(nil, clients, ic, serverAddr); err3 != nil {
+					return inbound, false, err3
+				}
+				settings["clients"] = ic
+				if bs, err4 := json.Marshal(settings); err4 == nil {
+					inbound.Settings = string(bs)
+				}
+			}
+		}
+	}
+	// END LUCX-HOOK
 
 	db := database.GetDB()
 	needRestart := false
@@ -1560,6 +1649,53 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			awgSettingsAddress(inbound.Settings),
 			inbound.Settings,
 		)
+	}
+	// END LUCX-HOOK
+
+	// LUCX-HOOK: AWG — block re-pointing this inbound's tunnel subnet onto one
+	// another AWG inbound already owns (Pattern 1e). Only enforced when the
+	// masked subnet actually changes: editing other fields of an inbound whose
+	// subnet is a pre-existing duplicate must stay allowed (back-compat).
+	if inbound.Protocol == model.AWG {
+		oldAddr := awgSettingsAddress(oldInbound.Settings)
+		newAddr := awgSettingsAddress(inbound.Settings)
+		subnetChanged := true
+		if oldP, oErr := netip.ParsePrefix(strings.TrimSpace(oldAddr)); oErr == nil {
+			if newP, nErr := netip.ParsePrefix(strings.TrimSpace(newAddr)); nErr == nil {
+				subnetChanged = oldP.Masked().String() != newP.Masked().String()
+			}
+		}
+		if subnetChanged {
+			if err := s.checkAwgSubnetConflict(newAddr, inbound.Id); err != nil {
+				return inbound, false, err
+			}
+		}
+	}
+	// END LUCX-HOOK
+
+	// LUCX-HOOK: AWG — allocate credentials/address for any NEW clients added
+	// inline while editing the inbound. defaultAwgClients only fills blank
+	// fields, so existing clients (keypair + allowedIPs already set) are left
+	// untouched; the pre-edit client list seeds the exclusion set so a fresh
+	// client never collides with one already on the inbound. Runs after
+	// migrateAwgClientSubnets so a subnet change's re-allocation is preserved.
+	if inbound.Protocol == model.AWG {
+		if newClients, cErr := s.GetClients(inbound); cErr == nil && len(newClients) > 0 {
+			existingClients, _ := s.GetClients(oldInbound)
+			var settings map[string]any
+			if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
+				if ic, ok := settings["clients"].([]any); ok {
+					serverAddr := awgSettingsAddress(inbound.Settings)
+					if err3 := defaultAwgClients(existingClients, newClients, ic, serverAddr); err3 != nil {
+						return inbound, false, err3
+					}
+					settings["clients"] = ic
+					if bs, err4 := json.Marshal(settings); err4 == nil {
+						inbound.Settings = string(bs)
+					}
+				}
+			}
+		}
 	}
 	// END LUCX-HOOK
 
