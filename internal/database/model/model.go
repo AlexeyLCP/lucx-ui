@@ -1325,10 +1325,12 @@ func MergeClientRecord(existing *ClientRecord, incoming *ClientRecord) []ClientM
 			existing.KeepAlive = incoming.KeepAlive
 		}
 	}
-	// LUCX-HOOK: AdvancedSecurity — advisory AWG3 peer flag; enable on incoming
-	// true, but never silently clear (matches the PreSharedKey "non-empty wins"
-	// shape — a false incoming never overwrites a true existing).
-	if incoming.AdvancedSecurity && !existing.AdvancedSecurity {
+	// LUCX-HOOK: AdvancedSecurity — advisory AWG3 peer flag. Take the incoming
+	// value directly so the operator can toggle it both ON and OFF. The previous
+	// "true wins, never silently clear" logic (mirroring PreSharedKey's non-empty
+	// wins) prevented turning the switch off — the zero value false is a valid
+	// intent, not an absent field, so bool cannot use the non-empty-wins shape.
+	if incoming.AdvancedSecurity != existing.AdvancedSecurity {
 		keep("advancedSecurity", existing.AdvancedSecurity, incoming.AdvancedSecurity, incoming.AdvancedSecurity)
 		existing.AdvancedSecurity = incoming.AdvancedSecurity
 	}

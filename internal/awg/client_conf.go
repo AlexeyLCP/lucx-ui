@@ -101,8 +101,5 @@ func renderClientConf(ci ClientInstance) string {
 	if s.Keepalive > 0 {
 		fmt.Fprintf(&b, "PersistentKeepalive = %d\n", s.Keepalive)
 	}
-	if awg3ok && s.AdvancedSecurity {
-		b.WriteString("AdvancedSecurity = on\n")
-	}
 	return b.String()
 }

@@ -145,15 +145,6 @@ export function buildAwgClientConfig(
   if (client.preSharedKey) lines.push(`PresharedKey = ${client.preSharedKey}`);
   lines.push('AllowedIPs = 0.0.0.0/0, ::/0', `Endpoint = ${endpoint}`);
   if (client.keepAlive && client.keepAlive > 0) lines.push(`PersistentKeepalive = ${client.keepAlive}`);
-  // AdvancedSecurity (AWG3 peer-level) — emitted only for v3 when the client
-  // has the flag set. Advisory only (current kernel ignores on input).
-  if (inbound?.awgObfuscation) {
-    const ceiling = awgVersionCeiling(inbound.awgVersion);
-    const target = awgVersionExport && awgVersionAtLeast(ceiling, awgVersionExport) ? awgVersionExport : ceiling;
-    if (awgVersionAtLeast(target, '3') && client.advancedSecurity) {
-      lines.push('AdvancedSecurity = on');
-    }
-  }
   return lines.join('\n');
 }
 // END LUCX-HOOK

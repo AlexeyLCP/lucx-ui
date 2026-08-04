@@ -704,9 +704,6 @@ func renderServerConf(inst Instance) string {
 		if p.Keepalive > 0 {
 			fmt.Fprintf(&b, "PersistentKeepalive = %d\n", p.Keepalive)
 		}
-		if awg3ok && p.AdvancedSecurity {
-			b.WriteString("AdvancedSecurity = on\n")
-		}
 	}
 	return b.String()
 }

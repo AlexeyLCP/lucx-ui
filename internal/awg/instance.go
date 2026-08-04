@@ -120,7 +120,7 @@ type PeerSpec struct {
 	PSK              string // PresharedKey (stored as Client.Password / clients[].preSharedKey)
 	Keepalive        int    // PersistentKeepalive, 0 = off
 	AllowedIPs       string // client tunnel address, e.g. "10.0.0.2/32"; falls back to "0.0.0.0/0, ::/0" only when unset
-	AdvancedSecurity bool   // AWG3 peer-level flag; advisory only in current kernel (set_peer ignores on input, get_peer hardcodes). Written to .conf [Peer] as "AdvancedSecurity = on" when true and AwgVersion == "3".
+	AdvancedSecurity bool   // AWG3 peer-level flag; advisory only in current kernel (set_peer ignores on input, get_peer hardcodes). NOT emitted in .conf — the kernel ignores it on input and hardcodes "off" in dumps, so writing it only confuses older client apps that reject unknown fields.
 }
 
 // fingerprint changes whenever any value that ends up in the generated .conf
@@ -161,7 +161,7 @@ func (inst Instance) fingerprint() string {
 		inst.OutboundTag,
 	}
 	for _, p := range inst.Peers {
-		parts = append(parts, p.PrivateKey, p.PublicKey, p.PSK, strconv.Itoa(p.Keepalive), p.AllowedIPs, strconv.FormatBool(p.AdvancedSecurity))
+		parts = append(parts, p.PrivateKey, p.PublicKey, p.PSK, strconv.Itoa(p.Keepalive), p.AllowedIPs)
 	}
 	return strings.Join(parts, "|")
 }

@@ -517,7 +517,7 @@ func TestInstanceFingerprint_ChangesOnDeviceField(t *testing.T) {
 	}
 }
 
-func TestInstanceFingerprint_ChangesOnAdvancedSecurity(t *testing.T) {
+func TestInstanceFingerprint_InsensitiveToAdvancedSecurity(t *testing.T) {
 	inst := Instance{
 		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k",
 		Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk"}},
@@ -525,8 +525,8 @@ func TestInstanceFingerprint_ChangesOnAdvancedSecurity(t *testing.T) {
 	before := inst.fingerprint()
 	inst.Peers[0].AdvancedSecurity = true
 	after := inst.fingerprint()
-	if before == after {
-		t.Fatal("fingerprint must change when a peer's AdvancedSecurity flag is toggled (restart trigger)")
+	if before != after {
+		t.Fatal("fingerprint must NOT change when only AdvancedSecurity is toggled — the field is not emitted in .conf, so no restart is needed")
 	}
 }
 
@@ -579,11 +579,11 @@ func TestRenderServerConf_DeviceFieldsVersionGated(t *testing.T) {
 	}
 }
 
-// AdvancedSecurity is the AWG3 peer-level advisory flag, written to [Peer] as
-// "AdvancedSecurity = on" only when AwgVersion == "3" and the peer opted in.
-// The current kernel ignores it on input, but the renderer must keep it out of
-// v1/v2 configs so older kernels never see an unrecognized line.
-func TestRenderServerConf_AdvancedSecurityInPeer(t *testing.T) {
+// AdvancedSecurity is NOT emitted in the server .conf. The current kernel
+// ignores the field on input (set_peer) and hardcodes "off" in dumps
+// (get_peer), so writing it only confuses older client apps that reject
+// unknown fields. The field stays in the model/DB for future kernel support.
+func TestRenderServerConf_AdvancedSecurityNotEmitted(t *testing.T) {
 	awg3 := true
 	SetModuleSupportsAwg3(&awg3)
 	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
@@ -591,12 +591,10 @@ func TestRenderServerConf_AdvancedSecurityInPeer(t *testing.T) {
 		name    string
 		version string
 		adv     bool
-		want    bool
 	}{
-		{"v3 true", "3", true, true},
-		{"v3 false", "3", false, false},
-		{"v2 true", "2", true, false},
-		{"v1.5 true", "1.5", true, false},
+		{"v3 true", "3", true},
+		{"v3 false", "3", false},
+		{"v2 true", "2", true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			inst := Instance{
@@ -605,10 +603,8 @@ func TestRenderServerConf_AdvancedSecurityInPeer(t *testing.T) {
 				Peers:      []PeerSpec{{PublicKey: "p1", PSK: "psk", AdvancedSecurity: tc.adv}},
 			}
 			conf := renderServerConf(inst)
-			contains := strings.Contains(conf, "AdvancedSecurity = on")
-			if contains != tc.want {
-				t.Errorf("want AdvancedSecurity=on in conf=%v, got=%v\nConf:\n%s",
-					tc.want, contains, conf)
+			if strings.Contains(conf, "AdvancedSecurity") {
+				t.Errorf("AdvancedSecurity must NOT be emitted in server .conf\nConf:\n%s", conf)
 			}
 		})
 	}

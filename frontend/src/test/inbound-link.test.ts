@@ -418,12 +418,12 @@ describe('genAwgLink + genAwgConfig version gating', () => {
     expect(config).toContain('Jc = 5');
   });
 
-  it('v3 emits AdvancedSecurity in [Peer] when client has the flag', () => {
+  it('v3 does NOT emit AdvancedSecurity (kernel ignores it, risks parse errors)', () => {
     const config = genAwgConfig({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
-    expect(config).toContain('AdvancedSecurity = on');
+    expect(config).not.toContain('AdvancedSecurity');
   });
 
-  it('v2 does NOT emit AdvancedSecurity even when the client has the flag', () => {
+  it('v2 does NOT emit AdvancedSecurity', () => {
     const config = genAwgConfig({ settings: awgSettings('2'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
     expect(config).not.toContain('AdvancedSecurity');
   });

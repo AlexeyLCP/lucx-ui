@@ -1529,11 +1529,6 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   if (typeof peer.keepAlive === 'number' && peer.keepAlive > 0) {
     txt += `\nPersistentKeepalive = ${peer.keepAlive}\n`;
   }
-  // AdvancedSecurity (AWG3 peer-level) — emitted only for v3 when the peer
-  // has the flag set. Advisory only (current kernel ignores on input).
-  if (awgVersionAtLeast(override, '3') && peer.advancedSecurity) {
-    txt += `\nAdvancedSecurity = on\n`;
-  }
   return txt;
 }
 

@@ -186,30 +186,27 @@ func TestRenderClientConf_DeviceFieldsGated(t *testing.T) {
 	})
 }
 
-// AdvancedSecurity is written to the single upstream [Peer] in the outbound .conf
-// only when AwgVersion == "3" and the outbound opted in. Mirrors the server-side
-// gating so a v1/v2 outbound never carries an unrecognized line.
-func TestRenderClientConf_AdvancedSecurityInPeer(t *testing.T) {
+// AdvancedSecurity is NOT emitted in the outbound .conf. The kernel ignores the
+// field on input and hardcodes "off" in dumps, so writing it only risks parse
+// errors in older awg-quick builds. The field stays in the model for future use.
+func TestRenderClientConf_AdvancedSecurityNotEmitted(t *testing.T) {
 	awg3 := true
 	SetModuleSupportsAwg3(&awg3)
 	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
 	for _, tc := range []struct {
 		name     string
 		settings string
-		want     bool
 	}{
-		{"v3 true", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"3","advancedSecurity":true}`, true},
-		{"v3 false", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"3","advancedSecurity":false}`, false},
-		{"v2 true", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"2","advancedSecurity":true}`, false},
-		{"no version true", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","advancedSecurity":true}`, false},
+		{"v3 true", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"3","advancedSecurity":true}`},
+		{"v3 false", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"3","advancedSecurity":false}`},
+		{"v2 true", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","awgVersion":"2","advancedSecurity":true}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			o := &model.AwgOutbound{Id: 1, Settings: tc.settings}
 			ci, _ := ClientInstanceFromOutbound(o)
 			conf := renderClientConf(ci)
-			contains := strings.Contains(conf, "AdvancedSecurity = on")
-			if contains != tc.want {
-				t.Errorf("want AdvancedSecurity=on in conf=%v, got=%v\nConf:\n%s", tc.want, contains, conf)
+			if strings.Contains(conf, "AdvancedSecurity") {
+				t.Errorf("AdvancedSecurity must NOT be emitted in outbound .conf\nConf:\n%s", conf)
 			}
 		})
 	}

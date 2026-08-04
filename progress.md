@@ -51,6 +51,24 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.61 (2026-08-04) — AdvancedSecurity: фикс toggle + убрана эмиссия из .conf
+
+**Контекст:** tester VladufQa сообщил два бага: (1) переключатель AdvancedSecurity не выключается («ранее не включался, теперь не выключается»), (2) «AdvancedSecurity не хавает авг» — клиентское приложение не принимает поле.
+
+**Баг 1 — merge-логика «true wins» (lucx.54 regression):**
+- Merge в `model.go:MergeClientRecord` использовал `incoming.AdvancedSecurity && !existing.AdvancedSecurity` — позволяет только ON→true, блокирует OFF→false. Для `bool` zero-value `false` — валидное значение (выключить), не «поле отсутствует» (как для `int`/`string` где 0/"" = absent).
+- **Фикс:** `if incoming.AdvancedSecurity != existing.AdvancedSecurity` — берёт incoming напрямую, ON и OFF работают.
+
+**Баг 2 — AdvancedSecurity не эмитится в .conf:**
+- Ядро: `set_peer` игнорирует на input, `get_peer` хардкодит "off" в dumps. Эмиссия "AdvancedSecurity = on" в .conf — useless (ядро не использует) + ломает парсинг в старых клиентских приложениях (unknown field).
+- **Фикс:** убрана эмиссия из 4 точек: `renderServerConf` (manager.go), `renderClientConf` (client_conf.go), `buildAwgClientConfig` (wireguardConfig.ts), `genAwgConfig` (inbound-link.ts). Поле остаётся в model/DB для будущего kernel-саппорта. Убрано из fingerprint (lucx.61 — изменение не триггерит лишний restart).
+
+**Тесты:** Go — `TestInstanceFingerprint_InsensitiveToAdvancedSecurity`, `TestRenderServerConf_AdvancedSecurityNotEmitted`, `TestRenderClientConf_AdvancedSecurityNotEmitted` (verify NOT in conf). Frontend — `inbound-link.test.ts` updated (v3/v2/v1.5 all verify NOT emitted). Все тесты зелёные.
+
+**Файлы:** `internal/database/model/model.go`, `internal/awg/manager.go`, `internal/awg/client_conf.go`, `internal/awg/instance.go`, `internal/awg/instance_test.go`, `internal/awg/client_conf_test.go`, `internal/config/config.go`, `frontend/src/pages/clients/wireguardConfig.ts`, `frontend/src/lib/xray/inbound-link.ts`, `frontend/src/test/inbound-link.test.ts`, `AGENTS.md`, `progress.md`
+
+**Дополнительно (E2E на test2):** проверен simultaneous AWG2+AWG3 — два инбаунда (v2 без HPK + v3 с HPK) работают одновременно, оба пропускают интернет-трафик (ping 8.8.8.8, 0% loss). Проверен cleanup при удалении инбаунда — интерфейс, .conf, iptables удаляются за ≤12с (reconcile-цикл).
+
 ## Релиз v3.6.0-lucx.50 (2026-07-31) — AWG3 включён + пресеты версий клиента (1.5/2/3)
 
 **Контекст:** 30.07.2026 upstream `amnezia-vpn/amneziawg-linux-kernel-module` слил `feat/awg3` в master (PR #192, тег `v3.0.20260731`), а `amnezia-vpn/amneziawg-tools` — PR #60 (тег `v3.0.20260730`). `HeaderProtectionKey` теперь парсится в `.conf`. Known Issue #5 (HPK намеренно не писется в .conf) устарел. Дополнительно: часть клиентских приложений ещё на AWG v1/v2 — нужна генерация конфига под версию клиента.
