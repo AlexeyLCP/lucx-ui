@@ -209,9 +209,9 @@ func TestNormalizeAwgSettings_PrunesDeviceFieldsOnNonV3(t *testing.T) {
 	}
 }
 
-// AdvancedSecurity is per-peer: the migration resets clients[].advancedSecurity
-// to false when the inbound is NOT version "3", and leaves it true on a
-// version-"3" inbound. An already-false flag is a no-op (no change recorded).
+// AdvancedSecurity was removed in lucx.62 (vestigial kernel field): the
+// migration deletes clients[].advancedSecurity unconditionally, regardless of
+// the inbound's awgVersion. Settings without the key are returned unchanged.
 func TestNormalizeAwgSettings_PrunesAdvancedSecurityPerPeer(t *testing.T) {
 	for _, tc := range []struct {
 		name        string
@@ -222,9 +222,10 @@ func TestNormalizeAwgSettings_PrunesAdvancedSecurityPerPeer(t *testing.T) {
 	}{
 		{"v2 prunes peer adv", `{"privateKey":"k","awgVersion":"2","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, true, "2", false},
 		{"v1.5 prunes peer adv", `{"privateKey":"k","awgVersion":"1.5","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, true, "1.5", false},
-		{"v3 keeps peer adv", `{"privateKey":"k","awgVersion":"3","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, false, "3", true},
-		{"v2 false stays false", `{"privateKey":"k","awgVersion":"2","clients":[{"id":"p","password":"psk","advancedSecurity":false}]}`, false, "2", false},
+		{"v3 prunes peer adv", `{"privateKey":"k","awgVersion":"3","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, true, "3", false},
+		{"v2 false pruned", `{"privateKey":"k","awgVersion":"2","clients":[{"id":"p","password":"psk","advancedSecurity":false}]}`, true, "2", false},
 		{"no version prunes peer adv", `{"privateKey":"k","clients":[{"id":"p","password":"psk","advancedSecurity":true}]}`, true, "2", false},
+		{"no adv key unchanged", `{"privateKey":"k","awgVersion":"2","clients":[{"id":"p","password":"psk"}]}`, false, "2", false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			got, changed, _ := normalizeAwgSettings(tc.in)
