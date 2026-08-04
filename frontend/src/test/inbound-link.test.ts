@@ -371,7 +371,7 @@ function awgSettings(version: '1.5' | '2' | '3'): AwgInboundSettings {
     awgVersion: version,
     contentPaddingAddition: '0', rekeyAfterTime: '0', rekeyTimeout: '0',
     rejectAfterTime: '0', keepaliveTimeout: '0', maxHandshakeAttempts: '0',
-    clients: [{ privateKey: 'clientPrivKeyBase64', publicKey: 'peerPub', preSharedKey: 'psk', allowedIPs: ['10.8.0.2/32'], keepAlive: 25, advancedSecurity: true }] as AwgInboundSettings['clients'],
+    clients: [{ privateKey: 'clientPrivKeyBase64', publicKey: 'peerPub', preSharedKey: 'psk', allowedIPs: ['10.8.0.2/32'], keepAlive: 25 }] as AwgInboundSettings['clients'],
   };
 }
 

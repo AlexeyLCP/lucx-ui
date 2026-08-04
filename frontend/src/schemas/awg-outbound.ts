@@ -47,8 +47,6 @@ export const AwgOutboundSettingsSchema = z.object({
   rejectAfterTime: z.number().int().min(0).max(65535).default(0),
   keepaliveTimeout: z.number().int().min(0).max(65535).default(0),
   maxHandshakeAttempts: z.number().int().min(0).max(65535).default(0),
-  // AWG3 peer-level advisory flag (applied to the single upstream [Peer]).
-  advancedSecurity: z.boolean().default(false),
   // AWG protocol version: '1.5' (legacy), '2' (S3/S4 + I1-I5), or '3' (adds
   // HeaderProtectionKey). Auto-detected by ParseConf from the pasted .conf;
   // editable in the form. renderClientConf gates HPK emission on '3'.

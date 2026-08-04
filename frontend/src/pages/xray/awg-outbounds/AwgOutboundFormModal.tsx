@@ -75,7 +75,6 @@ interface AwgOutboundFormValues {
   rejectAfterTime: number;
   keepaliveTimeout: number;
   maxHandshakeAttempts: number;
-  advancedSecurity: boolean;
 }
 
 const DEFAULT_SETTINGS: AwgOutboundSettings = {
@@ -112,7 +111,6 @@ const DEFAULT_SETTINGS: AwgOutboundSettings = {
   rejectAfterTime: 0,
   keepaliveTimeout: 0,
   maxHandshakeAttempts: 0,
-  advancedSecurity: false,
 };
 
 function buildDefaultValues(): AwgOutboundFormValues {
@@ -174,7 +172,6 @@ function settingsToFormValues(initial: AwgOutbound): AwgOutboundFormValues {
     rejectAfterTime: parsed.rejectAfterTime ?? DEFAULT_SETTINGS.rejectAfterTime,
     keepaliveTimeout: parsed.keepaliveTimeout ?? DEFAULT_SETTINGS.keepaliveTimeout,
     maxHandshakeAttempts: parsed.maxHandshakeAttempts ?? DEFAULT_SETTINGS.maxHandshakeAttempts,
-    advancedSecurity: parsed.advancedSecurity ?? DEFAULT_SETTINGS.advancedSecurity,
   };
 }
 
@@ -216,7 +213,6 @@ function formValuesToSettings(v: AwgOutboundFormValues): AwgOutboundSettings {
     rejectAfterTime: v.rejectAfterTime,
     keepaliveTimeout: v.keepaliveTimeout,
     maxHandshakeAttempts: v.maxHandshakeAttempts,
-    advancedSecurity: v.advancedSecurity,
   };
 }
 
@@ -587,10 +583,6 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                     </FormField>
                   </Space>
                 </Form.Item>
-                {/* AdvancedSecurity (AWG3 peer-level, advisory) on the upstream [Peer]. */}
-                <FormField name="advancedSecurity" label={t('pages.inbounds.form.awgAdvancedSecurity')} tooltip={t('pages.inbounds.form.awgAdvancedSecurityHint')} valueProp="checked">
-                  <Switch />
-                </FormField>
                 {/* END LUCX-HOOK */}
               </>
             )}

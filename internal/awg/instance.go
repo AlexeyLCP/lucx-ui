@@ -115,12 +115,11 @@ type Instance struct {
 
 // PeerSpec is one desired peer on an AWG interface.
 type PeerSpec struct {
-	PrivateKey       string // client Curve25519 private key (stored so we can render a full client .conf/share-link, mirroring WireGuard)
-	PublicKey        string // client Curve25519 public key (stored as Client.ID / clients[].publicKey)
-	PSK              string // PresharedKey (stored as Client.Password / clients[].preSharedKey)
-	Keepalive        int    // PersistentKeepalive, 0 = off
-	AllowedIPs       string // client tunnel address, e.g. "10.0.0.2/32"; falls back to "0.0.0.0/0, ::/0" only when unset
-	AdvancedSecurity bool   // AWG3 peer-level flag; advisory only in current kernel (set_peer ignores on input, get_peer hardcodes). NOT emitted in .conf — the kernel ignores it on input and hardcodes "off" in dumps, so writing it only confuses older client apps that reject unknown fields.
+	PrivateKey string // client Curve25519 private key (stored so we can render a full client .conf/share-link, mirroring WireGuard)
+	PublicKey  string // client Curve25519 public key (stored as Client.ID / clients[].publicKey)
+	PSK        string // PresharedKey (stored as Client.Password / clients[].preSharedKey)
+	Keepalive  int    // PersistentKeepalive, 0 = off
+	AllowedIPs string // client tunnel address, e.g. "10.0.0.2/32"; falls back to "0.0.0.0/0, ::/0" only when unset
 }
 
 // fingerprint changes whenever any value that ends up in the generated .conf
@@ -205,8 +204,6 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			PreSharedKey string   `json:"preSharedKey"`
 			AllowedIPs   []string `json:"allowedIPs"`
 			KeepAlive    int      `json:"keepAlive"`
-			// AWG3 peer-level flag (advisory; kernel ignores on input).
-			AdvancedSecurity bool `json:"advancedSecurity"`
 			// Legacy fields kept for backward compat (old inbounds created
 			// before this change store id=publicKey, password=PSK). The JSON
 			// tag `enable` defaults to false when absent — but the panel
@@ -294,12 +291,11 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			keep = 25
 		}
 		inst.Peers = append(inst.Peers, PeerSpec{
-			PrivateKey:       c.PrivateKey,
-			PublicKey:        pub,
-			PSK:              psk,
-			Keepalive:        keep,
-			AllowedIPs:       allowed,
-			AdvancedSecurity: c.AdvancedSecurity,
+			PrivateKey: c.PrivateKey,
+			PublicKey:  pub,
+			PSK:        psk,
+			Keepalive:  keep,
+			AllowedIPs: allowed,
 		})
 	}
 	return inst, true

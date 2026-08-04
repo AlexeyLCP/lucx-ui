@@ -65,10 +65,6 @@ type ClientSettings struct {
 	RejectAfterTime        int `json:"rejectAfterTime"`
 	KeepaliveTimeout       int `json:"keepaliveTimeout"`
 	MaxHandshakeAttempts   int `json:"maxHandshakeAttempts"`
-	// AdvancedSecurity is the AWG3 peer-level advisory flag (applied to the
-	// single upstream [Peer] in the outbound .conf). Advisory only — the
-	// current kernel ignores it on input.
-	AdvancedSecurity bool `json:"advancedSecurity"`
 	// AwgVersion targets the AmneziaWG protocol version for this outbound
 	// ("1.5"/"2"/"3"; "" → "2" via normalize). The .conf renderer emits
 	// HeaderProtectionKey only for version "3".
@@ -139,7 +135,6 @@ func (ci ClientInstance) fingerprint() string {
 		strconv.Itoa(s.RejectAfterTime),
 		strconv.Itoa(s.KeepaliveTimeout),
 		strconv.Itoa(s.MaxHandshakeAttempts),
-		strconv.FormatBool(s.AdvancedSecurity),
 	}
 	return strings.Join(parts, "|")
 }

@@ -129,28 +129,30 @@ func normalizeAwgSettings(settings string) (string, bool, string) {
 				reasons = append(reasons, "cleared stale "+key+" (not AWG3)")
 			}
 		}
-		// AdvancedSecurity is per-peer — prune it from every client entry.
-		if clients, ok := m["clients"].([]any); ok {
-			for i, c := range clients {
-				cm, ok := c.(map[string]any)
-				if !ok {
-					continue
-				}
-				if v, ok := cm["advancedSecurity"]; ok && v == true {
-					cm["advancedSecurity"] = false
-					clients[i] = cm
-					changed = true
-					reasons = append(reasons, "cleared stale peer advancedSecurity (not AWG3)")
-				}
+	}
+	// AdvancedSecurity was removed in lucx.62 — the upstream kernel never reads
+	// the field (set_peer ignores on input, get_peer hardcodes "off"). Delete it
+	// from every client entry and the outbound top-level so stale values do not
+	// linger in stored settings.
+	if clients, ok := m["clients"].([]any); ok {
+		for i, c := range clients {
+			cm, ok := c.(map[string]any)
+			if !ok {
+				continue
 			}
-			m["clients"] = clients
+			if _, ok := cm["advancedSecurity"]; ok {
+				delete(cm, "advancedSecurity")
+				clients[i] = cm
+				changed = true
+				reasons = append(reasons, "removed vestigial advancedSecurity (peer)")
+			}
 		}
-		// AdvancedSecurity on the outbound side — top-level field (single peer).
-		if v, ok := m["advancedSecurity"]; ok && v == true {
-			m["advancedSecurity"] = false
-			changed = true
-			reasons = append(reasons, "cleared stale advancedSecurity (not AWG3)")
-		}
+		m["clients"] = clients
+	}
+	if _, ok := m["advancedSecurity"]; ok {
+		delete(m, "advancedSecurity")
+		changed = true
+		reasons = append(reasons, "removed vestigial advancedSecurity (outbound)")
 	}
 	if !changed {
 		return settings, false, ""

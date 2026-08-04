@@ -996,10 +996,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": "0123456789abcdef0123456789abcdef",
         "type": "string"
       },
-      "advancedSecurity": {
-        "description": "LUCX-HOOK: AWG3 AdvancedSecurity (per-peer advisory flag; kernel set_peer\nignores on input, get_peer hardcodes in dumps — emission-only for .conf\nparity). Mirrors the Wireguard peer-field placement (inline on Client).",
-        "type": "boolean"
-      },
       "allowedIPs": {
         "items": {
           "type": "string"
@@ -1078,7 +1074,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "nullable": true
       },
       "secret": {
-        "description": "END LUCX-HOOK",
         "example": "ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d",
         "type": "string"
       },
@@ -1149,10 +1144,6 @@ export const SCHEMAS: Record<string, unknown> = {
       "adTag": {
         "type": "string"
       },
-      "advancedSecurity": {
-        "description": "LUCX-HOOK: AWG3 AdvancedSecurity column (mirrors Client.AdvancedSecurity;\nAutoMigrate adds the column on next start — no manual migration needed).",
-        "type": "boolean"
-      },
       "allowedIPs": {
         "type": "string"
       },
@@ -1208,7 +1199,6 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "reverse": {},
       "secret": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "security": {
@@ -1235,7 +1225,6 @@ export const SCHEMAS: Record<string, unknown> = {
     },
     "required": [
       "adTag",
-      "advancedSecurity",
       "allowedIPs",
       "auth",
       "comment",

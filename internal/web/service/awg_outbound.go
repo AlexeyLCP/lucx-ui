@@ -351,9 +351,6 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 				s.AllowedIPs = val
 			case "PersistentKeepalive":
 				s.Keepalive, _ = strconv.Atoi(val)
-			case "AdvancedSecurity":
-				v := strings.ToLower(strings.TrimSpace(val))
-				s.AdvancedSecurity = v == "on" || v == "1" || v == "true" || v == "yes"
 			}
 		}
 	}
@@ -366,7 +363,7 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 	switch {
 	case s.HeaderProtectionKey != "" || s.ContentPaddingAddition > 0 || s.RekeyAfterTime > 0 ||
 		s.RekeyTimeout > 0 || s.RejectAfterTime > 0 || s.KeepaliveTimeout > 0 ||
-		s.MaxHandshakeAttempts > 0 || s.AdvancedSecurity:
+		s.MaxHandshakeAttempts > 0:
 		s.AwgVersion = "3"
 	case s.S3 != 0 || s.S4 != 0 || s.I1 != "" || s.I2 != "" || s.I3 != "" || s.I4 != "" || s.I5 != "":
 		s.AwgVersion = "2"

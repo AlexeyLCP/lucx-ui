@@ -698,8 +698,6 @@
         "awgKeepaliveTimeoutHint": "AWG3 على مستوى الجهاز: فاصل keepalive بالثواني (على مستوى الجهاز، لا لكل peer). 0 = افتراضي kernel (10 ث). المدى 0–65535.",
         "awgMaxHandshakeAttempts": "MaxHandshakeAttempts",
         "awgMaxHandshakeAttemptsHint": "AWG3 على مستوى الجهاز: أقصى عدد لمحاولات المصافحة قبل تعطيل الـ peer. 0 = افتراضي kernel (18 = 90/REKEY_TIMEOUT). المدى 0–65535.",
-        "awgAdvancedSecurity": "AdvancedSecurity",
-        "awgAdvancedSecurityHint": "AWG3 علم استشاري على مستوى الـ peer. للاستشار فقط — يتجاهله kernel الحالي عند الإدخال (set_peer لا يقرأه) لكنه يردّه في dumps. فعّله لتسمية التوافق عندما يستخدم peer إبهام AWG3.",
         "awgRouteThroughXray": "التوجيه عبر Xray",
         "awgRouteThroughXrayHint": "أرسل الحزم المفكوكة لواجهة AWG إلى موجّه Xray عبر إنباوند TUN مُدخل، بحيث تخضع المخرجات لقواعد التوجيه. يعكس routeThroughXray في mtproto.",
         "awgRouteOutbound": "مخرج التوجيه",

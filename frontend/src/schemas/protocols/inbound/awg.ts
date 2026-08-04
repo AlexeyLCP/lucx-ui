@@ -14,10 +14,6 @@ import { normalizeAwgTimer } from '@/lib/awg/timer';
 const AwgClientSchema = WireguardClientSchema.extend({
   id: z.string().optional(),
   password: z.string().optional(),
-  // AWG3 peer-level advisory flag (kernel ignores on input in current
-  // builds; advisory/labeling only). Written to [Peer] as
-  // "AdvancedSecurity = on" when true and awgVersion === '3'.
-  advancedSecurity: z.boolean().optional(),
 });
 
 // AWG (AmneziaWG) inbound. Served by a kernel-interface sidecar managed by

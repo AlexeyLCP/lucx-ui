@@ -233,7 +233,6 @@ export const EXAMPLES: Record<string, unknown> = {
   },
   "Client": {
     "adTag": "0123456789abcdef0123456789abcdef",
-    "advancedSecurity": false,
     "allowedIPs": [
       ""
     ],
@@ -269,7 +268,6 @@ export const EXAMPLES: Record<string, unknown> = {
   },
   "ClientRecord": {
     "adTag": "",
-    "advancedSecurity": false,
     "allowedIPs": "",
     "auth": "",
     "comment": "",

@@ -698,8 +698,6 @@
         "awgKeepaliveTimeoutHint": "AWG3 a nivel de dispositivo: intervalo de keepalive en segundos (a nivel de dispositivo, no por peer). 0 = predeterminado del kernel (10 s). Rango 0–65535.",
         "awgMaxHandshakeAttempts": "MaxHandshakeAttempts",
         "awgMaxHandshakeAttemptsHint": "AWG3 a nivel de dispositivo: máximo de intentos de handshake antes de que el peer se deshabilite. 0 = predeterminado del kernel (18 = 90/REKEY_TIMEOUT). Rango 0–65535.",
-        "awgAdvancedSecurity": "AdvancedSecurity",
-        "awgAdvancedSecurityHint": "AWG3 bandera consultiva a nivel de peer. Solo consultiva — el kernel actual la ignora en la entrada (set_peer no la lee) pero la refleja en los volcados. Actívala para etiquetado de compatibilidad cuando el peer use ofuscación AWG3.",
         "awgRouteThroughXray": "Enrutar a través de Xray",
         "awgRouteThroughXrayHint": "Envía los paquetes descifrados de la interfaz kernel AWG al router de Xray mediante un inbound TUN inyectado, para que la salida obedezca las reglas de enrutado. Refleja el routeThroughXray de mtproto.",
         "awgRouteOutbound": "Outbound de ruta",

@@ -698,8 +698,6 @@
         "awgKeepaliveTimeoutHint": "AWG3 裝置級：keepalive 間隔（秒）（裝置級，非 per-peer）。0 = 核心預設值（10 秒）。範圍 0–65535。",
         "awgMaxHandshakeAttempts": "MaxHandshakeAttempts",
         "awgMaxHandshakeAttemptsHint": "AWG3 裝置級：peer 被停用前的最大握手嘗試次數。0 = 核心預設值（18 = 90/REKEY_TIMEOUT）。範圍 0–65535。",
-        "awgAdvancedSecurity": "AdvancedSecurity",
-        "awgAdvancedSecurityHint": "AWG3 peer 級建議旗標。僅供參考——目前核心在輸入時忽略它（set_peer 不讀取它），但會在傾印中回顯。當 peer 使用 AWG3 混淆時，可啟用以用於相容性標籤。",
         "awgRouteThroughXray": "透過 Xray 路由",
         "awgRouteThroughXrayHint": "透過注入的 TUN 入站將 AWG 核心介面解密後的封包送入 Xray 路由器，使出口遵循路由規則。與 mtproto 的 routeThroughXray 相同。",
         "awgRouteOutbound": "路由出站",

@@ -698,8 +698,6 @@
         "awgKeepaliveTimeoutHint": "AWG3 на уровне устройства: интервал keepalive в секундах (на уровне устройства, не на peer). 0 = значение kernel по умолчанию (10 с). Диапазон 0–65535.",
         "awgMaxHandshakeAttempts": "MaxHandshakeAttempts",
         "awgMaxHandshakeAttemptsHint": "AWG3 на уровне устройства: максимальное число попыток handshake до отключения peer. 0 = значение kernel по умолчанию (18 = 90/REKEY_TIMEOUT). Диапазон 0–65535.",
-        "awgAdvancedSecurity": "AdvancedSecurity",
-        "awgAdvancedSecurityHint": "AWG3 флаг на уровне peer (рекомендательный). Только рекомендательный — текущий kernel игнорирует его на входе (set_peer его не читает), но отражает в дампах. Включай для маркировки совместимости, когда peer использует AWG-обфускацию.",
         "awgRouteThroughXray": "Маршрутизировать через Xray",
         "awgRouteThroughXrayHint": "Направить расшифрованные пакеты AWG-интерфейса в маршрутизатор Xray через инжектируемый TUN-inbound, чтобы исходящий трафик подчинялся правилам маршрутизации. Как у mtproto routeThroughXray.",
         "awgRouteOutbound": "Исходящий outbound",

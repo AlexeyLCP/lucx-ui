@@ -698,8 +698,6 @@
         "awgKeepaliveTimeoutHint": "AWG3 на рівні пристрою: інтервал keepalive у секундах (на рівні пристрою, не на peer). 0 = значення kernel за замовчуванням (10 с). Діапазон 0–65535.",
         "awgMaxHandshakeAttempts": "MaxHandshakeAttempts",
         "awgMaxHandshakeAttemptsHint": "AWG3 на рівні пристрою: максимальна кількість спроб handshake до вимкнення peer. 0 = значення kernel за замовчуванням (18 = 90/REKEY_TIMEOUT). Діапазон 0–65535.",
-        "awgAdvancedSecurity": "AdvancedSecurity",
-        "awgAdvancedSecurityHint": "AWG3 прапорець на рівні peer (рекомендаційний). Лише рекомендаційний — поточний kernel ігнорує його на вході (set_peer його не читає), але відтворює у дампах. Увімкни для маркування сумісності, коли peer використовує AWG-обфускацію.",
         "awgRouteThroughXray": "Маршрутизувати через Xray",
         "awgRouteThroughXrayHint": "Надсилає розшифровані пакети kernel-інтерфейсу AWG до маршрутизатора Xray через інжектований TUN-інбаунд, тому egress підпорядковується правилам маршрутизації. Дзеркалить routeThroughXray у mtproto.",
         "awgRouteOutbound": "Аутбаунд маршруту",

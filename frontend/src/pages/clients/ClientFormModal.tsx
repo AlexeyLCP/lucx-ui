@@ -104,7 +104,6 @@ type Values = ClientFormValues & {
   wgAllowedIPs: string;
   secret: string;
   adTag: string;
-  advancedSecurity: boolean;
 };
 
 const EMPTY: Values = {
@@ -134,7 +133,6 @@ const EMPTY: Values = {
   wgAllowedIPs: '',
   secret: '',
   adTag: '',
-  advancedSecurity: false,
 };
 
 function toExternalLinkRows(links: ExternalLink[] | undefined): ExternalLinkRow[] {
@@ -247,7 +245,6 @@ export default function ClientFormModal({
         wgAllowedIPs: client.allowedIPs || '',
         secret: client.secret || '',
         adTag: client.adTag || '',
-        advancedSecurity: !!(client as Record<string, unknown>).advancedSecurity,
       };
       if (et < 0) {
         seed.delayedStart = true;
@@ -590,12 +587,6 @@ export default function ClientFormModal({
       if (allowedIPs.length > 0) {
         clientPayload.allowedIPs = allowedIPs;
       }
-      // LUCX-HOOK: AWG3 peer-level AdvancedSecurity flag (advisory; kernel
-      // ignores on input). Stored in the client record so it flows into the
-      // [Peer] block of the client .conf and share-link when the inbound is v3.
-      if (showAwg && values.advancedSecurity) {
-        clientPayload.advancedSecurity = true;
-      }
     } // END LUCX-HOOK
 
     if (showMtproto) {
@@ -930,16 +921,6 @@ export default function ClientFormModal({
                           >
                             <Input placeholder={showAwg ? awgAllowedIPsPlaceholder : '10.0.0.2/32'} />
                           </FormField>
-                          {showAwg && (
-                            <FormField
-                              name="advancedSecurity"
-                              label={t('pages.inbounds.form.awgAdvancedSecurity')}
-                              tooltip={t('pages.inbounds.form.awgAdvancedSecurityHint')}
-                              valueProp="checked"
-                            >
-                              <Switch />
-                            </FormField>
-                          )}
                         </>
                       )}
                       {showMtproto && (

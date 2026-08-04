@@ -1337,7 +1337,6 @@ function awgPeerShape(c: AwgInboundSettings['clients'][number]): WireguardInboun
     allowedIPs: c.allowedIPs ?? [],
     keepAlive: c.keepAlive ?? 0,
     comment: '',
-    advancedSecurity: c.advancedSecurity,
   } as WireguardInboundPeer;
 }
 

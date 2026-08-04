@@ -698,8 +698,6 @@
         "awgKeepaliveTimeoutHint": "AWG3 デバイスレベル: keepalive 間隔 (秒) (デバイスレベル、peer ごとではない)。0 = kernel 既定 (10 秒)。範囲 0–65535。",
         "awgMaxHandshakeAttempts": "MaxHandshakeAttempts",
         "awgMaxHandshakeAttemptsHint": "AWG3 デバイスレベル: peer が無効化されるまでの最大ハンドシェイク試行回数。0 = kernel 既定 (18 = 90/REKEY_TIMEOUT)。範囲 0–65535。",
-        "awgAdvancedSecurity": "AdvancedSecurity",
-        "awgAdvancedSecurityHint": "AWG3 peer レベルの advisory フラグ。advisory のみ — 現在の kernel は入力時にこれを無視しますが (set_peer はこれを読まない)、ダンプ時にはそれを反映します。peer が AWG3 難読化を使用している場合、互換性ラベル付けのために有効化してください。",
         "awgRouteThroughXray": "Xray経由でルーティング",
         "awgRouteThroughXrayHint": "AWGカーネルインターフェースの復号パケットを注入されたTUNインバウンド経由でXrayルーターに送り、egressがルーティングルールに従うようにします。mtprotoのrouteThroughXrayと同等です。",
         "awgRouteOutbound": "ルートアウトバウンド",

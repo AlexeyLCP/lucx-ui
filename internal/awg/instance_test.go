@@ -517,19 +517,6 @@ func TestInstanceFingerprint_ChangesOnDeviceField(t *testing.T) {
 	}
 }
 
-func TestInstanceFingerprint_InsensitiveToAdvancedSecurity(t *testing.T) {
-	inst := Instance{
-		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k",
-		Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk"}},
-	}
-	before := inst.fingerprint()
-	inst.Peers[0].AdvancedSecurity = true
-	after := inst.fingerprint()
-	if before != after {
-		t.Fatal("fingerprint must NOT change when only AdvancedSecurity is toggled — the field is not emitted in .conf, so no restart is needed")
-	}
-}
-
 // The six device-level AWG3 fields are version-gated in the server .conf: they
 // appear in [Interface] only when AwgVersion == "3" AND the field > 0. On a
 // non-v3 inbound the lines must NOT appear even when the field carries a value
@@ -579,37 +566,6 @@ func TestRenderServerConf_DeviceFieldsVersionGated(t *testing.T) {
 	}
 }
 
-// AdvancedSecurity is NOT emitted in the server .conf. The current kernel
-// ignores the field on input (set_peer) and hardcodes "off" in dumps
-// (get_peer), so writing it only confuses older client apps that reject
-// unknown fields. The field stays in the model/DB for future kernel support.
-func TestRenderServerConf_AdvancedSecurityNotEmitted(t *testing.T) {
-	awg3 := true
-	SetModuleSupportsAwg3(&awg3)
-	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
-	for _, tc := range []struct {
-		name    string
-		version string
-		adv     bool
-	}{
-		{"v3 true", "3", true},
-		{"v3 false", "3", false},
-		{"v2 true", "2", true},
-	} {
-		t.Run(tc.name, func(t *testing.T) {
-			inst := Instance{
-				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Jc: 5,
-				AwgVersion: tc.version,
-				Peers:      []PeerSpec{{PublicKey: "p1", PSK: "psk", AdvancedSecurity: tc.adv}},
-			}
-			conf := renderServerConf(inst)
-			if strings.Contains(conf, "AdvancedSecurity") {
-				t.Errorf("AdvancedSecurity must NOT be emitted in server .conf\nConf:\n%s", conf)
-			}
-		})
-	}
-}
-
 func TestInstanceFromInbound_DeviceFields(t *testing.T) {
 	ib := &model.Inbound{
 		Id:       9,
@@ -648,24 +604,5 @@ func TestInstanceFromInbound_DeviceFieldRange(t *testing.T) {
 		inst.RekeyTimeout != "3-7" || inst.RejectAfterTime != "180" ||
 		inst.KeepaliveTimeout != "8-12" || inst.MaxHandshakeAttempts != "15-20" {
 		t.Fatalf("range/number mix not parsed verbatim: %+v", inst)
-	}
-}
-
-func TestInstanceFromInbound_AdvancedSecurity(t *testing.T) {
-	ib := &model.Inbound{
-		Id:       10,
-		Protocol: model.AWG,
-		Settings: `{"privateKey":"k","awgVersion":"3",` +
-			`"clients":[{"id":"p1","password":"psk","enable":true,"advancedSecurity":true}]}`,
-	}
-	inst, ok := InstanceFromInbound(ib)
-	if !ok {
-		t.Fatal("expected a usable instance")
-	}
-	if len(inst.Peers) != 1 {
-		t.Fatalf("expected 1 enabled peer, got %d", len(inst.Peers))
-	}
-	if !inst.Peers[0].AdvancedSecurity {
-		t.Fatalf("peer AdvancedSecurity not parsed: %+v", inst.Peers[0])
 	}
 }

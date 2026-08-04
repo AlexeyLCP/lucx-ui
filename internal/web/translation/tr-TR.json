@@ -698,8 +698,6 @@
         "awgKeepaliveTimeoutHint": "AWG3 cihaz düzeyinde: saniye cinsinden keepalive aralığı (cihaz düzeyinde, peer başına değil). 0 = kernel varsayılanı (10 s). Aralık 0–65535.",
         "awgMaxHandshakeAttempts": "MaxHandshakeAttempts",
         "awgMaxHandshakeAttemptsHint": "AWG3 cihaz düzeyinde: peer devre dışı bırakılmadan önceki maksimum el sıkışma denemesi. 0 = kernel varsayılanı (18 = 90/REKEY_TIMEOUT). Aralık 0–65535.",
-        "awgAdvancedSecurity": "AdvancedSecurity",
-        "awgAdvancedSecurityHint": "AWG3 peer düzeyinde advisory bayrak. Yalnızca advisory — mevcut kernel girişte bunu yok sayar (set_peer bunu okumaz) ancak dökümlerde yansıtır. Peer AWG3 obfuscation kullandığında uyumluluk etiketlemesi için etkinleştirin.",
         "awgRouteThroughXray": "Xray üzerinden yönlendir",
         "awgRouteThroughXrayHint": "AWG kernel arayüzünün şifresi çözülmüş paketlerini enjekte edilen TUN inbound ile Xray yönlendiricisine gönderir, böylece çıkış yönlendirme kurallarına uyar. mtproto routeThroughXray ile aynıdır.",
         "awgRouteOutbound": "Yönlendirme outboundu",

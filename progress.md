@@ -51,6 +51,22 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.62 (2026-08-04) — полное удаление AdvancedSecurity
+
+**Контекст:** продолжение lucx.61. Проверка upstream-исходников AmneziaWG kernel module подтвердила: `AdvancedSecurity` — вестигиальное поле. `set_peer()` (`netlink.c:612-743`) никогда не читает `attrs[WGPEER_A_ADVANCED_SECURITY]`, `struct wg_peer` не имеет поля, `get_peer()` хардкодит "off" в dumps. Поле НЕ гейтит HPK/таймеры/padding — те независимые device-атрибуты. Эмиссия в .conf бесполезна + ломала парсинг в старых клиентских приложениях.
+
+**Что удалено (полностью, из всех слоёв):**
+- **Go backend:** `model.go` (Client struct, ClientRecord struct, ToRecord, ToClient, merge-логика — 5 точек), `instance.go` (PeerSpec field, parse struct, construction), `client_instance.go` (ClientSettings field, fingerprint), `awg_outbound.go` (ParseConf case + v3-detection check).
+- **Frontend:** schemas (`awg.ts`, `wireguard.ts`, `awg-outbound.ts`), `inbound-link.ts` (peer mapping), `ClientFormModal.tsx` (type/defaults/reading/payload/toggle), `AwgOutboundFormModal.tsx` (type/defaults/reading/payload/toggle).
+- **i18n:** ключи `awgAdvancedSecurity` + `awgAdvancedSecurityHint` из всех 13 локалей.
+- **Миграция:** `migrate_awg_hpk.go` теперь **удаляет** `advancedSecurity` из stored settings (peer + outbound), а не ставит false.
+- **OpenAPI:** `npm run gen` перегенерировал `generated/` без поля.
+- **Тесты:** удалены `TestInstanceFingerprint_InsensitiveToAdvancedSecurity`, `TestRenderServerConf_AdvancedSecurityNotEmitted`, `TestInstanceFromInbound_AdvancedSecurity`, `TestRenderClientConf_AdvancedSecurityNotEmitted`, `client_advanced_security_test.go` (4 функции). Фикстура `inbound-link.test.ts` без `advancedSecurity`.
+
+**Не затронуто:** HPK, 6 device-таймеров, ContentPaddingAddition — работают независимо, как и раньше.
+
+**Файлы:** `internal/database/model/model.go`, `internal/awg/instance.go`, `internal/awg/client_instance.go`, `internal/web/service/awg_outbound.go`, `internal/database/migrate_awg_hpk.go`, `internal/config/config.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/schemas/protocols/inbound/wireguard.ts`, `frontend/src/schemas/awg-outbound.ts`, `frontend/src/lib/xray/inbound-link.ts`, `frontend/src/pages/clients/ClientFormModal.tsx`, `frontend/src/pages/xray/awg-outbounds/AwgOutboundFormModal.tsx`, `frontend/src/generated/*`, `internal/web/translation/*.json` (13), `AGENTS.md`, `progress.md`
+
 ## Релиз v3.6.0-lucx.61 (2026-08-04) — AdvancedSecurity: фикс toggle + убрана эмиссия из .conf
 
 **Контекст:** tester VladufQa сообщил два бага: (1) переключатель AdvancedSecurity не выключается («ранее не включался, теперь не выключается»), (2) «AdvancedSecurity не хавает авг» — клиентское приложение не принимает поле.
