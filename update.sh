@@ -19,6 +19,19 @@ done
 cur_dir="$(cd -P "$(dirname "$b_source")" > /dev/null 2>&1 && pwd || pwd -P)"
 script_name=$(basename "$0")
 
+# LUCX-HOOK (lucx.66): detect interactive vs headless execution. The panel's
+# web updater runs this script detached (systemd-run, stdin=/dev/null, no TTY).
+# Every interactive prompt (read -rp) then reads EOF: the server-IP fallback
+# loop spins forever, and the SSL wizard silently picks its default — stopping
+# the panel to issue a Let's Encrypt certificate. Both broke panels updated
+# from the web. Interactive console runs (x-ui update) keep the prompts.
+if [[ -t 0 ]]; then
+    lucx_interactive=1
+else
+    lucx_interactive=0
+fi
+# END LUCX-HOOK
+
 # Check command exist function
 _command_exists() {
     type "$1" &> /dev/null
@@ -848,14 +861,22 @@ config_after_update() {
 
     if [[ -z "$server_ip" ]]; then
         echo -e "${yellow}Could not auto-detect server IP from any provider.${plain}"
-        while [[ -z "$server_ip" ]]; do
-            read -rp "Please enter your server's public IPv4 address: " server_ip
-            server_ip="${server_ip// /}"
-            if [[ ! "$server_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-                echo -e "${red}Invalid IPv4 address. Please try again.${plain}"
-                server_ip=""
-            fi
-        done
+        if [[ "$lucx_interactive" == "1" ]]; then
+            while [[ -z "$server_ip" ]]; do
+                read -rp "Please enter your server's public IPv4 address: " server_ip
+                server_ip="${server_ip// /}"
+                if [[ ! "$server_ip" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                    echo -e "${red}Invalid IPv4 address. Please try again.${plain}"
+                    server_ip=""
+                fi
+            done
+        else
+            # Headless (web-panel) update: no TTY to answer the prompt, and the
+            # old unconditional `read` loop read EOF forever. server_ip is only
+            # consumed by the SSL wizard below, which is itself skipped headless,
+            # so an empty value is safe here.
+            echo -e "${yellow}Non-interactive update: skipping manual server IP entry.${plain}"
+        fi
     fi
 
     # Handle missing/short webBasePath
@@ -870,24 +891,37 @@ config_after_update() {
 
     # Check and prompt for SSL if missing
     if [[ -z "$existing_cert" ]]; then
-        echo ""
-        echo -e "${red}═══════════════════════════════════════════${plain}"
-        echo -e "${red}      ⚠ NO SSL CERTIFICATE DETECTED ⚠     ${plain}"
-        echo -e "${red}═══════════════════════════════════════════${plain}"
-        echo -e "${yellow}For security, SSL certificate is MANDATORY for all panels.${plain}"
-        echo -e "${yellow}Let's Encrypt now supports both domains and IP addresses!${plain}"
-        echo ""
+        if [[ "$lucx_interactive" == "1" ]]; then
+            echo ""
+            echo -e "${red}═══════════════════════════════════════════${plain}"
+            echo -e "${red}      ⚠ NO SSL CERTIFICATE DETECTED ⚠     ${plain}"
+            echo -e "${red}═══════════════════════════════════════════${plain}"
+            echo -e "${yellow}For security, SSL certificate is MANDATORY for all panels.${plain}"
+            echo -e "${yellow}Let's Encrypt now supports both domains and IP addresses!${plain}"
+            echo ""
 
-        # Prompt and setup SSL (domain or IP)
-        prompt_and_setup_ssl "${existing_port}" "${existing_webBasePath}" "${server_ip}"
+            # Prompt and setup SSL (domain or IP)
+            prompt_and_setup_ssl "${existing_port}" "${existing_webBasePath}" "${server_ip}"
 
-        echo ""
-        echo -e "${green}═══════════════════════════════════════════${plain}"
-        echo -e "${green}     Panel Access Information              ${plain}"
-        echo -e "${green}═══════════════════════════════════════════${plain}"
-        echo -e "${green}Access URL: https://${SSL_HOST}:${existing_port}/${existing_webBasePath}${plain}"
-        echo -e "${green}═══════════════════════════════════════════${plain}"
-        echo -e "${yellow}⚠ SSL Certificate: Enabled and configured${plain}"
+            echo ""
+            echo -e "${green}═══════════════════════════════════════════${plain}"
+            echo -e "${green}     Panel Access Information              ${plain}"
+            echo -e "${green}═══════════════════════════════════════════${plain}"
+            echo -e "${green}Access URL: https://${SSL_HOST}:${existing_port}/${existing_webBasePath}${plain}"
+            echo -e "${green}═══════════════════════════════════════════${plain}"
+            echo -e "${yellow}⚠ SSL Certificate: Enabled and configured${plain}"
+        else
+            # LUCX-HOOK (lucx.66): headless (web-panel) update. The SSL wizard
+            # is interactive and, with no TTY, used to default to issuing a
+            # Let's Encrypt certificate — it stops the panel, runs acme.sh on
+            # port 80 and restarts, which left panels/Xray broken when run from
+            # the web updater. Skip it entirely here; the certificate can be set
+            # up later from a console (`x-ui` menu) or the panel settings.
+            echo ""
+            echo -e "${yellow}No SSL certificate configured. Non-interactive update: skipping SSL setup.${plain}"
+            echo -e "${yellow}Configure a certificate later via the console menu or panel settings.${plain}"
+            # END LUCX-HOOK
+        fi
     else
         echo -e "${green}SSL certificate is already configured${plain}"
         # Show access URL with existing certificate
