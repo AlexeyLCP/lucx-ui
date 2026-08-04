@@ -379,7 +379,7 @@ export default function ClientFormModal({
   );
   // LUCX-HOOK: AWG — derive the allowedIPs placeholder from the selected
   // AWG inbound's tunnel subnet (awgServerAddress, e.g. "10.10.0.1/24" →
-  // "10.10.0.2/32"). The hardcoded "10.8.0.2/32" misled users on non-default
+  // "10.10.0.2/32"). A stale hardcoded placeholder misled users on non-default
   // subnets into thinking the client would get an address from a different
   // pool than the one the server routes (caught by a tester on 10.10.0.1/24).
   // The backend (defaultAwgClients, lucx.34) already allocates from the
@@ -396,7 +396,7 @@ export default function ClientFormModal({
       if (parts.length !== 4) break;
       return `${parts[0]}.${parts[1]}.${parts[2]}.2/32`;
     }
-    return '10.8.0.2/32';
+    return '10.200.0.2/32';
   }, [inboundIds, inbounds]);
   // END LUCX-HOOK
 

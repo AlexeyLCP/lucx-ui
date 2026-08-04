@@ -276,7 +276,7 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
       </FormField>
 
       <FormField name={['settings', 'address']} label={t('pages.inbounds.form.awgAddress')} tooltip={t('pages.inbounds.form.awgAddressHint')}>
-        <Input placeholder="10.8.0.1/24" />
+        <Input placeholder="10.200.0.1/24" />
       </FormField>
 
       {/* LUCX-HOOK: subnet-collision warning — two AWG inbounds on the same /24

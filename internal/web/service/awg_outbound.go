@@ -212,15 +212,26 @@ func (s *AwgOutboundService) ActiveOutboundTags() ([]string, error) {
 // tunnel. Reporter: tester VladufQa ("создаю второго клиента и у второго
 // клиента не идет трафик").
 func (s *AwgOutboundService) ActiveOutboundAddresses() ([]string, error) {
+	return s.outboundAddresses(true)
+}
+
+// outboundAddresses returns the tunnel Address of every AWG outbound row. With
+// enabledOnly it restricts to enable=true (the client-allocation collision guard
+// only needs live awgo-N interfaces); the subnet-conflict check passes false so
+// a currently-disabled outbound cannot silently reintroduce a duplicate
+// connected route the moment it is re-enabled (lucx.64).
+func (s *AwgOutboundService) outboundAddresses(enabledOnly bool) ([]string, error) {
 	db := database.GetDB()
 	var rows []string
 	// Settings is JSON; the address lives under settings.address. SQLite/MySQL
 	// both store Settings as a text blob, so a LIKE scan is portable and the
 	// inbound count is tiny (<100). A JSON_EXTRACT would be cleaner but is
 	// not portable across sqlite/mysql/postgres.
-	err := db.Model(&model.AwgOutbound{}).
-		Where("enable = ?", true).
-		Pluck("settings", &rows).Error
+	q := db.Model(&model.AwgOutbound{})
+	if enabledOnly {
+		q = q.Where("enable = ?", true)
+	}
+	err := q.Pluck("settings", &rows).Error
 	if err != nil {
 		return nil, err
 	}

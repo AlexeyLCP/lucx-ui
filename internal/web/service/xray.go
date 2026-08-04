@@ -711,7 +711,7 @@ const awgEgressTunSettingsFmt = `{"name":"%s","mtu":%d,"gateway":["%s"],"userLev
 // the AWG tunnel subnet — sharing it would give the kernel two connected
 // routes for the same prefix and pull the reply path toward tunN — and must
 // differ between routed inbounds, whose TUN devices coexist. A per-id /30
-// under 10.254/16 satisfies both against the 10.8.0.0/24-style defaults the
+// under 10.254/16 satisfies both against the 10.200.0.0/24-style defaults the
 // panel hands out.
 func awgTunGateway(id int) string {
 	return fmt.Sprintf("10.254.%d.1/30", id%254)

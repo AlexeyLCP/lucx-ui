@@ -118,7 +118,7 @@ export function buildAwgClientConfig(
   awgVersionExport?: AwgVersion,
 ): string {
   const endpointHost = resolveShareHost(inbound ?? {}, inbound?.nodeAddress ?? '', preferPublicHost(host, publicHost));
-  const address = client.allowedIPs || '10.8.0.2/32';
+  const address = client.allowedIPs || '10.200.0.2/32';
   const endpoint = `${endpointHost}:${inbound?.port || ''}`;
   const inboundName = inbound ? formatInboundLabel(inbound.tag, inbound.remark) : '';
   const remark = [inboundName, client.email, client.comment].filter(Boolean).join(' - ');

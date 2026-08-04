@@ -18,8 +18,13 @@ import (
 
 // defaultAwgBase is the tunnel subnet AWG clients are allocated from. It is
 // intentionally distinct from WireGuard's 10.0.0.0/24 so an AWG inbound and a
-// WireGuard inbound on the same panel don't collide on peer addresses.
-const defaultAwgBase = "10.8.0.0/24"
+// WireGuard inbound on the same panel don't collide on peer addresses. It also
+// deliberately avoids the 10.6/10.7/10.8 ranges (lucx.64): those are the most
+// common upstream WireGuard/AmneziaWG server subnets, so an AWG outbound
+// (awgo-N) pasted from a provider conf almost always lands there — an inbound
+// on the same /24 installs a second connected route and traffic dies (Pattern
+// 1e). 10.200.0.0/24 sits far from both.
+const defaultAwgBase = "10.200.0.0/24"
 
 // awgAllocationFallback derives the allocation subnet from the inbound's
 // tunnel address (e.g. "10.9.0.1/24" → "10.9.0.0/24"), falling back to

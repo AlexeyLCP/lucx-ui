@@ -458,9 +458,11 @@ export default function InboundFormModal({
       const settings = createDefaultInboundSettings(next) ?? undefined;
       setV('settings', settings);
       // LUCX-HOOK: AWG auto-suggest a free tunnel subnet for a NEW inbound, so
-      // two AWG inbounds don't both default to 10.8.0.1/24 (the kernel installs
+      // two AWG inbounds don't both default to the same /24 (the kernel installs
       // two connected routes for one prefix and the second inbound's clients get
-      // no traffic — AGENTS.md Pattern 1e). Only fires on add-mode protocol
+      // no traffic — AGENTS.md Pattern 1e). The suggest range starts at
+      // 10.200.0.0/24, clear of the 10.6/10.7/10.8 subnets upstream WireGuard
+      // servers (and thus AWG outbounds) favour. Only fires on add-mode protocol
       // switch; an edited inbound keeps its stored address.
       if (next === Protocols.AWG) {
         setV('settings.address', suggestFreeAwgAddress(otherAwgSubnetsRef.current));

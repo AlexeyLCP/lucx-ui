@@ -1086,6 +1086,29 @@ func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSet
 	return nil
 }
 
+// LUCX-HOOK: awgOutboundSubnetConflict reports whether the inbound tunnel
+// subnet newNet collides with one AWG outbound's tunnel address outAddr. Only
+// an outbound prefix no more specific than the inbound's (oP.Bits() <=
+// newNet.Bits(), i.e. a /24 or wider when the inbound is a /24) installs a
+// conflicting connected route; a bare /32 host address is exempt because it
+// creates no /24 route of its own and defaultAwgClients already keeps client
+// IPs off it. Pure (no DB) for unit testing. Returns the masked conflicting
+// outbound prefix and true on a clash.
+func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefix, bool) {
+	outAddr = strings.TrimSpace(outAddr)
+	if outAddr == "" {
+		return netip.Prefix{}, false
+	}
+	oP, err := netip.ParsePrefix(outAddr)
+	if err != nil {
+		return netip.Prefix{}, false
+	}
+	if oP.Bits() <= newNet.Bits() && newNet.Overlaps(oP.Masked()) {
+		return oP.Masked(), true
+	}
+	return netip.Prefix{}, false
+}
+
 // LUCX-HOOK: checkAwgSubnetConflict blocks an AWG inbound whose tunnel subnet
 // overlaps another AWG inbound's. Two awg interfaces on the same connected
 // subnet install duplicate kernel routes; the reverse path picks the wrong
@@ -1131,6 +1154,20 @@ func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int) er
 				label = c.Tag
 			}
 			return common.NewError("AWG subnet", newNet.String(), "conflicts with inbound", label, "("+cP.Masked().String()+")", "— two AWG inbounds cannot share a tunnel subnet")
+		}
+	}
+
+	// Also reject a subnet an AWG outbound already occupies (lucx.64). An awgo-N
+	// interface takes its Address from the pasted provider conf — overwhelmingly
+	// a 10.8.0.0/24-style upstream WireGuard subnet — and awg-quick installs a
+	// connected route for it; an inbound on the same prefix dies exactly like the
+	// inbound-vs-inbound case above. Scan every outbound, disabled ones included,
+	// so re-enabling one later cannot silently resurrect the clash.
+	if outAddrs, oErr := (&AwgOutboundService{}).outboundAddresses(false); oErr == nil {
+		for _, oAddr := range outAddrs {
+			if oNet, clash := awgOutboundSubnetConflict(newNet, oAddr); clash {
+				return common.NewError("AWG subnet", newNet.String(), "conflicts with AWG outbound tunnel", oNet.String(), "— the upstream server's subnet overlaps this inbound's tunnel subnet")
+			}
 		}
 	}
 	return nil

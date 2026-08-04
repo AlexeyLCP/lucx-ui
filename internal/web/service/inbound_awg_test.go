@@ -1,6 +1,7 @@
 package service
 
 import (
+	"net/netip"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -213,6 +214,38 @@ func TestInboundAwgHints_DeviceFieldsEmission(t *testing.T) {
 			}
 			if !strings.Contains(obf, "Jc = 8") {
 				t.Errorf("the rest of the obfuscation block must survive, got:\n%s", obf)
+			}
+		})
+	}
+}
+
+// TestAwgOutboundSubnetConflict covers the lucx.64 guard that blocks an AWG
+// inbound tunnel subnet already occupied by an AWG outbound (awgo-N) interface.
+// A /24 (or wider) outbound prefix overlapping the inbound's /24 is a clash; a
+// bare /32 host address is exempt (it installs no /24 connected route and
+// defaultAwgClients already keeps client IPs off it).
+func TestAwgOutboundSubnetConflict(t *testing.T) {
+	inbound24 := netip.MustParsePrefix("10.8.0.1/24").Masked()
+	cases := []struct {
+		name    string
+		newNet  netip.Prefix
+		outAddr string
+		want    bool
+	}{
+		{"same /24 clashes", inbound24, "10.8.0.2/24", true},
+		{"outbound /24 host octet differs still clashes", inbound24, "10.8.0.99/24", true},
+		{"wider /16 outbound clashes", inbound24, "10.8.5.5/16", true},
+		{"bare /32 exempt", inbound24, "10.8.0.2/32", false},
+		{"disjoint /24 no clash", inbound24, "10.8.5.1/24", false},
+		{"different second octet no clash", inbound24, "10.200.0.1/24", false},
+		{"empty outbound address no clash", inbound24, "", false},
+		{"unparseable outbound address no clash", inbound24, "not-an-ip", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, got := awgOutboundSubnetConflict(tc.newNet, tc.outAddr)
+			if got != tc.want {
+				t.Errorf("awgOutboundSubnetConflict(%v, %q) = %v, want %v", tc.newNet, tc.outAddr, got, tc.want)
 			}
 		})
 	}

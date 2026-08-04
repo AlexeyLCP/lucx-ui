@@ -68,12 +68,14 @@ export function subnetsOverlap(a: string, b: string): boolean {
 // suggestFreeAwgAddress returns a server tunnel address ("X.Y.N.1/24") whose
 // /24 does not overlap any of the already-used subnets, so a newly created AWG
 // inbound does not collide with a sibling inbound's client pool (the kernel
-// route conflict behind "handshake ok, no traffic"). It scans the 10.8.0.0/16
-// space first (the panel's default base), then widens to 10.9/10.10/..., and
-// falls back to the plain default when nothing free is found in the window.
+// route conflict behind "handshake ok, no traffic"). It scans the 10.200.0.0/16
+// space (lucx.64: far from the 10.6/10.7/10.8 ranges upstream WireGuard servers
+// favour, which AWG outbounds pasted from provider confs tend to occupy), then
+// widens to 10.201/10.202/..., and falls back to the plain default when nothing
+// free is found in the window.
 export function suggestFreeAwgAddress(usedSubnets: string[]): string {
   const used = usedSubnets.filter((s) => maskSubnet(s) !== null);
-  for (let second = 8; second <= 20; second++) {
+  for (let second = 200; second <= 220; second++) {
     for (let third = 0; third < 256; third++) {
       const candidate = `10.${second}.${third}.1/24`;
       const candidateNet = `10.${second}.${third}.0/24`;
@@ -82,5 +84,5 @@ export function suggestFreeAwgAddress(usedSubnets: string[]): string {
       }
     }
   }
-  return '10.8.0.1/24';
+  return '10.200.0.1/24';
 }

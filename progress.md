@@ -51,6 +51,24 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.64 (2026-08-04) — уход от «проклятой» подсети 10.8.0.0/24 + защита от AWG-outbound'ов
+
+**Контекст (tester VladufQa):** AWG-инбаунд на дефолтной подсети 10.8.0.0/24 — «коннект есть, трафика нет». 10.8.0.0/24 — самая популярная подсеть WireGuard/AmneziaWG-серверов; AWG-outbound'ы (awgo-N), подключающиеся к вышестоящим серверам, получают адрес из вставленного .conf провайдера — почти всегда 10.8.0.x/24. `awg-quick up awgo-N` ставит connected-route 10.8.0.0/24; инбаунд на той же подсети ставит вторую connected-route → reverse-path в zombie-интерфейс → трафик глохнет. Vlad подтвердил: 10.8.5.1/24 работает, 10.8.0.1/24 — «проклятый».
+
+**Фикс 1 — смена дефолтной подсети 10.8.0.0/24 → 10.200.0.0/24:**
+- `defaultAwgBase` (`client_awg.go`) → `10.200.0.0/24` (приватный 10.0.0.0/8, далёк от популярных upstream 10.6/10.7/10.8, не пересекается с WireGuard-дефолтом 10.0.0.0/24 и TUN-шлюзами 10.254.x.x). Fallback в `awgAllocationFallback` — на существующие инбаунды с валидным address не влияет.
+- Frontend: `createDefaultAwgInboundSettings` address → `10.200.0.1/24`; `suggestFreeAwgAddress` (`subnet.ts`) сканирует 10.200.0.0/24..10.220.255.0/24 (fallback `10.200.0.1/24`); placeholder в `awg.tsx`; клиентские fallback'и `ClientFormModal.tsx`/`wireguardConfig.ts` → `10.200.0.2/32`.
+
+**Фикс 2 — checkAwgSubnetConflict учитывает AWG-outbound'ы:**
+- `ActiveOutboundAddresses` рефакторнут → приватный `outboundAddresses(enabledOnly bool)`; публичная обёртка держит `enabledOnly=true` (collision-guard в `defaultAwgClients`).
+- `checkAwgSubnetConflict` (`inbound.go`) добавил второй цикл по `outboundAddresses(false)` (**все** outbound'ы, включая выключенные — иначе включение позже тихо вернёт конфликт). Чистый хелпер `awgOutboundSubnetConflict(newNet, outAddr)`: блок только если `oP.Bits() <= newNet.Bits() && newNet.Overlaps(oP.Masked())` — /32-адреса отсеиваются (не создают /24 connected-route, их IP уже закрывает exclusion в `defaultAwgClients`).
+
+**Тесты:** `TestAwgOutboundSubnetConflict` (Go, 8 кейсов: /24-vs-/24 блок, /16 блок, /32 exempt, непересекающиеся — nil). `awg-subnet-overlap.test.ts` обновлён под диапазон 10.200.x.x (+ кейс «10.8 вне окна сканирования не блокает»). Frontend 916 тестов зелёные, gofumpt/lint чистые.
+
+**Файлы:** `internal/web/service/client_awg.go`, `awg_outbound.go`, `inbound.go`, `inbound_awg_test.go`, `xray.go`, `internal/config/config.go`, `frontend/src/lib/awg/subnet.ts`, `frontend/src/lib/xray/inbound-defaults.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/InboundFormModal.tsx`, `frontend/src/pages/clients/ClientFormModal.tsx`, `frontend/src/pages/clients/wireguardConfig.ts`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/test/awg-subnet-overlap.test.ts`, `AGENTS.md`, `progress.md`
+
+**Out of scope (follow-up):** авто-лечение УЖЕ конфликтующих инбаундов (созданных до lucx.64 на 10.8.0.0/24) — оператор правит адрес вручную (триггерит migrateAwgClientSubnets); подмешивание outbound-подсетей во frontend auto-suggest/warning; wiring SyncPeers.
+
 ## Релиз v3.6.0-lucx.63 (2026-08-04) — фикс аллокации AWG-клиентов + серверный запрет дубликатов подсетей
 
 **Контекст (tester VladufQa):** клиент AWG получает адрес из чужой подсети → route-конфликт → `awg-quick up` падает («Device awgN does not exist»); после ручной правки IP инбаунд не оживает без перезагрузки Xray; два инбаунда можно создать в одной подсети (warning не блокирует).

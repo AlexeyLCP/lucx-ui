@@ -26,7 +26,7 @@ const AwgClientSchema = WireguardClientSchema.extend({
 export const AwgInboundSettingsSchema = z.object({
   privateKey: z.string().default(''),
   publicKey: z.string().default(''),
-  address: z.string().default(''), // server tunnel address, e.g. "10.8.0.1/24"
+  address: z.string().default(''), // server tunnel address, e.g. "10.200.0.1/24"
   mtu: z.number().int().min(576).max(65535).default(1320),
   dns: z.string().optional(),
   // Obfuscation level: 1 = none, 2 = Jc/Jmin/Jmax + S/H, 3 = full + CPS I1-I5.

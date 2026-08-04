@@ -64,28 +64,34 @@ describe('subnetsOverlap', () => {
 
 describe('suggestFreeAwgAddress', () => {
   it('returns the default first subnet when nothing is used', () => {
-    expect(suggestFreeAwgAddress([])).toBe('10.8.0.1/24');
+    expect(suggestFreeAwgAddress([])).toBe('10.200.0.1/24');
   });
 
   it('skips a used /24 and suggests the next one', () => {
-    expect(suggestFreeAwgAddress(['10.8.0.0/24'])).toBe('10.8.1.1/24');
-    expect(suggestFreeAwgAddress(['10.8.0.0/24', '10.8.1.0/24'])).toBe('10.8.2.1/24');
+    expect(suggestFreeAwgAddress(['10.200.0.0/24'])).toBe('10.200.1.1/24');
+    expect(suggestFreeAwgAddress(['10.200.0.0/24', '10.200.1.0/24'])).toBe('10.200.2.1/24');
   });
 
   it('accepts unmasked addresses and still avoids their subnet', () => {
-    expect(suggestFreeAwgAddress(['10.8.0.1/24'])).toBe('10.8.1.1/24');
+    expect(suggestFreeAwgAddress(['10.200.0.1/24'])).toBe('10.200.1.1/24');
   });
 
   it('skips a gap-free run of used subnets', () => {
-    const used = ['10.8.0.0/24', '10.8.1.0/24', '10.8.2.0/24'];
-    expect(suggestFreeAwgAddress(used)).toBe('10.8.3.1/24');
+    const used = ['10.200.0.0/24', '10.200.1.0/24', '10.200.2.0/24'];
+    expect(suggestFreeAwgAddress(used)).toBe('10.200.3.1/24');
   });
 
-  it('moves to the next /16 when a wide prefix covers the whole 10.8 space', () => {
-    expect(suggestFreeAwgAddress(['10.8.0.0/16'])).toBe('10.9.0.1/24');
+  it('moves to the next /16 when a wide prefix covers the whole 10.200 space', () => {
+    expect(suggestFreeAwgAddress(['10.200.0.0/16'])).toBe('10.201.0.1/24');
   });
 
-  it('resolves the exact field case: second AWG inbound after one on 10.8.0.0/24', () => {
-    expect(suggestFreeAwgAddress(['10.8.0.0/24'])).toBe('10.8.1.1/24');
+  it('resolves the exact field case: second AWG inbound after one on 10.200.0.0/24', () => {
+    expect(suggestFreeAwgAddress(['10.200.0.0/24'])).toBe('10.200.1.1/24');
+  });
+
+  it('ignores used subnets outside the 10.200-10.220 scan window', () => {
+    // 10.8.0.0/24 (the legacy default / upstream WireGuard space) is not in the
+    // scan window, so it never blocks a suggestion.
+    expect(suggestFreeAwgAddress(['10.8.0.0/24'])).toBe('10.200.0.1/24');
   });
 });

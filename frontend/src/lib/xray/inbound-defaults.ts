@@ -243,7 +243,7 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
   return {
     privateKey: kp.privateKey,
     publicKey: kp.publicKey,
-    address: '10.8.0.1/24', // server tunnel address (matches defaultAwgBase in client_awg.go)
+    address: '10.200.0.1/24', // server tunnel address (matches defaultAwgBase in client_awg.go)
     mtu: 1320,
     dns: '1.1.1.1, 1.0.0.1',
     obfLevel: 2,
