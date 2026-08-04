@@ -19,8 +19,9 @@ import (
 )
 
 // awgConfigDir is the conventional AWG tools config directory, matching the
-// path used by the amneziawg-tools package on the server.
-const awgConfigDir = "/etc/amnezia/amneziawg"
+// path used by the amneziawg-tools package on the server. It is a var (not a
+// const) so tests can point it at a temp dir.
+var awgConfigDir = "/etc/amnezia/amneziawg"
 
 // awgQuick wraps an `awg-quick <verb> <confPath>` invocation, returning the
 // combined stdout+stderr output.
@@ -32,6 +33,23 @@ func awgQuick(verb, confPath string) ([]byte, error) {
 // sidecar's configPathForID but under the AWG tools' conventional path.
 func configPathForID(id int) string {
 	return fmt.Sprintf("%s/awg%d.conf", awgConfigDir, id)
+}
+
+// xuiManagedMarker is a comment line written at the top of every .conf LucX-UI
+// generates. The orphan sweep and inbound deletion must only touch configs they
+// created; foreign configs in the same directory (e.g. WGDashboard's own
+// awg0.conf) share the awg{N}.conf naming and must be left alone. awg-quick
+// ignores '#' comment lines, so the marker is invisible to the sidecar.
+const xuiManagedMarker = "# Managed by x-ui - do not edit"
+
+// awgBackupDir returns the directory that holds configs the orphan sweep or an
+// inbound deletion moves aside instead of deleting, so nothing LucX-UI owns is
+// destroyed irreversibly. It lives inside awgConfigDir but its name never
+// matches the awg{N}.conf / awgo-* patterns the sweeps look for, so it is never
+// itself swept. A function (derived from the awgConfigDir var) so tests that
+// repoint awgConfigDir get a matching backup dir.
+func awgBackupDir() string {
+	return awgConfigDir + "/x-ui-backup"
 }
 
 // procLogWriter consumes awg-quick child output and forwards lines to the

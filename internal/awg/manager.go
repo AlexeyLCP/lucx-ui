@@ -118,10 +118,13 @@ func (m *Manager) ensureLocked(inst Instance) error {
 }
 
 // Remove stops and forgets the AWG interface for an inbound id. The .conf is
-// removed unconditionally, not only when the interface is in procs: an inbound
+// handled unconditionally, not only when the interface is in procs: an inbound
 // whose interface never came up (failed setconf/route on the last reconcile)
 // has no procs entry, yet its .conf still sits in awgConfigDir and must not
 // survive deleting the inbound (tester report: deleted inbound left awg6.conf).
+// lucx.67: the conf is moved to awgBackupDir rather than deleted, so a removed
+// inbound's config is never lost; only if the backup itself fails is the file
+// deleted (it is LucX-UI's own, confirmed by the ownership marker).
 func (m *Manager) Remove(id int) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -130,7 +133,15 @@ func (m *Manager) Remove(id int) {
 		delete(m.procs, id)
 		logger.Infof("awg: stopped interface %s for inbound %d", cur.ifname, id)
 	}
-	_ = os.Remove(configPathForID(id))
+	path := configPathForID(id)
+	if _, err := os.Stat(path); err == nil {
+		if berr := backupConfigFile(path); berr != nil {
+			logger.Warningf("awg: remove: could not back up %s, deleting: %v", path, berr)
+			_ = os.Remove(path)
+		} else {
+			logger.Infof("awg: remove: backed up config %s", path)
+		}
+	}
 }
 
 // Reconcile drives the running set toward the desired instances: it stops
@@ -148,7 +159,13 @@ func (m *Manager) Reconcile(desired []Instance) {
 		if _, ok := want[id]; !ok {
 			_ = cur.proc.Stop()
 			delete(m.procs, id)
-			_ = os.Remove(configPathForID(id))
+			// lucx.67: back up rather than delete (see Remove).
+			path := configPathForID(id)
+			if _, err := os.Stat(path); err == nil {
+				if berr := backupConfigFile(path); berr != nil {
+					_ = os.Remove(path)
+				}
+			}
 		}
 	}
 	// Sweep leftover awg{N}.conf whose inbound is no longer wanted even though
@@ -157,6 +174,17 @@ func (m *Manager) Reconcile(desired []Instance) {
 	// above cannot see. Only inbound confs (awg{digits}.conf) are touched; the
 	// outbound subsystem's awgo-*.conf files are never matched.
 	sweepOrphanInboundConfigs(want)
+	// lucx.67: mark pre-lucx.67 LucX-UI configs (created before the ownership
+	// marker existed) so a later deletion/sweep backs them up instead of leaving
+	// them. Re-writing is content-identical (renderServerConf is deterministic)
+	// plus the marker line and does not change the fingerprint, so no interface
+	// restart is triggered. Idempotent: stops once the marker is present.
+	for _, inst := range desired {
+		path := configPathForID(inst.Id)
+		if _, err := os.Stat(path); err == nil && !configIsManaged(path) {
+			_ = writeServerConfigFile(inst)
+		}
+	}
 	for _, inst := range desired {
 		if err := m.ensureLocked(inst); err != nil {
 			logger.Warningf("awg: reconcile failed for inbound %d: %v", inst.Id, err)
@@ -171,6 +199,13 @@ func (m *Manager) Reconcile(desired []Instance) {
 // inbound id N is not in want. Best-effort: a missing/unreadable dir is a
 // no-op. It only matches the inbound naming (awg{digits}.conf); awgo-*.conf
 // (outbound client tunnels) never parse as an inbound id and are left alone.
+//
+// lucx.67: a config is swept only when LucX-UI created it (it carries
+// xuiManagedMarker). Foreign configs that share the awg{N}.conf naming — most
+// notably WGDashboard's own awg0.conf — are left untouched, and swept configs
+// are moved to awgBackupDir instead of being deleted, so nothing is destroyed
+// irreversibly (previously the sweep wiped WGDashboard's configs every 10s and
+// restored-from-backup files vanished again immediately).
 func sweepOrphanInboundConfigs(want map[int]struct{}) {
 	entries, err := os.ReadDir(awgConfigDir)
 	if err != nil {
@@ -181,10 +216,41 @@ func sweepOrphanInboundConfigs(want map[int]struct{}) {
 		if !ok {
 			continue
 		}
-		if _, wanted := want[id]; !wanted {
-			_ = os.Remove(filepath.Join(awgConfigDir, e.Name()))
+		if _, wanted := want[id]; wanted {
+			continue
+		}
+		path := filepath.Join(awgConfigDir, e.Name())
+		if !configIsManaged(path) {
+			continue
+		}
+		if err := backupConfigFile(path); err != nil {
+			logger.Warningf("awg: sweep: could not back up orphan %s (leaving in place): %v", path, err)
+		} else {
+			logger.Infof("awg: sweep: backed up orphan config %s", path)
 		}
 	}
+}
+
+// configIsManaged reports whether the .conf at path carries the x-ui ownership
+// marker. A missing/unreadable file or an absent marker means the config is not
+// LucX-UI's and must be left alone.
+func configIsManaged(path string) bool {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+	return strings.HasPrefix(string(data), xuiManagedMarker)
+}
+
+// backupConfigFile moves the .conf at path into awgBackupDir with a unix-time
+// suffix so repeated backups of the same name never overwrite each other.
+func backupConfigFile(path string) error {
+	backupDir := awgBackupDir()
+	if err := os.MkdirAll(backupDir, 0o750); err != nil {
+		return err
+	}
+	dst := filepath.Join(backupDir, fmt.Sprintf("%s.%d", filepath.Base(path), time.Now().Unix()))
+	return os.Rename(path, dst)
 }
 
 // parseInboundConfName extracts the inbound id from an "awg{N}.conf" file
@@ -604,6 +670,10 @@ func (m *Manager) ensureNatRules(inst Instance) {
 // stored JSON.
 func renderServerConf(inst Instance) string {
 	var b strings.Builder
+	// Ownership marker (lucx.67): the orphan sweep only backs up configs carrying
+	// this line and leaves foreign configs (e.g. WGDashboard's) untouched. It is
+	// a '#' comment, invisible to awg-quick.
+	b.WriteString(xuiManagedMarker + "\n")
 	fmt.Fprintf(&b, "[Interface]\n")
 	fmt.Fprintf(&b, "PrivateKey = %s\n", inst.PrivateKey)
 	fmt.Fprintf(&b, "ListenPort = %d\n", inst.Port)

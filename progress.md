@@ -51,6 +51,31 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.67 (2026-08-04) — sweep не сносит чужие AWG-конфиги, бэкап вместо удаления
+
+**Контекст (tester, 2026-08-04):** LucX-UI удалял конфиги WGDashboard в `/etc/amnezia/amneziawg/` — «все интерфейсы созданные через WGDashboard магически загнулись, файлов нет, из бекапа не поднимаются (файл сразу исчезает)». Корень: `sweepOrphanInboundConfigs` (reconcile, каждые 10с) удалял **любой** `awg{N}.conf` чей ID не среди текущих инбаундов LucX-UI; конфиги WGDashboard называются так же (`awg0.conf`…) и лежат в той же папке → сносятся как «сироты», при восстановлении сразу исчезают снова.
+
+**Фикс — ownership по маркеру + бэкап вместо удаления:**
+- **Маркер:** `renderServerConf` пишет первую строку `# Managed by x-ui - do not edit` (awg-quick игнорирует `#`-комментарии). `awgConfigDir` стал `var` (тесты переопределяют), `awgBackupDir()` = `awgConfigDir + "/x-ui-backup"`.
+- **`sweepOrphanInboundConfigs`:** конфиг не из `want` сносится только если несёт маркер (LucX-UI), и не удаляется, а **переносится** в `x-ui-backup/awg{N}.conf.<unixtime>`. Чужие (без маркера, напр. WGDashboard) **не трогаются**.
+- **`Remove(id)`** (удаление инбаунда из панели) и reconcile-цикл (для разонравившихся procs) тоже **бэкапят** вместо удаления; удаление только если бэкап не удался.
+- **Пометка существующих конфигов LucX-UI** (созданы до фикса, без маркера): при reconcile для инбаундов из `want` чей конфиг без маркера — перезапись через `renderServerConf` (маркер добавится; контент детерминированный, fingerprint не меняется → рестарт не триггерится). Разово помечает старые конфиги.
+- Хелперы `configIsManaged`, `backupConfigFile`.
+
+**Тесты:** `TestSweepOrphanInboundConfigs_BackupsMarkedOnly` (маркированный сирота→бэкап; чужой→не тронут; в want→не тронут), `TestConfigIsManaged`, `TestBackupConfigFile_MoveAndTimestamp`, `TestRenderServerConf_ManagedMarkerFirstLine`. gofumpt/check-lucx OK (51 файл), go test awg зелёный.
+
+**Файлы:** `internal/awg/process.go`, `internal/awg/manager.go`, `internal/awg/manager_sweep_test.go`, `internal/awg/server_conf_psk_test.go`, `internal/config/config.go`, `progress.md`, `AGENTS.md`
+
+**Результат:** WGDashboard-конфиги остаются на месте (WGDashboard продолжает работать); ничего LucX-UI не удаляет безвозвратно — всё в `x-ui-backup/`.
+
+## Релиз v3.6.0-lucx.66 (2026-08-04) — headless веб-обновление не упирается в интерактивные промпты
+
+**Контекст:** веб-обновление панели (через кнопку) ломало панель/Xray. Расследование: `migrateAwgClientSubnets` (миграция IP) при обновлении версии **не запускается** (только при ручной смене адреса инбаунда в `UpdateInbound`) — гипотеза про миграцию IP не подтвердилась. Реальная причина: веб-обновление запускает `update.sh` через `systemd-run` **без TTY** (stdin=/dev/null), и в `config_after_update` два интерактивных места ломались: (а) цикл `read -rp` для server_ip при неудаче автоопределения IP читал EOF вечно → зависание; (б) `prompt_and_setup_ssl` без TTY молча выбирал дефолт «выпустить Let's Encrypt IP-серт» → `systemctl stop x-ui` + acme.sh на порту 80 → панель оставалась остановленной/сломанной.
+
+**Фикс:** детект `lucx_interactive` по `[[ -t 0 ]]` в `update.sh`. В headless-режиме цикл server_ip и SSL-мастер пропускаются (сертификат настраивается позже из консоли/панели). Интерактивные консольные запуски (`x-ui update`) сохраняют промпты. Проверено на test2: headless-обновление не виснет, SSL-setup пропускается, панель+Xray стартуют.
+
+**Файлы:** `update.sh`, `internal/config/config.go`
+
 ## Релиз v3.6.0-lucx.65 (2026-08-04) — генерация AWG 3.0 device-полей в «Regenerate obfuscation»
 
 **Контекст:** кнопка «Regenerate obfuscation» генерировала Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 и (для v3) HeaderProtectionKey, но НЕ генерировала 6 device-полей AWG 3.0 (ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts) — они оставались `"0"` (kernel-default). Запрошено пользователем: добавить генерацию по алгоритмам AmneziaWG-Architect (https://github.com/Vadim-Khristenko/AmneziaWG-Architect, `src/engines/awg/generator/awg3.ts`), только для awg3.
