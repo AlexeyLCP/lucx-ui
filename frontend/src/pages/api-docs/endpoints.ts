@@ -208,13 +208,15 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/inbounds/awg/generateObfuscation',
-        summary: 'Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. LucX-UI only.',
+        summary: 'Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. For awgVersion "3" on an AWG3-capable host also returns HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges. LucX-UI only.',
         params: [
           { name: 'obfProfile', in: 'body', type: 'string', desc: 'Obfuscation preset: "lite", "standard", or "pro".' },
           { name: 'mimicryProfile', in: 'body', type: 'string', desc: 'CPS mimicry type: "tls", "dns", "sip", or "quic".' },
+          { name: 'browserProfile', in: 'body', type: 'string', desc: 'CPS browser fingerprint: "chrome", "firefox", or "safari".' },
           { name: 'region', in: 'body', type: 'string', desc: 'Domain pool region: "ru" or "world".' },
           { name: 'domain', in: 'body', type: 'string', desc: 'Optional explicit domain for CPS capture.' },
           { name: 'fullI1I5', in: 'body', type: 'boolean', desc: 'When true, generate all five CPS packets; when false, only I1.' },
+          { name: 'awgVersion', in: 'body', type: 'string', desc: 'Target AmneziaWG version: "1.5", "2", or "3". When "3" (and the host supports AWG3) the response adds headerProtectionKey plus contentPaddingAddition, rekeyAfterTime, rekeyTimeout, rejectAfterTime, keepaliveTimeout, maxHandshakeAttempts (as "lo-hi" range strings).' },
         ],
       },
       {

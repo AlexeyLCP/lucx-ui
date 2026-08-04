@@ -9,6 +9,7 @@ package cps
 import (
 	"encoding/base64"
 	"encoding/hex"
+	"fmt"
 	crand "math/rand"
 	"strings"
 	"testing"
@@ -364,5 +365,74 @@ func TestValidate_DeviceFieldsAccept2Byte(t *testing.T) {
 	}
 	if err := p.Validate(); err != nil {
 		t.Fatalf("Validate must accept 65535 (max u16) for all device fields, got: %v", err)
+	}
+}
+
+// parseAwg3Range parses an awg3Range output ("lo" or "lo-hi") into lo, hi.
+func parseAwg3Range(t *testing.T, s string) (int, int) {
+	t.Helper()
+	var lo, hi int
+	if n, err := fmt.Sscanf(s, "%d-%d", &lo, &hi); err == nil && n == 2 {
+		return lo, hi
+	}
+	if n, err := fmt.Sscanf(s, "%d", &lo); err == nil && n == 1 {
+		return lo, lo
+	}
+	t.Fatalf("range %q is neither \"lo\" nor \"lo-hi\"", s)
+	return 0, 0
+}
+
+// TestGenerateAwg3DeviceTimings verifies the Architect-ported generation: all
+// six fields are non-empty well-formed ranges within u16, and the WireGuard
+// timer invariants hold (RejectAfterTime comfortably above
+// KeepaliveTimeout+RekeyTimeout, RekeyAfterTime below RejectAfterTime,
+// MaxHandshakeAttempts >= 1).
+func TestGenerateAwg3DeviceTimings_FormatAndInvariants(t *testing.T) {
+	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
+		prof := prof
+		t.Run(string(prof), func(t *testing.T) {
+			SetRand(crand.New(crand.NewSource(42)))
+			d := GenerateAwg3DeviceTimings(prof)
+			fields := map[string]string{
+				"ContentPaddingAddition": d.ContentPaddingAddition,
+				"RekeyAfterTime":         d.RekeyAfterTime,
+				"RekeyTimeout":           d.RekeyTimeout,
+				"RejectAfterTime":        d.RejectAfterTime,
+				"KeepaliveTimeout":       d.KeepaliveTimeout,
+				"MaxHandshakeAttempts":   d.MaxHandshakeAttempts,
+			}
+			parsed := make(map[string][2]int, len(fields))
+			for name, s := range fields {
+				if s == "" {
+					t.Fatalf("%s: empty (must be generated for v3)", name)
+				}
+				lo, hi := parseAwg3Range(t, s)
+				if lo > hi {
+					t.Errorf("%s=%q: lo %d > hi %d", name, s, lo, hi)
+				}
+				if lo < 0 || hi > 65535 {
+					t.Errorf("%s=%q: out of u16 range", name, s)
+				}
+				parsed[name] = [2]int{lo, hi}
+			}
+			// Invariant: RejectAfterTime low end >= 170 and strictly above the
+			// receiving-side refresh window (KeepaliveTimeout + RekeyTimeout highs).
+			if parsed["RejectAfterTime"][0] < 170 {
+				t.Errorf("RejectAfterTime lo=%d < 170", parsed["RejectAfterTime"][0])
+			}
+			if parsed["RejectAfterTime"][0] <= parsed["KeepaliveTimeout"][1]+parsed["RekeyTimeout"][1] {
+				t.Errorf("RejectAfterTime lo=%d must exceed KeepaliveTimeout.hi+RekeyTimeout.hi=%d",
+					parsed["RejectAfterTime"][0], parsed["KeepaliveTimeout"][1]+parsed["RekeyTimeout"][1])
+			}
+			// Invariant: RekeyAfterTime finishes before RejectAfterTime starts.
+			if parsed["RekeyAfterTime"][1] >= parsed["RejectAfterTime"][0] {
+				t.Errorf("RekeyAfterTime hi=%d must be < RejectAfterTime lo=%d",
+					parsed["RekeyAfterTime"][1], parsed["RejectAfterTime"][0])
+			}
+			// Invariant: MaxHandshakeAttempts >= 1.
+			if parsed["MaxHandshakeAttempts"][0] < 1 {
+				t.Errorf("MaxHandshakeAttempts lo=%d < 1", parsed["MaxHandshakeAttempts"][0])
+			}
+		})
 	}
 }

@@ -263,6 +263,99 @@ func GenerateHeaderProtectionKey() (string, error) {
 	return base64.StdEncoding.EncodeToString(b[:]), nil
 }
 
+// Awg3DeviceTimings are the AWG 3.0 device-level timer/padding values as
+// ready-to-store "lo-hi" range strings (a single "lo" when lo==hi), matching
+// the kernel u16_range_t form. Empty means "not generated".
+type Awg3DeviceTimings struct {
+	ContentPaddingAddition string
+	RekeyAfterTime         string
+	RekeyTimeout           string
+	RejectAfterTime        string
+	KeepaliveTimeout       string
+	MaxHandshakeAttempts   string
+}
+
+// awg3Range formats an inclusive [lo, hi] the way the kernel u16_range_t
+// parser accepts: "lo" when lo==hi, otherwise "lo-hi". hi is never below lo.
+func awg3Range(lo, hi int) string {
+	if lo < 0 {
+		lo = 0
+	}
+	if hi < lo {
+		hi = lo
+	}
+	if lo == hi {
+		return fmt.Sprintf("%d", lo)
+	}
+	return fmt.Sprintf("%d-%d", lo, hi)
+}
+
+// GenerateAwg3DeviceTimings produces randomised AWG 3.0 device timer/padding
+// ranges, ported from AmneziaWG-Architect (src/engines/awg/generator/awg3.ts),
+// which derives them from the amneziawg-go v3.0.1 implementation rather than
+// the (still 2.0) docs. Only called for awgVersion "3" on an AWG3-capable
+// host (the generateObfuscation controller gates it alongside the HPK).
+//
+// Profile maps to Architect intensity (lite→low, standard→medium, pro→high).
+// Three fields scale with intensity (ContentPaddingAddition, RekeyAfterTime,
+// RejectAfterTime — wider jitter flattens the handshake-cadence / packet-size
+// fingerprint harder at the cost of bandwidth); the other three (RekeyTimeout,
+// KeepaliveTimeout, MaxHandshakeAttempts) stay on fixed safe spans because the
+// WireGuard timer invariants constrain them:
+//
+//	RejectAfterTime must exceed KeepaliveTimeout+RekeyTimeout or the receiving
+//	side's key-refresh window collapses to zero; RekeyAfterTime must finish
+//	before RejectAfterTime; MaxHandshakeAttempts >= 1.
+func GenerateAwg3DeviceTimings(profile ObfProfile) Awg3DeviceTimings {
+	// Intensity knobs, keyed by profile. padLo/padHi bound ContentPaddingAddition;
+	// spread is the timing-jitter width.
+	var padLo, padHi, spread int
+	switch profile {
+	case ObfLite:
+		padLo, padHi, spread = 8, 64, 10
+	case ObfPro:
+		padLo, padHi, spread = 24, 200, 45
+	default: // ObfStandard and anything unrecognised
+		padLo, padHi, spread = 16, 128, 25
+	}
+
+	// ContentPaddingAddition: random per-transport-packet extra padding range.
+	padMin := randInt(padLo, (padLo+padHi)/2)
+	contentPadding := awg3Range(padMin, randInt(padMin+8, padHi))
+
+	// RekeyTimeout and KeepaliveTimeout: fixed safe spans (protocol-constrained).
+	rekeyTimeoutLo := randInt(4, 6)
+	rekeyTimeoutHi := rekeyTimeoutLo + randInt(1, 4)
+	keepaliveLo := randInt(8, 14)
+	keepaliveHi := keepaliveLo + randInt(2, 8)
+
+	// RekeyAfterTime: base window with intensity-scaled jitter on the high end.
+	rekeyAfterLo := randInt(100, 120)
+	rekeyAfterHi := rekeyAfterLo + randInt(10, spread)
+
+	// RejectAfterTime: keep a hard margin over the receiving-side refresh window
+	// (keepaliveHi + rekeyTimeoutHi) plus rekeyAfterHi so it can never collapse.
+	rejectFloor := rekeyAfterHi + keepaliveHi + rekeyTimeoutHi + 15
+	rejectLo := rejectFloor
+	if rejectLo < 170 {
+		rejectLo = 170
+	}
+	rejectHi := rejectLo + randInt(10, spread)
+
+	// MaxHandshakeAttempts: fixed safe span, always >= 1.
+	attemptsLo := randInt(12, 18)
+	attemptsHi := attemptsLo + randInt(2, 10)
+
+	return Awg3DeviceTimings{
+		ContentPaddingAddition: contentPadding,
+		RekeyAfterTime:         awg3Range(rekeyAfterLo, rekeyAfterHi),
+		RekeyTimeout:           awg3Range(rekeyTimeoutLo, rekeyTimeoutHi),
+		RejectAfterTime:        awg3Range(rejectLo, rejectHi),
+		KeepaliveTimeout:       awg3Range(keepaliveLo, keepaliveHi),
+		MaxHandshakeAttempts:   awg3Range(attemptsLo, attemptsHi),
+	}
+}
+
 // AsConfLines returns the AWGParams as awg-quick .conf lines (Jc = …, H1 = lo-hi,
 // …) suitable for the [Interface] section. The fields are emitted in the
 // canonical AmneziaWG order. HeaderProtectionKey is emitted only when set —

@@ -111,6 +111,18 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 			return
 		}
 		resp["headerProtectionKey"] = params.HeaderProtectionKey
+		// AWG 3.0 device timer/padding ranges (lucx.65), generated alongside the
+		// HPK so "Regenerate obfuscation" fills the whole v3 block. Keys match the
+		// AwgInboundSettingsSchema fields exactly, so the form's blind
+		// Object.entries(obf).forEach(setValue) applies them with no handler change.
+		// Differentiated by obfProfile exactly like AmneziaWG-Architect.
+		timers := cps.GenerateAwg3DeviceTimings(cps.ObfProfile(req.ObfProfile))
+		resp["contentPaddingAddition"] = timers.ContentPaddingAddition
+		resp["rekeyAfterTime"] = timers.RekeyAfterTime
+		resp["rekeyTimeout"] = timers.RekeyTimeout
+		resp["rejectAfterTime"] = timers.RejectAfterTime
+		resp["keepaliveTimeout"] = timers.KeepaliveTimeout
+		resp["maxHandshakeAttempts"] = timers.MaxHandshakeAttempts
 	}
 	jsonObj(c, resp, nil)
 }

@@ -51,6 +51,28 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.65 (2026-08-04) — генерация AWG 3.0 device-полей в «Regenerate obfuscation»
+
+**Контекст:** кнопка «Regenerate obfuscation» генерировала Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 и (для v3) HeaderProtectionKey, но НЕ генерировала 6 device-полей AWG 3.0 (ContentPaddingAddition, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, MaxHandshakeAttempts) — они оставались `"0"` (kernel-default). Запрошено пользователем: добавить генерацию по алгоритмам AmneziaWG-Architect (https://github.com/Vadim-Khristenko/AmneziaWG-Architect, `src/engines/awg/generator/awg3.ts`), только для awg3.
+
+**Алгоритм (из Architect, выведен из amneziawg-go v3.0.1):**
+- **ContentPaddingAddition** (масштабируется с пресетом): spans lite=[8,64], standard=[16,128], pro=[24,200]; `min=rnd(lo,(lo+hi)/2)`, результат `range(min, rnd(min+8, hi))`.
+- **Таймеры** (диапазоны «lo-hi», spread j: lite=10, standard=25, pro=45): RekeyTimeout=rnd(4,6)+rnd(1,4) фикс; KeepaliveTimeout=rnd(8,14)+rnd(2,8) фикс; RekeyAfterTime=rnd(100,120)+rnd(10,j) масштабируется; RejectAfterTime lo=max(170, rekeyAfterHi+keepaliveHi+rekeyTimeoutHi+15), hi=lo+rnd(10,j) масштабируется; MaxHandshakeAttempts=rnd(12,18)+rnd(2,10) фикс.
+- **Инварианты протокола:** RejectAfterTime > KeepaliveTimeout+RekeyTimeout; RekeyAfterTime < RejectAfterTime; MaxHandshakeAttempts ≥ 1. Формат `"lo"` если lo==hi, иначе `"lo-hi"` (kernel u16_range_t парсит оба).
+- **Дифференциация по пресетам — точно как Architect** (подтверждено пользователем): 3 поля масштабируются (ContentPadding, RekeyAfter, RejectAfter), 3 фиксированы (инварианты).
+
+**Реализация:**
+- `internal/awg/cps/params.go`: `type Awg3DeviceTimings` (6 string-полей) + `GenerateAwg3DeviceTimings(profile)` + хелпер `awg3Range(lo,hi)`. Через существующий seedable `randInt` (консистентно с Jc/S/H, тестируемо через `SetRand`). Struct `AWGParams` не тронут.
+- `internal/web/controller/awg.go`: в существующий v3-гейт (`awgVersion=="3" && ModuleSupportsAwg3()`) после HPK добавлены 6 полей в ответ; ключи = полям Zod-схемы.
+- **Frontend БЕЗ изменений хендлера:** `regenerateObfuscation` применяет ответ слепым `Object.entries → setValue`; поля уже отрисованы (awg.tsx, гейт awgVersion==='3').
+- `frontend/src/pages/api-docs/endpoints.ts`: задокументирован `awgVersion`/`browserProfile` + новые поля ответа.
+
+**Тесты:** `TestGenerateAwg3DeviceTimings_FormatAndInvariants` (3 пресета: формат, u16-границы, инварианты). gofumpt/check-lucx OK (50 файлов), go test awg/lucx зелёный, frontend typecheck/lint/vitest 916 тестов.
+
+**Файлы:** `internal/awg/cps/params.go`, `internal/awg/cps/cps_test.go`, `internal/web/controller/awg.go`, `frontend/src/pages/api-docs/endpoints.ts`, `internal/config/config.go`, `AGENTS.md`, `progress.md`
+
+**Примечания:** RNG seedable (`crand.NewSource(1)` — пре-existing детерминизм, касается и Jc/S/H; при желании позже на crypto/rand). Regenerate перезаписывает device-поля (как HPK/Jc/S/H). Генерация только при `ModuleSupportsAwg3()` (на pre-AWG3 хосте поля не отдаются).
+
 ## Релиз v3.6.0-lucx.64 (2026-08-04) — уход от «проклятой» подсети 10.8.0.0/24 + защита от AWG-outbound'ов
 
 **Контекст (tester VladufQa):** AWG-инбаунд на дефолтной подсети 10.8.0.0/24 — «коннект есть, трафика нет». 10.8.0.0/24 — самая популярная подсеть WireGuard/AmneziaWG-серверов; AWG-outbound'ы (awgo-N), подключающиеся к вышестоящим серверам, получают адрес из вставленного .conf провайдера — почти всегда 10.8.0.x/24. `awg-quick up awgo-N` ставит connected-route 10.8.0.0/24; инбаунд на той же подсети ставит вторую connected-route → reverse-path в zombie-интерфейс → трафик глохнет. Vlad подтвердил: 10.8.5.1/24 работает, 10.8.0.1/24 — «проклятый».
