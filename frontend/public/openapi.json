@@ -3797,7 +3797,7 @@
         "tags": [
           "Inbounds"
         ],
-        "summary": "Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. LucX-UI only.",
+        "summary": "Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. For awgVersion \"3\" on an AWG3-capable host also returns HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges. LucX-UI only.",
         "operationId": "post_panel_api_inbounds_awg_generateObfuscation",
         "requestBody": {
           "required": true,
@@ -3814,6 +3814,10 @@
                     "type": "string",
                     "description": "CPS mimicry type: \"tls\", \"dns\", \"sip\", or \"quic\"."
                   },
+                  "browserProfile": {
+                    "type": "string",
+                    "description": "CPS browser fingerprint: \"chrome\", \"firefox\", or \"safari\"."
+                  },
                   "region": {
                     "type": "string",
                     "description": "Domain pool region: \"ru\" or \"world\"."
@@ -3825,14 +3829,20 @@
                   "fullI1I5": {
                     "type": "boolean",
                     "description": "When true, generate all five CPS packets; when false, only I1."
+                  },
+                  "awgVersion": {
+                    "type": "string",
+                    "description": "Target AmneziaWG version: \"1.5\", \"2\", or \"3\". When \"3\" (and the host supports AWG3) the response adds headerProtectionKey plus contentPaddingAddition, rekeyAfterTime, rekeyTimeout, rejectAfterTime, keepaliveTimeout, maxHandshakeAttempts (as \"lo-hi\" range strings)."
                   }
                 },
                 "required": [
                   "obfProfile",
                   "mimicryProfile",
+                  "browserProfile",
                   "region",
                   "domain",
-                  "fullI1I5"
+                  "fullI1I5",
+                  "awgVersion"
                 ]
               }
             }
