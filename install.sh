@@ -1722,6 +1722,27 @@ install_x-ui() {
 │  ${blue}x-ui install${plain}      - Install                          │
 │  ${blue}x-ui uninstall${plain}    - Uninstall                        │
 └───────────────────────────────────────────────────────┘"
+    # LUCX-HOOK: Re-print panel credentials as the final output of install.
+    # config_after_install (called above) generates and shows the username,
+    # password and access URL mid-flow, but the AWG module install hook and the
+    # service-unit setup that follow emit many lines, pushing credentials out
+    # of the visible terminal scrollback. Testers then can't find them and ask
+    # how to log in. Re-print a compact summary sourced from install-result.env
+    # (written by write_install_result) so it is the last thing on screen — no
+    # new interactive prompt, just a duplicate of what was already generated.
+    if [[ -r /etc/x-ui/install-result.env ]]; then
+        # shellcheck disable=SC1091
+        set -a; . /etc/x-ui/install-result.env; set +a
+        echo ""
+        echo -e "${green}═══════════════════════════════════════════${plain}"
+        echo -e "${green}     Panel Access (save these)            ${plain}"
+        echo -e "${green}═══════════════════════════════════════════${plain}"
+        echo -e "${green}Username:    ${XUI_USERNAME}${plain}"
+        echo -e "${green}Password:    ${XUI_PASSWORD}${plain}"
+        echo -e "${green}Access URL:  ${XUI_ACCESS_URL}${plain}"
+        echo -e "${green}═══════════════════════════════════════════${plain}"
+    fi
+    # END LUCX-HOOK
 }
 
 echo -e "${green}Running...${plain}"

@@ -247,7 +247,7 @@ frontend/src/
 bin/install-awg-module.sh          kernel auto-upgrade (meta-package, каждый вызов) + DKMS build модуля/tools из HEAD upstream master; версия = git describe, маркер = SHA коммита; build-first-safe swap; сборка для всех установленных ядер; tools пересобираются при awg version < v3
 bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes
 bin/pre-push                       git hook: check-lucx + fast go tests + PR/issues guard (AGENTS.md 11.5)
-install.sh                         Calls bin/install-awg-module.sh (LUCX-HOOK)
+install.sh                         Calls bin/install-awg-module.sh (LUCX-HOOK); re-prints panel credentials from /etc/x-ui/install-result.env as the last output of install_x-ui() (LUCX-HOOK, lucx.68) — config_after_install shows them mid-flow, then the AWG-module hook + service-unit setup scroll them away; the duplicate keeps them visible at the bottom so testers can find the login
 LICENSING.md                       GPL-3.0 / PolyForm-NC split documentation
 LICENSE-PolyForm-Noncommercial.txt Canonical PolyForm NC 1.0.0 text
 ```

@@ -51,6 +51,22 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.68 (2026-08-05) — перепечать credentials в самом конце install
+
+**Контекст (tester VladufQa, 2026-08-05):** «Логин пароль пишет при установке в самом начале а не в конце» + «можно ли при установке сразу указывать логин пароль а не через x-ui потом». Реальная проблема: `config_after_install` генерирует и показывает username/password/Access URL в середине потока `install_x-ui()`, после чего отрабатывают service-unit setup + LUCX-HOOK установки AWG-модуля (`bin/install-awg-module.sh`) — много строк вывода, и credentials уезжают далеко вверх по скроллу терминала. Тестер не видит их в конце и не знает, как войти в панель.
+
+**Решение (выбрано пользователем):** не вводить интерактивный ввод логина/пароля при установке (env-переменные `XUI_USERNAME`/`XUI_PASSWORD`/`XUI_WEB_BASE_PATH` уже поддерживаются для scripted-install), а **продублировать вывод credentials в самом конце** потока установки — чтобы они были последним, что видно в терминале.
+
+**Фикс — LUCX-HOOK в конце `install_x-ui()` (`install.sh`):**
+- Новый LUCX-HOOK блок стоит **после** баннера «installation finished» + меню управления `x-ui` и **до** закрывающей `}` функции. Это последнее, что выводит `install_x-ui()` → последнее в терминале.
+- Читает `/etc/x-ui/install-result.env` (пишется `write_install_result` в `config_after_install` — machine-parseable, root-only, mode 600) через `set -a; . file; set +a` и перепечатывает компактную сводку: `Username`, `Password`, `Access URL` в рамке.
+- Guard `[[ -r ... ]]`: если файла нет (напр. re-install с уже выставленными credentials, где `write_install_result` не вызывается) — блок молча пропускается, нет краша. На свежей установке файл свежий → сводка печатается.
+- Никаких новых интерактивных `read`-промптов: headless/TTY-less установки (через `systemd-run`, как в lucx.66) не ломаются.
+
+**Файлы:** `install.sh` (новый LUCX-HOOK в `install_x-ui()`), `internal/config/config.go` (`lucxVersion` → `lucx.68`).
+
+**Out of scope (отдельно от тестера):** openresolv/`systemd-resolved` — на одном хосте пациента `apt-get install openresolv` упал (вероятно сеть/зеркало, сервер в РФ), AWG-инбаунд не поднимался, ручная установка `systemd-resolved` починила. Наши рендеры **никогда** не пишут `DNS=` в `.conf` (`client_conf.go`, `manager.go`), т.е. `awg-quick` не должен вызывать `resolvconf` для наших конфигов — warning про «openresolv не установлен» про этот случай. Нужны диагностика с хоста (фактическая ошибка AWG, `command -v resolvconf`, `cat /etc/resolv.conf`) перед спекулятивным фиксом инсталлера.
+
 ## Релиз v3.6.0-lucx.67 (2026-08-04) — sweep не сносит чужие AWG-конфиги, бэкап вместо удаления
 
 **Контекст (tester, 2026-08-04):** LucX-UI удалял конфиги WGDashboard в `/etc/amnezia/amneziawg/` — «все интерфейсы созданные через WGDashboard магически загнулись, файлов нет, из бекапа не поднимаются (файл сразу исчезает)». Корень: `sweepOrphanInboundConfigs` (reconcile, каждые 10с) удалял **любой** `awg{N}.conf` чей ID не среди текущих инбаундов LucX-UI; конфиги WGDashboard называются так же (`awg0.conf`…) и лежат в той же папке → сносятся как «сироты», при восстановлении сразу исчезают снова.
