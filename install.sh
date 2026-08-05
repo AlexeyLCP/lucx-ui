@@ -182,6 +182,13 @@ write_install_result() {
     umask "$prev_umask"
     chmod 600 "$result_file" 2> /dev/null
     chown root:root "$result_file" 2> /dev/null || true
+    # Global (not local): the end-of-install "Panel Access" re-print only fires
+    # when credentials were actually (re)generated THIS run. On a routine
+    # update of a server whose admin credentials were customized long ago,
+    # write_install_result is never called, the flag stays unset, and the
+    # re-print is skipped instead of leaking the stale first-install creds
+    # (lucx.71, tester VladufQa: "а это не то, у меня другие данные").
+    XUI_INSTALL_RESULT_WRITTEN=1
     echo -e "${green}Install result written to ${result_file} (mode 600).${plain}"
 }
 
@@ -1730,7 +1737,11 @@ install_x-ui() {
     # how to log in. Re-print a compact summary sourced from install-result.env
     # (written by write_install_result) so it is the last thing on screen — no
     # new interactive prompt, just a duplicate of what was already generated.
-    if [[ -r /etc/x-ui/install-result.env ]]; then
+    # Guarded by XUI_INSTALL_RESULT_WRITTEN: install-result.env persists across
+    # runs, so on a routine update of a server with long-customized creds the
+    # file is stale and re-printing it would show the wrong (first-install)
+    # login. Only re-print when THIS run actually (re)generated credentials.
+    if [[ "${XUI_INSTALL_RESULT_WRITTEN:-}" == "1" && -r /etc/x-ui/install-result.env ]]; then
         # shellcheck disable=SC1091
         set -a; . /etc/x-ui/install-result.env; set +a
         echo ""
