@@ -6,6 +6,8 @@
 
 import { z } from 'zod';
 
+import { normalizeAwgTimer } from '@/lib/awg/timer';
+
 // AWG (AmneziaWG) outbound — client-mode connection to an upstream VPN server.
 // The DB row stores Settings as a JSON string (mirrors Inbound.Settings), so
 // AwgOutboundSchema.settings is a string on the wire; the parsed object shape
@@ -39,14 +41,16 @@ export const AwgOutboundSettingsSchema = z.object({
   // AWG3 (AmneziaWG 3) header protection key — 32-byte ChaCha20, base64.
   // Written to the awgo-N .conf only when awgVersion === '3' and non-empty.
   headerProtectionKey: z.string().default(''),
-  // AWG3 device-level timers/padding (0 = kernel default). Written to .conf
-  // only when > 0 and awgVersion === '3'.
-  contentPaddingAddition: z.number().int().min(0).max(65535).default(0),
-  rekeyAfterTime: z.number().int().min(0).max(65535).default(0),
-  rekeyTimeout: z.number().int().min(0).max(65535).default(0),
-  rejectAfterTime: z.number().int().min(0).max(65535).default(0),
-  keepaliveTimeout: z.number().int().min(0).max(65535).default(0),
-  maxHandshakeAttempts: z.number().int().min(0).max(65535).default(0),
+  // AWG3 device-level timers/padding. Kept as strings (single or "lo-hi"
+  // range) via normalizeAwgTimer, mirroring the inbound schema — a provider
+  // .conf carries ranges ("100-120") that a number field would reject
+  // (lucx.74). '0' = kernel default.
+  contentPaddingAddition: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  rekeyAfterTime: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  rekeyTimeout: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  rejectAfterTime: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  keepaliveTimeout: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  maxHandshakeAttempts: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
   // AWG protocol version: '1.5' (legacy), '2' (S3/S4 + I1-I5), or '3' (adds
   // HeaderProtectionKey). Auto-detected by ParseConf from the pasted .conf;
   // editable in the form. renderClientConf gates HPK emission on '3'.

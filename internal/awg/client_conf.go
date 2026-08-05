@@ -69,25 +69,26 @@ func renderClientConf(ci ClientInstance) string {
 		if awg3ok && s.HeaderProtectionKey != "" {
 			fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 		}
-		// AWG3 device-level timers/padding — 0 = kernel default.
+		// AWG3 device-level timers/padding — AwgTimer holds single or range
+		// ("lo-hi") values verbatim; IsZero omits the kernel default.
 		if awg3ok {
-			if s.ContentPaddingAddition > 0 {
-				fmt.Fprintf(&b, "ContentPaddingAddition = %d\n", s.ContentPaddingAddition)
+			if !s.ContentPaddingAddition.IsZero() {
+				fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
 			}
-			if s.RekeyAfterTime > 0 {
-				fmt.Fprintf(&b, "RekeyAfterTime = %d\n", s.RekeyAfterTime)
+			if !s.RekeyAfterTime.IsZero() {
+				fmt.Fprintf(&b, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
 			}
-			if s.RekeyTimeout > 0 {
-				fmt.Fprintf(&b, "RekeyTimeout = %d\n", s.RekeyTimeout)
+			if !s.RekeyTimeout.IsZero() {
+				fmt.Fprintf(&b, "RekeyTimeout = %s\n", s.RekeyTimeout)
 			}
-			if s.RejectAfterTime > 0 {
-				fmt.Fprintf(&b, "RejectAfterTime = %d\n", s.RejectAfterTime)
+			if !s.RejectAfterTime.IsZero() {
+				fmt.Fprintf(&b, "RejectAfterTime = %s\n", s.RejectAfterTime)
 			}
-			if s.KeepaliveTimeout > 0 {
-				fmt.Fprintf(&b, "KeepaliveTimeout = %d\n", s.KeepaliveTimeout)
+			if !s.KeepaliveTimeout.IsZero() {
+				fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
 			}
-			if s.MaxHandshakeAttempts > 0 {
-				fmt.Fprintf(&b, "MaxHandshakeAttempts = %d\n", s.MaxHandshakeAttempts)
+			if !s.MaxHandshakeAttempts.IsZero() {
+				fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
 			}
 		}
 	}

@@ -51,6 +51,20 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.74 (2026-08-05) — тест аутбаунда по ответу в выводе + AWG3-диапазоны в аутбаунде
+
+**1. Тест-эндпоинт аутбаунда (косметика):** `ping` мог быть убит контекстом (signal: killed) или выйти ненулевым **после** получения ответа, а хэндлер судил по коду выхода → ложный «ping failed». Теперь успех = наличие строки «bytes from» в выводе, независимо от err.
+
+**2. AWG3 device-таймеры аутбаунда — диапазоны (зеркало инбаунда):** VladufQa: «аутбаунд при парсинге не распознает поля awg3… не поддерживает '-', только одно значение». В .conf провайдера `RekeyAfterTime = 100-120` и т.д. — **диапазоны**, но `ClientSettings` держал их как `int` → `strconv.Atoi("100-120")`=0 (терялось), форма `InputNumber` не давала ввести «-». На ИНБАУНДАХ это уже лечили (тип `AwgTimer` — строка, терпит JSON-число через UnmarshalJSON, `IsZero()`, пишется `%s`). Зеркально на аутбаундах:
+- `internal/awg/client_instance.go`: 6 device-полей `int`→`AwgTimer`; fingerprint — `string(...)`.
+- `internal/awg/client_conf.go`: `> 0`+`%d` → `!IsZero()`+`%s`.
+- `internal/web/service/awg_outbound.go` (ParseConf): `Atoi`→`awg.AwgTimer(val)` (сырой диапазон).
+- фронт: схема `awg-outbound.ts` — `z.preprocess(normalizeAwgTimer, z.string())`; форма `InputNumber`→`Input`, DEFAULT `'0'`.
+- Миграция НЕ нужна: `AwgTimer.UnmarshalJSON` терпит legacy JSON-числа.
+- Тесты: `TestParseConf_Awg3RangeTimers` (диапазон сохраняется, awgVersion=3).
+
+**Файлы:** controller/awg_outbound.go (тест), awg/client_instance.go, awg/client_conf.go, service/awg_outbound.go(+тест), schemas/awg-outbound.ts, AwgOutboundFormModal.tsx, config.go (lucx.74).
+
 ## Релиз v3.6.0-lucx.72 (2026-08-05) — ParseConf аутбаунда берёт только первый DNS
 
 **Контекст (tester VladufQa):** «оутбаунд поддерживает только 1 днс, а при импорте вписывается 2 через запятую, значит импорт кривой». Провайдерские .conf содержат `DNS = 1.1.1.1, 1.0.0.1`; `ParseConf` (импорт «Paste .conf») писал всё целиком в `Settings.DNS`, а поле аутбаунда рассчитано на один DNS → в форме «через запятую два вбито».

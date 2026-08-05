@@ -69,12 +69,12 @@ interface AwgOutboundFormValues {
   i5: string;
   headerProtectionKey: string;
   awgVersion: AwgVersion;
-  contentPaddingAddition: number;
-  rekeyAfterTime: number;
-  rekeyTimeout: number;
-  rejectAfterTime: number;
-  keepaliveTimeout: number;
-  maxHandshakeAttempts: number;
+  contentPaddingAddition: string;
+  rekeyAfterTime: string;
+  rekeyTimeout: string;
+  rejectAfterTime: string;
+  keepaliveTimeout: string;
+  maxHandshakeAttempts: string;
 }
 
 const DEFAULT_SETTINGS: AwgOutboundSettings = {
@@ -105,12 +105,12 @@ const DEFAULT_SETTINGS: AwgOutboundSettings = {
   i5: '',
   headerProtectionKey: '',
   awgVersion: '2',
-  contentPaddingAddition: 0,
-  rekeyAfterTime: 0,
-  rekeyTimeout: 0,
-  rejectAfterTime: 0,
-  keepaliveTimeout: 0,
-  maxHandshakeAttempts: 0,
+  contentPaddingAddition: '0',
+  rekeyAfterTime: '0',
+  rekeyTimeout: '0',
+  rejectAfterTime: '0',
+  keepaliveTimeout: '0',
+  maxHandshakeAttempts: '0',
 };
 
 function buildDefaultValues(): AwgOutboundFormValues {
@@ -564,22 +564,22 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                 <Form.Item label={t('pages.inbounds.form.awgAdvancedSection')}>
                   <Space direction="vertical" style={{ width: '100%' }}>
                     <FormField name="contentPaddingAddition" label={t('pages.inbounds.form.awgContentPaddingAddition')} tooltip={t('pages.inbounds.form.awgContentPaddingAdditionHint')}>
-                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                      <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
                     <FormField name="rekeyAfterTime" label={t('pages.inbounds.form.awgRekeyAfterTime')} tooltip={t('pages.inbounds.form.awgRekeyAfterTimeHint')}>
-                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                      <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
                     <FormField name="rekeyTimeout" label={t('pages.inbounds.form.awgRekeyTimeout')} tooltip={t('pages.inbounds.form.awgRekeyTimeoutHint')}>
-                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                      <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
                     <FormField name="rejectAfterTime" label={t('pages.inbounds.form.awgRejectAfterTime')} tooltip={t('pages.inbounds.form.awgRejectAfterTimeHint')}>
-                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                      <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
                     <FormField name="keepaliveTimeout" label={t('pages.inbounds.form.awgKeepaliveTimeout')} tooltip={t('pages.inbounds.form.awgKeepaliveTimeoutHint')}>
-                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                      <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
                     <FormField name="maxHandshakeAttempts" label={t('pages.inbounds.form.awgMaxHandshakeAttempts')} tooltip={t('pages.inbounds.form.awgMaxHandshakeAttemptsHint')}>
-                      <InputNumber min={0} max={65535} style={{ width: '100%' }} placeholder="0" />
+                      <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
                   </Space>
                 </Form.Item>

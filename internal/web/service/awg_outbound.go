@@ -421,17 +421,20 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 			case "HeaderProtectionKey":
 				s.HeaderProtectionKey = val
 			case "ContentPaddingAddition":
-				s.ContentPaddingAddition, _ = strconv.Atoi(val)
+				// Device timers/padding are kept verbatim as AwgTimer so AWG3
+				// RANGE values ("100-120") survive import instead of being
+				// dropped by strconv.Atoi (lucx.74).
+				s.ContentPaddingAddition = awg.AwgTimer(val)
 			case "RekeyAfterTime":
-				s.RekeyAfterTime, _ = strconv.Atoi(val)
+				s.RekeyAfterTime = awg.AwgTimer(val)
 			case "RekeyTimeout":
-				s.RekeyTimeout, _ = strconv.Atoi(val)
+				s.RekeyTimeout = awg.AwgTimer(val)
 			case "RejectAfterTime":
-				s.RejectAfterTime, _ = strconv.Atoi(val)
+				s.RejectAfterTime = awg.AwgTimer(val)
 			case "KeepaliveTimeout":
-				s.KeepaliveTimeout, _ = strconv.Atoi(val)
+				s.KeepaliveTimeout = awg.AwgTimer(val)
 			case "MaxHandshakeAttempts":
-				s.MaxHandshakeAttempts, _ = strconv.Atoi(val)
+				s.MaxHandshakeAttempts = awg.AwgTimer(val)
 			}
 		case "peer":
 			switch key {

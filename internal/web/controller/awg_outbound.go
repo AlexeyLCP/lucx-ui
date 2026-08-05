@@ -281,7 +281,12 @@ func (a *AwgOutboundController) test(c *gin.Context) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, binName, "-c", "3", "-W", "2", "-I", ifname, target)
 	out, err := cmd.CombinedOutput()
-	if err != nil {
+	// ping can be killed by the context timeout (or exit non-zero on partial
+	// loss) AFTER it already received replies — the output then still proves
+	// the tunnel carries traffic. Judge success by the presence of a reply
+	// line, not by the process exit code (lucx.74, tester VladufQa: "ping
+	// failed … signal: killed" despite "64 bytes from 1.1.1.1").
+	if !strings.Contains(string(out), "bytes from") {
 		jsonMsg(c, "ping failed: "+string(out), err)
 		return
 	}

@@ -192,6 +192,36 @@ Endpoint = up:51820
 	}
 }
 
+// TestParseConf_Awg3RangeTimers covers lucx.74: AWG3 device timers in a
+// provider .conf are RANGES ("100-120"); ParseConf must keep them verbatim as
+// AwgTimer instead of dropping them via strconv.Atoi (which yielded 0).
+func TestParseConf_Awg3RangeTimers(t *testing.T) {
+	conf := `[Interface]
+PrivateKey = k
+Address = 10.9.0.5/32
+HeaderProtectionKey = aBcD==
+ContentPaddingAddition = 10-64
+RekeyAfterTime = 100-120
+
+[Peer]
+PublicKey = pub
+Endpoint = up:51820
+`
+	s, err := ParseConf(conf)
+	if err != nil {
+		t.Fatalf("ParseConf: %v", err)
+	}
+	if s.RekeyAfterTime != "100-120" {
+		t.Errorf("RekeyAfterTime = %q, want \"100-120\" (range kept)", s.RekeyAfterTime)
+	}
+	if s.ContentPaddingAddition != "10-64" {
+		t.Errorf("ContentPaddingAddition = %q, want \"10-64\"", s.ContentPaddingAddition)
+	}
+	if s.AwgVersion != "3" {
+		t.Errorf("AwgVersion = %q, want \"3\"", s.AwgVersion)
+	}
+}
+
 // TestAwgSettingsClientIPs covers the helper that feeds the outbound
 // subnet-conflict guard: it must surface every single-host client address
 // (bare or /32) and skip network entries like 0.0.0.0/0.

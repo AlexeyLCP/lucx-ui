@@ -57,14 +57,18 @@ type ClientSettings struct {
 	// AWG3); for older versions it stays empty. Upstream kernel v3.0.20260731 +
 	// tools v3.0.20260730 parse the field.
 	HeaderProtectionKey string `json:"headerProtectionKey"`
-	// AWG3 device-level timers/padding (0 = kernel default). Written to .conf
-	// only when > 0 and AwgVersion == "3".
-	ContentPaddingAddition int `json:"contentPaddingAddition"`
-	RekeyAfterTime         int `json:"rekeyAfterTime"`
-	RekeyTimeout           int `json:"rekeyTimeout"`
-	RejectAfterTime        int `json:"rejectAfterTime"`
-	KeepaliveTimeout       int `json:"keepaliveTimeout"`
-	MaxHandshakeAttempts   int `json:"maxHandshakeAttempts"`
+	// AWG3 device-level timers/padding. Kept as AwgTimer (a string that also
+	// tolerates legacy JSON numbers) so a provider .conf carrying RANGE values
+	// ("100-120") survives import verbatim — mirroring the inbound side, where
+	// the same fields were converted from int to AwgTimer for exactly this
+	// reason (lucx.74; tester VladufQa: "не поддерживает '-', только одно
+	// значение"). Empty/"0" = kernel default, omitted by renderClientConf.
+	ContentPaddingAddition AwgTimer `json:"contentPaddingAddition"`
+	RekeyAfterTime         AwgTimer `json:"rekeyAfterTime"`
+	RekeyTimeout           AwgTimer `json:"rekeyTimeout"`
+	RejectAfterTime        AwgTimer `json:"rejectAfterTime"`
+	KeepaliveTimeout       AwgTimer `json:"keepaliveTimeout"`
+	MaxHandshakeAttempts   AwgTimer `json:"maxHandshakeAttempts"`
 	// AwgVersion targets the AmneziaWG protocol version for this outbound
 	// ("1.5"/"2"/"3"; "" → "2" via normalize). The .conf renderer emits
 	// HeaderProtectionKey only for version "3".
@@ -129,12 +133,12 @@ func (ci ClientInstance) fingerprint() string {
 		s.I1, s.I2, s.I3, s.I4, s.I5,
 		s.HeaderProtectionKey,
 		s.AwgVersion,
-		strconv.Itoa(s.ContentPaddingAddition),
-		strconv.Itoa(s.RekeyAfterTime),
-		strconv.Itoa(s.RekeyTimeout),
-		strconv.Itoa(s.RejectAfterTime),
-		strconv.Itoa(s.KeepaliveTimeout),
-		strconv.Itoa(s.MaxHandshakeAttempts),
+		string(s.ContentPaddingAddition),
+		string(s.RekeyAfterTime),
+		string(s.RekeyTimeout),
+		string(s.RejectAfterTime),
+		string(s.KeepaliveTimeout),
+		string(s.MaxHandshakeAttempts),
 	}
 	return strings.Join(parts, "|")
 }
