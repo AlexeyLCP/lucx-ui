@@ -165,6 +165,33 @@ Endpoint = up:51820
 	}
 }
 
+// TestParseConf_DNSFirstOfList covers lucx.72: provider confs list several
+// nameservers comma-separated, but an AWG outbound carries a single DNS, so
+// ParseConf must keep only the first entry.
+func TestParseConf_DNSFirstOfList(t *testing.T) {
+	conf := `[Interface]
+PrivateKey = k
+Address = 10.9.0.5/32
+DNS = 1.1.1.1, 1.0.0.1
+
+[Peer]
+PublicKey = pub
+Endpoint = up:51820
+`
+	s, err := ParseConf(conf)
+	if err != nil {
+		t.Fatalf("ParseConf: %v", err)
+	}
+	if s.DNS != "1.1.1.1" {
+		t.Errorf("DNS = %q, want \"1.1.1.1\" (first of comma list)", s.DNS)
+	}
+
+	single, _ := ParseConf("[Interface]\nDNS = 9.9.9.9\n")
+	if single.DNS != "9.9.9.9" {
+		t.Errorf("single DNS = %q, want 9.9.9.9", single.DNS)
+	}
+}
+
 // TestAwgSettingsClientIPs covers the helper that feeds the outbound
 // subnet-conflict guard: it must surface every single-host client address
 // (bare or /32) and skip network entries like 0.0.0.0/0.

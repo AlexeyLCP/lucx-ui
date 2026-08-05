@@ -375,7 +375,17 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 			case "MTU":
 				s.MTU, _ = strconv.Atoi(val)
 			case "DNS":
-				s.DNS = val
+				// Provider confs routinely list several nameservers
+				// ("DNS = 1.1.1.1, 1.0.0.1") but an AWG outbound carries a single
+				// DNS; keep only the first so the form field and any future
+				// consumer get one address, not a comma-joined pair (lucx.72,
+				// tester VladufQa: "оутбаунд поддерживает только 1 днс, а при
+				// импорте вписывается 2 через запятую").
+				if first, _, comma := strings.Cut(val, ","); comma {
+					s.DNS = strings.TrimSpace(first)
+				} else {
+					s.DNS = val
+				}
 			case "Jc":
 				s.Jc, _ = strconv.Atoi(val)
 			case "Jmin":
