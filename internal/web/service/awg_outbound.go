@@ -458,9 +458,9 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 	// legacy field set → "1.5". Matches the version-gate logic in
 	// awg.NormalizeAWGVersion and the inbound form's version presets.
 	switch {
-	case s.HeaderProtectionKey != "" || s.ContentPaddingAddition > 0 || s.RekeyAfterTime > 0 ||
-		s.RekeyTimeout > 0 || s.RejectAfterTime > 0 || s.KeepaliveTimeout > 0 ||
-		s.MaxHandshakeAttempts > 0:
+	case s.HeaderProtectionKey != "" || !s.ContentPaddingAddition.IsZero() || !s.RekeyAfterTime.IsZero() ||
+		!s.RekeyTimeout.IsZero() || !s.RejectAfterTime.IsZero() || !s.KeepaliveTimeout.IsZero() ||
+		!s.MaxHandshakeAttempts.IsZero():
 		s.AwgVersion = "3"
 	case s.S3 != 0 || s.S4 != 0 || s.I1 != "" || s.I2 != "" || s.I3 != "" || s.I4 != "" || s.I5 != "":
 		s.AwgVersion = "2"
