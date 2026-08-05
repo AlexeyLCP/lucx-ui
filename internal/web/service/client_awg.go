@@ -53,6 +53,44 @@ func awgSettingsAddress(settings string) string {
 	return s.Address
 }
 
+// awgSettingsClientIPs returns the single-host client tunnel addresses found in
+// an AWG inbound's settings.clients[].allowedIPs. Bare addresses and /32 (or
+// /128) entries are returned as bare address strings; network entries such as
+// 0.0.0.0/0 or a whole /24 are skipped because they are not a single client
+// host. Consumed by the AWG-outbound subnet-conflict guard, which must compare
+// a pasted provider tunnel against the addresses clients actually occupy — NOT
+// only the inbound's server address, since a legacy wrong-subnet inbound keeps
+// its clients in a different /24 than its own (lucx.69).
+func awgSettingsClientIPs(settings string) []string {
+	var parsed struct {
+		Clients []struct {
+			AllowedIPs []string `json:"allowedIPs"`
+		} `json:"clients"`
+	}
+	if err := json.Unmarshal([]byte(settings), &parsed); err != nil {
+		return nil
+	}
+	var out []string
+	for _, cl := range parsed.Clients {
+		for _, raw := range cl.AllowedIPs {
+			raw = strings.TrimSpace(raw)
+			if raw == "" {
+				continue
+			}
+			if p, err := netip.ParsePrefix(raw); err == nil {
+				if p.Bits() == p.Addr().BitLen() {
+					out = append(out, p.Addr().String())
+				}
+				continue
+			}
+			if a, err := netip.ParseAddr(raw); err == nil {
+				out = append(out, a.String())
+			}
+		}
+	}
+	return out
+}
+
 // migrateAwgClientSubnets re-allocates AWG client AllowedIPs into the
 // inbound's NEW tunnel subnet when the operator changes the inbound Address.
 // Without it, awg-quick up installs a /32 route per peer on the OLD subnet:

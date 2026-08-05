@@ -51,6 +51,22 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.69 (2026-08-05) — кнопка «включить AWG-outbound» + guard подсетей аутбаундов
+
+**Контекст (tester VladufQa, 2026-08-05):** две проблемы, вскрытые отладкой `proxy/tun: connection was refused` на двойном VPN (AWG-inbound → TUN → AWG-outbound awgo-N → апстрим-провайдер):
+1. **Кнопка «включить аутбаунд» не работает** («выключить можно, включить нельзя»).
+2. **Коллизия подсетей**: awgo-аутбаунд с адресом от провайдера в 10.8.0.0/24 (awgo-3=10.8.0.3) лёг в ту же /24, где клиенты legacy-инбаунда awg2 (10.8.0.x, wrong-subnet до lucx.63) → reverse-path ломался → флуд `proxy/tun: connection was refused`. Подтверждено: с непересекающимся awgo-5 (12.80.1.2) ошибок 0.
+
+**Фикс 1 — enable-кнопка (транспорт, не reconcile):** фронт `awgOutboundsApi.enable` НЕ передавал `JSON_HEADERS`, а `http-init.ts` сериализует тело в JSON только при `Content-Type: application/json`, иначе шлёт form-urlencoded (`enable=true`). Бэкенд `enable`-хэндлера делал `_ = c.ShouldBindJSON(&body)` — парсинг form-тела молча падал → `body.Enable` дефолтился в `false` → каждый «enable» превращался в «disable» (disable работал, т.к. false=дефолт).
+- `frontend/src/api/awg-outbounds.ts`: `enable` теперь передаёт `JSON_HEADERS` (как add/update/parseConf).
+- `internal/web/controller/awg_outbound.go`: `ShouldBind` с тегами `json:"enable" form:"enable"` + проверка ошибки (вместо `_ =`) — любой дрейф формата теперь падает громко, а не тихо дизейблит.
+
+**Фикс 2 — guard подсетей аутбаундов (outbound-сторона):** `checkAwgSubnetConflict` сверял подсеть только при сохранении ИНБАУНДА и только по серверному адресу. Добавлен зеркальный guard при сохранении АУТБАУНДА: `AwgOutboundService.checkSubnetConflict` → чистая `awgOutboundSubnetClash(addr, inbounds)` сверяет адрес аутбаунда и с **серверной подсетью** каждого AWG-инбаунда, и с **адресами его клиентов** (`awgSettingsClientIPs` парсит settings.clients[].allowedIPs, /32/bare — берём, сети типа 0.0.0.0/0 — пропускаем). Клиенты проверяются дополнительно к серверному адресу, т.к. legacy wrong-subnet инбаунд держит клиентов в другой /24, чем его settings.address. /32-/128 аутбаунд освобождён (не ставит subnet-маршрут). Встроен в `AddOutbound`/`UpdateOutbound`.
+- **Файлы:** `internal/web/service/awg_outbound.go` (guard + импорт netip/common), `internal/web/service/client_awg.go` (`awgSettingsClientIPs`), `internal/web/service/awg_outbound_test.go` (тесты), `internal/web/controller/awg_outbound.go` (bind), `frontend/src/api/awg-outbounds.ts` (JSON_HEADERS).
+- **Тесты:** `TestAwgSettingsClientIPs`, `TestAwgOutboundSubnetClash` (6 кейсов, в.ч. ключевой «10.8.0.3/24 поверх wrong-subnet клиентов»). Логика проверена standalone (netip Contains/Overlaps/Masked) — PASS; пакет service локально на Windows не собрать (нет gcc → CGO `sqlite3.Backup`), полный прогон — на GitHub Actions CI.
+
+**Отложено:** миграция legacy wrong-subnet клиентов (awg2 10.8.0.x → 10.8.1.x) — инвазивна (меняет клиентские IP → перераздача конфигов); guard достаточно, чтобы коллизия не повторялась. Косметика тест-эндпоинта (`signal: killed` при успешном ping) — отдельно.
+
 ## Релиз v3.6.0-lucx.68 (2026-08-05) — перепечать credentials в самом конце install
 
 **Контекст (tester VladufQa, 2026-08-05):** «Логин пароль пишет при установке в самом начале а не в конце» + «можно ли при установке сразу указывать логин пароль а не через x-ui потом». Реальная проблема: `config_after_install` генерирует и показывает username/password/Access URL в середине потока `install_x-ui()`, после чего отрабатывают service-unit setup + LUCX-HOOK установки AWG-модуля (`bin/install-awg-module.sh`) — много строк вывода, и credentials уезжают далеко вверх по скроллу терминала. Тестер не видит их в конце и не знает, как войти в панель.

@@ -48,8 +48,14 @@ export const awgOutboundsApi = {
     const raw = await HttpUtil.post<AwgOutbound>(`${BASE}/update/${data.id}`, data, JSON_HEADERS);
     return parseMsg(raw, AwgOutboundSchema, 'awg-outbounds/update');
   },
+  // JSON_HEADERS is load-bearing: http-init serializes the body as JSON only
+  // when Content-Type is application/json, otherwise it falls back to
+  // form-urlencoded (`enable=true`). The backend binds this endpoint with
+  // ShouldBindJSON, so a form body fails to parse and Enable silently defaults
+  // to false — turning every "enable" into a "disable" (lucx.69). add/update/
+  // parseConf already pass JSON_HEADERS for the same reason.
   enable: (id: number, enable: boolean): Promise<Msg<null>> =>
-    HttpUtil.post<null>(`${BASE}/enable/${id}`, { enable }),
+    HttpUtil.post<null>(`${BASE}/enable/${id}`, { enable }, JSON_HEADERS),
   status: async (id: number): Promise<Msg<AwgOutboundStatus>> => {
     const raw = await HttpUtil.get<AwgOutboundStatus>(`${BASE}/status/${id}`, undefined, { silent: true });
     return parseMsg(raw, AwgOutboundStatusSchema, 'awg-outbounds/status');

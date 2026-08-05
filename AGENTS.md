@@ -263,7 +263,12 @@ go test ./internal/awg/... ./internal/lucx/... ./internal/database/... -count=1 
 # Frontend
 cd frontend && npm run typecheck && npm run lint
 
-# Full project build (requires frontend/dist)
+# Full project build (requires frontend/dist) — LINUX/CGO ONLY.
+# На Windows без gcc этот `go build` падает в internal/database (sqlite3.Backup,
+# CGO) — это ПРЕ-существующее, не регресс, и НЕ гейт. Полный бинарник и все
+# тесты авторитетно собираются GitHub Actions (CI + release.yml, ubuntu, CGO).
+# Локально гейтиться на gofumpt + точечных `go test` без cgo + frontend-чеках,
+# а за полным билдом/тестами — пуш в main → смотреть `gh run list` / CI.
 cd frontend && npm run build && cd ..
 go build -o /tmp/x-ui .
 
@@ -584,3 +589,10 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 - **Fix (lucx.58):** `token.motion: false` в ConfigProvider storybook-декоратора (`.storybook/preview.tsx`) — анимации antd в stories отключены, разворачивание мгновенное, axe всегда видит финальное состояние. Продакшн-анимации не затронуты (декоратор — только storybook). Проверено 3 последовательными прогонами. CSS не трогали — `--ant-*` переменные резолвятся корректно (cssVar-режим antd даёт переменным scope, а не переименовывает префикс).
 - **Урок:** storybook a11y + анимации появления = плавающие color-contrast-падения (axe меряет элемент в середине fade и видит blended-цвет). Отключение motion в test-декораторе — стандартный фикс; не чинить CSS, если финальный контраст в порядке.
 - **Урок:** если CI frontend падает ЕДИНСТВЕННЫМ тестом `storybook ... ConfigBlock → Collapsed` с `color-contrast` — это этот flake; проверь что твои тесты зелёные и rerun, не трать время на поиск регрессии в своём коде.
+
+### Pattern 8: «выключить аутбаунд можно, включить нельзя» + коллизия подсетей awgo vs клиенты инбаунда — ИСПРАВЛЕНО (lucx.69)
+- **Cause 1 (enable-кнопка):** фронт `awgOutboundsApi.enable` не передавал `JSON_HEADERS`; `http-init.ts` сериализует тело в JSON **только** при `Content-Type: application/json`, иначе form-urlencoded (`enable=true`). Бэк `_ = c.ShouldBindJSON(&body)` молча не парсил form-тело → `body.Enable=false` → каждый enable становился disable. **Урок:** любой POST с JSON-телом во фронте обязан передавать `JSON_HEADERS`; в контроллере не глотать ошибку бинда (`_ =`) — проверять и падать громко.
+- **Cause 2 (коллизия подсетей):** awgo-аутбаунд берёт адрес из .conf провайдера (часто 10.8.0.0/24). Если клиенты AWG-инбаунда сидят в той же /24 (legacy wrong-subnet), reverse-path ломается → флуд `ERROR XRAY: proxy/tun: connection was refused`. Старый `checkAwgSubnetConflict` сверял только серверный адрес инбаунда и только при сохранении ИНБАУНДА.
+- **Fix (lucx.69):** (1) фронт enable → `JSON_HEADERS`; (2) бэк `ShouldBind` с `json:"enable" form:"enable"` + проверка ошибки; (3) новый guard `AwgOutboundService.checkSubnetConflict`→`awgOutboundSubnetClash` в Add/Update аутбаунда: сверяет адрес awgo и с серверной подсетью, и с **клиентскими IP** каждого AWG-инбаунда (`awgSettingsClientIPs`), /32-/128 освобождены.
+- **Диагностика «proxy/tun: connection was refused»:** ошибки СЫПЯТ только при живом awgo-аутбаунде с трафиком и исчезают, когда аутбаунд выключен/убран → первым делом проверить подсеть awgo против клиентских подсетей AWG-инбаундов (`ip route`, `awg show`). Это НЕ баг TUN/Xray как таковой, а коллизия маршрутизации.
+- **Урок:** локально на Windows пакет `internal/web/service` не собрать (нет gcc → CGO `sqlite3.Backup`), чистую логику проверять standalone-программой, полный тест — GitHub Actions CI (см. Test Commands).

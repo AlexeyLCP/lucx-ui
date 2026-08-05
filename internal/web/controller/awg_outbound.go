@@ -196,10 +196,19 @@ func (a *AwgOutboundController) enable(c *gin.Context) {
 		jsonMsg(c, "awg-outbound: bad id", err)
 		return
 	}
+	// Both json and form tags: ShouldBind picks the binder by Content-Type, so
+	// the endpoint accepts the JSON body the frontend sends and still parses a
+	// form-urlencoded fallback. The bind error is checked, not discarded — the
+	// old `_ = ShouldBindJSON` silently left Enable=false on any parse failure,
+	// which turned "enable" into "disable" when the body arrived form-encoded
+	// (lucx.69).
 	var body struct {
-		Enable bool `json:"enable"`
+		Enable bool `json:"enable" form:"enable"`
 	}
-	_ = c.ShouldBindJSON(&body)
+	if err := c.ShouldBind(&body); err != nil {
+		jsonMsg(c, "awg-outbound: bad request body", err)
+		return
+	}
 	if err := a.svc.SetOutboundEnable(id, body.Enable); err != nil {
 		jsonMsg(c, "awg-outbound: enable failed", err)
 		return

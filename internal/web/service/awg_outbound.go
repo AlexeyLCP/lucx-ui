@@ -10,12 +10,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"strconv"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
 
@@ -141,6 +143,9 @@ func (s *AwgOutboundService) AddOutbound(o *model.AwgOutbound) (*model.AwgOutbou
 	if strings.TrimSpace(o.Settings) == "" {
 		o.Settings = defaultAwgOutboundSettings()
 	}
+	if err := s.checkSubnetConflict(o); err != nil {
+		return nil, err
+	}
 	db := database.GetDB()
 	if err := db.Create(o).Error; err != nil {
 		return nil, err
@@ -167,6 +172,9 @@ func (s *AwgOutboundService) DelOutbound(id int) error {
 
 func (s *AwgOutboundService) UpdateOutbound(o *model.AwgOutbound) error {
 	if err := checkTagUnique(o.Tag, o.Id); err != nil {
+		return err
+	}
+	if err := s.checkSubnetConflict(o); err != nil {
 		return err
 	}
 	db := database.GetDB()
@@ -256,6 +264,71 @@ func parseAwgOutboundAddress(settings string) string {
 		return ""
 	}
 	return strings.TrimSpace(parsed.Address)
+}
+
+// checkSubnetConflict blocks an AWG outbound whose tunnel Address would install
+// a kernel route overlapping an AWG inbound's tunnel subnet or one of its
+// clients' addresses. It is the outbound-side mirror of
+// InboundService.checkAwgSubnetConflict (which runs when an INBOUND is saved);
+// without this direction an operator pasting a provider conf whose tunnel lands
+// in a subnet an existing inbound's clients already occupy silently breaks the
+// reverse path, and Xray floods "proxy/tun: connection was refused" (lucx.69,
+// tester VladufQa: awgo 10.8.0.3 on top of awg2 clients in 10.8.0.0/24). Client
+// addresses are checked in addition to the inbound server address because a
+// legacy wrong-subnet inbound keeps its clients in a different /24 than its own
+// settings.address — comparing only server subnets would miss exactly that case.
+// A single-host address (/32 or /128) is exempt: it installs no subnet route.
+func (s *AwgOutboundService) checkSubnetConflict(o *model.AwgOutbound) error {
+	db := database.GetDB()
+	var inbounds []*model.Inbound
+	if err := db.Model(model.Inbound{}).Where("protocol = ?", model.AWG).Find(&inbounds).Error; err != nil {
+		return err
+	}
+	return awgOutboundSubnetClash(parseAwgOutboundAddress(o.Settings), inbounds)
+}
+
+// awgOutboundSubnetClash is the pure half of checkSubnetConflict — outbound
+// tunnel address vs the panel's AWG inbounds — split out so it is unit-testable
+// without a database. Returns a descriptive error on the first clash, nil when
+// the address is empty/unparseable, a single host, or overlaps nothing.
+func awgOutboundSubnetClash(addr string, inbounds []*model.Inbound) error {
+	addr = strings.TrimSpace(addr)
+	if addr == "" {
+		return nil
+	}
+	oP, err := netip.ParsePrefix(addr)
+	if err != nil {
+		a, aerr := netip.ParseAddr(addr)
+		if aerr != nil {
+			return nil
+		}
+		oP = netip.PrefixFrom(a, a.BitLen())
+	}
+	oNet := oP.Masked()
+	if oNet.Bits() == oNet.Addr().BitLen() {
+		return nil
+	}
+	for _, ib := range inbounds {
+		label := ib.Remark
+		if label == "" {
+			label = ib.Tag
+		}
+		if ibAddr := awgSettingsAddress(ib.Settings); ibAddr != "" {
+			if iP, perr := netip.ParsePrefix(ibAddr); perr == nil && oNet.Overlaps(iP.Masked()) {
+				return common.NewError("AWG outbound tunnel", oNet.String(), "conflicts with inbound", label, "tunnel subnet", iP.Masked().String(), "— use a provider conf on a different subnet")
+			}
+		}
+		for _, cip := range awgSettingsClientIPs(ib.Settings) {
+			ca, cerr := netip.ParseAddr(cip)
+			if cerr != nil {
+				continue
+			}
+			if oNet.Contains(ca) {
+				return common.NewError("AWG outbound tunnel", oNet.String(), "conflicts with client address", ca.String(), "of inbound", label, "— use a provider conf on a different subnet")
+			}
+		}
+	}
+	return nil
 }
 
 func (s *AwgOutboundService) GetOutbound(id int) (*model.AwgOutbound, error) {
