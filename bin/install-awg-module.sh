@@ -85,11 +85,27 @@ apt-get update -qq
 # устанавливать зависимости"). qrencode, bc, net-tools and ca-certificates
 # are utilities pumbaX ships; ufw is intentionally omitted — it is a
 # firewall that can conflict with our iptables PostUp rules + fail2ban.
+# CRITICAL deps go in their own apt call (lucx.70): apt is all-or-nothing per
+# invocation, so one unavailable optional package used to abort the whole
+# transaction and leave dkms missing → "dkms: command not found" at `dkms
+# build` (line ~232). Optional utilities stay best-effort and never block.
 apt-get install -y -q \
-    build-essential dkms git unzip curl \
-    libmnl-dev pkg-config \
-    python3 net-tools qrencode bc ca-certificates gnupg \
+    build-essential dkms git libmnl-dev pkg-config \
     2>/dev/null || true
+apt-get install -y -q \
+    unzip curl python3 net-tools qrencode bc ca-certificates gnupg \
+    2>/dev/null || true
+
+# Fail early with a clear message when the critical toolchain is genuinely
+# absent (no network / no repo) instead of dying later at `dkms build` with a
+# bare "dkms: command not found". If dkms/make/gcc already exist from a
+# previous run we proceed even when apt itself failed.
+if ! command -v dkms >/dev/null 2>&1 || ! command -v make >/dev/null 2>&1 || ! command -v gcc >/dev/null 2>&1; then
+    echo -e "${RED}dkms/build-essential не установились (нет сети или репозитория).${NC}"
+    echo -e "${RED}Вручную: apt-get update && apt-get install -y build-essential dkms libmnl-dev pkg-config${NC}"
+    echo -e "${RED}затем:  bash bin/install-awg-module.sh${NC}"
+    exit 1
+fi
 
 # openresolv — awg-quick вызывает resolvconf при наличии DNS= в .conf.
 # Без него awg-quick up падает с "resolvconf: command not found".

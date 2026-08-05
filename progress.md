@@ -51,6 +51,16 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.70 (2026-08-05) — install-awg-module.sh: dkms ставится надёжно, ранний понятный фейл
+
+**Контекст (скрин установки lucx.68):** `bin/install-awg-module.sh: line 232: dkms: command not found` + бокс «AWG: awg-quick НЕ установлен». Скрипт ставит ВСЕ сборочные пакеты одним `apt-get install ... || true` (строка 88), а apt — «всё или ничего»: один недоступный опциональный пакет (qrencode/bc/…) роняет всю транзакцию → **dkms не ставится**, ошибка съедена `|| true` → на строке 232 (`dkms build`) «command not found».
+
+**Фикс (`bin/install-awg-module.sh`):**
+- Критичные пакеты (`build-essential dkms git libmnl-dev pkg-config`) — **отдельным** apt-вызовом; опциональные утилиты (`unzip curl python3 net-tools qrencode bc ca-certificates gnupg`) — отдельным best-effort вызовом, никогда не блокируют сборку.
+- Ранняя проверка `command -v dkms/make/gcc`: если тулчейна реально нет (нет сети/репо) — понятный красный вывод с командой ручного доустановления и `exit 1`, вместо голого «dkms: command not found» на 232-й. Если dkms/make/gcc уже есть с прошлого запуска — продолжаем даже при упавшем apt.
+
+**Файлы:** `bin/install-awg-module.sh`, `internal/config/config.go` (lucxVersion → lucx.70).
+
 ## Релиз v3.6.0-lucx.69 (2026-08-05) — кнопка «включить AWG-outbound» + guard подсетей аутбаундов
 
 **Контекст (tester VladufQa, 2026-08-05):** две проблемы, вскрытые отладкой `proxy/tun: connection was refused` на двойном VPN (AWG-inbound → TUN → AWG-outbound awgo-N → апстрим-провайдер):
