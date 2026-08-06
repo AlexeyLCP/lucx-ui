@@ -1493,3 +1493,9 @@ systemctl start x-ui
 **Тесты:** `instance_test` (число + диапазон verbatim), `awg-timer.test` (5), `inbound-link.test` (58). `go test ./internal/awg` PASS, typecheck/lint/build/gofumpt чисто.
 
 **Урок:** прежде чем «улучшать» поле (схлопывать диапазон), проверь эталонный парсер и ядро — может оказаться, что нативный формат уже поддерживает то, что ты собираешься отбросить. AWG-диапазоны — это фича ядра (u16_range_t), а не только UI-конвенция.
+
+## Docs (2026-08-06) — новый слоган в README на всех языках
+
+**Что сделано:** первая строка-слоган заменена во всех 7 README (`README.md`, `ru_RU`, `fa_IR`, `ar_EG`, `zh_CN`, `es_ES`, `tr_TR`): вместо «3x-ui + native AmneziaWG (AWG) — censorship-resistant VPN panel that 3x-ui is missing» теперь «Advanced Xray & AmneziaWG control panel — with unified subscriptions, multi-server management and native AWG support» (+ переводы на соответствующие языки). Секция «What is LucX-UI» (строка про AWG как censorship-resistant fork WireGuard) не тронута.
+
+**Файлы:** 7 × `README*.md`. Коммит `6213ebee`, запушен в `gh/main`. Тесты не требуются (только документация).
