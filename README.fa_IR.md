@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined FA README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **3x-ui + پشتیبانی بومی AmneziaWG (AWG)** — پنل VPN مقاوم در برابر سانسور که 3x-ui فاقد آن است.
+> **پنل مدیریت پیشرفته Xray و AmneziaWG** — با سابسکریپشن‌های یکپارچه، مدیریت چند سرور و پشتیبانی بومی از AWG.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>

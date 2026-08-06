@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined ZH README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **3x-ui + 原生 AmneziaWG (AWG)** — 3x-ui 所缺少的抗审查 VPN 面板。
+> **高级 Xray 与 AmneziaWG 控制面板** — 集统一订阅、多服务器管理与原生 AWG 支持于一体。
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>

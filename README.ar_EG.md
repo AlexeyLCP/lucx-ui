@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined AR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **3x-ui + دعم أصلي لـ AmneziaWG (AWG)** — لوحة VPN مقاومة للحجب يفتقدها 3x-ui.
+> **لوحة تحكم متقدمة لـ Xray و AmneziaWG** — مع اشتراكات موحّدة، وإدارة متعددة الخوادم، ودعم أصلي لـ AWG.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>

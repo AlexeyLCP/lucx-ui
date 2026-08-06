@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined TR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **3x-ui + yerel AmneziaWG (AWG)** — 3x-ui'nin eksik olduğu sansüre dirençli VPN paneli.
+> **Gelişmiş Xray ve AmneziaWG kontrol paneli** — birleşik abonelikler, çoklu sunucu yönetimi ve yerel AWG desteğiyle.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>

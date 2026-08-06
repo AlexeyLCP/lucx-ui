@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined RU README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **3x-ui + нативный AmneziaWG (AWG)** — антицензурная VPN-панель, которой не хватает 3x-ui.
+> **Продвинутая панель управления Xray и AmneziaWG** — с едиными подписками, управлением несколькими серверами и нативной поддержкой AWG.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
