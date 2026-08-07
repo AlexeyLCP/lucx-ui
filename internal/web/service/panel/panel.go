@@ -28,8 +28,8 @@ import (
 type PanelService struct{}
 
 // PanelUpdateInfo contains the current and latest available panel versions.
-// On the dev channel the version fields carry a "dev+<sha>" label and the commit
-// fields hold the short SHAs that drive the update-available decision.
+// LucX-UI exposes only the stable channel in the panel UI; ReleaseNotes is the
+// GitHub release body shown when an update is offered.
 type PanelUpdateInfo struct {
 	Channel         string `json:"channel"`
 	CurrentVersion  string `json:"currentVersion"`
@@ -37,6 +37,7 @@ type PanelUpdateInfo struct {
 	CurrentCommit   string `json:"currentCommit,omitempty"`
 	LatestCommit    string `json:"latestCommit,omitempty"`
 	UpdateAvailable bool   `json:"updateAvailable"`
+	ReleaseNotes    string `json:"releaseNotes,omitempty"`
 }
 
 const (
@@ -125,16 +126,16 @@ func (s *PanelService) RestartPanel(delay time.Duration) error {
 	return nil
 }
 
-// GetUpdateInfo checks GitHub for the latest 3x-ui release. When the dev channel
-// is enabled on a dev build it compares commits against the rolling dev release;
-// otherwise it compares versions against the latest stable tag.
+// GetUpdateInfo checks GitHub for the latest stable LucX-UI release.
+// The panel UI has no dev-channel switch; always track releases/latest.
 func (s *PanelService) GetUpdateInfo() (*PanelUpdateInfo, error) {
-	if devChannelActive() {
-		return getDevUpdateInfo()
-	}
-	latest, err := fetchLatestPanelVersion()
+	release, err := fetchPanelRelease("")
 	if err != nil {
 		return nil, err
+	}
+	latest := release.TagName
+	if latest == "" {
+		return nil, fmt.Errorf("latest panel release tag is empty")
 	}
 	current := config.GetBaseVersion()
 	return &PanelUpdateInfo{
@@ -142,53 +143,31 @@ func (s *PanelService) GetUpdateInfo() (*PanelUpdateInfo, error) {
 		CurrentVersion:  current,
 		LatestVersion:   latest,
 		UpdateAvailable: isNewerVersion(latest, current),
+		ReleaseNotes:    clampReleaseNotes(release.Body),
 	}, nil
 }
 
-// devChannelActive reports whether self-update should track the rolling dev
-// release. It is driven solely by the opt-in setting so the panel can
-// cross-grade a stable build onto the dev channel once the user enables it;
-// nothing updates without an explicit user action, so an unattended stable
-// binary with the toggle off stays on the stable channel.
-func devChannelActive() bool {
-	enabled, err := (&service.SettingService{}).GetDevChannelEnable()
-	return err == nil && enabled
+func clampReleaseNotes(body string) string {
+	s := strings.TrimSpace(body)
+	const max = 12 << 10
+	if len(s) <= max {
+		return s
+	}
+	return s[:max] + "\n…"
 }
 
-// getDevUpdateInfo compares the running commit against the commit recorded in the
-// rolling dev release.
-func getDevUpdateInfo() (*PanelUpdateInfo, error) {
-	release, err := fetchPanelRelease(devReleaseTag)
-	if err != nil {
-		return nil, err
-	}
-	latestCommit := extractReleaseCommit(release)
-	if latestCommit == "" {
-		return nil, fmt.Errorf("dev release commit is unknown")
-	}
-	currentCommit := config.GetBuildCommit()
-	return &PanelUpdateInfo{
-		Channel:         "dev",
-		CurrentVersion:  config.GetPanelVersion(),
-		CurrentCommit:   shortCommit(currentCommit),
-		LatestCommit:    shortCommit(latestCommit),
-		LatestVersion:   "dev+" + shortCommit(latestCommit),
-		UpdateAvailable: !commitsEqual(currentCommit, latestCommit),
-	}, nil
-}
-
-// StartUpdate starts the official updater using this panel's own channel
-// setting. Returns the run ID to pass to GetUpdateStatus so the caller can
-// tell this run's result apart from a stale one.
+// StartUpdate starts the official updater against the latest stable release.
+// Returns the run ID to pass to GetUpdateStatus so the caller can tell this
+// run's result apart from a stale one.
 func (s *PanelService) StartUpdate() (int64, error) {
-	return s.startUpdate(devChannelActive())
+	return s.startUpdate(false)
 }
 
-// StartUpdateChannel runs the updater against an explicitly chosen channel,
-// overriding the local dev-channel setting. Used by the master node updater so
-// a node can be moved to the dev channel from the central panel.
+// StartUpdateChannel runs the updater. LucX-UI only ships stable releases in
+// the panel UI; the dev flag is ignored (kept for API back-compat with nodes).
 func (s *PanelService) StartUpdateChannel(dev bool) (int64, error) {
-	return s.startUpdate(dev)
+	_ = dev
+	return s.startUpdate(false)
 }
 
 // GetUpdateStatus reports the outcome of the most recently launched panel
@@ -399,17 +378,6 @@ func downloadPanelUpdater() (string, error) {
 	}
 	ok = true
 	return path, nil
-}
-
-func fetchLatestPanelVersion() (string, error) {
-	release, err := fetchPanelRelease("")
-	if err != nil {
-		return "", err
-	}
-	if release.TagName == "" {
-		return "", fmt.Errorf("latest panel release tag is empty")
-	}
-	return release.TagName, nil
 }
 
 // fetchPanelRelease fetches a release from GitHub. An empty tag resolves the

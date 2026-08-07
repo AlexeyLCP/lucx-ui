@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Modal, Switch, Tag } from 'antd';
+import { Alert, Button, Modal, Tag, Typography } from 'antd';
 import { CloudDownloadOutlined } from '@ant-design/icons';
 
 import { HttpUtil, PromiseUtil } from '@/utils';
@@ -17,6 +17,7 @@ export interface PanelUpdateInfo {
   currentCommit?: string;
   latestCommit?: string;
   updateAvailable: boolean;
+  releaseNotes?: string;
 }
 
 interface BusyEvent {
@@ -27,29 +28,29 @@ interface BusyEvent {
 interface PanelUpdateModalProps {
   open: boolean;
   info: PanelUpdateInfo;
-  devChannelEnable?: boolean;
-  onChannelChange?: (dev: boolean) => void | Promise<void>;
   onClose: () => void;
   onBusy: (e: BusyEvent) => void;
 }
 
+const POLL_INITIAL_MS = 5_000;
+const POLL_DEADLINE_MS = 15 * 60_000;
+const POLL_INTERVAL_MS = 3_000;
+
 export default function PanelUpdateModal({
   open,
   info,
-  devChannelEnable,
-  onChannelChange,
   onClose,
   onBusy,
 }: PanelUpdateModalProps) {
   const { t } = useTranslation();
   const [modal, contextHolder] = Modal.useModal();
-  const [channelBusy, setChannelBusy] = useState(false);
+  const [notesExpanded, setNotesExpanded] = useState(false);
 
-  const isDev = info.channel === 'dev';
+  const notes = (info.releaseNotes || '').trim();
 
   async function pollUpdateStatus(expectedRunId: string): Promise<UpdateOutcome> {
-    await PromiseUtil.sleep(5000);
-    const deadline = Date.now() + 90_000;
+    await PromiseUtil.sleep(POLL_INITIAL_MS);
+    const deadline = Date.now() + POLL_DEADLINE_MS;
     while (Date.now() < deadline) {
       try {
         const msg = await HttpUtil.get<PanelUpdateStatus>(
@@ -65,19 +66,9 @@ export default function PanelUpdateModal({
       } catch {
         /* still restarting */
       }
-      await PromiseUtil.sleep(2000);
+      await PromiseUtil.sleep(POLL_INTERVAL_MS);
     }
     return 'timeout';
-  }
-
-  async function handleChannel(checked: boolean) {
-    if (!onChannelChange) return;
-    setChannelBusy(true);
-    try {
-      await onChannelChange(checked);
-    } finally {
-      setChannelBusy(false);
-    }
   }
 
   function updatePanel() {
@@ -121,6 +112,7 @@ export default function PanelUpdateModal({
         title={t('pages.index.updatePanel')}
         footer={null}
         onCancel={onClose}
+        width={560}
       >
         {info.updateAvailable && (
           <Alert
@@ -133,37 +125,13 @@ export default function PanelUpdateModal({
 
         <div className="version-list">
           <div className="version-list-item">
-            <span>{t('pages.index.devChannel')}</span>
-            <Switch
-              checked={!!devChannelEnable}
-              loading={channelBusy}
-              onChange={handleChannel}
-            />
-          </div>
-        </div>
-
-        {devChannelEnable && (
-          <Alert
-            type="info"
-            className="mb-12"
-            title={t('pages.index.devChannelWarning')}
-            showIcon
-          />
-        )}
-
-        <div className="version-list">
-          <div className="version-list-item">
-            <span>{isDev ? t('pages.index.currentCommit') : t('pages.index.currentPanelVersion')}</span>
-            {isDev ? (
-              <Tag color="green">{info.currentCommit || '?'}</Tag>
-            ) : (
-              <Tag color="green">{formatPanelVersion(window.X_UI_CUR_VER || info.currentVersion) || '?'}</Tag>
-            )}
+            <span>{t('pages.index.currentPanelVersion')}</span>
+            <Tag color="green">{formatPanelVersion(window.X_UI_CUR_VER || info.currentVersion) || '?'}</Tag>
           </div>
           {info.updateAvailable ? (
             <div className="version-list-item">
-              <span>{isDev ? t('pages.index.latestCommit') : t('pages.index.latestPanelVersion')}</span>
-              <Tag color="purple">{(isDev ? info.latestCommit : info.latestVersion) || '-'}</Tag>
+              <span>{t('pages.index.latestPanelVersion')}</span>
+              <Tag color="purple">{info.latestVersion || '-'}</Tag>
             </div>
           ) : (
             <div className="version-list-item">
@@ -172,6 +140,22 @@ export default function PanelUpdateModal({
             </div>
           )}
         </div>
+
+        {info.updateAvailable && notes && (
+          <div className="release-notes">
+            <div className="release-notes-title">{t('pages.index.releaseNotes')}</div>
+            <Typography.Paragraph
+              className="release-notes-body"
+              ellipsis={
+                notesExpanded
+                  ? false
+                  : { rows: 8, expandable: true, symbol: t('pages.index.releaseNotesMore'), onExpand: () => setNotesExpanded(true) }
+              }
+            >
+              {notes}
+            </Typography.Paragraph>
+          </div>
+        )}
 
         <div className="actions-row">
           <Button

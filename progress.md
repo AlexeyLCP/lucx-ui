@@ -51,6 +51,13 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.83 (2026-08-07) — update UI: без dev-канала, release notes, дольше ждать
+
+1. Убран switch «Dev channel» из PanelUpdateModal и Nodes (stable only).
+2. `getPanelUpdateInfo` отдаёт `releaseNotes` (body GitHub release) — блок «Что нового» в модалке.
+3. Poll обновления: 90s → **15 мин**; тексты dontRefresh/unknown — «подождите, AWG может долго».
+4. CI flake: `TestBuildSafari/FirefoxHello_NoGrease` больше не сканирует random bytes (Pattern 7).
+
 ## Релиз v3.6.0-lucx.82 (2026-08-07) — PersistentKeepalive: UI клиента + export-only
 
 **Запрос:** поле как в lucx.80, чтобы пользователи не ломались; PKA — настройка **клиента**, не сервера.

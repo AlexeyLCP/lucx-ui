@@ -22,3 +22,26 @@
   justify-content: flex-end;
   margin-top: 12px;
 }
+
+.release-notes {
+  margin-top: 12px;
+  padding: 12px 16px;
+  border: 1px solid var(--ant-color-border-secondary);
+  border-radius: 8px;
+  max-height: 280px;
+  overflow: auto;
+}
+
+.release-notes-title {
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.release-notes-body {
+  margin-bottom: 0 !important;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.45;
+}

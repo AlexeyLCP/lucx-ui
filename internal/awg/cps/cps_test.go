@@ -229,22 +229,49 @@ func TestQuicInitialPacket_RespectsBrowser(t *testing.T) {
 	}
 }
 
-func TestBuildFirefoxHello_NoGrease(t *testing.T) {
+func TestBuildFirefoxHello_NoGreaseCipher(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(42)))
 	ch := buildFirefoxHello("example.com")
-	hexStr := hex.EncodeToString(ch)
-	if strings.Contains(hexStr, "0a0a") || strings.Contains(hexStr, "fafa") {
-		t.Errorf("Firefox ClientHello must not contain GREASE values")
+	if cipherSuiteHasGrease(ch) {
+		t.Error("Firefox cipher suites must not include GREASE (0x?a?a)")
 	}
 }
 
-func TestBuildSafariHello_NoGrease(t *testing.T) {
+func TestBuildSafariHello_NoGreaseCipher(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(42)))
 	ch := buildSafariHello("example.com")
-	hexStr := hex.EncodeToString(ch)
-	if strings.Contains(hexStr, "0a0a") || strings.Contains(hexStr, "fafa") {
-		t.Errorf("Safari ClientHello must not contain GREASE values")
+	if cipherSuiteHasGrease(ch) {
+		t.Error("Safari cipher suites must not include GREASE (0x?a?a)")
 	}
+}
+
+func cipherSuiteHasGrease(ch []byte) bool {
+	if len(ch) < 44 {
+		return false
+	}
+	// TLS record(5) + handshake hdr(4) + version(2) + random(32) + sid_len(1)
+	off := 5 + 4 + 2 + 32
+	if off >= len(ch) {
+		return false
+	}
+	sidLen := int(ch[off])
+	off++
+	off += sidLen
+	if off+2 > len(ch) {
+		return false
+	}
+	csLen := int(ch[off])<<8 | int(ch[off+1])
+	off += 2
+	if off+csLen > len(ch) || csLen%2 != 0 {
+		return false
+	}
+	for i := 0; i < csLen; i += 2 {
+		cs := uint16(ch[off+i])<<8 | uint16(ch[off+i+1])
+		if cs&0x0f0f == 0x0a0a {
+			return true
+		}
+	}
+	return false
 }
 
 func TestBuildChromeHello_HasGrease(t *testing.T) {
