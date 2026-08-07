@@ -8,7 +8,6 @@ package service
 
 import (
 	"encoding/json"
-	"net/netip"
 	"testing"
 )
 
@@ -196,12 +195,4 @@ func TestMigrateAwgClientSubnets(t *testing.T) {
 			c.check(t, migrateAwgClientSubnets(c.oldAddr, c.newAddr, c.settings))
 		})
 	}
-}
-
-func mustParsePrefix(s string) netip.Prefix {
-	p, err := netip.ParsePrefix(s)
-	if err != nil {
-		panic(err)
-	}
-	return p
 }

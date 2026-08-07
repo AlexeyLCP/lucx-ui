@@ -192,30 +192,6 @@ func anyStringSlice(v any) []string {
 	return out
 }
 
-// awgSingleHostInSubnet reports whether s is a single-host allowedIPs entry
-// (a bare address or a /N with N == the address's bit length) whose address
-// lies inside subnet. Custom entries like 0.0.0.0/0, a different subnet, or
-// IPv6 return false — the operator set them deliberately and they must not be
-// silently rewritten on an address change.
-func awgSingleHostInSubnet(s string, subnet netip.Prefix) bool {
-	s = strings.TrimSpace(s)
-	if s == "" {
-		return false
-	}
-	var addr netip.Addr
-	if p, err := netip.ParsePrefix(s); err == nil {
-		if p.Bits() != p.Addr().BitLen() {
-			return false
-		}
-		addr = p.Addr()
-	} else if a, err := netip.ParseAddr(s); err == nil {
-		addr = a
-	} else {
-		return false
-	}
-	return addr.Is4() && subnet.Contains(addr)
-}
-
 // defaultAwgClients fills in blank AmneziaWG credentials for newly added
 // clients, mirroring defaultWireguardClients: a generated Curve25519 keypair
 // when none was provided, a derived public key when only a private key was

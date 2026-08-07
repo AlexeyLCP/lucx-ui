@@ -205,7 +205,7 @@ func TestRenderServerConf_V15OmitsS3S4(t *testing.T) {
 	inst := Instance{
 		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
 		AwgVersion: "1.5",
-		Jc: 6, Jmin: 50, Jmax: 100, S1: 80, S2: 79, S3: 21, S4: 13,
+		Jc:         6, Jmin: 50, Jmax: 100, S1: 80, S2: 79, S3: 21, S4: 13,
 		H1: "1", H2: "2", H3: "3", H4: "4",
 	}
 	conf := renderServerConf(inst)
