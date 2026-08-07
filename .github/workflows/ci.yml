@@ -152,6 +152,7 @@ jobs:
 
   frontend:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -171,9 +172,15 @@ jobs:
       - name: Install Playwright Chromium (Storybook story tests)
         run: npx playwright install --with-deps chromium
         working-directory: frontend
-      - name: Test
-        run: npm test
+      # unit+components first (no browser). Storybook browser tests run alone —
+      # concurrent projects + playwright have hung forever on GHA (2026-08-07).
+      - name: Test (unit + components)
+        run: npx vitest run --project=unit --project=components
         working-directory: frontend
+      - name: Test (storybook)
+        run: npx vitest run --project=storybook
+        working-directory: frontend
+        timeout-minutes: 8
       - name: Build
         run: npm run build
         working-directory: frontend
