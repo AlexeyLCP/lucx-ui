@@ -51,6 +51,11 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.80 (2026-08-07) — CI-fix после lucx.79
+
+- gofumpt `client_awg_share_host_test.go`
+- вернули i18n key `pages.xray.awgOutbound.keepalive` (dead-keys test)
+
 ## Релиз v3.6.0-lucx.79 (2026-08-07) — TG .conf Endpoint: не OS hostname
 
 **Жалоба:** бот писал `Endpoint = ruvds-dczf5:57092` вместо публичного IP/домена как в панели.

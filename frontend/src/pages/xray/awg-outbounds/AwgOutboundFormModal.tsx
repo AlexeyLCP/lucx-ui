@@ -409,7 +409,7 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
               </Col>
               <Col span={6}>
                 <FormField
-                  label="PersistentKeepalive"
+                  label={t('pages.xray.awgOutbound.keepalive')}
                   name="keepalive"
                   tooltip="Peer PersistentKeepalive (sec). 0 = off (line omitted from .conf). AWG3 accepts a range e.g. 15-25. Not the same as KeepaliveTimeout (device AWG3 timer)."
                 >

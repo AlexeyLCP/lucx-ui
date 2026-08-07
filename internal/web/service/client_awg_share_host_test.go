@@ -25,14 +25,14 @@ func TestResolveInboundShareHost(t *testing.T) {
 			want:     "1.2.3.4",
 		},
 		{
-			name: "never prefer empty over fallback",
-			ib:   &model.Inbound{Listen: "0.0.0.0", ShareAddrStrategy: "listen"},
+			name:     "never prefer empty over fallback",
+			ib:       &model.Inbound{Listen: "0.0.0.0", ShareAddrStrategy: "listen"},
 			fallback: "vpn.example.com",
 			want:     "vpn.example.com",
 		},
 		{
-			name: "listen strategy uses routable listen",
-			ib:   &model.Inbound{Listen: "203.0.113.7", ShareAddrStrategy: "listen", Port: 1},
+			name:     "listen strategy uses routable listen",
+			ib:       &model.Inbound{Listen: "203.0.113.7", ShareAddrStrategy: "listen", Port: 1},
 			fallback: "fallback.example",
 			want:     "203.0.113.7",
 		},
