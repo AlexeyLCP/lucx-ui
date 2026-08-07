@@ -252,7 +252,18 @@
       "threads": "الخيوط",
       "uptime": "مدة التشغيل",
       "releaseNotes": "What's new",
-      "releaseNotesMore": "Show more"
+      "releaseNotesMore": "Show more",
+      "awgStatus": "AWG",
+      "awgStatusRunning": "Running",
+      "awgStatusStop": "Stopped",
+      "awgStatusError": "Error",
+      "awgStatusUnknown": "Unknown",
+      "awgUpdateModule": "Update AWG",
+      "awgUpdateModuleDialog": "Rebuild AmneziaWG kernel module?",
+      "awgUpdateModuleDialogDesc": "Runs install-awg-module.sh --force-rebuild (DKMS). May take several minutes. AWG interfaces are stopped for the rebuild and come back on the next reconcile.",
+      "awgUpdateModulePopover": "AWG module update finished",
+      "awgModuleNotLoaded": "Kernel module not loaded",
+      "awgInterfaces": "{n} interface(s)"
     },
     "inbounds": {
       "totalDownUp": "إجمالي المرسل/المستقبل",

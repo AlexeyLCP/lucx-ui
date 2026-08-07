@@ -545,6 +545,11 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'POST',
+        path: '/panel/api/server/updateAwgModule',
+        summary: 'Rebuild AmneziaWG kernel module (install-awg-module.sh --force-rebuild).',
+      },
+      {
+        method: 'POST',
         path: '/panel/api/server/updatePanel',
         summary: 'Self-update the panel to the latest version. The server restarts on success.',
         response: '{\n  "success": true,\n  "obj": {\n    "runId": "1735689600123456789"\n  }\n}',

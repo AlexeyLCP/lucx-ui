@@ -88,6 +88,16 @@ type Status struct {
 		ErrorMsg string       `json:"errorMsg"`
 		Version  string       `json:"version"`
 	} `json:"xray"`
+	// LUCX-HOOK: host-level AWG module + interface snapshot for the dashboard pill
+	Awg struct {
+		State        ProcessState `json:"state"`
+		ErrorMsg     string       `json:"errorMsg"`
+		Version      string       `json:"version"`
+		ModuleLoaded bool         `json:"moduleLoaded"`
+		ModuleAwg3   bool         `json:"moduleAwg3"`
+		Interfaces   int          `json:"interfaces"`
+	} `json:"awg"`
+	// END LUCX-HOOK
 	PanelVersion string    `json:"panelVersion"`
 	PanelGuid    string    `json:"panelGuid"`
 	Uptime       uint64    `json:"uptime"`
@@ -610,6 +620,9 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 		status.Xray.ErrorMsg = s.xrayService.GetXrayResult()
 	}
 	status.Xray.Version = s.xrayService.GetXrayVersion()
+	// LUCX-HOOK: AWG host status for dashboard pill
+	fillAwgHostStatus(status)
+	// END LUCX-HOOK
 	status.PanelVersion = config.GetPanelVersion()
 	if guid, err := s.settingService.GetPanelGuid(); err == nil {
 		status.PanelGuid = guid

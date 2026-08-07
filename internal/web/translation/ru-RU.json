@@ -252,7 +252,18 @@
       "threads": "Потоки",
       "uptime": "Время работы",
       "releaseNotes": "Что нового",
-      "releaseNotesMore": "Показать ещё"
+      "releaseNotesMore": "Показать ещё",
+      "awgStatus": "AWG",
+      "awgStatusRunning": "Запущен",
+      "awgStatusStop": "Остановлен",
+      "awgStatusError": "Ошибка",
+      "awgStatusUnknown": "Неизвестно",
+      "awgUpdateModule": "Обновить AWG",
+      "awgUpdateModuleDialog": "Пересобрать модуль AmneziaWG?",
+      "awgUpdateModuleDialogDesc": "Запустит install-awg-module.sh --force-rebuild (DKMS). Может занять несколько минут. Интерфейсы AWG останавливаются на время сборки и поднимаются следующим reconcile.",
+      "awgUpdateModulePopover": "Модуль AWG обновлён",
+      "awgModuleNotLoaded": "Модуль ядра не загружен",
+      "awgInterfaces": "интерфейсов: {n}"
     },
     "inbounds": {
       "totalDownUp": "Отправлено/получено",

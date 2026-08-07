@@ -41,6 +41,7 @@ export default function IndexPage() {
   const { status, fetched, fetchError, refresh } = useStatusQuery();
   const { isMobile } = useMediaQuery();
   const [messageApi, messageContextHolder] = message.useMessage();
+  const [modal, modalContextHolder] = Modal.useModal();
   useEffect(() => { setMessageInstance(messageApi); }, [messageApi]);
 
   const [accessLogEnable, setAccessLogEnable] = useState(false);
@@ -103,6 +104,24 @@ export default function IndexPage() {
     await refresh();
   }, [refresh]);
 
+  const updateAwgModule = useCallback(async () => {
+    modal.confirm({
+      title: t('pages.index.awgUpdateModuleDialog'),
+      content: t('pages.index.awgUpdateModuleDialogDesc'),
+      okText: t('confirm'),
+      cancelText: t('cancel'),
+      onOk: async () => {
+        setBusy({ busy: true, tip: t('pages.index.dontRefresh') });
+        try {
+          await HttpUtil.post('/panel/api/server/updateAwgModule');
+          await refresh();
+        } finally {
+          setBusy({ busy: false });
+        }
+      },
+    });
+  }, [modal, t, refresh, setBusy]);
+
   async function openConfig() {
     setLoading(true);
     try {
@@ -146,6 +165,7 @@ export default function IndexPage() {
   return (
     <ConfigProvider theme={antdThemeConfig}>
       {messageContextHolder}
+      {modalContextHolder}
       <Layout className={pageClass}>
         <AppSidebar />
 
@@ -177,6 +197,7 @@ export default function IndexPage() {
                     updateAvailable={panelUpdateInfo.updateAvailable}
                     onStopXray={stopXray}
                     onRestartXray={restartXray}
+                    onUpdateAwgModule={updateAwgModule}
                     onOpenLogs={() => setLogsOpen(true)}
                     onOpenXrayLogs={() => setXrayLogsOpen(true)}
                     onOpenConfig={openConfig}

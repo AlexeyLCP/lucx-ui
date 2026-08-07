@@ -68,6 +68,9 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.POST("/stopXrayService", a.stopXrayService)
 	g.POST("/restartXrayService", a.restartXrayService)
 	g.POST("/installXray/:version", a.installXray)
+	// LUCX-HOOK: rebuild AmneziaWG kernel module from dashboard
+	g.POST("/updateAwgModule", a.updateAwgModule)
+	// END LUCX-HOOK
 	g.POST("/updatePanel", a.updatePanel)
 	g.POST("/setUpdateChannel", a.setUpdateChannel)
 	g.POST("/updateGeofile", a.updateGeofile)
@@ -298,6 +301,14 @@ func (a *ServerController) restartXrayService(c *gin.Context) {
 		"success",
 	)
 }
+
+// LUCX-HOOK: updateAwgModule rebuilds the AmneziaWG kernel module (DKMS).
+func (a *ServerController) updateAwgModule(c *gin.Context) {
+	err := a.serverService.UpdateAwgModule()
+	jsonMsg(c, I18nWeb(c, "pages.index.awgUpdateModulePopover"), err)
+}
+
+// END LUCX-HOOK
 
 // getLogs retrieves the application logs based on count, level, and syslog filters.
 func (a *ServerController) getLogs(c *gin.Context) {

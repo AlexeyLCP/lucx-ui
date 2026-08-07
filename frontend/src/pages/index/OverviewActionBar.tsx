@@ -12,6 +12,7 @@ import {
   FileTextOutlined,
   PoweroffOutlined,
   ReloadOutlined,
+  ToolOutlined,
 } from '@ant-design/icons';
 
 import { formatPanelVersion } from '@/lib/panel-version';
@@ -26,6 +27,7 @@ interface OverviewActionBarProps {
   updateAvailable: boolean;
   onStopXray: () => void;
   onRestartXray: () => void;
+  onUpdateAwgModule: () => void;
   onOpenLogs: () => void;
   onOpenXrayLogs: () => void;
   onOpenConfig: () => void;
@@ -50,6 +52,12 @@ const XRAY_STATE_KEYS: Record<string, string> = {
   error: 'pages.index.xrayStatusError',
 };
 
+const AWG_STATE_KEYS: Record<string, string> = {
+  running: 'pages.index.awgStatusRunning',
+  stop: 'pages.index.awgStatusStop',
+  error: 'pages.index.awgStatusError',
+};
+
 export default function OverviewActionBar({
   status,
   isMobile,
@@ -59,6 +67,7 @@ export default function OverviewActionBar({
   updateAvailable,
   onStopXray,
   onRestartXray,
+  onUpdateAwgModule,
   onOpenLogs,
   onOpenXrayLogs,
   onOpenConfig,
@@ -71,12 +80,16 @@ export default function OverviewActionBar({
   const { t } = useTranslation();
   const stateText = t(XRAY_STATE_KEYS[status.xray.state] ?? 'pages.index.xrayStatusUnknown');
   const hasVersion = !!status.xray.version && status.xray.version !== 'Unknown';
+  const awgStateText = t(AWG_STATE_KEYS[status.awg.state] ?? 'pages.index.awgStatusUnknown');
+  const awgVersion = (status.awg.version || '').replace(/^v/i, '');
+  const hasAwgVersion = !!awgVersion;
   const size = isMobile ? ('small' as const) : ('middle' as const);
 
   const actionGroups: BarAction[][] = [
     [
       { key: 'restart', icon: <ReloadOutlined />, text: t('pages.index.restartXray'), onClick: onRestartXray, primary: true },
       { key: 'stop', icon: <PoweroffOutlined />, text: t('pages.index.stopXray'), onClick: onStopXray },
+      { key: 'awgUpdate', icon: <ToolOutlined />, text: t('pages.index.awgUpdateModule'), onClick: onUpdateAwgModule },
     ],
     [
       { key: 'logs', icon: <BarsOutlined />, text: t('pages.index.logs'), onClick: onOpenLogs },
@@ -110,6 +123,32 @@ export default function OverviewActionBar({
     </span>
   );
 
+  const awgTip = [
+    status.awg.errorMsg,
+    status.awg.moduleLoaded
+      ? t('pages.index.awgInterfaces', { n: status.awg.interfaces })
+      : t('pages.index.awgModuleNotLoaded'),
+    status.awg.moduleAwg3 ? 'AWG3' : '',
+  ].filter(Boolean).join(' · ');
+
+  const awgPill = (
+    <span className="ov-state" data-state={status.awg.state}>
+      <span className="ov-state-dot" style={{ color: status.awg.color }} />
+      <span>{`${t('pages.index.awgStatus')} · ${awgStateText}`}</span>
+      {hasAwgVersion && (
+        <Tooltip title={t('pages.index.awgUpdateModule')}>
+          <button
+            type="button"
+            className="ov-state-version"
+            onClick={onUpdateAwgModule}
+          >
+            {`v${awgVersion}`}
+          </button>
+        </Tooltip>
+      )}
+    </span>
+  );
+
   return (
     <div className="ov-bar">
       {status.xray.state === 'error' && status.xray.errorMsg ? (
@@ -118,6 +157,14 @@ export default function OverviewActionBar({
         </Tooltip>
       ) : (
         statePill
+      )}
+
+      {awgTip ? (
+        <Tooltip title={<span className="ov-error-detail">{awgTip}</span>}>
+          {awgPill}
+        </Tooltip>
+      ) : (
+        awgPill
       )}
 
       {updateAvailable ? (

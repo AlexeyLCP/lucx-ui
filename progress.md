@@ -57,6 +57,7 @@
 2. **NAT by mark:** MASQUERADE по mark iif awgN, не `-s subnet`.
 3. **AWG 1.5 fix:** server conf больше не пишет S3/S4 на v1.5 (must-match с клиентским export).
 4. **UI rtx:** ползунок + outbound наверху формы; default ON + outbound «правила маршрутизации»; hint без re-export.
+5. **Dashboard AWG pill:** статус модуля/интерфейсов + кнопка «Обновить AWG» (`POST /updateAwgModule` → install-awg-module.sh --force-rebuild).
 
 ## Релиз v3.6.0-lucx.83 (2026-08-07) — update UI: без dev-канала, release notes, дольше ждать
 
