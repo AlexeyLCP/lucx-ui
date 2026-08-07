@@ -95,7 +95,8 @@ export const AwgInboundSettingsSchema = z.object({
   // inbound injected into the Xray config so egress obeys routing rules.
   // Mirrors mtproto's routeThroughXray but uses a TUN inbound (raw IP from
   // kernel) instead of a SOCKS loopback (TCP from a userspace sidecar).
-  routeThroughXray: z.boolean().optional(),
-  outboundTag: z.string().optional(),
+  // Default ON: most operators want Xray routing; empty outboundTag = kettle.
+  routeThroughXray: z.boolean().default(true),
+  outboundTag: z.string().default(''),
 });
 export type AwgInboundSettings = z.infer<typeof AwgInboundSettingsSchema>;

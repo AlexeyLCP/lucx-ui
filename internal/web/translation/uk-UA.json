@@ -703,7 +703,8 @@
         "awgAddress": "Тунельна адреса сервера",
         "awgAddressHint": "IP/CIDR тунелю сервера, напр. 10.8.0.1/24. Клієнти отримують адреси з цієї підмережі.",
         "awgSubnetConflict": "Ця підмережа перетинається з іншим AWG-інбаундом — клієнти цього інбаунду не отримають трафік (конфлікт kernel route).",
-        "awgSubnetConflictHint": "Підмережу {{subnet}} вже зайнято. Змініть Address на /24 що не перетинається (напр. 10.8.1.1/24)."
+        "awgSubnetConflictHint": "Підмережу {{subnet}} вже зайнято. Змініть Address на /24 що не перетинається (напр. 10.8.1.1/24).",
+        "awgRouteThroughXrayNoReexport": "Server-only: clients keep the same .conf (keys/IP). No re-download needed — just Save."
       },
       "info": {
         "mode": "Режим",

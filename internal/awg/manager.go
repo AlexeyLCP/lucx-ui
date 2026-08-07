@@ -576,37 +576,50 @@ func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 	if extIface == "" {
 		return "", ""
 	}
+	// Mark packets arriving on awgN, then MASQUERADE by mark (not by the
+	// server Address/24). Peer AllowedIPs may sit outside the server subnet
+	// (preserved across Address edits so clients need no re-export); -s
+	// <subnet> would silently drop NAT for those peers.
+	mark := awgNatMark(inst.Id)
 	postUp = fmt.Sprintf(
 		"echo 1 > /proc/sys/net/ipv4/ip_forward; "+
-			"iptables -t nat -C POSTROUTING -s %s -o %s -j MASQUERADE 2>/dev/null || "+
-			"iptables -t nat -A POSTROUTING -s %s -o %s -j MASQUERADE; "+
+			"iptables -t mangle -C PREROUTING -i %s -j MARK --set-mark %d 2>/dev/null || "+
+			"iptables -t mangle -A PREROUTING -i %s -j MARK --set-mark %d; "+
+			"iptables -t nat -C POSTROUTING -m mark --mark %d -o %s -j MASQUERADE 2>/dev/null || "+
+			"iptables -t nat -A POSTROUTING -m mark --mark %d -o %s -j MASQUERADE; "+
 			"iptables -C FORWARD -i %s -j ACCEPT 2>/dev/null || "+
 			"iptables -A FORWARD -i %s -j ACCEPT; "+
 			"iptables -C FORWARD -o %s -j ACCEPT 2>/dev/null || "+
 			"iptables -A FORWARD -o %s -j ACCEPT; "+
-			// MSS clamping for kernel-NAT mode too: awgN carries MTU 1320
-			// (smaller than the 1500 the client assumes), so large TCP
-			// segments crossing the tunnel need their MSS clamped to PMTU
-			// or downloads stall. Same --clamp-mss-to-pmtu as above.
 			"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
 			"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu; "+
 			"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
 			"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu",
-		subnet, extIface, subnet, extIface,
+		iface, mark, iface, mark,
+		mark, extIface, mark, extIface,
 		iface, iface, iface, iface,
 		iface, iface, iface, iface,
 	)
 	postDown = fmt.Sprintf(
-		"iptables -t nat -D POSTROUTING -s %s -o %s -j MASQUERADE 2>/dev/null || true; "+
+		"iptables -t nat -D POSTROUTING -m mark --mark %d -o %s -j MASQUERADE 2>/dev/null || true; "+
+			"iptables -t mangle -D PREROUTING -i %s -j MARK --set-mark %d 2>/dev/null || true; "+
 			"iptables -D FORWARD -i %s -j ACCEPT 2>/dev/null || true; "+
 			"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true; "+
 			"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true; "+
 			"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true",
-		subnet, extIface,
+		mark, extIface,
+		iface, mark,
 		iface, iface,
 		iface, iface,
 	)
 	return postUp, postDown
+}
+
+func awgNatMark(id int) int {
+	if id < 0 {
+		id = 0
+	}
+	return 0xA0000 | (id & 0xFFFF)
 }
 
 // natRule is one idempotent iptables rule: probed with `-t <table> -C <chain>
@@ -618,16 +631,20 @@ type natRule struct {
 }
 
 // natRulesFor returns the rule set a kernel-routed (non-routeThroughXray)
-// instance needs: MASQUERADE of the client subnet out the external interface,
-// plus FORWARD accepts for both awgN legs. Nil when the instance is unroutable
-// (Xray-routed, no subnet, or no external interface).
+// instance needs: mark packets from awgN + MASQUERADE by mark out the
+// external interface, plus FORWARD accepts for both awgN legs. Nil when the
+// instance is unroutable (Xray-routed, no ifname, or no external interface).
 func natRulesFor(inst Instance, extIface string) []natRule {
-	subnet := clientSubnet(inst.Address)
-	if inst.RouteThroughXray || subnet == "" || extIface == "" {
+	if inst.RouteThroughXray || inst.Ifname == "" || extIface == "" {
 		return nil
 	}
+	if clientSubnet(inst.Address) == "" {
+		return nil
+	}
+	mark := strconv.Itoa(awgNatMark(inst.Id))
 	return []natRule{
-		{"nat", "POSTROUTING", []string{"-s", subnet, "-o", extIface, "-j", "MASQUERADE"}},
+		{"mangle", "PREROUTING", []string{"-i", inst.Ifname, "-j", "MARK", "--set-mark", mark}},
+		{"nat", "POSTROUTING", []string{"-m", "mark", "--mark", mark, "-o", extIface, "-j", "MASQUERADE"}},
 		{"filter", "FORWARD", []string{"-i", inst.Ifname, "-j", "ACCEPT"}},
 		{"filter", "FORWARD", []string{"-o", inst.Ifname, "-j", "ACCEPT"}},
 	}
@@ -691,8 +708,13 @@ func renderServerConf(inst Instance) string {
 	fmt.Fprintf(&b, "Jmax = %d\n", inst.Jmax)
 	fmt.Fprintf(&b, "S1 = %d\n", inst.S1)
 	fmt.Fprintf(&b, "S2 = %d\n", inst.S2)
-	fmt.Fprintf(&b, "S3 = %d\n", inst.S3)
-	fmt.Fprintf(&b, "S4 = %d\n", inst.S4)
+	// S3/S4 are AWG v2+ only. Emitting them on a v1.5 server while the
+	// client export strips them (filterAwgObfuscation) breaks must-match
+	// junk lengths → handshake never completes.
+	if NormalizeAWGVersion(inst.AwgVersion) != "1.5" {
+		fmt.Fprintf(&b, "S3 = %d\n", inst.S3)
+		fmt.Fprintf(&b, "S4 = %d\n", inst.S4)
+	}
 	fmt.Fprintf(&b, "H1 = %s\n", inst.H1)
 	fmt.Fprintf(&b, "H2 = %s\n", inst.H2)
 	fmt.Fprintf(&b, "H3 = %s\n", inst.H3)

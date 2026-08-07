@@ -703,7 +703,8 @@
         "awgAddress": "Địa chỉ tunnel máy chủ",
         "awgAddressHint": "IP/CIDR tunnel máy chủ, vd. 10.8.0.1/24. Client nhận địa chỉ từ subnet này.",
         "awgSubnetConflict": "Subnet này chồng lấn với một AWG inbound khác — client của inbound này sẽ không có traffic (xung đột kernel route).",
-        "awgSubnetConflictHint": "Subnet {{subnet}} đã được sử dụng. Đổi Address thành /24 không chồng lấn (ví dụ 10.8.1.1/24)."
+        "awgSubnetConflictHint": "Subnet {{subnet}} đã được sử dụng. Đổi Address thành /24 không chồng lấn (ví dụ 10.8.1.1/24).",
+        "awgRouteThroughXrayNoReexport": "Server-only: clients keep the same .conf (keys/IP). No re-download needed — just Save."
       },
       "info": {
         "mode": "Chế độ",

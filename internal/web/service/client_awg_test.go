@@ -75,10 +75,9 @@ func TestParseAwgOutboundAddress(t *testing.T) {
 	}
 }
 
-// TestMigrateAwgClientSubnets covers the Pattern 1h fix: changing an AWG
-// inbound's Address must re-allocate peer AllowedIPs from the old subnet
-// into the new one, leave custom entries untouched, and be a no-op when the
-// subnet didn't really change.
+// TestMigrateAwgClientSubnets: client tunnel IPs stay put across Address
+// edits (no re-export). Only a client that collides with the server's new
+// host IP is re-allocated.
 func TestMigrateAwgClientSubnets(t *testing.T) {
 	cases := []struct {
 		name     string
@@ -88,44 +87,40 @@ func TestMigrateAwgClientSubnets(t *testing.T) {
 		check    func(t *testing.T, out string)
 	}{
 		{
-			name:     "subnet change reallocates clients",
+			name:     "subnet change preserves client IPs",
 			oldAddr:  "10.8.0.1/24",
 			newAddr:  "10.8.5.1/24",
 			settings: `{"address":"10.8.5.1/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]},{"email":"b","allowedIPs":["10.8.0.3/32"]}]}`,
 			check: func(t *testing.T, out string) {
+				want := `{"address":"10.8.5.1/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]},{"email":"b","allowedIPs":["10.8.0.3/32"]}]}`
+				if out != want {
+					t.Errorf("client IPs must be preserved, got %q", out)
+				}
+			},
+		},
+		{
+			name:     "collision with new server host reallocates that client only",
+			oldAddr:  "10.8.0.1/24",
+			newAddr:  "10.8.0.2/24",
+			settings: `{"address":"10.8.0.2/24","clients":[{"email":"a","allowedIPs":["10.8.0.2/32"]},{"email":"b","allowedIPs":["10.8.0.3/32"]}]}`,
+			check: func(t *testing.T, out string) {
 				var s struct {
-					Address string `json:"address"`
 					Clients []struct {
 						Email      string   `json:"email"`
 						AllowedIPs []string `json:"allowedIPs"`
 					} `json:"clients"`
 				}
 				if err := json.Unmarshal([]byte(out), &s); err != nil {
-					t.Fatalf("settings not valid JSON: %v", out)
+					t.Fatalf("json: %v", err)
 				}
-				if s.Address != "10.8.5.1/24" {
-					t.Errorf("address mutated to %q", s.Address)
+				if len(s.Clients) != 2 {
+					t.Fatalf("clients=%d", len(s.Clients))
 				}
-				seen := map[string]struct{}{}
-				for _, c := range s.Clients {
-					if len(c.AllowedIPs) != 1 {
-						t.Fatalf("client %s: expected 1 allowedIP, got %v", c.Email, c.AllowedIPs)
-					}
-					ip := c.AllowedIPs[0]
-					seen[ip] = struct{}{}
-					p, err := netip.ParsePrefix(ip)
-					if err != nil {
-						t.Fatalf("client %s: %q not a prefix", c.Email, ip)
-					}
-					if !mustParsePrefix("10.8.5.0/24").Contains(p.Addr()) {
-						t.Errorf("client %s: %q not in new subnet 10.8.5.0/24", c.Email, ip)
-					}
-					if p.Addr() == netip.MustParseAddr("10.8.5.1") {
-						t.Errorf("client %s: reused the server's .1", c.Email)
-					}
+				if s.Clients[0].AllowedIPs[0] == "10.8.0.2/32" {
+					t.Errorf("colliding client a must be reallocated, still %v", s.Clients[0].AllowedIPs)
 				}
-				if len(seen) != len(s.Clients) {
-					t.Errorf("duplicate allowedIPs after migration: %v", seen)
+				if s.Clients[1].AllowedIPs[0] != "10.8.0.3/32" {
+					t.Errorf("non-colliding client b must stay, got %v", s.Clients[1].AllowedIPs)
 				}
 			},
 		},
@@ -167,8 +162,8 @@ func TestMigrateAwgClientSubnets(t *testing.T) {
 				if s.Clients[1].AllowedIPs[0] != "0.0.0.0/0" {
 					t.Errorf("custom 0.0.0.0/0 must be preserved, got %v", s.Clients[1].AllowedIPs)
 				}
-				if s.Clients[0].AllowedIPs[0] == "10.8.0.2/32" {
-					t.Errorf("old-subnet client was not migrated: %v", s.Clients[0].AllowedIPs)
+				if s.Clients[0].AllowedIPs[0] != "10.8.0.2/32" {
+					t.Errorf("client a IP must be preserved, got %v", s.Clients[0].AllowedIPs)
 				}
 			},
 		},

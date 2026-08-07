@@ -201,6 +201,22 @@ func TestRenderServerConf_IncludesObfuscationAndPeers(t *testing.T) {
 	}
 }
 
+func TestRenderServerConf_V15OmitsS3S4(t *testing.T) {
+	inst := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
+		AwgVersion: "1.5",
+		Jc: 6, Jmin: 50, Jmax: 100, S1: 80, S2: 79, S3: 21, S4: 13,
+		H1: "1", H2: "2", H3: "3", H4: "4",
+	}
+	conf := renderServerConf(inst)
+	if !strings.Contains(conf, "S1 = 80") || !strings.Contains(conf, "S2 = 79") {
+		t.Fatalf("v1.5 must keep S1/S2, got:\n%s", conf)
+	}
+	if strings.Contains(conf, "S3 =") || strings.Contains(conf, "S4 =") {
+		t.Fatalf("v1.5 server conf must omit S3/S4 (client export strips them), got:\n%s", conf)
+	}
+}
+
 func TestRenderServerConf_OmitsCPSWhenEmpty(t *testing.T) {
 	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320}
 	conf := renderServerConf(inst)
@@ -498,17 +514,22 @@ func TestNatRulesFor(t *testing.T) {
 		Address: "10.8.0.1/24", RouteThroughXray: false,
 	}
 	rules := natRulesFor(inst, "eth0")
-	if len(rules) != 3 {
-		t.Fatalf("natRulesFor = %d rules, want 3: %+v", len(rules), rules)
+	if len(rules) != 4 {
+		t.Fatalf("natRulesFor = %d rules, want 4: %+v", len(rules), rules)
 	}
-	masq := strings.Join(rules[0].spec, " ")
-	if rules[0].table != "nat" || rules[0].chain != "POSTROUTING" ||
-		!strings.Contains(masq, "-s 10.8.0.0/24") || !strings.Contains(masq, "-o eth0") ||
+	markSpec := strings.Join(rules[0].spec, " ")
+	if rules[0].table != "mangle" || rules[0].chain != "PREROUTING" ||
+		!strings.Contains(markSpec, "-i awg1") || !strings.Contains(markSpec, "MARK") {
+		t.Errorf("rule[0] must MARK iif awg1, got %s %s %s", rules[0].table, rules[0].chain, markSpec)
+	}
+	masq := strings.Join(rules[1].spec, " ")
+	if rules[1].table != "nat" || rules[1].chain != "POSTROUTING" ||
+		!strings.Contains(masq, "mark") || !strings.Contains(masq, "-o eth0") ||
 		!strings.Contains(masq, "MASQUERADE") {
-		t.Errorf("rule[0] must MASQUERADE 10.8.0.0/24 out eth0, got %s %s %s", rules[0].table, rules[0].chain, masq)
+		t.Errorf("rule[1] must MASQUERADE by mark out eth0, got %s %s %s", rules[1].table, rules[1].chain, masq)
 	}
-	fwdIn := strings.Join(rules[1].spec, " ")
-	fwdOut := strings.Join(rules[2].spec, " ")
+	fwdIn := strings.Join(rules[2].spec, " ")
+	fwdOut := strings.Join(rules[3].spec, " ")
 	if !strings.Contains(fwdIn, "-i awg1") || !strings.Contains(fwdOut, "-o awg1") {
 		t.Errorf("FORWARD rules must cover both awg1 legs, got %q / %q", fwdIn, fwdOut)
 	}

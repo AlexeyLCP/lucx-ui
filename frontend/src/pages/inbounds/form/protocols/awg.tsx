@@ -190,6 +190,40 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
   return (
     <>
       {messageContextHolder}
+
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.awgRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.awgRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <>
+          <Alert
+            type="info"
+            showIcon
+            className="mb-12"
+            title={t('pages.inbounds.form.awgRouteThroughXrayNoReexport')}
+          />
+          <FormField
+            name={['settings', 'outboundTag']}
+            label={t('pages.inbounds.form.awgRouteOutbound')}
+            tooltip={t('pages.inbounds.form.awgRouteOutboundHint')}
+          >
+            <Select
+              showSearch
+              optionFilterProp="label"
+              options={[
+                { value: '', label: t('pages.inbounds.form.awgRouteOutboundPlaceholder') },
+                ...(outboundTags ?? []).map((tag) => ({ value: tag, label: tag })),
+              ]}
+            />
+          </FormField>
+        </>
+      )}
+
       <Form.Item label={t('pages.inbounds.form.awgServerKeys')}>
         <Space.Compact block>
           <FormField name={['settings', 'privateKey']} noStyle>
@@ -508,32 +542,6 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
         </>
       )}
       {/* END LUCX-HOOK */}
-
-      <FormField
-        name={['settings', 'routeThroughXray']}
-        label={t('pages.inbounds.form.awgRouteThroughXray')}
-        tooltip={t('pages.inbounds.form.awgRouteThroughXrayHint')}
-        valueProp="checked"
-      >
-        <Switch />
-      </FormField>
-      {routeThroughXray && (
-        <FormField
-          name={['settings', 'outboundTag']}
-          label={t('pages.inbounds.form.awgRouteOutbound')}
-          tooltip={t('pages.inbounds.form.awgRouteOutboundHint')}
-        >
-          <Select
-            allowClear
-            showSearch
-            placeholder={t('pages.inbounds.form.awgRouteOutboundPlaceholder')}
-            options={[
-              { value: '', label: t('pages.inbounds.form.awgRouteOutboundPlaceholder') },
-              ...(outboundTags ?? []).map((tag) => ({ value: tag, label: tag })),
-            ]}
-          />
-        </FormField>
-      )}
     </>
   );
 }

@@ -703,7 +703,8 @@
         "awgAddress": "Dirección del túnel del servidor",
         "awgAddressHint": "IP/CIDR del túnel del servidor, p. ej. 10.8.0.1/24. Los clientes reciben direcciones de esta subred.",
         "awgSubnetConflict": "Esta subred se solapa con otro inbound AWG — los clientes de este inbound no tendrán tráfico (conflicto de kernel route).",
-        "awgSubnetConflictHint": "La subred {{subnet}} ya está en uso. Cambie Address a una /24 no superpuesta (p. ej. 10.8.1.1/24)."
+        "awgSubnetConflictHint": "La subred {{subnet}} ya está en uso. Cambie Address a una /24 no superpuesta (p. ej. 10.8.1.1/24).",
+        "awgRouteThroughXrayNoReexport": "Server-only: clients keep the same .conf (keys/IP). No re-download needed — just Save."
       },
       "info": {
         "mode": "Modo",

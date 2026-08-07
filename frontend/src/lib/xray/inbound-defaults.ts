@@ -285,6 +285,8 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     // the v1.x awg-quick parser rejects the range form. Defaults are only the
     // initial seed; the generator is the source of truth for the wire format.
     awgVersion: '2',
+    routeThroughXray: true,
+    outboundTag: '',
     clients: [],
   };
 }

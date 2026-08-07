@@ -505,11 +505,16 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	if s.S2 > 0 {
 		fmt.Fprintf(&b, "S2 = %d\n", s.S2)
 	}
-	if s.S3 > 0 {
-		fmt.Fprintf(&b, "S3 = %d\n", s.S3)
-	}
-	if s.S4 > 0 {
-		fmt.Fprintf(&b, "S4 = %d\n", s.S4)
+	ver := awg.NormalizeAWGVersion(s.AwgVersion)
+	// S3/S4 + I1-I5 are AWG v2+; keep the ceiling block aligned with the
+	// server conf and with filterAwgObfuscation so v1.5 must-match holds.
+	if ver != "1.5" {
+		if s.S3 > 0 {
+			fmt.Fprintf(&b, "S3 = %d\n", s.S3)
+		}
+		if s.S4 > 0 {
+			fmt.Fprintf(&b, "S4 = %d\n", s.S4)
+		}
 	}
 	for _, h := range []string{s.H1, s.H2, s.H3, s.H4} {
 		if h != "" {
@@ -524,13 +529,13 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	}
 	var out strings.Builder
 	out.WriteString(block)
-	for _, ip := range []struct{ idx, val string }{
-		{"1", s.I1}, {"2", s.I2}, {"3", s.I3}, {"4", s.I4}, {"5", s.I5},
-	} {
-		if ip.val != "" {
-			// I1-I5 are stored verbatim in CPS tag format ("<b 0xHEX>" or
-			// "<r 2><b 0xHEX>") — write as-is, no double wrapping.
-			fmt.Fprintf(&out, "I%s = %s\n", ip.idx, ip.val)
+	if ver != "1.5" {
+		for _, ip := range []struct{ idx, val string }{
+			{"1", s.I1}, {"2", s.I2}, {"3", s.I3}, {"4", s.I4}, {"5", s.I5},
+		} {
+			if ip.val != "" {
+				fmt.Fprintf(&out, "I%s = %s\n", ip.idx, ip.val)
+			}
 		}
 	}
 	// HeaderProtectionKey (AWG3) is emitted ONLY when awgVersion == "3" and the
@@ -1671,15 +1676,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// stays scoped to its own node (the payload's nodeId is unreliable, often absent).
 	inbound.NodeID = oldInbound.NodeID
 
-	// LUCX-HOOK: AWG — when the operator changes an AWG inbound's tunnel
-	// Address, existing clients' AllowedIPs still advertise the OLD subnet:
-	// awg-quick up then adds a /32 route per peer that either conflicts with
-	// another inbound now owning the old subnet ("RTNETLINK: File exists" →
-	// interface rollback) or routes peers the server no longer serves (no
-	// traffic). Re-allocate every old-subnet client into the new subnet before
-	// the settings are saved, so the runtime reconcile never sees a stale peer.
-	// Pattern 1h. Idempotent: a no-op when the address is unchanged or the
-	// subnet is the same (e.g. only the server's host octet moved).
+	// LUCX-HOOK: AWG — keep client tunnel IPs stable across Address edits
+	// (no re-export). Only rewrites a peer that collides with the server's
+	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
 	if inbound.Protocol == model.AWG && oldInbound.Protocol == model.AWG {
 		inbound.Settings = migrateAwgClientSubnets(
 			awgSettingsAddress(oldInbound.Settings),
