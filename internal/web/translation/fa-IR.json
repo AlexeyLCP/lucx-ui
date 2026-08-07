@@ -1561,7 +1561,10 @@
         "matchAllPreset": "Match all traffic",
         "matchAllApplied": "Preset applied: rule now matches all domains (domain: wildcard). Pick an outbound tag below and save.",
         "noMatcherError": "Rule has no matcher (domain, IP, port, inbound tag, protocol, ...). Xray rejects empty rules and fails to start. Add at least one matcher, or use the 'Match all traffic' preset above.",
-        "noTargetWarning": "Rule has matchers but no outbound tag or balancer tag. It will match traffic but route it to the default outbound. Add a target if this is intentional."
+        "noTargetWarning": "Rule has matchers but no outbound tag or balancer tag. It will match traffic but route it to the default outbound. Add a target if this is intentional.",
+        "clientPickHint": "Pick clients from the list (search works). AWG/WireGuard map to Source IP (tunnel /32); VLESS/VMess/… map to Xray user email. You can still type free values.",
+        "clientPickPlaceholder": "Search client email…",
+        "clientPickAwgNote": "AWG (routeThroughXray) has no Xray email — selected AWG clients are written as Source IPs automatically."
       },
       "outboundForm": {
         "tagDuplicate": "این تگ توسط خروجی دیگری استفاده شده است",

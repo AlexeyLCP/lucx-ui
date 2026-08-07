@@ -51,6 +51,14 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.85 (2026-08-07) — выбор клиентов в routing
+
+**Запрос (VladufQa):** в правилах маршрутизации поле «Пользователь» — список с поиском, включая AWG.
+
+**Факт:** у AWG TUN нет email в Xray (`user` не матчится). Нужен `sourceIP` = tunnel /32.
+
+**Фикс:** RuleFormModal — Select tags+search по `/clients/list`: AWG/WG → sourceIP, VLESS/… → user; подсказка про AWG.
+
 ## Релиз v3.6.0-lucx.84 (2026-08-07)
 
 1. **Client IP stable:** смена Address не переписывает AllowedIPs клиентов (кроме коллизии с IP сервера) — без перекачки .conf.
