@@ -176,8 +176,13 @@ jobs:
         working-directory: frontend
       # unit+components first (no browser). Storybook browser tests run alone —
       # concurrent projects + playwright have hung forever on GHA (2026-08-07).
-      - name: Test (unit + components)
-        run: npx vitest run --project=unit --project=components
+      # Separate invocations: unit (node) + components (jsdom) in one vitest
+      # process leaks react-dom into node workers → "window is not defined".
+      - name: Test (unit)
+        run: npx vitest run --project=unit
+        working-directory: frontend
+      - name: Test (components)
+        run: npx vitest run --project=components
         working-directory: frontend
       - name: Test (storybook)
         run: npx vitest run --project=storybook
