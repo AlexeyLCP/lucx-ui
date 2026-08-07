@@ -53,6 +53,8 @@
 
 ## Релиз v3.6.0-lucx.85 (2026-08-07)
 
+3. **fix:** RuleFormModal infinite re-render (useEffect + unstable deps) hung vitest components/CI.
+
 1. **Routing:** выбор клиентов из списка с поиском — AWG/WG → `sourceIP`, VLESS/… → `user` (VladufQa).
 2. **Dashboard AWG:** убрана «Обновить AWG» (DKMS); вместо неё **Перезапуск AWG** (StopAll+Reconcile). Тултип: число UP + имена ifaces.
 

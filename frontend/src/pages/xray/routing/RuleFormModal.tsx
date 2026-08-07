@@ -149,7 +149,8 @@ export default function RuleFormModal({
   const [clientPick, setClientPick] = useState<string[]>([]);
 
   const { data: inboundOptions } = useInboundOptions();
-  const remarkByTag = useMemo(() => buildRemarkByTag(inboundOptions || []), [inboundOptions]);
+  const inboundList = useMemo(() => inboundOptions ?? [], [inboundOptions]);
+  const remarkByTag = useMemo(() => buildRemarkByTag(inboundList), [inboundList]);
 
   const { data: clients = [] } = useQuery({
     queryKey: ['routing', 'clientPickList'],
@@ -162,8 +163,8 @@ export default function RuleFormModal({
   });
 
   const clientOptions = useMemo(
-    () => buildClientOptions(clients, inboundOptions || []),
-    [clients, inboundOptions],
+    () => buildClientOptions(clients, inboundList),
+    [clients, inboundList],
   );
 
   const clientOptByValue = useMemo(() => {
@@ -194,26 +195,16 @@ export default function RuleFormModal({
         balancerTag: rule.balancerTag || '',
       });
       const pick: string[] = [];
-      for (const u of csv(user)) {
-        const key = `user:${u}`;
-        if (clientOptByValue.has(key)) pick.push(key);
-        else pick.push(u);
-      }
+      for (const u of csv(user)) pick.push(`user:${u}`);
       for (const ip of csv(sourceIP)) {
-        const key = `src:${ip}`;
-        if (clientOptByValue.has(key)) pick.push(key);
-        else if (clientOptByValue.has(`src:${ip.includes('/') ? ip : `${ip}/32`}`)) {
-          pick.push(`src:${ip.includes('/') ? ip : `${ip}/32`}`);
-        } else {
-          pick.push(ip);
-        }
+        pick.push(ip.includes('/') || ip.includes(':') ? `src:${ip}` : `src:${ip}/32`);
       }
       setClientPick(pick);
     } else {
       methods.reset(initialForm());
       setClientPick([]);
     }
-  }, [open, rule, methods, clientOptByValue]);
+  }, [open, rule]); // methods intentionally omitted — unstable identity hangs render
 
   const attrs = useWatch({ control: methods.control, name: 'attrs' }) ?? [];
 
