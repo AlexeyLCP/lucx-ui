@@ -46,6 +46,8 @@ export default defineConfig({
           name: 'storybook',
           testTimeout: 30_000,
           hookTimeout: 60_000,
+          fileParallelism: false,
+          maxWorkers: 1,
           browser: {
             enabled: true,
             headless: true,
