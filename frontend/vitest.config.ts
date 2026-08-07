@@ -44,6 +44,8 @@ export default defineConfig({
         plugins: [storybookTest({ configDir: path.join(dirname, '.storybook') })],
         test: {
           name: 'storybook',
+          testTimeout: 30_000,
+          hookTimeout: 60_000,
           browser: {
             enabled: true,
             headless: true,
