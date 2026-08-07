@@ -81,6 +81,12 @@ export default function GeodataSection({ active, onBusy, onClose }: GeodataSecti
       for (const tag of subTags) {
         if (typeof tag === 'string' && tag) tags.add(tag);
       }
+      // LUCX-HOOK: AWG outbound tags
+      const awgTags = Array.isArray(payload.awgOutboundTags) ? payload.awgOutboundTags : [];
+      for (const tag of awgTags) {
+        if (typeof tag === 'string' && tag) tags.add(tag);
+      }
+      // END LUCX-HOOK
       setOutboundTags([...tags]);
     } finally {
       setLoading(false);

@@ -24,6 +24,11 @@ export function useOutboundTags(opts?: { excludeBlackhole?: boolean }) {
       for (const t of data?.subscriptionOutboundTags ?? []) {
         if (t) tags.add(t);
       }
+      // LUCX-HOOK: AWG outbound tags (runtime-injected freedom)
+      for (const t of data?.awgOutboundTags ?? []) {
+        if (t) tags.add(t);
+      }
+      // END LUCX-HOOK
       // Balancers are valid routing targets too — injectMtprotoEgress emits a
       // balancerTag rule when the chosen tag names a balancer.
       const balancers = (data?.xraySetting?.routing as { balancers?: Array<{ tag?: string }> } | undefined)?.balancers;
@@ -60,6 +65,11 @@ export function useOutboundTagGroups(opts?: { excludeBlackhole?: boolean }) {
       for (const t of data?.subscriptionOutboundTags ?? []) {
         if (t) outbounds.add(t);
       }
+      // LUCX-HOOK: AWG outbound tags
+      for (const t of data?.awgOutboundTags ?? []) {
+        if (t) outbounds.add(t);
+      }
+      // END LUCX-HOOK
       const balancers: string[] = [];
       const bal = (data?.xraySetting?.routing as { balancers?: Array<{ tag?: string }> } | undefined)?.balancers;
       for (const b of bal ?? []) {

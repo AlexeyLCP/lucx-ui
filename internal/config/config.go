@@ -28,7 +28,7 @@ var name string
 // .github/workflows/release.yml), so the binary always matches its tag even if
 // this constant was not bumped. Keep it in sync anyway: the release workflow
 // fails the build when the tag and this default diverge.
-var lucxVersion = "lucx.76"
+var lucxVersion = "lucx.77"
 
 // buildCommit and buildDate are injected at build time via `-ldflags -X` for
 // CI per-commit (dev channel) builds; see .github/workflows/release.yml. They

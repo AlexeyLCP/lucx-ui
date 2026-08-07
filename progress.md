@@ -51,6 +51,16 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.77 (2026-08-07) — Panel outbound picker видит AWG outbounds
+
+**Баг (VladufQa):** Settings → Panel outbound — «ничего кроме direct не выбирается», хотя 2 AWG-outbound’а живые. Бот TG timeout → нужен egress через awgo; picker не показывал теги.
+
+**Корень:** API уже отдаёт `awgOutboundTags` (как `subscriptionOutboundTags`), Routing/Balancers их подмешивают, а **GeneralTab** (panel egress picker) + `useOutboundTags` + GeodataSection — только template + subscription. AWG-теги терялись.
+
+**Фикс:** подмешать `payload.awgOutboundTags` / `data.awgOutboundTags` во все три picker’а. Backend `injectPanelEgress` уже после `injectAwgOutbounds` — AWG-тег валиден как target.
+
+**Файлы:** GeneralTab.tsx, useOutboundTags.ts, GeodataSection.tsx, config.go (lucx.77).
+
 ## Релиз v3.6.0-lucx.76 (2026-08-07) — CI-fix после lucx.75 (gofumpt + js-yaml audit)
 
 - gofumpt: `model.go`, `client_instance.go` (alignment после KeepAliveValue/AwgTimer)

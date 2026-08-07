@@ -73,10 +73,12 @@ export default function GeneralTab({ allSetting, updateSetting }: GeneralTabProp
     let cancelled = false;
     (async () => {
       // Candidates for the panel egress picker: template outbounds plus
-      // subscription-derived outbounds, and routing balancers. The panel egress
-      // is injected as a routing rule, so a balancer tag is a valid target
-      // (it load-balances the panel's own traffic). The geodata picker, by
-      // contrast, dials a forced tag and can only use a concrete outbound.
+      // subscription-derived and AWG outbounds, and routing balancers. The
+      // panel egress is injected as a routing rule, so a balancer tag is a
+      // valid target (it load-balances the panel's own traffic). The geodata
+      // picker, by contrast, dials a forced tag and can only use a concrete
+      // outbound. AWG tags come from payload.awgOutboundTags (runtime-injected
+      // freedom outbounds, same shape as subscriptionOutboundTags).
       const msg = await HttpUtil.post('/panel/api/xray/', undefined, { silent: true }) as ApiMsg<string>;
       if (cancelled || !msg?.success || typeof msg.obj !== 'string') return;
       try {
@@ -95,6 +97,12 @@ export default function GeneralTab({ allSetting, updateSetting }: GeneralTabProp
         for (const tag of subTags) {
           if (typeof tag === 'string' && tag) tags.add(tag);
         }
+        // LUCX-HOOK: AWG outbound tags (awgo-N freedom) for panel egress picker
+        const awgTags = Array.isArray(payload.awgOutboundTags) ? payload.awgOutboundTags : [];
+        for (const tag of awgTags) {
+          if (typeof tag === 'string' && tag) tags.add(tag);
+        }
+        // END LUCX-HOOK
         const balancerTags: string[] = [];
         const routing = (template.routing || {}) as Record<string, unknown>;
         const balancers = Array.isArray(routing.balancers) ? routing.balancers : [];
