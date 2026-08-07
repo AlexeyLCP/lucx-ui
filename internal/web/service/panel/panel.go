@@ -138,12 +138,17 @@ func (s *PanelService) GetUpdateInfo() (*PanelUpdateInfo, error) {
 		return nil, fmt.Errorf("latest panel release tag is empty")
 	}
 	current := config.GetBaseVersion()
+	available := isNewerVersion(latest, current)
+	notes := clampReleaseNotes(release.Body)
+	if available && notes == "" {
+		notes = clampReleaseNotes(fetchCompareNotes(current, latest))
+	}
 	return &PanelUpdateInfo{
 		Channel:         "stable",
 		CurrentVersion:  current,
 		LatestVersion:   latest,
-		UpdateAvailable: isNewerVersion(latest, current),
-		ReleaseNotes:    clampReleaseNotes(release.Body),
+		UpdateAvailable: available,
+		ReleaseNotes:    notes,
 	}, nil
 }
 
@@ -154,6 +159,74 @@ func clampReleaseNotes(body string) string {
 		return s
 	}
 	return s[:max] + "\n…"
+}
+
+func ensureVTag(version string) string {
+	v := strings.TrimSpace(version)
+	if v == "" {
+		return ""
+	}
+	if strings.HasPrefix(v, "v") || strings.HasPrefix(v, "V") {
+		return v
+	}
+	return "v" + v
+}
+
+// fetchCompareNotes builds a short changelog from GitHub compare when the
+// release body is empty (historical LucX tags). Best-effort; empty on error.
+func fetchCompareNotes(currentTag, latestTag string) string {
+	cur := ensureVTag(currentTag)
+	lat := ensureVTag(latestTag)
+	if cur == "" || lat == "" || cur == lat {
+		return ""
+	}
+	url := fmt.Sprintf("https://api.github.com/repos/AlexeyLCP/lucx-ui/compare/%s...%s", cur, lat)
+	client := (&service.SettingService{}).NewProxiedHTTPClient(10 * time.Second)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return ""
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return ""
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return ""
+	}
+	var payload struct {
+		Commits []struct {
+			Commit struct {
+				Message string `json:"message"`
+			} `json:"commit"`
+			SHA string `json:"sha"`
+		} `json:"commits"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&payload); err != nil {
+		return ""
+	}
+	var b strings.Builder
+	const maxCommits = 40
+	n := len(payload.Commits)
+	start := 0
+	if n > maxCommits {
+		start = n - maxCommits
+	}
+	for _, c := range payload.Commits[start:] {
+		msg := strings.TrimSpace(c.Commit.Message)
+		if msg == "" {
+			continue
+		}
+		if i := strings.IndexByte(msg, '\n'); i >= 0 {
+			msg = strings.TrimSpace(msg[:i])
+		}
+		short := c.SHA
+		if len(short) > 7 {
+			short = short[:7]
+		}
+		fmt.Fprintf(&b, "- %s (%s)\n", msg, short)
+	}
+	return b.String()
 }
 
 // StartUpdate starts the official updater against the latest stable release.
