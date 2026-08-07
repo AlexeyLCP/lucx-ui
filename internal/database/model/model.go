@@ -936,20 +936,20 @@ type Client struct {
 	// LUCX-HOOK: KeepAliveValue (number or AWG3 range string)
 	KeepAlive KeepAliveValue `json:"keepAlive,omitempty"`
 	// END LUCX-HOOK
-	Secret string `json:"secret,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
-	AdTag        string         `json:"adTag,omitempty" example:"0123456789abcdef0123456789abcdef"`
-	Email        string         `json:"email"`                        // Client email identifier
-	LimitIP      int            `json:"limitIp"`                      // IP limit for this client
-	TotalGB      int64          `json:"totalGB" form:"totalGB"`       // Total traffic limit in GB
-	ExpiryTime   int64          `json:"expiryTime" form:"expiryTime"` // Expiration timestamp
-	Enable       bool           `json:"enable" form:"enable"`         // Whether the client is enabled
-	TgID         int64          `json:"tgId" form:"tgId"`             // Telegram user ID for notifications
-	SubID        string         `json:"subId" form:"subId"`           // Subscription identifier
-	Group        string         `json:"group,omitempty" form:"group"` // Logical grouping label
-	Comment      string         `json:"comment" form:"comment"`       // Client comment
-	Reset        int            `json:"reset" form:"reset"`           // Reset period in days
-	CreatedAt    int64          `json:"created_at,omitempty"`         // Creation timestamp
-	UpdatedAt    int64          `json:"updated_at,omitempty"`         // Last update timestamp
+	Secret     string `json:"secret,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
+	AdTag      string `json:"adTag,omitempty" example:"0123456789abcdef0123456789abcdef"`
+	Email      string `json:"email"`                        // Client email identifier
+	LimitIP    int    `json:"limitIp"`                      // IP limit for this client
+	TotalGB    int64  `json:"totalGB" form:"totalGB"`       // Total traffic limit in GB
+	ExpiryTime int64  `json:"expiryTime" form:"expiryTime"` // Expiration timestamp
+	Enable     bool   `json:"enable" form:"enable"`         // Whether the client is enabled
+	TgID       int64  `json:"tgId" form:"tgId"`             // Telegram user ID for notifications
+	SubID      string `json:"subId" form:"subId"`           // Subscription identifier
+	Group      string `json:"group,omitempty" form:"group"` // Logical grouping label
+	Comment    string `json:"comment" form:"comment"`       // Client comment
+	Reset      int    `json:"reset" form:"reset"`           // Reset period in days
+	CreatedAt  int64  `json:"created_at,omitempty"`         // Creation timestamp
+	UpdatedAt  int64  `json:"updated_at,omitempty"`         // Last update timestamp
 }
 
 type ClientRecord struct {
@@ -969,18 +969,18 @@ type ClientRecord struct {
 	// LUCX-HOOK: string column so AWG3 ranges ("15-25") round-trip; legacy ints coerce via SQLite/PG text
 	KeepAlive KeepAliveValue `json:"keepAlive" gorm:"column:wg_keep_alive;type:text;default:'0'"`
 	// END LUCX-HOOK
-	Secret string `json:"secret" gorm:"column:secret"`
-	AdTag        string `json:"adTag" gorm:"column:ad_tag;default:''"`
-	LimitIP      int    `json:"limitIp" gorm:"column:limit_ip"`
-	TotalGB      int64  `json:"totalGB" gorm:"column:total_gb"`
-	ExpiryTime   int64  `json:"expiryTime" gorm:"column:expiry_time"`
-	Enable       bool   `json:"enable" gorm:"default:true"`
-	TgID         int64  `json:"tgId" gorm:"column:tg_id;index:idx_clients_tg_id"`
-	Group        string `json:"group" gorm:"column:group_name;default:'';index:idx_client_record_group"`
-	Comment      string `json:"comment"`
-	Reset        int    `json:"reset" gorm:"default:0"`
-	CreatedAt    int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
-	UpdatedAt    int64  `json:"updatedAt" gorm:"autoUpdateTime:milli"`
+	Secret     string `json:"secret" gorm:"column:secret"`
+	AdTag      string `json:"adTag" gorm:"column:ad_tag;default:''"`
+	LimitIP    int    `json:"limitIp" gorm:"column:limit_ip"`
+	TotalGB    int64  `json:"totalGB" gorm:"column:total_gb"`
+	ExpiryTime int64  `json:"expiryTime" gorm:"column:expiry_time"`
+	Enable     bool   `json:"enable" gorm:"default:true"`
+	TgID       int64  `json:"tgId" gorm:"column:tg_id;index:idx_clients_tg_id"`
+	Group      string `json:"group" gorm:"column:group_name;default:'';index:idx_client_record_group"`
+	Comment    string `json:"comment"`
+	Reset      int    `json:"reset" gorm:"default:0"`
+	CreatedAt  int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+	UpdatedAt  int64  `json:"updatedAt" gorm:"autoUpdateTime:milli"`
 }
 
 func (ClientRecord) TableName() string { return "clients" }

@@ -36,25 +36,25 @@ type ClientSettings struct {
 	// Keepalive is PersistentKeepalive (peer-level). AWG3 accepts single or
 	// range ("25" / "15-25") via u16_range_t. Empty/"0" = off. AwgTimer so a
 	// provider .conf range survives ParseConf (mirrors device timers, lucx.74).
-	Keepalive AwgTimer `json:"keepalive"`
-	AllowedIPs string `json:"allowedIPs"`
-	DNS        string `json:"dns"` // optional, only written if non-empty
-	Jc         int    `json:"jc"`
-	Jmin       int    `json:"jmin"`
-	Jmax       int    `json:"jmax"`
-	S1         int    `json:"s1"`
-	S2         int    `json:"s2"`
-	S3         int    `json:"s3"`
-	S4         int    `json:"s4"`
-	H1         string `json:"h1"`
-	H2         string `json:"h2"`
-	H3         string `json:"h3"`
-	H4         string `json:"h4"`
-	I1         string `json:"i1"`
-	I2         string `json:"i2"`
-	I3         string `json:"i3"`
-	I4         string `json:"i4"`
-	I5         string `json:"i5"`
+	Keepalive  AwgTimer `json:"keepalive"`
+	AllowedIPs string   `json:"allowedIPs"`
+	DNS        string   `json:"dns"` // optional, only written if non-empty
+	Jc         int      `json:"jc"`
+	Jmin       int      `json:"jmin"`
+	Jmax       int      `json:"jmax"`
+	S1         int      `json:"s1"`
+	S2         int      `json:"s2"`
+	S3         int      `json:"s3"`
+	S4         int      `json:"s4"`
+	H1         string   `json:"h1"`
+	H2         string   `json:"h2"`
+	H3         string   `json:"h3"`
+	H4         string   `json:"h4"`
+	I1         string   `json:"i1"`
+	I2         string   `json:"i2"`
+	I3         string   `json:"i3"`
+	I4         string   `json:"i4"`
+	I5         string   `json:"i5"`
 	// AWG3 (AmneziaWG 3) header protection key — 32-byte ChaCha20, base64.
 	// Written to the .conf only when AwgVersion == "3" (the outbound opts into
 	// AWG3); for older versions it stays empty. Upstream kernel v3.0.20260731 +

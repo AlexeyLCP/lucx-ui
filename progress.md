@@ -51,6 +51,12 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.76 (2026-08-07) — CI-fix после lucx.75 (gofumpt + js-yaml audit)
+
+- gofumpt: `model.go`, `client_instance.go` (alignment после KeepAliveValue/AwgTimer)
+- frontend audit: override `js-yaml` → `^4.3.1` (CVE-2026-59870, swagger-ui-react)
+- lucx.75 stable-релиз уже опубликован и рабочий; 76 = зелёный CI + тот же функционал
+
 ## Релиз v3.6.0-lucx.75 (2026-08-07) — PersistentKeepalive range, TG .conf, ссылка на Telegram
 
 **1. PersistentKeepalive (AWG3 range, default 0):**
