@@ -51,6 +51,14 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.79 (2026-08-07) — TG .conf Endpoint: не OS hostname
+
+**Жалоба:** бот писал `Endpoint = ruvds-dczf5:57092` вместо публичного IP/домена как в панели.
+
+**Корень:** `awgEndpointHost` fallback на `os.Hostname()` после пустых sub/web domain.
+
+**Фикс:** `ResolveInboundShareHost` (как panel/sub: strategy → node/listen → subDomain/webDomain → **public IPv4/IPv6** via GetStatus). Hostname больше не используется. IPv6 в Endpoint в скобках.
+
 ## Релиз v3.6.0-lucx.78 (2026-08-07) — UI PersistentKeepalive для AWG/WG клиентов
 
 **Жалоба:** «поля PersistentKeepalive нет в настройках awg3 / парсинге оутбаундов / выгруженном конфиге».

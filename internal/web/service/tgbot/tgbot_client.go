@@ -448,7 +448,7 @@ func (t *Tgbot) sendClientAwgConf(chatId int64, email string, inbound *model.Inb
 		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\nclient not found")
 		return
 	}
-	host := t.awgEndpointHost()
+	host := t.awgEndpointHost(inbound)
 	conf, err := service.BuildAwgClientConf(inbound, client, host)
 	if err != nil {
 		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
@@ -476,16 +476,30 @@ func (t *Tgbot) sendClientAwgConf(chatId int64, email string, inbound *model.Inb
 	}
 }
 
-// awgEndpointHost picks the host written into Endpoint= of a bot-exported .conf.
-func (t *Tgbot) awgEndpointHost() string {
+// awgEndpointHost picks Endpoint= host for bot-exported .conf — same order as
+// panel share/QR (share strategy → node/listen → sub/web domain → public IP).
+// Never uses OS hostname (e.g. ruvds-xxx): that is not client-reachable.
+func (t *Tgbot) awgEndpointHost(inbound *model.Inbound) string {
+	fallback := ""
 	if d, err := t.settingService.GetSubDomain(); err == nil && strings.TrimSpace(d) != "" {
-		return strings.TrimSpace(d)
+		fallback = strings.TrimSpace(d)
+	} else if d, err := t.settingService.GetWebDomain(); err == nil && strings.TrimSpace(d) != "" {
+		fallback = strings.TrimSpace(d)
 	}
-	if d, err := t.settingService.GetWebDomain(); err == nil && strings.TrimSpace(d) != "" {
-		return strings.TrimSpace(d)
+	if fallback == "" {
+		st := t.serverService.GetStatus(t.lastStatus)
+		if st != nil {
+			t.lastStatus = st
+			if ip := strings.TrimSpace(st.PublicIP.IPv4); ip != "" && ip != "N/A" {
+				fallback = ip
+			} else if ip := strings.TrimSpace(st.PublicIP.IPv6); ip != "" && ip != "N/A" {
+				fallback = ip
+			}
+		}
 	}
-	if hostname != "" {
-		return hostname
+	nodeAddr := service.NodeAddressForInbound(inbound)
+	if host := service.ResolveInboundShareHost(inbound, nodeAddr, fallback); host != "" {
+		return host
 	}
 	return "127.0.0.1"
 }

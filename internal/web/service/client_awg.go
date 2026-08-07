@@ -9,9 +9,11 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/netip"
 	"strings"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
@@ -330,6 +332,80 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 	return nil
 }
 
+// ResolveInboundShareHost picks the host for client Endpoint=/share links,
+// mirroring sub.SubService.resolveInboundAddress and frontend resolveShareHost.
+// Order depends on inbound.ShareAddrStrategy (node/listen/custom). fallback is
+// the panel public host (sub/web domain or public IP) — never an OS hostname.
+// nodeAddr is the hosting node address when inbound is node-managed ("" local).
+func ResolveInboundShareHost(inbound *model.Inbound, nodeAddr, fallback string) string {
+	var listenAddr string
+	if inbound != nil {
+		listen := strings.TrimSpace(inbound.Listen)
+		if listen != "" && listen[0] != '@' && listen[0] != '/' && isShareableListen(listen) {
+			listenAddr = listen
+		}
+	}
+	nodeAddr = strings.TrimSpace(nodeAddr)
+	fallback = strings.TrimSpace(fallback)
+	custom := ""
+	strategy := "node"
+	if inbound != nil {
+		custom = strings.TrimSpace(inbound.ShareAddr)
+		if s := strings.TrimSpace(inbound.ShareAddrStrategy); s != "" {
+			strategy = s
+		}
+	}
+	var candidates []string
+	switch strategy {
+	case "listen":
+		candidates = []string{listenAddr, nodeAddr, fallback}
+	case "custom":
+		candidates = []string{custom, nodeAddr, listenAddr, fallback}
+	default:
+		candidates = []string{nodeAddr, listenAddr, fallback}
+	}
+	for _, c := range candidates {
+		if c != "" {
+			return c
+		}
+	}
+	return ""
+}
+
+// isShareableListen reports whether a bind address is usable as a client
+// Endpoint host (not loopback / unspecified / unix socket).
+func isShareableListen(host string) bool {
+	if host == "" {
+		return false
+	}
+	if ip := net.ParseIP(strings.Trim(host, "[]")); ip != nil {
+		return !ip.IsLoopback() && !ip.IsUnspecified()
+	}
+	return true
+}
+
+// formatEndpointHost returns host suitable for Endpoint = host:port (IPv6 bracketed).
+func formatEndpointHost(host string) string {
+	host = strings.TrimSpace(host)
+	host = strings.Trim(host, "[]")
+	if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+		return "[" + host + "]"
+	}
+	return host
+}
+
+// NodeAddressForInbound returns the node Address when inbound is node-managed.
+func NodeAddressForInbound(inbound *model.Inbound) string {
+	if inbound == nil || inbound.NodeID == nil {
+		return ""
+	}
+	var n model.Node
+	if err := database.GetDB().Select("address").First(&n, *inbound.NodeID).Error; err != nil {
+		return ""
+	}
+	return strings.TrimSpace(n.Address)
+}
+
 // BuildAwgClientConf renders a full AmneziaWG client .conf for export (panel QR
 // path / Telegram bot). Mirrors frontend buildAwgClientConfig: [Interface]
 // with client keypair, tunnel address, DNS, MTU, obfuscation block from
@@ -376,7 +452,7 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	if mtu <= 0 {
 		mtu = 1320
 	}
-	host := strings.TrimSpace(endpointHost)
+	host := formatEndpointHost(endpointHost)
 	if host == "" {
 		host = "127.0.0.1"
 	}
