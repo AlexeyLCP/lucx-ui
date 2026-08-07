@@ -96,6 +96,7 @@ type Status struct {
 		ModuleLoaded bool         `json:"moduleLoaded"`
 		ModuleAwg3   bool         `json:"moduleAwg3"`
 		Interfaces   int          `json:"interfaces"`
+		Ifnames      []string     `json:"ifnames,omitempty"`
 	} `json:"awg"`
 	// END LUCX-HOOK
 	PanelVersion string    `json:"panelVersion"`

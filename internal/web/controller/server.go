@@ -68,8 +68,8 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.POST("/stopXrayService", a.stopXrayService)
 	g.POST("/restartXrayService", a.restartXrayService)
 	g.POST("/installXray/:version", a.installXray)
-	// LUCX-HOOK: rebuild AmneziaWG kernel module from dashboard
-	g.POST("/updateAwgModule", a.updateAwgModule)
+	// LUCX-HOOK: restart AWG kernel interfaces (StopAll + Reconcile)
+	g.POST("/restartAwg", a.restartAwg)
 	// END LUCX-HOOK
 	g.POST("/updatePanel", a.updatePanel)
 	g.POST("/setUpdateChannel", a.setUpdateChannel)
@@ -302,10 +302,10 @@ func (a *ServerController) restartXrayService(c *gin.Context) {
 	)
 }
 
-// LUCX-HOOK: updateAwgModule rebuilds the AmneziaWG kernel module (DKMS).
-func (a *ServerController) updateAwgModule(c *gin.Context) {
-	err := a.serverService.UpdateAwgModule()
-	jsonMsg(c, I18nWeb(c, "pages.index.awgUpdateModulePopover"), err)
+// LUCX-HOOK: restartAwg stops and re-ups managed AWG interfaces.
+func (a *ServerController) restartAwg(c *gin.Context) {
+	err := a.serverService.RestartAwg()
+	jsonMsg(c, I18nWeb(c, "pages.index.awgRestartPopover"), err)
 }
 
 // END LUCX-HOOK

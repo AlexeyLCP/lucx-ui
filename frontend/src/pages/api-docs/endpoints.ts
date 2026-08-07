@@ -545,8 +545,8 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'POST',
-        path: '/panel/api/server/updateAwgModule',
-        summary: 'Rebuild AmneziaWG kernel module (install-awg-module.sh --force-rebuild).',
+        path: '/panel/api/server/restartAwg',
+        summary: 'Stop and re-up managed AWG kernel interfaces (inbounds + outbounds).',
       },
       {
         method: 'POST',

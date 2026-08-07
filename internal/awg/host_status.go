@@ -18,10 +18,11 @@ import (
 
 // HostStatus is the dashboard-level AWG snapshot (module + running ifaces).
 type HostStatus struct {
-	ModuleLoaded bool   `json:"moduleLoaded"`
-	ModuleAwg3   bool   `json:"moduleAwg3"`
-	Version      string `json:"version"`
-	Interfaces   int    `json:"interfaces"`
+	ModuleLoaded bool     `json:"moduleLoaded"`
+	ModuleAwg3   bool     `json:"moduleAwg3"`
+	Version      string   `json:"version"`
+	Interfaces   int      `json:"interfaces"`
+	Ifnames      []string `json:"ifnames,omitempty"`
 }
 
 var awgToolsVersionRe = regexp.MustCompile(`(?i)v?(\d+\.\d+(?:\.\d+)?(?:\.\d+)?)`)
@@ -38,21 +39,40 @@ func CollectHostStatus() HostStatus {
 	}
 	hs.ModuleAwg3 = ModuleSupportsAwg3()
 	hs.Version = toolsVersion()
-	hs.Interfaces = GetManager().RunningInterfaceCount()
+	mgr := GetManager()
+	hs.Ifnames = mgr.RunningIfnames()
+	hs.Interfaces = len(hs.Ifnames)
 	return hs
 }
 
 // RunningInterfaceCount returns how many inbound awgN ifaces are up.
 func (m *Manager) RunningInterfaceCount() int {
+	return len(m.RunningIfnames())
+}
+
+// RunningIfnames returns sorted names of UP inbound awgN interfaces.
+func (m *Manager) RunningIfnames() []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	n := 0
+	names := make([]string, 0, len(m.procs))
 	for _, cur := range m.procs {
 		if cur != nil && cur.proc != nil && cur.proc.IsRunning() {
-			n++
+			if cur.ifname != "" {
+				names = append(names, cur.ifname)
+			} else {
+				names = append(names, "?")
+			}
 		}
 	}
-	return n
+	// simple insertion order is fine for small N; sort for stable tooltip
+	for i := 0; i < len(names); i++ {
+		for j := i + 1; j < len(names); j++ {
+			if names[j] < names[i] {
+				names[i], names[j] = names[j], names[i]
+			}
+		}
+	}
+	return names
 }
 
 func toolsVersion() string {

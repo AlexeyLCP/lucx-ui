@@ -51,13 +51,10 @@
 
 ## Что сделано
 
-## Релиз v3.6.0-lucx.85 (2026-08-07) — выбор клиентов в routing
+## Релиз v3.6.0-lucx.85 (2026-08-07)
 
-**Запрос (VladufQa):** в правилах маршрутизации поле «Пользователь» — список с поиском, включая AWG.
-
-**Факт:** у AWG TUN нет email в Xray (`user` не матчится). Нужен `sourceIP` = tunnel /32.
-
-**Фикс:** RuleFormModal — Select tags+search по `/clients/list`: AWG/WG → sourceIP, VLESS/… → user; подсказка про AWG.
+1. **Routing:** выбор клиентов из списка с поиском — AWG/WG → `sourceIP`, VLESS/… → `user` (VladufQa).
+2. **Dashboard AWG:** убрана «Обновить AWG» (DKMS); вместо неё **Перезапуск AWG** (StopAll+Reconcile). Тултип: число UP + имена ifaces.
 
 ## Релиз v3.6.0-lucx.84 (2026-08-07)
 

@@ -69,6 +69,7 @@ export interface AwgInfo {
   moduleLoaded: boolean;
   moduleAwg3: boolean;
   interfaces: number;
+  ifnames?: string[];
 }
 
 interface StatusInput {
@@ -118,6 +119,7 @@ export class Status {
     moduleLoaded: false,
     moduleAwg3: false,
     interfaces: 0,
+    ifnames: [],
   };
 
   constructor(data?: StatusInput | null) {

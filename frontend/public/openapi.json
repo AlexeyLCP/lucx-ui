@@ -5679,13 +5679,13 @@
         }
       }
     },
-    "/panel/api/server/updateAwgModule": {
+    "/panel/api/server/restartAwg": {
       "post": {
         "tags": [
           "Server"
         ],
-        "summary": "Rebuild AmneziaWG kernel module (install-awg-module.sh --force-rebuild).",
-        "operationId": "post_panel_api_server_updateAwgModule",
+        "summary": "Stop and re-up managed AWG kernel interfaces (inbounds + outbounds).",
+        "operationId": "post_panel_api_server_restartAwg",
         "responses": {
           "200": {
             "description": "Successful response",

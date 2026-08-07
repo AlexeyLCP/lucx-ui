@@ -7,15 +7,12 @@
 package service
 
 import (
-	"context"
 	"fmt"
-	"os"
-	"os/exec"
-	"path/filepath"
+	"strconv"
 	"sync"
-	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
@@ -28,6 +25,7 @@ func fillAwgHostStatus(status *Status) {
 	status.Awg.ModuleAwg3 = hs.ModuleAwg3
 	status.Awg.Version = hs.Version
 	status.Awg.Interfaces = hs.Interfaces
+	status.Awg.Ifnames = hs.Ifnames
 	switch {
 	case !hs.ModuleLoaded:
 		status.Awg.State = Error
@@ -42,64 +40,62 @@ func fillAwgHostStatus(status *Status) {
 }
 
 var (
-	awgUpdateMu      sync.Mutex
-	awgUpdateRunning bool
+	awgRestartMu      sync.Mutex
+	awgRestartRunning bool
 )
 
-// UpdateAwgModule runs bin/install-awg-module.sh --force-rebuild. Blocks until
-// the script exits (can take several minutes). Concurrent calls are rejected.
-func (s *ServerService) UpdateAwgModule() error {
-	awgUpdateMu.Lock()
-	if awgUpdateRunning {
-		awgUpdateMu.Unlock()
-		return fmt.Errorf("AWG module update already in progress")
+// RestartAwg stops all managed AWG interfaces and immediately reconciles them
+// (inbounds + outbounds) — same as the next AwgJob tick, but on demand.
+func (s *ServerService) RestartAwg() error {
+	awgRestartMu.Lock()
+	if awgRestartRunning {
+		awgRestartMu.Unlock()
+		return fmt.Errorf("AWG restart already in progress")
 	}
-	awgUpdateRunning = true
-	awgUpdateMu.Unlock()
+	awgRestartRunning = true
+	awgRestartMu.Unlock()
 	defer func() {
-		awgUpdateMu.Lock()
-		awgUpdateRunning = false
-		awgUpdateMu.Unlock()
+		awgRestartMu.Lock()
+		awgRestartRunning = false
+		awgRestartMu.Unlock()
 	}()
 
-	script, err := resolveAwgInstallScript()
+	inbounds, err := s.inboundService.GetAllInbounds()
 	if err != nil {
-		return err
+		return fmt.Errorf("list inbounds: %w", err)
 	}
-	// Best-effort: drop ifaces so rmmod can succeed during rebuild.
-	awg.GetManager().StopAll()
-
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, "bash", script, "--force-rebuild")
-	cmd.Dir = filepath.Dir(script)
-	out, err := cmd.CombinedOutput()
-	if len(out) > 0 {
-		logger.Infof("awg module update:\n%s", string(out))
-	}
-	if err != nil {
-		return fmt.Errorf("install-awg-module.sh failed: %w", err)
-	}
-	return nil
-}
-
-func resolveAwgInstallScript() (string, error) {
-	candidates := []string{}
-	if exe, err := os.Executable(); err == nil {
-		dir := filepath.Dir(exe)
-		candidates = append(candidates,
-			filepath.Join(dir, "bin", "install-awg-module.sh"),
-			filepath.Join(dir, "install-awg-module.sh"),
-		)
-	}
-	candidates = append(candidates,
-		"/usr/local/x-ui/bin/install-awg-module.sh",
-		"bin/install-awg-module.sh",
-	)
-	for _, p := range candidates {
-		if st, err := os.Stat(p); err == nil && !st.IsDir() {
-			return p, nil
+	var desired []awg.Instance
+	for _, ib := range inbounds {
+		if ib.Protocol != model.AWG || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		if inst, ok := awg.InstanceFromInbound(ib); ok {
+			desired = append(desired, inst)
 		}
 	}
-	return "", fmt.Errorf("install-awg-module.sh not found")
+
+	mgr := awg.GetManager()
+	mgr.StopAll()
+	mgr.Reconcile(desired)
+
+	// Outbound clients (awgo-N)
+	svc := &AwgOutboundService{}
+	outbounds, oerr := svc.GetOutbounds()
+	if oerr != nil {
+		logger.Warning("awg restart: list outbounds:", oerr)
+		return nil
+	}
+	for _, o := range outbounds {
+		ifname := "awgo-" + strconv.Itoa(o.Id)
+		if !o.Enable {
+			_ = mgr.RemoveClient(ifname)
+			continue
+		}
+		if ci, ok := awg.ClientInstanceFromOutbound(o); ok {
+			if err := mgr.EnsureClient(ci); err != nil {
+				logger.Warning("awg restart: outbound", o.Tag, err)
+			}
+		}
+	}
+	return nil
 }
