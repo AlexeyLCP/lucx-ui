@@ -217,11 +217,15 @@ func (l *Local) UpdateUser(ctx context.Context, ib *model.Inbound, oldEmail stri
 	return l.AddUser(ctx, ib, user)
 }
 
-func wgKeepAlive(seconds int) string {
-	if seconds <= 0 {
+func wgKeepAlive(v model.KeepAliveValue) string {
+	if v.IsZero() {
 		return ""
 	}
-	return strconv.Itoa(seconds)
+	// xray wireguard peers take a plain interval; ranges use lo.
+	if n := v.Int(); n > 0 {
+		return strconv.Itoa(n)
+	}
+	return ""
 }
 
 func (l *Local) RestartXray(_ context.Context) error {

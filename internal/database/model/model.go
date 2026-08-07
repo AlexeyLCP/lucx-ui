@@ -7,11 +7,71 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
+
+// LUCX-HOOK: KeepAliveValue is PersistentKeepalive. JSON accepts a number or a
+// string ("25" or AWG3 range "15-25"). Empty/"0" = off. WireGuard/xray paths
+// use Int() (lo of a range); AWG .conf writers use the raw string.
+type KeepAliveValue string
+
+func (k *KeepAliveValue) UnmarshalJSON(b []byte) error {
+	s := strings.TrimSpace(string(b))
+	if s == "" || s == "null" {
+		*k = ""
+		return nil
+	}
+	if s[0] == '"' {
+		var str string
+		if err := json.Unmarshal(b, &str); err != nil {
+			return err
+		}
+		*k = KeepAliveValue(strings.TrimSpace(str))
+		return nil
+	}
+	*k = KeepAliveValue(s)
+	return nil
+}
+
+func (k KeepAliveValue) MarshalJSON() ([]byte, error) {
+	s := strings.TrimSpace(string(k))
+	if s == "" {
+		return []byte("0"), nil
+	}
+	if !strings.Contains(s, "-") {
+		if _, err := strconv.Atoi(s); err == nil {
+			return []byte(s), nil
+		}
+	}
+	return json.Marshal(s)
+}
+
+func (k KeepAliveValue) IsZero() bool {
+	s := strings.TrimSpace(string(k))
+	return s == "" || s == "0" || s == "0-0"
+}
+
+func (k KeepAliveValue) Int() int {
+	s := strings.TrimSpace(string(k))
+	if s == "" {
+		return 0
+	}
+	if i := strings.IndexByte(s, '-'); i >= 0 {
+		s = s[:i]
+	}
+	n, _ := strconv.Atoi(s)
+	return n
+}
+
+func (k KeepAliveValue) String() string {
+	return strings.TrimSpace(string(k))
+}
+
+// END LUCX-HOOK
 
 // Protocol represents the protocol type for Xray inbounds.
 type Protocol string
@@ -430,9 +490,11 @@ func WireguardPeerFromClient(c Client) map[string]any {
 	if c.PreSharedKey != "" {
 		peer["preSharedKey"] = c.PreSharedKey
 	}
-	if c.KeepAlive > 0 {
-		peer["keepAlive"] = c.KeepAlive
+	// LUCX-HOOK: KeepAliveValue — xray wireguard peers take a plain int
+	if n := c.KeepAlive.Int(); n > 0 {
+		peer["keepAlive"] = n
 	}
+	// END LUCX-HOOK
 	return peer
 }
 
@@ -871,8 +933,10 @@ type Client struct {
 	PublicKey    string         `json:"publicKey,omitempty"`
 	AllowedIPs   []string       `json:"allowedIPs,omitempty"`
 	PreSharedKey string         `json:"preSharedKey,omitempty"`
-	KeepAlive    int            `json:"keepAlive,omitempty"`
-	Secret       string         `json:"secret,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
+	// LUCX-HOOK: KeepAliveValue (number or AWG3 range string)
+	KeepAlive KeepAliveValue `json:"keepAlive,omitempty"`
+	// END LUCX-HOOK
+	Secret     string `json:"secret,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
 	AdTag      string `json:"adTag,omitempty" example:"0123456789abcdef0123456789abcdef"`
 	Email      string `json:"email"`                        // Client email identifier
 	LimitIP    int    `json:"limitIp"`                      // IP limit for this client
@@ -902,8 +966,10 @@ type ClientRecord struct {
 	PublicKey    string `json:"publicKey" gorm:"column:wg_public_key"`
 	AllowedIPs   string `json:"allowedIPs" gorm:"column:wg_allowed_ips"`
 	PreSharedKey string `json:"preSharedKey" gorm:"column:wg_pre_shared_key"`
-	KeepAlive    int    `json:"keepAlive" gorm:"column:wg_keep_alive;default:0"`
-	Secret       string `json:"secret" gorm:"column:secret"`
+	// LUCX-HOOK: string column so AWG3 ranges ("15-25") round-trip; legacy ints coerce via SQLite/PG text
+	KeepAlive KeepAliveValue `json:"keepAlive" gorm:"column:wg_keep_alive;type:text;default:'0'"`
+	// END LUCX-HOOK
+	Secret     string `json:"secret" gorm:"column:secret"`
 	AdTag      string `json:"adTag" gorm:"column:ad_tag;default:''"`
 	LimitIP    int    `json:"limitIp" gorm:"column:limit_ip"`
 	TotalGB    int64  `json:"totalGB" gorm:"column:total_gb"`
@@ -1304,12 +1370,14 @@ func MergeClientRecord(existing *ClientRecord, incoming *ClientRecord) []ClientM
 			existing.AllowedIPs = incoming.AllowedIPs
 		}
 	}
-	if existing.KeepAlive != incoming.KeepAlive && incoming.KeepAlive != 0 {
-		if incomingNewer || existing.KeepAlive == 0 {
+	// LUCX-HOOK: KeepAliveValue — 0 is a valid value (off); take any change
+	if existing.KeepAlive != incoming.KeepAlive {
+		if incomingNewer || existing.KeepAlive.IsZero() {
 			keep("keepAlive", existing.KeepAlive, incoming.KeepAlive, incoming.KeepAlive)
 			existing.KeepAlive = incoming.KeepAlive
 		}
 	}
+	// END LUCX-HOOK
 	if existing.Comment != incoming.Comment && incoming.Comment != "" {
 		if incomingNewer || existing.Comment == "" {
 			keep("comment", existing.Comment, incoming.Comment, incoming.Comment)

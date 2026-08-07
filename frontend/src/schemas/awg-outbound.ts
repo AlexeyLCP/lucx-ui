@@ -19,7 +19,7 @@ export const AwgOutboundSettingsSchema = z.object({
   publicKey: z.string().default(''),
   psk: z.string().default(''),
   endpoint: z.string().default(''),
-  keepalive: z.number().int().default(25),
+  keepalive: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
   allowedIPs: z.string().default('0.0.0.0/0, ::/0'),
   dns: z.string().default(''),
   jc: z.number().int().default(0),

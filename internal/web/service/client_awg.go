@@ -313,6 +313,9 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 			c.AllowedIPs = normalized
 		}
 		used = append(used, c.AllowedIPs...)
+		if c.KeepAlive.IsZero() {
+			c.KeepAlive = "25"
+		}
 
 		if i < len(interfaceClients) {
 			if m, ok := interfaceClients[i].(map[string]any); ok {
@@ -322,9 +325,7 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 				if c.PreSharedKey != "" {
 					m["preSharedKey"] = c.PreSharedKey
 				}
-				if c.KeepAlive > 0 {
-					m["keepAlive"] = c.KeepAlive
-				}
+				m["keepAlive"] = c.KeepAlive.String()
 				interfaceClients[i] = m
 			}
 		}
@@ -477,8 +478,8 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	}
 	b.WriteString("AllowedIPs = 0.0.0.0/0, ::/0\n")
 	fmt.Fprintf(&b, "Endpoint = %s:%d\n", host, inbound.Port)
-	if client.KeepAlive > 0 {
-		fmt.Fprintf(&b, "PersistentKeepalive = %d\n", client.KeepAlive)
+	if !client.KeepAlive.IsZero() {
+		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", client.KeepAlive.String())
 	}
 	return b.String(), nil
 }

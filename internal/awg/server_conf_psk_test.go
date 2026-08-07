@@ -18,7 +18,7 @@ func TestRenderServerConf_EmptyPSKOmitted(t *testing.T) {
 		Id: 4, Ifname: "awg4", Port: 21860, PrivateKey: "server-priv", MTU: 1320,
 		Address: "10.8.0.1/24",
 		Peers: []PeerSpec{
-			{PublicKey: "peer-pub", PSK: "", Keepalive: 25, AllowedIPs: "10.8.0.2/32"},
+			{PublicKey: "peer-pub", PSK: "", Keepalive: "25", AllowedIPs: "10.8.0.2/32"},
 		},
 	}
 	conf := renderServerConf(inst)
@@ -30,11 +30,13 @@ func TestRenderServerConf_EmptyPSKOmitted(t *testing.T) {
 		"[Peer]",
 		"PublicKey = peer-pub",
 		"AllowedIPs = 10.8.0.2/32",
-		"PersistentKeepalive = 25",
 	} {
 		if !strings.Contains(conf, want) {
 			t.Errorf("server .conf missing %q\nConf:\n%s", want, conf)
 		}
+	}
+	if strings.Contains(conf, "PersistentKeepalive") {
+		t.Errorf("PersistentKeepalive is client-export only, got:\n%s", conf)
 	}
 }
 
@@ -45,7 +47,7 @@ func TestRenderServerConf_NonEmptyPSKWritten(t *testing.T) {
 		Id: 4, Ifname: "awg4", Port: 21860, PrivateKey: "server-priv", MTU: 1320,
 		Address: "10.8.0.1/24",
 		Peers: []PeerSpec{
-			{PublicKey: "peer-pub", PSK: "cHJlc2hhcmVkLWtleQ==", Keepalive: 25, AllowedIPs: "10.8.0.2/32"},
+			{PublicKey: "peer-pub", PSK: "cHJlc2hhcmVkLWtleQ==", Keepalive: "25", AllowedIPs: "10.8.0.2/32"},
 		},
 	}
 	conf := renderServerConf(inst)
@@ -61,7 +63,7 @@ func TestRenderServerConf_WhitespaceOnlyPSKOmitted(t *testing.T) {
 		Id: 4, Ifname: "awg4", Port: 21860, PrivateKey: "server-priv", MTU: 1320,
 		Address: "10.8.0.1/24",
 		Peers: []PeerSpec{
-			{PublicKey: "peer-pub", PSK: "   ", Keepalive: 25, AllowedIPs: "10.8.0.2/32"},
+			{PublicKey: "peer-pub", PSK: "   ", Keepalive: "25", AllowedIPs: "10.8.0.2/32"},
 		},
 	}
 	conf := renderServerConf(inst)
@@ -80,7 +82,7 @@ func TestRenderServerConf_ManagedMarkerFirstLine(t *testing.T) {
 		Id: 4, Ifname: "awg4", Port: 21860, PrivateKey: "server-priv", MTU: 1320,
 		Address: "10.8.0.1/24",
 		Peers: []PeerSpec{
-			{PublicKey: "peer-pub", PSK: "cHJlc2hhcmVkLWtleQ==", Keepalive: 25, AllowedIPs: "10.8.0.2/32"},
+			{PublicKey: "peer-pub", PSK: "cHJlc2hhcmVkLWtleQ==", Keepalive: "25", AllowedIPs: "10.8.0.2/32"},
 		},
 	}
 	conf := renderServerConf(inst)

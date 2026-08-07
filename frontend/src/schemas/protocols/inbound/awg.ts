@@ -14,6 +14,8 @@ import { normalizeAwgTimer } from '@/lib/awg/timer';
 const AwgClientSchema = WireguardClientSchema.extend({
   id: z.string().optional(),
   password: z.string().optional(),
+  // AWG3 PersistentKeepalive accepts single or range ("25" / "15-25"); 0 = off.
+  keepAlive: z.preprocess(normalizeAwgTimer, z.string()).optional(),
 });
 
 // AWG (AmneziaWG) inbound. Served by a kernel-interface sidecar managed by

@@ -40,7 +40,7 @@ func run(root, outDir string) error {
 				"InboundFallback",
 				"Host",
 			),
-			AliasAllow: setOf("Protocol"),
+			AliasAllow: setOf("Protocol", "KeepAliveValue"),
 			Overrides: map[string][]walkOverride{
 				"Inbound": {
 					{Field: "Settings", Kind: KindAny},

@@ -663,8 +663,8 @@ func (s *SubService) genWireguardLink(inbound *model.Inbound, email string) stri
 	if client.PreSharedKey != "" {
 		params["presharedkey"] = client.PreSharedKey
 	}
-	if client.KeepAlive > 0 {
-		params["keepalive"] = strconv.Itoa(client.KeepAlive)
+	if !client.KeepAlive.IsZero() {
+		params["keepalive"] = client.KeepAlive.String()
 	}
 	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
 }
@@ -709,8 +709,8 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	if client.PreSharedKey != "" {
 		params["presharedkey"] = client.PreSharedKey
 	}
-	if client.KeepAlive > 0 {
-		params["keepalive"] = strconv.Itoa(client.KeepAlive)
+	if !client.KeepAlive.IsZero() {
+		params["keepalive"] = client.KeepAlive.String()
 	}
 	// Obfuscation parameters (AWG-specific; absent on plain WireGuard).
 	// Version-gate: S3/S4 and I1-I5 are AWG v2+ (Android 2.0.1); HPK and the

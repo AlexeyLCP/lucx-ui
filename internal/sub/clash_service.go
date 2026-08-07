@@ -399,8 +399,8 @@ func (s *SubClashService) buildWireguardProxy(subReq *SubService, inbound *model
 	if client.PreSharedKey != "" {
 		proxy["pre-shared-key"] = client.PreSharedKey
 	}
-	if client.KeepAlive > 0 {
-		proxy["persistent-keepalive"] = client.KeepAlive
+	if n := client.KeepAlive.Int(); n > 0 {
+		proxy["persistent-keepalive"] = n
 	}
 	for _, addr := range client.AllowedIPs {
 		ip := stripCIDR(addr)

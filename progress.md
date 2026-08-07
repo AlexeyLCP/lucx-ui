@@ -51,6 +51,17 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.82 (2026-08-07) — PersistentKeepalive: UI клиента + export-only
+
+**Запрос:** поле как в lucx.80, чтобы пользователи не ломались; PKA — настройка **клиента**, не сервера.
+
+**Сделано:**
+- Вернули `KeepAliveValue` (число / AWG3 range `"15-25"`), UI `wgKeepAlive` в `ClientFormModal` (WG/AWG), outbound keepalive form, openapigen.
+- **Серверный** `renderServerConf` / `SyncPeers` **не** пишут `PersistentKeepalive` (client-export only).
+- Fingerprint peer без keepalive (смена PKA не рестартит iface).
+- Export: `BuildAwgClientConf`, `wireguardConfig.ts`, sub/clash/json links.
+- Default нового клиента: `25` (форма + `defaultAwgClients` / `defaultWireguardClients`).
+
 ## Релиз v3.6.0-lucx.81 (2026-08-07) — откат PersistentKeepalive-эксперимента
 
 **Жалоба:** «поле не появилось, трафик перестал ходить».
