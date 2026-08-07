@@ -771,8 +771,8 @@ func renderServerConf(inst Instance) string {
 			allowed = "0.0.0.0/0, ::/0"
 		}
 		fmt.Fprintf(&b, "AllowedIPs = %s\n", allowed)
-		if p.Keepalive > 0 {
-			fmt.Fprintf(&b, "PersistentKeepalive = %d\n", p.Keepalive)
+		if !p.Keepalive.IsZero() {
+			fmt.Fprintf(&b, "PersistentKeepalive = %s\n", p.Keepalive)
 		}
 	}
 	return b.String()
@@ -800,8 +800,8 @@ func (m *Manager) SyncPeers(id int, peers []PeerSpec) error {
 			allowed = "0.0.0.0/0, ::/0"
 		}
 		args = append(args, "allowed-ips", allowed)
-		if p.Keepalive > 0 {
-			args = append(args, "persistent-keepalive", fmt.Sprintf("%d", p.Keepalive))
+		if !p.Keepalive.IsZero() {
+			args = append(args, "persistent-keepalive", string(p.Keepalive))
 		}
 		if out, err := exec.CommandContext(context.Background(), "awg", args...).CombinedOutput(); err != nil {
 			logger.Warningf("awg: set peer %s on %s: %v\n%s", p.PublicKey[:8], ifname, err, string(out))

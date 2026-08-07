@@ -236,12 +236,18 @@ func (t *Tgbot) sendClientSubLinks(chatId int64, email string) {
 	if subJsonURL != "" {
 		msg += "\r\n\r\nJSON URL:\r\n<code>" + subJsonURL + "</code>"
 	}
+	// LUCX-HOOK: AWG clients get a ".conf" download button instead of QR
+	qrLabel := t.I18nBot("qrCode")
+	if _, ib, e := t.inboundService.GetClientInboundByEmail(email); e == nil && ib != nil && ib.Protocol == model.AWG {
+		qrLabel = ".conf"
+	}
+	// END LUCX-HOOK
 	inlineKeyboard := tu.InlineKeyboard(
 		tu.InlineKeyboardRow(
 			tu.InlineKeyboardButton(t.I18nBot("subscription.individualLinks")).WithCallbackData(t.encodeQuery("client_individual_links "+email)),
 		),
 		tu.InlineKeyboardRow(
-			tu.InlineKeyboardButton(t.I18nBot("qrCode")).WithCallbackData(t.encodeQuery("client_qr_links "+email)),
+			tu.InlineKeyboardButton(qrLabel).WithCallbackData(t.encodeQuery("client_qr_links "+email)),
 		),
 	)
 	t.SendMsgToTgbot(chatId, msg, inlineKeyboard)
@@ -330,8 +336,17 @@ func (t *Tgbot) sendClientIndividualLinks(chatId int64, email string) {
 	}
 }
 
-// sendClientQRLinks generates QR images for subscription URL, JSON URL, and a few individual links, then sends them
+// sendClientQRLinks generates QR images for subscription URL, JSON URL, and a few individual links, then sends them.
+// LUCX-HOOK: for AWG clients a .conf file is far more useful than a QR of an
+// amneziawg:// URL — send the conf document instead (button label ".conf").
 func (t *Tgbot) sendClientQRLinks(chatId int64, email string) {
+	// LUCX-HOOK: AWG → downloadable .conf
+	if _, inbound, err := t.inboundService.GetClientInboundByEmail(email); err == nil && inbound != nil && inbound.Protocol == model.AWG {
+		t.sendClientAwgConf(chatId, email, inbound)
+		return
+	}
+	// END LUCX-HOOK
+
 	subURL, subJsonURL, err := t.buildSubscriptionURLs(email)
 	if err != nil {
 		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
@@ -423,6 +438,56 @@ func (t *Tgbot) sendClientQRLinks(chatId int64, email string) {
 			}
 		}
 	}
+}
+
+// sendClientAwgConf builds and sends an AmneziaWG .conf for the given client.
+// LUCX-HOOK: Telegram bot AWG export (replaces useless QR of amneziawg:// links).
+func (t *Tgbot) sendClientAwgConf(chatId int64, email string, inbound *model.Inbound) {
+	_, client, err := t.inboundService.GetClientByEmail(email)
+	if err != nil || client == nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\nclient not found")
+		return
+	}
+	host := t.awgEndpointHost()
+	conf, err := service.BuildAwgClientConf(inbound, client, host)
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
+		return
+	}
+	safeName := strings.Map(func(r rune) rune {
+		switch {
+		case r >= 'a' && r <= 'z', r >= 'A' && r <= 'Z', r >= '0' && r <= '9', r == '-', r == '_', r == '.':
+			return r
+		default:
+			return '_'
+		}
+	}, email)
+	if safeName == "" {
+		safeName = "client"
+	}
+	filename := safeName + ".conf"
+	t.SendMsgToTgbot(chatId, ".conf — "+email)
+	document := tu.Document(
+		tu.ID(chatId),
+		tu.FileFromBytes([]byte(conf), filename),
+	)
+	if _, err := bot.SendDocument(context.Background(), document); err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
+	}
+}
+
+// awgEndpointHost picks the host written into Endpoint= of a bot-exported .conf.
+func (t *Tgbot) awgEndpointHost() string {
+	if d, err := t.settingService.GetSubDomain(); err == nil && strings.TrimSpace(d) != "" {
+		return strings.TrimSpace(d)
+	}
+	if d, err := t.settingService.GetWebDomain(); err == nil && strings.TrimSpace(d) != "" {
+		return strings.TrimSpace(d)
+	}
+	if hostname != "" {
+		return hostname
+	}
+	return "127.0.0.1"
 }
 
 // clientInfoMsg formats client information message based on traffic and flags.

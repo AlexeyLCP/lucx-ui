@@ -51,6 +51,26 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.75 (2026-08-07) — PersistentKeepalive range, TG .conf, ссылка на Telegram
+
+**1. PersistentKeepalive (AWG3 range, default 0):**
+- Peer-level `PersistentKeepalive` теперь `AwgTimer` / `KeepAliveValue` end-to-end: single `"25"` или range `"15-25"` (ядро u16_range_t, tools v3).
+- Default **0 = off** (строка omit в .conf). Убран forced default 0→25 в `InstanceFromInbound`.
+- Outbound: default keepalive `"0"`, ParseConf сохраняет range, форма Input + placeholder.
+- `model.Client.KeepAlive` → `KeepAliveValue` (JSON number|string; GORM text; WireGuard/xray берут `.Int()` = lo range).
+- openapigen: `AliasAllow` + `KeepAliveValue`.
+
+**2. Telegram bot — AWG `.conf` вместо QR:**
+- `sendClientQRLinks` для protocol=awg шлёт `email.conf` через `BuildAwgClientConf` (зеркало frontend `buildAwgClientConfig`).
+- Кнопка у AWG-клиента: `.conf`; общее меню: `.conf / QR`.
+
+**3. Sidebar — Telegram community:**
+- Под версией панели: иконка + `@Lucx_soft` → https://t.me/Lucx_soft (collapsed = только иконка).
+
+**Тесты:** `go test ./internal/awg/... ./internal/database/model/...`; frontend `tsc` + `lint` + `npm run gen`.
+
+**Файлы:** model.go (+keepalive_value_test), instance/manager/client_*, awg_outbound, client_awg (BuildAwgClientConf), tgbot_*, AppSidebar, wireguardConfig, schemas, openapigen, config.go (lucx.75), progress.md.
+
 ## Диагностика (2026-08-06) — «proxy/tun: connection was refused» на сервере VladufQa: benign client-шум, не баг (Pattern 9)
 
 **Запрос:** на 195.133.32.18 (VladufQa, панель lucx.74) постоянно спамит `ERROR - XRAY: proxy/tun: connection was refused`, «хотя всё работает». Разрешены только read-only команды.

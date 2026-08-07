@@ -872,8 +872,9 @@ export function genWireguardConfig(input: GenWireguardLinkInput): string {
   if (peer.preSharedKey && peer.preSharedKey.length > 0) {
     txt += `\nPresharedKey = ${peer.preSharedKey}`;
   }
-  if (typeof peer.keepAlive === 'number' && peer.keepAlive > 0) {
-    txt += `\nPersistentKeepalive = ${peer.keepAlive}\n`;
+  {
+    const ka = awgTimerEmit(peer.keepAlive as string | number | undefined);
+    if (ka) txt += `\nPersistentKeepalive = ${ka}\n`;
   }
   return txt;
 }
@@ -1441,8 +1442,9 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   }
   if (settings.dns) url.searchParams.set('dns', settings.dns);
   if (peer.preSharedKey) url.searchParams.set('presharedkey', peer.preSharedKey);
-  if (typeof peer.keepAlive === 'number' && peer.keepAlive > 0) {
-    url.searchParams.set('keepalive', String(peer.keepAlive));
+  {
+    const ka = awgTimerEmit(peer.keepAlive as string | number | undefined);
+    if (ka) url.searchParams.set('keepalive', ka);
   }
 
   url.hash = encodeURIComponent(remark);
@@ -1525,8 +1527,9 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   if (peer.preSharedKey && peer.preSharedKey.length > 0) {
     txt += `\nPresharedKey = ${peer.preSharedKey}`;
   }
-  if (typeof peer.keepAlive === 'number' && peer.keepAlive > 0) {
-    txt += `\nPersistentKeepalive = ${peer.keepAlive}\n`;
+  {
+    const ka = awgTimerEmit(peer.keepAlive as string | number | undefined);
+    if (ka) txt += `\nPersistentKeepalive = ${ka}\n`;
   }
   return txt;
 }

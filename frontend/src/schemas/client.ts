@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+import { normalizeAwgTimer } from '@/lib/awg/timer';
+
 const nullableStringArray = z.array(z.string()).nullable().transform((v) => v ?? []);
 const nullableNumberArray = z.array(z.number()).nullable().transform((v) => v ?? []);
 
@@ -36,7 +38,8 @@ export const ClientRecordSchema = z.object({
   publicKey: z.string().optional(),
   allowedIPs: z.string().optional(),
   preSharedKey: z.string().optional(),
-  keepAlive: z.number().optional(),
+  // LUCX-HOOK: number or AWG3 range string ("25" / "15-25"); '0' = off
+  keepAlive: z.preprocess(normalizeAwgTimer, z.string()).optional(),
   secret: z.string().optional(),
   adTag: z.string().optional(),
   createdAt: z.number().optional(),

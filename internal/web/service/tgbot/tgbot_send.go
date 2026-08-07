@@ -50,7 +50,8 @@ func (t *Tgbot) SendAnswer(chatId int64, msg string, isAdmin bool) {
 		tu.InlineKeyboardRow(
 			tu.InlineKeyboardButton(t.I18nBot("pages.settings.subSettings")).WithCallbackData(t.encodeQuery("admin_client_sub_links")),
 			tu.InlineKeyboardButton(t.I18nBot("subscription.individualLinks")).WithCallbackData(t.encodeQuery("admin_client_individual_links")),
-			tu.InlineKeyboardButton(t.I18nBot("qrCode")).WithCallbackData(t.encodeQuery("admin_client_qr_links")),
+			// LUCX-HOOK: label covers AWG .conf download + classic QR for other protos
+			tu.InlineKeyboardButton(".conf / QR").WithCallbackData(t.encodeQuery("admin_client_qr_links")),
 		),
 		// TODOOOOOOOOOOOOOO: Add restart button here.
 	)
@@ -64,7 +65,8 @@ func (t *Tgbot) SendAnswer(chatId int64, msg string, isAdmin bool) {
 			tu.InlineKeyboardButton(t.I18nBot("subscription.individualLinks")).WithCallbackData(t.encodeQuery("client_individual_links")),
 		),
 		tu.InlineKeyboardRow(
-			tu.InlineKeyboardButton(t.I18nBot("qrCode")).WithCallbackData(t.encodeQuery("client_qr_links")),
+			// LUCX-HOOK: AWG clients get .conf; others still get QR images
+			tu.InlineKeyboardButton(".conf / QR").WithCallbackData(t.encodeQuery("client_qr_links")),
 		),
 	)
 

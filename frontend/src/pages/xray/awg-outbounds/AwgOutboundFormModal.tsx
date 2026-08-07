@@ -48,7 +48,7 @@ interface AwgOutboundFormValues {
   publicKey: string;
   psk: string;
   endpoint: string;
-  keepalive: number;
+  keepalive: string;
   allowedIPs: string;
   dns: string;
   jc: number;
@@ -84,7 +84,7 @@ const DEFAULT_SETTINGS: AwgOutboundSettings = {
   publicKey: '',
   psk: '',
   endpoint: '',
-  keepalive: 25,
+  keepalive: '0',
   allowedIPs: '0.0.0.0/0, ::/0',
   dns: '',
   jc: 0,
@@ -145,7 +145,7 @@ function settingsToFormValues(initial: AwgOutbound): AwgOutboundFormValues {
     publicKey: parsed.publicKey ?? DEFAULT_SETTINGS.publicKey,
     psk: parsed.psk ?? DEFAULT_SETTINGS.psk,
     endpoint: parsed.endpoint ?? DEFAULT_SETTINGS.endpoint,
-    keepalive: parsed.keepalive ?? DEFAULT_SETTINGS.keepalive,
+    keepalive: parsed.keepalive != null ? String(parsed.keepalive) : DEFAULT_SETTINGS.keepalive,
     allowedIPs: parsed.allowedIPs ?? DEFAULT_SETTINGS.allowedIPs,
     dns: parsed.dns ?? DEFAULT_SETTINGS.dns,
     jc: parsed.jc ?? DEFAULT_SETTINGS.jc,
@@ -406,8 +406,12 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                 </FormField>
               </Col>
               <Col span={6}>
-                <FormField label={t('pages.xray.awgOutbound.keepalive')} name="keepalive">
-                  <InputNumber min={0} style={{ width: '100%' }} />
+                <FormField
+                  label={t('pages.xray.awgOutbound.keepalive')}
+                  name="keepalive"
+                  tooltip="PersistentKeepalive seconds. 0 = off. AWG3 accepts a range e.g. 15-25."
+                >
+                  <Input placeholder="0 or 15-25" />
                 </FormField>
               </Col>
               <Col span={6}>

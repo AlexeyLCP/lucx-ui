@@ -8,6 +8,7 @@ package service
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/netip"
 	"strings"
 
@@ -319,12 +320,89 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 				if c.PreSharedKey != "" {
 					m["preSharedKey"] = c.PreSharedKey
 				}
-				if c.KeepAlive > 0 {
-					m["keepAlive"] = c.KeepAlive
+				if !c.KeepAlive.IsZero() {
+					m["keepAlive"] = c.KeepAlive.String()
 				}
 				interfaceClients[i] = m
 			}
 		}
 	}
 	return nil
+}
+
+// BuildAwgClientConf renders a full AmneziaWG client .conf for export (panel QR
+// path / Telegram bot). Mirrors frontend buildAwgClientConfig: [Interface]
+// with client keypair, tunnel address, DNS, MTU, obfuscation block from
+// inboundAwgHints; [Peer] with server public key, PSK, full-tunnel AllowedIPs,
+// endpoint, and optional PersistentKeepalive.
+func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHost string) (string, error) {
+	if inbound == nil || client == nil {
+		return "", common.NewError("awg: missing inbound or client")
+	}
+	if inbound.Protocol != model.AWG {
+		return "", common.NewError("awg: inbound is not AWG")
+	}
+	priv := strings.TrimSpace(client.PrivateKey)
+	if priv == "" {
+		return "", common.NewError("awg: client has no private key")
+	}
+	var s struct {
+		PrivateKey string `json:"privateKey"`
+		MTU        int    `json:"mtu"`
+		DNS        string `json:"dns"`
+	}
+	_ = json.Unmarshal([]byte(inbound.Settings), &s)
+	serverPub := ""
+	if sk := strings.TrimSpace(s.PrivateKey); sk != "" {
+		if pub, err := wgutil.PublicKeyFromPrivate(sk); err == nil {
+			serverPub = pub
+		}
+	}
+	if serverPub == "" {
+		return "", common.NewError("awg: cannot derive server public key")
+	}
+	address := ""
+	if len(client.AllowedIPs) > 0 {
+		address = strings.TrimSpace(client.AllowedIPs[0])
+	}
+	if address == "" {
+		address = "10.200.0.2/32"
+	}
+	dns := strings.TrimSpace(s.DNS)
+	if dns == "" {
+		dns = "1.1.1.1, 1.0.0.1"
+	}
+	mtu := s.MTU
+	if mtu <= 0 {
+		mtu = 1320
+	}
+	host := strings.TrimSpace(endpointHost)
+	if host == "" {
+		host = "127.0.0.1"
+	}
+	_, obf, _ := inboundAwgHints(inbound.Settings)
+
+	var b strings.Builder
+	b.WriteString("[Interface]\n")
+	fmt.Fprintf(&b, "PrivateKey = %s\n", priv)
+	fmt.Fprintf(&b, "Address = %s\n", address)
+	fmt.Fprintf(&b, "DNS = %s\n", dns)
+	fmt.Fprintf(&b, "MTU = %d\n", mtu)
+	if obf = strings.TrimSpace(obf); obf != "" {
+		b.WriteString(obf)
+		if !strings.HasSuffix(obf, "\n") {
+			b.WriteByte('\n')
+		}
+	}
+	b.WriteString("\n[Peer]\n")
+	fmt.Fprintf(&b, "PublicKey = %s\n", serverPub)
+	if psk := strings.TrimSpace(client.PreSharedKey); psk != "" {
+		fmt.Fprintf(&b, "PresharedKey = %s\n", psk)
+	}
+	b.WriteString("AllowedIPs = 0.0.0.0/0, ::/0\n")
+	fmt.Fprintf(&b, "Endpoint = %s:%d\n", host, inbound.Port)
+	if !client.KeepAlive.IsZero() {
+		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", client.KeepAlive.String())
+	}
+	return b.String(), nil
 }

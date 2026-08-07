@@ -118,7 +118,10 @@ type PeerSpec struct {
 	PrivateKey string // client Curve25519 private key (stored so we can render a full client .conf/share-link, mirroring WireGuard)
 	PublicKey  string // client Curve25519 public key (stored as Client.ID / clients[].publicKey)
 	PSK        string // PresharedKey (stored as Client.Password / clients[].preSharedKey)
-	Keepalive  int    // PersistentKeepalive, 0 = off
+	// Keepalive is PersistentKeepalive (peer-level). AWG3 tools/kernel accept a
+	// single value or an inclusive range via u16_range_t ("25" / "15-25"). Empty
+	// / "0" = off (line omitted). Stored as AwgTimer so ranges survive end-to-end.
+	Keepalive  AwgTimer
 	AllowedIPs string // client tunnel address, e.g. "10.0.0.2/32"; falls back to "0.0.0.0/0, ::/0" only when unset
 }
 
@@ -160,7 +163,7 @@ func (inst Instance) fingerprint() string {
 		inst.OutboundTag,
 	}
 	for _, p := range inst.Peers {
-		parts = append(parts, p.PrivateKey, p.PublicKey, p.PSK, strconv.Itoa(p.Keepalive), p.AllowedIPs)
+		parts = append(parts, p.PrivateKey, p.PublicKey, p.PSK, string(p.Keepalive), p.AllowedIPs)
 	}
 	return strings.Join(parts, "|")
 }
@@ -203,7 +206,9 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			PrivateKey   string   `json:"privateKey"`
 			PreSharedKey string   `json:"preSharedKey"`
 			AllowedIPs   []string `json:"allowedIPs"`
-			KeepAlive    int      `json:"keepAlive"`
+			// KeepAlive is AwgTimer so AWG3 ranges ("15-25") and legacy JSON
+			// numbers both round-trip; 0/empty = off (no forced default of 25).
+			KeepAlive AwgTimer `json:"keepAlive"`
 			// Legacy fields kept for backward compat (old inbounds created
 			// before this change store id=publicKey, password=PSK). The JSON
 			// tag `enable` defaults to false when absent — but the panel
@@ -286,15 +291,11 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		if len(c.AllowedIPs) > 0 && c.AllowedIPs[0] != "" {
 			allowed = strings.Join(c.AllowedIPs, ", ")
 		}
-		keep := c.KeepAlive
-		if keep == 0 {
-			keep = 25
-		}
 		inst.Peers = append(inst.Peers, PeerSpec{
 			PrivateKey: c.PrivateKey,
 			PublicKey:  pub,
 			PSK:        psk,
-			Keepalive:  keep,
+			Keepalive:  c.KeepAlive,
 			AllowedIPs: allowed,
 		})
 	}

@@ -74,8 +74,9 @@ func TestInstanceFromInbound(t *testing.T) {
 	if inst.Peers[0].PublicKey != "peer-pub-1" || inst.Peers[0].PSK != "psk-1" {
 		t.Fatalf("peer not parsed: %+v", inst.Peers[0])
 	}
-	if inst.Peers[0].Keepalive != 25 {
-		t.Fatalf("expected keepalive 25, got %d", inst.Peers[0].Keepalive)
+	// No keepAlive in settings → empty (off). Pre-lucx.75 defaulted 0→25.
+	if !inst.Peers[0].Keepalive.IsZero() {
+		t.Fatalf("expected keepalive empty/off, got %q", inst.Peers[0].Keepalive)
 	}
 }
 
@@ -109,7 +110,7 @@ func TestInstanceFromInbound_NilInbound(t *testing.T) {
 func TestInstanceFingerprint_StableForEqualInstances(t *testing.T) {
 	inst := Instance{
 		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k",
-		MTU: 1320, Jc: 5, Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk", Keepalive: 25, AllowedIPs: "0.0.0.0/0, ::/0"}},
+		MTU: 1320, Jc: 5, Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk", Keepalive: "25", AllowedIPs: "0.0.0.0/0, ::/0"}},
 	}
 	a := inst.fingerprint()
 	b := inst.fingerprint()
@@ -169,7 +170,7 @@ func TestRenderServerConf_IncludesObfuscationAndPeers(t *testing.T) {
 		Jc: 8, Jmin: 70, Jmax: 200, S1: 30, S2: 60, S3: 20, S4: 10,
 		H1: "100000-500000", H2: "600000-900000", H3: "1000000-1500000", H4: "1600000-2000000",
 		I1: "<b 0xaa>", I2: "<b 0xbb>", I3: "<b 0xcc>", I4: "<b 0xdd>", I5: "<b 0xee>",
-		Peers: []PeerSpec{{PublicKey: "peer-pub", PSK: "peer-psk", Keepalive: 25, AllowedIPs: "0.0.0.0/0, ::/0"}},
+		Peers: []PeerSpec{{PublicKey: "peer-pub", PSK: "peer-psk", Keepalive: "25", AllowedIPs: "0.0.0.0/0, ::/0"}},
 	}
 	conf := renderServerConf(inst)
 	mustContain := []string{
@@ -204,6 +205,39 @@ func TestRenderServerConf_OmitsCPSWhenEmpty(t *testing.T) {
 	conf := renderServerConf(inst)
 	if strings.Contains(conf, "I1 =") {
 		t.Errorf("CPS I1 must be omitted when empty, got:\n%s", conf)
+	}
+}
+
+func TestRenderServerConf_PersistentKeepaliveRangeAndZero(t *testing.T) {
+	withRange := Instance{
+		Id: 1, Ifname: "awg1", Port: 1, PrivateKey: "k", MTU: 1320,
+		Peers: []PeerSpec{{PublicKey: "p", Keepalive: "15-25", AllowedIPs: "10.0.0.2/32"}},
+	}
+	conf := renderServerConf(withRange)
+	if !strings.Contains(conf, "PersistentKeepalive = 15-25") {
+		t.Fatalf("range keepalive missing:\n%s", conf)
+	}
+	off := Instance{
+		Id: 1, Ifname: "awg1", Port: 1, PrivateKey: "k", MTU: 1320,
+		Peers: []PeerSpec{{PublicKey: "p", Keepalive: "0", AllowedIPs: "10.0.0.2/32"}},
+	}
+	confOff := renderServerConf(off)
+	if strings.Contains(confOff, "PersistentKeepalive") {
+		t.Fatalf("zero keepalive must be omitted:\n%s", confOff)
+	}
+}
+
+func TestInstanceFromInbound_KeepAliveRange(t *testing.T) {
+	ib := &model.Inbound{
+		Id: 1, Protocol: model.AWG,
+		Settings: `{"privateKey":"k","clients":[{"publicKey":"p","enable":true,"keepAlive":"15-25","allowedIPs":["10.0.0.2/32"]}]}`,
+	}
+	inst, ok := InstanceFromInbound(ib)
+	if !ok || len(inst.Peers) != 1 {
+		t.Fatalf("parse failed: ok=%v peers=%d", ok, len(inst.Peers))
+	}
+	if inst.Peers[0].Keepalive != "15-25" {
+		t.Fatalf("Keepalive = %q, want 15-25", inst.Peers[0].Keepalive)
 	}
 }
 

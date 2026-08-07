@@ -44,6 +44,7 @@ import './AppSidebar.css';
 const DONATE_URL = 'https://yoomoney.ru/to/41001989176429';
 const DOCS_URL = 'https://github.com/AlexeyLCP/lucx-ui#readme';
 const REPO_URL = 'https://github.com/AlexeyLCP/lucx-ui';
+const TG_URL = 'https://t.me/Lucx_soft';
 // END LUCX-HOOK
 const LOGOUT_KEY = '__logout__';
 const RAIL_WIDTH = 72;
@@ -102,17 +103,32 @@ function VersionBadge({ version, collapsed }: { version: string; collapsed?: boo
   if (!version) return null;
   const label = formatPanelVersion(version);
   return (
-    <a
-      href={REPO_URL}
-      target="_blank"
-      rel="noopener noreferrer"
-      className="sider-version"
-      aria-label={`GitHub ${label}`}
-      title={label}
-    >
-      <GithubOutlined />
-      {!collapsed && <span className="sider-version-text">{label}</span>}
-    </a>
+    <div className="sider-footer-links">
+      <a
+        href={REPO_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="sider-version"
+        aria-label={`GitHub ${label}`}
+        title={label}
+      >
+        <GithubOutlined />
+        {!collapsed && <span className="sider-version-text">{label}</span>}
+      </a>
+      {/* LUCX-HOOK: community Telegram next to version — quiet, always visible */}
+      <a
+        href={TG_URL}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="sider-tg"
+        aria-label="LucX Telegram"
+        title="t.me/Lucx_soft"
+      >
+        <MessageOutlined />
+        {!collapsed && <span className="sider-tg-text">@Lucx_soft</span>}
+      </a>
+      {/* END LUCX-HOOK */}
+    </div>
   );
 }
 

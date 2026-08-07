@@ -43,8 +43,8 @@ PersistentKeepalive = 25
 	if s.Endpoint != "up.example.com:51820" {
 		t.Errorf("Endpoint = %q", s.Endpoint)
 	}
-	if s.Keepalive != 25 {
-		t.Errorf("Keepalive = %d", s.Keepalive)
+	if s.Keepalive != "25" {
+		t.Errorf("Keepalive = %q", s.Keepalive)
 	}
 	if s.Jc != 3 {
 		t.Errorf("Jc = %d", s.Jc)
@@ -52,6 +52,25 @@ PersistentKeepalive = 25
 	// No S3/S4, I1-I5, or HeaderProtectionKey → auto-detected as legacy "1.5".
 	if s.AwgVersion != "1.5" {
 		t.Errorf("AwgVersion = %q, want \"1.5\" (legacy field set)", s.AwgVersion)
+	}
+}
+
+func TestParseConf_PersistentKeepaliveRange(t *testing.T) {
+	conf := `[Interface]
+PrivateKey = abc
+Address = 10.9.0.5/32
+
+[Peer]
+PublicKey = up
+Endpoint = up.example.com:51820
+PersistentKeepalive = 15-25
+`
+	s, err := ParseConf(conf)
+	if err != nil {
+		t.Fatalf("ParseConf: %v", err)
+	}
+	if s.Keepalive != "15-25" {
+		t.Fatalf("Keepalive = %q, want 15-25", s.Keepalive)
 	}
 }
 

@@ -651,7 +651,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		if clients[0].PreSharedKey == "" {
 			clients[0].PreSharedKey = old.PreSharedKey
 		}
-		if clients[0].KeepAlive == 0 {
+		if clients[0].KeepAlive.IsZero() {
 			clients[0].KeepAlive = old.KeepAlive
 		}
 	}
@@ -690,7 +690,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		if clients[0].PreSharedKey == "" {
 			clients[0].PreSharedKey = old.PreSharedKey
 		}
-		if clients[0].KeepAlive == 0 {
+		if clients[0].KeepAlive.IsZero() {
 			clients[0].KeepAlive = old.KeepAlive
 		}
 	}
@@ -741,8 +741,8 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 				if clients[0].PreSharedKey != "" {
 					newMap["preSharedKey"] = clients[0].PreSharedKey
 				}
-				if clients[0].KeepAlive > 0 {
-					newMap["keepAlive"] = clients[0].KeepAlive
+				if !clients[0].KeepAlive.IsZero() {
+					newMap["keepAlive"] = clients[0].KeepAlive.String()
 				}
 			}
 			// LUCX-HOOK: AWG — persist client keypair/PSK/allowedIPs into settings (mirror WireGuard).
@@ -753,8 +753,8 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 				if clients[0].PreSharedKey != "" {
 					newMap["preSharedKey"] = clients[0].PreSharedKey
 				}
-				if clients[0].KeepAlive > 0 {
-					newMap["keepAlive"] = clients[0].KeepAlive
+				if !clients[0].KeepAlive.IsZero() {
+					newMap["keepAlive"] = clients[0].KeepAlive.String()
 				}
 			}
 			// END LUCX-HOOK
