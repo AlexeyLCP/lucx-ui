@@ -43,7 +43,7 @@ func defaultAwgOutboundSettings() string {
 		"privateKey": priv,
 		"publicKey":  pub,
 		"mtu":        1320,
-		"keepalive":  "0",
+		"keepalive":  25,
 		"allowedIPs": "0.0.0.0/0, ::/0",
 	}
 	b, _ := json.Marshal(s)
@@ -447,7 +447,7 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 			case "AllowedIPs":
 				s.AllowedIPs = val
 			case "PersistentKeepalive":
-				s.Keepalive = awg.AwgTimer(val)
+				s.Keepalive, _ = strconv.Atoi(val)
 			}
 		}
 	}

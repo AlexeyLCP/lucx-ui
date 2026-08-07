@@ -2,6 +2,7 @@ package service
 
 import (
 	"net/netip"
+	"strconv"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -11,11 +12,11 @@ import (
 
 const defaultWireguardBase = "10.0.0.0/24"
 
-func keepAliveStr(v model.KeepAliveValue) string {
-	if v.IsZero() {
+func keepAliveStr(seconds int) string {
+	if seconds <= 0 {
 		return ""
 	}
-	return v.String()
+	return strconv.Itoa(seconds)
 }
 
 func wireguardHostAddr(s string) netip.Addr {
@@ -185,8 +186,8 @@ func defaultWireguardClients(existing, clients []model.Client, interfaceClients 
 				if c.PreSharedKey != "" {
 					m["preSharedKey"] = c.PreSharedKey
 				}
-				if !c.KeepAlive.IsZero() {
-					m["keepAlive"] = c.KeepAlive.String()
+				if c.KeepAlive > 0 {
+					m["keepAlive"] = c.KeepAlive
 				}
 				interfaceClients[i] = m
 			}

@@ -99,8 +99,8 @@ func renderClientConf(ci ClientInstance) string {
 	}
 	fmt.Fprintf(&b, "Endpoint = %s\n", s.Endpoint)
 	fmt.Fprintf(&b, "AllowedIPs = %s\n", s.AllowedIPs)
-	if !s.Keepalive.IsZero() {
-		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", s.Keepalive)
+	if s.Keepalive > 0 {
+		fmt.Fprintf(&b, "PersistentKeepalive = %d\n", s.Keepalive)
 	}
 	return b.String()
 }

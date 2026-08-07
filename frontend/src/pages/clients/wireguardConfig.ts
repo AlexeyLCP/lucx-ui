@@ -5,16 +5,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { formatInboundLabel } from '@/lib/inbounds/label';
-import { normalizeAwgTimer } from '@/lib/awg/timer';
 import { awgVersionAtLeast, awgVersionCeiling, preferPublicHost, resolveShareHost } from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
-
-function persistentKeepaliveLine(keepAlive: unknown): string | null {
-  const s = normalizeAwgTimer(keepAlive);
-  if (s === '0') return null;
-  return `PersistentKeepalive = ${s}`;
-}
 
 export function isWireguardClient(client: ClientRecord | null | undefined): boolean {
   if (!client) return false;
@@ -53,8 +46,7 @@ export function buildWireguardClientConfig(
   lines.push('[Peer]', `PublicKey = ${inbound?.wgPublicKey || ''}`);
   if (client.preSharedKey) lines.push(`PresharedKey = ${client.preSharedKey}`);
   lines.push('AllowedIPs = 0.0.0.0/0, ::/0', `Endpoint = ${endpoint}`);
-  const ka = persistentKeepaliveLine(client.keepAlive);
-  if (ka) lines.push(ka);
+  if (client.keepAlive && client.keepAlive > 0) lines.push(`PersistentKeepalive = ${client.keepAlive}`);
   return lines.join('\n');
 }
 
@@ -152,8 +144,7 @@ export function buildAwgClientConfig(
   lines.push('[Peer]', `PublicKey = ${inbound?.wgPublicKey || ''}`);
   if (client.preSharedKey) lines.push(`PresharedKey = ${client.preSharedKey}`);
   lines.push('AllowedIPs = 0.0.0.0/0, ::/0', `Endpoint = ${endpoint}`);
-  const ka = persistentKeepaliveLine(client.keepAlive);
-  if (ka) lines.push(ka);
+  if (client.keepAlive && client.keepAlive > 0) lines.push(`PersistentKeepalive = ${client.keepAlive}`);
   return lines.join('\n');
 }
 // END LUCX-HOOK

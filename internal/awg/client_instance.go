@@ -33,11 +33,8 @@ type ClientSettings struct {
 	PublicKey  string `json:"publicKey"` // upstream server public key
 	PSK        string `json:"psk"`
 	Endpoint   string `json:"endpoint"` // "host:port"
-	// Keepalive is PersistentKeepalive (peer-level). AWG3 accepts single or
-	// range ("25" / "15-25") via u16_range_t. Empty/"0" = off. AwgTimer so a
-	// provider .conf range survives ParseConf (mirrors device timers, lucx.74).
-	Keepalive  AwgTimer `json:"keepalive"`
-	AllowedIPs string   `json:"allowedIPs"`
+	Keepalive  int    `json:"keepalive"`
+	AllowedIPs string `json:"allowedIPs"`
 	DNS        string   `json:"dns"` // optional, only written if non-empty
 	Jc         int      `json:"jc"`
 	Jmin       int      `json:"jmin"`
@@ -122,7 +119,7 @@ func (ci ClientInstance) fingerprint() string {
 		s.PublicKey,
 		s.PSK,
 		s.Endpoint,
-		string(s.Keepalive),
+		strconv.Itoa(s.Keepalive),
 		s.AllowedIPs,
 		s.DNS,
 		strconv.Itoa(s.Jc),

@@ -51,6 +51,14 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.81 (2026-08-07) — откат PersistentKeepalive-эксперимента
+
+**Жалоба:** «поле не появилось, трафик перестал ходить».
+
+**Откат:** KeepAliveValue/AwgTimer для peer PersistentKeepalive, default 0, UI клиента, range keepalive, openapigen KeepAliveValue. Вернули `int` + default 0→25 на инбаунде + outbound default 25 — как до lucx.75.
+
+**Оставлено:** TG .conf + Endpoint public IP (79), Panel outbound AWG tags (77), sidebar @Lucx_soft, js-yaml audit.
+
 ## Релиз v3.6.0-lucx.80 (2026-08-07) — CI-fix после lucx.79
 
 - gofumpt `client_awg_share_host_test.go`

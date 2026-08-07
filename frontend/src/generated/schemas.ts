@@ -1041,8 +1041,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "keepAlive": {
-        "description": "LUCX-HOOK: KeepAliveValue (number or AWG3 range string)",
-        "type": "string"
+        "type": "integer"
       },
       "limitIp": {
         "description": "IP limit for this client",
@@ -1075,7 +1074,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "nullable": true
       },
       "secret": {
-        "description": "END LUCX-HOOK",
         "example": "ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d",
         "type": "string"
       },
@@ -1179,8 +1177,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "integer"
       },
       "keepAlive": {
-        "description": "LUCX-HOOK: string column so AWG3 ranges (\"15-25\") round-trip; legacy ints coerce via SQLite/PG text",
-        "type": "string"
+        "type": "integer"
       },
       "limitIp": {
         "type": "integer"
@@ -1202,7 +1199,6 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "reverse": {},
       "secret": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "security": {

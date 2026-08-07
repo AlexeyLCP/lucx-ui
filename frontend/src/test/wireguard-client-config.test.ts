@@ -8,7 +8,7 @@ const client: ClientRecord = {
   privateKey: 'QGVlb2dXc1ZTWGw0ZXBzZndsWmtMaUM5MUlNYjBHWFdYbz0=',
   allowedIPs: '10.0.0.2/32',
   preSharedKey: 'cHNrLXZhbHVlLWZvci13aXJlZ3VhcmQtdGVzdC1jYXNlIQ==',
-  keepAlive: '25',
+  keepAlive: 25,
   inboundIds: [90],
 };
 

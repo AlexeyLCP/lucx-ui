@@ -803,7 +803,7 @@ func TestBuildWireguardProxyForClash(t *testing.T) {
 		Email:        "user",
 		PrivateKey:   clientPriv,
 		PreSharedKey: "psk-value",
-		KeepAlive:    "25",
+		KeepAlive:    25,
 		AllowedIPs:   []string{"10.0.0.2/32", "fd00::2/128"},
 	}
 
