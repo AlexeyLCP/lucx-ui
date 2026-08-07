@@ -102,6 +102,8 @@ type Values = ClientFormValues & {
   wgPublicKey: string;
   wgPreSharedKey: string;
   wgAllowedIPs: string;
+  // LUCX-HOOK: PersistentKeepalive (peer); AWG3 accepts range "15-25"; "0" = off
+  wgKeepAlive: string;
   secret: string;
   adTag: string;
 };
@@ -131,6 +133,7 @@ const EMPTY: Values = {
   wgPublicKey: '',
   wgPreSharedKey: '',
   wgAllowedIPs: '',
+  wgKeepAlive: '0',
   secret: '',
   adTag: '',
 };
@@ -243,6 +246,7 @@ export default function ClientFormModal({
         wgPublicKey: client.publicKey || '',
         wgPreSharedKey: client.preSharedKey || '',
         wgAllowedIPs: client.allowedIPs || '',
+        wgKeepAlive: client.keepAlive != null && client.keepAlive !== '' ? String(client.keepAlive) : '0',
         secret: client.secret || '',
         adTag: client.adTag || '',
       };
@@ -587,6 +591,8 @@ export default function ClientFormModal({
       if (allowedIPs.length > 0) {
         clientPayload.allowedIPs = allowedIPs;
       }
+      // PersistentKeepalive: peer-level; AWG3 range ok; always send so 0 can clear prior value
+      clientPayload.keepAlive = values.wgKeepAlive?.trim() || '0';
     } // END LUCX-HOOK
 
     if (showMtproto) {
@@ -920,6 +926,15 @@ export default function ClientFormModal({
                             extra={t('pages.clients.wireguardAllowedIPsHint')}
                           >
                             <Input placeholder={showAwg ? awgAllowedIPsPlaceholder : '10.0.0.2/32'} />
+                          </FormField>
+                          <FormField
+                            name="wgKeepAlive"
+                            label={t('pages.inbounds.info.keepAlive')}
+                            extra={showAwg
+                              ? 'PersistentKeepalive (sec). 0 = off. AWG3: range e.g. 15-25'
+                              : 'PersistentKeepalive (sec). 0 = off'}
+                          >
+                            <Input placeholder={showAwg ? '0 or 15-25' : '0'} />
                           </FormField>
                         </>
                       )}

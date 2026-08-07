@@ -186,7 +186,7 @@ function formValuesToSettings(v: AwgOutboundFormValues): AwgOutboundSettings {
     publicKey: v.publicKey,
     psk: v.psk,
     endpoint: v.endpoint,
-    keepalive: v.keepalive,
+    keepalive: String(v.keepalive ?? '0'),
     allowedIPs: v.allowedIPs,
     dns: v.dns,
     jc: v.jc,
@@ -302,6 +302,8 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
       const merged: AwgOutboundFormValues = {
         ...current,
         ...parsed,
+        // PersistentKeepalive may arrive as number from older JSON; form is string
+        keepalive: parsed.keepalive != null ? String(parsed.keepalive) : current.keepalive,
       };
       methods.reset(merged);
       // Surface the obfuscation block if the parsed conf carried it so the
@@ -407,9 +409,9 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
               </Col>
               <Col span={6}>
                 <FormField
-                  label={t('pages.xray.awgOutbound.keepalive')}
+                  label="PersistentKeepalive"
                   name="keepalive"
-                  tooltip="PersistentKeepalive seconds. 0 = off. AWG3 accepts a range e.g. 15-25."
+                  tooltip="Peer PersistentKeepalive (sec). 0 = off (line omitted from .conf). AWG3 accepts a range e.g. 15-25. Not the same as KeepaliveTimeout (device AWG3 timer)."
                 >
                   <Input placeholder="0 or 15-25" />
                 </FormField>

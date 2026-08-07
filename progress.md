@@ -51,6 +51,17 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.78 (2026-08-07) — UI PersistentKeepalive для AWG/WG клиентов
+
+**Жалоба:** «поля PersistentKeepalive нет в настройках awg3 / парсинге оутбаундов / выгруженном конфиге».
+
+**Факт:** в lucx.75 сделали тип/рендер (range, default 0=omit), outbound-форму уже с полем keepalive, но:
+- **инбаунд AWG** — PKA peer-level, UI был только у KeepaliveTimeout (device);
+- **форма клиента** — не было поля keepAlive → всегда 0 → .conf без строки;
+- outbound: поле было (рядом с MTU), label неочевиден; paste теперь нормализует string.
+
+**Фикс:** ClientFormModal — поле PersistentKeepalive для WG/AWG; payload.keepAlive; outbound label «PersistentKeepalive»; paste keepalive→string.
+
 ## Релиз v3.6.0-lucx.77 (2026-08-07) — Panel outbound picker видит AWG outbounds
 
 **Баг (VladufQa):** Settings → Panel outbound — «ничего кроме direct не выбирается», хотя 2 AWG-outbound’а живые. Бот TG timeout → нужен egress через awgo; picker не показывал теги.
