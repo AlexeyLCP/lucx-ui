@@ -45,7 +45,7 @@ func healthyKernelProber() fakeProber {
 			"awg show awg1 latest-handshakes": "pubkeyA\t1799999950\npubkeyB\t0\n",
 			"ip -o -4 route show default":     "default via 192.168.1.1 dev eth0 proto static\n",
 			"awg version":                     "amneziawg-tools v3.0.20260730 - https://amnezia.org\n",
-			"iptables -t mangle -C PREROUTING -i awg1 -j MARK --set-mark 655361":               "",
+			"iptables -t mangle -C PREROUTING -i awg1 -j MARK --set-mark 655361":         "",
 			"iptables -t nat -C POSTROUTING -m mark --mark 655361 -o eth0 -j MASQUERADE": "",
 			"iptables -C FORWARD -i awg1 -j ACCEPT":                                      "",
 			"iptables -C FORWARD -o awg1 -j ACCEPT":                                      "",
