@@ -7,7 +7,8 @@ import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
-import { buildWireguardClientConfig, findWireguardInbound, isWireguardClient, buildAwgClientConfig, findAwgInbound, isAwgClient } from './wireguardConfig'; // LUCX-HOOK: AWG
+import { formatInboundLabel } from '@/lib/inbounds/label';
+import { buildWireguardClientConfig, findWireguardInbound, isWireguardClient, buildAwgClientConfig, findAwgInbounds, isAwgClient } from './wireguardConfig'; // LUCX-HOOK: AWG
 
 interface SubSettings {
   enable: boolean;
@@ -67,26 +68,39 @@ export default function ClientQrModal({
     return buildWireguardClientConfig(client, wgInbound, window.location.hostname, subSettings?.publicHost ?? '');
   }, [client, wgInbound, subSettings?.publicHost]);
 
-  // LUCX-HOOK: AWG — client .conf for AmneziaWG (with obfuscation block).
-  const awgInbound = useMemo(() => findAwgInbound(client, inboundsById), [client, inboundsById]);
-  // awgExportVersion is the runtime client-config version selector. Defaults to
-  // the inbound ceiling; the dropdown offers every version at or below it so a
-  // v3 inbound can still hand a v2/v1.5 client a config its app understands.
-  const awgCeiling = useMemo(
-    () => (awgInbound ? awgVersionCeiling(awgInbound.awgVersion) : '2'),
-    [awgInbound],
-  );
-  const [awgExportVersion, setAwgExportVersion] = useState<AwgVersion>('2');
+  // LUCX-HOOK: AWG — one .conf panel per attached AWG inbound. Each inbound has
+  // its own awgVersion ceiling; a shared selector keyed off the first inbound
+  // locked multi-attach clients to the lowest ceiling (AWG1=v1.5 disabled v2/v3).
+  const awgInbounds = useMemo(() => findAwgInbounds(client, inboundsById), [client, inboundsById]);
+  const [awgExportById, setAwgExportById] = useState<Record<number, AwgVersion>>({});
   useEffect(() => {
-    setAwgExportVersion(awgCeiling);
-  }, [awgCeiling]);
-  const awgConfigText = useMemo(() => {
-    if (!client || !awgInbound || !isAwgClient(client)) return '';
-    return buildAwgClientConfig(client, awgInbound, window.location.hostname, subSettings?.publicHost ?? '', awgExportVersion);
-  }, [client, awgInbound, subSettings?.publicHost, awgExportVersion]);
+    setAwgExportById((prev) => {
+      const next: Record<number, AwgVersion> = {};
+      for (const ib of awgInbounds) {
+        const ceiling = awgVersionCeiling(ib.awgVersion);
+        next[ib.id] = prev[ib.id] && awgVersionAtLeast(ceiling, prev[ib.id]) ? prev[ib.id] : ceiling;
+      }
+      return next;
+    });
+  }, [awgInbounds]);
+  const awgConfigs = useMemo(() => {
+    if (!client || !isAwgClient(client)) return [] as { ib: InboundOption; text: string; ceiling: AwgVersion; version: AwgVersion }[];
+    const host = window.location.hostname;
+    const pub = subSettings?.publicHost ?? '';
+    return awgInbounds.map((ib) => {
+      const ceiling = awgVersionCeiling(ib.awgVersion);
+      const version = awgExportById[ib.id] ?? ceiling;
+      return {
+        ib,
+        ceiling,
+        version,
+        text: buildAwgClientConfig(client, ib, host, pub, version),
+      };
+    });
+  }, [client, awgInbounds, subSettings?.publicHost, awgExportById]);
   // END LUCX-HOOK
 
-  const hasAnything = !!subLink || !!subJsonLink || !!wgConfigText || !!awgConfigText || links.length > 0;
+  const hasAnything = !!subLink || !!subJsonLink || !!wgConfigText || awgConfigs.length > 0 || links.length > 0;
 
   useEffect(() => {
     if (!open || !client?.subId) {
@@ -162,11 +176,17 @@ export default function ClientQrModal({
         ),
       });
     }
-    // LUCX-HOOK: AWG — client .conf panel with QR + download + export-version selector.
-    if (awgConfigText) {
+    // LUCX-HOOK: AWG — one .conf panel per inbound (own ceiling + version selector).
+    for (const cfg of awgConfigs) {
+      const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
       out.push({
-        key: 'awg-config',
-        label: <Tag color="purple" style={{ margin: 0 }}>{t('pages.clients.awgConfig')}</Tag>,
+        key: `awg-config-${cfg.ib.id}`,
+        label: (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
+            <Tag color="purple" style={{ margin: 0 }}>{t('pages.clients.awgConfig')}</Tag>
+            {labelName && <span style={{ opacity: 0.6, fontSize: 12 }}>({labelName})</span>}
+          </span>
+        ),
         children: (
           <Space direction="vertical" style={{ width: '100%' }} size="middle">
             <Space style={{ width: '100%', justifyContent: 'space-between' }} align="center">
@@ -176,19 +196,19 @@ export default function ClientQrModal({
               <Select<AwgVersion>
                 size="small"
                 style={{ width: 180 }}
-                value={awgExportVersion}
-                onChange={setAwgExportVersion}
+                value={cfg.version}
+                onChange={(v) => setAwgExportById((prev) => ({ ...prev, [cfg.ib.id]: v }))}
                 options={[
-                  { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !isVersionAvailable('1.5', awgCeiling) },
-                  { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !isVersionAvailable('2', awgCeiling) },
-                  { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !isVersionAvailable('3', awgCeiling) },
+                  { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !isVersionAvailable('1.5', cfg.ceiling) },
+                  { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !isVersionAvailable('2', cfg.ceiling) },
+                  { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !isVersionAvailable('3', cfg.ceiling) },
                 ]}
               />
             </Space>
             <QrPanel
-              value={awgConfigText}
+              value={cfg.text}
               remark={client?.email || 'peer'}
-              downloadName={`${client?.email || 'peer'}-awg.conf`}
+              downloadName={`${client?.email || 'peer'}-awg${cfg.ib.id}.conf`}
             />
           </Space>
         ),
@@ -196,7 +216,7 @@ export default function ClientQrModal({
     }
     // END LUCX-HOOK
     return out;
-  }, [subLink, subJsonLink, wgConfigText, awgConfigText, links, client?.email, t, awgExportVersion, awgCeiling]);
+  }, [subLink, subJsonLink, wgConfigText, awgConfigs, links, client?.email, t]);
 
   useEffect(() => {
     if (!open) {

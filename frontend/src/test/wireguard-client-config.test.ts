@@ -96,7 +96,7 @@ describe('buildWireguardClientConfig', () => {
 // trims it to the requested export version so older client apps do not choke on
 // unknown fields. v1.5 drops S3/S4 + I1-I5 + HeaderProtectionKey; v2 drops only
 // HeaderProtectionKey; v3 keeps everything.
-import { buildAwgClientConfig, filterAwgObfuscation } from '@/pages/clients/wireguardConfig';
+import { buildAwgClientConfig, filterAwgObfuscation, findAwgInbounds, findAwgInbound } from '@/pages/clients/wireguardConfig';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
 
 const awgCeilingBlock = [
@@ -177,6 +177,23 @@ describe('buildAwgClientConfig version override', () => {
     expect(cfg).not.toContain('S3 =');
     expect(cfg).not.toContain('HeaderProtectionKey');
     expect(cfg).toContain('Jc = 5');
+  });
+});
+
+describe('findAwgInbounds multi-attach', () => {
+  it('returns every AWG inbound in inboundIds order (not only the first)', () => {
+    const byId: Record<number, InboundOption> = {
+      1: { id: 1, tag: 'awg1', remark: 'AWG1', protocol: 'awg', port: 1, awgVersion: '1.5' },
+      2: { id: 2, tag: 'vless', remark: 'v', protocol: 'vless', port: 443 },
+      3: { id: 3, tag: 'awg2', remark: 'AWG2', protocol: 'awg', port: 2, awgVersion: '2' },
+      4: { id: 4, tag: 'awg3', remark: 'AWG3', protocol: 'awg', port: 3, awgVersion: '3' },
+    };
+    const c: ClientRecord = { email: 'multi', inboundIds: [1, 2, 3, 4], privateKey: 'x' };
+    const all = findAwgInbounds(c, byId);
+    expect(all.map((i) => i.id)).toEqual([1, 3, 4]);
+    expect(all.map((i) => i.awgVersion)).toEqual(['1.5', '2', '3']);
+    // first-only helper stays for single-inbound call sites
+    expect(findAwgInbound(c, byId)?.id).toBe(1);
   });
 });
 // END LUCX-HOOK

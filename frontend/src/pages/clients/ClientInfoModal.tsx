@@ -13,7 +13,7 @@ import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ConfigBlock from '@/components/clients/ConfigBlock';
-import { buildWireguardClientConfig, findWireguardInbound, isWireguardClient, buildAwgClientConfig, findAwgInbound, isAwgClient } from './wireguardConfig'; // LUCX-HOOK: AWG
+import { buildWireguardClientConfig, findWireguardInbound, isWireguardClient, buildAwgClientConfig, findAwgInbounds, isAwgClient } from './wireguardConfig'; // LUCX-HOOK: AWG
 import './ClientInfoModal.css';
 
 const INBOUND_PROTOCOL_COLORS: Record<string, string> = {
@@ -149,20 +149,34 @@ export default function ClientInfoModal({
     if (!client || !wgInbound || !isWireguardClient(client)) return '';
     return buildWireguardClientConfig(client, wgInbound, window.location.hostname, subSettings?.publicHost ?? '');
   }, [client, wgInbound, subSettings?.publicHost]);
-  // LUCX-HOOK: AWG — client .conf with obfuscation block + export-version selector.
-  const awgInbound = useMemo(() => findAwgInbound(client, inboundsById), [client, inboundsById]);
-  const awgCeiling = useMemo(
-    () => (awgInbound ? awgVersionCeiling(awgInbound.awgVersion) : '2'),
-    [awgInbound],
-  );
-  const [awgExportVersion, setAwgExportVersion] = useState<AwgVersion>('2');
+  // LUCX-HOOK: AWG — one .conf per attached inbound (own ceiling + version select).
+  const awgInbounds = useMemo(() => findAwgInbounds(client, inboundsById), [client, inboundsById]);
+  const [awgExportById, setAwgExportById] = useState<Record<number, AwgVersion>>({});
   useEffect(() => {
-    setAwgExportVersion(awgCeiling);
-  }, [awgCeiling]);
-  const awgConfigText = useMemo(() => {
-    if (!client || !awgInbound || !isAwgClient(client)) return '';
-    return buildAwgClientConfig(client, awgInbound, window.location.hostname, subSettings?.publicHost ?? '', awgExportVersion);
-  }, [client, awgInbound, subSettings?.publicHost, awgExportVersion]);
+    setAwgExportById((prev) => {
+      const next: Record<number, AwgVersion> = {};
+      for (const ib of awgInbounds) {
+        const ceiling = awgVersionCeiling(ib.awgVersion);
+        next[ib.id] = prev[ib.id] && awgVersionAtLeast(ceiling, prev[ib.id]) ? prev[ib.id] : ceiling;
+      }
+      return next;
+    });
+  }, [awgInbounds]);
+  const awgConfigs = useMemo(() => {
+    if (!client || !isAwgClient(client)) return [] as { ib: InboundOption; text: string; ceiling: AwgVersion; version: AwgVersion }[];
+    const host = window.location.hostname;
+    const pub = subSettings?.publicHost ?? '';
+    return awgInbounds.map((ib) => {
+      const ceiling = awgVersionCeiling(ib.awgVersion);
+      const version = awgExportById[ib.id] ?? ceiling;
+      return {
+        ib,
+        ceiling,
+        version,
+        text: buildAwgClientConfig(client, ib, host, pub, version),
+      };
+    });
+  }, [client, awgInbounds, subSettings?.publicHost, awgExportById]);
   // END LUCX-HOOK
 
   async function copyValue(text: string) {
@@ -554,34 +568,40 @@ export default function ClientInfoModal({
                 />
               </>
             )}
-            {/* LUCX-HOOK: AWG — client .conf block with obfuscation + export-version selector */}
-            {awgConfigText && client && (
-              <>
-                <Divider>{t('pages.clients.awgConfig')}</Divider>
-                <Space style={{ width: '100%', justifyContent: 'flex-end', marginBottom: 8 }} align="center">
-                  <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                    {t('pages.clients.awgExportVersion')}
-                  </Typography.Text>
-                  <Select<AwgVersion>
-                    size="small"
-                    style={{ width: 180 }}
-                    value={awgExportVersion}
-                    onChange={setAwgExportVersion}
-                    options={[
-                      { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !awgVersionAtLeast(awgCeiling, '1.5') },
-                      { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !awgVersionAtLeast(awgCeiling, '2') },
-                      { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !awgVersionAtLeast(awgCeiling, '3') },
-                    ]}
+            {/* LUCX-HOOK: AWG — one .conf block per inbound (own ceiling + version select) */}
+            {client && awgConfigs.map((cfg) => {
+              const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
+              return (
+                <div key={cfg.ib.id}>
+                  <Divider>
+                    {t('pages.clients.awgConfig')}
+                    {labelName ? ` — ${labelName}` : ''}
+                  </Divider>
+                  <Space style={{ width: '100%', justifyContent: 'flex-end', marginBottom: 8 }} align="center">
+                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                      {t('pages.clients.awgExportVersion')}
+                    </Typography.Text>
+                    <Select<AwgVersion>
+                      size="small"
+                      style={{ width: 180 }}
+                      value={cfg.version}
+                      onChange={(v) => setAwgExportById((prev) => ({ ...prev, [cfg.ib.id]: v }))}
+                      options={[
+                        { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !awgVersionAtLeast(cfg.ceiling, '1.5') },
+                        { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !awgVersionAtLeast(cfg.ceiling, '2') },
+                        { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !awgVersionAtLeast(cfg.ceiling, '3') },
+                      ]}
+                    />
+                  </Space>
+                  <ConfigBlock
+                    label={t('pages.clients.config')}
+                    text={cfg.text}
+                    fileName={`${client.email}-awg${cfg.ib.id}.conf`}
+                    qrRemark={client.email || 'peer'}
                   />
-                </Space>
-                <ConfigBlock
-                  label={t('pages.clients.config')}
-                  text={awgConfigText}
-                  fileName={`${client.email}-awg.conf`}
-                  qrRemark={client.email || 'peer'}
-                />
-              </>
-            )}
+                </div>
+              );
+            })}
             {/* END LUCX-HOOK */}
           </>
         )}

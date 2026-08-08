@@ -172,29 +172,48 @@ func diagnoseXrayTun(inst Instance, p prober) []DiagCheck {
 	return checks
 }
 
-// diagnoseKernelNAT probes the plain-routing chain: MASQUERADE of the client
-// subnet out the default-route interface and FORWARD accepts on both awgN legs.
+// diagnoseKernelNAT probes the plain-routing chain: packets from awgN are
+// MARKed in mangle/PREROUTING and MASQUERADEd by mark out the default-route
+// interface (lucx.84+; not -s <subnet>, so peers outside the server Address/24
+// still NAT). Plus FORWARD accepts on both awgN legs.
 func diagnoseKernelNAT(inst Instance, p prober) []DiagCheck {
 	var checks []DiagCheck
-	subnet := clientSubnet(inst.Address)
 	routeOut, _ := p.Run("ip", "-o", "-4", "route", "show", "default")
 	extIface := parseDefaultRouteInterface(routeOut)
-	if subnet == "" || extIface == "" {
+	if inst.Ifname == "" || extIface == "" {
 		return append(checks, DiagCheck{
 			"masquerade", false,
-			fmt.Sprintf("cannot derive NAT parameters (subnet=%q, default-route iface=%q)", subnet, extIface),
+			fmt.Sprintf("cannot derive NAT parameters (ifname=%q, default-route iface=%q)", inst.Ifname, extIface),
 		})
 	}
 
-	masqArgs := []string{"-t", "nat", "-C", "POSTROUTING", "-s", subnet, "-o", extIface, "-j", "MASQUERADE"}
-	out, err := p.Run("iptables", masqArgs...)
-	if err != nil {
+	mark := strconv.Itoa(awgNatMark(inst.Id))
+	markArgs := []string{"-t", "mangle", "-C", "PREROUTING", "-i", inst.Ifname, "-j", "MARK", "--set-mark", mark}
+	masqArgs := []string{"-t", "nat", "-C", "POSTROUTING", "-m", "mark", "--mark", mark, "-o", extIface, "-j", "MASQUERADE"}
+	markOut, markErr := p.Run("iptables", markArgs...)
+	masqOut, masqErr := p.Run("iptables", masqArgs...)
+	switch {
+	case markErr != nil && masqErr != nil:
 		checks = append(checks, DiagCheck{
 			"masquerade", false,
-			fmt.Sprintf("missing POSTROUTING -s %s -o %s MASQUERADE (flushed? fail2ban/docker reload?) — reconcile re-adds within 10s: %s", subnet, extIface, oneLine(out)),
+			fmt.Sprintf("missing MARK iif %s + MASQUERADE mark=%s -o %s (flushed? fail2ban/docker reload?) — reconcile re-adds within 10s: %s",
+				inst.Ifname, mark, extIface, oneLine(markOut+" "+masqOut)),
 		})
-	} else {
-		checks = append(checks, DiagCheck{"masquerade", true, fmt.Sprintf("-s %s -o %s MASQUERADE", subnet, extIface)})
+	case markErr != nil:
+		checks = append(checks, DiagCheck{
+			"masquerade", false,
+			fmt.Sprintf("missing mangle PREROUTING -i %s MARK --set-mark %s: %s", inst.Ifname, mark, oneLine(markOut)),
+		})
+	case masqErr != nil:
+		checks = append(checks, DiagCheck{
+			"masquerade", false,
+			fmt.Sprintf("missing POSTROUTING -m mark --mark %s -o %s MASQUERADE: %s", mark, extIface, oneLine(masqOut)),
+		})
+	default:
+		checks = append(checks, DiagCheck{
+			"masquerade", true,
+			fmt.Sprintf("MARK iif %s → MASQUERADE mark=%s -o %s", inst.Ifname, mark, extIface),
+		})
 	}
 
 	missing := []string{}

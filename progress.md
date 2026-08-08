@@ -1600,3 +1600,8 @@ systemctl start x-ui
 **Что сделано:** первая строка-слоган заменена во всех 7 README (`README.md`, `ru_RU`, `fa_IR`, `ar_EG`, `zh_CN`, `es_ES`, `tr_TR`): вместо «3x-ui + native AmneziaWG (AWG) — censorship-resistant VPN panel that 3x-ui is missing» теперь «Advanced Xray & AmneziaWG control panel — with unified subscriptions, multi-server management and native AWG support» (+ переводы на соответствующие языки). Секция «What is LucX-UI» (строка про AWG как censorship-resistant fork WireGuard) не тронута.
 
 **Файлы:** 7 × `README*.md`. Коммит `6213ebee`, запушен в `gh/main`. Тесты не требуются (только документация).
+
+## Релиз v3.6.0-lucx.86 (2026-08-08)
+
+1. **fix(clients):** AWG version selector при multi-attach — один .conf panel на каждый AWG-инбаунд со своим ceiling (раньше брался только первый → v1.5 блокировал 2/3). Репорт Aleksandr SacredX.
+2. **fix(awg):** diagnostics MASQUERADE проверяет mark-based rules (lucx.84+), не устаревший `-s subnet`.

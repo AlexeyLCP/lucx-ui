@@ -71,14 +71,25 @@ export function isAwgClient(client: ClientRecord | null | undefined): boolean {
   return isWireguardClient(client);
 }
 
-// findAwgInbound returns the first AWG inbound attached to the client.
+// findAwgInbounds returns every AWG inbound attached to the client (stable
+// inboundIds order). Multi-attach clients need one .conf panel per inbound —
+// each carries its own awgVersion ceiling, obfuscation block, port and peer
+// pubkey. findAwgInbound keeps the first-only helper for single-inbound call
+// sites.
+export function findAwgInbounds(
+  client: ClientRecord | null | undefined,
+  inboundsById: Record<number, InboundOption>,
+): InboundOption[] {
+  return (client?.inboundIds || [])
+    .map((id) => inboundsById[id])
+    .filter((ib): ib is InboundOption => ib?.protocol === 'awg');
+}
+
 export function findAwgInbound(
   client: ClientRecord | null | undefined,
   inboundsById: Record<number, InboundOption>,
 ): InboundOption | undefined {
-  return (client?.inboundIds || [])
-    .map((id) => inboundsById[id])
-    .find((ib) => ib?.protocol === 'awg');
+  return findAwgInbounds(client, inboundsById)[0];
 }
 
 // filterAwgObfuscation trims the backend's pre-rendered AWG obfuscation block
