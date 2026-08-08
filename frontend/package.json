@@ -39,7 +39,7 @@
     "dayjs": "^1.11.21",
     "i18next": "^26.3.6",
     "otpauth": "^9.5.1",
-    "persian-calendar-suite": "^1.5.5",
+    "persian-calendar-suite": "^1.5.6",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
     "react-hook-form": "^7.83.0",
