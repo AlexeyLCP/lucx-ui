@@ -756,18 +756,19 @@ func (a *SUBController) serveClashBody(c *gin.Context, rawDownload bool) bool {
 	return true
 }
 
-// LUCX-HOOK: AmneziaWG subscription handler
+// LUCX-HOOK: AmneziaWG subscription handler.
+// Never serve the HTML sub page here — browsers and Amnezia need the raw
+// .conf / vpn:// body. (maybeServeSubPage was hijacking Accept: text/html
+// and showing "Информация о подписке" instead of conf — report Aleksandr.)
 func (a *SUBController) subAwgs(c *gin.Context) {
-	rawDownload := strings.EqualFold(c.Query("view"), "raw")
-	if !rawDownload && a.maybeServeSubPage(c) {
-		return
-	}
+	rawDownload := strings.EqualFold(c.Query("view"), "raw") ||
+		strings.Contains(strings.ToLower(c.GetHeader("Accept")), "text/html")
 	if !a.serveAwgBody(c, rawDownload) {
 		writeSubError(c, nil)
 	}
 }
 
-func (a *SUBController) serveAwgBody(c *gin.Context, rawDownload bool) bool {
+func (a *SUBController) serveAwgBody(c *gin.Context, forceDownload bool) bool {
 	subId := c.Param("subid")
 	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
 	format := c.Query("format") // "" | conf | vpn
@@ -784,16 +785,15 @@ func (a *SUBController) serveAwgBody(c *gin.Context, rawDownload bool) bool {
 		profileUrl = fmt.Sprintf("%s://%s%s", scheme, hostWithPort, c.Request.RequestURI)
 	}
 	a.ApplyCommonHeaders(c, header, a.updateInterval, a.subTitle, a.subSupportUrl, profileUrl, a.subAnnounce, a.subEnableRouting, a.subRoutingRules, a.subHideSettings)
+	// Always attachment so browsers download instead of rendering as a page.
 	if strings.EqualFold(format, "vpn") {
-		if rawDownload {
-			c.Writer.Header().Set("Content-Disposition", `attachment; filename="amnezia-vpn.txt"`)
-		}
+		c.Writer.Header().Set("Content-Disposition", `attachment; filename="amnezia-vpn.txt"`)
+		c.Writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		c.Data(200, "text/plain; charset=utf-8", []byte(body))
 		return true
 	}
-	if rawDownload {
-		c.Writer.Header().Set("Content-Disposition", `attachment; filename="amneziawg.conf"`)
-	}
+	_ = forceDownload
+	c.Writer.Header().Set("Content-Disposition", `attachment; filename="amneziawg.conf"`)
 	c.Data(200, "text/plain; charset=utf-8", []byte(body))
 	return true
 }

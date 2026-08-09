@@ -1615,3 +1615,7 @@ systemctl start x-ui
 **feat(sub):** AWG в Clash (amnezia-wg-option) + подписка Amnezia /awg/{subId} (.conf и ?format=vpn → vpn://).
 Ссылки AMNEZIA / vpn:// / CLASH во всех UI (ClientInfo, QR, SubLinks, InboundInfo, Inbound QR, TG bot, settings).
 
+
+## Релиз v3.6.0-lucx.89 (2026-08-09)
+
+**fix(sub):** /awg/ больше не отдаёт HTML «Информация о подписке» (maybeServeSubPage) — всегда .conf / vpn:// attachment. Репорт Aleksandr: ссылка открывалась как страница SUB.
