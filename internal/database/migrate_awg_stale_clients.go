@@ -16,17 +16,41 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
+// awgStaleMigrationEnabled gates the startup sweep below. DISABLED as of
+// lucx.92: the lucx.91 release ran this sweep unattended on every panel
+// start and re-allocated client addresses on live servers without an
+// operator action. Even though it only touched clients whose address had
+// fallen out of the inbound subnet (already broken — handshake without
+// traffic), changing anything on someone else's production server
+// automatically is the wrong default. The attach-time re-allocation in
+// service.defaultAwgClients STAYS active: it fires only on an explicit
+// client (re)attach, which is the operator-driven fix for the original
+// "re-attach keeps stale params" bug.
+//
+// Rollback for servers that already ran the lucx.91 sweep: no backup was
+// persisted, the only old→new record is the panel journal —
+//
+//	journalctl -u x-ui | grep 'migration.*address'
+//
+// prints `client "email" address OLD -> NEW` per rotated client. Rollback is
+// rarely needed: the rotated clients were non-functional before the sweep and
+// receive a valid in-subnet address, so re-downloading the client config is
+// enough. To restore an old address anyway, set it back manually in the
+// client's allowedIPs (panel client edit).
+const awgStaleMigrationEnabled = false
+
 // migrateAwgStaleClients repairs AWG clients whose stored tunnel address no
-// longer belongs to the subnet of the inbound they are attached to (lucx.92).
+// longer belongs to the subnet of the inbound they are attached to (lucx.91,
+// disabled in lucx.92 — see awgStaleMigrationEnabled).
 // The damage path: a client created on an AWG inbound, detached, and
 // re-attached later — after the inbound subnet changed or onto another AWG
 // inbound — kept its old single-host address, because the allocator only
 // fills BLANK credentials. The kernel interface then carries a peer routable
 // to a network it does not own: the handshake completes (keys match) but
 // traffic dies — the live symptom reported on lucx.85–90 ("коннект есть,
-// трафика нет"). The attach path re-allocates on the fly from lucx.92; this
-// migration fixes clients that are ALREADY stored stale, without waiting for
-// a manual re-attach.
+// трафика нет"). The attach path re-allocates on the fly from lucx.91; this
+// sweep fixed clients that were ALREADY stored stale, without waiting for a
+// manual re-attach.
 //
 // Only single-host addresses (/32, /128) outside the current subnet are
 // rotated; custom allowedIPs (0.0.0.0/0 etc.) are operator-managed and stay
@@ -34,6 +58,9 @@ import (
 // client just re-imports the refreshed config. Idempotent: a second run
 // finds nothing stale.
 func migrateAwgStaleClients() error {
+	if !awgStaleMigrationEnabled {
+		return nil
+	}
 	awgoIPs := awgoOutboundIPs()
 
 	var inbounds []model.Inbound
