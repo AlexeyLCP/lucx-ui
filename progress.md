@@ -1619,3 +1619,7 @@ systemctl start x-ui
 ## Релиз v3.6.0-lucx.89 (2026-08-09)
 
 **fix(sub):** /awg/ больше не отдаёт HTML «Информация о подписке» (maybeServeSubPage) — всегда .conf / vpn:// attachment. Репорт Aleksandr: ссылка открывалась как страница SUB.
+
+**Верификация (2026-08-09, стенд 144.31.224.212):** dev-latest → `lucx.89+dev+1d9137d4`; `GET /awg/{subId}` с `Accept: text/html` (браузер) → 200 + `Content-Disposition: attachment; filename="amneziawg.conf"` + сырой .conf; `?format=vpn` → `vpn://…`. Нюанс: /awg/ (как /sub/, /json/, /clash/) слушает **sub-сервис на отдельном порту** (дефолт 2096), НЕ порт панели — в nginx проксировать туда же, куда /sub/ (у Aleksandr конфиг корректный). Stable-тег v3.6.0-lucx.89 поставлен, чтобы фик доехал через `x-ui update`.
+
+**Вопрос geo-файлов (Aleksandr):** да, при любом обновлении панели release-tarball перетирает `bin/{geoip,geosite}{,_IR,_RU}.dat` стоковыми — это поведение upstream 3x-ui (блок в release.yml без LUCX-HOOK). Решение 2026-08-09: update.sh НЕ трогаем; совет операторам — кастомные группы держать в файлах с отдельным именем (`geosite_rkn.dat` → `geosite:rkn` / `ext:geosite_rkn.dat:group`), tarball их не содержит и не перетирает; либо восстанавливать кроном после update.
