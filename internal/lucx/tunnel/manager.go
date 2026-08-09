@@ -7,6 +7,7 @@
 package tunnel
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
@@ -216,7 +217,8 @@ func (m *Manager) StatusOf(inst Instance) Status {
 
 // probeListening reports whether a TCP listener answers on addr.
 func probeListening(addr string) bool {
-	conn, err := net.DialTimeout("tcp", addr, 300*time.Millisecond)
+	dialer := &net.Dialer{Timeout: 300 * time.Millisecond}
+	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return false
 	}
@@ -227,14 +229,15 @@ func probeListening(addr string) bool {
 // probeResponding reports whether a TLS handshake completes against addr
 // (certificate is not verified — the probe only checks liveness).
 func probeResponding(addr string) bool {
-	tlsConn, err := tls.DialWithDialer(
-		&net.Dialer{Timeout: time.Second}, "tcp", addr,
-		&tls.Config{InsecureSkipVerify: true}, // lgtm[go/disabled-certificate-check]
-	)
+	tlsDialer := &tls.Dialer{
+		NetDialer: &net.Dialer{Timeout: time.Second},
+		Config:    &tls.Config{InsecureSkipVerify: true}, // lgtm[go/disabled-certificate-check]
+	}
+	conn, err := tlsDialer.DialContext(context.Background(), "tcp", addr)
 	if err != nil {
 		return false
 	}
-	_ = tlsConn.Close()
+	_ = conn.Close()
 	return true
 }
 

@@ -7,6 +7,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	"net"
@@ -209,7 +210,9 @@ func (s *TunnelService) ValidateCaddyfile(text string) error {
 	if info, err := os.Stat(bin); err != nil || info.IsDir() {
 		return common.NewError("tunnel: caddy binary not installed — upload or download it first")
 	}
-	cmd := exec.Command(bin, "adapt", "--adapter", "caddyfile", "--config", "-")
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, bin, "adapt", "--adapter", "caddyfile", "--config", "-")
 	cmd.Stdin = strings.NewReader(text)
 	out, err := cmd.CombinedOutput()
 	if err != nil {
@@ -236,13 +239,18 @@ func (s *TunnelService) DeleteBinary() error {
 // DownloadBinary fetches the core binary from a URL into a temp file and
 // swaps it into place (an interrupted download never leaves a half-written
 // binary where the manager would exec it).
-func (s *TunnelService) DownloadBinary(url string) error {
-	url = strings.TrimSpace(url)
-	if url == "" {
+func (s *TunnelService) DownloadBinary(downloadURL string) error {
+	downloadURL = strings.TrimSpace(downloadURL)
+	if downloadURL == "" {
 		return common.NewError("tunnel: empty download url")
 	}
-	client := &http.Client{Timeout: 5 * time.Minute}
-	resp, err := client.Get(url)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := (&http.Client{}).Do(req)
 	if err != nil {
 		return err
 	}
