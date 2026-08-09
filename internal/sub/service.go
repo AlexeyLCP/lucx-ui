@@ -2665,6 +2665,31 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 	return
 }
 
+// LUCX-HOOK: last-resort Endpoint host for generated AWG confs.
+// ResolveRequest falls back to X-Real-IP for `host`, but that header carries
+// the subscriber's own address: behind nginx with
+// `proxy_set_header X-Real-IP $remote_addr` the client IP leaked into
+// Endpoint and Amnezia dialed the user's own router (report Aleksandr,
+// lucx.89). Prefer trusted X-Forwarded-Host, then the Host header; never
+// X-Real-IP. The inbound's own chain (ShareAddr/node/listen/public host)
+// in resolveInboundAddress still wins over this value.
+func (s *SubService) AwgEndpointHost(c *gin.Context) string {
+	xfh := ""
+	if s.forwardedHeadersTrusted(c) {
+		xfh = c.GetHeader("X-Forwarded-Host")
+	}
+	if h, err := getHostFromXFH(xfh); err == nil && h != "" {
+		return h
+	}
+	h := c.Request.Host
+	if bare, _, err := net.SplitHostPort(h); err == nil {
+		return bare
+	}
+	return h
+}
+
+// END LUCX-HOOK
+
 // BuildURLs constructs absolute subscription and JSON subscription URLs for a given subscription ID.
 // It prioritizes configured URIs, then individual settings, and finally falls back to request-derived components.
 func (s *SubService) BuildURLs(subPath, subJsonPath, subClashPath, subId string) (subURL, subJsonURL, subClashURL string) {

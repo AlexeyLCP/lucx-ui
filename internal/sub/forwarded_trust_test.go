@@ -154,6 +154,35 @@ func TestResolveRequest_GatesRealIPFallback(t *testing.T) {
 	}
 }
 
+func TestAwgEndpointHost_NeverRealIP(t *testing.T) {
+	initSubDB(t)
+	s := &SubService{}
+
+	c := requestFrom(t, "127.0.0.1:51000", map[string]string{
+		"X-Real-IP":       "198.51.100.7",
+		"X-Forwarded-For": "198.51.100.7",
+	})
+	if host := s.AwgEndpointHost(c); host != "panel.example.com" {
+		t.Errorf("host = %q, want the request Host — X-Real-IP must never become the AWG Endpoint", host)
+	}
+
+	c = requestFrom(t, "127.0.0.1:51000", map[string]string{
+		"X-Real-IP":        "198.51.100.7",
+		"X-Forwarded-Host": "sub.example.net",
+	})
+	if host := s.AwgEndpointHost(c); host != "sub.example.net" {
+		t.Errorf("host = %q, want the trusted X-Forwarded-Host", host)
+	}
+
+	setTrustedProxyCIDRs(t, "10.0.0.0/8")
+	c = requestFrom(t, "203.0.113.9:51000", map[string]string{
+		"X-Forwarded-Host": "evil.example.net",
+	})
+	if host := s.AwgEndpointHost(c); host != "panel.example.com" {
+		t.Errorf("host = %q, want the request Host — X-Forwarded-Host from an untrusted origin must be ignored", host)
+	}
+}
+
 func TestHasForwardedHeaders(t *testing.T) {
 	tests := []struct {
 		name    string

@@ -770,7 +770,8 @@ func (a *SUBController) subAwgs(c *gin.Context) {
 
 func (a *SUBController) serveAwgBody(c *gin.Context, forceDownload bool) bool {
 	subId := c.Param("subid")
-	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
+	scheme, _, hostWithPort, _ := a.subService.ResolveRequest(c)
+	host := a.subService.AwgEndpointHost(c)
 	format := c.Query("format") // "" | conf | vpn
 	body, header, err := a.subAwgService.GetAwg(subId, host, format)
 	if err != nil {
