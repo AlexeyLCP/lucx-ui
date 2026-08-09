@@ -524,11 +524,12 @@ func (s *SubClashService) buildAwgProxy(subReq *SubService, inbound *model.Inbou
 	ver := awg.NormalizeAWGVersion(inboundSettings.AwgVersion)
 	opt := map[string]any{}
 	// mihomo: only version 3 selects the v3 codepath; anything else is legacy.
-	if ver == "3" {
+	switch ver {
+	case "3":
 		opt["version"] = 3
-	} else if ver == "1.5" {
+	case "1.5":
 		opt["version"] = 1
-	} else {
+	default:
 		opt["version"] = 2
 	}
 	if inboundSettings.Jc > 0 {

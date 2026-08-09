@@ -135,12 +135,25 @@ export default function SubLinksModal({
           <Button key="dl" icon={<DownloadOutlined />} onClick={download} disabled={!rows.length}>
             {t('download')}
           </Button>,
-          <Button key="copy" type="primary" icon={<CopyOutlined />} onClick={() => copy(allText)} disabled={!rows.length}>
-            {t('copy')}
+          <Button
+            key="copy"
+            type="primary"
+            icon={<CopyOutlined />}
+            onClick={() => copy(allText, t('pages.clients.subLinksCopiedAll', { count: rows.length }))}
+            disabled={!rows.length}
+          >
+            {t('pages.clients.subLinksCopyAll')}
           </Button>,
         ]}
       >
-        {!rows.length ? (
+        {!subSettings?.enable && !subSettings?.subAwgEnable && !subSettings?.subClashEnable && !subSettings?.subJsonEnable ? (
+          <Alert
+            type="warning"
+            showIcon
+            title={t('pages.clients.subLinksDisabled')}
+            description={t('pages.clients.subLinksDisabledHint')}
+          />
+        ) : !rows.length ? (
           <Alert type="info" showIcon title={t('pages.clients.subLinksEmpty')} />
         ) : (
           <Table<Row>
