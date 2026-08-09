@@ -110,7 +110,8 @@
     "donate": "Doar",
     "hosts": "Hosts",
     "docs": "Documentação",
-    "openMenu": "Abrir menu"
+    "openMenu": "Abrir menu",
+    "tunnels": "Túneis"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "Excluir host",
         "badTag": "Tag inválida",
         "badVlessRoute": "Insira um único número entre 0 e 65535"
+      }
+    },
+    "tunnels": {
+      "title": "Sidecars de túnel",
+      "subtitle": "Servidores de túnel externos supervisionados pelo painel. NaiveProxy é o Caddy com o plugin forward_proxy (fork do klzgrad, padding HTTP/2): um processo independente com TLS e credências próprios — seu tráfego não passa pelo Xray.",
+      "naive": {
+        "status": {
+          "running": "Em execução",
+          "unresponsive": "Não responde",
+          "starting": "Iniciando…",
+          "stopped": "Parado"
+        },
+        "binary": {
+          "title": "Binário do núcleo",
+          "exists": "instalado",
+          "missing": "não instalado",
+          "upload": "Enviar",
+          "download": "Baixar por URL",
+          "delete": "Excluir",
+          "deleteConfirm": "Parar o núcleo e excluir seu binário?"
+        },
+        "actions": {
+          "start": "Iniciar",
+          "stop": "Parar",
+          "restart": "Reiniciar"
+        },
+        "clientUrl": "Link do cliente",
+        "logs": "Logs",
+        "logsTitle": "Logs do processo",
+        "logsEmpty": "Ainda não há linhas de log.",
+        "validOk": "O Caddyfile é válido",
+        "form": {
+          "remark": "Observação",
+          "useRawConfig": "Modo Caddyfile bruto",
+          "rawConfig": "Caddyfile",
+          "validate": "Validar",
+          "listen": "IP de escuta",
+          "listenTip": "Vazio ou 0.0.0.0 — todas as interfaces; um IP específico vira a diretiva bind do Caddy.",
+          "domain": "Domínio",
+          "useAcme": "TLS automático (Let's Encrypt)",
+          "acmeEmail": "E-mail ACME",
+          "certFile": "Arquivo de certificado",
+          "keyFile": "Arquivo de chave",
+          "authUser": "Usuário do proxy",
+          "authPass": "Senha do proxy",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "Resistência a sondas",
+          "logLevel": "Nível de log",
+          "extraArgs": "Args extras do caddy",
+          "save": "Salvar",
+          "preview": "Pré-visualizar Caddyfile",
+          "genPass": "Gerar senha"
+        },
+        "toasts": {
+          "started": "NaiveProxy iniciado",
+          "stopped": "NaiveProxy parado",
+          "restarted": "NaiveProxy reiniciado",
+          "uploaded": "Binário enviado",
+          "downloaded": "Binário baixado",
+          "deleted": "Binário excluído"
+        }
       }
     }
   },

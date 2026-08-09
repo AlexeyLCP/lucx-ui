@@ -110,7 +110,8 @@
     "donate": "寄付",
     "hosts": "ホスト",
     "docs": "ドキュメント",
-    "openMenu": "メニューを開く"
+    "openMenu": "メニューを開く",
+    "tunnels": "トンネル"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "ホストを削除",
         "badTag": "無効なタグ",
         "badVlessRoute": "0〜65535 の単一の数値を入力してください"
+      }
+    },
+    "tunnels": {
+      "title": "トンネルサイドカー",
+      "subtitle": "パネルが監視する外部トンネルサーバー。NaiveProxy は forward_proxy プラグイン入り Caddy（klzgrad フォーク、HTTP/2 パディング）で、独自の TLS と認証情報を持つ独立プロセスです — トラフィックは Xray を経由しません。",
+      "naive": {
+        "status": {
+          "running": "稼働中",
+          "unresponsive": "応答なし",
+          "starting": "起動中…",
+          "stopped": "停止中"
+        },
+        "binary": {
+          "title": "コアバイナリ",
+          "exists": "インストール済み",
+          "missing": "未インストール",
+          "upload": "アップロード",
+          "download": "URL からダウンロード",
+          "delete": "削除",
+          "deleteConfirm": "コアを停止してバイナリを削除しますか？"
+        },
+        "actions": {
+          "start": "起動",
+          "stop": "停止",
+          "restart": "再起動"
+        },
+        "clientUrl": "クライアントリンク",
+        "logs": "ログ",
+        "logsTitle": "プロセスログ",
+        "logsEmpty": "ログ行はまだありません。",
+        "validOk": "Caddyfile は有効です",
+        "form": {
+          "remark": "備考",
+          "useRawConfig": "生 Caddyfile モード",
+          "rawConfig": "Caddyfile",
+          "validate": "検証",
+          "listen": "リッスン IP",
+          "listenTip": "空欄または 0.0.0.0 — 全インターフェース。特定の IP は Caddy の bind ディレクティブになります。",
+          "domain": "ドメイン",
+          "useAcme": "自動 TLS（Let's Encrypt）",
+          "acmeEmail": "ACME メール",
+          "certFile": "証明書ファイル",
+          "keyFile": "鍵ファイル",
+          "authUser": "プロキシユーザー",
+          "authPass": "プロキシパスワード",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "プローブ耐性",
+          "logLevel": "ログレベル",
+          "extraArgs": "caddy 追加引数",
+          "save": "保存",
+          "preview": "Caddyfile プレビュー",
+          "genPass": "パスワードを生成"
+        },
+        "toasts": {
+          "started": "NaiveProxy を起動しました",
+          "stopped": "NaiveProxy を停止しました",
+          "restarted": "NaiveProxy を再起動しました",
+          "uploaded": "バイナリをアップロードしました",
+          "downloaded": "バイナリをダウンロードしました",
+          "deleted": "バイナリを削除しました"
+        }
       }
     }
   },

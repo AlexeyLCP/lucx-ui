@@ -110,7 +110,8 @@
     "apiDocs": "API Docs",
     "donate": "Donate",
     "docs": "Documentation",
-    "openMenu": "Open menu"
+    "openMenu": "Open menu",
+    "tunnels": "Tunnels"
   },
   "pages": {
     "login": {
@@ -1958,6 +1959,67 @@
       },
       "defaultOutbound": "Default Outbound",
       "defaultOutboundDesc": "Traffic that does not match any routing rule uses this outbound (Xray uses the first outbound in the list)."
+    },
+    "tunnels": {
+      "title": "Tunnel sidecars",
+      "subtitle": "External tunnel servers supervised by the panel. NaiveProxy is Caddy with the forward_proxy plugin (klzgrad fork, HTTP/2 padding): a standalone process with its own TLS and credentials — its traffic bypasses Xray.",
+      "naive": {
+        "status": {
+          "running": "Running",
+          "unresponsive": "Unresponsive",
+          "starting": "Starting…",
+          "stopped": "Stopped"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?"
+        },
+        "actions": {
+          "start": "Start",
+          "stop": "Stop",
+          "restart": "Restart"
+        },
+        "clientUrl": "Client link",
+        "logs": "Logs",
+        "logsTitle": "Process logs",
+        "logsEmpty": "No log lines captured yet.",
+        "validOk": "Caddyfile is valid",
+        "form": {
+          "remark": "Remark",
+          "useRawConfig": "Raw Caddyfile mode",
+          "rawConfig": "Caddyfile",
+          "validate": "Validate",
+          "listen": "Listen IP",
+          "listenTip": "Empty or 0.0.0.0 — all interfaces; a specific IP becomes a Caddy bind directive.",
+          "domain": "Domain",
+          "useAcme": "Auto TLS (Let's Encrypt)",
+          "acmeEmail": "ACME email",
+          "certFile": "Certificate file",
+          "keyFile": "Key file",
+          "authUser": "Proxy user",
+          "authPass": "Proxy password",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "Probe resistance",
+          "logLevel": "Log level",
+          "extraArgs": "Extra caddy args",
+          "save": "Save",
+          "preview": "Preview Caddyfile",
+          "genPass": "Generate password"
+        },
+        "toasts": {
+          "started": "NaiveProxy started",
+          "stopped": "NaiveProxy stopped",
+          "restarted": "NaiveProxy restarted",
+          "uploaded": "Binary uploaded",
+          "downloaded": "Binary downloaded",
+          "deleted": "Binary deleted"
+        }
+      }
     }
   },
   "tgbot": {

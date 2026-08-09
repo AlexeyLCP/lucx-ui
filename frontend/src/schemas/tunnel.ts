@@ -1,0 +1,55 @@
+// Copyright (c) 2025 LucX-UI Project.
+// Licensed under the PolyForm Noncommercial License 1.0.0.
+// LucX-UI Component. Free for personal and educational use.
+// Commercial use (including VPN resale) requires explicit written permission from the author.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+import { z } from 'zod';
+
+// NaiveProxy tunnel core config — mirrors tunnel.NaiveConfig on the Go side
+// (internal/lucx/tunnel/naive.go). The panel renders it into a Caddyfile for
+// the supervised caddy process.
+export const NaiveConfigSchema = z.object({
+  remark: z.string().default(''),
+  enabled: z.boolean().default(false),
+  listen: z.string().default(''),
+  port: z.number().int().min(1).max(65535).default(443),
+  domain: z.string().default(''),
+  useAcme: z.boolean().default(false),
+  acmeEmail: z.string().default(''),
+  certFile: z.string().default(''),
+  keyFile: z.string().default(''),
+  authUser: z.string().default(''),
+  authPass: z.string().default(''),
+  enableH3: z.boolean().default(true),
+  probeResistance: z.boolean().default(true),
+  logLevel: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).default('WARN'),
+  extraArgs: z.string().default(''),
+  useRawConfig: z.boolean().default(false),
+  rawConfig: z.string().default(''),
+});
+
+export type NaiveConfig = z.infer<typeof NaiveConfigSchema>;
+
+// Three-level health probe: running (process alive) -> listening (TCP port
+// answers) -> responding (TLS handshake completes). See tunnel.Status.
+export const TunnelProbeSchema = z.object({
+  running: z.boolean(),
+  listening: z.boolean(),
+  responding: z.boolean(),
+});
+
+export type TunnelProbe = z.infer<typeof TunnelProbeSchema>;
+
+export const NaiveStatusSchema = z.object({
+  core: z.string(),
+  displayName: z.string(),
+  binaryExists: z.boolean(),
+  binaryPath: z.string(),
+  clientUrl: z.string(),
+  config: NaiveConfigSchema,
+  probe: TunnelProbeSchema,
+  lastLog: z.string(),
+});
+
+export type NaiveStatus = z.infer<typeof NaiveStatusSchema>;

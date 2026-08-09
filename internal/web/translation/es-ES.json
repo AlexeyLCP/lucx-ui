@@ -110,7 +110,8 @@
     "donate": "Donar",
     "hosts": "Hosts",
     "docs": "Documentación",
-    "openMenu": "Abrir menú"
+    "openMenu": "Abrir menú",
+    "tunnels": "Túneles"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "Eliminar host",
         "badTag": "Etiqueta no válida",
         "badVlessRoute": "Introduce un único número entre 0 y 65535"
+      }
+    },
+    "tunnels": {
+      "title": "Sidecars de túnel",
+      "subtitle": "Servidores de túnel externos supervisados por el panel. NaiveProxy es Caddy con el plugin forward_proxy (fork de klzgrad, padding HTTP/2): un proceso independiente con su propio TLS y credenciales — su tráfico no pasa por Xray.",
+      "naive": {
+        "status": {
+          "running": "En ejecución",
+          "unresponsive": "No responde",
+          "starting": "Iniciando…",
+          "stopped": "Detenido"
+        },
+        "binary": {
+          "title": "Binario del núcleo",
+          "exists": "instalado",
+          "missing": "no instalado",
+          "upload": "Subir",
+          "download": "Descargar por URL",
+          "delete": "Eliminar",
+          "deleteConfirm": "¿Detener el núcleo y eliminar su binario?"
+        },
+        "actions": {
+          "start": "Iniciar",
+          "stop": "Detener",
+          "restart": "Reiniciar"
+        },
+        "clientUrl": "Enlace de cliente",
+        "logs": "Registros",
+        "logsTitle": "Registros del proceso",
+        "logsEmpty": "Aún no hay líneas de registro.",
+        "validOk": "El Caddyfile es válido",
+        "form": {
+          "remark": "Observación",
+          "useRawConfig": "Modo Caddyfile crudo",
+          "rawConfig": "Caddyfile",
+          "validate": "Validar",
+          "listen": "IP de escucha",
+          "listenTip": "Vacío o 0.0.0.0 — todas las interfaces; una IP concreta se convierte en la directiva bind de Caddy.",
+          "domain": "Dominio",
+          "useAcme": "TLS automático (Let's Encrypt)",
+          "acmeEmail": "Correo ACME",
+          "certFile": "Archivo de certificado",
+          "keyFile": "Archivo de clave",
+          "authUser": "Usuario del proxy",
+          "authPass": "Contraseña del proxy",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "Resistencia a sondas",
+          "logLevel": "Nivel de registro",
+          "extraArgs": "Args extra de caddy",
+          "save": "Guardar",
+          "preview": "Vista previa del Caddyfile",
+          "genPass": "Generar contraseña"
+        },
+        "toasts": {
+          "started": "NaiveProxy iniciado",
+          "stopped": "NaiveProxy detenido",
+          "restarted": "NaiveProxy reiniciado",
+          "uploaded": "Binario subido",
+          "downloaded": "Binario descargado",
+          "deleted": "Binario eliminado"
+        }
       }
     }
   },

@@ -110,7 +110,8 @@
     "donate": "Donasi",
     "hosts": "Host",
     "docs": "Dokumentasi",
-    "openMenu": "Buka menu"
+    "openMenu": "Buka menu",
+    "tunnels": "Terowongan"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "Hapus host",
         "badTag": "Tag tidak valid",
         "badVlessRoute": "Masukkan satu angka antara 0 dan 65535"
+      }
+    },
+    "tunnels": {
+      "title": "Sidecar terowongan",
+      "subtitle": "Server terowongan eksternal yang diawasi panel. NaiveProxy adalah Caddy dengan plugin forward_proxy (fork klzgrad, padding HTTP/2): proses tersendiri dengan TLS dan kredensial sendiri — lalu lintasnya tidak melewati Xray.",
+      "naive": {
+        "status": {
+          "running": "Berjalan",
+          "unresponsive": "Tidak merespons",
+          "starting": "Memulai…",
+          "stopped": "Berhenti"
+        },
+        "binary": {
+          "title": "Biner inti",
+          "exists": "terpasang",
+          "missing": "belum terpasang",
+          "upload": "Unggah",
+          "download": "Unduh via URL",
+          "delete": "Hapus",
+          "deleteConfirm": "Hentikan inti dan hapus binernya?"
+        },
+        "actions": {
+          "start": "Mulai",
+          "stop": "Hentikan",
+          "restart": "Mulai ulang"
+        },
+        "clientUrl": "Tautan klien",
+        "logs": "Log",
+        "logsTitle": "Log proses",
+        "logsEmpty": "Belum ada baris log.",
+        "validOk": "Caddyfile valid",
+        "form": {
+          "remark": "Catatan",
+          "useRawConfig": "Mode Caddyfile mentah",
+          "rawConfig": "Caddyfile",
+          "validate": "Validasi",
+          "listen": "IP listen",
+          "listenTip": "Kosong atau 0.0.0.0 — semua antarmuka; IP tertentu menjadi direktif bind Caddy.",
+          "domain": "Domain",
+          "useAcme": "TLS otomatis (Let's Encrypt)",
+          "acmeEmail": "Email ACME",
+          "certFile": "Berkas sertifikat",
+          "keyFile": "Berkas kunci",
+          "authUser": "Pengguna proxy",
+          "authPass": "Kata sandi proxy",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "Resistensi probe",
+          "logLevel": "Level log",
+          "extraArgs": "Argumen caddy tambahan",
+          "save": "Simpan",
+          "preview": "Pratinjau Caddyfile",
+          "genPass": "Buat kata sandi"
+        },
+        "toasts": {
+          "started": "NaiveProxy dimulai",
+          "stopped": "NaiveProxy dihentikan",
+          "restarted": "NaiveProxy dimulai ulang",
+          "uploaded": "Biner diunggah",
+          "downloaded": "Biner diunduh",
+          "deleted": "Biner dihapus"
+        }
       }
     }
   },

@@ -377,6 +377,94 @@ export const sections: readonly Section[] = [
   },
   // END LUCX-HOOK
 
+  // LUCX-HOOK: tunnel sidecars (NaiveProxy) API documentation. Self-contained
+  // section, same reasoning as awg-outbounds above. Routes are registered in
+  // internal/web/controller/api.go and served by
+  // internal/web/controller/tunnel.go.
+  {
+    id: 'tunnels',
+    title: 'Tunnels',
+    description:
+      'Manage external tunnel-server sidecars that run next to the Xray core. The first core is NaiveProxy: Caddy with the forward_proxy plugin (klzgrad/forwardproxy, HTTP/2 padding) supervised by the panel — rendered Caddyfile, process lifecycle, three-level health probe (process alive -> TCP listening -> TLS responding), binary upload/download and Caddyfile validation via "caddy adapt". The reconcile job (every 10s) revives a crashed core and keeps a disabled one down. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/naive/status',
+        summary: 'Full status of the NaiveProxy core: the live three-level probe (running/listening/responding), binary presence and path, the stored config, the generated naive+https client URL and the last process log line. LucX-UI only.',
+        response: '{\n  "success": true,\n  "obj": {\n    "core": "naive",\n    "displayName": "NaiveProxy",\n    "binaryExists": true,\n    "binaryPath": "bin/caddy-naive-linux-amd64",\n    "clientUrl": "naive+https://alice:secret@vpn.example.com",\n    "config": { "port": 443, "domain": "vpn.example.com", "enabled": true },\n    "probe": { "running": true, "listening": true, "responding": true },\n    "lastLog": ""\n  }\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/naive/config',
+        summary: 'Read the stored NaiveProxy config (defaults when nothing is stored yet). LucX-UI only.',
+        response: '{\n  "success": true,\n  "obj": {\n    "remark": "",\n    "enabled": false,\n    "listen": "",\n    "port": 443,\n    "domain": "",\n    "useAcme": false,\n    "acmeEmail": "",\n    "certFile": "",\n    "keyFile": "",\n    "authUser": "",\n    "authPass": "",\n    "enableH3": true,\n    "probeResistance": true,\n    "logLevel": "WARN",\n    "extraArgs": "",\n    "useRawConfig": false,\n    "rawConfig": ""\n  }\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/config',
+        summary: 'Validate, persist and apply the NaiveProxy config. Validation covers port range, credentials, TLS mode requirements (Auto TLS needs a domain and port 443; manual TLS needs cert/key paths) and the log level; a non-raw config is also cross-checked against TCP Xray inbounds for port collisions. A running core whose rendered Caddyfile changed is restarted. Returns the fresh status. LucX-UI only.',
+        body: '{\n  "enabled": true,\n  "port": 443,\n  "domain": "vpn.example.com",\n  "useAcme": true,\n  "acmeEmail": "admin@example.com",\n  "authUser": "alice",\n  "authPass": "secret",\n  "enableH3": true,\n  "probeResistance": true,\n  "logLevel": "WARN"\n}',
+        errorResponse: '{\n  "success": false,\n  "msg": "naive: Auto TLS requires a domain"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/start',
+        summary: 'Mark the core enabled, persist, and start the caddy process. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/stop',
+        summary: 'Mark the core disabled, persist, and stop the caddy process (SIGTERM with kill fallback). LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/restart',
+        summary: 'Force a fresh start with the stored config (and enable the core). LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/naive/logs',
+        summary: 'Return the most recent captured output lines of the caddy process (ring buffer, default 200). LucX-UI only.',
+        params: [
+          { name: 'lines', in: 'query', type: 'number', desc: 'Max lines to return (default 200).', optional: true },
+        ],
+        response: '{\n  "success": true,\n  "obj": ["…"]\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/preview',
+        summary: 'Render the Caddyfile the given form state would produce, without persisting anything. Same validation as save. LucX-UI only.',
+        body: '{\n  "port": 443,\n  "domain": "vpn.example.com",\n  "authUser": "alice",\n  "authPass": "secret"\n}',
+        response: '{\n  "success": true,\n  "obj": { "caddyfile": "{\\n\\tadmin off\\n…}\\n" }\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/validate',
+        summary: 'Run "caddy adapt" against raw Caddyfile text using the installed core binary; the parser output is returned on failure. Requires the binary to be installed. LucX-UI only.',
+        body: '{\n  "text": ":443 {\\n\\trespond \\"ok\\"\\n}\\n"\n}',
+        response: '{\n  "success": true,\n  "obj": { "valid": true }\n}',
+        errorResponse: '{\n  "success": false,\n  "msg": "tunnel: caddy adapt: …"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/upload',
+        summary: 'Replace the core binary on disk (multipart field "file"). Exempt from the global 10 MiB body limit because caddy builds are ~50 MB. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/download',
+        summary: 'Fetch the core binary from a URL into a temp file and swap it into place (an interrupted download never leaves a half-written binary). 200 MB cap. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/caddy-naive-linux-amd64"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/naive/deleteBinary',
+        summary: 'Stop the core and remove its binary from disk. LucX-UI only.',
+      },
+    ],
+  },
+  // END LUCX-HOOK
+
   {
     id: 'server',
     title: 'Server',

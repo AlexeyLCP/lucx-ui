@@ -52,7 +52,7 @@ const railStyle = { '--sider-rail': `${RAIL_WIDTH}px` } as CSSProperties;
 
 let hoveredAcrossRemounts = false;
 
-type IconName = 'dashboard' | 'inbound' | 'team' | 'groups' | 'setting' | 'tool' | 'cluster' | 'hosts' | 'logout' | 'apidocs' | 'outbound' | 'routing';
+type IconName = 'dashboard' | 'inbound' | 'team' | 'groups' | 'setting' | 'tool' | 'cluster' | 'hosts' | 'logout' | 'apidocs' | 'outbound' | 'routing' | 'tunnels';
 
 const iconByName: Record<IconName, ComponentType> = {
   dashboard: DashboardOutlined,
@@ -67,6 +67,9 @@ const iconByName: Record<IconName, ComponentType> = {
   apidocs: ApiOutlined,
   outbound: ExportOutlined,
   routing: SwapOutlined,
+  // LUCX-HOOK: tunnel sidecars (NaiveProxy) menu icon
+  tunnels: CloudServerOutlined,
+  // END LUCX-HOOK
 };
 
 function DonateButton({ ariaLabel }: { ariaLabel: string }) {
@@ -190,6 +193,9 @@ export default function AppSidebar() {
     { key: '/groups', icon: 'groups', title: t('menu.groups') },
     { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
     { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },
+    // LUCX-HOOK: tunnel sidecars (NaiveProxy) nav entry
+    { key: '/tunnels', icon: 'tunnels', title: t('menu.tunnels') },
+    // END LUCX-HOOK
     // LUCX-HOOK: AWG outbound — /outbound removed from the top-level menu.
     // It duplicated the "Xray outbounds" entry inside the "Xray Configs"
     // submenu (the same XrayPage rendered under two nav entries). The

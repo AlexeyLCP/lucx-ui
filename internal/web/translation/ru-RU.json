@@ -110,7 +110,8 @@
     "donate": "Поддержать",
     "hosts": "Хосты",
     "docs": "Документация",
-    "openMenu": "Открыть меню"
+    "openMenu": "Открыть меню",
+    "tunnels": "Туннели"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "Удалить хост",
         "badTag": "Недопустимый тег",
         "badVlessRoute": "Введите одно число от 0 до 65535"
+      }
+    },
+    "tunnels": {
+      "title": "Туннельные сайдкары",
+      "subtitle": "Внешние туннельные серверы под надзором панели. NaiveProxy — это Caddy с плагином forward_proxy (форк klzgrad, HTTP/2-паддинг): отдельный процесс со своим TLS и учётными данными, его трафик идёт мимо Xray.",
+      "naive": {
+        "status": {
+          "running": "Работает",
+          "unresponsive": "Не отвечает",
+          "starting": "Запускается…",
+          "stopped": "Остановлен"
+        },
+        "binary": {
+          "title": "Бинарник ядра",
+          "exists": "установлен",
+          "missing": "не установлен",
+          "upload": "Загрузить файл",
+          "download": "Скачать по URL",
+          "delete": "Удалить",
+          "deleteConfirm": "Остановить ядро и удалить его бинарник?"
+        },
+        "actions": {
+          "start": "Запустить",
+          "stop": "Остановить",
+          "restart": "Перезапустить"
+        },
+        "clientUrl": "Клиентская ссылка",
+        "logs": "Логи",
+        "logsTitle": "Логи процесса",
+        "logsEmpty": "Строк лога пока нет.",
+        "validOk": "Caddyfile корректен",
+        "form": {
+          "remark": "Примечание",
+          "useRawConfig": "Режим сырого Caddyfile",
+          "rawConfig": "Caddyfile",
+          "validate": "Проверить",
+          "listen": "IP прослушивания",
+          "listenTip": "Пусто или 0.0.0.0 — все интерфейсы; конкретный IP становится директивой bind в Caddy.",
+          "domain": "Домен",
+          "useAcme": "Auto TLS (Let's Encrypt)",
+          "acmeEmail": "Email для ACME",
+          "certFile": "Файл сертификата",
+          "keyFile": "Файл ключа",
+          "authUser": "Пользователь прокси",
+          "authPass": "Пароль прокси",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "Probe resistance",
+          "logLevel": "Уровень логов",
+          "extraArgs": "Доп. аргументы caddy",
+          "save": "Сохранить",
+          "preview": "Предпросмотр Caddyfile",
+          "genPass": "Сгенерировать пароль"
+        },
+        "toasts": {
+          "started": "NaiveProxy запущен",
+          "stopped": "NaiveProxy остановлен",
+          "restarted": "NaiveProxy перезапущен",
+          "uploaded": "Бинарник загружен",
+          "downloaded": "Бинарник скачан",
+          "deleted": "Бинарник удалён"
+        }
       }
     }
   },

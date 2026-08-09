@@ -110,7 +110,8 @@
     "donate": "捐赠",
     "hosts": "主机",
     "docs": "文档",
-    "openMenu": "打开菜单"
+    "openMenu": "打开菜单",
+    "tunnels": "隧道"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "删除主机",
         "badTag": "无效的标签",
         "badVlessRoute": "请输入 0 到 65535 之间的单个数字"
+      }
+    },
+    "tunnels": {
+      "title": "隧道侧车",
+      "subtitle": "由面板监管的外部隧道服务器。NaiveProxy 是带 forward_proxy 插件的 Caddy（klzgrad 分支，HTTP/2 填充）：独立进程，自带 TLS 与凭据，流量不经过 Xray。",
+      "naive": {
+        "status": {
+          "running": "运行中",
+          "unresponsive": "无响应",
+          "starting": "启动中…",
+          "stopped": "已停止"
+        },
+        "binary": {
+          "title": "核心二进制",
+          "exists": "已安装",
+          "missing": "未安装",
+          "upload": "上传",
+          "download": "按 URL 下载",
+          "delete": "删除",
+          "deleteConfirm": "停止核心并删除其二进制文件？"
+        },
+        "actions": {
+          "start": "启动",
+          "stop": "停止",
+          "restart": "重启"
+        },
+        "clientUrl": "客户端链接",
+        "logs": "日志",
+        "logsTitle": "进程日志",
+        "logsEmpty": "暂无日志行。",
+        "validOk": "Caddyfile 有效",
+        "form": {
+          "remark": "备注",
+          "useRawConfig": "原始 Caddyfile 模式",
+          "rawConfig": "Caddyfile",
+          "validate": "校验",
+          "listen": "监听 IP",
+          "listenTip": "留空或 0.0.0.0 — 所有接口；具体 IP 会成为 Caddy 的 bind 指令。",
+          "domain": "域名",
+          "useAcme": "自动 TLS（Let's Encrypt）",
+          "acmeEmail": "ACME 邮箱",
+          "certFile": "证书文件",
+          "keyFile": "密钥文件",
+          "authUser": "代理用户名",
+          "authPass": "代理密码",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "抗探测",
+          "logLevel": "日志级别",
+          "extraArgs": "caddy 附加参数",
+          "save": "保存",
+          "preview": "预览 Caddyfile",
+          "genPass": "生成密码"
+        },
+        "toasts": {
+          "started": "NaiveProxy 已启动",
+          "stopped": "NaiveProxy 已停止",
+          "restarted": "NaiveProxy 已重启",
+          "uploaded": "二进制已上传",
+          "downloaded": "二进制已下载",
+          "deleted": "二进制已删除"
+        }
       }
     }
   },

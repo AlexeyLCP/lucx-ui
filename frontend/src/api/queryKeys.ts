@@ -39,4 +39,10 @@ export const keys = {
     config: () => ['xray', 'config'] as const,
     outboundsTraffic: () => ['xray', 'outboundsTraffic'] as const,
   },
+  // LUCX-HOOK: tunnel sidecars (NaiveProxy)
+  tunnels: {
+    root: () => ['tunnels'] as const,
+    naiveStatus: () => ['tunnels', 'naiveStatus'] as const,
+  },
+  // END LUCX-HOOK
 } as const;

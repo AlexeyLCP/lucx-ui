@@ -2913,6 +2913,10 @@
       "description": "Manage client-mode AmneziaWG outbounds — connections from this panel out to an upstream AmneziaWG server (the mirror image of an AWG inbound, which accepts clients). Each row owns a kernel interface named awgo-{id}: the reconcile job converges it with the DB row every 10 seconds, and a freedom outbound bound to that interface via sockopt.interface is injected into the generated Xray config, so routing rules and balancers can send traffic through the upstream VPN. Every mutating endpoint force-restarts Xray rather than hot-applying, because a hot-applied config silently kept stale sockopt-bound outbounds in live testing — and an outbound pointing at a missing interface falls back to the default route, bypassing the VPN. All endpoints live under /panel/api/awg-outbounds and require a logged-in session or Bearer token. LucX-UI only."
     },
     {
+      "name": "Tunnels",
+      "description": "Manage external tunnel-server sidecars that run next to the Xray core. The first core is NaiveProxy: Caddy with the forward_proxy plugin (klzgrad/forwardproxy, HTTP/2 padding) supervised by the panel — rendered Caddyfile, process lifecycle, three-level health probe (process alive -> TCP listening -> TLS responding), binary upload/download and Caddyfile validation via \"caddy adapt\". The reconcile job (every 10s) revives a crashed core and keeps a disabled one down. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only."
+    },
+    {
       "name": "Server",
       "description": "System status, log retrieval, certificate generators, Xray binary management, and backup/restore. All under /panel/api/server."
     },
@@ -4693,6 +4697,544 @@
                 "example": {
                   "success": false,
                   "msg": "awg-outbound: parse failed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/status": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Full status of the NaiveProxy core: the live three-level probe (running/listening/responding), binary presence and path, the stored config, the generated naive+https client URL and the last process log line. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_naive_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "core": "naive",
+                    "displayName": "NaiveProxy",
+                    "binaryExists": true,
+                    "binaryPath": "bin/caddy-naive-linux-amd64",
+                    "clientUrl": "naive+https://alice:secret@vpn.example.com",
+                    "config": {
+                      "port": 443,
+                      "domain": "vpn.example.com",
+                      "enabled": true
+                    },
+                    "probe": {
+                      "running": true,
+                      "listening": true,
+                      "responding": true
+                    },
+                    "lastLog": ""
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/config": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Read the stored NaiveProxy config (defaults when nothing is stored yet). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_naive_config",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "remark": "",
+                    "enabled": false,
+                    "listen": "",
+                    "port": 443,
+                    "domain": "",
+                    "useAcme": false,
+                    "acmeEmail": "",
+                    "certFile": "",
+                    "keyFile": "",
+                    "authUser": "",
+                    "authPass": "",
+                    "enableH3": true,
+                    "probeResistance": true,
+                    "logLevel": "WARN",
+                    "extraArgs": "",
+                    "useRawConfig": false,
+                    "rawConfig": ""
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Validate, persist and apply the NaiveProxy config. Validation covers port range, credentials, TLS mode requirements (Auto TLS needs a domain and port 443; manual TLS needs cert/key paths) and the log level; a non-raw config is also cross-checked against TCP Xray inbounds for port collisions. A running core whose rendered Caddyfile changed is restarted. Returns the fresh status. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_config",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enabled": true,
+                "port": 443,
+                "domain": "vpn.example.com",
+                "useAcme": true,
+                "acmeEmail": "admin@example.com",
+                "authUser": "alice",
+                "authPass": "secret",
+                "enableH3": true,
+                "probeResistance": true,
+                "logLevel": "WARN"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "naive: Auto TLS requires a domain"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/start": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Mark the core enabled, persist, and start the caddy process. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_start",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/stop": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Mark the core disabled, persist, and stop the caddy process (SIGTERM with kill fallback). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_stop",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/restart": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Force a fresh start with the stored config (and enable the core). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_restart",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/logs": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Return the most recent captured output lines of the caddy process (ring buffer, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_naive_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    "…"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/preview": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Render the Caddyfile the given form state would produce, without persisting anything. Same validation as save. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_preview",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "port": 443,
+                "domain": "vpn.example.com",
+                "authUser": "alice",
+                "authPass": "secret"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "caddyfile": "{\n\tadmin off\n…}\n"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/validate": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Run \"caddy adapt\" against raw Caddyfile text using the installed core binary; the parser output is returned on failure. Requires the binary to be installed. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_validate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "text": ":443 {\n\trespond \"ok\"\n}\n"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "valid": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "tunnel: caddy adapt: …"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/upload": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Replace the core binary on disk (multipart field \"file\"). Exempt from the global 10 MiB body limit because caddy builds are ~50 MB. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/download": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Fetch the core binary from a URL into a temp file and swap it into place (an interrupted download never leaves a half-written binary). 200 MB cap. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/caddy-naive-linux-amd64"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
                 }
               }
             }

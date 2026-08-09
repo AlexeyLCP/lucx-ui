@@ -183,6 +183,25 @@ jobs:
               rm -rf "${MTG_PKG}" "${MTG_PKG}.tar.gz"
               ;;
           esac
+          # LUCX-HOOK: NaiveProxy tunnel sidecar — Caddy with klzgrad's
+          # forward_proxy plugin (naive branch, HTTP/2 padding). amd64 ships
+          # the upstream prebuilt binary (pinned tag); arm64 cross-compiles
+          # the same plugin set via xcaddy (caddy is pure Go). Other matrix
+          # platforms get no binary — the Tunnels page shows "not installed"
+          # and offers upload/download there.
+          CADDY_NAIVE_TAG="v2.11.2-naive"
+          if [ "${{ matrix.platform }}" == "amd64" ]; then
+            fetch -O caddy-naive.tar.xz "https://github.com/klzgrad/forwardproxy/releases/download/${CADDY_NAIVE_TAG}/caddy-forwardproxy-naive.tar.xz"
+            tar -xJf caddy-naive.tar.xz
+            mv caddy-forwardproxy-naive/caddy caddy-naive-linux-amd64
+            rm -rf caddy-forwardproxy-naive caddy-naive.tar.xz
+          elif [ "${{ matrix.platform }}" == "arm64" ]; then
+            go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
+            CGO_ENABLED=0 "$(go env GOPATH)/bin/xcaddy" build \
+              --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive \
+              --output caddy-naive-linux-arm64
+          fi
+          # END LUCX-HOOK
           cd ../..
 
       - name: Package

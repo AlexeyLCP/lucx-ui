@@ -110,7 +110,8 @@
     "donate": "Bağış Yap",
     "hosts": "Host'lar",
     "docs": "Belgeler",
-    "openMenu": "Menüyü aç"
+    "openMenu": "Menüyü aç",
+    "tunnels": "Tüneller"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "Host'u sil",
         "badTag": "Geçersiz etiket",
         "badVlessRoute": "0 ile 65535 arasında tek bir sayı girin"
+      }
+    },
+    "tunnels": {
+      "title": "Tünel yan süreçleri",
+      "subtitle": "Panel tarafından denetlenen harici tünel sunucuları. NaiveProxy, forward_proxy eklentili Caddy'dir (klzgrad çatalı, HTTP/2 doldurma): kendi TLS ve kimlik bilgilerine sahip ayrı bir süreç — trafiği Xray'den geçmez.",
+      "naive": {
+        "status": {
+          "running": "Çalışıyor",
+          "unresponsive": "Yanıt vermiyor",
+          "starting": "Başlıyor…",
+          "stopped": "Durduruldu"
+        },
+        "binary": {
+          "title": "Çekirdek ikilisi",
+          "exists": "kurulu",
+          "missing": "kurulu değil",
+          "upload": "Yükle",
+          "download": "URL ile indir",
+          "delete": "Sil",
+          "deleteConfirm": "Çekirdek durdurulup ikilisi silinsin mi?"
+        },
+        "actions": {
+          "start": "Başlat",
+          "stop": "Durdur",
+          "restart": "Yeniden başlat"
+        },
+        "clientUrl": "İstemci bağlantısı",
+        "logs": "Günlükler",
+        "logsTitle": "Süreç günlükleri",
+        "logsEmpty": "Henüz günlük satırı yok.",
+        "validOk": "Caddyfile geçerli",
+        "form": {
+          "remark": "Açıklama",
+          "useRawConfig": "Ham Caddyfile modu",
+          "rawConfig": "Caddyfile",
+          "validate": "Doğrula",
+          "listen": "Dinleme IP'si",
+          "listenTip": "Boş veya 0.0.0.0 — tüm arayüzler; belirli bir IP Caddy'de bind yönergesi olur.",
+          "domain": "Alan adı",
+          "useAcme": "Otomatik TLS (Let's Encrypt)",
+          "acmeEmail": "ACME e-postası",
+          "certFile": "Sertifika dosyası",
+          "keyFile": "Anahtar dosyası",
+          "authUser": "Proxy kullanıcısı",
+          "authPass": "Proxy parolası",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "Prob direnci",
+          "logLevel": "Günlük seviyesi",
+          "extraArgs": "Ek caddy argümanları",
+          "save": "Kaydet",
+          "preview": "Caddyfile önizleme",
+          "genPass": "Parola üret"
+        },
+        "toasts": {
+          "started": "NaiveProxy başlatıldı",
+          "stopped": "NaiveProxy durduruldu",
+          "restarted": "NaiveProxy yeniden başlatıldı",
+          "uploaded": "İkili yüklendi",
+          "downloaded": "İkili indirildi",
+          "deleted": "İkili silindi"
+        }
       }
     }
   },

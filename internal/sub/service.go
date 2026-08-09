@@ -298,6 +298,7 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	}
 
 	seenEmails := make(map[string]struct{})
+	enabledEmails := make(map[string]struct{}) // LUCX-HOOK: naive links only for enabled clients
 	for _, inbound := range inbounds {
 		clients := s.matchingClients(inbound, subId)
 		if len(clients) == 0 {
@@ -310,6 +311,9 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 		for _, client := range clients {
 			if client.Enable {
 				hasEnabledClient = true
+				if strings.TrimSpace(client.Email) != "" { // LUCX-HOOK
+					enabledEmails[client.Email] = struct{}{} // LUCX-HOOK
+				} // LUCX-HOOK
 			}
 			var link string
 			if len(hostEps) > 0 {
@@ -325,6 +329,9 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	for _, ext := range externalLinks {
 		if ext.Enable {
 			hasEnabledClient = true
+			if strings.TrimSpace(ext.Email) != "" { // LUCX-HOOK
+				enabledEmails[ext.Email] = struct{}{} // LUCX-HOOK
+			} // LUCX-HOOK
 		}
 		for _, el := range expandEntry(ext) {
 			if link := applyRemarkToLink(el.Link, el.Name); link != "" {
@@ -334,6 +341,24 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 			}
 		}
 	}
+
+	// LUCX-HOOK: NaiveProxy sidecar — the personal naive+https link of every
+	// enabled client joins the subscription (credentials derived from the
+	// panel secret, mirrored by the Caddyfile basic_auth lines). Base64-sub
+	// only: the JSON/Clash formats have no naive representation. Links and
+	// emails are appended together so BuildPageData's index zip stays aligned.
+	if len(enabledEmails) > 0 {
+		naiveEmails := make([]string, 0, len(enabledEmails))
+		for e := range enabledEmails {
+			naiveEmails = append(naiveEmails, e)
+		}
+		slices.Sort(naiveEmails)
+		if naiveLinks := (&service.TunnelService{}).NaiveSubLinks(naiveEmails); len(naiveLinks) > 0 {
+			result = append(result, naiveLinks...)
+			emails = append(emails, naiveEmails...)
+		}
+	}
+	// END LUCX-HOOK
 
 	uniqueEmails := make([]string, 0, len(seenEmails))
 	for e := range seenEmails {

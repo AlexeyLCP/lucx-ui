@@ -110,7 +110,8 @@
     "donate": "تبرع",
     "hosts": "المضيفات",
     "docs": "التوثيق",
-    "openMenu": "فتح القائمة"
+    "openMenu": "فتح القائمة",
+    "tunnels": "الأنفاق"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "حذف المضيف",
         "badTag": "وسم غير صالح",
         "badVlessRoute": "أدخل رقماً واحداً بين 0 و65535"
+      }
+    },
+    "tunnels": {
+      "title": "أنفاق جانبية",
+      "subtitle": "خوادم أنفاق خارجية تحت إشراف اللوحة. NaiveProxy هو Caddy مع إضافة forward_proxy (فرع klzgrad، حشو HTTP/2): عملية مستقلة لها TLS وبيانات اعتماد خاصة — لا تمر حركة مرورها عبر Xray.",
+      "naive": {
+        "status": {
+          "running": "يعمل",
+          "unresponsive": "لا يستجيب",
+          "starting": "جارٍ البدء…",
+          "stopped": "متوقف"
+        },
+        "binary": {
+          "title": "ملف النواة",
+          "exists": "مثبّت",
+          "missing": "غير مثبّت",
+          "upload": "رفع",
+          "download": "تنزيل عبر URL",
+          "delete": "حذف",
+          "deleteConfirm": "إيقاف النواة وحذف ملفها الثنائي؟"
+        },
+        "actions": {
+          "start": "بدء",
+          "stop": "إيقاف",
+          "restart": "إعادة تشغيل"
+        },
+        "clientUrl": "رابط العميل",
+        "logs": "السجلات",
+        "logsTitle": "سجلات العملية",
+        "logsEmpty": "لا توجد أسطر سجل بعد.",
+        "validOk": "Caddyfile صالح",
+        "form": {
+          "remark": "ملاحظة",
+          "useRawConfig": "وضع Caddyfile الخام",
+          "rawConfig": "Caddyfile",
+          "validate": "تحقق",
+          "listen": "عنوان IP للاستماع",
+          "listenTip": "فارغ أو 0.0.0.0 — كل الواجهات؛ عنوان محدد يصبح توجيه bind في Caddy.",
+          "domain": "النطاق",
+          "useAcme": "TLS تلقائي (Let's Encrypt)",
+          "acmeEmail": "بريد ACME",
+          "certFile": "ملف الشهادة",
+          "keyFile": "ملف المفتاح",
+          "authUser": "مستخدم الوكيل",
+          "authPass": "كلمة مرور الوكيل",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "مقاومة الفحص",
+          "logLevel": "مستوى السجل",
+          "extraArgs": "وسائط caddy إضافية",
+          "save": "حفظ",
+          "preview": "معاينة Caddyfile",
+          "genPass": "توليد كلمة المرور"
+        },
+        "toasts": {
+          "started": "تم بدء NaiveProxy",
+          "stopped": "تم إيقاف NaiveProxy",
+          "restarted": "تمت إعادة تشغيل NaiveProxy",
+          "uploaded": "تم رفع الملف الثنائي",
+          "downloaded": "تم تنزيل الملف الثنائي",
+          "deleted": "تم حذف الملف الثنائي"
+        }
       }
     }
   },

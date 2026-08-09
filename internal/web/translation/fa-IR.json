@@ -110,7 +110,8 @@
     "donate": "حمایت مالی",
     "hosts": "میزبان‌ها",
     "docs": "مستندات",
-    "openMenu": "باز کردن منو"
+    "openMenu": "باز کردن منو",
+    "tunnels": "تونل‌ها"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "حذف میزبان",
         "badTag": "برچسب نامعتبر",
         "badVlessRoute": "یک عدد بین 0 تا 65535 وارد کنید"
+      }
+    },
+    "tunnels": {
+      "title": "سرویس‌های تونل",
+      "subtitle": "سرورهای تونل خارجی تحت نظارت پنل. NaiveProxy یعنی Caddy با افزونه forward_proxy (شاخه klzgrad، پدینگ HTTP/2): فرآیندی جدا با TLS و اعتبارنامه خودش — ترافیک آن از Xray عبور نمی‌کند.",
+      "naive": {
+        "status": {
+          "running": "در حال اجرا",
+          "unresponsive": "بی‌پاسخ",
+          "starting": "در حال شروع…",
+          "stopped": "متوقف"
+        },
+        "binary": {
+          "title": "باینری هسته",
+          "exists": "نصب شده",
+          "missing": "نصب نشده",
+          "upload": "بارگذاری",
+          "download": "دانلود از URL",
+          "delete": "حذف",
+          "deleteConfirm": "هسته متوقف و باینری آن حذف شود؟"
+        },
+        "actions": {
+          "start": "شروع",
+          "stop": "توقف",
+          "restart": "راه‌اندازی مجدد"
+        },
+        "clientUrl": "پیوند کلاینت",
+        "logs": "لاگ‌ها",
+        "logsTitle": "لاگ فرآیند",
+        "logsEmpty": "هنوز خط لاگی ثبت نشده است.",
+        "validOk": "Caddyfile معتبر است",
+        "form": {
+          "remark": "توضیح",
+          "useRawConfig": "حالت Caddyfile خام",
+          "rawConfig": "Caddyfile",
+          "validate": "اعتبارسنجی",
+          "listen": "IP گوش‌دادن",
+          "listenTip": "خالی یا 0.0.0.0 — همه رابط‌ها؛ IP مشخص به دستور bind در Caddy تبدیل می‌شود.",
+          "domain": "دامنه",
+          "useAcme": "TLS خودکار (Let's Encrypt)",
+          "acmeEmail": "ایمیل ACME",
+          "certFile": "فایل گواهی",
+          "keyFile": "فایل کلید",
+          "authUser": "کاربر پروکسی",
+          "authPass": "رمز پروکسی",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "مقاومت در برابر پروب",
+          "logLevel": "سطح لاگ",
+          "extraArgs": "آرگومان‌های اضافه caddy",
+          "save": "ذخیره",
+          "preview": "پیش‌نمایش Caddyfile",
+          "genPass": "تولید رمز عبور"
+        },
+        "toasts": {
+          "started": "NaiveProxy شروع شد",
+          "stopped": "NaiveProxy متوقف شد",
+          "restarted": "NaiveProxy مجدداً راه‌اندازی شد",
+          "uploaded": "باینری بارگذاری شد",
+          "downloaded": "باینری دانلود شد",
+          "deleted": "باینری حذف شد"
+        }
       }
     }
   },

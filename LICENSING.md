@@ -11,14 +11,20 @@ All original 3x-ui code remains under the **GNU General Public License v3.0** (s
 The components **authored by the LucX-UI project** are licensed under the **PolyForm Noncommercial License 1.0.0** (see [LICENSE-PolyForm-Noncommercial.txt](LICENSE-PolyForm-Noncommercial.txt)):
 
 - `internal/awg/` — the entire AWG sidecar (manager, process, instance, traffic, diagnostics, NAT/orphan helpers, `cps/`, `signature/`)
-- `internal/lucx/` — Smart Cluster packages (`parser/`, `nodetype/`, `outbound_link/`)
+- `internal/lucx/` — Smart Cluster packages (`parser/`, `nodetype/`, `outbound_link/`) and the tunnel sidecar package (`tunnel/`)
 - `internal/database/migrate_awg.go` and its test
 - `internal/web/controller/awg.go` — AWG API endpoints
+- `internal/web/controller/tunnel.go` — tunnel sidecar API endpoints
 - `internal/web/job/awg_job.go` — AWG reconcile cron
+- `internal/web/job/tunnel_job.go` — tunnel sidecar reconcile cron
 - `internal/web/service/client_awg.go` — AWG client provisioning
+- `internal/web/service/tunnel.go` — tunnel sidecar service
 - `frontend/src/schemas/protocols/inbound/awg.ts` — AWG Zod schema
+- `frontend/src/schemas/tunnel.ts` — tunnel sidecar Zod schemas
+- `frontend/src/api/tunnels.ts` — tunnel sidecar API client
 - `frontend/src/pages/inbounds/form/protocols/awg.tsx` — AWG form
 - `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`
+- `frontend/src/pages/tunnels/TunnelsPage.tsx` — tunnel sidecar page
 - `frontend/src/pages/clients/wireguardConfig.ts` — client `.conf` builder
 - `bin/install-awg-module.sh` — DKMS kernel-module installer
 - `bin/check-lucx.sh`, `bin/pre-push` — development scripts
@@ -35,6 +41,10 @@ SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 - **Commercial use requires permission.** Reselling VPN access (paid panels/subscriptions built on this code), offering it as a paid service, or embedding these components in a commercial product requires explicit written permission from the LucX-UI author.
 - You **cannot** sublicense these components or strip the license headers.
 - The GPL-3.0 obligations for the upstream 3x-ui code apply to the project as a whole regardless.
+
+## Third-party tunnel binaries
+
+The release tarball ships `bin/caddy-naive-linux-*` — Caddy with the `forward_proxy` plugin from [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (naive branch), as used by [NaiveProxy](https://github.com/klzgrad/naiveproxy). These are separate upstream programs, not LucX-UI code: Caddy is **Apache-2.0**, the forward_proxy plugin **MIT**, NaiveProxy **BSD-3-Clause**. The panel talks to the binary as a child process; no LucX-UI code links against it.
 
 ## Why the split?
 

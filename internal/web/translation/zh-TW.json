@@ -110,7 +110,8 @@
     "donate": "捐贈",
     "hosts": "Hosts",
     "docs": "文件",
-    "openMenu": "開啟選單"
+    "openMenu": "開啟選單",
+    "tunnels": "隧道"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "刪除 Host",
         "badTag": "無效的標籤",
         "badVlessRoute": "請輸入 0 到 65535 之間的單一數字"
+      }
+    },
+    "tunnels": {
+      "title": "隧道側車",
+      "subtitle": "由面板監管的外部隧道伺服器。NaiveProxy 是帶 forward_proxy 外掛的 Caddy（klzgrad 分支，HTTP/2 填充）：獨立進程，自帶 TLS 與憑證，流量不經過 Xray。",
+      "naive": {
+        "status": {
+          "running": "執行中",
+          "unresponsive": "無回應",
+          "starting": "啟動中…",
+          "stopped": "已停止"
+        },
+        "binary": {
+          "title": "核心二進位檔",
+          "exists": "已安裝",
+          "missing": "未安裝",
+          "upload": "上傳",
+          "download": "依 URL 下載",
+          "delete": "刪除",
+          "deleteConfirm": "停止核心並刪除其二進位檔？"
+        },
+        "actions": {
+          "start": "啟動",
+          "stop": "停止",
+          "restart": "重新啟動"
+        },
+        "clientUrl": "用戶端連結",
+        "logs": "日誌",
+        "logsTitle": "處理程序日誌",
+        "logsEmpty": "尚無日誌行。",
+        "validOk": "Caddyfile 有效",
+        "form": {
+          "remark": "備註",
+          "useRawConfig": "原始 Caddyfile 模式",
+          "rawConfig": "Caddyfile",
+          "validate": "校驗",
+          "listen": "監聽 IP",
+          "listenTip": "留空或 0.0.0.0 — 所有介面；具體 IP 會成為 Caddy 的 bind 指令。",
+          "domain": "網域",
+          "useAcme": "自動 TLS（Let's Encrypt）",
+          "acmeEmail": "ACME 電子郵件",
+          "certFile": "憑證檔案",
+          "keyFile": "金鑰檔案",
+          "authUser": "代理使用者",
+          "authPass": "代理密碼",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "抗探測",
+          "logLevel": "日誌層級",
+          "extraArgs": "caddy 附加參數",
+          "save": "儲存",
+          "preview": "預覽 Caddyfile",
+          "genPass": "產生密碼"
+        },
+        "toasts": {
+          "started": "NaiveProxy 已啟動",
+          "stopped": "NaiveProxy 已停止",
+          "restarted": "NaiveProxy 已重新啟動",
+          "uploaded": "二進位檔已上傳",
+          "downloaded": "二進位檔已下載",
+          "deleted": "二進位檔已刪除"
+        }
       }
     }
   },

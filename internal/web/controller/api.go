@@ -17,6 +17,7 @@ type APIController struct {
 	BaseController
 	inboundController     *InboundController
 	awgOutboundController *AwgOutboundController
+	tunnelController      *TunnelController // LUCX-HOOK: tunnel sidecars (NaiveProxy)
 	serverController      *ServerController
 	nodeController        *NodeController
 	hostController        *HostController
@@ -89,6 +90,10 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// Routes live under /panel/api/awg-outbounds/* and share the same API
 	// auth + CSRF middleware as the inbound group above.
 	a.awgOutboundController = NewAwgOutboundController(api.Group("/awg-outbounds"))
+	// END LUCX-HOOK
+	// LUCX-HOOK: Tunnel sidecars (NaiveProxy) — config/lifecycle/logs API.
+	// Routes live under /panel/api/tunnel/*.
+	a.tunnelController = NewTunnelController(api.Group("/tunnel"))
 	// END LUCX-HOOK
 
 	clients := api.Group("/clients")

@@ -110,7 +110,8 @@
     "donate": "Quyên góp",
     "hosts": "Hosts",
     "docs": "Tài liệu",
-    "openMenu": "Mở menu"
+    "openMenu": "Mở menu",
+    "tunnels": "Đường hầm"
   },
   "pages": {
     "login": {
@@ -1957,6 +1958,67 @@
         "delete": "Xóa host",
         "badTag": "Tag không hợp lệ",
         "badVlessRoute": "Nhập một số duy nhất từ 0 đến 65535"
+      }
+    },
+    "tunnels": {
+      "title": "Sidecar đường hầm",
+      "subtitle": "Máy chủ đường hầm bên ngoài được bảng điều khiển giám sát. NaiveProxy là Caddy với plugin forward_proxy (bản fork klzgrad, đệm HTTP/2): tiến trình riêng với TLS và thông tin xác thực riêng — lưu lượng không đi qua Xray.",
+      "naive": {
+        "status": {
+          "running": "Đang chạy",
+          "unresponsive": "Không phản hồi",
+          "starting": "Đang khởi động…",
+          "stopped": "Đã dừng"
+        },
+        "binary": {
+          "title": "Binary lõi",
+          "exists": "đã cài",
+          "missing": "chưa cài",
+          "upload": "Tải lên",
+          "download": "Tải theo URL",
+          "delete": "Xóa",
+          "deleteConfirm": "Dừng lõi và xóa binary của nó?"
+        },
+        "actions": {
+          "start": "Khởi động",
+          "stop": "Dừng",
+          "restart": "Khởi động lại"
+        },
+        "clientUrl": "Liên kết máy khách",
+        "logs": "Nhật ký",
+        "logsTitle": "Nhật ký tiến trình",
+        "logsEmpty": "Chưa có dòng nhật ký nào.",
+        "validOk": "Caddyfile hợp lệ",
+        "form": {
+          "remark": "Ghi chú",
+          "useRawConfig": "Chế độ Caddyfile thô",
+          "rawConfig": "Caddyfile",
+          "validate": "Kiểm tra",
+          "listen": "IP lắng nghe",
+          "listenTip": "Trống hoặc 0.0.0.0 — tất cả giao diện; IP cụ thể sẽ thành chỉ thị bind của Caddy.",
+          "domain": "Tên miền",
+          "useAcme": "TLS tự động (Let's Encrypt)",
+          "acmeEmail": "Email ACME",
+          "certFile": "Tệp chứng chỉ",
+          "keyFile": "Tệp khóa",
+          "authUser": "Người dùng proxy",
+          "authPass": "Mật khẩu proxy",
+          "enableH3": "HTTP/3 (QUIC)",
+          "probeResistance": "Chống dò",
+          "logLevel": "Mức nhật ký",
+          "extraArgs": "Tham số caddy bổ sung",
+          "save": "Lưu",
+          "preview": "Xem trước Caddyfile",
+          "genPass": "Tạo mật khẩu"
+        },
+        "toasts": {
+          "started": "Đã khởi động NaiveProxy",
+          "stopped": "Đã dừng NaiveProxy",
+          "restarted": "Đã khởi động lại NaiveProxy",
+          "uploaded": "Đã tải binary lên",
+          "downloaded": "Đã tải binary xuống",
+          "deleted": "Đã xóa binary"
+        }
       }
     }
   },

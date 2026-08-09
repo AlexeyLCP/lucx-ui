@@ -33,7 +33,15 @@ fi
 mapfile -t HOOK_FILES < <(grep -rl "LUCX-HOOK" internal/ --include='*.go' 2>/dev/null)
 mapfile -t PKG_FILES < <(find internal/awg internal/lucx -name '*.go' 2>/dev/null)
 
-FILES=$(printf '%s\n' "${HOOK_FILES[@]}" "${PKG_FILES[@]}" | sort -u | grep -v '^$')
+# LucX-файлы вне изолированных пакетов и без LUCX-HOOK маркеров (новые файлы
+# веб-слоя туннельных сайдкаров — SPDX-заголовок есть, маркера нет).
+EXTRA_FILES=(
+    internal/web/service/tunnel.go
+    internal/web/controller/tunnel.go
+    internal/web/job/tunnel_job.go
+)
+
+FILES=$(printf '%s\n' "${HOOK_FILES[@]}" "${PKG_FILES[@]}" "${EXTRA_FILES[@]}" | sort -u | grep -v '^$')
 
 if [ "${1:-}" = "-w" ]; then
     echo "$FILES" | xargs "$GOFUMPT" -w

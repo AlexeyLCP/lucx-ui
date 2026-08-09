@@ -1627,3 +1627,42 @@ systemctl start x-ui
 **fix(sub):** Endpoint в AWG .conf/vpn:// больше не берётся из X-Real-IP. За nginx с `proxy_set_header X-Real-IP $remote_addr` ResolveRequest подставлял в host IP **клиента** (публичный IP «routable» → проходил PrepareForRequest без замены) → Endpoint = WAN-адрес подписчика; репорт Aleksandr: «точка подключения генерится как IP WAN моего роутера», воспроизведено на стенде (`Endpoint = 149.154.99.99:51820` при подставленном X-Real-IP). Фикс: `AwgEndpointHost` (LUCX-HOOK, internal/sub/service.go) — trusted X-Forwarded-Host → Host header, X-Real-IP никогда; serveAwgBody использует его вместо host из ResolveRequest. Цепочка собственных адресов инбаунда (ShareAddr/node/listen/configuredPublicHost) в resolveInboundAddress по-прежнему приоритетнее. Тест TestAwgEndpointHost_NeverRealIP.
 
 **Вопрос geo-файлов (Aleksandr):** да, при любом обновлении панели release-tarball перетирает `bin/{geoip,geosite}{,_IR,_RU}.dat` стоковыми — это поведение upstream 3x-ui (блок в release.yml без LUCX-HOOK). Решение 2026-08-09: update.sh НЕ трогаем; совет операторам — кастомные группы держать в файлах с отдельным именем (`geosite_rkn.dat` → `geosite:rkn` / `ext:geosite_rkn.dat:group`), tarball их не содержит и не перетирает; либо восстанавливать кроном после update.
+
+## Релиз v3.6.0-lucx.91 (2026-08-09)
+
+**feat(tunnel): NaiveProxy — первый туннельный сайдкар.** Новый класс интеграций: внешние туннельные серверы под надзором панели (не Xray-протоколы, трафик мимо Xray). Реализация по сайдкар-паттерну mtproto/AWG; референсы дизайна: elector1337/3x-ui-naive (Caddyfile-грабли: admin off, bare :port + bind, изоляция ACME), Ex3-ui (UX страницы). Ядра: qWDTT/olcRTC запланированы следующими на этом же каркасе.
+
+- **`internal/lucx/tunnel/`** (PolyForm): Name-реестр, NaiveConfig + рендер Caddyfile (экранирование, wildcard→bare :port, bind, ACME/ручной TLS, padding/probe_resistance/H3, raw-режим), Proc (SIGTERM→kill, ring-лог 500 строк, `tunnel: <name> | <line>`), Manager (fingerprint-рестарт, writeConfig без mtime-churn, трёхуровневый статус process→TCP→TLS, StopAll).
+- **`internal/web/service/tunnel.go`**: конфиг в settings (`lucxTunnel_naive`), валидации (порт, креды, ACME=домен+443, лог-уровень), кросс-проверка порта с TCP-инбаундами (UDP-протоколы пропуск, учёт перекрытия интерфейсов), download бинарника через temp-файл (200 МБ лимит), `caddy adapt`-валидация Caddyfile.
+- **`internal/web/job/tunnel_job.go`** + **`internal/web/controller/tunnel.go`**: cron 10s reconcile (краш-ревив), API `/panel/api/tunnel/naive/*` (status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary).
+- **LUCX-HOOK**: web.go (cadenceTunnel, джоба, StopAll, upload exempt из 10MiB body-limit), api.go (регистрация).
+- **Frontend**: страница `/panel/tunnels` (карточка ядра: статус-бейдж, бинарник upload/download/delete, start/stop/restart, логи, client URL `naive+https://`, simple/raw форма с preview/validate), schemas/tunnel.ts, api/tunnels.ts (JSON_HEADERS — урок lucx.69), меню, endpoints.ts × 12 эндпоинтов, **i18n × 13 локалей**.
+- **release.yml**: amd64 — prebuilt `caddy-forwardproxy-naive.tar.xz` (klzgrad/forwardproxy, pinned v2.11.2-naive); arm64 — кросс-сборка xcaddy (чистый Go). Прочие архитектуры без бинарника (upload в UI).
+- **Доки**: README (секция Tunnel Sidecars + credits), LICENSING.md (PolyForm-файлы + third-party caddy Apache-2.0/MIT/BSD-3), lucxVersion → lucx.91.
+
+**Тесты:** naive_test (рендер/валидации/escape/URL/fingerprint), manager_test (proc lifecycle re-exec, пробы против реальных TCP/TLS-слушателей, config write). Окружение dev-машины: Kaspersky ломает loopback TLS (MITM) — TLS-ассерты проб скипаются с пометкой окружения; на Linux-стенде и в CI работают. gofumpt/check-lucx, typecheck/lint/vitest unit (922) — зелёные.
+
+**Известное:** бинарник caddy-naive требует домена+сертификата (ACME HTTP-01 = порт 443); мост в Xray-роутинг (SOCKS-egress патч forwardproxy + injectTunnelEgress) — следующий подэтап.
+## E2E NaiveProxy (2026-08-09, WSL2 Ubuntu 24.04) — PASS, 3 бага найдено и починено
+
+**Стенд:** WSL2 (loopback TLS в Windows ломает Kaspersky MITM — в WSL трафик мимо него). Бинарники: caddy 2.11.4 + klzgrad/forwardproxy@naive (xcaddy, linux/amd64), naive-клиент v150.0.7871.63-1 (официальный релиз). Харнесс гонял продакшен-код `internal/lucx/tunnel` (Manager.Ensure/StatusOf/Stop) с реальным caddy.
+
+**Найдено и починено (все три — рендер Caddyfile):**
+1. **`padding` не существует** как сабдиректива forward_proxy — паддинг включается сам, когда клиент шлёт заголовок `Padding` (forwardproxy.go:352). Убрано из рендера/схемы/формы/i18n × 13; регресс-тест.
+2. **Домен без порта = второй слушатель :443** (auto-HTTPS по умолчанию): `:18443, localhost` открывал ещё и :443 → `bind: permission denied` без root. Фикс: домен рендерится с портом (`localhost:18443`), для 443 — bare.
+3. **ACME-слушатель :80 + установка локального root-серта** в manual-TLS режиме. Фикс: `auto_https off` (только manual; ACME-режим оставляет) + `skip_install_trust` (всегда) в глобальном блоке.
+
+**Зелёные шаги E2E:** бинарник на ожидаемом пути; валидация конфига; client URL; `caddy adapt` на отрендеренный Caddyfile; Ensure стартует caddy; пробы running→listening→responding; SOCKS naive-клиента; **реальный трафик через официального naive-клиента: `negotiated padding type: Variant1`, body=публичный IP**; трафик через plain HTTP CONNECT (curl --proxy-insecure); неверный пароль отклонён; рестарт при смене конфига (fingerprint); disable останавливает процесс.
+
+**Уроки:** (1) E2E против реального бинарника обязателен до релиза — юнит-тесты рендера не видели ни одной из трёх ошибок (все в семантике caddy, а не в логике рендера); (2) у naive-клиента нет --insecure — self-signed серт надо класть в system trust store (`update-ca-certificates`); (3) curl для HTTPS-прокси требует `--proxy-insecure` (не `-k`). Харнесс после прогона удалён из репо (процедура задокументирована здесь).
+## NaiveProxy: per-client креды + подписки + UX (2026-08-09)
+
+**Per-client учётные данные (без миграции БД):** `tunnel.ClientAuth(secret, email)` — детерминированный HMAC-SHA256 от панельного секрета (`SettingService.GetSecret`) + email клиента: user `nx` + 10 hex, pass 27 символов base64url (162 бит). Ничего не хранится: рендерер Caddyfile и генератор ссылок подписки выводят одну и ту же пару; disable/delete клиента убирает его `basic_auth`-строку на следующем reconcile (рестарт caddy при изменении списка — как у elector1337). Raw-режим без per-client кредов (оператор владеет конфигом сам).
+
+**Подписки:** LUCX-HOOK в `internal/sub/service.go:getSubs` — каждому включённому клиенту подписки добавляется его персональная ссылка `naive+https://user:pass@domain:port#email` (стандарт NekoBox/husi/Exclave). Ссылки и emails добавляются синхронно — BuildPageData зиппит их по индексу. Только base64-sub: JSON/Clash-форматы naive не представляют (mihomo/sing-box не поддерживают протокол). Условие эмиссии: core enabled + не raw + домен задан + секрет есть.
+
+**UX страницы:** генератор пароля (18 случайных байт → 24 символа base64url, crypto.getRandomValues) у поля authPass; QR-модалка на клиентскую ссылку (переиспользован QrPanel из inbounds).
+
+**Проверки:** TestClientAuth (детерминизм/уникальность/ротация/нелик email), TestRenderCaddyfileExtraAuth (порядок строк, экранирование); `caddy adapt` в WSL на Caddyfile с тремя basic_auth — ADAPT_OK; go test lucx, gofumpt, typecheck, lint, vitest unit (922), build — зелёные. Компиляцию sub-хука проверит CI (CGO).
+
+**Не делаем:** obfuscation-генератор как у AWG — наиву нечего генерировать (камуфляж = стек Chrome, паддинг автоматический по заголовку Padding); пресеты = фиктивная обёртка над тремя уже имеющимися свитчерами.

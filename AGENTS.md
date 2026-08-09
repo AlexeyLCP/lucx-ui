@@ -94,13 +94,15 @@ Run `grep -rn "LUCX-HOOK" internal/ frontend/ install.sh` to find all integratio
 
 New functionality lives ONLY in:
 - **Go:** `internal/awg/` — AWG sidecar (manager, process, instance, traffic, orphans)
-- **Go:** `internal/lucx/` — subdirectories: `parser/`, `nodetype/`, `outbound_link/` (Smart Cluster)
+- **Go:** `internal/lucx/` — subdirectories: `parser/`, `nodetype/`, `outbound_link/` (Smart Cluster), `tunnel/` (tunnel sidecars: NaiveProxy, далее qWDTT/olcRTC)
 - **Go:** `internal/database/migrate_awg.go` — legacy DB migration
+- **Go:** `internal/web/service/tunnel.go`, `internal/web/controller/tunnel.go`, `internal/web/job/tunnel_job.go` — tunnel sidecar web layer
 - **Frontend:** `frontend/src/schemas/protocols/inbound/awg.ts` — Zod schema
 - **Frontend:** `frontend/src/pages/inbounds/form/protocols/awg.tsx` — React form
+- **Frontend:** `frontend/src/schemas/tunnel.ts`, `frontend/src/api/tunnels.ts`, `frontend/src/pages/tunnels/TunnelsPage.tsx` — tunnel sidecar UI
 - **Shell:** `bin/install-awg-module.sh` — DKMS install
 
-Integration points (`model.go`, `db.go`, `web.go`, `runtime/local.go`, `service/xray.go`, `install.sh`, `inbound-defaults.ts`, `InboundFormModal.tsx`, `protocols/index.ts`, `primitives/protocol.ts`, `protocols/inbound/index.ts`) get LUCX-HOOK blocks only.
+Integration points (`model.go`, `db.go`, `web.go`, `runtime/local.go`, `service/xray.go`, `install.sh`, `inbound-defaults.ts`, `InboundFormModal.tsx`, `protocols/index.ts`, `primitives/protocol.ts`, `protocols/inbound/index.ts`, `api.go`, `routes.tsx`, `AppSidebar.tsx`, `queryKeys.ts`, `endpoints.ts`) get LUCX-HOOK blocks only.
 
 ### 3. AWG Sidecar Architecture (mirrors mtproto)
 
@@ -123,6 +125,19 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 - **AWG outbound** (`internal/awg/client_*.go` + `internal/web/{service,controller}/awg_outbound.go`): symmetric sidecar for chaining VPN-of-VPN. Each `awg_outbounds` row = one `awgo-N` kernel interface (client to an upstream AWG server) exposed as a freedom outbound with `sockopt.interface = awgo-N`. Manager: `EnsureClient`/`RemoveClient`/`SweepOrphanClients` (fingerprint-based restart, mirrors inbound Manager). Client .conf via `renderClientConf` (Table=off, no DNS, no I1-I5; HPK only when `AwgVersion == "3"` and non-empty). `ParseConf` eats a .conf of any version (incl. HPK) and auto-detects `AwgVersion` from the field set. Controller uses `RestartXray(true)` on mutations (hot-apply can't add a freedom outbound with sockopt.interface). Address allocation (`client_awg.go`) excludes AWG outbound tunnel IPs to avoid collision.
 - **AWG3 / version presets** (`headerProtectionKey` + `awgVersion` fields): upstream `feat/awg3` merged to master on 2026-07-30 (kernel `v3.0.20260731`, tools `v3.0.20260730`), so HPK is now **enabled**. The `awgVersion` field (`"1.5"`/`"2"`/`"3"`) lives on the inbound (server ceiling) and gates HPK emission everywhere — `generateObfuscation` returns it only for `"3"`; `renderServerConf`/`renderClientConf`/`inboundAwgHints` write the `.conf` line only when `AwgVersion == "3"` AND the key is non-empty. Generator guarantees S1–S4 ≥ 12 (`MinSForHPK`). Client export selector (`ClientQrModal`/`ClientInfoModal`) clamps to ≤ ceiling. See Known Issue #5 (CLOSED) and Pattern 6 (version compatibility).
 - **AWG3 advanced parameters** (`contentPaddingAddition`, `rekeyAfterTime`, `rekeyTimeout`, `rejectAfterTime`, `keepaliveTimeout`, `maxHandshakeAttempts`): 6 device fields from the upstream kernel UAPI that the panel exposes (lucx.52). All version-gated to `"3"`, all default 0 = kernel uses built-in WireGuard constant (120/5/180/10/18 sec / deterministic WG padding). Device fields written to `[Interface]`. **generateObfuscation DOES auto-generate them for v3 (lucx.65):** `GenerateAwg3DeviceTimings(profile)` in `cps/params.go` (algorithm ported from AmneziaWG-Architect awg3.ts, derived from amneziawg-go v3.0.1) — ContentPadding/RekeyAfter/RejectAfter scale with obfProfile (lite/standard/pro → low/medium/high), RekeyTimeout/KeepaliveTimeout/MaxHandshakeAttempts fixed safe spans (protocol invariants: RejectAfter>Keepalive+RekeyTimeout, RekeyAfter<RejectAfter, attempts≥1); emitted as `"lo-hi"` range strings in the same v3 gate as HPK (`awgVersion=="3" && ModuleSupportsAwg3()`), response keys match the Zod schema so the form's blind `Object.entries.forEach(setValue)` applies them. Migration prunes non-v3 values. `ParseConf` auto-detects v3 from any of these fields. **AdvancedSecurity removed (lucx.62):** the per-peer `advancedSecurity` field was fully deleted from model/DB/forms/.conf — upstream kernel `set_peer` never reads it (`attrs[WGPEER_A_ADVANCED_SECURITY]` unreferenced in `netlink.c:set_peer`), `get_peer` hardcodes "off" in dumps, and it does NOT gate HPK/timers/padding (those are independent device attrs). Migration `migrate_awg_hpk.go` deletes stale `advancedSecurity` keys from stored settings. **Ranges (lucx.60):** each of the 6 timers accepts a single value `"150"` OR an inclusive range `"100-500"` — the kernel's `u16_range_t` (device.h) + tools' `u16_range_from_string` parse both and randomize within the range at rekey (same semantics as H1-H4), verified live on a v3 module. The value is stored as `awg.AwgTimer` (string) end-to-end and written to the .conf VERBATIM (never collapsed). `AwgTimer.UnmarshalJSON` accepts a legacy JSON number too; `IsZero` ("", "0", "0-0") → renderer omits the line. Frontend `normalizeAwgTimer` clamps/orders the range but does NOT collapse it.
+
+### 3b. Tunnel Sidecars Architecture (lucx.91+)
+
+Туннельные сайдкары — внешние туннельные серверы, которые панель супервизит **рядом** с Xray (не Xray-протоколы; трафик мимо Xray, свой TLS/креды). Первое ядро — **NaiveProxy** (Caddy + `forward_proxy` klzgrad, HTTP/2-паддинг); следующие в очереди — qWDTT и olcRTC (whitelist-обход через VK TURN / meet-сервисы). Каркас общий:
+
+- **`internal/lucx/tunnel/`** (PolyForm): `Name`-реестр ядер; `NaiveConfig` + рендер Caddyfile; `Proc` (exec, SIGTERM→kill, ring-лог); `Manager` (singleton, fingerprint-рестарт при смене конфига, `Ensure`/`Stop`/`StopAll`, трёхуровневый статус process→TCP-probe→TLS-probe).
+- **Caddyfile-грабли** (выучены elector1337/3x-ui-naive + E2E lucx.91, зашиты в рендер): `admin off` (иначе инстансы дерутся за :2019); wildcard-listen → bare `:port` (явный `0.0.0.0:port` Caddy понимает как host-matcher), конкретный IP → `bind`; per-инстанс `XDG_DATA_HOME` (ACME-хранилища не дерутся); кавычки+экранирование всех пользовательских значений. **Три грабли из E2E:** (1) сабдирективы `padding` у forward_proxy НЕТ — паддинг включается сам по заголовку `Padding` от клиента; (2) домен в адресе сайта ОБЯЗАН нести нестандартный порт (`domain:8443`), иначе bare-домен открывает второй слушатель :443; (3) manual-TLS требует `auto_https off` + `skip_install_trust` в глобальном блоке, иначе Caddy поднимает ACME-слушатель :80 и ставит локальный root-серт в системный trust.
+- **Хранение:** settings-таблица, ключ `lucxTunnel_naive` (JSON-блоб). Веб-слой: `service/tunnel.go` (валидации, кросс-проверка порта с TCP-инбаундами — UDP-протоколы не конфликтуют; download бинарника через temp-файл), `controller/tunnel.go` (`/panel/api/tunnel/naive/*`: status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary), `job/tunnel_job.go` (cron 10s, краш-ревив).
+- **Per-client креды + подписки:** `tunnel.ClientAuth(panelSecret, email)` — детерминированный HMAC-SHA256, без хранения в БД; каждый включённый клиент панели получает свою `basic_auth`-строку в Caddyfile и свою ссылку `naive+https://user:pass@domain:port#email` в base64-подписке (LUCX-HOOK в `sub/service.go:getSubs`; стандарт NekoBox/husi/Exclave). Disable клиента убирает креды на следующем reconcile. JSON/Clash-подписки naive не получают (форматы не поддерживают протокол). Обфускационного генератора НЕТ по дизайну: камуфляж наива = стек Chrome, паддинг включается сам по заголовку `Padding`.
+- **Поставка бинарника:** release.yml — amd64 prebuilt из klzgrad/forwardproxy (pinned тег), arm64 — xcaddy кросс-сборка; прочие архитектуры без бинарника (upload/download в UI). Имя: `bin/caddy-naive-<os>-<arch>`.
+- **Ограничение ACME:** Let's Encrypt HTTP-01 требует порт 443 (валидация не даёт ACME на другом порту).
+- **Dev-готча:** Kaspersky на dev-машине ломает loopback TLS (MITM) — TLS-пробы в тестах скипаются с пометкой окружения; на Linux работает.
+- **Мост в Xray (следующий подэтап):** SOCKS-egress патч forwardproxy + скрытый SOCKS loopback inbound (`injectTunnelEgress`, симметрично mtproto) — даст Xray-роутинг туннельному трафику.
 
 ### 4. Paranoid Logging
 
@@ -173,7 +188,7 @@ Upstream rewrote the frontend from Vue to React + TypeScript + AntD v6 + Zod. AW
 
 ### 10. License
 
-LucX-UI components (`internal/awg/`, `internal/awg/cps/`, `internal/awg/signature/`, `internal/lucx/`, `internal/database/migrate_awg*.go`, `internal/web/controller/awg.go`, `internal/web/controller/awg_outbound.go`, `internal/web/job/awg_job.go`, `internal/web/service/client_awg.go`, `internal/web/service/awg_outbound.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`, `frontend/src/pages/clients/wireguardConfig.ts`, `bin/install-awg-module.sh`, `bin/check-lucx.sh`, `bin/pre-push`, `bin/build-release.sh`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author.
+LucX-UI components (`internal/awg/`, `internal/awg/cps/`, `internal/awg/signature/`, `internal/lucx/`, `internal/database/migrate_awg*.go`, `internal/web/controller/awg.go`, `internal/web/controller/awg_outbound.go`, `internal/web/controller/tunnel.go`, `internal/web/job/awg_job.go`, `internal/web/job/tunnel_job.go`, `internal/web/service/client_awg.go`, `internal/web/service/awg_outbound.go`, `internal/web/service/tunnel.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/schemas/tunnel.ts`, `frontend/src/api/tunnels.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`, `frontend/src/pages/tunnels/TunnelsPage.tsx`, `frontend/src/pages/clients/wireguardConfig.ts`, `bin/install-awg-module.sh`, `bin/check-lucx.sh`, `bin/pre-push`, `bin/build-release.sh`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author.
 
 Original 3x-ui code remains under GPL-3.0.
 
@@ -206,10 +221,16 @@ internal/awg/signature/            QUIC host capture (hoaxisr port)
 ├── capture.go                     Capture(domain) — sends QUIC Initial, reads replies → I1-I5
 └── capture_test.go                normalizeDomain/fillPackets/varint/HKDF/ClientHello+Initial structure tests
 
-internal/lucx/                     Smart Cluster
+internal/lucx/                     Smart Cluster + tunnel sidecars
 ├── parser/                        SSH output → NodeCreds
 ├── nodetype/                      LucX vs vanilla detection (MTProtoVersion)
-└── outbound_link/                 Inbound → outbound config generator
+├── outbound_link/                 Inbound → outbound config generator
+└── tunnel/                        Tunnel sidecars (NaiveProxy first; qWDTT/olcRTC queued)
+    ├── tunnel.go                  Name registry + binary/config/data paths
+    ├── naive.go                   NaiveConfig + Caddyfile render (admin off, bind normalization, escaping) + client URL
+    ├── process.go                 Proc: exec + SIGTERM→kill + ring log (500 lines)
+    ├── manager.go                 Manager singleton: Ensure/Stop/StopAll, fingerprint restart, 3-level probe (process→TCP→TLS)
+    └── *_test.go                  render/validation/fingerprint/probe/process lifecycle tests
 
 internal/database/
 ├── migrate_awg.go                 pruneLegacyAwgHiddenChildren + stripHiddenKeys
@@ -226,7 +247,10 @@ internal/web/
 ├── service/awg_outbound.go        AwgOutboundService — CRUD + parseConf + ActiveOutboundTags/ActiveOutboundAddresses (collision guard)
 ├── controller/awg.go              generateObfuscation + captureHost + awgDiagnostics API endpoints (LUCX-HOOK). HPK is intentionally NOT emitted (Known Issue #5).
 ├── controller/awg_outbound.go     AWG outbound CRUD + parseConf + test endpoints; RestartXray(true) on add/del/update/enable (hot-apply can't add freedom with sockopt.interface)
-├── web.go                         cadenceAwg + StopAll wiring (LUCX-HOOK)
+├── service/tunnel.go              TunnelService — naive config persist (settings key lucxTunnel_naive), validations, TCP port cross-check vs inbounds, caddy adapt, binary download via temp file
+├── controller/tunnel.go           /panel/api/tunnel/naive/* — status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary
+├── job/tunnel_job.go              TunnelJob cron @every 10s — reconcile (crash-revive)
+├── web.go                         cadenceAwg + cadenceTunnel + StopAll wiring + upload body-limit exempt (LUCX-HOOK)
 
 internal/database/model/model.go   AWG Protocol const + validate oneof (LUCX-HOOK)
 internal/database/db.go            pruneLegacyAwgHiddenChildren + pruneAwgHeaderProtectionKey calls (LUCX-HOOK)
@@ -242,7 +266,12 @@ frontend/src/
 ├── pages/clients/ClientQrModal.tsx         AWG panel with QR + download
 ├── schemas/protocols/inbound/index.ts      InboundSettingsSchema union (LUCX-HOOK)
 ├── schemas/primitives/protocol.ts          ProtocolSchema + Protocols map (LUCX-HOOK)
-└── pages/inbounds/form/protocols/index.ts  AwgFields export (LUCX-HOOK)
+├── pages/inbounds/form/protocols/index.ts  AwgFields export (LUCX-HOOK)
+├── schemas/tunnel.ts                       NaiveConfig/NaiveStatus Zod schemas (LUCX)
+├── api/tunnels.ts                          tunnel API client, JSON_HEADERS (LUCX)
+├── pages/tunnels/TunnelsPage.tsx           Tunnels page: status badge, lifecycle, logs, binary mgmt, simple/raw Caddyfile form (LUCX)
+├── routes.tsx + layouts/AppSidebar.tsx     /panel/tunnels route + menu item (LUCX-HOOK)
+└── pages/api-docs/endpoints.ts             tunnel endpoints registry (contract test)
 
 bin/install-awg-module.sh          kernel auto-upgrade (meta-package, каждый вызов) + DKMS build модуля/tools из HEAD upstream master; версия = git describe, маркер = SHA коммита; build-first-safe swap; сборка для всех установленных ядер; tools пересобираются при awg version < v3
 bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes

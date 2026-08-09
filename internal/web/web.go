@@ -20,6 +20,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/eventbus"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel" // LUCX-HOOK: tunnel sidecars (NaiveProxy)
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/sys"
@@ -173,7 +174,10 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	// large backups and streams them to disk, so only its exact route suffix is
 	// exempt. Follow-up: make the limit a setting.
 	const maxRequestBodyBytes = 10 << 20 // 10 MiB
-	engine.Use(middleware.MaxBodyBytes(maxRequestBodyBytes, "/panel/api/server/importDB"))
+	// LUCX-HOOK: the tunnel core binary upload (~50 MB caddy build) is exempt
+	// from the global body limit, like the DB import.
+	engine.Use(middleware.MaxBodyBytes(maxRequestBodyBytes, "/panel/api/server/importDB", "/panel/api/tunnel/naive/upload"))
+	// END LUCX-HOOK
 
 	webDomain, err := s.settingService.GetWebDomain()
 	if err != nil {
@@ -289,6 +293,7 @@ const (
 	cadenceXrayTraffic   = "@every 5s"
 	cadenceMtproto       = "@every 10s"
 	cadenceAwg           = "@every 10s" // LUCX-HOOK: AWG sidecar reconcile + traffic
+	cadenceTunnel        = "@every 10s" // LUCX-HOOK: tunnel sidecars (NaiveProxy) reconcile
 	cadenceClientIPScan  = "@every 10s"
 	cadenceNodeHeartbeat = "@every 5s"
 	cadenceNodeTraffic   = "@every 5s"
@@ -331,6 +336,11 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	awgJob := job.NewAwgJob()
 	_, _ = s.cron.AddJob(cadenceAwg, awgJob)
 	go awgJob.Run()
+	// END LUCX-HOOK
+	// LUCX-HOOK: Reconcile tunnel sidecars (NaiveProxy caddy) and revive crashes
+	tunnelJob := job.NewTunnelJob()
+	_, _ = s.cron.AddJob(cadenceTunnel, tunnelJob)
+	go tunnelJob.Run()
 	// END LUCX-HOOK
 
 	// check client ips from log file every 10 sec
@@ -686,7 +696,8 @@ func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 	if stopXray {
 		_ = s.xrayService.StopXray()
 		mtproto.GetManager().StopAll()
-		awg.GetManager().StopAll() // LUCX-HOOK: stop AWG sidecars
+		awg.GetManager().StopAll()    // LUCX-HOOK: stop AWG sidecars
+		tunnel.GetManager().StopAll() // LUCX-HOOK: stop tunnel sidecars (NaiveProxy)
 	}
 	if s.cron != nil {
 		s.cron.Stop()
