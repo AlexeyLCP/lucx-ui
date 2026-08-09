@@ -157,6 +157,12 @@ func initModels() error {
 	if err := migrateAwgVersion(); err != nil {
 		return err
 	}
+	// Re-allocate AWG client addresses that no longer belong to their inbound's
+	// subnet (detached-and-re-attached clients carrying a stale single-host
+	// address — handshake yes, traffic no). Idempotent. lucx.92.
+	if err := migrateAwgStaleClients(); err != nil {
+		return err
+	}
 	// END LUCX-HOOK
 	if IsPostgres() {
 		if err := resyncPostgresSequences(db, models); err != nil {

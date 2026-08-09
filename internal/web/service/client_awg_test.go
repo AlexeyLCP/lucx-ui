@@ -196,3 +196,32 @@ func TestMigrateAwgClientSubnets(t *testing.T) {
 		})
 	}
 }
+
+// TestAwgAllowedIPsStale covers the lucx.92 detector that flags a client
+// whose stored single-host address no longer belongs to the inbound's
+// current subnet (detached-and-re-attached after a subnet change).
+func TestAwgAllowedIPsStale(t *testing.T) {
+	tests := []struct {
+		name       string
+		allowedIPs []string
+		serverAddr string
+		want       bool
+	}{
+		{"inside subnet", []string{"10.9.0.5/32"}, "10.9.0.1/24", false},
+		{"outside subnet", []string{"10.8.0.5/32"}, "10.9.0.1/24", true},
+		{"empty allowedIPs", nil, "10.9.0.1/24", false},
+		{"custom 0.0.0.0/0 not stale", []string{"0.0.0.0/0"}, "10.9.0.1/24", false},
+		{"mixed host + route not stale", []string{"10.8.0.5/32", "0.0.0.0/0"}, "10.9.0.1/24", false},
+		{"unparseable not stale", []string{"junk"}, "10.9.0.1/24", false},
+		{"bad server addr not stale", []string{"10.8.0.5/32"}, "not-an-ip", false},
+		{"ipv6 outside", []string{"fd00::5/128"}, "fd01::1/64", true},
+		{"ipv6 inside", []string{"fd01::5/128"}, "fd01::1/64", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := awgAllowedIPsStale(tt.allowedIPs, tt.serverAddr); got != tt.want {
+				t.Errorf("awgAllowedIPsStale(%v, %q) = %v, want %v", tt.allowedIPs, tt.serverAddr, got, tt.want)
+			}
+		})
+	}
+}

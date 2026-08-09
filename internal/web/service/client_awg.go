@@ -44,6 +44,40 @@ func awgAllocationFallback(serverAddr string) string {
 	return prefix.Masked().String()
 }
 
+// awgAllowedIPsStale reports whether a client's stored allowedIPs no longer
+// belong to the inbound's current tunnel subnet: every entry is a
+// single-host address (/32 or /128) and at least one falls outside the
+// subnet. That is the signature of a client detached from an AWG inbound
+// and re-attached later — after the subnet changed or from another AWG
+// inbound — carrying its old address (lucx.92). The handshake still
+// succeeds (keys match), but the server routes a subnet it no longer owns,
+// so traffic dies. Custom entries (0.0.0.0/0, ::/0, anything non-host) are
+// never treated as stale — operator-managed configs stay untouched.
+func awgAllowedIPsStale(allowedIPs []string, serverAddr string) bool {
+	if len(allowedIPs) == 0 {
+		return false
+	}
+	subnet, err := netip.ParsePrefix(strings.TrimSpace(serverAddr))
+	if err != nil {
+		return false
+	}
+	subnet = subnet.Masked()
+	outside := false
+	for _, raw := range allowedIPs {
+		p, err := netip.ParsePrefix(strings.TrimSpace(raw))
+		if err != nil {
+			return false
+		}
+		if p.Bits() != p.Addr().BitLen() {
+			return false
+		}
+		if !subnet.Contains(p.Addr()) {
+			outside = true
+		}
+	}
+	return outside
+}
+
 // awgSettingsAddress extracts the tunnel address from an AWG inbound's
 // settings JSON ("" when absent or malformed).
 func awgSettingsAddress(settings string) string {
@@ -260,6 +294,18 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 			c.PreSharedKey = psk
 		}
 		if len(c.AllowedIPs) == 0 {
+			addr, err := allocateWireguardAddress(used, base, false)
+			if err != nil {
+				return err
+			}
+			c.AllowedIPs = []string{addr}
+		} else if awgAllowedIPsStale(c.AllowedIPs, serverAddr) {
+			// A re-attached client whose stored single-host address no longer
+			// fits the inbound's current subnet (the subnet changed, or the
+			// client came from another AWG inbound). Keeping it would leave
+			// the peer routable to a network this interface does not own —
+			// handshake yes, traffic no. Re-allocate from the current subnet;
+			// keys and PSK are preserved so only the address rotates.
 			addr, err := allocateWireguardAddress(used, base, false)
 			if err != nil {
 				return err
