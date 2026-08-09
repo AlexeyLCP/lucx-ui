@@ -133,6 +133,14 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
       for (const [k, v] of Object.entries(obf)) {
         setValue(`settings.${k}`, v, { shouldDirty: true });
       }
+      // Lite/Standard only keep I1; drop stale Pro I2-I5 so client .conf does not
+      // inherit leftover packets after switching profile down.
+      const level = (watch('settings.obfLevel') as number) ?? 2;
+      if (level < 3) {
+        for (const k of ['i2', 'i3', 'i4', 'i5'] as const) {
+          setValue(`settings.${k}`, '', { shouldDirty: true });
+        }
+      }
       messageApi.success(t('pages.inbounds.form.awgRegenerateDone'));
     } finally {
       setGenerating(false);
@@ -450,11 +458,16 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
         </>
       )}
 
+      {/* CPS packets: Lite/Standard emit I1 only; Pro emits I1-I5. The backend
+          already generates I1 for fullI1I5=false — the form used to hide I1
+          unless Pro, so Standard looked like "I1 never generates" (Aleksandr). */}
+      {(obfLevel ?? 2) >= 1 && (
+        <FormField name={['settings', 'i1']} label="I1">
+          <Input placeholder={t('pages.inbounds.form.awgCpsHex')} />
+        </FormField>
+      )}
       {obfLevel === 3 && (
         <>
-          <FormField name={['settings', 'i1']} label="I1">
-            <Input placeholder={t('pages.inbounds.form.awgCpsHex')} />
-          </FormField>
           <FormField name={['settings', 'i2']} label="I2">
             <Input placeholder={t('pages.inbounds.form.awgCpsHex')} />
           </FormField>

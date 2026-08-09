@@ -1605,3 +1605,7 @@ systemctl start x-ui
 
 1. **fix(clients):** AWG version selector при multi-attach — один .conf panel на каждый AWG-инбаунд со своим ceiling (раньше брался только первый → v1.5 блокировал 2/3). Репорт Aleksandr SacredX.
 2. **fix(awg):** diagnostics MASQUERADE проверяет mark-based rules (lucx.84+), не устаревший `-s subnet`.
+
+## Релиз v3.6.0-lucx.87 (2026-08-08)
+
+**fix (Aleksandr):** AWG2 Standard — I1 генерился бэкендом, но поле I1 в форме показывалось только при Pro. Теперь I1 виден для Lite/Standard; I2-I5 — только Pro. При regenerate < Pro очищаются stale I2-I5.
