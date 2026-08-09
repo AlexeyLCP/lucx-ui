@@ -8,15 +8,10 @@ import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 import { formatInboundLabel } from '@/lib/inbounds/label';
+import { buildSubLinks, type SubSettingsLinks } from '@/lib/sub/links';
 import { buildWireguardClientConfig, findWireguardInbound, isWireguardClient, buildAwgClientConfig, findAwgInbounds, isAwgClient } from './wireguardConfig'; // LUCX-HOOK: AWG
 
-interface SubSettings {
-  enable: boolean;
-  subURI: string;
-  subJsonURI: string;
-  subJsonEnable: boolean;
-  publicHost?: string;
-}
+type SubSettings = SubSettingsLinks;
 
 interface ClientQrModalProps {
   open: boolean;
@@ -31,7 +26,10 @@ interface ApiMsg<T = unknown> {
   obj?: T;
 }
 
-const DEFAULT_SUB: SubSettings = { enable: false, subURI: '', subJsonURI: '', subJsonEnable: false, publicHost: '' };
+const DEFAULT_SUB: SubSettings = {
+  enable: false, subURI: '', subJsonURI: '', subJsonEnable: false,
+  subClashURI: '', subClashEnable: false, subAwgURI: '', subAwgEnable: false, publicHost: '',
+};
 
 // isVersionAvailable reports whether an export version is selectable given the
 // inbound ceiling (a client config may target any version at or below the
@@ -51,16 +49,12 @@ export default function ClientQrModal({
   const [links, setLinks] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const subLink = useMemo(() => {
-    if (!client?.subId || !subSettings?.enable || !subSettings?.subURI) return '';
-    return subSettings.subURI + client.subId;
-  }, [client?.subId, subSettings?.enable, subSettings?.subURI]);
-
-  const subJsonLink = useMemo(() => {
-    if (!client?.subId || !subSettings?.enable) return '';
-    if (!subSettings?.subJsonEnable || !subSettings?.subJsonURI) return '';
-    return subSettings.subJsonURI + client.subId;
-  }, [client?.subId, subSettings?.enable, subSettings?.subJsonEnable, subSettings?.subJsonURI]);
+  const linksBuilt = useMemo(() => buildSubLinks(subSettings, client?.subId), [subSettings, client?.subId]);
+  const subLink = linksBuilt.sub;
+  const subJsonLink = linksBuilt.json;
+  const subClashLink = linksBuilt.clash;
+  const subAwgLink = linksBuilt.amnezia;
+  const subAwgVpnLink = linksBuilt.amneziaVpn;
 
   const wgInbound = useMemo(() => findWireguardInbound(client, inboundsById), [client, inboundsById]);
   const wgConfigText = useMemo(() => {
@@ -100,7 +94,7 @@ export default function ClientQrModal({
   }, [client, awgInbounds, subSettings?.publicHost, awgExportById]);
   // END LUCX-HOOK
 
-  const hasAnything = !!subLink || !!subJsonLink || !!wgConfigText || awgConfigs.length > 0 || links.length > 0;
+  const hasAnything = !!subLink || !!subJsonLink || !!subClashLink || !!subAwgLink || !!wgConfigText || awgConfigs.length > 0 || links.length > 0;
 
   useEffect(() => {
     if (!open || !client?.subId) {
@@ -140,6 +134,27 @@ export default function ClientQrModal({
         key: 'subJson',
         label: `${t('subscription.title')} (JSON)`,
         children: <QrPanel value={subJsonLink} remark={`${client?.email || ''} — JSON`} />,
+      });
+    }
+    if (subClashLink) {
+      out.push({
+        key: 'subClash',
+        label: <Tag color="gold" style={{ margin: 0 }}>CLASH</Tag>,
+        children: <QrPanel value={subClashLink} remark={`${client?.email || ''} — Clash`} />,
+      });
+    }
+    if (subAwgLink) {
+      out.push({
+        key: 'subAwg',
+        label: <Tag color="magenta" style={{ margin: 0 }}>AMNEZIA</Tag>,
+        children: <QrPanel value={subAwgLink} remark={`${client?.email || ''} — Amnezia .conf`} />,
+      });
+    }
+    if (subAwgVpnLink) {
+      out.push({
+        key: 'subAwgVpn',
+        label: <Tag color="volcano" style={{ margin: 0 }}>vpn://</Tag>,
+        children: <QrPanel value={subAwgVpnLink} remark={`${client?.email || ''} — vpn://`} />,
       });
     }
     links.forEach((link, idx) => {
@@ -216,7 +231,7 @@ export default function ClientQrModal({
     }
     // END LUCX-HOOK
     return out;
-  }, [subLink, subJsonLink, wgConfigText, awgConfigs, links, client?.email, t]);
+  }, [subLink, subJsonLink, subClashLink, subAwgLink, subAwgVpnLink, wgConfigText, awgConfigs, links, client?.email, t]);
 
   useEffect(() => {
     if (!open) {

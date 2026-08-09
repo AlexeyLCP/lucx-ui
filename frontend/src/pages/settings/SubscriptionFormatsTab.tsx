@@ -229,6 +229,7 @@ export default function SubscriptionFormatsTab({ allSetting, updateSetting }: Su
                     onChange={(e) => updateSetting({ subClashURI: e.target.value })}
                   />
                 </SettingListItem>
+
                 <SettingListItem
                   paddings="small"
                   title={t('pages.settings.subClashAutoDetect')}
@@ -248,6 +249,33 @@ export default function SubscriptionFormatsTab({ allSetting, updateSetting }: Su
                     value={allSetting.subClashUserAgentRegex}
                     placeholder="(?i)(clash|mihomo)"
                     onChange={(value) => updateSetting({ subClashUserAgentRegex: value })}
+                  />
+                </SettingListItem>
+              </Card>
+            )}
+            {allSetting.subAwgEnable && (
+              <Card
+                size="small"
+                className="subscription-format-card"
+                title={(
+                  <span className="subscription-format-card-title">
+                    {t('pages.settings.subAwgEnableTitle')}
+                  </span>
+                )}
+              >
+                <SettingListItem paddings="small" title={<>AWG {t('pages.settings.subPath')}</>} description={t('pages.settings.subPathDesc')}>
+                  <Input
+                    value={allSetting.subAwgPath}
+                    placeholder="/awg/"
+                    onChange={(e) => updateSetting({ subAwgPath: sanitizePath(e.target.value) })}
+                    onBlur={() => updateSetting({ subAwgPath: normalizePath(allSetting.subAwgPath) })}
+                  />
+                </SettingListItem>
+                <SettingListItem paddings="small" title={<>AWG {t('pages.settings.subURI')}</>} description={t('pages.settings.subURIDesc')}>
+                  <Input
+                    value={allSetting.subAwgURI}
+                    placeholder="(http|https)://domain[:port]/path/"
+                    onChange={(e) => updateSetting({ subAwgURI: e.target.value })}
                   />
                 </SettingListItem>
               </Card>

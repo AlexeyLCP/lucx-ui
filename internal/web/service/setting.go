@@ -55,64 +55,68 @@ var defaultValueMap = map[string]string{
 	// cert are minted lazily on first use, and the node-side trust CA is pasted
 	// in by the operator. Kept out of entity.AllSetting so private keys never
 	// reach the settings UI/export.
-	"nodeMtlsCaCertPem":           "",
-	"nodeMtlsCaKeyPem":            "",
-	"nodeMtlsClientCertPem":       "",
-	"nodeMtlsClientKeyPem":        "",
-	"nodeMtlsClientCAPem":         "",
-	"webBasePath":                 normalizeBasePath(getEnv("XUI_INIT_WEB_BASE_PATH", "/")),
-	"sessionMaxAge":               "360",
-	"trustedProxyCIDRs":           DefaultTrustedProxyCIDRs,
-	"pageSize":                    "25",
-	"expireDiff":                  "0",
-	"trafficDiff":                 "0",
-	"remarkTemplate":              DefaultRemarkTemplate,
-	"subShowIdentityOnAllLinks":   "false",
-	"timeLocation":                "Local",
-	"tgBotEnable":                 "false",
-	"tgBotToken":                  "",
-	"tgBotProxy":                  "",
-	"tgBotAPIServer":              "",
-	"tgBotChatId":                 "",
-	"tgRunTime":                   "@daily",
-	"tgBotBackup":                 "false",
-	"tgCpu":                       "80",
-	"tgMemory":                    "80",
-	"tgLang":                      "en-US",
-	"twoFactorEnable":             "false",
-	"twoFactorToken":              "",
-	"subEnable":                   "true",
-	"subJsonEnable":               "false",
-	"subJsonAutoDetect":           "false",
-	"subJsonAlwaysArray":          "false",
-	"subJsonUserAgentRegex":       "",
-	"subClashAutoDetect":          "false",
-	"subClashUserAgentRegex":      "",
-	"subTitle":                    "",
-	"subSupportUrl":               "",
-	"subProfileUrl":               "",
-	"subAnnounce":                 "",
-	"subEnableRouting":            "false",
-	"subRoutingRules":             "",
-	"subHideSettings":             "false",
-	"subIncyEnableRouting":        "false",
-	"subIncyRoutingRules":         "",
-	"subListen":                   "",
-	"subPort":                     "2096",
-	"subPath":                     "/sub/",
-	"subDomain":                   "",
-	"subCertFile":                 "",
-	"subKeyFile":                  "",
-	"subUpdates":                  "12",
-	"subEncrypt":                  "true",
-	"subURI":                      "",
-	"subJsonPath":                 "/json/",
-	"subJsonURI":                  "",
-	"subClashEnable":              "false",
-	"subClashPath":                "/clash/",
-	"subClashURI":                 "",
-	"subClashEnableRouting":       "false",
-	"subClashRules":               "",
+	"nodeMtlsCaCertPem":         "",
+	"nodeMtlsCaKeyPem":          "",
+	"nodeMtlsClientCertPem":     "",
+	"nodeMtlsClientKeyPem":      "",
+	"nodeMtlsClientCAPem":       "",
+	"webBasePath":               normalizeBasePath(getEnv("XUI_INIT_WEB_BASE_PATH", "/")),
+	"sessionMaxAge":             "360",
+	"trustedProxyCIDRs":         DefaultTrustedProxyCIDRs,
+	"pageSize":                  "25",
+	"expireDiff":                "0",
+	"trafficDiff":               "0",
+	"remarkTemplate":            DefaultRemarkTemplate,
+	"subShowIdentityOnAllLinks": "false",
+	"timeLocation":              "Local",
+	"tgBotEnable":               "false",
+	"tgBotToken":                "",
+	"tgBotProxy":                "",
+	"tgBotAPIServer":            "",
+	"tgBotChatId":               "",
+	"tgRunTime":                 "@daily",
+	"tgBotBackup":               "false",
+	"tgCpu":                     "80",
+	"tgMemory":                  "80",
+	"tgLang":                    "en-US",
+	"twoFactorEnable":           "false",
+	"twoFactorToken":            "",
+	"subEnable":                 "true",
+	"subJsonEnable":             "false",
+	"subJsonAutoDetect":         "false",
+	"subJsonAlwaysArray":        "false",
+	"subJsonUserAgentRegex":     "",
+	"subClashAutoDetect":        "false",
+	"subClashUserAgentRegex":    "",
+	"subTitle":                  "",
+	"subSupportUrl":             "",
+	"subProfileUrl":             "",
+	"subAnnounce":               "",
+	"subEnableRouting":          "false",
+	"subRoutingRules":           "",
+	"subHideSettings":           "false",
+	"subIncyEnableRouting":      "false",
+	"subIncyRoutingRules":       "",
+	"subListen":                 "",
+	"subPort":                   "2096",
+	"subPath":                   "/sub/",
+	"subDomain":                 "",
+	"subCertFile":               "",
+	"subKeyFile":                "",
+	"subUpdates":                "12",
+	"subEncrypt":                "true",
+	"subURI":                    "",
+	"subJsonPath":               "/json/",
+	"subJsonURI":                "",
+	"subClashEnable":            "false",
+	"subClashPath":              "/clash/",
+	"subClashURI":               "",
+	"subClashEnableRouting":     "false",
+	"subClashRules":             "",
+	"subAwgEnable":              "true",
+	"subAwgPath":                "/awg/",
+	"subAwgURI":                 "",
+
 	"subJsonMux":                  "",
 	"subJsonRules":                "",
 	"subJsonFinalMask":            "",
@@ -863,6 +867,21 @@ func (s *SettingService) GetSubClashRules() (string, error) {
 	return s.getString("subClashRules")
 }
 
+// LUCX-HOOK: AmneziaWG subscription endpoint settings
+func (s *SettingService) GetSubAwgEnable() (bool, error) {
+	return s.getBool("subAwgEnable")
+}
+
+func (s *SettingService) GetSubAwgPath() (string, error) {
+	return s.getString("subAwgPath")
+}
+
+func (s *SettingService) GetSubAwgURI() (string, error) {
+	return s.getString("subAwgURI")
+}
+
+// END LUCX-HOOK
+
 func (s *SettingService) GetSubJsonMux() (string, error) {
 	return s.getString("subJsonMux")
 }
@@ -1388,10 +1407,12 @@ func (s *SettingService) GetDefaultSettings(host string) (any, error) {
 		"subEnable":        func() (any, error) { return s.GetSubEnable() },
 		"subJsonEnable":    func() (any, error) { return s.GetSubJsonEnable() },
 		"subClashEnable":   func() (any, error) { return s.GetSubClashEnable() },
+		"subAwgEnable":     func() (any, error) { return s.GetSubAwgEnable() }, // LUCX-HOOK
 		"subTitle":         func() (any, error) { return s.GetSubTitle() },
 		"subURI":           func() (any, error) { return s.GetSubURI() },
 		"subJsonURI":       func() (any, error) { return s.GetSubJsonURI() },
 		"subClashURI":      func() (any, error) { return s.GetSubClashURI() },
+		"subAwgURI":        func() (any, error) { return s.GetSubAwgURI() }, // LUCX-HOOK
 		"datepicker":       func() (any, error) { return s.GetDatepicker() },
 		"ipLimitEnable":    func() (any, error) { return s.GetIpLimitEnable() },
 		"accessLogEnable":  func() (any, error) { return s.GetAccessLogEnable() },
@@ -1424,12 +1445,19 @@ func (s *SettingService) GetDefaultSettings(host string) (any, error) {
 			subClashEnable = b
 		}
 	}
-	if (subEnable && result["subURI"].(string) == "") || (subJsonEnable && result["subJsonURI"].(string) == "") || (subClashEnable && result["subClashURI"].(string) == "") {
+	subAwgEnable := false
+	if v, ok := result["subAwgEnable"]; ok {
+		if b, ok2 := v.(bool); ok2 {
+			subAwgEnable = b
+		}
+	}
+	if (subEnable && result["subURI"].(string) == "") || (subJsonEnable && result["subJsonURI"].(string) == "") || (subClashEnable && result["subClashURI"].(string) == "") || (subAwgEnable && result["subAwgURI"].(string) == "") {
 		subURI := s.BuildSubURIBase(host)
 		subTitle, _ := s.GetSubTitle()
 		subPath, _ := s.GetSubPath()
 		subJsonPath, _ := s.GetSubJsonPath()
 		subClashPath, _ := s.GetSubClashPath()
+		subAwgPath, _ := s.GetSubAwgPath()
 		if subEnable && result["subURI"].(string) == "" {
 			result["subURI"] = subURI + subPath
 		}
@@ -1441,6 +1469,10 @@ func (s *SettingService) GetDefaultSettings(host string) (any, error) {
 		}
 		if subClashEnable && result["subClashURI"].(string) == "" {
 			result["subClashURI"] = subURI + subClashPath
+		}
+		// LUCX-HOOK
+		if subAwgEnable && result["subAwgURI"].(string) == "" {
+			result["subAwgURI"] = subURI + subAwgPath
 		}
 	}
 

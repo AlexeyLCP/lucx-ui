@@ -100,11 +100,16 @@ type AllSetting struct {
 	SubClashURI                 string `json:"subClashURI" form:"subClashURI"`
 	SubClashEnableRouting       bool   `json:"subClashEnableRouting" form:"subClashEnableRouting"`
 	SubClashRules               string `json:"subClashRules" form:"subClashRules"`
-	SubJsonMux                  string `json:"subJsonMux" form:"subJsonMux"`
-	SubJsonRules                string `json:"subJsonRules" form:"subJsonRules"`
-	SubJsonFinalMask            string `json:"subJsonFinalMask" form:"subJsonFinalMask"`
-	SubThemeDir                 string `json:"subThemeDir" form:"subThemeDir"`
-	SubHideSettings             bool   `json:"subHideSettings" form:"subHideSettings"`
+	// LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint
+	SubAwgEnable bool   `json:"subAwgEnable" form:"subAwgEnable"`
+	SubAwgPath   string `json:"subAwgPath" form:"subAwgPath"`
+	SubAwgURI    string `json:"subAwgURI" form:"subAwgURI"`
+	// END LUCX-HOOK
+	SubJsonMux       string `json:"subJsonMux" form:"subJsonMux"`
+	SubJsonRules     string `json:"subJsonRules" form:"subJsonRules"`
+	SubJsonFinalMask string `json:"subJsonFinalMask" form:"subJsonFinalMask"`
+	SubThemeDir      string `json:"subThemeDir" form:"subThemeDir"`
+	SubHideSettings  bool   `json:"subHideSettings" form:"subHideSettings"`
 
 	LdapEnable             bool   `json:"ldapEnable" form:"ldapEnable"`
 	LdapHost               string `json:"ldapHost" form:"ldapHost"`
@@ -201,6 +206,7 @@ func (s *AllSetting) CheckValid() error {
 		{"subscription path", s.SubPath},
 		{"subscription JSON path", s.SubJsonPath},
 		{"subscription Clash path", s.SubClashPath},
+		{"subscription AWG path", s.SubAwgPath}, // LUCX-HOOK
 	} {
 		if pathHasForbiddenChar(p.value) {
 			return common.NewError("URI path contains an invalid character:", p.name)
@@ -233,6 +239,17 @@ func (s *AllSetting) CheckValid() error {
 	if !strings.HasSuffix(s.SubClashPath, "/") {
 		s.SubClashPath += "/"
 	}
+	// LUCX-HOOK: AmneziaWG subscription path
+	if s.SubAwgPath == "" {
+		s.SubAwgPath = "/awg/"
+	}
+	if !strings.HasPrefix(s.SubAwgPath, "/") {
+		s.SubAwgPath = "/" + s.SubAwgPath
+	}
+	if !strings.HasSuffix(s.SubAwgPath, "/") {
+		s.SubAwgPath += "/"
+	}
+	// END LUCX-HOOK
 
 	for cidr := range strings.SplitSeq(s.TrustedProxyCIDRs, ",") {
 		cidr = strings.TrimSpace(cidr)

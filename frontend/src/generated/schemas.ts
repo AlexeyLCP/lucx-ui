@@ -152,6 +152,16 @@ export const SCHEMAS: Record<string, unknown> = {
       "subAnnounce": {
         "type": "string"
       },
+      "subAwgEnable": {
+        "description": "LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint",
+        "type": "boolean"
+      },
+      "subAwgPath": {
+        "type": "string"
+      },
+      "subAwgURI": {
+        "type": "string"
+      },
       "subCertFile": {
         "type": "string"
       },
@@ -210,6 +220,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subJsonMux": {
+        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "subJsonPath": {
@@ -388,6 +399,9 @@ export const SCHEMAS: Record<string, unknown> = {
       "smtpTo",
       "smtpUsername",
       "subAnnounce",
+      "subAwgEnable",
+      "subAwgPath",
+      "subAwgURI",
       "subCertFile",
       "subClashAutoDetect",
       "subClashEnable",
@@ -623,6 +637,16 @@ export const SCHEMAS: Record<string, unknown> = {
       "subAnnounce": {
         "type": "string"
       },
+      "subAwgEnable": {
+        "description": "LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint",
+        "type": "boolean"
+      },
+      "subAwgPath": {
+        "type": "string"
+      },
+      "subAwgURI": {
+        "type": "string"
+      },
       "subCertFile": {
         "type": "string"
       },
@@ -681,6 +705,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subJsonMux": {
+        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "subJsonPath": {
@@ -866,6 +891,9 @@ export const SCHEMAS: Record<string, unknown> = {
       "smtpTo",
       "smtpUsername",
       "subAnnounce",
+      "subAwgEnable",
+      "subAwgPath",
+      "subAwgURI",
       "subCertFile",
       "subClashAutoDetect",
       "subClashEnable",

@@ -2700,6 +2700,25 @@ func (s *SubService) BuildURLs(subPath, subJsonPath, subClashPath, subId string)
 	return subURL, subJsonURL, subClashURL
 }
 
+// LUCX-HOOK: BuildAwgURL constructs the AmneziaWG conf subscription URL.
+func (s *SubService) BuildAwgURL(subAwgPath, subId string) string {
+	if subId == "" {
+		return ""
+	}
+	configuredSubURI, _ := s.settingService.GetSubURI()
+	configuredSubAwgURI, _ := s.settingService.GetSubAwgURI()
+	base := s.settingService.BuildSubURIBase(s.address)
+	awgBase := base
+	if configuredSubURI != "" {
+		if derived := s.extractBaseFromURI(configuredSubURI); derived != "" {
+			awgBase = derived
+		}
+	}
+	return s.buildSingleURL(configuredSubAwgURI, awgBase, subAwgPath, subId)
+}
+
+// END LUCX-HOOK
+
 // extractBaseFromURI extracts scheme://host from a configured URI.
 // e.g., "https://example.com/sub-xxx/" → "https://example.com".
 // Returns "" when the URI is empty or lacks a scheme/host, so callers can

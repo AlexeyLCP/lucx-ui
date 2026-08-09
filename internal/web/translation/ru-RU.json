@@ -924,7 +924,9 @@
         "importedMixed": "Импортировано: {ok}, пропущено: {failed}"
       },
       "awgConfig": "AWG-конфиг",
-      "awgExportVersion": "Версия конфига клиента"
+      "awgExportVersion": "Версия конфига клиента",
+      "subAwgHint": "AmneziaVPN: импорт .conf по этой ссылке (или скачать)",
+      "subAwgVpnHint": "Тело vpn:// для one-tap в AmneziaVPN"
     },
     "groups": {
       "name": "Имя",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "Путь должен начинаться с /"
       },
       "secretClear": "Очистить",
-      "secretClearUndo": "Отменить очистку"
+      "secretClearUndo": "Отменить очистку",
+      "subAwgEnableTitle": "Подписка AmneziaWG",
+      "subAwgEnableDesc": "Эндпоинт /awg/{subId} с .conf клиента (и ?format=vpn → vpn://). Рядом с SUB/CLASH в карточке клиента."
     },
     "xray": {
       "importRules": "Импорт правил",

@@ -36,7 +36,10 @@ export default function SubscriptionGeneralTab({ allSetting, updateSetting }: Su
             <SettingListItem paddings="small" title={t('pages.settings.subClashEnableTitle')}>
               <Switch checked={allSetting.subClashEnable} onChange={(v) => updateSetting({ subClashEnable: v })} />
             </SettingListItem>
-            {(allSetting.subJsonEnable || allSetting.subClashEnable) && (
+            <SettingListItem paddings="small" title={t('pages.settings.subAwgEnableTitle')} description={t('pages.settings.subAwgEnableDesc')}>
+              <Switch checked={allSetting.subAwgEnable} onChange={(v) => updateSetting({ subAwgEnable: v })} />
+            </SettingListItem>
+            {(allSetting.subJsonEnable || allSetting.subClashEnable || allSetting.subAwgEnable) && (
               <Alert
                 type="info"
                 showIcon

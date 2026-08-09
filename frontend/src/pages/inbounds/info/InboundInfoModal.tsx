@@ -15,6 +15,7 @@ import {
   preferPublicHost,
 } from '@/lib/xray/inbound-link';
 import { inboundFromDb } from '@/lib/xray/inbound-from-db';
+import { buildSubLinks } from '@/lib/sub/links';
 
 import {
   buildInboundInfo,
@@ -51,6 +52,9 @@ export default function InboundInfoModal({
   const [wireguardLinks, setWireguardLinks] = useState<string[]>([]);
   const [subLink, setSubLink] = useState('');
   const [subJsonLink, setSubJsonLink] = useState('');
+  const [subClashLink, setSubClashLink] = useState('');
+  const [subAwgLink, setSubAwgLink] = useState('');
+  const [subAwgVpnLink, setSubAwgVpnLink] = useState('');
   const [refreshing, setRefreshing] = useState(false);
   const [clientIpsArray, setClientIpsArray] = useState<string[]>([]);
   const [clientIpsText, setClientIpsText] = useState('');
@@ -147,14 +151,13 @@ export default function InboundInfoModal({
       setWireguardLinks([]);
     }
 
-    if (clientSet?.subId) {
-      setSubLink((subSettings?.subURI || '') + clientSet.subId);
-      setSubJsonLink(
-        subSettings?.subJsonEnable ? (subSettings?.subJsonURI || '') + clientSet.subId : '',
-      );
-    } else {
-      setSubLink('');
-      setSubJsonLink('');
+    {
+      const L = buildSubLinks(subSettings, clientSet?.subId);
+      setSubLink(L.sub);
+      setSubJsonLink(L.json);
+      setSubClashLink(L.clash);
+      setSubAwgLink(L.amnezia);
+      setSubAwgVpnLink(L.amneziaVpn);
     }
 
     setClientIpsArray([]);
@@ -229,7 +232,7 @@ export default function InboundInfoModal({
   const encryptionLabel = (inbound?.settings?.encryption as string) || '';
   const serverNameLabel = inbound?.serverName || '';
   const showClientTab = !!clientSettings;
-  const showSubscriptionTab = !!(subSettings?.enable && clientSettings?.subId);
+  const showSubscriptionTab = !!(clientSettings?.subId && (subLink || subJsonLink || subClashLink || subAwgLink));
 
   if (!dbInbound || !inbound) {
     return (
@@ -430,15 +433,48 @@ export default function InboundInfoModal({
             </div>
             <a href={subLink} target="_blank" rel="noopener noreferrer" className="link-panel-anchor">{subLink}</a>
           </div>
-          {subSettings?.subJsonEnable && subJsonLink && (
+          {subJsonLink && (
             <div className="link-panel">
               <div className="link-panel-header">
-                <Tag color="green">JSON</Tag>
+                <Tag color="purple">JSON</Tag>
                 <Tooltip title={t('copy')}>
                   <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyText(subJsonLink, t)} />
                 </Tooltip>
               </div>
               <a href={subJsonLink} target="_blank" rel="noopener noreferrer" className="link-panel-anchor">{subJsonLink}</a>
+            </div>
+          )}
+          {subClashLink && (
+            <div className="link-panel">
+              <div className="link-panel-header">
+                <Tag color="gold">CLASH</Tag>
+                <Tooltip title={t('copy')}>
+                  <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyText(subClashLink, t)} />
+                </Tooltip>
+              </div>
+              <a href={subClashLink} target="_blank" rel="noopener noreferrer" className="link-panel-anchor">{subClashLink}</a>
+            </div>
+          )}
+          {subAwgLink && (
+            <div className="link-panel">
+              <div className="link-panel-header">
+                <Tag color="magenta">AMNEZIA</Tag>
+                <Tooltip title={t('copy')}>
+                  <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyText(subAwgLink, t)} />
+                </Tooltip>
+              </div>
+              <a href={subAwgLink} target="_blank" rel="noopener noreferrer" className="link-panel-anchor">{subAwgLink}</a>
+            </div>
+          )}
+          {subAwgVpnLink && (
+            <div className="link-panel">
+              <div className="link-panel-header">
+                <Tag color="volcano">vpn://</Tag>
+                <Tooltip title={t('copy')}>
+                  <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyText(subAwgVpnLink, t)} />
+                </Tooltip>
+              </div>
+              <a href={subAwgVpnLink} target="_blank" rel="noopener noreferrer" className="link-panel-anchor">{subAwgVpnLink}</a>
             </div>
           )}
         </>

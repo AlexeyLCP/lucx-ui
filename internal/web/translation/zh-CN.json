@@ -924,7 +924,9 @@
         "importedMixed": "已导入 {ok} 个，跳过 {failed} 个"
       },
       "awgConfig": "AWG 配置",
-      "awgExportVersion": "客户端配置版本"
+      "awgExportVersion": "客户端配置版本",
+      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
+      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
       "name": "名称",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "路径必须以 / 开头"
       },
       "secretClear": "清除",
-      "secretClearUndo": "撤销清除"
+      "secretClearUndo": "撤销清除",
+      "subAwgEnableTitle": "AmneziaWG subscription",
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
     },
     "xray": {
       "importRules": "导入规则",

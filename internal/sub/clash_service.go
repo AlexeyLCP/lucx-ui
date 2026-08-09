@@ -8,6 +8,7 @@ import (
 	"github.com/goccy/go-json"
 	yaml "github.com/goccy/go-yaml"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
@@ -224,6 +225,11 @@ func (s *SubClashService) buildProxy(subReq *SubService, inbound *model.Inbound,
 	if inbound.Protocol == model.WireGuard {
 		return s.buildWireguardProxy(subReq, inbound, client, ep)
 	}
+	// LUCX-HOOK: AWG → mihomo wireguard + amnezia-wg-option
+	if inbound.Protocol == model.AWG {
+		return s.buildAwgProxy(subReq, inbound, client, ep)
+	}
+	// END LUCX-HOOK
 
 	network, _ := stream["network"].(string)
 
@@ -430,6 +436,168 @@ func (s *SubClashService) buildWireguardProxy(subReq *SubService, inbound *model
 
 	return proxy
 }
+
+// LUCX-HOOK: AWG — mihomo-compatible proxy with amnezia-wg-option (Clash Meta).
+// Mirrors buildWireguardProxy but reads AWG settings.privateKey and attaches
+// Jc/S/H/I/HPK from the inbound ceiling so Happ/Verge/FlClash/CMFA get AWG.
+func (s *SubClashService) buildAwgProxy(subReq *SubService, inbound *model.Inbound, client model.Client, ep map[string]any) map[string]any {
+	if client.PrivateKey == "" {
+		return nil
+	}
+
+	var inboundSettings struct {
+		PrivateKey             string `json:"privateKey"`
+		MTU                    int    `json:"mtu"`
+		DNS                    string `json:"dns"`
+		AwgVersion             string `json:"awgVersion"`
+		Jc                     int    `json:"jc"`
+		Jmin                   int    `json:"jmin"`
+		Jmax                   int    `json:"jmax"`
+		S1                     int    `json:"s1"`
+		S2                     int    `json:"s2"`
+		S3                     int    `json:"s3"`
+		S4                     int    `json:"s4"`
+		H1                     string `json:"h1"`
+		H2                     string `json:"h2"`
+		H3                     string `json:"h3"`
+		H4                     string `json:"h4"`
+		I1                     string `json:"i1"`
+		I2                     string `json:"i2"`
+		I3                     string `json:"i3"`
+		I4                     string `json:"i4"`
+		I5                     string `json:"i5"`
+		HeaderProtectionKey    string `json:"headerProtectionKey"`
+		ContentPaddingAddition string `json:"contentPaddingAddition"`
+		RekeyAfterTime         string `json:"rekeyAfterTime"`
+		RekeyTimeout           string `json:"rekeyTimeout"`
+		RejectAfterTime        string `json:"rejectAfterTime"`
+		KeepaliveTimeout       string `json:"keepaliveTimeout"`
+		MaxHandshakeAttempts   string `json:"maxHandshakeAttempts"`
+	}
+	_ = json.Unmarshal([]byte(inbound.Settings), &inboundSettings)
+
+	proxy := map[string]any{
+		"name":        subReq.endpointRemark(inbound, client.Email, ep, ""),
+		"type":        "wireguard",
+		"server":      inbound.Listen,
+		"port":        inbound.Port,
+		"udp":         true,
+		"private-key": client.PrivateKey,
+	}
+	if sk := strings.TrimSpace(inboundSettings.PrivateKey); sk != "" {
+		if pub, err := wgutil.PublicKeyFromPrivate(sk); err == nil {
+			proxy["public-key"] = pub
+		}
+	}
+	if client.PreSharedKey != "" {
+		proxy["pre-shared-key"] = client.PreSharedKey
+	}
+	if n := client.KeepAlive.Int(); n > 0 {
+		proxy["persistent-keepalive"] = n
+	}
+	for _, addr := range client.AllowedIPs {
+		ip := stripCIDR(addr)
+		if ip == "" {
+			continue
+		}
+		if strings.Contains(ip, ":") {
+			proxy["ipv6"] = ip
+		} else {
+			proxy["ip"] = ip
+		}
+	}
+	if inboundSettings.MTU > 0 {
+		proxy["mtu"] = inboundSettings.MTU
+	}
+	if dns := strings.TrimSpace(inboundSettings.DNS); dns != "" {
+		servers := make([]string, 0)
+		for server := range strings.SplitSeq(dns, ",") {
+			if server = strings.TrimSpace(server); server != "" {
+				servers = append(servers, server)
+			}
+		}
+		if len(servers) > 0 {
+			proxy["dns"] = servers
+		}
+	}
+
+	ver := awg.NormalizeAWGVersion(inboundSettings.AwgVersion)
+	opt := map[string]any{}
+	// mihomo: only version 3 selects the v3 codepath; anything else is legacy.
+	if ver == "3" {
+		opt["version"] = 3
+	} else if ver == "1.5" {
+		opt["version"] = 1
+	} else {
+		opt["version"] = 2
+	}
+	if inboundSettings.Jc > 0 {
+		opt["jc"] = inboundSettings.Jc
+	}
+	if inboundSettings.Jmin > 0 {
+		opt["jmin"] = inboundSettings.Jmin
+	}
+	if inboundSettings.Jmax > 0 {
+		opt["jmax"] = inboundSettings.Jmax
+	}
+	if inboundSettings.S1 > 0 {
+		opt["s1"] = inboundSettings.S1
+	}
+	if inboundSettings.S2 > 0 {
+		opt["s2"] = inboundSettings.S2
+	}
+	if ver != "1.5" {
+		if inboundSettings.S3 > 0 {
+			opt["s3"] = inboundSettings.S3
+		}
+		if inboundSettings.S4 > 0 {
+			opt["s4"] = inboundSettings.S4
+		}
+	}
+	for k, v := range map[string]string{
+		"h1": inboundSettings.H1, "h2": inboundSettings.H2,
+		"h3": inboundSettings.H3, "h4": inboundSettings.H4,
+	} {
+		if strings.TrimSpace(v) != "" {
+			opt[k] = v
+		}
+	}
+	if ver != "1.5" {
+		for k, v := range map[string]string{
+			"i1": inboundSettings.I1, "i2": inboundSettings.I2, "i3": inboundSettings.I3,
+			"i4": inboundSettings.I4, "i5": inboundSettings.I5,
+		} {
+			if strings.TrimSpace(v) != "" {
+				opt[k] = v
+			}
+		}
+	}
+	if ver == "3" {
+		if hpk := strings.TrimSpace(inboundSettings.HeaderProtectionKey); hpk != "" {
+			opt["header-protection-key"] = hpk
+		}
+		putAwgTimerOpt(opt, "content-padding-addition", inboundSettings.ContentPaddingAddition)
+		putAwgTimerOpt(opt, "rekey-after-time", inboundSettings.RekeyAfterTime)
+		putAwgTimerOpt(opt, "rekey-timeout", inboundSettings.RekeyTimeout)
+		putAwgTimerOpt(opt, "reject-after-time", inboundSettings.RejectAfterTime)
+		putAwgTimerOpt(opt, "keepalive-timeout", inboundSettings.KeepaliveTimeout)
+		putAwgTimerOpt(opt, "max-handshake-attempts", inboundSettings.MaxHandshakeAttempts)
+	}
+	if len(opt) > 0 {
+		proxy["amnezia-wg-option"] = opt
+	}
+	return proxy
+}
+
+func putAwgTimerOpt(opt map[string]any, key, raw string) {
+	v := strings.TrimSpace(raw)
+	if v == "" || v == "0" || v == "0-0" {
+		return
+	}
+	opt[key] = v
+}
+
+// END LUCX-HOOK
 
 // buildXhttpClashOpts converts xhttpSettings from 3x-ui's camelCase JSON
 // storage into the kebab-case map that Mihomo expects under xhttp-opts.

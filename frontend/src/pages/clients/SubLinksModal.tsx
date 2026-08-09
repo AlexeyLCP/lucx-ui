@@ -5,19 +5,13 @@ import type { TableColumnType } from 'antd';
 import { CopyOutlined, DownloadOutlined } from '@ant-design/icons';
 
 import type { ClientRecord } from '@/hooks/useClients';
-
-interface SubSettings {
-  enable: boolean;
-  subURI: string;
-  subJsonURI: string;
-  subJsonEnable: boolean;
-}
+import { buildSubLinks, type SubSettingsLinks } from '@/lib/sub/links';
 
 interface SubLinksModalProps {
   open: boolean;
   emails: string[];
   clients: ClientRecord[];
-  subSettings?: SubSettings;
+  subSettings?: SubSettingsLinks;
   onOpenChange: (open: boolean) => void;
 }
 
@@ -27,6 +21,8 @@ interface Row {
   subId: string;
   link: string;
   jsonLink: string;
+  clashLink: string;
+  amneziaLink: string;
 }
 
 export default function SubLinksModal({
@@ -39,30 +35,30 @@ export default function SubLinksModal({
   const { t } = useTranslation();
   const [messageApi, messageContextHolder] = message.useMessage();
 
-  const enabled = !!subSettings?.enable && !!subSettings?.subURI;
-  const jsonEnabled = !!subSettings?.subJsonEnable && !!subSettings?.subJsonURI;
-
   const rows = useMemo<Row[]>(() => {
-    if (!enabled) return [];
     const byEmail = new Map(clients.map((c) => [c.email, c]));
     const out: Row[] = [];
     for (const email of emails) {
       const c = byEmail.get(email);
       if (!c?.subId) continue;
+      const L = buildSubLinks(subSettings, c.subId);
+      if (!L.sub && !L.json && !L.clash && !L.amnezia) continue;
       out.push({
         key: email,
         email,
         subId: c.subId,
-        link: subSettings!.subURI + c.subId,
-        jsonLink: jsonEnabled ? subSettings!.subJsonURI + c.subId : '',
+        link: L.sub,
+        jsonLink: L.json,
+        clashLink: L.clash,
+        amneziaLink: L.amnezia,
       });
     }
     return out;
-  }, [emails, clients, enabled, jsonEnabled, subSettings]);
+  }, [emails, clients, subSettings]);
 
   const allText = useMemo(
-    () => rows.map((r) => (jsonEnabled ? `${r.email}\t${r.link}\t${r.jsonLink}` : `${r.email}\t${r.link}`)).join('\n'),
-    [rows, jsonEnabled],
+    () => rows.map((r) => [r.email, r.link, r.jsonLink, r.clashLink, r.amneziaLink].filter(Boolean).join('\t')).join('\n'),
+    [rows],
   );
 
   async function copy(text: string, label?: string) {
@@ -92,43 +88,40 @@ export default function SubLinksModal({
       title: t('pages.clients.client'),
       dataIndex: 'email',
       key: 'email',
-      width: 180,
+      width: 160,
       ellipsis: true,
-    },
-    {
-      title: t('pages.clients.subLinkColumn'),
-      dataIndex: 'link',
-      key: 'link',
-      ellipsis: true,
-      render: (link: string) => (
-        <Tooltip title={link} placement="topLeft">
-          <Typography.Text copyable={false} ellipsis>{link}</Typography.Text>
-        </Tooltip>
-      ),
-    },
-    {
-      title: '',
-      key: 'actions',
-      width: 64,
-      render: (_v, row) => (
-        <Button size="small" type="text" aria-label={t('copy')} icon={<CopyOutlined />} onClick={() => copy(row.link, t('copied'))} />
-      ),
     },
   ];
 
-  if (jsonEnabled) {
-    columns.splice(2, 0, {
-      title: t('pages.clients.subJsonLinkColumn'),
-      dataIndex: 'jsonLink',
-      key: 'jsonLink',
+  function addLinkCol(title: string, dataIndex: keyof Row, width = 200) {
+    columns.push({
+      title,
+      dataIndex,
+      key: dataIndex,
       ellipsis: true,
-      render: (link: string) => (
+      width,
+      render: (link: string) => link ? (
         <Tooltip title={link} placement="topLeft">
           <Typography.Text copyable={false} ellipsis>{link}</Typography.Text>
         </Tooltip>
-      ),
+      ) : '—',
+    });
+    columns.push({
+      title: '',
+      key: `${dataIndex}-copy`,
+      width: 48,
+      render: (_v, row) => {
+        const link = row[dataIndex] as string;
+        if (!link) return null;
+        return <Button size="small" type="text" aria-label={t('copy')} icon={<CopyOutlined />} onClick={() => copy(link, t('copied'))} />;
+      },
     });
   }
+
+  if (rows.some((r) => r.link)) addLinkCol(t('pages.clients.subLinkColumn'), 'link');
+  if (rows.some((r) => r.jsonLink)) addLinkCol(t('pages.clients.subJsonLinkColumn'), 'jsonLink');
+  if (rows.some((r) => r.clashLink)) addLinkCol('Clash', 'clashLink');
+  if (rows.some((r) => r.amneziaLink)) addLinkCol('Amnezia', 'amneziaLink');
 
   return (
     <>
@@ -136,55 +129,27 @@ export default function SubLinksModal({
       <Modal
         open={open}
         title={t('pages.clients.subLinksTitle', { count: rows.length })}
-        width={780}
-        footer={
-          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <Button onClick={() => onOpenChange(false)}>{t('close')}</Button>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <Button
-                icon={<CopyOutlined />}
-                disabled={rows.length === 0}
-                onClick={() => copy(allText, t('pages.clients.subLinksCopiedAll', { count: rows.length }))}
-              >
-                {t('pages.clients.subLinksCopyAll')}
-              </Button>
-              <Button
-                type="primary"
-                icon={<DownloadOutlined />}
-                disabled={rows.length === 0}
-                onClick={download}
-              >
-                {t('download')}
-              </Button>
-            </div>
-          </div>
-        }
+        width={960}
         onCancel={() => onOpenChange(false)}
+        footer={[
+          <Button key="dl" icon={<DownloadOutlined />} onClick={download} disabled={!rows.length}>
+            {t('download')}
+          </Button>,
+          <Button key="copy" type="primary" icon={<CopyOutlined />} onClick={() => copy(allText)} disabled={!rows.length}>
+            {t('copy')}
+          </Button>,
+        ]}
       >
-        {!enabled && (
-          <Alert
-            type="warning"
-            showIcon
-            title={t('pages.clients.subLinksDisabled')}
-            description={t('pages.clients.subLinksDisabledHint')}
-            style={{ marginBottom: 12 }}
-          />
-        )}
-        {enabled && rows.length === 0 && (
-          <Alert
-            type="info"
-            showIcon
-            title={t('pages.clients.subLinksEmpty')}
-            style={{ marginBottom: 12 }}
-          />
-        )}
-        {rows.length > 0 && (
+        {!rows.length ? (
+          <Alert type="info" showIcon title={t('pages.clients.subLinksEmpty')} />
+        ) : (
           <Table<Row>
-            dataSource={rows}
-            columns={columns}
             size="small"
+            rowKey="key"
+            columns={columns}
+            dataSource={rows}
             pagination={false}
-            scroll={{ y: 360 }}
+            scroll={{ x: true }}
           />
         )}
       </Modal>

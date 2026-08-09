@@ -26,6 +26,7 @@ import { HttpUtil, SizeFormatter, RandomUtil } from '@/utils';
 import { createDefaultInboundSettings } from '@/lib/xray/inbound-defaults';
 import { genInboundLinks, genWireguardLinks, preferPublicHost } from '@/lib/xray/inbound-link';
 import { inboundFromDb } from '@/lib/xray/inbound-from-db';
+import { buildSubLinks } from '@/lib/sub/links';
 import { coerceInboundJsonField, type DBInbound } from '@/models/dbinbound';
 import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -292,8 +293,10 @@ export default function InboundsPage() {
     const clients = settings.clients || [];
     const subLinks: string[] = [];
     for (const c of clients) {
-      if (c.subId && subSettings.subURI) {
-        subLinks.push(subSettings.subURI + c.subId);
+      if (!c.subId) continue;
+      const L = buildSubLinks(subSettings, c.subId);
+      for (const u of [L.sub, L.json, L.clash, L.amnezia, L.amneziaVpn]) {
+        if (u) subLinks.push(u);
       }
     }
     openText({
@@ -318,8 +321,10 @@ export default function InboundsPage() {
       const settings = coerceInboundJsonField(ib.settings) as { clients?: { subId?: string }[] };
       const clients = settings.clients || [];
       for (const c of clients) {
-        if (c.subId && subSettings.subURI) {
-          out.push(subSettings.subURI + c.subId);
+        if (!c.subId) continue;
+        const L = buildSubLinks(subSettings, c.subId);
+        for (const u of [L.sub, L.json, L.clash, L.amnezia, L.amneziaVpn]) {
+          if (u) out.push(u);
         }
       }
     }

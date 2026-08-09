@@ -924,7 +924,9 @@
         "importedMixed": "{ok} importados, {failed} omitidos"
       },
       "awgConfig": "Configuración AWG",
-      "awgExportVersion": "Versión de configuración del cliente"
+      "awgExportVersion": "Versión de configuración del cliente",
+      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
+      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
       "name": "Nombre",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "La ruta debe comenzar con /"
       },
       "secretClear": "Borrar",
-      "secretClearUndo": "Deshacer borrado"
+      "secretClearUndo": "Deshacer borrado",
+      "subAwgEnableTitle": "AmneziaWG subscription",
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
     },
     "xray": {
       "save": "Guardar configuración",

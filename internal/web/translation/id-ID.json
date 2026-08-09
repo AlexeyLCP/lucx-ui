@@ -924,7 +924,9 @@
         "importedMixed": "{ok} diimpor, {failed} dilewati"
       },
       "awgConfig": "Konfigurasi AWG",
-      "awgExportVersion": "Versi konfigurasi klien"
+      "awgExportVersion": "Versi konfigurasi klien",
+      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
+      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
       "name": "Nama",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "Path harus diawali dengan /"
       },
       "secretClear": "Hapus",
-      "secretClearUndo": "Batalkan hapus"
+      "secretClearUndo": "Batalkan hapus",
+      "subAwgEnableTitle": "AmneziaWG subscription",
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
     },
     "xray": {
       "save": "Simpan",

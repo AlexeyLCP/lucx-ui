@@ -21,6 +21,10 @@ export interface SubSettings {
   subURI: string;
   subJsonURI: string;
   subJsonEnable: boolean;
+  subClashURI?: string;
+  subClashEnable?: boolean;
+  subAwgURI?: string;
+  subAwgEnable?: boolean;
   // Configured public host (Sub Domain, else Web Domain) used as the share/QR
   // link host when the panel is reached on a loopback address. Empty if neither
   // is set.
@@ -176,8 +180,12 @@ export function useInbounds() {
     subURI: defaults.subURI || '',
     subJsonURI: defaults.subJsonURI || '',
     subJsonEnable: !!defaults.subJsonEnable,
+    subClashURI: (defaults.subClashURI as string) || '',
+    subClashEnable: !!defaults.subClashEnable,
+    subAwgURI: (defaults.subAwgURI as string) || '',
+    subAwgEnable: defaults.subAwgEnable !== false,
     publicHost: defaults.subDomain || defaults.webDomain || '',
-  }), [defaults.subEnable, defaults.subTitle, defaults.subURI, defaults.subJsonURI, defaults.subJsonEnable, defaults.subDomain, defaults.webDomain]);
+  }), [defaults.subEnable, defaults.subTitle, defaults.subURI, defaults.subJsonURI, defaults.subJsonEnable, defaults.subClashURI, defaults.subClashEnable, defaults.subAwgURI, defaults.subAwgEnable, defaults.subDomain, defaults.webDomain]);
 
   useEffect(() => {
     if (defaults.datepicker) setDatepicker(datepicker);

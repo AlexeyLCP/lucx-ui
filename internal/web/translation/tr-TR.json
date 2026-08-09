@@ -924,7 +924,9 @@
         "importedMixed": "{ok} içe aktarıldı, {failed} atlandı"
       },
       "awgConfig": "AWG yapılandırması",
-      "awgExportVersion": "İstemci yapılandırma sürümü"
+      "awgExportVersion": "İstemci yapılandırma sürümü",
+      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
+      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
       "name": "İsim",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "Yol / ile başlamalıdır"
       },
       "secretClear": "Temizle",
-      "secretClearUndo": "Temizlemeyi geri al"
+      "secretClearUndo": "Temizlemeyi geri al",
+      "subAwgEnableTitle": "AmneziaWG subscription",
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
     },
     "xray": {
       "save": "Kaydet",

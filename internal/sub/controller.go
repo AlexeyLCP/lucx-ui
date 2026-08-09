@@ -59,6 +59,7 @@ type SUBController struct {
 	subPath            string
 	subJsonPath        string
 	subClashPath       string
+	subAwgPath         string // LUCX-HOOK
 	subClashAutoDetect bool
 	clashUserAgent     *regexp.Regexp
 	jsonAutoDetect     bool
@@ -66,12 +67,14 @@ type SUBController struct {
 	jsonAlwaysArray    bool
 	jsonEnabled        bool
 	clashEnabled       bool
+	awgEnabled         bool // LUCX-HOOK
 	subEncrypt         bool
 	updateInterval     string
 
 	subService      *SubService
 	subJsonService  *SubJsonService
 	subClashService *SubClashService
+	subAwgService   *SubAwgService // LUCX-HOOK
 	settingService  service.SettingService
 
 	subTemplateMu    sync.RWMutex
@@ -82,6 +85,7 @@ type subControllerConfig struct {
 	subPath      string
 	subJsonPath  string
 	subClashPath string
+	subAwgPath   string // LUCX-HOOK
 
 	subClashAutoDetect     bool
 	subClashUserAgentRegex string
@@ -90,6 +94,7 @@ type subControllerConfig struct {
 	subJsonAlwaysArray     bool
 	subJsonEnabled         bool
 	subClashEnabled        bool
+	subAwgEnabled          bool // LUCX-HOOK
 
 	subEncrypt     bool
 	remarkTemplate string
@@ -126,6 +131,17 @@ func WithSUBJsonPath(value string) SUBControllerOption {
 func WithSUBClashPath(value string) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subClashPath = value }
 }
+
+// LUCX-HOOK
+func WithSUBAwgPath(value string) SUBControllerOption {
+	return func(config *subControllerConfig) { config.subAwgPath = value }
+}
+
+func WithSUBAwgEnabled(value bool) SUBControllerOption {
+	return func(config *subControllerConfig) { config.subAwgEnabled = value }
+}
+
+// END LUCX-HOOK
 
 func WithSUBClashAutoDetect(value bool) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subClashAutoDetect = value }
@@ -228,6 +244,7 @@ func defaultSUBControllerConfig() subControllerConfig {
 		subPath:        "/sub/",
 		subJsonPath:    "/json/",
 		subClashPath:   "/clash/",
+		subAwgPath:     "/awg/", // LUCX-HOOK
 		subEncrypt:     true,
 		remarkTemplate: service.DefaultRemarkTemplate,
 		updateInterval: "12",
@@ -257,6 +274,7 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 		subPath:            config.subPath,
 		subJsonPath:        config.subJsonPath,
 		subClashPath:       config.subClashPath,
+		subAwgPath:         config.subAwgPath, // LUCX-HOOK
 		subClashAutoDetect: config.subClashAutoDetect,
 		clashUserAgent:     compileUserAgentRegex("Clash/Mihomo", config.subClashUserAgentRegex, service.DefaultSubClashUserAgentRegex),
 		jsonAutoDetect:     config.subJsonAutoDetect,
@@ -264,12 +282,14 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 		jsonAlwaysArray:    config.subJsonAlwaysArray,
 		jsonEnabled:        config.subJsonEnabled,
 		clashEnabled:       config.subClashEnabled,
+		awgEnabled:         config.subAwgEnabled, // LUCX-HOOK
 		subEncrypt:         config.subEncrypt,
 		updateInterval:     config.updateInterval,
 
 		subService:      sub,
 		subJsonService:  NewSubJsonService(config.subJsonMux, config.subJsonRules, config.subJsonFinalMask, sub),
 		subClashService: NewSubClashService(config.subClashEnableRouting, config.subClashRules, sub),
+		subAwgService:   NewSubAwgService(sub), // LUCX-HOOK
 
 		subTemplateCache: map[string]*cachedSubTemplate{},
 	}
@@ -293,6 +313,13 @@ func (a *SUBController) initRouter(g *gin.RouterGroup) {
 		gClash.GET(":subid", a.subClashs)
 		gClash.HEAD(":subid", a.subClashs)
 	}
+	// LUCX-HOOK: AmneziaWG conf / vpn:// subscription
+	if a.awgEnabled {
+		gAwg := g.Group(a.subAwgPath)
+		gAwg.GET(":subid", a.subAwgs)
+		gAwg.HEAD(":subid", a.subAwgs)
+	}
+	// END LUCX-HOOK
 }
 
 // maybeServeSubPage renders the HTML info page when the request comes from a
@@ -728,6 +755,50 @@ func (a *SUBController) serveClashBody(c *gin.Context, rawDownload bool) bool {
 	c.Data(200, "application/yaml; charset=utf-8", []byte(clashSub))
 	return true
 }
+
+// LUCX-HOOK: AmneziaWG subscription handler
+func (a *SUBController) subAwgs(c *gin.Context) {
+	rawDownload := strings.EqualFold(c.Query("view"), "raw")
+	if !rawDownload && a.maybeServeSubPage(c) {
+		return
+	}
+	if !a.serveAwgBody(c, rawDownload) {
+		writeSubError(c, nil)
+	}
+}
+
+func (a *SUBController) serveAwgBody(c *gin.Context, rawDownload bool) bool {
+	subId := c.Param("subid")
+	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
+	format := c.Query("format") // "" | conf | vpn
+	body, header, err := a.subAwgService.GetAwg(subId, host, format)
+	if err != nil {
+		writeSubError(c, err)
+		return true
+	}
+	if len(body) == 0 {
+		return false
+	}
+	profileUrl := a.subProfileUrl
+	if profileUrl == "" {
+		profileUrl = fmt.Sprintf("%s://%s%s", scheme, hostWithPort, c.Request.RequestURI)
+	}
+	a.ApplyCommonHeaders(c, header, a.updateInterval, a.subTitle, a.subSupportUrl, profileUrl, a.subAnnounce, a.subEnableRouting, a.subRoutingRules, a.subHideSettings)
+	if strings.EqualFold(format, "vpn") {
+		if rawDownload {
+			c.Writer.Header().Set("Content-Disposition", `attachment; filename="amnezia-vpn.txt"`)
+		}
+		c.Data(200, "text/plain; charset=utf-8", []byte(body))
+		return true
+	}
+	if rawDownload {
+		c.Writer.Header().Set("Content-Disposition", `attachment; filename="amneziawg.conf"`)
+	}
+	c.Data(200, "text/plain; charset=utf-8", []byte(body))
+	return true
+}
+
+// END LUCX-HOOK
 
 // ApplyCommonHeaders sets common HTTP headers for subscription responses including user info, update interval, and profile title.
 func (a *SUBController) ApplyCommonHeaders(

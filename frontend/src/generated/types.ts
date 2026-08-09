@@ -52,6 +52,9 @@ export interface AllSetting {
   smtpTo: string;
   smtpUsername: string;
   subAnnounce: string;
+  subAwgEnable: boolean;
+  subAwgPath: string;
+  subAwgURI: string;
   subCertFile: string;
   subClashAutoDetect: boolean;
   subClashEnable: boolean;
@@ -165,6 +168,9 @@ export interface AllSettingView {
   smtpTo: string;
   smtpUsername: string;
   subAnnounce: string;
+  subAwgEnable: boolean;
+  subAwgPath: string;
+  subAwgURI: string;
   subCertFile: string;
   subClashAutoDetect: boolean;
   subClashEnable: boolean;

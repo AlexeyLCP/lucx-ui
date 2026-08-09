@@ -13,6 +13,7 @@ import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ConfigBlock from '@/components/clients/ConfigBlock';
+import { buildSubLinks } from '@/lib/sub/links';
 import { buildWireguardClientConfig, findWireguardInbound, isWireguardClient, buildAwgClientConfig, findAwgInbounds, isAwgClient } from './wireguardConfig'; // LUCX-HOOK: AWG
 import './ClientInfoModal.css';
 
@@ -38,6 +39,8 @@ interface SubSettings {
   subJsonEnable: boolean;
   subClashURI: string;
   subClashEnable: boolean;
+  subAwgURI?: string;
+  subAwgEnable?: boolean;
   publicHost?: string;
 }
 
@@ -62,6 +65,8 @@ const DEFAULT_SUB: SubSettings = {
   subJsonEnable: false,
   subClashURI: '',
   subClashEnable: false,
+  subAwgURI: '',
+  subAwgEnable: false,
   publicHost: '',
 };
 
@@ -69,6 +74,8 @@ const SUBSCRIPTION_DOWNLOAD_NAMES = {
   standard: 'subscription-standard.txt',
   json: 'subscription-json.json',
   clash: 'subscription-clash.yaml',
+  amnezia: 'amneziawg.conf',
+  amneziaVpn: 'amnezia-vpn.txt',
 } as const;
 
 export default function ClientInfoModal({
@@ -126,24 +133,17 @@ export default function ClientInfoModal({
     return r > 0 ? r : 0;
   }, [totalBytes, used]);
 
-  const subLink = useMemo(() => {
-    if (!client?.subId || !subSettings?.subURI) return '';
-    return subSettings.subURI + client.subId;
-  }, [client?.subId, subSettings?.subURI]);
+  const linksBuilt = useMemo(
+    () => buildSubLinks(subSettings, client?.subId),
+    [subSettings, client?.subId],
+  );
+  const subLink = linksBuilt.sub;
+  const subJsonLink = linksBuilt.json;
+  const subClashLink = linksBuilt.clash;
+  const subAwgLink = linksBuilt.amnezia;
+  const subAwgVpnLink = linksBuilt.amneziaVpn;
 
-  const subJsonLink = useMemo(() => {
-    if (!client?.subId) return '';
-    if (!subSettings?.subJsonEnable || !subSettings?.subJsonURI) return '';
-    return subSettings.subJsonURI + client.subId;
-  }, [client?.subId, subSettings?.subJsonEnable, subSettings?.subJsonURI]);
-
-  const subClashLink = useMemo(() => {
-    if (!client?.subId) return '';
-    if (!subSettings?.subClashEnable || !subSettings?.subClashURI) return '';
-    return subSettings.subClashURI + client.subId;
-  }, [client?.subId, subSettings?.subClashEnable, subSettings?.subClashURI]);
-
-  const showSubscription = !!(subSettings?.enable && client?.subId);
+  const showSubscription = !!(client?.subId && (subLink || subJsonLink || subClashLink || subAwgLink));
   const wgInbound = useMemo(() => findWireguardInbound(client, inboundsById), [client, inboundsById]);
   const wgConfigText = useMemo(() => {
     if (!client || !wgInbound || !isWireguardClient(client)) return '';
@@ -417,49 +417,34 @@ export default function ClientInfoModal({
               </tbody>
             </table>
 
-            {showSubscription && subLink && (
+            {showSubscription && client && (
               <>
                 <Divider>{t('subscription.title')}</Divider>
-                <div className="link-row">
-                  <Tag color="green" className="link-row-tag">SUB</Tag>
-                  <a
-                    href={subLink}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="link-row-title link-row-title-anchor"
-                    title={subLink}
-                  >
-                    {client.subId}
-                  </a>
-                  <div className="link-row-actions">
-                    <Tooltip title={t('copy')}>
-                      <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subLink)} />
-                    </Tooltip>
-                    <Tooltip title={t('download')}>
-                      <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'standard'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subLink, 'standard')} />
-                    </Tooltip>
-                    <Popover
-                      trigger="click"
-                      placement="left"
-                      destroyOnHidden
-                      content={<QrPanel value={subLink} remark={`${client.email} — ${t('subscription.title')}`} size={220} />}
-                    >
-                      <Tooltip title={t('pages.clients.qrCode')}>
-                        <Button size="small" icon={<QrcodeOutlined />} aria-label={t('pages.clients.qrCode')} />
+                {subLink && (
+                  <div className="link-row">
+                    <Tag color="green" className="link-row-tag">SUB</Tag>
+                    <a href={subLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subLink}>
+                      {client.subId}
+                    </a>
+                    <div className="link-row-actions">
+                      <Tooltip title={t('copy')}>
+                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subLink)} />
                       </Tooltip>
-                    </Popover>
+                      <Tooltip title={t('download')}>
+                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'standard'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subLink, 'standard')} />
+                      </Tooltip>
+                      <Popover trigger="click" placement="left" destroyOnHidden content={<QrPanel value={subLink} remark={`${client.email} — ${t('subscription.title')}`} size={220} />}>
+                        <Tooltip title={t('pages.clients.qrCode')}>
+                          <Button size="small" icon={<QrcodeOutlined />} aria-label={t('pages.clients.qrCode')} />
+                        </Tooltip>
+                      </Popover>
+                    </div>
                   </div>
-                </div>
+                )}
                 {subJsonLink && (
                   <div className="link-row">
                     <Tag color="purple" className="link-row-tag">JSON</Tag>
-                    <a
-                      href={subJsonLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="link-row-title link-row-title-anchor"
-                      title={subJsonLink}
-                    >
+                    <a href={subJsonLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subJsonLink}>
                       {client.subId}
                     </a>
                     <div className="link-row-actions">
@@ -469,12 +454,7 @@ export default function ClientInfoModal({
                       <Tooltip title={t('download')}>
                         <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'json'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subJsonLink, 'json')} />
                       </Tooltip>
-                      <Popover
-                        trigger="click"
-                        placement="left"
-                        destroyOnHidden
-                        content={<QrPanel value={subJsonLink} remark={`${client.email} — JSON`} size={220} />}
-                      >
+                      <Popover trigger="click" placement="left" destroyOnHidden content={<QrPanel value={subJsonLink} remark={`${client.email} — JSON`} size={220} />}>
                         <Tooltip title={t('pages.clients.qrCode')}>
                           <Button size="small" icon={<QrcodeOutlined />} aria-label={t('pages.clients.qrCode')} />
                         </Tooltip>
@@ -484,16 +464,10 @@ export default function ClientInfoModal({
                 )}
                 {subClashLink && (
                   <div className="link-row">
-                    <Tooltip title="Clash / Mihomo">
+                    <Tooltip title="Clash / Mihomo (+ AWG)">
                       <Tag color="gold" className="link-row-tag">CLASH</Tag>
                     </Tooltip>
-                    <a
-                      href={subClashLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="link-row-title link-row-title-anchor"
-                      title={subClashLink}
-                    >
+                    <a href={subClashLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subClashLink}>
                       {client.subId}
                     </a>
                     <div className="link-row-actions">
@@ -503,12 +477,53 @@ export default function ClientInfoModal({
                       <Tooltip title={t('download')}>
                         <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'clash'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subClashLink, 'clash')} />
                       </Tooltip>
-                      <Popover
-                        trigger="click"
-                        placement="left"
-                        destroyOnHidden
-                        content={<QrPanel value={subClashLink} remark={`${client.email} — Clash / Mihomo`} size={220} />}
-                      >
+                      <Popover trigger="click" placement="left" destroyOnHidden content={<QrPanel value={subClashLink} remark={`${client.email} — Clash / Mihomo`} size={220} />}>
+                        <Tooltip title={t('pages.clients.qrCode')}>
+                          <Button size="small" icon={<QrcodeOutlined />} aria-label={t('pages.clients.qrCode')} />
+                        </Tooltip>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+                {subAwgLink && (
+                  <div className="link-row">
+                    <Tooltip title={t('pages.clients.subAwgHint')}>
+                      <Tag color="magenta" className="link-row-tag">AMNEZIA</Tag>
+                    </Tooltip>
+                    <a href={subAwgLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subAwgLink}>
+                      {client.subId}
+                    </a>
+                    <div className="link-row-actions">
+                      <Tooltip title={t('copy')}>
+                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subAwgLink)} />
+                      </Tooltip>
+                      <Tooltip title={t('download')}>
+                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'amnezia'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subAwgLink, 'amnezia')} />
+                      </Tooltip>
+                      <Popover trigger="click" placement="left" destroyOnHidden content={<QrPanel value={subAwgLink} remark={`${client.email} — Amnezia .conf`} size={220} />}>
+                        <Tooltip title={t('pages.clients.qrCode')}>
+                          <Button size="small" icon={<QrcodeOutlined />} aria-label={t('pages.clients.qrCode')} />
+                        </Tooltip>
+                      </Popover>
+                    </div>
+                  </div>
+                )}
+                {subAwgVpnLink && (
+                  <div className="link-row">
+                    <Tooltip title={t('pages.clients.subAwgVpnHint')}>
+                      <Tag color="volcano" className="link-row-tag">vpn://</Tag>
+                    </Tooltip>
+                    <a href={subAwgVpnLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subAwgVpnLink}>
+                      {client.subId}?format=vpn
+                    </a>
+                    <div className="link-row-actions">
+                      <Tooltip title={t('copy')}>
+                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subAwgVpnLink)} />
+                      </Tooltip>
+                      <Tooltip title={t('download')}>
+                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'amneziaVpn'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subAwgVpnLink, 'amneziaVpn')} />
+                      </Tooltip>
+                      <Popover trigger="click" placement="left" destroyOnHidden content={<QrPanel value={subAwgVpnLink} remark={`${client.email} — vpn://`} size={220} />}>
                         <Tooltip title={t('pages.clients.qrCode')}>
                           <Button size="small" icon={<QrcodeOutlined />} aria-label={t('pages.clients.qrCode')} />
                         </Tooltip>

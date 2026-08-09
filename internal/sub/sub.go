@@ -79,6 +79,13 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 		return nil, err
 	}
 
+	// LUCX-HOOK
+	AwgPath, err := s.settingService.GetSubAwgPath()
+	if err != nil {
+		return nil, err
+	}
+	// END LUCX-HOOK
+
 	subJsonEnable, err := s.settingService.GetSubJsonEnable()
 	if err != nil {
 		return nil, err
@@ -88,6 +95,13 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// LUCX-HOOK
+	subAwgEnable, err := s.settingService.GetSubAwgEnable()
+	if err != nil {
+		subAwgEnable = true
+	}
+	// END LUCX-HOOK
 
 	subClashAutoDetect, err := s.settingService.GetSubClashAutoDetect()
 	if err != nil {
@@ -268,6 +282,8 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 		WithSUBPath(LinksPath),
 		WithSUBJsonPath(JsonPath),
 		WithSUBClashPath(ClashPath),
+		WithSUBAwgPath(AwgPath),         // LUCX-HOOK
+		WithSUBAwgEnabled(subAwgEnable), // LUCX-HOOK
 		WithSUBClashAutoDetect(subClashAutoDetect),
 		WithSUBClashUserAgentRegex(subClashUserAgentRegex),
 		WithSUBJsonAutoDetect(subJsonAutoDetect),

@@ -48,6 +48,8 @@ interface SubSettings {
   subJsonEnable: boolean;
   subClashURI: string;
   subClashEnable: boolean;
+  subAwgURI: string;
+  subAwgEnable: boolean;
   publicHost: string;
 }
 
@@ -326,6 +328,8 @@ export function useClients(options: UseClientsOptions = {}) {
     subJsonEnable: !!defaults.subJsonEnable,
     subClashURI: (defaults.subClashURI as string) || '',
     subClashEnable: !!defaults.subClashEnable,
+    subAwgURI: (defaults.subAwgURI as string) || '',
+    subAwgEnable: defaults.subAwgEnable !== false,
     publicHost: (defaults.subDomain as string) || (defaults.webDomain as string) || '',
   }), [
     defaults.subEnable,
@@ -334,6 +338,8 @@ export function useClients(options: UseClientsOptions = {}) {
     defaults.subJsonEnable,
     defaults.subClashURI,
     defaults.subClashEnable,
+    defaults.subAwgURI,
+    defaults.subAwgEnable,
     defaults.subDomain,
     defaults.webDomain,
   ]);

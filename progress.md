@@ -1609,3 +1609,9 @@ systemctl start x-ui
 ## Релиз v3.6.0-lucx.87 (2026-08-08)
 
 **fix (Aleksandr):** AWG2 Standard — I1 генерился бэкендом, но поле I1 в форме показывалось только при Pro. Теперь I1 виден для Lite/Standard; I2-I5 — только Pro. При regenerate < Pro очищаются stale I2-I5.
+
+## Релиз v3.6.0-lucx.88 (2026-08-09)
+
+**feat(sub):** AWG в Clash (amnezia-wg-option) + подписка Amnezia /awg/{subId} (.conf и ?format=vpn → vpn://).
+Ссылки AMNEZIA / vpn:// / CLASH во всех UI (ClientInfo, QR, SubLinks, InboundInfo, Inbound QR, TG bot, settings).
+

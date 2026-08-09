@@ -49,6 +49,8 @@ export class AllSetting {
   subJsonPath = '/json/';
   subClashEnable = false;
   subClashPath = '/clash/';
+  subAwgEnable = true;
+  subAwgPath = '/awg/';
   subDomain = '';
   externalTrafficInformEnable = false;
   externalTrafficInformURI = '';
@@ -60,6 +62,7 @@ export class AllSetting {
   subURI = '';
   subJsonURI = '';
   subClashURI = '';
+  subAwgURI = '';
   subClashEnableRouting = false;
   subClashRules = '';
   subJsonMux = '';

@@ -924,7 +924,9 @@
         "importedMixed": "Імпортовано: {ok}, пропущено: {failed}"
       },
       "awgConfig": "Конфігурація AWG",
-      "awgExportVersion": "Версія конфігу клієнта"
+      "awgExportVersion": "Версія конфігу клієнта",
+      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
+      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
       "name": "Назва",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "Шлях має починатися з /"
       },
       "secretClear": "Очистити",
-      "secretClearUndo": "Скасувати очищення"
+      "secretClearUndo": "Скасувати очищення",
+      "subAwgEnableTitle": "AmneziaWG subscription",
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
     },
     "xray": {
       "save": "Зберегти",

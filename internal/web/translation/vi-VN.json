@@ -924,7 +924,9 @@
         "importedMixed": "Đã nhập {ok}, bỏ qua {failed}"
       },
       "awgConfig": "Cấu hình AWG",
-      "awgExportVersion": "Phiên bản cấu hình client"
+      "awgExportVersion": "Phiên bản cấu hình client",
+      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
+      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
       "name": "Tên",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "Đường dẫn phải bắt đầu bằng /"
       },
       "secretClear": "Xóa",
-      "secretClearUndo": "Hoàn tác xóa"
+      "secretClearUndo": "Hoàn tác xóa",
+      "subAwgEnableTitle": "AmneziaWG subscription",
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
     },
     "xray": {
       "importRules": "Nhập quy tắc",

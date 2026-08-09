@@ -924,7 +924,9 @@
         "importedMixed": "{ok} وارد شد، {failed} رد شد"
       },
       "awgConfig": "پیکربندی AWG",
-      "awgExportVersion": "نسخه پیکربندی کلاینت"
+      "awgExportVersion": "نسخه پیکربندی کلاینت",
+      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
+      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
       "name": "نام",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "مسیر باید با / شروع شود"
       },
       "secretClear": "پاک کردن",
-      "secretClearUndo": "لغو پاک کردن"
+      "secretClearUndo": "لغو پاک کردن",
+      "subAwgEnableTitle": "AmneziaWG subscription",
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
     },
     "xray": {
       "save": "ذخیره",

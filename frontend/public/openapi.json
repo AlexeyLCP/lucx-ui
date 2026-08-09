@@ -178,6 +178,16 @@
           "subAnnounce": {
             "type": "string"
           },
+          "subAwgEnable": {
+            "description": "LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint",
+            "type": "boolean"
+          },
+          "subAwgPath": {
+            "type": "string"
+          },
+          "subAwgURI": {
+            "type": "string"
+          },
           "subCertFile": {
             "type": "string"
           },
@@ -236,6 +246,7 @@
             "type": "string"
           },
           "subJsonMux": {
+            "description": "END LUCX-HOOK",
             "type": "string"
           },
           "subJsonPath": {
@@ -414,6 +425,9 @@
           "smtpTo",
           "smtpUsername",
           "subAnnounce",
+          "subAwgEnable",
+          "subAwgPath",
+          "subAwgURI",
           "subCertFile",
           "subClashAutoDetect",
           "subClashEnable",
@@ -649,6 +663,16 @@
           "subAnnounce": {
             "type": "string"
           },
+          "subAwgEnable": {
+            "description": "LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint",
+            "type": "boolean"
+          },
+          "subAwgPath": {
+            "type": "string"
+          },
+          "subAwgURI": {
+            "type": "string"
+          },
           "subCertFile": {
             "type": "string"
           },
@@ -707,6 +731,7 @@
             "type": "string"
           },
           "subJsonMux": {
+            "description": "END LUCX-HOOK",
             "type": "string"
           },
           "subJsonPath": {
@@ -892,6 +917,9 @@
           "smtpTo",
           "smtpUsername",
           "subAnnounce",
+          "subAwgEnable",
+          "subAwgPath",
+          "subAwgURI",
           "subCertFile",
           "subClashAutoDetect",
           "subClashEnable",

@@ -12,6 +12,7 @@ import {
   preferPublicHost,
 } from '@/lib/xray/inbound-link';
 import { inboundFromDb, type DbInboundLike } from '@/lib/xray/inbound-from-db';
+import { buildSubLinks } from '@/lib/sub/links';
 import QrPanel from './QrPanel';
 import type { SubSettings } from '../useInbounds';
 
@@ -52,6 +53,9 @@ export default function QrCodeModal({
   const [wireguardLinks, setWireguardLinks] = useState<string[]>([]);
   const [subLink, setSubLink] = useState('');
   const [subJsonLink, setSubJsonLink] = useState('');
+  const [subClashLink, setSubClashLink] = useState('');
+  const [subAwgLink, setSubAwgLink] = useState('');
+  const [subAwgVpnLink, setSubAwgVpnLink] = useState('');
   const [activeKey, setActiveKey] = useState<string[]>([]);
 
   useEffect(() => {
@@ -93,15 +97,12 @@ export default function QrCodeModal({
       setWireguardLinks([]);
     }
 
-    const subId = client?.subId;
-    let nextSub = '';
-    let nextSubJson = '';
-    if (subSettings?.enable && subId) {
-      nextSub = (subSettings.subURI || '') + subId;
-      nextSubJson = subSettings.subJsonEnable ? (subSettings.subJsonURI || '') + subId : '';
-    }
-    setSubLink(nextSub);
-    setSubJsonLink(nextSubJson);
+    const L = buildSubLinks(subSettings, client?.subId);
+    setSubLink(L.sub);
+    setSubJsonLink(L.json);
+    setSubClashLink(L.clash);
+    setSubAwgLink(L.amnezia);
+    setSubAwgVpnLink(L.amneziaVpn);
   }, [open, dbInbound, client, nodeAddress, subSettings]);
 
   const qrItems = useMemo<QrItem[]>(() => {
@@ -111,6 +112,15 @@ export default function QrCodeModal({
     }
     if (subJsonLink) {
       items.push({ key: 'sub-json', header: `${t('subscription.title')} (JSON)`, value: subJsonLink });
+    }
+    if (subClashLink) {
+      items.push({ key: 'sub-clash', header: 'Clash / Mihomo', value: subClashLink });
+    }
+    if (subAwgLink) {
+      items.push({ key: 'sub-awg', header: 'Amnezia .conf', value: subAwgLink });
+    }
+    if (subAwgVpnLink) {
+      items.push({ key: 'sub-awg-vpn', header: 'Amnezia vpn://', value: subAwgVpnLink });
     }
     links.forEach((link, idx) => {
       items.push({ key: `l${idx}`, header: link.remark || `Link ${idx + 1}`, value: link.link });
@@ -127,7 +137,7 @@ export default function QrCodeModal({
       }
     });
     return items;
-  }, [subLink, subJsonLink, links, wireguardConfigs, wireguardLinks, t]);
+  }, [subLink, subJsonLink, subClashLink, subAwgLink, subAwgVpnLink, links, wireguardConfigs, wireguardLinks, t]);
 
   const collapseItems: CollapseProps['items'] = useMemo(
     () => qrItems.map((item) => ({

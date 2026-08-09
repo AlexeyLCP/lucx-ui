@@ -924,7 +924,9 @@
         "importedMixed": "{ok} 件インポート、{failed} 件スキップ"
       },
       "awgConfig": "AWG設定",
-      "awgExportVersion": "クライアント設定バージョン"
+      "awgExportVersion": "クライアント設定バージョン",
+      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
+      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
       "name": "名前",
@@ -1414,7 +1416,9 @@
         "pathLeadingSlash": "パスは / で始まる必要があります"
       },
       "secretClear": "クリア",
-      "secretClearUndo": "クリアを取り消す"
+      "secretClearUndo": "クリアを取り消す",
+      "subAwgEnableTitle": "AmneziaWG subscription",
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
     },
     "xray": {
       "importRules": "ルールをインポート",
