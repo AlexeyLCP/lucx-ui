@@ -66,6 +66,19 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	naive.POST("/upload", a.uploadBinary)
 	naive.POST("/download", a.downloadBinary)
 	naive.POST("/deleteBinary", a.deleteBinary)
+
+	olcrtc := g.Group("/olcrtc")
+	olcrtc.GET("/status", a.olcrtcStatus)
+	olcrtc.GET("/config", a.olcrtcGetConfig)
+	olcrtc.POST("/config", a.olcrtcSaveConfig)
+	olcrtc.POST("/start", a.olcrtcStart)
+	olcrtc.POST("/stop", a.olcrtcStop)
+	olcrtc.POST("/restart", a.olcrtcRestart)
+	olcrtc.GET("/logs", a.olcrtcLogs)
+	olcrtc.POST("/preview", a.olcrtcPreview)
+	olcrtc.POST("/upload", a.olcrtcUploadBinary)
+	olcrtc.POST("/download", a.olcrtcDownloadBinary)
+	olcrtc.POST("/deleteBinary", a.olcrtcDeleteBinary)
 }
 
 func (a *TunnelController) status(c *gin.Context) {
@@ -213,4 +226,124 @@ func (a *TunnelController) deleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.naive.toasts.deleted"), nil)
+}
+
+// --- olcRTC ---------------------------------------------------------------
+
+func (a *TunnelController) olcrtcStatus(c *gin.Context) {
+	st, err := a.svc.OlcrtcStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: olcrtc status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) olcrtcGetConfig(c *gin.Context) {
+	cfg, err := a.svc.LoadOlcrtcConfig()
+	if err != nil {
+		jsonMsg(c, "tunnel: olcrtc config load failed", err)
+		return
+	}
+	jsonObj(c, cfg, nil)
+}
+
+func (a *TunnelController) olcrtcSaveConfig(c *gin.Context) {
+	cfg := tunnel.DefaultOlcrtcConfig()
+	if err := c.ShouldBindJSON(&cfg); err != nil {
+		jsonMsg(c, "tunnel: invalid olcrtc config body", err)
+		return
+	}
+	if err := a.svc.SaveOlcrtcConfig(cfg); err != nil {
+		jsonMsg(c, "tunnel: olcrtc config save failed", err)
+		return
+	}
+	st, err := a.svc.OlcrtcStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: olcrtc status after save failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) olcrtcStart(c *gin.Context) {
+	err := a.svc.StartOlcrtc()
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.olcrtc.toasts.started"), err)
+}
+
+func (a *TunnelController) olcrtcStop(c *gin.Context) {
+	err := a.svc.StopOlcrtc()
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.olcrtc.toasts.stopped"), err)
+}
+
+func (a *TunnelController) olcrtcRestart(c *gin.Context) {
+	err := a.svc.RestartOlcrtc()
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.olcrtc.toasts.restarted"), err)
+}
+
+func (a *TunnelController) olcrtcLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.OlcrtcLogs(lines), nil)
+}
+
+func (a *TunnelController) olcrtcPreview(c *gin.Context) {
+	cfg := tunnel.DefaultOlcrtcConfig()
+	if err := c.ShouldBindJSON(&cfg); err != nil {
+		jsonMsg(c, "tunnel: invalid olcrtc preview body", err)
+		return
+	}
+	text, err := a.svc.PreviewOlcrtc(cfg)
+	if err != nil {
+		jsonMsg(c, "tunnel: olcrtc preview failed", err)
+		return
+	}
+	jsonObj(c, gin.H{"yaml": text}, nil)
+}
+
+func (a *TunnelController) olcrtcUploadBinary(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		jsonMsg(c, "tunnel: olcrtc upload failed", err)
+		return
+	}
+	dst := tunnel.Olcrtc.BinaryPath()
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		logger.Warning("tunnel: save uploaded olcrtc binary failed:", err)
+		jsonMsg(c, "tunnel: olcrtc upload failed", err)
+		return
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(dst, 0o755); err != nil {
+			logger.Warning("tunnel: chmod uploaded olcrtc binary failed:", err)
+		}
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.olcrtc.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) olcrtcDownloadBinary(c *gin.Context) {
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid olcrtc download body", err)
+		return
+	}
+	if err := a.svc.DownloadOlcrtcBinary(body.URL); err != nil {
+		jsonMsg(c, "tunnel: olcrtc download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.olcrtc.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) olcrtcDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteOlcrtcBinary(); err != nil {
+		jsonMsg(c, "tunnel: olcrtc binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.olcrtc.toasts.deleted"), nil)
 }

@@ -201,6 +201,18 @@ jobs:
               --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive \
               --output caddy-naive-linux-arm64
           fi
+          # olcRTC (openlibrecommunity/olcrtc, WTFPL) — TCP-over-WebRTC
+          # tunnel. Built from source with GOTOOLCHAIN=auto so the module's
+          # required Go version is pulled automatically. amd64/arm64 only;
+          # other arches use the Tunnels page upload/download path.
+          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
+            OLCRTC_REF="master"
+            git clone --depth 1 --branch "${OLCRTC_REF}" https://github.com/openlibrecommunity/olcrtc.git /tmp/olcrtc
+            ( cd /tmp/olcrtc && GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.platform }}" \
+                go build -trimpath -ldflags="-s -w" -o "/tmp/olcrtc-linux-${{ matrix.platform }}" ./cmd/olcrtc )
+            mv "/tmp/olcrtc-linux-${{ matrix.platform }}" "olcrtc-linux-${{ matrix.platform }}"
+            rm -rf /tmp/olcrtc
+          fi
           # END LUCX-HOOK
           cd ../..
 

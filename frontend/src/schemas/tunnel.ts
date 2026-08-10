@@ -56,3 +56,33 @@ export const NaiveStatusSchema = z.object({
 });
 
 export type NaiveStatus = z.infer<typeof NaiveStatusSchema>;
+
+// olcRTC tunnel core config — mirrors tunnel.OlcrtcConfig
+// (internal/lucx/tunnel/olcrtc.go).
+export const OlcrtcConfigSchema = z.object({
+  remark: z.string().default(''),
+  enabled: z.boolean().default(false),
+  provider: z.enum(['jitsi', 'telemost', 'wbstream']).default('jitsi'),
+  roomId: z.string().default(''),
+  cryptoKey: z.string().default(''),
+  transport: z.enum(['datachannel', 'vp8channel']).default('datachannel'),
+  dns: z.string().default('8.8.8.8:53'),
+  vp8Fps: z.number().int().min(1).max(120).default(60),
+  vp8Batch: z.number().int().min(1).max(64).default(64),
+  debug: z.boolean().default(false),
+});
+
+export type OlcrtcConfig = z.infer<typeof OlcrtcConfigSchema>;
+
+export const OlcrtcStatusSchema = z.object({
+  core: z.string(),
+  displayName: z.string(),
+  binaryExists: z.boolean(),
+  binaryPath: z.string(),
+  clientUri: z.string(),
+  config: OlcrtcConfigSchema,
+  probe: TunnelProbeSchema,
+  lastLog: z.string(),
+});
+
+export type OlcrtcStatus = z.infer<typeof OlcrtcStatusSchema>;

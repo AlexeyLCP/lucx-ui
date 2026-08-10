@@ -1716,3 +1716,28 @@ systemctl start x-ui
 **Тесты:** `TestRenderCaddyfileUpstreamWhenRouted`, inject suite, `TestNaiveBridgeChanged`. Tunnel package PASS локально; service package — CGO/Windows, CI.
 
 **lucxVersion:** lucx.93
+## Релиз v3.6.0-lucx.94 (2026-08-10) — olcRTC tunnel sidecar
+
+**feat(tunnel): olcRTC** — второй туннельный сайдкар (TCP-over-WebRTC через meet-комнаты).
+
+**Upstream:** openlibrecommunity/olcrtc (WTFPL). Design reference — Bebrik2283555/Ex3-ui extras.
+
+**Backend:**
+- `const Olcrtc Name = "olcrtc"` + BinaryName `olcrtc-linux-{arch}`
+- `OlcrtcConfig` + RenderYAML + ClientURI + Validate (provider/transport/dns/key)
+- Settings key `lucxTunnel_olcrtc`; Manager start argv = `[yamlPath]` only
+- Probe = process-only (нет listen-порта)
+- API `/panel/api/tunnel/olcrtc/*` (status/config/start/stop/restart/logs/preview/upload/download/deleteBinary)
+- Reconcile covers both Naive and olcRTC
+- release.yml: build olcrtc from source (GOTOOLCHAIN=auto) for amd64/arm64
+
+**Frontend:**
+- `OlcrtcCard` on TunnelsPage (provider/room/key/transport/dns/vp8/debug)
+- Copyable `olcrtc://` connect URI
+- i18n x13 (key parity)
+
+**Non-goals (MVP):** qWDTT, multi-room, subscription endpoint, routeThroughXray for olcrtc.
+
+**Тесты:** tunnel package all PASS (incl. OlcrtcValidate/Render/URI). Frontend typecheck clean.
+
+**lucxVersion:** lucx.94. qWDTT — следующий.

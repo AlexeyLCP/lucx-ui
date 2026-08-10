@@ -6,17 +6,14 @@
 
 // Package tunnel manages external tunnel-server sidecars that run next to the
 // Xray core: protocols the panel serves through standalone upstream binaries
-// rather than Xray itself. The first core is NaiveProxy — Caddy with the
-// forward_proxy plugin from klzgrad/forwardproxy (naive branch, HTTP/2
-// padding). Each core is one supervised process with a panel-rendered config
-// file, an isolated data directory and a three-level health probe (process
-// alive -> TCP listening -> TLS responding).
+// rather than Xray itself. Cores:
+//   - NaiveProxy — Caddy + klzgrad/forwardproxy (HTTP/2 padding)
+//   - olcRTC — openlibrecommunity/olcrtc (TCP-over-WebRTC via meet rooms)
 //
-// The package is the sidecar mechanics only (process + config + probes);
-// persistence and the HTTP API live in the web layer (service/tunnel.go,
-// controller/tunnel.go), mirroring the mtproto split. Design reference for
-// the Caddyfile pitfalls (admin off, bind normalization, per-instance data
-// dirs): elector1337/3x-ui-naive.
+// Each core is one supervised process with a panel-rendered config file, an
+// isolated data directory and a health probe (process alive; TCP/TLS when
+// the core listens). Design references: elector1337/3x-ui-naive (Caddyfile
+// pitfalls), Bebrik2283555/Ex3-ui (olcRTC panel integration).
 package tunnel
 
 import (
@@ -35,14 +32,19 @@ type Name string
 // padded to resemble ordinary browser HTTPS.
 const Naive Name = "naive"
 
+// Olcrtc is the olcRTC core: TCP-over-WebRTC tunnel riding a legal video-
+// call room (Jitsi / Yandex Telemost / WB Stream) as camouflage. Binary
+// from openlibrecommunity/olcrtc (WTFPL).
+const Olcrtc Name = "olcrtc"
+
 // All returns the supported core names in display order.
 func All() []Name {
-	return []Name{Naive}
+	return []Name{Naive, Olcrtc}
 }
 
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
-	return n == Naive
+	return n == Naive || n == Olcrtc
 }
 
 // DisplayName returns the human-readable core name for UI and logs.
@@ -50,6 +52,8 @@ func (n Name) DisplayName() string {
 	switch n {
 	case Naive:
 		return "NaiveProxy"
+	case Olcrtc:
+		return "olcRTC"
 	default:
 		return string(n)
 	}
@@ -59,7 +63,14 @@ func (n Name) DisplayName() string {
 // following the xray/mtg naming scheme (name-os-arch). Release pipelines
 // place the binary under that name in the bin folder.
 func (n Name) BinaryName() string {
-	name := fmt.Sprintf("caddy-%s-%s-%s", string(n), runtime.GOOS, runtime.GOARCH)
+	var name string
+	switch n {
+	case Naive:
+		// Historical name from lucx.91 — keep for installed hosts.
+		name = fmt.Sprintf("caddy-naive-%s-%s", runtime.GOOS, runtime.GOARCH)
+	default:
+		name = fmt.Sprintf("%s-%s-%s", string(n), runtime.GOOS, runtime.GOARCH)
+	}
 	if runtime.GOOS == "windows" {
 		name += ".exe"
 	}
@@ -88,6 +99,8 @@ func configPath(n Name) string {
 	switch n {
 	case Naive:
 		return filepath.Join(workDir(), "naive.caddyfile")
+	case Olcrtc:
+		return filepath.Join(workDir(), "olcrtc.yaml")
 	default:
 		return filepath.Join(workDir(), string(n)+".conf")
 	}
@@ -95,7 +108,13 @@ func configPath(n Name) string {
 
 // dataDir returns the isolated state directory of one core. For NaiveProxy it
 // is exported to the child as XDG_DATA_HOME so multiple panels/instances on
-// one host never fight over the ACME certificate storage.
+// one host never fight over the ACME certificate storage. For olcRTC it is
+// written into the server YAML `data:` field.
 func dataDir(n Name) string {
 	return filepath.Join(workDir(), string(n)+"-data")
+}
+
+// DataDir is the exported form of dataDir for the web layer (YAML render).
+func DataDir(n Name) string {
+	return dataDir(n)
 }

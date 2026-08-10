@@ -2914,7 +2914,7 @@
     },
     {
       "name": "Tunnels",
-      "description": "Manage external tunnel-server sidecars that run next to the Xray core. The first core is NaiveProxy: Caddy with the forward_proxy plugin (klzgrad/forwardproxy, HTTP/2 padding) supervised by the panel — rendered Caddyfile, process lifecycle, three-level health probe (process alive -> TCP listening -> TLS responding), binary upload/download and Caddyfile validation via \"caddy adapt\". The reconcile job (every 10s) revives a crashed core and keeps a disabled one down. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only."
+      "description": "Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only."
     },
     {
       "name": "Server",
@@ -5219,6 +5219,402 @@
         ],
         "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/status": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Full status of the olcRTC core: process probe, binary presence, stored config and the generated olcrtc:// connect URI. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_olcrtc_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "core": "olcrtc",
+                    "displayName": "olcRTC",
+                    "binaryExists": true,
+                    "binaryPath": "bin/olcrtc-linux-amd64",
+                    "clientUri": "olcrtc://jitsi?datachannel@https://meet.example.org/r#…",
+                    "config": {
+                      "provider": "jitsi",
+                      "transport": "datachannel",
+                      "enabled": true
+                    },
+                    "probe": {
+                      "running": true,
+                      "listening": false,
+                      "responding": false
+                    },
+                    "lastLog": ""
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/config": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Read the stored olcRTC config (defaults when nothing is stored yet). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_olcrtc_config",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Validate, persist and apply the olcRTC config. Auto-generates a 64-hex crypto key when empty. Renders server YAML and restarts the process on fingerprint change. Returns the fresh status. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_config",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enabled": true,
+                "provider": "jitsi",
+                "roomId": "https://meet.example.org/myroom",
+                "transport": "datachannel",
+                "dns": "8.8.8.8:53"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/start": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Mark the core enabled, persist, and start olcrtc. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_start",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/stop": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Mark the core disabled, persist, and stop olcrtc. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_stop",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/restart": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Force a fresh start with the stored config. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_restart",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/logs": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Recent process log lines (ring buffer, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_olcrtc_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/preview": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Render the server YAML the given form state would produce, without persisting. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_preview",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "yaml": "mode: srv\n…"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/upload": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Replace the olcrtc binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/download": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Fetch the olcrtc binary from a URL into place (200 MB cap). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/olcrtc-linux-amd64"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_deleteBinary",
         "responses": {
           "200": {
             "description": "Successful response",

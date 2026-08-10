@@ -11,54 +11,80 @@ import { parseMsg } from '@/utils/zodValidate';
 import {
   NaiveConfigSchema,
   NaiveStatusSchema,
+  OlcrtcStatusSchema,
   type NaiveConfig,
   type NaiveStatus,
+  type OlcrtcConfig,
+  type OlcrtcStatus,
 } from '@/schemas/tunnel';
 
-export type { NaiveConfig, NaiveStatus };
+export type { NaiveConfig, NaiveStatus, OlcrtcConfig, OlcrtcStatus };
 
-// API client for the tunnel sidecar endpoints registered in
-// internal/web/controller/tunnel.go. Routes live under
-// /panel/api/tunnel/naive/*. JSON_HEADERS is load-bearing on every POST:
-// http-init serializes the body as JSON only when Content-Type is
-// application/json, otherwise the backend ShouldBindJSON sees a form body
-// and fields silently default (lucx.69 lesson).
+// JSON_HEADERS is load-bearing on every POST (lucx.69 lesson).
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
 
-const BASE = '/panel/api/tunnel/naive';
+const NAIVE = '/panel/api/tunnel/naive';
+const OLCRTC = '/panel/api/tunnel/olcrtc';
 
 export const tunnelsApi = {
   status: async (): Promise<Msg<NaiveStatus>> => {
-    const raw = await HttpUtil.get<NaiveStatus>(`${BASE}/status`, undefined, { silent: true });
+    const raw = await HttpUtil.get<NaiveStatus>(`${NAIVE}/status`, undefined, { silent: true });
     return parseMsg(raw, NaiveStatusSchema, 'tunnel/status');
   },
   config: async (): Promise<Msg<NaiveConfig>> => {
-    const raw = await HttpUtil.get<NaiveConfig>(`${BASE}/config`, undefined, { silent: true });
+    const raw = await HttpUtil.get<NaiveConfig>(`${NAIVE}/config`, undefined, { silent: true });
     return parseMsg(raw, NaiveConfigSchema, 'tunnel/config');
   },
   saveConfig: async (cfg: NaiveConfig): Promise<Msg<NaiveStatus>> => {
-    const raw = await HttpUtil.post<NaiveStatus>(`${BASE}/config`, cfg, JSON_HEADERS);
+    const raw = await HttpUtil.post<NaiveStatus>(`${NAIVE}/config`, cfg, JSON_HEADERS);
     return parseMsg(raw, NaiveStatusSchema, 'tunnel/saveConfig');
   },
-  start: (): Promise<Msg<null>> => HttpUtil.post<null>(`${BASE}/start`, {}, JSON_HEADERS),
-  stop: (): Promise<Msg<null>> => HttpUtil.post<null>(`${BASE}/stop`, {}, JSON_HEADERS),
-  restart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${BASE}/restart`, {}, JSON_HEADERS),
+  start: (): Promise<Msg<null>> => HttpUtil.post<null>(`${NAIVE}/start`, {}, JSON_HEADERS),
+  stop: (): Promise<Msg<null>> => HttpUtil.post<null>(`${NAIVE}/stop`, {}, JSON_HEADERS),
+  restart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${NAIVE}/restart`, {}, JSON_HEADERS),
   logs: (lines = 200): Promise<Msg<string[]>> =>
-    HttpUtil.get<string[]>(`${BASE}/logs?lines=${lines}`),
+    HttpUtil.get<string[]>(`${NAIVE}/logs?lines=${lines}`),
   preview: async (cfg: NaiveConfig): Promise<Msg<{ caddyfile: string }>> => {
-    const raw = await HttpUtil.post<{ caddyfile: string }>(`${BASE}/preview`, cfg, JSON_HEADERS);
+    const raw = await HttpUtil.post<{ caddyfile: string }>(`${NAIVE}/preview`, cfg, JSON_HEADERS);
     return parseMsg(raw, z.object({ caddyfile: z.string() }), 'tunnel/preview');
   },
   validate: async (text: string): Promise<Msg<{ valid: boolean }>> => {
-    const raw = await HttpUtil.post<{ valid: boolean }>(`${BASE}/validate`, { text }, JSON_HEADERS);
+    const raw = await HttpUtil.post<{ valid: boolean }>(`${NAIVE}/validate`, { text }, JSON_HEADERS);
     return parseMsg(raw, z.object({ valid: z.boolean() }), 'tunnel/validate');
   },
   download: (url: string): Promise<Msg<null>> =>
-    HttpUtil.post<null>(`${BASE}/download`, { url }, JSON_HEADERS),
+    HttpUtil.post<null>(`${NAIVE}/download`, { url }, JSON_HEADERS),
   upload: (file: File): Promise<Msg<null>> => {
     const fd = new FormData();
     fd.append('file', file);
-    return HttpUtil.post<null>(`${BASE}/upload`, fd);
+    return HttpUtil.post<null>(`${NAIVE}/upload`, fd);
   },
-  deleteBinary: (): Promise<Msg<null>> => HttpUtil.post<null>(`${BASE}/deleteBinary`, {}, JSON_HEADERS),
+  deleteBinary: (): Promise<Msg<null>> => HttpUtil.post<null>(`${NAIVE}/deleteBinary`, {}, JSON_HEADERS),
+
+  olcrtcStatus: async (): Promise<Msg<OlcrtcStatus>> => {
+    const raw = await HttpUtil.get<OlcrtcStatus>(`${OLCRTC}/status`, undefined, { silent: true });
+    return parseMsg(raw, OlcrtcStatusSchema, 'tunnel/olcrtcStatus');
+  },
+  olcrtcSaveConfig: async (cfg: OlcrtcConfig): Promise<Msg<OlcrtcStatus>> => {
+    const raw = await HttpUtil.post<OlcrtcStatus>(`${OLCRTC}/config`, cfg, JSON_HEADERS);
+    return parseMsg(raw, OlcrtcStatusSchema, 'tunnel/olcrtcSaveConfig');
+  },
+  olcrtcStart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${OLCRTC}/start`, {}, JSON_HEADERS),
+  olcrtcStop: (): Promise<Msg<null>> => HttpUtil.post<null>(`${OLCRTC}/stop`, {}, JSON_HEADERS),
+  olcrtcRestart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${OLCRTC}/restart`, {}, JSON_HEADERS),
+  olcrtcLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${OLCRTC}/logs?lines=${lines}`),
+  olcrtcPreview: async (cfg: OlcrtcConfig): Promise<Msg<{ yaml: string }>> => {
+    const raw = await HttpUtil.post<{ yaml: string }>(`${OLCRTC}/preview`, cfg, JSON_HEADERS);
+    return parseMsg(raw, z.object({ yaml: z.string() }), 'tunnel/olcrtcPreview');
+  },
+  olcrtcDownload: (url: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${OLCRTC}/download`, { url }, JSON_HEADERS),
+  olcrtcUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${OLCRTC}/upload`, fd);
+  },
+  olcrtcDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${OLCRTC}/deleteBinary`, {}, JSON_HEADERS),
 };

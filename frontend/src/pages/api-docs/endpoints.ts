@@ -377,15 +377,15 @@ export const sections: readonly Section[] = [
   },
   // END LUCX-HOOK
 
-  // LUCX-HOOK: tunnel sidecars (NaiveProxy) API documentation. Self-contained
-  // section, same reasoning as awg-outbounds above. Routes are registered in
-  // internal/web/controller/api.go and served by
+  // LUCX-HOOK: tunnel sidecars (NaiveProxy, olcRTC) API documentation.
+  // Self-contained section, same reasoning as awg-outbounds above. Routes
+  // are registered in internal/web/controller/api.go and served by
   // internal/web/controller/tunnel.go.
   {
     id: 'tunnels',
     title: 'Tunnels',
     description:
-      'Manage external tunnel-server sidecars that run next to the Xray core. The first core is NaiveProxy: Caddy with the forward_proxy plugin (klzgrad/forwardproxy, HTTP/2 padding) supervised by the panel — rendered Caddyfile, process lifecycle, three-level health probe (process alive -> TCP listening -> TLS responding), binary upload/download and Caddyfile validation via "caddy adapt". The reconcile job (every 10s) revives a crashed core and keeps a disabled one down. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only.',
+      'Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only.',
     endpoints: [
       {
         method: 'GET',
@@ -459,6 +459,68 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/tunnel/naive/deleteBinary',
+        summary: 'Stop the core and remove its binary from disk. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/olcrtc/status',
+        summary: 'Full status of the olcRTC core: process probe, binary presence, stored config and the generated olcrtc:// connect URI. LucX-UI only.',
+        response: '{\n  "success": true,\n  "obj": {\n    "core": "olcrtc",\n    "displayName": "olcRTC",\n    "binaryExists": true,\n    "binaryPath": "bin/olcrtc-linux-amd64",\n    "clientUri": "olcrtc://jitsi?datachannel@https://meet.example.org/r#…",\n    "config": { "provider": "jitsi", "transport": "datachannel", "enabled": true },\n    "probe": { "running": true, "listening": false, "responding": false },\n    "lastLog": ""\n  }\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/olcrtc/config',
+        summary: 'Read the stored olcRTC config (defaults when nothing is stored yet). LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/olcrtc/config',
+        summary: 'Validate, persist and apply the olcRTC config. Auto-generates a 64-hex crypto key when empty. Renders server YAML and restarts the process on fingerprint change. Returns the fresh status. LucX-UI only.',
+        body: '{\n  "enabled": true,\n  "provider": "jitsi",\n  "roomId": "https://meet.example.org/myroom",\n  "transport": "datachannel",\n  "dns": "8.8.8.8:53"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/olcrtc/start',
+        summary: 'Mark the core enabled, persist, and start olcrtc. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/olcrtc/stop',
+        summary: 'Mark the core disabled, persist, and stop olcrtc. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/olcrtc/restart',
+        summary: 'Force a fresh start with the stored config. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/olcrtc/logs',
+        summary: 'Recent process log lines (ring buffer, default 200). LucX-UI only.',
+        params: [
+          { name: 'lines', in: 'query', type: 'number', desc: 'Max lines to return (default 200).', optional: true },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/olcrtc/preview',
+        summary: 'Render the server YAML the given form state would produce, without persisting. LucX-UI only.',
+        response: '{\n  "success": true,\n  "obj": { "yaml": "mode: srv\\n…" }\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/olcrtc/upload',
+        summary: 'Replace the olcrtc binary on disk (multipart field "file"). Body-limit exempt. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/olcrtc/download',
+        summary: 'Fetch the olcrtc binary from a URL into place (200 MB cap). LucX-UI only.',
+        body: '{\n  "url": "https://example.com/olcrtc-linux-amd64"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/olcrtc/deleteBinary',
         summary: 'Stop the core and remove its binary from disk. LucX-UI only.',
       },
     ],

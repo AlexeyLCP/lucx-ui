@@ -24,8 +24,14 @@ func TestNameRegistry(t *testing.T) {
 	if got := Naive.BinaryName(); !strings.HasPrefix(got, "caddy-naive-") {
 		t.Errorf("BinaryName = %q", got)
 	}
-	if got := All(); len(got) != 1 || got[0] != Naive {
+	if !Olcrtc.Valid() || Olcrtc.DisplayName() != "olcRTC" {
+		t.Errorf("Olcrtc Valid/DisplayName broken: %v %q", Olcrtc.Valid(), Olcrtc.DisplayName())
+	}
+	if got := All(); len(got) != 2 || got[0] != Naive || got[1] != Olcrtc {
 		t.Errorf("All() = %v", got)
+	}
+	if got := Olcrtc.BinaryName(); !strings.HasPrefix(got, "olcrtc-") {
+		t.Errorf("Olcrtc.BinaryName = %q", got)
 	}
 }
 

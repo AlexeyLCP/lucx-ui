@@ -45,6 +45,7 @@ import { tunnelsApi } from '@/api/tunnels';
 import { FormField, useZodForm } from '@/components/form/rhf';
 import { QrPanel } from '@/pages/inbounds/qr';
 import { NaiveConfigSchema, type NaiveConfig, type NaiveStatus } from '@/schemas/tunnel';
+import { OlcrtcCard } from '@/pages/tunnels/OlcrtcCard';
 
 // generateNaivePassword returns 18 random bytes as 24 chars of URL-safe
 // base64 — strong enough for a basic_auth secret, safe in share links.
@@ -189,8 +190,11 @@ export default function TunnelsPage() {
   return (
     <div>
       {messageContextHolder}
+      <Typography.Title level={3}>{t('pages.tunnels.title')}</Typography.Title>
+      <Typography.Paragraph type="secondary">{t('pages.tunnels.subtitle')}</Typography.Paragraph>
+
       <Card
-        title={t('pages.tunnels.title')}
+        title={t('pages.tunnels.naive.title')}
         extra={
           <Space>
             <Badge status={badge.status} text={t(badge.key)} />
@@ -200,9 +204,6 @@ export default function TunnelsPage() {
           </Space>
         }
       >
-        <Typography.Paragraph type="secondary">
-          {t('pages.tunnels.subtitle')}
-        </Typography.Paragraph>
 
         <Space wrap>
           <Button
@@ -505,6 +506,8 @@ export default function TunnelsPage() {
       >
         {clientUrl !== '' && <QrPanel value={clientUrl} downloadName="naive-proxy" />}
       </Modal>
+
+      <OlcrtcCard />
     </div>
   );
 }

@@ -1962,7 +1962,7 @@
     },
     "tunnels": {
       "title": "Туннельные сайдкары",
-      "subtitle": "Внешние туннельные серверы под надзором панели. NaiveProxy — это Caddy с плагином forward_proxy (форк klzgrad, HTTP/2-паддинг): отдельный процесс со своим TLS и учётными данными, его трафик идёт мимо Xray.",
+      "subtitle": "Внешние туннельные серверы под надзором панели: NaiveProxy (Caddy + forward_proxy) и olcRTC (WebRTC через meet-комнаты). Трафик по умолчанию независим от Xray; NaiveProxy опционально может идти через Xray.",
       "naive": {
         "status": {
           "running": "Работает",
@@ -2020,6 +2020,61 @@
           "started": "NaiveProxy запущен",
           "stopped": "NaiveProxy остановлен",
           "restarted": "NaiveProxy перезапущен",
+          "uploaded": "Бинарник загружен",
+          "downloaded": "Бинарник скачан",
+          "deleted": "Бинарник удалён"
+        },
+        "title": "NaiveProxy"
+      },
+      "olcrtc": {
+        "title": "olcRTC",
+        "subtitle": "TCP-over-WebRTC туннель через легальную видео-комнату (Jitsi / Яндекс Телемост / WB Stream). На VPS нет публичных портов — бинарник входит в комнату как тихий участник. Клиенты: owenclave, olcbox.",
+        "status": {
+          "running": "Работает",
+          "stopped": "Остановлен"
+        },
+        "binary": {
+          "title": "Бинарник ядра",
+          "exists": "установлен",
+          "missing": "не установлен",
+          "upload": "Загрузить файл",
+          "download": "Скачать",
+          "delete": "Удалить",
+          "deleteConfirm": "Остановить ядро и удалить бинарник?"
+        },
+        "actions": {
+          "start": "Старт",
+          "stop": "Стоп",
+          "restart": "Рестарт"
+        },
+        "clientUri": "URI подключения",
+        "logs": "Логи",
+        "logsTitle": "Логи процесса",
+        "logsEmpty": "Пока нет строк логов.",
+        "form": {
+          "remark": "Заметка",
+          "provider": "Провайдер meet",
+          "providerTip": "Jitsi работает с datachannel (рекомендуется). Телемост поддерживает только vp8channel.",
+          "roomId": "URL / ID комнаты",
+          "roomIdTip": "Полный URL Jitsi (https://meet…/room) или ID комнаты Телемост/WB.",
+          "cryptoKey": "Крипто-ключ",
+          "cryptoKeyTip": "64 hex-символа (32 байта), общий с клиентом. Пусто — сгенерируется при сохранении.",
+          "genKey": "Сгенерировать ключ",
+          "transport": "Транспорт",
+          "transportTip": "datachannel (Jitsi) или vp8channel (Телемост / WB Stream).",
+          "dns": "DNS-резолвер",
+          "dnsTip": "Формат host:port — olcrtc dial напрямую (например 8.8.8.8:53).",
+          "vp8Fps": "VP8 FPS",
+          "vp8Batch": "VP8 batch size",
+          "debug": "Отладочные логи",
+          "save": "Сохранить",
+          "preview": "Превью YAML"
+        },
+        "toasts": {
+          "started": "olcRTC запущен",
+          "stopped": "olcRTC остановлен",
+          "restarted": "olcRTC перезапущен",
+          "saved": "Конфиг olcRTC сохранён",
           "uploaded": "Бинарник загружен",
           "downloaded": "Бинарник скачан",
           "deleted": "Бинарник удалён"

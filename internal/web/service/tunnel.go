@@ -28,17 +28,20 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 )
 
-// tunnelNaiveSettingKey is the settings-table key holding the NaiveProxy
-// core config as a JSON blob. The lucxTunnel_ prefix keeps tunnel configs
-// clear of upstream setting keys.
-const tunnelNaiveSettingKey = "lucxTunnel_naive"
+// tunnelNaiveSettingKey / tunnelOlcrtcSettingKey are settings-table keys
+// holding each tunnel core config as a JSON blob. The lucxTunnel_ prefix
+// keeps them clear of upstream setting keys.
+const (
+	tunnelNaiveSettingKey  = "lucxTunnel_naive"
+	tunnelOlcrtcSettingKey = "lucxTunnel_olcrtc"
+)
 
 // maxTunnelBinaryDownload caps the binary download (a caddy-naive build is
 // ~50 MB; the cap is headroom, not a target).
 const maxTunnelBinaryDownload = 200 << 20
 
-// TunnelService manages the external tunnel-server sidecars (currently the
-// NaiveProxy core): config persistence in the settings table, validation,
+// TunnelService manages the external tunnel-server sidecars (NaiveProxy,
+// olcRTC): config persistence in the settings table, validation,
 // port-collision checks against Xray inbounds, per-client credentials, and
 // lifecycle via tunnel.Manager. Zero-value usable, like the other services.
 type TunnelService struct {
@@ -362,22 +365,270 @@ func (s *TunnelService) DownloadBinary(downloadURL string) error {
 	return nil
 }
 
-// Reconcile converges the core toward the stored config; called by the cron
-// job and after panel boot. A crashed core is revived; a disabled one stays
-// down.
+// Reconcile converges every core toward its stored config; called by the
+// cron job and after panel boot. A crashed core is revived; a disabled one
+// stays down.
 func (s *TunnelService) Reconcile() {
-	cfg, err := s.LoadNaiveConfig()
-	if err != nil {
-		logger.Warning("tunnel: reconcile load failed:", err)
-		return
-	}
-	inst, err := s.naiveInstance(cfg)
-	if err != nil {
-		return
-	}
-	if err := tunnel.GetManager().Ensure(inst); err != nil {
+	if cfg, err := s.LoadNaiveConfig(); err != nil {
+		logger.Warning("tunnel: naive reconcile load failed:", err)
+	} else if inst, err := s.naiveInstance(cfg); err != nil {
+		// logged inside
+	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: naive reconcile failed:", err)
 	}
+	if cfg, err := s.LoadOlcrtcConfig(); err != nil {
+		logger.Warning("tunnel: olcrtc reconcile load failed:", err)
+	} else if inst, err := s.olcrtcInstance(cfg); err != nil {
+		// logged inside
+	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
+		logger.Warning("tunnel: olcrtc reconcile failed:", err)
+	}
+}
+
+// --- olcRTC core -----------------------------------------------------------
+
+// OlcrtcStatus is the full status payload for the olcRTC core.
+type OlcrtcStatus struct {
+	Core         string              `json:"core"`
+	DisplayName  string              `json:"displayName"`
+	BinaryExists bool                `json:"binaryExists"`
+	BinaryPath   string              `json:"binaryPath"`
+	ClientURI    string              `json:"clientUri"`
+	Config       tunnel.OlcrtcConfig `json:"config"`
+	Probe        tunnel.Status       `json:"probe"`
+	LastLog      string              `json:"lastLog"`
+}
+
+// LoadOlcrtcConfig reads the stored olcRTC config, falling back to defaults.
+func (s *TunnelService) LoadOlcrtcConfig() (tunnel.OlcrtcConfig, error) {
+	cfg := tunnel.DefaultOlcrtcConfig()
+	setting := &model.Setting{}
+	err := database.GetDB().Model(model.Setting{}).
+		Where("key = ?", tunnelOlcrtcSettingKey).First(setting).Error
+	if database.IsNotFound(err) {
+		return cfg, nil
+	}
+	if err != nil {
+		return cfg, err
+	}
+	if strings.TrimSpace(setting.Value) == "" {
+		return cfg, nil
+	}
+	if err := json.Unmarshal([]byte(setting.Value), &cfg); err != nil {
+		logger.Warning("tunnel: corrupt olcrtc config, using defaults:", err)
+		return tunnel.DefaultOlcrtcConfig(), nil
+	}
+	return cfg.Merge(), nil
+}
+
+// SaveOlcrtcConfig validates, persists and applies the config.
+func (s *TunnelService) SaveOlcrtcConfig(cfg tunnel.OlcrtcConfig) error {
+	cfg = cfg.Merge().ClampVP8()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	cfg, err := cfg.EnsureCryptoKey()
+	if err != nil {
+		return err
+	}
+	if err := s.persistOlcrtc(cfg); err != nil {
+		return err
+	}
+	return s.applyOlcrtc(cfg)
+}
+
+// StartOlcrtc marks the core enabled, persists, and starts it.
+func (s *TunnelService) StartOlcrtc() error {
+	cfg, err := s.LoadOlcrtcConfig()
+	if err != nil {
+		return err
+	}
+	cfg = cfg.Merge().ClampVP8()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	cfg, err = cfg.EnsureCryptoKey()
+	if err != nil {
+		return err
+	}
+	cfg.Enabled = true
+	if err := s.persistOlcrtc(cfg); err != nil {
+		return err
+	}
+	return s.applyOlcrtc(cfg)
+}
+
+// StopOlcrtc marks the core disabled, persists, and stops the process.
+func (s *TunnelService) StopOlcrtc() error {
+	cfg, err := s.LoadOlcrtcConfig()
+	if err != nil {
+		return err
+	}
+	cfg.Enabled = false
+	if err := s.persistOlcrtc(cfg); err != nil {
+		return err
+	}
+	return tunnel.GetManager().Stop(tunnel.Olcrtc)
+}
+
+// RestartOlcrtc forces a fresh start with the stored config.
+func (s *TunnelService) RestartOlcrtc() error {
+	cfg, err := s.LoadOlcrtcConfig()
+	if err != nil {
+		return err
+	}
+	cfg = cfg.Merge().ClampVP8()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	cfg, err = cfg.EnsureCryptoKey()
+	if err != nil {
+		return err
+	}
+	cfg.Enabled = true
+	if err := s.persistOlcrtc(cfg); err != nil {
+		return err
+	}
+	if err := tunnel.GetManager().Stop(tunnel.Olcrtc); err != nil {
+		logger.Warning("tunnel: olcrtc restart stop failed:", err)
+	}
+	return s.applyOlcrtc(cfg)
+}
+
+// OlcrtcStatus assembles the status payload from the stored config and the
+// live manager state.
+func (s *TunnelService) OlcrtcStatus() (OlcrtcStatus, error) {
+	cfg, err := s.LoadOlcrtcConfig()
+	if err != nil {
+		return OlcrtcStatus{}, err
+	}
+	inst, err := s.olcrtcInstance(cfg)
+	if err != nil {
+		return OlcrtcStatus{}, err
+	}
+	mgr := tunnel.GetManager()
+	bin := tunnel.Olcrtc.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return OlcrtcStatus{
+		Core:         string(tunnel.Olcrtc),
+		DisplayName:  tunnel.Olcrtc.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		ClientURI:    cfg.ClientURI(),
+		Config:       cfg,
+		Probe:        mgr.StatusOf(inst),
+		LastLog:      mgr.LastLog(tunnel.Olcrtc),
+	}, nil
+}
+
+// OlcrtcLogs returns the most recent output lines of the core process.
+func (s *TunnelService) OlcrtcLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().Logs(tunnel.Olcrtc, lines)
+}
+
+// PreviewOlcrtc renders the YAML the given form state would produce.
+func (s *TunnelService) PreviewOlcrtc(cfg tunnel.OlcrtcConfig) (string, error) {
+	cfg = cfg.Merge().ClampVP8()
+	if err := cfg.Validate(); err != nil {
+		return "", err
+	}
+	// Preview may lack a key — render with a placeholder so the operator
+	// sees the shape; the real key is generated on save.
+	if strings.TrimSpace(cfg.CryptoKey) == "" {
+		cfg.CryptoKey = strings.Repeat("0", 64)
+	}
+	return cfg.RenderYAML(tunnel.DataDir(tunnel.Olcrtc)), nil
+}
+
+// DeleteOlcrtcBinary stops the core and removes its binary from disk.
+func (s *TunnelService) DeleteOlcrtcBinary() error {
+	if err := tunnel.GetManager().Stop(tunnel.Olcrtc); err != nil {
+		logger.Warning("tunnel: stop before olcrtc binary delete failed:", err)
+	}
+	if err := os.Remove(tunnel.Olcrtc.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DownloadOlcrtcBinary fetches the core binary from a URL into place.
+func (s *TunnelService) DownloadOlcrtcBinary(downloadURL string) error {
+	return s.downloadBinaryTo(tunnel.Olcrtc.BinaryPath(), downloadURL)
+}
+
+func (s *TunnelService) persistOlcrtc(cfg tunnel.OlcrtcConfig) error {
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return s.saveSetting(tunnelOlcrtcSettingKey, string(raw))
+}
+
+func (s *TunnelService) applyOlcrtc(cfg tunnel.OlcrtcConfig) error {
+	inst, err := s.olcrtcInstance(cfg)
+	if err != nil {
+		return err
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (s *TunnelService) olcrtcInstance(cfg tunnel.OlcrtcConfig) (tunnel.Instance, error) {
+	// ProbePort 0: olcrtc has no local listen port (outbound WebRTC only).
+	return tunnel.Instance{
+		Core:       tunnel.Olcrtc,
+		Enabled:    cfg.Enabled,
+		ConfigText: cfg.RenderYAML(tunnel.DataDir(tunnel.Olcrtc)),
+		ProbePort:  0,
+	}, nil
+}
+
+// downloadBinaryTo is shared by Naive and olcRTC binary downloads.
+func (s *TunnelService) downloadBinaryTo(dst, downloadURL string) error {
+	downloadURL = strings.TrimSpace(downloadURL)
+	if downloadURL == "" {
+		return common.NewError("tunnel: empty download url")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := (&http.Client{}).Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return common.NewErrorf("tunnel: download failed: HTTP %d", resp.StatusCode)
+	}
+	tmp := dst + ".download"
+	file, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	if err != nil {
+		return err
+	}
+	n, err := io.Copy(file, io.LimitReader(resp.Body, maxTunnelBinaryDownload+1))
+	if closeErr := file.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if n > maxTunnelBinaryDownload {
+		_ = os.Remove(tmp)
+		return common.NewError("tunnel: download exceeds the size limit")
+	}
+	_ = os.Remove(dst)
+	if err := os.Rename(tmp, dst); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	logger.Infof("tunnel: binary downloaded to %s (%d bytes)", dst, n)
+	return nil
 }
 
 func (s *TunnelService) persistNaive(cfg tunnel.NaiveConfig) error {

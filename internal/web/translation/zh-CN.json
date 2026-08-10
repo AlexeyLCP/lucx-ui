@@ -1962,7 +1962,7 @@
     },
     "tunnels": {
       "title": "隧道侧车",
-      "subtitle": "由面板监管的外部隧道服务器。NaiveProxy 是带 forward_proxy 插件的 Caddy（klzgrad 分支，HTTP/2 填充）：独立进程，自带 TLS 与凭据，流量不经过 Xray。",
+      "subtitle": "面板监管的外部隧道服务器：NaiveProxy（Caddy + forward_proxy）与 olcRTC（通过会议房间的 WebRTC）。默认流量独立于 Xray；NaiveProxy 可选择经 Xray 路由。",
       "naive": {
         "status": {
           "running": "运行中",
@@ -2020,6 +2020,61 @@
           "started": "NaiveProxy 已启动",
           "stopped": "NaiveProxy 已停止",
           "restarted": "NaiveProxy 已重启",
+          "uploaded": "二进制已上传",
+          "downloaded": "二进制已下载",
+          "deleted": "二进制已删除"
+        },
+        "title": "NaiveProxy"
+      },
+      "olcrtc": {
+        "title": "olcRTC",
+        "subtitle": "经合法视频会议房间（Jitsi / Yandex Telemost / WB Stream）的 TCP-over-WebRTC 隧道。VPS 无需公网端口——二进制以静默参与者加入房间。客户端：owenclave、olcbox。",
+        "status": {
+          "running": "运行中",
+          "stopped": "已停止"
+        },
+        "binary": {
+          "title": "核心二进制",
+          "exists": "已安装",
+          "missing": "未安装",
+          "upload": "上传",
+          "download": "下载",
+          "delete": "删除",
+          "deleteConfirm": "停止核心并删除二进制？"
+        },
+        "actions": {
+          "start": "启动",
+          "stop": "停止",
+          "restart": "重启"
+        },
+        "clientUri": "连接 URI",
+        "logs": "日志",
+        "logsTitle": "进程日志",
+        "logsEmpty": "尚无日志行。",
+        "form": {
+          "remark": "备注",
+          "provider": "会议提供商",
+          "providerTip": "Jitsi works with datachannel (recommended). Telemost only supports vp8channel.",
+          "roomId": "房间 URL / ID",
+          "roomIdTip": "Full Jitsi URL (https://meet…/room) or Telemost/WB room identifier.",
+          "cryptoKey": "加密密钥",
+          "cryptoKeyTip": "64 hex chars (32 bytes), shared with the client. Leave empty to auto-generate on save.",
+          "genKey": "生成密钥",
+          "transport": "传输",
+          "transportTip": "datachannel (Jitsi) or vp8channel (Telemost / WB Stream).",
+          "dns": "DNS 解析器",
+          "dnsTip": "host:port form — olcrtc dials this directly (e.g. 8.8.8.8:53).",
+          "vp8Fps": "VP8 FPS",
+          "vp8Batch": "VP8 batch size",
+          "debug": "调试日志",
+          "save": "保存",
+          "preview": "预览 YAML"
+        },
+        "toasts": {
+          "started": "olcRTC 已启动",
+          "stopped": "olcRTC 已停止",
+          "restarted": "olcRTC 已重启",
+          "saved": "olcRTC 配置已保存",
           "uploaded": "二进制已上传",
           "downloaded": "二进制已下载",
           "deleted": "二进制已删除"

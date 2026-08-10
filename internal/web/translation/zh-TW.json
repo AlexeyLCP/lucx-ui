@@ -1962,7 +1962,7 @@
     },
     "tunnels": {
       "title": "隧道側車",
-      "subtitle": "由面板監管的外部隧道伺服器。NaiveProxy 是帶 forward_proxy 外掛的 Caddy（klzgrad 分支，HTTP/2 填充）：獨立進程，自帶 TLS 與憑證，流量不經過 Xray。",
+      "subtitle": "面板監管的外部隧道伺服器：NaiveProxy（Caddy + forward_proxy）與 olcRTC（透過會議房間的 WebRTC）。預設流量獨立於 Xray；NaiveProxy 可選擇經 Xray 路由。",
       "naive": {
         "status": {
           "running": "執行中",
@@ -2023,6 +2023,61 @@
           "uploaded": "二進位檔已上傳",
           "downloaded": "二進位檔已下載",
           "deleted": "二進位檔已刪除"
+        },
+        "title": "NaiveProxy"
+      },
+      "olcrtc": {
+        "title": "olcRTC",
+        "subtitle": "經合法視訊會議房間（Jitsi / Yandex Telemost / WB Stream）的 TCP-over-WebRTC 隧道。VPS 無需公網埠——二進位以靜默參與者加入房間。客戶端：owenclave、olcbox。",
+        "status": {
+          "running": "執行中",
+          "stopped": "已停止"
+        },
+        "binary": {
+          "title": "核心二進位",
+          "exists": "已安裝",
+          "missing": "未安裝",
+          "upload": "上傳",
+          "download": "下載",
+          "delete": "刪除",
+          "deleteConfirm": "停止核心並刪除二進位？"
+        },
+        "actions": {
+          "start": "啟動",
+          "stop": "停止",
+          "restart": "重啟"
+        },
+        "clientUri": "連線 URI",
+        "logs": "日誌",
+        "logsTitle": "行程日誌",
+        "logsEmpty": "尚無日誌行。",
+        "form": {
+          "remark": "備註",
+          "provider": "會議提供商",
+          "providerTip": "Jitsi works with datachannel (recommended). Telemost only supports vp8channel.",
+          "roomId": "房間 URL / ID",
+          "roomIdTip": "Full Jitsi URL (https://meet…/room) or Telemost/WB room identifier.",
+          "cryptoKey": "加密金鑰",
+          "cryptoKeyTip": "64 hex chars (32 bytes), shared with the client. Leave empty to auto-generate on save.",
+          "genKey": "產生金鑰",
+          "transport": "傳輸",
+          "transportTip": "datachannel (Jitsi) or vp8channel (Telemost / WB Stream).",
+          "dns": "DNS 解析器",
+          "dnsTip": "host:port form — olcrtc dials this directly (e.g. 8.8.8.8:53).",
+          "vp8Fps": "VP8 FPS",
+          "vp8Batch": "VP8 batch size",
+          "debug": "偵錯日誌",
+          "save": "儲存",
+          "preview": "預覽 YAML"
+        },
+        "toasts": {
+          "started": "olcRTC 已啟動",
+          "stopped": "olcRTC 已停止",
+          "restarted": "olcRTC 已重啟",
+          "saved": "olcRTC 設定已儲存",
+          "uploaded": "二進位已上傳",
+          "downloaded": "二進位已下載",
+          "deleted": "二進位已刪除"
         }
       }
     }

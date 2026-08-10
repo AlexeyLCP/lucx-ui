@@ -281,9 +281,15 @@ func (m *Manager) start(inst Instance) error {
 		// caddy refuses to run without an explicit adapter for non-JSON
 		// configs; the panel always renders a Caddyfile.
 		args = []string{"run", "--config", configPath(inst.Core), "--adapter", "caddyfile"}
-	}
-	if extra := strings.TrimSpace(inst.ExtraArgs); extra != "" {
-		args = append(args, strings.Fields(extra)...)
+		if extra := strings.TrimSpace(inst.ExtraArgs); extra != "" {
+			args = append(args, strings.Fields(extra)...)
+		}
+	case Olcrtc:
+		// olcrtc accepts exactly one argument: the YAML config path
+		// (upstream has no CLI flags; extra args would fail startup).
+		args = []string{configPath(inst.Core)}
+	default:
+		return fmt.Errorf("tunnel: no start args for core %q", inst.Core)
 	}
 	env := append(os.Environ(), "XDG_DATA_HOME="+dataDir(inst.Core))
 

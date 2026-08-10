@@ -75,6 +75,7 @@ docker compose --profile postgres up -d
 | NaiveProxy tunnel sidecar (Caddy + forward_proxy, supervised) | ✗ | ✓ |
 | Per-client NaiveProxy credentials + `naive+https://` in subscriptions | ✗ | ✓ |
 | NaiveProxy → Xray routing (SOCKS loopback bridge, optional) | ✗ | ✓ |
+| olcRTC tunnel sidecar (WebRTC via meet rooms, supervised) | ✗ | ✓ |
 | Smart Cluster outbound links | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 frontend | ✓ | ✓ (inherited) |
 | All Xray protocols (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -96,12 +97,13 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 - **Live Signature Capture** — Convert real QUIC handshakes from front domains into I1–I5 obfuscation parameters.
 - **Routing & Diagnostics** — Dual routing modes (Kernel NAT and Route through Xray with policy routing & sniffing) + one-click in-panel diagnostics.
 
-### 🚇 Tunnel Sidecars (NaiveProxy)
+### 🚇 Tunnel Sidecars (NaiveProxy, olcRTC)
 - **NaiveProxy** — Caddy with the `forward_proxy` plugin ([klzgrad](https://github.com/klzgrad/forwardproxy) fork, HTTP/2 padding) runs as a panel-supervised sidecar: rendered Caddyfile, start/stop/restart with crash-reviving reconcile, and a three-level health probe (process → TCP → TLS).
 - **Per-client credentials** — every enabled panel client automatically gets a personal `basic_auth` pair (derived from the panel secret, nothing stored); disabling a client revokes it on the next reconcile.
 - **Subscriptions** — each client's subscription carries their personal `naive+https://` link alongside their Xray/AWG links (standard format for NekoBox / husi / Exclave), plus a QR code and a strong-password generator in the panel.
 - **Panel UX** — Auto TLS (Let's Encrypt) or your own cert/key, raw-Caddyfile mode with `caddy adapt` validation, Caddyfile preview, process logs, binary upload/download.
 - **Route through Xray (optional)** — toggle makes Caddy dial destinations via a hidden loopback SOCKS bridge (`upstream socks5://127.0.0.1:…`, native forward_proxy — no binary patch) tagged `lucx-tunnel-naive`, so NaiveProxy traffic gets full Xray routing / sniffing / domain rules (same pattern as MTProto). Default stays direct egress.
+- **olcRTC** — TCP-over-WebRTC tunnel via a legal video-call room ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc), WTFPL): Jitsi / Yandex Telemost / WB Stream. No public ports on the VPS — the binary joins the room as a silent participant. Panel renders server YAML, supervises the process, and exposes a copyable `olcrtc://` connect URI for owenclave / olcbox clients.
 
 ### 🚀 Core 3x-ui Features
 - **Protocols:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -152,7 +154,7 @@ This project is published under **two licenses** (details in [LICENSING.md](LICE
 ## 🤝 Acknowledgements & Credits
 
 - **Testers & Contributors:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, the **3x-ui team**.
-- **Projects & Inspiration:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (NaiveProxy tunnel sidecar), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (Caddyfile integration design reference), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (tunnel-sidecar concept reference: qWDTT / olcRTC panel integration), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+- **Projects & Inspiration:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (NaiveProxy tunnel sidecar), [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) (olcRTC core), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (Caddyfile integration design reference), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (tunnel-sidecar concept reference: qWDTT / olcRTC panel integration), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
 
 ---
 

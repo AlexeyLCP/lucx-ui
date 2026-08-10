@@ -1962,7 +1962,7 @@
     },
     "tunnels": {
       "title": "Sidecar đường hầm",
-      "subtitle": "Máy chủ đường hầm bên ngoài được bảng điều khiển giám sát. NaiveProxy là Caddy với plugin forward_proxy (bản fork klzgrad, đệm HTTP/2): tiến trình riêng với TLS và thông tin xác thực riêng — lưu lượng không đi qua Xray.",
+      "subtitle": "External tunnel servers supervised by the panel: NaiveProxy (Caddy + forward_proxy) and olcRTC (WebRTC via meet rooms). Traffic is independent of Xray by default; NaiveProxy can optionally route through Xray.",
       "naive": {
         "status": {
           "running": "Đang chạy",
@@ -2023,6 +2023,61 @@
           "uploaded": "Đã tải binary lên",
           "downloaded": "Đã tải binary xuống",
           "deleted": "Đã xóa binary"
+        },
+        "title": "NaiveProxy"
+      },
+      "olcrtc": {
+        "title": "olcRTC",
+        "subtitle": "TCP-over-WebRTC tunnel via a legal video-call room (Jitsi / Yandex Telemost / WB Stream). No public ports on the VPS — the binary joins the room as a silent participant. Client apps: owenclave, olcbox.",
+        "status": {
+          "running": "Running",
+          "stopped": "Stopped"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?"
+        },
+        "actions": {
+          "start": "Start",
+          "stop": "Stop",
+          "restart": "Restart"
+        },
+        "clientUri": "Connect URI",
+        "logs": "Logs",
+        "logsTitle": "Process logs",
+        "logsEmpty": "No log lines captured yet.",
+        "form": {
+          "remark": "Remark",
+          "provider": "Meet provider",
+          "providerTip": "Jitsi works with datachannel (recommended). Telemost only supports vp8channel.",
+          "roomId": "Room URL / ID",
+          "roomIdTip": "Full Jitsi URL (https://meet…/room) or Telemost/WB room identifier.",
+          "cryptoKey": "Crypto key",
+          "cryptoKeyTip": "64 hex chars (32 bytes), shared with the client. Leave empty to auto-generate on save.",
+          "genKey": "Generate key",
+          "transport": "Transport",
+          "transportTip": "datachannel (Jitsi) or vp8channel (Telemost / WB Stream).",
+          "dns": "DNS resolver",
+          "dnsTip": "host:port form — olcrtc dials this directly (e.g. 8.8.8.8:53).",
+          "vp8Fps": "VP8 FPS",
+          "vp8Batch": "VP8 batch size",
+          "debug": "Debug logging",
+          "save": "Save",
+          "preview": "Preview YAML"
+        },
+        "toasts": {
+          "started": "olcRTC started",
+          "stopped": "olcRTC stopped",
+          "restarted": "olcRTC restarted",
+          "saved": "olcRTC config saved",
+          "uploaded": "Binary uploaded",
+          "downloaded": "Binary downloaded",
+          "deleted": "Binary deleted"
         }
       }
     }
