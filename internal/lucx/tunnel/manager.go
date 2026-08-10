@@ -31,11 +31,17 @@ type Instance struct {
 	Enabled bool
 
 	// ConfigText is the fully rendered config file content (Caddyfile for
-	// NaiveProxy). It is written to the core's config path before start.
+	// NaiveProxy, YAML for olcRTC). Empty means the core is CLI-only
+	// (qWDTT) and writeConfigFile is a no-op.
 	ConfigText string
 
+	// Args, when non-empty, are the full argv passed to the binary
+	// (qWDTT CLI flags). Takes precedence over the core-specific switch
+	// in start().
+	Args []string
+
 	// ExtraArgs are additional CLI arguments appended after the standard
-	// ones (operator escape hatch, space-separated).
+	// ones (operator escape hatch, space-separated). Ignored when Args is set.
 	ExtraArgs string
 
 	// ProbePort is the local TCP port used by the listening/responding
@@ -46,7 +52,11 @@ type Instance struct {
 // Fingerprint identifies the instance's rendered config plus CLI shape. Any
 // change to either forces a restart on the next Ensure.
 func (inst Instance) Fingerprint() string {
-	sum := sha256.Sum256([]byte(inst.ConfigText + "\x00" + inst.ExtraArgs))
+	sum := sha256.Sum256([]byte(
+		inst.ConfigText + "\x00" +
+			inst.ExtraArgs + "\x00" +
+			strings.Join(inst.Args, "\x00"),
+	))
 	return hex.EncodeToString(sum[:16])
 }
 
@@ -243,7 +253,11 @@ func probeResponding(addr string) bool {
 
 // writeConfigFile renders the instance config to disk, skipping the write
 // when the content is unchanged (avoids mtime churn on every reconcile).
+// CLI-only cores (empty ConfigText) are a no-op.
 func writeConfigFile(inst Instance) error {
+	if strings.TrimSpace(inst.ConfigText) == "" {
+		return nil
+	}
 	if err := os.MkdirAll(workDir(), 0o755); err != nil {
 		return fmt.Errorf("tunnel: create config dir: %w", err)
 	}
@@ -271,20 +285,24 @@ func (m *Manager) start(inst Instance) error {
 			return fmt.Errorf("tunnel: make %s executable: %w", bin, err)
 		}
 	}
-	if err := os.MkdirAll(dataDir(inst.Core), 0o755); err != nil {
+	// 0700 for qWDTT state (passwords.json / keys); harmless for the others.
+	if err := os.MkdirAll(dataDir(inst.Core), 0o700); err != nil {
 		return fmt.Errorf("tunnel: create data dir: %w", err)
 	}
 
 	var args []string
-	switch inst.Core {
-	case Naive:
+	switch {
+	case len(inst.Args) > 0:
+		// CLI-driven cores (qWDTT) supply the full argv from the web layer.
+		args = append(args, inst.Args...)
+	case inst.Core == Naive:
 		// caddy refuses to run without an explicit adapter for non-JSON
 		// configs; the panel always renders a Caddyfile.
 		args = []string{"run", "--config", configPath(inst.Core), "--adapter", "caddyfile"}
 		if extra := strings.TrimSpace(inst.ExtraArgs); extra != "" {
 			args = append(args, strings.Fields(extra)...)
 		}
-	case Olcrtc:
+	case inst.Core == Olcrtc:
 		// olcrtc accepts exactly one argument: the YAML config path
 		// (upstream has no CLI flags; extra args would fail startup).
 		args = []string{configPath(inst.Core)}

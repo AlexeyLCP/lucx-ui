@@ -1962,7 +1962,7 @@
     },
     "tunnels": {
       "title": "سرویس‌های تونل",
-      "subtitle": "External tunnel servers supervised by the panel: NaiveProxy (Caddy + forward_proxy) and olcRTC (WebRTC via meet rooms). Traffic is independent of Xray by default; NaiveProxy can optionally route through Xray.",
+      "subtitle": "External tunnel servers supervised by the panel: NaiveProxy, olcRTC (WebRTC meet rooms) and qWDTT (WireGuard over VK TURN).",
       "naive": {
         "status": {
           "running": "در حال اجرا",
@@ -2075,6 +2075,64 @@
           "stopped": "olcRTC stopped",
           "restarted": "olcRTC restarted",
           "saved": "olcRTC config saved",
+          "uploaded": "Binary uploaded",
+          "downloaded": "Binary downloaded",
+          "deleted": "Binary deleted"
+        }
+      },
+      "qwdtt": {
+        "title": "qWDTT",
+        "subtitle": "WireGuard tunnelled through VK Calls TURN relays (SpaceNeuroX wdtt-server). Requires root / CAP_NET_ADMIN (creates TUN + NAT). Client: qWDTT Android APK. Operator must supply live VK call hash(es).",
+        "rootWarning": "Needs root (or CAP_NET_ADMIN): the binary creates TUN interfaces and installs MASQUERADE/FORWARD rules. Will fail without privileges.",
+        "status": {
+          "running": "Running",
+          "stopped": "Stopped"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?"
+        },
+        "actions": {
+          "start": "Start",
+          "stop": "Stop",
+          "restart": "Restart"
+        },
+        "clientUri": "qWDTT connect URI",
+        "legacyUri": "Legacy wdtt:// URI",
+        "subJson": "Subscription JSON",
+        "logs": "Logs",
+        "logsTitle": "Process logs",
+        "logsEmpty": "No log lines captured yet.",
+        "form": {
+          "remark": "Remark",
+          "subHost": "Public host:port",
+          "subHostTip": "Address clients dial (your public IP + DTLS port), e.g. 203.0.113.10:56000. Required for share links.",
+          "listenAddr": "Listen address",
+          "listenAddrTip": "DTLS client entry (host:port). Default 0.0.0.0:56000.",
+          "wgPort": "WireGuard port",
+          "dns": "Client DNS",
+          "password": "Main password",
+          "passwordTip": "Shared password for the main profile. Leave empty to auto-generate on save.",
+          "vkHashes": "VK call hashes",
+          "vkHashesTip": "Comma-separated live VK call join hashes. The call must stay open (\"end for me\", not \"end for all\").",
+          "listenRaw": "Raw-IP listen",
+          "listenRawTip": "Optional raw-IP path without WireGuard (host:port). Empty disables.",
+          "configDir": "State directory",
+          "configDirTip": "Holds passwords.json and wg-keys.dat. Empty = bin/tunnel/qwdtt-data.",
+          "clientPort": "Client local port",
+          "workers": "Workers per hash",
+          "save": "Save"
+        },
+        "toasts": {
+          "started": "qWDTT started",
+          "stopped": "qWDTT stopped",
+          "restarted": "qWDTT restarted",
+          "saved": "qWDTT config saved",
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"

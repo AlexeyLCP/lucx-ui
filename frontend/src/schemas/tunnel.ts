@@ -86,3 +86,38 @@ export const OlcrtcStatusSchema = z.object({
 });
 
 export type OlcrtcStatus = z.infer<typeof OlcrtcStatusSchema>;
+
+// qWDTT tunnel core config — mirrors tunnel.QwdttConfig
+// (internal/lucx/tunnel/qwdtt.go).
+export const QwdttConfigSchema = z.object({
+  remark: z.string().default(''),
+  enabled: z.boolean().default(false),
+  listenAddr: z.string().default('0.0.0.0:56000'),
+  wgPort: z.number().int().min(1).max(65535).default(56001),
+  password: z.string().default(''),
+  dns: z.string().default('8.8.8.8'),
+  configDir: z.string().default(''),
+  listenRaw: z.string().default('0.0.0.0:56003'),
+  listenDirect: z.string().default(''),
+  subHost: z.string().default(''),
+  vkHashes: z.string().default(''),
+  clientPort: z.number().int().min(1).max(65535).default(9000),
+  workers: z.number().int().min(1).max(64).default(16),
+});
+
+export type QwdttConfig = z.infer<typeof QwdttConfigSchema>;
+
+export const QwdttStatusSchema = z.object({
+  core: z.string(),
+  displayName: z.string(),
+  binaryExists: z.boolean(),
+  binaryPath: z.string(),
+  clientUri: z.string(),
+  legacyUri: z.string(),
+  subJson: z.string(),
+  config: QwdttConfigSchema,
+  probe: TunnelProbeSchema,
+  lastLog: z.string(),
+});
+
+export type QwdttStatus = z.infer<typeof QwdttStatusSchema>;

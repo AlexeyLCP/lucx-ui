@@ -385,7 +385,7 @@ export const sections: readonly Section[] = [
     id: 'tunnels',
     title: 'Tunnels',
     description:
-      'Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only.',
+      'Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI; (3) qWDTT — WireGuard over VK TURN (SpaceNeuroX wdtt-server), CLI flags, qwdtt:// URI + subscription JSON. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only.',
     endpoints: [
       {
         method: 'GET',
@@ -521,6 +521,61 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/tunnel/olcrtc/deleteBinary',
+        summary: 'Stop the core and remove its binary from disk. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/qwdtt/status',
+        summary: 'Full status of the qWDTT core: process probe, binary presence, stored config, qwdtt:// / wdtt:// URIs and subscription JSON. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/qwdtt/config',
+        summary: 'Read the stored qWDTT config (defaults when nothing is stored yet). LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/qwdtt/config',
+        summary: 'Validate, persist and apply the qWDTT config. Auto-generates the main password when empty. Restarts the process on argv fingerprint change. Returns the fresh status. LucX-UI only.',
+        body: '{\n  "enabled": true,\n  "listenAddr": "0.0.0.0:56000",\n  "wgPort": 56001,\n  "dns": "8.8.8.8",\n  "subHost": "203.0.113.10:56000",\n  "vkHashes": "hash1"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/qwdtt/start',
+        summary: 'Mark the core enabled, persist, and start wdtt-server. Requires root/CAP_NET_ADMIN. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/qwdtt/stop',
+        summary: 'Mark the core disabled, persist, and stop wdtt-server. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/qwdtt/restart',
+        summary: 'Force a fresh start with the stored config. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/qwdtt/logs',
+        summary: 'Recent process log lines (ring buffer, default 200). LucX-UI only.',
+        params: [
+          { name: 'lines', in: 'query', type: 'number', desc: 'Max lines to return (default 200).', optional: true },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/qwdtt/upload',
+        summary: 'Replace the qwdtt binary on disk (multipart field "file"). Body-limit exempt. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/qwdtt/download',
+        summary: 'Fetch the qwdtt binary from a URL into place (200 MB cap). LucX-UI only.',
+        body: '{\n  "url": "https://example.com/qwdtt-linux-amd64"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/qwdtt/deleteBinary',
         summary: 'Stop the core and remove its binary from disk. LucX-UI only.',
       },
     ],

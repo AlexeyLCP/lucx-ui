@@ -76,6 +76,7 @@ docker compose --profile postgres up -d
 | Per-client креды NaiveProxy + `naive+https://` в подписках | ✗ | ✓ |
 | NaiveProxy → Xray routing (SOCKS loopback-мост, опционально) | ✗ | ✓ |
 | Туннельный сайдкар olcRTC (WebRTC через meet-комнаты, под надзором) | ✗ | ✓ |
+| Туннельный сайдкар qWDTT (WireGuard через VK TURN, под надзором) | ✗ | ✓ |
 | Smart Cluster outbound-связи | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 фронтенд | ✓ | ✓ (inherited) |
 | Все протоколы Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -104,6 +105,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **UX панели** — Auto TLS (Let's Encrypt) или свой cert/key, raw-Caddyfile режим с валидацией `caddy adapt`, preview Caddyfile, логи процесса, upload/download бинарника.
 - **Маршрут через Xray (опционально)** — Caddy ходит к назначениям через скрытый loopback SOCKS-мост (`upstream socks5://127.0.0.1:…`, нативный forward_proxy — без патча бинарника) с тегом `lucx-tunnel-naive`, так что трафик NaiveProxy получает полный роутинг / sniffing / доменные правила Xray (как MTProto). По умолчанию — прямой egress.
 - **olcRTC** — TCP-over-WebRTC туннель через легальную видео-комнату ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc), WTFPL): Jitsi / Яндекс Телемост / WB Stream. На VPS нет публичных портов — бинарник входит в комнату как тихий участник. Панель рендерит server YAML, супервизит процесс и отдаёт копируемый `olcrtc://` URI для клиентов owenclave / olcbox.
+- **qWDTT** — WireGuard через TURN-релеи VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android), GPL-3.0 server). Нужен root (TUN + NAT). Панель супервизит процесс, отдаёт `qwdtt://` / `wdtt://` и JSON-подписку для Android-клиента. Оператор передаёт живые VK call hash.
 
 ### 🚀 Базовые фичи 3x-ui
 - **Протоколы:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.

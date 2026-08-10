@@ -94,7 +94,7 @@ Run `grep -rn "LUCX-HOOK" internal/ frontend/ install.sh` to find all integratio
 
 New functionality lives ONLY in:
 - **Go:** `internal/awg/` — AWG sidecar (manager, process, instance, traffic, orphans)
-- **Go:** `internal/lucx/` — subdirectories: `parser/`, `nodetype/`, `outbound_link/` (Smart Cluster), `tunnel/` (tunnel sidecars: NaiveProxy, olcRTC; далее qWDTT)
+- **Go:** `internal/lucx/` — subdirectories: `parser/`, `nodetype/`, `outbound_link/` (Smart Cluster), `tunnel/` (tunnel sidecars: NaiveProxy, olcRTC, qWDTT)
 - **Go:** `internal/database/migrate_awg.go` — legacy DB migration
 - **Go:** `internal/web/service/tunnel.go`, `internal/web/controller/tunnel.go`, `internal/web/job/tunnel_job.go` — tunnel sidecar web layer
 - **Frontend:** `frontend/src/schemas/protocols/inbound/awg.ts` — Zod schema
@@ -128,7 +128,7 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 
 ### 3b. Tunnel Sidecars Architecture (lucx.91+)
 
-Туннельные сайдкары — внешние туннельные серверы, которые панель супервизит **рядом** с Xray (не Xray-протоколы). Ядра: **NaiveProxy** (Caddy + `forward_proxy` klzgrad, HTTP/2-паддинг; опционально routeThroughXray), **olcRTC** (TCP-over-WebRTC через meet-комнаты Jitsi/Telemost/WB Stream). В очереди — **qWDTT** (WG over VK TURN). Каркас общий:
+Туннельные сайдкары — внешние туннельные серверы, которые панель супервизит **рядом** с Xray (не Xray-протоколы). Ядра: **NaiveProxy** (Caddy + `forward_proxy` klzgrad, HTTP/2-паддинг; опционально routeThroughXray), **olcRTC** (TCP-over-WebRTC через meet-комнаты Jitsi/Telemost/WB Stream), **qWDTT** (WG over VK TURN). Каркас общий:
 
 - **`internal/lucx/tunnel/`** (PolyForm): `Name`-реестр ядер; `NaiveConfig` + рендер Caddyfile; `Proc` (exec, SIGTERM→kill, ring-лог); `Manager` (singleton, fingerprint-рестарт при смене конфига, `Ensure`/`Stop`/`StopAll`, трёхуровневый статус process→TCP-probe→TLS-probe).
 - **Caddyfile-грабли** (выучены elector1337/3x-ui-naive + E2E lucx.91, зашиты в рендер): `admin off` (иначе инстансы дерутся за :2019); wildcard-listen → bare `:port` (явный `0.0.0.0:port` Caddy понимает как host-matcher), конкретный IP → `bind`; per-инстанс `XDG_DATA_HOME` (ACME-хранилища не дерутся); кавычки+экранирование всех пользовательских значений. **Три грабли из E2E:** (1) сабдирективы `padding` у forward_proxy НЕТ — паддинг включается сам по заголовку `Padding` от клиента; (2) домен в адресе сайта ОБЯЗАН нести нестандартный порт (`domain:8443`), иначе bare-домен открывает второй слушатель :443; (3) manual-TLS требует `auto_https off` + `skip_install_trust` в глобальном блоке, иначе Caddy поднимает ACME-слушатель :80 и ставит локальный root-серт в системный trust.
@@ -139,6 +139,7 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 - **Dev-готча:** Kaspersky на dev-машине ломает loopback TLS (MITM) — TLS-пробы в тестах скипаются с пометкой окружения; на Linux работает.
 - **Мост в Xray (lucx.93):** опциональный `routeThroughXray` — Caddy dial через нативный `upstream socks5://127.0.0.1:port` (klzgrad/forwardproxy, **без патча бинарника**) + скрытый SOCKS loopback inbound (`injectTunnelEgress`, тег `lucx-tunnel-naive`, симметрично mtproto). Порт аллоцируется backend'ом и стабилен; `outboundTag` опционально force-route. Raw-Caddyfile mode несовместим. Default = прямой egress.
 - **olcRTC (lucx.94):** `OlcrtcConfig` → YAML (`mode: srv`, provider/room/crypto/transport/dns/vp8) → бинарник `olcrtc-linux-{arch}` (единственный CLI-арг = путь к YAML). Settings key `lucxTunnel_olcrtc`. Connect URI `olcrtc://provider?transport@room#key`. Probe = process-only (нет listen-порта). Клиенты: owenclave / olcbox. Upstream: openlibrecommunity/olcrtc (WTFPL).
+- **qWDTT (lucx.95):** `QwdttConfig` → CLI argv (`-listen/-wg-port/-password/-dns/-listen-raw/-config-dir`) → бинарник `qwdtt-linux-{arch}` (GPL-3.0, external process). Settings key `lucxTunnel_qwdtt`. State dir: passwords.json + wg-keys.dat. Share: `qwdtt://config?…`, legacy `wdtt://…`, subscription JSON. **Нужен root/CAP_NET_ADMIN** (TUN + MASQUERADE). Клиент: SpaceNeuroX Android APK. Upstream: SpaceNeuroX/proxy-turn-vk-android server.go.
 
 ### 4. Paranoid Logging
 
@@ -226,7 +227,7 @@ internal/lucx/                     Smart Cluster + tunnel sidecars
 ├── parser/                        SSH output → NodeCreds
 ├── nodetype/                      LucX vs vanilla detection (MTProtoVersion)
 ├── outbound_link/                 Inbound → outbound config generator
-└── tunnel/                        Tunnel sidecars (NaiveProxy, olcRTC; qWDTT queued)
+└── tunnel/                        Tunnel sidecars (NaiveProxy, olcRTC, qWDTT)
     ├── tunnel.go                  Name registry + binary/config/data paths
     ├── naive.go                   NaiveConfig + Caddyfile render (admin off, bind normalization, escaping) + client URL
     ├── process.go                 Proc: exec + SIGTERM→kill + ring log (500 lines)

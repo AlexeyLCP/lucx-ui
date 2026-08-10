@@ -2914,7 +2914,7 @@
     },
     {
       "name": "Tunnels",
-      "description": "Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only."
+      "description": "Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI; (3) qWDTT — WireGuard over VK TURN (SpaceNeuroX wdtt-server), CLI flags, qwdtt:// URI + subscription JSON. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only."
     },
     {
       "name": "Server",
@@ -5615,6 +5615,346 @@
         ],
         "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/status": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Full status of the qWDTT core: process probe, binary presence, stored config, qwdtt:// / wdtt:// URIs and subscription JSON. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_qwdtt_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/config": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Read the stored qWDTT config (defaults when nothing is stored yet). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_qwdtt_config",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Validate, persist and apply the qWDTT config. Auto-generates the main password when empty. Restarts the process on argv fingerprint change. Returns the fresh status. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_config",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enabled": true,
+                "listenAddr": "0.0.0.0:56000",
+                "wgPort": 56001,
+                "dns": "8.8.8.8",
+                "subHost": "203.0.113.10:56000",
+                "vkHashes": "hash1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/start": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Mark the core enabled, persist, and start wdtt-server. Requires root/CAP_NET_ADMIN. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_start",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/stop": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Mark the core disabled, persist, and stop wdtt-server. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_stop",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/restart": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Force a fresh start with the stored config. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_restart",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/logs": {
+      "get": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Recent process log lines (ring buffer, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_qwdtt_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/upload": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Replace the qwdtt binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/download": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Fetch the qwdtt binary from a URL into place (200 MB cap). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/qwdtt-linux-amd64"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnels"
+        ],
+        "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_deleteBinary",
         "responses": {
           "200": {
             "description": "Successful response",

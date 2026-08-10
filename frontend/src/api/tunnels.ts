@@ -12,19 +12,23 @@ import {
   NaiveConfigSchema,
   NaiveStatusSchema,
   OlcrtcStatusSchema,
+  QwdttStatusSchema,
   type NaiveConfig,
   type NaiveStatus,
   type OlcrtcConfig,
   type OlcrtcStatus,
+  type QwdttConfig,
+  type QwdttStatus,
 } from '@/schemas/tunnel';
 
-export type { NaiveConfig, NaiveStatus, OlcrtcConfig, OlcrtcStatus };
+export type { NaiveConfig, NaiveStatus, OlcrtcConfig, OlcrtcStatus, QwdttConfig, QwdttStatus };
 
 // JSON_HEADERS is load-bearing on every POST (lucx.69 lesson).
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
 
 const NAIVE = '/panel/api/tunnel/naive';
 const OLCRTC = '/panel/api/tunnel/olcrtc';
+const QWDTT = '/panel/api/tunnel/qwdtt';
 
 export const tunnelsApi = {
   status: async (): Promise<Msg<NaiveStatus>> => {
@@ -87,4 +91,27 @@ export const tunnelsApi = {
   },
   olcrtcDeleteBinary: (): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${OLCRTC}/deleteBinary`, {}, JSON_HEADERS),
+
+  qwdttStatus: async (): Promise<Msg<QwdttStatus>> => {
+    const raw = await HttpUtil.get<QwdttStatus>(`${QWDTT}/status`, undefined, { silent: true });
+    return parseMsg(raw, QwdttStatusSchema, 'tunnel/qwdttStatus');
+  },
+  qwdttSaveConfig: async (cfg: QwdttConfig): Promise<Msg<QwdttStatus>> => {
+    const raw = await HttpUtil.post<QwdttStatus>(`${QWDTT}/config`, cfg, JSON_HEADERS);
+    return parseMsg(raw, QwdttStatusSchema, 'tunnel/qwdttSaveConfig');
+  },
+  qwdttStart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${QWDTT}/start`, {}, JSON_HEADERS),
+  qwdttStop: (): Promise<Msg<null>> => HttpUtil.post<null>(`${QWDTT}/stop`, {}, JSON_HEADERS),
+  qwdttRestart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${QWDTT}/restart`, {}, JSON_HEADERS),
+  qwdttLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${QWDTT}/logs?lines=${lines}`),
+  qwdttDownload: (url: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${QWDTT}/download`, { url }, JSON_HEADERS),
+  qwdttUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${QWDTT}/upload`, fd);
+  },
+  qwdttDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${QWDTT}/deleteBinary`, {}, JSON_HEADERS),
 };

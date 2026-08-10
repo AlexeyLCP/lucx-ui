@@ -44,6 +44,7 @@ export const keys = {
     root: () => ['tunnels'] as const,
     naiveStatus: () => ['tunnels', 'naiveStatus'] as const,
     olcrtcStatus: () => ['tunnels', 'olcrtcStatus'] as const,
+    qwdttStatus: () => ['tunnels', 'qwdttStatus'] as const,
   },
   // END LUCX-HOOK
 } as const;

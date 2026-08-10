@@ -27,7 +27,7 @@ func TestNameRegistry(t *testing.T) {
 	if !Olcrtc.Valid() || Olcrtc.DisplayName() != "olcRTC" {
 		t.Errorf("Olcrtc Valid/DisplayName broken: %v %q", Olcrtc.Valid(), Olcrtc.DisplayName())
 	}
-	if got := All(); len(got) != 2 || got[0] != Naive || got[1] != Olcrtc {
+	if got := All(); len(got) != 3 || got[0] != Naive || got[1] != Olcrtc || got[2] != Qwdtt {
 		t.Errorf("All() = %v", got)
 	}
 	if got := Olcrtc.BinaryName(); !strings.HasPrefix(got, "olcrtc-") {

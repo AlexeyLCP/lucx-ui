@@ -9,11 +9,12 @@
 // rather than Xray itself. Cores:
 //   - NaiveProxy — Caddy + klzgrad/forwardproxy (HTTP/2 padding)
 //   - olcRTC — openlibrecommunity/olcrtc (TCP-over-WebRTC via meet rooms)
+//   - qWDTT — SpaceNeuroX wdtt-server (WireGuard over VK TURN)
 //
-// Each core is one supervised process with a panel-rendered config file, an
-// isolated data directory and a health probe (process alive; TCP/TLS when
-// the core listens). Design references: elector1337/3x-ui-naive (Caddyfile
-// pitfalls), Bebrik2283555/Ex3-ui (olcRTC panel integration).
+// Each core is one supervised process with a panel-rendered config file (or
+// CLI args), an isolated data directory and a health probe (process alive;
+// TCP/TLS when the core listens). Design references: elector1337/3x-ui-naive,
+// Bebrik2283555/Ex3-ui (olcRTC / qWDTT panel integration).
 package tunnel
 
 import (
@@ -37,14 +38,20 @@ const Naive Name = "naive"
 // from openlibrecommunity/olcrtc (WTFPL).
 const Olcrtc Name = "olcrtc"
 
+// Qwdtt is the qWDTT core: WireGuard tunnelled through VK Calls TURN
+// relays (SpaceNeuroX/proxy-turn-vk-android server.go, GPL-3.0). Needs
+// root / CAP_NET_ADMIN (creates TUN + MASQUERADE). Binary ships as an
+// external process — not linked into the panel.
+const Qwdtt Name = "qwdtt"
+
 // All returns the supported core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc}
+	return []Name{Naive, Olcrtc, Qwdtt}
 }
 
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
-	return n == Naive || n == Olcrtc
+	return n == Naive || n == Olcrtc || n == Qwdtt
 }
 
 // DisplayName returns the human-readable core name for UI and logs.
@@ -54,6 +61,8 @@ func (n Name) DisplayName() string {
 		return "NaiveProxy"
 	case Olcrtc:
 		return "olcRTC"
+	case Qwdtt:
+		return "qWDTT"
 	default:
 		return string(n)
 	}

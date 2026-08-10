@@ -1962,7 +1962,7 @@
     },
     "tunnels": {
       "title": "Туннельные сайдкары",
-      "subtitle": "Внешние туннельные серверы под надзором панели: NaiveProxy (Caddy + forward_proxy) и olcRTC (WebRTC через meet-комнаты). Трафик по умолчанию независим от Xray; NaiveProxy опционально может идти через Xray.",
+      "subtitle": "Внешние туннельные серверы под надзором панели: NaiveProxy, olcRTC (WebRTC meet-комнаты) и qWDTT (WireGuard через VK TURN).",
       "naive": {
         "status": {
           "running": "Работает",
@@ -2075,6 +2075,64 @@
           "stopped": "olcRTC остановлен",
           "restarted": "olcRTC перезапущен",
           "saved": "Конфиг olcRTC сохранён",
+          "uploaded": "Бинарник загружен",
+          "downloaded": "Бинарник скачан",
+          "deleted": "Бинарник удалён"
+        }
+      },
+      "qwdtt": {
+        "title": "qWDTT",
+        "subtitle": "WireGuard через TURN-релеи VK Calls (SpaceNeuroX wdtt-server). Нужен root / CAP_NET_ADMIN (создаёт TUN + NAT). Клиент: Android APK qWDTT. Оператор обязан передать живые VK call hash.",
+        "rootWarning": "Нужен root (или CAP_NET_ADMIN): бинарник создаёт TUN-интерфейсы и ставит MASQUERADE/FORWARD. Без привилегий не стартанёт.",
+        "status": {
+          "running": "Работает",
+          "stopped": "Остановлен"
+        },
+        "binary": {
+          "title": "Бинарник ядра",
+          "exists": "установлен",
+          "missing": "не установлен",
+          "upload": "Загрузить файл",
+          "download": "Скачать",
+          "delete": "Удалить",
+          "deleteConfirm": "Остановить ядро и удалить бинарник?"
+        },
+        "actions": {
+          "start": "Старт",
+          "stop": "Стоп",
+          "restart": "Рестарт"
+        },
+        "clientUri": "URI подключения qWDTT",
+        "legacyUri": "Legacy URI wdtt://",
+        "subJson": "JSON подписки",
+        "logs": "Логи",
+        "logsTitle": "Логи процесса",
+        "logsEmpty": "Пока нет строк логов.",
+        "form": {
+          "remark": "Заметка",
+          "subHost": "Публичный host:port",
+          "subHostTip": "Адрес, на который звонят клиенты (ваш публичный IP + DTLS-порт), напр. 203.0.113.10:56000. Нужен для share-ссылок.",
+          "listenAddr": "Адрес прослушивания",
+          "listenAddrTip": "DTLS-вход клиентов (host:port). По умолчанию 0.0.0.0:56000.",
+          "wgPort": "Порт WireGuard",
+          "dns": "DNS клиентов",
+          "password": "Главный пароль",
+          "passwordTip": "Общий пароль основного профиля. Пусто — сгенерируется при сохранении.",
+          "vkHashes": "VK call hash",
+          "vkHashesTip": "Живые hash звонков VK через запятую. Звонок должен оставаться открытым («завершить у себя», не «для всех»).",
+          "listenRaw": "Raw-IP listen",
+          "listenRawTip": "Опциональный raw-IP путь без WireGuard (host:port). Пусто — выключен.",
+          "configDir": "Каталог состояния",
+          "configDirTip": "Хранит passwords.json и wg-keys.dat. Пусто = bin/tunnel/qwdtt-data.",
+          "clientPort": "Локальный порт клиента",
+          "workers": "Workers на hash",
+          "save": "Сохранить"
+        },
+        "toasts": {
+          "started": "qWDTT запущен",
+          "stopped": "qWDTT остановлен",
+          "restarted": "qWDTT перезапущен",
+          "saved": "Конфиг qWDTT сохранён",
           "uploaded": "Бинарник загружен",
           "downloaded": "Бинарник скачан",
           "deleted": "Бинарник удалён"

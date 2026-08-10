@@ -213,6 +213,20 @@ jobs:
             mv "/tmp/olcrtc-linux-${{ matrix.platform }}" "olcrtc-linux-${{ matrix.platform }}"
             rm -rf /tmp/olcrtc
           fi
+          # qWDTT (SpaceNeuroX/proxy-turn-vk-android server.go, GPL-3.0) —
+          # WireGuard over VK TURN. Single-file server with many deps; we
+          # ship the prebuilt from Bebrik2283555/Ex3-ui (same binary, renamed
+          # extra-qwdtt → qwdtt-linux-{arch}) so CI does not have to pin a
+          # fragile go.mod. amd64/arm64 only.
+          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
+            EX3_TAG="v1.0"
+            EX3_TGZ="x-ui-linux-${{ matrix.platform }}.tar.gz"
+            fetch -O "${EX3_TGZ}" "https://github.com/Bebrik2283555/Ex3-ui/releases/download/${EX3_TAG}/${EX3_TGZ}"
+            tar -xzf "${EX3_TGZ}" "x-ui/bin/extra-qwdtt"
+            mv x-ui/bin/extra-qwdtt "qwdtt-linux-${{ matrix.platform }}"
+            chmod +x "qwdtt-linux-${{ matrix.platform }}"
+            rm -rf x-ui "${EX3_TGZ}"
+          fi
           # END LUCX-HOOK
           cd ../..
 

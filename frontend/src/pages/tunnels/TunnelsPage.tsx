@@ -46,6 +46,7 @@ import { FormField, useZodForm } from '@/components/form/rhf';
 import { QrPanel } from '@/pages/inbounds/qr';
 import { NaiveConfigSchema, type NaiveConfig, type NaiveStatus } from '@/schemas/tunnel';
 import { OlcrtcCard } from '@/pages/tunnels/OlcrtcCard';
+import { QwdttCard } from '@/pages/tunnels/QwdttCard';
 
 // generateNaivePassword returns 18 random bytes as 24 chars of URL-safe
 // base64 — strong enough for a basic_auth secret, safe in share links.
@@ -508,6 +509,7 @@ export default function TunnelsPage() {
       </Modal>
 
       <OlcrtcCard />
+      <QwdttCard />
     </div>
   );
 }

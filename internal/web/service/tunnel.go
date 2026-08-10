@@ -34,6 +34,7 @@ import (
 const (
 	tunnelNaiveSettingKey  = "lucxTunnel_naive"
 	tunnelOlcrtcSettingKey = "lucxTunnel_olcrtc"
+	tunnelQwdttSettingKey  = "lucxTunnel_qwdtt"
 )
 
 // maxTunnelBinaryDownload caps the binary download (a caddy-naive build is
@@ -382,6 +383,13 @@ func (s *TunnelService) Reconcile() {
 		// logged inside
 	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: olcrtc reconcile failed:", err)
+	}
+	if cfg, err := s.LoadQwdttConfig(); err != nil {
+		logger.Warning("tunnel: qwdtt reconcile load failed:", err)
+	} else if inst, err := s.qwdttInstance(cfg); err != nil {
+		// logged inside
+	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
+		logger.Warning("tunnel: qwdtt reconcile failed:", err)
 	}
 }
 
@@ -781,4 +789,193 @@ func tunnelListenOverlap(a, b string) bool {
 	a = strings.TrimSpace(a)
 	b = strings.TrimSpace(b)
 	return wild(a) || wild(b) || a == b
+}
+
+// --- qWDTT core ------------------------------------------------------------
+
+// QwdttStatus is the full status payload for the qWDTT core.
+type QwdttStatus struct {
+	Core         string             `json:"core"`
+	DisplayName  string             `json:"displayName"`
+	BinaryExists bool               `json:"binaryExists"`
+	BinaryPath   string             `json:"binaryPath"`
+	ClientURI    string             `json:"clientUri"`
+	LegacyURI    string             `json:"legacyUri"`
+	SubJSON      string             `json:"subJson"`
+	Config       tunnel.QwdttConfig `json:"config"`
+	Probe        tunnel.Status      `json:"probe"`
+	LastLog      string             `json:"lastLog"`
+}
+
+// LoadQwdttConfig reads the stored qWDTT config, falling back to defaults.
+func (s *TunnelService) LoadQwdttConfig() (tunnel.QwdttConfig, error) {
+	cfg := tunnel.DefaultQwdttConfig()
+	setting := &model.Setting{}
+	err := database.GetDB().Model(model.Setting{}).
+		Where("key = ?", tunnelQwdttSettingKey).First(setting).Error
+	if database.IsNotFound(err) {
+		return cfg, nil
+	}
+	if err != nil {
+		return cfg, err
+	}
+	if strings.TrimSpace(setting.Value) == "" {
+		return cfg, nil
+	}
+	if err := json.Unmarshal([]byte(setting.Value), &cfg); err != nil {
+		logger.Warning("tunnel: corrupt qwdtt config, using defaults:", err)
+		return tunnel.DefaultQwdttConfig(), nil
+	}
+	return cfg.Merge(), nil
+}
+
+// SaveQwdttConfig validates, persists and applies the config.
+func (s *TunnelService) SaveQwdttConfig(cfg tunnel.QwdttConfig) error {
+	cfg = cfg.Merge()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	cfg, err := cfg.EnsurePassword()
+	if err != nil {
+		return err
+	}
+	if err := s.persistQwdtt(cfg); err != nil {
+		return err
+	}
+	return s.applyQwdtt(cfg)
+}
+
+// StartQwdtt marks the core enabled, persists, and starts it.
+func (s *TunnelService) StartQwdtt() error {
+	cfg, err := s.LoadQwdttConfig()
+	if err != nil {
+		return err
+	}
+	cfg = cfg.Merge()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	cfg, err = cfg.EnsurePassword()
+	if err != nil {
+		return err
+	}
+	cfg.Enabled = true
+	if err := s.persistQwdtt(cfg); err != nil {
+		return err
+	}
+	return s.applyQwdtt(cfg)
+}
+
+// StopQwdtt marks the core disabled, persists, and stops the process.
+func (s *TunnelService) StopQwdtt() error {
+	cfg, err := s.LoadQwdttConfig()
+	if err != nil {
+		return err
+	}
+	cfg.Enabled = false
+	if err := s.persistQwdtt(cfg); err != nil {
+		return err
+	}
+	return tunnel.GetManager().Stop(tunnel.Qwdtt)
+}
+
+// RestartQwdtt forces a fresh start with the stored config.
+func (s *TunnelService) RestartQwdtt() error {
+	cfg, err := s.LoadQwdttConfig()
+	if err != nil {
+		return err
+	}
+	cfg = cfg.Merge()
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	cfg, err = cfg.EnsurePassword()
+	if err != nil {
+		return err
+	}
+	cfg.Enabled = true
+	if err := s.persistQwdtt(cfg); err != nil {
+		return err
+	}
+	if err := tunnel.GetManager().Stop(tunnel.Qwdtt); err != nil {
+		logger.Warning("tunnel: qwdtt restart stop failed:", err)
+	}
+	return s.applyQwdtt(cfg)
+}
+
+// QwdttStatus assembles the status payload.
+func (s *TunnelService) QwdttStatus() (QwdttStatus, error) {
+	cfg, err := s.LoadQwdttConfig()
+	if err != nil {
+		return QwdttStatus{}, err
+	}
+	inst, err := s.qwdttInstance(cfg)
+	if err != nil {
+		return QwdttStatus{}, err
+	}
+	mgr := tunnel.GetManager()
+	bin := tunnel.Qwdtt.BinaryPath()
+	info, statErr := os.Stat(bin)
+	subJSON, _ := cfg.SubscriptionJSON()
+	return QwdttStatus{
+		Core:         string(tunnel.Qwdtt),
+		DisplayName:  tunnel.Qwdtt.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		ClientURI:    cfg.ClientURI(),
+		LegacyURI:    cfg.LegacyURI(),
+		SubJSON:      subJSON,
+		Config:       cfg,
+		Probe:        mgr.StatusOf(inst),
+		LastLog:      mgr.LastLog(tunnel.Qwdtt),
+	}, nil
+}
+
+// QwdttLogs returns the most recent output lines of the core process.
+func (s *TunnelService) QwdttLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().Logs(tunnel.Qwdtt, lines)
+}
+
+// DeleteQwdttBinary stops the core and removes its binary from disk.
+func (s *TunnelService) DeleteQwdttBinary() error {
+	if err := tunnel.GetManager().Stop(tunnel.Qwdtt); err != nil {
+		logger.Warning("tunnel: stop before qwdtt binary delete failed:", err)
+	}
+	if err := os.Remove(tunnel.Qwdtt.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DownloadQwdttBinary fetches the core binary from a URL into place.
+func (s *TunnelService) DownloadQwdttBinary(downloadURL string) error {
+	return s.downloadBinaryTo(tunnel.Qwdtt.BinaryPath(), downloadURL)
+}
+
+func (s *TunnelService) persistQwdtt(cfg tunnel.QwdttConfig) error {
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return s.saveSetting(tunnelQwdttSettingKey, string(raw))
+}
+
+func (s *TunnelService) applyQwdtt(cfg tunnel.QwdttConfig) error {
+	inst, err := s.qwdttInstance(cfg)
+	if err != nil {
+		return err
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (s *TunnelService) qwdttInstance(cfg tunnel.QwdttConfig) (tunnel.Instance, error) {
+	// ProbePort 0: DTLS is UDP; process-alive is the only reliable signal.
+	return tunnel.Instance{
+		Core:    tunnel.Qwdtt,
+		Enabled: cfg.Enabled,
+		Args:    cfg.BuildArgs(),
+	}, nil
 }

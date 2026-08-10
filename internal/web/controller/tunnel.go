@@ -79,6 +79,18 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	olcrtc.POST("/upload", a.olcrtcUploadBinary)
 	olcrtc.POST("/download", a.olcrtcDownloadBinary)
 	olcrtc.POST("/deleteBinary", a.olcrtcDeleteBinary)
+
+	qwdtt := g.Group("/qwdtt")
+	qwdtt.GET("/status", a.qwdttStatus)
+	qwdtt.GET("/config", a.qwdttGetConfig)
+	qwdtt.POST("/config", a.qwdttSaveConfig)
+	qwdtt.POST("/start", a.qwdttStart)
+	qwdtt.POST("/stop", a.qwdttStop)
+	qwdtt.POST("/restart", a.qwdttRestart)
+	qwdtt.GET("/logs", a.qwdttLogs)
+	qwdtt.POST("/upload", a.qwdttUploadBinary)
+	qwdtt.POST("/download", a.qwdttDownloadBinary)
+	qwdtt.POST("/deleteBinary", a.qwdttDeleteBinary)
 }
 
 func (a *TunnelController) status(c *gin.Context) {
@@ -346,4 +358,110 @@ func (a *TunnelController) olcrtcDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.olcrtc.toasts.deleted"), nil)
+}
+
+// --- qWDTT ----------------------------------------------------------------
+
+func (a *TunnelController) qwdttStatus(c *gin.Context) {
+	st, err := a.svc.QwdttStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: qwdtt status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) qwdttGetConfig(c *gin.Context) {
+	cfg, err := a.svc.LoadQwdttConfig()
+	if err != nil {
+		jsonMsg(c, "tunnel: qwdtt config load failed", err)
+		return
+	}
+	jsonObj(c, cfg, nil)
+}
+
+func (a *TunnelController) qwdttSaveConfig(c *gin.Context) {
+	cfg := tunnel.DefaultQwdttConfig()
+	if err := c.ShouldBindJSON(&cfg); err != nil {
+		jsonMsg(c, "tunnel: invalid qwdtt config body", err)
+		return
+	}
+	if err := a.svc.SaveQwdttConfig(cfg); err != nil {
+		jsonMsg(c, "tunnel: qwdtt config save failed", err)
+		return
+	}
+	st, err := a.svc.QwdttStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: qwdtt status after save failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) qwdttStart(c *gin.Context) {
+	err := a.svc.StartQwdtt()
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.started"), err)
+}
+
+func (a *TunnelController) qwdttStop(c *gin.Context) {
+	err := a.svc.StopQwdtt()
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.stopped"), err)
+}
+
+func (a *TunnelController) qwdttRestart(c *gin.Context) {
+	err := a.svc.RestartQwdtt()
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.restarted"), err)
+}
+
+func (a *TunnelController) qwdttLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.QwdttLogs(lines), nil)
+}
+
+func (a *TunnelController) qwdttUploadBinary(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		jsonMsg(c, "tunnel: qwdtt upload failed", err)
+		return
+	}
+	dst := tunnel.Qwdtt.BinaryPath()
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		logger.Warning("tunnel: save uploaded qwdtt binary failed:", err)
+		jsonMsg(c, "tunnel: qwdtt upload failed", err)
+		return
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(dst, 0o755); err != nil {
+			logger.Warning("tunnel: chmod uploaded qwdtt binary failed:", err)
+		}
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) qwdttDownloadBinary(c *gin.Context) {
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid qwdtt download body", err)
+		return
+	}
+	if err := a.svc.DownloadQwdttBinary(body.URL); err != nil {
+		jsonMsg(c, "tunnel: qwdtt download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) qwdttDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteQwdttBinary(); err != nil {
+		jsonMsg(c, "tunnel: qwdtt binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.deleted"), nil)
 }
