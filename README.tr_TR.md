@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined TR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Gelişmiş Xray ve AmneziaWG kontrol paneli** — birleşik abonelikler, çoklu sunucu yönetimi ve yerel AWG desteğiyle.
+> **Gelişmiş Xray paneli** — yerel AmneziaWG, denetimli tüneller (NaiveProxy · olcRTC · qWDTT), Clash / Amnezia `vpn://` / Happ abonelikleri, geodata browser ve RoscomVPN yönlendirme.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,7 +62,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Neden LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve 3x-ui'de bulunmayan **yerel AmneziaWG (AWG)** — sansüre dirençli bir WireGuard fork'u — ekler:
+[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve upstream'de olmayanları ekler: **yerel AmneziaWG (AWG)**, **tünel sidecar'ları** (NaiveProxy · olcRTC · qWDTT), **zengin abonelikler** (Clash Meta AWG, Amnezia `vpn://`, Happ) ve **geodata araçları** (panel browser + RoscomVPN paketleri):
 
 | Özellik | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -94,7 +94,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 
 ## 🌟 LucX-UI Hakkında
 
-**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun (şu anda üst **v3.6.0** sürümüyle senkronize) yerel **AmneziaWG (AWG)** desteğini, üst MTProto mimarisini yansıtan bir çekirdek arabirimi sidecar'ı olarak ekleyen geliştirilmiş bir fork'udur. Katı `LUCX-HOOK` kod izolasyonu ile %100 üst uyumluluğunu korur.
+**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.6.0** ile senkron). Stok Xray protokollerinin ötesinde: yerel **AmneziaWG** (çekirdek sidecar, MTProto/`mtg` ile aynı fikir), panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ) ve RoscomVPN listeli **geodata browser**. Katı `LUCX-HOOK` ile %100 upstream uyumu.
 
 ### 🛡️ AmneziaWG (AWG) Özellikleri
 - **AWG Inbound & Outbound** — Çekirdek sidecar'ı (`awg-quick`), üst AWG sunucularına istemci modunda bağlanma (`awgo-{id}`), 10 saniyelik otomatik uzlaştırma döngüsü ve DKMS modül derleyicisi.

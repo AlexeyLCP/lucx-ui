@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined FA README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **پنل مدیریت پیشرفته Xray و AmneziaWG** — با سابسکریپشن‌های یکپارچه، مدیریت چند سرور و پشتیبانی بومی از AWG.
+> **پنل پیشرفته Xray** — AmneziaWG بومی، تونل‌های تحت نظارت (NaiveProxy · olcRTC · qWDTT)، اشتراک Clash / Amnezia `vpn://` / Happ، geodata browser و مسیریابی RoscomVPN.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,7 +62,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ چرا LucX-UI؟
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) یک پنل چندپروتکله عالی با فرانت‌اند مدرن React 19 + Ant Design 6 است. LucX-UI تمام آنچه 3x-ui ارائه می‌دهد را حفظ کرده و **پشتیبانی بومی AmneziaWG (AWG)** — یک فورک مقاوم در برابر سانسور از WireGuard — را اضافه می‌کند که 3x-ui آن را ندارد:
+[3x-ui](https://github.com/MHSanaei/3x-ui) یک پنل چندپروتکله عالی با فرانت‌اند React 19 + Ant Design 6 است. LucX-UI همهٔ قابلیت‌های 3x-ui را نگه می‌دارد و آنچه upstream ندارد را اضافه می‌کند: **AmneziaWG (AWG) بومی**، **سایدی‌کارهای تونل** (NaiveProxy · olcRTC · qWDTT)، **اشتراک‌های غنی‌تر** (Clash Meta AWG، Amnezia `vpn://`، Happ) و **ابزار geodata** (مرورگر در پنل + بسته‌های RoscomVPN):
 
 | ویژگی | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -94,7 +94,7 @@ docker compose --profile postgres up -d
 
 ## 🌟 درباره LucX-UI
 
-**LucX-UI** یک فورک ارتقایافته از [3x-ui](https://github.com/MHSanaei/3x-ui) (در حال حاضر با **v3.6.0** بالا‌دست همگام است) است که پشتیبانی بومی **AmneziaWG (AWG)** را به‌عنوان یک سایدی‌کار رابط کرنل اضافه می‌کند و معماری MTProto بالا‌دست را بازتاب می‌دهد. این پروژه با ایزوله‌سازی سخت‌گیرانه کد `LUCX-HOOK`، سازگاری ۱۰۰٪ با بالا‌دست را حفظ می‌کند.
+**LucX-UI** فورک ارتقایافتهٔ [3x-ui](https://github.com/MHSanaei/3x-ui) است (همگام با upstream **v3.6.0**). فراتر از پروتکل‌های Xray استوک: **AmneziaWG** بومی (سایدی‌کار کرنل، همان ایدهٔ MTProto/`mtg`)، **تونل‌های تحت نظارت پنل** (NaiveProxy، olcRTC، qWDTT)، **اشتراک‌های گسترش‌یافته** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و **geodata browser** با لیست‌های RoscomVPN. سازگاری ۱۰۰٪ با upstream از طریق ایزولهٔ `LUCX-HOOK`.
 
 ### 🛡️ ویژگی‌های AmneziaWG (AWG)
 - **ورودی‌ها و خروجی‌های AWG** — سایدی‌کار کرنل (`awg-quick`)، شماره‌گیری حالت کلاینت به سرورهای AWG بالا‌دستی (`awgo-{id}`)، حلقه همگام‌سازی اتوماتیک ۱۰ ثانیه‌ای، و سازنده ماژول کرنل DKMS.

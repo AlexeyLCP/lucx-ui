@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined AR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **لوحة تحكم متقدمة لـ Xray و AmneziaWG** — مع اشتراكات موحّدة، وإدارة متعددة الخوادم، ودعم أصلي لـ AWG.
+> **لوحة Xray متقدمة** — AmneziaWG أصلي، أنفاق تحت الإشراف (NaiveProxy · olcRTC · qWDTT)، اشتراكات Clash / Amnezia `vpn://` / Happ، متصفح geodata وتوجيه RoscomVPN.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,7 +62,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ لماذا LucX-UI؟
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) لوحة متعددة البروتوكولات ممتازة بواجهة أمامية حديثة React 19 + Ant Design 6. يحافظ LucX-UI على كل ما يقدمه 3x-ui ويضيف **دعماً أصلياً لـ AmneziaWG (AWG)** — وهي نسخة مقاومة للحجب من WireGuard — غير المتوفرة في 3x-ui:
+[3x-ui](https://github.com/MHSanaei/3x-ui) لوحة متعددة البروتوكولات ممتازة بواجهة React 19 + Ant Design 6. يحافظ LucX-UI على كل ما في 3x-ui ويضيف ما لا يملكه upstream: **AmneziaWG (AWG) أصلي**، **sidecars للأنفاق** (NaiveProxy · olcRTC · qWDTT)، **اشتراكات أوسع** (Clash Meta AWG، Amnezia `vpn://`، Happ) و**أدوات geodata** (متصفح في اللوحة + حزم RoscomVPN):
 
 | الميزة | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -94,7 +94,7 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 
 ## 🌟 حول LucX-UI
 
-**LucX-UI** نسخة مفرعة ومتطورة من [3x-ui](https://github.com/MHSanaei/3x-ui) (متزامنة حالياً مع **v3.6.0** upstream) تضيف دعماً أصلياً لـ **AmneziaWG (AWG)** كـ sidecar لواجهة النواة، محاكيةً بنية MTProto upstream. يحافظ على توافق 100% مع upstream عبر عزل صارم للكود ضمن `LUCX-HOOK`.
+**LucX-UI** نسخة محسّنة من [3x-ui](https://github.com/MHSanaei/3x-ui) (متزامنة مع upstream **v3.6.0**). فوق بروتوكولات Xray الافتراضية: **AmneziaWG** أصلي (sidecar للنواة كـ MTProto/`mtg`)، **أنفاق تحت إشراف اللوحة** (NaiveProxy، olcRTC، qWDTT)، **اشتراكات موسّعة** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و**geodata browser** مع قوائم RoscomVPN. توافق 100% مع upstream عبر عزل `LUCX-HOOK`.
 
 ### 🛡️ ميزات AmneziaWG (AWG)
 - **AWG Inbounds & Outbounds** — Sidecar للنواة (`awg-quick`)، اتصال بوضع العميل إلى سيرفرات AWG الرئيسية (`awgo-{id}`)، حلقة توفيق تلقائية كل 10 ثوانٍ، ومثبت موديل النواة عبر DKMS.

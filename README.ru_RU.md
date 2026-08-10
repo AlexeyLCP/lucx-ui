@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined RU README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Продвинутая панель управления Xray и AmneziaWG** — с едиными подписками, управлением несколькими серверами и нативной поддержкой AWG.
+> **Продвинутая панель Xray** — нативный AmneziaWG, туннельные сайдкары (NaiveProxy · olcRTC · qWDTT), подписки Clash / Amnezia `vpn://` / Happ, geodata browser и RoscomVPN routing.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,7 +62,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Почему LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) — отличная мультипротокольная панель с современным React 19 + Ant Design 6 фронтендом. LucX-UI сохраняет всё, что есть у 3x-ui, и добавляет **нативный AmneziaWG (AWG)** — устойчивый к блокировкам форк WireGuard, — которого у 3x-ui нет:
+[3x-ui](https://github.com/MHSanaei/3x-ui) — отличная мультипротокольная панель с современным React 19 + Ant Design 6 фронтендом. LucX-UI сохраняет всё, что есть у 3x-ui, и добавляет то, чего у апстрима нет: **нативный AmneziaWG (AWG)**, **туннельные сайдкары** (NaiveProxy · olcRTC · qWDTT), **расширенные подписки** (Clash Meta AWG, Amnezia `vpn://`, Happ) и **geodata-инструменты** (браузер в панели + пакеты RoscomVPN):
 
 | Возможность | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -94,7 +94,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 
 ## 🌟 О проекте LucX-UI
 
-**LucX-UI** — это расширенный форк [3x-ui](https://github.com/MHSanaei/3x-ui) (на данный момент синхронизирован с upstream **v3.6.0**), добавляющий нативную поддержку **AmneziaWG (AWG)** в виде kernel-interface sidecar, зеркалируя архитектуру MTProto у upstream. Панель сохраняет 100% совместимость с upstream за счёт строгой изоляции кода через `LUCX-HOOK`.
+**LucX-UI** — расширенный форк [3x-ui](https://github.com/MHSanaei/3x-ui) (сейчас синхронизирован с upstream **v3.6.0**). Поверх стоковых протоколов Xray: нативный **AmneziaWG** (kernel sidecar, по той же схеме что MTProto/`mtg` у апстрима), **туннельные сайдкары** под надзором панели (NaiveProxy, olcRTC, qWDTT), расширенные **подписки** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing) и **geodata browser** со стоком RoscomVPN. 100% совместимость с upstream через строгую изоляцию `LUCX-HOOK`.
 
 ### 🛡️ Возможности AmneziaWG (AWG)
 - **AWG Inbounds & Outbounds** — kernel sidecar (`awg-quick`), клиентский режим dial-out к upstream AWG-серверам (`awgo-{id}`), цикл автоматического reconcile каждые 10 секунд и сборщик DKMS kernel-модуля.

@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined EN README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Advanced Xray & AmneziaWG control panel** — with unified subscriptions, multi-server management and native AWG support.
+> **Advanced Xray control panel** — native AmneziaWG, supervised tunnels (NaiveProxy · olcRTC · qWDTT), Clash / Amnezia `vpn://` / Happ subscriptions, geodata browser & RoscomVPN routing.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,7 +62,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Why LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) is an excellent multi-protocol panel with a modern React 19 + Ant Design 6 frontend. LucX-UI keeps everything 3x-ui offers and adds **native AmneziaWG (AWG)** — a censorship-resistant WireGuard fork — which 3x-ui does not have:
+[3x-ui](https://github.com/MHSanaei/3x-ui) is an excellent multi-protocol panel with a modern React 19 + Ant Design 6 frontend. LucX-UI keeps everything 3x-ui offers and adds what upstream does not: **native AmneziaWG (AWG)**, **tunnel sidecars** (NaiveProxy · olcRTC · qWDTT), **richer subscriptions** (Clash Meta AWG, Amnezia `vpn://`, Happ), and **geodata tools** (in-panel browser + RoscomVPN packs):
 
 | Feature | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -94,7 +94,7 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 
 ## 🌟 About LucX-UI
 
-**LucX-UI** is an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently synced to upstream **v3.6.0**) that adds native **AmneziaWG (AWG)** support as a kernel-interface sidecar, mirroring upstream's MTProto architecture. It keeps 100% upstream compatibility through strict `LUCX-HOOK` code isolation.
+**LucX-UI** is an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently synced to upstream **v3.6.0**). Beyond stock Xray protocols it adds native **AmneziaWG** (kernel sidecar, same idea as upstream MTProto/`mtg`), panel-supervised **tunnel sidecars** (NaiveProxy, olcRTC, qWDTT), extended **subscriptions** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), and a **geodata browser** with stock RoscomVPN lists. 100% upstream compatibility via strict `LUCX-HOOK` isolation.
 
 ### 🛡️ AmneziaWG (AWG) Features
 - **AWG Inbounds & Outbounds** — Kernel sidecar (`awg-quick`), client mode dial-out to upstream AWG servers (`awgo-{id}`), 10-second automatic reconcile loop, and DKMS kernel module builder.

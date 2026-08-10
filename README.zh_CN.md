@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined ZH README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **高级 Xray 与 AmneziaWG 控制面板** — 集统一订阅、多服务器管理与原生 AWG 支持于一体。
+> **高级 Xray 控制面板** — 原生 AmneziaWG、受监管隧道（NaiveProxy · olcRTC · qWDTT）、Clash / Amnezia `vpn://` / Happ 订阅、geodata browser 与 RoscomVPN 路由。
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,7 +62,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ 为什么选择 LucX-UI？
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) 是一款出色的多协议面板，前端采用现代化的 React 19 + Ant Design 6。LucX-UI 保留了 3x-ui 的全部功能，并加入了 **原生 AmneziaWG (AWG)** —— 一个抗审查的 WireGuard 分叉 —— 而 3x-ui 并不具备：
+[3x-ui](https://github.com/MHSanaei/3x-ui) 是一款出色的多协议面板，前端采用现代化的 React 19 + Ant Design 6。LucX-UI 保留 3x-ui 的全部能力，并补充上游没有的部分：**原生 AmneziaWG (AWG)**、**隧道 Sidecar**（NaiveProxy · olcRTC · qWDTT）、**更丰富的订阅**（Clash Meta AWG、Amnezia `vpn://`、Happ）以及 **geodata 工具**（面板内浏览器 + RoscomVPN 数据包）：
 
 | 特性 | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -94,7 +94,7 @@ docker compose --profile postgres up -d
 
 ## 🌟 关于 LucX-UI
 
-**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（当前已同步至上游 **v3.6.0**），以内核接口 Sidecar 的形式原生集成 **AmneziaWG (AWG)** 支持，镜像了上游 MTProto 的架构。它通过严格的 `LUCX-HOOK` 代码隔离，保持与上游 100% 兼容。
+**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（已同步上游 **v3.6.0**）。在原有 Xray 协议之外提供：原生 **AmneziaWG**（内核 Sidecar，思路同 MTProto/`mtg`）、面板监管的 **隧道**（NaiveProxy、olcRTC、qWDTT）、扩展 **订阅**（Clash Meta AWG、Amnezia `/awg/` + `vpn://`、Happ）以及带 RoscomVPN 列表的 **geodata browser**。通过严格 `LUCX-HOOK` 隔离保持与上游 100% 兼容。
 
 ### 🛡️ AmneziaWG (AWG) 特性
 - **AWG 入站与出站** —— 内核 Sidecar (`awg-quick`)、客户端模式连接上游 AWG 服务器 (`awgo-{id}`)、10 秒自动协调循环及 DKMS 内核模块构建器。
