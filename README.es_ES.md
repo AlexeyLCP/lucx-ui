@@ -72,6 +72,8 @@ docker compose --profile postgres up -d
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
 | Presets de versión de configuración cliente (1.5 / 2 / 3) | ✗ | ✓ |
 | Diagnóstico AWG en panel (enrutamiento / NAT / peers / handshakes) | ✗ | ✓ |
+| Sidecar de túnel NaiveProxy (Caddy + forward_proxy, supervisado) | ✗ | ✓ |
+| Credenciales NaiveProxy por cliente + `naive+https://` en suscripciones | ✗ | ✓ |
 | Enlaces outbound de clúster inteligente | ✗ | ✓ |
 | Frontend React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (heredado) |
 | Todos los protocolos Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -92,6 +94,13 @@ Un sidecar de kernel (como el `mtg` de MTProto en 3x-ui) significa que AWG se ej
 - **Presets de Versión de Cliente** — Genere configs de cliente para AWG 1.5 / 2 / 3 desde un solo inbound — elija el formato que su app cliente entienda.
 - **Captura de Firma en Vivo** — Convierte saludos QUIC reales de dominios frontales en parámetros I1–I5.
 - **Enrutamiento y Diagnóstico** — Dos modos (Kernel NAT y Route through Xray con policy routing y sniffing) + diagnóstico en panel con un solo clic.
+
+### 🚇 Sidecars de túnel (NaiveProxy)
+- **NaiveProxy** — Caddy con el plugin `forward_proxy` (fork de [klzgrad](https://github.com/klzgrad/forwardproxy), padding HTTP/2) se ejecuta como sidecar supervisado por el panel: Caddyfile renderizado, start/stop/restart con reconcile de recuperación ante caídas y sonda de salud de tres niveles (process → TCP → TLS).
+- **Credenciales por cliente** — cada cliente habilitado del panel obtiene automáticamente un par `basic_auth` personal (derivado del secreto del panel, sin almacenamiento); deshabilitar un cliente lo revoca en el siguiente reconcile.
+- **Suscripciones** — la suscripción de cada cliente incluye su enlace personal `naive+https://` junto a los de Xray/AWG (formato estándar de NekoBox / husi / Exclave), más código QR y generador de contraseñas fuertes en el panel.
+- **UX del panel** — Auto TLS (Let's Encrypt) o su propio cert/key, modo raw-Caddyfile con validación `caddy adapt`, vista previa del Caddyfile, logs del proceso, upload/download del binario.
+- El tráfico bypasea Xray por diseño (TLS y credenciales propios) — un complemento de camuflaje a AWG y REALITY, no un destino de enrutamiento.
 
 ### 🚀 Características Base de 3x-ui
 - **Protocolos:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -142,7 +151,7 @@ Este proyecto se publica bajo **dos licencias** (detalles en [LICENSING.md](LICE
 ## 🤝 Agradecimientos y Créditos
 
 - **Probadores y Colaboradores:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, el equipo de **3x-ui**.
-- **Proyectos e Inspiración:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+- **Proyectos e Inspiración:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (sidecar de túnel NaiveProxy), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (referencia de diseño de integración Caddyfile), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (referencia del concepto de sidecar de túnel: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
 
 ---
 

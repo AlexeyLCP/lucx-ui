@@ -72,6 +72,8 @@ docker compose --profile postgres up -d
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
 | پیش‌تنظیم‌های نسخه کانفیگ کلاینت (1.5 / 2 / 3) | ✗ | ✓ |
 | عیب‌یابی AWG درون پنل (مسیریابی / NAT / همتاها / دست‌دادن‌ها) | ✗ | ✓ |
+| سایدی‌کار تونل NaiveProxy (Caddy + forward_proxy، تحت نظارت پنل) | ✗ | ✓ |
+| اعتبارنامه‌های per-client NaiveProxy + `naive+https://` در اشتراک‌ها | ✗ | ✓ |
 | لینک‌های خروجی Smart Cluster | ✗ | ✓ |
 | فرانت‌اند React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (به ارث رسیده) |
 | تمام پروتکل‌های Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -92,6 +94,13 @@ docker compose --profile postgres up -d
 - **پیش‌تنظیم‌های نسخه کلاینت** — تولید کانفیگ کلاینت برای AWG 1.5 / 2 / 3 از یک ورودی واحد — فرمتی که اپ کلاینت شما می‌فهمد را انتخاب کنید.
 - **استخراج امضای زنده** — تبدیل دست‌دادن‌های واقعی QUIC از دامنه‌های فرانت به پارامترهای مخفی‌سازی I1–I5.
 - **مسیریابی و عیب‌یابی** — دو حالت مسیریابی (Kernel NAT و Route through Xray با مسیریابی سیاست و شنود) + عیب‌یابی تک‌کلیکه درون پنل.
+
+### 🚇 سایدی‌کارهای تونل (NaiveProxy)
+- **NaiveProxy** — Caddy با افزونهٔ `forward_proxy` (فورک [klzgrad](https://github.com/klzgrad/forwardproxy)، padding مربوط به HTTP/2) به‌عنوان سایدی‌کار تحت نظارت پنل اجرا می‌شود: Caddyfile رندر‌شده، start/stop/restart با reconcile احیای پس از کرش، و پروب سلامت سه‌سطحی (process → TCP → TLS).
+- **اعتبارنامه‌های per-client** — هر کلاینت فعال پنل به‌طور اتوماتیک یک جفت شخصی `basic_auth` می‌گیرد (مشتق از راز پنل، بدون ذخیره‌سازی)؛ غیرفعال‌کردن کلاینت در reconcile بعدی آن را باطل می‌کند.
+- **اشتراک‌ها** — اشتراک هر کلاینت لینک شخصی `naive+https://` او را در کنار لینک‌های Xray/AWG حمل می‌کند (فرمت استاندارد NekoBox / husi / Exclave)، به‌علاوه کد QR و تولیدکنندهٔ رمز عبور قوی در پنل.
+- **UX پنل** — Auto TLS (Let's Encrypt) یا cert/key خودتان، حالت raw-Caddyfile با اعتبارسنجی `caddy adapt`، پیش‌نمایش Caddyfile، لاگ‌های فرایند، آپلود/دانلود باینری.
+- ترافیک بنا به طراحی از Xray عبور نمی‌کند (TLS و اعتبارنامه‌های مستقل) — مکمل استتار برای AWG و REALITY، نه هدف مسیریابی.
 
 ### 🚀 ویژگی‌های اصلی 3x-ui
 - **پروتکل‌ها:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -142,7 +151,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ## 🤝 قدردانی و اعتبارها
 
 - **تست‌کنندگان و مشارکت‌کنندگان:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, تیم **3x-ui**.
-- **پروژه‌ها و الهام‌بخش‌ها:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+- **پروژه‌ها و الهام‌بخش‌ها:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (سایدی‌کار تونل NaiveProxy), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (مرجع طراحی یکپارچه‌سازی Caddyfile), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (مرجع مفهوم سایدی‌کار تونل: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
 
 ---
 

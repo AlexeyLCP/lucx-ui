@@ -72,6 +72,8 @@ docker compose --profile postgres up -d
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
 | 客户端配置版本预设 (1.5 / 2 / 3) | ✗ | ✓ |
 | 面板内 AWG 诊断（路由 / NAT / peers / 握手） | ✗ | ✓ |
+| NaiveProxy 隧道 Sidecar（Caddy + forward_proxy，面板监管） | ✗ | ✓ |
+| 每客户端 NaiveProxy 凭证 + 订阅中的 `naive+https://` | ✗ | ✓ |
 | 智能集群 outbound 链接 | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 前端 | ✓ | ✓（继承） |
 | 所有 Xray 协议（VLESS / VMess / Trojan / Shadowsocks / ...） | ✓ | ✓ |
@@ -92,6 +94,13 @@ docker compose --profile postgres up -d
 - **客户端版本预设** —— 从单个入站为 AWG 1.5 / 2 / 3 生成客户端配置，挑选您的客户端应用可识别的格式。
 - **真实签名抓取 (Live Capture)** —— 将真实域名的 QUIC 握手实时转换为 I1–I5 混淆参数。
 - **路由与诊断** —— 双路由模式 (Kernel NAT 与带策略路由及 sniffing 的 Route through Xray) + 面板内一键诊断。
+
+### 🚇 隧道 Sidecar（NaiveProxy）
+- **NaiveProxy** —— 带 `forward_proxy` 插件的 Caddy（[klzgrad](https://github.com/klzgrad/forwardproxy) 分叉，HTTP/2 padding）作为面板监管的 Sidecar 运行：渲染 Caddyfile、start/stop/restart 与崩溃自愈 reconcile，以及三级健康探测（process → TCP → TLS）。
+- **每客户端凭证** —— 每个已启用的面板客户端自动获得个人 `basic_auth` 凭据对（由面板密钥派生，不落库）；禁用客户端会在下一次 reconcile 时吊销。
+- **订阅** —— 每个客户端的订阅除 Xray/AWG 外还携带其个人 `naive+https://` 链接（NekoBox / husi / Exclave 标准格式），面板内另有二维码与强密码生成器。
+- **面板 UX** —— Auto TLS（Let's Encrypt）或自有证书/密钥、带 `caddy adapt` 校验的 raw-Caddyfile 模式、Caddyfile 预览、进程日志、二进制上传/下载。
+- 流量按设计绕过 Xray（独立 TLS + 凭证）—— 是 AWG 与 REALITY 的伪装补充，而非路由目标。
 
 ### 🚀 3x-ui 核心特性
 - **协议支持：** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN。
@@ -142,7 +151,7 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 ## 🤝 致谢与来源
 
 - **测试者与贡献者：** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, **3x-ui 团队**。
-- **项目与灵感：** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls)。
+- **项目与灵感：** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy)（NaiveProxy 隧道 Sidecar）, [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive)（Caddyfile 集成设计参考）, [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui)（隧道 Sidecar 概念参考：qWDTT / olcRTC）, [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls)。
 
 ---
 

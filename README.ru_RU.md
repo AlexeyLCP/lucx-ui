@@ -72,6 +72,8 @@ docker compose --profile postgres up -d
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
 | Пресеты версий клиентских конфигов (1.5 / 2 / 3) | ✗ | ✓ |
 | Диагностика AWG из панели (routing / NAT / peers / handshakes) | ✗ | ✓ |
+| Туннельный сайдкар NaiveProxy (Caddy + forward_proxy, под надзором панели) | ✗ | ✓ |
+| Per-client креды NaiveProxy + `naive+https://` в подписках | ✗ | ✓ |
 | Smart Cluster outbound-связи | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 фронтенд | ✓ | ✓ (inherited) |
 | Все протоколы Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -92,6 +94,13 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **Пресеты версий клиентов** — генерация клиентских конфигов для AWG 1.5 / 2 / 3 из одного inbound — выберите формат, который понимает ваше клиентское приложение.
 - **Live Signature Capture** — преобразование реальных QUIC-handshake'ов с front-доменов в параметры обфускации I1–I5.
 - **Маршрутизация и диагностика** — двойной режим маршрутизации (Kernel NAT и Route through Xray с policy routing и sniffing'ом) + однокликовая диагностика из панели.
+
+### 🚇 Туннельные сайдкары (NaiveProxy)
+- **NaiveProxy** — Caddy с плагином `forward_proxy` (форк [klzgrad](https://github.com/klzgrad/forwardproxy), HTTP/2 padding) работает как сайдкар под надзором панели: рендер Caddyfile, start/stop/restart с crash-revive reconcile и трёхуровневым health-probe (process → TCP → TLS).
+- **Per-client креды** — каждый включённый клиент панели автоматически получает личную пару `basic_auth` (выводится из секрета панели, ничего не хранится); disable клиента отзывает креды на следующем reconcile.
+- **Подписки** — в подписке каждого клиента его личная ссылка `naive+https://` рядом с Xray/AWG (стандарт NekoBox / husi / Exclave), плюс QR-код и генератор сильного пароля в панели.
+- **UX панели** — Auto TLS (Let's Encrypt) или свой cert/key, raw-Caddyfile режим с валидацией `caddy adapt`, preview Caddyfile, логи процесса, upload/download бинарника.
+- Трафик по дизайну идёт мимо Xray (собственный TLS + креды) — камуфляжное дополнение к AWG и REALITY, а не цель маршрутизации.
 
 ### 🚀 Базовые фичи 3x-ui
 - **Протоколы:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -142,7 +151,7 @@ AWG kernel-модуль собирается автоматически уста
 ## 🤝 Благодарности и источники
 
 - **Тестировщики и контрибьюторы:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, команда **3x-ui**.
-- **Проекты и вдохновение:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+- **Проекты и вдохновение:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (туннельный сайдкар NaiveProxy), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (референс интеграции Caddyfile), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (референс концепции туннельных сайдкаров: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
 
 ---
 

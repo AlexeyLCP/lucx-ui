@@ -72,6 +72,8 @@ docker compose --profile postgres up -d
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
 | إعدادات إصدار إعداد العميل المسبقة (1.5 / 2 / 3) | ✗ | ✓ |
 | تشخيص AWG داخل اللوحة (التوجيه / NAT / الأقران / المصافحات) | ✗ | ✓ |
+| Sidecar نفق NaiveProxy (Caddy + forward_proxy، تحت إشراف اللوحة) | ✗ | ✓ |
+| بيانات اعتماد NaiveProxy لكل عميل + `naive+https://` في الاشتراكات | ✗ | ✓ |
 | روابط outbound الذكية للـ Cluster | ✗ | ✓ |
 | واجهة أمامية React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (موروث) |
 | جميع بروتوكولات Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -92,6 +94,13 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 - **إعدادات إصدار العميل المسبقة** — إنشاء إعدادات العميل لـ AWG 1.5 / 2 / 3 من inbound واحد — اختر الصيغة التي تفهمها تطبيقة عميلك.
 - **التقاط التوقيع المباشر** — تحويل مصافحات QUIC الحقيقية من نطاقات front إلى قيم تعتيم I1–I5.
 - **التوجيه والتشخيص** — نمطا توجيه (Kernel NAT و Route through Xray مع توجيه السياسات والشمّ) + تشخيص بنقرة واحدة من داخل اللوحة.
+
+### 🚇 Sidecar-ات الأنفاق (NaiveProxy)
+- **NaiveProxy** — Caddy مع إضافة `forward_proxy` (نسخة [klzgrad](https://github.com/klzgrad/forwardproxy)، حشو HTTP/2) يعمل كـ sidecar تحت إشراف اللوحة: Caddyfile مُولَّد، start/stop/restart مع reconcile لإحياء الأعطال، وفحص صحة ثلاثي المستويات (process → TCP → TLS).
+- **بيانات اعتماد لكل عميل** — كل عميل مفعّل في اللوحة يحصل تلقائياً على زوج `basic_auth` شخصي (مشتق من سر اللوحة، دون تخزين)؛ تعطيل العميل يُلغي الاعتماد في reconcile التالي.
+- **الاشتراكات** — يحمل اشتراك كل عميل رابطه الشخصي `naive+https://` إلى جانب روابط Xray/AWG (الصيغة القياسية لـ NekoBox / husi / Exclave)، مع رمز QR ومولّد كلمات مرور قوية في اللوحة.
+- **تجربة اللوحة** — Auto TLS (Let's Encrypt) أو شهادتك/مفتاحك الخاصان، وضع raw-Caddyfile مع تحقق `caddy adapt`، معاينة Caddyfile، سجلات العملية، رفع/تنزيل الثنائي.
+- يتجاوز الترافيك Xray بالتصميم (TLS وبيانات اعتماد مستقلان) — مكمّل تمويه لـ AWG و REALITY، وليس هدفاً للتوجيه.
 
 ### 🚀 الميزات الأساسية لـ 3x-ui
 - **البروتوكولات:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -142,7 +151,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ## 🤝 الشكر والتقدير
 
 - **المختبرون والمساهمون:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, فريق **3x-ui**.
-- **المشاريع والإلهام:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+- **المشاريع والإلهام:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (sidecar نفق NaiveProxy), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (مرجع تصميم تكامل Caddyfile), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (مرجع مفهوم sidecar النفق: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
 
 ---
 

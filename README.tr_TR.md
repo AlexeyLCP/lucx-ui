@@ -72,6 +72,8 @@ docker compose --profile postgres up -d
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
 | İstemci yapılandırması sürüm ön ayarları (1.5 / 2 / 3) | ✗ | ✓ |
 | Panel içi AWG teşhisi (yönlendirme / NAT / eşler / el sıkışmalar) | ✗ | ✓ |
+| NaiveProxy tünel sidecar'ı (Caddy + forward_proxy, denetimli) | ✗ | ✓ |
+| İstemci başına NaiveProxy kimlik bilgileri + aboneliklerde `naive+https://` | ✗ | ✓ |
 | Akıllı Cluster outbound bağlantıları | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 ön yüz | ✓ | ✓ (devralınan) |
 | Tüm Xray protokolleri (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -92,6 +94,13 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **İstemci Sürüm Ön Ayarları** — Tek bir inbound'dan AWG 1.5 / 2 / 3 için istemci yapılandırmaları üretin — istemci uygulamanızın anladığı biçimi seçin.
 - **Canlı İmza Yakalama** — Ön alan adlarından gerçek QUIC el sıkışmalarını I1–I5 gizleme parametrelerine dönüştürür.
 - **Yönlendirme & Teşhis** — İki yönlendirme modu (Kernel NAT ve politika yönlendirmeli & sniffing'li Route through Xray) + panel içi tek tıkla teşhis.
+
+### 🚇 Tünel Sidecar'ları (NaiveProxy)
+- **NaiveProxy** — `forward_proxy` eklentili Caddy ([klzgrad](https://github.com/klzgrad/forwardproxy) fork'u, HTTP/2 padding) panel denetimli bir sidecar olarak çalışır: render edilmiş Caddyfile, crash-revive reconcile ile start/stop/restart ve üç seviyeli sağlık sondası (process → TCP → TLS).
+- **İstemci başına kimlik bilgileri** — paneldeki her etkin istemci otomatik olarak kişisel bir `basic_auth` çifti alır (panel sırrından türetilir, saklanmaz); istemciyi devre dışı bırakmak bir sonraki reconcile'da iptal eder.
+- **Abonelikler** — her istemcinin aboneliği Xray/AWG bağlantılarının yanında kişisel `naive+https://` bağlantısını taşır (NekoBox / husi / Exclave standart formatı), ayrıca panelde QR kod ve güçlü parola üreteci vardır.
+- **Panel UX** — Auto TLS (Let's Encrypt) veya kendi cert/key'iniz, `caddy adapt` doğrulamalı raw-Caddyfile modu, Caddyfile önizlemesi, süreç logları, ikili yükleme/indirme.
+- Trafik tasarım gereği Xray'ı baypas eder (bağımsız TLS + kimlik bilgileri) — AWG ve REALITY'ye bir kamuflaj tamamlayıcısıdır, yönlendirme hedefi değildir.
 
 ### 🚀 Temel 3x-ui Özellikleri
 - **Protokoller:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -142,7 +151,7 @@ Bu proje **iki lisans** altında yayınlanır (detaylar [LICENSING.md](LICENSING
 ## 🤝 Teşekkürler ve Katkıda Bulunanlar
 
 - **Test Edenler & Katkıda Bulunanlar:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, **3x-ui ekibi**.
-- **Projeler & İlham Kaynakları:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+- **Projeler & İlham Kaynakları:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (NaiveProxy tünel sidecar'ı), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (Caddyfile entegrasyon tasarım referansı), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (tünel-sidecar kavram referansı: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
 
 ---
 
