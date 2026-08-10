@@ -1741,3 +1741,14 @@ systemctl start x-ui
 **Тесты:** tunnel package all PASS (incl. OlcrtcValidate/Render/URI). Frontend typecheck clean.
 
 **lucxVersion:** lucx.94. qWDTT — следующий.
+## Релиз v3.6.0-lucx.95 (2026-08-10) — qWDTT tunnel sidecar
+
+**feat(tunnel): qWDTT** — третий туннельный сайдкар (WireGuard over VK TURN).
+
+**Upstream:** SpaceNeuroX/proxy-turn-vk-android server.go (GPL-3.0). Design ref — Bebrik2283555/Ex3-ui extras.
+
+**Backend:** QwdttConfig + BuildArgs + ClientURI/LegacyURI/Subscription; Instance.Args; settings lucxTunnel_qwdtt; API /panel/api/tunnel/qwdtt/*; release binary from Ex3-ui v1.0.
+
+**Frontend:** QwdttCard, i18n x13. Needs root/CAP_NET_ADMIN.
+
+**lucxVersion:** lucx.95. Tunnel sidecars complete (Naive + olcRTC + qWDTT).
