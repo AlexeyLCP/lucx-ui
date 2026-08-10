@@ -10043,7 +10043,7 @@
         "tags": [
           "Clients"
         ],
-        "summary": "LUCX-UI only. Same-origin Amnezia subscription body for panel Copy/QR (avoids CORS on the public /awg/ port). format=vpn → vpn:// lines; format=conf → awg-quick .conf. Plain text body, not a JSON envelope.",
+        "summary": "LUCX-UI only. Same-origin Amnezia subscription body for panel Copy/QR (avoids CORS on the public /awg/ port). format=vpn → vpn:// lines; format=conf → awg-quick .conf. JSON envelope obj.body.",
         "operationId": "get_panel_api_clients_awgBody_subId",
         "parameters": [
           {
@@ -10080,6 +10080,13 @@
                       "type": "string"
                     },
                     "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "body": "vpn://BASE64…\n",
+                    "format": "vpn"
                   }
                 }
               }

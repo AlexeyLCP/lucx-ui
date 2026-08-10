@@ -28,6 +28,10 @@ const GEOFILES = [
   'geoip_IR.dat',
   'geosite_RU.dat',
   'geoip_RU.dat',
+  // LUCX-HOOK: RoscomVPN custom geo (RKN geoblock)
+  'geosite_ROSCOM.dat',
+  'geoip_ROSCOM.dat',
+  // END LUCX-HOOK
 ];
 
 export default function VersionModal({ open, status, onClose, onBusy }: VersionModalProps) {

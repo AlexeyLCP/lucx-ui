@@ -10,6 +10,10 @@ export const IPS_OPTIONS = [
   { label: '🇮🇷 Iran', value: 'ext:geoip_IR.dat:ir' },
   { label: '🇨🇳 China', value: 'geoip:cn' },
   { label: '🇷🇺 Russia', value: 'ext:geoip_RU.dat:ru' },
+  // LUCX-HOOK: RoscomVPN geoip (direct/whitelist CIDRs)
+  { label: 'RoscomVPN direct', value: 'ext:geoip_ROSCOM.dat:direct' },
+  { label: 'RoscomVPN whitelist', value: 'ext:geoip_ROSCOM.dat:whitelist' },
+  // END LUCX-HOOK
   { label: '🇻🇳 Vietnam', value: 'geoip:vn' },
   { label: '🇪🇸 Spain', value: 'geoip:es' },
   { label: '🇮🇩 Indonesia', value: 'geoip:id' },
@@ -24,6 +28,10 @@ export const DOMAINS_OPTIONS = [
   { label: '🇨🇳 China', value: 'geosite:cn' },
   { label: '🇨🇳 .cn', value: 'regexp:.*\\.cn$' },
   { label: '🇷🇺 Russia', value: 'ext:geosite_RU.dat:ru-available-only-inside' },
+  // LUCX-HOOK: RoscomVPN geosite (RKN geoblock + RU category)
+  { label: 'RoscomVPN RU', value: 'ext:geosite_ROSCOM.dat:category-ru' },
+  { label: 'RoscomVPN geoblock RU', value: 'ext:geosite_ROSCOM.dat:category-geoblock-ru' },
+  // END LUCX-HOOK
   { label: '🇷🇺 .ru', value: 'regexp:.*\\.ru$' },
   { label: '🇷🇺 .su', value: 'regexp:.*\\.su$' },
   { label: '🇷🇺 .рф', value: 'regexp:.*\\.xn--p1ai$' },
@@ -33,6 +41,10 @@ export const BLOCK_DOMAINS_OPTIONS = [
   { label: 'Ads All', value: 'geosite:category-ads-all' },
   { label: 'Ads IR 🇮🇷', value: 'ext:geosite_IR.dat:category-ads-all' },
   { label: 'Ads RU 🇷🇺', value: 'ext:geosite_RU.dat:category-ads-all' },
+  // LUCX-HOOK: RoscomVPN ads + geoblock
+  { label: 'Ads RoscomVPN', value: 'ext:geosite_ROSCOM.dat:category-ads' },
+  { label: 'RoscomVPN geoblock RU', value: 'ext:geosite_ROSCOM.dat:category-geoblock-ru' },
+  // END LUCX-HOOK
   { label: 'Malware 🇮🇷', value: 'ext:geosite_IR.dat:malware' },
   { label: 'Phishing 🇮🇷', value: 'ext:geosite_IR.dat:phishing' },
   { label: 'Cryptominers 🇮🇷', value: 'ext:geosite_IR.dat:cryptominers' },
@@ -57,6 +69,11 @@ export const SERVICES_OPTIONS = [
   { label: 'Netflix', value: 'geosite:netflix' },
   { label: 'Reddit', value: 'geosite:reddit' },
   { label: 'Speedtest', value: 'geosite:speedtest' },
+  // LUCX-HOOK: RoscomVPN service lists
+  { label: 'YouTube (RoscomVPN)', value: 'ext:geosite_ROSCOM.dat:youtube' },
+  { label: 'Telegram (RoscomVPN)', value: 'ext:geosite_ROSCOM.dat:telegram' },
+  { label: 'Steam (RoscomVPN)', value: 'ext:geosite_ROSCOM.dat:steam' },
+  // END LUCX-HOOK
 ];
 
 export const directSettings = { tag: 'direct', protocol: 'freedom' };

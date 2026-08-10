@@ -75,10 +75,18 @@ docker compose --profile postgres up -d
 | Sidecar de túnel NaiveProxy (Caddy + forward_proxy, supervisado) | ✗ | ✓ |
 | Credenciales NaiveProxy por cliente + `naive+https://` en suscripciones | ✗ | ✓ |
 | NaiveProxy → enrutamiento Xray (puente SOCKS loopback, opcional) | ✗ | ✓ |
+| Sidecar olcRTC (WebRTC vía salas meet, supervisado) | ✗ | ✓ |
+| Sidecar qWDTT (WireGuard sobre VK TURN, supervisado) | ✗ | ✓ |
+| AWG en Clash Meta + suscripción Amnezia `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
+| Geodata browser — categorías geosite/geoip desde el panel | ✗* | ✓ |
+| Pack geo RoscomVPN (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
+| Perfiles de enrutamiento Happ (RoscomVPN deeplink + custom) | ✗ | ✓ |
 | Enlaces outbound de clúster inteligente | ✗ | ✓ |
 | Frontend React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (heredado) |
 | Todos los protocolos Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
 | Sincronización con upstream sin fricción (aislamiento LUCX-HOOK, 49 archivos) | — | ✓ |
+
+\* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (aún no fusionado) — portado a LucX-UI.
 
 Un sidecar de kernel (como el `mtg` de MTProto en 3x-ui) significa que AWG se ejecuta como una interfaz de kernel real — no un shim de espacio de usuario — por lo que Xray enruta el tráfico descifrado a través de su propio TUN inbound, dándole todo el poder de enrutamiento, sniffing y reglas de dominio de Xray sobre el tráfico AWG.
 
@@ -102,6 +110,15 @@ Un sidecar de kernel (como el `mtg` de MTProto en 3x-ui) significa que AWG se ej
 - **Suscripciones** — la suscripción de cada cliente incluye su enlace personal `naive+https://` junto a los de Xray/AWG (formato estándar de NekoBox / husi / Exclave), más código QR y generador de contraseñas fuertes en el panel.
 - **UX del panel** — Auto TLS (Let's Encrypt) o su propio cert/key, modo raw-Caddyfile con validación `caddy adapt`, vista previa del Caddyfile, logs del proceso, upload/download del binario.
 - **Enrutar a través de Xray (opcional)** — el interruptor hace que Caddy marque destinos vía un puente SOCKS loopback oculto (`upstream socks5://127.0.0.1:…`, forward_proxy nativo — sin parche) con etiqueta `lucx-tunnel-naive`, de modo que el tráfico NaiveProxy obtiene el enrutamiento / sniffing / reglas de dominio de Xray (mismo patrón que MTProto). Por defecto sigue siendo egress directo.
+- **olcRTC** — túnel TCP-over-WebRTC vía sala de videollamada legal ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)).
+- **qWDTT** — WireGuard por TURN de VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
+
+### 📦 Suscripciones, geodata y enrutamiento de clientes
+- **Suscripción Amnezia** — `/awg/{subId}` devuelve `.conf` puro o `vpn://…`.
+- **AWG en Clash Meta** — peers vía `amnezia-wg-option`.
+- **Geodata browser** — explorar `geoip*.dat` / `geosite*.dat` desde el UI de routing (port de [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) por [STRENCH0](https://github.com/STRENCH0)).
+- **Pack RoscomVPN geo** — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)).
+- **Perfiles Happ** — Settings → Happ: deeplink RoscomVPN ([roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
 ### 🚀 Características Base de 3x-ui
 - **Protocolos:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -151,17 +168,26 @@ Este proyecto se publica bajo **dos licencias** (detalles en [LICENSING.md](LICE
 
 ## 🤝 Agradecimientos y Créditos
 
-- **Probadores y Colaboradores:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, el equipo de **3x-ui**.
-- **Proyectos e Inspiración:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (sidecar de túnel NaiveProxy), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (referencia de diseño de integración Caddyfile), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (referencia del concepto de sidecar de túnel: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+Gracias a todos los proyectos y personas open-source.
+
+### Probadores y colaboradores
+- **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, equipo **[3x-ui](https://github.com/MHSanaei/3x-ui)**.
+
+### PRs upstream portados / base
+- **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
+
+### Proyectos e inspiración
+[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
 
 ---
 
 ## ☕ Apoyar el proyecto
 
-LucX-UI es gratuito para uso personal. Puede apoyar el desarrollo:
+LucX-UI es gratuito para uso personal. **¿Te gustó? Pon una ⭐** al repositorio — ayuda a que otros lo encuentren. Las donaciones son opcionales:
 
 | Método | Detalles |
 |---|---|
+| ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (RUB, Rusia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |

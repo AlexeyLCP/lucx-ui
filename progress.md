@@ -51,6 +51,33 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.99 (2026-08-10) — vpn:// Copy fix + RoscomVPN geo + README
+
+### fix(sub): vpn:// Copy → 404 на `/panel/api/clients/awgBody/:subId`
+
+**Репорт:** Home/ClientInfo — Copy vpn:// → «что-то пошло не так»; DevTools: GET `…/panel/api/clients/awgBody/<subId>?format=vpn` → **404**.
+
+**Причина:** lucx.98 ходил bare `fetch('/panel/api/…')` **без** `X_UI_BASE_PATH`. При непустом `webBasePath` запрос уходит мимо API → Gin NoRoute 404 → fallback на публичный `/awg/?format=vpn` (другой порт) → CORS → toast. Плюс plain-text ответ не через HttpUtil.
+
+**Фикс:**
+- backend `getAwgBody` → JSON envelope `{body, format}`
+- frontend `fetchBody.ts` → `HttpUtil.get` (basePath + session + XHR), silent
+- endpoints.ts + openapi regen
+
+### feat: RoscomVPN geo.dat в сток
+
+**Источник:** hydraponique — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` (RKN geoblock, category-ru/ads, youtube/telegram/steam).
+
+**Точки:** server.go allowlist, VersionModal, constants.ts пресеты, release.yml, DockerInit.sh, x-ui.sh (меню 4 + update-all), AGENTS.md Known Issue #6 (сток 8 файлов).
+
+### docs(readme): фичи / PR / благодарности / «Понравилось — ставь ⭐»
+
+Все 7 README: таблица сравнения (+ geodata browser, ROSCOM, Happ, AWG Clash/vpn://), секция Subscriptions/Geodata, expanded Acknowledgements (STRENCH0 #6165, hydraponique, olcrtc, qWDTT, …), Support: Star + донаты.
+
+**Тесты:** frontend typecheck; vitest sub-fetch-body + sub-links; openapi gen.
+
+---
+
 ## Релиз v3.6.0-lucx.85 (2026-08-07)
 
 3. **fix:** RuleFormModal infinite re-render (useEffect + unstable deps) hung vitest components/CI.

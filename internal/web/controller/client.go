@@ -2,7 +2,6 @@ package controller
 
 import (
 	"encoding/json"
-	"net/http"
 	"strconv"
 	"strings"
 
@@ -587,6 +586,11 @@ func (a *ClientController) getSubLinks(c *gin.Context) {
 // lives on the subscription port — browser fetch from the panel hits CORS and
 // Copy of "vpn://" fails with "something went wrong". Same builder as the
 // public endpoint (sub.SubAwgService).
+//
+// Response is the standard JSON envelope {success, msg, obj:{body,format}} so
+// the panel HttpUtil (basePath + session cookie + XHR headers) can call it the
+// same way as every other /panel/api/clients/* route. Plain-text was easy to
+// 404 behind custom webBasePath when the frontend used a bare fetch("/panel/...").
 func (a *ClientController) getAwgBody(c *gin.Context) {
 	subId := strings.TrimSpace(c.Param("subId"))
 	if subId == "" {
@@ -617,8 +621,7 @@ func (a *ClientController) getAwgBody(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("no AWG configs for this subscription"))
 		return
 	}
-	c.Header("Content-Type", "text/plain; charset=utf-8")
-	c.String(http.StatusOK, body)
+	jsonObj(c, gin.H{"body": body, "format": format}, nil)
 }
 
 // END LUCX-HOOK

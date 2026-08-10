@@ -8,10 +8,13 @@
  * The panel stores Amnezia rows as public HTTPS URLs on the subscription port
  * (`https://host:2096/awg/<id>?format=vpn`). Fetching that URL from the panel
  * origin is cross-origin and fails CORS — Copy then shows "something went
- * wrong". Prefer the same-origin panel proxy:
+ * wrong". Prefer the same-origin panel proxy via HttpUtil (honours
+ * webBasePath / session / XHR headers):
  *   GET /panel/api/clients/awgBody/:subId?format=vpn|conf
- * which uses the same SubAwgService builder as the public endpoint.
+ * → JSON { success, obj: { body, format } }
  */
+
+import { HttpUtil } from '@/utils';
 
 /** Extract subId from an /awg/<subId> subscription URL (any host/port). */
 export function extractAwgSubId(url: string): string | null {
@@ -45,6 +48,8 @@ export function isAmneziaConfUrl(url: string): boolean {
   return !isAmneziaVpnUrl(url);
 }
 
+type AwgBodyObj = { body?: unknown; format?: unknown };
+
 export async function fetchSubscriptionBody(url: string): Promise<string> {
   const u = url.trim();
   if (!u) throw new Error('empty subscription url');
@@ -52,31 +57,23 @@ export async function fetchSubscriptionBody(url: string): Promise<string> {
   const subId = extractAwgSubId(u);
   if (subId) {
     const format = isAmneziaVpnUrl(u) ? 'vpn' : 'conf';
-    const res = await fetch(`/panel/api/clients/awgBody/${encodeURIComponent(subId)}?format=${format}`, {
-      method: 'GET',
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: {
-        Accept: 'text/plain,*/*',
-        'X-Requested-With': 'XMLHttpRequest',
-      },
-    });
-    if (!res.ok) {
-      // Fall through to direct fetch (same-origin reverse-proxy setups).
-      if (res.status !== 404 && res.status !== 401) {
-        const hint = await res.text().catch(() => '');
-        throw new Error(`panel awgBody failed: HTTP ${res.status}${hint ? ` ${hint.slice(0, 120)}` : ''}`);
-      }
-    } else {
-      const text = (await res.text()).replace(/^\uFEFF/, '').trim();
-      if (text && !text.startsWith('{')) {
-        // json error envelope starts with { — treat as failure
-        return text;
-      }
-      if (text.startsWith('{')) {
-        throw new Error('panel awgBody returned JSON error');
-      }
-      if (text) return text;
+    // HttpUtil applies X_UI_BASE_PATH + session cookie + X-Requested-With —
+    // bare fetch("/panel/...") 404s when webBasePath is not "/".
+    const msg = await HttpUtil.get<AwgBodyObj>(
+      `/panel/api/clients/awgBody/${encodeURIComponent(subId)}`,
+      { format },
+      { silent: true },
+    );
+    if (msg.success) {
+      const body = typeof msg.obj?.body === 'string' ? msg.obj.body.replace(/^\uFEFF/, '').trim() : '';
+      if (body) return body;
+      throw new Error('panel awgBody returned empty body');
+    }
+    // Fall through to public URL only when the panel proxy is missing (old
+    // binary) or the subId has no AWG peers — direct fetch may still work
+    // behind a same-origin reverse-proxy of :2096.
+    if (msg.msg && !/not found|404|no AWG/i.test(msg.msg)) {
+      throw new Error(msg.msg);
     }
   }
 

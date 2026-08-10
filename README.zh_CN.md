@@ -75,10 +75,18 @@ docker compose --profile postgres up -d
 | NaiveProxy 隧道 Sidecar（Caddy + forward_proxy，面板监管） | ✗ | ✓ |
 | 每客户端 NaiveProxy 凭证 + 订阅中的 `naive+https://` | ✗ | ✓ |
 | NaiveProxy → Xray 路由（SOCKS loopback 桥接，可选） | ✗ | ✓ |
+| olcRTC 隧道 Sidecar（WebRTC 会议房间，面板监管） | ✗ | ✓ |
+| qWDTT 隧道 Sidecar（经 VK TURN 的 WireGuard，面板监管） | ✗ | ✓ |
+| AWG 接入 Clash Meta + Amnezia 订阅 `/awg/`（`.conf` / `vpn://`） | ✗ | ✓ |
+| Geodata browser — 在面板中选择 geosite/geoip 分类 | ✗* | ✓ |
+| RoscomVPN geo 包（`geoip/geosite_ROSCOM.dat`，RKN 列表） | ✗ | ✓ |
+| Happ 路由配置（RoscomVPN deeplink + 自定义） | ✗ | ✓ |
 | 智能集群 outbound 链接 | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 前端 | ✓ | ✓（继承） |
 | 所有 Xray 协议（VLESS / VMess / Trojan / Shadowsocks / ...） | ✓ | ✓ |
 | 无摩擦上游同步（LUCX-HOOK 隔离，49 个文件） | — | ✓ |
+
+\* 上游 [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165)（尚未合并）— 已移植到 LucX-UI。
 
 内核 Sidecar（就像 3x-ui 的 MTProto `mtg` 一样）意味着 AWG 作为真正的内核接口运行 —— 而非用户态垫片 —— 因此 Xray 通过自身的 TUN inbound 路由解密后的流量，让您在 AWG 流量上获得 Xray 完整的路由、嗅探与域名规则能力。
 
@@ -102,6 +110,15 @@ docker compose --profile postgres up -d
 - **订阅** —— 每个客户端的订阅除 Xray/AWG 外还携带其个人 `naive+https://` 链接（NekoBox / husi / Exclave 标准格式），面板内另有二维码与强密码生成器。
 - **面板 UX** —— Auto TLS（Let's Encrypt）或自有证书/密钥、带 `caddy adapt` 校验的 raw-Caddyfile 模式、Caddyfile 预览、进程日志、二进制上传/下载。
 - **通过 Xray 路由（可选）** —— 开关使 Caddy 经隐藏 loopback SOCKS 桥接拨号（`upstream socks5://127.0.0.1:…`，原生 forward_proxy，无需补丁），标签 `lucx-tunnel-naive`，使 NaiveProxy 流量获得完整 Xray 路由/嗅探/域名规则（与 MTProto 相同）。默认仍为直连出口。
+- **olcRTC** —— 经合法视频会议房间的 TCP-over-WebRTC 隧道（[openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)）：Jitsi / Yandex Telemost / WB Stream。
+- **qWDTT** —— 经 VK Calls TURN 的 WireGuard（[SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)）。
+
+### 📦 订阅、Geodata 与客户端路由
+- **Amnezia 订阅** — `/awg/{subId}` 返回纯 AmneziaWG `.conf`（或 `?format=vpn` → `vpn://…`）。
+- **Clash Meta 中的 AWG** — 通过 `amnezia-wg-option` 输出。
+- **Geodata browser** — 从路由 UI 浏览 `geoip*.dat` / `geosite*.dat`（移植自 [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) by [STRENCH0](https://github.com/STRENCH0)）。
+- **RoscomVPN geo 包** — 库存 `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat`（[roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)）。
+- **Happ 路由配置** — Settings → Happ：内置 RoscomVPN deeplink（[roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)）。
 
 ### 🚀 3x-ui 核心特性
 - **协议支持：** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN。
@@ -151,17 +168,26 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 
 ## 🤝 致谢与来源
 
-- **测试者与贡献者：** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, **3x-ui 团队**。
-- **项目与灵感：** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy)（NaiveProxy 隧道 Sidecar）, [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive)（Caddyfile 集成设计参考）, [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui)（隧道 Sidecar 概念参考：qWDTT / olcRTC）, [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls)。
+感谢所有开源项目与贡献者。
+
+### 测试者与贡献者
+- **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, **[3x-ui](https://github.com/MHSanaei/3x-ui)** 团队。
+
+### 移植 / 依赖的上游 PR
+- **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser。
+
+### 项目与灵感
+[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN（[geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)） · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
 
 ---
 
 ## ☕ 支持本项目
 
-LucX-UI 个人使用完全免费。您可以支持后续开发：
+LucX-UI 个人使用完全免费。**喜欢的话请点 ⭐** — 能帮助更多人发现本项目。捐赠可选：
 
 | 方式 | 详情 |
 |---|---|
+| ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (卢布, 俄罗斯) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |

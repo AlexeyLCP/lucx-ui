@@ -469,7 +469,11 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 
 ### 6. geo-файлы перетираются при обновлении панели — upstream-поведение, НЕ чиним (решение 2026-08-09)
 
-**Суть:** `release.yml` (блок унаследован от upstream, без LUCX-HOOK) пакует в tarball свежие `geoip.dat`/`geosite.dat` (+ `_IR`/`_RU`); `update.sh` распаковывает поверх → **любое** обновление панели сбрасывает geo в сток. Симптом (Aleksandr SacredX, lucx.88): кастомные группы geosite исчезли после веб-обновления → Xray не стартует (routing не находит группы в geo.dat). **Решение:** `update.sh` не трогаем (паритет с upstream). Совет операторам: кастомные группы держать в файлах с **отдельным именем** (`geosite_rkn.dat` → `geosite:rkn` / `ext:geosite_rkn.dat:group`) — tarball содержит только 6 стоковых имён и их не тронет; либо восстанавливать кроном после update. Сток обновлять вручную: `x-ui update-all-geofiles` / меню панели. **Важно для диагностики «/awg/ не работает»:** sub-эндпоинты (`/sub/`, `/json/`, `/clash/`, `/awg/`) слушают sub-сервис на **отдельном порту** (дефолт 2096), не на порту панели — в reverse proxy их надо проксировать на sub-порт.
+**Суть:** `release.yml` пакует в tarball свежие сток-geo; `update.sh` распаковывает поверх → **любое** обновление панели сбрасывает эти имена в сток. Симптом (Aleksandr SacredX, lucx.88): кастомные группы geosite исчезли после веб-обновления → Xray не стартует (routing не находит группы в geo.dat). **Решение:** `update.sh` не трогаем (паритет с upstream). Совет операторам: кастомные группы держать в файлах с **отдельным именем** — tarball их не тронет; либо восстанавливать кроном после update.
+
+**Сток с lucx.99 (8 файлов):** `geoip/geosite.dat` (Loyalsoldier), `_IR` (chocolate4u), `_RU` (runetfreedom), **`_ROSCOM`** (hydraponique/roscomvpn-{geoip,geosite} — RKN geoblock / category-ru / category-ads / youtube/telegram/steam). ROSCOM — отдельное имя, не перетирает чужие кастомы. Обновление: панель Version → Geofiles / `x-ui` меню → RoscomVPN / `update-all-geofiles`. В routing: `ext:geosite_ROSCOM.dat:category-geoblock-ru` и т.п. (пресеты в `constants.ts`). Geodata browser подхватывает любой `*.dat` в `bin/`.
+
+**Важно для диагностики «/awg/ не работает»:** sub-эндпоинты (`/sub/`, `/json/`, `/clash/`, `/awg/`) слушают sub-сервис на **отдельном порту** (дефолт 2096), не на порту панели — в reverse proxy их надо проксировать на sub-порт.
 
 ---
 

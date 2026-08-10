@@ -1239,12 +1239,13 @@ export const sections: readonly Section[] = [
         method: 'GET',
         path: '/panel/api/clients/awgBody/:subId',
         summary:
-          'LUCX-UI only. Same-origin Amnezia subscription body for panel Copy/QR (avoids CORS on the public /awg/ port). format=vpn → vpn:// lines; format=conf → awg-quick .conf. Plain text body, not a JSON envelope.',
+          'LUCX-UI only. Same-origin Amnezia subscription body for panel Copy/QR (avoids CORS on the public /awg/ port). format=vpn → vpn:// lines; format=conf → awg-quick .conf. JSON envelope obj.body.',
         params: [
           { name: 'subId', in: 'path', type: 'string', desc: "Subscription ID from the client's subId field." },
           { name: 'format', in: 'query', type: 'string', optional: true, desc: 'vpn (default) or conf.' },
         ],
-        response: 'vpn://BASE64…\n',
+        response:
+          '{\n  "success": true,\n  "obj": { "body": "vpn://BASE64…\\n", "format": "vpn" }\n}',
       },
       {
         method: 'GET',

@@ -72,15 +72,21 @@ docker compose --profile postgres up -d
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
 | Пресеты версий клиентских конфигов (1.5 / 2 / 3) | ✗ | ✓ |
 | Диагностика AWG из панели (routing / NAT / peers / handshakes) | ✗ | ✓ |
+| AWG в Clash Meta + подписка Amnezia `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
 | Туннельный сайдкар NaiveProxy (Caddy + forward_proxy, под надзором панели) | ✗ | ✓ |
 | Per-client креды NaiveProxy + `naive+https://` в подписках | ✗ | ✓ |
 | NaiveProxy → Xray routing (SOCKS loopback-мост, опционально) | ✗ | ✓ |
 | Туннельный сайдкар olcRTC (WebRTC через meet-комнаты, под надзором) | ✗ | ✓ |
 | Туннельный сайдкар qWDTT (WireGuard через VK TURN, под надзором) | ✗ | ✓ |
+| Geodata browser — выбор категорий geosite/geoip из панели | ✗* | ✓ |
+| Пакет RoscomVPN geo (`geoip/geosite_ROSCOM.dat`, списки РКН) | ✗ | ✓ |
+| Профили маршрутизации Happ (RoscomVPN deeplink + custom) | ✗ | ✓ |
 | Smart Cluster outbound-связи | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 фронтенд | ✓ | ✓ (inherited) |
 | Все протоколы Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
 | Бесшовный upstream sync (изоляция LUCX-HOOK, 49 файлов) | — | ✓ |
+
+\* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (ещё не влит) — портирован в LucX-UI.
 
 Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG работает как настоящий интерфейс ядра — а не как userspace-обёртка — поэтому Xray маршрутизирует расшифрованный трафик через собственный TUN inbound, давая вам полную мощь маршрутизации, sniffing'а и доменных правил Xray на AWG-трафике.
 
@@ -98,7 +104,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **Live Signature Capture** — преобразование реальных QUIC-handshake'ов с front-доменов в параметры обфускации I1–I5.
 - **Маршрутизация и диагностика** — двойной режим маршрутизации (Kernel NAT и Route through Xray с policy routing и sniffing'ом) + однокликовая диагностика из панели.
 
-### 🚇 Туннельные сайдкары (NaiveProxy)
+### 🚇 Туннельные сайдкары (NaiveProxy, olcRTC, qWDTT)
 - **NaiveProxy** — Caddy с плагином `forward_proxy` (форк [klzgrad](https://github.com/klzgrad/forwardproxy), HTTP/2 padding) работает как сайдкар под надзором панели: рендер Caddyfile, start/stop/restart с crash-revive reconcile и трёхуровневым health-probe (process → TCP → TLS).
 - **Per-client креды** — каждый включённый клиент панели автоматически получает личную пару `basic_auth` (выводится из секрета панели, ничего не хранится); disable клиента отзывает креды на следующем reconcile.
 - **Подписки** — в подписке каждого клиента его личная ссылка `naive+https://` рядом с Xray/AWG (стандарт NekoBox / husi / Exclave), плюс QR-код и генератор сильного пароля в панели.
@@ -106,6 +112,13 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **Маршрут через Xray (опционально)** — Caddy ходит к назначениям через скрытый loopback SOCKS-мост (`upstream socks5://127.0.0.1:…`, нативный forward_proxy — без патча бинарника) с тегом `lucx-tunnel-naive`, так что трафик NaiveProxy получает полный роутинг / sniffing / доменные правила Xray (как MTProto). По умолчанию — прямой egress.
 - **olcRTC** — TCP-over-WebRTC туннель через легальную видео-комнату ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc), WTFPL): Jitsi / Яндекс Телемост / WB Stream. На VPS нет публичных портов — бинарник входит в комнату как тихий участник. Панель рендерит server YAML, супервизит процесс и отдаёт копируемый `olcrtc://` URI для клиентов owenclave / olcbox.
 - **qWDTT** — WireGuard через TURN-релеи VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android), GPL-3.0 server). Нужен root (TUN + NAT). Панель супервизит процесс, отдаёт `qwdtt://` / `wdtt://` и JSON-подписку для Android-клиента. Оператор передаёт живые VK call hash.
+
+### 📦 Подписки, geodata и маршрутизация клиентов
+- **Подписка Amnezia** — отдельный endpoint `/awg/{subId}` отдаёт чистый AmneziaWG `.conf` (или `?format=vpn` → тело `vpn://…`) для AmneziaVPN / Happ; ссылки рядом с Clash / JSON / base64 в панели и Telegram-боте.
+- **AWG в Clash Meta** — подписка эмитит пиры AmneziaWG через `amnezia-wg-option`, чтобы Clash Meta принимал AWG вместе с VLESS/Trojan.
+- **Geodata browser** — открыть любой `geoip*.dat` / `geosite*.dat` из UI роутинга, поиск категорий, multi-select в правило (порт upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) от [STRENCH0](https://github.com/STRENCH0)).
+- **Пакет RoscomVPN geo** — сток `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([hydraponique/roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)): списки РКН (`category-geoblock-ru`, `category-ru`, ads, YouTube / Telegram / Steam, …). Обновление: панель Version → Geofiles или меню `x-ui`.
+- **Профили Happ** — Settings → Happ: встроенный deeplink RoscomVPN и free-text custom (из [hydraponique/roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
 ### 🚀 Базовые фичи 3x-ui
 - **Протоколы:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -155,17 +168,38 @@ AWG kernel-модуль собирается автоматически уста
 
 ## 🤝 Благодарности и источники
 
-- **Тестировщики и контрибьюторы:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, команда **3x-ui**.
-- **Проекты и вдохновение:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (туннельный сайдкар NaiveProxy), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (референс интеграции Caddyfile), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (референс концепции туннельных сайдкаров: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+LucX-UI стоит на плечах многих open-source проектов и людей. Спасибо вам.
+
+### Тестировщики и контрибьюторы
+- **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13) — AWG `routeThroughXray`), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, команда **[3x-ui](https://github.com/MHSanaei/3x-ui)** ([MHSanaei](https://github.com/MHSanaei) и контрибьюторы).
+
+### Upstream PR, которые мы портировали / на которые опирались
+- **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) *feat(xray): browse geosite/geoip categories from routing rules* (geodata browser).
+
+### Проекты и вдохновение
+| Проект | Что используем |
+|---|---|
+| [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Базовая панель (GPL-3.0) |
+| [amnezia-vpn](https://github.com/amnezia-vpn) — kernel module & tools | Протокол AmneziaWG / AWG3 |
+| [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) | Туннельный сайдкар NaiveProxy |
+| [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | Ядро olcRTC (WTFPL) |
+| [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) | Сервер qWDTT (GPL-3.0) |
+| [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) | Референс интеграции Caddyfile |
+| [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) | Концепция туннельных сайдкаров в панели (qWDTT / olcRTC) |
+| [hydraponique/3x-ui](https://github.com/hydraponique/3x-ui), [roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite), [roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing) | Пакет RoscomVPN geo + профили Happ |
+| [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat), [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules), [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) | Сток geoip/geosite |
+| [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | Вдохновение по AWG ops |
+| [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | Референсы TLS-отпечатков для CPS |
 
 ---
 
 ## ☕ Поддержать проект
 
-LucX-UI бесплатен для личного использования. Вы можете поддержать дальнейшую разработку:
+LucX-UI бесплатен для личного использования. **Понравилось — ставь ⭐** репозиторию: это помогает другим найти проект и поддерживает разработку. Донаты необязательны, но всегда приятны:
 
 | Способ | Реквизиты |
 |---|---|
+| ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (RUB, Россия) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |

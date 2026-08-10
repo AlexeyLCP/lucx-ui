@@ -75,10 +75,18 @@ docker compose --profile postgres up -d
 | NaiveProxy tünel sidecar'ı (Caddy + forward_proxy, denetimli) | ✗ | ✓ |
 | İstemci başına NaiveProxy kimlik bilgileri + aboneliklerde `naive+https://` | ✗ | ✓ |
 | NaiveProxy → Xray yönlendirme (SOCKS loopback köprüsü, isteğe bağlı) | ✗ | ✓ |
+| olcRTC tünel sidecar'ı (meet odaları üzerinden WebRTC, denetimli) | ✗ | ✓ |
+| qWDTT tünel sidecar'ı (VK TURN üzerinde WireGuard, denetimli) | ✗ | ✓ |
+| Clash Meta'ta AWG + Amnezia aboneliği `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
+| Geodata browser — panelden geosite/geoip kategorileri | ✗* | ✓ |
+| RoscomVPN geo paketi (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
+| Happ yönlendirme profilleri (RoscomVPN deeplink + özel) | ✗ | ✓ |
 | Akıllı Cluster outbound bağlantıları | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 ön yüz | ✓ | ✓ (devralınan) |
 | Tüm Xray protokolleri (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
 | Sürtünmesiz üst senkronizasyon (LUCX-HOOK izolasyonu, 49 dosya) | — | ✓ |
+
+\* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (henüz birleştirilmedi) — LucX-UI'ye taşındı.
 
 Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir çekirdek arabirimi olarak çalıştığı (kullanıcı alanı shim'i değil) anlamına gelir; böylece Xray çözülmüş trafiği kendi TUN inbound'u üzerinden yönlendirir ve AWG trafiğinde Xray'ın tam yönlendirme, sniffing ve alan adı kural gücünü kullanırsınız.
 
@@ -102,6 +110,15 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **Abonelikler** — her istemcinin aboneliği Xray/AWG bağlantılarının yanında kişisel `naive+https://` bağlantısını taşır (NekoBox / husi / Exclave standart formatı), ayrıca panelde QR kod ve güçlü parola üreteci vardır.
 - **Panel UX** — Auto TLS (Let's Encrypt) veya kendi cert/key'iniz, `caddy adapt` doğrulamalı raw-Caddyfile modu, Caddyfile önizlemesi, süreç logları, ikili yükleme/indirme.
 - **Xray üzerinden yönlendir (isteğe bağlı)** — anahtar, Caddy'nin gizli loopback SOCKS köprüsü üzerinden hedeflere bağlanmasını sağlar (`upstream socks5://127.0.0.1:…`, yerel forward_proxy — yama yok), etiket `lucx-tunnel-naive`; böylece NaiveProxy trafiği tam Xray yönlendirme / sniffing / alan adı kurallarını alır (MTProto ile aynı). Varsayılan doğrudan çıkıştır.
+- **olcRTC** — yasal görüntülü arama odası üzerinden TCP-over-WebRTC tüneli ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)).
+- **qWDTT** — VK Calls TURN üzerinden WireGuard ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
+
+### 📦 Abonelikler, geodata ve istemci yönlendirme
+- **Amnezia aboneliği** — `/awg/{subId}` saf `.conf` veya `vpn://…` döner.
+- **Clash Meta'ta AWG** — `amnezia-wg-option` ile peer'ler.
+- **Geodata browser** — routing UI'dan `geoip*.dat` / `geosite*.dat` gezinme ([PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / [STRENCH0](https://github.com/STRENCH0) portu).
+- **RoscomVPN geo paketi** — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)).
+- **Happ profilleri** — Settings → Happ: RoscomVPN deeplink ([roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
 ### 🚀 Temel 3x-ui Özellikleri
 - **Protokoller:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -151,17 +168,26 @@ Bu proje **iki lisans** altında yayınlanır (detaylar [LICENSING.md](LICENSING
 
 ## 🤝 Teşekkürler ve Katkıda Bulunanlar
 
-- **Test Edenler & Katkıda Bulunanlar:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, **3x-ui ekibi**.
-- **Projeler & İlham Kaynakları:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (NaiveProxy tünel sidecar'ı), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (Caddyfile entegrasyon tasarım referansı), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (tünel-sidecar kavram referansı: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+Tüm açık kaynak projelere ve insanlara teşekkürler.
+
+### Test edenler & katkıda bulunanlar
+- **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, **[3x-ui](https://github.com/MHSanaei/3x-ui)** ekibi.
+
+### Taşınan / dayanak upstream PR'lar
+- **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
+
+### Projeler & ilham
+[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
 
 ---
 
 ## ☕ Projeyi Destekleyin
 
-LucX-UI kişisel kullanım için ücretsizdir. Süregelen geliştirmeyi destekleyebilirsiniz:
+LucX-UI kişisel kullanım için ücretsizdir. **Beğendiniz mi? ⭐ verin** — projenin bulunmasına yardımcı olur. Bağışlar isteğe bağlıdır:
 
 | Method | Details |
 |---|---|
+| ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (RUB, Russia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |

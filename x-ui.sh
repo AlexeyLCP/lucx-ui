@@ -1211,6 +1211,9 @@ update_all_geofiles() {
     update_geofiles "main" || failed=1
     update_geofiles "IR" || failed=1
     update_geofiles "RU" || failed=1
+    # LUCX-HOOK: RoscomVPN custom geo
+    update_geofiles "ROSCOM" || failed=1
+    # END LUCX-HOOK
     return $failed
 }
 
@@ -1228,13 +1231,31 @@ update_geofiles() {
             dat_files=(geoip_RU geosite_RU)
             dat_source="runetfreedom/russia-v2ray-rules-dat"
             ;;
+        # LUCX-HOOK: RoscomVPN — geoip/geosite from different repos (encoded as file:repo)
+        "ROSCOM")
+            dat_files=(
+                "geoip_ROSCOM:hydraponique/roscomvpn-geoip"
+                "geosite_ROSCOM:hydraponique/roscomvpn-geosite"
+            )
+            dat_source=""
+            ;;
+        # END LUCX-HOOK
         *)
             echo -e "${red}update_geofiles: unknown dataset '${1}'${plain}"
             return 1
             ;;
     esac
     local failed=0 http_code
-    for dat in "${dat_files[@]}"; do
+    for entry in "${dat_files[@]}"; do
+        # LUCX-HOOK: optional file:repo encoding for multi-source datasets (ROSCOM)
+        if [[ "$entry" == *:* ]]; then
+            dat="${entry%%:*}"
+            src="${entry#*:}"
+        else
+            dat="$entry"
+            src="$dat_source"
+        fi
+        # END LUCX-HOOK
         # Remove suffix for remote filename (e.g., geoip_IR -> geoip)
         remote_file="${dat%%_*}"
         local dest="${xui_folder}/bin/${dat}.dat"
@@ -1243,7 +1264,7 @@ update_geofiles() {
         # -z (against the live file, not the temp file) skips the download
         # (server answers 304) when the local copy is already current.
         http_code=$(curl -sSfLRo "$temp_file" -z "$dest" -w '%{http_code}' \
-            https://github.com/${dat_source}/releases/latest/download/${remote_file}.dat)
+            https://github.com/${src}/releases/latest/download/${remote_file}.dat)
         if [[ $? -ne 0 ]]; then
             echo -e "${red}${dat}.dat: download failed${plain}"
             rm -f "$temp_file"
@@ -1289,7 +1310,10 @@ update_geo() {
     echo -e "${green}\t1.${plain} Loyalsoldier (geoip.dat, geosite.dat)"
     echo -e "${green}\t2.${plain} chocolate4u (geoip_IR.dat, geosite_IR.dat)"
     echo -e "${green}\t3.${plain} runetfreedom (geoip_RU.dat, geosite_RU.dat)"
-    echo -e "${green}\t4.${plain} All"
+    # LUCX-HOOK: RoscomVPN custom geo menu entry
+    echo -e "${green}\t4.${plain} RoscomVPN (geoip_ROSCOM.dat, geosite_ROSCOM.dat)"
+    echo -e "${green}\t5.${plain} All"
+    # END LUCX-HOOK
     echo -e "${green}\t0.${plain} Back to Main Menu"
     read -rp "Choose an option: " choice
 
@@ -1306,9 +1330,14 @@ update_geo() {
         3)
             run_geo_update "runetfreedom datasets" update_geofiles "RU"
             ;;
+        # LUCX-HOOK: RoscomVPN option + All shifted to 5
         4)
+            run_geo_update "RoscomVPN datasets" update_geofiles "ROSCOM"
+            ;;
+        5)
             run_geo_update "geo files" update_all_geofiles
             ;;
+        # END LUCX-HOOK
         *)
             echo -e "${red}Invalid option. Please select a valid number.${plain}\n"
             update_geo

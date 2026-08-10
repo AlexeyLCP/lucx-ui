@@ -75,10 +75,18 @@ docker compose --profile postgres up -d
 | سایدی‌کار تونل NaiveProxy (Caddy + forward_proxy، تحت نظارت پنل) | ✗ | ✓ |
 | اعتبارنامه‌های per-client NaiveProxy + `naive+https://` در اشتراک‌ها | ✗ | ✓ |
 | NaiveProxy → مسیریابی Xray (پل SOCKS loopback، اختیاری) | ✗ | ✓ |
+| سایدی‌کار olcRTC (WebRTC از طریق اتاق meet، تحت نظارت) | ✗ | ✓ |
+| سایدی‌کار qWDTT (WireGuard روی VK TURN، تحت نظارت) | ✗ | ✓ |
+| AWG در Clash Meta + اشتراک Amnezia `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
+| Geodata browser — انتخاب دسته‌های geosite/geoip از پنل | ✗* | ✓ |
+| بسته geo RoscomVPN (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
+| پروفایل‌های مسیریابی Happ (RoscomVPN deeplink + سفارشی) | ✗ | ✓ |
 | لینک‌های خروجی Smart Cluster | ✗ | ✓ |
 | فرانت‌اند React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (به ارث رسیده) |
 | تمام پروتکل‌های Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
 | همگام‌سازی بدون اصطکاک بالا‌دست (ایزوله‌سازی LUCX-HOOK، ۴۹ فایل) | — | ✓ |
+
+\* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (هنوز merge نشده) — به LucX-UI پورت شده.
 
 یک سایدی‌کار کرنل (مانند `mtg` در MTProto ِ 3x-ui) به این معناست که AWG به‌عنوان یک رابط کرنل واقعی اجرا می‌شود — نه یک shim فضای کاربری — در نتیجه Xray ترافیک رمزگشاشده را از طریق TUN ورودیِ خود عبور می‌دهد و قدرت کامل مسیریابی، شنود و قوانین دامنهٔ Xray را روی ترافیک AWG در اختیار شما قرار می‌دهد.
 
@@ -102,6 +110,15 @@ docker compose --profile postgres up -d
 - **اشتراک‌ها** — اشتراک هر کلاینت لینک شخصی `naive+https://` او را در کنار لینک‌های Xray/AWG حمل می‌کند (فرمت استاندارد NekoBox / husi / Exclave)، به‌علاوه کد QR و تولیدکنندهٔ رمز عبور قوی در پنل.
 - **UX پنل** — Auto TLS (Let's Encrypt) یا cert/key خودتان، حالت raw-Caddyfile با اعتبارسنجی `caddy adapt`، پیش‌نمایش Caddyfile، لاگ‌های فرایند، آپلود/دانلود باینری.
 - **مسیریابی از طریق Xray (اختیاری)** — سوییچ باعث می‌شود Caddy مقاصد را از طریق پل SOCKS loopback پنهان شماره‌گیری کند (`upstream socks5://127.0.0.1:…`، forward_proxy بومی — بدون پچ) با برچسب `lucx-tunnel-naive`، تا ترافیک NaiveProxy مسیریابی / شنود / قوانین دامنهٔ کامل Xray را بگیرد (همان الگوی MTProto). پیش‌فرض همچنان egress مستقیم است.
+- **olcRTC** — تونل TCP-over-WebRTC از طریق اتاق ویدئوکال قانونی ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)).
+- **qWDTT** — WireGuard از طریق TURN ِ VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
+
+### 📦 اشتراک‌ها، geodata و مسیریابی کلاینت
+- **اشتراک Amnezia** — `/awg/{subId}` فایل `.conf` خالص یا `vpn://…` برمی‌گرداند.
+- **AWG در Clash Meta** — peerها با `amnezia-wg-option`.
+- **Geodata browser** — مرور `geoip*.dat` / `geosite*.dat` از UI مسیریابی (پورت [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) توسط [STRENCH0](https://github.com/STRENCH0)).
+- **بسته RoscomVPN geo** — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)).
+- **پروفایل‌های Happ** — Settings → Happ: deeplink RoscomVPN ([roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
 ### 🚀 ویژگی‌های اصلی 3x-ui
 - **پروتکل‌ها:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
@@ -151,17 +168,26 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 ## 🤝 قدردانی و اعتبارها
 
-- **تست‌کنندگان و مشارکت‌کنندگان:** **VladufQa**, **Kirill Rudenko** (PR #13), **302ba (Alex)** (PR #24), **alireza0**, تیم **3x-ui**.
-- **پروژه‌ها و الهام‌بخش‌ها:** [3x-ui](https://github.com/MHSanaei/3x-ui), [AmneziaVPN](https://github.com/amnezia-vpn), [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (سایدی‌کار تونل NaiveProxy), [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) (مرجع طراحی یکپارچه‌سازی Caddyfile), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) (مرجع مفهوم سایدی‌کار تونل: qWDTT / olcRTC), [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager), [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls).
+از همهٔ پروژه‌ها و افراد open-source سپاسگزاریم.
+
+### تست‌کنندگان و مشارکت‌کنندگان
+- **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, تیم **[3x-ui](https://github.com/MHSanaei/3x-ui)**.
+
+### PRهای upstream پورت‌شده / مبنا
+- **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
+
+### پروژه‌ها و الهام
+[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
 
 ---
 
 ## ☕ حمایت از پروژه
 
-LucX-UI برای استفاده شخصی رایگان است. می‌توانید از توسعهٔ مداوم آن حمایت کنید:
+LucX-UI برای استفاده شخصی رایگان است. **خوش‌تان آمد؟ ⭐ بزنید** — به دیده شدن پروژه کمک می‌کند. کمک مالی اختیاری است:
 
 | Method | Details |
 |---|---|
+| ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (RUB, Russia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
