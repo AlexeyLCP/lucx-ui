@@ -157,12 +157,21 @@ AWG çekirdek modülü, yükleyici tarafından otomatik olarak derlenir (`bin/in
 
 ## 📜 Lisans ve Şartlar
 
-Bu proje **iki lisans** altında yayınlanır (detaylar [LICENSING.md](LICENSING.md) içinde):
+Bu proje kendi kodu için **iki lisans** ve üçüncü taraf ikili/veriler için upstream koşulları altında yayınlanır (tam matris: [LICENSING.md](LICENSING.md)):
 
 | Bileşen | Lisans |
 |---|---|
 | Orijinal 3x-ui kod tabanı | **GPL-3.0** |
-| LucX-UI bileşenleri (`internal/awg/`, `internal/lucx/`, ön yüz) | **PolyForm Noncommercial 1.0.0** |
+| LucX-UI bileşenleri (`internal/awg/`, `internal/lucx/`, LucX ön yüz sayfaları) | **PolyForm Noncommercial 1.0.0** |
+| `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
+| `forward_proxy` eklentisi ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
+| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
+| `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
+| AmneziaWG kernel module & tools ([amnezia-vpn](https://github.com/amnezia-vpn)) | **GPL-2.0** (modül; host'a kurulur) |
+| Stok geo `.dat` (Loyalsoldier / IR / RU / ROSCOM) | Her veri setinin upstream'i (bkz. LICENSING.md) |
+
+Tünel ikilileri **alt süreçlerdir** — panel onlara link etmez. qWDTT GPL'si o ikiliye ve kaynaklarına aittir, LucX PolyForm koduna değil.
 
 ---
 

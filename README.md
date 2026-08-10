@@ -157,12 +157,21 @@ The AWG kernel module is built automatically by the installer (`bin/install-awg-
 
 ## 📜 License & Terms
 
-This project is published under **two licenses** (details in [LICENSING.md](LICENSING.md)):
+This project is published under **two licenses** for first-party code, plus third-party binaries/data kept under their upstream terms (full matrix in [LICENSING.md](LICENSING.md)):
 
 | Component | License |
 |---|---|
 | Original 3x-ui codebase | **GPL-3.0** |
-| LucX-UI components (`internal/awg/`, `internal/lucx/`, frontend) | **PolyForm Noncommercial 1.0.0** |
+| LucX-UI components (`internal/awg/`, `internal/lucx/`, LucX frontend pages) | **PolyForm Noncommercial 1.0.0** |
+| `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
+| `forward_proxy` plugin ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
+| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
+| `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
+| AmneziaWG kernel module & tools ([amnezia-vpn](https://github.com/amnezia-vpn)) | **GPL-2.0** (module; installed on host) |
+| Stock geo `.dat` (Loyalsoldier / IR / RU / ROSCOM) | Upstream of each dataset (see LICENSING.md) |
+
+Tunnel binaries are **child processes** — the panel does not link them. qWDTT GPL applies to that binary and its sources, not to LucX PolyForm code.
 
 ---
 
@@ -177,19 +186,20 @@ LucX-UI stands on the shoulders of many open-source projects and people. Thank y
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) *feat(xray): browse geosite/geoip categories from routing rules* (geodata browser).
 
 ### Projects & inspiration
-| Project | What we use |
-|---|---|
-| [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Base panel (GPL-3.0) |
-| [amnezia-vpn](https://github.com/amnezia-vpn) — kernel module & tools | AmneziaWG protocol / AWG3 |
-| [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) | NaiveProxy tunnel sidecar |
-| [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | olcRTC core (WTFPL) |
-| [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) | qWDTT server (GPL-3.0) |
-| [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) | Caddyfile integration design reference |
-| [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) | Tunnel-sidecar panel concept (qWDTT / olcRTC) |
-| [hydraponique/3x-ui](https://github.com/hydraponique/3x-ui), [roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite), [roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing) | RoscomVPN geo pack + Happ routing profiles |
-| [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat), [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules), [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) | Stock geoip/geosite datasets |
-| [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | AWG ops inspiration |
-| [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | TLS fingerprint references for CPS |
+| Project | What we use | License |
+|---|---|---|
+| [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Base panel | GPL-3.0 |
+| [amnezia-vpn](https://github.com/amnezia-vpn) — kernel module & tools | AmneziaWG protocol / AWG3 | GPL-2.0 (module) |
+| [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) | NaiveProxy protocol / client ref | BSD-3-Clause |
+| [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) + Caddy | NaiveProxy sidecar binary | MIT + Apache-2.0 |
+| [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | olcRTC core binary | WTFPL |
+| [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) | qWDTT server binary | GPL-3.0 |
+| [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) | Caddyfile integration design reference | — |
+| [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) | Tunnel-sidecar panel concept (qWDTT / olcRTC) | — |
+| [hydraponique/3x-ui](https://github.com/hydraponique/3x-ui), [roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite), [roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing) | RoscomVPN geo pack + Happ routing profiles | Upstream |
+| [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat), [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules), [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) | Stock geoip/geosite datasets | Upstream |
+| [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | AWG ops inspiration | — |
+| [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | TLS fingerprint references for CPS | — |
 
 ---
 

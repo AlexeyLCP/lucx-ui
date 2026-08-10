@@ -157,12 +157,21 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 
 ## 📜 许可证与条款
 
-本项目遵循**双重许可证**（详情参阅 [LICENSING.md](LICENSING.md)）：
+本项目自有代码遵循**双重许可证**，第三方二进制/数据遵循各自上游条款（完整矩阵见 [LICENSING.md](LICENSING.md)）：
 
 | 组件 | 许可证 |
 |---|---|
 | 原始 3x-ui 代码库 | **GPL-3.0** |
-| LucX-UI 组件 (`internal/awg/`, `internal/lucx/`, 前端) | **PolyForm Noncommercial 1.0.0** |
+| LucX-UI 组件 (`internal/awg/`、`internal/lucx/`、LucX 前端页面) | **PolyForm Noncommercial 1.0.0** |
+| `bin/caddy-naive-*`（Caddy） | **Apache-2.0** |
+| `forward_proxy` 插件（[klzgrad](https://github.com/klzgrad/forwardproxy)） | **MIT** |
+| NaiveProxy（[klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)） | **BSD-3-Clause** |
+| `bin/olcrtc-*`（[openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)） | **WTFPL** |
+| `bin/qwdtt-*`（[SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)） | **GPL-3.0** |
+| AmneziaWG 内核模块与工具（[amnezia-vpn](https://github.com/amnezia-vpn)） | **GPL-2.0**（模块；安装在主机） |
+| 预置 geo `.dat`（Loyalsoldier / IR / RU / ROSCOM） | 各数据集上游（见 LICENSING.md） |
+
+隧道二进制为**子进程**——面板不链接它们。qWDTT 的 GPL 适用于该二进制及其源码，不适用于 LucX 的 PolyForm 代码。
 
 ---
 

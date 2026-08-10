@@ -157,12 +157,21 @@ AWG kernel-модуль собирается автоматически уста
 
 ## 📜 Лицензия и условия
 
-Проект публикуется под **двумя лицензиями** (подробности в [LICENSING.md](LICENSING.md)):
+Проект публикуется под **двумя лицензиями** на свой код плюс third-party бинарники/данные по условиям апстрима (полная матрица в [LICENSING.md](LICENSING.md)):
 
 | Компонент | Лицензия |
 |---|---|
 | Исходный код оригинального 3x-ui | **GPL-3.0** |
-| Компоненты LucX-UI (`internal/awg/`, `internal/lucx/`, frontend) | **PolyForm Noncommercial 1.0.0** |
+| Компоненты LucX-UI (`internal/awg/`, `internal/lucx/`, LucX-страницы frontend) | **PolyForm Noncommercial 1.0.0** |
+| `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
+| Плагин `forward_proxy` ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
+| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
+| `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
+| AmneziaWG kernel module & tools ([amnezia-vpn](https://github.com/amnezia-vpn)) | **GPL-2.0** (модуль; ставится на хост) |
+| Сток geo `.dat` (Loyalsoldier / IR / RU / ROSCOM) | Условия каждого датасета (см. LICENSING.md) |
+
+Туннельные бинарники — **дочерние процессы**, панель их не линкует. GPL у qWDTT относится к этому бинарнику и его исходникам, не к PolyForm-коду LucX.
 
 ---
 
@@ -177,19 +186,20 @@ LucX-UI стоит на плечах многих open-source проектов �
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) *feat(xray): browse geosite/geoip categories from routing rules* (geodata browser).
 
 ### Проекты и вдохновение
-| Проект | Что используем |
-|---|---|
-| [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Базовая панель (GPL-3.0) |
-| [amnezia-vpn](https://github.com/amnezia-vpn) — kernel module & tools | Протокол AmneziaWG / AWG3 |
-| [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) & [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) | Туннельный сайдкар NaiveProxy |
-| [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | Ядро olcRTC (WTFPL) |
-| [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) | Сервер qWDTT (GPL-3.0) |
-| [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) | Референс интеграции Caddyfile |
-| [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) | Концепция туннельных сайдкаров в панели (qWDTT / olcRTC) |
-| [hydraponique/3x-ui](https://github.com/hydraponique/3x-ui), [roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite), [roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing) | Пакет RoscomVPN geo + профили Happ |
-| [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat), [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules), [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) | Сток geoip/geosite |
-| [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | Вдохновение по AWG ops |
-| [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | Референсы TLS-отпечатков для CPS |
+| Проект | Что используем | Лицензия |
+|---|---|---|
+| [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Базовая панель | GPL-3.0 |
+| [amnezia-vpn](https://github.com/amnezia-vpn) — kernel module & tools | Протокол AmneziaWG / AWG3 | GPL-2.0 (модуль) |
+| [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) | Протокол / клиент-референс NaiveProxy | BSD-3-Clause |
+| [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) + Caddy | Бинарник сайдкара NaiveProxy | MIT + Apache-2.0 |
+| [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | Ядро olcRTC | WTFPL |
+| [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) | Сервер qWDTT | GPL-3.0 |
+| [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) | Референс интеграции Caddyfile | — |
+| [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) | Концепция туннельных сайдкаров в панели (qWDTT / olcRTC) | — |
+| [hydraponique/3x-ui](https://github.com/hydraponique/3x-ui), [roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite), [roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing) | Пакет RoscomVPN geo + профили Happ | Upstream |
+| [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat), [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules), [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) | Сток geoip/geosite | Upstream |
+| [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | Вдохновение по AWG ops | — |
+| [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | Референсы TLS-отпечатков для CPS | — |
 
 ---
 

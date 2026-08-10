@@ -157,12 +157,21 @@ El módulo de kernel AWG se construye automáticamente mediante el instalador (`
 
 ## 📜 Licencia y Términos
 
-Este proyecto se publica bajo **dos licencias** (detalles en [LICENSING.md](LICENSING.md)):
+Este proyecto se publica bajo **dos licencias** para el código propio, más binarios/datos de terceros bajo sus términos upstream (matriz completa en [LICENSING.md](LICENSING.md)):
 
 | Componente | Licencia |
 |---|---|
 | Código base original 3x-ui | **GPL-3.0** |
-| Componentes LucX-UI (`internal/awg/`, `internal/lucx/`, frontend) | **PolyForm Noncommercial 1.0.0** |
+| Componentes LucX-UI (`internal/awg/`, `internal/lucx/`, páginas LucX del frontend) | **PolyForm Noncommercial 1.0.0** |
+| `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
+| Plugin `forward_proxy` ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
+| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
+| `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
+| AmneziaWG kernel module & tools ([amnezia-vpn](https://github.com/amnezia-vpn)) | **GPL-2.0** (módulo; se instala en el host) |
+| Geo `.dat` de stock (Loyalsoldier / IR / RU / ROSCOM) | Upstream de cada dataset (ver LICENSING.md) |
+
+Los binarios de túnel son **procesos hijos** — el panel no los enlaza. El GPL de qWDTT aplica a ese binario y sus fuentes, no al código PolyForm de LucX.
 
 ---
 

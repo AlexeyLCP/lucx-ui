@@ -157,12 +157,21 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 ## 📜 مجوز و شرایط
 
-این پروژه تحت **دو مجوز** منتشر می‌شود (جزئیات در [LICENSING.md](LICENSING.md)):
+این پروژه برای کد خود تحت **دو مجوز** و برای باینری/دادهٔ شخص ثالث تحت شرایط upstream منتشر می‌شود (جدول کامل در [LICENSING.md](LICENSING.md)):
 
 | بخش | مجوز |
 |---|---|
 | سورس اصلی 3x-ui | **GPL-3.0** |
-| مولفه‌های LucX-UI (`internal/awg/`, `internal/lucx/`, فرانت‌اند) | **PolyForm Noncommercial 1.0.0** |
+| مولفه‌های LucX-UI (`internal/awg/`، `internal/lucx/`، صفحات LucX فرانت‌اند) | **PolyForm Noncommercial 1.0.0** |
+| `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
+| پلاگین `forward_proxy` ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
+| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
+| `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
+| ماژول و ابزار AmneziaWG ([amnezia-vpn](https://github.com/amnezia-vpn)) | **GPL-2.0** (ماژول؛ روی میزبان نصب می‌شود) |
+| geo `.dat` پیش‌فرض (Loyalsoldier / IR / RU / ROSCOM) | شرایط هر دیتاست (ن.ک. LICENSING.md) |
+
+باینری‌های تونل **فرآیند فرزند** هستند — پنل آن‌ها را لینک نمی‌کند. GPL مربوط به qWDTT فقط برای همان باینری و سورس‌هایش است، نه کد PolyFormِ LucX.
 
 ---
 

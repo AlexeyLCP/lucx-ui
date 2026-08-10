@@ -42,9 +42,32 @@ SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 - You **cannot** sublicense these components or strip the license headers.
 - The GPL-3.0 obligations for the upstream 3x-ui code apply to the project as a whole regardless.
 
-## Third-party tunnel binaries
+## 3. Third-party binaries & data (not LucX-UI code)
 
-The release tarball ships `bin/caddy-naive-linux-*` — Caddy with the `forward_proxy` plugin from [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (naive branch), as used by [NaiveProxy](https://github.com/klzgrad/naiveproxy). These are separate upstream programs, not LucX-UI code: Caddy is **Apache-2.0**, the forward_proxy plugin **MIT**, NaiveProxy **BSD-3-Clause**. The panel talks to the binary as a child process; no LucX-UI code links against it.
+The panel **supervises external processes** and ships optional geo datasets. Nothing below is linked into the LucX-UI Go binary; licenses stay with their upstream authors.
+
+| Artifact / project | Role | License |
+|---|---|---|
+| [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Base panel | **GPL-3.0** |
+| LucX-owned paths listed in §2 | AWG / tunnels / Smart Cluster | **PolyForm Noncommercial 1.0.0** |
+| `bin/caddy-naive-linux-*` — [Caddy](https://github.com/caddyserver/caddy) | NaiveProxy sidecar runtime | **Apache-2.0** |
+| [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (`naive` branch) | Caddy `forward_proxy` plugin | **MIT** |
+| [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) | Protocol / client reference | **BSD-3-Clause** |
+| `bin/olcrtc-linux-*` — [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | olcRTC WebRTC tunnel core | **WTFPL** |
+| `bin/qwdtt-linux-*` — [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) server | qWDTT (WG over VK TURN) | **GPL-3.0** |
+| [amnezia-vpn](https://github.com/amnezia-vpn) kernel module & tools | AmneziaWG / AWG3 (installed by host scripts, not the panel binary) | **GPL-2.0** (kernel module) |
+| `bin/geoip.dat` / `geosite.dat` — [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) | Stock geodata | Upstream (see repo) |
+| `bin/geoip_IR.dat` / `geosite_IR.dat` — [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) | IR geodata | Upstream (see repo) |
+| `bin/geoip_RU.dat` / `geosite_RU.dat` — [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) | RU geodata | Upstream (see repo) |
+| `bin/geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` — [hydraponique/roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite) | RoscomVPN RKN lists | Upstream (see repo) |
+| Happ routing deeplinks — [hydraponique/roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing) | Optional client routing profiles | Upstream (see repo) |
+
+**Notes**
+
+- Tunnel binaries are **child processes**. LucX code under `internal/lucx/tunnel/` (PolyForm) only writes configs, spawns/kills, and probes health.
+- qWDTT is GPL-3.0 **as an external program**. Shipping the binary does not relicense LucX PolyForm sources; operators who redistribute qWDTT must still honour GPL-3.0 for that binary and its sources.
+- Geo `.dat` files are data packs refreshed from upstream releases; their license/terms follow the linked repositories.
+- Design references (not shipped as code): [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui), geodata browser port of [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) (STRENCH0).
 
 ## Why the split?
 
