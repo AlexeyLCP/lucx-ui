@@ -1237,6 +1237,17 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/clients/awgBody/:subId',
+        summary:
+          'LUCX-UI only. Same-origin Amnezia subscription body for panel Copy/QR (avoids CORS on the public /awg/ port). format=vpn → vpn:// lines; format=conf → awg-quick .conf. Plain text body, not a JSON envelope.',
+        params: [
+          { name: 'subId', in: 'path', type: 'string', desc: "Subscription ID from the client's subId field." },
+          { name: 'format', in: 'query', type: 'string', optional: true, desc: 'vpn (default) or conf.' },
+        ],
+        response: 'vpn://BASE64…\n',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/clients/links/:email',
         summary:
           "Return every URL for one client across all attached inbounds — the same strings the Copy URL button copies in the panel UI. Supported protocols: vmess, vless, trojan, shadowsocks, hysteria. If streamSettings.externalProxy is set, returns one URL per external proxy. Protocols without a URL form (socks, http, mixed, wireguard, dokodemo, tunnel) contribute nothing.",

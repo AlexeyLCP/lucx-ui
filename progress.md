@@ -1782,3 +1782,11 @@ clipboard — http(s)://. QR тоже кодировал URL.
 - QrPanel — резолвит vpn body для QR и copy
 
 **lucxVersion:** lucx.97
+
+## Релиз v3.6.0-lucx.98 (2026-08-10) — copy vpn:// через panel API (CORS)
+
+**Баг lucx.97:** fetch публичного `https://host:2096/awg/…?format=vpn` с
+origin панели → CORS fail → «что-то пошло не так».
+
+**Фикс:** GET `/panel/api/clients/awgBody/:subId?format=vpn|conf` (same-origin,
+SubAwgService). Frontend `fetchBody` сначала ходит туда, fallback — прямой URL.

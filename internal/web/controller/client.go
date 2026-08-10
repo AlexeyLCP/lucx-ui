@@ -2,10 +2,13 @@ package controller
 
 import (
 	"encoding/json"
+	"net/http"
 	"strconv"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/sub"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/websocket"
 
@@ -51,6 +54,9 @@ func (a *ClientController) initRouter(g *gin.RouterGroup) {
 	g.GET("/get/tgId/:tgId", a.getByTgId)
 	g.GET("/traffic/:email", a.getTrafficByEmail)
 	g.GET("/subLinks/:subId", a.getSubLinks)
+	// LUCX-HOOK: same-origin Amnezia body for panel Copy/QR (avoids CORS on :2096).
+	g.GET("/awgBody/:subId", a.getAwgBody)
+	// END LUCX-HOOK
 	g.GET("/links/:email", a.getClientLinks)
 
 	g.POST("/add", a.create)
@@ -575,6 +581,47 @@ func (a *ClientController) getSubLinks(c *gin.Context) {
 	}
 	jsonObj(c, links, nil)
 }
+
+// LUCX-HOOK: getAwgBody returns the Amnezia subscription payload (.conf or
+// vpn:// lines) for a subId through the panel origin. The public /awg/ endpoint
+// lives on the subscription port — browser fetch from the panel hits CORS and
+// Copy of "vpn://" fails with "something went wrong". Same builder as the
+// public endpoint (sub.SubAwgService).
+func (a *ClientController) getAwgBody(c *gin.Context) {
+	subId := strings.TrimSpace(c.Param("subId"))
+	if subId == "" {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("subId is required"))
+		return
+	}
+	format := strings.ToLower(strings.TrimSpace(c.DefaultQuery("format", "vpn")))
+	if format != "vpn" && format != "conf" && format != "" {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("format must be vpn or conf"))
+		return
+	}
+	remark, err := a.settingService.GetRemarkTemplate()
+	if err != nil {
+		remark = ""
+	}
+	host := resolveHost(c)
+	if h, err := a.settingService.GetSubDomain(); err == nil && strings.TrimSpace(h) != "" {
+		host = strings.TrimSpace(h)
+	} else if h, err := a.settingService.GetWebDomain(); err == nil && strings.TrimSpace(h) != "" {
+		host = strings.TrimSpace(h)
+	}
+	body, _, err := sub.NewSubAwgService(sub.NewSubService(remark)).GetAwg(subId, host, format)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	if strings.TrimSpace(body) == "" {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("no AWG configs for this subscription"))
+		return
+	}
+	c.Header("Content-Type", "text/plain; charset=utf-8")
+	c.String(http.StatusOK, body)
+}
+
+// END LUCX-HOOK
 
 func (a *ClientController) getClientLinks(c *gin.Context) {
 	links, err := a.inboundService.GetAllClientLinks(resolveHost(c), c.Param("email"))
