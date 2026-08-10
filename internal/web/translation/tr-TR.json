@@ -2009,7 +2009,12 @@
           "extraArgs": "Ek caddy argümanları",
           "save": "Kaydet",
           "preview": "Caddyfile önizleme",
-          "genPass": "Parola üret"
+          "genPass": "Parola üret",
+          "routeThroughXray": "Xray üzerinden yönlendir",
+          "routeThroughXrayTip": "Caddy, Xray'e enjekte edilen gizli loopback SOCKS köprüsü üzerinden hedeflere bağlanır (etiket lucx-tunnel-naive). NaiveProxy trafiğinde tam Xray yönlendirme, sniffing ve alan adı kurallarını etkinleştirir. Ham Caddyfile modunda kullanılamaz.",
+          "outboundTag": "Zorunlu outbound",
+          "outboundTagTip": "İsteğe bağlı. Tüm NaiveProxy trafiğini bu outbound veya dengeleyiciye gönderir. Boş = Xray varsayılan yönlendirmesi.",
+          "outboundTagPlaceholder": "Varsayılan yönlendirme"
         },
         "toasts": {
           "started": "NaiveProxy başlatıldı",

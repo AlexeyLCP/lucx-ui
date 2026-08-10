@@ -74,6 +74,7 @@ docker compose --profile postgres up -d
 | Panel içi AWG teşhisi (yönlendirme / NAT / eşler / el sıkışmalar) | ✗ | ✓ |
 | NaiveProxy tünel sidecar'ı (Caddy + forward_proxy, denetimli) | ✗ | ✓ |
 | İstemci başına NaiveProxy kimlik bilgileri + aboneliklerde `naive+https://` | ✗ | ✓ |
+| NaiveProxy → Xray yönlendirme (SOCKS loopback köprüsü, isteğe bağlı) | ✗ | ✓ |
 | Akıllı Cluster outbound bağlantıları | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 ön yüz | ✓ | ✓ (devralınan) |
 | Tüm Xray protokolleri (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -100,7 +101,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **İstemci başına kimlik bilgileri** — paneldeki her etkin istemci otomatik olarak kişisel bir `basic_auth` çifti alır (panel sırrından türetilir, saklanmaz); istemciyi devre dışı bırakmak bir sonraki reconcile'da iptal eder.
 - **Abonelikler** — her istemcinin aboneliği Xray/AWG bağlantılarının yanında kişisel `naive+https://` bağlantısını taşır (NekoBox / husi / Exclave standart formatı), ayrıca panelde QR kod ve güçlü parola üreteci vardır.
 - **Panel UX** — Auto TLS (Let's Encrypt) veya kendi cert/key'iniz, `caddy adapt` doğrulamalı raw-Caddyfile modu, Caddyfile önizlemesi, süreç logları, ikili yükleme/indirme.
-- Trafik tasarım gereği Xray'ı baypas eder (bağımsız TLS + kimlik bilgileri) — AWG ve REALITY'ye bir kamuflaj tamamlayıcısıdır, yönlendirme hedefi değildir.
+- **Xray üzerinden yönlendir (isteğe bağlı)** — anahtar, Caddy'nin gizli loopback SOCKS köprüsü üzerinden hedeflere bağlanmasını sağlar (`upstream socks5://127.0.0.1:…`, yerel forward_proxy — yama yok), etiket `lucx-tunnel-naive`; böylece NaiveProxy trafiği tam Xray yönlendirme / sniffing / alan adı kurallarını alır (MTProto ile aynı). Varsayılan doğrudan çıkıştır.
 
 ### 🚀 Temel 3x-ui Özellikleri
 - **Protokoller:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.

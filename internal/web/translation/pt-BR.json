@@ -2009,7 +2009,12 @@
           "extraArgs": "Args extras do caddy",
           "save": "Salvar",
           "preview": "Pré-visualizar Caddyfile",
-          "genPass": "Gerar senha"
+          "genPass": "Gerar senha",
+          "routeThroughXray": "Rotear pelo Xray",
+          "routeThroughXrayTip": "O Caddy disca destinos por uma ponte SOCKS loopback oculta injetada no Xray (tag lucx-tunnel-naive). Ativa o roteamento, sniffing e regras de domínio do Xray no tráfego NaiveProxy. Indisponível no modo Caddyfile bruto.",
+          "outboundTag": "Outbound forçado",
+          "outboundTagTip": "Opcional. Envia todo o tráfego NaiveProxy para este outbound ou balancer. Vazio = roteamento padrão do Xray.",
+          "outboundTagPlaceholder": "Roteamento padrão"
         },
         "toasts": {
           "started": "NaiveProxy iniciado",

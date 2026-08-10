@@ -74,6 +74,7 @@ docker compose --profile postgres up -d
 | تشخيص AWG داخل اللوحة (التوجيه / NAT / الأقران / المصافحات) | ✗ | ✓ |
 | Sidecar نفق NaiveProxy (Caddy + forward_proxy، تحت إشراف اللوحة) | ✗ | ✓ |
 | بيانات اعتماد NaiveProxy لكل عميل + `naive+https://` في الاشتراكات | ✗ | ✓ |
+| NaiveProxy → توجيه Xray (جسر SOCKS loopback، اختياري) | ✗ | ✓ |
 | روابط outbound الذكية للـ Cluster | ✗ | ✓ |
 | واجهة أمامية React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (موروث) |
 | جميع بروتوكولات Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -100,7 +101,7 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 - **بيانات اعتماد لكل عميل** — كل عميل مفعّل في اللوحة يحصل تلقائياً على زوج `basic_auth` شخصي (مشتق من سر اللوحة، دون تخزين)؛ تعطيل العميل يُلغي الاعتماد في reconcile التالي.
 - **الاشتراكات** — يحمل اشتراك كل عميل رابطه الشخصي `naive+https://` إلى جانب روابط Xray/AWG (الصيغة القياسية لـ NekoBox / husi / Exclave)، مع رمز QR ومولّد كلمات مرور قوية في اللوحة.
 - **تجربة اللوحة** — Auto TLS (Let's Encrypt) أو شهادتك/مفتاحك الخاصان، وضع raw-Caddyfile مع تحقق `caddy adapt`، معاينة Caddyfile، سجلات العملية، رفع/تنزيل الثنائي.
-- يتجاوز الترافيك Xray بالتصميم (TLS وبيانات اعتماد مستقلان) — مكمّل تمويه لـ AWG و REALITY، وليس هدفاً للتوجيه.
+- **التوجيه عبر Xray (اختياري)** — المفتاح يجعل Caddy يتصل بالوجهات عبر جسر SOCKS loopback مخفي (`upstream socks5://127.0.0.1:…`، forward_proxy أصلي — بلا تصحيح) بالوسم `lucx-tunnel-naive`، فيحصل ترافيك NaiveProxy على التوجيه / الشمّ / قواعد النطاقات الكاملة لدى Xray (نفس نمط MTProto). الافتراضي يبقى خروجاً مباشراً.
 
 ### 🚀 الميزات الأساسية لـ 3x-ui
 - **البروتوكولات:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.

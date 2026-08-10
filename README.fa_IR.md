@@ -74,6 +74,7 @@ docker compose --profile postgres up -d
 | عیب‌یابی AWG درون پنل (مسیریابی / NAT / همتاها / دست‌دادن‌ها) | ✗ | ✓ |
 | سایدی‌کار تونل NaiveProxy (Caddy + forward_proxy، تحت نظارت پنل) | ✗ | ✓ |
 | اعتبارنامه‌های per-client NaiveProxy + `naive+https://` در اشتراک‌ها | ✗ | ✓ |
+| NaiveProxy → مسیریابی Xray (پل SOCKS loopback، اختیاری) | ✗ | ✓ |
 | لینک‌های خروجی Smart Cluster | ✗ | ✓ |
 | فرانت‌اند React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (به ارث رسیده) |
 | تمام پروتکل‌های Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -100,7 +101,7 @@ docker compose --profile postgres up -d
 - **اعتبارنامه‌های per-client** — هر کلاینت فعال پنل به‌طور اتوماتیک یک جفت شخصی `basic_auth` می‌گیرد (مشتق از راز پنل، بدون ذخیره‌سازی)؛ غیرفعال‌کردن کلاینت در reconcile بعدی آن را باطل می‌کند.
 - **اشتراک‌ها** — اشتراک هر کلاینت لینک شخصی `naive+https://` او را در کنار لینک‌های Xray/AWG حمل می‌کند (فرمت استاندارد NekoBox / husi / Exclave)، به‌علاوه کد QR و تولیدکنندهٔ رمز عبور قوی در پنل.
 - **UX پنل** — Auto TLS (Let's Encrypt) یا cert/key خودتان، حالت raw-Caddyfile با اعتبارسنجی `caddy adapt`، پیش‌نمایش Caddyfile، لاگ‌های فرایند، آپلود/دانلود باینری.
-- ترافیک بنا به طراحی از Xray عبور نمی‌کند (TLS و اعتبارنامه‌های مستقل) — مکمل استتار برای AWG و REALITY، نه هدف مسیریابی.
+- **مسیریابی از طریق Xray (اختیاری)** — سوییچ باعث می‌شود Caddy مقاصد را از طریق پل SOCKS loopback پنهان شماره‌گیری کند (`upstream socks5://127.0.0.1:…`، forward_proxy بومی — بدون پچ) با برچسب `lucx-tunnel-naive`، تا ترافیک NaiveProxy مسیریابی / شنود / قوانین دامنهٔ کامل Xray را بگیرد (همان الگوی MTProto). پیش‌فرض همچنان egress مستقیم است.
 
 ### 🚀 ویژگی‌های اصلی 3x-ui
 - **پروتکل‌ها:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.

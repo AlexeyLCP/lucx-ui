@@ -137,7 +137,7 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 - **Поставка бинарника:** release.yml — amd64 prebuilt из klzgrad/forwardproxy (pinned тег), arm64 — xcaddy кросс-сборка; прочие архитектуры без бинарника (upload/download в UI). Имя: `bin/caddy-naive-<os>-<arch>`.
 - **Ограничение ACME:** Let's Encrypt HTTP-01 требует порт 443 (валидация не даёт ACME на другом порту).
 - **Dev-готча:** Kaspersky на dev-машине ломает loopback TLS (MITM) — TLS-пробы в тестах скипаются с пометкой окружения; на Linux работает.
-- **Мост в Xray (следующий подэтап):** SOCKS-egress патч forwardproxy + скрытый SOCKS loopback inbound (`injectTunnelEgress`, симметрично mtproto) — даст Xray-роутинг туннельному трафику.
+- **Мост в Xray (lucx.93):** опциональный `routeThroughXray` — Caddy dial через нативный `upstream socks5://127.0.0.1:port` (klzgrad/forwardproxy, **без патча бинарника**) + скрытый SOCKS loopback inbound (`injectTunnelEgress`, тег `lucx-tunnel-naive`, симметрично mtproto). Порт аллоцируется backend'ом и стабилен; `outboundTag` опционально force-route. Raw-Caddyfile mode несовместим. Default = прямой egress.
 
 ### 4. Paranoid Logging
 

@@ -7,6 +7,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	xuilogger "github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 
@@ -722,6 +723,103 @@ func TestInjectAwgEgress_PerInboundGateway(t *testing.T) {
 	}
 	if len(settings.Gateway) != 1 || settings.Gateway[0] != "10.254.7.1/30" {
 		t.Errorf("expected gateway [10.254.7.1/30], got %v", settings.Gateway)
+	}
+}
+
+func TestInjectTunnelEgress_WithOutbound(t *testing.T) {
+	cfg := egressTestConfig()
+	injectTunnelEgress(cfg, tunnel.NaiveConfig{
+		Enabled: true, RouteThroughXray: true, RouteXrayPort: 51000, OutboundTag: "warp",
+	})
+
+	if len(cfg.InboundConfigs) != 2 {
+		t.Fatalf("expected the bridge inbound to be appended, got %d", len(cfg.InboundConfigs))
+	}
+	ib := cfg.InboundConfigs[1]
+	if ib.Tag != tunnel.NaiveEgressTag || ib.Protocol != "socks" || ib.Port != 51000 {
+		t.Fatalf("unexpected bridge inbound: %+v", ib)
+	}
+	if string(ib.Listen) != `"127.0.0.1"` {
+		t.Fatalf("bridge must listen on loopback, got %s", ib.Listen)
+	}
+
+	var routing egressRouting
+	if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+		t.Fatal(err)
+	}
+	if len(routing.Rules) != 2 {
+		t.Fatalf("expected the egress rule prepended, got %+v", routing.Rules)
+	}
+	first := routing.Rules[0]
+	if first.Type != "field" || first.OutboundTag != "warp" ||
+		len(first.InboundTag) != 1 || first.InboundTag[0] != tunnel.NaiveEgressTag {
+		t.Fatalf("egress rule must bind NaiveEgressTag to the outbound, got %+v", first)
+	}
+}
+
+func TestInjectTunnelEgress_NoOutboundLeavesRouting(t *testing.T) {
+	cfg := egressTestConfig()
+	before := string(cfg.RouterConfig)
+	injectTunnelEgress(cfg, tunnel.NaiveConfig{
+		Enabled: true, RouteThroughXray: true, RouteXrayPort: 51001,
+	})
+	if len(cfg.InboundConfigs) != 2 || cfg.InboundConfigs[1].Port != 51001 {
+		t.Fatalf("bridge must still be appended without an outbound, got %+v", cfg.InboundConfigs)
+	}
+	if string(cfg.RouterConfig) != before {
+		t.Fatalf("no outbound means no rule change, got %s", cfg.RouterConfig)
+	}
+}
+
+func TestInjectTunnelEgress_Disabled(t *testing.T) {
+	for _, naive := range []tunnel.NaiveConfig{
+		{Enabled: false, RouteThroughXray: true, RouteXrayPort: 51000},
+		{Enabled: true, RouteThroughXray: false, RouteXrayPort: 51000},
+		{Enabled: true, RouteThroughXray: true, RouteXrayPort: 0},
+	} {
+		cfg := egressTestConfig()
+		before := string(cfg.RouterConfig)
+		injectTunnelEgress(cfg, naive)
+		if len(cfg.InboundConfigs) != 1 || string(cfg.RouterConfig) != before {
+			t.Fatalf("settings %+v must be a no-op, got %d inbounds", naive, len(cfg.InboundConfigs))
+		}
+	}
+}
+
+func TestInjectTunnelEgress_MissingTargetSkips(t *testing.T) {
+	cfg := egressTestConfig()
+	before := string(cfg.RouterConfig)
+	injectTunnelEgress(cfg, tunnel.NaiveConfig{
+		Enabled: true, RouteThroughXray: true, RouteXrayPort: 51004, OutboundTag: "gone",
+	})
+	if len(cfg.InboundConfigs) != 1 {
+		t.Fatalf("a missing target must not expose the tunnel bridge, got %+v", cfg.InboundConfigs)
+	}
+	if string(cfg.RouterConfig) != before {
+		t.Fatalf("a missing target must leave routing untouched, got %s", cfg.RouterConfig)
+	}
+}
+
+func TestNaiveBridgeChanged(t *testing.T) {
+	base := tunnel.NaiveConfig{Enabled: true, RouteThroughXray: true, RouteXrayPort: 51000, OutboundTag: "warp"}
+	if !naiveBridgeChanged(base, tunnel.NaiveConfig{Enabled: false, RouteThroughXray: true, RouteXrayPort: 51000}) {
+		t.Fatal("disable must change the bridge")
+	}
+	if !naiveBridgeChanged(base, tunnel.NaiveConfig{Enabled: true, RouteThroughXray: false}) {
+		t.Fatal("route off must change the bridge")
+	}
+	if !naiveBridgeChanged(base, tunnel.NaiveConfig{Enabled: true, RouteThroughXray: true, RouteXrayPort: 51001, OutboundTag: "warp"}) {
+		t.Fatal("port change must change the bridge")
+	}
+	if !naiveBridgeChanged(base, tunnel.NaiveConfig{Enabled: true, RouteThroughXray: true, RouteXrayPort: 51000, OutboundTag: "direct"}) {
+		t.Fatal("outbound change must change the bridge")
+	}
+	if naiveBridgeChanged(base, base) {
+		t.Fatal("identical config must not change the bridge")
+	}
+	off := tunnel.NaiveConfig{Enabled: true}
+	if naiveBridgeChanged(off, tunnel.NaiveConfig{Enabled: false}) {
+		t.Fatal("unrouted enable flip must not change the bridge")
 	}
 }
 

@@ -1697,3 +1697,22 @@ systemctl start x-ui
 **Откат для уже мигрировавших (lucx.91):** бэкапа нет, запись только в журнале: `journalctl -u x-ui | grep 'migration.*address'` → `client "email" address OLD -> NEW`. Откат обычно не нужен (клиенты до миграции не работали, новый адрес валиден — перескачать конфиг). Вернуть OLD — вручную в allowedIPs клиента.
 
 **Действия тестеров:** обновиться до lucx.92 (`x-ui update`) — дальнейшие автоматические ротации невозможны.
+## Релиз v3.6.0-lucx.93 (2026-08-10) — NaiveProxy → Xray SOCKS-egress мост
+
+**feat(tunnel):** опциональный `routeThroughXray` для NaiveProxy — симметрия с MTProto.
+
+**Ключевой discovery:** klzgrad/forwardproxy уже поддерживает `upstream socks5://127.0.0.1:port` к localhost **нативно** — патч бинарника НЕ нужен (AGENTS.md раньше планировал патч; уточнено).
+
+**Реализация:**
+- `NaiveConfig`: `routeThroughXray`, `routeXrayPort` (backend-owned, стабильный), `outboundTag`
+- `RenderCaddyfile` → `upstream socks5://127.0.0.1:PORT` при routed
+- `injectTunnelEgress` в `xray.go` — скрытый SOCKS inbound тег `lucx-tunnel-naive` + optional routing rule
+- `normalizeNaiveXrayPort` + `naiveBridgeChanged` → `RestartXray(true)` на save/start/stop/restart
+- Raw-Caddyfile mode несовместим (Validate rejects)
+- Frontend: Switch + Select outbound на TunnelsPage; i18n x13
+- README (7 языков): строка сравнения + bullet
+- Default = прямой egress (как было)
+
+**Тесты:** `TestRenderCaddyfileUpstreamWhenRouted`, inject suite, `TestNaiveBridgeChanged`. Tunnel package PASS локально; service package — CGO/Windows, CI.
+
+**lucxVersion:** lucx.93

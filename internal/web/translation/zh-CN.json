@@ -2009,7 +2009,12 @@
           "extraArgs": "caddy 附加参数",
           "save": "保存",
           "preview": "预览 Caddyfile",
-          "genPass": "生成密码"
+          "genPass": "生成密码",
+          "routeThroughXray": "通过 Xray 路由",
+          "routeThroughXrayTip": "Caddy 通过面板注入到 Xray 的隐藏 loopback SOCKS 桥接拨号（标签 lucx-tunnel-naive）。使 NaiveProxy 流量获得完整的 Xray 路由、嗅探与域名规则。原始 Caddyfile 模式下不可用。",
+          "outboundTag": "强制出站",
+          "outboundTagTip": "可选。将所有 NaiveProxy 流量发送到此出站或负载均衡器。留空则遵循 Xray 默认路由。",
+          "outboundTagPlaceholder": "默认路由"
         },
         "toasts": {
           "started": "NaiveProxy 已启动",

@@ -74,6 +74,7 @@ docker compose --profile postgres up -d
 | Diagnóstico AWG en panel (enrutamiento / NAT / peers / handshakes) | ✗ | ✓ |
 | Sidecar de túnel NaiveProxy (Caddy + forward_proxy, supervisado) | ✗ | ✓ |
 | Credenciales NaiveProxy por cliente + `naive+https://` en suscripciones | ✗ | ✓ |
+| NaiveProxy → enrutamiento Xray (puente SOCKS loopback, opcional) | ✗ | ✓ |
 | Enlaces outbound de clúster inteligente | ✗ | ✓ |
 | Frontend React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (heredado) |
 | Todos los protocolos Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -100,7 +101,7 @@ Un sidecar de kernel (como el `mtg` de MTProto en 3x-ui) significa que AWG se ej
 - **Credenciales por cliente** — cada cliente habilitado del panel obtiene automáticamente un par `basic_auth` personal (derivado del secreto del panel, sin almacenamiento); deshabilitar un cliente lo revoca en el siguiente reconcile.
 - **Suscripciones** — la suscripción de cada cliente incluye su enlace personal `naive+https://` junto a los de Xray/AWG (formato estándar de NekoBox / husi / Exclave), más código QR y generador de contraseñas fuertes en el panel.
 - **UX del panel** — Auto TLS (Let's Encrypt) o su propio cert/key, modo raw-Caddyfile con validación `caddy adapt`, vista previa del Caddyfile, logs del proceso, upload/download del binario.
-- El tráfico bypasea Xray por diseño (TLS y credenciales propios) — un complemento de camuflaje a AWG y REALITY, no un destino de enrutamiento.
+- **Enrutar a través de Xray (opcional)** — el interruptor hace que Caddy marque destinos vía un puente SOCKS loopback oculto (`upstream socks5://127.0.0.1:…`, forward_proxy nativo — sin parche) con etiqueta `lucx-tunnel-naive`, de modo que el tráfico NaiveProxy obtiene el enrutamiento / sniffing / reglas de dominio de Xray (mismo patrón que MTProto). Por defecto sigue siendo egress directo.
 
 ### 🚀 Características Base de 3x-ui
 - **Protocolos:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.

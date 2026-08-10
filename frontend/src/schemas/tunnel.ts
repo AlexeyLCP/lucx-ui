@@ -25,6 +25,9 @@ export const NaiveConfigSchema = z.object({
   probeResistance: z.boolean().default(true),
   logLevel: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).default('WARN'),
   extraArgs: z.string().default(''),
+  routeThroughXray: z.boolean().default(false),
+  routeXrayPort: z.number().int().min(0).max(65535).default(0),
+  outboundTag: z.string().default(''),
   useRawConfig: z.boolean().default(false),
   rawConfig: z.string().default(''),
 });

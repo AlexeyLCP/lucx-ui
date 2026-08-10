@@ -2009,7 +2009,12 @@
           "extraArgs": "وسائط caddy إضافية",
           "save": "حفظ",
           "preview": "معاينة Caddyfile",
-          "genPass": "توليد كلمة المرور"
+          "genPass": "توليد كلمة المرور",
+          "routeThroughXray": "التوجيه عبر Xray",
+          "routeThroughXrayTip": "يتصل Caddy بالوجهات عبر جسر SOCKS loopback مخفي يُحقن في Xray (الوسم lucx-tunnel-naive). يفعّل التوجيه الكامل والشمّ وقواعد النطاقات لدى Xray على ترافيك NaiveProxy. غير متاح في وضع Caddyfile الخام.",
+          "outboundTag": "خروج إجباري",
+          "outboundTagTip": "اختياري. يرسل كل ترافيك NaiveProxy إلى هذا الـ outbound أو الموازن. فارغ = التوجيه الافتراضي لـ Xray.",
+          "outboundTagPlaceholder": "التوجيه الافتراضي"
         },
         "toasts": {
           "started": "تم بدء NaiveProxy",

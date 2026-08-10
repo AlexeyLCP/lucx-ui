@@ -74,6 +74,7 @@ docker compose --profile postgres up -d
 | 面板内 AWG 诊断（路由 / NAT / peers / 握手） | ✗ | ✓ |
 | NaiveProxy 隧道 Sidecar（Caddy + forward_proxy，面板监管） | ✗ | ✓ |
 | 每客户端 NaiveProxy 凭证 + 订阅中的 `naive+https://` | ✗ | ✓ |
+| NaiveProxy → Xray 路由（SOCKS loopback 桥接，可选） | ✗ | ✓ |
 | 智能集群 outbound 链接 | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 前端 | ✓ | ✓（继承） |
 | 所有 Xray 协议（VLESS / VMess / Trojan / Shadowsocks / ...） | ✓ | ✓ |
@@ -100,7 +101,7 @@ docker compose --profile postgres up -d
 - **每客户端凭证** —— 每个已启用的面板客户端自动获得个人 `basic_auth` 凭据对（由面板密钥派生，不落库）；禁用客户端会在下一次 reconcile 时吊销。
 - **订阅** —— 每个客户端的订阅除 Xray/AWG 外还携带其个人 `naive+https://` 链接（NekoBox / husi / Exclave 标准格式），面板内另有二维码与强密码生成器。
 - **面板 UX** —— Auto TLS（Let's Encrypt）或自有证书/密钥、带 `caddy adapt` 校验的 raw-Caddyfile 模式、Caddyfile 预览、进程日志、二进制上传/下载。
-- 流量按设计绕过 Xray（独立 TLS + 凭证）—— 是 AWG 与 REALITY 的伪装补充，而非路由目标。
+- **通过 Xray 路由（可选）** —— 开关使 Caddy 经隐藏 loopback SOCKS 桥接拨号（`upstream socks5://127.0.0.1:…`，原生 forward_proxy，无需补丁），标签 `lucx-tunnel-naive`，使 NaiveProxy 流量获得完整 Xray 路由/嗅探/域名规则（与 MTProto 相同）。默认仍为直连出口。
 
 ### 🚀 3x-ui 核心特性
 - **协议支持：** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN。

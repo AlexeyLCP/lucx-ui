@@ -40,6 +40,7 @@ import {
 import { FormProvider, useWatch } from 'react-hook-form';
 
 import { keys } from '@/api/queryKeys';
+import { useOutboundTags } from '@/api/queries/useOutboundTags';
 import { tunnelsApi } from '@/api/tunnels';
 import { FormField, useZodForm } from '@/components/form/rhf';
 import { QrPanel } from '@/pages/inbounds/qr';
@@ -99,6 +100,8 @@ export default function TunnelsPage() {
 
   const useRaw = useWatch({ control: form.control, name: 'useRawConfig' });
   const useAcme = useWatch({ control: form.control, name: 'useAcme' });
+  const routeThroughXray = useWatch({ control: form.control, name: 'routeThroughXray' });
+  const { data: outboundTags } = useOutboundTags();
 
   const [logsOpen, setLogsOpen] = useState(false);
   const [logsText, setLogsText] = useState('');
@@ -403,6 +406,37 @@ export default function TunnelsPage() {
                           <Select options={['DEBUG', 'INFO', 'WARN', 'ERROR'].map((v) => ({ value: v, label: v }))} />
                         </FormField>
                       </Col>
+                    </Row>
+
+                    <Row gutter={16}>
+                      <Col xs={24} sm={12}>
+                        <FormField
+                          name="routeThroughXray"
+                          control={form.control}
+                          label={t('pages.tunnels.naive.form.routeThroughXray')}
+                          tooltip={t('pages.tunnels.naive.form.routeThroughXrayTip')}
+                          valueProp="checked"
+                        >
+                          <Switch />
+                        </FormField>
+                      </Col>
+                      {routeThroughXray ? (
+                        <Col xs={24} sm={12}>
+                          <FormField
+                            name="outboundTag"
+                            control={form.control}
+                            label={t('pages.tunnels.naive.form.outboundTag')}
+                            tooltip={t('pages.tunnels.naive.form.outboundTagTip')}
+                          >
+                            <Select
+                              allowClear
+                              showSearch
+                              placeholder={t('pages.tunnels.naive.form.outboundTagPlaceholder')}
+                              options={(outboundTags ?? []).map((tag) => ({ value: tag, label: tag }))}
+                            />
+                          </FormField>
+                        </Col>
+                      ) : null}
                     </Row>
 
                     <FormField name="extraArgs" control={form.control} label={t('pages.tunnels.naive.form.extraArgs')}>

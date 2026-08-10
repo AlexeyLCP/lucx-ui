@@ -2009,7 +2009,12 @@
           "extraArgs": "آرگومان‌های اضافه caddy",
           "save": "ذخیره",
           "preview": "پیش‌نمایش Caddyfile",
-          "genPass": "تولید رمز عبور"
+          "genPass": "تولید رمز عبور",
+          "routeThroughXray": "مسیریابی از طریق Xray",
+          "routeThroughXrayTip": "Caddy مقاصد را از طریق پل SOCKS loopback پنهان که پنل به Xray تزریق می‌کند شماره‌گیری می‌کند (برچسب lucx-tunnel-naive). مسیریابی، شنود و قوانین دامنهٔ کامل Xray را روی ترافیک NaiveProxy فعال می‌کند. در حالت raw Caddyfile در دسترس نیست.",
+          "outboundTag": "خروجی اجباری",
+          "outboundTagTip": "اختیاری. تمام ترافیک NaiveProxy را به این outbound یا بالانسر می‌فرستد. خالی = مسیریابی پیش‌فرض Xray.",
+          "outboundTagPlaceholder": "مسیریابی پیش‌فرض"
         },
         "toasts": {
           "started": "NaiveProxy شروع شد",

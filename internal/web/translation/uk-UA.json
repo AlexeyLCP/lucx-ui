@@ -2009,7 +2009,12 @@
           "extraArgs": "Дод. аргументи caddy",
           "save": "Зберегти",
           "preview": "Попередній перегляд Caddyfile",
-          "genPass": "Згенерувати пароль"
+          "genPass": "Згенерувати пароль",
+          "routeThroughXray": "Маршрутизувати через Xray",
+          "routeThroughXrayTip": "Caddy ходить до призначень через прихований loopback SOCKS-міст, який панель вставляє в Xray (тег lucx-tunnel-naive). Дає повний роутинг, sniffing і доменні правила Xray на трафіку NaiveProxy. Недоступно в raw-режимі Caddyfile.",
+          "outboundTag": "Примусовий outbound",
+          "outboundTagTip": "Опційно. Весь трафік NaiveProxy піде в цей outbound або балансувальник. Порожньо — типовий роутинг Xray.",
+          "outboundTagPlaceholder": "Типовий роутинг"
         },
         "toasts": {
           "started": "NaiveProxy запущено",

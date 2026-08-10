@@ -74,6 +74,7 @@ docker compose --profile postgres up -d
 | Диагностика AWG из панели (routing / NAT / peers / handshakes) | ✗ | ✓ |
 | Туннельный сайдкар NaiveProxy (Caddy + forward_proxy, под надзором панели) | ✗ | ✓ |
 | Per-client креды NaiveProxy + `naive+https://` в подписках | ✗ | ✓ |
+| NaiveProxy → Xray routing (SOCKS loopback-мост, опционально) | ✗ | ✓ |
 | Smart Cluster outbound-связи | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 фронтенд | ✓ | ✓ (inherited) |
 | Все протоколы Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
@@ -100,7 +101,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **Per-client креды** — каждый включённый клиент панели автоматически получает личную пару `basic_auth` (выводится из секрета панели, ничего не хранится); disable клиента отзывает креды на следующем reconcile.
 - **Подписки** — в подписке каждого клиента его личная ссылка `naive+https://` рядом с Xray/AWG (стандарт NekoBox / husi / Exclave), плюс QR-код и генератор сильного пароля в панели.
 - **UX панели** — Auto TLS (Let's Encrypt) или свой cert/key, raw-Caddyfile режим с валидацией `caddy adapt`, preview Caddyfile, логи процесса, upload/download бинарника.
-- Трафик по дизайну идёт мимо Xray (собственный TLS + креды) — камуфляжное дополнение к AWG и REALITY, а не цель маршрутизации.
+- **Маршрут через Xray (опционально)** — Caddy ходит к назначениям через скрытый loopback SOCKS-мост (`upstream socks5://127.0.0.1:…`, нативный forward_proxy — без патча бинарника) с тегом `lucx-tunnel-naive`, так что трафик NaiveProxy получает полный роутинг / sniffing / доменные правила Xray (как MTProto). По умолчанию — прямой egress.
 
 ### 🚀 Базовые фичи 3x-ui
 - **Протоколы:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.

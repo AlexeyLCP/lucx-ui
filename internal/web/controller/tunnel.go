@@ -22,8 +22,14 @@ import (
 // config CRUD, lifecycle, logs, Caddyfile preview/validation and binary
 // management. Routes live under /panel/api/tunnel/* and share the panel API
 // auth + CSRF middleware.
+//
+// xrayService is held so mutating handlers can force-regenerate the Xray
+// config when the NaiveProxy SOCKS egress bridge changes (routeThroughXray
+// toggle / outbound / enable flip). The bridge lives only in the generated
+// config — same reason AwgOutboundController force-restarts.
 type TunnelController struct {
-	svc *service.TunnelService
+	svc         *service.TunnelService
+	xrayService service.XrayService
 }
 
 // NewTunnelController creates a new TunnelController bound to the given gin
@@ -32,6 +38,18 @@ func NewTunnelController(g *gin.RouterGroup) *TunnelController {
 	a := &TunnelController{svc: &service.TunnelService{}}
 	a.initRouter(g)
 	return a
+}
+
+// restartXrayIfNeeded regenerates Xray config when the tunnel SOCKS bridge
+// must be added/moved/dropped. Force-restart (not the deferred flag) so the
+// bridge is live before the caller returns.
+func (a *TunnelController) restartXrayIfNeeded(need bool) {
+	if !need {
+		return
+	}
+	if err := a.xrayService.RestartXray(true); err != nil {
+		logger.Warning("tunnel: restart xray after bridge change failed:", err)
+	}
 }
 
 func (a *TunnelController) initRouter(g *gin.RouterGroup) {
@@ -74,10 +92,12 @@ func (a *TunnelController) saveConfig(c *gin.Context) {
 		jsonMsg(c, "tunnel: invalid config body", err)
 		return
 	}
-	if err := a.svc.SaveNaiveConfig(cfg); err != nil {
+	needRestart, err := a.svc.SaveNaiveConfig(cfg)
+	if err != nil {
 		jsonMsg(c, "tunnel: config save failed", err)
 		return
 	}
+	a.restartXrayIfNeeded(needRestart)
 	st, err := a.svc.NaiveStatus()
 	if err != nil {
 		jsonMsg(c, "tunnel: status after save failed", err)
@@ -87,17 +107,26 @@ func (a *TunnelController) saveConfig(c *gin.Context) {
 }
 
 func (a *TunnelController) start(c *gin.Context) {
-	err := a.svc.StartNaive()
+	needRestart, err := a.svc.StartNaive()
+	if err == nil {
+		a.restartXrayIfNeeded(needRestart)
+	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.naive.toasts.started"), err)
 }
 
 func (a *TunnelController) stop(c *gin.Context) {
-	err := a.svc.StopNaive()
+	needRestart, err := a.svc.StopNaive()
+	if err == nil {
+		a.restartXrayIfNeeded(needRestart)
+	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.naive.toasts.stopped"), err)
 }
 
 func (a *TunnelController) restart(c *gin.Context) {
-	err := a.svc.RestartNaive()
+	needRestart, err := a.svc.RestartNaive()
+	if err == nil {
+		a.restartXrayIfNeeded(needRestart)
+	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.naive.toasts.restarted"), err)
 }
 

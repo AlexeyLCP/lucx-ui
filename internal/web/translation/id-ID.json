@@ -2009,7 +2009,12 @@
           "extraArgs": "Argumen caddy tambahan",
           "save": "Simpan",
           "preview": "Pratinjau Caddyfile",
-          "genPass": "Buat kata sandi"
+          "genPass": "Buat kata sandi",
+          "routeThroughXray": "Rute lewat Xray",
+          "routeThroughXrayTip": "Caddy menghubungi tujuan lewat jembatan SOCKS loopback tersembunyi yang disisipkan panel ke Xray (tag lucx-tunnel-naive). Mengaktifkan routing, sniffing, dan aturan domain penuh Xray pada lalu lintas NaiveProxy. Tidak tersedia di mode Caddyfile mentah.",
+          "outboundTag": "Outbound paksa",
+          "outboundTagTip": "Opsional. Kirim semua lalu lintas NaiveProxy ke outbound atau balancer ini. Kosong = routing bawaan Xray.",
+          "outboundTagPlaceholder": "Routing bawaan"
         },
         "toasts": {
           "started": "NaiveProxy dimulai",

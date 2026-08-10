@@ -24,6 +24,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
+	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 )
 
@@ -84,75 +85,151 @@ func (s *TunnelService) LoadNaiveConfig() (tunnel.NaiveConfig, error) {
 }
 
 // SaveNaiveConfig validates, persists and applies the config. A running core
-// whose rendered config changed is restarted by Manager.Ensure.
-func (s *TunnelService) SaveNaiveConfig(cfg tunnel.NaiveConfig) error {
+// whose rendered config changed is restarted by Manager.Ensure. needRestart
+// is true when the hidden Xray SOCKS bridge must be added/moved/dropped
+// (routeThroughXray toggle, port/outbound change, or enable flip while
+// routed) — the bridge lives only in the generated Xray config.
+func (s *TunnelService) SaveNaiveConfig(cfg tunnel.NaiveConfig) (needRestart bool, err error) {
+	old, _ := s.LoadNaiveConfig()
 	cfg = cfg.Merge()
+	cfg, err = normalizeNaiveXrayPort(cfg, old)
+	if err != nil {
+		return false, err
+	}
 	if err := cfg.Validate(); err != nil {
-		return err
+		return false, err
 	}
 	if !cfg.UseRawConfig {
 		if err := s.checkNaivePortConflict(cfg); err != nil {
-			return err
+			return false, err
 		}
 	}
 	if err := s.persistNaive(cfg); err != nil {
-		return err
+		return false, err
 	}
-	return s.applyNaive(cfg)
+	if err := s.applyNaive(cfg); err != nil {
+		return false, err
+	}
+	return naiveBridgeChanged(old, cfg), nil
 }
 
 // StartNaive marks the core enabled, persists, and starts it.
-func (s *TunnelService) StartNaive() error {
+func (s *TunnelService) StartNaive() (needRestart bool, err error) {
 	cfg, err := s.LoadNaiveConfig()
 	if err != nil {
-		return err
+		return false, err
+	}
+	old := cfg
+	cfg, err = normalizeNaiveXrayPort(cfg, old)
+	if err != nil {
+		return false, err
 	}
 	if err := cfg.Validate(); err != nil {
-		return err
+		return false, err
 	}
 	if !cfg.UseRawConfig {
 		if err := s.checkNaivePortConflict(cfg); err != nil {
-			return err
+			return false, err
 		}
 	}
 	cfg.Enabled = true
 	if err := s.persistNaive(cfg); err != nil {
-		return err
+		return false, err
 	}
-	return s.applyNaive(cfg)
+	if err := s.applyNaive(cfg); err != nil {
+		return false, err
+	}
+	return naiveBridgeChanged(old, cfg), nil
 }
 
 // StopNaive marks the core disabled, persists, and stops the process.
-func (s *TunnelService) StopNaive() error {
+func (s *TunnelService) StopNaive() (needRestart bool, err error) {
 	cfg, err := s.LoadNaiveConfig()
 	if err != nil {
-		return err
+		return false, err
 	}
+	old := cfg
 	cfg.Enabled = false
 	if err := s.persistNaive(cfg); err != nil {
-		return err
+		return false, err
 	}
-	return tunnel.GetManager().Stop(tunnel.Naive)
+	if err := tunnel.GetManager().Stop(tunnel.Naive); err != nil {
+		return false, err
+	}
+	return naiveBridgeChanged(old, cfg), nil
 }
 
 // RestartNaive forces a fresh start with the stored config (and enables the
 // core — a restart expresses the intent to run).
-func (s *TunnelService) RestartNaive() error {
+func (s *TunnelService) RestartNaive() (needRestart bool, err error) {
 	cfg, err := s.LoadNaiveConfig()
 	if err != nil {
-		return err
+		return false, err
+	}
+	old := cfg
+	cfg, err = normalizeNaiveXrayPort(cfg, old)
+	if err != nil {
+		return false, err
 	}
 	if err := cfg.Validate(); err != nil {
-		return err
+		return false, err
 	}
 	cfg.Enabled = true
 	if err := s.persistNaive(cfg); err != nil {
-		return err
+		return false, err
 	}
 	if err := tunnel.GetManager().Stop(tunnel.Naive); err != nil {
 		logger.Warning("tunnel: restart stop failed:", err)
 	}
-	return s.applyNaive(cfg)
+	if err := s.applyNaive(cfg); err != nil {
+		return false, err
+	}
+	return naiveBridgeChanged(old, cfg), nil
+}
+
+// normalizeNaiveXrayPort keeps the SOCKS bridge port stable across saves
+// (mirrors normalizeMtprotoXrayPort). Raw mode and routing-off clear the
+// port and outbound so a stale value never leaks into injectTunnelEgress.
+func normalizeNaiveXrayPort(cfg, old tunnel.NaiveConfig) (tunnel.NaiveConfig, error) {
+	if cfg.UseRawConfig {
+		cfg.RouteThroughXray = false
+		cfg.RouteXrayPort = 0
+		cfg.OutboundTag = ""
+		return cfg, nil
+	}
+	if !cfg.RouteThroughXray {
+		cfg.RouteXrayPort = 0
+		cfg.OutboundTag = ""
+		return cfg, nil
+	}
+	if old.RouteXrayPort > 0 {
+		cfg.RouteXrayPort = old.RouteXrayPort
+		return cfg, nil
+	}
+	if cfg.RouteXrayPort > 0 {
+		return cfg, nil
+	}
+	port, err := mtproto.FreeLocalPort()
+	if err != nil {
+		return cfg, common.NewError("tunnel: allocate SOCKS bridge port: ", err)
+	}
+	cfg.RouteXrayPort = port
+	return cfg, nil
+}
+
+// naiveBridgeChanged reports whether the generated Xray SOCKS bridge must
+// be regenerated: any change to (enabled∧routed), port, or outbound tag.
+func naiveBridgeChanged(old, neo tunnel.NaiveConfig) bool {
+	oldOn := old.Enabled && old.RouteThroughXray && old.RouteXrayPort > 0
+	newOn := neo.Enabled && neo.RouteThroughXray && neo.RouteXrayPort > 0
+	if oldOn != newOn {
+		return true
+	}
+	if !newOn {
+		return false
+	}
+	return old.RouteXrayPort != neo.RouteXrayPort ||
+		strings.TrimSpace(old.OutboundTag) != strings.TrimSpace(neo.OutboundTag)
 }
 
 // NaiveStatus assembles the status payload from the stored config and the

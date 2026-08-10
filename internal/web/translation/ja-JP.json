@@ -2009,7 +2009,12 @@
           "extraArgs": "caddy 追加引数",
           "save": "保存",
           "preview": "Caddyfile プレビュー",
-          "genPass": "パスワードを生成"
+          "genPass": "パスワードを生成",
+          "routeThroughXray": "Xray 経由でルーティング",
+          "routeThroughXrayTip": "Caddy はパネルが Xray に注入する隠し loopback SOCKS ブリッジ経由で宛先に接続します（タグ lucx-tunnel-naive）。NaiveProxy トラフィックに Xray の完全なルーティング・スニッフィング・ドメインルールを適用します。生 Caddyfile モードでは利用できません。",
+          "outboundTag": "強制アウトバウンド",
+          "outboundTagTip": "任意。すべての NaiveProxy トラフィックをこのアウトバウンドまたはバランサーへ送ります。空欄 = Xray のデフォルトルーティング。",
+          "outboundTagPlaceholder": "デフォルトルーティング"
         },
         "toasts": {
           "started": "NaiveProxy を起動しました",

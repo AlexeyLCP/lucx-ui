@@ -109,6 +109,45 @@ func TestNaiveValidate(t *testing.T) {
 	if err := raw.Validate(); err == nil {
 		t.Fatal("empty raw config must be rejected")
 	}
+	rawRouted := NaiveConfig{UseRawConfig: true, RawConfig: ":443 {\n}\n", RouteThroughXray: true}
+	if err := rawRouted.Validate(); err == nil {
+		t.Fatal("raw mode + routeThroughXray must be rejected")
+	}
+}
+
+func TestRenderCaddyfileUpstreamWhenRouted(t *testing.T) {
+	cfg := DefaultNaiveConfig()
+	cfg.AuthUser = "alice"
+	cfg.AuthPass = "s3cret"
+	cfg.CertFile = "/c.pem"
+	cfg.KeyFile = "/k.pem"
+	cfg.RouteThroughXray = true
+	cfg.RouteXrayPort = 50123
+
+	got := cfg.RenderCaddyfile(nil)
+	want := "upstream socks5://127.0.0.1:50123"
+	if !strings.Contains(got, want) {
+		t.Fatalf("routed Caddyfile missing %q:\n%s", want, got)
+	}
+
+	cfg.RouteThroughXray = false
+	got = cfg.RenderCaddyfile(nil)
+	if strings.Contains(got, "upstream socks5://") {
+		t.Fatalf("unrouted Caddyfile must not render upstream:\n%s", got)
+	}
+
+	cfg.RouteThroughXray = true
+	cfg.RouteXrayPort = 0
+	got = cfg.RenderCaddyfile(nil)
+	if strings.Contains(got, "upstream socks5://") {
+		t.Fatalf("routed without port must not render upstream:\n%s", got)
+	}
+}
+
+func TestNaiveEgressTagStable(t *testing.T) {
+	if NaiveEgressTag != "lucx-tunnel-naive" {
+		t.Fatalf("NaiveEgressTag = %q, operators match this in routing rules", NaiveEgressTag)
+	}
 }
 
 func TestRenderCaddyfileManual(t *testing.T) {

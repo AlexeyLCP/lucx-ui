@@ -67,9 +67,25 @@ type NaiveConfig struct {
 	LogLevel        string `json:"logLevel"`
 	ExtraArgs       string `json:"extraArgs"`
 
+	// RouteThroughXray makes caddy dial destinations through a hidden
+	// loopback SOCKS bridge the panel injects into Xray (tag
+	// NaiveEgressTag). forward_proxy's native `upstream socks5://…`
+	// directive does the dial — no patched binary required. Backend-
+	// owned RouteXrayPort is allocated on first enable and kept stable
+	// across saves; OutboundTag optionally force-routes the bridge.
+	// Incompatible with raw Caddyfile mode (operator owns the file).
+	RouteThroughXray bool   `json:"routeThroughXray"`
+	RouteXrayPort    int    `json:"routeXrayPort"`
+	OutboundTag      string `json:"outboundTag"`
+
 	UseRawConfig bool   `json:"useRawConfig"`
 	RawConfig    string `json:"rawConfig"`
 }
+
+// NaiveEgressTag is the stable Xray inbound tag of the hidden SOCKS
+// bridge a routed NaiveProxy core dials. Operators can match it in
+// routing rules the same way they match an mtproto inbound tag.
+const NaiveEgressTag = "lucx-tunnel-naive"
 
 // DefaultNaiveConfig returns sensible defaults for a fresh NaiveProxy core.
 func DefaultNaiveConfig() NaiveConfig {
@@ -101,6 +117,9 @@ func (c NaiveConfig) Validate() error {
 	if c.UseRawConfig {
 		if strings.TrimSpace(c.RawConfig) == "" {
 			return errors.New("naive: raw Caddyfile is empty")
+		}
+		if c.RouteThroughXray {
+			return errors.New("naive: Route through Xray is unavailable in raw Caddyfile mode")
 		}
 		return nil
 	}
@@ -236,6 +255,12 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair) string {
 	b.WriteString("\t\t\thide_via\n")
 	if c.ProbeResistance {
 		b.WriteString("\t\t\tprobe_resistance\n")
+	}
+	// klzgrad/forwardproxy supports `upstream socks5://…` to localhost
+	// natively (no binary patch). The panel injects the matching SOCKS
+	// inbound at RouteXrayPort via injectTunnelEgress.
+	if c.RouteThroughXray && c.RouteXrayPort > 0 {
+		b.WriteString("\t\t\tupstream socks5://127.0.0.1:" + strconv.Itoa(c.RouteXrayPort) + "\n")
 	}
 	b.WriteString("\t\t}\n")
 	b.WriteString("\t}\n")

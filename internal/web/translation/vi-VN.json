@@ -2009,7 +2009,12 @@
           "extraArgs": "Tham số caddy bổ sung",
           "save": "Lưu",
           "preview": "Xem trước Caddyfile",
-          "genPass": "Tạo mật khẩu"
+          "genPass": "Tạo mật khẩu",
+          "routeThroughXray": "Định tuyến qua Xray",
+          "routeThroughXrayTip": "Caddy quay số đích qua cầu SOCKS loopback ẩn do panel chèn vào Xray (thẻ lucx-tunnel-naive). Bật định tuyến, sniffing và quy tắc miền đầy đủ của Xray cho lưu lượng NaiveProxy. Không dùng được ở chế độ Caddyfile thô.",
+          "outboundTag": "Outbound bắt buộc",
+          "outboundTagTip": "Tùy chọn. Gửi toàn bộ lưu lượng NaiveProxy tới outbound hoặc balancer này. Để trống = định tuyến mặc định của Xray.",
+          "outboundTagPlaceholder": "Định tuyến mặc định"
         },
         "toasts": {
           "started": "Đã khởi động NaiveProxy",
