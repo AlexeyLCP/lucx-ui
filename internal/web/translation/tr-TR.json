@@ -1419,7 +1419,13 @@
       "secretClear": "Temizle",
       "secretClearUndo": "Temizlemeyi geri al",
       "subAwgEnableTitle": "AmneziaWG subscription",
-      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards.",
+      "subRoutingSource": "Happ routing profile",
+      "subRoutingSourceDesc": "RoscomVPN Happ profiles fetched from GitHub (default/jsonsub/whitelist), or free-text custom rules below.",
+      "subRoutingSourceDefault": "Default (RoscomVPN)",
+      "subRoutingSourceJsonSub": "JSON-sub (RoscomVPN)",
+      "subRoutingSourceWhitelist": "Whitelist (RoscomVPN)",
+      "subRoutingSourceCustom": "Custom (free text)"
     },
     "xray": {
       "save": "Kaydet",
@@ -1841,7 +1847,36 @@
         "poolSize": "Havuz Boyutu"
       },
       "defaultOutbound": "Varsayılan giden",
-      "defaultOutboundDesc": "Yönlendirme kuralıyla eşleşmeyen trafik bu gideni kullanır (listedeki ilk giden)."
+      "defaultOutboundDesc": "Yönlendirme kuralıyla eşleşmeyen trafik bu gideni kullanır (listedeki ilk giden).",
+      "geoBrowser": {
+        "title": "Geo kategorileri",
+        "openTooltip": "Geo kategorilerine göz at",
+        "database": "Veritabanı",
+        "searchCategory": "Kategori ara",
+        "searchEntries": "Kategori içinde filtrele",
+        "selectFound": "Bulunanları seç",
+        "selected": "Seçili: {count}",
+        "clearAll": "Tümünü Temizle",
+        "apply": "Uygula",
+        "emptySelection": "Kategorileri işaretleyin — kural belirteçlerine dönüşürler",
+        "pickCategory": "İçeriğini görmek için soldan bir kategori seçin",
+        "noMatches": "Hiçbir şey bulunamadı",
+        "noFiles": "Xray klasöründe geo veritabanı yok",
+        "noFilesHint": "Xray, geosite.dat ve geoip.dat dosyalarını indirdikten sonra görünürler",
+        "fileMeta": "{count} kategori · {size} · güncellendi {date}",
+        "entriesCount": "{count} kayıt",
+        "subnetsCount": "{count} alt ağ",
+        "shownRange": "{total} kayıttan {from}–{to} arası gösteriliyor",
+        "loadFailed": "Geo veritabanları yüklenemedi",
+        "checkFailed": "Bu değerler geo veritabanlarıyla doğrulanamadı",
+        "parseFailed": "Dosya bozuk veya geosite/geoip veritabanı değil",
+        "tooLarge": "Göz atmak için fazla büyük",
+        "unknownCategories": "Veritabanında yok: {tokens}",
+        "missingDatabase": "Veritabanı dosyası bulunamadı: {tokens} — Geodata bölümünden ekleyin",
+        "unknownAttribute": "Öznitelik bulunamadı, kural hiçbir şeyle eşleşmez: {tokens}",
+        "invalidToken": "Xray böyle bir kaydı kabul etmez: {tokens}",
+        "wrongKind": "Bu alan için yanlış veritabanı türü: {tokens}"
+      }
     },
     "hosts": {
       "addHost": "Host Ekle",

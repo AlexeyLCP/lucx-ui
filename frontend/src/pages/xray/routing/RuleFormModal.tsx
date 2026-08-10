@@ -5,6 +5,7 @@ import { Alert, Button, Form, Input, Modal, Select, Space, Switch, Tooltip, mess
 import { PlusOutlined, MinusOutlined, QuestionCircleOutlined } from '@ant-design/icons';
 import { FormProvider, useForm, useWatch } from 'react-hook-form';
 import { InputAddon } from '@/components/ui';
+import { GeoTokenInput } from '@/components/geodata';
 import { FormField } from '@/components/form/rhf';
 import { useInboundOptions } from '@/api/queries/useInboundOptions';
 import { HttpUtil } from '@/utils';
@@ -362,7 +363,7 @@ export default function RuleFormModal({
               </Tooltip>
             }
           >
-            <Input placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
+            <GeoTokenInput kind="ip" placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
           </FormField>
 
           <FormField
@@ -442,7 +443,7 @@ export default function RuleFormModal({
               </Tooltip>
             }
           >
-            <Input placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
+            <GeoTokenInput kind="ip" placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
           </FormField>
 
           <FormField
@@ -453,7 +454,7 @@ export default function RuleFormModal({
               </Tooltip>
             }
           >
-            <Input placeholder="google.com, geosite:cn" />
+            <GeoTokenInput kind="domain" placeholder="google.com, geosite:cn" />
           </FormField>
 
           <Form.Item

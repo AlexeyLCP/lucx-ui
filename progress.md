@@ -1752,3 +1752,20 @@ systemctl start x-ui
 **Frontend:** QwdttCard, i18n x13. Needs root/CAP_NET_ADMIN.
 
 **lucxVersion:** lucx.95. Tunnel sidecars complete (Naive + olcRTC + qWDTT).
+
+## Релиз v3.6.0-lucx.96 (2026-08-10) — geodata browser + RoscomVPN Happ routing
+
+**П.4 PR #6165 (STRENCH0):** browse geosite/geoip categories from routing rules.
+- `internal/xray/geodata/` — streaming protobuf reader (low RAM)
+- `service/geodata.go` + API GET/POST `/panel/api/xray/geodata/*`
+- Frontend: GeoBrowserModal + GeoTokenInput on domain/ip/sourceIP fields
+- LucX AWG client-picker in RuleFormModal сохранён
+- PR #6154 НЕ брали — полностью перекрыт #6165
+
+**П.3 hydraponique RoscomVPN:**
+- `internal/sub/roscomvpn.go` — fetch+cache happ:// DEEPLINK (default/jsonsub/whitelist)
+- setting `subRoutingSource` (default custom = free-text как раньше)
+- Settings → Happ: селектор профиля; free-text disabled when not custom
+- ApplyCommonHeaders → ResolveRoutingRules
+
+**lucxVersion:** lucx.96

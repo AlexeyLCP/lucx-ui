@@ -41,6 +41,7 @@ export class AllSetting {
   subAnnounce = '';
   subEnableRouting = false;
   subRoutingRules = '';
+  subRoutingSource = 'custom';
   subIncyEnableRouting = false;
   subIncyRoutingRules = '';
   subListen = '';

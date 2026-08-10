@@ -1,4 +1,4 @@
-import { Alert, Button, Input, InputNumber, Switch, Tabs } from 'antd';
+import { Alert, Button, Input, InputNumber, Select, Switch, Tabs } from 'antd';
 import { BranchesOutlined, CompassOutlined, IdcardOutlined, InfoCircleOutlined, NodeIndexOutlined, SafetyCertificateOutlined, SettingOutlined } from '@ant-design/icons';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router';
@@ -179,9 +179,23 @@ export default function SubscriptionGeneralTab({ allSetting, updateSetting }: Su
             <SettingListItem paddings="small" title={t('pages.settings.subEnableRouting')} description={t('pages.settings.subEnableRoutingDesc')}>
               <Switch checked={allSetting.subEnableRouting} onChange={(v) => updateSetting({ subEnableRouting: v })} />
             </SettingListItem>
+            <SettingListItem paddings="small" title={t('pages.settings.subRoutingSource')} description={t('pages.settings.subRoutingSourceDesc')}>
+              <Select
+                style={{ minWidth: 220 }}
+                value={allSetting.subRoutingSource || 'custom'}
+                onChange={(v) => updateSetting({ subRoutingSource: v })}
+                options={[
+                  { value: 'default', label: t('pages.settings.subRoutingSourceDefault') },
+                  { value: 'jsonsub', label: t('pages.settings.subRoutingSourceJsonSub') },
+                  { value: 'whitelist', label: t('pages.settings.subRoutingSourceWhitelist') },
+                  { value: 'custom', label: t('pages.settings.subRoutingSourceCustom') },
+                ]}
+              />
+            </SettingListItem>
             <SettingListItem paddings="small" title={t('pages.settings.subRoutingRules')} description={t('pages.settings.subRoutingRulesDesc')}>
               <Input.TextArea value={allSetting.subRoutingRules} placeholder="happ://routing/add/..."
-                onChange={(e) => updateSetting({ subRoutingRules: e.target.value })} />
+                onChange={(e) => updateSetting({ subRoutingRules: e.target.value })}
+                disabled={(allSetting.subRoutingSource || 'custom') !== 'custom'} />
             </SettingListItem>
             <SettingListItem paddings="small" title={t('pages.settings.subHideSettings')} description={t('pages.settings.subHideSettingsDesc')}>
               <Switch checked={allSetting.subHideSettings} onChange={(v) => updateSetting({ subHideSettings: v })} />

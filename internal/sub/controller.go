@@ -51,6 +51,7 @@ type SUBController struct {
 	subAnnounce      string
 	subEnableRouting bool
 	subRoutingRules  string
+	subRoutingSource string // LUCX-HOOK: RoscomVPN Happ profile source
 	subHideSettings  bool
 
 	subIncyEnableRouting bool
@@ -112,6 +113,7 @@ type subControllerConfig struct {
 	subAnnounce      string
 	subEnableRouting bool
 	subRoutingRules  string
+	subRoutingSource string // LUCX-HOOK
 	subHideSettings  bool
 
 	subIncyEnableRouting bool
@@ -227,6 +229,13 @@ func WithSUBRoutingRules(value string) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subRoutingRules = value }
 }
 
+// LUCX-HOOK
+func WithSUBRoutingSource(value string) SUBControllerOption {
+	return func(config *subControllerConfig) { config.subRoutingSource = value }
+}
+
+// END LUCX-HOOK
+
 func WithSUBHideSettings(value bool) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subHideSettings = value }
 }
@@ -266,6 +275,7 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 		subAnnounce:      config.subAnnounce,
 		subEnableRouting: config.subEnableRouting,
 		subRoutingRules:  config.subRoutingRules,
+		subRoutingSource: config.subRoutingSource,
 		subHideSettings:  config.subHideSettings,
 
 		subIncyEnableRouting: config.subIncyEnableRouting,
@@ -831,13 +841,15 @@ func (a *SUBController) ApplyCommonHeaders(
 		c.Writer.Header().Set("Announce", "base64:"+base64.StdEncoding.EncodeToString([]byte(profileAnnounce)))
 	}
 
-	// Advanced (Happ)
+	// Advanced (Happ). LUCX-HOOK: resolve RoscomVPN profile sources
+	// (default/jsonsub/whitelist) into the Routing header; custom keeps free-text.
 	if profileEnableRouting {
 		c.Writer.Header().Set("Routing-Enable", "true")
 	}
-	if profileRoutingRules != "" {
-		c.Writer.Header().Set("Routing", profileRoutingRules)
+	if rules := ResolveRoutingRules(a.subRoutingSource, profileRoutingRules); rules != "" {
+		c.Writer.Header().Set("Routing", rules)
 	}
+	// END LUCX-HOOK
 	if profileHideSettings {
 		c.Writer.Header().Set("Hide-Settings", "1")
 	}

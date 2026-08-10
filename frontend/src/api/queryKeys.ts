@@ -38,8 +38,15 @@ export const keys = {
     root: () => ['xray'] as const,
     config: () => ['xray', 'config'] as const,
     outboundsTraffic: () => ['xray', 'outboundsTraffic'] as const,
+    geodata: {
+      root: () => ['xray', 'geodata'] as const,
+      files: () => ['xray', 'geodata', 'files'] as const,
+      categories: (file: string, query: string) => ['xray', 'geodata', 'categories', file, query] as const,
+      entries: (file: string, code: string, query: string, offset: number, limit: number) =>
+        ['xray', 'geodata', 'entries', file, code, query, offset, limit] as const,
+    },
   },
-  // LUCX-HOOK: tunnel sidecars (NaiveProxy, olcRTC)
+  // LUCX-HOOK: tunnel sidecars (NaiveProxy, olcRTC, qWDTT)
   tunnels: {
     root: () => ['tunnels'] as const,
     naiveStatus: () => ['tunnels', 'naiveStatus'] as const,

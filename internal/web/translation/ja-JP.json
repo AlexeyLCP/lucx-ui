@@ -1419,7 +1419,13 @@
       "secretClear": "クリア",
       "secretClearUndo": "クリアを取り消す",
       "subAwgEnableTitle": "AmneziaWG subscription",
-      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards.",
+      "subRoutingSource": "Happ routing profile",
+      "subRoutingSourceDesc": "RoscomVPN Happ profiles fetched from GitHub (default/jsonsub/whitelist), or free-text custom rules below.",
+      "subRoutingSourceDefault": "Default (RoscomVPN)",
+      "subRoutingSourceJsonSub": "JSON-sub (RoscomVPN)",
+      "subRoutingSourceWhitelist": "Whitelist (RoscomVPN)",
+      "subRoutingSourceCustom": "Custom (free text)"
     },
     "xray": {
       "importRules": "ルールをインポート",
@@ -1841,7 +1847,36 @@
         "poolSize": "プールサイズ"
       },
       "defaultOutbound": "デフォルトアウトバウンド",
-      "defaultOutboundDesc": "ルーティング規則に一致しないトラフィックはこのアウトバウンドを使います（一覧の先頭）。"
+      "defaultOutboundDesc": "ルーティング規則に一致しないトラフィックはこのアウトバウンドを使います（一覧の先頭）。",
+      "geoBrowser": {
+        "title": "geo カテゴリ",
+        "openTooltip": "geo カテゴリを参照",
+        "database": "データベース",
+        "searchCategory": "カテゴリを検索",
+        "searchEntries": "カテゴリ内を絞り込み",
+        "selectFound": "検索結果を選択",
+        "selected": "選択中 {count} 件",
+        "clearAll": "すべてクリア",
+        "apply": "適用",
+        "emptySelection": "カテゴリにチェックを入れると、ルールのトークンになります",
+        "pickCategory": "左のカテゴリを選ぶと内容が表示されます",
+        "noMatches": "見つかりませんでした",
+        "noFiles": "Xray フォルダーに geo データベースがありません",
+        "noFilesHint": "Xray が geosite.dat と geoip.dat をダウンロードすると表示されます",
+        "fileMeta": "{count} カテゴリ · {size} · 更新 {date}",
+        "entriesCount": "{count} 件",
+        "subnetsCount": "{count} サブネット",
+        "shownRange": "{total} 件中 {from}–{to} を表示",
+        "loadFailed": "geo データベースを読み込めませんでした",
+        "checkFailed": "これらの値を geo データベースと照合できませんでした",
+        "parseFailed": "ファイルが破損しているか、geosite/geoip データベースではありません",
+        "tooLarge": "サイズが大きすぎて参照できません",
+        "unknownCategories": "データベースに存在しません: {tokens}",
+        "missingDatabase": "データベースファイルが見つかりません: {tokens} — Geodata から追加してください",
+        "unknownAttribute": "属性が見つからないため、ルールは何にも一致しません: {tokens}",
+        "invalidToken": "Xray はこの記述を受け付けません: {tokens}",
+        "wrongKind": "このフィールドには合わないデータベース種別です: {tokens}"
+      }
     },
     "hosts": {
       "addHost": "ホストを追加",

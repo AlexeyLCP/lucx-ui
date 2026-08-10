@@ -66,19 +66,22 @@ type AllSetting struct {
 	TwoFactorEnable bool   `json:"twoFactorEnable" form:"twoFactorEnable"`
 	TwoFactorToken  string `json:"twoFactorToken" form:"twoFactorToken"`
 
-	SubEnable                   bool   `json:"subEnable" form:"subEnable"`
-	SubJsonEnable               bool   `json:"subJsonEnable" form:"subJsonEnable"`
-	SubJsonAutoDetect           bool   `json:"subJsonAutoDetect" form:"subJsonAutoDetect"`
-	SubJsonAlwaysArray          bool   `json:"subJsonAlwaysArray" form:"subJsonAlwaysArray"`
-	SubJsonUserAgentRegex       string `json:"subJsonUserAgentRegex" form:"subJsonUserAgentRegex"`
-	SubClashAutoDetect          bool   `json:"subClashAutoDetect" form:"subClashAutoDetect"`
-	SubClashUserAgentRegex      string `json:"subClashUserAgentRegex" form:"subClashUserAgentRegex"`
-	SubTitle                    string `json:"subTitle" form:"subTitle"`
-	SubSupportUrl               string `json:"subSupportUrl" form:"subSupportUrl"`
-	SubProfileUrl               string `json:"subProfileUrl" form:"subProfileUrl"`
-	SubAnnounce                 string `json:"subAnnounce" form:"subAnnounce"`
-	SubEnableRouting            bool   `json:"subEnableRouting" form:"subEnableRouting"`
-	SubRoutingRules             string `json:"subRoutingRules" form:"subRoutingRules"`
+	SubEnable              bool   `json:"subEnable" form:"subEnable"`
+	SubJsonEnable          bool   `json:"subJsonEnable" form:"subJsonEnable"`
+	SubJsonAutoDetect      bool   `json:"subJsonAutoDetect" form:"subJsonAutoDetect"`
+	SubJsonAlwaysArray     bool   `json:"subJsonAlwaysArray" form:"subJsonAlwaysArray"`
+	SubJsonUserAgentRegex  string `json:"subJsonUserAgentRegex" form:"subJsonUserAgentRegex"`
+	SubClashAutoDetect     bool   `json:"subClashAutoDetect" form:"subClashAutoDetect"`
+	SubClashUserAgentRegex string `json:"subClashUserAgentRegex" form:"subClashUserAgentRegex"`
+	SubTitle               string `json:"subTitle" form:"subTitle"`
+	SubSupportUrl          string `json:"subSupportUrl" form:"subSupportUrl"`
+	SubProfileUrl          string `json:"subProfileUrl" form:"subProfileUrl"`
+	SubAnnounce            string `json:"subAnnounce" form:"subAnnounce"`
+	SubEnableRouting       bool   `json:"subEnableRouting" form:"subEnableRouting"`
+	SubRoutingRules        string `json:"subRoutingRules" form:"subRoutingRules"`
+	// LUCX-HOOK: RoscomVPN Happ routing source (default|jsonsub|whitelist|custom).
+	SubRoutingSource string `json:"subRoutingSource" form:"subRoutingSource"`
+	// END LUCX-HOOK
 	SubIncyEnableRouting        bool   `json:"subIncyEnableRouting" form:"subIncyEnableRouting"`
 	SubIncyRoutingRules         string `json:"subIncyRoutingRules" form:"subIncyRoutingRules"`
 	SubListen                   string `json:"subListen" form:"subListen"`

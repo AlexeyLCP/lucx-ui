@@ -94,6 +94,7 @@ var defaultValueMap = map[string]string{
 	"subAnnounce":               "",
 	"subEnableRouting":          "false",
 	"subRoutingRules":           "",
+	"subRoutingSource":          "custom", // LUCX-HOOK: RoscomVPN Happ profiles; custom = free-text rules
 	"subHideSettings":           "false",
 	"subIncyEnableRouting":      "false",
 	"subIncyRoutingRules":       "",
@@ -778,6 +779,14 @@ func (s *SettingService) GetSubEnableRouting() (bool, error) {
 func (s *SettingService) GetSubRoutingRules() (string, error) {
 	return s.getString("subRoutingRules")
 }
+
+// LUCX-HOOK: GetSubRoutingSource returns the Happ routing profile source
+// (default | jsonsub | whitelist | custom). custom keeps free-text SubRoutingRules.
+func (s *SettingService) GetSubRoutingSource() (string, error) {
+	return s.getString("subRoutingSource")
+}
+
+// END LUCX-HOOK
 
 func (s *SettingService) GetSubHideSettings() (bool, error) {
 	return s.getBool("subHideSettings")

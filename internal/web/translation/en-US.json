@@ -1536,7 +1536,13 @@
       "secretClear": "Clear",
       "secretClearUndo": "Undo clear",
       "subAwgEnableTitle": "AmneziaWG subscription",
-      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards."
+      "subAwgEnableDesc": "Expose /awg/{subId} with client .conf (and ?format=vpn for vpn://). Shown next to SUB/CLASH in client cards.",
+      "subRoutingSource": "Happ routing profile",
+      "subRoutingSourceDesc": "RoscomVPN Happ profiles fetched from GitHub (default/jsonsub/whitelist), or free-text custom rules below.",
+      "subRoutingSourceDefault": "Default (RoscomVPN)",
+      "subRoutingSourceJsonSub": "JSON-sub (RoscomVPN)",
+      "subRoutingSourceWhitelist": "Whitelist (RoscomVPN)",
+      "subRoutingSourceCustom": "Custom (free text)"
     },
     "xray": {
       "save": "Save",
@@ -1958,7 +1964,36 @@
         "poolSize": "Pool Size"
       },
       "defaultOutbound": "Default Outbound",
-      "defaultOutboundDesc": "Traffic that does not match any routing rule uses this outbound (Xray uses the first outbound in the list)."
+      "defaultOutboundDesc": "Traffic that does not match any routing rule uses this outbound (Xray uses the first outbound in the list).",
+      "geoBrowser": {
+        "title": "Geo categories",
+        "openTooltip": "Browse geo categories",
+        "database": "Database",
+        "searchCategory": "Search category",
+        "searchEntries": "Filter inside category",
+        "selectFound": "Select found",
+        "selected": "Selected {count}",
+        "clearAll": "Clear all",
+        "apply": "Apply",
+        "emptySelection": "Tick categories — they become rule tokens",
+        "pickCategory": "Pick a category on the left to see what it contains",
+        "noMatches": "Nothing found",
+        "noFiles": "No geo databases in the Xray folder",
+        "noFilesHint": "They appear after Xray downloads geosite.dat and geoip.dat",
+        "fileMeta": "{count} categories · {size} · updated {date}",
+        "entriesCount": "{count} entries",
+        "subnetsCount": "{count} subnets",
+        "shownRange": "Showing {from}–{to} of {total}",
+        "loadFailed": "Could not load geo databases",
+        "checkFailed": "Could not check these values against the geo databases",
+        "parseFailed": "Damaged or not a geosite/geoip database",
+        "tooLarge": "Too large to browse",
+        "unknownCategories": "Not in the database: {tokens}",
+        "missingDatabase": "Database file not found: {tokens} — add it under Geodata",
+        "unknownAttribute": "Attribute not found, the rule would match nothing: {tokens}",
+        "invalidToken": "Xray will not accept this: {tokens}",
+        "wrongKind": "Wrong database kind for this field: {tokens}"
+      }
     },
     "tunnels": {
       "title": "Tunnel sidecars",
