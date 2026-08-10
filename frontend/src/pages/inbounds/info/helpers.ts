@@ -141,10 +141,19 @@ export function buildInboundInfo(dbInbound: DBInboundLike): InboundInfo {
   };
 }
 
-export function copyText(value: unknown, t: (k: string) => string) {
-  ClipboardManager.copyText(String(value ?? '')).then((ok) => {
+export async function copyText(value: unknown, t: (k: string) => string) {
+  const raw = String(value ?? '');
+  if (!raw) return;
+  try {
+    const { fetchSubscriptionBody, isAmneziaVpnUrl } = await import('@/lib/sub/fetchBody');
+    // vpn:// row stores the HTTPS subscription URL; copy the response body
+    // (real vpn://… payload) so Amnezia / clipboard match the tag.
+    const text = isAmneziaVpnUrl(raw) ? await fetchSubscriptionBody(raw) : raw;
+    const ok = await ClipboardManager.copyText(text);
     if (ok) getMessage().success(t('copied'));
-  });
+  } catch {
+    getMessage().error(t('somethingWentWrong'));
+  }
 }
 
 export function downloadText(content: string, filename: string) {

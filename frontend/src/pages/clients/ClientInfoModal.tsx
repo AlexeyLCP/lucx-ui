@@ -181,8 +181,15 @@ export default function ClientInfoModal({
 
   async function copyValue(text: string) {
     if (!text) return;
-    const ok = await ClipboardManager.copyText(String(text));
-    if (ok) messageApi.success(t('copied'));
+    try {
+      const { fetchSubscriptionBody, isAmneziaVpnUrl } = await import('@/lib/sub/fetchBody');
+      // Amnezia vpn:// row is stored as HTTPS ?format=vpn URL — copy the body.
+      const payload = isAmneziaVpnUrl(text) ? await fetchSubscriptionBody(text) : text;
+      const ok = await ClipboardManager.copyText(payload);
+      if (ok) messageApi.success(t('copied'));
+    } catch {
+      messageApi.error(t('somethingWentWrong'));
+    }
   }
 
   async function downloadSubscription(url: string, format: keyof typeof SUBSCRIPTION_DOWNLOAD_NAMES) {

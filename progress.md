@@ -1769,3 +1769,16 @@ systemctl start x-ui
 - ApplyCommonHeaders → ResolveRoutingRules
 
 **lucxVersion:** lucx.96
+
+## Релиз v3.6.0-lucx.97 (2026-08-10) — fix copy vpn:// (не HTTP URL)
+
+**Баг:** кнопка «копировать» у строки Amnezia vpn:// клала в буфер HTTPS URL
+`/awg/<id>?format=vpn` вместо тела ответа `vpn://…`. Тег говорил vpn://,
+clipboard — http(s)://. QR тоже кодировал URL.
+
+**Фикс:**
+- `lib/sub/fetchBody.ts` — fetch body (`view=raw`) + `isAmneziaVpnUrl`
+- ClientInfoModal / InboundInfoModal copy — для format=vpn фетчит body
+- QrPanel — резолвит vpn body для QR и copy
+
+**lucxVersion:** lucx.97

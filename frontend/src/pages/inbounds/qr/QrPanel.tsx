@@ -1,10 +1,11 @@
-import { useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, QRCode, Tag, Tooltip, message } from 'antd';
+import { Button, QRCode, Spin, Tag, Tooltip, message } from 'antd';
 import { CopyOutlined, DownloadOutlined, PictureOutlined } from '@ant-design/icons';
 
 import { ClipboardManager, FileManager } from '@/utils';
 import { activateOnKey } from '@/utils/a11y';
+import { fetchSubscriptionBody, isAmneziaVpnUrl } from '@/lib/sub/fetchBody';
 import './QrPanel.css';
 
 interface QrPanelProps {
@@ -62,15 +63,48 @@ export default function QrPanel({
   const { t } = useTranslation();
   const [messageApi, messageContextHolder] = message.useMessage();
   const qrRef = useRef<HTMLDivElement | null>(null);
+  // Resolve Amnezia ?format=vpn HTTPS URLs to the vpn:// body for QR/copy.
+  const [resolved, setResolved] = useState(value);
+  const [resolving, setResolving] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!isAmneziaVpnUrl(value)) {
+      setResolved(value);
+      setResolving(false);
+      return;
+    }
+    setResolving(true);
+    void fetchSubscriptionBody(value)
+      .then((body) => {
+        if (!cancelled) setResolved(body);
+      })
+      .catch(() => {
+        if (!cancelled) setResolved(value);
+      })
+      .finally(() => {
+        if (!cancelled) setResolving(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [value]);
 
   async function copy() {
-    const ok = await ClipboardManager.copyText(value);
-    if (ok) messageApi.success(t('copied'));
+    try {
+      const text = isAmneziaVpnUrl(value) && !resolved.startsWith('vpn://')
+        ? await fetchSubscriptionBody(value)
+        : resolved;
+      const ok = await ClipboardManager.copyText(text);
+      if (ok) messageApi.success(t('copied'));
+    } catch {
+      messageApi.error(t('somethingWentWrong'));
+    }
   }
 
   function download() {
     if (!downloadName) return;
-    FileManager.downloadTextFile(value, downloadName);
+    FileManager.downloadTextFile(resolved, downloadName);
   }
 
   async function copyImage() {
@@ -110,7 +144,12 @@ export default function QrPanel({
           </Tooltip>
         )}
       </div>
-      {showQr && value.length <= 2000 && (
+      {showQr && resolving && (
+        <div className="qr-panel-canvas" style={{ padding: 24, textAlign: 'center' }}>
+          <Spin />
+        </div>
+      )}
+      {showQr && !resolving && resolved.length <= 2000 && (
         <div
           ref={qrRef}
           className="qr-panel-canvas"
@@ -123,7 +162,7 @@ export default function QrPanel({
           <Tooltip title={t('copy')}>
             <QRCode
               className="qr-code"
-              value={value}
+              value={resolved}
               size={size}
               type="svg"
               bordered={false}
@@ -133,7 +172,7 @@ export default function QrPanel({
           </Tooltip>
         </div>
       )}
-      {showQr && value.length > 2000 && (
+      {showQr && !resolving && resolved.length > 2000 && (
         <div className="qr-panel-canvas" style={{ padding: 16, textAlign: 'center', color: 'var(--ant-color-text-tertiary)' }}>
           {t('qrTooLarge')}
         </div>
