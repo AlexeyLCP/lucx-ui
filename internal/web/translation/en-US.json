@@ -111,7 +111,7 @@
     "donate": "Donate",
     "docs": "Documentation",
     "openMenu": "Open menu",
-    "tunnels": "Tunnels"
+    "tunnels": "Tunnel tools"
   },
   "pages": {
     "login": {
@@ -2045,8 +2045,8 @@
       }
     },
     "tunnels": {
-      "title": "Tunnel sidecars",
-      "subtitle": "External tunnel servers supervised by the panel: NaiveProxy, olcRTC (WebRTC meet rooms) and qWDTT (WireGuard over VK TURN).",
+      "title": "Tunnel tools",
+      "subtitle": "Install binaries, view logs, restart processes. Create and configure Naive / olcRTC / qWDTT under Inbounds.",
       "naive": {
         "status": {
           "running": "Running",
@@ -2222,8 +2222,8 @@
           "deleted": "Binary deleted"
         }
       },
-      "inboundMovedTitle": "Tunnel cores live under Inbounds",
-      "inboundMovedDesc": "Create/edit NaiveProxy, olcRTC and qWDTT as Inbounds. This page is for binary install, process logs and advanced ops."
+      "inboundMovedTitle": "Configuration is in Inbounds",
+      "inboundMovedDesc": "Add and edit NaiveProxy, olcRTC and qWDTT as Inbounds. This page is only for binaries, process logs and rare advanced ops."
     }
   },
   "tgbot": {

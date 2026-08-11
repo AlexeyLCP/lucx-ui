@@ -111,7 +111,7 @@
     "hosts": "Хосты",
     "docs": "Документация",
     "openMenu": "Открыть меню",
-    "tunnels": "Туннели"
+    "tunnels": "Инструменты туннелей"
   },
   "pages": {
     "login": {
@@ -2045,8 +2045,8 @@
       }
     },
     "tunnels": {
-      "title": "Туннельные сайдкары",
-      "subtitle": "Внешние туннельные серверы под надзором панели: NaiveProxy, olcRTC (WebRTC meet-комнаты) и qWDTT (WireGuard через VK TURN).",
+      "title": "Инструменты туннелей",
+      "subtitle": "Бинарники, логи, перезапуск процессов. Создание и настройка Naive / olcRTC / qWDTT — в Inbounds.",
       "naive": {
         "status": {
           "running": "Работает",
@@ -2222,8 +2222,8 @@
           "deleted": "Бинарник удалён"
         }
       },
-      "inboundMovedTitle": "Туннельные ядра — в Inbounds",
-      "inboundMovedDesc": "Создавайте NaiveProxy, olcRTC и qWDTT в Inbounds. Здесь — бинарь, логи процесса и advanced ops."
+      "inboundMovedTitle": "Настройка — в Inbounds",
+      "inboundMovedDesc": "Создавайте и редактируйте NaiveProxy, olcRTC и qWDTT в разделе Inbounds. Здесь только бинарники, логи процесса и редкие advanced-опции."
     }
   },
   "tgbot": {
