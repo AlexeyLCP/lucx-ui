@@ -72,26 +72,32 @@ AWG:      awg kernel module        → IP   → TUN inbound             → Xray
 
 ## The 10 Rules
 
-### 0. Client config is sacred (lucx.106+)
+### 0. Client config is sacred — STRICT (lucx.106+)
 
-**Никогда** не менять данные, которые попадают в пользовательский клиентский конфиг, без **явного** действия/запроса оператора.
+**ЖЕЛЕЗНОЕ ПРАВИЛО:** обновление панели (`x-ui update` / новый `lucx.N` / InitDB при старте) **НЕ ДОЛЖНО** ломать рабочие inbound’ы и клиентов.
+
+Критерий: после update оператор **не обязан** перекачивать .conf / sub / QR. Если из‑за нашего кода у кого‑то сменился IP, ключ, peer route, inbound «Device does not exist» / RTNETLINK — это **регресс**, чинить немедленно, не «починим миграцией на всех».
+
+**Никогда** не менять данные клиентского конфига без **явного** действия оператора в UI/API (кнопка, смена поля, attach нового inbound).
 
 Сюда входят (неполный список):
-- tunnel **Address / AllowedIPs** (AWG, WireGuard)
+- tunnel **Address / AllowedIPs** (AWG, WireGuard) — смена IP = другой .conf
 - **ключи** (private/public/PSK), secrets, UUID, password
-- endpoint/host/port, obfuscation must-match поля (S/H/HPK), если уже выданы клиенту
+- endpoint/host/port, obfuscation must-match (S/H/HPK), если уже выданы
 
-Запрещено:
-- startup-/InitDB-миграции, которые **переписывают** peer/client адреса или ключи на живой БД
-- «тихий» re-allocate IP при Update/Reconcile/save «заодно»
-- auto-fix «протухших» IP при старте панели (урок lucx.91→92, lucx.105→106)
+**Строго запрещено (в т.ч. «ради фикса»):**
+- startup-/InitDB-/post-update миграции, которые **переписывают** peer/client адреса или ключи на живой БД
+- auto-repair / auto-fix «протухших» IP при старте или reconcile (уроки lucx.91→92, lucx.105→106)
+- «тихий» re-allocate IP при Update/save/Reconcile «заодно»
+- любой код вида «при update починим всем» без opt-in
 
-Разрешено:
-- выделить **новый** IP/ключи только если поле **пустое** (новый клиент / новый attach с очищенным AllowedIPs)
-- менять IP при **явной** смене Address inbound оператором, если это отдельная осознанная миграция и задокументировано
-- **читать** per-inbound IP для export/QR (не мутировать)
+**Разрешено только:**
+- выделить **новый** IP/ключи, если поле **пустое** (новый клиент / новый attach с очищенным AllowedIPs)
+- менять IP при **явной** смене Address inbound оператором (осознанная миграция, задокументирована)
+- **читать** per-inbound IP для export/QR (**не** мутировать)
+- schema/backfill **без** смены значений, которые уже у клиентов (например пустой `awgVersion` → default, не трогая Address)
 
-Сломанный peer на сервере → чинить **по запросу** оператора или дать SQL/кнопку opt-in, не автоматом на всех хостах.
+Сломанный peer → чинить **по запросу** оператора (SQL / opt-in кнопка / инструкция), **не** автоматом на всех хостах при update.
 
 ### 1. LUCX-HOOK Isolation
 
