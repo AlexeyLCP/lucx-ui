@@ -1988,7 +1988,8 @@ export const SCHEMAS: Record<string, unknown> = {
           "tunnel",
           "tun",
           "mtproto",
-          "awg"
+          "awg",
+          "naive"
         ],
         "example": "vless",
         "type": "string"

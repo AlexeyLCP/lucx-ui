@@ -30,7 +30,7 @@ export const NaiveInboundSettingsSchema = z.object({
   probeResistance: z.boolean().default(true),
   logLevel: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).or(z.literal('')).default('WARN'),
   extraArgs: z.string().default(''),
-  routeThroughXray: z.boolean().default(false),
+  routeThroughXray: z.boolean().default(true),
   outboundTag: z.string().optional(),
   routeXrayPort: z.number().int().min(0).max(65535).optional(),
   useRawConfig: z.boolean().default(false),

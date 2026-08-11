@@ -51,6 +51,17 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.101 — Naive default routeThroughXray + routing picker
+
+1. **Ответ:** да — attach клиента к Naive inbound → личная `naive+https://…` в sub/QR.
+2. **Default `routeThroughXray: true`** (как AWG) — schema + createDefaultNaiveInboundSettings.
+3. **Routing RuleFormModal:** клиенты Naive → опции `in:<inboundTag>` (SOCKS-мост помечен тегом inbound; per-user scatter = разные Naive inbounds).
+4. Тест `TestInstanceFromInbound_RouteThroughXrayUpstream`.
+
+**E2E:** unit tunnel PASS; full binary E2E (WSL caddy+naive-client) — см. progress lucx.91; CI lucx.100 green на Release. Повтор full E2E inbound path — после деплоя lucx.101 на стенд.
+
+---
+
 ## Релиз v3.6.0-lucx.100 — NaiveProxy как inbound (модель MTProto)
 
 **Запрос:** Naive как AWG/MTProto — в Inbounds; Tunnels — advanced/бинарь.

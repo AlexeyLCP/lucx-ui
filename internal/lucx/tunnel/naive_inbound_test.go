@@ -80,3 +80,32 @@ func TestInstanceFromInbound_Disabled(t *testing.T) {
 		t.Fatalf("disabled inbound: ok=%v enabled=%v", ok, inst.Enabled)
 	}
 }
+
+func TestInstanceFromInbound_RouteThroughXrayUpstream(t *testing.T) {
+	ib := &model.Inbound{
+		Id:       3,
+		Enable:   true,
+		Port:     8443,
+		Protocol: model.Naive,
+		Settings: `{
+			"domain":"n.example.com",
+			"certFile":"/c.pem",
+			"keyFile":"/k.pem",
+			"authUser":"svc",
+			"authPass":"svcpass",
+			"routeThroughXray":true,
+			"routeXrayPort":39123,
+			"clients":[{"email":"u@x","enable":true}]
+		}`,
+	}
+	inst, ok := InstanceFromInbound(ib, []byte("sec"))
+	if !ok || !inst.Enabled {
+		t.Fatal("expected enabled instance")
+	}
+	if !strings.Contains(inst.ConfigText, "upstream socks5://127.0.0.1:39123") {
+		t.Fatalf("routed inbound must render SOCKS upstream:\n%s", inst.ConfigText)
+	}
+	if inst.ProbePort != 8443 {
+		t.Fatalf("ProbePort = %d", inst.ProbePort)
+	}
+}

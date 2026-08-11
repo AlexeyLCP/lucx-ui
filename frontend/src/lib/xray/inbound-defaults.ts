@@ -239,7 +239,8 @@ export function createDefaultNaiveInboundSettings(): NaiveInboundSettings {
     probeResistance: true,
     logLevel: 'WARN',
     extraArgs: '',
-    routeThroughXray: false,
+    // Like AWG: traffic enters Xray by default so routing rules apply.
+    routeThroughXray: true,
     useRawConfig: false,
     rawConfig: '',
     clients: [],

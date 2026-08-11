@@ -94,7 +94,7 @@ function clientProtocols(c: ClientRecord, byId: Map<number, InboundOption>): Set
   return s;
 }
 
-type ClientOpt = { value: string; label: string; kind: 'user' | 'source'; token: string };
+type ClientOpt = { value: string; label: string; kind: 'user' | 'source' | 'inbound'; token: string };
 
 function buildClientOptions(clients: ClientRecord[], inbounds: InboundOption[]): ClientOpt[] {
   const byId = new Map(inbounds.map((i) => [i.id, i]));
@@ -104,6 +104,7 @@ function buildClientOptions(clients: ClientRecord[], inbounds: InboundOption[]):
     const protos = clientProtocols(c, byId);
     const isAwg = protos.has('awg');
     const isWg = protos.has('wireguard');
+    const isNaive = protos.has('naive');
     if (isAwg || isWg) {
       const ips = singleHostIps(c.allowedIPs);
       if (ips.length === 0) continue;
@@ -117,11 +118,29 @@ function buildClientOptions(clients: ClientRecord[], inbounds: InboundOption[]):
         });
       }
     }
+    // NaiveProxy → Xray SOCKS bridge is tagged with the inbound's tag (not
+    // per-user email). Picking a Naive client fills inboundTag so operators
+    // can scatter users by attaching them to different Naive inbounds.
+    if (isNaive) {
+      for (const id of c.inboundIds || []) {
+        const ib = byId.get(id);
+        if (!ib || ib.protocol !== 'naive' || !ib.tag) continue;
+        opts.push({
+          value: `in:${ib.tag}`,
+          kind: 'inbound',
+          token: ib.tag,
+          label: `${c.email} · Naive · ${ib.tag}`,
+        });
+      }
+    }
     // Xray-auth protocols keep email → routing.user
     if (!isAwg || protos.size > 1) {
-      const hasXrayUser = [...protos].some((p) => p !== 'awg' && p !== 'wireguard' && p !== 'tun' && p !== 'tunnel');
-      if (hasXrayUser || (!isAwg && !isWg)) {
-        const protoLabel = [...protos].filter((p) => p !== 'awg' && p !== 'wireguard').join('/') || 'xray';
+      const hasXrayUser = [...protos].some(
+        (p) => p !== 'awg' && p !== 'wireguard' && p !== 'tun' && p !== 'tunnel' && p !== 'naive' && p !== 'mtproto',
+      );
+      if (hasXrayUser || (!isAwg && !isWg && !isNaive && !protos.has('mtproto'))) {
+        const protoLabel =
+          [...protos].filter((p) => p !== 'awg' && p !== 'wireguard' && p !== 'naive').join('/') || 'xray';
         opts.push({
           value: `user:${c.email}`,
           kind: 'user',
@@ -200,6 +219,9 @@ export default function RuleFormModal({
       for (const ip of csv(sourceIP)) {
         pick.push(ip.includes('/') || ip.includes(':') ? `src:${ip}` : `src:${ip}/32`);
       }
+      for (const tag of rule.inboundTag || []) {
+        if (tag) pick.push(`in:${tag}`);
+      }
       setClientPick(pick);
     } else {
       methods.reset(initialForm());
@@ -213,15 +235,19 @@ export default function RuleFormModal({
     setClientPick(values);
     const users: string[] = [];
     const sources: string[] = [];
+    const inboundTags: string[] = [];
     for (const v of values) {
       const opt = clientOptByValue.get(v);
       if (opt) {
         if (opt.kind === 'user') users.push(opt.token);
+        else if (opt.kind === 'inbound') inboundTags.push(opt.token);
         else sources.push(opt.token);
         continue;
       }
-      // free-typed tag: email → user, otherwise sourceIP
-      if (v.includes('@') || v.startsWith('user:')) {
+      // free-typed tag: email → user, in:tag → inbound, otherwise sourceIP
+      if (v.startsWith('in:')) {
+        inboundTags.push(v.slice(3));
+      } else if (v.includes('@') || v.startsWith('user:')) {
         users.push(v.replace(/^user:/, ''));
       } else {
         sources.push(v.replace(/^src:/, ''));
@@ -229,6 +255,7 @@ export default function RuleFormModal({
     }
     methods.setValue('user', users.join(','), { shouldDirty: true });
     methods.setValue('sourceIP', sources.join(','), { shouldDirty: true });
+    methods.setValue('inboundTag', inboundTags, { shouldDirty: true });
   }
 
   function submit() {
