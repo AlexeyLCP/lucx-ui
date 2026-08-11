@@ -15,13 +15,19 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
+// awgPeerIPRepairEnabled gates repairAwgStalePeerIPs. Default false (lucx.106):
+// never rewrite client tunnel IPs on panel start — live servers must stay
+// opt-in only (lesson from lucx.91→92). Flip only for a controlled one-shot.
+var awgPeerIPRepairEnabled = false
+
 // repairAwgStalePeerIPs re-allocates single-host peer AllowedIPs that sit
 // outside their AWG inbound's tunnel subnet. Multi-attach client updates used
 // to broadcast one tunnel IP into every inbound settings blob → awg-quick
 // "ip route add … RTNETLINK: File exists" and client .conf Address from the
 // wrong subnet. Idempotent. Keys/PSK/email unchanged.
+// NOT called from InitDB unless awgPeerIPRepairEnabled (default off).
 func repairAwgStalePeerIPs() {
-	if db == nil {
+	if db == nil || !awgPeerIPRepairEnabled {
 		return
 	}
 	var inbounds []model.Inbound

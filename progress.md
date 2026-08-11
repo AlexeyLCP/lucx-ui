@@ -51,6 +51,14 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.106 — ОТКЛЮЧЁН auto-repair peer IP при старте
+
+**Реакция владельца:** startup `repairAwgStalePeerIPs` в lucx.105 снова переписывал IP на живых серверах — нельзя.
+
+**Фикс:** repair не вызывается из InitDB; `awgPeerIPRepairEnabled = false`. Код оставлен (opt-in). Create/Update/Attach + export + suggest из .105 — без изменений.
+
+---
+
 ## Релиз v3.6.0-lucx.105 — multi-attach AWG: IP per inbound + suggest 10.200/10.201
 
 **Репорт (Aleksandr/Vlad):** multi-attach клиент — .conf с версией нужного AWG, но **Address с чужого inbound**; reconcile `ip route add 10.x.y.z/32 … RTNETLINK File exists`. Vlad: auto-suggest `10.200.1`/`10.200.2` → хотели `10.200`/`10.201`.
