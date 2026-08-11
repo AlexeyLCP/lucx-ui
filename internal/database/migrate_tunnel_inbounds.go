@@ -90,6 +90,7 @@ func migrateTunnelSettingsToInbound(settingKey string, proto model.Protocol, def
 		return
 	}
 	ib := &model.Inbound{
+		UserId:   firstPanelUserID(),
 		Remark:   remark,
 		Enable:   enabled,
 		Port:     port,
@@ -110,4 +111,40 @@ func migrateTunnelSettingsToInbound(settingKey string, proto model.Protocol, def
 		_ = db.Model(&model.Setting{}).Where("key = ?", settingKey).Update("value", string(marked)).Error
 	}
 	logger.Info("migrate ", proto, " inbound: promoted ", settingKey, " → inbound id=", ib.Id)
+}
+
+// firstPanelUserID returns the id of the first panel user (usually admin).
+// Tunnel→inbound migrations must set UserId: GetInbounds filters by user_id,
+// so user_id=0 makes the row invisible in the UI while still blocking the port.
+func firstPanelUserID() int {
+	if db == nil {
+		return 1
+	}
+	var u model.User
+	if err := db.Model(&model.User{}).Select("id").Order("id ASC").First(&u).Error; err != nil {
+		return 1
+	}
+	if u.Id <= 0 {
+		return 1
+	}
+	return u.Id
+}
+
+// repairOrphanTunnelInboundUserIDs assigns the first panel user to naive/olcrtc/qwdtt
+// inbounds left with user_id=0 by pre-lucx.104 migrations. Idempotent.
+func repairOrphanTunnelInboundUserIDs() {
+	if db == nil {
+		return
+	}
+	uid := firstPanelUserID()
+	res := db.Model(&model.Inbound{}).
+		Where("user_id = 0 AND protocol IN ?", []model.Protocol{model.Naive, model.Olcrtc, model.Qwdtt}).
+		Update("user_id", uid)
+	if res.Error != nil {
+		logger.Warning("repair orphan tunnel inbound user_id:", res.Error)
+		return
+	}
+	if res.RowsAffected > 0 {
+		logger.Info("repair orphan tunnel inbound user_id: fixed ", res.RowsAffected, " row(s) → user_id=", uid)
+	}
 }

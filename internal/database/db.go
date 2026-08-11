@@ -168,6 +168,9 @@ func initModels() error {
 	migrateNaiveTunnelToInbound()
 	migrateOlcrtcTunnelToInbound()
 	migrateQwdttTunnelToInbound()
+	// Pre-lucx.104 migrations forgot UserId → row invisible (user_id=0) but
+	// still occupies the port. Re-home to first panel user.
+	repairOrphanTunnelInboundUserIDs()
 	// END LUCX-HOOK
 	if IsPostgres() {
 		if err := resyncPostgresSequences(db, models); err != nil {

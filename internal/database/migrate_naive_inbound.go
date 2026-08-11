@@ -71,6 +71,7 @@ func migrateNaiveTunnelToInbound() {
 	}
 
 	ib := &model.Inbound{
+		UserId:   firstPanelUserID(),
 		Remark:   remark,
 		Enable:   enabled,
 		Listen:   listen,

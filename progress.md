@@ -51,6 +51,22 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.104 — ghost Naive/olc/qWDTT (user_id=0)
+
+**Репорт:** после update Tunnels «исчезли», создать Naive → `port 443 already used by inbound 'NaiveProxy_…' (#2)`, а #2 в списке Inbounds **не видно**.
+
+**Корень:** `migrateNaiveTunnelToInbound` / `migrateTunnelSettingsToInbound` создавали inbound **без `UserId`**. Список `GetInbounds(userId)` фильтрует `user_id = ?` → ghost; `checkPortConflict` смотрит все строки → порт занят.
+
+**Фикс:**
+1. Миграции ставят `UserId: firstPanelUserID()` (первый user, обычно admin).
+2. `repairOrphanTunnelInboundUserIDs()` при старте: `user_id=0` + protocol naive/olcrtc/qwdtt → first user (идемпотентно).
+3. Тест `TestRepairOrphanTunnelInboundUserIDs`.
+
+**Обход без обновления:**  
+`sqlite3 /etc/x-ui/x-ui.db "UPDATE inbounds SET user_id=1 WHERE user_id=0 AND protocol IN ('naive','olcrtc','qwdtt');"` + `systemctl restart x-ui`.
+
+---
+
 ## Релиз v3.6.0-lucx.102 — olcRTC + qWDTT as Inbounds, Tunnels advanced
 
 **Запрос:** olcRTC/qWDTT как AWG/Naive inbound; Tunnels — advanced для всех трёх.
