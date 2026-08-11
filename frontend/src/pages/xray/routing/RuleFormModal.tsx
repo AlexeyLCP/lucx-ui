@@ -235,18 +235,18 @@ export default function RuleFormModal({
     setClientPick(values);
     const users: string[] = [];
     const sources: string[] = [];
-    const inboundTags: string[] = [];
+    const inboundFromPick: string[] = [];
     for (const v of values) {
       const opt = clientOptByValue.get(v);
       if (opt) {
         if (opt.kind === 'user') users.push(opt.token);
-        else if (opt.kind === 'inbound') inboundTags.push(opt.token);
+        else if (opt.kind === 'inbound') inboundFromPick.push(opt.token);
         else sources.push(opt.token);
         continue;
       }
       // free-typed tag: email → user, in:tag → inbound, otherwise sourceIP
       if (v.startsWith('in:')) {
-        inboundTags.push(v.slice(3));
+        inboundFromPick.push(v.slice(3));
       } else if (v.includes('@') || v.startsWith('user:')) {
         users.push(v.replace(/^user:/, ''));
       } else {
@@ -255,7 +255,15 @@ export default function RuleFormModal({
     }
     methods.setValue('user', users.join(','), { shouldDirty: true });
     methods.setValue('sourceIP', sources.join(','), { shouldDirty: true });
-    methods.setValue('inboundTag', inboundTags, { shouldDirty: true });
+    // Merge Naive inbound tags from the client picker with any tags the
+    // operator already chose in the inboundTag Select (do not wipe them).
+    const clientInboundTokens = new Set(
+      clientOptions.filter((o) => o.kind === 'inbound').map((o) => o.token),
+    );
+    const existing = (methods.getValues('inboundTag') as string[] | undefined) || [];
+    const kept = existing.filter((t) => t && !clientInboundTokens.has(t));
+    const merged = [...new Set([...kept, ...inboundFromPick.filter(Boolean)])];
+    methods.setValue('inboundTag', merged, { shouldDirty: true });
   }
 
   function submit() {
