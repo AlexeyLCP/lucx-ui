@@ -186,6 +186,10 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if inbound.Protocol == model.AWG {
 			continue
 		}
+		// NaiveProxy inbound — Caddy sidecar, not an Xray protocol.
+		if inbound.Protocol == model.Naive {
+			continue
+		}
 		// END LUCX-HOOK
 		settings := map[string]any{}
 		_ = json.Unmarshal([]byte(inbound.Settings), &settings)
@@ -391,14 +395,23 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		injectAwgEgress(xrayConfig, inbound)
 	}
-	// NaiveProxy tunnel SOCKS egress — one core, one bridge. Caddy's
-	// forward_proxy dials socks5://127.0.0.1:routeXrayPort (native
-	// `upstream` directive, no binary patch). Tag is stable
-	// (tunnel.NaiveEgressTag) so operators can match it in routing rules.
-	if naiveCfg, err := (&TunnelService{}).LoadNaiveConfig(); err == nil {
-		injectTunnelEgress(xrayConfig, naiveCfg)
-	} else {
-		logger.Warning("tunnel egress: load naive config failed:", err)
+	// NaiveProxy: prefer inbound rows (mtproto pattern — tag = inbound.Tag).
+	// Fall back to legacy global lucxTunnel_naive settings until migrated.
+	naiveInboundSeen := false
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.Naive || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		naiveInboundSeen = true
+		injectNaiveInboundEgress(xrayConfig, inbound)
+	}
+	if !naiveInboundSeen {
+		if naiveCfg, err := (&TunnelService{}).LoadNaiveConfig(); err == nil {
+			injectTunnelEgress(xrayConfig, naiveCfg)
+		} else {
+			logger.Warning("tunnel egress: load naive config failed:", err)
+		}
 	}
 	// END LUCX-HOOK
 
@@ -645,33 +658,49 @@ func routingTagIsBalancer(routing map[string]any, tag string) bool {
 // Shared with injectTunnelEgress (NaiveProxy also dials plain TCP via SOCKS5).
 const mtprotoEgressSocksSettings = `{"auth":"noauth","udp":false}`
 
-// LUCX-HOOK: injectTunnelEgress wires the NaiveProxy tunnel core into the
-// generated Xray config as a hidden loopback SOCKS bridge (tag =
-// tunnel.NaiveEgressTag). Caddy forward_proxy dials it via its native
-// `upstream socks5://127.0.0.1:port` directive. Mirrors injectMtprotoEgress
-// but takes a tunnel.NaiveConfig instead of an inbound row.
+// injectNaiveInboundEgress wires one routed Naive inbound into Xray as a
+// loopback SOCKS bridge tagged with the inbound's own tag (mtproto pattern).
+func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
+	var parsed struct {
+		RouteThroughXray bool   `json:"routeThroughXray"`
+		RouteXrayPort    int    `json:"routeXrayPort"`
+		OutboundTag      string `json:"outboundTag"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
+		return
+	}
+	if !parsed.RouteThroughXray || parsed.RouteXrayPort <= 0 || inbound.Tag == "" {
+		return
+	}
+	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "naive egress")
+}
+
+// LUCX-HOOK: injectTunnelEgress wires the legacy global NaiveProxy tunnel
+// core (settings lucxTunnel_naive) into Xray. Kept for pre-migration hosts.
 func injectTunnelEgress(cfg *xray.Config, naive tunnel.NaiveConfig) {
 	if !naive.Enabled || !naive.RouteThroughXray || naive.RouteXrayPort <= 0 {
 		return
 	}
-	tag := tunnel.NaiveEgressTag
+	injectSocksEgress(cfg, tunnel.NaiveEgressTag, naive.RouteXrayPort, naive.OutboundTag, "tunnel egress")
+}
+
+func injectSocksEgress(cfg *xray.Config, tag string, port int, outboundTag, logPrefix string) {
 	for i := range cfg.InboundConfigs {
 		if cfg.InboundConfigs[i].Tag == tag {
-			logger.Warning("tunnel egress: inbound tag [", tag, "] already present in generated config, skipping bridge")
+			logger.Warning(logPrefix, ": inbound tag [", tag, "] already present in generated config, skipping bridge")
 			return
 		}
 	}
-
-	if naive.OutboundTag != "" {
+	if outboundTag != "" {
 		routing := map[string]any{}
 		if len(cfg.RouterConfig) > 0 {
 			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
-				logger.Warning("tunnel egress: routing section is unparsable, skipping injection:", err)
+				logger.Warning(logPrefix, ": routing section is unparsable, skipping injection:", err)
 				return
 			}
 		}
-		if !routingTargetExists(routing, cfg.OutboundConfigs, naive.OutboundTag) {
-			logger.Warning("tunnel egress: target tag [", naive.OutboundTag, "] not found, skipping injection")
+		if !routingTargetExists(routing, cfg.OutboundConfigs, outboundTag) {
+			logger.Warning(logPrefix, ": target tag [", outboundTag, "] not found, skipping injection")
 			return
 		}
 		rules, _ := routing["rules"].([]any)
@@ -679,23 +708,22 @@ func injectTunnelEgress(cfg *xray.Config, naive tunnel.NaiveConfig) {
 			"type":       "field",
 			"inboundTag": []any{tag},
 		}
-		if routingTagIsBalancer(routing, naive.OutboundTag) {
-			rule["balancerTag"] = naive.OutboundTag
+		if routingTagIsBalancer(routing, outboundTag) {
+			rule["balancerTag"] = outboundTag
 		} else {
-			rule["outboundTag"] = naive.OutboundTag
+			rule["outboundTag"] = outboundTag
 		}
 		routing["rules"] = append([]any{rule}, rules...)
 		newRouting, err := json.Marshal(routing)
 		if err != nil {
-			logger.Warning("tunnel egress: failed to rebuild routing section, skipping injection:", err)
+			logger.Warning(logPrefix, ": failed to rebuild routing section, skipping injection:", err)
 			return
 		}
 		cfg.RouterConfig = json_util.RawMessage(newRouting)
 	}
-
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
 		Listen:   json_util.RawMessage(`"127.0.0.1"`),
-		Port:     naive.RouteXrayPort,
+		Port:     port,
 		Protocol: "socks",
 		Settings: json_util.RawMessage(mtprotoEgressSocksSettings),
 		Tag:      tag,

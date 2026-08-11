@@ -19,6 +19,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
@@ -342,12 +343,17 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 		}
 	}
 
-	// LUCX-HOOK: NaiveProxy sidecar — the personal naive+https link of every
-	// enabled client joins the subscription (credentials derived from the
-	// panel secret, mirrored by the Caddyfile basic_auth lines). Base64-sub
-	// only: the JSON/Clash formats have no naive representation. Links and
-	// emails are appended together so BuildPageData's index zip stays aligned.
-	if len(enabledEmails) > 0 {
+	// LUCX-HOOK: legacy global Naive tunnel (lucxTunnel_naive) — only when no
+	// protocol=naive inbound is already producing genNaiveLink rows above.
+	// Prefer inbound-attached clients; this bolt-on is for pre-migration hosts.
+	hasNaiveInbound := false
+	for _, ib := range inbounds {
+		if ib != nil && ib.Protocol == model.Naive {
+			hasNaiveInbound = true
+			break
+		}
+	}
+	if !hasNaiveInbound && len(enabledEmails) > 0 {
 		naiveEmails := make([]string, 0, len(enabledEmails))
 		for e := range enabledEmails {
 			naiveEmails = append(naiveEmails, e)
@@ -495,7 +501,7 @@ func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) 
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','mtproto','awg')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','mtproto','awg','naive')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC").Find(&inbounds).Error
 	if err != nil {
@@ -648,6 +654,8 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genWireguardLink(inbound, email)
 	case "awg": // LUCX-HOOK: AWG share link
 		return s.genAwgLink(inbound, email)
+	case "naive": // LUCX-HOOK: NaiveProxy inbound share link
+		return s.genNaiveLink(inbound, email)
 	}
 	return ""
 }
@@ -818,6 +826,39 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 }
 
 // END LUCX-HOOK
+
+// genNaiveLink builds naive+https://user:pass@domain:port#email for a client
+// attached to a Naive inbound. Credentials are HMAC-derived (inbound-scoped).
+// Returns "" when domain is missing or the client is not enabled on the inbound.
+func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
+	if inbound == nil || inbound.Protocol != model.Naive {
+		return ""
+	}
+	cfg, ok := tunnel.ConfigFromInbound(inbound)
+	if !ok || cfg.UseRawConfig {
+		return ""
+	}
+	domain := strings.TrimSpace(cfg.Domain)
+	if domain == "" {
+		// Fall back to inbound listen/share host resolution.
+		domain = s.resolveInboundAddress(inbound)
+	}
+	if domain == "" {
+		return ""
+	}
+	resolved, ok := s.clientForLink(inbound, email)
+	if !ok || !resolved.Enable {
+		return ""
+	}
+	secret, err := s.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return ""
+	}
+	pair := tunnel.ClientAuthForInbound(secret, inbound.Id, email)
+	cfg.Domain = domain
+	cfg.Port = inbound.Port
+	return cfg.ClientURLFor(pair, email)
+}
 
 // genMtprotoLink builds a per-client Telegram proxy deep link for an mtproto
 // inbound: the server/port pair plus the client's own FakeTLS secret. The link

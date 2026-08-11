@@ -714,7 +714,29 @@
         "awgAddressHint": "IP/CIDR نفق الخادم، مثل 10.8.0.1/24. يحصل العملاء على عناوين من هذه الشبكة الفرعية.",
         "awgSubnetConflict": "تتداخل هذه الشبكة الفرعية مع inbound آخر لـ AWG — لن يحصل عملاء هذا inbound على حركة مرور (تعارض kernel route).",
         "awgSubnetConflictHint": "الشبكة الفرعية {{subnet}} مستخدمة بالفعل. غيّر Address إلى /24 غير متداخلة (مثال 10.8.1.1/24).",
-        "awgRouteThroughXrayNoReexport": "Server-only: clients keep the same .conf (keys/IP). No re-download needed — just Save."
+        "awgRouteThroughXrayNoReexport": "Server-only: clients keep the same .conf (keys/IP). No re-download needed — just Save.",
+        "naiveRouteThroughXrayHint": "Caddy dials destinations via a hidden SOCKS bridge so egress obeys Xray routing (like MTProto).",
+        "naiveExtraArgs": "Extra CLI args",
+        "naiveUseRawHint": "Operator owns the full Caddyfile. Per-client auth and routeThroughXray are disabled.",
+        "naiveRouteOutboundHint": "Optional. Empty = default Xray routing.",
+        "naiveAuthServiceHint": "Optional master basic_auth. Clients on this inbound get personal credentials automatically.",
+        "naiveDomainHint": "Public hostname for NaiveProxy (SNI / ACME). Required for client links.",
+        "naiveUseRaw": "Raw Caddyfile",
+        "naiveProbeResistance": "Probe resistance",
+        "naiveEnableH3": "HTTP/3 (QUIC)",
+        "naiveAuthUser": "Service username",
+        "naiveLogLevel": "Log level",
+        "naiveRouteOutbound": "Force outbound / balancer",
+        "naiveRawConfig": "Caddyfile",
+        "naiveRouteOutboundPlaceholder": "Default routing",
+        "naiveAcmeEmail": "ACME email",
+        "naiveAuthPass": "Service password",
+        "naiveDomain": "Domain",
+        "naiveCertFile": "Certificate file",
+        "naiveUseAcmeHint": "HTTP-01 requires port 443. Otherwise provide cert/key paths.",
+        "naiveUseAcme": "Auto TLS (Let's Encrypt)",
+        "naiveRouteThroughXray": "Route through Xray",
+        "naiveKeyFile": "Private key file"
       },
       "info": {
         "mode": "الوضع",
@@ -2059,7 +2081,9 @@
           "downloaded": "تم تنزيل الملف الثنائي",
           "deleted": "تم حذف الملف الثنائي"
         },
-        "title": "NaiveProxy"
+        "title": "NaiveProxy",
+        "inboundMovedTitle": "NaiveProxy is an Inbound now",
+        "inboundMovedDesc": "Create/edit NaiveProxy under Inbounds (protocol Naive), attach clients there. This page keeps binary install, legacy global config (until migrated), logs, and other tunnel cores (olcRTC / qWDTT)."
       },
       "olcrtc": {
         "title": "olcRTC",

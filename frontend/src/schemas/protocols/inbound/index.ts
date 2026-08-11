@@ -5,6 +5,7 @@ import { HysteriaInboundSettingsSchema } from './hysteria';
 import { MixedInboundSettingsSchema } from './mixed';
 import { MtprotoInboundSettingsSchema } from './mtproto';
 import { AwgInboundSettingsSchema } from './awg'; // LUCX-HOOK: AWG protocol
+import { NaiveInboundSettingsSchema } from './naive'; // LUCX-HOOK: NaiveProxy
 import { ShadowsocksInboundSettingsSchema } from './shadowsocks';
 import { TrojanInboundSettingsSchema } from './trojan';
 import { TunInboundSettingsSchema } from './tun';
@@ -18,6 +19,7 @@ export * from './hysteria';
 export * from './mixed';
 export * from './mtproto';
 export * from './awg'; // LUCX-HOOK: AWG protocol
+export * from './naive'; // LUCX-HOOK: NaiveProxy
 export * from './shadowsocks';
 export * from './trojan';
 export * from './tun';
@@ -44,5 +46,6 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('tun'),         settings: TunInboundSettingsSchema }),
   z.object({ protocol: z.literal('mtproto'),     settings: MtprotoInboundSettingsSchema }),
   z.object({ protocol: z.literal('awg'),         settings: AwgInboundSettingsSchema }), // LUCX-HOOK: AWG
+  z.object({ protocol: z.literal('naive'),       settings: NaiveInboundSettingsSchema }), // LUCX-HOOK: Naive
 ]);
 export type InboundSettings = z.infer<typeof InboundSettingsSchema>;

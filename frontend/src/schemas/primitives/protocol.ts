@@ -13,6 +13,7 @@ export const ProtocolSchema = z.enum([
   'tun',
   'mtproto',
   'awg', // LUCX-HOOK: AmneziaWG sidecar protocol
+  'naive', // LUCX-HOOK: NaiveProxy sidecar (inbound model)
 ]);
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
@@ -35,4 +36,5 @@ export const Protocols = Object.freeze({
   TUN: 'tun',
   MTPROTO: 'mtproto',
   AWG: 'awg', // LUCX-HOOK: AmneziaWG
+  NAIVE: 'naive', // LUCX-HOOK: NaiveProxy
 });

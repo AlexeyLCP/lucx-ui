@@ -26,8 +26,14 @@ import (
 // Instance is the desired runtime state of one tunnel core, built by the web
 // layer from the stored operator config. The Manager converges the actual
 // process state toward it on every Ensure call.
+//
+// Key selects the manager slot and on-disk paths. Empty Key falls back to
+// string(Core) (legacy single-core layout for olcRTC/qWDTT and the global
+// Naive tunnel). Naive inbounds use "naive-{id}" so N panel inbounds map to
+// N supervised caddy processes with isolated ACME storage.
 type Instance struct {
 	Core    Name
+	Key     string
 	Enabled bool
 
 	// ConfigText is the fully rendered config file content (Caddyfile for
@@ -47,6 +53,14 @@ type Instance struct {
 	// ProbePort is the local TCP port used by the listening/responding
 	// health probes. Zero disables the probes (running status only).
 	ProbePort int
+}
+
+// ManageKey returns the manager map key for this instance.
+func (inst Instance) ManageKey() string {
+	if k := strings.TrimSpace(inst.Key); k != "" {
+		return k
+	}
+	return string(inst.Core)
 }
 
 // Fingerprint identifies the instance's rendered config plus CLI shape. Any
@@ -76,14 +90,15 @@ type managed struct {
 	fp   string
 }
 
-// Manager owns the supervised tunnel-core processes keyed by core name.
+// Manager owns the supervised tunnel-core processes keyed by ManageKey
+// (legacy core name or "naive-{id}" for inbound instances).
 type Manager struct {
 	mu    sync.Mutex
-	cores map[Name]*managed
+	cores map[string]*managed
 }
 
 func newManager() *Manager {
-	return &Manager{cores: make(map[Name]*managed)}
+	return &Manager{cores: make(map[string]*managed)}
 }
 
 var (
@@ -101,11 +116,11 @@ func GetManager() *Manager {
 	return managerRef
 }
 
-func (m *Manager) core(n Name) *managed {
-	mc, ok := m.cores[n]
+func (m *Manager) slot(key string) *managed {
+	mc, ok := m.cores[key]
 	if !ok {
 		mc = &managed{}
-		m.cores[n] = mc
+		m.cores[key] = mc
 	}
 	return mc
 }
@@ -118,14 +133,15 @@ func (m *Manager) Ensure(inst Instance) error {
 	if !inst.Core.Valid() {
 		return fmt.Errorf("tunnel: unknown core %q", inst.Core)
 	}
+	key := inst.ManageKey()
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	mc := m.core(inst.Core)
+	mc := m.slot(key)
 
 	if !inst.Enabled {
 		if mc.proc != nil && mc.proc.IsRunning() {
 			if err := mc.proc.Stop(); err != nil {
-				return fmt.Errorf("tunnel: stop %s: %w", inst.Core.DisplayName(), err)
+				return fmt.Errorf("tunnel: stop %s: %w", key, err)
 			}
 		}
 		mc.fp = ""
@@ -141,10 +157,8 @@ func (m *Manager) Ensure(inst Instance) error {
 			return nil
 		}
 		if err := mc.proc.Stop(); err != nil {
-			logger.Warningf("tunnel: stop before restart of %s failed: %v", inst.Core.DisplayName(), err)
+			logger.Warningf("tunnel: stop before restart of %s failed: %v", key, err)
 		}
-		// A graceful stop is given time above; a short pause keeps the port
-		// free before the new process binds it (elector1337 restart pause).
 		time.Sleep(200 * time.Millisecond)
 	}
 	if err := m.start(inst); err != nil {
@@ -154,11 +168,37 @@ func (m *Manager) Ensure(inst Instance) error {
 	return nil
 }
 
-// Stop terminates the core process if it is running.
-func (m *Manager) Stop(core Name) error {
+// Remove stops and forgets a managed key (inbound delete). Config files are
+// left on disk for operator recovery; next Ensure of the same key reuses them.
+func (m *Manager) Remove(key string) {
+	key = strings.TrimSpace(key)
+	if key == "" {
+		return
+	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	mc := m.core(core)
+	mc, ok := m.cores[key]
+	if !ok {
+		return
+	}
+	if mc.proc != nil && mc.proc.IsRunning() {
+		if err := mc.proc.Stop(); err != nil {
+			logger.Warningf("tunnel: remove stop %s: %v", key, err)
+		}
+	}
+	delete(m.cores, key)
+}
+
+// Stop terminates the core process if it is running (legacy Name API).
+func (m *Manager) Stop(core Name) error {
+	return m.StopKey(string(core))
+}
+
+// StopKey terminates one managed key if running.
+func (m *Manager) StopKey(key string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	mc := m.slot(key)
 	mc.fp = ""
 	if mc.proc == nil || !mc.proc.IsRunning() {
 		return nil
@@ -170,29 +210,39 @@ func (m *Manager) Stop(core Name) error {
 func (m *Manager) StopAll() {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	for _, mc := range m.cores {
+	for key, mc := range m.cores {
 		if mc.proc != nil && mc.proc.IsRunning() {
 			if err := mc.proc.Stop(); err != nil {
-				logger.Warningf("tunnel: shutdown stop failed: %v", err)
+				logger.Warningf("tunnel: shutdown stop %s failed: %v", key, err)
 			}
 		}
 		mc.fp = ""
 	}
 }
 
-// IsRunning reports whether the core process is alive.
+// IsRunning reports whether the core process is alive (legacy Name API).
 func (m *Manager) IsRunning(core Name) bool {
+	return m.IsRunningKey(string(core))
+}
+
+// IsRunningKey reports whether the managed key's process is alive.
+func (m *Manager) IsRunningKey(key string) bool {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	mc, ok := m.cores[core]
+	mc, ok := m.cores[key]
 	return ok && mc.proc != nil && mc.proc.IsRunning()
 }
 
 // Logs returns up to max recent output lines of the core process.
 func (m *Manager) Logs(core Name, max int) []string {
+	return m.LogsKey(string(core), max)
+}
+
+// LogsKey returns up to max recent output lines for a managed key.
+func (m *Manager) LogsKey(key string, max int) []string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	mc, ok := m.cores[core]
+	mc, ok := m.cores[key]
 	if !ok || mc.proc == nil {
 		return nil
 	}
@@ -201,9 +251,14 @@ func (m *Manager) Logs(core Name, max int) []string {
 
 // LastLog returns the most recent output line of the core process.
 func (m *Manager) LastLog(core Name) string {
+	return m.LastLogKey(string(core))
+}
+
+// LastLogKey returns the most recent output line for a managed key.
+func (m *Manager) LastLogKey(key string) string {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	mc, ok := m.cores[core]
+	mc, ok := m.cores[key]
 	if !ok || mc.proc == nil {
 		return ""
 	}
@@ -213,7 +268,7 @@ func (m *Manager) LastLog(core Name) string {
 // StatusOf probes the core: process liveness first, then (when running and a
 // probe port is known) the TCP listener and the TLS handshake.
 func (m *Manager) StatusOf(inst Instance) Status {
-	st := Status{Running: m.IsRunning(inst.Core)}
+	st := Status{Running: m.IsRunningKey(inst.ManageKey())}
 	if !st.Running || inst.ProbePort <= 0 {
 		return st
 	}
@@ -225,7 +280,36 @@ func (m *Manager) StatusOf(inst Instance) Status {
 	return st
 }
 
-// probeListening reports whether a TCP listener answers on addr.
+// ReconcileNaive drives every desired Naive inbound instance: Ensure each
+// wanted key, Stop keys that look like naive-* but are no longer wanted.
+func (m *Manager) ReconcileNaive(want []Instance) {
+	wantKeys := make(map[string]struct{}, len(want))
+	for _, inst := range want {
+		if inst.Core != Naive {
+			continue
+		}
+		key := inst.ManageKey()
+		wantKeys[key] = struct{}{}
+		if err := m.Ensure(inst); err != nil {
+			logger.Warningf("tunnel: reconcile %s: %v", key, err)
+		}
+	}
+	m.mu.Lock()
+	var orphans []string
+	for key := range m.cores {
+		if !strings.HasPrefix(key, "naive-") && key != string(Naive) {
+			continue
+		}
+		if _, ok := wantKeys[key]; !ok {
+			orphans = append(orphans, key)
+		}
+	}
+	m.mu.Unlock()
+	for _, key := range orphans {
+		m.Remove(key)
+	}
+}
+
 func probeListening(addr string) bool {
 	dialer := &net.Dialer{Timeout: 300 * time.Millisecond}
 	conn, err := dialer.DialContext(context.Background(), "tcp", addr)
@@ -236,8 +320,6 @@ func probeListening(addr string) bool {
 	return true
 }
 
-// probeResponding reports whether a TLS handshake completes against addr
-// (certificate is not verified — the probe only checks liveness).
 func probeResponding(addr string) bool {
 	tlsDialer := &tls.Dialer{
 		NetDialer: &net.Dialer{Timeout: time.Second},
@@ -251,9 +333,6 @@ func probeResponding(addr string) bool {
 	return true
 }
 
-// writeConfigFile renders the instance config to disk, skipping the write
-// when the content is unchanged (avoids mtime churn on every reconcile).
-// CLI-only cores (empty ConfigText) are a no-op.
 func writeConfigFile(inst Instance) error {
 	if strings.TrimSpace(inst.ConfigText) == "" {
 		return nil
@@ -261,7 +340,7 @@ func writeConfigFile(inst Instance) error {
 	if err := os.MkdirAll(workDir(), 0o755); err != nil {
 		return fmt.Errorf("tunnel: create config dir: %w", err)
 	}
-	path := configPath(inst.Core)
+	path := configPathFor(inst.ManageKey(), inst.Core)
 	if existing, err := os.ReadFile(path); err == nil && string(existing) == inst.ConfigText {
 		return nil
 	}
@@ -271,7 +350,6 @@ func writeConfigFile(inst Instance) error {
 	return nil
 }
 
-// start launches the core binary against its rendered config file.
 func (m *Manager) start(inst Instance) error {
 	bin := inst.Core.BinaryPath()
 	info, err := os.Stat(bin)
@@ -279,44 +357,38 @@ func (m *Manager) start(inst Instance) error {
 		return fmt.Errorf("tunnel: %s binary not found at %s", inst.Core.DisplayName(), bin)
 	}
 	if runtime.GOOS != "windows" {
-		// Copies delivered by scp/zip may lack the exec bit; fix it so the
-		// delivery order never matters.
 		if err := os.Chmod(bin, 0o755); err != nil {
 			return fmt.Errorf("tunnel: make %s executable: %w", bin, err)
 		}
 	}
-	// 0700 for qWDTT state (passwords.json / keys); harmless for the others.
-	if err := os.MkdirAll(dataDir(inst.Core), 0o700); err != nil {
+	key := inst.ManageKey()
+	if err := os.MkdirAll(dataDirFor(key, inst.Core), 0o700); err != nil {
 		return fmt.Errorf("tunnel: create data dir: %w", err)
 	}
 
+	cfgPath := configPathFor(key, inst.Core)
 	var args []string
 	switch {
 	case len(inst.Args) > 0:
-		// CLI-driven cores (qWDTT) supply the full argv from the web layer.
 		args = append(args, inst.Args...)
 	case inst.Core == Naive:
-		// caddy refuses to run without an explicit adapter for non-JSON
-		// configs; the panel always renders a Caddyfile.
-		args = []string{"run", "--config", configPath(inst.Core), "--adapter", "caddyfile"}
+		args = []string{"run", "--config", cfgPath, "--adapter", "caddyfile"}
 		if extra := strings.TrimSpace(inst.ExtraArgs); extra != "" {
 			args = append(args, strings.Fields(extra)...)
 		}
 	case inst.Core == Olcrtc:
-		// olcrtc accepts exactly one argument: the YAML config path
-		// (upstream has no CLI flags; extra args would fail startup).
-		args = []string{configPath(inst.Core)}
+		args = []string{cfgPath}
 	default:
 		return fmt.Errorf("tunnel: no start args for core %q", inst.Core)
 	}
-	env := append(os.Environ(), "XDG_DATA_HOME="+dataDir(inst.Core))
+	env := append(os.Environ(), "XDG_DATA_HOME="+dataDirFor(key, inst.Core))
 
-	mc := m.core(inst.Core)
+	mc := m.slot(key)
 	if mc.proc == nil {
-		mc.proc = NewProc(string(inst.Core))
+		mc.proc = NewProc(key)
 	}
 	if err := mc.proc.Start(bin, args, env); err != nil {
-		return fmt.Errorf("tunnel: start %s: %w", inst.Core.DisplayName(), err)
+		return fmt.Errorf("tunnel: start %s: %w", key, err)
 	}
 	return nil
 }

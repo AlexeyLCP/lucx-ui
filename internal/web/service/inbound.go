@@ -1004,6 +1004,20 @@ func awgRoutesThroughXray(inbound *model.Inbound) bool {
 	return parsed.RouteThroughXray
 }
 
+// naiveRoutesThroughXray reports whether a Naive inbound uses the SOCKS bridge.
+func naiveRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Naive {
+		return false
+	}
+	var parsed struct {
+		RouteThroughXray bool `json:"routeThroughXray"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
+		return false
+	}
+	return parsed.RouteThroughXray
+}
+
 func settingsRouteXrayPort(parsed map[string]any) int {
 	switch v := parsed["routeXrayPort"].(type) {
 	case float64:
@@ -1042,7 +1056,17 @@ func parseRouteXrayPort(settings string) int {
 // which would otherwise route no traffic and have its mtg metrics skipped (see
 // mtproto_job) — silently losing its accounting.
 func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSettings string) error {
-	if inbound.Protocol != model.MTProto {
+	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.MTProto, "mtproto")
+}
+
+// normalizeNaiveXrayPort allocates/persists the SOCKS bridge port for Naive
+// inbounds with routeThroughXray (same logic as mtproto).
+func (s *InboundService) normalizeNaiveXrayPort(inbound *model.Inbound, oldSettings string) error {
+	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Naive, "naive")
+}
+
+func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSettings string, proto model.Protocol, label string) error {
+	if inbound.Protocol != proto {
 		return nil
 	}
 	var parsed map[string]any
@@ -1061,13 +1085,11 @@ func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSet
 		if bs, err := json.MarshalIndent(parsed, "", "  "); err == nil {
 			inbound.Settings = string(bs)
 		} else {
-			logger.Warning("mtproto: failed to marshal settings after disabling routing:", err)
+			logger.Warning(label, ": failed to marshal settings after disabling routing:", err)
 		}
 		return nil
 	}
 
-	// Prefer the already-stored port (carried across edits), then any value the
-	// client sent, then allocate a fresh one.
 	port := parseRouteXrayPort(oldSettings)
 	if port <= 0 {
 		port = settingsRouteXrayPort(parsed)
@@ -1075,7 +1097,7 @@ func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSet
 	if port <= 0 {
 		allocated, err := mtproto.FreeLocalPort()
 		if err != nil {
-			return common.NewError("mtproto: could not allocate an Xray egress port:", err)
+			return common.NewError(label+": could not allocate an Xray egress port:", err)
 		}
 		port = allocated
 	}
@@ -1085,7 +1107,7 @@ func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSet
 	parsed["routeXrayPort"] = port
 	bs, err := json.MarshalIndent(parsed, "", "  ")
 	if err != nil {
-		return common.NewError("mtproto: could not persist the Xray egress port:", err)
+		return common.NewError(label+": could not persist the Xray egress port:", err)
 	}
 	inbound.Settings = string(bs)
 	return nil
@@ -1197,6 +1219,9 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	}
 	s.normalizeMtprotoSecret(inbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, ""); err != nil {
+		return inbound, false, err
+	}
+	if err := s.normalizeNaiveXrayPort(inbound, ""); err != nil {
 		return inbound, false, err
 	}
 	inbound.SubSortIndex = normalizeSubSortIndex(inbound.SubSortIndex)
@@ -1424,7 +1449,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// runtime push above only (re)starts its sidecar. The egress bridge (SOCKS
 	// loopback for mtproto, TUN for AWG) lives in the generated config, so
 	// force a regen to wire it in.
-	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -1517,7 +1542,7 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 		}
 	}
 	// Drop the egress bridge a routed mtproto or AWG inbound left in the config.
-	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) {
+	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) || naiveRoutesThroughXray(&ib) {
 		needRestart = true
 	}
 	return needRestart, nil
@@ -1604,7 +1629,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	// TUN) only in the generated config, so flipping enable in either
 	// direction must regenerate it — the runtime push below only touches the
 	// sidecar process, never Xray.
-	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound)
+	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound)
 
 	needRestart := false
 	rt, push, _, perr := s.nodePushPlan(inbound)
@@ -1626,7 +1651,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		return false, nil
 	}
 
-	if mtprotoRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -1749,7 +1774,11 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	oldProtocol := oldInbound.Protocol
 	oldRoutedMtproto := mtprotoRoutesThroughXray(oldInbound)
 	oldRoutedAwg := awgRoutesThroughXray(oldInbound)
+	oldRoutedNaive := naiveRoutesThroughXray(oldInbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
+		return inbound, false, err
+	}
+	if err := s.normalizeNaiveXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
 
@@ -1961,7 +1990,8 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// the egress bridge (SOCKS or TUN) is added, moved, or dropped to match
 		// the new settings.
 		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto ||
-			awgRoutesThroughXray(inbound) || oldRoutedAwg {
+			awgRoutesThroughXray(inbound) || oldRoutedAwg ||
+			naiveRoutesThroughXray(inbound) || oldRoutedNaive {
 			needRestart = true
 		}
 		return nil

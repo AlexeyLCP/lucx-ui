@@ -244,10 +244,17 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair) string {
 	}
 	b.WriteString("\troute {\n")
 	b.WriteString("\t\tforward_proxy {\n")
-	b.WriteString("\t\t\tbasic_auth " +
-		caddyToken(strings.TrimSpace(c.AuthUser)) + " " +
-		caddyToken(strings.TrimSpace(c.AuthPass)) + "\n")
+	// Service-level pair is optional for inbound mode (clients may be the
+	// only basic_auth lines). Skip when AuthUser is empty.
+	if u := strings.TrimSpace(c.AuthUser); u != "" {
+		b.WriteString("\t\t\tbasic_auth " +
+			caddyToken(u) + " " +
+			caddyToken(strings.TrimSpace(c.AuthPass)) + "\n")
+	}
 	for _, pair := range extraAuth {
+		if strings.TrimSpace(pair.User) == "" {
+			continue
+		}
 		b.WriteString("\t\t\tbasic_auth " +
 			caddyToken(pair.User) + " " + caddyToken(pair.Pass) + "\n")
 	}

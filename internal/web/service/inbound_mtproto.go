@@ -104,6 +104,22 @@ func (s *InboundService) applyLocalMtproto(inboundId int) {
 	}
 }
 
+// applyLocalNaive pushes a Naive inbound's client set to its caddy sidecar
+// immediately after client CRUD (mtproto pattern).
+func (s *InboundService) applyLocalNaive(inboundId int) {
+	inbound, err := s.GetInbound(inboundId)
+	if err != nil || inbound == nil || inbound.Protocol != model.Naive || inbound.NodeID != nil {
+		return
+	}
+	rt, err := s.runtimeFor(inbound)
+	if err != nil {
+		return
+	}
+	if err := rt.UpdateInbound(context.Background(), inbound, inbound); err != nil {
+		logger.Debug("naive: immediate client apply failed for inbound", inboundId, ":", err)
+	}
+}
+
 func (s *InboundService) resetMtprotoClientQuota(email string) {
 	mgr := mtproto.GetManager()
 	if !mgr.HasRunning() {

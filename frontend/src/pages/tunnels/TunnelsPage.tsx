@@ -8,6 +8,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -193,6 +194,15 @@ export default function TunnelsPage() {
       {messageContextHolder}
       <Typography.Title level={3}>{t('pages.tunnels.title')}</Typography.Title>
       <Typography.Paragraph type="secondary">{t('pages.tunnels.subtitle')}</Typography.Paragraph>
+
+      <Alert
+        type="info"
+        showIcon
+        className="mb-16"
+        message={t('pages.tunnels.naive.inboundMovedTitle')}
+        description={t('pages.tunnels.naive.inboundMovedDesc')}
+        style={{ marginBottom: 16 }}
+      />
 
       <Card
         title={t('pages.tunnels.naive.title')}

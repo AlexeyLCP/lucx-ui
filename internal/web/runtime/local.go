@@ -9,7 +9,9 @@ import (
 	"sync"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg" // LUCX-HOOK: AWG sidecar
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel" // LUCX-HOOK: Naive inbound sidecar
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
@@ -62,6 +64,10 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 		}
 		return awg.GetManager().Ensure(inst)
 	}
+	// LUCX-HOOK: NaiveProxy inbound — Caddy sidecar (mtproto pattern).
+	if ib.Protocol == model.Naive {
+		return l.ensureNaiveInbound(ib)
+	}
 	// END LUCX-HOOK
 	body, err := json.MarshalIndent(ib.GenXrayInboundConfig(), "", "  ")
 	if err != nil {
@@ -82,6 +88,11 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		awg.GetManager().Remove(ib.Id)
 		return nil
 	}
+	// LUCX-HOOK: NaiveProxy inbound teardown.
+	if ib.Protocol == model.Naive {
+		tunnel.GetManager().Remove(tunnel.NaiveKey(ib.Id))
+		return nil
+	}
 	// END LUCX-HOOK
 	return l.withAPI(func(api *xray.XrayAPI) error {
 		return api.DelInbound(ib.Tag)
@@ -92,11 +103,46 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 	if oldIb.Protocol == model.MTProto || newIb.Protocol == model.MTProto {
 		return l.updateMtprotoInbound(ctx, oldIb, newIb)
 	}
+	// LUCX-HOOK: Naive inbound update (Del+Add is fine — caddy restart).
+	if oldIb.Protocol == model.Naive || newIb.Protocol == model.Naive {
+		_ = l.DelInbound(ctx, oldIb)
+		if !newIb.Enable || newIb.Protocol != model.Naive {
+			if newIb.Protocol != model.Naive && newIb.Enable {
+				return l.AddInbound(ctx, newIb)
+			}
+			return nil
+		}
+		return l.AddInbound(ctx, newIb)
+	}
+	// END LUCX-HOOK
 	_ = l.DelInbound(ctx, oldIb)
 	if !newIb.Enable {
 		return nil
 	}
 	return l.AddInbound(ctx, newIb)
+}
+
+// ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret
+// is required for per-client basic_auth derivation (read from settings table
+// without importing service — avoids an import cycle with runtime).
+func (l *Local) ensureNaiveInbound(ib *model.Inbound) error {
+	secret := panelSecretBytes()
+	inst, ok := tunnel.InstanceFromInbound(ib, secret)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func panelSecretBytes() []byte {
+	var row model.Setting
+	if err := database.GetDB().Where("key = ?", "secret").First(&row).Error; err != nil {
+		return nil
+	}
+	if strings.TrimSpace(row.Value) == "" {
+		return nil
+	}
+	return []byte(row.Value)
 }
 
 // updateMtprotoInbound applies an inbound update without the Del+Add sequence
@@ -137,6 +183,10 @@ func (l *Local) AddUser(_ context.Context, ib *model.Inbound, userMap map[string
 	if ib.Protocol == model.AWG {
 		return nil
 	}
+	// LUCX-HOOK: Naive — auth lines applied on next Ensure/reconcile.
+	if ib.Protocol == model.Naive {
+		return nil
+	}
 	// END LUCX-HOOK
 	return l.withAPI(func(api *xray.XrayAPI) error {
 		return api.AddUser(string(ib.Protocol), ib.Tag, userMap)
@@ -149,6 +199,10 @@ func (l *Local) RemoveUser(_ context.Context, ib *model.Inbound, email string) e
 	}
 	// LUCX-HOOK: AWG — peer removal is picked up by the next Reconcile tick.
 	if ib.Protocol == model.AWG {
+		return nil
+	}
+	// LUCX-HOOK: Naive — auth drop on next Ensure/reconcile.
+	if ib.Protocol == model.Naive {
 		return nil
 	}
 	// END LUCX-HOOK

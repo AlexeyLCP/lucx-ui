@@ -3,6 +3,7 @@ import type { InboundSettings } from '@/schemas/protocols/inbound';
 import {
   HysteriaClientSchema,
   MtprotoClientSchema,
+  NaiveClientSchema,
   ShadowsocksClientSchema,
   TrojanClientSchema,
   VlessClientSchema,
@@ -255,6 +256,7 @@ function clientSchemaForProtocol(protocol: string): z.ZodType | null {
     case 'hysteria': return HysteriaClientSchema;
     case 'wireguard': return WireguardClientSchema;
     case 'mtproto': return MtprotoClientSchema;
+    case 'naive': return NaiveClientSchema;
     default: return null;
   }
 }

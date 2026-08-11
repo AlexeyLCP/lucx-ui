@@ -95,6 +95,9 @@ const (
 	// LUCX-HOOK: AmneziaWG protocol — managed as a kernel-interface sidecar,
 	// excluded from the generated Xray config (see internal/awg).
 	AWG Protocol = "awg"
+	// LUCX-HOOK: NaiveProxy — Caddy+forward_proxy sidecar (see internal/lucx/tunnel).
+	// Same panel model as mtproto: inbounds row + supervised process, not Xray.
+	Naive Protocol = "naive"
 	// END LUCX-HOOK
 )
 
@@ -125,7 +128,7 @@ type Inbound struct {
 	// Xray configuration fields
 	Listen            string   `json:"listen" form:"listen"`
 	Port              int      `json:"port" form:"port" validate:"gte=0,lte=65535" example:"443"`
-	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto awg" example:"vless"`
+	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto awg naive" example:"vless"`
 	Settings          string   `json:"settings" form:"settings"`
 	StreamSettings    string   `json:"streamSettings" form:"streamSettings"`
 	Tag               string   `json:"tag" form:"tag" gorm:"unique" example:"in-443-tcp"`

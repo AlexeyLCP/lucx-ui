@@ -75,6 +75,7 @@ export function isInboundMultiUser(record: { protocol: string; settings: unknown
     case 'mtproto':
     case 'wireguard':
     case 'awg': // LUCX-HOOK: AWG — multi-client (peers), like WireGuard
+    case 'naive': // LUCX-HOOK: NaiveProxy inbound multi-client
       return true;
     case 'shadowsocks':
       return isSSMultiUser({ protocol: 'shadowsocks', settings: readSettings(record.settings) });

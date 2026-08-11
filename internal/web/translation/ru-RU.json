@@ -714,7 +714,29 @@
         "awgAddressHint": "Туннельный IP/CIDR сервера, напр. 10.8.0.1/24. Клиенты получают адреса из этой подсети.",
         "awgSubnetConflict": "Эта подсеть пересекается с другим AWG-инбаундом — клиенты этого инбаунда не получат трафик (kernel route конфликт).",
         "awgSubnetConflictHint": "Подсеть {{subnet}} уже занята. Смените Address на непересекающуюся /24 (напр. 10.8.1.1/24).",
-        "awgRouteThroughXrayNoReexport": "Только сервер: клиентский .conf не меняется (ключи/IP те же). Перекачивать не нужно — достаточно Save."
+        "awgRouteThroughXrayNoReexport": "Только сервер: клиентский .conf не меняется (ключи/IP те же). Перекачивать не нужно — достаточно Save.",
+        "naiveRouteThroughXrayHint": "Caddy ходит через скрытый SOCKS-мост — egress по правилам Xray (как MTProto).",
+        "naiveExtraArgs": "Доп. CLI args",
+        "naiveUseRawHint": "Полный Caddyfile оператора. Per-client auth и routeThroughXray отключены.",
+        "naiveRouteOutboundHint": "Опционально. Пусто = default routing Xray.",
+        "naiveAuthServiceHint": "Опциональный master basic_auth. Клиенты inbound получают личные креды автоматически.",
+        "naiveDomainHint": "Публичный hostname NaiveProxy (SNI / ACME). Нужен для клиентских ссылок.",
+        "naiveUseRaw": "Raw Caddyfile",
+        "naiveProbeResistance": "Probe resistance",
+        "naiveEnableH3": "HTTP/3 (QUIC)",
+        "naiveAuthUser": "Сервисный логин",
+        "naiveLogLevel": "Уровень логов",
+        "naiveRouteOutbound": "Force outbound / balancer",
+        "naiveRawConfig": "Caddyfile",
+        "naiveRouteOutboundPlaceholder": "Default routing",
+        "naiveAcmeEmail": "Email ACME",
+        "naiveAuthPass": "Сервисный пароль",
+        "naiveDomain": "Домен",
+        "naiveCertFile": "Файл сертификата",
+        "naiveUseAcmeHint": "HTTP-01 требует порт 443. Иначе укажите пути к cert/key.",
+        "naiveUseAcme": "Auto TLS (Let\\u2019s Encrypt)",
+        "naiveRouteThroughXray": "Маршрут через Xray",
+        "naiveKeyFile": "Файл ключа"
       },
       "info": {
         "mode": "Режим",
@@ -2059,7 +2081,9 @@
           "downloaded": "Бинарник скачан",
           "deleted": "Бинарник удалён"
         },
-        "title": "NaiveProxy"
+        "title": "NaiveProxy",
+        "inboundMovedTitle": "NaiveProxy теперь в Inbounds",
+        "inboundMovedDesc": "Создавайте NaiveProxy в Inbounds (протокол Naive) и привязывайте клиентов там. Здесь — бинарь, legacy-конфиг (до миграции), логи и другие туннели (olcRTC / qWDTT)."
       },
       "olcrtc": {
         "title": "olcRTC",

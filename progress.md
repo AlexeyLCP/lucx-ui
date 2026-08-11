@@ -51,6 +51,30 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.100 — NaiveProxy как inbound (модель MTProto)
+
+**Запрос:** Naive как AWG/MTProto — в Inbounds; Tunnels — advanced/бинарь.
+
+**Сделано:**
+1. `model.Naive` + validate oneof
+2. `tunnel.Manager` multi-key (`naive-{id}`), isolated Caddyfile/ACME data
+3. `InstanceFromInbound` + `ClientAuthForInbound(secret, inboundId, email)`
+4. `runtime/local.go` Add/Del/Update + panel secret from DB (no import cycle)
+5. `xray.go` skip naive; `injectNaiveInboundEgress` (tag=inbound.Tag); legacy global fallback
+6. `needRestart` / `normalizeNaiveXrayPort` / `applyLocalNaive`
+7. `TunnelJob.reconcileNaiveInbounds` (+ orphan stop)
+8. sub: allowlist + `genNaiveLink`; legacy NaiveSubLinks only if no naive inbound
+9. migrate `lucxTunnel_naive` → empty-clients inbound (opt-in attach)
+10. FE: schema/form/defaults/protocol registry/ClientForm multi-user/i18n
+11. Tunnels page: banner «moved to Inbounds»
+
+**UX:** Inbounds → Naive → domain/TLS/auth → attach clients → sub `naive+https://…`  
+Tunnels: binary + olcRTC/qWDTT + legacy naive card.
+
+**Тесты:** `go test ./internal/lucx/tunnel/...`; frontend typecheck + i18n-dead-keys.
+
+---
+
 ## Релиз v3.6.0-lucx.99 (2026-08-10) — vpn:// Copy fix + RoscomVPN geo + README
 
 ### fix(sub): vpn:// Copy → 404 на `/panel/api/clients/awgBody/:subId`

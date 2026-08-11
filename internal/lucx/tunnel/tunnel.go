@@ -103,7 +103,8 @@ func workDir() string {
 	return tunnelDir()
 }
 
-// configPath returns the rendered config file path of one core.
+// configPath returns the rendered config file path of one core (legacy single-
+// instance layout used by olcRTC / qWDTT and the pre-inbound global Naive).
 func configPath(n Name) string {
 	switch n {
 	case Naive:
@@ -115,12 +116,38 @@ func configPath(n Name) string {
 	}
 }
 
+// configPathFor returns the config path for a managed instance. Multi-inbound
+// Naive keys (naive-12) get their own Caddyfile so N inbounds never share one
+// process config; legacy single-core keys keep the historical filename.
+func configPathFor(key string, n Name) string {
+	if key != "" && key != string(n) {
+		switch n {
+		case Naive:
+			return filepath.Join(workDir(), key+".caddyfile")
+		case Olcrtc:
+			return filepath.Join(workDir(), key+".yaml")
+		default:
+			return filepath.Join(workDir(), key+".conf")
+		}
+	}
+	return configPath(n)
+}
+
 // dataDir returns the isolated state directory of one core. For NaiveProxy it
 // is exported to the child as XDG_DATA_HOME so multiple panels/instances on
 // one host never fight over the ACME certificate storage. For olcRTC it is
 // written into the server YAML `data:` field.
 func dataDir(n Name) string {
 	return filepath.Join(workDir(), string(n)+"-data")
+}
+
+// dataDirFor returns the ACME/state dir for a managed instance. Multi-key
+// Naive inbounds each get their own XDG_DATA_HOME so certificates never clash.
+func dataDirFor(key string, n Name) string {
+	if key != "" && key != string(n) {
+		return filepath.Join(workDir(), key+"-data")
+	}
+	return dataDir(n)
 }
 
 // DataDir is the exported form of dataDir for the web layer (YAML render).

@@ -5,6 +5,7 @@ import type { HysteriaClient, HysteriaInboundSettings } from '@/schemas/protocol
 import type { MixedInboundSettings } from '@/schemas/protocols/inbound/mixed';
 import type { MtprotoClient, MtprotoInboundSettings } from '@/schemas/protocols/inbound/mtproto';
 import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg'; // LUCX-HOOK: AWG
+import type { NaiveInboundSettings } from '@/schemas/protocols/inbound/naive'; // LUCX-HOOK: Naive
 import type { ShadowsocksClient, ShadowsocksInboundSettings } from '@/schemas/protocols/inbound/shadowsocks';
 import type { TrojanClient, TrojanInboundSettings } from '@/schemas/protocols/inbound/trojan';
 import type { TunInboundSettings } from '@/schemas/protocols/inbound/tun';
@@ -224,6 +225,27 @@ export function createDefaultMtprotoInboundSettings(): MtprotoInboundSettings {
   };
 }
 
+// LUCX-HOOK: NaiveProxy inbound defaults (Caddy sidecar, mtproto model).
+export function createDefaultNaiveInboundSettings(): NaiveInboundSettings {
+  return {
+    domain: '',
+    useAcme: false,
+    acmeEmail: '',
+    certFile: '',
+    keyFile: '',
+    authUser: RandomUtil.randomLowerAndNum(8),
+    authPass: RandomUtil.randomSeq(16),
+    enableH3: true,
+    probeResistance: true,
+    logLevel: 'WARN',
+    extraArgs: '',
+    routeThroughXray: false,
+    useRawConfig: false,
+    rawConfig: '',
+    clients: [],
+  };
+}
+
 // createDefaultMtprotoClient seeds a new MTProto client with a fresh FakeTLS
 // secret fronting the given domain. Mirrors the WireGuard client default: the
 // backend re-derives the secret on save, so this is only for immediate display.
@@ -351,7 +373,8 @@ export type AnyInboundSettings =
   | TunnelInboundSettings
   | WireguardInboundSettings
   | MtprotoInboundSettings
-  | AwgInboundSettings; // LUCX-HOOK: AWG
+  | AwgInboundSettings // LUCX-HOOK: AWG
+  | NaiveInboundSettings; // LUCX-HOOK: Naive
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -367,6 +390,7 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
     case 'wireguard':   return createDefaultWireguardInboundSettings();
     case 'mtproto':     return createDefaultMtprotoInboundSettings();
     case 'awg':         return createDefaultAwgInboundSettings(); // LUCX-HOOK: AWG
+    case 'naive':       return createDefaultNaiveInboundSettings(); // LUCX-HOOK: Naive
     default:            return null;
   }
 }

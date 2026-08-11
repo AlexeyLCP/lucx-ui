@@ -66,6 +66,7 @@ import {
   MixedFields,
   MtprotoFields,
   AwgFields, // LUCX-HOOK: AWG
+  NaiveFields, // LUCX-HOOK: Naive
   ShadowsocksFields,
   TunFields,
   TunnelFields,
@@ -706,6 +707,8 @@ export default function InboundFormModal({
       {protocol === Protocols.MTPROTO && <MtprotoFields />}
       {/* LUCX-HOOK: AWG protocol form */}
       {protocol === Protocols.AWG && <AwgFields otherAwgSubnets={otherAwgSubnets} />}
+      {/* LUCX-HOOK: NaiveProxy inbound form */}
+      {protocol === Protocols.NAIVE && <NaiveFields />}
       {/* END LUCX-HOOK */}
 
       {protocol === Protocols.SHADOWSOCKS && <ShadowsocksFields isSSWith2022={isSSWith2022} />}
@@ -1005,6 +1008,7 @@ export default function InboundFormModal({
                 Protocols.WIREGUARD,
                 Protocols.MTPROTO,
                 Protocols.AWG, // LUCX-HOOK: AWG — показывать вкладку протокола (обфускация, ключи, скан хоста)
+                Protocols.NAIVE, // LUCX-HOOK: NaiveProxy
               ] as string[]).includes(protocol) || isFallbackHost
                 ? [{ key: 'protocol', label: t('pages.inbounds.protocol'), children: protocolTab, forceRender: true }]
                 : []),

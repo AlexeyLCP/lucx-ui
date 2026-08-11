@@ -370,13 +370,7 @@ func (s *TunnelService) DownloadBinary(downloadURL string) error {
 // cron job and after panel boot. A crashed core is revived; a disabled one
 // stays down.
 func (s *TunnelService) Reconcile() {
-	if cfg, err := s.LoadNaiveConfig(); err != nil {
-		logger.Warning("tunnel: naive reconcile load failed:", err)
-	} else if inst, err := s.naiveInstance(cfg); err != nil {
-		// logged inside
-	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
-		logger.Warning("tunnel: naive reconcile failed:", err)
-	}
+	s.reconcileNaiveInbounds()
 	if cfg, err := s.LoadOlcrtcConfig(); err != nil {
 		logger.Warning("tunnel: olcrtc reconcile load failed:", err)
 	} else if inst, err := s.olcrtcInstance(cfg); err != nil {
@@ -390,6 +384,42 @@ func (s *TunnelService) Reconcile() {
 		// logged inside
 	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: qwdtt reconcile failed:", err)
+	}
+}
+
+// reconcileNaiveInbounds Ensures every Naive inbound sidecar and stops orphans.
+// When no protocol=naive inbound exists yet, falls back to the legacy global
+// lucxTunnel_naive settings core (pre-migration hosts).
+func (s *TunnelService) reconcileNaiveInbounds() {
+	secret, _ := s.settingService.GetSecret()
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: naive inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Naive || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.InstanceFromInbound(ib, secret)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	if len(want) > 0 {
+		tunnel.GetManager().ReconcileNaive(want)
+		// Stop legacy global key if inbounds took over.
+		_ = tunnel.GetManager().Stop(tunnel.Naive)
+		return
+	}
+	if cfg, err := s.LoadNaiveConfig(); err != nil {
+		logger.Warning("tunnel: naive reconcile load failed:", err)
+	} else if inst, err := s.naiveInstance(cfg); err != nil {
+		// logged inside
+	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
+		logger.Warning("tunnel: naive reconcile failed:", err)
 	}
 }
 
