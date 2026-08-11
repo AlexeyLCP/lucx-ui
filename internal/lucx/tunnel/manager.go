@@ -93,8 +93,9 @@ type managed struct {
 // Manager owns the supervised tunnel-core processes keyed by ManageKey
 // (legacy core name or "naive-{id}" for inbound instances).
 type Manager struct {
-	mu    sync.Mutex
-	cores map[string]*managed
+	mu           sync.Mutex
+	cores        map[string]*managed
+	naiveTraffic map[string]*naiveLogCursor
 }
 
 func newManager() *Manager {

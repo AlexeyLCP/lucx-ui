@@ -162,7 +162,9 @@ func caddyToken(s string) string {
 // RenderCaddyfile produces the Caddyfile served to the caddy binary.
 // extraAuth carries the per-client credential pairs (one basic_auth line
 // each) rendered after the service-level pair; nil for raw mode and
-// previews.
+// previews. accessLogPath, when non-empty, enables a JSON site access_log
+// used by CollectNaiveTraffic for online/traffic (best-effort); empty for
+// previews and raw mode.
 //
 // Rendering rules (hard-won upstream lessons):
 //   - admin off: several cores/panels on one host must not fight over the
@@ -177,7 +179,7 @@ func caddyToken(s string) string {
 //     forward_proxy fork: the server engages it per connection whenever the
 //     client sends a Padding header (the naive client always does). E2E
 //     caught a rendered `padding` line failing `caddy adapt` (lucx.91).
-func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair) string {
+func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string) string {
 	if c.UseRawConfig {
 		return strings.TrimRight(c.RawConfig, "\n") + "\n"
 	}
@@ -241,6 +243,15 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair) string {
 	} else {
 		b.WriteString("\ttls " + caddyToken(strings.TrimSpace(c.CertFile)) + " " +
 			caddyToken(strings.TrimSpace(c.KeyFile)) + "\n")
+	}
+	// JSON access log → CollectNaiveTraffic (online last-seen + best-effort
+	// per-client bytes). Path is per-instance under dataDir so multi-inbound
+	// hosts never share a log. Omitted for previews (empty path).
+	if p := strings.TrimSpace(accessLogPath); p != "" {
+		b.WriteString("\tlog {\n")
+		b.WriteString("\t\toutput file " + caddyToken(p) + "\n")
+		b.WriteString("\t\tformat json\n")
+		b.WriteString("\t}\n")
 	}
 	b.WriteString("\troute {\n")
 	b.WriteString("\t\tforward_proxy {\n")

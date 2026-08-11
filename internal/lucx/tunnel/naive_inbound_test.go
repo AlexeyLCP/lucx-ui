@@ -71,6 +71,9 @@ func TestInstanceFromInbound_RendersClients(t *testing.T) {
 	if strings.Contains(inst.ConfigText, off.User) {
 		t.Fatal("disabled client must not appear in Caddyfile")
 	}
+	if !strings.Contains(inst.ConfigText, "access.json") || !strings.Contains(inst.ConfigText, "format json") {
+		t.Fatalf("enabled inbound must render JSON access_log for traffic/online:\n%s", inst.ConfigText)
+	}
 }
 
 func TestInstanceFromInbound_Disabled(t *testing.T) {

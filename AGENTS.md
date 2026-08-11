@@ -160,7 +160,8 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 
 - **`internal/lucx/tunnel/`** (PolyForm): `Name`-реестр ядер; `NaiveConfig` + рендер Caddyfile; `Proc` (exec, SIGTERM→kill, ring-лог); `Manager` (singleton, fingerprint-рестарт при смене конфига, `Ensure`/`Stop`/`StopAll`, трёхуровневый статус process→TCP-probe→TLS-probe).
 - **Caddyfile-грабли** (выучены elector1337/3x-ui-naive + E2E lucx.91, зашиты в рендер): `admin off` (иначе инстансы дерутся за :2019); wildcard-listen → bare `:port` (явный `0.0.0.0:port` Caddy понимает как host-matcher), конкретный IP → `bind`; per-инстанс `XDG_DATA_HOME` (ACME-хранилища не дерутся); кавычки+экранирование всех пользовательских значений. **Три грабли из E2E:** (1) сабдирективы `padding` у forward_proxy НЕТ — паддинг включается сам по заголовку `Padding` от клиента; (2) домен в адресе сайта ОБЯЗАН нести нестандартный порт (`domain:8443`), иначе bare-домен открывает второй слушатель :443; (3) manual-TLS требует `auto_https off` + `skip_install_trust` в глобальном блоке, иначе Caddy поднимает ACME-слушатель :80 и ставит локальный root-серт в системный trust.
-- **Хранение:** settings-таблица, ключ `lucxTunnel_naive` (JSON-блоб). Веб-слой: `service/tunnel.go` (валидации, кросс-проверка порта с TCP-инбаундами — UDP-протоколы не конфликтуют; download бинарника через temp-файл), `controller/tunnel.go` (`/panel/api/tunnel/naive/*`: status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary), `job/tunnel_job.go` (cron 10s, краш-ревив).
+- **Хранение:** settings-таблица, ключ `lucxTunnel_naive` (JSON-блоб). Веб-слой: `service/tunnel.go` (валидации, кросс-проверка порта с TCP-инбаундами — UDP-протоколы не конфликтуют; download бинарника через temp-файл), `controller/tunnel.go` (`/panel/api/tunnel/naive/*`: status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary), `job/tunnel_job.go` (cron 10s: reconcile + Naive access_log traffic/online).
+- **Naive online/traffic (best-effort):** JSON `access_log` per-instance (`dataDir/access.json`); `Manager.CollectNaiveTraffic` tail + user→email (`ClientAuthForInbound`); grace 120s; `AddTraffic` per-client always, inbound rollup only when !routeThroughXray. Long CONNECT may update only at session end.
 - **Per-client креды + подписки:** `tunnel.ClientAuth(panelSecret, email)` — детерминированный HMAC-SHA256, без хранения в БД; каждый включённый клиент панели получает свою `basic_auth`-строку в Caddyfile и свою ссылку `naive+https://user:pass@domain:port#email` в base64-подписке (LUCX-HOOK в `sub/service.go:getSubs`; стандарт NekoBox/husi/Exclave). Disable клиента убирает креды на следующем reconcile. JSON/Clash-подписки naive не получают (форматы не поддерживают протокол). Обфускационного генератора НЕТ по дизайну: камуфляж наива = стек Chrome, паддинг включается сам по заголовку `Padding`.
 - **Поставка бинарника:** release.yml — amd64 prebuilt из klzgrad/forwardproxy (pinned тег), arm64 — xcaddy кросс-сборка; прочие архитектуры без бинарника (upload/download в UI). Имя: `bin/caddy-naive-<os>-<arch>`.
 - **Ограничение ACME:** Let's Encrypt HTTP-01 требует порт 443 (валидация не даёт ACME на другом порту).
@@ -257,10 +258,11 @@ internal/lucx/                     Smart Cluster + tunnel sidecars
 ├── outbound_link/                 Inbound → outbound config generator
 └── tunnel/                        Tunnel sidecars (NaiveProxy, olcRTC, qWDTT)
     ├── tunnel.go                  Name registry + binary/config/data paths
-    ├── naive.go                   NaiveConfig + Caddyfile render (admin off, bind normalization, escaping) + client URL
+    ├── naive.go                   NaiveConfig + Caddyfile render (admin off, bind, access_log, escaping) + client URL
+    ├── traffic.go                 CollectNaiveTraffic — access_log tail, per-client deltas, online last-seen
     ├── process.go                 Proc: exec + SIGTERM→kill + ring log (500 lines)
     ├── manager.go                 Manager singleton: Ensure/Stop/StopAll, fingerprint restart, 3-level probe (process→TCP→TLS)
-    └── *_test.go                  render/validation/fingerprint/probe/process lifecycle tests
+    └── *_test.go                  render/validation/fingerprint/probe/process/traffic tests
 
 internal/database/
 ├── migrate_awg.go                 pruneLegacyAwgHiddenChildren + stripHiddenKeys
@@ -279,7 +281,7 @@ internal/web/
 ├── controller/awg_outbound.go     AWG outbound CRUD + parseConf + test endpoints; RestartXray(true) on add/del/update/enable (hot-apply can't add freedom with sockopt.interface)
 ├── service/tunnel.go              TunnelService — naive config persist (settings key lucxTunnel_naive), validations, TCP port cross-check vs inbounds, caddy adapt, binary download via temp file
 ├── controller/tunnel.go           /panel/api/tunnel/naive/* — status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary
-├── job/tunnel_job.go              TunnelJob cron @every 10s — reconcile (crash-revive)
+├── job/tunnel_job.go              TunnelJob cron @every 10s — reconcile + Naive access_log traffic/online
 ├── web.go                         cadenceAwg + cadenceTunnel + StopAll wiring + upload body-limit exempt (LUCX-HOOK)
 
 internal/database/model/model.go   AWG Protocol const + validate oneof (LUCX-HOOK)

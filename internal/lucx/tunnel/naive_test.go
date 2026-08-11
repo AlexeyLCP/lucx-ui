@@ -130,21 +130,21 @@ func TestRenderCaddyfileUpstreamWhenRouted(t *testing.T) {
 	cfg.RouteThroughXray = true
 	cfg.RouteXrayPort = 50123
 
-	got := cfg.RenderCaddyfile(nil)
+	got := cfg.RenderCaddyfile(nil, "")
 	want := "upstream socks5://127.0.0.1:50123"
 	if !strings.Contains(got, want) {
 		t.Fatalf("routed Caddyfile missing %q:\n%s", want, got)
 	}
 
 	cfg.RouteThroughXray = false
-	got = cfg.RenderCaddyfile(nil)
+	got = cfg.RenderCaddyfile(nil, "")
 	if strings.Contains(got, "upstream socks5://") {
 		t.Fatalf("unrouted Caddyfile must not render upstream:\n%s", got)
 	}
 
 	cfg.RouteThroughXray = true
 	cfg.RouteXrayPort = 0
-	got = cfg.RenderCaddyfile(nil)
+	got = cfg.RenderCaddyfile(nil, "")
 	if strings.Contains(got, "upstream socks5://") {
 		t.Fatalf("routed without port must not render upstream:\n%s", got)
 	}
@@ -164,7 +164,7 @@ func TestRenderCaddyfileManual(t *testing.T) {
 	cfg.KeyFile = "/etc/ssl/key.pem"
 	cfg.Domain = "n.example.org"
 
-	got := cfg.RenderCaddyfile(nil)
+	got := cfg.RenderCaddyfile(nil, "")
 	for _, want := range []string{
 		"admin off",
 		"skip_install_trust",
@@ -211,7 +211,7 @@ func TestRenderCaddyfileBindAndH3Off(t *testing.T) {
 	cfg.EnableH3 = false
 	cfg.ProbeResistance = false
 
-	got := cfg.RenderCaddyfile(nil)
+	got := cfg.RenderCaddyfile(nil, "")
 	for _, want := range []string{
 		":8443, n.example.org:8443 {",
 		"bind 10.0.0.5",
@@ -238,7 +238,7 @@ func TestRenderCaddyfileAcme(t *testing.T) {
 	cfg.AuthUser = "u"
 	cfg.AuthPass = "p"
 
-	got := cfg.RenderCaddyfile(nil)
+	got := cfg.RenderCaddyfile(nil, "")
 	if !strings.Contains(got, "n.example.org {") {
 		t.Errorf("ACME site address must be the domain:\n%s", got)
 	}
@@ -253,7 +253,7 @@ func TestRenderCaddyfileAcme(t *testing.T) {
 	}
 
 	cfg.AcmeEmail = ""
-	got = cfg.RenderCaddyfile(nil)
+	got = cfg.RenderCaddyfile(nil, "")
 	if strings.Contains(got, "tls") {
 		t.Errorf("ACME without email must rely on automatic HTTPS:\n%s", got)
 	}
@@ -266,7 +266,7 @@ func TestRenderCaddyfileEscapesCredentials(t *testing.T) {
 	cfg.CertFile = "/c.pem"
 	cfg.KeyFile = "/k.pem"
 
-	got := cfg.RenderCaddyfile(nil)
+	got := cfg.RenderCaddyfile(nil, "")
 	if !strings.Contains(got, `basic_auth "al\"ice" "pass word\n\\"`) {
 		t.Errorf("credentials not escaped:\n%s", got)
 	}
@@ -274,7 +274,7 @@ func TestRenderCaddyfileEscapesCredentials(t *testing.T) {
 
 func TestRenderCaddyfileRawMode(t *testing.T) {
 	cfg := NaiveConfig{UseRawConfig: true, RawConfig: ":8443 {\n\trespond \"ok\"\n}"}
-	got := cfg.RenderCaddyfile(nil)
+	got := cfg.RenderCaddyfile(nil, "")
 	if got != ":8443 {\n\trespond \"ok\"\n}\n" {
 		t.Errorf("raw mode must pass text through with a trailing newline:\n%q", got)
 	}
@@ -316,7 +316,7 @@ func TestRenderCaddyfileExtraAuth(t *testing.T) {
 		{User: "nx0000000001", Pass: "client-one-pass"},
 		{User: "nx0000000002", Pass: "client two pass"},
 	}
-	got := cfg.RenderCaddyfile(extra)
+	got := cfg.RenderCaddyfile(extra, "")
 	for _, want := range []string{
 		"basic_auth \"svc\" \"svcpass\"",
 		"basic_auth \"nx0000000001\" \"client-one-pass\"",

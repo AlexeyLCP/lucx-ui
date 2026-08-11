@@ -293,7 +293,7 @@ const (
 	cadenceXrayTraffic   = "@every 5s"
 	cadenceMtproto       = "@every 10s"
 	cadenceAwg           = "@every 10s" // LUCX-HOOK: AWG sidecar reconcile + traffic
-	cadenceTunnel        = "@every 10s" // LUCX-HOOK: tunnel sidecars (NaiveProxy) reconcile
+	cadenceTunnel        = "@every 10s" // LUCX-HOOK: tunnel sidecars reconcile + Naive traffic/online
 	cadenceClientIPScan  = "@every 10s"
 	cadenceNodeHeartbeat = "@every 5s"
 	cadenceNodeTraffic   = "@every 5s"

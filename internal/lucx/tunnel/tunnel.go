@@ -154,3 +154,10 @@ func dataDirFor(key string, n Name) string {
 func DataDir(n Name) string {
 	return dataDir(n)
 }
+
+// AccessLogPath is the JSON access_log file for a Naive instance key
+// (legacy "naive" or "naive-{id}"). RenderCaddyfile writes here; CollectNaiveTraffic
+// tails it for online/traffic.
+func AccessLogPath(key string) string {
+	return filepath.Join(dataDirFor(key, Naive), "access.json")
+}

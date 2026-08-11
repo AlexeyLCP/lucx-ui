@@ -129,11 +129,12 @@ func InstanceFromInbound(ib *model.Inbound, secret []byte) (Instance, bool) {
 		}, true
 	}
 
+	key := NaiveKey(ib.Id)
 	return Instance{
 		Core:       Naive,
-		Key:        NaiveKey(ib.Id),
+		Key:        key,
 		Enabled:    true,
-		ConfigText: cfg.RenderCaddyfile(extra),
+		ConfigText: cfg.RenderCaddyfile(extra, AccessLogPath(key)),
 		ExtraArgs:  cfg.ExtraArgs,
 		ProbePort:  cfg.Port,
 	}, true

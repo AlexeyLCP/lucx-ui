@@ -51,6 +51,28 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.107 — Naive online + traffic (access_log best-effort)
+
+**Симптом:** Naive работает, трафик ходит, в Clients пользователь «неактивен», up/down = 0.
+
+**Корень:** `TunnelJob` только reconcile; Naive не кормит `RefreshLocalOnlineClients` / `AddTraffic` (в отличие от AWG/mtg). Xray SOCKS bridge (routeThroughXray) — noauth, без `user>>>email`.
+
+**Фикс (зеркало AwgJob/MtprotoJob):**
+1. `RenderCaddyfile` — JSON site `access_log` → `dataDir/access.json` (per-instance).
+2. `internal/lucx/tunnel/traffic.go` — tail access log, user→email, deltas + last-seen online (grace 120s). Первый scrape после старта панели seek EOF (без double-count backlog).
+3. `TunnelJob` — после Reconcile: scrape → `AddTraffic` (per-client всегда; inbound rollup только если !routeThroughXray) → `RefreshLocalOnlineClients`.
+4. Frontend без изменений (те же online/traffic API).
+
+**Ограничение:** Caddy пишет access_log в конце CONNECT/запроса — при длинной H2-сессии online/байты могут обновиться с задержкой (best-effort).
+
+**Тесты:** `go test ./internal/lucx/tunnel/...` PASS.
+
+**Файлы:** `naive.go`, `tunnel.go` (AccessLogPath), `naive_inbound.go`, `traffic.go`+test, `manager.go`, `job/tunnel_job.go`, `service/tunnel.go`, `config.go` (lucx.107).
+
+`lucxVersion` → lucx.107.
+
+---
+
 ## Релиз v3.6.0-lucx.106 — запрет авто-смены клиентских IP/конфигов
 
 **Реакция владельца:** startup repair peer IP в .105 ломал рабочие сервера; нельзя менять IP пользователей без спроса (конфиг → перекачка).

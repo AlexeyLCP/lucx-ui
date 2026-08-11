@@ -278,7 +278,7 @@ func (s *TunnelService) PreviewNaive(cfg tunnel.NaiveConfig) (string, error) {
 	if err := cfg.Validate(); err != nil {
 		return "", err
 	}
-	return cfg.RenderCaddyfile(nil), nil
+	return cfg.RenderCaddyfile(nil, ""), nil
 }
 
 // ValidateCaddyfile runs `caddy adapt` against the raw text using the
@@ -764,7 +764,7 @@ func (s *TunnelService) naiveInstance(cfg tunnel.NaiveConfig) (tunnel.Instance, 
 	return tunnel.Instance{
 		Core:       tunnel.Naive,
 		Enabled:    cfg.Enabled,
-		ConfigText: cfg.RenderCaddyfile(extra),
+		ConfigText: cfg.RenderCaddyfile(extra, tunnel.AccessLogPath(string(tunnel.Naive))),
 		ExtraArgs:  cfg.ExtraArgs,
 		ProbePort:  cfg.Port,
 	}, nil
