@@ -40,4 +40,32 @@ describe('link-label parseLinkParts', () => {
     expect(parts?.remark).toBe('mt-inbound');
     expect(parts && linkMetaText(parts)).toBe('mt-inbound:8443');
   });
+
+  // LUCX-HOOK: naive+https:// uses a compound scheme; must not fall back to "LINK".
+  it('labels a naive+https share link as Naive with HTTPS and #remark', () => {
+    const parts = parseLinkParts(
+      'naive+https://nxabc:pass@n.example.com:8443#alice@example.com',
+    );
+    expect(parts?.protocol).toBe('Naive');
+    expect(parts?.security).toBe('HTTPS');
+    expect(parts?.remark).toBe('alice@example.com');
+    expect(parts?.port).toBe('8443');
+    expect(parts && linkMetaText(parts)).toBe('alice@example.com:8443');
+  });
+
+  it('omits default HTTPS port 443 from naive link meta', () => {
+    const parts = parseLinkParts('naive+https://u:p@n.example.com#client1');
+    expect(parts?.protocol).toBe('Naive');
+    expect(parts?.port).toBe('');
+    expect(parts && linkMetaText(parts)).toBe('client1');
+  });
+
+  it('labels olcrtc and qwdtt share URIs', () => {
+    expect(parseLinkParts('olcrtc://jitsi?datachannel@https://meet.jit.si/r#aabb')?.protocol).toBe(
+      'olcRTC',
+    );
+    expect(
+      parseLinkParts('qwdtt://config?name=Home&peer=1.2.3.4%3A56000&pass=x')?.protocol,
+    ).toBe('qWDTT');
+  });
 });

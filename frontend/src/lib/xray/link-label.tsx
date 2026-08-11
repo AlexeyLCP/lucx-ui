@@ -26,6 +26,12 @@ const PROTOCOL_LABELS: Record<string, string> = {
   wireguard: 'WireGuard',
   wg: 'WireGuard',
   tg: 'MTProto',
+  // LUCX-HOOK: tunnel / AWG share schemes
+  naive: 'Naive',
+  amneziawg: 'AmneziaWG',
+  olcrtc: 'olcRTC',
+  qwdtt: 'qWDTT',
+  wdtt: 'qWDTT',
 };
 
 const PROTOCOL_COLORS: Record<string, string> = {
@@ -37,6 +43,10 @@ const PROTOCOL_COLORS: Record<string, string> = {
   Hysteria2: 'magenta',
   WireGuard: 'cyan',
   MTProto: 'blue',
+  Naive: 'orange',
+  AmneziaWG: 'magenta',
+  olcRTC: 'cyan',
+  qWDTT: 'gold',
 };
 
 const SECURITY_COLORS: Record<string, string> = {
@@ -61,9 +71,18 @@ const TAG_STYLE = { marginInlineEnd: 0, fontWeight: 600, letterSpacing: '0.3px' 
    into the body a client app imports, so there is nothing to strip here. */
 export function parseLinkParts(link: string): LinkParts | null {
   const trimmed = link.trim();
-  const scheme = /^([a-z0-9]+):\/\//i.exec(trimmed)?.[1]?.toLowerCase() ?? '';
+  // Schemes may include '+' (naive+https://…) — not only [a-z0-9].
+  const scheme = /^([a-z0-9+.-]+):\/\//i.exec(trimmed)?.[1]?.toLowerCase() ?? '';
   if (!scheme) return null;
-  const protocol = PROTOCOL_LABELS[scheme] ?? scheme.charAt(0).toUpperCase() + scheme.slice(1);
+
+  // LUCX-HOOK: naive+https://user:pass@host:port#email
+  if (scheme === 'naive+https' || scheme === 'naive+http') {
+    return parseNaiveLink(trimmed, scheme.endsWith('https') ? 'HTTPS' : 'HTTP');
+  }
+
+  const baseScheme = scheme.includes('+') ? scheme.split('+')[0] : scheme;
+  const protocol = PROTOCOL_LABELS[baseScheme] ?? PROTOCOL_LABELS[scheme]
+    ?? scheme.charAt(0).toUpperCase() + scheme.slice(1);
   let network = '';
   let security = '';
   let remark = '';
@@ -81,6 +100,27 @@ export function parseLinkParts(link: string): LinkParts | null {
       remark = typeof json.ps === 'string' ? json.ps : '';
       port = json.port != null ? String(json.port) : '';
     } catch { /* unparseable payload, fall back to protocol only */ }
+  } else if (scheme === 'olcrtc') {
+    // olcrtc://provider?transport@room#key — remark = room (before #)
+    const body = trimmed.slice('olcrtc://'.length);
+    const hashIdx = body.indexOf('#');
+    const main = hashIdx >= 0 ? body.slice(0, hashIdx) : body;
+    const at = main.lastIndexOf('@');
+    remark = at >= 0 ? main.slice(at + 1) : main;
+  } else if (scheme === 'qwdtt' || scheme === 'wdtt') {
+    try {
+      const url = new URL(trimmed.replace(/^wdtt:/i, 'qwdtt:'));
+      remark = url.searchParams.get('name') || url.searchParams.get('peer') || '';
+    } catch {
+      remark = '';
+    }
+  } else if (scheme === 'amneziawg') {
+    try {
+      const url = new URL(trimmed);
+      port = url.port || '';
+      const hash = url.hash.replace(/^#/, '');
+      try { remark = decodeURIComponent(hash); } catch { remark = hash; }
+    } catch { /* fall back */ }
   } else {
     try {
       const url = new URL(trimmed);
@@ -99,6 +139,33 @@ export function parseLinkParts(link: string): LinkParts | null {
     protocol,
     network: network.toUpperCase(),
     security: security.toUpperCase(),
+    remark: remark.trim(),
+    port,
+  };
+}
+
+/** Parse naive+https://user:pass@host:port#remark into LinkParts. */
+function parseNaiveLink(link: string, security: string): LinkParts {
+  let remark = '';
+  let port = '';
+  // Strip naive+ so URL() can parse https://…
+  const rest = link.replace(/^naive\+/i, '');
+  try {
+    const url = new URL(rest);
+    port = url.port || (security === 'HTTPS' ? '443' : '80');
+    if (port === '443' || port === '80') port = '';
+    const hash = url.hash.replace(/^#/, '');
+    try { remark = decodeURIComponent(hash); } catch { remark = hash; }
+  } catch {
+    const hashIdx = link.indexOf('#');
+    if (hashIdx >= 0) {
+      try { remark = decodeURIComponent(link.slice(hashIdx + 1)); } catch { remark = link.slice(hashIdx + 1); }
+    }
+  }
+  return {
+    protocol: 'Naive',
+    network: '',
+    security,
     remark: remark.trim(),
     port,
   };
