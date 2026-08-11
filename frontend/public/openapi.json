@@ -3079,7 +3079,7 @@
       "description": "Manage client-mode AmneziaWG outbounds — connections from this panel out to an upstream AmneziaWG server (the mirror image of an AWG inbound, which accepts clients). Each row owns a kernel interface named awgo-{id}: the reconcile job converges it with the DB row every 10 seconds, and a freedom outbound bound to that interface via sockopt.interface is injected into the generated Xray config, so routing rules and balancers can send traffic through the upstream VPN. Every mutating endpoint force-restarts Xray rather than hot-applying, because a hot-applied config silently kept stale sockopt-bound outbounds in live testing — and an outbound pointing at a missing interface falls back to the default route, bypassing the VPN. All endpoints live under /panel/api/awg-outbounds and require a logged-in session or Bearer token. LucX-UI only."
     },
     {
-      "name": "Tunnels",
+      "name": "Tunnel tools",
       "description": "Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI; (3) qWDTT — WireGuard over VK TURN (SpaceNeuroX wdtt-server), CLI flags, qwdtt:// URI + subscription JSON. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only."
     },
     {
@@ -4873,7 +4873,7 @@
     "/panel/api/tunnel/naive/status": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Full status of the NaiveProxy core: the live three-level probe (running/listening/responding), binary presence and path, the stored config, the generated naive+https client URL and the last process log line. LucX-UI only.",
         "operationId": "get_panel_api_tunnel_naive_status",
@@ -4924,7 +4924,7 @@
     "/panel/api/tunnel/naive/config": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Read the stored NaiveProxy config (defaults when nothing is stored yet). LucX-UI only.",
         "operationId": "get_panel_api_tunnel_naive_config",
@@ -4974,7 +4974,7 @@
       },
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Validate, persist and apply the NaiveProxy config. Validation covers port range, credentials, TLS mode requirements (Auto TLS needs a domain and port 443; manual TLS needs cert/key paths) and the log level; a non-raw config is also cross-checked against TCP Xray inbounds for port collisions. A running core whose rendered Caddyfile changed is restarted. Returns the fresh status. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_config",
@@ -5048,7 +5048,7 @@
     "/panel/api/tunnel/naive/start": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Mark the core enabled, persist, and start the caddy process. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_start",
@@ -5078,7 +5078,7 @@
     "/panel/api/tunnel/naive/stop": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Mark the core disabled, persist, and stop the caddy process (SIGTERM with kill fallback). LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_stop",
@@ -5108,7 +5108,7 @@
     "/panel/api/tunnel/naive/restart": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Force a fresh start with the stored config (and enable the core). LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_restart",
@@ -5138,7 +5138,7 @@
     "/panel/api/tunnel/naive/logs": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Return the most recent captured output lines of the caddy process (ring buffer, default 200). LucX-UI only.",
         "operationId": "get_panel_api_tunnel_naive_logs",
@@ -5185,7 +5185,7 @@
     "/panel/api/tunnel/naive/preview": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Render the Caddyfile the given form state would produce, without persisting anything. Same validation as save. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_preview",
@@ -5237,7 +5237,7 @@
     "/panel/api/tunnel/naive/validate": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Run \"caddy adapt\" against raw Caddyfile text using the installed core binary; the parser output is returned on failure. Requires the binary to be installed. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_validate",
@@ -5308,7 +5308,7 @@
     "/panel/api/tunnel/naive/upload": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Replace the core binary on disk (multipart field \"file\"). Exempt from the global 10 MiB body limit because caddy builds are ~50 MB. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_upload",
@@ -5338,7 +5338,7 @@
     "/panel/api/tunnel/naive/download": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Fetch the core binary from a URL into a temp file and swap it into place (an interrupted download never leaves a half-written binary). 200 MB cap. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_download",
@@ -5381,7 +5381,7 @@
     "/panel/api/tunnel/naive/deleteBinary": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_naive_deleteBinary",
@@ -5411,7 +5411,7 @@
     "/panel/api/tunnel/olcrtc/status": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Full status of the olcRTC core: process probe, binary presence, stored config and the generated olcrtc:// connect URI. LucX-UI only.",
         "operationId": "get_panel_api_tunnel_olcrtc_status",
@@ -5462,7 +5462,7 @@
     "/panel/api/tunnel/olcrtc/config": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Read the stored olcRTC config (defaults when nothing is stored yet). LucX-UI only.",
         "operationId": "get_panel_api_tunnel_olcrtc_config",
@@ -5490,7 +5490,7 @@
       },
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Validate, persist and apply the olcRTC config. Auto-generates a 64-hex crypto key when empty. Renders server YAML and restarts the process on fingerprint change. Returns the fresh status. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_config",
@@ -5537,7 +5537,7 @@
     "/panel/api/tunnel/olcrtc/start": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Mark the core enabled, persist, and start olcrtc. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_start",
@@ -5567,7 +5567,7 @@
     "/panel/api/tunnel/olcrtc/stop": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Mark the core disabled, persist, and stop olcrtc. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_stop",
@@ -5597,7 +5597,7 @@
     "/panel/api/tunnel/olcrtc/restart": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Force a fresh start with the stored config. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_restart",
@@ -5627,7 +5627,7 @@
     "/panel/api/tunnel/olcrtc/logs": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Recent process log lines (ring buffer, default 200). LucX-UI only.",
         "operationId": "get_panel_api_tunnel_olcrtc_logs",
@@ -5668,7 +5668,7 @@
     "/panel/api/tunnel/olcrtc/preview": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Render the server YAML the given form state would produce, without persisting. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_preview",
@@ -5704,7 +5704,7 @@
     "/panel/api/tunnel/olcrtc/upload": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Replace the olcrtc binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_upload",
@@ -5734,7 +5734,7 @@
     "/panel/api/tunnel/olcrtc/download": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Fetch the olcrtc binary from a URL into place (200 MB cap). LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_download",
@@ -5777,7 +5777,7 @@
     "/panel/api/tunnel/olcrtc/deleteBinary": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_olcrtc_deleteBinary",
@@ -5807,7 +5807,7 @@
     "/panel/api/tunnel/qwdtt/status": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Full status of the qWDTT core: process probe, binary presence, stored config, qwdtt:// / wdtt:// URIs and subscription JSON. LucX-UI only.",
         "operationId": "get_panel_api_tunnel_qwdtt_status",
@@ -5837,7 +5837,7 @@
     "/panel/api/tunnel/qwdtt/config": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Read the stored qWDTT config (defaults when nothing is stored yet). LucX-UI only.",
         "operationId": "get_panel_api_tunnel_qwdtt_config",
@@ -5865,7 +5865,7 @@
       },
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Validate, persist and apply the qWDTT config. Auto-generates the main password when empty. Restarts the process on argv fingerprint change. Returns the fresh status. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_qwdtt_config",
@@ -5913,7 +5913,7 @@
     "/panel/api/tunnel/qwdtt/start": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Mark the core enabled, persist, and start wdtt-server. Requires root/CAP_NET_ADMIN. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_qwdtt_start",
@@ -5943,7 +5943,7 @@
     "/panel/api/tunnel/qwdtt/stop": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Mark the core disabled, persist, and stop wdtt-server. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_qwdtt_stop",
@@ -5973,7 +5973,7 @@
     "/panel/api/tunnel/qwdtt/restart": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Force a fresh start with the stored config. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_qwdtt_restart",
@@ -6003,7 +6003,7 @@
     "/panel/api/tunnel/qwdtt/logs": {
       "get": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Recent process log lines (ring buffer, default 200). LucX-UI only.",
         "operationId": "get_panel_api_tunnel_qwdtt_logs",
@@ -6044,7 +6044,7 @@
     "/panel/api/tunnel/qwdtt/upload": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Replace the qwdtt binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_qwdtt_upload",
@@ -6074,7 +6074,7 @@
     "/panel/api/tunnel/qwdtt/download": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Fetch the qwdtt binary from a URL into place (200 MB cap). LucX-UI only.",
         "operationId": "post_panel_api_tunnel_qwdtt_download",
@@ -6117,7 +6117,7 @@
     "/panel/api/tunnel/qwdtt/deleteBinary": {
       "post": {
         "tags": [
-          "Tunnels"
+          "Tunnel tools"
         ],
         "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_qwdtt_deleteBinary",
