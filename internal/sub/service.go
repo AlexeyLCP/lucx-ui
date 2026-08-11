@@ -381,6 +381,13 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 // single subId. Dedups duplicate client JSON entries by email (#5134). Backs the
 // panel's "Export all inbound links" so it matches the client/QR pages.
 func (s *SubService) inboundLinks(inbound *model.Inbound) []string {
+	// Single-credential tunnel sidecars: one share URI for the whole inbound.
+	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt) {
+		if link := s.GetLink(inbound, ""); link != "" {
+			return splitLinkLines(link)
+		}
+		return nil
+	}
 	clients, err := s.inboundService.GetClients(inbound)
 	if err != nil {
 		return nil
@@ -501,7 +508,7 @@ func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) 
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','mtproto','awg','naive')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','mtproto','awg','naive','olcrtc','qwdtt')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC").Find(&inbounds).Error
 	if err != nil {
@@ -656,6 +663,10 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genAwgLink(inbound, email)
 	case "naive": // LUCX-HOOK: NaiveProxy inbound share link
 		return s.genNaiveLink(inbound, email)
+	case "olcrtc": // LUCX-HOOK: single-credential olcRTC URI (ignore email)
+		return s.genOlcrtcLink(inbound)
+	case "qwdtt": // LUCX-HOOK: single-credential qWDTT URI (ignore email)
+		return s.genQwdttLink(inbound)
 	}
 	return ""
 }
@@ -826,6 +837,24 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 }
 
 // END LUCX-HOOK
+
+// genOlcrtcLink returns the single olcrtc:// URI for an olcRTC inbound.
+func (s *SubService) genOlcrtcLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	return cfg.ClientURI()
+}
+
+// genQwdttLink returns the single qwdtt:// URI for the qWDTT inbound.
+func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	return cfg.ClientURI()
+}
 
 // genNaiveLink builds naive+https://user:pass@domain:port#email for a client
 // attached to a Naive inbound. Credentials are HMAC-derived (inbound-scoped).

@@ -1,0 +1,56 @@
+import { useTranslation } from 'react-i18next';
+import { Input, InputNumber, Select, Switch, Alert } from 'antd';
+import { useFormContext, useWatch } from 'react-hook-form';
+
+import { FormField } from '@/components/form/rhf';
+
+export default function OlcrtcFields() {
+  const { t } = useTranslation();
+  const { control } = useFormContext();
+  const transport = useWatch({ control, name: 'settings.transport' }) as string | undefined;
+
+  return (
+    <>
+      <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('pages.inbounds.form.olcrtcSingleCredNote')} />
+      <FormField name={['settings', 'provider']} label={t('pages.inbounds.form.olcrtcProvider')}>
+        <Select
+          options={[
+            { value: 'jitsi', label: 'Jitsi' },
+            { value: 'telemost', label: 'Yandex Telemost' },
+            { value: 'wbstream', label: 'WB Stream' },
+          ]}
+        />
+      </FormField>
+      <FormField name={['settings', 'roomId']} label={t('pages.inbounds.form.olcrtcRoomId')} tooltip={t('pages.inbounds.form.olcrtcRoomIdHint')}>
+        <Input placeholder="https://meet.jit.si/your-room" />
+      </FormField>
+      <FormField name={['settings', 'cryptoKey']} label={t('pages.inbounds.form.olcrtcCryptoKey')} tooltip={t('pages.inbounds.form.olcrtcCryptoKeyHint')}>
+        <Input placeholder="openssl rand -hex 32" />
+      </FormField>
+      <FormField name={['settings', 'transport']} label={t('pages.inbounds.form.olcrtcTransport')}>
+        <Select
+          options={[
+            { value: 'datachannel', label: 'datachannel' },
+            { value: 'vp8channel', label: 'vp8channel' },
+          ]}
+        />
+      </FormField>
+      {transport === 'vp8channel' && (
+        <>
+          <FormField name={['settings', 'vp8Fps']} label={t('pages.inbounds.form.olcrtcVp8Fps')}>
+            <InputNumber min={1} max={120} style={{ width: '100%' }} />
+          </FormField>
+          <FormField name={['settings', 'vp8Batch']} label={t('pages.inbounds.form.olcrtcVp8Batch')}>
+            <InputNumber min={1} max={64} style={{ width: '100%' }} />
+          </FormField>
+        </>
+      )}
+      <FormField name={['settings', 'dns']} label={t('pages.inbounds.form.olcrtcDns')}>
+        <Input placeholder="8.8.8.8:53" />
+      </FormField>
+      <FormField name={['settings', 'debug']} label={t('pages.inbounds.form.olcrtcDebug')} valueProp="checked">
+        <Switch />
+      </FormField>
+    </>
+  );
+}

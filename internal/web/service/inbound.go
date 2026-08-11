@@ -20,6 +20,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/netsafe"
@@ -1018,6 +1019,62 @@ func naiveRoutesThroughXray(inbound *model.Inbound) bool {
 	return parsed.RouteThroughXray
 }
 
+// checkQwdttSingle rejects a second qWDTT inbound (ignoreId=0 on create).
+func (s *InboundService) checkQwdttSingle(ignoreId int) error {
+	db := database.GetDB()
+	var n int64
+	q := db.Model(&model.Inbound{}).Where("protocol = ?", model.Qwdtt)
+	if ignoreId > 0 {
+		q = q.Where("id <> ?", ignoreId)
+	}
+	if err := q.Count(&n).Error; err != nil {
+		return err
+	}
+	if n > 0 {
+		return common.NewError("qWDTT supports only one inbound (TUN + multi-port + root)")
+	}
+	return nil
+}
+
+// normalizeOlcrtcSettings ensures cryptoKey on save.
+func (s *InboundService) normalizeOlcrtcSettings(inbound *model.Inbound) {
+	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
+	if !ok {
+		return
+	}
+	cfg = cfg.Merge().ClampVP8()
+	if c2, err := cfg.EnsureCryptoKey(); err == nil {
+		cfg = c2
+	}
+	if bs, err := json.MarshalIndent(cfg, "", "  "); err == nil {
+		inbound.Settings = string(bs)
+	}
+	if inbound.Remark == "" && cfg.Remark != "" {
+		inbound.Remark = cfg.Remark
+	}
+}
+
+// normalizeQwdttSettings ensures password and syncs Port from listenAddr.
+func (s *InboundService) normalizeQwdttSettings(inbound *model.Inbound) {
+	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
+	if !ok {
+		return
+	}
+	cfg = cfg.Merge()
+	if c2, err := cfg.EnsurePassword(); err == nil {
+		cfg = c2
+	}
+	if bs, err := json.MarshalIndent(cfg, "", "  "); err == nil {
+		inbound.Settings = string(bs)
+	}
+	if p := tunnel.QwdttDTLSPort(cfg); p > 0 {
+		inbound.Port = p
+	}
+	if inbound.Remark == "" && cfg.Remark != "" {
+		inbound.Remark = cfg.Remark
+	}
+}
+
 func settingsRouteXrayPort(parsed map[string]any) int {
 	switch v := parsed["routeXrayPort"].(type) {
 	case float64:
@@ -1243,6 +1300,18 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		if err := s.checkAwgSubnetConflict(awgSettingsAddress(inbound.Settings), 0); err != nil {
 			return inbound, false, err
 		}
+	}
+	// qWDTT is single-instance (TUN + multi-port + root).
+	if inbound.Protocol == model.Qwdtt {
+		if err := s.checkQwdttSingle(0); err != nil {
+			return inbound, false, err
+		}
+		s.normalizeQwdttSettings(inbound)
+	}
+	if inbound.Protocol == model.Olcrtc {
+		s.normalizeOlcrtcSettings(inbound)
+		// No listen port — avoid clashing with real TCP binds.
+		inbound.Port = 0
 	}
 	// END LUCX-HOOK
 
@@ -1700,6 +1769,19 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// Restore the stored NodeID before the port-conflict check so a node inbound
 	// stays scoped to its own node (the payload's nodeId is unreliable, often absent).
 	inbound.NodeID = oldInbound.NodeID
+
+	// LUCX-HOOK: tunnel inbound normalize + qWDTT single-instance guard.
+	if inbound.Protocol == model.Qwdtt {
+		if err := s.checkQwdttSingle(inbound.Id); err != nil {
+			return inbound, false, err
+		}
+		s.normalizeQwdttSettings(inbound)
+	}
+	if inbound.Protocol == model.Olcrtc {
+		s.normalizeOlcrtcSettings(inbound)
+		inbound.Port = 0
+	}
+	// END LUCX-HOOK
 
 	// LUCX-HOOK: AWG — keep client tunnel IPs stable across Address edits
 	// (no re-export). Only rewrites a peer that collides with the server's

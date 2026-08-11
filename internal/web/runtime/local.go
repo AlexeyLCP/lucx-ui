@@ -64,9 +64,15 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 		}
 		return awg.GetManager().Ensure(inst)
 	}
-	// LUCX-HOOK: NaiveProxy inbound — Caddy sidecar (mtproto pattern).
+	// LUCX-HOOK: tunnel sidecars as inbounds (not Xray protocols).
 	if ib.Protocol == model.Naive {
 		return l.ensureNaiveInbound(ib)
+	}
+	if ib.Protocol == model.Olcrtc {
+		return l.ensureOlcrtcInbound(ib)
+	}
+	if ib.Protocol == model.Qwdtt {
+		return l.ensureQwdttInbound(ib)
 	}
 	// END LUCX-HOOK
 	body, err := json.MarshalIndent(ib.GenXrayInboundConfig(), "", "  ")
@@ -88,9 +94,17 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		awg.GetManager().Remove(ib.Id)
 		return nil
 	}
-	// LUCX-HOOK: NaiveProxy inbound teardown.
+	// LUCX-HOOK: tunnel inbound teardown.
 	if ib.Protocol == model.Naive {
 		tunnel.GetManager().Remove(tunnel.NaiveKey(ib.Id))
+		return nil
+	}
+	if ib.Protocol == model.Olcrtc {
+		tunnel.GetManager().Remove(tunnel.OlcrtcKey(ib.Id))
+		return nil
+	}
+	if ib.Protocol == model.Qwdtt {
+		tunnel.GetManager().Remove(tunnel.QwdttKey)
 		return nil
 	}
 	// END LUCX-HOOK
@@ -103,11 +117,11 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 	if oldIb.Protocol == model.MTProto || newIb.Protocol == model.MTProto {
 		return l.updateMtprotoInbound(ctx, oldIb, newIb)
 	}
-	// LUCX-HOOK: Naive inbound update (Del+Add is fine — caddy restart).
-	if oldIb.Protocol == model.Naive || newIb.Protocol == model.Naive {
+	// LUCX-HOOK: tunnel inbound update (Del+Add / Ensure restart).
+	if isTunnelInboundProto(oldIb.Protocol) || isTunnelInboundProto(newIb.Protocol) {
 		_ = l.DelInbound(ctx, oldIb)
-		if !newIb.Enable || newIb.Protocol != model.Naive {
-			if newIb.Protocol != model.Naive && newIb.Enable {
+		if !newIb.Enable || !isTunnelInboundProto(newIb.Protocol) {
+			if !isTunnelInboundProto(newIb.Protocol) && newIb.Enable {
 				return l.AddInbound(ctx, newIb)
 			}
 			return nil
@@ -122,12 +136,32 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 	return l.AddInbound(ctx, newIb)
 }
 
+func isTunnelInboundProto(p model.Protocol) bool {
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt
+}
+
 // ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret
 // is required for per-client basic_auth derivation (read from settings table
 // without importing service — avoids an import cycle with runtime).
 func (l *Local) ensureNaiveInbound(ib *model.Inbound) error {
 	secret := panelSecretBytes()
 	inst, ok := tunnel.InstanceFromInbound(ib, secret)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureOlcrtcInbound(ib *model.Inbound) error {
+	inst, ok := tunnel.OlcrtcInstanceFromInbound(ib)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureQwdttInbound(ib *model.Inbound) error {
+	inst, ok := tunnel.QwdttInstanceFromInbound(ib)
 	if !ok {
 		return nil
 	}
@@ -183,8 +217,8 @@ func (l *Local) AddUser(_ context.Context, ib *model.Inbound, userMap map[string
 	if ib.Protocol == model.AWG {
 		return nil
 	}
-	// LUCX-HOOK: Naive — auth lines applied on next Ensure/reconcile.
-	if ib.Protocol == model.Naive {
+	// LUCX-HOOK: tunnel inbounds — no Xray users.
+	if isTunnelInboundProto(ib.Protocol) {
 		return nil
 	}
 	// END LUCX-HOOK
@@ -201,8 +235,8 @@ func (l *Local) RemoveUser(_ context.Context, ib *model.Inbound, email string) e
 	if ib.Protocol == model.AWG {
 		return nil
 	}
-	// LUCX-HOOK: Naive — auth drop on next Ensure/reconcile.
-	if ib.Protocol == model.Naive {
+	// LUCX-HOOK: tunnel inbounds — no Xray users.
+	if isTunnelInboundProto(ib.Protocol) {
 		return nil
 	}
 	// END LUCX-HOOK

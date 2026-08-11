@@ -186,8 +186,8 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if inbound.Protocol == model.AWG {
 			continue
 		}
-		// NaiveProxy inbound — Caddy sidecar, not an Xray protocol.
-		if inbound.Protocol == model.Naive {
+		// Tunnel sidecars as inbounds — not Xray protocols.
+		if inbound.Protocol == model.Naive || inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt {
 			continue
 		}
 		// END LUCX-HOOK

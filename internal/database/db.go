@@ -166,6 +166,8 @@ func initModels() error {
 	// Promote legacy lucxTunnel_naive settings → protocol=naive inbound (empty
 	// clients — operator attaches). No-op when a naive inbound already exists.
 	migrateNaiveTunnelToInbound()
+	migrateOlcrtcTunnelToInbound()
+	migrateQwdttTunnelToInbound()
 	// END LUCX-HOOK
 	if IsPostgres() {
 		if err := resyncPostgresSequences(db, models); err != nil {

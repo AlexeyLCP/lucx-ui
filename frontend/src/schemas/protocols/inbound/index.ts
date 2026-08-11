@@ -6,6 +6,8 @@ import { MixedInboundSettingsSchema } from './mixed';
 import { MtprotoInboundSettingsSchema } from './mtproto';
 import { AwgInboundSettingsSchema } from './awg'; // LUCX-HOOK: AWG protocol
 import { NaiveInboundSettingsSchema } from './naive'; // LUCX-HOOK: NaiveProxy
+import { OlcrtcInboundSettingsSchema } from './olcrtc'; // LUCX-HOOK: olcRTC
+import { QwdttInboundSettingsSchema } from './qwdtt'; // LUCX-HOOK: qWDTT
 import { ShadowsocksInboundSettingsSchema } from './shadowsocks';
 import { TrojanInboundSettingsSchema } from './trojan';
 import { TunInboundSettingsSchema } from './tun';
@@ -20,6 +22,8 @@ export * from './mixed';
 export * from './mtproto';
 export * from './awg'; // LUCX-HOOK: AWG protocol
 export * from './naive'; // LUCX-HOOK: NaiveProxy
+export * from './olcrtc'; // LUCX-HOOK: olcRTC
+export * from './qwdtt'; // LUCX-HOOK: qWDTT
 export * from './shadowsocks';
 export * from './trojan';
 export * from './tun';
@@ -47,5 +51,7 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('mtproto'),     settings: MtprotoInboundSettingsSchema }),
   z.object({ protocol: z.literal('awg'),         settings: AwgInboundSettingsSchema }), // LUCX-HOOK: AWG
   z.object({ protocol: z.literal('naive'),       settings: NaiveInboundSettingsSchema }), // LUCX-HOOK: Naive
+  z.object({ protocol: z.literal('olcrtc'),      settings: OlcrtcInboundSettingsSchema }), // LUCX-HOOK: olcRTC
+  z.object({ protocol: z.literal('qwdtt'),       settings: QwdttInboundSettingsSchema }), // LUCX-HOOK: qWDTT
 ]);
 export type InboundSettings = z.infer<typeof InboundSettingsSchema>;

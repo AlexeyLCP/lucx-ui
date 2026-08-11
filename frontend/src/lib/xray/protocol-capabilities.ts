@@ -72,7 +72,13 @@ export function canEnableStream(values: { protocol: string }): boolean {
 export function canEnableSniffing(values: { protocol: string }): boolean {
   // LUCX-HOOK: AWG — kernel-interface sidecar; its traffic never enters an
   // Xray inbound, so the Xray sniffing block does not apply (like mtproto).
-  return values.protocol !== 'mtproto' && values.protocol !== 'awg' && values.protocol !== 'naive';
+  return (
+    values.protocol !== 'mtproto' &&
+    values.protocol !== 'awg' &&
+    values.protocol !== 'naive' &&
+    values.protocol !== 'olcrtc' &&
+    values.protocol !== 'qwdtt'
+  );
 }
 
 // Vision seed applies only when XTLS Vision (TCP/TLS) flow is selected

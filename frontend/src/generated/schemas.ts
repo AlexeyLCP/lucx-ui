@@ -1989,7 +1989,9 @@ export const SCHEMAS: Record<string, unknown> = {
           "tun",
           "mtproto",
           "awg",
-          "naive"
+          "naive",
+          "olcrtc",
+          "qwdtt"
         ],
         "example": "vless",
         "type": "string"

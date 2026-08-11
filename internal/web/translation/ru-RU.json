@@ -736,7 +736,34 @@
         "naiveUseAcmeHint": "HTTP-01 требует порт 443. Иначе укажите пути к cert/key.",
         "naiveUseAcme": "Auto TLS (Let\\u2019s Encrypt)",
         "naiveRouteThroughXray": "Маршрут через Xray",
-        "naiveKeyFile": "Файл ключа"
+        "naiveKeyFile": "Файл ключа",
+        "olcrtcSingleCredNote": "Один общий секрет (room + crypto key). Без per-client кредов — одна ссылка olcrtc:// на всех.",
+        "olcrtcProvider": "Провайдер",
+        "olcrtcRoomId": "Room ID / URL",
+        "olcrtcRoomIdHint": "Полный URL комнаты Jitsi или id Telemost/WB",
+        "olcrtcCryptoKey": "Crypto key",
+        "olcrtcCryptoKeyHint": "64 hex; пусто = сгенерируется при сохранении",
+        "olcrtcTransport": "Transport",
+        "olcrtcVp8Fps": "VP8 FPS",
+        "olcrtcVp8Batch": "VP8 batch",
+        "olcrtcDns": "DNS (host:port)",
+        "olcrtcDebug": "Debug",
+        "qwdttRootNote": "Нужен root / CAP_NET_ADMIN (TUN + MASQUERADE).",
+        "qwdttSingleNote": "Только один qWDTT inbound на панель. Общий password для всех.",
+        "qwdttListenAddr": "DTLS listen",
+        "qwdttWgPort": "WG port",
+        "qwdttPassword": "Password",
+        "qwdttPasswordHint": "Пусто = сгенерируется при сохранении",
+        "qwdttDns": "DNS",
+        "qwdttSubHost": "Публичный host:port (для клиентов)",
+        "qwdttSubHostHint": "Адрес для клиентов, напр. 1.2.3.4:56000",
+        "qwdttVkHashes": "VK call hashes",
+        "qwdttVkHashesHint": "Через запятую живые VK TURN hash",
+        "qwdttListenRaw": "Listen raw",
+        "qwdttListenDirect": "Listen direct",
+        "qwdttClientPort": "Локальный порт клиента",
+        "qwdttWorkers": "Workers per hash",
+        "qwdttConfigDir": "Каталог state"
       },
       "info": {
         "mode": "Режим",
@@ -2081,9 +2108,7 @@
           "downloaded": "Бинарник скачан",
           "deleted": "Бинарник удалён"
         },
-        "title": "NaiveProxy",
-        "inboundMovedTitle": "NaiveProxy теперь в Inbounds",
-        "inboundMovedDesc": "Создавайте NaiveProxy в Inbounds (протокол Naive) и привязывайте клиентов там. Здесь — бинарь, legacy-конфиг (до миграции), логи и другие туннели (olcRTC / qWDTT)."
+        "title": "NaiveProxy"
       },
       "olcrtc": {
         "title": "olcRTC",
@@ -2196,7 +2221,9 @@
           "downloaded": "Бинарник скачан",
           "deleted": "Бинарник удалён"
         }
-      }
+      },
+      "inboundMovedTitle": "Туннельные ядра — в Inbounds",
+      "inboundMovedDesc": "Создавайте NaiveProxy, olcRTC и qWDTT в Inbounds. Здесь — бинарь, логи процесса и advanced ops."
     }
   },
   "tgbot": {

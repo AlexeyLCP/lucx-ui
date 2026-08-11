@@ -198,9 +198,8 @@ export default function TunnelsPage() {
       <Alert
         type="info"
         showIcon
-        className="mb-16"
-        message={t('pages.tunnels.naive.inboundMovedTitle')}
-        description={t('pages.tunnels.naive.inboundMovedDesc')}
+        message={t('pages.tunnels.inboundMovedTitle')}
+        description={t('pages.tunnels.inboundMovedDesc')}
         style={{ marginBottom: 16 }}
       />
 

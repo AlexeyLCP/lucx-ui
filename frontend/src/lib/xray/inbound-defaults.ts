@@ -6,6 +6,8 @@ import type { MixedInboundSettings } from '@/schemas/protocols/inbound/mixed';
 import type { MtprotoClient, MtprotoInboundSettings } from '@/schemas/protocols/inbound/mtproto';
 import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg'; // LUCX-HOOK: AWG
 import type { NaiveInboundSettings } from '@/schemas/protocols/inbound/naive'; // LUCX-HOOK: Naive
+import type { OlcrtcInboundSettings } from '@/schemas/protocols/inbound/olcrtc';
+import type { QwdttInboundSettings } from '@/schemas/protocols/inbound/qwdtt';
 import type { ShadowsocksClient, ShadowsocksInboundSettings } from '@/schemas/protocols/inbound/shadowsocks';
 import type { TrojanClient, TrojanInboundSettings } from '@/schemas/protocols/inbound/trojan';
 import type { TunInboundSettings } from '@/schemas/protocols/inbound/tun';
@@ -247,6 +249,35 @@ export function createDefaultNaiveInboundSettings(): NaiveInboundSettings {
   };
 }
 
+export function createDefaultOlcrtcInboundSettings(): OlcrtcInboundSettings {
+  return {
+    provider: 'jitsi',
+    roomId: '',
+    cryptoKey: '',
+    transport: 'datachannel',
+    dns: '8.8.8.8:53',
+    vp8Fps: 60,
+    vp8Batch: 64,
+    debug: false,
+  };
+}
+
+export function createDefaultQwdttInboundSettings(): QwdttInboundSettings {
+  return {
+    listenAddr: '0.0.0.0:56000',
+    wgPort: 56001,
+    password: '',
+    dns: '8.8.8.8',
+    configDir: '',
+    listenRaw: '0.0.0.0:56003',
+    listenDirect: '',
+    subHost: '',
+    vkHashes: '',
+    clientPort: 9000,
+    workers: 16,
+  };
+}
+
 // createDefaultMtprotoClient seeds a new MTProto client with a fresh FakeTLS
 // secret fronting the given domain. Mirrors the WireGuard client default: the
 // backend re-derives the secret on save, so this is only for immediate display.
@@ -375,7 +406,9 @@ export type AnyInboundSettings =
   | WireguardInboundSettings
   | MtprotoInboundSettings
   | AwgInboundSettings // LUCX-HOOK: AWG
-  | NaiveInboundSettings; // LUCX-HOOK: Naive
+  | NaiveInboundSettings
+  | OlcrtcInboundSettings
+  | QwdttInboundSettings;
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -392,6 +425,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
     case 'mtproto':     return createDefaultMtprotoInboundSettings();
     case 'awg':         return createDefaultAwgInboundSettings(); // LUCX-HOOK: AWG
     case 'naive':       return createDefaultNaiveInboundSettings(); // LUCX-HOOK: Naive
+    case 'olcrtc':      return createDefaultOlcrtcInboundSettings();
+    case 'qwdtt':       return createDefaultQwdttInboundSettings();
     default:            return null;
   }
 }

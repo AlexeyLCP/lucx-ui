@@ -14,6 +14,8 @@ export const ProtocolSchema = z.enum([
   'mtproto',
   'awg', // LUCX-HOOK: AmneziaWG sidecar protocol
   'naive', // LUCX-HOOK: NaiveProxy sidecar (inbound model)
+  'olcrtc', // LUCX-HOOK: olcRTC sidecar
+  'qwdtt', // LUCX-HOOK: qWDTT sidecar
 ]);
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
@@ -37,4 +39,6 @@ export const Protocols = Object.freeze({
   MTPROTO: 'mtproto',
   AWG: 'awg', // LUCX-HOOK: AmneziaWG
   NAIVE: 'naive', // LUCX-HOOK: NaiveProxy
+  OLCRTC: 'olcrtc', // LUCX-HOOK: olcRTC
+  QWDTT: 'qwdtt', // LUCX-HOOK: qWDTT
 });

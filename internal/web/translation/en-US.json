@@ -736,7 +736,34 @@
         "naiveUseAcmeHint": "HTTP-01 requires port 443. Otherwise provide cert/key paths.",
         "naiveUseAcme": "Auto TLS (Let's Encrypt)",
         "naiveRouteThroughXray": "Route through Xray",
-        "naiveKeyFile": "Private key file"
+        "naiveKeyFile": "Private key file",
+        "olcrtcSingleCredNote": "Single shared secret (room + crypto key). No per-client credentials — everyone uses the same olcrtc:// URI.",
+        "olcrtcProvider": "Provider",
+        "olcrtcRoomId": "Room ID / URL",
+        "olcrtcRoomIdHint": "Full Jitsi room URL or Telemost/WB room id",
+        "olcrtcCryptoKey": "Crypto key",
+        "olcrtcCryptoKeyHint": "64 hex chars; empty = auto on save",
+        "olcrtcTransport": "Transport",
+        "olcrtcVp8Fps": "VP8 FPS",
+        "olcrtcVp8Batch": "VP8 batch",
+        "olcrtcDns": "DNS (host:port)",
+        "olcrtcDebug": "Debug",
+        "qwdttRootNote": "Requires root / CAP_NET_ADMIN (TUN + MASQUERADE).",
+        "qwdttSingleNote": "Only one qWDTT inbound per panel. Shared password for all clients.",
+        "qwdttListenAddr": "DTLS listen",
+        "qwdttWgPort": "WG port",
+        "qwdttPassword": "Password",
+        "qwdttPasswordHint": "Empty = auto-generate on save",
+        "qwdttDns": "DNS",
+        "qwdttSubHost": "Public host:port (for clients)",
+        "qwdttSubHostHint": "Advertised peer address, e.g. 1.2.3.4:56000",
+        "qwdttVkHashes": "VK call hashes",
+        "qwdttVkHashesHint": "Comma-separated live VK TURN hashes",
+        "qwdttListenRaw": "Listen raw",
+        "qwdttListenDirect": "Listen direct",
+        "qwdttClientPort": "Client local port",
+        "qwdttWorkers": "Workers per hash",
+        "qwdttConfigDir": "State directory"
       },
       "info": {
         "mode": "Mode",
@@ -2081,9 +2108,7 @@
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
         },
-        "title": "NaiveProxy",
-        "inboundMovedTitle": "NaiveProxy is an Inbound now",
-        "inboundMovedDesc": "Create/edit NaiveProxy under Inbounds (protocol Naive), attach clients there. This page keeps binary install, legacy global config (until migrated), logs, and other tunnel cores (olcRTC / qWDTT)."
+        "title": "NaiveProxy"
       },
       "olcrtc": {
         "title": "olcRTC",
@@ -2196,7 +2221,9 @@
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
         }
-      }
+      },
+      "inboundMovedTitle": "Tunnel cores live under Inbounds",
+      "inboundMovedDesc": "Create/edit NaiveProxy, olcRTC and qWDTT as Inbounds. This page is for binary install, process logs and advanced ops."
     }
   },
   "tgbot": {

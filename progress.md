@@ -51,6 +51,23 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.102 — olcRTC + qWDTT as Inbounds, Tunnels advanced
+
+**Запрос:** olcRTC/qWDTT как AWG/Naive inbound; Tunnels — advanced для всех трёх.
+
+**Сделано:**
+- `model.Olcrtc` / `model.Qwdtt` + oneof
+- `OlcrtcInstanceFromInbound` (multi `olcrtc-{id}`), `QwdttInstanceFromInbound` (single key `qwdtt`)
+- runtime Add/Del/Update; reconcile + legacy settings fallback
+- migrate lucxTunnel_olcrtc/qwdtt → inbound
+- qWDTT single-instance guard; olc Port=0
+- sub: genOlcrtcLink / genQwdttLink; inboundLinks single-URI
+- FE: schemas/forms/defaults/protocol registry
+- Tunnels: unified banner «cores live under Inbounds»
+- **No clients attach** for olc/qwdtt (single shared credential)
+
+---
+
 ## Релиз v3.6.0-lucx.101 — Naive default routeThroughXray + routing picker
 
 1. **Ответ:** да — attach клиента к Naive inbound → личная `naive+https://…` в sub/QR.

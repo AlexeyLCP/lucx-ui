@@ -280,12 +280,22 @@ func (m *Manager) StatusOf(inst Instance) Status {
 	return st
 }
 
-// ReconcileNaive drives every desired Naive inbound instance: Ensure each
-// wanted key, Stop keys that look like naive-* but are no longer wanted.
+// ReconcileNaive drives every desired Naive inbound instance.
 func (m *Manager) ReconcileNaive(want []Instance) {
+	m.ReconcileWanted(Naive, "naive-", string(Naive), want)
+}
+
+// ReconcileOlcrtc drives every desired olcRTC inbound instance.
+func (m *Manager) ReconcileOlcrtc(want []Instance) {
+	m.ReconcileWanted(Olcrtc, "olcrtc-", string(Olcrtc), want)
+}
+
+// ReconcileWanted Ensures each wanted instance of core and Removes orphan
+// keys that match prefix or legacyKey but are not in want.
+func (m *Manager) ReconcileWanted(core Name, prefix, legacyKey string, want []Instance) {
 	wantKeys := make(map[string]struct{}, len(want))
 	for _, inst := range want {
-		if inst.Core != Naive {
+		if inst.Core != core {
 			continue
 		}
 		key := inst.ManageKey()
@@ -297,7 +307,7 @@ func (m *Manager) ReconcileNaive(want []Instance) {
 	m.mu.Lock()
 	var orphans []string
 	for key := range m.cores {
-		if !strings.HasPrefix(key, "naive-") && key != string(Naive) {
+		if key != legacyKey && !strings.HasPrefix(key, prefix) {
 			continue
 		}
 		if _, ok := wantKeys[key]; !ok {

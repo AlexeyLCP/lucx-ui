@@ -371,20 +371,8 @@ func (s *TunnelService) DownloadBinary(downloadURL string) error {
 // stays down.
 func (s *TunnelService) Reconcile() {
 	s.reconcileNaiveInbounds()
-	if cfg, err := s.LoadOlcrtcConfig(); err != nil {
-		logger.Warning("tunnel: olcrtc reconcile load failed:", err)
-	} else if inst, err := s.olcrtcInstance(cfg); err != nil {
-		// logged inside
-	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
-		logger.Warning("tunnel: olcrtc reconcile failed:", err)
-	}
-	if cfg, err := s.LoadQwdttConfig(); err != nil {
-		logger.Warning("tunnel: qwdtt reconcile load failed:", err)
-	} else if inst, err := s.qwdttInstance(cfg); err != nil {
-		// logged inside
-	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
-		logger.Warning("tunnel: qwdtt reconcile failed:", err)
-	}
+	s.reconcileOlcrtcInbounds()
+	s.reconcileQwdttInbound()
 }
 
 // reconcileNaiveInbounds Ensures every Naive inbound sidecar and stops orphans.
@@ -420,6 +408,71 @@ func (s *TunnelService) reconcileNaiveInbounds() {
 		// logged inside
 	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: naive reconcile failed:", err)
+	}
+}
+
+func (s *TunnelService) reconcileOlcrtcInbounds() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: olcrtc inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Olcrtc || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.OlcrtcInstanceFromInbound(ib)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	if len(want) > 0 {
+		tunnel.GetManager().ReconcileOlcrtc(want)
+		_ = tunnel.GetManager().Stop(tunnel.Olcrtc)
+		return
+	}
+	if cfg, err := s.LoadOlcrtcConfig(); err != nil {
+		logger.Warning("tunnel: olcrtc reconcile load failed:", err)
+	} else if inst, err := s.olcrtcInstance(cfg); err != nil {
+		// logged inside
+	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
+		logger.Warning("tunnel: olcrtc reconcile failed:", err)
+	}
+}
+
+func (s *TunnelService) reconcileQwdttInbound() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: qwdtt inbound list failed:", err)
+		return
+	}
+	var one *model.Inbound
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Qwdtt || ib.NodeID != nil {
+			continue
+		}
+		// Single-instance: prefer enabled; else first row.
+		if one == nil || (ib.Enable && !one.Enable) {
+			one = ib
+		}
+	}
+	if one != nil {
+		inst, ok := tunnel.QwdttInstanceFromInbound(one)
+		if ok {
+			if err := tunnel.GetManager().Ensure(inst); err != nil {
+				logger.Warning("tunnel: qwdtt inbound reconcile failed:", err)
+			}
+		}
+		return
+	}
+	if cfg, err := s.LoadQwdttConfig(); err != nil {
+		logger.Warning("tunnel: qwdtt reconcile load failed:", err)
+	} else if inst, err := s.qwdttInstance(cfg); err != nil {
+		// logged inside
+	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
+		logger.Warning("tunnel: qwdtt reconcile failed:", err)
 	}
 }
 
