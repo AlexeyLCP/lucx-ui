@@ -325,8 +325,12 @@ type InboundOption struct {
 	// AwgVersion is the inbound's AWG protocol version ("1.5"/"2"/"3") — the
 	// client-config ceiling the clients page uses to gate the per-client export
 	// version selector. Empty/absent is treated as "2" by the frontend.
-	AwgVersion    string `json:"awgVersion,omitempty"`
-	MtprotoDomain string `json:"mtprotoDomain,omitempty"`
+	AwgVersion string `json:"awgVersion,omitempty"`
+	// AwgPeerAddresses maps client email → first single-host AllowedIPs for
+	// THIS inbound (multi-attach clients have a different tunnel IP per AWG
+	// inbound; the clients-table allowedIPs field is only one of them).
+	AwgPeerAddresses map[string]string `json:"awgPeerAddresses,omitempty"`
+	MtprotoDomain    string            `json:"mtprotoDomain,omitempty"`
 	// Hosting node; nil for this panel's own inbounds. Lets the clients
 	// page map a node filter onto inbound IDs (#4997).
 	NodeId *int `json:"nodeId,omitempty"`
@@ -375,9 +379,11 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 		// clients-page QR/.conf path. AWG reuses the WG key derivation
 		// (Curve25519), so wgPublicKey/wgMtu/wgDns are also filled.
 		awgAddr, awgObf, awgVer := "", "", ""
+		var awgPeers map[string]string
 		if r.Protocol == string(model.AWG) {
 			wgPublicKey, wgMtu, wgDns = inboundWireguardHints(r.Protocol, r.Settings)
 			awgAddr, awgObf, awgVer = inboundAwgHints(r.Settings)
+			awgPeers = inboundAwgPeerAddresses(r.Settings)
 		}
 		// END LUCX-HOOK
 		shareAddrStrategy := r.ShareAddrStrategy
@@ -399,6 +405,7 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			AwgServerAddress:  awgAddr,
 			AwgObfuscation:    awgObf,
 			AwgVersion:        awgVer,
+			AwgPeerAddresses:  awgPeers,
 			MtprotoDomain:     inboundMtprotoDomain(r.Protocol, r.Settings),
 			NodeId:            r.NodeId,
 			NodeAddress:       r.NodeAddress,
@@ -576,6 +583,39 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 		}
 	}
 	return s.Address, out.String(), awg.NormalizeAWGVersion(s.AwgVersion)
+}
+
+// inboundAwgPeerAddresses maps email → first AllowedIPs entry for each client
+// stored on this AWG inbound. Used by the clients-page .conf builder so
+// multi-attach peers get the tunnel IP for THIS inbound, not the single
+// clients-table field shared across all attachments.
+func inboundAwgPeerAddresses(settings string) map[string]string {
+	if strings.TrimSpace(settings) == "" {
+		return nil
+	}
+	var s struct {
+		Clients []struct {
+			Email      string   `json:"email"`
+			AllowedIPs []string `json:"allowedIPs"`
+		} `json:"clients"`
+	}
+	if err := json.Unmarshal([]byte(settings), &s); err != nil {
+		return nil
+	}
+	out := make(map[string]string, len(s.Clients))
+	for _, c := range s.Clients {
+		email := strings.TrimSpace(c.Email)
+		if email == "" || len(c.AllowedIPs) == 0 {
+			continue
+		}
+		if ip := strings.TrimSpace(c.AllowedIPs[0]); ip != "" {
+			out[email] = ip
+		}
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
 }
 
 // END LUCX-HOOK

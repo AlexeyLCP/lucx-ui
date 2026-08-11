@@ -171,6 +171,9 @@ func initModels() error {
 	// Pre-lucx.104 migrations forgot UserId → row invisible (user_id=0) but
 	// still occupies the port. Re-home to first panel user.
 	repairOrphanTunnelInboundUserIDs()
+	// Multi-attach AWG updates used to broadcast one peer IP into every
+	// inbound → foreign /32 routes + wrong Address in client .conf.
+	repairAwgStalePeerIPs()
 	// END LUCX-HOOK
 	if IsPostgres() {
 		if err := resyncPostgresSequences(db, models); err != nil {

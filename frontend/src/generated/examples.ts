@@ -527,6 +527,7 @@ export const EXAMPLES: Record<string, unknown> = {
   },
   "InboundOption": {
     "awgObfuscation": "",
+    "awgPeerAddresses": {},
     "awgServerAddress": "",
     "awgVersion": "",
     "enable": true,

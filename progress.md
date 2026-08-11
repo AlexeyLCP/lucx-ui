@@ -51,6 +51,23 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.105 — multi-attach AWG: IP per inbound + suggest 10.200/10.201
+
+**Репорт (Aleksandr/Vlad):** multi-attach клиент — .conf с версией нужного AWG, но **Address с чужого inbound**; reconcile `ip route add 10.x.y.z/32 … RTNETLINK File exists`. Vlad: auto-suggest `10.200.1`/`10.200.2` → хотели `10.200`/`10.201`.
+
+**Корень:** `ClientService.Update/Create/Attach` писал **одну** `allowedIPs` во все attached AWG inbound settings. Export брал IP из clients-table, не из peer на inbound.
+
+**Фикс:**
+1. Create/Update/Attach/bulk: для AWG/WG `AllowedIPs=nil` per inbound → allocate/preserve отдельно.
+2. `UpdateInboundClient`: stale single-host → reallocate в subnet inbound.
+3. Startup `repairAwgStalePeerIPs` — чинит уже испорченные peers.
+4. `InboundOption.awgPeerAddresses` email→IP; `buildAwgClientConfig` берёт IP оттуда.
+5. `suggestFreeAwgAddress`: сначала 10.200.0 → 10.201.0 → …, потом third-octet.
+
+**После update:** restart → peers чинятся; клиентам **перескачать** .conf (Address мог смениться).
+
+---
+
 ## Релиз v3.6.0-lucx.104 — ghost Naive/olc/qWDTT (user_id=0)
 
 **Репорт:** после update Tunnels «исчезли», создать Naive → `port 443 already used by inbound 'NaiveProxy_…' (#2)`, а #2 в списке Inbounds **не видно**.

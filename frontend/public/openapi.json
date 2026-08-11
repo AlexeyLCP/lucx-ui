@@ -2171,6 +2171,13 @@
           "awgObfuscation": {
             "type": "string"
           },
+          "awgPeerAddresses": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "AwgPeerAddresses maps client email → first single-host AllowedIPs for\nTHIS inbound (multi-attach clients have a different tunnel IP per AWG\ninbound; the clients-table allowedIPs field is only one of them).",
+            "type": "object"
+          },
           "awgServerAddress": {
             "description": "AWG obfuscation block — the Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines as they\nappear in a client .conf [Interface] section, plus the server tunnel\naddress. Populated for AWG inbounds so the clients-page QR/.conf path\ncan build a full AmneziaWG client config (mirrors the WG hints above).",
             "type": "string"
@@ -3479,6 +3486,7 @@
                   "obj": [
                     {
                       "awgObfuscation": "",
+                      "awgPeerAddresses": {},
                       "awgServerAddress": "",
                       "awgVersion": "",
                       "enable": true,

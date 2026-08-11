@@ -121,10 +121,27 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		if getErr != nil {
 			return needRestart, getErr
 		}
-		if err := s.fillProtocolDefaults(&client, inbound); err != nil {
+		per := client
+		// LUCX-HOOK: AWG/WG tunnel IPs are per-inbound. Multi-attach must not
+		// reuse one AllowedIPs across different subnets (RTNETLINK File exists
+		// + export shows the wrong Address). Empty → allocate for THIS inbound.
+		if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
+			per.AllowedIPs = nil
+		}
+		// END LUCX-HOOK
+		if err := s.fillProtocolDefaults(&per, inbound); err != nil {
 			return needRestart, err
 		}
-		settingsPayload, mErr := json.Marshal(map[string][]model.Client{"clients": {clientWithInboundFlow(client, inbound)}})
+		if per.PrivateKey != "" {
+			client.PrivateKey = per.PrivateKey
+		}
+		if per.PublicKey != "" {
+			client.PublicKey = per.PublicKey
+		}
+		if per.PreSharedKey != "" {
+			client.PreSharedKey = per.PreSharedKey
+		}
+		settingsPayload, mErr := json.Marshal(map[string][]model.Client{"clients": {clientWithInboundFlow(per, inbound)}})
 		if mErr != nil {
 			return needRestart, mErr
 		}
@@ -409,10 +426,17 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		if existing.Email == "" {
 			continue
 		}
-		if err := s.fillProtocolDefaults(&updated, inbound); err != nil {
+		per := updated
+		// LUCX-HOOK: never broadcast one AllowedIPs to every AWG/WG inbound on
+		// multi-attach update — each peer keeps (or re-gets) its own tunnel IP.
+		if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
+			per.AllowedIPs = nil
+		}
+		// END LUCX-HOOK
+		if err := s.fillProtocolDefaults(&per, inbound); err != nil {
 			return needRestart, err
 		}
-		settingsPayload, mErr := json.Marshal(map[string][]model.Client{"clients": {clientWithInboundFlow(updated, inbound)}})
+		settingsPayload, mErr := json.Marshal(map[string][]model.Client{"clients": {clientWithInboundFlow(per, inbound)}})
 		if mErr != nil {
 			return needRestart, mErr
 		}
@@ -635,6 +659,13 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 			return needRestart, getErr
 		}
 		copyClient := *clientWire
+		// LUCX-HOOK: AWG/WG — allocate a fresh tunnel IP for this inbound's
+		// subnet (keys/PSK stay shared). Carrying clientWire.AllowedIPs would
+		// either collide with the previous inbound or leave a foreign /32 peer.
+		if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
+			copyClient.AllowedIPs = nil
+		}
+		// END LUCX-HOOK
 		if err := s.fillProtocolDefaults(&copyClient, inbound); err != nil {
 			return needRestart, err
 		}

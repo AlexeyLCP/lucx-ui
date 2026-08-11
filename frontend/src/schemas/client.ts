@@ -65,6 +65,7 @@ export const InboundOptionSchema = z.object({
   awgServerAddress: z.string().optional(),
   awgObfuscation: z.string().optional(),
   awgVersion: z.string().optional(),
+  awgPeerAddresses: z.record(z.string(), z.string()).optional(),
   mtprotoDomain: z.string().optional(),
   // Hosting node id; absent/null for this panel's own inbounds (#4997).
   nodeId: z.number().nullable().optional(),

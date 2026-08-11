@@ -91,6 +91,11 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 			}
 			client := *rec.ToClient()
 			client.UpdatedAt = time.Now().UnixMilli()
+			// LUCX-HOOK: AWG/WG multi-attach — fresh tunnel IP per inbound.
+			if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
+				client.AllowedIPs = nil
+			}
+			// END LUCX-HOOK
 			if err := s.fillProtocolDefaults(&client, inbound); err != nil {
 				recordErr("%s -> inbound %d: %v", rec.Email, ibId, err)
 				continue
@@ -1311,7 +1316,13 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			if _, seen := byInbound[ibId]; !seen {
 				inboundOrder = append(inboundOrder, ibId)
 			}
-			byInbound[ibId] = append(byInbound[ibId], clientWithInboundFlow(prep[idx].client, ib))
+			per := prep[idx].client
+			// LUCX-HOOK: AWG/WG — one tunnel IP per inbound on multi-create.
+			if ib != nil && (ib.Protocol == model.AWG || ib.Protocol == model.WireGuard) {
+				per.AllowedIPs = nil
+			}
+			// END LUCX-HOOK
+			byInbound[ibId] = append(byInbound[ibId], clientWithInboundFlow(per, ib))
 			idxByInbound[ibId] = append(idxByInbound[ibId], idx)
 		}
 	}

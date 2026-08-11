@@ -67,26 +67,26 @@ describe('suggestFreeAwgAddress', () => {
     expect(suggestFreeAwgAddress([])).toBe('10.200.0.1/24');
   });
 
-  it('skips a used /24 and suggests the next one', () => {
-    expect(suggestFreeAwgAddress(['10.200.0.0/24'])).toBe('10.200.1.1/24');
-    expect(suggestFreeAwgAddress(['10.200.0.0/24', '10.200.1.0/24'])).toBe('10.200.2.1/24');
+  it('prefers next second-octet /24 (10.200 → 10.201)', () => {
+    expect(suggestFreeAwgAddress(['10.200.0.0/24'])).toBe('10.201.0.1/24');
+    expect(suggestFreeAwgAddress(['10.200.0.0/24', '10.201.0.0/24'])).toBe('10.202.0.1/24');
   });
 
   it('accepts unmasked addresses and still avoids their subnet', () => {
-    expect(suggestFreeAwgAddress(['10.200.0.1/24'])).toBe('10.200.1.1/24');
+    expect(suggestFreeAwgAddress(['10.200.0.1/24'])).toBe('10.201.0.1/24');
   });
 
-  it('skips a gap-free run of used subnets', () => {
-    const used = ['10.200.0.0/24', '10.200.1.0/24', '10.200.2.0/24'];
-    expect(suggestFreeAwgAddress(used)).toBe('10.200.3.1/24');
+  it('fills third-octet slots when all 10.N.0.0/24 in window are taken', () => {
+    const used = Array.from({ length: 21 }, (_, i) => `10.${200 + i}.0.0/24`);
+    expect(suggestFreeAwgAddress(used)).toBe('10.200.1.1/24');
   });
 
-  it('moves to the next /16 when a wide prefix covers the whole 10.200 space', () => {
+  it('moves to the next second octet when a wide prefix covers 10.200', () => {
     expect(suggestFreeAwgAddress(['10.200.0.0/16'])).toBe('10.201.0.1/24');
   });
 
-  it('resolves the exact field case: second AWG inbound after one on 10.200.0.0/24', () => {
-    expect(suggestFreeAwgAddress(['10.200.0.0/24'])).toBe('10.200.1.1/24');
+  it('second AWG inbound after one on 10.200.0.0/24 → 10.201.0.1/24', () => {
+    expect(suggestFreeAwgAddress(['10.200.0.0/24'])).toBe('10.201.0.1/24');
   });
 
   it('ignores used subnets outside the 10.200-10.220 scan window', () => {

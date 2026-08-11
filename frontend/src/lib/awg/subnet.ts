@@ -65,23 +65,26 @@ export function subnetsOverlap(a: string, b: string): boolean {
   return mask(na.ip, minPrefix) === mask(nb.ip, minPrefix);
 }
 
-// suggestFreeAwgAddress returns a server tunnel address ("X.Y.N.1/24") whose
-// /24 does not overlap any of the already-used subnets, so a newly created AWG
-// inbound does not collide with a sibling inbound's client pool (the kernel
-// route conflict behind "handshake ok, no traffic"). It scans the 10.200.0.0/16
-// space (lucx.64: far from the 10.6/10.7/10.8 ranges upstream WireGuard servers
-// favour, which AWG outbounds pasted from provider confs tend to occupy), then
-// widens to 10.201/10.202/..., and falls back to the plain default when nothing
-// free is found in the window.
+// suggestFreeAwgAddress returns a server tunnel address whose /24 does not
+// overlap any already-used subnet. Prefers distinct second-octet /24s
+// (10.200.0.1 → 10.201.0.1 → …) so multi-inbound setups stay far apart; only
+// then fills remaining third-octet slots inside 10.200–10.220.
 export function suggestFreeAwgAddress(usedSubnets: string[]): string {
   const used = usedSubnets.filter((s) => maskSubnet(s) !== null);
+  const free = (second: number, third: number): string | null => {
+    const candidate = `10.${second}.${third}.1/24`;
+    const candidateNet = `10.${second}.${third}.0/24`;
+    if (!used.some((u) => subnetsOverlap(candidateNet, u))) return candidate;
+    return null;
+  };
   for (let second = 200; second <= 220; second++) {
-    for (let third = 0; third < 256; third++) {
-      const candidate = `10.${second}.${third}.1/24`;
-      const candidateNet = `10.${second}.${third}.0/24`;
-      if (!used.some((u) => subnetsOverlap(candidateNet, u))) {
-        return candidate;
-      }
+    const hit = free(second, 0);
+    if (hit) return hit;
+  }
+  for (let second = 200; second <= 220; second++) {
+    for (let third = 1; third < 256; third++) {
+      const hit = free(second, third);
+      if (hit) return hit;
     }
   }
   return '10.200.0.1/24';
