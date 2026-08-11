@@ -658,9 +658,11 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		}
 	}
 	// LUCX-HOOK: AWG — carry stored credentials forward on edit (mirror WireGuard).
-	// Tunnel AllowedIPs stay per-inbound: empty payload keeps the existing peer
-	// IP; a foreign/stale single-host IP (multi-attach broadcast) is reallocated
-	// into THIS inbound's subnet so awg-quick does not hit RTNETLINK File exists.
+	// Tunnel AllowedIPs stay per-inbound. Empty payload → keep existing peer IP
+	// forever (never auto-rotate: client .conf Address would change → re-download).
+	// Multi-attach Update clears AllowedIPs before this so we don't broadcast one
+	// IP across inbounds; we still do NOT reallocate stale IPs here without an
+	// explicit operator-supplied new value.
 	if oldInbound.Protocol == model.AWG && clientIndex >= 0 && clientIndex < len(oldClients) {
 		old := oldClients[clientIndex]
 		if clients[0].PrivateKey == "" {
@@ -691,24 +693,6 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 				}
 				clients[0].AllowedIPs = normalized
 			}
-		}
-		serverAddr := awgSettingsAddress(oldInbound.Settings)
-		if awgAllowedIPsStale(clients[0].AllowedIPs, serverAddr) {
-			used := make([]string, 0, len(oldClients))
-			for i := range oldClients {
-				if i == clientIndex {
-					continue
-				}
-				used = append(used, oldClients[i].AllowedIPs...)
-			}
-			if awgOuts, oErr := (&AwgOutboundService{}).ActiveOutboundAddresses(); oErr == nil {
-				used = append(used, awgOuts...)
-			}
-			addr, aErr := allocateWireguardAddress(used, awgAllocationFallback(serverAddr), false)
-			if aErr != nil {
-				return false, aErr
-			}
-			clients[0].AllowedIPs = []string{addr}
 		}
 		if clients[0].PreSharedKey == "" {
 			clients[0].PreSharedKey = old.PreSharedKey

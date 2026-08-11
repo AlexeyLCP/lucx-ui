@@ -72,6 +72,27 @@ AWG:      awg kernel module        → IP   → TUN inbound             → Xray
 
 ## The 10 Rules
 
+### 0. Client config is sacred (lucx.106+)
+
+**Никогда** не менять данные, которые попадают в пользовательский клиентский конфиг, без **явного** действия/запроса оператора.
+
+Сюда входят (неполный список):
+- tunnel **Address / AllowedIPs** (AWG, WireGuard)
+- **ключи** (private/public/PSK), secrets, UUID, password
+- endpoint/host/port, obfuscation must-match поля (S/H/HPK), если уже выданы клиенту
+
+Запрещено:
+- startup-/InitDB-миграции, которые **переписывают** peer/client адреса или ключи на живой БД
+- «тихий» re-allocate IP при Update/Reconcile/save «заодно»
+- auto-fix «протухших» IP при старте панели (урок lucx.91→92, lucx.105→106)
+
+Разрешено:
+- выделить **новый** IP/ключи только если поле **пустое** (новый клиент / новый attach с очищенным AllowedIPs)
+- менять IP при **явной** смене Address inbound оператором, если это отдельная осознанная миграция и задокументировано
+- **читать** per-inbound IP для export/QR (не мутировать)
+
+Сломанный peer на сервере → чинить **по запросу** оператора или дать SQL/кнопку opt-in, не автоматом на всех хостах.
+
 ### 1. LUCX-HOOK Isolation
 
 ALL changes to upstream 3x-ui files go inside `// LUCX-HOOK` / `// END LUCX-HOOK` markers. Never modify 3x-ui core code outside these markers without explicit instruction.

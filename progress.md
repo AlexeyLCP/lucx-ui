@@ -51,11 +51,17 @@
 
 ## Что сделано
 
-## Релиз v3.6.0-lucx.106 — ОТКЛЮЧЁН auto-repair peer IP при старте
+## Релиз v3.6.0-lucx.106 — запрет авто-смены клиентских IP/конфигов
 
-**Реакция владельца:** startup `repairAwgStalePeerIPs` в lucx.105 снова переписывал IP на живых серверах — нельзя.
+**Реакция владельца:** startup repair peer IP в .105 ломал рабочие сервера; нельзя менять IP пользователей без спроса (конфиг → перекачка).
 
-**Фикс:** repair не вызывается из InitDB; `awgPeerIPRepairEnabled = false`. Код оставлен (opt-in). Create/Update/Attach + export + suggest из .105 — без изменений.
+**Фикс:**
+1. Удалён `migrate_awg_peer_ips.go` / startup repair целиком.
+2. `defaultAwgClients` / UpdateInboundClient: **не** re-allocate существующих AllowedIPs (только blank → allocate).
+3. Multi-attach: по-прежнему не broadcast одной IP на все inbound; export — per-inbound map.
+4. **AGENTS.md Rule 0:** client config sacred — никаких silent mutations IP/ключей.
+
+`lucxVersion` → lucx.106.
 
 ---
 

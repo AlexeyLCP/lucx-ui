@@ -294,18 +294,9 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 			c.PreSharedKey = psk
 		}
 		if len(c.AllowedIPs) == 0 {
-			addr, err := allocateWireguardAddress(used, base, false)
-			if err != nil {
-				return err
-			}
-			c.AllowedIPs = []string{addr}
-		} else if awgAllowedIPsStale(c.AllowedIPs, serverAddr) {
-			// A re-attached client whose stored single-host address no longer
-			// fits the inbound's current subnet (the subnet changed, or the
-			// client came from another AWG inbound). Keeping it would leave
-			// the peer routable to a network this interface does not own —
-			// handshake yes, traffic no. Re-allocate from the current subnet;
-			// keys and PSK are preserved so only the address rotates.
+			// Only allocate when blank — never rotate an existing tunnel IP
+			// (client .conf Address would change → forced re-download). Attach
+			// paths clear AllowedIPs when they want a fresh IP for a new inbound.
 			addr, err := allocateWireguardAddress(used, base, false)
 			if err != nil {
 				return err
