@@ -768,7 +768,8 @@
         "qwdttRouteThroughXrayHint": "Трафик с wdtt0/wdttraw0 идёт в TUN Xray (policy routing) — routing rules и outbound. По умолчанию вкл. Выкл = прямой MASQUERADE бинарника.",
         "qwdttRouteOutbound": "Outbound",
         "qwdttRouteOutboundHint": "Пусто = общий котёл Xray. Иначе force-route на выбранный outbound/balancer.",
-        "qwdttRouteOutboundPlaceholder": "default / warp / …"
+        "qwdttRouteOutboundPlaceholder": "default / warp / …",
+        "olcrtcTelemostVp8Note": "Telemost работает только с vp8channel (выбран автоматически)."
       },
       "info": {
         "mode": "Режим",

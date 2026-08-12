@@ -1085,13 +1085,19 @@ func (s *InboundService) checkQwdttSingle(ignoreId int) error {
 	return nil
 }
 
-// normalizeOlcrtcSettings ensures cryptoKey on save.
+// normalizeOlcrtcSettings ensures cryptoKey on save and coerces Telemost to
+// vp8channel (datachannel is rejected by Validate and left the process stopped
+// forever while the form still showed "enabled" — Vlad thrash 2026-08-12).
 func (s *InboundService) normalizeOlcrtcSettings(inbound *model.Inbound) {
 	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
 	if !ok {
 		return
 	}
-	cfg = cfg.Merge().ClampVP8()
+	cfg = cfg.Merge()
+	if cfg.Provider == "telemost" && cfg.Transport != "vp8channel" {
+		cfg.Transport = "vp8channel"
+	}
+	cfg = cfg.ClampVP8()
 	if c2, err := cfg.EnsureCryptoKey(); err == nil {
 		cfg = c2
 	}

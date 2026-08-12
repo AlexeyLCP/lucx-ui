@@ -45,6 +45,11 @@ func OlcrtcInstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 	if !ib.Enable {
 		return Instance{Core: Olcrtc, Key: key, Enabled: false}, true
 	}
+	// Telemost only speaks vp8channel — coerce before Validate so a bad form
+	// save does not leave the sidecar permanently disabled (Enabled:false).
+	if cfg.Provider == "telemost" && cfg.Transport != "vp8channel" {
+		cfg.Transport = "vp8channel"
+	}
 	cfg = cfg.ClampVP8()
 	if err := cfg.Validate(); err != nil {
 		return Instance{Core: Olcrtc, Key: key, Enabled: false}, true

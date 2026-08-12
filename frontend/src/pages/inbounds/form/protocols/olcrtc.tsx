@@ -1,3 +1,4 @@
+import { useEffect } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Input, InputNumber, Select, Switch, Alert } from 'antd';
 import { useFormContext, useWatch } from 'react-hook-form';
@@ -6,12 +7,27 @@ import { FormField } from '@/components/form/rhf';
 
 export default function OlcrtcFields() {
   const { t } = useTranslation();
-  const { control } = useFormContext();
+  const { control, setValue } = useFormContext();
   const transport = useWatch({ control, name: 'settings.transport' }) as string | undefined;
+  const provider = useWatch({ control, name: 'settings.provider' }) as string | undefined;
+
+  useEffect(() => {
+    if (provider === 'telemost' && transport !== 'vp8channel') {
+      setValue('settings.transport', 'vp8channel', { shouldDirty: true });
+    }
+  }, [provider, transport, setValue]);
 
   return (
     <>
       <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('pages.inbounds.form.olcrtcSingleCredNote')} />
+      {provider === 'telemost' && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.inbounds.form.olcrtcTelemostVp8Note')}
+        />
+      )}
       <FormField name={['settings', 'provider']} label={t('pages.inbounds.form.olcrtcProvider')}>
         <Select
           options={[
@@ -29,6 +45,7 @@ export default function OlcrtcFields() {
       </FormField>
       <FormField name={['settings', 'transport']} label={t('pages.inbounds.form.olcrtcTransport')}>
         <Select
+          disabled={provider === 'telemost'}
           options={[
             { value: 'datachannel', label: 'datachannel' },
             { value: 'vp8channel', label: 'vp8channel' },

@@ -768,7 +768,8 @@
         "qwdttRouteThroughXrayHint": "Send wdtt0/wdttraw0 packets into an Xray TUN via policy routing so egress follows routing rules / outbound. On by default. Off = binary MASQUERADE to the host NIC.",
         "qwdttRouteOutbound": "Outbound",
         "qwdttRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound or balancer tag.",
-        "qwdttRouteOutboundPlaceholder": "default / warp / …"
+        "qwdttRouteOutboundPlaceholder": "default / warp / …",
+        "olcrtcTelemostVp8Note": "Telemost requires vp8channel transport (auto-selected)."
       },
       "info": {
         "mode": "حالت",

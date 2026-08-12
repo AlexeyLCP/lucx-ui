@@ -51,6 +51,13 @@
 
 ## Что сделано
 
+## Hotfix olcRTC Telemost vp8channel (post lucx.109)
+
+**Корень (Vlad 195.133.32.18):** inbound telemost+datachannel → Validate fail → Instance Enabled:false → reconcile stop every tick; legacy Tunnels with other cryptoKey/vp8 thrash. ICE up, peers=0.
+
+**Фикс:** coerce telemost→vp8channel in normalizeOlcrtcSettings + OlcrtcInstanceFromInbound + FE; disable legacy settings on host.
+
+
 ## Релиз v3.6.0-lucx.109 — qWDTT routeThroughXray (default on)
 
 **Запрос:** направить qWDTT в Xray (каскад/routing), по умолчанию вкл.
