@@ -45,6 +45,10 @@ export function buildRowActionsMenu({ record, subEnable, t, isMobile, hasClients
     }
   } else {
     items.push({ key: 'showInfo', icon: <InfoCircleOutlined />, label: t('pages.inbounds.inboundInfo') });
+    // LUCX-HOOK: qWDTT/olcRTC — single share URI export (no clients).
+    if (record.protocol === 'qwdtt' || record.protocol === 'olcrtc') {
+      items.push({ key: 'export', icon: <ExportOutlined />, label: t('pages.inbounds.export') });
+    }
   }
   items.push({ key: 'clipboard', icon: <CopyOutlined />, label: t('pages.inbounds.exportInbound') });
   items.push({ key: 'resetTraffic', icon: <RetweetOutlined />, label: t('pages.inbounds.resetTraffic') });

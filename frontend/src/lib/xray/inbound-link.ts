@@ -1142,6 +1142,10 @@ export function genLink(input: GenLinkInput): string {
       });
     case 'mtproto':
       return genMtprotoLink({ inbound, address, port, clientSecret: client.secret ?? '' });
+    case 'qwdtt':
+      return genQwdttLink({ inbound, address, remark });
+    case 'olcrtc':
+      return genOlcrtcLink({ inbound, remark });
     default:
       return '';
   }
@@ -1240,8 +1244,90 @@ export function genInboundLinks(input: GenInboundLinksInput): string {
   if (inbound.protocol === 'awg') {
     return genAwgConfigs({ inbound, remark, hostOverride, fallbackHostname });
   }
+  // LUCX-HOOK: single-credential tunnel sidecars (no clients array).
+  if (inbound.protocol === 'qwdtt') {
+    return genQwdttLink({ inbound, address: addr, remark });
+  }
+  if (inbound.protocol === 'olcrtc') {
+    return genOlcrtcLink({ inbound, remark });
+  }
   // END LUCX-HOOK
   return '';
+}
+
+export interface GenQwdttLinkInput {
+  inbound: Inbound;
+  address?: string;
+  remark?: string;
+}
+
+// genQwdttLink builds qwdtt://config?... for the SpaceNeuroX Android client.
+// peer = settings.subHost, else address:dtlsPort (address from resolveAddr /
+// panel host). Empty password → ''.
+export function genQwdttLink(input: GenQwdttLinkInput): string {
+  if (input.inbound.protocol !== 'qwdtt') return '';
+  const s = input.inbound.settings as {
+    listenAddr?: string;
+    password?: string;
+    subHost?: string;
+    vkHashes?: string;
+    workers?: number;
+    clientPort?: number;
+    remark?: string;
+  };
+  const pass = (s.password ?? '').trim();
+  if (!pass) return '';
+  let peer = (s.subHost ?? '').trim();
+  if (!peer) {
+    const host = (input.address ?? '').trim();
+    if (!host) return '';
+    let dtlsPort = input.inbound.port || 56000;
+    const la = (s.listenAddr ?? '').trim();
+    if (la.includes(':')) {
+      const p = Number(la.slice(la.lastIndexOf(':') + 1));
+      if (Number.isFinite(p) && p > 0) dtlsPort = p;
+    }
+    peer = host.includes(':') && !host.startsWith('[') ? host : `${host}:${dtlsPort}`;
+  }
+  const name = (input.remark || s.remark || 'qWDTT').trim() || 'qWDTT';
+  const q = new URLSearchParams();
+  q.set('name', name);
+  q.set('peer', peer);
+  const hashes = (s.vkHashes ?? '').trim();
+  if (hashes) q.set('hashes', hashes);
+  q.set('workers', String(s.workers && s.workers > 0 ? s.workers : 16));
+  q.set('port', String(s.clientPort && s.clientPort > 0 ? s.clientPort : 9000));
+  q.set('pass', pass);
+  return `qwdtt://config?${q.toString()}`;
+}
+
+export interface GenOlcrtcLinkInput {
+  inbound: Inbound;
+  remark?: string;
+}
+
+// genOlcrtcLink builds olcrtc://provider?transport@room#key (single credential).
+export function genOlcrtcLink(input: GenOlcrtcLinkInput): string {
+  if (input.inbound.protocol !== 'olcrtc') return '';
+  const s = input.inbound.settings as {
+    provider?: string;
+    roomId?: string;
+    cryptoKey?: string;
+    transport?: string;
+    vp8Fps?: number;
+    vp8Batch?: number;
+  };
+  const room = (s.roomId ?? '').trim();
+  const key = (s.cryptoKey ?? '').trim();
+  if (!room || !key) return '';
+  const provider = (s.provider ?? 'jitsi').trim() || 'jitsi';
+  let transport = (s.transport ?? 'datachannel').trim() || 'datachannel';
+  if (transport === 'vp8channel') {
+    const fps = s.vp8Fps && s.vp8Fps > 0 ? s.vp8Fps : 60;
+    const batch = s.vp8Batch && s.vp8Batch > 0 ? s.vp8Batch : 64;
+    transport = `vp8channel<vp8-fps=${fps}&vp8-batch=${batch}>`;
+  }
+  return `olcrtc://${provider}?${transport}@${room}#${key}`;
 }
 
 // Per-peer wireguard fanout. Each peer gets its own link (or .conf

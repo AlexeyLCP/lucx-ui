@@ -17,10 +17,17 @@ const LINK_PROTOCOLS: ReadonlySet<string> = new Set([
   Protocols.SHADOWSOCKS,
   Protocols.HYSTERIA,
   Protocols.MTPROTO,
+  Protocols.QWDTT, // LUCX-HOOK: single-credential qwdtt://
+  Protocols.OLCRTC, // LUCX-HOOK: single-credential olcrtc://
 ]);
 
 export function hasShareLink(protocol: string): boolean {
   return LINK_PROTOCOLS.has(protocol);
+}
+
+// Single-credential tunnel sidecars: no clients to attach; one share URI.
+export function isSingleCredTunnel(protocol: string): boolean {
+  return protocol === Protocols.QWDTT || protocol === Protocols.OLCRTC;
 }
 
 function readHeader(headers: unknown, name: string): string {

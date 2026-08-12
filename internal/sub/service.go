@@ -848,12 +848,14 @@ func (s *SubService) genOlcrtcLink(inbound *model.Inbound) string {
 }
 
 // genQwdttLink returns the single qwdtt:// URI for the qWDTT inbound.
+// EnsureSubHost fills an empty peer from the host's outbound IPv4 so export
+// works for pre-lucx.108 rows that never stored subHost (no DB write here).
 func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
 	if !ok || !inbound.Enable {
 		return ""
 	}
-	return cfg.ClientURI()
+	return cfg.EnsureSubHost().ClientURI()
 }
 
 // genNaiveLink builds naive+https://user:pass@domain:port#email for a client

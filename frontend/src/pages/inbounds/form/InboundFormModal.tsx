@@ -488,8 +488,25 @@ export default function InboundFormModal({
             }],
           },
         });
-      } else if (next === Protocols.WIREGUARD || next === Protocols.TUNNEL) {
+      } else if (
+        next === Protocols.WIREGUARD
+        || next === Protocols.TUNNEL
+        // LUCX-HOOK: sidecars — no Xray stream; empty shell avoids leftover tcp from vless default.
+        || next === Protocols.AWG
+        || next === Protocols.MTPROTO
+        || next === Protocols.NAIVE
+        || next === Protocols.OLCRTC
+        || next === Protocols.QWDTT
+      ) {
         setV('streamSettings', { security: 'none' });
+        // LUCX-HOOK: qWDTT Port must match DTLS listen (backend also normalizes).
+        if (next === Protocols.QWDTT) {
+          setV('port', 56000);
+        }
+        if (next === Protocols.OLCRTC) {
+          setV('port', 0);
+        }
+        // END LUCX-HOOK
       } else {
         const current = getV('streamSettings') as { network?: string } | undefined;
         if (current?.network === 'hysteria' || !current?.network) {

@@ -51,6 +51,30 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.108 — qWDTT inbound: share URI + subHost + create UX
+
+**Репорт (VladufQa):** для qWDTT клиент не нужен — только inbound; «а он и не создаётся» (нет ссылки/QR/export; single-instance / пустой peer).
+
+**Корень:**
+1. `ClientURI` / sub требуют `subHost` — дефолт пустой → `qwdtt://` = "".
+2. FE `genInboundLinks` / `genLink` / `hasShareLink` / QR menu не знали qwdtt/olcrtc → export/QR/info пустые.
+3. Port-conflict на create шёл **до** normalize (random Port вместо DTLS 56000).
+4. Single-instance: второй inbound → ошибка без подсказки «edit existing».
+
+**Фикс:**
+1. `QwdttConfig.EnsureSubHost()` — outbound IPv4:DTLS если subHost пуст (save + ephemeral в `genQwdttLink`).
+2. FE: `genQwdttLink` / `genOlcrtcLink`; export/QR/info/row menu.
+3. AddInbound: normalize qWDTT **до** `checkPortConflict`; form switch → port 56000, streamless.
+4. Сообщение single-instance: edit/delete existing.
+
+**Тесты:** `go test ./internal/lucx/tunnel/ -run Qwdtt` PASS; vitest qwdtt-link + form PASS.
+
+**Файлы:** `qwdtt.go`+test, `inbound.go`, `sub/service.go`, `inbound-link.ts`, helpers/RowActions/InboundFormModal, tests, `config.go` lucx.108.
+
+`lucxVersion` → lucx.108.
+
+---
+
 ## Релиз v3.6.0-lucx.107 — Naive online + traffic (access_log best-effort)
 
 **Симптом:** Naive работает, трафик ходит, в Clients пользователь «неактивен», up/down = 0.

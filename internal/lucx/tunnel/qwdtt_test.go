@@ -76,6 +76,21 @@ func TestQwdttBuildArgs(t *testing.T) {
 	}
 }
 
+func TestQwdttEnsureSubHost(t *testing.T) {
+	cfg := DefaultQwdttConfig()
+	cfg.ListenAddr = "0.0.0.0:56000"
+	cfg.SubHost = "9.9.9.9:56000"
+	got := cfg.EnsureSubHost()
+	if got.SubHost != "9.9.9.9:56000" {
+		t.Fatalf("EnsureSubHost overwrote existing: %q", got.SubHost)
+	}
+	cfg.SubHost = ""
+	got = cfg.EnsureSubHost()
+	if got.SubHost != "" && !strings.HasSuffix(got.SubHost, ":56000") {
+		t.Fatalf("EnsureSubHost filled badly: %q", got.SubHost)
+	}
+}
+
 func TestQwdttClientURI(t *testing.T) {
 	cfg := DefaultQwdttConfig()
 	cfg.Password = "pass"

@@ -140,6 +140,40 @@ func (c QwdttConfig) EnsurePassword() (QwdttConfig, error) {
 	return c, nil
 }
 
+// EnsureSubHost fills SubHost with "<outboundIPv4>:<dtlsPort>" when empty so
+// ClientURI / subscription always have a peer after save. Dial-based probe
+// (no HTTP); fails open (leaves empty) when the host has no outbound route.
+func (c QwdttConfig) EnsureSubHost() QwdttConfig {
+	if strings.TrimSpace(c.SubHost) != "" {
+		return c
+	}
+	ip := detectOutboundIPv4()
+	if ip == "" {
+		return c
+	}
+	c.SubHost = net.JoinHostPort(ip, strconv.Itoa(c.publicDTLSPort()))
+	return c
+}
+
+// detectOutboundIPv4 returns the IPv4 the kernel would use for external
+// traffic (UDP dial to a public DNS, no packets needed beyond connect).
+func detectOutboundIPv4() string {
+	conn, err := net.Dial("udp4", "8.8.8.8:53")
+	if err != nil {
+		return ""
+	}
+	defer conn.Close()
+	addr, ok := conn.LocalAddr().(*net.UDPAddr)
+	if !ok || addr.IP == nil {
+		return ""
+	}
+	ip := addr.IP.To4()
+	if ip == nil || ip.IsLoopback() || ip.IsUnspecified() {
+		return ""
+	}
+	return ip.String()
+}
+
 // ResolveConfigDir returns the effective state directory.
 func (c QwdttConfig) ResolveConfigDir() string {
 	if d := strings.TrimSpace(c.ConfigDir); d != "" {

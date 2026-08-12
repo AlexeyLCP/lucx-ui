@@ -1071,7 +1071,7 @@ func (s *InboundService) checkQwdttSingle(ignoreId int) error {
 		return err
 	}
 	if n > 0 {
-		return common.NewError("qWDTT supports only one inbound (TUN + multi-port + root)")
+		return common.NewError("qWDTT supports only one inbound — edit or delete the existing qWDTT inbound (TUN + multi-port + root)")
 	}
 	return nil
 }
@@ -1094,7 +1094,10 @@ func (s *InboundService) normalizeOlcrtcSettings(inbound *model.Inbound) {
 	}
 }
 
-// normalizeQwdttSettings ensures password and syncs Port from listenAddr.
+// normalizeQwdttSettings ensures password + public peer (subHost) and syncs
+// Port from listenAddr. subHost is required for qwdtt:// ClientURI — without
+// it the inbound saves but export/QR/sub stay empty (tester report: "inbound
+// creates but nothing to share").
 func (s *InboundService) normalizeQwdttSettings(inbound *model.Inbound) {
 	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
 	if !ok {
@@ -1104,6 +1107,7 @@ func (s *InboundService) normalizeQwdttSettings(inbound *model.Inbound) {
 	if c2, err := cfg.EnsurePassword(); err == nil {
 		cfg = c2
 	}
+	cfg = cfg.EnsureSubHost()
 	if bs, err := json.MarshalIndent(cfg, "", "  "); err == nil {
 		inbound.Settings = string(bs)
 	}
@@ -1326,14 +1330,6 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		return inbound, false, err
 	}
 
-	conflict, err := s.checkPortConflict(inbound, 0)
-	if err != nil {
-		return inbound, false, err
-	}
-	if conflict != nil {
-		return inbound, false, common.NewError(conflict.String())
-	}
-
 	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound already owns
 	// (Pattern 1e kernel route conflict). New inbounds have no id to exclude.
 	if inbound.Protocol == model.AWG {
@@ -1341,7 +1337,10 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 			return inbound, false, err
 		}
 	}
-	// qWDTT is single-instance (TUN + multi-port + root).
+	// qWDTT is single-instance (TUN + multi-port + root). Normalize BEFORE
+	// port-conflict so DTLS listenAddr port (not the form's random Port)
+	// is what we check — otherwise create accepts a free random port then
+	// silently rebinds to 56000 which may already be taken.
 	if inbound.Protocol == model.Qwdtt {
 		if err := s.checkQwdttSingle(0); err != nil {
 			return inbound, false, err
@@ -1354,6 +1353,14 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		inbound.Port = 0
 	}
 	// END LUCX-HOOK
+
+	conflict, err := s.checkPortConflict(inbound, 0)
+	if err != nil {
+		return inbound, false, err
+	}
+	if conflict != nil {
+		return inbound, false, common.NewError(conflict.String())
+	}
 
 	inbound.Tag, err = s.resolveInboundTag(inbound, 0)
 	if err != nil {
