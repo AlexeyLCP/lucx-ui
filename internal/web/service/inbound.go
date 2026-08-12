@@ -1068,6 +1068,15 @@ func qwdttRoutesThroughXray(inbound *model.Inbound) bool {
 	return ok && cfg.RouteThroughXray
 }
 
+// olcrtcRoutesThroughXray reports whether olcRTC uses the SOCKS bridge.
+func olcrtcRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Olcrtc {
+		return false
+	}
+	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
+	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
+}
+
 // checkQwdttSingle rejects a second qWDTT inbound (ignoreId=0 on create).
 func (s *InboundService) checkQwdttSingle(ignoreId int) error {
 	db := database.GetDB()
@@ -1179,6 +1188,12 @@ func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSet
 // inbounds with routeThroughXray (same logic as mtproto).
 func (s *InboundService) normalizeNaiveXrayPort(inbound *model.Inbound, oldSettings string) error {
 	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Naive, "naive")
+}
+
+// normalizeOlcrtcXrayPort allocates/persists the SOCKS bridge port for olcRTC
+// (binary dials via socks: proxy_addr/port in YAML).
+func (s *InboundService) normalizeOlcrtcXrayPort(inbound *model.Inbound, oldSettings string) error {
+	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Olcrtc, "olcrtc")
 }
 
 func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSettings string, proto model.Protocol, label string) error {
@@ -1366,6 +1381,10 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		s.normalizeOlcrtcSettings(inbound)
 		// No listen port — avoid clashing with real TCP binds.
 		inbound.Port = 0
+		// SOCKS bridge port after settings coerce (default routeThroughXray=true).
+		if err := s.normalizeOlcrtcXrayPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
 	}
 	// END LUCX-HOOK
 
@@ -1580,7 +1599,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// runtime push above only (re)starts its sidecar. The egress bridge (SOCKS
 	// loopback for mtproto, TUN for AWG) lives in the generated config, so
 	// force a regen to wire it in.
-	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) || olcrtcRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -1673,7 +1692,7 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 		}
 	}
 	// Drop the egress bridge a routed mtproto or AWG inbound left in the config.
-	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) || naiveRoutesThroughXray(&ib) || qwdttRoutesThroughXray(&ib) {
+	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) || naiveRoutesThroughXray(&ib) || qwdttRoutesThroughXray(&ib) || olcrtcRoutesThroughXray(&ib) {
 		needRestart = true
 	}
 	return needRestart, nil
@@ -1760,7 +1779,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	// TUN) only in the generated config, so flipping enable in either
 	// direction must regenerate it — the runtime push below only touches the
 	// sidecar process, never Xray.
-	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound)
+	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) || olcrtcRoutesThroughXray(inbound)
 
 	needRestart := false
 	rt, push, _, perr := s.nodePushPlan(inbound)
@@ -1842,6 +1861,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	if inbound.Protocol == model.Olcrtc {
 		s.normalizeOlcrtcSettings(inbound)
 		inbound.Port = 0
+		if err := s.normalizeOlcrtcXrayPort(inbound, oldInbound.Settings); err != nil {
+			return inbound, false, err
+		}
 	}
 	// END LUCX-HOOK
 
@@ -1920,6 +1942,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	oldRoutedAwg := awgRoutesThroughXray(oldInbound)
 	oldRoutedNaive := naiveRoutesThroughXray(oldInbound)
 	oldRoutedQwdtt := qwdttRoutesThroughXray(oldInbound)
+	oldRoutedOlcrtc := olcrtcRoutesThroughXray(oldInbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
@@ -2137,7 +2160,8 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto ||
 			awgRoutesThroughXray(inbound) || oldRoutedAwg ||
 			naiveRoutesThroughXray(inbound) || oldRoutedNaive ||
-			qwdttRoutesThroughXray(inbound) || oldRoutedQwdtt {
+			qwdttRoutesThroughXray(inbound) || oldRoutedQwdtt ||
+			olcrtcRoutesThroughXray(inbound) || oldRoutedOlcrtc {
 			needRestart = true
 		}
 		return nil

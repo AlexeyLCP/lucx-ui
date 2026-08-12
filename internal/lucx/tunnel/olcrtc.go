@@ -40,16 +40,24 @@ type OlcrtcConfig struct {
 	VP8Fps   int  `json:"vp8Fps"`
 	VP8Batch int  `json:"vp8Batch"`
 	Debug    bool `json:"debug"`
+
+	// RouteThroughXray: dial egress via SOCKS bridge injected into Xray
+	// (native socks: block in olcrtc YAML). Default true.
+	RouteThroughXray bool   `json:"routeThroughXray"`
+	OutboundTag      string `json:"outboundTag"`
+	// RouteXrayPort is backend-owned loopback SOCKS port (0 when not routed).
+	RouteXrayPort int `json:"routeXrayPort"`
 }
 
 // DefaultOlcrtcConfig returns sensible defaults for a fresh olcRTC core.
 func DefaultOlcrtcConfig() OlcrtcConfig {
 	return OlcrtcConfig{
-		Provider:  "jitsi",
-		Transport: "datachannel",
-		DNS:       "8.8.8.8:53",
-		VP8Fps:    60,
-		VP8Batch:  64,
+		Provider:         "jitsi",
+		Transport:        "datachannel",
+		DNS:              "8.8.8.8:53",
+		VP8Fps:           60,
+		VP8Batch:         64,
+		RouteThroughXray: true,
 	}
 }
 
@@ -152,6 +160,15 @@ func (c OlcrtcConfig) RenderYAML(dataDir string) string {
 		b.WriteString("vp8:\n")
 		b.WriteString("  fps: " + strconv.Itoa(c.VP8Fps) + "\n")
 		b.WriteString("  batch_size: " + strconv.Itoa(c.VP8Batch) + "\n")
+	}
+	// Native SOCKS upstream (upstream olcrtc YAML). When routed, point at the
+	// panel-injected Xray loopback SOCKS bridge (noauth).
+	if c.RouteThroughXray && c.RouteXrayPort > 0 {
+		b.WriteString("socks:\n")
+		b.WriteString("  proxy_addr: \"127.0.0.1\"\n")
+		b.WriteString("  proxy_port: " + strconv.Itoa(c.RouteXrayPort) + "\n")
+		b.WriteString("  proxy_user: \"\"\n")
+		b.WriteString("  proxy_pass: \"\"\n")
 	}
 	b.WriteString("liveness:\n")
 	b.WriteString("  interval: 10s\n")

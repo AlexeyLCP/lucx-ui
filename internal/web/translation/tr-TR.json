@@ -769,7 +769,12 @@
         "qwdttRouteOutbound": "Outbound",
         "qwdttRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound or balancer tag.",
         "qwdttRouteOutboundPlaceholder": "default / warp / …",
-        "olcrtcTelemostVp8Note": "Telemost requires vp8channel transport (auto-selected)."
+        "olcrtcTelemostVp8Note": "Telemost requires vp8channel transport (auto-selected).",
+        "olcrtcRouteThroughXray": "Route through Xray",
+        "olcrtcRouteThroughXrayHint": "olcRTC dials destinations via a hidden loopback SOCKS bridge in Xray (native socks: YAML). Enables routing rules and outbound cascade. On by default.",
+        "olcrtcRouteOutbound": "Outbound",
+        "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Mod",

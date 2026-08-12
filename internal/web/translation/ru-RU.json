@@ -769,7 +769,12 @@
         "qwdttRouteOutbound": "Outbound",
         "qwdttRouteOutboundHint": "Пусто = общий котёл Xray. Иначе force-route на выбранный outbound/balancer.",
         "qwdttRouteOutboundPlaceholder": "default / warp / …",
-        "olcrtcTelemostVp8Note": "Telemost работает только с vp8channel (выбран автоматически)."
+        "olcrtcTelemostVp8Note": "Telemost работает только с vp8channel (выбран автоматически).",
+        "olcrtcRouteThroughXray": "Через Xray",
+        "olcrtcRouteThroughXrayHint": "olcRTC ходит в интернет через SOCKS-мост Xray (socks: в YAML). Routing rules и outbound/каскад. По умолчанию вкл.",
+        "olcrtcRouteOutbound": "Outbound",
+        "olcrtcRouteOutboundHint": "Пусто = общий котёл Xray. Иначе force-route на outbound/balancer.",
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Режим",

@@ -4,12 +4,15 @@ import { Input, InputNumber, Select, Switch, Alert } from 'antd';
 import { useFormContext, useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
+import { useOutboundTags } from '@/api/queries/useOutboundTags';
 
 export default function OlcrtcFields() {
   const { t } = useTranslation();
   const { control, setValue } = useFormContext();
   const transport = useWatch({ control, name: 'settings.transport' }) as string | undefined;
   const provider = useWatch({ control, name: 'settings.provider' }) as string | undefined;
+  const routeThroughXray = useWatch({ control, name: 'settings.routeThroughXray' }) as boolean | undefined;
+  const { data: outboundTags } = useOutboundTags();
 
   useEffect(() => {
     if (provider === 'telemost' && transport !== 'vp8channel') {
@@ -65,6 +68,28 @@ export default function OlcrtcFields() {
       <FormField name={['settings', 'dns']} label={t('pages.inbounds.form.olcrtcDns')}>
         <Input placeholder="8.8.8.8:53" />
       </FormField>
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.olcrtcRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.olcrtcRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.olcrtcRouteOutbound')}
+          tooltip={t('pages.inbounds.form.olcrtcRouteOutboundHint')}
+        >
+          <Select
+            allowClear
+            showSearch
+            options={(outboundTags || []).map((tag) => ({ value: tag, label: tag }))}
+            placeholder={t('pages.inbounds.form.olcrtcRouteOutboundPlaceholder')}
+          />
+        </FormField>
+      )}
       <FormField name={['settings', 'debug']} label={t('pages.inbounds.form.olcrtcDebug')} valueProp="checked">
         <Switch />
       </FormField>

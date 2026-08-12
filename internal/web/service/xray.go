@@ -403,6 +403,14 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		injectQwdttEgress(xrayConfig, inbound)
 	}
+	// olcRTC routeThroughXray: SOCKS bridge (binary socks: YAML → loopback SOCKS).
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.Olcrtc || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectOlcrtcEgress(xrayConfig, inbound)
+	}
 	// NaiveProxy: prefer inbound rows (mtproto pattern — tag = inbound.Tag).
 	// Fall back to legacy global lucxTunnel_naive settings until migrated.
 	naiveInboundSeen := false
@@ -908,6 +916,16 @@ func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 // the sniffed SNI/Host a routing-time hint — the dial target stays the IP the
 // client resolved, so egress behavior is unchanged.
 const awgEgressTunSniffing = `{"enabled":true,"destOverride":["http","tls","quic"],"routeOnly":true}`
+
+// injectOlcrtcEgress wires a routed olcRTC inbound as a loopback SOCKS bridge
+// (mirrors injectNaiveInboundEgress). The olcrtc YAML socks: block dials it.
+func injectOlcrtcEgress(cfg *xray.Config, inbound *model.Inbound) {
+	cfgO, ok := tunnel.OlcrtcConfigFromInbound(inbound)
+	if !ok || !cfgO.RouteThroughXray || cfgO.RouteXrayPort <= 0 || inbound.Tag == "" {
+		return
+	}
+	injectSocksEgress(cfg, inbound.Tag, cfgO.RouteXrayPort, cfgO.OutboundTag, "olcrtc egress")
+}
 
 // injectQwdttEgress wires a routed qWDTT inbound into Xray as a TUN bridge
 // (mirrors injectAwgEgress). Kernel ifaces wdtt0/wdttraw0 are policy-routed

@@ -51,6 +51,14 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.110 — olcRTC routeThroughXray (SOCKS, default on)
+
+**Запрос:** направить olcRTC в Xray.
+
+**Сделано:** нативный socks: в YAML olcrtc → loopback SOCKS bridge (как Naive). 
+outeThroughXray default true; outboundTag; injectOlcrtcEgress; needRestart; FE toggle. + telemost→vp8channel coerce.
+
+
 ## Hotfix olcRTC Telemost vp8channel (post lucx.109)
 
 **Корень (Vlad 195.133.32.18):** inbound telemost+datachannel → Validate fail → Instance Enabled:false → reconcile stop every tick; legacy Tunnels with other cryptoKey/vp8 thrash. ICE up, peers=0.
