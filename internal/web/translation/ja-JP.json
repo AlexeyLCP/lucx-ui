@@ -110,9 +110,7 @@
     "donate": "寄付",
     "hosts": "ホスト",
     "docs": "ドキュメント",
-    "openMenu": "メニューを開く",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "メニューを開く"},
   "pages": {
     "login": {
       "hello": "こんにちは",

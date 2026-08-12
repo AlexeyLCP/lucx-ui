@@ -110,9 +110,7 @@
     "donate": "تبرع",
     "hosts": "المضيفات",
     "docs": "التوثيق",
-    "openMenu": "فتح القائمة",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "فتح القائمة"},
   "pages": {
     "login": {
       "hello": "أهلا",

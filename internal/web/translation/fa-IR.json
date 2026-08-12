@@ -110,9 +110,7 @@
     "donate": "حمایت مالی",
     "hosts": "میزبان‌ها",
     "docs": "مستندات",
-    "openMenu": "باز کردن منو",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "باز کردن منو"},
   "pages": {
     "login": {
       "hello": "سلام",

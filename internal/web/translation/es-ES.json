@@ -110,9 +110,7 @@
     "donate": "Donar",
     "hosts": "Hosts",
     "docs": "Documentación",
-    "openMenu": "Abrir menú",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "Abrir menú"},
   "pages": {
     "login": {
       "hello": "Hola",

@@ -110,9 +110,7 @@
     "donate": "Quyên góp",
     "hosts": "Hosts",
     "docs": "Tài liệu",
-    "openMenu": "Mở menu",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "Mở menu"},
   "pages": {
     "login": {
       "hello": "Xin chào",

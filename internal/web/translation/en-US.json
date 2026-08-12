@@ -110,9 +110,7 @@
     "apiDocs": "API Docs",
     "donate": "Donate",
     "docs": "Documentation",
-    "openMenu": "Open menu",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "Open menu"},
   "pages": {
     "login": {
       "hello": "Hello",

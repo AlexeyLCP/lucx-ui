@@ -110,9 +110,7 @@
     "donate": "Bağış Yap",
     "hosts": "Host'lar",
     "docs": "Belgeler",
-    "openMenu": "Menüyü aç",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "Menüyü aç"},
   "pages": {
     "login": {
       "hello": "Merhaba",

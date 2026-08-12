@@ -110,9 +110,7 @@
     "donate": "Doar",
     "hosts": "Hosts",
     "docs": "Documentação",
-    "openMenu": "Abrir menu",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "Abrir menu"},
   "pages": {
     "login": {
       "hello": "Olá",

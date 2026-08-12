@@ -7,6 +7,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -141,7 +142,9 @@ func (s *ServerService) RebuildAwgModule() error {
 			awgRebuildMu.Unlock()
 		}()
 		logger.Info("awg: starting module rebuild via ", script)
-		cmd := exec.Command("bash", script, "--force-rebuild")
+		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "bash", script, "--force-rebuild")
 		cmd.Dir = filepath.Dir(script)
 		out, err := cmd.CombinedOutput()
 		if err != nil {

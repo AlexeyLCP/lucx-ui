@@ -110,9 +110,7 @@
     "donate": "Donasi",
     "hosts": "Host",
     "docs": "Dokumentasi",
-    "openMenu": "Buka menu",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "Buka menu"},
   "pages": {
     "login": {
       "hello": "Halo",

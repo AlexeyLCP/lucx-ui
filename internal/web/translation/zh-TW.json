@@ -110,9 +110,7 @@
     "donate": "捐贈",
     "hosts": "Hosts",
     "docs": "文件",
-    "openMenu": "開啟選單",
-    "tunnels": "Tunnel tools"
-  },
+    "openMenu": "開啟選單"},
   "pages": {
     "login": {
       "hello": "你好",
