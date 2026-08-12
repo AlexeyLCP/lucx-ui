@@ -763,7 +763,12 @@
         "qwdttListenDirect": "Listen direct",
         "qwdttClientPort": "Client local port",
         "qwdttWorkers": "Workers per hash",
-        "qwdttConfigDir": "State directory"
+        "qwdttConfigDir": "State directory",
+        "qwdttRouteThroughXray": "Route through Xray",
+        "qwdttRouteThroughXrayHint": "Send wdtt0/wdttraw0 packets into an Xray TUN via policy routing so egress follows routing rules / outbound. On by default. Off = binary MASQUERADE to the host NIC.",
+        "qwdttRouteOutbound": "Outbound",
+        "qwdttRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound or balancer tag.",
+        "qwdttRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Modo",

@@ -51,6 +51,23 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.109 — qWDTT routeThroughXray (default on)
+
+**Запрос:** направить qWDTT в Xray (каскад/routing), по умолчанию вкл.
+
+**Сделано:**
+1. `routeThroughXray` + `outboundTag` в QwdttConfig (default **true**; absent key → true).
+2. `injectQwdttEgress` — TUN `tun{id}` + gateway `10.253.N.1/30` + sniffing; optional force outbound.
+3. `ensureQwdttXrayRouting` — `iif wdtt0|wdttraw0 lookup 1900+N` → `default dev tunN`; strip binary MASQUERADE; post-Xray-restart + reconcile.
+4. needRestart на Add/Del/Update/Enable; FE Switch + outbound picker; i18n ×13.
+5. lucx.108 share/export fixes included (subHost, genQwdttLink, DialContext, info/QR).
+
+**Тесты:** tunnel package PASS (routing helpers + default true).
+
+`lucxVersion` → lucx.109.
+
+---
+
 ## Релиз v3.6.0-lucx.108 — qWDTT inbound: share URI + subHost + create UX
 
 **Репорт (VladufQa):** для qWDTT клиент не нужен — только inbound; «а он и не создаётся» (нет ссылки/QR/export; single-instance / пустой peer).

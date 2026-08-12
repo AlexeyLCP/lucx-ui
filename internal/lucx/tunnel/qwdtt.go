@@ -7,6 +7,7 @@
 package tunnel
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/json"
 	"errors"
@@ -52,17 +53,24 @@ type QwdttConfig struct {
 	ClientPort int `json:"clientPort"`
 	// Workers is workersPerHash in the client JSON profile. Default 16.
 	Workers int `json:"workers"`
+
+	// RouteThroughXray steers wdtt0/wdttraw0 into an Xray TUN inbound (policy
+	// routing) so egress uses Xray routing / outboundTag. Default true.
+	RouteThroughXray bool `json:"routeThroughXray"`
+	// OutboundTag optional force-route target (empty = Xray default kettle).
+	OutboundTag string `json:"outboundTag"`
 }
 
 // DefaultQwdttConfig returns sensible defaults for a fresh qWDTT core.
 func DefaultQwdttConfig() QwdttConfig {
 	return QwdttConfig{
-		ListenAddr: "0.0.0.0:56000",
-		WGPort:     56001,
-		DNS:        "8.8.8.8",
-		ListenRaw:  "0.0.0.0:56003",
-		ClientPort: 9000,
-		Workers:    16,
+		ListenAddr:       "0.0.0.0:56000",
+		WGPort:           56001,
+		DNS:              "8.8.8.8",
+		ListenRaw:        "0.0.0.0:56003",
+		ClientPort:       9000,
+		Workers:          16,
+		RouteThroughXray: true,
 	}
 }
 
@@ -158,7 +166,8 @@ func (c QwdttConfig) EnsureSubHost() QwdttConfig {
 // detectOutboundIPv4 returns the IPv4 the kernel would use for external
 // traffic (UDP dial to a public DNS, no packets needed beyond connect).
 func detectOutboundIPv4() string {
-	conn, err := net.Dial("udp4", "8.8.8.8:53")
+	d := net.Dialer{Timeout: 2 * time.Second}
+	conn, err := d.DialContext(context.Background(), "udp4", "8.8.8.8:53")
 	if err != nil {
 		return ""
 	}

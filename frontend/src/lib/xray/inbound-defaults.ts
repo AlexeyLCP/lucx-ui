@@ -275,6 +275,8 @@ export function createDefaultQwdttInboundSettings(): QwdttInboundSettings {
     vkHashes: '',
     clientPort: 9000,
     workers: 16,
+    routeThroughXray: true,
+    outboundTag: '',
   };
 }
 

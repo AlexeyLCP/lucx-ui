@@ -270,6 +270,10 @@ export default function InboundsPage() {
       fallbackHostname: preferPublicHost(window.location.hostname, subSettings.publicHost),
     };
     const content = genInboundLinks(genInput);
+    if (!content.trim()) {
+      messageApi.warning('No share link — set password and Public host:port (subHost)');
+      return;
+    }
     const tabs: TextModalTab[] | undefined = projected.isWireguard
       ? [
         { key: 'config', label: t('pages.clients.config'), content },
@@ -282,7 +286,7 @@ export default function InboundsPage() {
       fileName: projected.remark || 'inbound',
       tabs,
     });
-  }, [checkFallback, hostOverrideFor, subSettings.publicHost, openText, t]);
+  }, [checkFallback, hostOverrideFor, subSettings.publicHost, openText, t, messageApi]);
 
   const exportInboundClipboard = useCallback((dbInbound: DBInbound) => {
     openText({ title: t('pages.inbounds.inboundJsonTitle'), content: JSON.stringify(dbInbound, null, 2), json: true });

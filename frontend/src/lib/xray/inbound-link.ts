@@ -1186,7 +1186,8 @@ export function genAllLinks(input: GenAllLinksInput): GenAllLinksEntry[] {
   const externals = inbound.streamSettings?.externalProxy;
   if (!externals || externals.length === 0) {
     const r = composeRemark('');
-    return [{ remark: r, link: genLink({ inbound, address: addr, port, forceTls: 'same', remark: r, client }) }];
+    const link = genLink({ inbound, address: addr, port, forceTls: 'same', remark: r, client });
+    return link ? [{ remark: r, link }] : [];
   }
   return externals.map((ep) => {
     const r = composeRemark(ep.remark);

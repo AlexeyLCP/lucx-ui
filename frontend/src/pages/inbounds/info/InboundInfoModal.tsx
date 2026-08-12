@@ -23,6 +23,7 @@ import {
   downloadText,
   formatIpInfo,
   hasShareLink,
+  isSingleCredTunnel,
   statsColor,
 } from './helpers';
 import type { ClientSetting, ClientStats, InboundInfo, InboundInfoModalProps } from './types';
@@ -894,6 +895,24 @@ export default function InboundInfoModal({
             <div key={idx} className="link-panel">
               <div className="link-panel-header">
                 <Tag color="green">{link.remark || `Link ${idx + 1}`}</Tag>
+                <Tooltip title={t('copy')}>
+                  <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyText(link.link, t)} />
+                </Tooltip>
+              </div>
+              <code className="link-panel-text">{link.link}</code>
+            </div>
+          ))}
+        </>
+      )}
+
+      {/* LUCX-HOOK: qWDTT/olcRTC — no clients tab; share URI lives on inbound tab */}
+      {isSingleCredTunnel(dbInbound.protocol) && links.filter((l) => l.link).length > 0 && (
+        <>
+          <Divider>{t('pages.inbounds.copyLink')}</Divider>
+          {links.filter((l) => l.link).map((link, idx) => (
+            <div key={idx} className="link-panel">
+              <div className="link-panel-header">
+                <Tag color="green">{link.remark || dbInbound.protocol}</Tag>
                 <Tooltip title={t('copy')}>
                   <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyText(link.link, t)} />
                 </Tooltip>

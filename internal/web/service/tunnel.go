@@ -463,6 +463,9 @@ func (s *TunnelService) reconcileQwdttInbound() {
 		if ok {
 			if err := tunnel.GetManager().Ensure(inst); err != nil {
 				logger.Warning("tunnel: qwdtt inbound reconcile failed:", err)
+			} else if inst.RouteThroughXray {
+				// Re-pin wdtt0→tunN after Xray restart / rule drop (same role as AWG ensureXrayRouting).
+				tunnel.GetManager().EnsureQwdttRouting(inst)
 			}
 		}
 		return

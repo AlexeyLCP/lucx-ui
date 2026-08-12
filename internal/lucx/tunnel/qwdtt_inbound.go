@@ -27,6 +27,14 @@ func QwdttConfigFromInbound(ib *model.Inbound) (QwdttConfig, bool) {
 	cfg := DefaultQwdttConfig()
 	if raw := strings.TrimSpace(ib.Settings); raw != "" && raw != "{}" {
 		_ = json.Unmarshal([]byte(raw), &cfg)
+		// encoding/json zeroes bool when the key is absent — restore default true
+		// so pre-routeThroughXray rows and bare saves still egress via Xray.
+		var keys map[string]json.RawMessage
+		if json.Unmarshal([]byte(raw), &keys) == nil {
+			if _, ok := keys["routeThroughXray"]; !ok {
+				cfg.RouteThroughXray = true
+			}
+		}
 	}
 	if r := strings.TrimSpace(ib.Remark); r != "" && strings.TrimSpace(cfg.Remark) == "" {
 		cfg.Remark = r
@@ -66,13 +74,20 @@ func QwdttInstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 	if strings.TrimSpace(cfg.ConfigDir) == "" {
 		cfg.ConfigDir = dataDirFor(QwdttKey, Qwdtt)
 	}
-	return Instance{
+	inst := Instance{
 		Core:      Qwdtt,
 		Key:       QwdttKey,
 		Enabled:   true,
 		Args:      cfg.BuildArgs(),
 		ProbePort: 0,
-	}, true
+	}
+	if cfg.RouteThroughXray {
+		inst.RouteThroughXray = true
+		inst.TunName = QwdttTunName(ib.Id)
+		inst.RouteTable = QwdttRouteTable(ib.Id)
+		inst.RouteIfaces = []string{qwdttIfaceWG, qwdttIfaceRaw}
+	}
+	return inst, true
 }
 
 // QwdttDTLSPort returns the DTLS listen port from config (for inbound.Port).

@@ -395,6 +395,14 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		injectAwgEgress(xrayConfig, inbound)
 	}
+	// qWDTT routeThroughXray: TUN bridge (kernel IP from wdtt0 → Xray), same idea as AWG.
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.Qwdtt || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectQwdttEgress(xrayConfig, inbound)
+	}
 	// NaiveProxy: prefer inbound rows (mtproto pattern — tag = inbound.Tag).
 	// Fall back to legacy global lucxTunnel_naive settings until migrated.
 	naiveInboundSeen := false
@@ -900,6 +908,58 @@ func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 // the sniffed SNI/Host a routing-time hint — the dial target stays the IP the
 // client resolved, so egress behavior is unchanged.
 const awgEgressTunSniffing = `{"enabled":true,"destOverride":["http","tls","quic"],"routeOnly":true}`
+
+// injectQwdttEgress wires a routed qWDTT inbound into Xray as a TUN bridge
+// (mirrors injectAwgEgress). Kernel ifaces wdtt0/wdttraw0 are policy-routed
+// into this TUN by tunnel.ensureQwdttXrayRouting.
+func injectQwdttEgress(cfg *xray.Config, inbound *model.Inbound) {
+	cfgQ, ok := tunnel.QwdttConfigFromInbound(inbound)
+	if !ok || !cfgQ.RouteThroughXray || inbound.Tag == "" {
+		return
+	}
+	tag := inbound.Tag
+	for i := range cfg.InboundConfigs {
+		if cfg.InboundConfigs[i].Tag == tag {
+			logger.Warning("qwdtt egress: inbound tag [", tag, "] already present, skipping bridge")
+			return
+		}
+	}
+	if cfgQ.OutboundTag != "" {
+		routing := map[string]any{}
+		parseOK := true
+		if len(cfg.RouterConfig) > 0 {
+			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+				logger.Warning("qwdtt egress: routing unparsable, skipping rule:", err)
+				parseOK = false
+			}
+		}
+		if parseOK {
+			rules, _ := routing["rules"].([]any)
+			rule := map[string]any{
+				"type":       "field",
+				"inboundTag": []any{tag},
+			}
+			if routingTagIsBalancer(routing, cfgQ.OutboundTag) {
+				rule["balancerTag"] = cfgQ.OutboundTag
+			} else {
+				rule["outboundTag"] = cfgQ.OutboundTag
+			}
+			routing["rules"] = append([]any{rule}, rules...)
+			if newRouting, err := json.Marshal(routing); err == nil {
+				cfg.RouterConfig = json_util.RawMessage(newRouting)
+			}
+		}
+	}
+	tunName := tunnel.QwdttTunName(inbound.Id)
+	mtu := 1280
+	tunSettings := fmt.Sprintf(awgEgressTunSettingsFmt, tunName, mtu, tunnel.QwdttTunGateway(inbound.Id))
+	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
+		Protocol: "tun",
+		Settings: json_util.RawMessage(tunSettings),
+		Sniffing: json_util.RawMessage(awgEgressTunSniffing),
+		Tag:      tag,
+	})
+}
 
 // LUCX-HOOK: AWG outbound — inject one freedom outbound per enabled
 // awg_outbounds row so routing rules can send traffic through the upstream
@@ -1408,6 +1468,7 @@ func (s *XrayService) RestartXray(isForce bool) error {
 	// triggered a manual reconcile ahead of the cron). Restore it here,
 	// synchronously with the restart, so there is no window.
 	s.ensureAwgRouting()
+	s.ensureQwdttRouting()
 	// END LUCX-HOOK
 
 	return nil
@@ -1435,6 +1496,22 @@ func (s *XrayService) ensureAwgRouting() {
 	}
 	if len(desired) > 0 {
 		awg.GetManager().Reconcile(desired)
+	}
+}
+
+// ensureQwdttRouting restores wdtt0→tunN policy routes after Xray restart.
+func (s *XrayService) ensureQwdttRouting() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		return
+	}
+	for _, ib := range inbounds {
+		if ib.Protocol != model.Qwdtt || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		if inst, ok := tunnel.QwdttInstanceFromInbound(ib); ok && inst.RouteThroughXray {
+			tunnel.GetManager().EnsureQwdttRouting(inst)
+		}
 	}
 }
 

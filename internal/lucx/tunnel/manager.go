@@ -53,6 +53,15 @@ type Instance struct {
 	// ProbePort is the local TCP port used by the listening/responding
 	// health probes. Zero disables the probes (running status only).
 	ProbePort int
+
+	// RouteThroughXray (qWDTT): policy-route kernel TUN ifaces into an Xray
+	// TUN inbound instead of the binary's MASQUERADE. TunName / RouteTable /
+	// RouteIfaces are set only when true; Fingerprint includes them so a
+	// toggle restarts the process (NAT rebuild).
+	RouteThroughXray bool
+	TunName          string
+	RouteTable       int
+	RouteIfaces      []string
 }
 
 // ManageKey returns the manager map key for this instance.
@@ -69,7 +78,8 @@ func (inst Instance) Fingerprint() string {
 	sum := sha256.Sum256([]byte(
 		inst.ConfigText + "\x00" +
 			inst.ExtraArgs + "\x00" +
-			strings.Join(inst.Args, "\x00"),
+			strings.Join(inst.Args, "\x00") + "\x00" +
+			fmt.Sprintf("rtx=%v|tun=%s|tbl=%d", inst.RouteThroughXray, inst.TunName, inst.RouteTable),
 	))
 	return hex.EncodeToString(sum[:16])
 }
@@ -166,7 +176,30 @@ func (m *Manager) Ensure(inst Instance) error {
 		return err
 	}
 	mc.fp = fp
+	// qWDTT routeThroughXray: binary always installs MASQUERADE; override
+	// with policy routing once the process (and wdtt0) is up.
+	if inst.RouteThroughXray {
+		go ensureQwdttXrayRouting(inst)
+	}
 	return nil
+}
+
+// EnsureQwdttRouting re-applies policy routes for a running routed qWDTT
+// instance (reconcile cron + post-Xray-restart). No-op when not routed or
+// process down.
+func (m *Manager) EnsureQwdttRouting(inst Instance) {
+	if !inst.RouteThroughXray || !inst.Enabled {
+		return
+	}
+	m.mu.Lock()
+	running := false
+	if mc, ok := m.cores[inst.ManageKey()]; ok && mc.proc != nil && mc.proc.IsRunning() {
+		running = true
+	}
+	m.mu.Unlock()
+	if running {
+		ensureQwdttXrayRouting(inst)
+	}
 }
 
 // Remove stops and forgets a managed key (inbound delete). Config files are

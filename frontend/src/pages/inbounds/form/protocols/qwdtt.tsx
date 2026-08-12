@@ -1,10 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { Input, InputNumber, Alert } from 'antd';
+import { Input, InputNumber, Alert, Switch, Select } from 'antd';
+import { useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
+import { useOutboundTags } from '@/api/queries/useOutboundTags';
 
 export default function QwdttFields() {
   const { t } = useTranslation();
+  const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
+  const { data: outboundTags } = useOutboundTags();
   return (
     <>
       <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={t('pages.inbounds.form.qwdttRootNote')} />
@@ -27,6 +31,28 @@ export default function QwdttFields() {
       <FormField name={['settings', 'vkHashes']} label={t('pages.inbounds.form.qwdttVkHashes')} tooltip={t('pages.inbounds.form.qwdttVkHashesHint')}>
         <Input.TextArea rows={2} placeholder="hash1,hash2" />
       </FormField>
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.qwdttRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.qwdttRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.qwdttRouteOutbound')}
+          tooltip={t('pages.inbounds.form.qwdttRouteOutboundHint')}
+        >
+          <Select
+            allowClear
+            showSearch
+            options={(outboundTags || []).map((tag) => ({ value: tag, label: tag }))}
+            placeholder={t('pages.inbounds.form.qwdttRouteOutboundPlaceholder')}
+          />
+        </FormField>
+      )}
       <FormField name={['settings', 'listenRaw']} label={t('pages.inbounds.form.qwdttListenRaw')}>
         <Input placeholder="0.0.0.0:56003" />
       </FormField>

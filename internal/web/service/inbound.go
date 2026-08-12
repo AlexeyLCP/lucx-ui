@@ -1059,6 +1059,15 @@ func naiveRoutesThroughXray(inbound *model.Inbound) bool {
 	return parsed.RouteThroughXray
 }
 
+// qwdttRoutesThroughXray reports whether qWDTT uses the Xray TUN bridge.
+func qwdttRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Qwdtt {
+		return false
+	}
+	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
+	return ok && cfg.RouteThroughXray
+}
+
 // checkQwdttSingle rejects a second qWDTT inbound (ignoreId=0 on create).
 func (s *InboundService) checkQwdttSingle(ignoreId int) error {
 	db := database.GetDB()
@@ -1565,7 +1574,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// runtime push above only (re)starts its sidecar. The egress bridge (SOCKS
 	// loopback for mtproto, TUN for AWG) lives in the generated config, so
 	// force a regen to wire it in.
-	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -1658,7 +1667,7 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 		}
 	}
 	// Drop the egress bridge a routed mtproto or AWG inbound left in the config.
-	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) || naiveRoutesThroughXray(&ib) {
+	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) || naiveRoutesThroughXray(&ib) || qwdttRoutesThroughXray(&ib) {
 		needRestart = true
 	}
 	return needRestart, nil
@@ -1745,7 +1754,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	// TUN) only in the generated config, so flipping enable in either
 	// direction must regenerate it — the runtime push below only touches the
 	// sidecar process, never Xray.
-	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound)
+	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound)
 
 	needRestart := false
 	rt, push, _, perr := s.nodePushPlan(inbound)
@@ -1904,6 +1913,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	oldRoutedMtproto := mtprotoRoutesThroughXray(oldInbound)
 	oldRoutedAwg := awgRoutesThroughXray(oldInbound)
 	oldRoutedNaive := naiveRoutesThroughXray(oldInbound)
+	oldRoutedQwdtt := qwdttRoutesThroughXray(oldInbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
@@ -2120,7 +2130,8 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// the new settings.
 		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto ||
 			awgRoutesThroughXray(inbound) || oldRoutedAwg ||
-			naiveRoutesThroughXray(inbound) || oldRoutedNaive {
+			naiveRoutesThroughXray(inbound) || oldRoutedNaive ||
+			qwdttRoutesThroughXray(inbound) || oldRoutedQwdtt {
 			needRestart = true
 		}
 		return nil
