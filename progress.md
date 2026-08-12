@@ -51,6 +51,21 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.114 — multi-node deploy LucX-протоколов (AWG/tunnels)
+
+**Запрос:** в апстриме при создании inbound можно выбрать ноду; кастомные протоколы форка (AWG/naive/olcrtc/qwdtt) Deploy to не предлагали. Нужно (1) идентифицировать LucX на remote-ноде, (2) деплоить inbound только на поддерживающие ноды.
+
+**Сделано:**
+1. `GET /panel/api/lucx/hello` — identity/features/AWG status (`internal/web/controller/lucx.go` + `nodetype.LocalHello`).
+2. Probe/heartbeat: после status вызывает `DetectNodeTypeWithClient` (тот же TLS-клиент); 404→vanilla; ошибка→fallback `panelVersion` contains `lucx`. Persist `node_type` + `node_features` на `model.Node`; в list API — `nodeType` + `nodeFeatures[]`.
+3. FE: `NODE_ELIGIBLE` → `isProtocolNodeEligible` + `filterNodesForProtocol` (`node-protocol.ts`). AWG/naive/olcrtc/qwdtt — только LucX-ноды с feature; vless/… — все; transitive excluded. Subnet warning scoped by nodeId.
+4. BE guard `ensureNodeSupportsProtocol` в AddInbound; AWG subnet + qWDTT single — per host (node_id), outbound clash только local.
+5. Тесты nodetype + FE unit; openapi/codegen.
+
+`lucxVersion` → lucx.114.
+
+---
+
 ## Релиз v3.6.0-lucx.113 — qWDTT: без root-warning
 
 **Запрос:** убрать уведомление «Нужен root / CAP_NET_ADMIN (TUN + MASQUERADE)» — панель и так ставится под root по SSH.

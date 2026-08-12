@@ -95,6 +95,10 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// Routes live under /panel/api/tunnel/*.
 	a.tunnelController = NewTunnelController(api.Group("/tunnel"))
 	// END LUCX-HOOK
+	// LUCX-HOOK: LucX capability probe for multi-node deploy gating.
+	// Masters call GET /panel/api/lucx/hello on remotes to learn nodeType/features.
+	_ = NewLucxController(api.Group("/lucx"))
+	// END LUCX-HOOK
 
 	clients := api.Group("/clients")
 	NewClientController(clients)

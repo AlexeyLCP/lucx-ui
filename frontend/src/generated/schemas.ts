@@ -2587,6 +2587,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "integer"
       },
       "configDirty": {
+        "description": "END LUCX-HOOK",
         "example": false,
         "type": "boolean"
       },
@@ -2674,6 +2675,21 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": 2097152,
         "format": "int64",
         "type": "integer"
+      },
+      "nodeFeatures": {
+        "example": [
+          "awg",
+          "naive"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "nodeType": {
+        "description": "LUCX-HOOK: LucX capability for inbound deploy gating (from hello/probe).",
+        "example": "lucx",
+        "type": "string"
       },
       "onlineCount": {
         "example": 5,
@@ -2765,6 +2781,8 @@ export const SCHEMAS: Record<string, unknown> = {
       "name",
       "netDown",
       "netUp",
+      "nodeFeatures",
+      "nodeType",
       "onlineCount",
       "outboundTag",
       "panelVersion",

@@ -4,6 +4,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/nodetype"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 )
 
@@ -39,24 +40,39 @@ type NodeView struct {
 	LastError           string   `json:"lastError" example:""`
 	XrayState           string   `json:"xrayState" example:"running"`
 	XrayError           string   `json:"xrayError" example:""`
-	ConfigDirty         bool     `json:"configDirty" example:"false"`
-	ConfigDirtyAt       int64    `json:"configDirtyAt" example:"0"`
-	InboundCount        int      `json:"inboundCount" example:"3"`
-	ClientCount         int      `json:"clientCount" example:"25"`
-	OnlineCount         int      `json:"onlineCount" example:"5"`
-	ActiveCount         int      `json:"activeCount" example:"20"`
-	DisabledCount       int      `json:"disabledCount" example:"2"`
-	DepletedCount       int      `json:"depletedCount" example:"1"`
-	ParentGuid          string   `json:"parentGuid,omitempty" example:""`
-	Transitive          bool     `json:"transitive,omitempty" example:"false"`
-	CreatedAt           int64    `json:"createdAt" example:"1700000000"`
-	UpdatedAt           int64    `json:"updatedAt" example:"1700003600"`
+	// LUCX-HOOK: LucX capability for inbound deploy gating (from hello/probe).
+	NodeType     string   `json:"nodeType" example:"lucx"`
+	NodeFeatures []string `json:"nodeFeatures" example:"[\"awg\",\"naive\"]"`
+	// END LUCX-HOOK
+	ConfigDirty   bool   `json:"configDirty" example:"false"`
+	ConfigDirtyAt int64  `json:"configDirtyAt" example:"0"`
+	InboundCount  int    `json:"inboundCount" example:"3"`
+	ClientCount   int    `json:"clientCount" example:"25"`
+	OnlineCount   int    `json:"onlineCount" example:"5"`
+	ActiveCount   int    `json:"activeCount" example:"20"`
+	DisabledCount int    `json:"disabledCount" example:"2"`
+	DepletedCount int    `json:"depletedCount" example:"1"`
+	ParentGuid    string `json:"parentGuid,omitempty" example:""`
+	Transitive    bool   `json:"transitive,omitempty" example:"false"`
+	CreatedAt     int64  `json:"createdAt" example:"1700000000"`
+	UpdatedAt     int64  `json:"updatedAt" example:"1700003600"`
 }
 
 func toNodeView(n *model.Node) *NodeView {
 	if n == nil {
 		return nil
 	}
+	// LUCX-HOOK: surface LucX capability for the inbound deploy picker.
+	info := nodetype.FromJSON(n.Features)
+	nodeType := n.NodeType
+	if nodeType == "" {
+		nodeType = info.NodeType
+	}
+	features := info.Features
+	if nodeType == nodetype.TypeLucX && len(features) == 0 {
+		features = append([]string(nil), nodetype.DefaultLucXFeatures...)
+	}
+	// END LUCX-HOOK
 	return &NodeView{
 		Id:                  n.Id,
 		Name:                n.Name,
@@ -87,6 +103,8 @@ func toNodeView(n *model.Node) *NodeView {
 		LastError:           n.LastError,
 		XrayState:           n.XrayState,
 		XrayError:           n.XrayError,
+		NodeType:            nodeType,
+		NodeFeatures:        features,
 		ConfigDirty:         n.ConfigDirty,
 		ConfigDirtyAt:       n.ConfigDirtyAt,
 		InboundCount:        n.InboundCount,

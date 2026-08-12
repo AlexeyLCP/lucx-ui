@@ -377,6 +377,25 @@ export const sections: readonly Section[] = [
   },
   // END LUCX-HOOK
 
+  // LUCX-HOOK: LucX capability probe for multi-node deploy gating.
+  {
+    id: 'lucx',
+    title: 'LucX',
+    description:
+      'LucX-UI identity and capability surface. Masters probe remote nodes with GET /panel/api/lucx/hello to learn whether the node is a LucX fork (and which sidecar protocols it supports) before offering AWG/tunnel inbound deploy. Vanilla 3x-ui returns 404. LucX-UI only.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/panel/api/lucx/hello',
+        summary:
+          'Return this panel\'s LucX identity: panel version, supported feature tags (awg, mtproto, naive, olcrtc, qwdtt, cluster), AWG tools version, and whether the AmneziaWG kernel module is loaded / AWG3-capable. Used by a master panel during node heartbeat to gate LucX-only inbound deploy. Requires session or Bearer token.',
+        response:
+          '{\n  "success": true,\n  "obj": {\n    "version": "3.6.0-lucx.114",\n    "features": ["awg", "mtproto", "naive", "olcrtc", "qwdtt", "cluster"],\n    "awgVersion": "v3.0.20260730",\n    "mtprotoVersion": "",\n    "moduleLoaded": true,\n    "moduleAwg3": true\n  }\n}',
+      },
+    ],
+  },
+  // END LUCX-HOOK
+
   // LUCX-HOOK: tunnel sidecars (NaiveProxy, olcRTC) API documentation.
   // Self-contained section, same reasoning as awg-outbounds above. Routes
   // are registered in internal/web/controller/api.go and served by

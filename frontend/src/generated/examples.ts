@@ -645,6 +645,11 @@ export const EXAMPLES: Record<string, unknown> = {
     "name": "edge-1",
     "netDown": 1048576,
     "netUp": 2097152,
+    "nodeFeatures": [
+      "awg",
+      "naive"
+    ],
+    "nodeType": "lucx",
     "onlineCount": 5,
     "outboundTag": "direct",
     "panelVersion": "v3.x.x",

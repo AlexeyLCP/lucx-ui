@@ -93,6 +93,10 @@ import SniffingTab from './SniffingTab';
 import type { DBInbound } from '@/models/dbinbound';
 import { coerceInboundJsonField } from '@/models/dbinbound';
 import { maskSubnet, suggestFreeAwgAddress } from '@/lib/awg/subnet';
+import {
+  filterNodesForProtocol,
+  isProtocolNodeEligible,
+} from '@/lib/xray/node-protocol';
 import type { NodeRecord } from '@/api/queries/useNodesQuery';
 
 
@@ -110,14 +114,6 @@ const PROTOCOL_OPTIONS = Object.values(Protocols).map((p) => ({ value: p, label:
 const TRAFFIC_RESETS = ['never', 'hourly', 'daily', 'weekly', 'monthly'] as const;
 const SHARE_ADDR_STRATEGIES = ['node', 'listen', 'custom'] as const;
 const SHARE_ADDR_HOSTNAME_RE = /^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*$/;
-const NODE_ELIGIBLE_PROTOCOLS = new Set<string>([
-  Protocols.VLESS,
-  Protocols.VMESS,
-  Protocols.TROJAN,
-  Protocols.SHADOWSOCKS,
-  Protocols.HYSTERIA,
-  Protocols.WIREGUARD,
-]);
 
 function isValidShareAddrInput(value: string): boolean {
   const v = value.trim();
@@ -223,26 +219,37 @@ export default function InboundFormModal({
     addAllFallbacks,
   } = useInboundFallbacks(dbInbound, dbInbounds);
 
-  // LUCX-HOOK: AWG subnet-collision feed — the masked network prefixes of
-  // every OTHER enabled AWG inbound, so AwgFields can warn when the Address
-  // the operator types overlaps a sibling inbound (two connected routes for
-  // one prefix → reverse path to one inbound's clients egresses via the
-  // other). Filtered to AWG + other ids; invalid addresses are skipped.
+  const protocol = (useWatch({ control, name: 'protocol' }) ?? '') as string;
+  const wNodeId = useWatch({ control, name: 'nodeId' }) ?? null;
+  // LUCX-HOOK: AWG subnet-collision feed — masked prefixes of OTHER AWG
+  // inbounds on the SAME host (local or selected node). Different nodes are
+  // separate kernels; same subnet is fine across hosts.
   const otherAwgSubnets = useMemo(() => {
+    const targetNode = typeof wNodeId === 'number' ? wNodeId : null;
     return dbInbounds
-      .filter((ib) => ib.protocol === Protocols.AWG && ib.id !== dbInbound?.id)
+      .filter((ib) => {
+        if (ib.protocol !== Protocols.AWG || ib.id === dbInbound?.id) return false;
+        const ibNode = ib.nodeId ?? null;
+        return ibNode === targetNode;
+      })
       .map((ib) => maskSubnet(String(coerceInboundJsonField(ib.settings).address ?? '')))
       .filter((s): s is string => s !== null);
-  }, [dbInbounds, dbInbound?.id]);
+  }, [dbInbounds, dbInbound?.id, wNodeId]);
   // Ref mirror so the protocol-change subscription (created once per mode) reads
   // the current subnet list instead of a stale closure capture.
   const otherAwgSubnetsRef = useRef(otherAwgSubnets);
   otherAwgSubnetsRef.current = otherAwgSubnets;
   // END LUCX-HOOK
 
-  const selectableNodes = (availableNodes || []).filter((n) => n.enable);
-  const protocol = (useWatch({ control, name: 'protocol' }) ?? '') as string;
-  const isNodeEligible = NODE_ELIGIBLE_PROTOCOLS.has(protocol);
+  // LUCX-HOOK: LucX-only protocols (awg/naive/olcrtc/qwdtt) only list nodes
+  // that advertise the matching feature via /lucx/hello (or panelVersion lucx).
+  const availableNodesRef = useRef(availableNodes || []);
+  availableNodesRef.current = availableNodes || [];
+  const selectableNodes = useMemo(
+    () => filterNodesForProtocol(availableNodes || [], protocol),
+    [availableNodes, protocol],
+  );
+  const isNodeEligible = isProtocolNodeEligible(protocol);
   /*
    * The `node` share-address strategy only means something when the inbound can
    * actually live on a node — otherwise the node address it would resolve to is
@@ -275,7 +282,6 @@ export default function InboundFormModal({
   const wPort = useWatch({ control, name: 'port' });
   const wListen = (useWatch({ control, name: 'listen' }) ?? '') as string;
   const isUdsListen = wListen.startsWith('/') || wListen.startsWith('@');
-  const wNodeId = useWatch({ control, name: 'nodeId' }) ?? null;
   const shareAddrStrategy = useWatch({ control, name: 'shareAddrStrategy' }) ?? 'node';
   const wTag = (useWatch({ control, name: 'tag' }) ?? '') as string;
   const wSsNetwork = useWatch({ control, name: 'settings.network' });
@@ -446,6 +452,19 @@ export default function InboundFormModal({
     /* eslint-disable-next-line react-hooks/exhaustive-deps */
   }, [open, availableNodesFetched, protocol, nodeShareOptionAvailable, shareAddrStrategy]);
 
+  // LUCX-HOOK: drop a nodeId that the current protocol cannot deploy to
+  // (e.g. AWG selected after nodes loaded and only vanilla remotes exist).
+  useEffect(() => {
+    if (!open || mode === 'edit') return;
+    if (!availableNodesFetched || !protocol) return;
+    const cur = getV('nodeId') as number | null | undefined;
+    if (typeof cur !== 'number') return;
+    if (!selectableNodes.some((n) => n.id === cur)) {
+      setV('nodeId', null);
+    }
+    /* eslint-disable-next-line react-hooks/exhaustive-deps */
+  }, [open, mode, availableNodesFetched, protocol, selectableNodes]);
+
   /*
    * Protocol picker reset cascades through the form — clearing the settings DU
    * branch and dropping a nodeId that no longer applies. Only a real user
@@ -471,8 +490,14 @@ export default function InboundFormModal({
         setV('settings.address', suggestFreeAwgAddress(otherAwgSubnetsRef.current));
       }
       // END LUCX-HOOK
-      if (!NODE_ELIGIBLE_PROTOCOLS.has(next)) {
+      if (!isProtocolNodeEligible(next)) {
         setV('nodeId', null);
+      } else {
+        const cur = getV('nodeId') as number | null | undefined;
+        if (typeof cur === 'number') {
+          const stillOk = filterNodesForProtocol(availableNodesRef.current, next).some((n) => n.id === cur);
+          if (!stillOk) setV('nodeId', null);
+        }
       }
       if (next === Protocols.HYSTERIA) {
         setV('streamSettings', {

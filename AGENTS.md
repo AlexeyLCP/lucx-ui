@@ -219,7 +219,7 @@ Upstream rewrote the frontend from Vue to React + TypeScript + AntD v6 + Zod. AW
 
 ### 10. License
 
-LucX-UI components (`internal/awg/`, `internal/awg/cps/`, `internal/awg/signature/`, `internal/lucx/`, `internal/database/migrate_awg*.go`, `internal/web/controller/awg.go`, `internal/web/controller/awg_outbound.go`, `internal/web/controller/tunnel.go`, `internal/web/job/awg_job.go`, `internal/web/job/tunnel_job.go`, `internal/web/service/client_awg.go`, `internal/web/service/awg_outbound.go`, `internal/web/service/tunnel.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/schemas/tunnel.ts`, `frontend/src/api/tunnels.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`, `frontend/src/pages/tunnels/TunnelsPage.tsx`, `frontend/src/pages/clients/wireguardConfig.ts`, `bin/install-awg-module.sh`, `bin/check-lucx.sh`, `bin/pre-push`, `bin/build-release.sh`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author.
+LucX-UI components (`internal/awg/`, `internal/awg/cps/`, `internal/awg/signature/`, `internal/lucx/`, `internal/database/migrate_awg*.go`, `internal/web/controller/awg.go`, `internal/web/controller/awg_outbound.go`, `internal/web/controller/lucx.go`, `internal/web/controller/tunnel.go`, `internal/web/job/awg_job.go`, `internal/web/job/tunnel_job.go`, `internal/web/service/client_awg.go`, `internal/web/service/awg_outbound.go`, `internal/web/service/tunnel.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/schemas/tunnel.ts`, `frontend/src/api/tunnels.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`, `frontend/src/pages/tunnels/TunnelsPage.tsx`, `frontend/src/pages/clients/wireguardConfig.ts`, `bin/install-awg-module.sh`, `bin/check-lucx.sh`, `bin/pre-push`, `bin/build-release.sh`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author.
 
 Original 3x-ui code remains under GPL-3.0.
 
@@ -254,7 +254,7 @@ internal/awg/signature/            QUIC host capture (hoaxisr port)
 
 internal/lucx/                     Smart Cluster + tunnel sidecars
 ├── parser/                        SSH output → NodeCreds
-├── nodetype/                      LucX vs vanilla detection (MTProtoVersion)
+├── nodetype/                      LucX vs vanilla detection (GET /panel/api/lucx/hello + features gate)
 ├── outbound_link/                 Inbound → outbound config generator
 └── tunnel/                        Tunnel sidecars (NaiveProxy, olcRTC, qWDTT)
     ├── tunnel.go                  Name registry + binary/config/data paths
@@ -279,6 +279,7 @@ internal/web/
 ├── service/awg_outbound.go        AwgOutboundService — CRUD + parseConf + ActiveOutboundTags/ActiveOutboundAddresses (collision guard)
 ├── controller/awg.go              generateObfuscation + captureHost + awgDiagnostics API endpoints (LUCX-HOOK). HPK is intentionally NOT emitted (Known Issue #5).
 ├── controller/awg_outbound.go     AWG outbound CRUD + parseConf + test endpoints; RestartXray(true) on add/del/update/enable (hot-apply can't add freedom with sockopt.interface)
+├── controller/lucx.go             GET /panel/api/lucx/hello — LucX identity + features for multi-node deploy gating
 ├── service/tunnel.go              TunnelService — naive config persist (settings key lucxTunnel_naive), validations, TCP port cross-check vs inbounds, caddy adapt, binary download via temp file
 ├── controller/tunnel.go           /panel/api/tunnel/naive/* — status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary
 ├── job/tunnel_job.go              TunnelJob cron @every 10s — reconcile + Naive access_log traffic/online

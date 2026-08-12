@@ -20,6 +20,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/nodetype"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/netsafe"
@@ -49,6 +50,10 @@ type HeartbeatPatch struct {
 	// Xray core health on the node.
 	XrayState string
 	XrayError string
+	// LUCX-HOOK: LucX capability from /panel/api/lucx/hello (or version fallback).
+	NodeType string
+	Features string
+	// END LUCX-HOOK
 }
 
 type NodeService struct{}
@@ -830,6 +835,10 @@ func (s *NodeService) UpdateHeartbeat(id int, p HeartbeatPatch) error {
 		"last_error":     p.LastError,
 		"xray_state":     p.XrayState,
 		"xray_error":     p.XrayError,
+		// LUCX-HOOK: persist LucX capability for inbound deploy gating.
+		"node_type":     p.NodeType,
+		"node_features": p.Features,
+		// END LUCX-HOOK
 	}
 	// Only learn the GUID; never clear a known one if an old-build node (or a
 	// failed probe) reports none, so the stable identity survives blips.
@@ -1172,7 +1181,29 @@ func (s *NodeService) probe(ctx context.Context, n *model.Node, proxyURL string)
 	patch.UptimeSecs = o.Uptime
 	patch.NetUp = o.NetIO.Up
 	patch.NetDown = o.NetIO.Down
+	// LUCX-HOOK: learn LucX capability after a successful status probe so the
+	// inbound form can offer AWG/tunnel deploy only on supporting nodes.
+	s.fillNodeCapability(ctx, client, n, scheme, addr, &patch)
+	// END LUCX-HOOK
 	return patch, nil
+}
+
+// fillNodeCapability probes GET /panel/api/lucx/hello with the same TLS client
+// as status. 404 → vanilla; success → lucx+features; transport/decode errors
+// fall back to panelVersion containing "lucx" so older LucX nodes without the
+// hello route still receive LucX-only protocols during rollout.
+func (s *NodeService) fillNodeCapability(ctx context.Context, client *http.Client, n *model.Node, scheme, addr string, patch *HeartbeatPatch) {
+	baseURL := (&url.URL{
+		Scheme: scheme,
+		Host:   net.JoinHostPort(addr, strconv.Itoa(n.Port)),
+		Path:   strings.TrimSuffix(normalizeBasePath(n.BasePath), "/"),
+	}).String()
+	info, err := nodetype.DetectNodeTypeWithClient(ctx, client, baseURL, n.ApiToken)
+	if err != nil || info == nil {
+		info = nodetype.FromPanelVersion(patch.PanelVersion)
+	}
+	patch.NodeType = info.NodeType
+	patch.Features = info.ToJSON()
 }
 
 type ProbeResultUI struct {

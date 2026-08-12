@@ -153,7 +153,37 @@ func (a *NodeController) add(c *gin.Context) {
 			return
 		}
 	}
+	// LUCX-HOOK: persist LucX capability on first successful reachability so
+	// AWG/tunnel deploy is available immediately (not only after cron heartbeat).
+	a.refreshNodeCapability(c, view.Id)
+	if refreshed, gerr := a.nodeService.GetViewById(view.Id); gerr == nil {
+		view = refreshed
+	}
+	// END LUCX-HOOK
 	jsonMsgObj(c, I18nWeb(c, "pages.nodes.toasts.add"), view, nil)
+}
+
+// refreshNodeCapability probes the node and writes heartbeat fields including
+// LucX nodeType/features. Best-effort — failures leave capability empty until
+// the next scheduled heartbeat.
+func (a *NodeController) refreshNodeCapability(c *gin.Context, id int) {
+	if id <= 0 {
+		return
+	}
+	n, err := a.nodeService.GetById(id)
+	if err != nil {
+		return
+	}
+	ctx, cancel := context.WithTimeout(c.Request.Context(), 8*time.Second)
+	defer cancel()
+	patch, probeErr := a.nodeService.Probe(ctx, n)
+	if probeErr != nil {
+		patch.Status = "offline"
+		patch.LastError = probeErr.Error()
+	} else {
+		patch.Status = "online"
+	}
+	_ = a.nodeService.UpdateHeartbeat(id, patch)
 }
 
 func (a *NodeController) update(c *gin.Context) {

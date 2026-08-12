@@ -43,6 +43,9 @@ export const NodeRecordSchema = z.object({
   guid: z.string().optional(),
   parentGuid: z.string().optional(),
   transitive: z.boolean().optional(),
+  // LUCX-HOOK: LucX capability from /panel/api/lucx/hello (heartbeat).
+  nodeType: z.string().optional(),
+  nodeFeatures: z.array(z.string()).optional(),
 }).loose();
 
 export const NodeListSchema = z.array(NodeRecordSchema);

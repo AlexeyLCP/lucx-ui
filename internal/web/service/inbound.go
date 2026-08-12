@@ -20,6 +20,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/nodetype"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
@@ -1077,19 +1078,52 @@ func olcrtcRoutesThroughXray(inbound *model.Inbound) bool {
 	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
 }
 
-// checkQwdttSingle rejects a second qWDTT inbound (ignoreId=0 on create).
-func (s *InboundService) checkQwdttSingle(ignoreId int) error {
+// checkQwdttSingle rejects a second qWDTT inbound on the same host
+// (local panel or a given node). ignoreId=0 on create.
+func (s *InboundService) checkQwdttSingle(ignoreId int, nodeID *int) error {
 	db := database.GetDB()
 	var n int64
 	q := db.Model(&model.Inbound{}).Where("protocol = ?", model.Qwdtt)
 	if ignoreId > 0 {
 		q = q.Where("id <> ?", ignoreId)
 	}
+	if nodeID == nil {
+		q = q.Where("node_id IS NULL")
+	} else {
+		q = q.Where("node_id = ?", *nodeID)
+	}
 	if err := q.Count(&n).Error; err != nil {
 		return err
 	}
 	if n > 0 {
-		return common.NewError("qWDTT supports only one inbound — edit or delete the existing qWDTT inbound (TUN + multi-port + root)")
+		return common.NewError("qWDTT supports only one inbound per host — edit or delete the existing qWDTT inbound (TUN + multi-port + root)")
+	}
+	return nil
+}
+
+// ensureNodeSupportsProtocol rejects LucX-only protocols on vanilla/unknown
+// remote nodes. Local panel (NodeID nil) always allows LucX protocols.
+func (s *InboundService) ensureNodeSupportsProtocol(protocol model.Protocol, nodeID *int) error {
+	if nodeID == nil || *nodeID <= 0 {
+		return nil
+	}
+	proto := string(protocol)
+	if !nodetype.IsLucXOnlyProtocol(proto) {
+		return nil
+	}
+	n, err := (&NodeService{}).GetById(*nodeID)
+	if err != nil {
+		return common.NewError("node", *nodeID, "not found for LucX protocol", proto)
+	}
+	info := nodetype.FromJSON(n.Features)
+	if n.NodeType != "" {
+		info.NodeType = n.NodeType
+	}
+	if info.NodeType == "" {
+		info = nodetype.FromPanelVersion(n.PanelVersion)
+	}
+	if !info.SupportsProtocol(proto) {
+		return common.NewError("protocol", proto, "requires a LucX-UI node with feature", proto, "— node", n.Name, "is", info.NodeType)
 	}
 	return nil
 }
@@ -1268,15 +1302,13 @@ func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefi
 }
 
 // LUCX-HOOK: checkAwgSubnetConflict blocks an AWG inbound whose tunnel subnet
-// overlaps another AWG inbound's. Two awg interfaces on the same connected
-// subnet install duplicate kernel routes; the reverse path picks the wrong
-// interface and the second inbound's clients handshake but get no traffic
-// (Pattern 1e). ignoreId excludes the inbound being edited so a pre-existing
-// duplicate can still be saved as long as its subnet does not change. Returns
-// a descriptive error naming the conflicting inbound, or nil when the subnet is
-// unique. An empty or unparseable address is not an error here — other
-// validation owns malformed input.
-func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int) error {
+// overlaps another AWG inbound on the SAME host (local panel or the same node).
+// Two awg interfaces on one kernel with the same connected subnet install
+// duplicate routes; reverse path picks the wrong iface (Pattern 1e). Different
+// nodes are separate kernels — same subnet is fine. ignoreId excludes the
+// inbound being edited. Outbound clash applies only to local inbounds (outbounds
+// live on the master kernel). Empty/unparseable address is not an error here.
+func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, nodeID *int) error {
 	newAddr = strings.TrimSpace(newAddr)
 	if newAddr == "" {
 		return nil
@@ -1292,6 +1324,11 @@ func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int) er
 	q := db.Model(model.Inbound{}).Where("protocol = ?", model.AWG)
 	if ignoreId > 0 {
 		q = q.Where("id != ?", ignoreId)
+	}
+	if nodeID == nil {
+		q = q.Where("node_id IS NULL")
+	} else {
+		q = q.Where("node_id = ?", *nodeID)
 	}
 	if err := q.Find(&candidates).Error; err != nil {
 		return err
@@ -1315,16 +1352,13 @@ func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int) er
 		}
 	}
 
-	// Also reject a subnet an AWG outbound already occupies (lucx.64). An awgo-N
-	// interface takes its Address from the pasted provider conf — overwhelmingly
-	// a 10.8.0.0/24-style upstream WireGuard subnet — and awg-quick installs a
-	// connected route for it; an inbound on the same prefix dies exactly like the
-	// inbound-vs-inbound case above. Scan every outbound, disabled ones included,
-	// so re-enabling one later cannot silently resurrect the clash.
-	if outAddrs, oErr := (&AwgOutboundService{}).outboundAddresses(false); oErr == nil {
-		for _, oAddr := range outAddrs {
-			if oNet, clash := awgOutboundSubnetConflict(newNet, oAddr); clash {
-				return common.NewError("AWG subnet", newNet.String(), "conflicts with AWG outbound tunnel", oNet.String(), "— the upstream server's subnet overlaps this inbound's tunnel subnet")
+	// Outbounds are local to the master kernel — only local inbounds clash.
+	if nodeID == nil {
+		if outAddrs, oErr := (&AwgOutboundService{}).outboundAddresses(false); oErr == nil {
+			for _, oAddr := range outAddrs {
+				if oNet, clash := awgOutboundSubnetConflict(newNet, oAddr); clash {
+					return common.NewError("AWG subnet", newNet.String(), "conflicts with AWG outbound tunnel", oNet.String(), "— the upstream server's subnet overlaps this inbound's tunnel subnet")
+				}
 			}
 		}
 	}
@@ -1360,19 +1394,23 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		return inbound, false, err
 	}
 
-	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound already owns
-	// (Pattern 1e kernel route conflict). New inbounds have no id to exclude.
+	// LUCX-HOOK: LucX-only protocols may only deploy to LucX-capable nodes.
+	if err := s.ensureNodeSupportsProtocol(inbound.Protocol, inbound.NodeID); err != nil {
+		return inbound, false, err
+	}
+	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound on this host
+	// already owns (Pattern 1e kernel route conflict). New inbounds have no id.
 	if inbound.Protocol == model.AWG {
-		if err := s.checkAwgSubnetConflict(awgSettingsAddress(inbound.Settings), 0); err != nil {
+		if err := s.checkAwgSubnetConflict(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID); err != nil {
 			return inbound, false, err
 		}
 	}
-	// qWDTT is single-instance (TUN + multi-port + root). Normalize BEFORE
+	// qWDTT is single-instance per host (TUN + multi-port + root). Normalize BEFORE
 	// port-conflict so DTLS listenAddr port (not the form's random Port)
 	// is what we check — otherwise create accepts a free random port then
 	// silently rebinds to 56000 which may already be taken.
 	if inbound.Protocol == model.Qwdtt {
-		if err := s.checkQwdttSingle(0); err != nil {
+		if err := s.checkQwdttSingle(0, inbound.NodeID); err != nil {
 			return inbound, false, err
 		}
 		s.normalizeQwdttSettings(inbound)
@@ -1851,9 +1889,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// stays scoped to its own node (the payload's nodeId is unreliable, often absent).
 	inbound.NodeID = oldInbound.NodeID
 
-	// LUCX-HOOK: tunnel inbound normalize + qWDTT single-instance guard.
+	// LUCX-HOOK: tunnel inbound normalize + qWDTT single-instance guard (per host).
 	if inbound.Protocol == model.Qwdtt {
-		if err := s.checkQwdttSingle(inbound.Id); err != nil {
+		if err := s.checkQwdttSingle(inbound.Id, inbound.NodeID); err != nil {
 			return inbound, false, err
 		}
 		s.normalizeQwdttSettings(inbound)
@@ -1893,7 +1931,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 		}
 		if subnetChanged {
-			if err := s.checkAwgSubnetConflict(newAddr, inbound.Id); err != nil {
+			if err := s.checkAwgSubnetConflict(newAddr, inbound.Id, inbound.NodeID); err != nil {
 				return inbound, false, err
 			}
 		}

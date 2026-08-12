@@ -657,6 +657,8 @@ export const NodeViewSchema = z.object({
   name: z.string(),
   netDown: z.number().int(),
   netUp: z.number().int(),
+  nodeFeatures: z.array(z.string()),
+  nodeType: z.string(),
   onlineCount: z.number().int(),
   outboundTag: z.string(),
   panelVersion: z.string(),

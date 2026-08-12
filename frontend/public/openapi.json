@@ -2613,6 +2613,7 @@
             "type": "integer"
           },
           "configDirty": {
+            "description": "END LUCX-HOOK",
             "example": false,
             "type": "boolean"
           },
@@ -2700,6 +2701,21 @@
             "example": 2097152,
             "format": "int64",
             "type": "integer"
+          },
+          "nodeFeatures": {
+            "example": [
+              "awg",
+              "naive"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "nodeType": {
+            "description": "LUCX-HOOK: LucX capability for inbound deploy gating (from hello/probe).",
+            "example": "lucx",
+            "type": "string"
           },
           "onlineCount": {
             "example": 5,
@@ -2791,6 +2807,8 @@
           "name",
           "netDown",
           "netUp",
+          "nodeFeatures",
+          "nodeType",
           "onlineCount",
           "outboundTag",
           "panelVersion",
@@ -3084,6 +3102,10 @@
     {
       "name": "AWG Outbounds",
       "description": "Manage client-mode AmneziaWG outbounds — connections from this panel out to an upstream AmneziaWG server (the mirror image of an AWG inbound, which accepts clients). Each row owns a kernel interface named awgo-{id}: the reconcile job converges it with the DB row every 10 seconds, and a freedom outbound bound to that interface via sockopt.interface is injected into the generated Xray config, so routing rules and balancers can send traffic through the upstream VPN. Every mutating endpoint force-restarts Xray rather than hot-applying, because a hot-applied config silently kept stale sockopt-bound outbounds in live testing — and an outbound pointing at a missing interface falls back to the default route, bypassing the VPN. All endpoints live under /panel/api/awg-outbounds and require a logged-in session or Bearer token. LucX-UI only."
+    },
+    {
+      "name": "LucX",
+      "description": "LucX-UI identity and capability surface. Masters probe remote nodes with GET /panel/api/lucx/hello to learn whether the node is a LucX fork (and which sidecar protocols it supports) before offering AWG/tunnel inbound deploy. Vanilla 3x-ui returns 404. LucX-UI only."
     },
     {
       "name": "Tunnel tools",
@@ -4871,6 +4893,54 @@
                 "example": {
                   "success": false,
                   "msg": "awg-outbound: parse failed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/lucx/hello": {
+      "get": {
+        "tags": [
+          "LucX"
+        ],
+        "summary": "Return this panel's LucX identity: panel version, supported feature tags (awg, mtproto, naive, olcrtc, qwdtt, cluster), AWG tools version, and whether the AmneziaWG kernel module is loaded / AWG3-capable. Used by a master panel during node heartbeat to gate LucX-only inbound deploy. Requires session or Bearer token.",
+        "operationId": "get_panel_api_lucx_hello",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "version": "3.6.0-lucx.114",
+                    "features": [
+                      "awg",
+                      "mtproto",
+                      "naive",
+                      "olcrtc",
+                      "qwdtt",
+                      "cluster"
+                    ],
+                    "awgVersion": "v3.0.20260730",
+                    "mtprotoVersion": "",
+                    "moduleLoaded": true,
+                    "moduleAwg3": true
+                  }
                 }
               }
             }
@@ -10243,6 +10313,11 @@
                       "name": "edge-1",
                       "netDown": 1048576,
                       "netUp": 2097152,
+                      "nodeFeatures": [
+                        "awg",
+                        "naive"
+                      ],
+                      "nodeType": "lucx",
                       "onlineCount": 5,
                       "outboundTag": "direct",
                       "panelVersion": "v3.x.x",
@@ -10414,6 +10489,11 @@
                     "name": "edge-1",
                     "netDown": 1048576,
                     "netUp": 2097152,
+                    "nodeFeatures": [
+                      "awg",
+                      "naive"
+                    ],
+                    "nodeType": "lucx",
                     "onlineCount": 5,
                     "outboundTag": "direct",
                     "panelVersion": "v3.x.x",
@@ -10564,6 +10644,11 @@
                     "name": "edge-1",
                     "netDown": 1048576,
                     "netUp": 2097152,
+                    "nodeFeatures": [
+                      "awg",
+                      "naive"
+                    ],
+                    "nodeType": "lucx",
                     "onlineCount": 5,
                     "outboundTag": "direct",
                     "panelVersion": "v3.x.x",

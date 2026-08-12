@@ -38,6 +38,7 @@ mapfile -t PKG_FILES < <(find internal/awg internal/lucx -name '*.go' 2>/dev/nul
 EXTRA_FILES=(
     internal/web/service/tunnel.go
     internal/web/controller/tunnel.go
+    internal/web/controller/lucx.go
     internal/web/job/tunnel_job.go
 )
 

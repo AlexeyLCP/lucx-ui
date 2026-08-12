@@ -29,7 +29,7 @@ func TestDetectNodeType_LucX(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if info.NodeType != "lucx" {
+	if info.NodeType != TypeLucX {
 		t.Errorf("expected 'lucx', got '%s'", info.NodeType)
 	}
 	if len(info.Features) != 4 {
@@ -41,6 +41,12 @@ func TestDetectNodeType_LucX(t *testing.T) {
 	if info.MTProtoVersion != "1.2.3" {
 		t.Errorf("expected mtprotoVersion '1.2.3', got '%s'", info.MTProtoVersion)
 	}
+	if !info.HasFeature("awg") {
+		t.Error("expected HasFeature(awg)")
+	}
+	if !info.SupportsProtocol("awg") {
+		t.Error("expected SupportsProtocol(awg)")
+	}
 }
 
 func TestDetectNodeType_Vanilla(t *testing.T) {
@@ -49,12 +55,21 @@ func TestDetectNodeType_Vanilla(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	info, err := DetectNodeType(context.Background(), srv.URL, "test-token")
+	info, err := DetectNodeType(context.Background(), srv.URL, "token")
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if info.NodeType != "vanilla" {
+	if info.NodeType != TypeVanilla {
 		t.Errorf("expected 'vanilla', got '%s'", info.NodeType)
+	}
+	if info.HasFeature("awg") {
+		t.Error("vanilla must not claim awg")
+	}
+	if info.SupportsProtocol("awg") {
+		t.Error("vanilla must not support awg")
+	}
+	if !info.SupportsProtocol("vless") {
+		t.Error("vanilla should allow non-lucx protocols via SupportsProtocol")
 	}
 }
 
@@ -65,5 +80,63 @@ func TestDetectNodeType_ConnectionRefused(t *testing.T) {
 	}
 	if info != nil {
 		t.Error("expected nil info on error")
+	}
+}
+
+func TestDetectNodeType_TrailingSlashBase(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/panel/api/lucx/hello" {
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusOK)
+			w.Write([]byte(`{"success":true,"obj":{"version":"x","features":["awg"]}}`))
+			return
+		}
+		w.WriteHeader(http.StatusNotFound)
+	}))
+	defer srv.Close()
+
+	info, err := DetectNodeType(context.Background(), srv.URL+"/", "t")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if info.NodeType != TypeLucX {
+		t.Fatalf("got %s", info.NodeType)
+	}
+}
+
+func TestFromPanelVersion(t *testing.T) {
+	if FromPanelVersion("3.6.0-lucx.113").NodeType != TypeLucX {
+		t.Fatal("lucx suffix")
+	}
+	if FromPanelVersion("3.6.0").NodeType != TypeVanilla {
+		t.Fatal("vanilla")
+	}
+}
+
+func TestToJSONFromJSON_RoundTrip(t *testing.T) {
+	orig := &NodeInfo{
+		NodeType:   TypeLucX,
+		Features:   []string{"awg", "naive"},
+		AWGVersion: "v3",
+		Version:    "3.6.0-lucx.1",
+	}
+	got := FromJSON(orig.ToJSON())
+	if got.NodeType != TypeLucX {
+		t.Fatalf("type %s", got.NodeType)
+	}
+	if !got.HasFeature("awg") || !got.HasFeature("naive") {
+		t.Fatalf("features %#v", got.Features)
+	}
+	if FromJSON("").NodeType != TypeVanilla {
+		t.Fatal("empty")
+	}
+}
+
+func TestIsLucXOnlyProtocol(t *testing.T) {
+	if !IsLucXOnlyProtocol("awg") || !IsLucXOnlyProtocol("NAIVE") {
+		t.Fatal("expected lucx-only")
+	}
+	if IsLucXOnlyProtocol("vless") || IsLucXOnlyProtocol("mtproto") {
+		t.Fatal("vless/mtproto are not lucx-only")
 	}
 }

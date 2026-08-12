@@ -615,6 +615,8 @@ export interface NodeView {
   name: string;
   netDown: number;
   netUp: number;
+  nodeFeatures: string[];
+  nodeType: string;
   onlineCount: number;
   outboundTag: string;
   panelVersion: string;

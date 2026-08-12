@@ -877,6 +877,14 @@ type Node struct {
 	XrayState string `json:"xrayState" gorm:"column:xray_state"`
 	XrayError string `json:"xrayError" gorm:"column:xray_error"`
 
+	// LUCX-HOOK: LucX capability learned from GET /panel/api/lucx/hello (or
+	// panelVersion fallback). nodeType is "lucx"|"vanilla"|""; Features is the
+	// nodetype.NodeInfo JSON blob. API exposes them via NodeView (nodeType +
+	// nodeFeatures[]), not the raw model fields.
+	NodeType string `json:"-" gorm:"column:node_type;default:''"`
+	Features string `json:"-" gorm:"column:node_features"`
+	// END LUCX-HOOK
+
 	ConfigDirty   bool  `json:"configDirty" gorm:"default:false"`
 	ConfigDirtyAt int64 `json:"configDirtyAt"`
 

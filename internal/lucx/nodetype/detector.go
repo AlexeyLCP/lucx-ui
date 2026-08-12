@@ -11,15 +11,38 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"slices"
+	"strings"
 	"time"
 )
 
-// NodeInfo holds the result of node type detection.
+const (
+	TypeLucX    = "lucx"
+	TypeVanilla = "vanilla"
+)
+
+var DefaultLucXFeatures = []string{
+	"awg",
+	"mtproto",
+	"naive",
+	"olcrtc",
+	"qwdtt",
+	"cluster",
+}
+
+var LucXOnlyProtocols = map[string]bool{
+	"awg":    true,
+	"naive":  true,
+	"olcrtc": true,
+	"qwdtt":  true,
+}
+
 type NodeInfo struct {
 	NodeType       string   `json:"nodeType"`
 	Features       []string `json:"features"`
 	AWGVersion     string   `json:"awgVersion"`
 	MTProtoVersion string   `json:"mtprotoVersion"`
+	Version        string   `json:"version,omitempty"`
 }
 
 type lucxHelloResponse struct {
@@ -32,19 +55,58 @@ type lucxHelloResponse struct {
 	} `json:"obj"`
 }
 
-// DetectNodeType probes a remote node to determine if it runs LucX-UI or vanilla 3x-ui.
-// baseURL should be the panel URL (e.g., "https://5.9.1.2:2053/myBasePath").
-func DetectNodeType(ctx context.Context, baseURL string, apiToken string) (*NodeInfo, error) {
-	url := baseURL + "/panel/api/lucx/hello"
+func IsLucXOnlyProtocol(protocol string) bool {
+	return LucXOnlyProtocols[strings.ToLower(strings.TrimSpace(protocol))]
+}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+func (n *NodeInfo) HasFeature(feature string) bool {
+	if n == nil || n.NodeType != TypeLucX {
+		return false
+	}
+	feature = strings.ToLower(strings.TrimSpace(feature))
+	if feature == "" {
+		return false
+	}
+	if len(n.Features) == 0 {
+		return true
+	}
+	for _, f := range n.Features {
+		if strings.EqualFold(f, feature) {
+			return true
+		}
+	}
+	return false
+}
+
+func (n *NodeInfo) SupportsProtocol(protocol string) bool {
+	if !IsLucXOnlyProtocol(protocol) {
+		return true
+	}
+	return n.HasFeature(protocol)
+}
+
+func HelloURL(baseURL string) string {
+	return strings.TrimRight(strings.TrimSpace(baseURL), "/") + "/panel/api/lucx/hello"
+}
+
+func DetectNodeType(ctx context.Context, baseURL string, apiToken string) (*NodeInfo, error) {
+	client := &http.Client{Timeout: 6 * time.Second}
+	return DetectNodeTypeWithClient(ctx, client, baseURL, apiToken)
+}
+
+func DetectNodeTypeWithClient(ctx context.Context, client *http.Client, baseURL string, apiToken string) (*NodeInfo, error) {
+	if client == nil {
+		client = &http.Client{Timeout: 6 * time.Second}
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, HelloURL(baseURL), nil)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}
-	req.Header.Set("Authorization", "Bearer "+apiToken)
+	if apiToken != "" {
+		req.Header.Set("Authorization", "Bearer "+apiToken)
+	}
 	req.Header.Set("Accept", "application/json")
 
-	client := &http.Client{Timeout: 6 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("request failed: %w", err)
@@ -52,7 +114,7 @@ func DetectNodeType(ctx context.Context, baseURL string, apiToken string) (*Node
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusNotFound {
-		return &NodeInfo{NodeType: "vanilla"}, nil
+		return &NodeInfo{NodeType: TypeVanilla}, nil
 	}
 
 	if resp.StatusCode != http.StatusOK {
@@ -68,40 +130,71 @@ func DetectNodeType(ctx context.Context, baseURL string, apiToken string) (*Node
 		return nil, fmt.Errorf("lucx/hello returned success=false")
 	}
 
+	features := hello.Obj.Features
+	if len(features) == 0 {
+		features = slices.Clone(DefaultLucXFeatures)
+	}
+
 	return &NodeInfo{
-		NodeType:       "lucx",
-		Features:       hello.Obj.Features,
+		NodeType:       TypeLucX,
+		Features:       features,
 		AWGVersion:     hello.Obj.AWGVersion,
 		MTProtoVersion: hello.Obj.MTProtoVersion,
+		Version:        hello.Obj.Version,
 	}, nil
 }
 
-// ToJSON marshals NodeInfo to a JSON string for storage in NodeFeatures.
+func FromPanelVersion(panelVersion string) *NodeInfo {
+	if strings.Contains(strings.ToLower(panelVersion), "lucx") {
+		return &NodeInfo{
+			NodeType: TypeLucX,
+			Features: slices.Clone(DefaultLucXFeatures),
+			Version:  panelVersion,
+		}
+	}
+	return &NodeInfo{NodeType: TypeVanilla}
+}
+
 func (n *NodeInfo) ToJSON() string {
+	if n == nil {
+		return ""
+	}
 	type featuresJSON struct {
+		NodeType       string   `json:"nodeType"`
 		Features       []string `json:"features"`
-		AWGVersion     string   `json:"awgVersion"`
-		MTProtoVersion string   `json:"mtprotoVersion"`
+		AWGVersion     string   `json:"awgVersion,omitempty"`
+		MTProtoVersion string   `json:"mtprotoVersion,omitempty"`
+		Version        string   `json:"version,omitempty"`
 	}
 	f := featuresJSON{
+		NodeType:       n.NodeType,
 		Features:       n.Features,
 		AWGVersion:     n.AWGVersion,
 		MTProtoVersion: n.MTProtoVersion,
+		Version:        n.Version,
 	}
-	b, _ := json.Marshal(f)
+	if f.NodeType == "" {
+		f.NodeType = TypeVanilla
+	}
+	b, err := json.Marshal(f)
+	if err != nil {
+		return ""
+	}
 	return string(b)
 }
 
-// FromJSON parses a NodeFeatures JSON string back into NodeInfo.
 func FromJSON(s string) *NodeInfo {
+	info := &NodeInfo{NodeType: TypeVanilla}
+	s = strings.TrimSpace(s)
+	if s == "" || s == "{}" {
+		return info
+	}
 	type featuresJSON struct {
+		NodeType       string   `json:"nodeType"`
 		Features       []string `json:"features"`
 		AWGVersion     string   `json:"awgVersion"`
 		MTProtoVersion string   `json:"mtprotoVersion"`
-	}
-	info := &NodeInfo{NodeType: "vanilla"}
-	if s == "" || s == "{}" {
-		return info
+		Version        string   `json:"version"`
 	}
 	var f featuresJSON
 	if err := json.Unmarshal([]byte(s), &f); err != nil {
@@ -110,6 +203,18 @@ func FromJSON(s string) *NodeInfo {
 	info.Features = f.Features
 	info.AWGVersion = f.AWGVersion
 	info.MTProtoVersion = f.MTProtoVersion
-	info.NodeType = "lucx"
+	info.Version = f.Version
+	switch strings.ToLower(strings.TrimSpace(f.NodeType)) {
+	case TypeLucX:
+		info.NodeType = TypeLucX
+	case TypeVanilla, "":
+		if len(f.Features) > 0 {
+			info.NodeType = TypeLucX
+		} else {
+			info.NodeType = TypeVanilla
+		}
+	default:
+		info.NodeType = TypeVanilla
+	}
 	return info
 }
