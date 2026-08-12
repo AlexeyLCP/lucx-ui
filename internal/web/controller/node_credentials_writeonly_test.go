@@ -70,14 +70,19 @@ func TestNodeControllerAddAcceptsTokenButReturnsView(t *testing.T) {
 	engine := newNodeCredentialTestEngine(t)
 
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/panel/api/server/status" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
 		if got := r.Header.Get("Authorization"); got != "Bearer input-secret-token" {
 			t.Fatalf("Authorization = %q", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"success":true,"obj":{"cpu":1,"mem":{"current":1,"total":2},"xray":{"version":"1","state":"running"},"panelVersion":"v3.4.1","panelGuid":"guid","uptime":7,"netIO":{"up":3,"down":4}}}`))
+		switch r.URL.Path {
+		case "/panel/api/server/status":
+			_, _ = w.Write([]byte(`{"success":true,"obj":{"cpu":1,"mem":{"current":1,"total":2},"xray":{"version":"1","state":"running"},"panelVersion":"v3.4.1","panelGuid":"guid","uptime":7,"netIO":{"up":3,"down":4}}}`))
+		case "/panel/api/lucx/hello":
+			// Vanilla remote: capability probe must get 404 → nodeType vanilla.
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
 	}))
 	defer remote.Close()
 	host, portString, err := net.SplitHostPort(strings.TrimPrefix(remote.URL, "http://"))
@@ -128,14 +133,18 @@ func TestNodeControllerUpdateBlankApiTokenKeepsStoredToken(t *testing.T) {
 	engine := newNodeCredentialTestEngine(t)
 
 	remote := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/panel/api/server/status" {
-			t.Fatalf("unexpected path: %s", r.URL.Path)
-		}
 		if got := r.Header.Get("Authorization"); got != "Bearer stored-secret-token" {
 			t.Fatalf("Authorization = %q", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"success":true,"obj":{"cpu":1,"mem":{"current":1,"total":2},"xray":{"version":"1","state":"running"},"panelVersion":"v3.4.1","panelGuid":"guid","uptime":7,"netIO":{"up":3,"down":4}}}`))
+		switch r.URL.Path {
+		case "/panel/api/server/status":
+			_, _ = w.Write([]byte(`{"success":true,"obj":{"cpu":1,"mem":{"current":1,"total":2},"xray":{"version":"1","state":"running"},"panelVersion":"v3.4.1","panelGuid":"guid","uptime":7,"netIO":{"up":3,"down":4}}}`))
+		case "/panel/api/lucx/hello":
+			w.WriteHeader(http.StatusNotFound)
+		default:
+			t.Fatalf("unexpected path: %s", r.URL.Path)
+		}
 	}))
 	defer remote.Close()
 	host, portString, err := net.SplitHostPort(strings.TrimPrefix(remote.URL, "http://"))
