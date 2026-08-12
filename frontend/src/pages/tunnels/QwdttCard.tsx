@@ -8,7 +8,6 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  Alert,
   Badge,
   Button,
   Card,
@@ -161,12 +160,6 @@ export function QwdttCard() {
       <Typography.Paragraph type="secondary">
         {t('pages.tunnels.qwdtt.subtitle')}
       </Typography.Paragraph>
-      <Alert
-        type="warning"
-        showIcon
-        style={{ marginBottom: 16 }}
-        message={t('pages.tunnels.qwdtt.rootWarning')}
-      />
 
       <Space wrap>
         <Button icon={<CaretRightOutlined />} disabled={busy} onClick={() => runAction(() => tunnelsApi.qwdttStart())}>

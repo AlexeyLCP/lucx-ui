@@ -746,7 +746,6 @@
         "olcrtcVp8Batch": "VP8 batch",
         "olcrtcDns": "DNS (host:port)",
         "olcrtcDebug": "Debug",
-        "qwdttRootNote": "Нужен root / CAP_NET_ADMIN (TUN + MASQUERADE).",
         "qwdttSingleNote": "Только один qWDTT inbound на панель. Общий password для всех.",
         "qwdttListenAddr": "DTLS listen",
         "qwdttWgPort": "WG port",
@@ -2193,7 +2192,6 @@
       "qwdtt": {
         "title": "qWDTT",
         "subtitle": "WireGuard через TURN-релеи VK Calls (SpaceNeuroX wdtt-server). Нужен root / CAP_NET_ADMIN (создаёт TUN + NAT). Клиент: Android APK qWDTT. Оператор обязан передать живые VK call hash.",
-        "rootWarning": "Нужен root (или CAP_NET_ADMIN): бинарник создаёт TUN-интерфейсы и ставит MASQUERADE/FORWARD. Без привилегий не стартанёт.",
         "status": {
           "running": "Работает",
           "stopped": "Остановлен"

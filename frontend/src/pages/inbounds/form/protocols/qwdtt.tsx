@@ -11,7 +11,6 @@ export default function QwdttFields() {
   const { data: outboundTags } = useOutboundTags();
   return (
     <>
-      <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={t('pages.inbounds.form.qwdttRootNote')} />
       <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('pages.inbounds.form.qwdttSingleNote')} />
       <FormField name={['settings', 'listenAddr']} label={t('pages.inbounds.form.qwdttListenAddr')}>
         <Input placeholder="0.0.0.0:56000" />

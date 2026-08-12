@@ -746,7 +746,6 @@
         "olcrtcVp8Batch": "VP8 batch",
         "olcrtcDns": "DNS (host:port)",
         "olcrtcDebug": "Debug",
-        "qwdttRootNote": "Requires root / CAP_NET_ADMIN (TUN + MASQUERADE).",
         "qwdttSingleNote": "Only one qWDTT inbound per panel. Shared password for all clients.",
         "qwdttListenAddr": "DTLS listen",
         "qwdttWgPort": "WG port",
@@ -2192,8 +2191,7 @@
       },
       "qwdtt": {
         "title": "qWDTT",
-        "subtitle": "WireGuard tunnelled through VK Calls TURN relays (SpaceNeuroX wdtt-server). Requires root / CAP_NET_ADMIN (creates TUN + NAT). Client: qWDTT Android APK. Operator must supply live VK call hash(es).",
-        "rootWarning": "Needs root (or CAP_NET_ADMIN): the binary creates TUN interfaces and installs MASQUERADE/FORWARD rules. Will fail without privileges.",
+        "subtitle": "WireGuard tunnelled through VK Calls TURN relays (SpaceNeuroX wdtt-server). Client: qWDTT Android APK. Operator must supply live VK call hash(es).",
         "status": {
           "running": "Running",
           "stopped": "Stopped"
