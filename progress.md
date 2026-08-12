@@ -51,6 +51,16 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.113 — qWDTT: без root-warning
+
+**Запрос:** убрать уведомление «Нужен root / CAP_NET_ADMIN (TUN + MASQUERADE)» — панель и так ставится под root по SSH.
+
+**Сделано:** убран Alert из формы inbound qWDTT и из Tunnels QwdttCard; dead keys `qwdttRootNote` / `rootWarning` из i18n ×13.
+
+`lucxVersion` → lucx.113.
+
+---
+
 ## Релиз v3.6.0-lucx.112 — olcRTC: routeThroughXray default OFF (Telemost)
 
 **Репорт (VladufQa):** Telemost «подключается, не пингуется, трафика нет» — «xray ломает».
