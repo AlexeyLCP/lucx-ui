@@ -8,10 +8,16 @@ package service
 
 import (
 	"fmt"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
+	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
@@ -98,4 +104,63 @@ func (s *ServerService) RestartAwg() error {
 		}
 	}
 	return nil
+}
+
+var (
+	awgRebuildMu      sync.Mutex
+	awgRebuildRunning bool
+)
+
+// RebuildAwgModule starts bin/install-awg-module.sh --force-rebuild in the
+// background (DKMS rebuild from upstream master). Returns immediately; the
+// operator watches logs / host status. Linux-only.
+func (s *ServerService) RebuildAwgModule() error {
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("AWG module rebuild is only supported on Linux")
+	}
+	awgRebuildMu.Lock()
+	if awgRebuildRunning {
+		awgRebuildMu.Unlock()
+		return fmt.Errorf("AWG module rebuild already in progress")
+	}
+	awgRebuildRunning = true
+	awgRebuildMu.Unlock()
+
+	script := filepath.Join(config.GetBinFolderPath(), "install-awg-module.sh")
+	if _, err := os.Stat(script); err != nil {
+		awgRebuildMu.Lock()
+		awgRebuildRunning = false
+		awgRebuildMu.Unlock()
+		return fmt.Errorf("install-awg-module.sh not found at %s", script)
+	}
+
+	go func() {
+		defer func() {
+			awgRebuildMu.Lock()
+			awgRebuildRunning = false
+			awgRebuildMu.Unlock()
+		}()
+		logger.Info("awg: starting module rebuild via ", script)
+		cmd := exec.Command("bash", script, "--force-rebuild")
+		cmd.Dir = filepath.Dir(script)
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			logger.Warningf("awg: module rebuild failed: %v\n%s", err, string(out))
+			return
+		}
+		logger.Info("awg: module rebuild finished OK")
+		// Re-up interfaces after swap so traffic resumes without waiting for cron.
+		time.Sleep(2 * time.Second)
+		if err := s.RestartAwg(); err != nil {
+			logger.Warning("awg: post-rebuild restart interfaces:", err)
+		}
+	}()
+	return nil
+}
+
+// AwgRebuildRunning reports whether a background module rebuild is in flight.
+func AwgRebuildRunning() bool {
+	awgRebuildMu.Lock()
+	defer awgRebuildMu.Unlock()
+	return awgRebuildRunning
 }

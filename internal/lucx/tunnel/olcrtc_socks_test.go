@@ -4,7 +4,12 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 package tunnel
-import ("strings"; "testing")
+
+import (
+	"strings"
+	"testing"
+)
+
 func TestOlcrtcRenderYAMLSocks(t *testing.T) {
 	cfg := DefaultOlcrtcConfig()
 	cfg.RoomID = "r"
@@ -23,4 +28,3 @@ func TestOlcrtcRenderYAMLSocks(t *testing.T) {
 		t.Fatal("socks must be omitted when not routed")
 	}
 }
-

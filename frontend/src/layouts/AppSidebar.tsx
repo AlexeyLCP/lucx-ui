@@ -193,8 +193,8 @@ export default function AppSidebar() {
     { key: '/groups', icon: 'groups', title: t('menu.groups') },
     { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
     { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },
-    // LUCX-HOOK: tunnel sidecars (NaiveProxy) nav entry
-    { key: '/tunnels', icon: 'tunnels', title: t('menu.tunnels') },
+    // LUCX-HOOK: tunnels moved to Settings → Cores (binaries + AWG module).
+    // /tunnels route kept for advanced tunnel config deep-link.
     // END LUCX-HOOK
     // LUCX-HOOK: AWG outbound — /outbound removed from the top-level menu.
     // It duplicated the "Xray outbounds" entry inside the "Xray Configs"
@@ -219,6 +219,9 @@ export default function AppSidebar() {
       { key: '/settings#telegram', icon: <MessageOutlined />, label: t('pages.settings.TGBotSettings') },
       { key: '/settings#email', icon: <MailOutlined />, label: t('pages.settings.emailSettings') },
       { key: '/settings#subscription', icon: <CloudServerOutlined />, label: t('pages.settings.subSettings') },
+      // LUCX-HOOK: AWG module + tunnel binaries
+      { key: '/settings#cores', icon: <CloudServerOutlined />, label: t('pages.settings.cores.menu') },
+      // END LUCX-HOOK
     ];
     if (showSubFormats) {
       children.push({ key: '/settings#subscription-formats', icon: <CodeOutlined />, label: 'Sub Formats' });

@@ -7189,6 +7189,36 @@
         }
       }
     },
+    "/panel/api/server/rebuildAwgModule": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Rebuild amneziawg DKMS module from upstream master (async). Runs bin/install-awg-module.sh --force-rebuild.",
+        "operationId": "post_panel_api_server_rebuildAwgModule",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/server/updatePanel": {
       "post": {
         "tags": [

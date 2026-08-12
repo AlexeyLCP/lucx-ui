@@ -51,6 +51,20 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.111 — Settings → Cores (AWG rebuild + tunnel binaries)
+
+**Запрос:** бинарники туннелей в Settings; Tunnels убрать из меню; кнопка обновления AWG.
+
+**Сделано:**
+1. Settings tab `#cores` (`CoresTab.tsx`): AmneziaWG status + restart interfaces + **Update/rebuild module** (`POST /panel/api/server/rebuildAwgModule` → async `bin/install-awg-module.sh --force-rebuild`, then RestartAwg).
+2. Binary mgmt Naive/olcRTC/qWDTT (upload/download/delete/logs) на той же вкладке.
+3. Меню: `/tunnels` убран; пункт Settings → Cores. Route `/tunnels` оставлен (deep-link + «Open tunnel configs»).
+4. i18n ×13 `pages.settings.cores.*`; endpoints + openapi; gofumpt fix `olcrtc_socks_test.go` (CI red на lucx.110).
+
+`lucxVersion` → lucx.111.
+
+---
+
 ## Релиз v3.6.0-lucx.110 — olcRTC routeThroughXray (SOCKS, default on)
 
 **Запрос:** направить olcRTC в Xray.
