@@ -66,13 +66,7 @@ func ensureQwdttXrayRouting(inst Instance) {
 
 	// Wait briefly for wdtt0 after process start.
 	deadline := time.Now().Add(3 * time.Second)
-	for {
-		if exec.CommandContext(context.Background(), "ip", "link", "show", qwdttIfaceWG).Run() == nil {
-			break
-		}
-		if time.Now().After(deadline) {
-			break
-		}
+	for exec.CommandContext(context.Background(), "ip", "link", "show", qwdttIfaceWG).Run() != nil && time.Now().Before(deadline) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
