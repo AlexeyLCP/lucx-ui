@@ -77,18 +77,26 @@ export default function OlcrtcFields() {
         <Switch />
       </FormField>
       {routeThroughXray && (
-        <FormField
-          name={['settings', 'outboundTag']}
-          label={t('pages.inbounds.form.olcrtcRouteOutbound')}
-          tooltip={t('pages.inbounds.form.olcrtcRouteOutboundHint')}
-        >
-          <Select
-            allowClear
-            showSearch
-            options={(outboundTags || []).map((tag) => ({ value: tag, label: tag }))}
-            placeholder={t('pages.inbounds.form.olcrtcRouteOutboundPlaceholder')}
+        <>
+          <Alert
+            type="warning"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={t('pages.inbounds.form.olcrtcRouteThroughXrayWarn')}
           />
-        </FormField>
+          <FormField
+            name={['settings', 'outboundTag']}
+            label={t('pages.inbounds.form.olcrtcRouteOutbound')}
+            tooltip={t('pages.inbounds.form.olcrtcRouteOutboundHint')}
+          >
+            <Select
+              allowClear
+              showSearch
+              options={(outboundTags || []).map((tag) => ({ value: tag, label: tag }))}
+              placeholder={t('pages.inbounds.form.olcrtcRouteOutboundPlaceholder')}
+            />
+          </FormField>
+        </>
       )}
       <FormField name={['settings', 'debug']} label={t('pages.inbounds.form.olcrtcDebug')} valueProp="checked">
         <Switch />

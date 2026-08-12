@@ -259,7 +259,7 @@ export function createDefaultOlcrtcInboundSettings(): OlcrtcInboundSettings {
     vp8Fps: 60,
     vp8Batch: 64,
     debug: false,
-    routeThroughXray: true,
+    routeThroughXray: false,
     outboundTag: '',
     routeXrayPort: 0,
   };

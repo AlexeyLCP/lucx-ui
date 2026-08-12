@@ -769,7 +769,8 @@
         "qwdttRouteOutboundPlaceholder": "default / warp / …",
         "olcrtcTelemostVp8Note": "Telemost работает только с vp8channel (выбран автоматически).",
         "olcrtcRouteThroughXray": "Через Xray",
-        "olcrtcRouteThroughXrayHint": "olcRTC ходит в интернет через SOCKS-мост Xray (socks: в YAML). Routing rules и outbound/каскад. По умолчанию вкл.",
+        "olcrtcRouteThroughXrayHint": "olcRTC ходит в интернет через SOCKS-мост Xray. Также гонит HTTP провайдера (Телемост/Jitsi) через Xray. ICMP/ping по SOCKS не работает. По умолчанию выкл. — включай только для каскада outbound.",
+        "olcrtcRouteThroughXrayWarn": "При «Через Xray»: ICMP/ping не работает (SOCKS только TCP). HTTP провайдера тоже идёт через Xray — если peers есть, а трафика нет, выключи переключатель.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Пусто = общий котёл Xray. Иначе force-route на outbound/balancer.",
         "olcrtcRouteOutboundPlaceholder": "default / warp / …"

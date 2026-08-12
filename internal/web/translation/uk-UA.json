@@ -769,7 +769,8 @@
         "qwdttRouteOutboundPlaceholder": "default / warp / …",
         "olcrtcTelemostVp8Note": "Telemost requires vp8channel transport (auto-selected).",
         "olcrtcRouteThroughXray": "Route through Xray",
-        "olcrtcRouteThroughXrayHint": "olcRTC dials destinations via a hidden loopback SOCKS bridge in Xray (native socks: YAML). Enables routing rules and outbound cascade. On by default.",
+        "olcrtcRouteThroughXrayHint": "olcRTC dials destinations via a hidden loopback SOCKS bridge in Xray. Also routes provider HTTP (Telemost/Jitsi) through Xray. ICMP/ping does not work over SOCKS. Off by default — enable only for outbound cascade.",
+        "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
         "olcrtcRouteOutboundPlaceholder": "default / warp / …"

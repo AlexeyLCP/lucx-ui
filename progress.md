@@ -51,6 +51,18 @@
 
 ## Что сделано
 
+## Релиз v3.6.0-lucx.112 — olcRTC: routeThroughXray default OFF (Telemost)
+
+**Репорт (VladufQa):** Telemost «подключается, не пингуется, трафика нет» — «xray ломает».
+
+**Корень:** lucx.110 включил `routeThroughXray` по умолчанию. Upstream olcrtc SOCKS (`socks.proxy_*`) гонит **и** tunnel dial, **и** HTTP провайдера (Telemost/Jitsi) через Xray loopback SOCKS. ICMP/ping через SOCKS невозможен (TCP-only). При кривом routing/default outbound — peers есть, трафика нет.
+
+**Фикс:** default `routeThroughXray=false` (Go/FE/Zod); убран absent-key→true; warning в форме; i18n hint. **Существующие inbound с true в settings НЕ трогаем** (Rule 0) — оператор выключает «Через Xray» вручную.
+
+`lucxVersion` → lucx.112.
+
+---
+
 ## Релиз v3.6.0-lucx.111 — Settings → Cores (AWG rebuild + tunnel binaries)
 
 **Запрос:** бинарники туннелей в Settings; Tunnels убрать из меню; кнопка обновления AWG.

@@ -9,7 +9,7 @@ export const OlcrtcInboundSettingsSchema = z.object({
   vp8Fps: z.number().int().min(1).max(120).default(60),
   vp8Batch: z.number().int().min(1).max(64).default(64),
   debug: z.boolean().default(false),
-  routeThroughXray: z.boolean().default(true),
+  routeThroughXray: z.boolean().default(false),
   outboundTag: z.string().default(''),
   routeXrayPort: z.number().int().min(0).max(65535).default(0),
 });

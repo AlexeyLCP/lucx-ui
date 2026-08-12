@@ -27,13 +27,6 @@ func OlcrtcConfigFromInbound(ib *model.Inbound) (OlcrtcConfig, bool) {
 	cfg := DefaultOlcrtcConfig()
 	if raw := strings.TrimSpace(ib.Settings); raw != "" && raw != "{}" {
 		_ = json.Unmarshal([]byte(raw), &cfg)
-		// Absent routeThroughXray key → default true (json zeroes bool).
-		var keys map[string]json.RawMessage
-		if json.Unmarshal([]byte(raw), &keys) == nil {
-			if _, ok := keys["routeThroughXray"]; !ok {
-				cfg.RouteThroughXray = true
-			}
-		}
 	}
 	if r := strings.TrimSpace(ib.Remark); r != "" && strings.TrimSpace(cfg.Remark) == "" {
 		cfg.Remark = r

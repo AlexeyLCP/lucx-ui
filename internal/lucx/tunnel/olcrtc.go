@@ -41,8 +41,9 @@ type OlcrtcConfig struct {
 	VP8Batch int  `json:"vp8Batch"`
 	Debug    bool `json:"debug"`
 
-	// RouteThroughXray: dial egress via SOCKS bridge injected into Xray
-	// (native socks: block in olcrtc YAML). Default true.
+	// RouteThroughXray: dial egress (and transport HTTP) via SOCKS bridge in
+	// Xray (native socks: YAML). Default false — Telemost/Jitsi need direct
+	// path; SOCKS also cannot carry ICMP so client "ping" always fails when on.
 	RouteThroughXray bool   `json:"routeThroughXray"`
 	OutboundTag      string `json:"outboundTag"`
 	// RouteXrayPort is backend-owned loopback SOCKS port (0 when not routed).
@@ -52,12 +53,11 @@ type OlcrtcConfig struct {
 // DefaultOlcrtcConfig returns sensible defaults for a fresh olcRTC core.
 func DefaultOlcrtcConfig() OlcrtcConfig {
 	return OlcrtcConfig{
-		Provider:         "jitsi",
-		Transport:        "datachannel",
-		DNS:              "8.8.8.8:53",
-		VP8Fps:           60,
-		VP8Batch:         64,
-		RouteThroughXray: true,
+		Provider:  "jitsi",
+		Transport: "datachannel",
+		DNS:       "8.8.8.8:53",
+		VP8Fps:    60,
+		VP8Batch:  64,
 	}
 }
 
