@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined ZH README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **高级 Xray 控制面板** — 原生 AmneziaWG、受监管隧道（NaiveProxy · olcRTC · qWDTT）、Clash / Amnezia `vpn://` / Happ 订阅、geodata browser 与 RoscomVPN 路由。
+> **高级 Xray 控制面板** — 原生 AmneziaWG（至 3.1）、受监管隧道（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel）、Clash / Amnezia `vpn://` / Happ 订阅、geodata browser 与 RoscomVPN 路由。
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,7 +62,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ 为什么选择 LucX-UI？
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) 是一款出色的多协议面板，前端采用现代化的 React 19 + Ant Design 6。LucX-UI 保留 3x-ui 的全部能力，并补充上游没有的部分：**原生 AmneziaWG (AWG)**、**隧道 Sidecar**（NaiveProxy · olcRTC · qWDTT）、**更丰富的订阅**（Clash Meta AWG、Amnezia `vpn://`、Happ）以及 **geodata 工具**（面板内浏览器 + RoscomVPN 数据包）：
+[3x-ui](https://github.com/MHSanaei/3x-ui) 是一款出色的多协议面板，前端采用现代化的 React 19 + Ant Design 6。LucX-UI 保留 3x-ui 的全部能力，并补充上游没有的部分：**原生 AmneziaWG (AWG，至 3.1)**、**隧道 Sidecar**（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel）、**更丰富的订阅**（Clash Meta AWG、Amnezia `vpn://`、Happ）以及 **geodata 工具**（面板内浏览器 + RoscomVPN 数据包）：
 
 | 特性 | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -70,13 +70,16 @@ docker compose --profile postgres up -d
 | AWG CPS 混淆（TLS / DNS / SIP / QUIC + 浏览器指纹） | ✗ | ✓ |
 | AWG outbound —— VPN 链式连接上游 AWG 服务器 (`awgo-N`) | ✗ | ✓ |
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
-| 客户端配置版本预设 (1.5 / 2 / 3) | ✗ | ✓ |
+| AWG 3.1（`RandomTrailers` / `DisableCookies` 抗 DPI） | ✗ | ✓ |
+| 客户端配置版本预设 (1.5 / 2 / 3 / 3.1) | ✗ | ✓ |
 | 面板内 AWG 诊断（路由 / NAT / peers / 握手） | ✗ | ✓ |
 | NaiveProxy 隧道 Sidecar（Caddy + forward_proxy，面板监管） | ✗ | ✓ |
 | 每客户端 NaiveProxy 凭证 + 订阅中的 `naive+https://` | ✗ | ✓ |
 | NaiveProxy → Xray 路由（SOCKS loopback 桥接，可选） | ✗ | ✓ |
 | olcRTC 隧道 Sidecar（WebRTC 会议房间，面板监管） | ✗ | ✓ |
 | qWDTT 隧道 Sidecar（经 VK TURN 的 WireGuard，面板监管） | ✗ | ✓ |
+| mieru 隧道 Sidecar（`mita`，每客户端流量，面板监管） | ✗ | ✓ |
+| TrustTunnel Sidecar（AdGuard VPN 协议，类 HTTPS，面板监管） | ✗ | ✓ |
 | AWG 接入 Clash Meta + Amnezia 订阅 `/awg/`（`.conf` / `vpn://`） | ✗ | ✓ |
 | Geodata browser — 在面板中选择 geosite/geoip 分类 | ✗* | ✓ |
 | RoscomVPN geo 包（`geoip/geosite_ROSCOM.dat`，RKN 列表） | ✗ | ✓ |
@@ -94,17 +97,18 @@ docker compose --profile postgres up -d
 
 ## 🌟 关于 LucX-UI
 
-**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（已同步上游 **v3.6.0**）。在原有 Xray 协议之外提供：原生 **AmneziaWG**（内核 Sidecar，思路同 MTProto/`mtg`）、面板监管的 **隧道**（NaiveProxy、olcRTC、qWDTT）、扩展 **订阅**（Clash Meta AWG、Amnezia `/awg/` + `vpn://`、Happ）以及带 RoscomVPN 列表的 **geodata browser**。通过严格 `LUCX-HOOK` 隔离保持与上游 100% 兼容。
+**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（已同步上游 **v3.6.0**）。在原有 Xray 协议之外提供：原生 **AmneziaWG**（内核 Sidecar，思路同 MTProto/`mtg`，现已至 **AWG 3.1**）、面板监管的 **隧道**（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel）、扩展 **订阅**（Clash Meta AWG、Amnezia `/awg/` + `vpn://`、Happ）以及带 RoscomVPN 列表的 **geodata browser**。通过严格 `LUCX-HOOK` 隔离保持与上游 100% 兼容。
 
 ### 🛡️ AmneziaWG (AWG) 特性
 - **AWG 入站与出站** —— 内核 Sidecar (`awg-quick`)、客户端模式连接上游 AWG 服务器 (`awgo-{id}`)、10 秒自动协调循环及 DKMS 内核模块构建器。
 - **高级混淆控制** —— Lite/Standard/Pro 预设 (Jc/Jmin/Jmax/S1–S4/H1–H4)、CPS 数据包伪装 (TLS、DNS、SIP、QUIC) 及浏览器 TLS 指纹 (Chrome、Firefox、Safari)。
 - **AWG3 / HeaderProtectionKey** —— AmneziaWG 3 头部保护，自动生成 32 字节密钥；服务端版本上限按客户端控制特性的下发。
-- **客户端版本预设** —— 从单个入站为 AWG 1.5 / 2 / 3 生成客户端配置，挑选您的客户端应用可识别的格式。
+- **AWG 3.1** —— `RandomTrailers`（随机包尾，按包大小抗 DPI）与 `DisableCookies`；面板更新时内核模块与工具自动升级至 v3.1。
+- **客户端版本预设** —— 从单个入站为 AWG 1.5 / 2 / 3 / 3.1 生成客户端配置，挑选您的客户端应用可识别的格式。
 - **真实签名抓取 (Live Capture)** —— 将真实域名的 QUIC 握手实时转换为 I1–I5 混淆参数。
 - **路由与诊断** —— 双路由模式 (Kernel NAT 与带策略路由及 sniffing 的 Route through Xray) + 面板内一键诊断。
 
-### 🚇 隧道 Sidecar（NaiveProxy）
+### 🚇 隧道 Sidecar（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel）
 - **NaiveProxy** —— 带 `forward_proxy` 插件的 Caddy（[klzgrad](https://github.com/klzgrad/forwardproxy) 分叉，HTTP/2 padding）作为面板监管的 Sidecar 运行：渲染 Caddyfile、start/stop/restart 与崩溃自愈 reconcile，以及三级健康探测（process → TCP → TLS）。
 - **每客户端凭证** —— 每个已启用的面板客户端自动获得个人 `basic_auth` 凭据对（由面板密钥派生，不落库）；禁用客户端会在下一次 reconcile 时吊销。
 - **订阅** —— 每个客户端的订阅除 Xray/AWG 外还携带其个人 `naive+https://` 链接（NekoBox / husi / Exclave 标准格式），面板内另有二维码与强密码生成器。
@@ -112,6 +116,8 @@ docker compose --profile postgres up -d
 - **通过 Xray 路由（可选）** —— 开关使 Caddy 经隐藏 loopback SOCKS 桥接拨号（`upstream socks5://127.0.0.1:…`，原生 forward_proxy，无需补丁），标签 `lucx-tunnel-naive`，使 NaiveProxy 流量获得完整 Xray 路由/嗅探/域名规则（与 MTProto 相同）。默认仍为直连出口。
 - **olcRTC** —— 经合法视频会议房间的 TCP-over-WebRTC 隧道（[openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)）：Jitsi / Yandex Telemost / WB Stream。
 - **qWDTT** —— 经 VK Calls TURN 的 WireGuard（[SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)）。
+- **mieru** —— 基于自定义协议而非 TLS 的抗审查代理（[enfein/mieru](https://github.com/enfein/mieru) `mita`，GPL-3.0）。多客户端、每客户端 HMAC 凭证、每客户端流量与在线统计、`mierus://` 分享链接。客户端：mieru CLI、mihomo、Clash Verge Rev、husi、Exclave。
+- **TrustTunnel** —— AdGuard VPN 协议（[TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)，Apache-2.0）：流量与 HTTPS 无异（HTTP/1.1 + HTTP/2 + QUIC）。复用面板 ACME 证书（需已签发证书的域名），输出 `tt://?` deep-link 供 Flutter / CLI 客户端使用。
 
 ### 📦 订阅、Geodata 与客户端路由
 - **Amnezia 订阅** — `/awg/{subId}` 返回纯 AmneziaWG `.conf`（或 `?format=vpn` → `vpn://…`）。
@@ -168,6 +174,8 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 | NaiveProxy（[klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)） | **BSD-3-Clause** |
 | `bin/olcrtc-*`（[openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)） | **WTFPL** |
 | `bin/qwdtt-*`（[SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)） | **GPL-3.0** |
+| `bin/mieru-*`（`mita`，[enfein/mieru](https://github.com/enfein/mieru)） | **GPL-3.0** |
+| `bin/trusttunnel-*`（[TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)） | **Apache-2.0** |
 | AmneziaWG 内核模块与工具（[amnezia-vpn](https://github.com/amnezia-vpn)） | **GPL-2.0**（模块；安装在主机） |
 | 预置 geo `.dat`（Loyalsoldier / IR / RU / ROSCOM） | 各数据集上游（见 LICENSING.md） |
 
@@ -186,7 +194,7 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser。
 
 ### 项目与灵感
-[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN（[geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)） · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
+[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN（[geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)） · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
 
 ---
 

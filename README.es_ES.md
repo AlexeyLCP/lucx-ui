@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined ES README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Panel avanzado de Xray** — AmneziaWG nativo, túneles supervisados (NaiveProxy · olcRTC · qWDTT), suscripciones Clash / Amnezia `vpn://` / Happ, geodata browser y enrutamiento RoscomVPN.
+> **Panel avanzado de Xray** — AmneziaWG nativo (hasta 3.1), túneles supervisados (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), suscripciones Clash / Amnezia `vpn://` / Happ, geodata browser y enrutamiento RoscomVPN.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,7 +62,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ ¿Por qué LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) es un excelente panel multiprotocolo con un frontend moderno en React 19 + Ant Design 6. LucX-UI mantiene todo lo de 3x-ui y añade lo que upstream no tiene: **AmneziaWG (AWG) nativo**, **sidecars de túnel** (NaiveProxy · olcRTC · qWDTT), **suscripciones ampliadas** (Clash Meta AWG, Amnezia `vpn://`, Happ) y **herramientas geodata** (browser en el panel + packs RoscomVPN):
+[3x-ui](https://github.com/MHSanaei/3x-ui) es un excelente panel multiprotocolo con un frontend moderno en React 19 + Ant Design 6. LucX-UI mantiene todo lo de 3x-ui y añade lo que upstream no tiene: **AmneziaWG (AWG) nativo, hasta 3.1**, **sidecars de túnel** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), **suscripciones ampliadas** (Clash Meta AWG, Amnezia `vpn://`, Happ) y **herramientas geodata** (browser en el panel + packs RoscomVPN):
 
 | Característica | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -70,13 +70,16 @@ docker compose --profile postgres up -d
 | Ofuscación AWG CPS (TLS / DNS / SIP / QUIC + huellas de navegador) | ✗ | ✓ |
 | AWG outbound — encadenamiento VPN a servidores AWG externos (`awgo-N`) | ✗ | ✓ |
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
-| Presets de versión de configuración cliente (1.5 / 2 / 3) | ✗ | ✓ |
+| AWG 3.1 (`RandomTrailers` / `DisableCookies`, anti-DPI) | ✗ | ✓ |
+| Presets de versión de configuración cliente (1.5 / 2 / 3 / 3.1) | ✗ | ✓ |
 | Diagnóstico AWG en panel (enrutamiento / NAT / peers / handshakes) | ✗ | ✓ |
 | Sidecar de túnel NaiveProxy (Caddy + forward_proxy, supervisado) | ✗ | ✓ |
 | Credenciales NaiveProxy por cliente + `naive+https://` en suscripciones | ✗ | ✓ |
 | NaiveProxy → enrutamiento Xray (puente SOCKS loopback, opcional) | ✗ | ✓ |
 | Sidecar olcRTC (WebRTC vía salas meet, supervisado) | ✗ | ✓ |
 | Sidecar qWDTT (WireGuard sobre VK TURN, supervisado) | ✗ | ✓ |
+| Sidecar mieru (`mita`, tráfico por cliente, supervisado) | ✗ | ✓ |
+| Sidecar TrustTunnel (protocolo AdGuard VPN, tipo HTTPS, supervisado) | ✗ | ✓ |
 | AWG en Clash Meta + suscripción Amnezia `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
 | Geodata browser — categorías geosite/geoip desde el panel | ✗* | ✓ |
 | Pack geo RoscomVPN (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
@@ -94,17 +97,18 @@ Un sidecar de kernel (como el `mtg` de MTProto en 3x-ui) significa que AWG se ej
 
 ## 🌟 Acerca de LucX-UI
 
-**LucX-UI** es un fork mejorado de [3x-ui](https://github.com/MHSanaei/3x-ui) (sincronizado con upstream **v3.6.0**). Además de los protocolos Xray de stock: **AmneziaWG** nativo (sidecar de kernel, como MTProto/`mtg`), **túneles supervisados** (NaiveProxy, olcRTC, qWDTT), **suscripciones ampliadas** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ) y **geodata browser** con listas RoscomVPN. Compatibilidad 100% con upstream vía aislamiento `LUCX-HOOK`.
+**LucX-UI** es un fork mejorado de [3x-ui](https://github.com/MHSanaei/3x-ui) (sincronizado con upstream **v3.6.0**). Además de los protocolos Xray de stock: **AmneziaWG** nativo (sidecar de kernel, como MTProto/`mtg`, ahora hasta **AWG 3.1**), **túneles supervisados** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), **suscripciones ampliadas** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ) y **geodata browser** con listas RoscomVPN. Compatibilidad 100% con upstream vía aislamiento `LUCX-HOOK`.
 
 ### 🛡️ Características de AmneziaWG (AWG)
 - **Inbounds y Outbounds AWG** — Sidecar de kernel (`awg-quick`), conexión en modo cliente a servidores AWG externos (`awgo-{id}`), ciclo de conciliación automática de 10 segundos y creador de módulos DKMS.
 - **Ofuscación Avanzada** — Perfiles Lite/Standard/Pro (Jc/Jmin/Jmax/S1–S4/H1–H4), mimatización de paquetes CPS (TLS, DNS, SIP, QUIC) y huellas TLS de navegador (Chrome, Firefox, Safari).
 - **AWG3 / HeaderProtectionKey** — Protección de cabecera AmneziaWG 3 con claves de 32 bytes autogeneradas; el techo de versión del lado del servidor controla la emisión de características por cliente.
-- **Presets de Versión de Cliente** — Genere configs de cliente para AWG 1.5 / 2 / 3 desde un solo inbound — elija el formato que su app cliente entienda.
+- **AWG 3.1** — `RandomTrailers` (cola de paquete aleatoria, anti-DPI por tamaño) y `DisableCookies`; el módulo de kernel y las herramientas se actualizan automáticamente a v3.1 al actualizar el panel.
+- **Presets de Versión de Cliente** — Genere configs de cliente para AWG 1.5 / 2 / 3 / 3.1 desde un solo inbound — elija el formato que su app cliente entienda.
 - **Captura de Firma en Vivo** — Convierte saludos QUIC reales de dominios frontales en parámetros I1–I5.
 - **Enrutamiento y Diagnóstico** — Dos modos (Kernel NAT y Route through Xray con policy routing y sniffing) + diagnóstico en panel con un solo clic.
 
-### 🚇 Sidecars de túnel (NaiveProxy)
+### 🚇 Sidecars de túnel (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel)
 - **NaiveProxy** — Caddy con el plugin `forward_proxy` (fork de [klzgrad](https://github.com/klzgrad/forwardproxy), padding HTTP/2) se ejecuta como sidecar supervisado por el panel: Caddyfile renderizado, start/stop/restart con reconcile de recuperación ante caídas y sonda de salud de tres niveles (process → TCP → TLS).
 - **Credenciales por cliente** — cada cliente habilitado del panel obtiene automáticamente un par `basic_auth` personal (derivado del secreto del panel, sin almacenamiento); deshabilitar un cliente lo revoca en el siguiente reconcile.
 - **Suscripciones** — la suscripción de cada cliente incluye su enlace personal `naive+https://` junto a los de Xray/AWG (formato estándar de NekoBox / husi / Exclave), más código QR y generador de contraseñas fuertes en el panel.
@@ -112,6 +116,8 @@ Un sidecar de kernel (como el `mtg` de MTProto en 3x-ui) significa que AWG se ej
 - **Enrutar a través de Xray (opcional)** — el interruptor hace que Caddy marque destinos vía un puente SOCKS loopback oculto (`upstream socks5://127.0.0.1:…`, forward_proxy nativo — sin parche) con etiqueta `lucx-tunnel-naive`, de modo que el tráfico NaiveProxy obtiene el enrutamiento / sniffing / reglas de dominio de Xray (mismo patrón que MTProto). Por defecto sigue siendo egress directo.
 - **olcRTC** — túnel TCP-over-WebRTC vía sala de videollamada legal ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)).
 - **qWDTT** — WireGuard por TURN de VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
+- **mieru** — proxy resistente a la censura sobre un protocolo propio en vez de TLS ([enfein/mieru](https://github.com/enfein/mieru) `mita`, GPL-3.0). Multicliente con credenciales HMAC por cliente del panel, tráfico y estado online por cliente, y enlace `mierus://`. Clientes: mieru CLI, mihomo, Clash Verge Rev, husi, Exclave.
+- **TrustTunnel** — el protocolo de AdGuard VPN ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel), Apache-2.0): tráfico indistinguible de HTTPS (HTTP/1.1 + HTTP/2 + QUIC). Reutiliza el certificado ACME del panel (requiere un dominio con cert emitido) y emite un deep-link `tt://?` para los clientes Flutter / CLI.
 
 ### 📦 Suscripciones, geodata y enrutamiento de clientes
 - **Suscripción Amnezia** — `/awg/{subId}` devuelve `.conf` puro o `vpn://…`.
@@ -168,6 +174,8 @@ Este proyecto se publica bajo **dos licencias** para el código propio, más bin
 | NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
 | `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
 | `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
+| `bin/mieru-*` (`mita`, [enfein/mieru](https://github.com/enfein/mieru)) | **GPL-3.0** |
+| `bin/trusttunnel-*` ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)) | **Apache-2.0** |
 | AmneziaWG kernel module & tools ([amnezia-vpn](https://github.com/amnezia-vpn)) | **GPL-2.0** (módulo; se instala en el host) |
 | Geo `.dat` de stock (Loyalsoldier / IR / RU / ROSCOM) | Upstream de cada dataset (ver LICENSING.md) |
 
@@ -186,7 +194,7 @@ Gracias a todos los proyectos y personas open-source.
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
 
 ### Proyectos e inspiración
-[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
+[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
 
 ---
 
