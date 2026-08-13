@@ -51,6 +51,44 @@
 
 ## Что сделано
 
+## Фикс lucx.115 — tunnel-зомби: sidecar продолжает работать после удаления inbound
+
+**Репорт (VladufQa, 13.08.2026):** удалил olcRTC inbound, а панель продолжает сыпать
+ICE/STUN-логами olcrtc — процесс туннеля жив и держит клиента.
+
+**Корень:** двойной источник правды. Кроме inbound'ов (`olcrtc-{id}`) жив legacy-контур
+на settings-блобе `lucxTunnel_olcrtc` (карточка Tunnels-страницы с кнопками Start/Stop,
+ключ менеджера `olcrtc`). `reconcileOlcrtcInbounds` при ОТСУТСТВИИ inbound'ов падал в
+fallback на блоб и `Ensure`-ил legacy-ядро: блоб с `enabled:true` (кто-то жал Start на
+legacy-карточке после миграции lucx.102 — она роняет маркер `migratedToInbound` и пишет
+enabled) воскрешал процесс каждый тик reconcile. Удаление inbound'а сносило только
+`olcrtc-{id}`. Два соседних gap'а: (1) при пустом `want` не вызывался `ReconcileOlcrtc`
+→ orphan-ключи `olcrtc-{id}` не свипились вообще; (2) migrated-блоб считался легитимным
+источником desired-state. Те же грабли у naive и qWDTT.
+
+**Сделано (`internal/web/service/tunnel.go`):**
+1. `tunnelBlobMigrated(settingKey)` — читает маркер `migratedToInbound` из settings-блоба.
+2. Fallback всех трёх reconcile'ов: migrated-блоб → принудительно `Enabled=false`
+   (воскрешение запрещено); вместо голого `Ensure` — `ReconcileNaive/ReconcileOlcrtc`
+   с legacy-инстансом в `want` → orphan-ключи `{naive,olcrtc}-{id}` свипятся даже при
+   пустом списке inbound'ов (qWDTT — один ключ, только gate).
+3. `legacyLifecycleBlocked(proto, key)` — Start/Restart/Save legacy-эндпоинтов (оба
+   контура: naive/olcrtc/qwdtt) отказывают с сообщением «manage on the Inbounds page»,
+   если блоб мигрирован ИЛИ есть inbound этого протокола. Stop НЕ блокируется (это
+   кнопка убийства зомби). Пока inbound'ов нет и блоб не мигрирован — legacy-режим
+   работает как раньше (back-compat свежих хостов).
+
+**Поведение для уже пострадавших хостов (Влад):** зомби в состоянии «блоб без маркера,
+enabled:true» доживает до ручного Stop (Tunnels → olcRTC → Stop персистит enabled=false)
+или `pkill -f olcrtc-linux` — reconcile после фикса его больше не поднимет.
+
+**Тесты:** `manager_test.go` — `TestReconcileWantedLegacyFallback` (sweep orphan при
+legacy-want + пустом want), `TestReconcileWantedKeepsWantedKeys`; новый
+`tunnel_reconcile_test.go` (service, cgo/CI): `tunnelBlobMigrated`, reject Start/Restart
+на мигрированном блобе и при живом inbound, Stop разрешён, legacy-only хост проходит gate.
+
+---
+
 ## Релиз v3.6.0-lucx.114 — multi-node deploy LucX-протоколов (AWG/tunnels)
 
 **Запрос:** в апстриме при создании inbound можно выбрать ноду; кастомные протоколы форка (AWG/naive/olcrtc/qwdtt) Deploy to не предлагали. Нужно (1) идентифицировать LucX на remote-ноде, (2) деплоить inbound только на поддерживающие ноды.

@@ -35,14 +35,6 @@ func migrateTunnelSettingsToInbound(settingKey string, proto model.Protocol, def
 	if db == nil {
 		return
 	}
-	var count int64
-	if err := db.Model(&model.Inbound{}).Where("protocol = ?", proto).Count(&count).Error; err != nil {
-		logger.Warning("migrate ", proto, " inbound: count failed:", err)
-		return
-	}
-	if count > 0 {
-		return
-	}
 	var setting model.Setting
 	if err := db.Where("key = ?", settingKey).First(&setting).Error; err != nil {
 		return
@@ -56,6 +48,23 @@ func migrateTunnelSettingsToInbound(settingKey string, proto model.Protocol, def
 		return
 	}
 	if v, ok := cfg["migratedToInbound"].(bool); ok && v {
+		return
+	}
+
+	var count int64
+	if err := db.Model(&model.Inbound{}).Where("protocol = ?", proto).Count(&count).Error; err != nil {
+		logger.Warning("migrate ", proto, " inbound: count failed:", err)
+		return
+	}
+	if count > 0 {
+		// An inbound already owns this protocol (created manually before this
+		// migration existed). Mark the legacy blob anyway so the reconcile
+		// fallback never resurrects it as a zombie core once the inbound is
+		// deleted (VladufQa report).
+		cfg["migratedToInbound"] = true
+		if marked, err := json.Marshal(cfg); err == nil {
+			_ = db.Model(&model.Setting{}).Where("key = ?", settingKey).Update("value", string(marked)).Error
+		}
 		return
 	}
 

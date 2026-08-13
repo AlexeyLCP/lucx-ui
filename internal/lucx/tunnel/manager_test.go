@@ -202,6 +202,53 @@ func TestEnsureRejectsUnknownCore(t *testing.T) {
 	}
 }
 
+// TestReconcileWantedLegacyFallback sweeps orphan per-inbound keys while
+// keeping the legacy key converged: the reconcile fallback path calls
+// Reconcile{Naive,Olcrtc} with a single legacy instance when no inbound of
+// the protocol is left, and a deleted inbound's key must never survive.
+func TestReconcileWantedLegacyFallback(t *testing.T) {
+	m := newManager()
+	m.cores["olcrtc-7"] = &managed{fp: "stale"}
+	m.cores["olcrtc"] = &managed{fp: "stale"}
+	m.cores["unrelated"] = &managed{}
+
+	m.ReconcileOlcrtc([]Instance{{Core: Olcrtc, Enabled: false}})
+
+	if _, ok := m.cores["olcrtc-7"]; ok {
+		t.Error("orphan per-inbound key must be removed by the legacy fallback")
+	}
+	if _, ok := m.cores["olcrtc"]; !ok {
+		t.Error("legacy key must survive the legacy fallback")
+	}
+	if _, ok := m.cores["unrelated"]; !ok {
+		t.Error("keys of other cores must not be touched")
+	}
+
+	m.ReconcileOlcrtc(nil)
+	if _, ok := m.cores["olcrtc"]; ok {
+		t.Error("empty want must sweep the legacy key too")
+	}
+}
+
+// TestReconcileWantedKeepsWantedKeys guards the normal path: wanted keys are
+// Ensured, not swept.
+func TestReconcileWantedKeepsWantedKeys(t *testing.T) {
+	m := newManager()
+	m.cores["olcrtc-3"] = &managed{fp: "stale"}
+	m.cores["olcrtc-9"] = &managed{fp: "stale"}
+
+	m.ReconcileOlcrtc([]Instance{
+		{Core: Olcrtc, Key: "olcrtc-3", Enabled: false},
+	})
+
+	if _, ok := m.cores["olcrtc-3"]; !ok {
+		t.Error("wanted key must be kept")
+	}
+	if _, ok := m.cores["olcrtc-9"]; ok {
+		t.Error("unwanted per-inbound key must be removed")
+	}
+}
+
 func TestStopAllIdle(t *testing.T) {
 	m := newManager()
 	m.StopAll()

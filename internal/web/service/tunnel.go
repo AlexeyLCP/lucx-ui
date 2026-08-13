@@ -94,6 +94,9 @@ func (s *TunnelService) LoadNaiveConfig() (tunnel.NaiveConfig, error) {
 // (routeThroughXray toggle, port/outbound change, or enable flip while
 // routed) — the bridge lives only in the generated Xray config.
 func (s *TunnelService) SaveNaiveConfig(cfg tunnel.NaiveConfig) (needRestart bool, err error) {
+	if err := s.legacyLifecycleBlocked(model.Naive, tunnelNaiveSettingKey); err != nil {
+		return false, err
+	}
 	old, _ := s.LoadNaiveConfig()
 	cfg = cfg.Merge()
 	cfg, err = normalizeNaiveXrayPort(cfg, old)
@@ -119,6 +122,9 @@ func (s *TunnelService) SaveNaiveConfig(cfg tunnel.NaiveConfig) (needRestart boo
 
 // StartNaive marks the core enabled, persists, and starts it.
 func (s *TunnelService) StartNaive() (needRestart bool, err error) {
+	if err := s.legacyLifecycleBlocked(model.Naive, tunnelNaiveSettingKey); err != nil {
+		return false, err
+	}
 	cfg, err := s.LoadNaiveConfig()
 	if err != nil {
 		return false, err
@@ -166,6 +172,9 @@ func (s *TunnelService) StopNaive() (needRestart bool, err error) {
 // RestartNaive forces a fresh start with the stored config (and enables the
 // core — a restart expresses the intent to run).
 func (s *TunnelService) RestartNaive() (needRestart bool, err error) {
+	if err := s.legacyLifecycleBlocked(model.Naive, tunnelNaiveSettingKey); err != nil {
+		return false, err
+	}
 	cfg, err := s.LoadNaiveConfig()
 	if err != nil {
 		return false, err
@@ -375,6 +384,54 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileQwdttInbound()
 }
 
+// tunnelBlobMigrated reports whether the legacy settings blob carries the
+// migratedToInbound marker written by the DB migrations
+// (migrate_naive_inbound / migrate_tunnel_inbounds). A marked blob is a
+// historical artifact: its config was promoted to an inbound, so inbounds
+// are the source of truth for the core and the blob must never resurrect
+// the legacy process (deleting the last inbound means "off", not "fall
+// back to the old config" — VladufQa zombie-spam report).
+func (s *TunnelService) tunnelBlobMigrated(settingKey string) bool {
+	setting := &model.Setting{}
+	err := database.GetDB().Model(model.Setting{}).
+		Where("key = ?", settingKey).First(setting).Error
+	if err != nil || strings.TrimSpace(setting.Value) == "" {
+		return false
+	}
+	var raw map[string]json.RawMessage
+	if json.Unmarshal([]byte(setting.Value), &raw) != nil {
+		return false
+	}
+	v, ok := raw["migratedToInbound"]
+	if !ok {
+		return false
+	}
+	var b bool
+	return json.Unmarshal(v, &b) == nil && b
+}
+
+// legacyLifecycleBlocked refuses the legacy Tunnels-page start/restart/save
+// once inbounds took over the core: the blob was migrated or any inbound of
+// the protocol exists. While an inbound exists the reconcile loop kills the
+// legacy key every tick (Start looks broken), and after the last inbound is
+// deleted an enabled legacy blob is resurrected as a zombie process that
+// keeps running after the operator believes everything is gone.
+func (s *TunnelService) legacyLifecycleBlocked(proto model.Protocol, settingKey string) error {
+	if s.tunnelBlobMigrated(settingKey) {
+		return common.NewErrorf("tunnel: %s config was migrated to an inbound — manage %s on the Inbounds page", proto, proto)
+	}
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		return err
+	}
+	for _, ib := range inbounds {
+		if ib != nil && ib.Protocol == proto {
+			return common.NewErrorf("tunnel: %s is managed by inbound %q — manage it on the Inbounds page", proto, ib.Remark)
+		}
+	}
+	return nil
+}
+
 // reconcileNaiveInbounds Ensures every Naive inbound sidecar and stops orphans.
 // When no protocol=naive inbound exists yet, falls back to the legacy global
 // lucxTunnel_naive settings core (pre-migration hosts).
@@ -402,13 +459,21 @@ func (s *TunnelService) reconcileNaiveInbounds() {
 		_ = tunnel.GetManager().Stop(tunnel.Naive)
 		return
 	}
-	if cfg, err := s.LoadNaiveConfig(); err != nil {
+	cfg, err := s.LoadNaiveConfig()
+	if err != nil {
 		logger.Warning("tunnel: naive reconcile load failed:", err)
-	} else if inst, err := s.naiveInstance(cfg); err != nil {
-		// logged inside
-	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
-		logger.Warning("tunnel: naive reconcile failed:", err)
+		return
 	}
+	if s.tunnelBlobMigrated(tunnelNaiveSettingKey) {
+		cfg.Enabled = false
+	}
+	inst, err := s.naiveInstance(cfg)
+	if err != nil {
+		return
+	}
+	// Reconcile (not bare Ensure) so orphan naive-{id} keys are swept even
+	// when no naive inbound is left.
+	tunnel.GetManager().ReconcileNaive([]tunnel.Instance{inst})
 }
 
 func (s *TunnelService) reconcileOlcrtcInbounds() {
@@ -433,13 +498,21 @@ func (s *TunnelService) reconcileOlcrtcInbounds() {
 		_ = tunnel.GetManager().Stop(tunnel.Olcrtc)
 		return
 	}
-	if cfg, err := s.LoadOlcrtcConfig(); err != nil {
+	cfg, err := s.LoadOlcrtcConfig()
+	if err != nil {
 		logger.Warning("tunnel: olcrtc reconcile load failed:", err)
-	} else if inst, err := s.olcrtcInstance(cfg); err != nil {
-		// logged inside
-	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
-		logger.Warning("tunnel: olcrtc reconcile failed:", err)
+		return
 	}
+	if s.tunnelBlobMigrated(tunnelOlcrtcSettingKey) {
+		cfg.Enabled = false
+	}
+	inst, err := s.olcrtcInstance(cfg)
+	if err != nil {
+		return
+	}
+	// Reconcile (not bare Ensure) so orphan olcrtc-{id} keys are swept even
+	// when no olcrtc inbound is left.
+	tunnel.GetManager().ReconcileOlcrtc([]tunnel.Instance{inst})
 }
 
 func (s *TunnelService) reconcileQwdttInbound() {
@@ -470,11 +543,19 @@ func (s *TunnelService) reconcileQwdttInbound() {
 		}
 		return
 	}
-	if cfg, err := s.LoadQwdttConfig(); err != nil {
+	cfg, err := s.LoadQwdttConfig()
+	if err != nil {
 		logger.Warning("tunnel: qwdtt reconcile load failed:", err)
-	} else if inst, err := s.qwdttInstance(cfg); err != nil {
-		// logged inside
-	} else if err := tunnel.GetManager().Ensure(inst); err != nil {
+		return
+	}
+	if s.tunnelBlobMigrated(tunnelQwdttSettingKey) {
+		cfg.Enabled = false
+	}
+	inst, err := s.qwdttInstance(cfg)
+	if err != nil {
+		return
+	}
+	if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: qwdtt reconcile failed:", err)
 	}
 }
@@ -517,6 +598,9 @@ func (s *TunnelService) LoadOlcrtcConfig() (tunnel.OlcrtcConfig, error) {
 
 // SaveOlcrtcConfig validates, persists and applies the config.
 func (s *TunnelService) SaveOlcrtcConfig(cfg tunnel.OlcrtcConfig) error {
+	if err := s.legacyLifecycleBlocked(model.Olcrtc, tunnelOlcrtcSettingKey); err != nil {
+		return err
+	}
 	cfg = cfg.Merge().ClampVP8()
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -533,6 +617,9 @@ func (s *TunnelService) SaveOlcrtcConfig(cfg tunnel.OlcrtcConfig) error {
 
 // StartOlcrtc marks the core enabled, persists, and starts it.
 func (s *TunnelService) StartOlcrtc() error {
+	if err := s.legacyLifecycleBlocked(model.Olcrtc, tunnelOlcrtcSettingKey); err != nil {
+		return err
+	}
 	cfg, err := s.LoadOlcrtcConfig()
 	if err != nil {
 		return err
@@ -567,6 +654,9 @@ func (s *TunnelService) StopOlcrtc() error {
 
 // RestartOlcrtc forces a fresh start with the stored config.
 func (s *TunnelService) RestartOlcrtc() error {
+	if err := s.legacyLifecycleBlocked(model.Olcrtc, tunnelOlcrtcSettingKey); err != nil {
+		return err
+	}
 	cfg, err := s.LoadOlcrtcConfig()
 	if err != nil {
 		return err
@@ -917,6 +1007,9 @@ func (s *TunnelService) LoadQwdttConfig() (tunnel.QwdttConfig, error) {
 
 // SaveQwdttConfig validates, persists and applies the config.
 func (s *TunnelService) SaveQwdttConfig(cfg tunnel.QwdttConfig) error {
+	if err := s.legacyLifecycleBlocked(model.Qwdtt, tunnelQwdttSettingKey); err != nil {
+		return err
+	}
 	cfg = cfg.Merge()
 	if err := cfg.Validate(); err != nil {
 		return err
@@ -933,6 +1026,9 @@ func (s *TunnelService) SaveQwdttConfig(cfg tunnel.QwdttConfig) error {
 
 // StartQwdtt marks the core enabled, persists, and starts it.
 func (s *TunnelService) StartQwdtt() error {
+	if err := s.legacyLifecycleBlocked(model.Qwdtt, tunnelQwdttSettingKey); err != nil {
+		return err
+	}
 	cfg, err := s.LoadQwdttConfig()
 	if err != nil {
 		return err
@@ -967,6 +1063,9 @@ func (s *TunnelService) StopQwdtt() error {
 
 // RestartQwdtt forces a fresh start with the stored config.
 func (s *TunnelService) RestartQwdtt() error {
+	if err := s.legacyLifecycleBlocked(model.Qwdtt, tunnelQwdttSettingKey); err != nil {
+		return err
+	}
 	cfg, err := s.LoadQwdttConfig()
 	if err != nil {
 		return err
