@@ -1187,6 +1187,12 @@ func (s *InboundService) normalizeQwdttSettings(inbound *model.Inbound) {
 	}
 }
 
+// settingsRouteXrayPort is the upstream helper name (mtproto egress); the
+// LucX sidecar ports reuse the generic settingsIntKey below.
+func settingsRouteXrayPort(parsed map[string]any) int {
+	return settingsIntKey(parsed, "routeXrayPort")
+}
+
 func settingsIntKey(parsed map[string]any, key string) int {
 	switch v := parsed[key].(type) {
 	case float64:
