@@ -176,6 +176,10 @@ TrustTunnel — сертификат панельного ACME (webCertFile/webK
 - [ ] E2E на стенде 144.31.224.212 — после релиза (тестеры)
 - [x] Тесты: i18n-dead-keys, unit, gofumpt; CI — гейт тега
 - [x] docs: AGENTS.md, LICENSING.md, progress.md, release notes RU+EN
+- [x] **Релиз v3.6.0-lucx.117 опубликован** (13.08.2026): CI зелёный,
+      tarball содержит mieru/trusttunnel/caddy-naive/olcrtc/qwdtt,
+      notes RU+EN. Фикс по пути: `settingsRouteXrayPort` (upstream-хелпер,
+      сломанный рефактором) возвращён обёрткой над `settingsIntKey`.
 
 **Риски:** (1) формат mita `get metrics` JSON — spike до реализации скрейпера;
 (2) /var/lib/mita/metrics.pb общий между инстансами (usernames уникальны per
