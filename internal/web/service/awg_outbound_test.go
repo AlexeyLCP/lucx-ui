@@ -140,8 +140,8 @@ PrivateKey = k
 Address = 10.9.0.5/32
 Jc = 5
 HeaderProtectionKey = aBcD...base64hpk==
-RandomTrailers = true
-DisableCookies = false
+RandomTrailers = on
+DisableCookies = off
 
 [Peer]
 PublicKey = pub

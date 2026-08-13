@@ -390,10 +390,10 @@ func TestRenderServerConf_Awg31FlagsVersionGated(t *testing.T) {
 				DisableCookies: tc.cookies,
 			}
 			conf := renderServerConf(inst)
-			if got := strings.Contains(conf, "RandomTrailers = true"); got != tc.wantTrailers {
+			if got := strings.Contains(conf, "RandomTrailers = on"); got != tc.wantTrailers {
 				t.Errorf("RandomTrailers: got %v want %v\n%s", got, tc.wantTrailers, conf)
 			}
-			if got := strings.Contains(conf, "DisableCookies = true"); got != tc.wantCookies {
+			if got := strings.Contains(conf, "DisableCookies = on"); got != tc.wantCookies {
 				t.Errorf("DisableCookies: got %v want %v\n%s", got, tc.wantCookies, conf)
 			}
 		})

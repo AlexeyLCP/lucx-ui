@@ -94,10 +94,10 @@ func renderClientConf(ci ClientInstance) string {
 		}
 		if awg31ok {
 			if s.RandomTrailers {
-				b.WriteString("RandomTrailers = true\n")
+				b.WriteString("RandomTrailers = on\n")
 			}
 			if s.DisableCookies {
-				b.WriteString("DisableCookies = true\n")
+				b.WriteString("DisableCookies = on\n")
 			}
 		}
 	}

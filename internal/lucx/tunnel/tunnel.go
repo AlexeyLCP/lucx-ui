@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 )
@@ -177,6 +178,22 @@ func dataDirFor(key string, n Name) string {
 		return filepath.Join(workDir(), key+"-data")
 	}
 	return dataDir(n)
+}
+
+// absPath resolves p to an absolute path. mita's gRPC client treats a
+// relative MITA_UDS_PATH like "bin/tunnel/…/mita.sock" as host "bin"
+// ("invalid (non-empty) authority: bin") and every `get users` scrape fails
+// silently — per-client traffic stays at 0 forever (E2E lucx.117).
+func absPath(p string) string {
+	p = strings.TrimSpace(p)
+	if p == "" || filepath.IsAbs(p) {
+		return p
+	}
+	abs, err := filepath.Abs(p)
+	if err != nil {
+		return p
+	}
+	return abs
 }
 
 // DataDir is the exported form of dataDir for the web layer (YAML render).

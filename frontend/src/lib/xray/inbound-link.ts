@@ -1610,8 +1610,8 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
     }
   }
   if (awgVersionAtLeast(override, '3.1')) {
-    if (settings.randomTrailers) txt += `RandomTrailers = true\n`;
-    if (settings.disableCookies) txt += `DisableCookies = true\n`;
+    if (settings.randomTrailers) txt += `RandomTrailers = on\n`;
+    if (settings.disableCookies) txt += `DisableCookies = on\n`;
   }
 
   txt += `\n# ${remark}\n`;

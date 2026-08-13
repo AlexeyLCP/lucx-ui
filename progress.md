@@ -173,13 +173,36 @@ TrustTunnel — сертификат панельного ACME (webCertFile/webK
 ### Этап 6. Релиз
 - [x] release.yml (HOOK): mieru — go build ./cmd/mita `v3.35.0`;
       trusttunnel — prebuilt `v1.0.33` (x86_64→amd64, aarch64→arm64)
-- [ ] E2E на стенде 144.31.224.212 — после релиза (тестеры)
+- [x] E2E на стенде 144.31.224.212 (13.08.2026) — см. ниже
 - [x] Тесты: i18n-dead-keys, unit, gofumpt; CI — гейт тега
 - [x] docs: AGENTS.md, LICENSING.md, progress.md, release notes RU+EN
 - [x] **Релиз v3.6.0-lucx.117 опубликован** (13.08.2026): CI зелёный,
       tarball содержит mieru/trusttunnel/caddy-naive/olcrtc/qwdtt,
       notes RU+EN. Фикс по пути: `settingsRouteXrayPort` (upstream-хелпер,
       сломанный рефактором) возвращён обёрткой над `settingsIntKey`.
+
+### E2E lucx.117 (стенд 144.31.224.212, 13.08.2026)
+Прогнал все три новинки через реальный запуск. Нашёл и починил 3 бага:
+
+1. **mieru-трафик = 0** (критично). `mita get users` через относительный
+   `MITA_UDS_PATH=bin/…/mita.sock` → gRPC парсит «bin» как authority и
+   падает `invalid (non-empty) authority: bin`. Скрейпер молча возвращал
+   пусто. Фикс: `absPath()` в `tunnel.go`, абсолютные пути в `manager.go`
+   (start) и `mieru_traffic.go` (scrape). Проверено: после фикса трафик
+   капает в `client_traffics`.
+2. **AWG 3.1 `RandomTrailers = true` → ядро EINVAL**. awg-tools `parse_bool`
+   принимает только `on/off/0/1`, не `true/false`. Рендереры писали `true`
+   → `Boolean value is neither on/off nor 0/1`. Фикс: `= on` во всех трёх
+   рендерерах (manager/client_conf/inbound hints) + фронт genAwgConfig.
+3. **Модуль AWG в памяти был v3.0**, хотя на диске v3.1 (интерфейс awg1
+   держал старый модуль, rmmod не проходил). После `rmmod+modprobe` поля
+   `random trailers`/`disable cookies` появились. Это особенность горячего
+   swap'а модуля при живой панели — задокументировано, не баг кода.
+
+Проверено живьём: mieru-клиент подключился, скачал 1MB через SOCKS,
+митa отдаёт per-user счётчики; TrustTunnel слушает TCP+UDP, метрики
+Prometheus на loopback, `tt://?` ссылка генерится; AWG 3.1 setconf c
+`RandomTrailers = on` + `DisableCookies = on` проходит.
 
 **Риски:** (1) формат mita `get metrics` JSON — spike до реализации скрейпера;
 (2) /var/lib/mita/metrics.pb общий между инстансами (usernames уникальны per

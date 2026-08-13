@@ -127,8 +127,9 @@ func (m *Manager) scrapeMieruUsers(key string) (map[string]mieruUserStats, bool)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "get", "users")
+	// Absolute UDS path required — see absPath (relative "bin/…" breaks gRPC).
 	cmd.Env = append(os.Environ(),
-		"MITA_UDS_PATH="+filepath.Join(dataDirFor(key, Mieru), "mita.sock"),
+		"MITA_UDS_PATH="+absPath(filepath.Join(dataDirFor(key, Mieru), "mita.sock")),
 		"MITA_INSECURE_UDS=1",
 	)
 	out, err := cmd.Output()

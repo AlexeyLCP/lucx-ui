@@ -587,10 +587,10 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	}
 	if awg.IsAwg31(s.AwgVersion) && awg.ModuleSupportsAwg31() {
 		if s.RandomTrailers {
-			out.WriteString("RandomTrailers = true\n")
+			out.WriteString("RandomTrailers = on\n")
 		}
 		if s.DisableCookies {
-			out.WriteString("DisableCookies = true\n")
+			out.WriteString("DisableCookies = on\n")
 		}
 	}
 	return s.Address, out.String(), awg.NormalizeAWGVersion(s.AwgVersion)

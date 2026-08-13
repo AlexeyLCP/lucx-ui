@@ -767,11 +767,13 @@ func renderServerConf(inst Instance) string {
 	// AWG 3.1 device flags — omitted when false so v3.0 tools keep accepting
 	// the config. Tools-gated: v3.0 awg-quick rejects "Line unrecognized".
 	if IsAwg31(inst.AwgVersion) && ModuleSupportsAwg31() {
+		// awg-tools parse_bool accepts on/off/0/1 — not "true"/"false"
+		// (E2E lucx.117: "Boolean value is neither on/off nor 0/1").
 		if inst.RandomTrailers {
-			b.WriteString("RandomTrailers = true\n")
+			b.WriteString("RandomTrailers = on\n")
 		}
 		if inst.DisableCookies {
-			b.WriteString("DisableCookies = true\n")
+			b.WriteString("DisableCookies = on\n")
 		}
 	}
 	// I1-I5 (CPS packets) are CLIENT-ONLY — the server does not use them.

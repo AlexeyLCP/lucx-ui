@@ -430,7 +430,7 @@ describe('genAwgLink + genAwgConfig version gating', () => {
     expect(u.searchParams.get('randomtrailers')).toBe('true');
     expect(u.searchParams.get('disablecookies')).toBeNull();
     expect(config).toContain('HeaderProtectionKey = aBcD...base64hpk==');
-    expect(config).toContain('RandomTrailers = true');
+    expect(config).toContain('RandomTrailers = on');
     expect(config).not.toContain('DisableCookies');
   });
 

@@ -570,11 +570,12 @@ func (m *Manager) start(inst Instance) error {
 	default:
 		return fmt.Errorf("tunnel: no start args for core %q", inst.Core)
 	}
-	env := append(os.Environ(), "XDG_DATA_HOME="+dataDirFor(key, inst.Core))
+	env := append(os.Environ(), "XDG_DATA_HOME="+absPath(dataDirFor(key, inst.Core)))
 	if inst.Core == Mieru {
+		// Absolute paths: mita gRPC rejects relative MITA_UDS_PATH (authority=bin).
 		env = append(env,
-			"MITA_CONFIG_JSON_FILE="+cfgPath,
-			"MITA_UDS_PATH="+filepath.Join(dataDirFor(key, inst.Core), "mita.sock"),
+			"MITA_CONFIG_JSON_FILE="+absPath(cfgPath),
+			"MITA_UDS_PATH="+absPath(filepath.Join(dataDirFor(key, inst.Core), "mita.sock")),
 			"MITA_INSECURE_UDS=1",
 		)
 	}

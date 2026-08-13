@@ -8,6 +8,7 @@ package tunnel
 
 import (
 	"encoding/json"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -148,6 +149,23 @@ func TestMieruClientAuthScoped(t *testing.T) {
 	}
 	if ClientAuthForInbound(secret, 7, "user@mail").User == a.User {
 		t.Fatal("naive creds must not collide with mieru")
+	}
+}
+
+func TestAbsPath(t *testing.T) {
+	if got := absPath(""); got != "" {
+		t.Fatalf("empty: %q", got)
+	}
+	already := filepath.FromSlash("/already/abs")
+	if !filepath.IsAbs(already) {
+		already, _ = filepath.Abs("already-abs-marker")
+	}
+	if got := absPath(already); got != already {
+		t.Fatalf("abs passthrough: %q want %q", got, already)
+	}
+	got := absPath(filepath.Join("bin", "tunnel", "mieru-4-data", "mita.sock"))
+	if !filepath.IsAbs(got) || !strings.Contains(got, "mita.sock") {
+		t.Fatalf("relative resolved poorly: %q", got)
 	}
 }
 

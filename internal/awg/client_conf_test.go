@@ -200,7 +200,7 @@ func TestRenderClientConf_Awg31Flags(t *testing.T) {
 		o := &model.AwgOutbound{Id: 1, Settings: base + `,"awgVersion":"3.1","randomTrailers":true,"disableCookies":true}`}
 		ci, _ := ClientInstanceFromOutbound(o)
 		conf := renderClientConf(ci)
-		if !strings.Contains(conf, "RandomTrailers = true") || !strings.Contains(conf, "DisableCookies = true") {
+		if !strings.Contains(conf, "RandomTrailers = on") || !strings.Contains(conf, "DisableCookies = on") {
 			t.Fatalf("want 3.1 flags, got:\n%s", conf)
 		}
 	})
