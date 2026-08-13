@@ -51,6 +51,36 @@
 
 ## Что сделано
 
+## Фикс lucx.116 — Naive: экспорт ссылок со страницы Inbounds
+
+**Репорт (Егор Алексеевич, 13.08.2026):** при экспорте ссылок naive из Inbounds —
+ошибка «No share link — set password and Public host:port (subHost)», хотя все
+параметры в форме заданы.
+
+**Корень:** кнопка экспорта считала ссылки чисто во фронте (`genInboundLinks`),
+а naive-креды (basic_auth) выводятся сервером из секрета панели HMAC'ом
+(`tunnel.ClientAuthForInbound`) — в браузере секрета нет, naive-кейса во
+фронтовом генераторе нет. Раньше (до lucx.100) ссылка жила на странице Tunnels:
+backend считал сервисную `naive+https://authUser:authPass@domain:port`
+(`ClientURL()`) и отдавал в `status.clientUrl` с QR.
+
+**Сделано:**
+1. Backend `GET /panel/api/inbounds/:id/links` (`GetInboundLinks` в
+   `inbound_sublink.go` + handler/route в `controller/inbound.go`, LUCX-HOOK):
+   для naive — сервисная ссылка (та же, что legacy Tunnels clientUrl) +
+   персональные ссылки привязанных включённых клиентов через sub-движок
+   (`LinksForInbounds` → `genNaiveLink`).
+2. Frontend `InboundsPage.exportInboundLinks`: для naive при пустом
+   фронтенд-результате — fetch нового эндпоинта; warning заменён на релевантный
+   («set domain and service auth, or attach enabled clients»).
+3. `endpoints.ts` + перегенерированный `openapi.json` (npm run gen:api).
+
+**Тесты:** gofumpt чисто, `go test ./internal/lucx/tunnel` ok, frontend
+typecheck/lint/vitest (995)/build — зелёные; полный Go-билд — на CI
+(локально Windows без gcc, cgo-sqlite).
+
+---
+
 ## Фикс lucx.115 — tunnel-зомби: sidecar продолжает работать после удаления inbound
 
 **Репорт (VladufQa, 13.08.2026):** удалил olcRTC inbound, а панель продолжает сыпать
@@ -86,6 +116,11 @@ enabled:true» доживает до ручного Stop (Tunnels → olcRTC →
 legacy-want + пустом want), `TestReconcileWantedKeepsWantedKeys`; новый
 `tunnel_reconcile_test.go` (service, cgo/CI): `tunnelBlobMigrated`, reject Start/Restart
 на мигрированном блобе и при живом inbound, Stop разрешён, legacy-only хост проходит gate.
+
+**SW3-warning (второй репорт Влада) — НЕ баг:** он переименовал outbound, а `panelOutbound`
+в настройках панели продолжал ссылаться на старый тег SW3 → `injectPanelEgress` не находил
+тег и панель ходила напрямую с warning'ом. Поведение by design; лечение — поправить тег
+в Settings → Panel Traffic Outbound. Не чинили (Влад: «не исправляй, это я туплю»).
 
 ---
 

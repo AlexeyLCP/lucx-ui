@@ -136,6 +136,17 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/inbounds/:id/links',
+        summary:
+          'Return the share links of a single inbound, rendered through the subscription engine. For Naive inbounds this is the only source of truth: per-client credentials are HMAC-derived from the panel secret server-side, so the response carries the service-level naive+https link (authUser/authPass, same as the legacy Tunnels-page clientUrl) followed by one personal link per enabled attached client. Protocols whose links the panel renders client-side contribute their sub-engine links as well. Used by the Inbounds page "Export links" action when the frontend generator yields nothing (Naive).',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'Inbound ID.' },
+        ],
+        response:
+          '{\n  "success": true,\n  "obj": [\n    "naive+https://svc:pass@naive.example.org:8443",\n    "naive+https://nx0000000001:abcd@naive.example.org:8443#alice"\n  ]\n}',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/inbounds/get/:id',
         summary: 'Fetch a single inbound by numeric ID.',
         params: [

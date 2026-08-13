@@ -65,6 +65,9 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/list/slim", a.getInboundsSlim)
 	g.GET("/options", a.getInboundOptions)
 	g.GET("/allLinks", a.getAllInboundLinks)
+	// LUCX-HOOK: Naive — per-inbound share links (HMAC creds are backend-only).
+	g.GET("/:id/links", a.getInboundLinks)
+	// END LUCX-HOOK
 	g.GET("/get/:id", a.getInbound)
 	g.GET("/:id/fallbacks", a.getFallbacks)
 
@@ -123,6 +126,23 @@ func (a *InboundController) getAllInboundLinks(c *gin.Context) {
 	}
 	jsonObj(c, links, nil)
 }
+
+// LUCX-HOOK: Naive — share links for one inbound (service link + per-client).
+func (a *InboundController) getInboundLinks(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	links, err := a.inboundService.GetInboundLinks(resolveHost(c), id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	jsonObj(c, links, nil)
+}
+
+// END LUCX-HOOK
 
 // getInboundOptions returns a lightweight projection of the user's inbounds
 // (id, remark, protocol, port, tlsFlowCapable) for pickers in the clients UI.

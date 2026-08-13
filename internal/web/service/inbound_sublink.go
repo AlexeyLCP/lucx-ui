@@ -2,6 +2,7 @@ package service
 
 import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel" // LUCX-HOOK: Naive service-credential share link
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 )
 
@@ -34,6 +35,31 @@ func (s *InboundService) GetAllInboundLinks(host string, userId int) ([]string, 
 	}
 	return registeredSubLinkProvider.LinksForInbounds(host, inbounds), nil
 }
+
+// LUCX-HOOK: Naive — per-inbound share links for the panel export button.
+// Naive credentials are HMAC-derived from the panel secret, so the frontend
+// cannot render them; the service-level link (authUser/authPass) mirrors the
+// legacy Tunnels-page clientUrl, per-client links come from the sub engine.
+func (s *InboundService) GetInboundLinks(host string, inboundId int) ([]string, error) {
+	inbound, err := s.GetInbound(inboundId)
+	if err != nil {
+		return nil, err
+	}
+	var links []string
+	if inbound.Protocol == model.Naive {
+		if cfg, ok := tunnel.ConfigFromInbound(inbound); ok && !cfg.UseRawConfig {
+			if u := cfg.ClientURL(); u != "" {
+				links = append(links, u)
+			}
+		}
+	}
+	if registeredSubLinkProvider == nil {
+		return links, nil
+	}
+	return append(links, registeredSubLinkProvider.LinksForInbounds(host, []*model.Inbound{inbound})...), nil
+}
+
+// END LUCX-HOOK
 
 func (s *InboundService) GetAllClientLinks(host string, email string) ([]string, error) {
 	if email == "" {

@@ -261,7 +261,7 @@ export default function InboundsPage() {
     return idx >= 0 ? idx : 0;
   }, []);
 
-  const exportInboundLinks = useCallback((dbInbound: DBInbound) => {
+  const exportInboundLinks = useCallback(async (dbInbound: DBInbound) => {
     const projected = checkFallback(dbInbound);
     const genInput = {
       inbound: inboundFromDb(projected),
@@ -269,9 +269,21 @@ export default function InboundsPage() {
       hostOverride: hostOverrideFor(dbInbound),
       fallbackHostname: preferPublicHost(window.location.hostname, subSettings.publicHost),
     };
-    const content = genInboundLinks(genInput);
+    let content = genInboundLinks(genInput);
+    // LUCX-HOOK: Naive creds are HMAC-derived server-side — fetch from backend.
+    if (!content.trim() && projected.protocol === 'naive') {
+      try {
+        const msg = await HttpUtil.get(`/panel/api/inbounds/${projected.id}/links`) as { success?: boolean; obj?: string[] };
+        if (msg?.success && Array.isArray(msg.obj)) content = msg.obj.join('\r\n');
+      } catch {
+        content = '';
+      }
+    }
+    // END LUCX-HOOK
     if (!content.trim()) {
-      messageApi.warning('No share link — set password and Public host:port (subHost)');
+      messageApi.warning(projected.protocol === 'naive'
+        ? 'No share link — set domain and service auth, or attach enabled clients'
+        : 'No share link — set password and Public host:port (subHost)');
       return;
     }
     const tabs: TextModalTab[] | undefined = projected.isWireguard
@@ -526,7 +538,7 @@ export default function InboundsPage() {
         setQrOpen(true);
         break;
       case 'export':
-        exportInboundLinks(target);
+        await exportInboundLinks(target);
         break;
       case 'subs':
         exportInboundSubs(target);
