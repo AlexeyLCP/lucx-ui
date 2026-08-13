@@ -2306,3 +2306,19 @@ origin панели → CORS fail → «что-то пошло не так».
 
 **Фикс:** GET `/panel/api/clients/awgBody/:subId?format=vpn|conf` (same-origin,
 SubAwgService). Frontend `fetchBody` сначала ходит туда, fallback — прямой URL.
+
+## Чистка: удалены 8 мёртвых frontend-файлов (2026-08-13)
+
+Аудит репозитория нашёл файлы, которые upstream уже удалил, а мы несли с
+миграции v3.6.0. Никто их не импортирует (все потребители ходят подпутями
+напрямую), LUCX-контента в них нет.
+
+- `frontend/src/schemas/_envelope.ts` — удалён upstream в `0a30a03c` (#6204)
+- 7 unreachable barrel-модулей, удалённых upstream в `286a9347` (#6205):
+  `components/feedback/index.ts`, `components/ui/notifications/index.ts`,
+  `pages/inbounds/{clients,form,info}/index.ts`, `schemas/index.ts`,
+  `schemas/protocols/shared/index.ts`
+
+Проверки: `npm run typecheck` + `npm run lint` — зелёные (1 pre-existing
+warning в RuleFormModal, не связан). При следующем upstream-merge эти удаления
+пришли бы сами; сделано заранее, чтобы не тащить мусор.
