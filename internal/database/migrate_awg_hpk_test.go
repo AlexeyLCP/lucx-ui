@@ -73,6 +73,18 @@ func TestNormalizeAwgSettings(t *testing.T) {
 			wantVersion: "1.5",
 		},
 		{
+			name:        "v3.1 + HPK preserved, not downgraded",
+			in:          `{"privateKey":"k","awgVersion":"3.1","headerProtectionKey":"aBcD...base64hpk==","randomTrailers":true}`,
+			wantChanged: false,
+			wantVersion: "3.1",
+		},
+		{
+			name:        "v3 + 3.1 flags pruned, version stays 3",
+			in:          `{"privateKey":"k","awgVersion":"3","headerProtectionKey":"k","randomTrailers":true,"disableCookies":true}`,
+			wantChanged: true,
+			wantVersion: "3",
+		},
+		{
 			name:        "invalid json is a no-op",
 			in:          `not json`,
 			wantChanged: false,
@@ -107,6 +119,14 @@ func TestNormalizeAwgSettings(t *testing.T) {
 				hpk, _ := m["headerProtectionKey"].(string)
 				if hpk != tc.wantHPK {
 					t.Fatalf("headerProtectionKey = %q, want %q", hpk, tc.wantHPK)
+				}
+			}
+			if tc.wantVersion == "3" && tc.wantChanged {
+				if _, ok := m["randomTrailers"]; ok {
+					t.Fatal("randomTrailers must be pruned on v3")
+				}
+				if _, ok := m["disableCookies"]; ok {
+					t.Fatal("disableCookies must be pruned on v3")
 				}
 			}
 		})

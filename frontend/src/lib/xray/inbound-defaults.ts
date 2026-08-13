@@ -8,6 +8,8 @@ import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg'; // LU
 import type { NaiveInboundSettings } from '@/schemas/protocols/inbound/naive'; // LUCX-HOOK: Naive
 import type { OlcrtcInboundSettings } from '@/schemas/protocols/inbound/olcrtc';
 import type { QwdttInboundSettings } from '@/schemas/protocols/inbound/qwdtt';
+import type { MieruInboundSettings } from '@/schemas/protocols/inbound/mieru';
+import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/trusttunnel';
 import type { ShadowsocksClient, ShadowsocksInboundSettings } from '@/schemas/protocols/inbound/shadowsocks';
 import type { TrojanClient, TrojanInboundSettings } from '@/schemas/protocols/inbound/trojan';
 import type { TunInboundSettings } from '@/schemas/protocols/inbound/tun';
@@ -283,6 +285,32 @@ export function createDefaultQwdttInboundSettings(): QwdttInboundSettings {
   };
 }
 
+export function createDefaultMieruInboundSettings(): MieruInboundSettings {
+  return {
+    portBindings: [{ port: 20100, protocol: 'TCP' }],
+    mtu: 1400,
+    loggingLevel: 'INFO',
+    routeThroughXray: false,
+    outboundTag: '',
+    clients: [],
+  };
+}
+
+export function createDefaultTrustTunnelInboundSettings(): TrustTunnelInboundSettings {
+  return {
+    hostname: '',
+    listen: '0.0.0.0:443',
+    ipv6: true,
+    certFile: '',
+    keyFile: '',
+    clientDns: '',
+    upstreamProtocol: 'http2',
+    routeThroughXray: false,
+    outboundTag: '',
+    clients: [],
+  };
+}
+
 // createDefaultMtprotoClient seeds a new MTProto client with a fresh FakeTLS
 // secret fronting the given domain. Mirrors the WireGuard client default: the
 // backend re-derives the secret on save, so this is only for immediate display.
@@ -335,6 +363,8 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     rejectAfterTime: '0',
     keepaliveTimeout: '0',
     maxHandshakeAttempts: '0',
+    randomTrailers: false,
+    disableCookies: false,
     // AWG protocol version '2' is the safe default — no HeaderProtectionKey,
     // accepted by any kernel. Bump to '3' for AWG3 clients (desktop 5.0.0.5 /
     // Android 3.0.1); note a v3 server will NOT accept v1/v2/plain-WG clients.
@@ -413,7 +443,9 @@ export type AnyInboundSettings =
   | AwgInboundSettings // LUCX-HOOK: AWG
   | NaiveInboundSettings
   | OlcrtcInboundSettings
-  | QwdttInboundSettings;
+  | QwdttInboundSettings
+  | MieruInboundSettings
+  | TrustTunnelInboundSettings;
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -432,6 +464,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
     case 'naive':       return createDefaultNaiveInboundSettings(); // LUCX-HOOK: Naive
     case 'olcrtc':      return createDefaultOlcrtcInboundSettings();
     case 'qwdtt':       return createDefaultQwdttInboundSettings();
+    case 'mieru':       return createDefaultMieruInboundSettings();
+    case 'trusttunnel': return createDefaultTrustTunnelInboundSettings();
     default:            return null;
   }
 }

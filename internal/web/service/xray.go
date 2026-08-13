@@ -187,7 +187,8 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 			continue
 		}
 		// Tunnel sidecars as inbounds — not Xray protocols.
-		if inbound.Protocol == model.Naive || inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt {
+		if inbound.Protocol == model.Naive || inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt ||
+			inbound.Protocol == model.Mieru || inbound.Protocol == model.TrustTunnel {
 			continue
 		}
 		// END LUCX-HOOK
@@ -410,6 +411,22 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 			continue
 		}
 		injectOlcrtcEgress(xrayConfig, inbound)
+	}
+	// mieru routeThroughXray: SOCKS bridge (mita egress.proxies SOCKS5 → loopback SOCKS).
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.Mieru || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectMieruEgress(xrayConfig, inbound)
+	}
+	// TrustTunnel routeThroughXray: SOCKS bridge ([forward_protocol.socks5]).
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.TrustTunnel || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectTrustTunnelEgress(xrayConfig, inbound)
 	}
 	// NaiveProxy: prefer inbound rows (mtproto pattern — tag = inbound.Tag).
 	// Fall back to legacy global lucxTunnel_naive settings until migrated.
@@ -925,6 +942,28 @@ func injectOlcrtcEgress(cfg *xray.Config, inbound *model.Inbound) {
 		return
 	}
 	injectSocksEgress(cfg, inbound.Tag, cfgO.RouteXrayPort, cfgO.OutboundTag, "olcrtc egress")
+}
+
+// injectMieruEgress wires a routed mieru inbound as a loopback SOCKS bridge.
+// mita's native egress.proxies SOCKS5 block dials it; mita resolves domains
+// itself, so Xray-side routing for this traffic is IP-based only.
+func injectMieruEgress(cfg *xray.Config, inbound *model.Inbound) {
+	cfgM, ok := tunnel.MieruConfigFromInbound(inbound)
+	if !ok || !cfgM.RouteThroughXray || cfgM.RouteXrayPort <= 0 || inbound.Tag == "" {
+		return
+	}
+	injectSocksEgress(cfg, inbound.Tag, cfgM.RouteXrayPort, cfgM.OutboundTag, "mieru egress")
+}
+
+// injectTrustTunnelEgress wires a routed TrustTunnel inbound as a loopback
+// SOCKS bridge. The endpoint's [forward_protocol.socks5] dials it; like
+// mieru, the endpoint resolves destinations itself (IP-based routing only).
+func injectTrustTunnelEgress(cfg *xray.Config, inbound *model.Inbound) {
+	cfgT, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
+	if !ok || !cfgT.RouteThroughXray || cfgT.RouteXrayPort <= 0 || inbound.Tag == "" {
+		return
+	}
+	injectSocksEgress(cfg, inbound.Tag, cfgT.RouteXrayPort, cfgT.OutboundTag, "trusttunnel egress")
 }
 
 // injectQwdttEgress wires a routed qWDTT inbound into Xray as a TUN bridge

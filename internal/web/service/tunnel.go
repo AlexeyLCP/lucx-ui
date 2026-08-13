@@ -382,6 +382,8 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileNaiveInbounds()
 	s.reconcileOlcrtcInbounds()
 	s.reconcileQwdttInbound()
+	s.reconcileMieruInbounds()
+	s.reconcileTrustTunnelInbounds()
 }
 
 // tunnelBlobMigrated reports whether the legacy settings blob carries the
@@ -558,6 +560,74 @@ func (s *TunnelService) reconcileQwdttInbound() {
 	if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: qwdtt reconcile failed:", err)
 	}
+}
+
+// reconcileMieruInbounds Ensures every mieru inbound sidecar and stops
+// orphans. mieru is inbound-only (lucx.117+): there is no legacy settings
+// blob, so with zero inbounds the wanted set is empty and every mieru-* key
+// is swept.
+func (s *TunnelService) reconcileMieruInbounds() {
+	secret, _ := s.settingService.GetSecret()
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: mieru inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Mieru || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.MieruInstanceFromInbound(ib, secret)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	tunnel.GetManager().ReconcileMieru(want)
+}
+
+// panelCertFiles reads the panel ACME certificate paths from settings (the
+// TrustTunnel default cert source).
+func panelCertFiles() (cert, key string) {
+	db := database.GetDB()
+	var rows []model.Setting
+	if err := db.Where("key IN ?", []string{"webCertFile", "webKeyFile"}).Find(&rows).Error; err != nil {
+		return "", ""
+	}
+	for _, r := range rows {
+		switch r.Key {
+		case "webCertFile":
+			cert = strings.TrimSpace(r.Value)
+		case "webKeyFile":
+			key = strings.TrimSpace(r.Value)
+		}
+	}
+	return cert, key
+}
+
+// reconcileTrustTunnelInbounds Ensures every TrustTunnel inbound sidecar and
+// stops orphans. Inbound-only like mieru.
+func (s *TunnelService) reconcileTrustTunnelInbounds() {
+	secret, _ := s.settingService.GetSecret()
+	panelCert, panelKey := panelCertFiles()
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: trusttunnel inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.TrustTunnel || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.TrustTunnelInstanceFromInbound(ib, secret, panelCert, panelKey)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	tunnel.GetManager().ReconcileTrustTunnel(want)
 }
 
 // --- olcRTC core -----------------------------------------------------------
@@ -1163,4 +1233,103 @@ func (s *TunnelService) qwdttInstance(cfg tunnel.QwdttConfig) (tunnel.Instance, 
 		Enabled: cfg.Enabled,
 		Args:    cfg.BuildArgs(),
 	}, nil
+}
+
+// --- mieru core (inbound-only, lucx.117) -----------------------------------
+
+// MieruStatus is the Cores-page payload of the mieru core: binary presence
+// plus the aggregate process state across all mieru-{id} instances.
+type MieruStatus struct {
+	Core         string        `json:"core"`
+	DisplayName  string        `json:"displayName"`
+	BinaryExists bool          `json:"binaryExists"`
+	BinaryPath   string        `json:"binaryPath"`
+	Probe        tunnel.Status `json:"probe"`
+	LastLog      string        `json:"lastLog"`
+}
+
+// MieruStatus assembles the Cores-page payload from the live manager state.
+func (s *TunnelService) MieruStatus() (MieruStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Mieru.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return MieruStatus{
+		Core:         string(tunnel.Mieru),
+		DisplayName:  tunnel.Mieru.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("mieru-")},
+		LastLog:      mgr.LastLogPrefixed("mieru-"),
+	}, nil
+}
+
+// MieruLogs returns the most recent output lines of all mieru instances.
+func (s *TunnelService) MieruLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().LogsPrefixed("mieru-", lines)
+}
+
+// DeleteMieruBinary stops every mieru instance and removes the binary.
+func (s *TunnelService) DeleteMieruBinary() error {
+	tunnel.GetManager().StopPrefixed("mieru-")
+	if err := os.Remove(tunnel.Mieru.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DownloadMieruBinary fetches the mita binary from a URL into place.
+func (s *TunnelService) DownloadMieruBinary(downloadURL string) error {
+	return s.downloadBinaryTo(tunnel.Mieru.BinaryPath(), downloadURL)
+}
+
+// --- TrustTunnel core (inbound-only, lucx.117) -----------------------------
+
+// TrustTunnelStatus is the Cores-page payload of the TrustTunnel core.
+type TrustTunnelStatus struct {
+	Core         string        `json:"core"`
+	DisplayName  string        `json:"displayName"`
+	BinaryExists bool          `json:"binaryExists"`
+	BinaryPath   string        `json:"binaryPath"`
+	Probe        tunnel.Status `json:"probe"`
+	LastLog      string        `json:"lastLog"`
+}
+
+// TrustTunnelStatus assembles the Cores-page payload from the live manager.
+func (s *TunnelService) TrustTunnelStatus() (TrustTunnelStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.TrustTunnel.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return TrustTunnelStatus{
+		Core:         string(tunnel.TrustTunnel),
+		DisplayName:  tunnel.TrustTunnel.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("trusttunnel-")},
+		LastLog:      mgr.LastLogPrefixed("trusttunnel-"),
+	}, nil
+}
+
+// TrustTunnelLogs returns the most recent output lines of all instances.
+func (s *TunnelService) TrustTunnelLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().LogsPrefixed("trusttunnel-", lines)
+}
+
+// DeleteTrustTunnelBinary stops every instance and removes the binary.
+func (s *TunnelService) DeleteTrustTunnelBinary() error {
+	tunnel.GetManager().StopPrefixed("trusttunnel-")
+	if err := os.Remove(tunnel.TrustTunnel.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DownloadTrustTunnelBinary fetches the endpoint binary from a URL into place.
+func (s *TunnelService) DownloadTrustTunnelBinary(downloadURL string) error {
+	return s.downloadBinaryTo(tunnel.TrustTunnel.BinaryPath(), downloadURL)
 }

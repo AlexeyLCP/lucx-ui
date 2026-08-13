@@ -39,6 +39,8 @@ func NewTunnelJob() *TunnelJob {
 func (j *TunnelJob) Run() {
 	j.tunnelService.Reconcile()
 	j.collectNaiveTraffic()
+	j.collectMieruTraffic()
+	j.collectTrustTunnelTraffic()
 }
 
 func (j *TunnelJob) collectNaiveTraffic() {
@@ -139,6 +141,187 @@ func (j *TunnelJob) collectNaiveTraffic() {
 		}
 	}
 	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
+}
+
+// collectMieruTraffic scrapes running mita daemons for per-user byte counters
+// (folds deltas like collectNaiveTraffic) and ages out online status.
+func (j *TunnelJob) collectMieruTraffic() {
+	secret, err := j.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return
+	}
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+
+	var targets []tunnel.MieruScrapeTarget
+	routedTags := make(map[string]bool)
+	activeTags := make([]string, 0)
+
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Mieru || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		activeTags = append(activeTags, tag)
+		if cfg, ok := tunnel.MieruConfigFromInbound(ib); ok && cfg.RouteThroughXray {
+			routedTags[tag] = true
+		}
+		userToEmail := mieruUserMapForInbound(secret, ib)
+		if len(userToEmail) == 0 {
+			continue
+		}
+		targets = append(targets, tunnel.MieruScrapeTarget{
+			Key:         tunnel.MieruKey(ib.Id),
+			Tag:         tag,
+			UserToEmail: userToEmail,
+		})
+	}
+
+	if len(targets) == 0 {
+		if len(activeTags) > 0 {
+			j.inboundService.RefreshLocalOnlineClients(nil, activeTags)
+		}
+		return
+	}
+
+	now := time.Now()
+	deltas, onlineEmails := tunnel.GetManager().CollectMieruTraffic(targets, now, tunnel.MieruOnlineGrace)
+
+	// Deltas this tick also count as online (activity even when LastActive
+	// parsing failed), mirroring normalizeNaiveOnline.
+	onlineSet := make(map[string]struct{}, len(onlineEmails)+len(deltas))
+	for _, e := range onlineEmails {
+		if e = strings.TrimSpace(e); e != "" {
+			onlineSet[e] = struct{}{}
+		}
+	}
+	for _, d := range deltas {
+		if e := strings.TrimSpace(d.Email); e != "" {
+			onlineSet[e] = struct{}{}
+		}
+	}
+	onlineEmails = make([]string, 0, len(onlineSet))
+	for e := range onlineSet {
+		onlineEmails = append(onlineEmails, e)
+	}
+
+	clientTraffics := make([]*xray.ClientTraffic, 0, len(deltas))
+	inboundUp := make(map[string]int64)
+	inboundDown := make(map[string]int64)
+	for _, d := range deltas {
+		clientTraffics = append(clientTraffics, &xray.ClientTraffic{
+			Email: d.Email,
+			Up:    d.Up,
+			Down:  d.Down,
+		})
+		// Routed inbounds already meter inbound>>>tag via the SOCKS bridge;
+		// only roll up non-routed here (same as naive/AWG/mtproto jobs).
+		if !routedTags[d.Tag] {
+			inboundUp[d.Tag] += d.Up
+			inboundDown[d.Tag] += d.Down
+		}
+	}
+	traffics := make([]*xray.Traffic, 0, len(inboundUp))
+	for tag, up := range inboundUp {
+		traffics = append(traffics, &xray.Traffic{
+			IsInbound: true,
+			Tag:       tag,
+			Up:        up,
+			Down:      inboundDown[tag],
+		})
+	}
+	if len(traffics) > 0 || len(clientTraffics) > 0 {
+		if _, _, err := j.inboundService.AddTraffic(traffics, clientTraffics); err != nil {
+			logger.Warning("tunnel job: add mieru traffic failed:", err)
+		}
+	}
+	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
+}
+
+// collectTrustTunnelTraffic scrapes endpoint Prometheus metrics. Metrics are
+// aggregate (no per-user labels upstream) → inbound-level accounting only;
+// per-client traffic/online is not possible for TrustTunnel.
+func (j *TunnelJob) collectTrustTunnelTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var targets []tunnel.TrustTunnelScrapeTarget
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.TrustTunnel || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		cfg, ok := tunnel.TrustTunnelConfigFromInbound(ib)
+		if !ok || tag == "" || cfg.MetricsPort <= 0 {
+			continue
+		}
+		targets = append(targets, tunnel.TrustTunnelScrapeTarget{
+			Key:         tunnel.TrustTunnelKey(ib.Id),
+			Tag:         tag,
+			MetricsPort: cfg.MetricsPort,
+		})
+	}
+	if len(targets) == 0 {
+		return
+	}
+	deltas := tunnel.GetManager().CollectTrustTunnelTraffic(targets)
+	if len(deltas) == 0 {
+		return
+	}
+	routedTags := map[string]bool{}
+	for _, ib := range inbounds {
+		if cfg, ok := tunnel.TrustTunnelConfigFromInbound(ib); ok && cfg.RouteThroughXray {
+			routedTags[strings.TrimSpace(ib.Tag)] = true
+		}
+	}
+	traffics := make([]*xray.Traffic, 0, len(deltas))
+	for _, d := range deltas {
+		if routedTags[d.Tag] {
+			continue
+		}
+		traffics = append(traffics, &xray.Traffic{
+			IsInbound: true,
+			Tag:       d.Tag,
+			Up:        d.Up,
+			Down:      d.Down,
+		})
+	}
+	if len(traffics) == 0 {
+		return
+	}
+	if _, _, err := j.inboundService.AddTraffic(traffics, nil); err != nil {
+		logger.Warning("tunnel job: add trusttunnel traffic failed:", err)
+	}
+}
+
+func mieruUserMapForInbound(secret []byte, ib *model.Inbound) map[string]string {
+	var s struct {
+		Clients []struct {
+			Email  string `json:"email"`
+			Enable bool   `json:"enable"`
+		} `json:"clients"`
+	}
+	_ = json.Unmarshal([]byte(ib.Settings), &s)
+	out := make(map[string]string)
+	for _, c := range s.Clients {
+		email := strings.TrimSpace(c.Email)
+		if !c.Enable || email == "" {
+			continue
+		}
+		pair := tunnel.MieruClientAuth(secret, ib.Id, email)
+		if pair.User != "" {
+			out[pair.User] = email
+		}
+	}
+	return out
 }
 
 func naiveUserMapForInbound(secret []byte, ib *model.Inbound) map[string]string {

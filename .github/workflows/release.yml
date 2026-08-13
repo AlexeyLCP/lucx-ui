@@ -231,6 +231,36 @@ jobs:
             chmod +x "qwdtt-linux-${{ matrix.platform }}"
             rm -rf x-ui "${EX3_TGZ}"
           fi
+          # mieru (enfein/mieru, GPL-3.0) — mita server. Built from a pinned
+          # tag; BinaryName() is mieru-linux-{arch}. amd64/arm64 only.
+          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
+            MIERU_REF="v3.35.0"
+            git clone --depth 1 --branch "${MIERU_REF}" https://github.com/enfein/mieru.git /tmp/mieru
+            ( cd /tmp/mieru && GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.platform }}" \
+                go build -trimpath -ldflags="-s -w" -o "/tmp/mieru-linux-${{ matrix.platform }}" ./cmd/mita )
+            mv "/tmp/mieru-linux-${{ matrix.platform }}" "mieru-linux-${{ matrix.platform }}"
+            chmod +x "mieru-linux-${{ matrix.platform }}"
+            rm -rf /tmp/mieru
+          fi
+          # TrustTunnel (TrustTunnel/TrustTunnel, Apache-2.0) — prebuilt
+          # trusttunnel_endpoint from the official tarball. amd64=x86_64,
+          # arm64=aarch64. Other arches use Cores-tab upload.
+          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
+            TT_VER="v1.0.33"
+            case "${{ matrix.platform }}" in
+              amd64) TT_ARCH="x86_64" ;;
+              arm64) TT_ARCH="aarch64" ;;
+            esac
+            TT_TGZ="trusttunnel-${TT_VER}-linux-${TT_ARCH}.tar.gz"
+            fetch -O "${TT_TGZ}" "https://github.com/TrustTunnel/TrustTunnel/releases/download/${TT_VER}/${TT_TGZ}"
+            mkdir -p /tmp/trusttunnel
+            tar -xzf "${TT_TGZ}" -C /tmp/trusttunnel
+            TT_BIN=$(find /tmp/trusttunnel -type f -name trusttunnel_endpoint | head -n1)
+            if [ -z "$TT_BIN" ]; then echo "trusttunnel_endpoint missing from ${TT_TGZ}"; exit 1; fi
+            mv "$TT_BIN" "trusttunnel-linux-${{ matrix.platform }}"
+            chmod +x "trusttunnel-linux-${{ matrix.platform }}"
+            rm -rf /tmp/trusttunnel "${TT_TGZ}"
+          fi
           # END LUCX-HOOK
           cd ../..
 

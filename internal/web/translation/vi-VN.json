@@ -669,6 +669,12 @@
         "awgVersion2": "2 — tiêu chuẩn (Android 2.0.1)",
         "awgVersion3": "3 — đầy đủ + bảo vệ tiêu đề (AWG3)",
         "awgVersion3CompatNote": "Phiên bản 3 bật HeaderProtectionKey, điều này phá vỡ khả năng tương thích về mặt mật mã: client v1/v2 và plain-WireGuard không thể kết nối tới inbound này.",
+        "awgVersion31": "3.1 — AWG3 + đuôi ngẫu nhiên",
+        "awgVersion31CompatNote": "Phiên bản 3.1 thêm RandomTrailers và DisableCookies. Công cụ cũ hơn v3.1 sẽ từ chối các dòng này. Client v1/v2 và plain-WireGuard vẫn không kết nối được (HPK).",
+        "awgRandomTrailers": "Đuôi ngẫu nhiên",
+        "awgRandomTrailersHint": "Thêm đuôi ngẫu nhiên vào mỗi gói trong cửa sổ UDP theo peer. Chống DPI theo kích thước. Chỉ AWG 3.1.",
+        "awgDisableCookies": "Tắt cookies",
+        "awgDisableCookiesHint": "Không trả lời cookie-challenge. Chỉ AWG 3.1.",
         "awgSRangeWarning": "AWG3 yêu cầu S1-S4 ≥ 12 (cipher bảo vệ tiêu đề đọc nonce từ 12 byte đầu của S-padding). Trình tạo đảm bảo điều này; hãy xác minh trước khi chỉnh sửa thủ công.",
         "awgMimicryProfile": "Hồ sơ ngụy trang",
         "awgMimicryProfileHint": "Dạng gói tin mà chữ ký CPS bắt chước. TLS/QUIC trông như lưu lượng trình duyệt thật; DNS/SIP nhẹ hơn.",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "Cổng lắng nghe mita — cổng đơn hoặc dải, TCP/UDP. Máy khách kết nối tới các cổng này.",
+        "mieruPortPlaceholder": "20100 hoặc 20000-20010",
+        "mieruAddBinding": "Thêm cổng",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "Mức log",
+        "mieruRouteThroughXray": "Định tuyến qua Xray",
+        "mieruRouteThroughXrayHint": "mita quay số tới đích qua cầu SOCKS loopback ẩn trong Xray (egress.proxies gốc). Mặc định tắt — chỉ bật khi nối tiếp outbound.",
+        "mieruRouteOutbound": "Outbound",
+        "mieruRouteOutboundHint": "Trống = nồi mặc định của Xray. Nếu không, buộc định tuyến tới outbound/balancer này.",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "Tên miền (hostname)",
+        "trustTunnelHostnameHint": "Tên miền trỏ tới máy chủ này. Phải được chứng chỉ TLS bao phủ. Máy khách kết nối tới nó.",
+        "trustTunnelListen": "Địa chỉ lắng nghe",
+        "trustTunnelCertFile": "Tệp chứng chỉ (tùy chọn)",
+        "trustTunnelKeyFile": "Tệp khóa riêng (tùy chọn)",
+        "trustTunnelCertFileHint": "Trống = chứng chỉ ACME của chính panel (Settings → Panel SSL / console x-ui). Chứng chỉ phải bao phủ tên miền ở trên.",
+        "trustTunnelUpstreamProtocol": "Giao thức máy khách",
+        "trustTunnelClientDns": "DNS máy khách (cho liên kết)",
+        "trustTunnelClientDnsHint": "Các upstream DNS phân tách bằng dấu phẩy, được ghi vào liên kết tt:// của máy khách, ví dụ 1.1.1.1, tls://8.8.8.8. Trống = mặc định của máy khách.",
+        "trustTunnelIpv6": "Khả dụng IPv6",
+        "trustTunnelRouteThroughXray": "Định tuyến qua Xray",
+        "trustTunnelRouteThroughXrayHint": "Endpoint chuyển tiếp lưu lượng đường hầm qua cầu SOCKS loopback ẩn trong Xray ([forward_protocol.socks5]). Mặc định tắt — chỉ bật khi nối tiếp outbound.",
+        "trustTunnelRouteOutbound": "Outbound",
+        "trustTunnelRouteOutboundHint": "Trống = nồi mặc định của Xray. Nếu không, buộc định tuyến tới outbound/balancer này.",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Chế độ",
@@ -2244,6 +2275,36 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "đã cài",
+          "missing": "chưa cài",
+          "upload": "Tải lên",
+          "download": "Tải xuống",
+          "delete": "Xóa",
+          "deleteConfirm": "Dừng tất cả phiên mieru và xóa nhị phân?"
+        },
+        "toasts": {
+          "uploaded": "Đã tải nhị phân lên",
+          "downloaded": "Đã tải nhị phân xuống",
+          "deleted": "Đã xóa nhị phân"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "đã cài",
+          "missing": "chưa cài",
+          "upload": "Tải lên",
+          "download": "Tải xuống",
+          "delete": "Xóa",
+          "deleteConfirm": "Dừng tất cả phiên TrustTunnel và xóa nhị phân?"
+        },
+        "toasts": {
+          "uploaded": "Đã tải nhị phân lên",
+          "downloaded": "Đã tải nhị phân xuống",
+          "deleted": "Đã xóa nhị phân"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

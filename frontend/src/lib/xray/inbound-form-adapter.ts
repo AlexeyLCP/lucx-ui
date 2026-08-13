@@ -257,6 +257,8 @@ function clientSchemaForProtocol(protocol: string): z.ZodType | null {
     case 'wireguard': return WireguardClientSchema;
     case 'mtproto': return MtprotoClientSchema;
     case 'naive': return NaiveClientSchema;
+    case 'mieru': return NaiveClientSchema;
+    case 'trusttunnel': return NaiveClientSchema;
     default: return null;
   }
 }

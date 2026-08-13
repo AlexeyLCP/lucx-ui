@@ -50,6 +50,23 @@ func TestGenAwgLink_HeaderProtectionKeyEmittedWhenSet(t *testing.T) {
 	}
 }
 
+func TestGenAwgLink_HeaderProtectionKeyEmittedOnV31(t *testing.T) {
+	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"3.1",` +
+		`"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,` +
+		`"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000",` +
+		`"headerProtectionKey":"aBcD...base64hpk==","randomTrailers":true,` +
+		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
+	s := &SubService{}
+	link := s.genAwgLink(awgLinkInbound(settings), "user")
+	if !strings.Contains(link, "headerProtectionKey=") {
+		t.Errorf("HPK must appear for awgVersion=3.1, got:\n%s", link)
+	}
+	if !strings.Contains(link, "randomtrailers=true") {
+		t.Errorf("randomtrailers must appear for awgVersion=3.1, got:\n%s", link)
+	}
+}
+
 func TestGenAwgLink_HeaderProtectionKeyOmittedOnNonV3(t *testing.T) {
 	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
 		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"2",` +

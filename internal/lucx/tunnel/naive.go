@@ -287,21 +287,24 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 }
 
 // ClientURL renders the share link consumed by naive-compatible clients
-// (NekoBox, husi, Exclave, the official naive client):
+// (NekoBox, husi, Exclave, awgm, v2rayN):
 //
-//	naive+https://USER:PASS@DOMAIN[:PORT]
+//	naive+https://USER:PASS@DOMAIN:PORT
 //
-// The port is omitted for 443. Empty domain or user yields "".
+// The port is always written, including 443 — awgm/v2rayN fail to import
+// a naive+https URL without an explicit authority port. Empty domain or
+// user yields "".
 func (c NaiveConfig) ClientURL() string {
 	domain := strings.TrimSpace(c.Domain)
 	user := strings.TrimSpace(c.AuthUser)
 	if domain == "" || user == "" {
 		return ""
 	}
-	host := domain
-	if c.Port != 443 {
-		host = net.JoinHostPort(domain, strconv.Itoa(c.Port))
+	port := c.Port
+	if port <= 0 {
+		port = 443
 	}
+	host := net.JoinHostPort(domain, strconv.Itoa(port))
 	u := url.URL{
 		Scheme: "https",
 		User:   url.UserPassword(user, strings.TrimSpace(c.AuthPass)),

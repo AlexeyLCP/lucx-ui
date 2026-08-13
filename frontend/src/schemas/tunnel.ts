@@ -121,3 +121,28 @@ export const QwdttStatusSchema = z.object({
 });
 
 export type QwdttStatus = z.infer<typeof QwdttStatusSchema>;
+
+// mieru core status — mirrors service.MieruStatus (inbound-only core: no
+// legacy config/lifecycle, binary management + aggregate process state).
+export const MieruStatusSchema = z.object({
+  core: z.string(),
+  displayName: z.string(),
+  binaryExists: z.boolean(),
+  binaryPath: z.string(),
+  probe: TunnelProbeSchema,
+  lastLog: z.string(),
+});
+
+export type MieruStatus = z.infer<typeof MieruStatusSchema>;
+
+// TrustTunnel core status — mirrors service.TrustTunnelStatus (inbound-only).
+export const TrustTunnelStatusSchema = z.object({
+  core: z.string(),
+  displayName: z.string(),
+  binaryExists: z.boolean(),
+  binaryPath: z.string(),
+  probe: TunnelProbeSchema,
+  lastLog: z.string(),
+});
+
+export type TrustTunnelStatus = z.infer<typeof TrustTunnelStatusSchema>;

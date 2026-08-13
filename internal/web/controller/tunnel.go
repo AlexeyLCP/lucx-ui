@@ -91,6 +91,22 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	qwdtt.POST("/upload", a.qwdttUploadBinary)
 	qwdtt.POST("/download", a.qwdttDownloadBinary)
 	qwdtt.POST("/deleteBinary", a.qwdttDeleteBinary)
+
+	// mieru is inbound-only (no legacy config/lifecycle): status, logs and
+	// binary management for the Settings → Cores page.
+	mieru := g.Group("/mieru")
+	mieru.GET("/status", a.mieruStatus)
+	mieru.GET("/logs", a.mieruLogs)
+	mieru.POST("/upload", a.mieruUploadBinary)
+	mieru.POST("/download", a.mieruDownloadBinary)
+	mieru.POST("/deleteBinary", a.mieruDeleteBinary)
+
+	trusttunnel := g.Group("/trusttunnel")
+	trusttunnel.GET("/status", a.trustTunnelStatus)
+	trusttunnel.GET("/logs", a.trustTunnelLogs)
+	trusttunnel.POST("/upload", a.trustTunnelUploadBinary)
+	trusttunnel.POST("/download", a.trustTunnelDownloadBinary)
+	trusttunnel.POST("/deleteBinary", a.trustTunnelDeleteBinary)
 }
 
 func (a *TunnelController) status(c *gin.Context) {
@@ -464,4 +480,132 @@ func (a *TunnelController) qwdttDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.deleted"), nil)
+}
+
+// --- mieru (inbound-only: status/logs/binary for the Cores page) ----------
+
+func (a *TunnelController) mieruStatus(c *gin.Context) {
+	st, err := a.svc.MieruStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: mieru status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) mieruLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.MieruLogs(lines), nil)
+}
+
+func (a *TunnelController) mieruUploadBinary(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		jsonMsg(c, "tunnel: mieru upload failed", err)
+		return
+	}
+	dst := tunnel.Mieru.BinaryPath()
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		logger.Warning("tunnel: save uploaded mieru binary failed:", err)
+		jsonMsg(c, "tunnel: mieru upload failed", err)
+		return
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(dst, 0o755); err != nil {
+			logger.Warning("tunnel: chmod uploaded mieru binary failed:", err)
+		}
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.mieru.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) mieruDownloadBinary(c *gin.Context) {
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid mieru download body", err)
+		return
+	}
+	if err := a.svc.DownloadMieruBinary(body.URL); err != nil {
+		jsonMsg(c, "tunnel: mieru download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.mieru.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) mieruDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteMieruBinary(); err != nil {
+		jsonMsg(c, "tunnel: mieru binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.mieru.toasts.deleted"), nil)
+}
+
+// --- TrustTunnel (inbound-only: status/logs/binary for the Cores page) ----
+
+func (a *TunnelController) trustTunnelStatus(c *gin.Context) {
+	st, err := a.svc.TrustTunnelStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: trusttunnel status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) trustTunnelLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.TrustTunnelLogs(lines), nil)
+}
+
+func (a *TunnelController) trustTunnelUploadBinary(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		jsonMsg(c, "tunnel: trusttunnel upload failed", err)
+		return
+	}
+	dst := tunnel.TrustTunnel.BinaryPath()
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		logger.Warning("tunnel: save uploaded trusttunnel binary failed:", err)
+		jsonMsg(c, "tunnel: trusttunnel upload failed", err)
+		return
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(dst, 0o755); err != nil {
+			logger.Warning("tunnel: chmod uploaded trusttunnel binary failed:", err)
+		}
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.trusttunnel.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) trustTunnelDownloadBinary(c *gin.Context) {
+	var body struct {
+		URL string `json:"url"`
+	}
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid trusttunnel download body", err)
+		return
+	}
+	if err := a.svc.DownloadTrustTunnelBinary(body.URL); err != nil {
+		jsonMsg(c, "tunnel: trusttunnel download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.trusttunnel.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) trustTunnelDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteTrustTunnelBinary(); err != nil {
+		jsonMsg(c, "tunnel: trusttunnel binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.trusttunnel.toasts.deleted"), nil)
 }

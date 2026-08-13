@@ -16,6 +16,8 @@ export const ProtocolSchema = z.enum([
   'naive', // LUCX-HOOK: NaiveProxy sidecar (inbound model)
   'olcrtc', // LUCX-HOOK: olcRTC sidecar
   'qwdtt', // LUCX-HOOK: qWDTT sidecar
+  'mieru', // LUCX-HOOK: mieru sidecar
+  'trusttunnel', // LUCX-HOOK: TrustTunnel sidecar
 ]);
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
@@ -41,4 +43,6 @@ export const Protocols = Object.freeze({
   NAIVE: 'naive', // LUCX-HOOK: NaiveProxy
   OLCRTC: 'olcrtc', // LUCX-HOOK: olcRTC
   QWDTT: 'qwdtt', // LUCX-HOOK: qWDTT
+  MIERU: 'mieru', // LUCX-HOOK: mieru
+  TRUSTTUNNEL: 'trusttunnel', // LUCX-HOOK: TrustTunnel
 });

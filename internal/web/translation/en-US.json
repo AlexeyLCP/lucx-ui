@@ -655,6 +655,12 @@
         "awgVersion2": "2 — standard (Android 2.0.1)",
         "awgVersion3": "3 — full + header protection (AWG3)",
         "awgVersion3CompatNote": "Version 3 enables HeaderProtectionKey, which is cryptographically breaking: v1/v2 and plain-WireGuard clients cannot connect to this inbound.",
+        "awgVersion31": "3.1 — AWG3 + random trailers",
+        "awgVersion31CompatNote": "Version 3.1 adds RandomTrailers and DisableCookies. Tools older than v3.1 reject these lines. v1/v2 and plain-WireGuard clients still cannot connect (HPK).",
+        "awgRandomTrailers": "Random trailers",
+        "awgRandomTrailersHint": "Append a random tail to each packet within the per-peer UDP window. Anti-DPI by packet size. AWG 3.1 only.",
+        "awgDisableCookies": "Disable cookies",
+        "awgDisableCookiesHint": "Do not reply to cookie challenges. AWG 3.1 only.",
         "awgSRangeWarning": "AWG3 requires S1-S4 ≥ 12 (the header-protection cipher reads its nonce from the first 12 bytes of S-padding). The generator enforces this; verify before editing by hand.",
         "awgMimicryProfile": "Mimicry profile",
         "awgMimicryProfileHint": "Which packet shape the CPS signature imitates. TLS/QUIC look like real browser traffic; DNS/SIP are lighter.",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "mita listen bindings — port or range, TCP/UDP. Clients connect to these ports.",
+        "mieruPortPlaceholder": "20100 or 20000-20010",
+        "mieruAddBinding": "Add binding",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "Log level",
+        "mieruRouteThroughXray": "Route through Xray",
+        "mieruRouteThroughXrayHint": "mita dials destinations via a hidden loopback SOCKS bridge in Xray (native egress.proxies). Off by default — enable only for outbound cascade.",
+        "mieruRouteOutbound": "Outbound",
+        "mieruRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "Domain (hostname)",
+        "trustTunnelHostnameHint": "A domain pointing to this server. Must be covered by the TLS certificate. Clients connect to it.",
+        "trustTunnelListen": "Listen address",
+        "trustTunnelCertFile": "Certificate file (optional)",
+        "trustTunnelKeyFile": "Private key file (optional)",
+        "trustTunnelCertFileHint": "Empty = the panel's own ACME certificate (Settings → Panel SSL / x-ui console). The certificate must cover the domain above.",
+        "trustTunnelUpstreamProtocol": "Client protocol",
+        "trustTunnelClientDns": "Client DNS (for the link)",
+        "trustTunnelClientDnsHint": "Comma-separated DNS upstreams advertised in the client's tt:// link, e.g. 1.1.1.1, tls://8.8.8.8. Empty = client default.",
+        "trustTunnelIpv6": "IPv6 available",
+        "trustTunnelRouteThroughXray": "Route through Xray",
+        "trustTunnelRouteThroughXrayHint": "The endpoint forwards tunneled traffic via a hidden loopback SOCKS bridge in Xray ([forward_protocol.socks5]). Off by default — enable only for outbound cascade.",
+        "trustTunnelRouteOutbound": "Outbound",
+        "trustTunnelRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Mode",
@@ -2241,6 +2272,36 @@
           "stopped": "qWDTT stopped",
           "restarted": "qWDTT restarted",
           "saved": "qWDTT config saved",
+          "uploaded": "Binary uploaded",
+          "downloaded": "Binary downloaded",
+          "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop all mieru instances and delete the binary?"
+        },
+        "toasts": {
+          "uploaded": "Binary uploaded",
+          "downloaded": "Binary downloaded",
+          "deleted": "Binary deleted"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop all TrustTunnel instances and delete the binary?"
+        },
+        "toasts": {
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"

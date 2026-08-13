@@ -134,6 +134,7 @@ func TestRenderClientConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 	}{
 		{"empty key v3", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"3"}`, false},
 		{"set key v3", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"3","headerProtectionKey":"aBcD...base64hpk=="}`, true},
+		{"set key v3.1", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"3.1","headerProtectionKey":"aBcD...base64hpk=="}`, true},
 		{"set key v2", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"awgVersion":"2","headerProtectionKey":"aBcD...base64hpk=="}`, false},
 		{"set key no version", `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"headerProtectionKey":"aBcD...base64hpk=="}`, false},
 	} {
@@ -182,6 +183,33 @@ func TestRenderClientConf_DeviceFieldsGated(t *testing.T) {
 			if strings.Contains(conf, w) {
 				t.Errorf("%q must NOT appear for version 2 in:\n%s", w, conf)
 			}
+		}
+	})
+}
+
+func TestRenderClientConf_Awg31Flags(t *testing.T) {
+	awg3, awg31 := true, true
+	SetModuleSupportsAwg3(&awg3)
+	SetModuleSupportsAwg31(&awg31)
+	t.Cleanup(func() {
+		SetModuleSupportsAwg3(nil)
+		SetModuleSupportsAwg31(nil)
+	})
+	const base = `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150`
+	t.Run("v3.1 emits", func(t *testing.T) {
+		o := &model.AwgOutbound{Id: 1, Settings: base + `,"awgVersion":"3.1","randomTrailers":true,"disableCookies":true}`}
+		ci, _ := ClientInstanceFromOutbound(o)
+		conf := renderClientConf(ci)
+		if !strings.Contains(conf, "RandomTrailers = true") || !strings.Contains(conf, "DisableCookies = true") {
+			t.Fatalf("want 3.1 flags, got:\n%s", conf)
+		}
+	})
+	t.Run("v3 omits", func(t *testing.T) {
+		o := &model.AwgOutbound{Id: 1, Settings: base + `,"awgVersion":"3","randomTrailers":true,"disableCookies":true}`}
+		ci, _ := ClientInstanceFromOutbound(o)
+		conf := renderClientConf(ci)
+		if strings.Contains(conf, "RandomTrailers") || strings.Contains(conf, "DisableCookies") {
+			t.Fatalf("v3 must omit 3.1 flags, got:\n%s", conf)
 		}
 	})
 }

@@ -669,6 +669,12 @@
         "awgVersion2": "2 — 标准（Android 2.0.1）",
         "awgVersion3": "3 — 完整 + 头部保护（AWG3）",
         "awgVersion3CompatNote": "版本 3 启用 HeaderProtectionKey，这在密码学上破坏了兼容性：v1/v2 和 plain-WireGuard 客户端无法连接到此入站。",
+        "awgVersion31": "3.1 — AWG3 + 随机尾部",
+        "awgVersion31CompatNote": "版本 3.1 增加 RandomTrailers 和 DisableCookies。低于 v3.1 的工具会拒绝这些行。v1/v2 和 plain-WireGuard 客户端仍无法连接（HPK）。",
+        "awgRandomTrailers": "随机尾部",
+        "awgRandomTrailersHint": "在每对等 UDP 窗口内为每个数据包追加随机尾部。按包大小反 DPI。仅 AWG 3.1。",
+        "awgDisableCookies": "禁用 cookies",
+        "awgDisableCookiesHint": "不响应 cookie-challenge。仅 AWG 3.1。",
         "awgSRangeWarning": "AWG3 要求 S1-S4 ≥ 12（头部保护加密从 S-padding 的前 12 字节读取 nonce）。生成器强制执行此要求；手动编辑前请核实。",
         "awgMimicryProfile": "伪装配置",
         "awgMimicryProfileHint": "CPS 特征模拟的数据包形状。TLS/QUIC 看起来像真实浏览器流量；DNS/SIP 更轻量。",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "mita 监听端口 — 单端口或范围，TCP/UDP。客户端连接这些端口。",
+        "mieruPortPlaceholder": "20100 或 20000-20010",
+        "mieruAddBinding": "添加端口",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "日志级别",
+        "mieruRouteThroughXray": "通过 Xray 路由",
+        "mieruRouteThroughXrayHint": "mita 通过 Xray 中隐藏的 loopback SOCKS 桥拨号（原生 egress.proxies）。默认关闭 — 仅在出站级联时启用。",
+        "mieruRouteOutbound": "出站",
+        "mieruRouteOutboundHint": "留空 = Xray 默认出口。否则强制路由到此出站/负载均衡器。",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "域名 (hostname)",
+        "trustTunnelHostnameHint": "指向此服务器的域名，必须包含在 TLS 证书中。客户端连接该域名。",
+        "trustTunnelListen": "监听地址",
+        "trustTunnelCertFile": "证书文件（可选）",
+        "trustTunnelKeyFile": "私钥文件（可选）",
+        "trustTunnelCertFileHint": "留空 = 使用面板自身的 ACME 证书（Settings → Panel SSL / x-ui 控制台）。证书必须覆盖上面的域名。",
+        "trustTunnelUpstreamProtocol": "客户端协议",
+        "trustTunnelClientDns": "客户端 DNS（用于链接）",
+        "trustTunnelClientDnsHint": "逗号分隔的 DNS 上游，写入客户端 tt:// 链接，如 1.1.1.1, tls://8.8.8.8。留空 = 客户端默认。",
+        "trustTunnelIpv6": "可用 IPv6",
+        "trustTunnelRouteThroughXray": "通过 Xray 路由",
+        "trustTunnelRouteThroughXrayHint": "端点通过 Xray 中隐藏的 loopback SOCKS 桥转发隧道流量（[forward_protocol.socks5]）。默认关闭 — 仅在出站级联时启用。",
+        "trustTunnelRouteOutbound": "出站",
+        "trustTunnelRouteOutboundHint": "留空 = Xray 默认出口。否则强制路由到此出站/负载均衡器。",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "模式",
@@ -2244,6 +2275,36 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "已安装",
+          "missing": "未安装",
+          "upload": "上传",
+          "download": "下载",
+          "delete": "删除",
+          "deleteConfirm": "停止所有 mieru 实例并删除二进制文件？"
+        },
+        "toasts": {
+          "uploaded": "二进制已上传",
+          "downloaded": "二进制已下载",
+          "deleted": "二进制已删除"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "已安装",
+          "missing": "未安装",
+          "upload": "上传",
+          "download": "下载",
+          "delete": "删除",
+          "deleteConfirm": "停止所有 TrustTunnel 实例并删除二进制文件？"
+        },
+        "toasts": {
+          "uploaded": "二进制已上传",
+          "downloaded": "二进制已下载",
+          "deleted": "二进制已删除"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

@@ -669,6 +669,12 @@
         "awgVersion2": "2 — padrão (Android 2.0.1)",
         "awgVersion3": "3 — completo + proteção de cabeçalho (AWG3)",
         "awgVersion3CompatNote": "A versão 3 habilita o HeaderProtectionKey, o que quebra a compatibilidade criptograficamente: clientes v1/v2 e plain-WireGuard não podem se conectar a este inbound.",
+        "awgVersion31": "3.1 — AWG3 + caudas aleatórias",
+        "awgVersion31CompatNote": "A versão 3.1 adiciona RandomTrailers e DisableCookies. Ferramentas anteriores a v3.1 rejeitam essas linhas. Clientes v1/v2 e plain-WireGuard ainda não conseguem conectar (HPK).",
+        "awgRandomTrailers": "Caudas aleatórias",
+        "awgRandomTrailersHint": "Anexa uma cauda aleatória a cada pacote dentro da janela UDP por peer. Anti-DPI por tamanho. Somente AWG 3.1.",
+        "awgDisableCookies": "Desativar cookies",
+        "awgDisableCookiesHint": "Não responder a cookie-challenge. Somente AWG 3.1.",
         "awgSRangeWarning": "O AWG3 exige S1-S4 ≥ 12 (a cifra de proteção de cabeçalho lê seu nonce dos primeiros 12 bytes do S-padding). O gerador garante isso; verifique antes de editar manualmente.",
         "awgMimicryProfile": "Perfil de mimetização",
         "awgMimicryProfileHint": "Qual formato de pacote a assinatura CPS imita. TLS/QUIC parecem tráfego real de navegador; DNS/SIP são mais leves.",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "Portas de escuta do mita — porta ou intervalo, TCP/UDP. Os clientes conectam nessas portas.",
+        "mieruPortPlaceholder": "20100 ou 20000-20010",
+        "mieruAddBinding": "Adicionar porta",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "Nível de log",
+        "mieruRouteThroughXray": "Rotear pelo Xray",
+        "mieruRouteThroughXrayHint": "O mita disca destinos por uma ponte SOCKS loopback oculta no Xray (egress.proxies nativo). Desativado por padrão — ative apenas para cascata de saída.",
+        "mieruRouteOutbound": "Saída",
+        "mieruRouteOutboundHint": "Vazio = caldeirão padrão do Xray. Senão, rotear à força para esta saída/balanceador.",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "Domínio (hostname)",
+        "trustTunnelHostnameHint": "Um domínio apontando para este servidor. Deve ser coberto pelo certificado TLS. Os clientes conectam nele.",
+        "trustTunnelListen": "Endereço de escuta",
+        "trustTunnelCertFile": "Arquivo de certificado (opcional)",
+        "trustTunnelKeyFile": "Arquivo de chave privada (opcional)",
+        "trustTunnelCertFileHint": "Vazio = o certificado ACME do próprio painel (Settings → Panel SSL / console x-ui). O certificado deve cobrir o domínio acima.",
+        "trustTunnelUpstreamProtocol": "Protocolo do cliente",
+        "trustTunnelClientDns": "DNS do cliente (para o link)",
+        "trustTunnelClientDnsHint": "Upstreams DNS separados por vírgula, anunciados no link tt:// do cliente, ex. 1.1.1.1, tls://8.8.8.8. Vazio = padrão do cliente.",
+        "trustTunnelIpv6": "IPv6 disponível",
+        "trustTunnelRouteThroughXray": "Rotear pelo Xray",
+        "trustTunnelRouteThroughXrayHint": "O endpoint encaminha o tráfego do túnel por uma ponte SOCKS loopback oculta no Xray ([forward_protocol.socks5]). Desativado por padrão — ative apenas para cascata de saída.",
+        "trustTunnelRouteOutbound": "Saída",
+        "trustTunnelRouteOutboundHint": "Vazio = caldeirão padrão do Xray. Senão, rotear à força para esta saída/balanceador.",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Modo",
@@ -2244,6 +2275,36 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "instalado",
+          "missing": "não instalado",
+          "upload": "Enviar",
+          "download": "Baixar",
+          "delete": "Excluir",
+          "deleteConfirm": "Parar todas as instâncias do mieru e excluir o binário?"
+        },
+        "toasts": {
+          "uploaded": "Binário enviado",
+          "downloaded": "Binário baixado",
+          "deleted": "Binário excluído"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "instalado",
+          "missing": "não instalado",
+          "upload": "Enviar",
+          "download": "Baixar",
+          "delete": "Excluir",
+          "deleteConfirm": "Parar todas as instâncias do TrustTunnel e excluir o binário?"
+        },
+        "toasts": {
+          "uploaded": "Binário enviado",
+          "downloaded": "Binário baixado",
+          "deleted": "Binário excluído"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

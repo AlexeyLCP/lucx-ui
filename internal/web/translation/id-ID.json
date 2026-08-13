@@ -669,6 +669,12 @@
         "awgVersion2": "2 — standar (Android 2.0.1)",
         "awgVersion3": "3 — penuh + perlindungan header (AWG3)",
         "awgVersion3CompatNote": "Versi 3 mengaktifkan HeaderProtectionKey, yang menghancurkan kompatibilitas secara kriptografis: klien v1/v2 dan plain-WireGuard tidak dapat terhubung ke inbound ini.",
+        "awgVersion31": "3.1 — AWG3 + ekor acak",
+        "awgVersion31CompatNote": "Versi 3.1 menambahkan RandomTrailers dan DisableCookies. Tools lebih lama dari v3.1 menolak baris ini. Klien v1/v2 dan plain-WireGuard tetap tidak bisa terhubung (HPK).",
+        "awgRandomTrailers": "Ekor acak",
+        "awgRandomTrailersHint": "Menambah ekor acak pada setiap paket dalam jendela UDP per-peer. Anti-DPI menurut ukuran. Hanya AWG 3.1.",
+        "awgDisableCookies": "Nonaktifkan cookies",
+        "awgDisableCookiesHint": "Jangan menjawab cookie-challenge. Hanya AWG 3.1.",
         "awgSRangeWarning": "AWG3 memerlukan S1-S4 ≥ 12 (cipher perlindungan header membaca nonce dari 12 byte pertama S-padding). Generator menegaskannya; verifikasi sebelum menyunting manual.",
         "awgMimicryProfile": "Profil mimikri",
         "awgMimicryProfileHint": "Bentuk paket yang ditiru signature CPS. TLS/QUIC tampak seperti trafik browser asli; DNS/SIP lebih ringan.",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "Port listen mita — port tunggal atau rentang, TCP/UDP. Klien terhubung ke port ini.",
+        "mieruPortPlaceholder": "20100 atau 20000-20010",
+        "mieruAddBinding": "Tambah port",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "Level log",
+        "mieruRouteThroughXray": "Rutekan melalui Xray",
+        "mieruRouteThroughXrayHint": "mita menghubungi tujuan lewat jembatan SOCKS loopback tersembunyi di Xray (egress.proxies asli). Nonaktif secara default — aktifkan hanya untuk kaskade outbound.",
+        "mieruRouteOutbound": "Outbound",
+        "mieruRouteOutboundHint": "Kosong = kettle default Xray. Jika tidak, paksa rute ke outbound/balancer ini.",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "Domain (hostname)",
+        "trustTunnelHostnameHint": "Domain yang menunjuk ke server ini. Harus tercakup oleh sertifikat TLS. Klien terhubung ke sana.",
+        "trustTunnelListen": "Alamat listen",
+        "trustTunnelCertFile": "File sertifikat (opsional)",
+        "trustTunnelKeyFile": "File kunci privat (opsional)",
+        "trustTunnelCertFileHint": "Kosong = sertifikat ACME panel sendiri (Settings → Panel SSL / konsol x-ui). Sertifikat harus mencakup domain di atas.",
+        "trustTunnelUpstreamProtocol": "Protokol klien",
+        "trustTunnelClientDns": "DNS klien (untuk tautan)",
+        "trustTunnelClientDnsHint": "Upstream DNS dipisah koma, diumumkan di tautan tt:// klien, mis. 1.1.1.1, tls://8.8.8.8. Kosong = default klien.",
+        "trustTunnelIpv6": "IPv6 tersedia",
+        "trustTunnelRouteThroughXray": "Rutekan melalui Xray",
+        "trustTunnelRouteThroughXrayHint": "Endpoint meneruskan lalu lintas terowongan lewat jembatan SOCKS loopback tersembunyi di Xray ([forward_protocol.socks5]). Nonaktif secara default — aktifkan hanya untuk kaskade outbound.",
+        "trustTunnelRouteOutbound": "Outbound",
+        "trustTunnelRouteOutboundHint": "Kosong = kettle default Xray. Jika tidak, paksa rute ke outbound/balancer ini.",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Mode",
@@ -2244,6 +2275,36 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "terpasang",
+          "missing": "belum terpasang",
+          "upload": "Unggah",
+          "download": "Unduh",
+          "delete": "Hapus",
+          "deleteConfirm": "Hentikan semua instance mieru dan hapus binernya?"
+        },
+        "toasts": {
+          "uploaded": "Biner diunggah",
+          "downloaded": "Biner diunduh",
+          "deleted": "Biner dihapus"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "terpasang",
+          "missing": "belum terpasang",
+          "upload": "Unggah",
+          "download": "Unduh",
+          "delete": "Hapus",
+          "deleteConfirm": "Hentikan semua instance TrustTunnel dan hapus binernya?"
+        },
+        "toasts": {
+          "uploaded": "Biner diunggah",
+          "downloaded": "Biner diunduh",
+          "deleted": "Biner dihapus"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

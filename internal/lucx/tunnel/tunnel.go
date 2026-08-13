@@ -44,14 +44,29 @@ const Olcrtc Name = "olcrtc"
 // external process — not linked into the panel.
 const Qwdtt Name = "qwdtt"
 
+// Mieru is the mieru core: mita server (enfein/mieru, GPL-3.0) — a
+// censorship-resistant SOCKS/HTTP proxy over a custom TCP/UDP protocol
+// (XChaCha20-Poly1305, no TLS). Multi-user; per-panel-client credentials.
+const Mieru Name = "mieru"
+
+// TrustTunnel is the TrustTunnel core: trusttunnel_endpoint
+// (TrustTunnel/TrustTunnel, Apache-2.0) — VPN protocol by AdGuard VPN,
+// traffic indistinguishable from HTTPS (HTTP/1.1 + HTTP/2 + QUIC). Requires
+// a trusted TLS certificate (panel ACME certs are reused); multi-client.
+const TrustTunnel Name = "trusttunnel"
+
 // All returns the supported core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt}
+	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel}
 }
 
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
-	return n == Naive || n == Olcrtc || n == Qwdtt
+	switch n {
+	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel:
+		return true
+	}
+	return false
 }
 
 // DisplayName returns the human-readable core name for UI and logs.
@@ -63,6 +78,10 @@ func (n Name) DisplayName() string {
 		return "olcRTC"
 	case Qwdtt:
 		return "qWDTT"
+	case Mieru:
+		return "mieru"
+	case TrustTunnel:
+		return "TrustTunnel"
 	default:
 		return string(n)
 	}
@@ -116,6 +135,12 @@ func configPath(n Name) string {
 	}
 }
 
+// trustTunnelHostsFileName is the companion hosts.toml filename of one
+// TrustTunnel instance (ExtraFiles key; the endpoint takes it as argv[2]).
+func trustTunnelHostsFileName(key string) string {
+	return key + "-hosts.toml"
+}
+
 // configPathFor returns the config path for a managed instance. Multi-inbound
 // Naive keys (naive-12) get their own Caddyfile so N inbounds never share one
 // process config; legacy single-core keys keep the historical filename.
@@ -126,6 +151,10 @@ func configPathFor(key string, n Name) string {
 			return filepath.Join(workDir(), key+".caddyfile")
 		case Olcrtc:
 			return filepath.Join(workDir(), key+".yaml")
+		case Mieru:
+			return filepath.Join(workDir(), key+".json")
+		case TrustTunnel:
+			return filepath.Join(workDir(), key+".toml")
 		default:
 			return filepath.Join(workDir(), key+".conf")
 		}

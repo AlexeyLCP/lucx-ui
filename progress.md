@@ -51,6 +51,167 @@
 
 ## Что сделано
 
+## ПЛАН lucx.117 — mieru + TrustTunnel (tunnel-сайдкары) + AWG 3.1
+
+**Решения (утверждены владельцем, 13.08.2026):** оба ядра — inbound-сайдкары
+(модель lucx.102, БЕЗ legacy settings-блобов и legacy-lifecycle карточек —
+урок lucx.115); мульти-клиент как naive (HMAC-креды на каждого клиента панели);
+трафик/онлайн — сразу; routeThroughXray — SOCKS-мост, default OFF (урок lucx.112);
+TrustTunnel — сертификат панельного ACME (webCertFile/webKeyFile), нет домена/серта —
+отказ при сохранении; оба ядра одним релизом; AWG-модуль/тулзы подтянуть до v3.1.
+
+**Upstream-факты (проверено 13.08.2026):**
+- mieru: сервер `mita` (Go, GPL-3.0). Foreground: `mita run` + env
+  `MITA_CONFIG_JSON_FILE` (JSON-конфиг), `MITA_UDS_PATH` (RPC-сокет, изоляция
+  инстансов), `MITA_INSECURE_UDS=1` (иначе fatal chown mita:mita). Конфиг:
+  portBindings[{port|portRange,protocol TCP|UDP}], users[{name,password}], mtu,
+  loggingLevel, egress{proxies SOCKS5,rules} (нативный routeThroughXray),
+  dns, advancedSettings. Per-user трафик: RPC GetUsers (метрики up/down +
+  LastActive); CLI `mita get users` (таблица) / `mita get metrics` (JSON —
+  формат проверить spike'ом на стенде). Шер-ссылка `mierus://user:pass@host?
+  profile=default&port=N&protocol=TCP&mtu=…` (порт/протокол попарно).
+  Клиенты: mieru CLI, mihomo (`type: mieru`), Clash Verge Rev, husi, Exclave.
+- TrustTunnel: `trusttunnel_endpoint` (Rust, Apache-2.0), foreground
+  `trusttunnel_endpoint vpn.toml hosts.toml [--logfile]`. 4 файла: vpn.toml
+  (listen_address, credentials_file, rules_file, [forward_protocol.socks5] —
+  нативный routeThroughXray, [metrics] 127.0.0.1:порт — Prometheus), hosts.toml
+  ([[main_hosts]] hostname+cert_chain_path+private_key_path), credentials.toml
+  ([[client]] username/password), rules.toml. Экспорт `tt://?base64url(TLV)`:
+  varint RFC9000, теги 0x01 hostname / 0x02 addresses (повторяемый) / 0x05
+  username / 0x06 password / 0x09 upstream_protocol (0x01 http2) / 0x0C name /
+  0x0D dns_upstreams; LE-серт в ссылку НЕ кладём (доверенный). SIGHUP = hot
+  reload hosts.toml (не используем — рестарт по fingerprint'у с hash серта).
+  Prebuilt: trusttunnel-vX-linux-{x86_64,aarch64}.tar.gz (v1.0.33).
+  Метрики АГРЕГИРОВАННЫЕ (без username) → per-client трафик невозможен,
+  только inbound-трафик + client_sessions; креды/отзыв — per-client.
+- AWG v3.1.20260812 (модуль+тулзы, 12.08.2026): НОВЫЕ device-флаги
+  `RandomTrailers` (случайный хвост пакета в пределах per-peer udp_window —
+  анти-DPI по размерам) и `DisableCookies` (не отвечать cookie-replies).
+  Фиксы: инвертированный REKEY_TIMEOUT (v3.0 работал наоборот!), keepalives
+  игнорились при S4+ContentPadding, proper ispecs I1-I5, netlink <6.7,
+  ядро само требует S1-S4≥12 при HPK (-EINVAL). Тулзы v3.0 НЕ парсят новые
+  строки (Pattern 1d) → гейт тулзов поднять до < v3.1. Стенд: маркер
+  ce163101, v3.0.20260805 — пересоберётся SHA-gate'ом при следующем update.
+
+### Этап 1. Каркас + mieru (backend)
+- [ ] `internal/lucx/tunnel/tunnel.go`: Name `Mieru`/`TrustTunnel`, All/Valid/
+      DisplayName, configPathFor (mieru .json, trusttunnel .toml)
+- [ ] `mieru.go`: MieruConfig (portBindings, mtu, loggingLevel, routeThroughXray,
+      outboundTag, routeXrayPort), Default/Merge/Validate/RenderJSON
+- [ ] `mieru_inbound.go`: MieruKey(id)="mieru-{id}", ConfigFromInbound,
+      InstanceFromInbound (invalid → Enabled:false, не ошибка)
+- [ ] `manager.go`: ReconcileMieru; start(): env MITA_CONFIG_JSON_FILE /
+      MITA_UDS_PATH=<dataDir>/mita.sock / MITA_INSECURE_UDS=1, argv ["run"]
+- [ ] `model.go` (HOOK): Protocol Mieru/TrustTunnel + validate oneof
+- [ ] `service/tunnel.go`: reconcileMieruInbounds (БЕЗ fallback-ветки) в
+      Reconcile(); MieruStatus/Logs/Delete/DownloadBinary для Cores-вкладки
+- [ ] `service/inbound.go` (HOOK): normalizeMieruSettings (Port из settings),
+      хуки Add/Update, порт-конфликт (TCP-биндинги vs TCP-инбаунды, UDP vs
+      AWG/wireguard), routeThroughXray: mieruRoutesThroughXray +
+      normalizeMieruXrayPort + needRestart в 4 точках
+- [ ] `service/xray.go` (HOOK): skip в GetXrayConfig + injectMieruEgress
+      (injectSocksEgress-паттерн)
+- [ ] `runtime/local.go` (HOOK): ensure/Remove + isTunnelInboundProto
+- [ ] `controller/tunnel.go`: /panel/api/tunnel/mieru/* (status/logs/upload/
+      download/deleteBinary); `web.go`: upload body-limit exempt
+- [ ] `nodetype`: features + LucXOnlyProtocols += mieru,trusttunnel
+- [ ] Трафик (TunnelJob): scrape mita (spike `get metrics` JSON на стенде →
+      курсоры дельт как AWG scrapePeers) + онлайн LastActive grace 120s
+- [ ] Тесты: render/validate/fingerprint/instance (без cgo)
+
+### Этап 2. mieru (frontend + ссылки)
+- [ ] `schemas/protocols/inbound/mieru.ts` + регистрация (5 точек) +
+      inbound-defaults + protocol-capabilities (без sniffing/stream)
+- [ ] `pages/inbounds/form/protocols/mieru.tsx` (порт-биндинги, mtu,
+      routeThroughXray + outboundTag)
+- [ ] Мульти-клиент: MULTI_CLIENT_PROTOCOLS += mieru; креды
+      ClientAuthForInbound (user=HMAC)
+- [ ] Ссылки: sub/service.go GetLink case (mierus:// per-client,
+      SubLinkProvider) + inbound-link.ts (фронт-экспорт через
+      GetInboundLinks-backend, lucx.116-паттерн); JSON/Clash-подписки
+      пропускают
+- [ ] CoresTab: BinaryCard kind="mieru"; api/tunnels.ts; queryKeys;
+      endpoints.ts + npm run gen
+- [ ] i18n ×13: pages.inbounds.form.mieru.* + pages.tunnels.mieru.*
+
+### Этап 3. TrustTunnel (backend + серты)
+- [ ] `trusttunnel.go`: TrustTunnelConfig (hostname, listen port, ipv6,
+      routeThroughXray, certSource panel|custom, certFile/keyFile,
+      dnsUpstreams, upstreamProtocol http2|http3), рендер vpn/hosts/
+      credentials/rules .toml
+- [ ] `trusttunnel_inbound.go`: trusttunnel-{id}, InstanceFromInbound
+- [ ] Серт-интеграция: при сохранении — hostname обязателен; серт =
+      webCertFile/webKeyFile (или custom-пути); валидация LoadX509KeyPair +
+      SAN⊇hostname + NotAfter; нет серта/домена → отказ («выпустите доменный
+      серт через x-ui меню»); hash файлов серта в Fingerprint → рестарт при
+      renewal
+- [ ] tt:// TLV-энкодер (varint RFC9000) + golden-тесты; адрес = subHost/IP
+      (паттерн qwdtt lucx.108)
+- [ ] manager start(): argv [vpn.toml, hosts.toml, --logfile]; reconcile;
+      сервис/контроллер/рантайм/xray-инжект (SOCKS-мост) — паттерн этапа 1
+- [ ] Трафик: Prometheus-скрейп loopback-порта (парсер text-формата свой,
+      ~50 строк): inbound/outbound_traffic_bytes дельты → ТОЛЬКО
+      inbound-трафик (пер-клиент невозможно — метрики без username);
+      client_sessions — лог/статус
+- [ ] Порт-конфликт: любой протокол на порту + порт панели (443 vs HTTPS)
+
+### Этап 4. TrustTunnel (frontend + ссылки)
+- [ ] Аналог этапа 2: схема/форма (hostname, порт, серт-блок с подсказкой
+      текущего панельного серта/SAN), MULTI_CLIENT_PROTOCOLS, per-client
+      tt:// в подписку/QR, CoresTab, api, endpoints.ts, i18n ×13
+
+### Этап 5. AWG 3.1
+- [x] `bin/install-awg-module.sh`: гейт тулзов `awg version < v3` → `< v3.1`
+- [x] awgVersion += "3.1" (потолок): Zod, форма-селектор, клиентский
+      экспорт-кламп, ParseConf-автоопределение, миграция prune полей при
+      потолке <3.1 (паттерн migrate_awg_hpk). Живые v3 **не** бампаются в 3.1.
+- [x] Поля randomTrailers (default true в генераторе v3.1) / disableCookies
+      (default false): model→Zod→форма→рендереры (omit при false; эмиссия
+      только AwgVersion=="3.1" && тулзы≥3.1)→generateObfuscation
+- [x] ModuleSupportsAwg31(): `awg version` ≥ 3.1 (кэш только true)
+
+### Этап 6. Релиз
+- [x] release.yml (HOOK): mieru — go build ./cmd/mita `v3.35.0`;
+      trusttunnel — prebuilt `v1.0.33` (x86_64→amd64, aarch64→arm64)
+- [ ] E2E на стенде 144.31.224.212 — после релиза (тестеры)
+- [x] Тесты: i18n-dead-keys, unit, gofumpt; CI — гейт тега
+- [x] docs: AGENTS.md, LICENSING.md, progress.md, release notes RU+EN
+
+**Риски:** (1) формат mita `get metrics` JSON — spike до реализации скрейпера;
+(2) /var/lib/mita/metrics.pb общий между инстансами (usernames уникальны per
+inbound — не критично, проверить); (3) TrustTunnel 443 vs панельный HTTPS —
+порт-конфликт в форме; (4) содержимое tarball TrustTunnel проверить при
+реализации release.yml. Правило 0: новые ядра существующих данных не трогают;
+AWG-поля — opt-in при смене потолка, живые конфиги не переписываются.
+
+---
+
+## Релиз v3.6.0-lucx.117 (2026-08-13) — mieru + TrustTunnel + AWG 3.1
+
+**Что вошло:** inbound-сайдкары mieru (`mita`) и TrustTunnel (`trusttunnel_endpoint`)
+по модели lucx.102 (без legacy-блобов); AWG потолок `"3.1"` + `RandomTrailers` /
+`DisableCookies`; naive-ссылки всегда с портом (включая `:443`).
+
+**Правило 0:** живые AWG v3 не бампаются в 3.1; новые ядра чужие данные не трогают.
+
+**Аудит чужой реализации (починено до релиза):**
+- Zod без `clients[]` → Save стирал клиентов; `isInboundMultiUser` / node / bulk-add
+- парсер `mita get users` ждал `1.5 MiB`, mita пишет `1.5MiB`
+- `mierus://` IPv6 без скобок; `tt://` без share-host и без `:443`
+- Clash/подписка AWG 3.1 теряла HPK (`"3.1"` откатывался в `"2"`)
+- TrustTunnel при routeThroughXray считал трафик дважды
+- порт-конфликты не видели чужие mieru-диапазоны
+- codegen без `mieru`/`trusttunnel`
+
+**Файлы:** `internal/lucx/tunnel/mieru*.go`, `trusttunnel*.go`, `auth.go`;
+хуки inbound/xray/runtime/sub/job; frontend схемы/формы/CoresTab/i18n×13;
+`bin/install-awg-module.sh` гейт тулзов `< v3.1`; `release.yml`.
+
+**Тесты:** `go test ./internal/awg/... ./internal/lucx/tunnel/...`; frontend
+typecheck + 998 unit. `internal/web/service` — CI (CGO).
+
+---
+
 ## Фикс lucx.116 — Naive: экспорт ссылок со страницы Inbounds
 
 **Репорт (Егор Алексеевич, 13.08.2026):** при экспорте ссылок naive из Inbounds —

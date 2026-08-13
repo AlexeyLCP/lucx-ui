@@ -219,7 +219,7 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/inbounds/awg/generateObfuscation',
-        summary: 'Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. For awgVersion "3" on an AWG3-capable host also returns HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges. LucX-UI only.',
+        summary: 'Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. For awgVersion "3"/"3.1" on an AWG3-capable host also returns HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges. For "3.1" on tools ≥ v3.1 also returns randomTrailers=true. LucX-UI only.',
         params: [
           { name: 'obfProfile', in: 'body', type: 'string', desc: 'Obfuscation preset: "lite", "standard", or "pro".' },
           { name: 'mimicryProfile', in: 'body', type: 'string', desc: 'CPS mimicry type: "tls", "dns", "sip", or "quic".' },
@@ -227,7 +227,7 @@ export const sections: readonly Section[] = [
           { name: 'region', in: 'body', type: 'string', desc: 'Domain pool region: "ru" or "world".' },
           { name: 'domain', in: 'body', type: 'string', desc: 'Optional explicit domain for CPS capture.' },
           { name: 'fullI1I5', in: 'body', type: 'boolean', desc: 'When true, generate all five CPS packets; when false, only I1.' },
-          { name: 'awgVersion', in: 'body', type: 'string', desc: 'Target AmneziaWG version: "1.5", "2", or "3". When "3" (and the host supports AWG3) the response adds headerProtectionKey plus contentPaddingAddition, rekeyAfterTime, rekeyTimeout, rejectAfterTime, keepaliveTimeout, maxHandshakeAttempts (as "lo-hi" range strings).' },
+          { name: 'awgVersion', in: 'body', type: 'string', desc: 'Target AmneziaWG version: "1.5", "2", "3", or "3.1". When "3" or "3.1" (and the host supports AWG3) the response adds headerProtectionKey plus the six timer/padding ranges. When "3.1" (and tools ≥ v3.1) also randomTrailers=true.' },
         ],
       },
       {
@@ -607,6 +607,64 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/tunnel/qwdtt/deleteBinary',
         summary: 'Stop the core and remove its binary from disk. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/mieru/status',
+        summary: 'mieru core status for the Cores page: binary presence and aggregate process state across all mieru-{id} inbound sidecars. Inbound-only core — no legacy config/lifecycle. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/mieru/logs',
+        summary: 'Recent log lines of all mieru instances (ring buffer, tagged per key, default 200). LucX-UI only.',
+        params: [
+          { name: 'lines', in: 'query', type: 'number', desc: 'Max lines to return (default 200).', optional: true },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mieru/upload',
+        summary: 'Replace the mita binary on disk (multipart field "file"). Body-limit exempt. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mieru/download',
+        summary: 'Fetch the mita binary from a URL into place (200 MB cap). LucX-UI only.',
+        body: '{\n  "url": "https://example.com/mieru-linux-amd64"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mieru/deleteBinary',
+        summary: 'Stop every mieru instance and remove the binary from disk. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/trusttunnel/status',
+        summary: 'TrustTunnel core status for the Cores page: binary presence and aggregate process state across all trusttunnel-{id} inbound sidecars. Inbound-only core. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/trusttunnel/logs',
+        summary: 'Recent log lines of all TrustTunnel instances (ring buffer, tagged per key, default 200). LucX-UI only.',
+        params: [
+          { name: 'lines', in: 'query', type: 'number', desc: 'Max lines to return (default 200).', optional: true },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/trusttunnel/upload',
+        summary: 'Replace the trusttunnel_endpoint binary on disk (multipart field "file"). Body-limit exempt. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/trusttunnel/download',
+        summary: 'Fetch the trusttunnel_endpoint binary from a URL into place (200 MB cap). LucX-UI only.',
+        body: '{\n  "url": "https://example.com/trusttunnel-linux-amd64"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/trusttunnel/deleteBinary',
+        summary: 'Stop every TrustTunnel instance and remove the binary from disk. LucX-UI only.',
       },
     ],
   },

@@ -669,6 +669,12 @@
         "awgVersion2": "2 — 標準（Android 2.0.1）",
         "awgVersion3": "3 — 完全 + ヘッダー保護（AWG3）",
         "awgVersion3CompatNote": "バージョン 3 は HeaderProtectionKey を有効にします。これは暗号学的に互換性を破壊します：v1/v2 および plain-WireGuard クライアントはこのインバウンドに接続できません。",
+        "awgVersion31": "3.1 — AWG3 + ランダムトレーラー",
+        "awgVersion31CompatNote": "バージョン 3.1 は RandomTrailers と DisableCookies を追加します。v3.1 未満のツールはこれらの行を拒否します。v1/v2 および plain-WireGuard クライアントは引き続き接続できません（HPK）。",
+        "awgRandomTrailers": "ランダムトレーラー",
+        "awgRandomTrailersHint": "ピアごとの UDP ウィンドウ内で各パケットにランダムな末尾を付けます。サイズによる DPI 回避。AWG 3.1 のみ。",
+        "awgDisableCookies": "cookies を無効化",
+        "awgDisableCookiesHint": "cookie-challenge に応答しない。AWG 3.1 のみ。",
         "awgSRangeWarning": "AWG3 は S1-S4 ≥ 12 を要求します（ヘッダー保護暗号は S-padding の先頭 12 バイトから nonce を読み取ります）。ジェネレーターがこれを保証しますが、手動編集前に確認してください。",
         "awgMimicryProfile": "ミミクリープロファイル",
         "awgMimicryProfileHint": "CPSシグネチャが模倣するパケット形状。TLS/QUICは実際のブラウザトラフィックに見え、DNS/SIPはより軽量です。",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "mita リスニングポート — 単一ポートまたは範囲、TCP/UDP。クライアントはこれらのポートに接続します。",
+        "mieruPortPlaceholder": "20100 または 20000-20010",
+        "mieruAddBinding": "ポートを追加",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "ログレベル",
+        "mieruRouteThroughXray": "Xray 経由でルーティング",
+        "mieruRouteThroughXrayHint": "mita は Xray 内の隠れたループバック SOCKS ブリッジ経由でダイヤルします（ネイティブ egress.proxies）。既定ではオフ — アウトバウンドカスケードの場合のみ有効化してください。",
+        "mieruRouteOutbound": "アウトバウンド",
+        "mieruRouteOutboundHint": "空 = Xray の既定のポット。それ以外はこのアウトバウンド/バランサーへ強制ルーティング。",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "ドメイン (hostname)",
+        "trustTunnelHostnameHint": "このサーバーを指すドメイン。TLS 証明書でカバーされている必要があります。クライアントはこれに接続します。",
+        "trustTunnelListen": "リッスンアドレス",
+        "trustTunnelCertFile": "証明書ファイル（任意）",
+        "trustTunnelKeyFile": "秘密鍵ファイル（任意）",
+        "trustTunnelCertFileHint": "空 = パネル自身の ACME 証明書（Settings → Panel SSL / x-ui コンソール）。証明書は上のドメインをカバーしている必要があります。",
+        "trustTunnelUpstreamProtocol": "クライアントプロトコル",
+        "trustTunnelClientDns": "クライアント DNS（リンク用）",
+        "trustTunnelClientDnsHint": "カンマ区切りの DNS アップストリーム。クライアントの tt:// リンクに告知されます。例: 1.1.1.1, tls://8.8.8.8。空 = クライアントの既定。",
+        "trustTunnelIpv6": "IPv6 利用可能",
+        "trustTunnelRouteThroughXray": "Xray 経由でルーティング",
+        "trustTunnelRouteThroughXrayHint": "エンドポイントはトンネルされたトラフィックを Xray 内の隠れたループバック SOCKS ブリッジ経由で転送します（[forward_protocol.socks5]）。既定ではオフ — アウトバウンドカスケードの場合のみ有効化してください。",
+        "trustTunnelRouteOutbound": "アウトバウンド",
+        "trustTunnelRouteOutboundHint": "空 = Xray の既定のポット。それ以外はこのアウトバウンド/バランサーへ強制ルーティング。",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "モード",
@@ -2244,6 +2275,36 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "インストール済み",
+          "missing": "未インストール",
+          "upload": "アップロード",
+          "download": "ダウンロード",
+          "delete": "削除",
+          "deleteConfirm": "すべての mieru インスタンスを停止してバイナリを削除しますか？"
+        },
+        "toasts": {
+          "uploaded": "バイナリをアップロードしました",
+          "downloaded": "バイナリをダウンロードしました",
+          "deleted": "バイナリを削除しました"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "インストール済み",
+          "missing": "未インストール",
+          "upload": "アップロード",
+          "download": "ダウンロード",
+          "delete": "削除",
+          "deleteConfirm": "すべての TrustTunnel インスタンスを停止してバイナリを削除しますか？"
+        },
+        "toasts": {
+          "uploaded": "バイナリをアップロードしました",
+          "downloaded": "バイナリをダウンロードしました",
+          "deleted": "バイナリを削除しました"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

@@ -157,6 +157,7 @@ func TestInboundAwgHints_HeaderProtectionKeyVersionGated(t *testing.T) {
 		{"empty v2", base + `,"awgVersion":"2","headerProtectionKey":""}`, false, "2"},
 		{"set v2", base + `,"awgVersion":"2","headerProtectionKey":"aBcD...base64hpk=="}`, false, "2"},
 		{"set v3", base + `,"awgVersion":"3","headerProtectionKey":"aBcD...base64hpk=="}`, true, "3"},
+		{"set v3.1", base + `,"awgVersion":"3.1","headerProtectionKey":"aBcD...base64hpk=="}`, true, "3.1"},
 		{"empty v3", base + `,"awgVersion":"3","headerProtectionKey":""}`, false, "3"},
 		{"no version", base + `,"headerProtectionKey":"aBcD...base64hpk=="}`, false, "2"},
 	} {

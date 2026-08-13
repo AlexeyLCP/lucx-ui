@@ -270,8 +270,9 @@ export default function InboundsPage() {
       fallbackHostname: preferPublicHost(window.location.hostname, subSettings.publicHost),
     };
     let content = genInboundLinks(genInput);
-    // LUCX-HOOK: Naive creds are HMAC-derived server-side — fetch from backend.
-    if (!content.trim() && projected.protocol === 'naive') {
+    // LUCX-HOOK: Naive/mieru/TrustTunnel creds are HMAC-derived server-side —
+    // fetch from backend.
+    if (!content.trim() && (projected.protocol === 'naive' || projected.protocol === 'mieru' || projected.protocol === 'trusttunnel')) {
       try {
         const msg = await HttpUtil.get(`/panel/api/inbounds/${projected.id}/links`) as { success?: boolean; obj?: string[] };
         if (msg?.success && Array.isArray(msg.obj)) content = msg.obj.join('\r\n');
@@ -283,7 +284,9 @@ export default function InboundsPage() {
     if (!content.trim()) {
       messageApi.warning(projected.protocol === 'naive'
         ? 'No share link — set domain and service auth, or attach enabled clients'
-        : 'No share link — set password and Public host:port (subHost)');
+        : projected.protocol === 'mieru' || projected.protocol === 'trusttunnel'
+          ? 'No share link — attach enabled clients'
+          : 'No share link — set password and Public host:port (subHost)');
       return;
     }
     const tabs: TextModalTab[] | undefined = projected.isWireguard

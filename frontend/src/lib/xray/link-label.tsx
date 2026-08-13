@@ -32,6 +32,9 @@ const PROTOCOL_LABELS: Record<string, string> = {
   olcrtc: 'olcRTC',
   qwdtt: 'qWDTT',
   wdtt: 'qWDTT',
+  mieru: 'mieru',
+  mierus: 'mieru',
+  tt: 'TrustTunnel',
 };
 
 const PROTOCOL_COLORS: Record<string, string> = {
@@ -47,6 +50,8 @@ const PROTOCOL_COLORS: Record<string, string> = {
   AmneziaWG: 'magenta',
   olcRTC: 'cyan',
   qWDTT: 'gold',
+  mieru: 'geekblue',
+  TrustTunnel: 'purple',
 };
 
 const SECURITY_COLORS: Record<string, string> = {

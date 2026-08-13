@@ -612,6 +612,7 @@ export default function ClientInfoModal({
                         { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !awgVersionAtLeast(cfg.ceiling, '1.5') },
                         { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !awgVersionAtLeast(cfg.ceiling, '2') },
                         { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !awgVersionAtLeast(cfg.ceiling, '3') },
+                        { value: '3.1', label: t('pages.inbounds.form.awgVersion31'), disabled: !awgVersionAtLeast(cfg.ceiling, '3.1') },
                       ]}
                     />
                   </Space>

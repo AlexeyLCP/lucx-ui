@@ -102,6 +102,11 @@ const (
 	Olcrtc Protocol = "olcrtc"
 	// qWDTT — WG over VK TURN, single-credential, single inbound (root).
 	Qwdtt Protocol = "qwdtt"
+	// mieru — mita server (enfein/mieru), multi-client, multi-inbound.
+	Mieru Protocol = "mieru"
+	// TrustTunnel — AdGuard VPN protocol (HTTPS-mimic), multi-client,
+	// multi-inbound, requires a trusted TLS certificate.
+	TrustTunnel Protocol = "trusttunnel"
 	// END LUCX-HOOK
 )
 
@@ -132,7 +137,7 @@ type Inbound struct {
 	// Xray configuration fields
 	Listen            string   `json:"listen" form:"listen"`
 	Port              int      `json:"port" form:"port" validate:"gte=0,lte=65535" example:"443"`
-	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto awg naive olcrtc qwdtt" example:"vless"`
+	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto awg naive olcrtc qwdtt mieru trusttunnel" example:"vless"`
 	Settings          string   `json:"settings" form:"settings"`
 	StreamSettings    string   `json:"streamSettings" form:"streamSettings"`
 	Tag               string   `json:"tag" form:"tag" gorm:"unique" example:"in-443-tcp"`

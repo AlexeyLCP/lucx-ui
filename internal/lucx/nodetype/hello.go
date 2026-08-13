@@ -13,7 +13,7 @@ import (
 
 type HelloObj struct {
 	Version        string   `json:"version" example:"3.6.0-lucx.114"`
-	Features       []string `json:"features" example:"[\"awg\",\"mtproto\",\"naive\",\"olcrtc\",\"qwdtt\",\"cluster\"]"`
+	Features       []string `json:"features" example:"[\"awg\",\"mtproto\",\"naive\",\"olcrtc\",\"qwdtt\",\"mieru\",\"trusttunnel\",\"cluster\"]"`
 	AWGVersion     string   `json:"awgVersion" example:"v3.0.20260730"`
 	MTProtoVersion string   `json:"mtprotoVersion" example:""`
 	ModuleLoaded   bool     `json:"moduleLoaded" example:"true"`

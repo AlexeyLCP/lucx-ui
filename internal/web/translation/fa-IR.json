@@ -669,6 +669,12 @@
         "awgVersion2": "2 — استاندارد (Android 2.0.1)",
         "awgVersion3": "3 — کامل + محافظت سرآیند (AWG3)",
         "awgVersion3CompatNote": "نسخه ۳ HeaderProtectionKey را فعال می‌کند که از نظر رمزنگاری ارتباط را قطع می‌کند: کلاینت‌های v1/v2 و plain-WireGuard نمی‌توانند به این اینباند متصل شوند.",
+        "awgVersion31": "3.1 — AWG3 + دنباله تصادفی",
+        "awgVersion31CompatNote": "نسخه ۳.۱ فیلدهای RandomTrailers و DisableCookies را اضافه می‌کند. ابزارهای قدیمی‌تر از v3.1 این خطوط را رد می‌کنند. کلاینت‌های v1/v2 و plain-WireGuard همچنان وصل نمی‌شوند (HPK).",
+        "awgRandomTrailers": "دنباله‌های تصادفی",
+        "awgRandomTrailersHint": "دنباله تصادفی به هر بسته در پنجره UDP هر همتا. ضد DPI بر اساس اندازه. فقط AWG 3.1.",
+        "awgDisableCookies": "غیرفعال کردن cookies",
+        "awgDisableCookiesHint": "به cookie-challenge پاسخ نده. فقط AWG 3.1.",
         "awgSRangeWarning": "AWG3 نیازمند S1-S4 ≥ 12 است (رمز محافظت سرآیند nonce خود را از ۱۲ بایت اول S-padding می‌خواند). مولد این را تضمین می‌کند؛ قبل از ویرایش دستی بررسی کنید.",
         "awgMimicryProfile": "پروفایل تقلید",
         "awgMimicryProfileHint": "شکل بسته‌ای که امضای CPS تقلید می‌کند. TLS/QUIC شبیه ترافیک واقعی مرورگر است؛ DNS/SIP سبک‌تر است.",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "پورت‌های گوش دادن mita — پورت یا بازه، TCP/UDP. کلاینت‌ها به این پورت‌ها وصل می‌شوند.",
+        "mieruPortPlaceholder": "20100 یا 20000-20010",
+        "mieruAddBinding": "افزودن پورت",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "سطح گزارش",
+        "mieruRouteThroughXray": "مسیریابی از طریق Xray",
+        "mieruRouteThroughXrayHint": "mita از طریق پل SOCKS لوپ‌بک پنهان در Xray شماره‌گیری می‌کند (egress.proxies بومی). پیش‌فرض خاموش — فقط برای آبشار خروجی فعال کنید.",
+        "mieruRouteOutbound": "خروجی",
+        "mieruRouteOutboundHint": "خالی = دیگ پیش‌فرض Xray. در غیر این صورت مسیریابی اجباری به این خروجی/بالانسر.",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "دامنه (hostname)",
+        "trustTunnelHostnameHint": "دامنه‌ای که به این سرور اشاره می‌کند. باید در گواهی TLS پوشش داده شود. کلاینت‌ها به آن وصل می‌شوند.",
+        "trustTunnelListen": "آدرس گوش دادن",
+        "trustTunnelCertFile": "فایل گواهی (اختیاری)",
+        "trustTunnelKeyFile": "فایل کلید خصوصی (اختیاری)",
+        "trustTunnelCertFileHint": "خالی = گواهی ACME خود پنل (Settings → Panel SSL / کنسول x-ui). گواهی باید دامنه بالا را پوشش دهد.",
+        "trustTunnelUpstreamProtocol": "پروتکل کلاینت",
+        "trustTunnelClientDns": "DNS کلاینت (برای لینک)",
+        "trustTunnelClientDnsHint": "بالاستریم‌های DNS با کاما جدا شوند، در لینک tt:// کلاینت درج می‌شوند، مثلاً 1.1.1.1, tls://8.8.8.8. خالی = پیش‌فرض کلاینت.",
+        "trustTunnelIpv6": "IPv6 در دسترس",
+        "trustTunnelRouteThroughXray": "مسیریابی از طریق Xray",
+        "trustTunnelRouteThroughXrayHint": "نقطه پایان ترافیک تونل‌شده را از طریق پل SOCKS لوپ‌بک پنهان در Xray هدایت می‌کند ([forward_protocol.socks5]). پیش‌فرض خاموش — فقط برای آبشار خروجی فعال کنید.",
+        "trustTunnelRouteOutbound": "خروجی",
+        "trustTunnelRouteOutboundHint": "خالی = دیگ پیش‌فرض Xray. در غیر این صورت مسیریابی اجباری به این خروجی/بالانسر.",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "حالت",
@@ -2244,6 +2275,36 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "نصب شده",
+          "missing": "نصب نشده",
+          "upload": "بارگذاری",
+          "download": "دانلود",
+          "delete": "حذف",
+          "deleteConfirm": "همه نمونه‌های mieru متوقف و باینری حذف شود؟"
+        },
+        "toasts": {
+          "uploaded": "باینری بارگذاری شد",
+          "downloaded": "باینری دانلود شد",
+          "deleted": "باینری حذف شد"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "نصب شده",
+          "missing": "نصب نشده",
+          "upload": "بارگذاری",
+          "download": "دانلود",
+          "delete": "حذف",
+          "deleteConfirm": "همه نمونه‌های TrustTunnel متوقف و باینری حذف شود؟"
+        },
+        "toasts": {
+          "uploaded": "باینری بارگذاری شد",
+          "downloaded": "باینری دانلود شد",
+          "deleted": "باینری حذف شد"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

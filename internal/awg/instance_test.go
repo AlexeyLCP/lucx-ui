@@ -276,6 +276,7 @@ func TestRenderServerConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 	}{
 		{"empty key v3", "3", "", false},
 		{"set key v3", "3", "aBcD...base64hpk==", true},
+		{"set key v3.1", "3.1", "aBcD...base64hpk==", true},
 		{"set key v2", "2", "aBcD...base64hpk==", false},
 		{"set key v1.5", "1.5", "aBcD...base64hpk==", false},
 		{"set key no version", "", "aBcD...base64hpk==", false},
@@ -328,11 +329,96 @@ func TestInstanceFingerprint_ChangesOnAwgVersion(t *testing.T) {
 
 func TestNormalizeAwgVersion(t *testing.T) {
 	for _, tc := range []struct{ in, want string }{
-		{"", "2"}, {"1.5", "1.5"}, {"2", "2"}, {"3", "3"}, {"garbage", "2"}, {"4", "2"},
+		{"", "2"}, {"1.5", "1.5"}, {"2", "2"}, {"3", "3"}, {"3.1", "3.1"}, {"garbage", "2"}, {"4", "2"},
 	} {
 		if got := NormalizeAWGVersion(tc.in); got != tc.want {
 			t.Errorf("NormalizeAWGVersion(%q) = %q, want %q", tc.in, got, tc.want)
 		}
+	}
+}
+
+func TestIsAwg3Plus(t *testing.T) {
+	if !IsAwg3Plus("3") || !IsAwg3Plus("3.1") {
+		t.Fatal("3 and 3.1 must be AWG3+")
+	}
+	if IsAwg3Plus("2") || IsAwg3Plus("1.5") || IsAwg3Plus("") {
+		t.Fatal("v1/v2 must not be AWG3+")
+	}
+}
+
+func TestParseAwgToolsVersion(t *testing.T) {
+	maj, min := parseAwgToolsVersion("amneziawg-tools v3.1.20260812 - https://amnezia.org")
+	if maj != 3 || min != 1 {
+		t.Fatalf("v3.1 banner: got %d.%d", maj, min)
+	}
+	maj, min = parseAwgToolsVersion("amneziawg-tools v3.0.20260730 - https://amnezia.org")
+	if maj != 3 || min != 0 {
+		t.Fatalf("v3.0 banner: got %d.%d", maj, min)
+	}
+	if awgToolsAtLeast("amneziawg-tools v3.0.20260730", 3, 1) {
+		t.Fatal("v3.0 must not satisfy ≥ 3.1")
+	}
+	if !awgToolsAtLeast("amneziawg-tools v3.1.20260812", 3, 1) {
+		t.Fatal("v3.1 must satisfy ≥ 3.1")
+	}
+}
+
+func TestRenderServerConf_Awg31FlagsVersionGated(t *testing.T) {
+	awg3, awg31 := true, true
+	SetModuleSupportsAwg3(&awg3)
+	SetModuleSupportsAwg31(&awg31)
+	t.Cleanup(func() {
+		SetModuleSupportsAwg3(nil)
+		SetModuleSupportsAwg31(nil)
+	})
+	for _, tc := range []struct {
+		name                                         string
+		version                                      string
+		trailers, cookies, wantTrailers, wantCookies bool
+	}{
+		{"v3.1 both", "3.1", true, true, true, true},
+		{"v3.1 trailers only", "3.1", true, false, true, false},
+		{"v3 drops", "3", true, true, false, false},
+		{"v2 drops", "2", true, true, false, false},
+		{"v3.1 false omitted", "3.1", false, false, false, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			inst := Instance{
+				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
+				AwgVersion:     tc.version,
+				RandomTrailers: tc.trailers,
+				DisableCookies: tc.cookies,
+			}
+			conf := renderServerConf(inst)
+			if got := strings.Contains(conf, "RandomTrailers = true"); got != tc.wantTrailers {
+				t.Errorf("RandomTrailers: got %v want %v\n%s", got, tc.wantTrailers, conf)
+			}
+			if got := strings.Contains(conf, "DisableCookies = true"); got != tc.wantCookies {
+				t.Errorf("DisableCookies: got %v want %v\n%s", got, tc.wantCookies, conf)
+			}
+		})
+	}
+}
+
+func TestRenderServerConf_Awg31DroppedOnV30Tools(t *testing.T) {
+	awg3, v30 := true, false
+	SetModuleSupportsAwg3(&awg3)
+	SetModuleSupportsAwg31(&v30)
+	t.Cleanup(func() {
+		SetModuleSupportsAwg3(nil)
+		SetModuleSupportsAwg31(nil)
+	})
+	inst := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
+		AwgVersion: "3.1", RandomTrailers: true, DisableCookies: true,
+		HeaderProtectionKey: "aBcD...base64hpk==",
+	}
+	conf := renderServerConf(inst)
+	if strings.Contains(conf, "RandomTrailers") || strings.Contains(conf, "DisableCookies") {
+		t.Errorf("v3.0 tools must drop 3.1 flags, got:\n%s", conf)
+	}
+	if !strings.Contains(conf, "HeaderProtectionKey") {
+		t.Errorf("v3.0 tools must still emit HPK for 3.1 inbound, got:\n%s", conf)
 	}
 }
 

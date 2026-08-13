@@ -14,7 +14,9 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"path/filepath"
 	"runtime"
+	"sort"
 	"strconv"
 	"strings"
 	"sync"
@@ -46,6 +48,16 @@ type Instance struct {
 	// in start().
 	Args []string
 
+	// ExtraFiles carries companion config files (filename → content) written
+	// next to the main config (TrustTunnel hosts/credentials/rules TOML).
+	// Covered by Fingerprint like ConfigText.
+	ExtraFiles map[string]string
+
+	// FingerprintExtra carries opaque material (e.g. the TLS cert content
+	// hash) into the Fingerprint without being written to disk — a renewed
+	// certificate restarts the core even though file paths are unchanged.
+	FingerprintExtra string
+
 	// ExtraArgs are additional CLI arguments appended after the standard
 	// ones (operator escape hatch, space-separated). Ignored when Args is set.
 	ExtraArgs string
@@ -75,10 +87,28 @@ func (inst Instance) ManageKey() string {
 // Fingerprint identifies the instance's rendered config plus CLI shape. Any
 // change to either forces a restart on the next Ensure.
 func (inst Instance) Fingerprint() string {
+	extra := ""
+	if len(inst.ExtraFiles) > 0 {
+		names := make([]string, 0, len(inst.ExtraFiles))
+		for name := range inst.ExtraFiles {
+			names = append(names, name)
+		}
+		sort.Strings(names)
+		var b strings.Builder
+		for _, name := range names {
+			b.WriteString(name)
+			b.WriteByte('=')
+			b.WriteString(inst.ExtraFiles[name])
+			b.WriteByte(';')
+		}
+		extra = b.String()
+	}
 	sum := sha256.Sum256([]byte(
 		inst.ConfigText + "\x00" +
 			inst.ExtraArgs + "\x00" +
 			strings.Join(inst.Args, "\x00") + "\x00" +
+			extra + "\x00" +
+			inst.FingerprintExtra + "\x00" +
 			fmt.Sprintf("rtx=%v|tun=%s|tbl=%d", inst.RouteThroughXray, inst.TunName, inst.RouteTable),
 	))
 	return hex.EncodeToString(sum[:16])
@@ -103,13 +133,19 @@ type managed struct {
 // Manager owns the supervised tunnel-core processes keyed by ManageKey
 // (legacy core name or "naive-{id}" for inbound instances).
 type Manager struct {
-	mu           sync.Mutex
-	cores        map[string]*managed
-	naiveTraffic map[string]*naiveLogCursor
+	mu                 sync.Mutex
+	cores              map[string]*managed
+	naiveTraffic       map[string]*naiveLogCursor
+	mieruTraffic       map[string]map[string]*mieruUserCursor
+	trustTunnelTraffic map[string]*trustTunnelCursor
 }
 
 func newManager() *Manager {
-	return &Manager{cores: make(map[string]*managed)}
+	return &Manager{
+		cores:              make(map[string]*managed),
+		mieruTraffic:       make(map[string]map[string]*mieruUserCursor),
+		trustTunnelTraffic: make(map[string]*trustTunnelCursor),
+	}
 }
 
 var (
@@ -267,9 +303,86 @@ func (m *Manager) IsRunningKey(key string) bool {
 	return ok && mc.proc != nil && mc.proc.IsRunning()
 }
 
+// AnyRunning reports whether any managed key carrying the prefix is alive
+// (multi-instance cores on the Cores page: mieru-*, trusttunnel-*).
+func (m *Manager) AnyRunning(prefix string) bool {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	for key, mc := range m.cores {
+		if strings.HasPrefix(key, prefix) && mc.proc != nil && mc.proc.IsRunning() {
+			return true
+		}
+	}
+	return false
+}
+
 // Logs returns up to max recent output lines of the core process.
 func (m *Manager) Logs(core Name, max int) []string {
 	return m.LogsKey(string(core), max)
+}
+
+// LogsPrefixed collects up to max recent lines of every managed key carrying
+// the prefix, tagging each line with its key (multi-instance cores on the
+// Cores page: mieru-*, trusttunnel-*).
+func (m *Manager) LogsPrefixed(prefix string, max int) []string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	keys := make([]string, 0)
+	for key := range m.cores {
+		if strings.HasPrefix(key, prefix) {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	var out []string
+	for _, key := range keys {
+		if mc := m.cores[key]; mc.proc != nil {
+			for _, line := range mc.proc.Lines(max) {
+				out = append(out, "["+key+"] "+line)
+			}
+		}
+	}
+	return out
+}
+
+// LastLogPrefixed returns the most recent line of any instance with the
+// prefix (first in sorted key order that has output).
+func (m *Manager) LastLogPrefixed(prefix string) string {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	keys := make([]string, 0)
+	for key := range m.cores {
+		if strings.HasPrefix(key, prefix) {
+			keys = append(keys, key)
+		}
+	}
+	sort.Strings(keys)
+	for _, key := range keys {
+		if mc := m.cores[key]; mc.proc != nil {
+			if line := mc.proc.LastLine(); line != "" {
+				return line
+			}
+		}
+	}
+	return ""
+}
+
+// StopPrefixed stops every running managed key with the prefix (binary
+// deletion of a multi-instance core).
+func (m *Manager) StopPrefixed(prefix string) {
+	m.mu.Lock()
+	var keys []string
+	for key, mc := range m.cores {
+		if strings.HasPrefix(key, prefix) && mc.proc != nil && mc.proc.IsRunning() {
+			keys = append(keys, key)
+		}
+	}
+	m.mu.Unlock()
+	for _, key := range keys {
+		if err := m.StopKey(key); err != nil {
+			logger.Warningf("tunnel: stop %s: %v", key, err)
+		}
+	}
 }
 
 // LogsKey returns up to max recent output lines for a managed key.
@@ -322,6 +435,16 @@ func (m *Manager) ReconcileNaive(want []Instance) {
 // ReconcileOlcrtc drives every desired olcRTC inbound instance.
 func (m *Manager) ReconcileOlcrtc(want []Instance) {
 	m.ReconcileWanted(Olcrtc, "olcrtc-", string(Olcrtc), want)
+}
+
+// ReconcileMieru drives every desired mieru inbound instance.
+func (m *Manager) ReconcileMieru(want []Instance) {
+	m.ReconcileWanted(Mieru, "mieru-", string(Mieru), want)
+}
+
+// ReconcileTrustTunnel drives every desired TrustTunnel inbound instance.
+func (m *Manager) ReconcileTrustTunnel(want []Instance) {
+	m.ReconcileWanted(TrustTunnel, "trusttunnel-", string(TrustTunnel), want)
 }
 
 // ReconcileWanted Ensures each wanted instance of core and Removes orphan
@@ -378,20 +501,31 @@ func probeResponding(addr string) bool {
 }
 
 func writeConfigFile(inst Instance) error {
-	if strings.TrimSpace(inst.ConfigText) == "" {
+	if strings.TrimSpace(inst.ConfigText) == "" && len(inst.ExtraFiles) == 0 {
 		return nil
 	}
 	if err := os.MkdirAll(workDir(), 0o755); err != nil {
 		return fmt.Errorf("tunnel: create config dir: %w", err)
 	}
-	path := configPathFor(inst.ManageKey(), inst.Core)
-	if existing, err := os.ReadFile(path); err == nil && string(existing) == inst.ConfigText {
-		return nil
+	if strings.TrimSpace(inst.ConfigText) != "" {
+		path := configPathFor(inst.ManageKey(), inst.Core)
+		if err := writeFileIfChanged(path, inst.ConfigText); err != nil {
+			return fmt.Errorf("tunnel: write config: %w", err)
+		}
 	}
-	if err := os.WriteFile(path, []byte(inst.ConfigText), 0o600); err != nil {
-		return fmt.Errorf("tunnel: write config: %w", err)
+	for name, content := range inst.ExtraFiles {
+		if err := writeFileIfChanged(filepath.Join(workDir(), name), content); err != nil {
+			return fmt.Errorf("tunnel: write extra config %s: %w", name, err)
+		}
 	}
 	return nil
+}
+
+func writeFileIfChanged(path, content string) error {
+	if existing, err := os.ReadFile(path); err == nil && string(existing) == content {
+		return nil
+	}
+	return os.WriteFile(path, []byte(content), 0o600)
 }
 
 func (m *Manager) start(inst Instance) error {
@@ -422,10 +556,28 @@ func (m *Manager) start(inst Instance) error {
 		}
 	case inst.Core == Olcrtc:
 		args = []string{cfgPath}
+	case inst.Core == Mieru:
+		// mita runs in the foreground ("run") and reads its JSON config from
+		// MITA_CONFIG_JSON_FILE. The RPC unix socket is per-instance
+		// (MITA_UDS_PATH) so several mita processes never fight over one
+		// socket; MITA_INSECURE_UDS skips the chown mita:mita that would
+		// fatal out (no mita system user on panel hosts).
+		args = []string{"run"}
+	case inst.Core == TrustTunnel:
+		// trusttunnel_endpoint <vpn.toml> <hosts.toml>; companion files
+		// (credentials/rules) are referenced from within vpn.toml.
+		args = []string{cfgPath, filepath.Join(workDir(), trustTunnelHostsFileName(key))}
 	default:
 		return fmt.Errorf("tunnel: no start args for core %q", inst.Core)
 	}
 	env := append(os.Environ(), "XDG_DATA_HOME="+dataDirFor(key, inst.Core))
+	if inst.Core == Mieru {
+		env = append(env,
+			"MITA_CONFIG_JSON_FILE="+cfgPath,
+			"MITA_UDS_PATH="+filepath.Join(dataDirFor(key, inst.Core), "mita.sock"),
+			"MITA_INSECURE_UDS=1",
+		)
+	}
 
 	mc := m.slot(key)
 	if mc.proc == nil {

@@ -285,17 +285,19 @@ fi
 
 # 4. Build and install userspace tools (awg + awg-quick, both from src/).
 #    Rebuild not only when missing but also when the installed tools predate
-#    AWG3: tools < v3 do not parse the HeaderProtectionKey .conf line and
-#    abort awg-quick with "Line unrecognized", so an AWG3 module behind v1/v2
-#    tools still cannot serve HPK configs. `awg version` prints
-#    "amneziawg-tools v3.0.20260730 - https://amnezia.org"; treat anything
-#    under major 3 (or unparsable) as stale.
+#    AWG 3.1: tools < v3.1 do not parse RandomTrailers / DisableCookies and
+#    abort awg-quick with "Line unrecognized". `awg version` prints
+#    "amneziawg-tools v3.1.20260812 - https://amnezia.org"; treat anything
+#    under 3.1 (or unparsable) as stale. v3.0 tools still parse HPK.
 TOOLS_STALE=0
 if ! command -v awg-quick &>/dev/null; then
     TOOLS_STALE=1
 else
-    TOOLS_MAJOR=$(awg version 2>/dev/null | grep -oP 'v\K[0-9]+' | head -1 || true)
-    [[ "${TOOLS_MAJOR:-0}" -ge 3 ]] || TOOLS_STALE=1
+    TOOLS_MAJ=$(awg version 2>/dev/null | grep -oP 'v\K[0-9]+' | head -1 || true)
+    TOOLS_MIN=$(awg version 2>/dev/null | grep -oP 'v[0-9]+\.\K[0-9]+' | head -1 || true)
+    if [[ "${TOOLS_MAJ:-0}" -lt 3 ]] || { [[ "${TOOLS_MAJ:-0}" -eq 3 ]] && [[ "${TOOLS_MIN:-0}" -lt 1 ]]; }; then
+        TOOLS_STALE=1
+    fi
 fi
 if [[ $TOOLS_STALE -eq 1 ]]; then
     echo -e "${GREEN}Сборка утилит awg...${NC}"

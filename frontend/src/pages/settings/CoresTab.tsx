@@ -29,20 +29,74 @@ import { keys } from '@/api/queryKeys';
 import { tunnelsApi } from '@/api/tunnels';
 import type { AwgInfo } from '@/models/status';
 
-type CoreKind = 'naive' | 'olcrtc' | 'qwdtt';
+type CoreKind = 'naive' | 'olcrtc' | 'qwdtt' | 'mieru' | 'trusttunnel';
+
+interface CoreStatusView {
+  probe?: { running?: boolean };
+  binaryExists?: boolean;
+  binaryPath?: string;
+}
+
+interface CoreApiResult<T> {
+  success?: boolean;
+  obj?: T | null;
+}
+
+const CORE_API: Record<CoreKind, {
+  key: () => readonly string[];
+  status: () => Promise<CoreApiResult<CoreStatusView>>;
+  logs: (n: number) => Promise<CoreApiResult<string[]>>;
+  upload: (f: File) => Promise<unknown>;
+  download: (u: string) => Promise<unknown>;
+  deleteBinary: () => Promise<unknown>;
+}> = {
+  naive: {
+    key: keys.tunnels.naiveStatus,
+    status: tunnelsApi.status,
+    logs: tunnelsApi.logs,
+    upload: tunnelsApi.upload,
+    download: tunnelsApi.download,
+    deleteBinary: tunnelsApi.deleteBinary,
+  },
+  olcrtc: {
+    key: keys.tunnels.olcrtcStatus,
+    status: tunnelsApi.olcrtcStatus,
+    logs: tunnelsApi.olcrtcLogs,
+    upload: tunnelsApi.olcrtcUpload,
+    download: tunnelsApi.olcrtcDownload,
+    deleteBinary: tunnelsApi.olcrtcDeleteBinary,
+  },
+  qwdtt: {
+    key: keys.tunnels.qwdttStatus,
+    status: tunnelsApi.qwdttStatus,
+    logs: tunnelsApi.qwdttLogs,
+    upload: tunnelsApi.qwdttUpload,
+    download: tunnelsApi.qwdttDownload,
+    deleteBinary: tunnelsApi.qwdttDeleteBinary,
+  },
+  mieru: {
+    key: keys.tunnels.mieruStatus,
+    status: tunnelsApi.mieruStatus,
+    logs: tunnelsApi.mieruLogs,
+    upload: tunnelsApi.mieruUpload,
+    download: tunnelsApi.mieruDownload,
+    deleteBinary: tunnelsApi.mieruDeleteBinary,
+  },
+  trusttunnel: {
+    key: keys.tunnels.trustTunnelStatus,
+    status: tunnelsApi.trustTunnelStatus,
+    logs: tunnelsApi.trustTunnelLogs,
+    upload: tunnelsApi.trustTunnelUpload,
+    download: tunnelsApi.trustTunnelDownload,
+    deleteBinary: tunnelsApi.trustTunnelDeleteBinary,
+  },
+};
 
 function useCoreStatus(kind: CoreKind) {
+  const api = CORE_API[kind];
   return useQuery({
-    queryKey: kind === 'naive'
-      ? keys.tunnels.naiveStatus()
-      : kind === 'olcrtc'
-        ? keys.tunnels.olcrtcStatus()
-        : keys.tunnels.qwdttStatus(),
-    queryFn: async () => {
-      if (kind === 'naive') return tunnelsApi.status();
-      if (kind === 'olcrtc') return tunnelsApi.olcrtcStatus();
-      return tunnelsApi.qwdttStatus();
-    },
+    queryKey: api.key(),
+    queryFn: api.status,
     refetchInterval: 5000,
   });
 }
@@ -50,6 +104,7 @@ function useCoreStatus(kind: CoreKind) {
 function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
   const { t } = useTranslation();
   const qc = useQueryClient();
+  const api = CORE_API[kind];
   const [busy, setBusy] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState('');
@@ -59,14 +114,8 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
   const exists = !!status?.binaryExists;
 
   const invalidate = useCallback(() => {
-    void qc.invalidateQueries({
-      queryKey: kind === 'naive'
-        ? keys.tunnels.naiveStatus()
-        : kind === 'olcrtc'
-          ? keys.tunnels.olcrtcStatus()
-          : keys.tunnels.qwdttStatus(),
-    });
-  }, [kind, qc]);
+    void qc.invalidateQueries({ queryKey: api.key() });
+  }, [api, qc]);
 
   const run = useCallback(async (fn: () => Promise<{ success?: boolean }>) => {
     setBusy(true);
@@ -82,9 +131,7 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
     void (async () => {
       setBusy(true);
       try {
-        if (kind === 'naive') await tunnelsApi.upload(file);
-        else if (kind === 'olcrtc') await tunnelsApi.olcrtcUpload(file);
-        else await tunnelsApi.qwdttUpload(file);
+        await api.upload(file);
         invalidate();
       } finally {
         setBusy(false);
@@ -97,9 +144,7 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
     if (!downloadUrl.trim()) return;
     setBusy(true);
     try {
-      if (kind === 'naive') await tunnelsApi.download(downloadUrl.trim());
-      else if (kind === 'olcrtc') await tunnelsApi.olcrtcDownload(downloadUrl.trim());
-      else await tunnelsApi.qwdttDownload(downloadUrl.trim());
+      await api.download(downloadUrl.trim());
       setDownloadOpen(false);
       setDownloadUrl('');
       invalidate();
@@ -109,11 +154,7 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
   };
 
   const showLogs = async () => {
-    const r = kind === 'naive'
-      ? await tunnelsApi.logs(200)
-      : kind === 'olcrtc'
-        ? await tunnelsApi.olcrtcLogs(200)
-        : await tunnelsApi.qwdttLogs(200);
+    const r = await api.logs(200);
     const lines = r.success && Array.isArray(r.obj) ? r.obj : [];
     Modal.info({
       title,
@@ -159,11 +200,7 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
           title={t(`${i18nBase}.deleteConfirm`)}
           okText={t('delete')}
           cancelText={t('cancel')}
-          onConfirm={() => run(() => (
-            kind === 'naive' ? tunnelsApi.deleteBinary()
-              : kind === 'olcrtc' ? tunnelsApi.olcrtcDeleteBinary()
-                : tunnelsApi.qwdttDeleteBinary()
-          ))}
+          onConfirm={() => run(() => api.deleteBinary() as Promise<{ success?: boolean }>)}
         >
           <Button icon={<DeleteOutlined />} danger disabled={busy}>{t(`${i18nBase}.delete`)}</Button>
         </Popconfirm>
@@ -286,6 +323,8 @@ export default function CoresTab() {
       <BinaryCard kind="naive" title="NaiveProxy" />
       <BinaryCard kind="olcrtc" title="olcRTC" />
       <BinaryCard kind="qwdtt" title="qWDTT" />
+      <BinaryCard kind="mieru" title="mieru" />
+      <BinaryCard kind="trusttunnel" title="TrustTunnel" />
     </div>
   );
 }

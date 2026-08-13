@@ -1433,15 +1433,15 @@ function awgPeerShape(c: AwgInboundSettings['clients'][number]): WireguardInboun
 // S3/S4 + optional I1-I5 but omits HeaderProtectionKey; '3' adds
 // HeaderProtectionKey. The server .conf's version is the ceiling — a client
 // version higher than the server's breaks the handshake on must-match fields.
-export type AwgVersion = '1.5' | '2' | '3';
+export type AwgVersion = '1.5' | '2' | '3' | '3.1';
 
-const AWG_VERSION_ORDER: Record<AwgVersion, number> = { '1.5': 1, '2': 2, '3': 3 };
+const AWG_VERSION_ORDER: Record<AwgVersion, number> = { '1.5': 1, '2': 2, '3': 3, '3.1': 4 };
 
-// awgVersionCeiling normalizes a stored awgVersion to one of the three known
+// awgVersionCeiling normalizes a stored awgVersion to one of the known
 // values, defaulting to '2' (the safe, universally-accepted version) for
 // absent/garbage values. Mirrors awg.NormalizeAWGVersion on the backend.
 export function awgVersionCeiling(v: string | undefined | null): AwgVersion {
-  if (v === '1.5' || v === '2' || v === '3') return v;
+  if (v === '1.5' || v === '2' || v === '3' || v === '3.1') return v;
   return '2';
 }
 
@@ -1527,6 +1527,10 @@ export function genAwgLink(input: GenAwgLinkInput): string {
       if (val) url.searchParams.set(key, val);
     }
   }
+  if (awgVersionAtLeast(v, '3.1')) {
+    if (settings.randomTrailers) url.searchParams.set('randomtrailers', 'true');
+    if (settings.disableCookies) url.searchParams.set('disablecookies', 'true');
+  }
   if (settings.dns) url.searchParams.set('dns', settings.dns);
   if (peer.preSharedKey) url.searchParams.set('presharedkey', peer.preSharedKey);
   {
@@ -1604,6 +1608,10 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
     for (const [key, val] of lines) {
       if (val) txt += `${key} = ${val}\n`;
     }
+  }
+  if (awgVersionAtLeast(override, '3.1')) {
+    if (settings.randomTrailers) txt += `RandomTrailers = true\n`;
+    if (settings.disableCookies) txt += `DisableCookies = true\n`;
   }
 
   txt += `\n# ${remark}\n`;

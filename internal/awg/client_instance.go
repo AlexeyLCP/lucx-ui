@@ -72,9 +72,12 @@ type ClientSettings struct {
 	RejectAfterTime        AwgTimer `json:"rejectAfterTime"`
 	KeepaliveTimeout       AwgTimer `json:"keepaliveTimeout"`
 	MaxHandshakeAttempts   AwgTimer `json:"maxHandshakeAttempts"`
+	// AWG 3.1 device flags. Written only when AwgVersion == "3.1".
+	RandomTrailers bool `json:"randomTrailers"`
+	DisableCookies bool `json:"disableCookies"`
 	// AwgVersion targets the AmneziaWG protocol version for this outbound
-	// ("1.5"/"2"/"3"; "" → "2" via normalize). The .conf renderer emits
-	// HeaderProtectionKey only for version "3".
+	// ("1.5"/"2"/"3"/"3.1"; "" → "2" via normalize). The .conf renderer emits
+	// HeaderProtectionKey for IsAwg3Plus and 3.1 flags only for "3.1".
 	AwgVersion string `json:"awgVersion"`
 }
 
@@ -142,6 +145,8 @@ func (ci ClientInstance) fingerprint() string {
 		string(s.RejectAfterTime),
 		string(s.KeepaliveTimeout),
 		string(s.MaxHandshakeAttempts),
+		strconv.FormatBool(s.RandomTrailers),
+		strconv.FormatBool(s.DisableCookies),
 	}
 	return strings.Join(parts, "|")
 }

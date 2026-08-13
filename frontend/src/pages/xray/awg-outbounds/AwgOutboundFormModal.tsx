@@ -75,6 +75,8 @@ interface AwgOutboundFormValues {
   rejectAfterTime: string;
   keepaliveTimeout: string;
   maxHandshakeAttempts: string;
+  randomTrailers: boolean;
+  disableCookies: boolean;
 }
 
 const DEFAULT_SETTINGS: AwgOutboundSettings = {
@@ -111,6 +113,8 @@ const DEFAULT_SETTINGS: AwgOutboundSettings = {
   rejectAfterTime: '0',
   keepaliveTimeout: '0',
   maxHandshakeAttempts: '0',
+  randomTrailers: false,
+  disableCookies: false,
 };
 
 function buildDefaultValues(): AwgOutboundFormValues {
@@ -172,6 +176,8 @@ function settingsToFormValues(initial: AwgOutbound): AwgOutboundFormValues {
     rejectAfterTime: parsed.rejectAfterTime ?? DEFAULT_SETTINGS.rejectAfterTime,
     keepaliveTimeout: parsed.keepaliveTimeout ?? DEFAULT_SETTINGS.keepaliveTimeout,
     maxHandshakeAttempts: parsed.maxHandshakeAttempts ?? DEFAULT_SETTINGS.maxHandshakeAttempts,
+    randomTrailers: parsed.randomTrailers ?? DEFAULT_SETTINGS.randomTrailers,
+    disableCookies: parsed.disableCookies ?? DEFAULT_SETTINGS.disableCookies,
   };
 }
 
@@ -213,6 +219,8 @@ function formValuesToSettings(v: AwgOutboundFormValues): AwgOutboundSettings {
     rejectAfterTime: v.rejectAfterTime,
     keepaliveTimeout: v.keepaliveTimeout,
     maxHandshakeAttempts: v.maxHandshakeAttempts,
+    randomTrailers: v.randomTrailers,
+    disableCookies: v.disableCookies,
   };
 }
 
@@ -440,6 +448,7 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                   { value: '1.5', label: t('pages.inbounds.form.awgVersion15') },
                   { value: '2', label: t('pages.inbounds.form.awgVersion2') },
                   { value: '3', label: t('pages.inbounds.form.awgVersion3') },
+                  { value: '3.1', label: t('pages.inbounds.form.awgVersion31') },
                 ]}
               />
             </FormField>
@@ -586,6 +595,12 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                     </FormField>
                     <FormField name="maxHandshakeAttempts" label={t('pages.inbounds.form.awgMaxHandshakeAttempts')} tooltip={t('pages.inbounds.form.awgMaxHandshakeAttemptsHint')}>
                       <Input placeholder="0 или диапазон, напр. 100-120" />
+                    </FormField>
+                    <FormField name="randomTrailers" label={t('pages.inbounds.form.awgRandomTrailers')} tooltip={t('pages.inbounds.form.awgRandomTrailersHint')}>
+                      <Switch />
+                    </FormField>
+                    <FormField name="disableCookies" label={t('pages.inbounds.form.awgDisableCookies')} tooltip={t('pages.inbounds.form.awgDisableCookiesHint')}>
+                      <Switch />
                     </FormField>
                   </Space>
                 </Form.Item>

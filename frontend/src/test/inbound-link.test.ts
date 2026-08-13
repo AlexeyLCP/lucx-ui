@@ -353,7 +353,7 @@ describe('genWireguardLink + genWireguardConfig multi allowedIPs', () => {
 import { genAwgConfig, genAwgLink } from '@/lib/xray/inbound-link';
 import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg';
 
-function awgSettings(version: '1.5' | '2' | '3'): AwgInboundSettings {
+function awgSettings(version: '1.5' | '2' | '3' | '3.1'): AwgInboundSettings {
   return {
     privateKey: 'serverPrivKeyBase64',
     publicKey: '',
@@ -371,6 +371,7 @@ function awgSettings(version: '1.5' | '2' | '3'): AwgInboundSettings {
     awgVersion: version,
     contentPaddingAddition: '0', rekeyAfterTime: '0', rekeyTimeout: '0',
     rejectAfterTime: '0', keepaliveTimeout: '0', maxHandshakeAttempts: '0',
+    randomTrailers: version === '3.1', disableCookies: false,
     routeThroughXray: true,
     outboundTag: '',
     clients: [{ privateKey: 'clientPrivKeyBase64', publicKey: 'peerPub', preSharedKey: 'psk', allowedIPs: ['10.8.0.2/32'], keepAlive: '25', email: 'u', limitIp: 0, totalGB: 0, expiryTime: 0, enable: true, tgId: 0, subId: '', comment: '', reset: 0 }] as AwgInboundSettings['clients'],
@@ -418,6 +419,19 @@ describe('genAwgLink + genAwgConfig version gating', () => {
     expect(config).not.toContain('S3 =');
     expect(config).not.toContain('HeaderProtectionKey');
     expect(config).toContain('Jc = 5');
+  });
+
+  it('v3.1 emits RandomTrailers and keeps HPK', () => {
+    const settings = awgSettings('3.1');
+    const link = genAwgLink({ settings, address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({ settings, address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const u = new URL(link);
+    expect(u.searchParams.get('headerprotectionkey')).toBe('aBcD...base64hpk==');
+    expect(u.searchParams.get('randomtrailers')).toBe('true');
+    expect(u.searchParams.get('disablecookies')).toBeNull();
+    expect(config).toContain('HeaderProtectionKey = aBcD...base64hpk==');
+    expect(config).toContain('RandomTrailers = true');
+    expect(config).not.toContain('DisableCookies');
   });
 
   it('v3 does NOT emit AdvancedSecurity (kernel ignores it, risks parse errors)', () => {

@@ -202,6 +202,43 @@ func SetModuleSupportsAwg3(supported *bool) {
 
 var moduleSupportsAwg3Override *bool
 
+var (
+	moduleAwg31Checked   bool
+	moduleAwg31Supported bool
+)
+
+var moduleSupportsAwg31Override *bool
+
+// ModuleSupportsAwg31 reports whether this host can consume AWG 3.1 fields
+// (RandomTrailers / DisableCookies). Tools older than v3.1 reject those
+// .conf lines with "Line unrecognized" and awg-quick rolls the interface
+// back — same Pattern 1d as HPK on a v1 module. Only a positive result is
+// cached; a negative one is transient (tools mid-rebuild) so the next call
+// retries.
+func ModuleSupportsAwg31() bool {
+	if moduleSupportsAwg31Override != nil {
+		return *moduleSupportsAwg31Override
+	}
+	if moduleAwg31Checked {
+		return moduleAwg31Supported
+	}
+	out, err := exec.CommandContext(context.Background(), "awg", "version").Output()
+	if err != nil {
+		return false
+	}
+	supported := awgToolsAtLeast(string(out), 3, 1)
+	if supported {
+		moduleAwg31Checked = true
+		moduleAwg31Supported = true
+	}
+	return supported
+}
+
+// SetModuleSupportsAwg31 overrides the 3.1 tools-support probe for tests.
+func SetModuleSupportsAwg31(supported *bool) {
+	moduleSupportsAwg31Override = supported
+}
+
 // awg3CapabilityCheck builds the informational diagnostics line for AWG3
 // (HeaderProtectionKey) readiness: the kernel module must export the
 // header-protection symbol and the awg tools must be v3.0+. A failing line

@@ -134,6 +134,23 @@ Endpoint = up:51820
 			wantHPK: "aBcD...base64hpk==",
 		},
 		{
+			name: "v3.1 with RandomTrailers → version 3.1",
+			conf: `[Interface]
+PrivateKey = k
+Address = 10.9.0.5/32
+Jc = 5
+HeaderProtectionKey = aBcD...base64hpk==
+RandomTrailers = true
+DisableCookies = false
+
+[Peer]
+PublicKey = pub
+Endpoint = up:51820
+`,
+			wantVer: "3.1",
+			wantHPK: "aBcD...base64hpk==",
+		},
+		{
 			name: "v2 with S3/S4 and I1-I5, no HPK → version 2",
 			conf: `[Interface]
 PrivateKey = k
@@ -179,6 +196,9 @@ Endpoint = up:51820
 			}
 			if s.HeaderProtectionKey != tc.wantHPK {
 				t.Errorf("HeaderProtectionKey = %q, want %q", s.HeaderProtectionKey, tc.wantHPK)
+			}
+			if tc.wantVer == "3.1" && !s.RandomTrailers {
+				t.Errorf("RandomTrailers = false, want true for 3.1")
 			}
 		})
 	}

@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/goccy/go-json"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -508,7 +509,7 @@ func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) 
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','mtproto','awg','naive','olcrtc','qwdtt')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','mtproto','awg','naive','olcrtc','qwdtt','mieru','trusttunnel')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC").Find(&inbounds).Error
 	if err != nil {
@@ -663,6 +664,10 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genAwgLink(inbound, email)
 	case "naive": // LUCX-HOOK: NaiveProxy inbound share link
 		return s.genNaiveLink(inbound, email)
+	case "mieru": // LUCX-HOOK: mieru per-client mierus:// share link
+		return s.genMieruLink(inbound, email)
+	case "trusttunnel": // LUCX-HOOK: TrustTunnel per-client tt:// deep link
+		return s.genTrustTunnelLink(inbound, email)
 	case "olcrtc": // LUCX-HOOK: single-credential olcRTC URI (ignore email)
 		return s.genOlcrtcLink(inbound)
 	case "qwdtt": // LUCX-HOOK: single-credential qWDTT URI (ignore email)
@@ -764,11 +769,10 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	// frontend genAwgLink (inbound-link.ts) and avoids confusing a v1.5 client
 	// with v2/v3 params it cannot parse.
 	awgVer, _ := settings["awgVersion"].(string)
-	if awgVer != "1.5" && awgVer != "2" && awgVer != "3" {
-		awgVer = "2"
-	}
+	awgVer = awg.NormalizeAWGVersion(awgVer)
 	isV2Plus := awgVer != "1.5"
-	isV3 := awgVer == "3"
+	isV3 := awg.IsAwg3Plus(awgVer)
+	isV31 := awg.IsAwg31(awgVer)
 
 	if v, ok := settings["jc"].(float64); ok {
 		params["jc"] = strconv.Itoa(int(v))
@@ -833,6 +837,14 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			}
 		}
 	}
+	if isV31 {
+		if v, ok := settings["randomTrailers"].(bool); ok && v {
+			params["randomtrailers"] = "true"
+		}
+		if v, ok := settings["disableCookies"].(bool); ok && v {
+			params["disablecookies"] = "true"
+		}
+	}
 	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
 }
 
@@ -889,6 +901,70 @@ func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
 	cfg.Domain = domain
 	cfg.Port = inbound.Port
 	return cfg.ClientURLFor(pair, email)
+}
+
+// genMieruLink builds a per-client mierus:// simple share link for a client
+// attached to a mieru inbound. Credentials are HMAC-derived (inbound-scoped).
+// Returns "" when the server address cannot be resolved or the client is not
+// enabled on the inbound.
+func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
+	if inbound == nil || inbound.Protocol != model.Mieru {
+		return ""
+	}
+	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
+	if !ok {
+		return ""
+	}
+	host := s.resolveInboundAddress(inbound)
+	if host == "" {
+		return ""
+	}
+	resolved, ok := s.clientForLink(inbound, email)
+	if !ok || !resolved.Enable {
+		return ""
+	}
+	secret, err := s.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return ""
+	}
+	pair := tunnel.MieruClientAuth(secret, inbound.Id, email)
+	return cfg.ClientLink(host, pair, email)
+}
+
+// genTrustTunnelLink builds a per-client tt:// deep link for a client
+// attached to a TrustTunnel inbound. Credentials are HMAC-derived
+// (inbound-scoped). Returns "" when the hostname is unset or the client is
+// not enabled on the inbound.
+func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) string {
+	if inbound == nil || inbound.Protocol != model.TrustTunnel {
+		return ""
+	}
+	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
+	if !ok {
+		return ""
+	}
+	hostname := strings.TrimSpace(cfg.Hostname)
+	if hostname == "" {
+		return ""
+	}
+	resolved, ok := s.clientForLink(inbound, email)
+	if !ok || !resolved.Enable {
+		return ""
+	}
+	secret, err := s.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return ""
+	}
+	host := s.resolveInboundAddress(inbound)
+	if host == "" {
+		host = hostname
+	}
+	address := host
+	if p := cfg.ListenPort(); p > 0 {
+		address = net.JoinHostPort(host, strconv.Itoa(p))
+	}
+	pair := tunnel.TrustTunnelClientAuth(secret, inbound.Id, email)
+	return cfg.ClientDeepLink(address, pair, email)
 }
 
 // genMtprotoLink builds a per-client Telegram proxy deep link for an mtproto

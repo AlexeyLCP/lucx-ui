@@ -115,6 +115,10 @@ export function filterAwgObfuscation(block: string, version: AwgVersion): string
     drop.push('KeepaliveTimeout =');
     drop.push('MaxHandshakeAttempts =');
   }
+  if (!awgVersionAtLeast(version, '3.1')) {
+    drop.push('RandomTrailers =');
+    drop.push('DisableCookies =');
+  }
   if (drop.length === 0) return block;
   return block
     .split('\n')

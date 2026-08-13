@@ -655,6 +655,12 @@
         "awgVersion2": "2 — стандарт (Android 2.0.1)",
         "awgVersion3": "3 — полный + header protection (AWG3)",
         "awgVersion3CompatNote": "Версия 3 включает HeaderProtectionKey, что криптографически ломает совместимость: клиенты v1/v2 и plain-WireGuard не смогут подключиться к этому инбаунду.",
+        "awgVersion31": "3.1 — AWG3 + случайные хвосты",
+        "awgVersion31CompatNote": "Версия 3.1 добавляет RandomTrailers и DisableCookies. Тулзы старше v3.1 отвергнут эти строки. Клиенты v1/v2 и plain-WireGuard по-прежнему не подключатся (HPK).",
+        "awgRandomTrailers": "Случайные хвосты",
+        "awgRandomTrailersHint": "Случайный хвост каждого пакета в пределах per-peer UDP-окна. Анти-DPI по размерам. Только AWG 3.1.",
+        "awgDisableCookies": "Отключить cookies",
+        "awgDisableCookiesHint": "Не отвечать на cookie-challenge. Только AWG 3.1.",
         "awgSRangeWarning": "AWG3 требует S1-S4 ≥ 12 (шифр header-protection берёт nonce из первых 12 байт S-padding). Генератор это гарантирует; проверь при ручном вводе.",
         "awgMimicryProfile": "Профиль мимикрии",
         "awgMimicryProfileHint": "Форму какого пакета имитирует CPS-сигнатура. TLS/QUIC похожи на трафик браузера; DNS/SIP легче.",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "При «Через Xray»: ICMP/ping не работает (SOCKS только TCP). HTTP провайдера тоже идёт через Xray — если peers есть, а трафика нет, выключи переключатель.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Пусто = общий котёл Xray. Иначе force-route на outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "Порты mita — один порт или диапазон, TCP/UDP. Клиенты подключаются к этим портам.",
+        "mieruPortPlaceholder": "20100 или 20000-20010",
+        "mieruAddBinding": "Добавить порт",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "Уровень логов",
+        "mieruRouteThroughXray": "Маршрутизировать через Xray",
+        "mieruRouteThroughXrayHint": "mita ходит в интернет через скрытый loopback SOCKS-мост в Xray (нативный egress.proxies). По умолчанию выключено — включайте только для каскада через outbound.",
+        "mieruRouteOutbound": "Outbound",
+        "mieruRouteOutboundHint": "Пусто = дефолтный котел Xray. Иначе принудительная маршрутизация в этот outbound/balancer.",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "Домен (hostname)",
+        "trustTunnelHostnameHint": "Домен, указывающий на этот сервер. Должен быть покрыт TLS-сертификатом. Клиенты подключаются к нему.",
+        "trustTunnelListen": "Адрес слушателя",
+        "trustTunnelCertFile": "Файл сертификата (опционально)",
+        "trustTunnelKeyFile": "Файл ключа (опционально)",
+        "trustTunnelCertFileHint": "Пусто = собственный ACME-сертификат панели (Settings → Panel SSL / консоль x-ui). Сертификат должен покрывать домен выше.",
+        "trustTunnelUpstreamProtocol": "Протокол клиента",
+        "trustTunnelClientDns": "DNS клиента (для ссылки)",
+        "trustTunnelClientDnsHint": "DNS-аплинстрымы через запятую, рекламируются в tt://-ссылке клиента, напр. 1.1.1.1, tls://8.8.8.8. Пусто = дефолт клиента.",
+        "trustTunnelIpv6": "IPv6 доступен",
+        "trustTunnelRouteThroughXray": "Маршрутизировать через Xray",
+        "trustTunnelRouteThroughXrayHint": "Эндпоинт форвардит туннельный трафик через скрытый loopback SOCKS-мост в Xray ([forward_protocol.socks5]). По умолчанию выключено — включайте только для каскада через outbound.",
+        "trustTunnelRouteOutbound": "Outbound",
+        "trustTunnelRouteOutboundHint": "Пусто = дефолтный котел Xray. Иначе принудительная маршрутизация в этот outbound/balancer.",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Режим",
@@ -2241,6 +2272,36 @@
           "stopped": "qWDTT остановлен",
           "restarted": "qWDTT перезапущен",
           "saved": "Конфиг qWDTT сохранён",
+          "uploaded": "Бинарник загружен",
+          "downloaded": "Бинарник скачан",
+          "deleted": "Бинарник удалён"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "установлен",
+          "missing": "не установлен",
+          "upload": "Загрузить",
+          "download": "Скачать",
+          "delete": "Удалить",
+          "deleteConfirm": "Остановить все инстансы mieru и удалить бинарник?"
+        },
+        "toasts": {
+          "uploaded": "Бинарник загружен",
+          "downloaded": "Бинарник скачан",
+          "deleted": "Бинарник удалён"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "установлен",
+          "missing": "не установлен",
+          "upload": "Загрузить",
+          "download": "Скачать",
+          "delete": "Удалить",
+          "deleteConfirm": "Остановить все инстансы TrustTunnel и удалить бинарник?"
+        },
+        "toasts": {
           "uploaded": "Бинарник загружен",
           "downloaded": "Бинарник скачан",
           "deleted": "Бинарник удалён"

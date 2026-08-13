@@ -46,7 +46,8 @@ func renderClientConf(ci ClientInstance) string {
 	b.WriteString("Table = off\n")
 	// DNS deliberately NOT written — see function comment. resolvconf crash
 	// on hosts without systemd-resolved/openresolv took down every reconcile.
-	awg3ok := NormalizeAWGVersion(s.AwgVersion) == "3" && ModuleSupportsAwg3()
+	awg3ok := IsAwg3Plus(s.AwgVersion) && ModuleSupportsAwg3()
+	awg31ok := IsAwg31(s.AwgVersion) && ModuleSupportsAwg31()
 	if s.Jc > 0 {
 		fmt.Fprintf(&b, "Jc = %d\n", s.Jc)
 		fmt.Fprintf(&b, "Jmin = %d\n", s.Jmin)
@@ -89,6 +90,14 @@ func renderClientConf(ci ClientInstance) string {
 			}
 			if !s.MaxHandshakeAttempts.IsZero() {
 				fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
+			}
+		}
+		if awg31ok {
+			if s.RandomTrailers {
+				b.WriteString("RandomTrailers = true\n")
+			}
+			if s.DisableCookies {
+				b.WriteString("DisableCookies = true\n")
 			}
 		}
 	}

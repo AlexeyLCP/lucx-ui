@@ -217,6 +217,7 @@ export default function ClientQrModal({
                   { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !isVersionAvailable('1.5', cfg.ceiling) },
                   { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !isVersionAvailable('2', cfg.ceiling) },
                   { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !isVersionAvailable('3', cfg.ceiling) },
+                  { value: '3.1', label: t('pages.inbounds.form.awgVersion31'), disabled: !isVersionAvailable('3.1', cfg.ceiling) },
                 ]}
               />
             </Space>

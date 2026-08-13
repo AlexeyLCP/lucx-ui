@@ -728,18 +728,18 @@ func renderServerConf(inst Instance) string {
 	// working on any kernel, and lets a v3 inbound opt in once the operator has
 	// installed the AWG3 module. The S1-S4 >= 12 invariant (enforced by the
 	// generator) is required for the kernel to accept the key.
-	if inst.AwgVersion == "3" && inst.HeaderProtectionKey != "" && ModuleSupportsAwg3() {
+	if IsAwg3Plus(inst.AwgVersion) && inst.HeaderProtectionKey != "" && ModuleSupportsAwg3() {
 		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", inst.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — all optional (0 = kernel uses the
-	// built-in WireGuard constant). Written only when > 0 and AwgVersion ==
-	// "3"; older kernels reject these lines in setconf. Module-gated: if the
+	// built-in WireGuard constant). Written only when > 0 and IsAwg3Plus;
+	// older kernels reject these lines in setconf. Module-gated: if the
 	// installed amneziawg module is < v3.0 (no ContentPaddingAddition/etc
 	// support), even an AwgVersion="3" inbound must not emit the lines — the
 	// kernel rejects "Line unrecognized" and awg-quick deletes the interface,
 	// producing "Device <awgN> does not exist". Blocks the regression seen
 	// when an operator picks v3 on a host still running the v1.x module.
-	awg3ok := inst.AwgVersion == "3" && ModuleSupportsAwg3()
+	awg3ok := IsAwg3Plus(inst.AwgVersion) && ModuleSupportsAwg3()
 	if awg3ok {
 		// Values are written verbatim: each is a single integer ("150") or an
 		// inclusive range ("100-500"). The kernel u16_range_t parses both and
@@ -762,6 +762,16 @@ func renderServerConf(inst Instance) string {
 		}
 		if !inst.MaxHandshakeAttempts.IsZero() {
 			fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", inst.MaxHandshakeAttempts)
+		}
+	}
+	// AWG 3.1 device flags — omitted when false so v3.0 tools keep accepting
+	// the config. Tools-gated: v3.0 awg-quick rejects "Line unrecognized".
+	if IsAwg31(inst.AwgVersion) && ModuleSupportsAwg31() {
+		if inst.RandomTrailers {
+			b.WriteString("RandomTrailers = true\n")
+		}
+		if inst.DisableCookies {
+			b.WriteString("DisableCookies = true\n")
 		}
 	}
 	// I1-I5 (CPS packets) are CLIENT-ONLY — the server does not use them.

@@ -20,10 +20,12 @@ const (
 func inboundTransports(protocol model.Protocol, streamSettings, settings string) transportBits {
 	// protocols that ignore streamSettings entirely.
 	switch protocol {
-	case model.Hysteria, model.WireGuard:
+	case model.Hysteria, model.WireGuard, model.AWG:
 		return transportUDP
-	case model.MTProto:
+	case model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt:
 		return transportTCP
+	case model.TrustTunnel:
+		return transportTCP | transportUDP
 	}
 
 	var bits transportBits
@@ -75,6 +77,23 @@ func inboundTransports(protocol model.Protocol, streamSettings, settings string)
 				// also relays udp on the same port (socks5 udp associate).
 				if udpOn, _ := st["udp"].(bool); udpOn {
 					bits |= transportUDP
+				}
+			case model.Mieru:
+				bits = 0
+				if raw, ok := st["portBindings"].([]any); ok {
+					for _, item := range raw {
+						m, ok := item.(map[string]any)
+						if !ok {
+							continue
+						}
+						proto, _ := m["protocol"].(string)
+						switch strings.ToUpper(strings.TrimSpace(proto)) {
+						case "UDP":
+							bits |= transportUDP
+						default:
+							bits |= transportTCP
+						}
+					}
 				}
 			}
 		}

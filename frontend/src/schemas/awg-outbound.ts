@@ -51,10 +51,11 @@ export const AwgOutboundSettingsSchema = z.object({
   rejectAfterTime: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
   keepaliveTimeout: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
   maxHandshakeAttempts: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
-  // AWG protocol version: '1.5' (legacy), '2' (S3/S4 + I1-I5), or '3' (adds
-  // HeaderProtectionKey). Auto-detected by ParseConf from the pasted .conf;
-  // editable in the form. renderClientConf gates HPK emission on '3'.
-  awgVersion: z.enum(['1.5', '2', '3']).default('2'),
+  randomTrailers: z.boolean().default(false),
+  disableCookies: z.boolean().default(false),
+  // AWG protocol version: '1.5' (legacy), '2' (S3/S4 + I1-I5), '3' (HPK),
+  // or '3.1' (RandomTrailers / DisableCookies). Auto-detected by ParseConf.
+  awgVersion: z.enum(['1.5', '2', '3', '3.1']).default('2'),
 });
 
 export const AwgOutboundSchema = z.object({

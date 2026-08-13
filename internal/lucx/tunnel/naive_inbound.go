@@ -183,10 +183,11 @@ func (c NaiveConfig) ClientURLFor(pair AuthPair, remark string) string {
 	if domain == "" || user == "" {
 		return ""
 	}
-	host := domain
-	if c.Port != 443 {
-		host = net.JoinHostPort(domain, strconv.Itoa(c.Port))
+	port := c.Port
+	if port <= 0 {
+		port = 443
 	}
+	host := net.JoinHostPort(domain, strconv.Itoa(port))
 	u := url.URL{
 		Scheme:   "https",
 		User:     url.UserPassword(user, strings.TrimSpace(pair.Pass)),

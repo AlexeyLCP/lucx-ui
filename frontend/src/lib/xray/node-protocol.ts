@@ -15,6 +15,8 @@ const LUCX_NODE_PROTOCOLS = new Set<string>([
   Protocols.NAIVE,
   Protocols.OLCRTC,
   Protocols.QWDTT,
+  Protocols.MIERU,
+  Protocols.TRUSTTUNNEL,
 ]);
 
 export function isProtocolNodeEligible(protocol: string): boolean {

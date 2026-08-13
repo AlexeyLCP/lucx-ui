@@ -669,6 +669,12 @@
         "awgVersion2": "2 — стандарт (Android 2.0.1)",
         "awgVersion3": "3 — повний + header protection (AWG3)",
         "awgVersion3CompatNote": "Версія 3 вмикає HeaderProtectionKey, що криптографічно ламає сумісність: клієнти v1/v2 та plain-WireGuard не зможуть підключитися до цього інбаунду.",
+        "awgVersion31": "3.1 — AWG3 + випадкові хвости",
+        "awgVersion31CompatNote": "Версія 3.1 додає RandomTrailers і DisableCookies. Інструменти старші за v3.1 відхилять ці рядки. Клієнти v1/v2 та plain-WireGuard і далі не підключаться (HPK).",
+        "awgRandomTrailers": "Випадкові хвости",
+        "awgRandomTrailersHint": "Випадковий хвіст кожного пакета в межах per-peer UDP-вікна. Анти-DPI за розмірами. Лише AWG 3.1.",
+        "awgDisableCookies": "Вимкнути cookies",
+        "awgDisableCookiesHint": "Не відповідати на cookie-challenge. Лише AWG 3.1.",
         "awgSRangeWarning": "AWG3 вимагає S1-S4 ≥ 12 (шифр header-protection бере nonce з перших 12 байт S-padding). Генератор це гарантує; перевір при ручному вводі.",
         "awgMimicryProfile": "Профіль мімікрії",
         "awgMimicryProfileHint": "Яку форму пакета імітує CPS-сигнатура. TLS/QUIC виглядають як справжній браузерний трафік; DNS/SIP легші.",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "Порти mita — один порт або діапазон, TCP/UDP. Клієнти підключаються до цих портів.",
+        "mieruPortPlaceholder": "20100 або 20000-20010",
+        "mieruAddBinding": "Додати порт",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "Рівень логів",
+        "mieruRouteThroughXray": "Маршрутизувати через Xray",
+        "mieruRouteThroughXrayHint": "mita виходить в інтернет через прихований loopback SOCKS-міст у Xray (нативний egress.proxies). Типово вимкнено — вмикайте лише для каскаду через outbound.",
+        "mieruRouteOutbound": "Outbound",
+        "mieruRouteOutboundHint": "Порожньо = дефолтний казан Xray. Інакше примусова маршрутизація в цей outbound/balancer.",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "Домен (hostname)",
+        "trustTunnelHostnameHint": "Домен, що вказує на цей сервер. Має бути покритий TLS-сертифікатом. Клієнти підключаються до нього.",
+        "trustTunnelListen": "Адреса слухача",
+        "trustTunnelCertFile": "Файл сертифіката (опціонально)",
+        "trustTunnelKeyFile": "Файл ключа (опціонально)",
+        "trustTunnelCertFileHint": "Порожньо = власний ACME-сертифікат панелі (Settings → Panel SSL / консоль x-ui). Сертифікат має покривати домен вище.",
+        "trustTunnelUpstreamProtocol": "Протокол клієнта",
+        "trustTunnelClientDns": "DNS клієнта (для посилання)",
+        "trustTunnelClientDnsHint": "DNS-апстріми через кому, рекламуються у tt://-посиланні клієнта, напр. 1.1.1.1, tls://8.8.8.8. Порожньо = дефолт клієнта.",
+        "trustTunnelIpv6": "IPv6 доступний",
+        "trustTunnelRouteThroughXray": "Маршрутизувати через Xray",
+        "trustTunnelRouteThroughXrayHint": "Ендпоінт форвардить тунельний трафік через прихований loopback SOCKS-міст у Xray ([forward_protocol.socks5]). Типово вимкнено — вмикайте лише для каскаду через outbound.",
+        "trustTunnelRouteOutbound": "Outbound",
+        "trustTunnelRouteOutboundHint": "Порожньо = дефолтний казан Xray. Інакше примусова маршрутизація в цей outbound/balancer.",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "Режим",
@@ -2244,6 +2275,36 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "встановлено",
+          "missing": "не встановлено",
+          "upload": "Завантажити",
+          "download": "Скачати",
+          "delete": "Видалити",
+          "deleteConfirm": "Зупинити всі інстанси mieru та видалити бінарник?"
+        },
+        "toasts": {
+          "uploaded": "Бінарник завантажено",
+          "downloaded": "Бінарник скачано",
+          "deleted": "Бінарник видалено"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "встановлено",
+          "missing": "не встановлено",
+          "upload": "Завантажити",
+          "download": "Скачати",
+          "delete": "Видалити",
+          "deleteConfirm": "Зупинити всі інстанси TrustTunnel та видалити бінарник?"
+        },
+        "toasts": {
+          "uploaded": "Бінарник завантажено",
+          "downloaded": "Бінарник скачано",
+          "deleted": "Бінарник видалено"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

@@ -27,11 +27,23 @@ func TestNameRegistry(t *testing.T) {
 	if !Olcrtc.Valid() || Olcrtc.DisplayName() != "olcRTC" {
 		t.Errorf("Olcrtc Valid/DisplayName broken: %v %q", Olcrtc.Valid(), Olcrtc.DisplayName())
 	}
-	if got := All(); len(got) != 3 || got[0] != Naive || got[1] != Olcrtc || got[2] != Qwdtt {
+	if got := All(); len(got) != 5 || got[0] != Naive || got[1] != Olcrtc || got[2] != Qwdtt || got[3] != Mieru || got[4] != TrustTunnel {
 		t.Errorf("All() = %v", got)
 	}
 	if got := Olcrtc.BinaryName(); !strings.HasPrefix(got, "olcrtc-") {
 		t.Errorf("Olcrtc.BinaryName = %q", got)
+	}
+	if !Mieru.Valid() || Mieru.DisplayName() != "mieru" {
+		t.Errorf("Mieru Valid/DisplayName broken: %v %q", Mieru.Valid(), Mieru.DisplayName())
+	}
+	if got := Mieru.BinaryName(); !strings.HasPrefix(got, "mieru-") {
+		t.Errorf("Mieru.BinaryName = %q", got)
+	}
+	if !TrustTunnel.Valid() || TrustTunnel.DisplayName() != "TrustTunnel" {
+		t.Errorf("TrustTunnel Valid/DisplayName broken: %v %q", TrustTunnel.Valid(), TrustTunnel.DisplayName())
+	}
+	if got := TrustTunnel.BinaryName(); !strings.HasPrefix(got, "trusttunnel-") {
+		t.Errorf("TrustTunnel.BinaryName = %q", got)
 	}
 }
 
@@ -340,7 +352,7 @@ func TestNaiveClientURL(t *testing.T) {
 	cfg.Domain = "n.example.org"
 	cfg.AuthUser = "alice"
 	cfg.AuthPass = "s3cret"
-	if got, want := cfg.ClientURL(), "naive+https://alice:s3cret@n.example.org"; got != want {
+	if got, want := cfg.ClientURL(), "naive+https://alice:s3cret@n.example.org:443"; got != want {
 		t.Errorf("ClientURL = %q, want %q", got, want)
 	}
 

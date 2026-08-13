@@ -46,12 +46,14 @@ export const keys = {
         ['xray', 'geodata', 'entries', file, code, query, offset, limit] as const,
     },
   },
-  // LUCX-HOOK: tunnel sidecars (NaiveProxy, olcRTC, qWDTT)
+  // LUCX-HOOK: tunnel sidecars (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel)
   tunnels: {
     root: () => ['tunnels'] as const,
     naiveStatus: () => ['tunnels', 'naiveStatus'] as const,
     olcrtcStatus: () => ['tunnels', 'olcrtcStatus'] as const,
     qwdttStatus: () => ['tunnels', 'qwdttStatus'] as const,
+    mieruStatus: () => ['tunnels', 'mieruStatus'] as const,
+    trustTunnelStatus: () => ['tunnels', 'trustTunnelStatus'] as const,
   },
   // END LUCX-HOOK
 } as const;

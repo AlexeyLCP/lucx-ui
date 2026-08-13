@@ -104,7 +104,7 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 	// v1.5/v2 — or a v3 request on a pre-AWG3 host — the field is omitted (not
 	// ""), so the form's Object.entries(obf).forEach(setValue) leaves any
 	// hand-typed key untouched — the same property forward-compat relied on.
-	if req.AwgVersion == "3" && awg.ModuleSupportsAwg3() {
+	if awg.IsAwg3Plus(req.AwgVersion) && awg.ModuleSupportsAwg3() {
 		params, err := params.WithHeaderProtectionKey()
 		if err != nil {
 			jsonMsg(c, "awg obfuscation: header protection key generation failed", err)
@@ -123,6 +123,9 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		resp["rejectAfterTime"] = timers.RejectAfterTime
 		resp["keepaliveTimeout"] = timers.KeepaliveTimeout
 		resp["maxHandshakeAttempts"] = timers.MaxHandshakeAttempts
+	}
+	if awg.IsAwg31(req.AwgVersion) && awg.ModuleSupportsAwg31() {
+		resp["randomTrailers"] = true
 	}
 	jsonObj(c, resp, nil)
 }

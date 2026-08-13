@@ -39,7 +39,7 @@ const FLOW_OPTIONS = Object.values(TLS_FLOW_CONTROL);
 const VMESS_SECURITY_OPTIONS = ['auto', 'aes-128-gcm', 'chacha20-poly1305'] as const;
 
 const MULTI_CLIENT_PROTOCOLS = new Set([
-  'shadowsocks', 'vless', 'vmess', 'trojan', 'hysteria', 'wireguard', 'mtproto', 'awg', 'naive', // LUCX-HOOK: AWG + Naive
+  'shadowsocks', 'vless', 'vmess', 'trojan', 'hysteria', 'wireguard', 'mtproto', 'awg', 'naive', 'mieru', 'trusttunnel', // LUCX-HOOK: AWG + Naive + mieru + TrustTunnel
 ]);
 
 const CLIENT_FORM_MODAL_Z_INDEX = 1000;

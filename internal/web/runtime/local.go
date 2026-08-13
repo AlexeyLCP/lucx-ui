@@ -74,6 +74,12 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 	if ib.Protocol == model.Qwdtt {
 		return l.ensureQwdttInbound(ib)
 	}
+	if ib.Protocol == model.Mieru {
+		return l.ensureMieruInbound(ib)
+	}
+	if ib.Protocol == model.TrustTunnel {
+		return l.ensureTrustTunnelInbound(ib)
+	}
 	// END LUCX-HOOK
 	body, err := json.MarshalIndent(ib.GenXrayInboundConfig(), "", "  ")
 	if err != nil {
@@ -107,6 +113,14 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		tunnel.GetManager().Remove(tunnel.QwdttKey)
 		return nil
 	}
+	if ib.Protocol == model.Mieru {
+		tunnel.GetManager().Remove(tunnel.MieruKey(ib.Id))
+		return nil
+	}
+	if ib.Protocol == model.TrustTunnel {
+		tunnel.GetManager().Remove(tunnel.TrustTunnelKey(ib.Id))
+		return nil
+	}
 	// END LUCX-HOOK
 	return l.withAPI(func(api *xray.XrayAPI) error {
 		return api.DelInbound(ib.Tag)
@@ -137,7 +151,7 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func isTunnelInboundProto(p model.Protocol) bool {
-	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel
 }
 
 // ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret
@@ -166,6 +180,41 @@ func (l *Local) ensureQwdttInbound(ib *model.Inbound) error {
 		return nil
 	}
 	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureMieruInbound(ib *model.Inbound) error {
+	inst, ok := tunnel.MieruInstanceFromInbound(ib, panelSecretBytes())
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureTrustTunnelInbound(ib *model.Inbound) error {
+	cert, key := panelCertFilesForRuntime()
+	inst, ok := tunnel.TrustTunnelInstanceFromInbound(ib, panelSecretBytes(), cert, key)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+// panelCertFilesForRuntime reads webCertFile/webKeyFile settings (TrustTunnel
+// default cert source), mirroring service.panelCertFiles without the import.
+func panelCertFilesForRuntime() (cert, key string) {
+	var rows []model.Setting
+	if err := database.GetDB().Where("key IN ?", []string{"webCertFile", "webKeyFile"}).Find(&rows).Error; err != nil {
+		return "", ""
+	}
+	for _, r := range rows {
+		switch r.Key {
+		case "webCertFile":
+			cert = strings.TrimSpace(r.Value)
+		case "webKeyFile":
+			key = strings.TrimSpace(r.Value)
+		}
+	}
+	return cert, key
 }
 
 func panelSecretBytes() []byte {

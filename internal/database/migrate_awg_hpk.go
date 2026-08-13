@@ -94,18 +94,19 @@ func normalizeAwgSettings(settings string) (string, bool, string) {
 	// the clients page sees a real ceiling without relying on the default.
 	v, hasVersion := m["awgVersion"]
 	versionStr, _ := v.(string)
-	if !hasVersion || (versionStr != "1.5" && versionStr != "2" && versionStr != "3") {
+	if !hasVersion || (versionStr != "1.5" && versionStr != "2" && versionStr != "3" && versionStr != "3.1") {
 		m["awgVersion"] = "2"
 		versionStr = "2"
 		changed = true
 		reasons = append(reasons, "backfilled awgVersion=\"2\"")
 	}
 
-	// Prune a non-empty headerProtectionKey on anything that is not version
-	// "3". On v1/v2 the key never reaches the .conf, so a stored value can only
-	// be the lucx.47 poison; keeping it would be confusing and risks a future
-	// version bump silently writing a key the operator did not intend.
-	if versionStr != "3" {
+	// Prune a non-empty headerProtectionKey on anything that is not AWG3+
+	// ("3" or "3.1"). On v1/v2 the key never reaches the .conf, so a stored
+	// value can only be the lucx.47 poison; keeping it would be confusing and
+	// risks a future version bump silently writing a key the operator did not
+	// intend. Existing v3 inbounds are NEVER auto-bumped to 3.1 (Rule 0).
+	if versionStr != "3" && versionStr != "3.1" {
 		if hpk, ok := m["headerProtectionKey"].(string); ok && hpk != "" {
 			m["headerProtectionKey"] = ""
 			changed = true
@@ -153,6 +154,15 @@ func normalizeAwgSettings(settings string) (string, bool, string) {
 		delete(m, "advancedSecurity")
 		changed = true
 		reasons = append(reasons, "removed vestigial advancedSecurity (outbound)")
+	}
+	if versionStr != "3.1" {
+		for _, key := range []string{"randomTrailers", "disableCookies"} {
+			if _, ok := m[key]; ok {
+				delete(m, key)
+				changed = true
+				reasons = append(reasons, "cleared stale "+key+" (not AWG 3.1)")
+			}
+		}
 	}
 	if !changed {
 		return settings, false, ""

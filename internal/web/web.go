@@ -176,7 +176,7 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	const maxRequestBodyBytes = 10 << 20 // 10 MiB
 	// LUCX-HOOK: the tunnel core binary upload (~50 MB caddy build) is exempt
 	// from the global body limit, like the DB import.
-	engine.Use(middleware.MaxBodyBytes(maxRequestBodyBytes, "/panel/api/server/importDB", "/panel/api/tunnel/naive/upload", "/panel/api/tunnel/olcrtc/upload", "/panel/api/tunnel/qwdtt/upload"))
+	engine.Use(middleware.MaxBodyBytes(maxRequestBodyBytes, "/panel/api/server/importDB", "/panel/api/tunnel/naive/upload", "/panel/api/tunnel/olcrtc/upload", "/panel/api/tunnel/qwdtt/upload", "/panel/api/tunnel/mieru/upload", "/panel/api/tunnel/trusttunnel/upload"))
 	// END LUCX-HOOK
 
 	webDomain, err := s.settingService.GetWebDomain()

@@ -525,7 +525,7 @@ func (s *SubClashService) buildAwgProxy(subReq *SubService, inbound *model.Inbou
 	opt := map[string]any{}
 	// mihomo: only version 3 selects the v3 codepath; anything else is legacy.
 	switch ver {
-	case "3":
+	case "3", "3.1":
 		opt["version"] = 3
 	case "1.5":
 		opt["version"] = 1
@@ -573,7 +573,7 @@ func (s *SubClashService) buildAwgProxy(subReq *SubService, inbound *model.Inbou
 			}
 		}
 	}
-	if ver == "3" {
+	if awg.IsAwg3Plus(ver) {
 		if hpk := strings.TrimSpace(inboundSettings.HeaderProtectionKey); hpk != "" {
 			opt["header-protection-key"] = hpk
 		}

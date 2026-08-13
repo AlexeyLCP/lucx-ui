@@ -77,7 +77,9 @@ export function canEnableSniffing(values: { protocol: string }): boolean {
     values.protocol !== 'awg' &&
     values.protocol !== 'naive' &&
     values.protocol !== 'olcrtc' &&
-    values.protocol !== 'qwdtt'
+    values.protocol !== 'qwdtt' &&
+    values.protocol !== 'mieru' &&
+    values.protocol !== 'trusttunnel'
   );
 }
 

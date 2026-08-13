@@ -107,6 +107,7 @@ const awgCeilingBlock = [
   'HeaderProtectionKey = aBcD...base64hpk==',
   'ContentPaddingAddition = 64', 'RekeyAfterTime = 120', 'RekeyTimeout = 5',
   'RejectAfterTime = 180', 'KeepaliveTimeout = 10', 'MaxHandshakeAttempts = 18',
+  'RandomTrailers = true', 'DisableCookies = true',
 ].join('\n');
 
 const awgInbound: InboundOption = {
@@ -157,6 +158,18 @@ describe('filterAwgObfuscation', () => {
     expect(out).not.toContain('ContentPaddingAddition');
     expect(out).not.toContain('RekeyAfterTime');
     expect(out).not.toContain('MaxHandshakeAttempts');
+  });
+  it('v3.1 keeps RandomTrailers and DisableCookies', () => {
+    const out = filterAwgObfuscation(awgCeilingBlock, '3.1');
+    expect(out).toContain('RandomTrailers = true');
+    expect(out).toContain('DisableCookies = true');
+    expect(out).toContain('HeaderProtectionKey =');
+  });
+  it('v3 drops RandomTrailers and DisableCookies', () => {
+    const out = filterAwgObfuscation(awgCeilingBlock, '3');
+    expect(out).not.toContain('RandomTrailers');
+    expect(out).not.toContain('DisableCookies');
+    expect(out).toContain('HeaderProtectionKey =');
   });
 });
 

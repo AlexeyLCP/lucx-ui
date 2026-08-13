@@ -69,6 +69,8 @@ import {
   NaiveFields, // LUCX-HOOK: Naive
   OlcrtcFields, // LUCX-HOOK: olcRTC
   QwdttFields, // LUCX-HOOK: qWDTT
+  MieruFields, // LUCX-HOOK: mieru
+  TrustTunnelFields, // LUCX-HOOK: TrustTunnel
   ShadowsocksFields,
   TunFields,
   TunnelFields,
@@ -522,6 +524,8 @@ export default function InboundFormModal({
         || next === Protocols.NAIVE
         || next === Protocols.OLCRTC
         || next === Protocols.QWDTT
+        || next === Protocols.MIERU
+        || next === Protocols.TRUSTTUNNEL
       ) {
         setV('streamSettings', { security: 'none' });
         // LUCX-HOOK: qWDTT Port must match DTLS listen (backend also normalizes).
@@ -530,6 +534,12 @@ export default function InboundFormModal({
         }
         if (next === Protocols.OLCRTC) {
           setV('port', 0);
+        }
+        if (next === Protocols.MIERU) {
+          setV('port', 20100);
+        }
+        if (next === Protocols.TRUSTTUNNEL) {
+          setV('port', 443);
         }
         // END LUCX-HOOK
       } else {
@@ -755,6 +765,8 @@ export default function InboundFormModal({
       {protocol === Protocols.NAIVE && <NaiveFields />}
       {protocol === Protocols.OLCRTC && <OlcrtcFields />}
       {protocol === Protocols.QWDTT && <QwdttFields />}
+      {protocol === Protocols.MIERU && <MieruFields />}
+      {protocol === Protocols.TRUSTTUNNEL && <TrustTunnelFields />}
       {/* END LUCX-HOOK */}
 
       {protocol === Protocols.SHADOWSOCKS && <ShadowsocksFields isSSWith2022={isSSWith2022} />}
@@ -1057,6 +1069,8 @@ export default function InboundFormModal({
                 Protocols.NAIVE, // LUCX-HOOK: NaiveProxy
                 Protocols.OLCRTC,
                 Protocols.QWDTT,
+                Protocols.MIERU,
+                Protocols.TRUSTTUNNEL,
               ] as string[]).includes(protocol) || isFallbackHost
                 ? [{ key: 'protocol', label: t('pages.inbounds.protocol'), children: protocolTab, forceRender: true }]
                 : []),

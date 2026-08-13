@@ -81,27 +81,33 @@ type Instance struct {
 	// HeaderProtectionKey is the AWG3 (AmneziaWG 3) 32-byte ChaCha20 header
 	// protection key, base64-encoded (same shape as a WireGuard private key).
 	// Upstream kernel module v3.0.20260731 + tools v3.0.20260730 parse the
-	// field in setconf. The .conf renderer writes it only when AwgVersion ==
-	// "3" (the inbound opts into AWG3); for older versions it stays empty and
+	// field in setconf. The .conf renderer writes it only when IsAwg3Plus
+	// (the inbound opts into AWG3); for older versions it stays empty and
 	// is omitted so v1/v2 kernels keep accepting the config.
 	HeaderProtectionKey string
 	// AWG3 device-level timers/padding. Stored as AwgTimer (a string that may
 	// be a single value "150" or an inclusive range "100-500" — the kernel
 	// u16_range_t accepts both and randomizes within a range at rekey). Empty /
 	// "0" = kernel built-in WG constant; the renderer omits it. Written to the
-	// .conf only when non-zero AND AwgVersion == "3".
+	// .conf only when non-zero AND IsAwg3Plus.
 	ContentPaddingAddition AwgTimer
 	RekeyAfterTime         AwgTimer
 	RekeyTimeout           AwgTimer
 	RejectAfterTime        AwgTimer
 	KeepaliveTimeout       AwgTimer
 	MaxHandshakeAttempts   AwgTimer
+	// AWG 3.1 device flags. Written only when AwgVersion == "3.1" AND
+	// ModuleSupportsAwg31(); omitted when false so v3.0 tools keep accepting
+	// the config (they reject "Line unrecognized: RandomTrailers=...").
+	RandomTrailers bool
+	DisableCookies bool
 	// AwgVersion is the AmneziaWG protocol version this inbound targets:
 	// "1.5" (legacy, Jc/Jmin/Jmax + S1/S2 + H1-H4 only), "2" (adds S3/S4 +
-	// optional I1-I5, Android 2.0.1), or "3" (adds HeaderProtectionKey,
-	// desktop 5.0.0.5 / Android 3.0.1). The server .conf is generated for this
-	// version; client configs may be exported at the same version or lower.
-	// Defaults to "2" when empty (pre-lucx.50 inbounds) for compatibility.
+	// optional I1-I5, Android 2.0.1), "3" (adds HeaderProtectionKey,
+	// desktop 5.0.0.5 / Android 3.0.1), or "3.1" (adds RandomTrailers /
+	// DisableCookies, module+tools v3.1.20260812). The server .conf is
+	// generated for this version; client configs may be exported at the same
+	// version or lower. Defaults to "2" when empty (pre-lucx.50 inbounds).
 	AwgVersion string
 	// Peers expected on the interface. Each entry maps to one [Peer] in the
 	// generated .conf and is reconciled against the kernel state.
@@ -155,6 +161,8 @@ func (inst Instance) fingerprint() string {
 		string(inst.RejectAfterTime),
 		string(inst.KeepaliveTimeout),
 		string(inst.MaxHandshakeAttempts),
+		strconv.FormatBool(inst.RandomTrailers),
+		strconv.FormatBool(inst.DisableCookies),
 		inst.AwgVersion,
 		strconv.FormatBool(inst.RouteThroughXray),
 		inst.OutboundTag,
@@ -223,6 +231,8 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		RejectAfterTime        AwgTimer `json:"rejectAfterTime"`
 		KeepaliveTimeout       AwgTimer `json:"keepaliveTimeout"`
 		MaxHandshakeAttempts   AwgTimer `json:"maxHandshakeAttempts"`
+		RandomTrailers         bool     `json:"randomTrailers"`
+		DisableCookies         bool     `json:"disableCookies"`
 	}
 	if err := json.Unmarshal([]byte(ib.Settings), &s); err != nil {
 		return Instance{}, false
@@ -266,6 +276,8 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		RejectAfterTime:        s.RejectAfterTime,
 		KeepaliveTimeout:       s.KeepaliveTimeout,
 		MaxHandshakeAttempts:   s.MaxHandshakeAttempts,
+		RandomTrailers:         s.RandomTrailers,
+		DisableCookies:         s.DisableCookies,
 	}
 	for _, c := range s.Clients {
 		// Skip disabled clients. enable is a pointer so we can distinguish
@@ -306,7 +318,7 @@ func orDefault(v, def int) int {
 	return v
 }
 
-// NormalizeAWGVersion canonicalizes the stored awgVersion: "1.5"/"2"/"3"
+// NormalizeAWGVersion canonicalizes the stored awgVersion: "1.5"/"2"/"3"/"3.1"
 // pass through, anything else (including "" for pre-lucx.50 inbounds) falls
 // back to "2". Version "2" is the safe default — it matches what every
 // shipped LucX-UI release before AWG3 targeted, emits no HeaderProtectionKey,
@@ -314,11 +326,71 @@ func orDefault(v, def int) int {
 // Exported so the web/service layer (inboundAwgHints) shares the single rule.
 func NormalizeAWGVersion(v string) string {
 	switch v {
-	case "1.5", "2", "3":
+	case "1.5", "2", "3", "3.1":
 		return v
 	default:
 		return "2"
 	}
+}
+
+// IsAwg3Plus reports whether v includes the AWG3 field set (HPK + device
+// timers). "3.1" is a superset of "3".
+func IsAwg3Plus(v string) bool {
+	switch NormalizeAWGVersion(v) {
+	case "3", "3.1":
+		return true
+	default:
+		return false
+	}
+}
+
+// IsAwg31 reports whether v is exactly the 3.1 ceiling (RandomTrailers /
+// DisableCookies). A v3 inbound must not emit those lines.
+func IsAwg31(v string) bool {
+	return NormalizeAWGVersion(v) == "3.1"
+}
+
+// parseAwgToolsVersion extracts major.minor from an `awg version` banner
+// ("amneziawg-tools v3.1.20260812 - https://amnezia.org" → 3, 1). Returns
+// -1, -1 when no v<digits> token exists. Missing minor is treated as 0
+// ("v3" → 3, 0).
+func parseAwgToolsVersion(s string) (major, minor int) {
+	for i := 0; i+1 < len(s); i++ {
+		if s[i] != 'v' || s[i+1] < '0' || s[i+1] > '9' {
+			continue
+		}
+		j := i + 1
+		for j < len(s) && s[j] >= '0' && s[j] <= '9' {
+			j++
+		}
+		maj, err := strconv.Atoi(s[i+1 : j])
+		if err != nil {
+			return -1, -1
+		}
+		min := 0
+		if j < len(s) && s[j] == '.' {
+			k := j + 1
+			for k < len(s) && s[k] >= '0' && s[k] <= '9' {
+				k++
+			}
+			if k > j+1 {
+				min, _ = strconv.Atoi(s[j+1 : k])
+			}
+		}
+		return maj, min
+	}
+	return -1, -1
+}
+
+func awgToolsAtLeast(s string, wantMajor, wantMinor int) bool {
+	maj, min := parseAwgToolsVersion(s)
+	if maj < 0 {
+		return false
+	}
+	if maj != wantMajor {
+		return maj > wantMajor
+	}
+	return min >= wantMinor
 }
 
 // ifnameFor returns the canonical AWG interface name for an inbound id.

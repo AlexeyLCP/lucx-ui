@@ -98,7 +98,8 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
   // "fields don't load/save" bug).
   const { setValue, watch } = useFormContext();
   const obfLevel = watch('settings.obfLevel') as number | undefined;
-  const awgVersion = watch('settings.awgVersion') as '1.5' | '2' | '3' | undefined;
+  const awgVersion = watch('settings.awgVersion') as '1.5' | '2' | '3' | '3.1' | undefined;
+  const awg3Plus = awgVersion === '3' || awgVersion === '3.1';
   const routeThroughXray = watch('settings.routeThroughXray') as boolean | undefined;
   const mimicryProfileVal = watch('settings.mimicryProfile') as string | undefined;
   const addressVal = watch('settings.address') as string | undefined;
@@ -272,6 +273,7 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
             { value: '1.5', label: t('pages.inbounds.form.awgVersion15') },
             { value: '2', label: t('pages.inbounds.form.awgVersion2') },
             { value: '3', label: t('pages.inbounds.form.awgVersion3') },
+            { value: '3.1', label: t('pages.inbounds.form.awgVersion31') },
           ]}
         />
       </FormField>
@@ -280,6 +282,14 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
           type="info"
           showIcon
           message={t('pages.inbounds.form.awgVersion3CompatNote')}
+          style={{ marginBottom: 16 }}
+        />
+      )}
+      {awgVersion === '3.1' && (
+        <Alert
+          type="info"
+          showIcon
+          message={t('pages.inbounds.form.awgVersion31CompatNote')}
           style={{ marginBottom: 16 }}
         />
       )}
@@ -487,7 +497,7 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
           written to the .conf only when awgVersion === '3'; on v1/v2 the field
           stays empty so older kernels keep accepting the config. The generator
           guarantees S1-S4 >= 12 (required for the kernel to accept the key). */}
-      {awgVersion === '3' && (
+      {awg3Plus && (
         <>
           <FormField
             name={['settings', 'headerProtectionKey']}
@@ -552,6 +562,24 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
               </FormField>
             </Space>
           </Form.Item>
+        </>
+      )}
+      {awgVersion === '3.1' && (
+        <>
+          <FormField
+            name={['settings', 'randomTrailers']}
+            label={t('pages.inbounds.form.awgRandomTrailers')}
+            tooltip={t('pages.inbounds.form.awgRandomTrailersHint')}
+          >
+            <Switch />
+          </FormField>
+          <FormField
+            name={['settings', 'disableCookies']}
+            label={t('pages.inbounds.form.awgDisableCookies')}
+            tooltip={t('pages.inbounds.form.awgDisableCookiesHint')}
+          >
+            <Switch />
+          </FormField>
         </>
       )}
       {/* END LUCX-HOOK */}

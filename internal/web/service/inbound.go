@@ -494,6 +494,8 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 		RejectAfterTime        awg.AwgTimer `json:"rejectAfterTime"`
 		KeepaliveTimeout       awg.AwgTimer `json:"keepaliveTimeout"`
 		MaxHandshakeAttempts   awg.AwgTimer `json:"maxHandshakeAttempts"`
+		RandomTrailers         bool         `json:"randomTrailers"`
+		DisableCookies         bool         `json:"disableCookies"`
 	}
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
 		return "", "", ""
@@ -555,15 +557,15 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject
 	// it, so v1/v2 inbounds must never carry it. S1-S4 >= 12 is required for the
 	// kernel to accept the key (enforced by the generator for v3).
-	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" && s.HeaderProtectionKey != "" && awg.ModuleSupportsAwg3() {
+	if awg.IsAwg3Plus(s.AwgVersion) && s.HeaderProtectionKey != "" && awg.ModuleSupportsAwg3() {
 		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — empty/"0" = kernel default. Emitted only
-	// for v3 so the clients-page filterAwgObfuscation can drop them for < v3.
+	// for v3+ so the clients-page filterAwgObfuscation can drop them for < v3.
 	// Values are written verbatim (a single "150" or an inclusive range
 	// "100-500"); this ceiling block mirrors the H1-H4 ranges already exported,
 	// so client configs carry native kernel ranges intact.
-	if awg.NormalizeAWGVersion(s.AwgVersion) == "3" && awg.ModuleSupportsAwg3() {
+	if awg.IsAwg3Plus(s.AwgVersion) && awg.ModuleSupportsAwg3() {
 		if !s.ContentPaddingAddition.IsZero() {
 			fmt.Fprintf(&out, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
 		}
@@ -581,6 +583,14 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 		}
 		if !s.MaxHandshakeAttempts.IsZero() {
 			fmt.Fprintf(&out, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
+		}
+	}
+	if awg.IsAwg31(s.AwgVersion) && awg.ModuleSupportsAwg31() {
+		if s.RandomTrailers {
+			out.WriteString("RandomTrailers = true\n")
+		}
+		if s.DisableCookies {
+			out.WriteString("DisableCookies = true\n")
 		}
 	}
 	return s.Address, out.String(), awg.NormalizeAWGVersion(s.AwgVersion)
@@ -1177,8 +1187,8 @@ func (s *InboundService) normalizeQwdttSettings(inbound *model.Inbound) {
 	}
 }
 
-func settingsRouteXrayPort(parsed map[string]any) int {
-	switch v := parsed["routeXrayPort"].(type) {
+func settingsIntKey(parsed map[string]any, key string) int {
+	switch v := parsed[key].(type) {
 	case float64:
 		return int(v)
 	case int:
@@ -1191,7 +1201,7 @@ func settingsRouteXrayPort(parsed map[string]any) int {
 	return 0
 }
 
-func parseRouteXrayPort(settings string) int {
+func parseSettingsIntKey(settings string, key string) int {
 	if settings == "" {
 		return 0
 	}
@@ -1199,7 +1209,7 @@ func parseRouteXrayPort(settings string) int {
 	if err := json.Unmarshal([]byte(settings), &parsed); err != nil {
 		return 0
 	}
-	return settingsRouteXrayPort(parsed)
+	return settingsIntKey(parsed, key)
 }
 
 // normalizeMtprotoXrayPort guarantees a routed mtproto inbound carries a stable
@@ -1230,6 +1240,280 @@ func (s *InboundService) normalizeOlcrtcXrayPort(inbound *model.Inbound, oldSett
 	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Olcrtc, "olcrtc")
 }
 
+// normalizeMieruXrayPort allocates/persists the SOCKS bridge port for mieru
+// (mita dials via native egress.proxies SOCKS5).
+func (s *InboundService) normalizeMieruXrayPort(inbound *model.Inbound, oldSettings string) error {
+	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Mieru, "mieru")
+}
+
+// mieruRoutesThroughXray reports whether mieru uses the Xray SOCKS bridge.
+func mieruRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Mieru {
+		return false
+	}
+	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
+	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
+}
+
+// trustTunnelRoutesThroughXray reports whether TrustTunnel uses the Xray
+// SOCKS bridge ([forward_protocol.socks5]).
+func trustTunnelRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.TrustTunnel {
+		return false
+	}
+	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
+	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
+}
+
+// normalizeMieruSettings merges defaults into the stored settings WITHOUT
+// touching clients[] (multi-client inbound — the config struct has no client
+// field, so a plain re-marshal would drop them). Syncs inbound.Port to the
+// primary binding so the generic port bookkeeping has a single value.
+func (s *InboundService) normalizeMieruSettings(inbound *model.Inbound) {
+	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
+	if !ok {
+		return
+	}
+	cfg = cfg.Merge()
+	var settings map[string]any
+	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
+		_ = json.Unmarshal([]byte(raw), &settings)
+	}
+	if settings == nil {
+		settings = map[string]any{}
+	}
+	settings["portBindings"] = cfg.PortBindings
+	settings["mtu"] = cfg.MTU
+	settings["loggingLevel"] = cfg.LoggingLevel
+	settings["routeThroughXray"] = cfg.RouteThroughXray
+	settings["routeXrayPort"] = cfg.RouteXrayPort
+	settings["outboundTag"] = cfg.OutboundTag
+	if strings.TrimSpace(cfg.Remark) != "" {
+		settings["remark"] = cfg.Remark
+	}
+	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
+		inbound.Settings = string(bs)
+	}
+	inbound.Port = tunnel.MieruPrimaryPort(cfg)
+	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
+		inbound.Remark = cfg.Remark
+	}
+}
+
+func inboundListenRanges(ib *model.Inbound) [][2]int {
+	if ib == nil {
+		return nil
+	}
+	if ib.Protocol == model.Mieru {
+		cfg, ok := tunnel.MieruConfigFromInbound(ib)
+		if !ok {
+			if ib.Port > 0 {
+				return [][2]int{{ib.Port, ib.Port}}
+			}
+			return nil
+		}
+		var out [][2]int
+		for _, b := range cfg.Merge().PortBindings {
+			if strings.TrimSpace(b.PortRange) != "" {
+				lo, hi, ok := tunnel.MieruPortRangeBounds(b.PortRange)
+				if ok {
+					out = append(out, [2]int{lo, hi})
+				}
+				continue
+			}
+			if b.Port > 0 {
+				out = append(out, [2]int{b.Port, b.Port})
+			}
+		}
+		return out
+	}
+	if ib.Port > 0 {
+		return [][2]int{{ib.Port, ib.Port}}
+	}
+	return nil
+}
+
+// checkMieruPortConflict rejects bindings colliding with other local
+// inbounds. TCP bindings collide with every non-UDP-only listener; UDP
+// bindings collide only with UDP-capable listeners (wireguard/AWG/hysteria,
+// another mieru UDP binding, TrustTunnel QUIC) — TCP and UDP coexist on one
+// port number. Node inbounds listen elsewhere and are skipped.
+func (s *InboundService) checkMieruPortConflict(inbound *model.Inbound, ignoreId int) error {
+	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
+	if !ok {
+		return nil
+	}
+	cfg = cfg.Merge()
+	inbounds, err := s.GetAllInbounds()
+	if err != nil {
+		return err
+	}
+	for _, b := range cfg.PortBindings {
+		lo, hi := b.Port, b.Port
+		if strings.TrimSpace(b.PortRange) != "" {
+			var rngOK bool
+			lo, hi, rngOK = tunnel.MieruPortRangeBounds(b.PortRange)
+			if !rngOK {
+				continue
+			}
+		}
+		if lo <= 0 {
+			continue
+		}
+		if webPort, err := (&SettingService{}).GetPort(); err == nil && webPort >= lo && webPort <= hi {
+			return common.NewErrorf("mieru: port %d-%d collides with the panel itself", lo, hi)
+		}
+		udp := strings.EqualFold(strings.TrimSpace(b.Protocol), "UDP")
+		for _, other := range inbounds {
+			if other == nil || other.Id == ignoreId || other.Id == inbound.Id || other.NodeID != nil {
+				continue
+			}
+			hit := 0
+			for _, r := range inboundListenRanges(other) {
+				if lo <= r[1] && r[0] <= hi {
+					hit = r[0]
+					break
+				}
+			}
+			if hit == 0 {
+				continue
+			}
+			udpOnly := other.Protocol == model.WireGuard || other.Protocol == model.AWG || other.Protocol == model.Hysteria
+			if udp {
+				if udpOnly || other.Protocol == model.Mieru || other.Protocol == model.TrustTunnel {
+					return common.NewErrorf("mieru: UDP port %d-%d collides with inbound %q (port %d)", lo, hi, other.Remark, hit)
+				}
+				continue
+			}
+			if !udpOnly {
+				return common.NewErrorf("mieru: TCP port %d-%d collides with inbound %q (port %d)", lo, hi, other.Remark, hit)
+			}
+		}
+	}
+	return nil
+}
+
+// normalizeTrustTunnelSettings merges defaults into the stored settings
+// without touching clients[] and syncs inbound.Port from the listen address.
+func (s *InboundService) normalizeTrustTunnelSettings(inbound *model.Inbound) {
+	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
+	if !ok {
+		return
+	}
+	cfg = cfg.Merge()
+	var settings map[string]any
+	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
+		_ = json.Unmarshal([]byte(raw), &settings)
+	}
+	if settings == nil {
+		settings = map[string]any{}
+	}
+	settings["hostname"] = cfg.Hostname
+	settings["listen"] = cfg.Listen
+	settings["ipv6"] = cfg.IPv6
+	settings["certFile"] = cfg.CertFile
+	settings["keyFile"] = cfg.KeyFile
+	settings["clientDns"] = cfg.ClientDNS
+	settings["upstreamProtocol"] = cfg.UpstreamProtocol
+	settings["routeThroughXray"] = cfg.RouteThroughXray
+	settings["routeXrayPort"] = cfg.RouteXrayPort
+	settings["outboundTag"] = cfg.OutboundTag
+	settings["metricsPort"] = cfg.MetricsPort
+	if strings.TrimSpace(cfg.Remark) != "" {
+		settings["remark"] = cfg.Remark
+	}
+	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
+		inbound.Settings = string(bs)
+	}
+	inbound.Port = cfg.ListenPort()
+	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
+		inbound.Remark = cfg.Remark
+	}
+}
+
+// validateTrustTunnelCert rejects the save when the endpoint cannot start:
+// no hostname, or the resolved certificate (explicit paths or the panel ACME
+// cert) does not parse / cover the hostname / expired. Fail-fast by design —
+// TrustTunnel without a trusted domain cert is unusable.
+func (s *InboundService) validateTrustTunnelCert(inbound *model.Inbound) error {
+	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
+	if !ok {
+		return nil
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	panelCert, panelKey := panelCertFiles()
+	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
+	return tunnel.ValidateCertFiles(certFile, keyFile, cfg.Hostname)
+}
+
+// normalizeTrustTunnelXrayPort allocates/persists the SOCKS bridge port for a
+// routed TrustTunnel inbound (endpoint [forward_protocol.socks5] dials it).
+func (s *InboundService) normalizeTrustTunnelXrayPort(inbound *model.Inbound, oldSettings string) error {
+	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.TrustTunnel, "trusttunnel")
+}
+
+// normalizeTrustTunnelMetricsPort allocates a stable loopback Prometheus port
+// for traffic accounting (first save only; kept across edits).
+func (s *InboundService) normalizeTrustTunnelMetricsPort(inbound *model.Inbound, oldSettings string) error {
+	if inbound.Protocol != model.TrustTunnel {
+		return nil
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil || parsed == nil {
+		return nil
+	}
+	if port := settingsIntKey(parsed, "metricsPort"); port > 0 {
+		return nil
+	}
+	if port := parseSettingsIntKey(oldSettings, "metricsPort"); port > 0 {
+		parsed["metricsPort"] = port
+	} else {
+		free, err := mtproto.FreeLocalPort()
+		if err != nil {
+			return common.NewError("trusttunnel: allocate metrics port: ", err)
+		}
+		parsed["metricsPort"] = free
+	}
+	if bs, err := json.MarshalIndent(parsed, "", "  "); err == nil {
+		inbound.Settings = string(bs)
+	}
+	return nil
+}
+
+// checkTrustTunnelPortConflict rejects a listen port already bound by another
+// local inbound (TrustTunnel listens TCP+UDP/QUIC on one port, so both
+// directions collide) and the panel's own HTTPS port.
+func (s *InboundService) checkTrustTunnelPortConflict(inbound *model.Inbound, ignoreId int) error {
+	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
+	if !ok {
+		return nil
+	}
+	port := cfg.ListenPort()
+	if port <= 0 {
+		return nil
+	}
+	if webPort, err := (&SettingService{}).GetPort(); err == nil && webPort == port {
+		return common.NewErrorf("trusttunnel: port %d is used by the panel itself", port)
+	}
+	inbounds, err := s.GetAllInbounds()
+	if err != nil {
+		return err
+	}
+	for _, other := range inbounds {
+		if other == nil || other.Id == ignoreId || other.Id == inbound.Id || other.NodeID != nil {
+			continue
+		}
+		for _, r := range inboundListenRanges(other) {
+			if port >= r[0] && port <= r[1] {
+				return common.NewErrorf("trusttunnel: port %d collides with inbound %q", port, other.Remark)
+			}
+		}
+	}
+	return nil
+}
+
 func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSettings string, proto model.Protocol, label string) error {
 	if inbound.Protocol != proto {
 		return nil
@@ -1255,9 +1539,9 @@ func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSet
 		return nil
 	}
 
-	port := parseRouteXrayPort(oldSettings)
+	port := parseSettingsIntKey(oldSettings, "routeXrayPort")
 	if port <= 0 {
-		port = settingsRouteXrayPort(parsed)
+		port = settingsIntKey(parsed, "routeXrayPort")
 	}
 	if port <= 0 {
 		allocated, err := mtproto.FreeLocalPort()
@@ -1266,7 +1550,7 @@ func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSet
 		}
 		port = allocated
 	}
-	if settingsRouteXrayPort(parsed) == port {
+	if settingsIntKey(parsed, "routeXrayPort") == port {
 		return nil
 	}
 	parsed["routeXrayPort"] = port
@@ -1421,6 +1705,35 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		inbound.Port = 0
 		// SOCKS bridge port after settings coerce (default routeThroughXray=true).
 		if err := s.normalizeOlcrtcXrayPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.Mieru {
+		s.normalizeMieruSettings(inbound)
+		if cfg, ok := tunnel.MieruConfigFromInbound(inbound); ok {
+			if err := cfg.Merge().Validate(); err != nil {
+				return inbound, false, err
+			}
+		}
+		if err := s.checkMieruPortConflict(inbound, 0); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeMieruXrayPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.TrustTunnel {
+		s.normalizeTrustTunnelSettings(inbound)
+		if err := s.checkTrustTunnelPortConflict(inbound, 0); err != nil {
+			return inbound, false, err
+		}
+		if err := s.validateTrustTunnelCert(inbound); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeTrustTunnelXrayPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeTrustTunnelMetricsPort(inbound, ""); err != nil {
 			return inbound, false, err
 		}
 	}
@@ -1637,7 +1950,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// runtime push above only (re)starts its sidecar. The egress bridge (SOCKS
 	// loopback for mtproto, TUN for AWG) lives in the generated config, so
 	// force a regen to wire it in.
-	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) || olcrtcRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) || olcrtcRoutesThroughXray(inbound) || mieruRoutesThroughXray(inbound) || trustTunnelRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -1730,7 +2043,7 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 		}
 	}
 	// Drop the egress bridge a routed mtproto or AWG inbound left in the config.
-	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) || naiveRoutesThroughXray(&ib) || qwdttRoutesThroughXray(&ib) || olcrtcRoutesThroughXray(&ib) {
+	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) || naiveRoutesThroughXray(&ib) || qwdttRoutesThroughXray(&ib) || olcrtcRoutesThroughXray(&ib) || mieruRoutesThroughXray(&ib) || trustTunnelRoutesThroughXray(&ib) {
 		needRestart = true
 	}
 	return needRestart, nil
@@ -1817,7 +2130,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	// TUN) only in the generated config, so flipping enable in either
 	// direction must regenerate it — the runtime push below only touches the
 	// sidecar process, never Xray.
-	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) || olcrtcRoutesThroughXray(inbound)
+	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) || olcrtcRoutesThroughXray(inbound) || mieruRoutesThroughXray(inbound) || trustTunnelRoutesThroughXray(inbound)
 
 	needRestart := false
 	rt, push, _, perr := s.nodePushPlan(inbound)
@@ -1903,6 +2216,35 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			return inbound, false, err
 		}
 	}
+	if inbound.Protocol == model.Mieru {
+		s.normalizeMieruSettings(inbound)
+		if cfg, ok := tunnel.MieruConfigFromInbound(inbound); ok {
+			if err := cfg.Merge().Validate(); err != nil {
+				return inbound, false, err
+			}
+		}
+		if err := s.checkMieruPortConflict(inbound, inbound.Id); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeMieruXrayPort(inbound, oldInbound.Settings); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.TrustTunnel {
+		s.normalizeTrustTunnelSettings(inbound)
+		if err := s.checkTrustTunnelPortConflict(inbound, inbound.Id); err != nil {
+			return inbound, false, err
+		}
+		if err := s.validateTrustTunnelCert(inbound); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeTrustTunnelXrayPort(inbound, oldInbound.Settings); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeTrustTunnelMetricsPort(inbound, oldInbound.Settings); err != nil {
+			return inbound, false, err
+		}
+	}
 	// END LUCX-HOOK
 
 	// LUCX-HOOK: AWG — keep client tunnel IPs stable across Address edits
@@ -1981,6 +2323,8 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	oldRoutedNaive := naiveRoutesThroughXray(oldInbound)
 	oldRoutedQwdtt := qwdttRoutesThroughXray(oldInbound)
 	oldRoutedOlcrtc := olcrtcRoutesThroughXray(oldInbound)
+	oldRoutedMieru := mieruRoutesThroughXray(oldInbound)
+	oldRoutedTrustTunnel := trustTunnelRoutesThroughXray(oldInbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
@@ -2199,7 +2543,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			awgRoutesThroughXray(inbound) || oldRoutedAwg ||
 			naiveRoutesThroughXray(inbound) || oldRoutedNaive ||
 			qwdttRoutesThroughXray(inbound) || oldRoutedQwdtt ||
-			olcrtcRoutesThroughXray(inbound) || oldRoutedOlcrtc {
+			olcrtcRoutesThroughXray(inbound) || oldRoutedOlcrtc ||
+			mieruRoutesThroughXray(inbound) || oldRoutedMieru ||
+			trustTunnelRoutesThroughXray(inbound) || oldRoutedTrustTunnel {
 			needRestart = true
 		}
 		return nil

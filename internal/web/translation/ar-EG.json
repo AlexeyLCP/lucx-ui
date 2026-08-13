@@ -669,6 +669,12 @@
         "awgVersion2": "2 — قياسي (Android 2.0.1)",
         "awgVersion3": "3 — كامل + حماية الترويسة (AWG3)",
         "awgVersion3CompatNote": "الإصدار 3 يفعّل HeaderProtectionKey مما يكسر التوافق تشفيريًا: عملاء v1/v2 و plain-WireGuard لا يمكنهم الاتصال بهذا الـ inbound.",
+        "awgVersion31": "3.1 — AWG3 + ذيول عشوائية",
+        "awgVersion31CompatNote": "الإصدار 3.1 يضيف RandomTrailers و DisableCookies. الأدوات الأقدم من v3.1 ترفض هذه الأسطر. عملاء v1/v2 و plain-WireGuard ما زالوا لا يتصلون (HPK).",
+        "awgRandomTrailers": "ذيول عشوائية",
+        "awgRandomTrailersHint": "ذيل عشوائي لكل حزمة ضمن نافذة UDP لكل نظير. مضاد DPI حسب الحجم. AWG 3.1 فقط.",
+        "awgDisableCookies": "تعطيل cookies",
+        "awgDisableCookiesHint": "عدم الرد على cookie-challenge. AWG 3.1 فقط.",
         "awgSRangeWarning": "AWG3 يتطلب S1-S4 ≥ 12 (تشفير حماية الترويسة يقرأ nonce من أول 12 بايت من S-padding). المولّد يضمن ذلك؛ تحقق قبل التحرير اليدوي.",
         "awgMimicryProfile": "ملف المحاكاة",
         "awgMimicryProfileHint": "شكل الحزمة الذي تحاكيه بصمة CPS. يبدو TLS/QUIC كحركة متصفح حقيقية؛ DNS/SIP أخف.",
@@ -772,7 +778,32 @@
         "olcrtcRouteThroughXrayWarn": "With Route through Xray: ICMP/ping never works (SOCKS is TCP-only). Provider signaling also goes via Xray — if peers connect but there is no traffic, turn this off.",
         "olcrtcRouteOutbound": "Outbound",
         "olcrtcRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "olcrtcRouteOutboundPlaceholder": "default / warp / …"
+        "olcrtcRouteOutboundPlaceholder": "default / warp / …",
+        "mieruBindingsHint": "بورتات mita — بورت واحد أو نطاق، TCP/UDP. العملاء يتصلون بهذه البورتات.",
+        "mieruPortPlaceholder": "20100 أو 20000-20010",
+        "mieruAddBinding": "إضافة بورت",
+        "mieruMtu": "MTU",
+        "mieruLoggingLevel": "مستوى السجلات",
+        "mieruRouteThroughXray": "التوجيه عبر Xray",
+        "mieruRouteThroughXrayHint": "بيتصل mita بالوجهات عبر جسر SOCKS محلي مخفي في Xray (egress.proxies الأصلي). مقفل افتراضياً — فعّله فقط للتسلسل عبر outbound.",
+        "mieruRouteOutbound": "الصادر",
+        "mieruRouteOutboundHint": "فاضي = وعاء Xray الافتراضي. وإلا توجيه إجباري لهذا الصادر/الموازن.",
+        "mieruRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelHostname": "الدومين (hostname)",
+        "trustTunnelHostnameHint": "دومين يشير لهذا السيرفر. لازم يكون مغطي بشهادة TLS. العملاء بيتصلوا بيه.",
+        "trustTunnelListen": "عنوان الاستماع",
+        "trustTunnelCertFile": "ملف الشهادة (اختياري)",
+        "trustTunnelKeyFile": "ملف المفتاح (اختياري)",
+        "trustTunnelCertFileHint": "فاضي = شهادة ACME بتاعة اللوحة نفسها (Settings → Panel SSL / كونسول x-ui). الشهادة لازم تغطي الدومين فوق.",
+        "trustTunnelUpstreamProtocol": "بروتوكول العميل",
+        "trustTunnelClientDns": "DNS العميل (للرابط)",
+        "trustTunnelClientDnsHint": "خوادم DNS مفصولة بفواصل، بتتحط في رابط tt:// للعميل، مثال 1.1.1.1, tls://8.8.8.8. فاضي = افتراضي العميل.",
+        "trustTunnelIpv6": "IPv6 متاح",
+        "trustTunnelRouteThroughXray": "التوجيه عبر Xray",
+        "trustTunnelRouteThroughXrayHint": "الـ endpoint بيوجه ترافيك النفق عبر جسر SOCKS محلي مخفي في Xray ([forward_protocol.socks5]). مقفل افتراضياً — فعّله فقط للتسلسل عبر outbound.",
+        "trustTunnelRouteOutbound": "الصادر",
+        "trustTunnelRouteOutboundHint": "فاضي = وعاء Xray الافتراضي. وإلا توجيه إجباري لهذا الصادر/الموازن.",
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
       },
       "info": {
         "mode": "الوضع",
@@ -2244,6 +2275,36 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "mieru": {
+        "binary": {
+          "exists": "مثبت",
+          "missing": "غير مثبت",
+          "upload": "رفع",
+          "download": "تنزيل",
+          "delete": "حذف",
+          "deleteConfirm": "إيقاف كل نسخ mieru وحذف الملف؟"
+        },
+        "toasts": {
+          "uploaded": "تم رفع الملف",
+          "downloaded": "تم تنزيل الملف",
+          "deleted": "تم حذف الملف"
+        }
+      },
+      "trusttunnel": {
+        "binary": {
+          "exists": "مثبت",
+          "missing": "غير مثبت",
+          "upload": "رفع",
+          "download": "تنزيل",
+          "delete": "حذف",
+          "deleteConfirm": "إيقاف كل نسخ TrustTunnel وحذف الملف؟"
+        },
+        "toasts": {
+          "uploaded": "تم رفع الملف",
+          "downloaded": "تم تنزيل الملف",
+          "deleted": "تم حذف الملف"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

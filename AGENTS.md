@@ -122,7 +122,7 @@ Run `grep -rn "LUCX-HOOK" internal/ frontend/ install.sh` to find all integratio
 
 New functionality lives ONLY in:
 - **Go:** `internal/awg/` — AWG sidecar (manager, process, instance, traffic, orphans)
-- **Go:** `internal/lucx/` — subdirectories: `parser/`, `nodetype/`, `outbound_link/` (Smart Cluster), `tunnel/` (tunnel sidecars: NaiveProxy, olcRTC, qWDTT)
+- **Go:** `internal/lucx/` — subdirectories: `parser/`, `nodetype/`, `outbound_link/` (Smart Cluster), `tunnel/` (tunnel sidecars: NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel)
 - **Go:** `internal/database/migrate_awg.go` — legacy DB migration
 - **Go:** `internal/web/service/tunnel.go`, `internal/web/controller/tunnel.go`, `internal/web/job/tunnel_job.go` — tunnel sidecar web layer
 - **Frontend:** `frontend/src/schemas/protocols/inbound/awg.ts` — Zod schema
@@ -169,6 +169,9 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 - **Мост в Xray (lucx.93):** опциональный `routeThroughXray` — Caddy dial через нативный `upstream socks5://127.0.0.1:port` (klzgrad/forwardproxy, **без патча бинарника**) + скрытый SOCKS loopback inbound (`injectTunnelEgress`, тег `lucx-tunnel-naive`, симметрично mtproto). Порт аллоцируется backend'ом и стабилен; `outboundTag` опционально force-route. Raw-Caddyfile mode несовместим. Default = прямой egress.
 - **olcRTC (lucx.94):** `OlcrtcConfig` → YAML (`mode: srv`, provider/room/crypto/transport/dns/vp8) → бинарник `olcrtc-linux-{arch}` (единственный CLI-арг = путь к YAML). Settings key `lucxTunnel_olcrtc`. Connect URI `olcrtc://provider?transport@room#key`. Probe = process-only (нет listen-порта). Клиенты: owenclave / olcbox. Upstream: openlibrecommunity/olcrtc (WTFPL).
 - **qWDTT (lucx.95):** `QwdttConfig` → CLI argv (`-listen/-wg-port/-password/-dns/-listen-raw/-config-dir`) → бинарник `qwdtt-linux-{arch}` (GPL-3.0, external process). Settings key `lucxTunnel_qwdtt`. State dir: passwords.json + wg-keys.dat. Share: `qwdtt://config?…`, legacy `wdtt://…`, subscription JSON. **Нужен root/CAP_NET_ADMIN** (TUN + MASQUERADE). Клиент: SpaceNeuroX Android APK. Upstream: SpaceNeuroX/proxy-turn-vk-android server.go.
+- **mieru (lucx.117):** inbound-only (`mieru-{id}`), без legacy-блоба. `mita run` + `MITA_CONFIG_JSON_FILE` / `MITA_UDS_PATH` / `MITA_INSECURE_UDS=1`. HMAC-креды `lucx-mieru-*`. Share `mierus://` (порт всегда в query). Трафик: `mita get users` (1-day, compact `1.5MiB` и spaced). routeThroughXray default OFF. `/var/lib/mita/metrics.pb` общий на все инстансы (upstream).
+- **TrustTunnel (lucx.117):** inbound-only (`trusttunnel-{id}`). `trusttunnel_endpoint vpn.toml hosts.toml`. Серт = панельный ACME (`webCertFile`/`webKeyFile`); нет домена/серта → отказ при save (NotBefore/NotAfter/SAN). Share `tt://?` TLV; адрес = share-host:port (включая 443). Prometheus — только inbound-трафик (без per-client). HMAC `lucx-trusttunnel-*`.
+- **AWG 3.1 (lucx.117):** потолок `"3.1"` + `RandomTrailers`/`DisableCookies` (omit при false; эмиссия только 3.1 && тулзы≥3.1). HPK/таймеры — `IsAwg3Plus` (`3` и `3.1`). Живые v3 не бампаются. Гейт тулзов в `install-awg-module.sh`: `< v3.1`.
 
 ### 4. Paranoid Logging
 
@@ -219,7 +222,7 @@ Upstream rewrote the frontend from Vue to React + TypeScript + AntD v6 + Zod. AW
 
 ### 10. License
 
-LucX-UI components (`internal/awg/`, `internal/awg/cps/`, `internal/awg/signature/`, `internal/lucx/`, `internal/database/migrate_awg*.go`, `internal/web/controller/awg.go`, `internal/web/controller/awg_outbound.go`, `internal/web/controller/lucx.go`, `internal/web/controller/tunnel.go`, `internal/web/job/awg_job.go`, `internal/web/job/tunnel_job.go`, `internal/web/service/client_awg.go`, `internal/web/service/awg_outbound.go`, `internal/web/service/tunnel.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/schemas/tunnel.ts`, `frontend/src/api/tunnels.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`, `frontend/src/pages/tunnels/TunnelsPage.tsx`, `frontend/src/pages/clients/wireguardConfig.ts`, `bin/install-awg-module.sh`, `bin/check-lucx.sh`, `bin/pre-push`, `bin/build-release.sh`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author.
+LucX-UI components (`internal/awg/`, `internal/awg/cps/`, `internal/awg/signature/`, `internal/lucx/`, `internal/database/migrate_awg*.go`, `internal/web/controller/awg.go`, `internal/web/controller/awg_outbound.go`, `internal/web/controller/lucx.go`, `internal/web/controller/tunnel.go`, `internal/web/job/awg_job.go`, `internal/web/job/tunnel_job.go`, `internal/web/service/client_awg.go`, `internal/web/service/awg_outbound.go`, `internal/web/service/tunnel.go`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/schemas/tunnel.ts`, `frontend/src/api/tunnels.ts`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/pages/inbounds/form/protocols/mieru.tsx`, `frontend/src/pages/inbounds/form/protocols/trusttunnel.tsx`, `frontend/src/schemas/protocols/inbound/mieru.ts`, `frontend/src/schemas/protocols/inbound/trusttunnel.ts`, `frontend/src/pages/inbounds/form/awg-inbound-id-context.ts`, `frontend/src/pages/tunnels/TunnelsPage.tsx`, `frontend/src/pages/clients/wireguardConfig.ts`, `bin/install-awg-module.sh`, `bin/check-lucx.sh`, `bin/pre-push`, `bin/build-release.sh`) are licensed under **PolyForm Noncommercial 1.0.0**. Free for personal and educational use. Commercial use (including VPN resale) requires explicit written permission from the author.
 
 Original 3x-ui code remains under GPL-3.0.
 
@@ -256,8 +259,11 @@ internal/lucx/                     Smart Cluster + tunnel sidecars
 ├── parser/                        SSH output → NodeCreds
 ├── nodetype/                      LucX vs vanilla detection (GET /panel/api/lucx/hello + features gate)
 ├── outbound_link/                 Inbound → outbound config generator
-└── tunnel/                        Tunnel sidecars (NaiveProxy, olcRTC, qWDTT)
+└── tunnel/                        Tunnel sidecars (Naive, olcRTC, qWDTT, mieru, TrustTunnel)
     ├── tunnel.go                  Name registry + binary/config/data paths
+    ├── mieru.go / mieru_inbound.go / mieru_traffic.go
+    ├── trusttunnel.go / trusttunnel_inbound.go / trusttunnel_traffic.go
+    ├── auth.go                    scoped HMAC (naive/mieru/trusttunnel)
     ├── naive.go                   NaiveConfig + Caddyfile render (admin off, bind, access_log, escaping) + client URL
     ├── traffic.go                 CollectNaiveTraffic — access_log tail, per-client deltas, online last-seen
     ├── process.go                 Proc: exec + SIGTERM→kill + ring log (500 lines)

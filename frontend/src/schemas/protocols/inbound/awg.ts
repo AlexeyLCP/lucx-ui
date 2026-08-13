@@ -79,13 +79,14 @@ export const AwgInboundSettingsSchema = z.object({
   rejectAfterTime: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
   keepaliveTimeout: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
   maxHandshakeAttempts: z.preprocess(normalizeAwgTimer, z.string()).default('0'),
+  randomTrailers: z.boolean().default(false),
+  disableCookies: z.boolean().default(false),
   // AWG protocol version this inbound targets: '1.5' (legacy: Jc/Jmin/Jmax +
-  // S1/S2 + H1-H4), '2' (adds S3/S4 + optional I1-I5, Android 2.0.1), or '3'
-  // (adds HeaderProtectionKey, desktop 5.0.0.5 / Android 3.0.1). The server
-  // .conf is generated for this version; client configs may be exported at the
-  // same version or lower (clients-page export-version selector). Defaults to
-  // '2' for compatibility with pre-lucx.50 inbounds.
-  awgVersion: z.enum(['1.5', '2', '3']).default('2'),
+  // S1/S2 + H1-H4), '2' (adds S3/S4 + optional I1-I5, Android 2.0.1), '3'
+  // (adds HeaderProtectionKey, desktop 5.0.0.5 / Android 3.0.1), or '3.1'
+  // (adds RandomTrailers / DisableCookies, module+tools v3.1.20260812).
+  // Defaults to '2' for compatibility with pre-lucx.50 inbounds.
+  awgVersion: z.enum(['1.5', '2', '3', '3.1']).default('2'),
   // Peers: each client is a WireGuard peer. The client's keypair, PSK, and
   // tunnel address are stored so a full client .conf and share-link can be
   // rendered (mirroring WireGuard). Legacy inbounds stored id/password; the

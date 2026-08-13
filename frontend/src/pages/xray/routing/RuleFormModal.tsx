@@ -136,11 +136,11 @@ function buildClientOptions(clients: ClientRecord[], inbounds: InboundOption[]):
     // Xray-auth protocols keep email → routing.user
     if (!isAwg || protos.size > 1) {
       const hasXrayUser = [...protos].some(
-        (p) => p !== 'awg' && p !== 'wireguard' && p !== 'tun' && p !== 'tunnel' && p !== 'naive' && p !== 'mtproto',
+        (p) => p !== 'awg' && p !== 'wireguard' && p !== 'tun' && p !== 'tunnel' && p !== 'naive' && p !== 'mtproto' && p !== 'mieru' && p !== 'trusttunnel',
       );
-      if (hasXrayUser || (!isAwg && !isWg && !isNaive && !protos.has('mtproto'))) {
+      if (hasXrayUser || (!isAwg && !isWg && !isNaive && !protos.has('mtproto') && !protos.has('mieru') && !protos.has('trusttunnel'))) {
         const protoLabel =
-          [...protos].filter((p) => p !== 'awg' && p !== 'wireguard' && p !== 'naive').join('/') || 'xray';
+          [...protos].filter((p) => p !== 'awg' && p !== 'wireguard' && p !== 'naive' && p !== 'mieru' && p !== 'trusttunnel').join('/') || 'xray';
         opts.push({
           value: `user:${c.email}`,
           kind: 'user',

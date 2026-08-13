@@ -435,6 +435,10 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 				s.KeepaliveTimeout = awg.AwgTimer(val)
 			case "MaxHandshakeAttempts":
 				s.MaxHandshakeAttempts = awg.AwgTimer(val)
+			case "RandomTrailers":
+				s.RandomTrailers = parseConfBool(val)
+			case "DisableCookies":
+				s.DisableCookies = parseConfBool(val)
 			}
 		case "peer":
 			switch key {
@@ -458,6 +462,8 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 	// legacy field set → "1.5". Matches the version-gate logic in
 	// awg.NormalizeAWGVersion and the inbound form's version presets.
 	switch {
+	case s.RandomTrailers || s.DisableCookies:
+		s.AwgVersion = "3.1"
 	case s.HeaderProtectionKey != "" || !s.ContentPaddingAddition.IsZero() || !s.RekeyAfterTime.IsZero() ||
 		!s.RekeyTimeout.IsZero() || !s.RejectAfterTime.IsZero() || !s.KeepaliveTimeout.IsZero() ||
 		!s.MaxHandshakeAttempts.IsZero():
@@ -468,4 +474,13 @@ func ParseConf(text string) (awg.ClientSettings, error) {
 		s.AwgVersion = "1.5"
 	}
 	return s, nil
+}
+
+func parseConfBool(s string) bool {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "true", "yes", "1", "on":
+		return true
+	default:
+		return false
+	}
 }
