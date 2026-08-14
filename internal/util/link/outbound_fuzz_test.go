@@ -20,6 +20,9 @@ func FuzzParseLink(f *testing.F) {
 		f.Add(s)
 	}
 	f.Fuzz(func(t *testing.T, s string) {
+		if len(s) > 64<<10 {
+			return
+		}
 		res, err := ParseLink(s)
 		if (res == nil) == (err == nil) {
 			t.Fatalf("ParseLink(%q): exactly one of (result, error) must be non-nil; got res=%v err=%v", s, res, err)

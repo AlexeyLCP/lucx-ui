@@ -5,6 +5,21 @@
 
 ---
 
+## lucx.121 — CI: govulncheck + fuzz-smoke (2026-08-14)
+
+Падали на lucx.119/120, не наш регресс кода.
+
+1. **govulncheck** — 7 CVE stdlib `go1.26.5`, фикс в `go1.26.6`. `go.mod` → `go 1.26.6`.
+2. **fuzz-smoke** — `FuzzParseLink` FAIL `context deadline exceeded` на `-fuzztime=30s`
+   (координатор режет воркер по wall-clock). CI: `-fuzztime=200000x` + `-timeout=3m`;
+   в фаззере отсекаем входы >64 KiB.
+
+**Файлы:** `go.mod`, `.github/workflows/ci.yml`, `outbound_fuzz_test.go`, `config.go`.
+
+**lucxVersion:** lucx.121
+
+---
+
 ## lucx.120 — TrustTunnel: трафик/онлайн + пресеты listen (2026-08-14)
 
 **1. Трафик и активность.** Клод уже скрейпил Prometheus (`inbound/outbound_traffic_bytes`)

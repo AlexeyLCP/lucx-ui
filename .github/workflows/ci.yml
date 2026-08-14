@@ -120,8 +120,9 @@ jobs:
           go list ./... | grep -v '/frontend/node_modules/' > /tmp/go-packages.txt
           go test -race -shuffle=on -count=1 $(cat /tmp/go-packages.txt)
 
-  # Brief native-fuzz smoke on the security-/parser-critical decoders. Each runs the
-  # generated corpus plus 30s of exploration; a crash here is a real input-handling bug.
+  # Brief native-fuzz smoke on the security-/parser-critical decoders. Count-based
+  # -fuzztime (not wall-clock) — a 30s deadline cancelled in-flight workers with
+  # FAIL "context deadline exceeded" (lucx.119/120 flake). A crash is still a fail.
   fuzz-smoke:
     runs-on: ubuntu-latest
     steps:
@@ -134,8 +135,8 @@ jobs:
         run: mkdir -p internal/web/dist && touch internal/web/dist/.gitkeep
       - name: Fuzz critical parsers (smoke)
         run: |
-          go test -run '^$' -fuzz 'FuzzParseLink$' -fuzztime=30s ./internal/util/link/
-          go test -run '^$' -fuzz 'FuzzDecodeCertPin$' -fuzztime=30s ./internal/web/runtime/
+          go test -run '^$' -fuzz 'FuzzParseLink$' -fuzztime=200000x -timeout=3m ./internal/util/link/
+          go test -run '^$' -fuzz 'FuzzDecodeCertPin$' -fuzztime=200000x -timeout=3m ./internal/web/runtime/
 
   golangci:
     runs-on: ubuntu-latest
