@@ -73,6 +73,15 @@
    lucx.92. Код, который никогда не выполняется, никто не читает и не
    тестирует; он в истории (`git show v3.6.0-lucx.122 -- …`). Процедура
    отката для серверов, успевших выполнить lucx.91, перенесена в AGENTS.md.
+8b. **`genAwgLinks` удалена** (`frontend/src/lib/xray/inbound-link.ts`, внутри
+   LUCX-HOOK). Vpn://-аналог `genAwgConfigs`, который никто не вызывал: ноль
+   ссылок во всём `frontend/src`, включая тесты и stories. Сосед
+   `genAwgConfigs` живой (зовётся из `genInboundLinks`), `genAwgLink` в
+   единственном числе тоже живой — под тестами. Найдено при повторном скане:
+   по LucX-коду на Go 0 неиспользуемых деклараций из 629, по фронтенду —
+   только эта одна (остальные 87 «неиспользуемых» экспортов оказались
+   `z.infer`-типами в `src/schemas/`, то есть заявленной поверхностью типов
+   по правилу из CLAUDE.md, и апстримными `Utils`/`URLBuilder`/`ArrayUtils`).
 9. **Три идентичных файла правил для ИИ** (`.claudeprompt`, `.cursorrules`,
    `.windsurfrules` — один MD5, по 19 490 байт) ссылались на `CONSTRUCT.md`,
    `AWG_CHANGES.md`, ветку `feature/awg-integration` и стенд `vps-finland-lucx`

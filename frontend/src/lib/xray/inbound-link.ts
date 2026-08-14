@@ -1645,23 +1645,6 @@ export function genAwgConfigs(input: GenInboundLinksInput): string {
     }))
     .join('\r\n');
 }
-
-export function genAwgLinks(input: GenInboundLinksInput): string {
-  const { inbound, remark = '', hostOverride = '', fallbackHostname } = input;
-  if (inbound.protocol !== 'awg') return '';
-  const addr = resolveAddr(inbound, hostOverride, fallbackHostname);
-  const sep = '-';
-  const settings = inbound.settings as AwgInboundSettings;
-  return settings.clients
-    .map((c, i) => genAwgLink({
-      settings,
-      address: addr,
-      port: inbound.port,
-      remark: `${remark}${sep}${i + 1}${wgPeerCommentSuffix(c)}`,
-      peerIndex: i,
-    }))
-    .join('\r\n');
-}
 // END LUCX-HOOK
 
 export function isPostQuantumLink(link: string): boolean {
