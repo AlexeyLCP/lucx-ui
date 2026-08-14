@@ -15,7 +15,10 @@ import { normalizeAwgTimer } from '@/lib/awg/timer';
 export const AwgOutboundSettingsSchema = z.object({
   privateKey: z.string().default(''),
   address: z.string().default(''),
-  mtu: z.number().int().default(1320),
+  // 1420 = 1500 (typical Ethernet) minus WireGuard/AWG overhead — optimal
+  // when the panel host reaches the upstream directly. Lower it if the host
+  // itself sits behind an extra encapsulation hop (mobile/CGNAT, PPPoE).
+  mtu: z.number().int().default(1420),
   publicKey: z.string().default(''),
   psk: z.string().default(''),
   endpoint: z.string().default(''),

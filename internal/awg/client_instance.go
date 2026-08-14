@@ -102,7 +102,10 @@ func ClientInstanceFromOutbound(o *model.AwgOutbound) (ClientInstance, bool) {
 		s.AllowedIPs = "0.0.0.0/0, ::/0"
 	}
 	if s.MTU == 0 {
-		s.MTU = 1320
+		// 1420 = 1500 (typical Ethernet) minus WireGuard/AWG overhead — optimal
+		// when the panel host reaches the upstream directly; drop to 1320 for a
+		// host that itself sits behind an extra encapsulation hop.
+		s.MTU = 1420
 	}
 	return ClientInstance{
 		Id:       o.Id,

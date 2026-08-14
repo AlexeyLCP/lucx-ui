@@ -64,6 +64,9 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.GET("/getNewVlessEnc", a.getNewVlessEnc)
 	g.GET("/clientIps", a.getClientIps)
 	g.GET("/fail2banStatus", a.getFail2banStatus)
+	// LUCX-HOOK: BBR congestion-control tuning (Settings → Cores).
+	g.GET("/bbrStatus", a.getBbrStatus)
+	// END LUCX-HOOK
 
 	g.POST("/stopXrayService", a.stopXrayService)
 	g.POST("/restartXrayService", a.restartXrayService)
@@ -72,6 +75,10 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.POST("/restartAwg", a.restartAwg)
 	// Rebuild DKMS amneziawg module from upstream (async).
 	g.POST("/rebuildAwgModule", a.rebuildAwgModule)
+	// END LUCX-HOOK
+	// LUCX-HOOK: BBR congestion-control tuning (Settings → Cores).
+	g.POST("/enableBbr", a.enableBbr)
+	g.POST("/disableBbr", a.disableBbr)
 	// END LUCX-HOOK
 	g.POST("/updatePanel", a.updatePanel)
 	g.POST("/setUpdateChannel", a.setUpdateChannel)
@@ -115,6 +122,23 @@ func (a *ServerController) status(c *gin.Context) { jsonObj(c, a.serverService.L
 func (a *ServerController) getFail2banStatus(c *gin.Context) {
 	jsonObj(c, a.serverService.GetFail2banStatus(), nil)
 }
+
+// LUCX-HOOK: BBR congestion-control tuning (Settings → Cores).
+func (a *ServerController) getBbrStatus(c *gin.Context) {
+	jsonObj(c, a.serverService.GetBbrStatus(), nil)
+}
+
+func (a *ServerController) enableBbr(c *gin.Context) {
+	err := a.serverService.EnableBbr()
+	jsonMsg(c, I18nWeb(c, "pages.settings.cores.bbrEnabled"), err)
+}
+
+func (a *ServerController) disableBbr(c *gin.Context) {
+	err := a.serverService.DisableBbr()
+	jsonMsg(c, I18nWeb(c, "pages.settings.cores.bbrDisabled"), err)
+}
+
+// END LUCX-HOOK
 
 func parseHistoryBucket(c *gin.Context) (int, bool) {
 	bucket, err := strconv.Atoi(c.Param("bucket"))

@@ -5,6 +5,73 @@
 
 ---
 
+## lucx.124 — AWG: скорость по умолчанию, BBR-тумблер, проверка MTU (2026-08-14)
+
+Заказ пользователя: разобрать логику/пресеты AWG на предмет best practices по
+скорости. Обзор нашёл, что kernel-модуль AmneziaWG уже используется (не
+userspace `amneziawg-go`), профили обфускации (`internal/awg/cps/params.go`)
+уже честно портированы с проверенных генераторов с соблюдением всех
+инвариантов протокола — то есть каркас в порядке. Реальные точки роста:
+
+1. **MTU по умолчанию был 1320** — консервативный запас «на все случаи»,
+   хотя обычный VPS без доп. инкапсуляции тянет 1420 (1500 минус overhead
+   WireGuard/AWG). Поднят дефолт в четырёх местах: Zod-схема inbound
+   (`schemas/protocols/inbound/awg.ts`), Zod-схема outbound
+   (`schemas/awg-outbound.ts`), backend fallback для inbound
+   (`internal/awg/instance.go: orDefault(s.MTU, 1420)`) и backend fallback для
+   outbound (`internal/awg/client_instance.go`). 1320 остался как
+   документированный fallback для mobile/CGNAT/PPPoE — подсказка под полем
+   объясняет когда переключать. Два go-теста, жёстко ожидавших 1320 как
+   дефолт, поправлены (`client_conf_test.go`, `client_instance_test.go` — там
+   ещё пришлось развести «дефолт» и «явно заданное 1320 в фикстуре» через
+   `wantMTU` per-case, отдельный кейс в таблице специально проверяет explicit
+   != default).
+2. **Профиль обфускации (Lite/Standard/Pro) не объяснял trade-off.** `Jc`
+   (мусорные пакеты) в основном влияет на скорость хендшейка/переподключения,
+   не на устойчивую пропускную способность — но тултип в форме об этом не
+   говорил, и был риск что оператор ставит Pro «на всякий случай» там, где
+   нужна просто скорость. Дописан тултип `awgObfLevelHint`.
+3. **Кнопка «Проверить MTU»** — новый `internal/awg/mtu_probe.go`
+   (`ProbePathMTU`, bin-search DF-пингов до 1.1.1.1, экспортируется через
+   `GET /panel/api/inbounds/:id/awgTestMtu`), кнопка рядом с полем MTU в
+   `awg.tsx` (мирроринг паттерна существующей `awgDiagnostics`/`MedicineBox`
+   кнопки). Даёт потолок MTU исходящего канала сервера — НЕ видит путь
+   клиент↔сервер, поэтому 1320-fallback остаётся ручным выбором оператора.
+4. **Тумблер BBR** в Settings → Cores — TCP congestion control не влияет на
+   сам AWG (UDP), но ускоряет TCP-трафик, который панель проксирует
+   (исходящие Xray). Новый `internal/web/service/network_tuning.go`
+   (`GetBbrStatus`/`EnableBbr`/`DisableBbr`) — портирован из
+   `x-ui.sh`'s `enable_bbr`/`disable_bbr`, тот же файл
+   `/etc/sysctl.d/99-bbr-x-ui.conf`, чтобы CLI-меню и веб-тумблер не
+   конфликтовали. `BbrCard` в `CoresTab.tsx` рядом с существующей `AwgCard`.
+
+**i18n:** 6 новых/изменённых ключей (`awgObfLevelHint` расширен,
+`awgMtuHint`/`awgMtuTest`/`awgMtuTestFailed` новые в `pages.inbounds.form`,
+`bbrTitle`/`bbrDesc`/`bbrEnabled`/`bbrDisabled`/`bbrUnsupported`/
+`bbrUnsupportedHint` новые в `pages.settings.cores`) во всех 13 локалях —
+en-US и ru-RU переведены содержательно, остальные 11 — по установленному в
+самой секции `cores` прецеденту (там уже часть строк на английском как
+placeholder для непереведённых новых фич).
+
+**Проверено локально:**
+
+- `go build ./...`, `go vet ./internal/awg/...`, `go test ./internal/awg/...`
+  (включая новые/поправленные тесты) — зелёные. `gofmt -l` — пусто после
+  правки.
+- `internal/web/service` и `internal/web/controller` **не собрались локально**
+  — `mattn/go-sqlite3` требует cgo, в этом окружении нет gcc
+  (`CGO_ENABLED=0`). Подтверждено через `git stash`, что ошибка
+  предсуществующая и не связана с правкой. На `ubuntu-latest` в CI
+  (`build-essential` есть по умолчанию) собирается — GitHub Actions это и
+  проверит.
+- Фронтенд: `tsc --noEmit`, `eslint` на изменённые файлы, `vitest run` для
+  `i18n-dead-keys.test.ts` (2/2, все 13 локалей — паритет ключей) и
+  `inbound-link.test.ts` (59/59) — все зелёные.
+
+**lucxVersion:** lucx.124
+
+---
+
 ## lucx.123 — аудит LucX-слоя: сироты сайдкаров, SSRF, блокировки (2026-08-14)
 
 Сплошное ревью всего, что форк добавил поверх upstream (323 файла, +57.7k

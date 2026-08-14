@@ -34,7 +34,7 @@ func TestRenderClientConf_MandatoryFields(t *testing.T) {
 	for _, want := range []string{
 		"PrivateKey = k",
 		"Address = 10.9.0.5/32",
-		"MTU = 1320",
+		"MTU = 1420",
 		"PublicKey = pub",
 		"Endpoint = up.example.com:51820",
 		"AllowedIPs = 0.0.0.0/0, ::/0",

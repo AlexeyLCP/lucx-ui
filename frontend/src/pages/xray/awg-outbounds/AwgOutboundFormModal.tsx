@@ -82,7 +82,7 @@ interface AwgOutboundFormValues {
 const DEFAULT_SETTINGS: AwgOutboundSettings = {
   privateKey: '',
   address: '',
-  mtu: 1320,
+  mtu: 1420,
   publicKey: '',
   psk: '',
   endpoint: '',

@@ -241,12 +241,17 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		return Instance{}, false
 	}
 	inst := Instance{
-		Id:                     ib.Id,
-		Tag:                    ib.Tag,
-		Listen:                 ib.Listen,
-		Port:                   ib.Port,
-		Ifname:                 ifnameFor(ib.Id),
-		MTU:                    orDefault(s.MTU, 1320),
+		Id:     ib.Id,
+		Tag:    ib.Tag,
+		Listen: ib.Listen,
+		Port:   ib.Port,
+		Ifname: ifnameFor(ib.Id),
+		// 1420 = 1500 (typical Ethernet) minus WireGuard/AWG overhead, the
+		// throughput-optimal fallback on a normal VPS. Only used when an
+		// inbound's settings JSON omits mtu entirely (pre-lucx MTU field,
+		// or hand-crafted JSON); the panel form always sends an explicit
+		// value (1420 default, operator can drop to 1320 for mobile/CGNAT).
+		MTU:                    orDefault(s.MTU, 1420),
 		DNS:                    s.DNS,
 		Address:                s.Address,
 		PrivateKey:             s.PrivateKey,

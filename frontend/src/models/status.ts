@@ -72,6 +72,16 @@ export interface AwgInfo {
   ifnames?: string[];
 }
 
+// LUCX-HOOK: BBR congestion-control tuning (Settings → Cores).
+export interface BbrStatus {
+  supported: boolean;
+  enabled: boolean;
+  congestionControl: string;
+  qdisc: string;
+  windows: boolean;
+}
+// END LUCX-HOOK
+
 interface StatusInput {
   cpu?: number;
   cpuCores?: number;

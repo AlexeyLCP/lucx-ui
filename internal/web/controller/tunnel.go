@@ -238,7 +238,7 @@ func (a *TunnelController) uploadBinary(c *gin.Context) {
 // whose digest does not match, which is the only defence against a mirror or
 // a path that hands back something other than the release asset.
 type tunnelDownloadRequest struct {
-	URL    string `json:"url" example:"https://github.com/AlexeyLCP/lucx-ui/releases/download/v3.6.0-lucx.123/caddy-naive-linux-amd64"`
+	URL    string `json:"url" example:"https://github.com/AlexeyLCP/lucx-ui/releases/download/v3.6.0-lucx.124/caddy-naive-linux-amd64"`
 	SHA256 string `json:"sha256,omitempty" example:"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"`
 }
 

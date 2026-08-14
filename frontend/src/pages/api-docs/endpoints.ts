@@ -249,6 +249,17 @@ export const sections: readonly Section[] = [
         ],
       },
       // END LUCX-HOOK
+      // LUCX-HOOK: AWG path-MTU probe endpoint documentation.
+      {
+        method: 'GET',
+        path: '/panel/api/inbounds/:id/awgTestMtu',
+        summary: 'Binary-search the server\'s own outbound path MTU with DF (don\'t-fragment) pings against a fixed public anchor, and report whether the inbound\'s configured MTU fits under it with WireGuard/AWG overhead headroom. Ceiling check on the server uplink only — cannot see the client<->server path. Read-only. LucX-UI only.',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'Inbound ID. Must be an AWG inbound.' },
+        ],
+        response: '{\n  "success": true,\n  "obj": {\n    "target": "1.1.1.1",\n    "pathMtu": 1500,\n    "reached": true,\n    "configuredMtu": 1420,\n    "fits": true,\n    "detail": "largest non-fragmented ping to 1.1.1.1 = 1500 bytes; configured MTU 1420 fits within the 80-byte WG/AWG overhead headroom"\n  }\n}',
+      },
+      // END LUCX-HOOK
       {
         method: 'POST',
         path: '/panel/api/inbounds/import',
@@ -695,6 +706,12 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/server/bbrStatus',
+        summary: 'Reports whether TCP BBR congestion control (paired with fq/cake) is active. AWG/WireGuard itself is UDP and unaffected, but TCP flows the panel proxies benefit on higher-latency or lossy paths.',
+        response: '{\n  "success": true,\n  "obj": {\n    "supported": true,\n    "enabled": false,\n    "congestionControl": "cubic",\n    "qdisc": "fq_codel",\n    "windows": false\n  }\n}',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/server/cpuHistory/:bucket',
         summary: 'Legacy: aggregated CPU history. Use /history/cpu/:bucket instead — same data with a uniform {t, v} shape.',
         params: [
@@ -845,6 +862,16 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/server/rebuildAwgModule',
         summary: 'Rebuild amneziawg DKMS module from upstream master (async). Runs bin/install-awg-module.sh --force-rebuild.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/server/enableBbr',
+        summary: 'Enable TCP BBR + fq (writes /etc/sysctl.d/99-bbr-x-ui.conf and applies it live). Linux only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/server/disableBbr',
+        summary: 'Restore the congestion control / qdisc that were active before enableBbr ran, and remove the drop-in file. Linux only.',
       },
       {
         method: 'POST',

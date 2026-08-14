@@ -333,7 +333,12 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     privateKey: kp.privateKey,
     publicKey: kp.publicKey,
     address: '10.200.0.1/24', // server tunnel address (matches defaultAwgBase in client_awg.go)
-    mtu: 1320,
+    // 1420 = 1500 (typical Ethernet) minus WireGuard/AWG's own overhead — the
+    // throughput-optimal value on a normal VPS/hosting network. Drop to 1320
+    // (the old default) only behind an extra encapsulation hop that eats more
+    // headroom: mobile/CGNAT, PPPoE, or a server that is itself reached over
+    // another tunnel. See awgMtuHint in the form for the same guidance.
+    mtu: 1420,
     dns: '1.1.1.1, 1.0.0.1',
     obfLevel: 2,
     mimicryProfile: 'quic',

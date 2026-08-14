@@ -13,11 +13,13 @@ func TestClientInstanceFromOutbound(t *testing.T) {
 		name     string
 		settings string
 		wantOk   bool
+		wantMTU  int // 0 = use the 1420 default fallback (see below)
 	}{
 		{
 			name:     "valid",
 			settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up.example.com:51820","keepalive":25,"mtu":1320}`,
 			wantOk:   true,
+			wantMTU:  1320, // explicit in the JSON — must NOT be overridden by the default
 		},
 		{
 			name:     "missing address",
@@ -66,8 +68,12 @@ func TestClientInstanceFromOutbound(t *testing.T) {
 			if ci.Id != 7 {
 				t.Errorf("Id = %d, want 7", ci.Id)
 			}
-			if ci.Settings.MTU != 1320 {
-				t.Errorf("MTU default = %d, want 1320", ci.Settings.MTU)
+			wantMTU := tc.wantMTU
+			if wantMTU == 0 {
+				wantMTU = 1420
+			}
+			if ci.Settings.MTU != wantMTU {
+				t.Errorf("MTU = %d, want %d", ci.Settings.MTU, wantMTU)
 			}
 			if ci.Settings.AllowedIPs != "0.0.0.0/0, ::/0" {
 				t.Errorf("AllowedIPs default = %q, want 0.0.0.0/0, ::/0", ci.Settings.AllowedIPs)

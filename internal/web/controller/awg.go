@@ -200,4 +200,31 @@ func (a *InboundController) awgDiagnostics(c *gin.Context) {
 	}, nil)
 }
 
+// awgTestMtu probes this host's own outbound path MTU (a DF-ping binary
+// search against a fixed public anchor) and reports whether the inbound's
+// configured MTU fits under it with WireGuard/AWG's own encapsulation
+// overhead. This is a ceiling check on the server's uplink only — it cannot
+// see the client<->server path, which is why the 1320 "mobile-safe" fallback
+// still exists for the operator to pick by hand.
+//
+// LUCX-HOOK: AWG path-MTU probe endpoint.
+func (a *InboundController) awgTestMtu(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, "awg test mtu: bad id", err)
+		return
+	}
+	inbound, err := a.inboundService.GetInbound(id)
+	if err != nil {
+		jsonMsg(c, "awg test mtu: inbound not found", err)
+		return
+	}
+	inst, ok := awg.InstanceFromInbound(inbound)
+	if !ok {
+		jsonMsg(c, "awg test mtu: inbound is not AWG", nil)
+		return
+	}
+	jsonObj(c, awg.ProbePathMTU(inst.MTU), nil)
+}
+
 // END LUCX-HOOK

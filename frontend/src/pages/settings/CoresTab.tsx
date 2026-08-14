@@ -12,6 +12,7 @@ import {
   Modal,
   Popconfirm,
   Space,
+  Switch,
   Tag,
   Typography,
   Upload,
@@ -21,13 +22,14 @@ import {
   DeleteOutlined,
   FileSearchOutlined,
   ReloadOutlined,
+  ThunderboltOutlined,
   UploadOutlined,
 } from '@ant-design/icons';
 
 import { HttpUtil } from '@/utils';
 import { keys } from '@/api/queryKeys';
 import { tunnelsApi } from '@/api/tunnels';
-import type { AwgInfo } from '@/models/status';
+import type { AwgInfo, BbrStatus } from '@/models/status';
 
 type CoreKind = 'naive' | 'olcrtc' | 'qwdtt' | 'mieru' | 'trusttunnel';
 
@@ -322,6 +324,63 @@ function AwgCard() {
   );
 }
 
+// LUCX-HOOK: BBR congestion-control tuning. AWG/WireGuard rides on UDP and is
+// unaffected by TCP congestion control, but every TCP flow the panel proxies
+// (Xray outbounds, traffic relayed out of an AWG tunnel) benefits from BBR
+// over the kernel's CUBIC default on higher-latency or lossy paths. Mirrors
+// x-ui.sh's enable_bbr/disable_bbr CLI menu so this toggle and the legacy
+// shell command agree on state (same /etc/sysctl.d/99-bbr-x-ui.conf).
+function BbrCard() {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const { data: bbrRes, refetch } = useQuery({
+    queryKey: ['server', 'bbrStatus'],
+    queryFn: async () => HttpUtil.get<BbrStatus>('/panel/api/server/bbrStatus', undefined, { silent: true }),
+    refetchInterval: 10000,
+  });
+  const bbr = bbrRes?.obj;
+
+  const toggle = async (checked: boolean) => {
+    setBusy(true);
+    try {
+      await HttpUtil.post(checked ? '/panel/api/server/enableBbr' : '/panel/api/server/disableBbr');
+      await refetch();
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  if (bbr?.windows) return null;
+
+  return (
+    <Card
+      size="small"
+      style={{ marginBottom: 12 }}
+      title={(<><ThunderboltOutlined style={{ marginRight: 6 }} />{t('pages.settings.cores.bbrTitle')}</>)}
+      extra={(
+        <Space>
+          {bbr && !bbr.supported && <Tag color="red">{t('pages.settings.cores.bbrUnsupported')}</Tag>}
+          {bbr?.congestionControl && <Tag>{bbr.congestionControl} / {bbr.qdisc || '—'}</Tag>}
+          <Switch
+            checked={!!bbr?.enabled}
+            disabled={busy || !bbr || !bbr.supported}
+            loading={busy}
+            onChange={(checked) => void toggle(checked)}
+          />
+        </Space>
+      )}
+    >
+      <Typography.Paragraph type="secondary">
+        {t('pages.settings.cores.bbrDesc')}
+      </Typography.Paragraph>
+      {bbr && !bbr.supported && (
+        <Alert type="warning" showIcon message={t('pages.settings.cores.bbrUnsupportedHint')} />
+      )}
+    </Card>
+  );
+}
+// END LUCX-HOOK
+
 export default function CoresTab() {
   const { t } = useTranslation();
   return (
@@ -340,6 +399,7 @@ export default function CoresTab() {
         )}
       />
       <AwgCard />
+      <BbrCard />
       <Divider />
       <Typography.Title level={5}>{t('pages.settings.cores.tunnelBinaries')}</Typography.Title>
       <BinaryCard kind="naive" title="NaiveProxy" />

@@ -29,7 +29,10 @@ export const AwgInboundSettingsSchema = z.object({
   privateKey: z.string().default(''),
   publicKey: z.string().default(''),
   address: z.string().default(''), // server tunnel address, e.g. "10.200.0.1/24"
-  mtu: z.number().int().min(576).max(65535).default(1320),
+  // 1420 = 1500 (typical Ethernet) minus WireGuard/AWG overhead — optimal on a
+  // normal VPS. Drop to 1320 behind an extra encapsulation hop that eats more
+  // headroom (mobile/CGNAT, PPPoE, or a host reached over another tunnel).
+  mtu: z.number().int().min(576).max(65535).default(1420),
   dns: z.string().optional(),
   // Obfuscation level: 1 = none, 2 = Jc/Jmin/Jmax + S/H, 3 = full + CPS I1-I5.
   obfLevel: z.number().int().min(1).max(3).default(2),

@@ -88,6 +88,8 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.POST("/awg/captureHost", a.awgCaptureHost)
 	// LUCX-HOOK: AWG — runtime diagnostics (interface/NAT/TUN probe chain).
 	g.GET("/:id/awgDiagnostics", a.awgDiagnostics)
+	// LUCX-HOOK: AWG — path-MTU probe (DF-ping ceiling check for the configured MTU).
+	g.GET("/:id/awgTestMtu", a.awgTestMtu)
 	// END LUCX-HOOK
 }
 

@@ -80,6 +80,23 @@ async function fetchAwgDiagnostics(id: number): Promise<AwgDiagnostics | null> {
 }
 // END LUCX-HOOK
 
+// LUCX-HOOK: AWG — path-MTU probe, mirroring internal/awg.PathMTUResult.
+interface AwgMtuTestResult {
+  target: string;
+  pathMtu: number;
+  reached: boolean;
+  configuredMtu: number;
+  fits: boolean;
+  detail: string;
+}
+
+async function fetchAwgTestMtu(id: number): Promise<AwgMtuTestResult | null> {
+  const msg = await HttpUtil.get(`/panel/api/inbounds/${id}/awgTestMtu`);
+  if (!msg?.success) return null;
+  return (msg?.obj ?? null) as AwgMtuTestResult | null;
+}
+// END LUCX-HOOK
+
 export interface AwgFieldsProps {
   // otherAwgSubnets carries the masked network prefixes (e.g. "10.8.0.0/24")
   // of every OTHER enabled AWG inbound on this node, so the Address field can
@@ -192,6 +209,25 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
       setDiagOpen(true);
     } finally {
       setDiagLoading(false);
+    }
+  };
+  // END LUCX-HOOK
+
+  // LUCX-HOOK: AWG — path-MTU probe (DF-ping ceiling check for the server's uplink).
+  const [mtuTestLoading, setMtuTestLoading] = useState(false);
+  const [mtuTestResult, setMtuTestResult] = useState<AwgMtuTestResult | null>(null);
+  const testMtu = async () => {
+    if (inboundId == null) return;
+    setMtuTestLoading(true);
+    try {
+      const r = await fetchAwgTestMtu(inboundId);
+      if (!r) {
+        messageApi.error(t('pages.inbounds.form.awgMtuTestFailed'));
+        return;
+      }
+      setMtuTestResult(r);
+    } finally {
+      setMtuTestLoading(false);
     }
   };
   // END LUCX-HOOK
@@ -346,9 +382,30 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
       )}
       {/* END LUCX-HOOK */}
 
-      <FormField name={['settings', 'mtu']} label={t('pages.inbounds.form.awgMtu')}>
-        <InputNumber min={576} max={65535} style={{ width: '100%' }} />
-      </FormField>
+      <Form.Item label={t('pages.inbounds.form.awgMtu')} tooltip={t('pages.inbounds.form.awgMtuHint')}>
+        <Space.Compact block>
+          <FormField name={['settings', 'mtu']} noStyle>
+            <InputNumber min={576} max={65535} style={{ width: 'calc(100% - 120px)' }} />
+          </FormField>
+          {inboundId == null ? (
+            <Tooltip title={t('pages.inbounds.form.awgDiagSaveFirst')}>
+              <Button disabled style={{ width: 120 }}>{t('pages.inbounds.form.awgMtuTest')}</Button>
+            </Tooltip>
+          ) : (
+            <Button style={{ width: 120 }} onClick={testMtu} loading={mtuTestLoading}>
+              {t('pages.inbounds.form.awgMtuTest')}
+            </Button>
+          )}
+        </Space.Compact>
+        {mtuTestResult && (
+          <Alert
+            style={{ marginTop: 8 }}
+            type={!mtuTestResult.reached ? 'warning' : mtuTestResult.fits ? 'success' : 'warning'}
+            showIcon
+            message={mtuTestResult.detail}
+          />
+        )}
+      </Form.Item>
 
       <FormField name={['settings', 'dns']} label={t('pages.inbounds.form.awgDns')}>
         <Input placeholder="1.1.1.1, 1.0.0.1" />
