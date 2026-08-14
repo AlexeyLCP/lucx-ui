@@ -62,8 +62,8 @@ export const tunnelsApi = {
     const raw = await HttpUtil.post<{ valid: boolean }>(`${NAIVE}/validate`, { text }, JSON_HEADERS);
     return parseMsg(raw, z.object({ valid: z.boolean() }), 'tunnel/validate');
   },
-  download: (url: string): Promise<Msg<null>> =>
-    HttpUtil.post<null>(`${NAIVE}/download`, { url }, JSON_HEADERS),
+  download: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${NAIVE}/download`, { url, sha256 }, JSON_HEADERS),
   upload: (file: File): Promise<Msg<null>> => {
     const fd = new FormData();
     fd.append('file', file);
@@ -88,8 +88,8 @@ export const tunnelsApi = {
     const raw = await HttpUtil.post<{ yaml: string }>(`${OLCRTC}/preview`, cfg, JSON_HEADERS);
     return parseMsg(raw, z.object({ yaml: z.string() }), 'tunnel/olcrtcPreview');
   },
-  olcrtcDownload: (url: string): Promise<Msg<null>> =>
-    HttpUtil.post<null>(`${OLCRTC}/download`, { url }, JSON_HEADERS),
+  olcrtcDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${OLCRTC}/download`, { url, sha256 }, JSON_HEADERS),
   olcrtcUpload: (file: File): Promise<Msg<null>> => {
     const fd = new FormData();
     fd.append('file', file);
@@ -111,8 +111,8 @@ export const tunnelsApi = {
   qwdttRestart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${QWDTT}/restart`, {}, JSON_HEADERS),
   qwdttLogs: (lines = 200): Promise<Msg<string[]>> =>
     HttpUtil.get<string[]>(`${QWDTT}/logs?lines=${lines}`),
-  qwdttDownload: (url: string): Promise<Msg<null>> =>
-    HttpUtil.post<null>(`${QWDTT}/download`, { url }, JSON_HEADERS),
+  qwdttDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${QWDTT}/download`, { url, sha256 }, JSON_HEADERS),
   qwdttUpload: (file: File): Promise<Msg<null>> => {
     const fd = new FormData();
     fd.append('file', file);
@@ -127,8 +127,8 @@ export const tunnelsApi = {
   },
   mieruLogs: (lines = 200): Promise<Msg<string[]>> =>
     HttpUtil.get<string[]>(`${MIERU}/logs?lines=${lines}`),
-  mieruDownload: (url: string): Promise<Msg<null>> =>
-    HttpUtil.post<null>(`${MIERU}/download`, { url }, JSON_HEADERS),
+  mieruDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${MIERU}/download`, { url, sha256 }, JSON_HEADERS),
   mieruUpload: (file: File): Promise<Msg<null>> => {
     const fd = new FormData();
     fd.append('file', file);
@@ -143,8 +143,8 @@ export const tunnelsApi = {
   },
   trustTunnelLogs: (lines = 200): Promise<Msg<string[]>> =>
     HttpUtil.get<string[]>(`${TRUSTTUNNEL}/logs?lines=${lines}`),
-  trustTunnelDownload: (url: string): Promise<Msg<null>> =>
-    HttpUtil.post<null>(`${TRUSTTUNNEL}/download`, { url }, JSON_HEADERS),
+  trustTunnelDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${TRUSTTUNNEL}/download`, { url, sha256 }, JSON_HEADERS),
   trustTunnelUpload: (file: File): Promise<Msg<null>> => {
     const fd = new FormData();
     fd.append('file', file);

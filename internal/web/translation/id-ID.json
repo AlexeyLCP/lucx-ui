@@ -110,7 +110,8 @@
     "donate": "Donasi",
     "hosts": "Host",
     "docs": "Dokumentasi",
-    "openMenu": "Buka menu"},
+    "openMenu": "Buka menu"
+  },
   "pages": {
     "login": {
       "hello": "Halo",
@@ -2126,7 +2127,10 @@
           "upload": "Unggah",
           "download": "Unduh via URL",
           "delete": "Hapus",
-          "deleteConfirm": "Hentikan inti dan hapus binernya?"
+          "deleteConfirm": "Hentikan inti dan hapus binernya?",
+          "sha256Placeholder": "Checksum SHA-256 (opsional)",
+          "sha256Hint": "Biarkan kosong untuk memasang apa pun yang dikembalikan URL. Jika diisi, unduhan dengan digest berbeda dibuang dan biner saat ini dipertahankan.",
+          "sha256Invalid": "Checksum SHA-256 terdiri dari 64 karakter heksadesimal."
         },
         "actions": {
           "start": "Mulai",
@@ -2189,7 +2193,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Checksum SHA-256 (opsional)",
+          "sha256Hint": "Biarkan kosong untuk memasang apa pun yang dikembalikan URL. Jika diisi, unduhan dengan digest berbeda dibuang dan biner saat ini dipertahankan.",
+          "sha256Invalid": "Checksum SHA-256 terdiri dari 64 karakter heksadesimal."
         },
         "actions": {
           "start": "Start",
@@ -2243,7 +2250,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Checksum SHA-256 (opsional)",
+          "sha256Hint": "Biarkan kosong untuk memasang apa pun yang dikembalikan URL. Jika diisi, unduhan dengan digest berbeda dibuang dan biner saat ini dipertahankan.",
+          "sha256Invalid": "Checksum SHA-256 terdiri dari 64 karakter heksadesimal."
         },
         "actions": {
           "start": "Start",
@@ -2293,7 +2303,10 @@
           "upload": "Unggah",
           "download": "Unduh",
           "delete": "Hapus",
-          "deleteConfirm": "Hentikan semua instance mieru dan hapus binernya?"
+          "deleteConfirm": "Hentikan semua instance mieru dan hapus binernya?",
+          "sha256Placeholder": "Checksum SHA-256 (opsional)",
+          "sha256Hint": "Biarkan kosong untuk memasang apa pun yang dikembalikan URL. Jika diisi, unduhan dengan digest berbeda dibuang dan biner saat ini dipertahankan.",
+          "sha256Invalid": "Checksum SHA-256 terdiri dari 64 karakter heksadesimal."
         },
         "toasts": {
           "uploaded": "Biner diunggah",
@@ -2308,7 +2321,10 @@
           "upload": "Unggah",
           "download": "Unduh",
           "delete": "Hapus",
-          "deleteConfirm": "Hentikan semua instance TrustTunnel dan hapus binernya?"
+          "deleteConfirm": "Hentikan semua instance TrustTunnel dan hapus binernya?",
+          "sha256Placeholder": "Checksum SHA-256 (opsional)",
+          "sha256Hint": "Biarkan kosong untuk memasang apa pun yang dikembalikan URL. Jika diisi, unduhan dengan digest berbeda dibuang dan biner saat ini dipertahankan.",
+          "sha256Invalid": "Checksum SHA-256 terdiri dari 64 karakter heksadesimal."
         },
         "toasts": {
           "uploaded": "Biner diunggah",

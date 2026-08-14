@@ -110,7 +110,8 @@
     "donate": "Doar",
     "hosts": "Hosts",
     "docs": "Documentação",
-    "openMenu": "Abrir menu"},
+    "openMenu": "Abrir menu"
+  },
   "pages": {
     "login": {
       "hello": "Olá",
@@ -2126,7 +2127,10 @@
           "upload": "Enviar",
           "download": "Baixar por URL",
           "delete": "Excluir",
-          "deleteConfirm": "Parar o núcleo e excluir seu binário?"
+          "deleteConfirm": "Parar o núcleo e excluir seu binário?",
+          "sha256Placeholder": "Soma de verificação SHA-256 (opcional)",
+          "sha256Hint": "Deixe vazio para instalar o que a URL retornar. Se preenchido, um download com resumo diferente é descartado e o binário atual é mantido.",
+          "sha256Invalid": "Uma soma SHA-256 tem 64 caracteres hexadecimais."
         },
         "actions": {
           "start": "Iniciar",
@@ -2189,7 +2193,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Soma de verificação SHA-256 (opcional)",
+          "sha256Hint": "Deixe vazio para instalar o que a URL retornar. Se preenchido, um download com resumo diferente é descartado e o binário atual é mantido.",
+          "sha256Invalid": "Uma soma SHA-256 tem 64 caracteres hexadecimais."
         },
         "actions": {
           "start": "Start",
@@ -2243,7 +2250,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Soma de verificação SHA-256 (opcional)",
+          "sha256Hint": "Deixe vazio para instalar o que a URL retornar. Se preenchido, um download com resumo diferente é descartado e o binário atual é mantido.",
+          "sha256Invalid": "Uma soma SHA-256 tem 64 caracteres hexadecimais."
         },
         "actions": {
           "start": "Start",
@@ -2293,7 +2303,10 @@
           "upload": "Enviar",
           "download": "Baixar",
           "delete": "Excluir",
-          "deleteConfirm": "Parar todas as instâncias do mieru e excluir o binário?"
+          "deleteConfirm": "Parar todas as instâncias do mieru e excluir o binário?",
+          "sha256Placeholder": "Soma de verificação SHA-256 (opcional)",
+          "sha256Hint": "Deixe vazio para instalar o que a URL retornar. Se preenchido, um download com resumo diferente é descartado e o binário atual é mantido.",
+          "sha256Invalid": "Uma soma SHA-256 tem 64 caracteres hexadecimais."
         },
         "toasts": {
           "uploaded": "Binário enviado",
@@ -2308,7 +2321,10 @@
           "upload": "Enviar",
           "download": "Baixar",
           "delete": "Excluir",
-          "deleteConfirm": "Parar todas as instâncias do TrustTunnel e excluir o binário?"
+          "deleteConfirm": "Parar todas as instâncias do TrustTunnel e excluir o binário?",
+          "sha256Placeholder": "Soma de verificação SHA-256 (opcional)",
+          "sha256Hint": "Deixe vazio para instalar o que a URL retornar. Se preenchido, um download com resumo diferente é descartado e o binário atual é mantido.",
+          "sha256Invalid": "Uma soma SHA-256 tem 64 caracteres hexadecimais."
         },
         "toasts": {
           "uploaded": "Binário enviado",

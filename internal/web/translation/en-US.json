@@ -110,7 +110,8 @@
     "apiDocs": "API Docs",
     "donate": "Donate",
     "docs": "Documentation",
-    "openMenu": "Open menu"},
+    "openMenu": "Open menu"
+  },
   "pages": {
     "login": {
       "hello": "Hello",
@@ -2126,7 +2127,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
         },
         "actions": {
           "start": "Start",
@@ -2189,7 +2193,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
         },
         "actions": {
           "start": "Start",
@@ -2243,7 +2250,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
         },
         "actions": {
           "start": "Start",
@@ -2293,7 +2303,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop all mieru instances and delete the binary?"
+          "deleteConfirm": "Stop all mieru instances and delete the binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
         },
         "toasts": {
           "uploaded": "Binary uploaded",
@@ -2308,7 +2321,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop all TrustTunnel instances and delete the binary?"
+          "deleteConfirm": "Stop all TrustTunnel instances and delete the binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
         },
         "toasts": {
           "uploaded": "Binary uploaded",

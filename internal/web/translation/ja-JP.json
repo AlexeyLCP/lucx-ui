@@ -110,7 +110,8 @@
     "donate": "寄付",
     "hosts": "ホスト",
     "docs": "ドキュメント",
-    "openMenu": "メニューを開く"},
+    "openMenu": "メニューを開く"
+  },
   "pages": {
     "login": {
       "hello": "こんにちは",
@@ -2126,7 +2127,10 @@
           "upload": "アップロード",
           "download": "URL からダウンロード",
           "delete": "削除",
-          "deleteConfirm": "コアを停止してバイナリを削除しますか？"
+          "deleteConfirm": "コアを停止してバイナリを削除しますか？",
+          "sha256Placeholder": "SHA-256 チェックサム（任意）",
+          "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
+          "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
         },
         "actions": {
           "start": "起動",
@@ -2189,7 +2193,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 チェックサム（任意）",
+          "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
+          "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
         },
         "actions": {
           "start": "Start",
@@ -2243,7 +2250,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 チェックサム（任意）",
+          "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
+          "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
         },
         "actions": {
           "start": "Start",
@@ -2293,7 +2303,10 @@
           "upload": "アップロード",
           "download": "ダウンロード",
           "delete": "削除",
-          "deleteConfirm": "すべての mieru インスタンスを停止してバイナリを削除しますか？"
+          "deleteConfirm": "すべての mieru インスタンスを停止してバイナリを削除しますか？",
+          "sha256Placeholder": "SHA-256 チェックサム（任意）",
+          "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
+          "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
         },
         "toasts": {
           "uploaded": "バイナリをアップロードしました",
@@ -2308,7 +2321,10 @@
           "upload": "アップロード",
           "download": "ダウンロード",
           "delete": "削除",
-          "deleteConfirm": "すべての TrustTunnel インスタンスを停止してバイナリを削除しますか？"
+          "deleteConfirm": "すべての TrustTunnel インスタンスを停止してバイナリを削除しますか？",
+          "sha256Placeholder": "SHA-256 チェックサム（任意）",
+          "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
+          "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
         },
         "toasts": {
           "uploaded": "バイナリをアップロードしました",

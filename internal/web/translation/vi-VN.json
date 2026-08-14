@@ -110,7 +110,8 @@
     "donate": "Quyên góp",
     "hosts": "Hosts",
     "docs": "Tài liệu",
-    "openMenu": "Mở menu"},
+    "openMenu": "Mở menu"
+  },
   "pages": {
     "login": {
       "hello": "Xin chào",
@@ -2126,7 +2127,10 @@
           "upload": "Tải lên",
           "download": "Tải theo URL",
           "delete": "Xóa",
-          "deleteConfirm": "Dừng lõi và xóa binary của nó?"
+          "deleteConfirm": "Dừng lõi và xóa binary của nó?",
+          "sha256Placeholder": "Tổng kiểm tra SHA-256 (tùy chọn)",
+          "sha256Hint": "Để trống để cài đặt bất cứ thứ gì URL trả về. Nếu điền, bản tải có digest khác sẽ bị loại bỏ và giữ nguyên tệp nhị phân hiện tại.",
+          "sha256Invalid": "Tổng kiểm tra SHA-256 gồm 64 ký tự thập lục phân."
         },
         "actions": {
           "start": "Khởi động",
@@ -2189,7 +2193,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Tổng kiểm tra SHA-256 (tùy chọn)",
+          "sha256Hint": "Để trống để cài đặt bất cứ thứ gì URL trả về. Nếu điền, bản tải có digest khác sẽ bị loại bỏ và giữ nguyên tệp nhị phân hiện tại.",
+          "sha256Invalid": "Tổng kiểm tra SHA-256 gồm 64 ký tự thập lục phân."
         },
         "actions": {
           "start": "Start",
@@ -2243,7 +2250,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Tổng kiểm tra SHA-256 (tùy chọn)",
+          "sha256Hint": "Để trống để cài đặt bất cứ thứ gì URL trả về. Nếu điền, bản tải có digest khác sẽ bị loại bỏ và giữ nguyên tệp nhị phân hiện tại.",
+          "sha256Invalid": "Tổng kiểm tra SHA-256 gồm 64 ký tự thập lục phân."
         },
         "actions": {
           "start": "Start",
@@ -2293,7 +2303,10 @@
           "upload": "Tải lên",
           "download": "Tải xuống",
           "delete": "Xóa",
-          "deleteConfirm": "Dừng tất cả phiên mieru và xóa nhị phân?"
+          "deleteConfirm": "Dừng tất cả phiên mieru và xóa nhị phân?",
+          "sha256Placeholder": "Tổng kiểm tra SHA-256 (tùy chọn)",
+          "sha256Hint": "Để trống để cài đặt bất cứ thứ gì URL trả về. Nếu điền, bản tải có digest khác sẽ bị loại bỏ và giữ nguyên tệp nhị phân hiện tại.",
+          "sha256Invalid": "Tổng kiểm tra SHA-256 gồm 64 ký tự thập lục phân."
         },
         "toasts": {
           "uploaded": "Đã tải nhị phân lên",
@@ -2308,7 +2321,10 @@
           "upload": "Tải lên",
           "download": "Tải xuống",
           "delete": "Xóa",
-          "deleteConfirm": "Dừng tất cả phiên TrustTunnel và xóa nhị phân?"
+          "deleteConfirm": "Dừng tất cả phiên TrustTunnel và xóa nhị phân?",
+          "sha256Placeholder": "Tổng kiểm tra SHA-256 (tùy chọn)",
+          "sha256Hint": "Để trống để cài đặt bất cứ thứ gì URL trả về. Nếu điền, bản tải có digest khác sẽ bị loại bỏ và giữ nguyên tệp nhị phân hiện tại.",
+          "sha256Invalid": "Tổng kiểm tra SHA-256 gồm 64 ký tự thập lục phân."
         },
         "toasts": {
           "uploaded": "Đã tải nhị phân lên",

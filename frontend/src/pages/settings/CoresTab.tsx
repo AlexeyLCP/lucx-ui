@@ -47,7 +47,7 @@ const CORE_API: Record<CoreKind, {
   status: () => Promise<CoreApiResult<CoreStatusView>>;
   logs: (n: number) => Promise<CoreApiResult<string[]>>;
   upload: (f: File) => Promise<unknown>;
-  download: (u: string) => Promise<unknown>;
+  download: (u: string, sha256?: string) => Promise<unknown>;
   deleteBinary: () => Promise<unknown>;
 }> = {
   naive: {
@@ -108,6 +108,7 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
   const [busy, setBusy] = useState(false);
   const [downloadOpen, setDownloadOpen] = useState(false);
   const [downloadUrl, setDownloadUrl] = useState('');
+  const [downloadSha, setDownloadSha] = useState('');
   const { data: res } = useCoreStatus(kind);
   const status = res?.success ? res.obj : undefined;
   const running = !!status?.probe?.running;
@@ -140,13 +141,17 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
     return false;
   };
 
+  const shaTrimmed = downloadSha.trim();
+  const shaInvalid = shaTrimmed !== '' && !/^[0-9a-fA-F]{64}$/.test(shaTrimmed);
+
   const doDownload = async () => {
-    if (!downloadUrl.trim()) return;
+    if (!downloadUrl.trim() || shaInvalid) return;
     setBusy(true);
     try {
-      await api.download(downloadUrl.trim());
+      await api.download(downloadUrl.trim(), shaTrimmed || undefined);
       setDownloadOpen(false);
       setDownloadUrl('');
+      setDownloadSha('');
       invalidate();
     } finally {
       setBusy(false);
@@ -212,13 +217,25 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
         onCancel={() => setDownloadOpen(false)}
         onOk={() => void doDownload()}
         okText={t(`${i18nBase}.download`)}
+        okButtonProps={{ disabled: !downloadUrl.trim() || shaInvalid }}
         confirmLoading={busy}
       >
-        <Input
-          placeholder="https://…/binary"
-          value={downloadUrl}
-          onChange={(e) => setDownloadUrl(e.target.value)}
-        />
+        <Space direction="vertical" style={{ width: '100%' }}>
+          <Input
+            placeholder="https://…/binary"
+            value={downloadUrl}
+            onChange={(e) => setDownloadUrl(e.target.value)}
+          />
+          <Input
+            placeholder={t(`${i18nBase}.sha256Placeholder`)}
+            value={downloadSha}
+            status={shaInvalid ? 'error' : undefined}
+            onChange={(e) => setDownloadSha(e.target.value)}
+          />
+          <Typography.Text type={shaInvalid ? 'danger' : 'secondary'} style={{ fontSize: 12 }}>
+            {shaInvalid ? t(`${i18nBase}.sha256Invalid`) : t(`${i18nBase}.sha256Hint`)}
+          </Typography.Text>
+        </Space>
       </Modal>
     </Card>
   );

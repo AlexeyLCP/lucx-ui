@@ -110,7 +110,8 @@
     "donate": "Bağış Yap",
     "hosts": "Host'lar",
     "docs": "Belgeler",
-    "openMenu": "Menüyü aç"},
+    "openMenu": "Menüyü aç"
+  },
   "pages": {
     "login": {
       "hello": "Merhaba",
@@ -2126,7 +2127,10 @@
           "upload": "Yükle",
           "download": "URL ile indir",
           "delete": "Sil",
-          "deleteConfirm": "Çekirdek durdurulup ikilisi silinsin mi?"
+          "deleteConfirm": "Çekirdek durdurulup ikilisi silinsin mi?",
+          "sha256Placeholder": "SHA-256 sağlama toplamı (isteğe bağlı)",
+          "sha256Hint": "Boş bırakılırsa URL ne döndürürse kurulur. Girilirse özeti farklı olan indirme atılır ve mevcut ikili dosya korunur.",
+          "sha256Invalid": "SHA-256 sağlama toplamı 64 onaltılık karakterden oluşur."
         },
         "actions": {
           "start": "Başlat",
@@ -2189,7 +2193,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 sağlama toplamı (isteğe bağlı)",
+          "sha256Hint": "Boş bırakılırsa URL ne döndürürse kurulur. Girilirse özeti farklı olan indirme atılır ve mevcut ikili dosya korunur.",
+          "sha256Invalid": "SHA-256 sağlama toplamı 64 onaltılık karakterden oluşur."
         },
         "actions": {
           "start": "Start",
@@ -2243,7 +2250,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 sağlama toplamı (isteğe bağlı)",
+          "sha256Hint": "Boş bırakılırsa URL ne döndürürse kurulur. Girilirse özeti farklı olan indirme atılır ve mevcut ikili dosya korunur.",
+          "sha256Invalid": "SHA-256 sağlama toplamı 64 onaltılık karakterden oluşur."
         },
         "actions": {
           "start": "Start",
@@ -2293,7 +2303,10 @@
           "upload": "Yükle",
           "download": "İndir",
           "delete": "Sil",
-          "deleteConfirm": "Tüm mieru örnekleri durdurulup ikili dosya silinsin mi?"
+          "deleteConfirm": "Tüm mieru örnekleri durdurulup ikili dosya silinsin mi?",
+          "sha256Placeholder": "SHA-256 sağlama toplamı (isteğe bağlı)",
+          "sha256Hint": "Boş bırakılırsa URL ne döndürürse kurulur. Girilirse özeti farklı olan indirme atılır ve mevcut ikili dosya korunur.",
+          "sha256Invalid": "SHA-256 sağlama toplamı 64 onaltılık karakterden oluşur."
         },
         "toasts": {
           "uploaded": "İkili yüklendi",
@@ -2308,7 +2321,10 @@
           "upload": "Yükle",
           "download": "İndir",
           "delete": "Sil",
-          "deleteConfirm": "Tüm TrustTunnel örnekleri durdurulup ikili dosya silinsin mi?"
+          "deleteConfirm": "Tüm TrustTunnel örnekleri durdurulup ikili dosya silinsin mi?",
+          "sha256Placeholder": "SHA-256 sağlama toplamı (isteğe bağlı)",
+          "sha256Hint": "Boş bırakılırsa URL ne döndürürse kurulur. Girilirse özeti farklı olan indirme atılır ve mevcut ikili dosya korunur.",
+          "sha256Invalid": "SHA-256 sağlama toplamı 64 onaltılık karakterden oluşur."
         },
         "toasts": {
           "uploaded": "İkili yüklendi",

@@ -110,7 +110,8 @@
     "donate": "捐赠",
     "hosts": "主机",
     "docs": "文档",
-    "openMenu": "打开菜单"},
+    "openMenu": "打开菜单"
+  },
   "pages": {
     "login": {
       "hello": "你好",
@@ -2126,7 +2127,10 @@
           "upload": "上传",
           "download": "按 URL 下载",
           "delete": "删除",
-          "deleteConfirm": "停止核心并删除其二进制文件？"
+          "deleteConfirm": "停止核心并删除其二进制文件？",
+          "sha256Placeholder": "SHA-256 校验和（可选）",
+          "sha256Hint": "留空则安装该链接返回的任何内容。填写后，摘要不符的下载将被丢弃，保留当前二进制文件。",
+          "sha256Invalid": "SHA-256 校验和为 64 位十六进制字符。"
         },
         "actions": {
           "start": "启动",
@@ -2189,7 +2193,10 @@
           "upload": "上传",
           "download": "下载",
           "delete": "删除",
-          "deleteConfirm": "停止核心并删除二进制？"
+          "deleteConfirm": "停止核心并删除二进制？",
+          "sha256Placeholder": "SHA-256 校验和（可选）",
+          "sha256Hint": "留空则安装该链接返回的任何内容。填写后，摘要不符的下载将被丢弃，保留当前二进制文件。",
+          "sha256Invalid": "SHA-256 校验和为 64 位十六进制字符。"
         },
         "actions": {
           "start": "启动",
@@ -2243,7 +2250,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 校验和（可选）",
+          "sha256Hint": "留空则安装该链接返回的任何内容。填写后，摘要不符的下载将被丢弃，保留当前二进制文件。",
+          "sha256Invalid": "SHA-256 校验和为 64 位十六进制字符。"
         },
         "actions": {
           "start": "Start",
@@ -2293,7 +2303,10 @@
           "upload": "上传",
           "download": "下载",
           "delete": "删除",
-          "deleteConfirm": "停止所有 mieru 实例并删除二进制文件？"
+          "deleteConfirm": "停止所有 mieru 实例并删除二进制文件？",
+          "sha256Placeholder": "SHA-256 校验和（可选）",
+          "sha256Hint": "留空则安装该链接返回的任何内容。填写后，摘要不符的下载将被丢弃，保留当前二进制文件。",
+          "sha256Invalid": "SHA-256 校验和为 64 位十六进制字符。"
         },
         "toasts": {
           "uploaded": "二进制已上传",
@@ -2308,7 +2321,10 @@
           "upload": "上传",
           "download": "下载",
           "delete": "删除",
-          "deleteConfirm": "停止所有 TrustTunnel 实例并删除二进制文件？"
+          "deleteConfirm": "停止所有 TrustTunnel 实例并删除二进制文件？",
+          "sha256Placeholder": "SHA-256 校验和（可选）",
+          "sha256Hint": "留空则安装该链接返回的任何内容。填写后，摘要不符的下载将被丢弃，保留当前二进制文件。",
+          "sha256Invalid": "SHA-256 校验和为 64 位十六进制字符。"
         },
         "toasts": {
           "uploaded": "二进制已上传",

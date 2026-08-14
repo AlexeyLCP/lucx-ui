@@ -8,6 +8,8 @@ package service
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"io"
 	"net"
@@ -40,6 +42,11 @@ const (
 // maxTunnelBinaryDownload caps the binary download (a caddy-naive build is
 // ~50 MB; the cap is headroom, not a target).
 const maxTunnelBinaryDownload = 200 << 20
+
+// maxTunnelDownloadRedirects bounds the redirect chain. Release assets on
+// GitHub redirect once or twice to object storage; anything longer is either
+// a loop or someone walking the fetcher somewhere it should not go.
+const maxTunnelDownloadRedirects = 5
 
 // TunnelService manages the external tunnel-server sidecars (NaiveProxy,
 // olcRTC): config persistence in the settings table, validation,
@@ -329,50 +336,8 @@ func (s *TunnelService) DeleteBinary() error {
 // DownloadBinary fetches the core binary from a URL into a temp file and
 // swaps it into place (an interrupted download never leaves a half-written
 // binary where the manager would exec it).
-func (s *TunnelService) DownloadBinary(downloadURL string) error {
-	downloadURL = strings.TrimSpace(downloadURL)
-	if downloadURL == "" {
-		return common.NewError("tunnel: empty download url")
-	}
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
-	defer cancel()
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
-	if err != nil {
-		return err
-	}
-	resp, err := (&http.Client{}).Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
-		return common.NewErrorf("tunnel: download failed: HTTP %d", resp.StatusCode)
-	}
-	dst := tunnel.Naive.BinaryPath()
-	tmp := dst + ".download"
-	file, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
-	if err != nil {
-		return err
-	}
-	n, err := io.Copy(file, io.LimitReader(resp.Body, maxTunnelBinaryDownload+1))
-	if closeErr := file.Close(); err == nil {
-		err = closeErr
-	}
-	if err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	if n > maxTunnelBinaryDownload {
-		_ = os.Remove(tmp)
-		return common.NewError("tunnel: download exceeds the size limit")
-	}
-	_ = os.Remove(dst)
-	if err := os.Rename(tmp, dst); err != nil {
-		_ = os.Remove(tmp)
-		return err
-	}
-	logger.Infof("tunnel: caddy binary downloaded to %s (%d bytes)", dst, n)
-	return nil
+func (s *TunnelService) DownloadBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Naive.BinaryPath(), downloadURL, wantSHA256)
 }
 
 // Reconcile converges every core toward its stored config; called by the
@@ -809,8 +774,8 @@ func (s *TunnelService) DeleteOlcrtcBinary() error {
 }
 
 // DownloadOlcrtcBinary fetches the core binary from a URL into place.
-func (s *TunnelService) DownloadOlcrtcBinary(downloadURL string) error {
-	return s.downloadBinaryTo(tunnel.Olcrtc.BinaryPath(), downloadURL)
+func (s *TunnelService) DownloadOlcrtcBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Olcrtc.BinaryPath(), downloadURL, wantSHA256)
 }
 
 func (s *TunnelService) persistOlcrtc(cfg tunnel.OlcrtcConfig) error {
@@ -839,19 +804,52 @@ func (s *TunnelService) olcrtcInstance(cfg tunnel.OlcrtcConfig) (tunnel.Instance
 	}, nil
 }
 
-// downloadBinaryTo is shared by Naive and olcRTC binary downloads.
-func (s *TunnelService) downloadBinaryTo(dst, downloadURL string) error {
+// downloadBinaryTo fetches a core binary into dst. It is the single download
+// path for all five cores.
+//
+// The fetched bytes become an executable the panel runs as root, and the URL
+// comes straight from an operator-supplied form field, so the fetch is
+// constrained rather than trusted:
+//
+//   - https only — plaintext http would let anyone on the path swap the binary;
+//   - every hop (the URL and each redirect target) must resolve to a public
+//     unicast address, so the panel cannot be pointed at 127.0.0.1, the LAN or
+//     a cloud metadata endpoint and used as a request proxy;
+//   - the redirect chain is bounded;
+//   - the response is size-capped and hashed, and when the caller supplied an
+//     expected SHA-256 a mismatch discards the download before it can replace
+//     the running binary.
+//
+// The digest of what landed is logged either way, so an operator who did not
+// pass one can still compare against the release checksums after the fact.
+func (s *TunnelService) downloadBinaryTo(dst, downloadURL, wantSHA256 string) error {
 	downloadURL = strings.TrimSpace(downloadURL)
 	if downloadURL == "" {
 		return common.NewError("tunnel: empty download url")
 	}
+	wantSHA256 = strings.ToLower(strings.TrimSpace(wantSHA256))
+	if wantSHA256 != "" && !isSHA256Hex(wantSHA256) {
+		return common.NewError("tunnel: sha256 must be 64 hex characters")
+	}
+	if err := checkDownloadURL(downloadURL); err != nil {
+		return err
+	}
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, downloadURL, nil)
 	if err != nil {
 		return err
 	}
-	resp, err := (&http.Client{}).Do(req)
+	client := &http.Client{
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			if len(via) >= maxTunnelDownloadRedirects {
+				return common.NewErrorf("tunnel: too many redirects (>%d)", maxTunnelDownloadRedirects)
+			}
+			return checkDownloadURL(r.URL.String())
+		},
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
@@ -859,12 +857,14 @@ func (s *TunnelService) downloadBinaryTo(dst, downloadURL string) error {
 	if resp.StatusCode != http.StatusOK {
 		return common.NewErrorf("tunnel: download failed: HTTP %d", resp.StatusCode)
 	}
+
 	tmp := dst + ".download"
 	file, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		return err
 	}
-	n, err := io.Copy(file, io.LimitReader(resp.Body, maxTunnelBinaryDownload+1))
+	digest := sha256.New()
+	n, err := io.Copy(io.MultiWriter(file, digest), io.LimitReader(resp.Body, maxTunnelBinaryDownload+1))
 	if closeErr := file.Close(); err == nil {
 		err = closeErr
 	}
@@ -876,13 +876,76 @@ func (s *TunnelService) downloadBinaryTo(dst, downloadURL string) error {
 		_ = os.Remove(tmp)
 		return common.NewError("tunnel: download exceeds the size limit")
 	}
+	got := hex.EncodeToString(digest.Sum(nil))
+	if wantSHA256 != "" && got != wantSHA256 {
+		_ = os.Remove(tmp)
+		return common.NewErrorf("tunnel: sha256 mismatch: expected %s, got %s", wantSHA256, got)
+	}
+
 	_ = os.Remove(dst)
 	if err := os.Rename(tmp, dst); err != nil {
 		_ = os.Remove(tmp)
 		return err
 	}
-	logger.Infof("tunnel: binary downloaded to %s (%d bytes)", dst, n)
+	logger.Infof("tunnel: binary downloaded to %s (%d bytes, sha256 %s)", dst, n, got)
 	return nil
+}
+
+// isSHA256Hex reports whether v is exactly 64 lowercase hex characters.
+func isSHA256Hex(v string) bool {
+	if len(v) != 64 {
+		return false
+	}
+	decoded, err := hex.DecodeString(v)
+	return err == nil && len(decoded) == sha256.Size
+}
+
+// checkDownloadURL rejects a binary-download target that is not plain https to
+// a public host. Called for the operator's URL and again for every redirect
+// hop, because a permissive first hop is worthless if hop two lands on
+// 169.254.169.254.
+func checkDownloadURL(raw string) error {
+	parsed, err := url.Parse(strings.TrimSpace(raw))
+	if err != nil {
+		return common.NewErrorf("tunnel: invalid download url: %v", err)
+	}
+	if !strings.EqualFold(parsed.Scheme, "https") {
+		return common.NewError("tunnel: download url must use https")
+	}
+	host := parsed.Hostname()
+	if host == "" {
+		return common.NewError("tunnel: download url has no host")
+	}
+	addrs, err := net.DefaultResolver.LookupIPAddr(context.Background(), host)
+	if err != nil {
+		return common.NewErrorf("tunnel: cannot resolve %s: %v", host, err)
+	}
+	if len(addrs) == 0 {
+		return common.NewErrorf("tunnel: %s resolves to no address", host)
+	}
+	for _, addr := range addrs {
+		if !isPublicUnicast(addr.IP) {
+			return common.NewErrorf("tunnel: %s resolves to a non-public address (%s)", host, addr.IP)
+		}
+	}
+	return nil
+}
+
+// isPublicUnicast reports whether ip is a routable public address — anything
+// loopback, link-local (which covers the 169.254.169.254 metadata service),
+// private, multicast or unspecified is refused.
+func isPublicUnicast(ip net.IP) bool {
+	if ip == nil || ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsInterfaceLocalMulticast() || ip.IsMulticast() {
+		return false
+	}
+	// Carrier-grade NAT (100.64.0.0/10) is not covered by IsPrivate but is
+	// just as much "someone else's network" from the panel's point of view.
+	if v4 := ip.To4(); v4 != nil && v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
+		return false
+	}
+	return true
 }
 
 func (s *TunnelService) persistNaive(cfg tunnel.NaiveConfig) error {
@@ -1206,8 +1269,8 @@ func (s *TunnelService) DeleteQwdttBinary() error {
 }
 
 // DownloadQwdttBinary fetches the core binary from a URL into place.
-func (s *TunnelService) DownloadQwdttBinary(downloadURL string) error {
-	return s.downloadBinaryTo(tunnel.Qwdtt.BinaryPath(), downloadURL)
+func (s *TunnelService) DownloadQwdttBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Qwdtt.BinaryPath(), downloadURL, wantSHA256)
 }
 
 func (s *TunnelService) persistQwdtt(cfg tunnel.QwdttConfig) error {
@@ -1281,8 +1344,8 @@ func (s *TunnelService) DeleteMieruBinary() error {
 }
 
 // DownloadMieruBinary fetches the mita binary from a URL into place.
-func (s *TunnelService) DownloadMieruBinary(downloadURL string) error {
-	return s.downloadBinaryTo(tunnel.Mieru.BinaryPath(), downloadURL)
+func (s *TunnelService) DownloadMieruBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Mieru.BinaryPath(), downloadURL, wantSHA256)
 }
 
 // --- TrustTunnel core (inbound-only, lucx.117) -----------------------------
@@ -1330,6 +1393,6 @@ func (s *TunnelService) DeleteTrustTunnelBinary() error {
 }
 
 // DownloadTrustTunnelBinary fetches the endpoint binary from a URL into place.
-func (s *TunnelService) DownloadTrustTunnelBinary(downloadURL string) error {
-	return s.downloadBinaryTo(tunnel.TrustTunnel.BinaryPath(), downloadURL)
+func (s *TunnelService) DownloadTrustTunnelBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.TrustTunnel.BinaryPath(), downloadURL, wantSHA256)
 }

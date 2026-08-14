@@ -233,15 +233,22 @@ func (a *TunnelController) uploadBinary(c *gin.Context) {
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.naive.toasts.uploaded"), nil)
 }
 
+// tunnelDownloadRequest is the body of every core binary download endpoint.
+// SHA256 is optional: when present the service refuses to install a download
+// whose digest does not match, which is the only defence against a mirror or
+// a path that hands back something other than the release asset.
+type tunnelDownloadRequest struct {
+	URL    string `json:"url" example:"https://github.com/AlexeyLCP/lucx-ui/releases/download/v3.6.0-lucx.123/caddy-naive-linux-amd64"`
+	SHA256 string `json:"sha256,omitempty" example:"9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"`
+}
+
 func (a *TunnelController) downloadBinary(c *gin.Context) {
-	var body struct {
-		URL string `json:"url"`
-	}
+	var body tunnelDownloadRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		jsonMsg(c, "tunnel: invalid download body", err)
 		return
 	}
-	if err := a.svc.DownloadBinary(body.URL); err != nil {
+	if err := a.svc.DownloadBinary(body.URL, body.SHA256); err != nil {
 		jsonMsg(c, "tunnel: download failed", err)
 		return
 	}
@@ -354,14 +361,12 @@ func (a *TunnelController) olcrtcUploadBinary(c *gin.Context) {
 }
 
 func (a *TunnelController) olcrtcDownloadBinary(c *gin.Context) {
-	var body struct {
-		URL string `json:"url"`
-	}
+	var body tunnelDownloadRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		jsonMsg(c, "tunnel: invalid olcrtc download body", err)
 		return
 	}
-	if err := a.svc.DownloadOlcrtcBinary(body.URL); err != nil {
+	if err := a.svc.DownloadOlcrtcBinary(body.URL, body.SHA256); err != nil {
 		jsonMsg(c, "tunnel: olcrtc download failed", err)
 		return
 	}
@@ -460,14 +465,12 @@ func (a *TunnelController) qwdttUploadBinary(c *gin.Context) {
 }
 
 func (a *TunnelController) qwdttDownloadBinary(c *gin.Context) {
-	var body struct {
-		URL string `json:"url"`
-	}
+	var body tunnelDownloadRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		jsonMsg(c, "tunnel: invalid qwdtt download body", err)
 		return
 	}
-	if err := a.svc.DownloadQwdttBinary(body.URL); err != nil {
+	if err := a.svc.DownloadQwdttBinary(body.URL, body.SHA256); err != nil {
 		jsonMsg(c, "tunnel: qwdtt download failed", err)
 		return
 	}
@@ -524,14 +527,12 @@ func (a *TunnelController) mieruUploadBinary(c *gin.Context) {
 }
 
 func (a *TunnelController) mieruDownloadBinary(c *gin.Context) {
-	var body struct {
-		URL string `json:"url"`
-	}
+	var body tunnelDownloadRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		jsonMsg(c, "tunnel: invalid mieru download body", err)
 		return
 	}
-	if err := a.svc.DownloadMieruBinary(body.URL); err != nil {
+	if err := a.svc.DownloadMieruBinary(body.URL, body.SHA256); err != nil {
 		jsonMsg(c, "tunnel: mieru download failed", err)
 		return
 	}
@@ -588,14 +589,12 @@ func (a *TunnelController) trustTunnelUploadBinary(c *gin.Context) {
 }
 
 func (a *TunnelController) trustTunnelDownloadBinary(c *gin.Context) {
-	var body struct {
-		URL string `json:"url"`
-	}
+	var body tunnelDownloadRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
 		jsonMsg(c, "tunnel: invalid trusttunnel download body", err)
 		return
 	}
-	if err := a.svc.DownloadTrustTunnelBinary(body.URL); err != nil {
+	if err := a.svc.DownloadTrustTunnelBinary(body.URL, body.SHA256); err != nil {
 		jsonMsg(c, "tunnel: trusttunnel download failed", err)
 		return
 	}

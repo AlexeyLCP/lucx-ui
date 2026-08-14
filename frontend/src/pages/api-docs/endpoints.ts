@@ -483,8 +483,8 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/tunnel/naive/download',
-        summary: 'Fetch the core binary from a URL into a temp file and swap it into place (an interrupted download never leaves a half-written binary). 200 MB cap. LucX-UI only.',
-        body: '{\n  "url": "https://example.com/caddy-naive-linux-amd64"\n}',
+        summary: 'Fetch the core binary from a URL into a temp file and swap it into place (an interrupted download never leaves a half-written binary). https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/caddy-naive-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
       },
       {
         method: 'POST',
@@ -545,8 +545,8 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/tunnel/olcrtc/download',
-        summary: 'Fetch the olcrtc binary from a URL into place (200 MB cap). LucX-UI only.',
-        body: '{\n  "url": "https://example.com/olcrtc-linux-amd64"\n}',
+        summary: 'Fetch the olcrtc binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/olcrtc-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
       },
       {
         method: 'POST',
@@ -600,8 +600,8 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/tunnel/qwdtt/download',
-        summary: 'Fetch the qwdtt binary from a URL into place (200 MB cap). LucX-UI only.',
-        body: '{\n  "url": "https://example.com/qwdtt-linux-amd64"\n}',
+        summary: 'Fetch the qwdtt binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/qwdtt-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
       },
       {
         method: 'POST',
@@ -629,8 +629,8 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/tunnel/mieru/download',
-        summary: 'Fetch the mita binary from a URL into place (200 MB cap). LucX-UI only.',
-        body: '{\n  "url": "https://example.com/mieru-linux-amd64"\n}',
+        summary: 'Fetch the mita binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/mieru-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
       },
       {
         method: 'POST',
@@ -658,8 +658,8 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/tunnel/trusttunnel/download',
-        summary: 'Fetch the trusttunnel_endpoint binary from a URL into place (200 MB cap). LucX-UI only.',
-        body: '{\n  "url": "https://example.com/trusttunnel-linux-amd64"\n}',
+        summary: 'Fetch the trusttunnel_endpoint binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/trusttunnel-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
       },
       {
         method: 'POST',

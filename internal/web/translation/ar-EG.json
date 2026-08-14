@@ -110,7 +110,8 @@
     "donate": "تبرع",
     "hosts": "المضيفات",
     "docs": "التوثيق",
-    "openMenu": "فتح القائمة"},
+    "openMenu": "فتح القائمة"
+  },
   "pages": {
     "login": {
       "hello": "أهلا",
@@ -2126,7 +2127,10 @@
           "upload": "رفع",
           "download": "تنزيل عبر URL",
           "delete": "حذف",
-          "deleteConfirm": "إيقاف النواة وحذف ملفها الثنائي؟"
+          "deleteConfirm": "إيقاف النواة وحذف ملفها الثنائي؟",
+          "sha256Placeholder": "المجموع الاختباري SHA-256 (اختياري)",
+          "sha256Hint": "اتركه فارغًا ليُثبَّت ما يعيده الرابط. عند تعيينه، يُهمَل أي تنزيل يختلف بصمته ويبقى الملف التنفيذي الحالي.",
+          "sha256Invalid": "المجموع الاختباري SHA-256 يتكون من 64 خانة ست عشرية."
         },
         "actions": {
           "start": "بدء",
@@ -2189,7 +2193,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "المجموع الاختباري SHA-256 (اختياري)",
+          "sha256Hint": "اتركه فارغًا ليُثبَّت ما يعيده الرابط. عند تعيينه، يُهمَل أي تنزيل يختلف بصمته ويبقى الملف التنفيذي الحالي.",
+          "sha256Invalid": "المجموع الاختباري SHA-256 يتكون من 64 خانة ست عشرية."
         },
         "actions": {
           "start": "Start",
@@ -2243,7 +2250,10 @@
           "upload": "Upload",
           "download": "Download",
           "delete": "Delete",
-          "deleteConfirm": "Stop the core and delete its binary?"
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "المجموع الاختباري SHA-256 (اختياري)",
+          "sha256Hint": "اتركه فارغًا ليُثبَّت ما يعيده الرابط. عند تعيينه، يُهمَل أي تنزيل يختلف بصمته ويبقى الملف التنفيذي الحالي.",
+          "sha256Invalid": "المجموع الاختباري SHA-256 يتكون من 64 خانة ست عشرية."
         },
         "actions": {
           "start": "Start",
@@ -2293,7 +2303,10 @@
           "upload": "رفع",
           "download": "تنزيل",
           "delete": "حذف",
-          "deleteConfirm": "إيقاف كل نسخ mieru وحذف الملف؟"
+          "deleteConfirm": "إيقاف كل نسخ mieru وحذف الملف؟",
+          "sha256Placeholder": "المجموع الاختباري SHA-256 (اختياري)",
+          "sha256Hint": "اتركه فارغًا ليُثبَّت ما يعيده الرابط. عند تعيينه، يُهمَل أي تنزيل يختلف بصمته ويبقى الملف التنفيذي الحالي.",
+          "sha256Invalid": "المجموع الاختباري SHA-256 يتكون من 64 خانة ست عشرية."
         },
         "toasts": {
           "uploaded": "تم رفع الملف",
@@ -2308,7 +2321,10 @@
           "upload": "رفع",
           "download": "تنزيل",
           "delete": "حذف",
-          "deleteConfirm": "إيقاف كل نسخ TrustTunnel وحذف الملف؟"
+          "deleteConfirm": "إيقاف كل نسخ TrustTunnel وحذف الملف؟",
+          "sha256Placeholder": "المجموع الاختباري SHA-256 (اختياري)",
+          "sha256Hint": "اتركه فارغًا ليُثبَّت ما يعيده الرابط. عند تعيينه، يُهمَل أي تنزيل يختلف بصمته ويبقى الملف التنفيذي الحالي.",
+          "sha256Invalid": "المجموع الاختباري SHA-256 يتكون من 64 خانة ست عشرية."
         },
         "toasts": {
           "uploaded": "تم رفع الملف",
