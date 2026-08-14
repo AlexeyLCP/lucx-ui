@@ -12,6 +12,7 @@ import (
 	"crypto/tls"
 	"encoding/hex"
 	"fmt"
+	"maps"
 	"net"
 	"os"
 	"path/filepath"
@@ -125,15 +126,30 @@ type Status struct {
 	Responding bool `json:"responding"`
 }
 
+// managed is one supervised key. opMu serialises the slow lifecycle operations
+// (stop, config write, exec) of THIS key only, so a core that takes the full
+// SIGTERM grace period to die cannot block status reads or the lifecycle of
+// every other core the way a single manager-wide lock did.
 type managed struct {
+	opMu sync.Mutex
 	proc *Proc
 	fp   string
 }
 
 // Manager owns the supervised tunnel-core processes keyed by ManageKey
 // (legacy core name or "naive-{id}" for inbound instances).
+//
+// Locking: mu guards the maps and nothing else — every critical section under
+// it is a map lookup or a field read, never process I/O. Per-key lifecycle
+// work runs under managed.opMu, taken after mu has been released.
 type Manager struct {
-	mu                 sync.Mutex
+	mu    sync.Mutex
+	swept bool
+	// sweepEnabled is set only on the shared instance built by GetManager.
+	// The orphan sweep SIGKILLs every process named like one of our cores,
+	// which is right for the running panel and very wrong for `go test` on a
+	// developer machine that happens to have a panel running next to it.
+	sweepEnabled       bool
 	cores              map[string]*managed
 	naiveTraffic       map[string]*naiveLogCursor
 	mieruTraffic       map[string]map[string]*mieruUserCursor
@@ -159,17 +175,54 @@ func GetManager() *Manager {
 	defer managerMu.Unlock()
 	if managerRef == nil {
 		managerRef = newManager()
+		managerRef.sweepEnabled = true
 	}
 	return managerRef
 }
 
+// slot returns the managed record for key, creating it on first use. Callers
+// must hold m.mu.
 func (m *Manager) slot(key string) *managed {
 	mc, ok := m.cores[key]
 	if !ok {
-		mc = &managed{}
+		// proc is created eagerly and never reassigned, so the read-only
+		// accessors below can reach it under mu while a lifecycle operation
+		// mutates the process under opMu, with no race on the pointer itself.
+		mc = &managed{proc: NewProc(key)}
 		m.cores[key] = mc
 	}
 	return mc
+}
+
+// acquire returns the managed record for key, holding m.mu only for the map
+// lookup. The returned pointer stays valid after Remove deletes the key, so a
+// lifecycle operation already in flight finishes against its own record.
+func (m *Manager) acquire(key string) *managed {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.slot(key)
+}
+
+// sweepOrphans kills tunnel cores left running by a previous x-ui run, exactly
+// once per process lifetime and before any of our own cores are started. The
+// panel owns every one of these binaries, so anything alive at this point is a
+// survivor of an ungraceful shutdown that is still holding an inbound port.
+func (m *Manager) sweepOrphans() {
+	m.mu.Lock()
+	if m.swept || !m.sweepEnabled {
+		m.mu.Unlock()
+		return
+	}
+	m.swept = true
+	m.mu.Unlock()
+
+	paths := make([]string, 0, len(All()))
+	for _, core := range All() {
+		paths = append(paths, core.BinaryPath())
+	}
+	if n := killStrayTunnelProcesses(paths); n > 0 {
+		logger.Warningf("tunnel: terminated %d orphaned sidecar process(es) from a previous run", n)
+	}
 }
 
 // Ensure converges one core toward the desired instance: disabled -> stopped
@@ -180,10 +233,11 @@ func (m *Manager) Ensure(inst Instance) error {
 	if !inst.Core.Valid() {
 		return fmt.Errorf("tunnel: unknown core %q", inst.Core)
 	}
+	m.sweepOrphans()
 	key := inst.ManageKey()
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	mc := m.slot(key)
+	mc := m.acquire(key)
+	mc.opMu.Lock()
+	defer mc.opMu.Unlock()
 
 	if !inst.Enabled {
 		if mc.proc != nil && mc.proc.IsRunning() {
@@ -208,7 +262,7 @@ func (m *Manager) Ensure(inst Instance) error {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	if err := m.start(inst); err != nil {
+	if err := m.start(inst, mc); err != nil {
 		return err
 	}
 	mc.fp = fp
@@ -227,13 +281,7 @@ func (m *Manager) EnsureQwdttRouting(inst Instance) {
 	if !inst.RouteThroughXray || !inst.Enabled {
 		return
 	}
-	m.mu.Lock()
-	running := false
-	if mc, ok := m.cores[inst.ManageKey()]; ok && mc.proc != nil && mc.proc.IsRunning() {
-		running = true
-	}
-	m.mu.Unlock()
-	if running {
+	if m.IsRunningKey(inst.ManageKey()) {
 		ensureQwdttXrayRouting(inst)
 	}
 }
@@ -249,15 +297,21 @@ func (m *Manager) Remove(key string) {
 	}
 	m.mu.Lock()
 	mc, ok := m.cores[key]
+	delete(m.cores, key)
+	m.mu.Unlock()
 	if ok {
+		// The record is already out of the map, but a concurrent Ensure may
+		// still hold it; opMu makes sure we stop the process after that
+		// operation finished rather than in the middle of its exec.
+		mc.opMu.Lock()
 		if mc.proc != nil && mc.proc.IsRunning() {
 			if err := mc.proc.Stop(); err != nil {
 				logger.Warningf("tunnel: remove stop %s: %v", key, err)
 			}
 		}
-		delete(m.cores, key)
+		mc.fp = ""
+		mc.opMu.Unlock()
 	}
-	m.mu.Unlock()
 	removeManagedFiles(key)
 }
 
@@ -367,9 +421,9 @@ func (m *Manager) Stop(core Name) error {
 
 // StopKey terminates one managed key if running.
 func (m *Manager) StopKey(key string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	mc := m.slot(key)
+	mc := m.acquire(key)
+	mc.opMu.Lock()
+	defer mc.opMu.Unlock()
 	mc.fp = ""
 	if mc.proc == nil || !mc.proc.IsRunning() {
 		return nil
@@ -378,17 +432,30 @@ func (m *Manager) StopKey(key string) error {
 }
 
 // StopAll terminates every running core; wired into the panel shutdown.
+// Cores are stopped concurrently: the panel shutdown path should not take
+// (number of cores) x SIGTERM grace period before the process can exit.
 func (m *Manager) StopAll() {
 	m.mu.Lock()
-	defer m.mu.Unlock()
-	for key, mc := range m.cores {
-		if mc.proc != nil && mc.proc.IsRunning() {
-			if err := mc.proc.Stop(); err != nil {
-				logger.Warningf("tunnel: shutdown stop %s failed: %v", key, err)
+	slots := make(map[string]*managed, len(m.cores))
+	maps.Copy(slots, m.cores)
+	m.mu.Unlock()
+
+	var wg sync.WaitGroup
+	for key, mc := range slots {
+		wg.Add(1)
+		go func(key string, mc *managed) {
+			defer wg.Done()
+			mc.opMu.Lock()
+			defer mc.opMu.Unlock()
+			if mc.proc != nil && mc.proc.IsRunning() {
+				if err := mc.proc.Stop(); err != nil {
+					logger.Warningf("tunnel: shutdown stop %s failed: %v", key, err)
+				}
 			}
-		}
-		mc.fp = ""
+			mc.fp = ""
+		}(key, mc)
 	}
+	wg.Wait()
 }
 
 // IsRunning reports whether the core process is alive (legacy Name API).
@@ -634,7 +701,7 @@ func writeFileIfChanged(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o600)
 }
 
-func (m *Manager) start(inst Instance) error {
+func (m *Manager) start(inst Instance, mc *managed) error {
 	bin := inst.Core.BinaryPath()
 	info, err := os.Stat(bin)
 	if err != nil || info.IsDir() {
@@ -686,10 +753,6 @@ func (m *Manager) start(inst Instance) error {
 		)
 	}
 
-	mc := m.slot(key)
-	if mc.proc == nil {
-		mc.proc = NewProc(key)
-	}
 	if err := mc.proc.Start(bin, args, env); err != nil {
 		return fmt.Errorf("tunnel: start %s: %w", key, err)
 	}

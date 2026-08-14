@@ -7,6 +7,7 @@
 package tunnel
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
@@ -26,6 +27,12 @@ const (
 	gracefulStopTimeout = 5 * time.Second
 	forceStopTimeout    = 2 * time.Second
 	maxLogLines         = 500
+	// maxPartialLine caps the unterminated tail procLogWriter holds while it
+	// waits for a newline. A core that writes a progress bar with \r only, a
+	// single-line JSON dump, or binary garbage after a bad download would
+	// otherwise grow this string without bound — the ring buffer above only
+	// caps whole lines. At the cap the tail is flushed as its own line.
+	maxPartialLine = 64 << 10
 )
 
 // ring is a bounded, concurrency-safe line buffer for the child's output.
@@ -73,24 +80,35 @@ func (r *ring) all(max int) []string {
 type procLogWriter struct {
 	mu    sync.Mutex
 	label string
-	buf   string
+	buf   strings.Builder
 	ring  *ring
 }
 
 func (w *procLogWriter) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.buf += string(p)
-	for {
-		i := strings.IndexByte(w.buf, '\n')
+	consumed := len(p)
+	for len(p) > 0 {
+		i := bytes.IndexByte(p, '\n')
 		if i < 0 {
+			w.buf.Write(p)
 			break
 		}
-		line := w.buf[:i]
-		w.buf = w.buf[i+1:]
-		w.emitLocked(line)
+		w.buf.Write(p[:i])
+		w.emitLocked(w.takeBufLocked())
+		p = p[i+1:]
 	}
-	return len(p), nil
+	if w.buf.Len() >= maxPartialLine {
+		w.emitLocked(w.takeBufLocked())
+	}
+	return consumed, nil
+}
+
+// takeBufLocked returns the buffered partial line and resets the builder.
+func (w *procLogWriter) takeBufLocked() string {
+	line := w.buf.String()
+	w.buf.Reset()
+	return line
 }
 
 // flush emits any buffered partial line; called once the process exits so a
@@ -98,10 +116,8 @@ func (w *procLogWriter) Write(p []byte) (int, error) {
 func (w *procLogWriter) flush() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	if w.buf != "" {
-		line := w.buf
-		w.buf = ""
-		w.emitLocked(line)
+	if w.buf.Len() > 0 {
+		w.emitLocked(w.takeBufLocked())
 	}
 }
 
