@@ -606,7 +606,11 @@ func writeConfig(path string, inst Instance, apiPort int, apiToken string) error
 	if err := os.MkdirAll(configDir(), 0o750); err != nil {
 		return err
 	}
-	return os.WriteFile(path, []byte(renderConfig(inst, apiPort, apiToken)), 0o640)
+	// LUCX-HOOK: 0600, not 0640. This file carries every client's FakeTLS
+	// secret and the management-API bearer token, and nothing but the panel
+	// process ever reads it; the AWG and tunnel config writers already use
+	// 0600 for the same reason. END LUCX-HOOK
+	return os.WriteFile(path, []byte(renderConfig(inst, apiPort, apiToken)), 0o600)
 }
 
 // statsUser is one entry of the mtg-multi /stats users map. bytes_in is traffic

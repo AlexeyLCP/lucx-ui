@@ -7,6 +7,7 @@
 package service
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"os"
@@ -14,6 +15,7 @@ import (
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -114,6 +116,51 @@ var (
 	awgRebuildRunning bool
 )
 
+// awgRebuildTailBytes is how much of a failed rebuild's output is kept for the
+// error log. The interesting part of a DKMS failure is always the end.
+const awgRebuildTailBytes = 64 << 10
+
+// boundedTail is an io.Writer that streams whole lines to the panel log and
+// retains only the last limit bytes, so a long-running build cannot pin an
+// unbounded amount of memory just to produce one error message.
+type boundedTail struct {
+	mu      sync.Mutex
+	limit   int
+	tail    []byte
+	partial []byte
+}
+
+func (b *boundedTail) Write(p []byte) (int, error) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	b.tail = append(b.tail, p...)
+	if len(b.tail) > b.limit {
+		b.tail = b.tail[len(b.tail)-b.limit:]
+	}
+	rest := p
+	for {
+		i := bytes.IndexByte(rest, '\n')
+		if i < 0 {
+			b.partial = append(b.partial, rest...)
+			break
+		}
+		line := append(b.partial, rest[:i]...)
+		b.partial = nil
+		if trimmed := strings.TrimSpace(string(line)); trimmed != "" {
+			logger.Info("awg: rebuild | ", trimmed)
+		}
+		rest = rest[i+1:]
+	}
+	return len(p), nil
+}
+
+// String returns the retained tail of the output.
+func (b *boundedTail) String() string {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	return string(b.tail)
+}
+
 // RebuildAwgModule starts bin/install-awg-module.sh --force-rebuild in the
 // background (DKMS rebuild from upstream master). Returns immediately; the
 // operator watches logs / host status. Linux-only.
@@ -148,9 +195,15 @@ func (s *ServerService) RebuildAwgModule() error {
 		defer cancel()
 		cmd := exec.CommandContext(ctx, "bash", script, "--force-rebuild")
 		cmd.Dir = filepath.Dir(script)
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			logger.Warningf("awg: module rebuild failed: %v\n%s", err, string(out))
+		// A DKMS rebuild runs for up to 45 minutes and is chatty; buffering all
+		// of it in memory to print once at the end also means the operator sees
+		// nothing at all until it finishes. Keep a bounded tail for the failure
+		// message and stream the rest to the panel log as it arrives.
+		tail := &boundedTail{limit: awgRebuildTailBytes}
+		cmd.Stdout = tail
+		cmd.Stderr = tail
+		if err := cmd.Run(); err != nil {
+			logger.Warningf("awg: module rebuild failed: %v\n%s", err, tail.String())
 			return
 		}
 		logger.Info("awg: module rebuild finished OK")
