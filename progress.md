@@ -5,6 +5,27 @@
 
 ---
 
+## Релиз v3.6.0-lucx.119 (2026-08-14) — overlay 3x-ui: Scan wg_keep_alive
+
+**Проблема:** install/update LucX поверх ванильной 3x-ui → Clients page краш:
+`sql: Scan error … wg_keep_alive … int64 into type *model.KeepAliveValue`.
+Причина: `KeepAlive` стал string (AWG3 ranges), upstream-колонка INTEGER.
+
+**Фикс:**
+1. `KeepAliveValue.Scan`/`Value` — int64/string/[]byte/float64/nil (SQLite legacy).
+2. `migrate_awg_keepalive.go` — Postgres bigint→text до AutoMigrate (SQLite no-op).
+3. Frontend WG inbound schema — `keepAlive` number|string (после LucX write-back).
+4. Rule 0b в AGENTS.md + Pattern 1n: vanilla overlay sacred.
+5. Тесты: Scan/Value, vanilla JSON `keepAlive:25`, Find по INTEGER-таблице, inbound-from-db string keepAlive.
+
+**Файлы:** `model.go`, `keepalive_value_test.go`, `migrate_awg_keepalive.go`(+test), `db.go` (hook), `wireguard.ts`, `inbound-from-db.test.ts`, `check-lucx.sh`, `config.go`, `AGENTS.md`, `progress.md`.
+
+**Правило:** Rule 0b — любой custom type на upstream-колонке обязан Scanner'ить legacy driver values; Zod — number|string.
+
+**lucxVersion:** lucx.119
+
+---
+
 ## Контекст
 
 - **Репозиторий:** [AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) — форк 3x-ui

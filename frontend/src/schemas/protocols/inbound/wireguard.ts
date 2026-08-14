@@ -15,6 +15,17 @@ export type WireguardDomainStrategy = z.infer<typeof WireguardDomainStrategySche
 const optionalClearedInt = (schema: z.ZodNumber) =>
   z.preprocess((v) => (v == null ? undefined : v), schema.optional());
 
+// LUCX-HOOK: LucX KeepAliveValue / overlay write-back may store a string
+const optionalKeepAlive = z.preprocess((v) => {
+  if (v == null || v === '') return undefined;
+  if (typeof v === 'string') {
+    const n = Number.parseInt(v, 10);
+    return Number.isFinite(n) ? n : undefined;
+  }
+  return v;
+}, z.number().int().min(0).optional());
+// END LUCX-HOOK
+
 // Wireguard inbound is peer-based (no clients). Each peer is a client device
 // the server accepts; secretKey is the server-side private key and pubKey is
 // derived from it at runtime (not persisted on the wire). Inbound peers
@@ -25,7 +36,7 @@ export const WireguardInboundPeerSchema = z.object({
   publicKey: z.string().min(1),
   preSharedKey: z.string().optional(),
   allowedIPs: z.array(z.string()).default([]),
-  keepAlive: optionalClearedInt(z.number().int().min(0)),
+  keepAlive: optionalKeepAlive,
   // Panel-only annotation (#5168): which client/device this peer belongs to.
   // Rides along in the settings JSON like privateKey does; xray-core ignores
   // unknown peer fields.
@@ -43,7 +54,7 @@ export const WireguardClientSchema = z.object({
   publicKey: z.string().optional(),
   preSharedKey: z.string().optional(),
   allowedIPs: z.array(z.string()).default([]),
-  keepAlive: optionalClearedInt(z.number().int().min(0)),
+  keepAlive: optionalKeepAlive,
   email: z.string().min(1),
   limitIp: z.number().int().min(0).default(0),
   totalGB: z.number().int().min(0).default(0),

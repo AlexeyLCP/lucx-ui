@@ -100,6 +100,33 @@ AWG:      awg kernel module        → IP   → TUN inbound             → Xray
 
 **Перед merge/релизом агент обязан спросить себя:** «Если тестер сделает `x-ui update` на живой панели с сотней клиентов — кто-то из них потеряет интернет или должен перекачать .conf без своего желания?» Если да — **нельзя** мержить.
 
+### 0b. Vanilla 3x-ui overlay is sacred — STRICT (lucx.119+)
+
+**Закон:** установка LucX-UI **поверх** живой БД ванильной 3x-ui (`/etc/x-ui/x-ui.db` без переустановки, `x-ui update` / install поверх) **ОБЯЗАНА** поднимать панель и показывать существующих клиентов/инбаунды без краша.
+
+Типичный путь тестера: стоит MHSanaei/3x-ui → ставит LucX → открывает Clients / Inbounds. Любой регресс здесь = «форк не ставится».
+
+**Перед merge/релизом агент обязан спросить себя:** «Если взять свежую SQLite от upstream 3.6.x с WireGuard-клиентами и `wg_keep_alive INTEGER` и запустить наш бинарник — Clients page и Xray start работают?» Если нет — **нельзя** мержить.
+
+**Строго запрещено:**
+- Менять тип Go-поля, которое мапится на **существующую** upstream-колонку (`clients.*`, `inbounds.*`, …), **без** `sql.Scanner` / `driver.Valuer` (или эквивалента), принимающего **легаси-форму** драйвера. Урок lucx.119: `KeepAlive int` → `KeepAliveValue string` без `Scan` → `unsupported Scan, storing driver.Value type int64 into type *model.KeepAliveValue` на каждом `Find(&[]ClientRecord)` — панель «Что-то пошло не так».
+- Считать, что GORM AutoMigrate «сам расширит» INTEGER→TEXT на SQLite. На SQLite affinity per-value: колонка **остаётся** INTEGER, драйвер отдаёт `int64` для старых строк. Нужен Scanner, не «type:text в теге».
+- Zod/frontend-схемы, которые принимают **только** новый тип (например `keepAlive: z.number()`), если backend после LucX-записи может отдать строку (`"25"` / `"15-25"`) — форма Edit inbound не сохранится. Принимать number|string (preprocess), как `normalizeAwgTimer` / `optionalKeepAlive`.
+- Startup-миграции, которые на vanilla-БД **мутируют** клиентские данные (см. Rule 0). Schema widen / backfill defaults / new empty tables — ок.
+
+**Обязательно при смене типа колонки / custom type:**
+1. `Scan` (+ `Value` при записи) для **всех** форм, которые отдаёт driver на legacy DB: `nil`, `int64`, `[]byte`, `string`, при необходимости `float64`.
+2. Postgres: явный `ALTER … TYPE text USING …` **до** AutoMigrate, если strict type не даст писать новый формат (`migrate_awg_keepalive.go`).
+3. Регрессия: unit Scan + (если CGO) `Find` по таблице с INTEGER-колонкой; JSON unmarshal vanilla `{"keepAlive":25}`; frontend parse number **и** string.
+4. Не полагаться на «свежая LucX-БД зелёная» — overlay path проверять отдельно.
+
+**Разрешено / fine на overlay:**
+- Новые таблицы (`awg_outbounds`) пустыми, новые optional settings-ключи с default.
+- Новые значения `Protocol` oneof (awg/naive/…) — не ломают load существующих строк.
+- Миграции `protocol='awg'` / `lucxTunnel_*` — no-op на vanilla.
+
+**См. Pattern 1n** (debug): Scan `wg_keep_alive`.
+
 ### 1. LUCX-HOOK Isolation
 
 ALL changes to upstream 3x-ui files go inside `// LUCX-HOOK` / `// END LUCX-HOOK` markers. Never modify 3x-ui core code outside these markers without explicit instruction.
@@ -274,6 +301,7 @@ internal/database/
 ├── migrate_awg.go                 pruneLegacyAwgHiddenChildren + stripHiddenKeys
 ├── migrate_awg_outbound.go        outbound-side migration (stripHiddenKeys for awg_outbounds)
 ├── migrate_awg_hpk.go             pruneAwgHeaderProtectionKey — clears non-empty HPK (regression from lucx.47; see Known Issue #5)
+├── migrate_awg_keepalive.go       Postgres: clients.wg_keep_alive INTEGER/bigint → text before AutoMigrate (SQLite no-op; Scan handles int64)
 └── migrate_awg*_test.go           unit tests
 
 internal/web/
@@ -665,6 +693,12 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
   3. После ротации адреса клиент обязан перескачать конфиг (панель/подписка) — старый конфиг в приложении остаётся с протухшим адресом.
 - **Откат для уже мигрировавших на lucx.91:** бэкап не сохранялся, единственная запись old→new — журнал панели: `journalctl -u x-ui | grep 'migration.*address'` (строки `client "email" address OLD -> NEW`). Откат нужен редко: ротированные клиенты до миграции не работали, новый адрес валиден — достаточно перескачать конфиг. Вернуть старый адрес — вручную в allowedIPs клиента.
 - **Урок:** «не перезаписывать существующее» безопасно для ключей, но НЕ для адресов, привязанных к подсети инбаунда: адрес, выданный из подсети, протухает вместе с ней. Любой re-attach обязан сверять single-host адрес с ТЕКУЩЕЙ подсетью. **И главный урок lucx.92:** миграции данных на старте панели НЕЛЬЗА делать автоматическими — на живых серверах любое изменение только opt-in (явное действие оператора); автоматом можно только идемпотентные no-op на свежей БД.
+
+### Pattern 1n: overlay 3x-ui → Clients «Что-то пошло не так» / Scan wg_keep_alive int64 — ИСПРАВЛЕНО (lucx.119)
+- **Cause:** LucX сменил `Client.KeepAlive` / `ClientRecord.KeepAlive` с `int` на `KeepAliveValue` (string) ради AWG3-диапазонов (`"15-25"`). Upstream-колонка `clients.wg_keep_alive` остаётся INTEGER; sqlite-driver отдаёт `int64`. Без `sql.Scanner` database/sql: `unsupported Scan, storing driver.Value type int64 into type *model.KeepAliveValue` на `Find(&[]ClientRecord)` (Clients page, ListForInbound → Xray config).
+- **Симптом:** после install/update поверх ванильной 3x-ui красный экран «Получить (sql: Scan error on column … wg_keep_alive …)». Свежая LucX-БД (TEXT) — ок; ломается только overlay.
+- **Fix (lucx.119):** `KeepAliveValue.Scan`/`Value` (`model.go`) — int64/string/[]byte/float64/nil; Postgres `migrateClientKeepAliveColumnType` (`migrate_awg_keepalive.go`) widen → text до AutoMigrate; frontend WG inbound `optionalKeepAlive` принимает number|string (после LucX write-back `"25"`).
+- **Урок:** смена типа поля на колонке, которую создал upstream = Rule 0b. AutoMigrate + `type:text` на SQLite **не** переписывает affinity старых строк. Тестируй legacy INTEGER path, не только fresh DB. См. Rule 0b.
 
 ### Pattern 1m: tunnel-sidecar живёт после удаления inbound («сыпит логами, хотя удалил») — ИСПРАВЛЕНО (lucx.115)
 - **Cause:** двойной источник правды у tunnel-ядер. Кроме inbound'ов (`olcrtc-{id}` / `naive-{id}`) жив legacy-контур: settings-блоб `lucxTunnel_{naive,olcrtc,qwdtt}` + карточка Tunnels-страницы (Start/Stop/Save) + ключ менеджера без префикса (`olcrtc`). `reconcile{Naive,Olcrtc}Inbounds` при ОТСУТСТВИИ inbound'ов падал в fallback на блоб и `Ensure`-ил legacy-ядро: блоб с `enabled:true` воскрешал процесс каждый тик (10 с). Удаление inbound'а сносило только `{core}-{id}`. Как блоб становится `enabled:true` после миграции lucx.102: миграция пишет маркер `migratedToInbound` и УБИРАЕТ `enabled`, но legacy-кнопка Start/Save на Tunnels-странице пересохраняет блоб struct'ом без маркера и с `enabled:true`. Два соседних gap'а: при пустом `want` не вызывался `Reconcile{Naive,Olcrtc}` → orphan `{core}-{id}` не свипились; migrated-блоб считался легитимным desired-state. Те же грабли у всех трёх ядер (naive/olcrtc/qwdtt).

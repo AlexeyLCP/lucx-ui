@@ -40,6 +40,8 @@ EXTRA_FILES=(
     internal/web/controller/tunnel.go
     internal/web/controller/lucx.go
     internal/web/job/tunnel_job.go
+    internal/database/migrate_awg_keepalive.go
+    internal/database/migrate_awg_keepalive_test.go
 )
 
 FILES=$(printf '%s\n' "${HOOK_FILES[@]}" "${PKG_FILES[@]}" "${EXTRA_FILES[@]}" | sort -u | grep -v '^$')

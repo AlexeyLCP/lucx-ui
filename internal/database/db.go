@@ -87,6 +87,11 @@ func allModels() []any {
 }
 
 func initModels() error {
+	// LUCX-HOOK: widen legacy integer clients.wg_keep_alive to text BEFORE AutoMigrate.
+	if err := migrateClientKeepAliveColumnType(); err != nil {
+		return err
+	}
+	// END LUCX-HOOK
 	models := allModels()
 	for _, mdl := range models {
 		if IsPostgres() && postgresModelSettled(mdl) {

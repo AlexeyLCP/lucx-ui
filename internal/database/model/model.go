@@ -4,6 +4,7 @@ package model
 import (
 	"bytes"
 	"crypto/rand"
+	"database/sql/driver"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -69,6 +70,30 @@ func (k KeepAliveValue) Int() int {
 
 func (k KeepAliveValue) String() string {
 	return strings.TrimSpace(string(k))
+}
+
+func (k *KeepAliveValue) Scan(src any) error {
+	switch v := src.(type) {
+	case nil:
+		*k = ""
+	case string:
+		*k = KeepAliveValue(strings.TrimSpace(v))
+	case []byte:
+		*k = KeepAliveValue(strings.TrimSpace(string(v)))
+	case int64:
+		*k = KeepAliveValue(strconv.FormatInt(v, 10))
+	case int:
+		*k = KeepAliveValue(strconv.Itoa(v))
+	case float64:
+		*k = KeepAliveValue(strconv.FormatInt(int64(v), 10))
+	default:
+		return fmt.Errorf("model: cannot scan %T into KeepAliveValue", src)
+	}
+	return nil
+}
+
+func (k KeepAliveValue) Value() (driver.Value, error) {
+	return strings.TrimSpace(string(k)), nil
 }
 
 // END LUCX-HOOK

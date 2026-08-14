@@ -124,6 +124,28 @@ describe('inboundFromDb', () => {
     expect(links).toMatch(/^wireguard:\/\//);
   });
 
+  it('accepts LucX string keepAlive on a vanilla wireguard inbound', () => {
+    const raw = {
+      ...BASE_DB_FIELDS,
+      protocol: 'wireguard',
+      settings: {
+        secretKey: 'QGVlb2dXc1ZTWGw0ZXBzZndsWmtMaUM5MUlNYjBHWFdYbz0=',
+        clients: [
+          {
+            email: 'wg@test',
+            publicKey: 'DGSYIcEKAUkA7HhzGSjxLZuV67BR3LeyU0BMLJzNVHQ=',
+            allowedIPs: ['10.0.0.2/32'],
+            keepAlive: '25',
+          },
+        ],
+      },
+      streamSettings: '',
+    };
+    const inbound = inboundFromDb(raw);
+    const clients = (inbound.settings as { clients?: { keepAlive?: number }[] }).clients;
+    expect(clients?.[0]?.keepAlive).toBe(25);
+  });
+
   it('feeds genAllLinks per client', () => {
     const raw = {
       ...BASE_DB_FIELDS,
