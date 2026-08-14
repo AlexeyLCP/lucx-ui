@@ -4248,6 +4248,58 @@
         }
       }
     },
+    "/panel/api/inbounds/{id}/awgTestMtu": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Binary-search the server's own outbound path MTU with DF (don't-fragment) pings against a fixed public anchor, and report whether the inbound's configured MTU fits under it with WireGuard/AWG overhead headroom. Ceiling check on the server uplink only — cannot see the client<->server path. Read-only. LucX-UI only.",
+        "operationId": "get_panel_api_inbounds_id_awgTestMtu",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Inbound ID. Must be an AWG inbound.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "target": "1.1.1.1",
+                    "pathMtu": 1500,
+                    "reached": true,
+                    "configuredMtu": 1420,
+                    "fits": true,
+                    "detail": "largest non-fragmented ping to 1.1.1.1 = 1500 bytes; configured MTU 1420 fits within the 80-byte WG/AWG overhead headroom"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/import": {
       "post": {
         "tags": [
@@ -6756,6 +6808,46 @@
         }
       }
     },
+    "/panel/api/server/bbrStatus": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Reports whether TCP BBR congestion control (paired with fq/cake) is active. AWG/WireGuard itself is UDP and unaffected, but TCP flows the panel proxies benefit on higher-latency or lossy paths.",
+        "operationId": "get_panel_api_server_bbrStatus",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "supported": true,
+                    "enabled": false,
+                    "congestionControl": "cubic",
+                    "qdisc": "fq_codel",
+                    "windows": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/server/cpuHistory/{bucket}": {
       "get": {
         "tags": [
@@ -7669,6 +7761,66 @@
         ],
         "summary": "Rebuild amneziawg DKMS module from upstream master (async). Runs bin/install-awg-module.sh --force-rebuild.",
         "operationId": "post_panel_api_server_rebuildAwgModule",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/enableBbr": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Enable TCP BBR + fq (writes /etc/sysctl.d/99-bbr-x-ui.conf and applies it live). Linux only.",
+        "operationId": "post_panel_api_server_enableBbr",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/disableBbr": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Restore the congestion control / qdisc that were active before enableBbr ran, and remove the drop-in file. Linux only.",
+        "operationId": "post_panel_api_server_disableBbr",
         "responses": {
           "200": {
             "description": "Successful response",
