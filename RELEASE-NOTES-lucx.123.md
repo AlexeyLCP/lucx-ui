@@ -1,4 +1,4 @@
-## v3.6.0-lucx.123 — аудит: сироты сайдкаров, безопасность загрузки ядер, отзывчивость UI
+## 🔧 v3.6.0-lucx.123 — аудит: сироты сайдкаров, безопасность загрузки ядер, отзывчивость UI
 
 Релиз без новых функций: сплошное ревью всего, что LucX добавил поверх апстрима
 (323 файла, +57.7k строк), и починка найденного.
@@ -30,9 +30,11 @@
 **Обновление:** `x-ui update` или кнопка в панели. Миграций данных нет, конфиги и
 клиенты не трогаются.
 
+⚡️ Приятного использования!
+
 ---
 
-## v3.6.0-lucx.123 — audit: sidecar orphans, safer core downloads, snappier UI
+## 🔧 v3.6.0-lucx.123 — audit: sidecar orphans, safer core downloads, snappier UI
 
 No new features: a full review of everything LucX adds on top of upstream
 (323 files, +57.7k lines) and fixes for what it turned up.
@@ -59,3 +61,5 @@ No new features: a full review of everything LucX adds on top of upstream
 
 **Upgrade:** `x-ui update` or the button in the panel. No data migrations; your
 configs and clients are untouched.
+
+⚡️ Enjoy!
