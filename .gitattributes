@@ -1,6 +1,31 @@
+# Everything git detects as text is stored and checked out with LF. Without
+# this, work from a Windows checkout rewrites whole files to CRLF and every
+# `git diff` on the 13 translation JSONs (and progress.md) shows thousands of
+# phantom changed lines, which makes i18n review and upstream merges painful.
+* text=auto eol=lf
+
+# Explicit for the paths that used to churn the most.
 *.sh text eol=lf
+*.go text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.ts text eol=lf
+*.tsx text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
 frontend/src/generated/** text eol=lf
 frontend/public/openapi.json text eol=lf
 frontend/src/test/__snapshots__/** text eol=lf
-*.go text eol=lf
 deploy/**/*.yaml text eol=lf
+
+# Binary assets: never touch, never diff.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.svg text eol=lf
+*.exe binary
+*.gz binary
+*.zip binary
+*.dat binary
