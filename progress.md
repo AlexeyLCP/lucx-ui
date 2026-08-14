@@ -147,6 +147,15 @@ docs-рефакторинг, которому нужен отдельный PR �
 
 **lucxVersion:** lucx.123
 
+**Релиз v3.6.0-lucx.123 опубликован** (14.08.2026): main запушен (12 коммитов,
+lucx.121–123), CI зелёный (CI/CodeQL/Release на 7af70e88; deb4b9a9 — docs-only,
+workflow не триггерит), тег `v3.6.0-lucx.123` → Release workflow зелёный
+(build amd64 3m31s), ассет `x-ui-linux-amd64.tar.gz`, `prerelease=false`,
+notes RU+EN из `RELEASE-NOTES-lucx.123.md` (стиль AGENTS.md: эмодзи-заголовки,
+финальные строки). По пути: ответ на issue #45 (TrustTunnel username — не баг:
+креды HMAC-производные, подключение через `tt://` из подписки клиента; ручной
+fallback — `/usr/local/x-ui/bin/tunnel/trusttunnel-<id>-credentials.toml`).
+
 ---
 
 ## lucx.122 — TrustTunnel prefix/cleanup + AWG first-install + UX (2026-08-14)
