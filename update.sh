@@ -1312,9 +1312,16 @@ update_x-ui() {
     # systemd brings it back after the reboot, and install-awg-module.sh has
     # already compiled the AWG module for the new kernel. The delay lets the
     # final output reach the web-panel/console session.
-    if [[ "${xui_kernel_reboot:-0}" == "1" ]]; then
+    # Also honor /etc/x-ui/.awg-reboot-needed from install-awg-module.sh
+    # (lucx.122: never reboot mid-script).
+    if [[ "${xui_kernel_reboot:-0}" == "1" || -f /etc/x-ui/.awg-reboot-needed ]]; then
         echo -e ""
-        echo -e "${green}Ядро обновлено: $(uname -r) → ${xui_newest_kernel}. Перезагрузка через 10 секунд...${plain}"
+        if [[ "${xui_kernel_reboot:-0}" == "1" ]]; then
+            echo -e "${green}Ядро обновлено: $(uname -r) → ${xui_newest_kernel}. Перезагрузка через 10 секунд...${plain}"
+        else
+            echo -e "${green}AWG: module built for a newer kernel — reboot in 10s (panel already running).${plain}"
+        fi
+        rm -f /etc/x-ui/.awg-reboot-needed
         ( sleep 10 && reboot ) > /dev/null 2>&1 &
     fi
     # END LUCX-HOOK

@@ -276,7 +276,12 @@ function AwgCard() {
       <Typography.Paragraph type="secondary">
         {t('pages.settings.cores.awgDesc')}
       </Typography.Paragraph>
-      {awg?.errorMsg && <Alert type="error" showIcon style={{ marginBottom: 12 }} message={awg.errorMsg} />}
+      {(awg?.errorMsg === 'module_not_loaded' || (awg && !awg.moduleLoaded)) && (
+        <Alert type="error" showIcon style={{ marginBottom: 12 }} message={t('pages.index.awgModuleNotLoadedHint')} />
+      )}
+      {awg?.errorMsg && awg.errorMsg !== 'module_not_loaded' && (
+        <Alert type="error" showIcon style={{ marginBottom: 12 }} message={awg.errorMsg} />
+      )}
       <Typography.Paragraph>
         {t('pages.index.awgInterfaces', { n: awg?.interfaces ?? 0 })}
         {ifList ? ` · ${ifList}` : ''}

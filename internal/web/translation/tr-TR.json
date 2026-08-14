@@ -258,6 +258,7 @@
       "awgStatusError": "Error",
       "awgStatusUnknown": "Unknown",
       "awgModuleNotLoaded": "Kernel module not loaded",
+      "awgModuleNotLoadedHint": "AWG module not installed. Settings → Cores → Rebuild AWG, or: bash /usr/local/x-ui/bin/install-awg-module.sh",
       "awgInterfaces": "{n} interface(s) UP",
       "awgRestart": "Restart AWG",
       "awgRestartPopover": "AWG interfaces restarted"
@@ -807,7 +808,11 @@
         "trustTunnelListenPreset": "Dinleme pencereleri",
         "trustTunnelListenPresetHint": "Stock = TrustTunnel kılavuz varsayılanları (128 KiB akış penceresi — yavaş yükleme). Fast = daha büyük pencereler, yükleme indirmeye yaklaşır.",
         "trustTunnelListenPresetFast": "Fast (önerilen)",
-        "trustTunnelListenPresetStock": "Stock (kılavuz varsayılanı)"
+        "trustTunnelListenPresetStock": "Stock (kılavuz varsayılanı)",
+        "trustTunnelAdvanced": "Gelişmiş",
+        "trustTunnelClientRandomPrefix": "Client random prefix",
+        "trustTunnelClientRandomPrefixHint": "TLS Client Random filter (hex/mask). Written to rules.toml and the client tt:// link. Clients must re-download the link after Regenerate.",
+        "trustTunnelClientRandomPrefixRegen": "Yenile"
       },
       "info": {
         "mode": "Mod",

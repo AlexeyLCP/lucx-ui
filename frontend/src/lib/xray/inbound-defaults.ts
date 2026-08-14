@@ -308,6 +308,7 @@ export function createDefaultTrustTunnelInboundSettings(): TrustTunnelInboundSet
     routeThroughXray: false,
     outboundTag: '',
     listenPreset: 'fast',
+    clientRandomPrefix: '',
     clients: [],
   };
 }

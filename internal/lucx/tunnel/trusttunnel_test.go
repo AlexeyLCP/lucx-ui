@@ -316,6 +316,83 @@ outbound_tcp_sockets 12
 	}
 }
 
+func TestGenerateClientRandomPrefix(t *testing.T) {
+	p := GenerateClientRandomPrefix()
+	if !ValidClientRandomPrefix(p) {
+		t.Fatalf("generated %q invalid", p)
+	}
+	if !strings.Contains(p, "/") {
+		t.Fatalf("want prefix/mask, got %q", p)
+	}
+	if ValidClientRandomPrefix("") || ValidClientRandomPrefix("zz") || ValidClientRandomPrefix("ab/gg") {
+		t.Fatal("invalid prefixes must fail")
+	}
+}
+
+func TestRenderTrustTunnelRules(t *testing.T) {
+	if RenderTrustTunnelRules("") != "" {
+		t.Fatal("empty prefix → empty rules")
+	}
+	got := RenderTrustTunnelRules("aabbccdd/ffffffff")
+	for _, want := range []string{"[[rule]]", `client_random_prefix = "aabbccdd/ffffffff"`, `action = "allow"`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("rules missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestClientDeepLinkIncludesRandomPrefix(t *testing.T) {
+	cfg := DefaultTrustTunnelConfig()
+	cfg.Hostname = "vpn.example.com"
+	cfg.ClientRandomPrefix = "deadbeef/ffffffff"
+	link := cfg.ClientDeepLink("vpn.example.com:443", AuthPair{User: "u", Pass: "p"}, "")
+	payload, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(link, "tt://?"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := false
+	i := 0
+	for i < len(payload) {
+		tag := payload[i]
+		i++
+		l := int(payload[i])
+		i++
+		val := payload[i : i+l]
+		i += l
+		if tag == 0x0B {
+			found = true
+			if string(val) != "deadbeef/ffffffff" {
+				t.Fatalf("0x0B = %q", val)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("TLV 0x0B missing")
+	}
+}
+
+func TestOrphanKeyFromFilename(t *testing.T) {
+	cases := map[string]string{
+		"trusttunnel-3.toml":             "trusttunnel-3",
+		"trusttunnel-3-hosts.toml":       "trusttunnel-3",
+		"trusttunnel-3-credentials.toml": "trusttunnel-3",
+		"trusttunnel-3-rules.toml":       "trusttunnel-3",
+		"trusttunnel-3-data":             "trusttunnel-3",
+		"mieru-12.json":                  "mieru-12",
+		"naive.caddyfile":                "",
+		"trusttunnel.toml":               "",
+	}
+	for name, want := range cases {
+		prefix := "trusttunnel-"
+		if strings.HasPrefix(name, "mieru-") {
+			prefix = "mieru-"
+		}
+		if got := orphanKeyFromFilename(prefix, name); got != want {
+			t.Errorf("%s: got %q want %q", name, got, want)
+		}
+	}
+}
+
 func TestTrustTunnelSoleClient(t *testing.T) {
 	if got := TrustTunnelSoleClient(nil); got != "" {
 		t.Fatalf("nil = %q", got)

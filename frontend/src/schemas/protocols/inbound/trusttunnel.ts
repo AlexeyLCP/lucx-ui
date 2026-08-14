@@ -21,6 +21,7 @@ export const TrustTunnelInboundSettingsSchema = z.object({
   routeXrayPort: z.number().int().min(0).max(65535).optional(),
   metricsPort: z.number().int().min(0).max(65535).optional(),
   listenPreset: z.enum(['stock', 'fast']).default('fast'),
+  clientRandomPrefix: z.string().default(''),
   clients: z.array(NaiveClientSchema).default([]),
 });
 export type TrustTunnelInboundSettings = z.infer<typeof TrustTunnelInboundSettingsSchema>;

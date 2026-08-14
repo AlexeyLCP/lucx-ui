@@ -258,6 +258,7 @@
       "awgStatusError": "Error",
       "awgStatusUnknown": "Unknown",
       "awgModuleNotLoaded": "Kernel module not loaded",
+      "awgModuleNotLoadedHint": "AWG module not installed. Settings → Cores → Rebuild AWG, or: bash /usr/local/x-ui/bin/install-awg-module.sh",
       "awgInterfaces": "{n} interface(s) UP",
       "awgRestart": "Restart AWG",
       "awgRestartPopover": "AWG interfaces restarted"
@@ -807,7 +808,11 @@
         "trustTunnelListenPreset": "監聽視窗",
         "trustTunnelListenPresetHint": "Stock = TrustTunnel 手冊預設（串流視窗 128 KiB，上傳慢）。Fast = 較大視窗，上傳接近下載。",
         "trustTunnelListenPresetFast": "Fast（建議）",
-        "trustTunnelListenPresetStock": "Stock（手冊預設）"
+        "trustTunnelListenPresetStock": "Stock（手冊預設）",
+        "trustTunnelAdvanced": "進階",
+        "trustTunnelClientRandomPrefix": "Client random prefix",
+        "trustTunnelClientRandomPrefixHint": "TLS Client Random filter (hex/mask). Written to rules.toml and the client tt:// link. Clients must re-download the link after Regenerate.",
+        "trustTunnelClientRandomPrefixRegen": "重新產生"
       },
       "info": {
         "mode": "模式",

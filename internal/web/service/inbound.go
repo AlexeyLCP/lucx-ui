@@ -1407,6 +1407,7 @@ func (s *InboundService) normalizeTrustTunnelSettings(inbound *model.Inbound) {
 		return
 	}
 	cfg = cfg.Merge()
+	cfg.EnsureClientRandomPrefix()
 	var settings map[string]any
 	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
 		_ = json.Unmarshal([]byte(raw), &settings)
@@ -1426,6 +1427,7 @@ func (s *InboundService) normalizeTrustTunnelSettings(inbound *model.Inbound) {
 	settings["outboundTag"] = cfg.OutboundTag
 	settings["metricsPort"] = cfg.MetricsPort
 	settings["listenPreset"] = cfg.ListenPreset
+	settings["clientRandomPrefix"] = cfg.ClientRandomPrefix
 	if strings.TrimSpace(cfg.Remark) != "" {
 		settings["remark"] = cfg.Remark
 	}

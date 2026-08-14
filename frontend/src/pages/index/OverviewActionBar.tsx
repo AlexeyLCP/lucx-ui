@@ -123,8 +123,13 @@ export default function OverviewActionBar({
   );
 
   const ifList = (status.awg.ifnames || []).join(', ');
+  const awgModuleMissing = !status.awg.moduleLoaded;
+  const awgErrorText =
+    status.awg.errorMsg === 'module_not_loaded' || awgModuleMissing
+      ? t('pages.index.awgModuleNotLoadedHint')
+      : status.awg.errorMsg || '';
   const awgTipParts = [
-    status.awg.errorMsg,
+    awgErrorText,
     status.awg.moduleLoaded
       ? t('pages.index.awgInterfaces', { n: status.awg.interfaces })
       : t('pages.index.awgModuleNotLoaded'),
@@ -161,6 +166,11 @@ export default function OverviewActionBar({
         </Tooltip>
       ) : (
         awgPill
+      )}
+      {awgModuleMissing && (
+        <Tag color="error" style={{ marginInlineStart: 4, maxWidth: 420, whiteSpace: 'normal', height: 'auto' }}>
+          {t('pages.index.awgModuleNotLoadedHint')}
+        </Tag>
       )}
 
       {updateAvailable ? (

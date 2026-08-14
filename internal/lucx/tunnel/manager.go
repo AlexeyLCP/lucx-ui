@@ -238,25 +238,126 @@ func (m *Manager) EnsureQwdttRouting(inst Instance) {
 	}
 }
 
-// Remove stops and forgets a managed key (inbound delete). Config files are
-// left on disk for operator recovery; next Ensure of the same key reuses them.
+// Remove stops and forgets a managed key (inbound delete). For multi-instance
+// inbound cores (trusttunnel-N, mieru-N, naive-N) companion config files and
+// the data dir are removed so a re-created inbound does not leave orphans
+// (tester bravn, lucx.122). Legacy single-key cores keep files on disk.
 func (m *Manager) Remove(key string) {
 	key = strings.TrimSpace(key)
 	if key == "" {
 		return
 	}
 	m.mu.Lock()
-	defer m.mu.Unlock()
 	mc, ok := m.cores[key]
-	if !ok {
+	if ok {
+		if mc.proc != nil && mc.proc.IsRunning() {
+			if err := mc.proc.Stop(); err != nil {
+				logger.Warningf("tunnel: remove stop %s: %v", key, err)
+			}
+		}
+		delete(m.cores, key)
+	}
+	m.mu.Unlock()
+	removeManagedFiles(key)
+}
+
+// removeManagedFiles deletes on-disk configs/data for multi-instance keys.
+// No-op for legacy single-core keys (naive / olcrtc / qwdtt without suffix).
+func removeManagedFiles(key string) {
+	if !isMultiInstanceKey(key) {
 		return
 	}
-	if mc.proc != nil && mc.proc.IsRunning() {
-		if err := mc.proc.Stop(); err != nil {
-			logger.Warningf("tunnel: remove stop %s: %v", key, err)
+	var core Name
+	switch {
+	case strings.HasPrefix(key, "trusttunnel-"):
+		core = TrustTunnel
+	case strings.HasPrefix(key, "mieru-"):
+		core = Mieru
+	case strings.HasPrefix(key, "naive-"):
+		core = Naive
+	case strings.HasPrefix(key, "olcrtc-"):
+		core = Olcrtc
+	default:
+		return
+	}
+	paths := []string{configPathFor(key, core)}
+	if core == TrustTunnel {
+		paths = append(paths,
+			filepath.Join(workDir(), trustTunnelHostsFileName(key)),
+			filepath.Join(workDir(), key+"-credentials.toml"),
+			filepath.Join(workDir(), key+"-rules.toml"),
+		)
+	}
+	paths = append(paths, dataDirFor(key, core))
+	for _, p := range paths {
+		if err := os.RemoveAll(p); err != nil && !os.IsNotExist(err) {
+			logger.Warningf("tunnel: remove %s: %v", p, err)
 		}
 	}
-	delete(m.cores, key)
+}
+
+func isMultiInstanceKey(key string) bool {
+	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-"} {
+		if strings.HasPrefix(key, p) && len(key) > len(p) {
+			return true
+		}
+	}
+	return false
+}
+
+// sweepOrphanConfigFiles removes on-disk multi-instance configs whose key is
+// not in want (covers leftovers from older Removes that only stopped the proc).
+func sweepOrphanConfigFiles(prefix string, want map[string]struct{}) {
+	dir := workDir()
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return
+	}
+	seen := map[string]struct{}{}
+	for _, e := range entries {
+		name := e.Name()
+		if !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		key := orphanKeyFromFilename(prefix, name)
+		if key == "" {
+			continue
+		}
+		if _, ok := want[key]; ok {
+			continue
+		}
+		if _, done := seen[key]; done {
+			continue
+		}
+		seen[key] = struct{}{}
+		removeManagedFiles(key)
+	}
+}
+
+// orphanKeyFromFilename maps trusttunnel-3.toml / trusttunnel-3-hosts.toml →
+// trusttunnel-3; mieru-5.json → mieru-5.
+func orphanKeyFromFilename(prefix, name string) string {
+	rest := strings.TrimPrefix(name, prefix)
+	if rest == "" || rest == name {
+		return ""
+	}
+	// "3.toml" / "3-hosts.toml" / "3-data" / "3.caddyfile"
+	id := rest
+	for _, sep := range []string{"-", "."} {
+		if i := strings.Index(id, sep); i > 0 {
+			id = id[:i]
+			break
+		}
+	}
+	if id == "" {
+		return ""
+	}
+	for _, r := range id {
+		if r < '0' || r > '9' {
+			return ""
+		}
+	}
+	return prefix + id
 }
 
 // Stop terminates the core process if it is running (legacy Name API).
@@ -474,6 +575,11 @@ func (m *Manager) ReconcileWanted(core Name, prefix, legacyKey string, want []In
 	m.mu.Unlock()
 	for _, key := range orphans {
 		m.Remove(key)
+	}
+	// Disk orphan sweep: files left by pre-lucx.122 Removes (process gone,
+	// configs still on disk). Only multi-instance prefixes.
+	if prefix != "" {
+		sweepOrphanConfigFiles(prefix, wantKeys)
 	}
 }
 

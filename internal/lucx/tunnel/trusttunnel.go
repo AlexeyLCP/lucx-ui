@@ -7,11 +7,13 @@
 package tunnel
 
 import (
+	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/pem"
 	"fmt"
 	"net"
@@ -54,6 +56,12 @@ type TrustTunnelConfig struct {
 	// (128 KiB stream window — slow upload); "fast" = tester-tuned
 	// windows that match download. Empty merges to "fast".
 	ListenPreset string `json:"listenPreset"`
+
+	// ClientRandomPrefix is the TLS Client Random filter (hex/mask, e.g.
+	// "77394630/77fb7fb5"). Written to rules.toml as an allow rule and into
+	// the client tt:// deep link (TLV 0x0B). Empty → generated on Merge when
+	// the inbound is first saved (normalize path).
+	ClientRandomPrefix string `json:"clientRandomPrefix"`
 }
 
 const (
@@ -119,7 +127,66 @@ func (c TrustTunnelConfig) Merge() TrustTunnelConfig {
 	default:
 		c.ListenPreset = trustTunnelPresetFast
 	}
+	if p := strings.TrimSpace(c.ClientRandomPrefix); p != "" {
+		c.ClientRandomPrefix = p
+	}
 	return c
+}
+
+// GenerateClientRandomPrefix returns a TrustTunnel bitwise prefix/mask pair
+// ("aabbccdd/ffffffff", 4 random bytes + full mask) suitable for rules.toml
+// and the client deep-link TLV 0x0B.
+func GenerateClientRandomPrefix() string {
+	var b [4]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return ""
+	}
+	return hex.EncodeToString(b[:]) + "/" + strings.Repeat("f", len(b)*2)
+}
+
+// ValidClientRandomPrefix reports whether s is a non-empty hex prefix or
+// prefix/mask pair accepted by TrustTunnel rules.
+func ValidClientRandomPrefix(s string) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	prefix, mask, hasMask := strings.Cut(s, "/")
+	if !isHexBytes(prefix) || len(prefix) < 2 || len(prefix)%2 != 0 {
+		return false
+	}
+	if hasMask {
+		if !isHexBytes(mask) || len(mask) == 0 || len(mask)%2 != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func isHexBytes(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && (r < 'a' || r > 'f') && (r < 'A' || r > 'F') {
+			return false
+		}
+	}
+	return true
+}
+
+// RenderRulesToml builds rules.toml. A non-empty client_random_prefix becomes
+// an allow rule (first match wins; default is allow-all when no rules match).
+func RenderTrustTunnelRules(clientRandomPrefix string) string {
+	p := strings.TrimSpace(clientRandomPrefix)
+	if p == "" || !ValidClientRandomPrefix(p) {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("[[rule]]\n")
+	b.WriteString("client_random_prefix = " + tomlString(p) + "\n")
+	b.WriteString("action = \"allow\"\n")
+	return b.String()
 }
 
 // Validate checks the config for internal consistency. certOK reports whether
@@ -143,7 +210,20 @@ func (c TrustTunnelConfig) Validate() error {
 	default:
 		return fmt.Errorf("trusttunnel: listen preset must be stock | fast")
 	}
+	if p := strings.TrimSpace(c.ClientRandomPrefix); p != "" && !ValidClientRandomPrefix(p) {
+		return fmt.Errorf("trusttunnel: client random prefix must be hex or hex/mask")
+	}
 	return nil
+}
+
+// EnsureClientRandomPrefix fills an empty prefix with a freshly generated one.
+func (c *TrustTunnelConfig) EnsureClientRandomPrefix() {
+	if c == nil {
+		return
+	}
+	if strings.TrimSpace(c.ClientRandomPrefix) == "" {
+		c.ClientRandomPrefix = GenerateClientRandomPrefix()
+	}
 }
 
 // ResolveCertPaths returns the effective cert/key paths: explicit config
@@ -330,6 +410,9 @@ func (c TrustTunnelConfig) ClientDeepLink(address string, pair AuthPair, remark 
 	}
 	payload = append(payload, ttTLV(0x05, []byte(pair.User))...)
 	payload = append(payload, ttTLV(0x06, []byte(pair.Pass))...)
+	if p := strings.TrimSpace(c.ClientRandomPrefix); ValidClientRandomPrefix(p) {
+		payload = append(payload, ttTLV(0x0B, []byte(p))...)
+	}
 	if strings.EqualFold(strings.TrimSpace(c.UpstreamProtocol), "http3") { // default http2 — omit
 		payload = append(payload, ttTLV(0x09, tlsVarint(2))...)
 	}

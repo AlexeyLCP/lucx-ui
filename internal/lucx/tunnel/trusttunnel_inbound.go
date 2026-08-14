@@ -23,20 +23,21 @@ func TrustTunnelKey(inboundId int) string {
 // trustTunnelInboundSettings is the JSON shape of inbound.settings for
 // protocol=trusttunnel: TrustTunnelConfig plus multi-client clients[].
 type trustTunnelInboundSettings struct {
-	Remark           string `json:"remark"`
-	Hostname         string `json:"hostname"`
-	Listen           string `json:"listen"`
-	IPv6             bool   `json:"ipv6"`
-	CertFile         string `json:"certFile"`
-	KeyFile          string `json:"keyFile"`
-	ClientDNS        string `json:"clientDns"`
-	UpstreamProtocol string `json:"upstreamProtocol"`
-	RouteThroughXray bool   `json:"routeThroughXray"`
-	RouteXrayPort    int    `json:"routeXrayPort"`
-	OutboundTag      string `json:"outboundTag"`
-	MetricsPort      int    `json:"metricsPort"`
-	ListenPreset     string `json:"listenPreset"`
-	Clients          []struct {
+	Remark             string `json:"remark"`
+	Hostname           string `json:"hostname"`
+	Listen             string `json:"listen"`
+	IPv6               bool   `json:"ipv6"`
+	CertFile           string `json:"certFile"`
+	KeyFile            string `json:"keyFile"`
+	ClientDNS          string `json:"clientDns"`
+	UpstreamProtocol   string `json:"upstreamProtocol"`
+	RouteThroughXray   bool   `json:"routeThroughXray"`
+	RouteXrayPort      int    `json:"routeXrayPort"`
+	OutboundTag        string `json:"outboundTag"`
+	MetricsPort        int    `json:"metricsPort"`
+	ListenPreset       string `json:"listenPreset"`
+	ClientRandomPrefix string `json:"clientRandomPrefix"`
+	Clients            []struct {
 		Email  string `json:"email"`
 		Enable bool   `json:"enable"`
 	} `json:"clients"`
@@ -52,20 +53,21 @@ func TrustTunnelConfigFromInbound(ib *model.Inbound) (TrustTunnelConfig, bool) {
 		_ = json.Unmarshal([]byte(raw), &s)
 	}
 	cfg := TrustTunnelConfig{
-		Remark:           firstNonEmpty(s.Remark, ib.Remark),
-		Enabled:          ib.Enable,
-		Hostname:         s.Hostname,
-		Listen:           s.Listen,
-		IPv6:             s.IPv6,
-		CertFile:         s.CertFile,
-		KeyFile:          s.KeyFile,
-		ClientDNS:        s.ClientDNS,
-		UpstreamProtocol: s.UpstreamProtocol,
-		RouteThroughXray: s.RouteThroughXray,
-		RouteXrayPort:    s.RouteXrayPort,
-		OutboundTag:      s.OutboundTag,
-		MetricsPort:      s.MetricsPort,
-		ListenPreset:     s.ListenPreset,
+		Remark:             firstNonEmpty(s.Remark, ib.Remark),
+		Enabled:            ib.Enable,
+		Hostname:           s.Hostname,
+		Listen:             s.Listen,
+		IPv6:               s.IPv6,
+		CertFile:           s.CertFile,
+		KeyFile:            s.KeyFile,
+		ClientDNS:          s.ClientDNS,
+		UpstreamProtocol:   s.UpstreamProtocol,
+		RouteThroughXray:   s.RouteThroughXray,
+		RouteXrayPort:      s.RouteXrayPort,
+		OutboundTag:        s.OutboundTag,
+		MetricsPort:        s.MetricsPort,
+		ListenPreset:       s.ListenPreset,
+		ClientRandomPrefix: s.ClientRandomPrefix,
 	}.Merge()
 	return cfg, true
 }
@@ -134,7 +136,7 @@ func TrustTunnelInstanceFromInbound(ib *model.Inbound, secret []byte, panelCert,
 		ExtraFiles: map[string]string{
 			hostsName: cfg.RenderHostsToml(certFile, keyFile),
 			credsName: RenderTrustTunnelCredentials(users),
-			rulesName: "",
+			rulesName: RenderTrustTunnelRules(cfg.ClientRandomPrefix),
 		},
 		FingerprintExtra: CertFileHash(certFile),
 		ProbePort:        cfg.ListenPort(),

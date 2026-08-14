@@ -1729,29 +1729,47 @@ install_x-ui() {
 │  ${blue}x-ui install${plain}      - Install                          │
 │  ${blue}x-ui uninstall${plain}    - Uninstall                        │
 └───────────────────────────────────────────────────────┘"
-    # LUCX-HOOK: Re-print panel credentials as the final output of install.
-    # config_after_install (called above) generates and shows the username,
-    # password and access URL mid-flow, but the AWG module install hook and the
-    # service-unit setup that follow emit many lines, pushing credentials out
-    # of the visible terminal scrollback. Testers then can't find them and ask
-    # how to log in. Re-print a compact summary sourced from install-result.env
-    # (written by write_install_result) so it is the last thing on screen — no
-    # new interactive prompt, just a duplicate of what was already generated.
-    # Guarded by XUI_INSTALL_RESULT_WRITTEN: install-result.env persists across
-    # runs, so on a routine update of a server with long-customized creds the
-    # file is stale and re-printing it would show the wrong (first-install)
-    # login. Only re-print when THIS run actually (re)generated credentials.
+    # LUCX-HOOK: Final access summary + deferred AWG reboot (lucx.68/71/122).
+    # Credentials (user/pass) ONLY when THIS run wrote install-result.env
+    # (fresh install or default-creds reset). On a routine update the file is
+    # stale — never source it for password; print Access URL only.
+    echo ""
+    echo -e "${green}═══════════════════════════════════════════${plain}"
     if [[ "${XUI_INSTALL_RESULT_WRITTEN:-}" == "1" && -r /etc/x-ui/install-result.env ]]; then
         # shellcheck disable=SC1091
         set -a; . /etc/x-ui/install-result.env; set +a
-        echo ""
-        echo -e "${green}═══════════════════════════════════════════${plain}"
         echo -e "${green}     Panel Access (save these)            ${plain}"
         echo -e "${green}═══════════════════════════════════════════${plain}"
         echo -e "${green}Username:    ${XUI_USERNAME}${plain}"
         echo -e "${green}Password:    ${XUI_PASSWORD}${plain}"
         echo -e "${green}Access URL:  ${XUI_ACCESS_URL}${plain}"
+    else
+        echo -e "${green}     Panel Access Information              ${plain}"
         echo -e "${green}═══════════════════════════════════════════${plain}"
+        local end_port end_path end_cert end_host
+        end_port=$(${xui_folder}/x-ui setting -getPort true 2>/dev/null | grep -Eo 'port: .+' | awk '{print $2}')
+        end_path=$(${xui_folder}/x-ui setting -getBasePath true 2>/dev/null | grep -Eo 'webBasePath: .+' | awk '{print $2}')
+        end_cert=$(${xui_folder}/x-ui setting -getCert true 2>/dev/null | grep 'cert:' | awk -F': ' '{print $2}' | tr -d '[:space:]')
+        end_host=$(curl -s4m3 https://api.ipify.org 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
+        if [[ -n "$end_cert" ]]; then
+            end_host=$(basename "$(dirname "$end_cert")" 2>/dev/null || echo "$end_host")
+            echo -e "${green}Access URL:  https://${end_host}:${end_port}${end_path}${plain}"
+        else
+            echo -e "${green}Access URL:  http://${end_host:-SERVER_IP}:${end_port}${end_path}${plain}"
+        fi
+        echo -e "${yellow}Login/password were not changed this run.${plain}"
+    fi
+    echo -e "${green}═══════════════════════════════════════════${plain}"
+
+    # Deferred reboot after AWG kernel upgrade (install-awg-module never reboots
+    # mid-script; module is already built for the new kernel).
+    if [[ -f /etc/x-ui/.awg-reboot-needed ]]; then
+        echo ""
+        echo -e "${yellow}AWG: new kernel installed — rebooting in 10s so amneziawg loads.${plain}"
+        echo -e "${yellow}Panel install is complete; AWG module is already built for the new kernel.${plain}"
+        rm -f /etc/x-ui/.awg-reboot-needed
+        sleep 10
+        reboot
     fi
     # END LUCX-HOOK
 }

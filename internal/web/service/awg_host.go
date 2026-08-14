@@ -36,7 +36,9 @@ func fillAwgHostStatus(status *Status) {
 	switch {
 	case !hs.ModuleLoaded:
 		status.Awg.State = Error
-		status.Awg.ErrorMsg = "amneziawg kernel module not loaded"
+		// Frontend i18n maps this sentinel to a full install hint (Cores →
+		// Rebuild AWG / install-awg-module.sh). Keep the English key stable.
+		status.Awg.ErrorMsg = "module_not_loaded"
 	case hs.Interfaces > 0:
 		status.Awg.State = Running
 		status.Awg.ErrorMsg = ""

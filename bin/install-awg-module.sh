@@ -193,28 +193,29 @@ if [[ ! -d "/lib/modules/${RUNNING_KERNEL}/build" ]]; then
     esac
 fi
 
-# Если headers всё ещё нет — возможно ядро обновилось но не загружено
+# If headers for the RUNNING kernel are still missing, DO NOT reboot here
+# (lucx.122). Mid-script reboot aborted install.sh and forced a second run.
+# Build for every kernel that already has headers; mark reboot-needed so
+# install.sh/update.sh can finish the panel and reboot once at the end.
+AWG_REBOOT_FLAG="/etc/x-ui/.awg-reboot-needed"
+rm -f "$AWG_REBOOT_FLAG" 2>/dev/null || true
 if [[ ! -d "/lib/modules/${RUNNING_KERNEL}/build" ]]; then
-    # Проверим — есть ли headers для НОВОГО ядра (не загруженного)
     NEWEST_HEADERS=$(ls -d /lib/modules/*/build 2>/dev/null | head -1)
     if [[ -n "$NEWEST_HEADERS" ]]; then
-        NEWEST_KERNEL=$(basename $(dirname "$NEWEST_HEADERS"))
-        echo -e "${YELLOW}┌──────────────────────────────────────────────────────────┐${NC}"
-        echo -e "${YELLOW}│ Headers найдены для ${NEWEST_KERNEL}, но загружено ${RUNNING_KERNEL}        │${NC}"
-        echo -e "${YELLOW}│ Ядро обновилось но не загружено. Нужен REBOOT.           │${NC}"
-        echo -e "${YELLOW}│ После reboot запустите этот скрипт снова.                │${NC}"
-        echo -e "${YELLOW}└──────────────────────────────────────────────────────────┘${NC}"
-        echo -e "${GREEN}Выполняю reboot...${NC}"
-        sleep 3
-        reboot
-        exit 0
+        NEWEST_KERNEL=$(basename "$(dirname "$NEWEST_HEADERS")")
+        echo -e "${YELLOW}Headers for running kernel ${RUNNING_KERNEL} missing; found ${NEWEST_KERNEL}.${NC}"
+        echo -e "${YELLOW}Building AWG for installed kernels with headers; reboot deferred to end of install/update.${NC}"
+        mkdir -p "$(dirname "$AWG_REBOOT_FLAG")"
+        echo "${NEWEST_KERNEL}" > "$AWG_REBOOT_FLAG"
+    else
+        echo -e "${RED}Заголовки ядра для ${RUNNING_KERNEL} не найдены.${NC}"
+        echo -e "${YELLOW}Попробуй: apt-get install linux-headers-${RUNNING_KERNEL}${NC}"
+        echo -e "${YELLOW}Или обнови ядро: apt-get install linux-image-amd64 && reboot${NC}"
+        exit 1
     fi
-    echo -e "${RED}Заголовки ядра для ${RUNNING_KERNEL} не найдены.${NC}"
-    echo -e "${YELLOW}Попробуй: apt-get install linux-headers-${RUNNING_KERNEL}${NC}"
-    echo -e "${YELLOW}Или обнови ядро: apt-get install linux-image-amd64 && reboot${NC}"
-    exit 1
+else
+    echo -e "${GREEN}Заголовки ядра: OK${NC}"
 fi
-echo -e "${GREEN}Заголовки ядра: OK${NC}"
 
 # 3. Build and install kernel module via DKMS.
 #    Version = the git tag/SHA of the exact commit built. Upstream hardcodes
@@ -245,30 +246,40 @@ if [[ ! -d /sys/module/amneziawg || $FORCE_REBUILD -eq 1 ]]; then
     rm -rf "/usr/src/amneziawg-${MOD_VER}"
     make dkms-install WIREGUARD_VERSION="${MOD_VER}" 2>/dev/null || true
     dkms add -m amneziawg -v "${MOD_VER}" 2>/dev/null || true
-    dkms build -m amneziawg -v "${MOD_VER}" || {
+    # Prefer the running kernel; if its headers are missing (meta-upgrade
+    # already pulled a newer image), build for the first kernel that has
+    # headers so install can finish without a mid-script reboot (lucx.122).
+    BUILD_K="$(uname -r)"
+    if [[ ! -d "/lib/modules/${BUILD_K}/build" ]]; then
+        for KERN in $(ls -1 /lib/modules 2>/dev/null); do
+            if [[ -d "/lib/modules/$KERN/build" ]]; then
+                BUILD_K="$KERN"
+                break
+            fi
+        done
+    fi
+    dkms build -m amneziawg -v "${MOD_VER}" -k "${BUILD_K}" || {
         echo -e "${RED}Ошибка сборки DKMS — текущий модуль не тронут. Проверь заголовки ядра.${NC}"
         cd /tmp; rm -rf "$KERNEL_MOD_DIR"
         exit 1
     }
 
     # Build succeeded → swap: unload the old module and retire its DKMS tree,
-    # then install the new one for the booted kernel...
+    # then install the new one...
     if [[ -n "$OLD_DKMS_VER" && "$OLD_DKMS_VER" != "$MOD_VER" ]]; then
         rmmod amneziawg 2>/dev/null || \
             echo -e "${YELLOW}Не удалось выгрузить amneziawg (занят?). Перезагрузка подберёт новый модуль.${NC}"
         dkms remove -m amneziawg -v "$OLD_DKMS_VER" --all 2>/dev/null || true
     fi
-    dkms install -m amneziawg -v "${MOD_VER}" || {
+    dkms install -m amneziawg -v "${MOD_VER}" -k "${BUILD_K}" || {
         echo -e "${RED}dkms install не удалась — проверь /var/lib/dkms/amneziawg${NC}"
         cd /tmp; rm -rf "$KERNEL_MOD_DIR"
         exit 1
     }
-    # ...and compile for every other installed kernel that has headers, so a
-    # reboot into a freshly upgraded kernel boots straight onto the new module
-    # (the kernel package's dkms autoinstall may have built the OLD tree for
-    # it before this rebuild ran).
+    # Compile for every other installed kernel that has headers, so a reboot
+    # into a freshly upgraded kernel boots straight onto the new module.
     for KERN in $(ls -1 /lib/modules 2>/dev/null); do
-        [[ "$KERN" == "$(uname -r)" ]] && continue
+        [[ "$KERN" == "$BUILD_K" ]] && continue
         [[ -d "/lib/modules/$KERN/build" ]] || continue
         dkms build -m amneziawg -v "${MOD_VER}" -k "$KERN" 2>/dev/null && \
             dkms install -m amneziawg -v "${MOD_VER}" -k "$KERN" 2>/dev/null || \
@@ -320,9 +331,15 @@ if ! command -v awg-quick &>/dev/null; then
     echo -e "${RED}Дособрать вручную: apt install build-essential && cd /tmp && git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git && cd amneziawg-tools/src && make && make install${NC}"
 fi
 
-# 5. Load module and enable autostart
+# 5. Load module and enable autostart (only if the running kernel has the module)
 modprobe amneziawg 2>/dev/null || {
-    echo -e "${YELLOW}Не удалось загрузить модоль. Возможно, нужен ребут.${NC}"
+    if [[ -f "$AWG_REBOOT_FLAG" ]]; then
+        echo -e "${YELLOW}Модуль собран для нового ядра — загрузится после reboot (в конце install/update).${NC}"
+    else
+        echo -e "${YELLOW}Не удалось загрузить модуль. Возможно, нужен ребут.${NC}"
+        mkdir -p "$(dirname "$AWG_REBOOT_FLAG")"
+        uname -r > "$AWG_REBOOT_FLAG" 2>/dev/null || true
+    fi
 }
 echo "amneziawg" > /etc/modules-load.d/amneziawg.conf
 

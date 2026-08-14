@@ -258,6 +258,7 @@
       "awgStatusError": "Error",
       "awgStatusUnknown": "Unknown",
       "awgModuleNotLoaded": "Kernel module not loaded",
+      "awgModuleNotLoadedHint": "Модуль AWG не встановлено. Settings → Cores → Rebuild AWG, або: bash /usr/local/x-ui/bin/install-awg-module.sh",
       "awgInterfaces": "{n} interface(s) UP",
       "awgRestart": "Restart AWG",
       "awgRestartPopover": "AWG interfaces restarted"
@@ -807,7 +808,11 @@
         "trustTunnelListenPreset": "Вікна listen",
         "trustTunnelListenPresetHint": "Stock = дефолти з мануалу TrustTunnel (вікно стріму 128 КіБ — повільний upload). Fast = більші вікна, upload як download.",
         "trustTunnelListenPresetFast": "Fast (рекомендовано)",
-        "trustTunnelListenPresetStock": "Stock (дефолти мануалу)"
+        "trustTunnelListenPresetStock": "Stock (дефолти мануалу)",
+        "trustTunnelAdvanced": "Додатково",
+        "trustTunnelClientRandomPrefix": "Client random prefix",
+        "trustTunnelClientRandomPrefixHint": "TLS Client Random filter (hex/mask). Written to rules.toml and the client tt:// link. Clients must re-download the link after Regenerate.",
+        "trustTunnelClientRandomPrefixRegen": "Згенерувати"
       },
       "info": {
         "mode": "Режим",

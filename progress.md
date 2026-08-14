@@ -5,6 +5,26 @@
 
 ---
 
+## lucx.122 — TrustTunnel prefix/cleanup + AWG first-install + UX (2026-08-14)
+
+**Репорты doc. bravn + dashboard/install UX.**
+
+1. **TrustTunnel `client_random_prefix`:** auto-gen hex/mask на save; rules.toml
+   allow-rule; tt:// TLV `0x0B`; форма Advanced readonly + Regenerate.
+2. **Orphan configs:** `Manager.Remove` + disk sweep удаляют `trusttunnel-N*` /
+   `mieru-N*` / `naive-N*` файлы (раньше только stop process).
+3. **AWG first install:** `install-awg-module.sh` больше **не** reboot mid-flow;
+   флаг `.awg-reboot-needed`; reboot в конце install.sh/update.sh; DKMS для
+   всех ядер с headers (running или newest).
+4. **Credentials end-block:** user/pass только если сгенерированы в этом run;
+   иначе Access URL + «логин не менялся» (без стейлого install-result.env).
+5. **Dashboard AWG:** при module not loaded — Tag/Alert с hint Rebuild/install.
+6. **RU typo:** аплинстрымы → апстримы.
+
+**lucxVersion:** lucx.122
+
+---
+
 ## lucx.121 — CI: govulncheck + fuzz-smoke (2026-08-14)
 
 Падали на lucx.119/120, не наш регресс кода.

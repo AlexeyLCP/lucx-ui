@@ -5,16 +5,30 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { useTranslation } from 'react-i18next';
-import { Input, Select, Switch } from 'antd';
-import { useWatch } from 'react-hook-form';
+import { Button, Collapse, Input, Select, Space, Switch } from 'antd';
+import { ReloadOutlined } from '@ant-design/icons';
+import { useFormContext, useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
 import { useOutboundTags } from '@/api/queries/useOutboundTags';
 
+function randomHex(bytes: number): string {
+  const a = new Uint8Array(bytes);
+  crypto.getRandomValues(a);
+  return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
 export default function TrustTunnelFields() {
   const { t } = useTranslation();
+  const { setValue } = useFormContext();
   const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
   const { data: outboundTags } = useOutboundTags();
+
+  const regeneratePrefix = () => {
+    const prefix = `${randomHex(4)}/${'f'.repeat(8)}`;
+    setValue('settings.clientRandomPrefix', prefix, { shouldDirty: true });
+  };
+
   return (
     <>
       <FormField
@@ -101,6 +115,35 @@ export default function TrustTunnelFields() {
           ]}
         />
       </FormField>
+      <Collapse
+        style={{ marginBottom: 14 }}
+        items={[
+          {
+            key: 'advanced',
+            label: t('pages.inbounds.form.trustTunnelAdvanced'),
+            children: (
+              <Space.Compact style={{ width: '100%' }}>
+                <FormField
+                  name={['settings', 'clientRandomPrefix']}
+                  label={t('pages.inbounds.form.trustTunnelClientRandomPrefix')}
+                  tooltip={t('pages.inbounds.form.trustTunnelClientRandomPrefixHint')}
+                  style={{ flex: 1, marginBottom: 0 }}
+                >
+                  <Input readOnly placeholder="aabbccdd/ffffffff" />
+                </FormField>
+                <Button
+                  icon={<ReloadOutlined />}
+                  onClick={regeneratePrefix}
+                  style={{ marginTop: 30 }}
+                  title={t('pages.inbounds.form.trustTunnelClientRandomPrefixRegen')}
+                >
+                  {t('pages.inbounds.form.trustTunnelClientRandomPrefixRegen')}
+                </Button>
+              </Space.Compact>
+            ),
+          },
+        ]}
+      />
     </>
   );
 }
