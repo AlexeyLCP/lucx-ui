@@ -1425,6 +1425,7 @@ func (s *InboundService) normalizeTrustTunnelSettings(inbound *model.Inbound) {
 	settings["routeXrayPort"] = cfg.RouteXrayPort
 	settings["outboundTag"] = cfg.OutboundTag
 	settings["metricsPort"] = cfg.MetricsPort
+	settings["listenPreset"] = cfg.ListenPreset
 	if strings.TrimSpace(cfg.Remark) != "" {
 		settings["remark"] = cfg.Remark
 	}

@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "端点通过 Xray 中隐藏的 loopback SOCKS 桥转发隧道流量（[forward_protocol.socks5]）。默认关闭 — 仅在出站级联时启用。",
         "trustTunnelRouteOutbound": "出站",
         "trustTunnelRouteOutboundHint": "留空 = Xray 默认出口。否则强制路由到此出站/负载均衡器。",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "监听窗口",
+        "trustTunnelListenPresetHint": "Stock = TrustTunnel 手册默认（流窗口 128 KiB，上传慢）。Fast = 更大窗口，上传接近下载。",
+        "trustTunnelListenPresetFast": "Fast（推荐）",
+        "trustTunnelListenPresetStock": "Stock（手册默认）"
       },
       "info": {
         "mode": "模式",

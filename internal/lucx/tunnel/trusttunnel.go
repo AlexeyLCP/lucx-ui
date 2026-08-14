@@ -48,6 +48,50 @@ type TrustTunnelConfig struct {
 	// MetricsPort is the backend-owned loopback Prometheus port for traffic
 	// accounting (0 = metrics disabled).
 	MetricsPort int `json:"metricsPort"`
+
+	// ListenPreset selects documented listen_protocols windows:
+	// "stock" = TrustTunnel CONFIGURATION.md / settings.rs defaults
+	// (128 KiB stream window — slow upload); "fast" = tester-tuned
+	// windows that match download. Empty merges to "fast".
+	ListenPreset string `json:"listenPreset"`
+}
+
+const (
+	trustTunnelPresetStock = "stock"
+	trustTunnelPresetFast  = "fast"
+
+	stockHTTP2StreamWindow = 128 << 10
+	stockHTTP2ConnWindow   = 8 << 20
+	stockHTTP1UploadBuffer = 32 << 10
+
+	fastHTTP2StreamWindow = 4 << 20
+	fastHTTP2ConnWindow   = 64 << 20
+	fastHTTP1UploadBuffer = 512 << 10
+
+	defaultHTTP2MaxStreams  = 1000
+	defaultHTTP2MaxFrame    = 16384
+	defaultHTTP2HeaderTable = 65536
+)
+
+type trustTunnelListenTune struct {
+	streamWindow, connWindow, uploadBuffer int
+}
+
+func listenTuneFor(preset string) trustTunnelListenTune {
+	switch strings.ToLower(strings.TrimSpace(preset)) {
+	case trustTunnelPresetStock:
+		return trustTunnelListenTune{
+			streamWindow: stockHTTP2StreamWindow,
+			connWindow:   stockHTTP2ConnWindow,
+			uploadBuffer: stockHTTP1UploadBuffer,
+		}
+	default:
+		return trustTunnelListenTune{
+			streamWindow: fastHTTP2StreamWindow,
+			connWindow:   fastHTTP2ConnWindow,
+			uploadBuffer: fastHTTP1UploadBuffer,
+		}
+	}
 }
 
 // DefaultTrustTunnelConfig returns sensible defaults for a fresh inbound.
@@ -56,6 +100,7 @@ func DefaultTrustTunnelConfig() TrustTunnelConfig {
 		Listen:           "0.0.0.0:443",
 		IPv6:             true,
 		UpstreamProtocol: "http2",
+		ListenPreset:     trustTunnelPresetFast,
 	}
 }
 
@@ -67,6 +112,12 @@ func (c TrustTunnelConfig) Merge() TrustTunnelConfig {
 	}
 	if strings.TrimSpace(c.UpstreamProtocol) == "" {
 		c.UpstreamProtocol = def.UpstreamProtocol
+	}
+	switch strings.ToLower(strings.TrimSpace(c.ListenPreset)) {
+	case trustTunnelPresetStock:
+		c.ListenPreset = trustTunnelPresetStock
+	default:
+		c.ListenPreset = trustTunnelPresetFast
 	}
 	return c
 }
@@ -86,6 +137,11 @@ func (c TrustTunnelConfig) Validate() error {
 	case "http2", "http3":
 	default:
 		return fmt.Errorf("trusttunnel: upstream protocol must be http2 | http3")
+	}
+	switch strings.ToLower(strings.TrimSpace(c.ListenPreset)) {
+	case "", trustTunnelPresetStock, trustTunnelPresetFast:
+	default:
+		return fmt.Errorf("trusttunnel: listen preset must be stock | fast")
 	}
 	return nil
 }
@@ -182,8 +238,15 @@ func (c TrustTunnelConfig) RenderVpnToml(credsPath, rulesPath, socksAddr, metric
 	b.WriteString("allow_private_network_connections = false\n")
 	b.WriteString("credentials_file = " + tomlString(credsPath) + "\n")
 	b.WriteString("rules_file = " + tomlString(rulesPath) + "\n")
+	tune := listenTuneFor(c.ListenPreset)
 	b.WriteString("\n[listen_protocols.http1]\n")
+	b.WriteString("upload_buffer_size = " + strconv.Itoa(tune.uploadBuffer) + "\n")
 	b.WriteString("\n[listen_protocols.http2]\n")
+	b.WriteString("initial_stream_window_size = " + strconv.Itoa(tune.streamWindow) + "\n")
+	b.WriteString("initial_connection_window_size = " + strconv.Itoa(tune.connWindow) + "\n")
+	b.WriteString("max_concurrent_streams = " + strconv.Itoa(defaultHTTP2MaxStreams) + "\n")
+	b.WriteString("max_frame_size = " + strconv.Itoa(defaultHTTP2MaxFrame) + "\n")
+	b.WriteString("header_table_size = " + strconv.Itoa(defaultHTTP2HeaderTable) + "\n")
 	b.WriteString("\n[listen_protocols.quic]\n")
 	b.WriteString("\n[forward_protocol]\n")
 	if socksAddr != "" {

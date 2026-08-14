@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "エンドポイントはトンネルされたトラフィックを Xray 内の隠れたループバック SOCKS ブリッジ経由で転送します（[forward_protocol.socks5]）。既定ではオフ — アウトバウンドカスケードの場合のみ有効化してください。",
         "trustTunnelRouteOutbound": "アウトバウンド",
         "trustTunnelRouteOutboundHint": "空 = Xray の既定のポット。それ以外はこのアウトバウンド/バランサーへ強制ルーティング。",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "リッスンウィンドウ",
+        "trustTunnelListenPresetHint": "Stock = TrustTunnel マニュアルの既定（ストリームウィンドウ 128 KiB — アップロードが遅い）。Fast = 大きいウィンドウでアップロードをダウンロードに近づける。",
+        "trustTunnelListenPresetFast": "Fast（推奨）",
+        "trustTunnelListenPresetStock": "Stock（マニュアル既定）"
       },
       "info": {
         "mode": "モード",

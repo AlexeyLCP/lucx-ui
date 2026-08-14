@@ -307,6 +307,7 @@ export function createDefaultTrustTunnelInboundSettings(): TrustTunnelInboundSet
     upstreamProtocol: 'http2',
     routeThroughXray: false,
     outboundTag: '',
+    listenPreset: 'fast',
     clients: [],
   };
 }

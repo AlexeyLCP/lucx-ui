@@ -89,6 +89,18 @@ export default function TrustTunnelFields() {
           />
         </FormField>
       )}
+      <FormField
+        name={['settings', 'listenPreset']}
+        label={t('pages.inbounds.form.trustTunnelListenPreset')}
+        tooltip={t('pages.inbounds.form.trustTunnelListenPresetHint')}
+      >
+        <Select
+          options={[
+            { value: 'fast', label: t('pages.inbounds.form.trustTunnelListenPresetFast') },
+            { value: 'stock', label: t('pages.inbounds.form.trustTunnelListenPresetStock') },
+          ]}
+        />
+      </FormField>
     </>
   );
 }

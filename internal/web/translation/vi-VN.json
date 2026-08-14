@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "Endpoint chuyển tiếp lưu lượng đường hầm qua cầu SOCKS loopback ẩn trong Xray ([forward_protocol.socks5]). Mặc định tắt — chỉ bật khi nối tiếp outbound.",
         "trustTunnelRouteOutbound": "Outbound",
         "trustTunnelRouteOutboundHint": "Trống = nồi mặc định của Xray. Nếu không, buộc định tuyến tới outbound/balancer này.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "Cửa sổ listen",
+        "trustTunnelListenPresetHint": "Stock = mặc định trong tài liệu TrustTunnel (cửa sổ stream 128 KiB — upload chậm). Fast = cửa sổ lớn hơn để upload theo kịp download.",
+        "trustTunnelListenPresetFast": "Fast (khuyên dùng)",
+        "trustTunnelListenPresetStock": "Stock (mặc định tài liệu)"
       },
       "info": {
         "mode": "Chế độ",

@@ -35,6 +35,7 @@ type trustTunnelInboundSettings struct {
 	RouteXrayPort    int    `json:"routeXrayPort"`
 	OutboundTag      string `json:"outboundTag"`
 	MetricsPort      int    `json:"metricsPort"`
+	ListenPreset     string `json:"listenPreset"`
 	Clients          []struct {
 		Email  string `json:"email"`
 		Enable bool   `json:"enable"`
@@ -64,6 +65,7 @@ func TrustTunnelConfigFromInbound(ib *model.Inbound) (TrustTunnelConfig, bool) {
 		RouteXrayPort:    s.RouteXrayPort,
 		OutboundTag:      s.OutboundTag,
 		MetricsPort:      s.MetricsPort,
+		ListenPreset:     s.ListenPreset,
 	}.Merge()
 	return cfg, true
 }

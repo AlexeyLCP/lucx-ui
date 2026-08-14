@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "O endpoint encaminha o tráfego do túnel por uma ponte SOCKS loopback oculta no Xray ([forward_protocol.socks5]). Desativado por padrão — ative apenas para cascata de saída.",
         "trustTunnelRouteOutbound": "Saída",
         "trustTunnelRouteOutboundHint": "Vazio = caldeirão padrão do Xray. Senão, rotear à força para esta saída/balanceador.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "Janelas de escuta",
+        "trustTunnelListenPresetHint": "Stock = padrões do manual TrustTunnel (janela de stream 128 KiB — upload lento). Fast = janelas maiores para o upload acompanhar o download.",
+        "trustTunnelListenPresetFast": "Fast (recomendado)",
+        "trustTunnelListenPresetStock": "Stock (padrões do manual)"
       },
       "info": {
         "mode": "Modo",

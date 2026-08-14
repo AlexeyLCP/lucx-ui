@@ -24,13 +24,15 @@ type TrustTunnelScrapeTarget struct {
 	MetricsPort int
 }
 
-// TrustTunnelTraffic is an inbound-level byte delta. TrustTunnel metrics are
-// aggregate (no per-user labels upstream), so per-client accounting is not
-// possible for this core.
+// TrustTunnelTraffic is one scrape snapshot: inbound-level byte delta plus
+// the live client_sessions gauge. Metrics have no username labels, so
+// per-client accounting is only possible when the inbound has a single
+// enabled client (the job attributes the delta / online to that email).
 type TrustTunnelTraffic struct {
-	Tag  string
-	Up   int64
-	Down int64
+	Tag      string
+	Up       int64
+	Down     int64
+	Sessions int64
 }
 
 type trustTunnelCursor struct {
@@ -54,7 +56,7 @@ func (m *Manager) CollectTrustTunnelTraffic(targets []TrustTunnelScrapeTarget) [
 		if t.MetricsPort <= 0 || !m.IsRunningKey(t.Key) {
 			continue
 		}
-		up, down, ok := scrapeTrustTunnelMetrics(t.MetricsPort)
+		up, down, sessions, ok := scrapeTrustTunnelMetrics(t.MetricsPort)
 		if !ok {
 			continue
 		}
@@ -64,7 +66,7 @@ func (m *Manager) CollectTrustTunnelTraffic(targets []TrustTunnelScrapeTarget) [
 			cur = &trustTunnelCursor{}
 			m.trustTunnelTraffic[t.Key] = cur
 		}
-		var d TrustTunnelTraffic
+		d := TrustTunnelTraffic{Tag: t.Tag, Sessions: sessions}
 		if cur.initialized {
 			if up > cur.up {
 				d.Up = up - cur.up
@@ -75,35 +77,32 @@ func (m *Manager) CollectTrustTunnelTraffic(targets []TrustTunnelScrapeTarget) [
 		}
 		cur.up, cur.down, cur.initialized = up, down, true
 		m.mu.Unlock()
-		if d.Up > 0 || d.Down > 0 {
-			d.Tag = t.Tag
-			out = append(out, d)
-		}
+		out = append(out, d)
 	}
 	return out
 }
 
 // scrapeTrustTunnelMetrics fetches the endpoint's /metrics and sums the
 // inbound/outbound byte counters across protocol_type labels.
-func scrapeTrustTunnelMetrics(port int) (up, down int64, ok bool) {
+func scrapeTrustTunnelMetrics(port int) (up, down, sessions int64, ok bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	url := fmt.Sprintf("http://127.0.0.1:%d/metrics", port)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
 	if err != nil {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
 	if err != nil {
-		return 0, 0, false
+		return 0, 0, 0, false
 	}
 	return parseTrustTunnelMetrics(string(body))
 }
@@ -113,7 +112,7 @@ func scrapeTrustTunnelMetrics(port int) (up, down int64, ok bool) {
 //
 //	inbound_traffic_bytes{protocol_type="http2"} 1234567
 //	outbound_traffic_bytes{protocol_type="http1"} 7654321
-func parseTrustTunnelMetrics(body string) (up, down int64, ok bool) {
+func parseTrustTunnelMetrics(body string) (up, down, sessions int64, ok bool) {
 	for _, line := range strings.Split(body, "\n") {
 		line = strings.TrimSpace(line)
 		if line == "" || strings.HasPrefix(line, "#") {
@@ -144,7 +143,27 @@ func parseTrustTunnelMetrics(body string) (up, down int64, ok bool) {
 		case "outbound_traffic_bytes":
 			down += int64(v)
 			ok = true
+		case "client_sessions":
+			sessions += int64(v)
+			ok = true
 		}
 	}
-	return up, down, ok
+	return up, down, sessions, ok
+}
+
+// TrustTunnelSoleClient returns the only non-empty email, or "" when the
+// inbound has zero or several clients (aggregate metrics cannot be split).
+func TrustTunnelSoleClient(emails []string) string {
+	var sole string
+	for _, e := range emails {
+		e = strings.TrimSpace(e)
+		if e == "" {
+			continue
+		}
+		if sole != "" {
+			return ""
+		}
+		sole = e
+	}
+	return sole
 }

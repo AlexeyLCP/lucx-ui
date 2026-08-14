@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "Uç nokta, tünellenmiş trafiği Xray içindeki gizli bir loopback SOCKS köprüsü üzerinden iletir ([forward_protocol.socks5]). Varsayılan kapalı — yalnızca çıkış zinciri için etkinleştirin.",
         "trustTunnelRouteOutbound": "Çıkış",
         "trustTunnelRouteOutboundHint": "Boş = Xray varsayılan kazanı. Aksi halde bu çıkış/dengeleyiciye zorla yönlendir.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "Dinleme pencereleri",
+        "trustTunnelListenPresetHint": "Stock = TrustTunnel kılavuz varsayılanları (128 KiB akış penceresi — yavaş yükleme). Fast = daha büyük pencereler, yükleme indirmeye yaklaşır.",
+        "trustTunnelListenPresetFast": "Fast (önerilen)",
+        "trustTunnelListenPresetStock": "Stock (kılavuz varsayılanı)"
       },
       "info": {
         "mode": "Mod",

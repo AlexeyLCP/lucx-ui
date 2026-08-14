@@ -5,6 +5,32 @@
 
 ---
 
+## lucx.120 — TrustTunnel: трафик/онлайн + пресеты listen (2026-08-14)
+
+**1. Трафик и активность.** Клод уже скрейпил Prometheus (`inbound/outbound_traffic_bytes`)
+в inbound-счётчик; на Clients page всё равно 0 и offline — метрик без username нет.
+Доделано: парсим `client_sessions`; если у inbound ровно один включённый клиент —
+дельты и онлайн идут на его email. Несколько клиентов → только inbound-трафик
+(честный лимит апстрима). `RefreshLocalOnlineClients` каждый тик.
+
+**2. Пресеты окон listen (репорт doc. bravn).** Stock TrustTunnel
+(CONFIGURATION.md / settings.rs): stream window 128 KiB → upload ползёт.
+Пресет в форме, не сырые числа:
+- `fast` (дефолт, рекомендуется) — 4 MiB / 64 MiB / 512 KiB (значения тестера)
+- `stock` — 128 KiB / 8 MiB / 32 KiB (мануал TrustTunnel)
+Существующие inbound без поля → Merge в `fast` (только vpn.toml, клиентский
+.conf не трогаем — Rule 0).
+
+**Файлы:** `trusttunnel.go`/`_inbound.go`/`_traffic.go`/`_test.go`,
+`tunnel_job.go`, `inbound.go` (normalize), schema/form/defaults, i18n×13,
+`config.go`, AGENTS.md.
+
+**Правило 0:** клиентские tt:// не меняются. **Правило 0b:** не затронуто.
+
+**lucxVersion:** lucx.120
+
+---
+
 ## Релиз v3.6.0-lucx.119 (2026-08-14) — overlay 3x-ui: Scan wg_keep_alive
 
 **Проблема:** install/update LucX поверх ванильной 3x-ui → Clients page краш:

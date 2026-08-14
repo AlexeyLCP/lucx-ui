@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "الـ endpoint بيوجه ترافيك النفق عبر جسر SOCKS محلي مخفي في Xray ([forward_protocol.socks5]). مقفل افتراضياً — فعّله فقط للتسلسل عبر outbound.",
         "trustTunnelRouteOutbound": "الصادر",
         "trustTunnelRouteOutboundHint": "فاضي = وعاء Xray الافتراضي. وإلا توجيه إجباري لهذا الصادر/الموازن.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "نوافذ الاستماع",
+        "trustTunnelListenPresetHint": "Stock = افتراضي دليل TrustTunnel (نافذة الستريم 128 KiB — رفع بطيء). Fast = نوافذ أكبر عشان الرفع يلحق التحميل.",
+        "trustTunnelListenPresetFast": "Fast (موصى به)",
+        "trustTunnelListenPresetStock": "Stock (افتراضي الدليل)"
       },
       "info": {
         "mode": "الوضع",

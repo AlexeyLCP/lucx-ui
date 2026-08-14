@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "نقطه پایان ترافیک تونل‌شده را از طریق پل SOCKS لوپ‌بک پنهان در Xray هدایت می‌کند ([forward_protocol.socks5]). پیش‌فرض خاموش — فقط برای آبشار خروجی فعال کنید.",
         "trustTunnelRouteOutbound": "خروجی",
         "trustTunnelRouteOutboundHint": "خالی = دیگ پیش‌فرض Xray. در غیر این صورت مسیریابی اجباری به این خروجی/بالانسر.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "پنجره‌های listen",
+        "trustTunnelListenPresetHint": "Stock = پیش‌فرض دفترچه TrustTunnel (پنجره استریم ۱۲۸ KiB — آپلود کند). Fast = پنجره‌های بزرگ‌تر تا آپلود به دانلود برسد.",
+        "trustTunnelListenPresetFast": "Fast (پیشنهادی)",
+        "trustTunnelListenPresetStock": "Stock (پیش‌فرض دفترچه)"
       },
       "info": {
         "mode": "حالت",

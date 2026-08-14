@@ -244,9 +244,9 @@ func (j *TunnelJob) collectMieruTraffic() {
 	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
 }
 
-// collectTrustTunnelTraffic scrapes endpoint Prometheus metrics. Metrics are
-// aggregate (no per-user labels upstream) → inbound-level accounting only;
-// per-client traffic/online is not possible for TrustTunnel.
+// collectTrustTunnelTraffic scrapes endpoint Prometheus metrics. Counters are
+// aggregate (no username labels) → inbound rollup always; per-client
+// traffic/online only when the inbound has a single enabled client.
 func (j *TunnelJob) collectTrustTunnelTraffic() {
 	inbounds, err := j.inboundService.GetAllInbounds()
 	if err != nil {
@@ -254,13 +254,24 @@ func (j *TunnelJob) collectTrustTunnelTraffic() {
 		return
 	}
 	var targets []tunnel.TrustTunnelScrapeTarget
+	routedTags := map[string]bool{}
+	emailsByTag := map[string][]string{}
+	activeTags := make([]string, 0)
 	for _, ib := range inbounds {
 		if ib == nil || ib.Protocol != model.TrustTunnel || !ib.Enable || ib.NodeID != nil {
 			continue
 		}
 		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		activeTags = append(activeTags, tag)
+		emailsByTag[tag] = trustTunnelEmailsForInbound(ib)
 		cfg, ok := tunnel.TrustTunnelConfigFromInbound(ib)
-		if !ok || tag == "" || cfg.MetricsPort <= 0 {
+		if ok && cfg.RouteThroughXray {
+			routedTags[tag] = true
+		}
+		if !ok || cfg.MetricsPort <= 0 {
 			continue
 		}
 		targets = append(targets, tunnel.TrustTunnelScrapeTarget{
@@ -270,36 +281,64 @@ func (j *TunnelJob) collectTrustTunnelTraffic() {
 		})
 	}
 	if len(targets) == 0 {
-		return
-	}
-	deltas := tunnel.GetManager().CollectTrustTunnelTraffic(targets)
-	if len(deltas) == 0 {
-		return
-	}
-	routedTags := map[string]bool{}
-	for _, ib := range inbounds {
-		if cfg, ok := tunnel.TrustTunnelConfigFromInbound(ib); ok && cfg.RouteThroughXray {
-			routedTags[strings.TrimSpace(ib.Tag)] = true
+		if len(activeTags) > 0 {
+			j.inboundService.RefreshLocalOnlineClients(nil, activeTags)
 		}
+		return
 	}
-	traffics := make([]*xray.Traffic, 0, len(deltas))
-	for _, d := range deltas {
-		if routedTags[d.Tag] {
+	snaps := tunnel.GetManager().CollectTrustTunnelTraffic(targets)
+	traffics := make([]*xray.Traffic, 0, len(snaps))
+	clientTraffics := make([]*xray.ClientTraffic, 0)
+	onlineEmails := make([]string, 0)
+	for _, d := range snaps {
+		if !routedTags[d.Tag] && (d.Up > 0 || d.Down > 0) {
+			traffics = append(traffics, &xray.Traffic{
+				IsInbound: true,
+				Tag:       d.Tag,
+				Up:        d.Up,
+				Down:      d.Down,
+			})
+		}
+		email := tunnel.TrustTunnelSoleClient(emailsByTag[d.Tag])
+		if email == "" {
 			continue
 		}
-		traffics = append(traffics, &xray.Traffic{
-			IsInbound: true,
-			Tag:       d.Tag,
-			Up:        d.Up,
-			Down:      d.Down,
-		})
+		if d.Up > 0 || d.Down > 0 {
+			clientTraffics = append(clientTraffics, &xray.ClientTraffic{
+				Email: email,
+				Up:    d.Up,
+				Down:  d.Down,
+			})
+		}
+		if d.Sessions > 0 || d.Up > 0 || d.Down > 0 {
+			onlineEmails = append(onlineEmails, email)
+		}
 	}
-	if len(traffics) == 0 {
-		return
+	if len(traffics) > 0 || len(clientTraffics) > 0 {
+		if _, _, err := j.inboundService.AddTraffic(traffics, clientTraffics); err != nil {
+			logger.Warning("tunnel job: add trusttunnel traffic failed:", err)
+		}
 	}
-	if _, _, err := j.inboundService.AddTraffic(traffics, nil); err != nil {
-		logger.Warning("tunnel job: add trusttunnel traffic failed:", err)
+	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
+}
+
+func trustTunnelEmailsForInbound(ib *model.Inbound) []string {
+	var s struct {
+		Clients []struct {
+			Email  string `json:"email"`
+			Enable bool   `json:"enable"`
+		} `json:"clients"`
 	}
+	_ = json.Unmarshal([]byte(ib.Settings), &s)
+	out := make([]string, 0, len(s.Clients))
+	for _, c := range s.Clients {
+		email := strings.TrimSpace(c.Email)
+		if !c.Enable || email == "" {
+			continue
+		}
+		out = append(out, email)
+	}
+	return out
 }
 
 func mieruUserMapForInbound(secret []byte, ib *model.Inbound) map[string]string {

@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "Эндпоинт форвардит туннельный трафик через скрытый loopback SOCKS-мост в Xray ([forward_protocol.socks5]). По умолчанию выключено — включайте только для каскада через outbound.",
         "trustTunnelRouteOutbound": "Outbound",
         "trustTunnelRouteOutboundHint": "Пусто = дефолтный котел Xray. Иначе принудительная маршрутизация в этот outbound/balancer.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "Окна listen",
+        "trustTunnelListenPresetHint": "Stock = дефолты из мануала TrustTunnel (окно стрима 128 КиБ — медленный upload). Fast = увеличенные окна, upload как download.",
+        "trustTunnelListenPresetFast": "Fast (рекомендуется)",
+        "trustTunnelListenPresetStock": "Stock (дефолты мануала)"
       },
       "info": {
         "mode": "Режим",

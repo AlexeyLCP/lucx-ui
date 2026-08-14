@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "Endpoint meneruskan lalu lintas terowongan lewat jembatan SOCKS loopback tersembunyi di Xray ([forward_protocol.socks5]). Nonaktif secara default — aktifkan hanya untuk kaskade outbound.",
         "trustTunnelRouteOutbound": "Outbound",
         "trustTunnelRouteOutboundHint": "Kosong = kettle default Xray. Jika tidak, paksa rute ke outbound/balancer ini.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "Jendela listen",
+        "trustTunnelListenPresetHint": "Stock = default manual TrustTunnel (jendela stream 128 KiB — unggahan lambat). Fast = jendela lebih besar agar unggahan menyamai unduhan.",
+        "trustTunnelListenPresetFast": "Fast (disarankan)",
+        "trustTunnelListenPresetStock": "Stock (default manual)"
       },
       "info": {
         "mode": "Mode",

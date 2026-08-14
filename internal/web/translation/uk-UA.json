@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "Ендпоінт форвардить тунельний трафік через прихований loopback SOCKS-міст у Xray ([forward_protocol.socks5]). Типово вимкнено — вмикайте лише для каскаду через outbound.",
         "trustTunnelRouteOutbound": "Outbound",
         "trustTunnelRouteOutboundHint": "Порожньо = дефолтний казан Xray. Інакше примусова маршрутизація в цей outbound/balancer.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "Вікна listen",
+        "trustTunnelListenPresetHint": "Stock = дефолти з мануалу TrustTunnel (вікно стріму 128 КіБ — повільний upload). Fast = більші вікна, upload як download.",
+        "trustTunnelListenPresetFast": "Fast (рекомендовано)",
+        "trustTunnelListenPresetStock": "Stock (дефолти мануалу)"
       },
       "info": {
         "mode": "Режим",

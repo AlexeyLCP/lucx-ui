@@ -44,6 +44,12 @@ func TestTrustTunnelValidate(t *testing.T) {
 	if err := cfg.Validate(); err == nil {
 		t.Fatal("bad upstream protocol must fail")
 	}
+	cfg = DefaultTrustTunnelConfig()
+	cfg.Hostname = "vpn.example.com"
+	cfg.ListenPreset = "turbo"
+	if err := cfg.Validate(); err == nil {
+		t.Fatal("bad listen preset must fail")
+	}
 }
 
 func TestTrustTunnelRenderVpnToml(t *testing.T) {
@@ -57,6 +63,9 @@ func TestTrustTunnelRenderVpnToml(t *testing.T) {
 		`credentials_file = "/w/creds.toml"`,
 		`rules_file = "/w/rules.toml"`,
 		"[listen_protocols.http2]",
+		"upload_buffer_size = 524288",
+		"initial_stream_window_size = 4194304",
+		"initial_connection_window_size = 67108864",
 		"[forward_protocol]",
 		"direct = {}",
 	} {
@@ -66,6 +75,18 @@ func TestTrustTunnelRenderVpnToml(t *testing.T) {
 	}
 	if strings.Contains(got, "socks5") || strings.Contains(got, "[metrics]") {
 		t.Fatal("direct config must not carry socks5/metrics")
+	}
+
+	cfg.ListenPreset = "stock"
+	got = cfg.Merge().RenderVpnToml("/w/creds.toml", "/w/rules.toml", "", "")
+	for _, want := range []string{
+		"upload_buffer_size = 32768",
+		"initial_stream_window_size = 131072",
+		"initial_connection_window_size = 8388608",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("stock vpn.toml missing %q:\n%s", want, got)
+		}
 	}
 
 	got = cfg.RenderVpnToml("/w/creds.toml", "/w/rules.toml", "127.0.0.1:12345", "127.0.0.1:1987")
@@ -277,7 +298,7 @@ inbound_traffic_bytes{protocol_type="http2"} 2345
 outbound_traffic_bytes{protocol_type="http2"} 7654321
 outbound_tcp_sockets 12
 `
-	up, down, ok := parseTrustTunnelMetrics(body)
+	up, down, sessions, ok := parseTrustTunnelMetrics(body)
 	if !ok {
 		t.Fatal("parse must succeed")
 	}
@@ -287,8 +308,26 @@ outbound_tcp_sockets 12
 	if down != 7654321 {
 		t.Fatalf("down = %d", down)
 	}
-	if _, _, ok := parseTrustTunnelMetrics("# only comments\n"); ok {
+	if sessions != 5 {
+		t.Fatalf("sessions = %d", sessions)
+	}
+	if _, _, _, ok := parseTrustTunnelMetrics("# only comments\n"); ok {
 		t.Fatal("no counters must yield ok=false")
+	}
+}
+
+func TestTrustTunnelSoleClient(t *testing.T) {
+	if got := TrustTunnelSoleClient(nil); got != "" {
+		t.Fatalf("nil = %q", got)
+	}
+	if got := TrustTunnelSoleClient([]string{" ", ""}); got != "" {
+		t.Fatalf("blank = %q", got)
+	}
+	if got := TrustTunnelSoleClient([]string{"a@b"}); got != "a@b" {
+		t.Fatalf("one = %q", got)
+	}
+	if got := TrustTunnelSoleClient([]string{"a@b", "c@d"}); got != "" {
+		t.Fatalf("two = %q", got)
 	}
 }
 

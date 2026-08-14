@@ -803,7 +803,11 @@
         "trustTunnelRouteThroughXrayHint": "The endpoint forwards tunneled traffic via a hidden loopback SOCKS bridge in Xray ([forward_protocol.socks5]). Off by default — enable only for outbound cascade.",
         "trustTunnelRouteOutbound": "Outbound",
         "trustTunnelRouteOutboundHint": "Empty = Xray default kettle. Otherwise force-route to this outbound/balancer.",
-        "trustTunnelRouteOutboundPlaceholder": "default / warp / …"
+        "trustTunnelRouteOutboundPlaceholder": "default / warp / …",
+        "trustTunnelListenPreset": "Listen windows",
+        "trustTunnelListenPresetHint": "Stock = TrustTunnel manual defaults (128 KiB stream window — slow upload). Fast = larger windows so upload matches download.",
+        "trustTunnelListenPresetFast": "Fast (recommended)",
+        "trustTunnelListenPresetStock": "Stock (manual defaults)"
       },
       "info": {
         "mode": "Mode",
