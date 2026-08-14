@@ -227,7 +227,12 @@ export default function RuleFormModal({
       methods.reset(initialForm());
       setClientPick([]);
     }
-  }, [open, rule]); // methods intentionally omitted — unstable identity hangs render
+    // `methods` is deliberately not a dependency: react-hook-form hands back a
+    // fresh object every render, so listing it re-runs this reset on every
+    // render and hangs the modal. The effect only ever wants to fire when the
+    // modal opens or the rule being edited changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, rule]);
 
   const attrs = useWatch({ control: methods.control, name: 'attrs' }) ?? [];
 
