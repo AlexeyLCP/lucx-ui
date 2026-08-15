@@ -49,6 +49,10 @@
   privateKey; ошибка, когда оба пусты. (service pkg, CGO → CI.)
 - Frontend: typecheck + lint + build OK; `sub-fetch-body` / `sub-links` vitest OK.
 
+**Релиз (2026-08-15):** CI green → тег `v3.6.0-lucx.129` → Release OK → notes RU+EN.
+В релиз вошёл и незапушенный ранее `0358f0e3` (mieru trafficPattern, lucx.128).
+https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.6.0-lucx.129
+
 **lucxVersion:** lucx.129
 
 ---
