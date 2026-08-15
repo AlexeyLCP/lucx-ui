@@ -65,6 +65,9 @@ envelope `{success,obj}`, не `Status`. После визита Settings → Co
 **Тесты:** `go test ./internal/awg/...` OK; frontend typecheck+lint OK.
 `TestFillAwgClients` — CI (service pkg needs CGO).
 
+**Релиз (2026-08-15):** CI green → `v3.6.0-lucx.127` → Release OK → notes RU+EN.
+https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.6.0-lucx.127
+
 ---
 
 ## lucx.126 — разбор issues #44–#47: беспортовые инбаунды и креды сайдкаров (2026-08-15)
