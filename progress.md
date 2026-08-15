@@ -58,6 +58,32 @@
 `internal/web/controller/util_test.go`, `docs/content/docs/{en,ru,fa}/help/troubleshooting.mdx`,
 AGENTS.md, `internal/config/config.go`.
 
+**Верификация (2026-08-15, стенд 144.31.224.212, AWG-инбаунд `awg-kernel-masq`,
+listen пустой, порт 51820, клиент subId `testkernel1`).** Clash-подписка на
+стенде была выключена (`subClashEnable` по умолчанию `false`) — включена, чтобы
+воспроизвести именно репортнутый путь; **оставлена включённой** для будущих
+проверок релизов.
+
+- **До (lucx.117),** `curl -H 'Host: sub.example.com' -H 'X-Real-IP: 203.0.113.77'`:
+  `/clash/` → `server: 203.0.113.77`, `/sub/` → `amneziawg://…@203.0.113.77:51820`.
+  Баг воспроизведён 1:1 с репортом.
+- **После (lucx.125),** те же запросы: `/clash/` → `server: sub.example.com`,
+  `/sub/` → `@sub.example.com:51820`, `/awg/` → `Endpoint = sub.example.com:51820`.
+- Доверенный `X-Forwarded-Host: fwd.example.net` по-прежнему выигрывает у `Host`
+  (`server: fwd.example.net`) — путь за реальным прокси не сломан.
+- Апгрейд: `update.sh` с `main`, `NRestarts=0`, x-ui active, `awg show` показывает
+  `awg1` на 51820, сайдкары (mieru/qwdtt) живые. `ERROR - tunnel: mieru-4 process
+  exited: signal: terminated` — только рестарты в момент апдейта, после старта
+  чисто.
+
+**Побочное наблюдение (НЕ регрессия, upstream-поведение).** Пока
+`trustedProxyCIDRs` отсутствует / пуст / равен shipped-дефолту, `X-Forwarded-Host`
+принимается от ЛЮБОГО источника: запрос снаружи с `X-Forwarded-Host:
+evil.example.net` на `:2096` вернул `server: evil.example.net`. Границу включает
+только кастомное значение настройки (так же ведёт себя апстрим, описано в
+`docs/.../config/panel.mdx`). Кросс-пользовательского влияния нет — подписчик
+подменяет адрес только в своём же ответе.
+
 **lucxVersion:** lucx.125
 
 ---
