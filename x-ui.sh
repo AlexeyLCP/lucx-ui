@@ -3405,6 +3405,22 @@ migrate_db_prompt() {
     migrate_db "$input" "$output"
 }
 
+# LUCX-HOOK: AWG module install / uninstall (opt-in, lucx.130)
+install_awg_module() {
+    local script="${xui_folder}/bin/install-awg-module.sh"
+    if [[ ! -f "$script" ]]; then
+        LOGE "install-awg-module.sh not found at ${script}"
+        return 1
+    fi
+    bash "$script" "$@"
+}
+
+uninstall_awg_module() {
+    confirm "Remove the AmneziaWG kernel module and awg tools? Inbound .conf files are kept." "n" || return 0
+    install_awg_module --uninstall
+}
+# END LUCX-HOOK
+
 show_usage() {
     echo -e "┌────────────────────────────────────────────────────────────────┐
 │  ${blue}x-ui control menu usages (subcommands):${plain}                       │
@@ -3428,7 +3444,11 @@ show_usage() {
 │  ${blue}x-ui legacy${plain}                - Legacy version                   │
 │  ${blue}x-ui install${plain}               - Install                          │
 │  ${blue}x-ui uninstall${plain}             - Uninstall                        │
+│  ${blue}x-ui install-awg${plain}           - Install AmneziaWG module         │
+│  ${blue}x-ui uninstall-awg${plain}         - Remove AmneziaWG module          │
 └────────────────────────────────────────────────────────────────┘"
+    # LUCX-HOOK: install-awg / uninstall-awg listed above (lucx.130)
+    # END LUCX-HOOK
 }
 
 show_menu() {
@@ -3470,10 +3490,15 @@ show_menu() {
 │  ${green}26.${plain} Enable BBR                               │
 │  ${green}27.${plain} Update Geo Files                         │
 │  ${green}28.${plain} Speedtest by Ookla                       │
+│────────────────────────────────────────────────│
+│  ${green}29.${plain} Install AWG module                       │
+│  ${green}30.${plain} Uninstall AWG module                     │
 ╚────────────────────────────────────────────────╝
 "
+    # LUCX-HOOK: menu 29/30 AWG module (lucx.130)
+    # END LUCX-HOOK
     show_status
-    echo && read -rp "Please enter your selection [0-28]: " num
+    echo && read -rp "Please enter your selection [0-30]: " num
 
     case "${num}" in
         0)
@@ -3563,8 +3588,18 @@ show_menu() {
         28)
             run_speedtest
             ;;
+        29)
+            # LUCX-HOOK: install AWG module
+            check_install && install_awg_module
+            # END LUCX-HOOK
+            ;;
+        30)
+            # LUCX-HOOK: uninstall AWG module
+            check_install && uninstall_awg_module
+            # END LUCX-HOOK
+            ;;
         *)
-            LOGE "Please enter the correct number [0-28]"
+            LOGE "Please enter the correct number [0-30]"
             ;;
     esac
 }
@@ -3630,6 +3665,16 @@ if [[ $# > 0 ]]; then
             ;;
         "pgclient")
             pg_upgrade_client "$2"
+            ;;
+        "install-awg")
+            # LUCX-HOOK
+            check_install 0 && install_awg_module
+            # END LUCX-HOOK
+            ;;
+        "uninstall-awg")
+            # LUCX-HOOK
+            check_install 0 && uninstall_awg_module
+            # END LUCX-HOOK
             ;;
         *) show_usage ;;
     esac

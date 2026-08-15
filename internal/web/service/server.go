@@ -90,13 +90,14 @@ type Status struct {
 	} `json:"xray"`
 	// LUCX-HOOK: host-level AWG module + interface snapshot for the dashboard pill
 	Awg struct {
-		State        ProcessState `json:"state"`
-		ErrorMsg     string       `json:"errorMsg"`
-		Version      string       `json:"version"`
-		ModuleLoaded bool         `json:"moduleLoaded"`
-		ModuleAwg3   bool         `json:"moduleAwg3"`
-		Interfaces   int          `json:"interfaces"`
-		Ifnames      []string     `json:"ifnames,omitempty"`
+		State          ProcessState `json:"state"`
+		ErrorMsg       string       `json:"errorMsg"`
+		Version        string       `json:"version"`
+		ModuleLoaded   bool         `json:"moduleLoaded"`
+		ModuleAwg3     bool         `json:"moduleAwg3"`
+		Interfaces     int          `json:"interfaces"`
+		Ifnames        []string     `json:"ifnames,omitempty"`
+		RebuildRunning bool         `json:"rebuildRunning"`
 	} `json:"awg"`
 	// END LUCX-HOOK
 	PanelVersion string    `json:"panelVersion"`

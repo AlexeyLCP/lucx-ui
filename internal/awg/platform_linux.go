@@ -166,7 +166,7 @@ func kallsymsHasSymbol(r io.Reader, symbol string) bool {
 // reports one. A missing binary or an unparsable banner conservatively
 // returns false.
 func awgToolsParseHeaderProtectionKey() bool {
-	out, err := exec.CommandContext(context.Background(), "awg", "version").Output()
+	out, err := exec.CommandContext(context.Background(), awgBin("awg"), "version").Output()
 	if err != nil {
 		return false
 	}
@@ -222,7 +222,7 @@ func ModuleSupportsAwg31() bool {
 	if moduleAwg31Checked {
 		return moduleAwg31Supported
 	}
-	out, err := exec.CommandContext(context.Background(), "awg", "version").Output()
+	out, err := exec.CommandContext(context.Background(), awgBin("awg"), "version").Output()
 	if err != nil {
 		return false
 	}

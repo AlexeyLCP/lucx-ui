@@ -1246,6 +1246,17 @@ update_x-ui() {
         # (systemd brings it back). Never fatal: a failed rebuild/probe keeps
         # the existing module (panel still starts).
         if [[ -x bin/install-awg-module.sh ]]; then
+            # Opt-in (lucx.130): never install AWG on a host that never had it.
+            # Marker, loaded module, or awg-quick means the operator installed
+            # it (or a pre-130 auto-install left it). Otherwise skip — Cores /
+            # `x-ui install-awg` is the install path.
+            AWG_ALREADY=0
+            [[ -f /etc/x-ui/.awg-module-version ]] && AWG_ALREADY=1
+            [[ -d /sys/module/amneziawg ]] && AWG_ALREADY=1
+            command -v awg-quick >/dev/null 2>&1 && AWG_ALREADY=1
+            if [[ $AWG_ALREADY -eq 0 ]]; then
+                echo -e "${yellow}AWG module not installed — skip. Install: x-ui install-awg${plain}"
+            else
             INSTALLED_AWG_SHA=""
             [[ -f /etc/x-ui/.awg-module-version ]] && INSTALLED_AWG_SHA=$(cat /etc/x-ui/.awg-module-version 2>/dev/null)
             UPSTREAM_AWG_SHA=$(git ls-remote https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git refs/heads/master 2>/dev/null | awk '{print $1}')
@@ -1272,6 +1283,7 @@ update_x-ui() {
             if [[ -n "$NEWEST_KERNEL" && "$NEWEST_KERNEL" != "$(uname -r)" && -d "/lib/modules/$NEWEST_KERNEL/build" ]]; then
                 xui_kernel_reboot=1
                 xui_newest_kernel="$NEWEST_KERNEL"
+            fi
             fi
         fi
         # END LUCX-HOOK

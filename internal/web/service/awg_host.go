@@ -35,6 +35,7 @@ func fillAwgHostStatus(status *Status) {
 	status.Awg.Version = hs.Version
 	status.Awg.Interfaces = hs.Interfaces
 	status.Awg.Ifnames = hs.Ifnames
+	status.Awg.RebuildRunning = AwgRebuildRunning()
 	switch {
 	case !hs.ModuleLoaded:
 		status.Awg.State = Error
@@ -176,12 +177,12 @@ func (s *ServerService) RebuildAwgModule() error {
 	awgRebuildRunning = true
 	awgRebuildMu.Unlock()
 
-	script := filepath.Join(config.GetBinFolderPath(), "install-awg-module.sh")
-	if _, err := os.Stat(script); err != nil {
+	script, err := awgModuleScriptPath()
+	if err != nil {
 		awgRebuildMu.Lock()
 		awgRebuildRunning = false
 		awgRebuildMu.Unlock()
-		return fmt.Errorf("install-awg-module.sh not found at %s", script)
+		return err
 	}
 
 	go func() {
@@ -193,12 +194,9 @@ func (s *ServerService) RebuildAwgModule() error {
 		logger.Info("awg: starting module rebuild via ", script)
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 		defer cancel()
-		cmd := exec.CommandContext(ctx, "bash", script, "--force-rebuild")
+		cmd := exec.CommandContext(ctx, "bash", script, "--force-rebuild", "--no-kernel-upgrade")
 		cmd.Dir = filepath.Dir(script)
-		// A DKMS rebuild runs for up to 45 minutes and is chatty; buffering all
-		// of it in memory to print once at the end also means the operator sees
-		// nothing at all until it finishes. Keep a bounded tail for the failure
-		// message and stream the rest to the panel log as it arrives.
+		cmd.Env = awgModuleScriptEnv()
 		tail := &boundedTail{limit: awgRebuildTailBytes}
 		cmd.Stdout = tail
 		cmd.Stderr = tail
@@ -207,12 +205,73 @@ func (s *ServerService) RebuildAwgModule() error {
 			return
 		}
 		logger.Info("awg: module rebuild finished OK")
-		// Re-up interfaces after swap so traffic resumes without waiting for cron.
 		time.Sleep(2 * time.Second)
 		if err := s.RestartAwg(); err != nil {
 			logger.Warning("awg: post-rebuild restart interfaces:", err)
 		}
 	}()
+	return nil
+}
+
+func awgModuleScriptPath() (string, error) {
+	script := filepath.Join(config.GetBinFolderPath(), "install-awg-module.sh")
+	if abs, err := filepath.Abs(script); err == nil {
+		script = abs
+	}
+	if _, err := os.Stat(script); err != nil {
+		return "", fmt.Errorf("install-awg-module.sh not found at %s", script)
+	}
+	return script, nil
+}
+
+func awgModuleScriptEnv() []string {
+	path := os.Getenv("PATH")
+	if path == "" {
+		path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	} else {
+		path = "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:" + path
+	}
+	return append(os.Environ(),
+		"DEBIAN_FRONTEND=noninteractive",
+		"NEEDRESTART_MODE=a",
+		"NEEDRESTART_SUSPEND=1",
+		"PATH="+path,
+	)
+}
+
+func (s *ServerService) UninstallAwgModule() error {
+	if runtime.GOOS != "linux" {
+		return fmt.Errorf("AWG module uninstall is only supported on Linux")
+	}
+	awgRebuildMu.Lock()
+	if awgRebuildRunning {
+		awgRebuildMu.Unlock()
+		return fmt.Errorf("AWG module rebuild already in progress")
+	}
+	awgRebuildMu.Unlock()
+
+	script, err := awgModuleScriptPath()
+	if err != nil {
+		return err
+	}
+	logger.Info("awg: uninstalling module via ", script)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "bash", script, "--uninstall")
+	cmd.Dir = filepath.Dir(script)
+	cmd.Env = awgModuleScriptEnv()
+	out, err := cmd.CombinedOutput()
+	if len(out) > 0 {
+		for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+			if trimmed := strings.TrimSpace(line); trimmed != "" {
+				logger.Info("awg: uninstall | ", trimmed)
+			}
+		}
+	}
+	if err != nil {
+		return fmt.Errorf("uninstall AWG module: %w", err)
+	}
+	logger.Info("awg: module uninstall finished OK")
 	return nil
 }
 

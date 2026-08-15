@@ -59,7 +59,7 @@ type prober interface {
 type execProber struct{}
 
 func (execProber) Run(name string, args ...string) (string, error) {
-	out, err := exec.CommandContext(context.Background(), name, args...).CombinedOutput()
+	out, err := exec.CommandContext(context.Background(), awgBin(name), args...).CombinedOutput()
 	return string(out), err
 }
 

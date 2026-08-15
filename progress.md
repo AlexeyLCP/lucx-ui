@@ -5,6 +5,39 @@
 
 ---
 
+## lucx.130 — AWG модуль opt-in + uninstall + кнопка Cores реально ставит (2026-08-15)
+
+Репорт Malderin: чистая установка не ставит AWG (он просит так и оставить), кнопка
+«Обновить/пересобрать» в Ядрах не доустанавливает модуль (bash-команда — да),
+нужна команда отката.
+
+### Что сделано
+
+1. **`install.sh` больше не компилирует DKMS.** Печатает, как поставить:
+   `x-ui install-awg` / Settings → Cores → Install. Без неожиданного ребута
+   и 10-минутной сборки на тех, кому AWG не нужен.
+2. **`update.sh`** трогает модуль только если он уже ставился (маркер /
+   `/sys/module/amneziawg` / `awg-quick`). Иначе skip.
+3. **`bin/install-awg-module.sh`:** `--uninstall` (снимает модуль + awg/awg-quick,
+   `.conf` не трогает), `--no-kernel-upgrade` (панель не тянет новый linux-image),
+   `DEBIAN_FRONTEND=noninteractive` + `NEEDRESTART_SUSPEND` (иначе apt висит без TTY —
+   причина мёртвой кнопки).
+4. **Cores:** кнопка = Install если модуля нет, Rebuild если есть; спиннер по
+   `rebuildRunning`; Uninstall. Панель гоняет скрипт с `--no-kernel-upgrade`.
+5. **CLI:** `x-ui install-awg` / `x-ui uninstall-awg`, меню 29/30.
+6. **`awgBin`:** LookPath + `/usr/{,local/}{bin,sbin}` — reconcile не орёт
+   `awg-quick: not found in $PATH` после установки в нестандартный PATH systemd.
+
+### Тесты
+
+- `process_bin_test.go`: fallback имени, LookPath.
+- `TestAwgModuleScriptEnvIsNoninteractive`.
+- Frontend: typecheck + lint + i18n-dead-keys.
+
+**lucxVersion:** lucx.130
+
+---
+
 ## lucx.129 — vpn:// «something went wrong»: реальная ошибка + fallback publicKey (2026-08-15)
 
 Репорт (EvilGremlin, issue #47, комментарий 15.08): `vpn://`-ссылка в карточке

@@ -30,7 +30,7 @@ import (
 // avoid touching the server-side helper surface (scrapePeers runs its own
 // `awg show <iface> dump` directly and is unaffected).
 func awgShowIfname(ifname string) ([]byte, error) {
-	return exec.CommandContext(context.Background(), "awg", "show", ifname, "dump").CombinedOutput()
+	return exec.CommandContext(context.Background(), awgBin("awg"), "show", ifname, "dump").CombinedOutput()
 }
 
 // clientState tracks one running client interface so EnsureClient can detect

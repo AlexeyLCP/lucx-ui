@@ -861,7 +861,12 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/server/rebuildAwgModule',
-        summary: 'Rebuild amneziawg DKMS module from upstream master (async). Runs bin/install-awg-module.sh --force-rebuild.',
+        summary: 'Install or rebuild the amneziawg DKMS module from upstream master (async). Runs bin/install-awg-module.sh --force-rebuild --no-kernel-upgrade.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/server/uninstallAwgModule',
+        summary: 'Remove the amneziawg DKMS module and awg/awg-quick tools. Inbound .conf files are kept.',
       },
       {
         method: 'POST',

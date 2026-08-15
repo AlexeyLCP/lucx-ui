@@ -270,7 +270,18 @@ function AwgCard() {
     }
   };
 
+  const uninstallModule = async () => {
+    setBusy(true);
+    try {
+      await HttpUtil.post('/panel/api/server/uninstallAwgModule');
+      await refresh();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const loaded = !!awg.moduleLoaded;
+  const rebuilding = !!awg.rebuildRunning;
   const ifList = (awg.ifnames || []).join(', ');
   const showMissing = fetched && (awg.errorMsg === 'module_not_loaded' || !awg.moduleLoaded);
 
@@ -297,7 +308,10 @@ function AwgCard() {
       <Typography.Paragraph type="secondary">
         {t('pages.settings.cores.awgDesc')}
       </Typography.Paragraph>
-      {showMissing && (
+      {rebuilding && (
+        <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('pages.settings.cores.awgRebuildRunning')} />
+      )}
+      {showMissing && !rebuilding && (
         <Alert type="error" showIcon style={{ marginBottom: 12 }} message={t('pages.index.awgModuleNotLoadedHint')} />
       )}
       {fetched && awg.errorMsg && awg.errorMsg !== 'module_not_loaded' && (
@@ -308,17 +322,27 @@ function AwgCard() {
         {ifList ? ` · ${ifList}` : ''}
       </Typography.Paragraph>
       <Space wrap>
-        <Button icon={<ReloadOutlined />} disabled={busy || !loaded} onClick={() => void restartIfaces()}>
+        <Button icon={<ReloadOutlined />} disabled={busy || rebuilding || !loaded} onClick={() => void restartIfaces()}>
           {t('pages.settings.cores.awgRestart')}
         </Button>
         <Popconfirm
-          title={t('pages.settings.cores.awgRebuildConfirm')}
+          title={loaded ? t('pages.settings.cores.awgRebuildConfirm') : t('pages.settings.cores.awgInstallConfirm')}
           okText={t('confirm')}
           cancelText={t('cancel')}
           onConfirm={() => void rebuildModule()}
         >
-          <Button type="primary" disabled={busy}>
-            {t('pages.settings.cores.awgRebuild')}
+          <Button type="primary" disabled={busy || rebuilding} loading={rebuilding}>
+            {loaded ? t('pages.settings.cores.awgRebuild') : t('pages.settings.cores.awgInstall')}
+          </Button>
+        </Popconfirm>
+        <Popconfirm
+          title={t('pages.settings.cores.awgUninstallConfirm')}
+          okText={t('confirm')}
+          cancelText={t('cancel')}
+          onConfirm={() => void uninstallModule()}
+        >
+          <Button danger disabled={busy || rebuilding}>
+            {t('pages.settings.cores.awgUninstall')}
           </Button>
         </Popconfirm>
       </Space>

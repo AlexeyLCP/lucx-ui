@@ -1682,30 +1682,23 @@ install_x-ui() {
     # works out of the box (no-op when XUI_ENABLE_FAIL2BAN=false). Never fatal.
     setup_fail2ban
 
-    # LUCX-HOOK: Install AmneziaWG kernel module + tools.
-    # The AWG sidecar (internal/awg) needs `awg-quick`, `awg`, and the
-    # amneziawg kernel module. Routing of decrypted traffic into Xray is via
-    # an injected TUN inbound (injectAwgEgress), so no tun2socks daemon is
-    # needed. Best-effort: a failure logs a warning but does not abort the
-    # panel install — AWG inbounds simply won't start until the module is
-    # available. install-awg-module.sh writes /etc/x-ui/.awg-module-version
-    # after a successful build (or backfills it from modinfo on the no-op
-    # path), so update.sh can version-gate future rebuilds without re-cloning.
+    # LUCX-HOOK: AWG kernel module is opt-in (lucx.130). Compiling DKMS + a
+    # possible kernel upgrade used to block/reboot a fresh panel install, and
+    # testers who do not need AWG (or restore a backup later) asked to keep
+    # the module off by default. update.sh still rebuilds it when the host
+    # already has a marker / loaded module. Install on demand:
+    #   x-ui install-awg
+    #   Settings → Cores → Install module
+    #   bash /usr/local/x-ui/bin/install-awg-module.sh
+    # Rollback: x-ui uninstall-awg  (or the Uninstall button; .conf kept).
     if [[ -x bin/install-awg-module.sh ]]; then
-        echo -e "${green}Installing AmneziaWG kernel module and tools...${plain}"
-        bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
-        # Post-check: the module script is best-effort (set -e + network/make can
-        # abort it silently). If awg-quick is still missing, surface it loudly in
-        # the final install output instead of letting the admin discover it from
-        # "awg-quick: executable file not found" reconcile warnings later.
-        if ! command -v awg-quick &>/dev/null; then
-            echo -e "${red}╔══════════════════════════════════════════════════════╗${plain}"
-            echo -e "${red}║  AWG: awg-quick НЕ установлен!                       ║${plain}"
-            echo -e "${red}║  AWG-инбаунды не поднимутся (reconcile будет падать). ║${plain}"
-            echo -e "${red}║  Дособрать: apt install build-essential libmnl-dev    ║${plain}"
-            echo -e "${red}║  pkg-config dkms git, затем bash bin/install-awg-module.sh ${plain}"
-            echo -e "${red}╚══════════════════════════════════════════════════════╝${plain}"
-        fi
+        echo ""
+        echo -e "${yellow}╔══════════════════════════════════════════════════════╗${plain}"
+        echo -e "${yellow}║  AWG module is optional — not installed automatically ║${plain}"
+        echo -e "${yellow}║  Install:  x-ui install-awg                           ║${plain}"
+        echo -e "${yellow}║            Settings → Cores → Install module          ║${plain}"
+        echo -e "${yellow}║  Remove:   x-ui uninstall-awg                         ║${plain}"
+        echo -e "${yellow}╚══════════════════════════════════════════════════════╝${plain}"
     fi
     # END LUCX-HOOK
 

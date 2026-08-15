@@ -70,6 +70,7 @@ export interface AwgInfo {
   moduleAwg3: boolean;
   interfaces: number;
   ifnames?: string[];
+  rebuildRunning?: boolean;
 }
 
 // LUCX-HOOK: BBR congestion-control tuning (Settings → Cores).
@@ -130,6 +131,7 @@ export class Status {
     moduleAwg3: false,
     interfaces: 0,
     ifnames: [],
+    rebuildRunning: false,
   };
 
   constructor(data?: StatusInput | null) {

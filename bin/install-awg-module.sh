@@ -14,19 +14,41 @@ set -e
 # Обходит проблему "linux-headers-$(uname -r) не найден" через fallback на
 # meta-package + предложение reboot если ядро обновилось но не загружено.
 # Подход перенят из pumbaX/awg-multi-script (do_install).
+#
+# Флаги:
+#   --force-rebuild       пересобрать даже если модуль уже загружен
+#   --no-kernel-upgrade   не трогать linux-image meta-package (панель / Cores)
+#   --uninstall           снять модуль + awg/awg-quick; .conf не трогает
 # =============================================================================
 
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[0;33m'; NC='\033[0m'
 
-echo -e "${GREEN}=== Установка модуля ядра AmneziaWG ===${NC}"
+# Panel / systemd-run has no TTY. apt + needrestart otherwise hang forever
+# on "Restart services?" / conffile prompts — Cores → Rebuild then looks dead.
+export DEBIAN_FRONTEND="${DEBIAN_FRONTEND:-noninteractive}"
+export NEEDRESTART_MODE="${NEEDRESTART_MODE:-a}"
+export NEEDRESTART_SUSPEND="${NEEDRESTART_SUSPEND:-1}"
+export PATH="/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:${PATH:-}"
 
-# --force-rebuild: tear down the loaded/DKMS-installed module and rebuild from
-# a fresh git clone. Used by update.sh when the version gate detects that the
-# running module is older than upstream master (e.g. AWG1 → AWG3, lucx.50).
-# Without this flag the script keeps the early-exit no-op: module already
-# loaded → nothing to do. Call: `bash install-awg-module.sh --force-rebuild`.
 FORCE_REBUILD=0
-[[ "${1:-}" == "--force-rebuild" ]] && FORCE_REBUILD=1
+NO_KERNEL_UPGRADE=0
+DO_UNINSTALL=0
+for arg in "$@"; do
+    case "$arg" in
+        --force-rebuild) FORCE_REBUILD=1 ;;
+        --no-kernel-upgrade) NO_KERNEL_UPGRADE=1 ;;
+        --uninstall) DO_UNINSTALL=1 ;;
+        -h|--help)
+            echo "Usage: $0 [--force-rebuild] [--no-kernel-upgrade] [--uninstall]"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Unknown argument: ${arg}${NC}"
+            echo "Usage: $0 [--force-rebuild] [--no-kernel-upgrade] [--uninstall]"
+            exit 1
+            ;;
+    esac
+done
 
 [[ $EUID -ne 0 ]] && { echo -e "${RED}Запустите с правами root${NC}"; exit 1; }
 
@@ -36,6 +58,58 @@ FORCE_REBUILD=0
 # cannot work because upstream stamps PACKAGE_VERSION="1.0.0" into every
 # module build (v1 and v3 alike).
 AWG_MODULE_MARKER="/etc/x-ui/.awg-module-version"
+
+uninstall_awg_module() {
+    echo -e "${YELLOW}=== Удаление модуля ядра AmneziaWG ===${NC}"
+    local conf iface ver
+    if command -v awg-quick >/dev/null 2>&1; then
+        shopt -s nullglob
+        for conf in /etc/amnezia/amneziawg/awg*.conf /etc/amnezia/amneziawg/awgo-*.conf; do
+            if grep -qF "# Managed by x-ui - do not edit" "$conf" 2>/dev/null; then
+                echo -e "${YELLOW}awg-quick down $(basename "$conf")${NC}"
+                awg-quick down "$conf" >/dev/null 2>&1 || true
+            fi
+        done
+        shopt -u nullglob
+    fi
+    if command -v ip >/dev/null 2>&1; then
+        while read -r iface; do
+            [[ -n "$iface" ]] || continue
+            echo -e "${YELLOW}ip link delete ${iface}${NC}"
+            ip link delete "$iface" >/dev/null 2>&1 || true
+        done < <(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d'@' -f1 | grep -E '^(awg[0-9]+|awgo-[0-9]+)$' || true)
+    fi
+    rmmod amneziawg >/dev/null 2>&1 || true
+    if command -v dkms >/dev/null 2>&1; then
+        while read -r ver; do
+            [[ -n "$ver" ]] || continue
+            echo -e "${YELLOW}dkms remove amneziawg/${ver}${NC}"
+            dkms remove -m amneziawg -v "$ver" --all >/dev/null 2>&1 || true
+        done < <(dkms status amneziawg 2>/dev/null | grep -oP 'amneziawg[,/] ?\K[^,]+' | sort -u || true)
+    fi
+    rm -rf /usr/src/amneziawg-* /var/lib/dkms/amneziawg
+    rm -f /usr/bin/awg /usr/bin/awg-quick \
+        /usr/local/bin/awg /usr/local/bin/awg-quick \
+        /usr/sbin/awg /usr/sbin/awg-quick \
+        /usr/local/sbin/awg /usr/local/sbin/awg-quick
+    rm -f /usr/share/man/man8/awg.8 /usr/share/man/man8/awg-quick.8 \
+        /usr/local/share/man/man8/awg.8 /usr/local/share/man/man8/awg-quick.8
+    rm -f /etc/modules-load.d/amneziawg.conf
+    rm -f "$AWG_MODULE_MARKER" /etc/x-ui/.awg-reboot-needed
+    rm -f /etc/sysctl.d/99-awg-performance.conf
+    sysctl --system >/dev/null 2>&1 || true
+    update-initramfs -u -k all >/dev/null 2>&1 || update-initramfs -u >/dev/null 2>&1 || true
+    echo -e "${GREEN}=== AWG модуль удалён ===${NC}"
+    echo -e "${YELLOW}Конфиги в /etc/amnezia/amneziawg/ не тронуты.${NC}"
+    echo -e "${YELLOW}Вернуть: x-ui install-awg   или   bash $0${NC}"
+}
+
+if [[ $DO_UNINSTALL -eq 1 ]]; then
+    uninstall_awg_module
+    exit 0
+fi
+
+echo -e "${GREEN}=== Установка модуля ядра AmneziaWG ===${NC}"
 
 # Detect OS
 if [[ -f /etc/os-release ]]; then
@@ -54,17 +128,24 @@ fi
 # kernel at the END of `x-ui update`; the DKMS build compiles the module for
 # it too, so the reboot lands on a host whose amneziawg is already rebuilt.
 # Never fatal: the panel keeps running on the booted kernel.
-case "$OS_ID" in
-    ubuntu|debian|linuxmint|raspbian)
-        apt-get update -qq || true
-        apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || \
-        apt-get install -y -q linux-image-generic linux-headers-generic 2>/dev/null || \
-        echo -e "${YELLOW}Не удалось обновить ядро (meta-package) — работаем на текущем${NC}"
-        ;;
-    *)
-        echo -e "${YELLOW}Авто-апгрейд ядра для ${OS_ID} не поддерживается — пропущен${NC}"
-        ;;
-esac
+# --no-kernel-upgrade: Cores-button / first-time install from the panel must
+# not pull a newer linux-image (that needs a reboot the operator did not
+# ask for). Headers for the RUNNING kernel are still installed below.
+if [[ $NO_KERNEL_UPGRADE -eq 0 ]]; then
+    case "$OS_ID" in
+        ubuntu|debian|linuxmint|raspbian)
+            apt-get update -qq || true
+            apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || \
+            apt-get install -y -q linux-image-generic linux-headers-generic 2>/dev/null || \
+            echo -e "${YELLOW}Не удалось обновить ядро (meta-package) — работаем на текущем${NC}"
+            ;;
+        *)
+            echo -e "${YELLOW}Авто-апгрейд ядра для ${OS_ID} не поддерживается — пропущен${NC}"
+            ;;
+    esac
+else
+    echo -e "${YELLOW}Авто-апгрейд ядра пропущен (--no-kernel-upgrade)${NC}"
+fi
 
 # Check if already loaded. Skip the early-exit when --force-rebuild is set.
 if [[ -d /sys/module/amneziawg && $FORCE_REBUILD -eq 0 ]]; then

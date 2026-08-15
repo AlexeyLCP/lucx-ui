@@ -42,6 +42,7 @@ export const AwgInfoSchema = z.object({
   moduleAwg3: z.boolean(),
   interfaces: z.number(),
   ifnames: z.array(z.string()),
+  rebuildRunning: z.boolean(),
 }).partial();
 
 export const StatusSchema = z.object({

@@ -75,6 +75,7 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.POST("/restartAwg", a.restartAwg)
 	// Rebuild DKMS amneziawg module from upstream (async).
 	g.POST("/rebuildAwgModule", a.rebuildAwgModule)
+	g.POST("/uninstallAwgModule", a.uninstallAwgModule)
 	// END LUCX-HOOK
 	// LUCX-HOOK: BBR congestion-control tuning (Settings → Cores).
 	g.POST("/enableBbr", a.enableBbr)
@@ -338,6 +339,11 @@ func (a *ServerController) restartAwg(c *gin.Context) {
 func (a *ServerController) rebuildAwgModule(c *gin.Context) {
 	err := a.serverService.RebuildAwgModule()
 	jsonMsg(c, I18nWeb(c, "pages.settings.cores.awgRebuildStarted"), err)
+}
+
+func (a *ServerController) uninstallAwgModule(c *gin.Context) {
+	err := a.serverService.UninstallAwgModule()
+	jsonMsg(c, I18nWeb(c, "pages.settings.cores.awgUninstallOk"), err)
 }
 
 // END LUCX-HOOK

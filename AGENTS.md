@@ -340,10 +340,10 @@ frontend/src/
 ├── routes.tsx + layouts/AppSidebar.tsx     /panel/tunnels route + menu item (LUCX-HOOK)
 └── pages/api-docs/endpoints.ts             tunnel endpoints registry (contract test)
 
-bin/install-awg-module.sh          kernel auto-upgrade (meta-package, каждый вызов) + DKMS build модуля/tools из HEAD upstream master; версия = git describe, маркер = SHA коммита; build-first-safe swap; сборка для всех установленных ядер; tools пересобираются при awg version < v3
+bin/install-awg-module.sh          opt-in DKMS install (`--force-rebuild`, `--no-kernel-upgrade`, `--uninstall`); kernel auto-upgrade только без `--no-kernel-upgrade`; маркер = SHA коммита; .conf при uninstall не трогает
 bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes
 bin/pre-push                       git hook: check-lucx + fast go tests + PR/issues guard (AGENTS.md 11.5)
-install.sh                         Calls bin/install-awg-module.sh (LUCX-HOOK); re-prints panel credentials from /etc/x-ui/install-result.env as the last output of install_x-ui() (LUCX-HOOK, lucx.68) — config_after_install shows them mid-flow, then the AWG-module hook + service-unit setup scroll them away; the duplicate keeps them visible at the bottom so testers can find the login
+install.sh                         AWG module is opt-in (lucx.130) — prints `x-ui install-awg` / Cores → Install; does NOT compile DKMS on fresh install. Re-prints panel credentials from /etc/x-ui/install-result.env (LUCX-HOOK, lucx.68)
 LICENSING.md                       GPL-3.0 / PolyForm-NC split documentation
 LICENSE-PolyForm-Noncommercial.txt Canonical PolyForm NC 1.0.0 text
 ```
@@ -485,8 +485,8 @@ rolling pre-release `dev-latest` (Dev-канал панели); `releases/latest
 
 ### Что делает `x-ui update` (lucx.58+)
 1. Ставит новый бинарник/фронтенд, останавливает панель.
-2. **Авто-апгрейд ядра** до последнего packaged (Debian/Ubuntu meta-package) — при каждом обновлении.
-3. AWG-gate: маркер `/etc/x-ui/.awg-module-version` (**SHA коммита** последней сборки модуля) vs `git ls-remote refs/heads/master` amneziawg-linux-kernel-module. Расхождение (включая legacy-маркеры вида «1.0.0») → `install-awg-module.sh --force-rebuild`: модуль из master (build-first-safe, для всех установленных ядер) + тулзы при `awg version` < v3.
+2. **Авто-апгрейд ядра** до последнего packaged (Debian/Ubuntu meta-package) — только если AWG уже установлен (внутри `install-awg-module.sh`).
+3. AWG-gate (только если модуль уже ставили: маркер / `amneziawg` loaded / `awg-quick` в PATH). Иначе skip — `x-ui install-awg`. Маркер `/etc/x-ui/.awg-module-version` vs `git ls-remote refs/heads/master`; расхождение → `--force-rebuild`.
 4. Старт панели, migrate, fail2ban; если установлено новое ядро — **ребут через 10с** (AWG-модуль уже собран для нового ядра; панель поднимает systemd).
 
 ### Зависимости VPS для сборки
@@ -609,8 +609,9 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 ## Debugging Patterns
 
 ### Pattern 1: AWG inbound не стартует
-- **Cause:** `awg-quick` не установлен или kernel module не загружен.
-- **Fix:** `bin/install-awg-module.sh` на сервере. Проверить `awg show`, `ip link show awgN`.
+- **Cause:** `awg-quick` не установлен или kernel module не загружен. С lucx.130 модуль **не** ставится при чистом `install.sh` (opt-in).
+- **Fix:** `x-ui install-awg` / Settings → Cores → Install / `bash /usr/local/x-ui/bin/install-awg-module.sh`. Откат: `x-ui uninstall-awg` (`.conf` остаются). Проверить `awg show`, `ip link show awgN`.
+- **Кнопка Cores «не ставит»:** панель гоняет скрипт с `--no-kernel-upgrade` + `DEBIAN_FRONTEND=noninteractive` (иначе apt/needrestart висит без TTY). Смотри логи `awg: rebuild | …`; статус `rebuildRunning` крутится, пока идёт сборка. После успеха reboot обычно не нужен.
 
 ### Pattern 1b: AWG inbound не стартует после апгрейда — "iptables: command not found"
 - **Cause:** Debian 13+ не ставит iptables из коробки (только nftables). PostUp с MASQUERADE/FORWARD (появился в lucx.20) падает с exit 127 → awg-quick откатывается → awgN не поднимается вообще. Бьёт по инсталляциям, обновлённым с версий < lucx.20 (iptables не требовался раньше). В логах: `awg-quick: line 295: iptables: command not found` + `reconcile failed ... exit status 127`.

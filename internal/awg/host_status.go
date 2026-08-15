@@ -89,7 +89,7 @@ func (m *Manager) RunningIfnames() []string {
 func toolsVersion() string {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "awg", "version").CombinedOutput()
+	out, err := exec.CommandContext(ctx, awgBin("awg"), "version").CombinedOutput()
 	if err != nil {
 		return ""
 	}

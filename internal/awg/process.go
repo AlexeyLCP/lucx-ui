@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"sync"
 
@@ -26,7 +27,20 @@ var awgConfigDir = "/etc/amnezia/amneziawg"
 // awgQuick wraps an `awg-quick <verb> <confPath>` invocation, returning the
 // combined stdout+stderr output.
 func awgQuick(verb, confPath string) ([]byte, error) {
-	return exec.CommandContext(context.Background(), "awg-quick", verb, confPath).CombinedOutput()
+	return exec.CommandContext(context.Background(), awgBin("awg-quick"), verb, confPath).CombinedOutput()
+}
+
+func awgBin(name string) string {
+	if p, err := exec.LookPath(name); err == nil {
+		return p
+	}
+	for _, dir := range []string{"/usr/bin", "/usr/local/bin", "/usr/sbin", "/usr/local/sbin"} {
+		p := filepath.Join(dir, name)
+		if st, err := os.Stat(p); err == nil && !st.IsDir() {
+			return p
+		}
+	}
+	return name
 }
 
 // configPathForID returns the .conf path for an inbound. Mirrors the mtproto

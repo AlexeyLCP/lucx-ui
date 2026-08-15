@@ -51,6 +51,20 @@ func TestBoundedTailReportsFullLength(t *testing.T) {
 
 // Output arrives in arbitrary chunks; a line split across two writes must be
 // logged once, joined, not twice in halves.
+func TestAwgModuleScriptEnvIsNoninteractive(t *testing.T) {
+	env := awgModuleScriptEnv()
+	joined := strings.Join(env, "\n")
+	for _, want := range []string{
+		"DEBIAN_FRONTEND=noninteractive",
+		"NEEDRESTART_MODE=a",
+		"NEEDRESTART_SUSPEND=1",
+	} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("awgModuleScriptEnv missing %s", want)
+		}
+	}
+}
+
 func TestBoundedTailHandlesSplitLines(t *testing.T) {
 	tail := &boundedTail{limit: 1 << 10}
 	for _, chunk := range []string{"dkms: ", "building ", "amneziawg\n"} {
