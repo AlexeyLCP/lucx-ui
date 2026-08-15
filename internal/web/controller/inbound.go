@@ -444,9 +444,12 @@ func (a *InboundController) importInbound(c *gin.Context) {
 
 // resolveHost mirrors what sub.SubService.ResolveRequest does for the host
 // field: prefers X-Forwarded-Host (first entry of any list, port stripped),
-// then X-Real-IP, then the host portion of c.Request.Host. Keeping it in the
-// controller layer means the service interface stays HTTP-agnostic — service
-// methods receive a plain host string instead of a *gin.Context.
+// then the host portion of c.Request.Host. Keeping it in the controller layer
+// means the service interface stays HTTP-agnostic — service methods receive a
+// plain host string instead of a *gin.Context.
+// X-Real-IP is deliberately not consulted: behind nginx it carries the
+// *viewer's* address, so it turned every generated link/QR for an inbound
+// without an address of its own into the admin's own IP.
 func resolveHost(c *gin.Context) string {
 	if isTrustedForwardedRequest(c) {
 		if h := strings.TrimSpace(c.GetHeader("X-Forwarded-Host")); h != "" {
@@ -456,9 +459,6 @@ func resolveHost(c *gin.Context) string {
 			if hp, _, err := net.SplitHostPort(h); err == nil {
 				return hp
 			}
-			return h
-		}
-		if h := c.GetHeader("X-Real-IP"); h != "" {
 			return h
 		}
 	}

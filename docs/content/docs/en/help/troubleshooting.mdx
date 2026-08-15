@@ -35,6 +35,28 @@ A checklist for the most common issues. When in doubt, raise the log level
 - Make sure the client hasn't hit its **traffic, expiry, or IP limit**.
 - Confirm the inbound port is open in the firewall.
 
+## Links point at the wrong address
+
+The host inside a share link, QR code or subscription — `server:` in a Clash
+profile, `Endpoint` in an AmneziaWG `.conf` — is resolved in this order:
+
+1. The inbound's own address: custom share address, hosting node address, or
+   listen address (whichever the inbound's address strategy prefers).
+2. The panel's `subDomain`, then `webDomain`.
+3. The host the subscription was fetched on: a trusted `X-Forwarded-Host`,
+   otherwise the request's `Host` header.
+
+An inbound with no address of its own — a wildcard listen, no node, no managed
+host, which is the normal shape of an AmneziaWG inbound — lands on step 3, so
+the reverse proxy has to forward the real host. Keep `proxy_set_header Host
+$host;` in the Nginx block (the
+[config generator](/docs/operations/reverse-proxy) emits it). `X-Real-IP` is
+never used here: it carries the *visitor's* address, so a link built from it
+would point every client at its own machine.
+
+Quickest fix for a wrong address: set `subDomain` (or `webDomain`), or give the
+inbound an explicit share address.
+
 <Callout type="info">
   Still stuck? Search the
   [GitHub issues](https://github.com/MHSanaei/3x-ui/issues) — your symptom has

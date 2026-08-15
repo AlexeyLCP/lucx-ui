@@ -2804,19 +2804,7 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 	}
 
 	// base host (no port)
-	if h, err := getHostFromXFH(forwarded("X-Forwarded-Host")); err == nil && h != "" {
-		host = h
-	}
-	if host == "" {
-		host = forwarded("X-Real-IP")
-	}
-	if host == "" {
-		var err error
-		host, _, err = net.SplitHostPort(c.Request.Host)
-		if err != nil {
-			host = c.Request.Host
-		}
-	}
+	host = requestServerHost(c, trusted)
 
 	// host:port for URLs
 	hostWithPort = forwarded("X-Forwarded-Host")
@@ -2838,17 +2826,17 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 	return
 }
 
-// LUCX-HOOK: last-resort Endpoint host for generated AWG confs.
-// ResolveRequest falls back to X-Real-IP for `host`, but that header carries
-// the subscriber's own address: behind nginx with
-// `proxy_set_header X-Real-IP $remote_addr` the client IP leaked into
-// Endpoint and Amnezia dialed the user's own router (report Aleksandr,
-// lucx.89). Prefer trusted X-Forwarded-Host, then the Host header; never
-// X-Real-IP. The inbound's own chain (ShareAddr/node/listen/public host)
-// in resolveInboundAddress still wins over this value.
-func (s *SubService) AwgEndpointHost(c *gin.Context) string {
+// LUCX-HOOK: the host every subscription format advertises as the server.
+// X-Real-IP carries the subscriber's own address: behind nginx with
+// `proxy_set_header X-Real-IP $remote_addr` it leaked into the AWG Endpoint
+// and Amnezia dialed the user's own router (report Aleksandr, lucx.89), then
+// into the Clash `server:` of AWG proxies the same way (lucx.124) — any
+// inbound whose own chain (ShareAddr/node/listen/public host) resolves to
+// nothing lands on this value. Trusted X-Forwarded-Host, then the Host
+// header; never X-Real-IP.
+func requestServerHost(c *gin.Context, trusted bool) string {
 	xfh := ""
-	if s.forwardedHeadersTrusted(c) {
+	if trusted {
 		xfh = c.GetHeader("X-Forwarded-Host")
 	}
 	if h, err := getHostFromXFH(xfh); err == nil && h != "" {
@@ -2859,6 +2847,12 @@ func (s *SubService) AwgEndpointHost(c *gin.Context) string {
 		return bare
 	}
 	return h
+}
+
+// AwgEndpointHost is the Endpoint host for generated AWG confs. The inbound's
+// own chain in resolveInboundAddress still wins over this value.
+func (s *SubService) AwgEndpointHost(c *gin.Context) string {
+	return requestServerHost(c, s.forwardedHeadersTrusted(c))
 }
 
 // END LUCX-HOOK

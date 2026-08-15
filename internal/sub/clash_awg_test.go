@@ -116,6 +116,41 @@ func TestBuildAwgProxy_V15DropsS3I(t *testing.T) {
 	}
 }
 
+// An AWG inbound with no address of its own (wildcard listen, no node, no
+// shareAddr) must advertise the host the subscription was fetched on — that
+// Clash `server:` is the address the client dials.
+func TestGetProxies_AwgWithoutOwnAddressUsesSubscriptionHost(t *testing.T) {
+	initSubDB(t)
+	settings, _ := json.Marshal(map[string]any{
+		"privateKey": "YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",
+		"awgVersion": "2",
+	})
+	ib := &model.Inbound{
+		Id:       3,
+		Protocol: model.AWG,
+		Port:     51820,
+		Remark:   "awg-fallback",
+		Tag:      "awg-3",
+		Settings: string(settings),
+	}
+	client := model.Client{
+		Email:      "carol@test",
+		PrivateKey: "CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",
+		AllowedIPs: []string{"10.200.0.4/32"},
+	}
+
+	subReq := (&SubService{}).ForRequest("sub.example.net")
+	svc := NewSubClashService(false, "", subReq)
+	proxies := svc.getProxies(subReq, ib, client, "sub.example.net")
+
+	if len(proxies) != 1 {
+		t.Fatalf("proxies = %d, want 1", len(proxies))
+	}
+	if got := proxies[0]["server"]; got != "sub.example.net" {
+		t.Fatalf("server = %v, want sub.example.net", got)
+	}
+}
+
 func TestBuildProxy_DispatchesAwg(t *testing.T) {
 	settings, _ := json.Marshal(map[string]any{
 		"privateKey": "YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",

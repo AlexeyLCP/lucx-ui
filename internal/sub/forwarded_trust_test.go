@@ -154,6 +154,26 @@ func TestResolveRequest_GatesRealIPFallback(t *testing.T) {
 	}
 }
 
+// Behind nginx with `proxy_set_header X-Real-IP $remote_addr` the header
+// carries the SUBSCRIBER's own address, so it can never be the host share
+// links point at. lucx.90 fixed only the /awg/ path (AwgEndpointHost); raw,
+// JSON and Clash still resolved their host here, handing every inbound
+// without an address of its own (AWG in particular) the subscriber's IP.
+func TestResolveRequest_HostNeverRealIP(t *testing.T) {
+	initSubDB(t)
+	s := &SubService{}
+
+	c := requestFrom(t, "127.0.0.1:51000", map[string]string{
+		"X-Real-IP":       "198.51.100.7",
+		"X-Forwarded-For": "198.51.100.7",
+	})
+	_, host, _, _ := s.ResolveRequest(c)
+
+	if host != "panel.example.com" {
+		t.Errorf("host = %q, want the request Host — X-Real-IP is the subscriber's address, never the server's", host)
+	}
+}
+
 func TestAwgEndpointHost_NeverRealIP(t *testing.T) {
 	initSubDB(t)
 	s := &SubService{}

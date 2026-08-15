@@ -5,6 +5,63 @@
 
 ---
 
+## lucx.125 — адрес в подписке больше не берётся из X-Real-IP (2026-08-15)
+
+**Репорт (Aleksandr SacredX, 15.08.2026):** в Clash-подписке пинг до AWG-нод не
+проходит — «для vless и т.д. корректно прописывается сервер (домен/IP), а для
+всех AWG `server=` мой локальный IP». Тот же баг, что чинили в lucx.90 для
+ссылок `vpn://`.
+
+**Cause.** `ResolveRequest` (`internal/sub/service.go`) собирал `host` в
+порядке `X-Forwarded-Host` → **`X-Real-IP`** → `Host`. Наш же генератор nginx-
+конфига (`docs/lib/xray/reverse-proxy.ts`) выдаёт
+`proxy_set_header X-Real-IP $remote_addr` — то есть адрес **подписчика**;
+он routable, поэтому `PrepareForRequest` его не отбраковывал. Этот `host`
+становится `s.address` и работает последним звеном
+`resolveInboundAddress` (shareAddr/node/listen → subDomain/webDomain →
+адрес запроса). У VLESS/Reality оператора адрес брался раньше — из host-записей,
+поэтому там всё было верно; у AWG-инбаунда своего адреса нет, и в `server:`
+попадал IP того, кто скачал подписку. В lucx.90 залатали только `/awg/`
+(`AwgEndpointHost`), а `/sub/`, `/json/`, `/clash/` и панельные ссылки
+(`resolveHost` в `internal/web/controller/inbound.go` — тот же порядок, только
+там утекал IP админа в ссылки и QR панели) продолжали течь.
+
+**Fix.**
+- `requestServerHost(c, trusted)` (LUCX-HOOK, `internal/sub/service.go`) —
+  единая функция: доверенный `X-Forwarded-Host`, иначе хост из `Host`,
+  `X-Real-IP` не читается никогда. `ResolveRequest` и `AwgEndpointHost`
+  переведены на неё (дублирующая реализация из lucx.90 убрана).
+- `resolveHost` (`internal/web/controller/inbound.go`) — ветка `X-Real-IP`
+  удалена.
+- `hostHeader` (только показ на sub-странице, в вид-модель не попадает) не
+  трогали.
+
+**Тесты (WSL Ubuntu-24.04, gcc+cgo; на Windows-хосте `go test` не собирается —
+нет C-компилятора для `mattn/go-sqlite3`):**
+- `TestResolveRequest_HostNeverRealIP` — без фикса падает с
+  `host = "198.51.100.7"` (ровно симптом репорта), с фиксом зелёный.
+- `TestResolveHostNeverUsesRealIp` / `TestResolveHostPrefersTrustedForwardedHost`
+  (`internal/web/controller`) — то же для панельных ссылок.
+- `TestGetProxies_AwgWithoutOwnAddressUsesSubscriptionHost`
+  (`internal/sub/clash_awg_test.go`) — AWG-инбаунд без своего адреса отдаёт в
+  Clash `server:` хост подписки.
+
+**Документация.** Новый раздел «Links point at the wrong address» /
+«В ссылках неправильный адрес» / «آدرس نادرست در لینک‌ها» в
+`docs/content/docs/{en,ru,fa}/help/troubleshooting.mdx`: порядок разрешения
+адреса, требование `proxy_set_header Host $host;` и правило «`X-Real-IP` — это
+кто пришёл, а не куда подключаться». AGENTS.md — Pattern 10 с однострочным
+репро (`curl -H 'X-Real-IP: 203.0.113.77' …/clash/<subId>`).
+
+**Файлы:** `internal/sub/service.go`, `internal/sub/forwarded_trust_test.go`,
+`internal/sub/clash_awg_test.go`, `internal/web/controller/inbound.go`,
+`internal/web/controller/util_test.go`, `docs/content/docs/{en,ru,fa}/help/troubleshooting.mdx`,
+AGENTS.md, `internal/config/config.go`.
+
+**lucxVersion:** lucx.125
+
+---
+
 ## lucx.124 — AWG: скорость по умолчанию, BBR-тумблер, проверка MTU (2026-08-14)
 
 Заказ пользователя: разобрать логику/пресеты AWG на предмет best practices по
