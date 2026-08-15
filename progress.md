@@ -5,6 +5,73 @@
 
 ---
 
+## lucx.128 — mieru: trafficPattern (+padding) + mux/handshake + пресеты (2026-08-15)
+
+Запрос пользователя: у официального mieru в конфиге бинарника есть `trafficPattern`
+(включая `padding`) и клиентские `multiplexing`/`handshakeMode`, панель их не
+отдавала. Добавлены end-to-end.
+
+### Что добавлено
+
+**TrafficPattern** (официальный `appctlpb.TrafficPattern`, все 6 частей):
+`seed`, `unlockAll`, `tcpFragment{enable,maxSleepMs≤100}`,
+`nonce{type,applyToAllUDPPacket,minLen,maxLen≤12,customHexStrings≤12байт}`,
+`padding{maxMiddlePaddingLen,maxEndPaddingLen 0..255}`,
+`lowEntropy{mode 32/40/48/56, maskRotation}`.
+
+Куда уходит:
+- **mita server JSON** (`trafficPattern` в `mieru-N.json`) — поле есть в
+  `ServerConfig.trafficPattern` (field 8) начиная с актуальных версий mita.
+- **mierus:// ссылка** — query-параметр `traffic-pattern` = base64(protobuf),
+  формат 1:1 как `mieru export config simple`.
+
+**Multiplexing / HandshakeMode** — клиентские поля (`ServerConfig` их не знает):
+только в `mierus://` (`multiplexing=`, `handshake-mode=`). В mita JSON не
+попадают никогда (регресс-тест).
+
+**Пресеты** (фронтенд-сахар, как AWG Regenerate — в БД хранятся значения, не
+имя пресета; Rule 0): `off` (чистит блок), `lite` (mux LOW, padding 16/16),
+`standard` (mux MIDDLE, fragment 10ms, padding 64/32), `stealth` (mux HIGH,
+0-RTT, fragment 20ms, nonce PRINTABLE all-UDP, padding 128/64, lowEntropy 48
++ rotate right 4). Каждый Apply генерирует новый `seed` (1..2³¹−1).
+`unlockAll` пресеты не ставят — официалы пишут «may not be desired».
+
+### Реализация
+
+- `internal/lucx/tunnel/mieru_pattern.go` (новый): структуры + `IsZero`/
+  `Normalized` + `validate()` + proto-кодер на `protowire` (зависимости на
+  enfein/mieru НЕТ). Padding-поля — указатели: 0 = «выключить слот паддинга»,
+  отличается от «не задано».
+- `internal/lucx/tunnel/mieru.go`: поля в `MieruConfig`, валидация enum'ов,
+  `RenderJSON` (omit пустого блока), `ClientLink` (+3 параметра).
+- `internal/lucx/tunnel/mieru_inbound.go`: маппинг settings → config.
+- `internal/web/service/inbound.go` `normalizeMieruSettings`: новые ключи
+  пишутся только если заданы, при очистке — delete (иначе оператор не смог бы
+  сбросить значение).
+- Frontend: Zod (`MieruTrafficPatternSchema` + enum-константы),
+  `frontend/src/lib/mieru/presets.ts` (новый), Advanced-Collapse в `mieru.tsx`
+  (32 новых i18n-ключа × 13 локалей).
+- Золотой тест: пример из официальных docs
+  (`seed=42, unlockAll, tcpFragment{enable,10}, nonce{FIXED,allUDP,00010203/04050607}`)
+  кодируется байт-в-байт в `CCoQARoECAEQCiIYCAMQASoIMDAwMTAyMDMqCDA0MDUwNjA3`.
+
+### Rule 0 / Rule 0b
+
+Все поля опциональны, по умолчанию отсутствуют → существующие инбаунды и
+выданные ссылки не меняются, пока оператор сам не заполнит Advanced. Стартовой
+миграции нет. Ванильную БД не трогаем.
+
+### Тесты
+
+- Go: `go test ./internal/lucx/tunnel/ -count=1` — зелёные (golden proto,
+  normalize/IsZero, 16 validation-кейсов, render omit/emit, регресс ссылки,
+  instance carry).
+- Frontend: typecheck + lint + 999 unit-тестов (включая i18n-dead-keys) +
+  build — зелёные.
+- `internal/web/service` локально не собрать (Windows, нет gcc/CGO) — CI.
+
+---
+
 ## lucx.127 — AWG save self-collision + Index crash + Cores status poison (2026-08-15)
 
 Три репорта тестеров одним коммитом.

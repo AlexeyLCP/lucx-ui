@@ -22,13 +22,16 @@ func MieruKey(inboundId int) string {
 // mieruInboundSettings is the JSON shape of inbound.settings for
 // protocol=mieru: MieruConfig plus multi-client clients[] (naive pattern).
 type mieruInboundSettings struct {
-	Remark           string             `json:"remark"`
-	PortBindings     []MieruPortBinding `json:"portBindings"`
-	MTU              int                `json:"mtu"`
-	LoggingLevel     string             `json:"loggingLevel"`
-	RouteThroughXray bool               `json:"routeThroughXray"`
-	RouteXrayPort    int                `json:"routeXrayPort"`
-	OutboundTag      string             `json:"outboundTag"`
+	Remark           string               `json:"remark"`
+	PortBindings     []MieruPortBinding   `json:"portBindings"`
+	MTU              int                  `json:"mtu"`
+	LoggingLevel     string               `json:"loggingLevel"`
+	RouteThroughXray bool                 `json:"routeThroughXray"`
+	RouteXrayPort    int                  `json:"routeXrayPort"`
+	OutboundTag      string               `json:"outboundTag"`
+	Multiplexing     string               `json:"multiplexing"`
+	HandshakeMode    string               `json:"handshakeMode"`
+	TrafficPattern   *MieruTrafficPattern `json:"trafficPattern"`
 	Clients          []struct {
 		Email  string `json:"email"`
 		Enable bool   `json:"enable"`
@@ -53,6 +56,9 @@ func MieruConfigFromInbound(ib *model.Inbound) (MieruConfig, bool) {
 		RouteThroughXray: s.RouteThroughXray,
 		RouteXrayPort:    s.RouteXrayPort,
 		OutboundTag:      s.OutboundTag,
+		Multiplexing:     s.Multiplexing,
+		HandshakeMode:    s.HandshakeMode,
+		TrafficPattern:   s.TrafficPattern,
 	}.Merge()
 	return cfg, true
 }

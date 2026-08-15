@@ -1294,6 +1294,23 @@ func (s *InboundService) normalizeMieruSettings(inbound *model.Inbound) {
 	settings["routeThroughXray"] = cfg.RouteThroughXray
 	settings["routeXrayPort"] = cfg.RouteXrayPort
 	settings["outboundTag"] = cfg.OutboundTag
+	// Optional traffic shaping: written only when set, deleted when cleared,
+	// so pre-feature inbounds keep their stored settings byte-identical.
+	if m := strings.TrimSpace(cfg.Multiplexing); m != "" {
+		settings["multiplexing"] = m
+	} else {
+		delete(settings, "multiplexing")
+	}
+	if h := strings.TrimSpace(cfg.HandshakeMode); h != "" {
+		settings["handshakeMode"] = h
+	} else {
+		delete(settings, "handshakeMode")
+	}
+	if tp := cfg.TrafficPattern.Normalized(); tp != nil {
+		settings["trafficPattern"] = tp
+	} else {
+		delete(settings, "trafficPattern")
+	}
 	if strings.TrimSpace(cfg.Remark) != "" {
 		settings["remark"] = cfg.Remark
 	}

@@ -4,13 +4,22 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Col, Input, InputNumber, Row, Select, Switch } from 'antd';
+import { Button, Col, Collapse, Input, InputNumber, Row, Select, Switch } from 'antd';
 import { DeleteOutlined, PlusOutlined } from '@ant-design/icons';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
 import { useOutboundTags } from '@/api/queries/useOutboundTags';
+import { mieruPreset, type MieruPresetName } from '@/lib/mieru/presets';
+import {
+  MIERU_HANDSHAKE_MODES,
+  MIERU_LOW_ENTROPY_MODES,
+  MIERU_MASK_ROTATIONS,
+  MIERU_MULTIPLEXING_LEVELS,
+  MIERU_NONCE_TYPES,
+} from '@/schemas/protocols/inbound/mieru';
 
 function BindingPortInput({ index }: { index: number }) {
   const { t } = useTranslation();
@@ -34,6 +43,162 @@ function BindingPortInput({ index }: { index: number }) {
         }
       }}
     />
+  );
+}
+
+function MieruAdvancedFields() {
+  const { t } = useTranslation();
+  const { setValue } = useFormContext();
+  const [preset, setPreset] = useState<MieruPresetName>('off');
+
+  const applyPreset = () => {
+    const v = mieruPreset(preset);
+    setValue('settings.multiplexing', v.multiplexing, { shouldDirty: true });
+    setValue('settings.handshakeMode', v.handshakeMode, { shouldDirty: true });
+    setValue('settings.trafficPattern', v.trafficPattern, { shouldDirty: true });
+  };
+
+  return (
+    <>
+      <Row gutter={8} align="middle" style={{ marginBottom: 12 }}>
+        <Col flex="1">
+          <Select
+            value={preset}
+            onChange={(v) => setPreset(v)}
+            options={[
+              { value: 'off', label: t('pages.inbounds.form.mieruPresetOff') },
+              { value: 'lite', label: t('pages.inbounds.form.mieruPresetLite') },
+              { value: 'standard', label: t('pages.inbounds.form.mieruPresetStandard') },
+              { value: 'stealth', label: t('pages.inbounds.form.mieruPresetStealth') },
+            ]}
+          />
+        </Col>
+        <Col>
+          <Button onClick={applyPreset}>{t('pages.inbounds.form.mieruPresetApply')}</Button>
+        </Col>
+      </Row>
+      <FormField
+        name={['settings', 'multiplexing']}
+        label={t('pages.inbounds.form.mieruMultiplexing')}
+        tooltip={t('pages.inbounds.form.mieruMultiplexingHint')}
+      >
+        <Select
+          allowClear
+          options={MIERU_MULTIPLEXING_LEVELS.map((v) => ({ value: v, label: v.replace('MULTIPLEXING_', '') }))}
+        />
+      </FormField>
+      <FormField
+        name={['settings', 'handshakeMode']}
+        label={t('pages.inbounds.form.mieruHandshakeMode')}
+        tooltip={t('pages.inbounds.form.mieruHandshakeModeHint')}
+      >
+        <Select
+          allowClear
+          options={MIERU_HANDSHAKE_MODES.map((v) => ({ value: v, label: v.replace('HANDSHAKE_', '') }))}
+        />
+      </FormField>
+      <div style={{ margin: '4px 0 8px', fontWeight: 500 }}>{t('pages.inbounds.form.mieruTrafficPattern')}</div>
+      <div style={{ marginBottom: 8 }}>{t('pages.inbounds.form.mieruTrafficPatternHint')}</div>
+      <FormField
+        name={['settings', 'trafficPattern', 'seed']}
+        label={t('pages.inbounds.form.mieruTpSeed')}
+        tooltip={t('pages.inbounds.form.mieruTpSeedHint')}
+      >
+        <InputNumber min={0} max={2147483647} style={{ width: '100%' }} />
+      </FormField>
+      <FormField
+        name={['settings', 'trafficPattern', 'unlockAll']}
+        label={t('pages.inbounds.form.mieruTpUnlockAll')}
+        tooltip={t('pages.inbounds.form.mieruTpUnlockAllHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      <FormField
+        name={['settings', 'trafficPattern', 'tcpFragment', 'enable']}
+        label={t('pages.inbounds.form.mieruTpTcpFragmentEnable')}
+        tooltip={t('pages.inbounds.form.mieruTpTcpFragmentEnableHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      <FormField name={['settings', 'trafficPattern', 'tcpFragment', 'maxSleepMs']} label={t('pages.inbounds.form.mieruTpMaxSleepMs')}>
+        <InputNumber min={0} max={100} style={{ width: '100%' }} />
+      </FormField>
+      <FormField
+        name={['settings', 'trafficPattern', 'nonce', 'type']}
+        label={t('pages.inbounds.form.mieruTpNonceType')}
+        tooltip={t('pages.inbounds.form.mieruTpNonceTypeHint')}
+      >
+        <Select allowClear options={MIERU_NONCE_TYPES.map((v) => ({ value: v, label: v.replace('NONCE_TYPE_', '') }))} />
+      </FormField>
+      <FormField
+        name={['settings', 'trafficPattern', 'nonce', 'applyToAllUDPPacket']}
+        label={t('pages.inbounds.form.mieruTpNonceAllUdp')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      <Row gutter={8}>
+        <Col span={12}>
+          <FormField name={['settings', 'trafficPattern', 'nonce', 'minLen']} label={t('pages.inbounds.form.mieruTpNonceMinLen')}>
+            <InputNumber min={0} max={12} style={{ width: '100%' }} />
+          </FormField>
+        </Col>
+        <Col span={12}>
+          <FormField name={['settings', 'trafficPattern', 'nonce', 'maxLen']} label={t('pages.inbounds.form.mieruTpNonceMaxLen')}>
+            <InputNumber min={0} max={12} style={{ width: '100%' }} />
+          </FormField>
+        </Col>
+      </Row>
+      <FormField
+        name={['settings', 'trafficPattern', 'nonce', 'customHexStrings']}
+        label={t('pages.inbounds.form.mieruTpNonceHex')}
+        tooltip={t('pages.inbounds.form.mieruTpNonceHexHint')}
+      >
+        <Select mode="tags" tokenSeparators={[',', ' ']} placeholder="00010203" />
+      </FormField>
+      <Row gutter={8}>
+        <Col span={12}>
+          <FormField
+            name={['settings', 'trafficPattern', 'padding', 'maxMiddlePaddingLen']}
+            label={t('pages.inbounds.form.mieruTpPaddingMiddle')}
+            tooltip={t('pages.inbounds.form.mieruTpPaddingHint')}
+          >
+            <InputNumber min={0} max={255} style={{ width: '100%' }} />
+          </FormField>
+        </Col>
+        <Col span={12}>
+          <FormField
+            name={['settings', 'trafficPattern', 'padding', 'maxEndPaddingLen']}
+            label={t('pages.inbounds.form.mieruTpPaddingEnd')}
+            tooltip={t('pages.inbounds.form.mieruTpPaddingHint')}
+          >
+            <InputNumber min={0} max={255} style={{ width: '100%' }} />
+          </FormField>
+        </Col>
+      </Row>
+      <FormField
+        name={['settings', 'trafficPattern', 'lowEntropy', 'mode']}
+        label={t('pages.inbounds.form.mieruTpLowEntropyMode')}
+        tooltip={t('pages.inbounds.form.mieruTpLowEntropyModeHint')}
+      >
+        <Select
+          allowClear
+          options={MIERU_LOW_ENTROPY_MODES.map((v) => ({ value: v, label: v.replace('LOW_ENTROPY_MODE_', '') }))}
+        />
+      </FormField>
+      <FormField name={['settings', 'trafficPattern', 'lowEntropy', 'maskRotation']} label={t('pages.inbounds.form.mieruTpMaskRotation')}>
+        <Select
+          allowClear
+          showSearch
+          options={MIERU_MASK_ROTATIONS.map((v) => ({
+            value: v,
+            label: v.replace('LOW_ENTROPY_MASK_', '').replace('ROTATE_', ''),
+          }))}
+        />
+      </FormField>
+    </>
   );
 }
 
@@ -104,6 +269,16 @@ export default function MieruFields() {
           />
         </FormField>
       )}
+      <Collapse
+        style={{ marginBottom: 14 }}
+        items={[
+          {
+            key: 'advanced',
+            label: t('pages.inbounds.form.mieruAdvanced'),
+            children: <MieruAdvancedFields />,
+          },
+        ]}
+      />
     </>
   );
 }

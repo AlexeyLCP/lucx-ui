@@ -253,3 +253,212 @@ func TestMieruInstanceFromInbound(t *testing.T) {
 		t.Fatal("non-mieru inbound must return ok=false")
 	}
 }
+
+// The docs example from enfein/mieru "Sharing Client Settings": the JSON
+// fragment must encode byte-for-byte into the traffic-pattern base64 printed
+// in the same doc (the panel's encoder replaces `mieru export`).
+func TestMieruTrafficPatternGoldenProto(t *testing.T) {
+	docJSON := `{
+		"seed": 42,
+		"unlockAll": true,
+		"tcpFragment": { "enable": true, "maxSleepMs": 10 },
+		"nonce": {
+			"type": "NONCE_TYPE_FIXED",
+			"applyToAllUDPPacket": true,
+			"customHexStrings": ["00010203", "04050607"]
+		}
+	}`
+	var p MieruTrafficPattern
+	if err := json.Unmarshal([]byte(docJSON), &p); err != nil {
+		t.Fatalf("unmarshal docs example: %v", err)
+	}
+	const want = "CCoQARoECAEQCiIYCAMQASoIMDAwMTAyMDMqCDA0MDUwNjA3"
+	if got := p.LinkParam(); got != want {
+		t.Fatalf("traffic-pattern = %s, want %s", got, want)
+	}
+}
+
+func TestMieruTrafficPatternNormalize(t *testing.T) {
+	var nilP *MieruTrafficPattern
+	if !nilP.IsZero() || nilP.Normalized() != nil || nilP.LinkParam() != "" {
+		t.Fatal("nil pattern must be zero everywhere")
+	}
+
+	// Empty sub-blocks collapse to nil; the whole pattern vanishes.
+	p := &MieruTrafficPattern{
+		TCPFragment: &MieruTCPFragment{},
+		Nonce:       &MieruNoncePattern{},
+		LowEntropy:  &MieruLowEntropyPattern{Mode: "LOW_ENTROPY_MODE_OFF"},
+	}
+	if !p.IsZero() || p.Normalized() != nil {
+		t.Fatal("all-empty pattern must normalize to nil")
+	}
+
+	// Padding pointer 0 is meaningful ("disable padding") and must survive.
+	zero := int32(0)
+	p = &MieruTrafficPattern{Padding: &MieruPaddingPattern{MaxMiddlePaddingLen: &zero}}
+	q := p.Normalized()
+	if q == nil || q.Padding == nil || q.Padding.MaxMiddlePaddingLen == nil || *q.Padding.MaxMiddlePaddingLen != 0 {
+		t.Fatalf("padding 0 must survive normalization: %+v", q)
+	}
+	raw, err := json.Marshal(q)
+	if err != nil || !strings.Contains(string(raw), `"maxMiddlePaddingLen":0`) {
+		t.Fatalf("padding 0 must render into JSON: %s err=%v", raw, err)
+	}
+	if enc := p.EncodeProto(); len(enc) == 0 {
+		t.Fatal("padding 0 must encode (optional presence)")
+	}
+}
+
+func TestMieruValidateTrafficPattern(t *testing.T) {
+	i32 := func(v int32) *int32 { return &v }
+	cases := []struct {
+		name    string
+		mut     func(*MieruConfig)
+		wantErr bool
+	}{
+		{"empty ok", func(c *MieruConfig) {}, false},
+		{"full ok", func(c *MieruConfig) {
+			c.Multiplexing = "MULTIPLEXING_HIGH"
+			c.HandshakeMode = "HANDSHAKE_NO_WAIT"
+			c.TrafficPattern = &MieruTrafficPattern{
+				Seed:        42,
+				UnlockAll:   true,
+				TCPFragment: &MieruTCPFragment{Enable: true, MaxSleepMs: 100},
+				Nonce: &MieruNoncePattern{
+					Type:                "NONCE_TYPE_FIXED",
+					ApplyToAllUDPPacket: true,
+					MinLen:              2,
+					MaxLen:              12,
+					CustomHexStrings:    []string{"00010203"},
+				},
+				Padding:    &MieruPaddingPattern{MaxMiddlePaddingLen: i32(0), MaxEndPaddingLen: i32(255)},
+				LowEntropy: &MieruLowEntropyPattern{Mode: "LOW_ENTROPY_MODE_48", MaskRotation: "LOW_ENTROPY_MASK_ROTATE_LEFT_15"},
+			}
+		}, false},
+		{"bad multiplexing", func(c *MieruConfig) { c.Multiplexing = "MULTIPLEXING_ULTRA" }, true},
+		{"bad handshake", func(c *MieruConfig) { c.HandshakeMode = "HANDSHAKE_FAST" }, true},
+		{"negative seed", func(c *MieruConfig) { c.TrafficPattern = &MieruTrafficPattern{Seed: -1} }, true},
+		{"sleep too high", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{TCPFragment: &MieruTCPFragment{Enable: true, MaxSleepMs: 101}}
+		}, true},
+		{"bad nonce type", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{Nonce: &MieruNoncePattern{Type: "NONCE_TYPE_WEIRD"}}
+		}, true},
+		{"nonce maxLen too big", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{Nonce: &MieruNoncePattern{MaxLen: 13}}
+		}, true},
+		{"nonce min over max", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{Nonce: &MieruNoncePattern{MinLen: 8, MaxLen: 4}}
+		}, true},
+		{"bad hex", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{Nonce: &MieruNoncePattern{CustomHexStrings: []string{"zz"}}}
+		}, true},
+		{"odd hex", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{Nonce: &MieruNoncePattern{CustomHexStrings: []string{"001"}}}
+		}, true},
+		{"hex too long", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{Nonce: &MieruNoncePattern{CustomHexStrings: []string{strings.Repeat("00", 13)}}}
+		}, true},
+		{"padding too big", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{Padding: &MieruPaddingPattern{MaxEndPaddingLen: i32(256)}}
+		}, true},
+		{"padding negative", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{Padding: &MieruPaddingPattern{MaxMiddlePaddingLen: i32(-1)}}
+		}, true},
+		{"bad low entropy mode", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{LowEntropy: &MieruLowEntropyPattern{Mode: "LOW_ENTROPY_MODE_64"}}
+		}, true},
+		{"bad mask rotation", func(c *MieruConfig) {
+			c.TrafficPattern = &MieruTrafficPattern{LowEntropy: &MieruLowEntropyPattern{Mode: "LOW_ENTROPY_MODE_32", MaskRotation: "LOW_ENTROPY_MASK_ROTATE_RIGHT_16"}}
+		}, true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cfg := DefaultMieruConfig()
+			tc.mut(&cfg)
+			err := cfg.Validate()
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("Validate err=%v wantErr=%v", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestMieruRenderJSONTrafficPattern(t *testing.T) {
+	users := []AuthPair{{User: "miABC", Pass: "pass1"}}
+
+	cfg := DefaultMieruConfig()
+	if strings.Contains(cfg.RenderJSON(users), "trafficPattern") {
+		t.Fatal("default config must not carry trafficPattern")
+	}
+
+	mid := int32(64)
+	cfg.TrafficPattern = &MieruTrafficPattern{
+		Seed:        7,
+		TCPFragment: &MieruTCPFragment{},
+		Padding:     &MieruPaddingPattern{MaxMiddlePaddingLen: &mid},
+	}
+	var got mitaServerConfig
+	if err := json.Unmarshal([]byte(cfg.RenderJSON(users)), &got); err != nil {
+		t.Fatalf("RenderJSON produced invalid JSON: %v", err)
+	}
+	if got.TrafficPattern == nil || got.TrafficPattern.Seed != 7 {
+		t.Fatalf("trafficPattern = %+v", got.TrafficPattern)
+	}
+	if got.TrafficPattern.TCPFragment != nil {
+		t.Fatal("empty tcpFragment sub-block must be dropped")
+	}
+	if got.TrafficPattern.Padding == nil || got.TrafficPattern.Padding.MaxMiddlePaddingLen == nil ||
+		*got.TrafficPattern.Padding.MaxMiddlePaddingLen != 64 {
+		t.Fatalf("padding = %+v", got.TrafficPattern.Padding)
+	}
+
+	// Multiplexing / handshakeMode are client-only and must never reach mita.
+	cfg.Multiplexing = "MULTIPLEXING_HIGH"
+	cfg.HandshakeMode = "HANDSHAKE_NO_WAIT"
+	raw := cfg.RenderJSON(users)
+	if strings.Contains(raw, "multiplexing") || strings.Contains(raw, "handshakeMode") {
+		t.Fatal("client-only fields leaked into the mita server config")
+	}
+}
+
+func TestMieruClientLinkTrafficPattern(t *testing.T) {
+	cfg := DefaultMieruConfig()
+
+	// Regression: pre-feature config keeps the exact link shape.
+	plain := cfg.ClientLink("1.2.3.4", AuthPair{User: "u", Pass: "p"}, "")
+	for _, banned := range []string{"multiplexing=", "handshake-mode=", "traffic-pattern="} {
+		if strings.Contains(plain, banned) {
+			t.Fatalf("default link gained %q: %s", banned, plain)
+		}
+	}
+
+	cfg.Multiplexing = "MULTIPLEXING_HIGH"
+	cfg.HandshakeMode = "HANDSHAKE_NO_WAIT"
+	cfg.TrafficPattern = &MieruTrafficPattern{Seed: 42, UnlockAll: true}
+	link := cfg.ClientLink("1.2.3.4", AuthPair{User: "u", Pass: "p"}, "")
+	for _, want := range []string{"multiplexing=MULTIPLEXING_HIGH", "handshake-mode=HANDSHAKE_NO_WAIT", "traffic-pattern="} {
+		if !strings.Contains(link, want) {
+			t.Fatalf("link missing %q: %s", want, link)
+		}
+	}
+}
+
+func TestMieruInstanceCarriesTrafficPattern(t *testing.T) {
+	secret := []byte("panel-secret")
+	settings := `{"portBindings":[{"port":20100,"protocol":"TCP"}],"mtu":1400,` +
+		`"multiplexing":"MULTIPLEXING_MIDDLE","handshakeMode":"HANDSHAKE_STANDARD",` +
+		`"trafficPattern":{"seed":99,"padding":{"maxEndPaddingLen":32}},` +
+		`"clients":[{"email":"u@m","enable":true}]}`
+	inst, ok := MieruInstanceFromInbound(mieruTestInbound(settings, true), secret)
+	if !ok || !inst.Enabled {
+		t.Fatalf("instance: ok=%v enabled=%v", ok, inst.Enabled)
+	}
+	if !strings.Contains(inst.ConfigText, `"trafficPattern"`) || !strings.Contains(inst.ConfigText, `"maxEndPaddingLen": 32`) {
+		t.Fatalf("mita config must carry trafficPattern: %s", inst.ConfigText)
+	}
+	if strings.Contains(inst.ConfigText, "multiplexing") {
+		t.Fatal("client-only multiplexing leaked into mita config")
+	}
+}

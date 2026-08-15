@@ -41,6 +41,16 @@ type MieruConfig struct {
 	OutboundTag      string `json:"outboundTag"`
 	// RouteXrayPort is the backend-owned loopback SOCKS port (0 when not routed).
 	RouteXrayPort int `json:"routeXrayPort"`
+
+	// Traffic shaping (enfein/mieru trafficPattern). TrafficPattern is
+	// rendered both into the mita server JSON and into the mierus:// share
+	// link (base64 protobuf). Multiplexing and HandshakeMode are client-side
+	// only — the mita server config has no such fields, so they ride the
+	// share link exclusively. All three are optional: empty values are
+	// omitted everywhere (pre-feature inbounds keep their exact wire shape).
+	Multiplexing   string               `json:"multiplexing,omitempty"`
+	HandshakeMode  string               `json:"handshakeMode,omitempty"`
+	TrafficPattern *MieruTrafficPattern `json:"trafficPattern,omitempty"`
 }
 
 // DefaultMieruConfig returns sensible defaults for a fresh mieru inbound.
@@ -100,7 +110,17 @@ func (c MieruConfig) Validate() error {
 	default:
 		return fmt.Errorf("mieru: logging level must be one of DEBUG | INFO | WARN | ERROR")
 	}
-	return nil
+	switch strings.TrimSpace(c.Multiplexing) {
+	case "", "MULTIPLEXING_OFF", "MULTIPLEXING_LOW", "MULTIPLEXING_MIDDLE", "MULTIPLEXING_HIGH":
+	default:
+		return fmt.Errorf("mieru: multiplexing must be one of MULTIPLEXING_OFF | MULTIPLEXING_LOW | MULTIPLEXING_MIDDLE | MULTIPLEXING_HIGH")
+	}
+	switch strings.TrimSpace(c.HandshakeMode) {
+	case "", "HANDSHAKE_STANDARD", "HANDSHAKE_NO_WAIT":
+	default:
+		return fmt.Errorf("mieru: handshakeMode must be one of HANDSHAKE_STANDARD | HANDSHAKE_NO_WAIT")
+	}
+	return c.TrafficPattern.validate()
 }
 
 // ValidateInbound is Validate plus the inbound-mode requirement that at least
@@ -151,11 +171,12 @@ func MieruPrimaryPort(c MieruConfig) int {
 
 // mitaServerConfig mirrors the mita JSON config fields the panel renders.
 type mitaServerConfig struct {
-	PortBindings []mitaPortBinding `json:"portBindings"`
-	Users        []mitaUser        `json:"users"`
-	MTU          int               `json:"mtu,omitempty"`
-	LoggingLevel string            `json:"loggingLevel,omitempty"`
-	Egress       *mitaEgress       `json:"egress,omitempty"`
+	PortBindings   []mitaPortBinding    `json:"portBindings"`
+	Users          []mitaUser           `json:"users"`
+	MTU            int                  `json:"mtu,omitempty"`
+	LoggingLevel   string               `json:"loggingLevel,omitempty"`
+	Egress         *mitaEgress          `json:"egress,omitempty"`
+	TrafficPattern *MieruTrafficPattern `json:"trafficPattern,omitempty"`
 }
 
 type mitaPortBinding struct {
@@ -195,8 +216,9 @@ const mieruEgressProxyName = "lucx-xray"
 // panel's loopback bridge.
 func (c MieruConfig) RenderJSON(users []AuthPair) string {
 	cfg := mitaServerConfig{
-		MTU:          c.MTU,
-		LoggingLevel: strings.ToUpper(strings.TrimSpace(c.LoggingLevel)),
+		MTU:            c.MTU,
+		LoggingLevel:   strings.ToUpper(strings.TrimSpace(c.LoggingLevel)),
+		TrafficPattern: c.TrafficPattern.Normalized(),
 	}
 	for _, b := range c.PortBindings {
 		cfg.PortBindings = append(cfg.PortBindings, mitaPortBinding{
@@ -249,6 +271,12 @@ func (c MieruConfig) ClientLink(host string, pair AuthPair, remark string) strin
 	if c.MTU > 0 {
 		q = append(q, "mtu="+strconv.Itoa(c.MTU))
 	}
+	if m := strings.TrimSpace(c.Multiplexing); m != "" {
+		q = append(q, "multiplexing="+url.QueryEscape(m))
+	}
+	if h := strings.TrimSpace(c.HandshakeMode); h != "" {
+		q = append(q, "handshake-mode="+url.QueryEscape(h))
+	}
 	for _, b := range c.PortBindings {
 		if b.PortRange != "" {
 			q = append(q, "port="+url.QueryEscape(strings.TrimSpace(b.PortRange)))
@@ -256,6 +284,9 @@ func (c MieruConfig) ClientLink(host string, pair AuthPair, remark string) strin
 			q = append(q, "port="+strconv.Itoa(b.Port))
 		}
 		q = append(q, "protocol="+strings.ToUpper(strings.TrimSpace(b.Protocol)))
+	}
+	if tp := c.TrafficPattern.LinkParam(); tp != "" {
+		q = append(q, "traffic-pattern="+url.QueryEscape(tp))
 	}
 	if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
 		host = "[" + host + "]"
