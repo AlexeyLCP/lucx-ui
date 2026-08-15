@@ -69,10 +69,11 @@ export async function fetchSubscriptionBody(url: string): Promise<string> {
       if (body) return body;
       throw new Error('panel awgBody returned empty body');
     }
-    // Fall through to public URL only when the panel proxy is missing (old
-    // binary) or the subId has no AWG peers — direct fetch may still work
-    // behind a same-origin reverse-proxy of :2096.
-    if (msg.msg && !/not found|404|no AWG/i.test(msg.msg)) {
+    // Fall through to public URL only when the panel proxy route is missing
+    // (old binary → 404). Any real backend error — "no AWG configs" or the
+    // specific BuildAwgClientConf reason — is rethrown so the caller can show
+    // it instead of a generic "something went wrong" (issue #47).
+    if (msg.msg && !/not found|404/i.test(msg.msg)) {
       throw new Error(msg.msg);
     }
   }

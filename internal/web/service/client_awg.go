@@ -477,6 +477,7 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	}
 	var s struct {
 		PrivateKey string `json:"privateKey"`
+		PublicKey  string `json:"publicKey"`
 		MTU        int    `json:"mtu"`
 		DNS        string `json:"dns"`
 	}
@@ -486,6 +487,9 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 		if pub, err := wgutil.PublicKeyFromPrivate(sk); err == nil {
 			serverPub = pub
 		}
+	}
+	if serverPub == "" {
+		serverPub = strings.TrimSpace(s.PublicKey)
 	}
 	if serverPub == "" {
 		return "", common.NewError("awg: cannot derive server public key")

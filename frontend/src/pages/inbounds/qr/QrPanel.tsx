@@ -97,8 +97,8 @@ export default function QrPanel({
         : resolved;
       const ok = await ClipboardManager.copyText(text);
       if (ok) messageApi.success(t('copied'));
-    } catch {
-      messageApi.error(t('somethingWentWrong'));
+    } catch (e) {
+      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
     }
   }
 

@@ -5,6 +5,54 @@
 
 ---
 
+## lucx.129 — vpn:// «something went wrong»: реальная ошибка + fallback publicKey (2026-08-15)
+
+Репорт (EvilGremlin, issue #47, комментарий 15.08): `vpn://`-ссылка в карточке
+клиента показывает «something went wrong» при копировании/QR, хотя `.conf`
+работает. Репортёр предполагает, что с lucx.124.
+
+### Механизм
+
+Копирование/QR `vpn://` идёт через panel-proxy `GET /panel/api/clients/awgBody/:subId`
+(`getAwgBody`, controller/client.go) → `SubAwgService.GetAwg` → `BuildAwgClientConf`.
+«something went wrong» = `getAwgBody` вернул пустое тело или ошибку. Пустое тело
+получается, когда `GetAwg` скипает ВСЕХ клиентов (каждый `BuildAwgClientConf`
+упал). Реальная причина при этом полностью проглатывалась:
+
+- `jsonMsgObj` и так кладёт `err` в ответ (`msg + " (" + errStr + ")"`) и пишет в
+  лог, но фронтенд `fetchSubscriptionBody` по сообщению с «no AWG» уходил в
+  бессмысленный direct-fetch (CORS на :2096), а `copyValue` / `QrPanel.copy` /
+  `copyText` в catch показывали generic `somethingWentWrong`, затирая текст ошибки.
+
+### Фикс
+
+1. **`BuildAwgClientConf` (client_awg.go):** server public key теперь берётся и
+   из `settings.publicKey` как fallback, если вывести из `settings.privateKey`
+   не удалось. Раньше — только derive из privateKey, и любая проблема с ним
+   роняла ВСЕХ клиентов подписки в skip → пустое тело.
+2. **`GetAwg` (awg_service.go):** если не построился НИ ОДИН conf, но AWG-клиенты
+   были, возвращается последняя ошибка `BuildAwgClientConf` (вместо пустого тела
+   + nil) — так `getAwgBody` и лог панели показывают конкретную причину.
+3. **Фронтенд:** `fetchSubscriptionBody` больше не уходит в direct-fetch по
+   «no AWG» (только по 404/not-found = старый бинарник); `copyValue`
+   (ClientInfoModal), `QrPanel.copy` и `copyText` (inbounds/info/helpers) в catch
+   показывают `e.message` (реальную ошибку бэка), а не generic.
+
+Итог: вместо «something went wrong» оператор видит конкретную причину
+(«awg: cannot derive server public key» / «no AWG configs for this subscription»)
+и в журнале панели, и в тосте. Корень репорта EvilGremlin подтвердится следующим
+обновлением — теперь ошибка не прячется.
+
+### Тесты
+
+- `client_awg_conf_test.go`: derive из privateKey; fallback на publicKey при битом
+  privateKey; ошибка, когда оба пусты. (service pkg, CGO → CI.)
+- Frontend: typecheck + lint + build OK; `sub-fetch-body` / `sub-links` vitest OK.
+
+**lucxVersion:** lucx.129
+
+---
+
 ## lucx.128 — mieru: trafficPattern (+padding) + mux/handshake + пресеты (2026-08-15)
 
 Запрос пользователя: у официального mieru в конфиге бинарника есть `trafficPattern`

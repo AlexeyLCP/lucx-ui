@@ -158,8 +158,8 @@ export async function copyText(value: unknown, t: (k: string) => string) {
     const text = isAmneziaVpnUrl(raw) ? await fetchSubscriptionBody(raw) : raw;
     const ok = await ClipboardManager.copyText(text);
     if (ok) getMessage().success(t('copied'));
-  } catch {
-    getMessage().error(t('somethingWentWrong'));
+  } catch (e) {
+    getMessage().error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
   }
 }
 

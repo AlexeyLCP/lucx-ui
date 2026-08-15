@@ -238,8 +238,8 @@ export default function ClientInfoModal({
       const payload = isAmneziaVpnUrl(text) ? await fetchSubscriptionBody(text) : text;
       const ok = await ClipboardManager.copyText(payload);
       if (ok) messageApi.success(t('copied'));
-    } catch {
-      messageApi.error(t('somethingWentWrong'));
+    } catch (e) {
+      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
     }
   }
 
@@ -247,12 +247,18 @@ export default function ClientInfoModal({
     if (!url || downloadingFormat) return;
     setDownloadingFormat(format);
     try {
-      const response = await fetch(url);
-      if (!response.ok) throw new Error('Subscription download failed');
-      const content = await response.text();
+      const { fetchSubscriptionBody, isAmneziaVpnUrl } = await import('@/lib/sub/fetchBody');
+      let content: string;
+      if (isAmneziaVpnUrl(url)) {
+        content = await fetchSubscriptionBody(url);
+      } else {
+        const response = await fetch(url);
+        if (!response.ok) throw new Error(`Subscription download failed: HTTP ${response.status}`);
+        content = await response.text();
+      }
       FileManager.downloadTextFile(content, SUBSCRIPTION_DOWNLOAD_NAMES[format]);
-    } catch (_) {
-      messageApi.error(t('somethingWentWrong'));
+    } catch (e) {
+      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
     } finally {
       setDownloadingFormat(null);
     }
