@@ -5,6 +5,69 @@
 
 ---
 
+## lucx.126 — разбор issues #44–#47: беспортовые инбаунды и креды сайдкаров (2026-08-15)
+
+Заход по всем открытым issue форка. Две отвечены и закрыты, две потребовали кода.
+
+**#46 — «Impossible to add multiple olcrtc instances because port 0 already in
+use» (EvilGremlin, lucx.124). ИСПРАВЛЕНО.** olcRTC работает исходящим WebRTC и
+локальный порт не слушает — форма осознанно кладёт `port = 0`
+(`InboundFormModal.tsx`, `setV('port', 0)` для `Protocols.OLCRTC`), а
+`olcrtcInstance` ставит `ProbePort: 0`. При этом `checkPortConflict`
+(`internal/web/service/port_conflict.go`) искал соседей запросом
+`where port = ?` и считает olcRTC TCP-слушателем (`inboundTransports` →
+`transportTCP`), поэтому ВТОРОЙ беспортовый инбаунд совпадал с первым по трём
+критериям сразу (порт 0, пустой listen, TCP) и получал
+`port 0 (tcp) already used by inbound 'olcrtc-1' (#1) on *` — ровно текст из
+репорта, воспроизведён тестом до фикса. Фикс: ранний выход при `Port <= 0` —
+инбаунд, который ничего не биндит, конфликтовать не может. Тест
+`TestCheckPortConflict_PortlessInboundsNeverConflict`.
+
+**#45 — TrustTunnel: где взять username (maxslon133, lucx.122). Отвечен и
+закрыт; по мотивам — фича.** Пара username/password у NaiveProxy, mieru и
+TrustTunnel выводится HMAC'ом от секрета панели (`internal/lucx/tunnel/auth.go`)
+и не хранится нигде: ни subId, ни UUID, ни «Авторизация» не подходят, а
+`client.password` в карточке — вообще из другой оперы (именно его репортер и
+подставлял). Единственным способом прочитать пару был `cat` файла
+`trusttunnel-<ID>-credentials.toml` по SSH. Добавлено:
+- `ClientService.TunnelClientCredentials` (`client_tunnel_creds.go`) — выводит
+  пару для (инбаунд, email). Отказывает для протоколов без дерайв-кредов, для
+  неприкреплённого клиента и для **выключенного** клиента (сайдкар в этом случае
+  не пишет его строку в credentials-файл, так что пара была бы нерабочей).
+- `GET /panel/api/clients/tunnelCreds/:inboundId/:email` (LUCX-HOOK в
+  `controller/client.go`) + запись в `endpoints.ts` + `npm run gen`.
+- Карточка клиента (`ClientInfoModal.tsx`) тянет пары для всех прикреплённых
+  инбаундов с дерайв-кредами и показывает строкой `<инбаунд> — Username /
+  Password` с кнопками копирования. Новых i18n-ключей не понадобилось —
+  переиспользованы существующие `username` / `password`.
+- Тесты: `TestTunnelClientCredentials_MatchesSidecarDerivation` (пара
+  побайтово совпадает с тем, что рендерит сайдкар — иначе оператор скопирует
+  логин, который сервер отвергнет) и `TestTunnelClientCredentials_Rejections`.
+
+**#44 — AWG 3/3.1 не импортируется в Windows-клиенты (ariss77, lucx.119).
+Отвечен и закрыт.** Панель отдаёт корректный AWG3; упирается в клиентов.
+Матрица поддержки из ответа перенесена в AGENTS.md Pattern 6, чтобы не
+собирать её заново.
+
+**#47 — на странице подписки нет ссылок на AWG-конфиги (EvilGremlin,
+lucx.124). Ждём репортера.** Разобрано: это НЕ мобильная вёрстка — публичная
+страница подписки (`frontend/src/pages/sub/SubPage.tsx`) вообще не знает про
+AmneziaWG, её меню клиентов — V2Box/V2RayNG/Sing-box/Happ/Incy/Shadowrocket/
+Streisand, а кнопки `.conf` + `vpn://` живут только в карточке клиента панели.
+Вторая половина репорта (Android не парсит ссылку из буфера) — про
+`amneziawg://` из сырой подписки: это формат NekoBox/sing-box, приложениям
+Amnezia нужен `.conf` или `vpn://`. Запрошены скриншот, сама ссылка и список
+недостающих в NekoBox полей; добавлять ли AWG-кнопки на публичную страницу —
+продуктовое решение.
+
+**Известное:** `FormField.stories.tsx` (storybook-vitest, `findByText`) падает и
+на чистом дереве — проверено stash'ем перед прогоном, к этим изменениям
+отношения не имеет.
+
+**lucxVersion:** lucx.126
+
+---
+
 ## lucx.125 — адрес в подписке больше не берётся из X-Real-IP (2026-08-15)
 
 **Репорт (Aleksandr SacredX, 15.08.2026):** в Clash-подписке пинг до AWG-нод не

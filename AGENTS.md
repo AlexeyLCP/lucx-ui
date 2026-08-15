@@ -756,6 +756,18 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
   - В модалке клиента (`ClientQrModal`/`ClientInfoModal`) селектор «Client config version» позволяет экспортировать конфиг ≤ потолка инбаунда. Это только **избегает ошибок парсинга** в старом клиентском приложении (лишние поля отрезаются), но НЕ даёт совместимости, если клиент старше сервера.
   - ⚠️ HPK требует S1–S4 ≥ 12 (генератор гарантирует; при ручном вводе проверяй — форма показывает `awgSRangeWarning`).
 - **Симптом:** клиент висит на handshake, в логах сервера `awg0` peer без рукопожатия. Сравни must-match поля в серверном `.conf` (`/etc/awg/awgN.conf`) и клиентском — любое расхождение = причина.
+- **Что реально умеют клиенты (срез на 2026-08-14, разбор issue #44).** Панель отдаёт корректный AWG3-конфиг; «не импортируется» почти всегда упирается в клиент, а не в сервер:
+
+  | Клиент | Версия на срезе | AWG 3 / HPK | AWG 3.1 |
+  |---|---|---|---|
+  | AmneziaVPN | 5.0.0.5 (2026-07-26) | Заявлено в changelog | Нет (3.1 приехал в amneziawg-go ~2026-08-12) |
+  | AmneziaWG for Windows (standalone) | 2.0.2 (2026-07-21) | **Нет** — релиз старше AWG3, парсера HPK нет → «incorrect HeaderProtectionKey» ожидаем | Нет |
+  | FlClash | текущая | **Нет** (стек Clash/mihomo не знает HPK) | Нет |
+  | Throne + ThroneAWGcore | core v0.1.0 | **Нет** — документирует только Jc/S/H/I | Нет |
+
+  - «AmneziaVPN показывает version 2 и не подключается» = импорт уронил HPK, а сервер v3 его требует → handshake не завершится (см. must-match выше).
+  - Практический дефолт для парка Windows-клиентов — **отдельный инбаунд `awgVersion = 2`**; `3.1` не ставить, пока нет ни одного стабильного GUI-клиента.
+  - Прежде чем винить клиент, проверь, что модуль реально AWG3: `grep awg_header_protection_set_key /proc/kallsyms`, `awg version` ≥ v3. Если HPK не появляется в экспортируемом `.conf` — модуль/инструменты старые, лечится `x-ui update`.
 
 ### Pattern 7: CI go-test красный на `TestBuildFirefoxHello_NoGrease`/`TestBuildSafariHello_NoGrease` (pre-existing flaky)
 - **Cause:** CI гоняет `go test -shuffle=on` (рандомный seed каждый прогон). Тесты `NoGrease` утверждают, что Safari/Firefox ClientHello **не содержит** GREASE-паттернов `0a0a`/`fafa` в hex. Но `buildSafariHello`/`buildFirefoxHello` (`cps.go`) **пишут** GREASE через `greaseValue()` — `rng.Intn` над 16 значениями `[0x0A0A … 0xFAFA]`. Тест проходит в 14/16 случаев (когда rng не выдаёт `0x0A0A`/`0xFAFA`), падает в ~1/10 shuffle-прогонов. Воспроизводится локально: `go test ./internal/awg/cps/... -count=20 -shuffle=on`. **НЕ связано с AWG-изменениями** — чужой баг в логике обфускации.

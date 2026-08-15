@@ -55,6 +55,8 @@ func (a *ClientController) initRouter(g *gin.RouterGroup) {
 	g.GET("/subLinks/:subId", a.getSubLinks)
 	// LUCX-HOOK: same-origin Amnezia body for panel Copy/QR (avoids CORS on :2096).
 	g.GET("/awgBody/:subId", a.getAwgBody)
+	// LUCX-HOOK: derived sidecar credentials for the client card (naive/mieru/TrustTunnel).
+	g.GET("/tunnelCreds/:inboundId/:email", a.getTunnelCreds)
 	// END LUCX-HOOK
 	g.GET("/links/:email", a.getClientLinks)
 
@@ -622,6 +624,24 @@ func (a *ClientController) getAwgBody(c *gin.Context) {
 		return
 	}
 	jsonObj(c, gin.H{"body": body, "format": format}, nil)
+}
+
+// getTunnelCreds returns the username/password pair a NaiveProxy / mieru /
+// TrustTunnel client has to type in. The pair is HMAC-derived from the panel
+// secret and stored nowhere, so without this route an operator could only read
+// it out of the sidecar's credentials file over SSH (issue #45).
+func (a *ClientController) getTunnelCreds(c *gin.Context) {
+	inboundId, err := strconv.Atoi(c.Param("inboundId"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	creds, err := a.clientService.TunnelClientCredentials(inboundId, c.Param("email"))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, creds, nil)
 }
 
 // END LUCX-HOOK

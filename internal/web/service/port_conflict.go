@@ -178,6 +178,14 @@ func reservedAPIPort() int {
 }
 
 func (s *InboundService) checkPortConflict(inbound *model.Inbound, ignoreId int) (*portConflictDetail, error) {
+	// A non-positive port means the inbound binds nothing of its own —
+	// olcRTC dials out over WebRTC and its form stores port 0 — so it can
+	// never collide. Without this, every portless inbound after the first
+	// matched its predecessor on "port = 0" (#46).
+	if inbound.Port <= 0 {
+		return nil, nil
+	}
+
 	newBits := inboundTransports(inbound.Protocol, inbound.StreamSettings, inbound.Settings)
 
 	// The internal Xray API inbound (tag "api", loopback TCP) isn't a DB row,

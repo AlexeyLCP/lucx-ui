@@ -10761,6 +10761,64 @@
         }
       }
     },
+    "/panel/api/clients/tunnelCreds/{inboundId}/{email}": {
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "LUCX-UI only. Username/password a NaiveProxy, mieru or TrustTunnel client has to type in. The pair is HMAC-derived from the panel secret and stored nowhere, so this is the only way to read it back. Errors for any other protocol, for a client not attached to the inbound, and for a disabled client (the sidecar drops its credentials line).",
+        "operationId": "get_panel_api_clients_tunnelCreds_inboundId_email",
+        "parameters": [
+          {
+            "name": "inboundId",
+            "in": "path",
+            "required": true,
+            "description": "Inbound the credentials are scoped to.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "description": "Client email (identifier).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "protocol": "trusttunnel",
+                    "username": "tr9f2c1ab0de",
+                    "password": "kQ8mZ2rC7wN4tX1vB6yH3sL0pJd"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/clients/links/{email}": {
       "get": {
         "tags": [

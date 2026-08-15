@@ -233,6 +233,25 @@ func TestCheckPortConflict_DifferentPortNeverConflicts(t *testing.T) {
 	}
 }
 
+// olcRTC dials out over WebRTC and binds nothing, so the form stores port 0.
+// Two of them are not a port collision — issue #46 reported "port 0 already
+// used by inbound …" on the second one.
+func TestCheckPortConflict_PortlessInboundsNeverConflict(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflict(t, "olcrtc-1", "", 0, model.Olcrtc, "", `{}`)
+
+	svc := &InboundService{}
+	second := &model.Inbound{
+		Tag:      "olcrtc-2",
+		Listen:   "",
+		Port:     0,
+		Protocol: model.Olcrtc,
+	}
+	if exist, err := svc.checkPortConflict(second, 0); err != nil || exist != nil {
+		t.Fatalf("a second portless inbound must be allowed; exist=%v err=%v", exist, err)
+	}
+}
+
 // specific listen addresses on the same port don't clash with each other,
 // but do clash with any-address on the same port (preserved from the old
 // check).

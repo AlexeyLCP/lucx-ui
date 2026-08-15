@@ -58,6 +58,21 @@ interface ApiMsg<T = unknown> {
   obj?: T;
 }
 
+/* LUCX-HOOK: protocols whose per-client credentials are HMAC-derived server-side. */
+const DERIVED_CRED_PROTOCOLS = new Set(['naive', 'mieru', 'trusttunnel']);
+
+interface TunnelCreds {
+  protocol?: string;
+  username?: string;
+  password?: string;
+}
+
+interface TunnelCredRow {
+  inbound: InboundOption;
+  creds: TunnelCreds;
+}
+/* END LUCX-HOOK */
+
 const DEFAULT_SUB: SubSettings = {
   enable: false,
   subURI: '',
@@ -103,6 +118,7 @@ export default function ClientInfoModal({
   const [ipsLoading, setIpsLoading] = useState(false);
   const [ipsClearing, setIpsClearing] = useState(false);
   const [ipsModalOpen, setIpsModalOpen] = useState(false);
+  const [tunnelCreds, setTunnelCreds] = useState<TunnelCredRow[]>([]);
   const [downloadingFormat, setDownloadingFormat] = useState<keyof typeof SUBSCRIPTION_DOWNLOAD_NAMES | null>(null);
 
   useEffect(() => {
@@ -123,6 +139,41 @@ export default function ClientInfoModal({
     })();
     return () => { cancelled = true; };
   }, [open, client?.subId]);
+
+  /*
+   * LUCX-HOOK: NaiveProxy / mieru / TrustTunnel derive their username and
+   * password from the panel secret and store neither, so the card used to show
+   * only the unrelated settings password — the operator had no way to find the
+   * real pair short of reading the sidecar's credentials file over SSH (#45).
+   */
+  const derivedCredInbounds = useMemo(
+    () => (client?.inboundIds || [])
+      .map((id) => inboundsById[id])
+      .filter((ib): ib is InboundOption => Boolean(ib) && DERIVED_CRED_PROTOCOLS.has((ib.protocol || '').toLowerCase())),
+    [client?.inboundIds, inboundsById],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      setTunnelCreds([]);
+      return;
+    }
+    if (!client?.email || derivedCredInbounds.length === 0) return;
+    let cancelled = false;
+    (async () => {
+      const fetched = await Promise.all(derivedCredInbounds.map(async (ib) => {
+        const msg = await HttpUtil.get(
+          `/panel/api/clients/tunnelCreds/${ib.id}/${encodeURIComponent(client.email)}`,
+        ) as ApiMsg<TunnelCreds>;
+        if (!msg?.success || !msg.obj?.username) return null;
+        return { inbound: ib, creds: msg.obj };
+      }));
+      if (cancelled) return;
+      setTunnelCreds(fetched.filter((row): row is TunnelCredRow => row !== null));
+    })();
+    return () => { cancelled = true; };
+  }, [open, client?.email, derivedCredInbounds]);
+  /* END LUCX-HOOK */
 
   const traffic = client?.traffic || null;
   const totalBytes = client?.totalGB || 0;
@@ -301,6 +352,19 @@ export default function ClientInfoModal({
                     </td>
                   </tr>
                 )}
+                {/* LUCX-HOOK: derived sidecar credentials (naive/mieru/TrustTunnel) */}
+                {tunnelCreds.map(({ inbound, creds }) => (
+                  <tr key={`creds-${inbound.id}`}>
+                    <td>{`${formatInboundLabel(inbound.tag, inbound.remark)} — ${t('username')} / ${t('password')}`}</td>
+                    <td>
+                      <Tag className="info-large-tag">{creds.username}</Tag>
+                      <Button size="small" type="text" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(creds.username!)} />
+                      <Tag className="info-large-tag">{creds.password}</Tag>
+                      <Button size="small" type="text" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(creds.password!)} />
+                    </td>
+                  </tr>
+                ))}
+                {/* END LUCX-HOOK */}
                 {client.auth && (
                   <tr>
                     <td>{t('pages.clients.auth')}</td>

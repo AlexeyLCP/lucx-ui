@@ -1369,6 +1369,18 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/clients/tunnelCreds/:inboundId/:email',
+        summary:
+          'LUCX-UI only. Username/password a NaiveProxy, mieru or TrustTunnel client has to type in. The pair is HMAC-derived from the panel secret and stored nowhere, so this is the only way to read it back. Errors for any other protocol, for a client not attached to the inbound, and for a disabled client (the sidecar drops its credentials line).',
+        params: [
+          { name: 'inboundId', in: 'path', type: 'integer', desc: 'Inbound the credentials are scoped to.' },
+          { name: 'email', in: 'path', type: 'string', desc: 'Client email (identifier).' },
+        ],
+        response:
+          '{\n  "success": true,\n  "obj": { "protocol": "trusttunnel", "username": "tr9f2c1ab0de", "password": "kQ8mZ2rC7wN4tX1vB6yH3sL0pJd" }\n}',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/clients/links/:email',
         summary:
           "Return every URL for one client across all attached inbounds — the same strings the Copy URL button copies in the panel UI. Supported protocols: vmess, vless, trojan, shadowsocks, hysteria. If streamSettings.externalProxy is set, returns one URL per external proxy. Protocols without a URL form (socks, http, mixed, wireguard, dokodemo, tunnel) contribute nothing.",
