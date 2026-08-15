@@ -8,7 +8,10 @@ package service
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
 func TestAwgAllocationFallback(t *testing.T) {
@@ -195,6 +198,72 @@ func TestMigrateAwgClientSubnets(t *testing.T) {
 			c.check(t, migrateAwgClientSubnets(c.oldAddr, c.newAddr, c.settings))
 		})
 	}
+}
+
+// TestFillAwgClients covers the UpdateInbound path: the form resubmits every
+// existing client with its AllowedIPs, so the collision check must exclude
+// each client's own stored address (lucx.127 — Malderin "allowedIPs entry
+// already used by another client" on a plain metadata save).
+func TestFillAwgClients(t *testing.T) {
+	base := awgAllocationFallback("10.200.0.1/24")
+	t.Run("unchanged edit is not a self-collision", func(t *testing.T) {
+		existing := []model.Client{
+			{Email: "alice", PublicKey: "PUBA", PreSharedKey: "PSKA", AllowedIPs: []string{"10.200.0.2/32"}},
+			{Email: "bob", PublicKey: "PUBB", PreSharedKey: "PSKB", AllowedIPs: []string{"10.200.0.3/32"}},
+		}
+		clients := []model.Client{
+			{Email: "alice", PublicKey: "PUBA", PreSharedKey: "PSKA", AllowedIPs: []string{"10.200.0.2/32"}},
+			{Email: "bob", PublicKey: "PUBB", PreSharedKey: "PSKB", AllowedIPs: []string{"10.200.0.3/32"}},
+		}
+		if err := fillAwgClients(existing, clients, nil, base, nil); err != nil {
+			t.Fatalf("unchanged clients must save, got %v", err)
+		}
+	})
+	t.Run("rename matched by pubkey keeps own IP", func(t *testing.T) {
+		existing := []model.Client{
+			{Email: "alice", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
+		}
+		clients := []model.Client{
+			{Email: "alice2", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
+		}
+		if err := fillAwgClients(existing, clients, nil, base, nil); err != nil {
+			t.Fatalf("renamed client must keep its IP, got %v", err)
+		}
+	})
+	t.Run("duplicate across distinct clients still rejected", func(t *testing.T) {
+		existing := []model.Client{
+			{Email: "alice", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
+		}
+		clients := []model.Client{
+			{Email: "alice", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
+			{Email: "carol", PublicKey: "PUBC", AllowedIPs: []string{"10.200.0.2/32"}},
+		}
+		err := fillAwgClients(existing, clients, nil, base, nil)
+		if err == nil {
+			t.Fatal("carol taking alice's IP must be rejected")
+		}
+		if !strings.Contains(err.Error(), "already used") {
+			t.Fatalf("want already-used error, got %v", err)
+		}
+	})
+	t.Run("blank client allocated off the inbound subnet", func(t *testing.T) {
+		existing := []model.Client{
+			{Email: "alice", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
+		}
+		clients := []model.Client{
+			{Email: "alice", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
+			{Email: "dave"},
+		}
+		if err := fillAwgClients(existing, clients, nil, base, nil); err != nil {
+			t.Fatalf("blank client must allocate, got %v", err)
+		}
+		if len(clients[1].AllowedIPs) == 0 || clients[1].AllowedIPs[0] == "10.200.0.2/32" {
+			t.Fatalf("dave must get a fresh IP, got %v", clients[1].AllowedIPs)
+		}
+		if clients[1].PublicKey == "" || clients[1].PrivateKey == "" {
+			t.Fatalf("dave must get a keypair, got pub=%q priv=%q", clients[1].PublicKey, clients[1].PrivateKey)
+		}
+	})
 }
 
 // TestAwgAllowedIPsStale covers the lucx.92 detector that flags a client

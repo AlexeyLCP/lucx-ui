@@ -25,7 +25,10 @@ export function useStatusQuery() {
     staleTime: 0,
   });
 
-  const status = useMemo(() => query.data ?? new Status(), [query.data]);
+  const status = useMemo(() => {
+    if (query.data instanceof Status) return query.data;
+    return new Status(query.data as ConstructorParameters<typeof Status>[0]);
+  }, [query.data]);
   const refresh = async () => { await query.refetch(); };
 
   return {

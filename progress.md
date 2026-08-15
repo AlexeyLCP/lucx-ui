@@ -5,6 +5,68 @@
 
 ---
 
+## lucx.127 — AWG save self-collision + Index crash + Cores status poison (2026-08-15)
+
+Три репорта тестеров одним коммитом.
+
+### 1. Malderin — нельзя сохранить AWG-инбаунд/клиента с allowedIPs
+**Симптом:** «если к авг подключению приделан юзер, то его не изменить» + toast
+`awg: allowedIPs entry already used by another client: 10.200.0.2/32`.
+
+**Cause:** `UpdateInbound` (`inbound.go`) зовёт `defaultAwgClients(existingClients, newClients, …)`.
+Форма шлёт ВСЕХ клиентов с их AllowedIPs; `used` сидится из `existing` → первый же
+существующий клиент коллидирует **сам с собой** в `wireguardAllowedIPsCollision`.
+Путь Clients page (`Update` → `AllowedIPs=nil` → inherit) был здоров; ломался
+именно save инбаунда с прикреплёнными peer'ами.
+
+**Fix:** `fillAwgClients` (pure core, unit-testable) — collision check исключает
+OWN stored IPs, matched by email (EqualFold) или public key. `defaultAwgClients`
+остаётся thin wrapper с DB-lookup awgo-адресов. Тест `TestFillAwgClients`
+(unchanged edit / rename-by-pubkey / true duplicate / blank allocate).
+
+### 2. SacredX — IndexPage crash `Cannot read properties of undefined (reading 'total')`
+**Симптом:** «Unexpected Application Error» часто при переходе на главную.
+
+**Cause:** `CoresTab.AwgCard` делал `useQuery({ queryKey: ['server', 'status'], queryFn: POST … })` —
+**тот же ключ**, что `useStatusQuery` (GET → `new Status(...)`). POST на
+`GET /panel/api/server/status` → 404/405; даже при «успехе» в кэш ложился
+envelope `{success,obj}`, не `Status`. После визита Settings → Cores кэш
+отравлен → Index читает `status.disk` = undefined → crash на `.total`.
+
+**Fix:**
+- `CoresTab` → `useStatusQuery()` (общий GET + Status class).
+- `useStatusQuery` defensive: если в кэше не `instanceof Status` — re-wrap
+  через конструктор (старый poisoned cache не роняет UI).
+
+### 3. SacredX — Settings → Cores «Модуль не загружен / Интерфейсов UP: 0»
+при живых awgo (главная нормальная).
+
+Тот же poison POST: awg undefined → `moduleLoaded=false`, `interfaces=0`.
+Дополнительно `CollectHostStatus` считал **только** inbound `awgN` (`m.procs`),
+не outbound `awgo-N` → хост с одними outbounds честно показывал UP:0 даже при
+здоровом GET.
+
+**Fix:** `RunningClientIfnames()` + merge в `CollectHostStatus`. CoresTab на
+`useStatusQuery`.
+
+### 4. SacredX — awgo-2/3 test ping 100% loss (lucx↔vpnbot); awg-quick@ systemd dead
+**Не баг панели (по текущим данным):**
+- `systemctl status awg-quick@awg0` inactive — **by design**: панель поднимает
+  ifaces через `awg-quick up/down` сама, не через unit. Unit disabled — норма.
+- Первый outbound (lucx.126↔lucx.126) проходит test; 2/3 к vpnbot — 100% loss
+  при `ping -I awgo-3` (пакеты уходят, reply нет). CLI ping «на серверах
+  работает» ≠ `ping -I awgo-N`. Скорее upstream (AllowedIPs/ICMP/handshake
+  на vpnbot), не multi-awgo routing в панели. Для дожима: `awg show awgo-3 dump`
+  (handshake age) + AllowedIPs peer'а + `ping -I awgo-3 1.1.1.1` с хоста.
+
+**Файлы:** `client_awg.go` + test, `host_status.go`, `client_manager.go`,
+`CoresTab.tsx`, `useStatusQuery.ts`, `config.go` lucx.127.
+
+**Тесты:** `go test ./internal/awg/...` OK; frontend typecheck+lint OK.
+`TestFillAwgClients` — CI (service pkg needs CGO).
+
+---
+
 ## lucx.126 — разбор issues #44–#47: беспортовые инбаунды и креды сайдкаров (2026-08-15)
 
 Заход по всем открытым issue форка. Две отвечены и закрыты, две потребовали кода.

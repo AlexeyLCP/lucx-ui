@@ -245,10 +245,7 @@ func anyStringSlice(v any) []string {
 // would get an address the server never routes (caught live on a 10.9.0.1/24
 // inbound whose first client received 10.8.0.2).
 func defaultAwgClients(existing, clients []model.Client, interfaceClients []any, serverAddr string) error {
-	used := make([]string, 0)
-	for i := range existing {
-		used = append(used, existing[i].AllowedIPs...)
-	}
+	var extraUsed []string
 	// LUCX-HOOK: AWG outbound collision guard — exclude tunnel IPs already
 	// claimed by enabled AWG outbounds (awgo-N kernel interfaces). Without
 	// this, allocateWireguardAddress can hand a new client the same IP an
@@ -257,7 +254,7 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 	// the client's traffic dies. This is the root cause of "второй клиент не
 	// идёт трафик" when an AWG outbound is enabled on the same panel.
 	if awgOuts, err := (&AwgOutboundService{}).ActiveOutboundAddresses(); err == nil {
-		used = append(used, awgOuts...)
+		extraUsed = awgOuts
 	}
 	// END LUCX-HOOK
 	// LUCX-HOOK (lucx.63): allocate strictly from the inbound's OWN tunnel
@@ -269,7 +266,41 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 	// awg-quick up installs a colliding /32 → RTNETLINK "File exists" → the
 	// interface rolls back ("Device awgN does not exist"). `used` stays an
 	// exclusion set; only the base source changes.
-	base := awgAllocationFallback(serverAddr)
+	return fillAwgClients(existing, clients, interfaceClients, awgAllocationFallback(serverAddr), extraUsed)
+}
+
+// fillAwgClients is the pure core of defaultAwgClients (no DB access) so the
+// allocation/collision logic stays unit-testable. extraUsed carries the
+// awgo-N tunnel addresses (collision guard) on top of the existing clients.
+//
+// The collision check excludes the client's OWN stored addresses (matched by
+// email or public key — the stable identities): UpdateInbound submits the whole
+// clients array, so every existing client would otherwise collide with itself
+// in the exclusion set and block saving any edit on an AWG inbound that has
+// clients (lucx.127, reporter: tester Malderin "allowedIPs entry already used
+// by another client" on a plain metadata edit).
+func fillAwgClients(existing, clients []model.Client, interfaceClients []any, base string, extraUsed []string) error {
+	used := make([]string, 0, len(extraUsed)+len(existing))
+	used = append(used, extraUsed...)
+	own := make(map[string]map[string]struct{}, 2*len(existing))
+	rememberOwn := func(key string, ips []string) {
+		if key == "" {
+			return
+		}
+		set, ok := own[key]
+		if !ok {
+			set = make(map[string]struct{}, len(ips))
+			own[key] = set
+		}
+		for _, ip := range ips {
+			set[strings.TrimSpace(ip)] = struct{}{}
+		}
+	}
+	for i := range existing {
+		used = append(used, existing[i].AllowedIPs...)
+		rememberOwn(strings.ToLower(strings.TrimSpace(existing[i].Email)), existing[i].AllowedIPs)
+		rememberOwn(existing[i].PublicKey, existing[i].AllowedIPs)
+	}
 	for i := range clients {
 		c := &clients[i]
 		if c.PrivateKey == "" && c.PublicKey == "" {
@@ -294,9 +325,6 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 			c.PreSharedKey = psk
 		}
 		if len(c.AllowedIPs) == 0 {
-			// Only allocate when blank — never rotate an existing tunnel IP
-			// (client .conf Address would change → forced re-download). Attach
-			// paths clear AllowedIPs when they want a fresh IP for a new inbound.
 			addr, err := allocateWireguardAddress(used, base, false)
 			if err != nil {
 				return err
@@ -310,7 +338,16 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 			if len(normalized) == 0 {
 				return common.NewError("awg: allowedIPs has no usable entry")
 			}
-			if hit := wireguardAllowedIPsCollision(normalized, used); hit != "" {
+			peers := used
+			if self := awgOwnAllowedIPs(own, c); self != nil {
+				peers = make([]string, 0, len(used))
+				for _, u := range used {
+					if _, isOwn := self[strings.TrimSpace(u)]; !isOwn {
+						peers = append(peers, u)
+					}
+				}
+			}
+			if hit := wireguardAllowedIPsCollision(normalized, peers); hit != "" {
 				return common.NewError("awg: allowedIPs entry already used by another client:", hit)
 			}
 			c.AllowedIPs = normalized
@@ -331,6 +368,18 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 				m["keepAlive"] = c.KeepAlive.String()
 				interfaceClients[i] = m
 			}
+		}
+	}
+	return nil
+}
+
+func awgOwnAllowedIPs(own map[string]map[string]struct{}, c *model.Client) map[string]struct{} {
+	if set, ok := own[strings.ToLower(strings.TrimSpace(c.Email))]; ok {
+		return set
+	}
+	if c.PublicKey != "" {
+		if set, ok := own[c.PublicKey]; ok {
+			return set
 		}
 	}
 	return nil

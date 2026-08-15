@@ -28,8 +28,9 @@ import {
 
 import { HttpUtil } from '@/utils';
 import { keys } from '@/api/queryKeys';
+import { useStatusQuery } from '@/api/queries/useStatusQuery';
 import { tunnelsApi } from '@/api/tunnels';
-import type { AwgInfo, BbrStatus } from '@/models/status';
+import type { BbrStatus } from '@/models/status';
 
 type CoreKind = 'naive' | 'olcrtc' | 'qwdtt' | 'mieru' | 'trusttunnel';
 
@@ -246,17 +247,14 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
 function AwgCard() {
   const { t } = useTranslation();
   const [busy, setBusy] = useState(false);
-  const { data: statusRes } = useQuery({
-    queryKey: ['server', 'status'],
-    queryFn: async () => HttpUtil.post<{ awg?: Partial<AwgInfo> }>('/panel/api/server/status', {}, { silent: true }),
-    refetchInterval: 5000,
-  });
-  const awg = statusRes?.obj?.awg;
+  const { status, fetched, refresh } = useStatusQuery();
+  const awg = status.awg;
 
   const restartIfaces = async () => {
     setBusy(true);
     try {
       await HttpUtil.post('/panel/api/server/restartAwg');
+      await refresh();
     } finally {
       setBusy(false);
     }
@@ -266,13 +264,15 @@ function AwgCard() {
     setBusy(true);
     try {
       await HttpUtil.post('/panel/api/server/rebuildAwgModule');
+      await refresh();
     } finally {
       setBusy(false);
     }
   };
 
-  const loaded = !!awg?.moduleLoaded;
-  const ifList = (awg?.ifnames || []).join(', ');
+  const loaded = !!awg.moduleLoaded;
+  const ifList = (awg.ifnames || []).join(', ');
+  const showMissing = fetched && (awg.errorMsg === 'module_not_loaded' || !awg.moduleLoaded);
 
   return (
     <Card
@@ -282,27 +282,29 @@ function AwgCard() {
       extra={(
         <Space>
           <Badge
-            status={loaded ? (awg?.interfaces ? 'success' : 'default') : 'error'}
-            text={loaded
-              ? t('pages.settings.cores.awgModuleLoaded')
-              : t('pages.settings.cores.awgModuleMissing')}
+            status={!fetched ? 'default' : loaded ? (awg.interfaces ? 'success' : 'default') : 'error'}
+            text={!fetched
+              ? t('loading')
+              : loaded
+                ? t('pages.settings.cores.awgModuleLoaded')
+                : t('pages.settings.cores.awgModuleMissing')}
           />
-          {awg?.moduleAwg3 && <Tag color="blue">AWG3</Tag>}
-          {awg?.version && <Tag>{awg.version}</Tag>}
+          {awg.moduleAwg3 && <Tag color="blue">AWG3</Tag>}
+          {awg.version && <Tag>{awg.version}</Tag>}
         </Space>
       )}
     >
       <Typography.Paragraph type="secondary">
         {t('pages.settings.cores.awgDesc')}
       </Typography.Paragraph>
-      {(awg?.errorMsg === 'module_not_loaded' || (awg && !awg.moduleLoaded)) && (
+      {showMissing && (
         <Alert type="error" showIcon style={{ marginBottom: 12 }} message={t('pages.index.awgModuleNotLoadedHint')} />
       )}
-      {awg?.errorMsg && awg.errorMsg !== 'module_not_loaded' && (
+      {fetched && awg.errorMsg && awg.errorMsg !== 'module_not_loaded' && (
         <Alert type="error" showIcon style={{ marginBottom: 12 }} message={awg.errorMsg} />
       )}
       <Typography.Paragraph>
-        {t('pages.index.awgInterfaces', { n: awg?.interfaces ?? 0 })}
+        {t('pages.index.awgInterfaces', { n: awg.interfaces ?? 0 })}
         {ifList ? ` · ${ifList}` : ''}
       </Typography.Paragraph>
       <Space wrap>

@@ -28,7 +28,7 @@ type HostStatus struct {
 var awgToolsVersionRe = regexp.MustCompile(`(?i)v?(\d+\.\d+(?:\.\d+)?(?:\.\d+)?)`)
 
 // CollectHostStatus probes the kernel module, tools version, and how many
-// managed AWG interfaces are currently up.
+// managed AWG interfaces are currently up (inbound awgN + outbound awgo-N).
 func CollectHostStatus() HostStatus {
 	hs := HostStatus{}
 	if runtime.GOOS != "linux" {
@@ -40,7 +40,18 @@ func CollectHostStatus() HostStatus {
 	hs.ModuleAwg3 = ModuleSupportsAwg3()
 	hs.Version = toolsVersion()
 	mgr := GetManager()
-	hs.Ifnames = mgr.RunningIfnames()
+	in := mgr.RunningIfnames()
+	out := mgr.RunningClientIfnames()
+	hs.Ifnames = make([]string, 0, len(in)+len(out))
+	hs.Ifnames = append(hs.Ifnames, in...)
+	hs.Ifnames = append(hs.Ifnames, out...)
+	for i := 0; i < len(hs.Ifnames); i++ {
+		for j := i + 1; j < len(hs.Ifnames); j++ {
+			if hs.Ifnames[j] < hs.Ifnames[i] {
+				hs.Ifnames[i], hs.Ifnames[j] = hs.Ifnames[j], hs.Ifnames[i]
+			}
+		}
+	}
 	hs.Interfaces = len(hs.Ifnames)
 	return hs
 }

@@ -131,6 +131,31 @@ func (m *Manager) sweepOrphanClientsOnce() {
 	})
 }
 
+// RunningClientIfnames returns sorted names of UP outbound awgo-N interfaces
+// currently tracked by EnsureClient. Used by CollectHostStatus so the
+// dashboard / Settings → Cores card counts both inbound awgN and outbound
+// awgo-N (previously only inbounds — a host with only outbounds showed
+// "Interfaces UP: 0" even when tunnels carried traffic).
+func (m *Manager) RunningClientIfnames() []string {
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	names := make([]string, 0, len(clients))
+	for ifname := range clients {
+		if _, err := awgShowIfname(ifname); err != nil {
+			continue
+		}
+		names = append(names, ifname)
+	}
+	for i := 0; i < len(names); i++ {
+		for j := i + 1; j < len(names); j++ {
+			if names[j] < names[i] {
+				names[i], names[j] = names[j], names[i]
+			}
+		}
+	}
+	return names
+}
+
 // CollectClientTraffic reads handshake age and rx/tx byte counters for one
 // client interface via `awg show <iface> dump`. Returns ok=false if the
 // interface is down or `awg` is unavailable; ok=true with zero counters when
