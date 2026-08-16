@@ -1822,14 +1822,24 @@ install_x-ui() {
     echo -e "${green}═══════════════════════════════════════════${plain}"
 
     # Deferred reboot after AWG kernel upgrade (install-awg-module never reboots
-    # mid-script; module is already built for the new kernel).
+    # mid-script; module is already built for the new kernel). Container-safe:
+    # without systemd as init (docker/CI smoke test) `reboot` cannot work and
+    # used to fail the whole install at the very last step — skip it there and
+    # treat a failed reboot as a warning, since the panel install itself is
+    # already complete.
     if [[ -f /etc/x-ui/.awg-reboot-needed ]]; then
-        echo ""
-        echo -e "${yellow}AWG: new kernel installed — rebooting in 10s so amneziawg loads.${plain}"
-        echo -e "${yellow}Panel install is complete; AWG module is already built for the new kernel.${plain}"
         rm -f /etc/x-ui/.awg-reboot-needed
-        sleep 10
-        reboot
+        if [[ -d /run/systemd/system ]]; then
+            echo ""
+            echo -e "${yellow}AWG: new kernel installed — rebooting in 10s so amneziawg loads.${plain}"
+            echo -e "${yellow}Panel install is complete; AWG module is already built for the new kernel.${plain}"
+            sleep 10
+            reboot || echo -e "${red}Reboot failed — please reboot the server manually so the AWG module loads.${plain}"
+        else
+            echo ""
+            echo -e "${yellow}AWG: new kernel installed, but no systemd init detected (container?).${plain}"
+            echo -e "${yellow}Reboot the host manually so the amneziawg module loads.${plain}"
+        fi
     fi
     # END LUCX-HOOK
 }

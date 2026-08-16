@@ -36,6 +36,13 @@
    Поведение AWG-gate в update.sh НЕ менялось: модуль ставится только там,
    где уже был (маркер / загруженный модуль / awg-quick) — плановый update
    не добавляет kernel-модуль и ребут хостам, которые AWG никогда не имели.
+4. **Отложенный ребут в `install.sh` стал container-safe** — фикс для
+   `Deploy Smoke Tests` (deploy/test/smoke-noninteractive.sh, ubuntu-контейнер
+   без systemd): возврат установки модуля снова поднял kernel-upgrade в CI,
+   и финальный `reboot` ронял весь install с exit 1 (каждый раз, когда у
+   ubuntu-latest появляется новый linux-image). Теперь: без systemd
+   (`/run/systemd/system`) ребут пропускается с подсказкой, ошибка `reboot`
+   не фейлит установку (панель уже установлена).
 
 ### Матрица поведения
 
