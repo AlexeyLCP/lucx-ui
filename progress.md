@@ -34,6 +34,12 @@
 - `TestAwgModuleScriptEnvIsNoninteractive`.
 - Frontend: typecheck + lint + i18n-dead-keys.
 
+**Релиз (2026-08-16):** CI green → тег `v3.6.0-lucx.130` → первая попытка Release
+упала на fetch geo-файлов (wget exit 8, транзиентный сбой GitHub на редиректе
+`releases/latest/download`) → `gh run rerun --failed` → Release OK → notes RU+EN.
+Перед пушем закрыты 9 dependabot version-update PR (#48–#56, Known Issue #3).
+https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.6.0-lucx.130
+
 **lucxVersion:** lucx.130
 
 ---
