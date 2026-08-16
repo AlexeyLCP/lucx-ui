@@ -209,9 +209,20 @@ jobs:
           # tunnel. Built from source with GOTOOLCHAIN=auto so the module's
           # required Go version is pulled automatically. amd64/arm64 only;
           # other arches use the Tunnels page upload/download path.
+          # PINNED, never unpinned master: upstream PR #140 (merged
+          # 2026-08-13) replaced the crypto wire format with the OLC2
+          # record layer (HKDF directional keys, "OLC2" framing, replay
+          # window) with NO fallback, breaking every existing client app
+          # (owenclave/olcbox builds predating it). 3339cd36 is the last
+          # master commit before that merge; lucx.112-118 shipped it and
+          # Telemost was verified working. Move the pin only when client
+          # apps ship OLC2 builds (and test a real room end-to-end first).
           if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
-            OLCRTC_REF="master"
-            git clone --depth 1 --branch "${OLCRTC_REF}" https://github.com/openlibrecommunity/olcrtc.git /tmp/olcrtc
+            OLCRTC_REF="3339cd36716885e583429f97e73462cde4984e2e"
+            git init -q /tmp/olcrtc
+            git -C /tmp/olcrtc remote add origin https://github.com/openlibrecommunity/olcrtc.git
+            git -C /tmp/olcrtc fetch -q --depth 1 origin "${OLCRTC_REF}"
+            git -C /tmp/olcrtc checkout -q FETCH_HEAD
             ( cd /tmp/olcrtc && GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.platform }}" \
                 go build -trimpath -ldflags="-s -w" -o "/tmp/olcrtc-linux-${{ matrix.platform }}" ./cmd/olcrtc )
             mv "/tmp/olcrtc-linux-${{ matrix.platform }}" "olcrtc-linux-${{ matrix.platform }}"

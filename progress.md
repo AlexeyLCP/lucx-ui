@@ -5,6 +5,59 @@
 
 ---
 
+## lucx.132 — пин olcRTC на pre-OLC2 SHA: wire-совместимость с клиентами (2026-08-16)
+
+**Репорт (NoName, чат):** «olcrtc, в пятницу летало через яндекс, вчера перестал».
+
+### Корень
+
+`release.yml` собирал olcrtc из **неприкреплённого master** (`OLCRTC_REF="master"`).
+Апстрим 14.08 02:10 МСК слил PR #140 «Refactor/global overhaul» (252 файла,
++22k/−15k, `refactor!: standardize provider APIs`), который **полностью переписал
+крипто-слой** (`internal/crypto/chacha.go`):
+
+- было: сырой 32-байтный ключ → XChaCha20-Poly1305, фрейм `[24B nonce][ct][tag]`
+  (overhead 40);
+- стало («OLC2»): HKDF-SHA256 directional-ключи из PSK (labels
+  `olcrtc/v2/client-to-server` / `server-to-client`), фрейм
+  `magic "OLC2" | counter u64 | 16B sender-prefix | ct | tag` (overhead 44),
+  replay-window, AAD.
+
+Их readme/uri.md прямо пишут: **«no compatibility fallback for the old crypto
+format… Upgrade both endpoints together»**. YAML/URI-схемы при этом совместимы —
+ломается именно data-plane между старым клиентом и новым сервером (каждый пакет
+не проходит auth).
+
+Все релизы с lucx.119 (первая сборка после мержа) несли OLC2-бинарник. Клиенты:
+owenclave v0.17.50 (05.08) = старое крипто, OLC2-сборки нет; olcbox
+отреагировал коммитом `fix: support new olcrtc runtime` (15.08), nightly APK
+от 16.08 уже OLC2. Обновивший панель сервер переходит на OLC2, а клиентское
+приложение на телефоне остаётся старом → туннель умирает. Яндексу/Telemost
+это не касается.
+
+### Что сделано
+
+1. **`release.yml`:** `OLCRTC_REF` = `3339cd36716885e583429f97e73462cde4984e2e`
+   (последний master до PR #140; это бинарник lucx.112–118, проверенный на
+   Telemost). Паттерн клонирования сменён на `git init + fetch --depth 1 <SHA>
+   + checkout FETCH_HEAD` — `git clone --branch <SHA>` на GitHub НЕ работает
+   (проверено локально: «Remote branch … not found»), а fetch по SHA работает.
+   Комментарий в yml объясняет пин и условие снятия (OLC2-сборки клиентов +
+   e2e на живой комнате).
+2. `lucxVersion` → lucx.132.
+
+### Урок
+
+Внешние бинарники, собираемые из чужого master без пина, — бомба: любой
+wire-breaking мерж апстрима молча уезжает в следующий релиз. Все sidecar-ядра
+должны быть закреплены (mieru/TrustTunnel/caddy-naive уже пинуются; olcrtc
+был исключением). Снимать пин olcrtc только когда owenclave/olcbox выпустят
+OLC2-сборки И прогнан e2e на реальном провайдере. См. Pattern 1o в AGENTS.md.
+
+**lucxVersion:** lucx.132
+
+---
+
 ## lucx.131 — AWG-модуль снова ставится при установке; скрипты не сбрасывают логин/пароль/путь (2026-08-16)
 
 Решение владельца (отменяет opt-in lucx.130, введённый по репорту Malderin):
