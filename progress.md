@@ -54,6 +54,12 @@ wire-breaking мерж апстрима молча уезжает в следу�
 был исключением). Снимать пин olcrtc только когда owenclave/olcbox выпустят
 OLC2-сборки И прогнан e2e на реальном провайдере. См. Pattern 1o в AGENTS.md.
 
+**Релиз (2026-08-16):** CI зелёный (включая Release на main — новый fetch-паттерн
+проверен боевой сборкой) → тег `v3.6.0-lucx.132` → Release OK → notes RU+EN.
+https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.6.0-lucx.132
+Примечание: push по https отклонён (OAuth gh без scope `workflow` на файлы
+`.github/workflows/`) — пушили по SSH (`git push git@github.com:...`).
+
 **lucxVersion:** lucx.132
 
 ---
