@@ -879,15 +879,12 @@ config_after_update() {
         fi
     fi
 
-    # Handle missing/short webBasePath
-    if [[ ${#existing_webBasePath} -lt 4 ]]; then
-        echo -e "${yellow}WebBasePath is missing or too short. Generating a new one...${plain}"
-        local config_webBasePath=$(gen_random_string 18)
-        ${xui_folder}/x-ui setting -webBasePath "${config_webBasePath}"
-        existing_webBasePath="${config_webBasePath}"
-        panel_needs_restart=1
-        echo -e "${green}New WebBasePath: ${config_webBasePath}${plain}"
-    fi
+    # LUCX-HOOK (lucx.131): never reset an existing webBasePath on update.
+    # Upstream regenerates a missing/short path here, which silently changes
+    # the panel URL on live installs (e.g. a vanilla 3x-ui overlay whose path
+    # is "/"). Owner policy: a scripted update must not touch login/password
+    # or paths — the operator's access URL survives verbatim.
+    # END LUCX-HOOK
 
     # Check and prompt for SSL if missing
     if [[ -z "$existing_cert" ]]; then

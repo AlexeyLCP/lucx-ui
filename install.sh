@@ -1074,6 +1074,33 @@ config_after_install() {
         fi
     fi
 
+    # LUCX-HOOK (lucx.131): install over an existing DB — NEVER reset
+    # login/password/port/webBasePath. Reinstall-over-the-top is the recovery
+    # path when the web update fails, and it must not lock the operator out
+    # (owner policy; Rule 0b for vanilla overlays too — admin/admin + path
+    # "/" survives, with a warning instead of a forced reset).
+    if [[ "${lucx_existing_install:-0}" == "1" ]]; then
+        echo -e "${green}Existing panel kept: username, password, port and webBasePath were NOT changed.${plain}"
+        if [[ "$existing_hasDefaultCredential" == "true" ]]; then
+            echo -e "${yellow}WARNING: the panel still uses the default admin/admin credentials — change them in the panel settings.${plain}"
+        fi
+        if [[ -z "${existing_cert}" ]]; then
+            echo ""
+            echo -e "${green}═══════════════════════════════════════════${plain}"
+            echo -e "${green}     SSL Certificate Setup (RECOMMENDED)   ${plain}"
+            echo -e "${green}═══════════════════════════════════════════${plain}"
+            echo -e "${yellow}Let's Encrypt now supports both domains and IP addresses!${plain}"
+            echo ""
+            prompt_and_setup_ssl "${existing_port}" "${existing_webBasePath}" "${server_ip}"
+            echo -e "${green}Access URL:  ${SSL_SCHEME}://${SSL_HOST}:${existing_port}/${existing_webBasePath}${plain}"
+        else
+            echo -e "${green}SSL certificate already configured. No action needed.${plain}"
+        fi
+        ${xui_folder}/x-ui migrate
+        return 0
+    fi
+    # END LUCX-HOOK
+
     if [[ ${#existing_webBasePath} -lt 4 ]]; then
         if [[ "$existing_hasDefaultCredential" == "true" ]]; then
             local config_webBasePath="${XUI_WEB_BASE_PATH:-$(gen_random_string 18)}"
@@ -1428,6 +1455,35 @@ _install_xui_service_unit() {
 install_x-ui() {
     cd ${xui_folder%/x-ui}/
 
+    # LUCX-HOOK (lucx.131): detect a pre-existing panel BEFORE anything is
+    # replaced. A surviving DB means real operator data, so
+    # config_after_install must keep login/password/port/webBasePath instead
+    # of generating new ones (typical path: web update failed → reinstall
+    # over the top; a vanilla 3x-ui DB with admin/admin and path "/" must
+    # also survive — Rule 0b). sqlite: the DB file (XUI_DB_FOLDER override
+    # honored); postgres: the service env file selecting it.
+    lucx_existing_install=0
+    lucx_env_file=""
+    for f in /etc/default/x-ui /etc/conf.d/x-ui /etc/sysconfig/x-ui; do
+        if [[ -r "$f" ]]; then
+            lucx_env_file="$f"
+            break
+        fi
+    done
+    lucx_db_folder="/etc/x-ui"
+    if [[ -n "$lucx_env_file" ]]; then
+        lucx_db_folder_override=$(grep -E '^XUI_DB_FOLDER=' "$lucx_env_file" 2>/dev/null | tail -n1 | cut -d= -f2-)
+        [[ -n "$lucx_db_folder_override" ]] && lucx_db_folder="$lucx_db_folder_override"
+        if grep -qE '^XUI_DB_TYPE=(postgres|postgresql|pg)' "$lucx_env_file" 2>/dev/null; then
+            lucx_existing_install=1
+        fi
+    fi
+    [[ -f "${lucx_db_folder}/x-ui.db" ]] && lucx_existing_install=1
+    if [[ "$lucx_existing_install" == "1" ]]; then
+        echo -e "${green}Existing x-ui installation detected — login, password, port and path will be kept.${plain}"
+    fi
+    # END LUCX-HOOK
+
     # Download resources
     if [ $# == 0 ]; then
         # LUCX-HOOK: fetch latest release tag from LucX-UI fork
@@ -1682,23 +1738,34 @@ install_x-ui() {
     # works out of the box (no-op when XUI_ENABLE_FAIL2BAN=false). Never fatal.
     setup_fail2ban
 
-    # LUCX-HOOK: AWG kernel module is opt-in (lucx.130). Compiling DKMS + a
-    # possible kernel upgrade used to block/reboot a fresh panel install, and
-    # testers who do not need AWG (or restore a backup later) asked to keep
-    # the module off by default. update.sh still rebuilds it when the host
-    # already has a marker / loaded module. Install on demand:
-    #   x-ui install-awg
-    #   Settings → Cores → Install module
-    #   bash /usr/local/x-ui/bin/install-awg-module.sh
-    # Rollback: x-ui uninstall-awg  (or the Uninstall button; .conf kept).
+    # LUCX-HOOK: Install AmneziaWG kernel module + tools (default again since
+    # lucx.131; lucx.130 shipped it opt-in and that was reverted by owner
+    # decision — install must give a working AWG out of the box). The AWG
+    # sidecar (internal/awg) needs `awg-quick`, `awg`, and the amneziawg
+    # kernel module. Routing of decrypted traffic into Xray is via an injected
+    # TUN inbound (injectAwgEgress), so no tun2socks daemon is needed.
+    # Best-effort: a failure logs a warning but does not abort the panel
+    # install — AWG inbounds simply won't start until the module is available.
+    # install-awg-module.sh writes /etc/x-ui/.awg-module-version after a
+    # successful build (or backfills it from modinfo on the no-op path), so
+    # update.sh can version-gate future rebuilds without re-cloning.
+    # Rollback stays available: x-ui uninstall-awg / Cores → Uninstall
+    # (.conf files are kept).
     if [[ -x bin/install-awg-module.sh ]]; then
-        echo ""
-        echo -e "${yellow}╔══════════════════════════════════════════════════════╗${plain}"
-        echo -e "${yellow}║  AWG module is optional — not installed automatically ║${plain}"
-        echo -e "${yellow}║  Install:  x-ui install-awg                           ║${plain}"
-        echo -e "${yellow}║            Settings → Cores → Install module          ║${plain}"
-        echo -e "${yellow}║  Remove:   x-ui uninstall-awg                         ║${plain}"
-        echo -e "${yellow}╚══════════════════════════════════════════════════════╝${plain}"
+        echo -e "${green}Installing AmneziaWG kernel module and tools...${plain}"
+        bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
+        # Post-check: the module script is best-effort (set -e + network/make can
+        # abort it silently). If awg-quick is still missing, surface it loudly in
+        # the final install output instead of letting the admin discover it from
+        # "awg-quick: executable file not found" reconcile warnings later.
+        if ! command -v awg-quick &>/dev/null; then
+            echo -e "${red}╔══════════════════════════════════════════════════════╗${plain}"
+            echo -e "${red}║  AWG: awg-quick НЕ установлен!                       ║${plain}"
+            echo -e "${red}║  AWG-инбаунды не поднимутся (reconcile будет падать). ║${plain}"
+            echo -e "${red}║  Дособрать: apt install build-essential libmnl-dev    ║${plain}"
+            echo -e "${red}║  pkg-config dkms git, затем bash bin/install-awg-module.sh ${plain}"
+            echo -e "${red}╚══════════════════════════════════════════════════════╝${plain}"
+        fi
     fi
     # END LUCX-HOOK
 

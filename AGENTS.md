@@ -340,10 +340,10 @@ frontend/src/
 ├── routes.tsx + layouts/AppSidebar.tsx     /panel/tunnels route + menu item (LUCX-HOOK)
 └── pages/api-docs/endpoints.ts             tunnel endpoints registry (contract test)
 
-bin/install-awg-module.sh          opt-in DKMS install (`--force-rebuild`, `--no-kernel-upgrade`, `--uninstall`); kernel auto-upgrade только без `--no-kernel-upgrade`; маркер = SHA коммита; .conf при uninstall не трогает
+bin/install-awg-module.sh          DKMS install (`--force-rebuild`, `--no-kernel-upgrade`, `--uninstall`); kernel auto-upgrade только без `--no-kernel-upgrade`; маркер = SHA коммита; .conf при uninstall не трогает
 bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes
 bin/pre-push                       git hook: check-lucx + fast go tests + PR/issues guard (AGENTS.md 11.5)
-install.sh                         AWG module is opt-in (lucx.130) — prints `x-ui install-awg` / Cores → Install; does NOT compile DKMS on fresh install. Re-prints panel credentials from /etc/x-ui/install-result.env (LUCX-HOOK, lucx.68)
+install.sh                         AWG module installs by default again (lucx.131 reverted lucx.130 opt-in) — fresh AND over-the-top installs run `bin/install-awg-module.sh`. Over-the-top install keeps login/password/port/webBasePath (detects existing sqlite DB / postgres env). Re-prints panel credentials from /etc/x-ui/install-result.env (LUCX-HOOK, lucx.68)
 LICENSING.md                       GPL-3.0 / PolyForm-NC split documentation
 LICENSE-PolyForm-Noncommercial.txt Canonical PolyForm NC 1.0.0 text
 ```
@@ -609,7 +609,7 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 ## Debugging Patterns
 
 ### Pattern 1: AWG inbound не стартует
-- **Cause:** `awg-quick` не установлен или kernel module не загружен. С lucx.130 модуль **не** ставится при чистом `install.sh` (opt-in).
+- **Cause:** `awg-quick` не установлен или kernel module не загружен. С lucx.131 модуль снова ставится при `install.sh` по умолчанию (lucx.130 был opt-in, отменён решением владельца); хосты, поставленные в окне lucx.130–131 без модуля, остаются без него до ручной установки.
 - **Fix:** `x-ui install-awg` / Settings → Cores → Install / `bash /usr/local/x-ui/bin/install-awg-module.sh`. Откат: `x-ui uninstall-awg` (`.conf` остаются). Проверить `awg show`, `ip link show awgN`.
 - **Кнопка Cores «не ставит»:** панель гоняет скрипт с `--no-kernel-upgrade` + `DEBIAN_FRONTEND=noninteractive` (иначе apt/needrestart висит без TTY). Смотри логи `awg: rebuild | …`; статус `rebuildRunning` крутится, пока идёт сборка. После успеха reboot обычно не нужен.
 
