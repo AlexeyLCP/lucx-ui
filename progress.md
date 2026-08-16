@@ -59,6 +59,12 @@
   env-файл без postgres=0, override `XUI_DB_FOLDER`=1 — все 5 кейсов OK.
 - `go test ./internal/awg/... ./internal/lucx/... -count=1` — OK
   (Go-код не менялся, только `lucxVersion`).
+- `Deploy Smoke Tests` (noninteractive-install в контейнере) — зелёный после
+  фикса отложенного ребута (первый прогон упал именно на `reboot` без systemd).
+
+**Релиз (2026-08-16):** smoke зелёный → тег `v3.6.0-lucx.131` → Release OK
+(первая попытка ребута в smoke потребовала доп. коммита `ad54991e`) →
+notes RU+EN. https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.6.0-lucx.131
 
 **lucxVersion:** lucx.131
 
