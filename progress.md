@@ -22,6 +22,9 @@
 `clearBroadcastTunnelIP`: чистить только если в save больше одного AWG/WG.
 Один туннель — IP как в форме. Тесты: keep / clear / non-tunnel.
 
+**Релиз (2026-08-17):** CI зелёный → тег `v3.6.0-lucx.134` → notes RU+EN.
+https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.6.0-lucx.134
+
 **lucxVersion:** lucx.134
 
 ---
