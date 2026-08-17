@@ -5,6 +5,69 @@
 
 ---
 
+## lucx.136 — AWG 3.1: установка + видимость; пресеты по канону Amnezia; консолидация Amnezia в UI (2026-08-17)
+
+**Задача-1 (Alexey):** «подготовиться к AWG 3.1» — почему «3.1 не
+устанавливается» и введены ли поля/пресеты. Разбор показал: на стенде модуль
+3.1.20260812 стоит с 13.08 (SHA-gate в update.sh отработал), но (а) bare
+`x-ui install-awg` не апгрейдит тулзы из-за early-exit в install-awg-module.sh,
+(б) Cores→Rebuild гонял rmmod при живых интерфейсах, (в) в панели не было
+ни одного «3.1»-индикатора — отсюда ощущение «не устанавливается».
+
+### 1. install-путь (`bin/install-awg-module.sh`, web/service, web/job)
+
+- `install-awg-module.sh`: `awg_tools_stale()` вынесена в функцию; early-exit
+  теперь срабатывает только если тулзы ≥3.1 (иначе fallthrough на пересборку
+  тулзов — модуль block сам no-ops). При неудачном `rmmod` (модуль занят)
+  пишется `/etc/x-ui/.awg-reboot-needed`. Печатается загруженная версия модуля.
+- `RebuildAwgModule` (`awg_host.go`): перед скриптом `StopAll()` inbound +
+  `StopAllClients()` (новый метод в `client_manager.go`) — rmmod проходит.
+- `AwgJob.Run`: skip reconcile при `service.AwgRebuildRunning()` (гонка с
+  пересборкой устранена).
+
+### 2. Видимость 3.1
+
+- `HostStatus.ModuleAwg31` (=`ModuleSupportsAwg31()`, тулзы ≥3.1) → `Status.Awg`
+  (`moduleAwg31`, `rebootNeeded`) → фронт `schemas/status.ts`/`models/status.ts`.
+- CoresTab: тег **AWG3.1** (иначе AWG3) + Alert «нужен ребут» (`awgRebootNeeded`);
+  Overview: «AWG3.1 OK». hello: `moduleAwg31`.
+- Диагностика: инфо-строка `awg31CapabilityCheck` (awg31SupportCheckName, в
+  `Diagnose`), Healthy() её игнорирует (informational).
+- i18n `awgRebootNeeded` во всех 13 локалях.
+
+### 3. Пресеты по канону AmneziaVPN (`internal/awg/cps/params.go`)
+
+Изучен эталон `AwgInstaller::generateAwgParameters` (amnezia-client): Jc=4..6,
+Jmin=10, Jmax=50, S1/S2=12..149, S3=12..63, **S4=12 фикс**, H1–H4 «1/2/3/4»,
+тайминги ContentPadding «10-100» и т.п. Старые диапазоны (pumbaX) давали Jmax
+до 1000 и H по 2^29 — «перегиб», на который жаловались.
+
+- `rangesFor` перекалиброван (Lite/Standard/Pro вокруг канона; S4=12 фикс
+  везде — транспортный паддинг к каждому пакету).
+- Полный инвариант `isPacketSizeEqual`: 148+S1, 92+S2, 64+S3, 32+S4 попарно
+  различны (retry S2/S3 как у Amnezia), вместо `|S1+56−S2|≥10`.
+- H1–H4 по версии: «3»/«3.1» → «1/2/3/4» (HPK шифрует заголовок); «2» → узкие
+  непересекающиеся диапазоны шириной ≤100000 (`hBand`); «1.5» → одиночные в
+  тех же полосах. `quadrant`/`abs` удалены.
+- Дефолт `mimicryProfile` `quic`→`tls` (убирает «000000»-паддинг QUIC до 1200
+  байт): `schemas/.../awg.ts` + `inbound-defaults.ts` + fallback в `awg.tsx`.
+- Тесты: packet-size distinctness (500 итераций), narrow H bands,
+  H-format по версии («3» → «1,2,3,4»).
+
+### 4. Sub-страница + Client Info Modal (Amnezia)
+
+- SubPage: кнопка «vpn://» теперь **копирует** ссылку (fetch `?format=vpn`),
+  кнопка «.conf» копирует .conf; `amneziawg://` строки скрыты из «Ссылок».
+- ClientInfoModal: AMNEZIA + vpn:// вынесены из «Информации о подписке» в единый
+  блок **AmneziaWG** (без QR); per-inbound AWG-конфиг там же с `showQr={false}`;
+  `amneziawg://` скрыт из «Ссылок».
+- QR у Amnezia убран (ClientInfoModal); QrModal не тронут (QrPanel корректно
+  показывает «слишком большой»).
+
+**lucxVersion:** lucx.136
+
+---
+
 ## lucx.135 — живая скорость AWG + скачивание/копирование подписок без CORS (2026-08-17)
 
 **Репорты (чат тестеров 17.08):** Chingiz — «xray показывает скорость, а AWG
