@@ -29,6 +29,9 @@ SOCKS (в отличие от `injectAwgEgress`, который TUN ставит
    → warning, правило не пишем, **SOCKS всё равно поднимаем**.
 3. Тесты: MissingTarget теперь StillBridges; TrustTunnel SW/warp.
 
+В тот же тег (незарелизенный коммит после lucx.132): плейсхолдер outbound у
+Naive/qWDTT/olcRTC/mieru/TrustTunnel как у AWG (`bb9ee1b8`).
+
 **lucxVersion:** lucx.133
 
 ---
