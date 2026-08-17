@@ -62,6 +62,16 @@ vitest (1 pre-existing environment-зависимое падение FormField.s
 TrafficTransform на этой Windows-машине — locale-формат байтов, не связан;
 CI-гейт), vite build. Go-сьюты job/controller — в CI (нет gcc для cgo локально).
 
+**E2E на стенде 144.31.224.212 (dev-latest, lucx.135+dev+44ad7981):**
+- «Скорость»: self-tunnel awgt1→awg1 через loopback + ping → WS-фрейм
+  `clientTraffics` с email AWG-клиента и ненулевыми up/down (SPEED FRAME OK).
+- `subBody`: sub → base64-тело, `?format=vpn` → vpn://-тело через панель.
+- `/awg/<subId>` — Content-Disposition attachment (кнопки скачивания sub-страницы).
+- Sub-страница: `subAwgUrl` в `__SUB_PAGE_DATA__` → AMNEZIA-строка рендерится SPA.
+
+**Релиз (2026-08-17):** CI зелёный → тег `v3.6.0-lucx.135` → notes RU+EN,
+закрыт issue #47 (AWG-конфиги на sub-странице).
+
 **lucxVersion:** lucx.135
 
 ---
