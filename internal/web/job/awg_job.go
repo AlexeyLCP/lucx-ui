@@ -8,6 +8,7 @@ package job
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -25,6 +26,7 @@ import (
 type AwgJob struct {
 	inboundService service.InboundService
 	clientService  service.ClientService
+	lastTick       time.Time
 }
 
 // NewAwgJob creates a new AWG reconcile/traffic job instance.
@@ -118,6 +120,19 @@ func (j *AwgJob) Run() {
 			logger.Warning("awg job: add traffic failed:", err)
 		}
 	}
+
+	// LUCX-HOOK: live speed feed. The raw deltas above only reach the DB
+	// (totals); the UI speed columns read the 5s Xray broadcast, which never
+	// sees AWG. Store this tick's deltas normalized to the 5s window so
+	// XrayTrafficJob can fold them into its next frame (awg_speed_buffer.go).
+	// An idle tick stores an empty snapshot, clearing the speed columns.
+	now := time.Now()
+	if !j.lastTick.IsZero() && now.Sub(j.lastTick) >= time.Second {
+		nT, nC := normalizeAwgDeltas(traffics, clientTraffics, now.Sub(j.lastTick))
+		storeAwgSpeedSnapshot(nT, nC)
+	}
+	j.lastTick = now
+	// END LUCX-HOOK
 
 	// Online status: fresh handshake (<180 s) = online. activeTags marks the
 	// running AWG inbounds so the "active inbound" gating works for AWG too.

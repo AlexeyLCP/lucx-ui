@@ -109,6 +109,16 @@ func (j *XrayTrafficJob) Run() {
 		j.xrayService.SetToNeedRestart()
 	}
 
+	// LUCX-HOOK: AWG traffic never passes Xray's stats API (kernel TUN), so the
+	// live speed columns would show a permanent dash for AWG clients/inbounds.
+	// AwgJob stores its scraped deltas, normalized to this poll's window; fold
+	// them into the same frame. Merged after the DB writes and the external
+	// inform above, so accounting stays single-sourced.
+	if awgTraffics, awgClients, ok := takeAwgSpeedSnapshot(); ok {
+		traffics, clientTraffics = mergeAwgSpeedRows(traffics, clientTraffics, awgTraffics, awgClients)
+	}
+	// END LUCX-HOOK
+
 	// Derive the local online set from this poll's per-email deltas rather
 	// than the shared last_online column, which remote-node syncs also bump
 	// and would otherwise make a client active only on a remote node appear
