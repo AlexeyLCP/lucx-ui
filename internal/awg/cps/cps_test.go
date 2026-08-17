@@ -300,6 +300,39 @@ func TestQuicInitialPacket_RespectsBrowser(t *testing.T) {
 	}
 }
 
+// TestQuicInitialPacket_NoZeroPaddingRun guards the regression where the QUIC
+// Initial padded its ~1200-byte minimum with open 0x00 bytes, producing a hex
+// string with ~1700 consecutive zeros — a fingerprint no real client (whose
+// payload is AEAD-encrypted) ever shows. The padding must be high-entropy: the
+// longest "00" run in the hex should stay tiny relative to the packet. Chrome
+// and Safari are tested — Firefox's embedded ClientHello pads to a 512-byte
+// boundary with a legitimate (for the open TLS ClientHello) zero-filled
+// padding extension, so it is excluded here.
+func TestQuicInitialPacket_NoZeroPaddingRun(t *testing.T) {
+	SetRand(crand.New(crand.NewSource(7)))
+	for _, browser := range []BrowserProfile{BrowserChrome, BrowserSafari} {
+		tag := quicInitialPacket("example.com", browser)
+		raw, err := hex.DecodeString(strings.TrimPrefix(strings.TrimSuffix(tag, ">"), "<b 0x"))
+		if err != nil {
+			t.Fatalf("%s: not valid hex: %v", browser, err)
+		}
+		maxRun, curRun := 0, 0
+		for _, b := range raw {
+			if b == 0x00 {
+				curRun++
+				if curRun > maxRun {
+					maxRun = curRun
+				}
+			} else {
+				curRun = 0
+			}
+		}
+		if maxRun > 128 {
+			t.Fatalf("%s: QUIC Initial has a %d-byte zero run — padding must be high-entropy", browser, maxRun)
+		}
+	}
+}
+
 func TestBuildFirefoxHello_NoGreaseCipher(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(42)))
 	ch := buildFirefoxHello("example.com")

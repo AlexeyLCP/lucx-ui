@@ -704,8 +704,13 @@ func quicInitialPacket(domain string, browser BrowserProfile) string {
 	// packet number (4 bytes, 0)
 	pkt.Write([]byte{0x00, 0x00, 0x00, 0x00})
 	pkt.Write(payload)
-	for i := 0; i < pad; i++ {
-		pkt.WriteByte(0x00)
+	// Fill the QUIC-minimum padding with RANDOM bytes, not 0x00. A real QUIC
+	// Initial's payload (PADDING frames included) is AEAD-encrypted with keys
+	// derived from the DCID (RFC 9001 §5.2), so everything after the header
+	// looks like high-entropy ciphertext on the wire — a zero run of ~850 bytes
+	// is a tell no real client produces. randomBytes reads crypto/rand.
+	if pad > 0 {
+		pkt.Write(randomBytes(pad))
 	}
 	return hexTag(pkt.Bytes())
 }
