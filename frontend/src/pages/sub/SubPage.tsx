@@ -58,6 +58,9 @@ const lastOnlineMs = Number(subData.lastOnline || 0);
 const subUrl = subData.subUrl || '';
 const subJsonUrl = subData.subJsonUrl || '';
 const subClashUrl = subData.subClashUrl || '';
+// LUCX-HOOK: AmneziaWG subscription URL (same-origin on this page).
+const subAwgUrl = subData.subAwgUrl || '';
+// END LUCX-HOOK
 const subTitle = subData.subTitle || '';
 const links: string[] = Array.isArray(subData.links) ? subData.links : [];
 const linkEmails: string[] = Array.isArray(subData.emails) ? subData.emails : [];
@@ -129,6 +132,24 @@ export default function SubPage() {
     if (!url) return;
     window.open(url, '_blank');
   }, []);
+
+  // LUCX-HOOK: the AMNEZIA row's Copy puts the .conf body into the clipboard,
+  // not the URL — same-origin here, so a plain fetch works (lucx.135).
+  const copyAwgBody = useCallback(async () => {
+    if (!subAwgUrl) return;
+    try {
+      const res = await fetch(subAwgUrl, { headers: { Accept: 'text/plain,*/*' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let text = (await res.text()).trim();
+      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+      if (!text) throw new Error('empty body');
+      const ok = await ClipboardManager.copyText(text);
+      if (ok) messageApi.success(t('copied'));
+    } catch (e) {
+      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
+    }
+  }, [t, messageApi]);
+  // END LUCX-HOOK
 
   const shadowrocketUrl = useMemo(() => {
     if (!subUrl) return '';
@@ -310,7 +331,7 @@ export default function SubPage() {
                   isActive={isActive}
                 />
 
-                {(subUrl || subJsonUrl || subClashUrl) && (
+                {(subUrl || subJsonUrl || subClashUrl || subAwgUrl) && (
                   <>
                     <Divider>{t('subscription.title')}</Divider>
                     <div className="links-section">
@@ -424,6 +445,45 @@ export default function SubPage() {
                           </div>
                         </div>
                       )}
+                      {/* LUCX-HOOK: AMNEZIA row — .conf / vpn:// downloads and body copy (lucx.135). */}
+                      {subAwgUrl && (
+                        <div className="sub-link-row">
+                          <Tooltip title="AmneziaWG">
+                            <Tag color="magenta" className="sub-link-tag">AMNEZIA</Tag>
+                          </Tooltip>
+                          <a
+                            href={subAwgUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="sub-link-title sub-link-anchor"
+                            title={subAwgUrl}
+                          >
+                            {sId}
+                          </a>
+                          <div className="sub-link-actions">
+                            <Button
+                              size="small"
+                              href={subAwgUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              icon={<DownloadOutlined />}
+                              aria-label={t('download')}
+                              title=".conf"
+                            />
+                            <Button
+                              size="small"
+                              href={`${subAwgUrl}${subAwgUrl.includes('?') ? '&' : '?'}format=vpn`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              icon={<DownloadOutlined />}
+                              aria-label={t('download')}
+                              title="vpn://"
+                            />
+                            <Button size="small" icon={<CopyOutlined />} onClick={() => void copyAwgBody()} aria-label={t('copy')} title={t('copy')} />
+                          </div>
+                        </div>
+                      )}
+                      {/* END LUCX-HOOK */}
                     </div>
                   </>
                 )}

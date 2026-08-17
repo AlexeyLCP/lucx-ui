@@ -10791,6 +10791,54 @@
         }
       }
     },
+    "/panel/api/clients/subBody": {
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "LUCX-UI only. Same-origin body of any public subscription URL (base64 sub, JSON, Clash YAML, Amnezia .conf / vpn://) for panel Download/Copy — the sub server has no CORS headers, so browsers cannot fetch it cross-origin. Only path+query of the submitted url are used; the request goes to the local sub server, byte-identical to what VPN apps receive. JSON envelope obj.body.",
+        "operationId": "get_panel_api_clients_subBody",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "The public subscription URL shown in the panel (sub/json/clash/awg route).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "body": "dmxlc3M6Ly8…\n",
+                    "format": "sub"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/clients/tunnelCreds/{inboundId}/{email}": {
       "get": {
         "tags": [

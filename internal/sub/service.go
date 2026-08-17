@@ -2777,6 +2777,7 @@ type PageData struct {
 	SubUrl        string
 	SubJsonUrl    string
 	SubClashUrl   string
+	SubAwgUrl     string // LUCX-HOOK: AmneziaWG subscription URL for the page's AWG row
 	SubTitle      string
 	SubSupportUrl string
 	Result        []string

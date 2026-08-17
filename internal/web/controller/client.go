@@ -1,9 +1,15 @@
 package controller
 
 import (
+	"crypto/tls"
 	"encoding/json"
+	"io"
+	"net"
+	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/sub"
@@ -55,6 +61,8 @@ func (a *ClientController) initRouter(g *gin.RouterGroup) {
 	g.GET("/subLinks/:subId", a.getSubLinks)
 	// LUCX-HOOK: same-origin Amnezia body for panel Copy/QR (avoids CORS on :2096).
 	g.GET("/awgBody/:subId", a.getAwgBody)
+	// LUCX-HOOK: same-origin body for every subscription format (sub/json/clash/awg) — panel Download/Copy.
+	g.GET("/subBody", a.getSubBody)
 	// LUCX-HOOK: derived sidecar credentials for the client card (naive/mieru/TrustTunnel).
 	g.GET("/tunnelCreds/:inboundId/:email", a.getTunnelCreds)
 	// END LUCX-HOOK
@@ -642,6 +650,129 @@ func (a *ClientController) getTunnelCreds(c *gin.Context) {
 		return
 	}
 	jsonObj(c, creds, nil)
+}
+
+// matchSubRoute maps the path of a public subscription URL to the subscription
+// format whose configured route prefix (subPath / subJsonPath / subClashPath /
+// subAwgPath) it belongs to. The URL carries the same prefixes buildSubLinks
+// used to create it, so configured custom paths match too.
+func matchSubRoute(path string, subPath, jsonPath, clashPath, awgPath string) (string, bool) {
+	for _, candidate := range []struct {
+		format string
+		prefix string
+	}{
+		{"sub", subPath},
+		{"json", jsonPath},
+		{"clash", clashPath},
+		{"awg", awgPath},
+	} {
+		if candidate.prefix != "" && len(path) > len(candidate.prefix) && strings.HasPrefix(path, candidate.prefix) {
+			return candidate.format, true
+		}
+	}
+	return "", false
+}
+
+// getSubBody returns the body of any public subscription (base64 sub, JSON,
+// Clash YAML, Amnezia .conf / vpn:// lines) through the panel origin. The sub
+// server listens on its own port and sends no CORS headers, so a browser fetch
+// from the panel origin fails with "Failed to fetch" whenever the origins
+// differ (the usual setup). Only path+query of the submitted URL are used —
+// the request goes to the LOCAL sub server over its listen address, so the
+// body is byte-identical to what VPN apps receive and the endpoint cannot be
+// turned into a proxy to third parties.
+func (a *ClientController) getSubBody(c *gin.Context) {
+	rawURL := strings.TrimSpace(c.Query("url"))
+	if rawURL == "" {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("url is required"))
+		return
+	}
+	u, err := url.Parse(rawURL)
+	if err != nil || u.Path == "" {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("invalid subscription url"))
+		return
+	}
+
+	subPath, _ := a.settingService.GetSubPath()
+	jsonPath, _ := a.settingService.GetSubJsonPath()
+	clashPath, _ := a.settingService.GetSubClashPath()
+	awgPath, _ := a.settingService.GetSubAwgPath()
+	format, ok := matchSubRoute(u.Path, subPath, jsonPath, clashPath, awgPath)
+	if !ok {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("url is not a subscription route"))
+		return
+	}
+
+	listen, err := a.settingService.GetSubListen()
+	if err != nil || strings.TrimSpace(listen) == "" {
+		listen = "0.0.0.0"
+	}
+	switch listen {
+	case "0.0.0.0":
+		listen = "127.0.0.1"
+	case "::":
+		listen = "::1"
+	}
+	port, err := a.settingService.GetSubPort()
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	certFile, _ := a.settingService.GetSubCertFile()
+	keyFile, _ := a.settingService.GetSubKeyFile()
+	scheme := "http"
+	if strings.TrimSpace(certFile) != "" && strings.TrimSpace(keyFile) != "" {
+		scheme = "https"
+	}
+
+	target := &url.URL{
+		Scheme:   scheme,
+		Host:     net.JoinHostPort(listen, strconv.Itoa(port)),
+		Path:     u.Path,
+		RawQuery: u.RawQuery,
+	}
+	req, err := http.NewRequestWithContext(c.Request.Context(), http.MethodGet, target.String(), nil)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	// Neutral UA: the sub server renders the HTML page only for browser-like
+	// agents; apps (and this proxy) get the raw body.
+	req.Header.Set("User-Agent", "x-ui-subproxy/1.0")
+	// DomainValidatorMiddleware compares the hostname against subDomain, and
+	// ResolveRequest derives the public host from it — prefer the configured
+	// domain, fall back to the host the public URL advertises.
+	req.Host = u.Host
+	if domain, err := a.settingService.GetSubDomain(); err == nil && strings.TrimSpace(domain) != "" {
+		req.Host = strings.TrimSpace(domain)
+	}
+
+	client := &http.Client{
+		Timeout: 10 * time.Second,
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("sub server unreachable: "+err.Error()))
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewErrorf("sub server returned %d", resp.StatusCode))
+		return
+	}
+	body, err := io.ReadAll(http.MaxBytesReader(nil, resp.Body, 10<<20))
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	if strings.TrimSpace(string(body)) == "" {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("subscription body is empty"))
+		return
+	}
+	jsonObj(c, gin.H{"body": string(body), "format": format}, nil)
 }
 
 // END LUCX-HOOK

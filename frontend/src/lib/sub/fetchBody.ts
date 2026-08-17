@@ -50,6 +50,23 @@ export function isAmneziaConfUrl(url: string): boolean {
 
 type AwgBodyObj = { body?: unknown; format?: unknown };
 
+/**
+ * Same-origin body for any non-AWG subscription route (sub/json/clash) via
+ * GET /panel/api/clients/subBody?url=… — the public sub port has no CORS
+ * headers, so a browser fetch from the panel origin fails "Failed to fetch".
+ * The backend loops back to the LOCAL sub server; body is byte-identical to
+ * what VPN apps receive (base64 / JSON / YAML).
+ */
+export async function fetchSubBodyViaProxy(url: string): Promise<string> {
+  const msg = await HttpUtil.get<AwgBodyObj>('/panel/api/clients/subBody', { url }, { silent: true });
+  if (msg.success) {
+    const body = typeof msg.obj?.body === 'string' ? msg.obj.body.replace(/^\uFEFF/, '').trim() : '';
+    if (body) return body;
+    throw new Error('panel subBody returned empty body');
+  }
+  throw new Error(msg.msg || 'panel subBody failed');
+}
+
 export async function fetchSubscriptionBody(url: string): Promise<string> {
   const u = url.trim();
   if (!u) throw new Error('empty subscription url');
@@ -77,6 +94,15 @@ export async function fetchSubscriptionBody(url: string): Promise<string> {
       throw new Error(msg.msg);
     }
   }
+
+  // LUCX-HOOK: sub/json/clash rows go through the same-origin panel proxy;
+  // a proxy failure (sub service off) still falls through to a direct fetch.
+  try {
+    return await fetchSubBodyViaProxy(u);
+  } catch {
+    /* fall through to direct public fetch */
+  }
+  // END LUCX-HOOK
 
   // Direct public endpoint (same origin or CORS-open).
   const sep = u.includes('?') ? '&' : '?';

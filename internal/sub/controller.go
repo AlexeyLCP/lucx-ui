@@ -391,6 +391,12 @@ func (a *SUBController) buildSubPageData(c *gin.Context) (PageData, bool) {
 	}
 	basePathStr := basePath.(string)
 	page := subReq.BuildPageData(subId, hostHeader, traffic, lastOnline, subs, emails, subURL, subJsonURL, subClashURL, basePathStr, a.subTitle, a.subSupportUrl)
+	// LUCX-HOOK: AWG row on the subscription page — .conf / vpn:// downloads
+	// and body copy, same options the panel client card offers (lucx.135).
+	if a.awgEnabled {
+		page.SubAwgUrl = subReq.BuildAwgURL(a.subAwgPath, subId)
+	}
+	// END LUCX-HOOK
 	return page, true
 }
 
@@ -621,6 +627,7 @@ func (a *SUBController) subPageContext(page PageData) map[string]any {
 		"subUrl":        page.SubUrl,
 		"subJsonUrl":    page.SubJsonUrl,
 		"subClashUrl":   page.SubClashUrl,
+		"subAwgUrl":     page.SubAwgUrl, // LUCX-HOOK
 		"subTitle":      page.SubTitle,
 		"subSupportUrl": page.SubSupportUrl,
 		"links":         page.Result,

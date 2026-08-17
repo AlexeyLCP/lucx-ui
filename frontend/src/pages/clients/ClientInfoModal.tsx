@@ -233,9 +233,12 @@ export default function ClientInfoModal({
   async function copyValue(text: string) {
     if (!text) return;
     try {
-      const { fetchSubscriptionBody, isAmneziaVpnUrl } = await import('@/lib/sub/fetchBody');
-      // Amnezia vpn:// row is stored as HTTPS ?format=vpn URL — copy the body.
-      const payload = isAmneziaVpnUrl(text) ? await fetchSubscriptionBody(text) : text;
+      const { fetchSubscriptionBody, isAmneziaVpnUrl, isAmneziaConfUrl } = await import('@/lib/sub/fetchBody');
+      // LUCX-HOOK: both Amnezia rows are stored as HTTPS URLs (?format=vpn for
+      // the vpn:// row, bare /awg/ for the .conf row) — the clipboard gets the
+      // config body, not a download link (tester feedback, lucx.135).
+      const payload = isAmneziaVpnUrl(text) || isAmneziaConfUrl(text) ? await fetchSubscriptionBody(text) : text;
+      // END LUCX-HOOK
       const ok = await ClipboardManager.copyText(payload);
       if (ok) messageApi.success(t('copied'));
     } catch (e) {
@@ -247,15 +250,12 @@ export default function ClientInfoModal({
     if (!url || downloadingFormat) return;
     setDownloadingFormat(format);
     try {
-      const { fetchSubscriptionBody, isAmneziaVpnUrl } = await import('@/lib/sub/fetchBody');
-      let content: string;
-      if (isAmneziaVpnUrl(url)) {
-        content = await fetchSubscriptionBody(url);
-      } else {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`Subscription download failed: HTTP ${response.status}`);
-        content = await response.text();
-      }
+      // LUCX-HOOK: every subscription row goes through the same-origin panel
+      // proxy (awgBody/subBody) — the public sub port has no CORS headers, so
+      // a cross-origin browser fetch died with "Failed to fetch" (lucx.135).
+      const { fetchSubscriptionBody } = await import('@/lib/sub/fetchBody');
+      const content = await fetchSubscriptionBody(url);
+      // END LUCX-HOOK
       FileManager.downloadTextFile(content, SUBSCRIPTION_DOWNLOAD_NAMES[format]);
     } catch (e) {
       messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));

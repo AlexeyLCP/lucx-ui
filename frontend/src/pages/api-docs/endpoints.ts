@@ -1374,6 +1374,17 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/clients/subBody',
+        summary:
+          'LUCX-UI only. Same-origin body of any public subscription URL (base64 sub, JSON, Clash YAML, Amnezia .conf / vpn://) for panel Download/Copy — the sub server has no CORS headers, so browsers cannot fetch it cross-origin. Only path+query of the submitted url are used; the request goes to the local sub server, byte-identical to what VPN apps receive. JSON envelope obj.body.',
+        params: [
+          { name: 'url', in: 'query', type: 'string', desc: 'The public subscription URL shown in the panel (sub/json/clash/awg route).' },
+        ],
+        response:
+          '{\n  "success": true,\n  "obj": { "body": "dmxlc3M6Ly8…\\n", "format": "sub" }\n}',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/clients/tunnelCreds/:inboundId/:email',
         summary:
           'LUCX-UI only. Username/password a NaiveProxy, mieru or TrustTunnel client has to type in. The pair is HMAC-derived from the panel secret and stored nowhere, so this is the only way to read it back. Errors for any other protocol, for a client not attached to the inbound, and for a disabled client (the sidecar drops its credentials line).',
