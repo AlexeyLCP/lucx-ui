@@ -5,6 +5,67 @@
 
 ---
 
+## lucx.135 — живая скорость AWG + скачивание/копирование подписок без CORS (2026-08-17)
+
+**Репорты (чат тестеров 17.08):** Chingiz — «xray показывает скорость, а AWG
+нет»; Kirill Rudenko — «Failed to fetch» при скачивании SUB/AMNEZIA в карточке
+клиента, Copy у AMNEZIA кладёт URL вместо тела конфига; на публичной странице
+подписки у AWG только amneziawg, нет vpn:///.conf/тела.
+
+### 1. Живая скорость AWG (Clients + Inbounds)
+
+Колонка «Скорость» питается дельтами, которые `XrayTrafficJob` шлёт по
+WebSocket каждые 5 с; AWG в статистику Xray не попадает (kernel TUN) → вечное
+«—». Трафик (суммы) при этом писался в БД — поэтому «Трафик» виден, «Скорость»
+нет.
+
+- `internal/web/job/awg_speed_buffer.go` (новый, PolyForm): sticky-снапшот
+  дельт AWG, нормированных к 5-секундному окну (`normalizeAwgDeltas`, паттерн
+  `nodeInboundSpeed`), TTL 20 с; `mergeAwgSpeedRows` суммирует дубли
+  (email/tag), если клиент/инбаунд метится и Xray, и AWG.
+- `awg_job.go`: каждый тик сохраняет снапшот (пустой при простое → скорость
+  гаснет на следующем 5-с фрейме, без мерцания между 10-с тиками AWG).
+- `xray_traffic_job.go` (LUCX-HOOK после записей в БД и external inform):
+  подмешивает снапшот в тот же broadcast-фрейм (`traffics` + `clientTraffics`).
+  Фронтенд не тронут: useClients/useInbounds делят на 5 с как обычно.
+- Тесты: нормирование (10 с → половина, clamp <1 с), TTL, merge-суммирование,
+  пустой снапшот.
+
+### 2. Подписки: скачивание/копирование без CORS + AMNEZIA-строка на sub-странице
+
+Sub-сервер на отдельном порту без CORS-заголовков → браузерный `fetch` с origin
+панели умирал «Failed to fetch», когда origin'ы различались (обычная
+конфигурация). Работал только vpn:// (same-origin прокси `awgBody` из lucx.98).
+
+- Backend: `GET /panel/api/clients/subBody?url=…` (LUCX-HOOK в
+  `controller/client.go`): из URL берётся **только path+query** (host
+  игнорируется → не SSRF), path сверяется с настроенными
+  sub/json/clash/awg-путями (`matchSubRoute`), запрос идёт в ЛОКАЛЬНЫЙ
+  sub-сервер (listen/port/TLs из настроек, Host = subDomain или host из URL —
+  иначе DomainValidatorMiddleware 403, нейтральный UA — иначе HTML-страница).
+  Тело байт-в-байт как для приложений. Тест: `TestMatchSubRoute`.
+- `fetchBody.ts`: `fetchSubBodyViaProxy` + fallback-цепочка awgBody → subBody →
+  прямой fetch.
+- `ClientInfoModal`: `downloadSubscription` — все строки (SUB/JSON/CLASH/
+  AMNEZIA/vpn://) через `fetchSubscriptionBody`; `copyValue` — строка AMNEZIA
+  (.conf) копирует **тело конфига**, а не URL (SUB/JSON/CLASH по-прежнему URL —
+  это ссылка для приложения).
+- Публичная sub-страница (`SubPage.tsx` + `PageData.SubAwgUrl` в
+  `internal/sub`): строка AMNEZIA с кнопками скачать `.conf`, скачать `vpn://`
+  (обе — `<a href>`, эндпоинт сам шлёт Content-Disposition: attachment) и
+  копировать тело (same-origin fetch). Секция показывается и при
+  AWG-only-наборе подписок.
+- `endpoints.ts` + `npm run gen` (openapi 237 путей).
+
+**Проверки:** gofumpt (включая новые файлы в check-lucx.sh), typecheck, lint,
+vitest (1 pre-existing environment-зависимое падение FormField.stories
+TrafficTransform на этой Windows-машине — locale-формат байтов, не связан;
+CI-гейт), vite build. Go-сьюты job/controller — в CI (нет gcc для cgo локально).
+
+**lucxVersion:** lucx.135
+
+---
+
 ## lucx.134 — ручной AllowedIPs AWG больше не откатывается (2026-08-17)
 
 **Репорт (VladufQa):** IP в клиенте «сохраняет и откатывает». На втором хостере

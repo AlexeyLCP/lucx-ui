@@ -169,7 +169,7 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 - **Traffic** (`internal/awg/manager.go`, влито из traffic.go): `awg show <iface> transfer` parsing for per-peer byte accounting (replaces mtg's Prometheus HTTP scrape).
 - **Diagnostics** (`internal/awg/diagnostics.go`): read-only probe chain (interface UP, ip_forward, peers/handshakes, then mode-specific: MASQUERADE+FORWARD or tunN+rule+table). `Diagnose(inst)` → ordered `DiagCheck`s with evidence details; served by `GET /panel/api/inbounds/:id/awgDiagnostics` and rendered by the AWG form's diagnostics modal. Fixes belong to reconcile — diagnostics only makes failures visible.
 - **Platform** (`internal/awg/platform_{linux,other}.go`): `defaultRouteInterface()` for MASQUERADE target + sweep of orphaned awg interfaces from a previous x-ui run.
-- **Job** (`internal/web/job/awg_job.go`): cron `@every 10s` — Reconcile desired inbounds + fold inbound/per-client traffic deltas + RefreshLocalOnlineClients (AWG online status comes from fresh handshakes, not Xray stats).
+- **Job** (`internal/web/job/awg_job.go`): cron `@every 10s` — Reconcile desired inbounds + fold inbound/per-client traffic deltas + RefreshLocalOnlineClients (AWG online status comes from fresh handshakes, not Xray stats). **Live speed (lucx.135):** each tick stores its deltas, normalized to the 5s window, in `awg_speed_buffer.go` (sticky snapshot, TTL 20s); `XrayTrafficJob` folds them into its 5s broadcast frame (LUCX-HOOK) so the Clients/Inbounds speed columns cover AWG, which Xray's stats API never sees.
 - **Egress** (`internal/web/service/xray.go:injectAwgEgress`): inject TUN inbound into generated Xray config when `routeThroughXray` is set, symmetric with `injectMtprotoEgress`. Per-inbound gateway `10.254.(N%254).1/30` (separate /30 subnet, never conflicts with AWG tunnel subnet). Sniffing `{http,tls,quic, routeOnly:true}` on TUN inbound so domain/geosite rules work for AWG traffic.
 - **Runtime** (`internal/web/runtime/local.go`): delegate AWG `AddInbound`/`DelInbound` to `awg.GetManager()`; `AddUser`/`RemoveUser` are no-ops (peer sync via Reconcile).
 - **CPS** (`internal/awg/cps/`): CPS packet generators (TLS/DNS/SIP/QUIC) + AWGParams (Jc/Jmin/Jmax/S1-S4/H1-H4). TLS and QUIC have browser-specific fingerprints (Chrome/Firefox/Safari).
@@ -307,11 +307,13 @@ internal/database/
 internal/web/
 ├── runtime/local.go               AWG delegation in AddInbound/DelInbound (LUCX-HOOK)
 ├── job/awg_job.go                 AwgJob cron — Reconcile + CollectTraffic (inbound + per-client + online) + pubkey→email mapping + outbound client reconcile
+├── job/awg_speed_buffer.go        sticky snapshot of AWG deltas normalized to the 5s window; XrayTrafficJob merges it into the speed broadcast (lucx.135)
 ├── service/xray.go                injectAwgEgress (TUN inbound + per-inbound gateway + sniffing) + injectAwgOutbounds (freedom per awgo-N with sockopt.interface) + AWG exclusion + ensureAwgRouting (post-restart route restore) (LUCX-HOOK)
 ├── service/inbound.go             awgRoutesThroughXray + needRestart (LUCX-HOOK) + inboundAwgHints (pre-renders Jc/S/H/I block + HeaderProtectionKey for client .conf)
 ├── service/client_awg.go          defaultAwgClients — keypair + PSK + address allocation (excludes AWG outbound tunnel IPs)
 ├── service/awg_outbound.go        AwgOutboundService — CRUD + parseConf + ActiveOutboundTags/ActiveOutboundAddresses (collision guard)
 ├── controller/awg.go              generateObfuscation + captureHost + awgDiagnostics API endpoints (LUCX-HOOK). HPK is intentionally NOT emitted (Known Issue #5).
+├── controller/client.go           awgBody + subBody (LUCX-HOOK): same-origin subscription bodies (vpn:///.conf/sub/json/clash) — the public sub port has no CORS headers; subBody loops back to the LOCAL sub server, path+query only (no SSRF)
 ├── controller/awg_outbound.go     AWG outbound CRUD + parseConf + test endpoints; RestartXray(true) on add/del/update/enable (hot-apply can't add freedom with sockopt.interface)
 ├── controller/lucx.go             GET /panel/api/lucx/hello — LucX identity + features for multi-node deploy gating
 ├── service/tunnel.go              TunnelService — naive config persist (settings key lucxTunnel_naive), validations, TCP port cross-check vs inbounds, caddy adapt, binary download via temp file
@@ -330,6 +332,7 @@ frontend/src/
 ├── lib/xray/inbound-defaults.ts            createDefaultAwgInboundSettings (LUCX-HOOK) — HPK defaults to ''
 ├── lib/xray/inbound-link.ts                genAwgLink/genAwgConfig (share-link + .conf, I1-I5 as-is)
 ├── pages/clients/wireguardConfig.ts        buildAwgClientConfig (full client .conf, reads pre-rendered awgObfuscation block)
+├── pages/sub/SubPage.tsx                   AMNEZIA row on the public subscription page: .conf / vpn:// downloads + body copy (same-origin; PageData.SubAwgUrl, lucx.135)
 ├── pages/clients/ClientQrModal.tsx         AWG panel with QR + download
 ├── schemas/protocols/inbound/index.ts      InboundSettingsSchema union (LUCX-HOOK)
 ├── schemas/primitives/protocol.ts          ProtocolSchema + Protocols map (LUCX-HOOK)
@@ -837,3 +840,10 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 - **Fix (lucx.134):** `clearBroadcastTunnelIP` чистит IP только если в этом save больше одного AWG/WG inbound. Один туннель — пишем как в форме (коллизия по-прежнему ошибка).
 - **Не делаем:** два инбаунда на одной панели с одной подсетью (Pattern 1e). Совпадение IP на **разных** серверах — как раз ручной AllowedIPs.
 - **Урок:** защита от broadcast не должна глушить единственный легитимный путь задать адрес.
+
+### Pattern 1r: «Failed to fetch» при скачивании подписки + AWG без скорости — ИСПРАВЛЕНО (lucx.135)
+- **Симптом (Kirill/Chingiz):** в карточке клиента Download у SUB/AMNEZIA даёт «Failed to fetch»; Copy у AMNEZIA кладёт URL вместо тела; на публичной sub-странице у AWG только amneziawg; колонка «Скорость» у AWG-клиентов — вечное «—», хотя «Трафик» растёт.
+- **Cause 1 (CORS):** sub-сервер слушает отдельный порт без CORS-заголовков; браузерный `fetch` с origin панели падает, когда origin'ы различаются (обычная конфигурация). Работал только vpn:// через same-origin `awgBody` (lucx.98).
+- **Cause 2 (скорость):** колонка «Скорость» = дельты 5-секундного broadcast'а `XrayTrafficJob`; AWG в stats API Xray не попадает (kernel TUN). Суммы в БД пишет `AwgJob` — поэтому «Трафик» виден, «Скорость» нет.
+- **Fix (lucx.135):** (1) `GET /panel/api/clients/subBody?url=…` — loopback в локальный sub-сервер (path+query только, host игнор; Host=subDomain для DomainValidator; нейтральный UA); фронт — все строки модалки через `fetchSubscriptionBody`, Copy у AMNEZIA = тело конфига; sub-страница получает `PageData.SubAwgUrl` и строку AMNEZIA (.conf/vpn:// — `<a href>` с attachment-заголовками, copy = same-origin fetch). (2) `awg_speed_buffer.go` + LUCX-HOOK в `xray_traffic_job.go` — нормированные к 5 с дельты AWG подмешиваются в тот же broadcast-фрейм.
+- **Урок:** публичный listener без CORS ≠ источник данных для браузера панели; любой «скачать тело» в UI идёт через same-origin прокси. Живая скорость = только broadcast-дельты; всё, что метится вне Xray (AWG, mtproto, tunnel), обязано подмешивать свои дельты в общий фрейм.
