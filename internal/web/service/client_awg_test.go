@@ -294,3 +294,32 @@ func TestAwgAllowedIPsStale(t *testing.T) {
 		})
 	}
 }
+
+func TestClearBroadcastTunnelIP(t *testing.T) {
+	c := model.Client{AllowedIPs: []string{"10.200.0.7/32"}}
+	clearBroadcastTunnelIP(&c, model.AWG, 1)
+	if len(c.AllowedIPs) != 1 || c.AllowedIPs[0] != "10.200.0.7/32" {
+		t.Fatalf("single AWG inbound must keep typed IP, got %v", c.AllowedIPs)
+	}
+	clearBroadcastTunnelIP(&c, model.AWG, 2)
+	if c.AllowedIPs != nil {
+		t.Fatalf("multi AWG attach must clear IP, got %v", c.AllowedIPs)
+	}
+	c.AllowedIPs = []string{"10.200.0.7/32"}
+	clearBroadcastTunnelIP(&c, model.VLESS, 2)
+	if len(c.AllowedIPs) != 1 {
+		t.Fatalf("non-tunnel proto must keep IP, got %v", c.AllowedIPs)
+	}
+}
+
+func TestCountAwgOrWireguard(t *testing.T) {
+	got := countAwgOrWireguard([]*model.Inbound{
+		{Protocol: model.AWG},
+		{Protocol: model.VLESS},
+		{Protocol: model.WireGuard},
+		nil,
+	})
+	if got != 2 {
+		t.Fatalf("count = %d, want 2", got)
+	}
+}

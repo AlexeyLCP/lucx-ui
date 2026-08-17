@@ -1311,15 +1311,21 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 		if !ok {
 			continue
 		}
+		bulkTargets := make([]*model.Inbound, 0, len(prep[idx].inboundIds))
+		for _, ibId := range prep[idx].inboundIds {
+			ib, _ := getIb(ibId)
+			bulkTargets = append(bulkTargets, ib)
+		}
+		tunnelN := countAwgOrWireguard(bulkTargets)
 		for _, ibId := range prep[idx].inboundIds {
 			ib, _ := getIb(ibId)
 			if _, seen := byInbound[ibId]; !seen {
 				inboundOrder = append(inboundOrder, ibId)
 			}
 			per := prep[idx].client
-			// LUCX-HOOK: AWG/WG — one tunnel IP per inbound on multi-create.
-			if ib != nil && (ib.Protocol == model.AWG || ib.Protocol == model.WireGuard) {
-				per.AllowedIPs = nil
+			// LUCX-HOOK: AWG/WG — typed IP only when this client hits one tunnel inbound.
+			if ib != nil {
+				clearBroadcastTunnelIP(&per, ib.Protocol, tunnelN)
 			}
 			// END LUCX-HOOK
 			byInbound[ibId] = append(byInbound[ibId], clientWithInboundFlow(per, ib))

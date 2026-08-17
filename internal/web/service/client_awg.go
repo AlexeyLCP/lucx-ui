@@ -373,6 +373,25 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 	return nil
 }
 
+func countAwgOrWireguard(inbounds []*model.Inbound) int {
+	n := 0
+	for _, ib := range inbounds {
+		if ib != nil && (ib.Protocol == model.AWG || ib.Protocol == model.WireGuard) {
+			n++
+		}
+	}
+	return n
+}
+
+func clearBroadcastTunnelIP(c *model.Client, proto model.Protocol, tunnelInboundCount int) {
+	if c == nil {
+		return
+	}
+	if (proto == model.AWG || proto == model.WireGuard) && tunnelInboundCount != 1 {
+		c.AllowedIPs = nil
+	}
+}
+
 func awgOwnAllowedIPs(own map[string]map[string]struct{}, c *model.Client) map[string]struct{} {
 	if set, ok := own[strings.ToLower(strings.TrimSpace(c.Email))]; ok {
 		return set

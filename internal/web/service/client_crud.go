@@ -116,18 +116,21 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 	}
 
 	needRestart := false
+	createTargets := make([]*model.Inbound, 0, len(payload.InboundIds))
 	for _, ibId := range payload.InboundIds {
 		inbound, getErr := inboundSvc.GetInbound(ibId)
 		if getErr != nil {
 			return needRestart, getErr
 		}
+		createTargets = append(createTargets, inbound)
+	}
+	tunnelN := countAwgOrWireguard(createTargets)
+	for _, inbound := range createTargets {
 		per := client
 		// LUCX-HOOK: AWG/WG tunnel IPs are per-inbound. Multi-attach must not
-		// reuse one AllowedIPs across different subnets (RTNETLINK File exists
-		// + export shows the wrong Address). Empty → allocate for THIS inbound.
-		if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
-			per.AllowedIPs = nil
-		}
+		// reuse one AllowedIPs across different subnets. A single target keeps
+		// the operator-typed IP (Vlad: dummy clients just to skip addresses).
+		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
 		// END LUCX-HOOK
 		if err := s.fillProtocolDefaults(&per, inbound); err != nil {
 			return needRestart, err
@@ -146,7 +149,7 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 			return needRestart, mErr
 		}
 		nr, addErr := s.addInboundClient(inboundSvc, &model.Inbound{
-			Id:       ibId,
+			Id:       inbound.Id,
 			Settings: string(settingsPayload),
 		}, emailSubIDs)
 		if addErr != nil {
@@ -410,6 +413,7 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 	}
 
 	needRestart := false
+	updateTargets := make([]*model.Inbound, 0, len(inboundIds))
 	for _, ibId := range inboundIds {
 		inbound, getErr := inboundSvc.GetInbound(ibId)
 		if getErr != nil {
@@ -423,15 +427,17 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 			}
 			return needRestart, getErr
 		}
+		updateTargets = append(updateTargets, inbound)
+	}
+	tunnelN := countAwgOrWireguard(updateTargets)
+	for _, inbound := range updateTargets {
 		if existing.Email == "" {
 			continue
 		}
 		per := updated
-		// LUCX-HOOK: never broadcast one AllowedIPs to every AWG/WG inbound on
-		// multi-attach update — each peer keeps (or re-gets) its own tunnel IP.
-		if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
-			per.AllowedIPs = nil
-		}
+		// LUCX-HOOK: never broadcast one AllowedIPs to every AWG/WG inbound.
+		// One tunnel inbound → keep the typed IP (edit was rolling back).
+		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
 		// END LUCX-HOOK
 		if err := s.fillProtocolDefaults(&per, inbound); err != nil {
 			return needRestart, err
@@ -441,7 +447,7 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 			return needRestart, mErr
 		}
 		nr, upErr := s.UpdateInboundClient(inboundSvc, &model.Inbound{
-			Id:       ibId,
+			Id:       inbound.Id,
 			Settings: string(settingsPayload),
 		}, existing.Email)
 		if upErr != nil {
