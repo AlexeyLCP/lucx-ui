@@ -1061,7 +1061,6 @@
       },
       "awgConfig": "Конфігурація AWG",
       "awgExportVersion": "Версія конфігу клієнта",
-      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
       "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {

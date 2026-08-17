@@ -1061,7 +1061,6 @@
       },
       "awgConfig": "AWG-конфиг",
       "awgExportVersion": "Версия конфига клиента",
-      "subAwgHint": "AmneziaVPN: импорт .conf по этой ссылке (или скачать)",
       "subAwgVpnHint": "Тело vpn:// для one-tap в AmneziaVPN"
     },
     "groups": {

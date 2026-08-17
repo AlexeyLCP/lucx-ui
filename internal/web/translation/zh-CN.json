@@ -1061,7 +1061,6 @@
       },
       "awgConfig": "AWG 配置",
       "awgExportVersion": "客户端配置版本",
-      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
       "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {

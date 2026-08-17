@@ -1061,7 +1061,6 @@
       },
       "awgConfig": "پیکربندی AWG",
       "awgExportVersion": "نسخه پیکربندی کلاینت",
-      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
       "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {

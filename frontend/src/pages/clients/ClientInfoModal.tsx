@@ -191,7 +191,6 @@ export default function ClientInfoModal({
   const subLink = linksBuilt.sub;
   const subJsonLink = linksBuilt.json;
   const subClashLink = linksBuilt.clash;
-  const subAwgLink = linksBuilt.amnezia;
   const subAwgVpnLink = linksBuilt.amneziaVpn;
 
   const showSubscription = !!(client?.subId && (subLink || subJsonLink || subClashLink));
@@ -614,49 +613,12 @@ export default function ClientInfoModal({
                 />
               </>
             )}
-            {/* LUCX-HOOK: AWG — unified AmneziaWG block: AMNEZIA .conf + vpn:// rows
-                (copy/download; no QR — an .conf QR overflows and Amnezia has no
-                single-QR import), then one .conf editor per inbound with its own
-                ceiling + version select. */}
-            {client && (subAwgLink || subAwgVpnLink || awgConfigs.length > 0) && (
+            {/* LUCX-HOOK: AWG — unified AmneziaWG block: one .conf editor per inbound with
+                its own ceiling + version select, plus a vpn:// one-tap copy button
+                (the .conf download/copy live in the ConfigBlock itself). */}
+            {client && awgConfigs.length > 0 && (
               <>
                 <Divider>AmneziaWG</Divider>
-                {subAwgLink && (
-                  <div className="link-row">
-                    <Tooltip title={t('pages.clients.subAwgHint')}>
-                      <Tag color="magenta" className="link-row-tag">AMNEZIA</Tag>
-                    </Tooltip>
-                    <a href={subAwgLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subAwgLink}>
-                      {client.subId}
-                    </a>
-                    <div className="link-row-actions">
-                      <Tooltip title={t('copy')}>
-                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subAwgLink)} />
-                      </Tooltip>
-                      <Tooltip title={t('download')}>
-                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'amnezia'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subAwgLink, 'amnezia')} />
-                      </Tooltip>
-                    </div>
-                  </div>
-                )}
-                {subAwgVpnLink && (
-                  <div className="link-row">
-                    <Tooltip title={t('pages.clients.subAwgVpnHint')}>
-                      <Tag color="volcano" className="link-row-tag">vpn://</Tag>
-                    </Tooltip>
-                    <a href={subAwgVpnLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subAwgVpnLink}>
-                      {client.subId}?format=vpn
-                    </a>
-                    <div className="link-row-actions">
-                      <Tooltip title={t('copy')}>
-                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subAwgVpnLink)} />
-                      </Tooltip>
-                      <Tooltip title={t('download')}>
-                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'amneziaVpn'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subAwgVpnLink, 'amneziaVpn')} />
-                      </Tooltip>
-                    </div>
-                  </div>
-                )}
                 {awgConfigs.map((cfg) => {
                   const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
                   return (
@@ -679,6 +641,13 @@ export default function ClientInfoModal({
                               { value: '3.1', label: t('pages.inbounds.form.awgVersion31'), disabled: !awgVersionAtLeast(cfg.ceiling, '3.1') },
                             ]}
                           />
+                          {subAwgVpnLink && (
+                            <Tooltip title={t('pages.clients.subAwgVpnHint')}>
+                              <Button size="small" icon={<CopyOutlined />} onClick={() => copyValue(subAwgVpnLink)}>
+                                vpn://
+                              </Button>
+                            </Tooltip>
+                          )}
                         </Space>
                       </Space>
                       <ConfigBlock

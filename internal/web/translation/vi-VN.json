@@ -1061,7 +1061,6 @@
       },
       "awgConfig": "Cấu hình AWG",
       "awgExportVersion": "Phiên bản cấu hình client",
-      "subAwgHint": "AmneziaVPN: import .conf from this URL (or download)",
       "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
     },
     "groups": {
