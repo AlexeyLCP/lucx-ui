@@ -813,3 +813,10 @@ Not to re-add: tun2socks (заменено TUN inbound), DNS в серверны
 - **Fix (lucx.132):** пин `OLCRTC_REF` в release.yml на `3339cd36716885e583429f97e73462cde4984e2e` (последний master до PR #140 = бинарник lucx.112–118, проверенный на Telemost). Клонирование через `git init + fetch --depth 1 <SHA> + checkout FETCH_HEAD`: `git clone --branch <SHA>` на GitHub НЕ работает («Remote branch … not found»), fetch по SHA — работает.
 - **Лечение уже пострадавшего хоста без lucx.132:** вытащить `olcrtc-linux-amd64` из tarball `v3.6.0-lucx.118`, заменить `/usr/local/x-ui/bin/`, перезапустить inbound; либо на клиенте поставить OLC2-сборку (olcbox nightly от 16.08.2026+; owenclave OLC2 ещё не имеет).
 - **Урок:** внешние sidecar-бинарники, собираемые из чужого `master` без пина, — бомба: любой wire-breaking мерж апстрима молча уезжает в следующий релиз. Пинуются ВСЕ ядра (mieru/TrustTunnel/caddy-naive уже; olcrtc был исключением). Снимать пин olcrtc только когда клиенты выпустят OLC2-сборки И прогнан e2e на реальном провайдере.
+
+### Pattern 1p: TrustTunnel «слушает, трафика нет» + outbound AWG — ИСПРАВЛЕНО (lucx.133)
+- **Симптом:** процесс `trusttunnel-N` UP, TCP/UDP :443 слушает, клиент коннектится, интернета нет. В логе `trusttunnel egress : target tag [ SW ] not found, skipping injection`. `ss` не показывает loopback SOCKS (`routeXrayPort`).
+- **Cause:** `injectAwgOutbounds` шёл после SOCKS-инжекта. `injectSocksEgress` при неизвестном теге **выходил целиком** — SOCKS не поднимался, а TOML уже писал `socks5 = 127.0.0.1:<port>`. AWG-TUN так не делает (мост всегда).
+- **Fix (lucx.133):** awgo-теги инжектятся до egress; неизвестный тег → warning + SOCKS без force-route.
+- **Обход без обновления:** выключить «через Xray» или очистить outbound (пусто = котёл, SOCKS поднимется).
+- **Урок:** инжектор моста не должен быть all-or-nothing из-за опционального force-route. Цель правила должна существовать **до** lookup.

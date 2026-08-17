@@ -5,6 +5,34 @@
 
 ---
 
+## lucx.133 — TrustTunnel/SOCKS: не ронять мост, если outbound ещё не в конфиге (2026-08-17)
+
+**Репорт (VladufQa, vladufqa.run.place):** TrustTunnel слушает :443, «не работает».
+
+### Корень
+
+Inbound `#43`: `routeThroughXray=true`, `outboundTag=SW` (живой AWG-outbound
+awgo-11). TOML: `socks5 = 127.0.0.1:39431`. Лог:
+`trusttunnel egress : target tag [ SW ] not found, skipping injection`.
+Порт 39431 никто не слушает.
+
+`injectAwgOutbounds` шёл **после** `injectTrustTunnelEgress`.
+`injectSocksEgress` при неизвестном теге **выходил целиком** и не поднимал
+SOCKS (в отличие от `injectAwgEgress`, который TUN ставит всегда). Клиент
+коннектится на 443, трафик в мёртвый SOCKS.
+
+### Что сделано
+
+1. `injectAwgOutbounds` перенесён сразу после merge подписок — теги awgo
+   существуют к моменту SOCKS/TUN-инжекта.
+2. `injectSocksEgress` + `injectMtprotoEgress`: неизвестный/битый outbound
+   → warning, правило не пишем, **SOCKS всё равно поднимаем**.
+3. Тесты: MissingTarget теперь StillBridges; TrustTunnel SW/warp.
+
+**lucxVersion:** lucx.133
+
+---
+
 ## lucx.132+ — плейсхолдер outbound у VPN-сайдкаров как у AWG (2026-08-17)
 
 **Репорт (VladufQa):** в инбаундах новых типов «впн» нет «использовать правила

@@ -520,14 +520,14 @@ func TestInjectMtprotoEgress_TagCollisionSkips(t *testing.T) {
 	}
 }
 
-func TestInjectMtprotoEgress_MissingTargetSkips(t *testing.T) {
+func TestInjectMtprotoEgress_MissingTargetStillBridges(t *testing.T) {
 	cfg := egressTestConfig()
 	before := string(cfg.RouterConfig)
 	injectMtprotoEgress(cfg, mtprotoInbound("inbound-443",
 		`{"routeThroughXray":true,"routeXrayPort":50004,"outboundTag":"removed-subscription-outbound"}`))
 
-	if len(cfg.InboundConfigs) != 1 {
-		t.Fatalf("a missing target must not expose the mtproto bridge, got %+v", cfg.InboundConfigs)
+	if len(cfg.InboundConfigs) != 2 || cfg.InboundConfigs[1].Port != 50004 {
+		t.Fatalf("missing outbound must still expose the SOCKS bridge, got %+v", cfg.InboundConfigs)
 	}
 	if string(cfg.RouterConfig) != before {
 		t.Fatalf("a missing target must leave routing untouched, got %s", cfg.RouterConfig)
@@ -541,8 +541,8 @@ func TestInjectMtprotoEgress_BadOutboundsSkips(t *testing.T) {
 	injectMtprotoEgress(cfg, mtprotoInbound("inbound-443",
 		`{"routeThroughXray":true,"routeXrayPort":50005,"outboundTag":"direct"}`))
 
-	if len(cfg.InboundConfigs) != 1 {
-		t.Fatalf("unparsable outbounds must not expose the mtproto bridge, got %+v", cfg.InboundConfigs)
+	if len(cfg.InboundConfigs) != 2 || cfg.InboundConfigs[1].Port != 50005 {
+		t.Fatalf("unparsable outbounds must still expose the SOCKS bridge, got %+v", cfg.InboundConfigs)
 	}
 	if string(cfg.RouterConfig) != before {
 		t.Fatalf("unparsable outbounds must leave routing untouched, got %s", cfg.RouterConfig)
@@ -555,8 +555,8 @@ func TestInjectMtprotoEgress_BadRoutingSkips(t *testing.T) {
 	injectMtprotoEgress(cfg, mtprotoInbound("inbound-443",
 		`{"routeThroughXray":true,"routeXrayPort":50006,"outboundTag":"direct"}`))
 
-	if len(cfg.InboundConfigs) != 1 {
-		t.Fatalf("unparsable routing must not expose the mtproto bridge, got %+v", cfg.InboundConfigs)
+	if len(cfg.InboundConfigs) != 2 || cfg.InboundConfigs[1].Port != 50006 {
+		t.Fatalf("unparsable routing must still expose the SOCKS bridge, got %+v", cfg.InboundConfigs)
 	}
 	if string(cfg.RouterConfig) != `{not json` {
 		t.Fatalf("unparsable routing must be left untouched, got %s", cfg.RouterConfig)
@@ -786,14 +786,14 @@ func TestInjectTunnelEgress_Disabled(t *testing.T) {
 	}
 }
 
-func TestInjectTunnelEgress_MissingTargetSkips(t *testing.T) {
+func TestInjectTunnelEgress_MissingTargetStillBridges(t *testing.T) {
 	cfg := egressTestConfig()
 	before := string(cfg.RouterConfig)
 	injectTunnelEgress(cfg, tunnel.NaiveConfig{
 		Enabled: true, RouteThroughXray: true, RouteXrayPort: 51004, OutboundTag: "gone",
 	})
-	if len(cfg.InboundConfigs) != 1 {
-		t.Fatalf("a missing target must not expose the tunnel bridge, got %+v", cfg.InboundConfigs)
+	if len(cfg.InboundConfigs) != 2 || cfg.InboundConfigs[1].Port != 51004 {
+		t.Fatalf("missing outbound must still expose the SOCKS bridge, got %+v", cfg.InboundConfigs)
 	}
 	if string(cfg.RouterConfig) != before {
 		t.Fatalf("a missing target must leave routing untouched, got %s", cfg.RouterConfig)
@@ -820,6 +820,41 @@ func TestNaiveBridgeChanged(t *testing.T) {
 	off := tunnel.NaiveConfig{Enabled: true}
 	if naiveBridgeChanged(off, tunnel.NaiveConfig{Enabled: false}) {
 		t.Fatal("unrouted enable flip must not change the bridge")
+	}
+}
+
+func TestInjectTrustTunnelEgress_MissingOutboundStillBridges(t *testing.T) {
+	cfg := egressTestConfig()
+	before := string(cfg.RouterConfig)
+	ib := &model.Inbound{
+		Id: 43, Tag: "in-443-tcp", Protocol: model.TrustTunnel, Enable: true,
+		Settings: `{"routeThroughXray":true,"routeXrayPort":39431,"outboundTag":"SW"}`,
+	}
+	injectTrustTunnelEgress(cfg, ib)
+	if len(cfg.InboundConfigs) != 2 || cfg.InboundConfigs[1].Port != 39431 {
+		t.Fatalf("TrustTunnel must keep SOCKS even when SW is not in outbounds yet, got %+v", cfg.InboundConfigs)
+	}
+	if string(cfg.RouterConfig) != before {
+		t.Fatalf("missing SW must not add a force-route rule, got %s", cfg.RouterConfig)
+	}
+}
+
+func TestInjectTrustTunnelEgress_KnownOutboundForceRoutes(t *testing.T) {
+	cfg := egressTestConfig()
+	ib := &model.Inbound{
+		Id: 43, Tag: "in-443-tcp", Protocol: model.TrustTunnel, Enable: true,
+		Settings: `{"routeThroughXray":true,"routeXrayPort":39431,"outboundTag":"warp"}`,
+	}
+	injectTrustTunnelEgress(cfg, ib)
+	if len(cfg.InboundConfigs) != 2 || cfg.InboundConfigs[1].Protocol != "socks" {
+		t.Fatalf("expected SOCKS bridge, got %+v", cfg.InboundConfigs)
+	}
+	var routing egressRouting
+	if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+		t.Fatal(err)
+	}
+	if len(routing.Rules) < 1 || routing.Rules[0].OutboundTag != "warp" {
+		t.Fatalf("expected force-route to warp, got %+v", routing.Rules)
 	}
 }
 

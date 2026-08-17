@@ -370,6 +370,18 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		mergeSubscriptionOutbounds(xrayConfig, prepend, appendList)
 	}
 
+	// LUCX-HOOK: AWG outbound freedom tags (awgo-N) must exist BEFORE SOCKS/TUN
+	// egress injectors look up outboundTag. Previously they ran after TrustTunnel
+	// / mieru / naive / mtproto injectors, so a selected AWG outbound like "SW"
+	// was "not found" and injectSocksEgress skipped the whole bridge (VladufQa
+	// lucx.133: TrustTunnel socks5 → :39431 with nothing listening).
+	if awgOuts, err := (&AwgOutboundService{}).GetOutbounds(); err == nil {
+		injectAwgOutbounds(xrayConfig, awgOuts)
+	} else {
+		logger.Warning("awg outbound: read enabled outbounds failed:", err)
+	}
+	// END LUCX-HOOK
+
 	// Route opted-in local mtproto inbounds through the core's router. Each one
 	// gets a loopback SOCKS bridge — tagged with the inbound's own tag so it is
 	// matchable in routing rules — that its mtg sidecar dials Telegram through.
@@ -445,20 +457,6 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		} else {
 			logger.Warning("tunnel egress: load naive config failed:", err)
 		}
-	}
-	// END LUCX-HOOK
-
-	// LUCX-HOOK: AWG outbound — inject freedom outbounds bound to awgo-* kernel
-	// interfaces so routing rules can send traffic to upstream VPNs. Runs after
-	// regular outbounds are merged (Tag available for references) and after the
-	// AWG egress bridges (so a routed AWG inbound can target one of these as its
-	// outboundTag), but before balancers/routing are finalized so the tags remain
-	// valid routing targets. AwgOutboundService is in this package, so no
-	// service. prefix.
-	if awgOuts, err := (&AwgOutboundService{}).GetOutbounds(); err == nil {
-		injectAwgOutbounds(xrayConfig, awgOuts)
-	} else {
-		logger.Warning("awg outbound: read enabled outbounds failed:", err)
 	}
 	// END LUCX-HOOK
 
@@ -726,33 +724,36 @@ func injectSocksEgress(cfg *xray.Config, tag string, port int, outboundTag, logP
 	}
 	if outboundTag != "" {
 		routing := map[string]any{}
+		parseOK := true
 		if len(cfg.RouterConfig) > 0 {
 			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
-				logger.Warning(logPrefix, ": routing section is unparsable, skipping injection:", err)
-				return
+				logger.Warning(logPrefix, ": routing section is unparsable, skipping rule:", err)
+				parseOK = false
 			}
 		}
-		if !routingTargetExists(routing, cfg.OutboundConfigs, outboundTag) {
-			logger.Warning(logPrefix, ": target tag [", outboundTag, "] not found, skipping injection")
-			return
+		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, outboundTag) {
+			logger.Warning(logPrefix, ": target tag [", outboundTag, "] not found, injecting SOCKS without force-route")
+			parseOK = false
 		}
-		rules, _ := routing["rules"].([]any)
-		rule := map[string]any{
-			"type":       "field",
-			"inboundTag": []any{tag},
+		if parseOK {
+			rules, _ := routing["rules"].([]any)
+			rule := map[string]any{
+				"type":       "field",
+				"inboundTag": []any{tag},
+			}
+			if routingTagIsBalancer(routing, outboundTag) {
+				rule["balancerTag"] = outboundTag
+			} else {
+				rule["outboundTag"] = outboundTag
+			}
+			routing["rules"] = append([]any{rule}, rules...)
+			newRouting, err := json.Marshal(routing)
+			if err != nil {
+				logger.Warning(logPrefix, ": failed to rebuild routing section, skipping rule:", err)
+			} else {
+				cfg.RouterConfig = json_util.RawMessage(newRouting)
+			}
 		}
-		if routingTagIsBalancer(routing, outboundTag) {
-			rule["balancerTag"] = outboundTag
-		} else {
-			rule["outboundTag"] = outboundTag
-		}
-		routing["rules"] = append([]any{rule}, rules...)
-		newRouting, err := json.Marshal(routing)
-		if err != nil {
-			logger.Warning(logPrefix, ": failed to rebuild routing section, skipping injection:", err)
-			return
-		}
-		cfg.RouterConfig = json_util.RawMessage(newRouting)
 	}
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
 		Listen:   json_util.RawMessage(`"127.0.0.1"`),
@@ -793,33 +794,36 @@ func injectMtprotoEgress(cfg *xray.Config, inbound *model.Inbound) {
 
 	if parsed.OutboundTag != "" {
 		routing := map[string]any{}
+		parseOK := true
 		if len(cfg.RouterConfig) > 0 {
 			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
-				logger.Warning("mtproto egress: routing section is unparsable, skipping injection:", err)
-				return
+				logger.Warning("mtproto egress: routing section is unparsable, skipping rule:", err)
+				parseOK = false
 			}
 		}
-		if !routingTargetExists(routing, cfg.OutboundConfigs, parsed.OutboundTag) {
-			logger.Warning("mtproto egress: target tag [", parsed.OutboundTag, "] not found, skipping injection")
-			return
+		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, parsed.OutboundTag) {
+			logger.Warning("mtproto egress: target tag [", parsed.OutboundTag, "] not found, injecting SOCKS without force-route")
+			parseOK = false
 		}
-		rules, _ := routing["rules"].([]any)
-		rule := map[string]any{
-			"type":       "field",
-			"inboundTag": []any{tag},
+		if parseOK {
+			rules, _ := routing["rules"].([]any)
+			rule := map[string]any{
+				"type":       "field",
+				"inboundTag": []any{tag},
+			}
+			if routingTagIsBalancer(routing, parsed.OutboundTag) {
+				rule["balancerTag"] = parsed.OutboundTag
+			} else {
+				rule["outboundTag"] = parsed.OutboundTag
+			}
+			routing["rules"] = append([]any{rule}, rules...)
+			newRouting, err := json.Marshal(routing)
+			if err != nil {
+				logger.Warning("mtproto egress: failed to rebuild routing section, skipping rule:", err)
+			} else {
+				cfg.RouterConfig = json_util.RawMessage(newRouting)
+			}
 		}
-		if routingTagIsBalancer(routing, parsed.OutboundTag) {
-			rule["balancerTag"] = parsed.OutboundTag
-		} else {
-			rule["outboundTag"] = parsed.OutboundTag
-		}
-		routing["rules"] = append([]any{rule}, rules...)
-		newRouting, err := json.Marshal(routing)
-		if err != nil {
-			logger.Warning("mtproto egress: failed to rebuild routing section, skipping injection:", err)
-			return
-		}
-		cfg.RouterConfig = json_util.RawMessage(newRouting)
 	}
 
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
@@ -1023,8 +1027,8 @@ func injectQwdttEgress(cfg *xray.Config, inbound *model.Inbound) {
 // VPN. Each outbound is bound to its kernel interface via sockopt.interface
 // (always awgo-{Id}, never the editable Tag) and optionally source-bound via
 // sendThrough (tunnel IP with the CIDR mask stripped — Xray rejects masked
-// IPs). Called after the regular outbounds are merged so the Tag is available
-// for balancer/routing references, but before balancers/routing are added.
+// IPs). Called after the regular outbounds are merged and before SOCKS/TUN
+// egress injectors look up outboundTag.
 //
 // OutboundConfigs is a json_util.RawMessage (a JSON array blob), not a typed
 // slice, so the existing array is unmarshaled into []any, appended to, and
