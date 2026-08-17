@@ -32,6 +32,10 @@ SOCKS (в отличие от `injectAwgEgress`, который TUN ставит
 В тот же тег (незарелизенный коммит после lucx.132): плейсхолдер outbound у
 Naive/qWDTT/olcRTC/mieru/TrustTunnel как у AWG (`bb9ee1b8`).
 
+**Релиз (2026-08-17):** CI зелёный (go-test + inject StillBridges) → тег
+`v3.6.0-lucx.133` → Release OK → notes RU+EN (оба коммита).
+https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.6.0-lucx.133
+
 **lucxVersion:** lucx.133
 
 ---
