@@ -55,3 +55,8 @@ func SetModuleSupportsAwg31(supported *bool) {
 func awg3CapabilityCheck(prober) DiagCheck {
 	return DiagCheck{awg3SupportCheckName, false, "AWG is a Linux-only kernel module"}
 }
+
+// awg31CapabilityCheck is a stub off Linux, same as awg3CapabilityCheck.
+func awg31CapabilityCheck(prober) DiagCheck {
+	return DiagCheck{awg31SupportCheckName, false, "AWG is a Linux-only kernel module"}
+}

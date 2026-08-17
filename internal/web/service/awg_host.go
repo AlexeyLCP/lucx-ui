@@ -32,10 +32,12 @@ func fillAwgHostStatus(status *Status) {
 	hs := awg.CollectHostStatus()
 	status.Awg.ModuleLoaded = hs.ModuleLoaded
 	status.Awg.ModuleAwg3 = hs.ModuleAwg3
+	status.Awg.ModuleAwg31 = hs.ModuleAwg31
 	status.Awg.Version = hs.Version
 	status.Awg.Interfaces = hs.Interfaces
 	status.Awg.Ifnames = hs.Ifnames
 	status.Awg.RebuildRunning = AwgRebuildRunning()
+	status.Awg.RebootNeeded = awgRebootNeeded()
 	switch {
 	case !hs.ModuleLoaded:
 		status.Awg.State = Error
@@ -191,6 +193,14 @@ func (s *ServerService) RebuildAwgModule() error {
 			awgRebuildRunning = false
 			awgRebuildMu.Unlock()
 		}()
+		// LUCX-HOOK: bring every AWG interface down before the script runs so
+		// its rmmod can unload the module. A live awgN/awgo-N keeps the module
+		// busy, and AwgJob's reconcile tick (skipped while this rebuild is in
+		// flight) would otherwise bring them back up mid-build. RestartAwg
+		// re-creates them after the script finishes.
+		mgr := awg.GetManager()
+		mgr.StopAll()
+		mgr.StopAllClients()
 		logger.Info("awg: starting module rebuild via ", script)
 		ctx, cancel := context.WithTimeout(context.Background(), 45*time.Minute)
 		defer cancel()
@@ -280,4 +290,12 @@ func AwgRebuildRunning() bool {
 	awgRebuildMu.Lock()
 	defer awgRebuildMu.Unlock()
 	return awgRebuildRunning
+}
+
+// awgRebootNeeded reports whether install-awg-module.sh / update.sh left a
+// reboot flag (the module was built for a newer kernel, or rmmod stayed busy
+// during a hot swap). The Cores card surfaces it as a hint.
+func awgRebootNeeded() bool {
+	_, err := os.Stat("/etc/x-ui/.awg-reboot-needed")
+	return err == nil
 }

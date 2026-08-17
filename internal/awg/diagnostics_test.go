@@ -66,8 +66,8 @@ func TestDiagnose_KernelNATHealthy(t *testing.T) {
 			}
 		}
 	}
-	if len(d.Checks) != 6 {
-		t.Errorf("kernel-nat must run 6 checks, got %d: %+v", len(d.Checks), d.Checks)
+	if len(d.Checks) != 7 {
+		t.Errorf("kernel-nat must run 7 checks, got %d: %+v", len(d.Checks), d.Checks)
 	}
 	var peers DiagCheck
 	for _, c := range d.Checks {

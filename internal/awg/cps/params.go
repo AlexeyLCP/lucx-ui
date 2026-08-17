@@ -41,6 +41,19 @@ func enforceSMin(v int) int {
 	return v
 }
 
+// AmneziaWG message sizes before S1-S4 padding — the fixed overhead each
+// packet type carries. From amnezia-client's AwgConstant. GenerateAWGParams
+// keeps the four total sizes (overhead + S) pairwise distinct because the
+// receiver's awg_determine_type_and_padding disambiguates packet types by
+// length; two equal total sizes would make it mis-classify and weaken the
+// masking (this is AmneziaVPN's isPacketSizeEqual invariant).
+const (
+	messageInitiationSize  = 148
+	messageResponseSize    = 92
+	messageCookieReplySize = 64
+	messageTransportSize   = 32
+)
+
 // AWGParams are the junk/transport obfuscation parameters written into the
 // awg-quick .conf [Interface] section. Jc/Jmin/Jmax control junk-packet
 // insertion ahead of the handshake; S1-S4 are transport padding sizes; H1-H4
@@ -92,7 +105,13 @@ func randInt(lo, hi int) int {
 	return lo + rng.Intn(hi-lo+1)
 }
 
-// Profile ranges, ported from pumbaX/awg-multi-script gen_awg_params.
+// Profile ranges, calibrated against AmneziaVPN's own generator
+// (AwgInstaller::generateAwgParameters, amnezia-client): one conservative
+// baseline, scaled into three tiers. Amnezia ships Jc=4..6, Jmin=10, Jmax=50,
+// S1/S2 = 12..149, S3 = 12..63, and a FIXED S4 = 12 (transport junk size —
+// the padding added to every data packet, which is why it stays small). The
+// old ranges were ported from pumbaX/awg-multi-script and let Jmax climb to
+// 1000 and S4 to 40, which operators flagged as "over-obfuscation".
 // Lite = light obfuscation, Standard = medium, Pro = heavy.
 type profileRanges struct {
 	jcmin, jcmax   int
@@ -107,89 +126,96 @@ type profileRanges struct {
 func rangesFor(p ObfProfile) (profileRanges, error) {
 	switch p {
 	case ObfLite:
-		// S lower bounds >= MinSForHPK (12) so the AWG3 kernel accepts a
-		// HeaderProtectionKey without -EINVAL (the cipher nonce is read from
-		// the first 12 bytes of S-padding).
-		return profileRanges{3, 5, 5, 15, 45, 55, MinSForHPK, 30, 17, 27, 16, 26, MinSForHPK, 20}, nil
+		return profileRanges{2, 4, 5, 10, 30, 50, MinSForHPK, 64, MinSForHPK, 64, MinSForHPK, 32, MinSForHPK, MinSForHPK}, nil
 	case ObfStandard:
-		return profileRanges{5, 8, 30, 80, 100, 250, 30, 80, 30, 80, 15, 32, MinSForHPK, 24}, nil
+		return profileRanges{4, 6, 10, 10, 50, 50, MinSForHPK, 149, MinSForHPK, 149, MinSForHPK, 63, MinSForHPK, MinSForHPK}, nil
 	case ObfPro:
-		return profileRanges{4, 16, 50, 256, 300, 1000, 15, 150, 15, 150, MinSForHPK, 80, MinSForHPK, 40}, nil
+		return profileRanges{5, 8, 10, 15, 60, 100, 32, 150, 32, 150, 16, 64, MinSForHPK, MinSForHPK}, nil
 	default:
 		return profileRanges{}, errors.New("awg params: unknown profile")
 	}
 }
 
-// quadrant returns the [lo, hi] bounds for H-index n (0..3). The full H
-// range [5, 2^31-1] is split into 4 disjoint quadrants of 2^29 each so H1-H4
-// never overlap (matching the AmneziaWG recommended ranges). The upper bound
-// is 2^31-1 for Windows-client compatibility.
-func quadrant(n int) (lo, hi int) {
-	const (
-		hMin = 5
-		hMax = 2147483647 // 2^31 - 1
-		span = 1 << 29    // 2^29
-	)
-	lo = hMin + n*span
-	hi = lo + span - 1
-	if n == 3 {
-		hi = hMax
-	}
+// hBandWidth is the span of each H's disjoint band. Modest on purpose: the
+// panel used to draw each H from a full 2^29 quadrant (pumbaX), producing
+// giant "lo-hi" magic-header ranges that operators flagged as
+// over-obfuscation. AmneziaVPN keeps H tiny ("1"/"2"/"3"/"4") and relies on
+// the header protection key + junk packets; we keep small disjoint bands so
+// that AWG v2 (which has no header protection key) still gets a random header
+// value without the 2^29 sprawl.
+const hBandWidth = 100000
+
+// hBand returns the inclusive [lo, hi] bounds for H-index n (0..3). Each H
+// lives in its own disjoint band so H1-H4 never collide and stay >= 5 (the
+// lower bound the kernel enforces for type IDs distinct from WireGuard's
+// reserved 1-4 range).
+func hBand(n int) (lo, hi int) {
+	lo = 5 + n*hBandWidth
+	hi = lo + hBandWidth - 6
 	return lo, hi
 }
 
-// genHRange returns one "lo-hi" string for quadrant n, with a width >= 1000
-// (the AmneziaWG minimum recommended span). Mirrors pumbaX _gen_quadrant_pair.
-// Used for AWG version "2" and "3" configs, where H1-H4 are msgType
-// replacement *ranges* (the client picks a random value in [lo,hi] per packet).
+// genHRange returns one "lo-hi" string within H-band n, width >= 1000 (the
+// AmneziaWG minimum recommended span). Used for AWG version "2" configs: with
+// no header protection key the magic header value is the only header-layer
+// obfuscation, so it is drawn as a random — but narrow — range.
 func genHRange(n int) string {
-	qmin, qmax := quadrant(n)
-	span := qmax - qmin + 1
-	lo := qmin + randInt(0, span/3)
-	hi := qmin + 2*span/3 + randInt(0, span/3)
-	if hi-lo < 1000 {
-		hi = lo + 1000 + randInt(0, 9999)
-		if hi > qmax {
-			hi = qmax
+	lo, hi := hBand(n)
+	span := hi - lo + 1
+	left := lo + randInt(0, span/3)
+	right := lo + 2*span/3 + randInt(0, span/3)
+	if right-left < 1000 {
+		right = left + 1000 + randInt(0, 9999)
+		if right > hi {
+			right = hi
 		}
 	}
-	return fmt.Sprintf("%d-%d", lo, hi)
+	return fmt.Sprintf("%d-%d", left, right)
 }
 
-// genHSingle returns one single-integer string for quadrant n. AWG version
+// genHSingle returns one single-integer string within H-band n. AWG version
 // "1.5" (legacy AmneziaWG 1.x) parses H1-H4 as a fixed msgType replacement
 // value — NOT a range — so the .conf line must be `H1 = 1234567`, not
 // `H1 = 1234567-2345678`. Older awg-quick (v1.x tools) rejects the "-" form
 // with a parse error, which is the user-reported bug ("при выставлении АВГ1.5
-// конф выходит формата 2.0"). The value is drawn from the same disjoint
-// quadrant as genHRange so H1-H4 never collide and stay >= 5 (the lower bound
-// the kernel enforces for type IDs distinct from WireGuard's reserved range).
+// конф выходит формата 2.0"). The value is drawn from the same disjoint band
+// as genHRange so H1-H4 never collide and stay >= 5.
 func genHSingle(n int) string {
-	qmin, qmax := quadrant(n)
-	span := qmax - qmin + 1
-	val := qmin + randInt(0, span-1)
-	return fmt.Sprintf("%d", val)
+	lo, hi := hBand(n)
+	return fmt.Sprintf("%d", randInt(lo, hi))
+}
+
+// genHDefault returns the AmneziaVPN magic-header default for index n ("1".."4").
+// Used for AWG "3"/"3.1": the header protection key encrypts the message
+// header, so the magic values are left at the plain WireGuard types — exactly
+// as AmneziaVPN's generator does (it never randomizes H).
+func genHDefault(n int) string {
+	return []string{"1", "2", "3", "4"}[n]
 }
 
 // GenerateAWGParams produces a fresh set of junk/transport obfuscation
 // parameters for the given strength profile. It enforces the AmneziaWG
-// invariants: Jmin < Jmax (fixed by lifting Jmax), |S1+56 − S2| >= 10 (retry
-// S2 up to 10 times, then shift it), and S1-S4 >= MinSForHPK (so the AWG3
-// kernel accepts a HeaderProtectionKey without -EINVAL). H1-H4 are each in
-// their own quadrant, so they never collide. The profile ranges already
-// enforceSMin, but GenerateAWGParams clamps again as a belt-and-braces guard
-// for hand-edited ranges or future profile additions.
+// invariants: Jmin < Jmax (fixed by lifting Jmax), S1-S4 >= MinSForHPK (so
+// the AWG3 kernel accepts a HeaderProtectionKey without -EINVAL), and — like
+// AmneziaVPN's AwgInstaller::generateAwgParameters — all four total packet
+// sizes stay pairwise distinct: 148+S1 (init), 92+S2 (response), 64+S3
+// (cookie reply), 32+S4 (transport). awg_determine_type_and_padding issues
+// the packet type from the length, so two equal total sizes would make the
+// receiver mis-classify and weaken the masking.
 //
 // awgVersion selects the H1-H4 wire format:
-//   - "1.5": legacy AmneziaWG 1.x — H1-H4 are single integers (the v1 awg-quick
-//     parser rejects the "lo-hi" range form). See genHSingle.
-//   - "2" or "3": H1-H4 are "lo-hi" ranges (the v2+ form, also accepted by the
-//     AWG3 kernel/tools). See genHRange.
+//   - "1.5": single integers in disjoint narrow bands (the v1 awg-quick parser
+//     rejects the "lo-hi" form). See genHSingle.
+//   - "2": "lo-hi" ranges in disjoint narrow bands (no header protection key,
+//     so the magic header is the only header-layer obfuscation). See genHRange.
+//   - "3"/"3.1": the plain WireGuard defaults "1"/"2"/"3"/"4" — the header
+//     protection key encrypts the header, so the magic value is irrelevant; this
+//     matches AmneziaVPN's generator, which never randomizes H.
 //
 // An empty awgVersion is treated as "2" (the project default; see
-// awg.NormalizeAWGVersion), so callers that don't care keep the historical
-// range behaviour. The caller is responsible for adding a HeaderProtectionKey
-// (via WithHeaderProtectionKey) only when awgVersion == "3".
+// awg.NormalizeAWGVersion). The caller is responsible for adding a
+// HeaderProtectionKey (via WithHeaderProtectionKey) only when a version "3"
+// or "3.1" inbound is generated.
 func GenerateAWGParams(profile ObfProfile, awgVersion string) (AWGParams, error) {
 	r, err := rangesFor(profile)
 	if err != nil {
@@ -199,27 +225,30 @@ func GenerateAWGParams(profile ObfProfile, awgVersion string) (AWGParams, error)
 	jmin := randInt(r.jminLo, r.jminHi)
 	jmax := randInt(r.jmaxLo, r.jmaxHi)
 	if jmax <= jmin {
-		jmax = jmin + randInt(100, 500)
+		jmax = jmin + randInt(20, 60)
 	}
 	s1 := enforceSMin(randInt(r.s1Lo, r.s1Hi))
+	s4 := enforceSMin(randInt(r.s4Lo, r.s4Hi))
 	s2 := enforceSMin(randInt(r.s2Lo, r.s2Hi))
-	// AmneziaWG requires S1 + 56 != S2; pumbaX strengthens this to a >=10 gap.
-	for i := 0; i < 10 && abs((s1+56)-s2) < 10; i++ {
+	s3 := enforceSMin(randInt(r.s3Lo, r.s3Hi))
+	// Amnezia's collision guard: every S is unique and the total size of each
+	// packet type stays distinct. The loops retry within the same profile band;
+	// the bands are wide enough that a collision resolves in one iteration.
+	for i := 0; i < 50 && (s2 == s1 || s2 == s4 || messageInitiationSize+s1 == messageResponseSize+s2); i++ {
 		s2 = enforceSMin(randInt(r.s2Lo, r.s2Hi))
 	}
-	if abs((s1+56)-s2) < 10 {
-		if s2 >= s1+56 {
-			s2 += 10
-		} else {
-			s2 -= 10
-		}
+	for i := 0; i < 50 && (s3 == s1 || s3 == s2 || s3 == s4 ||
+		messageInitiationSize+s1 == messageCookieReplySize+s3 ||
+		messageResponseSize+s2 == messageCookieReplySize+s3); i++ {
+		s3 = enforceSMin(randInt(r.s3Lo, r.s3Hi))
 	}
-	s3 := enforceSMin(randInt(r.s3Lo, r.s3Hi))
-	s4 := enforceSMin(randInt(r.s4Lo, r.s4Hi))
 	var h1, h2, h3, h4 string
-	if awgVersion == "1.5" {
+	switch awgVersion {
+	case "1.5":
 		h1, h2, h3, h4 = genHSingle(0), genHSingle(1), genHSingle(2), genHSingle(3)
-	} else {
+	case "3", "3.1":
+		h1, h2, h3, h4 = genHDefault(0), genHDefault(1), genHDefault(2), genHDefault(3)
+	default:
 		h1, h2, h3, h4 = genHRange(0), genHRange(1), genHRange(2), genHRange(3)
 	}
 	return AWGParams{
@@ -404,8 +433,21 @@ func (p AWGParams) Validate() error {
 	if p.Jmax <= p.Jmin {
 		return fmt.Errorf("awg: Jmax (%d) must be > Jmin (%d)", p.Jmax, p.Jmin)
 	}
-	if abs((p.S1+56)-p.S2) < 10 {
-		return fmt.Errorf("awg: |S1+56 − S2| must be >= 10 (S1=%d S2=%d)", p.S1, p.S2)
+	// All four total packet sizes must be pairwise distinct (Amnezia's
+	// isPacketSizeEqual invariant): the receiver disambiguates packet types by
+	// length, so two equal sizes would mis-classify and weaken the masking.
+	sizes := []int{
+		messageInitiationSize + p.S1,
+		messageResponseSize + p.S2,
+		messageCookieReplySize + p.S3,
+		messageTransportSize + p.S4,
+	}
+	for i := 0; i < len(sizes); i++ {
+		for j := i + 1; j < len(sizes); j++ {
+			if sizes[i] == sizes[j] {
+				return fmt.Errorf("awg: packet sizes must be pairwise distinct (init=%d response=%d cookie=%d transport=%d)", sizes[0], sizes[1], sizes[2], sizes[3])
+			}
+		}
 	}
 	// S1-S4 must be >= MinSForHPK so an AWG3 (version "3") kernel accepts a
 	// HeaderProtectionKey. We enforce this unconditionally because a config
@@ -432,11 +474,4 @@ func (p AWGParams) Validate() error {
 		}
 	}
 	return nil
-}
-
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
 }

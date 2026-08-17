@@ -1247,7 +1247,7 @@
         "awgUninstallConfirm": "Remove the amneziawg kernel module and awg tools? Client configs are kept. AWG inbounds will stop until you install again.",
         "awgUninstallOk": "AWG module uninstalled",
         "awgRebuildRunning": "Installing / rebuilding the AWG module… see panel logs",
-        "tunnelBinaries": "Tunnel binaries",
+        "awgRebootNeeded": "Kernel module updated — the new module loads after the server reboots.",        "tunnelBinaries": "Tunnel binaries",
         "bbrTitle": "TCP BBR congestion control",
         "bbrDesc": "BBR (paired with the fq queueing discipline) improves throughput for TCP flows the panel proxies — Xray outbounds, traffic relayed out of an AWG tunnel — on higher-latency or lossy paths, versus the kernel's CUBIC default. AWG/WireGuard itself rides on UDP and is unaffected.",
         "bbrEnabled": "BBR enabled",

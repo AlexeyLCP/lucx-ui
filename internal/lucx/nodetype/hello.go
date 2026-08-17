@@ -18,6 +18,7 @@ type HelloObj struct {
 	MTProtoVersion string   `json:"mtprotoVersion" example:""`
 	ModuleLoaded   bool     `json:"moduleLoaded" example:"true"`
 	ModuleAwg3     bool     `json:"moduleAwg3" example:"true"`
+	ModuleAwg31    bool     `json:"moduleAwg31" example:"true"`
 }
 
 func LocalHello() HelloObj {
@@ -30,5 +31,6 @@ func LocalHello() HelloObj {
 		AWGVersion:   hs.Version,
 		ModuleLoaded: hs.ModuleLoaded,
 		ModuleAwg3:   hs.ModuleAwg3,
+		ModuleAwg31:  hs.ModuleAwg31,
 	}
 }

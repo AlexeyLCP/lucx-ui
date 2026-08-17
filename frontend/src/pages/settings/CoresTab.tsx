@@ -300,7 +300,7 @@ function AwgCard() {
                 ? t('pages.settings.cores.awgModuleLoaded')
                 : t('pages.settings.cores.awgModuleMissing')}
           />
-          {awg.moduleAwg3 && <Tag color="blue">AWG3</Tag>}
+          {awg.moduleAwg31 ? <Tag color="geekblue">AWG3.1</Tag> : awg.moduleAwg3 ? <Tag color="blue">AWG3</Tag> : null}
           {awg.version && <Tag>{awg.version}</Tag>}
         </Space>
       )}
@@ -310,6 +310,9 @@ function AwgCard() {
       </Typography.Paragraph>
       {rebuilding && (
         <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('pages.settings.cores.awgRebuildRunning')} />
+      )}
+      {awg.rebootNeeded && !rebuilding && (
+        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={t('pages.settings.cores.awgRebootNeeded')} />
       )}
       {showMissing && !rebuilding && (
         <Alert type="error" showIcon style={{ marginBottom: 12 }} message={t('pages.index.awgModuleNotLoadedHint')} />

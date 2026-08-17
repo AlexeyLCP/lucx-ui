@@ -147,10 +147,40 @@ else
     echo -e "${YELLOW}Авто-апгрейд ядра пропущен (--no-kernel-upgrade)${NC}"
 fi
 
-# Check if already loaded. Skip the early-exit when --force-rebuild is set.
+# awg_tools_stale reports whether the installed awg tools predate AWG 3.1 and
+# must be rebuilt. Tools < v3.1 do not parse RandomTrailers / DisableCookies
+# and abort awg-quick with "Line unrecognized"; `awg version` prints
+# "amneziawg-tools v3.1.20260812 - https://amnezia.org", so anything under 3.1
+# (or unparsable, or awg-quick missing) is stale. v3.0 tools still parse HPK.
+# Extracted so both the early-exit and the rebuild section share one rule.
+awg_tools_stale() {
+    if ! command -v awg-quick &>/dev/null; then
+        return 0
+    fi
+    local TOOLS_MAJ TOOLS_MIN
+    TOOLS_MAJ=$(awg version 2>/dev/null | grep -oP 'v\K[0-9]+' | head -1 || true)
+    TOOLS_MIN=$(awg version 2>/dev/null | grep -oP 'v[0-9]+\.\K[0-9]+' | head -1 || true)
+    if [[ "${TOOLS_MAJ:-0}" -lt 3 ]] || { [[ "${TOOLS_MAJ:-0}" -eq 3 ]] && [[ "${TOOLS_MIN:-0}" -lt 1 ]]; }; then
+        return 0
+    fi
+    return 1
+}
+
+# Check if already loaded. Skip the early-exit when --force-rebuild is set,
+# but only when the awg tools are ALSO current: awg_tools_stale still needs to
+# be reachable from a bare invocation (x-ui install-awg / update.sh's no-op
+# path), otherwise a host with a v3.0 module + v3.0 tools never upgrades the
+# tools to 3.1 even though an upgrade is due.
 if [[ -d /sys/module/amneziawg && $FORCE_REBUILD -eq 0 ]]; then
-    echo -e "${GREEN}Модуль amneziawg уже загружен.${NC}"
-    command -v awg &>/dev/null && { echo -e "${GREEN}awg уже установлен.${NC}"; exit 0; }
+    echo -e "${GREEN}Модуль amneziawg уже загружен ($(cat /sys/module/amneziawg/version 2>/dev/null || echo unknown)).${NC}"
+    if command -v awg &>/dev/null && ! awg_tools_stale; then
+        echo -e "${GREEN}awg уже установлен (тулзы актуальны).${NC}"
+        exit 0
+    fi
+    # Tools older than v3.1 — fall through. The module build below no-ops (its
+    # own condition requires !loaded || --force-rebuild), and the tools section
+    # rebuilds them.
+    echo -e "${YELLOW}Тулзы awg устарели (< v3.1) — обновляем (модуль не пересобираем).${NC}"
 fi
 
 # 1. Install build dependencies
@@ -348,8 +378,11 @@ if [[ ! -d /sys/module/amneziawg || $FORCE_REBUILD -eq 1 ]]; then
     # Build succeeded → swap: unload the old module and retire its DKMS tree,
     # then install the new one...
     if [[ -n "$OLD_DKMS_VER" && "$OLD_DKMS_VER" != "$MOD_VER" ]]; then
-        rmmod amneziawg 2>/dev/null || \
-            echo -e "${YELLOW}Не удалось выгрузить amneziawg (занят?). Перезагрузка подберёт новый модуль.${NC}"
+        if ! rmmod amneziawg 2>/dev/null; then
+            echo -e "${YELLOW}Не удалось выгрузить amneziawg (занят?) — новый модуль подхватится после перезагрузки.${NC}"
+            mkdir -p "$(dirname "$AWG_REBOOT_FLAG")"
+            uname -r > "$AWG_REBOOT_FLAG" 2>/dev/null || true
+        fi
         dkms remove -m amneziawg -v "$OLD_DKMS_VER" --all 2>/dev/null || true
     fi
     dkms install -m amneziawg -v "${MOD_VER}" -k "${BUILD_K}" || {
@@ -376,22 +409,10 @@ if [[ ! -d /sys/module/amneziawg || $FORCE_REBUILD -eq 1 ]]; then
 fi
 
 # 4. Build and install userspace tools (awg + awg-quick, both from src/).
-#    Rebuild not only when missing but also when the installed tools predate
-#    AWG 3.1: tools < v3.1 do not parse RandomTrailers / DisableCookies and
-#    abort awg-quick with "Line unrecognized". `awg version` prints
-#    "amneziawg-tools v3.1.20260812 - https://amnezia.org"; treat anything
-#    under 3.1 (or unparsable) as stale. v3.0 tools still parse HPK.
-TOOLS_STALE=0
-if ! command -v awg-quick &>/dev/null; then
-    TOOLS_STALE=1
-else
-    TOOLS_MAJ=$(awg version 2>/dev/null | grep -oP 'v\K[0-9]+' | head -1 || true)
-    TOOLS_MIN=$(awg version 2>/dev/null | grep -oP 'v[0-9]+\.\K[0-9]+' | head -1 || true)
-    if [[ "${TOOLS_MAJ:-0}" -lt 3 ]] || { [[ "${TOOLS_MAJ:-0}" -eq 3 ]] && [[ "${TOOLS_MIN:-0}" -lt 1 ]]; }; then
-        TOOLS_STALE=1
-    fi
-fi
-if [[ $TOOLS_STALE -eq 1 ]]; then
+#    Rebuild not only when missing but also when they predate AWG 3.1 (tools
+#    < v3.1 reject RandomTrailers / DisableCookies with "Line unrecognized").
+#    See awg_tools_stale above for the version rule.
+if awg_tools_stale; then
     echo -e "${GREEN}Сборка утилит awg...${NC}"
     TOOLS_DIR="/tmp/amneziawg-tools-$$"
     rm -rf "$TOOLS_DIR"

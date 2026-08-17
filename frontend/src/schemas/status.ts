@@ -40,9 +40,11 @@ export const AwgInfoSchema = z.object({
   color: z.string(),
   moduleLoaded: z.boolean(),
   moduleAwg3: z.boolean(),
+  moduleAwg31: z.boolean(),
   interfaces: z.number(),
   ifnames: z.array(z.string()),
   rebuildRunning: z.boolean(),
+  rebootNeeded: z.boolean(),
 }).partial();
 
 export const StatusSchema = z.object({

@@ -20,6 +20,7 @@ import (
 type HostStatus struct {
 	ModuleLoaded bool     `json:"moduleLoaded"`
 	ModuleAwg3   bool     `json:"moduleAwg3"`
+	ModuleAwg31  bool     `json:"moduleAwg31"`
 	Version      string   `json:"version"`
 	Interfaces   int      `json:"interfaces"`
 	Ifnames      []string `json:"ifnames,omitempty"`
@@ -38,6 +39,7 @@ func CollectHostStatus() HostStatus {
 		hs.ModuleLoaded = true
 	}
 	hs.ModuleAwg3 = ModuleSupportsAwg3()
+	hs.ModuleAwg31 = ModuleSupportsAwg31()
 	hs.Version = toolsVersion()
 	mgr := GetManager()
 	in := mgr.RunningIfnames()

@@ -33,7 +33,7 @@ function levelToFullI1I5(level: number): boolean {
 // HeaderProtectionKey (the generator guarantees S1-S4 >= 12).
 async function generateAwgObfuscationFromBackend(getValue: (name: string) => unknown): Promise<Record<string, unknown> | null> {
   const level = (getValue('settings.obfLevel') as number) ?? 2;
-  const mimicryProfile = (getValue('settings.mimicryProfile') as string) || 'quic';
+  const mimicryProfile = (getValue('settings.mimicryProfile') as string) || 'tls';
   const browserProfile = (getValue('settings.browserProfile') as string) || 'chrome';
   const region = (getValue('settings.region') as string) || 'world';
   const awgVersion = (getValue('settings.awgVersion') as string) || '2';

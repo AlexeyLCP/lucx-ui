@@ -412,7 +412,7 @@ export const sections: readonly Section[] = [
         summary:
           'Return this panel\'s LucX identity: panel version, supported feature tags (awg, mtproto, naive, olcrtc, qwdtt, cluster), AWG tools version, and whether the AmneziaWG kernel module is loaded / AWG3-capable. Used by a master panel during node heartbeat to gate LucX-only inbound deploy. Requires session or Bearer token.',
         response:
-          '{\n  "success": true,\n  "obj": {\n    "version": "3.6.0-lucx.114",\n    "features": ["awg", "mtproto", "naive", "olcrtc", "qwdtt", "cluster"],\n    "awgVersion": "v3.0.20260730",\n    "mtprotoVersion": "",\n    "moduleLoaded": true,\n    "moduleAwg3": true\n  }\n}',
+          '{\n  "success": true,\n  "obj": {\n    "version": "3.6.0-lucx.114",\n    "features": ["awg", "mtproto", "naive", "olcrtc", "qwdtt", "cluster"],\n    "awgVersion": "v3.0.20260730",\n    "mtprotoVersion": "",\n    "moduleLoaded": true,\n    "moduleAwg3": true,\n    "moduleAwg31": true\n  }\n}',
       },
     ],
   },

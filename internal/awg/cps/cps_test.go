@@ -17,7 +17,7 @@ import (
 
 func TestGenerateAWGParams_Invariants(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(42)))
-	// Default (empty) version behaves as "2": H1-H4 are "lo-hi" ranges.
+	// Version "2" (no header protection key): H1-H4 are "lo-hi" ranges.
 	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
 		for i := 0; i < 200; i++ {
 			p, err := GenerateAWGParams(prof, "2")
@@ -35,7 +35,7 @@ func TestGenerateAWGParams_Invariants(t *testing.T) {
 					t.Fatalf("profile %s iter %d: S value %d < MinSForHPK %d", prof, i, s, MinSForHPK)
 				}
 			}
-			// H1-H4 must be "lo-hi" ranges for version "2"/"3".
+			// H1-H4 must be "lo-hi" ranges for version "2".
 			for _, h := range []string{p.H1, p.H2, p.H3, p.H4} {
 				if !strings.Contains(h, "-") {
 					t.Fatalf("profile %s: H range %q missing '-'", prof, h)
@@ -45,9 +45,73 @@ func TestGenerateAWGParams_Invariants(t *testing.T) {
 	}
 }
 
+// TestGenerateAWGParams_PacketSizesDistinct guards the AmneziaVPN
+// isPacketSizeEqual invariant: the four total packet sizes (148+S1, 92+S2,
+// 64+S3, 32+S4) must stay pairwise distinct across many generations.
+func TestGenerateAWGParams_PacketSizesDistinct(t *testing.T) {
+	SetRand(crand.New(crand.NewSource(1337)))
+	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
+		for i := 0; i < 500; i++ {
+			p, err := GenerateAWGParams(prof, "2")
+			if err != nil {
+				t.Fatalf("profile %s iter %d: %v", prof, i, err)
+			}
+			sizes := []int{
+				messageInitiationSize + p.S1,
+				messageResponseSize + p.S2,
+				messageCookieReplySize + p.S3,
+				messageTransportSize + p.S4,
+			}
+			for a := 0; a < len(sizes); a++ {
+				for b := a + 1; b < len(sizes); b++ {
+					if sizes[a] == sizes[b] {
+						t.Fatalf("profile %s iter %d: equal packet sizes %d (S1=%d S2=%d S3=%d S4=%d)",
+							prof, i, sizes[a], p.S1, p.S2, p.S3, p.S4)
+					}
+				}
+			}
+		}
+	}
+}
+
+// TestGenerateAWGParams_HNarrowBands guards against regressing back to the
+// 2^29-wide H quadrants: every generated H ("1.5" singles and "2" ranges)
+// must fit inside the modest disjoint bands, so the magic header never turns
+// into a giant number an operator flags as over-obfuscation.
+func TestGenerateAWGParams_HNarrowBands(t *testing.T) {
+	SetRand(crand.New(crand.NewSource(7)))
+	for _, version := range []string{"1.5", "2"} {
+		for i := 0; i < 200; i++ {
+			p, err := GenerateAWGParams(ObfPro, version)
+			if err != nil {
+				t.Fatalf("version %q iter %d: %v", version, i, err)
+			}
+			for n, h := range []string{p.H1, p.H2, p.H3, p.H4} {
+				lo, hi := hBand(n)
+				_ = hi
+				var first int
+				if strings.Contains(h, "-") {
+					if _, err := fmt.Sscanf(strings.SplitN(h, "-", 2)[0], "%d", &first); err != nil {
+						t.Fatalf("version %q iter %d: unparsable H %q", version, i, h)
+					}
+				} else {
+					if _, err := fmt.Sscanf(h, "%d", &first); err != nil {
+						t.Fatalf("version %q iter %d: unparsable H %q", version, i, h)
+					}
+				}
+				if first < lo || first > lo+hBandWidth {
+					t.Fatalf("version %q iter %d: H%d=%q outside narrow band [%d,%d]", version, i, n+1, h, lo, lo+hBandWidth)
+				}
+			}
+		}
+	}
+}
+
 // TestGenerateAWGParams_HFormatByVersion checks the wire format of H1-H4
 // matches the awgVersion preset: "1.5" → single integer (legacy AmneziaWG 1.x,
-// no "-"); "2" and "3" → "lo-hi" range (the v2+ form). This is the
+// no "-"); "2" → "lo-hi" range; "3"/"3.1" → the plain "1".."4" defaults (the
+// header protection key encrypts the header, so the magic value is not
+// randomized — AmneziaVPN's generator behaves the same). This is the
 // regression guard for the user-reported bug where selecting AWG 1.5 still
 // emitted v2.0-style ranges (which v1.x awg-quick rejects at parse time).
 func TestGenerateAWGParams_HFormatByVersion(t *testing.T) {
@@ -57,7 +121,8 @@ func TestGenerateAWGParams_HFormatByVersion(t *testing.T) {
 	}{
 		{"1.5", false},
 		{"2", true},
-		{"3", true},
+		{"3", false},
+		{"3.1", false},
 		{"", true}, // empty defaults to "2" behaviour
 	} {
 		for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
@@ -73,6 +138,12 @@ func TestGenerateAWGParams_HFormatByVersion(t *testing.T) {
 				hasDash := strings.Contains(h, "-")
 				if hasDash != tc.wantDash {
 					t.Fatalf("version %q profile %s: H %q dash=%v, want %v", tc.version, prof, h, hasDash, tc.wantDash)
+				}
+			}
+			if tc.version == "3" || tc.version == "3.1" {
+				got := strings.Join([]string{p.H1, p.H2, p.H3, p.H4}, ",")
+				if got != "1,2,3,4" {
+					t.Fatalf("version %q: H1-H4 = %q, want \"1,2,3,4\"", tc.version, got)
 				}
 			}
 		}

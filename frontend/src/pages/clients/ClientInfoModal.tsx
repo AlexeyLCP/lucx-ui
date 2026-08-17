@@ -194,7 +194,7 @@ export default function ClientInfoModal({
   const subAwgLink = linksBuilt.amnezia;
   const subAwgVpnLink = linksBuilt.amneziaVpn;
 
-  const showSubscription = !!(client?.subId && (subLink || subJsonLink || subClashLink || subAwgLink));
+  const showSubscription = !!(client?.subId && (subLink || subJsonLink || subClashLink));
   const wgInbound = useMemo(() => findWireguardInbound(client, inboundsById), [client, inboundsById]);
   const wgConfigText = useMemo(() => {
     if (!client || !wgInbound || !isWireguardClient(client)) return '';
@@ -562,59 +562,13 @@ export default function ClientInfoModal({
                     </div>
                   </div>
                 )}
-                {subAwgLink && (
-                  <div className="link-row">
-                    <Tooltip title={t('pages.clients.subAwgHint')}>
-                      <Tag color="magenta" className="link-row-tag">AMNEZIA</Tag>
-                    </Tooltip>
-                    <a href={subAwgLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subAwgLink}>
-                      {client.subId}
-                    </a>
-                    <div className="link-row-actions">
-                      <Tooltip title={t('copy')}>
-                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subAwgLink)} />
-                      </Tooltip>
-                      <Tooltip title={t('download')}>
-                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'amnezia'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subAwgLink, 'amnezia')} />
-                      </Tooltip>
-                      <Popover trigger="click" placement="left" destroyOnHidden content={<QrPanel value={subAwgLink} remark={`${client.email} — Amnezia .conf`} size={220} />}>
-                        <Tooltip title={t('pages.clients.qrCode')}>
-                          <Button size="small" icon={<QrcodeOutlined />} aria-label={t('pages.clients.qrCode')} />
-                        </Tooltip>
-                      </Popover>
-                    </div>
-                  </div>
-                )}
-                {subAwgVpnLink && (
-                  <div className="link-row">
-                    <Tooltip title={t('pages.clients.subAwgVpnHint')}>
-                      <Tag color="volcano" className="link-row-tag">vpn://</Tag>
-                    </Tooltip>
-                    <a href={subAwgVpnLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subAwgVpnLink}>
-                      {client.subId}?format=vpn
-                    </a>
-                    <div className="link-row-actions">
-                      <Tooltip title={t('copy')}>
-                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subAwgVpnLink)} />
-                      </Tooltip>
-                      <Tooltip title={t('download')}>
-                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'amneziaVpn'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subAwgVpnLink, 'amneziaVpn')} />
-                      </Tooltip>
-                      <Popover trigger="click" placement="left" destroyOnHidden content={<QrPanel value={subAwgVpnLink} remark={`${client.email} — vpn://`} size={220} />}>
-                        <Tooltip title={t('pages.clients.qrCode')}>
-                          <Button size="small" icon={<QrcodeOutlined />} aria-label={t('pages.clients.qrCode')} />
-                        </Tooltip>
-                      </Popover>
-                    </div>
-                  </div>
-                )}
               </>
             )}
 
             {links.length > 0 && (
               <>
                 <Divider>{t('pages.inbounds.copyLink')}</Divider>
-                {links.map((link, idx) => {
+                {links.filter((link) => !link.startsWith('amneziawg://')).map((link, idx) => {
                   const parts = parseLinkParts(link);
                   const fallback = `${t('pages.clients.link')} ${idx + 1}`;
                   const rowTitle = (parts && linkMetaText(parts)) || fallback;
@@ -660,41 +614,85 @@ export default function ClientInfoModal({
                 />
               </>
             )}
-            {/* LUCX-HOOK: AWG — one .conf block per inbound (own ceiling + version select) */}
-            {client && awgConfigs.map((cfg) => {
-              const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
-              return (
-                <div key={cfg.ib.id}>
-                  <Divider>
-                    {t('pages.clients.awgConfig')}
-                    {labelName ? ` — ${labelName}` : ''}
-                  </Divider>
-                  <Space style={{ width: '100%', justifyContent: 'flex-end', marginBottom: 8 }} align="center">
-                    <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                      {t('pages.clients.awgExportVersion')}
-                    </Typography.Text>
-                    <Select<AwgVersion>
-                      size="small"
-                      style={{ width: 180 }}
-                      value={cfg.version}
-                      onChange={(v) => setAwgExportById((prev) => ({ ...prev, [cfg.ib.id]: v }))}
-                      options={[
-                        { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !awgVersionAtLeast(cfg.ceiling, '1.5') },
-                        { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !awgVersionAtLeast(cfg.ceiling, '2') },
-                        { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !awgVersionAtLeast(cfg.ceiling, '3') },
-                        { value: '3.1', label: t('pages.inbounds.form.awgVersion31'), disabled: !awgVersionAtLeast(cfg.ceiling, '3.1') },
-                      ]}
-                    />
-                  </Space>
-                  <ConfigBlock
-                    label={t('pages.clients.config')}
-                    text={cfg.text}
-                    fileName={`${client.email}-awg${cfg.ib.id}.conf`}
-                    qrRemark={client.email || 'peer'}
-                  />
-                </div>
-              );
-            })}
+            {/* LUCX-HOOK: AWG — unified AmneziaWG block: AMNEZIA .conf + vpn:// rows
+                (copy/download; no QR — an .conf QR overflows and Amnezia has no
+                single-QR import), then one .conf editor per inbound with its own
+                ceiling + version select. */}
+            {client && (subAwgLink || subAwgVpnLink || awgConfigs.length > 0) && (
+              <>
+                <Divider>AmneziaWG</Divider>
+                {subAwgLink && (
+                  <div className="link-row">
+                    <Tooltip title={t('pages.clients.subAwgHint')}>
+                      <Tag color="magenta" className="link-row-tag">AMNEZIA</Tag>
+                    </Tooltip>
+                    <a href={subAwgLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subAwgLink}>
+                      {client.subId}
+                    </a>
+                    <div className="link-row-actions">
+                      <Tooltip title={t('copy')}>
+                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subAwgLink)} />
+                      </Tooltip>
+                      <Tooltip title={t('download')}>
+                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'amnezia'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subAwgLink, 'amnezia')} />
+                      </Tooltip>
+                    </div>
+                  </div>
+                )}
+                {subAwgVpnLink && (
+                  <div className="link-row">
+                    <Tooltip title={t('pages.clients.subAwgVpnHint')}>
+                      <Tag color="volcano" className="link-row-tag">vpn://</Tag>
+                    </Tooltip>
+                    <a href={subAwgVpnLink} target="_blank" rel="noopener noreferrer" className="link-row-title link-row-title-anchor" title={subAwgVpnLink}>
+                      {client.subId}?format=vpn
+                    </a>
+                    <div className="link-row-actions">
+                      <Tooltip title={t('copy')}>
+                        <Button size="small" icon={<CopyOutlined />} aria-label={t('copy')} onClick={() => copyValue(subAwgVpnLink)} />
+                      </Tooltip>
+                      <Tooltip title={t('download')}>
+                        <Button size="small" icon={<DownloadOutlined />} aria-label={t('download')} loading={downloadingFormat === 'amneziaVpn'} disabled={downloadingFormat !== null} onClick={() => void downloadSubscription(subAwgVpnLink, 'amneziaVpn')} />
+                      </Tooltip>
+                    </div>
+                  </div>
+                )}
+                {awgConfigs.map((cfg) => {
+                  const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
+                  return (
+                    <div key={cfg.ib.id}>
+                      <Space style={{ width: '100%', justifyContent: 'space-between', marginTop: 12, marginBottom: 8 }} align="center">
+                        {labelName ? <Tag color="purple">{labelName}</Tag> : <span />}
+                        <Space align="center">
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            {t('pages.clients.awgExportVersion')}
+                          </Typography.Text>
+                          <Select<AwgVersion>
+                            size="small"
+                            style={{ width: 180 }}
+                            value={cfg.version}
+                            onChange={(v) => setAwgExportById((prev) => ({ ...prev, [cfg.ib.id]: v }))}
+                            options={[
+                              { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !awgVersionAtLeast(cfg.ceiling, '1.5') },
+                              { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !awgVersionAtLeast(cfg.ceiling, '2') },
+                              { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !awgVersionAtLeast(cfg.ceiling, '3') },
+                              { value: '3.1', label: t('pages.inbounds.form.awgVersion31'), disabled: !awgVersionAtLeast(cfg.ceiling, '3.1') },
+                            ]}
+                          />
+                        </Space>
+                      </Space>
+                      <ConfigBlock
+                        label={t('pages.clients.config')}
+                        text={cfg.text}
+                        fileName={`${client.email}-awg${cfg.ib.id}.conf`}
+                        qrRemark={client.email || 'peer'}
+                        showQr={false}
+                      />
+                    </div>
+                  );
+                })}
+              </>
+            )}
             {/* END LUCX-HOOK */}
           </>
         )}

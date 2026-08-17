@@ -38,12 +38,17 @@ type Diagnostics struct {
 // which Healthy() treats as informational.
 const awg3SupportCheckName = "awg3 support"
 
-// Healthy reports whether every probe passed. The "awg3 support" line is a
-// capability report, not a fault — a pre-AWG3 host simply renders configs
-// without HeaderProtectionKey and serves traffic fine — so it is excluded.
+// awg31SupportCheckName is the DiagCheck.Name of the AWG 3.1 capability line,
+// also informational (a pre-3.1 host just omits RandomTrailers/DisableCookies).
+const awg31SupportCheckName = "awg3.1 support"
+
+// Healthy reports whether every probe passed. The "awg3 support"/"awg3.1
+// support" lines are capability reports, not faults — a pre-AWG3 host simply
+// renders configs without those fields and serves traffic fine — so they are
+// excluded.
 func (d Diagnostics) Healthy() bool {
 	for _, c := range d.Checks {
-		if !c.OK && c.Name != awg3SupportCheckName {
+		if !c.OK && c.Name != awg3SupportCheckName && c.Name != awg31SupportCheckName {
 			return false
 		}
 	}
@@ -104,6 +109,7 @@ func diagnose(inst Instance, p prober, now func() time.Time) Diagnostics {
 	})
 
 	d.Checks = append(d.Checks, awg3CapabilityCheck(p))
+	d.Checks = append(d.Checks, awg31CapabilityCheck(p))
 
 	peersOut, peersErr := p.Run("awg", "show", inst.Ifname, "peers")
 	hsOut, hsErr := p.Run("awg", "show", inst.Ifname, "latest-handshakes")

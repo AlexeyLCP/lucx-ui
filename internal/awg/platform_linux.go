@@ -260,6 +260,24 @@ func awg3CapabilityCheck(p prober) DiagCheck {
 	return DiagCheck{awg3SupportCheckName, kernelOK && toolsOK, detail}
 }
 
+// awg31CapabilityCheck builds the informational diagnostics line for AWG 3.1
+// (RandomTrailers / DisableCookies) readiness: the awg tools must be v3.1+.
+// A failing line does not make the inbound unhealthy (Healthy skips it) — it
+// only explains why the panel renders configs without those fields here. The
+// tools probe goes through the prober so tests can replay it.
+func awg31CapabilityCheck(p prober) DiagCheck {
+	toolsOut, err := p.Run("awg", "version")
+	toolsOK := err == nil && awgToolsAtLeast(toolsOut, 3, 1)
+	detail := "tools: " + oneLine(strings.TrimSpace(toolsOut))
+	if err != nil {
+		detail = "tools: awg version failed"
+	}
+	if !toolsOK {
+		detail += " — RandomTrailers/DisableCookies are omitted in rendered configs on this host"
+	}
+	return DiagCheck{awg31SupportCheckName, toolsOK, detail}
+}
+
 func yesNo(b bool) string {
 	if b {
 		return "present"

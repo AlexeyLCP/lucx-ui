@@ -134,7 +134,7 @@ export default function OverviewActionBar({
       ? t('pages.index.awgInterfaces', { n: status.awg.interfaces })
       : t('pages.index.awgModuleNotLoaded'),
     ifList ? ifList : '',
-    status.awg.moduleAwg3 ? 'AWG3 OK' : '',
+    status.awg.moduleAwg31 ? 'AWG3.1 OK' : status.awg.moduleAwg3 ? 'AWG3 OK' : '',
   ].filter(Boolean);
   const awgTip = awgTipParts.join('\n');
 

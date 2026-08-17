@@ -68,9 +68,11 @@ export interface AwgInfo {
   color: string;
   moduleLoaded: boolean;
   moduleAwg3: boolean;
+  moduleAwg31: boolean;
   interfaces: number;
   ifnames?: string[];
   rebuildRunning?: boolean;
+  rebootNeeded?: boolean;
 }
 
 // LUCX-HOOK: BBR congestion-control tuning (Settings → Cores).
@@ -129,9 +131,11 @@ export class Status {
     color: '',
     moduleLoaded: false,
     moduleAwg3: false,
+    moduleAwg31: false,
     interfaces: 0,
     ifnames: [],
     rebuildRunning: false,
+    rebootNeeded: false,
   };
 
   constructor(data?: StatusInput | null) {

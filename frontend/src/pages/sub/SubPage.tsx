@@ -149,6 +149,24 @@ export default function SubPage() {
       messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
     }
   }, [t, messageApi]);
+
+  // LUCX-HOOK: "copy vpn://" fetches the single vpn:// line (?format=vpn) and
+  // puts it in the clipboard for pasting into AmneziaVPN (lucx.135+).
+  const copyAwgVpn = useCallback(async () => {
+    if (!subAwgUrl) return;
+    try {
+      const sep = subAwgUrl.includes('?') ? '&' : '?';
+      const res = await fetch(`${subAwgUrl}${sep}format=vpn`, { headers: { Accept: 'text/plain,*/*' } });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      let text = (await res.text()).trim();
+      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
+      if (!text) throw new Error('empty body');
+      const ok = await ClipboardManager.copyText(text);
+      if (ok) messageApi.success(t('copied'));
+    } catch (e) {
+      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
+    }
+  }, [t, messageApi]);
   // END LUCX-HOOK
 
   const shadowrocketUrl = useMemo(() => {
@@ -469,17 +487,21 @@ export default function SubPage() {
                               icon={<DownloadOutlined />}
                               aria-label={t('download')}
                               title=".conf"
-                            />
+                            >
+                              .conf
+                            </Button>
                             <Button
                               size="small"
-                              href={`${subAwgUrl}${subAwgUrl.includes('?') ? '&' : '?'}format=vpn`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              icon={<DownloadOutlined />}
-                              aria-label={t('download')}
+                              icon={<CopyOutlined />}
+                              onClick={() => void copyAwgVpn()}
+                              aria-label="vpn://"
                               title="vpn://"
-                            />
-                            <Button size="small" icon={<CopyOutlined />} onClick={() => void copyAwgBody()} aria-label={t('copy')} title={t('copy')} />
+                            >
+                              vpn://
+                            </Button>
+                            <Button size="small" icon={<CopyOutlined />} onClick={() => void copyAwgBody()} aria-label=".conf" title=".conf">
+                              .conf
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -504,7 +526,7 @@ export default function SubPage() {
                           />
                         </div>
                       </div>
-                      {links.map((link, idx) => {
+                      {links.filter((link) => !link.startsWith('amneziawg://')).map((link, idx) => {
                         const parts = parseLinkParts(link);
                         const fallback = `Link ${idx + 1}`;
                         const rowTitle = parts?.remark || fallback;

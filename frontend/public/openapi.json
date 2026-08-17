@@ -5041,7 +5041,8 @@
                     "awgVersion": "v3.0.20260730",
                     "mtprotoVersion": "",
                     "moduleLoaded": true,
-                    "moduleAwg3": true
+                    "moduleAwg3": true,
+                    "moduleAwg31": true
                   }
                 }
               }

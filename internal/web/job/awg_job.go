@@ -37,6 +37,13 @@ func NewAwgJob() *AwgJob {
 // Run reconciles desired AWG inbounds with running interfaces and records
 // traffic deltas.
 func (j *AwgJob) Run() {
+	// LUCX-HOOK: a module rebuild (RebuildAwgModule) stops every AWG interface
+	// so rmmod can unload amneziawg. Reconciling here would re-bring them up
+	// mid-build and keep the module busy, so skip the tick while it is in
+	// flight — traffic collection is moot with the interfaces down anyway.
+	if service.AwgRebuildRunning() {
+		return
+	}
 	inbounds, err := j.inboundService.GetAllInbounds()
 	if err != nil {
 		logger.Warning("awg job: get inbounds failed:", err)

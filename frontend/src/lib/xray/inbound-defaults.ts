@@ -341,24 +341,25 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     mtu: 1420,
     dns: '1.1.1.1, 1.0.0.1',
     obfLevel: 2,
-    mimicryProfile: 'quic',
+    mimicryProfile: 'tls',
     browserProfile: 'chrome',
     region: 'ru',
-    jc: r(3, 10),
-    jmin: r(50, 100),
-    jmax: r(150, 250),
-    s1: r(20, 100),
-    s2: r(20, 100),
-    s3: r(20, 100),
-    s4: r(20, 100),
-    h1: `${r(100000, 200000)}-${r(300000, 500000)}`,
-    h2: `${r(600000000, 700000000)}-${r(800000000, 900000000)}`,
-    h3: `${r(1100000000, 1200000000)}-${r(1300000000, 1400000000)}`,
-    h4: `${r(1700000000, 1800000000)}-${r(1900000000, 2000000000)}`,
+    jc: r(4, 6),
+    jmin: 10,
+    jmax: 50,
+    s1: r(40, 149),
+    s2: r(12, 149),
+    s3: r(12, 63),
+    s4: 12,
+    h1: `${r(5, 40000)}-${r(60000, 99999)}`,
+    h2: `${r(100005, 140000)}-${r(160000, 199999)}`,
+    h3: `${r(200005, 240000)}-${r(260000, 299999)}`,
+    h4: `${r(300005, 340000)}-${r(360000, 399999)}`,
     // AWG3 header protection key — left empty by default. It is written to the
     // .conf only when awgVersion === '3' (the inbound opts into AWG3); operators
     // fill it via "Regenerate obfuscation" with version '3' selected. S1-S4 are
-    // always >= 12 (range starts at 20) so the kernel accepts the key for v3.
+    // always >= 12 (S4 is the fixed transport size 12) so the kernel accepts
+    // the key for v3.
     headerProtectionKey: '',
     // AWG3 device-level timers/padding — 0 = kernel uses the built-in WG
     // constant (RekeyAfterTime=120, RekeyTimeout=5, RejectAfterTime=180,

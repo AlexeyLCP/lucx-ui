@@ -96,6 +96,25 @@ func (m *Manager) RemoveClient(ifname string) error {
 	return nil
 }
 
+// StopAllClients tears down every tracked awgo-N client interface and clears
+// the in-memory state map. Called before a module rebuild (RebuildAwgModule)
+// so the script's rmmod can unload amneziawg — a live client interface keeps
+// the module busy and the swap would silently leave the old module loaded.
+// RestartAwg re-creates the outbounds from the database after the script.
+func (m *Manager) StopAllClients() {
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	for ifname := range clients {
+		confPath := filepath.Join(awgConfigDir, ifname+".conf")
+		if _, err := awgShowIfname(ifname); err == nil {
+			if out, err := awgQuick("down", confPath); err != nil {
+				logger.Warningf("awg: stop client %s failed: %s %v", ifname, string(out), err)
+			}
+		}
+	}
+	clients = map[string]clientState{}
+}
+
 // SweepOrphanClients removes awgo-* interfaces and .conf files left over from
 // a previous x-ui run that have no matching awg_outbounds row (or whose row is
 // disabled). Runs once on first EnsureClient call (sync.Once) — not every tick.
