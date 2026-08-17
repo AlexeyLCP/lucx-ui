@@ -65,9 +65,11 @@ func TestNormalizeAwgDeltas(t *testing.T) {
 		t.Fatalf("client 10s delta must halve: %+v", outC[0])
 	}
 
+	// Sub-second elapsed clamps to 1s: the rate multiplier is capped at x5
+	// instead of blowing up on a pathological double tick.
 	outT, _ = normalizeAwgDeltas(traffics, nil, 500*time.Millisecond)
-	if outT[0].Up != 1000 {
-		t.Fatalf("sub-second elapsed must clamp to 1s (no inflation), got %d", outT[0].Up)
+	if outT[0].Up != 5000 {
+		t.Fatalf("sub-second elapsed must clamp to 1s (rate capped at x5), got %d", outT[0].Up)
 	}
 }
 
