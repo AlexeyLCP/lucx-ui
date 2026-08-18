@@ -5,6 +5,35 @@
 
 ---
 
+## lucx.137 — QUIC I1 без нулевой простыни + vpn:// у инбаунда (2026-08-18)
+
+**Репорт (Kirill, 18.08):** после lucx.136 пресеты Jc/S/H стали каноничными, но
+генератор формы пакета (`cps.go`) не менялся. При `mimicryProfile=quic` поле I1
+— ~1200 байт, из них ~855 открытых `0x00` (hex `000000…`). Реальный QUIC Initial
+payload — AEAD-шифртекст (RFC 9001 §5.2), нули на проводе — явный DPI-маркер.
+
+### 1. QUIC Initial padding (`internal/awg/cps/cps.go`)
+
+- `quicInitialPacket`: добивка до 1200 байт — `randomBytes(pad)` (crypto/rand),
+  не цикл `WriteByte(0x00)`.
+- Регрессия `TestQuicInitialPacket_NoZeroPaddingRun`: Chrome/Safari, длиннейшая
+  цепочка нулей ≤128. Firefox исключён — его embedded ClientHello имеет штатный
+  TLS `padTo512` (это не баг QUIC-паддинга).
+- Не трогали: 4-байтовый packet number (0), TLS `padTo512` в ClientHello,
+  полноценную AEAD-защиту Initial (вариант 2 Кирилла — out of scope).
+
+### 2. Client Info Modal — AmneziaWG без дублей
+
+- Убраны строки AMNEZIA (.conf) и vpn:// сверху блока (дубль ConfigBlock +
+  sub-level URL).
+- Кнопка `vpn://` (копирует one-tap ссылку) рядом с селектором версии у каждого
+  инбаунда; `.conf` скачать/скопировать — в ConfigBlock.
+- Удалён мёртвый i18n-ключ `pages.clients.subAwgHint` (все 13 локалей).
+
+**lucxVersion:** lucx.137
+
+---
+
 ## lucx.136 — AWG 3.1: установка + видимость; пресеты по канону Amnezia; консолидация Amnezia в UI (2026-08-17)
 
 **Задача-1 (Alexey):** «подготовиться к AWG 3.1» — почему «3.1 не
