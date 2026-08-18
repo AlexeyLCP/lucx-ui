@@ -12,6 +12,30 @@ export default function QwdttFields() {
   return (
     <>
       <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('pages.inbounds.form.qwdttSingleNote')} />
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.qwdttRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.qwdttRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.qwdttRouteOutbound')}
+          tooltip={t('pages.inbounds.form.qwdttRouteOutboundHint')}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            options={[
+              { value: '', label: t('pages.inbounds.form.qwdttRouteOutboundPlaceholder') },
+              ...(outboundTags || []).map((tag) => ({ value: tag, label: tag })),
+            ]}
+          />
+        </FormField>
+      )}
       <FormField name={['settings', 'listenAddr']} label={t('pages.inbounds.form.qwdttListenAddr')}>
         <Input placeholder="0.0.0.0:56000" />
       </FormField>
@@ -30,28 +54,6 @@ export default function QwdttFields() {
       <FormField name={['settings', 'vkHashes']} label={t('pages.inbounds.form.qwdttVkHashes')} tooltip={t('pages.inbounds.form.qwdttVkHashesHint')}>
         <Input.TextArea rows={2} placeholder="hash1,hash2" />
       </FormField>
-      <FormField
-        name={['settings', 'routeThroughXray']}
-        label={t('pages.inbounds.form.qwdttRouteThroughXray')}
-        tooltip={t('pages.inbounds.form.qwdttRouteThroughXrayHint')}
-        valueProp="checked"
-      >
-        <Switch />
-      </FormField>
-      {routeThroughXray && (
-        <FormField
-          name={['settings', 'outboundTag']}
-          label={t('pages.inbounds.form.qwdttRouteOutbound')}
-          tooltip={t('pages.inbounds.form.qwdttRouteOutboundHint')}
-        >
-          <Select
-            allowClear
-            showSearch
-            options={(outboundTags || []).map((tag) => ({ value: tag, label: tag }))}
-            placeholder={t('pages.inbounds.form.qwdttRouteOutboundPlaceholder')}
-          />
-        </FormField>
-      )}
       <FormField name={['settings', 'listenRaw']} label={t('pages.inbounds.form.qwdttListenRaw')}>
         <Input placeholder="0.0.0.0:56003" />
       </FormField>

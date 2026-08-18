@@ -211,6 +211,30 @@ export default function MieruFields() {
 
   return (
     <>
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.mieruRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.mieruRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.mieruRouteOutbound')}
+          tooltip={t('pages.inbounds.form.mieruRouteOutboundHint')}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            options={[
+              { value: '', label: t('pages.inbounds.form.mieruRouteOutboundPlaceholder') },
+              ...(outboundTags || []).map((tag) => ({ value: tag, label: tag })),
+            ]}
+          />
+        </FormField>
+      )}
       <div style={{ marginBottom: 8 }}>{t('pages.inbounds.form.mieruBindingsHint')}</div>
       {fields.map((f, i) => (
         <Row gutter={8} key={f.id} align="middle" style={{ marginBottom: 8 }}>
@@ -247,28 +271,6 @@ export default function MieruFields() {
           options={['DEBUG', 'INFO', 'WARN', 'ERROR'].map((l) => ({ value: l, label: l }))}
         />
       </FormField>
-      <FormField
-        name={['settings', 'routeThroughXray']}
-        label={t('pages.inbounds.form.mieruRouteThroughXray')}
-        tooltip={t('pages.inbounds.form.mieruRouteThroughXrayHint')}
-        valueProp="checked"
-      >
-        <Switch />
-      </FormField>
-      {routeThroughXray && (
-        <FormField
-          name={['settings', 'outboundTag']}
-          label={t('pages.inbounds.form.mieruRouteOutbound')}
-          tooltip={t('pages.inbounds.form.mieruRouteOutboundHint')}
-        >
-          <Select
-            allowClear
-            showSearch
-            options={(outboundTags || []).map((tag) => ({ value: tag, label: tag }))}
-            placeholder={t('pages.inbounds.form.mieruRouteOutboundPlaceholder')}
-          />
-        </FormField>
-      )}
       <Collapse
         style={{ marginBottom: 14 }}
         items={[

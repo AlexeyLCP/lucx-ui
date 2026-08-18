@@ -32,6 +32,30 @@ export default function TrustTunnelFields() {
   return (
     <>
       <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.trustTunnelRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.trustTunnelRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.trustTunnelRouteOutbound')}
+          tooltip={t('pages.inbounds.form.trustTunnelRouteOutboundHint')}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            options={[
+              { value: '', label: t('pages.inbounds.form.trustTunnelRouteOutboundPlaceholder') },
+              ...(outboundTags || []).map((tag) => ({ value: tag, label: tag })),
+            ]}
+          />
+        </FormField>
+      )}
+      <FormField
         name={['settings', 'hostname']}
         label={t('pages.inbounds.form.trustTunnelHostname')}
         tooltip={t('pages.inbounds.form.trustTunnelHostnameHint')}
@@ -81,28 +105,6 @@ export default function TrustTunnelFields() {
       >
         <Switch />
       </FormField>
-      <FormField
-        name={['settings', 'routeThroughXray']}
-        label={t('pages.inbounds.form.trustTunnelRouteThroughXray')}
-        tooltip={t('pages.inbounds.form.trustTunnelRouteThroughXrayHint')}
-        valueProp="checked"
-      >
-        <Switch />
-      </FormField>
-      {routeThroughXray && (
-        <FormField
-          name={['settings', 'outboundTag']}
-          label={t('pages.inbounds.form.trustTunnelRouteOutbound')}
-          tooltip={t('pages.inbounds.form.trustTunnelRouteOutboundHint')}
-        >
-          <Select
-            allowClear
-            showSearch
-            options={(outboundTags || []).map((tag) => ({ value: tag, label: tag }))}
-            placeholder={t('pages.inbounds.form.trustTunnelRouteOutboundPlaceholder')}
-          />
-        </FormField>
-      )}
       <FormField
         name={['settings', 'listenPreset']}
         label={t('pages.inbounds.form.trustTunnelListenPreset')}

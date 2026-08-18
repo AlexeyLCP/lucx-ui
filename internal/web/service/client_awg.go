@@ -383,6 +383,31 @@ func countAwgOrWireguard(inbounds []*model.Inbound) int {
 	return n
 }
 
+// countAwgInbounds counts how many of the target inbounds are AWG.
+func countAwgInbounds(inbounds []*model.Inbound) int {
+	n := 0
+	for _, ib := range inbounds {
+		if ib != nil && ib.Protocol == model.AWG {
+			n++
+		}
+	}
+	return n
+}
+
+// checkAwgMultiAttach rejects a client attached to more than one AWG inbound.
+// Each AWG inbound owns its own tunnel subnet and allocates a per-inbound peer
+// AllowedIPs, but the normalized clients table carries a single wg_allowed_ips
+// shared across every attachment — a multi-AWG client collapses to the last
+// allocated address, so the other inbound's .conf/QR exports a wrong Address
+// (tester VladufQa: two AWG inbounds in one client pulled 10.201.0.14/32 into
+// an 11.85.5.1/24 server).
+func checkAwgMultiAttach(inbounds []*model.Inbound) error {
+	if countAwgInbounds(inbounds) > 1 {
+		return common.NewError("awg: a client cannot be attached to more than one AWG inbound — each AWG inbound has its own tunnel subnet and per-peer address")
+	}
+	return nil
+}
+
 func clearBroadcastTunnelIP(c *model.Client, proto model.Protocol, tunnelInboundCount int) {
 	if c == nil {
 		return

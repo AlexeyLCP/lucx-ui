@@ -15,6 +15,30 @@ export default function NaiveFields() {
 
   return (
     <>
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.naiveRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.naiveRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.naiveRouteOutbound')}
+          tooltip={t('pages.inbounds.form.naiveRouteOutboundHint')}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            options={[
+              { value: '', label: t('pages.inbounds.form.naiveRouteOutboundPlaceholder') },
+              ...(outboundTags || []).map((tag) => ({ value: tag, label: tag })),
+            ]}
+          />
+        </FormField>
+      )}
       <FormField name={['settings', 'domain']} label={t('pages.inbounds.form.naiveDomain')} tooltip={t('pages.inbounds.form.naiveDomainHint')}>
         <Input placeholder="n.example.com" />
       </FormField>
@@ -57,28 +81,6 @@ export default function NaiveFields() {
           ]}
         />
       </FormField>
-      <FormField
-        name={['settings', 'routeThroughXray']}
-        label={t('pages.inbounds.form.naiveRouteThroughXray')}
-        tooltip={t('pages.inbounds.form.naiveRouteThroughXrayHint')}
-        valueProp="checked"
-      >
-        <Switch />
-      </FormField>
-      {routeThroughXray && (
-        <FormField
-          name={['settings', 'outboundTag']}
-          label={t('pages.inbounds.form.naiveRouteOutbound')}
-          tooltip={t('pages.inbounds.form.naiveRouteOutboundHint')}
-        >
-          <Select
-            allowClear
-            showSearch
-            options={(outboundTags || []).map((tag) => ({ value: tag, label: tag }))}
-            placeholder={t('pages.inbounds.form.naiveRouteOutboundPlaceholder')}
-          />
-        </FormField>
-      )}
       <FormField name={['settings', 'useRawConfig']} label={t('pages.inbounds.form.naiveUseRaw')} tooltip={t('pages.inbounds.form.naiveUseRawHint')} valueProp="checked">
         <Switch />
       </FormField>

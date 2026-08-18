@@ -5,6 +5,44 @@
 
 ---
 
+## lucx.138 — маршрутизация у всех VPN-сайдкаров + блок 2×AWG в клиенте (2026-08-18)
+
+**Задача (Alexey):** (1) привести маршрутизацию кастомных протоколов к виду AWG —
+переключатель «Через Xray»/`routeThroughXray` стоит **первым** в форме и включён
+по умолчанию; (2) в выпадающем меню outbound у mint/AWG+n от остальных не было
+пункта «Использовать правила маршрутизации» (только серая placeholder) — добавить
+явную опцию как у AWG; (3) баг тестера VladufQa: клиент, засунутый в два AWG-инбаунда,
+«затягивал» адрес из чужой подсети (`10.201.0.14/32` в инбаунд `11.85.5.1/24`) — всё
+разваливалось. Рема: блок.
+
+### 1. Маршрутизация: вверх + default ON + явный пустой пункт (frontend)
+
+- Формы `naive/qwdtt/olcrtc/mieru/trusttunnel.tsx`: блок `routeThroughXray` +
+  условный `outboundTag` перенесён наверх (`olcrtc` — после инфо-Alert'ов,
+  остальные — первым полем).
+- Select `outboundTag` переведён с `allowClear`+`placeholder` на AWG-паттерн:
+  явный пункт `{ value: '', label: «Использовать правила маршрутизации» }` —
+  теперь пустую опцию можно выбрать как обычную (`fix 1426524f`).
+- Default ON для `mieru` и `trusttunnel` (schema `.default(true)` +
+  `createDefault*InboundSettings`); `naive`/`qwdtt` уже были true.
+- **Исключение — olcrtc**: остался default OFF (upstream `socks.proxy_*` гонит
+  и туннельный dial, и HTTP провайдера Telemost/Jitsi через Xray SOCKS; ICMP
+  по TCP невозможен — урок lucx.112). Warning в форме сохранён.
+
+### 2. Блок: клиент не может жить в >1 AWG-инбаунде (backend)
+
+- `client_awg.go`: `countAwgInbounds` + `checkAwgMultiAttach` (ошибка при >1).
+- `client_crud.go` `Create`/`Update` + `client_bulk.go` `BulkCreate` — вызов
+  guard после `countAwgOrWireguard`; bulk помечает клиента failed с причиной.
+- Причина: в normalизованной таблице `clients` одно `wg_allowed_ips` на все
+  аттачи → при 2×AWG адрес схлопывается в один (последний), у второго инбаунда
+  в `.conf`/QR неверный Address. Блокируем только AWG; WireGuard не трогаем.
+- Тест `TestCheckAwgMultiAttach` (без cgo).
+
+**lucxVersion:** lucx.138
+
+---
+
 ## lucx.137 — QUIC I1 без нулевой простыни + vpn:// у инбаунда (2026-08-18)
 
 **Репорт (Kirill, 18.08):** после lucx.136 пресеты Jc/S/H стали каноничными, но

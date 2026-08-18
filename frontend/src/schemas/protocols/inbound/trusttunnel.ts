@@ -16,7 +16,7 @@ export const TrustTunnelInboundSettingsSchema = z.object({
   keyFile: z.string().default(''),
   clientDns: z.string().default(''),
   upstreamProtocol: z.enum(['http2', 'http3']).default('http2'),
-  routeThroughXray: z.boolean().default(false),
+  routeThroughXray: z.boolean().default(true),
   outboundTag: z.string().default(''),
   routeXrayPort: z.number().int().min(0).max(65535).optional(),
   metricsPort: z.number().int().min(0).max(65535).optional(),

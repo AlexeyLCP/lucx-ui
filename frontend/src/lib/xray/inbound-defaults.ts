@@ -290,7 +290,7 @@ export function createDefaultMieruInboundSettings(): MieruInboundSettings {
     portBindings: [{ port: 20100, protocol: 'TCP' }],
     mtu: 1400,
     loggingLevel: 'INFO',
-    routeThroughXray: false,
+    routeThroughXray: true,
     outboundTag: '',
     clients: [],
   };
@@ -305,7 +305,7 @@ export function createDefaultTrustTunnelInboundSettings(): TrustTunnelInboundSet
     keyFile: '',
     clientDns: '',
     upstreamProtocol: 'http2',
-    routeThroughXray: false,
+    routeThroughXray: true,
     outboundTag: '',
     listenPreset: 'fast',
     clientRandomPrefix: '',

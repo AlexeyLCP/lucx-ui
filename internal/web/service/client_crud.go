@@ -125,6 +125,12 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		createTargets = append(createTargets, inbound)
 	}
 	tunnelN := countAwgOrWireguard(createTargets)
+	// LUCX-HOOK: a client cannot span multiple AWG inbounds (single clients-table
+	// wg_allowed_ips collapses per-inbound peer addresses to one — wrong .conf).
+	if err := checkAwgMultiAttach(createTargets); err != nil {
+		return needRestart, err
+	}
+	// END LUCX-HOOK
 	for _, inbound := range createTargets {
 		per := client
 		// LUCX-HOOK: AWG/WG tunnel IPs are per-inbound. Multi-attach must not
@@ -430,6 +436,12 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		updateTargets = append(updateTargets, inbound)
 	}
 	tunnelN := countAwgOrWireguard(updateTargets)
+	// LUCX-HOOK: a client cannot span multiple AWG inbounds (single clients-table
+	// wg_allowed_ips collapses per-inbound peer addresses to one — wrong .conf).
+	if err := checkAwgMultiAttach(updateTargets); err != nil {
+		return needRestart, err
+	}
+	// END LUCX-HOOK
 	for _, inbound := range updateTargets {
 		if existing.Email == "" {
 			continue

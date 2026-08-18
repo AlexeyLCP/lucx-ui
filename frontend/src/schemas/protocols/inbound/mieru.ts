@@ -91,7 +91,7 @@ export const MieruInboundSettingsSchema = z.object({
   portBindings: z.array(MieruPortBindingSchema).default([{ port: 20100, protocol: 'TCP' }]),
   mtu: z.number().int().min(1280).max(1500).default(1400),
   loggingLevel: z.enum(['DEBUG', 'INFO', 'WARN', 'ERROR']).default('INFO'),
-  routeThroughXray: z.boolean().default(false),
+  routeThroughXray: z.boolean().default(true),
   outboundTag: z.string().default(''),
   routeXrayPort: z.number().int().min(0).max(65535).optional(),
   multiplexing: MieruMultiplexingSchema.optional(),
