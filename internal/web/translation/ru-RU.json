@@ -261,6 +261,7 @@
       "awgModuleNotLoaded": "Модуль ядра не загружен",
       "awgModuleNotLoadedHint": "Модуль AWG не установлен. Settings → Cores → Установить, или: x-ui install-awg",
       "awgInterfaces": "Интерфейсов UP: {n}",
+      "awgStoppedNoInboundsHint": "Модуль загружен, активных интерфейсов нет. Добавьте включённый AmneziaWG-инбаунд — интерфейс поднимется автоматически.",
       "awgRestart": "Перезапуск AWG",
       "awgRestartPopover": "Интерфейсы AWG перезапущены"
     },

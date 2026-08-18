@@ -133,6 +133,7 @@ export default function OverviewActionBar({
     status.awg.moduleLoaded
       ? t('pages.index.awgInterfaces', { n: status.awg.interfaces })
       : t('pages.index.awgModuleNotLoaded'),
+    status.awg.state === 'stop' ? t('pages.index.awgStoppedNoInboundsHint') : '',
     ifList ? ifList : '',
     status.awg.moduleAwg31 ? 'AWG3.1 OK' : status.awg.moduleAwg3 ? 'AWG3 OK' : '',
   ].filter(Boolean);

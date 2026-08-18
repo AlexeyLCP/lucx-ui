@@ -260,7 +260,8 @@
       "awgStatusUnknown": "Unknown",
       "awgModuleNotLoaded": "Kernel module not loaded",
       "awgModuleNotLoadedHint": "AWG module not installed. Settings → Cores → Install, or: x-ui install-awg",
-      "awgInterfaces": "{n} interface(s) UP",
+"awgInterfaces": "{n} interface(s) UP",
+      "awgStoppedNoInboundsHint": "Module loaded, no active interfaces. Add an enabled AmneziaWG inbound to bring one up.",
       "awgRestart": "Restart AWG",
       "awgRestartPopover": "AWG interfaces restarted"
     },
