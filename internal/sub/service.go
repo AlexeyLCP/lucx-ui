@@ -931,10 +931,11 @@ func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
 	return cfg.ClientLink(host, pair, email)
 }
 
-// genTrustTunnelLink builds a per-client tt:// deep link for a client
-// attached to a TrustTunnel inbound. Credentials are HMAC-derived
+// genTrustTunnelLink builds a per-client Throne-compatible tt:// URI for a
+// client attached to a TrustTunnel inbound. Credentials are HMAC-derived
 // (inbound-scoped). Returns "" when the hostname is unset or the client is
-// not enabled on the inbound.
+// not enabled on the inbound. The official TLV deep link stays in
+// ClientDeepLink; subscription/QR emit ClientURI so Throne can import it.
 func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) string {
 	if inbound == nil || inbound.Protocol != model.TrustTunnel {
 		return ""
@@ -964,7 +965,7 @@ func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) st
 		address = net.JoinHostPort(host, strconv.Itoa(p))
 	}
 	pair := tunnel.TrustTunnelClientAuth(secret, inbound.Id, email)
-	return cfg.ClientDeepLink(address, pair, email)
+	return cfg.ClientURI(address, pair, email)
 }
 
 // genMtprotoLink builds a per-client Telegram proxy deep link for an mtproto

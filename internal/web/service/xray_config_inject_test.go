@@ -823,6 +823,35 @@ func TestNaiveBridgeChanged(t *testing.T) {
 	}
 }
 
+func TestInjectSocksEgress_SniffingRouteOnly(t *testing.T) {
+	cfg := egressTestConfig()
+	injectSocksEgress(cfg, "in-mieru-9", 39111, "", "mieru egress")
+	if len(cfg.InboundConfigs) < 2 {
+		t.Fatal("expected SOCKS bridge")
+	}
+	got := cfg.InboundConfigs[len(cfg.InboundConfigs)-1]
+	var sniffing struct {
+		Enabled      bool     `json:"enabled"`
+		DestOverride []string `json:"destOverride"`
+		RouteOnly    bool     `json:"routeOnly"`
+	}
+	if err := json.Unmarshal(got.Sniffing, &sniffing); err != nil {
+		t.Fatalf("SOCKS bridge must carry sniffing, got %q: %v", got.Sniffing, err)
+	}
+	if !sniffing.Enabled || !sniffing.RouteOnly {
+		t.Fatalf("sniffing must be enabled with routeOnly, got %+v", sniffing)
+	}
+	want := []string{"http", "tls", "quic"}
+	if len(sniffing.DestOverride) != len(want) {
+		t.Fatalf("destOverride = %v, want %v", sniffing.DestOverride, want)
+	}
+	for i, w := range want {
+		if sniffing.DestOverride[i] != w {
+			t.Fatalf("destOverride = %v, want %v", sniffing.DestOverride, want)
+		}
+	}
+}
+
 func TestInjectTrustTunnelEgress_MissingOutboundStillBridges(t *testing.T) {
 	cfg := egressTestConfig()
 	before := string(cfg.RouterConfig)

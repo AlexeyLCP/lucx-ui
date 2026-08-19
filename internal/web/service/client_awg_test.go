@@ -323,26 +323,3 @@ func TestCountAwgOrWireguard(t *testing.T) {
 		t.Fatalf("count = %d, want 2", got)
 	}
 }
-
-func TestCheckAwgMultiAttach(t *testing.T) {
-	cases := []struct {
-		name     string
-		inbounds []*model.Inbound
-		wantErr  bool
-	}{
-		{name: "no awg", inbounds: []*model.Inbound{{Protocol: model.VLESS}}, wantErr: false},
-		{name: "single awg", inbounds: []*model.Inbound{{Protocol: model.AWG}}, wantErr: false},
-		{name: "single awg with siblings", inbounds: []*model.Inbound{{Protocol: model.AWG}, {Protocol: model.WireGuard}, {Protocol: model.VLESS}}, wantErr: false},
-		{name: "two awg", inbounds: []*model.Inbound{{Protocol: model.AWG}, {Protocol: model.AWG}}, wantErr: true},
-		{name: "two awg plus wg", inbounds: []*model.Inbound{{Protocol: model.AWG}, {Protocol: model.WireGuard}, {Protocol: model.AWG}}, wantErr: true},
-		{name: "empty", inbounds: nil, wantErr: false},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			err := checkAwgMultiAttach(tc.inbounds)
-			if (err != nil) != tc.wantErr {
-				t.Fatalf("checkAwgMultiAttach() err = %v, wantErr %v", err, tc.wantErr)
-			}
-		})
-	}
-}

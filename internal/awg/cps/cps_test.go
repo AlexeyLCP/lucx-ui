@@ -80,7 +80,7 @@ func TestGenerateAWGParams_PacketSizesDistinct(t *testing.T) {
 // into a giant number an operator flags as over-obfuscation.
 func TestGenerateAWGParams_HNarrowBands(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(7)))
-	for _, version := range []string{"1.5", "2"} {
+	for _, version := range []string{"1.5", "2", "3", "3.1"} {
 		for i := 0; i < 200; i++ {
 			p, err := GenerateAWGParams(ObfPro, version)
 			if err != nil {
@@ -109,11 +109,11 @@ func TestGenerateAWGParams_HNarrowBands(t *testing.T) {
 
 // TestGenerateAWGParams_HFormatByVersion checks the wire format of H1-H4
 // matches the awgVersion preset: "1.5" → single integer (legacy AmneziaWG 1.x,
-// no "-"); "2" → "lo-hi" range; "3"/"3.1" → the plain "1".."4" defaults (the
-// header protection key encrypts the header, so the magic value is not
-// randomized — AmneziaVPN's generator behaves the same). This is the
-// regression guard for the user-reported bug where selecting AWG 1.5 still
-// emitted v2.0-style ranges (which v1.x awg-quick rejects at parse time).
+// no "-"); "2"/"3"/"3.1" → "lo-hi" range. lucx.136 emitted "1"/"2"/"3"/"4"
+// for v3 (HPK encrypts the header); testers flagged that as a broken
+// generator, so v3 uses the same ranges as v2. This is also the regression
+// guard for the user-reported bug where selecting AWG 1.5 still emitted
+// v2.0-style ranges (which v1.x awg-quick rejects at parse time).
 func TestGenerateAWGParams_HFormatByVersion(t *testing.T) {
 	for _, tc := range []struct {
 		version  string
@@ -121,9 +121,9 @@ func TestGenerateAWGParams_HFormatByVersion(t *testing.T) {
 	}{
 		{"1.5", false},
 		{"2", true},
-		{"3", false},
-		{"3.1", false},
-		{"", true}, // empty defaults to "2" behaviour
+		{"3", true},
+		{"3.1", true},
+		{"", true},
 	} {
 		for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
 			SetRand(crand.New(crand.NewSource(42)))
@@ -142,8 +142,8 @@ func TestGenerateAWGParams_HFormatByVersion(t *testing.T) {
 			}
 			if tc.version == "3" || tc.version == "3.1" {
 				got := strings.Join([]string{p.H1, p.H2, p.H3, p.H4}, ",")
-				if got != "1,2,3,4" {
-					t.Fatalf("version %q: H1-H4 = %q, want \"1,2,3,4\"", tc.version, got)
+				if got == "1,2,3,4" {
+					t.Fatalf("version %q: H1-H4 must not be the WireGuard defaults", tc.version)
 				}
 			}
 		}

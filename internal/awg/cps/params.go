@@ -156,9 +156,9 @@ func hBand(n int) (lo, hi int) {
 }
 
 // genHRange returns one "lo-hi" string within H-band n, width >= 1000 (the
-// AmneziaWG minimum recommended span). Used for AWG version "2" configs: with
-// no header protection key the magic header value is the only header-layer
-// obfuscation, so it is drawn as a random — but narrow — range.
+// AmneziaWG minimum recommended span). Used for AWG "2" and "3"/"3.1":
+// HPK encrypts the on-wire header on v3, but operators still expect a
+// randomized H (lucx.136's "1/2/3/4" looked like a broken generator).
 func genHRange(n int) string {
 	lo, hi := hBand(n)
 	span := hi - lo + 1
@@ -185,14 +185,6 @@ func genHSingle(n int) string {
 	return fmt.Sprintf("%d", randInt(lo, hi))
 }
 
-// genHDefault returns the AmneziaVPN magic-header default for index n ("1".."4").
-// Used for AWG "3"/"3.1": the header protection key encrypts the message
-// header, so the magic values are left at the plain WireGuard types — exactly
-// as AmneziaVPN's generator does (it never randomizes H).
-func genHDefault(n int) string {
-	return []string{"1", "2", "3", "4"}[n]
-}
-
 // GenerateAWGParams produces a fresh set of junk/transport obfuscation
 // parameters for the given strength profile. It enforces the AmneziaWG
 // invariants: Jmin < Jmax (fixed by lifting Jmax), S1-S4 >= MinSForHPK (so
@@ -206,11 +198,9 @@ func genHDefault(n int) string {
 // awgVersion selects the H1-H4 wire format:
 //   - "1.5": single integers in disjoint narrow bands (the v1 awg-quick parser
 //     rejects the "lo-hi" form). See genHSingle.
-//   - "2": "lo-hi" ranges in disjoint narrow bands (no header protection key,
-//     so the magic header is the only header-layer obfuscation). See genHRange.
-//   - "3"/"3.1": the plain WireGuard defaults "1"/"2"/"3"/"4" — the header
-//     protection key encrypts the header, so the magic value is irrelevant; this
-//     matches AmneziaVPN's generator, which never randomizes H.
+//   - "2"/"3"/"3.1"/empty: "lo-hi" ranges in disjoint narrow bands. See genHRange.
+//     v3 HPK still encrypts the on-wire header; H is randomized anyway so the
+//     form does not look broken and v2/v3 share one generator.
 //
 // An empty awgVersion is treated as "2" (the project default; see
 // awg.NormalizeAWGVersion). The caller is responsible for adding a
@@ -246,8 +236,6 @@ func GenerateAWGParams(profile ObfProfile, awgVersion string) (AWGParams, error)
 	switch awgVersion {
 	case "1.5":
 		h1, h2, h3, h4 = genHSingle(0), genHSingle(1), genHSingle(2), genHSingle(3)
-	case "3", "3.1":
-		h1, h2, h3, h4 = genHDefault(0), genHDefault(1), genHDefault(2), genHDefault(3)
 	default:
 		h1, h2, h3, h4 = genHRange(0), genHRange(1), genHRange(2), genHRange(3)
 	}

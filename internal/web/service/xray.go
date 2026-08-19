@@ -760,6 +760,7 @@ func injectSocksEgress(cfg *xray.Config, tag string, port int, outboundTag, logP
 		Port:     port,
 		Protocol: "socks",
 		Settings: json_util.RawMessage(mtprotoEgressSocksSettings),
+		Sniffing: json_util.RawMessage(awgEgressTunSniffing),
 		Tag:      tag,
 	})
 }
@@ -949,8 +950,9 @@ func injectOlcrtcEgress(cfg *xray.Config, inbound *model.Inbound) {
 }
 
 // injectMieruEgress wires a routed mieru inbound as a loopback SOCKS bridge.
-// mita's native egress.proxies SOCKS5 block dials it; mita resolves domains
-// itself, so Xray-side routing for this traffic is IP-based only.
+// mita's native egress.proxies SOCKS5 block dials it. mita resolves domains
+// itself (SOCKS CONNECT is an IP); sniffing on the bridge extracts SNI so
+// geosite/domain rules still match (same as AWG TUN).
 func injectMieruEgress(cfg *xray.Config, inbound *model.Inbound) {
 	cfgM, ok := tunnel.MieruConfigFromInbound(inbound)
 	if !ok || !cfgM.RouteThroughXray || cfgM.RouteXrayPort <= 0 || inbound.Tag == "" {
@@ -960,8 +962,9 @@ func injectMieruEgress(cfg *xray.Config, inbound *model.Inbound) {
 }
 
 // injectTrustTunnelEgress wires a routed TrustTunnel inbound as a loopback
-// SOCKS bridge. The endpoint's [forward_protocol.socks5] dials it; like
-// mieru, the endpoint resolves destinations itself (IP-based routing only).
+// SOCKS bridge. The endpoint's [forward_protocol.socks5] dials it. Like
+// mieru, the endpoint resolves destinations itself; sniffing on the bridge
+// extracts SNI so geosite/domain rules still match.
 func injectTrustTunnelEgress(cfg *xray.Config, inbound *model.Inbound) {
 	cfgT, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
 	if !ok || !cfgT.RouteThroughXray || cfgT.RouteXrayPort <= 0 || inbound.Tag == "" {

@@ -17,6 +17,7 @@ import (
 	"encoding/pem"
 	"fmt"
 	"net"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -434,6 +435,36 @@ func (c TrustTunnelConfig) ClientDeepLink(address string, pair AuthPair, remark 
 		payload = append(payload, ttTLV(0x0D, list)...)
 	}
 	return "tt://?" + base64.RawURLEncoding.EncodeToString(payload)
+}
+
+// ClientURI builds the Throne-compatible tt://user:pass@host:port share
+// link. Official TrustTunnel apps parse ClientDeepLink (TLV); Throne does
+// not and needs this URI form (tester repro lucx.139).
+func (c TrustTunnelConfig) ClientURI(address string, pair AuthPair, remark string) string {
+	address = strings.TrimSpace(address)
+	user := strings.TrimSpace(pair.User)
+	if address == "" || user == "" {
+		return ""
+	}
+	alpn := "h2"
+	if strings.EqualFold(strings.TrimSpace(c.UpstreamProtocol), "http3") {
+		alpn = "h3"
+	}
+	sni := strings.TrimSpace(c.Hostname)
+	var q []string
+	q = append(q, "security=tls")
+	if sni != "" {
+		q = append(q, "sni="+url.QueryEscape(sni))
+	}
+	q = append(q, "alpn="+alpn)
+	u := url.URL{
+		Scheme:   "tt",
+		User:     url.UserPassword(user, pair.Pass),
+		Host:     address,
+		RawQuery: strings.Join(q, "&"),
+		Fragment: strings.TrimSpace(remark),
+	}
+	return u.String()
 }
 
 // ListenPort extracts the port from the listen address (0 on parse failure).

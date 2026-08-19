@@ -229,6 +229,27 @@ func TestCertFileHash(t *testing.T) {
 	}
 }
 
+func TestTrustTunnelClientURI_Throne(t *testing.T) {
+	cfg := DefaultTrustTunnelConfig()
+	cfg.Hostname = "bgt3.intozwift.online"
+	got := cfg.ClientURI("bgt3.intozwift.online:8443",
+		AuthPair{User: "tr32ec152d1d", Pass: "s3F6-zCMYjCNgw3VAj8wTA36K1g"},
+		"I_am_PC")
+	want := "tt://tr32ec152d1d:s3F6-zCMYjCNgw3VAj8wTA36K1g@bgt3.intozwift.online:8443?security=tls&sni=bgt3.intozwift.online&alpn=h2#I_am_PC"
+	if got != want {
+		t.Fatalf("ClientURI =\n%s\nwant\n%s", got, want)
+	}
+	cfg.UpstreamProtocol = "http3"
+	got = cfg.ClientURI("bgt3.intozwift.online:8443",
+		AuthPair{User: "tr32ec152d1d", Pass: "s3F6-zCMYjCNgw3VAj8wTA36K1g"}, "")
+	if !strings.Contains(got, "alpn=h3") || strings.Contains(got, "alpn=h2") {
+		t.Fatalf("http3 must emit alpn=h3, got %s", got)
+	}
+	if cfg.ClientURI("", AuthPair{User: "u", Pass: "p"}, "") != "" {
+		t.Fatal("empty address must yield empty URI")
+	}
+}
+
 func TestTrustTunnelClientDeepLink(t *testing.T) {
 	cfg := DefaultTrustTunnelConfig()
 	cfg.Hostname = "vpn.example.com"

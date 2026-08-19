@@ -5,6 +5,58 @@
 
 ---
 
+## lucx.139 — H1–H4 v3, multi-AWG, Throne tt://, sniffing SOCKS (2026-08-19)
+
+**Репорты (чат 19.08):** (1) VladufQa — на AWG 3.0/3.1 после «Сгенерировать
+обфускацию» H1–H4 = 1/2/3/4, на AWG2 нормально; (2) ban 2+ AWG на клиента
+мешает людям с 3 Amnezia; (3) TrustTunnel `tt://?` TLV не импортируется в
+Throne — рабочий формат `tt://user:pass@host:port?security=tls&sni=&alpn=h2#`;
+(4) Андрей — geosite:youtube → direct срабатывает только на AWG2, mieru/
+hysteria/TT уходят в default (Германия).
+
+### 1. H1–H4 для 3 / 3.1 — ranges как у AWG2
+
+- `GenerateAWGParams`: ветка `"3"`/`"3.1"` убрана, падает в `genHRange`.
+  `genHDefault` удалён. HPK по-прежнему шифрует заголовок; H рандомим, чтобы
+  форма не выглядела сломанной.
+- **Rule 0:** живые инбаунды с H=1–4 не трогаем. Новый H — regenerate / новый
+  инбаунд.
+- Тесты: `HFormatByVersion` — `"3"`/`"3.1"` → dash, не `"1,2,3,4"`;
+  `HNarrowBands` + `"3"`/`"3.1"`.
+
+### 2. Снят бан multi-AWG
+
+- Удалены `checkAwgMultiAttach`, `countAwgInbounds`, вызовы в Create/Update/
+  BulkCreate, `TestCheckAwgMultiAttach`.
+- Оставлены `clearBroadcastTunnelIP` (не копирует один IP на все туннели) и
+  `AwgPeerAddresses` (свой Address в каждом .conf).
+
+### 3. TrustTunnel share = Throne URI
+
+- `ClientURI`: `tt://USER:PASS@HOST:PORT?security=tls&sni=Hostname&alpn=h2|h3#remark`.
+- `genTrustTunnelLink` → `ClientURI`. TLV `ClientDeepLink` не удалён
+  (официальное приложение), в подписку не кладётся.
+- Golden: образец тестера `tr32ec152d1d:s3F6-…@bgt3…:8443?…#I_am_PC`.
+
+### 4. sniffing на SOCKS-мосте сайдкаров
+
+- `injectSocksEgress` пишет тот же `awgEgressTunSniffing`, что AWG TUN.
+  Сайдкар резолвит домен сам (SOCKS CONNECT = IP); без sniffing
+  `geosite:youtube` молчит → default outbound. `routeOnly` — SNI только для
+  роутера.
+- Hysteria не затронута: нативный inbound, sniffing включается в форме
+  (default off).
+- Тест `TestInjectSocksEgress_SniffingRouteOnly`.
+
+### 5. В релиз с прошлого тега (не было своего тега)
+
+- `48e67bef` — подсказка «AWG · Stopped» = модуль загружен, инбаундов нет
+  (issue #60, aya2work).
+
+**lucxVersion:** lucx.139
+
+---
+
 ## lucx.138 (доп.) — подпись «AWG · Stopped» в Overview (issue #60, 2026-08-18)
 
 **Репорт #60 (aya2work):** после `x-ui install-awg` модуль загружен

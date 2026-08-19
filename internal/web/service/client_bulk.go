@@ -1317,14 +1317,6 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			bulkTargets = append(bulkTargets, ib)
 		}
 		tunnelN := countAwgOrWireguard(bulkTargets)
-		// LUCX-HOOK: a client cannot span multiple AWG inbounds (single clients-table
-		// wg_allowed_ips collapses per-inbound peer addresses to one — wrong .conf).
-		if err := checkAwgMultiAttach(bulkTargets); err != nil {
-			failed[idx] = true
-			reason[idx] = err.Error()
-			continue
-		}
-		// END LUCX-HOOK
 		for _, ibId := range prep[idx].inboundIds {
 			ib, _ := getIb(ibId)
 			if _, seen := byInbound[ibId]; !seen {
