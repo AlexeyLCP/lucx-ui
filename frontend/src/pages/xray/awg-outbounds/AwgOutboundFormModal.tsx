@@ -306,6 +306,10 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
         return;
       }
       const parsed = res.obj as AwgOutboundSettings;
+      if (!parsed.address?.trim() || !parsed.publicKey?.trim() || !parsed.endpoint?.trim()) {
+        messageApi.error(res.msg || t('pages.xray.awgOutbound.pasteConf'));
+        return;
+      }
       const current = methods.getValues();
       const merged: AwgOutboundFormValues = {
         ...current,
@@ -347,8 +351,6 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                 <FormField
                   label={t('pages.xray.awgOutbound.tag')}
                   name="tag"
-                  required
-                  rules={{ required: t('pages.xray.outboundForm.tagRequired') }}
                 >
                   <Input placeholder="awgo-1" />
                 </FormField>
@@ -596,10 +598,10 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                     <FormField name="maxHandshakeAttempts" label={t('pages.inbounds.form.awgMaxHandshakeAttempts')} tooltip={t('pages.inbounds.form.awgMaxHandshakeAttemptsHint')}>
                       <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
-                    <FormField name="randomTrailers" label={t('pages.inbounds.form.awgRandomTrailers')} tooltip={t('pages.inbounds.form.awgRandomTrailersHint')}>
+                    <FormField name="randomTrailers" label={t('pages.inbounds.form.awgRandomTrailers')} tooltip={t('pages.inbounds.form.awgRandomTrailersHint')} valueProp="checked">
                       <Switch />
                     </FormField>
-                    <FormField name="disableCookies" label={t('pages.inbounds.form.awgDisableCookies')} tooltip={t('pages.inbounds.form.awgDisableCookiesHint')}>
+                    <FormField name="disableCookies" label={t('pages.inbounds.form.awgDisableCookies')} tooltip={t('pages.inbounds.form.awgDisableCookiesHint')} valueProp="checked">
                       <Switch />
                     </FormField>
                   </Space>
@@ -625,7 +627,7 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
           rows={20}
           value={pasteText}
           onChange={(e) => setPasteText(e.target.value)}
-          placeholder={'[Interface]\n...\n[Peer]\n...'}
+          placeholder={'[Interface]\n...\n[Peer]\n...\n\nvpn://…'}
         />
       </Drawer>
     </>

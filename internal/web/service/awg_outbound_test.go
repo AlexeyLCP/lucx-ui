@@ -5,6 +5,7 @@ package service
 import (
 	"testing"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg/vpnuri"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
@@ -258,6 +259,85 @@ Endpoint = up:51820
 	}
 	if s.AwgVersion != "3" {
 		t.Errorf("AwgVersion = %q, want \"3\"", s.AwgVersion)
+	}
+}
+
+func TestParseConf_Awg31AllFields(t *testing.T) {
+	conf := `[Interface]
+PrivateKey = k
+Address = 10.9.0.5/32
+MTU = 1280
+Jc = 5
+Jmin = 10
+Jmax = 50
+S1 = 20
+S2 = 30
+S3 = 40
+S4 = 12
+H1 = 100-200
+H2 = 300-400
+H3 = 500-600
+H4 = 700-800
+HeaderProtectionKey = aBcD...base64hpk==
+ContentPaddingAddition = 10-64
+RekeyAfterTime = 100-120
+RekeyTimeout = 5-8
+RejectAfterTime = 180-200
+KeepaliveTimeout = 10-15
+MaxHandshakeAttempts = 3-6
+RandomTrailers = on
+DisableCookies = yes
+
+[Peer]
+PublicKey = pub
+PresharedKey = psk
+Endpoint = up:51820
+AllowedIPs = 0.0.0.0/0
+PersistentKeepalive = 15-25
+`
+	s, err := ParseConf(conf)
+	if err != nil {
+		t.Fatalf("ParseConf: %v", err)
+	}
+	if s.AwgVersion != "3.1" {
+		t.Errorf("AwgVersion = %q, want 3.1", s.AwgVersion)
+	}
+	if s.HeaderProtectionKey != "aBcD...base64hpk==" || !s.RandomTrailers || !s.DisableCookies {
+		t.Errorf("3.1 fields: hpk=%q trailers=%v cookies=%v", s.HeaderProtectionKey, s.RandomTrailers, s.DisableCookies)
+	}
+	if s.H1 != "100-200" || s.S4 != 12 || s.Keepalive != "15-25" {
+		t.Errorf("obf/keepalive: H1=%q S4=%d ka=%q", s.H1, s.S4, s.Keepalive)
+	}
+	if s.RekeyAfterTime != "100-120" || s.MaxHandshakeAttempts != "3-6" {
+		t.Errorf("timers: rekey=%q attempts=%q", s.RekeyAfterTime, s.MaxHandshakeAttempts)
+	}
+}
+
+func TestParseConf_VpnURI(t *testing.T) {
+	raw := `[Interface]
+PrivateKey = CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=
+Address = 10.200.0.2/32
+Jc = 4
+HeaderProtectionKey = aBcD==
+RandomTrailers = on
+
+[Peer]
+PublicKey = DGSYIcEKAUkA7HhzGSjxLZuV67BR3LeyU0BMLJzNVHQ=
+Endpoint = 1.2.3.4:51820
+`
+	uri, err := vpnuri.EncodeConf(raw)
+	if err != nil {
+		t.Fatalf("EncodeConf: %v", err)
+	}
+	s, err := ParseConf(uri)
+	if err != nil {
+		t.Fatalf("ParseConf vpn://: %v", err)
+	}
+	if s.Address != "10.200.0.2/32" || s.Endpoint != "1.2.3.4:51820" {
+		t.Errorf("unwrapped fields: addr=%q ep=%q", s.Address, s.Endpoint)
+	}
+	if s.AwgVersion != "3.1" || !s.RandomTrailers {
+		t.Errorf("version=%q trailers=%v", s.AwgVersion, s.RandomTrailers)
 	}
 }
 

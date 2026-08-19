@@ -5,6 +5,24 @@
 
 ---
 
+## lucx.141 — AWG outbound в пуле маршрутизации + paste vpn:// / 3.1 (2026-08-19)
+
+**Репорт:** добавил AWG outbound (.conf) — в пуле маршрутизации не появляется; подозрение, что 3.1-поля не парсятся.
+
+Поля 3.1 в outbound уже были (ParseConf / Zod / форма / `renderClientConf`). Ломалось другое.
+
+### Фикс
+
+- После add/update/enable/del инвалидируется `keys.xray.config()` (`staleTime: Infinity`) — тег сразу в дропдауне правил/балансеров.
+- `ParseConf` разворачивает `vpn://` и JSON-конверт Amnezia (`vpnuri`) до внутреннего `.conf`.
+- Switch `RandomTrailers` / `DisableCookies` — `valueProp="checked"` (outbound + inbound): после paste тумблеры показывают реальное значение.
+- Tag в форме необязателен (бэкенд сам ставит `awgo-{id}`); paste без Address/PublicKey/Endpoint больше не «успешный».
+- Тесты: `TestParseConf_Awg31AllFields`, `TestParseConf_VpnURI`.
+
+**lucxVersion:** lucx.141
+
+---
+
 ## lucx.140 — vpn:// JSON Amnezia, disable AWG с центра, keepalive 15-25, qWDTT sub, без auto-trailers (2026-08-19)
 
 **Репорты:** awg-manager не парсит `vpn://`; выключение AWG-клиента с центра сносит inboundIds; PersistentKeepalive снова 25 вместо 15-25; #59 qWDTT нет в подписке/аттаче; AWG 3.1 не коннектится в Amnezia 5.0.1.1 / NekoBox+.

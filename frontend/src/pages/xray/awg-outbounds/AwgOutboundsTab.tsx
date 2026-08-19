@@ -6,10 +6,12 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useQueryClient } from '@tanstack/react-query';
 import { Button, Popconfirm, Space, Table, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 
+import { keys } from '@/api/queryKeys';
 import { awgOutboundsApi } from '@/api/awg-outbounds';
 import type { AwgOutbound, AwgOutboundRow } from '@/schemas/awg-outbound';
 import { AwgOutboundStatusBadge, parseAwgOutboundStatus } from './AwgOutboundStatusBadge';
@@ -17,6 +19,7 @@ import { AwgOutboundFormModal } from './AwgOutboundFormModal';
 
 export function AwgOutboundsTab() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [rows, setRows] = useState<AwgOutboundRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
@@ -31,6 +34,11 @@ export function AwgOutboundsTab() {
     } finally {
       setLoading(false);
     }
+  }
+
+  function afterMutate() {
+    void reload();
+    void queryClient.invalidateQueries({ queryKey: keys.xray.config() });
   }
 
   useEffect(() => { void reload(); }, []);
@@ -51,7 +59,7 @@ export function AwgOutboundsTab() {
   async function handleEnable(row: AwgOutbound, enable: boolean) {
     try {
       await awgOutboundsApi.enable(row.id, enable);
-      await reload();
+      afterMutate();
     } catch (e) {
       messageApi.error((e as Error)?.message || 'failed');
     }
@@ -60,7 +68,7 @@ export function AwgOutboundsTab() {
   async function handleDel(row: AwgOutbound) {
     try {
       await awgOutboundsApi.del(row.id);
-      await reload();
+      afterMutate();
     } catch (e) {
       messageApi.error((e as Error)?.message || 'failed');
     }
@@ -131,7 +139,7 @@ export function AwgOutboundsTab() {
       <AwgOutboundFormModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onSaved={() => void reload()}
+        onSaved={afterMutate}
         initial={editing}
       />
     </>

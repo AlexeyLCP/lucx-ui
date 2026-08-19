@@ -627,6 +627,7 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
             name={['settings', 'randomTrailers']}
             label={t('pages.inbounds.form.awgRandomTrailers')}
             tooltip={t('pages.inbounds.form.awgRandomTrailersHint')}
+            valueProp="checked"
           >
             <Switch />
           </FormField>
@@ -634,6 +635,7 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
             name={['settings', 'disableCookies']}
             label={t('pages.inbounds.form.awgDisableCookies')}
             tooltip={t('pages.inbounds.form.awgDisableCookiesHint')}
+            valueProp="checked"
           >
             <Switch />
           </FormField>

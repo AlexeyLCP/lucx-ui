@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
+	"github.com/mhsanaei/3x-ui/v3/internal/awg/vpnuri"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
@@ -341,13 +342,38 @@ func (s *AwgOutboundService) GetOutbound(id int) (*model.AwgOutbound, error) {
 }
 
 // ParseConf parses a pasted awg-quick .conf and returns ClientSettings, used by
-// the "Paste .conf" UI drawer to autofill the form. Accepts configs of any AWG
-// version (1.5/2/3): it reads every field the file carries, including the AWG3
-// HeaderProtectionKey, and auto-detects the protocol version from the field set
-// so renderClientConf re-emits exactly the lines the source .conf had. Tolerates
-// whitespace and lines without values. Does NOT validate mandatory fields
-// (caller does). Exported so the controller can call service.ParseConf.
+// the "Paste .conf" UI drawer to autofill the form. Also unwraps a vpn:// URI
+// or Amnezia JSON envelope (lucx.140 container) down to the inner .conf.
+// Accepts configs of any AWG version (1.5/2/3/3.1): it reads every field the
+// file carries, including HeaderProtectionKey, AWG3 timers, RandomTrailers and
+// DisableCookies, and auto-detects the protocol version from the field set so
+// renderClientConf re-emits the same lines. Tolerates whitespace and lines
+// without values. Does NOT validate mandatory fields (caller does).
+func unwrapOutboundConf(text string) string {
+	s := strings.TrimSpace(text)
+	if s == "" {
+		return text
+	}
+	if strings.HasPrefix(s, "vpn://") {
+		payload, err := vpnuri.Decode(s)
+		if err != nil {
+			return text
+		}
+		if conf, err := vpnuri.ConfFromPayload(payload); err == nil {
+			return conf
+		}
+		return text
+	}
+	if strings.HasPrefix(s, "{") {
+		if conf, err := vpnuri.ConfFromPayload([]byte(s)); err == nil {
+			return conf
+		}
+	}
+	return text
+}
+
 func ParseConf(text string) (awg.ClientSettings, error) {
+	text = unwrapOutboundConf(text)
 	var s awg.ClientSettings
 	section := ""
 	for _, raw := range strings.Split(text, "\n") {
