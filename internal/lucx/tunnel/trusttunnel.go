@@ -439,7 +439,8 @@ func (c TrustTunnelConfig) ClientDeepLink(address string, pair AuthPair, remark 
 
 // ClientURI builds the Throne-compatible tt://user:pass@host:port share
 // link. Official TrustTunnel apps parse ClientDeepLink (TLV); Throne does
-// not and needs this URI form (tester repro lucx.139).
+// not and needs this URI form (tester repro lucx.139). A configured
+// client_random_prefix is appended as a query param (lucx.142).
 func (c TrustTunnelConfig) ClientURI(address string, pair AuthPair, remark string) string {
 	address = strings.TrimSpace(address)
 	user := strings.TrimSpace(pair.User)
@@ -457,6 +458,9 @@ func (c TrustTunnelConfig) ClientURI(address string, pair AuthPair, remark strin
 		q = append(q, "sni="+url.QueryEscape(sni))
 	}
 	q = append(q, "alpn="+alpn)
+	if p := strings.TrimSpace(c.ClientRandomPrefix); ValidClientRandomPrefix(p) {
+		q = append(q, "client_random_prefix="+url.QueryEscape(p))
+	}
 	u := url.URL{
 		Scheme:   "tt",
 		User:     url.UserPassword(user, pair.Pass),

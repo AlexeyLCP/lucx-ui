@@ -5,6 +5,24 @@
 
 ---
 
+## lucx.142 — TrustTunnel tt:// client_random_prefix (2026-08-19)
+
+**Report (doc. bravn):** the client `tt://` link does not carry client random
+prefix, even though the inbound has it enabled and generated.
+
+The prefix was already written to `rules.toml` and official TLV `tt://?` (0x0B),
+but subscription/QR after lucx.139 emit only the Throne URI without that field.
+
+### Fix
+
+- `ClientURI` appends `client_random_prefix=` (URL-encoded hex/mask).
+- `genTrustTunnelLink` unchanged — already calls `ClientURI`.
+- Test: `TestTrustTunnelClientURI_Throne` — prefix in query.
+
+**lucxVersion:** lucx.142
+
+---
+
 ## lucx.141 — AWG outbound в пуле маршрутизации + paste vpn:// / 3.1 (2026-08-19)
 
 **Репорт:** добавил AWG outbound (.conf) — в пуле маршрутизации не появляется; подозрение, что 3.1-поля не парсятся.
