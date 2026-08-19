@@ -5,6 +5,40 @@
 
 ---
 
+## lucx.140 — vpn:// JSON Amnezia, disable AWG с центра, keepalive 15-25, qWDTT sub, без auto-trailers (2026-08-19)
+
+**Репорты:** awg-manager не парсит `vpn://`; выключение AWG-клиента с центра сносит inboundIds; PersistentKeepalive снова 25 вместо 15-25; #59 qWDTT нет в подписке/аттаче; AWG 3.1 не коннектится в Amnezia 5.0.1.1 / NekoBox+.
+
+### 1. vpn:// — канон Amnezia JSON
+
+- `EncodeConf` кладёт `.conf` в `containers[].awg.last_config` (JSON-строка с `"config"`).
+- NekoBox+ и awg-manager едят только этот конверт. AmneziaVPN — оба.
+- `Decode` + `ConfFromPayload` принимают JSON и легаси-сырой `.conf`.
+- `/awg/` без `?format=vpn` не трогали.
+
+### 2. Disable AWG с центра
+
+- Clients page `setEnable` → `bulkEnable`/`bulkDisable` (только флаг, полный Update больше не шлётся).
+- Snapshot: пустой `GetClients` при живых `client_inbounds` не зовёт `SyncInbound`.
+
+### 3. PersistentKeepalive дефолт
+
+- Пустое поле: AWG3/3.1 → `"15-25"`, AWG2/1.5 → `"25"`. Живые `"25"` не мигрируем.
+- Форма: дефолт по потолку выбранного инбаунда. Экспорт `wg://` больше не роняет диапазон через `Number()`.
+
+### 4. #59 qWDTT
+
+- `qwdtt`/`olcrtc` в аттач-пикере. Attach/detach только `client_inbounds` (в settings нет `clients[]`).
+- Подписка: `qwdtt://` + `wdtt://` (LegacyURI). `ParseLink` принимает оба + `olcrtc://`.
+
+### 5. RandomTrailers не auto-on
+
+- `generateObfuscation` для 3.1 больше не ставит `randomTrailers=true`. Хвосты must-match; текущие GUI-клиенты handshake роняют.
+
+**lucxVersion:** lucx.140
+
+---
+
 ## lucx.139 — H1–H4 v3, multi-AWG, Throne tt://, sniffing SOCKS (2026-08-19)
 
 **Репорты (чат 19.08):** (1) VladufQa — на AWG 3.0/3.1 после «Сгенерировать

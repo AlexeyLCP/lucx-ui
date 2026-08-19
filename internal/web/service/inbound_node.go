@@ -971,6 +971,10 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 				}
 			}
 		}
+		if len(filtered) == 0 && len(oldEmailsRows) > 0 {
+			logger.Warningf("setRemoteTraffic: skip empty sync for tag %q (%d existing attachments)", snapIb.Tag, len(oldEmailsRows))
+			continue
+		}
 		if err := s.clientService.SyncInbound(tx, c.Id, filtered); err != nil {
 			logger.Warningf("setRemoteTraffic: sync clients for tag %q failed: %v", snapIb.Tag, err)
 		}

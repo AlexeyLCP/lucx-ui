@@ -124,9 +124,10 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		resp["keepaliveTimeout"] = timers.KeepaliveTimeout
 		resp["maxHandshakeAttempts"] = timers.MaxHandshakeAttempts
 	}
-	if awg.IsAwg31(req.AwgVersion) && awg.ModuleSupportsAwg31() {
-		resp["randomTrailers"] = true
-	}
+	// 3.1 extras (RandomTrailers / DisableCookies) stay off unless the
+	// operator flips them. Auto-on RandomTrailers breaks handshake with
+	// every current GUI client (Amnezia 5.0.1.1, NekoBox+) — no wire
+	// negotiation, silent drop.
 	jsonObj(c, resp, nil)
 }
 

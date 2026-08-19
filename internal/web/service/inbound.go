@@ -1868,7 +1868,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
 			if ic, ok := settings["clients"].([]any); ok {
 				serverAddr := awgSettingsAddress(inbound.Settings)
-				if err3 := defaultAwgClients(nil, clients, ic, serverAddr); err3 != nil {
+				if err3 := defaultAwgClients(nil, clients, ic, serverAddr, awgSettingsVersion(inbound.Settings)); err3 != nil {
 					return inbound, false, err3
 				}
 				settings["clients"] = ic
@@ -2319,7 +2319,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
 				if ic, ok := settings["clients"].([]any); ok {
 					serverAddr := awgSettingsAddress(inbound.Settings)
-					if err3 := defaultAwgClients(existingClients, newClients, ic, serverAddr); err3 != nil {
+					if err3 := defaultAwgClients(existingClients, newClients, ic, serverAddr, awgSettingsVersion(inbound.Settings)); err3 != nil {
 						return inbound, false, err3
 					}
 					settings["clients"] = ic
@@ -2550,12 +2550,14 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		if err := tx.Save(oldInbound).Error; err != nil {
 			return err
 		}
-		newClients, gcErr := s.GetClients(oldInbound)
-		if gcErr != nil {
-			return gcErr
-		}
-		if err := s.clientService.SyncInbound(tx, oldInbound.Id, newClients); err != nil {
-			return err
+		if !shareOnlySidecar(oldInbound.Protocol) {
+			newClients, gcErr := s.GetClients(oldInbound)
+			if gcErr != nil {
+				return gcErr
+			}
+			if err := s.clientService.SyncInbound(tx, oldInbound.Id, newClients); err != nil {
+				return err
+			}
 		}
 		if oldInbound.NodeID != nil {
 			if err := (&NodeService{}).MarkNodeDirtyTx(tx, *oldInbound.NodeID); err != nil {

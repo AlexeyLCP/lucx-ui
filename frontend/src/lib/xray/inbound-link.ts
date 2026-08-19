@@ -935,7 +935,10 @@ export function wireguardConfigFromLink(link: string, fallbackRemark = ''): stri
   lines.push('[Peer]', `PublicKey = ${publicKey}`);
   if (psk) lines.push(`PresharedKey = ${psk}`);
   lines.push(`AllowedIPs = ${allowedIPs}`, `Endpoint = ${endpoint}`);
-  if (keepAlive && Number(keepAlive) > 0) lines.push(`PersistentKeepalive = ${keepAlive}`);
+  {
+    const ka = awgTimerEmit(keepAlive);
+    if (ka) lines.push(`PersistentKeepalive = ${ka}`);
+  }
   return lines.join('\n');
 }
 
@@ -1274,6 +1277,7 @@ export function genQwdttLink(input: GenQwdttLinkInput): string {
     vkHashes?: string;
     workers?: number;
     clientPort?: number;
+    wgPort?: number;
     remark?: string;
   };
   const pass = (s.password ?? '').trim();
@@ -1299,7 +1303,24 @@ export function genQwdttLink(input: GenQwdttLinkInput): string {
   q.set('workers', String(s.workers && s.workers > 0 ? s.workers : 16));
   q.set('port', String(s.clientPort && s.clientPort > 0 ? s.clientPort : 9000));
   q.set('pass', pass);
-  return `qwdtt://config?${q.toString()}`;
+  const modern = `qwdtt://config?${q.toString()}`;
+  const firstHash = hashes.split(',')[0]?.trim() || '';
+  let host = peer;
+  if (peer.includes(':') && !peer.startsWith('[')) {
+    host = peer.slice(0, peer.lastIndexOf(':'));
+  }
+  let dtlsPort = input.inbound.port || 56000;
+  const la = (s.listenAddr ?? '').trim();
+  if (la.includes(':')) {
+    const p = Number(la.slice(la.lastIndexOf(':') + 1));
+    if (Number.isFinite(p) && p > 0) dtlsPort = p;
+  }
+  const wgPort = s.wgPort && s.wgPort > 0 ? s.wgPort : 56001;
+  const clientPort = s.clientPort && s.clientPort > 0 ? s.clientPort : 9000;
+  if (firstHash) {
+    return `${modern}\nwdtt://${host}:${dtlsPort}:${wgPort}:${clientPort}:${pass}:${firstHash}`;
+  }
+  return modern;
 }
 
 export interface GenOlcrtcLinkInput {

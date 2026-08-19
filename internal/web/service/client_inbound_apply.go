@@ -19,6 +19,61 @@ import (
 	"gorm.io/gorm"
 )
 
+func shareOnlySidecar(p model.Protocol) bool {
+	return p == model.Qwdtt || p == model.Olcrtc
+}
+
+func (s *ClientService) attachShareOnly(inboundId int, added []model.Client) (bool, error) {
+	existing, err := s.ListForInbound(nil, inboundId)
+	if err != nil {
+		return false, err
+	}
+	seen := make(map[string]struct{}, len(existing)+len(added))
+	combined := make([]model.Client, 0, len(existing)+len(added))
+	for _, c := range existing {
+		if c.Email == "" {
+			continue
+		}
+		seen[strings.ToLower(c.Email)] = struct{}{}
+		combined = append(combined, c)
+	}
+	for _, c := range added {
+		if c.Email == "" {
+			continue
+		}
+		if _, ok := seen[strings.ToLower(c.Email)]; ok {
+			continue
+		}
+		combined = append(combined, c)
+	}
+	return false, runSerializedTx(func(tx *gorm.DB) error {
+		return s.SyncInbound(tx, inboundId, combined)
+	})
+}
+
+func (s *ClientService) detachShareOnly(inboundId int, email string) error {
+	existing, err := s.ListForInbound(nil, inboundId)
+	if err != nil {
+		return err
+	}
+	want := strings.ToLower(strings.TrimSpace(email))
+	kept := existing[:0]
+	found := false
+	for _, c := range existing {
+		if strings.ToLower(c.Email) == want {
+			found = true
+			continue
+		}
+		kept = append(kept, c)
+	}
+	if !found {
+		return fmt.Errorf("%w for email: %s", ErrClientNotInInbound, email)
+	}
+	return runSerializedTx(func(tx *gorm.DB) error {
+		return s.SyncInbound(tx, inboundId, kept)
+	})
+}
+
 func sameClientConfigExceptUpdatedAt(a, b map[string]any) bool {
 	aa := maps.Clone(a)
 	bb := maps.Clone(b)
@@ -318,6 +373,9 @@ func (s *ClientService) addInboundClient(inboundSvc *InboundService, data *model
 	if err != nil {
 		return false, err
 	}
+	if shareOnlySidecar(oldInbound.Protocol) {
+		return s.attachShareOnly(oldInbound.Id, clients)
+	}
 
 	existingClients, err := inboundSvc.GetClients(oldInbound)
 	if err != nil {
@@ -368,7 +426,7 @@ func (s *ClientService) addInboundClient(inboundSvc *InboundService, data *model
 	// hardcoded pool, so non-default subnets get correctly routed addresses.
 	if oldInbound.Protocol == model.AWG {
 		serverAddr := awgSettingsAddress(oldInbound.Settings)
-		if dErr := defaultAwgClients(existingClients, clients, interfaceClients, serverAddr); dErr != nil {
+		if dErr := defaultAwgClients(existingClients, clients, interfaceClients, serverAddr, awgSettingsVersion(oldInbound.Settings)); dErr != nil {
 			return false, dErr
 		}
 	}
@@ -983,6 +1041,9 @@ func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inbo
 	if err != nil {
 		logger.Error("Load Old Data Error")
 		return false, err
+	}
+	if shareOnlySidecar(oldInbound.Protocol) {
+		return false, s.detachShareOnly(inboundId, email)
 	}
 
 	var settings map[string]any

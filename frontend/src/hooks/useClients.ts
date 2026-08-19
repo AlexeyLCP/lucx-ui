@@ -601,31 +601,8 @@ export function useClients(options: UseClientsOptions = {}) {
 
   const setEnable = useCallback(async (client: ClientRecord, enable: boolean) => {
     if (!client?.email) return null;
-    const full = await hydrate(client.email);
-    const base = full?.client;
-    if (!base) return null;
-    const payload: Record<string, unknown> = {
-      email: base.email,
-      subId: base.subId,
-      id: base.uuid,
-      password: base.password,
-      auth: base.auth,
-      flow: base.flow || '',
-      security: base.security || 'auto',
-      totalGB: base.totalGB || 0,
-      expiryTime: base.expiryTime || 0,
-      limitIp: base.limitIp || 0,
-      tgId: Number(base.tgId) || 0,
-      reset: Number(base.reset) || 0,
-      group: base.group || '',
-      comment: base.comment || '',
-      enable: !!enable,
-    };
-    if (base.reverse?.tag) {
-      payload.reverse = { tag: base.reverse.tag };
-    }
-    return update(client.email, payload);
-  }, [hydrate, update]);
+    return enable ? bulkEnable([client.email]) : bulkDisable([client.email]);
+  }, [bulkEnable, bulkDisable]);
 
   // WS-driven in-place merges. Page wires these via useWebSocket; the bridge
   // covers coarse 'invalidate' and 'inbounds' events centrally.

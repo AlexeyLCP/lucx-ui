@@ -255,3 +255,19 @@ func TestSlugAndSuggest(t *testing.T) {
 		t.Errorf("unicode suggest tag got %q", got)
 	}
 }
+
+func TestParseLink_QwdttAndWdtt(t *testing.T) {
+	for _, raw := range []string{
+		"qwdtt://config?name=Home&peer=1.2.3.4%3A56000&pass=x",
+		"wdtt://1.2.3.4:56000:56001:9000:pass:abc",
+		"olcrtc://jitsi?datachannel@https://meet.jit.si/r#key",
+	} {
+		res, err := ParseLink(raw)
+		if err != nil {
+			t.Fatalf("ParseLink(%q): %v", raw, err)
+		}
+		if res == nil || res.Identity != raw {
+			t.Fatalf("ParseLink(%q) identity = %v", raw, res)
+		}
+	}
+}

@@ -867,7 +867,15 @@ func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 	if !ok || !inbound.Enable {
 		return ""
 	}
-	return cfg.EnsureSubHost().ClientURI()
+	cfg = cfg.EnsureSubHost()
+	uri := cfg.ClientURI()
+	if legacy := cfg.LegacyURI(); legacy != "" {
+		if uri != "" {
+			return uri + "\n" + legacy
+		}
+		return legacy
+	}
+	return uri
 }
 
 // genNaiveLink builds naive+https://user:pass@domain:port#email for a client

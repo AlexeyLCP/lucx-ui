@@ -215,7 +215,7 @@ func TestFillAwgClients(t *testing.T) {
 			{Email: "alice", PublicKey: "PUBA", PreSharedKey: "PSKA", AllowedIPs: []string{"10.200.0.2/32"}},
 			{Email: "bob", PublicKey: "PUBB", PreSharedKey: "PSKB", AllowedIPs: []string{"10.200.0.3/32"}},
 		}
-		if err := fillAwgClients(existing, clients, nil, base, nil); err != nil {
+		if err := fillAwgClients(existing, clients, nil, base, nil, "25"); err != nil {
 			t.Fatalf("unchanged clients must save, got %v", err)
 		}
 	})
@@ -226,7 +226,7 @@ func TestFillAwgClients(t *testing.T) {
 		clients := []model.Client{
 			{Email: "alice2", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
 		}
-		if err := fillAwgClients(existing, clients, nil, base, nil); err != nil {
+		if err := fillAwgClients(existing, clients, nil, base, nil, "25"); err != nil {
 			t.Fatalf("renamed client must keep its IP, got %v", err)
 		}
 	})
@@ -238,7 +238,7 @@ func TestFillAwgClients(t *testing.T) {
 			{Email: "alice", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
 			{Email: "carol", PublicKey: "PUBC", AllowedIPs: []string{"10.200.0.2/32"}},
 		}
-		err := fillAwgClients(existing, clients, nil, base, nil)
+		err := fillAwgClients(existing, clients, nil, base, nil, "25")
 		if err == nil {
 			t.Fatal("carol taking alice's IP must be rejected")
 		}
@@ -254,7 +254,7 @@ func TestFillAwgClients(t *testing.T) {
 			{Email: "alice", PublicKey: "PUBA", AllowedIPs: []string{"10.200.0.2/32"}},
 			{Email: "dave"},
 		}
-		if err := fillAwgClients(existing, clients, nil, base, nil); err != nil {
+		if err := fillAwgClients(existing, clients, nil, base, nil, "25"); err != nil {
 			t.Fatalf("blank client must allocate, got %v", err)
 		}
 		if len(clients[1].AllowedIPs) == 0 || clients[1].AllowedIPs[0] == "10.200.0.2/32" {
@@ -262,6 +262,29 @@ func TestFillAwgClients(t *testing.T) {
 		}
 		if clients[1].PublicKey == "" || clients[1].PrivateKey == "" {
 			t.Fatalf("dave must get a keypair, got pub=%q priv=%q", clients[1].PublicKey, clients[1].PrivateKey)
+		}
+	})
+	t.Run("empty keepalive defaults by version", func(t *testing.T) {
+		v2 := []model.Client{{Email: "a", PublicKey: "P", PreSharedKey: "S", AllowedIPs: []string{"10.200.0.2/32"}}}
+		if err := fillAwgClients(nil, v2, nil, base, nil, defaultAwgKeepAlive("2")); err != nil {
+			t.Fatal(err)
+		}
+		if v2[0].KeepAlive.String() != "25" {
+			t.Fatalf("v2 keepAlive = %q, want 25", v2[0].KeepAlive)
+		}
+		v3 := []model.Client{{Email: "b", PublicKey: "Q", PreSharedKey: "S", AllowedIPs: []string{"10.200.0.3/32"}}}
+		if err := fillAwgClients(nil, v3, nil, base, nil, defaultAwgKeepAlive("3")); err != nil {
+			t.Fatal(err)
+		}
+		if v3[0].KeepAlive.String() != "15-25" {
+			t.Fatalf("v3 keepAlive = %q, want 15-25", v3[0].KeepAlive)
+		}
+		v31 := []model.Client{{Email: "c", PublicKey: "R", PreSharedKey: "S", AllowedIPs: []string{"10.200.0.4/32"}}}
+		if err := fillAwgClients(nil, v31, nil, base, nil, defaultAwgKeepAlive("3.1")); err != nil {
+			t.Fatal(err)
+		}
+		if v31[0].KeepAlive.String() != "15-25" {
+			t.Fatalf("v3.1 keepAlive = %q, want 15-25", v31[0].KeepAlive)
 		}
 	})
 }

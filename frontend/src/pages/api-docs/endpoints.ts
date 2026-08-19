@@ -219,7 +219,7 @@ export const sections: readonly Section[] = [
       {
         method: 'POST',
         path: '/panel/api/inbounds/awg/generateObfuscation',
-        summary: 'Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. For awgVersion "3"/"3.1" on an AWG3-capable host also returns HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges. For "3.1" on tools ≥ v3.1 also returns randomTrailers=true. LucX-UI only.',
+        summary: 'Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. For awgVersion "3"/"3.1" on an AWG3-capable host also returns HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges. RandomTrailers is never auto-enabled. LucX-UI only.',
         params: [
           { name: 'obfProfile', in: 'body', type: 'string', desc: 'Obfuscation preset: "lite", "standard", or "pro".' },
           { name: 'mimicryProfile', in: 'body', type: 'string', desc: 'CPS mimicry type: "tls", "dns", "sip", or "quic".' },
@@ -227,7 +227,7 @@ export const sections: readonly Section[] = [
           { name: 'region', in: 'body', type: 'string', desc: 'Domain pool region: "ru" or "world".' },
           { name: 'domain', in: 'body', type: 'string', desc: 'Optional explicit domain for CPS capture.' },
           { name: 'fullI1I5', in: 'body', type: 'boolean', desc: 'When true, generate all five CPS packets; when false, only I1.' },
-          { name: 'awgVersion', in: 'body', type: 'string', desc: 'Target AmneziaWG version: "1.5", "2", "3", or "3.1". When "3" or "3.1" (and the host supports AWG3) the response adds headerProtectionKey plus the six timer/padding ranges. When "3.1" (and tools ≥ v3.1) also randomTrailers=true.' },
+          { name: 'awgVersion', in: 'body', type: 'string', desc: 'Target AmneziaWG version: "1.5", "2", "3", or "3.1". When "3" or "3.1" (and the host supports AWG3) the response adds headerProtectionKey plus the six timer/padding ranges. RandomTrailers is never auto-enabled (must-match; current GUI clients drop the handshake).' },
         ],
       },
       {

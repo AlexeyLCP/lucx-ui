@@ -123,9 +123,20 @@ func ParseLink(link string) (*ParseResult, error) {
 		return parseHysteria2(link)
 	case strings.HasPrefix(link, "wireguard://"), strings.HasPrefix(link, "wg://"):
 		return parseWireguard(link)
+	case strings.HasPrefix(link, "qwdtt://"), strings.HasPrefix(link, "wdtt://"):
+		return opaqueShareLink(link, "qwdtt")
+	case strings.HasPrefix(link, "olcrtc://"):
+		return opaqueShareLink(link, "olcrtc")
 	default:
 		return nil, fmt.Errorf("unsupported link scheme")
 	}
+}
+
+func opaqueShareLink(raw, proto string) (*ParseResult, error) {
+	return &ParseResult{
+		Outbound: Outbound{"protocol": proto, "settings": map[string]any{"link": raw}},
+		Identity: raw,
+	}, nil
 }
 
 // --- vmess ---
@@ -163,10 +174,10 @@ func parseVmess(link string) (*ParseResult, error) {
 	case "grpc":
 		svc := getString(j, "path", "")
 		if auth, ok := j["authority"].(string); ok && auth != "" {
-			(stream["grpcSettings"].(map[string]any))["authority"] = auth
+			stream["grpcSettings"].(map[string]any)["authority"] = auth
 		}
-		(stream["grpcSettings"].(map[string]any))["serviceName"] = svc
-		(stream["grpcSettings"].(map[string]any))["multiMode"] = getString(j, "type", "") == "multi"
+		stream["grpcSettings"].(map[string]any)["serviceName"] = svc
+		stream["grpcSettings"].(map[string]any)["multiMode"] = getString(j, "type", "") == "multi"
 	case "httpupgrade":
 		setHTTPUpgrade(stream, getString(j, "host", ""), getString(j, "path", "/"))
 	case "xhttp":

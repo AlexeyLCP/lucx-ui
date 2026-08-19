@@ -39,7 +39,7 @@ const FLOW_OPTIONS = Object.values(TLS_FLOW_CONTROL);
 const VMESS_SECURITY_OPTIONS = ['auto', 'aes-128-gcm', 'chacha20-poly1305'] as const;
 
 const MULTI_CLIENT_PROTOCOLS = new Set([
-  'shadowsocks', 'vless', 'vmess', 'trojan', 'hysteria', 'wireguard', 'mtproto', 'awg', 'naive', 'mieru', 'trusttunnel', // LUCX-HOOK: AWG + Naive + mieru + TrustTunnel
+  'shadowsocks', 'vless', 'vmess', 'trojan', 'hysteria', 'wireguard', 'mtproto', 'awg', 'naive', 'mieru', 'trusttunnel', 'qwdtt', 'olcrtc',
 ]);
 
 const CLIENT_FORM_MODAL_Z_INDEX = 1000;
@@ -381,6 +381,13 @@ export default function ClientFormModal({
     () => (inboundIds || []).some((id) => awgIds.has(id)),
     [inboundIds, awgIds],
   );
+  const awg3Selected = useMemo(
+    () => (inboundIds || []).some((id) => {
+      const ib = (inbounds || []).find((row) => row.id === id);
+      return ib?.protocol === 'awg' && (ib.awgVersion === '3' || ib.awgVersion === '3.1');
+    }),
+    [inboundIds, inbounds],
+  );
   // LUCX-HOOK: AWG — derive the allowedIPs placeholder from the selected
   // AWG inbound's tunnel subnet (awgServerAddress, e.g. "10.10.0.1/24" →
   // "10.10.0.2/32"). A stale hardcoded placeholder misled users on non-default
@@ -402,6 +409,11 @@ export default function ClientFormModal({
     }
     return '10.200.0.2/32';
   }, [inboundIds, inbounds]);
+
+  useEffect(() => {
+    if (!open || isEdit || !showAwg) return;
+    methods.setValue('wgKeepAlive', awg3Selected ? '15-25' : '25');
+  }, [open, isEdit, showAwg, awg3Selected, methods]);
   // END LUCX-HOOK
 
   function regenerateWireguardKeys() {

@@ -13,6 +13,7 @@ import (
 	"net/netip"
 	"strings"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
@@ -88,6 +89,23 @@ func awgSettingsAddress(settings string) string {
 		return ""
 	}
 	return s.Address
+}
+
+func awgSettingsVersion(settings string) string {
+	var s struct {
+		AwgVersion string `json:"awgVersion"`
+	}
+	if err := json.Unmarshal([]byte(settings), &s); err != nil {
+		return ""
+	}
+	return s.AwgVersion
+}
+
+func defaultAwgKeepAlive(version string) model.KeepAliveValue {
+	if awg.IsAwg3Plus(version) {
+		return "15-25"
+	}
+	return "25"
 }
 
 // awgSettingsClientIPs returns the single-host client tunnel addresses found in
@@ -244,7 +262,7 @@ func anyStringSlice(v any) []string {
 // hardcoded pool — otherwise a first client on a non-default tunnel subnet
 // would get an address the server never routes (caught live on a 10.9.0.1/24
 // inbound whose first client received 10.8.0.2).
-func defaultAwgClients(existing, clients []model.Client, interfaceClients []any, serverAddr string) error {
+func defaultAwgClients(existing, clients []model.Client, interfaceClients []any, serverAddr, awgVersion string) error {
 	var extraUsed []string
 	// LUCX-HOOK: AWG outbound collision guard — exclude tunnel IPs already
 	// claimed by enabled AWG outbounds (awgo-N kernel interfaces). Without
@@ -266,7 +284,7 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 	// awg-quick up installs a colliding /32 → RTNETLINK "File exists" → the
 	// interface rolls back ("Device awgN does not exist"). `used` stays an
 	// exclusion set; only the base source changes.
-	return fillAwgClients(existing, clients, interfaceClients, awgAllocationFallback(serverAddr), extraUsed)
+	return fillAwgClients(existing, clients, interfaceClients, awgAllocationFallback(serverAddr), extraUsed, defaultAwgKeepAlive(awgVersion))
 }
 
 // fillAwgClients is the pure core of defaultAwgClients (no DB access) so the
@@ -279,7 +297,10 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 // in the exclusion set and block saving any edit on an AWG inbound that has
 // clients (lucx.127, reporter: tester Malderin "allowedIPs entry already used
 // by another client" on a plain metadata edit).
-func fillAwgClients(existing, clients []model.Client, interfaceClients []any, base string, extraUsed []string) error {
+func fillAwgClients(existing, clients []model.Client, interfaceClients []any, base string, extraUsed []string, keepDefault model.KeepAliveValue) error {
+	if keepDefault.IsZero() {
+		keepDefault = "25"
+	}
 	used := make([]string, 0, len(extraUsed)+len(existing))
 	used = append(used, extraUsed...)
 	own := make(map[string]map[string]struct{}, 2*len(existing))
@@ -354,7 +375,7 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 		}
 		used = append(used, c.AllowedIPs...)
 		if c.KeepAlive.IsZero() {
-			c.KeepAlive = "25"
+			c.KeepAlive = keepDefault
 		}
 
 		if i < len(interfaceClients) {
