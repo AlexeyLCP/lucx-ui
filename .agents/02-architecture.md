@@ -1,0 +1,146 @@
+# 02 — Architecture
+
+Extracted from AGENTS.md. This file is project law.
+Sidecar rules 3 / 3b live here (not in 05-rules) so session start stays small.
+Upstream 3x-ui map: `docs/architecture.md` and `CLAUDE.md` — on demand only.
+
+---
+
+### 3. AWG Sidecar Architecture (mirrors mtproto)
+
+AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactly symmetric with `internal/mtproto.Manager`:
+
+- **Manager** (`internal/awg/manager.go`): singleton with `Ensure`/`Reconcile`/`StopAll`/`CollectTraffic`/`SyncPeers`, fingerprint-based restart on config change, orphan sweep at first call. Reconcile-loop convergence: `ensureXrayRouting` (routeThroughXray: table/rule into tunN, dies with tunN on Xray restart) + `ensureNatRules` (kernel NAT: MASQUERADE/FORWARD, dies on iptables flush — fail2ban/docker).
+- **Process** (`internal/awg/process.go`): wraps `awg-quick up/down` (kernel interface lifecycle, not a daemon). No tun2socks — routing is via Xray TUN inbound.
+- **Instance** (`internal/awg/instance.go`): desired runtime state + `InstanceFromInbound` + `fingerprint`.
+- **Traffic** (`internal/awg/manager.go`, merged from traffic.go): `awg show <iface> transfer` parsing for per-peer byte accounting (replaces mtg's Prometheus HTTP scrape).
+- **Diagnostics** (`internal/awg/diagnostics.go`): read-only probe chain (interface UP, ip_forward, peers/handshakes, then mode-specific: MASQUERADE+FORWARD or tunN+rule+table). `Diagnose(inst)` → ordered `DiagCheck`s with evidence details; served by `GET /panel/api/inbounds/:id/awgDiagnostics` and rendered by the AWG form's diagnostics modal. Fixes belong to reconcile — diagnostics only makes failures visible.
+- **Platform** (`internal/awg/platform_{linux,other}.go`): `defaultRouteInterface()` for MASQUERADE target + sweep of orphaned awg interfaces from a previous x-ui run.
+- **Job** (`internal/web/job/awg_job.go`): cron `@every 10s` — Reconcile desired inbounds + fold inbound/per-client traffic deltas + RefreshLocalOnlineClients (AWG online status comes from fresh handshakes, not Xray stats). **Live speed (lucx.135):** each tick stores its deltas, normalized to the 5s window, in `awg_speed_buffer.go` (sticky snapshot, TTL 20s); `XrayTrafficJob` folds them into its 5s broadcast frame (LUCX-HOOK) so the Clients/Inbounds speed columns cover AWG, which Xray's stats API never sees.
+- **Egress** (`internal/web/service/xray.go:injectAwgEgress`): inject TUN inbound into generated Xray config when `routeThroughXray` is set, symmetric with `injectMtprotoEgress`. Per-inbound gateway `10.254.(N%254).1/30` (separate /30 subnet, never conflicts with AWG tunnel subnet). Sniffing `{http,tls,quic, routeOnly:true}` on TUN inbound so domain/geosite rules work for AWG traffic.
+- **Runtime** (`internal/web/runtime/local.go`): delegate AWG `AddInbound`/`DelInbound` to `awg.GetManager()`; `AddUser`/`RemoveUser` are no-ops (peer sync via Reconcile).
+- **CPS** (`internal/awg/cps/`): CPS packet generators (TLS/DNS/SIP/QUIC) + AWGParams (Jc/Jmin/Jmax/S1-S4/H1-H4). TLS and QUIC have browser-specific fingerprints (Chrome/Firefox/Safari).
+- **Signature** (`internal/awg/signature/`): QUIC host capture — sends QUIC Initial to UDP 443, reads replies → I1-I5.
+- **Controller** (`internal/web/controller/awg.go`): `generateObfuscation` + `captureHost` + `awgDiagnostics` API endpoints. `generateObfuscation` does **not** auto-set `randomTrailers` (must-match; Amnezia 5.0.1.1 / NekoBox+ drop handshake). Operator opt-in only.
+- **NAT** (`internal/awg/platform_{linux,other}.go`): `defaultRouteInterface()` for MASQUERADE target.
+- **Inbound needRestart** (`internal/web/service/inbound.go`): `awgRoutesThroughXray` — needRestart on AddInbound/DelInbound/UpdateInbound/SetInboundEnable so Xray regenerates config when routeThroughXray toggles.
+- **AWG outbound** (`internal/awg/client_*.go` + `internal/web/{service,controller}/awg_outbound.go`): symmetric sidecar for chaining VPN-of-VPN. Each `awg_outbounds` row = one `awgo-N` kernel interface (client to an upstream AWG server) exposed as a freedom outbound with `sockopt.interface = awgo-N`. Manager: `EnsureClient`/`RemoveClient`/`SweepOrphanClients` (fingerprint-based restart, mirrors inbound Manager). Client .conf via `renderClientConf` (Table=off, no DNS, no I1-I5; HPK only when `AwgVersion == "3"` and non-empty). `ParseConf` eats a .conf of any version (incl. HPK / 3.1 flags) and auto-detects `AwgVersion` from the field set; lucx.141 also unwraps `vpn://` / Amnezia JSON. After add/update/enable/del the frontend invalidates `keys.xray.config()` so the new tag appears in routing/balancer dropdowns. Controller uses `RestartXray(true)` on mutations (hot-apply can't add a freedom outbound with sockopt.interface). Address allocation (`client_awg.go`) excludes AWG outbound tunnel IPs to avoid collision.
+- **AWG3 / version presets** (`headerProtectionKey` + `awgVersion` fields): upstream `feat/awg3` merged to master on 2026-07-30 (kernel `v3.0.20260731`, tools `v3.0.20260730`), so HPK is now **enabled**. The `awgVersion` field (`"1.5"`/`"2"`/`"3"`) lives on the inbound (server ceiling) and gates HPK emission everywhere — `generateObfuscation` returns it only for `"3"`; `renderServerConf`/`renderClientConf`/`inboundAwgHints` write the `.conf` line only when `AwgVersion == "3"` AND the key is non-empty. Generator guarantees S1–S4 ≥ 12 (`MinSForHPK`). Client export selector (`ClientQrModal`/`ClientInfoModal`) clamps to ≤ ceiling. See Known Issue #5 (CLOSED) and Pattern 6 (version compatibility).
+- **AWG3 advanced parameters** (`contentPaddingAddition`, `rekeyAfterTime`, `rekeyTimeout`, `rejectAfterTime`, `keepaliveTimeout`, `maxHandshakeAttempts`): 6 device fields from the upstream kernel UAPI that the panel exposes (lucx.52). All version-gated to `"3"`, all default 0 = kernel uses built-in WireGuard constant (120/5/180/10/18 sec / deterministic WG padding). Device fields written to `[Interface]`. **generateObfuscation DOES auto-generate them for v3 (lucx.65):** `GenerateAwg3DeviceTimings(profile)` in `cps/params.go` (algorithm ported from AmneziaWG-Architect awg3.ts, derived from amneziawg-go v3.0.1) — ContentPadding/RekeyAfter/RejectAfter scale with obfProfile (lite/standard/pro → low/medium/high), RekeyTimeout/KeepaliveTimeout/MaxHandshakeAttempts fixed safe spans (protocol invariants: RejectAfter>Keepalive+RekeyTimeout, RekeyAfter<RejectAfter, attempts≥1); emitted as `"lo-hi"` range strings in the same v3 gate as HPK (`awgVersion=="3" && ModuleSupportsAwg3()`), response keys match the Zod schema so the form's blind `Object.entries.forEach(setValue)` applies them. Migration prunes non-v3 values. `ParseConf` auto-detects v3 from any of these fields. **AdvancedSecurity removed (lucx.62):** the per-peer `advancedSecurity` field was fully deleted from model/DB/forms/.conf — upstream kernel `set_peer` never reads it (`attrs[WGPEER_A_ADVANCED_SECURITY]` unreferenced in `netlink.c:set_peer`), `get_peer` hardcodes "off" in dumps, and it does NOT gate HPK/timers/padding (those are independent device attrs). Migration `migrate_awg_hpk.go` deletes stale `advancedSecurity` keys from stored settings. **Ranges (lucx.60):** each of the 6 timers accepts a single value `"150"` OR an inclusive range `"100-500"` — the kernel's `u16_range_t` (device.h) + tools' `u16_range_from_string` parse both and randomize within the range at rekey (same semantics as H1-H4), verified live on a v3 module. The value is stored as `awg.AwgTimer` (string) end-to-end and written to the .conf VERBATIM (never collapsed). `AwgTimer.UnmarshalJSON` accepts a legacy JSON number too; `IsZero` ("", "0", "0-0") → renderer omits the line. Frontend `normalizeAwgTimer` clamps/orders the range but does NOT collapse it.
+
+### 3b. Tunnel Sidecars Architecture (lucx.91+)
+
+Tunnel sidecars are external tunnel servers that the panel supervises **alongside** Xray (not Xray protocols). Cores: **NaiveProxy** (Caddy + `forward_proxy` klzgrad, HTTP/2 padding; optional routeThroughXray), **olcRTC** (TCP-over-WebRTC via Jitsi/Telemost/WB Stream meet rooms), **qWDTT** (WG over VK TURN). Shared skeleton:
+
+- **`internal/lucx/tunnel/`** (PolyForm): `Name` core registry; `NaiveConfig` + Caddyfile render; `Proc` (exec, SIGTERM→kill, ring log); `Manager` (singleton, fingerprint restart on config change, `Ensure`/`Stop`/`StopAll`, three-level status process→TCP-probe→TLS-probe).
+- **Caddyfile footguns** (learned from elector1337/3x-ui-naive + E2E lucx.91, baked into the renderer): `admin off` (else instances fight over :2019); wildcard-listen → bare `:port` (explicit `0.0.0.0:port` is treated by Caddy as a host-matcher), concrete IP → `bind`; per-instance `XDG_DATA_HOME` (ACME stores don’t collide); quote+escape all user values. **Three E2E footguns:** (1) forward_proxy has NO `padding` subdirective — padding turns on by itself from the client `Padding` header; (2) a domain in the site address MUST carry a non-standard port (`domain:8443`), else a bare domain opens a second :443 listener; (3) manual TLS requires `auto_https off` + `skip_install_trust` in the global block, else Caddy starts an ACME :80 listener and installs a local root cert into the system trust store.
+- **Storage:** settings table, key `lucxTunnel_naive` (JSON blob). Web layer: `service/tunnel.go` (validations, port cross-check vs TCP inbounds — UDP protocols don’t conflict; binary download via temp file), `controller/tunnel.go` (`/panel/api/tunnel/naive/*`: status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary), `job/tunnel_job.go` (cron 10s: reconcile + Naive access_log traffic/online). **lucx.115:** settings blobs are LEGACY-only: migrations set the `migratedToInbound` marker (and backfill it if an inbound already exists), reconcile-fallback under the marker forces `Enabled=false` + sweeps orphan `{core}-{id}` even when want is empty, and legacy Start/Restart/Save refuse (“manage on the Inbounds page”) if the blob is migrated or a protocol inbound exists; Stop is always allowed (zombie kill). See Pattern 1m.
+- **Naive online/traffic (best-effort):** JSON `access_log` per-instance (`dataDir/access.json`); `Manager.CollectNaiveTraffic` tail + user→email (`ClientAuthForInbound`); grace 120s; `AddTraffic` per-client always, inbound rollup only when !routeThroughXray. Long CONNECT may update only at session end.
+- **Per-client credentials + subscriptions:** `tunnel.ClientAuth(panelSecret, email)` — deterministic HMAC-SHA256, not stored in DB; every enabled panel client gets its own `basic_auth` line in the Caddyfile and its own `naive+https://user:pass@domain:port#email` link in the base64 subscription (LUCX-HOOK in `sub/service.go:getSubs`; NekoBox/husi/Exclave standard). Disabling a client drops credentials on the next reconcile. JSON/Clash subscriptions do not get naive (formats don’t support the protocol). No obfuscation generator by design: naive camouflage = Chrome stack, padding turns on from the `Padding` header.
+- **Binary delivery:** release.yml — amd64 prebuilt from klzgrad/forwardproxy (pinned tag), arm64 — xcaddy cross-build; other arches have no binary (upload/download in UI). Name: `bin/caddy-naive-<os>-<arch>`.
+- **ACME limit:** Let's Encrypt HTTP-01 requires port 443 (validation won’t do ACME on another port).
+- **Dev gotcha:** Kaspersky on a dev machine breaks loopback TLS (MITM) — TLS probes in tests are skipped with an environment note; works on Linux.
+- **Bridge into Xray (lucx.93):** optional `routeThroughXray` — Caddy dials via native `upstream socks5://127.0.0.1:port` (klzgrad/forwardproxy, **no binary patch**) + hidden SOCKS loopback inbound (`injectTunnelEgress`, tag `lucx-tunnel-naive`, symmetric with mtproto). Port is allocated by the backend and stable; `outboundTag` optionally force-routes. Raw-Caddyfile mode is incompatible. Default = direct egress.
+- **olcRTC (lucx.94):** `OlcrtcConfig` → YAML (`mode: srv`, provider/room/crypto/transport/dns/vp8) → binary `olcrtc-linux-{arch}` (sole CLI arg = path to YAML). Settings key `lucxTunnel_olcrtc`. Connect URI `olcrtc://provider?transport@room#key`. Probe = process-only (no listen port). Clients: owenclave / olcbox. Upstream: openlibrecommunity/olcrtc (WTFPL). **PIN in release.yml (lucx.132):** build from SHA `3339cd36…` (last master before upstream OLC2 wire-break merge), NOT from `master` — see Pattern 1o. Lift the pin only when clients (owenclave/olcbox) ship OLC2 builds and e2e has been run on a live room.
+- **qWDTT (lucx.95):** `QwdttConfig` → CLI argv (`-listen/-wg-port/-password/-dns/-listen-raw/-config-dir`) → binary `qwdtt-linux-{arch}` (GPL-3.0, external process). Settings key `lucxTunnel_qwdtt`. State dir: passwords.json + wg-keys.dat. Share: `qwdtt://config?…`, legacy `wdtt://…`, subscription JSON. **Needs root/CAP_NET_ADMIN** (TUN + MASQUERADE). Client: SpaceNeuroX Android APK. Upstream: SpaceNeuroX/proxy-turn-vk-android server.go.
+- **mieru (lucx.117):** inbound-only (`mieru-{id}`), no legacy blob. `mita run` + `MITA_CONFIG_JSON_FILE` / `MITA_UDS_PATH` / `MITA_INSECURE_UDS=1`. HMAC credentials `lucx-mieru-*`. Share `mierus://` (port always in query). Traffic: `mita get users` (1-day, compact `1.5MiB` and spaced). routeThroughXray default OFF. `/var/lib/mita/metrics.pb` is shared across all instances (upstream). **Traffic shaping (lucx.128):** official `trafficPattern` (seed/unlockAll/tcpFragment/nonce/padding/lowEntropy) is rendered into mita JSON AND into `mierus://?traffic-pattern=` (base64 protobuf, encoder on `protowire` in `mieru_pattern.go`, no enfein/mieru dependency; golden test = example from official docs). `multiplexing`/`handshakeMode` — client-side only, only in the link, never in mita JSON. Padding fields are pointers (0 = “disable slot”, ≠ “unset”). Presets off/lite/standard/stealth — frontend sugar (`lib/mieru/presets.ts`), DB stores values not the preset name (Rule 0); each Apply = new seed. All fields optional: empty = omit everywhere, existing inbounds/links unchanged.
+- **TrustTunnel (lucx.117/120/122/139):** inbound-only (`trusttunnel-{id}`). `trusttunnel_endpoint vpn.toml hosts.toml`. Cert = panel ACME (`webCertFile`/`webKeyFile`); no domain/cert → refuse on save (NotBefore/NotAfter/SAN). Share (subscription/QR) — Throne URI `tt://user:pass@host:port?security=tls&sni=…&alpn=h2#tag` (`ClientURI`); official TLV `tt://?` stays in `ClientDeepLink` (official app). Address = share-host:port (incl. 443). Prometheus — inbound traffic; per-client traffic/online only if the inbound has exactly one enabled client (no per-username metrics). `listenPreset` stock|fast (default fast — windows from tester report; stock = CONFIGURATION.md defaults). `clientRandomPrefix` (hex/mask) → rules.toml allow + TLV `0x0B`; auto-gen on save, Regenerate in Advanced. Remove/sweep deletes `trusttunnel-N*` configs. HMAC `lucx-trusttunnel-*`.
+- **AWG 3.1 (lucx.117):** ceiling `"3.1"` + `RandomTrailers`/`DisableCookies` (omit when false; emit only for 3.1 && tools≥3.1). HPK/timers — `IsAwg3Plus` (`3` and `3.1`). Live v3 are not bumped. Tools gate in `install-awg-module.sh`: `< v3.1`. **lucx.136:** (a) early-exit in `install-awg-module.sh` only when tools are current (else fallthrough rebuilds tools), `rmmod` busy → `.awg-reboot-needed`; (b) `RebuildAwgModule` first `StopAll()`+`StopAllClients()` (new method), `AwgJob` skips reconcile while `AwgRebuildRunning()`; (c) visibility — `ModuleAwg31` in `HostStatus`/hello/`Status.Awg`(`moduleAwg31`,`rebootNeeded`) + AWG3.1 / “AWG3.1 OK” tag + `awg31CapabilityCheck` info line in diagnostics.
+- **Obfuscation presets (lucx.136, Amnezia canon; H — lucx.139):** `GenerateAWGParams` recalibrated to `AwgInstaller::generateAwgParameters` (amnezia-client): Lite/Standard/Pro around Jc=4..6, Jmin=10, Jmax=50, S1/S2=12..149, S3=12..63, **S4=12 fixed**. Full invariant (`isPacketSizeEqual`): 148+S1, 92+S2, 64+S3, 32+S4 pairwise distinct. H1–H4 by version: `"1.5"` → singles in narrow bands; `"2"`/`"3"`/`"3.1"` → narrow ranges width ≤100000 (`hBand`). lucx.136 put `"3"`/`"3.1"` as `"1/2/3/4"` (HPK encrypts the header) — testers read that as a broken generator; lucx.139 restored ranges. Default `mimicryProfile` = `tls`. **lucx.137:** `quicInitialPacket` pads to 1200 with random bytes, not `0x00` (DPI marker “sheet of zeros” in I1).
+
+## Architecture Map
+
+```
+internal/awg/                      AWG sidecar — INBOUND (mirrors internal/mtproto/) + OUTBOUND (awgo-N clients)
+├── manager.go                     Manager singleton: Ensure/Reconcile/StopAll/CollectTraffic/SyncPeers + renderServerConf/writeServerConfigFile + natPostUpPostDown + ensureXrayRouting + ensureNatRules/natRulesFor + Traffic/PeerTraffic/scrapePeers (one `awg show dump` per iface: counters + handshakes)
+├── process.go                     Process wrapping awg-quick up/down + procLogWriter + awgConfigDir + awgQuick
+├── instance.go                    Instance + InstanceFromInbound + fingerprint + PeerSpec (server-side desired state for awgN)
+├── diagnostics.go                 Diagnose(inst) — read-only probe chain (interface/ip_forward/peers/NAT or TUN rules), prober interface, DiagCheck/Diagnostics
+├── platform_linux.go              defaultRouteInterface() + killStrayAwgInterfaces + ModuleSupportsAwg3 (kallsyms symbol + awg version ≥ 3, cache true only) + ModuleSupportsAwg31 (tools ≥ 3.1) + awg3CapabilityCheck/awg31CapabilityCheck for diagnostics
+├── platform_other.go              no-ops off Linux
+├── client_instance.go             ClientInstance + ClientSettings + ClientInstanceFromOutbound + fingerprint (desired state for awgo-N outbounds)
+├── client_conf.go                 renderClientConf — awg-quick .conf for an awgo-N outbound (Table=off, no DNS, no I1-I5; HPK only when AwgVersion=="3" and non-empty)
+├── client_manager.go              outbound client manager: EnsureClient/RemoveClient/SweepOrphanClients (fingerprint-based restart)
+├── *_test.go                      instance/manager/diagnostics/client_conf/client_instance/client_manager/platform tests
+
+internal/awg/cps/                  CPS packet generators (TLS/DNS/SIP/QUIC) + AWGParams
+├── cps.go                         GenerateCPS + tlsPacket (Chrome/Firefox/Safari) + buildChromeHello/buildFirefoxHello/buildSafariHello + DNS/SIP/QUIC packet builders (quicInitialPacket respects browserProfile)
+├── domains.go                     MimicryProfile + BrowserProfile + ObfProfile types + domain pools (RU/World)
+├── params.go                      GenerateAWGParams (Jc/Jmin/Jmax/S1-S4/H1-H4, Amnezia canon lucx.136) + Awg3DeviceTimings + SetRand/tests + rng
+└── cps_test.go                    CPS unit tests (all browsers, invariants, signatures, QUIC browser)
+
+internal/awg/signature/            QUIC host capture (hoaxisr port)
+├── capture.go                     Capture(domain) — sends QUIC Initial, reads replies → I1-I5
+└── capture_test.go                normalizeDomain/fillPackets/varint/HKDF/ClientHello+Initial structure tests
+
+internal/lucx/                     Smart Cluster + tunnel sidecars
+├── parser/                        SSH output → NodeCreds
+├── nodetype/                      LucX vs vanilla detection (GET /panel/api/lucx/hello + features gate)
+├── outbound_link/                 Inbound → outbound config generator
+└── tunnel/                        Tunnel sidecars (Naive, olcRTC, qWDTT, mieru, TrustTunnel)
+    ├── tunnel.go                  Name registry + binary/config/data paths
+    ├── mieru.go / mieru_inbound.go / mieru_traffic.go / mieru_pattern.go (trafficPattern + link proto encoder)
+    ├── trusttunnel.go / trusttunnel_inbound.go / trusttunnel_traffic.go
+    ├── auth.go                    scoped HMAC (naive/mieru/trusttunnel)
+    ├── naive.go                   NaiveConfig + Caddyfile render (admin off, bind, access_log, escaping) + client URL
+    ├── traffic.go                 CollectNaiveTraffic — access_log tail, per-client deltas, online last-seen
+    ├── process.go                 Proc: exec + SIGTERM→kill + ring log (500 lines)
+    ├── manager.go                 Manager singleton: Ensure/Stop/StopAll, fingerprint restart, 3-level probe (process→TCP→TLS)
+    └── *_test.go                  render/validation/fingerprint/probe/process/traffic tests
+
+internal/database/
+├── migrate_awg.go                 pruneLegacyAwgHiddenChildren + stripHiddenKeys
+├── migrate_awg_outbound.go        outbound-side migration (stripHiddenKeys for awg_outbounds)
+├── migrate_awg_hpk.go             pruneAwgHeaderProtectionKey — clears non-empty HPK (regression from lucx.47; see Known Issue #5)
+├── migrate_awg_keepalive.go       Postgres: clients.wg_keep_alive INTEGER/bigint → text before AutoMigrate (SQLite no-op; Scan handles int64)
+└── migrate_awg*_test.go           unit tests
+
+internal/web/
+├── runtime/local.go               AWG delegation in AddInbound/DelInbound (LUCX-HOOK)
+├── job/awg_job.go                 AwgJob cron — Reconcile + CollectTraffic (inbound + per-client + online) + pubkey→email mapping + outbound client reconcile
+├── job/awg_speed_buffer.go        sticky snapshot of AWG deltas normalized to the 5s window; XrayTrafficJob merges it into the speed broadcast (lucx.135)
+├── service/xray.go                injectAwgEgress (TUN inbound + per-inbound gateway + sniffing) + injectAwgOutbounds (freedom per awgo-N with sockopt.interface) + AWG exclusion + ensureAwgRouting (post-restart route restore) (LUCX-HOOK)
+├── service/inbound.go             awgRoutesThroughXray + needRestart (LUCX-HOOK) + inboundAwgHints (pre-renders Jc/S/H/I block + HeaderProtectionKey for client .conf)
+├── service/client_awg.go          defaultAwgClients — keypair + PSK + address allocation (excludes AWG outbound tunnel IPs)
+├── service/awg_outbound.go        AwgOutboundService — CRUD + parseConf + ActiveOutboundTags/ActiveOutboundAddresses (collision guard)
+├── controller/awg.go              generateObfuscation + captureHost + awgDiagnostics API endpoints (LUCX-HOOK). HPK is intentionally NOT emitted (Known Issue #5).
+├── controller/client.go           awgBody + subBody (LUCX-HOOK): same-origin subscription bodies (vpn:///.conf/sub/json/clash) — the public sub port has no CORS headers; subBody loops back to the LOCAL sub server, path+query only (no SSRF)
+├── controller/awg_outbound.go     AWG outbound CRUD + parseConf + test endpoints; RestartXray(true) on add/del/update/enable (hot-apply can't add freedom with sockopt.interface)
+├── controller/lucx.go             GET /panel/api/lucx/hello — LucX identity + features for multi-node deploy gating
+├── service/tunnel.go              TunnelService — naive config persist (settings key lucxTunnel_naive), validations, TCP port cross-check vs inbounds, caddy adapt, binary download via temp file
+├── controller/tunnel.go           /panel/api/tunnel/naive/* — status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary
+├── job/tunnel_job.go              TunnelJob cron @every 10s — reconcile + Naive access_log traffic/online
+├── web.go                         cadenceAwg + cadenceTunnel + StopAll wiring + upload body-limit exempt (LUCX-HOOK)
+
+internal/database/model/model.go   AWG Protocol const + validate oneof (LUCX-HOOK)
+internal/database/db.go            pruneLegacyAwgHiddenChildren + pruneAwgHeaderProtectionKey calls (LUCX-HOOK)
+
+frontend/src/
+├── schemas/protocols/inbound/awg.ts        AwgInboundSettingsSchema (Zod) — includes headerProtectionKey + awgVersion (1.5/2/3 ceiling)
+├── pages/inbounds/form/protocols/awg.tsx   AwgFields (React + AntD) + diagnostics modal + HPK field (obfLevel 3)
+├── pages/inbounds/form/awg-inbound-id-context.ts  editing inbound id provider for diagnostics (LUCX)
+├── pages/inbounds/form/InboundFormModal.tsx       AwgInboundIdProvider wrap (LUCX-HOOK)
+├── lib/xray/inbound-defaults.ts            createDefaultAwgInboundSettings (LUCX-HOOK) — HPK defaults to ''
+├── lib/xray/inbound-link.ts                genAwgLink/genAwgConfig (share-link + .conf, I1-I5 as-is)
+├── pages/clients/wireguardConfig.ts        buildAwgClientConfig (full client .conf, reads pre-rendered awgObfuscation block)
+├── pages/sub/SubPage.tsx                   AMNEZIA row on the public subscription page: .conf / vpn:// downloads + body copy (same-origin; PageData.SubAwgUrl, lucx.135)
+├── pages/clients/ClientInfoModal.tsx       AmneziaWG block: per-inbound .conf editor + version select + vpn:// copy (lucx.137)
+├── pages/clients/ClientQrModal.tsx         AWG panel with QR + download
+├── schemas/protocols/inbound/index.ts      InboundSettingsSchema union (LUCX-HOOK)
+├── schemas/primitives/protocol.ts          ProtocolSchema + Protocols map (LUCX-HOOK)
+├── pages/inbounds/form/protocols/index.ts  AwgFields export (LUCX-HOOK)
+├── schemas/tunnel.ts                       NaiveConfig/NaiveStatus Zod schemas (LUCX)
+├── api/tunnels.ts                          tunnel API client, JSON_HEADERS (LUCX)
+├── pages/tunnels/TunnelsPage.tsx           Tunnels page: status badge, lifecycle, logs, binary mgmt, simple/raw Caddyfile form (LUCX)
+├── routes.tsx + layouts/AppSidebar.tsx     /panel/tunnels route + menu item (LUCX-HOOK)
+└── pages/api-docs/endpoints.ts             tunnel endpoints registry (contract test)
+
+bin/install-awg-module.sh          DKMS install (`--force-rebuild`, `--no-kernel-upgrade`, `--uninstall`); kernel auto-upgrade only without `--no-kernel-upgrade`; marker = commit SHA; .conf left alone on uninstall
+bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes
+bin/pre-push                       git hook: check-lucx + fast go tests + PR/issues guard (AGENTS.md 11.5)
+install.sh                         AWG module installs by default again (lucx.131 reverted lucx.130 opt-in) — fresh AND over-the-top installs run `bin/install-awg-module.sh`. Over-the-top install keeps login/password/port/webBasePath (detects existing sqlite DB / postgres env). Re-prints panel credentials from /etc/x-ui/install-result.env (LUCX-HOOK, lucx.68)
+LICENSING.md                       GPL-3.0 / PolyForm-NC split documentation
+LICENSE-PolyForm-Noncommercial.txt Canonical PolyForm NC 1.0.0 text
+```
+
+---
