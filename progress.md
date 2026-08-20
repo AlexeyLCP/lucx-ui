@@ -5,6 +5,24 @@
 
 ---
 
+## lucx.144 — qWDTT attach then client update (2026-08-20)
+
+**Report (Tuna):** after attaching qWDTT to a client, Clients → update fails
+`empty client ID` (`POST /panel/api/clients/update/fox`).
+
+qWDTT/olcRTC are share-only: membership lives in `client_inbounds`, not inbound
+settings JSON. Attach/detach already skipped that JSON; `UpdateInboundClient`
+still walked every inbound and looked up the client in settings → miss → error.
+
+- `UpdateInboundClient` returns no-op for `shareOnlySidecar` (same as add/del).
+- `Update` skips share-only inbounds and still writes `ClientRecord` when
+  nothing else is attached (qWDTT-only client).
+- Tests: `TestUpdateAfterShareOnlyAttach`, `TestUpdateShareOnlyOnlyClient`.
+
+**lucxVersion:** lucx.144
+
+---
+
 ## lucx.143 — vpn:// last_config keys (2026-08-20)
 
 **Report (VladufQa):** Amnezia imports `vpn://` but the tunnel resets immediately

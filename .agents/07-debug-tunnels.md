@@ -26,3 +26,9 @@ Extracted from AGENTS.md. This file is project law.
 - **Fix (lucx.133):** awgo tags are injected before egress; unknown tag → warning + SOCKS without force-route.
 - **Workaround without update:** turn off “via Xray” or clear outbound (empty = catch-all, SOCKS comes up).
 - **Lesson:** a bridge injector must not be all-or-nothing because of an optional force-route. The rule target must exist **before** lookup.
+
+### Pattern 1q: attach qWDTT → client update “empty client ID” — FIXED (lucx.144)
+- **Symptom (Tuna, 20.08.2026):** after attaching qWDTT, Clients save fails `POST /panel/api/clients/update/fox` → `empty client ID`. Same for olcRTC.
+- **Cause:** qWDTT/olcRTC are `shareOnlySidecar` — membership is `client_inbounds` only, inbound settings have no `clients[]`. Attach/detach skipped that JSON; `UpdateInboundClient` still scanned settings, missed the email, returned `empty client ID`.
+- **Fix (lucx.144):** `UpdateInboundClient` no-op for share-only; `Update` skips those inbounds and still writes `ClientRecord` when nothing else is attached. Tests `TestUpdateAfterShareOnlyAttach`, `TestUpdateShareOnlyOnlyClient`.
+- **Lesson:** if attach/detach have a protocol-specific path, **update must too**. Walking “every inbound id” through the Xray-clients JSON path breaks share-only sidecars.

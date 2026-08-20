@@ -430,8 +430,12 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		updateTargets = append(updateTargets, inbound)
 	}
 	tunnelN := countAwgOrWireguard(updateTargets)
+	wroteSettings := false
 	for _, inbound := range updateTargets {
 		if existing.Email == "" {
+			continue
+		}
+		if shareOnlySidecar(inbound.Protocol) {
 			continue
 		}
 		per := updated
@@ -453,13 +457,15 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		if upErr != nil {
 			return needRestart, upErr
 		}
+		wroteSettings = true
 		if nr {
 			needRestart = true
 		}
 	}
 
 	// UpdateInboundClient renames the record atomically with each inbound's
-	// settings JSON; this direct write only covers records with no inbound left.
+	// settings JSON; this direct write covers records with no Xray inbound left
+	// (none, or only share-only sidecars like qWDTT/olcRTC).
 	if updated.Email != existing.Email {
 		if err := database.GetDB().Model(&model.ClientRecord{}).
 			Where("id = ? AND email = ?", id, existing.Email).
@@ -468,7 +474,7 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		}
 	}
 
-	if len(inboundIds) == 0 {
+	if !wroteSettings {
 		merged := *existing
 		applyClientRecordMerge(&merged, updated.ToRecord())
 		if err := database.GetDB().Model(&model.ClientRecord{}).

@@ -601,6 +601,14 @@ func (s *ClientService) addInboundClient(inboundSvc *InboundService, data *model
 func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *model.Inbound, oldEmail string) (bool, error) {
 	defer lockInbound(data.Id).Unlock()
 
+	oldInbound, err := inboundSvc.GetInbound(data.Id)
+	if err != nil {
+		return false, err
+	}
+	if shareOnlySidecar(oldInbound.Protocol) {
+		return false, nil
+	}
+
 	clients, err := inboundSvc.GetClients(data)
 	if err != nil {
 		return false, err
@@ -613,11 +621,6 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 	}
 
 	interfaceClients := settings["clients"].([]any)
-
-	oldInbound, err := inboundSvc.GetInbound(data.Id)
-	if err != nil {
-		return false, err
-	}
 
 	oldClients, err := inboundSvc.GetClients(oldInbound)
 	if err != nil {
