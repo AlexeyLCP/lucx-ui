@@ -6,6 +6,11 @@ run:
 
 linters:
   default: standard
+  # LUCX-HOOK: golangci-lint v2.13.0 (CI `version: latest`) panics in nilness
+  # (`unhandled builtin recover`, package common) and hits run.timeout.
+  disable:
+    - nilness
+  # END LUCX-HOOK
   enable:
     - bodyclose
     - errorlint
