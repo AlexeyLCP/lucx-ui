@@ -139,6 +139,76 @@ awg_tools_stale() {
     return 1
 }
 
+# Compat for Linux ≥ 7.1.5 (and distro backports): udp_tunnel_sock_release /
+# setup_udp_tunnel_sock take struct sock * instead of struct socket *.
+# Upstream PR amnezia-vpn/amneziawg-linux-kernel-module#218. No-op when
+# master already has the wrappers — drop this after that merge.
+apply_udp_tunnel_abi_compat() {
+    local f="${1:-socket.c}"
+    if grep -qF 'wg_udp_tunnel_sock_release' "$f" 2>/dev/null; then
+        echo -e "${GREEN}udp_tunnel ABI wrappers already in tree — skip.${NC}"
+        return 0
+    fi
+    if ! command -v python3 >/dev/null 2>&1; then
+        echo -e "${YELLOW}python3 нет — патч udp_tunnel ABI пропущен (ядра 7.1.5+ не соберутся).${NC}"
+        return 0
+    fi
+    echo -e "${YELLOW}Патч udp_tunnel ABI (ядро 7.1.5+, PR #218)...${NC}"
+    python3 - "$f" <<'PY'
+import sys
+path = sys.argv[1]
+text = open(path, encoding="utf-8", errors="surrogateescape").read()
+repls = [
+    ("udp_tunnel_sock_release(sock->sk_socket)",
+     "wg_udp_tunnel_sock_release(sock, sock->sk_socket)"),
+    ("setup_udp_tunnel_sock(net, new4, &cfg)",
+     "wg_setup_udp_tunnel_sock(net, new4, &cfg)"),
+    ("udp_tunnel_sock_release(new4)",
+     "wg_udp_tunnel_sock_release(new4->sk, new4)"),
+    ("setup_udp_tunnel_sock(net, new6, &cfg)",
+     "wg_setup_udp_tunnel_sock(net, new6, &cfg)"),
+]
+new = text
+for old, repl in repls:
+    if old not in new:
+        sys.stderr.write("udp_tunnel ABI: no match for %s\n" % old)
+        sys.exit(1)
+    new = new.replace(old, repl, 1)
+needle = "static void sock_free(struct sock *sock)"
+if needle not in new:
+    sys.stderr.write("udp_tunnel ABI: sock_free not found\n")
+    sys.exit(1)
+wrapper = """\
+/*
+ * Linux 7.1.5+ (and some distro backports) changed
+ * udp_tunnel_sock_release()/setup_udp_tunnel_sock() to take struct sock *
+ * instead of struct socket *. Detect the real signature at compile time.
+ * From amneziawg-linux-kernel-module PR #218. Remove once upstream merges.
+ */
+static inline void wg_udp_tunnel_sock_release(struct sock *sk, struct socket *sock)
+{
+	if (__builtin_types_compatible_p(typeof(&udp_tunnel_sock_release), void (*)(struct sock *)))
+		((void (*)(struct sock *))udp_tunnel_sock_release)(sk);
+	else
+		((void (*)(struct socket *))udp_tunnel_sock_release)(sock);
+}
+
+static inline void wg_setup_udp_tunnel_sock(struct net *net, struct socket *sock,
+					     struct udp_tunnel_sock_cfg *cfg)
+{
+	if (__builtin_types_compatible_p(typeof(&setup_udp_tunnel_sock),
+					  void (*)(struct net *, struct sock *, struct udp_tunnel_sock_cfg *)))
+		((void (*)(struct net *, struct sock *, struct udp_tunnel_sock_cfg *))setup_udp_tunnel_sock)(net, sock->sk, cfg);
+	else
+		((void (*)(struct net *, struct socket *, struct udp_tunnel_sock_cfg *))setup_udp_tunnel_sock)(net, sock, cfg);
+}
+
+"""
+new = new.replace(needle, wrapper + needle, 1)
+open(path, "w", encoding="utf-8", errors="surrogateescape").write(new)
+PY
+}
+
 # Skip DKMS/kernel when the installed module SHA already matches upstream
 # master (lucx.145). --force-rebuild (Cores / x-ui install-awg) bypasses.
 # Marker is the build commit SHA — PACKAGE_VERSION is always "1.0.0".
@@ -201,7 +271,7 @@ apt-get update -qq
 # transaction and leave dkms missing → "dkms: command not found" at `dkms
 # build` (line ~232). Optional utilities stay best-effort and never block.
 apt-get install -y -q \
-    build-essential dkms git libmnl-dev pkg-config \
+    build-essential dkms git libmnl-dev pkg-config python3 \
     2>/dev/null || true
 apt-get install -y -q \
     unzip curl python3 net-tools qrencode bc ca-certificates gnupg \
@@ -352,6 +422,9 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
     MOD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
     OLD_DKMS_VER=$(dkms status amneziawg 2>/dev/null | grep -oP 'amneziawg, \K[^,]+(?=,)' | head -1 || true)
 
+    apply_udp_tunnel_abi_compat socket.c || \
+        echo -e "${YELLOW}Патч udp_tunnel ABI не применился — продолжаем (ядра 7.1.5+ могут не собраться).${NC}"
+
     # Stage the sources under the real version and compile for the booted kernel.
     sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"${MOD_VER}\"/" dkms.conf
     rm -rf "/usr/src/amneziawg-${MOD_VER}"
@@ -370,7 +443,14 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
         done
     fi
     dkms build -m amneziawg -v "${MOD_VER}" -k "${BUILD_K}" || {
-        echo -e "${RED}Ошибка сборки DKMS — текущий модуль не тронут. Проверь заголовки ядра.${NC}"
+        echo -e "${RED}Ошибка сборки DKMS — текущий модуль не тронут.${NC}"
+        mklog="/var/lib/dkms/amneziawg/${MOD_VER}/build/make.log"
+        if [[ -f "$mklog" ]]; then
+            echo -e "${YELLOW}--- ${mklog} (хвост) ---${NC}"
+            tail -n 50 "$mklog" || true
+        else
+            echo -e "${YELLOW}make.log не найден. Заголовки: /lib/modules/${BUILD_K}/build${NC}"
+        fi
         cd /tmp; rm -rf "$KERNEL_MOD_DIR"
         exit 1
     }

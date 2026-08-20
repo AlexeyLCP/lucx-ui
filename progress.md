@@ -5,6 +5,21 @@
 
 ---
 
+## lucx.147 — AWG DKMS on kernel 7.1.5+ (2026-08-20)
+
+Upstream `amneziawg-linux-kernel-module` fails to build on Linux ≥ 7.1.5:
+`udp_tunnel_sock_release` / `setup_udp_tunnel_sock` now take `struct sock *`.
+Headers were present; the script blamed them. Host zinn65de-lc (`7.1.7+deb13`).
+
+- After clone, apply PR #218 wrappers unless `wg_udp_tunnel_sock_release` is
+  already in `socket.c` (no-op once upstream merges).
+- DKMS build failure prints the tail of `make.log`.
+- Pattern 1s.
+
+**lucxVersion:** lucx.147
+
+---
+
 ## lucx.146 — update modal changelog feed (2026-08-20)
 
 The panel update dialog only showed the latest GitHub release body, so
