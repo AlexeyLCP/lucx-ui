@@ -687,6 +687,20 @@ export const OutboundTrafficsSchema = z.object({
 });
 export type OutboundTraffics = z.infer<typeof OutboundTrafficsSchema>;
 
+export const PanelReleaseNoteSchema = z.object({
+  body: z.string().optional(),
+  publishedAt: z.string().optional(),
+  tag: z.string(),
+});
+export type PanelReleaseNote = z.infer<typeof PanelReleaseNoteSchema>;
+
+export const PanelReleaseNotesSchema = z.object({
+  hasMore: z.boolean(),
+  items: z.array(z.lazy(() => PanelReleaseNoteSchema)),
+  page: z.number().int(),
+});
+export type PanelReleaseNotes = z.infer<typeof PanelReleaseNotesSchema>;
+
 export const PanelUpdateStatusSchema = z.object({
   exitCode: z.number().int(),
   finishedAt: z.number().int(),

@@ -643,6 +643,18 @@ export interface OutboundTraffics {
   up: number;
 }
 
+export interface PanelReleaseNote {
+  body?: string;
+  publishedAt?: string;
+  tag: string;
+}
+
+export interface PanelReleaseNotes {
+  hasMore: boolean;
+  items: PanelReleaseNote[];
+  page: number;
+}
+
 export interface PanelUpdateStatus {
   exitCode: number;
   finishedAt: number;

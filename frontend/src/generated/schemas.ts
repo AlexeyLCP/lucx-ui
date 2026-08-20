@@ -2833,6 +2833,52 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "PanelReleaseNote": {
+    "description": "PanelReleaseNote is one GitHub release in the skipped-version feed.",
+    "properties": {
+      "body": {
+        "example": "- fix: changelog",
+        "type": "string"
+      },
+      "publishedAt": {
+        "example": "2026-08-20T10:00:00Z",
+        "type": "string"
+      },
+      "tag": {
+        "example": "v3.6.0-lucx.145",
+        "type": "string"
+      }
+    },
+    "required": [
+      "tag"
+    ],
+    "type": "object"
+  },
+  "PanelReleaseNotes": {
+    "description": "PanelReleaseNotes is one page of skipped releases newer than the running panel.",
+    "properties": {
+      "hasMore": {
+        "example": true,
+        "type": "boolean"
+      },
+      "items": {
+        "items": {
+          "$ref": "#/components/schemas/PanelReleaseNote"
+        },
+        "type": "array"
+      },
+      "page": {
+        "example": 1,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "hasMore",
+      "items",
+      "page"
+    ],
+    "type": "object"
+  },
   "PanelUpdateStatus": {
     "description": "PanelUpdateStatus reports the outcome of the most recently launched panel\nself-update. RunID lets the caller confirm this status belongs to the\nupdate it started rather than a stale result left over from an earlier\nrun; State is one of \"pending\", \"success\", or \"failed\". RunID is a decimal\nstring, not a JSON number: it's a formatted UnixNano timestamp, and\nJavaScript's number type can't represent that precisely (it exceeds\nNumber.MAX_SAFE_INTEGER), which would let two different runs round to the\nsame value on the wire and defeat the whole point of this field.",
     "properties": {

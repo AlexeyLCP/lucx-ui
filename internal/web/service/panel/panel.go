@@ -40,6 +40,20 @@ type PanelUpdateInfo struct {
 	ReleaseNotes    string `json:"releaseNotes,omitempty"`
 }
 
+// PanelReleaseNote is one GitHub release in the skipped-version feed.
+type PanelReleaseNote struct {
+	Tag         string `json:"tag" example:"v3.6.0-lucx.145"`
+	PublishedAt string `json:"publishedAt,omitempty" example:"2026-08-20T10:00:00Z"`
+	Body        string `json:"body,omitempty" example:"- fix: changelog"`
+}
+
+// PanelReleaseNotes is one page of skipped releases newer than the running panel.
+type PanelReleaseNotes struct {
+	Items   []PanelReleaseNote `json:"items"`
+	HasMore bool               `json:"hasMore" example:"true"`
+	Page    int                `json:"page" example:"1"`
+}
+
 const (
 	panelUpdaterURL      = "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/update.sh"
 	maxPanelUpdaterBytes = 2 << 20
@@ -50,6 +64,9 @@ const (
 	updateStatePending = "pending"
 	updateStateSuccess = "success"
 	updateStateFailed  = "failed"
+
+	releaseNotesPerPage  = 10
+	releaseNotesCacheTTL = 10 * time.Minute
 )
 
 // PanelUpdateStatus reports the outcome of the most recently launched panel
@@ -97,6 +114,11 @@ var (
 	updateStarted time.Time
 	updateRunID   int64
 	updatePID     int
+
+	notesCacheMu   sync.Mutex
+	notesCacheVer  string
+	notesCacheAt   time.Time
+	notesCachePage = map[int]PanelReleaseNotes{}
 )
 
 const (
@@ -227,6 +249,97 @@ func fetchCompareNotes(currentTag, latestTag string) string {
 		fmt.Fprintf(&b, "- %s (%s)\n", msg, short)
 	}
 	return b.String()
+}
+
+type githubRelease struct {
+	TagName     string `json:"tag_name"`
+	Body        string `json:"body"`
+	PublishedAt string `json:"published_at"`
+	Prerelease  bool   `json:"prerelease"`
+	Draft       bool   `json:"draft"`
+}
+
+// GetReleaseNotes returns one page of stable GitHub releases newer than the
+// running panel (skipped versions). page is 1-based. Best-effort GitHub call;
+// empty page on a cache miss that fails is an error for the caller to fall
+// back to PanelUpdateInfo.ReleaseNotes.
+func (s *PanelService) GetReleaseNotes(page int) (*PanelReleaseNotes, error) {
+	if page < 1 {
+		page = 1
+	}
+	current := config.GetBaseVersion()
+
+	notesCacheMu.Lock()
+	if notesCacheVer == current && time.Since(notesCacheAt) < releaseNotesCacheTTL {
+		if hit, ok := notesCachePage[page]; ok {
+			notesCacheMu.Unlock()
+			cp := hit
+			return &cp, nil
+		}
+	} else {
+		notesCachePage = map[int]PanelReleaseNotes{}
+		notesCacheVer = current
+		notesCacheAt = time.Now()
+	}
+	notesCacheMu.Unlock()
+
+	releases, err := fetchPanelReleasesPage(page, releaseNotesPerPage)
+	if err != nil {
+		return nil, err
+	}
+	items, hasMore := filterReleasePage(releases, current, releaseNotesPerPage)
+	out := PanelReleaseNotes{Items: items, HasMore: hasMore, Page: page}
+
+	notesCacheMu.Lock()
+	if notesCacheVer == current {
+		notesCachePage[page] = out
+	}
+	notesCacheMu.Unlock()
+	return &out, nil
+}
+
+func filterReleasePage(releases []githubRelease, current string, perPage int) (items []PanelReleaseNote, hasMore bool) {
+	items = []PanelReleaseNote{}
+	full := len(releases) == perPage
+	crossed := false
+	for _, r := range releases {
+		if r.Draft || r.Prerelease {
+			continue
+		}
+		if !isNewerVersion(r.TagName, current) {
+			crossed = true
+			break
+		}
+		items = append(items, PanelReleaseNote{
+			Tag:         r.TagName,
+			PublishedAt: r.PublishedAt,
+			Body:        clampReleaseNotes(r.Body),
+		})
+	}
+	hasMore = full && !crossed
+	return items, hasMore
+}
+
+func fetchPanelReleasesPage(page, perPage int) ([]githubRelease, error) {
+	url := fmt.Sprintf("https://api.github.com/repos/AlexeyLCP/lucx-ui/releases?per_page=%d&page=%d", perPage, page)
+	client := (&service.SettingService{}).NewProxiedHTTPClient(10 * time.Second)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("GitHub API returned status %d: %s", resp.StatusCode, resp.Status)
+	}
+	var releases []githubRelease
+	if err := json.NewDecoder(resp.Body).Decode(&releases); err != nil {
+		return nil, err
+	}
+	return releases, nil
 }
 
 // StartUpdate starts the official updater against the latest stable release.

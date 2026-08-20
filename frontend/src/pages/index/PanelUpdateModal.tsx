@@ -1,11 +1,11 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Modal, Tag, Typography } from 'antd';
+import { Alert, Button, Modal, Spin, Tag, Typography } from 'antd';
 import { CloudDownloadOutlined } from '@ant-design/icons';
 
 import { HttpUtil, PromiseUtil } from '@/utils';
 import { formatPanelVersion } from '@/lib/panel-version';
-import type { PanelUpdateStatus } from '@/generated/types';
+import type { PanelReleaseNote, PanelReleaseNotes, PanelUpdateStatus } from '@/generated/types';
 import './PanelUpdateModal.css';
 
 type UpdateOutcome = 'success' | 'failed' | 'timeout';
@@ -45,8 +45,74 @@ export default function PanelUpdateModal({
   const { t } = useTranslation();
   const [modal, contextHolder] = Modal.useModal();
   const [notesExpanded, setNotesExpanded] = useState(false);
+  const [feed, setFeed] = useState<PanelReleaseNote[]>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [page, setPage] = useState(1);
+  const [feedLoading, setFeedLoading] = useState(false);
+  const [moreLoading, setMoreLoading] = useState(false);
 
   const notes = (info.releaseNotes || '').trim();
+
+  useEffect(() => {
+    if (!open || !info.updateAvailable) {
+      setFeed([]);
+      setHasMore(false);
+      setPage(1);
+      setFeedLoading(false);
+      setMoreLoading(false);
+      setNotesExpanded(false);
+      return;
+    }
+    let cancelled = false;
+    setFeedLoading(true);
+    HttpUtil.get<PanelReleaseNotes>(
+      '/panel/api/server/getPanelReleaseNotes',
+      { page: 1 },
+      { silent: true },
+    )
+      .then((msg) => {
+        if (cancelled) return;
+        const obj = msg?.success ? msg.obj : null;
+        setFeed(obj?.items ?? []);
+        setHasMore(!!obj?.hasMore);
+        setPage(obj?.page ?? 1);
+      })
+      .finally(() => {
+        if (!cancelled) setFeedLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [open, info.updateAvailable]);
+
+  async function loadMoreNotes() {
+    const next = page + 1;
+    setMoreLoading(true);
+    try {
+      const msg = await HttpUtil.get<PanelReleaseNotes>(
+        '/panel/api/server/getPanelReleaseNotes',
+        { page: next },
+        { silent: true },
+      );
+      const obj = msg?.success ? msg.obj : null;
+      if (!obj) {
+        setHasMore(false);
+        return;
+      }
+      setFeed((prev) => [...prev, ...(obj.items ?? [])]);
+      setHasMore(!!obj.hasMore);
+      setPage(obj.page ?? next);
+    } finally {
+      setMoreLoading(false);
+    }
+  }
+
+  function formatPublished(iso?: string): string {
+    if (!iso) return '';
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return iso;
+    return d.toLocaleDateString();
+  }
 
   async function pollUpdateStatus(expectedRunId: string): Promise<UpdateOutcome> {
     await PromiseUtil.sleep(POLL_INITIAL_MS);
@@ -112,7 +178,7 @@ export default function PanelUpdateModal({
         title={t('pages.index.updatePanel')}
         footer={null}
         onCancel={onClose}
-        width={560}
+        width={640}
       >
         {info.updateAvailable && (
           <Alert
@@ -141,19 +207,55 @@ export default function PanelUpdateModal({
           )}
         </div>
 
-        {info.updateAvailable && notes && (
+        {info.updateAvailable && (feedLoading || feed.length > 0 || notes) && (
           <div className="release-notes">
             <div className="release-notes-title">{t('pages.index.releaseNotes')}</div>
-            <Typography.Paragraph
-              className="release-notes-body"
-              ellipsis={
-                notesExpanded
-                  ? false
-                  : { rows: 8, expandable: true, symbol: t('pages.index.releaseNotesMore'), onExpand: () => setNotesExpanded(true) }
-              }
-            >
-              {notes}
-            </Typography.Paragraph>
+            {feedLoading ? (
+              <div className="release-notes-loading">
+                <Spin size="small" />
+              </div>
+            ) : feed.length > 0 ? (
+              <>
+                {feed.map((item) => (
+                  <div key={item.tag} className="release-note-item">
+                    <div className="release-note-meta">
+                      <Tag color="purple">{item.tag}</Tag>
+                      {item.publishedAt ? (
+                        <span className="release-note-date">{formatPublished(item.publishedAt)}</span>
+                      ) : null}
+                    </div>
+                    {item.body ? (
+                      <Typography.Paragraph className="release-notes-body">
+                        {item.body}
+                      </Typography.Paragraph>
+                    ) : null}
+                  </div>
+                ))}
+                {hasMore ? (
+                  <Button
+                    type="link"
+                    size="small"
+                    loading={moreLoading}
+                    onClick={() => {
+                      void loadMoreNotes();
+                    }}
+                  >
+                    {t('pages.index.releaseNotesLoadMore')}
+                  </Button>
+                ) : null}
+              </>
+            ) : (
+              <Typography.Paragraph
+                className="release-notes-body"
+                ellipsis={
+                  notesExpanded
+                    ? false
+                    : { rows: 8, expandable: true, symbol: t('pages.index.releaseNotesMore'), onExpand: () => setNotesExpanded(true) }
+                }
+              >
+                {notes}
+              </Typography.Paragraph>
+            )}
           </div>
         )}
 

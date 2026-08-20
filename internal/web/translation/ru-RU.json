@@ -253,6 +253,7 @@
       "uptime": "Время работы",
       "releaseNotes": "Что нового",
       "releaseNotesMore": "Показать ещё",
+      "releaseNotesLoadMore": "Предыдущие релизы",
       "awgStatus": "AWG",
       "awgStatusRunning": "Запущен",
       "awgStatusStop": "Остановлен",

@@ -5,6 +5,21 @@
 
 ---
 
+## lucx.146 — update modal changelog feed (2026-08-20)
+
+The panel update dialog only showed the latest GitHub release body, so
+skipping several lucx versions hid earlier notes.
+
+- `GET /panel/api/server/getPanelReleaseNotes?page=` — stable releases newer
+  than the running panel, 10 per page, 10-minute cache.
+- Modal loads the feed on open; “Load older releases” pages GitHub.
+  Fallback: existing `releaseNotes` if the feed is empty.
+- Tests: `TestFilterReleasePage_*`.
+
+**lucxVersion:** lucx.146
+
+---
+
 ## lucx.145 — AWG skip-if-current + TrustTunnel prefix slash (2026-08-20)
 
 **AWG:** install/update always ran `install-awg-module.sh`; even a matching

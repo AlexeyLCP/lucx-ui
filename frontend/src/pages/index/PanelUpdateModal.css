@@ -28,13 +28,40 @@
   padding: 12px 16px;
   border: 1px solid var(--ant-color-border-secondary);
   border-radius: 8px;
-  max-height: 280px;
+  max-height: 360px;
   overflow: auto;
 }
 
 .release-notes-title {
   font-weight: 600;
   margin-bottom: 8px;
+}
+
+.release-notes-loading {
+  display: flex;
+  justify-content: center;
+  padding: 16px 0;
+}
+
+.release-note-item {
+  padding: 8px 0 12px;
+  border-bottom: 1px solid var(--ant-color-border-secondary);
+}
+
+.release-note-item:last-of-type {
+  border-bottom: 0;
+}
+
+.release-note-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.release-note-date {
+  color: var(--ant-color-text-secondary);
+  font-size: 12px;
 }
 
 .release-notes-body {

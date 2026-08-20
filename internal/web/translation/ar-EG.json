@@ -253,6 +253,7 @@
       "uptime": "مدة التشغيل",
       "releaseNotes": "What's new",
       "releaseNotesMore": "Show more",
+      "releaseNotesLoadMore": "Load older releases",
       "awgStatus": "AWG",
       "awgStatusRunning": "Running",
       "awgStatusStop": "Stopped",

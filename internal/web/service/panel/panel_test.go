@@ -39,6 +39,50 @@ func TestIsNewerVersion(t *testing.T) {
 	}
 }
 
+func TestFilterReleasePage_SkipsOlderAndPrerelease(t *testing.T) {
+	current := "v3.6.0-lucx.140"
+	releases := []githubRelease{
+		{TagName: "dev-latest", Prerelease: true, Body: "rolling"},
+		{TagName: "v3.6.0-lucx.145", PublishedAt: "2026-08-20T00:00:00Z", Body: "latest"},
+		{TagName: "v3.6.0-lucx.144", PublishedAt: "2026-08-20T00:00:00Z", Body: "mid", Draft: true},
+		{TagName: "v3.6.0-lucx.143", PublishedAt: "2026-08-19T00:00:00Z", Body: "skipped"},
+		{TagName: "v3.6.0-lucx.140", PublishedAt: "2026-08-18T00:00:00Z", Body: "current"},
+		{TagName: "v3.6.0-lucx.139", PublishedAt: "2026-08-17T00:00:00Z", Body: "older"},
+	}
+	items, hasMore := filterReleasePage(releases, current, 10)
+	if hasMore {
+		t.Fatal("crossed into current/older — hasMore must be false")
+	}
+	if len(items) != 2 {
+		t.Fatalf("got %d items, want 2 (145 and 143; draft 144 and prerelease skipped)", len(items))
+	}
+	if items[0].Tag != "v3.6.0-lucx.145" || items[1].Tag != "v3.6.0-lucx.143" {
+		t.Fatalf("tags = %s, %s", items[0].Tag, items[1].Tag)
+	}
+}
+
+func TestFilterReleasePage_HasMoreWhenPageFull(t *testing.T) {
+	current := "v3.6.0-lucx.1"
+	releases := make([]githubRelease, 10)
+	for i := range releases {
+		releases[i] = githubRelease{TagName: fmt.Sprintf("v3.6.0-lucx.%d", 20-i), Body: "n"}
+	}
+	items, hasMore := filterReleasePage(releases, current, 10)
+	if !hasMore {
+		t.Fatal("full page of newer tags must set hasMore")
+	}
+	if len(items) != 10 {
+		t.Fatalf("got %d items, want 10", len(items))
+	}
+}
+
+func TestFilterReleasePage_EmptyNilSafe(t *testing.T) {
+	items, hasMore := filterReleasePage(nil, "v3.6.0-lucx.1", 10)
+	if hasMore || items == nil || len(items) != 0 {
+		t.Fatalf("empty page: items=%v hasMore=%v", items, hasMore)
+	}
+}
+
 func TestCompareVersionStringsRejectsUnexpectedFormats(t *testing.T) {
 	if _, ok := compareVersionStrings("latest", "2.9.3"); ok {
 		t.Fatal("expected non-semver latest tag to be rejected")

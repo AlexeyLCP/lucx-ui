@@ -769,6 +769,15 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/server/getPanelReleaseNotes',
+        summary: 'Paged changelog of stable GitHub releases newer than the running panel (skipped versions). LucX-UI only.',
+        params: [
+          { name: 'page', in: 'query', type: 'number', desc: '1-based page (10 releases per page).' },
+        ],
+        responseSchema: 'PanelReleaseNotes',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/server/getUpdateStatus',
         summary: 'Report the outcome of the most recently launched panel self-update (see POST updatePanel). Compare the returned runId against the one updatePanel returned to tell this run apart from a stale result.',
         responseSchema: 'PanelUpdateStatus',

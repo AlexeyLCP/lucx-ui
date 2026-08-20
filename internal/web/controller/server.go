@@ -51,6 +51,9 @@ func (a *ServerController) initRouter(g *gin.RouterGroup) {
 	g.GET("/xrayObservatoryHistory/:tag/:bucket", a.getXrayObservatoryHistoryBucket)
 	g.GET("/getXrayVersion", a.getXrayVersion)
 	g.GET("/getPanelUpdateInfo", a.getPanelUpdateInfo)
+	// LUCX-HOOK: skipped-release changelog feed for the update modal.
+	g.GET("/getPanelReleaseNotes", a.getPanelReleaseNotes)
+	// END LUCX-HOOK
 	g.GET("/getUpdateStatus", a.getUpdateStatus)
 	g.GET("/getConfigJson", a.getConfigJson)
 	g.GET("/getDb", a.getDb)
@@ -230,6 +233,20 @@ func (a *ServerController) getPanelUpdateInfo(c *gin.Context) {
 	}
 	jsonObj(c, info, nil)
 }
+
+// LUCX-HOOK: skipped-release changelog feed (lucx.146).
+func (a *ServerController) getPanelReleaseNotes(c *gin.Context) {
+	page, _ := strconv.Atoi(c.Query("page"))
+	notes, err := a.panelService.GetReleaseNotes(page)
+	if err != nil {
+		logger.Debug("panel release notes failed:", err)
+		c.JSON(http.StatusOK, entity.Msg{Success: false})
+		return
+	}
+	jsonObj(c, notes, nil)
+}
+
+// END LUCX-HOOK
 
 // installXray installs or updates Xray to the specified version.
 func (a *ServerController) installXray(c *gin.Context) {

@@ -674,6 +674,22 @@ export const EXAMPLES: Record<string, unknown> = {
     "total": 0,
     "up": 0
   },
+  "PanelReleaseNote": {
+    "body": "- fix: changelog",
+    "publishedAt": "2026-08-20T10:00:00Z",
+    "tag": "v3.6.0-lucx.145"
+  },
+  "PanelReleaseNotes": {
+    "hasMore": true,
+    "items": [
+      {
+        "body": "- fix: changelog",
+        "publishedAt": "2026-08-20T10:00:00Z",
+        "tag": "v3.6.0-lucx.145"
+      }
+    ],
+    "page": 1
+  },
   "PanelUpdateStatus": {
     "exitCode": 0,
     "finishedAt": 1735689612,
