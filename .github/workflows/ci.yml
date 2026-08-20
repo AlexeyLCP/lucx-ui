@@ -151,7 +151,10 @@ jobs:
       - name: golangci-lint
         uses: golangci/golangci-lint-action@v9
         with:
-          version: latest
+          # LUCX-HOOK: pin — v2.13.0 (latest 2026-08-20) panics in nilness
+          # (`unhandled builtin recover`, package common) and times out.
+          version: v2.12.1
+          # END LUCX-HOOK
 
   frontend:
     runs-on: ubuntu-latest
