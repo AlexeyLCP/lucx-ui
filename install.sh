@@ -1749,6 +1749,8 @@ install_x-ui() {
     # install-awg-module.sh writes /etc/x-ui/.awg-module-version after a
     # successful build (or backfills it from modinfo on the no-op path), so
     # update.sh can version-gate future rebuilds without re-cloning.
+    # lucx.145: if the marker SHA already matches upstream master and tools
+    # are ≥ 3.1, the script exits before apt/kernel/DKMS.
     # Rollback stays available: x-ui uninstall-awg / Cores → Uninstall
     # (.conf files are kept).
     if [[ -x bin/install-awg-module.sh ]]; then

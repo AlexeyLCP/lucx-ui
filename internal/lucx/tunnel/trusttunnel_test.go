@@ -251,8 +251,11 @@ func TestTrustTunnelClientURI_Throne(t *testing.T) {
 	cfg.ClientRandomPrefix = "deadbeef/ffffffff"
 	got = cfg.ClientURI("bgt3.intozwift.online:8443",
 		AuthPair{User: "tr32ec152d1d", Pass: "s3F6-zCMYjCNgw3VAj8wTA36K1g"}, "")
-	if !strings.Contains(got, "client_random_prefix=deadbeef%2Fffffffff") {
-		t.Fatalf("prefix must be in Throne URI, got %s", got)
+	if !strings.Contains(got, "client_random_prefix=deadbeef/ffffffff") {
+		t.Fatalf("prefix must be in Throne URI with raw /, got %s", got)
+	}
+	if strings.Contains(got, "%2F") {
+		t.Fatalf("prefix must not URL-encode / (NekoBox+), got %s", got)
 	}
 }
 

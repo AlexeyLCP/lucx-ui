@@ -16,7 +16,7 @@ set -e
 # Подход перенят из pumbaX/awg-multi-script (do_install).
 #
 # Флаги:
-#   --force-rebuild       пересобрать даже если модуль уже загружен
+#   --force-rebuild       пересобрать даже если SHA уже целевой / модуль загружен
 #   --no-kernel-upgrade   не трогать linux-image meta-package (панель / Cores)
 #   --uninstall           снять модуль + awg/awg-quick; .conf не трогает
 # =============================================================================
@@ -120,33 +120,6 @@ else
     exit 1
 fi
 
-# Upgrade the kernel to the latest packaged version BEFORE the early-exit:
-# update.sh calls this script on every panel update (even when the module
-# tree is current and the build below no-ops), and the kernel must advance
-# on every one of those calls. The meta-packages pull the newest image +
-# headers (a no-op when already current). update.sh reboots into the new
-# kernel at the END of `x-ui update`; the DKMS build compiles the module for
-# it too, so the reboot lands on a host whose amneziawg is already rebuilt.
-# Never fatal: the panel keeps running on the booted kernel.
-# --no-kernel-upgrade: Cores-button / first-time install from the panel must
-# not pull a newer linux-image (that needs a reboot the operator did not
-# ask for). Headers for the RUNNING kernel are still installed below.
-if [[ $NO_KERNEL_UPGRADE -eq 0 ]]; then
-    case "$OS_ID" in
-        ubuntu|debian|linuxmint|raspbian)
-            apt-get update -qq || true
-            apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || \
-            apt-get install -y -q linux-image-generic linux-headers-generic 2>/dev/null || \
-            echo -e "${YELLOW}Не удалось обновить ядро (meta-package) — работаем на текущем${NC}"
-            ;;
-        *)
-            echo -e "${YELLOW}Авто-апгрейд ядра для ${OS_ID} не поддерживается — пропущен${NC}"
-            ;;
-    esac
-else
-    echo -e "${YELLOW}Авто-апгрейд ядра пропущен (--no-kernel-upgrade)${NC}"
-fi
-
 # awg_tools_stale reports whether the installed awg tools predate AWG 3.1 and
 # must be rebuilt. Tools < v3.1 do not parse RandomTrailers / DisableCookies
 # and abort awg-quick with "Line unrecognized"; `awg version` prints
@@ -166,21 +139,48 @@ awg_tools_stale() {
     return 1
 }
 
-# Check if already loaded. Skip the early-exit when --force-rebuild is set,
-# but only when the awg tools are ALSO current: awg_tools_stale still needs to
-# be reachable from a bare invocation (x-ui install-awg / update.sh's no-op
-# path), otherwise a host with a v3.0 module + v3.0 tools never upgrades the
-# tools to 3.1 even though an upgrade is due.
-if [[ -d /sys/module/amneziawg && $FORCE_REBUILD -eq 0 ]]; then
-    echo -e "${GREEN}Модуль amneziawg уже загружен ($(cat /sys/module/amneziawg/version 2>/dev/null || echo unknown)).${NC}"
-    if command -v awg &>/dev/null && ! awg_tools_stale; then
-        echo -e "${GREEN}awg уже установлен (тулзы актуальны).${NC}"
+# Skip DKMS/kernel when the installed module SHA already matches upstream
+# master (lucx.145). --force-rebuild (Cores / x-ui install-awg) bypasses.
+# Marker is the build commit SHA — PACKAGE_VERSION is always "1.0.0".
+# No network + module already present → do not force a reinstall.
+AWG_NEED_MODULE=1
+if [[ $FORCE_REBUILD -eq 0 ]]; then
+    INSTALLED_AWG_SHA=""
+    [[ -f "$AWG_MODULE_MARKER" ]] && INSTALLED_AWG_SHA=$(tr -d '[:space:]' < "$AWG_MODULE_MARKER" 2>/dev/null)
+    UPSTREAM_AWG_SHA=$(git ls-remote https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git refs/heads/master 2>/dev/null | awk '{print $1}')
+    if [[ -n "$UPSTREAM_AWG_SHA" && -n "$INSTALLED_AWG_SHA" && "$INSTALLED_AWG_SHA" == "$UPSTREAM_AWG_SHA" ]]; then
+        AWG_NEED_MODULE=0
+    elif [[ -z "$UPSTREAM_AWG_SHA" && ( -d /sys/module/amneziawg || -n "$INSTALLED_AWG_SHA" ) ]]; then
+        AWG_NEED_MODULE=0
+    fi
+    if [[ $AWG_NEED_MODULE -eq 0 ]] && ! awg_tools_stale; then
+        echo -e "${GREEN}Модуль amneziawg уже целевой (${INSTALLED_AWG_SHA:0:12}) — пропуск.${NC}"
+        modprobe amneziawg 2>/dev/null || true
         exit 0
     fi
-    # Tools older than v3.1 — fall through. The module build below no-ops (its
-    # own condition requires !loaded || --force-rebuild), and the tools section
-    # rebuilds them.
-    echo -e "${YELLOW}Тулзы awg устарели (< v3.1) — обновляем (модуль не пересобираем).${NC}"
+    if [[ $AWG_NEED_MODULE -eq 0 ]]; then
+        echo -e "${YELLOW}Тулзы awg устарели (< v3.1) — обновляем (модуль не пересобираем).${NC}"
+    fi
+fi
+
+# Kernel meta-packages only when a module rebuild is due. lucx.58 used to
+# upgrade the kernel on every call (even a no-op); that forced apt + reboot
+# on every panel update. --no-kernel-upgrade: Cores-button must not pull a
+# newer linux-image. Never fatal: the panel keeps running on the booted kernel.
+if [[ $NO_KERNEL_UPGRADE -eq 0 && $AWG_NEED_MODULE -eq 1 ]]; then
+    case "$OS_ID" in
+        ubuntu|debian|linuxmint|raspbian)
+            apt-get update -qq || true
+            apt-get install -y -q linux-image-amd64 linux-headers-amd64 2>/dev/null || \
+            apt-get install -y -q linux-image-generic linux-headers-generic 2>/dev/null || \
+            echo -e "${YELLOW}Не удалось обновить ядро (meta-package) — работаем на текущем${NC}"
+            ;;
+        *)
+            echo -e "${YELLOW}Авто-апгрейд ядра для ${OS_ID} не поддерживается — пропущен${NC}"
+            ;;
+    esac
+elif [[ $NO_KERNEL_UPGRADE -eq 1 ]]; then
+    echo -e "${YELLOW}Авто-апгрейд ядра пропущен (--no-kernel-upgrade)${NC}"
 fi
 
 # 1. Install build dependencies
@@ -341,7 +341,7 @@ fi
 #    DKMS tree, install new). A failed build leaves the host on its existing
 #    module — never module-less (the old rmmod-first order could strand a
 #    host without amneziawg when the new build failed).
-if [[ ! -d /sys/module/amneziawg || $FORCE_REBUILD -eq 1 ]]; then
+if [[ $AWG_NEED_MODULE -eq 1 ]]; then
     echo -e "${GREEN}Сборка модуля ядра из исходников...${NC}"
     KERNEL_MOD_DIR="/tmp/amneziawg-kmod-$$"
     rm -rf "$KERNEL_MOD_DIR"

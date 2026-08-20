@@ -1236,12 +1236,10 @@ update_x-ui() {
         # module was built from, written by bin/install-awg-module.sh — against
         # upstream master via git ls-remote (no clone). A version string
         # cannot discriminate: upstream stamps PACKAGE_VERSION="1.0.0" into
-        # every module build, v1 and v3 alike. install-awg-module.sh also
-        # upgrades the kernel meta-packages on every call and compiles the
-        # module for the new kernel; when the booted kernel is older than the
-        # newest installed one, the panel reboots once the update finishes
-        # (systemd brings it back). Never fatal: a failed rebuild/probe keeps
-        # the existing module (panel still starts).
+        # every module build, v1 and v3 alike. lucx.145: matching SHA skips
+        # reinstall and kernel upgrade; mismatch still --force-rebuild (and
+        # may reboot into the new kernel). Never fatal: a failed rebuild
+        # keeps the existing module (panel still starts).
         if [[ -x bin/install-awg-module.sh ]]; then
             # Opt-in (lucx.130): never install AWG on a host that never had it.
             # Marker, loaded module, or awg-quick means the operator installed
@@ -1261,25 +1259,24 @@ update_x-ui() {
                 echo -e "${green}AWG module ${INSTALLED_AWG_SHA:-none} → ${UPSTREAM_AWG_SHA:0:12}: rebuilding...${plain}"
                 bash bin/install-awg-module.sh --force-rebuild || \
                     echo -e "${red}AWG module rebuild failed (non-fatal). Run: bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)${plain}"
+                # Kernel upgraded inside install-awg-module.sh: schedule the
+                # reboot once everything else (panel start, migrate, fail2ban)
+                # has finished.
+                NEWEST_KERNEL=$(ls -1 /lib/modules 2>/dev/null | sort -V | tail -1)
+                if [[ -n "$NEWEST_KERNEL" && "$NEWEST_KERNEL" != "$(uname -r)" && -d "/lib/modules/$NEWEST_KERNEL/build" ]]; then
+                    xui_kernel_reboot=1
+                    xui_newest_kernel="$NEWEST_KERNEL"
+                fi
             elif [[ -z "$UPSTREAM_AWG_SHA" ]]; then
-                # Network/GitHub failure: can't probe upstream. Fall back to a
-                # plain install call — it upgrades the kernel, is a no-op if
-                # the module is already loaded, and covers the "module absent
-                # entirely" case.
-                bash bin/install-awg-module.sh || true
+                # No network: do not force a reinstall of an already-present
+                # module (lucx.145). install-awg-module.sh would also skip.
+                echo -e "${yellow}AWG module: can't probe upstream — leave installed module as-is.${plain}"
             else
-                # Module tree current — still run the script so the kernel
-                # meta-packages advance; it no-ops the module build itself.
+                # SHA already matches target — do not reinstall or bump the
+                # kernel (lucx.145). Tools-only refresh still runs inside the
+                # script if awg < v3.1.
                 bash bin/install-awg-module.sh || true
                 echo -e "${green}AWG module up to date (${INSTALLED_AWG_SHA:0:12}).${plain}"
-            fi
-            # Kernel upgraded inside install-awg-module.sh: schedule the
-            # reboot once everything else (panel start, migrate, fail2ban)
-            # has finished.
-            NEWEST_KERNEL=$(ls -1 /lib/modules 2>/dev/null | sort -V | tail -1)
-            if [[ -n "$NEWEST_KERNEL" && "$NEWEST_KERNEL" != "$(uname -r)" && -d "/lib/modules/$NEWEST_KERNEL/build" ]]; then
-                xui_kernel_reboot=1
-                xui_newest_kernel="$NEWEST_KERNEL"
             fi
             fi
         fi

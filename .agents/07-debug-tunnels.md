@@ -32,3 +32,8 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** qWDTT/olcRTC are `shareOnlySidecar` — membership is `client_inbounds` only, inbound settings have no `clients[]`. Attach/detach skipped that JSON; `UpdateInboundClient` still scanned settings, missed the email, returned `empty client ID`.
 - **Fix (lucx.144):** `UpdateInboundClient` no-op for share-only; `Update` skips those inbounds and still writes `ClientRecord` when nothing else is attached. Tests `TestUpdateAfterShareOnlyAttach`, `TestUpdateShareOnlyOnlyClient`.
 - **Lesson:** if attach/detach have a protocol-specific path, **update must too**. Walking “every inbound id” through the Xray-clients JSON path breaks share-only sidecars.
+
+### Pattern 1r: TrustTunnel `client_random_prefix=%2F` — NekoBox+ drops it — FIXED (lucx.145)
+- **Symptom (doc. bravn, lucx.144):** Throne/NekoBox+ link has `client_random_prefix=3eb5d634%2Fffffffff`; NekoBox+ does not write the prefix.
+- **Cause:** lucx.142 appended the prefix via `url.QueryEscape`, which encodes `/` as `%2F`. The value is only hex or hex/mask (`ValidClientRandomPrefix`) — `/` is safe raw in the query. NekoBox+ does not URL-decode that param.
+- **Fix:** `ClientURI` writes `client_random_prefix=` as-is. Test forbids `%2F`. TLV `tt://?` already carried `/` in binary (unchanged).

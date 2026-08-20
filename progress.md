@@ -5,6 +5,24 @@
 
 ---
 
+## lucx.145 — AWG skip-if-current + TrustTunnel prefix slash (2026-08-20)
+
+**AWG:** install/update always ran `install-awg-module.sh`; even a matching
+SHA still did apt + kernel meta-packages (lucx.58). Early-exit looked at
+“module loaded”, after that work.
+
+- Marker SHA == upstream master and tools ≥ 3.1 → exit before apt/kernel/DKMS.
+- SHA mismatch → `--force-rebuild` as before. No network + module present → leave it.
+- Kernel upgrade only when a module rebuild is due. Cores / `x-ui install-awg` unchanged.
+
+**TrustTunnel (doc. bravn):** `client_random_prefix=3eb5d634%2Fffffffff` —
+NekoBox+ does not decode `%2F` and drops the prefix. `ClientURI` now emits
+raw `/`. Test forbids `%2F`.
+
+**lucxVersion:** lucx.145
+
+---
+
 ## lucx.144 — qWDTT attach then client update (2026-08-20)
 
 **Report (Tuna):** after attaching qWDTT to a client, Clients → update fails
