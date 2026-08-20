@@ -96,6 +96,85 @@ func TestEncodeConf_OfficialContainer(t *testing.T) {
 	if !strings.Contains(cfg, "[Interface]") || !strings.Contains(cfg, "Endpoint = 1.2.3.4:51820") {
 		t.Fatalf("inner config missing .conf:\n%s", cfg)
 	}
+	if inner["client_priv_key"] != "CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=" {
+		t.Fatalf("client_priv_key = %v", inner["client_priv_key"])
+	}
+	if inner["client_ip"] != "10.200.0.2/32" {
+		t.Fatalf("client_ip = %v", inner["client_ip"])
+	}
+	if inner["server_pub_key"] != "DGSYIcEKAUkA7HhzGSjxLZuV67BR3LeyU0BMLJzNVHQ=" {
+		t.Fatalf("server_pub_key = %v", inner["server_pub_key"])
+	}
+	if inner["Jc"] != "4" {
+		t.Fatalf("Jc = %v", inner["Jc"])
+	}
+	if inner["mtu"] != "1320" {
+		t.Fatalf("mtu = %v", inner["mtu"])
+	}
+	port, _ := inner["port"].(float64)
+	if port != 51820 {
+		t.Fatalf("port = %v", inner["port"])
+	}
+	ips, _ := inner["allowed_ips"].([]any)
+	if len(ips) != 2 || ips[0] != "0.0.0.0/0" || ips[1] != "::/0" {
+		t.Fatalf("allowed_ips = %v", inner["allowed_ips"])
+	}
+}
+
+func TestEncodeConf_DomainEndpoint(t *testing.T) {
+	conf := strings.Replace(sampleConf, "1.2.3.4:51820", "vpn.example.com:51820", 1)
+	uri, err := EncodeConf(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := Decode(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(raw, &env); err != nil {
+		t.Fatal(err)
+	}
+	if env["hostName"] != "vpn.example.com" {
+		t.Fatalf("envelope hostName = %v", env["hostName"])
+	}
+	containers, _ := env["containers"].([]any)
+	c0, _ := containers[0].(map[string]any)
+	awg, _ := c0["awg"].(map[string]any)
+	var inner map[string]any
+	if err := json.Unmarshal([]byte(awg["last_config"].(string)), &inner); err != nil {
+		t.Fatal(err)
+	}
+	if inner["hostName"] != "vpn.example.com" {
+		t.Fatalf("last_config hostName = %v", inner["hostName"])
+	}
+}
+
+func TestEncodeConf_OmitsEmptyAwgKeys(t *testing.T) {
+	uri, err := EncodeConf(sampleConf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := Decode(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(raw, &env); err != nil {
+		t.Fatal(err)
+	}
+	containers, _ := env["containers"].([]any)
+	c0, _ := containers[0].(map[string]any)
+	awg, _ := c0["awg"].(map[string]any)
+	var inner map[string]any
+	if err := json.Unmarshal([]byte(awg["last_config"].(string)), &inner); err != nil {
+		t.Fatal(err)
+	}
+	for _, k := range []string{"S1", "H1", "I1", "HeaderProtectionKey", "psk_key", "persistent_keep_alive"} {
+		if _, ok := inner[k]; ok {
+			t.Fatalf("empty key %s must be omitted, got %v", k, inner[k])
+		}
+	}
 }
 
 func TestConfFromPayload_LegacyRawConf(t *testing.T) {

@@ -5,6 +5,34 @@
 
 ---
 
+## lucx.143 — vpn:// last_config keys + Hysteria sniffing (2026-08-20)
+
+**Reports:** VladufQa — Amnezia imports `vpn://` but the tunnel resets immediately
+(same `.conf` works). Andrey — geosite:youtube→direct still misses on Hysteria2
+after lucx.139 (AWG/mieru/TT already fixed).
+
+### 1. vpn:// last_config
+
+lucx.140 JSON envelope imported, but Amnezia connects from structured
+`last_config` fields (`client_priv_key`, `server_pub_key`, Jc…), not the raw
+`config` text. Those were missing.
+
+- `parseConf` fills last_config like Amnezia `extractWireGuardConfig`.
+- Envelope (`amnezia-awg`, `isThirdPartyConfig`) unchanged.
+- Tests: keys present, domain Endpoint, empty AWG keys omitted.
+
+### 2. Hysteria route sniffing
+
+Native inbound, form default sniffing off → no SNI → geosite silent.
+
+- `GenXrayInboundConfig` overlays `enabled+routeOnly` when sniffing is off.
+- DB row unchanged. Operator-enabled sniffing kept.
+- Tests: overlay / keep custom / VLESS untouched.
+
+**lucxVersion:** lucx.143
+
+---
+
 ## lucx.142 — TrustTunnel tt:// client_random_prefix (2026-08-19)
 
 **Report (doc. bravn):** the client `tt://` link does not carry client random

@@ -465,6 +465,17 @@ func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
 			streamSettings = healed
 		}
 	}
+	sniffing := i.Sniffing
+	// LUCX-HOOK: Hysteria geosite/domain rules need sniffing. Stock form
+	// default is enabled:false; without overlay, youtube→direct never matches
+	// (Andrey, lucx.143). Overlay only the generated Xray inbound — DB row
+	// stays as stored. Operator-enabled sniffing is left alone.
+	if i.Protocol == Hysteria {
+		if overlay, ok := overlayHysteriaRouteSniffing(sniffing); ok {
+			sniffing = overlay
+		}
+	}
+	// END LUCX-HOOK
 	return &xray.InboundConfig{
 		Listen:         json_util.RawMessage(listen),
 		Port:           i.Port,
@@ -472,9 +483,32 @@ func (i *Inbound) GenXrayInboundConfig() *xray.InboundConfig {
 		Settings:       json_util.RawMessage(settings),
 		StreamSettings: json_util.RawMessage(streamSettings),
 		Tag:            i.Tag,
-		Sniffing:       json_util.RawMessage(i.Sniffing),
+		Sniffing:       json_util.RawMessage(sniffing),
 	}
 }
+
+// LUCX-HOOK: same destOverride/routeOnly block as AWG TUN / SOCKS sidecar
+// bridges (awgEgressTunSniffing). Applied only when sniffing is missing or off.
+const hysteriaRouteSniffing = `{"enabled":true,"destOverride":["http","tls","quic"],"routeOnly":true}`
+
+func overlayHysteriaRouteSniffing(raw string) (string, bool) {
+	s := strings.TrimSpace(raw)
+	if s == "" || s == "{}" || s == "null" {
+		return hysteriaRouteSniffing, true
+	}
+	var parsed struct {
+		Enabled bool `json:"enabled"`
+	}
+	if err := json.Unmarshal([]byte(s), &parsed); err != nil {
+		return hysteriaRouteSniffing, true
+	}
+	if parsed.Enabled {
+		return raw, false
+	}
+	return hysteriaRouteSniffing, true
+}
+
+// END LUCX-HOOK
 
 func StripVmessClientSecurity(settings string) (string, bool) {
 	if settings == "" {

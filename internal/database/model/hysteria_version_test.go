@@ -149,3 +149,50 @@ func TestGenXrayInboundConfigLeavesOtherProtocolsAlone(t *testing.T) {
 		t.Fatalf("a non-hysteria inbound must not gain a version key, got %#v", got)
 	}
 }
+
+func TestGenXrayInboundConfig_HysteriaRouteSniffing(t *testing.T) {
+	const stockOff = `{"enabled":false,"destOverride":["http","tls","quic","fakedns"]}`
+	in := Inbound{
+		Protocol: Hysteria,
+		Port:     443,
+		Tag:      "in-hysteria",
+		Settings: `{"version":2,"clients":[]}`,
+		Sniffing: stockOff,
+	}
+	cfg := in.GenXrayInboundConfig()
+	var sniff struct {
+		Enabled      bool     `json:"enabled"`
+		RouteOnly    bool     `json:"routeOnly"`
+		DestOverride []string `json:"destOverride"`
+	}
+	if err := json.Unmarshal(cfg.Sniffing, &sniff); err != nil {
+		t.Fatalf("generated sniffing: %v", err)
+	}
+	if !sniff.Enabled || !sniff.RouteOnly {
+		t.Fatalf("hysteria sniffing must be enabled+routeOnly, got %+v", sniff)
+	}
+	if len(sniff.DestOverride) != 3 || sniff.DestOverride[0] != "http" {
+		t.Fatalf("destOverride = %v", sniff.DestOverride)
+	}
+	if in.Sniffing != stockOff {
+		t.Fatalf("DB row must stay unchanged, got %q", in.Sniffing)
+	}
+}
+
+func TestGenXrayInboundConfig_HysteriaKeepsOperatorSniffing(t *testing.T) {
+	custom := `{"enabled":true,"destOverride":["tls"],"routeOnly":false}`
+	in := Inbound{Protocol: Hysteria, Port: 443, Tag: "hy", Sniffing: custom}
+	cfg := in.GenXrayInboundConfig()
+	if string(cfg.Sniffing) != custom {
+		t.Fatalf("operator sniffing overwritten: %s", cfg.Sniffing)
+	}
+}
+
+func TestGenXrayInboundConfig_VLESSSniffingUntouched(t *testing.T) {
+	off := `{"enabled":false}`
+	in := Inbound{Protocol: VLESS, Port: 443, Tag: "vless", Sniffing: off}
+	cfg := in.GenXrayInboundConfig()
+	if string(cfg.Sniffing) != off {
+		t.Fatalf("non-hysteria sniffing changed: %s", cfg.Sniffing)
+	}
+}

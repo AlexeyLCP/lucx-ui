@@ -12,8 +12,10 @@
 // where qCompress is Qt's wrapper: 4-byte big-endian uncompressed length +
 // raw DEFLATE (zlib) body. The JSON is the official Amnezia container
 // (containers[].awg.last_config) so NekoBox+ and awg-manager parse it.
-// last_config is a JSON string whose "config" field is the awg-quick .conf
-// (Amnezia's processAmneziaConfig overwrites last_config if it is raw INI).
+// last_config is a JSON string matching Amnezia AwgClientConfig (config plus
+// client_priv_key / server_pub_key / Jc / …). processAmneziaConfig skips
+// parsing when last_config is already JSON; without the structured keys the
+// app imports the container but the handshake dies immediately.
 package vpnuri
 
 import (
@@ -53,19 +55,15 @@ func EncodeConf(conf string) (string, error) {
 }
 
 func amneziaEnvelope(conf string) map[string]any {
-	host, port, dns1, dns2, desc := peekConfMeta(conf)
-	inner, _ := json.Marshal(map[string]any{
-		"config":   conf,
-		"hostName": host,
-		"port":     port,
-	})
+	meta := parseConf(conf)
+	innerJSON, _ := json.Marshal(meta.inner)
 	awg := map[string]any{
-		"last_config":        string(inner),
+		"last_config":        string(innerJSON),
 		"isThirdPartyConfig": true,
 		"transport_proto":    "udp",
 	}
-	if port > 0 {
-		awg["port"] = strconv.Itoa(port)
+	if meta.port > 0 {
+		awg["port"] = strconv.Itoa(meta.port)
 	}
 	env := map[string]any{
 		"defaultContainer": containerName,
@@ -76,54 +74,130 @@ func amneziaEnvelope(conf string) map[string]any {
 			},
 		},
 	}
-	if host != "" {
-		env["hostName"] = host
+	if meta.host != "" {
+		env["hostName"] = meta.host
 	}
-	if desc != "" {
-		env["description"] = desc
+	if meta.desc != "" {
+		env["description"] = meta.desc
 	}
-	if dns1 != "" {
-		env["dns1"] = dns1
+	if meta.dns1 != "" {
+		env["dns1"] = meta.dns1
 	}
-	if dns2 != "" {
-		env["dns2"] = dns2
+	if meta.dns2 != "" {
+		env["dns2"] = meta.dns2
 	}
 	return env
 }
 
-func peekConfMeta(conf string) (host string, port int, dns1, dns2, desc string) {
+// awgLastConfigKeys are Amnezia last_config field names that match .conf keys
+// 1:1 (extractWireGuardConfig copies them as-is).
+var awgLastConfigKeys = map[string]string{
+	"jc":                     "Jc",
+	"jmin":                   "Jmin",
+	"jmax":                   "Jmax",
+	"s1":                     "S1",
+	"s2":                     "S2",
+	"s3":                     "S3",
+	"s4":                     "S4",
+	"h1":                     "H1",
+	"h2":                     "H2",
+	"h3":                     "H3",
+	"h4":                     "H4",
+	"i1":                     "I1",
+	"i2":                     "I2",
+	"i3":                     "I3",
+	"i4":                     "I4",
+	"i5":                     "I5",
+	"headerprotectionkey":    "HeaderProtectionKey",
+	"contentpaddingaddition": "ContentPaddingAddition",
+	"rekeyaftertime":         "RekeyAfterTime",
+	"rekeytimeout":           "RekeyTimeout",
+	"rejectaftertime":        "RejectAfterTime",
+	"keepalivetimeout":       "KeepaliveTimeout",
+	"maxhandshakeattempts":   "MaxHandshakeAttempts",
+	"randomtrailers":         "RandomTrailers",
+	"disablecookies":         "DisableCookies",
+}
+
+type confMeta struct {
+	host, dns1, dns2, desc string
+	port                   int
+	inner                  map[string]any
+}
+
+func parseConf(conf string) confMeta {
+	meta := confMeta{inner: map[string]any{"config": conf}}
 	for _, raw := range strings.Split(conf, "\n") {
 		line := strings.TrimSpace(raw)
 		if line == "" {
 			continue
 		}
 		if strings.HasPrefix(line, "#") {
-			if desc == "" {
-				desc = strings.TrimSpace(strings.TrimPrefix(line, "#"))
+			if meta.desc == "" {
+				meta.desc = strings.TrimSpace(strings.TrimPrefix(line, "#"))
 			}
+			continue
+		}
+		if strings.HasPrefix(line, "[") {
 			continue
 		}
 		key, val, ok := strings.Cut(line, "=")
 		if !ok {
 			continue
 		}
-		switch strings.ToLower(strings.TrimSpace(key)) {
+		key = strings.TrimSpace(key)
+		val = strings.TrimSpace(val)
+		if val == "" {
+			continue
+		}
+		switch strings.ToLower(key) {
 		case "endpoint":
-			h, p := splitHostPort(strings.TrimSpace(val))
-			if host == "" {
-				host, port = h, p
+			if meta.host == "" {
+				meta.host, meta.port = splitHostPort(val)
+				if meta.host != "" {
+					meta.inner["hostName"] = meta.host
+				}
+				if meta.port > 0 {
+					meta.inner["port"] = meta.port
+				}
 			}
 		case "dns":
 			parts := strings.Split(val, ",")
-			if dns1 == "" && len(parts) > 0 {
-				dns1 = strings.TrimSpace(parts[0])
+			if meta.dns1 == "" && len(parts) > 0 {
+				meta.dns1 = strings.TrimSpace(parts[0])
 			}
-			if dns2 == "" && len(parts) > 1 {
-				dns2 = strings.TrimSpace(parts[1])
+			if meta.dns2 == "" && len(parts) > 1 {
+				meta.dns2 = strings.TrimSpace(parts[1])
+			}
+		case "privatekey":
+			meta.inner["client_priv_key"] = val
+		case "address":
+			meta.inner["client_ip"] = val
+		case "publickey":
+			meta.inner["server_pub_key"] = val
+		case "presharedkey":
+			meta.inner["psk_key"] = val
+		case "mtu":
+			meta.inner["mtu"] = val
+		case "persistentkeepalive":
+			meta.inner["persistent_keep_alive"] = val
+		case "allowedips":
+			var ips []string
+			for _, p := range strings.Split(val, ",") {
+				if ip := strings.TrimSpace(p); ip != "" {
+					ips = append(ips, ip)
+				}
+			}
+			if len(ips) > 0 {
+				meta.inner["allowed_ips"] = ips
+			}
+		default:
+			if jsonKey, ok := awgLastConfigKeys[strings.ToLower(key)]; ok {
+				meta.inner[jsonKey] = val
 			}
 		}
 	}
-	return host, port, dns1, dns2, desc
+	return meta
 }
 
 func splitHostPort(s string) (string, int) {
