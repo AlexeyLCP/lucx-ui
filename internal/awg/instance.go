@@ -8,6 +8,8 @@ package awg
 
 import (
 	"encoding/json"
+	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -128,15 +130,16 @@ type PeerSpec struct {
 	AllowedIPs string
 }
 
-// fingerprint changes whenever any value that ends up in the generated .conf
-// changes, so ensureLocked restarts awg-quick when the operator edits a setting.
+// fingerprint changes whenever a device-level .conf field changes, so
+// ensureLocked restarts awg-quick. Peers are NOT included — adding/removing a
+// client uses awg syncconf (SyncPeers) so existing handshakes survive.
+// DNS and I1-I5 are client-export-only and do not go into the server .conf.
 func (inst Instance) fingerprint() string {
 	parts := []string{
 		inst.Ifname,
 		strconv.Itoa(inst.Port),
 		inst.PrivateKey,
 		strconv.Itoa(inst.MTU),
-		inst.DNS,
 		inst.Address,
 		strconv.Itoa(inst.Jc),
 		strconv.Itoa(inst.Jmin),
@@ -149,11 +152,6 @@ func (inst Instance) fingerprint() string {
 		inst.H2,
 		inst.H3,
 		inst.H4,
-		inst.I1,
-		inst.I2,
-		inst.I3,
-		inst.I4,
-		inst.I5,
 		inst.HeaderProtectionKey,
 		string(inst.ContentPaddingAddition),
 		string(inst.RekeyAfterTime),
@@ -167,6 +165,11 @@ func (inst Instance) fingerprint() string {
 		strconv.FormatBool(inst.RouteThroughXray),
 		inst.OutboundTag,
 	}
+	return strings.Join(parts, "|")
+}
+
+func (inst Instance) peerFingerprint() string {
+	parts := make([]string, 0, len(inst.Peers)*4)
 	for _, p := range inst.Peers {
 		parts = append(parts, p.PrivateKey, p.PublicKey, p.PSK, p.AllowedIPs)
 	}
@@ -336,6 +339,64 @@ func NormalizeAWGVersion(v string) string {
 	default:
 		return "2"
 	}
+}
+
+// CollapseTimerForVersion returns a keepalive/timer string safe for the given
+// AWG protocol version. Pre-v3 tools parse PersistentKeepalive as a single
+// integer and reject "15-25". Empty/zero → "".
+func CollapseTimerForVersion(raw, version string) string {
+	s := strings.TrimSpace(raw)
+	if s == "" || s == "0" || s == "0-0" {
+		return ""
+	}
+	if !IsAwg3Plus(version) {
+		if i := strings.IndexByte(s, '-'); i > 0 {
+			s = strings.TrimSpace(s[:i])
+		}
+	}
+	return s
+}
+
+var awgHFieldRe = regexp.MustCompile(`^[0-9]+(-[0-9]+)?$`)
+
+// ValidateObfuscationFields rejects garbage H1-H4 and range-form H on a 1.5
+// inbound (v1.x awg-quick: "Unable to parse H1"). Empty H is allowed (generator
+// always fills them; blank means the operator has not generated yet).
+func ValidateObfuscationFields(version, h1, h2, h3, h4 string) error {
+	ver := NormalizeAWGVersion(version)
+	for i, h := range []string{h1, h2, h3, h4} {
+		h = strings.TrimSpace(h)
+		if h == "" {
+			continue
+		}
+		if !awgHFieldRe.MatchString(h) {
+			return fmt.Errorf("awg: H%d is not an integer or lo-hi range", i+1)
+		}
+		if ver == "1.5" && strings.Contains(h, "-") {
+			return fmt.Errorf("awg: H%d is a range but awgVersion is 1.5 — regenerate obfuscation", i+1)
+		}
+	}
+	return nil
+}
+
+func timerHi(t AwgTimer) int64 {
+	s := strings.TrimSpace(string(t))
+	if s == "" || s == "0" || s == "0-0" {
+		return 0
+	}
+	if i := strings.LastIndexByte(s, '-'); i >= 0 {
+		s = strings.TrimSpace(s[i+1:])
+	}
+	n, _ := strconv.ParseInt(s, 10, 64)
+	return n
+}
+
+func onlineTTLSeconds(inst Instance) int64 {
+	ttl := int64(handshakeOnlineTTL)
+	if hi := timerHi(inst.RekeyAfterTime); hi+60 > ttl {
+		ttl = hi + 60
+	}
+	return ttl
 }
 
 // IsAwg3Plus reports whether v includes the AWG3 field set (HPK + device

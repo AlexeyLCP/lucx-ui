@@ -74,6 +74,18 @@ func TestRenderClientConf_DNS_NeverWritten(t *testing.T) {
 	}
 }
 
+func TestRenderClientConf_S3S4OmittedFor15(t *testing.T) {
+	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":4,"jmin":10,"jmax":50,"s1":20,"s2":30,"s3":40,"s4":50,"h1":"1","h2":"2","h3":"3","h4":"4","awgVersion":"1.5"}`}
+	ci, _ := ClientInstanceFromOutbound(o)
+	conf := renderClientConf(ci)
+	if strings.Contains(conf, "S3 =") || strings.Contains(conf, "S4 =") {
+		t.Errorf("S3/S4 must be omitted for awgVersion 1.5, got:\n%s", conf)
+	}
+	if !strings.Contains(conf, "S1 = 20") {
+		t.Errorf("S1 must remain, got:\n%s", conf)
+	}
+}
+
 func TestRenderClientConf_ObfuscationWhenSet(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"s1":20,"s2":30,"s3":40,"s4":50,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000"}`}
 	ci, _ := ClientInstanceFromOutbound(o)

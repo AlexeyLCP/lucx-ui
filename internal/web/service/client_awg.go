@@ -16,6 +16,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
@@ -89,6 +90,38 @@ func awgSettingsAddress(settings string) string {
 		return ""
 	}
 	return s.Address
+}
+
+func validateAwgSettingsJSON(settings string) error {
+	var s struct {
+		AwgVersion string `json:"awgVersion"`
+		H1         string `json:"h1"`
+		H2         string `json:"h2"`
+		H3         string `json:"h3"`
+		H4         string `json:"h4"`
+	}
+	if err := json.Unmarshal([]byte(settings), &s); err != nil {
+		return nil
+	}
+	return awg.ValidateObfuscationFields(s.AwgVersion, s.H1, s.H2, s.H3, s.H4)
+}
+
+func (s *InboundService) applyLocalAwg(inboundId int) {
+	inbound, err := s.GetInbound(inboundId)
+	if err != nil || inbound == nil || inbound.Protocol != model.AWG || inbound.NodeID != nil {
+		return
+	}
+	if !inbound.Enable {
+		awg.GetManager().Remove(inboundId)
+		return
+	}
+	inst, ok := awg.InstanceFromInbound(inbound)
+	if !ok {
+		return
+	}
+	if err := awg.GetManager().Ensure(inst); err != nil {
+		logger.Debug("awg: immediate client apply failed for inbound", inboundId, ":", err)
+	}
 }
 
 func awgSettingsVersion(settings string) string {
@@ -574,8 +607,8 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	}
 	b.WriteString("AllowedIPs = 0.0.0.0/0, ::/0\n")
 	fmt.Fprintf(&b, "Endpoint = %s:%d\n", host, inbound.Port)
-	if !client.KeepAlive.IsZero() {
-		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", client.KeepAlive.String())
+	if ka := awg.CollapseTimerForVersion(client.KeepAlive.String(), awgSettingsVersion(inbound.Settings)); ka != "" {
+		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", ka)
 	}
 	return b.String(), nil
 }

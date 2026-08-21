@@ -288,9 +288,9 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
       >
         <Select
           options={[
-            { value: 1, label: 'Lite — лёгкая обфускация (Jc + DNS I1)' },
-            { value: 2, label: 'Standard — средняя (Jc/S/H + TLS I1)' },
-            { value: 3, label: 'Pro — полная (Jc/S/H + I1-I5)' },
+            { value: 1, label: t('pages.inbounds.form.awgObfLite') },
+            { value: 2, label: t('pages.inbounds.form.awgObfStandard') },
+            { value: 3, label: t('pages.inbounds.form.awgObfPro') },
           ]}
         />
       </FormField>
@@ -357,8 +357,8 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
       <FormField name={['settings', 'region']} label={t('pages.inbounds.form.awgRegion')} tooltip={t('pages.inbounds.form.awgRegionHint')}>
         <Select
           options={[
-            { value: 'ru', label: 'RU (включая РФ-сервисы: yandex/vk/gosuslugi)' },
-            { value: 'world', label: 'World (только глобальные домены)' },
+            { value: 'ru', label: t('pages.inbounds.form.awgRegionRu') },
+            { value: 'world', label: t('pages.inbounds.form.awgRegionWorld') },
           ]}
         />
       </FormField>

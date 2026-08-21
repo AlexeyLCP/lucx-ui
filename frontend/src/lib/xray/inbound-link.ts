@@ -12,6 +12,7 @@ import type { ExternalProxyEntry } from '@/schemas/protocols/stream/external-pro
 import type { FinalMaskStreamSettings } from '@/schemas/protocols/stream/finalmask';
 import type { XHttpStreamSettings } from '@/schemas/protocols/stream/xhttp';
 
+import { collapseKeepaliveForVersion } from '@/lib/awg/timer';
 import { getHeaderValue } from './headers';
 import { canEnableTlsFlow } from './protocol-capabilities';
 import { deriveSpiderX } from './spider-x';
@@ -1555,7 +1556,7 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   if (settings.dns) url.searchParams.set('dns', settings.dns);
   if (peer.preSharedKey) url.searchParams.set('presharedkey', peer.preSharedKey);
   {
-    const ka = awgTimerEmit(peer.keepAlive as string | number | undefined);
+    const ka = collapseKeepaliveForVersion(peer.keepAlive, awgVersionAtLeast(v, '3'));
     if (ka) url.searchParams.set('keepalive', ka);
   }
 
@@ -1639,12 +1640,12 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   txt += `[Peer]\n`;
   txt += `PublicKey = ${pubKey}\n`;
   txt += `AllowedIPs = 0.0.0.0/0, ::/0\n`;
-  txt += `Endpoint = ${address}:${port}`;
+  txt += `Endpoint = ${formatUrlHost(address)}:${port}`;
   if (peer.preSharedKey && peer.preSharedKey.length > 0) {
     txt += `\nPresharedKey = ${peer.preSharedKey}`;
   }
   {
-    const ka = awgTimerEmit(peer.keepAlive as string | number | undefined);
+    const ka = collapseKeepaliveForVersion(peer.keepAlive, awgVersionAtLeast(override, '3'));
     if (ka) txt += `\nPersistentKeepalive = ${ka}\n`;
   }
   return txt;

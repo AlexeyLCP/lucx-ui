@@ -52,12 +52,24 @@ done
 
 [[ $EUID -ne 0 ]] && { echo -e "${RED}Запустите с правами root${NC}"; exit 1; }
 
-# Marker file written after a successful DKMS install: the upstream commit
-# SHA the module was built from. update.sh compares it against `git ls-remote
-# refs/heads/master` to decide whether a rebuild is due — a version string
-# cannot work because upstream stamps PACKAGE_VERSION="1.0.0" into every
-# module build (v1 and v3 alike).
+# Marker file written after a successful DKMS install: the commit SHA the
+# module was built from. Compared against AWG_KMOD_PIN (not floating master) —
+# unpinned master made every panel update a rebuild and could swap a v3
+# netlink ABI under pre-v3 host tools. Bump the pins only after a stand test.
+# PACKAGE_VERSION is always "1.0.0" (v1 and v3 alike), so a version string
+# cannot discriminate builds.
 AWG_MODULE_MARKER="/etc/x-ui/.awg-module-version"
+AWG_KMOD_PIN="46803204e7ec3b068199cd671143bec661d3fe21"
+AWG_TOOLS_PIN="ee0f0a9aa34ff0a0da4b3433b9512781cfe02843"
+
+git_clone_sha() {
+    local url="$1" sha="$2" dest="$3"
+    rm -rf "$dest"
+    mkdir -p "$dest"
+    git -C "$dest" init -q
+    git -C "$dest" remote add origin "$url"
+    git -C "$dest" fetch --depth 1 origin "$sha" && git -C "$dest" checkout -q FETCH_HEAD
+}
 
 uninstall_awg_module() {
     echo -e "${YELLOW}=== Удаление модуля ядра AmneziaWG ===${NC}"
@@ -209,18 +221,14 @@ open(path, "w", encoding="utf-8", errors="surrogateescape").write(new)
 PY
 }
 
-# Skip DKMS/kernel when the installed module SHA already matches upstream
-# master (lucx.145). --force-rebuild (Cores / x-ui install-awg) bypasses.
-# Marker is the build commit SHA — PACKAGE_VERSION is always "1.0.0".
+# Skip DKMS/kernel when the installed module SHA already matches AWG_KMOD_PIN
+# (lucx.145/153). --force-rebuild (Cores / x-ui install-awg) bypasses.
 # No network + module already present → do not force a reinstall.
 AWG_NEED_MODULE=1
 if [[ $FORCE_REBUILD -eq 0 ]]; then
     INSTALLED_AWG_SHA=""
     [[ -f "$AWG_MODULE_MARKER" ]] && INSTALLED_AWG_SHA=$(tr -d '[:space:]' < "$AWG_MODULE_MARKER" 2>/dev/null)
-    UPSTREAM_AWG_SHA=$(git ls-remote https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git refs/heads/master 2>/dev/null | awk '{print $1}')
-    if [[ -n "$UPSTREAM_AWG_SHA" && -n "$INSTALLED_AWG_SHA" && "$INSTALLED_AWG_SHA" == "$UPSTREAM_AWG_SHA" ]]; then
-        AWG_NEED_MODULE=0
-    elif [[ -z "$UPSTREAM_AWG_SHA" && ( -d /sys/module/amneziawg || -n "$INSTALLED_AWG_SHA" ) ]]; then
+    if [[ -n "$INSTALLED_AWG_SHA" && "$INSTALLED_AWG_SHA" == "$AWG_KMOD_PIN" ]]; then
         AWG_NEED_MODULE=0
     fi
     if [[ $AWG_NEED_MODULE -eq 0 ]] && ! awg_tools_stale; then
@@ -412,10 +420,12 @@ fi
 #    module — never module-less (the old rmmod-first order could strand a
 #    host without amneziawg when the new build failed).
 if [[ $AWG_NEED_MODULE -eq 1 ]]; then
-    echo -e "${GREEN}Сборка модуля ядра из исходников...${NC}"
+    echo -e "${GREEN}Сборка модуля ядра из исходников (pin ${AWG_KMOD_PIN:0:12})...${NC}"
     KERNEL_MOD_DIR="/tmp/amneziawg-kmod-$$"
-    rm -rf "$KERNEL_MOD_DIR"
-    git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git "$KERNEL_MOD_DIR"
+    git_clone_sha "https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git" "$AWG_KMOD_PIN" "$KERNEL_MOD_DIR" || {
+        echo -e "${RED}Не удалось клонировать amneziawg-linux-kernel-module @ ${AWG_KMOD_PIN:0:12}${NC}"
+        exit 1
+    }
     cd "$KERNEL_MOD_DIR/src"
 
     MOD_VER=$(git describe --tags --always --dirty 2>/dev/null || echo "1.0.0")
@@ -493,10 +503,9 @@ fi
 #    < v3.1 reject RandomTrailers / DisableCookies with "Line unrecognized").
 #    See awg_tools_stale above for the version rule.
 if awg_tools_stale; then
-    echo -e "${GREEN}Сборка утилит awg...${NC}"
+    echo -e "${GREEN}Сборка утилит awg (pin ${AWG_TOOLS_PIN:0:12})...${NC}"
     TOOLS_DIR="/tmp/amneziawg-tools-$$"
-    rm -rf "$TOOLS_DIR"
-    if git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git "$TOOLS_DIR" 2>&1; then
+    if git_clone_sha "https://github.com/amnezia-vpn/amneziawg-tools.git" "$AWG_TOOLS_PIN" "$TOOLS_DIR"; then
         ( cd "$TOOLS_DIR/src" && make && make install ) \
             && echo -e "${GREEN}Утилиты awg установлены.${NC}" \
             || echo -e "${RED}Сборка утилит awg упала — проверь build-essential (apt install build-essential). AWG не стартует без awg-quick.${NC}"

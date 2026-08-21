@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { formatInboundLabel } from '@/lib/inbounds/label';
-import { normalizeAwgTimer } from '@/lib/awg/timer';
+import { collapseKeepaliveForVersion, normalizeAwgTimer } from '@/lib/awg/timer';
 import { awgVersionAtLeast, awgVersionCeiling, preferPublicHost, resolveShareHost } from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
@@ -158,13 +158,9 @@ export function buildAwgClientConfig(
     `DNS = ${inbound?.wgDns || '1.1.1.1, 1.0.0.1'}`,
   ];
   if (inbound?.wgMtu && inbound.wgMtu > 0) lines.push(`MTU = ${inbound.wgMtu}`);
-  // AWG obfuscation block (Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5/HPK) — pre-rendered by
-  // the backend (inboundAwgHints) as the inbound's ceiling. Clamp it to the
-  // requested export version when the client app predates the ceiling (older
-  // awg-quick rejects unknown fields). Defaults to the ceiling (inbound.awgVersion).
+  const ceiling = awgVersionCeiling(inbound?.awgVersion);
+  const target = awgVersionExport && awgVersionAtLeast(ceiling, awgVersionExport) ? awgVersionExport : ceiling;
   if (inbound?.awgObfuscation) {
-    const ceiling = awgVersionCeiling(inbound.awgVersion);
-    const target = awgVersionExport && awgVersionAtLeast(ceiling, awgVersionExport) ? awgVersionExport : ceiling;
     const trimmed = filterAwgObfuscation(inbound.awgObfuscation, target).trimEnd();
     if (trimmed) lines.push(trimmed);
   }
@@ -173,8 +169,8 @@ export function buildAwgClientConfig(
   lines.push('[Peer]', `PublicKey = ${inbound?.wgPublicKey || ''}`);
   if (client.preSharedKey) lines.push(`PresharedKey = ${client.preSharedKey}`);
   lines.push('AllowedIPs = 0.0.0.0/0, ::/0', `Endpoint = ${endpoint}`);
-  const ka = persistentKeepaliveLine(client.keepAlive);
-  if (ka) lines.push(ka);
+  const ka = collapseKeepaliveForVersion(client.keepAlive, awgVersionAtLeast(target, '3'));
+  if (ka) lines.push(`PersistentKeepalive = ${ka}`);
   return lines.join('\n');
 }
 // END LUCX-HOOK

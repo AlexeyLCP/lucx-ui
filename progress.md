@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.153 — QA stand fixes: keepalive export, syncconf, H validation, kmod pin (2026-08-21)
+
+Stand-confirmed: range keepalive `15-25` rejected by pre-v3 tools; adding a client restarted the whole AWG iface; unpinned `master` clone.
+
+- Export < v3 collapses keepalive range to lo (Go + frontend).
+- Device fingerprint excludes peers/DNS/I1-I5; `awg syncconf` on peer change; `applyLocalAwg` after client CRUD.
+- H1-H4 validated; 1.5 rejects ranges. `renderClientConf` omits S3/S4 for 1.5.
+- Online TTL follows RekeyAfterTime hi. StopAll backs up confs.
+- `install-awg-module.sh` / `update.sh` pin kmod+tools SHA (not floating master).
+- i18n: obfuscation/region labels.
+
+**lucxVersion:** lucx.153
+
+---
+
+
 > Файл ведётся агентом в ходе работы. Обновляется при каждом шаге.
 > Последняя миграция апстрима: **v3.6.0** (см. запись в конце файла).
 

@@ -25,7 +25,9 @@ type managed struct {
 	proc        *Process
 	tag         string
 	fingerprint string
+	peerFP      string
 	ifname      string
+	onlineTTL   int64
 	// Traffic baselines per peer public key, so CollectTraffic returns deltas.
 	lastRx   map[string]int64
 	lastTx   map[string]int64
@@ -89,15 +91,26 @@ func (m *Manager) sweepOrphansLocked() {
 
 func (m *Manager) ensureLocked(inst Instance) error {
 	fp := inst.fingerprint()
+	peerFP := inst.peerFingerprint()
+	ttl := onlineTTLSeconds(inst)
 	if cur, ok := m.procs[inst.Id]; ok {
 		if cur.fingerprint == fp && cur.proc.IsRunning() {
 			cur.tag = inst.Tag
+			cur.onlineTTL = ttl
+			if cur.peerFP != peerFP {
+				if err := m.syncPeersLocked(inst); err != nil {
+					return err
+				}
+				cur.peerFP = peerFP
+				cur.lastRx = map[string]int64{}
+				cur.lastTx = map[string]int64{}
+				cur.haveLast = false
+			}
 			return nil
 		}
 		_ = cur.proc.Stop()
 		delete(m.procs, inst.Id)
 	}
-	// Write the .conf the sidecar will bring up.
 	if err := writeServerConfigFile(inst); err != nil {
 		return err
 	}
@@ -109,7 +122,9 @@ func (m *Manager) ensureLocked(inst Instance) error {
 		proc:        proc,
 		tag:         inst.Tag,
 		fingerprint: fp,
+		peerFP:      peerFP,
 		ifname:      inst.Ifname,
+		onlineTTL:   ttl,
 		lastRx:      map[string]int64{},
 		lastTx:      map[string]int64{},
 	}
@@ -283,7 +298,12 @@ func (m *Manager) StopAll() {
 	defer m.mu.Unlock()
 	for id, cur := range m.procs {
 		_ = cur.proc.Stop()
-		_ = os.Remove(configPathForID(id))
+		path := configPathForID(id)
+		if _, err := os.Stat(path); err == nil {
+			if berr := backupConfigFile(path); berr != nil {
+				_ = os.Remove(path)
+			}
+		}
 		delete(m.procs, id)
 	}
 }
@@ -312,12 +332,13 @@ const handshakeOnlineTTL = 180
 // Xray's stats API.
 func (m *Manager) CollectTraffic() ([]Traffic, []PeerTraffic, map[string][]string) {
 	type snap struct {
-		id       int
-		ifname   string
-		tag      string
-		haveLast bool
-		lastRx   map[string]int64
-		lastTx   map[string]int64
+		id        int
+		ifname    string
+		tag       string
+		haveLast  bool
+		onlineTTL int64
+		lastRx    map[string]int64
+		lastTx    map[string]int64
 	}
 	m.mu.Lock()
 	snaps := make([]snap, 0, len(m.procs))
@@ -325,13 +346,18 @@ func (m *Manager) CollectTraffic() ([]Traffic, []PeerTraffic, map[string][]strin
 		if cur.proc == nil || !cur.proc.IsRunning() {
 			continue
 		}
+		ttl := cur.onlineTTL
+		if ttl <= 0 {
+			ttl = handshakeOnlineTTL
+		}
 		snaps = append(snaps, snap{
-			id:       id,
-			ifname:   cur.ifname,
-			tag:      cur.tag,
-			haveLast: cur.haveLast,
-			lastRx:   cur.lastRx,
-			lastTx:   cur.lastTx,
+			id:        id,
+			ifname:    cur.ifname,
+			tag:       cur.tag,
+			haveLast:  cur.haveLast,
+			onlineTTL: ttl,
+			lastRx:    cur.lastRx,
+			lastTx:    cur.lastTx,
 		})
 	}
 	m.mu.Unlock()
@@ -352,7 +378,7 @@ func (m *Manager) CollectTraffic() ([]Traffic, []PeerTraffic, map[string][]strin
 		for _, peer := range peers {
 			newRx[peer.PublicKey] = peer.Rx
 			newTx[peer.PublicKey] = peer.Tx
-			if peer.LastHandshake > 0 && now-peer.LastHandshake <= handshakeOnlineTTL {
+			if peer.LastHandshake > 0 && now-peer.LastHandshake <= s.onlineTTL {
 				onlinePeers = append(onlinePeers, peer.PublicKey)
 			}
 			if !s.haveLast {
@@ -809,66 +835,24 @@ func renderServerConf(inst Instance) string {
 	return b.String()
 }
 
-// SyncPeers re-syncs the kernel peer set for a running interface without a
-// full restart. Called by AddUser/RemoveUser so adding/removing a client does
-// not drop existing connections. Uses `awg set <iface> peer <pubkey> ...` /
-// `awg set <iface> peer <pubkey> remove`.
-func (m *Manager) SyncPeers(id int, peers []PeerSpec) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	cur, ok := m.procs[id]
-	if !ok || !cur.proc.IsRunning() {
-		return fmt.Errorf("awg: interface for inbound %d not running", id)
+// syncPeersLocked writes the server .conf and runs `awg syncconf` so the
+// kernel peer set matches without tearing the interface down (existing
+// handshakes survive). PSK is applied via the conf parser — `awg set peer
+// preshared-key` takes a file path, not the key, and must not be used.
+func (m *Manager) syncPeersLocked(inst Instance) error {
+	if err := writeServerConfigFile(inst); err != nil {
+		return err
 	}
-	ifname := cur.ifname
-	for _, p := range peers {
-		args := []string{"set", ifname, "peer", p.PublicKey}
-		if p.PSK != "" {
-			args = append(args, "preshared-key", p.PSK)
-		}
-		allowed := p.AllowedIPs
-		if allowed == "" {
-			allowed = "0.0.0.0/0, ::/0"
-		}
-		args = append(args, "allowed-ips", allowed)
-		if out, err := exec.CommandContext(context.Background(), awgBin("awg"), args...).CombinedOutput(); err != nil {
-			logger.Warningf("awg: set peer %s on %s: %v\n%s", p.PublicKey[:8], ifname, err, string(out))
-		}
-	}
-	// Remove peers that are no longer desired: diff against kernel state.
-	current := kernelPeers(ifname)
-	desiredSet := make(map[string]bool, len(peers))
-	for _, p := range peers {
-		desiredSet[p.PublicKey] = true
-	}
-	for pub := range current {
-		if !desiredSet[pub] {
-			if out, err := exec.CommandContext(context.Background(), awgBin("awg"), "set", ifname, "peer", pub, "remove").CombinedOutput(); err != nil {
-				logger.Warningf("awg: remove peer %s on %s: %v\n%s", pub[:8], ifname, err, string(out))
-			}
-		}
-	}
-	// Reset the traffic baseline since the peer set changed.
-	cur.lastRx = map[string]int64{}
-	cur.lastTx = map[string]int64{}
-	cur.haveLast = false
-	return nil
-}
-
-// kernelPeers returns the set of peer public keys currently on an interface.
-func kernelPeers(ifname string) map[string]bool {
-	out, err := exec.CommandContext(context.Background(), awgBin("awg"), "show", ifname, "peers").Output()
-	if err != nil {
+	cur, ok := m.procs[inst.Id]
+	if !ok || cur.proc == nil || !cur.proc.IsRunning() {
 		return nil
 	}
-	peers := make(map[string]bool)
-	for _, line := range strings.Split(string(out), "\n") {
-		line = strings.TrimSpace(line)
-		if line != "" {
-			peers[line] = true
-		}
+	out, err := exec.CommandContext(context.Background(), awgBin("awg"), "syncconf", inst.Ifname, configPathForID(inst.Id)).CombinedOutput()
+	if err != nil {
+		logger.Warningf("awg: syncconf %s: %v\n%s", inst.Ifname, err, string(out))
+		return fmt.Errorf("awg syncconf %s: %w\n%s", inst.Ifname, err, string(out))
 	}
-	return peers
+	return nil
 }
 
 // Traffic is a per-inbound traffic delta scraped from `awg show <iface> transfer`.

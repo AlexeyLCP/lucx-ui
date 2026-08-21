@@ -541,6 +541,8 @@ func (s *ClientService) addInboundClient(inboundSvc *InboundService, data *model
 			inboundSvc.applyLocalMtproto(oldInbound.Id)
 		} else if oldInbound.Protocol == model.Naive {
 			inboundSvc.applyLocalNaive(oldInbound.Id)
+		} else if oldInbound.Protocol == model.AWG {
+			inboundSvc.applyLocalAwg(oldInbound.Id)
 		} else {
 			for _, client := range clients {
 				if len(client.Email) == 0 {
@@ -984,6 +986,8 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 				inboundSvc.applyLocalMtproto(oldInbound.Id)
 			} else if oldInbound.Protocol == model.Naive {
 				inboundSvc.applyLocalNaive(oldInbound.Id)
+			} else if oldInbound.Protocol == model.AWG {
+				inboundSvc.applyLocalAwg(oldInbound.Id)
 			} else {
 				if oldClients[clientIndex].Enable {
 					err1 := rt.RemoveUser(context.Background(), oldInbound, oldEmail)
@@ -1170,6 +1174,8 @@ func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inbo
 				inboundSvc.applyLocalMtproto(oldInbound.Id)
 			} else if oldInbound.Protocol == model.Naive {
 				inboundSvc.applyLocalNaive(oldInbound.Id)
+			} else if oldInbound.Protocol == model.AWG {
+				inboundSvc.applyLocalAwg(oldInbound.Id)
 			} else if needApiDel {
 				// Local inbound: a disabled client isn't in the running Xray, so only
 				// a live one (needApiDel) needs an API removal.

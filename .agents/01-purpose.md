@@ -14,7 +14,7 @@ LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.
 - `origin` → `MHSanaei/3x-ui` (upstream)
 - `gh` → `AlexeyLCP/lucx-ui` (our fork)
 
-**Active branch:** `main` (v3.6.0 migration complete, release v3.6.0-lucx.49; current `lucxVersion` is in `internal/config/config.go`).
+**Active branch:** `main` (v3.6.0 migration complete; current `lucxVersion` is in `internal/config/config.go`).
 
 ---
 

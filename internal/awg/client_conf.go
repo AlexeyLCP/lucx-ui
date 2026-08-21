@@ -54,8 +54,10 @@ func renderClientConf(ci ClientInstance) string {
 		fmt.Fprintf(&b, "Jmax = %d\n", s.Jmax)
 		fmt.Fprintf(&b, "S1 = %d\n", s.S1)
 		fmt.Fprintf(&b, "S2 = %d\n", s.S2)
-		fmt.Fprintf(&b, "S3 = %d\n", s.S3)
-		fmt.Fprintf(&b, "S4 = %d\n", s.S4)
+		if NormalizeAWGVersion(s.AwgVersion) != "1.5" {
+			fmt.Fprintf(&b, "S3 = %d\n", s.S3)
+			fmt.Fprintf(&b, "S4 = %d\n", s.S4)
+		}
 		fmt.Fprintf(&b, "H1 = %s\n", s.H1)
 		fmt.Fprintf(&b, "H2 = %s\n", s.H2)
 		fmt.Fprintf(&b, "H3 = %s\n", s.H3)

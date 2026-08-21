@@ -119,16 +119,29 @@ func TestInstanceFingerprint_StableForEqualInstances(t *testing.T) {
 	}
 }
 
-func TestInstanceFingerprint_ChangesOnPeerMutation(t *testing.T) {
+func TestInstanceFingerprint_StableOnPeerMutation(t *testing.T) {
 	inst := Instance{
 		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k",
 		Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk"}},
 	}
 	before := inst.fingerprint()
+	peerBefore := inst.peerFingerprint()
 	inst.Peers = append(inst.Peers, PeerSpec{PublicKey: "p2", PSK: "psk2"})
-	after := inst.fingerprint()
-	if before == after {
-		t.Fatal("fingerprint must change when a peer is added")
+	if inst.fingerprint() != before {
+		t.Fatal("device fingerprint must NOT change when a peer is added (syncconf, not restart)")
+	}
+	if inst.peerFingerprint() == peerBefore {
+		t.Fatal("peer fingerprint must change when a peer is added")
+	}
+}
+
+func TestInstanceFingerprint_StableOnDNSAndCPS(t *testing.T) {
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", DNS: "1.1.1.1"}
+	before := inst.fingerprint()
+	inst.DNS = "8.8.8.8"
+	inst.I1 = "<b 0xaa>"
+	if inst.fingerprint() != before {
+		t.Fatal("DNS/I1-I5 are client-export-only and must not restart the interface")
 	}
 }
 
@@ -738,5 +751,48 @@ func TestInstanceFromInbound_DeviceFieldRange(t *testing.T) {
 		inst.RekeyTimeout != "3-7" || inst.RejectAfterTime != "180" ||
 		inst.KeepaliveTimeout != "8-12" || inst.MaxHandshakeAttempts != "15-20" {
 		t.Fatalf("range/number mix not parsed verbatim: %+v", inst)
+	}
+}
+
+func TestCollapseTimerForVersion(t *testing.T) {
+	if got := CollapseTimerForVersion("15-25", "2"); got != "15" {
+		t.Fatalf("v2 range → lo, got %q", got)
+	}
+	if got := CollapseTimerForVersion("15-25", "1.5"); got != "15" {
+		t.Fatalf("v1.5 range → lo, got %q", got)
+	}
+	if got := CollapseTimerForVersion("15-25", "3"); got != "15-25" {
+		t.Fatalf("v3 keeps range, got %q", got)
+	}
+	if got := CollapseTimerForVersion("25", "2"); got != "25" {
+		t.Fatalf("single value passthrough, got %q", got)
+	}
+	if got := CollapseTimerForVersion("0", "3"); got != "" {
+		t.Fatalf("zero omitted, got %q", got)
+	}
+}
+
+func TestValidateObfuscationFields(t *testing.T) {
+	if err := ValidateObfuscationFields("2", "5000-40000", "1", "2", "3"); err != nil {
+		t.Fatalf("v2 range H must pass: %v", err)
+	}
+	if err := ValidateObfuscationFields("1.5", "5000-40000", "1", "2", "3"); err == nil {
+		t.Fatal("v1.5 range H must fail")
+	}
+	if err := ValidateObfuscationFields("1.5", "abc", "1", "2", "3"); err == nil {
+		t.Fatal("garbage H must fail")
+	}
+	if err := ValidateObfuscationFields("1.5", "5000", "100005", "200005", "300005"); err != nil {
+		t.Fatalf("v1.5 singles must pass: %v", err)
+	}
+}
+
+func TestOnlineTTLSeconds_UsesRekeyHi(t *testing.T) {
+	inst := Instance{RekeyAfterTime: "300-600"}
+	if got := onlineTTLSeconds(inst); got != 660 {
+		t.Fatalf("online TTL = %d, want 660 (rekey hi + 60)", got)
+	}
+	if got := onlineTTLSeconds(Instance{}); got != handshakeOnlineTTL {
+		t.Fatalf("default TTL = %d, want %d", got, handshakeOnlineTTL)
 	}
 }

@@ -758,9 +758,6 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	if client.PreSharedKey != "" {
 		params["presharedkey"] = client.PreSharedKey
 	}
-	if !client.KeepAlive.IsZero() {
-		params["keepalive"] = client.KeepAlive.String()
-	}
 	// Obfuscation parameters (AWG-specific; absent on plain WireGuard).
 	// Version-gate: S3/S4 and I1-I5 are AWG v2+ (Android 2.0.1); HPK and the
 	// device-level timers/padding are AWG v3 only (desktop 5.0.0.5 / Android
@@ -770,6 +767,9 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	// with v2/v3 params it cannot parse.
 	awgVer, _ := settings["awgVersion"].(string)
 	awgVer = awg.NormalizeAWGVersion(awgVer)
+	if ka := awg.CollapseTimerForVersion(client.KeepAlive.String(), awgVer); ka != "" {
+		params["keepalive"] = ka
+	}
 	isV2Plus := awgVer != "1.5"
 	isV3 := awg.IsAwg3Plus(awgVer)
 	isV31 := awg.IsAwg31(awgVer)

@@ -47,10 +47,10 @@ export const AwgInboundSettingsSchema = z.object({
   s2: z.number().int().min(0).default(0),
   s3: z.number().int().min(0).default(0),
   s4: z.number().int().min(0).default(0),
-  h1: z.string().default(''),
-  h2: z.string().default(''),
-  h3: z.string().default(''),
-  h4: z.string().default(''),
+  h1: z.string().regex(/^$|^\d+(-\d+)?$/, { message: 'pages.inbounds.form.awgHInvalid' }).default(''),
+  h2: z.string().regex(/^$|^\d+(-\d+)?$/, { message: 'pages.inbounds.form.awgHInvalid' }).default(''),
+  h3: z.string().regex(/^$|^\d+(-\d+)?$/, { message: 'pages.inbounds.form.awgHInvalid' }).default(''),
+  h4: z.string().regex(/^$|^\d+(-\d+)?$/, { message: 'pages.inbounds.form.awgHInvalid' }).default(''),
   // CPS (Connection Proxy Signatures) — only emitted when obfLevel >= 2/3.
   i1: z.string().optional(),
   i2: z.string().optional(),
@@ -102,5 +102,12 @@ export const AwgInboundSettingsSchema = z.object({
   // Default ON: most operators want Xray routing; empty outboundTag = kettle.
   routeThroughXray: z.boolean().default(true),
   outboundTag: z.string().default(''),
+}).superRefine((val, ctx) => {
+  if (val.awgVersion !== '1.5') return;
+  for (const key of ['h1', 'h2', 'h3', 'h4'] as const) {
+    if (val[key].includes('-')) {
+      ctx.addIssue({ code: 'custom', path: [key], message: 'pages.inbounds.form.awgH15Range' });
+    }
+  }
 });
 export type AwgInboundSettings = z.infer<typeof AwgInboundSettingsSchema>;

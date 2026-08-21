@@ -1718,6 +1718,9 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound on this host
 	// already owns (Pattern 1e kernel route conflict). New inbounds have no id.
 	if inbound.Protocol == model.AWG {
+		if err := validateAwgSettingsJSON(inbound.Settings); err != nil {
+			return inbound, false, err
+		}
 		if err := s.checkAwgSubnetConflict(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID); err != nil {
 			return inbound, false, err
 		}
@@ -2283,6 +2286,11 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// LUCX-HOOK: AWG — keep client tunnel IPs stable across Address edits
 	// (no re-export). Only rewrites a peer that collides with the server's
 	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
+	if inbound.Protocol == model.AWG {
+		if err := validateAwgSettingsJSON(inbound.Settings); err != nil {
+			return inbound, false, err
+		}
+	}
 	if inbound.Protocol == model.AWG && oldInbound.Protocol == model.AWG {
 		inbound.Settings = migrateAwgClientSubnets(
 			awgSettingsAddress(oldInbound.Settings),

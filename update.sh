@@ -1253,10 +1253,10 @@ update_x-ui() {
                 echo -e "${yellow}AWG module not installed — skip. Install: x-ui install-awg${plain}"
             else
             INSTALLED_AWG_SHA=""
-            [[ -f /etc/x-ui/.awg-module-version ]] && INSTALLED_AWG_SHA=$(cat /etc/x-ui/.awg-module-version 2>/dev/null)
-            UPSTREAM_AWG_SHA=$(git ls-remote https://github.com/amnezia-vpn/amneziawg-linux-kernel-module.git refs/heads/master 2>/dev/null | awk '{print $1}')
-            if [[ -n "$UPSTREAM_AWG_SHA" && "$INSTALLED_AWG_SHA" != "$UPSTREAM_AWG_SHA" ]]; then
-                echo -e "${green}AWG module ${INSTALLED_AWG_SHA:-none} → ${UPSTREAM_AWG_SHA:0:12}: rebuilding...${plain}"
+            [[ -f /etc/x-ui/.awg-module-version ]] && INSTALLED_AWG_SHA=$(tr -d '[:space:]' < /etc/x-ui/.awg-module-version 2>/dev/null)
+            AWG_KMOD_PIN=$(awk -F= '/^AWG_KMOD_PIN=/{gsub(/"/,"",$2); print $2; exit}' bin/install-awg-module.sh)
+            if [[ -n "$AWG_KMOD_PIN" && "$INSTALLED_AWG_SHA" != "$AWG_KMOD_PIN" ]]; then
+                echo -e "${green}AWG module ${INSTALLED_AWG_SHA:-none} → ${AWG_KMOD_PIN:0:12}: rebuilding...${plain}"
                 bash bin/install-awg-module.sh --force-rebuild || \
                     echo -e "${red}AWG module rebuild failed (non-fatal). Run: bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)${plain}"
                 # Kernel upgraded inside install-awg-module.sh: schedule the
@@ -1267,14 +1267,9 @@ update_x-ui() {
                     xui_kernel_reboot=1
                     xui_newest_kernel="$NEWEST_KERNEL"
                 fi
-            elif [[ -z "$UPSTREAM_AWG_SHA" ]]; then
-                # No network: do not force a reinstall of an already-present
-                # module (lucx.145). install-awg-module.sh would also skip.
-                echo -e "${yellow}AWG module: can't probe upstream — leave installed module as-is.${plain}"
+            elif [[ -z "$AWG_KMOD_PIN" ]]; then
+                echo -e "${yellow}AWG module: pin missing in install-awg-module.sh — leave installed module as-is.${plain}"
             else
-                # SHA already matches target — do not reinstall or bump the
-                # kernel (lucx.145). Tools-only refresh still runs inside the
-                # script if awg < v3.1.
                 bash bin/install-awg-module.sh || true
                 echo -e "${green}AWG module up to date (${INSTALLED_AWG_SHA:0:12}).${plain}"
             fi

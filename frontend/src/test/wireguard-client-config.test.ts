@@ -191,6 +191,14 @@ describe('buildAwgClientConfig version override', () => {
     expect(cfg).not.toContain('HeaderProtectionKey');
     expect(cfg).toContain('Jc = 5');
   });
+  it('collapses range keepalive to lo when exporting below v3', () => {
+    const ranged: ClientRecord = { ...client, keepAlive: '15-25' };
+    const v15 = buildAwgClientConfig(ranged, awgInbound, 'example.com', '', '1.5');
+    expect(v15).toContain('PersistentKeepalive = 15');
+    expect(v15).not.toContain('PersistentKeepalive = 15-25');
+    const v3 = buildAwgClientConfig(ranged, awgInbound, 'example.com', '', '3');
+    expect(v3).toContain('PersistentKeepalive = 15-25');
+  });
 });
 
 describe('findAwgInbounds multi-attach', () => {

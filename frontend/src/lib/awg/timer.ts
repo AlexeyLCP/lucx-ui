@@ -37,3 +37,13 @@ function clampTimerInt(n: number): number {
   if (n > 65535) return 65535;
   return Math.trunc(n);
 }
+
+export function collapseKeepaliveForVersion(keepAlive: unknown, isAwg3Plus: boolean): string | null {
+  const s = normalizeAwgTimer(keepAlive);
+  if (s === '0') return null;
+  if (!isAwg3Plus) {
+    const i = s.indexOf('-');
+    return i > 0 ? s.slice(0, i) : s;
+  }
+  return s;
+}
