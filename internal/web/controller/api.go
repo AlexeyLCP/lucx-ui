@@ -15,17 +15,18 @@ import (
 // APIController handles the main API routes for the 3x-ui panel, including inbounds and server management.
 type APIController struct {
 	BaseController
-	inboundController     *InboundController
-	awgOutboundController *AwgOutboundController
-	tunnelController      *TunnelController // LUCX-HOOK: tunnel sidecars (NaiveProxy)
-	serverController      *ServerController
-	nodeController        *NodeController
-	hostController        *HostController
-	settingController     *SettingController
-	xraySettingController *XraySettingController
-	userService           panel.UserService
-	apiTokenService       panel.ApiTokenService
-	Tgbot                 tgbot.Tgbot
+	inboundController         *InboundController
+	awgOutboundController     *AwgOutboundController
+	sidecarOutboundController *SidecarOutboundController
+	tunnelController          *TunnelController // LUCX-HOOK: tunnel sidecars (NaiveProxy)
+	serverController          *ServerController
+	nodeController            *NodeController
+	hostController            *HostController
+	settingController         *SettingController
+	xraySettingController     *XraySettingController
+	userService               panel.UserService
+	apiTokenService           panel.ApiTokenService
+	Tgbot                     tgbot.Tgbot
 }
 
 // NewAPIController creates a new APIController instance and initializes its routes.
@@ -90,6 +91,7 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// Routes live under /panel/api/awg-outbounds/* and share the same API
 	// auth + CSRF middleware as the inbound group above.
 	a.awgOutboundController = NewAwgOutboundController(api.Group("/awg-outbounds"))
+	a.sidecarOutboundController = NewSidecarOutboundController(api.Group("/sidecar-outbounds"))
 	// END LUCX-HOOK
 	// LUCX-HOOK: Tunnel sidecars (NaiveProxy) — config/lifecycle/logs API.
 	// Routes live under /panel/api/tunnel/*.

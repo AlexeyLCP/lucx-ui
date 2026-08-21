@@ -130,8 +130,15 @@ func (a *XraySettingController) getXraySetting(c *gin.Context) {
 	// (injectAwgOutbounds), not the editable template, so they would otherwise
 	// be invisible to the routing UI — same shape as subscription outbound
 	// tags above.
-	if awgTags, err := (&service.AwgOutboundService{}).ActiveOutboundTags(); err == nil && len(awgTags) > 0 {
-		xrayResponse["awgOutboundTags"] = awgTags
+	var merged []string
+	if awgTags, err := (&service.AwgOutboundService{}).ActiveOutboundTags(); err == nil {
+		merged = append(merged, awgTags...)
+	}
+	if scTags, err := (&service.SidecarOutboundService{}).ActiveOutboundTags(); err == nil {
+		merged = append(merged, scTags...)
+	}
+	if len(merged) > 0 {
+		xrayResponse["awgOutboundTags"] = merged
 	}
 	// END LUCX-HOOK
 	result, err := json.Marshal(xrayResponse)

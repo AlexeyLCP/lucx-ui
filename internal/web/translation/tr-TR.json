@@ -1249,6 +1249,10 @@
         "awgUninstallOk": "AWG module uninstalled",
         "awgRebuildRunning": "Installing / rebuilding the AWG module… see panel logs",
         "awgRebootNeeded": "Kernel module updated — the new module loads after the server reboots.",        "tunnelBinaries": "Tunnel binaries",
+        "clientBinaries": "Sidecar outbound clients",
+        "naiveClient": "NaiveProxy client",
+        "mieruClient": "mieru client",
+        "trusttunnelClient": "TrustTunnel client",
         "bbrTitle": "TCP BBR congestion control",
         "bbrDesc": "BBR (paired with the fq queueing discipline) improves throughput for TCP flows the panel proxies — Xray outbounds, traffic relayed out of an AWG tunnel — on higher-latency or lossy paths, versus the kernel's CUBIC default. AWG/WireGuard itself rides on UDP and is unaffected.",
         "bbrEnabled": "BBR enabled",
@@ -1704,11 +1708,31 @@
         "actions": "İşlemler",
         "test": "Test",
         "testOk": "Tünel sağlam",
-        "deleteConfirm": "Bu AWG outbound silinsin mi?"
+        "deleteConfirm": "Bu AWG outbound silinsin mi?",
+        "sectionTitle": "AmneziaWG"
+      },
+      "sidecarOutbound": {
+        "add": "Add sidecar outbound",
+        "edit": "Edit sidecar outbound",
+        "protocol": "Protocol",
+        "pasteLink": "Paste share link",
+        "parseAndFill": "Parse and fill",
+        "parseFailed": "Could not parse the link",
+        "parsed": "Parsed — fill the missing fields and save",
+        "saved": "Sidecar outbound saved",
+        "deleteConfirm": "Delete this sidecar outbound?",
+        "binaryMissing": "binary missing",
+        "naive": "NaiveProxy",
+        "mieru": "mieru",
+        "trusttunnel": "TrustTunnel",
+        "uploadNaive": "Upload naive client",
+        "uploaded": "Binary uploaded",
+        "hint": "Naive, mieru and TrustTunnel outbounds run a client sidecar and inject a SOCKS outbound. Paste a share link. Naive client is not shipped — upload it under Cores or via the row button.",
+        "sectionTitle": "Naive / mieru / TrustTunnel"
       },
       "tabs": {
         "xrayOutbounds": "Xray outbounds",
-        "awgOutbounds": "AWG outbounds"
+        "awgOutbounds": "Sidecar outbounds"
       },
       "rules": {
         "source": "Kaynak",

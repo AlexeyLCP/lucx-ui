@@ -397,6 +397,80 @@ export const sections: readonly Section[] = [
       },
     ],
   },
+  {
+    id: 'sidecar-outbounds',
+    title: 'Sidecar Outbounds',
+    description:
+      'Client-mode NaiveProxy, mieru and TrustTunnel outbounds. Each row runs a userspace client that listens SOCKS on loopback; a socks outbound with the row tag is injected into the generated Xray config so routing and balancers can send traffic through the upstream. Naive client is upload-only (not in the tarball). Mutating endpoints force-restart Xray. LucX-UI only.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/panel/api/sidecar-outbounds/list',
+        summary: 'List sidecar outbound rows with live SOCKS status and binaryExists. LucX-UI only.',
+        response: '{\n  "success": true,\n  "obj": [\n    {\n      "id": 1,\n      "protocol": "mieru",\n      "tag": "mieruout-1",\n      "enable": true,\n      "settings": "{\\"socksPort\\":39222,\\"host\\":\\"1.2.3.4\\",\\"user\\":\\"a\\"}",\n      "status": "up",\n      "binaryExists": true\n    }\n  ]\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/sidecar-outbounds/add',
+        summary: 'Create a sidecar outbound. Protocol is naive|mieru|trusttunnel. Empty tag becomes {protocol}out-{id}. socksPort is allocated if missing. LucX-UI only.',
+        body: '{\n  "protocol": "naive",\n  "tag": "nv-up",\n  "enable": true,\n  "settings": "{\\"host\\":\\"n.example.org\\",\\"port\\":443,\\"user\\":\\"alice\\",\\"pass\\":\\"s3cret\\"}"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/sidecar-outbounds/update/:id',
+        summary: 'Overwrite a sidecar outbound. socksPort is kept stable. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'Sidecar outbound ID.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/sidecar-outbounds/del/:id',
+        summary: 'Delete a sidecar outbound and stop its client process immediately. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'Sidecar outbound ID.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/sidecar-outbounds/enable/:id',
+        summary: 'Toggle enable. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'Sidecar outbound ID.' }],
+        body: '{\n  "enable": false\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/sidecar-outbounds/status/:id',
+        summary: 'Live SOCKS listen state. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'Sidecar outbound ID.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/sidecar-outbounds/test/:id',
+        summary: 'TCP probe of the local SOCKS port. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'Sidecar outbound ID.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/sidecar-outbounds/parseLink',
+        summary: 'Parse naive+https://, mierus:// or Throne tt:// into settings. LucX-UI only.',
+        body: '{\n  "link": "naive+https://alice:s3cret@n.example.org:8443"\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/sidecar-outbounds/binaries',
+        summary: 'Client binary presence for naive/mieru/trusttunnel. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/sidecar-outbounds/upload/:protocol',
+        summary: 'Upload a client binary (naive-client, mieru-client, trusttunnel-client). LucX-UI only.',
+        params: [{ name: 'protocol', in: 'path', type: 'string', desc: 'naive | mieru | trusttunnel' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/sidecar-outbounds/deleteBinary/:protocol',
+        summary: 'Delete a client binary. LucX-UI only.',
+        params: [{ name: 'protocol', in: 'path', type: 'string', desc: 'naive | mieru | trusttunnel' }],
+      },
+    ],
+  },
   // END LUCX-HOOK
 
   // LUCX-HOOK: LucX capability probe for multi-node deploy gating.

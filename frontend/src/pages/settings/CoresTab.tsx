@@ -30,6 +30,8 @@ import { HttpUtil } from '@/utils';
 import { keys } from '@/api/queryKeys';
 import { useStatusQuery } from '@/api/queries/useStatusQuery';
 import { tunnelsApi } from '@/api/tunnels';
+import { sidecarOutboundsApi } from '@/api/sidecar-outbounds';
+import type { SidecarProtocol } from '@/schemas/sidecar-outbound';
 import type { BbrStatus } from '@/models/status';
 
 type CoreKind = 'naive' | 'olcrtc' | 'qwdtt' | 'mieru' | 'trusttunnel';
@@ -436,6 +438,74 @@ export default function CoresTab() {
       <BinaryCard kind="qwdtt" title="qWDTT" />
       <BinaryCard kind="mieru" title="mieru" />
       <BinaryCard kind="trusttunnel" title="TrustTunnel" />
+      <Divider />
+      <Typography.Title level={5}>{t('pages.settings.cores.clientBinaries')}</Typography.Title>
+      <ClientBinaryCard protocol="naive" titleKey="pages.settings.cores.naiveClient" />
+      <ClientBinaryCard protocol="mieru" titleKey="pages.settings.cores.mieruClient" />
+      <ClientBinaryCard protocol="trusttunnel" titleKey="pages.settings.cores.trusttunnelClient" />
     </div>
+  );
+}
+
+function ClientBinaryCard({ protocol, titleKey }: { protocol: SidecarProtocol; titleKey: string }) {
+  const { t } = useTranslation();
+  const [busy, setBusy] = useState(false);
+  const { data: res, refetch } = useQuery({
+    queryKey: ['sidecar-outbounds', 'binaries'],
+    queryFn: sidecarOutboundsApi.binaries,
+    refetchInterval: 5000,
+  });
+  const info = res?.success ? res.obj?.[protocol] : undefined;
+  const exists = !!info?.exists;
+  const upload = (file: File) => {
+    void (async () => {
+      setBusy(true);
+      try {
+        await sidecarOutboundsApi.upload(protocol, file);
+        await refetch();
+      } finally {
+        setBusy(false);
+      }
+    })();
+    return false;
+  };
+  return (
+    <Card
+      size="small"
+      style={{ marginBottom: 12 }}
+      title={t(titleKey)}
+      extra={(
+        <Tag color={exists ? 'green' : 'red'}>
+          {exists ? t('pages.tunnels.naive.binary.exists') : t('pages.tunnels.naive.binary.missing')}
+        </Tag>
+      )}
+    >
+      <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
+        <Typography.Text code>{info?.path || '—'}</Typography.Text>
+      </Typography.Paragraph>
+      <Space wrap>
+        <Upload accept="application/octet-stream,.exe" maxCount={1} showUploadList={false} beforeUpload={upload}>
+          <Button icon={<UploadOutlined />} disabled={busy}>{t('pages.tunnels.naive.binary.upload')}</Button>
+        </Upload>
+        <Popconfirm
+          title={t('pages.tunnels.naive.binary.deleteConfirm')}
+          okText={t('delete')}
+          cancelText={t('cancel')}
+          onConfirm={() => {
+            void (async () => {
+              setBusy(true);
+              try {
+                await sidecarOutboundsApi.deleteBinary(protocol);
+                await refetch();
+              } finally {
+                setBusy(false);
+              }
+            })();
+          }}
+        >
+          <Button icon={<DeleteOutlined />} danger disabled={busy}>{t('pages.tunnels.naive.binary.delete')}</Button>
+        </Popconfirm>
+      </Space>
+    </Card>
   );
 }

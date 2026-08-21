@@ -70,19 +70,28 @@ func defaultAwgOutboundSettings() string {
 // next Xray restart. Per the spec's "loud > silent" philosophy this is
 // acceptable: the panel rejects the bad config loudly on restart rather than
 // silently misrouting traffic, and the operator can rename the colliding tag.
-func checkTagUnique(tag string, ignoreId int) error {
+func checkTagUnique(tag string, ignoreAwgId, ignoreSidecarId int) error {
 	if tag == "direct" || tag == "block" || tag == "api" {
 		return fmt.Errorf("%w: tag %q is reserved", ErrDuplicateOutboundTag, tag)
 	}
 	db := database.GetDB()
 	var count int64
 	if err := db.Model(&model.AwgOutbound{}).
-		Where("tag = ? AND id != ?", tag, ignoreId).
+		Where("tag = ? AND id != ?", tag, ignoreAwgId).
 		Count(&count).Error; err != nil {
 		return err
 	}
 	if count > 0 {
 		return fmt.Errorf("%w: tag %q already used by another AWG outbound", ErrDuplicateOutboundTag, tag)
+	}
+	count = 0
+	if err := db.Model(&model.SidecarOutbound{}).
+		Where("tag = ? AND id != ?", tag, ignoreSidecarId).
+		Count(&count).Error; err != nil {
+		return err
+	}
+	if count > 0 {
+		return fmt.Errorf("%w: tag %q already used by a sidecar outbound", ErrDuplicateOutboundTag, tag)
 	}
 	// Cross-check against user-authored Xray outbound tags in the config
 	// template. Subscription/runtime-injected outbounds are not covered (see
@@ -137,7 +146,7 @@ func (s *AwgOutboundService) AddOutbound(o *model.AwgOutbound) (*model.AwgOutbou
 		o.Tag = ""
 	} else {
 		o.Tag = tag
-		if err := checkTagUnique(o.Tag, 0); err != nil {
+		if err := checkTagUnique(o.Tag, 0, 0); err != nil {
 			return nil, err
 		}
 	}
@@ -159,7 +168,7 @@ func (s *AwgOutboundService) AddOutbound(o *model.AwgOutbound) (*model.AwgOutbou
 		// Re-run uniqueness against the now-final, auto-generated tag. This is
 		// almost always a no-op (awgo-{Id} is unique), but guards against a
 		// hand-edited DB where another row already holds "awgo-{Id}".
-		if err := checkTagUnique(o.Tag, o.Id); err != nil {
+		if err := checkTagUnique(o.Tag, o.Id, 0); err != nil {
 			return nil, err
 		}
 	}
@@ -172,7 +181,7 @@ func (s *AwgOutboundService) DelOutbound(id int) error {
 }
 
 func (s *AwgOutboundService) UpdateOutbound(o *model.AwgOutbound) error {
-	if err := checkTagUnique(o.Tag, o.Id); err != nil {
+	if err := checkTagUnique(o.Tag, o.Id, 0); err != nil {
 		return err
 	}
 	if err := s.checkSubnetConflict(o); err != nil {

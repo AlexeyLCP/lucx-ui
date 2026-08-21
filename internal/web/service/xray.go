@@ -380,6 +380,11 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 	} else {
 		logger.Warning("awg outbound: read enabled outbounds failed:", err)
 	}
+	if scOuts, err := (&SidecarOutboundService{}).GetOutbounds(); err == nil {
+		injectSidecarOutbounds(xrayConfig, scOuts)
+	} else {
+		logger.Warning("sidecar outbound: read enabled outbounds failed:", err)
+	}
 	// END LUCX-HOOK
 
 	// Route opted-in local mtproto inbounds through the core's router. Each one
@@ -1065,6 +1070,32 @@ func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 			"streamSettings": streamSettings,
 		}); err != nil {
 			logger.Warning("awg outbound: failed to inject freedom outbound for tag", o.Tag, ":", err)
+		}
+	}
+}
+
+func injectSidecarOutbounds(cfg *xray.Config, outbounds []*model.SidecarOutbound) {
+	for _, o := range outbounds {
+		if o == nil || !o.Enable {
+			continue
+		}
+		s, ok := tunnel.ParseSidecarSettings(o)
+		if !ok {
+			continue
+		}
+		if err := appendAwgOutbound(cfg, map[string]any{
+			"protocol": "socks",
+			"tag":      o.Tag,
+			"settings": map[string]any{
+				"servers": []any{
+					map[string]any{
+						"address": "127.0.0.1",
+						"port":    s.SocksPort,
+					},
+				},
+			},
+		}); err != nil {
+			logger.Warning("sidecar outbound: failed to inject socks outbound for tag", o.Tag, ":", err)
 		}
 	}
 }

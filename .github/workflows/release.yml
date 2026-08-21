@@ -251,6 +251,10 @@ jobs:
                 go build -trimpath -ldflags="-s -w" -o "/tmp/mieru-linux-${{ matrix.platform }}" ./cmd/mita )
             mv "/tmp/mieru-linux-${{ matrix.platform }}" "mieru-linux-${{ matrix.platform }}"
             chmod +x "mieru-linux-${{ matrix.platform }}"
+            ( cd /tmp/mieru && GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.platform }}" \
+                go build -trimpath -ldflags="-s -w" -o "/tmp/mieru-client-linux-${{ matrix.platform }}" ./cmd/mieru )
+            mv "/tmp/mieru-client-linux-${{ matrix.platform }}" "mieru-client-linux-${{ matrix.platform }}"
+            chmod +x "mieru-client-linux-${{ matrix.platform }}"
             rm -rf /tmp/mieru
           fi
           # TrustTunnel (TrustTunnel/TrustTunnel, Apache-2.0) — prebuilt
@@ -271,6 +275,16 @@ jobs:
             mv "$TT_BIN" "trusttunnel-linux-${{ matrix.platform }}"
             chmod +x "trusttunnel-linux-${{ matrix.platform }}"
             rm -rf /tmp/trusttunnel "${TT_TGZ}"
+            TT_CLIENT_VER="v1.0.49"
+            TT_CLIENT_TGZ="trusttunnel_client-${TT_CLIENT_VER}-linux-${TT_ARCH}.tar.gz"
+            fetch -O "${TT_CLIENT_TGZ}" "https://github.com/TrustTunnel/TrustTunnelClient/releases/download/${TT_CLIENT_VER}/${TT_CLIENT_TGZ}"
+            mkdir -p /tmp/ttclient
+            tar -xzf "${TT_CLIENT_TGZ}" -C /tmp/ttclient
+            TT_CLIENT_BIN=$(find /tmp/ttclient -type f -name trusttunnel_client | head -n1)
+            if [ -z "$TT_CLIENT_BIN" ]; then echo "trusttunnel_client missing from ${TT_CLIENT_TGZ}"; exit 1; fi
+            mv "$TT_CLIENT_BIN" "trusttunnel-client-linux-${{ matrix.platform }}"
+            chmod +x "trusttunnel-client-linux-${{ matrix.platform }}"
+            rm -rf /tmp/ttclient "${TT_CLIENT_TGZ}"
           fi
           # END LUCX-HOOK
           cd ../..

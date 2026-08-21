@@ -47,6 +47,10 @@ EXTRA_FILES=(
     internal/web/job/awg_speed_buffer.go
     internal/web/job/awg_speed_buffer_test.go
     internal/web/controller/client_subbody_test.go
+    internal/web/service/sidecar_outbound.go
+    internal/web/service/sidecar_outbound_inject_test.go
+    internal/web/controller/sidecar_outbound.go
+    internal/database/migrate_sidecar_outbound.go
 )
 
 FILES=$(printf '%s\n' "${HOOK_FILES[@]}" "${PKG_FILES[@]}" "${EXTRA_FILES[@]}" | sort -u | grep -v '^$')

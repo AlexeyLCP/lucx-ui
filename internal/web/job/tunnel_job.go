@@ -38,6 +38,7 @@ func NewTunnelJob() *TunnelJob {
 // per-client traffic deltas and online status.
 func (j *TunnelJob) Run() {
 	j.tunnelService.Reconcile()
+	(&service.SidecarOutboundService{}).Reconcile()
 	j.collectNaiveTraffic()
 	j.collectMieruTraffic()
 	j.collectTrustTunnelTraffic()

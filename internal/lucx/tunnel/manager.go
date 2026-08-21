@@ -216,8 +216,9 @@ func (m *Manager) sweepOrphans() {
 	m.swept = true
 	m.mu.Unlock()
 
-	paths := make([]string, 0, len(All()))
-	for _, core := range All() {
+	cores := append(All(), ClientCores()...)
+	paths := make([]string, 0, len(cores))
+	for _, core := range cores {
 		paths = append(paths, core.BinaryPath())
 	}
 	if n := killStrayTunnelProcesses(paths); n > 0 {
@@ -325,10 +326,16 @@ func removeManagedFiles(key string) {
 	switch {
 	case strings.HasPrefix(key, "trusttunnel-"):
 		core = TrustTunnel
+	case strings.HasPrefix(key, "mieruout-"):
+		core = MieruClient
 	case strings.HasPrefix(key, "mieru-"):
 		core = Mieru
+	case strings.HasPrefix(key, "naiveout-"):
+		core = NaiveClient
 	case strings.HasPrefix(key, "naive-"):
 		core = Naive
+	case strings.HasPrefix(key, "ttout-"):
+		core = TrustTunnelClient
 	case strings.HasPrefix(key, "olcrtc-"):
 		core = Olcrtc
 	default:
@@ -351,7 +358,7 @@ func removeManagedFiles(key string) {
 }
 
 func isMultiInstanceKey(key string) bool {
-	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-"} {
+	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-", "naiveout-", "mieruout-", "ttout-"} {
 		if strings.HasPrefix(key, p) && len(key) > len(p) {
 			return true
 		}
@@ -730,12 +737,13 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 	case inst.Core == Olcrtc:
 		args = []string{cfgPath}
 	case inst.Core == Mieru:
-		// mita runs in the foreground ("run") and reads its JSON config from
-		// MITA_CONFIG_JSON_FILE. The RPC unix socket is per-instance
-		// (MITA_UDS_PATH) so several mita processes never fight over one
-		// socket; MITA_INSECURE_UDS skips the chown mita:mita that would
-		// fatal out (no mita system user on panel hosts).
 		args = []string{"run"}
+	case inst.Core == NaiveClient:
+		args = []string{cfgPath}
+	case inst.Core == MieruClient:
+		args = []string{"run"}
+	case inst.Core == TrustTunnelClient:
+		args = []string{"--config", cfgPath}
 	case inst.Core == TrustTunnel:
 		// trusttunnel_endpoint <vpn.toml> <hosts.toml>; companion files
 		// (credentials/rules) are referenced from within vpn.toml.
@@ -745,12 +753,14 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 	}
 	env := append(os.Environ(), "XDG_DATA_HOME="+absPath(dataDirFor(key, inst.Core)))
 	if inst.Core == Mieru {
-		// Absolute paths: mita gRPC rejects relative MITA_UDS_PATH (authority=bin).
 		env = append(env,
 			"MITA_CONFIG_JSON_FILE="+absPath(cfgPath),
 			"MITA_UDS_PATH="+absPath(filepath.Join(dataDirFor(key, inst.Core), "mita.sock")),
 			"MITA_INSECURE_UDS=1",
 		)
+	}
+	if inst.Core == MieruClient {
+		env = append(env, "MIERU_CONFIG_JSON_FILE="+absPath(cfgPath))
 	}
 
 	if err := mc.proc.Start(bin, args, env); err != nil {

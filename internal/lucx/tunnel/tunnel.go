@@ -56,15 +56,30 @@ const Mieru Name = "mieru"
 // a trusted TLS certificate (panel ACME certs are reused); multi-client.
 const TrustTunnel Name = "trusttunnel"
 
-// All returns the supported core names in display order.
+// Client-mode cores (outbound sidecars). Distinct Name values so BinaryName
+// never collides with inbound servers (caddy-naive / mita / trusttunnel_endpoint)
+// and ReconcileWanted prefixes (naive- / mieru- / trusttunnel-) never sweep
+// outbound keys (naiveout- / mieruout- / ttout-).
+const (
+	NaiveClient       Name = "naiveclient"
+	MieruClient       Name = "mieruclient"
+	TrustTunnelClient Name = "ttclient"
+)
+
+// All returns the supported INBOUND core names in display order.
 func All() []Name {
 	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel}
+}
+
+// ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
+func ClientCores() []Name {
+	return []Name{NaiveClient, MieruClient, TrustTunnelClient}
 }
 
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel:
+	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -83,6 +98,12 @@ func (n Name) DisplayName() string {
 		return "mieru"
 	case TrustTunnel:
 		return "TrustTunnel"
+	case NaiveClient:
+		return "NaiveProxy client"
+	case MieruClient:
+		return "mieru client"
+	case TrustTunnelClient:
+		return "TrustTunnel client"
 	default:
 		return string(n)
 	}
@@ -95,8 +116,13 @@ func (n Name) BinaryName() string {
 	var name string
 	switch n {
 	case Naive:
-		// Historical name from lucx.91 — keep for installed hosts.
 		name = fmt.Sprintf("caddy-naive-%s-%s", runtime.GOOS, runtime.GOARCH)
+	case NaiveClient:
+		name = fmt.Sprintf("naive-client-%s-%s", runtime.GOOS, runtime.GOARCH)
+	case MieruClient:
+		name = fmt.Sprintf("mieru-client-%s-%s", runtime.GOOS, runtime.GOARCH)
+	case TrustTunnelClient:
+		name = fmt.Sprintf("trusttunnel-client-%s-%s", runtime.GOOS, runtime.GOARCH)
 	default:
 		name = fmt.Sprintf("%s-%s-%s", string(n), runtime.GOOS, runtime.GOARCH)
 	}
@@ -152,9 +178,9 @@ func configPathFor(key string, n Name) string {
 			return filepath.Join(workDir(), key+".caddyfile")
 		case Olcrtc:
 			return filepath.Join(workDir(), key+".yaml")
-		case Mieru:
+		case Mieru, MieruClient, NaiveClient:
 			return filepath.Join(workDir(), key+".json")
-		case TrustTunnel:
+		case TrustTunnel, TrustTunnelClient:
 			return filepath.Join(workDir(), key+".toml")
 		default:
 			return filepath.Join(workDir(), key+".conf")

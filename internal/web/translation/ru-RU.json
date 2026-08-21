@@ -1250,6 +1250,10 @@
         "awgRebuildRunning": "Идёт установка / пересборка модуля AWG… смотрите логи панели",
         "awgRebootNeeded": "Модуль ядра обновлён — новый модуль загрузится после перезагрузки сервера.",
         "tunnelBinaries": "Бинарники туннелей",
+        "clientBinaries": "Клиенты sidecar outbound",
+        "naiveClient": "Клиент NaiveProxy",
+        "mieruClient": "Клиент mieru",
+        "trusttunnelClient": "Клиент TrustTunnel",
         "bbrTitle": "TCP BBR (управление перегрузкой)",
         "bbrDesc": "BBR (в паре с планировщиком очереди fq) увеличивает пропускную способность TCP-потоков, которые проксирует панель — исходящие Xray, трафик, ретранслируемый из AWG-туннеля — на путях с высокой задержкой или потерями, по сравнению со стандартным CUBIC. Сам AWG/WireGuard работает поверх UDP, и на него это не влияет.",
         "bbrEnabled": "BBR включён",
@@ -1705,11 +1709,31 @@
         "actions": "Действия",
         "test": "Тест",
         "testOk": "Туннель жив",
-        "deleteConfirm": "Удалить этот AWG outbound?"
+        "deleteConfirm": "Удалить этот AWG outbound?",
+        "sectionTitle": "AmneziaWG"
+      },
+      "sidecarOutbound": {
+        "add": "Добавить sidecar outbound",
+        "edit": "Изменить sidecar outbound",
+        "protocol": "Протокол",
+        "pasteLink": "Вставить ссылку",
+        "parseAndFill": "Распознать и заполнить",
+        "parseFailed": "Не удалось разобрать ссылку",
+        "parsed": "Распознано — заполните недостающие поля и сохраните",
+        "saved": "Sidecar outbound сохранён",
+        "deleteConfirm": "Удалить этот sidecar outbound?",
+        "binaryMissing": "нет бинарника",
+        "naive": "NaiveProxy",
+        "mieru": "mieru",
+        "trusttunnel": "TrustTunnel",
+        "uploadNaive": "Загрузить naive-клиент",
+        "uploaded": "Бинарник загружен",
+        "hint": "Naive, mieru и TrustTunnel — клиентские sidecar, в Xray уходит SOCKS outbound. Вставьте share-ссылку. Naive-клиент в tar.gz нет — загрузите в Cores или кнопкой в строке.",
+        "sectionTitle": "Naive / mieru / TrustTunnel"
       },
       "tabs": {
         "xrayOutbounds": "Xray outbounds",
-        "awgOutbounds": "AWG outbounds"
+        "awgOutbounds": "Sidecar outbounds"
       },
       "rules": {
         "source": "Источник",

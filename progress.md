@@ -5,6 +5,25 @@
 
 ---
 
+## lucx.148 — Sidecar outbounds (naive / mieru / TrustTunnel) (2026-08-21)
+
+Users asked for naive, mieru and TrustTunnel outbounds like AWG, so tags
+land in routing and balancer pools.
+
+AWG stays kernel `awgo-N` + freedom/`sockopt.interface`. The three new
+protocols are userspace clients + loopback SOCKS + injected Xray `socks`
+outbound. Menu label is now "Sidecar outbounds" (`/xray#awg-outbound`).
+
+- Table `sidecar_outbounds`. Parse `naive+https://`, `mierus://`, Throne `tt://`.
+- Keys `naiveout-` / `mieruout-` / `ttout-` so inbound `ReconcileWanted` does not sweep them.
+- Binaries: `mieru-client-*` and `trusttunnel-client-*` in release.yml; naive-client is **upload-only**.
+- Tags merged into `awgOutboundTags` for routing/balancers.
+- Tests: parse/render + inject socks.
+
+**lucxVersion:** lucx.148
+
+---
+
 ## lucx.147 — AWG DKMS on kernel 7.1.5+ (2026-08-20)
 
 Upstream `amneziawg-linux-kernel-module` fails to build on Linux ≥ 7.1.5:
