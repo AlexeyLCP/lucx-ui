@@ -50,7 +50,6 @@ EXTRA_FILES=(
     internal/web/service/sidecar_outbound.go
     internal/web/service/sidecar_outbound_inject_test.go
     internal/web/controller/sidecar_outbound.go
-    internal/database/migrate_sidecar_outbound.go
 )
 
 FILES=$(printf '%s\n' "${HOOK_FILES[@]}" "${PKG_FILES[@]}" "${EXTRA_FILES[@]}" | sort -u | grep -v '^$')

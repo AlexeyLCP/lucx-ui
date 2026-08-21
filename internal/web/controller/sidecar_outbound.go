@@ -213,7 +213,8 @@ func (a *SidecarOutboundController) test(c *gin.Context) {
 		return
 	}
 	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(s.SocksPort))
-	conn, err := net.DialTimeout("tcp", addr, 3*time.Second)
+	d := net.Dialer{Timeout: 3 * time.Second}
+	conn, err := d.DialContext(c.Request.Context(), "tcp", addr)
 	if err != nil {
 		jsonMsg(c, "SOCKS "+addr+" is down", err)
 		return
