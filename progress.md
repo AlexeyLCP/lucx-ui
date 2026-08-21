@@ -1,5 +1,16 @@
 # LucX-UI — Прогресс
 
+## docs — Russian README as repo root (2026-08-21)
+
+- `README.md` is Russian (GitHub landing page).
+- English moved to `README.en_US.md`.
+- `README.ru_RU.md` is a stub for old links.
+- Fixed unclosed backtick after `internal/lucx/` that broke GitHub render of the RU developer section.
+
+**lucxVersion:** lucx.153 (docs only)
+
+---
+
 ## lucx.153 — QA stand fixes: keepalive export, syncconf, H validation, kmod pin (2026-08-21)
 
 Stand-confirmed: range keepalive `15-25` rejected by pre-v3 tools; adding a client restarted the whole AWG iface; unpinned `master` clone.
