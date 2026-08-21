@@ -5,6 +5,18 @@
 
 ---
 
+## lucx.149 — ship naive-client in the tarball (2026-08-21)
+
+Sidecar naive outbound needed a Chromium `naive` binary; lucx.148 left it
+upload-only. The linux-x64 xz is 3.3 MB, so the panel tarball grows ~4–8 MB.
+
+- `release.yml` unpacks pinned `klzgrad/naiveproxy` `v150.0.7871.63-1` as
+  `naive-client-linux-{amd64,arm64}` (not `caddy-naive-*`).
+
+**lucxVersion:** lucx.149
+
+---
+
 ## lucx.148 — Sidecar outbounds (naive / mieru / TrustTunnel) (2026-08-21)
 
 Users asked for naive, mieru and TrustTunnel outbounds like AWG, so tags

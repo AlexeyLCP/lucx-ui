@@ -1728,7 +1728,7 @@
         "trusttunnel": "TrustTunnel",
         "uploadNaive": "Загрузить naive-клиент",
         "uploaded": "Бинарник загружен",
-        "hint": "Naive, mieru и TrustTunnel — клиентские sidecar, в Xray уходит SOCKS outbound. Вставьте share-ссылку. Naive-клиент в tar.gz нет — загрузите в Cores или кнопкой в строке.",
+        "hint": "Naive, mieru и TrustTunnel — клиентские sidecar, в Xray уходит SOCKS outbound. Вставьте share-ссылку.",
         "sectionTitle": "Naive / mieru / TrustTunnel"
       },
       "tabs": {

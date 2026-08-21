@@ -205,6 +205,24 @@ jobs:
               --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive \
               --output caddy-naive-linux-arm64
           fi
+          # NaiveProxy CLIENT (klzgrad/naiveproxy Chromium) for sidecar
+          # outbounds. Distinct from caddy-naive (server). ~3.3 MB xz.
+          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
+            NAIVE_CLIENT_TAG="v150.0.7871.63-1"
+            case "${{ matrix.platform }}" in
+              amd64) NAIVE_CLIENT_ARCH="linux-x64" ;;
+              arm64) NAIVE_CLIENT_ARCH="linux-arm64" ;;
+            esac
+            NAIVE_CLIENT_XZ="naiveproxy-${NAIVE_CLIENT_TAG}-${NAIVE_CLIENT_ARCH}.tar.xz"
+            fetch -O "${NAIVE_CLIENT_XZ}" "https://github.com/klzgrad/naiveproxy/releases/download/${NAIVE_CLIENT_TAG}/${NAIVE_CLIENT_XZ}"
+            mkdir -p /tmp/naiveclient
+            tar -xJf "${NAIVE_CLIENT_XZ}" -C /tmp/naiveclient
+            NAIVE_CLIENT_BIN=$(find /tmp/naiveclient -type f -name naive | head -n1)
+            if [ -z "$NAIVE_CLIENT_BIN" ]; then echo "naive missing from ${NAIVE_CLIENT_XZ}"; exit 1; fi
+            mv "$NAIVE_CLIENT_BIN" "naive-client-linux-${{ matrix.platform }}"
+            chmod +x "naive-client-linux-${{ matrix.platform }}"
+            rm -rf /tmp/naiveclient "${NAIVE_CLIENT_XZ}"
+          fi
           # olcRTC (openlibrecommunity/olcrtc, WTFPL) — TCP-over-WebRTC
           # tunnel. Built from source with GOTOOLCHAIN=auto so the module's
           # required Go version is pulled automatically. amd64/arm64 only;

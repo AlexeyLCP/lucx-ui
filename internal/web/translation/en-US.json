@@ -1845,7 +1845,7 @@
         "trusttunnel": "TrustTunnel",
         "uploadNaive": "Upload naive client",
         "uploaded": "Binary uploaded",
-        "hint": "Naive, mieru and TrustTunnel outbounds run a client sidecar and inject a SOCKS outbound. Paste a share link. Naive client is not shipped — upload it under Cores or via the row button.",
+        "hint": "Naive, mieru and TrustTunnel outbounds run a client sidecar and inject a SOCKS outbound. Paste a share link.",
         "sectionTitle": "Naive / mieru / TrustTunnel"
       },
       "tabs": {
