@@ -82,7 +82,7 @@ export function findAwgInbounds(
 ): InboundOption[] {
   return (client?.inboundIds || [])
     .map((id) => inboundsById[id])
-    .filter((ib): ib is InboundOption => ib?.protocol === 'awg' && ib.enable);
+    .filter((ib): ib is InboundOption => ib?.protocol === 'awg' && ib.enable === true);
 }
 
 export function findAwgInbound(

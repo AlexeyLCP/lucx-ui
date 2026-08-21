@@ -52,6 +52,7 @@ export const InboundOptionSchema = z.object({
   tag: z.string().optional(),
   protocol: z.string().optional(),
   port: z.number().optional(),
+  enable: z.boolean().optional(),
   tlsFlowCapable: z.boolean().optional(),
   ssMethod: z.string().optional(),
   wgPublicKey: z.string().optional(),
