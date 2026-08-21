@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined FA README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **پنل پیشرفته Xray** — AmneziaWG بومی (تا 3.1)، تونل‌های تحت نظارت (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراک Clash / Amnezia `vpn://` / Happ، geodata browser و مسیریابی RoscomVPN.
+> **پنل پیشرفته Xray** — AmneziaWG بومی (تا 3.1)، تونل‌های تحت نظارت و sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراک Clash / Amnezia `vpn://` / Happ، geodata browser و مسیریابی RoscomVPN.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -80,6 +80,7 @@ docker compose --profile postgres up -d
 | سایدی‌کار qWDTT (WireGuard روی VK TURN، تحت نظارت) | ✗ | ✓ |
 | سایدی‌کار mieru (`mita`، ترافیک per-client، تحت نظارت) | ✗ | ✓ |
 | سایدی‌کار TrustTunnel (پروتکل AdGuard VPN، شبیه HTTPS، تحت نظارت) | ✗ | ✓ |
+| Sidecar outbounds (کلاینت Naive / mieru / TrustTunnel → SOCKS، مسیریابی و استخرها) | ✗ | ✓ |
 | AWG در Clash Meta + اشتراک Amnezia `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
 | Geodata browser — انتخاب دسته‌های geosite/geoip از پنل | ✗* | ✓ |
 | بسته geo RoscomVPN (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
@@ -118,6 +119,7 @@ docker compose --profile postgres up -d
 - **qWDTT** — WireGuard از طریق TURN ِ VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
 - **mieru** — پروکسی مقاوم در برابر سانسور روی پروتکلی اختصاصی به‌جای TLS ([enfein/mieru](https://github.com/enfein/mieru) `mita`، GPL-3.0). چندکاربره با اعتبارنامه‌های HMAC به‌ازای هر کلاینت پنل، ترافیک و وضعیت آنلاین per-client، و لینک اشتراک `mierus://`. کلاینت‌ها: mieru CLI، mihomo، Clash Verge Rev، husi، Exclave.
 - **TrustTunnel** — پروتکل AdGuard VPN ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)، Apache-2.0): ترافیک از HTTPS قابل تشخیص نیست (HTTP/1.1 + HTTP/2 + QUIC). از گواهی ACME پنل استفاده مجدد می‌کند (نیاز به دامنه با گواهی صادرشده) و deep-link `tt://?` برای کلاینت‌های Flutter / CLI تولید می‌کند.
+- **Sidecar outbounds** — حالت کلاینت Naive / mieru / TrustTunnel: لینک اشتراک را بچسبانید (`naive+https://` / `mierus://` / `tt://`)، تگ در قوانین مسیریابی و استخرهای balancer ظاهر می‌شود (مثل AWG outbound). غیرفعال = blackhole (fail-closed، به `direct` نشت نمی‌کند). باینری‌های کلاینت در tar.gz.
 
 ### 📦 اشتراک‌ها، geodata و مسیریابی کلاینت
 - **اشتراک Amnezia** — `/awg/{subId}` فایل `.conf` خالص یا `vpn://…` برمی‌گرداند.
@@ -171,7 +173,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 | مولفه‌های LucX-UI (`internal/awg/`، `internal/lucx/`، صفحات LucX فرانت‌اند) | **PolyForm Noncommercial 1.0.0** |
 | `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
 | پلاگین `forward_proxy` ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
-| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| NaiveProxy / `bin/naive-client-*` ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
 | `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
 | `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
 | `bin/mieru-*` (`mita`، [enfein/mieru](https://github.com/enfein/mieru)) | **GPL-3.0** |
@@ -237,11 +239,5 @@ go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
 ```
 
 </details>
-
----
-
-## ⭐ ستاره‌ها در طول زمان
-
-[![Stargazers over time](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
 
 <!-- END LUCX-HOOK -->

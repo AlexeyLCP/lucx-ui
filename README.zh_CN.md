@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined ZH README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **高级 Xray 控制面板** — 原生 AmneziaWG（至 3.1）、受监管隧道（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel）、Clash / Amnezia `vpn://` / Happ 订阅、geodata browser 与 RoscomVPN 路由。
+> **高级 Xray 控制面板** — 原生 AmneziaWG（至 3.1）、受监管隧道与 Sidecar 出站（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel）、Clash / Amnezia `vpn://` / Happ 订阅、geodata browser 与 RoscomVPN 路由。
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -80,6 +80,7 @@ docker compose --profile postgres up -d
 | qWDTT 隧道 Sidecar（经 VK TURN 的 WireGuard，面板监管） | ✗ | ✓ |
 | mieru 隧道 Sidecar（`mita`，每客户端流量，面板监管） | ✗ | ✓ |
 | TrustTunnel Sidecar（AdGuard VPN 协议，类 HTTPS，面板监管） | ✗ | ✓ |
+| Sidecar 出站（Naive / mieru / TrustTunnel 客户端 → SOCKS，路由与负载均衡） | ✗ | ✓ |
 | AWG 接入 Clash Meta + Amnezia 订阅 `/awg/`（`.conf` / `vpn://`） | ✗ | ✓ |
 | Geodata browser — 在面板中选择 geosite/geoip 分类 | ✗* | ✓ |
 | RoscomVPN geo 包（`geoip/geosite_ROSCOM.dat`，RKN 列表） | ✗ | ✓ |
@@ -118,6 +119,7 @@ docker compose --profile postgres up -d
 - **qWDTT** —— 经 VK Calls TURN 的 WireGuard（[SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)）。
 - **mieru** —— 基于自定义协议而非 TLS 的抗审查代理（[enfein/mieru](https://github.com/enfein/mieru) `mita`，GPL-3.0）。多客户端、每客户端 HMAC 凭证、每客户端流量与在线统计、`mierus://` 分享链接。客户端：mieru CLI、mihomo、Clash Verge Rev、husi、Exclave。
 - **TrustTunnel** —— AdGuard VPN 协议（[TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)，Apache-2.0）：流量与 HTTPS 无异（HTTP/1.1 + HTTP/2 + QUIC）。复用面板 ACME 证书（需已签发证书的域名），输出 `tt://?` deep-link 供 Flutter / CLI 客户端使用。
+- **Sidecar 出站** —— 客户端模式 Naive / mieru / TrustTunnel：粘贴分享链接（`naive+https://` / `mierus://` / `tt://`），标签会出现在路由规则与负载均衡池中（与 AWG 出站相同）。禁用 = blackhole（故障关闭，不会泄漏到 `direct`）。客户端二进制随 tar 包提供。
 
 ### 📦 订阅、Geodata 与客户端路由
 - **Amnezia 订阅** — `/awg/{subId}` 返回纯 AmneziaWG `.conf`（或 `?format=vpn` → `vpn://…`）。
@@ -171,7 +173,7 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 | LucX-UI 组件 (`internal/awg/`、`internal/lucx/`、LucX 前端页面) | **PolyForm Noncommercial 1.0.0** |
 | `bin/caddy-naive-*`（Caddy） | **Apache-2.0** |
 | `forward_proxy` 插件（[klzgrad](https://github.com/klzgrad/forwardproxy)） | **MIT** |
-| NaiveProxy（[klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)） | **BSD-3-Clause** |
+| NaiveProxy / `bin/naive-client-*`（[klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)） | **BSD-3-Clause** |
 | `bin/olcrtc-*`（[openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)） | **WTFPL** |
 | `bin/qwdtt-*`（[SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)） | **GPL-3.0** |
 | `bin/mieru-*`（`mita`，[enfein/mieru](https://github.com/enfein/mieru)） | **GPL-3.0** |
@@ -237,11 +239,5 @@ go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
 ```
 
 </details>
-
----
-
-## ⭐ 随时间变化的星标数
-
-[![Stargazers over time](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
 
 <!-- END LUCX-HOOK -->

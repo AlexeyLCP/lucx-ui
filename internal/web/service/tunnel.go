@@ -259,10 +259,6 @@ func (s *TunnelService) NaiveStatus() (NaiveStatus, error) {
 	if err != nil {
 		return NaiveStatus{}, err
 	}
-	inst, err := s.naiveInstance(cfg)
-	if err != nil {
-		return NaiveStatus{}, err
-	}
 	mgr := tunnel.GetManager()
 	bin := tunnel.Naive.BinaryPath()
 	info, statErr := os.Stat(bin)
@@ -273,8 +269,8 @@ func (s *TunnelService) NaiveStatus() (NaiveStatus, error) {
 		BinaryPath:   bin,
 		ClientURL:    cfg.ClientURL(),
 		Config:       cfg,
-		Probe:        mgr.StatusOf(inst),
-		LastLog:      mgr.LastLog(tunnel.Naive),
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("naive-") || mgr.IsRunningKey(string(tunnel.Naive))},
+		LastLog:      mgr.LastLogPrefixed("naive-"),
 	}, nil
 }
 
@@ -283,7 +279,7 @@ func (s *TunnelService) NaiveLogs(lines int) []string {
 	if lines <= 0 {
 		lines = 200
 	}
-	return tunnel.GetManager().Logs(tunnel.Naive, lines)
+	return tunnel.GetManager().LogsPrefixed("naive-", lines)
 }
 
 // PreviewNaive renders the Caddyfile the given form state would produce,
@@ -432,14 +428,14 @@ func (s *TunnelService) reconcileNaiveInbounds() {
 		return
 	}
 	if s.tunnelBlobMigrated(tunnelNaiveSettingKey) {
-		cfg.Enabled = false
+		tunnel.GetManager().ReconcileNaive(nil)
+		_ = tunnel.GetManager().Stop(tunnel.Naive)
+		return
 	}
 	inst, err := s.naiveInstance(cfg)
 	if err != nil {
 		return
 	}
-	// Reconcile (not bare Ensure) so orphan naive-{id} keys are swept even
-	// when no naive inbound is left.
 	tunnel.GetManager().ReconcileNaive([]tunnel.Instance{inst})
 }
 
@@ -471,14 +467,14 @@ func (s *TunnelService) reconcileOlcrtcInbounds() {
 		return
 	}
 	if s.tunnelBlobMigrated(tunnelOlcrtcSettingKey) {
-		cfg.Enabled = false
+		tunnel.GetManager().ReconcileOlcrtc(nil)
+		_ = tunnel.GetManager().Stop(tunnel.Olcrtc)
+		return
 	}
 	inst, err := s.olcrtcInstance(cfg)
 	if err != nil {
 		return
 	}
-	// Reconcile (not bare Ensure) so orphan olcrtc-{id} keys are swept even
-	// when no olcrtc inbound is left.
 	tunnel.GetManager().ReconcileOlcrtc([]tunnel.Instance{inst})
 }
 
@@ -516,7 +512,8 @@ func (s *TunnelService) reconcileQwdttInbound() {
 		return
 	}
 	if s.tunnelBlobMigrated(tunnelQwdttSettingKey) {
-		cfg.Enabled = false
+		_ = tunnel.GetManager().Stop(tunnel.Qwdtt)
+		return
 	}
 	inst, err := s.qwdttInstance(cfg)
 	if err != nil {
@@ -721,10 +718,6 @@ func (s *TunnelService) OlcrtcStatus() (OlcrtcStatus, error) {
 	if err != nil {
 		return OlcrtcStatus{}, err
 	}
-	inst, err := s.olcrtcInstance(cfg)
-	if err != nil {
-		return OlcrtcStatus{}, err
-	}
 	mgr := tunnel.GetManager()
 	bin := tunnel.Olcrtc.BinaryPath()
 	info, statErr := os.Stat(bin)
@@ -735,8 +728,8 @@ func (s *TunnelService) OlcrtcStatus() (OlcrtcStatus, error) {
 		BinaryPath:   bin,
 		ClientURI:    cfg.ClientURI(),
 		Config:       cfg,
-		Probe:        mgr.StatusOf(inst),
-		LastLog:      mgr.LastLog(tunnel.Olcrtc),
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("olcrtc-") || mgr.IsRunningKey(string(tunnel.Olcrtc))},
+		LastLog:      mgr.LastLogPrefixed("olcrtc-"),
 	}, nil
 }
 
@@ -745,7 +738,7 @@ func (s *TunnelService) OlcrtcLogs(lines int) []string {
 	if lines <= 0 {
 		lines = 200
 	}
-	return tunnel.GetManager().Logs(tunnel.Olcrtc, lines)
+	return tunnel.GetManager().LogsPrefixed("olcrtc-", lines)
 }
 
 // PreviewOlcrtc renders the YAML the given form state would produce.

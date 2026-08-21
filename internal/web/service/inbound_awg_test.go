@@ -12,6 +12,12 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/web/runtime"
 )
 
+func TestInboundHasSidecar(t *testing.T) {
+	if !inboundHasSidecar(model.Naive) || !inboundHasSidecar(model.AWG) || inboundHasSidecar(model.VLESS) {
+		t.Fatal("sidecar protocols must teardown on delete even when disabled")
+	}
+}
+
 func TestAwgRoutesThroughXray(t *testing.T) {
 	cases := map[string]struct {
 		ib   *model.Inbound

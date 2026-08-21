@@ -628,7 +628,7 @@ func (a *ClientController) getAwgBody(c *gin.Context) {
 		return
 	}
 	if strings.TrimSpace(body) == "" {
-		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("no AWG configs for this subscription"))
+		jsonObj(c, gin.H{"body": "", "format": format}, nil)
 		return
 	}
 	jsonObj(c, gin.H{"body": body, "format": format}, nil)

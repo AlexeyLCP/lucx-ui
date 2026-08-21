@@ -1024,8 +1024,15 @@ func (s *InboundService) normalizeMtprotoSecret(inbound *model.Inbound) {
 	}
 }
 
-// mtprotoRoutesThroughXray reports whether an mtproto inbound is configured to
-// egress through the core's router (the loopback SOCKS bridge in §xray.go).
+func inboundHasSidecar(p model.Protocol) bool {
+	switch p {
+	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel:
+		return true
+	default:
+		return false
+	}
+}
+
 func mtprotoRoutesThroughXray(inbound *model.Inbound) bool {
 	if inbound == nil || inbound.Protocol != model.MTProto {
 		return false
@@ -1991,7 +1998,7 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 	var ib model.Inbound
 	loadErr := db.Model(model.Inbound{}).Where("id = ?", id).First(&ib).Error
 	if loadErr == nil {
-		shouldPushToRuntime := ib.NodeID != nil || ib.Enable
+		shouldPushToRuntime := ib.NodeID != nil || ib.Enable || inboundHasSidecar(ib.Protocol)
 		if shouldPushToRuntime {
 			if ib.NodeID != nil {
 				rt, push, _, perr := s.nodePushPlan(&ib)

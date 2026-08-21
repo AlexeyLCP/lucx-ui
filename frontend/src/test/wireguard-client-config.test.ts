@@ -196,15 +196,15 @@ describe('buildAwgClientConfig version override', () => {
 describe('findAwgInbounds multi-attach', () => {
   it('returns every AWG inbound in inboundIds order (not only the first)', () => {
     const byId: Record<number, InboundOption> = {
-      1: { id: 1, tag: 'awg1', remark: 'AWG1', protocol: 'awg', port: 1, awgVersion: '1.5' },
-      2: { id: 2, tag: 'vless', remark: 'v', protocol: 'vless', port: 443 },
-      3: { id: 3, tag: 'awg2', remark: 'AWG2', protocol: 'awg', port: 2, awgVersion: '2' },
-      4: { id: 4, tag: 'awg3', remark: 'AWG3', protocol: 'awg', port: 3, awgVersion: '3' },
+      1: { id: 1, tag: 'awg1', remark: 'AWG1', protocol: 'awg', port: 1, awgVersion: '1.5', enable: true },
+      2: { id: 2, tag: 'vless', remark: 'v', protocol: 'vless', port: 443, enable: true },
+      3: { id: 3, tag: 'awg2', remark: 'AWG2', protocol: 'awg', port: 2, awgVersion: '2', enable: true },
+      4: { id: 4, tag: 'awg3', remark: 'AWG3', protocol: 'awg', port: 3, awgVersion: '3', enable: false },
     };
     const c: ClientRecord = { email: 'multi', inboundIds: [1, 2, 3, 4], privateKey: 'x' };
     const all = findAwgInbounds(c, byId);
-    expect(all.map((i) => i.id)).toEqual([1, 3, 4]);
-    expect(all.map((i) => i.awgVersion)).toEqual(['1.5', '2', '3']);
+    expect(all.map((i) => i.id)).toEqual([1, 3]);
+    expect(all.map((i) => i.awgVersion)).toEqual(['1.5', '2']);
     // first-only helper stays for single-inbound call sites
     expect(findAwgInbound(c, byId)?.id).toBe(1);
   });

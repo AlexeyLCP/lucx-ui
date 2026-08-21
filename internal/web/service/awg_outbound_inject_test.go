@@ -56,20 +56,34 @@ func serializeAwgOutbounds(t *testing.T, cfg *xray.Config) string {
 
 // LUCX-HOOK: AWG injectAwgOutbounds tests, mirroring the egress suite above.
 
-func TestInjectAwgOutbounds_DisabledSkipped(t *testing.T) {
+func TestInjectAwgOutbounds_DisabledBecomesBlackhole(t *testing.T) {
 	cfg := awgOutboundTestConfig()
 	outbounds := []*model.AwgOutbound{
 		{Id: 1, Tag: "awgo-1", Enable: false, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820"}`},
 		{Id: 2, Tag: "awgo-2", Enable: true, Settings: `{"privateKey":"k","address":"10.9.0.6/32","publicKey":"pub","endpoint":"up:51820"}`},
 	}
 	injectAwgOutbounds(cfg, outbounds)
-	out := serializeAwgOutbounds(t, cfg)
-	if strings.Contains(out, `"tag":"awgo-1"`) {
-		t.Error("disabled outbound should not be injected")
+	if proto := outboundProtocolByTag(t, cfg, "awgo-1"); proto != "blackhole" {
+		t.Fatalf("disabled tag must be blackhole, got %q", proto)
 	}
-	if !strings.Contains(out, `"tag":"awgo-2"`) {
-		t.Error("enabled outbound should be injected")
+	if proto := outboundProtocolByTag(t, cfg, "awgo-2"); proto != "freedom" {
+		t.Fatalf("enabled tag must be freedom, got %q", proto)
 	}
+}
+
+func outboundProtocolByTag(t *testing.T, cfg *xray.Config, tag string) string {
+	t.Helper()
+	var raw []map[string]any
+	if err := json.Unmarshal(cfg.OutboundConfigs, &raw); err != nil {
+		t.Fatalf("outbounds unmarshal: %v", err)
+	}
+	for _, ob := range raw {
+		if t, _ := ob["tag"].(string); t == tag {
+			p, _ := ob["protocol"].(string)
+			return p
+		}
+	}
+	return ""
 }
 
 func TestInjectAwgOutbounds_SendThroughStripsCIDR(t *testing.T) {

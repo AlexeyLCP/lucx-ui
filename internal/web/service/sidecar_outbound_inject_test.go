@@ -13,23 +13,20 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
-func TestInjectSidecarOutbounds_DisabledSkipped(t *testing.T) {
+func TestInjectSidecarOutbounds_DisabledBecomesBlackhole(t *testing.T) {
 	cfg := awgOutboundTestConfig()
 	rows := []*model.SidecarOutbound{
 		{Id: 1, Protocol: "naive", Tag: "naive-up", Enable: false, Settings: `{"socksPort":39111,"host":"n.example.org","port":443,"user":"a","pass":"b"}`},
 		{Id: 2, Protocol: "mieru", Tag: "mieru-up", Enable: true, Settings: `{"socksPort":39222,"host":"1.2.3.4","port":6666,"user":"a","pass":"b"}`},
 	}
 	injectSidecarOutbounds(cfg, rows)
+	if proto := outboundProtocolByTag(t, cfg, "naive-up"); proto != "blackhole" {
+		t.Fatalf("disabled sidecar must be blackhole, got %q", proto)
+	}
+	if proto := outboundProtocolByTag(t, cfg, "mieru-up"); proto != "socks" {
+		t.Fatalf("enabled sidecar must be socks, got %q", proto)
+	}
 	out := serializeAwgOutbounds(t, cfg)
-	if strings.Contains(out, `"tag":"naive-up"`) {
-		t.Error("disabled sidecar must not be injected")
-	}
-	if !strings.Contains(out, `"tag":"mieru-up"`) {
-		t.Error("enabled sidecar must be injected")
-	}
-	if !strings.Contains(out, `"protocol":"socks"`) {
-		t.Error("sidecar inject must be socks, not freedom")
-	}
 	if !strings.Contains(out, `"port":39222`) {
 		t.Error("socks port missing")
 	}

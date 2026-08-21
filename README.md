@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined EN README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Advanced Xray control panel** — native AmneziaWG (up to 3.1), supervised tunnels (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ subscriptions, geodata browser & RoscomVPN routing.
+> **Advanced Xray control panel** — native AmneziaWG (up to 3.1), supervised tunnels & sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ subscriptions, geodata browser & RoscomVPN routing.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -81,6 +81,7 @@ docker compose --profile postgres up -d
 | qWDTT tunnel sidecar (WireGuard over VK TURN, supervised) | ✗ | ✓ |
 | mieru tunnel sidecar (`mita`, per-client traffic, supervised) | ✗ | ✓ |
 | TrustTunnel sidecar (AdGuard VPN protocol, HTTPS-like, supervised) | ✗ | ✓ |
+| Sidecar outbounds (Naive / mieru / TrustTunnel client → SOCKS, routing & balancers) | ✗ | ✓ |
 | Geodata browser — pick geosite/geoip categories from panel | ✗* | ✓ |
 | RoscomVPN geo pack (`geoip/geosite_ROSCOM.dat`, RKN geoblock lists) | ✗ | ✓ |
 | Happ routing profiles (RoscomVPN deeplink + custom) | ✗ | ✓ |
@@ -118,6 +119,7 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 - **qWDTT** — WireGuard tunnelled through VK Calls TURN relays ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android), GPL-3.0 server). Requires root (TUN + NAT). Panel supervises the process, exposes `qwdtt://` / `wdtt://` URIs and subscription JSON for the Android client. Operator supplies live VK call hashes.
 - **mieru** — censorship-resistant proxy over a custom protocol instead of TLS ([enfein/mieru](https://github.com/enfein/mieru) `mita`, GPL-3.0). Multi-client with per-panel-client HMAC credentials, per-client traffic & online accounting, and a `mierus://` share link. Clients: mieru CLI, mihomo, Clash Verge Rev, husi, Exclave.
 - **TrustTunnel** — the AdGuard VPN protocol ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel), Apache-2.0): traffic indistinguishable from HTTPS (HTTP/1.1 + HTTP/2 + QUIC). Reuses the panel's ACME certificate (needs a domain with an issued cert), emits a `tt://?` deep link for the Flutter / CLI clients.
+- **Sidecar outbounds** — client-mode Naive / mieru / TrustTunnel: paste a share link (`naive+https://` / `mierus://` / `tt://`), the tag shows up in routing rules and balancer pools (same as AWG outbound). Disable = blackhole (fail-closed, does not leak to `direct`). Client binaries ship in the tarball (`naive-client`, `mieru-client`, `trusttunnel-client`).
 
 ### 📦 Subscriptions, Geodata & Client Routing
 - **Amnezia subscription** — dedicated `/awg/{subId}` endpoint returns a pure AmneziaWG `.conf` (or `?format=vpn` → `vpn://…` body) for AmneziaVPN / Happ; also listed next to Clash / JSON / base64 links in the panel and Telegram bot.
@@ -171,7 +173,7 @@ This project is published under **two licenses** for first-party code, plus thir
 | LucX-UI components (`internal/awg/`, `internal/lucx/`, LucX frontend pages) | **PolyForm Noncommercial 1.0.0** |
 | `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
 | `forward_proxy` plugin ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
-| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| NaiveProxy / `bin/naive-client-*` ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
 | `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
 | `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
 | `bin/mieru-*` (`mita`, [enfein/mieru](https://github.com/enfein/mieru)) | **GPL-3.0** |
@@ -252,11 +254,5 @@ go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
 ```
 
 </details>
-
----
-
-## ⭐ Stargazers over Time
-
-[![Stargazers over time](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
 
 <!-- END LUCX-HOOK -->

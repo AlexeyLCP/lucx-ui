@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined TR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Gelişmiş Xray paneli** — yerel AmneziaWG (3.1'e kadar), denetimli tüneller (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ abonelikleri, geodata browser ve RoscomVPN yönlendirme.
+> **Gelişmiş Xray paneli** — yerel AmneziaWG (3.1'e kadar), denetimli tüneller ve sidecar outbound'lar (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ abonelikleri, geodata browser ve RoscomVPN yönlendirme.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -80,6 +80,7 @@ docker compose --profile postgres up -d
 | qWDTT tünel sidecar'ı (VK TURN üzerinde WireGuard, denetimli) | ✗ | ✓ |
 | mieru tünel sidecar'ı (`mita`, istemci başına trafik, denetimli) | ✗ | ✓ |
 | TrustTunnel sidecar'ı (AdGuard VPN protokolü, HTTPS benzeri, denetimli) | ✗ | ✓ |
+| Sidecar outbound'lar (Naive / mieru / TrustTunnel istemci → SOCKS, routing ve havuzlar) | ✗ | ✓ |
 | Clash Meta'ta AWG + Amnezia aboneliği `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
 | Geodata browser — panelden geosite/geoip kategorileri | ✗* | ✓ |
 | RoscomVPN geo paketi (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
@@ -118,6 +119,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **qWDTT** — VK Calls TURN üzerinden WireGuard ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
 - **mieru** — TLS yerine özel bir protokol üzerinden sansüre dayanıklı proxy ([enfein/mieru](https://github.com/enfein/mieru) `mita`, GPL-3.0). Panel istemcisi başına HMAC kimlik bilgileriyle çok istemcili, istemci başına trafik & çevrimiçi durumu ve `mierus://` paylaşım bağlantısı. İstemciler: mieru CLI, mihomo, Clash Verge Rev, husi, Exclave.
 - **TrustTunnel** — AdGuard VPN protokolü ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel), Apache-2.0): trafik HTTPS'den ayırt edilemez (HTTP/1.1 + HTTP/2 + QUIC). Panelin ACME sertifikasını yeniden kullanır (sertifikası verilmiş bir alan adı gerekir) ve Flutter / CLI istemcileri için `tt://?` deep-link üretir.
+- **Sidecar outbound'lar** — Naive / mieru / TrustTunnel istemci modu: paylaşım bağlantısını yapıştırın (`naive+https://` / `mierus://` / `tt://`), etiket routing kurallarında ve dengeleyici havuzlarında görünür (AWG outbound gibi). Devre dışı = blackhole (fail-closed, `direct`'e sızmaz). İstemci ikilileri tar.gz'de.
 
 ### 📦 Abonelikler, geodata ve istemci yönlendirme
 - **Amnezia aboneliği** — `/awg/{subId}` saf `.conf` veya `vpn://…` döner.
@@ -171,7 +173,7 @@ Bu proje kendi kodu için **iki lisans** ve üçüncü taraf ikili/veriler için
 | LucX-UI bileşenleri (`internal/awg/`, `internal/lucx/`, LucX ön yüz sayfaları) | **PolyForm Noncommercial 1.0.0** |
 | `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
 | `forward_proxy` eklentisi ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
-| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| NaiveProxy / `bin/naive-client-*` ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
 | `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
 | `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
 | `bin/mieru-*` (`mita`, [enfein/mieru](https://github.com/enfein/mieru)) | **GPL-3.0** |
@@ -237,11 +239,5 @@ go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
 ```
 
 </details>
-
----
-
-## ⭐ Zaman İçinde Yıldızlar
-
-[![Stargazers over time](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
 
 <!-- END LUCX-HOOK -->

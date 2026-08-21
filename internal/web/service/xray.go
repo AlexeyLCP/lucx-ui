@@ -1046,6 +1046,13 @@ func injectQwdttEgress(cfg *xray.Config, inbound *model.Inbound) {
 func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 	for _, o := range outbounds {
 		if !o.Enable {
+			// Keep the tag so routing/balancer rules still match. A missing
+			// tag makes Xray fall through to the default outbound (direct) —
+			// YouTube-via-AWG kept working after the operator disabled the
+			// row (VladufQa). Blackhole is fail-closed.
+			if err := appendAwgOutbound(cfg, blackholeOutbound(o.Tag)); err != nil {
+				logger.Warning("awg outbound: failed to inject blackhole for disabled tag", o.Tag, ":", err)
+			}
 			continue
 		}
 		ci, ok := awg.ClientInstanceFromOutbound(o)
@@ -1076,7 +1083,13 @@ func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 
 func injectSidecarOutbounds(cfg *xray.Config, outbounds []*model.SidecarOutbound) {
 	for _, o := range outbounds {
-		if o == nil || !o.Enable {
+		if o == nil {
+			continue
+		}
+		if !o.Enable {
+			if err := appendAwgOutbound(cfg, blackholeOutbound(o.Tag)); err != nil {
+				logger.Warning("sidecar outbound: failed to inject blackhole for disabled tag", o.Tag, ":", err)
+			}
 			continue
 		}
 		s, ok := tunnel.ParseSidecarSettings(o)
@@ -1105,6 +1118,14 @@ func injectSidecarOutbounds(cfg *xray.Config, outbounds []*model.SidecarOutbound
 // OutboundConfigs becomes a single-element array. A corrupt template aborts
 // the append and leaves the field untouched, mirroring the safety contract of
 // mergeSubscriptionOutbounds.
+func blackholeOutbound(tag string) map[string]any {
+	return map[string]any{
+		"protocol": "blackhole",
+		"tag":      tag,
+		"settings": map[string]any{},
+	}
+}
+
 func appendAwgOutbound(cfg *xray.Config, ob map[string]any) error {
 	var existing []any
 	if len(cfg.OutboundConfigs) > 0 {

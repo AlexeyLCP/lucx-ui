@@ -5,6 +5,39 @@
 
 ---
 
+## lucx.151 — tunnel liveness + empty awgBody (2026-08-21)
+
+VladufQa: disabled/deleted tunnel inbound still "alive" on Cores; client
+info `GET awgBody` → "no AWG configs" toast.
+
+- DelInbound always tears down AWG/mtproto/tunnel sidecars even if the row
+  was already disabled (previously skipped runtime push).
+- Migrated naive/olcrtc/qwdtt with zero inbounds: Reconcile(nil)+Stop, no
+  legacy blob resurrection.
+- Cores naive/olcrtc probe = AnyRunning(inbound prefix), not legacy key.
+- awgBody empty = success, not error. Amnezia QR/copy only if enabled AWG.
+
+**lucxVersion:** lucx.151
+
+---
+
+## lucx.150 — disabled sidecar/AWG outbound is blackhole (2026-08-21)
+
+VladufQa: AWG outbound disabled, YouTube rule still via that tag — YouTube
+opened. Disable dropped the tag from the generated config; Xray then fell
+through to the default outbound (`direct`).
+
+Disabled AWG and sidecar rows now inject `blackhole` with the same tag so
+routing/balancer selectors stay fail-closed. Enable still injects freedom
+(AWG) or socks (naive/mieru/TT). Selective rules were already per-tag.
+
+READMEs (7 langs): sidecar outbounds + disable=blackhole. Starchart banner
+removed (rate-limited).
+
+**lucxVersion:** lucx.150
+
+---
+
 ## lucx.149 — ship naive-client in the tarball (2026-08-21)
 
 Sidecar naive outbound needed a Chromium `naive` binary; lucx.148 left it

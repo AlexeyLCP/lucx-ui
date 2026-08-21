@@ -143,14 +143,14 @@ export default function ClientQrModal({
         children: <QrPanel value={subClashLink} remark={`${client?.email || ''} — Clash`} />,
       });
     }
-    if (subAwgLink) {
+    if (subAwgLink && awgConfigs.length > 0) {
       out.push({
         key: 'subAwg',
         label: <Tag color="magenta" style={{ margin: 0 }}>AMNEZIA</Tag>,
         children: <QrPanel value={subAwgLink} remark={`${client?.email || ''} — Amnezia .conf`} />,
       });
     }
-    if (subAwgVpnLink) {
+    if (subAwgVpnLink && awgConfigs.length > 0) {
       out.push({
         key: 'subAwgVpn',
         label: <Tag color="volcano" style={{ margin: 0 }}>vpn://</Tag>,

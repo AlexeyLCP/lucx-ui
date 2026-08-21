@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined RU README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Продвинутая панель Xray** — нативный AmneziaWG (до 3.1), туннельные сайдкары (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), подписки Clash / Amnezia `vpn://` / Happ, geodata browser и RoscomVPN routing.
+> **Продвинутая панель Xray** — нативный AmneziaWG (до 3.1), туннельные сайдкары и sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), подписки Clash / Amnezia `vpn://` / Happ, geodata browser и RoscomVPN routing.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -81,6 +81,7 @@ docker compose --profile postgres up -d
 | Туннельный сайдкар qWDTT (WireGuard через VK TURN, под надзором) | ✗ | ✓ |
 | Туннельный сайдкар mieru (`mita`, per-client трафик, под надзором) | ✗ | ✓ |
 | Сайдкар TrustTunnel (протокол AdGuard VPN, похож на HTTPS, под надзором) | ✗ | ✓ |
+| Sidecar outbounds (клиент Naive / mieru / TrustTunnel → SOCKS, routing и пулы) | ✗ | ✓ |
 | Geodata browser — выбор категорий geosite/geoip из панели | ✗* | ✓ |
 | Пакет RoscomVPN geo (`geoip/geosite_ROSCOM.dat`, списки РКН) | ✗ | ✓ |
 | Профили маршрутизации Happ (RoscomVPN deeplink + custom) | ✗ | ✓ |
@@ -118,6 +119,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **qWDTT** — WireGuard через TURN-релеи VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android), GPL-3.0 server). Нужен root (TUN + NAT). Панель супервизит процесс, отдаёт `qwdtt://` / `wdtt://` и JSON-подписку для Android-клиента. Оператор передаёт живые VK call hash.
 - **mieru** — censorship-resistant прокси поверх собственного протокола вместо TLS ([enfein/mieru](https://github.com/enfein/mieru) `mita`, GPL-3.0). Мульти-клиент с HMAC-кредами на каждого клиента панели, per-client трафик и онлайн, шер-ссылка `mierus://`. Клиенты: mieru CLI, mihomo, Clash Verge Rev, husi, Exclave.
 - **TrustTunnel** — протокол AdGuard VPN ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel), Apache-2.0): трафик неотличим от HTTPS (HTTP/1.1 + HTTP/2 + QUIC). Использует ACME-серт панели (нужен домен с выпущенным сертом), отдаёт `tt://?` deep-link для Flutter / CLI клиентов.
+- **Sidecar outbounds** — клиентский режим Naive / mieru / TrustTunnel: вставил share-ссылку (`naive+https://` / `mierus://` / `tt://`), тег появляется в routing и пулах балансировщиков (как AWG outbound). Выключение = blackhole (не утекает в `direct`). Клиентские бинарники в tar.gz.
 
 ### 📦 Подписки, geodata и маршрутизация клиентов
 - **Подписка Amnezia** — отдельный endpoint `/awg/{subId}` отдаёт чистый AmneziaWG `.conf` (или `?format=vpn` → тело `vpn://…`) для AmneziaVPN / Happ; ссылки рядом с Clash / JSON / base64 в панели и Telegram-боте.
@@ -171,7 +173,7 @@ AWG kernel-модуль собирается автоматически уста
 | Компоненты LucX-UI (`internal/awg/`, `internal/lucx/`, LucX-страницы frontend) | **PolyForm Noncommercial 1.0.0** |
 | `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
 | Плагин `forward_proxy` ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
-| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| NaiveProxy / `bin/naive-client-*` ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
 | `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
 | `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
 | `bin/mieru-*` (`mita`, [enfein/mieru](https://github.com/enfein/mieru)) | **GPL-3.0** |
@@ -252,11 +254,5 @@ go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
 ```
 
 </details>
-
----
-
-## ⭐ Динамика звёзд
-
-[![Stargazers over time](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
 
 <!-- END LUCX-HOOK -->

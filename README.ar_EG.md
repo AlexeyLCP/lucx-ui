@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined AR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **لوحة Xray متقدمة** — AmneziaWG أصلي (حتى 3.1)، أنفاق تحت الإشراف (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراكات Clash / Amnezia `vpn://` / Happ، متصفح geodata وتوجيه RoscomVPN.
+> **لوحة Xray متقدمة** — AmneziaWG أصلي (حتى 3.1)، أنفاق تحت الإشراف و sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراكات Clash / Amnezia `vpn://` / Happ، متصفح geodata وتوجيه RoscomVPN.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -80,6 +80,7 @@ docker compose --profile postgres up -d
 | Sidecar qWDTT (WireGuard عبر VK TURN، تحت الإشراف) | ✗ | ✓ |
 | Sidecar mieru (`mita`، ترافيك لكل عميل، تحت الإشراف) | ✗ | ✓ |
 | Sidecar TrustTunnel (بروتوكول AdGuard VPN، يشبه HTTPS، تحت الإشراف) | ✗ | ✓ |
+| Sidecar outbounds (عميل Naive / mieru / TrustTunnel → SOCKS، التوجيه والمجمّعات) | ✗ | ✓ |
 | AWG في Clash Meta + اشتراك Amnezia `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
 | Geodata browser — اختيار فئات geosite/geoip من اللوحة | ✗* | ✓ |
 | حزمة RoscomVPN geo (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
@@ -118,6 +119,7 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 - **qWDTT** — WireGuard عبر TURN لـ VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
 - **mieru** — بروكسي مقاوم للرقابة عبر بروتوكول خاص بدلاً من TLS ([enfein/mieru](https://github.com/enfein/mieru) `mita`، GPL-3.0). متعدد العملاء ببيانات HMAC لكل عميل لوحة، ترافيك وحالة اتصال لكل عميل، ورابط مشاركة `mierus://`. العملاء: mieru CLI، mihomo، Clash Verge Rev، husi، Exclave.
 - **TrustTunnel** — بروتوكول AdGuard VPN ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)، Apache-2.0): الترافيك لا يمكن تمييزه عن HTTPS (HTTP/1.1 + HTTP/2 + QUIC). يعيد استخدام شهادة ACME الخاصة باللوحة (يتطلب نطاقاً بشهادة صادرة) ويُصدر deep-link `tt://?` لعملاء Flutter / CLI.
+- **Sidecar outbounds** — وضع عميل Naive / mieru / TrustTunnel: الصق رابط المشاركة (`naive+https://` / `mierus://` / `tt://`)، يظهر الوسم في قواعد التوجيه ومجمّعات الموازنة (مثل AWG outbound). التعطيل = blackhole (fail-closed، لا يتسرّب إلى `direct`). ثنائيات العميل في tar.gz.
 
 ### 📦 الاشتراكات و geodata وتوجيه العملاء
 - **اشتراك Amnezia** — `/awg/{subId}` يُرجع `.conf` صرفاً أو `vpn://…`.
@@ -171,7 +173,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 | مكونات LucX-UI (`internal/awg/`، `internal/lucx/`، صفحات LucX للواجهة) | **PolyForm Noncommercial 1.0.0** |
 | `bin/caddy-naive-*` (Caddy) | **Apache-2.0** |
 | إضافة `forward_proxy` ([klzgrad](https://github.com/klzgrad/forwardproxy)) | **MIT** |
-| NaiveProxy ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
+| NaiveProxy / `bin/naive-client-*` ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
 | `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
 | `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
 | `bin/mieru-*` (`mita`، [enfein/mieru](https://github.com/enfein/mieru)) | **GPL-3.0** |
@@ -237,11 +239,5 @@ go build ./... && go vet ./... && go test ./internal/awg/... ./internal/lucx/...
 ```
 
 </details>
-
----
-
-## ⭐ النجوم عبر الزمن
-
-[![Stargazers over time](https://starchart.cc/AlexeyLCP/lucx-ui.svg?variant=adaptive)](https://starchart.cc/AlexeyLCP/lucx-ui)
 
 <!-- END LUCX-HOOK -->
