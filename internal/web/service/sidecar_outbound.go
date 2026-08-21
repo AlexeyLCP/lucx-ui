@@ -7,6 +7,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"net"
 	"net/http"
@@ -219,7 +220,7 @@ func (s *SidecarOutboundService) BinaryStatus() map[string]any {
 	return out
 }
 
-func (s *SidecarOutboundService) ProbeHTTP(socksPort int, testURL string) (latencyMs int, err error) {
+func (s *SidecarOutboundService) ProbeHTTP(ctx context.Context, socksPort int, testURL string) (latencyMs int, err error) {
 	if socksPort <= 0 {
 		return 0, common.NewError("sidecar-outbound: socks port missing")
 	}
@@ -242,8 +243,12 @@ func (s *SidecarOutboundService) ProbeHTTP(socksPort int, testURL string) (laten
 			return http.ErrUseLastResponse
 		},
 	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, testURL, nil)
+	if err != nil {
+		return 0, err
+	}
 	start := time.Now()
-	resp, err := client.Get(testURL)
+	resp, err := client.Do(req)
 	ms := int(time.Since(start).Milliseconds())
 	if err != nil {
 		return 0, err

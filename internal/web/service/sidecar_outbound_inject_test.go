@@ -14,7 +14,7 @@ import (
 )
 
 func TestProbeHTTP_SocksDown(t *testing.T) {
-	_, err := (&SidecarOutboundService{}).ProbeHTTP(1, "http://127.0.0.1/")
+	_, err := (&SidecarOutboundService{}).ProbeHTTP(t.Context(), 1, "http://127.0.0.1/")
 	if err == nil {
 		t.Fatal("probe through a closed socks port must fail")
 	}

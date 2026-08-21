@@ -211,7 +211,7 @@ func (a *SidecarOutboundController) test(c *gin.Context) {
 		return
 	}
 	testURL, _ := (&service.SettingService{}).GetXrayOutboundTestUrl()
-	ms, err := a.svc.ProbeHTTP(s.SocksPort, testURL)
+	ms, err := a.svc.ProbeHTTP(c.Request.Context(), s.SocksPort, testURL)
 	if err != nil {
 		jsonMsg(c, "sidecar-outbound: probe failed", err)
 		return
