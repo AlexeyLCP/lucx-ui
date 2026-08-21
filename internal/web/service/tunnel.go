@@ -269,7 +269,7 @@ func (s *TunnelService) NaiveStatus() (NaiveStatus, error) {
 		BinaryPath:   bin,
 		ClientURL:    cfg.ClientURL(),
 		Config:       cfg,
-		Probe:        tunnel.Status{Running: mgr.AnyRunning("naive-") || mgr.IsRunningKey(string(tunnel.Naive))},
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("naive-")},
 		LastLog:      mgr.LastLogPrefixed("naive-"),
 	}, nil
 }
@@ -728,7 +728,7 @@ func (s *TunnelService) OlcrtcStatus() (OlcrtcStatus, error) {
 		BinaryPath:   bin,
 		ClientURI:    cfg.ClientURI(),
 		Config:       cfg,
-		Probe:        tunnel.Status{Running: mgr.AnyRunning("olcrtc-") || mgr.IsRunningKey(string(tunnel.Olcrtc))},
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("olcrtc-")},
 		LastLog:      mgr.LastLogPrefixed("olcrtc-"),
 	}, nil
 }

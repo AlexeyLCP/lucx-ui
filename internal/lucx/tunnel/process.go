@@ -203,6 +203,7 @@ func (p *Proc) Start(bin string, args []string, env []string) error {
 	p.exitErr = nil
 	p.mu.Unlock()
 	p.intentionalStop.Store(false)
+	prepareCmd(cmd)
 	if err := cmd.Start(); err != nil {
 		close(done)
 		p.mu.Lock()
@@ -257,7 +258,8 @@ func (p *Proc) Stop() error {
 		return waitForExit(done, forceStopTimeout)
 	}
 
-	if err := cmd.Process.Signal(syscall.SIGTERM); err != nil {
+	pid := cmd.Process.Pid
+	if err := signalGroup(pid, syscall.SIGTERM); err != nil {
 		if errors.Is(err, os.ErrProcessDone) {
 			return waitForExit(done, forceStopTimeout)
 		}
@@ -268,8 +270,8 @@ func (p *Proc) Stop() error {
 		return nil
 	}
 
-	logger.Warningf("tunnel: %s did not stop after SIGTERM, killing", p.label)
-	if err := cmd.Process.Kill(); err != nil && !errors.Is(err, os.ErrProcessDone) {
+	logger.Warningf("tunnel: %s did not stop after SIGTERM, killing process group", p.label)
+	if err := signalGroup(pid, syscall.SIGKILL); err != nil && !errors.Is(err, os.ErrProcessDone) {
 		return err
 	}
 	return waitForExit(done, forceStopTimeout)

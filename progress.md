@@ -5,6 +5,20 @@
 
 ---
 
+## lucx.152 — sidecar outbound HTTP probe + process-group stop (2026-08-21)
+
+VladufQa: mieru inbound off / naive inbound deleted → Cores still "alive";
+sidecar outbound Test has no ping (latency_ms always 0).
+
+- Stop() SIGTERM/KILL the process group (Setpgid) so caddy/mita children die.
+- Cores naive/olcrtc = AnyRunning inbound prefix only (no leftover legacy key).
+- Sidecar outbound Test: HTTP GET through SOCKS (same URL as Xray outbound test),
+  returns latency_ms.
+
+**lucxVersion:** lucx.152
+
+---
+
 ## lucx.151 — tunnel liveness + empty awgBody (2026-08-21)
 
 VladufQa: disabled/deleted tunnel inbound still "alive" on Cores; client

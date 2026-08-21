@@ -13,6 +13,13 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
+func TestProbeHTTP_SocksDown(t *testing.T) {
+	_, err := (&SidecarOutboundService{}).ProbeHTTP(1, "http://127.0.0.1/")
+	if err == nil {
+		t.Fatal("probe through a closed socks port must fail")
+	}
+}
+
 func TestInjectSidecarOutbounds_DisabledBecomesBlackhole(t *testing.T) {
 	cfg := awgOutboundTestConfig()
 	rows := []*model.SidecarOutbound{

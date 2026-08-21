@@ -46,7 +46,8 @@ export function SidecarOutboundsTab() {
     try {
       const res = await sidecarOutboundsApi.test(row.id);
       if (res.success && res.obj?.ok) {
-        messageApi.success(t('pages.xray.awgOutbound.testOk'));
+        const ms = res.obj.latency_ms ?? 0;
+        messageApi.success(ms > 0 ? `${t('pages.xray.awgOutbound.testOk')} (${ms} ms)` : t('pages.xray.awgOutbound.testOk'));
       } else {
         messageApi.error(res.obj?.raw || res.msg || t('pages.xray.awgOutbound.test'));
       }

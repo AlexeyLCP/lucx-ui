@@ -8,8 +8,13 @@ package service
 
 import (
 	"encoding/json"
+	"net"
+	"net/http"
+	"net/url"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -212,4 +217,40 @@ func (s *SidecarOutboundService) BinaryStatus() map[string]any {
 		}
 	}
 	return out
+}
+
+func (s *SidecarOutboundService) ProbeHTTP(socksPort int, testURL string) (latencyMs int, err error) {
+	if socksPort <= 0 {
+		return 0, common.NewError("sidecar-outbound: socks port missing")
+	}
+	testURL = strings.TrimSpace(testURL)
+	if testURL == "" {
+		testURL = "https://www.google.com/generate_204"
+	}
+	proxyURL := &url.URL{Scheme: "socks5", Host: net.JoinHostPort("127.0.0.1", strconv.Itoa(socksPort))}
+	tr := &http.Transport{
+		Proxy:               http.ProxyURL(proxyURL),
+		MaxIdleConns:        1,
+		MaxIdleConnsPerHost: 1,
+		IdleConnTimeout:     8 * time.Second,
+	}
+	defer tr.CloseIdleConnections()
+	client := &http.Client{
+		Transport: tr,
+		Timeout:   12 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
+	}
+	start := time.Now()
+	resp, err := client.Get(testURL)
+	ms := int(time.Since(start).Milliseconds())
+	if err != nil {
+		return 0, err
+	}
+	_ = resp.Body.Close()
+	if ms < 1 {
+		ms = 1
+	}
+	return ms, nil
 }

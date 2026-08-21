@@ -11,6 +11,7 @@ package tunnel
 import (
 	"os/exec"
 	"sync"
+	"syscall"
 	"unsafe"
 
 	"golang.org/x/sys/windows"
@@ -51,6 +52,10 @@ func ensureKillOnExitJob() (windows.Handle, error) {
 	})
 	return killOnExitJob, killOnExitJobErr
 }
+
+func prepareCmd(_ *exec.Cmd) {}
+
+func signalGroup(_ int, _ syscall.Signal) error { return nil }
 
 func attachChildLifetime(cmd *exec.Cmd) {
 	if cmd == nil || cmd.Process == nil {

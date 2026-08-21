@@ -7,11 +7,9 @@
 package controller
 
 import (
-	"net"
 	"os"
 	"runtime"
 	"strconv"
-	"time"
 
 	"github.com/gin-gonic/gin"
 
@@ -212,15 +210,13 @@ func (a *SidecarOutboundController) test(c *gin.Context) {
 		jsonMsg(c, "sidecar-outbound: incomplete settings", nil)
 		return
 	}
-	addr := net.JoinHostPort("127.0.0.1", strconv.Itoa(s.SocksPort))
-	d := net.Dialer{Timeout: 3 * time.Second}
-	conn, err := d.DialContext(c.Request.Context(), "tcp", addr)
+	testURL, _ := (&service.SettingService{}).GetXrayOutboundTestUrl()
+	ms, err := a.svc.ProbeHTTP(s.SocksPort, testURL)
 	if err != nil {
-		jsonMsg(c, "SOCKS "+addr+" is down", err)
+		jsonMsg(c, "sidecar-outbound: probe failed", err)
 		return
 	}
-	_ = conn.Close()
-	jsonObj(c, gin.H{"ok": true, "latency_ms": 0, "raw": "socks listening on " + addr}, nil)
+	jsonObj(c, gin.H{"ok": true, "latency_ms": ms, "raw": "HTTP via socks :" + strconv.Itoa(s.SocksPort)}, nil)
 }
 
 func (a *SidecarOutboundController) parseLink(c *gin.Context) {

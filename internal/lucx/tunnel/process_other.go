@@ -8,6 +8,20 @@
 
 package tunnel
 
-import "os/exec"
+import (
+	"os/exec"
+	"syscall"
+)
+
+func prepareCmd(cmd *exec.Cmd) {
+	if cmd == nil {
+		return
+	}
+	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+}
+
+func signalGroup(pid int, sig syscall.Signal) error {
+	return syscall.Kill(-pid, sig)
+}
 
 func attachChildLifetime(_ *exec.Cmd) {}
