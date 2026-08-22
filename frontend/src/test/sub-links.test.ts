@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { buildSubLinks } from '@/lib/sub/links';
+import { buildSubLinks, withAwgInboundId } from '@/lib/sub/links';
 
 describe('buildSubLinks', () => {
   it('builds all enabled formats', () => {
@@ -31,5 +31,17 @@ describe('buildSubLinks', () => {
     expect(L.sub).toBe('https://h/sub/x');
     expect(L.amnezia).toBe('');
     expect(L.amneziaVpn).toBe('');
+  });
+});
+
+describe('withAwgInboundId', () => {
+  it('appends inboundId to a vpn url', () => {
+    expect(withAwgInboundId('https://h/awg/abc?format=vpn', 4)).toBe(
+      'https://h/awg/abc?format=vpn&inboundId=4',
+    );
+  });
+
+  it('skips non-positive ids', () => {
+    expect(withAwgInboundId('https://h/awg/abc?format=vpn', 0)).toBe('https://h/awg/abc?format=vpn');
   });
 });

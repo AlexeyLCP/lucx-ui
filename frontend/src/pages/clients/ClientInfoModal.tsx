@@ -13,7 +13,7 @@ import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ConfigBlock from '@/components/clients/ConfigBlock';
-import { buildSubLinks } from '@/lib/sub/links';
+import { buildSubLinks, withAwgInboundId } from '@/lib/sub/links';
 import { buildWireguardClientConfig, findWireguardInbound, isWireguardClient, buildAwgClientConfig, findAwgInbounds, isAwgClient } from './wireguardConfig'; // LUCX-HOOK: AWG
 import './ClientInfoModal.css';
 
@@ -643,7 +643,7 @@ export default function ClientInfoModal({
                           />
                           {subAwgVpnLink && (
                             <Tooltip title={t('pages.clients.subAwgVpnHint')}>
-                              <Button size="small" icon={<CopyOutlined />} onClick={() => copyValue(subAwgVpnLink)}>
+                              <Button size="small" icon={<CopyOutlined />} onClick={() => copyValue(withAwgInboundId(subAwgVpnLink, cfg.ib.id))}>
                                 vpn://
                               </Button>
                             </Tooltip>

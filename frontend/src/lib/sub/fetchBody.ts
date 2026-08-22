@@ -31,6 +31,18 @@ export function extractAwgSubId(url: string): string | null {
   return m?.[1] ? decodeURIComponent(m[1]) : null;
 }
 
+export function extractAwgInboundId(url: string): string | null {
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.origin : 'http://local');
+    const id = parsed.searchParams.get('inboundId');
+    if (id && /^\d+$/.test(id) && Number(id) > 0) return id;
+  } catch {
+    /* fall through */
+  }
+  const m = url.match(/[?&]inboundId=(\d+)/i);
+  return m?.[1] && Number(m[1]) > 0 ? m[1] : null;
+}
+
 /** True when the URL is the Amnezia vpn:// body endpoint. */
 export function isAmneziaVpnUrl(url: string): boolean {
   try {
@@ -74,11 +86,12 @@ export async function fetchSubscriptionBody(url: string): Promise<string> {
   const subId = extractAwgSubId(u);
   if (subId) {
     const format = isAmneziaVpnUrl(u) ? 'vpn' : 'conf';
-    // HttpUtil applies X_UI_BASE_PATH + session cookie + X-Requested-With —
-    // bare fetch("/panel/...") 404s when webBasePath is not "/".
+    const inboundId = extractAwgInboundId(u);
+    const query: Record<string, string> = { format };
+    if (inboundId) query.inboundId = inboundId;
     const msg = await HttpUtil.get<AwgBodyObj>(
       `/panel/api/clients/awgBody/${encodeURIComponent(subId)}`,
-      { format },
+      query,
       { silent: true },
     );
     if (msg.success) {

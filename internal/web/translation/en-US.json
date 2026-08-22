@@ -1070,7 +1070,7 @@
       },
       "awgConfig": "AWG config",
       "awgExportVersion": "Client config version",
-      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
+      "subAwgVpnHint": "vpn:// body for this inbound"
     },
     "groups": {
       "name": "Name",

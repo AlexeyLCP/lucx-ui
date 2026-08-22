@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractAwgSubId, isAmneziaConfUrl, isAmneziaVpnUrl } from '@/lib/sub/fetchBody';
+import { extractAwgInboundId, extractAwgSubId, isAmneziaConfUrl, isAmneziaVpnUrl } from '@/lib/sub/fetchBody';
 
 describe('isAmneziaVpnUrl', () => {
   it('detects format=vpn query', () => {
@@ -28,6 +28,19 @@ describe('extractAwgSubId', () => {
   it('returns null for non-awg urls', () => {
     expect(extractAwgSubId('https://h/sub/abc')).toBeNull();
     expect(extractAwgSubId('')).toBeNull();
+  });
+});
+
+describe('extractAwgInboundId', () => {
+  it('reads inboundId from query', () => {
+    expect(extractAwgInboundId('https://h/awg/abc?format=vpn&inboundId=4')).toBe('4');
+    expect(extractAwgInboundId('https://h/awg/abc?inboundId=12')).toBe('12');
+  });
+
+  it('rejects missing or invalid', () => {
+    expect(extractAwgInboundId('https://h/awg/abc?format=vpn')).toBeNull();
+    expect(extractAwgInboundId('https://h/awg/abc?inboundId=0')).toBeNull();
+    expect(extractAwgInboundId('https://h/awg/abc?inboundId=nope')).toBeNull();
   });
 });
 

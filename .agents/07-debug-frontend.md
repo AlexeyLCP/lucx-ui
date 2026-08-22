@@ -34,3 +34,9 @@ Extracted from AGENTS.md. This file is project law.
 - **Fix (lucx.125, full):** shared `requestServerHost(c, trusted)` — trusted `X-Forwarded-Host`, else host from `Host`; `X-Real-IP` is never read. `ResolveRequest` and `AwgEndpointHost` moved onto it; `X-Real-IP` branch removed from controller `resolveHost`. Tests: `TestResolveRequest_HostNeverRealIP`, `TestGetProxies_AwgWithoutOwnAddressUsesSubscriptionHost`, `TestResolveHostNeverUsesRealIp`.
 - **Diagnostics (one command, repro without a client):** `curl -s -H 'X-Real-IP: 203.0.113.77' https://<sub-domain>/clash/<subId> | grep -B2 'type: wireguard'` — if `server:` shows `203.0.113.77`, the panel still leaks.
 - **Lesson:** `X-Real-IP`/`X-Forwarded-For` answer “who came”, not “where to connect”. In any code that builds a SERVER ADDRESS for the client, those headers are forbidden; only `X-Forwarded-Host` (from a trusted proxy) and `Host` are allowed.
+
+### Pattern 11: Client Info vpn:// button identical on every AWG inbound — FIXED (lucx.155)
+
+- **Cause:** the button sat inside `awgConfigs.map` but copied `linksBuilt.amneziaVpn` (`/awg/{subId}?format=vpn`). That endpoint returns every attached inbound. `.conf` already used `cfg.text` per inbound.
+- **Fix:** `GetAwg` / `awgBody` / public `/awg/` take `inboundId`. The button appends it. Omit the param → all profiles, as before.
+- **Seen on:** Kirill, 2026-08-22.

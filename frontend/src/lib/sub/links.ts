@@ -57,3 +57,9 @@ export function buildSubLinks(
 
   return { sub, json, clash, amnezia, amneziaVpn };
 }
+
+export function withAwgInboundId(url: string, inboundId: number): string {
+  if (!url || inboundId <= 0) return url;
+  const sep = url.includes('?') ? '&' : '?';
+  return `${url}${sep}inboundId=${inboundId}`;
+}

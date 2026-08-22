@@ -622,7 +622,8 @@ func (a *ClientController) getAwgBody(c *gin.Context) {
 	} else if h, err := a.settingService.GetWebDomain(); err == nil && strings.TrimSpace(h) != "" {
 		host = strings.TrimSpace(h)
 	}
-	body, _, err := sub.NewSubAwgService(sub.NewSubService(remark)).GetAwg(subId, host, format)
+	inboundId, _ := strconv.Atoi(strings.TrimSpace(c.Query("inboundId")))
+	body, _, err := sub.NewSubAwgService(sub.NewSubService(remark)).GetAwg(subId, host, format, inboundId)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return

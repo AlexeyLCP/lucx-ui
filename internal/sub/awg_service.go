@@ -27,8 +27,8 @@ func NewSubAwgService(sub *SubService) *SubAwgService {
 
 // GetAwg returns the subscription body and Subscription-Userinfo header.
 // format: "" or "conf" → plain .conf (multi-inbound separated by "# ---");
-// "vpn" → vpn:// lines (one per conf).
-func (s *SubAwgService) GetAwg(subId, host, format string) (body, header string, err error) {
+// "vpn" → vpn:// lines (one per conf). inboundId > 0 keeps only that inbound.
+func (s *SubAwgService) GetAwg(subId, host, format string, inboundId int) (body, header string, err error) {
 	subReq := s.SubService.ForRequest(host)
 	subReq.subscriptionBody = true
 	inbounds, err := subReq.getInboundsBySubId(subId)
@@ -40,7 +40,7 @@ func (s *SubAwgService) GetAwg(subId, host, format string) (body, header string,
 	seenEmails := make(map[string]struct{})
 	var lastBuildErr error
 	for _, inbound := range inbounds {
-		if inbound.Protocol != model.AWG {
+		if inbound.Protocol != model.AWG || !awgInboundWanted(inbound.Id, inboundId) {
 			continue
 		}
 		clients := subReq.matchingClients(inbound, subId)
@@ -108,4 +108,8 @@ func (s *SubAwgService) GetAwg(subId, host, format string) (body, header string,
 	}
 
 	return strings.Join(confs, "\n\n# ---\n\n"), header, nil
+}
+
+func awgInboundWanted(id, filter int) bool {
+	return filter <= 0 || id == filter
 }

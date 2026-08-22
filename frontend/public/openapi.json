@@ -11330,6 +11330,15 @@
             "schema": {
               "type": "string"
             }
+          },
+          {
+            "name": "inboundId",
+            "in": "query",
+            "required": false,
+            "description": "When set, return only this AWG inbound (one vpn:// / .conf). Omit for every attached inbound.",
+            "schema": {
+              "type": "integer"
+            }
           }
         ],
         "responses": {

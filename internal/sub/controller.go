@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -790,7 +791,8 @@ func (a *SUBController) serveAwgBody(c *gin.Context, forceDownload bool) bool {
 	scheme, _, hostWithPort, _ := a.subService.ResolveRequest(c)
 	host := a.subService.AwgEndpointHost(c)
 	format := c.Query("format") // "" | conf | vpn
-	body, header, err := a.subAwgService.GetAwg(subId, host, format)
+	inboundId, _ := strconv.Atoi(strings.TrimSpace(c.Query("inboundId")))
+	body, header, err := a.subAwgService.GetAwg(subId, host, format, inboundId)
 	if err != nil {
 		writeSubError(c, err)
 		return true

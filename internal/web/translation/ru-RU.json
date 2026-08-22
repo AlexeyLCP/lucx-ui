@@ -1070,7 +1070,7 @@
       },
       "awgConfig": "AWG-конфиг",
       "awgExportVersion": "Версия конфига клиента",
-      "subAwgVpnHint": "Тело vpn:// для one-tap в AmneziaVPN"
+      "subAwgVpnHint": "vpn:// этого инбаунда"
     },
     "groups": {
       "name": "Имя",

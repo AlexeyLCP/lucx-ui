@@ -1451,6 +1451,7 @@ export const sections: readonly Section[] = [
         params: [
           { name: 'subId', in: 'path', type: 'string', desc: "Subscription ID from the client's subId field." },
           { name: 'format', in: 'query', type: 'string', optional: true, desc: 'vpn (default) or conf.' },
+          { name: 'inboundId', in: 'query', type: 'integer', optional: true, desc: 'When set, return only this AWG inbound (one vpn:// / .conf). Omit for every attached inbound.' },
         ],
         response:
           '{\n  "success": true,\n  "obj": { "body": "vpn://BASE64…\\n", "format": "vpn" }\n}',

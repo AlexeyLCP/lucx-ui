@@ -1,5 +1,16 @@
 # LucX-UI — Прогресс
 
+## lucx.155 — per-inbound vpn:// copy in client info (2026-08-22)
+
+Kirill: Client Info vpn:// button inside each AWG inbound block copied every profile (`/awg/{subId}?format=vpn`).
+
+- `GetAwg` / public `/awg/` / `awgBody` accept `inboundId`.
+- The button appends `inboundId` for that inbound. Subscription row without the param still returns all.
+
+**lucxVersion:** lucx.155
+
+---
+
 ## lucx.154 — syncconf strip + multi-attach sub address (2026-08-22)
 
 Kirill: adding a peer after lucx.153 left it off the iface and emptied table 100N; `/awg/{subId}` issued one Address for every AWG inbound.
