@@ -98,6 +98,27 @@ func TestGenAwgLink_DeviceFieldsGatedToV3(t *testing.T) {
 	}
 }
 
+func TestGenAwgLink_PrefersInboundPeerAddress(t *testing.T) {
+	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"2",` +
+		`"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,` +
+		`"h1":"1","h2":"2","h3":"3","h4":"4",` +
+		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true,"allowedIPs":["10.8.0.3/32"]}]}`
+	ib := awgLinkInbound(settings)
+	ib.Id = 7
+	s := &SubService{}
+	s.primeLinkClients(ib.Id, []model.Client{{
+		Email: "user", PrivateKey: "peerPriv", AllowedIPs: []string{"10.201.0.2/32"},
+	}}, true)
+	link := s.genAwgLink(ib, "user")
+	if !strings.Contains(link, "address=10.8.0.3") {
+		t.Errorf("share-link must use inbound peer address, got:\n%s", link)
+	}
+	if strings.Contains(link, "10.201.0.2") {
+		t.Errorf("must not use table address, got:\n%s", link)
+	}
+}
+
 func TestGenAwgLink_DeviceFieldsOmittedOnNonV3(t *testing.T) {
 	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
 		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"2",` +

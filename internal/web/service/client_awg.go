@@ -532,11 +532,20 @@ func NodeAddressForInbound(inbound *model.Inbound) string {
 	return strings.TrimSpace(n.Address)
 }
 
-// BuildAwgClientConf renders a full AmneziaWG client .conf for export (panel QR
-// path / Telegram bot). Mirrors frontend buildAwgClientConfig: [Interface]
-// with client keypair, tunnel address, DNS, MTU, obfuscation block from
-// inboundAwgHints; [Peer] with server public key, PSK, full-tunnel AllowedIPs,
-// endpoint, and optional PersistentKeepalive.
+// AwgClientTunnelAddress returns the per-inbound tunnel IP for email from
+// settings.clients[].allowedIPs, then fallback (clients-table AllowedIPs).
+func AwgClientTunnelAddress(settings, email string, fallback []string) string {
+	if email = strings.TrimSpace(email); email != "" {
+		if ip := InboundAwgPeerAddresses(settings)[email]; ip != "" {
+			return ip
+		}
+	}
+	if len(fallback) > 0 {
+		return strings.TrimSpace(fallback[0])
+	}
+	return ""
+}
+
 func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHost string) (string, error) {
 	if inbound == nil || client == nil {
 		return "", common.NewError("awg: missing inbound or client")
@@ -567,10 +576,7 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	if serverPub == "" {
 		return "", common.NewError("awg: cannot derive server public key")
 	}
-	address := ""
-	if len(client.AllowedIPs) > 0 {
-		address = strings.TrimSpace(client.AllowedIPs[0])
-	}
+	address := AwgClientTunnelAddress(inbound.Settings, client.Email, client.AllowedIPs)
 	if address == "" {
 		address = "10.200.0.2/32"
 	}

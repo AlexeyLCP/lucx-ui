@@ -746,8 +746,8 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			params["publickey"] = pub
 		}
 	}
-	if len(client.AllowedIPs) > 0 && client.AllowedIPs[0] != "" {
-		params["address"] = client.AllowedIPs[0]
+	if address := service.AwgClientTunnelAddress(inbound.Settings, email, client.AllowedIPs); address != "" {
+		params["address"] = address
 	}
 	if mtu, ok := settings["mtu"].(float64); ok && mtu > 0 {
 		params["mtu"] = strconv.Itoa(int(mtu))

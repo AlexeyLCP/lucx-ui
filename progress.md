@@ -1,5 +1,16 @@
 # LucX-UI — Прогресс
 
+## lucx.154 — syncconf strip + multi-attach sub address (2026-08-22)
+
+Kirill: adding a peer after lucx.153 left it off the iface and emptied table 100N; `/awg/{subId}` issued one Address for every AWG inbound.
+
+- `syncPeersLocked` writes a stripped temp file for `awg syncconf` (no Address/MTU/PostUp). Full `.conf` still used by `awg-quick up`. Failed sync still retries next tick, then `ensureXrayRouting` runs.
+- `BuildAwgClientConf` / `genAwgLink` / `buildAwgProxy` take the tunnel IP from `settings.clients[].allowedIPs` for that inbound; table `wg_allowed_ips` is fallback only.
+
+**lucxVersion:** lucx.154
+
+---
+
 ## docs — Russian README as repo root (2026-08-21)
 
 - `README.md` is Russian (GitHub landing page).

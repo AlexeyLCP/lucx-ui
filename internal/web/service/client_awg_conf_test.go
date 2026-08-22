@@ -77,6 +77,66 @@ func TestBuildAwgClientConf_FallsBackToStoredPublicKey(t *testing.T) {
 	}
 }
 
+func TestBuildAwgClientConf_PrefersInboundPeerAddress(t *testing.T) {
+	priv, pub, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("keypair: %v", err)
+	}
+	cpriv, _, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("client keypair: %v", err)
+	}
+	settings, _ := json.Marshal(map[string]any{
+		"privateKey": priv,
+		"publicKey":  pub,
+		"mtu":        1420,
+		"dns":        "1.1.1.1",
+		"clients": []map[string]any{
+			{"email": "demo-user", "allowedIPs": []string{"10.8.0.3/32"}},
+		},
+	})
+	client := &model.Client{
+		Email:      "demo-user",
+		PrivateKey: cpriv,
+		AllowedIPs: []string{"10.201.0.2/32"},
+		Enable:     true,
+	}
+	conf, err := BuildAwgClientConf(awgConfInbound(string(settings)), client, "203.0.113.9")
+	if err != nil {
+		t.Fatalf("BuildAwgClientConf: %v", err)
+	}
+	if !strings.Contains(conf, "Address = 10.8.0.3/32") {
+		t.Errorf("must use inbound peer address, got:\n%s", conf)
+	}
+	if strings.Contains(conf, "10.201.0.2") {
+		t.Errorf("must not use table address, got:\n%s", conf)
+	}
+}
+
+func TestBuildAwgClientConf_FallsBackToClientAllowedIPs(t *testing.T) {
+	priv, pub, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("keypair: %v", err)
+	}
+	cpriv, _, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("client keypair: %v", err)
+	}
+	settings, _ := json.Marshal(map[string]any{
+		"privateKey": priv,
+		"publicKey":  pub,
+		"mtu":        1420,
+		"dns":        "1.1.1.1",
+	})
+	conf, err := BuildAwgClientConf(awgConfInbound(string(settings)), awgConfClient(cpriv), "203.0.113.9")
+	if err != nil {
+		t.Fatalf("BuildAwgClientConf: %v", err)
+	}
+	if !strings.Contains(conf, "Address = 10.200.0.2/32") {
+		t.Errorf("must fall back to client AllowedIPs, got:\n%s", conf)
+	}
+}
+
 func TestBuildAwgClientConf_ErrsWhenNoServerKeyRecoverable(t *testing.T) {
 	settings, _ := json.Marshal(map[string]any{
 		"privateKey": "",

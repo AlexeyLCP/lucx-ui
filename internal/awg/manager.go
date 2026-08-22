@@ -835,11 +835,42 @@ func renderServerConf(inst Instance) string {
 	return b.String()
 }
 
-// syncPeersLocked writes the server .conf and runs `awg syncconf` so the
-// kernel peer set matches without tearing the interface down (existing
-// handshakes survive). PSK is applied via the conf parser — `awg set peer
-// preshared-key` takes a file path, not the key, and must not be used.
+var awgQuickIfaceKeys = map[string]struct{}{
+	"address": {}, "mtu": {}, "dns": {}, "table": {},
+	"preup": {}, "predown": {}, "postup": {}, "postdown": {},
+	"saveconfig": {},
+}
+
+func stripAwgQuick(conf string) string {
+	var b strings.Builder
+	inInterface := false
+	for i, line := range strings.Split(conf, "\n") {
+		keyLine := line
+		if idx := strings.Index(keyLine, "#"); idx >= 0 {
+			keyLine = keyLine[:idx]
+		}
+		key := strings.TrimSpace(keyLine)
+		if eq := strings.Index(key, "="); eq >= 0 {
+			key = strings.TrimSpace(key[:eq])
+		}
+		if strings.HasPrefix(key, "[") {
+			inInterface = strings.EqualFold(key, "[Interface]")
+		} else if inInterface {
+			if _, drop := awgQuickIfaceKeys[strings.ToLower(key)]; drop {
+				continue
+			}
+		}
+		if i > 0 {
+			b.WriteByte('\n')
+		}
+		b.WriteString(line)
+	}
+	return b.String()
+}
+
 func (m *Manager) syncPeersLocked(inst Instance) error {
+	// Full .conf stays on disk for awg-quick up; syncconf gets a stripped
+	// temp file — its parser rejects Address/MTU/PostUp (lucx.154).
 	if err := writeServerConfigFile(inst); err != nil {
 		return err
 	}
@@ -847,7 +878,20 @@ func (m *Manager) syncPeersLocked(inst Instance) error {
 	if !ok || cur.proc == nil || !cur.proc.IsRunning() {
 		return nil
 	}
-	out, err := exec.CommandContext(context.Background(), awgBin("awg"), "syncconf", inst.Ifname, configPathForID(inst.Id)).CombinedOutput()
+	tmp, err := os.CreateTemp("", "awg-sync-*.conf")
+	if err != nil {
+		return fmt.Errorf("awg syncconf temp: %w", err)
+	}
+	tmpPath := tmp.Name()
+	defer os.Remove(tmpPath)
+	if _, err := tmp.WriteString(stripAwgQuick(renderServerConf(inst))); err != nil {
+		_ = tmp.Close()
+		return fmt.Errorf("awg syncconf temp: %w", err)
+	}
+	if err := tmp.Close(); err != nil {
+		return fmt.Errorf("awg syncconf temp: %w", err)
+	}
+	out, err := exec.CommandContext(context.Background(), awgBin("awg"), "syncconf", inst.Ifname, tmpPath).CombinedOutput()
 	if err != nil {
 		logger.Warningf("awg: syncconf %s: %v\n%s", inst.Ifname, err, string(out))
 		return fmt.Errorf("awg syncconf %s: %w\n%s", inst.Ifname, err, string(out))

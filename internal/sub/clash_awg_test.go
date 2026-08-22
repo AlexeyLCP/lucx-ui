@@ -89,6 +89,27 @@ func TestBuildAwgProxy_AmneziaOption(t *testing.T) {
 	}
 }
 
+func TestBuildAwgProxy_PrefersInboundPeerAddress(t *testing.T) {
+	settings, _ := json.Marshal(map[string]any{
+		"privateKey": "YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",
+		"awgVersion": "2",
+		"clients": []map[string]any{
+			{"email": "alice@test", "allowedIPs": []string{"10.8.0.3/32"}},
+		},
+	})
+	ib := &model.Inbound{Protocol: model.AWG, Port: 51820, Listen: "1.2.3.4", Settings: string(settings)}
+	client := model.Client{
+		Email:      "alice@test",
+		PrivateKey: "CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",
+		AllowedIPs: []string{"10.201.0.2/32"},
+	}
+	svc := NewSubClashService(false, "", &SubService{})
+	proxy := svc.buildAwgProxy(svc.SubService, ib, client, nil)
+	if proxy["ip"] != "10.8.0.3" {
+		t.Fatalf("ip = %v, want inbound 10.8.0.3", proxy["ip"])
+	}
+}
+
 func TestBuildAwgProxy_V15DropsS3I(t *testing.T) {
 	settings, _ := json.Marshal(map[string]any{
 		"privateKey": "YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",

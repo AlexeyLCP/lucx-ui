@@ -384,7 +384,7 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 		if r.Protocol == string(model.AWG) {
 			wgPublicKey, wgMtu, wgDns = inboundWireguardHints(r.Protocol, r.Settings)
 			awgAddr, awgObf, awgVer = inboundAwgHints(r.Settings)
-			awgPeers = inboundAwgPeerAddresses(r.Settings)
+			awgPeers = InboundAwgPeerAddresses(r.Settings)
 		}
 		// END LUCX-HOOK
 		shareAddrStrategy := r.ShareAddrStrategy
@@ -596,11 +596,11 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	return s.Address, out.String(), awg.NormalizeAWGVersion(s.AwgVersion)
 }
 
-// inboundAwgPeerAddresses maps email → first AllowedIPs entry for each client
-// stored on this AWG inbound. Used by the clients-page .conf builder so
-// multi-attach peers get the tunnel IP for THIS inbound, not the single
-// clients-table field shared across all attachments.
-func inboundAwgPeerAddresses(settings string) map[string]string {
+// InboundAwgPeerAddresses maps email → first AllowedIPs entry for each client
+// stored on this AWG inbound. Used by the clients-page .conf builder and
+// subscription export so multi-attach peers get the tunnel IP for THIS inbound,
+// not the single clients-table field shared across all attachments.
+func InboundAwgPeerAddresses(settings string) map[string]string {
 	if strings.TrimSpace(settings) == "" {
 		return nil
 	}

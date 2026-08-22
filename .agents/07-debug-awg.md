@@ -174,3 +174,17 @@ Extracted from AGENTS.md. This file is project law.
 - **Seen on:** zinn65de-lc, kernel `7.1.7+deb13-amd64`, 2026-08-20.
 - **Workaround without a panel update:** boot 6.12 and rebuild; or apply PR #218 on the cloned tree and `dkms build` by hand. Do not reboot into 7.1.5+ until the module builds.
 - **Lesson:** a DKMS fail with headers in `/lib/modules/$(uname -r)/build` is an upstream ABI/source mismatch, not a missing-headers problem. Dump `make.log`. Kernel API changes that distros backport cannot be gated by `LINUX_VERSION_CODE`.
+
+### Pattern 1t: add client → peer missing, table 100N empty, syncconf loop — FIXED (lucx.154)
+
+- **Cause:** lucx.153 `awg syncconf` was fed the awg-quick `.conf`. Parser rejects `Address=` / `MTU=` / `PostUp=`. `Ensure` returned before `ensureXrayRouting`. Only inbounds whose peer set changed were hit.
+- **Symptom:** `WARNING - awg: syncconf awgN: exit status 1`; `awg show awgN dump` has no new peer; `ip route show table 100N` empty. Handshake can work after a manual peer add, traffic cannot.
+- **Fix:** `stripAwgQuick` + temp file for `syncconf`. Full `.conf` stays for `awg-quick up`. After update the next reconcile retries (peerFP not saved on failure) and restores the route.
+- **Seen on:** Kirill, v3.6.0-lucx.153, amneziawg-tools v3.1.20260812, awgVersion 2 and 3.1.
+
+### Pattern 1u: multi-attach subscription repeats one Address — FIXED (lucx.154)
+
+- **Cause:** `clients.wg_allowed_ips` is one field; `/awg/` (`BuildAwgClientConf`), `/sub/` (`genAwgLink`), `/clash/` (`buildAwgProxy`) read it. Per-inbound IPs live in `settings.clients[].allowedIPs`. Panel QR already used `inboundAwgPeerAddresses`.
+- **Symptom:** two AWG inbounds, one client → both `.conf` blocks share one Address; handshake ok, traffic dies on the other subnet. Card in the panel shows the right IPs.
+- **Fix:** `AwgClientTunnelAddress` prefers `InboundAwgPeerAddresses(settings)[email]`, table field as fallback. Storage not unified (Rule 0).
+- **Seen on:** Kirill, v3.6.0-lucx.153.

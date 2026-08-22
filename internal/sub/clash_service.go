@@ -11,6 +11,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
 
 type SubClashService struct {
@@ -495,7 +496,11 @@ func (s *SubClashService) buildAwgProxy(subReq *SubService, inbound *model.Inbou
 	if n := client.KeepAlive.Int(); n > 0 {
 		proxy["persistent-keepalive"] = n
 	}
-	for _, addr := range client.AllowedIPs {
+	addrs := client.AllowedIPs
+	if ip := service.AwgClientTunnelAddress(inbound.Settings, client.Email, nil); ip != "" {
+		addrs = []string{ip}
+	}
+	for _, addr := range addrs {
 		ip := stripCIDR(addr)
 		if ip == "" {
 			continue
