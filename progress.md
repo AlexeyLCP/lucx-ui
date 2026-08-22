@@ -1,5 +1,16 @@
 # LucX-UI — Прогресс
 
+## lucx.159 — SourceCraft slim tarball + publish PATH (2026-08-22)
+
+Yandex run #4 built the panel, then failed: CI artifact / release file cap is 100 MB (full tar.gz is ~138 MB); `src` lives in `/root/sourcecraft/bin`.
+
+- Slim Yandex package: panel + xray + mtg + default geo (no extra geo/sidecars).
+- Publish in the same cube; `src` on PATH.
+
+**lucxVersion:** lucx.159
+
+---
+
 ## lucx.158 — SourceCraft CI: install Go on the worker (2026-08-22)
 
 Yandex release run #2 failed: `go: command not found`. `actions/setup-go` does not leave `go` on PATH for the next cube. Frontend CI was green.

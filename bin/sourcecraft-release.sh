@@ -90,12 +90,6 @@ rm -f Xray-linux-64.zip geoip.dat geosite.dat
 mv xray "xray-linux-${ARCH}"
 fetch https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
 fetch https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
-fetch -O geoip_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
-fetch -O geosite_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
-fetch -O geoip_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
-fetch -O geosite_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
-fetch -O geoip_ROSCOM.dat https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
-fetch -O geosite_ROSCOM.dat https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
 
 MTG_MULTI_VER=$(curl -sf $CURL_RETRY -o /dev/null -w '%{redirect_url}' "https://github.com/mhsanaei/mtg-multi/releases/latest" | sed -n 's#.*/releases/tag/##p')
 if [[ -z "$MTG_MULTI_VER" ]]; then
@@ -107,6 +101,21 @@ curl -sfLRO $CURL_RETRY "https://github.com/mhsanaei/mtg-multi/releases/download
 tar -xzf "${MTG_PKG}.tar.gz"
 mv "${MTG_PKG}/mtg-multi" "mtg-linux-${ARCH}"
 rm -rf "${MTG_PKG}" "${MTG_PKG}.tar.gz"
+
+if [[ "${SLIM:-}" == "1" ]]; then
+    echo "SLIM=1: skip extra geo and tunnel sidecars (SourceCraft 100MB release cap)"
+    cd ../..
+    tar -zcvf "$OUT" x-ui
+    echo "Wrote $OUT ($(wc -c < "$OUT") bytes)"
+    exit 0
+fi
+
+fetch -O geoip_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
+fetch -O geosite_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
+fetch -O geoip_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
+fetch -O geosite_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
+fetch -O geoip_ROSCOM.dat https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
+fetch -O geosite_ROSCOM.dat https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
 
 CADDY_NAIVE_TAG="v2.11.2-naive"
 fetch -O caddy-naive.tar.xz "https://github.com/klzgrad/forwardproxy/releases/download/${CADDY_NAIVE_TAG}/caddy-forwardproxy-naive.tar.xz"

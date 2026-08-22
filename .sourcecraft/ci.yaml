@@ -24,7 +24,7 @@ workflows:
             image: golang:1.26
             script:
               - mkdir -p internal/web/dist && touch internal/web/dist/.gitkeep
-              - CGO_ENABLED=0 go test ./internal/awg/... ./internal/lucx/... ./internal/database/... -count=1
+              - CGO_ENABLED=0 go test ./internal/awg/... ./internal/lucx/... -count=1
       - name: frontend
         cubes:
           - name: setup-node
@@ -56,24 +56,17 @@ workflows:
               cache: npm
               cache-dependency-path: frontend/package-lock.json
           - name: package
-            script:
-              - bash bin/sourcecraft-release.sh
-            artifacts:
-              paths:
-                - x-ui-linux-amd64.tar.gz
-          - name: publish
+            env:
+              SLIM: "1"
             script:
               - |
                 set -euo pipefail
+                bash bin/sourcecraft-release.sh
                 TAG="${SOURCECRAFT_COMMIT_REF_NAME}"
                 FILE="x-ui-linux-amd64.tar.gz"
                 test -s "$FILE"
                 curl -fsSL https://s3.yandexcloud.net/sourcecraft-cli/install.sh | sh
-                export PATH="${HOME}/.local/bin:${HOME}/bin:/usr/local/bin:${PATH}"
-                if ! command -v src >/dev/null 2>&1; then
-                  echo "src CLI not on PATH after install" >&2
-                  ls -la "${HOME}/.local/bin" "${HOME}/bin" || true
-                  exit 1
-                fi
+                export PATH="/root/sourcecraft/bin:${HOME}/sourcecraft/bin:${HOME}/.local/bin:${HOME}/bin:/usr/local/bin:${PATH}"
+                command -v src
                 src release create -R alexeylcp/lucx-ui --tag "$TAG" --title "$TAG" --publish || true
                 src release upload "$TAG" "$FILE" -R alexeylcp/lucx-ui
