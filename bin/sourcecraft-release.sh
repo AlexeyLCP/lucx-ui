@@ -22,6 +22,28 @@ if [[ ! -f main.go || ! -d frontend ]]; then
     exit 1
 fi
 
+ensure_go() {
+    export PATH="/usr/local/go/bin:${HOME}/go/bin:${PATH}"
+    if command -v go >/dev/null 2>&1; then
+        return 0
+    fi
+    local ver
+    ver=$(awk '/^go / { print $2; exit }' go.mod)
+    echo "Installing Go ${ver}"
+    curl -fsSL $CURL_RETRY "https://go.dev/dl/go${ver}.linux-amd64.tar.gz" -o /tmp/go.tgz
+    sudo rm -rf /usr/local/go
+    sudo tar -C /usr/local -xzf /tmp/go.tgz
+    export PATH="/usr/local/go/bin:${PATH}"
+    command -v go >/dev/null 2>&1
+}
+
+if ! command -v wget >/dev/null 2>&1 || ! command -v unzip >/dev/null 2>&1 || ! command -v gcc >/dev/null 2>&1; then
+    sudo apt-get update -qq
+    sudo DEBIAN_FRONTEND=noninteractive apt-get install -y -qq wget unzip gcc libc6-dev
+fi
+
+ensure_go
+
 echo "Building frontend"
 (
     cd frontend
@@ -36,11 +58,6 @@ fi
 export CGO_ENABLED=1
 export GOOS=linux
 export GOARCH="$ARCH"
-
-if ! command -v gcc >/dev/null 2>&1; then
-    sudo apt-get update -qq
-    sudo apt-get install -y -qq gcc libc6-dev
-fi
 
 LDFLAGS="-w -s"
 if [[ "$TAG" == v* && "$TAG" != "dev-latest" ]]; then

@@ -1,5 +1,16 @@
 # LucX-UI — Прогресс
 
+## lucx.158 — SourceCraft CI: install Go on the worker (2026-08-22)
+
+Yandex release run #2 failed: `go: command not found`. `actions/setup-go` does not leave `go` on PATH for the next cube. Frontend CI was green.
+
+- `bin/sourcecraft-release.sh` installs Go from `go.mod` when missing.
+- `.sourcecraft/ci.yaml` go-test uses `golang:1.26` image.
+
+**lucxVersion:** lucx.158
+
+---
+
 ## lucx.157 — SourceCraft CI + optional Yandex install (2026-08-22)
 
 GitHub stays the source of truth. SourceCraft (`alexeylcp/lucx-ui`) has its own CI and release tag/build.

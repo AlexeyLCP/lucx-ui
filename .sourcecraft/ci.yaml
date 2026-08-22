@@ -20,12 +20,8 @@ workflows:
     tasks:
       - name: go-test
         cubes:
-          - name: setup-go
-            action: actions/setup-go@v5
-            with:
-              go-version-file: go.mod
-              cache: "true"
           - name: test
+            image: golang:1.26
             script:
               - mkdir -p internal/web/dist && touch internal/web/dist/.gitkeep
               - CGO_ENABLED=0 go test ./internal/awg/... ./internal/lucx/... ./internal/database/... -count=1
@@ -53,11 +49,6 @@ workflows:
     tasks:
       - name: build-and-publish
         cubes:
-          - name: setup-go
-            action: actions/setup-go@v5
-            with:
-              go-version-file: go.mod
-              cache: "true"
           - name: setup-node
             action: actions/setup-node@v4
             with:
