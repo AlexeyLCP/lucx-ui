@@ -58,6 +58,7 @@ workflows:
           - name: package
             env:
               SLIM: "1"
+              SRC_TOKEN: ${{ secrets.SRC_TOKEN }}
             script:
               - |
                 set -euo pipefail
@@ -65,8 +66,15 @@ workflows:
                 TAG="${SOURCECRAFT_COMMIT_REF_NAME}"
                 FILE="x-ui-linux-amd64.tar.gz"
                 test -s "$FILE"
-                curl -fsSL https://s3.yandexcloud.net/sourcecraft-cli/install.sh | sh
-                export PATH="/root/sourcecraft/bin:${HOME}/sourcecraft/bin:${HOME}/.local/bin:${HOME}/bin:/usr/local/bin:${PATH}"
-                command -v src
-                src release create -R alexeylcp/lucx-ui --tag "$TAG" --title "$TAG" --publish || true
-                src release upload "$TAG" "$FILE" -R alexeylcp/lucx-ui
+                TOKEN="${SRC_TOKEN:-${SOURCECRAFT_TOKEN:-}}"
+                test -n "$TOKEN"
+                curl -fsS -X POST \
+                  -H "Authorization: Bearer ${TOKEN}" \
+                  -H "Content-Type: application/json" \
+                  -d "{\"tag\":\"${TAG}\",\"title\":\"${TAG}\",\"publish\":true}" \
+                  "https://api.sourcecraft.tech/repos/alexeylcp/lucx-ui/releases" || true
+                curl -fsS -X POST \
+                  -H "Authorization: Bearer ${TOKEN}" \
+                  -F "name=${FILE}" \
+                  -F "file=@${FILE}" \
+                  "https://api.sourcecraft.tech/repos/alexeylcp/lucx-ui/releases/tag/${TAG}/attachments"
