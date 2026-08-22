@@ -46,6 +46,7 @@ func healthyKernelProber() fakeProber {
 			"ip -o -4 route show default":     "default via 192.168.1.1 dev eth0 proto static\n",
 			"awg version":                     "amneziawg-tools v3.0.20260730 - https://amnezia.org\n",
 			"iptables -t mangle -C PREROUTING -i awg1 -j MARK --set-mark 655361":         "",
+			"iptables -t nat -C POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE":        "",
 			"iptables -t nat -C POSTROUTING -m mark --mark 655361 -o eth0 -j MASQUERADE": "",
 			"iptables -C FORWARD -i awg1 -j ACCEPT":                                      "",
 			"iptables -C FORWARD -o awg1 -j ACCEPT":                                      "",
@@ -99,6 +100,7 @@ func TestDiagnose_MissingInterfaceShortCircuits(t *testing.T) {
 func TestDiagnose_KernelNATFlushedRules(t *testing.T) {
 	p := healthyKernelProber()
 	p.failing["iptables -t mangle -C PREROUTING -i awg1 -j MARK --set-mark 655361"] = true
+	p.failing["iptables -t nat -C POSTROUTING -s 10.8.0.0/24 -o eth0 -j MASQUERADE"] = true
 	p.failing["iptables -t nat -C POSTROUTING -m mark --mark 655361 -o eth0 -j MASQUERADE"] = true
 	p.failing["iptables -C FORWARD -o awg1 -j ACCEPT"] = true
 	d := diagnose(natInstance(), p, fixedNow)
@@ -111,8 +113,8 @@ func TestDiagnose_KernelNATFlushedRules(t *testing.T) {
 			fwd = c
 		}
 	}
-	if masq.OK || !strings.Contains(masq.Detail, "-o eth0") || !strings.Contains(masq.Detail, "MARK") {
-		t.Errorf("masquerade check must fail and name mark+iface rule, got %+v", masq)
+	if masq.OK || !strings.Contains(masq.Detail, "-o eth0") || !strings.Contains(masq.Detail, "MASQUERADE") {
+		t.Errorf("masquerade check must fail and name the iface rule, got %+v", masq)
 	}
 	if fwd.OK || !strings.Contains(fwd.Detail, "-o awg1") {
 		t.Errorf("forward check must fail and name only the missing leg, got %+v", fwd)

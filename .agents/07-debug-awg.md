@@ -188,3 +188,15 @@ Extracted from AGENTS.md. This file is project law.
 - **Symptom:** two AWG inbounds, one client → both `.conf` blocks share one Address; handshake ok, traffic dies on the other subnet. Card in the panel shows the right IPs.
 - **Fix:** `AwgClientTunnelAddress` prefers `InboundAwgPeerAddresses(settings)[email]`, table field as fallback. Storage not unified (Rule 0).
 - **Seen on:** Kirill, v3.6.0-lucx.153.
+
+### Pattern 1v: routeThroughXray off → handshake ok, packets leave as 10.x — FIXED (lucx.156)
+
+- **Cause:** kernel NAT was mark-only (`mangle PREROUTING MARK` + `POSTROUTING -m mark MASQUERADE`). After toggling off routeThroughXray the MARK rule was often missing; MASQUERADE by mark never matched. Packets egressed with the tunnel source.
+- **Fix:** also install `-s <clientSubnet> -o <ext> MASQUERADE`. Mark path kept for peers outside the server /24. Reconcile deletes leftover `iif awgN lookup 100N`.
+- **Seen on:** Kirill, 2026-08-22. Manual workaround was the same `-s` rule.
+
+### Pattern 1w: Pro QUIC I1–I5 crashes awg-tools (segfault / glibc abort) — FIXED (lucx.156)
+
+- **Cause:** tools netlink buffer is one page (4096). I1–I5 are hex-put without bounds. QUIC Pro sum 1696–2044 B → ~35% of generated configs crash `awg set`/`setconf` on Linux.
+- **Fix:** `GenerateCPS` keeps payload ≤ 1800 B (retry, then drop I5…I2). Real fix is upstream [amneziawg-tools#69](https://github.com/amnezia-vpn/amneziawg-tools/issues/69).
+- **Not done:** MTU-clamp of I1 (needs form to send MTU). I1 stays ~1198 (QUIC minimum).

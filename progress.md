@@ -1,5 +1,16 @@
 # LucX-UI — Прогресс
 
+## lucx.156 — kernel NAT subnet MASQUERADE + I1–I5 1800 cap (2026-08-22)
+
+Kirill: routeThroughXray off → FORWARD ok, packets leave as 10.9.0.x (mark MASQUERADE without MARK). Pro QUIC I1–I5 ~35% crash amneziawg-tools (4 KB netlink buffer).
+
+- Kernel NAT also installs `-s <subnet> -o <ext> MASQUERADE`; mark path kept for out-of-subnet peers. Reconcile drops leftover `iif awgN lookup 100N`.
+- `GenerateCPS` retries then drops trailing I-fields so payload ≤ 1800 B. Upstream tools issue: amneziawg-tools#69.
+
+**lucxVersion:** lucx.156
+
+---
+
 ## lucx.155 — per-inbound vpn:// copy in client info (2026-08-22)
 
 Kirill: Client Info vpn:// button inside each AWG inbound block copied every profile (`/awg/{subId}?format=vpn`).

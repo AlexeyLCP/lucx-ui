@@ -194,31 +194,30 @@ func diagnoseKernelNAT(inst Instance, p prober) []DiagCheck {
 	}
 
 	mark := strconv.Itoa(awgNatMark(inst.Id))
+	subnet := clientSubnet(inst.Address)
 	markArgs := []string{"-t", "mangle", "-C", "PREROUTING", "-i", inst.Ifname, "-j", "MARK", "--set-mark", mark}
+	subnetArgs := []string{"-t", "nat", "-C", "POSTROUTING", "-s", subnet, "-o", extIface, "-j", "MASQUERADE"}
 	masqArgs := []string{"-t", "nat", "-C", "POSTROUTING", "-m", "mark", "--mark", mark, "-o", extIface, "-j", "MASQUERADE"}
-	markOut, markErr := p.Run("iptables", markArgs...)
-	masqOut, masqErr := p.Run("iptables", masqArgs...)
-	switch {
-	case markErr != nil && masqErr != nil:
+	_, markErr := p.Run("iptables", markArgs...)
+	_, subnetErr := p.Run("iptables", subnetArgs...)
+	_, masqErr := p.Run("iptables", masqArgs...)
+	if subnetErr == nil || masqErr == nil {
+		detail := fmt.Sprintf("MASQUERADE -o %s", extIface)
+		if subnetErr == nil && subnet != "" {
+			detail = fmt.Sprintf("MASQUERADE -s %s -o %s", subnet, extIface)
+		}
+		if masqErr == nil {
+			detail += fmt.Sprintf(" + mark=%s", mark)
+		}
+		if markErr != nil {
+			detail += " (mangle MARK missing — out-of-subnet peers may leak)"
+		}
+		checks = append(checks, DiagCheck{"masquerade", true, detail})
+	} else {
 		checks = append(checks, DiagCheck{
 			"masquerade", false,
-			fmt.Sprintf("missing MARK iif %s + MASQUERADE mark=%s -o %s (flushed? fail2ban/docker reload?) — reconcile re-adds within 10s: %s",
-				inst.Ifname, mark, extIface, oneLine(markOut+" "+masqOut)),
-		})
-	case markErr != nil:
-		checks = append(checks, DiagCheck{
-			"masquerade", false,
-			fmt.Sprintf("missing mangle PREROUTING -i %s MARK --set-mark %s: %s", inst.Ifname, mark, oneLine(markOut)),
-		})
-	case masqErr != nil:
-		checks = append(checks, DiagCheck{
-			"masquerade", false,
-			fmt.Sprintf("missing POSTROUTING -m mark --mark %s -o %s MASQUERADE: %s", mark, extIface, oneLine(masqOut)),
-		})
-	default:
-		checks = append(checks, DiagCheck{
-			"masquerade", true,
-			fmt.Sprintf("MARK iif %s → MASQUERADE mark=%s -o %s", inst.Ifname, mark, extIface),
+			fmt.Sprintf("missing POSTROUTING MASQUERADE -s %s / mark=%s -o %s (flushed? fail2ban/docker reload?) — reconcile re-adds within 10s",
+				subnet, mark, extIface),
 		})
 	}
 

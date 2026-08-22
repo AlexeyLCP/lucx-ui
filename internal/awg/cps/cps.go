@@ -22,13 +22,65 @@ type CPSResult struct {
 	I1, I2, I3, I4, I5 string
 }
 
-// GenerateCPS produces 1 or 5 CPS packet strings for the given profile,
-// region, and optional explicit front domain. When onlyI1 is true only I1 is
-// generated (Lite/Standard presets emit just I1; Pro emits I1-I5). The
-// browser parameter selects which TLS fingerprint to mimic for ProfileTLS
-// (ignored by DNS/SIP/QUIC). Ported from pumbaX/awg-multi-script
-// _CPS_GENERATOR, extended with browser-specific TLS fingerprints.
+const MaxIPayload = 1800
+
+func tagPayloadBytes(tag string) int {
+	i := strings.Index(strings.ToLower(tag), "0x")
+	if i < 0 {
+		return 0
+	}
+	hexpart := tag[i+2:]
+	if j := strings.IndexAny(hexpart, ">"); j >= 0 {
+		hexpart = hexpart[:j]
+	}
+	n := 0
+	for _, c := range hexpart {
+		switch {
+		case c >= '0' && c <= '9', c >= 'a' && c <= 'f', c >= 'A' && c <= 'F':
+			n++
+		}
+	}
+	return n / 2
+}
+
+func (r CPSResult) PayloadSum() int {
+	return tagPayloadBytes(r.I1) + tagPayloadBytes(r.I2) + tagPayloadBytes(r.I3) + tagPayloadBytes(r.I4) + tagPayloadBytes(r.I5)
+}
+
+func shrinkCPS(r CPSResult) CPSResult {
+	for r.PayloadSum() > MaxIPayload {
+		switch {
+		case r.I5 != "":
+			r.I5 = ""
+		case r.I4 != "":
+			r.I4 = ""
+		case r.I3 != "":
+			r.I3 = ""
+		case r.I2 != "":
+			r.I2 = ""
+		default:
+			return r
+		}
+	}
+	return r
+}
+
 func GenerateCPS(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool) (CPSResult, error) {
+	var last CPSResult
+	for try := 0; try < 16; try++ {
+		r, err := generateCPSOnce(profile, region, domain, browser, onlyI1)
+		if err != nil {
+			return r, err
+		}
+		if r.PayloadSum() <= MaxIPayload {
+			return r, nil
+		}
+		last = r
+	}
+	return shrinkCPS(last), nil
+}
+
+func generateCPSOnce(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool) (CPSResult, error) {
 	dom := SelectDomain(profile, region, domain)
 	switch profile {
 	case ProfileTLS:

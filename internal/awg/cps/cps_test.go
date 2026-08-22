@@ -225,10 +225,55 @@ func TestGenerateCPS_AllProfilesNonEmpty(t *testing.T) {
 			if err != nil {
 				t.Fatalf("profile %s region %s full: %v", mp, reg, err)
 			}
-			for i, v := range []string{r5.I1, r5.I2, r5.I3, r5.I4, r5.I5} {
-				if v == "" {
-					t.Fatalf("profile %s region %s: I%d empty in full mode", mp, reg, i+1)
-				}
+			if r5.I1 == "" {
+				t.Fatalf("profile %s region %s: I1 empty in full mode", mp, reg)
+			}
+			if sum := r5.PayloadSum(); sum > MaxIPayload {
+				t.Fatalf("profile %s region %s: payload %d > %d", mp, reg, sum, MaxIPayload)
+			}
+		}
+	}
+}
+
+func TestCPSPayloadBytes(t *testing.T) {
+	if got := tagPayloadBytes("<b 0xaabbcc>"); got != 3 {
+		t.Fatalf("hex tag = %d, want 3", got)
+	}
+	if got := tagPayloadBytes("<r 2><b 0x0011>"); got != 2 {
+		t.Fatalf("dns tag = %d, want 2", got)
+	}
+	if got := tagPayloadBytes(""); got != 0 {
+		t.Fatalf("empty = %d", got)
+	}
+}
+
+func TestShrinkCPS_DropsTrailingUntilUnderLimit(t *testing.T) {
+	big := strings.Repeat("aa", MaxIPayload+1)
+	r := shrinkCPS(CPSResult{
+		I1: "<b 0x" + big + ">",
+		I2: "<b 0xaabb>",
+		I3: "<b 0xccdd>",
+		I4: "<b 0xeeff>",
+		I5: "<b 0x1122>",
+	})
+	if r.I2 != "" || r.I3 != "" || r.I4 != "" || r.I5 != "" {
+		t.Fatalf("must drop I2-I5 when I1 is already over the cap, got %+v", r)
+	}
+}
+
+func TestGenerateCPS_FullStaysUnderIPayloadCap(t *testing.T) {
+	for seed := int64(1); seed <= 40; seed++ {
+		SetRand(crand.New(crand.NewSource(seed)))
+		for _, mp := range []MimicryProfile{ProfileTLS, ProfileDNS, ProfileSIP, ProfileQUIC} {
+			r, err := GenerateCPS(mp, RegionWorld, "example.com", BrowserChrome, false)
+			if err != nil {
+				t.Fatalf("seed %d profile %s: %v", seed, mp, err)
+			}
+			if sum := r.PayloadSum(); sum > MaxIPayload {
+				t.Fatalf("seed %d profile %s payload %d > %d", seed, mp, sum, MaxIPayload)
+			}
+			if r.I1 == "" {
+				t.Fatalf("seed %d profile %s dropped I1", seed, mp)
 			}
 		}
 	}

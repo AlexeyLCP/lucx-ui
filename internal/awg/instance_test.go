@@ -599,6 +599,9 @@ func TestNatPostUpPostDown_ContainsMasquerade(t *testing.T) {
 	if !strings.Contains(postUp, "MASQUERADE") {
 		t.Errorf("PostUp must contain MASQUERADE, got %q", postUp)
 	}
+	if !strings.Contains(postUp, "-s 10.8.0.0/24") {
+		t.Errorf("PostUp must MASQUERADE the client subnet, got %q", postUp)
+	}
 	if !strings.Contains(postUp, "ip_forward") {
 		t.Errorf("PostUp must enable ip_forward, got %q", postUp)
 	}
@@ -613,22 +616,28 @@ func TestNatRulesFor(t *testing.T) {
 		Address: "10.8.0.1/24", RouteThroughXray: false,
 	}
 	rules := natRulesFor(inst, "eth0")
-	if len(rules) != 4 {
-		t.Fatalf("natRulesFor = %d rules, want 4: %+v", len(rules), rules)
+	if len(rules) != 5 {
+		t.Fatalf("natRulesFor = %d rules, want 5: %+v", len(rules), rules)
 	}
 	markSpec := strings.Join(rules[0].spec, " ")
 	if rules[0].table != "mangle" || rules[0].chain != "PREROUTING" ||
 		!strings.Contains(markSpec, "-i awg1") || !strings.Contains(markSpec, "MARK") {
 		t.Errorf("rule[0] must MARK iif awg1, got %s %s %s", rules[0].table, rules[0].chain, markSpec)
 	}
-	masq := strings.Join(rules[1].spec, " ")
+	subnetMasq := strings.Join(rules[1].spec, " ")
 	if rules[1].table != "nat" || rules[1].chain != "POSTROUTING" ||
+		!strings.Contains(subnetMasq, "-s 10.8.0.0/24") || !strings.Contains(subnetMasq, "-o eth0") ||
+		!strings.Contains(subnetMasq, "MASQUERADE") {
+		t.Errorf("rule[1] must MASQUERADE -s subnet out eth0, got %s %s %s", rules[1].table, rules[1].chain, subnetMasq)
+	}
+	masq := strings.Join(rules[2].spec, " ")
+	if rules[2].table != "nat" || rules[2].chain != "POSTROUTING" ||
 		!strings.Contains(masq, "mark") || !strings.Contains(masq, "-o eth0") ||
 		!strings.Contains(masq, "MASQUERADE") {
-		t.Errorf("rule[1] must MASQUERADE by mark out eth0, got %s %s %s", rules[1].table, rules[1].chain, masq)
+		t.Errorf("rule[2] must MASQUERADE by mark out eth0, got %s %s %s", rules[2].table, rules[2].chain, masq)
 	}
-	fwdIn := strings.Join(rules[2].spec, " ")
-	fwdOut := strings.Join(rules[3].spec, " ")
+	fwdIn := strings.Join(rules[3].spec, " ")
+	fwdOut := strings.Join(rules[4].spec, " ")
 	if !strings.Contains(fwdIn, "-i awg1") || !strings.Contains(fwdOut, "-o awg1") {
 		t.Errorf("FORWARD rules must cover both awg1 legs, got %q / %q", fwdIn, fwdOut)
 	}

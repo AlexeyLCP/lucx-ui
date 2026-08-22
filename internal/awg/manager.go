@@ -602,15 +602,17 @@ func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 	if extIface == "" {
 		return "", ""
 	}
-	// Mark packets arriving on awgN, then MASQUERADE by mark (not by the
-	// server Address/24). Peer AllowedIPs may sit outside the server subnet
-	// (preserved across Address edits so clients need no re-export); -s
-	// <subnet> would silently drop NAT for those peers.
+	// Subnet MASQUERADE is the reliable path (mark-only NAT silently fails
+	// when mangle PREROUTING is missing after a routeThroughXray toggle).
+	// MARK+MASQUERADE-by-mark still covers peers whose AllowedIPs sit outside
+	// the server Address/24.
 	mark := awgNatMark(inst.Id)
 	postUp = fmt.Sprintf(
 		"echo 1 > /proc/sys/net/ipv4/ip_forward; "+
 			"iptables -t mangle -C PREROUTING -i %s -j MARK --set-mark %d 2>/dev/null || "+
 			"iptables -t mangle -A PREROUTING -i %s -j MARK --set-mark %d; "+
+			"iptables -t nat -C POSTROUTING -s %s -o %s -j MASQUERADE 2>/dev/null || "+
+			"iptables -t nat -A POSTROUTING -s %s -o %s -j MASQUERADE; "+
 			"iptables -t nat -C POSTROUTING -m mark --mark %d -o %s -j MASQUERADE 2>/dev/null || "+
 			"iptables -t nat -A POSTROUTING -m mark --mark %d -o %s -j MASQUERADE; "+
 			"iptables -C FORWARD -i %s -j ACCEPT 2>/dev/null || "+
@@ -622,17 +624,20 @@ func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 			"iptables -t mangle -C FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || "+
 			"iptables -t mangle -A FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu",
 		iface, mark, iface, mark,
+		subnet, extIface, subnet, extIface,
 		mark, extIface, mark, extIface,
 		iface, iface, iface, iface,
 		iface, iface, iface, iface,
 	)
 	postDown = fmt.Sprintf(
-		"iptables -t nat -D POSTROUTING -m mark --mark %d -o %s -j MASQUERADE 2>/dev/null || true; "+
+		"iptables -t nat -D POSTROUTING -s %s -o %s -j MASQUERADE 2>/dev/null || true; "+
+			"iptables -t nat -D POSTROUTING -m mark --mark %d -o %s -j MASQUERADE 2>/dev/null || true; "+
 			"iptables -t mangle -D PREROUTING -i %s -j MARK --set-mark %d 2>/dev/null || true; "+
 			"iptables -D FORWARD -i %s -j ACCEPT 2>/dev/null || true; "+
 			"iptables -D FORWARD -o %s -j ACCEPT 2>/dev/null || true; "+
 			"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -o %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true; "+
 			"iptables -t mangle -D FORWARD -p tcp --tcp-flags SYN,RST SYN -i %s -j TCPMSS --clamp-mss-to-pmtu 2>/dev/null || true",
+		subnet, extIface,
 		mark, extIface,
 		iface, mark,
 		iface, iface,
@@ -668,8 +673,10 @@ func natRulesFor(inst Instance, extIface string) []natRule {
 		return nil
 	}
 	mark := strconv.Itoa(awgNatMark(inst.Id))
+	subnet := clientSubnet(inst.Address)
 	return []natRule{
 		{"mangle", "PREROUTING", []string{"-i", inst.Ifname, "-j", "MARK", "--set-mark", mark}},
+		{"nat", "POSTROUTING", []string{"-s", subnet, "-o", extIface, "-j", "MASQUERADE"}},
 		{"nat", "POSTROUTING", []string{"-m", "mark", "--mark", mark, "-o", extIface, "-j", "MASQUERADE"}},
 		{"filter", "FORWARD", []string{"-i", inst.Ifname, "-j", "ACCEPT"}},
 		{"filter", "FORWARD", []string{"-o", inst.Ifname, "-j", "ACCEPT"}},
@@ -689,6 +696,7 @@ func (m *Manager) ensureNatRules(inst Instance) {
 	if err := exec.CommandContext(context.Background(), "ip", "link", "show", inst.Ifname).Run(); err != nil {
 		return
 	}
+	_ = exec.CommandContext(context.Background(), "ip", "rule", "del", "iif", inst.Ifname, "lookup", strconv.Itoa(awgRouteTable(inst.Id))).Run()
 	rules := natRulesFor(inst, defaultRouteInterface())
 	if len(rules) == 0 {
 		return
