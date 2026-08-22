@@ -56,6 +56,63 @@ lucx_raw_url() {
         echo "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/${file}"
     fi
 }
+lucx_fetch_geofiles() {
+    local dest="${1:-bin}"
+    mkdir -p "$dest"
+    echo -e "${green}Downloading geodata...${plain}"
+    local failed=0 name url
+    while IFS='|' read -r name url; do
+        [[ -z "$name" ]] && continue
+        if ! ${curl_bin:-curl} -fLRo "${dest}/${name}" --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 180 "$url"; then
+            echo -e "${yellow}${name}: download failed${plain}"
+            rm -f "${dest}/${name}"
+            case "$name" in
+                geoip.dat | geosite.dat) failed=1 ;;
+            esac
+        fi
+    done <<'GEO'
+geoip.dat|https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+geosite.dat|https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+geoip_IR.dat|https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
+geosite_IR.dat|https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
+geoip_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
+geosite_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
+geoip_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
+geosite_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
+GEO
+    return "$failed"
+}
+
+lucx_fetch_sidecars() {
+    local dest="${1:-bin}"
+    local a
+    a="$(arch)"
+    if [[ "$a" != "amd64" ]]; then
+        return 0
+    fi
+    mkdir -p "$dest"
+    echo -e "${green}Downloading tunnel sidecars...${plain}"
+    local name gz tmp
+    for name in caddy-naive-linux-amd64 naive-client-linux-amd64 olcrtc-linux-amd64 qwdtt-linux-amd64 mieru-linux-amd64 mieru-client-linux-amd64 trusttunnel-linux-amd64 trusttunnel-client-linux-amd64; do
+        gz="third_party/sidecars/linux-amd64/${name}.gz"
+        tmp="${dest}/${name}.gz"
+        if [[ -s "${gz}" ]]; then
+            cp -f "${gz}" "${tmp}"
+        elif ! lucx_sc_curl -fLRo "${tmp}" "$(lucx_raw_url "${gz}")"; then
+            echo -e "${yellow}${name}: download failed${plain}"
+            rm -f "${tmp}"
+            continue
+        fi
+        if ! gzip -dc "${tmp}" > "${dest}/${name}"; then
+            echo -e "${yellow}${name}: gunzip failed${plain}"
+            rm -f "${tmp}" "${dest}/${name}"
+            continue
+        fi
+        chmod +x "${dest}/${name}"
+        rm -f "${tmp}"
+    done
+}
+
 lucx_latest_tag() {
     if [[ "$LUCX_SOURCE" == "yandex" ]]; then
         lucx_sc_curl -Ls "https://api.sourcecraft.tech/repos/${LUCX_SC_ORG}/${LUCX_SC_REPO}/releases/latest" \
@@ -1157,6 +1214,9 @@ for asset in d.get('assets') or []:
         fi
     fi
 
+    lucx_fetch_geofiles bin || _fail "ERROR: Failed to download required geoip.dat / geosite.dat"
+    lucx_fetch_geofiles bin || _fail "ERROR: Failed to download required geoip.dat / geosite.dat"
+    lucx_fetch_sidecars bin
     chmod +x x-ui bin/xray-linux-$(arch) > /dev/null 2>&1
     if [[ -f bin/mtg-linux-arm ]]; then
         chmod +x bin/mtg-linux-arm > /dev/null 2>&1

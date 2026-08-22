@@ -189,6 +189,10 @@ x-ui-linux-amd64.tar.gz → x-ui/
       └── install-awg-module.sh  ← our DKMS script
 ```
 
+Geo (`geoip*.dat` / `geosite*.dat`) is not in the tarball. `install.sh` / `update.sh` download it after extract (Loyalsoldier + IR/RU/ROSCOM).
+
+Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/` and are fetched the same way. They are not packed into the tarball (SourceCraft 100 MB cap).
+
 ---
 
 ## Branch Protection (gh/main)

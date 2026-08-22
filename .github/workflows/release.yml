@@ -158,15 +158,7 @@ jobs:
             rm -f Xray-linux-s390x.zip
           fi
           rm -f geoip.dat geosite.dat
-          fetch https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
-          fetch https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
-          fetch -O geoip_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
-          fetch -O geosite_IR.dat https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
-          fetch -O geoip_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
-          fetch -O geosite_RU.dat https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
-          # LUCX-HOOK: RoscomVPN custom geo (RKN geoblock lists)
-          fetch -O geoip_ROSCOM.dat https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
-          fetch -O geosite_ROSCOM.dat https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
+          # LUCX-HOOK: slim tarball — geo is fetched by install.sh / update.sh
           # END LUCX-HOOK
           mv xray xray-linux-${{ matrix.platform }}
           # mtg-multi (MTProto sidecar) ships prebuilt release binaries whose
@@ -187,13 +179,10 @@ jobs:
               rm -rf "${MTG_PKG}" "${MTG_PKG}.tar.gz"
               ;;
           esac
-          # LUCX-HOOK: NaiveProxy tunnel sidecar — Caddy with klzgrad's
-          # forward_proxy plugin (naive branch, HTTP/2 padding). amd64 ships
-          # the upstream prebuilt binary (pinned tag); arm64 cross-compiles
-          # the same plugin set via xcaddy (caddy is pure Go). Other matrix
-          # platforms get no binary — the Tunnels page shows "not installed"
-          # and offers upload/download there.
-          CADDY_NAIVE_TAG="v2.11.2-naive"
+          # LUCX-HOOK: tunnel sidecars live in third_party/sidecars/; install.sh fetches them
+          if true; then
+            :
+          else
           if [ "${{ matrix.platform }}" == "amd64" ]; then
             fetch -O caddy-naive.tar.xz "https://github.com/klzgrad/forwardproxy/releases/download/${CADDY_NAIVE_TAG}/caddy-forwardproxy-naive.tar.xz"
             tar -xJf caddy-naive.tar.xz
@@ -303,6 +292,7 @@ jobs:
             mv "$TT_CLIENT_BIN" "trusttunnel-client-linux-${{ matrix.platform }}"
             chmod +x "trusttunnel-client-linux-${{ matrix.platform }}"
             rm -rf /tmp/ttclient "${TT_CLIENT_TGZ}"
+          fi
           fi
           # END LUCX-HOOK
           cd ../..

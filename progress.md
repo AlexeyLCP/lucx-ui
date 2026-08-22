@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.160 — slim tarball, geo+sidecars at install (2026-08-22)
+
+Release tarball is panel + xray + mtg. Geo and tunnel sidecars are not inside it.
+
+- Geo downloaded by `install.sh` / `update.sh` (Loyalsoldier + IR/RU/ROSCOM).
+- Sidecars (gzipped amd64) live in `third_party/sidecars/linux-amd64/` and are fetched the same way.
+- GitHub release.yml no longer packs geo/sidecars. SourceCraft slim unchanged (100 MB cap).
+
+**lucxVersion:** lucx.160
+
+---
+
 ## lucx.159 — SourceCraft slim tarball + publish PATH (2026-08-22)
 
 Yandex run #4 built the panel, then failed: CI artifact / release file cap is 100 MB (full tar.gz is ~138 MB); `src` lives in `/root/sourcecraft/bin`.
