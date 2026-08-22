@@ -19,6 +19,23 @@ function LOGI() {
     echo -e "${green}[INF] $* ${plain}"
 }
 
+# LUCX-HOOK: GitHub default; Yandex if /etc/x-ui/install-source says so
+lucx_script_base() {
+    local src="${LUCX_SOURCE:-}"
+    if [[ -z "$src" && -r /etc/x-ui/install-source ]]; then
+        src=$(tr -d '[:space:]' < /etc/x-ui/install-source)
+    fi
+    case "$src" in
+        yandex | sourcecraft | sc | yc)
+            echo "https://raw.sourcecraft.tech/raw/alexeylcp/lucx-ui/main"
+            ;;
+        *)
+            echo "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main"
+            ;;
+    esac
+}
+# END LUCX-HOOK
+
 # Port helpers: detect listener and owning process (best effort)
 is_port_in_use() {
     local port="$1"
@@ -129,7 +146,7 @@ before_show_menu() {
 }
 
 install() {
-    bash <(curl -Ls https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
+    bash <(curl -Ls "$(lucx_script_base)/install.sh")
     if [[ $? == 0 ]]; then
         if [[ $# == 0 ]]; then
             start
@@ -148,7 +165,7 @@ update() {
         fi
         return 0
     fi
-    bash <(curl -Ls https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/update.sh)
+    bash <(curl -Ls "$(lucx_script_base)/update.sh")
     if [[ $? == 0 ]]; then
         LOGI "Update is complete, Panel has automatically restarted "
         before_show_menu
@@ -166,7 +183,7 @@ update_dev() {
     fi
     # XUI_UPDATE_TAG tells update.sh to install the dev-latest pre-release
     # instead of the latest stable tag.
-    XUI_UPDATE_TAG="dev-latest" bash <(curl -Ls https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/update.sh)
+    XUI_UPDATE_TAG="dev-latest" bash <(curl -Ls "$(lucx_script_base)/update.sh")
     if [[ $? == 0 ]]; then
         LOGI "Dev update is complete, Panel has automatically restarted "
         before_show_menu
@@ -219,7 +236,7 @@ update_menu() {
         return 0
     fi
 
-    if replace_xui_script "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/x-ui.sh" "false"; then
+    if replace_xui_script "$(lucx_script_base)/x-ui.sh" "false"; then
         chmod +x ${xui_folder}/x-ui.sh
         echo -e "${green}Update successful. The panel has automatically restarted.${plain}"
         exit 0

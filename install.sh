@@ -10,10 +10,137 @@ xui_folder="${XUI_MAIN_FOLDER:=/usr/local/x-ui}"
 xui_service="${XUI_SERVICE:=/etc/systemd/system}"
 
 # LUCX-HOOK: LucX-UI fork source — replaces MHSanaei/3x-ui for our builds.
-# Release tarball is downloaded from this repo; raw shell scripts (x-ui.sh,
-# x-ui.rc, x-ui.service.*) from this branch.
+# GitHub is the default. --yandex / LUCX_SOURCE=yandex pulls the SourceCraft
+# (Yandex) release instead. Each host builds and tags on its own.
 LUCX_REPO="AlexeyLCP/lucx-ui"
 LUCX_BRANCH="main"
+LUCX_SOURCE="${LUCX_SOURCE:-github}"
+LUCX_SC_ORG="${LUCX_SC_ORG:-alexeylcp}"
+LUCX_SC_REPO="${LUCX_SC_REPO:-lucx-ui}"
+LUCX_SC_TOKEN="${LUCX_SC_TOKEN:-}"
+LUCX_INSTALL_SOURCE_FILE="/etc/x-ui/install-source"
+LUCX_VERSION_ARG=""
+
+lucx_normalize_source() {
+    case "${1:-github}" in
+        yandex | sourcecraft | sc | yc) echo yandex ;;
+        *) echo github ;;
+    esac
+}
+
+lucx_sc_curl() {
+    if [[ -n "${LUCX_SC_TOKEN}" ]]; then
+        curl -H "Authorization: Bearer ${LUCX_SC_TOKEN}" "$@"
+    else
+        curl "$@"
+    fi
+}
+
+lucx_raw_url() {
+    local file="$1"
+    local ref="${2:-$LUCX_BRANCH}"
+    if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" == "yandex" ]]; then
+        echo "https://raw.sourcecraft.tech/raw/${LUCX_SC_ORG}/${LUCX_SC_REPO}/${ref}/${file}"
+    else
+        echo "https://raw.githubusercontent.com/${LUCX_REPO}/${ref}/${file}"
+    fi
+}
+
+lucx_latest_tag() {
+    if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" == "yandex" ]]; then
+        lucx_sc_curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 \
+            "https://api.sourcecraft.tech/repos/${LUCX_SC_ORG}/${LUCX_SC_REPO}/releases/latest" \
+            | grep -oE '"tag":[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*"([^"]+)"/\1/'
+    else
+        curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 \
+            "https://api.github.com/repos/${LUCX_REPO}/releases/latest" \
+            | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
+    fi
+}
+
+lucx_tarball_url() {
+    local tag="$1"
+    local a
+    a="$(arch)"
+    if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" != "yandex" ]]; then
+        echo "https://github.com/${LUCX_REPO}/releases/download/${tag}/x-ui-linux-${a}.tar.gz"
+        return 0
+    fi
+    local json link
+    json=$(lucx_sc_curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 \
+        "https://api.sourcecraft.tech/repos/${LUCX_SC_ORG}/${LUCX_SC_REPO}/releases/tag/${tag}")
+    if command -v python3 > /dev/null 2>&1; then
+        link=$(printf '%s' "$json" | python3 -c "
+import json,sys
+name='x-ui-linux-${a}.tar.gz'
+d=json.load(sys.stdin)
+for asset in d.get('assets') or []:
+    n=asset.get('name') or (asset.get('attachment') or {}).get('name') or ''
+    if n==name:
+        print(asset.get('link') or '')
+        break
+")
+    else
+        link=$(printf '%s' "$json" | grep -oE '"link":[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*"([^"]+)"/\1/')
+    fi
+    [[ -n "$link" ]] || return 1
+    echo "$link"
+}
+
+lucx_save_source() {
+    mkdir -p /etc/x-ui
+    lucx_normalize_source "$LUCX_SOURCE" > "${LUCX_INSTALL_SOURCE_FILE}"
+}
+
+lucx_parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --yandex | --sourcecraft)
+                LUCX_SOURCE=yandex
+                shift
+                ;;
+            --github)
+                LUCX_SOURCE=github
+                shift
+                ;;
+            --source)
+                LUCX_SOURCE="$2"
+                shift 2
+                ;;
+            --source=*)
+                LUCX_SOURCE="${1#--source=}"
+                shift
+                ;;
+            --token)
+                LUCX_SC_TOKEN="$2"
+                shift 2
+                ;;
+            --token=*)
+                LUCX_SC_TOKEN="${1#--token=}"
+                shift
+                ;;
+            -h | --help)
+                echo "Usage: install.sh [--yandex|--github] [--token PAT] [version]"
+                echo "  --yandex   install from SourceCraft (Yandex)"
+                echo "  --github   install from GitHub (default)"
+                echo "  --token    SourceCraft PAT (private repo / API)"
+                echo "  version    tag, e.g. v3.6.0-lucx.156 or dev-latest"
+                echo "Env: LUCX_SOURCE LUCX_SC_TOKEN LUCX_SC_ORG LUCX_SC_REPO"
+                exit 0
+                ;;
+            -*)
+                echo "Unknown option: $1" >&2
+                exit 1
+                ;;
+            *)
+                LUCX_VERSION_ARG="$1"
+                shift
+                ;;
+        esac
+    done
+    LUCX_SOURCE="$(lucx_normalize_source "$LUCX_SOURCE")"
+}
+lucx_parse_args "$@"
 # END LUCX-HOOK
 
 # check root
@@ -1486,16 +1613,20 @@ install_x-ui() {
 
     # Download resources
     if [ $# == 0 ]; then
-        # LUCX-HOOK: fetch latest release tag from LucX-UI fork
-        tag_version=$(curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 "https://api.github.com/repos/${LUCX_REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        # LUCX-HOOK: fetch latest release tag from GitHub or SourceCraft
+        tag_version=$(lucx_latest_tag)
         # END LUCX-HOOK
         if [[ ! -n "$tag_version" ]]; then
-            echo -e "${red}Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later${plain}"
+            echo -e "${red}Failed to fetch x-ui version, it may be due to API restrictions, please try it later${plain}"
             exit 1
         fi
         echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
-        # LUCX-HOOK: download release tarball from LucX-UI fork
-        curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o ${xui_folder}-linux-$(arch).tar.gz https://github.com/${LUCX_REPO}/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
+        # LUCX-HOOK: download release tarball from GitHub or SourceCraft
+        lucx_tb_url=$(lucx_tarball_url "$tag_version") || {
+            echo -e "${red}No x-ui-linux-$(arch).tar.gz on ${LUCX_SOURCE} for ${tag_version}${plain}"
+            exit 1
+        }
+        lucx_sc_curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o ${xui_folder}-linux-$(arch).tar.gz "${lucx_tb_url}"
         # END LUCX-HOOK
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Downloading x-ui failed, please be sure that your server can access GitHub ${plain}"
@@ -1524,11 +1655,14 @@ install_x-ui() {
             fi
         fi
 
-        # LUCX-HOOK: fallback release URL for LucX-UI fork
-        url="https://github.com/${LUCX_REPO}/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+        # LUCX-HOOK: fallback release URL for GitHub or SourceCraft
+        url=$(lucx_tarball_url "$tag_version") || {
+            echo -e "${red}No x-ui-linux-$(arch).tar.gz on ${LUCX_SOURCE} for ${tag_version}${plain}"
+            exit 1
+        }
         # END LUCX-HOOK
         echo -e "Beginning to install x-ui ${tag_version}"
-        curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --speed-limit 1 --speed-time 300 -o ${xui_folder}-linux-$(arch).tar.gz ${url}
+        lucx_sc_curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --speed-limit 1 --speed-time 300 -o ${xui_folder}-linux-$(arch).tar.gz ${url}
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Download x-ui ${tag_version} failed, please check if the version exists ${plain}"
             exit 1
@@ -1540,19 +1674,19 @@ install_x-ui() {
         fi
     fi
     local xui_script_temp="/usr/bin/x-ui-temp.$$"
+    local xui_script_from_tarball=0
     rm -f "${xui_script_temp}"
-    # LUCX-HOOK: fetch x-ui.sh from LucX-UI fork branch
-    curl -fLRo "${xui_script_temp}" https://raw.githubusercontent.com/${LUCX_REPO}/${LUCX_BRANCH}/x-ui.sh
+    # LUCX-HOOK: fetch x-ui.sh from GitHub or SourceCraft; tarball fallback on Yandex
+    lucx_sc_curl -fLRo "${xui_script_temp}" "$(lucx_raw_url x-ui.sh)"
     # END LUCX-HOOK
-    if [[ $? -ne 0 ]]; then
+    if [[ $? -ne 0 || ! -s "${xui_script_temp}" ]]; then
         rm -f "${xui_script_temp}"
-        echo -e "${red}Failed to download x-ui.sh${plain}"
-        exit 1
-    fi
-    if [[ ! -s "${xui_script_temp}" ]]; then
-        rm -f "${xui_script_temp}"
-        echo -e "${red}Downloaded x-ui.sh is empty${plain}"
-        exit 1
+        if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" == "yandex" ]]; then
+            xui_script_from_tarball=1
+        else
+            echo -e "${red}Failed to download x-ui.sh${plain}"
+            exit 1
+        fi
     fi
 
     # Stop x-ui service and remove old resources
@@ -1588,6 +1722,13 @@ install_x-ui() {
     fi
     chmod +x x-ui
     chmod +x x-ui.sh
+    if [[ "${xui_script_from_tarball}" == "1" ]]; then
+        cp -f x-ui.sh "${xui_script_temp}"
+        if [[ ! -s "${xui_script_temp}" ]]; then
+            echo -e "${red}Failed to install x-ui.sh from the release archive${plain}"
+            exit 1
+        fi
+    fi
 
     # Check the system's architecture and rename the file accordingly.
     # The panel binary maps GOARCH=arm to "arm32" (internal/xray/process.go),
@@ -1635,8 +1776,8 @@ install_x-ui() {
     if [[ $release == "alpine" ]]; then
         xui_rc_temp="/etc/init.d/x-ui.tmp.$$"
         rm -f "${xui_rc_temp}"
-        # LUCX-HOOK: fetch x-ui.rc from LucX-UI fork branch
-        curl -fLRo "${xui_rc_temp}" https://raw.githubusercontent.com/${LUCX_REPO}/${LUCX_BRANCH}/x-ui.rc
+        # LUCX-HOOK: fetch x-ui.rc from GitHub or SourceCraft
+        lucx_sc_curl -fLRo "${xui_rc_temp}" "$(lucx_raw_url x-ui.rc)"
         # END LUCX-HOOK
         if [[ $? -ne 0 ]]; then
             rm -f "${xui_rc_temp}"
@@ -1700,16 +1841,16 @@ install_x-ui() {
         # If service file not found in tar.gz, download from GitHub
         if [ "$service_installed" = false ]; then
             echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
-            # LUCX-HOOK: fetch systemd service units from LucX-UI fork branch
+            # LUCX-HOOK: fetch systemd service units from GitHub or SourceCraft
             case "${release}" in
                 ubuntu | debian | armbian)
-                    service_unit_url="https://raw.githubusercontent.com/${LUCX_REPO}/${LUCX_BRANCH}/x-ui.service.debian"
+                    service_unit_url="$(lucx_raw_url x-ui.service.debian)"
                     ;;
                 arch | manjaro | parch)
-                    service_unit_url="https://raw.githubusercontent.com/${LUCX_REPO}/${LUCX_BRANCH}/x-ui.service.arch"
+                    service_unit_url="$(lucx_raw_url x-ui.service.arch)"
                     ;;
                 *)
-                    service_unit_url="https://raw.githubusercontent.com/${LUCX_REPO}/${LUCX_BRANCH}/x-ui.service.rhel"
+                    service_unit_url="$(lucx_raw_url x-ui.service.rhel)"
                     ;;
             esac
             # END LUCX-HOOK
@@ -1843,9 +1984,14 @@ install_x-ui() {
             echo -e "${yellow}Reboot the host manually so the amneziawg module loads.${plain}"
         fi
     fi
+    lucx_save_source
     # END LUCX-HOOK
 }
 
 echo -e "${green}Running...${plain}"
 install_base
-install_x-ui $1
+if [[ -n "${LUCX_VERSION_ARG}" ]]; then
+    install_x-ui "${LUCX_VERSION_ARG}"
+else
+    install_x-ui
+fi

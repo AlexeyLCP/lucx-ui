@@ -1,0 +1,88 @@
+on:
+  pull_request:
+    - workflows: [ci]
+      filter:
+        target_branches: ["main"]
+  push:
+    - workflows: [ci]
+      filter:
+        branches: ["main"]
+    - workflows: [release]
+      filter:
+        tags: ["v*"]
+
+workflows:
+  ci:
+    settings:
+      max_cube_duration: 20m
+    checkout:
+      fetch_depth: 1
+    tasks:
+      - name: go-test
+        cubes:
+          - name: setup-go
+            action: actions/setup-go@v5
+            with:
+              go-version-file: go.mod
+              cache: "true"
+          - name: test
+            script:
+              - mkdir -p internal/web/dist && touch internal/web/dist/.gitkeep
+              - CGO_ENABLED=0 go test ./internal/awg/... ./internal/lucx/... ./internal/database/... -count=1
+      - name: frontend
+        cubes:
+          - name: setup-node
+            action: actions/setup-node@v4
+            with:
+              node-version-file: .nvmrc
+              cache: npm
+              cache-dependency-path: frontend/package-lock.json
+          - name: check
+            script:
+              - cd frontend
+              - npm ci
+              - npm run lint
+              - npm run typecheck
+              - npx vitest run --project=unit
+
+  release:
+    settings:
+      max_cube_duration: 45m
+    checkout:
+      fetch_depth: 0
+    tasks:
+      - name: build-and-publish
+        cubes:
+          - name: setup-go
+            action: actions/setup-go@v5
+            with:
+              go-version-file: go.mod
+              cache: "true"
+          - name: setup-node
+            action: actions/setup-node@v4
+            with:
+              node-version-file: .nvmrc
+              cache: npm
+              cache-dependency-path: frontend/package-lock.json
+          - name: package
+            script:
+              - bash bin/sourcecraft-release.sh
+            artifacts:
+              paths:
+                - x-ui-linux-amd64.tar.gz
+          - name: publish
+            script:
+              - |
+                set -euo pipefail
+                TAG="${SOURCECRAFT_COMMIT_REF_NAME}"
+                FILE="x-ui-linux-amd64.tar.gz"
+                test -s "$FILE"
+                curl -fsSL https://s3.yandexcloud.net/sourcecraft-cli/install.sh | sh
+                export PATH="${HOME}/.local/bin:${HOME}/bin:/usr/local/bin:${PATH}"
+                if ! command -v src >/dev/null 2>&1; then
+                  echo "src CLI not on PATH after install" >&2
+                  ls -la "${HOME}/.local/bin" "${HOME}/bin" || true
+                  exit 1
+                fi
+                src release create -R alexeylcp/lucx-ui --tag "$TAG" --title "$TAG" --publish || true
+                src release upload "$TAG" "$FILE" -R alexeylcp/lucx-ui

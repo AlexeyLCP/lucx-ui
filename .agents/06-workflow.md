@@ -82,6 +82,8 @@ cp bin/pre-push .git/hooks/pre-push && chmod +x .git/hooks/pre-push
 
 `install.sh` is adapted for our fork (`AlexeyLCP/lucx-ui`): downloads the release tarball and raw scripts (x-ui.sh, x-ui.rc, service units) from `main`. Xray-core + mtg are reused from the upstream `MHSanaei/3x-ui` release.
 
+GitHub is the source of truth. SourceCraft (`sc`, `alexeylcp/lucx-ui`) builds and tags independently (`.sourcecraft/ci.yaml` + `bin/sourcecraft-release.sh`). Optional install from Yandex: `install.sh --yandex` (or `LUCX_SOURCE=yandex`). The choice is stored in `/etc/x-ui/install-source` so later `x-ui update` stays on that host.
+
 ### Release build — GitHub Actions only (do NOT build on a VPS by hand)
 
 All builds are done by `.github/workflows/release.yml` (ubuntu-latest, CGO via

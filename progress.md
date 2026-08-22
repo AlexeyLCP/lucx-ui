@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.157 — SourceCraft CI + optional Yandex install (2026-08-22)
+
+GitHub stays the source of truth. SourceCraft (`alexeylcp/lucx-ui`) has its own CI and release tag/build.
+
+- `.sourcecraft/ci.yaml` — go/frontend checks on `main`; independent amd64 release on `v*` tags via `bin/sourcecraft-release.sh`.
+- `install.sh --yandex` / `LUCX_SOURCE=yandex` pulls the SourceCraft release. Saved in `/etc/x-ui/install-source`.
+- `update.sh` / `x-ui.sh` follow that source. RU README documents the optional Yandex path.
+
+**lucxVersion:** lucx.157
+
+---
+
 ## lucx.156 — kernel NAT subnet MASQUERADE + I1–I5 1800 cap (2026-08-22)
 
 Kirill: routeThroughXray off → FORWARD ok, packets leave as 10.9.0.x (mark MASQUERADE without MARK). Pro QUIC I1–I5 ~35% crash amneziawg-tools (4 KB netlink buffer).

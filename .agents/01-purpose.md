@@ -12,7 +12,8 @@ LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.
 
 **Remotes:**
 - `origin` → `MHSanaei/3x-ui` (upstream)
-- `gh` → `AlexeyLCP/lucx-ui` (our fork)
+- `gh` → `AlexeyLCP/lucx-ui` (our fork; source of truth)
+- `sc` → `ssh://ssh.sourcecraft.dev/alexeylcp/lucx-ui.git` (Yandex SourceCraft mirror; own CI/releases)
 
 **Active branch:** `main` (v3.6.0 migration complete; current `lucxVersion` is in `internal/config/config.go`).
 
