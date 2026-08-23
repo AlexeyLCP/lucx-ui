@@ -41,6 +41,9 @@ case "${LUCX_SOURCE}" in
     yandex | sourcecraft | sc | yc) LUCX_SOURCE=yandex ;;
     *) LUCX_SOURCE=github ;;
 esac
+LUCX_SC_DIST_URL="https://codeload.sourcecraft.tech/${LUCX_SC_ORG}/${LUCX_SC_REPO}/tarball/refs/heads/dist"
+LUCX_DIST_DIR=""
+LUCX_SC_SHA=""
 lucx_sc_curl() {
     if [[ -n "${LUCX_SC_TOKEN}" ]]; then
         ${curl_bin:-curl} -H "Authorization: Bearer ${LUCX_SC_TOKEN}" "$@"
@@ -51,14 +54,31 @@ lucx_sc_curl() {
 lucx_raw_url() {
     local file="$1"
     if [[ "$LUCX_SOURCE" == "yandex" ]]; then
-        echo "https://raw.sourcecraft.tech/raw/${LUCX_SC_ORG}/${LUCX_SC_REPO}/main/${file}"
+        echo "https://raw.sourcecraft.tech/raw/${LUCX_SC_ORG}/${LUCX_SC_REPO}/${LUCX_SC_SHA}/${file}"
     else
         echo "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/${file}"
     fi
 }
+lucx_fetch_dist() {
+    LUCX_DIST_DIR=$(mktemp -d)
+    echo -e "${green}Downloading SourceCraft dist bundle...${plain}"
+    if ! ${curl_bin:-curl} -fLR --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 600 "${LUCX_SC_DIST_URL}" | tar -xz --strip-components=1 -C "${LUCX_DIST_DIR}" > /dev/null 2>&1; then
+        rm -rf "${LUCX_DIST_DIR}"
+        LUCX_DIST_DIR=""
+        return 1
+    fi
+    LUCX_SC_SHA=$(tr -d '[:space:]' < "${LUCX_DIST_DIR}/sha.txt" 2> /dev/null)
+    [[ -n "${LUCX_SC_SHA}" ]] || return 1
+}
 lucx_fetch_geofiles() {
     local dest="${1:-bin}"
     mkdir -p "$dest"
+    if [[ -n "${LUCX_DIST_DIR}" && -s "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" ]]; then
+        echo -e "${green}Unpacking geodata from SourceCraft dist...${plain}"
+        if tar -xzf "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" -C "$dest"; then
+            return 0
+        fi
+    fi
     echo -e "${green}Downloading geodata...${plain}"
     local failed=0 name url
     while IFS='|' read -r name url; do
@@ -115,8 +135,7 @@ lucx_fetch_sidecars() {
 
 lucx_latest_tag() {
     if [[ "$LUCX_SOURCE" == "yandex" ]]; then
-        lucx_sc_curl -Ls "https://api.sourcecraft.tech/repos/${LUCX_SC_ORG}/${LUCX_SC_REPO}/releases/latest" \
-            | grep -oE '"tag":[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*"([^"]+)"/\1/'
+        cat "${LUCX_DIST_DIR}/version.txt" 2> /dev/null
     else
         ${curl_bin:-curl} -Ls "https://api.github.com/repos/AlexeyLCP/lucx-ui/releases/latest" \
             | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
@@ -1104,6 +1123,13 @@ update_x-ui() {
 
     echo -e "${green}Downloading new x-ui version...${plain}"
 
+    # LUCX-HOOK: yandex source = anonymous dist bundle from SourceCraft
+    if [[ "$LUCX_SOURCE" == "yandex" ]]; then
+        if ! lucx_fetch_dist; then
+            _fail "ERROR: Failed to download the SourceCraft dist bundle"
+        fi
+    fi
+    # END LUCX-HOOK
     # XUI_UPDATE_TAG lets the panel target a specific release tag (e.g. the
     # rolling dev-latest pre-release). Empty keeps the default latest-stable flow.
     if [[ -n "${XUI_UPDATE_TAG}" ]]; then
@@ -1117,18 +1143,7 @@ update_x-ui() {
     fi
     echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
     if [[ "$LUCX_SOURCE" == "yandex" ]]; then
-        lucx_upd_url=$(lucx_sc_curl -Ls "https://api.sourcecraft.tech/repos/${LUCX_SC_ORG}/${LUCX_SC_REPO}/releases/tag/${tag_version}" | python3 -c "
-import json,sys
-name='x-ui-linux-$(arch).tar.gz'
-d=json.load(sys.stdin)
-for asset in d.get('assets') or []:
-    n=asset.get('name') or (asset.get('attachment') or {}).get('name') or ''
-    if n==name:
-        print(asset.get('link') or '')
-        break
-" 2> /dev/null)
-        [[ -n "$lucx_upd_url" ]] || _fail "ERROR: No ${tag_version} tarball on SourceCraft"
-        lucx_sc_curl -fLRo ${xui_folder}-linux-$(arch).tar.gz "${lucx_upd_url}" 2> /dev/null
+        cp -f "${LUCX_DIST_DIR}/x-ui-linux-$(arch).tar.gz" ${xui_folder}-linux-$(arch).tar.gz 2> /dev/null
     else
         ${curl_bin} -fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2> /dev/null
     fi
@@ -1214,9 +1229,6 @@ for asset in d.get('assets') or []:
         fi
     fi
 
-    lucx_fetch_geofiles bin || _fail "ERROR: Failed to download required geoip.dat / geosite.dat"
-    lucx_fetch_geofiles bin || _fail "ERROR: Failed to download required geoip.dat / geosite.dat"
-    lucx_fetch_sidecars bin
     chmod +x x-ui bin/xray-linux-$(arch) > /dev/null 2>&1
     if [[ -f bin/mtg-linux-arm ]]; then
         chmod +x bin/mtg-linux-arm > /dev/null 2>&1
@@ -1227,7 +1239,13 @@ for asset in d.get('assets') or []:
     echo -e "${green}Downloading and installing x-ui.sh script...${plain}"
     local xui_script_temp="/usr/bin/x-ui-temp.$$"
     rm -f "${xui_script_temp}"
-    lucx_sc_curl -fLRo "${xui_script_temp}" "$(lucx_raw_url x-ui.sh)" > /dev/null 2>&1
+    # LUCX-HOOK: prefer the copy shipped in the dist bundle / panel tarball
+    if [[ -n "${LUCX_DIST_DIR}" && -s "${LUCX_DIST_DIR}/x-ui.sh" ]]; then
+        cp -f "${LUCX_DIST_DIR}/x-ui.sh" "${xui_script_temp}"
+    else
+        lucx_sc_curl -fLRo "${xui_script_temp}" "$(lucx_raw_url x-ui.sh)" > /dev/null 2>&1
+    fi
+    # END LUCX-HOOK
     if [[ $? -ne 0 || ! -s "${xui_script_temp}" ]]; then
         rm -f "${xui_script_temp}"
         if [[ "$LUCX_SOURCE" == "yandex" && -s x-ui.sh ]]; then
@@ -1396,6 +1414,14 @@ for asset in d.get('assets') or []:
     # works out of the box on update too (no-op when XUI_ENABLE_FAIL2BAN=false).
     # Never fatal.
     setup_fail2ban
+
+    # LUCX-HOOK: geo + tunnel sidecars are not in the slim tarball. Fetch AFTER
+    # the panel is running; never fatal, so a slow/blocked download can never
+    # leave the host without a panel.
+    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    lucx_fetch_sidecars bin
+    [[ -n "${LUCX_DIST_DIR}" ]] && rm -rf "${LUCX_DIST_DIR}"
+    # END LUCX-HOOK
 
     echo -e "${green}x-ui ${tag_version}${plain} updating finished, it is running now..."
     echo -e ""

@@ -34,23 +34,13 @@
 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
 ```
 
-Опционально с Яндекса (SourceCraft), если GitHub недоступен. Репозиторий тот же, сборка и тег — свои:
+Опционально с Яндекса (SourceCraft), если GitHub недоступен. Без токенов и git — панель, geo и скрипты скачиваются одним пакетом:
 
 ```bash
-git clone --depth 1 ssh://ssh.sourcecraft.dev/alexeylcp/lucx-ui.git /tmp/lucx-ui
-sudo bash /tmp/lucx-ui/install.sh --yandex
+mkdir -p /tmp/lucx-dist && curl -fsSL https://codeload.sourcecraft.tech/alexeylcp/lucx-ui/tarball/refs/heads/dist | tar -xz --strip-components=1 -C /tmp/lucx-dist && sudo bash /tmp/lucx-dist/install.sh --yandex
 ```
 
-Или `LUCX_SOURCE=yandex LUCX_SC_TOKEN=<PAT> bash install.sh --yandex`. Дальше `x-ui update` ходит туда же (`/etc/x-ui/install-source`).
-
-Опционально с Яндекса (SourceCraft), если GitHub недоступен. Репозиторий тот же, сборка и тег — свои:
-
-```bash
-git clone --depth 1 ssh://ssh.sourcecraft.dev/alexeylcp/lucx-ui.git /tmp/lucx-ui
-sudo bash /tmp/lucx-ui/install.sh --yandex
-```
-
-Или `LUCX_SOURCE=yandex LUCX_SC_TOKEN=<PAT> bash install.sh --yandex`. Дальше `x-ui update` ходит туда же (`/etc/x-ui/install-source`).
+Дальше `x-ui update` ходит туда же (`/etc/x-ui/install-source`).
 
 <details>
 <summary><b>🛠️ Дополнительные варианты установки (Cloud-Init, Docker, PostgreSQL, Env Vars)</b></summary>

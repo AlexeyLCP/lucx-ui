@@ -64,17 +64,19 @@ workflows:
                 set -euo pipefail
                 bash bin/sourcecraft-release.sh
                 TAG="${SOURCECRAFT_COMMIT_REF_NAME}"
-                FILE="x-ui-linux-amd64.tar.gz"
-                test -s "$FILE"
+                test -s x-ui-linux-amd64.tar.gz
+                test -s x-ui-geo.tar.gz
+                rm -rf /tmp/lucx-dist
+                mkdir -p /tmp/lucx-dist
+                cp x-ui-linux-amd64.tar.gz x-ui-geo.tar.gz install.sh update.sh x-ui.sh /tmp/lucx-dist/
+                printf '%s\n' "${SOURCECRAFT_COMMIT_SHA}" > /tmp/lucx-dist/sha.txt
+                printf '%s\n' "${TAG}" > /tmp/lucx-dist/version.txt
+                cd /tmp/lucx-dist
+                git init -q -b dist
+                git config user.email "ci@lucx-ui.local"
+                git config user.name "LucX CI"
+                git add -A
+                git commit -qm "dist ${TAG}"
                 TOKEN="${SRC_TOKEN:-${SOURCECRAFT_TOKEN:-}}"
                 test -n "$TOKEN"
-                curl -fsS -X POST \
-                  -H "Authorization: Bearer ${TOKEN}" \
-                  -H "Content-Type: application/json" \
-                  -d "{\"tag\":\"${TAG}\",\"title\":\"${TAG}\",\"publish\":true}" \
-                  "https://api.sourcecraft.tech/repos/alexeylcp/lucx-ui/releases" || true
-                curl -fsS -X POST \
-                  -H "Authorization: Bearer ${TOKEN}" \
-                  -F "name=${FILE}" \
-                  -F "file=@${FILE}" \
-                  "https://api.sourcecraft.tech/repos/alexeylcp/lucx-ui/releases/tag/${TAG}/attachments"
+                git push -f "https://git:${TOKEN}@git.sourcecraft.dev/alexeylcp/lucx-ui.git" dist:dist

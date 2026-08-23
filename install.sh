@@ -36,11 +36,15 @@ lucx_sc_curl() {
     fi
 }
 
+LUCX_SC_DIST_URL="https://codeload.sourcecraft.tech/${LUCX_SC_ORG}/${LUCX_SC_REPO}/tarball/refs/heads/dist"
+LUCX_DIST_DIR=""
+LUCX_SC_SHA=""
+
 lucx_raw_url() {
     local file="$1"
     local ref="${2:-$LUCX_BRANCH}"
     if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" == "yandex" ]]; then
-        echo "https://raw.sourcecraft.tech/raw/${LUCX_SC_ORG}/${LUCX_SC_REPO}/${ref}/${file}"
+        echo "https://raw.sourcecraft.tech/raw/${LUCX_SC_ORG}/${LUCX_SC_REPO}/${LUCX_SC_SHA}/${file}"
     else
         echo "https://raw.githubusercontent.com/${LUCX_REPO}/${ref}/${file}"
     fi
@@ -48,9 +52,7 @@ lucx_raw_url() {
 
 lucx_latest_tag() {
     if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" == "yandex" ]]; then
-        lucx_sc_curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 \
-            "https://api.sourcecraft.tech/repos/${LUCX_SC_ORG}/${LUCX_SC_REPO}/releases/latest" \
-            | grep -oE '"tag":[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*"([^"]+)"/\1/'
+        cat "${LUCX_DIST_DIR}/version.txt" 2> /dev/null
     else
         curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 \
             "https://api.github.com/repos/${LUCX_REPO}/releases/latest" \
@@ -58,33 +60,23 @@ lucx_latest_tag() {
     fi
 }
 
+lucx_fetch_dist() {
+    LUCX_DIST_DIR=$(mktemp -d)
+    echo -e "${green}Downloading SourceCraft dist bundle...${plain}"
+    if ! curl -fLR --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 600 "${LUCX_SC_DIST_URL}" | tar -xz --strip-components=1 -C "${LUCX_DIST_DIR}"; then
+        rm -rf "${LUCX_DIST_DIR}"
+        LUCX_DIST_DIR=""
+        return 1
+    fi
+    LUCX_SC_SHA=$(cat "${LUCX_DIST_DIR}/sha.txt" 2> /dev/null | tr -d '[:space:]')
+    [[ -n "${LUCX_SC_SHA}" ]] || return 1
+}
+
 lucx_tarball_url() {
     local tag="$1"
     local a
     a="$(arch)"
-    if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" != "yandex" ]]; then
-        echo "https://github.com/${LUCX_REPO}/releases/download/${tag}/x-ui-linux-${a}.tar.gz"
-        return 0
-    fi
-    local json link
-    json=$(lucx_sc_curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 \
-        "https://api.sourcecraft.tech/repos/${LUCX_SC_ORG}/${LUCX_SC_REPO}/releases/tag/${tag}")
-    if command -v python3 > /dev/null 2>&1; then
-        link=$(printf '%s' "$json" | python3 -c "
-import json,sys
-name='x-ui-linux-${a}.tar.gz'
-d=json.load(sys.stdin)
-for asset in d.get('assets') or []:
-    n=asset.get('name') or (asset.get('attachment') or {}).get('name') or ''
-    if n==name:
-        print(asset.get('link') or '')
-        break
-")
-    else
-        link=$(printf '%s' "$json" | grep -oE '"link":[[:space:]]*"[^"]+"' | head -1 | sed -E 's/.*"([^"]+)"/\1/')
-    fi
-    [[ -n "$link" ]] || return 1
-    echo "$link"
+    echo "https://github.com/${LUCX_REPO}/releases/download/${tag}/x-ui-linux-${a}.tar.gz"
 }
 
 lucx_save_source() {
@@ -95,6 +87,15 @@ lucx_save_source() {
 lucx_fetch_geofiles() {
     local dest="${1:-bin}"
     mkdir -p "$dest"
+    # LUCX-HOOK: yandex dist ships a prebuilt geo bundle — no GitHub needed
+    if [[ -n "${LUCX_DIST_DIR}" && -s "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" ]]; then
+        echo -e "${green}Unpacking geodata from SourceCraft dist...${plain}"
+        if tar -xzf "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" -C "$dest"; then
+            return 0
+        fi
+        echo -e "${yellow}geo bundle is broken, falling back to GitHub${plain}"
+    fi
+    # END LUCX-HOOK
     echo -e "${green}Downloading geodata...${plain}"
     local failed=0
     local name url
@@ -1671,7 +1672,22 @@ install_x-ui() {
     # END LUCX-HOOK
 
     # Download resources
-    if [ $# == 0 ]; then
+    # LUCX-HOOK: yandex source = anonymous dist bundle from SourceCraft
+    if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" == "yandex" ]]; then
+        if ! lucx_fetch_dist; then
+            echo -e "${red}Failed to download the SourceCraft dist bundle${plain}"
+            exit 1
+        fi
+        if [[ $# -gt 0 ]]; then
+            echo -e "${yellow}--yandex ships the latest dist build; ignoring version '$1'${plain}"
+        fi
+        tag_version=$(lucx_latest_tag)
+        echo -e "Got x-ui latest version: ${tag_version} (SourceCraft dist), beginning the installation..."
+        if ! cp -f "${LUCX_DIST_DIR}/x-ui-linux-$(arch).tar.gz" ${xui_folder}-linux-$(arch).tar.gz || [[ ! -s ${xui_folder}-linux-$(arch).tar.gz ]]; then
+            echo -e "${red}SourceCraft dist bundle has no x-ui-linux-$(arch).tar.gz${plain}"
+            exit 1
+        fi
+    elif [ $# == 0 ]; then
         # LUCX-HOOK: fetch latest release tag from GitHub or SourceCraft
         tag_version=$(lucx_latest_tag)
         # END LUCX-HOOK
@@ -1800,13 +1816,6 @@ install_x-ui() {
             chmod +x bin/mtg-linux-arm
         fi
     fi
-    # LUCX-HOOK: geo is not in the slim tarball — fetch after extract
-    lucx_fetch_geofiles bin || {
-        echo -e "${red}Failed to download required geoip.dat / geosite.dat${plain}"
-        exit 1
-    }
-    lucx_fetch_sidecars bin
-    # END LUCX-HOOK
     chmod +x x-ui bin/xray-linux-$(arch)
     if [[ -f bin/mtg-linux-arm ]]; then
         chmod +x bin/mtg-linux-arm
@@ -1980,6 +1989,12 @@ install_x-ui() {
 
     echo -e "${green}x-ui ${tag_version}${plain} installation finished, it is running now..."
     echo -e ""
+    # LUCX-HOOK: geo + tunnel sidecars are not in the slim tarball. Fetch
+    # AFTER the panel is installed and running; never fatal (Rule 0).
+    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    lucx_fetch_sidecars bin
+    [[ -n "${LUCX_DIST_DIR}" ]] && rm -rf "${LUCX_DIST_DIR}"
+    # END LUCX-HOOK
     echo -e "┌───────────────────────────────────────────────────────┐
 │  ${blue}x-ui control menu usages (subcommands):${plain}              │
 │                                                       │

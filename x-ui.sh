@@ -20,19 +20,36 @@ function LOGI() {
 }
 
 # LUCX-HOOK: GitHub default; Yandex if /etc/x-ui/install-source says so
-lucx_script_base() {
+lucx_install_source() {
     local src="${LUCX_SOURCE:-}"
     if [[ -z "$src" && -r /etc/x-ui/install-source ]]; then
         src=$(tr -d '[:space:]' < /etc/x-ui/install-source)
     fi
     case "$src" in
-        yandex | sourcecraft | sc | yc)
-            echo "https://raw.sourcecraft.tech/raw/alexeylcp/lucx-ui/main"
-            ;;
-        *)
-            echo "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main"
-            ;;
+        yandex | sourcecraft | sc | yc) echo yandex ;;
+        *) echo github ;;
     esac
+}
+lucx_script_base() {
+    echo "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main"
+}
+# Runs install.sh / update.sh from the SourceCraft dist bundle (anonymous
+# codeload download), used on yandex hosts. $1 = script name.
+lucx_run_from_dist() {
+    local script="$1"
+    local tmp
+    tmp=$(mktemp -d)
+    if curl -fLR --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 600 \
+        "https://codeload.sourcecraft.tech/alexeylcp/lucx-ui/tarball/refs/heads/dist" \
+        | tar -xz --strip-components=1 -C "$tmp" && [[ -s "${tmp}/${script}" ]]; then
+        bash "${tmp}/${script}"
+        local rc=$?
+        rm -rf "$tmp"
+        return $rc
+    fi
+    rm -rf "$tmp"
+    LOGE "SourceCraft dist unavailable, falling back to GitHub"
+    return 1
 }
 # END LUCX-HOOK
 
@@ -146,7 +163,11 @@ before_show_menu() {
 }
 
 install() {
-    bash <(curl -Ls "$(lucx_script_base)/install.sh")
+    if [[ "$(lucx_install_source)" == "yandex" ]]; then
+        lucx_run_from_dist install.sh
+    else
+        bash <(curl -Ls "$(lucx_script_base)/install.sh")
+    fi
     if [[ $? == 0 ]]; then
         if [[ $# == 0 ]]; then
             start
@@ -165,7 +186,11 @@ update() {
         fi
         return 0
     fi
-    bash <(curl -Ls "$(lucx_script_base)/update.sh")
+    if [[ "$(lucx_install_source)" == "yandex" ]]; then
+        lucx_run_from_dist update.sh
+    else
+        bash <(curl -Ls "$(lucx_script_base)/update.sh")
+    fi
     if [[ $? == 0 ]]; then
         LOGI "Update is complete, Panel has automatically restarted "
         before_show_menu

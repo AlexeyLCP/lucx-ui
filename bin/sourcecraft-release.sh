@@ -100,11 +100,35 @@ tar -xzf "${MTG_PKG}.tar.gz"
 mv "${MTG_PKG}/mtg-multi" "mtg-linux-${ARCH}"
 rm -rf "${MTG_PKG}" "${MTG_PKG}.tar.gz"
 
+make_geo_tarball() {
+    local dest="x-ui-geo.tar.gz"
+    local tmp
+    tmp=$(mktemp -d)
+    local name url
+    while IFS='|' read -r name url; do
+        [[ -z "$name" ]] && continue
+        fetch -O "${tmp}/${name}" "$url" || echo "WARN: ${name} missing" >&2
+    done <<'GEO'
+geoip.dat|https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+geosite.dat|https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+geoip_IR.dat|https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
+geosite_IR.dat|https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
+geoip_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
+geosite_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
+geoip_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
+geosite_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
+GEO
+    tar -czf "${dest}" -C "${tmp}" .
+    rm -rf "${tmp}"
+    echo "Wrote ${dest} ($(wc -c < "${dest}") bytes)"
+}
+
 if [[ "${SLIM:-}" == "1" ]]; then
-    echo "SLIM=1: skip tunnel sidecars (SourceCraft 100MB release cap); geo is fetched at install"
+    echo "SLIM=1: skip tunnel sidecars; geo goes into x-ui-geo.tar.gz"
     cd ../..
     tar -zcvf "$OUT" x-ui
     echo "Wrote $OUT ($(wc -c < "$OUT") bytes)"
+    make_geo_tarball
     exit 0
 fi
 
@@ -178,3 +202,4 @@ rm -rf /tmp/ttclient "${TT_CLIENT_TGZ}"
 cd ../..
 tar -zcvf "$OUT" x-ui
 echo "Wrote $OUT"
+make_geo_tarball

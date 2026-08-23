@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.161 — yandex dist bundle, non-fatal geo/sidecars (2026-08-23)
+
+Albert (RKN territory): `--yandex` broken — raw.sourcecraft.tech needs full SHA (not branch), SC API needs auth, geo from GitHub hung for an hour, and a killed update left the panel removed ("Please install the panel first").
+
+- SC CI publishes a `dist` branch (panel tarball + `x-ui-geo.tar.gz` + install/update/x-ui.sh + sha.txt). Anonymous codeload download, no token on the host.
+- `install.sh --yandex` / `update.sh` use dist; geo comes from the geo bundle, sidecars from raw-by-SHA.
+- Geo/sidecar fetch moved AFTER panel start and is never fatal (Rule 0).
+- README: anonymous one-liner instead of ssh clone.
+
+**lucxVersion:** lucx.161
+
+---
+
 ## lucx.160 — slim tarball, geo+sidecars at install (2026-08-22)
 
 Release tarball is panel + xray + mtg. Geo and tunnel sidecars are not inside it.
