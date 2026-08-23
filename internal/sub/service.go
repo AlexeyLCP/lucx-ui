@@ -17,6 +17,7 @@ import (
 	"github.com/goccy/go-json"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
+	"github.com/mhsanaei/3x-ui/v3/internal/awg/vpnuri"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -845,7 +846,19 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			params["disablecookies"] = "true"
 		}
 	}
-	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
+	out := buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
+	// Second line: the same client conf as an AmneziaVPN vpn:// envelope.
+	// Neither NekoBox+ (imports AWG from .conf / vpn://) nor Exclave parses
+	// the amneziawg:// scheme, so a URI-only subscription never added the
+	// node there (tester report; HYDRA emits vpn:// alongside its links for
+	// the same reason). BuildAwgClientConf is the exact builder behind
+	// /awg/?format=vpn, so the envelope matches the client-card copy.
+	if conf, err := service.BuildAwgClientConf(inbound, client, s.resolveInboundAddress(inbound)); err == nil {
+		if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
+			out += "\n" + uri
+		}
+	}
+	return out
 }
 
 // END LUCX-HOOK
@@ -939,11 +952,16 @@ func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
 	return cfg.ClientLink(host, pair, email)
 }
 
-// genTrustTunnelLink builds a per-client Throne-compatible tt:// URI for a
+// genTrustTunnelLink builds the per-client tt:// subscription lines for a
 // client attached to a TrustTunnel inbound. Credentials are HMAC-derived
 // (inbound-scoped). Returns "" when the hostname is unset or the client is
-// not enabled on the inbound. The official TLV deep link stays in
-// ClientDeepLink; subscription/QR emit ClientURI so Throne can import it.
+// not enabled on the inbound. Two forms are emitted, one per line: the
+// official TLV deep link (ClientDeepLink — the only form Exclave and the
+// official TrustTunnel app parse) and the Throne-compatible URI (ClientURI —
+// the form Throne and NekoBox+ parse). Each client skips the line whose
+// format it does not understand; a URI-only subscription left Exclave without
+// TrustTunnel entirely (tester report: base64-decoding the URI part fails
+// inside parseTrustTunnel and the line is dropped).
 func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) string {
 	if inbound == nil || inbound.Protocol != model.TrustTunnel {
 		return ""
@@ -973,7 +991,14 @@ func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) st
 		address = net.JoinHostPort(host, strconv.Itoa(p))
 	}
 	pair := tunnel.TrustTunnelClientAuth(secret, inbound.Id, email)
-	return cfg.ClientURI(address, pair, email)
+	var links []string
+	if dl := cfg.ClientDeepLink(address, pair, email); dl != "" {
+		links = append(links, dl)
+	}
+	if uri := cfg.ClientURI(address, pair, email); uri != "" {
+		links = append(links, uri)
+	}
+	return strings.Join(links, "\n")
 }
 
 // genMtprotoLink builds a per-client Telegram proxy deep link for an mtproto

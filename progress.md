@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.162 — outbound CPS after up; tt TLV + AWG vpn:// in sub (2026-08-23)
+
+Tester report (three items): the AWG outbound stored its I1–I5 but never sent them; TrustTunnel was not imported into Exclave from the subscription; AmneziaWG was not imported into NekoBox+/Exclave from the subscription.
+
+- `EnsureClient` applies non-empty I1–I5 with one `awg set` right after `awg-quick up` (`clientCpsSetArgs`). CPS tags crash `setconf`, so the .conf cannot carry them; the outbound initiates the handshake, and this is the only in-process moment before the first CPS window. Set failure is a warning, not a reconcile error (old tools keep working, minus mimicry). Fingerprint already covers I1–I5, so edits restart and re-apply.
+- TrustTunnel subscription emits two lines per client: official TLV deep link (`ClientDeepLink` — the only form Exclave and the official app parse, `TrustTunnelFmt.kt`) + Throne URI (`ClientURI` — Throne/NekoBox+). Previously only the URI went out and Exclave dropped it.
+- AWG subscription adds a `vpn://` Amnezia envelope next to `amneziawg://` (same `BuildAwgClientConf` + `vpnuri.EncodeConf` as `/awg/?format=vpn`): NekoBox+ imports AWG from .conf/vpn:// only and ignores `amneziawg://` (HYDRA emits vpn:// for the same reason); Exclave ignores unknown schemes.
+- Tests: `TestClientCpsSetArgs`, `TestGenAwgLink_VpnEnvelopeLine`, `TestGetSubs_TrustTunnel_TLVPlusURILines`.
+
+**lucxVersion:** lucx.162
+
+---
+
 ## lucx.161 — yandex dist bundle, non-fatal geo/sidecars (2026-08-23)
 
 Albert (RKN territory): `--yandex` broken — raw.sourcecraft.tech needs full SHA (not branch), SC API needs auth, geo from GitHub hung for an hour, and a killed update left the panel removed ("Please install the panel first").
