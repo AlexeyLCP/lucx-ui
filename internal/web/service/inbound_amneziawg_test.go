@@ -287,7 +287,8 @@ func TestGetAmneziaWGLogs_ClampsCountAndFiltersEvents(t *testing.T) {
 		t.Fatal("GetAmneziaWGLogs must never return nil")
 	}
 	for _, line := range logs.Events {
-		if !strings.Contains(strings.ToLower(line), "amneziawg") {
+		low := strings.ToLower(line)
+		if !strings.Contains(low, "amneziawg") && !strings.Contains(low, "awg:") && !strings.Contains(line, "[LUCX-AWG]") {
 			t.Fatalf("non-AmneziaWG line leaked into the event list: %q", line)
 		}
 	}

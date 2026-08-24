@@ -935,8 +935,11 @@ func (a *SUBController) ApplyCommonHeaders(
 	if profileEnableRouting {
 		c.Writer.Header().Set("Routing-Enable", "true")
 	}
-	rules := ResolveRoutingRules(a.subRoutingSource, profileRoutingRules)
-	if strings.TrimSpace(rules) == "" || a.subRoutingSource == "" || a.subRoutingSource == "custom" {
+	src := strings.TrimSpace(a.subRoutingSource)
+	var rules string
+	if src != "" && src != "custom" {
+		rules = ResolveRoutingRules(src, profileRoutingRules)
+	} else {
 		remoteRules, remote, routingErr := resolveRoutingSource(remoteRoutingHapp, profileRoutingRules)
 		if (routingErr == nil || !remote) && strings.TrimSpace(remoteRules) != "" {
 			rules = remoteRules
