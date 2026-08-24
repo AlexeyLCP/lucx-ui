@@ -162,13 +162,25 @@ export function QwdttCard() {
       </Typography.Paragraph>
 
       <Space wrap>
-        <Button icon={<CaretRightOutlined />} disabled={busy} onClick={() => runAction(() => tunnelsApi.qwdttStart())}>
+        <Button
+          icon={<CaretRightOutlined />}
+          disabled={busy}
+          onClick={() => runAction(() => tunnelsApi.qwdttStart())}
+        >
           {t('pages.tunnels.qwdtt.actions.start')}
         </Button>
-        <Button icon={<PauseOutlined />} disabled={busy} onClick={() => runAction(() => tunnelsApi.qwdttStop())}>
+        <Button
+          icon={<PauseOutlined />}
+          disabled={busy}
+          onClick={() => runAction(() => tunnelsApi.qwdttStop())}
+        >
           {t('pages.tunnels.qwdtt.actions.stop')}
         </Button>
-        <Button icon={<ReloadOutlined />} disabled={busy} onClick={() => runAction(() => tunnelsApi.qwdttRestart())}>
+        <Button
+          icon={<ReloadOutlined />}
+          disabled={busy}
+          onClick={() => runAction(() => tunnelsApi.qwdttRestart())}
+        >
           {t('pages.tunnels.qwdtt.actions.restart')}
         </Button>
         <Button icon={<FileSearchOutlined />} onClick={() => void onShowLogs()}>
@@ -258,7 +270,11 @@ export function QwdttCard() {
             <Form layout="vertical" onFinish={() => void onSave()}>
               <Row gutter={16}>
                 <Col xs={24} sm={12}>
-                  <FormField name="remark" control={form.control} label={t('pages.tunnels.qwdtt.form.remark')}>
+                  <FormField
+                    name="remark"
+                    control={form.control}
+                    label={t('pages.tunnels.qwdtt.form.remark')}
+                  >
                     <Input />
                   </FormField>
                 </Col>
@@ -287,12 +303,22 @@ export function QwdttCard() {
                   </FormField>
                 </Col>
                 <Col xs={12} sm={6}>
-                  <FormField name="wgPort" control={form.control} label={t('pages.tunnels.qwdtt.form.wgPort')} required>
+                  <FormField
+                    name="wgPort"
+                    control={form.control}
+                    label={t('pages.tunnels.qwdtt.form.wgPort')}
+                    required
+                  >
                     <InputNumber min={1} max={65535} style={{ width: '100%' }} />
                   </FormField>
                 </Col>
                 <Col xs={12} sm={6}>
-                  <FormField name="dns" control={form.control} label={t('pages.tunnels.qwdtt.form.dns')} required>
+                  <FormField
+                    name="dns"
+                    control={form.control}
+                    label={t('pages.tunnels.qwdtt.form.dns')}
+                    required
+                  >
                     <Input placeholder="8.8.8.8" />
                   </FormField>
                 </Col>
@@ -341,12 +367,20 @@ export function QwdttCard() {
 
               <Row gutter={16}>
                 <Col xs={12} sm={8}>
-                  <FormField name="clientPort" control={form.control} label={t('pages.tunnels.qwdtt.form.clientPort')}>
+                  <FormField
+                    name="clientPort"
+                    control={form.control}
+                    label={t('pages.tunnels.qwdtt.form.clientPort')}
+                  >
                     <InputNumber min={1} max={65535} style={{ width: '100%' }} />
                   </FormField>
                 </Col>
                 <Col xs={12} sm={8}>
-                  <FormField name="workers" control={form.control} label={t('pages.tunnels.qwdtt.form.workers')}>
+                  <FormField
+                    name="workers"
+                    control={form.control}
+                    label={t('pages.tunnels.qwdtt.form.workers')}
+                  >
                     <InputNumber min={1} max={64} style={{ width: '100%' }} />
                   </FormField>
                 </Col>

@@ -41,7 +41,9 @@ export function AwgOutboundsTab() {
     void queryClient.invalidateQueries({ queryKey: keys.xray.config() });
   }
 
-  useEffect(() => { void reload(); }, []);
+  useEffect(() => {
+    void reload();
+  }, []);
 
   async function handleTest(row: AwgOutbound) {
     try {
@@ -94,16 +96,15 @@ export function AwgOutboundsTab() {
       key: 'actions',
       render: (_: unknown, row: AwgOutboundRow) => (
         <Space>
-          <Button
-            size="small"
-            icon={<ThunderboltOutlined />}
-            onClick={() => handleTest(row)}
-          >
+          <Button size="small" icon={<ThunderboltOutlined />} onClick={() => handleTest(row)}>
             {t('pages.xray.awgOutbound.test')}
           </Button>
           <Button
             size="small"
-            onClick={() => { setEditing(row); setModalOpen(true); }}
+            onClick={() => {
+              setEditing(row);
+              setModalOpen(true);
+            }}
           >
             {t('edit')}
           </Button>
@@ -116,7 +117,9 @@ export function AwgOutboundsTab() {
             cancelText={t('cancel')}
             onConfirm={() => handleDel(row)}
           >
-            <Button size="small" danger>{t('delete')}</Button>
+            <Button size="small" danger>
+              {t('delete')}
+            </Button>
           </Popconfirm>
         </Space>
       ),
@@ -131,7 +134,10 @@ export function AwgOutboundsTab() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => { setEditing(null); setModalOpen(true); }}
+          onClick={() => {
+            setEditing(null);
+            setModalOpen(true);
+          }}
         >
           {t('pages.xray.awgOutbound.add')}
         </Button>

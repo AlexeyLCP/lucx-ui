@@ -38,7 +38,10 @@ function clampTimerInt(n: number): number {
   return Math.trunc(n);
 }
 
-export function collapseKeepaliveForVersion(keepAlive: unknown, isAwg3Plus: boolean): string | null {
+export function collapseKeepaliveForVersion(
+  keepAlive: unknown,
+  isAwg3Plus: boolean,
+): string | null {
   const s = normalizeAwgTimer(keepAlive);
   if (s === '0') return null;
   if (!isAwg3Plus) {

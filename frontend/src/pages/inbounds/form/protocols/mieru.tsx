@@ -25,7 +25,9 @@ function BindingPortInput({ index }: { index: number }) {
   const { t } = useTranslation();
   const { setValue } = useFormContext();
   const port = useWatch({ name: `settings.portBindings.${index}.port` }) as number | undefined;
-  const portRange = useWatch({ name: `settings.portBindings.${index}.portRange` }) as string | undefined;
+  const portRange = useWatch({ name: `settings.portBindings.${index}.portRange` }) as
+    | string
+    | undefined;
   const value = portRange ?? (port ? String(port) : '');
   return (
     <Input
@@ -38,7 +40,9 @@ function BindingPortInput({ index }: { index: number }) {
           setValue(`settings.portBindings.${index}.port`, undefined, { shouldDirty: true });
         } else {
           const n = v === '' ? undefined : Number(v);
-          setValue(`settings.portBindings.${index}.port`, Number.isFinite(n) ? n : undefined, { shouldDirty: true });
+          setValue(`settings.portBindings.${index}.port`, Number.isFinite(n) ? n : undefined, {
+            shouldDirty: true,
+          });
           setValue(`settings.portBindings.${index}.portRange`, undefined, { shouldDirty: true });
         }
       }}
@@ -84,7 +88,10 @@ function MieruAdvancedFields() {
       >
         <Select
           allowClear
-          options={MIERU_MULTIPLEXING_LEVELS.map((v) => ({ value: v, label: v.replace('MULTIPLEXING_', '') }))}
+          options={MIERU_MULTIPLEXING_LEVELS.map((v) => ({
+            value: v,
+            label: v.replace('MULTIPLEXING_', ''),
+          }))}
         />
       </FormField>
       <FormField
@@ -94,10 +101,15 @@ function MieruAdvancedFields() {
       >
         <Select
           allowClear
-          options={MIERU_HANDSHAKE_MODES.map((v) => ({ value: v, label: v.replace('HANDSHAKE_', '') }))}
+          options={MIERU_HANDSHAKE_MODES.map((v) => ({
+            value: v,
+            label: v.replace('HANDSHAKE_', ''),
+          }))}
         />
       </FormField>
-      <div style={{ margin: '4px 0 8px', fontWeight: 500 }}>{t('pages.inbounds.form.mieruTrafficPattern')}</div>
+      <div style={{ margin: '4px 0 8px', fontWeight: 500 }}>
+        {t('pages.inbounds.form.mieruTrafficPattern')}
+      </div>
       <div style={{ marginBottom: 8 }}>{t('pages.inbounds.form.mieruTrafficPatternHint')}</div>
       <FormField
         name={['settings', 'trafficPattern', 'seed']}
@@ -122,7 +134,10 @@ function MieruAdvancedFields() {
       >
         <Switch />
       </FormField>
-      <FormField name={['settings', 'trafficPattern', 'tcpFragment', 'maxSleepMs']} label={t('pages.inbounds.form.mieruTpMaxSleepMs')}>
+      <FormField
+        name={['settings', 'trafficPattern', 'tcpFragment', 'maxSleepMs']}
+        label={t('pages.inbounds.form.mieruTpMaxSleepMs')}
+      >
         <InputNumber min={0} max={100} style={{ width: '100%' }} />
       </FormField>
       <FormField
@@ -130,7 +145,13 @@ function MieruAdvancedFields() {
         label={t('pages.inbounds.form.mieruTpNonceType')}
         tooltip={t('pages.inbounds.form.mieruTpNonceTypeHint')}
       >
-        <Select allowClear options={MIERU_NONCE_TYPES.map((v) => ({ value: v, label: v.replace('NONCE_TYPE_', '') }))} />
+        <Select
+          allowClear
+          options={MIERU_NONCE_TYPES.map((v) => ({
+            value: v,
+            label: v.replace('NONCE_TYPE_', ''),
+          }))}
+        />
       </FormField>
       <FormField
         name={['settings', 'trafficPattern', 'nonce', 'applyToAllUDPPacket']}
@@ -141,12 +162,18 @@ function MieruAdvancedFields() {
       </FormField>
       <Row gutter={8}>
         <Col span={12}>
-          <FormField name={['settings', 'trafficPattern', 'nonce', 'minLen']} label={t('pages.inbounds.form.mieruTpNonceMinLen')}>
+          <FormField
+            name={['settings', 'trafficPattern', 'nonce', 'minLen']}
+            label={t('pages.inbounds.form.mieruTpNonceMinLen')}
+          >
             <InputNumber min={0} max={12} style={{ width: '100%' }} />
           </FormField>
         </Col>
         <Col span={12}>
-          <FormField name={['settings', 'trafficPattern', 'nonce', 'maxLen']} label={t('pages.inbounds.form.mieruTpNonceMaxLen')}>
+          <FormField
+            name={['settings', 'trafficPattern', 'nonce', 'maxLen']}
+            label={t('pages.inbounds.form.mieruTpNonceMaxLen')}
+          >
             <InputNumber min={0} max={12} style={{ width: '100%' }} />
           </FormField>
         </Col>
@@ -185,10 +212,16 @@ function MieruAdvancedFields() {
       >
         <Select
           allowClear
-          options={MIERU_LOW_ENTROPY_MODES.map((v) => ({ value: v, label: v.replace('LOW_ENTROPY_MODE_', '') }))}
+          options={MIERU_LOW_ENTROPY_MODES.map((v) => ({
+            value: v,
+            label: v.replace('LOW_ENTROPY_MODE_', ''),
+          }))}
         />
       </FormField>
-      <FormField name={['settings', 'trafficPattern', 'lowEntropy', 'maskRotation']} label={t('pages.inbounds.form.mieruTpMaskRotation')}>
+      <FormField
+        name={['settings', 'trafficPattern', 'lowEntropy', 'maskRotation']}
+        label={t('pages.inbounds.form.mieruTpMaskRotation')}
+      >
         <Select
           allowClear
           showSearch
@@ -252,7 +285,12 @@ export default function MieruFields() {
             </FormField>
           </Col>
           <Col>
-            <Button icon={<DeleteOutlined />} danger onClick={() => remove(i)} disabled={fields.length <= 1} />
+            <Button
+              icon={<DeleteOutlined />}
+              danger
+              onClick={() => remove(i)}
+              disabled={fields.length <= 1}
+            />
           </Col>
         </Row>
       ))}
@@ -266,10 +304,11 @@ export default function MieruFields() {
       <FormField name={['settings', 'mtu']} label={t('pages.inbounds.form.mieruMtu')}>
         <InputNumber min={1280} max={1500} style={{ width: '100%' }} />
       </FormField>
-      <FormField name={['settings', 'loggingLevel']} label={t('pages.inbounds.form.mieruLoggingLevel')}>
-        <Select
-          options={['DEBUG', 'INFO', 'WARN', 'ERROR'].map((l) => ({ value: l, label: l }))}
-        />
+      <FormField
+        name={['settings', 'loggingLevel']}
+        label={t('pages.inbounds.form.mieruLoggingLevel')}
+      >
+        <Select options={['DEBUG', 'INFO', 'WARN', 'ERROR'].map((l) => ({ value: l, label: l }))} />
       </FormField>
       <Collapse
         style={{ marginBottom: 14 }}

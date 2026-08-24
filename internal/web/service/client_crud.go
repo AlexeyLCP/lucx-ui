@@ -232,7 +232,7 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		if mErr != nil {
 			return needRestart, mErr
 		}
-		nr, addErr := s.addInboundClient(inboundSvc, &model.Inbound{
+		nr, addErr := s.AddInboundClient(inboundSvc, &model.Inbound{
 			Id:       inbound.Id,
 			Settings: string(settingsPayload),
 		})

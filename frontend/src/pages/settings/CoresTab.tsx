@@ -47,14 +47,17 @@ interface CoreApiResult<T> {
   obj?: T | null;
 }
 
-const CORE_API: Record<CoreKind, {
-  key: () => readonly string[];
-  status: () => Promise<CoreApiResult<CoreStatusView>>;
-  logs: (n: number) => Promise<CoreApiResult<string[]>>;
-  upload: (f: File) => Promise<unknown>;
-  download: (u: string, sha256?: string) => Promise<unknown>;
-  deleteBinary: () => Promise<unknown>;
-}> = {
+const CORE_API: Record<
+  CoreKind,
+  {
+    key: () => readonly string[];
+    status: () => Promise<CoreApiResult<CoreStatusView>>;
+    logs: (n: number) => Promise<CoreApiResult<string[]>>;
+    upload: (f: File) => Promise<unknown>;
+    download: (u: string, sha256?: string) => Promise<unknown>;
+    deleteBinary: () => Promise<unknown>;
+  }
+> = {
   naive: {
     key: keys.tunnels.naiveStatus,
     status: tunnelsApi.status,
@@ -123,15 +126,18 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
     void qc.invalidateQueries({ queryKey: api.key() });
   }, [api, qc]);
 
-  const run = useCallback(async (fn: () => Promise<{ success?: boolean }>) => {
-    setBusy(true);
-    try {
-      await fn();
-      invalidate();
-    } finally {
-      setBusy(false);
-    }
-  }, [invalidate]);
+  const run = useCallback(
+    async (fn: () => Promise<{ success?: boolean }>) => {
+      setBusy(true);
+      try {
+        await fn();
+        invalidate();
+      } finally {
+        setBusy(false);
+      }
+    },
+    [invalidate],
+  );
 
   const upload = (file: File) => {
     void (async () => {
@@ -184,26 +190,41 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
       size="small"
       style={{ marginBottom: 12 }}
       title={title}
-      extra={(
+      extra={
         <Space>
           <Badge
             status={running ? 'success' : 'default'}
-            text={running ? t('pages.tunnels.naive.status.running') : t('pages.tunnels.naive.status.stopped')}
+            text={
+              running
+                ? t('pages.tunnels.naive.status.running')
+                : t('pages.tunnels.naive.status.stopped')
+            }
           />
           <Tag color={exists ? 'green' : 'red'}>
             {exists ? t(`${i18nBase}.exists`) : t(`${i18nBase}.missing`)}
           </Tag>
         </Space>
-      )}
+      }
     >
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
         <Typography.Text code>{status?.binaryPath || '—'}</Typography.Text>
       </Typography.Paragraph>
       <Space wrap>
-        <Upload accept="application/octet-stream,.exe" maxCount={1} showUploadList={false} beforeUpload={upload}>
-          <Button icon={<UploadOutlined />} disabled={busy}>{t(`${i18nBase}.upload`)}</Button>
+        <Upload
+          accept="application/octet-stream,.exe"
+          maxCount={1}
+          showUploadList={false}
+          beforeUpload={upload}
+        >
+          <Button icon={<UploadOutlined />} disabled={busy}>
+            {t(`${i18nBase}.upload`)}
+          </Button>
         </Upload>
-        <Button icon={<CloudDownloadOutlined />} onClick={() => setDownloadOpen(true)} disabled={busy}>
+        <Button
+          icon={<CloudDownloadOutlined />}
+          onClick={() => setDownloadOpen(true)}
+          disabled={busy}
+        >
           {t(`${i18nBase}.download`)}
         </Button>
         <Popconfirm
@@ -212,9 +233,13 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
           cancelText={t('cancel')}
           onConfirm={() => run(() => api.deleteBinary() as Promise<{ success?: boolean }>)}
         >
-          <Button icon={<DeleteOutlined />} danger disabled={busy}>{t(`${i18nBase}.delete`)}</Button>
+          <Button icon={<DeleteOutlined />} danger disabled={busy}>
+            {t(`${i18nBase}.delete`)}
+          </Button>
         </Popconfirm>
-        <Button icon={<FileSearchOutlined />} onClick={() => void showLogs()}>{t('pages.tunnels.naive.logs')}</Button>
+        <Button icon={<FileSearchOutlined />} onClick={() => void showLogs()}>
+          {t('pages.tunnels.naive.logs')}
+        </Button>
       </Space>
       <Modal
         title={t(`${i18nBase}.download`)}
@@ -292,32 +317,55 @@ function AwgCard() {
       size="small"
       style={{ marginBottom: 12 }}
       title={t('pages.settings.cores.awgTitle')}
-      extra={(
+      extra={
         <Space>
           <Badge
-            status={!fetched ? 'default' : loaded ? (awg.interfaces ? 'success' : 'default') : 'error'}
-            text={!fetched
-              ? t('loading')
-              : loaded
-                ? t('pages.settings.cores.awgModuleLoaded')
-                : t('pages.settings.cores.awgModuleMissing')}
+            status={
+              !fetched ? 'default' : loaded ? (awg.interfaces ? 'success' : 'default') : 'error'
+            }
+            text={
+              !fetched
+                ? t('loading')
+                : loaded
+                  ? t('pages.settings.cores.awgModuleLoaded')
+                  : t('pages.settings.cores.awgModuleMissing')
+            }
           />
-          {awg.moduleAwg31 ? <Tag color="geekblue">AWG3.1</Tag> : awg.moduleAwg3 ? <Tag color="blue">AWG3</Tag> : null}
+          {awg.moduleAwg31 ? (
+            <Tag color="geekblue">AWG3.1</Tag>
+          ) : awg.moduleAwg3 ? (
+            <Tag color="blue">AWG3</Tag>
+          ) : null}
           {awg.version && <Tag>{awg.version}</Tag>}
         </Space>
-      )}
+      }
     >
       <Typography.Paragraph type="secondary">
         {t('pages.settings.cores.awgDesc')}
       </Typography.Paragraph>
       {rebuilding && (
-        <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('pages.settings.cores.awgRebuildRunning')} />
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.settings.cores.awgRebuildRunning')}
+        />
       )}
       {awg.rebootNeeded && !rebuilding && (
-        <Alert type="warning" showIcon style={{ marginBottom: 12 }} message={t('pages.settings.cores.awgRebootNeeded')} />
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.settings.cores.awgRebootNeeded')}
+        />
       )}
       {showMissing && !rebuilding && (
-        <Alert type="error" showIcon style={{ marginBottom: 12 }} message={t('pages.index.awgModuleNotLoadedHint')} />
+        <Alert
+          type="error"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.index.awgModuleNotLoadedHint')}
+        />
       )}
       {fetched && awg.errorMsg && awg.errorMsg !== 'module_not_loaded' && (
         <Alert type="error" showIcon style={{ marginBottom: 12 }} message={awg.errorMsg} />
@@ -327,11 +375,19 @@ function AwgCard() {
         {ifList ? ` · ${ifList}` : ''}
       </Typography.Paragraph>
       <Space wrap>
-        <Button icon={<ReloadOutlined />} disabled={busy || rebuilding || !loaded} onClick={() => void restartIfaces()}>
+        <Button
+          icon={<ReloadOutlined />}
+          disabled={busy || rebuilding || !loaded}
+          onClick={() => void restartIfaces()}
+        >
           {t('pages.settings.cores.awgRestart')}
         </Button>
         <Popconfirm
-          title={loaded ? t('pages.settings.cores.awgRebuildConfirm') : t('pages.settings.cores.awgInstallConfirm')}
+          title={
+            loaded
+              ? t('pages.settings.cores.awgRebuildConfirm')
+              : t('pages.settings.cores.awgInstallConfirm')
+          }
           okText={t('confirm')}
           cancelText={t('cancel')}
           onConfirm={() => void rebuildModule()}
@@ -366,7 +422,8 @@ function BbrCard() {
   const [busy, setBusy] = useState(false);
   const { data: bbrRes, refetch } = useQuery({
     queryKey: ['server', 'bbrStatus'],
-    queryFn: async () => HttpUtil.get<BbrStatus>('/panel/api/server/bbrStatus', undefined, { silent: true }),
+    queryFn: async () =>
+      HttpUtil.get<BbrStatus>('/panel/api/server/bbrStatus', undefined, { silent: true }),
     refetchInterval: 10000,
   });
   const bbr = bbrRes?.obj;
@@ -387,11 +444,22 @@ function BbrCard() {
     <Card
       size="small"
       style={{ marginBottom: 12 }}
-      title={(<><ThunderboltOutlined style={{ marginRight: 6 }} />{t('pages.settings.cores.bbrTitle')}</>)}
-      extra={(
+      title={
+        <>
+          <ThunderboltOutlined style={{ marginRight: 6 }} />
+          {t('pages.settings.cores.bbrTitle')}
+        </>
+      }
+      extra={
         <Space>
-          {bbr && !bbr.supported && <Tag color="red">{t('pages.settings.cores.bbrUnsupported')}</Tag>}
-          {bbr?.congestionControl && <Tag>{bbr.congestionControl} / {bbr.qdisc || '—'}</Tag>}
+          {bbr && !bbr.supported && (
+            <Tag color="red">{t('pages.settings.cores.bbrUnsupported')}</Tag>
+          )}
+          {bbr?.congestionControl && (
+            <Tag>
+              {bbr.congestionControl} / {bbr.qdisc || '—'}
+            </Tag>
+          )}
           <Switch
             checked={!!bbr?.enabled}
             disabled={busy || !bbr || !bbr.supported}
@@ -399,7 +467,7 @@ function BbrCard() {
             onChange={(checked) => void toggle(checked)}
           />
         </Space>
-      )}
+      }
     >
       <Typography.Paragraph type="secondary">
         {t('pages.settings.cores.bbrDesc')}
@@ -421,13 +489,12 @@ export default function CoresTab() {
         showIcon
         style={{ marginBottom: 16 }}
         message={t('pages.settings.cores.banner')}
-        description={(
+        description={
           <>
-            {t('pages.settings.cores.bannerDesc')}
-            {' '}
+            {t('pages.settings.cores.bannerDesc')}{' '}
             <Link to="/tunnels">{t('pages.settings.cores.openTunnelConfigs')}</Link>
           </>
-        )}
+        }
       />
       <AwgCard />
       <BbrCard />
@@ -474,18 +541,27 @@ function ClientBinaryCard({ protocol, titleKey }: { protocol: SidecarProtocol; t
       size="small"
       style={{ marginBottom: 12 }}
       title={t(titleKey)}
-      extra={(
+      extra={
         <Tag color={exists ? 'green' : 'red'}>
-          {exists ? t('pages.tunnels.naive.binary.exists') : t('pages.tunnels.naive.binary.missing')}
+          {exists
+            ? t('pages.tunnels.naive.binary.exists')
+            : t('pages.tunnels.naive.binary.missing')}
         </Tag>
-      )}
+      }
     >
       <Typography.Paragraph type="secondary" style={{ marginBottom: 8 }}>
         <Typography.Text code>{info?.path || '—'}</Typography.Text>
       </Typography.Paragraph>
       <Space wrap>
-        <Upload accept="application/octet-stream,.exe" maxCount={1} showUploadList={false} beforeUpload={upload}>
-          <Button icon={<UploadOutlined />} disabled={busy}>{t('pages.tunnels.naive.binary.upload')}</Button>
+        <Upload
+          accept="application/octet-stream,.exe"
+          maxCount={1}
+          showUploadList={false}
+          beforeUpload={upload}
+        >
+          <Button icon={<UploadOutlined />} disabled={busy}>
+            {t('pages.tunnels.naive.binary.upload')}
+          </Button>
         </Upload>
         <Popconfirm
           title={t('pages.tunnels.naive.binary.deleteConfirm')}
@@ -503,7 +579,9 @@ function ClientBinaryCard({ protocol, titleKey }: { protocol: SidecarProtocol; t
             })();
           }}
         >
-          <Button icon={<DeleteOutlined />} danger disabled={busy}>{t('pages.tunnels.naive.binary.delete')}</Button>
+          <Button icon={<DeleteOutlined />} danger disabled={busy}>
+            {t('pages.tunnels.naive.binary.delete')}
+          </Button>
         </Popconfirm>
       </Space>
     </Card>

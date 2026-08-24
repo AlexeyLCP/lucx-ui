@@ -33,22 +33,10 @@ export function buildSubLinks(
   const empty: BuiltSubLinks = { sub: '', json: '', clash: '', amnezia: '', amneziaVpn: '' };
   if (!settings || !subId) return empty;
 
-  const sub =
-    settings.enable !== false && settings.subURI
-      ? settings.subURI + subId
-      : '';
-  const json =
-    settings.subJsonEnable && settings.subJsonURI
-      ? settings.subJsonURI + subId
-      : '';
-  const clash =
-    settings.subClashEnable && settings.subClashURI
-      ? settings.subClashURI + subId
-      : '';
-  const amnezia =
-    settings.subAwgEnable && settings.subAwgURI
-      ? settings.subAwgURI + subId
-      : '';
+  const sub = settings.enable !== false && settings.subURI ? settings.subURI + subId : '';
+  const json = settings.subJsonEnable && settings.subJsonURI ? settings.subJsonURI + subId : '';
+  const clash = settings.subClashEnable && settings.subClashURI ? settings.subClashURI + subId : '';
+  const amnezia = settings.subAwgEnable && settings.subAwgURI ? settings.subAwgURI + subId : '';
   const amneziaVpn = amnezia
     ? amnezia.includes('?')
       ? `${amnezia}&format=vpn`

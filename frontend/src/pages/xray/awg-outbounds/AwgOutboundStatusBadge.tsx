@@ -41,7 +41,8 @@ export function parseAwgOutboundStatus(status: string): AwgOutboundStatusInfo {
 
 export function AwgOutboundStatusBadge({ status }: { status: AwgOutboundStatusInfo }) {
   if (status.up) {
-    const tip = `handshake ${status.handshakeAge ?? ''} ago; rx ${status.rx ?? 0} tx ${status.tx ?? 0}`.trim();
+    const tip =
+      `handshake ${status.handshakeAge ?? ''} ago; rx ${status.rx ?? 0} tx ${status.tx ?? 0}`.trim();
     return (
       <Tooltip title={tip}>
         <Tag icon={<CheckCircleOutlined />} color="success">

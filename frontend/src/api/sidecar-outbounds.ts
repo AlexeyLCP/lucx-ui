@@ -26,7 +26,9 @@ const BASE = '/panel/api/sidecar-outbounds';
 
 export const sidecarOutboundsApi = {
   list: async (): Promise<Msg<SidecarOutboundRow[]>> => {
-    const raw = await HttpUtil.get<SidecarOutboundRow[]>(`${BASE}/list`, undefined, { silent: true });
+    const raw = await HttpUtil.get<SidecarOutboundRow[]>(`${BASE}/list`, undefined, {
+      silent: true,
+    });
     return parseMsg(raw, z.array(SidecarOutboundRowSchema), 'sidecar-outbounds/list');
   },
   add: async (data: Partial<SidecarOutbound>): Promise<Msg<SidecarOutbound>> => {
@@ -35,7 +37,11 @@ export const sidecarOutboundsApi = {
   },
   del: (id: number): Promise<Msg<null>> => HttpUtil.post<null>(`${BASE}/del/${id}`, {}),
   update: async (data: SidecarOutbound): Promise<Msg<SidecarOutbound>> => {
-    const raw = await HttpUtil.post<SidecarOutbound>(`${BASE}/update/${data.id}`, data, JSON_HEADERS);
+    const raw = await HttpUtil.post<SidecarOutbound>(
+      `${BASE}/update/${data.id}`,
+      data,
+      JSON_HEADERS,
+    );
     return parseMsg(raw, SidecarOutboundSchema, 'sidecar-outbounds/update');
   },
   enable: (id: number, enable: boolean): Promise<Msg<null>> =>

@@ -52,7 +52,10 @@ export function mieruPreset(name: MieruPresetName): MieruPresetValues {
           tcpFragment: { enable: true, maxSleepMs: 20 },
           nonce: { type: 'NONCE_TYPE_PRINTABLE', applyToAllUDPPacket: true },
           padding: { maxMiddlePaddingLen: 128, maxEndPaddingLen: 64 },
-          lowEntropy: { mode: 'LOW_ENTROPY_MODE_48', maskRotation: 'LOW_ENTROPY_MASK_ROTATE_RIGHT_4' },
+          lowEntropy: {
+            mode: 'LOW_ENTROPY_MODE_48',
+            maskRotation: 'LOW_ENTROPY_MASK_ROTATE_RIGHT_4',
+          },
         },
       };
     case 'off':

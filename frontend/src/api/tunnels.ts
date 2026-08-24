@@ -25,7 +25,16 @@ import {
   type TrustTunnelStatus,
 } from '@/schemas/tunnel';
 
-export type { NaiveConfig, NaiveStatus, OlcrtcConfig, OlcrtcStatus, QwdttConfig, QwdttStatus, MieruStatus, TrustTunnelStatus };
+export type {
+  NaiveConfig,
+  NaiveStatus,
+  OlcrtcConfig,
+  OlcrtcStatus,
+  QwdttConfig,
+  QwdttStatus,
+  MieruStatus,
+  TrustTunnelStatus,
+};
 
 // JSON_HEADERS is load-bearing on every POST (lucx.69 lesson).
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
@@ -59,7 +68,11 @@ export const tunnelsApi = {
     return parseMsg(raw, z.object({ caddyfile: z.string() }), 'tunnel/preview');
   },
   validate: async (text: string): Promise<Msg<{ valid: boolean }>> => {
-    const raw = await HttpUtil.post<{ valid: boolean }>(`${NAIVE}/validate`, { text }, JSON_HEADERS);
+    const raw = await HttpUtil.post<{ valid: boolean }>(
+      `${NAIVE}/validate`,
+      { text },
+      JSON_HEADERS,
+    );
     return parseMsg(raw, z.object({ valid: z.boolean() }), 'tunnel/validate');
   },
   download: (url: string, sha256?: string): Promise<Msg<null>> =>
@@ -69,7 +82,8 @@ export const tunnelsApi = {
     fd.append('file', file);
     return HttpUtil.post<null>(`${NAIVE}/upload`, fd);
   },
-  deleteBinary: (): Promise<Msg<null>> => HttpUtil.post<null>(`${NAIVE}/deleteBinary`, {}, JSON_HEADERS),
+  deleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${NAIVE}/deleteBinary`, {}, JSON_HEADERS),
 
   olcrtcStatus: async (): Promise<Msg<OlcrtcStatus>> => {
     const raw = await HttpUtil.get<OlcrtcStatus>(`${OLCRTC}/status`, undefined, { silent: true });
@@ -81,7 +95,8 @@ export const tunnelsApi = {
   },
   olcrtcStart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${OLCRTC}/start`, {}, JSON_HEADERS),
   olcrtcStop: (): Promise<Msg<null>> => HttpUtil.post<null>(`${OLCRTC}/stop`, {}, JSON_HEADERS),
-  olcrtcRestart: (): Promise<Msg<null>> => HttpUtil.post<null>(`${OLCRTC}/restart`, {}, JSON_HEADERS),
+  olcrtcRestart: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${OLCRTC}/restart`, {}, JSON_HEADERS),
   olcrtcLogs: (lines = 200): Promise<Msg<string[]>> =>
     HttpUtil.get<string[]>(`${OLCRTC}/logs?lines=${lines}`),
   olcrtcPreview: async (cfg: OlcrtcConfig): Promise<Msg<{ yaml: string }>> => {
@@ -138,7 +153,9 @@ export const tunnelsApi = {
     HttpUtil.post<null>(`${MIERU}/deleteBinary`, {}, JSON_HEADERS),
 
   trustTunnelStatus: async (): Promise<Msg<TrustTunnelStatus>> => {
-    const raw = await HttpUtil.get<TrustTunnelStatus>(`${TRUSTTUNNEL}/status`, undefined, { silent: true });
+    const raw = await HttpUtil.get<TrustTunnelStatus>(`${TRUSTTUNNEL}/status`, undefined, {
+      silent: true,
+    });
     return parseMsg(raw, TrustTunnelStatusSchema, 'tunnel/trustTunnelStatus');
   },
   trustTunnelLogs: (lines = 200): Promise<Msg<string[]>> =>

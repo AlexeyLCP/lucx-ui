@@ -37,7 +37,9 @@ describe('genQwdttLink', () => {
   });
 
   it('falls back to address:port when subHost empty', () => {
-    const ib = qwdttInbound({ settings: { subHost: '', password: 'x', listenAddr: '0.0.0.0:56000' } });
+    const ib = qwdttInbound({
+      settings: { subHost: '', password: 'x', listenAddr: '0.0.0.0:56000' },
+    });
     const link = genQwdttLink({ inbound: ib, address: '9.9.9.9', remark: 'r' });
     expect(link).toContain('peer=9.9.9.9%3A56000');
   });
@@ -49,8 +51,12 @@ describe('genQwdttLink', () => {
 
   it('genInboundLinks and genLink dispatch', () => {
     const ib = qwdttInbound();
-    expect(genInboundLinks({ inbound: ib, remark: 'e2e', fallbackHostname: 'x' })).toContain('qwdtt://');
-    expect(genLink({ inbound: ib, address: '1.2.3.4', client: {}, remark: 'e2e' })).toContain('qwdtt://');
+    expect(genInboundLinks({ inbound: ib, remark: 'e2e', fallbackHostname: 'x' })).toContain(
+      'qwdtt://',
+    );
+    expect(genLink({ inbound: ib, address: '1.2.3.4', client: {}, remark: 'e2e' })).toContain(
+      'qwdtt://',
+    );
   });
 });
 

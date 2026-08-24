@@ -21,7 +21,13 @@ import {
   type AwgOutboundTest,
 } from '@/schemas/awg-outbound';
 
-export type { AwgOutbound, AwgOutboundRow, AwgOutboundSettings, AwgOutboundStatus, AwgOutboundTest };
+export type {
+  AwgOutbound,
+  AwgOutboundRow,
+  AwgOutboundSettings,
+  AwgOutboundStatus,
+  AwgOutboundTest,
+};
 
 // API client for the 8 AWG-outbound REST endpoints registered in
 // internal/web/controller/awg_outbound.go (Task 6). Routes live under
@@ -57,7 +63,9 @@ export const awgOutboundsApi = {
   enable: (id: number, enable: boolean): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${BASE}/enable/${id}`, { enable }, JSON_HEADERS),
   status: async (id: number): Promise<Msg<AwgOutboundStatus>> => {
-    const raw = await HttpUtil.get<AwgOutboundStatus>(`${BASE}/status/${id}`, undefined, { silent: true });
+    const raw = await HttpUtil.get<AwgOutboundStatus>(`${BASE}/status/${id}`, undefined, {
+      silent: true,
+    });
     return parseMsg(raw, AwgOutboundStatusSchema, 'awg-outbounds/status');
   },
   test: async (id: number): Promise<Msg<AwgOutboundTest>> => {
@@ -65,7 +73,11 @@ export const awgOutboundsApi = {
     return parseMsg(raw, AwgOutboundTestSchema, 'awg-outbounds/test');
   },
   parseConf: async (conf: string): Promise<Msg<AwgOutboundSettings>> => {
-    const raw = await HttpUtil.post<AwgOutboundSettings>(`${BASE}/parseConf`, { conf }, JSON_HEADERS);
+    const raw = await HttpUtil.post<AwgOutboundSettings>(
+      `${BASE}/parseConf`,
+      { conf },
+      JSON_HEADERS,
+    );
     return parseMsg(raw, AwgOutboundSettingsSchema, 'awg-outbounds/parseConf');
   },
 };

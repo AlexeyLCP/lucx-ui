@@ -56,10 +56,7 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
 
   const showBanner = candidates.length > 0 && (!dismissed || forceShow);
 
-  const peerTotal = useMemo(
-    () => candidates.reduce((n, c) => n + c.peerCount, 0),
-    [candidates],
-  );
+  const peerTotal = useMemo(() => candidates.reduce((n, c) => n + c.peerCount, 0), [candidates]);
 
   const onSkip = async () => {
     await awgImportApi.dismiss();
@@ -84,11 +81,13 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
       const clients = ok.reduce((n, r) => n + r.clients, 0);
       const missing = ok.reduce((n, r) => n + r.missingKeys, 0);
       if (ok.length > 0) {
-        message.success(t('pages.inbounds.awgImport.success', {
-          inbounds: ok.length,
-          clients,
-          missing,
-        }));
+        message.success(
+          t('pages.inbounds.awgImport.success', {
+            inbounds: ok.length,
+            clients,
+            missing,
+          }),
+        );
       }
       if (fail.length > 0) {
         message.warning(fail.map((r) => r.error).join('; '));
@@ -144,8 +143,11 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
           showIcon
           style={{ marginBottom: 16 }}
           message={t('pages.inbounds.awgImport.bannerTitle')}
-          description={t('pages.inbounds.awgImport.bannerBody', { count: candidates.length, peers: peerTotal })}
-          action={(
+          description={t('pages.inbounds.awgImport.bannerBody', {
+            count: candidates.length,
+            peers: peerTotal,
+          })}
+          action={
             <Space>
               <Button size="small" type="primary" onClick={() => setModalOpen(true)}>
                 {t('pages.inbounds.awgImport.review')}
@@ -154,7 +156,7 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
                 {t('pages.inbounds.awgImport.skip')}
               </Button>
             </Space>
-          )}
+          }
         />
       )}
       <Modal
@@ -163,7 +165,9 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
         width={920}
         onCancel={() => setModalOpen(false)}
         footer={[
-          <Button key="skip" onClick={() => void onSkip()}>{t('pages.inbounds.awgImport.skip')}</Button>,
+          <Button key="skip" onClick={() => void onSkip()}>
+            {t('pages.inbounds.awgImport.skip')}
+          </Button>,
           <Button key="ok" type="primary" loading={busy} onClick={() => void onCommit()}>
             {t('pages.inbounds.awgImport.confirm')}
           </Button>,

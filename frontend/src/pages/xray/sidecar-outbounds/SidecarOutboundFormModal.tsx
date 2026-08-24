@@ -122,8 +122,12 @@ export function SidecarOutboundFormModal({ open, onClose, onSaved, initial }: Pr
       onCancel={onClose}
       title={initial ? t('pages.xray.sidecarOutbound.edit') : t('pages.xray.sidecarOutbound.add')}
       footer={[
-        <Button key="cancel" onClick={onClose}>{t('cancel')}</Button>,
-        <Button key="ok" type="primary" loading={saving} onClick={() => void save()}>{t('save')}</Button>,
+        <Button key="cancel" onClick={onClose}>
+          {t('cancel')}
+        </Button>,
+        <Button key="ok" type="primary" loading={saving} onClick={() => void save()}>
+          {t('save')}
+        </Button>,
       ]}
     >
       {holder}

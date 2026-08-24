@@ -170,7 +170,8 @@ function settingsToFormValues(initial: AwgOutbound): AwgOutboundFormValues {
     i5: parsed.i5 ?? DEFAULT_SETTINGS.i5,
     headerProtectionKey: parsed.headerProtectionKey ?? DEFAULT_SETTINGS.headerProtectionKey,
     awgVersion: parsed.awgVersion ?? DEFAULT_SETTINGS.awgVersion,
-    contentPaddingAddition: parsed.contentPaddingAddition ?? DEFAULT_SETTINGS.contentPaddingAddition,
+    contentPaddingAddition:
+      parsed.contentPaddingAddition ?? DEFAULT_SETTINGS.contentPaddingAddition,
     rekeyAfterTime: parsed.rekeyAfterTime ?? DEFAULT_SETTINGS.rekeyAfterTime,
     rekeyTimeout: parsed.rekeyTimeout ?? DEFAULT_SETTINGS.rekeyTimeout,
     rejectAfterTime: parsed.rejectAfterTime ?? DEFAULT_SETTINGS.rejectAfterTime,
@@ -321,7 +322,13 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
       // Surface the obfuscation block if the parsed conf carried it so the
       // operator sees the values the parse produced — including HPK for a v3
       // .conf (which lives in the advanced section).
-      const hasObf = parsed.jc || parsed.jmin || parsed.jmax || parsed.s1 || parsed.h1 || parsed.headerProtectionKey;
+      const hasObf =
+        parsed.jc ||
+        parsed.jmin ||
+        parsed.jmax ||
+        parsed.s1 ||
+        parsed.h1 ||
+        parsed.headerProtectionKey;
       if (hasObf) setShowAdvanced(true);
       setPasteOpen(false);
       messageApi.success(t('pages.xray.awgOutbound.parsed'));
@@ -348,10 +355,7 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
           <Form layout="vertical" colon={false}>
             <Row gutter={16}>
               <Col span={12}>
-                <FormField
-                  label={t('pages.xray.awgOutbound.tag')}
-                  name="tag"
-                >
+                <FormField label={t('pages.xray.awgOutbound.tag')} name="tag">
                   <Input placeholder="awgo-1" />
                 </FormField>
               </Col>
@@ -457,7 +461,9 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
             {/* END LUCX-HOOK */}
 
             <Space>
-              <Button onClick={() => setPasteOpen(true)}>{t('pages.xray.awgOutbound.pasteConf')}</Button>
+              <Button onClick={() => setPasteOpen(true)}>
+                {t('pages.xray.awgOutbound.pasteConf')}
+              </Button>
               <Button type="link" onClick={() => setShowAdvanced((v) => !v)}>
                 {t('pages.xray.awgOutbound.advanced')}
               </Button>
@@ -580,28 +586,62 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                 {/* AWG3 advanced timers/padding — 0 = kernel default. */}
                 <Form.Item label={t('pages.inbounds.form.awgAdvancedSection')}>
                   <Space direction="vertical" style={{ width: '100%' }}>
-                    <FormField name="contentPaddingAddition" label={t('pages.inbounds.form.awgContentPaddingAddition')} tooltip={t('pages.inbounds.form.awgContentPaddingAdditionHint')}>
+                    <FormField
+                      name="contentPaddingAddition"
+                      label={t('pages.inbounds.form.awgContentPaddingAddition')}
+                      tooltip={t('pages.inbounds.form.awgContentPaddingAdditionHint')}
+                    >
                       <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
-                    <FormField name="rekeyAfterTime" label={t('pages.inbounds.form.awgRekeyAfterTime')} tooltip={t('pages.inbounds.form.awgRekeyAfterTimeHint')}>
+                    <FormField
+                      name="rekeyAfterTime"
+                      label={t('pages.inbounds.form.awgRekeyAfterTime')}
+                      tooltip={t('pages.inbounds.form.awgRekeyAfterTimeHint')}
+                    >
                       <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
-                    <FormField name="rekeyTimeout" label={t('pages.inbounds.form.awgRekeyTimeout')} tooltip={t('pages.inbounds.form.awgRekeyTimeoutHint')}>
+                    <FormField
+                      name="rekeyTimeout"
+                      label={t('pages.inbounds.form.awgRekeyTimeout')}
+                      tooltip={t('pages.inbounds.form.awgRekeyTimeoutHint')}
+                    >
                       <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
-                    <FormField name="rejectAfterTime" label={t('pages.inbounds.form.awgRejectAfterTime')} tooltip={t('pages.inbounds.form.awgRejectAfterTimeHint')}>
+                    <FormField
+                      name="rejectAfterTime"
+                      label={t('pages.inbounds.form.awgRejectAfterTime')}
+                      tooltip={t('pages.inbounds.form.awgRejectAfterTimeHint')}
+                    >
                       <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
-                    <FormField name="keepaliveTimeout" label={t('pages.inbounds.form.awgKeepaliveTimeout')} tooltip={t('pages.inbounds.form.awgKeepaliveTimeoutHint')}>
+                    <FormField
+                      name="keepaliveTimeout"
+                      label={t('pages.inbounds.form.awgKeepaliveTimeout')}
+                      tooltip={t('pages.inbounds.form.awgKeepaliveTimeoutHint')}
+                    >
                       <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
-                    <FormField name="maxHandshakeAttempts" label={t('pages.inbounds.form.awgMaxHandshakeAttempts')} tooltip={t('pages.inbounds.form.awgMaxHandshakeAttemptsHint')}>
+                    <FormField
+                      name="maxHandshakeAttempts"
+                      label={t('pages.inbounds.form.awgMaxHandshakeAttempts')}
+                      tooltip={t('pages.inbounds.form.awgMaxHandshakeAttemptsHint')}
+                    >
                       <Input placeholder="0 или диапазон, напр. 100-120" />
                     </FormField>
-                    <FormField name="randomTrailers" label={t('pages.inbounds.form.awgRandomTrailers')} tooltip={t('pages.inbounds.form.awgRandomTrailersHint')} valueProp="checked">
+                    <FormField
+                      name="randomTrailers"
+                      label={t('pages.inbounds.form.awgRandomTrailers')}
+                      tooltip={t('pages.inbounds.form.awgRandomTrailersHint')}
+                      valueProp="checked"
+                    >
                       <Switch />
                     </FormField>
-                    <FormField name="disableCookies" label={t('pages.inbounds.form.awgDisableCookies')} tooltip={t('pages.inbounds.form.awgDisableCookiesHint')} valueProp="checked">
+                    <FormField
+                      name="disableCookies"
+                      label={t('pages.inbounds.form.awgDisableCookies')}
+                      tooltip={t('pages.inbounds.form.awgDisableCookiesHint')}
+                      valueProp="checked"
+                    >
                       <Switch />
                     </FormField>
                   </Space>

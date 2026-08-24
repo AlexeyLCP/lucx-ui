@@ -1301,7 +1301,6 @@ func amneziawgLogActivity() []PeerActivity {
 			})
 		}
 	}
-	now := time.Now()
 	for _, lp := range awg.GetManager().LivePeers() {
 		var handshakeMs int64
 		online := false

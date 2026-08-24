@@ -40,14 +40,20 @@ export function SidecarOutboundsTab() {
     void queryClient.invalidateQueries({ queryKey: keys.xray.config() });
   }
 
-  useEffect(() => { void reload(); }, []);
+  useEffect(() => {
+    void reload();
+  }, []);
 
   async function handleTest(row: SidecarOutbound) {
     try {
       const res = await sidecarOutboundsApi.test(row.id);
       if (res.success && res.obj?.ok) {
         const ms = res.obj.latency_ms ?? 0;
-        messageApi.success(ms > 0 ? `${t('pages.xray.awgOutbound.testOk')} (${ms} ms)` : t('pages.xray.awgOutbound.testOk'));
+        messageApi.success(
+          ms > 0
+            ? `${t('pages.xray.awgOutbound.testOk')} (${ms} ms)`
+            : t('pages.xray.awgOutbound.testOk'),
+        );
       } else {
         messageApi.error(res.obj?.raw || res.msg || t('pages.xray.awgOutbound.test'));
       }
@@ -67,7 +73,9 @@ export function SidecarOutboundsTab() {
       render: (s: string, row) => (
         <Space>
           <span>{s}</span>
-          {row.binaryMissing ? <Tag color="red">{t('pages.xray.sidecarOutbound.binaryMissing')}</Tag> : null}
+          {row.binaryMissing ? (
+            <Tag color="red">{t('pages.xray.sidecarOutbound.binaryMissing')}</Tag>
+          ) : null}
         </Space>
       ),
     },
@@ -80,10 +88,13 @@ export function SidecarOutboundsTab() {
             <Upload
               showUploadList={false}
               beforeUpload={(file) => {
-                void sidecarOutboundsApi.upload('naive', file).then(() => {
-                  messageApi.success(t('pages.xray.sidecarOutbound.uploaded'));
-                  afterMutate();
-                }).catch((e: Error) => messageApi.error(e.message));
+                void sidecarOutboundsApi
+                  .upload('naive', file)
+                  .then(() => {
+                    messageApi.success(t('pages.xray.sidecarOutbound.uploaded'));
+                    afterMutate();
+                  })
+                  .catch((e: Error) => messageApi.error(e.message));
                 return false;
               }}
             >
@@ -95,17 +106,34 @@ export function SidecarOutboundsTab() {
           <Button size="small" icon={<ThunderboltOutlined />} onClick={() => handleTest(row)}>
             {t('pages.xray.awgOutbound.test')}
           </Button>
-          <Button size="small" onClick={() => { setEditing(row); setModalOpen(true); }}>{t('edit')}</Button>
-          <Button size="small" onClick={() => { void sidecarOutboundsApi.enable(row.id, !row.enable).then(afterMutate); }}>
+          <Button
+            size="small"
+            onClick={() => {
+              setEditing(row);
+              setModalOpen(true);
+            }}
+          >
+            {t('edit')}
+          </Button>
+          <Button
+            size="small"
+            onClick={() => {
+              void sidecarOutboundsApi.enable(row.id, !row.enable).then(afterMutate);
+            }}
+          >
             {row.enable ? t('disable') : t('enable')}
           </Button>
           <Popconfirm
             title={t('pages.xray.sidecarOutbound.deleteConfirm')}
             okText={t('delete')}
             cancelText={t('cancel')}
-            onConfirm={() => { void sidecarOutboundsApi.del(row.id).then(afterMutate); }}
+            onConfirm={() => {
+              void sidecarOutboundsApi.del(row.id).then(afterMutate);
+            }}
           >
-            <Button size="small" danger>{t('delete')}</Button>
+            <Button size="small" danger>
+              {t('delete')}
+            </Button>
           </Popconfirm>
         </Space>
       ),
@@ -126,7 +154,10 @@ export function SidecarOutboundsTab() {
         <Button
           type="primary"
           icon={<PlusOutlined />}
-          onClick={() => { setEditing(null); setModalOpen(true); }}
+          onClick={() => {
+            setEditing(null);
+            setModalOpen(true);
+          }}
         >
           {t('pages.xray.sidecarOutbound.add')}
         </Button>

@@ -66,10 +66,12 @@ describe('qwdtt inbound form', () => {
   });
 
   it('parses transportless stream after sidecar protocol switch shape', () => {
-    const r = InboundFormSchema.safeParse(base({
-      port: 56000,
-      streamSettings: { security: 'none' },
-    }));
+    const r = InboundFormSchema.safeParse(
+      base({
+        port: 56000,
+        streamSettings: { security: 'none' },
+      }),
+    );
     expect(r.success, JSON.stringify(r.success ? null : r.error.issues)).toBe(true);
   });
 });

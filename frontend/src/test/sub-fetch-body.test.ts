@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { extractAwgInboundId, extractAwgSubId, isAmneziaConfUrl, isAmneziaVpnUrl } from '@/lib/sub/fetchBody';
+import {
+  extractAwgInboundId,
+  extractAwgSubId,
+  isAmneziaConfUrl,
+  isAmneziaVpnUrl,
+} from '@/lib/sub/fetchBody';
 
 describe('isAmneziaVpnUrl', () => {
   it('detects format=vpn query', () => {
@@ -19,9 +24,9 @@ describe('isAmneziaVpnUrl', () => {
 
 describe('extractAwgSubId', () => {
   it('parses subId from /awg/ path', () => {
-    expect(extractAwgSubId('https://h:2096/awg/d692e589-8480-4c07-a375-4ccb71535a47?format=vpn')).toBe(
-      'd692e589-8480-4c07-a375-4ccb71535a47',
-    );
+    expect(
+      extractAwgSubId('https://h:2096/awg/d692e589-8480-4c07-a375-4ccb71535a47?format=vpn'),
+    ).toBe('d692e589-8480-4c07-a375-4ccb71535a47');
     expect(extractAwgSubId('https://h/awg/abc')).toBe('abc');
   });
 

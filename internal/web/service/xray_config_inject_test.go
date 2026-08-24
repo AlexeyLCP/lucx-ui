@@ -747,6 +747,19 @@ func TestInjectTunnelEgress_WithOutbound(t *testing.T) {
 	}
 
 	var routing egressRouting
+	if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+		t.Fatal(err)
+	}
+	if len(routing.Rules) != 2 {
+		t.Fatalf("expected the egress rule prepended, got %+v", routing.Rules)
+	}
+	first := routing.Rules[0]
+	if first.Type != "field" || first.OutboundTag != "warp" ||
+		len(first.InboundTag) != 1 || first.InboundTag[0] != tunnel.NaiveEgressTag {
+		t.Fatalf("egress rule must bind NaiveEgressTag to the outbound, got %+v", first)
+	}
+}
+
 func amneziawgInbound(id int, tag string, clients []model.Client) *model.Inbound {
 	server := amneziawg.ServerSettings{SubnetIP: "10.8.1.0", SubnetCIDR: 24}
 	settings, _ := json.Marshal(amneziawg.InboundSettings{Server: &server, Clients: clients})

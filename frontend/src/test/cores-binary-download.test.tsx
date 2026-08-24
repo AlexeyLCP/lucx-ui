@@ -47,13 +47,16 @@ async function openFirstDownloadDialog() {
 }
 
 beforeEach(() => {
-  vi.spyOn(HttpUtil, 'get').mockImplementation(async () => new Msg(true, '', {
-    core: 'naive',
-    displayName: 'NaiveProxy',
-    binaryExists: false,
-    binaryPath: 'bin/caddy-naive-linux-amd64',
-    probe: { running: false },
-  }));
+  vi.spyOn(HttpUtil, 'get').mockImplementation(
+    async () =>
+      new Msg(true, '', {
+        core: 'naive',
+        displayName: 'NaiveProxy',
+        binaryExists: false,
+        binaryPath: 'bin/caddy-naive-linux-amd64',
+        probe: { running: false },
+      }),
+  );
 });
 
 afterEach(() => {

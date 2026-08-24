@@ -20,7 +20,9 @@ const BASE = '/panel/api/inbounds/awg/import';
 
 export const awgImportApi = {
   preview: async (): Promise<Msg<AwgImportPreview>> => {
-    const raw = await HttpUtil.get<AwgImportPreview>(`${BASE}/preview`, undefined, { silent: true });
+    const raw = await HttpUtil.get<AwgImportPreview>(`${BASE}/preview`, undefined, {
+      silent: true,
+    });
     return parseMsg(raw, AwgImportPreviewSchema, 'awg-import/preview');
   },
   dismiss: (): Promise<Msg<null>> => HttpUtil.post<null>(`${BASE}/dismiss`, {}),

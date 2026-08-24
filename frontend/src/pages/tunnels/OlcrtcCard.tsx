@@ -198,13 +198,25 @@ export function OlcrtcCard() {
       </Typography.Paragraph>
 
       <Space wrap>
-        <Button icon={<CaretRightOutlined />} disabled={busy} onClick={() => runAction(() => tunnelsApi.olcrtcStart())}>
+        <Button
+          icon={<CaretRightOutlined />}
+          disabled={busy}
+          onClick={() => runAction(() => tunnelsApi.olcrtcStart())}
+        >
           {t('pages.tunnels.olcrtc.actions.start')}
         </Button>
-        <Button icon={<PauseOutlined />} disabled={busy} onClick={() => runAction(() => tunnelsApi.olcrtcStop())}>
+        <Button
+          icon={<PauseOutlined />}
+          disabled={busy}
+          onClick={() => runAction(() => tunnelsApi.olcrtcStop())}
+        >
           {t('pages.tunnels.olcrtc.actions.stop')}
         </Button>
-        <Button icon={<ReloadOutlined />} disabled={busy} onClick={() => runAction(() => tunnelsApi.olcrtcRestart())}>
+        <Button
+          icon={<ReloadOutlined />}
+          disabled={busy}
+          onClick={() => runAction(() => tunnelsApi.olcrtcRestart())}
+        >
           {t('pages.tunnels.olcrtc.actions.restart')}
         </Button>
         <Button icon={<FileSearchOutlined />} onClick={() => void onShowLogs()}>
@@ -276,7 +288,11 @@ export function OlcrtcCard() {
             <Form layout="vertical" onFinish={() => void onSave()}>
               <Row gutter={16}>
                 <Col xs={24} sm={12}>
-                  <FormField name="remark" control={form.control} label={t('pages.tunnels.olcrtc.form.remark')}>
+                  <FormField
+                    name="remark"
+                    control={form.control}
+                    label={t('pages.tunnels.olcrtc.form.remark')}
+                  >
                     <Input />
                   </FormField>
                 </Col>
@@ -329,7 +345,10 @@ export function OlcrtcCard() {
                   </Button>
                 }
               >
-                <Input.Password autoComplete="new-password" placeholder="64 hex chars (auto on save)" />
+                <Input.Password
+                  autoComplete="new-password"
+                  placeholder="64 hex chars (auto on save)"
+                />
               </FormField>
 
               <Row gutter={16}>
@@ -360,19 +379,32 @@ export function OlcrtcCard() {
               {transport === 'vp8channel' && (
                 <Row gutter={16}>
                   <Col xs={12} sm={8}>
-                    <FormField name="vp8Fps" control={form.control} label={t('pages.tunnels.olcrtc.form.vp8Fps')}>
+                    <FormField
+                      name="vp8Fps"
+                      control={form.control}
+                      label={t('pages.tunnels.olcrtc.form.vp8Fps')}
+                    >
                       <InputNumber min={1} max={120} style={{ width: '100%' }} />
                     </FormField>
                   </Col>
                   <Col xs={12} sm={8}>
-                    <FormField name="vp8Batch" control={form.control} label={t('pages.tunnels.olcrtc.form.vp8Batch')}>
+                    <FormField
+                      name="vp8Batch"
+                      control={form.control}
+                      label={t('pages.tunnels.olcrtc.form.vp8Batch')}
+                    >
                       <InputNumber min={1} max={64} style={{ width: '100%' }} />
                     </FormField>
                   </Col>
                 </Row>
               )}
 
-              <FormField name="debug" control={form.control} label={t('pages.tunnels.olcrtc.form.debug')} valueProp="checked">
+              <FormField
+                name="debug"
+                control={form.control}
+                label={t('pages.tunnels.olcrtc.form.debug')}
+                valueProp="checked"
+              >
                 <Switch />
               </FormField>
 
@@ -380,7 +412,9 @@ export function OlcrtcCard() {
                 <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={busy}>
                   {t('pages.tunnels.olcrtc.form.save')}
                 </Button>
-                <Button onClick={() => void onPreview()}>{t('pages.tunnels.olcrtc.form.preview')}</Button>
+                <Button onClick={() => void onPreview()}>
+                  {t('pages.tunnels.olcrtc.form.preview')}
+                </Button>
               </Space>
             </Form>
           </FormProvider>
