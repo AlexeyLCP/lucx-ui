@@ -1,11 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
 import {
-  Alert,
   Button,
   Card,
-  Checkbox,
   Col,
   ConfigProvider,
   Input,
@@ -36,36 +34,6 @@ import NodeFormModal from './NodeFormModal';
 import { setMessageInstance } from '@/utils/messageBus';
 import { HttpUtil } from '@/utils';
 import type { PanelUpdateInfo } from '../index/PanelUpdateModal';
-
-// Confirm-dialog body that lets the operator pick the stable or dev channel for
-// a node panel update. Reports changes via onChange so the imperative
-// modal.confirm onOk can read the latest choice through a ref.
-function UpdateChannelChoice({ onChange }: { onChange: (dev: boolean) => void }) {
-  const { t } = useTranslation();
-  const [dev, setDev] = useState(false);
-  return (
-    <div>
-      <p>{t('pages.nodes.updateConfirmContent')}</p>
-      <Checkbox
-        checked={dev}
-        onChange={(e) => {
-          setDev(e.target.checked);
-          onChange(e.target.checked);
-        }}
-      >
-        {t('pages.nodes.updateDevChannel')}
-      </Checkbox>
-      {dev && (
-        <Alert
-          type="info"
-          showIcon
-          style={{ marginTop: 8 }}
-          title={t('pages.index.devChannelWarning')}
-        />
-      )}
-    </div>
-  );
-}
 
 export default function NodesPage() {
   const { t } = useTranslation();
@@ -206,11 +174,9 @@ export default function NodesPage() {
     [setEnable],
   );
 
-  const devRef = useRef(false);
-
   const runUpdate = useCallback(
-    async (ids: number[], dev: boolean) => {
-      const msg = await updatePanels(ids, dev);
+    async (ids: number[]) => {
+      const msg = await updatePanels(ids, false);
       if (!msg?.success) {
         messageApi.error(msg?.msg || t('somethingWentWrong'));
         return;
@@ -232,19 +198,12 @@ export default function NodesPage() {
 
   const onUpdateNode = useCallback(
     (node: NodeRecord) => {
-      devRef.current = false;
       modal.confirm({
         title: t('pages.nodes.updateConfirmTitle', { count: 1 }),
-        content: (
-          <UpdateChannelChoice
-            onChange={(v) => {
-              devRef.current = v;
-            }}
-          />
-        ),
+        content: t('pages.nodes.updateConfirmContent'),
         okText: t('update'),
         cancelText: t('cancel'),
-        onOk: () => runUpdate([node.id], devRef.current),
+        onOk: () => runUpdate([node.id]),
       });
     },
     [modal, t, runUpdate],
@@ -258,19 +217,12 @@ export default function NodesPage() {
       messageApi.warning(t('pages.nodes.toasts.updateNoneEligible'));
       return;
     }
-    devRef.current = false;
     modal.confirm({
       title: t('pages.nodes.updateConfirmTitle', { count: eligible.length }),
-      content: (
-        <UpdateChannelChoice
-          onChange={(v) => {
-            devRef.current = v;
-          }}
-        />
-      ),
+      content: t('pages.nodes.updateConfirmContent'),
       okText: t('update'),
       cancelText: t('cancel'),
-      onOk: () => runUpdate(eligible, devRef.current),
+      onOk: () => runUpdate(eligible),
     });
   }, [modal, t, nodes, selectedIds, runUpdate, messageApi]);
 

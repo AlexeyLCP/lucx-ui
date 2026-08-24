@@ -4075,3 +4075,40 @@ SubAwgService). Frontend `fetchBody` сначала ходит туда, fallbac
 Проверки: `npm run typecheck` + `npm run lint` — зелёные (1 pre-existing
 warning в RuleFormModal, не связан). При следующем upstream-merge эти удаления
 пришли бы сами; сделано заранее, чтобы не тащить мусор.
+
+## Restore: update-modal changelog feed + stable-only UI (2026-08-24)
+
+The lucx.169 upstream merge (47928c06) silently reverted the update-modal work:
+PanelUpdateModal.tsx was resolved pure-upstream, losing the skipped-release
+changelog feed (lucx.146), the "What's new" release-notes block and longer
+polling (lucx.83), and re-gaining the upstream Dev-channel switch.
+NodesPage.tsx re-gained the Dev-channel checkbox removed in lucx.83. The
+follow-up commit 3e0a9379 then deleted the orphaned releaseNotes* i18n keys
+to satisfy the dead-keys test — hiding the loss instead of restoring the UI.
+
+Restored from pre-merge 2f52ca8c:
+- frontend/src/pages/index/PanelUpdateModal.tsx — changelog feed
+  (getPanelReleaseNotes, pagination), release-notes fallback block,
+  stable-only (no Dev channel), POLL_* 15-min wait, width 640.
+- frontend/src/pages/nodes/NodesPage.tsx — stable-only node updates.
+- releaseNotes / releaseNotesMore / releaseNotesLoadMore re-added to all 13
+  locales; devChannel / devChannelWarning / currentCommit / latestCommit /
+  updateChannelChanged / nodes.updateDevChannel removed again.
+
+Adaptation: feed state reset moved from useEffect to Modal afterOpenChange
+(oxlint set-state-in-effect rule from the TS7/oxc upstream commit).
+
+Also restored: RuleFormModal client-picker (lucx.85) — same merge reverted it
+to upstream's email-only picker; pre-merge file restored and its 6 i18n keys
+(matchAllApplied, noMatcherError, noTargetWarning, clientPickHint/
+Placeholder/AwgNote) re-added to all 13 locales from 2f52ca8c. Upstream
+picker's keys (userPlaceholder, userEmpty, userLoadError) dropped as dead.
+Upstream's useClientOptions.ts query stays (unused now, upstream code).
+ci.yml lost the golangci-lint v2.12.1 pin but CI is green on latest, so the
+pin stays out.
+
+Checks: npm typecheck / lint / format:check / build green; i18n dead-keys
+test green (13 locales); unit suite green except pre-existing
+input-number-guard failure; no git dev branch exists (local, gh, origin, sc).
+
+lucxVersion: lucx.179
