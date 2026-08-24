@@ -269,6 +269,113 @@ func TestBackupImportSources_CopiesServerAndClients(t *testing.T) {
 	}
 }
 
+func TestDiscover_LiveDockerContainer(t *testing.T) {
+	const conf = `[Interface]
+PrivateKey = dockpriv
+Address = 10.8.1.1/24
+ListenPort = 1288
+Jc = 4
+
+[Peer]
+PublicKey = pubX
+AllowedIPs = 10.8.1.2/32
+`
+	table := `[{"clientId":"pubX","userData":{"clientName":"phone"}}]`
+	got := Discover(DiscoverPaths{
+		ScanLiveDocker: true,
+		DockerList:     func() []string { return []string{"nginx", "amnezia-awg", "amnezia-awg2"} },
+		DockerRead: func(container, path string) ([]byte, error) {
+			if container == "amnezia-awg" && strings.HasSuffix(path, "/awg0.conf") {
+				return []byte(conf), nil
+			}
+			if container == "amnezia-awg" && strings.HasSuffix(path, "/clientsTable") {
+				return []byte(table), nil
+			}
+			if container == "amnezia-awg2" && strings.HasSuffix(path, "/awg2/awg0.conf") {
+				alt := strings.Replace(conf, "1288", "47503", 1)
+				alt = strings.Replace(alt, "dockpriv", "dockpriv2", 1)
+				return []byte(alt), nil
+			}
+			return nil, os.ErrNotExist
+		},
+	})
+	if len(got) != 2 {
+		t.Fatalf("candidates = %d, want 2: %+v", len(got), got)
+	}
+	if got[0].ID != "amnezia-docker:amnezia-awg" || got[0].Port != 1288 || got[0].PeerCount != 1 {
+		t.Fatalf("awg: %+v", got[0])
+	}
+	if got[0].NamedPeers != 1 || got[0].Peers[0].Email != "phone" {
+		t.Fatalf("name from clientsTable: %+v", got[0].Peers)
+	}
+	if got[1].ID != "amnezia-docker:amnezia-awg2" || got[1].Port != 47503 {
+		t.Fatalf("awg2: %+v", got[1])
+	}
+}
+
+func TestDiscover_SkipsDockerWhenDisabled(t *testing.T) {
+	got := Discover(DiscoverPaths{
+		DockerList: func() []string {
+			t.Fatal("docker must not be listed when ScanLiveDocker is false")
+			return nil
+		},
+	})
+	if len(got) != 0 {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestParseAmneziaClientsTable_NameAndKey(t *testing.T) {
+	raw := []byte(`[{"clientId":"pubA","userData":{"clientName":"Alice"}},{"clientPrivKey":"","config":"[Interface]\nPrivateKey = x\n","userData":{"clientName":"skip"}}]`)
+	got := parseAmneziaClientsTable(raw, "tbl")
+	if got["pubA"].Name != "Alice" {
+		t.Fatalf("got %+v", got)
+	}
+}
+
+func TestBackupImportSources_WritesDockerText(t *testing.T) {
+	root := withTempConfigDir(t)
+	c := ImportCandidate{
+		ID:        "amnezia-docker:amnezia-awg",
+		ConfText:  "[Interface]\nPrivateKey = srv\n",
+		TableText: `[{"clientId":"p"}]`,
+	}
+	dir, err := BackupImportSources(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(dir, filepath.Join(root, "x-ui-backup")) {
+		t.Fatalf("backup dir %s", dir)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "awg0.conf")); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "clientsTable")); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDockerProtoOf(t *testing.T) {
+	cases := []struct {
+		name string
+		sub  string
+		ok   bool
+	}{
+		{"amnezia-awg", "awg", true},
+		{"amnezia-awg2", "awg2", true},
+		{"amnezia-awg3", "awg3", true},
+		{"amnezia-wireguard", "wireguard", true},
+		{"amnezia-openvpn", "", false},
+		{"x-ui", "", false},
+	}
+	for _, tc := range cases {
+		sub, _, ok := dockerProtoOf(tc.name)
+		if ok != tc.ok || sub != tc.sub {
+			t.Fatalf("%s: sub=%s ok=%v, want %s %v", tc.name, sub, ok, tc.sub, tc.ok)
+		}
+	}
+}
+
 func TestApplyClientCPS_OnlyMatchingPeer(t *testing.T) {
 	conf := ServerConf{
 		AwgVersion: "1.5",

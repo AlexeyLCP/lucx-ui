@@ -42,8 +42,17 @@ func BackupImportSources(c ImportCandidate) (string, error) {
 		dst := uniqueBackupName(dir, filepath.Base(src))
 		return os.WriteFile(dst, data, 0o600)
 	}
-	if err := copyOne(c.ConfPath); err != nil {
+	if c.ConfText != "" {
+		if err := os.WriteFile(filepath.Join(dir, "awg0.conf"), []byte(c.ConfText), 0o600); err != nil {
+			return dir, fmt.Errorf("server conf text: %w", err)
+		}
+	} else if err := copyOne(c.ConfPath); err != nil {
 		return dir, fmt.Errorf("server conf %s: %w", c.ConfPath, err)
+	}
+	if c.TableText != "" {
+		if err := os.WriteFile(filepath.Join(dir, "clientsTable"), []byte(c.TableText), 0o600); err != nil {
+			return dir, fmt.Errorf("clientsTable text: %w", err)
+		}
 	}
 	for _, k := range c.Keys {
 		if err := copyOne(k.Path); err != nil {

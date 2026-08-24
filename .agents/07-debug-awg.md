@@ -201,3 +201,9 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** tools netlink buffer is one page (4096). I1–I5 are hex-put without bounds. QUIC Pro sum 1696–2044 B → ~35% of generated configs crash `awg set`/`setconf` on Linux.
 - **Fix:** `GenerateCPS` keeps payload ≤ 1800 B (retry, then drop I5…I2). Real fix is upstream [amneziawg-tools#69](https://github.com/amnezia-vpn/amneziawg-tools/issues/69).
 - **Not done:** MTU-clamp of I1 (needs form to send MTU). I1 stays ~1198 (QUIC minimum).
+
+### Pattern 1x: Import existing AWG finds nothing while Docker Amnezia is running — FIXED (lucx.171)
+
+- **Cause:** official Amnezia `run_container.sh` does **not** bind-mount `/opt/amnezia`. Configs live only inside `amnezia-awg` / `amnezia-awg2` / `amnezia-wireguard` at `/opt/amnezia/awg/awg0.conf` (legacy `wg0.conf`). Discover only walked the host path, so preview said “no unmanaged interfaces”.
+- **Fix:** `scanLiveDocker` lists `docker ps` and `docker exec cat` those paths. Host `/opt/amnezia` scan kept for bind-mounts. Dedupe by private key.
+- **Seen on:** live host with three Amnezia containers (2026-08-24).

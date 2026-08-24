@@ -64,6 +64,7 @@ type ClientKeyFile struct {
 	Path               string
 	DNS                string
 	I1, I2, I3, I4, I5 string
+	Name               string
 }
 
 // ParseServerConf reads a server awg-quick .conf. Comments immediately inside

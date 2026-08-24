@@ -15,19 +15,23 @@ import (
 
 // DiscoverPaths is the host layout the importer scans. Tests point these at temp dirs.
 type DiscoverPaths struct {
-	AmneziaDir  string
-	Toolza3Dir  string
-	DockerRoots []string
-	ClientDirs  []string
+	AmneziaDir     string
+	Toolza3Dir     string
+	DockerRoots    []string
+	ClientDirs     []string
+	ScanLiveDocker bool
+	DockerList     func() []string
+	DockerRead     func(container, path string) ([]byte, error)
 }
 
 // DefaultDiscoverPaths is the production layout on a Linux VPS.
 func DefaultDiscoverPaths() DiscoverPaths {
 	return DiscoverPaths{
-		AmneziaDir:  awgConfigDir,
-		Toolza3Dir:  "/etc/awg3",
-		DockerRoots: []string{"/opt/amnezia"},
-		ClientDirs:  []string{"/root", "/etc/awg3/clients"},
+		AmneziaDir:     awgConfigDir,
+		Toolza3Dir:     "/etc/awg3",
+		DockerRoots:    []string{"/opt/amnezia"},
+		ClientDirs:     []string{"/root", "/etc/awg3/clients"},
+		ScanLiveDocker: true,
 	}
 }
 
@@ -62,6 +66,8 @@ type ImportCandidate struct {
 	Conf         ServerConf               `json:"-"`
 	Keys         map[string]ClientKeyFile `json:"-"`
 	ExtraPaths   []string                 `json:"-"`
+	ConfText     string                   `json:"-"`
+	TableText    string                   `json:"-"`
 }
 
 // Discover finds unmanaged AWG server configs. Managed x-ui files are skipped.
@@ -81,7 +87,11 @@ func Discover(paths DiscoverPaths) []ImportCandidate {
 		if _, ok := seen[c.ID]; ok {
 			return
 		}
+		if _, ok := seen["pk:"+c.Conf.PrivateKey]; ok {
+			return
+		}
 		seen[c.ID] = struct{}{}
+		seen["pk:"+c.Conf.PrivateKey] = struct{}{}
 		out = append(out, finishCandidate(c, keys))
 	}
 	if paths.AmneziaDir != "" {
@@ -96,6 +106,11 @@ func Discover(paths DiscoverPaths) []ImportCandidate {
 	}
 	for _, root := range paths.DockerRoots {
 		for _, c := range scanDockerRoot(root) {
+			add(c)
+		}
+	}
+	if paths.ScanLiveDocker {
+		for _, c := range scanLiveDocker(paths) {
 			add(c)
 		}
 	}
@@ -149,7 +164,7 @@ func scanConfDir(dir, source, backend string, drop bool) []ImportCandidate {
 
 func scanDockerRoot(root string) []ImportCandidate {
 	var out []ImportCandidate
-	for _, sub := range []string{"awg", "awg2", "awg3"} {
+	for _, sub := range []string{"awg", "awg2", "awg3", "wireguard"} {
 		dir := filepath.Join(root, sub)
 		for _, name := range []string{"wg0.conf", "awg0.conf", "awg.conf"} {
 			path := filepath.Join(dir, name)
@@ -216,6 +231,14 @@ func finishCandidate(c ImportCandidate, keys map[string]ClientKeyFile) ImportCan
 		}
 	}
 	c.Keys = matched
+	for i := range c.Conf.Peers {
+		if c.Conf.Peers[i].Name != "" {
+			continue
+		}
+		if k, ok := matched[c.Conf.Peers[i].PublicKey]; ok {
+			c.Conf.Peers[i].Name = k.Name
+		}
+	}
 	used := map[string]struct{}{}
 	c.Peers = make([]ImportPeer, 0, len(c.Conf.Peers))
 	c.NamedPeers = 0
@@ -229,15 +252,16 @@ func finishCandidate(c ImportCandidate, keys map[string]ClientKeyFile) ImportCan
 		if p.Suspended {
 			c.Suspended++
 		}
-		_, has := c.Keys[p.PublicKey]
-		if has {
+		k, has := c.Keys[p.PublicKey]
+		hasKey := has && k.PrivateKey != ""
+		if hasKey {
 			c.KeysFound++
 		}
 		c.Peers = append(c.Peers, ImportPeer{
 			Email:      email,
 			AllowedIPs: p.AllowedIPs,
 			PublicKey:  p.PublicKey,
-			HasKey:     has,
+			HasKey:     hasKey,
 			Suspended:  p.Suspended,
 		})
 	}
@@ -314,35 +338,73 @@ func indexAmneziaClientsTable(path string) map[string]ClientKeyFile {
 	if err != nil {
 		return nil
 	}
+	return parseAmneziaClientsTable(data, path)
+}
+
+func parseAmneziaClientsTable(data []byte, path string) map[string]ClientKeyFile {
 	var rows []map[string]any
 	if err := json.Unmarshal(data, &rows); err != nil {
 		return nil
 	}
 	out := map[string]ClientKeyFile{}
 	for _, row := range rows {
+		name := amneziaRowName(row)
 		priv, _ := row["clientPrivKey"].(string)
 		if priv == "" {
 			priv, _ = row["privateKey"].(string)
 		}
 		if priv == "" {
-			if cfg, ok := row["config"].(string); ok {
+			if cfg, ok := row["config"].(string); ok && cfg != "" {
 				k := ParseClientKeyFile(cfg)
 				k.Path = path
+				k.Name = name
 				if pub := PublicKeyOf(k.PrivateKey); pub != "" {
 					out[pub] = k
+					continue
 				}
-				continue
 			}
 		}
-		if priv == "" {
+		pub, _ := row["clientId"].(string)
+		if pub == "" {
+			pub, _ = row["publicKey"].(string)
+		}
+		if priv != "" {
+			if derived := PublicKeyOf(priv); derived != "" {
+				pub = derived
+			}
+		}
+		if pub == "" {
 			continue
 		}
-		k := ClientKeyFile{PrivateKey: priv, Path: path}
-		if pub := PublicKeyOf(priv); pub != "" {
-			out[pub] = k
+		k := out[pub]
+		k.Path = path
+		if priv != "" {
+			k.PrivateKey = priv
 		}
+		if name != "" {
+			k.Name = name
+		}
+		out[pub] = k
 	}
 	return out
+}
+
+func amneziaRowName(row map[string]any) string {
+	if s, _ := row["clientName"].(string); s != "" {
+		return s
+	}
+	if s, _ := row["name"].(string); s != "" {
+		return s
+	}
+	ud, ok := row["userData"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	if s, _ := ud["clientName"].(string); s != "" {
+		return s
+	}
+	s, _ := ud["name"].(string)
+	return s
 }
 
 func interfaceIsUp(ifname string) bool {

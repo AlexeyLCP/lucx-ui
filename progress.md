@@ -1,5 +1,20 @@
 # LucX-UI — Прогресс
 
+## lucx.171 — import Docker Amnezia via docker exec (2026-08-24)
+
+Never: “Import existing AWG” on a host with running `amnezia-awg` / `amnezia-awg2` / `amnezia-wireguard` showed “no unmanaged interfaces”.
+
+Official Amnezia `docker run` has no `/opt/amnezia` bind-mount. Configs exist only inside the container (`/opt/amnezia/awg/awg0.conf`, legacy `wg0.conf`). Host walk found nothing.
+
+- `scanLiveDocker`: `docker ps` + `docker exec cat` for those containers.
+- Host `/opt/amnezia` scan kept (bind-mounts / copies). Dedupe by private key.
+- `clientsTable` names fill peer emails; backup writes in-memory docker text.
+- Tests: `TestDiscover_LiveDockerContainer`, proto names, docker backup.
+
+**lucxVersion:** lucx.171
+
+---
+
 ## lucx.170 — vpn:// copy-link mojibake (2026-08-24)
 
 Never: Client Info → Copy link → AmneziaWG title was replacement chars / garbage. Only clients with a LucX `awg` inbound.
