@@ -103,4 +103,19 @@ describe('link-label parseLinkParts', () => {
     expect(parts?.port).toBe('36541');
     expect(parts && linkMetaText(parts)).toBe('wg-Майфун:36541');
   });
+
+  it('does not treat a LucX qCompress vpn:// envelope as a .conf remark', () => {
+    const raw = Uint8Array.from([
+      0, 0, 0, 16, 0x78, 0x9c, 0xff, 0x23, 0x20, 0x62, 0x61, 0x64, 0xfe, 0x00,
+    ]);
+    let bin = '';
+    for (const b of raw) bin += String.fromCharCode(b);
+    const link = `vpn://${btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+    const parts = parseLinkParts(link);
+    expect(parts?.protocol).toBe('AmneziaWG');
+    expect(parts?.remark).toBe('');
+    expect(parts?.port).toBe('');
+    expect(parts?.remark).not.toMatch(/\uFFFD/);
+    expect(parts && linkMetaText(parts)).toBe('');
+  });
 });

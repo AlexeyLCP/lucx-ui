@@ -4,6 +4,12 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 13: AmneziaWG copy-link row shows mojibake (�) — FIXED (lucx.170)
+- **Symptom (Never, 24.08.2026):** Client Info → Copy link → AmneziaWG title is diamonds / CJK garbage. Only some clients. `.conf` / vpn:// copy still works.
+- **Cause:** lucx.140+ `genAwgLink` appends official Amnezia `vpn://` = `qCompress(JSON)`. The modal hides `amneziawg://`, so only that line is labeled. `parseLinkParts` treated the payload as UTF-8 `.conf` and took `/^#/` from the binary.
+- **Fix:** detect Qt qCompress (zlib magic at offset 4) and skip; only parse remark/port from plain `.conf` / uncompressed JSON.
+- **Not a handshake bug.** Amnezia app qUncompresses the same URI.
+
 ### Pattern 12: Inbounds page crash `null.length` after lucx.165 — FIXED (lucx.168)
 - **Symptom (VladufQa, 24.08.2026):** `/panel/inbounds` → `Unexpected Application Error! Cannot read properties of null (reading 'length')` in `InboundsPage-*.js`. Clients/other pages fine.
 - **Cause:** `AwgImportBanner` always fetches `/awg/import/preview` on mount. Empty `Discover` is a nil Go slice → `"candidates":null`. Zod fails; `parseMsg` (non-strict) still returns the raw obj. Banner `setCandidates(null)` then `candidates.length` on render. Same for `peers: null` on a zero-peer candidate.

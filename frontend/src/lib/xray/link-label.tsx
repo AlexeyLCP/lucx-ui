@@ -66,16 +66,35 @@ const TRANSPORT_COLOR = 'gold';
 
 const TAG_STYLE = { marginInlineEnd: 0, fontWeight: 600, letterSpacing: '0.3px' };
 
-// Reverse of inbound-link.ts's own toBase64Url — base64url (RFC 4648 §5, no
-// padding) back to the original unicode text, needed to read the remark/
-// endpoint back out of a vpn:// link's opaque payload below.
-function fromBase64Url(value: string): string {
+function bytesFromBase64Url(value: string): Uint8Array {
   const b64 = value.replace(/-/g, '+').replace(/_/g, '/');
   const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
   const binary = atob(padded);
   const bytes = new Uint8Array(binary.length);
   for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-  return new TextDecoder().decode(bytes);
+  return bytes;
+}
+
+function isQCompress(bytes: Uint8Array): boolean {
+  if (bytes.length < 6) return false;
+  return bytes[4] === 0x78 && [0x01, 0x5e, 0x9c, 0xda].includes(bytes[5]);
+}
+
+// LucX vpn:// is qCompress(JSON); upstream amneziawg is plain .conf text.
+// Never TextDecoder the compressed envelope — that is the client-card mojibake.
+function vpnLinkPlaintext(payload: string): string {
+  const bytes = bytesFromBase64Url(payload);
+  if (isQCompress(bytes)) return '';
+  const text = new TextDecoder().decode(bytes);
+  if (text.includes('\uFFFD')) return '';
+  if (
+    !text.includes('[Interface]') &&
+    !text.includes('[Peer]') &&
+    !text.trimStart().startsWith('{')
+  ) {
+    return '';
+  }
+  return text;
 }
 
 /* Pull protocol, transport, security plus the remark and port out of a share
@@ -123,16 +142,15 @@ export function parseLinkParts(link: string): LinkParts | null {
       /* unparseable payload, fall back to protocol only */
     }
   } else if (scheme === 'vpn') {
-    /* AmneziaWG's vpn:// links are base64url of a plain .conf text (matching
-       the real AmneziaVPN app's own share-link scheme), not a structured URL
-       — there's no query string or #hash to read a remark/port from without
-       corrupting the payload the app itself needs to decode. The remark and
-       endpoint are still in there as plain .conf lines, though, so pull them
-       back out directly. */
     try {
-      const cfgText = fromBase64Url(trimmed.slice('vpn://'.length));
-      remark = /^#\s?(.*)$/m.exec(cfgText)?.[1]?.trim() ?? '';
-      port = /^Endpoint\s*=\s*.+:(\d+)\s*$/m.exec(cfgText)?.[1] ?? '';
+      const cfgText = vpnLinkPlaintext(trimmed.slice('vpn://'.length));
+      if (cfgText.trimStart().startsWith('{')) {
+        const env = JSON.parse(cfgText) as { description?: string; hostName?: string };
+        remark = typeof env.description === 'string' ? env.description : '';
+      } else if (cfgText) {
+        remark = /^#\s?(.*)$/m.exec(cfgText)?.[1]?.trim() ?? '';
+        port = /^Endpoint\s*=\s*.+:(\d+)\s*$/m.exec(cfgText)?.[1] ?? '';
+      }
     } catch {
       /* unparseable payload, fall back to protocol only */
     }

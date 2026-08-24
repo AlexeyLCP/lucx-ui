@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.170 — vpn:// copy-link mojibake (2026-08-24)
+
+Never: Client Info → Copy link → AmneziaWG title was replacement chars / garbage. Only clients with a LucX `awg` inbound.
+
+`genAwgLink` emits official Amnezia `vpn://` (`qCompress(JSON)`). `parseLinkParts` decoded that binary as a `.conf` and took a `#` line from the zlib stream. Copy/import still worked.
+
+- `link-label.tsx`: skip qCompress payloads; parse remark/port only from plain `.conf`.
+- Test: `link-label.test.ts` qCompress fixture must not yield `\uFFFD`.
+
+**lucxVersion:** lucx.170
+
+---
+
 ## docs — README: import + dual AWG engines (2026-08-24)
 
 README in all 7 locales (RU/EN/ZH/FA/AR/ES/TR): dual engines (`awg` kernel + upstream `amneziawg`, go fallback without module), import existing host AWG (awg-multi / toolza3 / Docker), live AWG speed. Migration section covers host AWG, not only 3x-ui overlay.
