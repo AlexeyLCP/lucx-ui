@@ -9,6 +9,7 @@ SpaceNeuroX `parsePayload` treats the whole clipboard as one URI. A trailing `\n
 - Share / QR / `/sub/` emit only `qwdtt://config?` (same form the APK itself exports).
 - Legacy `wdtt://` stays on the Tunnels card as its own copy field.
 - Tests: `TestGetSubs_Qwdtt_SingleConfigLine`, `TestQwdttClientURI`, `qwdtt-link.test.ts`.
+- Unblock CI: `TestSanitizeEmailUnique` had an empty `if` (SA9003) left from lucx.165.
 
 **lucxVersion:** lucx.167
 

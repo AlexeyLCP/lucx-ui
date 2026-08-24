@@ -187,13 +187,11 @@ func TestSanitizeEmailUnique(t *testing.T) {
 	used := map[string]struct{}{}
 	a := sanitizeEmail("Alice Phone", "10.8.0.2/32", "AAAA", used)
 	b := sanitizeEmail("Alice Phone", "10.8.0.3/32", "BBBB", used)
-	if a != "Alice-Phone" && a != "alice-phone" {
-		if !strings.EqualFold(a, "Alice-Phone") && a != "alice-phone" {
-			// slug keeps case from letters
-		}
+	if a != "alice-phone" {
+		t.Fatalf("first email = %q, want alice-phone", a)
 	}
-	if a == b {
-		t.Fatalf("emails collided: %s", a)
+	if b != "alice-phone-2" {
+		t.Fatalf("second email = %q, want alice-phone-2", b)
 	}
 }
 
