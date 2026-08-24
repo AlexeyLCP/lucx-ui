@@ -159,7 +159,7 @@ func TestBuildInbound_PreservesKeys(t *testing.T) {
 		Keys:  map[string]ClientKeyFile{pub: {PrivateKey: priv}},
 		Peers: []ImportPeer{{Email: "alice", PublicKey: pub, HasKey: true}},
 	}
-	built, err := BuildInbound(c, 1)
+	built, err := BuildInbound(c, 1, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -194,5 +194,80 @@ func TestSanitizeEmailUnique(t *testing.T) {
 	}
 	if a == b {
 		t.Fatalf("emails collided: %s", a)
+	}
+}
+
+func TestBuildInbound_ReservedEmailSuffix(t *testing.T) {
+	c := ImportCandidate{
+		Ifname: "awg0",
+		Port:   1,
+		Conf: ServerConf{
+			PrivateKey: "k",
+			Address:    "10.8.0.1/24",
+			ListenPort: 1,
+			Peers:      []ServerPeer{{Name: "alice", PublicKey: "P", AllowedIPs: "10.8.0.2/32"}},
+		},
+		Peers: []ImportPeer{{Email: "alice", PublicKey: "P"}},
+	}
+	built, err := BuildInbound(c, 1, map[string]struct{}{"alice": {}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var settings map[string]any
+	if err := json.Unmarshal([]byte(built.Inbound.Settings), &settings); err != nil {
+		t.Fatal(err)
+	}
+	email := settings["clients"].([]any)[0].(map[string]any)["email"]
+	if email == "alice" {
+		t.Fatalf("reserved email was not suffixed: %v", email)
+	}
+}
+
+func TestBackupImportSources_CopiesServerAndClients(t *testing.T) {
+	root := withTempConfigDir(t)
+	srcDir := t.TempDir()
+	server := filepath.Join(srcDir, "awg0.conf")
+	client := filepath.Join(srcDir, "alice_awg2.conf")
+	if err := os.WriteFile(server, []byte("[Interface]\nPrivateKey = srv\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(client, []byte("[Interface]\nPrivateKey = cli\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	c := ImportCandidate{
+		ID:       "awg-multi:awg0",
+		ConfPath: server,
+		Keys:     map[string]ClientKeyFile{"pub": {Path: client}},
+	}
+	dir, err := BackupImportSources(c)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(dir, filepath.Join(root, "x-ui-backup")) {
+		t.Fatalf("backup dir %s not under %s", dir, root)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "awg0.conf")); err != nil {
+		t.Fatalf("server copy missing: %v", err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "alice_awg2.conf")); err != nil {
+		t.Fatalf("client copy missing: %v", err)
+	}
+	if _, err := os.Stat(server); err != nil {
+		t.Fatal("original server conf must stay until adopt")
+	}
+}
+
+func TestApplyClientCPS_OnlyMatchingPeer(t *testing.T) {
+	conf := ServerConf{
+		AwgVersion: "1.5",
+		Peers:      []ServerPeer{{PublicKey: "peerA"}},
+	}
+	keys := map[string]ClientKeyFile{
+		"other": {I1: "<b>stolen</b>"},
+		"peerA": {I1: "<b>ours</b>"},
+	}
+	applyClientCPS(&conf, keys)
+	if conf.I1 != "<b>ours</b>" {
+		t.Fatalf("I1 = %q, want matching peer", conf.I1)
 	}
 }

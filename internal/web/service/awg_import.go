@@ -8,6 +8,7 @@ package service
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -69,9 +70,27 @@ func (s *AwgImportService) Commit(userId int, ids []string) []AwgImportResult {
 	return out
 }
 
+func (s *AwgImportService) reservedEmails() map[string]struct{} {
+	used := map[string]struct{}{}
+	emails, err := s.Inbound.GetAllEmails()
+	if err != nil {
+		return used
+	}
+	for _, e := range emails {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
+			used[e] = struct{}{}
+		}
+	}
+	return used
+}
+
 func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImportResult {
 	res := AwgImportResult{ID: c.ID, Clients: c.PeerCount}
-	built, err := awg.BuildInbound(c, userId)
+	if _, err := awg.BackupImportSources(c); err != nil {
+		res.Error = "backup failed: " + err.Error()
+		return res
+	}
+	built, err := awg.BuildInbound(c, userId, s.reservedEmails())
 	if err != nil {
 		res.Error = err.Error()
 		return res
@@ -93,7 +112,7 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 	if c.Live && c.Backend == "kernel" {
 		liveName = c.Ifname
 	}
-	if err := awg.GetManager().Adopt(inst, liveName); err != nil {
+	if err := awg.GetManager().Adopt(inst, liveName, !c.DropOnImport); err != nil {
 		logger.Warningf("awg import: adopt %s: %v", c.ID, err)
 		res.Error = fmt.Sprintf("saved, adopt failed: %v", err)
 		return res

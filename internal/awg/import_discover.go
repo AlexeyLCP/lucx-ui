@@ -61,6 +61,7 @@ type ImportCandidate struct {
 	Peers        []ImportPeer             `json:"peers"`
 	Conf         ServerConf               `json:"-"`
 	Keys         map[string]ClientKeyFile `json:"-"`
+	ExtraPaths   []string                 `json:"-"`
 }
 
 // Discover finds unmanaged AWG server configs. Managed x-ui files are skipped.
@@ -158,6 +159,11 @@ func scanDockerRoot(root string) []ImportCandidate {
 			}
 			conf := ParseServerConf(string(data))
 			table := filepath.Join(dir, "clientsTable")
+			keys := indexAmneziaClientsTable(table)
+			extra := []string{}
+			if _, err := os.Stat(table); err == nil {
+				extra = append(extra, table)
+			}
 			out = append(out, ImportCandidate{
 				ID:           ImportSourceDocker + ":" + sub,
 				Source:       ImportSourceDocker,
@@ -170,7 +176,8 @@ func scanDockerRoot(root string) []ImportCandidate {
 				DropOnImport: true,
 				Warning:      "Docker Amnezia must be stopped after import; clients reconnect on the kernel interface.",
 				Conf:         conf,
-				Keys:         indexAmneziaClientsTable(table),
+				Keys:         keys,
+				ExtraPaths:   extra,
 			})
 		}
 	}
@@ -189,14 +196,23 @@ func guessIfname(fileBase string) string {
 }
 
 func finishCandidate(c ImportCandidate, keys map[string]ClientKeyFile) ImportCandidate {
-	if c.Keys == nil {
-		c.Keys = map[string]ClientKeyFile{}
-	}
-	for k, v := range keys {
-		if _, ok := c.Keys[k]; !ok {
-			c.Keys[k] = v
+	matched := map[string]ClientKeyFile{}
+	if c.Keys != nil {
+		for _, p := range c.Conf.Peers {
+			if k, ok := c.Keys[p.PublicKey]; ok {
+				matched[p.PublicKey] = k
+			}
 		}
 	}
+	for _, p := range c.Conf.Peers {
+		if _, ok := matched[p.PublicKey]; ok {
+			continue
+		}
+		if k, ok := keys[p.PublicKey]; ok {
+			matched[p.PublicKey] = k
+		}
+	}
+	c.Keys = matched
 	used := map[string]struct{}{}
 	c.Peers = c.Peers[:0]
 	c.NamedPeers = 0
@@ -228,28 +244,29 @@ func finishCandidate(c ImportCandidate, keys map[string]ClientKeyFile) ImportCan
 		c.DropOnImport = true
 		c.Warning = "toolza3 uses userspace amneziawg-go; stop awg3 after import."
 	}
-	if dns, _ := firstClientHints(c.Keys); c.Conf.DNS == "" && dns != "" {
+	if dns := firstPeerDNS(c.Conf.Peers, c.Keys); c.Conf.DNS == "" && dns != "" {
 		c.Conf.DNS = dns
 	}
 	applyClientCPS(&c.Conf, c.Keys)
 	return c
 }
 
-func firstClientHints(keys map[string]ClientKeyFile) (dns string, _ ClientKeyFile) {
-	for _, k := range keys {
-		if k.DNS != "" {
-			return k.DNS, k
+func firstPeerDNS(peers []ServerPeer, keys map[string]ClientKeyFile) string {
+	for _, p := range peers {
+		if k, ok := keys[p.PublicKey]; ok && k.DNS != "" {
+			return k.DNS
 		}
 	}
-	return "", ClientKeyFile{}
+	return ""
 }
 
 func applyClientCPS(conf *ServerConf, keys map[string]ClientKeyFile) {
 	if conf.I1 != "" {
 		return
 	}
-	for _, k := range keys {
-		if k.I1 == "" {
+	for _, p := range conf.Peers {
+		k, ok := keys[p.PublicKey]
+		if !ok || k.I1 == "" {
 			continue
 		}
 		conf.I1, conf.I2, conf.I3, conf.I4, conf.I5 = k.I1, k.I2, k.I3, k.I4, k.I5
@@ -271,7 +288,8 @@ func indexClientKeys(dirs []string) map[string]ClientKeyFile {
 			if e.IsDir() || !strings.HasSuffix(e.Name(), ".conf") {
 				continue
 			}
-			data, err := os.ReadFile(filepath.Join(dir, e.Name()))
+			path := filepath.Join(dir, e.Name())
+			data, err := os.ReadFile(path)
 			if err != nil {
 				continue
 			}
@@ -279,6 +297,7 @@ func indexClientKeys(dirs []string) map[string]ClientKeyFile {
 			if k.PrivateKey == "" {
 				continue
 			}
+			k.Path = path
 			if pub := PublicKeyOf(k.PrivateKey); pub != "" {
 				out[pub] = k
 			}
@@ -305,6 +324,7 @@ func indexAmneziaClientsTable(path string) map[string]ClientKeyFile {
 		if priv == "" {
 			if cfg, ok := row["config"].(string); ok {
 				k := ParseClientKeyFile(cfg)
+				k.Path = path
 				if pub := PublicKeyOf(k.PrivateKey); pub != "" {
 					out[pub] = k
 				}
@@ -314,7 +334,7 @@ func indexAmneziaClientsTable(path string) map[string]ClientKeyFile {
 		if priv == "" {
 			continue
 		}
-		k := ClientKeyFile{PrivateKey: priv}
+		k := ClientKeyFile{PrivateKey: priv, Path: path}
 		if pub := PublicKeyOf(priv); pub != "" {
 			out[pub] = k
 		}

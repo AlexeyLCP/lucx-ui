@@ -276,7 +276,11 @@ func BackupForeignConf(path string) error {
 // Adopt takes over a live foreign interface for a newly created inbound:
 // rename it to awg{id} when needed, write the managed .conf, and register it
 // without awg-quick down/up so existing handshakes survive.
-func (m *Manager) Adopt(inst Instance, currentIfname string) error {
+// startIfDown is false for userspace/docker: the inbound is already in the DB
+// and reconcile will bring the kernel iface up after the operator stops the
+// old manager. Calling Start while the old process still holds the UDP port
+// would fail the whole import after a successful AddInbound.
+func (m *Manager) Adopt(inst Instance, currentIfname string, startIfDown bool) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if currentIfname != "" && currentIfname != inst.Ifname {
@@ -288,7 +292,7 @@ func (m *Manager) Adopt(inst Instance, currentIfname string) error {
 		return err
 	}
 	proc := newProcess(inst.Ifname, configPathForID(inst.Id), fmt.Sprintf("inbound %d", inst.Id))
-	if !proc.IsRunning() {
+	if !proc.IsRunning() && startIfDown {
 		if err := proc.Start(); err != nil {
 			return err
 		}

@@ -61,6 +61,7 @@ type ServerPeer struct {
 // ClientKeyFile is a recovered client private key matched by public key.
 type ClientKeyFile struct {
 	PrivateKey         string
+	Path               string
 	DNS                string
 	I1, I2, I3, I4, I5 string
 }

@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.166 — import backup + adopt fixes (2026-08-24)
+
+Follow-up to lucx.165 after a full pass of the import path.
+
+- Copy server `.conf`, matched client files and Docker `clientsTable` to `x-ui-backup/import-<unix>-<id>/` **before** AddInbound/Adopt. Import aborts if that copy fails.
+- Reserved panel emails get a suffix (`alice-2`) so 70-peer import does not die on Duplicate email.
+- I1–I5/DNS only from client files whose pubkey is a peer of this interface.
+- Userspace/Docker: do not `awg-quick up` while the old process still holds the port.
+
+**lucxVersion:** lucx.166
+
+---
+
 ## lucx.165 — import existing host AWG (2026-08-24)
 
 Installing the panel on a host that already runs awg-multi / toolza3 / Docker Amnezia used to `ip link del` every `awgN` on the first AwgJob tick (`killStrayAwgInterfaces` assumed x-ui owned the name). Config files were already protected (lucx.67); live interfaces were not.

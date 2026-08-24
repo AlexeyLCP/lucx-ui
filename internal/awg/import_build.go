@@ -25,20 +25,21 @@ type BuiltInbound struct {
 // BuildInbound turns a discovered candidate into an AWG inbound. Keys, IPs,
 // port and obfuscation are copied as-is. routeThroughXray stays off so kernel
 // NAT of the existing setup is preserved.
-func BuildInbound(c ImportCandidate, userId int) (BuiltInbound, error) {
+func BuildInbound(c ImportCandidate, userId int, reservedEmails map[string]struct{}) (BuiltInbound, error) {
 	used := map[string]struct{}{}
+	for e := range reservedEmails {
+		if e != "" {
+			used[strings.ToLower(e)] = struct{}{}
+		}
+	}
 	clients := make([]map[string]any, 0, len(c.Conf.Peers))
 	missing := 0
 	for i, p := range c.Conf.Peers {
 		email := p.Name
-		if i < len(c.Peers) {
+		if i < len(c.Peers) && c.Peers[i].Email != "" {
 			email = c.Peers[i].Email
 		}
-		if email == "" {
-			email = sanitizeEmail(p.Name, p.AllowedIPs, p.PublicKey, used)
-		} else {
-			used[email] = struct{}{}
-		}
+		email = sanitizeEmail(email, p.AllowedIPs, p.PublicKey, used)
 		ips := p.AllowedIPs
 		if p.Suspended && p.OrigIPs != "" {
 			ips = p.OrigIPs
