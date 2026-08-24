@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.168 — Inbounds crash on AWG import preview (2026-08-24)
+
+VladufQa: after 167, `/panel/inbounds` died with `Cannot read properties of null (reading 'length')`.
+
+`Discover` returned a nil slice → JSON `"candidates":null`. Zod rejected it, `parseMsg` still handed the raw obj to `AwgImportBanner`, which did `candidates.length` / `.map`. Happens on every host with nothing to import (normal testers).
+
+- `Discover` / `Preview` emit `[]`, not null. `finishCandidate` always allocates `peers`.
+- Schema accepts null/missing arrays. Banner never stores null.
+- Tests: `TestDiscover_EmptyIsJSONArray`, `awg-import-schema.test.ts`.
+
+**lucxVersion:** lucx.168
+
+---
+
 ## lucx.167 — qWDTT share: one qwdtt://config? line (2026-08-24)
 
 VladufQa: compact `wdtt://` and a lone `qwdtt://config?` both connect; pasting the panel's two-line block hangs on DTLS (client 1.4.2).

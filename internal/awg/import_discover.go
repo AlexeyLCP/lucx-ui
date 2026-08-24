@@ -99,6 +99,9 @@ func Discover(paths DiscoverPaths) []ImportCandidate {
 			add(c)
 		}
 	}
+	if out == nil {
+		return []ImportCandidate{}
+	}
 	return out
 }
 
@@ -214,7 +217,7 @@ func finishCandidate(c ImportCandidate, keys map[string]ClientKeyFile) ImportCan
 	}
 	c.Keys = matched
 	used := map[string]struct{}{}
-	c.Peers = c.Peers[:0]
+	c.Peers = make([]ImportPeer, 0, len(c.Conf.Peers))
 	c.NamedPeers = 0
 	c.KeysFound = 0
 	c.Suspended = 0

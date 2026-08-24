@@ -31,12 +31,12 @@ export const AwgImportCandidateSchema = z.object({
   backend: z.string(),
   dropOnImport: z.boolean(),
   warning: z.string(),
-  peers: z.array(AwgImportPeerSchema),
+  peers: z.preprocess((v) => v ?? [], z.array(AwgImportPeerSchema)),
 });
 
 export const AwgImportPreviewSchema = z.object({
   dismissed: z.boolean(),
-  candidates: z.array(AwgImportCandidateSchema),
+  candidates: z.preprocess((v) => v ?? [], z.array(AwgImportCandidateSchema)),
 });
 
 export const AwgImportResultSchema = z.object({

@@ -41,9 +41,13 @@ type AwgImportResult struct {
 // Preview lists unmanaged AWG configs on this host.
 func (s *AwgImportService) Preview() AwgImportPreview {
 	dismissed, _ := (&SettingService{}).getString(awgImportDismissKey)
+	found := awg.Discover(awg.DefaultDiscoverPaths())
+	if found == nil {
+		found = []awg.ImportCandidate{}
+	}
 	return AwgImportPreview{
 		Dismissed:  dismissed == "1",
-		Candidates: awg.Discover(awg.DefaultDiscoverPaths()),
+		Candidates: found,
 	}
 }
 

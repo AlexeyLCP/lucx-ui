@@ -107,6 +107,20 @@ func itoa(n int) string {
 	return string(buf[i:])
 }
 
+func TestDiscover_EmptyIsJSONArray(t *testing.T) {
+	got := Discover(DiscoverPaths{AmneziaDir: t.TempDir()})
+	if got == nil {
+		t.Fatal("Discover must return a non-nil empty slice")
+	}
+	raw, err := json.Marshal(got)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(raw) != "[]" {
+		t.Fatalf("empty Discover JSON = %s, want []", raw)
+	}
+}
+
 func TestDiscover_SkipsManagedAndKeepsForeign(t *testing.T) {
 	dir := t.TempDir()
 	foreign := `[Interface]

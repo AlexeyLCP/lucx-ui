@@ -27,13 +27,19 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
   const [forceShow, setForceShow] = useState(false);
 
   const load = useCallback(async () => {
-    const msg = await awgImportApi.preview();
-    if (!msg.success || !msg.obj) {
-      return;
+    try {
+      const msg = await awgImportApi.preview();
+      if (!msg.success || !msg.obj) {
+        setCandidates([]);
+        return;
+      }
+      const list = msg.obj.candidates ?? [];
+      setCandidates(list);
+      setDismissed(Boolean(msg.obj.dismissed));
+      setSelected(list.map((c) => c.id));
+    } catch {
+      setCandidates([]);
     }
-    setCandidates(msg.obj.candidates);
-    setDismissed(msg.obj.dismissed);
-    setSelected(msg.obj.candidates.map((c) => c.id));
   }, []);
 
   useEffect(() => {

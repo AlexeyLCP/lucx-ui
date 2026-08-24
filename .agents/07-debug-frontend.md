@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 12: Inbounds page crash `null.length` after lucx.165 — FIXED (lucx.168)
+- **Symptom (VladufQa, 24.08.2026):** `/panel/inbounds` → `Unexpected Application Error! Cannot read properties of null (reading 'length')` in `InboundsPage-*.js`. Clients/other pages fine.
+- **Cause:** `AwgImportBanner` always fetches `/awg/import/preview` on mount. Empty `Discover` is a nil Go slice → `"candidates":null`. Zod fails; `parseMsg` (non-strict) still returns the raw obj. Banner `setCandidates(null)` then `candidates.length` on render. Same for `peers: null` on a zero-peer candidate.
+- **Fix:** emit `[]` from Discover/Preview; schema preprocess null→[]; banner `?? []`.
+- **Healing without lucx.168:** none on the page. Stay on Clients until update.
+- **Lesson:** a banner that always mounts must tolerate an empty payload. Never let a nil slice reach a React `.length`.
+
 ### Pattern 3: Frontend doesn’t see the AWG protocol
 - **Cause:** Registration forgotten in one of: `protocols/index.ts`, `schemas/inbound/index.ts`, `primitives/protocol.ts`, `InboundFormModal.tsx`.
 - **Fix:** `grep -rn "awg\|Awg\|AWG" frontend/src/` — check all 5 registration points.
