@@ -157,6 +157,7 @@ export default function InboundList({
   const generalActionsMenu: MenuProps = {
     items: [
       { key: 'import', icon: <ImportOutlined />, label: t('pages.inbounds.importInbound') },
+      { key: 'awgImport', icon: <ImportOutlined />, label: t('pages.inbounds.awgImport.existing') },
       { key: 'export', icon: <ExportOutlined />, label: t('pages.inbounds.export') },
       ...(subEnable
         ? [{ key: 'subs', icon: <ExportOutlined />, label: `${t('pages.inbounds.export')} — ${t('pages.settings.subSettings')}` }]

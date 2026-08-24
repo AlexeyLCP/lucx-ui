@@ -264,6 +264,20 @@ func TestFillAwgClients(t *testing.T) {
 			t.Fatalf("dave must get a keypair, got pub=%q priv=%q", clients[1].PublicKey, clients[1].PrivateKey)
 		}
 	})
+	t.Run("imported publicKey keeps empty PSK", func(t *testing.T) {
+		clients := []model.Client{
+			{Email: "imp", PublicKey: "PUBIMP", AllowedIPs: []string{"10.200.0.9/32"}},
+		}
+		if err := fillAwgClients(nil, clients, nil, base, nil, "25"); err != nil {
+			t.Fatal(err)
+		}
+		if clients[0].PreSharedKey != "" {
+			t.Fatalf("import must not invent a PSK, got %q", clients[0].PreSharedKey)
+		}
+		if clients[0].PublicKey != "PUBIMP" {
+			t.Fatalf("public key rotated: %q", clients[0].PublicKey)
+		}
+	})
 	t.Run("empty keepalive defaults by version", func(t *testing.T) {
 		v2 := []model.Client{{Email: "a", PublicKey: "P", PreSharedKey: "S", AllowedIPs: []string{"10.200.0.2/32"}}}
 		if err := fillAwgClients(nil, v2, nil, base, nil, defaultAwgKeepAlive("2")); err != nil {

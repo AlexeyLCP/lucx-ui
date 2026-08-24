@@ -90,6 +90,9 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/:id/awgDiagnostics", a.awgDiagnostics)
 	// LUCX-HOOK: AWG — path-MTU probe (DF-ping ceiling check for the configured MTU).
 	g.GET("/:id/awgTestMtu", a.awgTestMtu)
+	g.GET("/awg/import/preview", a.awgImportPreview)
+	g.POST("/awg/import/dismiss", a.awgImportDismiss)
+	g.POST("/awg/import/commit", a.awgImportCommit)
 	// END LUCX-HOOK
 }
 

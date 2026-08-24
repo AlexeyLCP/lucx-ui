@@ -402,6 +402,23 @@
       "exportInbound": "Export Inbound",
       "import": "Import",
       "importInbound": "Import an Inbound",
+      "awgImport": {
+        "existing": "Import existing AWG",
+        "bannerTitle": "Existing AWG interfaces found",
+        "bannerBody": "This host has {count} AmneziaWG interface(s) not managed by the panel ({peers} peers). Review before importing — issued client configs will not change.",
+        "review": "Review",
+        "skip": "Skip",
+        "confirm": "Import selected",
+        "modalTitle": "Import existing AWG",
+        "success": "Imported {inbounds} inbound(s), {clients} client(s). {missing} without private keys (QR/export unavailable until keys are pasted).",
+        "none": "No unmanaged AWG interfaces found.",
+        "drop": "Kernel interfaces are renamed in place (handshakes stay). Userspace/Docker setups need their old manager stopped; those clients reconnect once.",
+        "keysMissing": "no key",
+        "source": "Source",
+        "peers": "Peers",
+        "keys": "Keys",
+        "live": "Live"
+      },
       "periodicTrafficResetTitle": "Traffic Reset",
       "periodicTrafficResetDay": "Monthly reset day",
       "periodicTrafficReset": {

@@ -102,6 +102,22 @@ func TestConfigIsManaged(t *testing.T) {
 	}
 }
 
+func TestStrayInterfaceIsOurs(t *testing.T) {
+	withTempConfigDir(t)
+	writeConf(t, "awg5.conf", xuiManagedMarker+"\n[Interface]\n")
+	writeConf(t, "awg0.conf", "[Interface]\nPrivateKey = foreign\n")
+
+	if !strayInterfaceIsOurs("awg5") {
+		t.Fatal("marked awg5.conf must be treated as ours")
+	}
+	if strayInterfaceIsOurs("awg0") {
+		t.Fatal("unmarked awg0.conf must be left alone")
+	}
+	if strayInterfaceIsOurs("awg1") {
+		t.Fatal("missing conf must be treated as foreign")
+	}
+}
+
 // TestBackupConfigFile_MoveAndTimestamp confirms the file is moved into the
 // backup dir under a timestamped name, and that the source is gone.
 func TestBackupConfigFile_MoveAndTimestamp(t *testing.T) {

@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.165 — import existing host AWG (2026-08-24)
+
+Installing the panel on a host that already runs awg-multi / toolza3 / Docker Amnezia used to `ip link del` every `awgN` on the first AwgJob tick (`killStrayAwgInterfaces` assumed x-ui owned the name). Config files were already protected (lucx.67); live interfaces were not.
+
+- `killStray` deletes only interfaces whose `.conf` starts with `# Managed by x-ui`. Foreign `awg0`/`awg1` stay up.
+- `install-awg-module.sh` skips `rmmod` when an unmanaged `awgN` is up (new module waits for reboot).
+- Inbounds banner + menu “Import existing AWG”: preview (70+ peers, virtualized table) → one `AddInbound` per interface. Keys/IPs/port/obfuscation copied as-is. Kernel iface adopted via `ip link set … name awg{id}` (no handshake drop). Userspace/Docker warned to stop the old manager.
+- `fillAwgClients` no longer invents a PSK when the peer already has a public key.
+
+**lucxVersion:** lucx.165
+
+---
+
 ## lucx.164 — sidecar fetch: replace running binaries (2026-08-24)
 
 Update after panel start failed to unpack live sidecars: `gzip > bin/caddy-naive-linux-amd64` / `trusttunnel-linux-amd64` → ETXTBSY ("Text file busy") / `gunzip failed`. Downloads were fine; only running inodes refused in-place write.

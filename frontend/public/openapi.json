@@ -4298,6 +4298,115 @@
         }
       }
     },
+    "/panel/api/inbounds/awg/import/preview": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "List unmanaged AmneziaWG interfaces on this host (awg-multi / toolza3 / Docker) for optional import. LucX-UI only.",
+        "operationId": "get_panel_api_inbounds_awg_import_preview",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/awg/import/dismiss": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Hide the existing-AWG import banner. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_awg_import_dismiss",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/awg/import/commit": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Import selected unmanaged AWG interfaces as inbounds and clients without rotating keys or IPs. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_awg_import_commit",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "string",
+                    "description": "JSON array of candidate IDs from preview (source:ifname)."
+                  }
+                },
+                "required": [
+                  "ids"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/{id}/awgTestMtu": {
       "get": {
         "tags": [

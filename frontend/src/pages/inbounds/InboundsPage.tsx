@@ -39,6 +39,7 @@ const PromptModal = lazy(() => import('@/components/feedback/PromptModal'));
 
 import { useInbounds } from './useInbounds';
 import { InboundList } from './list';
+import AwgImportBanner from './AwgImportBanner';
 import { LazyMount } from '@/components/utility';
 const InboundFormModal = lazy(() => import('./form/InboundFormModal'));
 const InboundInfoModal = lazy(() => import('./info/InboundInfoModal'));
@@ -64,7 +65,7 @@ type RowAction =
   | 'addToGroup'
   | 'clone';
 
-type GeneralAction = 'import' | 'export' | 'subs' | 'resetInbounds';
+type GeneralAction = 'import' | 'export' | 'subs' | 'resetInbounds' | 'awgImport';
 
 interface ClientMatchTarget {
   id?: string;
@@ -144,6 +145,7 @@ export default function InboundsPage() {
 
   const [groupOpen, setGroupOpen] = useState(false);
   const [groupSource, setGroupSource] = useState<DBInbound | null>(null);
+  const [awgImportMenu, setAwgImportMenu] = useState(0);
 
   const [textOpen, setTextOpen] = useState(false);
   const [textTitle, setTextTitle] = useState('');
@@ -501,6 +503,9 @@ export default function InboundsPage() {
       case 'import': importInbound(); break;
       case 'export': exportAllLinks(); break;
       case 'subs': exportAllSubs(); break;
+      case 'awgImport':
+        setAwgImportMenu((n) => n + 1);
+        break;
       case 'resetInbounds':
         modal.confirm({
           title: t('pages.inbounds.resetAllTrafficTitle'),
@@ -603,6 +608,9 @@ export default function InboundsPage() {
                 />
               ) : (
                 <Row gutter={[isMobile ? 8 : 16, 12]}>
+                  <Col span={24}>
+                    <AwgImportBanner openMenu={awgImportMenu} onImported={refresh} />
+                  </Col>
                   <Col span={24}>
                     <Card size="small" hoverable className="summary-card">
                       <Row gutter={[16, 12]}>

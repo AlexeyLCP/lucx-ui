@@ -36,6 +36,7 @@ mapfile -t PKG_FILES < <(find internal/awg internal/lucx -name '*.go' 2>/dev/nul
 # LucX-файлы вне изолированных пакетов и без LUCX-HOOK маркеров (новые файлы
 # веб-слоя туннельных сайдкаров — SPDX-заголовок есть, маркера нет).
 EXTRA_FILES=(
+    internal/web/service/awg_import.go
     internal/web/service/awg_host.go
     internal/web/service/awg_host_tail_test.go
     internal/web/service/tunnel.go

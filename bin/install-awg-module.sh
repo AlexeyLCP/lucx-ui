@@ -466,14 +466,34 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
     }
 
     # Build succeeded → swap: unload the old module and retire its DKMS tree,
-    # then install the new one...
+    # then install the new one. Skip rmmod when a foreign (unmanaged) awgN is
+    # up — those clients must stay online until the operator imports them.
+    foreign_awg=0
+    if command -v ip >/dev/null 2>&1; then
+        while read -r iface; do
+            [[ -n "$iface" ]] || continue
+            conf="/etc/amnezia/amneziawg/${iface}.conf"
+            if [[ -f "$conf" ]] && grep -qF "# Managed by x-ui - do not edit" "$conf" 2>/dev/null; then
+                continue
+            fi
+            echo -e "${YELLOW}Чужой интерфейс ${iface} оставлен (не x-ui) — rmmod пропущен.${NC}"
+            foreign_awg=1
+            break
+        done < <(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d'@' -f1 | grep -E '^awg[0-9]+$' || true)
+    fi
     if [[ -n "$OLD_DKMS_VER" && "$OLD_DKMS_VER" != "$MOD_VER" ]]; then
-        if ! rmmod amneziawg 2>/dev/null; then
+        if [[ "$foreign_awg" -eq 1 ]]; then
+            mkdir -p "$(dirname "$AWG_REBOOT_FLAG")"
+            uname -r > "$AWG_REBOOT_FLAG" 2>/dev/null || true
+            echo -e "${YELLOW}Новый модуль загрузится после reboot, текущие AWG-клиенты не сброшены.${NC}"
+        elif ! rmmod amneziawg 2>/dev/null; then
             echo -e "${YELLOW}Не удалось выгрузить amneziawg (занят?) — новый модуль подхватится после перезагрузки.${NC}"
             mkdir -p "$(dirname "$AWG_REBOOT_FLAG")"
             uname -r > "$AWG_REBOOT_FLAG" 2>/dev/null || true
         fi
-        dkms remove -m amneziawg -v "$OLD_DKMS_VER" --all 2>/dev/null || true
+        if [[ "$foreign_awg" -eq 0 ]]; then
+            dkms remove -m amneziawg -v "$OLD_DKMS_VER" --all 2>/dev/null || true
+        fi
     fi
     dkms install -m amneziawg -v "${MOD_VER}" -k "${BUILD_K}" || {
         echo -e "${RED}dkms install не удалась — проверь /var/lib/dkms/amneziawg${NC}"

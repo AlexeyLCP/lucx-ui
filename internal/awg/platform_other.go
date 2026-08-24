@@ -8,10 +8,19 @@
 
 package awg
 
+import "fmt"
+
 // defaultRouteInterface is a no-op off Linux. AWG is a Linux kernel module;
 // other platforms are not a supported deployment target for the AWG sidecar,
 // so NAT setup is unnecessary there.
 func defaultRouteInterface() string { return "" }
+
+func renameAwgInterface(oldName, newName string) error {
+	if oldName == "" || oldName == newName {
+		return nil
+	}
+	return fmt.Errorf("awg interface rename is Linux-only")
+}
 
 // killStrayAwgInterfaces is a no-op off Linux. AWG is a Linux kernel module;
 // other platforms are not a supported deployment target for the AWG sidecar,

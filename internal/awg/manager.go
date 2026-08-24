@@ -257,6 +257,56 @@ func configIsManaged(path string) bool {
 	return strings.HasPrefix(string(data), xuiManagedMarker)
 }
 
+// strayInterfaceIsOurs reports whether a live awgN interface belongs to LucX.
+// No .conf or an unmarked file (toolza / docker / WGDashboard) is foreign.
+func strayInterfaceIsOurs(ifname string) bool {
+	return configIsManaged(filepath.Join(awgConfigDir, ifname+".conf"))
+}
+
+// ConfigPathIsManaged is the exported form of configIsManaged for the importer.
+func ConfigPathIsManaged(path string) bool {
+	return configIsManaged(path)
+}
+
+// BackupForeignConf moves a foreign .conf into x-ui-backup after a successful import.
+func BackupForeignConf(path string) error {
+	return backupConfigFile(path)
+}
+
+// Adopt takes over a live foreign interface for a newly created inbound:
+// rename it to awg{id} when needed, write the managed .conf, and register it
+// without awg-quick down/up so existing handshakes survive.
+func (m *Manager) Adopt(inst Instance, currentIfname string) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if currentIfname != "" && currentIfname != inst.Ifname {
+		if err := renameAwgInterface(currentIfname, inst.Ifname); err != nil {
+			return err
+		}
+	}
+	if err := writeServerConfigFile(inst); err != nil {
+		return err
+	}
+	proc := newProcess(inst.Ifname, configPathForID(inst.Id), fmt.Sprintf("inbound %d", inst.Id))
+	if !proc.IsRunning() {
+		if err := proc.Start(); err != nil {
+			return err
+		}
+	}
+	m.procs[inst.Id] = &managed{
+		proc:        proc,
+		tag:         inst.Tag,
+		fingerprint: inst.fingerprint(),
+		peerFP:      inst.peerFingerprint(),
+		ifname:      inst.Ifname,
+		onlineTTL:   onlineTTLSeconds(inst),
+		lastRx:      map[string]int64{},
+		lastTx:      map[string]int64{},
+	}
+	logger.Infof("awg: adopted interface %s as %s for inbound %d", currentIfname, inst.Ifname, inst.Id)
+	return nil
+}
+
 // backupConfigFile moves the .conf at path into awgBackupDir with a unix-time
 // suffix so repeated backups of the same name never overwrite each other.
 func backupConfigFile(path string) error {

@@ -248,8 +248,24 @@ export const sections: readonly Section[] = [
           { name: 'id', in: 'path', type: 'number', desc: 'Inbound ID. Must be an AWG inbound.' },
         ],
       },
-      // END LUCX-HOOK
-      // LUCX-HOOK: AWG path-MTU probe endpoint documentation.
+      {
+        method: 'GET',
+        path: '/panel/api/inbounds/awg/import/preview',
+        summary: 'List unmanaged AmneziaWG interfaces on this host (awg-multi / toolza3 / Docker) for optional import. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/inbounds/awg/import/dismiss',
+        summary: 'Hide the existing-AWG import banner. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/inbounds/awg/import/commit',
+        summary: 'Import selected unmanaged AWG interfaces as inbounds and clients without rotating keys or IPs. LucX-UI only.',
+        params: [
+          { name: 'ids', in: 'body', type: 'string', desc: 'JSON array of candidate IDs from preview (source:ifname).' },
+        ],
+      },
       {
         method: 'GET',
         path: '/panel/api/inbounds/:id/awgTestMtu',

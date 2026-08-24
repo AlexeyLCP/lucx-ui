@@ -357,6 +357,7 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 	}
 	for i := range clients {
 		c := &clients[i]
+		hadIdentity := c.PublicKey != "" || c.PrivateKey != ""
 		if c.PrivateKey == "" && c.PublicKey == "" {
 			priv, pub, err := wgutil.GenerateWireguardKeypair()
 			if err != nil {
@@ -371,7 +372,7 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 			}
 			c.PublicKey = pub
 		}
-		if c.PreSharedKey == "" {
+		if c.PreSharedKey == "" && !hadIdentity {
 			psk, err := wgutil.GenerateWireguardPSK()
 			if err != nil {
 				return err

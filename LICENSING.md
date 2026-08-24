@@ -18,6 +18,8 @@ The components **authored by the LucX-UI project** are licensed under the **Poly
 - `internal/web/job/awg_job.go` — AWG reconcile cron
 - `internal/web/job/tunnel_job.go` — tunnel sidecar reconcile cron
 - `internal/web/service/client_awg.go` — AWG client provisioning
+- `internal/web/service/awg_import.go` — import existing host AWG
+- `frontend/src/api/awg-import.ts`, `frontend/src/schemas/awg-import.ts`, `frontend/src/pages/inbounds/AwgImportBanner.tsx`
 - `internal/web/service/tunnel.go` — tunnel sidecar service
 - `frontend/src/schemas/protocols/inbound/awg.ts` — AWG Zod schema
 - `frontend/src/schemas/tunnel.ts` — tunnel sidecar Zod schemas

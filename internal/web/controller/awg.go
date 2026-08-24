@@ -14,6 +14,8 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/cps"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/signature"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
 )
 
 // awgGenerateObfuscationRequest is the body the AWG inbound form posts to
@@ -226,6 +228,42 @@ func (a *InboundController) awgTestMtu(c *gin.Context) {
 		return
 	}
 	jsonObj(c, awg.ProbePathMTU(inst.MTU), nil)
+}
+
+func (a *InboundController) awgImportPreview(c *gin.Context) {
+	svc := &service.AwgImportService{Inbound: a.inboundService}
+	jsonObj(c, svc.Preview(), nil)
+}
+
+func (a *InboundController) awgImportDismiss(c *gin.Context) {
+	svc := &service.AwgImportService{}
+	if err := svc.Dismiss(); err != nil {
+		jsonMsg(c, "awg import dismiss", err)
+		return
+	}
+	jsonMsg(c, "ok", nil)
+}
+
+type awgImportCommitRequest struct {
+	IDs []string `json:"ids"`
+}
+
+func (a *InboundController) awgImportCommit(c *gin.Context) {
+	var req awgImportCommitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		jsonMsg(c, "awg import: invalid request body", err)
+		return
+	}
+	user := session.GetLoginUser(c)
+	if user == nil {
+		jsonMsg(c, "awg import: not logged in", nil)
+		return
+	}
+	svc := &service.AwgImportService{Inbound: a.inboundService}
+	results := svc.Commit(user.Id, req.IDs)
+	jsonObj(c, results, nil)
+	a.broadcastInboundsUpdate(user.Id)
+	notifyClientsChanged()
 }
 
 // END LUCX-HOOK
