@@ -1343,12 +1343,4 @@ func TestInjectTrustTunnelEgress_KnownOutboundForceRoutes(t *testing.T) {
 }
 
 // END LUCX-HOOK
-		t.Fatalf("expected the new rule plus the pre-existing one, got %+v", routing.Rules)
-	}
-	if routing.Rules[0].OutboundTag != amneziawgV6EgressTag(1, "a@x") {
-		t.Fatalf("the new infra rule must be prepended ahead of the pre-existing rule, got %+v", routing.Rules[0])
-	}
-	if routing.Rules[1].OutboundTag != "api" {
-		t.Fatalf("the pre-existing rule must survive, got %+v", routing.Rules[1])
-	}
-}
+

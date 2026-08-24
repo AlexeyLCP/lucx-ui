@@ -278,9 +278,6 @@
       "accessProxy": "PROXY",
       "importKeepHostSettings": "Giữ cài đặt của máy này",
       "importKeepHostSettingsDesc": "Giữ nguyên địa chỉ lắng nghe, cổng, đường dẫn cơ sở, chứng chỉ và danh tính node của bảng điều khiển này thay vì lấy chúng từ tệp đã tải lên.",
-      "releaseNotes": "What's new",
-      "releaseNotesMore": "Show more",
-      "releaseNotesLoadMore": "Load older releases",
       "awgStatus": "AmneziaWG (kernel)",
       "awgStatusRunning": "Running",
       "awgStatusStop": "Stopped",
@@ -1883,13 +1880,7 @@
         "outboundTag": "Tag outbound",
         "balancerTag": "Tag balancer",
         "balancerTagTooltip": "Định tuyến lưu lượng qua một trong các bộ cân bằng tải đã cấu hình",
-        "matchAllPreset": "Match all traffic",
-        "matchAllApplied": "Preset applied: rule now matches all domains (domain: wildcard). Pick an outbound tag below and save.",
-        "noMatcherError": "Rule has no matcher (domain, IP, port, inbound tag, protocol, ...). Xray rejects empty rules and fails to start. Add at least one matcher, or use the 'Match all traffic' preset above.",
-        "noTargetWarning": "Rule has matchers but no outbound tag or balancer tag. It will match traffic but route it to the default outbound. Add a target if this is intentional.",
-        "clientPickHint": "Pick clients from the list (search works). AWG/WireGuard map to Source IP (tunnel /32); VLESS/VMess/… map to Xray user email. You can still type free values.",
-        "clientPickPlaceholder": "Search client email…",
-        "clientPickAwgNote": "AWG (routeThroughXray) has no Xray email — selected AWG clients are written as Source IPs automatically."
+        "matchAllPreset": "Match all traffic"
       },
       "outboundForm": {
         "tagDuplicate": "Tag đã được dùng bởi outbound khác",

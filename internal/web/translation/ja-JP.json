@@ -278,9 +278,6 @@
       "accessProxy": "PROXY",
       "importKeepHostSettings": "このマシンの設定を保持する",
       "importKeepHostSettingsDesc": "アップロードしたファイルの値ではなく、このパネルのリッスンアドレス、ポート、ベースパス、証明書、ノード ID を保持します。",
-      "releaseNotes": "What's new",
-      "releaseNotesMore": "Show more",
-      "releaseNotesLoadMore": "Load older releases",
       "awgStatus": "AmneziaWG (kernel)",
       "awgStatusRunning": "Running",
       "awgStatusStop": "Stopped",
@@ -1883,13 +1880,7 @@
         "outboundTag": "アウトバウンドタグ",
         "balancerTag": "バランサータグ",
         "balancerTagTooltip": "設定済みのロードバランサーの1つを通じてトラフィックをルーティング",
-        "matchAllPreset": "Match all traffic",
-        "matchAllApplied": "Preset applied: rule now matches all domains (domain: wildcard). Pick an outbound tag below and save.",
-        "noMatcherError": "Rule has no matcher (domain, IP, port, inbound tag, protocol, ...). Xray rejects empty rules and fails to start. Add at least one matcher, or use the 'Match all traffic' preset above.",
-        "noTargetWarning": "Rule has matchers but no outbound tag or balancer tag. It will match traffic but route it to the default outbound. Add a target if this is intentional.",
-        "clientPickHint": "Pick clients from the list (search works). AWG/WireGuard map to Source IP (tunnel /32); VLESS/VMess/… map to Xray user email. You can still type free values.",
-        "clientPickPlaceholder": "Search client email…",
-        "clientPickAwgNote": "AWG (routeThroughXray) has no Xray email — selected AWG clients are written as Source IPs automatically."
+        "matchAllPreset": "Match all traffic"
       },
       "outboundForm": {
         "tagDuplicate": "このタグは他のアウトバウンドで使用されています",
