@@ -32,7 +32,7 @@ func TestUpdateAfterShareOnlyAttach(t *testing.T) {
 
 			updated := source[0]
 			updated.TotalGB = 11
-			if _, err := svc.Update(inboundSvc, rec.Id, updated); err != nil {
+			if _, err := svc.Update(inboundSvc, rec.Id, updated, 0); err != nil {
 				t.Fatalf("Update after %s attach: %v", proto, err)
 			}
 			if got := lookupClientRecord(t, "fox").TotalGB; got != 11 {
@@ -62,7 +62,7 @@ func TestUpdateShareOnlyOnlyClient(t *testing.T) {
 	updated := source[0]
 	updated.TotalGB = 7
 	updated.Comment = "ok"
-	if _, err := svc.Update(inboundSvc, rec.Id, updated); err != nil {
+	if _, err := svc.Update(inboundSvc, rec.Id, updated, 0); err != nil {
 		t.Fatalf("Update qWDTT-only: %v", err)
 	}
 	got := lookupClientRecord(t, "fox")
