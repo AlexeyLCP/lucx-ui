@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined AR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **لوحة Xray متقدمة** — AmneziaWG أصلي (حتى 3.1)، أنفاق تحت الإشراف و sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراكات Clash / Amnezia `vpn://` / Happ، متصفح geodata وتوجيه RoscomVPN.
+> **لوحة Xray متقدمة** — AmneziaWG (نواة + أصلي، حتى 3.1)، استيراد AWG الموجود، أنفاق تحت الإشراف و sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراكات Clash / Amnezia `vpn://` / Happ، متصفح geodata وتوجيه RoscomVPN.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,11 +62,15 @@ docker compose --profile postgres up -d
 
 ## 🛡️ لماذا LucX-UI؟
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) لوحة متعددة البروتوكولات ممتازة بواجهة React 19 + Ant Design 6. يحافظ LucX-UI على كل ما في 3x-ui ويضيف ما لا يملكه upstream: **AmneziaWG (AWG) أصلي، حتى 3.1**، **sidecars للأنفاق** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، **اشتراكات أوسع** (Clash Meta AWG، Amnezia `vpn://`، Happ) و**أدوات geodata** (متصفح في اللوحة + حزم RoscomVPN):
+[3x-ui](https://github.com/MHSanaei/3x-ui) لوحة متعددة البروتوكولات ممتازة بواجهة React 19 + Ant Design 6. يحافظ LucX-UI على كل ما في 3x-ui ويضيف ما لا يملكه upstream: **AmneziaWG للنواة** (إلى جانب `amneziawg` الأصلي لدى upstream)، **استيراد AWG الموجود**، **sidecars للأنفاق** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، **اشتراكات أوسع** (Clash Meta AWG، Amnezia `vpn://`، Happ) و**أدوات geodata** (متصفح في اللوحة + حزم RoscomVPN):
 
 | الميزة | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG inbound (sidecar للنواة عبر `awg-quick`) | ✗ | ✓ |
+| AmneziaWG الأصلي (`amneziawg`، مساحة المستخدم) | ✓ | ✓ |
+| استيراد AWG الموجود على المضيف (awg-multi / toolza3 / Docker) | ✗ | ✓ |
+| Kernel AWG بدون وحدة → amneziawg-go مدمج | ✗ | ✓ |
+| سرعة AWG الحية للعملاء والـ inbounds في اللوحة | ✗ | ✓ |
 | AWG CPS تعتيم (TLS / DNS / SIP / QUIC + بصمات المتصفح) | ✗ | ✓ |
 | AWG outbound — تسلسل VPN إلى سيرفرات AWG الرئيسية (`awgo-N`) | ✗ | ✓ |
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
@@ -92,16 +96,19 @@ docker compose --profile postgres up -d
 
 \* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (لم يُدمَج بعد) — مُرحَّل إلى LucX-UI.
 
-Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG يعمل كواجهة نواة حقيقية — وليس shim لمساحة المستخدم — مما يتيح لـ Xray توجيه الترافيك المفكوك عبر inbound الـ TUN الخاص به، فتحصل على القوة الكاملة للتوجيه والشمّ وقواعد النطاقات لدى Xray على ترافيك AWG.
+Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG يعمل كواجهة نواة حقيقية — وليس shim لمساحة المستخدم — مما يتيح لـ Xray توجيه الترافيك المفكوك عبر inbound الـ TUN الخاص به، فتحصل على القوة الكاملة للتوجيه والشمّ وقواعد النطاقات لدى Xray على ترافيك AWG. بلا وحدة — نفس inbound LucX `awg` يعمل على amneziawg-go المدمج. بروتوكول upstream الأصلي `amneziawg` يبقى في اللوحة بجانبه.
 
 ---
 
 ## 🌟 حول LucX-UI
 
-**LucX-UI** نسخة محسّنة من [3x-ui](https://github.com/MHSanaei/3x-ui) (متزامنة مع upstream **v3.6.0**). فوق بروتوكولات Xray الافتراضية: **AmneziaWG** أصلي (sidecar للنواة كـ MTProto/`mtg`، الآن حتى **AWG 3.1**)، **أنفاق تحت إشراف اللوحة** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراكات موسّعة** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و**geodata browser** مع قوائم RoscomVPN. توافق 100% مع upstream عبر عزل `LUCX-HOOK`.
+**LucX-UI** نسخة محسّنة من [3x-ui](https://github.com/MHSanaei/3x-ui) (متزامنة مع upstream **v3.6.0**). فوق بروتوكولات Xray الافتراضية: **AmneziaWG** بوضعَين — sidecar للنواة `awg` (كـ MTProto/`mtg`) و`amneziawg` الأصلي لدى upstream، حتى **AWG 3.1**؛ **استيراد** awg-multi / toolza3 / Docker؛ **أنفاق تحت إشراف اللوحة** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراكات موسّعة** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و**geodata browser** مع قوائم RoscomVPN. توافق 100% مع upstream عبر عزل `LUCX-HOOK`.
 
 ### 🛡️ ميزات AmneziaWG (AWG)
 - **AWG Inbounds & Outbounds** — Sidecar للنواة (`awg-quick`)، اتصال بوضع العميل إلى سيرفرات AWG الرئيسية (`awgo-{id}`)، حلقة توفيق تلقائية كل 10 ثوانٍ، ومثبت موديل النواة عبر DKMS.
+- **محرّكان** — `AmneziaWG (kernel)` عبر `awg-quick` عند وجود الوحدة، و`amneziawg` الأصلي لدى upstream. بلا وحدة — تعمل inboundات LucX `awg` على amneziawg-go المدمج (SOCKS إلى Xray)؛ مسار النواة لا يتغيّر عندما تكون الوحدة موجودة.
+- **استيراد AWG الموجود** — لافتة في Inbounds: awg-multi / toolza3 / Docker Amnezia. تُنسَخ المفاتيح وIP والمنفذ والتعتيم كما هي؛ تُعاد تسمية واجهة النواة في مكانها (المصافحات تبقى).
+- **سرعة حية** — أعمدة السرعة في Clients / Inbounds لـ AWG (إحصاءات Xray لا تراه).
 - **تعتيم متقدم** — بروفايلات Lite/Standard/Pro (Jc/Jmin/Jmax/S1–S4/H1–H4)، محاكاة حزم CPS (TLS, DNS, SIP, QUIC)، وبصمات TLS للمتصفحات (Chrome, Firefox, Safari).
 - **AWG3 / HeaderProtectionKey** — حماية هيدر AmneziaWG 3 بمفاتيح 32-بايت مُولّدة تلقائياً؛ سقف الإصدار من جانب السيرفر يقود إصدار الميزات لكل عميل.
 - **AWG 3.1** — `RandomTrailers` (ذيل حزمة عشوائي، ضد DPI حسب الحجم) و`DisableCookies`؛ تُرقّى وحدة النواة والأدوات تلقائياً إلى v3.1 عند تحديث اللوحة.
@@ -150,7 +157,7 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 
 ---
 
-## 🔄 الانتقال من 3x-ui
+## 🔄 الانتقال من 3x-ui وAWG الموجود
 
 يشارك LucX-UI نفس قاعدة مخطط قاعدة بيانات Xray-core / SQLite (أو PostgreSQL) مع 3x-ui، وتُنشأ جداول AWG تلقائياً عند أول تشغيل. للتثبيت فوق إعداد 3x-ui موجود، انسخ قاعدة بياناتك احتياطياً أولاً ثم شغل أمر التثبيت القياسي:
 
@@ -160,6 +167,12 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ```
 
 تُبنى موديل نواة AWG تلقائياً بواسطة المثبّت (`bin/install-awg-module.sh`, DKMS). بعد التثبيت، شغّل `x-ui` في الطرفية للتأكد من إصدار موديل نواة AWG وابدأ بإضافة AWG inbounds من اللوحة.
+
+### من AWG الموجود على المضيف
+
+إذا كان السيرفر يشغّل مسبقاً **awg-multi** أو **toolza3** أو **Docker Amnezia**، فاللوحة **لا تحذف** واجهات `awg0`/`awg1` الأجنبية. تظهر في Inbounds لافتة **«استيراد AWG الموجود»**: معاينة الأقران → inbound واحد لكل واجهة. تُنسَخ المفاتيح / IP / المنفذ / التعتيم كما هي. تُعاد تسمية واجهة النواة في مكانها (`awg{id}`) — المصافحات تبقى. Userspace/Docker: أوقف المدير القديم؛ يعيد أولئك العملاء الاتصال مرة واحدة.
+
+بلا وحدة نواة، تُرفع inboundات LucX `awg` على amneziawg-go المدمج. بروتوكول upstream الأصلي `amneziawg` متاح في اللوحة بجانبه.
 
 ---
 

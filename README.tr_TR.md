@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined TR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Gelişmiş Xray paneli** — yerel AmneziaWG (3.1'e kadar), denetimli tüneller ve sidecar outbound'lar (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ abonelikleri, geodata browser ve RoscomVPN yönlendirme.
+> **Gelişmiş Xray paneli** — AmneziaWG (çekirdek + yerel, 3.1'e kadar), mevcut AWG içe aktarma, denetimli tüneller ve sidecar outbound'lar (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ abonelikleri, geodata browser ve RoscomVPN yönlendirme.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,11 +62,15 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Neden LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve upstream'de olmayanları ekler: **yerel AmneziaWG (AWG, 3.1'e kadar)**, **tünel sidecar'ları** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), **zengin abonelikler** (Clash Meta AWG, Amnezia `vpn://`, Happ) ve **geodata araçları** (panel browser + RoscomVPN paketleri):
+[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve upstream'de olmayanları ekler: **çekirdek AmneziaWG** (upstream'in yerel `amneziawg`'siyle yan yana), **mevcut AWG içe aktarma**, **tünel sidecar'ları** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), **zengin abonelikler** (Clash Meta AWG, Amnezia `vpn://`, Happ) ve **geodata araçları** (panel browser + RoscomVPN paketleri):
 
 | Özellik | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG inbound (çekirdek sidecar'ı `awg-quick` ile) | ✗ | ✓ |
+| Yerel AmneziaWG inbound (`amneziawg`, kullanıcı alanı) | ✓ | ✓ |
+| Mevcut host AWG içe aktarma (awg-multi / toolza3 / Docker) | ✗ | ✓ |
+| Modül yokken kernel AWG → gömülü amneziawg-go | ✗ | ✓ |
+| Panelde canlı AWG istemci/inbound hızı | ✗ | ✓ |
 | AWG CPS gizleme (TLS / DNS / SIP / QUIC + tarayıcı parmak izleri) | ✗ | ✓ |
 | AWG outbound — üst AWG sunucularına VPN zincirleme (`awgo-N`) | ✗ | ✓ |
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
@@ -92,16 +96,19 @@ docker compose --profile postgres up -d
 
 \* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (henüz birleştirilmedi) — LucX-UI'ye taşındı.
 
-Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir çekirdek arabirimi olarak çalıştığı (kullanıcı alanı shim'i değil) anlamına gelir; böylece Xray çözülmüş trafiği kendi TUN inbound'u üzerinden yönlendirir ve AWG trafiğinde Xray'ın tam yönlendirme, sniffing ve alan adı kural gücünü kullanırsınız.
+Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir çekirdek arabirimi olarak çalıştığı (kullanıcı alanı shim'i değil) anlamına gelir; böylece Xray çözülmüş trafiği kendi TUN inbound'u üzerinden yönlendirir ve AWG trafiğinde Xray'ın tam yönlendirme, sniffing ve alan adı kural gücünü kullanırsınız. Modül yoksa aynı LucX `awg` inbound'u gömülü amneziawg-go üzerinde çalışır. Upstream'in yerel `amneziawg` protokolü panelde yanında kalır.
 
 ---
 
 ## 🌟 LucX-UI Hakkında
 
-**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.6.0** ile senkron). Stok Xray protokollerinin ötesinde: yerel **AmneziaWG** (çekirdek sidecar, MTProto/`mtg` ile aynı fikir, artık **AWG 3.1**'e kadar), panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ) ve RoscomVPN listeli **geodata browser**. Katı `LUCX-HOOK` ile %100 upstream uyumu.
+**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.6.0** ile senkron). Stok Xray protokollerinin ötesinde: iki modda **AmneziaWG** — çekirdek sidecar `awg` (MTProto/`mtg` ile aynı fikir) ve upstream'in yerel `amneziawg`'si, **AWG 3.1**'e kadar; awg-multi / toolza3 / Docker **içe aktarma**; panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ) ve RoscomVPN listeli **geodata browser**. Katı `LUCX-HOOK` ile %100 upstream uyumu.
 
 ### 🛡️ AmneziaWG (AWG) Özellikleri
 - **AWG Inbound & Outbound** — Çekirdek sidecar'ı (`awg-quick`), üst AWG sunucularına istemci modunda bağlanma (`awgo-{id}`), 10 saniyelik otomatik uzlaştırma döngüsü ve DKMS modül derleyicisi.
+- **İki motor** — hem `AmneziaWG (kernel)` (modül varken `awg-quick`) hem de upstream'in yerel `amneziawg`'si. Modül yoksa LucX `awg` inbound'ları gömülü amneziawg-go üzerinde çalışır (SOCKS → Xray); modül varken çekirdek yolu değişmez.
+- **Mevcut AWG içe aktarma** — Inbounds banner'ı: awg-multi / toolza3 / Docker Amnezia. Anahtarlar, IP'ler, port ve gizleme olduğu gibi kopyalanır; çekirdek arabirimi yerinde yeniden adlandırılır (el sıkışmalar kalır).
+- **Canlı hız** — Clients / Inbounds'ta AWG hız sütunları (Xray stats onu görmez).
 - **Gelişmiş Gizleme** — Lite/Standard/Pro profilleri (Jc/Jmin/Jmax/S1–S4/H1–H4), CPS paket taklidi (TLS, DNS, SIP, QUIC) ve tarayıcı TLS parmak izleri (Chrome, Firefox, Safari).
 - **AWG3 / HeaderProtectionKey** — Otomatik üretilen 32 baytlık anahtarlarla AmneziaWG 3 başlık koruması; sunucu tarafı sürüm tavanı, istemci başına özellik emisyonunu denetler.
 - **AWG 3.1** — `RandomTrailers` (rastgele paket kuyruğu, boyuta göre anti-DPI) ve `DisableCookies`; panel güncellemesinde çekirdek modülü ve araçlar otomatik olarak v3.1'e yükselir.
@@ -150,7 +157,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 
 ---
 
-## 🔄 3x-ui'den Geçiş
+## 🔄 3x-ui ve mevcut AWG'den geçiş
 
 LucX-UI, 3x-ui ile aynı Xray-core / SQLite (veya PostgreSQL) veritabanı şema tabanını paylaşır ve AWG tabloları ilk çalıştırmada otomatik olarak oluşturulur. Mevcut bir 3x-ui kurulumunun üzerine yüklemek için önce veritabanınızı yedekleyin ve standart kurulum komutunu çalıştırın:
 
@@ -160,6 +167,12 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ```
 
 AWG çekirdek modülü, yükleyici tarafından otomatik olarak derlenir (`bin/install-awg-module.sh`, DKMS). Kurulumdan sonra, AWG çekirdek modülü sürümünü doğrulamak için konsolda `x-ui` komutunu çalıştırın ve panelden AWG inbound'ları eklemeye başlayın.
+
+### Host'taki mevcut AWG'den
+
+Sunucuda zaten **awg-multi**, **toolza3** veya **Docker Amnezia** çalışıyorsa panel yabancı `awg0`/`awg1` arabirimlerini **silmez**. Inbounds'ta **Mevcut AWG'yi içe aktar** banner'ı çıkar: eşleri önizle → arabirim başına bir inbound. Anahtarlar / IP'ler / port / gizleme olduğu gibi kopyalanır. Çekirdek arabirimi yerinde yeniden adlandırılır (`awg{id}`) — el sıkışmalar kalır. Userspace/Docker: eski yöneticiyi durdurun; o istemciler bir kez yeniden bağlanır.
+
+Çekirdek modülü yokken LucX `awg` inbound'ları yine gömülü amneziawg-go üzerinde ayağa kalkar. Upstream'in yerel `amneziawg` protokolü panelde yanında durur.
 
 ---
 

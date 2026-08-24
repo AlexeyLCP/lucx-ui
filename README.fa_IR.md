@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined FA README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **پنل پیشرفته Xray** — AmneziaWG بومی (تا 3.1)، تونل‌های تحت نظارت و sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراک Clash / Amnezia `vpn://` / Happ، geodata browser و مسیریابی RoscomVPN.
+> **پنل پیشرفته Xray** — AmneziaWG (کرنل + بومی، تا 3.1)، وارد کردن AWG موجود، تونل‌های تحت نظارت و sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراک Clash / Amnezia `vpn://` / Happ، geodata browser و مسیریابی RoscomVPN.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,11 +62,15 @@ docker compose --profile postgres up -d
 
 ## 🛡️ چرا LucX-UI؟
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) یک پنل چندپروتکله عالی با فرانت‌اند React 19 + Ant Design 6 است. LucX-UI همهٔ قابلیت‌های 3x-ui را نگه می‌دارد و آنچه upstream ندارد را اضافه می‌کند: **AmneziaWG (AWG) بومی، تا 3.1**، **سایدی‌کارهای تونل** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، **اشتراک‌های غنی‌تر** (Clash Meta AWG، Amnezia `vpn://`، Happ) و **ابزار geodata** (مرورگر در پنل + بسته‌های RoscomVPN):
+[3x-ui](https://github.com/MHSanaei/3x-ui) یک پنل چندپروتکله عالی با فرانت‌اند React 19 + Ant Design 6 است. LucX-UI همهٔ قابلیت‌های 3x-ui را نگه می‌دارد و آنچه upstream ندارد را اضافه می‌کند: **AmneziaWG کرنل** (در کنار `amneziawg` بومیِ upstream)، **وارد کردن AWG موجود**، **سایدی‌کارهای تونل** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، **اشتراک‌های غنی‌تر** (Clash Meta AWG، Amnezia `vpn://`، Happ) و **ابزار geodata** (مرورگر در پنل + بسته‌های RoscomVPN):
 
 | ویژگی | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG ورودی (سایدی‌کار کرنل از طریق `awg-quick`) | ✗ | ✓ |
+| ورودی AmneziaWG بومی (`amneziawg`، فضای کاربری) | ✓ | ✓ |
+| وارد کردن AWG موجود روی میزبان (awg-multi / toolza3 / Docker) | ✗ | ✓ |
+| Kernel AWG بدون ماژول → amneziawg-go توکار | ✗ | ✓ |
+| سرعت زنده کلاینت/ورودی AWG در پنل | ✗ | ✓ |
 | AWG CPS پنهان‌سازی (TLS / DNS / SIP / QUIC + اثرانگشت مرورگر) | ✗ | ✓ |
 | AWG خروجی — زنجیره VPN به سرورهای AWG بالادستی (`awgo-N`) | ✗ | ✓ |
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
@@ -92,16 +96,19 @@ docker compose --profile postgres up -d
 
 \* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (هنوز merge نشده) — به LucX-UI پورت شده.
 
-یک سایدی‌کار کرنل (مانند `mtg` در MTProto ِ 3x-ui) به این معناست که AWG به‌عنوان یک رابط کرنل واقعی اجرا می‌شود — نه یک shim فضای کاربری — در نتیجه Xray ترافیک رمزگشاشده را از طریق TUN ورودیِ خود عبور می‌دهد و قدرت کامل مسیریابی، شنود و قوانین دامنهٔ Xray را روی ترافیک AWG در اختیار شما قرار می‌دهد.
+یک سایدی‌کار کرنل (مانند `mtg` در MTProto ِ 3x-ui) به این معناست که AWG به‌عنوان یک رابط کرنل واقعی اجرا می‌شود — نه یک shim فضای کاربری — در نتیجه Xray ترافیک رمزگشاشده را از طریق TUN ورودیِ خود عبور می‌دهد و قدرت کامل مسیریابی، شنود و قوانین دامنهٔ Xray را روی ترافیک AWG در اختیار شما قرار می‌دهد. بدون ماژول، همان inboundِ LucXیِ `awg` روی amneziawg-go توکار بالا می‌آید. پروتکل بومیِ upstream یعنی `amneziawg` هم در پنل کنار آن می‌ماند.
 
 ---
 
 ## 🌟 درباره LucX-UI
 
-**LucX-UI** فورک ارتقایافتهٔ [3x-ui](https://github.com/MHSanaei/3x-ui) است (همگام با upstream **v3.6.0**). فراتر از پروتکل‌های Xray استوک: **AmneziaWG** بومی (سایدی‌کار کرنل، همان ایدهٔ MTProto/`mtg`، اکنون تا **AWG 3.1**)، **تونل‌های تحت نظارت پنل** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراک‌های گسترش‌یافته** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و **geodata browser** با لیست‌های RoscomVPN. سازگاری ۱۰۰٪ با upstream از طریق ایزولهٔ `LUCX-HOOK`.
+**LucX-UI** فورک ارتقایافتهٔ [3x-ui](https://github.com/MHSanaei/3x-ui) است (همگام با upstream **v3.6.0**). فراتر از پروتکل‌های Xray استوک: **AmneziaWG** در دو حالت — سایدی‌کار کرنل `awg` (همان ایدهٔ MTProto/`mtg`) و `amneziawg` بومیِ upstream، تا **AWG 3.1**؛ **وارد کردن** awg-multi / toolza3 / Docker؛ **تونل‌های تحت نظارت پنل** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراک‌های گسترش‌یافته** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و **geodata browser** با لیست‌های RoscomVPN. سازگاری ۱۰۰٪ با upstream از طریق ایزولهٔ `LUCX-HOOK`.
 
 ### 🛡️ ویژگی‌های AmneziaWG (AWG)
 - **ورودی‌ها و خروجی‌های AWG** — سایدی‌کار کرنل (`awg-quick`)، شماره‌گیری حالت کلاینت به سرورهای AWG بالا‌دستی (`awgo-{id}`)، حلقه همگام‌سازی اتوماتیک ۱۰ ثانیه‌ای، و سازنده ماژول کرنل DKMS.
+- **دو موتور** — هم `AmneziaWG (kernel)` (با ماژول از طریق `awg-quick`) و هم `amneziawg` بومیِ upstream. بدون ماژول، inboundهای LucXیِ `awg` روی amneziawg-go توکار (SOCKS به Xray) اجرا می‌شوند؛ مسیر کرنل وقتی ماژول هست عوض نمی‌شود.
+- **وارد کردن AWG موجود** — بنر در Inbounds: awg-multi / toolza3 / Docker Amnezia. کلیدها، IP، پورت و پنهان‌سازی همان‌طور کپی می‌شوند؛ اینترفیس کرنل درجا عوض‌نام می‌شود (دست‌دادن قطع نمی‌شود).
+- **سرعت زنده** — ستون سرعت در Clients / Inbounds برای AWG (statsِ Xray آن را نمی‌بیند).
 - **مخفی‌سازی پیشرفته** — پریست‌های Lite/Standard/Pro (Jc/Jmin/Jmax/S1–S4/H1–H4)، شبیه‌سازی پکت‌های CPS (TLS, DNS, SIP, QUIC) و اثرانگشت TLS مرورگرها (Chrome, Firefox, Safari).
 - **AWG3 / HeaderProtectionKey** — حفاظت هدر AmneziaWG 3 با کلیدهای ۳۲ بایتیِ اتوماتیک؛ سقف نسخه سمت سرور، انتشار ویژگی به‌ازای کلاینت را کنترل می‌کند.
 - **AWG 3.1** — `RandomTrailers` (دم بستهٔ تصادفی، ضد DPI بر اساس اندازه) و `DisableCookies`؛ ماژول کرنل و ابزارها هنگام به‌روزرسانی پنل به‌طور خودکار به v3.1 ارتقا می‌یابند.
@@ -150,7 +157,7 @@ docker compose --profile postgres up -d
 
 ---
 
-## 🔄 مهاجرت از 3x-ui
+## 🔄 مهاجرت از 3x-ui و AWG موجود
 
 LucX-UI همان پایگاهِ اسکیمای دیتابیس Xray-core / SQLite (یا PostgreSQL) را با 3x-ui به اشتراک می‌گذارد و جداول AWG در اولین اجرا به‌صورت اتوماتیک ساخته می‌شوند. برای نصب روی یک راه‌اندازی موجود 3x-ui، ابتدا دیتابیس خود را پشتیبان بگیرید و سپس دستور نصب استاندارد را اجرا کنید:
 
@@ -160,6 +167,12 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ```
 
 ماژول کرنل AWG توسط نصب‌کننده اتوماتیک ساخته می‌شود (`bin/install-awg-module.sh`, DKMS). پس از نصب، برای تأیید نسخهٔ ماژول کرنل AWG در کنسول `x-ui` را اجرا کنید و افزودن ورودی‌های AWG را از پنل آغاز کنید.
+
+### از AWG موجود روی میزبان
+
+اگر روی سرور از قبل **awg-multi**، **toolza3** یا **Docker Amnezia** در حال اجراست، پنل اینترفیس‌های خارجی `awg0`/`awg1` را **حذف نمی‌کند**. در Inbounds بنر **«وارد کردن AWG موجود»** ظاهر می‌شود: پیش‌نمایش همتاها → یک inbound برای هر اینترفیس. کلیدها / IP / پورت / پنهان‌سازی همان‌طور کپی می‌شوند. اینترفیس کرنل درجا عوض‌نام می‌شود (`awg{id}`) و دست‌دادن قطع نمی‌شود. Userspace/Docker: مدیر قدیمی را متوقف کنید؛ آن کلاینت‌ها یک‌بار دوباره وصل می‌شوند.
+
+بدون ماژول کرنل، inboundهای LucXیِ `awg` همچنان روی amneziawg-go توکار بالا می‌آیند. پروتکل بومیِ upstream یعنی `amneziawg` در پنل کنار آن در دسترس است.
 
 ---
 

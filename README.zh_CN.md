@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined ZH README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **高级 Xray 控制面板** — 原生 AmneziaWG（至 3.1）、受监管隧道与 Sidecar 出站（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel）、Clash / Amnezia `vpn://` / Happ 订阅、geodata browser 与 RoscomVPN 路由。
+> **高级 Xray 控制面板** — AmneziaWG（内核 + 原生，至 3.1）、导入已有 AWG、受监管隧道与 Sidecar 出站（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel）、Clash / Amnezia `vpn://` / Happ 订阅、geodata browser 与 RoscomVPN 路由。
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,11 +62,15 @@ docker compose --profile postgres up -d
 
 ## 🛡️ 为什么选择 LucX-UI？
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) 是一款出色的多协议面板，前端采用现代化的 React 19 + Ant Design 6。LucX-UI 保留 3x-ui 的全部能力，并补充上游没有的部分：**原生 AmneziaWG (AWG，至 3.1)**、**隧道 Sidecar**（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel）、**更丰富的订阅**（Clash Meta AWG、Amnezia `vpn://`、Happ）以及 **geodata 工具**（面板内浏览器 + RoscomVPN 数据包）：
+[3x-ui](https://github.com/MHSanaei/3x-ui) 是一款出色的多协议面板，前端采用现代化的 React 19 + Ant Design 6。LucX-UI 保留 3x-ui 的全部能力，并补充上游没有的部分：**内核 AmneziaWG**（与上游原生 `amneziawg` 并存）、**导入已有 AWG**、**隧道 Sidecar**（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel）、**更丰富的订阅**（Clash Meta AWG、Amnezia `vpn://`、Happ）以及 **geodata 工具**（面板内浏览器 + RoscomVPN 数据包）：
 
 | 特性 | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG 入站（通过 `awg-quick` 的内核 Sidecar） | ✗ | ✓ |
+| 原生 AmneziaWG 入站（`amneziawg`，用户态） | ✓ | ✓ |
+| 导入主机上已有的 AWG（awg-multi / toolza3 / Docker） | ✗ | ✓ |
+| 无内核模块时 kernel AWG → 内置 amneziawg-go | ✗ | ✓ |
+| 面板内 AWG 客户端/入站实时速率 | ✗ | ✓ |
 | AWG CPS 混淆（TLS / DNS / SIP / QUIC + 浏览器指纹） | ✗ | ✓ |
 | AWG outbound —— VPN 链式连接上游 AWG 服务器 (`awgo-N`) | ✗ | ✓ |
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
@@ -92,16 +96,19 @@ docker compose --profile postgres up -d
 
 \* 上游 [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165)（尚未合并）— 已移植到 LucX-UI。
 
-内核 Sidecar（就像 3x-ui 的 MTProto `mtg` 一样）意味着 AWG 作为真正的内核接口运行 —— 而非用户态垫片 —— 因此 Xray 通过自身的 TUN inbound 路由解密后的流量，让您在 AWG 流量上获得 Xray 完整的路由、嗅探与域名规则能力。
+内核 Sidecar（就像 3x-ui 的 MTProto `mtg` 一样）意味着 AWG 作为真正的内核接口运行 —— 而非用户态垫片 —— 因此 Xray 通过自身的 TUN inbound 路由解密后的流量，让您在 AWG 流量上获得 Xray 完整的路由、嗅探与域名规则能力。没有模块时，同一个 LucX `awg` 入站会走内置 amneziawg-go。上游原生协议 `amneziawg` 仍在面板中并列可选。
 
 ---
 
 ## 🌟 关于 LucX-UI
 
-**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（已同步上游 **v3.6.0**）。在原有 Xray 协议之外提供：原生 **AmneziaWG**（内核 Sidecar，思路同 MTProto/`mtg`，现已至 **AWG 3.1**）、面板监管的 **隧道**（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel）、扩展 **订阅**（Clash Meta AWG、Amnezia `/awg/` + `vpn://`、Happ）以及带 RoscomVPN 列表的 **geodata browser**。通过严格 `LUCX-HOOK` 隔离保持与上游 100% 兼容。
+**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（已同步上游 **v3.6.0**）。在原有 Xray 协议之外提供：两种 **AmneziaWG** —— 内核 Sidecar `awg`（思路同 MTProto/`mtg`）与上游原生 `amneziawg`，现已至 **AWG 3.1**；**导入** awg-multi / toolza3 / Docker；面板监管的 **隧道**（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel）、扩展 **订阅**（Clash Meta AWG、Amnezia `/awg/` + `vpn://`、Happ）以及带 RoscomVPN 列表的 **geodata browser**。通过严格 `LUCX-HOOK` 隔离保持与上游 100% 兼容。
 
 ### 🛡️ AmneziaWG (AWG) 特性
 - **AWG 入站与出站** —— 内核 Sidecar (`awg-quick`)、客户端模式连接上游 AWG 服务器 (`awgo-{id}`)、10 秒自动协调循环及 DKMS 内核模块构建器。
+- **双引擎** —— 面板同时提供 `AmneziaWG (kernel)`（有模块时走 `awg-quick`）与上游原生 `amneziawg`。无模块时 LucX `awg` 入站走内置 amneziawg-go（SOCKS 进入 Xray）；有模块时内核路径不变。
+- **导入已有 AWG** —— 入站页横幅：awg-multi / toolza3 / Docker Amnezia。密钥、IP、端口与混淆原样复制；内核接口就地改名（握手不断）。
+- **实时速率** —— Clients / Inbounds 的 AWG 速率列（Xray stats 看不到 AWG）。
 - **高级混淆控制** —— Lite/Standard/Pro 预设 (Jc/Jmin/Jmax/S1–S4/H1–H4)、CPS 数据包伪装 (TLS、DNS、SIP、QUIC) 及浏览器 TLS 指纹 (Chrome、Firefox、Safari)。
 - **AWG3 / HeaderProtectionKey** —— AmneziaWG 3 头部保护，自动生成 32 字节密钥；服务端版本上限按客户端控制特性的下发。
 - **AWG 3.1** —— `RandomTrailers`（随机包尾，按包大小抗 DPI）与 `DisableCookies`；面板更新时内核模块与工具自动升级至 v3.1。
@@ -150,7 +157,7 @@ docker compose --profile postgres up -d
 
 ---
 
-## 🔄 从 3x-ui 迁移
+## 🔄 从 3x-ui 与已有 AWG 迁移
 
 LucX-UI 与 3x-ui 共享相同的 Xray-core / SQLite（或 PostgreSQL）数据库架构基础，AWG 表会在首次运行时自动创建。要在已有的 3x-ui 安装上覆盖安装，请先备份数据库，然后运行标准安装命令：
 
@@ -160,6 +167,12 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ```
 
 AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建。安装完成后，在控制台运行 `x-ui` 以确认 AWG 内核模块版本，并从面板开始添加 AWG 入站。
+
+### 从主机上已有的 AWG
+
+若服务器上已在运行 **awg-multi**、**toolza3** 或 **Docker Amnezia**，面板**不会拆除**外来的 `awg0`/`awg1`。入站页会出现 **「导入已有 AWG」** 横幅：预览对等端 → 每个接口一个入站。密钥 / IP / 端口 / 混淆原样复制。内核接口就地改名（`awg{id}`），握手不断。用户态/Docker：先停掉旧管理器，客户端会重连一次。
+
+没有内核模块时，LucX `awg` 入站仍会通过内置 amneziawg-go 启动。上游原生协议 `amneziawg` 在面板中并列可用。
 
 ---
 

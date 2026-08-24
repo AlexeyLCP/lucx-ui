@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## docs — README: import + dual AWG engines (2026-08-24)
+
+README in all 7 locales (RU/EN/ZH/FA/AR/ES/TR): dual engines (`awg` kernel + upstream `amneziawg`, go fallback without module), import existing host AWG (awg-multi / toolza3 / Docker), live AWG speed. Migration section covers host AWG, not only 3x-ui overlay.
+
+**lucxVersion:** lucx.169 (docs only)
+
+---
+
 ## lucx.169 — borrow upstream AmneziaWG bits for kernel AWG (2026-08-24)
 
 After merging MHSanaei `amneziawg`/`amneziawgnet`, keep our kernel `awg` and take three pieces:

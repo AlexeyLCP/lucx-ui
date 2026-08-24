@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined EN README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Advanced Xray control panel** — native AmneziaWG (up to 3.1), supervised tunnels & sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ subscriptions, geodata browser & RoscomVPN routing.
+> **Advanced Xray control panel** — AmneziaWG (kernel + native, up to 3.1), import existing AWG, supervised tunnels & sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ subscriptions, geodata browser & RoscomVPN routing.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -62,11 +62,15 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Why LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) is an excellent multi-protocol panel with a modern React 19 + Ant Design 6 frontend. LucX-UI keeps everything 3x-ui offers and adds what upstream does not: **native AmneziaWG (AWG, up to 3.1)**, **tunnel sidecars** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), **richer subscriptions** (Clash Meta AWG, Amnezia `vpn://`, Happ), and **geodata tools** (in-panel browser + RoscomVPN packs):
+[3x-ui](https://github.com/MHSanaei/3x-ui) is an excellent multi-protocol panel with a modern React 19 + Ant Design 6 frontend. LucX-UI keeps everything 3x-ui offers and adds what upstream does not: **kernel AmneziaWG** (alongside upstream's native `amneziawg`), **import of existing AWG**, **tunnel sidecars** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), **richer subscriptions** (Clash Meta AWG, Amnezia `vpn://`, Happ), and **geodata tools** (in-panel browser + RoscomVPN packs):
 
 | Feature | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG inbound (kernel sidecar via `awg-quick`) | ✗ | ✓ |
+| Native AmneziaWG inbound (`amneziawg`, userspace) | ✓ | ✓ |
+| Import existing host AWG (awg-multi / toolza3 / Docker) | ✗ | ✓ |
+| Kernel AWG without module → embedded amneziawg-go | ✗ | ✓ |
+| Live AWG client/inbound speed in the panel | ✗ | ✓ |
 | AWG CPS obfuscation (TLS / DNS / SIP / QUIC + browser fingerprints) | ✗ | ✓ |
 | AWG outbound — VPN chaining to upstream AWG servers (`awgo-N`) | ✗ | ✓ |
 | AWG3 / HeaderProtectionKey | ✗ | ✓ |
@@ -92,16 +96,19 @@ docker compose --profile postgres up -d
 
 \* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (not merged yet) — ported into LucX-UI.
 
-A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel interface — not a userspace shim — so Xray routes decrypted traffic through its own TUN inbound, giving you the full routing, sniffing and domain-rule power of Xray on AWG traffic.
+A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel interface — not a userspace shim — so Xray routes decrypted traffic through its own TUN inbound, giving you the full routing, sniffing and domain-rule power of Xray on AWG traffic. No module — the same LucX `awg` inbound runs on embedded amneziawg-go. Upstream's native `amneziawg` protocol stays in the panel next to it.
 
 ---
 
 ## 🌟 About LucX-UI
 
-**LucX-UI** is an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently synced to upstream **v3.6.0**). Beyond stock Xray protocols it adds native **AmneziaWG** (kernel sidecar, same idea as upstream MTProto/`mtg`, now up to **AWG 3.1**), panel-supervised **tunnel sidecars** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), extended **subscriptions** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), and a **geodata browser** with stock RoscomVPN lists. 100% upstream compatibility via strict `LUCX-HOOK` isolation.
+**LucX-UI** is an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently synced to upstream **v3.6.0**). Beyond stock Xray protocols it adds **AmneziaWG** in two modes — kernel sidecar `awg` (same idea as MTProto/`mtg`) and upstream's native `amneziawg`, up to **AWG 3.1**; **import** of awg-multi / toolza3 / Docker; panel-supervised **tunnel sidecars** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), extended **subscriptions** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), and a **geodata browser** with stock RoscomVPN lists. 100% upstream compatibility via strict `LUCX-HOOK` isolation.
 
 ### 🛡️ AmneziaWG (AWG) Features
 - **AWG Inbounds & Outbounds** — Kernel sidecar (`awg-quick`), client mode dial-out to upstream AWG servers (`awgo-{id}`), 10-second automatic reconcile loop, and DKMS kernel module builder.
+- **Two engines** — both `AmneziaWG (kernel)` (`awg-quick` when the module is present) and upstream's native `amneziawg`. No module — LucX `awg` inbounds run on embedded amneziawg-go (SOCKS into Xray); the kernel path is unchanged when the module is there.
+- **Import existing AWG** — Inbounds banner: awg-multi / toolza3 / Docker Amnezia. Keys, IPs, port and obfuscation copied as-is; kernel iface renamed in place (handshakes stay).
+- **Live speed** — Clients / Inbounds speed columns for AWG (Xray stats never see it).
 - **Advanced Obfuscation** — Lite/Standard/Pro presets (Jc/Jmin/Jmax/S1–S4/H1–H4), CPS packet mimicry (TLS, DNS, SIP, QUIC), and browser TLS fingerprints (Chrome, Firefox, Safari).
 - **AWG3 / HeaderProtectionKey** — AmneziaWG 3 header protection with auto-generated 32-byte keys; server-side version ceiling gates feature emission per client.
 - **AWG 3.1** — `RandomTrailers` (random packet tail, size-based anti-DPI) and `DisableCookies`; kernel module + tools auto-upgrade to v3.1 on panel update.
@@ -150,7 +157,7 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 
 ---
 
-## 🔄 Migration from 3x-ui
+## 🔄 Migration from 3x-ui and existing AWG
 
 LucX-UI shares the same Xray-core / SQLite (or PostgreSQL) database schema base as 3x-ui, and AWG tables are created automatically on first run. To install over an existing 3x-ui setup, back up your database first and run the standard install command:
 
@@ -159,7 +166,13 @@ cp /etc/x-ui/x-ui.db /etc/x-ui/x-ui.db.bak
 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
 ```
 
-The AWG kernel module is built automatically by the installer (`bin/install-awg-module.sh`, DKMS). After install, run `x-ui` in the console to confirm AMW kernel module version and start adding AWG inbounds from the panel.
+The AWG kernel module is built automatically by the installer (`bin/install-awg-module.sh`, DKMS). After install, run `x-ui` in the console to confirm AWG kernel module version and start adding AWG inbounds from the panel.
+
+### From existing AWG on the host
+
+If the server already runs **awg-multi**, **toolza3** or **Docker Amnezia**, the panel **does not tear down** foreign `awg0`/`awg1`. Inbounds shows an **Import existing AWG** banner: preview peers → one inbound per interface. Keys / IPs / port / obfuscation are copied as-is. A kernel iface is renamed in place (`awg{id}`) — handshakes stay. Userspace/Docker: stop the old manager; those clients reconnect once.
+
+Without a kernel module, LucX `awg` inbounds still come up on embedded amneziawg-go. Upstream's native `amneziawg` protocol is available in the panel next to it.
 
 ---
 
