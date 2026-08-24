@@ -35,7 +35,12 @@ describe('buildWireguardClientConfig', () => {
   });
 
   it('uses the inbound DNS override when present', () => {
-    const cfg = buildWireguardClientConfig(client, { ...inbound, wgDns: '9.9.9.9' }, 'example.com', '');
+    const cfg = buildWireguardClientConfig(
+      client,
+      { ...inbound, wgDns: '9.9.9.9' },
+      'example.com',
+      '',
+    );
     expect(cfg).toContain('DNS = 9.9.9.9');
     expect(cfg).not.toContain('DNS = 1.1.1.1, 1.0.0.1');
   });
@@ -49,25 +54,45 @@ describe('buildWireguardClientConfig', () => {
   });
 
   it('omits the PresharedKey line when the client has no preshared key', () => {
-    const cfg = buildWireguardClientConfig({ ...client, preSharedKey: undefined }, inbound, 'example.com', '');
+    const cfg = buildWireguardClientConfig(
+      { ...client, preSharedKey: undefined },
+      inbound,
+      'example.com',
+      '',
+    );
     expect(cfg).not.toContain('PresharedKey');
   });
 
   it('uses the hosting node address as the endpoint host for node-managed inbounds', () => {
-    const cfg = buildWireguardClientConfig(client, { ...inbound, nodeAddress: 'node.example.net' }, 'master.example.com', '');
+    const cfg = buildWireguardClientConfig(
+      client,
+      { ...inbound, nodeAddress: 'node.example.net' },
+      'master.example.com',
+      '',
+    );
     expect(cfg).toContain('Endpoint = node.example.net:51820');
     expect(cfg).not.toContain('master.example.com');
   });
 
   it('falls back to the panel host when the node address is blank', () => {
-    const cfg = buildWireguardClientConfig(client, { ...inbound, nodeAddress: '   ' }, 'master.example.com', '');
+    const cfg = buildWireguardClientConfig(
+      client,
+      { ...inbound, nodeAddress: '   ' },
+      'master.example.com',
+      '',
+    );
     expect(cfg).toContain('Endpoint = master.example.com:51820');
   });
 
   it('honors the custom share-address strategy over the node address', () => {
     const cfg = buildWireguardClientConfig(
       client,
-      { ...inbound, nodeAddress: 'node.example.net', shareAddrStrategy: 'custom', shareAddr: 'vpn.example.com' },
+      {
+        ...inbound,
+        nodeAddress: 'node.example.net',
+        shareAddrStrategy: 'custom',
+        shareAddr: 'vpn.example.com',
+      },
       'master.example.com',
       '',
     );
@@ -77,7 +102,12 @@ describe('buildWireguardClientConfig', () => {
   it('honors the listen share-address strategy over the node address', () => {
     const cfg = buildWireguardClientConfig(
       client,
-      { ...inbound, nodeAddress: 'node.example.net', shareAddrStrategy: 'listen', listen: '198.51.100.7' },
+      {
+        ...inbound,
+        nodeAddress: 'node.example.net',
+        shareAddrStrategy: 'listen',
+        listen: '198.51.100.7',
+      },
       'master.example.com',
       '',
     );
@@ -85,7 +115,12 @@ describe('buildWireguardClientConfig', () => {
   });
 
   it('keeps a panel hostname that fails share-host normalization instead of emitting an empty endpoint', () => {
-    const cfg = buildWireguardClientConfig(client, { ...inbound, listen: '0.0.0.0' }, 'wg_gw.corp.lan', '');
+    const cfg = buildWireguardClientConfig(
+      client,
+      { ...inbound, listen: '0.0.0.0' },
+      'wg_gw.corp.lan',
+      '',
+    );
     expect(cfg).toContain('Endpoint = wg_gw.corp.lan:51820');
     expect(cfg).not.toContain('Endpoint = :51820');
   });
@@ -96,24 +131,51 @@ describe('buildWireguardClientConfig', () => {
 // trims it to the requested export version so older client apps do not choke on
 // unknown fields. v1.5 drops S3/S4 + I1-I5 + HeaderProtectionKey; v2 drops only
 // HeaderProtectionKey; v3 keeps everything.
-import { buildAwgClientConfig, filterAwgObfuscation, findAwgInbounds, findAwgInbound } from '@/pages/clients/wireguardConfig';
+import {
+  buildAwgClientConfig,
+  filterAwgObfuscation,
+  findAwgInbounds,
+  findAwgInbound,
+} from '@/pages/clients/wireguardConfig';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
 
 const awgCeilingBlock = [
-  'Jc = 5', 'Jmin = 50', 'Jmax = 200',
-  'S1 = 30', 'S2 = 60', 'S3 = 20', 'S4 = 25',
-  'H1 = 100000-500000', 'H2 = 600000-900000', 'H3 = 1000000-1500000', 'H4 = 1600000-2000000',
-  'I1 = <b 0xaa>', 'I2 = <b 0xbb>', 'I3 = <b 0xcc>', 'I4 = <b 0xdd>', 'I5 = <b 0xee>',
+  'Jc = 5',
+  'Jmin = 50',
+  'Jmax = 200',
+  'S1 = 30',
+  'S2 = 60',
+  'S3 = 20',
+  'S4 = 25',
+  'H1 = 100000-500000',
+  'H2 = 600000-900000',
+  'H3 = 1000000-1500000',
+  'H4 = 1600000-2000000',
+  'I1 = <b 0xaa>',
+  'I2 = <b 0xbb>',
+  'I3 = <b 0xcc>',
+  'I4 = <b 0xdd>',
+  'I5 = <b 0xee>',
   'HeaderProtectionKey = aBcD...base64hpk==',
-  'ContentPaddingAddition = 64', 'RekeyAfterTime = 120', 'RekeyTimeout = 5',
-  'RejectAfterTime = 180', 'KeepaliveTimeout = 10', 'MaxHandshakeAttempts = 18',
-  'RandomTrailers = on', 'DisableCookies = on',
+  'ContentPaddingAddition = 64',
+  'RekeyAfterTime = 120',
+  'RekeyTimeout = 5',
+  'RejectAfterTime = 180',
+  'KeepaliveTimeout = 10',
+  'MaxHandshakeAttempts = 18',
+  'RandomTrailers = on',
+  'DisableCookies = on',
 ].join('\n');
 
 const awgInbound: InboundOption = {
-  id: 7, tag: 'awg-7', remark: 'awg', protocol: 'awg', port: 51820,
+  id: 7,
+  tag: 'awg-7',
+  remark: 'awg',
+  protocol: 'awg',
+  port: 51820,
   wgPublicKey: 'DGSYIcEKAUkA7HhzGSjxLZuV67BR3LeyU0BMLJzNVHQ=',
-  awgObfuscation: awgCeilingBlock, awgVersion: '3',
+  awgObfuscation: awgCeilingBlock,
+  awgVersion: '3',
 };
 
 describe('filterAwgObfuscation', () => {
@@ -204,10 +266,34 @@ describe('buildAwgClientConfig version override', () => {
 describe('findAwgInbounds multi-attach', () => {
   it('returns every AWG inbound in inboundIds order (not only the first)', () => {
     const byId: Record<number, InboundOption> = {
-      1: { id: 1, tag: 'awg1', remark: 'AWG1', protocol: 'awg', port: 1, awgVersion: '1.5', enable: true },
+      1: {
+        id: 1,
+        tag: 'awg1',
+        remark: 'AWG1',
+        protocol: 'awg',
+        port: 1,
+        awgVersion: '1.5',
+        enable: true,
+      },
       2: { id: 2, tag: 'vless', remark: 'v', protocol: 'vless', port: 443, enable: true },
-      3: { id: 3, tag: 'awg2', remark: 'AWG2', protocol: 'awg', port: 2, awgVersion: '2', enable: true },
-      4: { id: 4, tag: 'awg3', remark: 'AWG3', protocol: 'awg', port: 3, awgVersion: '3', enable: false },
+      3: {
+        id: 3,
+        tag: 'awg2',
+        remark: 'AWG2',
+        protocol: 'awg',
+        port: 2,
+        awgVersion: '2',
+        enable: true,
+      },
+      4: {
+        id: 4,
+        tag: 'awg3',
+        remark: 'AWG3',
+        protocol: 'awg',
+        port: 3,
+        awgVersion: '3',
+        enable: false,
+      },
     };
     const c: ClientRecord = { email: 'multi', inboundIds: [1, 2, 3, 4], privateKey: 'x' };
     const all = findAwgInbounds(c, byId);

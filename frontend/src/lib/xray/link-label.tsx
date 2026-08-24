@@ -26,6 +26,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   wireguard: 'WireGuard',
   wg: 'WireGuard',
   tg: 'MTProto',
+  vpn: 'AmneziaWG',
   // LUCX-HOOK: tunnel / AWG share schemes
   naive: 'Naive',
   amneziawg: 'AmneziaWG',
@@ -46,8 +47,8 @@ const PROTOCOL_COLORS: Record<string, string> = {
   Hysteria2: 'magenta',
   WireGuard: 'cyan',
   MTProto: 'blue',
+  AmneziaWG: 'yellow',
   Naive: 'orange',
-  AmneziaWG: 'magenta',
   olcRTC: 'cyan',
   qWDTT: 'gold',
   mieru: 'geekblue',
@@ -64,6 +65,18 @@ const SECURITY_COLORS: Record<string, string> = {
 const TRANSPORT_COLOR = 'gold';
 
 const TAG_STYLE = { marginInlineEnd: 0, fontWeight: 600, letterSpacing: '0.3px' };
+
+// Reverse of inbound-link.ts's own toBase64Url — base64url (RFC 4648 §5, no
+// padding) back to the original unicode text, needed to read the remark/
+// endpoint back out of a vpn:// link's opaque payload below.
+function fromBase64Url(value: string): string {
+  const b64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+  const binary = atob(padded);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
 
 /* Pull protocol, transport, security plus the remark and port out of a share
    link. vless/trojan carry network+security as `type`/`security` query params
@@ -86,8 +99,10 @@ export function parseLinkParts(link: string): LinkParts | null {
   }
 
   const baseScheme = scheme.includes('+') ? scheme.split('+')[0] : scheme;
-  const protocol = PROTOCOL_LABELS[baseScheme] ?? PROTOCOL_LABELS[scheme]
-    ?? scheme.charAt(0).toUpperCase() + scheme.slice(1);
+  const protocol =
+    PROTOCOL_LABELS[baseScheme] ??
+    PROTOCOL_LABELS[scheme] ??
+    scheme.charAt(0).toUpperCase() + scheme.slice(1);
   let network = '';
   let security = '';
   let remark = '';
@@ -104,9 +119,24 @@ export function parseLinkParts(link: string): LinkParts | null {
       security = json.tls ?? '';
       remark = typeof json.ps === 'string' ? json.ps : '';
       port = json.port != null ? String(json.port) : '';
-    } catch { /* unparseable payload, fall back to protocol only */ }
+    } catch {
+      /* unparseable payload, fall back to protocol only */
+    }
+  } else if (scheme === 'vpn') {
+    /* AmneziaWG's vpn:// links are base64url of a plain .conf text (matching
+       the real AmneziaVPN app's own share-link scheme), not a structured URL
+       — there's no query string or #hash to read a remark/port from without
+       corrupting the payload the app itself needs to decode. The remark and
+       endpoint are still in there as plain .conf lines, though, so pull them
+       back out directly. */
+    try {
+      const cfgText = fromBase64Url(trimmed.slice('vpn://'.length));
+      remark = /^#\s?(.*)$/m.exec(cfgText)?.[1]?.trim() ?? '';
+      port = /^Endpoint\s*=\s*.+:(\d+)\s*$/m.exec(cfgText)?.[1] ?? '';
+    } catch {
+      /* unparseable payload, fall back to protocol only */
+    }
   } else if (scheme === 'olcrtc') {
-    // olcrtc://provider?transport@room#key — remark = room (before #)
     const body = trimmed.slice('olcrtc://'.length);
     const hashIdx = body.indexOf('#');
     const main = hashIdx >= 0 ? body.slice(0, hashIdx) : body;
@@ -124,8 +154,14 @@ export function parseLinkParts(link: string): LinkParts | null {
       const url = new URL(trimmed);
       port = url.port || '';
       const hash = url.hash.replace(/^#/, '');
-      try { remark = decodeURIComponent(hash); } catch { remark = hash; }
-    } catch { /* fall back */ }
+      try {
+        remark = decodeURIComponent(hash);
+      } catch {
+        remark = hash;
+      }
+    } catch {
+      /* fall back */
+    }
   } else {
     try {
       const url = new URL(trimmed);
@@ -135,8 +171,14 @@ export function parseLinkParts(link: string): LinkParts | null {
          the URL authority, so fall back to it when there is no authority port. */
       port = url.port || (url.searchParams.get('port') ?? '');
       const hash = url.hash.replace(/^#/, '');
-      try { remark = decodeURIComponent(hash); } catch { remark = hash; }
-    } catch { /* not URL-shaped, fall back to protocol only */ }
+      try {
+        remark = decodeURIComponent(hash);
+      } catch {
+        remark = hash;
+      }
+    } catch {
+      /* not URL-shaped, fall back to protocol only */
+    }
     if (scheme === 'tg') security = 'FakeTLS';
   }
   if (security === 'none') security = '';
@@ -160,11 +202,19 @@ function parseNaiveLink(link: string, security: string): LinkParts {
     port = url.port || (security === 'HTTPS' ? '443' : '80');
     if (port === '443' || port === '80') port = '';
     const hash = url.hash.replace(/^#/, '');
-    try { remark = decodeURIComponent(hash); } catch { remark = hash; }
+    try {
+      remark = decodeURIComponent(hash);
+    } catch {
+      remark = hash;
+    }
   } catch {
     const hashIdx = link.indexOf('#');
     if (hashIdx >= 0) {
-      try { remark = decodeURIComponent(link.slice(hashIdx + 1)); } catch { remark = link.slice(hashIdx + 1); }
+      try {
+        remark = decodeURIComponent(link.slice(hashIdx + 1));
+      } catch {
+        remark = link.slice(hashIdx + 1);
+      }
     }
   }
   return {
@@ -185,10 +235,18 @@ export function linkMetaText(parts: LinkParts): string {
 export function LinkTags({ parts }: { parts: LinkParts }) {
   return (
     <span style={{ display: 'inline-flex', alignItems: 'center', gap: 4, flexShrink: 0 }}>
-      <Tag color={PROTOCOL_COLORS[parts.protocol]} style={TAG_STYLE}>{parts.protocol}</Tag>
-      {parts.network && <Tag color={TRANSPORT_COLOR} style={TAG_STYLE}>{parts.network}</Tag>}
+      <Tag color={PROTOCOL_COLORS[parts.protocol]} style={TAG_STYLE}>
+        {parts.protocol}
+      </Tag>
+      {parts.network && (
+        <Tag color={TRANSPORT_COLOR} style={TAG_STYLE}>
+          {parts.network}
+        </Tag>
+      )}
       {parts.security && (
-        <Tag color={SECURITY_COLORS[parts.security]} style={TAG_STYLE}>{parts.security}</Tag>
+        <Tag color={SECURITY_COLORS[parts.security]} style={TAG_STYLE}>
+          {parts.security}
+        </Tag>
       )}
     </span>
   );

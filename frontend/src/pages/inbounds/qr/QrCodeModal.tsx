@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Collapse, Modal } from 'antd';
 import type { CollapseProps } from 'antd';
@@ -6,6 +6,9 @@ import type { CollapseProps } from 'antd';
 import { Protocols } from '@/schemas/primitives';
 import {
   genAllLinks,
+  genAmneziaWGConfigs,
+  genAmneziaWGLinks,
+  genAwgConfigs,
   genWireguardConfigs,
   genWireguardLinks,
   isPostQuantumLink,
@@ -51,6 +54,8 @@ export default function QrCodeModal({
   const [links, setLinks] = useState<{ remark?: string; link: string }[]>([]);
   const [wireguardConfigs, setWireguardConfigs] = useState<string[]>([]);
   const [wireguardLinks, setWireguardLinks] = useState<string[]>([]);
+  const [amneziawgConfigs, setAmneziawgConfigs] = useState<string[]>([]);
+  const [amneziawgLinks, setAmneziawgLinks] = useState<string[]>([]);
   const [subLink, setSubLink] = useState('');
   const [subJsonLink, setSubJsonLink] = useState('');
   const [subClashLink, setSubClashLink] = useState('');
@@ -58,10 +63,29 @@ export default function QrCodeModal({
   const [subAwgVpnLink, setSubAwgVpnLink] = useState('');
   const [activeKey, setActiveKey] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (!open || !dbInbound) return;
+  // Building the links is a pure function of the props, so it runs during
+  // render; an effect would paint the previous inbound's QR first.
+  const [syncedProps, setSyncedProps] = useState<{
+    dbInbound: typeof dbInbound;
+    client: typeof client;
+    nodeAddress: typeof nodeAddress;
+    subSettings: typeof subSettings;
+  } | null>(null);
+  if (
+    open &&
+    dbInbound &&
+    (syncedProps === null ||
+      syncedProps.dbInbound !== dbInbound ||
+      syncedProps.client !== client ||
+      syncedProps.nodeAddress !== nodeAddress ||
+      syncedProps.subSettings !== subSettings)
+  ) {
+    setSyncedProps({ dbInbound, client, nodeAddress, subSettings });
     const inbound = inboundFromDb(dbInbound);
-    const fallbackHostname = preferPublicHost(window.location.hostname, subSettings?.publicHost ?? '');
+    const fallbackHostname = preferPublicHost(
+      window.location.hostname,
+      subSettings?.publicHost ?? '',
+    );
     if (inbound.protocol === Protocols.WIREGUARD) {
       const peerRemark = client?.email
         ? `${dbInbound.remark}-${client.email}`
@@ -82,6 +106,47 @@ export default function QrCodeModal({
           fallbackHostname,
         }).split('\r\n'),
       );
+      setAmneziawgConfigs([]);
+      setAmneziawgLinks([]);
+      setLinks([]);
+    } else if (inbound.protocol === Protocols.AMNEZIAWG) {
+      const peerRemark = client?.email
+        ? `${dbInbound.remark}-${client.email}`
+        : dbInbound.remark || '';
+      setAmneziawgConfigs(
+        genAmneziaWGConfigs({
+          inbound,
+          remark: peerRemark,
+          hostOverride: nodeAddress,
+          fallbackHostname,
+        }).split('\r\n'),
+      );
+      setAmneziawgLinks(
+        genAmneziaWGLinks({
+          inbound,
+          remark: peerRemark,
+          hostOverride: nodeAddress,
+          fallbackHostname,
+        }).split('\r\n'),
+      );
+      setWireguardConfigs([]);
+      setWireguardLinks([]);
+      setLinks([]);
+    } else if (inbound.protocol === Protocols.AWG) {
+      const peerRemark = client?.email
+        ? `${dbInbound.remark}-${client.email}`
+        : dbInbound.remark || '';
+      setWireguardConfigs(
+        genAwgConfigs({
+          inbound,
+          remark: peerRemark,
+          hostOverride: nodeAddress,
+          fallbackHostname,
+        }).split('\r\n'),
+      );
+      setWireguardLinks([]);
+      setAmneziawgConfigs([]);
+      setAmneziawgLinks([]);
       setLinks([]);
     } else {
       setLinks(
@@ -95,6 +160,8 @@ export default function QrCodeModal({
       );
       setWireguardConfigs([]);
       setWireguardLinks([]);
+      setAmneziawgConfigs([]);
+      setAmneziawgLinks([]);
     }
 
     const L = buildSubLinks(subSettings, client?.subId);
@@ -103,7 +170,7 @@ export default function QrCodeModal({
     setSubClashLink(L.clash);
     setSubAwgLink(L.amnezia);
     setSubAwgVpnLink(L.amneziaVpn);
-  }, [open, dbInbound, client, nodeAddress, subSettings]);
+  }
 
   const qrItems = useMemo<QrItem[]>(() => {
     const items: QrItem[] = [];
@@ -111,7 +178,11 @@ export default function QrCodeModal({
       items.push({ key: 'sub', header: t('subscription.title'), value: subLink });
     }
     if (subJsonLink) {
-      items.push({ key: 'sub-json', header: `${t('subscription.title')} (JSON)`, value: subJsonLink });
+      items.push({
+        key: 'sub-json',
+        header: `${t('subscription.title')} (JSON)`,
+        value: subJsonLink,
+      });
     }
     if (subClashLink) {
       items.push({ key: 'sub-clash', header: 'Clash / Mihomo', value: subClashLink });
@@ -133,38 +204,78 @@ export default function QrCodeModal({
         downloadName: `peer-${idx + 1}.conf`,
       });
       if (wireguardLinks[idx]) {
-        items.push({ key: `wl${idx}`, header: `Peer ${idx + 1} link`, value: wireguardLinks[idx], showQr: false });
+        items.push({
+          key: `wl${idx}`,
+          header: `Peer ${idx + 1} link`,
+          value: wireguardLinks[idx],
+          showQr: false,
+        });
+      }
+    });
+    amneziawgConfigs.forEach((cfg, idx) => {
+      items.push({
+        key: `ac${idx}`,
+        header: `Peer ${idx + 1} config`,
+        value: cfg,
+        downloadName: `peer-${idx + 1}.conf`,
+      });
+      if (amneziawgLinks[idx]) {
+        items.push({
+          key: `al${idx}`,
+          header: `Peer ${idx + 1} link`,
+          value: amneziawgLinks[idx],
+          showQr: false,
+        });
       }
     });
     return items;
-  }, [subLink, subJsonLink, subClashLink, subAwgLink, subAwgVpnLink, links, wireguardConfigs, wireguardLinks, t]);
+  }, [
+    subLink,
+    subJsonLink,
+    subClashLink,
+    subAwgLink,
+    subAwgVpnLink,
+    links,
+    wireguardConfigs,
+    wireguardLinks,
+    amneziawgConfigs,
+    amneziawgLinks,
+    t,
+  ]);
 
   const collapseItems: CollapseProps['items'] = useMemo(
-    () => qrItems.map((item) => ({
-      key: item.key,
-      label: item.header,
-      children: (
-        <QrPanel
-          value={item.value}
-          remark={item.header}
-          downloadName={item.downloadName || ''}
-          showQr={item.showQr !== false && !isPostQuantumLink(item.value)}
-        />
-      ),
-    })),
+    () =>
+      qrItems.map((item) => ({
+        key: item.key,
+        label: item.header,
+        children: (
+          <QrPanel
+            value={item.value}
+            remark={item.header}
+            downloadName={item.downloadName || ''}
+            showQr={item.showQr !== false && !isPostQuantumLink(item.value)}
+          />
+        ),
+      })),
     [qrItems],
   );
 
-  useEffect(() => {
-    if (!open) {
-      setActiveKey([]);
-      return;
-    }
-    setActiveKey(qrItems.length > 0 ? [qrItems[0].key] : []);
-  }, [open, qrItems]);
+  const firstKey = open && qrItems.length > 0 ? qrItems[0].key : null;
+  const [syncedFirstKey, setSyncedFirstKey] = useState<string | null>(null);
+  if (firstKey !== syncedFirstKey) {
+    setSyncedFirstKey(firstKey);
+    setActiveKey(firstKey ? [firstKey] : []);
+  }
 
   return (
-    <Modal open={open} onCancel={onClose} title={t('qrCode')} footer={null} width={420} destroyOnHidden>
+    <Modal
+      open={open}
+      onCancel={onClose}
+      title={t('qrCode')}
+      footer={null}
+      width={420}
+      destroyOnHidden
+    >
       {dbInbound && collapseItems && collapseItems.length > 0 && (
         <Collapse
           ghost

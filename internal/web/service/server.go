@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"bufio"
 	"bytes"
+	"cmp"
 	"context"
 	"crypto/sha256"
 	"crypto/x509"
@@ -13,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"mime/multipart"
 	stdnet "net"
 	"net/http"
@@ -28,8 +30,12 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/sys"
@@ -102,6 +108,13 @@ type Status struct {
 		RebootNeeded   bool         `json:"rebootNeeded"`
 	} `json:"awg"`
 	// END LUCX-HOOK
+	// AmneziaWG gates the overview's AmneziaWG log view: Configured stays true
+	// while an inbound exists but its embedded interface isn't up yet, which
+	// is exactly when that view's event lines are worth reading.
+	AmneziaWG struct {
+		Configured bool `json:"configured"`
+		Running    bool `json:"running"`
+	} `json:"amneziawg"`
 	PanelVersion string    `json:"panelVersion"`
 	PanelGuid    string    `json:"panelGuid"`
 	Uptime       uint64    `json:"uptime"`
@@ -627,6 +640,15 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	// LUCX-HOOK: AWG host status for dashboard pill
 	fillAwgHostStatus(status)
 	// END LUCX-HOOK
+
+	var amneziawgCount int64
+	if err := database.GetDB().Model(model.Inbound{}).
+		Where("protocol = ? AND enable = ? AND node_id IS NULL", model.AmneziaWG, true).
+		Count(&amneziawgCount).Error; err != nil {
+		logger.Warning("count amneziawg inbounds failed:", err)
+	}
+	status.AmneziaWG.Configured = amneziawgCount > 0
+	status.AmneziaWG.Running = amneziawgnet.GetManager().HasRunning()
 	status.PanelVersion = config.GetPanelVersion()
 	if guid, err := s.settingService.GetPanelGuid(); err == nil {
 		status.PanelGuid = guid
@@ -1183,6 +1205,178 @@ func parseAccessLogFields(line string) LogEntry {
 	return entry
 }
 
+// PeerActivity is one peer's live embedded-Device-reported state, the
+// counterpart of an Xray access-log entry: a tunnel logs no requests, only
+// handshakes and bytes.
+type PeerActivity struct {
+	Interface  string `json:"interface" example:"awg1"`
+	Tag        string `json:"tag" example:"inbound-51820"`
+	InboundId  int    `json:"inboundId" example:"1"`
+	Email      string `json:"email" example:"peer@example.com"`
+	Endpoint   string `json:"endpoint" example:"203.0.113.9:51820"`
+	AllowedIPs string `json:"allowedIPs" example:"10.8.1.2/32"`
+	// Handshake is unix milliseconds, 0 when the peer has never connected.
+	Handshake int64 `json:"handshake" example:"1735732800000"`
+	Up        int64 `json:"up" example:"1048576"`
+	Down      int64 `json:"down" example:"4194304"`
+	Online    bool  `json:"online" example:"true"`
+}
+
+// amneziawgOnlineWindow mirrors the standard WireGuard convention (and this
+// fork's own prior kernel-module behavior): a handshake this recent counts
+// as online.
+const amneziawgOnlineWindow = 180 * time.Second
+
+// AmneziaWGLogs is what the overview's AmneziaWG log view renders: the live
+// per-peer activity of every running embedded interface, plus the panel's
+// own recent AmneziaWG lifecycle log lines that explain a peer being absent
+// from Peers at all.
+type AmneziaWGLogs struct {
+	Peers   []PeerActivity `json:"peers"`
+	Events  []string       `json:"events" example:"[\"2025/01/01 12:00:00 amneziawg: started interface awg1 for inbound 1\"]"`
+	Running bool           `json:"running" example:"true"`
+}
+
+// amneziawgEventMarker selects the panel's own AmneziaWG log lines: every
+// logger call in internal/amneziawg, internal/amneziawgnet and their jobs
+// prefixes its message with it.
+const amneziawgEventMarker = "amneziawg"
+
+// amneziawgLogActivity gathers live PeerActivity rows across every enabled,
+// non-node-hosted AmneziaWG inbound, newest handshake first. An inbound
+// amneziawgnet has no running Device for yet (not reconciled, disabled,
+// errored) contributes no rows -- not reported as an error, since the
+// caller (GetAmneziaWGLogs) already has a device-agnostic Running flag from
+// amneziawgnet.GetManager().HasRunning() for that.
+// clampUint64ToInt64 saturates at math.MaxInt64 instead of wrapping negative,
+// for a live uint64 byte counter (amneziawgnet's own UAPI-dump snapshot, not
+// a DB-accumulated total) going into an int64 API field -- unreachable in
+// practice at real traffic volumes, but a silent negative value would be
+// worse than a saturated one if it were ever hit.
+func clampUint64ToInt64(v uint64) int64 {
+	if v > math.MaxInt64 {
+		return math.MaxInt64
+	}
+	return int64(v)
+}
+
+func amneziawgLogActivity() []PeerActivity {
+	var inbounds []*model.Inbound
+	if err := database.GetDB().
+		Where("protocol = ? AND enable = ? AND node_id IS NULL", model.AmneziaWG, true).
+		Find(&inbounds).Error; err != nil {
+		logger.Warning("amneziawg logs: list inbounds failed:", err)
+		return nil
+	}
+
+	now := time.Now()
+	var out []PeerActivity
+	for _, inbound := range inbounds {
+		inst, ok := amneziawg.InstanceFromInbound(inbound)
+		if !ok {
+			continue
+		}
+		diag := amneziawgnet.Diagnose(inbound.Id, inst.Peers)
+		if !diag.Running {
+			continue
+		}
+		for _, cd := range diag.Clients {
+			var handshakeMs int64
+			online := false
+			if !cd.LastHandshake.IsZero() {
+				handshakeMs = cd.LastHandshake.UnixMilli()
+				online = now.Sub(cd.LastHandshake) < amneziawgOnlineWindow
+			}
+			out = append(out, PeerActivity{
+				Interface:  inst.InterfaceName,
+				Tag:        inbound.Tag,
+				InboundId:  inbound.Id,
+				Email:      cd.Email,
+				Endpoint:   cd.Endpoint,
+				AllowedIPs: cd.AllowedIPs,
+				Handshake:  handshakeMs,
+				Up:         clampUint64ToInt64(cd.RxBytes),
+				Down:       clampUint64ToInt64(cd.TxBytes),
+				Online:     online,
+			})
+		}
+	}
+	now := time.Now()
+	for _, lp := range awg.GetManager().LivePeers() {
+		var handshakeMs int64
+		online := false
+		if lp.LastHandshake > 0 {
+			handshakeMs = lp.LastHandshake * 1000
+			if handshakeMs > 1e12 {
+				handshakeMs = lp.LastHandshake
+			}
+			hs := time.Unix(lp.LastHandshake, 0)
+			if lp.LastHandshake > 1e12 {
+				hs = time.UnixMilli(lp.LastHandshake)
+			}
+			online = now.Sub(hs) < amneziawgOnlineWindow
+		}
+		out = append(out, PeerActivity{
+			Interface:  lp.Ifname,
+			Tag:        lp.Tag,
+			InboundId:  lp.InboundId,
+			Email:      lp.Email,
+			Endpoint:   lp.Endpoint,
+			AllowedIPs: lp.AllowedIPs,
+			Handshake:  handshakeMs,
+			Up:         lp.Rx,
+			Down:       lp.Tx,
+			Online:     online,
+		})
+	}
+
+	slices.SortFunc(out, func(a, b PeerActivity) int {
+		if a.Handshake != b.Handshake {
+			return cmp.Compare(b.Handshake, a.Handshake)
+		}
+		return strings.Compare(a.Email, b.Email)
+	})
+	return out
+}
+
+// GetAmneziaWGLogs returns at most count peer rows and count event lines,
+// optionally narrowed to rows whose text contains filter (case-insensitive),
+// mirroring GetXrayLogs' own count+filter contract.
+func (s *ServerService) GetAmneziaWGLogs(count string, filter string) *AmneziaWGLogs {
+	limit, err := strconv.Atoi(count)
+	if err != nil || limit < 1 || limit > 10000 {
+		limit = 100
+	}
+	needle := strings.ToLower(strings.TrimSpace(filter))
+
+	logs := &AmneziaWGLogs{Peers: []PeerActivity{}, Events: []string{}, Running: amneziawgnet.GetManager().HasRunning() || awg.GetManager().HasRunning()}
+
+	for _, peer := range amneziawgLogActivity() {
+		if len(logs.Peers) >= limit {
+			break
+		}
+		if needle != "" && !strings.Contains(strings.ToLower(peer.Email+" "+peer.Tag+" "+peer.Interface+" "+peer.Endpoint+" "+peer.AllowedIPs), needle) {
+			continue
+		}
+		logs.Peers = append(logs.Peers, peer)
+	}
+
+	for _, line := range logger.GetLogs(10000, "debug") {
+		if len(logs.Events) >= limit {
+			break
+		}
+		low := strings.ToLower(line)
+		if !strings.Contains(low, amneziawgEventMarker) && !strings.Contains(low, "awg:") && !strings.Contains(line, "[LUCX-AWG]") {
+			continue
+		}
+		if needle != "" && !strings.Contains(strings.ToLower(line), needle) {
+			continue
+		}
+		logs.Events = append(logs.Events, line)
+	}
+	return logs
+}
+
 func (s *ServerService) GetXrayLogs(
 	count string,
 	filter string,
@@ -1451,9 +1645,93 @@ func (s *ServerService) GetMigration() ([]byte, string, error) {
 	return data, "x-ui.dump", nil
 }
 
-func (s *ServerService) ImportDB(file multipart.File) error {
+// hostBoundSettingKeys are the settings that describe *this* machine rather
+// than the configuration being carried: where the panel and the subscription
+// service listen, the certificates they present, and the identity this panel
+// uses towards its nodes. An import that overwrites them leaves the
+// destination unreachable on its own address, or impersonating the source.
+var hostBoundSettingKeys = []string{
+	"webListen", "webDomain", "webPort", "webCertFile", "webKeyFile", "webBasePath",
+	"subListen", "subDomain", "subPort", "subCertFile", "subKeyFile", "subURI", "subJsonURI",
+	"secret", "panelGuid",
+	"nodeMtlsCaCertPem", "nodeMtlsCaKeyPem", "nodeMtlsClientCertPem",
+	"nodeMtlsClientKeyPem", "nodeMtlsClientCertSha256", "nodeMtlsClientCAPem",
+}
+
+// hostBoundSnapshot records this machine's values, and just as importantly
+// which keys it had no row for: an absent row means the built-in default is in
+// force, and leaving the imported row in place would silently adopt the source
+// machine's certificate path or listen address.
+type hostBoundSnapshot struct {
+	values  map[string]string
+	present map[string]struct{}
+	taken   bool
+}
+
+func captureHostBoundSettings() hostBoundSnapshot {
+	db := database.GetDB()
+	if db == nil {
+		return hostBoundSnapshot{}
+	}
+	var rows []model.Setting
+	if err := db.Model(&model.Setting{}).Where("key IN ?", hostBoundSettingKeys).Find(&rows).Error; err != nil {
+		logger.Warningf("Import: could not read this machine's settings, they will come from the uploaded file: %v", err)
+		return hostBoundSnapshot{}
+	}
+	snap := hostBoundSnapshot{
+		values:  make(map[string]string, len(rows)),
+		present: make(map[string]struct{}, len(rows)),
+		taken:   true,
+	}
+	for _, row := range rows {
+		snap.values[row.Key] = row.Value
+		snap.present[row.Key] = struct{}{}
+	}
+	return snap
+}
+
+func restoreHostBoundSettings(snap hostBoundSnapshot) {
+	if !snap.taken {
+		return
+	}
+	db := database.GetDB()
+	if db == nil {
+		return
+	}
+	settingSvc := &SettingService{}
+	for _, key := range hostBoundSettingKeys {
+		if _, had := snap.present[key]; !had {
+			// Absent because it is minted on demand, not because a default applied:
+			// the imported copy is the only one that exists, so keep it (#6227).
+			if lazilyMintedSettingKeys[key] {
+				continue
+			}
+			if err := db.Where("key = ?", key).Delete(&model.Setting{}).Error; err != nil {
+				logger.Warningf("Import: could not drop imported setting %q: %v", key, err)
+			}
+			continue
+		}
+		// saveSetting rather than Assign(struct): GORM drops zero-valued fields from
+		// the assignment map, so an empty local value never overwrote the import.
+		if err := settingSvc.saveSetting(key, snap.values[key]); err != nil {
+			logger.Warningf("Import: could not restore setting %q for this machine: %v", key, err)
+		}
+	}
+}
+
+// Minted on demand, so a fresh install has no row: dropping the imported copy
+// would destroy the only one that exists, CA private key included.
+var lazilyMintedSettingKeys = map[string]bool{
+	"nodeMtlsCaCertPem":     true,
+	"nodeMtlsCaKeyPem":      true,
+	"nodeMtlsClientCertPem": true,
+	"nodeMtlsClientKeyPem":  true,
+	"nodeMtlsClientCAPem":   true,
+}
+
+func (s *ServerService) ImportDB(file multipart.File, keepHostSettings bool) error {
 	if database.IsPostgres() {
-		return s.importPostgresDB(file)
+		return s.importPostgresDB(file, keepHostSettings)
 	}
 	kind, err := sniffUploadKind(file)
 	if err != nil {
@@ -1503,6 +1781,11 @@ func (s *ServerService) ImportDB(file multipart.File) error {
 	}()
 	if errStop := s.StopXrayService(); errStop != nil {
 		logger.Warningf("Failed to stop Xray before DB import: %v", errStop)
+	}
+
+	var keptSettings hostBoundSnapshot
+	if keepHostSettings {
+		keptSettings = captureHostBoundSettings()
 	}
 
 	if errClose := database.CloseDB(); errClose != nil {
@@ -1559,6 +1842,8 @@ func (s *ServerService) ImportDB(file multipart.File) error {
 		return common.NewErrorf("Error migrating db: %v", err)
 	}
 	dbReopened = true
+
+	restoreHostBoundSettings(keptSettings)
 
 	s.inboundService.MigrateDB()
 
@@ -1714,14 +1999,14 @@ func sniffUploadKind(file multipart.File) (int, error) {
 	return sniffImportKind(header[:n]), nil
 }
 
-func (s *ServerService) importPostgresDB(file multipart.File) error {
+func (s *ServerService) importPostgresDB(file multipart.File, keepHostSettings bool) error {
 	kind, err := sniffUploadKind(file)
 	if err != nil {
 		return common.NewErrorf("Error reading uploaded file: %v", err)
 	}
 	switch kind {
 	case importKindPgDump:
-		return s.restorePostgresDump(file)
+		return s.restorePostgresDump(file, keepHostSettings)
 	case importKindSQLiteDB:
 		return s.migrateSQLiteIntoPostgres(file, false)
 	case importKindSQLiteDump:
@@ -1731,7 +2016,7 @@ func (s *ServerService) importPostgresDB(file multipart.File) error {
 	}
 }
 
-func (s *ServerService) restorePostgresDump(file multipart.File) error {
+func (s *ServerService) restorePostgresDump(file multipart.File, keepHostSettings bool) error {
 	bin, err := exec.LookPath("pg_restore")
 	if err != nil {
 		return common.NewError("pg_restore not found on the server; install the postgresql-client package to restore a PostgreSQL database")
@@ -1771,6 +2056,11 @@ func (s *ServerService) restorePostgresDump(file multipart.File) error {
 		logger.Warningf("Failed to stop Xray before DB restore: %v", errStop)
 	}
 
+	var keptSettings hostBoundSnapshot
+	if keepHostSettings {
+		keptSettings = captureHostBoundSettings()
+	}
+
 	if errClose := database.CloseDB(); errClose != nil {
 		logger.Warningf("Failed to close existing DB before restore: %v", errClose)
 	}
@@ -1787,6 +2077,8 @@ func (s *ServerService) restorePostgresDump(file multipart.File) error {
 	if errInit := database.InitDB(config.GetDBPath()); errInit != nil {
 		return common.NewErrorf("Restore finished but reopening the database failed: %v", errInit)
 	}
+	restoreHostBoundSettings(keptSettings)
+
 	s.inboundService.MigrateDB()
 
 	if runErr != nil {

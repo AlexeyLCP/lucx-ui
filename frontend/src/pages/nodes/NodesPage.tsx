@@ -1,7 +1,23 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useQuery } from '@tanstack/react-query';
-import { Button, Card, Col, ConfigProvider, Input, Layout, Modal, Result, Row, Spin, Statistic, Typography, message } from 'antd';
+import {
+  Alert,
+  Button,
+  Card,
+  Checkbox,
+  Col,
+  ConfigProvider,
+  Input,
+  Layout,
+  Modal,
+  Result,
+  Row,
+  Spin,
+  Statistic,
+  Typography,
+  message,
+} from 'antd';
 import {
   CheckCircleOutlined,
   CloseCircleOutlined,
@@ -21,16 +37,58 @@ import { setMessageInstance } from '@/utils/messageBus';
 import { HttpUtil } from '@/utils';
 import type { PanelUpdateInfo } from '../index/PanelUpdateModal';
 
+// Confirm-dialog body that lets the operator pick the stable or dev channel for
+// a node panel update. Reports changes via onChange so the imperative
+// modal.confirm onOk can read the latest choice through a ref.
+function UpdateChannelChoice({ onChange }: { onChange: (dev: boolean) => void }) {
+  const { t } = useTranslation();
+  const [dev, setDev] = useState(false);
+  return (
+    <div>
+      <p>{t('pages.nodes.updateConfirmContent')}</p>
+      <Checkbox
+        checked={dev}
+        onChange={(e) => {
+          setDev(e.target.checked);
+          onChange(e.target.checked);
+        }}
+      >
+        {t('pages.nodes.updateDevChannel')}
+      </Checkbox>
+      {dev && (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginTop: 8 }}
+          title={t('pages.index.devChannelWarning')}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function NodesPage() {
   const { t } = useTranslation();
   const { isDark, isUltra, antdThemeConfig } = useTheme();
   const { isMobile } = useMediaQuery();
   const [modal, modalContextHolder] = Modal.useModal();
   const [messageApi, messageContextHolder] = message.useMessage();
-  useEffect(() => { setMessageInstance(messageApi); }, [messageApi]);
+  useEffect(() => {
+    setMessageInstance(messageApi);
+  }, [messageApi]);
 
   const { nodes, loading, fetched, fetchError, refetch, totals } = useNodesQuery();
-  const { create, update, remove, setEnable, testConnection, fetchFingerprint, fetchInbounds, probe, updatePanels } = useNodeMutations();
+  const {
+    create,
+    update,
+    remove,
+    setEnable,
+    testConnection,
+    fetchFingerprint,
+    fetchInbounds,
+    probe,
+    updatePanels,
+  } = useNodeMutations();
 
   const { data: latestVersion = '' } = useQuery({
     queryKey: ['server', 'panelUpdateInfo'],
@@ -97,73 +155,100 @@ export default function NodesPage() {
     setFormOpen(true);
   }, []);
 
-  const onSave = useCallback(async (payload: Partial<NodeRecord>) => {
-    if (formMode === 'edit' && formNode?.id) {
-      return update(formNode.id, payload);
-    }
-    return create(payload);
-  }, [formMode, formNode, update, create]);
-
-  const onDelete = useCallback((node: NodeRecord) => {
-    modal.confirm({
-      title: t('pages.nodes.deleteConfirmTitle', { name: node.name }),
-      content: t('pages.nodes.deleteConfirmContent'),
-      okText: t('delete'),
-      okType: 'danger',
-      cancelText: t('cancel'),
-      onOk: async () => {
-        const msg = await remove(node.id);
-        if (msg?.success) messageApi.success(t('pages.nodes.toasts.deleted'));
-      },
-    });
-  }, [modal, t, remove, messageApi]);
-
-  const onProbe = useCallback(async (node: NodeRecord) => {
-    const msg = await probe(node.id);
-    if (msg?.success && msg.obj) {
-      if (msg.obj.status === 'online') {
-        // Even if xray is in error/stop on the node we still reached its panel API.
-        messageApi.success(t('pages.nodes.connectionOk', { ms: msg.obj.latencyMs }));
-      } else {
-        messageApi.error(msg.obj.error || t('pages.nodes.toasts.probeFailed'));
+  const onSave = useCallback(
+    async (payload: Partial<NodeRecord>) => {
+      if (formMode === 'edit' && formNode?.id) {
+        return update(formNode.id, payload);
       }
-    }
-    // Refresh the list so the new xrayState / xrayError (if any) appears immediately in the row.
-    refetch();
-  }, [probe, t, messageApi, refetch]);
+      return create(payload);
+    },
+    [formMode, formNode, update, create],
+  );
 
-  const onToggleEnable = useCallback(async (node: NodeRecord, next: boolean) => {
-    await setEnable(node.id, next);
-  }, [setEnable]);
+  const onDelete = useCallback(
+    (node: NodeRecord) => {
+      modal.confirm({
+        title: t('pages.nodes.deleteConfirmTitle', { name: node.name }),
+        content: t('pages.nodes.deleteConfirmContent'),
+        okText: t('delete'),
+        okType: 'danger',
+        cancelText: t('cancel'),
+        onOk: async () => {
+          const msg = await remove(node.id);
+          if (msg?.success) messageApi.success(t('pages.nodes.toasts.deleted'));
+        },
+      });
+    },
+    [modal, t, remove, messageApi],
+  );
 
-  const runUpdate = useCallback(async (ids: number[]) => {
-    const msg = await updatePanels(ids, false);
-    if (!msg?.success) {
-      messageApi.error(msg?.msg || t('somethingWentWrong'));
-      return;
-    }
-    const results = msg.obj ?? [];
-    const ok = results.filter((r) => r.ok).length;
-    const failed = results.length - ok;
-    if (failed === 0) {
-      messageApi.success(t('pages.nodes.toasts.updateStarted'));
-    } else {
-      const firstError = results.find((r) => !r.ok)?.error ?? '';
-      const base = t('pages.nodes.toasts.updateResult', { ok, failed });
-      messageApi.warning(firstError ? `${base} — ${firstError}` : base);
-    }
-    setSelectedIds([]);
-  }, [updatePanels, messageApi, t]);
+  const onProbe = useCallback(
+    async (node: NodeRecord) => {
+      const msg = await probe(node.id);
+      if (msg?.success && msg.obj) {
+        if (msg.obj.status === 'online') {
+          // Even if xray is in error/stop on the node we still reached its panel API.
+          messageApi.success(t('pages.nodes.connectionOk', { ms: msg.obj.latencyMs }));
+        } else {
+          messageApi.error(msg.obj.error || t('pages.nodes.toasts.probeFailed'));
+        }
+      }
+      // Refresh the list so the new xrayState / xrayError (if any) appears immediately in the row.
+      refetch();
+    },
+    [probe, t, messageApi, refetch],
+  );
 
-  const onUpdateNode = useCallback((node: NodeRecord) => {
-    modal.confirm({
-      title: t('pages.nodes.updateConfirmTitle', { count: 1 }),
-      content: t('pages.nodes.updateConfirmContent'),
-      okText: t('update'),
-      cancelText: t('cancel'),
-      onOk: () => runUpdate([node.id]),
-    });
-  }, [modal, t, runUpdate]);
+  const onToggleEnable = useCallback(
+    async (node: NodeRecord, next: boolean) => {
+      await setEnable(node.id, next);
+    },
+    [setEnable],
+  );
+
+  const devRef = useRef(false);
+
+  const runUpdate = useCallback(
+    async (ids: number[], dev: boolean) => {
+      const msg = await updatePanels(ids, dev);
+      if (!msg?.success) {
+        messageApi.error(msg?.msg || t('somethingWentWrong'));
+        return;
+      }
+      const results = msg.obj ?? [];
+      const ok = results.filter((r) => r.ok).length;
+      const failed = results.length - ok;
+      if (failed === 0) {
+        messageApi.success(t('pages.nodes.toasts.updateStarted'));
+      } else {
+        const firstError = results.find((r) => !r.ok)?.error ?? '';
+        const base = t('pages.nodes.toasts.updateResult', { ok, failed });
+        messageApi.warning(firstError ? `${base} — ${firstError}` : base);
+      }
+      setSelectedIds([]);
+    },
+    [updatePanels, messageApi, t],
+  );
+
+  const onUpdateNode = useCallback(
+    (node: NodeRecord) => {
+      devRef.current = false;
+      modal.confirm({
+        title: t('pages.nodes.updateConfirmTitle', { count: 1 }),
+        content: (
+          <UpdateChannelChoice
+            onChange={(v) => {
+              devRef.current = v;
+            }}
+          />
+        ),
+        okText: t('update'),
+        cancelText: t('cancel'),
+        onOk: () => runUpdate([node.id], devRef.current),
+      });
+    },
+    [modal, t, runUpdate],
+  );
 
   const onUpdateSelected = useCallback(() => {
     const eligible = nodes
@@ -173,12 +258,19 @@ export default function NodesPage() {
       messageApi.warning(t('pages.nodes.toasts.updateNoneEligible'));
       return;
     }
+    devRef.current = false;
     modal.confirm({
       title: t('pages.nodes.updateConfirmTitle', { count: eligible.length }),
-      content: t('pages.nodes.updateConfirmContent'),
+      content: (
+        <UpdateChannelChoice
+          onChange={(v) => {
+            devRef.current = v;
+          }}
+        />
+      ),
       okText: t('update'),
       cancelText: t('cancel'),
-      onOk: () => runUpdate(eligible),
+      onOk: () => runUpdate(eligible, devRef.current),
     });
   }, [modal, t, nodes, selectedIds, runUpdate, messageApi]);
 
@@ -206,7 +298,11 @@ export default function NodesPage() {
                   status="error"
                   title={t('somethingWentWrong')}
                   subTitle={fetchError}
-                  extra={<Button type="primary" loading={loading} onClick={() => refetch()}>{t('refresh')}</Button>}
+                  extra={
+                    <Button type="primary" loading={loading} onClick={() => refetch()}>
+                      {t('refresh')}
+                    </Button>
+                  }
                 />
               ) : (
                 <Row gutter={[isMobile ? 8 : 16, isMobile ? 8 : 12]}>
@@ -224,14 +320,18 @@ export default function NodesPage() {
                           <Statistic
                             title={t('pages.nodes.onlineNodes')}
                             value={String(totals.online)}
-                            prefix={<CheckCircleOutlined style={{ color: 'var(--ant-color-success)' }} />}
+                            prefix={
+                              <CheckCircleOutlined style={{ color: 'var(--ant-color-success)' }} />
+                            }
                           />
                         </Col>
                         <Col xs={12} sm={12} md={6}>
                           <Statistic
                             title={t('pages.nodes.offlineNodes')}
                             value={String(totals.offline)}
-                            prefix={<CloseCircleOutlined style={{ color: 'var(--ant-color-error)' }} />}
+                            prefix={
+                              <CloseCircleOutlined style={{ color: 'var(--ant-color-error)' }} />
+                            }
                           />
                         </Col>
                         <Col xs={12} sm={12} md={6}>

@@ -15,6 +15,8 @@ import "fmt"
 // so NAT setup is unnecessary there.
 func defaultRouteInterface() string { return "" }
 
+func kernelAvailable() bool { return false }
+
 func renameAwgInterface(oldName, newName string) error {
 	if oldName == "" || oldName == newName {
 		return nil

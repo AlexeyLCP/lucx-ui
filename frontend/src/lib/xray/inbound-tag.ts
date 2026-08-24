@@ -14,7 +14,7 @@ function inboundTransports(
   streamSettings: Record<string, unknown> | undefined,
   settings: Record<string, unknown> | undefined,
 ): TransportBits {
-  if (protocol === 'hysteria' || protocol === 'wireguard') return UDP;
+  if (protocol === 'hysteria' || protocol === 'wireguard' || protocol === 'amneziawg') return UDP;
 
   let bits: TransportBits = 0;
   const network = asString(streamSettings?.network);
@@ -68,10 +68,7 @@ export interface InboundTagInput {
 export function composeInboundTag(input: InboundTagInput): string {
   const bits = inboundTransports(input.protocol, input.streamSettings, input.settings);
   return (
-    nodeTagPrefix(input.nodeId)
-    + baseInboundTag(input.port ?? 0)
-    + '-'
-    + transportTagSuffix(bits)
+    nodeTagPrefix(input.nodeId) + baseInboundTag(input.port ?? 0) + '-' + transportTagSuffix(bits)
   );
 }
 

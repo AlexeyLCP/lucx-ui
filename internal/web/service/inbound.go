@@ -10,12 +10,15 @@ import (
 	"net"
 	"net/netip"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -33,7 +36,6 @@ import (
 )
 
 type InboundService struct {
-	xrayApi         xray.XrayAPI
 	clientService   ClientService
 	fallbackService FallbackService
 }
@@ -332,6 +334,10 @@ type InboundOption struct {
 	// inbound; the clients-table allowedIPs field is only one of them).
 	AwgPeerAddresses map[string]string `json:"awgPeerAddresses,omitempty"`
 	MtprotoDomain    string            `json:"mtprotoDomain,omitempty"`
+	// AwgServer carries the full AmneziaWG server block (keys, subnet,
+	// obfuscation params) so the clients page can render a downloadable
+	// per-client .conf without a second round trip.
+	AwgServer *amneziawg.ServerSettings `json:"awgServer,omitempty"`
 	// Hosting node; nil for this panel's own inbounds. Lets the clients
 	// page map a node filter onto inbound IDs (#4997).
 	NodeId *int `json:"nodeId,omitempty"`
@@ -363,9 +369,10 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 		ShareAddrStrategy string `gorm:"column:share_addr_strategy"`
 		NodeId            *int   `gorm:"column:node_id"`
 		NodeAddress       string `gorm:"column:node_address"`
+		DisableFlow       bool   `gorm:"column:disable_flow"`
 	}
 	err := db.Table("inbounds").
-		Select("inbounds.id, inbounds.remark, inbounds.tag, inbounds.protocol, inbounds.port, inbounds.enable, inbounds.stream_settings, inbounds.settings, inbounds.listen, inbounds.share_addr, inbounds.share_addr_strategy, inbounds.node_id, COALESCE(nodes.address, '') AS node_address").
+		Select("inbounds.id, inbounds.remark, inbounds.tag, inbounds.protocol, inbounds.port, inbounds.enable, inbounds.stream_settings, inbounds.settings, inbounds.listen, inbounds.share_addr, inbounds.share_addr_strategy, inbounds.node_id, COALESCE(nodes.address, '') AS node_address, inbounds.disable_flow").
 		Joins("LEFT JOIN nodes ON nodes.id = inbounds.node_id").
 		Where("inbounds.user_id = ?", userId).
 		Order("inbounds.id ASC").
@@ -398,7 +405,7 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			Protocol:          r.Protocol,
 			Port:              r.Port,
 			Enable:            r.Enable,
-			TlsFlowCapable:    inboundCanEnableTlsFlow(r.Protocol, r.StreamSettings, r.Settings),
+			TlsFlowCapable:    !r.DisableFlow && inboundCanEnableTlsFlow(r.Protocol, r.StreamSettings, r.Settings),
 			SsMethod:          inboundShadowsocksMethod(r.Protocol, r.Settings),
 			WgPublicKey:       wgPublicKey,
 			WgMtu:             wgMtu,
@@ -408,6 +415,7 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			AwgVersion:        awgVer,
 			AwgPeerAddresses:  awgPeers,
 			MtprotoDomain:     inboundMtprotoDomain(r.Protocol, r.Settings),
+			AwgServer:         inboundAmneziaWGServer(r.Protocol, r.Settings),
 			NodeId:            r.NodeId,
 			NodeAddress:       r.NodeAddress,
 			Listen:            r.Listen,
@@ -631,6 +639,26 @@ func InboundAwgPeerAddresses(settings string) map[string]string {
 
 // END LUCX-HOOK
 
+// inboundAmneziaWGServer returns the AmneziaWG server block for the clients
+// page's config-download builder, or nil when the inbound isn't AmneziaWG or
+// its settings don't parse. PrivateKey is redacted: GetInboundOptions is a
+// shared, admin-wide list used to fill dropdowns, not a place a live tunnel
+// secret needs to travel — the frontend's own AwgServerOptionSchema never
+// reads it, so nothing is lost by not sending it, and it shouldn't widen the
+// blast radius of a log capture, proxy cache, or browser devtools screenshot.
+func inboundAmneziaWGServer(protocol string, settings string) *amneziawg.ServerSettings {
+	if protocol != string(model.AmneziaWG) || strings.TrimSpace(settings) == "" {
+		return nil
+	}
+	var parsed amneziawg.InboundSettings
+	if err := json.Unmarshal([]byte(settings), &parsed); err != nil || parsed.Server == nil {
+		return nil
+	}
+	redacted := *parsed.Server
+	redacted.PrivateKey = ""
+	return &redacted
+}
+
 // inboundMtprotoDomain returns the inbound-level FakeTLS default domain, used by
 // the clients UI to seed a new mtproto client's secret with the right fronting
 // hostname.
@@ -694,37 +722,40 @@ func (s *InboundService) GetAllEmails() ([]string, error) {
 	return emails, nil
 }
 
-// getAllEmailSubIDs returns email→subId. An email seen with two different
-// non-empty subIds is locked (mapped to "") so neither identity can claim it.
-func (s *InboundService) getAllEmailSubIDs() (map[string]string, error) {
+// emailSubIDsForClients returns lower(email)→subId for just the emails being
+// checked. One clients row owns an email's identity, so the answer no longer
+// needs a scan of every inbound's settings JSON (#6252).
+func (s *InboundService) emailSubIDsForClients(clients []model.Client) (map[string]string, error) {
+	want := make(map[string]struct{}, len(clients))
+	for i := range clients {
+		if email := strings.ToLower(strings.TrimSpace(clients[i].Email)); email != "" {
+			want[email] = struct{}{}
+		}
+	}
+	result := make(map[string]string, len(want))
+	if len(want) == 0 {
+		return result, nil
+	}
+	lowered := make([]string, 0, len(want))
+	for email := range want {
+		lowered = append(lowered, email)
+	}
 	db := database.GetDB()
-	var rows []struct {
-		Email string
-		SubID string
-	}
-	query := fmt.Sprintf(
-		"SELECT %s AS email, %s AS sub_id %s",
-		database.JSONFieldText("client.value", "email"),
-		database.JSONFieldText("client.value", "subId"),
-		database.JSONClientsFromInbound(),
-	)
-	if err := db.Raw(query).Scan(&rows).Error; err != nil {
-		return nil, err
-	}
-	result := make(map[string]string, len(rows))
-	for _, r := range rows {
-		email := strings.ToLower(r.Email)
-		if email == "" {
-			continue
+	for _, batch := range chunkStrings(lowered, sqlInChunk) {
+		var rows []struct {
+			Email string
+			SubID string `gorm:"column:sub_id"`
 		}
-		subID := r.SubID
-		if existing, ok := result[email]; ok {
-			if existing != subID {
-				result[email] = ""
-			}
-			continue
+		err := db.Model(&model.ClientRecord{}).
+			Select("email, sub_id").
+			Where("LOWER(email) IN ?", batch).
+			Scan(&rows).Error
+		if err != nil {
+			return nil, err
 		}
-		result[email] = subID
+		for _, r := range rows {
+			result[strings.ToLower(r.Email)] = r.SubID
+		}
 	}
 	return result, nil
 }
@@ -1706,6 +1737,12 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	if err := s.normalizeNaiveXrayPort(inbound, ""); err != nil {
 		return inbound, false, err
 	}
+	if err := s.normalizeAmneziaWGSettings(inbound); err != nil {
+		return inbound, false, err
+	}
+	if inbound.NodeID != nil && !isNodeEligibleProtocol(inbound.Protocol) {
+		return inbound, false, common.NewErrorf("%s inbounds cannot be assigned to a node", inbound.Protocol)
+	}
 	inbound.SubSortIndex = normalizeSubSortIndex(inbound.SubSortIndex)
 	if err := normalizeInboundShareAddressStrict(inbound); err != nil {
 		return inbound, false, err
@@ -1775,29 +1812,31 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	}
 	// END LUCX-HOOK
 
-	conflict, err := s.checkPortConflict(inbound, 0)
+	tag, err := s.resolveInboundTag(inbound, 0)
 	if err != nil {
 		return inbound, false, err
 	}
-	if conflict != nil {
-		return inbound, false, common.NewError(conflict.String())
-	}
-
-	inbound.Tag, err = s.resolveInboundTag(inbound, 0)
-	if err != nil {
-		return inbound, false, err
-	}
+	inbound.Tag = tag
 
 	clients, err := s.GetClients(inbound)
 	if err != nil {
 		return inbound, false, err
 	}
-	existEmail, err := s.clientService.checkEmailsExistForClients(s, clients, nil)
+	existEmail, err := s.clientService.checkEmailsExistForClients(s, clients)
 	if err != nil {
 		return inbound, false, err
 	}
 	if existEmail != "" {
 		return inbound, false, common.NewError("Duplicate email:", existEmail)
+	}
+
+	if inbound.DisableFlow {
+		if stripped, changed := stripClientFlows(inbound.Settings); changed {
+			inbound.Settings = stripped
+		}
+		for i := range clients {
+			clients[i].Flow = ""
+		}
 	}
 
 	// Ensure created_at and updated_at on clients in settings
@@ -1845,7 +1884,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 			if client.Auth == "" {
 				return inbound, false, common.NewError("empty client ID")
 			}
-		case "wireguard":
+		case "wireguard", "amneziawg":
 			if client.PublicKey == "" {
 				return inbound, false, common.NewError("wireguard client requires a key")
 			}
@@ -1890,13 +1929,34 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	}
 	// END LUCX-HOOK
 
-	db := database.GetDB()
 	needRestart := false
 	var postCommitApply func()
-	err = db.Transaction(func(tx *gorm.DB) error {
+	err = runSerializedTx(func(tx *gorm.DB) error {
+		conflict, cErr := checkPortConflictTx(tx, inbound, 0)
+		if cErr != nil {
+			return cErr
+		}
+		if conflict != nil {
+			return common.NewError(conflict.String())
+		}
 		markDirty := false
 		if err := tx.Omit("ClientStats").Save(inbound).Error; err != nil {
 			return err
+		}
+		// The relay port is derived from the id, only known after Save; checkPortConflictTx
+		// ran the reverse-direction check above with ignoreId==0, so it couldn't yet.
+		if inbound.Protocol == model.AmneziaWG {
+			if amneziawgnet.SOCKSPortForInbound(inbound.Id) > 65535 {
+				return common.NewErrorf("amneziawg: inbound id %d exceeds the relay port window (ids above %d are not supported)",
+					inbound.Id, 65535-amneziawgnet.SOCKSBasePort)
+			}
+			conflict, cErr := checkAmneziawgnetSocksReverseConflict(tx, inbound.Id)
+			if cErr != nil {
+				return cErr
+			}
+			if conflict != nil {
+				return common.NewError(conflict.String())
+			}
 		}
 		// Emails seeded here (import's ClientStats, e.g. the controller's forced
 		// Enable=true on every imported stat row) are authoritative for this call
@@ -1950,7 +2010,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 					payload := inbound
 					pushable := true
 					if inbound.Protocol == model.MTProto {
-						if built, bErr := s.buildRuntimeInboundForAPI(tx, inbound); bErr == nil {
+						if built, bErr := s.buildInboundForLocalRuntime(tx, inbound); bErr == nil {
 							payload = built
 						} else {
 							logger.Debug("Unable to prepare runtime inbound config:", bErr)
@@ -2050,6 +2110,22 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 		if err := tx.Where("inbound_id = ?", id).Delete(&model.Host{}).Error; err != nil {
 			return err
 		}
+		// Drop the deleted inbound from any sub-balancer that selects it; a
+		// dangling id would emit a member no subscriber can resolve (#5648).
+		var balancers []model.SubBalancer
+		if err := tx.Find(&balancers).Error; err != nil {
+			return err
+		}
+		for i := range balancers {
+			before := balancers[i].InboundIds
+			balancers[i].InboundIds = slices.DeleteFunc(before, func(b int) bool { return b == id })
+			if len(balancers[i].InboundIds) == len(before) {
+				continue
+			}
+			if err := tx.Save(&balancers[i]).Error; err != nil {
+				return err
+			}
+		}
 		if loadErr == nil && ib.NodeID != nil {
 			return (&NodeService{}).MarkNodeDirtyTx(tx, *ib.NodeID)
 		}
@@ -2138,6 +2214,54 @@ func (s *InboundService) GetInboundDetail(id int) (*model.Inbound, error) {
 	return inbound, nil
 }
 
+// SetInboundSubSortIndex changes only the subscription sort order, so a
+// reorder cannot carry a stale settings/client payload over another edit.
+func (s *InboundService) SetInboundSubSortIndex(id int, index int) error {
+	index = normalizeSubSortIndex(index)
+	inbound, err := s.GetInbound(id)
+	if err != nil {
+		return err
+	}
+	if inbound.SubSortIndex == index {
+		return nil
+	}
+
+	db := database.GetDB()
+	if err := db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Model(model.Inbound{}).Where("id = ?", id).
+			Update("sub_sort_index", index).Error; err != nil {
+			return err
+		}
+		if inbound.NodeID != nil {
+			return (&NodeService{}).MarkNodeDirtyTx(tx, *inbound.NodeID)
+		}
+		return nil
+	}); err != nil {
+		return err
+	}
+	inbound.SubSortIndex = index
+
+	if inbound.NodeID == nil {
+		return nil
+	}
+	rt, push, _, perr := s.nodePushPlan(inbound)
+	if perr != nil {
+		return perr
+	}
+	if push {
+		narrow, ok := rt.(interface {
+			SetInboundSubSortIndex(context.Context, *model.Inbound, int) error
+		})
+		if !ok {
+			return fmt.Errorf("runtime %s does not support narrow subscription ordering updates", rt.Name())
+		}
+		if err := narrow.SetInboundSubSortIndex(context.Background(), inbound, index); err != nil {
+			logger.Warning("SetInboundSubSortIndex: remote metadata update on", rt.Name(), "failed:", err)
+		}
+	}
+	return nil
+}
+
 func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	inbound, err := s.GetInbound(id)
 	if err != nil {
@@ -2205,7 +2329,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		return needRestart || routedBridge, nil
 	}
 
-	runtimeInbound, err := s.buildRuntimeInboundForAPI(db, inbound)
+	runtimeInbound, err := s.buildInboundForLocalRuntime(db, inbound)
 	if err != nil {
 		logger.Debug("SetInboundEnable: build runtime config failed:", err)
 		return true, nil
@@ -2228,7 +2352,22 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		return inbound, false, err
 	}
 	s.normalizeMtprotoSecret(inbound)
+	if err := s.normalizeAmneziaWGSettings(inbound); err != nil {
+		return inbound, false, err
+	}
 	inbound.SubSortIndex = normalizeSubSortIndex(inbound.SubSortIndex)
+
+	clients, err := s.GetClients(inbound)
+	if err != nil {
+		return inbound, false, err
+	}
+	if inbound.Protocol == model.Hysteria {
+		for _, client := range clients {
+			if client.Auth == "" {
+				return inbound, false, common.NewError("empty client ID")
+			}
+		}
+	}
 
 	oldInbound, err := s.GetInbound(inbound.Id)
 	if err != nil {
@@ -2354,6 +2493,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	if conflict != nil {
 		return inbound, false, common.NewError(conflict.String())
 	}
+	if inbound.NodeID != nil && !isNodeEligibleProtocol(inbound.Protocol) {
+		return inbound, false, common.NewErrorf("%s inbounds cannot be assigned to a node", inbound.Protocol)
+	}
 
 	// Capture the pre-edit protocol and routing state before oldInbound is
 	// overwritten with the new values further down, then ensure a routed
@@ -2381,6 +2523,13 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	var postCommitApply func()
 
 	txErr := runSerializedTx(func(tx *gorm.DB) error {
+		conflict, cErr := checkPortConflictTx(tx, inbound, inbound.Id)
+		if cErr != nil {
+			return cErr
+		}
+		if conflict != nil {
+			return common.NewError(conflict.String())
+		}
 		if err := s.updateClientTraffics(tx, oldInbound, inbound); err != nil {
 			return err
 		}
@@ -2456,8 +2605,14 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// VLESS inbound just became flow-eligible (e.g. vlessenc was enabled on an
 		// XHTTP inbound), restore Vision for clients whose intended flow is Vision
 		// but was stripped while the inbound was ineligible.
-		if restored, changed := s.restoreVisionFlowForEligibleInbound(tx, inbound.Settings, inbound.StreamSettings, inbound.Protocol); changed {
-			inbound.Settings = restored
+		if !inbound.DisableFlow {
+			if restored, changed := s.restoreVisionFlowForEligibleInbound(tx, inbound.Settings, inbound.StreamSettings, inbound.Protocol); changed {
+				inbound.Settings = restored
+			}
+		} else {
+			if stripped, changed := stripClientFlows(inbound.Settings); changed {
+				inbound.Settings = stripped
+			}
 		}
 
 		oldInbound.Total = inbound.Total
@@ -2470,6 +2625,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		oldInbound.Listen = inbound.Listen
 		oldInbound.Port = inbound.Port
 		oldInbound.Protocol = inbound.Protocol
+		oldInbound.DisableFlow = inbound.DisableFlow
 		oldInbound.Settings = inbound.Settings
 		oldInbound.StreamSettings = inbound.StreamSettings
 		oldInbound.Sniffing = inbound.Sniffing
@@ -2508,7 +2664,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 				payload := oldInbound
 				pushable := true
 				if inbound.Enable {
-					if built, err2 := s.buildRuntimeInboundForAPI(tx, oldInbound); err2 == nil {
+					if built, err2 := s.buildInboundForLocalRuntime(tx, oldInbound); err2 == nil {
 						payload = built
 					} else {
 						logger.Debug("Unable to prepare runtime inbound config:", err2)
@@ -2534,7 +2690,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 				var runtimeInbound *model.Inbound
 				if inbound.Enable {
 					var err2 error
-					runtimeInbound, err2 = s.buildRuntimeInboundForAPI(tx, oldInbound)
+					runtimeInbound, err2 = s.buildInboundForLocalRuntime(tx, oldInbound)
 					if err2 != nil {
 						logger.Debug("Unable to prepare runtime inbound config:", err2)
 						needRestart = true
@@ -2613,81 +2769,95 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	return inbound, needRestart, nil
 }
 
-func (s *InboundService) buildRuntimeInboundForAPI(tx *gorm.DB, inbound *model.Inbound) (*model.Inbound, error) {
+// A node mirrors this payload into its own DB, so every client must survive:
+// filtering one out makes the node delete it, and the master then mirrors that.
+func (s *InboundService) buildInboundForNodePush(tx *gorm.DB, inbound *model.Inbound) (*model.Inbound, error) {
 	if inbound == nil {
 		return nil, fmt.Errorf("inbound is nil")
 	}
 
-	runtimeInbound := *inbound
+	built := *inbound
 	settings := map[string]any{}
 	if err := json.Unmarshal([]byte(inbound.Settings), &settings); err != nil {
 		return nil, err
 	}
 
-	mutated := false
-	if clients, ok := settings["clients"].([]any); ok {
-		var clientStats []xray.ClientTraffic
-		err := tx.Model(xray.ClientTraffic{}).
-			Where("inbound_id = ?", inbound.Id).
-			Select("email", "enable").
-			Find(&clientStats).Error
-		if err != nil {
-			return nil, err
-		}
+	if !inboundCanHostFallbacks(inbound) {
+		return &built, nil
+	}
+	fallbacks, err := s.fallbackService.BuildFallbacksJSON(tx, inbound.Id)
+	if err != nil {
+		return nil, err
+	}
+	if len(fallbacks) == 0 {
+		return &built, nil
+	}
+	generic := make([]any, 0, len(fallbacks))
+	for _, f := range fallbacks {
+		generic = append(generic, f)
+	}
+	settings["fallbacks"] = generic
 
-		enableMap := make(map[string]bool, len(clientStats))
-		for _, clientTraffic := range clientStats {
-			enableMap[clientTraffic.Email] = clientTraffic.Enable
-		}
+	modifiedSettings, mErr := json.MarshalIndent(settings, "", "  ")
+	if mErr != nil {
+		return nil, mErr
+	}
+	built.Settings = string(modifiedSettings)
+	return &built, nil
+}
 
-		finalClients := make([]any, 0, len(clients))
-		for _, client := range clients {
-			c, ok := client.(map[string]any)
-			if !ok {
-				continue
-			}
-
-			email, _ := c["email"].(string)
-			if enable, exists := enableMap[email]; exists && !enable {
-				continue
-			}
-
-			if manualEnable, ok := c["enable"].(bool); ok && !manualEnable {
-				continue
-			}
-
-			finalClients = append(finalClients, c)
-		}
-
-		settings["clients"] = finalClients
-		mutated = true
+// Strips disabled clients on top of the node payload. Safe only because the
+// target here is an in-memory Xray/mtg config, not another panel's database.
+func (s *InboundService) buildInboundForLocalRuntime(tx *gorm.DB, inbound *model.Inbound) (*model.Inbound, error) {
+	built, err := s.buildInboundForNodePush(tx, inbound)
+	if err != nil {
+		return nil, err
 	}
 
-	if inboundCanHostFallbacks(inbound) {
-		fallbacks, fbErr := s.fallbackService.BuildFallbacksJSON(tx, inbound.Id)
-		if fbErr != nil {
-			return nil, fbErr
-		}
-		if len(fallbacks) > 0 {
-			generic := make([]any, 0, len(fallbacks))
-			for _, f := range fallbacks {
-				generic = append(generic, f)
-			}
-			settings["fallbacks"] = generic
-			mutated = true
-		}
+	settings := map[string]any{}
+	if err := json.Unmarshal([]byte(built.Settings), &settings); err != nil {
+		return nil, err
+	}
+	clients, ok := settings["clients"].([]any)
+	if !ok {
+		return built, nil
 	}
 
-	if !mutated {
-		return &runtimeInbound, nil
+	var clientStats []xray.ClientTraffic
+	if err := tx.Model(xray.ClientTraffic{}).
+		Where("inbound_id = ?", built.Id).
+		Select("email", "enable").
+		Find(&clientStats).Error; err != nil {
+		return nil, err
 	}
+	enableMap := make(map[string]bool, len(clientStats))
+	for _, clientTraffic := range clientStats {
+		enableMap[clientTraffic.Email] = clientTraffic.Enable
+	}
+
+	finalClients := make([]any, 0, len(clients))
+	for _, client := range clients {
+		c, ok := client.(map[string]any)
+		if !ok {
+			continue
+		}
+		email, _ := c["email"].(string)
+		if enable, exists := enableMap[email]; exists && !enable {
+			continue
+		}
+		if manualEnable, ok := c["enable"].(bool); ok && !manualEnable {
+			continue
+		}
+		finalClients = append(finalClients, c)
+	}
+	settings["clients"] = finalClients
 
 	modifiedSettings, err := json.MarshalIndent(settings, "", "  ")
 	if err != nil {
 		return nil, err
 	}
+	runtimeInbound := *built
 	runtimeInbound.Settings = string(modifiedSettings)
-
 	return &runtimeInbound, nil
 }
 

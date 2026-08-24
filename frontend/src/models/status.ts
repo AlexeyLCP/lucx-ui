@@ -85,6 +85,11 @@ export interface BbrStatus {
 }
 // END LUCX-HOOK
 
+export interface AmneziaWGInfo {
+  configured: boolean;
+  running: boolean;
+}
+
 interface StatusInput {
   cpu?: number;
   cpuCores?: number;
@@ -104,6 +109,7 @@ interface StatusInput {
   appStats?: AppStats;
   xray?: Partial<XrayInfo>;
   awg?: Partial<AwgInfo>;
+  amneziawg?: Partial<AmneziaWGInfo>;
 }
 
 export class Status {
@@ -137,6 +143,7 @@ export class Status {
     rebuildRunning: false,
     rebootNeeded: false,
   };
+  amneziawg: AmneziaWGInfo = { configured: false, running: false };
 
   constructor(data?: StatusInput | null) {
     if (data == null) return;
@@ -161,5 +168,6 @@ export class Status {
     this.xray.color = XRAY_STATE_COLORS[this.xray.state] ?? 'gray';
     this.awg = { ...this.awg, ...(data.awg || {}) };
     this.awg.color = XRAY_STATE_COLORS[this.awg.state] ?? 'gray';
+    this.amneziawg = { ...this.amneziawg, ...(data.amneziawg || {}) };
   }
 }

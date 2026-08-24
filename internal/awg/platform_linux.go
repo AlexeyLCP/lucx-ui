@@ -266,6 +266,14 @@ func awg31CapabilityCheck(p prober) DiagCheck {
 	return DiagCheck{awg31SupportCheckName, toolsOK, detail}
 }
 
+func kernelAvailable() bool {
+	if _, err := os.Stat("/sys/module/amneziawg"); err != nil {
+		return false
+	}
+	_, err := exec.LookPath("awg-quick")
+	return err == nil
+}
+
 func yesNo(b bool) string {
 	if b {
 		return "present"

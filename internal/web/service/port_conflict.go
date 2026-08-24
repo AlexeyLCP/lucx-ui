@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
+
+	"gorm.io/gorm"
 )
 
 type transportBits uint8
@@ -20,7 +24,7 @@ const (
 func inboundTransports(protocol model.Protocol, streamSettings, settings string) transportBits {
 	// protocols that ignore streamSettings entirely.
 	switch protocol {
-	case model.Hysteria, model.WireGuard, model.AWG:
+	case model.Hysteria, model.WireGuard, model.AWG, model.AmneziaWG:
 		return transportUDP
 	case model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt:
 		return transportTCP
@@ -177,7 +181,13 @@ func reservedAPIPort() int {
 	return defaultXrayAPIPort
 }
 
+// checkPortConflict reads outside any transaction; callers that must not race a
+// concurrent create use checkPortConflictTx inside their own transaction.
 func (s *InboundService) checkPortConflict(inbound *model.Inbound, ignoreId int) (*portConflictDetail, error) {
+	return checkPortConflictTx(database.GetDB(), inbound, ignoreId)
+}
+
+func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*portConflictDetail, error) {
 	// A non-positive port means the inbound binds nothing of its own —
 	// olcRTC dials out over WebRTC and its form stores port 0 — so it can
 	// never collide. Without this, every portless inbound after the first
@@ -185,7 +195,6 @@ func (s *InboundService) checkPortConflict(inbound *model.Inbound, ignoreId int)
 	if inbound.Port <= 0 {
 		return nil, nil
 	}
-
 	newBits := inboundTransports(inbound.Protocol, inbound.StreamSettings, inbound.Settings)
 
 	// The internal Xray API inbound (tag "api", loopback TCP) isn't a DB row,
@@ -202,7 +211,35 @@ func (s *InboundService) checkPortConflict(inbound *model.Inbound, ignoreId int)
 		}, nil
 	}
 
-	db := database.GetDB()
+	// Every enabled local AmneziaWG inbound gets its own automatic Xray
+	// SOCKS5 relay inbound (see injectAmneziawgnetSocks) on 127.0.0.1 at a
+	// port derived purely from its id (amneziawgnet.SOCKSPortForInbound) --
+	// like the internal Xray API inbound above, that relay inbound is not
+	// itself a database row, so the ordinary DB-backed query below can never
+	// see it. Without this check, an unrelated inbound saved onto that exact
+	// port silently fails at the next Xray start, taking every other
+	// protocol down with it, not just AmneziaWG.
+	if inbound.NodeID == nil && listenOverlaps("127.0.0.1", inbound.Listen) {
+		conflict, err := checkAmneziawgnetSocksConflict(db, inbound, ignoreId, newBits)
+		if err != nil {
+			return nil, err
+		}
+		if conflict != nil {
+			return conflict, nil
+		}
+	}
+
+	// The reverse direction, only meaningful once the id is known (create's
+	// ignoreId==0 means AddInbound must run this itself after Save assigns one).
+	if inbound.Protocol == model.AmneziaWG && ignoreId > 0 {
+		conflict, err := checkAmneziawgnetSocksReverseConflict(db, ignoreId)
+		if err != nil {
+			return nil, err
+		}
+		if conflict != nil {
+			return conflict, nil
+		}
+	}
 
 	var candidates []*model.Inbound
 	q := db.Model(model.Inbound{}).Where("port = ?", inbound.Port)
@@ -232,6 +269,72 @@ func (s *InboundService) checkPortConflict(inbound *model.Inbound, ignoreId int)
 			Listen:     c.Listen,
 			Port:       c.Port,
 			Transports: shared,
+		}, nil
+	}
+	return nil, nil
+}
+
+// checkAmneziawgnetSocksConflict reports whether inbound's own port
+// collides with an existing, enabled local AmneziaWG inbound's automatic
+// Xray SOCKS5 relay port. Unlike the retired kernel-module bridge this
+// checks every qualifying AmneziaWG inbound unconditionally: the embedded
+// relay has no RouteThroughXray-style opt-in, every one of them gets a
+// relay inbound (see injectAmneziawgnetSocks). ignoreId excludes one inbound
+// id from the AmneziaWG candidates, the same way the general DB-backed
+// conflict query above excludes the inbound being edited from matching
+// itself. Takes db rather than fetching its own handle so it runs inside the
+// same serialized transaction as the rest of checkPortConflictTx (#6225) --
+// otherwise two concurrent AmneziaWG creates could both pass this check
+// before either row commits.
+func checkAmneziawgnetSocksConflict(db *gorm.DB, inbound *model.Inbound, ignoreId int, newBits transportBits) (*portConflictDetail, error) {
+	var candidates []*model.Inbound
+	q := db.Model(model.Inbound{}).Where("protocol = ? AND enable = ? AND node_id IS NULL", model.AmneziaWG, true)
+	if ignoreId > 0 {
+		q = q.Where("id != ?", ignoreId)
+	}
+	if err := q.Find(&candidates).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range candidates {
+		if _, ok := amneziawg.InstanceFromInbound(c); !ok {
+			continue
+		}
+		if amneziawgnet.SOCKSPortForInbound(c.Id) != inbound.Port {
+			continue
+		}
+		return &portConflictDetail{
+			InboundID:  c.Id,
+			Remark:     c.Remark,
+			Tag:        c.Tag,
+			Listen:     "127.0.0.1",
+			Port:       inbound.Port,
+			Transports: newBits,
+		}, nil
+	}
+	return nil, nil
+}
+
+// checkAmneziawgnetSocksReverseConflict mirrors checkAmneziawgnetSocksConflict:
+// does id's own derived relay port collide with some other inbound's port.
+func checkAmneziawgnetSocksReverseConflict(db *gorm.DB, id int) (*portConflictDetail, error) {
+	relayPort := amneziawgnet.SOCKSPortForInbound(id)
+	var candidates []*model.Inbound
+	if err := db.Model(model.Inbound{}).
+		Where("port = ? AND node_id IS NULL AND id != ?", relayPort, id).
+		Find(&candidates).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range candidates {
+		if !listenOverlaps("127.0.0.1", c.Listen) {
+			continue
+		}
+		return &portConflictDetail{
+			InboundID:  c.Id,
+			Remark:     c.Remark,
+			Tag:        c.Tag,
+			Listen:     c.Listen,
+			Port:       relayPort,
+			Transports: transportTCP,
 		}, nil
 	}
 	return nil, nil

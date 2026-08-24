@@ -31,7 +31,9 @@ export function useOutboundTags(opts?: { excludeBlackhole?: boolean }) {
       // END LUCX-HOOK
       // Balancers are valid routing targets too — injectMtprotoEgress emits a
       // balancerTag rule when the chosen tag names a balancer.
-      const balancers = (data?.xraySetting?.routing as { balancers?: Array<{ tag?: string }> } | undefined)?.balancers;
+      const balancers = (
+        data?.xraySetting?.routing as { balancers?: Array<{ tag?: string }> } | undefined
+      )?.balancers;
       for (const b of balancers ?? []) {
         if (b?.tag) tags.add(b.tag);
       }
@@ -71,7 +73,9 @@ export function useOutboundTagGroups(opts?: { excludeBlackhole?: boolean }) {
       }
       // END LUCX-HOOK
       const balancers: string[] = [];
-      const bal = (data?.xraySetting?.routing as { balancers?: Array<{ tag?: string }> } | undefined)?.balancers;
+      const bal = (
+        data?.xraySetting?.routing as { balancers?: Array<{ tag?: string }> } | undefined
+      )?.balancers;
       for (const b of bal ?? []) {
         if (b?.tag && !outbounds.has(b.tag)) balancers.push(b.tag);
       }

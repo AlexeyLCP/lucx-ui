@@ -6,6 +6,7 @@ import { Drawer, Layout, Menu } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   ApiOutlined,
+  ApartmentOutlined,
   CloseOutlined,
   CloudServerOutlined,
   ClusterOutlined,
@@ -24,6 +25,8 @@ import {
   MoonFilled,
   MoonOutlined,
   CloudOutlined,
+  PushpinFilled,
+  PushpinOutlined,
   ReadOutlined,
   SafetyOutlined,
   SettingOutlined,
@@ -48,11 +51,25 @@ const TG_URL = 'https://t.me/Lucx_soft';
 // END LUCX-HOOK
 const LOGOUT_KEY = '__logout__';
 const RAIL_WIDTH = 72;
-const railStyle = { '--sider-rail': `${RAIL_WIDTH}px` } as CSSProperties;
+const SIDER_WIDTH = 220;
+const SIDEBAR_PINNED_KEY = 'sidebar-pinned';
 
 let hoveredAcrossRemounts = false;
 
-type IconName = 'dashboard' | 'inbound' | 'team' | 'groups' | 'setting' | 'tool' | 'cluster' | 'hosts' | 'logout' | 'apidocs' | 'outbound' | 'routing' | 'tunnels';
+type IconName =
+  | 'dashboard'
+  | 'inbound'
+  | 'team'
+  | 'groups'
+  | 'setting'
+  | 'tool'
+  | 'cluster'
+  | 'hosts'
+  | 'logout'
+  | 'apidocs'
+  | 'outbound'
+  | 'routing'
+  | 'tunnels';
 
 const iconByName: Record<IconName, ComponentType> = {
   dashboard: DashboardOutlined,
@@ -135,7 +152,13 @@ function VersionBadge({ version, collapsed }: { version: string; collapsed?: boo
   );
 }
 
-function ThemeCycleButton({ id, isDark, isUltra, onCycle, ariaLabel }: {
+function ThemeCycleButton({
+  id,
+  isDark,
+  isUltra,
+  onCycle,
+  ariaLabel,
+}: {
   id: string;
   isDark: boolean;
   isUltra: boolean;
@@ -157,6 +180,20 @@ function ThemeCycleButton({ id, isDark, isUltra, onCycle, ariaLabel }: {
   );
 }
 
+function readSidebarPinned() {
+  try {
+    return localStorage.getItem(SIDEBAR_PINNED_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveSidebarPinned(pinned: boolean) {
+  try {
+    localStorage.setItem(SIDEBAR_PINNED_KEY, String(pinned));
+  } catch {}
+}
+
 export default function AppSidebar() {
   const { t } = useTranslation();
   const { isDark, isUltra, toggleTheme, toggleUltra } = useTheme();
@@ -164,16 +201,28 @@ export default function AppSidebar() {
   const { pathname, hash } = useLocation();
   const { allSetting } = useAllSettings();
   const showSubFormats = !!(allSetting.subJsonEnable || allSetting.subClashEnable);
+  const showSubBalancers = !!allSetting.subJsonEnable;
 
   const [hovered, setHovered] = useState(() => hoveredAcrossRemounts);
+  const [pinned, setPinned] = useState(readSidebarPinned);
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const railCollapsed = !hovered;
+  const railCollapsed = !hovered && !pinned;
+  const railStyle = useMemo(
+    () => ({ '--sider-rail': `${pinned ? SIDER_WIDTH : RAIL_WIDTH}px` }) as CSSProperties,
+    [pinned],
+  );
   const rootRef = useRef<HTMLDivElement>(null);
 
   const updateHovered = useCallback((value: boolean) => {
     hoveredAcrossRemounts = value;
     setHovered(value);
   }, []);
+
+  const togglePinned = useCallback(() => {
+    const next = !pinned;
+    saveSidebarPinned(next);
+    setPinned(next);
+  }, [pinned]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -186,63 +235,108 @@ export default function AppSidebar() {
   const currentTheme: 'light' | 'dark' = isDark ? 'dark' : 'light';
   const panelVersion = window.X_UI_CUR_VER || '';
 
-  const tabs = useMemo<{ key: string; icon: IconName; title: string }[]>(() => [
-    { key: '/', icon: 'dashboard', title: t('menu.dashboard') },
-    { key: '/inbounds', icon: 'inbound', title: t('menu.inbounds') },
-    { key: '/clients', icon: 'team', title: t('menu.clients') },
-    { key: '/groups', icon: 'groups', title: t('menu.groups') },
-    { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
-    { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },
-    // LUCX-HOOK: tunnels moved to Settings → Cores (binaries + AWG module).
-    // /tunnels route kept for advanced tunnel config deep-link.
-    // END LUCX-HOOK
-    // LUCX-HOOK: AWG outbound — /outbound removed from the top-level menu.
-    // It duplicated the "Xray outbounds" entry inside the "Xray Configs"
-    // submenu (the same XrayPage rendered under two nav entries). The
-    // outbounds tab now lives only under /xray#outbound. /routing stays as a
-    // top-level entry by explicit user request.
-    { key: '/routing', icon: 'routing', title: t('menu.routing') },
-    // END LUCX-HOOK
-    { key: '/settings', icon: 'setting', title: t('menu.settings') },
-    { key: '/xray', icon: 'tool', title: t('menu.xray') },
-    { key: '/api-docs', icon: 'apidocs', title: t('menu.apiDocs') },
-    { key: LOGOUT_KEY, icon: 'logout', title: t('logout') },
-  ], [t]);
+  const tabs = useMemo<{ key: string; icon: IconName; title: string }[]>(
+    () => [
+      { key: '/', icon: 'dashboard', title: t('menu.dashboard') },
+      { key: '/inbounds', icon: 'inbound', title: t('menu.inbounds') },
+      { key: '/clients', icon: 'team', title: t('menu.clients') },
+      { key: '/groups', icon: 'groups', title: t('menu.groups') },
+      { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
+      { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },
+      // LUCX-HOOK: tunnels moved to Settings → Cores (binaries + AWG module).
+      // /tunnels route kept for advanced tunnel config deep-link.
+      // END LUCX-HOOK
+      // LUCX-HOOK: AWG outbound — /outbound removed from the top-level menu.
+      // It duplicated the "Xray outbounds" entry inside the "Xray Configs"
+      // submenu (the same XrayPage rendered under two nav entries). The
+      // outbounds tab now lives only under /xray#outbound. /routing stays as a
+      // top-level entry by explicit user request.
+      { key: '/routing', icon: 'routing', title: t('menu.routing') },
+      // END LUCX-HOOK
+      { key: '/settings', icon: 'setting', title: t('menu.settings') },
+      { key: '/xray', icon: 'tool', title: t('menu.xray') },
+      { key: '/api-docs', icon: 'apidocs', title: t('menu.apiDocs') },
+      { key: LOGOUT_KEY, icon: 'logout', title: t('logout') },
+    ],
+    [t],
+  );
 
   const navItems = useMemo(() => tabs.filter((tab) => tab.icon !== 'logout'), [tabs]);
   const utilItems = useMemo(() => tabs.filter((tab) => tab.icon === 'logout'), [tabs]);
 
   const settingsChildren = useMemo<NonNullable<MenuProps['items']>>(() => {
     const children: NonNullable<MenuProps['items']> = [
-      { key: '/settings#general', icon: <SettingOutlined />, label: t('pages.settings.panelSettings') },
-      { key: '/settings#security', icon: <SafetyOutlined />, label: t('pages.settings.securitySettings') },
-      { key: '/settings#telegram', icon: <MessageOutlined />, label: t('pages.settings.TGBotSettings') },
+      {
+        key: '/settings#general',
+        icon: <SettingOutlined />,
+        label: t('pages.settings.panelSettings'),
+      },
+      {
+        key: '/settings#security',
+        icon: <SafetyOutlined />,
+        label: t('pages.settings.securitySettings'),
+      },
+      {
+        key: '/settings#telegram',
+        icon: <MessageOutlined />,
+        label: t('pages.settings.TGBotSettings'),
+      },
       { key: '/settings#email', icon: <MailOutlined />, label: t('pages.settings.emailSettings') },
-      { key: '/settings#subscription', icon: <CloudServerOutlined />, label: t('pages.settings.subSettings') },
+      {
+        key: '/settings#subscription',
+        icon: <CloudServerOutlined />,
+        label: t('pages.settings.subSettings'),
+      },
       // LUCX-HOOK: AWG module + tunnel binaries
-      { key: '/settings#cores', icon: <CloudServerOutlined />, label: t('pages.settings.cores.menu') },
+      {
+        key: '/settings#cores',
+        icon: <CloudServerOutlined />,
+        label: t('pages.settings.cores.menu'),
+      },
       // END LUCX-HOOK
     ];
     if (showSubFormats) {
-      children.push({ key: '/settings#subscription-formats', icon: <CodeOutlined />, label: 'Sub Formats' });
+      children.push({
+        key: '/settings#subscription-formats',
+        icon: <CodeOutlined />,
+        label: t('menu.subFormats'),
+      });
+    }
+    if (showSubBalancers) {
+      children.push({
+        key: '/settings#subscription-balancers',
+        icon: <ApartmentOutlined />,
+        label: t('pages.settings.subBalancers.menu'),
+      });
     }
     return children;
-  }, [t, showSubFormats]);
+  }, [t, showSubFormats, showSubBalancers]);
 
-  const xrayChildren = useMemo<NonNullable<MenuProps['items']>>(() => [
-    { key: '/xray#basic', icon: <SettingOutlined />, label: t('pages.xray.basicTemplate') },
-    // LUCX-HOOK: AWG outbound — Xray outbounds (renamed) + AWG outbounds nav entry.
-    // Ordered above Routing so the egress targets are visible before the rules
-    // that reference them (user request 2026-07-20). /outbound no longer has a
-    // top-level menu entry — this is the only path to it.
-    { key: '/xray#outbound', icon: <ExportOutlined />, label: t('pages.xray.tabs.xrayOutbounds') },
-    { key: '/xray#awg-outbound', icon: <CloudOutlined />, label: t('pages.xray.tabs.awgOutbounds') },
-    { key: '/xray#routing', icon: <SwapOutlined />, label: t('menu.routing') },
-    // END LUCX-HOOK
-    { key: '/xray#balancer', icon: <ClusterOutlined />, label: t('pages.xray.Balancers') },
-    { key: '/xray#dns', icon: <DatabaseOutlined />, label: 'DNS' },
-    { key: '/xray#advanced', icon: <CodeOutlined />, label: t('pages.xray.advancedTemplate') },
-  ], [t]);
+  const xrayChildren = useMemo<NonNullable<MenuProps['items']>>(
+    () => [
+      { key: '/xray#basic', icon: <SettingOutlined />, label: t('pages.xray.basicTemplate') },
+      // LUCX-HOOK: AWG outbound — Xray outbounds (renamed) + AWG outbounds nav entry.
+      // Ordered above Routing so the egress targets are visible before the rules
+      // that reference them (user request 2026-07-20). /outbound no longer has a
+      // top-level menu entry — this is the only path to it.
+      {
+        key: '/xray#outbound',
+        icon: <ExportOutlined />,
+        label: t('pages.xray.tabs.xrayOutbounds'),
+      },
+      {
+        key: '/xray#awg-outbound',
+        icon: <CloudOutlined />,
+        label: t('pages.xray.tabs.awgOutbounds'),
+      },
+      { key: '/xray#routing', icon: <SwapOutlined />, label: t('menu.routing') },
+      // END LUCX-HOOK
+      { key: '/xray#balancer', icon: <ClusterOutlined />, label: t('pages.xray.Balancers') },
+      { key: '/xray#dns', icon: <DatabaseOutlined />, label: 'DNS' },
+      { key: '/xray#advanced', icon: <CodeOutlined />, label: t('pages.xray.advancedTemplate') },
+    ],
+    [t],
+  );
 
   const settingsActive = pathname === '/settings';
   const xrayActive = pathname === '/xray';
@@ -250,66 +344,77 @@ export default function AppSidebar() {
     ? `/settings${hash || '#general'}`
     : xrayActive
       ? `/xray${hash || '#basic'}`
-      : (pathname === '' ? '/' : pathname);
+      : pathname === ''
+        ? '/'
+        : pathname;
 
   const openSubmenu = settingsActive ? '/settings' : xrayActive ? '/xray' : null;
   const [openKeys, setOpenKeys] = useState<string[]>(() => (openSubmenu ? [openSubmenu] : []));
-  useEffect(() => {
-    if (openSubmenu) {
-      setOpenKeys((keys) => (keys.includes(openSubmenu) ? keys : [...keys, openSubmenu]));
-    }
-  }, [openSubmenu]);
+  if (openSubmenu && !openKeys.includes(openSubmenu)) {
+    setOpenKeys([...openKeys, openSubmenu]);
+  }
 
-  const toMenuItems = useCallback((items: typeof tabs): MenuProps['items'] =>
-    items.map((tab) => {
-      const Icon = iconByName[tab.icon];
-      if (tab.key === '/settings') {
-        return { key: tab.key, icon: <Icon />, label: tab.title, children: settingsChildren };
+  const toMenuItems = useCallback(
+    (items: typeof tabs): MenuProps['items'] =>
+      items.map((tab) => {
+        const Icon = iconByName[tab.icon];
+        if (tab.key === '/settings') {
+          return { key: tab.key, icon: <Icon />, label: tab.title, children: settingsChildren };
+        }
+        if (tab.key === '/xray') {
+          return { key: tab.key, icon: <Icon />, label: tab.title, children: xrayChildren };
+        }
+        return { key: tab.key, icon: <Icon />, label: tab.title, title: '' };
+      }),
+    [settingsChildren, xrayChildren],
+  );
+
+  const openLink = useCallback(
+    async (key: string) => {
+      if (key === LOGOUT_KEY) {
+        await HttpUtil.post('/logout');
+        window.location.href = window.X_UI_BASE_PATH || '/';
+        return;
       }
-      if (tab.key === '/xray') {
-        return { key: tab.key, icon: <Icon />, label: tab.title, children: xrayChildren };
+      navigate(key);
+    },
+    [navigate],
+  );
+
+  const onMenuClick = useCallback<NonNullable<MenuProps['onClick']>>(
+    ({ key }) => {
+      openLink(String(key));
+    },
+    [openLink],
+  );
+
+  const cycleTheme = useCallback(
+    (id: string) => {
+      pauseAnimationsUntilLeave(id);
+      if (!isDark) {
+        toggleTheme();
+        if (isUltra) toggleUltra();
+      } else if (!isUltra) {
+        toggleUltra();
+      } else {
+        toggleUltra();
+        toggleTheme();
       }
-      return { key: tab.key, icon: <Icon />, label: tab.title, title: '' };
-    }),
-  [settingsChildren, xrayChildren]);
-
-  const openLink = useCallback(async (key: string) => {
-    if (key === LOGOUT_KEY) {
-      await HttpUtil.post('/logout');
-      window.location.href = window.X_UI_BASE_PATH || '/';
-      return;
-    }
-    navigate(key);
-  }, [navigate]);
-
-  const onMenuClick = useCallback<NonNullable<MenuProps['onClick']>>(({ key }) => {
-    openLink(String(key));
-  }, [openLink]);
-
-  const cycleTheme = useCallback((id: string) => {
-    pauseAnimationsUntilLeave(id);
-    if (!isDark) {
-      toggleTheme();
-      if (isUltra) toggleUltra();
-    } else if (!isUltra) {
-      toggleUltra();
-    } else {
-      toggleUltra();
-      toggleTheme();
-    }
-  }, [isDark, isUltra, toggleTheme, toggleUltra]);
+    },
+    [isDark, isUltra, toggleTheme, toggleUltra],
+  );
 
   return (
     <div
       ref={rootRef}
-      className="ant-sidebar"
+      className={`ant-sidebar${pinned ? ' sidebar-pinned' : ''}`}
       style={railStyle}
       onMouseEnter={() => updateHovered(true)}
       onMouseLeave={() => updateHovered(false)}
     >
       <Layout.Sider
         theme={currentTheme}
-        width={220}
+        width={SIDER_WIDTH}
         collapsedWidth={RAIL_WIDTH}
         collapsed={railCollapsed}
       >
@@ -319,6 +424,16 @@ export default function AppSidebar() {
           </div>
           {!railCollapsed && (
             <div className="brand-actions">
+              <button
+                type="button"
+                className="sidebar-pin"
+                aria-label={t('menu.pinSidebar')}
+                aria-pressed={pinned}
+                title={t(pinned ? 'menu.unpinSidebar' : 'menu.pinSidebar')}
+                onClick={togglePinned}
+              >
+                {pinned ? <PushpinFilled /> : <PushpinOutlined />}
+              </button>
               <DocsButton ariaLabel={t('menu.docs') || 'Documentation'} />
               <DonateButton ariaLabel={t('menu.donate') || 'Donate'} />
               <ThemeCycleButton
@@ -399,7 +514,10 @@ export default function AppSidebar() {
           onOpenChange={(keys) => setOpenKeys(keys as string[])}
           className="drawer-menu drawer-nav"
           items={toMenuItems(navItems)}
-          onClick={(info) => { onMenuClick(info); setDrawerOpen(false); }}
+          onClick={(info) => {
+            onMenuClick(info);
+            setDrawerOpen(false);
+          }}
         />
         <Menu
           theme={currentTheme}
@@ -407,7 +525,10 @@ export default function AppSidebar() {
           selectedKeys={[selectedKey]}
           className="drawer-menu drawer-utility"
           items={toMenuItems(utilItems)}
-          onClick={(info) => { onMenuClick(info); setDrawerOpen(false); }}
+          onClick={(info) => {
+            onMenuClick(info);
+            setDrawerOpen(false);
+          }}
         />
         <div className="drawer-footer">
           <VersionBadge version={panelVersion} />

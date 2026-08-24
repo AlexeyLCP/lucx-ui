@@ -78,6 +78,9 @@ func TestParseAwgDump(t *testing.T) {
 	if peers[0].PublicKey != "peerA" || peers[0].Rx != 1024 || peers[0].Tx != 2048 || peers[0].LastHandshake != 1800000000 {
 		t.Errorf("peerA parsed wrong: %+v", peers[0])
 	}
+	if peers[0].Endpoint != "1.2.3.4:51820" || peers[0].AllowedIPs != "10.8.0.2/32" {
+		t.Errorf("peerA endpoint/ips: %+v", peers[0])
+	}
 	if peers[1].LastHandshake != 0 {
 		t.Errorf("peerB must keep zero handshake, got %d", peers[1].LastHandshake)
 	}

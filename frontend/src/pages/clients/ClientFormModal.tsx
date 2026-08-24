@@ -19,19 +19,33 @@ import {
   Typography,
   message,
 } from 'antd';
-import { DeleteOutlined, EyeOutlined, PlusOutlined, ReloadOutlined, RetweetOutlined } from '@ant-design/icons';
+import {
+  DeleteOutlined,
+  EyeOutlined,
+  PlusOutlined,
+  ReloadOutlined,
+  RetweetOutlined,
+} from '@ant-design/icons';
 import dayjs from 'dayjs';
 import type { Dayjs } from 'dayjs';
-import { FormProvider, useForm, useWatch, useFieldArray } from 'react-hook-form';
+import { Controller, FormProvider, useForm, useWatch, useFieldArray } from 'react-hook-form';
 
-import { HttpUtil, RandomUtil, Wireguard } from '@/utils';
+import { HttpUtil, IntlUtil, RandomUtil, Wireguard } from '@/utils';
 import { formatInboundLabel } from '@/lib/inbounds/label';
 import { generateMtprotoSecret } from '@/lib/xray/inbound-defaults';
 import { normalizeClientIps, type ClientIpInfo } from '@/lib/clients/ip-log';
+import { useDatepicker } from '@/hooks/useDatepicker';
+import { useClientHwids } from '@/hooks/useClientHwids';
 import { DateTimePicker, SelectAllClearButtons } from '@/components/form';
 import { FormField } from '@/components/form/rhf';
-import { TLS_FLOW_CONTROL } from '@/schemas/primitives';
-import type { ClientRecord, InboundOption, ExternalLink, ExternalLinkInput } from '@/hooks/useClients';
+import ClientHwidListModal from '@/components/clients/ClientHwidList';
+import { TLS_FLOW_CONTROL, TRAFFIC_RESETS } from '@/schemas/primitives';
+import type {
+  ClientRecord,
+  InboundOption,
+  ExternalLink,
+  ExternalLinkInput,
+} from '@/hooks/useClients';
 import { useFail2banStatusQuery, getLimitIpNotice } from '@/api/queries/useFail2banStatusQuery';
 import { ClientFormSchema, ClientCreateFormSchema, type ClientFormValues } from '@/schemas/client';
 
@@ -39,7 +53,20 @@ const FLOW_OPTIONS = Object.values(TLS_FLOW_CONTROL);
 const VMESS_SECURITY_OPTIONS = ['auto', 'aes-128-gcm', 'chacha20-poly1305'] as const;
 
 const MULTI_CLIENT_PROTOCOLS = new Set([
-  'shadowsocks', 'vless', 'vmess', 'trojan', 'hysteria', 'wireguard', 'mtproto', 'awg', 'naive', 'mieru', 'trusttunnel', 'qwdtt', 'olcrtc',
+  'shadowsocks',
+  'vless',
+  'vmess',
+  'trojan',
+  'hysteria',
+  'wireguard',
+  'mtproto',
+  'amneziawg',
+  'awg',
+  'naive',
+  'mieru',
+  'trusttunnel',
+  'qwdtt',
+  'olcrtc',
 ]);
 
 const CLIENT_FORM_MODAL_Z_INDEX = 1000;
@@ -49,6 +76,11 @@ interface ExternalLinkRow {
   kind: 'link' | 'subscription';
   value: string;
   remark: string;
+  enable: boolean;
+  expiryTime: number;
+  namePrefix: string;
+  lastFetchAt: number;
+  lastFetchError: string;
 }
 
 interface ApiMsg<T = unknown> {
@@ -85,6 +117,7 @@ interface ClientFormModalProps {
   inbounds: InboundOption[];
   attachedExternalLinks?: ExternalLink[];
   attachedIds?: number[];
+  tunnelAllowedIPs?: Record<number, string>;
   tgBotEnable?: boolean;
   groups?: string[];
   save: (
@@ -97,6 +130,7 @@ interface ClientFormModalProps {
 
 type Values = ClientFormValues & {
   expiryDate: number;
+  limitHwid: number;
   externalLinks: ExternalLinkRow[];
   wgPrivateKey: string;
   wgPublicKey: string;
@@ -104,6 +138,8 @@ type Values = ClientFormValues & {
   wgAllowedIPs: string;
   // LUCX-HOOK: PersistentKeepalive (peer); AWG3 accepts range "15-25"; "0" = off
   wgKeepAlive: string;
+  awgAllowedIPs: string;
+  awgForwardedPorts: string;
   secret: string;
   adTag: string;
 };
@@ -122,7 +158,12 @@ const EMPTY: Values = {
   delayedStart: false,
   delayedDays: 0,
   reset: 0,
+  resetDay: 0,
+  resetMax: 0,
+  trafficReset: 'never' as const,
+  trafficResetDay: 1,
   limitIp: 0,
+  limitHwid: 0,
   tgId: 0,
   group: '',
   comment: '',
@@ -134,6 +175,8 @@ const EMPTY: Values = {
   wgPreSharedKey: '',
   wgAllowedIPs: '',
   wgKeepAlive: '25',
+  awgAllowedIPs: '',
+  awgForwardedPorts: '',
   secret: '',
   adTag: '',
 };
@@ -143,6 +186,11 @@ function toExternalLinkRows(links: ExternalLink[] | undefined): ExternalLinkRow[
     kind: l.kind === 'subscription' ? 'subscription' : 'link',
     value: l.value || '',
     remark: l.remark || '',
+    enable: l.enable !== false,
+    expiryTime: Number(l.expiryTime) || 0,
+    namePrefix: l.namePrefix || '',
+    lastFetchAt: Number(l.lastFetchAt) || 0,
+    lastFetchError: l.lastFetchError || '',
   }));
 }
 
@@ -156,7 +204,38 @@ export function gbToBytes(gb: number): number {
   return Math.round(gb * 1024 * 1024 * 1024);
 }
 
-export function resolveTotalBytes(originalBytes: number | null | undefined, displayedGB: number): number {
+export function parseAllowedIPsList(raw: string): string[] {
+  return raw
+    .split(',')
+    .map((s) => s.trim())
+    .filter((s) => s !== '');
+}
+
+// Maps each of the two AllowedIPs fields to the specific wg/awg inbound the
+// client is currently attached to, so a save with both protocols attached at
+// once can send each its own value instead of one shared field ambiguously
+// covering both (see model.Client.AllowedIPsByInbound on the Go side).
+// Absent from the result when the client isn't actually attached to that
+// protocol's inbound (e.g. mid-edit, before the attach takes effect).
+export function resolveTunnelAllowedIPsByInbound(
+  attachedInboundIds: number[],
+  wireguardInboundIds: Set<number>,
+  amneziawgInboundIds: Set<number>,
+  wgAllowedIPs: string[],
+  awgAllowedIPs: string[],
+): Record<number, string[]> {
+  const wgId = attachedInboundIds.find((id) => wireguardInboundIds.has(id));
+  const awgId = attachedInboundIds.find((id) => amneziawgInboundIds.has(id));
+  const result: Record<number, string[]> = {};
+  if (wgId != null) result[wgId] = wgAllowedIPs;
+  if (awgId != null) result[awgId] = awgAllowedIPs;
+  return result;
+}
+
+export function resolveTotalBytes(
+  originalBytes: number | null | undefined,
+  displayedGB: number,
+): number {
   if (originalBytes != null && displayedGB === bytesToGB(originalBytes)) {
     return originalBytes;
   }
@@ -170,6 +249,7 @@ export default function ClientFormModal({
   inbounds,
   attachedExternalLinks = [],
   attachedIds = [],
+  tunnelAllowedIPs = {},
   tgBotEnable = false,
   groups = [],
   save,
@@ -190,8 +270,10 @@ export default function ClientFormModal({
   const secret = useWatch({ control: methods.control, name: 'secret' });
   const email = useWatch({ control: methods.control, name: 'email' });
   const uuid = useWatch({ control: methods.control, name: 'uuid' });
+  const trafficReset = useWatch({ control: methods.control, name: 'trafficReset' });
   const password = useWatch({ control: methods.control, name: 'password' });
   const subId = useWatch({ control: methods.control, name: 'subId' });
+  const limitHwid = useWatch({ control: methods.control, name: 'limitHwid' });
   const auth = useWatch({ control: methods.control, name: 'auth' });
   const wgPrivateKey = useWatch({ control: methods.control, name: 'wgPrivateKey' });
   const limitIp = useWatch({ control: methods.control, name: 'limitIp' });
@@ -207,20 +289,71 @@ export default function ClientFormModal({
   const [ipsLoading, setIpsLoading] = useState(false);
   const [ipsClearing, setIpsClearing] = useState(false);
   const [ipsModalOpen, setIpsModalOpen] = useState(false);
+  const {
+    clientHwids,
+    hwidsLoading,
+    hwidsClearing,
+    deletingHwidId,
+    loadHwids,
+    clearHwids,
+    deleteHwid,
+  } = useClientHwids(client?.email);
+  const [hwidsModalOpen, setHwidsModalOpen] = useState(false);
+  const { datepicker } = useDatepicker();
+  const hwidDateLabel = (ts: number) =>
+    !ts || ts <= 0 ? '-' : IntlUtil.formatDate(ts, datepicker);
   const fail2ban = useFail2banStatusQuery();
   const limitIpDisabled = !fail2ban.usable;
   const limitIpNotice = getLimitIpNotice(fail2ban, t);
 
+  // Declared ahead of the seeding effect below (which needs them to resolve
+  // which specific wg/awg inbound this client is attached to, for seeding
+  // wgAllowedIPs/awgAllowedIPs from tunnelAllowedIPs) -- both are pure
+  // derivations of the stable `inbounds` prop, so moving them earlier is
+  // just a declaration-order change, not a behavior change.
+  const wireguardIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const row of inbounds || []) {
+      if (row && row.protocol === 'wireguard') ids.add(row.id);
+    }
+    return ids;
+  }, [inbounds]);
+
+  const amneziawgIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const row of inbounds || []) {
+      if (row && row.protocol === 'amneziawg') ids.add(row.id);
+    }
+    return ids;
+  }, [inbounds]);
+
   function addExternalLinkRow(kind: 'link' | 'subscription') {
-    appendExternalLink({ kind, value: '', remark: '' });
+    appendExternalLink({
+      kind,
+      value: '',
+      remark: '',
+      enable: true,
+      expiryTime: 0,
+      namePrefix: '',
+      lastFetchAt: 0,
+      lastFetchError: '',
+    });
   }
 
   useEffect(() => {
     if (!open) return;
     setIpsModalOpen(false);
+    setHwidsModalOpen(false);
 
     if (isEdit && client) {
       const et = Number(client.expiryTime) || 0;
+      const seedIds = Array.isArray(attachedIds) ? attachedIds : [];
+      const attachedWireguardId = seedIds.find((id) => wireguardIds.has(id));
+      const attachedAmneziawgId = seedIds.find((id) => amneziawgIds.has(id));
+      const wgTunnelIPs =
+        attachedWireguardId != null ? tunnelAllowedIPs[attachedWireguardId] : undefined;
+      const awgTunnelIPs =
+        attachedAmneziawgId != null ? tunnelAllowedIPs[attachedAmneziawgId] : undefined;
       const seed: Values = {
         ...EMPTY,
         email: client.email || '',
@@ -229,13 +362,19 @@ export default function ClientFormModal({
         password: client.password || '',
         auth: client.auth || '',
         flow: client.flow || '',
-        security: !client.security || client.security === 'none' || client.security === 'zero'
-          ? 'auto'
-          : client.security,
+        security:
+          !client.security || client.security === 'none' || client.security === 'zero'
+            ? 'auto'
+            : client.security,
         reverseTag: client.reverse?.tag || '',
         totalGB: bytesToGB(client.totalGB || 0),
         reset: Number(client.reset) || 0,
+        resetDay: Number(client.resetDay) || 0,
+        resetMax: Number(client.resetMax) || 0,
+        trafficReset: (client.trafficReset as ClientFormValues['trafficReset']) || 'never',
+        trafficResetDay: Number(client.trafficResetDay) || 1,
         limitIp: client.limitIp || 0,
+        limitHwid: client.limitHwid || 0,
         tgId: Number(client.tgId) || 0,
         group: client.group || '',
         comment: client.comment || '',
@@ -245,8 +384,11 @@ export default function ClientFormModal({
         wgPrivateKey: client.privateKey || '',
         wgPublicKey: client.publicKey || '',
         wgPreSharedKey: client.preSharedKey || '',
-        wgAllowedIPs: client.allowedIPs || '',
-        wgKeepAlive: client.keepAlive != null && client.keepAlive !== '' ? String(client.keepAlive) : '0',
+        wgAllowedIPs: wgTunnelIPs ?? client.allowedIPs ?? '',
+        wgKeepAlive:
+          client.keepAlive != null && client.keepAlive !== '' ? String(client.keepAlive) : '0',
+        awgAllowedIPs: awgTunnelIPs ?? client.allowedIPs ?? '',
+        awgForwardedPorts: client.forwardedPorts || '',
         secret: client.secret || '',
         adTag: client.adTag || '',
       };
@@ -261,6 +403,7 @@ export default function ClientFormModal({
       }
       methods.reset(seed);
       void loadIps();
+      void loadHwids();
     } else {
       const wgKeypair = Wireguard.generateKeypair();
       methods.reset({
@@ -302,14 +445,6 @@ export default function ClientFormModal({
     return ids;
   }, [inbounds]);
 
-  const wireguardIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const row of inbounds || []) {
-      if (row && row.protocol === 'wireguard') ids.add(row.id);
-    }
-    return ids;
-  }, [inbounds]);
-
   const mtprotoIds = useMemo(() => {
     const ids = new Set<number>();
     for (const row of inbounds || []) {
@@ -346,9 +481,12 @@ export default function ClientFormModal({
   }, [inboundIds, inbounds]);
 
   function regeneratePassword() {
-    methods.setValue('password', ss2022Method
-      ? RandomUtil.randomShadowsocksPassword(ss2022Method)
-      : RandomUtil.randomLowerAndNum(16));
+    methods.setValue(
+      'password',
+      ss2022Method
+        ? RandomUtil.randomShadowsocksPassword(ss2022Method)
+        : RandomUtil.randomLowerAndNum(16),
+    );
   }
 
   const showFlow = useMemo(
@@ -371,6 +509,11 @@ export default function ClientFormModal({
     [inboundIds, wireguardIds],
   );
 
+  const showAmneziawg = useMemo(
+    () => (inboundIds || []).some((id) => amneziawgIds.has(id)),
+    [inboundIds, amneziawgIds],
+  );
+
   const showMtproto = useMemo(
     () => (inboundIds || []).some((id) => mtprotoIds.has(id)),
     [inboundIds, mtprotoIds],
@@ -382,10 +525,11 @@ export default function ClientFormModal({
     [inboundIds, awgIds],
   );
   const awg3Selected = useMemo(
-    () => (inboundIds || []).some((id) => {
-      const ib = (inbounds || []).find((row) => row.id === id);
-      return ib?.protocol === 'awg' && (ib.awgVersion === '3' || ib.awgVersion === '3.1');
-    }),
+    () =>
+      (inboundIds || []).some((id) => {
+        const ib = (inbounds || []).find((row) => row.id === id);
+        return ib?.protocol === 'awg' && (ib.awgVersion === '3' || ib.awgVersion === '3.1');
+      }),
     [inboundIds, inbounds],
   );
   // LUCX-HOOK: AWG — derive the allowedIPs placeholder from the selected
@@ -466,14 +610,15 @@ export default function ClientFormModal({
   }, [showMtproto, secret, mtprotoDomain, methods]);
 
   const inboundOptions = useMemo(
-    () => (inbounds || [])
-      .filter((ib) => MULTI_CLIENT_PROTOCOLS.has(ib.protocol || ''))
-      .filter((ib) => ib.enable || (inboundIds || []).includes(ib.id))
-      .map((ib) => ({
-        label: formatInboundLabel(ib.tag, ib.remark),
-        value: ib.id,
-        title: formatInboundLabel(ib.tag, ib.remark),
-      })),
+    () =>
+      (inbounds || [])
+        .filter((ib) => MULTI_CLIENT_PROTOCOLS.has(ib.protocol || ''))
+        .filter((ib) => ib.enable || (inboundIds || []).includes(ib.id))
+        .map((ib) => ({
+          label: formatInboundLabel(ib.tag, ib.remark),
+          value: ib.id,
+          title: formatInboundLabel(ib.tag, ib.remark),
+        })),
     [inbounds, inboundIds],
   );
 
@@ -493,8 +638,13 @@ export default function ClientFormModal({
     if (!isEdit || !client?.email) return;
     setIpsLoading(true);
     try {
-      const msg = await HttpUtil.post(`/panel/api/clients/ips/${encodeURIComponent(client.email)}`) as ApiMsg<unknown[]>;
-      if (!msg?.success) { setClientIps([]); return; }
+      const msg = (await HttpUtil.post(
+        `/panel/api/clients/ips/${encodeURIComponent(client.email)}`,
+      )) as ApiMsg<unknown[]>;
+      if (!msg?.success) {
+        setClientIps([]);
+        return;
+      }
       setClientIps(normalizeClientIps(msg.obj));
     } finally {
       setIpsLoading(false);
@@ -510,11 +660,18 @@ export default function ClientFormModal({
     if (!isEdit || !client?.email) return;
     setIpsClearing(true);
     try {
-      const msg = await HttpUtil.post(`/panel/api/clients/clearIps/${encodeURIComponent(client.email)}`) as ApiMsg;
+      const msg = (await HttpUtil.post(
+        `/panel/api/clients/clearIps/${encodeURIComponent(client.email)}`,
+      )) as ApiMsg;
       if (msg?.success) setClientIps([]);
     } finally {
       setIpsClearing(false);
     }
+  }
+
+  function openHwidsModal() {
+    setHwidsModalOpen(true);
+    if (clientHwids.length === 0) void loadHwids();
   }
 
   function close() {
@@ -552,7 +709,12 @@ export default function ClientFormModal({
       delayedStart: values.delayedStart,
       delayedDays: values.delayedDays,
       reset: values.reset,
+      resetDay: values.resetDay,
+      resetMax: values.resetMax,
+      trafficReset: values.trafficReset,
+      trafficResetDay: values.trafficResetDay,
       limitIp: values.limitIp,
+      limitHwid: values.limitHwid,
       tgId: values.tgId,
       group: values.group,
       comment: values.comment,
@@ -566,7 +728,7 @@ export default function ClientFormModal({
     }
     const expiryTime = values.delayedStart
       ? -86400000 * (Number(values.delayedDays) || 0)
-      : (values.expiryDate || 0);
+      : values.expiryDate || 0;
     const totalBytes = resolveTotalBytes(client ? (client.totalGB ?? 0) : null, values.totalGB);
     const clientPayload: Record<string, unknown> = {
       email: values.email.trim(),
@@ -574,12 +736,17 @@ export default function ClientFormModal({
       id: values.uuid,
       password: values.password,
       auth: values.auth,
-      flow: showFlow ? (values.flow || '') : '',
-      security: showSecurity ? (values.security || 'auto') : 'auto',
+      flow: showFlow ? values.flow || '' : '',
+      security: showSecurity ? values.security || 'auto' : 'auto',
       totalGB: totalBytes,
       expiryTime,
       reset: Number(values.reset) || 0,
+      resetDay: Number(values.resetDay) || 0,
+      resetMax: Number(values.resetMax) || 0,
+      trafficReset: values.trafficReset || 'never',
+      trafficResetDay: Number(values.trafficResetDay) || 1,
       limitIp: Number(values.limitIp) || 0,
+      limitHwid: Number(values.limitHwid) || 0,
       tgId: Number(values.tgId) || 0,
       group: values.group,
       comment: values.comment,
@@ -590,18 +757,37 @@ export default function ClientFormModal({
       clientPayload.reverse = { tag: reverseTagValue };
     }
 
-    if (showWireguard || showAwg) { // LUCX-HOOK: AWG reuses the WireGuard client payload (same Curve25519 keypair/PSK/allowedIPs fields)
+    if (showWireguard || showAmneziawg || showAwg) {
+      // LUCX-HOOK: AWG reuses the WireGuard client payload
       clientPayload.privateKey = values.wgPrivateKey;
       clientPayload.publicKey = values.wgPublicKey;
       if (values.wgPreSharedKey) {
         clientPayload.preSharedKey = values.wgPreSharedKey;
       }
-      const allowedIPs = values.wgAllowedIPs
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s !== '');
-      if (allowedIPs.length > 0) {
-        clientPayload.allowedIPs = allowedIPs;
+      const wgAllowedIPs = parseAllowedIPsList(values.wgAllowedIPs);
+      if (showWireguard && showAmneziawg) {
+        // Both protocols are attached at once: the two fields hold genuinely
+        // different addresses, so each must land on its own inbound instead
+        // of one broadcast value overwriting the other's (allowedIPsByInbound
+        // is what Update/Create key their per-inbound override off of).
+        const awgAllowedIPs = parseAllowedIPsList(values.awgAllowedIPs);
+        clientPayload.allowedIPsByInbound = resolveTunnelAllowedIPsByInbound(
+          values.inboundIds || [],
+          wireguardIds,
+          amneziawgIds,
+          wgAllowedIPs,
+          awgAllowedIPs,
+        );
+        if (wgAllowedIPs.length > 0) {
+          clientPayload.allowedIPs = wgAllowedIPs;
+        }
+      } else if (wgAllowedIPs.length > 0) {
+        clientPayload.allowedIPs = wgAllowedIPs;
+      }
+      // Port-forwarding has no WireGuard equivalent — Xray-native WireGuard
+      // has no host-level iptables layer to hang per-client DNAT off of.
+      if (showAmneziawg || showAwg) {
+        clientPayload.forwardedPorts = values.awgForwardedPorts.trim();
       }
       // PersistentKeepalive: peer-level; AWG3 range ok; always send so 0 can clear prior value
       clientPayload.keepAlive = values.wgKeepAlive?.trim() || '0';
@@ -618,7 +804,14 @@ export default function ClientFormModal({
     }
 
     const externalLinks: ExternalLinkInput[] = values.externalLinks
-      .map((r) => ({ kind: r.kind, value: r.value.trim(), remark: (r.remark || '').trim() }))
+      .map((r) => ({
+        kind: r.kind,
+        value: r.value.trim(),
+        remark: (r.remark || '').trim(),
+        enable: r.enable !== false,
+        expiryTime: Number(r.expiryTime) || 0,
+        namePrefix: (r.namePrefix || '').trim(),
+      }))
       .filter((r) => r.value !== '');
 
     setSubmitting(true);
@@ -658,7 +851,9 @@ export default function ClientFormModal({
         width={720}
         zIndex={CLIENT_FORM_MODAL_Z_INDEX}
         style={{ top: 20 }}
-        styles={{ body: { maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', overflowX: 'hidden' } }}
+        styles={{
+          body: { maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', overflowX: 'hidden' },
+        }}
         onCancel={close}
         footer={
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -671,7 +866,12 @@ export default function ClientFormModal({
                 zIndex={CLIENT_IP_LOG_MODAL_Z_INDEX}
                 onConfirm={onResetTraffic}
               >
-                <Button color="danger" variant="filled" icon={<RetweetOutlined />} loading={resetting}>
+                <Button
+                  color="danger"
+                  variant="filled"
+                  icon={<RetweetOutlined />}
+                  loading={resetting}
+                >
                   {t('pages.inbounds.resetTraffic')}
                 </Button>
               </Popconfirm>
@@ -706,7 +906,13 @@ export default function ClientFormModal({
                                 onChange={(e) => methods.setValue('email', e.target.value)}
                               />
                               {!isEdit && (
-                                <Button aria-label={t('regenerate')} icon={<ReloadOutlined />} onClick={() => methods.setValue('email', RandomUtil.randomLowerAndNum(12))} />
+                                <Button
+                                  aria-label={t('regenerate')}
+                                  icon={<ReloadOutlined />}
+                                  onClick={() =>
+                                    methods.setValue('email', RandomUtil.randomLowerAndNum(12))
+                                  }
+                                />
                               )}
                             </Space.Compact>
                           </Form.Item>
@@ -722,16 +928,31 @@ export default function ClientFormModal({
                           </FormField>
                         </Col>
                         <Col xs={24} md={6}>
-                          <Form.Item label={t('pages.clients.limitIp')} tooltip={t('pages.clients.limitIpDesc')}>
+                          <Form.Item
+                            label={t('pages.clients.limitIp')}
+                            tooltip={t('pages.clients.limitIpDesc')}
+                          >
                             <Tooltip title={limitIpNotice || undefined}>
                               <span style={{ display: 'flex', width: '100%' }}>
                                 <Space.Compact style={{ display: 'flex', flex: 1 }}>
-                                  <InputNumber value={limitIp} min={0} disabled={limitIpDisabled}
-                                    style={{ flex: 1, ...(limitIpDisabled ? { pointerEvents: 'none' } : null) }}
-                                    onChange={(v) => methods.setValue('limitIp', Number(v) || 0)} />
+                                  <InputNumber
+                                    value={limitIp}
+                                    min={0}
+                                    disabled={limitIpDisabled}
+                                    style={{
+                                      flex: 1,
+                                      ...(limitIpDisabled ? { pointerEvents: 'none' } : null),
+                                    }}
+                                    onChange={(v) => methods.setValue('limitIp', Number(v) || 0)}
+                                  />
                                   {isEdit && (
                                     <Tooltip title={t('pages.clients.ipLog')}>
-                                      <Button aria-label={t('pages.clients.ipLog')} icon={<EyeOutlined />} loading={ipsLoading} onClick={openIpsModal}>
+                                      <Button
+                                        aria-label={t('pages.clients.ipLog')}
+                                        icon={<EyeOutlined />}
+                                        loading={ipsLoading}
+                                        onClick={openIpsModal}
+                                      >
                                         {clientIps.length > 0 ? clientIps.length : ''}
                                       </Button>
                                     </Tooltip>
@@ -739,6 +960,33 @@ export default function ClientFormModal({
                                 </Space.Compact>
                               </span>
                             </Tooltip>
+                          </Form.Item>
+                        </Col>
+                        <Col xs={24} md={6}>
+                          <Form.Item
+                            label={t('pages.clients.limitHwid')}
+                            tooltip={t('pages.clients.limitHwidDesc')}
+                          >
+                            <Space.Compact style={{ display: 'flex' }}>
+                              <InputNumber
+                                value={limitHwid}
+                                min={0}
+                                style={{ flex: 1 }}
+                                onChange={(v) => methods.setValue('limitHwid', Number(v) || 0)}
+                              />
+                              {isEdit && (
+                                <Tooltip title={t('pages.clients.hwidLog')}>
+                                  <Button
+                                    aria-label={t('pages.clients.hwidLog')}
+                                    icon={<EyeOutlined />}
+                                    loading={hwidsLoading}
+                                    onClick={openHwidsModal}
+                                  >
+                                    {clientHwids.length > 0 ? clientHwids.length : ''}
+                                  </Button>
+                                </Tooltip>
+                              )}
+                            </Space.Compact>
                           </Form.Item>
                         </Col>
                       </Row>
@@ -757,7 +1005,9 @@ export default function ClientFormModal({
                             <Form.Item label={t('pages.clients.expiryTime')}>
                               <DateTimePicker
                                 value={expiryDayjs}
-                                onChange={(d) => methods.setValue('expiryDate', d ? d.valueOf() : 0)}
+                                onChange={(d) =>
+                                  methods.setValue('expiryDate', d ? d.valueOf() : 0)
+                                }
                               />
                             </Form.Item>
                           )}
@@ -784,6 +1034,50 @@ export default function ClientFormModal({
                             <InputNumber min={0} style={{ width: '100%' }} />
                           </FormField>
                         </Col>
+                        <Col xs={12} md={6}>
+                          <FormField
+                            name="resetDay"
+                            label={t('pages.clients.renewOnDay')}
+                            tooltip={t('pages.clients.renewOnDayDesc')}
+                            transform={{ output: (v) => Number(v) || 0 }}
+                          >
+                            <InputNumber min={0} max={31} style={{ width: '100%' }} />
+                          </FormField>
+                        </Col>
+                        <Col xs={12} md={6}>
+                          <FormField
+                            name="resetMax"
+                            label={t('pages.clients.renewMax')}
+                            tooltip={t('pages.clients.renewMaxDesc')}
+                            transform={{ output: (v) => Number(v) || 0 }}
+                          >
+                            <InputNumber min={0} style={{ width: '100%' }} />
+                          </FormField>
+                        </Col>
+                        <Col xs={12} md={6}>
+                          <FormField
+                            name="trafficReset"
+                            label={t('pages.inbounds.periodicTrafficResetTitle')}
+                          >
+                            <Select
+                              options={TRAFFIC_RESETS.map((r) => ({
+                                value: r,
+                                label: t(`pages.inbounds.periodicTrafficReset.${r}`),
+                              }))}
+                            />
+                          </FormField>
+                        </Col>
+                        {trafficReset === 'monthly' && (
+                          <Col xs={12} md={6}>
+                            <FormField
+                              name="trafficResetDay"
+                              label={t('pages.inbounds.periodicTrafficResetDay')}
+                              transform={{ output: (v) => Number(v) || 1 }}
+                            >
+                              <InputNumber min={1} max={31} style={{ width: '100%' }} />
+                            </FormField>
+                          </Col>
+                        )}
                       </Row>
 
                       <Row gutter={16}>
@@ -817,8 +1111,12 @@ export default function ClientFormModal({
                                 label={t('pages.clients.telegramId')}
                                 transform={{ output: (v) => Number(v) || 0 }}
                               >
-                                <InputNumber min={0} controls={false}
-                                  placeholder={t('pages.clients.telegramIdPlaceholder')} style={{ width: '100%' }} />
+                                <InputNumber
+                                  min={0}
+                                  controls={false}
+                                  placeholder={t('pages.clients.telegramIdPlaceholder')}
+                                  style={{ width: '100%' }}
+                                />
                               </FormField>
                             </Col>
                           )}
@@ -848,13 +1146,20 @@ export default function ClientFormModal({
                           placement="topLeft"
                           listHeight={220}
                           showSearch={{
-                            filterOption: (input, option) => ((option?.label as string) || '').toLowerCase().includes(input.toLowerCase()),
+                            filterOption: (input, option) =>
+                              ((option?.label as string) || '')
+                                .toLowerCase()
+                                .includes(input.toLowerCase()),
                           }}
                         />
                       </Form.Item>
 
                       <Form.Item>
-                        <Switch aria-label={t('enable')} checked={enable} onChange={(v) => methods.setValue('enable', v)} />
+                        <Switch
+                          aria-label={t('enable')}
+                          checked={enable}
+                          onChange={(v) => methods.setValue('enable', v)}
+                        />
                         <span style={{ marginLeft: 8 }}>{t('enable')}</span>
                       </Form.Item>
                     </>
@@ -867,29 +1172,71 @@ export default function ClientFormModal({
                     <>
                       <Form.Item label={t('pages.clients.uuid')}>
                         <Space.Compact style={{ display: 'flex' }}>
-                          <Input value={uuid} style={{ flex: 1 }} onChange={(e) => methods.setValue('uuid', e.target.value)} />
-                          <Button aria-label={t('regenerate')} icon={<ReloadOutlined />} onClick={() => methods.setValue('uuid', RandomUtil.randomUUID())} />
+                          <Input
+                            value={uuid}
+                            style={{ flex: 1 }}
+                            onChange={(e) => methods.setValue('uuid', e.target.value)}
+                          />
+                          <Button
+                            aria-label={t('regenerate')}
+                            icon={<ReloadOutlined />}
+                            onClick={() => methods.setValue('uuid', RandomUtil.randomUUID())}
+                          />
                         </Space.Compact>
                       </Form.Item>
 
-                      <Form.Item label={t('pages.clients.password')} tooltip={t('pages.clients.passwordDesc')}>
+                      <Form.Item
+                        label={t('pages.clients.password')}
+                        tooltip={t('pages.clients.passwordDesc')}
+                      >
                         <Space.Compact style={{ display: 'flex' }}>
-                          <Input value={password} style={{ flex: 1 }} onChange={(e) => methods.setValue('password', e.target.value)} />
-                          <Button aria-label={t('regenerate')} icon={<ReloadOutlined />} onClick={regeneratePassword} />
+                          <Input
+                            value={password}
+                            style={{ flex: 1 }}
+                            onChange={(e) => methods.setValue('password', e.target.value)}
+                          />
+                          <Button
+                            aria-label={t('regenerate')}
+                            icon={<ReloadOutlined />}
+                            onClick={regeneratePassword}
+                          />
                         </Space.Compact>
                       </Form.Item>
 
                       <Form.Item label={t('pages.clients.subId')}>
                         <Space.Compact style={{ display: 'flex' }}>
-                          <Input value={subId} style={{ flex: 1 }} onChange={(e) => methods.setValue('subId', e.target.value)} />
-                          <Button aria-label={t('regenerate')} icon={<ReloadOutlined />} onClick={() => methods.setValue('subId', RandomUtil.randomLowerAndNum(16))} />
+                          <Input
+                            value={subId}
+                            style={{ flex: 1 }}
+                            onChange={(e) => methods.setValue('subId', e.target.value)}
+                          />
+                          <Button
+                            aria-label={t('regenerate')}
+                            icon={<ReloadOutlined />}
+                            onClick={() =>
+                              methods.setValue('subId', RandomUtil.randomLowerAndNum(16))
+                            }
+                          />
                         </Space.Compact>
                       </Form.Item>
 
-                      <Form.Item label={t('pages.clients.hysteriaAuth')} tooltip={t('pages.clients.hysteriaAuthDesc')}>
+                      <Form.Item
+                        label={t('pages.clients.hysteriaAuth')}
+                        tooltip={t('pages.clients.hysteriaAuthDesc')}
+                      >
                         <Space.Compact style={{ display: 'flex' }}>
-                          <Input value={auth} style={{ flex: 1 }} onChange={(e) => methods.setValue('auth', e.target.value)} />
-                          <Button aria-label={t('regenerate')} icon={<ReloadOutlined />} onClick={() => methods.setValue('auth', RandomUtil.randomLowerAndNum(16))} />
+                          <Input
+                            value={auth}
+                            style={{ flex: 1 }}
+                            onChange={(e) => methods.setValue('auth', e.target.value)}
+                          />
+                          <Button
+                            aria-label={t('regenerate')}
+                            icon={<ReloadOutlined />}
+                            onClick={() =>
+                              methods.setValue('auth', RandomUtil.randomLowerAndNum(16))
+                            }
+                          />
                         </Space.Compact>
                       </Form.Item>
 
@@ -910,9 +1257,15 @@ export default function ClientFormModal({
                           />
                         </FormField>
                       )}
-                      {(showWireguard || showAwg) && (
+                      {(showWireguard || showAmneziawg || showAwg) && (
                         <>
-                          <Form.Item label={t('pages.clients.wireguardPrivateKey')}>
+                          <Form.Item
+                            label={t(
+                              showAmneziawg
+                                ? 'pages.clients.amneziaWgPrivateKey'
+                                : 'pages.clients.wireguardPrivateKey',
+                            )}
+                          >
                             <Space.Compact style={{ display: 'flex' }}>
                               <Input
                                 value={wgPrivateKey}
@@ -920,31 +1273,94 @@ export default function ClientFormModal({
                                 onChange={(e) => {
                                   const priv = e.target.value;
                                   methods.setValue('wgPrivateKey', priv);
-                                  methods.setValue('wgPublicKey', priv ? Wireguard.generateKeypair(priv).publicKey : '');
+                                  methods.setValue(
+                                    'wgPublicKey',
+                                    priv ? Wireguard.generateKeypair(priv).publicKey : '',
+                                  );
                                 }}
                               />
-                              <Button aria-label={t('regenerate')} icon={<ReloadOutlined />} onClick={showAwg ? regenerateAwgKeys : regenerateWireguardKeys} />
+                              <Button
+                                aria-label={t('regenerate')}
+                                icon={<ReloadOutlined />}
+                                onClick={showAwg ? regenerateAwgKeys : regenerateWireguardKeys}
+                              />
                             </Space.Compact>
                           </Form.Item>
-                          <FormField name="wgPublicKey" label={t('pages.clients.wireguardPublicKey')}>
+                          <FormField
+                            name="wgPublicKey"
+                            label={t(
+                              showAmneziawg
+                                ? 'pages.clients.amneziaWgPublicKey'
+                                : 'pages.clients.wireguardPublicKey',
+                            )}
+                          >
                             <Input disabled />
                           </FormField>
-                          <FormField name="wgPreSharedKey" label={t('pages.clients.wireguardPreSharedKey')}>
+                          <FormField
+                            name="wgPreSharedKey"
+                            label={t(
+                              showAmneziawg
+                                ? 'pages.clients.amneziaWgPreSharedKey'
+                                : 'pages.clients.wireguardPreSharedKey',
+                            )}
+                          >
                             <Input />
                           </FormField>
-                          <FormField
-                            name="wgAllowedIPs"
-                            label={t('pages.clients.wireguardAllowedIPs')}
-                            extra={t('pages.clients.wireguardAllowedIPsHint')}
-                          >
-                            <Input placeholder={showAwg ? awgAllowedIPsPlaceholder : '10.0.0.2/32'} />
-                          </FormField>
+                          {showWireguard && showAmneziawg ? (
+                            <>
+                              <FormField
+                                name="wgAllowedIPs"
+                                label={t('pages.clients.wireguardAllowedIPs')}
+                                extra={t('pages.clients.wireguardAllowedIPsHint')}
+                              >
+                                <Input
+                                  placeholder={showAwg ? awgAllowedIPsPlaceholder : '10.0.0.2/32'}
+                                />
+                              </FormField>
+                              <FormField
+                                name="awgAllowedIPs"
+                                label={t('pages.clients.amneziaWgAllowedIPs')}
+                                extra={t('pages.clients.amneziaWgAllowedIPsHint')}
+                              >
+                                <Input placeholder="10.8.1.2/32" />
+                              </FormField>
+                            </>
+                          ) : (
+                            <FormField
+                              name="wgAllowedIPs"
+                              label={t(
+                                showAmneziawg
+                                  ? 'pages.clients.amneziaWgAllowedIPs'
+                                  : 'pages.clients.wireguardAllowedIPs',
+                              )}
+                              extra={t(
+                                showAmneziawg
+                                  ? 'pages.clients.amneziaWgAllowedIPsHint'
+                                  : 'pages.clients.wireguardAllowedIPsHint',
+                              )}
+                            >
+                              <Input
+                                placeholder={showAwg ? awgAllowedIPsPlaceholder : '10.8.1.2/32'}
+                              />
+                            </FormField>
+                          )}
+                          {(showAmneziawg || showAwg) && (
+                            <FormField
+                              name="awgForwardedPorts"
+                              label={t('pages.clients.amneziaWgForwardedPorts')}
+                              extra={t('pages.clients.amneziaWgForwardedPortsHint')}
+                            >
+                              <Input placeholder="80, 443, 8000-8100" />
+                            </FormField>
+                          )}
                           <FormField
                             name="wgKeepAlive"
                             label={t('pages.inbounds.info.keepAlive')}
-                            extra={showAwg
-                              ? 'PersistentKeepalive (sec). 0 = off. AWG3: range e.g. 15-25'
-                              : 'PersistentKeepalive (sec). 0 = off'}
+                            extra={
+                              showAwg
+                                ? 'PersistentKeepalive (sec). 0 = off. AWG3: range e.g. 15-25'
+                                : 'PersistentKeepalive (sec). 0 = off'
+                            }
                           >
                             <Input placeholder={showAwg ? '0 or 15-25' : '0'} />
                           </FormField>
@@ -952,10 +1368,21 @@ export default function ClientFormModal({
                       )}
                       {showMtproto && (
                         <>
-                          <Form.Item label={t('pages.clients.mtprotoSecret')} extra={t('pages.clients.mtprotoSecretHint')}>
+                          <Form.Item
+                            label={t('pages.clients.mtprotoSecret')}
+                            extra={t('pages.clients.mtprotoSecretHint')}
+                          >
                             <Space.Compact style={{ display: 'flex' }}>
-                              <Input value={secret} style={{ flex: 1 }} onChange={(e) => methods.setValue('secret', e.target.value)} />
-                              <Button aria-label={t('regenerate')} icon={<ReloadOutlined />} onClick={regenerateMtprotoSecret} />
+                              <Input
+                                value={secret}
+                                style={{ flex: 1 }}
+                                onChange={(e) => methods.setValue('secret', e.target.value)}
+                              />
+                              <Button
+                                aria-label={t('regenerate')}
+                                icon={<ReloadOutlined />}
+                                onClick={regenerateMtprotoSecret}
+                              />
                             </Space.Compact>
                           </Form.Item>
                           <FormField
@@ -963,10 +1390,7 @@ export default function ClientFormModal({
                             label={t('pages.clients.mtprotoAdTag')}
                             extra={t('pages.clients.mtprotoAdTagHint')}
                           >
-                            <Input
-                              allowClear
-                              placeholder="0123456789abcdef0123456789abcdef"
-                            />
+                            <Input allowClear placeholder="0123456789abcdef0123456789abcdef" />
                           </FormField>
                         </>
                       )}
@@ -982,55 +1406,152 @@ export default function ClientFormModal({
                         {t('pages.clients.linksHint')}
                       </Typography.Paragraph>
 
-                      <Button type="primary" icon={<PlusOutlined />} onClick={() => addExternalLinkRow('link')}>
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => addExternalLinkRow('link')}
+                      >
                         {t('pages.clients.addExternalLink')}
                       </Button>
                       <div style={{ marginTop: 12, marginBottom: 24 }}>
                         {linkRows.length === 0 ? (
-                          <Typography.Text type="secondary">{t('pages.clients.noExternalLinks')}</Typography.Text>
-                        ) : linkRows.map(({ field, index }) => (
-                          <div key={field.id} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                            <FormField name={`externalLinks.${index}.value`} noStyle>
-                              <Input
-                                style={{ flex: 1 }}
-                                aria-label="vless:// · vmess:// · trojan:// · ss:// · hysteria2:// · wireguard://"
-                                placeholder="vless:// · vmess:// · trojan:// · ss:// · hysteria2:// · wireguard://"
-                              />
-                            </FormField>
-                            <FormField name={`externalLinks.${index}.remark`} noStyle>
-                              <Input
-                                style={{ width: 140 }}
-                                aria-label={t('remark')}
-                                placeholder={t('remark')}
-                              />
-                            </FormField>
-                            <Tooltip title={t('delete')}>
-                              <Button aria-label={t('delete')} danger icon={<DeleteOutlined />} onClick={() => removeExternalLink(index)} />
-                            </Tooltip>
-                          </div>
-                        ))}
+                          <Typography.Text type="secondary">
+                            {t('pages.clients.noExternalLinks')}
+                          </Typography.Text>
+                        ) : (
+                          linkRows.map(({ field, index }) => (
+                            <div key={field.id} className="external-link-card">
+                              <div className="external-link-row">
+                                <div className="external-link-enable">
+                                  <FormField
+                                    name={`externalLinks.${index}.enable`}
+                                    valueProp="checked"
+                                    noStyle
+                                  >
+                                    <Switch size="small" />
+                                  </FormField>
+                                  <span>{t('enable')}</span>
+                                </div>
+                                <FormField name={`externalLinks.${index}.value`} noStyle>
+                                  <Input
+                                    aria-label="vless:// · vmess:// · trojan:// · ss:// · hysteria2:// · wireguard://"
+                                    placeholder="vless:// · vmess:// · trojan:// · ss:// · hysteria2:// · wireguard://"
+                                  />
+                                </FormField>
+                                <Tooltip title={t('delete')}>
+                                  <Button
+                                    aria-label={t('delete')}
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => removeExternalLink(index)}
+                                  />
+                                </Tooltip>
+                              </div>
+                              <div className="external-link-details two-cols">
+                                <FormField name={`externalLinks.${index}.remark`} noStyle>
+                                  <Input aria-label={t('remark')} placeholder={t('remark')} />
+                                </FormField>
+                                <Controller
+                                  control={methods.control}
+                                  name={`externalLinks.${index}.expiryTime`}
+                                  render={({ field: expiryField }) => (
+                                    <DateTimePicker
+                                      value={
+                                        Number(expiryField.value) > 0
+                                          ? dayjs(Number(expiryField.value))
+                                          : null
+                                      }
+                                      onChange={(v) => expiryField.onChange(v ? v.valueOf() : 0)}
+                                      placeholder={t('pages.inbounds.leaveBlankToNeverExpire')}
+                                    />
+                                  )}
+                                />
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
 
-                      <Button type="primary" icon={<PlusOutlined />} onClick={() => addExternalLinkRow('subscription')}>
+                      <Button
+                        type="primary"
+                        icon={<PlusOutlined />}
+                        onClick={() => addExternalLinkRow('subscription')}
+                      >
                         {t('pages.clients.addExternalSubscription')}
                       </Button>
                       <div style={{ marginTop: 12 }}>
                         {subscriptionRows.length === 0 ? (
-                          <Typography.Text type="secondary">{t('pages.clients.noExternalSubscriptions')}</Typography.Text>
-                        ) : subscriptionRows.map(({ field, index }) => (
-                          <div key={field.id} style={{ display: 'flex', gap: 8, marginBottom: 8 }}>
-                            <FormField name={`externalLinks.${index}.value`} noStyle>
-                              <Input
-                                style={{ flex: 1 }}
-                                aria-label="https://provider.example/sub/…"
-                                placeholder="https://provider.example/sub/…"
-                              />
-                            </FormField>
-                            <Tooltip title={t('delete')}>
-                              <Button aria-label={t('delete')} danger icon={<DeleteOutlined />} onClick={() => removeExternalLink(index)} />
-                            </Tooltip>
-                          </div>
-                        ))}
+                          <Typography.Text type="secondary">
+                            {t('pages.clients.noExternalSubscriptions')}
+                          </Typography.Text>
+                        ) : (
+                          subscriptionRows.map(({ field, index }) => (
+                            <div key={field.id} className="external-link-card">
+                              <div className="external-link-row">
+                                <div className="external-link-enable">
+                                  <FormField
+                                    name={`externalLinks.${index}.enable`}
+                                    valueProp="checked"
+                                    noStyle
+                                  >
+                                    <Switch size="small" />
+                                  </FormField>
+                                  <span>{t('enable')}</span>
+                                </div>
+                                <FormField name={`externalLinks.${index}.value`} noStyle>
+                                  <Input
+                                    aria-label="https://provider.example/sub/…"
+                                    placeholder="https://provider.example/sub/…"
+                                  />
+                                </FormField>
+                                <Tooltip title={t('delete')}>
+                                  <Button
+                                    aria-label={t('delete')}
+                                    danger
+                                    icon={<DeleteOutlined />}
+                                    onClick={() => removeExternalLink(index)}
+                                  />
+                                </Tooltip>
+                              </div>
+                              <div className="external-link-details three-cols">
+                                <FormField name={`externalLinks.${index}.remark`} noStyle>
+                                  <Input aria-label={t('remark')} placeholder={t('remark')} />
+                                </FormField>
+                                <FormField name={`externalLinks.${index}.namePrefix`} noStyle>
+                                  <Input
+                                    aria-label={t('pages.clients.namePrefix')}
+                                    placeholder={t('pages.clients.namePrefix')}
+                                  />
+                                </FormField>
+                                <Controller
+                                  control={methods.control}
+                                  name={`externalLinks.${index}.expiryTime`}
+                                  render={({ field: expiryField }) => (
+                                    <DateTimePicker
+                                      value={
+                                        Number(expiryField.value) > 0
+                                          ? dayjs(Number(expiryField.value))
+                                          : null
+                                      }
+                                      onChange={(v) => expiryField.onChange(v ? v.valueOf() : 0)}
+                                      placeholder={t('pages.inbounds.leaveBlankToNeverExpire')}
+                                    />
+                                  )}
+                                />
+                              </div>
+                              <Typography.Text
+                                type={field.lastFetchError ? 'danger' : 'secondary'}
+                                className="external-link-fetch-status"
+                              >
+                                {field.lastFetchError
+                                  ? `${t('pages.clients.lastFetchError')}: ${field.lastFetchError}`
+                                  : field.lastFetchAt > 0
+                                    ? `${t('pages.clients.lastFetchAt')}: ${dayjs(field.lastFetchAt).format('YYYY-MM-DD HH:mm:ss')}`
+                                    : t('pages.clients.neverFetched')}
+                              </Typography.Text>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </>
                   ),
@@ -1051,7 +1572,13 @@ export default function ClientFormModal({
           <Button key="refresh" icon={<ReloadOutlined />} loading={ipsLoading} onClick={loadIps}>
             {t('refresh')}
           </Button>,
-          <Button key="clear" danger loading={ipsClearing} disabled={clientIps.length === 0} onClick={clearIps}>
+          <Button
+            key="clear"
+            danger
+            loading={ipsClearing}
+            disabled={clientIps.length === 0}
+            onClick={clearIps}
+          >
             {t('pages.clients.clearAll')}
           </Button>,
           <Button key="close" type="primary" onClick={() => setIpsModalOpen(false)}>
@@ -1074,9 +1601,12 @@ export default function ClientFormModal({
                   fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace',
                 }}
               >
-                {entry.ip}{entry.time ? ` (${entry.time})` : ''}
+                {entry.ip}
+                {entry.time ? ` (${entry.time})` : ''}
                 {entry.node ? (
-                  <span style={{ marginInlineStart: 6, opacity: 0.85, fontWeight: 600 }}>@ {entry.node}</span>
+                  <span style={{ marginInlineStart: 6, opacity: 0.85, fontWeight: 600 }}>
+                    @ {entry.node}
+                  </span>
                 ) : null}
               </Tag>
             ))}
@@ -1085,6 +1615,21 @@ export default function ClientFormModal({
           <Tag>{t('tgbot.noIpRecord')}</Tag>
         )}
       </Modal>
+
+      <ClientHwidListModal
+        open={hwidsModalOpen}
+        email={client?.email}
+        zIndex={CLIENT_IP_LOG_MODAL_Z_INDEX}
+        hwids={clientHwids}
+        loading={hwidsLoading}
+        clearing={hwidsClearing}
+        deletingId={deletingHwidId}
+        formatDate={hwidDateLabel}
+        onRefresh={loadHwids}
+        onClearAll={clearHwids}
+        onDelete={deleteHwid}
+        onClose={() => setHwidsModalOpen(false)}
+      />
     </>
   );
 }

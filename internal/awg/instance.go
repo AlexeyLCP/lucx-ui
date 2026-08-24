@@ -123,11 +123,13 @@ type Instance struct {
 
 // PeerSpec is one desired peer on an AWG interface.
 type PeerSpec struct {
-	PrivateKey string // client Curve25519 private key (stored so we can render a full client .conf/share-link, mirroring WireGuard)
-	PublicKey  string // client Curve25519 public key (stored as Client.ID / clients[].publicKey)
-	PSK        string // PresharedKey (stored as Client.Password / clients[].preSharedKey)
-	Keepalive  AwgTimer
-	AllowedIPs string
+	PrivateKey     string // client Curve25519 private key (stored so we can render a full client .conf/share-link, mirroring WireGuard)
+	PublicKey      string // client Curve25519 public key (stored as Client.ID / clients[].publicKey)
+	PSK            string // PresharedKey (stored as Client.Password / clients[].preSharedKey)
+	Keepalive      AwgTimer
+	AllowedIPs     string
+	Email          string
+	ForwardedPorts string
 }
 
 // fingerprint changes whenever a device-level .conf field changes, so
@@ -209,21 +211,16 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		RouteThroughXray    bool   `json:"routeThroughXray"`
 		OutboundTag         string `json:"outboundTag"`
 		Clients             []struct {
-			// New canonical fields (mirror WireGuard clients).
-			PublicKey    string   `json:"publicKey"`
-			PrivateKey   string   `json:"privateKey"`
-			PreSharedKey string   `json:"preSharedKey"`
-			AllowedIPs   []string `json:"allowedIPs"`
-			// KeepAlive is AwgTimer so AWG3 ranges ("15-25") and legacy JSON
-			// numbers both round-trip; 0/empty = off (no forced default of 25).
-			KeepAlive AwgTimer `json:"keepAlive"`
-			// Legacy fields kept for backward compat (old inbounds created
-			// before this change store id=publicKey, password=PSK). The JSON
-			// tag `enable` defaults to false when absent — but the panel
-			// always writes it, so absent-false only happens on malformed data.
-			ID       string `json:"id"`
-			Password string `json:"password"`
-			Enable   *bool  `json:"enable"`
+			PublicKey      string   `json:"publicKey"`
+			PrivateKey     string   `json:"privateKey"`
+			PreSharedKey   string   `json:"preSharedKey"`
+			AllowedIPs     []string `json:"allowedIPs"`
+			KeepAlive      AwgTimer `json:"keepAlive"`
+			Email          string   `json:"email"`
+			ForwardedPorts string   `json:"forwardedPorts"`
+			ID             string   `json:"id"`
+			Password       string   `json:"password"`
+			Enable         *bool    `json:"enable"`
 		} `json:"clients"`
 		// AWG3 device-level timers/padding. AwgTimer unmarshals a JSON number
 		// (legacy) or a string ("150" / "100-500" range) so native kernel ranges
@@ -309,11 +306,13 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			allowed = strings.Join(c.AllowedIPs, ", ")
 		}
 		inst.Peers = append(inst.Peers, PeerSpec{
-			PrivateKey: c.PrivateKey,
-			PublicKey:  pub,
-			PSK:        psk,
-			Keepalive:  c.KeepAlive,
-			AllowedIPs: allowed,
+			PrivateKey:     c.PrivateKey,
+			PublicKey:      pub,
+			PSK:            psk,
+			Keepalive:      c.KeepAlive,
+			AllowedIPs:     allowed,
+			Email:          c.Email,
+			ForwardedPorts: c.ForwardedPorts,
 		})
 	}
 	return inst, true

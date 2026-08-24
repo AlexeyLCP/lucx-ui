@@ -28,7 +28,7 @@ var name string
 // .github/workflows/release.yml), so the binary always matches its tag even if
 // this constant was not bumped. Keep it in sync anyway: the release workflow
 // fails the build when the tag and this default diverge.
-var lucxVersion = "lucx.168"
+var lucxVersion = "lucx.169"
 
 // buildCommit and buildDate are injected at build time via `-ldflags -X` for
 // CI per-commit (dev channel) builds; see .github/workflows/release.yml. They
@@ -211,6 +211,27 @@ func GetDBKind() string {
 // GetDBDSN returns the PostgreSQL DSN from XUI_DB_DSN. Empty for sqlite.
 func GetDBDSN() string {
 	return strings.TrimSpace(os.Getenv("XUI_DB_DSN"))
+}
+
+// GetNodeTokenEncryptionMode returns off, migration, or required. Explicit
+// policy prevents a missing key from silently downgrading encrypted storage.
+func GetNodeTokenEncryptionMode() string {
+	return strings.TrimSpace(os.Getenv("NODE_TOKEN_ENCRYPTION"))
+}
+
+// GetNodeTokenKeyFile returns the mode-0600 keyring path, configurable through
+// XUI_NODE_TOKEN_KEY_FILE.
+func GetNodeTokenKeyFile() string {
+	if p := strings.TrimSpace(os.Getenv("XUI_NODE_TOKEN_KEY_FILE")); p != "" {
+		return p
+	}
+	return "/etc/x-ui/node_token_key.json"
+}
+
+// GetNodeTokenKeyEnv returns the name of the env var holding a single base64
+// 32-byte node-token key (secondary to the key file). Empty value => unused.
+func GetNodeTokenKeyEnv() string {
+	return "XUI_NODE_TOKEN_KEY"
 }
 
 // GetEnvFilePaths returns the candidate service environment file paths (the file

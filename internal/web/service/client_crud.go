@@ -5,8 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/netip"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/google/uuid"
 
@@ -21,7 +23,7 @@ import (
 
 func hasForbiddenClientChar(s string) bool {
 	for _, r := range s {
-		if r == '/' || r == '\\' || r == ' ' || r < 0x20 || r == 0x7f {
+		if r == '/' || r == '\\' || r < 0x20 || r == 0x7f || unicode.IsSpace(r) {
 			return true
 		}
 	}
@@ -42,6 +44,78 @@ func validateClientSubID(subID string) error {
 	return nil
 }
 
+// Rejected rather than coerced: an unknown cycle would leave the operator with
+// a field that reads as configured while no job ever selects the client.
+func validateClientTrafficReset(period string, day int) error {
+	switch period {
+	case "", "never", "hourly", "daily", "weekly", "monthly":
+	default:
+		return common.NewError("client trafficReset must be never, hourly, daily, weekly or monthly, got:", period)
+	}
+	if day < 0 || day > 31 {
+		return common.NewError("client trafficResetDay must be between 0 and 31, got:", day)
+	}
+	return nil
+}
+
+// Rejected rather than clamped: nextCalendarRenewal would silently move an
+// out-of-range day, and a negative one drops out of the renewal query entirely.
+func validateClientResetDay(day int) error {
+	if day < 0 || day > 31 {
+		return common.NewError("client resetDay must be between 0 and 31, got:", day)
+	}
+	return nil
+}
+
+// Rejected rather than coerced: a negative cap reads as "unlimited" to a caller
+// but selects nothing, so the client would silently stop renewing.
+func validateClientResetMax(resetMax int) error {
+	if resetMax < 0 {
+		return common.NewError("client resetMax must not be negative, got:", resetMax)
+	}
+	return nil
+}
+
+// normalizeClientTrafficReset stores what the inbound path would store, so the
+// day never reaches the DB as a 0 that three layers downstream each clamp to 1.
+func normalizeClientTrafficReset(c *model.Client) {
+	if c.TrafficReset == "" {
+		c.TrafficReset = "never"
+	}
+	c.TrafficResetDay = normalizeTrafficResetDay(c.TrafficResetDay)
+}
+
+// ClientResetCycle is the slice of a client the reset job needs: enough to know
+// whether it is due, and whether its disable is the quota's doing or the operator's.
+type ClientResetCycle struct {
+	Email           string
+	TrafficResetDay int
+	Enable          bool
+	Total           int64
+	Used            int64
+}
+
+// Depleted reports a client the quota switched off. A reset restores that one;
+// a client disabled below its quota was switched off by hand and stays off.
+func (c ClientResetCycle) Depleted() bool {
+	return c.Total > 0 && c.Used >= c.Total
+}
+
+// GetClientsByTrafficReset returns the clients whose own reset cycle matches the
+// period, independent of the cycle configured on the inbounds they belong to.
+func (s *ClientService) GetClientsByTrafficReset(period string) ([]ClientResetCycle, error) {
+	var cycles []ClientResetCycle
+	err := database.GetDB().Table("clients c").
+		Select("c.email, c.traffic_reset_day, c.enable, COALESCE(ct.total, 0) AS total, COALESCE(ct.up, 0) + COALESCE(ct.down, 0) AS used").
+		Joins("LEFT JOIN client_traffics ct ON ct.email = c.email").
+		Where("c.traffic_reset = ?", period).
+		Scan(&cycles).Error
+	if err != nil {
+		return nil, err
+	}
+	return cycles, nil
+}
+
 func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreatePayload) (bool, error) {
 	if payload == nil {
 		return false, common.NewError("empty payload")
@@ -56,6 +130,16 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 	if err := validateClientSubID(client.SubID); err != nil {
 		return false, err
 	}
+	if err := validateClientResetDay(client.ResetDay); err != nil {
+		return false, err
+	}
+	if err := validateClientResetMax(client.ResetMax); err != nil {
+		return false, err
+	}
+	if err := validateClientTrafficReset(client.TrafficReset, client.TrafficResetDay); err != nil {
+		return false, err
+	}
+	normalizeClientTrafficReset(&client)
 	if len(payload.InboundIds) == 0 {
 		return false, common.NewError("at least one inbound is required")
 	}
@@ -110,11 +194,6 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		}
 	}
 
-	emailSubIDs, sidErr := inboundSvc.getAllEmailSubIDs()
-	if sidErr != nil {
-		return false, sidErr
-	}
-
 	needRestart := false
 	createTargets := make([]*model.Inbound, 0, len(payload.InboundIds))
 	for _, ibId := range payload.InboundIds {
@@ -132,6 +211,11 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		// the operator-typed IP (Vlad: dummy clients just to skip addresses).
 		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
 		// END LUCX-HOOK
+		if ips, ok := client.AllowedIPsByInbound[inbound.Id]; ok {
+			per.AllowedIPs = ips
+		} else if !addressesFitAmneziaWGInbound(per.AllowedIPs, inbound) {
+			per.AllowedIPs = nil
+		}
 		if err := s.fillProtocolDefaults(&per, inbound); err != nil {
 			return needRestart, err
 		}
@@ -151,13 +235,16 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		nr, addErr := s.addInboundClient(inboundSvc, &model.Inbound{
 			Id:       inbound.Id,
 			Settings: string(settingsPayload),
-		}, emailSubIDs)
+		})
 		if addErr != nil {
 			return needRestart, addErr
 		}
 		if nr {
 			needRestart = true
 		}
+	}
+	if err := s.setClientLimitHwidByEmail(nil, client.Email, payload.LimitHwid); err != nil {
+		return needRestart, err
 	}
 	return needRestart, nil
 }
@@ -212,7 +299,7 @@ func mtprotoDomainFromSettings(settings string) string {
 }
 
 func clientWithInboundFlow(c model.Client, ib *model.Inbound) model.Client {
-	if !inboundCanEnableTlsFlow(string(ib.Protocol), ib.StreamSettings, ib.Settings) {
+	if ib.DisableFlow || !inboundCanEnableTlsFlow(string(ib.Protocol), ib.StreamSettings, ib.Settings) {
 		c.Flow = ""
 	}
 	return c
@@ -328,7 +415,7 @@ func applyShadowsocksClientMethod(clients []any, settings map[string]any) {
 	}
 }
 
-func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model.Client, inboundFilter ...int) (bool, error) {
+func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model.Client, limitHwid int, inboundFilter ...int) (bool, error) {
 	existing, err := s.GetByID(id)
 	if err != nil {
 		return false, err
@@ -360,6 +447,16 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 	if err := validateClientSubID(updated.SubID); err != nil {
 		return false, err
 	}
+	if err := validateClientResetDay(updated.ResetDay); err != nil {
+		return false, err
+	}
+	if err := validateClientResetMax(updated.ResetMax); err != nil {
+		return false, err
+	}
+	if err := validateClientTrafficReset(updated.TrafficReset, updated.TrafficResetDay); err != nil {
+		return false, err
+	}
+	normalizeClientTrafficReset(&updated)
 	if updated.SubID == "" {
 		updated.SubID = existing.SubID
 	}
@@ -443,6 +540,11 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		// One tunnel inbound → keep the typed IP (edit was rolling back).
 		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
 		// END LUCX-HOOK
+		if ips, ok := updated.AllowedIPsByInbound[inbound.Id]; ok {
+			per.AllowedIPs = ips
+		} else if !addressesFitAmneziaWGInbound(per.AllowedIPs, inbound) {
+			per.AllowedIPs = nil
+		}
 		if err := s.fillProtocolDefaults(&per, inbound); err != nil {
 			return needRestart, err
 		}
@@ -498,6 +600,10 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 				"tg_id":             merged.TgID,
 				"comment":           merged.Comment,
 				"reset":             merged.Reset,
+				"reset_day":         merged.ResetDay,
+				"reset_max":         merged.ResetMax,
+				"traffic_reset":     merged.TrafficReset,
+				"traffic_reset_day": merged.TrafficResetDay,
 			}).Error; err != nil {
 			return needRestart, err
 		}
@@ -542,6 +648,10 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		return needRestart, err
 	}
 
+	if err := s.setClientLimitHwidByEmail(nil, updated.Email, limitHwid); err != nil {
+		return needRestart, err
+	}
+
 	if err := database.GetDB().Model(&model.ClientRecord{}).
 		Where("id = ?", id).
 		UpdateColumn("updated_at", time.Now().UnixMilli()).Error; err != nil {
@@ -559,6 +669,7 @@ func (s *ClientService) Delete(inboundSvc *InboundService, id int, keepTraffic b
 
 	inboundIds, err := s.GetInboundIdsForRecord(id)
 	if err != nil {
+		withdrawClientTombstones(existing.Email)
 		return false, err
 	}
 
@@ -596,7 +707,9 @@ func (s *ClientService) Delete(inboundSvc *InboundService, id int, keepTraffic b
 	}
 	// A failed inbound still holds the client in its settings JSON: keep the
 	// record so the next delete retries exactly the leftovers, and report it.
+	// The tombstone lifts with it, or the next node merge finishes the deletion.
 	if len(delErrs) > 0 {
+		withdrawClientTombstones(existing.Email)
 		return needRestart, errors.Join(delErrs...)
 	}
 
@@ -611,6 +724,9 @@ func (s *ClientService) Delete(inboundSvc *InboundService, id int, keepTraffic b
 			return err
 		}
 		if err := tx.Where("client_id = ?", id).Delete(&model.ClientExternalLink{}).Error; err != nil {
+			return err
+		}
+		if err := clearClientHwidsBySubIDTx(tx, existing.SubID); err != nil {
 			return err
 		}
 		if !keepTraffic && existing.Email != "" {
@@ -629,9 +745,70 @@ func (s *ClientService) Delete(inboundSvc *InboundService, id int, keepTraffic b
 		}
 		return tx.Delete(&model.ClientRecord{}, id).Error
 	}); err != nil {
+		withdrawClientTombstones(existing.Email)
 		return needRestart, err
 	}
 	return needRestart, nil
+}
+
+// hasTunnelAttachment reports whether any of inboundIds is a currently
+// existing WireGuard or AmneziaWG inbound. Inbounds that fail to load are
+// skipped rather than treated as an error -- Attach's own loop already
+// surfaces a real error for any inbound it can't load when it gets there.
+func (s *ClientService) hasTunnelAttachment(inboundSvc *InboundService, inboundIds []int) bool {
+	for _, ibId := range inboundIds {
+		inbound, err := inboundSvc.GetInbound(ibId)
+		if err != nil {
+			continue
+		}
+		if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG {
+			return true
+		}
+	}
+	return false
+}
+
+// addressesFitAmneziaWGInbound reports whether every entry in addrs falls
+// inside ib's own configured subnet(s). AmneziaWG only: its kernel interface
+// Address is exactly that subnet, so an address inherited from elsewhere (an
+// identity attached to a WireGuard inbound first, say) produces a peer that
+// can never connect -- Attach allocates fresh instead.
+func addressesFitAmneziaWGInbound(addrs []string, ib *model.Inbound) bool {
+	if ib.Protocol != model.AmneziaWG || len(addrs) == 0 {
+		return true
+	}
+	v4Base, v6Base, err := defaultAmneziaWGSubnetBases(ib.Settings)
+	if err != nil {
+		return false
+	}
+	bases := make([]netip.Prefix, 0, 2)
+	for _, base := range []string{v4Base, v6Base} {
+		if base == "" {
+			continue
+		}
+		prefix, pErr := netip.ParsePrefix(base)
+		if pErr != nil {
+			return false
+		}
+		bases = append(bases, prefix)
+	}
+	for _, a := range addrs {
+		host := wireguardHostAddr(a)
+		if !host.IsValid() {
+			return false
+		}
+		fits := false
+		for _, prefix := range bases {
+			if prefix.Contains(host) {
+				fits = true
+				break
+			}
+		}
+		if !fits {
+			return false
+		}
+	}
+	return true
 }
 
 func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []int) (bool, error) {
@@ -656,9 +833,16 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 	clientWire.Flow = flow
 	clientWire.UpdatedAt = time.Now().UnixMilli()
 
-	emailSubIDs, sidErr := inboundSvc.getAllEmailSubIDs()
-	if sidErr != nil {
-		return false, sidErr
+	// If this identity has no CURRENT WireGuard/AmneziaWG attachment,
+	// clientWire.AllowedIPs (from the ClientRecord) is a leftover from
+	// whenever it last had one -- nothing reserves it anymore. Clear it so
+	// attaching to a tunnel inbound now allocates a fresh address instead
+	// of resurrecting the old one, which may no longer even be the lowest
+	// free slot. Left untouched when the identity already has an active
+	// tunnel elsewhere, so extending it to a second protocol still keeps
+	// the same address on both.
+	if !s.hasTunnelAttachment(inboundSvc, currentIds) {
+		clientWire.AllowedIPs = nil
 	}
 
 	needRestart := false
@@ -678,6 +862,9 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 			copyClient.AllowedIPs = nil
 		}
 		// END LUCX-HOOK
+		if !addressesFitAmneziaWGInbound(copyClient.AllowedIPs, inbound) {
+			copyClient.AllowedIPs = nil
+		}
 		if err := s.fillProtocolDefaults(&copyClient, inbound); err != nil {
 			return needRestart, err
 		}
@@ -685,10 +872,10 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 		if mErr != nil {
 			return needRestart, mErr
 		}
-		nr, addErr := s.addInboundClient(inboundSvc, &model.Inbound{
+		nr, addErr := s.AddInboundClient(inboundSvc, &model.Inbound{
 			Id:       ibId,
 			Settings: string(settingsPayload),
-		}, emailSubIDs)
+		})
 		if addErr != nil {
 			return needRestart, addErr
 		}
@@ -793,7 +980,7 @@ func (s *ClientService) DeleteByEmail(inboundSvc *InboundService, email string, 
 	return needRestart, nil
 }
 
-func (s *ClientService) UpdateByEmail(inboundSvc *InboundService, email string, updated model.Client, inboundFilter ...int) (bool, error) {
+func (s *ClientService) UpdateByEmail(inboundSvc *InboundService, email string, updated model.Client, limitHwid int, inboundFilter ...int) (bool, error) {
 	if email == "" {
 		return false, common.NewError("client email is required")
 	}
@@ -801,7 +988,7 @@ func (s *ClientService) UpdateByEmail(inboundSvc *InboundService, email string, 
 	if err != nil {
 		return false, err
 	}
-	return s.Update(inboundSvc, rec.Id, updated, inboundFilter...)
+	return s.Update(inboundSvc, rec.Id, updated, limitHwid, inboundFilter...)
 }
 
 func (s *ClientService) Detach(inboundSvc *InboundService, id int, inboundIds []int) (bool, error) {

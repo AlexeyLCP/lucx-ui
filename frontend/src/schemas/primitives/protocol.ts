@@ -12,6 +12,7 @@ export const ProtocolSchema = z.enum([
   'tunnel',
   'tun',
   'mtproto',
+  'amneziawg',
   'awg', // LUCX-HOOK: AmneziaWG sidecar protocol
   'naive', // LUCX-HOOK: NaiveProxy sidecar (inbound model)
   'olcrtc', // LUCX-HOOK: olcRTC sidecar
@@ -39,6 +40,7 @@ export const Protocols = Object.freeze({
   TUNNEL: 'tunnel',
   TUN: 'tun',
   MTPROTO: 'mtproto',
+  AMNEZIAWG: 'amneziawg',
   AWG: 'awg', // LUCX-HOOK: AmneziaWG
   NAIVE: 'naive', // LUCX-HOOK: NaiveProxy
   OLCRTC: 'olcrtc', // LUCX-HOOK: olcRTC

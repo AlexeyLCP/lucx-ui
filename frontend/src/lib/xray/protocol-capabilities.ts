@@ -9,7 +9,15 @@ const TLS_ELIGIBLE_PROTOCOLS = ['vmess', 'vless', 'trojan', 'shadowsocks'];
 const TLS_NETWORKS = ['tcp', 'ws', 'http', 'grpc', 'httpupgrade', 'xhttp'];
 const REALITY_ELIGIBLE_PROTOCOLS = ['vless', 'trojan'];
 const REALITY_NETWORKS = ['tcp', 'http', 'grpc', 'xhttp'];
-const STREAM_PROTOCOLS = ['vmess', 'vless', 'trojan', 'shadowsocks', 'hysteria', 'wireguard', 'tunnel'];
+const STREAM_PROTOCOLS = [
+  'vmess',
+  'vless',
+  'trojan',
+  'shadowsocks',
+  'hysteria',
+  'wireguard',
+  'tunnel',
+];
 const VISION_FLOW = 'xtls-rprx-vision';
 const SS_2022_PREFIX = '2022';
 const SS_BLAKE3_CHACHA20 = '2022-blake3-chacha20-poly1305';
@@ -67,13 +75,15 @@ export function canEnableStream(values: { protocol: string }): boolean {
   return STREAM_PROTOCOLS.includes(values.protocol);
 }
 
-// mtproto is served by an external mtg process, not Xray, so the Xray sniffing
-// block does not apply to it. Every other inbound supports sniffing.
+// mtproto and amneziawg are served by an external process/interface, not
+// Xray, so the Xray sniffing block does not apply to either. Every other
+// inbound supports sniffing.
 export function canEnableSniffing(values: { protocol: string }): boolean {
   // LUCX-HOOK: AWG — kernel-interface sidecar; its traffic never enters an
   // Xray inbound, so the Xray sniffing block does not apply (like mtproto).
   return (
     values.protocol !== 'mtproto' &&
+    values.protocol !== 'amneziawg' &&
     values.protocol !== 'awg' &&
     values.protocol !== 'naive' &&
     values.protocol !== 'olcrtc' &&

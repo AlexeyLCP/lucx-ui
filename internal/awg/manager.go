@@ -32,6 +32,7 @@ type managed struct {
 	lastRx   map[string]int64
 	lastTx   map[string]int64
 	haveLast bool
+	peers    []PeerSpec
 }
 
 // Manager owns the set of running AWG interfaces keyed by inbound id, exactly
@@ -71,6 +72,7 @@ func (m *Manager) Ensure(inst Instance) error {
 	}
 	m.ensureXrayRouting(inst)
 	m.ensureNatRules(inst)
+	m.ensurePortForwards(inst)
 	return nil
 }
 
@@ -97,6 +99,7 @@ func (m *Manager) ensureLocked(inst Instance) error {
 		if cur.fingerprint == fp && cur.proc.IsRunning() {
 			cur.tag = inst.Tag
 			cur.onlineTTL = ttl
+			cur.peers = inst.Peers
 			if cur.peerFP != peerFP {
 				if err := m.syncPeersLocked(inst); err != nil {
 					return err
@@ -127,6 +130,7 @@ func (m *Manager) ensureLocked(inst Instance) error {
 		onlineTTL:   ttl,
 		lastRx:      map[string]int64{},
 		lastTx:      map[string]int64{},
+		peers:       inst.Peers,
 	}
 	logger.Infof("awg: started interface %s for inbound %d on port %d", inst.Ifname, inst.Id, inst.Port)
 	return nil
@@ -207,6 +211,7 @@ func (m *Manager) Reconcile(desired []Instance) {
 		}
 		m.ensureXrayRouting(inst)
 		m.ensureNatRules(inst)
+		m.ensurePortForwards(inst)
 	}
 }
 
@@ -976,6 +981,8 @@ type Traffic struct {
 // online status derive in a single scrape.
 type peerStat struct {
 	PublicKey     string
+	Endpoint      string
+	AllowedIPs    string
 	Rx            int64
 	Tx            int64
 	LastHandshake int64
@@ -1021,7 +1028,14 @@ func parseAwgDump(out string) ([]peerStat, bool) {
 		if errHs != nil || errRx != nil || errTx != nil {
 			continue
 		}
-		peers = append(peers, peerStat{PublicKey: fields[0], Rx: rx, Tx: tx, LastHandshake: hs})
+		ep, allowed := fields[2], fields[3]
+		if ep == "(off)" {
+			ep = ""
+		}
+		peers = append(peers, peerStat{
+			PublicKey: fields[0], Endpoint: ep, AllowedIPs: allowed,
+			Rx: rx, Tx: tx, LastHandshake: hs,
+		})
 	}
 	return peers, true
 }

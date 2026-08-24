@@ -1,6 +1,8 @@
 import { describe, it, expect } from 'vitest';
 
 import { parseLinkParts, linkMetaText } from '@/lib/xray/link-label';
+import { genAmneziaWGLink } from '@/lib/xray/inbound-link';
+import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
 
 // The panel shows the subscription's remark verbatim. Per-client traffic/expiry
 // info is rendered only into the body a client app imports (backend, first link
@@ -43,9 +45,7 @@ describe('link-label parseLinkParts', () => {
 
   // LUCX-HOOK: naive+https:// uses a compound scheme; must not fall back to "LINK".
   it('labels a naive+https share link as Naive with HTTPS and #remark', () => {
-    const parts = parseLinkParts(
-      'naive+https://nxabc:pass@n.example.com:8443#alice@example.com',
-    );
+    const parts = parseLinkParts('naive+https://nxabc:pass@n.example.com:8443#alice@example.com');
     expect(parts?.protocol).toBe('Naive');
     expect(parts?.security).toBe('HTTPS');
     expect(parts?.remark).toBe('alice@example.com');
@@ -64,8 +64,43 @@ describe('link-label parseLinkParts', () => {
     expect(parseLinkParts('olcrtc://jitsi?datachannel@https://meet.jit.si/r#aabb')?.protocol).toBe(
       'olcRTC',
     );
-    expect(
-      parseLinkParts('qwdtt://config?name=Home&peer=1.2.3.4%3A56000&pass=x')?.protocol,
-    ).toBe('qWDTT');
+    expect(parseLinkParts('qwdtt://config?name=Home&peer=1.2.3.4%3A56000&pass=x')?.protocol).toBe(
+      'qWDTT',
+    );
+  });
+
+  it('labels an AmneziaWG vpn:// link with its decoded remark and endpoint port', () => {
+    const settings = {
+      server: {
+        publicKey: 'serverPubKey==',
+        jc: 5,
+        jmin: 10,
+        jmax: 50,
+        s1: 30,
+        s2: 45,
+        s3: 10,
+        s4: 5,
+        h1: '',
+        h2: '',
+        h3: '',
+        h4: '',
+        i1: '',
+      },
+      clients: [{ email: 'peer-1', privateKey: 'clientPrivKey==', allowedIPs: ['10.8.1.2/32'] }],
+    } as unknown as AmneziawgInboundSettings;
+
+    const link = genAmneziaWGLink({
+      settings,
+      address: 'awg.example.test',
+      port: 36541,
+      remark: 'wg-Майфун',
+      peerIndex: 0,
+    });
+
+    const parts = parseLinkParts(link);
+    expect(parts?.protocol).toBe('AmneziaWG');
+    expect(parts?.remark).toBe('wg-Майфун');
+    expect(parts?.port).toBe('36541');
+    expect(parts && linkMetaText(parts)).toBe('wg-Майфун:36541');
   });
 });

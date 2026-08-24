@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg" // LUCX-HOOK: AWG sidecar
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/eventbus"
@@ -249,6 +250,10 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	controller.SetDistFS(distFS)
 
 	g := engine.Group(basePath)
+	g.GET("/manifest.webmanifest", controller.ServePWAManifest)
+	g.GET("/pwa-register.js", controller.ServePWARegister)
+	g.GET("/service-worker.js", controller.ServePWAServiceWorker)
+	g.GET("/icons/:name", controller.ServePWAIcon)
 
 	s.index = controller.NewIndexController(g)
 	s.panel = controller.NewXUIController(g)
@@ -294,10 +299,13 @@ const (
 	cadenceMtproto       = "@every 10s"
 	cadenceAwg           = "@every 10s" // LUCX-HOOK: AWG sidecar reconcile + traffic
 	cadenceTunnel        = "@every 10s" // LUCX-HOOK: tunnel sidecars reconcile + Naive traffic/online
+	cadenceAmneziaWG     = "@every 10s"
 	cadenceClientIPScan  = "@every 10s"
 	cadenceNodeHeartbeat = "@every 5s"
 	cadenceNodeTraffic   = "@every 5s"
 	cadenceOutboundSub   = "@every 5m"
+	cadenceReapOrphans   = "@every 5m"
+	cadenceRemoteRouting = "@every 5m"
 	cadenceXrayLogPrune  = "@every 10m"
 	cadenceCheckHash     = "@every 2m"
 	// cpu.Percent samples over a full minute (blocking), so a finer cadence just
@@ -343,6 +351,11 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	go tunnelJob.Run()
 	// END LUCX-HOOK
 
+	// Reconcile embedded AmneziaWG interfaces; traffic rides Xray's own stats
+	amneziawgJob := job.NewAmneziaWGJob()
+	_, _ = s.cron.AddJob(cadenceAmneziaWG, amneziawgJob)
+	go amneziawgJob.Run()
+
 	// check client ips from log file every 10 sec
 	_, _ = s.cron.AddJob(cadenceClientIPScan, job.NewCheckClientIpJob())
 
@@ -352,6 +365,14 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 
 	// Outbound subscription auto-refresh (respects per-sub updateInterval)
 	_, _ = s.cron.AddJob(cadenceOutboundSub, job.NewOutboundSubscriptionJob())
+
+	_, _ = s.cron.AddJob(cadenceReapOrphans, job.NewReapSyncOrphansJob())
+
+	// Warm permanent routing URLs immediately and refresh them outside the
+	// latency-sensitive subscription request path.
+	remoteRoutingJob := job.NewRemoteRoutingJob()
+	_, _ = s.cron.AddJob(cadenceRemoteRouting, remoteRoutingJob)
+	common.GoRecover("remote-routing-warm", remoteRoutingJob.Run)
 
 	// check client ips from log file every day
 	_, _ = s.cron.AddJob("@daily", job.NewClearLogsJob())
@@ -605,9 +626,7 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 		IdleTimeout:       120 * time.Second,
 	}
 
-	go func() {
-		_ = s.httpServer.Serve(listener)
-	}()
+	go network.ServeHTTP(s.httpServer, listener, "Web server")
 
 	// Create event bus before startTask so jobs can use it
 	s.bus = eventbus.New(eventbus.DefaultBufferSize)
@@ -698,6 +717,7 @@ func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 		mtproto.GetManager().StopAll()
 		awg.GetManager().StopAll()    // LUCX-HOOK: stop AWG sidecars
 		tunnel.GetManager().StopAll() // LUCX-HOOK: stop tunnel sidecars (NaiveProxy)
+		amneziawgnet.GetManager().StopAll()
 	}
 	if s.cron != nil {
 		s.cron.Stop()

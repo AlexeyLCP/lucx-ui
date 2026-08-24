@@ -1,11 +1,11 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Modal, Spin, Tag, Typography } from 'antd';
+import { Alert, Button, Modal, Switch, Tag } from 'antd';
 import { CloudDownloadOutlined } from '@ant-design/icons';
 
 import { HttpUtil, PromiseUtil } from '@/utils';
 import { formatPanelVersion } from '@/lib/panel-version';
-import type { PanelReleaseNote, PanelReleaseNotes, PanelUpdateStatus } from '@/generated/types';
+import type { PanelUpdateStatus } from '@/generated/types';
 import './PanelUpdateModal.css';
 
 type UpdateOutcome = 'success' | 'failed' | 'timeout';
@@ -17,7 +17,6 @@ export interface PanelUpdateInfo {
   currentCommit?: string;
   latestCommit?: string;
   updateAvailable: boolean;
-  releaseNotes?: string;
 }
 
 interface BusyEvent {
@@ -28,95 +27,29 @@ interface BusyEvent {
 interface PanelUpdateModalProps {
   open: boolean;
   info: PanelUpdateInfo;
+  devChannelEnable?: boolean;
+  onChannelChange?: (dev: boolean) => void | Promise<void>;
   onClose: () => void;
   onBusy: (e: BusyEvent) => void;
 }
 
-const POLL_INITIAL_MS = 5_000;
-const POLL_DEADLINE_MS = 15 * 60_000;
-const POLL_INTERVAL_MS = 3_000;
-
 export default function PanelUpdateModal({
   open,
   info,
+  devChannelEnable,
+  onChannelChange,
   onClose,
   onBusy,
 }: PanelUpdateModalProps) {
   const { t } = useTranslation();
   const [modal, contextHolder] = Modal.useModal();
-  const [notesExpanded, setNotesExpanded] = useState(false);
-  const [feed, setFeed] = useState<PanelReleaseNote[]>([]);
-  const [hasMore, setHasMore] = useState(false);
-  const [page, setPage] = useState(1);
-  const [feedLoading, setFeedLoading] = useState(false);
-  const [moreLoading, setMoreLoading] = useState(false);
+  const [channelBusy, setChannelBusy] = useState(false);
 
-  const notes = (info.releaseNotes || '').trim();
-
-  useEffect(() => {
-    if (!open || !info.updateAvailable) {
-      setFeed([]);
-      setHasMore(false);
-      setPage(1);
-      setFeedLoading(false);
-      setMoreLoading(false);
-      setNotesExpanded(false);
-      return;
-    }
-    let cancelled = false;
-    setFeedLoading(true);
-    HttpUtil.get<PanelReleaseNotes>(
-      '/panel/api/server/getPanelReleaseNotes',
-      { page: 1 },
-      { silent: true },
-    )
-      .then((msg) => {
-        if (cancelled) return;
-        const obj = msg?.success ? msg.obj : null;
-        setFeed(obj?.items ?? []);
-        setHasMore(!!obj?.hasMore);
-        setPage(obj?.page ?? 1);
-      })
-      .finally(() => {
-        if (!cancelled) setFeedLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [open, info.updateAvailable]);
-
-  async function loadMoreNotes() {
-    const next = page + 1;
-    setMoreLoading(true);
-    try {
-      const msg = await HttpUtil.get<PanelReleaseNotes>(
-        '/panel/api/server/getPanelReleaseNotes',
-        { page: next },
-        { silent: true },
-      );
-      const obj = msg?.success ? msg.obj : null;
-      if (!obj) {
-        setHasMore(false);
-        return;
-      }
-      setFeed((prev) => [...prev, ...(obj.items ?? [])]);
-      setHasMore(!!obj.hasMore);
-      setPage(obj.page ?? next);
-    } finally {
-      setMoreLoading(false);
-    }
-  }
-
-  function formatPublished(iso?: string): string {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return iso;
-    return d.toLocaleDateString();
-  }
+  const isDev = info.channel === 'dev';
 
   async function pollUpdateStatus(expectedRunId: string): Promise<UpdateOutcome> {
-    await PromiseUtil.sleep(POLL_INITIAL_MS);
-    const deadline = Date.now() + POLL_DEADLINE_MS;
+    await PromiseUtil.sleep(5000);
+    const deadline = Date.now() + 90_000;
     while (Date.now() < deadline) {
       try {
         const msg = await HttpUtil.get<PanelUpdateStatus>(
@@ -132,15 +65,28 @@ export default function PanelUpdateModal({
       } catch {
         /* still restarting */
       }
-      await PromiseUtil.sleep(POLL_INTERVAL_MS);
+      await PromiseUtil.sleep(2000);
     }
     return 'timeout';
+  }
+
+  async function handleChannel(checked: boolean) {
+    if (!onChannelChange) return;
+    setChannelBusy(true);
+    try {
+      await onChannelChange(checked);
+    } finally {
+      setChannelBusy(false);
+    }
   }
 
   function updatePanel() {
     modal.confirm({
       title: t('pages.index.panelUpdateDialog'),
-      content: t('pages.index.panelUpdateDialogDesc').replace('#version#', info.latestVersion || ''),
+      content: t('pages.index.panelUpdateDialogDesc').replace(
+        '#version#',
+        info.latestVersion || '',
+      ),
       okText: t('confirm'),
       cancelText: t('cancel'),
       onOk: async () => {
@@ -161,8 +107,16 @@ export default function PanelUpdateModal({
           return;
         }
         modal[outcome === 'failed' ? 'error' : 'warning']({
-          title: t(outcome === 'failed' ? 'pages.index.panelUpdateFailedTitle' : 'pages.index.panelUpdateUnknownTitle'),
-          content: t(outcome === 'failed' ? 'pages.index.panelUpdateFailedDesc' : 'pages.index.panelUpdateUnknownDesc'),
+          title: t(
+            outcome === 'failed'
+              ? 'pages.index.panelUpdateFailedTitle'
+              : 'pages.index.panelUpdateUnknownTitle',
+          ),
+          content: t(
+            outcome === 'failed'
+              ? 'pages.index.panelUpdateFailedDesc'
+              : 'pages.index.panelUpdateUnknownDesc',
+          ),
           okText: t('refresh'),
           onOk: () => window.location.reload(),
         });
@@ -173,13 +127,7 @@ export default function PanelUpdateModal({
   return (
     <>
       {contextHolder}
-      <Modal
-        open={open}
-        title={t('pages.index.updatePanel')}
-        footer={null}
-        onCancel={onClose}
-        width={640}
-      >
+      <Modal open={open} title={t('pages.index.updatePanel')} footer={null} onCancel={onClose}>
         {info.updateAvailable && (
           <Alert
             type="warning"
@@ -191,13 +139,39 @@ export default function PanelUpdateModal({
 
         <div className="version-list">
           <div className="version-list-item">
-            <span>{t('pages.index.currentPanelVersion')}</span>
-            <Tag color="green">{formatPanelVersion(window.X_UI_CUR_VER || info.currentVersion) || '?'}</Tag>
+            <span>{t('pages.index.devChannel')}</span>
+            <Switch checked={!!devChannelEnable} loading={channelBusy} onChange={handleChannel} />
+          </div>
+        </div>
+
+        {devChannelEnable && (
+          <Alert
+            type="info"
+            className="mb-12"
+            title={t('pages.index.devChannelWarning')}
+            showIcon
+          />
+        )}
+
+        <div className="version-list">
+          <div className="version-list-item">
+            <span>
+              {isDev ? t('pages.index.currentCommit') : t('pages.index.currentPanelVersion')}
+            </span>
+            {isDev ? (
+              <Tag color="green">{info.currentCommit || '?'}</Tag>
+            ) : (
+              <Tag color="green">
+                {formatPanelVersion(window.X_UI_CUR_VER || info.currentVersion) || '?'}
+              </Tag>
+            )}
           </div>
           {info.updateAvailable ? (
             <div className="version-list-item">
-              <span>{t('pages.index.latestPanelVersion')}</span>
-              <Tag color="purple">{info.latestVersion || '-'}</Tag>
+              <span>
+                {isDev ? t('pages.index.latestCommit') : t('pages.index.latestPanelVersion')}
+              </span>
+              <Tag color="purple">{(isDev ? info.latestCommit : info.latestVersion) || '-'}</Tag>
             </div>
           ) : (
             <div className="version-list-item">
@@ -206,58 +180,6 @@ export default function PanelUpdateModal({
             </div>
           )}
         </div>
-
-        {info.updateAvailable && (feedLoading || feed.length > 0 || notes) && (
-          <div className="release-notes">
-            <div className="release-notes-title">{t('pages.index.releaseNotes')}</div>
-            {feedLoading ? (
-              <div className="release-notes-loading">
-                <Spin size="small" />
-              </div>
-            ) : feed.length > 0 ? (
-              <>
-                {feed.map((item) => (
-                  <div key={item.tag} className="release-note-item">
-                    <div className="release-note-meta">
-                      <Tag color="purple">{item.tag}</Tag>
-                      {item.publishedAt ? (
-                        <span className="release-note-date">{formatPublished(item.publishedAt)}</span>
-                      ) : null}
-                    </div>
-                    {item.body ? (
-                      <Typography.Paragraph className="release-notes-body">
-                        {item.body}
-                      </Typography.Paragraph>
-                    ) : null}
-                  </div>
-                ))}
-                {hasMore ? (
-                  <Button
-                    type="link"
-                    size="small"
-                    loading={moreLoading}
-                    onClick={() => {
-                      void loadMoreNotes();
-                    }}
-                  >
-                    {t('pages.index.releaseNotesLoadMore')}
-                  </Button>
-                ) : null}
-              </>
-            ) : (
-              <Typography.Paragraph
-                className="release-notes-body"
-                ellipsis={
-                  notesExpanded
-                    ? false
-                    : { rows: 8, expandable: true, symbol: t('pages.index.releaseNotesMore'), onExpand: () => setNotesExpanded(true) }
-                }
-              >
-                {notes}
-              </Typography.Paragraph>
-            )}
-          </div>
-        )}
 
         <div className="actions-row">
           <Button

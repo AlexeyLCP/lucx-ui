@@ -24,6 +24,12 @@ export default function WireguardFields({ wgPubKey, regenInboundWg }: WireguardF
       <Form.Item label={t('pages.xray.wireguard.publicKey')}>
         <Input value={wgPubKey} disabled />
       </Form.Item>
+      <FormField name={['settings', 'subnetIp']} label={t('pages.xray.wireguard.subnetIp')}>
+        <Input placeholder="10.0.0.0" />
+      </FormField>
+      <FormField name={['settings', 'subnetCidr']} label={t('pages.xray.wireguard.subnetCidr')}>
+        <InputNumber min={1} max={32} style={{ width: '100%' }} />
+      </FormField>
       <FormField name={['settings', 'mtu']} label="MTU">
         <InputNumber />
       </FormField>
@@ -37,7 +43,10 @@ export default function WireguardFields({ wgPubKey, regenInboundWg }: WireguardF
       >
         <Switch />
       </FormField>
-      <FormField name={['settings', 'domainStrategy']} label={t('pages.xray.wireguard.domainStrategy')}>
+      <FormField
+        name={['settings', 'domainStrategy']}
+        label={t('pages.xray.wireguard.domainStrategy')}
+      >
         <Select
           allowClear
           options={[

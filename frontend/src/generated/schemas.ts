@@ -15,6 +15,9 @@ export const SCHEMAS: Record<string, unknown> = {
       "externalTrafficInformURI": {
         "type": "string"
       },
+      "ipLimitAllowlist": {
+        "type": "string"
+      },
       "ldapAutoCreate": {
         "type": "boolean"
       },
@@ -222,6 +225,9 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "subJsonMux": {
         "description": "END LUCX-HOOK",
+        "type": "string"
+      },
+      "subJsonObservatory": {
         "type": "string"
       },
       "subJsonPath": {
@@ -364,6 +370,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "expireDiff",
       "externalTrafficInformEnable",
       "externalTrafficInformURI",
+      "ipLimitAllowlist",
       "ldapAutoCreate",
       "ldapAutoDelete",
       "ldapBaseDN",
@@ -427,6 +434,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subJsonEnable",
       "subJsonFinalMask",
       "subJsonMux",
+      "subJsonObservatory",
       "subJsonPath",
       "subJsonRules",
       "subJsonURI",
@@ -505,6 +513,9 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "hasWarpSecret": {
         "type": "boolean"
+      },
+      "ipLimitAllowlist": {
+        "type": "string"
       },
       "ldapAutoCreate": {
         "type": "boolean"
@@ -713,6 +724,9 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "subJsonMux": {
         "description": "END LUCX-HOOK",
+        "type": "string"
+      },
+      "subJsonObservatory": {
         "type": "string"
       },
       "subJsonPath": {
@@ -862,6 +876,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "hasTgBotToken",
       "hasTwoFactorToken",
       "hasWarpSecret",
+      "ipLimitAllowlist",
       "ldapAutoCreate",
       "ldapAutoDelete",
       "ldapBaseDN",
@@ -925,6 +940,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subJsonEnable",
       "subJsonFinalMask",
       "subJsonMux",
+      "subJsonObservatory",
       "subJsonPath",
       "subJsonRules",
       "subJsonURI",
@@ -968,6 +984,36 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "AmneziaWGLogs": {
+    "description": "AmneziaWGLogs is what the overview's AmneziaWG log view renders: the live\nper-peer activity of every running embedded interface, plus the panel's\nown recent AmneziaWG lifecycle log lines that explain a peer being absent\nfrom Peers at all.",
+    "properties": {
+      "events": {
+        "example": [
+          "2025/01/01 12:00:00 amneziawg: started interface awg1 for inbound 1"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "peers": {
+        "items": {
+          "$ref": "#/components/schemas/PeerActivity"
+        },
+        "type": "array"
+      },
+      "running": {
+        "example": true,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "events",
+      "peers",
+      "running"
+    ],
+    "type": "object"
+  },
   "ApiToken": {
     "properties": {
       "createdAt": {
@@ -977,10 +1023,17 @@ export const SCHEMAS: Record<string, unknown> = {
       "enabled": {
         "type": "boolean"
       },
+      "expiresAt": {
+        "format": "int64",
+        "type": "integer"
+      },
       "id": {
         "type": "integer"
       },
       "name": {
+        "type": "string"
+      },
+      "scope": {
         "type": "string"
       },
       "token": {
@@ -991,8 +1044,10 @@ export const SCHEMAS: Record<string, unknown> = {
     "required": [
       "createdAt",
       "enabled",
+      "expiresAt",
       "id",
       "name",
+      "scope",
       "token"
     ],
     "type": "object"
@@ -1008,12 +1063,21 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": true,
         "type": "boolean"
       },
+      "expiresAt": {
+        "example": 0,
+        "format": "int64",
+        "type": "integer"
+      },
       "id": {
         "example": 2,
         "type": "integer"
       },
       "name": {
         "example": "central-panel-a",
+        "type": "string"
+      },
+      "scope": {
+        "example": "admin",
         "type": "string"
       },
       "token": {
@@ -1024,8 +1088,10 @@ export const SCHEMAS: Record<string, unknown> = {
     "required": [
       "createdAt",
       "enabled",
+      "expiresAt",
       "id",
-      "name"
+      "name",
+      "scope"
     ],
     "type": "object"
   },
@@ -1041,6 +1107,16 @@ export const SCHEMAS: Record<string, unknown> = {
           "type": "string"
         },
         "type": "array"
+      },
+      "allowedIPsByInbound": {
+        "additionalProperties": {
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
+        "description": "AllowedIPsByInbound optionally overrides AllowedIPs on a per-inbound\nbasis, keyed by inbound id. Lets one identity attached to both\nWireGuard and AmneziaWG carry two genuinely different addresses in a\nsingle Create/Update call instead of the shared AllowedIPs field\nbeing broadcast to every attached tunnel inbound. Absent/unset for a\ngiven inbound id falls back to the shared AllowedIPs exactly as\nbefore -- fully backward compatible for callers that never set this.",
+        "type": "object"
       },
       "auth": {
         "description": "Auth password (Hysteria)",
@@ -1070,6 +1146,10 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "flow": {
         "description": "Flow control (XTLS)",
+        "type": "string"
+      },
+      "forwardedPorts": {
+        "description": "END LUCX-HOOK\nAmneziaWG per-client port-forwarding spec, e.g. \"80,443,8000-8100\"",
         "type": "string"
       },
       "group": {
@@ -1105,6 +1185,14 @@ export const SCHEMAS: Record<string, unknown> = {
         "description": "Reset period in days",
         "type": "integer"
       },
+      "resetDay": {
+        "description": "Calendar renewal day 1-31, 0 = interval mode",
+        "type": "integer"
+      },
+      "resetMax": {
+        "description": "Max auto-renew count, 0 = unlimited",
+        "type": "integer"
+      },
       "reverse": {
         "allOf": [
           {
@@ -1115,7 +1203,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "nullable": true
       },
       "secret": {
-        "description": "END LUCX-HOOK",
         "example": "ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d",
         "type": "string"
       },
@@ -1137,6 +1224,22 @@ export const SCHEMAS: Record<string, unknown> = {
         "format": "int64",
         "type": "integer"
       },
+      "trafficReset": {
+        "description": "Per-client traffic reset cycle, independent of the inbound's own (#5497).",
+        "enum": [
+          "never",
+          "hourly",
+          "daily",
+          "weekly",
+          "monthly"
+        ],
+        "type": "string"
+      },
+      "trafficResetDay": {
+        "maximum": 31,
+        "minimum": 1,
+        "type": "integer"
+      },
       "updated_at": {
         "description": "Last update timestamp",
         "format": "int64",
@@ -1150,6 +1253,8 @@ export const SCHEMAS: Record<string, unknown> = {
       "expiryTime",
       "limitIp",
       "reset",
+      "resetDay",
+      "resetMax",
       "security",
       "subId",
       "tgId",
@@ -1212,6 +1317,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "flow": {
         "type": "string"
       },
+      "forwardedPorts": {
+        "description": "END LUCX-HOOK",
+        "type": "string"
+      },
       "group": {
         "type": "string"
       },
@@ -1221,6 +1330,9 @@ export const SCHEMAS: Record<string, unknown> = {
       "keepAlive": {
         "description": "LUCX-HOOK: string column so AWG3 ranges (\"15-25\") round-trip; legacy ints coerce via SQLite/PG text",
         "type": "string"
+      },
+      "limitHwid": {
+        "type": "integer"
       },
       "limitIp": {
         "type": "integer"
@@ -1240,9 +1352,14 @@ export const SCHEMAS: Record<string, unknown> = {
       "reset": {
         "type": "integer"
       },
+      "resetDay": {
+        "type": "integer"
+      },
+      "resetMax": {
+        "type": "integer"
+      },
       "reverse": {},
       "secret": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "security": {
@@ -1257,6 +1374,12 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "totalGB": {
         "format": "int64",
+        "type": "integer"
+      },
+      "trafficReset": {
+        "type": "string"
+      },
+      "trafficResetDay": {
         "type": "integer"
       },
       "updatedAt": {
@@ -1277,21 +1400,27 @@ export const SCHEMAS: Record<string, unknown> = {
       "enable",
       "expiryTime",
       "flow",
+      "forwardedPorts",
       "group",
       "id",
       "keepAlive",
+      "limitHwid",
       "limitIp",
       "password",
       "preSharedKey",
       "privateKey",
       "publicKey",
       "reset",
+      "resetDay",
+      "resetMax",
       "reverse",
       "secret",
       "security",
       "subId",
       "tgId",
       "totalGB",
+      "trafficReset",
+      "trafficResetDay",
       "updatedAt",
       "uuid"
     ],
@@ -1342,7 +1471,27 @@ export const SCHEMAS: Record<string, unknown> = {
         "format": "int64",
         "type": "integer"
       },
+      "lastSubFetch": {
+        "example": 1735680000000,
+        "format": "int64",
+        "type": "integer"
+      },
       "reset": {
+        "example": 0,
+        "type": "integer"
+      },
+      "resetCount": {
+        "description": "ResetCount is how many have fired, so a prepaid plan stops on its own.",
+        "example": 0,
+        "type": "integer"
+      },
+      "resetDay": {
+        "description": "ResetDay renews on that day of each calendar month instead of every\nReset days; 0 keeps the interval behaviour.",
+        "example": 0,
+        "type": "integer"
+      },
+      "resetMax": {
+        "description": "ResetMax caps how many times auto-renew may fire; 0 means no cap.",
         "example": 0,
         "type": "integer"
       },
@@ -1373,7 +1522,11 @@ export const SCHEMAS: Record<string, unknown> = {
       "id",
       "inboundId",
       "lastOnline",
+      "lastSubFetch",
       "reset",
+      "resetCount",
+      "resetDay",
+      "resetMax",
       "subId",
       "total",
       "up",
@@ -1913,6 +2066,40 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "HostStatus": {
+    "description": "HostStatus is the dashboard-level AWG snapshot (module + running ifaces).",
+    "properties": {
+      "ifnames": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "interfaces": {
+        "type": "integer"
+      },
+      "moduleAwg3": {
+        "type": "boolean"
+      },
+      "moduleAwg31": {
+        "type": "boolean"
+      },
+      "moduleLoaded": {
+        "type": "boolean"
+      },
+      "version": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "interfaces",
+      "moduleAwg3",
+      "moduleAwg31",
+      "moduleLoaded",
+      "version"
+    ],
+    "type": "object"
+  },
   "Inbound": {
     "description": "Inbound represents an Xray inbound configuration with traffic statistics and settings.",
     "properties": {
@@ -1922,6 +2109,10 @@ export const SCHEMAS: Record<string, unknown> = {
           "$ref": "#/components/schemas/ClientTraffic"
         },
         "type": "array"
+      },
+      "disableFlow": {
+        "example": false,
+        "type": "boolean"
       },
       "down": {
         "description": "Download traffic in bytes",
@@ -1988,6 +2179,7 @@ export const SCHEMAS: Record<string, unknown> = {
           "tunnel",
           "tun",
           "mtproto",
+          "amneziawg",
           "awg",
           "naive",
           "olcrtc",
@@ -2058,6 +2250,7 @@ export const SCHEMAS: Record<string, unknown> = {
     },
     "required": [
       "clientStats",
+      "disableFlow",
       "down",
       "enable",
       "expiryTime",
@@ -2153,6 +2346,15 @@ export const SCHEMAS: Record<string, unknown> = {
         },
         "description": "AwgPeerAddresses maps client email → first single-host AllowedIPs for\nTHIS inbound (multi-attach clients have a different tunnel IP per AWG\ninbound; the clients-table allowedIPs field is only one of them).",
         "type": "object"
+      },
+      "awgServer": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ServerSettings"
+          }
+        ],
+        "description": "AwgServer carries the full AmneziaWG server block (keys, subnet,\nobfuscation params) so the clients page can render a downloadable\nper-client .conf without a second round trip.",
+        "nullable": true
       },
       "awgServerAddress": {
         "description": "AWG obfuscation block — the Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines as they\nappear in a client .conf [Interface] section, plus the server tunnel\naddress. Populated for AWG inbounds so the clients-page QR/.conf path\ncan build a full AmneziaWG client config (mirrors the WG hints above).",
@@ -2908,6 +3110,68 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "PeerActivity": {
+    "description": "PeerActivity is one peer's live embedded-Device-reported state, the\ncounterpart of an Xray access-log entry: a tunnel logs no requests, only\nhandshakes and bytes.",
+    "properties": {
+      "allowedIPs": {
+        "example": "10.8.1.2/32",
+        "type": "string"
+      },
+      "down": {
+        "example": 4194304,
+        "format": "int64",
+        "type": "integer"
+      },
+      "email": {
+        "example": "peer@example.com",
+        "type": "string"
+      },
+      "endpoint": {
+        "example": "203.0.113.9:51820",
+        "type": "string"
+      },
+      "handshake": {
+        "description": "Handshake is unix milliseconds, 0 when the peer has never connected.",
+        "example": 1735732800000,
+        "format": "int64",
+        "type": "integer"
+      },
+      "inboundId": {
+        "example": 1,
+        "type": "integer"
+      },
+      "interface": {
+        "example": "awg1",
+        "type": "string"
+      },
+      "online": {
+        "example": true,
+        "type": "boolean"
+      },
+      "tag": {
+        "example": "inbound-51820",
+        "type": "string"
+      },
+      "up": {
+        "example": 1048576,
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "allowedIPs",
+      "down",
+      "email",
+      "endpoint",
+      "handshake",
+      "inboundId",
+      "interface",
+      "online",
+      "tag",
+      "up"
+    ],
+    "type": "object"
+  },
   "ProbeResultUI": {
     "properties": {
       "cpuPct": {
@@ -2970,6 +3234,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": "h2",
         "type": "string"
       },
+      "certChainValid": {
+        "description": "CertChainValid ignores the name: a trusted chain presented for other names\nstill has serverNames the panel can offer instead of the failing SNI.",
+        "example": true,
+        "type": "boolean"
+      },
       "certIssuer": {
         "example": "Google Trust Services",
         "type": "string"
@@ -3014,6 +3283,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": 443,
         "type": "integer"
       },
+      "privateTarget": {
+        "description": "PrivateTarget marks a target that resolves to a loopback/private/link-local\naddress: blocked before the probe unless the caller opted in, then flagged.",
+        "example": false,
+        "type": "boolean"
+      },
       "reason": {
         "type": "string"
       },
@@ -3042,6 +3316,7 @@ export const SCHEMAS: Record<string, unknown> = {
     },
     "required": [
       "alpn",
+      "certChainValid",
       "certIssuer",
       "certSubject",
       "certValid",
@@ -3053,12 +3328,157 @@ export const SCHEMAS: Record<string, unknown> = {
       "latencyMs",
       "notAfter",
       "port",
+      "privateTarget",
       "reason",
       "serverNames",
       "target",
       "tls13",
       "tlsVersion",
       "x25519"
+    ],
+    "type": "object"
+  },
+  "ServerSettings": {
+    "description": "ServerSettings is the \"server\" block of an AmneziaWG inbound's Settings\nJSON: the interface-level configuration shared by every client/peer. The\nlisten port is deliberately not duplicated here — it lives on the inbound\nrow itself (Inbound.Port), like every other protocol.",
+    "properties": {
+      "contentPaddingAddition": {
+        "type": "string"
+      },
+      "disableCookies": {
+        "type": "boolean"
+      },
+      "externalInterface": {
+        "description": "ExternalInterface, IPv6Enabled, and IPv6ExternalInterface are live\nagain as of Phase 3.5 -- see the matching fields on Instance for what\nthey gate (internal/amneziawgnet's IPv6-address-alias mechanism).\nIPv6Subnet was never actually vestigial either: InstanceFromInbound\nalready consumes it (via serverAddressV6) to build the server's own\ntunnel address, same as always. Only RouteThroughXray, below, remains\ngenuinely vestigial as of the hard cutover to the embedded path\n(internal/amneziawgnet) -- read from existing stored settings for\nbackward compatibility, but not acted on by anything.",
+        "type": "string"
+      },
+      "h1": {
+        "type": "string"
+      },
+      "h2": {
+        "type": "string"
+      },
+      "h3": {
+        "type": "string"
+      },
+      "h4": {
+        "type": "string"
+      },
+      "headerProtectionKey": {
+        "description": "HeaderProtectionKey and ContentPaddingAddition are AmneziaWG 3.0\nfields, flat and top-level for the same tools/openapigen reason as\nthe block above; Obfuscation() below folds them back into\nObfuscation31's own identically named fields.\nHeaderProtectionKey is a base64 32-byte key; empty (the default)\ndisables AWG 3.0 header protection. A non-empty value requires\nevery one of S1-S4 above to be \u003e= 12 -- ValidateObfuscation\nenforces this at save time, not just at IpcSet time.\nContentPaddingAddition is a \"low-high\" range or bare integer, the\nsame grammar and uint32 cap as H1-H4.",
+        "type": "string"
+      },
+      "i1": {
+        "type": "string"
+      },
+      "i2": {
+        "type": "string"
+      },
+      "i3": {
+        "type": "string"
+      },
+      "i4": {
+        "type": "string"
+      },
+      "i5": {
+        "type": "string"
+      },
+      "ipv6Enabled": {
+        "type": "boolean"
+      },
+      "ipv6ExternalInterface": {
+        "type": "string"
+      },
+      "ipv6Subnet": {
+        "type": "string"
+      },
+      "jc": {
+        "description": "Obfuscation31's fields, repeated flat (not embedded) rather than\nnested under their own key: encoding/json would happily inline an\nembedded Obfuscation31 the same way, but the frontend's Go-\u003eZod/TS\ngenerator (tools/openapigen) does not — it emits a genuinely nested\n`obfuscation31` object, which would silently diverge from the real\nwire JSON. See Obfuscation() below for the manager-facing conversion.",
+        "type": "integer"
+      },
+      "jmax": {
+        "type": "integer"
+      },
+      "jmin": {
+        "type": "integer"
+      },
+      "keepaliveTimeout": {
+        "type": "string"
+      },
+      "maxHandshakeAttempts": {
+        "type": "string"
+      },
+      "mtu": {
+        "type": "integer"
+      },
+      "primaryDns": {
+        "description": "PrimaryDNS/SecondaryDNS seed client configs' DNS line. Blank is\nmeaningful, so no omitempty: a dropped key resurrects frontend defaults.",
+        "type": "string"
+      },
+      "privateKey": {
+        "type": "string"
+      },
+      "publicKey": {
+        "type": "string"
+      },
+      "randomTrailers": {
+        "description": "RandomTrailers/DisableCookies mirror Instance's identically named\nAmneziaWG 3.1 fields -- see that type's own doc comment for the real\nprotocol/interop details. Both real bool fields (not omitempty):\nbuildUAPIConfig always emits both lines explicitly so the\nreconfigure-in-place diff correctly notices a true-\u003efalse edit, not\njust false-\u003etrue.",
+        "type": "boolean"
+      },
+      "rejectAfterTime": {
+        "type": "string"
+      },
+      "rekeyAfterTime": {
+        "description": "RekeyAfterTime/RekeyTimeout/RejectAfterTime/KeepaliveTimeout/\nMaxHandshakeAttempts mirror Instance's identically named fields --\nsee that type's own doc comment for the grammar/width/real-default\ndetails. Flat and top-level for the same tools/openapigen reason as\nthe rest of this struct.",
+        "type": "string"
+      },
+      "rekeyTimeout": {
+        "type": "string"
+      },
+      "routeThroughXray": {
+        "type": "boolean"
+      },
+      "s1": {
+        "type": "integer"
+      },
+      "s2": {
+        "type": "integer"
+      },
+      "s3": {
+        "type": "integer"
+      },
+      "s4": {
+        "type": "integer"
+      },
+      "secondaryDns": {
+        "type": "string"
+      },
+      "subnetCidr": {
+        "type": "integer"
+      },
+      "subnetIp": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "disableCookies",
+      "h1",
+      "h2",
+      "h3",
+      "h4",
+      "jc",
+      "jmax",
+      "jmin",
+      "primaryDns",
+      "privateKey",
+      "publicKey",
+      "randomTrailers",
+      "s1",
+      "s2",
+      "s3",
+      "s4",
+      "secondaryDns",
+      "subnetCidr",
+      "subnetIp"
     ],
     "type": "object"
   },
@@ -3079,6 +3499,71 @@ export const SCHEMAS: Record<string, unknown> = {
       "id",
       "key",
       "value"
+    ],
+    "type": "object"
+  },
+  "SubBalancer": {
+    "description": "SubBalancer is one extra JSON-subscription config document whose members are\nthe selected inbounds' proxy outbounds. SortOrder shares SubSortIndex semantics.",
+    "properties": {
+      "createdAt": {
+        "example": 1710000000000,
+        "format": "int64",
+        "type": "integer"
+      },
+      "enabled": {
+        "description": "No gorm default:true — a bool default makes an explicit false at insert\ncollapse back to the column default (zero value is skipped).",
+        "example": true,
+        "type": "boolean"
+      },
+      "id": {
+        "example": 1,
+        "type": "integer"
+      },
+      "inboundIds": {
+        "example": [
+          1,
+          3
+        ],
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "remark": {
+        "example": "auto-fastest",
+        "maxLength": 256,
+        "type": "string"
+      },
+      "sortOrder": {
+        "example": 1,
+        "minimum": 1,
+        "type": "integer"
+      },
+      "strategy": {
+        "enum": [
+          "leastLoad",
+          "leastPing",
+          "random",
+          "roundRobin"
+        ],
+        "example": "random",
+        "type": "string"
+      },
+      "updatedAt": {
+        "example": 1710000000000,
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "createdAt",
+      "enabled",
+      "id",
+      "inboundIds",
+      "remark",
+      "sortOrder",
+      "strategy",
+      "updatedAt"
     ],
     "type": "object"
   },

@@ -2,6 +2,9 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  amneziawgConfigFromLink,
+  genAmneziaWGConfig,
+  genAmneziaWGLink,
   genHysteriaLink,
   genInboundLinks,
   genShadowsocksLink,
@@ -15,17 +18,26 @@ import {
   resolveAddr,
 } from '@/lib/xray/inbound-link';
 import { InboundSchema } from '@/schemas/api/inbound';
+import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
 import type { WireguardInboundSettings } from '@/schemas/protocols/inbound/wireguard';
+
+// reverse of inbound-link.ts's own toBase64Url, for asserting on the
+// decoded vpn:// payload without depending on that helper being exported.
+function fromBase64Url(value: string): string {
+  const b64 = value.replace(/-/g, '+').replace(/_/g, '/');
+  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
+  return atob(padded);
+}
 
 // Snapshot baseline for the share-link generators. Snapshots were locked
 // at the close of the legacy class migration — at that point each
 // generator was verified byte-equal to the corresponding legacy Inbound
 // class method. Future drift past this baseline is a regression.
 
-const fullFixtures = import.meta.glob<unknown>(
-  './golden/fixtures/inbound-full/*.json',
-  { eager: true, import: 'default' },
-);
+const fullFixtures = import.meta.glob<unknown>('./golden/fixtures/inbound-full/*.json', {
+  eager: true,
+  import: 'default',
+});
 
 function fixtureName(path: string): string {
   const file = path.split('/').pop() ?? path;
@@ -35,7 +47,10 @@ function fixtureName(path: string): string {
 function fixturesForProtocol(protocol: string): Array<[string, Record<string, unknown>]> {
   return Object.entries(fullFixtures)
     .filter(([, raw]) => (raw as { protocol?: string }).protocol === protocol)
-    .map(([path, raw]): [string, Record<string, unknown>] => [fixtureName(path), raw as Record<string, unknown>])
+    .map(([path, raw]): [string, Record<string, unknown>] => [
+      fixtureName(path),
+      raw as Record<string, unknown>,
+    ])
     .sort(([a], [b]) => a.localeCompare(b));
 }
 
@@ -46,7 +61,8 @@ describe('genVmessLink', () => {
   for (const [name, raw] of fixtures) {
     it(`${name}: byte-stable`, () => {
       const typed = InboundSchema.parse(raw);
-      const settings = (raw as { settings: { clients: Array<{ id: string; security?: string }> } }).settings;
+      const settings = (raw as { settings: { clients: Array<{ id: string; security?: string }> } })
+        .settings;
       const client = settings.clients[0];
 
       const link = genVmessLink({
@@ -71,7 +87,8 @@ describe('genVlessLink', () => {
   for (const [name, raw] of fixtures) {
     it(`${name}: byte-stable`, () => {
       const typed = InboundSchema.parse(raw);
-      const settings = (raw as { settings: { clients: Array<{ id: string; flow?: string }> } }).settings;
+      const settings = (raw as { settings: { clients: Array<{ id: string; flow?: string }> } })
+        .settings;
       const client = settings.clients[0];
 
       const link = genVlessLink({
@@ -118,7 +135,13 @@ describe('genVlessLink vlessRoute', () => {
       remark: 'r',
       clientId: '11111111-2222-4333-8444-555555555555',
       flow: '' as never,
-      externalProxy: { forceTls: 'same', dest: 'example.test', port: typed.port, remark: '', vlessRoute: '443' },
+      externalProxy: {
+        forceTls: 'same',
+        dest: 'example.test',
+        port: typed.port,
+        remark: '',
+        vlessRoute: '443',
+      },
     });
     expect(link).toContain('vless://11111111-2222-01bb-8444-555555555555@');
   });
@@ -214,7 +237,8 @@ describe('genHysteriaLink', () => {
     const [, raw] = fixtures[0];
     const base64Pin = 'yEfdI5XQl4wHgLggHEsomosoFZfUfCdfLXfT+W2N6cQ=';
     const hexPin = '84491c0312d9e70f519ce24659a2ca7d9c4ec59dc86417ece426945e0f939293';
-    const colonPin = 'C8:47:DD:23:95:D0:97:8C:07:80:B8:20:1C:4B:28:9A:8B:28:15:97:D4:7C:27:5F:2D:77:D3:F9:6D:8D:E9:C4';
+    const colonPin =
+      'C8:47:DD:23:95:D0:97:8C:07:80:B8:20:1C:4B:28:9A:8B:28:15:97:D4:7C:27:5F:2D:77:D3:F9:6D:8D:E9:C4';
     const stream = raw.streamSettings as Record<string, unknown>;
     const tls = stream.tlsSettings as Record<string, unknown>;
     const tlsClientSettings = tls.settings as Record<string, unknown>;
@@ -363,25 +387,69 @@ function awgSettings(version: '1.5' | '2' | '3' | '3.1'): AwgInboundSettings {
     mimicryProfile: 'quic',
     browserProfile: 'chrome',
     region: 'world',
-    jc: 5, jmin: 50, jmax: 200,
-    s1: 30, s2: 60, s3: 20, s4: 25,
-    h1: '100000-500000', h2: '600000-900000', h3: '1000000-1500000', h4: '1600000-2000000',
-    i1: '<b 0xaa>', i2: '<b 0xbb>', i3: '<b 0xcc>', i4: '<b 0xdd>', i5: '<b 0xee>',
+    jc: 5,
+    jmin: 50,
+    jmax: 200,
+    s1: 30,
+    s2: 60,
+    s3: 20,
+    s4: 25,
+    h1: '100000-500000',
+    h2: '600000-900000',
+    h3: '1000000-1500000',
+    h4: '1600000-2000000',
+    i1: '<b 0xaa>',
+    i2: '<b 0xbb>',
+    i3: '<b 0xcc>',
+    i4: '<b 0xdd>',
+    i5: '<b 0xee>',
     headerProtectionKey: 'aBcD...base64hpk==',
     awgVersion: version,
-    contentPaddingAddition: '0', rekeyAfterTime: '0', rekeyTimeout: '0',
-    rejectAfterTime: '0', keepaliveTimeout: '0', maxHandshakeAttempts: '0',
-    randomTrailers: version === '3.1', disableCookies: false,
+    contentPaddingAddition: '0',
+    rekeyAfterTime: '0',
+    rekeyTimeout: '0',
+    rejectAfterTime: '0',
+    keepaliveTimeout: '0',
+    maxHandshakeAttempts: '0',
+    randomTrailers: version === '3.1',
+    disableCookies: false,
     routeThroughXray: true,
     outboundTag: '',
-    clients: [{ privateKey: 'clientPrivKeyBase64', publicKey: 'peerPub', preSharedKey: 'psk', allowedIPs: ['10.8.0.2/32'], keepAlive: '25', email: 'u', limitIp: 0, totalGB: 0, expiryTime: 0, enable: true, tgId: 0, subId: '', comment: '', reset: 0 }] as AwgInboundSettings['clients'],
+    clients: [
+      {
+        privateKey: 'clientPrivKeyBase64',
+        publicKey: 'peerPub',
+        preSharedKey: 'psk',
+        allowedIPs: ['10.8.0.2/32'],
+        keepAlive: '25',
+        email: 'u',
+        limitIp: 0,
+        totalGB: 0,
+        expiryTime: 0,
+        enable: true,
+        tgId: 0,
+        subId: '',
+        comment: '',
+        reset: 0,
+      },
+    ] as AwgInboundSettings['clients'],
   };
 }
 
 describe('genAwgLink + genAwgConfig version gating', () => {
   it('v3 emits S3/S4, I1-I5, and headerprotectionkey', () => {
-    const link = genAwgLink({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
-    const config = genAwgConfig({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const link = genAwgLink({
+      settings: awgSettings('3'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
+    const config = genAwgConfig({
+      settings: awgSettings('3'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
     const u = new URL(link);
     expect(u.searchParams.get('s3')).toBe('20');
     expect(u.searchParams.get('s4')).toBe('25');
@@ -392,8 +460,18 @@ describe('genAwgLink + genAwgConfig version gating', () => {
   });
 
   it('v2 emits S3/S4 and I1-I5 but NOT headerprotectionkey', () => {
-    const link = genAwgLink({ settings: awgSettings('2'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
-    const config = genAwgConfig({ settings: awgSettings('2'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const link = genAwgLink({
+      settings: awgSettings('2'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
+    const config = genAwgConfig({
+      settings: awgSettings('2'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
     const u = new URL(link);
     expect(u.searchParams.get('s3')).toBe('20');
     expect(u.searchParams.get('headerprotectionkey')).toBeNull();
@@ -402,8 +480,18 @@ describe('genAwgLink + genAwgConfig version gating', () => {
   });
 
   it('v1.5 omits S3/S4, I1-I5, and headerprotectionkey', () => {
-    const link = genAwgLink({ settings: awgSettings('1.5'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
-    const config = genAwgConfig({ settings: awgSettings('1.5'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const link = genAwgLink({
+      settings: awgSettings('1.5'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
+    const config = genAwgConfig({
+      settings: awgSettings('1.5'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
     const u = new URL(link);
     expect(u.searchParams.get('s3')).toBeNull();
     expect(u.searchParams.get('i1')).toBeNull();
@@ -414,7 +502,11 @@ describe('genAwgLink + genAwgConfig version gating', () => {
 
   it('genAwgConfig clamps an override below the ceiling', () => {
     const config = genAwgConfig({
-      settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0, awgVersionOverride: '1.5',
+      settings: awgSettings('3'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+      awgVersionOverride: '1.5',
     });
     expect(config).not.toContain('S3 =');
     expect(config).not.toContain('HeaderProtectionKey');
@@ -424,7 +516,12 @@ describe('genAwgLink + genAwgConfig version gating', () => {
   it('v3.1 emits RandomTrailers and keeps HPK', () => {
     const settings = awgSettings('3.1');
     const link = genAwgLink({ settings, address: 'wg.example.test', port: 51820, peerIndex: 0 });
-    const config = genAwgConfig({ settings, address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({
+      settings,
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
     const u = new URL(link);
     expect(u.searchParams.get('headerprotectionkey')).toBe('aBcD...base64hpk==');
     expect(u.searchParams.get('randomtrailers')).toBe('true');
@@ -435,22 +532,42 @@ describe('genAwgLink + genAwgConfig version gating', () => {
   });
 
   it('v3 does NOT emit AdvancedSecurity (kernel ignores it, risks parse errors)', () => {
-    const config = genAwgConfig({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({
+      settings: awgSettings('3'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
     expect(config).not.toContain('AdvancedSecurity');
   });
 
   it('v2 does NOT emit AdvancedSecurity', () => {
-    const config = genAwgConfig({ settings: awgSettings('2'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({
+      settings: awgSettings('2'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
     expect(config).not.toContain('AdvancedSecurity');
   });
 
   it('v1.5 does NOT emit AdvancedSecurity', () => {
-    const config = genAwgConfig({ settings: awgSettings('1.5'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({
+      settings: awgSettings('1.5'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
     expect(config).not.toContain('AdvancedSecurity');
   });
 
   it('v3 config does not emit zero-valued AWG3 device timers', () => {
-    const config = genAwgConfig({ settings: awgSettings('3'), address: 'wg.example.test', port: 51820, peerIndex: 0 });
+    const config = genAwgConfig({
+      settings: awgSettings('3'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
     expect(config).not.toContain('ContentPaddingAddition');
     expect(config).not.toContain('RekeyAfterTime');
     expect(config).not.toContain('RekeyTimeout');
@@ -460,6 +577,183 @@ describe('genAwgLink + genAwgConfig version gating', () => {
   });
 });
 // END LUCX-HOOK
+// Real AmneziaVPN app's import path (confirmed by reading its own source)
+// base64url-decodes a vpn:// link, best-effort decompresses it (falling back
+// to the raw bytes for plain text, which is never qCompress-framed), then
+// parses the result as a flat "Key = Value" bag -- so genAmneziaWGLink just
+// needs to wrap genAmneziaWGConfig's already-correct .conf text.
+describe('genAmneziaWGLink vpn:// scheme', () => {
+  const settings = {
+    server: {
+      publicKey: 'serverPubKey==',
+      mtu: 1420,
+      primaryDns: '8.8.8.8',
+      secondaryDns: '8.8.4.4',
+      jc: 5,
+      jmin: 10,
+      jmax: 50,
+      s1: 30,
+      s2: 45,
+      s3: 10,
+      s4: 5,
+      h1: '',
+      h2: '',
+      h3: '',
+      h4: '',
+      i1: '',
+    },
+    clients: [
+      {
+        email: 'peer-1',
+        privateKey: 'clientPrivKey==',
+        allowedIPs: ['10.8.1.2/32'],
+        keepAlive: 25,
+      },
+    ],
+  } as unknown as AmneziawgInboundSettings;
+
+  const input = {
+    settings,
+    address: 'awg.example.test',
+    port: 51820,
+    remark: 'awg-peer-1',
+    peerIndex: 0,
+  };
+
+  it('wraps the .conf text as a base64url-encoded vpn:// link, byte-identical to genAmneziaWGConfig', () => {
+    const link = genAmneziaWGLink(input);
+    expect(link.startsWith('vpn://')).toBe(true);
+
+    const decoded = fromBase64Url(link.slice('vpn://'.length));
+    expect(decoded).toBe(genAmneziaWGConfig(input));
+    expect(decoded).toContain('PrivateKey = clientPrivKey==\n');
+    expect(decoded).toContain('PublicKey = serverPubKey==\n');
+    expect(decoded).toContain('Endpoint = awg.example.test:51820');
+    // No trailing newline: the text ends on its last set field whichever that
+    // is, so the three emitters produce the same shape for the same client.
+    expect(decoded.endsWith('PersistentKeepalive = 25')).toBe(true);
+  });
+
+  it('omits every unset 3.1 field — a lone HeaderProtectionKey line would break the handshake', () => {
+    const decoded = fromBase64Url(genAmneziaWGLink(input).slice('vpn://'.length));
+    for (const absent of [
+      'I2',
+      'HeaderProtectionKey',
+      'ContentPaddingAddition',
+      'RekeyAfterTime',
+      'RekeyTimeout',
+      'RejectAfterTime',
+      'KeepaliveTimeout',
+      'MaxHandshakeAttempts',
+      'RandomTrailers',
+      'DisableCookies',
+    ]) {
+      expect(decoded).not.toContain(absent);
+    }
+  });
+
+  it('returns an empty string when the peer index has no client', () => {
+    expect(genAmneziaWGLink({ ...input, peerIndex: 5 })).toBe('');
+  });
+
+  // The subscription page's own reverse of the above: recovers a vpn://
+  // link's .conf text for the same copy/download/QR "Config" block
+  // WireGuard already gets there (wireguardConfigFromLink's AmneziaWG
+  // counterpart) -- found missing from that page in production (no
+  // download-config affordance for AmneziaWG links, unlike WireGuard's),
+  // even though every other surface in the panel (InboundInfoModal,
+  // ClientInfoModal, ClientQrModal) already had parity.
+  it('amneziawgConfigFromLink round-trips genAmneziaWGLink byte-identical to genAmneziaWGConfig', () => {
+    const link = genAmneziaWGLink(input);
+    expect(amneziawgConfigFromLink(link)).toBe(genAmneziaWGConfig(input));
+  });
+});
+
+describe('amneziawgConfigFromLink edge cases', () => {
+  it('returns an empty string for a non-vpn:// link', () => {
+    expect(amneziawgConfigFromLink('wireguard://abc')).toBe('');
+    expect(amneziawgConfigFromLink('')).toBe('');
+  });
+
+  it('returns an empty string for an unparseable vpn:// payload', () => {
+    expect(amneziawgConfigFromLink('vpn://not-valid-base64url!!!')).toBe('');
+  });
+});
+
+/*
+ * The full AmneziaWG 3.1 parameter block, pinned line-by-line and in order:
+ * the emitted client config must carry the identical block the Go server
+ * emitter writes (internal/amneziawg.writeObfuscation) or the tunnel breaks.
+ */
+describe('genAmneziaWGConfig 3.1 parameters', () => {
+  const settings = {
+    server: {
+      publicKey: 'serverPubKey==',
+      jc: 4,
+      jmin: 40,
+      jmax: 100,
+      s1: 30,
+      s2: 90,
+      s3: 20,
+      s4: 10,
+      h1: '10-2000',
+      h2: '3000-5000',
+      h3: '6000-8000',
+      h4: '9000-11000',
+      i1: '<r 64>',
+      i2: '<r 80>',
+      i3: '',
+      i4: '',
+      i5: '',
+      headerProtectionKey: 'MCPfRGcDGotJ6TcnIdDqsemj2cMIiGHnPUHM5ivXN18=',
+      contentPaddingAddition: '16-48',
+      rekeyAfterTime: '110-140',
+      rekeyTimeout: '4-8',
+      rejectAfterTime: '190-250',
+      keepaliveTimeout: '9-15',
+      maxHandshakeAttempts: '20-40',
+      randomTrailers: true,
+      disableCookies: true,
+    },
+    clients: [{ email: 'peer-1', privateKey: 'clientPrivKey==', allowedIPs: ['10.8.1.2/32'] }],
+  } as unknown as AmneziawgInboundSettings;
+
+  const input = {
+    settings,
+    address: 'awg.example.test',
+    port: 51820,
+    remark: 'awg-31',
+    peerIndex: 0,
+  };
+
+  it('emits every 3.1 line in the shared emitter order and round-trips through vpn://', () => {
+    const cfg = genAmneziaWGConfig(input);
+    const expectedOrder = [
+      'Jc = 4',
+      'H4 = 9000-11000',
+      'I1 = <r 64>',
+      'I2 = <r 80>',
+      'HeaderProtectionKey = MCPfRGcDGotJ6TcnIdDqsemj2cMIiGHnPUHM5ivXN18=',
+      'ContentPaddingAddition = 16-48',
+      'RekeyAfterTime = 110-140',
+      'RekeyTimeout = 4-8',
+      'RejectAfterTime = 190-250',
+      'KeepaliveTimeout = 9-15',
+      'MaxHandshakeAttempts = 20-40',
+      'RandomTrailers = on',
+      'DisableCookies = on',
+      '[Peer]',
+    ];
+    let pos = -1;
+    for (const line of expectedOrder) {
+      const i = cfg.indexOf(line);
+      expect(i, `missing or out-of-order: ${line}\n${cfg}`).toBeGreaterThan(pos);
+      pos = i;
+    }
+    expect(cfg).not.toContain('I3');
+    expect(amneziawgConfigFromLink(genAmneziaWGLink(input))).toBe(cfg);
+  });
+});
 
 describe('resolveAddr precedence', () => {
   const baseInbound = {
@@ -469,99 +763,128 @@ describe('resolveAddr precedence', () => {
   };
 
   it('prefers hostOverride over listen and fallback', () => {
-    expect(resolveAddr(
-      { ...baseInbound, listen: '10.0.0.1' } as never,
-      'cdn.example.test',
-      'fallback.test',
-    )).toBe('cdn.example.test');
+    expect(
+      resolveAddr(
+        { ...baseInbound, listen: '10.0.0.1' } as never,
+        'cdn.example.test',
+        'fallback.test',
+      ),
+    ).toBe('cdn.example.test');
   });
 
   it('uses listen when override is empty and listen is explicit', () => {
-    expect(resolveAddr(
-      { ...baseInbound, listen: '10.0.0.1' } as never,
-      '',
-      'fallback.test',
-    )).toBe('10.0.0.1');
+    expect(resolveAddr({ ...baseInbound, listen: '10.0.0.1' } as never, '', 'fallback.test')).toBe(
+      '10.0.0.1',
+    );
   });
 
   it('skips listen when it is 0.0.0.0 and falls through to fallbackHostname', () => {
-    expect(resolveAddr(
-      { ...baseInbound, listen: '0.0.0.0' } as never,
-      '',
+    expect(resolveAddr({ ...baseInbound, listen: '0.0.0.0' } as never, '', 'fallback.test')).toBe(
       'fallback.test',
-    )).toBe('fallback.test');
+    );
   });
 
   it('skips a unix socket path listen and falls through to fallbackHostname', () => {
-    expect(resolveAddr(
-      { ...baseInbound, listen: '/run/xray/in.sock' } as never,
-      '',
-      'fallback.test',
-    )).toBe('fallback.test');
-    expect(resolveAddr(
-      { ...baseInbound, listen: '@xray-abstract' } as never,
-      '',
-      'fallback.test',
-    )).toBe('fallback.test');
+    expect(
+      resolveAddr({ ...baseInbound, listen: '/run/xray/in.sock' } as never, '', 'fallback.test'),
+    ).toBe('fallback.test');
+    expect(
+      resolveAddr({ ...baseInbound, listen: '@xray-abstract' } as never, '', 'fallback.test'),
+    ).toBe('fallback.test');
   });
 
   it('falls through to fallbackHostname when listen is empty', () => {
-    expect(resolveAddr(
-      baseInbound as never,
-      '',
-      'fallback.test',
-    )).toBe('fallback.test');
+    expect(resolveAddr(baseInbound as never, '', 'fallback.test')).toBe('fallback.test');
   });
 
   it('uses listen strategy with a shareable IPv6 listen before node override', () => {
-    expect(resolveAddr(
-      { ...baseInbound, listen: '[2001:db8::1]', shareAddrStrategy: 'listen', shareAddr: '' } as never,
-      'node.example.test',
-      'fallback.test',
-    )).toBe('[2001:db8::1]');
+    expect(
+      resolveAddr(
+        {
+          ...baseInbound,
+          listen: '[2001:db8::1]',
+          shareAddrStrategy: 'listen',
+          shareAddr: '',
+        } as never,
+        'node.example.test',
+        'fallback.test',
+      ),
+    ).toBe('[2001:db8::1]');
   });
 
   it('uses listen strategy to prefer listen and fall back to node override', () => {
-    expect(resolveAddr(
-      { ...baseInbound, listen: '10.0.0.1', shareAddrStrategy: 'listen', shareAddr: '' } as never,
-      'node.example.test',
-      'fallback.test',
-    )).toBe('10.0.0.1');
-    expect(resolveAddr(
-      { ...baseInbound, listen: '0.0.0.0', shareAddrStrategy: 'listen', shareAddr: '' } as never,
-      'node.example.test',
-      'fallback.test',
-    )).toBe('node.example.test');
-    expect(resolveAddr(
-      { ...baseInbound, listen: 'localhost', shareAddrStrategy: 'listen', shareAddr: '' } as never,
-      'node.example.test',
-      'fallback.test',
-    )).toBe('node.example.test');
+    expect(
+      resolveAddr(
+        { ...baseInbound, listen: '10.0.0.1', shareAddrStrategy: 'listen', shareAddr: '' } as never,
+        'node.example.test',
+        'fallback.test',
+      ),
+    ).toBe('10.0.0.1');
+    expect(
+      resolveAddr(
+        { ...baseInbound, listen: '0.0.0.0', shareAddrStrategy: 'listen', shareAddr: '' } as never,
+        'node.example.test',
+        'fallback.test',
+      ),
+    ).toBe('node.example.test');
+    expect(
+      resolveAddr(
+        {
+          ...baseInbound,
+          listen: 'localhost',
+          shareAddrStrategy: 'listen',
+          shareAddr: '',
+        } as never,
+        'node.example.test',
+        'fallback.test',
+      ),
+    ).toBe('node.example.test');
   });
 
   it('uses custom strategy address before node override', () => {
-    expect(resolveAddr(
-      { ...baseInbound, listen: '10.0.0.1', shareAddrStrategy: 'custom', shareAddr: 'edge.example.test' } as never,
-      'node.example.test',
-      'fallback.test',
-    )).toBe('edge.example.test');
+    expect(
+      resolveAddr(
+        {
+          ...baseInbound,
+          listen: '10.0.0.1',
+          shareAddrStrategy: 'custom',
+          shareAddr: 'edge.example.test',
+        } as never,
+        'node.example.test',
+        'fallback.test',
+      ),
+    ).toBe('edge.example.test');
   });
 
   it('normalizes a bare IPv6 custom strategy address', () => {
-    expect(resolveAddr(
-      { ...baseInbound, listen: '10.0.0.1', shareAddrStrategy: 'custom', shareAddr: '2001:db8::2' } as never,
-      'node.example.test',
-      'fallback.test',
-    )).toBe('[2001:db8::2]');
+    expect(
+      resolveAddr(
+        {
+          ...baseInbound,
+          listen: '10.0.0.1',
+          shareAddrStrategy: 'custom',
+          shareAddr: '2001:db8::2',
+        } as never,
+        'node.example.test',
+        'fallback.test',
+      ),
+    ).toBe('[2001:db8::2]');
   });
 
   it('ignores invalid custom strategy addresses and falls back to node override', () => {
-    for (const shareAddr of ['https://edge.example.test', 'edge.example.test:8443', '[2001:db8::2]:8443', 'bad host']) {
-      expect(resolveAddr(
-        { ...baseInbound, listen: '10.0.0.1', shareAddrStrategy: 'custom', shareAddr } as never,
-        'node.example.test',
-        'fallback.test',
-      )).toBe('node.example.test');
+    for (const shareAddr of [
+      'https://edge.example.test',
+      'edge.example.test:8443',
+      '[2001:db8::2]:8443',
+      'bad host',
+    ]) {
+      expect(
+        resolveAddr(
+          { ...baseInbound, listen: '10.0.0.1', shareAddrStrategy: 'custom', shareAddr } as never,
+          'node.example.test',
+          'fallback.test',
+        ),
+      ).toBe('node.example.test');
     }
   });
 });
@@ -587,11 +910,9 @@ describe('preferPublicHost (loopback fallback)', () => {
 
   it('an explicit per-inbound listen still wins over the loopback fallback', () => {
     const inbound = { listen: '203.0.113.9', port: 443, protocol: 'vless' as const };
-    expect(resolveAddr(
-      inbound as never,
-      '',
-      preferPublicHost('127.0.0.1', 'sub.example.com'),
-    )).toBe('203.0.113.9');
+    expect(
+      resolveAddr(inbound as never, '', preferPublicHost('127.0.0.1', 'sub.example.com')),
+    ).toBe('203.0.113.9');
   });
 });
 
@@ -599,7 +920,10 @@ describe('genInboundLinks orchestrator', () => {
   // Every full-inbound fixture should produce the same \r\n-joined link
   // block at this baseline.
   const fixtures = Object.entries(fullFixtures)
-    .map(([path, raw]): [string, Record<string, unknown>] => [fixtureName(path), raw as Record<string, unknown>])
+    .map(([path, raw]): [string, Record<string, unknown>] => [
+      fixtureName(path),
+      raw as Record<string, unknown>,
+    ])
     .sort(([a], [b]) => a.localeCompare(b));
 
   for (const [name, raw] of fixtures) {
@@ -644,7 +968,8 @@ describe('IPv6 bracket wrapping in share-link authority', () => {
   it('genVlessLink brackets a bare IPv6 address', () => {
     const [, raw] = fixturesForProtocol('vless')[0];
     const typed = InboundSchema.parse(raw);
-    const clientId = (raw as { settings: { clients: Array<{ id: string }> } }).settings.clients[0].id;
+    const clientId = (raw as { settings: { clients: Array<{ id: string }> } }).settings.clients[0]
+      .id;
 
     const link = genVlessLink({
       inbound: typed,
@@ -658,7 +983,8 @@ describe('IPv6 bracket wrapping in share-link authority', () => {
   it('genTrojanLink brackets a bare IPv6 address', () => {
     const [, raw] = fixturesForProtocol('trojan')[0];
     const typed = InboundSchema.parse(raw);
-    const clientPassword = (raw as { settings: { clients: Array<{ password: string }> } }).settings.clients[0].password;
+    const clientPassword = (raw as { settings: { clients: Array<{ password: string }> } }).settings
+      .clients[0].password;
 
     const link = genTrojanLink({
       inbound: typed,
@@ -672,7 +998,9 @@ describe('IPv6 bracket wrapping in share-link authority', () => {
   it('genShadowsocksLink brackets a bare IPv6 address', () => {
     const [, raw] = fixturesForProtocol('shadowsocks')[0];
     const typed = InboundSchema.parse(raw);
-    const clientPassword = (raw as { settings: { clients?: Array<{ password: string }> } }).settings.clients?.[0]?.password ?? '';
+    const clientPassword =
+      (raw as { settings: { clients?: Array<{ password: string }> } }).settings.clients?.[0]
+        ?.password ?? '';
 
     const link = genShadowsocksLink({
       inbound: typed,
@@ -686,7 +1014,8 @@ describe('IPv6 bracket wrapping in share-link authority', () => {
   it('genHysteriaLink brackets a bare IPv6 address', () => {
     const [, raw] = fixturesForProtocol('hysteria')[0];
     const typed = InboundSchema.parse(raw);
-    const clientAuth = (raw as { settings: { clients: Array<{ auth: string }> } }).settings.clients[0].auth;
+    const clientAuth = (raw as { settings: { clients: Array<{ auth: string }> } }).settings
+      .clients[0].auth;
 
     const link = genHysteriaLink({
       inbound: typed,
@@ -715,7 +1044,8 @@ describe('IPv6 bracket wrapping in share-link authority', () => {
   it('does not bracket IPv4 addresses or hostnames', () => {
     const [, raw] = fixturesForProtocol('vless')[0];
     const typed = InboundSchema.parse(raw);
-    const clientId = (raw as { settings: { clients: Array<{ id: string }> } }).settings.clients[0].id;
+    const clientId = (raw as { settings: { clients: Array<{ id: string }> } }).settings.clients[0]
+      .id;
 
     const v4 = genVlessLink({ inbound: typed, address: '203.0.113.7', port: 443, clientId });
     expect(new URL(v4).host).toBe('203.0.113.7:443');
@@ -923,7 +1253,10 @@ describe('genVlessLink XHTTP extra compatibility', () => {
       port: 443,
       clientId: '11111111-2222-3333-4444-555555555555',
     });
-    const extra = JSON.parse(new URL(link).searchParams.get('extra') ?? '{}') as Record<string, unknown>;
+    const extra = JSON.parse(new URL(link).searchParams.get('extra') ?? '{}') as Record<
+      string,
+      unknown
+    >;
 
     expect(extra.sessionIDPlacement).toBe('header');
     expect(extra.sessionIDKey).toBe('X-Session');

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Dropdown, Modal, Space, Table, Tabs, message } from 'antd';
 import {
@@ -60,7 +60,12 @@ export default function RoutingTab({
   const [editingIndex, setEditingIndex] = useState<number | null>(null);
   const [draggedIndex, setDraggedIndex] = useState<number | null>(null);
   const [dropTargetIndex, setDropTargetIndex] = useState<number | null>(null);
-  const dragRef = useRef<{ from: number | null; to: number | null; startY: number; moved: boolean }>({
+  const dragRef = useRef<{
+    from: number | null;
+    to: number | null;
+    startY: number;
+    moved: boolean;
+  }>({
     from: null,
     to: null,
     startY: 0,
@@ -72,7 +77,6 @@ export default function RoutingTab({
     [templateSettings?.routing?.rules],
   );
   const rulesRef = useRef(rules);
-  rulesRef.current = rules;
   const rowsRef = useRef<RuleRow[]>([]);
 
   const rows: RuleRow[] = useMemo(
@@ -104,7 +108,11 @@ export default function RoutingTab({
         }),
     [rules],
   );
-  rowsRef.current = rows;
+
+  useEffect(() => {
+    rulesRef.current = rules;
+    rowsRef.current = rows;
+  });
 
   const mutate = useCallback(
     (mutator: (next: XraySettingsValue) => void) => {
@@ -129,11 +137,15 @@ export default function RoutingTab({
     for (const ib of (templateSettings?.inbounds as Array<{ tag?: string }>) || []) push(ib?.tag);
     for (const tag of inboundTags || []) push(tag);
     for (const ob of templateSettings?.outbounds || []) {
-      const obx = ob as { reverse?: { tag?: string }; settings?: { reverse?: { tag?: string }; inboundTag?: string } };
+      const obx = ob as {
+        reverse?: { tag?: string };
+        settings?: { reverse?: { tag?: string }; inboundTag?: string };
+      };
       push(obx?.reverse?.tag || obx?.settings?.reverse?.tag || obx?.settings?.inboundTag);
     }
     push((templateSettings?.dns as { tag?: string } | undefined)?.tag);
-    for (const s of (templateSettings?.dns as { servers?: Array<{ tag?: string }> } | undefined)?.servers || []) {
+    for (const s of (templateSettings?.dns as { servers?: Array<{ tag?: string }> } | undefined)
+      ?.servers || []) {
       if (typeof s === 'object' && s?.tag) push(s.tag);
     }
     return out;
@@ -237,9 +249,10 @@ export default function RoutingTab({
       okText: t('delete'),
       okType: 'danger',
       cancelText: t('cancel'),
-      onOk: () => mutate((tt) => {
-        tt.routing?.rules?.splice(target, 1);
-      }),
+      onOk: () =>
+        mutate((tt) => {
+          tt.routing?.rules?.splice(target, 1);
+        }),
     });
   }
 
@@ -277,7 +290,9 @@ export default function RoutingTab({
     ev.preventDefault();
     try {
       (ev.currentTarget as Element).setPointerCapture(ev.pointerId);
-    } catch { /* ignore */ }
+    } catch {
+      /* ignore */
+    }
     dragRef.current = { from: idx, to: idx, startY: ev.clientY, moved: false };
     setDraggedIndex(idx);
     setDropTargetIndex(idx);
@@ -372,8 +387,19 @@ export default function RoutingTab({
                     trigger={['click']}
                     menu={{
                       items: [
-                        { key: 'import', icon: <ImportOutlined />, label: t('pages.xray.importRules'), onClick: () => setImportOpen(true) },
-                        { key: 'export', icon: <ExportOutlined />, label: t('pages.xray.exportRules'), disabled: rules.length === 0, onClick: exportRules },
+                        {
+                          key: 'import',
+                          icon: <ImportOutlined />,
+                          label: t('pages.xray.importRules'),
+                          onClick: () => setImportOpen(true),
+                        },
+                        {
+                          key: 'export',
+                          icon: <ExportOutlined />,
+                          label: t('pages.xray.exportRules'),
+                          disabled: rules.length === 0,
+                          onClick: exportRules,
+                        },
                       ],
                     }}
                   >
@@ -409,7 +435,10 @@ export default function RoutingTab({
                       if (dropTargetIndex === i && draggedIndex !== i && draggedIndex != null) {
                         classes.push(i > draggedIndex ? 'drop-after' : 'drop-before');
                       }
-                      return { className: classes.join(' '), 'data-row-key': i } as React.HTMLAttributes<HTMLElement>;
+                      return {
+                        className: classes.join(' '),
+                        'data-row-key': i,
+                      } as React.HTMLAttributes<HTMLElement>;
                     }}
                   />
                 )}

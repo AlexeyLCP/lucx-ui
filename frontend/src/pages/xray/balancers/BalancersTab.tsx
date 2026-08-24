@@ -1,7 +1,27 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Dropdown, Empty, Modal, Select, Space, Table, Tabs, Tag, Tooltip, message } from 'antd';
-import { PlusOutlined, MoreOutlined, EditOutlined, DeleteOutlined, SyncOutlined, DeploymentUnitOutlined, RadarChartOutlined } from '@ant-design/icons';
+import {
+  Button,
+  Dropdown,
+  Empty,
+  Modal,
+  Select,
+  Space,
+  Table,
+  Tabs,
+  Tag,
+  Tooltip,
+  message,
+} from 'antd';
+import {
+  PlusOutlined,
+  MoreOutlined,
+  EditOutlined,
+  DeleteOutlined,
+  SyncOutlined,
+  DeploymentUnitOutlined,
+  RadarChartOutlined,
+} from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
 import BalancerFormModal from './BalancerFormModal';
@@ -128,7 +148,10 @@ export default function BalancersTab({
 
   const otherTags = useMemo(() => {
     if (editingIndex == null) return rows.map((b) => b.tag).filter(Boolean);
-    return rows.filter((b) => b.key !== editingIndex).map((b) => b.tag).filter(Boolean);
+    return rows
+      .filter((b) => b.key !== editingIndex)
+      .map((b) => b.tag)
+      .filter(Boolean);
   }, [rows, editingIndex]);
 
   const balancerTags = useMemo(() => {
@@ -154,7 +177,11 @@ export default function BalancersTab({
   const [liveStatus, setLiveStatus] = useState<Record<string, BalancerLiveStatus>>({});
   const [liveLoading, setLiveLoading] = useState(false);
   const liveTags = useMemo(
-    () => rows.map((r) => r.tag).filter(Boolean).join(','),
+    () =>
+      rows
+        .map((r) => r.tag)
+        .filter(Boolean)
+        .join(','),
     [rows],
   );
 
@@ -165,7 +192,11 @@ export default function BalancersTab({
     }
     setLiveLoading(true);
     try {
-      const msg = await HttpUtil.post('/panel/api/xray/balancerStatus', { tags: liveTags }, { silent: true });
+      const msg = await HttpUtil.post(
+        '/panel/api/xray/balancerStatus',
+        { tags: liveTags },
+        { silent: true },
+      );
       if (msg?.success && msg.obj && typeof msg.obj === 'object') {
         setLiveStatus(msg.obj as Record<string, BalancerLiveStatus>);
       }
@@ -175,7 +206,14 @@ export default function BalancersTab({
   }, [liveTags]);
 
   useEffect(() => {
-    refreshLive();
+    let cancelled = false;
+    void (async () => {
+      await refreshLive();
+      if (cancelled) return;
+    })();
+    return () => {
+      cancelled = true;
+    };
   }, [refreshLive]);
 
   async function setOverride(tag: string, target: string) {
@@ -243,9 +281,7 @@ export default function BalancersTab({
           propagateBalancerTagRename(tt, oldTag, wire.tag);
         }
 
-        const oldTarget = isBalancerLoopbackTag(oldFallback)
-          ? (oldFallback.slice(4))
-          : null;
+        const oldTarget = isBalancerLoopbackTag(oldFallback) ? oldFallback.slice(4) : null;
 
         if (oldTarget && oldTarget !== form.fallbackTag) {
           removeBalancerLoopbackIfOrphaned(tt, oldTarget);
@@ -266,7 +302,9 @@ export default function BalancersTab({
       .filter((b) => b.tag !== deletedTag && b.fallbackTag === lbTag)
       .map((b) => b.tag);
     if (dependents.length > 0) {
-      messageApi.error(t('pages.xray.balancer.balancerDeleteInUse', { names: dependents.join(', ') }));
+      messageApi.error(
+        t('pages.xray.balancer.balancerDeleteInUse', { names: dependents.join(', ') }),
+      );
       return;
     }
     const impact = templateSettings
@@ -278,11 +316,12 @@ export default function BalancersTab({
       okText: t('delete'),
       okType: 'danger',
       cancelText: t('cancel'),
-      onOk: () => mutate((tt) => {
-        const tag = tt.routing?.balancers?.[idx]?.tag ?? '';
-        removeBalancerLoopback(tt, tag);
-        applyBalancerDeletion(tt, idx);
-      }),
+      onOk: () =>
+        mutate((tt) => {
+          const tag = tt.routing?.balancers?.[idx]?.tag ?? '';
+          removeBalancerLoopback(tt, tag);
+          applyBalancerDeletion(tt, idx);
+        }),
     });
   }
 
@@ -297,7 +336,13 @@ export default function BalancersTab({
           <span className="row-index">{index + 1}</span>
           <div className={!isMobile ? 'action-buttons' : ''}>
             {!isMobile && (
-              <Button aria-label={t('edit')} shape="circle" size="small" icon={<EditOutlined />} onClick={() => openEdit(index)} />
+              <Button
+                aria-label={t('edit')}
+                shape="circle"
+                size="small"
+                icon={<EditOutlined />}
+                onClick={() => openEdit(index)}
+              />
             )}
             <Dropdown
               trigger={['click']}
@@ -358,7 +403,13 @@ export default function BalancersTab({
           </Tag>
         )),
     },
-    { title: 'Fallback', dataIndex: 'displayFallbackTag', key: 'displayFallbackTag', align: 'center', width: 160 },
+    {
+      title: 'Fallback',
+      dataIndex: 'displayFallbackTag',
+      key: 'displayFallbackTag',
+      align: 'center',
+      width: 160,
+    },
     {
       title: t('pages.xray.balancerLive'),
       key: 'live',
@@ -373,8 +424,13 @@ export default function BalancersTab({
             </Tooltip>
           );
         }
-        const resolve = (tag: string) => isBalancerLoopbackTag(tag) ? resolveLoopbackFallback(templateSettings!, tag) : tag;
-        const picked = live.override ? resolve(live.override) : live.selected?.[0] ? resolve(live.selected[0]) : record.displayFallbackTag;
+        const resolve = (tag: string) =>
+          isBalancerLoopbackTag(tag) ? resolveLoopbackFallback(templateSettings!, tag) : tag;
+        const picked = live.override
+          ? resolve(live.override)
+          : live.selected?.[0]
+            ? resolve(live.selected[0])
+            : record.displayFallbackTag;
         const tooltipText = live.override
           ? resolve(live.override)
           : (live.selected || []).map(resolve).join(', ');
@@ -395,20 +451,26 @@ export default function BalancersTab({
         const resolvedFB = record.displayFallbackTag;
         let options = overrideOptions;
         if (resolvedFB && !outboundTags.includes(resolvedFB)) {
-          options = [...overrideOptions, {
-            value: resolvedFB,
-            label: (
-              <span>
-                <Tag color="blue" style={{ marginRight: 4 }}>{t('pages.xray.rules.balancer')}</Tag>
-                {resolvedFB}
-              </span>
-            ),
-          }];
+          options = [
+            ...overrideOptions,
+            {
+              value: resolvedFB,
+              label: (
+                <span>
+                  <Tag color="blue" style={{ marginRight: 4 }}>
+                    {t('pages.xray.rules.balancer')}
+                  </Tag>
+                  {resolvedFB}
+                </span>
+              ),
+            },
+          ];
         }
         const rawOverride = live?.override || undefined;
-        const resolvedOverride = rawOverride && isBalancerLoopbackTag(rawOverride)
-          ? resolveLoopbackFallback(templateSettings!, rawOverride)
-          : rawOverride;
+        const resolvedOverride =
+          rawOverride && isBalancerLoopbackTag(rawOverride)
+            ? resolveLoopbackFallback(templateSettings!, rawOverride)
+            : rawOverride;
         return (
           <Select
             size="small"
@@ -440,7 +502,11 @@ export default function BalancersTab({
               {t('pages.xray.Balancers')}
             </Button>
             <Tooltip title={t('pages.xray.balancerLiveRefresh')}>
-              <Button aria-label={t('pages.xray.balancerLiveRefresh')} icon={<SyncOutlined spin={liveLoading} />} onClick={refreshLive} />
+              <Button
+                aria-label={t('pages.xray.balancerLiveRefresh')}
+                icon={<SyncOutlined spin={liveLoading} />}
+                onClick={refreshLive}
+              />
             </Tooltip>
           </Space>
 
@@ -465,17 +531,18 @@ export default function BalancersTab({
         items={[
           {
             key: 'balancers',
-            label: catTabLabel(<DeploymentUnitOutlined />, t('pages.xray.tabBalancerSettings'), isMobile),
+            label: catTabLabel(
+              <DeploymentUnitOutlined />,
+              t('pages.xray.tabBalancerSettings'),
+              isMobile,
+            ),
             children: balancerSettingsTab,
           },
           {
             key: 'observatory',
             label: catTabLabel(<RadarChartOutlined />, t('pages.xray.tabObservatory'), isMobile),
             children: (
-              <ObservatorySettingsTab
-                templateSettings={templateSettings}
-                mutate={mutate}
-              />
+              <ObservatorySettingsTab templateSettings={templateSettings} mutate={mutate} />
             ),
           },
         ]}

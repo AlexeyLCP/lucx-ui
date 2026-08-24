@@ -26,26 +26,30 @@ export const AppStatsSchema = z.object({
   uptime: z.number(),
 });
 
-export const XrayInfoSchema = z.object({
-  state: z.string(),
-  errorMsg: z.string(),
-  version: z.string(),
-  color: z.string(),
-}).partial();
+export const XrayInfoSchema = z
+  .object({
+    state: z.string(),
+    errorMsg: z.string(),
+    version: z.string(),
+    color: z.string(),
+  })
+  .partial();
 
-export const AwgInfoSchema = z.object({
-  state: z.string(),
-  errorMsg: z.string(),
-  version: z.string(),
-  color: z.string(),
-  moduleLoaded: z.boolean(),
-  moduleAwg3: z.boolean(),
-  moduleAwg31: z.boolean(),
-  interfaces: z.number(),
-  ifnames: z.array(z.string()),
-  rebuildRunning: z.boolean(),
-  rebootNeeded: z.boolean(),
-}).partial();
+export const AwgInfoSchema = z
+  .object({
+    state: z.string(),
+    errorMsg: z.string(),
+    version: z.string(),
+    color: z.string(),
+    moduleLoaded: z.boolean(),
+    moduleAwg3: z.boolean(),
+    moduleAwg31: z.boolean(),
+    interfaces: z.number(),
+    ifnames: z.array(z.string()),
+    rebuildRunning: z.boolean(),
+    rebootNeeded: z.boolean(),
+  })
+  .partial();
 
 export const StatusSchema = z.object({
   cpu: z.number().optional(),

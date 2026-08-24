@@ -57,7 +57,12 @@ export default function SubLinksModal({
   }, [emails, clients, subSettings]);
 
   const allText = useMemo(
-    () => rows.map((r) => [r.email, r.link, r.jsonLink, r.clashLink, r.amneziaLink].filter(Boolean).join('\t')).join('\n'),
+    () =>
+      rows
+        .map((r) =>
+          [r.email, r.link, r.jsonLink, r.clashLink, r.amneziaLink].filter(Boolean).join('\t'),
+        )
+        .join('\n'),
     [rows],
   );
 
@@ -100,11 +105,16 @@ export default function SubLinksModal({
       key: dataIndex,
       ellipsis: true,
       width,
-      render: (link: string) => link ? (
-        <Tooltip title={link} placement="topLeft">
-          <Typography.Text copyable={false} ellipsis>{link}</Typography.Text>
-        </Tooltip>
-      ) : '—',
+      render: (link: string) =>
+        link ? (
+          <Tooltip title={link} placement="topLeft">
+            <Typography.Text copyable={false} ellipsis>
+              {link}
+            </Typography.Text>
+          </Tooltip>
+        ) : (
+          '—'
+        ),
     });
     columns.push({
       title: '',
@@ -113,7 +123,15 @@ export default function SubLinksModal({
       render: (_v, row) => {
         const link = row[dataIndex] as string;
         if (!link) return null;
-        return <Button size="small" type="text" aria-label={t('copy')} icon={<CopyOutlined />} onClick={() => copy(link, t('copied'))} />;
+        return (
+          <Button
+            size="small"
+            type="text"
+            aria-label={t('copy')}
+            icon={<CopyOutlined />}
+            onClick={() => copy(link, t('copied'))}
+          />
+        );
       },
     });
   }
@@ -130,23 +148,36 @@ export default function SubLinksModal({
         open={open}
         title={t('pages.clients.subLinksTitle', { count: rows.length })}
         width={960}
+        footer={
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <Button onClick={() => onOpenChange(false)}>{t('close')}</Button>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <Button
+                icon={<CopyOutlined />}
+                disabled={rows.length === 0}
+                onClick={() =>
+                  copy(allText, t('pages.clients.subLinksCopiedAll', { count: rows.length }))
+                }
+              >
+                {t('pages.clients.subLinksCopyAll')}
+              </Button>
+              <Button
+                type="primary"
+                icon={<DownloadOutlined />}
+                disabled={rows.length === 0}
+                onClick={download}
+              >
+                {t('download')}
+              </Button>
+            </div>
+          </div>
+        }
         onCancel={() => onOpenChange(false)}
-        footer={[
-          <Button key="dl" icon={<DownloadOutlined />} onClick={download} disabled={!rows.length}>
-            {t('download')}
-          </Button>,
-          <Button
-            key="copy"
-            type="primary"
-            icon={<CopyOutlined />}
-            onClick={() => copy(allText, t('pages.clients.subLinksCopiedAll', { count: rows.length }))}
-            disabled={!rows.length}
-          >
-            {t('pages.clients.subLinksCopyAll')}
-          </Button>,
-        ]}
       >
-        {!subSettings?.enable && !subSettings?.subAwgEnable && !subSettings?.subClashEnable && !subSettings?.subJsonEnable ? (
+        {!subSettings?.enable &&
+        !subSettings?.subAwgEnable &&
+        !subSettings?.subClashEnable &&
+        !subSettings?.subJsonEnable ? (
           <Alert
             type="warning"
             showIcon

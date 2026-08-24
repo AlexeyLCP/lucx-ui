@@ -9,7 +9,19 @@ import { QrPanel } from '@/pages/inbounds/qr';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 import { formatInboundLabel } from '@/lib/inbounds/label';
 import { buildSubLinks, type SubSettingsLinks } from '@/lib/sub/links';
-import { buildWireguardClientConfig, findWireguardInbound, isWireguardClient, buildAwgClientConfig, findAwgInbounds, isAwgClient } from './wireguardConfig'; // LUCX-HOOK: AWG
+import {
+  buildWireguardClientConfig,
+  findWireguardInbound,
+  isWireguardClient,
+  buildAwgClientConfig,
+  findAwgInbounds,
+  isAwgClient,
+} from './wireguardConfig';
+import {
+  buildAmneziaWGClientConfig,
+  findAmneziaWGInbound,
+  isAmneziaWGClient,
+} from './amneziawgConfig';
 
 type SubSettings = SubSettingsLinks;
 
@@ -17,6 +29,7 @@ interface ClientQrModalProps {
   open: boolean;
   client: ClientRecord | null;
   inboundsById: Record<number, InboundOption>;
+  tunnelAllowedIPs?: Record<number, string>;
   subSettings?: SubSettings;
   onOpenChange: (open: boolean) => void;
 }
@@ -27,8 +40,15 @@ interface ApiMsg<T = unknown> {
 }
 
 const DEFAULT_SUB: SubSettings = {
-  enable: false, subURI: '', subJsonURI: '', subJsonEnable: false,
-  subClashURI: '', subClashEnable: false, subAwgURI: '', subAwgEnable: false, publicHost: '',
+  enable: false,
+  subURI: '',
+  subJsonURI: '',
+  subJsonEnable: false,
+  subClashURI: '',
+  subClashEnable: false,
+  subAwgURI: '',
+  subAwgEnable: false,
+  publicHost: '',
 };
 
 // isVersionAvailable reports whether an export version is selectable given the
@@ -42,6 +62,7 @@ export default function ClientQrModal({
   open,
   client,
   inboundsById,
+  tunnelAllowedIPs,
   subSettings = DEFAULT_SUB,
   onOpenChange,
 }: ClientQrModalProps) {
@@ -49,17 +70,28 @@ export default function ClientQrModal({
   const [links, setLinks] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const linksBuilt = useMemo(() => buildSubLinks(subSettings, client?.subId), [subSettings, client?.subId]);
+  const linksBuilt = useMemo(
+    () => buildSubLinks(subSettings, client?.subId),
+    [subSettings, client?.subId],
+  );
   const subLink = linksBuilt.sub;
   const subJsonLink = linksBuilt.json;
   const subClashLink = linksBuilt.clash;
   const subAwgLink = linksBuilt.amnezia;
   const subAwgVpnLink = linksBuilt.amneziaVpn;
 
-  const wgInbound = useMemo(() => findWireguardInbound(client, inboundsById), [client, inboundsById]);
+  const wgInbound = useMemo(
+    () => findWireguardInbound(client, inboundsById),
+    [client, inboundsById],
+  );
   const wgConfigText = useMemo(() => {
     if (!client || !wgInbound || !isWireguardClient(client)) return '';
-    return buildWireguardClientConfig(client, wgInbound, window.location.hostname, subSettings?.publicHost ?? '');
+    return buildWireguardClientConfig(
+      client,
+      wgInbound,
+      window.location.hostname,
+      subSettings?.publicHost ?? '',
+    );
   }, [client, wgInbound, subSettings?.publicHost]);
 
   // LUCX-HOOK: AWG — one .conf panel per attached AWG inbound. Each inbound has
@@ -72,13 +104,15 @@ export default function ClientQrModal({
       const next: Record<number, AwgVersion> = {};
       for (const ib of awgInbounds) {
         const ceiling = awgVersionCeiling(ib.awgVersion);
-        next[ib.id] = prev[ib.id] && awgVersionAtLeast(ceiling, prev[ib.id]) ? prev[ib.id] : ceiling;
+        next[ib.id] =
+          prev[ib.id] && awgVersionAtLeast(ceiling, prev[ib.id]) ? prev[ib.id] : ceiling;
       }
       return next;
     });
   }, [awgInbounds]);
   const awgConfigs = useMemo(() => {
-    if (!client || !isAwgClient(client)) return [] as { ib: InboundOption; text: string; ceiling: AwgVersion; version: AwgVersion }[];
+    if (!client || !isAwgClient(client))
+      return [] as { ib: InboundOption; text: string; ceiling: AwgVersion; version: AwgVersion }[];
     const host = window.location.hostname;
     const pub = subSettings?.publicHost ?? '';
     return awgInbounds.map((ib) => {
@@ -94,20 +128,49 @@ export default function ClientQrModal({
   }, [client, awgInbounds, subSettings?.publicHost, awgExportById]);
   // END LUCX-HOOK
 
-  const hasAnything = !!subLink || !!subJsonLink || !!subClashLink || !!subAwgLink || !!wgConfigText || awgConfigs.length > 0 || links.length > 0;
+  const awgInbound = useMemo(
+    () => findAmneziaWGInbound(client, inboundsById),
+    [client, inboundsById],
+  );
+  const awgConfigText = useMemo(() => {
+    if (!client || !awgInbound || !isAmneziaWGClient(client)) return '';
+    const address = awgInbound ? (tunnelAllowedIPs?.[awgInbound.id] ?? '') : '';
+    return buildAmneziaWGClientConfig(
+      client,
+      awgInbound,
+      window.location.hostname,
+      subSettings?.publicHost ?? '',
+      address,
+    );
+  }, [client, awgInbound, tunnelAllowedIPs, subSettings?.publicHost]);
+
+  const hasAnything =
+    !!subLink ||
+    !!subJsonLink ||
+    !!subClashLink ||
+    !!subAwgLink ||
+    !!wgConfigText ||
+    awgConfigs.length > 0 ||
+    !!awgConfigText ||
+    links.length > 0;
+
+  // The reset runs during render so the effect only carries the request.
+  const openSubId = open ? (client?.subId ?? '') : '';
+  const [syncedSubId, setSyncedSubId] = useState(openSubId);
+  if (openSubId !== syncedSubId) {
+    setSyncedSubId(openSubId);
+    setLinks([]);
+    setLoading(!!openSubId);
+  }
 
   useEffect(() => {
-    if (!open || !client?.subId) {
-      setLinks([]);
-      return;
-    }
+    if (!open || !client?.subId) return;
     let cancelled = false;
-    setLoading(true);
     (async () => {
       try {
-        const msg = await HttpUtil.get(
+        const msg = (await HttpUtil.get(
           `/panel/api/clients/subLinks/${encodeURIComponent(client.subId!)}`,
-        ) as ApiMsg<string[]>;
+        )) as ApiMsg<string[]>;
         if (!cancelled) {
           setLinks(msg?.success && Array.isArray(msg.obj) ? msg.obj : []);
         }
@@ -115,7 +178,9 @@ export default function ClientQrModal({
         if (!cancelled) setLoading(false);
       }
     })();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [open, client?.subId]);
 
   const [activeKey, setActiveKey] = useState<string[]>([]);
@@ -126,7 +191,9 @@ export default function ClientQrModal({
       out.push({
         key: 'sub',
         label: t('subscription.title'),
-        children: <QrPanel value={subLink} remark={`${client?.email || ''} — ${t('subscription.title')}`} />,
+        children: (
+          <QrPanel value={subLink} remark={`${client?.email || ''} — ${t('subscription.title')}`} />
+        ),
       });
     }
     if (subJsonLink) {
@@ -139,21 +206,33 @@ export default function ClientQrModal({
     if (subClashLink) {
       out.push({
         key: 'subClash',
-        label: <Tag color="gold" style={{ margin: 0 }}>CLASH</Tag>,
+        label: (
+          <Tag color="gold" style={{ margin: 0 }}>
+            CLASH
+          </Tag>
+        ),
         children: <QrPanel value={subClashLink} remark={`${client?.email || ''} — Clash`} />,
       });
     }
     if (subAwgLink && awgConfigs.length > 0) {
       out.push({
         key: 'subAwg',
-        label: <Tag color="magenta" style={{ margin: 0 }}>AMNEZIA</Tag>,
+        label: (
+          <Tag color="magenta" style={{ margin: 0 }}>
+            AMNEZIA
+          </Tag>
+        ),
         children: <QrPanel value={subAwgLink} remark={`${client?.email || ''} — Amnezia .conf`} />,
       });
     }
     if (subAwgVpnLink && awgConfigs.length > 0) {
       out.push({
         key: 'subAwgVpn',
-        label: <Tag color="volcano" style={{ margin: 0 }}>vpn://</Tag>,
+        label: (
+          <Tag color="volcano" style={{ margin: 0 }}>
+            vpn://
+          </Tag>
+        ),
         children: <QrPanel value={subAwgVpnLink} remark={`${client?.email || ''} — vpn://`} />,
       });
     }
@@ -165,7 +244,9 @@ export default function ClientQrModal({
           <LinkTags parts={parts} />
           {meta && <span style={{ opacity: 0.6, fontSize: 12 }}>({meta})</span>}
         </span>
-      ) : `${t('pages.clients.link')} ${idx + 1}`;
+      ) : (
+        `${t('pages.clients.link')} ${idx + 1}`
+      );
       out.push({
         key: `l${idx}`,
         label,
@@ -181,7 +262,11 @@ export default function ClientQrModal({
     if (wgConfigText) {
       out.push({
         key: 'wg-config',
-        label: <Tag color="cyan" style={{ margin: 0 }}>{t('pages.clients.wireguardConfig')}</Tag>,
+        label: (
+          <Tag color="cyan" style={{ margin: 0 }}>
+            {t('pages.clients.wireguardConfig')}
+          </Tag>
+        ),
         children: (
           <QrPanel
             value={wgConfigText}
@@ -198,7 +283,9 @@ export default function ClientQrModal({
         key: `awg-config-${cfg.ib.id}`,
         label: (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-            <Tag color="purple" style={{ margin: 0 }}>{t('pages.clients.awgConfig')}</Tag>
+            <Tag color="purple" style={{ margin: 0 }}>
+              {t('pages.clients.awgConfig')}
+            </Tag>
             {labelName && <span style={{ opacity: 0.6, fontSize: 12 }}>({labelName})</span>}
           </span>
         ),
@@ -214,10 +301,26 @@ export default function ClientQrModal({
                 value={cfg.version}
                 onChange={(v) => setAwgExportById((prev) => ({ ...prev, [cfg.ib.id]: v }))}
                 options={[
-                  { value: '1.5', label: t('pages.inbounds.form.awgVersion15'), disabled: !isVersionAvailable('1.5', cfg.ceiling) },
-                  { value: '2', label: t('pages.inbounds.form.awgVersion2'), disabled: !isVersionAvailable('2', cfg.ceiling) },
-                  { value: '3', label: t('pages.inbounds.form.awgVersion3'), disabled: !isVersionAvailable('3', cfg.ceiling) },
-                  { value: '3.1', label: t('pages.inbounds.form.awgVersion31'), disabled: !isVersionAvailable('3.1', cfg.ceiling) },
+                  {
+                    value: '1.5',
+                    label: t('pages.inbounds.form.awgVersion15'),
+                    disabled: !isVersionAvailable('1.5', cfg.ceiling),
+                  },
+                  {
+                    value: '2',
+                    label: t('pages.inbounds.form.awgVersion2'),
+                    disabled: !isVersionAvailable('2', cfg.ceiling),
+                  },
+                  {
+                    value: '3',
+                    label: t('pages.inbounds.form.awgVersion3'),
+                    disabled: !isVersionAvailable('3', cfg.ceiling),
+                  },
+                  {
+                    value: '3.1',
+                    label: t('pages.inbounds.form.awgVersion31'),
+                    disabled: !isVersionAvailable('3.1', cfg.ceiling),
+                  },
                 ]}
               />
             </Space>
@@ -231,16 +334,45 @@ export default function ClientQrModal({
       });
     }
     // END LUCX-HOOK
-    return out;
-  }, [subLink, subJsonLink, subClashLink, subAwgLink, subAwgVpnLink, wgConfigText, awgConfigs, links, client?.email, t]);
-
-  useEffect(() => {
-    if (!open) {
-      setActiveKey([]);
-      return;
+    if (awgConfigText) {
+      out.push({
+        key: 'amneziawg-config',
+        label: (
+          <Tag color="purple" style={{ margin: 0 }}>
+            {t('pages.clients.amneziaWgConfig')}
+          </Tag>
+        ),
+        children: (
+          <QrPanel
+            value={awgConfigText}
+            remark={client?.email || 'peer'}
+            downloadName={`${client?.email || 'peer'}.conf`}
+          />
+        ),
+      });
     }
-    setActiveKey(items.length > 0 ? [items[0].key] : []);
-  }, [open, items]);
+    return out;
+  }, [
+    subLink,
+    subJsonLink,
+    subClashLink,
+    subAwgLink,
+    subAwgVpnLink,
+    wgConfigText,
+    awgConfigs,
+    awgConfigText,
+    links,
+    client?.email,
+    t,
+  ]);
+
+  // Expanding the first panel is a render-time adjustment, not a side effect.
+  const firstKey = open && items.length > 0 ? items[0].key : null;
+  const [syncedFirstKey, setSyncedFirstKey] = useState<string | null>(null);
+  if (firstKey !== syncedFirstKey) {
+    setSyncedFirstKey(firstKey);
+    setActiveKey(firstKey ? [firstKey] : []);
+  }
 
   return (
     <Modal
@@ -253,15 +385,21 @@ export default function ClientQrModal({
     >
       <Spin spinning={loading}>
         {!client?.subId && !loading && (
-          <div style={{ padding: 24, textAlign: 'center', opacity: 0.6 }}>{t('pages.clients.noSubId')}</div>
+          <div style={{ padding: 24, textAlign: 'center', opacity: 0.6 }}>
+            {t('pages.clients.noSubId')}
+          </div>
         )}
         {client?.subId && !hasAnything && !loading && (
-          <div style={{ padding: 24, textAlign: 'center', opacity: 0.6 }}>{t('pages.clients.noLinks')}</div>
+          <div style={{ padding: 24, textAlign: 'center', opacity: 0.6 }}>
+            {t('pages.clients.noLinks')}
+          </div>
         )}
         {hasAnything && (
           <Collapse
             activeKey={activeKey}
-            onChange={(keys) => setActiveKey(typeof keys === 'string' ? [keys] : (keys as string[]))}
+            onChange={(keys) =>
+              setActiveKey(typeof keys === 'string' ? [keys] : (keys as string[]))
+            }
             items={items}
           />
         )}

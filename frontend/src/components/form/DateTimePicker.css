@@ -27,7 +27,7 @@
 
 .jdp-dark input::placeholder,
 .jdp-ultra input::placeholder {
-  color: rgba(255, 255, 255, 0.30) !important;
+  color: rgba(255, 255, 255, 0.3) !important;
 }
 
 .jdp-disabled {
@@ -62,10 +62,16 @@
 }
 
 .jdp-dark .jdp-clear {
-  color: rgba(255, 255, 255, 0.30);
+  color: rgba(255, 255, 255, 0.3);
 }
 
 .jdp-dark .jdp-clear:hover,
 .jdp-ultra .jdp-clear:hover {
   color: rgba(255, 255, 255, 0.45);
+}
+
+/* With no value the library still paints today's date into its readOnly input;
+   hide it so an empty (or just-cleared) expiry actually looks empty. */
+.jdp-wrap.jdp-empty input {
+  color: transparent !important;
 }

@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.169 — borrow upstream AmneziaWG bits for kernel AWG (2026-08-24)
+
+After merging MHSanaei `amneziawg`/`amneziawgnet`, keep our kernel `awg` and take three pieces:
+
+- Overview AmneziaWG log modal also lists kernel peers (`awg show dump`) and `awg:` log lines.
+- Per-client `forwardedPorts` on kernel AWG (same field as theirs): iptables DNAT/FORWARD, comment `lucx-awg-fwd-{id}`.
+- No kernel module → LucX `awg` inbounds run on embedded amneziawg-go (SOCKS into Xray). Kernel path unchanged when the module is present (Rule 0).
+- Save-time J/S validation via `AWGParams.Validate`.
+
+**lucxVersion:** lucx.169
+
+---
+
 ## lucx.168 — Inbounds crash on AWG import preview (2026-08-24)
 
 VladufQa: after 167, `/panel/inbounds` died with `Cannot read properties of null (reading 'length')`.

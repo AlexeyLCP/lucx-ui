@@ -6,7 +6,12 @@
 
 import { formatInboundLabel } from '@/lib/inbounds/label';
 import { collapseKeepaliveForVersion, normalizeAwgTimer } from '@/lib/awg/timer';
-import { awgVersionAtLeast, awgVersionCeiling, preferPublicHost, resolveShareHost } from '@/lib/xray/inbound-link';
+import {
+  awgVersionAtLeast,
+  awgVersionCeiling,
+  preferPublicHost,
+  resolveShareHost,
+} from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 
@@ -18,7 +23,13 @@ function persistentKeepaliveLine(keepAlive: unknown): string | null {
 
 export function isWireguardClient(client: ClientRecord | null | undefined): boolean {
   if (!client) return false;
-  return !!(client.privateKey || client.publicKey || client.allowedIPs || client.preSharedKey || client.keepAlive);
+  return !!(
+    client.privateKey ||
+    client.publicKey ||
+    client.allowedIPs ||
+    client.preSharedKey ||
+    client.keepAlive
+  );
 }
 
 export function findWireguardInbound(
@@ -36,7 +47,11 @@ export function buildWireguardClientConfig(
   host = window.location.hostname,
   publicHost = '',
 ): string {
-  const endpointHost = resolveShareHost(inbound ?? {}, inbound?.nodeAddress ?? '', preferPublicHost(host, publicHost));
+  const endpointHost = resolveShareHost(
+    inbound ?? {},
+    inbound?.nodeAddress ?? '',
+    preferPublicHost(host, publicHost),
+  );
   const address = client.allowedIPs || '10.0.0.2/32';
   const endpoint = `${endpointHost}:${inbound?.port || ''}`;
   const inboundName = inbound ? formatInboundLabel(inbound.tag, inbound.remark) : '';
@@ -140,13 +155,16 @@ export function buildAwgClientConfig(
   publicHost = '',
   awgVersionExport?: AwgVersion,
 ): string {
-  const endpointHost = resolveShareHost(inbound ?? {}, inbound?.nodeAddress ?? '', preferPublicHost(host, publicHost));
+  const endpointHost = resolveShareHost(
+    inbound ?? {},
+    inbound?.nodeAddress ?? '',
+    preferPublicHost(host, publicHost),
+  );
   // Multi-attach: each AWG inbound has its own peer tunnel IP in settings.
   // Prefer that over the single clients-table allowedIPs (shared across attaches).
   const email = client.email || '';
-  const peerFromInbound = email && inbound?.awgPeerAddresses
-    ? inbound.awgPeerAddresses[email]
-    : undefined;
+  const peerFromInbound =
+    email && inbound?.awgPeerAddresses ? inbound.awgPeerAddresses[email] : undefined;
   const address = peerFromInbound || client.allowedIPs || '10.200.0.2/32';
   const endpoint = `${endpointHost}:${inbound?.port || ''}`;
   const inboundName = inbound ? formatInboundLabel(inbound.tag, inbound.remark) : '';
@@ -159,7 +177,8 @@ export function buildAwgClientConfig(
   ];
   if (inbound?.wgMtu && inbound.wgMtu > 0) lines.push(`MTU = ${inbound.wgMtu}`);
   const ceiling = awgVersionCeiling(inbound?.awgVersion);
-  const target = awgVersionExport && awgVersionAtLeast(ceiling, awgVersionExport) ? awgVersionExport : ceiling;
+  const target =
+    awgVersionExport && awgVersionAtLeast(ceiling, awgVersionExport) ? awgVersionExport : ceiling;
   if (inbound?.awgObfuscation) {
     const trimmed = filterAwgObfuscation(inbound.awgObfuscation, target).trimEnd();
     if (trimmed) lines.push(trimmed);

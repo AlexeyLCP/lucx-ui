@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
+	awgcps "github.com/mhsanaei/3x-ui/v3/internal/awg/cps"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -99,11 +100,25 @@ func validateAwgSettingsJSON(settings string) error {
 		H2         string `json:"h2"`
 		H3         string `json:"h3"`
 		H4         string `json:"h4"`
+		Jc         int    `json:"jc"`
+		Jmin       int    `json:"jmin"`
+		Jmax       int    `json:"jmax"`
+		S1         int    `json:"s1"`
+		S2         int    `json:"s2"`
+		S3         int    `json:"s3"`
+		S4         int    `json:"s4"`
 	}
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
 		return nil
 	}
-	return awg.ValidateObfuscationFields(s.AwgVersion, s.H1, s.H2, s.H3, s.H4)
+	if err := awg.ValidateObfuscationFields(s.AwgVersion, s.H1, s.H2, s.H3, s.H4); err != nil {
+		return err
+	}
+	if s.Jc == 0 && s.S1 == 0 {
+		return nil
+	}
+	p := awgcps.AWGParams{Jc: s.Jc, Jmin: s.Jmin, Jmax: s.Jmax, S1: s.S1, S2: s.S2, S3: s.S3, S4: s.S4}
+	return p.Validate()
 }
 
 func (s *InboundService) applyLocalAwg(inboundId int) {
@@ -117,6 +132,9 @@ func (s *InboundService) applyLocalAwg(inboundId int) {
 	}
 	inst, ok := awg.InstanceFromInbound(inbound)
 	if !ok {
+		return
+	}
+	if !awg.KernelAvailable() {
 		return
 	}
 	if err := awg.GetManager().Ensure(inst); err != nil {

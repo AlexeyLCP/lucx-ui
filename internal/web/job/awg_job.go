@@ -44,6 +44,10 @@ func (j *AwgJob) Run() {
 	if service.AwgRebuildRunning() {
 		return
 	}
+	if !awg.KernelAvailable() {
+		awg.GetManager().Reconcile(nil)
+		return
+	}
 	inbounds, err := j.inboundService.GetAllInbounds()
 	if err != nil {
 		logger.Warning("awg job: get inbounds failed:", err)

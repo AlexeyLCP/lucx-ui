@@ -15,6 +15,8 @@ export type ProtocolFlags = {
   isMixed?: boolean;
   isHTTP?: boolean;
   isWireguard?: boolean;
+  isAmneziawg?: boolean;
+  isAwg?: boolean;
   isTunnel?: boolean;
 };
 
