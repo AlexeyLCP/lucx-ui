@@ -106,6 +106,9 @@ func TestQwdttClientURI(t *testing.T) {
 			t.Errorf("URI missing %q: %s", want, got)
 		}
 	}
+	if strings.ContainsAny(got, "\r\n") || strings.Contains(got, "\nwdtt://") {
+		t.Fatalf("ClientURI must be a single qwdtt:// line, got %q", got)
+	}
 	cfg.SubHost = ""
 	if cfg.ClientURI() != "" {
 		t.Fatal("empty peer must yield empty URI")

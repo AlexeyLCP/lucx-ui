@@ -232,8 +232,10 @@ func (c QwdttConfig) peerHost() string {
 	return ""
 }
 
-// ClientURI renders the qwdtt://config?... share link understood by the
-// SpaceNeuroX Android client. Empty password or peer yields "".
+// ClientURI renders the single qwdtt://config?... share link understood by
+// the SpaceNeuroX Android client (v1.4.2 parsePayload / parseQwdttUri).
+// Never concatenate LegacyURI onto this string — a second line is parsed as
+// part of pass and the DTLS handshake dies. Empty password or peer yields "".
 func (c QwdttConfig) ClientURI() string {
 	peer := c.peerHost()
 	pass := strings.TrimSpace(c.Password)

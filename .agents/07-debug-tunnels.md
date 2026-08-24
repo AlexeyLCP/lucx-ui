@@ -47,6 +47,13 @@ Extracted from AGENTS.md. This file is project law.
   then re-run `x-ui update` once lucx.164 is on `main` (menu curls fresh `update.sh`).
 - **Lesson:** never write over an executable that may be running. Same rule the Go Cores download already follows (`dst+".download"` + `Rename`).
 
+### Pattern 1u: qWDTT paste of the full panel link hangs on DTLS — FIXED (lucx.167)
+- **Symptom (VladufQa, 24.08.2026):** SpaceNeuroX 1.4.2. Compact `wdtt://ip:dtls:wg:local:pass:hash` connects. A lone `qwdtt://config?…` connects. Pasting the panel's two-line block (modern + legacy) hangs on `[DTLS] Handshake…` / step DTLS 10s.
+- **Cause:** `genQwdttLink` (frontend + `/sub/`) concatenated `qwdtt://config?…\nwdtt://…`. Client `SubscriptionImport.parsePayload` does `startsWith("qwdtt://config")` then `Uri.parse` of the **whole** clipboard. The second line rides into `pass` → wrong password → DTLS timeout. Official APK export is a single `qwdtt://config?` line (`ExportProfileSheet`).
+- **Fix (lucx.167):** emit only `qwdtt://config?`. `LegacyURI` stays a separate copy on the Tunnels card. Tests forbid a newline / `wdtt://` in the share string.
+- **Healing without lucx.167:** paste only the first line, or only the `wdtt://` line, never both.
+- **Lesson:** one client, one clipboard URI. Two formats for two apps (TrustTunnel TLV + Throne) is fine; two formats for the same SpaceNeuroX importer is not.
+
 ### Pattern 1s: qWDTT DTLS handshake timeout 10s — stale sidecar vs client 1.4.2 — FIXED (lucx.163)
 - **Symptom (VladufQa, 22.08.2026):** SpaceNeuroX client log: DNS/VK/WRAP/TURN green, then `[DTLS] Handshake…` and `step DTLS did not finish in 10s`. Operator asked whether listen should be `0.0.0.0:56000` or the server IP.
 - **Cause:** two independent footguns. (1) **Listen vs SubHost:** `-listen` is the server bind (`0.0.0.0:56000`); `subHost` is the advertised `peer` (`PUBLIC_IP:56000`). Putting `0.0.0.0` in `subHost` makes the client DTLS to itself. (2) **Wire skew:** we shipped Ex3-ui `v1.0` extra-qwdtt (~qWDTT 1.4.0, 09.08). Client `v1.4.2` (19.08) commit `Harden server authentication and transport` bumped pion/dtls 3.1.2→3.1.5 and changed WRAP/auth. Same timeout is also upstream issue #31 (even 1.4↔1.4 around 15.08).

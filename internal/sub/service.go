@@ -872,7 +872,9 @@ func (s *SubService) genOlcrtcLink(inbound *model.Inbound) string {
 	return cfg.ClientURI()
 }
 
-// genQwdttLink returns the single qwdtt:// URI for the qWDTT inbound.
+// genQwdttLink returns the single qwdtt://config? URI for the qWDTT inbound.
+// Do not append LegacyURI (wdtt://): SpaceNeuroX 1.4.2 parsePayload treats the
+// whole clipboard as one URI, so a second line corrupts pass and DTLS dies.
 // EnsureSubHost fills an empty peer from the host's outbound IPv4 so export
 // works for pre-lucx.108 rows that never stored subHost (no DB write here).
 func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
@@ -880,15 +882,7 @@ func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 	if !ok || !inbound.Enable {
 		return ""
 	}
-	cfg = cfg.EnsureSubHost()
-	uri := cfg.ClientURI()
-	if legacy := cfg.LegacyURI(); legacy != "" {
-		if uri != "" {
-			return uri + "\n" + legacy
-		}
-		return legacy
-	}
-	return uri
+	return cfg.EnsureSubHost().ClientURI()
 }
 
 // genNaiveLink builds naive+https://user:pass@domain:port#email for a client

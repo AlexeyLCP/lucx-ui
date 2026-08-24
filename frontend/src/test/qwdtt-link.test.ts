@@ -32,7 +32,8 @@ describe('genQwdttLink', () => {
     expect(link).toContain('pass=secret');
     expect(link).toContain('name=Home');
     expect(link).toContain('hashes=h1%2Ch2');
-    expect(link).toContain('\nwdtt://1.2.3.4:56000:56001:9000:secret:h1');
+    expect(link.includes('\n')).toBe(false);
+    expect(link).not.toMatch(/(?:^|[\r\n])wdtt:\/\//);
   });
 
   it('falls back to address:port when subHost empty', () => {

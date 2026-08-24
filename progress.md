@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.167 — qWDTT share: one qwdtt://config? line (2026-08-24)
+
+VladufQa: compact `wdtt://` and a lone `qwdtt://config?` both connect; pasting the panel's two-line block hangs on DTLS (client 1.4.2).
+
+SpaceNeuroX `parsePayload` treats the whole clipboard as one URI. A trailing `\nwdtt://…` is swallowed into `pass` → handshake timeout 10s.
+
+- Share / QR / `/sub/` emit only `qwdtt://config?` (same form the APK itself exports).
+- Legacy `wdtt://` stays on the Tunnels card as its own copy field.
+- Tests: `TestGetSubs_Qwdtt_SingleConfigLine`, `TestQwdttClientURI`, `qwdtt-link.test.ts`.
+
+**lucxVersion:** lucx.167
+
+---
+
 ## lucx.166 — import backup + adopt fixes (2026-08-24)
 
 Follow-up to lucx.165 after a full pass of the import path.
