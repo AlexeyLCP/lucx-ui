@@ -22,7 +22,7 @@ import (
 // QwdttConfig is the operator-facing configuration of the qWDTT core
 // (SpaceNeuroX/proxy-turn-vk-android server.go — WireGuard over VK TURN).
 // The binary takes pure CLI flags (no config file); state lives in ConfigDir
-// (passwords.json, wg-keys.dat). Schema mirrors Bebrik2283555/Ex3-ui extras.
+// (passwords.json, wg-keys.dat). Sidecar pin: SpaceNeuroX v1.4.2 (see release.yml).
 type QwdttConfig struct {
 	Remark  string `json:"remark"`
 	Enabled bool   `json:"enabled"`

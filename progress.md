@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.163 — qWDTT sidecar pinned to SpaceNeuroX v1.4.2 (2026-08-24)
+
+VladufQa: client DTLS step dies in 10s after green DNS/VK/WRAP/TURN. Listen vs SubHost confusion plus a stale server binary.
+
+- Replaced Ex3-ui `v1.0` extra-qwdtt (~client 1.4.0) with a CGO=0 linux-amd64 build of SpaceNeuroX `./server` at SHA `6c2f7a62` (tag `v1.4.2`, pion/dtls 3.1.5). Live blob: `third_party/sidecars/linux-amd64/qwdtt-linux-amd64.gz`.
+- `release.yml` / `sourcecraft-release.sh` build from that SHA (olcrtc-style pin), not the Ex3 tarball.
+- CLI argv unchanged (`-listen/-password/-dns/-listen-raw`). Bind stays `0.0.0.0:56000`; advertised peer is `subHost` = public IP:port.
+- Pattern 1s in `.agents/07-debug-tunnels.md`.
+
+**lucxVersion:** lucx.163
+
+---
+
 ## lucx.162 — outbound CPS after up; tt TLV + AWG vpn:// in sub (2026-08-23)
 
 Tester report (three items): the AWG outbound stored its I1–I5 but never sent them; TrustTunnel was not imported into Exclave from the subscription; AmneziaWG was not imported into NekoBox+/Exclave from the subscription.

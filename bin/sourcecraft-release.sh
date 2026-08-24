@@ -160,13 +160,18 @@ git -C /tmp/olcrtc checkout -q FETCH_HEAD
 mv "/tmp/olcrtc-linux-${ARCH}" "olcrtc-linux-${ARCH}"
 rm -rf /tmp/olcrtc
 
-EX3_TAG="v1.0"
-EX3_TGZ="x-ui-linux-${ARCH}.tar.gz"
-fetch -O "${EX3_TGZ}" "https://github.com/Bebrik2283555/Ex3-ui/releases/download/${EX3_TAG}/${EX3_TGZ}"
-tar -xzf "${EX3_TGZ}" "x-ui/bin/extra-qwdtt"
-mv x-ui/bin/extra-qwdtt "qwdtt-linux-${ARCH}"
+QWDTT_REF="6c2f7a627d9fc0b54240035818ff86b6d2b6c76f"
+git init -q /tmp/qwdtt
+git -C /tmp/qwdtt remote add origin https://github.com/SpaceNeuroX/proxy-turn-vk-android.git
+git -C /tmp/qwdtt fetch -q --depth 1 origin "${QWDTT_REF}"
+git -C /tmp/qwdtt checkout -q FETCH_HEAD
+(
+    cd /tmp/qwdtt
+    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "/tmp/qwdtt-linux-${ARCH}" ./server
+)
+mv "/tmp/qwdtt-linux-${ARCH}" "qwdtt-linux-${ARCH}"
 chmod +x "qwdtt-linux-${ARCH}"
-rm -rf x-ui "${EX3_TGZ}"
+rm -rf /tmp/qwdtt
 
 MIERU_REF="v3.35.0"
 git clone --depth 1 --branch "${MIERU_REF}" https://github.com/enfein/mieru.git /tmp/mieru
