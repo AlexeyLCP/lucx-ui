@@ -35,6 +35,7 @@ type AwgImportResult struct {
 	Clients     int    `json:"clients"`
 	MissingKeys int    `json:"missingKeys"`
 	Adopted     bool   `json:"adopted"`
+	Stopped     bool   `json:"stopped"`
 	Error       string `json:"error,omitempty"`
 }
 
@@ -127,6 +128,21 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 	if c.ConfPath != "" && !awg.ConfigPathIsManaged(c.ConfPath) {
 		if err := awg.BackupForeignConf(c.ConfPath); err != nil {
 			logger.Warningf("awg import: backup %s: %v", c.ConfPath, err)
+		}
+	}
+	if c.StopTarget != "" {
+		if err := awg.StopImportSource(c); err != nil {
+			logger.Warningf("awg import: stop %s: %v", c.StopTarget, err)
+			if res.Error == "" {
+				res.Error = "saved, stop old source failed: " + err.Error()
+			}
+		} else {
+			res.Stopped = true
+			if c.DropOnImport {
+				if _, err := s.Inbound.SetInboundEnable(created.Id, true); err != nil {
+					logger.Warningf("awg import: enable %d after stop: %v", created.Id, err)
+				}
+			}
 		}
 	}
 	return res

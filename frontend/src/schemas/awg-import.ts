@@ -31,6 +31,7 @@ export const AwgImportCandidateSchema = z.object({
   backend: z.string(),
   dropOnImport: z.boolean(),
   warning: z.string(),
+  stopTarget: z.string().optional(),
   peers: z.preprocess((v) => v ?? [], z.array(AwgImportPeerSchema)),
 });
 
@@ -46,6 +47,7 @@ export const AwgImportResultSchema = z.object({
   clients: z.number(),
   missingKeys: z.number(),
   adopted: z.boolean(),
+  stopped: z.boolean().optional(),
   error: z.string().optional(),
 });
 

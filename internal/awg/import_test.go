@@ -308,8 +308,31 @@ AllowedIPs = 10.8.1.2/32
 	if got[0].NamedPeers != 1 || got[0].Peers[0].Email != "phone" {
 		t.Fatalf("name from clientsTable: %+v", got[0].Peers)
 	}
+	if got[0].StopTarget != "docker:amnezia-awg" {
+		t.Fatalf("stopTarget = %q", got[0].StopTarget)
+	}
 	if got[1].ID != "amnezia-docker:amnezia-awg2" || got[1].Port != 47503 {
 		t.Fatalf("awg2: %+v", got[1])
+	}
+}
+
+func TestStopImportSource_DockerOnly(t *testing.T) {
+	var stopped []string
+	c := ImportCandidate{StopTarget: "docker:amnezia-awg"}
+	if err := StopImportSourceWith(c, func(name string) error {
+		stopped = append(stopped, name)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if len(stopped) != 1 || stopped[0] != "amnezia-awg" {
+		t.Fatalf("stopped = %v", stopped)
+	}
+	if err := StopImportSourceWith(ImportCandidate{}, func(string) error {
+		t.Fatal("empty target must not stop anything")
+		return nil
+	}); err != nil {
+		t.Fatal(err)
 	}
 }
 

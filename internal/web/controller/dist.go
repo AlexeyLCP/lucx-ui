@@ -13,6 +13,8 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/favicon"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
 )
 
@@ -84,6 +86,24 @@ func normalizeWebBasePath(basePath string) string {
 	return basePath
 }
 
+// LUCX-HOOK: panel tab favicon from settings
+func faviconHeadInjection(pageName string) []byte {
+	if pageName != "index.html" && pageName != "login.html" {
+		return nil
+	}
+	raw, err := (service.SettingService{}).GetWebFavicon()
+	if err != nil {
+		return nil
+	}
+	tag := favicon.LinkTag(raw)
+	if tag == "" {
+		return nil
+	}
+	return []byte(tag)
+}
+
+// END LUCX-HOOK
+
 func pwaHeadInjection(basePath, pageName string) []byte {
 	if pageName != "index.html" && pageName != "login.html" {
 		return nil
@@ -143,6 +163,9 @@ func serveDistPage(c *gin.Context, name string) {
 	inject = append(inject, csrfMeta...)
 	inject = append(inject, basePathMeta...)
 	inject = append(inject, pwaHeadInjection(basePath, name)...)
+	// LUCX-HOOK: operator-chosen tab icon
+	inject = append(inject, faviconHeadInjection(name)...)
+	// END LUCX-HOOK
 	inject = append(inject, []byte(`</head>`)...)
 	out := bytes.Replace(body, []byte("</head>"), inject, 1)
 

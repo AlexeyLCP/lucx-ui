@@ -107,6 +107,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "webBasePath": "",
     "webCertFile": "",
     "webDomain": "",
+    "webFavicon": "",
     "webKeyFile": "",
     "webListen": "",
     "webPort": 1
@@ -225,6 +226,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "webBasePath": "",
     "webCertFile": "",
     "webDomain": "",
+    "webFavicon": "",
     "webKeyFile": "",
     "webListen": "",
     "webPort": 1

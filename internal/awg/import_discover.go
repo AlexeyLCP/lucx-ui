@@ -22,6 +22,7 @@ type DiscoverPaths struct {
 	ScanLiveDocker bool
 	DockerList     func() []string
 	DockerRead     func(container, path string) ([]byte, error)
+	DockerStop     func(container string) error
 }
 
 // DefaultDiscoverPaths is the production layout on a Linux VPS.
@@ -68,6 +69,7 @@ type ImportCandidate struct {
 	ExtraPaths   []string                 `json:"-"`
 	ConfText     string                   `json:"-"`
 	TableText    string                   `json:"-"`
+	StopTarget   string                   `json:"stopTarget"`
 }
 
 // Discover finds unmanaged AWG server configs. Managed x-ui files are skipped.
@@ -192,7 +194,8 @@ func scanDockerRoot(root string) []ImportCandidate {
 				AwgVersion:   conf.AwgVersion,
 				Backend:      "docker",
 				DropOnImport: true,
-				Warning:      "Docker Amnezia must be stopped after import; clients reconnect on the kernel interface.",
+				StopTarget:   "docker:amnezia-" + sub,
+				Warning:      "After import the old Docker container is stopped so the kernel iface can take the port.",
 				Conf:         conf,
 				Keys:         keys,
 				ExtraPaths:   extra,
@@ -273,7 +276,8 @@ func finishCandidate(c ImportCandidate, keys map[string]ClientKeyFile) ImportCan
 	c.Live = interfaceIsUp(c.Ifname)
 	if c.Source == ImportSourceToolza3 && c.Warning == "" {
 		c.DropOnImport = true
-		c.Warning = "toolza3 uses userspace amneziawg-go; stop awg3 after import."
+		c.StopTarget = "systemd:awg3"
+		c.Warning = "After import the awg3 service is stopped so the kernel iface can take the port."
 	}
 	if dns := firstPeerDNS(c.Conf.Peers, c.Keys); c.Conf.DNS == "" && dns != "" {
 		c.Conf.DNS = dns

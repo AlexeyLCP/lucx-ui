@@ -12,6 +12,7 @@ export const AllSettingSchema = z
     webCertFile: z.string().optional(),
     webKeyFile: z.string().optional(),
     webBasePath: absolutePath.optional(),
+    webFavicon: z.string().max(16384).optional(),
     sessionMaxAge: z.number().int().min(1).max(525600).optional(),
     trustedProxyCIDRs: z.string().optional(),
     ipLimitAllowlist: z.string().optional(),

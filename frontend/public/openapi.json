@@ -132,6 +132,7 @@
             "type": "boolean"
           },
           "sessionMaxAge": {
+            "description": "END LUCX-HOOK",
             "maximum": 525600,
             "minimum": 1,
             "type": "integer"
@@ -379,6 +380,10 @@
           "webDomain": {
             "type": "string"
           },
+          "webFavicon": {
+            "description": "LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)",
+            "type": "string"
+          },
           "webKeyFile": {
             "type": "string"
           },
@@ -498,6 +503,7 @@
           "webBasePath",
           "webCertFile",
           "webDomain",
+          "webFavicon",
           "webKeyFile",
           "webListen",
           "webPort"
@@ -631,6 +637,7 @@
             "type": "boolean"
           },
           "sessionMaxAge": {
+            "description": "END LUCX-HOOK",
             "maximum": 525600,
             "minimum": 1,
             "type": "integer"
@@ -878,6 +885,10 @@
           "webDomain": {
             "type": "string"
           },
+          "webFavicon": {
+            "description": "LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)",
+            "type": "string"
+          },
           "webKeyFile": {
             "type": "string"
           },
@@ -1004,6 +1015,7 @@
           "webBasePath",
           "webCertFile",
           "webDomain",
+          "webFavicon",
           "webKeyFile",
           "webListen",
           "webPort"

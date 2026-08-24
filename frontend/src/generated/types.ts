@@ -118,6 +118,7 @@ export interface AllSetting {
   webBasePath: string;
   webCertFile: string;
   webDomain: string;
+  webFavicon: string;
   webKeyFile: string;
   webListen: string;
   webPort: number;
@@ -237,6 +238,7 @@ export interface AllSettingView {
   webBasePath: string;
   webCertFile: string;
   webDomain: string;
+  webFavicon: string;
   webKeyFile: string;
   webListen: string;
   webPort: number;

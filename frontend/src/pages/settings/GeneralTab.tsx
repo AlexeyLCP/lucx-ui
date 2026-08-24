@@ -15,6 +15,7 @@ import { onNumber } from '@/utils/onNumber';
 import { DefaultSettingTag, SettingListItem } from '@/components/ui';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { catTabLabel } from './catTabLabel';
+import { panelFaviconHref } from '@/lib/panelFavicon';
 import { sanitizePath } from './uriPath';
 import SecretInput from './SecretInput';
 
@@ -235,6 +236,29 @@ export default function GeneralTab({ allSetting, updateSetting }: GeneralTabProp
                 <Input
                   value={allSetting.webBasePath}
                   onChange={(e) => updateSetting({ webBasePath: sanitizePath(e.target.value) })}
+                />
+              </SettingListItem>
+
+              <SettingListItem
+                paddings="small"
+                title={t('pages.settings.panelFavicon')}
+                description={t('pages.settings.panelFaviconDesc')}
+              >
+                <Input
+                  value={allSetting.webFavicon}
+                  placeholder="🐰"
+                  onChange={(e) => updateSetting({ webFavicon: e.target.value })}
+                  suffix={
+                    panelFaviconHref(allSetting.webFavicon) ? (
+                      <img
+                        src={panelFaviconHref(allSetting.webFavicon)}
+                        alt=""
+                        width={18}
+                        height={18}
+                        style={{ display: 'block' }}
+                      />
+                    ) : null
+                  }
                 />
               </SettingListItem>
 

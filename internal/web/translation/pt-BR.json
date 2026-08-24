@@ -930,7 +930,7 @@
         "live": "Live",
         "address": "Address",
         "version": "Version",
-        "savedDisabled": "Docker/userspace imports are saved disabled. Stop the old container, then enable the inbound. Stacks that share 10.8.1.0/24 need different subnets before more than one kernel iface is up."
+        "savedDisabled": "After import the old Docker/awg3 manager is stopped and the inbound is enabled. Stacks that share 10.8.1.0/24 need different subnets before more than one kernel iface is up."
       },
       "protocolNames": {
         "awg": "AmneziaWG (kernel)",
@@ -1344,6 +1344,8 @@
       "privateKeyPathDesc": "O caminho do arquivo de chave privada para o painel web. (começa com ‘/‘)",
       "panelUrlPath": "Caminho URI",
       "panelUrlPathDesc": "O caminho URI para o painel web. (começa com ‘/‘ e termina com ‘/‘)",
+      "panelFavicon": "Tab icon",
+      "panelFaviconDesc": "One emoji, or SVG/PNG as Base64 / data URI. Empty = no icon. Applies after save — no panel restart.",
       "pageSize": "Tamanho da Paginação",
       "pageSizeDesc": "Definir o tamanho da página para a tabela de entradas. (0 = desativado)",
       "panelOutbound": "Saída do tráfego do painel",

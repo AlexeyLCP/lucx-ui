@@ -106,6 +106,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "boolean"
       },
       "sessionMaxAge": {
+        "description": "END LUCX-HOOK",
         "maximum": 525600,
         "minimum": 1,
         "type": "integer"
@@ -353,6 +354,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "webDomain": {
         "type": "string"
       },
+      "webFavicon": {
+        "description": "LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)",
+        "type": "string"
+      },
       "webKeyFile": {
         "type": "string"
       },
@@ -472,6 +477,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "webBasePath",
       "webCertFile",
       "webDomain",
+      "webFavicon",
       "webKeyFile",
       "webListen",
       "webPort"
@@ -605,6 +611,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "boolean"
       },
       "sessionMaxAge": {
+        "description": "END LUCX-HOOK",
         "maximum": 525600,
         "minimum": 1,
         "type": "integer"
@@ -852,6 +859,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "webDomain": {
         "type": "string"
       },
+      "webFavicon": {
+        "description": "LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)",
+        "type": "string"
+      },
       "webKeyFile": {
         "type": "string"
       },
@@ -978,6 +989,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "webBasePath",
       "webCertFile",
       "webDomain",
+      "webFavicon",
       "webKeyFile",
       "webListen",
       "webPort"

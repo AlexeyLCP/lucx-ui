@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/favicon" // LUCX-HOOK: panel tab icon
 )
 
 type Msg struct {
@@ -19,12 +20,15 @@ type Msg struct {
 }
 
 type AllSetting struct {
-	WebListen         string `json:"webListen" form:"webListen"`
-	WebDomain         string `json:"webDomain" form:"webDomain"`
-	WebPort           int    `json:"webPort" form:"webPort" validate:"gte=1,lte=65535"`
-	WebCertFile       string `json:"webCertFile" form:"webCertFile"`
-	WebKeyFile        string `json:"webKeyFile" form:"webKeyFile"`
-	WebBasePath       string `json:"webBasePath" form:"webBasePath"`
+	WebListen   string `json:"webListen" form:"webListen"`
+	WebDomain   string `json:"webDomain" form:"webDomain"`
+	WebPort     int    `json:"webPort" form:"webPort" validate:"gte=1,lte=65535"`
+	WebCertFile string `json:"webCertFile" form:"webCertFile"`
+	WebKeyFile  string `json:"webKeyFile" form:"webKeyFile"`
+	WebBasePath string `json:"webBasePath" form:"webBasePath"`
+	// LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)
+	WebFavicon string `json:"webFavicon" form:"webFavicon"`
+	// END LUCX-HOOK
 	SessionMaxAge     int    `json:"sessionMaxAge" form:"sessionMaxAge" validate:"gte=1,lte=525600"`
 	TrustedProxyCIDRs string `json:"trustedProxyCIDRs" form:"trustedProxyCIDRs"`
 	IpLimitAllowlist  string `json:"ipLimitAllowlist" form:"ipLimitAllowlist"`
@@ -313,6 +317,12 @@ func (s *AllSetting) CheckValid() error {
 			return common.NewError("SMTP from address is not valid:", s.SmtpFrom)
 		}
 	}
+
+	// LUCX-HOOK: panel tab favicon
+	if _, err := favicon.Href(s.WebFavicon); err != nil {
+		return common.NewError("web favicon is not valid:", err)
+	}
+	// END LUCX-HOOK
 
 	return nil
 }

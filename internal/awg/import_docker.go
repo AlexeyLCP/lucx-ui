@@ -7,7 +7,9 @@
 package awg
 
 import (
+	"bytes"
 	"context"
+	"fmt"
 	"os"
 	"os/exec"
 	"strings"
@@ -82,7 +84,8 @@ func readDockerCandidate(container, sub string, dirs []string, read func(string,
 				AwgVersion:   conf.AwgVersion,
 				Backend:      "docker",
 				DropOnImport: true,
-				Warning:      "Docker Amnezia must be stopped after import; clients reconnect on the kernel interface. Stacks often share 10.8.1.0/24 — change a subnet before bringing more than one kernel iface up.",
+				StopTarget:   "docker:" + container,
+				Warning:      "After import the old Docker container is stopped so the kernel iface can take the port. Stacks often share 10.8.1.0/24 — change a subnet before bringing more than one kernel iface up.",
 				Conf:         conf,
 				Keys:         keys,
 				ConfText:     text,
@@ -115,6 +118,52 @@ func defaultReadDockerFile(container, path string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	return exec.CommandContext(ctx, dockerBin(), "exec", container, "cat", path).Output()
+}
+
+// StopImportSource stops the foreign manager that held this interface
+// (Docker container or systemd unit). No-op when StopTarget is empty.
+func StopImportSource(c ImportCandidate) error {
+	return StopImportSourceWith(c, nil)
+}
+
+func StopImportSourceWith(c ImportCandidate, dockerStop func(string) error) error {
+	kind, name, ok := strings.Cut(strings.TrimSpace(c.StopTarget), ":")
+	if !ok || name == "" {
+		return nil
+	}
+	switch kind {
+	case "docker":
+		if dockerStop == nil {
+			dockerStop = defaultStopDockerContainer
+		}
+		return dockerStop(name)
+	case "systemd":
+		return stopSystemdUnit(name)
+	default:
+		return nil
+	}
+}
+
+func defaultStopDockerContainer(name string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	_ = exec.CommandContext(ctx, dockerBin(), "update", "--restart=no", name).Run()
+	out, err := exec.CommandContext(ctx, dockerBin(), "stop", name).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("docker stop %s: %w (%s)", name, err, bytes.TrimSpace(out))
+	}
+	return nil
+}
+
+func stopSystemdUnit(unit string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	_ = exec.CommandContext(ctx, "systemctl", "disable", "--now", unit).Run()
+	out, err := exec.CommandContext(ctx, "systemctl", "stop", unit).CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("systemctl stop %s: %w (%s)", unit, err, bytes.TrimSpace(out))
+	}
+	return nil
 }
 
 func dockerBin() string {

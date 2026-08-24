@@ -1,5 +1,29 @@
 # LucX-UI — Прогресс
 
+## lucx.178 — panel tab favicon (2026-08-24)
+
+Settings → Panel: `webFavicon` accepts one emoji or SVG/PNG Base64 / data URI. Empty = no icon.
+
+- Saved on the panel; injected into `index.html` / `login.html`; applied live in the SPA.
+- `javascript:` and non-image data URIs are rejected.
+
+**lucxVersion:** lucx.178
+
+---
+
+## lucx.177 — stop Docker/awg3 after AWG import (2026-08-24)
+
+After import the operator still had to `docker stop` Amnezia / stop toolza3, or the kernel iface could not bind the port.
+
+- Successful import stops only that source (`docker stop` + `--restart=no`, or `systemctl stop awg3`).
+- Then the inbound is enabled so reconcile brings `awgN` up.
+- Stop failure does not roll back the saved inbound.
+- Tests: `TestStopImportSource_DockerOnly`, discover sets `stopTarget`.
+
+**lucxVersion:** lucx.177
+
+---
+
 ## lucx.176 — AWG client params stay complete (2026-08-24)
 
 Follow-up to Albert / lucx.175: audit other fields that could vanish like PSK.

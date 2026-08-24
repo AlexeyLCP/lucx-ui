@@ -62,6 +62,7 @@ var defaultValueMap = map[string]string{
 	"nodeMtlsClientCertSha256":    "",
 	"nodeMtlsClientCAPem":         "",
 	"webBasePath":                 normalizeBasePath(getEnv("XUI_INIT_WEB_BASE_PATH", "/")),
+	"webFavicon":                  "", // LUCX-HOOK: panel tab icon (emoji or base64)
 	"sessionMaxAge":               "360",
 	"trustedProxyCIDRs":           DefaultTrustedProxyCIDRs,
 	"ipLimitAllowlist":            "",
@@ -724,6 +725,16 @@ func (s *SettingService) GetBasePath() (string, error) {
 	}
 	return normalizeBasePath(basePath), nil
 }
+
+// LUCX-HOOK: panel tab favicon
+func (s *SettingService) GetWebFavicon() (string, error) {
+	if database.GetDB() == nil {
+		return "", nil
+	}
+	return s.getString("webFavicon")
+}
+
+// END LUCX-HOOK
 
 func (s *SettingService) GetTimeLocation() (*time.Location, error) {
 	l, err := s.getString("timeLocation")
