@@ -416,7 +416,9 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if inbound.Protocol != model.AWG || !inbound.Enable || inbound.NodeID != nil {
 			continue
 		}
-		injectAwgEgress(xrayConfig, inbound)
+		if awg.KernelAvailable() {
+			injectAwgEgress(xrayConfig, inbound)
+		}
 	}
 	// qWDTT routeThroughXray: TUN bridge (kernel IP from wdtt0 → Xray), same idea as AWG.
 	for i := range inbounds {
@@ -895,9 +897,6 @@ func awgTunGateway(id int) string {
 // instead of a loopback SOCKS bridge, because AWG traffic is raw IP from a
 // kernel module, not TCP from a userspace daemon.
 func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
-	if !awg.KernelAvailable() {
-		return
-	}
 	var parsed struct {
 		RouteThroughXray bool   `json:"routeThroughXray"`
 		OutboundTag      string `json:"outboundTag"`

@@ -735,7 +735,6 @@ func (s *SubService) genWireguardLink(inbound *model.Inbound, email string) stri
 	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
 }
 
-
 // genAwgLink builds a per-client amneziawg:// share link mirroring the
 // WireGuard link shape, with the AWG obfuscation parameters (Jc/Jmin/Jmax,
 // S1-S4, H1-H4, I1-I5) carried as query params. The client's private key is

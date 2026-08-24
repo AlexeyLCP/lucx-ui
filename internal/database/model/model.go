@@ -117,7 +117,7 @@ const (
 	WireGuard   Protocol = "wireguard"
 	Hysteria    Protocol = "hysteria"
 	MTProto     Protocol = "mtproto"
-	AmneziaWG Protocol = "amneziawg"
+	AmneziaWG   Protocol = "amneziawg"
 	// LUCX-HOOK: AmneziaWG protocol — managed as a kernel-interface sidecar,
 	// excluded from the generated Xray config (see internal/awg).
 	AWG Protocol = "awg"

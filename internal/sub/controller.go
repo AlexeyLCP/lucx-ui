@@ -76,8 +76,8 @@ type SUBController struct {
 	subService      *SubService
 	subJsonService  *SubJsonService
 	subClashService *SubClashService
-	subAwgService  *SubAwgService // LUCX-HOOK
-	clientService  service.ClientService
+	subAwgService   *SubAwgService // LUCX-HOOK
+	clientService   service.ClientService
 	settingService  service.SettingService
 
 	subTemplateMu    sync.RWMutex

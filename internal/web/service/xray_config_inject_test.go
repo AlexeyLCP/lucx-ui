@@ -1206,9 +1206,11 @@ func TestInjectAmneziawgV6Egress_RulesPrependedBeforeExistingRules(t *testing.T)
 		t.Fatalf("expected the egress rule prepended, got %+v", routing.Rules)
 	}
 	first := routing.Rules[0]
-	if first.Type != "field" || first.OutboundTag != "warp" ||
-		len(first.InboundTag) != 1 || first.InboundTag[0] != tunnel.NaiveEgressTag {
-		t.Fatalf("egress rule must bind NaiveEgressTag to the outbound, got %+v", first)
+	wantTag := amneziawgV6EgressTag(1, "a@x")
+	if first.Type != "field" || first.OutboundTag != wantTag ||
+		len(first.InboundTag) != 1 || first.InboundTag[0] != "awg-1" ||
+		len(first.User) != 1 || first.User[0] != "a@x" {
+		t.Fatalf("egress rule must bind the peer to its v6 outbound, got %+v", first)
 	}
 }
 
@@ -1343,4 +1345,3 @@ func TestInjectTrustTunnelEgress_KnownOutboundForceRoutes(t *testing.T) {
 }
 
 // END LUCX-HOOK
-

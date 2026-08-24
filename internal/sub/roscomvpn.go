@@ -66,10 +66,7 @@ func roscomvpnLockFor(src string) *sync.Mutex {
 // last known good value is served, falling back to custom when the cache is cold.
 func ResolveRoutingRules(source, custom string) string {
 	src := strings.ToLower(strings.TrimSpace(source))
-	if src == "" {
-		src = RoscomVPNSourceDefault
-	}
-	if src == RoscomVPNSourceCustom {
+	if src == "" || src == RoscomVPNSourceCustom {
 		return custom
 	}
 	url, ok := roscomvpnSourceURLs[src]

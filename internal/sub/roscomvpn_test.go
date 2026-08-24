@@ -23,6 +23,10 @@ func TestResolveRoutingRulesCustom(t *testing.T) {
 	if got != "fallback" {
 		t.Fatalf("unknown = %q", got)
 	}
+	got = ResolveRoutingRules("", "inline")
+	if got != "inline" {
+		t.Fatalf("empty source = %q", got)
+	}
 }
 
 func TestResolveRoutingRulesFetchesAndCaches(t *testing.T) {
