@@ -1692,7 +1692,7 @@ function awgPeerShape(c: AwgInboundSettings['clients'][number]): WireguardInboun
   return {
     privateKey: c.privateKey ?? '',
     publicKey: c.publicKey || (c.id ?? ''),
-    preSharedKey: c.preSharedKey ?? c.password ?? '',
+    preSharedKey: c.preSharedKey ?? '',
     allowedIPs: c.allowedIPs ?? [],
     keepAlive: c.keepAlive ?? 0,
     comment: '',

@@ -535,19 +535,13 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 			fmt.Fprintf(&b, "S4 = %d\n", s.S4)
 		}
 	}
-	for _, h := range []string{s.H1, s.H2, s.H3, s.H4} {
+	for i, h := range []string{s.H1, s.H2, s.H3, s.H4} {
 		if h != "" {
-			fmt.Fprintf(&b, "H = %s\n", h)
+			fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
 		}
 	}
-	// Re-mark the H lines with the correct index (the loop above wrote a plain
-	// "H = " placeholder; replace each in order with H1/H2/H3/H4).
-	block := b.String()
-	for _, idx := range []string{"1", "2", "3", "4"} {
-		block = strings.Replace(block, "H = ", "H"+idx+" = ", 1)
-	}
 	var out strings.Builder
-	out.WriteString(block)
+	out.WriteString(b.String())
 	if ver != "1.5" {
 		for _, ip := range []struct{ idx, val string }{
 			{"1", s.I1}, {"2", s.I2}, {"3", s.I3}, {"4", s.I4}, {"5", s.I5},

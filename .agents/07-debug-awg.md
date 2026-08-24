@@ -212,6 +212,11 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** lucx.165 skipped PSK generation when `publicKey`/`privateKey` were already set (import). The inbound/client form always generates a keypair first, so every new AWG client hit that skip. Export omits an empty PSK (correct for WireGuard; Amnezia analyzers want the line).
 - **Fix:** generate PSK when the client is **new** (`existing` has no matching email/pubkey). Imported/existing empty PSK stays empty (Rule 0).
 - **Seen on:** Albert, 2026-08-24.
+
+### Pattern 1aa: AWG share-link used form password as PSK — FIXED (lucx.176)
+
+- **Cause:** `awgPeerShape` did `preSharedKey ?? password`. Empty PSK fell through to the 16-char form password. Same class of bug as lucx.173 on the export path.
+- **Fix:** only `preSharedKey`. H1–H4 in `inboundAwgHints` written by index (no `H =` rematch). Create-time `fillProtocolDefaults` mints one PSK for all attaches.
 - **Seen on:** Albert (fresh 169), Never (172 “broke everything”).
 
 ### Pattern 1z: new AWG clients do not connect — `Key is not the correct length: 'vgmg…'` — FIXED (lucx.173)

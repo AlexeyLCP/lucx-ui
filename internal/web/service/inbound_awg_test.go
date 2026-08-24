@@ -12,6 +12,17 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/web/runtime"
 )
 
+func TestInboundAwgHints_HIndexesStayAligned(t *testing.T) {
+	settings := `{"address":"10.200.0.1/24","jc":4,"jmin":10,"jmax":50,"s1":40,"s2":60,"h1":"1-10","h3":"30-40","h4":"50-60","awgVersion":"2"}`
+	_, obf, _ := inboundAwgHints(settings)
+	if !strings.Contains(obf, "H1 = 1-10") || !strings.Contains(obf, "H3 = 30-40") || !strings.Contains(obf, "H4 = 50-60") {
+		t.Fatalf("H labels misaligned:\n%s", obf)
+	}
+	if strings.Contains(obf, "H2 =") {
+		t.Fatalf("empty H2 must stay omitted:\n%s", obf)
+	}
+}
+
 func TestInboundHasSidecar(t *testing.T) {
 	if !inboundHasSidecar(model.Naive) || !inboundHasSidecar(model.AWG) || inboundHasSidecar(model.VLESS) {
 		t.Fatal("sidecar protocols must teardown on delete even when disabled")

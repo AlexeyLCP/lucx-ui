@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.176 — AWG client params stay complete (2026-08-24)
+
+Follow-up to Albert / lucx.175: audit other fields that could vanish like PSK.
+
+- Share-link / genAwgConfig no longer treat form `password` as PresharedKey (16-char NumLower is not a WG key).
+- `inboundAwgHints` writes `H1`–`H4` directly so a missing H2 cannot relabel H3/H4.
+- `fillProtocolDefaults` mints one PSK on AWG create so every attach shares it.
+- Tests: `does not treat form password as PresharedKey`, `TestInboundAwgHints_HIndexesStayAligned`.
+
+**lucxVersion:** lucx.176
+
+---
+
 ## lucx.175 — new AWG client missing PresharedKey (2026-08-24)
 
 Albert: new kernel AWG inbound + client, saved .conf has no `PresharedKey`; analyzers complain.

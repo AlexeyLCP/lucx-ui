@@ -16,6 +16,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
+	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 
 	"gorm.io/gorm"
@@ -271,6 +272,15 @@ func (s *ClientService) fillProtocolDefaults(c *model.Client, ib *model.Inbound)
 	case model.MTProto:
 		if c.Secret == "" {
 			c.Secret = model.GenerateFakeTLSSecret(mtprotoDomainFromSettings(ib.Settings))
+		}
+	// LUCX-HOOK: AWG — same PSK for every attach; defaultAwgClients then keeps it.
+	case model.AWG:
+		if c.PreSharedKey == "" {
+			psk, err := wgutil.GenerateWireguardPSK()
+			if err != nil {
+				return err
+			}
+			c.PreSharedKey = psk
 		}
 	}
 	return nil

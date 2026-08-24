@@ -513,6 +513,29 @@ describe('genAwgLink + genAwgConfig version gating', () => {
     expect(config).toContain('Jc = 5');
   });
 
+  it('does not treat form password as PresharedKey', () => {
+    const settings = awgSettings('2');
+    settings.clients[0] = {
+      ...settings.clients[0],
+      preSharedKey: '',
+      password: 'vgmg2ms952ceemgc',
+    };
+    const config = genAwgConfig({
+      settings,
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
+    const link = genAwgLink({
+      settings,
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+    });
+    expect(config).not.toContain('PresharedKey');
+    expect(new URL(link).searchParams.get('presharedkey')).toBeNull();
+  });
+
   it('v3.1 emits RandomTrailers and keeps HPK', () => {
     const settings = awgSettings('3.1');
     const link = genAwgLink({ settings, address: 'wg.example.test', port: 51820, peerIndex: 0 });
