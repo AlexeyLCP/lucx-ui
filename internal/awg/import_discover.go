@@ -232,11 +232,15 @@ func finishCandidate(c ImportCandidate, keys map[string]ClientKeyFile) ImportCan
 	}
 	c.Keys = matched
 	for i := range c.Conf.Peers {
-		if c.Conf.Peers[i].Name != "" {
+		k, ok := matched[c.Conf.Peers[i].PublicKey]
+		if !ok {
 			continue
 		}
-		if k, ok := matched[c.Conf.Peers[i].PublicKey]; ok {
+		if c.Conf.Peers[i].Name == "" {
 			c.Conf.Peers[i].Name = k.Name
+		}
+		if c.Conf.Peers[i].AllowedIPs == "" && k.AllowedIPs != "" {
+			c.Conf.Peers[i].AllowedIPs = k.AllowedIPs
 		}
 	}
 	used := map[string]struct{}{}
@@ -364,10 +368,7 @@ func parseAmneziaClientsTable(data []byte, path string) map[string]ClientKeyFile
 				}
 			}
 		}
-		pub, _ := row["clientId"].(string)
-		if pub == "" {
-			pub, _ = row["publicKey"].(string)
-		}
+		pub := strings.TrimSpace(rowString(row, "clientId", "publicKey"))
 		if priv != "" {
 			if derived := PublicKeyOf(priv); derived != "" {
 				pub = derived
@@ -384,27 +385,43 @@ func parseAmneziaClientsTable(data []byte, path string) map[string]ClientKeyFile
 		if name != "" {
 			k.Name = name
 		}
+		if ips := amneziaRowAllowed(row); ips != "" {
+			k.AllowedIPs = ips
+		}
 		out[pub] = k
 	}
 	return out
 }
 
 func amneziaRowName(row map[string]any) string {
-	if s, _ := row["clientName"].(string); s != "" {
-		return s
-	}
-	if s, _ := row["name"].(string); s != "" {
+	if s := rowString(row, "clientName", "name"); s != "" {
 		return s
 	}
 	ud, ok := row["userData"].(map[string]any)
 	if !ok {
 		return ""
 	}
-	if s, _ := ud["clientName"].(string); s != "" {
+	return rowString(ud, "clientName", "name")
+}
+
+func amneziaRowAllowed(row map[string]any) string {
+	if s := rowString(row, "allowedIps", "allowedIPs"); s != "" {
 		return s
 	}
-	s, _ := ud["name"].(string)
-	return s
+	ud, ok := row["userData"].(map[string]any)
+	if !ok {
+		return ""
+	}
+	return rowString(ud, "allowedIps", "allowedIPs")
+}
+
+func rowString(row map[string]any, keys ...string) string {
+	for _, key := range keys {
+		if s, _ := row[key].(string); strings.TrimSpace(s) != "" {
+			return strings.TrimSpace(s)
+		}
+	}
+	return ""
 }
 
 func interfaceIsUp(ifname string) bool {

@@ -333,6 +333,56 @@ func TestParseAmneziaClientsTable_NameAndKey(t *testing.T) {
 	}
 }
 
+func TestParseAmneziaClientsTable_OfficialUserData(t *testing.T) {
+	raw := []byte(`[{"clientId":"pubZ","userData":{"clientName":"iPhone","allowedIps":"10.8.1.9/32","creationDate":"2024-01-01"}}]`)
+	got := parseAmneziaClientsTable(raw, "tbl")
+	k := got["pubZ"]
+	if k.Name != "iPhone" || k.AllowedIPs != "10.8.1.9/32" || k.PrivateKey != "" {
+		t.Fatalf("got %+v", k)
+	}
+}
+
+func TestBuildInbound_DockerSavedDisabled(t *testing.T) {
+	c := ImportCandidate{
+		Ifname:       "awg",
+		Port:         1288,
+		DropOnImport: true,
+		Conf: ServerConf{
+			PrivateKey: "k",
+			Address:    "10.8.1.0/24",
+			ListenPort: 1288,
+			Peers:      []ServerPeer{{Name: "alice", PublicKey: "P", AllowedIPs: "10.8.1.2/32"}},
+		},
+		Peers: []ImportPeer{{Email: "alice", PublicKey: "P"}},
+	}
+	built, err := BuildInbound(c, 1, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if built.Inbound.Enable {
+		t.Fatal("docker import must be saved disabled")
+	}
+	if built.Inbound.Remark != "imported-awg-1288" {
+		t.Fatalf("remark = %s", built.Inbound.Remark)
+	}
+	var settings map[string]any
+	if err := json.Unmarshal([]byte(built.Inbound.Settings), &settings); err != nil {
+		t.Fatal(err)
+	}
+	if settings["address"] != "10.8.1.1/24" {
+		t.Fatalf("address = %v, want 10.8.1.1/24", settings["address"])
+	}
+}
+
+func TestNormalizeImportedAddress(t *testing.T) {
+	if got := normalizeImportedAddress("10.8.1.0/24"); got != "10.8.1.1/24" {
+		t.Fatalf("net = %s", got)
+	}
+	if got := normalizeImportedAddress("10.8.1.1/24"); got != "10.8.1.1/24" {
+		t.Fatalf("host = %s", got)
+	}
+}
+
 func TestBackupImportSources_WritesDockerText(t *testing.T) {
 	root := withTempConfigDir(t)
 	c := ImportCandidate{

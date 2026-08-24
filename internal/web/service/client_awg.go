@@ -95,18 +95,19 @@ func awgSettingsAddress(settings string) string {
 
 func validateAwgSettingsJSON(settings string) error {
 	var s struct {
-		AwgVersion string `json:"awgVersion"`
-		H1         string `json:"h1"`
-		H2         string `json:"h2"`
-		H3         string `json:"h3"`
-		H4         string `json:"h4"`
-		Jc         int    `json:"jc"`
-		Jmin       int    `json:"jmin"`
-		Jmax       int    `json:"jmax"`
-		S1         int    `json:"s1"`
-		S2         int    `json:"s2"`
-		S3         int    `json:"s3"`
-		S4         int    `json:"s4"`
+		AwgVersion          string `json:"awgVersion"`
+		H1                  string `json:"h1"`
+		H2                  string `json:"h2"`
+		H3                  string `json:"h3"`
+		H4                  string `json:"h4"`
+		Jc                  int    `json:"jc"`
+		Jmin                int    `json:"jmin"`
+		Jmax                int    `json:"jmax"`
+		S1                  int    `json:"s1"`
+		S2                  int    `json:"s2"`
+		S3                  int    `json:"s3"`
+		S4                  int    `json:"s4"`
+		HeaderProtectionKey string `json:"headerProtectionKey"`
 	}
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
 		return nil
@@ -117,7 +118,11 @@ func validateAwgSettingsJSON(settings string) error {
 	if s.Jc == 0 && s.S1 == 0 {
 		return nil
 	}
-	p := awgcps.AWGParams{Jc: s.Jc, Jmin: s.Jmin, Jmax: s.Jmax, S1: s.S1, S2: s.S2, S3: s.S3, S4: s.S4}
+	p := awgcps.AWGParams{
+		Jc: s.Jc, Jmin: s.Jmin, Jmax: s.Jmax,
+		S1: s.S1, S2: s.S2, S3: s.S3, S4: s.S4,
+		HeaderProtectionKey: s.HeaderProtectionKey,
+	}
 	return p.Validate()
 }
 

@@ -1656,7 +1656,14 @@ func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefi
 // nodes are separate kernels — same subnet is fine. ignoreId excludes the
 // inbound being edited. Outbound clash applies only to local inbounds (outbounds
 // live on the master kernel). Empty/unparseable address is not an error here.
+// awgImportAllowOverlap: official Amnezia docker stacks all use 10.8.1.0/24
+// in isolated namespaces — import must not refuse them (Rule 0: keep IPs).
+var awgImportAllowOverlap bool
+
 func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, nodeID *int) error {
+	if awgImportAllowOverlap {
+		return nil
+	}
 	newAddr = strings.TrimSpace(newAddr)
 	if newAddr == "" {
 		return nil

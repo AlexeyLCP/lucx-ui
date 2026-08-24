@@ -927,7 +927,10 @@
         "source": "Source",
         "peers": "Peers",
         "keys": "Keys",
-        "live": "Live"
+        "live": "Live",
+        "address": "Address",
+        "version": "Version",
+        "savedDisabled": "Docker/userspace imports are saved disabled. Stop the old container, then enable the inbound. Stacks that share 10.8.1.0/24 need different subnets before more than one kernel iface is up."
       },
       "protocolNames": {
         "awg": "AmneziaWG (kernel)",

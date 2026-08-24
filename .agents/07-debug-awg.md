@@ -219,3 +219,9 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** official Amnezia `run_container.sh` does **not** bind-mount `/opt/amnezia`. Configs live only inside `amnezia-awg` / `amnezia-awg2` / `amnezia-wireguard` at `/opt/amnezia/awg/awg0.conf` (legacy `wg0.conf`). Discover only walked the host path, so preview said “no unmanaged interfaces”.
 - **Fix:** `scanLiveDocker` lists `docker ps` and `docker exec cat` those paths. Host `/opt/amnezia` scan kept for bind-mounts. Dedupe by private key.
 - **Seen on:** live host with three Amnezia containers (2026-08-24).
+
+### Pattern 1y: Import finds Docker AWG but only vanilla WG commits — FIXED (lucx.172)
+
+- **Cause:** `Validate` required S1–S4 ≥ 12 always. Official Amnezia 1.5 omits S3/S4 (0); AWG2 often has S3=1. Vanilla WG (`Jc=0,S1=0`) skipped the check, so only it imported. Next trap: all three stacks use `10.8.1.0/24` — `checkAwgSubnetConflict` would refuse the rest.
+- **Fix:** S≥12 only with HeaderProtectionKey. Import sets `awgImportAllowOverlap` (do not rewrite IPs). Operator must stop Docker and change a subnet before bringing more than one kernel iface up.
+- **Seen on:** estonia-zakez-ru, 2026-08-24.

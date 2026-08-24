@@ -100,7 +100,9 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 		return res
 	}
 	res.MissingKeys = built.MissingKeys
+	awgImportAllowOverlap = true
 	created, _, err := s.Inbound.AddInbound(built.Inbound)
+	awgImportAllowOverlap = false
 	if err != nil {
 		res.Error = err.Error()
 		return res

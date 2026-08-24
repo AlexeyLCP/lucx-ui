@@ -437,13 +437,11 @@ func (p AWGParams) Validate() error {
 			}
 		}
 	}
-	// S1-S4 must be >= MinSForHPK so an AWG3 (version "3") kernel accepts a
-	// HeaderProtectionKey. We enforce this unconditionally because a config
-	// generated for v2 today may be promoted to v3 tomorrow by editing only
-	// the version, and a too-small S would then break reconcile with -EINVAL.
-	for _, s := range []int{p.S1, p.S2, p.S3, p.S4} {
-		if s < MinSForHPK {
-			return fmt.Errorf("awg: S values must be >= %d for AWG3 header-protection compatibility (got %d)", MinSForHPK, s)
+	if p.HeaderProtectionKey != "" {
+		for _, s := range []int{p.S1, p.S2, p.S3, p.S4} {
+			if s < MinSForHPK {
+				return fmt.Errorf("awg: S values must be >= %d for AWG3 header-protection compatibility (got %d)", MinSForHPK, s)
+			}
 		}
 	}
 	for _, v := range []struct {

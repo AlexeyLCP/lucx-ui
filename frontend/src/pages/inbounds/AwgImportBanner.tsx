@@ -10,7 +10,7 @@ import { Alert, Button, Modal, Space, Table, Tag, Typography, message } from 'an
 import type { ColumnsType } from 'antd/es/table';
 
 import { awgImportApi } from '@/api/awg-import';
-import type { AwgImportCandidate } from '@/schemas/awg-import';
+import type { AwgImportCandidate, AwgImportResult } from '@/schemas/awg-import';
 
 interface Props {
   openMenu?: number;
@@ -25,6 +25,7 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
   const [selected, setSelected] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [forceShow, setForceShow] = useState(false);
+  const [results, setResults] = useState<AwgImportResult[]>([]);
 
   const load = useCallback(async () => {
     try {
@@ -80,6 +81,7 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
       const fail = msg.obj.filter((r) => r.error);
       const clients = ok.reduce((n, r) => n + r.clients, 0);
       const missing = ok.reduce((n, r) => n + r.missingKeys, 0);
+      setResults(msg.obj);
       if (ok.length > 0) {
         message.success(
           t('pages.inbounds.awgImport.success', {
@@ -88,34 +90,43 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
             missing,
           }),
         );
+        onImported();
       }
       if (fail.length > 0) {
-        message.warning(fail.map((r) => r.error).join('; '));
+        message.warning(fail.map((r) => `${r.id}: ${r.error}`).join('; '));
       }
-      setModalOpen(false);
-      setForceShow(false);
+      if (fail.length === 0) {
+        setModalOpen(false);
+        setForceShow(false);
+      }
       await load();
-      onImported();
     } finally {
       setBusy(false);
     }
   };
 
   const columns: ColumnsType<AwgImportCandidate> = [
-    { title: t('pages.inbounds.awgImport.source'), dataIndex: 'source', width: 140 },
-    { title: 'if', dataIndex: 'ifname', width: 80 },
-    { title: t('pages.inbounds.port'), dataIndex: 'port', width: 80 },
-    { title: t('pages.inbounds.awgImport.peers'), dataIndex: 'peerCount', width: 80 },
+    { title: t('pages.inbounds.awgImport.source'), dataIndex: 'source', width: 130 },
+    { title: 'if', dataIndex: 'ifname', width: 90 },
+    { title: t('pages.inbounds.port'), dataIndex: 'port', width: 70 },
+    {
+      title: t('pages.inbounds.awgImport.address'),
+      dataIndex: 'address',
+      width: 120,
+      ellipsis: true,
+    },
+    { title: t('pages.inbounds.awgImport.version'), dataIndex: 'awgVersion', width: 70 },
+    { title: t('pages.inbounds.awgImport.peers'), dataIndex: 'peerCount', width: 70 },
     {
       title: t('pages.inbounds.awgImport.keys'),
       key: 'keys',
-      width: 120,
+      width: 90,
       render: (_, row) => `${row.keysFound}/${row.peerCount}`,
     },
     {
       title: t('pages.inbounds.awgImport.live'),
       dataIndex: 'live',
-      width: 80,
+      width: 70,
       render: (live: boolean) => (live ? <Tag color="green">up</Tag> : <Tag>down</Tag>),
     },
   ];
@@ -180,6 +191,25 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
             <Typography.Paragraph type="secondary">
               {t('pages.inbounds.awgImport.drop')}
             </Typography.Paragraph>
+            {candidates.some((c) => c.dropOnImport) && (
+              <Alert
+                type="warning"
+                showIcon
+                style={{ marginBottom: 12 }}
+                message={t('pages.inbounds.awgImport.savedDisabled')}
+              />
+            )}
+            {results.some((r) => r.error) && (
+              <Alert
+                type="error"
+                showIcon
+                style={{ marginBottom: 12 }}
+                message={results
+                  .filter((r) => r.error)
+                  .map((r) => `${r.id}: ${r.error}`)
+                  .join('; ')}
+              />
+            )}
             <Table<AwgImportCandidate>
               rowKey="id"
               size="small"

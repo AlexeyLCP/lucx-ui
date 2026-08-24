@@ -10,6 +10,8 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
+	"net/netip"
+	"strconv"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -77,7 +79,7 @@ func BuildInbound(c ImportCandidate, userId int, reservedEmails map[string]struc
 	}
 	settings := map[string]any{
 		"privateKey":             c.Conf.PrivateKey,
-		"address":                c.Conf.Address,
+		"address":                normalizeImportedAddress(c.Conf.Address),
 		"mtu":                    mtu,
 		"dns":                    dns,
 		"jc":                     c.Conf.Jc,
@@ -121,13 +123,39 @@ func BuildInbound(c ImportCandidate, userId int, reservedEmails map[string]struc
 		UserId:         userId,
 		Port:           c.Port,
 		Protocol:       model.AWG,
-		Remark:         "imported-" + c.Ifname,
-		Enable:         true,
+		Remark:         importRemark(c),
+		Enable:         !c.DropOnImport,
 		Settings:       string(raw),
 		StreamSettings: `{}`,
 		Sniffing:       `{}`,
 	}
 	return BuiltInbound{Inbound: ib, MissingKeys: missing, CurrentIface: c.Ifname}, nil
+}
+
+func importRemark(c ImportCandidate) string {
+	base := c.Ifname
+	if base == "" {
+		base = "awg"
+	}
+	if c.Port > 0 {
+		return "imported-" + base + "-" + strconv.Itoa(c.Port)
+	}
+	return "imported-" + base
+}
+
+func normalizeImportedAddress(addr string) string {
+	p, err := netip.ParsePrefix(strings.TrimSpace(addr))
+	if err != nil {
+		return addr
+	}
+	if p.Bits() >= 32 || p.Addr() != p.Masked().Addr() {
+		return addr
+	}
+	next := p.Addr().Next()
+	if !p.Contains(next) {
+		return addr
+	}
+	return netip.PrefixFrom(next, p.Bits()).String()
 }
 
 func splitAllowed(s string) []string {

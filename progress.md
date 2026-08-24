@@ -1,5 +1,20 @@
 # LucX-UI — Прогресс
 
+## lucx.174 — import Amnezia AWG inbounds + peers (2026-08-24)
+
+Live host: three Docker stacks, only vanilla `amnezia-wireguard` imported (3 peers). `amnezia-awg` (S3/S4=0, 50 peers) and `amnezia-awg2` (S3=1, 76 peers) died on `Validate` “S >= 12”. All three use `10.8.1.0/24`. Official `clientsTable` has names, never private keys.
+
+- `Validate` requires S≥12 only when HeaderProtectionKey is set.
+- Import skips subnet-overlap (do not rewrite client IPs).
+- Docker/userspace saved **disabled**; remark `imported-{if}-{port}`; Address `10.8.1.0/24` → `10.8.1.1/24` (server iface only).
+- `clientsTable` `userData.clientName` / `allowedIps` fill peer emails.
+- Modal keeps open on partial fail; shows address/version.
+- Tests: `TestValidate_LegacyAmneziaSWithoutHPK`, official clientsTable, docker disabled + address.
+
+**lucxVersion:** lucx.174
+
+---
+
 ## lucx.173 — kernel AWG never starts + password as PSK (2026-08-24)
 
 Testers on 169/172: new Amnezia clients do not connect; kernel card shows Stopped / 0 interfaces while the module is loaded; `awg syncconf … Key is not the correct length or format: 'vgmg2ms952ceemgc'`. Old peers already on the iface keep working.

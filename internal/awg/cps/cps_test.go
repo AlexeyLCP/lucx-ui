@@ -533,6 +533,22 @@ func TestValidate_DeviceFieldRange(t *testing.T) {
 	}
 }
 
+func TestValidate_LegacyAmneziaSWithoutHPK(t *testing.T) {
+	awg15 := AWGParams{Jmin: 10, Jmax: 50, S1: 59, S2: 106, S3: 0, S4: 0}
+	if err := awg15.Validate(); err != nil {
+		t.Fatalf("AWG 1.5 S3=S4=0 must import: %v", err)
+	}
+	awg2 := AWGParams{Jmin: 10, Jmax: 50, S1: 45, S2: 135, S3: 1, S4: 12}
+	if err := awg2.Validate(); err != nil {
+		t.Fatalf("AWG2 S3=1 must import: %v", err)
+	}
+	awg3 := awg2
+	awg3.HeaderProtectionKey = "dGVzdC1ocGstMzItYnl0ZXMta2V5ISE="
+	if err := awg3.Validate(); err == nil {
+		t.Fatal("HPK + S3=1 must fail")
+	}
+}
+
 func TestValidate_DeviceFieldsAccept2Byte(t *testing.T) {
 	p := AWGParams{
 		Jmin: 50, Jmax: 200, S1: 30, S2: 120, S3: 50, S4: 70,
