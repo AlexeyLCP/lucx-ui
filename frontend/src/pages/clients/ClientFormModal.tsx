@@ -415,6 +415,7 @@ export default function ClientFormModal({
         auth: RandomUtil.randomLowerAndNum(16),
         wgPrivateKey: wgKeypair.privateKey,
         wgPublicKey: wgKeypair.publicKey,
+        wgPreSharedKey: Wireguard.keyToBase64(Wireguard.generatePresharedKey()),
       });
     }
 

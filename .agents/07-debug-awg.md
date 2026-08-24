@@ -206,6 +206,12 @@ Extracted from AGENTS.md. This file is project law.
 
 - **Cause:** lucx.169 `KernelAvailable` used `sync.Once`. First probe often false (module not loaded yet at first Xray start, or `LookPath("awg-quick")` on a thin systemd PATH). Cache stuck false → `AwgJob` `Reconcile(nil)`, `applyLocalAwg` no-op, LucX `awg` inbounds forced onto amneziawg-go. HostStatus live-probes `/sys/module/amneziawg`, so the UI shows module loaded + Stopped + 0 interfaces.
 - **Fix:** cache true only; retry every call while false. Probe via `awgBin` (LookPath + `/usr/bin` …).
+
+### Pattern 1z: new AWG client .conf has no PresharedKey — FIXED (lucx.175)
+
+- **Cause:** lucx.165 skipped PSK generation when `publicKey`/`privateKey` were already set (import). The inbound/client form always generates a keypair first, so every new AWG client hit that skip. Export omits an empty PSK (correct for WireGuard; Amnezia analyzers want the line).
+- **Fix:** generate PSK when the client is **new** (`existing` has no matching email/pubkey). Imported/existing empty PSK stays empty (Rule 0).
+- **Seen on:** Albert, 2026-08-24.
 - **Seen on:** Albert (fresh 169), Never (172 “broke everything”).
 
 ### Pattern 1z: new AWG clients do not connect — `Key is not the correct length: 'vgmg…'` — FIXED (lucx.173)

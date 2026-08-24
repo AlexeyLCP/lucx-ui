@@ -1,5 +1,20 @@
 # LucX-UI — Прогресс
 
+## lucx.175 — new AWG client missing PresharedKey (2026-08-24)
+
+Albert: new kernel AWG inbound + client, saved .conf has no `PresharedKey`; analyzers complain.
+
+`fillAwgClients` skipped PSK when the form already sent a keypair (`hadIdentity`). The inbound/client form always generates keys first, so every new AWG client looked like an import.
+
+- New client (not in `existing`) gets a PSK even with keys already filled.
+- Existing/imported peer without PSK stays empty (Rule 0).
+- Client form seeds `wgPreSharedKey` on create.
+- Tests: `new form client with keys gets PSK`, `existing client keeps empty PSK`.
+
+**lucxVersion:** lucx.175
+
+---
+
 ## lucx.174 — import Amnezia AWG inbounds + peers (2026-08-24)
 
 Live host: three Docker stacks, only vanilla `amnezia-wireguard` imported (3 peers). `amnezia-awg` (S3/S4=0, 50 peers) and `amnezia-awg2` (S3=1, 76 peers) died on `Validate` “S >= 12”. All three use `10.8.1.0/24`. Official `clientsTable` has names, never private keys.

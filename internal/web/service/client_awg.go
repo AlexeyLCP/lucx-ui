@@ -380,7 +380,7 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 	}
 	for i := range clients {
 		c := &clients[i]
-		hadIdentity := c.PublicKey != "" || c.PrivateKey != ""
+		known := awgKnownClient(existing, c)
 		if c.PrivateKey == "" && c.PublicKey == "" {
 			priv, pub, err := wgutil.GenerateWireguardKeypair()
 			if err != nil {
@@ -395,7 +395,7 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 			}
 			c.PublicKey = pub
 		}
-		if c.PreSharedKey == "" && !hadIdentity {
+		if c.PreSharedKey == "" && !known {
 			psk, err := wgutil.GenerateWireguardPSK()
 			if err != nil {
 				return err
@@ -449,6 +449,20 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 		}
 	}
 	return nil
+}
+
+func awgKnownClient(existing []model.Client, c *model.Client) bool {
+	email := strings.ToLower(strings.TrimSpace(c.Email))
+	pub := strings.TrimSpace(c.PublicKey)
+	for i := range existing {
+		if email != "" && strings.ToLower(strings.TrimSpace(existing[i].Email)) == email {
+			return true
+		}
+		if pub != "" && strings.TrimSpace(existing[i].PublicKey) == pub {
+			return true
+		}
+	}
+	return false
 }
 
 func countAwgOrWireguard(inbounds []*model.Inbound) int {
