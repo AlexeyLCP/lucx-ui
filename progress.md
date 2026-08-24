@@ -1,5 +1,16 @@
 # LucX-UI — Прогресс
 
+## lucx.164 — sidecar fetch: replace running binaries (2026-08-24)
+
+Update after panel start failed to unpack live sidecars: `gzip > bin/caddy-naive-linux-amd64` / `trusttunnel-linux-amd64` → ETXTBSY ("Text file busy") / `gunzip failed`. Downloads were fine; only running inodes refused in-place write.
+
+- `lucx_fetch_sidecars` in `update.sh` / `install.sh`: gunzip to `${name}.new`, `mv -f`, then `pkill -f` so reconcile execs the new inode.
+- Panel update itself was already non-fatal (lucx.161). Naive/TrustTunnel just stayed on the previous binary.
+
+**lucxVersion:** lucx.164
+
+---
+
 ## lucx.163 — qWDTT sidecar pinned to SpaceNeuroX v1.4.2 (2026-08-24)
 
 VladufQa: client DTLS step dies in 10s after green DNS/VK/WRAP/TURN. Listen vs SubHost confusion plus a stale server binary.

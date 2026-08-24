@@ -123,13 +123,23 @@ lucx_fetch_sidecars() {
             rm -f "${tmp}"
             continue
         fi
-        if ! gzip -dc "${tmp}" > "${dest}/${name}"; then
+        # Write to a sibling then mv. `gzip > dest` opens the existing inode
+        # O_WRONLY and fails with ETXTBSY when a live sidecar still exec'd it
+        # (fetch runs AFTER panel start, lucx.161). mv swaps the directory
+        # entry; the old process keeps the old inode until we pkill it.
+        if ! gzip -dc "${tmp}" > "${dest}/${name}.new"; then
             echo -e "${yellow}${name}: gunzip failed${plain}"
-            rm -f "${tmp}" "${dest}/${name}"
+            rm -f "${tmp}" "${dest}/${name}.new"
             continue
         fi
-        chmod +x "${dest}/${name}"
+        chmod +x "${dest}/${name}.new"
+        if ! mv -f "${dest}/${name}.new" "${dest}/${name}"; then
+            echo -e "${yellow}${name}: replace failed${plain}"
+            rm -f "${tmp}" "${dest}/${name}.new"
+            continue
+        fi
         rm -f "${tmp}"
+        pkill -f "${name}" > /dev/null 2>&1 || true
     done
 }
 

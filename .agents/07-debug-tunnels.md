@@ -38,6 +38,15 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** lucx.142 appended the prefix via `url.QueryEscape`, which encodes `/` as `%2F`. The value is only hex or hex/mask (`ValidClientRandomPrefix`) — `/` is safe raw in the query. NekoBox+ does not URL-decode that param.
 - **Fix:** `ClientURI` writes `client_random_prefix=` as-is. Test forbids `%2F`. TLV `tt://?` already carried `/` in binary (unchanged).
 
+### Pattern 1t: update `gunzip failed` / `Text file busy` on caddy-naive / trusttunnel — FIXED (lucx.164)
+- **Symptom:** `x-ui update` / web update prints `/dev/fd/63: line 126: bin/caddy-naive-linux-amd64: Text file busy` and `gunzip failed` (same for `trusttunnel-linux-*` or any live sidecar). Curl progress bars succeed. Panel comes up.
+- **Cause:** lucx.161 moved sidecar fetch AFTER `systemctl start x-ui`. Reconcile execs the old `bin/<core>-linux-*`. `gzip -dc > dest` opens that inode O_WRONLY → ETXTBSY. Non-running sidecars (clients, unused cores) unpack fine.
+- **Fix (lucx.164):** write `${name}.new`, `mv -f` onto dest (directory entry swaps; old process keeps old inode), `pkill -f ${name}` so the next reconcile tick execs the new file.
+- **Healing an already-hit host without lucx.164:** panel is already new. Only the binaries that printed `gunzip failed` stayed old. Either leave them (if that core did not change) or:
+  `pkill -f caddy-naive-linux-amd64; pkill -f trusttunnel-linux-amd64`
+  then re-run `x-ui update` once lucx.164 is on `main` (menu curls fresh `update.sh`).
+- **Lesson:** never write over an executable that may be running. Same rule the Go Cores download already follows (`dst+".download"` + `Rename`).
+
 ### Pattern 1s: qWDTT DTLS handshake timeout 10s — stale sidecar vs client 1.4.2 — FIXED (lucx.163)
 - **Symptom (VladufQa, 22.08.2026):** SpaceNeuroX client log: DNS/VK/WRAP/TURN green, then `[DTLS] Handshake…` and `step DTLS did not finish in 10s`. Operator asked whether listen should be `0.0.0.0:56000` or the server IP.
 - **Cause:** two independent footguns. (1) **Listen vs SubHost:** `-listen` is the server bind (`0.0.0.0:56000`); `subHost` is the advertised `peer` (`PUBLIC_IP:56000`). Putting `0.0.0.0` in `subHost` makes the client DTLS to itself. (2) **Wire skew:** we shipped Ex3-ui `v1.0` extra-qwdtt (~qWDTT 1.4.0, 09.08). Client `v1.4.2` (19.08) commit `Harden server authentication and transport` bumped pion/dtls 3.1.2→3.1.5 and changed WRAP/auth. Same timeout is also upstream issue #31 (even 1.4↔1.4 around 15.08).
