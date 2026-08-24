@@ -80,6 +80,32 @@ func TestInstanceFromInbound(t *testing.T) {
 	}
 }
 
+func TestInstanceFromInbound_FormPasswordIsNotPSK(t *testing.T) {
+	ib := &model.Inbound{
+		Id:       32,
+		Protocol: model.AWG,
+		Settings: `{"privateKey":"yKb...priv","clients":[` +
+			`{"publicKey":"peer-pub-real","password":"vgmg2ms952ceemgc","enable":true},` +
+			`{"id":"legacy-pub","password":"legacy-psk","enable":true}]}`,
+	}
+	inst, ok := InstanceFromInbound(ib)
+	if !ok {
+		t.Fatal("expected a usable instance")
+	}
+	if len(inst.Peers) != 2 {
+		t.Fatalf("peers = %d, want 2", len(inst.Peers))
+	}
+	if inst.Peers[0].PublicKey != "peer-pub-real" {
+		t.Fatalf("modern pub = %q", inst.Peers[0].PublicKey)
+	}
+	if inst.Peers[0].PSK != "" {
+		t.Fatalf("form password must not become PSK, got %q", inst.Peers[0].PSK)
+	}
+	if inst.Peers[1].PublicKey != "legacy-pub" || inst.Peers[1].PSK != "legacy-psk" {
+		t.Fatalf("legacy id/password pair: %+v", inst.Peers[1])
+	}
+}
+
 func TestInstanceFromInbound_RejectsNonAWG(t *testing.T) {
 	ib := &model.Inbound{Protocol: model.VLESS, Settings: `{}`}
 	if _, ok := InstanceFromInbound(ib); ok {

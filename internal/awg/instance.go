@@ -290,13 +290,17 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		if c.Enable != nil && !*c.Enable {
 			continue
 		}
-		pub := c.PublicKey
-		psk := c.PreSharedKey
+		pub := strings.TrimSpace(c.PublicKey)
+		psk := strings.TrimSpace(c.PreSharedKey)
 		if pub == "" {
-			pub = c.ID // legacy field
+			pub = strings.TrimSpace(c.ID) // legacy field
 		}
-		if psk == "" {
-			psk = c.Password // legacy field
+		// Form clients always carry password (16-char NumLower). That is NOT
+		// a PSK — awg syncconf then dies: "Key is not the correct length".
+		// Legacy AWG stored the real PSK in password only as the id/password
+		// pair (no publicKey).
+		if psk == "" && strings.TrimSpace(c.PublicKey) == "" {
+			psk = strings.TrimSpace(c.Password)
 		}
 		if pub == "" {
 			continue

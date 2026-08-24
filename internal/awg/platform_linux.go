@@ -270,8 +270,10 @@ func kernelAvailable() bool {
 	if _, err := os.Stat("/sys/module/amneziawg"); err != nil {
 		return false
 	}
-	_, err := exec.LookPath("awg-quick")
-	return err == nil
+	// awgBin already LookPaths then /usr/bin|/usr/local/bin|sbin. A
+	// LookPath-only probe missed tools on a thin systemd PATH and, with the
+	// old sync.Once cache, locked the process into userspace forever.
+	return awgBin("awg-quick") != "awg-quick"
 }
 
 func yesNo(b bool) string {

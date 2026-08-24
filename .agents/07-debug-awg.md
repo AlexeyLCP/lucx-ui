@@ -202,6 +202,18 @@ Extracted from AGENTS.md. This file is project law.
 - **Fix:** `GenerateCPS` keeps payload ≤ 1800 B (retry, then drop I5…I2). Real fix is upstream [amneziawg-tools#69](https://github.com/amnezia-vpn/amneziawg-tools/issues/69).
 - **Not done:** MTU-clamp of I1 (needs form to send MTU). I1 stays ~1198 (QUIC minimum).
 
+### Pattern 1y: kernel card Stopped / 0 interfaces while module is loaded — FIXED (lucx.173)
+
+- **Cause:** lucx.169 `KernelAvailable` used `sync.Once`. First probe often false (module not loaded yet at first Xray start, or `LookPath("awg-quick")` on a thin systemd PATH). Cache stuck false → `AwgJob` `Reconcile(nil)`, `applyLocalAwg` no-op, LucX `awg` inbounds forced onto amneziawg-go. HostStatus live-probes `/sys/module/amneziawg`, so the UI shows module loaded + Stopped + 0 interfaces.
+- **Fix:** cache true only; retry every call while false. Probe via `awgBin` (LookPath + `/usr/bin` …).
+- **Seen on:** Albert (fresh 169), Never (172 “broke everything”).
+
+### Pattern 1z: new AWG clients do not connect — `Key is not the correct length: 'vgmg…'` — FIXED (lucx.173)
+
+- **Cause:** `InstanceFromInbound` used `clients[].password` as PresharedKey when PSK was empty. Client form always sends `password` = `NumLower(16)`. `awg syncconf` rejects it; one bad peer blocks the whole iface. Old kernel peers stay (syncconf failed, state unchanged). Re-export of an old client also fails if settings now carry that password.
+- **Fix:** password → PSK only for the legacy id/password pair (`publicKey` absent). Form password is ignored.
+- **Seen on:** VladufQa inbound 32; Never new Amnezia clients.
+
 ### Pattern 1x: Import existing AWG finds nothing while Docker Amnezia is running — FIXED (lucx.171)
 
 - **Cause:** official Amnezia `run_container.sh` does **not** bind-mount `/opt/amnezia`. Configs live only inside `amnezia-awg` / `amnezia-awg2` / `amnezia-wireguard` at `/opt/amnezia/awg/awg0.conf` (legacy `wg0.conf`). Discover only walked the host path, so preview said “no unmanaged interfaces”.

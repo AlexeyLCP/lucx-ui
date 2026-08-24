@@ -1,5 +1,20 @@
 # LucX-UI — Прогресс
 
+## lucx.173 — kernel AWG never starts + password as PSK (2026-08-24)
+
+Testers on 169/172: new Amnezia clients do not connect; kernel card shows Stopped / 0 interfaces while the module is loaded; `awg syncconf … Key is not the correct length or format: 'vgmg2ms952ceemgc'`. Old peers already on the iface keep working.
+
+Two lucx.169 holes:
+
+1. `KernelAvailable` cached the first probe with `sync.Once`. A false (module not up yet, thin systemd PATH / LookPath-only) locked the process into userspace: `AwgJob` did `Reconcile(nil)`, `applyLocalAwg` skipped Ensure. UI HostStatus still live-probes `/sys/module/amneziawg` → “module loaded, 0 interfaces”. Cache true only (same as `ModuleSupportsAwg3`). `kernelAvailable` uses `awgBin` fallbacks, not LookPath alone.
+2. `InstanceFromInbound` treated `clients[].password` as PresharedKey. The client form always sends a 16-char `NumLower` password. That is not a WG key → syncconf kills the iface / blocks new peers. Legacy id/password pair (no `publicKey`) still maps password → PSK.
+
+Tests: `TestKernelAvailable_RetriesFalseThenCachesTrue`, `TestInstanceFromInbound_FormPasswordIsNotPSK`.
+
+**lucxVersion:** lucx.173
+
+---
+
 ## lucx.172 — merge upstream v3.7.0 (2026-08-24)
 
 `git merge --no-ff origin/main` (`v3.7.0` / `f727d04f`). Incremental after lucx.169: 7 commits, 19 files, 0 conflicts. LUCX-HOOK counts unchanged.
