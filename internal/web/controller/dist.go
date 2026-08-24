@@ -91,7 +91,8 @@ func faviconHeadInjection(pageName string) []byte {
 	if pageName != "index.html" && pageName != "login.html" {
 		return nil
 	}
-	raw, err := (service.SettingService{}).GetWebFavicon()
+	var settings service.SettingService
+	raw, err := settings.GetWebFavicon()
 	if err != nil {
 		return nil
 	}
