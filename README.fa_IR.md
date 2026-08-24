@@ -102,7 +102,7 @@ docker compose --profile postgres up -d
 
 ## 🌟 درباره LucX-UI
 
-**LucX-UI** فورک ارتقایافتهٔ [3x-ui](https://github.com/MHSanaei/3x-ui) است (همگام با upstream **v3.6.0**). فراتر از پروتکل‌های Xray استوک: **AmneziaWG** در دو حالت — سایدی‌کار کرنل `awg` (همان ایدهٔ MTProto/`mtg`) و `amneziawg` بومیِ upstream، تا **AWG 3.1**؛ **وارد کردن** awg-multi / toolza3 / Docker؛ **تونل‌های تحت نظارت پنل** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراک‌های گسترش‌یافته** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و **geodata browser** با لیست‌های RoscomVPN. سازگاری ۱۰۰٪ با upstream از طریق ایزولهٔ `LUCX-HOOK`.
+**LucX-UI** فورک ارتقایافتهٔ [3x-ui](https://github.com/MHSanaei/3x-ui) است (همگام با upstream **v3.7.0**). فراتر از پروتکل‌های Xray استوک: **AmneziaWG** در دو حالت — سایدی‌کار کرنل `awg` (همان ایدهٔ MTProto/`mtg`) و `amneziawg` بومیِ upstream، تا **AWG 3.1**؛ **وارد کردن** awg-multi / toolza3 / Docker؛ **تونل‌های تحت نظارت پنل** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراک‌های گسترش‌یافته** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و **geodata browser** با لیست‌های RoscomVPN. سازگاری ۱۰۰٪ با upstream از طریق ایزولهٔ `LUCX-HOOK`.
 
 ### 🛡️ ویژگی‌های AmneziaWG (AWG)
 - **ورودی‌ها و خروجی‌های AWG** — سایدی‌کار کرنل (`awg-quick`)، شماره‌گیری حالت کلاینت به سرورهای AWG بالا‌دستی (`awgo-{id}`)، حلقه همگام‌سازی اتوماتیک ۱۰ ثانیه‌ای، و سازنده ماژول کرنل DKMS.

@@ -42,7 +42,7 @@ This includes (non-exhaustive):
 
 Typical tester path: MHSanaei/3x-ui is installed → installs LucX → opens Clients / Inbounds. Any regression here = “the fork won’t install”.
 
-**Before merge/release the agent must ask:** “If we take a fresh SQLite from upstream 3.6.x with WireGuard clients and `wg_keep_alive INTEGER` and run our binary — do the Clients page and Xray start work?” If no — **do not** merge.
+**Before merge/release the agent must ask:** “If we take a fresh SQLite from upstream 3.7.x with WireGuard clients and `wg_keep_alive INTEGER` and run our binary — do the Clients page and Xray start work?” If no — **do not** merge.
 
 **Strictly forbidden:**
 - Changing the Go field type mapped to an **existing** upstream column (`clients.*`, `inbounds.*`, …) **without** `sql.Scanner` / `driver.Valuer` (or equivalent) that accepts the driver’s **legacy form**. Lesson lucx.119: `KeepAlive int` → `KeepAliveValue string` without `Scan` → `unsupported Scan, storing driver.Value type int64 into type *model.KeepAliveValue` on every `Find(&[]ClientRecord)` — panel “Something went wrong”.
@@ -122,7 +122,7 @@ The old architecture used a `tun2socks` userspace daemon to bridge the AWG kerne
 
 ### 8. Upstream Sync
 
-Procedure (validated on v3.5.0→v3.6.0, 103 upstream commits / 432 files / 7 conflicts):
+Procedure (validated on v3.5.0→v3.6.0, 103 upstream commits / 432 files / 7 conflicts; v3.6.0→v3.7.0 was incremental: 7 commits / 19 files / 0 conflicts):
 
 1. `git fetch origin --tags`, branch off our current head, then `git merge --no-commit --no-ff origin/main`.
 2. **Record the LUCX-HOOK marker count per file BEFORE resolving** (`git grep -c "LUCX-HOOK"`). After the merge, any file whose count dropped silently lost our code — that is the only reliable detector.

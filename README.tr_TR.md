@@ -102,7 +102,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 
 ## 🌟 LucX-UI Hakkında
 
-**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.6.0** ile senkron). Stok Xray protokollerinin ötesinde: iki modda **AmneziaWG** — çekirdek sidecar `awg` (MTProto/`mtg` ile aynı fikir) ve upstream'in yerel `amneziawg`'si, **AWG 3.1**'e kadar; awg-multi / toolza3 / Docker **içe aktarma**; panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ) ve RoscomVPN listeli **geodata browser**. Katı `LUCX-HOOK` ile %100 upstream uyumu.
+**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.7.0** ile senkron). Stok Xray protokollerinin ötesinde: iki modda **AmneziaWG** — çekirdek sidecar `awg` (MTProto/`mtg` ile aynı fikir) ve upstream'in yerel `amneziawg`'si, **AWG 3.1**'e kadar; awg-multi / toolza3 / Docker **içe aktarma**; panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ) ve RoscomVPN listeli **geodata browser**. Katı `LUCX-HOOK` ile %100 upstream uyumu.
 
 ### 🛡️ AmneziaWG (AWG) Özellikleri
 - **AWG Inbound & Outbound** — Çekirdek sidecar'ı (`awg-quick`), üst AWG sunucularına istemci modunda bağlanma (`awgo-{id}`), 10 saniyelik otomatik uzlaştırma döngüsü ve DKMS modül derleyicisi.

@@ -11,7 +11,7 @@ Extracted from AGENTS.md. This file is project law.
              progress.md: last 1–2 entries only. git log --oneline -15
 2. AUDIT   → Read all relevant files, trace data flow end-to-end
 3. PLAN    → Write a short plan: which files, what changes, what tests
-4. BRANCH  → Work on `main` (active branch, v3.6.0 migration merged)
+4. BRANCH  → Work on `main` (active branch, v3.7.0 merge complete)
 5. CODE    → Implement changes inside LUCX-HOOK blocks in upstream files;
              new code goes in internal/awg/ or internal/lucx/
 6. TEST    → Run tests:
@@ -96,21 +96,21 @@ legacy — don’t use them: they drift from CI on xray/mtg versions.
 #    the tag pins the WHOLE main, but notes easily describe only the last fix
 #    and lose features/fixes that landed on main without their own tag.
 git fetch gh --tags
-git log --oneline v3.6.0-lucx.$((N-1))..HEAD
+git log --oneline v3.7.0-lucx.$((N-1))..HEAD
 # In notes and progress.md — EVERY non-docs commit from that list, not only lucx.N.
 # Empty list except the previous release’s docs tail — OK.
 
 # 1. Wait for green CI on main, then tag — Release workflow
 #    will build the tarball and publish the stable release:
-git tag v3.6.0-lucx.N && git push gh v3.6.0-lucx.N
+git tag v3.7.0-lucx.N && git push gh v3.7.0-lucx.N
 gh run watch --repo AlexeyLCP/lucx-ui          # Release LucX-UI
-gh release view v3.6.0-lucx.N --repo AlexeyLCP/lucx-ui   # asset x-ui-linux-amd64.tar.gz
+gh release view v3.7.0-lucx.N --repo AlexeyLCP/lucx-ui   # asset x-ui-linux-amd64.tar.gz
 
 # 2. REQUIRED: release body (release notes) — what the operator sees
 #    in the panel on update (getPanelUpdateInfo → releaseNotes).
 #    upload-release-action often leaves body empty → fill it immediately:
-gh release edit v3.6.0-lucx.N --repo AlexeyLCP/lucx-ui --notes-file - <<'EOF'
-## v3.6.0-lucx.N
+gh release edit v3.7.0-lucx.N --repo AlexeyLCP/lucx-ui --notes-file - <<'EOF'
+## v3.7.0-lucx.N
 
 - item 1 (what changed for the user)
 - item 2
@@ -126,7 +126,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 ### Release notes — law (mandatory)
 
-**Every stable tag `v3.6.0-lucx.N` MUST have a non-empty GitHub Release body.**
+**Every stable tag `v3.7.0-lucx.N` MUST have a non-empty GitHub Release body.**
 
 - The panel shows `release.Body` in the update modal (`PanelUpdateInfo.releaseNotes`).
 - Empty body → fallback `fetchCompareNotes` (raw commit subjects) — bad for testers.

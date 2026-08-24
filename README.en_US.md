@@ -102,7 +102,7 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 
 ## 🌟 About LucX-UI
 
-**LucX-UI** is an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently synced to upstream **v3.6.0**). Beyond stock Xray protocols it adds **AmneziaWG** in two modes — kernel sidecar `awg` (same idea as MTProto/`mtg`) and upstream's native `amneziawg`, up to **AWG 3.1**; **import** of awg-multi / toolza3 / Docker; panel-supervised **tunnel sidecars** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), extended **subscriptions** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), and a **geodata browser** with stock RoscomVPN lists. 100% upstream compatibility via strict `LUCX-HOOK` isolation.
+**LucX-UI** is an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently synced to upstream **v3.7.0**). Beyond stock Xray protocols it adds **AmneziaWG** in two modes — kernel sidecar `awg` (same idea as MTProto/`mtg`) and upstream's native `amneziawg`, up to **AWG 3.1**; **import** of awg-multi / toolza3 / Docker; panel-supervised **tunnel sidecars** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), extended **subscriptions** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), and a **geodata browser** with stock RoscomVPN lists. 100% upstream compatibility via strict `LUCX-HOOK` isolation.
 
 ### 🛡️ AmneziaWG (AWG) Features
 - **AWG Inbounds & Outbounds** — Kernel sidecar (`awg-quick`), client mode dial-out to upstream AWG servers (`awgo-{id}`), 10-second automatic reconcile loop, and DKMS kernel module builder.

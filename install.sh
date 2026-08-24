@@ -194,7 +194,7 @@ lucx_parse_args() {
                 echo "  --yandex   install from SourceCraft (Yandex)"
                 echo "  --github   install from GitHub (default)"
                 echo "  --token    SourceCraft PAT (private repo / API)"
-                echo "  version    tag, e.g. v3.6.0-lucx.156 or dev-latest"
+                echo "  version    tag, e.g. v3.7.0-lucx.172 or dev-latest"
                 echo "Env: LUCX_SOURCE LUCX_SC_TOKEN LUCX_SC_ORG LUCX_SC_REPO"
                 exit 0
                 ;;

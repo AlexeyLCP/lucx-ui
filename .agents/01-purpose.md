@@ -6,7 +6,7 @@ Extracted from AGENTS.md. This file is project law.
 
 ## Project Overview
 
-LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.6.0**) that adds native AmneziaWG (AWG) support as a kernel-interface sidecar, mirroring upstream's MTProto (mtg) sidecar architecture. LucX-specific code lives in `internal/awg/` and `internal/lucx/`; all integration points in upstream files are wrapped in `LUCX-HOOK` / `END LUCX-HOOK` markers.
+LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.7.0**) that adds native AmneziaWG (AWG) support as a kernel-interface sidecar, mirroring upstream's MTProto (mtg) sidecar architecture. LucX-specific code lives in `internal/awg/` and `internal/lucx/`; all integration points in upstream files are wrapped in `LUCX-HOOK` / `END LUCX-HOOK` markers.
 
 **Upstream sync strategy:** **merge** `origin/main` (not rebase, not fresh-checkout). The v3.5.0→3.6.0 sync proved the isolation works: of 432 upstream-changed files only **7** conflicted, so a plain `git merge origin/main` is now the procedure — see Rule 8. The merge commit keeps upstream history, so each next sync is incremental. The old `.patch`-file system is gone; integration is inline.
 
@@ -15,7 +15,7 @@ LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently **v3.
 - `gh` → `AlexeyLCP/lucx-ui` (our fork; source of truth)
 - `sc` → `ssh://ssh.sourcecraft.dev/alexeylcp/lucx-ui.git` (Yandex SourceCraft mirror; own CI/releases)
 
-**Active branch:** `main` (v3.6.0 migration complete; current `lucxVersion` is in `internal/config/config.go`).
+**Active branch:** `main` (v3.7.0 merge complete; current `lucxVersion` is in `internal/config/config.go`).
 
 ---
 

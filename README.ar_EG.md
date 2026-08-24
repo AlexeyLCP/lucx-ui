@@ -102,7 +102,7 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 
 ## 🌟 حول LucX-UI
 
-**LucX-UI** نسخة محسّنة من [3x-ui](https://github.com/MHSanaei/3x-ui) (متزامنة مع upstream **v3.6.0**). فوق بروتوكولات Xray الافتراضية: **AmneziaWG** بوضعَين — sidecar للنواة `awg` (كـ MTProto/`mtg`) و`amneziawg` الأصلي لدى upstream، حتى **AWG 3.1**؛ **استيراد** awg-multi / toolza3 / Docker؛ **أنفاق تحت إشراف اللوحة** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراكات موسّعة** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و**geodata browser** مع قوائم RoscomVPN. توافق 100% مع upstream عبر عزل `LUCX-HOOK`.
+**LucX-UI** نسخة محسّنة من [3x-ui](https://github.com/MHSanaei/3x-ui) (متزامنة مع upstream **v3.7.0**). فوق بروتوكولات Xray الافتراضية: **AmneziaWG** بوضعَين — sidecar للنواة `awg` (كـ MTProto/`mtg`) و`amneziawg` الأصلي لدى upstream، حتى **AWG 3.1**؛ **استيراد** awg-multi / toolza3 / Docker؛ **أنفاق تحت إشراف اللوحة** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراكات موسّعة** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و**geodata browser** مع قوائم RoscomVPN. توافق 100% مع upstream عبر عزل `LUCX-HOOK`.
 
 ### 🛡️ ميزات AmneziaWG (AWG)
 - **AWG Inbounds & Outbounds** — Sidecar للنواة (`awg-quick`)، اتصال بوضع العميل إلى سيرفرات AWG الرئيسية (`awgo-{id}`)، حلقة توفيق تلقائية كل 10 ثوانٍ، ومثبت موديل النواة عبر DKMS.

@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.172 — merge upstream v3.7.0 (2026-08-24)
+
+`git merge --no-ff origin/main` (`v3.7.0` / `f727d04f`). Incremental after lucx.169: 7 commits, 19 files, 0 conflicts. LUCX-HOOK counts unchanged.
+
+Upstream in this slice: Hysteria `mport` on external-proxy sub links, prune stale client/node IP rows, Hysteria2 over-limit disconnect, tgbot long-message paging, URL-safety “one good IP is enough”, dep bumps (vite 8.2.2, telego 1.11.2, grpc 1.83.1), panel version `3.7.0`.
+
+Rule 0: no client-config rewrite. IP prune only touches `inbound_client_ips` / `node_client_ips`. Overlay path unchanged.
+
+Checks: `go test` awg/lucx/config/url_safety OK. `database`/`sub`/`tgbot` fail on Windows without CGO (pre-existing). Frontend typecheck + oxlint clean; unit 1050/1051 — `input-number-guard` fails here because `execFileSync('./node_modules/.bin/oxlint')` is a Unix path (CI Ubuntu is fine).
+
+**lucxVersion:** lucx.172
+
+---
+
 ## lucx.171 — import Docker Amnezia via docker exec (2026-08-24)
 
 Never: “Import existing AWG” on a host with running `amnezia-awg` / `amnezia-awg2` / `amnezia-wireguard` showed “no unmanaged interfaces”.
@@ -261,7 +275,7 @@ Stand-confirmed: range keepalive `15-25` rejected by pre-v3 tools; adding a clie
 
 
 > Файл ведётся агентом в ходе работы. Обновляется при каждом шаге.
-> Последняя миграция апстрима: **v3.6.0** (см. запись в конце файла).
+> Последняя миграция апстрима: **v3.7.0** (lucx.172).
 
 ---
 

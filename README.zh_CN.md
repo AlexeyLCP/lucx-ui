@@ -102,7 +102,7 @@ docker compose --profile postgres up -d
 
 ## 🌟 关于 LucX-UI
 
-**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（已同步上游 **v3.6.0**）。在原有 Xray 协议之外提供：两种 **AmneziaWG** —— 内核 Sidecar `awg`（思路同 MTProto/`mtg`）与上游原生 `amneziawg`，现已至 **AWG 3.1**；**导入** awg-multi / toolza3 / Docker；面板监管的 **隧道**（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel）、扩展 **订阅**（Clash Meta AWG、Amnezia `/awg/` + `vpn://`、Happ）以及带 RoscomVPN 列表的 **geodata browser**。通过严格 `LUCX-HOOK` 隔离保持与上游 100% 兼容。
+**LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（已同步上游 **v3.7.0**）。在原有 Xray 协议之外提供：两种 **AmneziaWG** —— 内核 Sidecar `awg`（思路同 MTProto/`mtg`）与上游原生 `amneziawg`，现已至 **AWG 3.1**；**导入** awg-multi / toolza3 / Docker；面板监管的 **隧道**（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel）、扩展 **订阅**（Clash Meta AWG、Amnezia `/awg/` + `vpn://`、Happ）以及带 RoscomVPN 列表的 **geodata browser**。通过严格 `LUCX-HOOK` 隔离保持与上游 100% 兼容。
 
 ### 🛡️ AmneziaWG (AWG) 特性
 - **AWG 入站与出站** —— 内核 Sidecar (`awg-quick`)、客户端模式连接上游 AWG 服务器 (`awgo-{id}`)、10 秒自动协调循环及 DKMS 内核模块构建器。
