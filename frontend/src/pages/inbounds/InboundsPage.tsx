@@ -24,7 +24,8 @@ import {
 
 import { HttpUtil, SizeFormatter, RandomUtil } from '@/utils';
 import { buildClonePayload } from '@/lib/xray/inbound-clone';
-import { NODE_ELIGIBLE_PROTOCOLS } from '@/lib/xray/node-protocols';
+// LUCX-HOOK: include LucX sidecar protocols (awg/naive/…), not just upstream.
+import { isProtocolNodeEligible } from '@/lib/xray/node-protocol';
 import {
   genAmneziaWGLinks,
   genInboundLinks,
@@ -591,7 +592,7 @@ export default function InboundsPage() {
       // Node-eligible protocol with at least one deployable node → open the
       // target picker; anything else keeps the original one-click local clone.
       if (
-        NODE_ELIGIBLE_PROTOCOLS[dbInbound.protocol] &&
+        isProtocolNodeEligible(dbInbound.protocol) &&
         (nodesList || []).some((n) => n.enable && n.status === 'online')
       ) {
         setCloneSource(dbInbound);

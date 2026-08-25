@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AutoComplete,
@@ -91,7 +91,6 @@ export default function ClientBulkAddModal({
   const inboundIds = useWatch({ control: methods.control, name: 'inboundIds' });
   const emailMethod = useWatch({ control: methods.control, name: 'emailMethod' });
   const firstNum = useWatch({ control: methods.control, name: 'firstNum' });
-  const flow = useWatch({ control: methods.control, name: 'flow' });
   const expiryTime = useWatch({ control: methods.control, name: 'expiryTime' });
   const subId = useWatch({ control: methods.control, name: 'subId' });
   const limitIp = useWatch({ control: methods.control, name: 'limitIp' });
@@ -111,19 +110,6 @@ export default function ClientBulkAddModal({
     }
   }
 
-  const flowCapableIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const row of inbounds || []) {
-      if (row?.tlsFlowCapable) ids.add(row.id);
-    }
-    return ids;
-  }, [inbounds]);
-
-  const showFlow = useMemo(
-    () => (inboundIds || []).some((id) => flowCapableIds.has(id)),
-    [inboundIds, flowCapableIds],
-  );
-
   const ss2022Method = useMemo(() => {
     for (const id of inboundIds || []) {
       const ib = (inbounds || []).find((row) => row.id === id);
@@ -132,12 +118,6 @@ export default function ClientBulkAddModal({
     }
     return '';
   }, [inboundIds, inbounds]);
-
-  useEffect(() => {
-    if (!showFlow && flow) {
-      methods.setValue('flow', '');
-    }
-  }, [showFlow, flow, methods]);
 
   const inboundOptions = useMemo(
     () =>
@@ -202,7 +182,7 @@ export default function ClientBulkAddModal({
             ? RandomUtil.randomShadowsocksPassword(ss2022Method)
             : RandomUtil.randomLowerAndNum(16),
           auth: RandomUtil.randomLowerAndNum(16),
-          flow: showFlow ? current.flow || '' : '',
+          flow: current.flow || '',
           totalGB: Math.round((current.totalGB || 0) * SizeFormatter.ONE_GB),
           expiryTime: current.expiryTime,
           reset: Number(current.reset) || 0,
@@ -365,17 +345,15 @@ export default function ClientBulkAddModal({
               <Input />
             </FormField>
 
-            {showFlow && (
-              <FormField name="flow" label={t('pages.clients.flow')}>
-                <Select
-                  style={{ width: 220 }}
-                  options={[
-                    { value: '', label: t('none') },
-                    ...FLOW_OPTIONS.map((k) => ({ value: k, label: k })),
-                  ]}
-                />
-              </FormField>
-            )}
+            <FormField name="flow" label={t('pages.clients.flow')}>
+              <Select
+                style={{ width: 220 }}
+                options={[
+                  { value: '', label: t('none') },
+                  ...FLOW_OPTIONS.map((k) => ({ value: k, label: k })),
+                ]}
+              />
+            </FormField>
 
             <Form.Item label={t('pages.clients.limitIp')}>
               <Tooltip title={limitIpNotice || undefined}>

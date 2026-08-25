@@ -265,7 +265,6 @@ export default function ClientFormModal({
   const delayedStart = useWatch({ control: methods.control, name: 'delayedStart' });
   const expiryDate = useWatch({ control: methods.control, name: 'expiryDate' });
   const enable = useWatch({ control: methods.control, name: 'enable' });
-  const flow = useWatch({ control: methods.control, name: 'flow' });
   const reverseTag = useWatch({ control: methods.control, name: 'reverseTag' });
   const secret = useWatch({ control: methods.control, name: 'secret' });
   const email = useWatch({ control: methods.control, name: 'email' });
@@ -422,14 +421,6 @@ export default function ClientFormModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, isEdit]);
 
-  const flowCapableIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const row of inbounds || []) {
-      if (row?.tlsFlowCapable) ids.add(row.id);
-    }
-    return ids;
-  }, [inbounds]);
-
   const vlessLikeIds = useMemo(() => {
     const ids = new Set<number>();
     for (const row of inbounds || []) {
@@ -489,11 +480,6 @@ export default function ClientFormModal({
         : RandomUtil.randomLowerAndNum(16),
     );
   }
-
-  const showFlow = useMemo(
-    () => (inboundIds || []).some((id) => flowCapableIds.has(id)),
-    [inboundIds, flowCapableIds],
-  );
 
   const showReverseTag = useMemo(
     () => (inboundIds || []).some((id) => vlessLikeIds.has(id)),
@@ -578,17 +564,6 @@ export default function ClientFormModal({
   function regenerateMtprotoSecret() {
     methods.setValue('secret', generateMtprotoSecret(mtprotoDomain));
   }
-
-  useEffect(() => {
-    // Only clear the flow once we actually have inbound options to judge
-    // capability from. While the options list is momentarily empty (e.g. the
-    // options query is (re)loading and `inbounds` falls back to `[]`), showFlow
-    // is a false negative, so clearing here would silently drop a valid
-    // xtls-rprx-vision flow the user picked for a Reality/TLS inbound.
-    if (inbounds.length > 0 && !showFlow && flow) {
-      methods.setValue('flow', '');
-    }
-  }, [inbounds, showFlow, flow, methods]);
 
   useEffect(() => {
     if (!showReverseTag && reverseTag) {
@@ -737,7 +712,7 @@ export default function ClientFormModal({
       id: values.uuid,
       password: values.password,
       auth: values.auth,
-      flow: showFlow ? values.flow || '' : '',
+      flow: values.flow || '',
       security: showSecurity ? values.security || 'auto' : 'auto',
       totalGB: totalBytes,
       expiryTime,
@@ -1241,16 +1216,14 @@ export default function ClientFormModal({
                         </Space.Compact>
                       </Form.Item>
 
-                      {showFlow && (
-                        <FormField name="flow" label={t('pages.clients.flow')}>
-                          <Select
-                            options={[
-                              { value: '', label: t('none') },
-                              ...FLOW_OPTIONS.map((k) => ({ value: k, label: k })),
-                            ]}
-                          />
-                        </FormField>
-                      )}
+                      <FormField name="flow" label={t('pages.clients.flow')}>
+                        <Select
+                          options={[
+                            { value: '', label: t('none') },
+                            ...FLOW_OPTIONS.map((k) => ({ value: k, label: k })),
+                          ]}
+                        />
+                      </FormField>
                       {showSecurity && (
                         <FormField name="security" label={t('pages.clients.vmessSecurity')}>
                           <Select

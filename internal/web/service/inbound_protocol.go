@@ -64,6 +64,16 @@ var nodeEligibleProtocols = map[model.Protocol]bool{
 	model.Shadowsocks: true,
 	model.Hysteria:    true,
 	model.WireGuard:   true,
+	// LUCX-HOOK: LucX sidecar protocols may deploy to LucX-capable nodes
+	// (frontend lib/xray/node-protocol.ts). Further gated by
+	// ensureNodeSupportsProtocol. Upstream amneziawg stays ineligible.
+	model.AWG:         true,
+	model.Naive:       true,
+	model.Olcrtc:      true,
+	model.Qwdtt:       true,
+	model.Mieru:       true,
+	model.TrustTunnel: true,
+	// END LUCX-HOOK
 }
 
 // isNodeEligibleProtocol reports whether protocol may be assigned to a node.

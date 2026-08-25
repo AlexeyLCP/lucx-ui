@@ -4131,3 +4131,26 @@ id="clientPick"); invariant tests kept as-is. Components suite 41/41 green,
 released as v3.7.0-lucx.179.
 
 lucxVersion: lucx.179
+
+## Fix: AWG inbound on a remote node (lucx.181)
+
+Testers (Sergey Verx, VladufQa): create AWG inbound "Deploy To" a remote LucX
+node → `awg inbounds cannot be assigned to a node`. Both panels on lucx.180.
+
+Cause: lucx.114 made AWG/tunnels node-eligible on the frontend
+(`lib/xray/node-protocol.ts`) and gated them with `ensureNodeSupportsProtocol`.
+The v3.7.0 merge then added upstream `isNodeEligibleProtocol` (whitelist
+without sidecars) in AddInbound/UpdateInbound *before* that guard. Frontend
+still offered Deploy To; backend rejected protocol `awg`. Not a rename of
+`awg`→`amneziawg` — the wire protocol is still `awg`; upstream `amneziawg`
+stays ineligible (userspace, NodeID IS NULL reconcile).
+
+Fix: LUCX-HOOK in `inbound_protocol.go` adds AWG/Naive/olcRTC/qWDTT/mieru/
+TrustTunnel to `nodeEligibleProtocols`. Clone dialog uses
+`isProtocolNodeEligible` instead of upstream `NODE_ELIGIBLE_PROTOCOLS`.
+
+Also: client form Flow (xtls-rprx-vision) was gated on tlsFlowCapable and
+hidden on the credentials tab (UUID/password stay always-on). Ungated in
+ClientFormModal + ClientBulkAddModal; stop wiping flow on save (Rule 0).
+
+lucxVersion: lucx.181

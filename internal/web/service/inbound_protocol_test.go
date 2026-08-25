@@ -94,6 +94,9 @@ func TestInboundCanHostFallbacks_StaysTcpOnly(t *testing.T) {
 // in sync if a protocol's node-eligibility ever changes.
 func TestIsNodeEligibleProtocol(t *testing.T) {
 	eligible := []model.Protocol{model.VLESS, model.VMESS, model.Trojan, model.Shadowsocks, model.Hysteria, model.WireGuard}
+	// LUCX-HOOK: LucX sidecar protocols are node-eligible (lucx.114).
+	eligible = append(eligible, model.AWG, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel)
+	// END LUCX-HOOK
 	for _, p := range eligible {
 		if !isNodeEligibleProtocol(p) {
 			t.Errorf("isNodeEligibleProtocol(%q) = false, want true", p)
