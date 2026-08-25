@@ -4154,3 +4154,14 @@ hidden on the credentials tab (UUID/password stay always-on). Ungated in
 ClientFormModal + ClientBulkAddModal; stop wiping flow on save (Rule 0).
 
 lucxVersion: lucx.181
+
+## Fix: Flow shows None after save on AWG clients (lucx.182)
+
+Andrey on 181: set xtls-rprx-vision, reopen edit → Flow = "Нет".
+AWG is not tls-flow-capable, so clientWithInboundFlow strips flow and
+SyncInbound writes empty flow_override (same #4792 Hysteria case).
+EffectiveFlow only read flow_override → empty. Persist intended flow on
+clients.flow after add/update; EffectiveFlow falls back to that column.
+Form Flow Select bound like UUID (value/onChange).
+
+lucxVersion: lucx.182

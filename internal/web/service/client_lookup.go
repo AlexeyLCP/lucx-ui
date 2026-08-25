@@ -45,7 +45,16 @@ func (s *ClientService) EffectiveFlow(tx *gorm.DB, recordId int) (string, error)
 		return "", err
 	}
 	if len(flows) == 0 {
-		return "", nil
+		// LUCX-HOOK: AWG/WG-only (and other non-flow inbounds) store no
+		// flow_override; the editor still round-trips Vision on clients.flow.
+		var rec model.ClientRecord
+		if err := tx.Select("flow").Where("id = ?", recordId).First(&rec).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return "", nil
+			}
+			return "", err
+		}
+		return rec.Flow, nil
 	}
 	return flows[0], nil
 }

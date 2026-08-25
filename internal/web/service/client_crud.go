@@ -247,7 +247,21 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 	if err := s.setClientLimitHwidByEmail(nil, client.Email, payload.LimitHwid); err != nil {
 		return needRestart, err
 	}
+	if rec, recErr := s.GetRecordByEmail(nil, client.Email); recErr == nil {
+		if err := s.persistIntendedFlow(rec.Id, client.Flow); err != nil {
+			return needRestart, err
+		}
+	}
 	return needRestart, nil
+}
+
+// persistIntendedFlow writes the editor's flow onto clients.flow after inbound
+// sync. Non-flow inbounds (AWG, Hysteria, …) strip flow in clientWithInboundFlow
+// and overwrite the column; EffectiveFlow falls back to this value on reopen.
+func (s *ClientService) persistIntendedFlow(id int, flow string) error {
+	return database.GetDB().Model(&model.ClientRecord{}).
+		Where("id = ?", id).
+		UpdateColumn("flow", flow).Error
 }
 
 func (s *ClientService) fillProtocolDefaults(c *model.Client, ib *model.Inbound) error {
@@ -637,6 +651,10 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 	// That guard also meant clearing the group in the client editor never took
 	// effect. The editor always round-trips the field, so apply it here,
 	// including the empty string that removes the client from its group.
+	if err := s.persistIntendedFlow(id, updated.Flow); err != nil {
+		return needRestart, err
+	}
+
 	if err := database.GetDB().Model(&model.ClientRecord{}).
 		Where("id = ?", id).
 		UpdateColumn("group_name", updated.Group).Error; err != nil {

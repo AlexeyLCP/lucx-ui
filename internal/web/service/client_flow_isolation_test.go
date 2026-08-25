@@ -263,3 +263,47 @@ func TestAttach_PreservesVisionFlowWhenCanonicalColumnZeroed(t *testing.T) {
 		t.Errorf("attached non-flow inbound must not receive Vision flow, got %#v", wsList)
 	}
 }
+
+// AWG (like Hysteria) is not tls-flow-capable, so SyncInbound stores an empty
+// flow_override. The editor still round-trips Vision onto clients.flow;
+// EffectiveFlow must fall back to that column or reopen shows "None".
+func TestEffectiveFlow_AwgOnlyFallsBackToRecordFlow(t *testing.T) {
+	dbDir := t.TempDir()
+	t.Setenv("XUI_DB_FOLDER", dbDir)
+	if err := database.InitDB(filepath.Join(dbDir, "x-ui.db")); err != nil {
+		t.Fatalf("InitDB: %v", err)
+	}
+	t.Cleanup(func() { _ = database.CloseDB() })
+
+	db := database.GetDB()
+	awg := &model.Inbound{Tag: "awg1", Enable: true, Port: 51820, Protocol: model.AWG, Settings: `{"clients":[]}`}
+	if err := db.Create(awg).Error; err != nil {
+		t.Fatalf("create awg inbound: %v", err)
+	}
+
+	svc := ClientService{}
+	const email = "awg-vision@example.com"
+	const vision = "xtls-rprx-vision"
+	source := model.Client{Email: email, ID: "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa", Enable: true, Flow: vision}
+	gated := clientWithInboundFlow(source, awg)
+	if gated.Flow != "" {
+		t.Fatalf("AWG inbound JSON must not carry Vision, got %q", gated.Flow)
+	}
+	if err := svc.SyncInbound(nil, awg.Id, []model.Client{gated}); err != nil {
+		t.Fatalf("SyncInbound: %v", err)
+	}
+	rec, err := svc.GetRecordByEmail(nil, email)
+	if err != nil {
+		t.Fatalf("GetRecordByEmail: %v", err)
+	}
+	if err := svc.persistIntendedFlow(rec.Id, vision); err != nil {
+		t.Fatalf("persistIntendedFlow: %v", err)
+	}
+	got, err := svc.EffectiveFlow(nil, rec.Id)
+	if err != nil {
+		t.Fatalf("EffectiveFlow: %v", err)
+	}
+	if got != vision {
+		t.Errorf("EffectiveFlow = %q, want %q (AWG-only client reopen)", got, vision)
+	}
+}

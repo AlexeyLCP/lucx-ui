@@ -265,6 +265,7 @@ export default function ClientFormModal({
   const delayedStart = useWatch({ control: methods.control, name: 'delayedStart' });
   const expiryDate = useWatch({ control: methods.control, name: 'expiryDate' });
   const enable = useWatch({ control: methods.control, name: 'enable' });
+  const flow = useWatch({ control: methods.control, name: 'flow' });
   const reverseTag = useWatch({ control: methods.control, name: 'reverseTag' });
   const secret = useWatch({ control: methods.control, name: 'secret' });
   const email = useWatch({ control: methods.control, name: 'email' });
@@ -1216,14 +1217,16 @@ export default function ClientFormModal({
                         </Space.Compact>
                       </Form.Item>
 
-                      <FormField name="flow" label={t('pages.clients.flow')}>
+                      <Form.Item label={t('pages.clients.flow')}>
                         <Select
+                          value={flow || ''}
                           options={[
                             { value: '', label: t('none') },
                             ...FLOW_OPTIONS.map((k) => ({ value: k, label: k })),
                           ]}
+                          onChange={(v) => methods.setValue('flow', v)}
                         />
-                      </FormField>
+                      </Form.Item>
                       {showSecurity && (
                         <FormField name="security" label={t('pages.clients.vmessSecurity')}>
                           <Select
