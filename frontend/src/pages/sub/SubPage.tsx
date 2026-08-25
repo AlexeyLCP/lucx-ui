@@ -33,13 +33,10 @@ import {
 } from '@ant-design/icons';
 
 import { ClipboardManager, IntlUtil, LanguageManager } from '@/utils';
-import {
-  amneziawgConfigFromLink,
-  isPostQuantumLink,
-  wireguardConfigFromLink,
-} from '@/lib/xray/inbound-link';
+import { isPostQuantumLink, wireguardConfigFromLink } from '@/lib/xray/inbound-link';
 import { LinkTags, parseLinkParts } from '@/lib/xray/link-label';
 import ConfigBlock from '@/components/clients/ConfigBlock';
+import VpnConfBlock from './VpnConfBlock'; // LUCX-HOOK
 import { setMessageInstance } from '@/utils/messageBus';
 import { pauseAnimationsUntilLeave, useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
@@ -690,13 +687,13 @@ export default function SubPage() {
                                 />
                               )}
                               {isAmneziawgLink && (
-                                <ConfigBlock
+                                /* LUCX-HOOK: LucX vpn:// is qCompress(JSON); decode to .conf */
+                                <VpnConfBlock
+                                  link={link}
+                                  rowTitle={rowTitle}
                                   label={t('pages.clients.amneziaWgConfig')}
-                                  text={amneziawgConfigFromLink(link)}
-                                  fileName={`${rowTitle || 'peer'}.conf`}
-                                  qrRemark={rowTitle}
-                                  tagColor="purple"
                                 />
+                                /* END LUCX-HOOK */
                               )}
                             </Fragment>
                           );

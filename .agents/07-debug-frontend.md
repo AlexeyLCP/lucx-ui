@@ -4,6 +4,12 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 14: Sub page “Конфиг AmneziaWG” is binary garbage — FIXED (lucx.180)
+- **Symptom:** public `/sub/` page, AmneziaWG ConfigBlock is zlib/mojibake. Copy/download from that block is unusable. Title often “Link N” (lucx.170 already skipped the remark).
+- **Cause:** lucx.169 ConfigBlock uses upstream `amneziawgConfigFromLink` = UTF-8 of `vpn://` bytes. LucX `vpn://` is `qCompress(JSON)`, not plain `.conf`.
+- **Fix:** `vpnConfFromLink` inflates and reads `last_config.config`. SubPage `VpnConfBlock`. Sync decoder returns "" for qCompress so diamonds never render.
+- **Not Throne.** `/sub/` AWG lines are `amneziawg://` + `vpn://`; Throne skips both. Manual `.conf` still works; a sub refresh replaces the profile.
+
 ### Pattern 13: AmneziaWG copy-link row shows mojibake (�) — FIXED (lucx.170)
 - **Symptom (Never, 24.08.2026):** Client Info → Copy link → AmneziaWG title is diamonds / CJK garbage. Only some clients. `.conf` / vpn:// copy still works.
 - **Cause:** lucx.140+ `genAwgLink` appends official Amnezia `vpn://` = `qCompress(JSON)`. The modal hides `amneziawg://`, so only that line is labeled. `parseLinkParts` treated the payload as UTF-8 `.conf` and took `/^#/` from the binary.

@@ -701,6 +701,19 @@ describe('amneziawgConfigFromLink edge cases', () => {
   it('returns an empty string for an unparseable vpn:// payload', () => {
     expect(amneziawgConfigFromLink('vpn://not-valid-base64url!!!')).toBe('');
   });
+
+  // LUCX-HOOK: LucX vpn:// is qCompress(JSON); sync decoder must not UTF-8 it.
+  it('does not UTF-8 decode a LucX qCompress vpn:// envelope', () => {
+    const raw = Uint8Array.from([
+      0, 0, 0, 16, 0x78, 0x9c, 0xff, 0x23, 0x20, 0x62, 0x61, 0x64, 0xfe, 0x00,
+    ]);
+    let bin = '';
+    for (const b of raw) bin += String.fromCharCode(b);
+    const link = `vpn://${btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')}`;
+    const got = amneziawgConfigFromLink(link);
+    expect(got).toBe('');
+    expect(got).not.toMatch(/\uFFFD/);
+  });
 });
 
 /*

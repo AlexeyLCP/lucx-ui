@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.180 — SubPage vpn:// ConfigBlock is .conf (2026-08-25)
+
+LucX `/sub/` `vpn://` is qCompress(JSON). After lucx.169 the public sub page ran that payload through upstream `amneziawgConfigFromLink` (UTF-8 of the zlib bytes) → ConfigBlock mojibake.
+
+- `vpnConfFromLink` inflates qCompress and reads `last_config.config`.
+- SubPage ConfigBlock uses that; sync `amneziawgConfigFromLink` returns "" for qCompress (no diamonds).
+- Tests: `vpnuri.test.ts`, `amneziawgConfigFromLink` qCompress fixture.
+
+**lucxVersion:** lucx.180
+
+---
+
 ## lucx.178 — panel tab favicon (2026-08-24)
 
 Settings → Panel: `webFavicon` accepts one emoji or SVG/PNG Base64 / data URI. Empty = no icon.

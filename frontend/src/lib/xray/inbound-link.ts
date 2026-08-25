@@ -14,6 +14,7 @@ import type { FinalMaskStreamSettings } from '@/schemas/protocols/stream/finalma
 import type { XHttpStreamSettings } from '@/schemas/protocols/stream/xhttp';
 
 import { collapseKeepaliveForVersion } from '@/lib/awg/timer';
+import { bytesFromBase64Url, isQCompress } from '@/lib/awg/vpnuri'; // LUCX-HOOK
 import { getHeaderValue } from './headers';
 import { canEnableTlsFlow } from './protocol-capabilities';
 import { deriveSpiderX } from './spider-x';
@@ -1162,6 +1163,9 @@ export function amneziawgConfigFromLink(link: string): string {
   const trimmed = link.trim();
   if (!trimmed.startsWith('vpn://')) return '';
   try {
+    // LUCX-HOOK: LucX vpn:// is qCompress(JSON); never UTF-8 decode the envelope.
+    if (isQCompress(bytesFromBase64Url(trimmed.slice('vpn://'.length)))) return '';
+    // END LUCX-HOOK
     return fromBase64Url(trimmed.slice('vpn://'.length));
   } catch {
     return '';
