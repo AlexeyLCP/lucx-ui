@@ -1,9 +1,9 @@
 import { afterEach, describe, it, expect, vi } from 'vitest';
 import { cleanup, fireEvent, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import RuleFormModal from '@/pages/xray/routing/RuleFormModal';
-import { keys } from '@/api/queryKeys';
 import { HttpUtil, Msg } from '@/utils';
 
 import { chooseSelectOption, renderWithProviders } from './test-utils';
@@ -48,6 +48,9 @@ describe('RuleFormModal edit preserves unsurfaced fields', () => {
     queryClient.clear();
   });
 
+  // LUCX-HOOK: the fork replaces upstream's email-only user select with the
+  // client picker (#clientPick): clients map to user:/src:/in: options, the
+  // query key is ['routing','clientPickList'], and free tags use user:<id>.
   it('selects existing clients for the user criterion', async () => {
     vi.spyOn(HttpUtil, 'get').mockResolvedValue(
       new Msg(true, '', [
@@ -76,17 +79,18 @@ describe('RuleFormModal edit preserves unsurfaced fields', () => {
         silent: true,
       }),
     );
-    await waitFor(() => expect(queryClient.getQueryData(keys.clients.all())).toHaveLength(2));
-    const userField = screen.getByLabelText('User');
-    expect(screen.getByText('Select users')).toBeTruthy();
-    chooseSelectOption(userField.id, 'alice@example.com');
-    chooseSelectOption(userField.id, 'bob@example.com');
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['routing', 'clientPickList'])).toHaveLength(2),
+    );
+    chooseSelectOption('clientPick', 'alice@example.com · xray');
+    chooseSelectOption('clientPick', 'bob@example.com · xray');
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({ user: ['alice@example.com', 'bob@example.com'] }),
     );
   });
+  // END LUCX-HOOK
 
   it('preserves a saved user that is no longer in the client list', async () => {
     vi.spyOn(HttpUtil, 'get').mockResolvedValue(
@@ -106,7 +110,10 @@ describe('RuleFormModal edit preserves unsurfaced fields', () => {
       />,
     );
 
-    await waitFor(() => expect(screen.getByText('removed@example.com')).toBeTruthy());
+    // LUCX-HOOK: saved users reappear as user: tags in the picker, not as
+    // plain text next to an input.
+    await waitFor(() => expect(screen.getByText('user:removed@example.com')).toBeTruthy());
+    // END LUCX-HOOK
     fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
 
     expect(onConfirm).toHaveBeenCalledWith(
@@ -132,8 +139,18 @@ describe('RuleFormModal edit preserves unsurfaced fields', () => {
       />,
     );
 
-    const userField = screen.getByLabelText('User');
-    fireEvent.change(userField, { target: { value: 'office-proxy,' } });
+    // LUCX-HOOK: free tags typed as user:<id> land in the user criterion.
+    const user = userEvent.setup();
+    const picker = document.getElementById('clientPick') as HTMLInputElement;
+    await user.click(picker);
+    await user.type(picker, 'user:office-proxy');
+    const typedOption = Array.from(document.querySelectorAll('.ant-select-item-option')).find(
+      (o) =>
+        o.getAttribute('title') === 'user:office-proxy' || o.textContent === 'user:office-proxy',
+    );
+    expect(typedOption).toBeTruthy();
+    await user.click(typedOption as HTMLElement);
+    // END LUCX-HOOK
     fireEvent.click(screen.getByRole('button', { name: 'Create' }));
 
     expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ user: ['office-proxy'] }));

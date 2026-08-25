@@ -564,6 +564,7 @@ export default function RuleFormModal({
             }
           >
             <Select
+              id="clientPick"
               mode="tags"
               showSearch
               allowClear
