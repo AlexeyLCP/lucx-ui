@@ -4111,4 +4111,11 @@ Checks: npm typecheck / lint / format:check / build green; i18n dead-keys
 test green (13 locales); unit suite green except pre-existing
 input-number-guard failure; no git dev branch exists (local, gh, origin, sc).
 
+Follow-up (same lucx.179): upstream's new component test
+rule-form-preserve-fields.test.tsx asserted upstream's email-only picker and
+failed CI. Rewrote tests 2-4 for our picker (option labels "email · xray",
+query key ['routing','clientPickList'], free tag user:<id>; picker Select got
+id="clientPick"); invariant tests kept as-is. Components suite 41/41 green,
+released as v3.7.0-lucx.179.
+
 lucxVersion: lucx.179
