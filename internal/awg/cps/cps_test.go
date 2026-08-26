@@ -628,3 +628,27 @@ func TestGenerateAwg3DeviceTimings_FormatAndInvariants(t *testing.T) {
 		})
 	}
 }
+
+// shrinkCPS must measure the netlink cost, not the decoded payload: both sets
+// below sit under MaxIPayload, so the old PayloadSum loop left them untouched
+// while `awg show` on the resulting interface fails with EMSGSIZE.
+func TestShrinkCPS_ByteMetric(t *testing.T) {
+	tag := func(payloadBytes int) string { return "<b 0x" + strings.Repeat("ab", payloadBytes) + ">" }
+	t.Run("clears a lone oversized I1", func(t *testing.T) {
+		r := shrinkCPS(CPSResult{I1: tag(1800)})
+		if r.I1 != "" {
+			t.Fatalf("I1 must be cleared when it alone busts the budget (%d > %d bytes)",
+				CPSResult{I1: tag(1800)}.IBytes(), MaxIBytes)
+		}
+	})
+	t.Run("drops only what the budget requires", func(t *testing.T) {
+		full := CPSResult{I1: tag(355), I2: tag(355), I3: tag(355), I4: tag(355), I5: tag(355)}
+		r := shrinkCPS(full)
+		if r.I5 != "" {
+			t.Fatalf("I5 must go: %d > %d bytes", full.IBytes(), MaxIBytes)
+		}
+		if r.I1 == "" || r.I4 == "" {
+			t.Fatalf("dropping I5 alone brings the set to %d bytes; I1-I4 must survive, got %+v", r.IBytes(), r)
+		}
+	})
+}

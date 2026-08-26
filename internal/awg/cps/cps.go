@@ -47,8 +47,26 @@ func (r CPSResult) PayloadSum() int {
 	return tagPayloadBytes(r.I1) + tagPayloadBytes(r.I2) + tagPayloadBytes(r.I3) + tagPayloadBytes(r.I4) + tagPayloadBytes(r.I5)
 }
 
+// MaxIBytes mirrors awg.IBytesBudget for the shape every generated set lands
+// on: one peer, a 6-char ifname, no header-protection key.
+const MaxIBytes = 3500
+
+// IBytes is what the kernel actually charges for I1-I5: each is a
+// NUL-terminated netlink string attribute costing NLA_ALIGN(4+len+1).
+func (r CPSResult) IBytes() int {
+	n := 0
+	for _, v := range []string{r.I1, r.I2, r.I3, r.I4, r.I5} {
+		if v != "" {
+			n += (len(v) + 8) &^ 3
+		}
+	}
+	return n
+}
+
+// shrinkCPS drops fields until the set fits the netlink budget. I1 goes too:
+// a lone oversized I1 leaves the interface unreadable by `awg show`.
 func shrinkCPS(r CPSResult) CPSResult {
-	for r.PayloadSum() > MaxIPayload {
+	for r.IBytes() > MaxIBytes {
 		switch {
 		case r.I5 != "":
 			r.I5 = ""
@@ -58,6 +76,8 @@ func shrinkCPS(r CPSResult) CPSResult {
 			r.I3 = ""
 		case r.I2 != "":
 			r.I2 = ""
+		case r.I1 != "":
+			r.I1 = ""
 		default:
 			return r
 		}

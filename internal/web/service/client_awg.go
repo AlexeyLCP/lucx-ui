@@ -107,12 +107,22 @@ func validateAwgSettingsJSON(settings string) error {
 		S2                  int    `json:"s2"`
 		S3                  int    `json:"s3"`
 		S4                  int    `json:"s4"`
+		I1                  string `json:"i1"`
+		I2                  string `json:"i2"`
+		I3                  string `json:"i3"`
+		I4                  string `json:"i4"`
+		I5                  string `json:"i5"`
 		HeaderProtectionKey string `json:"headerProtectionKey"`
 	}
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
 		return nil
 	}
 	if err := awg.ValidateObfuscationFields(s.AwgVersion, s.H1, s.H2, s.H3, s.H4); err != nil {
+		return err
+	}
+	// Oversized I1-I5 still apply and pass traffic, but `awg show` then fails
+	// with EMSGSIZE and the panel goes blind on that interface.
+	if err := awg.ValidateIFields(awg.BaselineIfname, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5); err != nil {
 		return err
 	}
 	if s.Jc == 0 && s.S1 == 0 {

@@ -16,14 +16,6 @@ import (
 // does NOT override the system default route — Xray's sockopt.interface handles
 // egress), a single [Peer] (the upstream server), and DNS is NEVER written.
 //
-// I1-I5 (CPS packets) are NEVER written to the .conf, even when set in Settings.
-// The kernel amneziawg module does not accept CPS tags in setconf input —
-// `awg setconf awgo-N /dev/fd/63` returns "Invalid argument" and awg-quick
-// rolls back the interface, so reconcile fails every 10s (caught live by a
-// tester on awgo-2: every reconcile failed with exit status 1). This mirrors
-// renderServerConf, which already documents the same constraint for the server
-// .conf. I1-I5 stay in Settings JSON for a future userspace CPS sender.
-//
 // DNS is NEVER written even when set in Settings. With Table = off, the client
 // AWG interface does not carry the system default route, so the panel host's
 // system DNS must NOT be overwritten through the tunnel. Writing DNS makes
@@ -100,6 +92,17 @@ func renderClientConf(ci ClientInstance) string {
 			}
 			if s.DisableCookies {
 				b.WriteString("DisableCookies = on\n")
+			}
+		}
+	}
+	// In the .conf so the FIRST handshake carries CPS mimicry — a post-up `awg
+	// set` landed 20.4 ms late. Omitted whole past the netlink readback budget.
+	if IBytes(s.I1, s.I2, s.I3, s.I4, s.I5) <= IBytesBudget(ci.Ifname, s.HeaderProtectionKey != "") {
+		for _, f := range []struct{ key, value string }{
+			{"I1", s.I1}, {"I2", s.I2}, {"I3", s.I3}, {"I4", s.I4}, {"I5", s.I5},
+		} {
+			if v := strings.TrimSpace(f.value); v != "" {
+				fmt.Fprintf(&b, "%s = %s\n", f.key, v)
 			}
 		}
 	}

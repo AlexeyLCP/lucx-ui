@@ -3,8 +3,11 @@
 package service
 
 import (
+	"errors"
+	"strings"
 	"testing"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/vpnuri"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
@@ -406,5 +409,48 @@ func TestAwgOutboundSubnetClash(t *testing.T) {
 				t.Errorf("awgOutboundSubnetClash(%q) err = %v, wantClash %v", tt.addr, err, tt.wantClash)
 			}
 		})
+	}
+}
+
+// checkOutboundIFields is the save-time guard behind AddOutbound and
+// UpdateOutbound, so a .conf pasted through ParseConf or discovered by the
+// host scan is rejected too — not just a set the panel's own generator built.
+func TestCheckOutboundIFields(t *testing.T) {
+	fits := strings.Repeat("x", 3495)     // IBytes 3500, exactly awgo-1's budget
+	oversize := strings.Repeat("x", 3496) // IBytes 3504
+	for _, tc := range []struct {
+		name     string
+		settings string
+		wantErr  bool
+	}{
+		{"malformed settings are not this guard's business", `{nope`, false},
+		{"no I-fields", `{"privateKey":"k"}`, false},
+		{"at budget", `{"i1":"` + fits + `"}`, false},
+		{"over budget", `{"i1":"` + oversize + `"}`, true},
+		{"split under the same character sum", `{"i1":"` + fits[:1748] + `","i2":"` + fits[1748:] + `"}`, true},
+		{"header protection key shrinks the budget", `{"headerProtectionKey":"k=","i1":"` + fits + `"}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkOutboundIFields(&model.AwgOutbound{Id: 1, Settings: tc.settings})
+			if gotErr := err != nil; gotErr != tc.wantErr {
+				t.Fatalf("checkOutboundIFields = %v, wantErr %v", err, tc.wantErr)
+			}
+			if tc.wantErr && !errors.Is(err, awg.ErrIFieldsTooLarge) {
+				t.Fatalf("want ErrIFieldsTooLarge, got %v", err)
+			}
+		})
+	}
+}
+
+// The AWG inbound side stores I1-I5 for client export; validateAwgSettingsJSON
+// is the choke point AddInbound and UpdateInbound both pass through.
+func TestValidateAwgSettingsJSON_IFieldBudget(t *testing.T) {
+	oversize := strings.Repeat("x", 3496)
+	err := validateAwgSettingsJSON(`{"i1":"` + oversize + `"}`)
+	if !errors.Is(err, awg.ErrIFieldsTooLarge) {
+		t.Fatalf("want ErrIFieldsTooLarge, got %v", err)
+	}
+	if err := validateAwgSettingsJSON(`{"i1":"` + oversize[:3495] + `"}`); err != nil {
+		t.Fatalf("a set at exactly the budget must save, got %v", err)
 	}
 }
