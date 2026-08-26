@@ -67,12 +67,16 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		jsonMsg(c, "awg obfuscation: bad profile", err)
 		return
 	}
+	// A header-protection key takes netlink bytes the I-fields then cannot have,
+	// so the budget the generator aims at has to know one is coming.
+	withHPK := awg.IsAwg3Plus(req.AwgVersion) && awg.ModuleSupportsAwg3()
 	cpsResult, err := cps.GenerateCPS(
 		cps.MimicryProfile(req.MimicryProfile),
 		cps.Region(req.Region),
 		req.Domain,
 		cps.BrowserProfile(req.BrowserProfile),
 		!req.FullI1I5, // GenerateCPS's onlyI1 is the inverse of "full I1-I5"
+		awg.IBytesBudget(awg.BaselineIfname, withHPK),
 	)
 	if err != nil {
 		jsonMsg(c, "awg obfuscation: CPS generation failed", err)
@@ -106,7 +110,7 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 	// v1.5/v2 — or a v3 request on a pre-AWG3 host — the field is omitted (not
 	// ""), so the form's Object.entries(obf).forEach(setValue) leaves any
 	// hand-typed key untouched — the same property forward-compat relied on.
-	if awg.IsAwg3Plus(req.AwgVersion) && awg.ModuleSupportsAwg3() {
+	if withHPK {
 		params, err := params.WithHeaderProtectionKey()
 		if err != nil {
 			jsonMsg(c, "awg obfuscation: header protection key generation failed", err)

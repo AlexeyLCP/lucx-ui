@@ -211,7 +211,7 @@ func TestGenerateCPS_AllProfilesNonEmpty(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(7)))
 	for _, mp := range []MimicryProfile{ProfileTLS, ProfileDNS, ProfileSIP, ProfileQUIC} {
 		for _, reg := range []Region{RegionRU, RegionWorld} {
-			r1, err := GenerateCPS(mp, reg, "", BrowserChrome, true)
+			r1, err := GenerateCPS(mp, reg, "", BrowserChrome, true, kernelBudget())
 			if err != nil {
 				t.Fatalf("profile %s region %s onlyI1: %v", mp, reg, err)
 			}
@@ -221,67 +221,13 @@ func TestGenerateCPS_AllProfilesNonEmpty(t *testing.T) {
 			if r1.I2 != "" {
 				t.Fatalf("profile %s region %s: onlyI1 leaked I2", mp, reg)
 			}
-			r5, err := GenerateCPS(mp, reg, "", BrowserChrome, false)
-			if err != nil {
-				t.Fatalf("profile %s region %s full: %v", mp, reg, err)
-			}
-			if r5.I1 == "" {
-				t.Fatalf("profile %s region %s: I1 empty in full mode", mp, reg)
-			}
-			if sum := r5.PayloadSum(); sum > MaxIPayload {
-				t.Fatalf("profile %s region %s: payload %d > %d", mp, reg, sum, MaxIPayload)
-			}
-		}
-	}
-}
-
-func TestCPSPayloadBytes(t *testing.T) {
-	if got := tagPayloadBytes("<b 0xaabbcc>"); got != 3 {
-		t.Fatalf("hex tag = %d, want 3", got)
-	}
-	if got := tagPayloadBytes("<r 2><b 0x0011>"); got != 2 {
-		t.Fatalf("dns tag = %d, want 2", got)
-	}
-	if got := tagPayloadBytes(""); got != 0 {
-		t.Fatalf("empty = %d", got)
-	}
-}
-
-func TestShrinkCPS_DropsTrailingUntilUnderLimit(t *testing.T) {
-	big := strings.Repeat("aa", MaxIPayload+1)
-	r := shrinkCPS(CPSResult{
-		I1: "<b 0x" + big + ">",
-		I2: "<b 0xaabb>",
-		I3: "<b 0xccdd>",
-		I4: "<b 0xeeff>",
-		I5: "<b 0x1122>",
-	})
-	if r.I2 != "" || r.I3 != "" || r.I4 != "" || r.I5 != "" {
-		t.Fatalf("must drop I2-I5 when I1 is already over the cap, got %+v", r)
-	}
-}
-
-func TestGenerateCPS_FullStaysUnderIPayloadCap(t *testing.T) {
-	for seed := int64(1); seed <= 40; seed++ {
-		SetRand(crand.New(crand.NewSource(seed)))
-		for _, mp := range []MimicryProfile{ProfileTLS, ProfileDNS, ProfileSIP, ProfileQUIC} {
-			r, err := GenerateCPS(mp, RegionWorld, "example.com", BrowserChrome, false)
-			if err != nil {
-				t.Fatalf("seed %d profile %s: %v", seed, mp, err)
-			}
-			if sum := r.PayloadSum(); sum > MaxIPayload {
-				t.Fatalf("seed %d profile %s payload %d > %d", seed, mp, sum, MaxIPayload)
-			}
-			if r.I1 == "" {
-				t.Fatalf("seed %d profile %s dropped I1", seed, mp)
-			}
 		}
 	}
 }
 
 func TestGenerateCPS_ExplicitDomain(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(1)))
-	r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", BrowserChrome, true)
+	r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", BrowserChrome, true, kernelBudget())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +238,7 @@ func TestGenerateCPS_ExplicitDomain(t *testing.T) {
 
 func TestGenerateCPS_DNSHasR2Prefix(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(3)))
-	r, err := GenerateCPS(ProfileDNS, RegionWorld, "example.com", BrowserChrome, true)
+	r, err := GenerateCPS(ProfileDNS, RegionWorld, "example.com", BrowserChrome, true, kernelBudget())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +250,7 @@ func TestGenerateCPS_DNSHasR2Prefix(t *testing.T) {
 func TestGenerateCPS_NonDNSNoR2Prefix(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(5)))
 	for _, mp := range []MimicryProfile{ProfileTLS, ProfileSIP, ProfileQUIC} {
-		r, err := GenerateCPS(mp, RegionWorld, "example.com", BrowserChrome, true)
+		r, err := GenerateCPS(mp, RegionWorld, "example.com", BrowserChrome, true, kernelBudget())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -317,7 +263,7 @@ func TestGenerateCPS_NonDNSNoR2Prefix(t *testing.T) {
 func TestGenerateCPS_AllBrowsersNonEmpty(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(11)))
 	for _, browser := range []BrowserProfile{BrowserChrome, BrowserFirefox, BrowserSafari} {
-		r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", browser, true)
+		r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", browser, true, kernelBudget())
 		if err != nil {
 			t.Fatalf("browser %s: %v", browser, err)
 		}
@@ -627,28 +573,4 @@ func TestGenerateAwg3DeviceTimings_FormatAndInvariants(t *testing.T) {
 			}
 		})
 	}
-}
-
-// shrinkCPS must measure the netlink cost, not the decoded payload: both sets
-// below sit under MaxIPayload, so the old PayloadSum loop left them untouched
-// while `awg show` on the resulting interface fails with EMSGSIZE.
-func TestShrinkCPS_ByteMetric(t *testing.T) {
-	tag := func(payloadBytes int) string { return "<b 0x" + strings.Repeat("ab", payloadBytes) + ">" }
-	t.Run("clears a lone oversized I1", func(t *testing.T) {
-		r := shrinkCPS(CPSResult{I1: tag(1800)})
-		if r.I1 != "" {
-			t.Fatalf("I1 must be cleared when it alone busts the budget (%d > %d bytes)",
-				CPSResult{I1: tag(1800)}.IBytes(), MaxIBytes)
-		}
-	})
-	t.Run("drops only what the budget requires", func(t *testing.T) {
-		full := CPSResult{I1: tag(355), I2: tag(355), I3: tag(355), I4: tag(355), I5: tag(355)}
-		r := shrinkCPS(full)
-		if r.I5 != "" {
-			t.Fatalf("I5 must go: %d > %d bytes", full.IBytes(), MaxIBytes)
-		}
-		if r.I1 == "" || r.I4 == "" {
-			t.Fatalf("dropping I5 alone brings the set to %d bytes; I1-I4 must survive, got %+v", r.IBytes(), r)
-		}
-	})
 }

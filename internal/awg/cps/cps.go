@@ -11,6 +11,7 @@ import (
 	crand "crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -22,34 +23,13 @@ type CPSResult struct {
 	I1, I2, I3, I4, I5 string
 }
 
-const MaxIPayload = 1800
+// ErrCPSBudgetExceeded means no draw of the requested set fit maxIBytes.
+var ErrCPSBudgetExceeded = errors.New("awg cps: I1-I5 exceed the netlink read budget")
 
-func tagPayloadBytes(tag string) int {
-	i := strings.Index(strings.ToLower(tag), "0x")
-	if i < 0 {
-		return 0
-	}
-	hexpart := tag[i+2:]
-	if j := strings.IndexAny(hexpart, ">"); j >= 0 {
-		hexpart = hexpart[:j]
-	}
-	n := 0
-	for _, c := range hexpart {
-		switch {
-		case c >= '0' && c <= '9', c >= 'a' && c <= 'f', c >= 'A' && c <= 'F':
-			n++
-		}
-	}
-	return n / 2
-}
-
-func (r CPSResult) PayloadSum() int {
-	return tagPayloadBytes(r.I1) + tagPayloadBytes(r.I2) + tagPayloadBytes(r.I3) + tagPayloadBytes(r.I4) + tagPayloadBytes(r.I5)
-}
-
-// MaxIBytes mirrors awg.IBytesBudget for the shape every generated set lands
-// on: one peer, a 6-char ifname, no header-protection key.
-const MaxIBytes = 3500
+// generateAttempts bounds the redraw loop: a full quic set clears a 3500-byte
+// budget on ~1.7% of draws, so 16 rolls refused it most of the time. At ~0.11ms
+// a draw this costs ~110ms in the worst case, which only a refusal pays.
+const generateAttempts = 1024
 
 // IBytes is what the kernel actually charges for I1-I5: each is a
 // NUL-terminated netlink string attribute costing NLA_ALIGN(4+len+1).
@@ -63,41 +43,26 @@ func (r CPSResult) IBytes() int {
 	return n
 }
 
-// shrinkCPS drops fields until the set fits the netlink budget. I1 goes too:
-// a lone oversized I1 leaves the interface unreadable by `awg show`.
-func shrinkCPS(r CPSResult) CPSResult {
-	for r.IBytes() > MaxIBytes {
-		switch {
-		case r.I5 != "":
-			r.I5 = ""
-		case r.I4 != "":
-			r.I4 = ""
-		case r.I3 != "":
-			r.I3 = ""
-		case r.I2 != "":
-			r.I2 = ""
-		case r.I1 != "":
-			r.I1 = ""
-		default:
-			return r
-		}
-	}
-	return r
-}
-
-func GenerateCPS(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool) (CPSResult, error) {
-	var last CPSResult
-	for try := 0; try < 16; try++ {
+// GenerateCPS redraws until the set fits maxIBytes (awg.IBytesBudget for the
+// target interface). It refuses rather than shedding fields: a set the operator
+// cannot save beats one that silently carries fewer packets than it asked for.
+func GenerateCPS(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool, maxIBytes int) (CPSResult, error) {
+	smallest := 0
+	for try := 0; try < generateAttempts; try++ {
 		r, err := generateCPSOnce(profile, region, domain, browser, onlyI1)
 		if err != nil {
 			return r, err
 		}
-		if r.PayloadSum() <= MaxIPayload {
+		got := r.IBytes()
+		if got <= maxIBytes {
 			return r, nil
 		}
-		last = r
+		if smallest == 0 || got < smallest {
+			smallest = got
+		}
 	}
-	return shrinkCPS(last), nil
+	return CPSResult{}, fmt.Errorf("%w: smallest of %d draws was %d bytes, budget %d — pick a lighter mimicry profile, or turn the full I1-I5 set off",
+		ErrCPSBudgetExceeded, generateAttempts, smallest, maxIBytes)
 }
 
 func generateCPSOnce(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool) (CPSResult, error) {

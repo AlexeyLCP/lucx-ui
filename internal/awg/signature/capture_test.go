@@ -11,6 +11,8 @@ import (
 	"encoding/hex"
 	"strings"
 	"testing"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 )
 
 func TestNormalizeDomain(t *testing.T) {
@@ -48,10 +50,9 @@ func TestFillPackets(t *testing.T) {
 	}
 
 	oversized := bytes.Repeat([]byte{0xFF}, 2000)
-	trunc := fillPackets([][]byte{oversized})
-	want := "<b 0x" + strings.Repeat("ff", maxPacketSize) + ">"
-	if trunc.I1 != want {
-		t.Errorf("packet longer than %d bytes must be truncated, got len(I1)=%d", maxPacketSize, len(trunc.I1))
+	dropped := fillPackets([][]byte{oversized})
+	if dropped.I1 != "" {
+		t.Errorf("a packet that busts the netlink budget must be dropped whole, got len(I1)=%d", len(dropped.I1))
 	}
 
 	six := make([][]byte, 6)
@@ -150,5 +151,42 @@ func TestBuildQUICInitial_Structure(t *testing.T) {
 func TestCapture_EmptyDomain(t *testing.T) {
 	if _, err := Capture("  "); err == nil {
 		t.Error("Capture with blank domain must fail")
+	}
+}
+
+// A captured packet is only useful whole: half a QUIC Initial is a malformed
+// packet on the wire. An oversized capture must lose whole packets, never
+// bytes, and what survives must still fit what `awg show` can read back.
+func TestFillPackets_KeepsWholePacketsWithinNetlinkBudget(t *testing.T) {
+	budget := awg.IBytesBudget(awg.BaselineIfname, false)
+	packet := func(b byte) []byte { return bytes.Repeat([]byte{b}, 1200) }
+	res := fillPackets([][]byte{packet(1), packet(2), packet(3), packet(4), packet(5)})
+
+	if got := awg.IBytes(res.I1, res.I2, res.I3, res.I4, res.I5); got > budget {
+		t.Fatalf("captured set is %d bytes, budget %d — the interface comes up unreadable", got, budget)
+	}
+	if res.I1 == "" {
+		t.Fatal("the first packet fits on its own and must be kept")
+	}
+	for n, f := range map[string]string{"I1": res.I1, "I2": res.I2, "I3": res.I3, "I4": res.I4, "I5": res.I5} {
+		if f == "" {
+			continue
+		}
+		payload := strings.TrimSuffix(strings.TrimPrefix(f, "<b 0x"), ">")
+		if len(payload) != 2*1200 {
+			t.Fatalf("%s carries %d hex chars — a packet was truncated, not dropped", n, len(payload))
+		}
+	}
+}
+
+// A capture small enough to fit must survive whole — the budget must not cost
+// packets it does not have to.
+func TestFillPackets_KeepsAllFiveWhenTheyFit(t *testing.T) {
+	packet := func(b byte) []byte { return bytes.Repeat([]byte{b}, 300) }
+	res := fillPackets([][]byte{packet(1), packet(2), packet(3), packet(4), packet(5)})
+	for n, f := range map[string]string{"I1": res.I1, "I2": res.I2, "I3": res.I3, "I4": res.I4, "I5": res.I5} {
+		if f == "" {
+			t.Fatalf("%s dropped although the whole set fits the budget", n)
+		}
 	}
 }

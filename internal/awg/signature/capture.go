@@ -22,6 +22,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 )
 
 // CaptureResult holds the I1-I5 packet strings captured from a real host.
@@ -35,11 +37,10 @@ type CaptureResult struct {
 var quicV1Salt = []byte{0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a}
 
 const (
-	maxPackets    = 5    // I1-I5
-	maxPacketSize = 1500 // truncate longer captures
-	quicPort      = "443"
-	readTimeout   = 5 * time.Second
-	minPackets    = 2 // need at least our Initial + 1 reply
+	maxPackets  = 5 // I1-I5
+	quicPort    = "443"
+	readTimeout = 5 * time.Second
+	minPackets  = 2 // need at least our Initial + 1 reply
 )
 
 // randomBytes returns n cryptographically-strong random bytes.
@@ -152,18 +153,22 @@ func captureQUIC(host, ip string) ([][]byte, error) {
 }
 
 // fillPackets converts raw packet bytes into AmneziaWG CPS "<b 0xHEX>" strings,
-// truncating each to maxPacketSize. Fewer than 5 packets leave the rest empty.
+// keeping whole packets while the set stays inside what `awg show` can read
+// back. A packet that no longer fits ends the set: truncating one would put a
+// malformed packet on the wire, a worse signature than a shorter burst.
 func fillPackets(packets [][]byte) CaptureResult {
 	res := CaptureResult{}
 	fields := [5]*string{&res.I1, &res.I2, &res.I3, &res.I4, &res.I5}
+	budget := awg.IBytesBudget(awg.BaselineIfname, false)
 	for i, pkt := range packets {
 		if i >= maxPackets {
 			break
 		}
-		if len(pkt) > maxPacketSize {
-			pkt = pkt[:maxPacketSize]
-		}
 		*fields[i] = "<b 0x" + hex.EncodeToString(pkt) + ">"
+		if awg.IBytes(res.I1, res.I2, res.I3, res.I4, res.I5) > budget {
+			*fields[i] = ""
+			break
+		}
 	}
 	return res
 }
