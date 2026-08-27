@@ -179,18 +179,23 @@ func fillPackets(packets [][]byte) CaptureResult {
 // RFC 9001 §5.2), and applies header protection (RFC 9001 §5.4). Ported from
 // hoaxisr/awg-manager internal/signature/capture.go.
 func buildQUICInitial(host string) ([]byte, error) {
+	// buildTLSClientHello returns the ClientHello handshake message (starts with
+	// type 0x01), which is what the CRYPTO frame carries — no record to strip.
 	chPayload, err := buildTLSClientHello(host)
 	if err != nil {
 		return nil, err
 	}
-	// buildTLSClientHello returns the ClientHello handshake message (starts
-	// with type 0x01), which is exactly what the QUIC CRYPTO frame carries —
-	// no TLS record header to strip.
-
 	dcid := make([]byte, 8)
 	if _, err := rand.Read(dcid); err != nil {
 		return nil, err
 	}
+	return BuildQUICInitial(dcid, chPayload)
+}
+
+// BuildQUICInitial assembles a genuine QUIC v1 Initial around an already-built
+// ClientHello: AEAD-sealed and header-protected under keys derived from dcid,
+// so an observer that derives the same keys can decrypt it like a real one.
+func BuildQUICInitial(dcid, chPayload []byte) ([]byte, error) {
 	// Derive initial keys from dcid (RFC 9001 §5.2).
 	initialSecret, _ := hkdf.Extract(sha256.New, dcid, quicV1Salt)
 	clientSecret := hkdfExpandLabel(initialSecret, "client in", nil, 32)
