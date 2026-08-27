@@ -91,12 +91,9 @@ var (
 // the half-built interface back, and every reconcile fails with "Device
 // <awgN> does not exist".
 //
-// The probe is functional, not version-based. Upstream hardcodes
-// PACKAGE_VERSION="1.0.0" (dkms.conf) and WIREGUARD_VERSION=1.0.0 (Makefile)
-// in EVERY release, so modinfo reports the same "1.0.0" for the pre-AWG3
-// tags (v1.0.20260611 …) and the AWG3 tags (v3.0.20260730 …) — the previous
-// major=="3" parse never matched and silently dropped HPK on every host,
-// including hosts whose module WAS rebuilt from master.
+// The probe is functional, not version-based: sysfs module-version reporting
+// is confirmed accurate on a 3.1 module (measured on ru1). Whether pre-3.1
+// modules report accurately too is unverified, so kallsyms stays the check here.
 //
 // Only a positive result is cached. A negative one is transient (module not
 // loaded yet right after boot, tools mid-rebuild during an update), so the
@@ -197,18 +194,45 @@ var (
 
 var moduleSupportsAwg31Override *bool
 
+// moduleVersionPath is a package var so tests can point it at a fixture
+// file — the real sysfs file cannot be downgraded on a live module.
+var moduleVersionPath = "/sys/module/amneziawg/version"
+
+// moduleVersionAtLeast reports whether the LOADED amneziawg module's own
+// version (not the awg userspace tools) is at least major.minor. Tools and
+// module upgrade independently, so a host can carry 3.1 tools over a stale
+// 3.0 module — that module still rejects RandomTrailers/DisableCookies.
+func moduleVersionAtLeast(wantMajor, wantMinor int) bool {
+	data, err := os.ReadFile(moduleVersionPath)
+	if err != nil {
+		return false
+	}
+	major, minor := parseAwgToolsVersion("v" + strings.TrimSpace(string(data)))
+	if major < 0 {
+		return false
+	}
+	if major != wantMajor {
+		return major > wantMajor
+	}
+	return minor >= wantMinor
+}
+
 // ModuleSupportsAwg31 reports whether this host can consume AWG 3.1 fields
-// (RandomTrailers / DisableCookies). Tools older than v3.1 reject those
-// .conf lines with "Line unrecognized" and awg-quick rolls the interface
-// back — same Pattern 1d as HPK on a v1 module. Only a positive result is
-// cached; a negative one is transient (tools mid-rebuild) so the next call
-// retries.
+// (RandomTrailers / DisableCookies). Both the loaded kernel module and the
+// awg tools must be v3.1+: a stale module accepts the .conf line but does
+// not implement the semantics, and tools older than v3.1 reject the line
+// outright with "Line unrecognized", rolling awg-quick back. Only a positive
+// result is cached; a negative one is transient (tools mid-rebuild, module
+// about to be reloaded) so the next call retries.
 func ModuleSupportsAwg31() bool {
 	if moduleSupportsAwg31Override != nil {
 		return *moduleSupportsAwg31Override
 	}
 	if moduleAwg31Checked {
 		return moduleAwg31Supported
+	}
+	if !moduleVersionAtLeast(3, 1) {
+		return false
 	}
 	out, err := exec.CommandContext(context.Background(), awgBin("awg"), "version").Output()
 	if err != nil {
@@ -249,21 +273,24 @@ func awg3CapabilityCheck(p prober) DiagCheck {
 }
 
 // awg31CapabilityCheck builds the informational diagnostics line for AWG 3.1
-// (RandomTrailers / DisableCookies) readiness: the awg tools must be v3.1+.
-// A failing line does not make the inbound unhealthy (Healthy skips it) — it
-// only explains why the panel renders configs without those fields here. The
-// tools probe goes through the prober so tests can replay it.
+// (RandomTrailers / DisableCookies) readiness: the kernel module and the awg
+// tools must both be v3.1+ (see ModuleSupportsAwg31). A failing line does not
+// make the inbound unhealthy (Healthy skips it) — it explains why the panel
+// renders configs without those fields here. The tools probe goes through
+// the prober so tests can replay it; the module probe reads sysfs directly.
 func awg31CapabilityCheck(p prober) DiagCheck {
+	moduleOK := moduleVersionAtLeast(3, 1)
 	toolsOut, err := p.Run("awg", "version")
 	toolsOK := err == nil && awgToolsAtLeast(toolsOut, 3, 1)
-	detail := "tools: " + oneLine(strings.TrimSpace(toolsOut))
+	detail := fmt.Sprintf("module: %s; tools: %s", yesNo(moduleOK), oneLine(strings.TrimSpace(toolsOut)))
 	if err != nil {
-		detail = "tools: awg version failed"
+		detail = "module: " + yesNo(moduleOK) + "; tools: awg version failed"
 	}
-	if !toolsOK {
+	supported := moduleOK && toolsOK
+	if !supported {
 		detail += " — RandomTrailers/DisableCookies are omitted in rendered configs on this host"
 	}
-	return DiagCheck{awg31SupportCheckName, toolsOK, detail}
+	return DiagCheck{awg31SupportCheckName, supported, detail}
 }
 
 func kernelAvailable() bool {
