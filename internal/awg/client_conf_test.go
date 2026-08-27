@@ -86,6 +86,20 @@ func TestRenderClientConf_S3S4OmittedFor15(t *testing.T) {
 	}
 }
 
+// TestRenderClientConf_IFieldsOmittedFor15 mirrors
+// TestRenderClientConf_S3S4OmittedFor15 for I1-I5: v1.5 tools reject the
+// tags, so the awgo-N outbound .conf must not carry them either.
+func TestRenderClientConf_IFieldsOmittedFor15(t *testing.T) {
+	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"aa","i2":"bb","i3":"cc","i4":"dd","i5":"ee","awgVersion":"1.5"}`}
+	ci, _ := ClientInstanceFromOutbound(o)
+	conf := renderClientConf(ci)
+	for _, bad := range []string{"I1 =", "I2 =", "I3 =", "I4 =", "I5 ="} {
+		if strings.Contains(conf, bad) {
+			t.Errorf("I-fields must be omitted for awgVersion 1.5, got %q in:\n%s", bad, conf)
+		}
+	}
+}
+
 func TestRenderClientConf_ObfuscationWhenSet(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"s1":20,"s2":30,"s3":40,"s4":50,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000"}`}
 	ci, _ := ClientInstanceFromOutbound(o)

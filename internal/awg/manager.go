@@ -871,7 +871,8 @@ func renderServerConf(inst Instance) string {
 	}
 	// The server sends its own CPS burst before every handshake initiation it
 	// makes, so omitting these left the mimicry visible in one direction only.
-	if IBytes(inst.I1, inst.I2, inst.I3, inst.I4, inst.I5) <= IBytesBudget(inst.Ifname, inst.HeaderProtectionKey != "") {
+	if NormalizeAWGVersion(inst.AwgVersion) != "1.5" &&
+		IBytes(inst.I1, inst.I2, inst.I3, inst.I4, inst.I5) <= IBytesBudget(inst.Ifname, inst.HeaderProtectionKey != "") {
 		for _, kv := range []struct{ k, v string }{
 			{"I1", inst.I1}, {"I2", inst.I2}, {"I3", inst.I3}, {"I4", inst.I4}, {"I5", inst.I5},
 		} {

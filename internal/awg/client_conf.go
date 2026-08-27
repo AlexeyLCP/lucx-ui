@@ -97,7 +97,8 @@ func renderClientConf(ci ClientInstance) string {
 	}
 	// In the .conf so the FIRST handshake carries CPS mimicry — a post-up `awg
 	// set` landed 20.4 ms late. Omitted whole past the netlink readback budget.
-	if IBytes(s.I1, s.I2, s.I3, s.I4, s.I5) <= IBytesBudget(ci.Ifname, s.HeaderProtectionKey != "") {
+	if NormalizeAWGVersion(s.AwgVersion) != "1.5" &&
+		IBytes(s.I1, s.I2, s.I3, s.I4, s.I5) <= IBytesBudget(ci.Ifname, s.HeaderProtectionKey != "") {
 		for _, f := range []struct{ key, value string }{
 			{"I1", s.I1}, {"I2", s.I2}, {"I3", s.I3}, {"I4", s.I4}, {"I5", s.I5},
 		} {

@@ -7,7 +7,13 @@
 package controller
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+
+	"github.com/gin-gonic/gin"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 )
@@ -19,5 +25,45 @@ func TestAwgCPSBudget_MatchesSaveTimeGuard(t *testing.T) {
 		if got, want := awgCPSBudget(withHPK), awg.WorstCaseIBytesBudget(withHPK); got != want {
 			t.Fatalf("awgCPSBudget(%v) = %d, want %d (ValidateIFields' own budget)", withHPK, got, want)
 		}
+	}
+}
+
+// TestAwgGenerateObfuscation_NoIFieldsOnV15: the generator must not hand a
+// 1.5 request I1-I5, because renderServerConf/renderClientConf drop them at
+// 1.5 — offering them lets the form show mimicry that never reaches the wire.
+func TestAwgGenerateObfuscation_NoIFieldsOnV15(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	NewInboundController(router.Group("/panel/api/inbounds"))
+
+	for _, tc := range []struct {
+		name       string
+		awgVersion string
+		wantI      bool
+	}{
+		{"1.5 omits I-fields", "1.5", false},
+		{"2 keeps I-fields", "2", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			body := `{"awgVersion":"` + tc.awgVersion + `"}`
+			req := httptest.NewRequest(http.MethodPost, "/panel/api/inbounds/awg/generateObfuscation", strings.NewReader(body))
+			req.Header.Set("Content-Type", "application/json")
+			resp := httptest.NewRecorder()
+			router.ServeHTTP(resp, req)
+
+			if resp.Code != http.StatusOK {
+				t.Fatalf("status = %d, want 200; body=%s", resp.Code, resp.Body.String())
+			}
+			var m struct {
+				Obj map[string]any `json:"obj"`
+			}
+			if err := json.Unmarshal(resp.Body.Bytes(), &m); err != nil {
+				t.Fatalf("unmarshal response: %v; body=%s", err, resp.Body.String())
+			}
+			_, got := m.Obj["i1"]
+			if got != tc.wantI {
+				t.Fatalf("awgVersion %q: i1 present = %v, want %v; obj=%v", tc.awgVersion, got, tc.wantI, m.Obj)
+			}
+		})
 	}
 }

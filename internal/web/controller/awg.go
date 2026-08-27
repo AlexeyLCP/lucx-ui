@@ -104,6 +104,15 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		"i4":   cpsResult.I4,
 		"i5":   cpsResult.I5,
 	}
+	// I1-I5 are AWG v2+ only (renderServerConf/renderClientConf both drop them
+	// at 1.5) — a 1.5 request must not be handed fields the .conf writers strip.
+	if awg.NormalizeAWGVersion(req.AwgVersion) == "1.5" {
+		delete(resp, "i1")
+		delete(resp, "i2")
+		delete(resp, "i3")
+		delete(resp, "i4")
+		delete(resp, "i5")
+	}
 	// headerProtectionKey is returned ONLY when awgVersion == "3" AND the host
 	// actually runs AWG3 (kernel module + tools, probed functionally by
 	// ModuleSupportsAwg3). Generating a key the renderers would then strip

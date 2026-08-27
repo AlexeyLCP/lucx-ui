@@ -258,6 +258,35 @@ func TestRenderServerConf_V15OmitsS3S4(t *testing.T) {
 	}
 }
 
+// TestRenderServerConf_NoIFieldsOnV15 guards the same must-match rule for
+// I1-I5: v1.5 tools reject the tags ("Line unrecognized") and the client
+// export already strips them, so a v1.5 server .conf must not carry them
+// either. The "2" subcase is the anti-oversell check — I-fields must still
+// reach a v2 server .conf.
+func TestRenderServerConf_NoIFieldsOnV15(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		awgVersion string
+		wantI      bool
+	}{
+		{"1.5 drops I-fields", "1.5", false},
+		{"2 keeps I-fields", "2", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			inst := Instance{
+				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
+				AwgVersion: tc.awgVersion,
+				I1:         "aa", I2: "bb", I3: "cc", I4: "dd", I5: "ee",
+			}
+			conf := renderServerConf(inst)
+			got := strings.Contains(conf, "I1 = aa")
+			if got != tc.wantI {
+				t.Fatalf("awgVersion %q: I1 present = %v, want %v\nConf:\n%s", tc.awgVersion, got, tc.wantI, conf)
+			}
+		})
+	}
+}
+
 func TestRenderServerConf_OmitsCPSWhenEmpty(t *testing.T) {
 	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320}
 	conf := renderServerConf(inst)
