@@ -713,7 +713,7 @@
         "awgVersion31": "3.1 — AWG3 + rastgele kuyruklar",
         "awgVersion31CompatNote": "Sürüm 3.1 RandomTrailers ve DisableCookies ekler. v3.1'den eski araçlar bu satırları reddeder. v1/v2 ve plain-WireGuard istemcileri hâlâ bağlanamaz (HPK).",
         "awgRandomTrailers": "Rastgele kuyruklar",
-        "awgRandomTrailersHint": "Her pakete eşler arası UDP penceresi içinde rastgele kuyruk ekler. Boyuta göre anti-DPI. Yalnızca AWG 3.1.",
+        "awgRandomTrailersHint": "Paketleri UDP penceresi içinde rastgele bir boyuta kadar doldurur. İki uçta da açık olmalıdır: ayar yapılandırmayla taşınır, AWG 3.1 destekleyen istemci kendisi açar, daha eski bir istemci ise hiç bağlanamaz ve hata göstermez. Küçük paketleri ve ters yöndeki trafiği şişirir. Yalnızca AWG 3.1.",
         "awgDisableCookies": "Cookies kapat",
         "awgDisableCookiesHint": "cookie-challenge yanıtlanma. Yalnızca AWG 3.1.",
         "awgSRangeWarning": "AWG3, S1-S4 ≥ 12 gerektirir (başlık koruması şifresi nonce'unu S-padding'in ilk 12 baytından okur). Üretici bunu garanti eder; elle düzenlemeden önce doğrulayın.",

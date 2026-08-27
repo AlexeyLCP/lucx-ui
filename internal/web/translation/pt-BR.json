@@ -713,7 +713,7 @@
         "awgVersion31": "3.1 — AWG3 + caudas aleatórias",
         "awgVersion31CompatNote": "A versão 3.1 adiciona RandomTrailers e DisableCookies. Ferramentas anteriores a v3.1 rejeitam essas linhas. Clientes v1/v2 e plain-WireGuard ainda não conseguem conectar (HPK).",
         "awgRandomTrailers": "Caudas aleatórias",
-        "awgRandomTrailersHint": "Anexa uma cauda aleatória a cada pacote dentro da janela UDP por peer. Anti-DPI por tamanho. Somente AWG 3.1.",
+        "awgRandomTrailersHint": "Preenche os pacotes até um tamanho aleatório dentro da janela UDP. Deve estar ativado nas duas pontas: a configuração o inclui, então um cliente com AWG 3.1 o ativa sozinho, mas um cliente mais antigo não conectará, sem erro algum. Aumenta pacotes pequenos e o tráfego de retorno. Apenas AWG 3.1.",
         "awgDisableCookies": "Desativar cookies",
         "awgDisableCookiesHint": "Não responder a cookie-challenge. Somente AWG 3.1.",
         "awgSRangeWarning": "O AWG3 exige S1-S4 ≥ 12 (a cifra de proteção de cabeçalho lê seu nonce dos primeiros 12 bytes do S-padding). O gerador garante isso; verifique antes de editar manualmente.",

@@ -713,7 +713,7 @@
         "awgVersion31": "3.1 — AWG3 + ذيول عشوائية",
         "awgVersion31CompatNote": "الإصدار 3.1 يضيف RandomTrailers و DisableCookies. الأدوات الأقدم من v3.1 ترفض هذه الأسطر. عملاء v1/v2 و plain-WireGuard ما زالوا لا يتصلون (HPK).",
         "awgRandomTrailers": "ذيول عشوائية",
-        "awgRandomTrailersHint": "ذيل عشوائي لكل حزمة ضمن نافذة UDP لكل نظير. مضاد DPI حسب الحجم. AWG 3.1 فقط.",
+        "awgRandomTrailersHint": "يملأ الحزم حتى حجم عشوائي ضمن نافذة UDP. يجب تفعيله على الطرفين: الإعداد ينتقل مع ملف الضبط، فالعميل الذي يدعم AWG 3.1 يفعّله تلقائيًا، أما العميل الأقدم فلن يتصل إطلاقًا ودون أي رسالة خطأ. يضخّم الحزم الصغيرة وحركة العودة. لـ AWG 3.1 فقط.",
         "awgDisableCookies": "تعطيل cookies",
         "awgDisableCookiesHint": "عدم الرد على cookie-challenge. AWG 3.1 فقط.",
         "awgSRangeWarning": "AWG3 يتطلب S1-S4 ≥ 12 (تشفير حماية الترويسة يقرأ nonce من أول 12 بايت من S-padding). المولّد يضمن ذلك؛ تحقق قبل التحرير اليدوي.",

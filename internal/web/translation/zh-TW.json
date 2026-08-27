@@ -713,7 +713,7 @@
         "awgVersion31": "3.1 — AWG3 + 隨機尾部",
         "awgVersion31CompatNote": "版本 3.1 新增 RandomTrailers 與 DisableCookies。低於 v3.1 的工具會拒絕這些行。v1/v2 與 plain-WireGuard 客戶端仍無法連線（HPK）。",
         "awgRandomTrailers": "隨機尾部",
-        "awgRandomTrailersHint": "在每對等 UDP 視窗內為每個封包附加隨機尾部。依封包大小反 DPI。僅 AWG 3.1。",
+        "awgRandomTrailersHint": "在 UDP 視窗範圍內將封包填充到隨機大小。必須兩端同時啟用：此參數隨設定下發，支援 AWG 3.1 的用戶端會自行啟用，較舊的用戶端則完全無法連線，且不會有任何錯誤訊息。會使小封包與回程流量膨脹。僅限 AWG 3.1。",
         "awgDisableCookies": "停用 cookies",
         "awgDisableCookiesHint": "不回應 cookie-challenge。僅 AWG 3.1。",
         "awgSRangeWarning": "AWG3 要求 S1-S4 ≥ 12（標頭保護加密從 S-padding 的前 12 位元組讀取 nonce）。產生器強制執行此要求；手動編輯前請核實。",
