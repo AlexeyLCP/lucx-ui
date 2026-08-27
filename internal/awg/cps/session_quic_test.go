@@ -129,16 +129,14 @@ func TestQUICSession_InitialDecryptsAndCarriesTheSNI(t *testing.T) {
 				t.Fatalf("Initial is %d bytes; RFC 9000 requires at least 1200", len(pkt))
 			}
 			plain := openInitial(t, pkt)
-			// BuildQUICInitial seals the packet number into the payload as well as
-			// the header, so the frames open with PADDING. Legal, but not what a
-			// browser emits — see the follow-up note in the track file.
+			// RFC 9001 §5.3 seals the frames alone; the packet number belongs to
+			// the associated data. Leading zeros here are PADDING frames a
+			// duplicated packet number left behind, and no browser sends those
+			// before its CRYPTO frame.
+			if len(plain) == 0 || plain[0] != 0x06 {
+				t.Fatalf("payload must open with the CRYPTO frame, got %#v", plain[:min(12, len(plain))])
+			}
 			i := 0
-			for i < len(plain) && plain[i] == 0x00 {
-				i++
-			}
-			if i >= len(plain) || plain[i] != 0x06 {
-				t.Fatalf("no CRYPTO frame in the decrypted payload: %#v", plain[:min(12, len(plain))])
-			}
 			// The CRYPTO frame carries the handshake message; wrap it back into
 			// a record so a real TLS stack can read the SNI out of it.
 			off := i + 1 + 1

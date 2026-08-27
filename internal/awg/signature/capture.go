@@ -218,7 +218,9 @@ func BuildQUICInitial(dcid, chPayload []byte) ([]byte, error) {
 	// scid_len(0), token_len(0), length var-int, packet number.
 	block, _ := aes.NewCipher(clientKey)
 	gcm, _ := cipher.NewGCM(block)
-	plaintext := append(append([]byte{}, pn...), crypto.Bytes()...)
+	// RFC 9001 §5.3: the AEAD seals the frames alone. The packet number is
+	// associated data only — sealing it too opens the frames with PADDING.
+	plaintext := crypto.Bytes()
 	// Pad plaintext so the full packet reaches 1200 bytes (QUIC minimum Initial).
 	// headerEstimate = 1(flags) + 4(version) + 1(dcid_len) + 8(dcid) + 1(scid_len) +
 	//                   1(token_len) + 2(length var-int, our sizes fit 2 bytes) + 4(pn)
