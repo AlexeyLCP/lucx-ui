@@ -13,6 +13,9 @@ export const AllSettingSchema = z
     webKeyFile: z.string().optional(),
     webBasePath: absolutePath.optional(),
     webFavicon: z.string().max(16384).optional(),
+    // LUCX-HOOK: auto-delete log files older than N days (0 = disabled)
+    logRetentionDays: z.number().int().min(0).max(3650).optional(),
+    // END LUCX-HOOK
     sessionMaxAge: z.number().int().min(1).max(525600).optional(),
     trustedProxyCIDRs: z.string().optional(),
     ipLimitAllowlist: z.string().optional(),

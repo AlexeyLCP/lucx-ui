@@ -97,6 +97,7 @@
   },
   "menu": {
     "theme": "Tema",
+    "palette": "Paleta de cores",
     "dashboard": "Visão Geral",
     "inbounds": "Entradas",
     "clients": "Clientes",
@@ -803,6 +804,9 @@
         "qwdttWgPort": "WG port",
         "qwdttPassword": "Password",
         "qwdttPasswordHint": "Empty = auto-generate on save",
+        "anytlsNote": "AnyTLS sidecar (anytls-server). One shared password. Clients: sing-box, mihomo, Shadowrocket, Stash, Loon.",
+        "anytlsPassword": "Password",
+        "anytlsPasswordHint": "Empty = auto-generate on save",
         "qwdttDns": "DNS",
         "qwdttSubHost": "Public host:port (for clients)",
         "qwdttSubHostHint": "Advertised peer address, e.g. 1.2.3.4:56000",
@@ -932,7 +936,8 @@
       },
       "protocolNames": {
         "awg": "AmneziaWG (kernel)",
-        "amneziawg": "AmneziaWG"
+        "amneziawg": "AmneziaWG",
+        "anytls": "AnyTLS"
       }
     },
     "clients": {
@@ -1343,6 +1348,8 @@
       "panelUrlPathDesc": "O caminho URI para o painel web. (começa com ‘/‘ e termina com ‘/‘)",
       "panelFavicon": "Tab icon",
       "panelFaviconDesc": "One emoji, or SVG/PNG as Base64 / data URI. Empty = no icon. Applies after save — no panel restart.",
+      "logRetention": "Log retention (days)",
+      "logRetentionDesc": "Automatically delete log files older than this many days. 0 = disabled. Active logs of the panel, Xray and IP limit are never deleted — only old rotated segments and crash reports.",
       "pageSize": "Tamanho da Paginação",
       "pageSizeDesc": "Definir o tamanho da página para a tabela de entradas. (0 = desativado)",
       "panelOutbound": "Saída do tráfego do painel",
@@ -2619,6 +2626,24 @@
           "uploaded": "Binário enviado",
           "downloaded": "Binário baixado",
           "deleted": "Binário excluído"
+        }
+      },
+      "anytls": {
+        "binary": {
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop all AnyTLS instances and delete the binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
+        },
+        "toasts": {
+          "uploaded": "Binary uploaded",
+          "downloaded": "Binary downloaded",
+          "deleted": "Binary deleted"
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",

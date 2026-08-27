@@ -330,6 +330,8 @@ func removeManagedFiles(key string) {
 		core = MieruClient
 	case strings.HasPrefix(key, "mieru-"):
 		core = Mieru
+	case strings.HasPrefix(key, "anytls-"):
+		core = Anytls
 	case strings.HasPrefix(key, "naiveout-"):
 		core = NaiveClient
 	case strings.HasPrefix(key, "naive-"):
@@ -358,7 +360,7 @@ func removeManagedFiles(key string) {
 }
 
 func isMultiInstanceKey(key string) bool {
-	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-", "naiveout-", "mieruout-", "ttout-"} {
+	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-", "anytls-", "naiveout-", "mieruout-", "ttout-"} {
 		if strings.HasPrefix(key, p) && len(key) > len(p) {
 			return true
 		}
@@ -620,6 +622,11 @@ func (m *Manager) ReconcileMieru(want []Instance) {
 // ReconcileTrustTunnel drives every desired TrustTunnel inbound instance.
 func (m *Manager) ReconcileTrustTunnel(want []Instance) {
 	m.ReconcileWanted(TrustTunnel, "trusttunnel-", string(TrustTunnel), want)
+}
+
+// ReconcileAnytls drives every desired AnyTls inbound instance.
+func (m *Manager) ReconcileAnytls(want []Instance) {
+	m.ReconcileWanted(Anytls, "anytls-", string(Anytls), want)
 }
 
 // ReconcileWanted Ensures each wanted instance of core and Removes orphan

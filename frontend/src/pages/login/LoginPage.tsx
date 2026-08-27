@@ -13,6 +13,9 @@ import {
   message,
 } from 'antd';
 import {
+  // LUCX-HOOK: palette switch button icon
+  BgColorsOutlined,
+  // END LUCX-HOOK
   KeyOutlined,
   LockOutlined,
   MoonFilled,
@@ -38,7 +41,10 @@ const basePath = window.X_UI_BASE_PATH || '';
 
 export default function LoginPage() {
   const { t } = useTranslation();
-  const { isDark, isUltra, toggleTheme, toggleUltra, antdThemeConfig } = useTheme();
+  // LUCX-HOOK: palette switch added to the upstream dark/ultra cycle
+  const { isDark, isUltra, toggleTheme, toggleUltra, palette, togglePalette, antdThemeConfig } =
+    useTheme();
+  // END LUCX-HOOK
   const [messageApi, messageContextHolder] = message.useMessage();
 
   useEffect(() => {
@@ -145,6 +151,22 @@ export default function LoginPage() {
               icon={themeIcon}
               onClick={cycleTheme}
             />
+            {/* LUCX-HOOK: palette switch (blue / sand-graphite) */}
+            <Button
+              id="login-palette-cycle"
+              shape="circle"
+              size="large"
+              className="toolbar-btn"
+              aria-label={t('menu.palette')}
+              aria-pressed={palette === 'warm'}
+              title={t('menu.palette')}
+              icon={<BgColorsOutlined />}
+              onClick={() => {
+                pauseAnimationsUntilLeave('login-palette-cycle');
+                togglePalette();
+              }}
+            />
+            {/* END LUCX-HOOK */}
             <Popover
               rootClassName={isDark ? 'dark' : 'light'}
               placement="bottomRight"

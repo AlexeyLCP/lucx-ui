@@ -56,6 +56,12 @@ const Mieru Name = "mieru"
 // a trusted TLS certificate (panel ACME certs are reused); multi-client.
 const TrustTunnel Name = "trusttunnel"
 
+// Anytls is the AnyTLS core: anytls-server (anytls/anytls-go reference
+// implementation) — TLS proxy that splits the outer TLS handshake to dodge
+// TLS-in-TLS fingerprints. Single shared password per instance; clients are
+// sing-box / mihomo / Shadowrocket / Stash / Loon.
+const Anytls Name = "anytls"
+
 // Client-mode cores (outbound sidecars). Distinct Name values so BinaryName
 // never collides with inbound servers (caddy-naive / mita / trusttunnel_endpoint)
 // and ReconcileWanted prefixes (naive- / mieru- / trusttunnel-) never sweep
@@ -68,7 +74,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel}
+	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -79,7 +85,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -98,6 +104,8 @@ func (n Name) DisplayName() string {
 		return "mieru"
 	case TrustTunnel:
 		return "TrustTunnel"
+	case Anytls:
+		return "AnyTLS"
 	case NaiveClient:
 		return "NaiveProxy client"
 	case MieruClient:

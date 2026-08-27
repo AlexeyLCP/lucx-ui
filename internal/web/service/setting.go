@@ -62,7 +62,8 @@ var defaultValueMap = map[string]string{
 	"nodeMtlsClientCertSha256":    "",
 	"nodeMtlsClientCAPem":         "",
 	"webBasePath":                 normalizeBasePath(getEnv("XUI_INIT_WEB_BASE_PATH", "/")),
-	"webFavicon":                  "", // LUCX-HOOK: panel tab icon (emoji or base64)
+	"webFavicon":                  "",  // LUCX-HOOK: panel tab icon (emoji or base64)
+	"logRetentionDays":            "0", // LUCX-HOOK: auto-delete logs older than N days (0 = off)
 	"sessionMaxAge":               "360",
 	"trustedProxyCIDRs":           DefaultTrustedProxyCIDRs,
 	"ipLimitAllowlist":            "",
@@ -732,6 +733,16 @@ func (s *SettingService) GetWebFavicon() (string, error) {
 		return "", nil
 	}
 	return s.getString("webFavicon")
+}
+
+// END LUCX-HOOK
+
+// LUCX-HOOK: log retention in days (0 = disabled)
+func (s *SettingService) GetLogRetentionDays() (int, error) {
+	if database.GetDB() == nil {
+		return 0, nil
+	}
+	return s.getInt("logRetentionDays")
 }
 
 // END LUCX-HOOK

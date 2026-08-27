@@ -55,6 +55,58 @@
   background: radial-gradient(ellipse at 25% 20%, #0a0a1a 0%, #000 60%);
 }
 
+/* LUCX-HOOK: warm palette (angry-box sand/graphite/night) for the login page */
+html[data-palette='warm'] .login-app {
+  --bg-page: #f6f2ea;
+  --bg-card: rgba(255, 253, 248, 0.72);
+  --bg-card-solid: #fffdf8;
+  --color-text: rgba(58, 53, 44, 0.9);
+  --color-text-subtle: rgba(58, 53, 44, 0.55);
+  --color-accent: #8a6f4e;
+  --color-border: rgba(222, 214, 198, 0.6);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.04), 0 18px 50px rgba(138, 111, 78, 0.18);
+  --blob-1: rgba(138, 111, 78, 0.4);
+  --blob-2: rgba(169, 123, 32, 0.3);
+  --blob-3: rgba(95, 125, 67, 0.28);
+  --blob-4: rgba(176, 74, 60, 0.22);
+  --blob-5: rgba(63, 124, 140, 0.28);
+  --grid-color: rgba(138, 111, 78, 0.06);
+  background: linear-gradient(135deg, #f6f2ea 0%, #fdf9f0 50%, #f2ede2 100%);
+}
+
+html[data-palette='warm'] .login-app.is-dark {
+  --bg-page: #17181a;
+  --bg-card: rgba(30, 31, 34, 0.55);
+  --bg-card-solid: #1e1f22;
+  --color-text: rgba(220, 221, 224, 0.92);
+  --color-text-subtle: rgba(220, 221, 224, 0.55);
+  --color-accent: #c2a882;
+  --color-border: rgba(255, 255, 255, 0.1);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.4), 0 20px 60px rgba(194, 168, 130, 0.16);
+  --blob-1: rgba(194, 168, 130, 0.28);
+  --blob-2: rgba(208, 169, 95, 0.2);
+  --blob-3: rgba(131, 179, 196, 0.18);
+  --blob-4: rgba(212, 131, 122, 0.14);
+  --blob-5: rgba(143, 174, 109, 0.18);
+  --grid-color: rgba(255, 255, 255, 0.04);
+  background: radial-gradient(ellipse at 25% 20%, #232019 0%, #17181a 60%);
+}
+
+html[data-palette='warm'] .login-app.is-dark.is-ultra {
+  --bg-page: #0e0e10;
+  --bg-card: rgba(20, 20, 22, 0.6);
+  --bg-card-solid: #141416;
+  --color-border: rgba(255, 255, 255, 0.06);
+  --blob-1: rgba(201, 169, 122, 0.22);
+  --blob-2: rgba(214, 169, 90, 0.16);
+  --blob-3: rgba(127, 180, 198, 0.14);
+  --blob-4: rgba(217, 127, 116, 0.12);
+  --blob-5: rgba(139, 176, 105, 0.14);
+  --grid-color: rgba(255, 255, 255, 0.025);
+  background: radial-gradient(ellipse at 25% 20%, #17130c 0%, #0e0e10 60%);
+}
+/* END LUCX-HOOK */
+
 .login-app::before,
 .login-app::after {
   content: '';

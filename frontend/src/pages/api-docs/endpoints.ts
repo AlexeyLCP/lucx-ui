@@ -983,6 +983,45 @@ export const sections: readonly Section[] = [
         path: '/panel/api/tunnel/trusttunnel/deleteBinary',
         summary: 'Stop every TrustTunnel instance and remove the binary from disk. LucX-UI only.',
       },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/anytls/status',
+        summary:
+          'AnyTLS core status for the Cores page: binary presence and aggregate process state across all anytls-{id} inbound sidecars. Inbound-only core. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/anytls/logs',
+        summary:
+          'Recent log lines of all AnyTLS instances (ring buffer, tagged per key, default 200). LucX-UI only.',
+        params: [
+          {
+            name: 'lines',
+            in: 'query',
+            type: 'number',
+            desc: 'Max lines to return (default 200).',
+            optional: true,
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/anytls/upload',
+        summary:
+          'Replace the anytls-server binary on disk (multipart field "file"). Body-limit exempt. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/anytls/download',
+        summary:
+          'Fetch the anytls-server binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/anytls-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/anytls/deleteBinary',
+        summary: 'Stop every AnyTLS instance and remove the binary from disk. LucX-UI only.',
+      },
     ],
   },
   // END LUCX-HOOK

@@ -398,12 +398,14 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 // panel's "Export all inbound links" so it matches the client/QR pages.
 func (s *SubService) inboundLinks(inbound *model.Inbound) []string {
 	// Single-credential tunnel sidecars: one share URI for the whole inbound.
-	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt) {
+	// LUCX-HOOK: AnyTls added to the single-credential set.
+	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Anytls) {
 		if link := s.GetLink(inbound, ""); link != "" {
 			return splitLinkLines(link)
 		}
 		return nil
 	}
+	// END LUCX-HOOK
 	clients, err := s.inboundService.GetClients(inbound)
 	if err != nil {
 		return nil
@@ -524,7 +526,7 @@ func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) 
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','awg','naive','olcrtc','qwdtt','mieru','trusttunnel')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','awg','naive','olcrtc','qwdtt','mieru','trusttunnel','anytls')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC").Find(&inbounds).Error
 	if err != nil {
@@ -687,6 +689,8 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genOlcrtcLink(inbound)
 	case "qwdtt": // LUCX-HOOK: single-credential qWDTT URI (ignore email)
 		return s.genQwdttLink(inbound)
+	case "anytls": // LUCX-HOOK: single-credential AnyTLS URI (ignore email)
+		return s.genAnytlsLink(inbound)
 	case "amneziawg":
 		return s.genAmneziaWGLink(inbound, email)
 	}
@@ -899,6 +903,24 @@ func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 		return ""
 	}
 	return cfg.EnsureSubHost().ClientURI()
+}
+
+// genAnytlsLink returns the single anytls://password@host:port URI for an
+// AnyTls inbound (one shared password — every subscriber gets the same line).
+func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	cfg = cfg.Merge()
+	if strings.TrimSpace(cfg.Password) == "" {
+		return ""
+	}
+	host := s.resolveInboundAddress(inbound)
+	if host == "" {
+		return ""
+	}
+	return cfg.ClientLink(host, inbound.Remark)
 }
 
 // genNaiveLink builds naive+https://user:pass@domain:port#email for a client

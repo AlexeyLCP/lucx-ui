@@ -82,6 +82,9 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 	if ib.Protocol == model.TrustTunnel {
 		return l.ensureTrustTunnelInbound(ib)
 	}
+	if ib.Protocol == model.Anytls {
+		return l.ensureAnytlsInbound(ib)
+	}
 	// END LUCX-HOOK
 	if ib.Protocol == model.AmneziaWG {
 		inst, ok := amneziawg.InstanceFromInbound(ib)
@@ -152,6 +155,10 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		tunnel.GetManager().Remove(tunnel.TrustTunnelKey(ib.Id))
 		return nil
 	}
+	if ib.Protocol == model.Anytls {
+		tunnel.GetManager().Remove(tunnel.AnytlsKey(ib.Id))
+		return nil
+	}
 	// END LUCX-HOOK
 	if ib.Protocol == model.AmneziaWG {
 		amneziawgnet.GetManager().Remove(ib.Id)
@@ -195,7 +202,7 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func isTunnelInboundProto(p model.Protocol) bool {
-	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls
 }
 
 // ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret
@@ -237,6 +244,14 @@ func (l *Local) ensureMieruInbound(ib *model.Inbound) error {
 func (l *Local) ensureTrustTunnelInbound(ib *model.Inbound) error {
 	cert, key := panelCertFilesForRuntime()
 	inst, ok := tunnel.TrustTunnelInstanceFromInbound(ib, panelSecretBytes(), cert, key)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureAnytlsInbound(ib *model.Inbound) error {
+	inst, ok := tunnel.AnytlsInstanceFromInbound(ib)
 	if !ok {
 		return nil
 	}

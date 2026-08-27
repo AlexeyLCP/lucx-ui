@@ -29,6 +29,9 @@ type AllSetting struct {
 	// LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)
 	WebFavicon string `json:"webFavicon" form:"webFavicon"`
 	// END LUCX-HOOK
+	// LUCX-HOOK: auto-delete log files older than N days (0 = disabled)
+	LogRetentionDays int `json:"logRetentionDays" form:"logRetentionDays" validate:"gte=0,lte=3650"`
+	// END LUCX-HOOK
 	SessionMaxAge     int    `json:"sessionMaxAge" form:"sessionMaxAge" validate:"gte=1,lte=525600"`
 	TrustedProxyCIDRs string `json:"trustedProxyCIDRs" form:"trustedProxyCIDRs"`
 	IpLimitAllowlist  string `json:"ipLimitAllowlist" form:"ipLimitAllowlist"`

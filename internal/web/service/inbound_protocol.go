@@ -73,6 +73,7 @@ var nodeEligibleProtocols = map[model.Protocol]bool{
 	model.Qwdtt:       true,
 	model.Mieru:       true,
 	model.TrustTunnel: true,
+	model.Anytls:      true,
 	// END LUCX-HOOK
 }
 

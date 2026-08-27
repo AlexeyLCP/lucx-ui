@@ -1,5 +1,20 @@
 # LucX-UI — Прогресс
 
+## lucx.183 — log retention, Sand/Graphite themes, vpn:// envelope, AnyTLS (2026-08-28)
+
+Four operator features (Phobos/wg-obfuscator postponed).
+
+- **Log retention:** Settings → Panel `logRetentionDays` (0 = off). Daily `LogRetentionJob` deletes stale files in the log folder; active `3xui.log`, `3xipl*`, and the configured Xray access/error logs are never removed. Path compare uses `filepath.Clean` so Windows `/` vs `\` matches.
+- **Themes:** palette switcher (warm Sand/Graphite vs the old blue). First visit without a saved palette is Sand (light). Existing `dark-mode` in localStorage is kept (dark users get Graphite).
+- **vpn://:** panel QR/copy (`genAmneziaWGLink`) now emits the Amnezia JSON container (`qCompress` + `protocol_version`), same envelope as `/awg/?format=vpn`. Cross-test: Go-encoded URI decodes in TS.
+- **AnyTLS:** inbound sidecar `anytls-server` (`anytls-{id}`), one shared password minted on save, Cores-tab binary. Share URI is `anytls://user@host:port/?insecure=1` (stock binary always self-signs; no panel-cert flag). Empty password keeps the process down until save. `inbound.Port` wins over `settings.port`.
+
+Tests: `go test ./internal/lucx/tunnel ./internal/awg/vpnuri`; frontend typecheck/lint; i18n parity; vpnuri/inbound-link/link-label/storybook-theme.
+
+**lucxVersion:** lucx.183
+
+---
+
 ## lucx.180 — SubPage vpn:// ConfigBlock is .conf (2026-08-25)
 
 LucX `/sub/` `vpn://` is qCompress(JSON). After lucx.169 the public sub page ran that payload through upstream `amneziawgConfigFromLink` (UTF-8 of the zlib bytes) → ConfigBlock mojibake.
