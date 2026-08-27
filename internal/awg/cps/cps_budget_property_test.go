@@ -30,12 +30,12 @@ func TestGenerateCPS_FitsBudgetOrRefuses(t *testing.T) {
 	}{
 		{ProfileDNS, BrowserChrome, true},
 		{ProfileTLS, BrowserChrome, true},
-		{ProfileTLS, BrowserFirefox, false},
-		{ProfileTLS, BrowserSafari, false},
+		{ProfileTLS, BrowserFirefox, true},
+		{ProfileTLS, BrowserSafari, true},
 		{ProfileQUIC, BrowserChrome, true},
 		{ProfileQUIC, BrowserFirefox, true},
 		{ProfileQUIC, BrowserSafari, true},
-		{ProfileSIP, BrowserChrome, false},
+		{ProfileSIP, BrowserChrome, true},
 	}
 
 	for _, c := range cases {
@@ -113,5 +113,14 @@ func TestGenerateCPS_SingleFieldAlwaysFits(t *testing.T) {
 				}
 			})
 		}
+	}
+}
+
+// The refusal path still has to work: no profile busts the budget any more, so
+// only a caller with less room can force it.
+func TestGenerateCPS_RefusesWhenTheBudgetCannotFitASession(t *testing.T) {
+	_, err := GenerateCPS(ProfileQUIC, RegionWorld, "", BrowserChrome, false, 200)
+	if !errors.Is(err, ErrCPSBudgetExceeded) {
+		t.Fatalf("want ErrCPSBudgetExceeded, got %v", err)
 	}
 }

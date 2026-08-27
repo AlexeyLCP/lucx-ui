@@ -201,3 +201,35 @@ func TestQUICSession_ContinuationsVaryButInitialDoesNot(t *testing.T) {
 		}
 	}
 }
+
+// The embedded ClientHello is what makes the Initial browser-shaped, and a
+// sealed payload has no long zero runs — the old plaintext one padded with
+// ~1700 of them, which no real client shows.
+func TestQUICSession_InitialIsBrowserShapedAndSealed(t *testing.T) {
+	seen := map[string]bool{}
+	for _, br := range []BrowserProfile{BrowserChrome, BrowserFirefox, BrowserSafari} {
+		set, err := quicSession("example.com", br)
+		if err != nil {
+			t.Fatal(err)
+		}
+		pkt := materialise(t, set[0])
+		seen[string(pkt)] = true
+		run, longest := 0, 0
+		for _, b := range pkt {
+			if b == 0x00 {
+				run++
+				if run > longest {
+					longest = run
+				}
+			} else {
+				run = 0
+			}
+		}
+		if longest > 32 {
+			t.Fatalf("%s: %d consecutive zero bytes inside an AEAD-sealed packet", br, longest)
+		}
+	}
+	if len(seen) != 3 {
+		t.Fatal("the browser profiles produced identical Initials")
+	}
+}

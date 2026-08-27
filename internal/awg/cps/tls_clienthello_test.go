@@ -8,10 +8,8 @@ package cps
 
 import (
 	"crypto/tls"
-	"encoding/hex"
 	"errors"
 	"net"
-	"strings"
 	"testing"
 	"time"
 )
@@ -40,15 +38,6 @@ func clientHelloInfo(t *testing.T, raw []byte) *tls.ClientHelloInfo {
 	return got
 }
 
-func decodeHexTag(t *testing.T, tag string) []byte {
-	t.Helper()
-	raw, err := hex.DecodeString(strings.TrimSuffix(strings.TrimPrefix(tag, "<b 0x"), ">"))
-	if err != nil {
-		t.Fatalf("tag is not a hex literal: %v", err)
-	}
-	return raw
-}
-
 // Chrome's two GREASE extension types are drawn independently, so a collision
 // is a duplicate extension type — rejected outright, on roughly 6% of draws.
 // 200 rounds puts the odds of missing a regression near zero.
@@ -56,7 +45,7 @@ func TestTLSPacket_ParsesAsAClientHelloEveryDraw(t *testing.T) {
 	for _, br := range []BrowserProfile{BrowserChrome, BrowserFirefox, BrowserSafari} {
 		t.Run(string(br), func(t *testing.T) {
 			for i := 0; i < 200; i++ {
-				chi := clientHelloInfo(t, decodeHexTag(t, tlsPacket("example.com", br)))
+				chi := clientHelloInfo(t, materialise(t, tlsSession("example.com", br)[0]))
 				if chi == nil {
 					t.Fatalf("draw %d: no TLS stack could parse this ClientHello", i)
 				}
