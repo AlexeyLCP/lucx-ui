@@ -16,9 +16,8 @@ import (
 	"strings"
 )
 
-// CPSResult holds the I1-I5 packet strings in the AmneziaWG CPS format
-// ("<b 0xHEX>" for TLS/QUIC/SIP, "<r 2><b 0xHEX>" for DNS). Empty fields are
-// omitted from the .conf.
+// CPSResult holds the rendered I1-I5 descriptors. Empty fields are omitted
+// from the .conf.
 type CPSResult struct {
 	I1, I2, I3, I4, I5 string
 }
@@ -79,18 +78,7 @@ func generateCPSOnce(profile MimicryProfile, region Region, domain string, brows
 			return CPSResult{}, err
 		}
 	case ProfileDNS:
-		i1 := dnsPacket(dom)
-		if onlyI1 {
-			return CPSResult{I1: i1}, nil
-		}
-		pool := DomainPool(ProfileDNS, region)
-		return CPSResult{
-			I1: i1,
-			I2: dnsPacket(pool[rng.Intn(len(pool))]),
-			I3: dnsPacket(pool[rng.Intn(len(pool))]),
-			I4: dnsPacket(pool[rng.Intn(len(pool))]),
-			I5: dnsPacket(pool[rng.Intn(len(pool))]),
-		}, nil
+		set = dnsSession(dom, region)
 	default:
 		return CPSResult{}, fmt.Errorf("awg cps: unknown profile %q", profile)
 	}
@@ -112,13 +100,6 @@ func fromSession(set [5]Descriptor, onlyI1 bool) (CPSResult, error) {
 		*out[i] = d.String()
 	}
 	return r, nil
-}
-
-// dnsTag wraps a DNS packet with the AmneziaWG "<r 2><b 0xHEX>" prefix — the
-// leading <r 2> is a 2-byte random tag the AWG kernel expects on DNS-shaped
-// CPS packets (it distinguishes them from TLS-shaped ones in the parser).
-func dnsTag(b []byte) string {
-	return "<r 2><b 0x" + hex.EncodeToString(b) + ">"
 }
 
 // randomBytes returns n cryptographically-strong random bytes.
@@ -582,47 +563,6 @@ func writeKeyShareExt(b *bytes.Buffer, grease bool) {
 }
 
 // ---- DNS query (EDNS0) ----
-
-// dnsPacket builds a DNS query (flags 0x0100, RD, 1 query, EDNS0 OPT) for the
-// given domain and returns it as a "<r 2><b 0xHEX>" CPS tag. Ported from
-// pumbaX gen_dns.
-func dnsPacket(domain string) string {
-	var b bytes.Buffer
-	// ID (random 16-bit)
-	writeLen16(&b, uint16(rng.Intn(65536)))
-	// flags: 0x0100 (RD)
-	writeLen16(&b, 0x0100)
-	// counts: 1 query, 0 answer, 0 authority, 1 additional (OPT)
-	writeLen16(&b, 1)
-	writeLen16(&b, 0)
-	writeLen16(&b, 0)
-	writeLen16(&b, 1)
-	// Question: QNAME (label-encoded), qtype (A/AAAA/MX weighted), qclass IN
-	writeQName(&b, domain)
-	// Weighted qtype: A 60%, AAAA 30%, MX 10%
-	r := rng.Intn(100)
-	qtype := uint16(1) // A
-	if r >= 60 && r < 90 {
-		qtype = 28 // AAAA
-	} else if r >= 90 {
-		qtype = 15 // MX
-	}
-	writeLen16(&b, qtype)
-	writeLen16(&b, 1) // IN
-	// EDNS0 OPT RR: name=0 (root), type=0x0029, class=udp_size, TTL=DO bit, rdlen=0
-	b.WriteByte(0x00) // root name
-	writeLen16(&b, 0x0029)
-	udpSize := 1232
-	if rng.Intn(2) == 0 {
-		udpSize = 4096
-	}
-	writeLen16(&b, uint16(udpSize))
-	// TTL: DO bit is in the high 16 bits (0x8000), low 16 = 0
-	writeLen16(&b, 0x8000)
-	writeLen16(&b, 0x0000)
-	writeLen16(&b, 0) // rdlen 0
-	return dnsTag(b.Bytes())
-}
 
 func writeQName(b *bytes.Buffer, domain string) {
 	for _, label := range strings.Split(domain, ".") {
