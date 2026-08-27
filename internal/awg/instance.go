@@ -135,7 +135,8 @@ type PeerSpec struct {
 // fingerprint changes whenever a device-level .conf field changes, so
 // ensureLocked restarts awg-quick. Peers are NOT included — adding/removing a
 // client uses awg syncconf (SyncPeers) so existing handshakes survive.
-// DNS and I1-I5 are client-export-only and do not go into the server .conf.
+// DNS is client-export-only; I1-I5 go into both, since either side may
+// initiate a handshake and each sends its own CPS burst first.
 func (inst Instance) fingerprint() string {
 	parts := []string{
 		inst.Ifname,
@@ -154,6 +155,11 @@ func (inst Instance) fingerprint() string {
 		inst.H2,
 		inst.H3,
 		inst.H4,
+		inst.I1,
+		inst.I2,
+		inst.I3,
+		inst.I4,
+		inst.I5,
 		inst.HeaderProtectionKey,
 		string(inst.ContentPaddingAddition),
 		string(inst.RekeyAfterTime),

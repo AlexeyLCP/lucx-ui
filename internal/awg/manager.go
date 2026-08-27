@@ -869,12 +869,17 @@ func renderServerConf(inst Instance) string {
 			b.WriteString("DisableCookies = on\n")
 		}
 	}
-	// I1-I5 (CPS packets) are CLIENT-ONLY — the server does not use them.
-	// Writing I1-I5 to the server .conf crashes awg setconf ("Invalid
-	// argument") because the kernel amneziawg module does not accept CPS
-	// tags in setconf input. The client sends CPS packets before the
-	// handshake for DPI evasion; the server ignores them. (Matches
-	// pumbaX/awg-multi-script: server .conf has Jc/S/H only, never I1-I5.)
+	// The server sends its own CPS burst before every handshake initiation it
+	// makes, so omitting these left the mimicry visible in one direction only.
+	if IBytes(inst.I1, inst.I2, inst.I3, inst.I4, inst.I5) <= IBytesBudget(inst.Ifname, inst.HeaderProtectionKey != "") {
+		for _, kv := range []struct{ k, v string }{
+			{"I1", inst.I1}, {"I2", inst.I2}, {"I3", inst.I3}, {"I4", inst.I4}, {"I5", inst.I5},
+		} {
+			if kv.v != "" {
+				fmt.Fprintf(&b, "%s = %s\n", kv.k, kv.v)
+			}
+		}
+	}
 	if postUp, postDown := natPostUpPostDown(inst); postUp != "" {
 		fmt.Fprintf(&b, "PostUp = %s\n", postUp)
 		fmt.Fprintf(&b, "PostDown = %s\n", postDown)

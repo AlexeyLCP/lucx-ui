@@ -161,13 +161,14 @@ func TestInstanceFingerprint_StableOnPeerMutation(t *testing.T) {
 	}
 }
 
-func TestInstanceFingerprint_StableOnDNSAndCPS(t *testing.T) {
+// DNS is the one field that really is client-export-only: it lands in the
+// exported .conf and never in the server's, so it cannot need a restart.
+func TestInstanceFingerprint_StableOnDNS(t *testing.T) {
 	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", DNS: "1.1.1.1"}
 	before := inst.fingerprint()
 	inst.DNS = "8.8.8.8"
-	inst.I1 = "<b 0xaa>"
 	if inst.fingerprint() != before {
-		t.Fatal("DNS/I1-I5 are client-export-only and must not restart the interface")
+		t.Fatal("DNS is client-export-only and must not restart the interface")
 	}
 }
 
@@ -829,5 +830,30 @@ func TestOnlineTTLSeconds_UsesRekeyHi(t *testing.T) {
 	}
 	if got := onlineTTLSeconds(Instance{}); got != handshakeOnlineTTL {
 		t.Fatalf("default TTL = %d, want %d", got, handshakeOnlineTTL)
+	}
+}
+
+// I1-I5 now go into the server .conf, so a change to one has to restart the
+// interface. Without this the panel saves a new CPS set and the running device
+// keeps sending the old one, with nothing to show for it.
+func TestFingerprint_ChangesWithIFields(t *testing.T) {
+	base := Instance{Ifname: "awg1", Port: 51820, PrivateKey: "k", Jc: 4}
+	for _, tc := range []struct {
+		name string
+		mod  func(*Instance)
+	}{
+		{"I1", func(i *Instance) { i.I1 = "<b 0xaa>" }},
+		{"I2", func(i *Instance) { i.I2 = "<b 0xaa>" }},
+		{"I3", func(i *Instance) { i.I3 = "<b 0xaa>" }},
+		{"I4", func(i *Instance) { i.I4 = "<b 0xaa>" }},
+		{"I5", func(i *Instance) { i.I5 = "<b 0xaa>" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changed := base
+			tc.mod(&changed)
+			if base.fingerprint() == changed.fingerprint() {
+				t.Fatalf("%s is not in the fingerprint: editing it would not restart the interface", tc.name)
+			}
+		})
 	}
 }
