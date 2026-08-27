@@ -232,7 +232,13 @@ func buildChromeHello(host string) []byte {
 	hs.WriteByte(0x00)
 
 	var ext bytes.Buffer
-	writeLen16(&ext, greaseValue())
+	// Chrome draws its two GREASE extension types distinct. Letting them collide
+	// makes a duplicate extension type, which strict parsers reject outright.
+	greaseExt1, greaseExt2 := greaseValue(), greaseValue()
+	for greaseExt2 == greaseExt1 {
+		greaseExt2 = greaseValue()
+	}
+	writeLen16(&ext, greaseExt1)
 	writeLen16(&ext, 0)
 	writeServerNameExt(&ext, host)
 	writeLen16(&ext, 0x0017)
@@ -249,8 +255,12 @@ func buildChromeHello(host string) []byte {
 	writeLen16(&ext, 0)
 	writeALPNExt(&ext)
 	writeLen16(&ext, 0x0005)
-	writeLen16(&ext, 1)
-	ext.WriteByte(0x00)
+	// RFC 6066 status_request: OCSP, then two empty lists. A 1-byte body is
+	// short by four and every strict parser stops there.
+	writeLen16(&ext, 5)
+	ext.WriteByte(0x01)
+	writeLen16(&ext, 0)
+	writeLen16(&ext, 0)
 	writeSigAlgsExt(&ext, chromeSigAlgs)
 	writeLen16(&ext, 0x0012)
 	writeLen16(&ext, 0)
@@ -262,15 +272,15 @@ func buildChromeHello(host string) []byte {
 	ext.WriteByte(0x01)
 	writeLen16(&ext, 0x001B)
 	writeLen16(&ext, 3)
+	// RFC 8879: one byte of list length, then the brotli algorithm id.
 	ext.WriteByte(0x02)
-	writeLen16(&ext, 1)
-	ext.WriteByte(0x02)
+	writeLen16(&ext, 0x0002)
 	writeLen16(&ext, 0x4469)
 	writeLen16(&ext, 4)
 	writeLen16(&ext, 2)
 	ext.WriteByte(0x68)
 	ext.WriteByte(0x32)
-	writeLen16(&ext, greaseValue())
+	writeLen16(&ext, greaseExt2)
 	writeLen16(&ext, 0)
 	pad := rng.Intn(49)
 	writeLen16(&ext, 0x0015)
@@ -327,8 +337,12 @@ func buildFirefoxHello(host string) []byte {
 	writeLen16(&ext, 0)
 	writeALPNExt(&ext)
 	writeLen16(&ext, 0x0005)
-	writeLen16(&ext, 1)
-	ext.WriteByte(0x00)
+	// RFC 6066 status_request: OCSP, then two empty lists. A 1-byte body is
+	// short by four and every strict parser stops there.
+	writeLen16(&ext, 5)
+	ext.WriteByte(0x01)
+	writeLen16(&ext, 0)
+	writeLen16(&ext, 0)
 	writeKeyShareExt(&ext, false)
 	writeSupportedVersionsExt(&ext, false)
 	writeSigAlgsExt(&ext, firefoxSigAlgs)
@@ -390,8 +404,12 @@ func buildSafariHello(host string) []byte {
 	writeLen16(&ext, 0x0023)
 	writeLen16(&ext, 0)
 	writeLen16(&ext, 0x0005)
-	writeLen16(&ext, 1)
-	ext.WriteByte(0x00)
+	// RFC 6066 status_request: OCSP, then two empty lists. A 1-byte body is
+	// short by four and every strict parser stops there.
+	writeLen16(&ext, 5)
+	ext.WriteByte(0x01)
+	writeLen16(&ext, 0)
+	writeLen16(&ext, 0)
 	writeSigAlgsExt(&ext, safariSigAlgs)
 	writeSupportedVersionsExtSafari(&ext)
 	writeLen16(&ext, 0x002D)
@@ -515,7 +533,8 @@ func writeServerNameExt(b *bytes.Buffer, host string) {
 	writeLen16(&list, len(name.Bytes()))
 	list.Write(name.Bytes())
 	writeLen16(b, 0x0000)
-	writeLen16(b, list.Len()+2)
+	// list already carries the server_name_list length; wrapping it in another
+	// one made the extension unreadable to every TLS parser.
 	writeLen16(b, list.Len())
 	b.Write(list.Bytes())
 }
@@ -575,8 +594,11 @@ func writeSupportedVersionsExt(b *bytes.Buffer, grease bool) {
 func writeKeyShareExt(b *bytes.Buffer, grease bool) {
 	var ks bytes.Buffer
 	if grease {
+		// A GREASE share carries one byte, as Chrome sends it; a zero-length
+		// key_exchange is rejected outright by strict parsers.
 		writeLen16(&ks, greaseValue())
-		writeLen16(&ks, 0)
+		writeLen16(&ks, 1)
+		ks.WriteByte(0x00)
 	}
 	writeLen16(&ks, 0x001D) // x25519
 	writeLen16(&ks, 32)
