@@ -269,6 +269,20 @@ func TestAwgOutboundSubnetConflict(t *testing.T) {
 	}
 }
 
+// TestInboundAwgHints_DropsOversizedIFields pins the same all-or-nothing gate
+// renderServerConf already has: an oversized set must vanish whole.
+func TestInboundAwgHints_DropsOversizedIFields(t *testing.T) {
+	huge := strings.Repeat("x", 712) // 5 fields x 712 chars = 3600 IBytes, over the worst-case budget
+	settings := `{"address":"10.8.0.1/24","awgVersion":"2",` +
+		`"i1":"` + huge + `","i2":"` + huge + `","i3":"` + huge + `","i4":"` + huge + `","i5":"` + huge + `"}`
+	_, obf, _ := inboundAwgHints(settings, true)
+	for _, key := range []string{"I1 = ", "I2 = ", "I3 = ", "I4 = ", "I5 = "} {
+		if strings.Contains(obf, key) {
+			t.Errorf("oversized I-set must be dropped whole, found %q in block", key)
+		}
+	}
+}
+
 // TestInboundAwgHints_NodeInboundKeepsAwg3Fields pins localInbound as the only
 // switch gating 3.x fields on this host's own tools-support probe.
 func TestInboundAwgHints_NodeInboundKeepsAwg3Fields(t *testing.T) {

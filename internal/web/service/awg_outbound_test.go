@@ -416,7 +416,7 @@ func TestAwgOutboundSubnetClash(t *testing.T) {
 // UpdateOutbound, so a .conf pasted through ParseConf or discovered by the
 // host scan is rejected too — not just a set the panel's own generator built.
 func TestCheckOutboundIFields(t *testing.T) {
-	fits := strings.Repeat("x", 3495)     // IBytes 3500, exactly awgo-1's budget
+	fits := strings.Repeat("x", 3484)     // IBytes 3492, exactly the worst-case budget
 	oversize := strings.Repeat("x", 3496) // IBytes 3504
 	for _, tc := range []struct {
 		name     string
@@ -450,7 +450,7 @@ func TestValidateAwgSettingsJSON_IFieldBudget(t *testing.T) {
 	if !errors.Is(err, awg.ErrIFieldsTooLarge) {
 		t.Fatalf("want ErrIFieldsTooLarge, got %v", err)
 	}
-	if err := validateAwgSettingsJSON(`{"i1":"` + oversize[:3495] + `"}`); err != nil {
+	if err := validateAwgSettingsJSON(`{"i1":"` + oversize[:3484] + `"}`); err != nil {
 		t.Fatalf("a set at exactly the budget must save, got %v", err)
 	}
 }

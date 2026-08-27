@@ -28,6 +28,10 @@ const (
 // An exported client config names its own interface, so it is checked here.
 const BaselineIfname = "awgo-1"
 
+// worstIfnameBytes is nlaBytes of the longest name a node can hand this
+// interface: "awg" plus up to nine digits, from the node's own id sequence.
+const worstIfnameBytes = 20
+
 // nlaBytes is NLA_ALIGN(4 + len + 1), the cost of one NUL-terminated netlink
 // string attribute. It quantises, so a sum of lengths is not monotonic in it.
 func nlaBytes(v string) int { return (len(v) + 8) &^ 3 }
@@ -44,14 +48,26 @@ func IBytes(i1, i2, i3, i4, i5 string) int {
 	return n
 }
 
-// IBytesBudget returns the largest IBytes an interface of this shape can carry
-// and still answer `awg show`: 3500 for a 6-char ifname with no HPK.
-func IBytesBudget(ifname string, hasHeaderProtectionKey bool) int {
-	b := nlBufBytes - nlDeviceBytes - (nlaBytes(ifname) - nlIfnameBase) - nlPeersNest - nlPeerBytes - nlSafetyMargin
+// ibytesBudget is the arithmetic IBytesBudget and WorstCaseIBytesBudget share,
+// parameterised on the ifname's already-computed netlink byte cost.
+func ibytesBudget(ifnameBytes int, hasHeaderProtectionKey bool) int {
+	b := nlBufBytes - nlDeviceBytes - (ifnameBytes - nlIfnameBase) - nlPeersNest - nlPeerBytes - nlSafetyMargin
 	if hasHeaderProtectionKey {
 		b -= nlHpkBytes
 	}
 	return b
+}
+
+// IBytesBudget returns the largest IBytes an interface of this shape can carry
+// and still answer `awg show`: 3500 for a 6-char ifname with no HPK.
+func IBytesBudget(ifname string, hasHeaderProtectionKey bool) int {
+	return ibytesBudget(nlaBytes(ifname), hasHeaderProtectionKey)
+}
+
+// WorstCaseIBytesBudget is IBytesBudget for the longest ifname a node could
+// ever assign, for a caller that has no real ifname to check against.
+func WorstCaseIBytesBudget(hasHeaderProtectionKey bool) int {
+	return ibytesBudget(worstIfnameBytes, hasHeaderProtectionKey)
 }
 
 // MaxIPacketBytes bounds one I-packet. Nothing else does: the kernel sets
@@ -64,13 +80,13 @@ const MaxIPacketBytes = 1400
 // applies and carries traffic, but `awg show` hangs or fails with EMSGSIZE.
 var ErrIFieldsTooLarge = errors.New("awg: I1-I5 exceed the netlink read budget")
 
-// ValidateIFields is the save-time guard against an interface that would come
-// up unreadable. headerProtectionKey is the stored value, "" when unset.
+// ValidateIFields budgets worst-case, not by ifname: a node's real interface
+// name comes from its own id sequence, invisible to the master saving this.
 func ValidateIFields(ifname, headerProtectionKey, i1, i2, i3, i4, i5 string) error {
 	got := IBytes(i1, i2, i3, i4, i5)
-	budget := IBytesBudget(ifname, strings.TrimSpace(headerProtectionKey) != "")
+	budget := WorstCaseIBytesBudget(strings.TrimSpace(headerProtectionKey) != "")
 	if got > budget {
-		return fmt.Errorf("%w: %d > %d bytes on %s — shorten or drop I-fields", ErrIFieldsTooLarge, got, budget, ifname)
+		return fmt.Errorf("%w: %d > %d worst-case bytes for %s — shorten or drop I-fields", ErrIFieldsTooLarge, got, budget, ifname)
 	}
 	return nil
 }

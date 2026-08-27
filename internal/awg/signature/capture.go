@@ -159,7 +159,7 @@ func captureQUIC(host, ip string) ([][]byte, error) {
 func fillPackets(packets [][]byte) CaptureResult {
 	res := CaptureResult{}
 	fields := [5]*string{&res.I1, &res.I2, &res.I3, &res.I4, &res.I5}
-	budget := awg.IBytesBudget(awg.BaselineIfname, false)
+	budget := awg.WorstCaseIBytesBudget(false)
 	for i, pkt := range packets {
 		if i >= maxPackets {
 			break

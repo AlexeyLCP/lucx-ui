@@ -15,7 +15,7 @@ import (
 
 // kernelBudget is what the save-time guard charges a generated set on a stock
 // kernel interface — the same call the panel makes before writing the .conf.
-func kernelBudget() int { return awg.IBytesBudget(awg.BaselineIfname, false) }
+func kernelBudget() int { return awg.WorstCaseIBytesBudget(false) }
 
 // The generator must never hand back a set the save-time guard would reject,
 // and never quietly hand back fewer than the five fields that were asked for:
@@ -74,8 +74,8 @@ func TestGenerateCPS_FitsBudgetOrRefuses(t *testing.T) {
 // for I1-I5. Generating against the wider budget makes the save-time guard
 // reject the panel's own output.
 func TestGenerateCPS_HonoursCallerBudget(t *testing.T) {
-	budget := awg.IBytesBudget(awg.BaselineIfname, true)
-	if wide := awg.IBytesBudget(awg.BaselineIfname, false); budget >= wide {
+	budget := awg.WorstCaseIBytesBudget(true)
+	if wide := awg.WorstCaseIBytesBudget(false); budget >= wide {
 		t.Fatalf("header-protection key must narrow the budget: %d vs %d", budget, wide)
 	}
 	for i := 0; i < 100; i++ {

@@ -37,6 +37,10 @@ type awgGenerateObfuscationRequest struct {
 	AwgVersion     string `json:"awgVersion"`
 }
 
+// awgCPSBudget is the one number the generator and the save-time guard
+// (awg.ValidateIFields) must never disagree on — see cps_budget.go.
+func awgCPSBudget(withHPK bool) int { return awg.WorstCaseIBytesBudget(withHPK) }
+
 // awgGenerateObfuscation generates a fresh set of AmneziaWG obfuscation
 // parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and CPS packets (I1-I5) for the AWG
 // inbound form. The frontend calls this when the user clicks "generate
@@ -76,7 +80,7 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		req.Domain,
 		cps.BrowserProfile(req.BrowserProfile),
 		!req.FullI1I5, // GenerateCPS's onlyI1 is the inverse of "full I1-I5"
-		awg.IBytesBudget(awg.BaselineIfname, withHPK),
+		awgCPSBudget(withHPK),
 	)
 	if err != nil {
 		jsonMsg(c, "awg obfuscation: CPS generation failed", err)

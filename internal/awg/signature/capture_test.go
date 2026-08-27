@@ -158,7 +158,7 @@ func TestCapture_EmptyDomain(t *testing.T) {
 // packet on the wire. An oversized capture must lose whole packets, never
 // bytes, and what survives must still fit what `awg show` can read back.
 func TestFillPackets_KeepsWholePacketsWithinNetlinkBudget(t *testing.T) {
-	budget := awg.IBytesBudget(awg.BaselineIfname, false)
+	budget := awg.WorstCaseIBytesBudget(false)
 	packet := func(b byte) []byte { return bytes.Repeat([]byte{b}, 1200) }
 	res := fillPackets([][]byte{packet(1), packet(2), packet(3), packet(4), packet(5)})
 
@@ -196,10 +196,19 @@ func TestFillPackets_KeepsAllFiveWhenTheyFit(t *testing.T) {
 // only the packet-size rule can drop it.
 func TestFillPackets_DropsAPacketThatWouldFragment(t *testing.T) {
 	big := bytes.Repeat([]byte{0xAA}, awg.MaxIPacketBytes+50)
-	if n := awg.IBytes("<b 0x"+strings.Repeat("aa", len(big))+">", "", "", "", ""); n > awg.IBytesBudget(awg.BaselineIfname, false) {
+	if n := awg.IBytes("<b 0x"+strings.Repeat("aa", len(big))+">", "", "", "", ""); n > awg.WorstCaseIBytesBudget(false) {
 		t.Fatalf("test packet is %d netlink bytes; it must fit the budget so the size rule is what drops it", n)
 	}
 	if res := fillPackets([][]byte{big}); res.I1 != "" {
 		t.Fatalf("kept a %d-byte packet; the path carries %d", len(big), awg.MaxIPacketBytes)
+	}
+}
+
+// TestFillPackets_KeptSetAlwaysPassesValidateIFields: a 1400+335-byte pair
+// lands at 3496 IBytes — over worst-case, but the kept set must still validate.
+func TestFillPackets_KeptSetAlwaysPassesValidateIFields(t *testing.T) {
+	res := fillPackets([][]byte{bytes.Repeat([]byte{0xAA}, 1400), bytes.Repeat([]byte{0xBB}, 335)})
+	if err := awg.ValidateIFields(awg.BaselineIfname, "", res.I1, res.I2, res.I3, res.I4, res.I5); err != nil {
+		t.Fatalf("fillPackets kept a set the save-time guard rejects: %v", err)
 	}
 }

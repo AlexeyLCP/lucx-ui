@@ -826,11 +826,21 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 		}
 	}
 	if isV2Plus {
-		for _, p := range []struct{ key, jk string }{
-			{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
-		} {
-			if v, ok := settings[p.jk].(string); ok && v != "" {
-				params[p.key] = v
+		i1, _ := settings["i1"].(string)
+		i2, _ := settings["i2"].(string)
+		i3, _ := settings["i3"].(string)
+		i4, _ := settings["i4"].(string)
+		i5, _ := settings["i5"].(string)
+		hpk, _ := settings["headerProtectionKey"].(string)
+		// Same all-or-nothing gate the two .conf renderers use: an oversized
+		// set vanishes from the real interface, so it must vanish from the link.
+		if awg.IBytes(i1, i2, i3, i4, i5) <= awg.WorstCaseIBytesBudget(strings.TrimSpace(hpk) != "") {
+			for _, p := range []struct{ key, jk string }{
+				{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
+			} {
+				if v, ok := settings[p.jk].(string); ok && v != "" {
+					params[p.key] = v
+				}
 			}
 		}
 	}

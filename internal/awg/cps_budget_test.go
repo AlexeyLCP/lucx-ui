@@ -70,8 +70,8 @@ func TestIBytes_NotMonotonicInCharacterSum(t *testing.T) {
 }
 
 func TestValidateIFields(t *testing.T) {
-	underBudget := strings.Repeat("x", 3495) // IBytes 3500, exactly the budget
-	overBudget := strings.Repeat("x", 3496)  // IBytes 3504, one align step over
+	underBudget := strings.Repeat("x", 3484) // IBytes 3492, exactly the worst-case budget
+	overBudget := strings.Repeat("x", 3488)  // IBytes 3496, one align step over
 
 	if err := ValidateIFields("awgo-1", "", underBudget, "", "", "", ""); err != nil {
 		t.Fatalf("set at exactly the budget must pass, got %v", err)
@@ -81,12 +81,38 @@ func TestValidateIFields(t *testing.T) {
 		t.Fatalf("want ErrIFieldsTooLarge, got %v", err)
 	}
 	// The same set becomes illegal once a header-protection key claims its
-	// netlink attribute — the guard must read the instance shape, not a constant.
+	// netlink attribute — real per-instance state, unlike the ifname half.
 	fits := strings.Repeat("x", 3463)
 	if err := ValidateIFields("awgo-1", "", fits, "", "", "", ""); err != nil {
 		t.Fatalf("3463 chars must fit without an HPK, got %v", err)
 	}
 	if err := ValidateIFields("awgo-1", "key=", fits, "", "", "", ""); !errors.Is(err, ErrIFieldsTooLarge) {
 		t.Fatalf("3463 chars must not fit with an HPK, got %v", err)
+	}
+}
+
+// TestValidateIFields_UsesWorstCaseIfname pins the budget to worstIfnameBytes
+// regardless of the ifname argument — see ValidateIFields's own comment.
+func TestValidateIFields_UsesWorstCaseIfname(t *testing.T) {
+	bytes3496 := strings.Repeat("x", 3488) // IBytes 3496, over the 3492 worst-case budget
+	bytes3400 := strings.Repeat("x", 3392) // IBytes 3400, under either budget
+
+	err := ValidateIFields(BaselineIfname, "", bytes3496, "", "", "", "")
+	if !errors.Is(err, ErrIFieldsTooLarge) {
+		t.Fatalf("3496 bytes on BaselineIfname must fail the worst-case budget, got %v", err)
+	}
+	if err := ValidateIFields(BaselineIfname, "", bytes3400, "", "", "", ""); err != nil {
+		t.Fatalf("3400 bytes must pass under either budget, got %v", err)
+	}
+}
+
+// TestWorstCaseIBytesBudget pins both HPK states of the constant this whole
+// fix hangs on — an HPK regression here would be silent, not a build error.
+func TestWorstCaseIBytesBudget(t *testing.T) {
+	if got := WorstCaseIBytesBudget(false); got != 3492 {
+		t.Fatalf("WorstCaseIBytesBudget(false) = %d, want 3492", got)
+	}
+	if got := WorstCaseIBytesBudget(true); got != 3456 {
+		t.Fatalf("WorstCaseIBytesBudget(true) = %d, want 3456", got)
 	}
 }

@@ -543,7 +543,10 @@ func inboundAwgHints(settings string, localInbound bool) (address string, obfusc
 	}
 	var out strings.Builder
 	out.WriteString(b.String())
-	if ver != "1.5" {
+	// Same all-or-nothing gate the two .conf renderers use: an oversized set
+	// silently vanishes from the real interface, so it must vanish here too.
+	iFieldsFit := awg.IBytes(s.I1, s.I2, s.I3, s.I4, s.I5) <= awg.WorstCaseIBytesBudget(strings.TrimSpace(s.HeaderProtectionKey) != "")
+	if ver != "1.5" && iFieldsFit {
 		for _, ip := range []struct{ idx, val string }{
 			{"1", s.I1}, {"2", s.I2}, {"3", s.I3}, {"4", s.I4}, {"5", s.I5},
 		} {
