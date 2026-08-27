@@ -54,7 +54,8 @@ func (d Descriptor) Rand(n int) Descriptor { return d.with(segment{kind: segRand
 
 // RandChars appends n random ASCII letters, RandDigits n random ASCII digits —
 // the two that keep a plaintext protocol (SIP identifiers) syntactically valid.
-func (d Descriptor) RandChars(n int) Descriptor  { return d.with(segment{kind: segRandChars, n: n}) }
+func (d Descriptor) RandChars(n int) Descriptor { return d.with(segment{kind: segRandChars, n: n}) }
+
 func (d Descriptor) RandDigits(n int) Descriptor { return d.with(segment{kind: segRandDigits, n: n}) }
 
 // Timestamp appends the 4-byte big-endian seconds counter both engines emit.
