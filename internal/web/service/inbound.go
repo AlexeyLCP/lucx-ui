@@ -390,7 +390,7 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 		var awgPeers map[string]string
 		if r.Protocol == string(model.AWG) {
 			wgPublicKey, wgMtu, wgDns = inboundWireguardHints(r.Protocol, r.Settings)
-			awgAddr, awgObf, awgVer = inboundAwgHints(r.Settings)
+			awgAddr, awgObf, awgVer = inboundAwgHints(r.Settings, r.NodeId == nil)
 			awgPeers = InboundAwgPeerAddresses(r.Settings)
 		}
 		// END LUCX-HOOK
@@ -470,9 +470,10 @@ func inboundWireguardHints(protocol string, settings string) (string, int, strin
 // full AmneziaWG client config and gate the per-client export-version selector.
 // The obfuscation block is empty when the settings carry no obfuscation
 // (lite/level-1); version defaults to "2" for pre-lucx.50 inbounds.
+// localInbound must be false for a node-hosted inbound (awg.AwgVersionFieldsAllowed).
 //
 // LUCX-HOOK: AWG obfuscation hints for the clients-page QR/.conf path.
-func inboundAwgHints(settings string) (address string, obfuscation string, version string) {
+func inboundAwgHints(settings string, localInbound bool) (address string, obfuscation string, version string) {
 	if strings.TrimSpace(settings) == "" {
 		return "", "", ""
 	}
@@ -559,7 +560,7 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject
 	// it, so v1/v2 inbounds must never carry it. S1-S4 >= 12 is required for the
 	// kernel to accept the key (enforced by the generator for v3).
-	if awg.IsAwg3Plus(s.AwgVersion) && s.HeaderProtectionKey != "" && awg.ModuleSupportsAwg3() {
+	if s.HeaderProtectionKey != "" && awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(s.AwgVersion), localInbound, awg.ModuleSupportsAwg3()) {
 		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — empty/"0" = kernel default. Emitted only
@@ -567,7 +568,7 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 	// Values are written verbatim (a single "150" or an inclusive range
 	// "100-500"); this ceiling block mirrors the H1-H4 ranges already exported,
 	// so client configs carry native kernel ranges intact.
-	if awg.IsAwg3Plus(s.AwgVersion) && awg.ModuleSupportsAwg3() {
+	if awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(s.AwgVersion), localInbound, awg.ModuleSupportsAwg3()) {
 		if !s.ContentPaddingAddition.IsZero() {
 			fmt.Fprintf(&out, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
 		}
@@ -587,7 +588,7 @@ func inboundAwgHints(settings string) (address string, obfuscation string, versi
 			fmt.Fprintf(&out, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
 		}
 	}
-	if awg.IsAwg31(s.AwgVersion) && awg.ModuleSupportsAwg31() {
+	if awg.AwgVersionFieldsAllowed(awg.IsAwg31(s.AwgVersion), localInbound, awg.ModuleSupportsAwg31()) {
 		if s.RandomTrailers {
 			out.WriteString("RandomTrailers = on\n")
 		}

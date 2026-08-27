@@ -14,7 +14,7 @@ import (
 
 func TestInboundAwgHints_HIndexesStayAligned(t *testing.T) {
 	settings := `{"address":"10.200.0.1/24","jc":4,"jmin":10,"jmax":50,"s1":40,"s2":60,"h1":"1-10","h3":"30-40","h4":"50-60","awgVersion":"2"}`
-	_, obf, _ := inboundAwgHints(settings)
+	_, obf, _ := inboundAwgHints(settings, true)
 	if !strings.Contains(obf, "H1 = 1-10") || !strings.Contains(obf, "H3 = 30-40") || !strings.Contains(obf, "H4 = 50-60") {
 		t.Fatalf("H labels misaligned:\n%s", obf)
 	}
@@ -179,7 +179,7 @@ func TestInboundAwgHints_HeaderProtectionKeyVersionGated(t *testing.T) {
 		{"no version", base + `,"headerProtectionKey":"aBcD...base64hpk=="}`, false, "2"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, obf, ver := inboundAwgHints(tc.settings)
+			_, obf, ver := inboundAwgHints(tc.settings, true)
 			if strings.Contains(obf, "HeaderProtectionKey") != tc.wantHPK {
 				t.Errorf("HeaderProtectionKey in block = %v, want %v, got:\n%s", !tc.wantHPK, tc.wantHPK, obf)
 			}
@@ -220,7 +220,7 @@ func TestInboundAwgHints_DeviceFieldsEmission(t *testing.T) {
 		{"no version all set", base + `,` + fields + `}`, []bool{false, false, false, false, false, false}, "2"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, obf, ver := inboundAwgHints(tc.settings)
+			_, obf, ver := inboundAwgHints(tc.settings, true)
 			for i, line := range deviceLines {
 				got := strings.Contains(obf, line)
 				if got != tc.want[i] {
@@ -264,6 +264,39 @@ func TestAwgOutboundSubnetConflict(t *testing.T) {
 			_, got := awgOutboundSubnetConflict(tc.newNet, tc.outAddr)
 			if got != tc.want {
 				t.Errorf("awgOutboundSubnetConflict(%v, %q) = %v, want %v", tc.newNet, tc.outAddr, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestInboundAwgHints_NodeInboundKeepsAwg3Fields pins localInbound as the only
+// switch gating 3.x fields on this host's own tools-support probe.
+func TestInboundAwgHints_NodeInboundKeepsAwg3Fields(t *testing.T) {
+	unsupported := false
+	awg.SetModuleSupportsAwg3(&unsupported)
+	awg.SetModuleSupportsAwg31(&unsupported)
+	t.Cleanup(func() {
+		awg.SetModuleSupportsAwg3(nil)
+		awg.SetModuleSupportsAwg31(nil)
+	})
+	const settings = `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,` +
+		`"awgVersion":"3.1","headerProtectionKey":"aBcD...base64hpk==","randomTrailers":true}`
+
+	for _, tc := range []struct {
+		name         string
+		localInbound bool
+		wantPresent  bool
+	}{
+		{"node inbound keeps fields the host cannot itself confirm", false, true},
+		{"local inbound is still gated on this host's own probe", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf, _ := inboundAwgHints(settings, tc.localInbound)
+			if strings.Contains(obf, "HeaderProtectionKey") != tc.wantPresent {
+				t.Errorf("HeaderProtectionKey present = %v, want %v, got:\n%s", !tc.wantPresent, tc.wantPresent, obf)
+			}
+			if strings.Contains(obf, "RandomTrailers") != tc.wantPresent {
+				t.Errorf("RandomTrailers present = %v, want %v, got:\n%s", !tc.wantPresent, tc.wantPresent, obf)
 			}
 		})
 	}

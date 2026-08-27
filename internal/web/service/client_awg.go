@@ -640,7 +640,7 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	if host == "" {
 		host = "127.0.0.1"
 	}
-	_, obf, _ := inboundAwgHints(inbound.Settings)
+	_, obf, _ := inboundAwgHints(inbound.Settings, inbound.NodeID == nil)
 
 	var b strings.Builder
 	b.WriteString("[Interface]\n")
