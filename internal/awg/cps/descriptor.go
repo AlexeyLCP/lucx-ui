@@ -11,6 +11,8 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 )
 
 // The CPS descriptor language, and the only place that knows it. Both engines
@@ -121,6 +123,9 @@ func (d Descriptor) Validate() error {
 	}
 	if strings.ContainsRune(d.String(), '#') {
 		return fmt.Errorf("awg cps: descriptor contains '#', which truncates the .conf line")
+	}
+	if n := d.WireLen(); n > awg.MaxIPacketBytes {
+		return fmt.Errorf("awg cps: packet is %d bytes, over the %d the path carries — it would be IP-fragmented", n, awg.MaxIPacketBytes)
 	}
 	return nil
 }

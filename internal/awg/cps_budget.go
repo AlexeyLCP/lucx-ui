@@ -54,6 +54,12 @@ func IBytesBudget(ifname string, hasHeaderProtectionKey bool) int {
 	return b
 }
 
+// MaxIPacketBytes bounds one I-packet. Nothing else does: the kernel sets
+// skb->ignore_df, so a larger one is IP-fragmented and sent silently. 1400 sits
+// under the worst common UDP payload ceiling (1444 on IPv6-over-PPPoE) and above
+// the 1200 bytes RFC 9000 requires of a QUIC Initial.
+const MaxIPacketBytes = 1400
+
 // ErrIFieldsTooLarge means the I-set overflows that budget: the config still
 // applies and carries traffic, but `awg show` hangs or fails with EMSGSIZE.
 var ErrIFieldsTooLarge = errors.New("awg: I1-I5 exceed the netlink read budget")

@@ -164,6 +164,9 @@ func fillPackets(packets [][]byte) CaptureResult {
 		if i >= maxPackets {
 			break
 		}
+		if len(pkt) > awg.MaxIPacketBytes {
+			break // a fragmented replay is worse than a shorter, contiguous one
+		}
 		*fields[i] = "<b 0x" + hex.EncodeToString(pkt) + ">"
 		if awg.IBytes(res.I1, res.I2, res.I3, res.I4, res.I5) > budget {
 			*fields[i] = ""

@@ -12,6 +12,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 )
 
 // materialise expands a descriptor the way the kernel's jp_spec_applymods does
@@ -135,5 +137,31 @@ func TestDescriptor_ValidateAcceptsPortableSet(t *testing.T) {
 	}
 	if strings.Contains(s, "0X") {
 		t.Fatal("the 0x prefix must be lowercase (kmod/src/junk.c:18)")
+	}
+}
+
+// Nothing below this layer bounds an I-packet against the path: the kernel sets
+// skb->ignore_df, so an oversized one is IP-fragmented and sent silently — and
+// fragmented UDP is an anomaly in its own right.
+func TestDescriptor_ValidateRejectsAPacketThatWouldFragment(t *testing.T) {
+	if err := (Descriptor{}.Rand(awg.MaxIPacketBytes)).Validate(); err != nil {
+		t.Fatalf("a packet exactly at the limit must pass: %v", err)
+	}
+	over := Descriptor{}.Lit([]byte{0x16}).Rand(awg.MaxIPacketBytes)
+	if err := over.Validate(); err == nil {
+		t.Fatalf("Validate accepted a %d-byte packet; the path carries %d", over.WireLen(), awg.MaxIPacketBytes)
+	}
+}
+
+// The QUIC Initial is the largest packet the generator builds and RFC 9000
+// requires it to stay at 1200 bytes, so the limit has to sit above that.
+func TestMaxIPacketBytes_LeavesRoomForAQUICInitial(t *testing.T) {
+	if awg.MaxIPacketBytes < 1200 {
+		t.Fatalf("limit %d would forbid a conforming QUIC Initial", awg.MaxIPacketBytes)
+	}
+	// 1444 is the UDP payload an IPv6-over-PPPoE path carries; above it the
+	// clamp stops clamping on the narrowest link we expect to meet.
+	if awg.MaxIPacketBytes > 1444 {
+		t.Fatalf("limit %d exceeds what a narrow path carries", awg.MaxIPacketBytes)
 	}
 }

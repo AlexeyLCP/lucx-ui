@@ -190,3 +190,16 @@ func TestFillPackets_KeepsAllFiveWhenTheyFit(t *testing.T) {
 		}
 	}
 }
+
+// A captured reply can be larger than the path carries as UDP payload; replaying
+// it would leave the wire fragmented. It fits the netlink budget comfortably, so
+// only the packet-size rule can drop it.
+func TestFillPackets_DropsAPacketThatWouldFragment(t *testing.T) {
+	big := bytes.Repeat([]byte{0xAA}, awg.MaxIPacketBytes+50)
+	if n := awg.IBytes("<b 0x"+strings.Repeat("aa", len(big))+">", "", "", "", ""); n > awg.IBytesBudget(awg.BaselineIfname, false) {
+		t.Fatalf("test packet is %d netlink bytes; it must fit the budget so the size rule is what drops it", n)
+	}
+	if res := fillPackets([][]byte{big}); res.I1 != "" {
+		t.Fatalf("kept a %d-byte packet; the path carries %d", len(big), awg.MaxIPacketBytes)
+	}
+}
