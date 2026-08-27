@@ -77,10 +77,15 @@ async function generateAwgObfuscationFromBackend(
 }
 
 // captureHostSignature captures a real QUIC handshake from the given domain.
-async function captureHostSignature(domain: string): Promise<Record<string, string> | null> {
+// awgVersion lets the backend know whether the inbound will carry a
+// header-protection key, which narrows the capture's netlink byte budget.
+async function captureHostSignature(
+  domain: string,
+  awgVersion: string,
+): Promise<Record<string, string> | null> {
   const msg = await HttpUtil.post(
     '/panel/api/inbounds/awg/captureHost',
-    { domain },
+    { domain, awgVersion },
     { headers: { 'Content-Type': 'application/json' } },
   );
   if (!msg?.success) return null;
@@ -204,7 +209,7 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
     }
     setCapturing(true);
     try {
-      const res = await captureHostSignature(dom);
+      const res = await captureHostSignature(dom, awgVersion ?? '');
       if (!res || !res.i1) {
         messageApi.error(t('pages.inbounds.form.awgCaptureFailed'));
         return;

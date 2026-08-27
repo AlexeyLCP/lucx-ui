@@ -153,8 +153,11 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 // awgCaptureHostRequest is the body the AWG inbound form posts to
 // /panel/api/inbounds/awg/captureHost. domain is the front host whose real
 // QUIC handshake should be captured and used as the I1-I5 CPS signature.
+// awgVersion mirrors awgGenerateObfuscationRequest's field: it decides
+// whether the capture budget must leave room for a header-protection key.
 type awgCaptureHostRequest struct {
-	Domain string `json:"domain"`
+	Domain     string `json:"domain"`
+	AwgVersion string `json:"awgVersion"`
 }
 
 // awgCaptureHost captures a real QUIC handshake from the given domain (UDP
@@ -174,7 +177,10 @@ func (a *InboundController) awgCaptureHost(c *gin.Context) {
 		jsonMsg(c, "awg capture: domain required", nil)
 		return
 	}
-	res, err := signature.Capture(req.Domain)
+	// Same withHPK expression as awgGenerateObfuscation: an HPK claims netlink
+	// bytes I-fields then cannot have, so the capture budget must know one is coming.
+	withHPK := awg.IsAwg3Plus(req.AwgVersion) && awg.ModuleSupportsAwg3()
+	res, err := signature.Capture(req.Domain, withHPK)
 	if err != nil {
 		jsonMsg(c, "awg capture failed: "+err.Error(), nil)
 		return

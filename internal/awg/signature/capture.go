@@ -59,7 +59,11 @@ func randomBytes(n int) []byte {
 // timeout) — AWG can only mimic QUIC-fronted hosts. TLS capture is not
 // supported (TLS signatures are incompatible with AWG and crash it, per
 // hoaxisr).
-func Capture(domain string) (CaptureResult, error) {
+//
+// hasHPK must be true when the inbound being captured for carries a
+// header-protection key: that key claims 36 netlink bytes the I-fields
+// then cannot have, same as the CPS generator's own budget.
+func Capture(domain string, hasHPK bool) (CaptureResult, error) {
 	host := normalizeDomain(domain)
 	if host == "" {
 		return CaptureResult{}, errors.New("signature: empty domain")
@@ -72,7 +76,7 @@ func Capture(domain string) (CaptureResult, error) {
 	if err != nil {
 		return CaptureResult{}, err
 	}
-	return fillPackets(packets), nil
+	return fillPackets(packets, hasHPK), nil
 }
 
 // normalizeDomain strips scheme/path/port from the user input, leaving the
@@ -156,10 +160,10 @@ func captureQUIC(host, ip string) ([][]byte, error) {
 // keeping whole packets while the set stays inside what `awg show` can read
 // back. A packet that no longer fits ends the set: truncating one would put a
 // malformed packet on the wire, a worse signature than a shorter burst.
-func fillPackets(packets [][]byte) CaptureResult {
+func fillPackets(packets [][]byte, hasHPK bool) CaptureResult {
 	res := CaptureResult{}
 	fields := [5]*string{&res.I1, &res.I2, &res.I3, &res.I4, &res.I5}
-	budget := awg.WorstCaseIBytesBudget(false)
+	budget := awg.WorstCaseIBytesBudget(hasHPK)
 	for i, pkt := range packets {
 		if i >= maxPackets {
 			break
