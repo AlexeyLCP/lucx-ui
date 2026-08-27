@@ -526,3 +526,29 @@ func TestGenerateAwg3DeviceTimings_FormatAndInvariants(t *testing.T) {
 		})
 	}
 }
+
+// Every panel process must draw its own obfuscation. A fixed seed makes the
+// first inbound created after a restart identical on every server that runs
+// this code — Jc, S1-S4 and H1-H4 included.
+func TestNewSeededRand_DiffersBetweenSources(t *testing.T) {
+	draw := func() [8]int64 {
+		r := newSeededRand()
+		var out [8]int64
+		for i := range out {
+			out[i] = r.Int63()
+		}
+		return out
+	}
+	a, b := draw(), draw()
+	if a == b {
+		t.Fatalf("two sources produced the same sequence %v — the seed is fixed", a)
+	}
+	fixed := crand.New(crand.NewSource(1))
+	var seedOne [8]int64
+	for i := range seedOne {
+		seedOne[i] = fixed.Int63()
+	}
+	if a == seedOne {
+		t.Fatal("the source is seeded with the literal 1")
+	}
+}
