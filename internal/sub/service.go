@@ -788,8 +788,12 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 		params["keepalive"] = ka
 	}
 	isV2Plus := awgVer != "1.5"
-	isV3 := awg.IsAwg3Plus(awgVer)
-	isV31 := awg.IsAwg31(awgVer)
+	// The server side gates 3.x fields on the host tools; a link that enables one
+	// the server dropped leaves the client unable to connect. Only a local inbound
+	// can be judged here — a node's capability is not stored on the master.
+	localInbound := inbound.NodeID == nil
+	isV3 := awgVersionFieldsAllowed(awg.IsAwg3Plus(awgVer), localInbound, awg.ModuleSupportsAwg3())
+	isV31 := awgVersionFieldsAllowed(awg.IsAwg31(awgVer), localInbound, awg.ModuleSupportsAwg31())
 
 	if v, ok := settings["jc"].(float64); ok {
 		params["jc"] = strconv.Itoa(int(v))
