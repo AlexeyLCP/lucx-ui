@@ -8,6 +8,7 @@ package awg
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -368,14 +369,21 @@ func CollapseTimerForVersion(raw, version string) string {
 
 var awgHFieldRe = regexp.MustCompile(`^[0-9]+(-[0-9]+)?$`)
 
-// ValidateObfuscationFields rejects garbage H1-H4 and range-form H on a 1.5
-// inbound (v1.x awg-quick: "Unable to parse H1"). Empty H is allowed (generator
-// always fills them; blank means the operator has not generated yet).
-func ValidateObfuscationFields(version, h1, h2, h3, h4 string) error {
+// ErrEmptyObfuscationHeader: blank H1-H4 on an obfuscated inbound falls back
+// to the kernel default 1,2,3,4 (cleartext WireGuard) — not silently applied.
+var ErrEmptyObfuscationHeader = errors.New("awg: H1-H4 must not be empty when obfuscation is enabled")
+
+// Blank H1-H4 writes "H1 = " to the .conf; awg setconf then rejects the
+// WHOLE file and the interface never comes up (1.5 also rejects range H: v1.x awg-quick errors "Unable to parse H1").
+func ValidateObfuscationFields(version string, jc, s1 int, h1, h2, h3, h4 string) error {
 	ver := NormalizeAWGVersion(version)
+	obfuscated := jc > 0 || s1 > 0
 	for i, h := range []string{h1, h2, h3, h4} {
 		h = strings.TrimSpace(h)
 		if h == "" {
+			if obfuscated {
+				return fmt.Errorf("awg: H%d is empty: %w", i+1, ErrEmptyObfuscationHeader)
+			}
 			continue
 		}
 		if !awgHFieldRe.MatchString(h) {

@@ -7,6 +7,7 @@
 package awg
 
 import (
+	"errors"
 	"strings"
 	"testing"
 
@@ -809,17 +810,42 @@ func TestCollapseTimerForVersion(t *testing.T) {
 }
 
 func TestValidateObfuscationFields(t *testing.T) {
-	if err := ValidateObfuscationFields("2", "5000-40000", "1", "2", "3"); err != nil {
+	if err := ValidateObfuscationFields("2", 4, 0, "5000-40000", "1", "2", "3"); err != nil {
 		t.Fatalf("v2 range H must pass: %v", err)
 	}
-	if err := ValidateObfuscationFields("1.5", "5000-40000", "1", "2", "3"); err == nil {
+	if err := ValidateObfuscationFields("1.5", 4, 0, "5000-40000", "1", "2", "3"); err == nil {
 		t.Fatal("v1.5 range H must fail")
 	}
-	if err := ValidateObfuscationFields("1.5", "abc", "1", "2", "3"); err == nil {
+	if err := ValidateObfuscationFields("1.5", 4, 0, "abc", "1", "2", "3"); err == nil {
 		t.Fatal("garbage H must fail")
 	}
-	if err := ValidateObfuscationFields("1.5", "5000", "100005", "200005", "300005"); err != nil {
+	if err := ValidateObfuscationFields("1.5", 4, 0, "5000", "100005", "200005", "300005"); err != nil {
 		t.Fatalf("v1.5 singles must pass: %v", err)
+	}
+}
+
+// Blank H1-H4 must fail when obfuscated (it would render "H1 = " and awg
+// setconf rejects the whole conf); a plain WireGuard inbound must still pass.
+func TestValidateObfuscationFields_RejectsEmptyH(t *testing.T) {
+	tests := []struct {
+		name    string
+		jc, s1  int
+		h       [4]string
+		wantErr bool
+	}{
+		{"blank H2 with jc>0 is rejected", 4, 0, [4]string{"1001", "", "1003", "1004"}, true},
+		{"blank H with no obfuscation passes", 0, 0, [4]string{"", "", "", ""}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateObfuscationFields("2", tt.jc, tt.s1, tt.h[0], tt.h[1], tt.h[2], tt.h[3])
+			if tt.wantErr && !errors.Is(err, ErrEmptyObfuscationHeader) {
+				t.Fatalf("want %v, got %v", ErrEmptyObfuscationHeader, err)
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("want nil, got %v", err)
+			}
+		})
 	}
 }
 

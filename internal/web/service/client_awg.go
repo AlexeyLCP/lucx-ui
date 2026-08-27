@@ -117,7 +117,7 @@ func validateAwgSettingsJSON(settings string) error {
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
 		return nil
 	}
-	if err := awg.ValidateObfuscationFields(s.AwgVersion, s.H1, s.H2, s.H3, s.H4); err != nil {
+	if err := awg.ValidateObfuscationFields(s.AwgVersion, s.Jc, s.S1, s.H1, s.H2, s.H3, s.H4); err != nil {
 		return err
 	}
 	// Oversized I1-I5 still apply and pass traffic, but `awg show` then fails
