@@ -1258,6 +1258,18 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			if prep[idx].client.Secret == "" {
 				prep[idx].client.Secret = rec.Secret
 			}
+			// LUCX-HOOK: one identity attaches to many AWG/WG inbounds, so a re-add
+			// that mints a fresh keypair or PSK desyncs every peer already deployed.
+			if prep[idx].client.PrivateKey == "" {
+				prep[idx].client.PrivateKey = rec.PrivateKey
+			}
+			if prep[idx].client.PublicKey == "" {
+				prep[idx].client.PublicKey = rec.PublicKey
+			}
+			if prep[idx].client.PreSharedKey == "" {
+				prep[idx].client.PreSharedKey = rec.PreSharedKey
+			}
+			// END LUCX-HOOK
 		}
 		if owner, ok := existingSubOwner[prep[idx].client.SubID]; ok && owner != le {
 			failed[idx] = true
