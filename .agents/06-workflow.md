@@ -186,12 +186,14 @@ x-ui-linux-amd64.tar.gz → x-ui/
   └── bin/
       ├── xray-linux-amd64    ← from upstream release (not our code)
       ├── mtg-linux-amd64     ← from upstream release (not our code)
-      └── install-awg-module.sh  ← our DKMS script
+      ├── install-awg-module.sh  ← our DKMS script
+      └── caddy-naive / olcrtc / qwdtt / mieru / trusttunnel / anytls (+ clients)
+          ← GitHub amd64 tarball unpacks these from third_party/sidecars/
 ```
 
 Geo (`geoip*.dat` / `geosite*.dat`) is not in the tarball. `install.sh` / `update.sh` download it after extract (Loyalsoldier + IR/RU/ROSCOM).
 
-Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/` and are fetched the same way. They are not packed into the tarball (SourceCraft 100 MB cap).
+Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub amd64 tarball includes the unpacked binaries (lucx.184 — first install was missing cores). SourceCraft stays SLIM (100 MB cap); `install.sh` / `update.sh` still fetch after start as a refresh.
 
 ---
 

@@ -31,6 +31,7 @@ func TestClientWithInboundFlow_GatesByInboundCapability(t *testing.T) {
 		{"vless xhttp vlessenc keeps flow", model.VLESS, `{"network":"xhttp","security":"none"}`, enc, vision},
 		{"vless xhttp no encryption clears flow", model.VLESS, `{"network":"xhttp","security":"none"}`, `{"encryption":"none"}`, ""},
 		{"vless xhttp empty settings clears flow", model.VLESS, `{"network":"xhttp","security":"none"}`, "", ""},
+		{"vless xhttp tls clears flow", model.VLESS, `{"network":"xhttp","security":"tls"}`, "", ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

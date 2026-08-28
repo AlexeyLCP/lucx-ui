@@ -802,7 +802,7 @@ func (s *ClientService) Delete(inboundSvc *InboundService, id int, keepTraffic b
 }
 
 // hasTunnelAttachment reports whether any of inboundIds is a currently
-// existing WireGuard or AmneziaWG inbound. Inbounds that fail to load are
+// existing WireGuard, AmneziaWG, or kernel AWG inbound. Inbounds that fail to load are
 // skipped rather than treated as an error -- Attach's own loop already
 // surfaces a real error for any inbound it can't load when it gets there.
 func (s *ClientService) hasTunnelAttachment(inboundSvc *InboundService, inboundIds []int) bool {
@@ -811,7 +811,7 @@ func (s *ClientService) hasTunnelAttachment(inboundSvc *InboundService, inboundI
 		if err != nil {
 			continue
 		}
-		if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG {
+		if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG {
 			return true
 		}
 	}

@@ -45,6 +45,12 @@ func TestNameRegistry(t *testing.T) {
 	if got := TrustTunnel.BinaryName(); !strings.HasPrefix(got, "trusttunnel-") {
 		t.Errorf("TrustTunnel.BinaryName = %q", got)
 	}
+	if !Anytls.Valid() || Anytls.DisplayName() != "AnyTLS" {
+		t.Errorf("Anytls Valid/DisplayName broken: %v %q", Anytls.Valid(), Anytls.DisplayName())
+	}
+	if got := Anytls.BinaryName(); !strings.HasPrefix(got, "anytls-") {
+		t.Errorf("Anytls.BinaryName = %q", got)
+	}
 }
 
 func TestDefaultNaiveConfig(t *testing.T) {
