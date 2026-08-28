@@ -1478,6 +1478,9 @@ export interface GenInboundLinksInput {
   remark?: string;
   hostOverride?: string;
   fallbackHostname: string;
+  // Read only by the 'awg' branch below — see GenAwgLinkInput for meaning.
+  nodeId?: number | null;
+  hostAwgSupport?: { moduleAwg3: boolean; moduleAwg31: boolean };
 }
 
 // Top-level entrypoint that produces the full \r\n-joined block a user
@@ -1486,7 +1489,14 @@ export interface GenInboundLinksInput {
 // and emits per-peer .conf blocks for wireguard and amneziawg. Returns '' for the
 // other clientless protocols (http, mixed, tunnel).
 export function genInboundLinks(input: GenInboundLinksInput): string {
-  const { inbound, remark = '', hostOverride = '', fallbackHostname } = input;
+  const {
+    inbound,
+    remark = '',
+    hostOverride = '',
+    fallbackHostname,
+    nodeId,
+    hostAwgSupport,
+  } = input;
   const addr = resolveAddr(inbound, hostOverride, fallbackHostname);
   const clients = getInboundClients(inbound);
   if (clients) {
@@ -1514,7 +1524,14 @@ export function genInboundLinks(input: GenInboundLinksInput): string {
   }
   // LUCX-HOOK: AWG — render per-client .conf blocks (same path as WireGuard).
   if (inbound.protocol === 'awg') {
-    return genAwgConfigs({ inbound, remark, hostOverride, fallbackHostname });
+    return genAwgConfigs({
+      inbound,
+      remark,
+      hostOverride,
+      fallbackHostname,
+      nodeId,
+      hostAwgSupport,
+    });
   }
   // LUCX-HOOK: single-credential tunnel sidecars (no clients array).
   if (inbound.protocol === 'qwdtt') {
@@ -1687,6 +1704,23 @@ export interface GenAwgLinkInput {
   // the ceiling (what the subscription/share-link path uses). Ignored by
   // genAwgLink — share-links always use the ceiling.
   awgVersionOverride?: AwgVersion;
+  // null = hosted on this panel machine, a number = node-hosted, undefined =
+  // caller doesn't know (skips the host-support gate below).
+  nodeId?: number | null;
+  // Mirrors status.awg's module flags; consulted only when nodeId === null.
+  hostAwgSupport?: { moduleAwg3: boolean; moduleAwg31: boolean };
+}
+
+// Mirrors awg.AwgVersionFieldsAllowed (internal/awg/version_gate.go) so a
+// browser artifact never enables a field the server .conf drops.
+function awgVersionFieldsAllowed(
+  versionAsks: boolean,
+  localInbound: boolean,
+  hostSupports: boolean,
+): boolean {
+  if (!versionAsks) return false;
+  if (!localInbound) return true;
+  return hostSupports;
 }
 
 // awgPeerShape projects an AWG client (new publicKey/privateKey/preSharedKey/
@@ -1742,6 +1776,9 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   const { settings, address, port, remark = '', peerIndex } = input;
   const peer = awgPeerShape(settings.clients[peerIndex]);
   if (!peer) return '';
+  const localInbound = input.nodeId === null;
+  const hostSupports3 = input.hostAwgSupport?.moduleAwg3 ?? false;
+  const hostSupports31 = input.hostAwgSupport?.moduleAwg31 ?? false;
 
   const url = new URL(`amneziawg://${formatUrlHost(address)}:${port}`);
   url.username = peer.privateKey ?? '';
@@ -1784,12 +1821,15 @@ export function genAwgLink(input: GenAwgLinkInput): string {
     if (settings.i4) url.searchParams.set('i4', settings.i4);
     if (settings.i5) url.searchParams.set('i5', settings.i5);
   }
-  if (awgVersionAtLeast(v, '3') && settings.headerProtectionKey) {
+  if (
+    awgVersionFieldsAllowed(awgVersionAtLeast(v, '3'), localInbound, hostSupports3) &&
+    settings.headerProtectionKey
+  ) {
     url.searchParams.set('headerprotectionkey', settings.headerProtectionKey);
   }
   // AWG3 device-level timers/padding — "0"/empty = kernel default. Only emitted
   // for v3. Values may be inclusive ranges ("100-500") and pass through verbatim.
-  if (awgVersionAtLeast(v, '3')) {
+  if (awgVersionFieldsAllowed(awgVersionAtLeast(v, '3'), localInbound, hostSupports3)) {
     const timers: Array<[string, string]> = [
       ['contentpaddingaddition', awgTimerEmit(settings.contentPaddingAddition)],
       ['rekeyaftertime', awgTimerEmit(settings.rekeyAfterTime)],
@@ -1802,7 +1842,7 @@ export function genAwgLink(input: GenAwgLinkInput): string {
       if (val) url.searchParams.set(key, val);
     }
   }
-  if (awgVersionAtLeast(v, '3.1')) {
+  if (awgVersionFieldsAllowed(awgVersionAtLeast(v, '3.1'), localInbound, hostSupports31)) {
     if (settings.randomTrailers) url.searchParams.set('randomtrailers', 'true');
     if (settings.disableCookies) url.searchParams.set('disablecookies', 'true');
   }
@@ -1821,6 +1861,9 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   const { settings, address, port, remark = '', peerIndex } = input;
   const peer = awgPeerShape(settings.clients[peerIndex]);
   if (!peer) return '';
+  const localInbound = input.nodeId === null;
+  const hostSupports3 = input.hostAwgSupport?.moduleAwg3 ?? false;
+  const hostSupports31 = input.hostAwgSupport?.moduleAwg31 ?? false;
 
   const pubKey =
     settings.privateKey.length > 0 ? Wireguard.generateKeypair(settings.privateKey).publicKey : '';
@@ -1866,12 +1909,15 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   // HeaderProtectionKey (AWG3) — written only at version '3'. Older awg-quick
   // builds reject the line ("Line unrecognized"), so it must never reach a v1/v2
   // config. S1-S4 >= 12 is required (enforced by the generator for v3).
-  if (awgVersionAtLeast(override, '3') && settings.headerProtectionKey) {
+  if (
+    awgVersionFieldsAllowed(awgVersionAtLeast(override, '3'), localInbound, hostSupports3) &&
+    settings.headerProtectionKey
+  ) {
     txt += `HeaderProtectionKey = ${settings.headerProtectionKey}\n`;
   }
   // AWG3 device-level timers/padding — "0"/empty = kernel default. Only for v3.
   // Values may be inclusive ranges ("100-500") and pass through verbatim.
-  if (awgVersionAtLeast(override, '3')) {
+  if (awgVersionFieldsAllowed(awgVersionAtLeast(override, '3'), localInbound, hostSupports3)) {
     const lines: Array<[string, string]> = [
       ['ContentPaddingAddition', awgTimerEmit(settings.contentPaddingAddition)],
       ['RekeyAfterTime', awgTimerEmit(settings.rekeyAfterTime)],
@@ -1884,7 +1930,7 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
       if (val) txt += `${key} = ${val}\n`;
     }
   }
-  if (awgVersionAtLeast(override, '3.1')) {
+  if (awgVersionFieldsAllowed(awgVersionAtLeast(override, '3.1'), localInbound, hostSupports31)) {
     if (settings.randomTrailers) txt += `RandomTrailers = on\n`;
     if (settings.disableCookies) txt += `DisableCookies = on\n`;
   }
@@ -1905,7 +1951,14 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
 }
 
 export function genAwgConfigs(input: GenInboundLinksInput): string {
-  const { inbound, remark = '', hostOverride = '', fallbackHostname } = input;
+  const {
+    inbound,
+    remark = '',
+    hostOverride = '',
+    fallbackHostname,
+    nodeId,
+    hostAwgSupport,
+  } = input;
   if (inbound.protocol !== 'awg') return '';
   const addr = resolveAddr(inbound, hostOverride, fallbackHostname);
   const sep = '-';
@@ -1918,6 +1971,8 @@ export function genAwgConfigs(input: GenInboundLinksInput): string {
         port: inbound.port,
         remark: `${remark}${sep}${i + 1}${wgPeerCommentSuffix(c)}`,
         peerIndex: i,
+        nodeId,
+        hostAwgSupport,
       }),
     )
     .join('\r\n');

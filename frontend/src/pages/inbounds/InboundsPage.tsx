@@ -40,6 +40,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useNodesQuery } from '@/api/queries/useNodesQuery';
+import { useStatusQuery } from '@/api/queries/useStatusQuery';
 import AppSidebar from '@/layouts/AppSidebar';
 const TextModal = lazy(() => import('@/components/feedback/TextModal'));
 import type { TextModalTab } from '@/components/feedback/TextModal';
@@ -115,6 +116,7 @@ export default function InboundsPage() {
   }, [messageApi]);
 
   const { nodes: nodesList, fetched: nodesFetched } = useNodesQuery();
+  const { status } = useStatusQuery();
   const nodesById = useMemo(() => {
     const map = new Map<number, ReturnType<typeof useNodesQuery>['nodes'][number]>();
     for (const n of nodesList || []) map.set(n.id, n);
@@ -334,6 +336,8 @@ export default function InboundsPage() {
         remark: projected.remark,
         hostOverride: hostOverrideFor(dbInbound),
         fallbackHostname: preferPublicHost(window.location.hostname, subSettings.publicHost),
+        nodeId: projected.nodeId,
+        hostAwgSupport: { moduleAwg3: status.awg.moduleAwg3, moduleAwg31: status.awg.moduleAwg31 },
       };
       let content = genInboundLinks(genInput);
       // LUCX-HOOK: Naive/mieru/TrustTunnel creds are HMAC-derived server-side —
@@ -391,7 +395,7 @@ export default function InboundsPage() {
         tabs,
       });
     },
-    [checkFallback, hostOverrideFor, subSettings.publicHost, openText, t, messageApi],
+    [checkFallback, hostOverrideFor, subSettings.publicHost, status, openText, t, messageApi],
   );
 
   const exportInboundClipboard = useCallback(

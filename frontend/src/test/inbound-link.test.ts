@@ -598,6 +598,84 @@ describe('genAwgLink + genAwgConfig version gating', () => {
     expect(config).not.toContain('KeepaliveTimeout');
     expect(config).not.toContain('MaxHandshakeAttempts');
   });
+
+  // Д3: a local inbound whose host lacks 3.1 tools must not enable
+  // RandomTrailers — the server .conf drops it (awg.AwgVersionFieldsAllowed).
+  it('local inbound + unsupported host strips RandomTrailers from genAwgConfig', () => {
+    const config = genAwgConfig({
+      settings: awgSettings('3.1'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+      nodeId: null,
+      hostAwgSupport: { moduleAwg3: false, moduleAwg31: false },
+    });
+    expect(config).not.toContain('RandomTrailers');
+  });
+
+  it('node-hosted inbound keeps RandomTrailers in genAwgConfig regardless of this host', () => {
+    const config = genAwgConfig({
+      settings: awgSettings('3.1'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+      nodeId: 7,
+      hostAwgSupport: { moduleAwg3: false, moduleAwg31: false },
+    });
+    expect(config).toContain('RandomTrailers = on');
+  });
+
+  it('local inbound + unsupported host strips randomtrailers from genAwgLink', () => {
+    const link = genAwgLink({
+      settings: awgSettings('3.1'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+      nodeId: null,
+      hostAwgSupport: { moduleAwg3: false, moduleAwg31: false },
+    });
+    expect(new URL(link).searchParams.get('randomtrailers')).toBeNull();
+  });
+
+  it('node-hosted inbound keeps randomtrailers in genAwgLink regardless of this host', () => {
+    const link = genAwgLink({
+      settings: awgSettings('3.1'),
+      address: 'wg.example.test',
+      port: 51820,
+      peerIndex: 0,
+      nodeId: 7,
+      hostAwgSupport: { moduleAwg3: false, moduleAwg31: false },
+    });
+    expect(new URL(link).searchParams.get('randomtrailers')).toBe('true');
+  });
+});
+
+// Д3, round 2: the InboundsPage "Export" button goes through genInboundLinks,
+// not genAwgConfigs directly — the gate must survive that extra hop too.
+describe('genInboundLinks awg export path', () => {
+  const inbound = { protocol: 'awg', port: 51820, settings: awgSettings('3.1') };
+
+  it('local inbound + unsupported host strips RandomTrailers via genInboundLinks', () => {
+    const block = genInboundLinks({
+      inbound: inbound as never,
+      hostOverride: 'wg.example.test',
+      fallbackHostname: 'fallback.test',
+      nodeId: null,
+      hostAwgSupport: { moduleAwg3: false, moduleAwg31: false },
+    });
+    expect(block).not.toContain('RandomTrailers');
+  });
+
+  it('node-hosted inbound keeps RandomTrailers via genInboundLinks', () => {
+    const block = genInboundLinks({
+      inbound: inbound as never,
+      hostOverride: 'wg.example.test',
+      fallbackHostname: 'fallback.test',
+      nodeId: 7,
+      hostAwgSupport: { moduleAwg3: false, moduleAwg31: false },
+    });
+    expect(block).toContain('RandomTrailers = on');
+  });
 });
 // END LUCX-HOOK
 // Real AmneziaVPN app's import path (confirmed by reading its own source)
