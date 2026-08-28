@@ -51,9 +51,9 @@ func applyClientRecordMerge(row *model.ClientRecord, incoming *model.ClientRecor
 	if incoming.AllowedIPs != "" {
 		row.AllowedIPs = incoming.AllowedIPs
 	}
-	// Guarded like the keypair above: a keyless inbound's copy of this identity
-	// is stripped of its PSK, and an unguarded write clears the shared row.
-	if incoming.PreSharedKey != "" {
+	// A record carrying tunnel keys is the authoritative copy, so its blank PSK
+	// means cleared; a keyless inbound's copy has none and means "not applicable".
+	if incoming.PreSharedKey != "" || incoming.PrivateKey != "" || incoming.PublicKey != "" {
 		row.PreSharedKey = incoming.PreSharedKey
 	}
 	row.KeepAlive = incoming.KeepAlive
