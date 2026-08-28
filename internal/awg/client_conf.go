@@ -58,46 +58,39 @@ func renderClientConf(ci ClientInstance) string {
 			fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
 		}
 	}
-	if s.Jc > 0 {
-		// HeaderProtectionKey (AWG3) is written ONLY when AwgVersion == "3" and
-		// the key is non-empty — mirrors renderServerConf. The upstream kernel
-		// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds
-		// reject it, so version-gating keeps v1/v2 outbounds working. S1-S4
-		// >= 12 is required for the kernel to accept the key (enforced by
-		// the generator when version "3" is selected). Module-gated so a v3
-		// outbound on a host with a v1.x module does not emit the line.
-		if awg3ok && s.HeaderProtectionKey != "" {
-			fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
+	// Version- and module-gated like renderServerConf (manager.go:840 carries the
+	// full why): an older kernel rejects the line and awg-quick then deletes awgo-N.
+	if awg3ok && s.HeaderProtectionKey != "" {
+		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
+	}
+	// AWG3 device-level timers/padding — AwgTimer holds single or range
+	// ("lo-hi") values verbatim; IsZero omits the kernel default.
+	if awg3ok {
+		if !s.ContentPaddingAddition.IsZero() {
+			fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
 		}
-		// AWG3 device-level timers/padding — AwgTimer holds single or range
-		// ("lo-hi") values verbatim; IsZero omits the kernel default.
-		if awg3ok {
-			if !s.ContentPaddingAddition.IsZero() {
-				fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
-			}
-			if !s.RekeyAfterTime.IsZero() {
-				fmt.Fprintf(&b, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
-			}
-			if !s.RekeyTimeout.IsZero() {
-				fmt.Fprintf(&b, "RekeyTimeout = %s\n", s.RekeyTimeout)
-			}
-			if !s.RejectAfterTime.IsZero() {
-				fmt.Fprintf(&b, "RejectAfterTime = %s\n", s.RejectAfterTime)
-			}
-			if !s.KeepaliveTimeout.IsZero() {
-				fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
-			}
-			if !s.MaxHandshakeAttempts.IsZero() {
-				fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
-			}
+		if !s.RekeyAfterTime.IsZero() {
+			fmt.Fprintf(&b, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
 		}
-		if awg31ok {
-			if s.RandomTrailers {
-				b.WriteString("RandomTrailers = on\n")
-			}
-			if s.DisableCookies {
-				b.WriteString("DisableCookies = on\n")
-			}
+		if !s.RekeyTimeout.IsZero() {
+			fmt.Fprintf(&b, "RekeyTimeout = %s\n", s.RekeyTimeout)
+		}
+		if !s.RejectAfterTime.IsZero() {
+			fmt.Fprintf(&b, "RejectAfterTime = %s\n", s.RejectAfterTime)
+		}
+		if !s.KeepaliveTimeout.IsZero() {
+			fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
+		}
+		if !s.MaxHandshakeAttempts.IsZero() {
+			fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
+		}
+	}
+	if awg31ok {
+		if s.RandomTrailers {
+			b.WriteString("RandomTrailers = on\n")
+		}
+		if s.DisableCookies {
+			b.WriteString("DisableCookies = on\n")
 		}
 	}
 	// In the .conf so the FIRST handshake carries CPS mimicry — a post-up `awg
