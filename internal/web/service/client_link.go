@@ -51,7 +51,11 @@ func applyClientRecordMerge(row *model.ClientRecord, incoming *model.ClientRecor
 	if incoming.AllowedIPs != "" {
 		row.AllowedIPs = incoming.AllowedIPs
 	}
-	row.PreSharedKey = incoming.PreSharedKey
+	// Guarded like the keypair above: a keyless inbound's copy of this identity
+	// is stripped of its PSK, and an unguarded write clears the shared row.
+	if incoming.PreSharedKey != "" {
+		row.PreSharedKey = incoming.PreSharedKey
+	}
 	row.KeepAlive = incoming.KeepAlive
 	row.SubID = incoming.SubID
 	row.LimitIP = incoming.LimitIP

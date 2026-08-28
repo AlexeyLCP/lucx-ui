@@ -201,3 +201,63 @@ func TestBulkCreateClient_KeylessInboundNeverSeesTunnelKeys(t *testing.T) {
 		t.Errorf("bulk-created AWG inbound settings must still carry its client's tunnel key, got:\n%s", awg.Settings)
 	}
 }
+
+// The keyless copy of an identity is stripped of its PSK, so the merge onto
+// the shared row must not read that blank as "the operator cleared it".
+func TestCreateClient_KeylessAttachKeepsIdentityPSK(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	serverPriv, _, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("server keypair: %v", err)
+	}
+	awgIb := mkInbound(t, 21401, model.AWG,
+		`{"privateKey":"`+serverPriv+`","address":"10.70.0.1/24","clients":[]}`)
+	vlessIb := mkInbound(t, 21402, model.VLESS, `{"clients":[]}`)
+
+	priv, pub, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("keypair: %v", err)
+	}
+	psk, err := wgutil.GenerateWireguardPSK()
+	if err != nil {
+		t.Fatalf("psk: %v", err)
+	}
+
+	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+		Client: model.Client{
+			Email: "psk-mixed@x", SubID: "sub-psk-mixed", Enable: true,
+			PrivateKey: priv, PublicKey: pub, PreSharedKey: psk,
+		},
+		InboundIds: []int{awgIb.Id, vlessIb.Id},
+	}); err != nil {
+		t.Fatalf("Create across AWG + VLESS: %v", err)
+	}
+
+	if got := lookupClientRecord(t, "psk-mixed@x").PreSharedKey; got != psk {
+		t.Fatalf("identity PSK = %q, want %q — the keyless attach erased the shared secret", got, psk)
+	}
+
+	// The subscription server reads the normalized row, not the AWG inbound's
+	// settings, so an erased column silently drops PresharedKey from the .conf.
+	subClients, err := svc.ListForInboundBySubId(nil, awgIb.Id, "sub-psk-mixed")
+	if err != nil {
+		t.Fatalf("ListForInboundBySubId: %v", err)
+	}
+	if len(subClients) != 1 {
+		t.Fatalf("subscription sees %d clients on the AWG inbound, want 1", len(subClients))
+	}
+	awgIn, err := inboundSvc.GetInbound(awgIb.Id)
+	if err != nil {
+		t.Fatalf("GetInbound(awg): %v", err)
+	}
+	conf, err := BuildAwgClientConf(awgIn, &subClients[0], "203.0.113.9")
+	if err != nil {
+		t.Fatalf("BuildAwgClientConf: %v", err)
+	}
+	if !strings.Contains(conf, "PresharedKey = "+psk) {
+		t.Fatalf("client .conf lost PresharedKey while the server peer keeps it, got:\n%s", conf)
+	}
+}
