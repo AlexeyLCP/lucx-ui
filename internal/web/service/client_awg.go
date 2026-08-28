@@ -28,6 +28,10 @@ import (
 // character, which would open a new config line downstream.
 var errAwgControlChar = errors.New("awg: value contains control characters")
 
+// errAwgSettingsMalformed: awg inbound settings are non-empty but not valid
+// JSON, so none of the checks that follow parsing could run.
+var errAwgSettingsMalformed = errors.New("awg: settings is not valid JSON")
+
 // defaultAwgBase is the tunnel subnet AWG clients are allocated from. It is
 // intentionally distinct from WireGuard's 10.0.0.0/24 so an AWG inbound and a
 // WireGuard inbound on the same panel don't collide on peer addresses. It also
@@ -122,8 +126,11 @@ func validateAwgSettingsJSON(settings string) error {
 		Address             string `json:"address"`
 		DNS                 string `json:"dns"`
 	}
-	if err := json.Unmarshal([]byte(settings), &s); err != nil {
+	if strings.TrimSpace(settings) == "" {
 		return nil
+	}
+	if err := json.Unmarshal([]byte(settings), &s); err != nil {
+		return fmt.Errorf("%w: %w", errAwgSettingsMalformed, err)
 	}
 	if err := awg.ValidateObfuscationFields(s.AwgVersion, s.Jc, s.S1, s.H1, s.H2, s.H3, s.H4); err != nil {
 		return err

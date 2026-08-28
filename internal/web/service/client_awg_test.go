@@ -12,6 +12,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
@@ -408,6 +409,37 @@ func TestValidateAwgSettingsJSON_RejectsControlCharacters(t *testing.T) {
 	if err := validateAwgSettingsJSON(string(raw)); err != nil {
 		t.Fatalf("validateAwgSettingsJSON(clean settings) = %v, want nil", err)
 	}
+}
+
+// Broken settings JSON must fail closed, not silently disable every other
+// check (H grammar, I budget, AWGParams invariants) that follows it.
+func TestValidateAwgSettingsJSON_BrokenJSON(t *testing.T) {
+	t.Run("malformed JSON is rejected", func(t *testing.T) {
+		err := validateAwgSettingsJSON("{")
+		if !errors.Is(err, errAwgSettingsMalformed) {
+			t.Fatalf(`validateAwgSettingsJSON("{") = %v, want errAwgSettingsMalformed`, err)
+		}
+	})
+	t.Run("empty settings is a legal absence of obfuscation", func(t *testing.T) {
+		if err := validateAwgSettingsJSON(""); err != nil {
+			t.Fatalf(`validateAwgSettingsJSON("") = %v, want nil`, err)
+		}
+	})
+	t.Run("empty object is a legal absence of obfuscation", func(t *testing.T) {
+		if err := validateAwgSettingsJSON("{}"); err != nil {
+			t.Fatalf(`validateAwgSettingsJSON("{}") = %v, want nil`, err)
+		}
+	})
+	t.Run("a genuine validation error is not mistaken for broken JSON", func(t *testing.T) {
+		settings := `{"jc":5,"s1":20,"h1":"","h2":"2","h3":"3","h4":"4"}`
+		err := validateAwgSettingsJSON(settings)
+		if errors.Is(err, errAwgSettingsMalformed) {
+			t.Fatalf("validateAwgSettingsJSON(%s) = %v, wrongly classified as malformed JSON", settings, err)
+		}
+		if !errors.Is(err, awg.ErrEmptyObfuscationHeader) {
+			t.Fatalf("validateAwgSettingsJSON(%s) = %v, want awg.ErrEmptyObfuscationHeader", settings, err)
+		}
+	})
 }
 
 func TestCountAwgOrWireguard(t *testing.T) {
