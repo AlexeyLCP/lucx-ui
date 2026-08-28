@@ -569,3 +569,47 @@ func TestCountAwgOrWireguard(t *testing.T) {
 		t.Fatalf("count = %d, want 2", got)
 	}
 }
+
+// The check ran on a trimmed copy while the renderers wrote the raw value, so
+// a leading newline smuggled a second directive past it — PreUp runs as root.
+func TestValidateAwgSettingsJSON_RejectsLeadingNewline(t *testing.T) {
+	base := map[string]any{
+		"awgVersion": "2", "h1": "1", "h2": "2", "h3": "3", "h4": "4",
+		"jc": 1, "jmin": 1, "jmax": 3, "s1": 20, "s2": 20, "s3": 20, "s4": 20,
+		"address": "10.200.0.1/24", "dns": "1.1.1.1, 1.0.0.1",
+	}
+	cases := []struct {
+		name  string
+		field string
+		value string
+	}{
+		{"address opens a PreUp line", "address", "\nPreUp = touch /tmp/pwned"},
+		{"i1 opens a PostUp line", "i1", "\nPostUp = touch /tmp/pwned"},
+		{"headerProtectionKey opens a PostDown line", "headerProtectionKey", "\nPostDown = touch /tmp/pwned"},
+		{"trailing newline is written too", "address", "10.200.0.1/24\n"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			settings := make(map[string]any, len(base)+1)
+			for k, v := range base {
+				settings[k] = v
+			}
+			settings[tc.field] = tc.value
+			raw, err := json.Marshal(settings)
+			if err != nil {
+				t.Fatalf("marshal settings: %v", err)
+			}
+			err = validateAwgSettingsJSON(string(raw))
+			if !errors.Is(err, errAwgControlChar) {
+				t.Fatalf("validateAwgSettingsJSON(%s=%q) = %v, want errAwgControlChar", tc.field, tc.value, err)
+			}
+		})
+	}
+	raw, err := json.Marshal(base)
+	if err != nil {
+		t.Fatalf("marshal base settings: %v", err)
+	}
+	if err := validateAwgSettingsJSON(string(raw)); err != nil {
+		t.Fatalf("validateAwgSettingsJSON(clean settings) = %v, want nil", err)
+	}
+}

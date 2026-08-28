@@ -163,8 +163,8 @@ func validateAwgSettingsJSON(settings string) error {
 	if err := awg.ValidateIFields(awg.BaselineIfname, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5); err != nil {
 		return err
 	}
-	// TrimSpace tolerates a trailing \r\n from a Windows-exported value
-	// without weakening the check against internal control characters.
+	// Checked raw, because the renderers write raw: trimming here let a leading
+	// "\n" hide a second directive from this loop and still reach the .conf.
 	for _, cv := range []struct{ field, v string }{
 		{"i1", s.I1},
 		{"i2", s.I2},
@@ -179,7 +179,7 @@ func validateAwgSettingsJSON(settings string) error {
 		{"address", s.Address},
 		{"dns", s.DNS},
 	} {
-		if err := amneziawg.ValidateConfigValue(cv.field, strings.TrimSpace(cv.v)); err != nil {
+		if err := amneziawg.ValidateConfigValue(cv.field, cv.v); err != nil {
 			return fmt.Errorf("%w: %w", errAwgControlChar, err)
 		}
 	}
