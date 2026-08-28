@@ -50,13 +50,15 @@ func renderClientConf(ci ClientInstance) string {
 			fmt.Fprintf(&b, "S3 = %d\n", s.S3)
 			fmt.Fprintf(&b, "S4 = %d\n", s.S4)
 		}
-		// Per field, like the server renderer: only a blank one is skipped, because
-		// "H1 = " alone makes setconf reject the whole file.
-		for i, h := range []string{s.H1, s.H2, s.H3, s.H4} {
-			if strings.TrimSpace(h) != "" {
-				fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
-			}
+	}
+	// Per field and outside the Jc gate, exactly like renderServerConf: a blank one
+	// is skipped ("H1 = " makes setconf reject the file), Jc=0 keeps its headers.
+	for i, h := range []string{s.H1, s.H2, s.H3, s.H4} {
+		if strings.TrimSpace(h) != "" {
+			fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
 		}
+	}
+	if s.Jc > 0 {
 		// HeaderProtectionKey (AWG3) is written ONLY when AwgVersion == "3" and
 		// the key is non-empty — mirrors renderServerConf. The upstream kernel
 		// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds
