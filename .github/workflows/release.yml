@@ -17,6 +17,7 @@ on:
       - "x-ui.service.arch"
       - "x-ui.service.rhel"
       - ".github/workflows/release.yml"
+      - "third_party/sidecars/**"
   pull_request:
     paths:
       - "**.go"
@@ -28,6 +29,7 @@ on:
       - "x-ui.service.arch"
       - "x-ui.service.rhel"
       - ".github/workflows/release.yml"
+      - "third_party/sidecars/**"
 
 jobs:
   build:
@@ -179,124 +181,17 @@ jobs:
               rm -rf "${MTG_PKG}" "${MTG_PKG}.tar.gz"
               ;;
           esac
-          # LUCX-HOOK: tunnel sidecars live in third_party/sidecars/; install.sh fetches them
-          if true; then
-            :
-          else
+          # LUCX-HOOK: unpack amd64 sidecars from third_party into the GitHub
+          # tarball so first install has cores without a second GitHub-raw
+          # fetch. SourceCraft stays SLIM (100 MB). install.sh still fetches
+          # afterwards as a refresh (existing files survive a failed fetch).
           if [ "${{ matrix.platform }}" == "amd64" ]; then
-            fetch -O caddy-naive.tar.xz "https://github.com/klzgrad/forwardproxy/releases/download/${CADDY_NAIVE_TAG}/caddy-forwardproxy-naive.tar.xz"
-            tar -xJf caddy-naive.tar.xz
-            mv caddy-forwardproxy-naive/caddy caddy-naive-linux-amd64
-            rm -rf caddy-forwardproxy-naive caddy-naive.tar.xz
-          elif [ "${{ matrix.platform }}" == "arm64" ]; then
-            go install github.com/caddyserver/xcaddy/cmd/xcaddy@latest
-            CGO_ENABLED=0 "$(go env GOPATH)/bin/xcaddy" build \
-              --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@naive \
-              --output caddy-naive-linux-arm64
-          fi
-          # NaiveProxy CLIENT (klzgrad/naiveproxy Chromium) for sidecar
-          # outbounds. Distinct from caddy-naive (server). ~3.3 MB xz.
-          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
-            NAIVE_CLIENT_TAG="v150.0.7871.63-1"
-            case "${{ matrix.platform }}" in
-              amd64) NAIVE_CLIENT_ARCH="linux-x64" ;;
-              arm64) NAIVE_CLIENT_ARCH="linux-arm64" ;;
-            esac
-            NAIVE_CLIENT_XZ="naiveproxy-${NAIVE_CLIENT_TAG}-${NAIVE_CLIENT_ARCH}.tar.xz"
-            fetch -O "${NAIVE_CLIENT_XZ}" "https://github.com/klzgrad/naiveproxy/releases/download/${NAIVE_CLIENT_TAG}/${NAIVE_CLIENT_XZ}"
-            mkdir -p /tmp/naiveclient
-            tar -xJf "${NAIVE_CLIENT_XZ}" -C /tmp/naiveclient
-            NAIVE_CLIENT_BIN=$(find /tmp/naiveclient -type f -name naive | head -n1)
-            if [ -z "$NAIVE_CLIENT_BIN" ]; then echo "naive missing from ${NAIVE_CLIENT_XZ}"; exit 1; fi
-            mv "$NAIVE_CLIENT_BIN" "naive-client-linux-${{ matrix.platform }}"
-            chmod +x "naive-client-linux-${{ matrix.platform }}"
-            rm -rf /tmp/naiveclient "${NAIVE_CLIENT_XZ}"
-          fi
-          # olcRTC (openlibrecommunity/olcrtc, WTFPL) — TCP-over-WebRTC
-          # tunnel. Built from source with GOTOOLCHAIN=auto so the module's
-          # required Go version is pulled automatically. amd64/arm64 only;
-          # other arches use the Tunnels page upload/download path.
-          # PINNED, never unpinned master: upstream PR #140 (merged
-          # 2026-08-13) replaced the crypto wire format with the OLC2
-          # record layer (HKDF directional keys, "OLC2" framing, replay
-          # window) with NO fallback, breaking every existing client app
-          # (owenclave/olcbox builds predating it). 3339cd36 is the last
-          # master commit before that merge; lucx.112-118 shipped it and
-          # Telemost was verified working. Move the pin only when client
-          # apps ship OLC2 builds (and test a real room end-to-end first).
-          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
-            OLCRTC_REF="3339cd36716885e583429f97e73462cde4984e2e"
-            git init -q /tmp/olcrtc
-            git -C /tmp/olcrtc remote add origin https://github.com/openlibrecommunity/olcrtc.git
-            git -C /tmp/olcrtc fetch -q --depth 1 origin "${OLCRTC_REF}"
-            git -C /tmp/olcrtc checkout -q FETCH_HEAD
-            ( cd /tmp/olcrtc && GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.platform }}" \
-                go build -trimpath -ldflags="-s -w" -o "/tmp/olcrtc-linux-${{ matrix.platform }}" ./cmd/olcrtc )
-            mv "/tmp/olcrtc-linux-${{ matrix.platform }}" "olcrtc-linux-${{ matrix.platform }}"
-            rm -rf /tmp/olcrtc
-          fi
-          # qWDTT (SpaceNeuroX/proxy-turn-vk-android ./server, GPL-3.0) —
-          # WireGuard over VK TURN. PINNED to v1.4.2 (6c2f7a62), never
-          # Ex3-ui extra-qwdtt / unpinned master: client 1.4.2 (2026-08-19)
-          # hardened DTLS/WRAP (pion/dtls 3.1.2→3.1.5). The Ex3-ui v1.0
-          # binary was ~1.4.0-era; new client + old server = DTLS handshake
-          # timeout 10s. Lift the pin only with a matching client + e2e.
-          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
-            QWDTT_REF="6c2f7a627d9fc0b54240035818ff86b6d2b6c76f"
-            git init -q /tmp/qwdtt
-            git -C /tmp/qwdtt remote add origin https://github.com/SpaceNeuroX/proxy-turn-vk-android.git
-            git -C /tmp/qwdtt fetch -q --depth 1 origin "${QWDTT_REF}"
-            git -C /tmp/qwdtt checkout -q FETCH_HEAD
-            ( cd /tmp/qwdtt && GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.platform }}" \
-                go build -trimpath -ldflags="-s -w" -o "/tmp/qwdtt-linux-${{ matrix.platform }}" ./server )
-            mv "/tmp/qwdtt-linux-${{ matrix.platform }}" "qwdtt-linux-${{ matrix.platform }}"
-            chmod +x "qwdtt-linux-${{ matrix.platform }}"
-            rm -rf /tmp/qwdtt
-          fi
-          # mieru (enfein/mieru, GPL-3.0) — mita server. Built from a pinned
-          # tag; BinaryName() is mieru-linux-{arch}. amd64/arm64 only.
-          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
-            MIERU_REF="v3.35.0"
-            git clone --depth 1 --branch "${MIERU_REF}" https://github.com/enfein/mieru.git /tmp/mieru
-            ( cd /tmp/mieru && GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.platform }}" \
-                go build -trimpath -ldflags="-s -w" -o "/tmp/mieru-linux-${{ matrix.platform }}" ./cmd/mita )
-            mv "/tmp/mieru-linux-${{ matrix.platform }}" "mieru-linux-${{ matrix.platform }}"
-            chmod +x "mieru-linux-${{ matrix.platform }}"
-            ( cd /tmp/mieru && GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${{ matrix.platform }}" \
-                go build -trimpath -ldflags="-s -w" -o "/tmp/mieru-client-linux-${{ matrix.platform }}" ./cmd/mieru )
-            mv "/tmp/mieru-client-linux-${{ matrix.platform }}" "mieru-client-linux-${{ matrix.platform }}"
-            chmod +x "mieru-client-linux-${{ matrix.platform }}"
-            rm -rf /tmp/mieru
-          fi
-          # TrustTunnel (TrustTunnel/TrustTunnel, Apache-2.0) — prebuilt
-          # trusttunnel_endpoint from the official tarball. amd64=x86_64,
-          # arm64=aarch64. Other arches use Cores-tab upload.
-          if [ "${{ matrix.platform }}" == "amd64" ] || [ "${{ matrix.platform }}" == "arm64" ]; then
-            TT_VER="v1.0.33"
-            case "${{ matrix.platform }}" in
-              amd64) TT_ARCH="x86_64" ;;
-              arm64) TT_ARCH="aarch64" ;;
-            esac
-            TT_TGZ="trusttunnel-${TT_VER}-linux-${TT_ARCH}.tar.gz"
-            fetch -O "${TT_TGZ}" "https://github.com/TrustTunnel/TrustTunnel/releases/download/${TT_VER}/${TT_TGZ}"
-            mkdir -p /tmp/trusttunnel
-            tar -xzf "${TT_TGZ}" -C /tmp/trusttunnel
-            TT_BIN=$(find /tmp/trusttunnel -type f -name trusttunnel_endpoint | head -n1)
-            if [ -z "$TT_BIN" ]; then echo "trusttunnel_endpoint missing from ${TT_TGZ}"; exit 1; fi
-            mv "$TT_BIN" "trusttunnel-linux-${{ matrix.platform }}"
-            chmod +x "trusttunnel-linux-${{ matrix.platform }}"
-            rm -rf /tmp/trusttunnel "${TT_TGZ}"
-            TT_CLIENT_VER="v1.0.49"
-            TT_CLIENT_TGZ="trusttunnel_client-${TT_CLIENT_VER}-linux-${TT_ARCH}.tar.gz"
-            fetch -O "${TT_CLIENT_TGZ}" "https://github.com/TrustTunnel/TrustTunnelClient/releases/download/${TT_CLIENT_VER}/${TT_CLIENT_TGZ}"
-            mkdir -p /tmp/ttclient
-            tar -xzf "${TT_CLIENT_TGZ}" -C /tmp/ttclient
-            TT_CLIENT_BIN=$(find /tmp/ttclient -type f -name trusttunnel_client | head -n1)
-            if [ -z "$TT_CLIENT_BIN" ]; then echo "trusttunnel_client missing from ${TT_CLIENT_TGZ}"; exit 1; fi
-            mv "$TT_CLIENT_BIN" "trusttunnel-client-linux-${{ matrix.platform }}"
-            chmod +x "trusttunnel-client-linux-${{ matrix.platform }}"
-            rm -rf /tmp/ttclient "${TT_CLIENT_TGZ}"
-          fi
+            for gz in ../../third_party/sidecars/linux-amd64/*.gz; do
+              [ -f "$gz" ] || continue
+              name=$(basename "$gz" .gz)
+              gzip -dc "$gz" > "$name"
+              chmod +x "$name"
+            done
           fi
           # END LUCX-HOOK
           cd ../..

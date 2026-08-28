@@ -8,7 +8,7 @@ import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 import { formatInboundLabel } from '@/lib/inbounds/label';
-import { buildSubLinks, type SubSettingsLinks } from '@/lib/sub/links';
+import { buildSubLinks, withAwgInboundId, type SubSettingsLinks } from '@/lib/sub/links';
 import {
   buildWireguardClientConfig,
   findWireguardInbound,
@@ -225,17 +225,6 @@ export default function ClientQrModal({
         children: <QrPanel value={subAwgLink} remark={`${client?.email || ''} — Amnezia .conf`} />,
       });
     }
-    if (subAwgVpnLink && awgConfigs.length > 0) {
-      out.push({
-        key: 'subAwgVpn',
-        label: (
-          <Tag color="volcano" style={{ margin: 0 }}>
-            vpn://
-          </Tag>
-        ),
-        children: <QrPanel value={subAwgVpnLink} remark={`${client?.email || ''} — vpn://`} />,
-      });
-    }
     links.forEach((link, idx) => {
       const parts = parseLinkParts(link);
       const meta = parts ? linkMetaText(parts) : '';
@@ -329,6 +318,12 @@ export default function ClientQrModal({
               remark={client?.email || 'peer'}
               downloadName={`${client?.email || 'peer'}-awg${cfg.ib.id}.conf`}
             />
+            {subAwgVpnLink ? (
+              <QrPanel
+                value={withAwgInboundId(subAwgVpnLink, cfg.ib.id)}
+                remark={`${client?.email || ''} — vpn://`}
+              />
+            ) : null}
           </Space>
         ),
       });

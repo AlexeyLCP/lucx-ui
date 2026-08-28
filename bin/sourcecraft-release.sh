@@ -204,6 +204,15 @@ mv "$TT_CLIENT_BIN" "trusttunnel-client-linux-${ARCH}"
 chmod +x "trusttunnel-client-linux-${ARCH}"
 rm -rf /tmp/ttclient "${TT_CLIENT_TGZ}"
 
+ANYTLS_VER="v0.0.13"
+ANYTLS_ZIP="anytls_${ANYTLS_VER#v}_linux_${ARCH}.zip"
+fetch -O "${ANYTLS_ZIP}" "https://github.com/anytls/anytls-go/releases/download/${ANYTLS_VER}/${ANYTLS_ZIP}"
+mkdir -p /tmp/anytls
+unzip -qo "${ANYTLS_ZIP}" -d /tmp/anytls
+mv /tmp/anytls/anytls-server "anytls-linux-${ARCH}"
+chmod +x "anytls-linux-${ARCH}"
+rm -rf /tmp/anytls "${ANYTLS_ZIP}"
+
 cd ../..
 tar -zcvf "$OUT" x-ui
 echo "Wrote $OUT"

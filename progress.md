@@ -1,5 +1,43 @@
 # LucX-UI — Прогресс
 
+## lucx.186 — strip Vision flow on VLESS+XHTTP (2026-08-28)
+
+Ilije: VLESS+XHTTPS routing dead (also on vanilla 3x-ui); AWG2 routing fine. Andrey: flow is not for XHTTP.
+
+Leftover `flow=xtls-rprx-vision` stayed in inbound `clients[]` when transport is XHTTP+TLS (not flow-eligible). Strip ran only if DisableFlow was ticked.
+
+- `inboundShouldStripClientFlows`: DisableFlow OR VLESS that cannot use Vision.
+- AddInbound / UpdateInbound use it. TCP+TLS/REALITY and XHTTP+vlessenc unchanged.
+
+**lucxVersion:** lucx.186
+
+---
+
+## lucx.185 — QR vpn:// inbound + kernel AWG in hasTunnelAttachment (2026-08-28)
+
+Tester reports (Arseniy / Never):
+
+- QR vpn:// ignored the inbound switch (Info already passed `inboundId`). QR now emits `withAwgInboundId` per AWG inbound.
+- `hasTunnelAttachment` missed kernel `awg`, so detaching one AWG inbound could treat the identity as having no tunnel left and break the remaining AWG 3.1 peer.
+
+VLESS+XHTTP flow: XHTTP+TLS already clears Vision (locked with a test). XHTTPS routing also broken on vanilla 3x-ui.
+
+**lucxVersion:** lucx.185
+
+---
+
+## lucx.184 — AnyTLS in sidecar bundle + cores in GitHub tarball (2026-08-28)
+
+First install left Cores empty; panel update installed every tunnel binary except AnyTLS (lucx.183 never added it to `lucx_fetch_sidecars` / `third_party`).
+
+- `anytls-linux-amd64.gz` — anytls/anytls-go `v0.0.13` `anytls-server`.
+- Fetch list in `install.sh` / `update.sh` includes AnyTLS; sidecar curl now retries.
+- GitHub amd64 tarball unpacks `third_party/sidecars/*.gz` into `bin/` so first install has cores even if the post-start GitHub-raw fetch fails. SourceCraft stays SLIM (100 MB).
+
+**lucxVersion:** lucx.184
+
+---
+
 ## lucx.183 — log retention, Sand/Graphite themes, vpn:// envelope, AnyTLS (2026-08-28)
 
 Four operator features (Phobos/wg-obfuscator postponed).

@@ -33,6 +33,30 @@ func clientFlowsInSettings(t *testing.T, settings string) map[string]string {
 	return out
 }
 
+func TestInboundShouldStripClientFlows(t *testing.T) {
+	cases := []struct {
+		name string
+		ib   *model.Inbound
+		want bool
+	}{
+		{"nil", nil, false},
+		{"disableFlow", &model.Inbound{Protocol: model.VLESS, DisableFlow: true, StreamSettings: `{"network":"tcp","security":"tls"}`}, true},
+		{"vless tcp tls keeps flow", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"tcp","security":"tls"}`}, false},
+		{"vless xhttp tls strips leftover vision", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"xhttp","security":"tls"}`}, true},
+		{"vless xhttp no enc strips", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"xhttp","security":"none"}`}, true},
+		{"vless xhttp vlessenc keeps flow", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"xhttp","security":"none"}`, Settings: `{"encryption":"mlkem768x25519plus.native.0rtt.KEY"}`}, false},
+		{"vless ws tls strips", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"ws","security":"tls"}`}, true},
+		{"awg never strips via this helper", &model.Inbound{Protocol: model.AWG}, false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := inboundShouldStripClientFlows(tc.ib); got != tc.want {
+				t.Fatalf("inboundShouldStripClientFlows = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestStripClientFlows(t *testing.T) {
 	cases := []struct {
 		name        string

@@ -21,12 +21,16 @@ import (
 func TestHasTunnelAttachmentDetectsWireguardOrAmneziaWG(t *testing.T) {
 	setupConflictDB(t)
 	seedInboundConflict(t, "awg-1", "0.0.0.0", 443, model.AmneziaWG, ``, `{"server":{"subnetIp":"10.8.1.0","subnetCidr":24},"clients":[]}`)
+	seedInboundConflict(t, "lucx-awg-1", "0.0.0.0", 51821, model.AWG, ``, `{"address":"10.200.0.1/24","clients":[]}`)
 	seedInboundConflict(t, "wg-1", "0.0.0.0", 51820, model.WireGuard, ``, `{"clients":[]}`)
 	seedInboundConflict(t, "vless-1", "0.0.0.0", 8443, model.VLESS, `{"network":"tcp"}`, `{"clients":[]}`)
 
-	var awgInbound, wgInbound, vlessInbound model.Inbound
+	var awgInbound, lucxAwgInbound, wgInbound, vlessInbound model.Inbound
 	if err := database.GetDB().Where("tag = ?", "awg-1").First(&awgInbound).Error; err != nil {
 		t.Fatalf("read seeded awg row: %v", err)
+	}
+	if err := database.GetDB().Where("tag = ?", "lucx-awg-1").First(&lucxAwgInbound).Error; err != nil {
+		t.Fatalf("read seeded lucx awg row: %v", err)
 	}
 	if err := database.GetDB().Where("tag = ?", "wg-1").First(&wgInbound).Error; err != nil {
 		t.Fatalf("read seeded wg row: %v", err)
@@ -52,6 +56,9 @@ func TestHasTunnelAttachmentDetectsWireguardOrAmneziaWG(t *testing.T) {
 	}
 	if !s.hasTunnelAttachment(inboundSvc, []int{awgInbound.Id}) {
 		t.Error("an AmneziaWG inbound must count as a tunnel attachment")
+	}
+	if !s.hasTunnelAttachment(inboundSvc, []int{lucxAwgInbound.Id}) {
+		t.Error("a kernel AWG inbound must count as a tunnel attachment")
 	}
 }
 

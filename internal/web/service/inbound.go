@@ -1877,7 +1877,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		return inbound, false, common.NewError("Duplicate email:", existEmail)
 	}
 
-	if inbound.DisableFlow {
+	if inboundShouldStripClientFlows(inbound) {
 		if stripped, changed := stripClientFlows(inbound.Settings); changed {
 			inbound.Settings = stripped
 		}
@@ -2660,14 +2660,12 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// VLESS inbound just became flow-eligible (e.g. vlessenc was enabled on an
 		// XHTTP inbound), restore Vision for clients whose intended flow is Vision
 		// but was stripped while the inbound was ineligible.
-		if !inbound.DisableFlow {
-			if restored, changed := s.restoreVisionFlowForEligibleInbound(tx, inbound.Settings, inbound.StreamSettings, inbound.Protocol); changed {
-				inbound.Settings = restored
-			}
-		} else {
+		if inboundShouldStripClientFlows(inbound) {
 			if stripped, changed := stripClientFlows(inbound.Settings); changed {
 				inbound.Settings = stripped
 			}
+		} else if restored, changed := s.restoreVisionFlowForEligibleInbound(tx, inbound.Settings, inbound.StreamSettings, inbound.Protocol); changed {
+			inbound.Settings = restored
 		}
 
 		oldInbound.Total = inbound.Total
