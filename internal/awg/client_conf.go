@@ -50,10 +50,13 @@ func renderClientConf(ci ClientInstance) string {
 			fmt.Fprintf(&b, "S3 = %d\n", s.S3)
 			fmt.Fprintf(&b, "S4 = %d\n", s.S4)
 		}
-		fmt.Fprintf(&b, "H1 = %s\n", s.H1)
-		fmt.Fprintf(&b, "H2 = %s\n", s.H2)
-		fmt.Fprintf(&b, "H3 = %s\n", s.H3)
-		fmt.Fprintf(&b, "H4 = %s\n", s.H4)
+		// Per field, like the server renderer: only a blank one is skipped, because
+		// "H1 = " alone makes setconf reject the whole file.
+		for i, h := range []string{s.H1, s.H2, s.H3, s.H4} {
+			if strings.TrimSpace(h) != "" {
+				fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
+			}
+		}
 		// HeaderProtectionKey (AWG3) is written ONLY when AwgVersion == "3" and
 		// the key is non-empty — mirrors renderServerConf. The upstream kernel
 		// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds
