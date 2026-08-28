@@ -1,5 +1,8 @@
 services:
   3xui:
+    # LUCX-HOOK: prebuilt GHCR image; `docker compose build` still uses Dockerfile
+    image: ghcr.io/alexeylcp/lucx-ui:latest
+    # END LUCX-HOOK
     build:
       context: .
       dockerfile: ./Dockerfile

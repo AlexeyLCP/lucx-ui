@@ -52,7 +52,24 @@ XUI_NONINTERACTIVE=1 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP
 ```
 Учётные данные сохраняются в `/etc/x-ui/install-result.env`.
 
-### Docker с PostgreSQL
+### Docker
+Образы собираются на каждый релизный тег (`ghcr.io/alexeylcp/lucx-ui`):
+
+```bash
+docker run -d \
+  --name lucx-ui \
+  --restart unless-stopped \
+  --cap-add=NET_ADMIN \
+  --cap-add=NET_RAW \
+  -p 2053:2053 \
+  -v $PWD/db/:/etc/x-ui/ \
+  ghcr.io/alexeylcp/lucx-ui:latest
+```
+
+Или `docker compose up -d` (тянет тот же образ; `docker compose build` собирает локально).
+
+С PostgreSQL — раскомментировать `XUI_DB_*` в `docker-compose.yml` и:
+
 ```bash
 docker compose --profile postgres up -d
 ```

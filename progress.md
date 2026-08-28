@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## chore — GHCR Docker images + README install (2026-08-29)
+
+`docker.yml` still pushed to upstream `hsanaeii/3x-ui` / `ghcr.io/mhsanaei/3x-ui` and logged into Docker Hub without secrets — lucx tags failed in ~20s.
+
+- Publish `ghcr.io/alexeylcp/lucx-ui` (`:tag` + `:latest`) on `v*.*.*`.
+- Node 24 in Dockerfile (Vite 8). compose pulls the GHCR image.
+- README RU/EN: `docker run` / compose snippet.
+
+**lucxVersion:** lucx.187 (unchanged)
+
+---
+
 ## fix — CTO review: Naive HMAC, HOOK holes, SSRF, sanitizers (2026-08-29)
 
 Panel/daemon hardening from the lucx.187 CTO review. No lucxVersion bump, no tag.
