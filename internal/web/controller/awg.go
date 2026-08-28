@@ -26,7 +26,8 @@ import (
 // the pool); fullI1I5 reports whether I1-I5 are all emitted (Pro) or just I1
 // (Lite/Standard). awgVersion targets the AmneziaWG protocol version
 // ("1.5"/"2"/"3"); when "3", the response carries a freshly generated
-// HeaderProtectionKey (the AWG3 kernel/tools now parse it).
+// HeaderProtectionKey (the AWG3 kernel/tools now parse it). nodeId names the
+// host the inbound will run on — null/absent means this master.
 type awgGenerateObfuscationRequest struct {
 	ObfProfile     string `json:"obfProfile"`
 	MimicryProfile string `json:"mimicryProfile"`
@@ -35,6 +36,7 @@ type awgGenerateObfuscationRequest struct {
 	Domain         string `json:"domain"`
 	FullI1I5       bool   `json:"fullI1I5"`
 	AwgVersion     string `json:"awgVersion"`
+	NodeID         *int   `json:"nodeId"`
 }
 
 // awgCPSBudget is the one number the generator and the save-time guard
@@ -73,7 +75,7 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 	}
 	// A header-protection key takes netlink bytes the I-fields then cannot have,
 	// so the budget the generator aims at has to know one is coming.
-	withHPK := awg.IsAwg3Plus(req.AwgVersion) && awg.ModuleSupportsAwg3()
+	withHPK := awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(req.AwgVersion), req.NodeID == nil, awg.ModuleSupportsAwg3())
 	cpsResult, err := cps.GenerateCPS(
 		cps.MimicryProfile(req.MimicryProfile),
 		cps.Region(req.Region),
@@ -113,14 +115,14 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 		delete(resp, "i4")
 		delete(resp, "i5")
 	}
-	// headerProtectionKey is returned ONLY when awgVersion == "3" AND the host
-	// actually runs AWG3 (kernel module + tools, probed functionally by
-	// ModuleSupportsAwg3). Generating a key the renderers would then strip
+	// headerProtectionKey is returned ONLY when awgVersion == "3" AND the target
+	// host may run AWG3 — this master's probe speaks for a local inbound only, a
+	// node's own support is not stored here. Generating a key the renderers strip
 	// leaves a form field that never reaches a .conf — worse, a key an operator
 	// copies to an external client implies a server capability the host lacks.
 	// feat/awg3 was merged upstream 2026-07-30; GenerateAWGParams already
 	// guarantees S1-S4 >= MinSForHPK, so the kernel accepts the key. For
-	// v1.5/v2 — or a v3 request on a pre-AWG3 host — the field is omitted (not
+	// v1.5/v2 — or a local v3 request on a pre-AWG3 host — the field is omitted (not
 	// ""), so the form's Object.entries(obf).forEach(setValue) leaves any
 	// hand-typed key untouched — the same property forward-compat relied on.
 	if withHPK {
@@ -153,11 +155,12 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 // awgCaptureHostRequest is the body the AWG inbound form posts to
 // /panel/api/inbounds/awg/captureHost. domain is the front host whose real
 // QUIC handshake should be captured and used as the I1-I5 CPS signature.
-// awgVersion mirrors awgGenerateObfuscationRequest's field: it decides
-// whether the capture budget must leave room for a header-protection key.
+// awgVersion and nodeId mirror awgGenerateObfuscationRequest's fields: together
+// they decide whether the capture budget must leave room for a protection key.
 type awgCaptureHostRequest struct {
 	Domain     string `json:"domain"`
 	AwgVersion string `json:"awgVersion"`
+	NodeID     *int   `json:"nodeId"`
 }
 
 // awgCaptureHost captures a real QUIC handshake from the given domain (UDP
@@ -179,7 +182,7 @@ func (a *InboundController) awgCaptureHost(c *gin.Context) {
 	}
 	// Same withHPK expression as awgGenerateObfuscation: an HPK claims netlink
 	// bytes I-fields then cannot have, so the capture budget must know one is coming.
-	withHPK := awg.IsAwg3Plus(req.AwgVersion) && awg.ModuleSupportsAwg3()
+	withHPK := awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(req.AwgVersion), req.NodeID == nil, awg.ModuleSupportsAwg3())
 	res, err := signature.Capture(req.Domain, withHPK)
 	if err != nil {
 		jsonMsg(c, "awg capture failed: "+err.Error(), nil)

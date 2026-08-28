@@ -8,8 +8,10 @@ package controller
 
 import (
 	"encoding/json"
+	"maps"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"testing"
 
@@ -62,6 +64,68 @@ func TestAwgGenerateObfuscation_NoIFieldsOnV15(t *testing.T) {
 			_, got := m.Obj["i1"]
 			if got != tc.wantI {
 				t.Fatalf("awgVersion %q: i1 present = %v, want %v; obj=%v", tc.awgVersion, got, tc.wantI, m.Obj)
+			}
+		})
+	}
+}
+
+// awg3ResponseKeys is the whole v3 block the generator owes a v3 inbound: the
+// header-protection key plus the six AWG 3.0 device timer/padding ranges.
+var awg3ResponseKeys = []string{
+	"headerProtectionKey",
+	"contentPaddingAddition",
+	"rekeyAfterTime",
+	"rekeyTimeout",
+	"rejectAfterTime",
+	"keepaliveTimeout",
+	"maxHandshakeAttempts",
+}
+
+func generateObfuscation(t *testing.T, router *gin.Engine, body string) map[string]any {
+	t.Helper()
+	req := httptest.NewRequest(http.MethodPost, "/panel/api/inbounds/awg/generateObfuscation", strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	resp := httptest.NewRecorder()
+	router.ServeHTTP(resp, req)
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200; body=%s", resp.Code, resp.Body.String())
+	}
+	var m struct {
+		Obj map[string]any `json:"obj"`
+	}
+	if err := json.Unmarshal(resp.Body.Bytes(), &m); err != nil {
+		t.Fatalf("unmarshal response: %v; body=%s", err, resp.Body.String())
+	}
+	return m.Obj
+}
+
+// A node's AWG3 support is not stored on the master, so the master's own
+// module probe must not answer for a node-hosted inbound.
+func TestAwgGenerateObfuscation_NodeInboundKeepsAwg3Fields(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	NewInboundController(router.Group("/panel/api/inbounds"))
+
+	unsupported := false
+	awg.SetModuleSupportsAwg3(&unsupported)
+	t.Cleanup(func() { awg.SetModuleSupportsAwg3(nil) })
+
+	for _, tc := range []struct {
+		name        string
+		body        string
+		wantPresent bool
+	}{
+		{"node inbound keeps the v3 block the master cannot judge", `{"awgVersion":"3","nodeId":7}`, true},
+		{"local inbound stays gated on the master's own probe", `{"awgVersion":"3","nodeId":null}`, false},
+		{"nodeId omitted behaves exactly as before the field existed", `{"awgVersion":"3"}`, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			obj := generateObfuscation(t, router, tc.body)
+			for _, key := range awg3ResponseKeys {
+				if _, got := obj[key]; got != tc.wantPresent {
+					t.Errorf("%s: %q present = %v, want %v; response keys = %v",
+						tc.body, key, got, tc.wantPresent, slices.Sorted(maps.Keys(obj)))
+				}
 			}
 		})
 	}

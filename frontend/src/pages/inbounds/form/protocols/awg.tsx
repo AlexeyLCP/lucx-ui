@@ -51,6 +51,7 @@ function levelToFullI1I5(level: number): boolean {
 // HeaderProtectionKey (the generator guarantees S1-S4 >= 12).
 async function generateAwgObfuscationFromBackend(
   getValue: (name: string) => unknown,
+  nodeId: number | null | undefined,
 ): Promise<Record<string, unknown> | null> {
   const level = (getValue('settings.obfLevel') as number) ?? 2;
   const mimicryProfile = (getValue('settings.mimicryProfile') as string) || 'tls';
@@ -69,6 +70,7 @@ async function generateAwgObfuscationFromBackend(
       domain: '',
       fullI1I5,
       awgVersion,
+      nodeId,
     },
     { headers: { 'Content-Type': 'application/json' } },
   );
@@ -76,15 +78,16 @@ async function generateAwgObfuscationFromBackend(
   return (msg?.obj ?? null) as Record<string, unknown> | null;
 }
 
-// awgVersion tells the backend whether the inbound will carry a
-// header-protection key, which narrows the capture's netlink byte budget.
+// awgVersion and the target host tell the backend whether the inbound will carry
+// a header-protection key, which narrows the capture's netlink byte budget.
 async function captureHostSignature(
   domain: string,
   awgVersion: string,
+  nodeId: number | null | undefined,
 ): Promise<Record<string, string> | null> {
   const msg = await HttpUtil.post(
     '/panel/api/inbounds/awg/captureHost',
-    { domain, awgVersion },
+    { domain, awgVersion, nodeId },
     { headers: { 'Content-Type': 'application/json' } },
   );
   if (!msg?.success) return null;
@@ -135,9 +138,12 @@ export interface AwgFieldsProps {
   // warn when the operator types an overlapping subnet (kernel would install
   // two connected routes for the same prefix — see AGENTS.md Pattern 1e).
   otherAwgSubnets?: string[];
+  // Host the inbound will run on: null = this panel, a number = node-hosted.
+  // The generator endpoints gate the AWG3 block on it (awg.AwgVersionFieldsAllowed).
+  nodeId?: number | null;
 }
 
-export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
+export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsProps) {
   const { t } = useTranslation();
   const [messageApi, messageContextHolder] = message.useMessage();
   // react-hook-form context (the inbound form is rhf, NOT AntD form). Use
@@ -175,7 +181,7 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
   const regenerateObfuscation = async () => {
     setGenerating(true);
     try {
-      const obf = await generateAwgObfuscationFromBackend((name) => watch(name as never));
+      const obf = await generateAwgObfuscationFromBackend((name) => watch(name as never), nodeId);
       if (!obf) {
         messageApi.error(t('pages.inbounds.form.awgRegenerateFailed'));
         return;
@@ -208,7 +214,7 @@ export default function AwgFields({ otherAwgSubnets = [] }: AwgFieldsProps) {
     }
     setCapturing(true);
     try {
-      const res = await captureHostSignature(dom, awgVersion ?? '');
+      const res = await captureHostSignature(dom, awgVersion ?? '', nodeId);
       if (!res || !res.i1) {
         messageApi.error(t('pages.inbounds.form.awgCaptureFailed'));
         return;
