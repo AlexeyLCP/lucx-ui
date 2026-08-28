@@ -21,8 +21,8 @@ const (
 	nlHpkBytes    = 36  // WGDEVICE_A_HEADER_PROTECTION_KEY attribute
 	nlPeersNest   = 4   // WGDEVICE_A_PEERS nest header
 
-	// The device block with I1-I5 rides the first message alone (netlink.c:437-499),
-	// so exactly one peer shares it whatever the peer count — 188 fixed + two AllowedIPs.
+	// Peer count doesn't affect the I-field limit: the device block rides the
+	// first message and shares it only with the start of the peer list (netlink.c:517-523) — 188 fixed + two AllowedIPs.
 	nlPeerBytes = 256
 	// Only two AllowedIPs are reserved, the "0.0.0.0/0, ::/0" every renderer here
 	// defaults to; a hand-written third one would eat this whole margin.

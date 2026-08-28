@@ -8,10 +8,8 @@ import (
 	"testing"
 )
 
-// The budget is the number the whole fix hangs on: 3500 for a one-peer client
-// interface named awgo-1 with no header-protection key. The largest readable
-// set measured on that shape was 3628 bytes — a 128-byte gap, unrelated to the
-// nlSafetyMargin constant it used to coincide with.
+// 3500 is the budget for interface awgo-1 with no header-protection key;
+// 3628 is the measured max readable set on that shape — the 128-byte gap is unrelated to nlSafetyMargin (now 40).
 func TestIBytesBudget(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -118,8 +116,8 @@ func TestWorstCaseIBytesBudget(t *testing.T) {
 	}
 }
 
-// The 4096 bytes bound one netlink message, not the device: peers 2..N ride
-// later messages that carry no device block, so the reserve is for one peer.
+// Derives one peer's netlink cost independently of the nlPeerBytes constant;
+// peer-count independence itself is guarded by the budget pin in TestWorstCaseIBytesBudget, not here.
 func TestPeerReserve_CountsOneWholePeerNotAPrefix(t *testing.T) {
 	// nlAttrBytes is NLA_ALIGN(NLA_HDRLEN+payload). Payload 0 is a bare header:
 	// a nest opener or the pad attribute nla_put_u64_64bit may insert.
