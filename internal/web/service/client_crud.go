@@ -168,7 +168,7 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 			return false, common.NewError("email already in use:", client.Email)
 		}
 		// Reuse stored credentials when re-adding an existing identity, or
-		// fillProtocolDefaults mints a fresh UUID that desyncs other inbounds.
+		// per-inbound generation mints fresh values that desync other inbounds.
 		if client.ID == "" {
 			client.ID = existing.UUID
 		}
@@ -180,6 +180,15 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		}
 		if client.Secret == "" {
 			client.Secret = existing.Secret
+		}
+		if client.PrivateKey == "" {
+			client.PrivateKey = existing.PrivateKey
+		}
+		if client.PublicKey == "" {
+			client.PublicKey = existing.PublicKey
+		}
+		if client.PreSharedKey == "" {
+			client.PreSharedKey = existing.PreSharedKey
 		}
 	}
 
