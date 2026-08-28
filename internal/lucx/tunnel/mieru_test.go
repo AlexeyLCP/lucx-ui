@@ -101,7 +101,7 @@ func TestMieruClientLink(t *testing.T) {
 	if !strings.HasPrefix(link, "mierus://miuser:mipass@1.2.3.4?") {
 		t.Fatalf("link prefix wrong: %s", link)
 	}
-	for _, want := range []string{"profile=default", "mtu=1400", "port=6666", "protocol=TCP", "port=9998-9999", "protocol=UDP"} {
+	for _, want := range []string{"profile=client%40mail", "mtu=1400", "port=6666", "protocol=TCP", "port=9998-9999", "protocol=UDP"} {
 		if !strings.Contains(link, want) {
 			t.Fatalf("link missing %q: %s", want, link)
 		}

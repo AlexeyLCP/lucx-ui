@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.187 — Naive/mieru/TrustTunnel Hosts + share names (2026-08-28)
+
+Tuna: Naive share links ignored Hosts (could not put :443 in the client URL) and used email/hostname as the profile name; mieru showed `default`; TrustTunnel used email. Had to patch links by hand.
+
+- Hosts / `externalProxy` dest+port fan-out for naive, mieru, TrustTunnel (same path as hysteria).
+- Share remark is `genRemark` (inbound remark + email), not raw email.
+- mieru `profile=` is the remark, not hardcoded `default`.
+
+Tests: `TestNaiveClientURLForRemark`, `TestMieruClientLink` profile, `TestGetSubs_{Naive,Mieru,TrustTunnel}_HostPort`.
+
+**lucxVersion:** lucx.187
+
+---
+
 ## lucx.186 — strip Vision flow on VLESS+XHTTP (2026-08-28)
 
 Ilije: VLESS+XHTTPS routing dead (also on vanilla 3x-ui); AWG2 routing fine. Andrey: flow is not for XHTTP.

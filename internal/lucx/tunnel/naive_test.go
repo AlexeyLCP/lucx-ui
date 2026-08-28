@@ -379,6 +379,19 @@ func TestNaiveClientURL(t *testing.T) {
 	}
 }
 
+func TestNaiveClientURLForRemark(t *testing.T) {
+	cfg := DefaultNaiveConfig()
+	cfg.Domain = "n.example.org"
+	cfg.Port = 443
+	got := cfg.ClientURLFor(AuthPair{User: "alice", Pass: "s3cret"}, "naive-in-user")
+	if !strings.HasSuffix(got, "#naive-in-user") {
+		t.Errorf("ClientURLFor fragment: %q", got)
+	}
+	if !strings.Contains(got, "@n.example.org:443") {
+		t.Errorf("ClientURLFor host:port: %q", got)
+	}
+}
+
 func TestInstanceFingerprint(t *testing.T) {
 	a := Instance{Core: Naive, Enabled: true, ConfigText: "x", ExtraArgs: "--a"}
 	b := Instance{Core: Naive, Enabled: true, ConfigText: "x", ExtraArgs: "--a"}
