@@ -1467,9 +1467,11 @@ export interface GenInboundLinksInput {
   remark?: string;
   hostOverride?: string;
   fallbackHostname: string;
+  // LUCX-HOOK: AWG-only inputs on an upstream type — no other protocol reads them.
   // Read only by the 'awg' branch below — see GenAwgLinkInput for meaning.
   nodeId?: number | null;
   hostAwgSupport?: { moduleAwg3: boolean; moduleAwg31: boolean };
+  // END LUCX-HOOK
 }
 
 // Top-level entrypoint that produces the full \r\n-joined block a user
@@ -1483,8 +1485,10 @@ export function genInboundLinks(input: GenInboundLinksInput): string {
     remark = '',
     hostOverride = '',
     fallbackHostname,
+    // LUCX-HOOK: destructured only to reach genAwgConfigs in the 'awg' branch.
     nodeId,
     hostAwgSupport,
+    // END LUCX-HOOK
   } = input;
   const addr = resolveAddr(inbound, hostOverride, fallbackHostname);
   const clients = getInboundClients(inbound);

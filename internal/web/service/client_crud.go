@@ -181,6 +181,8 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		if client.Secret == "" {
 			client.Secret = existing.Secret
 		}
+		// LUCX-HOOK: one identity attaches to many AWG/WG inbounds, so a re-add
+		// that mints a fresh keypair or PSK desyncs every peer already deployed.
 		if client.PrivateKey == "" {
 			client.PrivateKey = existing.PrivateKey
 		}
@@ -190,6 +192,7 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		if client.PreSharedKey == "" {
 			client.PreSharedKey = existing.PreSharedKey
 		}
+		// END LUCX-HOOK
 	}
 
 	if client.SubID != "" {
@@ -310,6 +313,9 @@ func (s *ClientService) fillProtocolDefaults(c *model.Client, ib *model.Inbound)
 	return nil
 }
 
+// LUCX-HOOK: the helper below exists because one identity attaches to inbounds
+// of mixed protocols — a keyless one's copy must not carry tunnel credentials.
+
 // clearForeignTunnelKeys keeps an identity's tunnel keypair and PSK out of a
 // keyless protocol's settings JSON — unlike Password/Auth/Secret, these decrypt a tunnel.
 func clearForeignTunnelKeys(c *model.Client, proto model.Protocol) {
@@ -320,6 +326,8 @@ func clearForeignTunnelKeys(c *model.Client, proto model.Protocol) {
 	c.PublicKey = ""
 	c.PreSharedKey = ""
 }
+
+// END LUCX-HOOK
 
 // defaultMtprotoDomain is the FakeTLS fronting domain used when an mtproto
 // inbound carries no fakeTlsDomain of its own; it mirrors the frontend default.

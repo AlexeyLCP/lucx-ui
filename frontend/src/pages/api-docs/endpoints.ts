@@ -224,6 +224,7 @@ export const sections: readonly Section[] = [
         summary:
           'Reset upload + download counters on every inbound. Destructive — accounting history is lost.',
       },
+      // LUCX-HOOK: AWG obfuscation generator + host capture endpoint documentation.
       {
         method: 'POST',
         path: '/panel/api/inbounds/awg/generateObfuscation',
@@ -308,6 +309,7 @@ export const sections: readonly Section[] = [
           },
         ],
       },
+      // END LUCX-HOOK
       // LUCX-HOOK: AWG runtime diagnostics endpoint documentation.
       {
         method: 'GET',

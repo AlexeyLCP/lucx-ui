@@ -905,6 +905,7 @@ export default function InboundFormModal({
           nodeId={typeof wNodeId === 'number' ? wNodeId : null}
         />
       )}
+      {/* END LUCX-HOOK */}
       {/* LUCX-HOOK: NaiveProxy inbound form */}
       {protocol === Protocols.NAIVE && <NaiveFields />}
       {protocol === Protocols.OLCRTC && <OlcrtcFields />}
