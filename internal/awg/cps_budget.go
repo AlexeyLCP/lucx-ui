@@ -12,16 +12,21 @@ import (
 	"strings"
 )
 
-// The kernel carries a whole device in one 4096-byte netlink message, so the
-// I1-I5 limit is a byte budget, not a character count.
+// The 4096 bytes bound one netlink message, not the device, so the I1-I5 limit
+// is a byte budget, not a character count.
 const (
-	nlBufBytes     = 4096
-	nlDeviceBytes  = 296 // device block measured at the 6-char ifname baseline
-	nlIfnameBase   = 12  // nlaBytes("awgo-1"), already counted in nlDeviceBytes
-	nlHpkBytes     = 36  // WGDEVICE_A_HEADER_PROTECTION_KEY attribute
-	nlPeersNest    = 4   // WGDEVICE_A_PEERS nest header
-	nlPeerBytes    = 168 // one peer's fixed prefix; a client .conf has exactly one
-	nlSafetyMargin = 128
+	nlBufBytes    = 4096
+	nlDeviceBytes = 296 // device block measured at the 6-char ifname baseline
+	nlIfnameBase  = 12  // nlaBytes("awgo-1"), already counted in nlDeviceBytes
+	nlHpkBytes    = 36  // WGDEVICE_A_HEADER_PROTECTION_KEY attribute
+	nlPeersNest   = 4   // WGDEVICE_A_PEERS nest header
+
+	// The device block with I1-I5 rides the first message alone (netlink.c:437-499),
+	// so exactly one peer shares it whatever the peer count — 188 fixed + two AllowedIPs.
+	nlPeerBytes = 256
+	// Only two AllowedIPs are reserved, the "0.0.0.0/0, ::/0" every renderer here
+	// defaults to; a hand-written third one would eat this whole margin.
+	nlSafetyMargin = 40
 )
 
 // BaselineIfname is the 6-character shape the 3500-byte budget is quoted for.

@@ -10,7 +10,8 @@ import (
 
 // The budget is the number the whole fix hangs on: 3500 for a one-peer client
 // interface named awgo-1 with no header-protection key. The largest readable
-// set measured on that shape was 3628 bytes, so 3500 keeps the 128-byte margin.
+// set measured on that shape was 3628 bytes — a 128-byte gap, unrelated to the
+// nlSafetyMargin constant it used to coincide with.
 func TestIBytesBudget(t *testing.T) {
 	for _, tc := range []struct {
 		name   string
@@ -114,6 +115,39 @@ func TestWorstCaseIBytesBudget(t *testing.T) {
 	}
 	if got := WorstCaseIBytesBudget(true); got != 3456 {
 		t.Fatalf("WorstCaseIBytesBudget(true) = %d, want 3456", got)
+	}
+}
+
+// The 4096 bytes bound one netlink message, not the device: peers 2..N ride
+// later messages that carry no device block, so the reserve is for one peer.
+func TestPeerReserve_CountsOneWholePeerNotAPrefix(t *testing.T) {
+	// nlAttrBytes is NLA_ALIGN(NLA_HDRLEN+payload). Payload 0 is a bare header:
+	// a nest opener or the pad attribute nla_put_u64_64bit may insert.
+	nlAttrBytes := func(payload int) int { return (payload + 7) &^ 3 }
+
+	// get_peer, netlink.c:282-376; the IPv6 endpoint is the worse of the two.
+	fixed := nlAttrBytes(0) + // peer_nest
+		nlAttrBytes(4) + // WGPEER_A_FLAGS
+		nlAttrBytes(32) + // WGPEER_A_PUBLIC_KEY
+		nlAttrBytes(32) + // WGPEER_A_PRESHARED_KEY
+		nlAttrBytes(16) + // WGPEER_A_LAST_HANDSHAKE_TIME
+		nlAttrBytes(4) + // WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL
+		nlAttrBytes(8) + nlAttrBytes(0) + // WGPEER_A_TX_BYTES + 64-bit pad
+		nlAttrBytes(8) + nlAttrBytes(0) + // WGPEER_A_RX_BYTES + 64-bit pad
+		nlAttrBytes(4) + // WGPEER_A_PROTOCOL_VERSION
+		nlAttrBytes(28) + // WGPEER_A_ENDPOINT, sockaddr_in6
+		nlAttrBytes(0) // WGPEER_A_ALLOWEDIPS nest
+
+	// get_allowedips, netlink.c:118-137: nest + cidr u8 + family u16 + address.
+	allowedIP := func(addrBytes int) int {
+		return nlAttrBytes(0) + nlAttrBytes(1) + nlAttrBytes(2) + nlAttrBytes(addrBytes)
+	}
+
+	// Every renderer here defaults a peer to "0.0.0.0/0, ::/0" — two entries.
+	want := fixed + allowedIP(4) + allowedIP(16)
+	if nlPeerBytes != want {
+		t.Fatalf("nlPeerBytes = %d, want %d (fixed %d + AllowedIPs %d v4 + %d v6)",
+			nlPeerBytes, want, fixed, allowedIP(4), allowedIP(16))
 	}
 }
 
