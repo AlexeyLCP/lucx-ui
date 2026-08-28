@@ -1298,6 +1298,7 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			// LUCX-HOOK: AWG/WG — typed IP only when this client hits one tunnel inbound.
 			if ib != nil {
 				clearBroadcastTunnelIP(&per, ib.Protocol, tunnelN)
+				clearForeignTunnelKeys(&per, ib.Protocol)
 			}
 			// END LUCX-HOOK
 			byInbound[ibId] = append(byInbound[ibId], clientWithInboundFlow(per, ib))

@@ -220,6 +220,7 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		// reuse one AllowedIPs across different subnets. A single target keeps
 		// the operator-typed IP (Vlad: dummy clients just to skip addresses).
 		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
+		clearForeignTunnelKeys(&per, inbound.Protocol)
 		// END LUCX-HOOK
 		if ips, ok := client.AllowedIPsByInbound[inbound.Id]; ok {
 			per.AllowedIPs = ips
@@ -307,6 +308,17 @@ func (s *ClientService) fillProtocolDefaults(c *model.Client, ib *model.Inbound)
 		}
 	}
 	return nil
+}
+
+// clearForeignTunnelKeys keeps an identity's tunnel keypair and PSK out of a
+// keyless protocol's settings JSON — unlike Password/Auth/Secret, these decrypt a tunnel.
+func clearForeignTunnelKeys(c *model.Client, proto model.Protocol) {
+	if c == nil || proto == model.AWG || proto == model.WireGuard || proto == model.AmneziaWG {
+		return
+	}
+	c.PrivateKey = ""
+	c.PublicKey = ""
+	c.PreSharedKey = ""
 }
 
 // defaultMtprotoDomain is the FakeTLS fronting domain used when an mtproto
@@ -572,6 +584,7 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		// LUCX-HOOK: never broadcast one AllowedIPs to every AWG/WG inbound.
 		// One tunnel inbound → keep the typed IP (edit was rolling back).
 		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
+		clearForeignTunnelKeys(&per, inbound.Protocol)
 		// END LUCX-HOOK
 		if ips, ok := updated.AllowedIPsByInbound[inbound.Id]; ok {
 			per.AllowedIPs = ips
