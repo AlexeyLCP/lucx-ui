@@ -51,16 +51,22 @@ func TestAddClient_ReusesStoredKeypairForKnownIdentity(t *testing.T) {
 	ibA := mkInbound(t, 21101, model.AmneziaWG, `{"server":{"subnetIp":"10.8.1.0","subnetCidr":24},"clients":[]}`)
 	ibB := mkInbound(t, 21102, model.AmneziaWG, `{"server":{"subnetIp":"10.9.1.0","subnetCidr":24},"clients":[]}`)
 
+	// AmneziaWG mints a keypair but never a PSK (unlike AWG), so the first
+	// attach has to supply one or there is nothing for the re-add to carry.
+	seedPSK, err := wgutil.GenerateWireguardPSK()
+	if err != nil {
+		t.Fatalf("psk: %v", err)
+	}
 	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
-		Client:     model.Client{Email: "demo@x", SubID: "sub-demo", Enable: true},
+		Client:     model.Client{Email: "demo@x", SubID: "sub-demo", Enable: true, PreSharedKey: seedPSK},
 		InboundIds: []int{ibA.Id},
 	}); err != nil {
 		t.Fatalf("first Create: %v", err)
 	}
 
 	first := lookupClientRecord(t, "demo@x")
-	if first.PrivateKey == "" || first.PublicKey == "" {
-		t.Fatalf("first inbound did not mint a keypair: %+v", first)
+	if first.PrivateKey == "" || first.PublicKey == "" || first.PreSharedKey != seedPSK {
+		t.Fatalf("first inbound did not store a keypair and the supplied PSK: %+v", first)
 	}
 	derivedPub, err := wgutil.PublicKeyFromPrivate(first.PrivateKey)
 	if err != nil {
@@ -86,6 +92,15 @@ func TestAddClient_ReusesStoredKeypairForKnownIdentity(t *testing.T) {
 	}
 	if second.PreSharedKey != first.PreSharedKey {
 		t.Fatalf("PSK rotated on second inbound: first %q, second %q", first.PreSharedKey, second.PreSharedKey)
+	}
+	// A blank PSK never clears the record column, so only inbound B's own
+	// settings show whether the second peer was actually handed the PSK.
+	ibBSaved, err := inboundSvc.GetInbound(ibB.Id)
+	if err != nil {
+		t.Fatalf("GetInbound(ibB): %v", err)
+	}
+	if !strings.Contains(ibBSaved.Settings, first.PreSharedKey) {
+		t.Fatalf("inbound %d peer carries no PSK, so it desyncs from inbound %d: %s", ibB.Id, ibA.Id, ibBSaved.Settings)
 	}
 
 	listB, err := svc.ListForInbound(nil, ibB.Id)

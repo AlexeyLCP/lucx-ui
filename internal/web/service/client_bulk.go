@@ -85,7 +85,8 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 			}
 			client := *rec.ToClient()
 			client.UpdatedAt = time.Now().UnixMilli()
-			// LUCX-HOOK: AWG/WG multi-attach — fresh tunnel IP per inbound.
+			// LUCX-HOOK: AWG/WG multi-attach — fresh tunnel IP per inbound; the
+			// identity's keys/PSK stay shared, but not with keyless protocols.
 			if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
 				client.AllowedIPs = nil
 			}

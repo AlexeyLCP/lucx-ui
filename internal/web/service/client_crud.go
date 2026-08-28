@@ -913,9 +913,8 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 			return needRestart, getErr
 		}
 		copyClient := *clientWire
-		// LUCX-HOOK: AWG/WG — allocate a fresh tunnel IP for this inbound's
-		// subnet (keys/PSK stay shared). Carrying clientWire.AllowedIPs would
-		// either collide with the previous inbound or leave a foreign /32 peer.
+		// LUCX-HOOK: AWG/WG get a fresh per-subnet tunnel IP (a carried one would
+		// collide); keys/PSK stay shared, but are stripped from keyless protocols.
 		if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
 			copyClient.AllowedIPs = nil
 		}
