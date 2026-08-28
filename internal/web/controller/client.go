@@ -708,7 +708,10 @@ func matchSubRoute(path string, subPath, jsonPath, clashPath, awgPath string) (s
 			continue
 		}
 		rest := path[len(candidate.prefix):]
-		if rest == "" || rest[0] == '/' || candidate.prefix[len(candidate.prefix)-1] == '/' {
+		if rest == "" {
+			continue
+		}
+		if rest[0] == '/' || candidate.prefix[len(candidate.prefix)-1] == '/' {
 			return candidate.format, true
 		}
 	}
