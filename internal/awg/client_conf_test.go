@@ -156,8 +156,8 @@ func TestRenderClientConf_IFieldsBudget(t *testing.T) {
 		chars   int
 		written bool
 	}{
-		{"exactly at budget", 3495, true},    // IBytes 3500
-		{"one align step over", 3496, false}, // IBytes 3504
+		{"exactly at budget", 3484, true},    // IBytes 3492
+		{"one align step over", 3488, false}, // IBytes 3496
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			v := strings.Repeat("x", tc.chars)
@@ -165,7 +165,7 @@ func TestRenderClientConf_IFieldsBudget(t *testing.T) {
 			ci, _ := ClientInstanceFromOutbound(o)
 			if got := strings.Contains(renderClientConf(ci), "I1 = "+v); got != tc.written {
 				t.Fatalf("%d chars (IBytes %d, budget %d): written = %v, want %v",
-					tc.chars, IBytes(v, "", "", "", ""), IBytesBudget(ci.Ifname, false), got, tc.written)
+					tc.chars, IBytes(v, "", "", "", ""), WorstCaseIBytesBudget(false), got, tc.written)
 			}
 		})
 	}

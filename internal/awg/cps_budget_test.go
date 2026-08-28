@@ -116,3 +116,38 @@ func TestWorstCaseIBytesBudget(t *testing.T) {
 		t.Fatalf("WorstCaseIBytesBudget(true) = %d, want 3456", got)
 	}
 }
+
+// The exported client .conf and the share link both budget worst-case, so a
+// set in the 3493-3500 band rode the server alone — mimicry in one direction.
+func TestRenderers_IFieldGateMatchesTheExportedConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		chars   int
+		written bool
+	}{
+		{"at the worst-case budget", 3484, true},       // IBytes 3492
+		{"inside the old 3493-3500 band", 3488, false}, // IBytes 3496
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v := strings.Repeat("x", tc.chars)
+			confs := map[string]string{
+				"server": renderServerConf(Instance{
+					Ifname: "awg9", PrivateKey: "k", Port: 51820, MTU: 1320, AwgVersion: "2", I1: v,
+				}),
+				"client": renderClientConf(ClientInstance{
+					Id: 1, Ifname: "awgo-1",
+					Settings: ClientSettings{
+						PrivateKey: "k", Address: "10.9.0.5/32", MTU: 1320,
+						PublicKey: "pub", Endpoint: "up:51820", AwgVersion: "2", I1: v,
+					},
+				}),
+			}
+			for side, conf := range confs {
+				if got := strings.Contains(conf, "I1 = "+v); got != tc.written {
+					t.Errorf("%s .conf: %d chars (IBytes %d, worst-case budget %d): written = %v, want %v",
+						side, tc.chars, IBytes(v, "", "", "", ""), WorstCaseIBytesBudget(false), got, tc.written)
+				}
+			}
+		})
+	}
+}

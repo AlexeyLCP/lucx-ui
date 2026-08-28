@@ -58,8 +58,8 @@ func ibytesBudget(ifnameBytes int, hasHeaderProtectionKey bool) int {
 	return b
 }
 
-// IBytesBudget returns the largest IBytes an interface of this shape can carry
-// and still answer `awg show`: 3500 for a 6-char ifname with no HPK.
+// IBytesBudget is one known ifname's budget (3500 for 6 chars, no HPK). Every
+// renderer uses WorstCaseIBytesBudget, or the two ends disagree at 3493-3500.
 func IBytesBudget(ifname string, hasHeaderProtectionKey bool) int {
 	return ibytesBudget(nlaBytes(ifname), hasHeaderProtectionKey)
 }
