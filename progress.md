@@ -1,14 +1,15 @@
 # LucX-UI — Прогресс
 
-## lucx.187 — Naive/mieru/TrustTunnel Hosts + share names (2026-08-28)
+## lucx.187 — Host dest:port + names on sidecar/AWG share links (2026-08-28)
 
-Tuna: Naive share links ignored Hosts (could not put :443 in the client URL) and used email/hostname as the profile name; mieru showed `default`; TrustTunnel used email. Had to patch links by hand.
+Tuna: Host `test.com:443` while Naive listens 3500 → link kept 3500. AWG showed the endpoint address instead of the inbound/host name. Host names only worked for HY2 and VLESS.
 
-- Hosts / `externalProxy` dest+port fan-out for naive, mieru, TrustTunnel (same path as hysteria).
-- Share remark is `genRemark` (inbound remark + email), not raw email.
+- Hosts / `externalProxy` dest+port fan-out for naive, mieru, TrustTunnel, AWG.
+- Share remark is `genRemark` / host remark, not email or hostname.
 - mieru `profile=` is the remark, not hardcoded `default`.
+- AWG `vpn://` gets `# remark` so Amnezia/Happ uses description, not `hostName`.
 
-Tests: `TestNaiveClientURLForRemark`, `TestMieruClientLink` profile, `TestGetSubs_{Naive,Mieru,TrustTunnel}_HostPort`.
+Tests: `TestNaiveClientURLForRemark`, `TestMieruClientLink` profile, `TestGetSubs_{Naive,Mieru,TrustTunnel}_HostPort`, `TestGenAwgLink_HostDestPortAndRemark`.
 
 **lucxVersion:** lucx.187
 

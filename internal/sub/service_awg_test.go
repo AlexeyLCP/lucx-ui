@@ -170,3 +170,34 @@ func TestGenAwgLink_VpnEnvelopeLine(t *testing.T) {
 		}
 	}
 }
+
+func TestGenAwgLink_HostDestPortAndRemark(t *testing.T) {
+	ib := awgLinkInbound(awgLinkClientSettings)
+	ib.StreamSettings = `{"externalProxy":[{"dest":"test.com","port":443,"remark":"cdn","isHost":true,"remarkFinal":true}]}`
+	s := &SubService{}
+	link := s.genAwgLink(ib, "user")
+	if !strings.Contains(link, "@test.com:443") {
+		t.Errorf("amneziawg:// must use host dest:port, got:\n%s", link)
+	}
+	if strings.Contains(link, ":51820") {
+		t.Errorf("inbound listen port must not leak, got:\n%s", link)
+	}
+	lines := splitLinkLines(link)
+	if len(lines) != 2 || !strings.HasPrefix(lines[1], "vpn://") {
+		t.Fatalf("want amneziawg:// + vpn://, got %d lines", len(lines))
+	}
+	payload, err := vpnuri.Decode(lines[1])
+	if err != nil {
+		t.Fatalf("vpn:// decode: %v", err)
+	}
+	conf, err := vpnuri.ConfFromPayload(payload)
+	if err != nil {
+		t.Fatalf("vpn:// conf: %v", err)
+	}
+	if !strings.Contains(conf, "Endpoint = test.com:443") {
+		t.Errorf("vpn:// Endpoint must be host dest:port, got:\n%s", conf)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(conf), "# cdn") {
+		t.Errorf("vpn:// must name the host remark, got:\n%s", conf)
+	}
+}

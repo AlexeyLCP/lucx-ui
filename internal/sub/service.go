@@ -760,7 +760,6 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	}
 	client := &resolved
 
-	link := fmt.Sprintf("amneziawg://%s@%s", encodeUserinfo(client.PrivateKey), joinHostPort(s.resolveInboundAddress(inbound), inbound.Port))
 	params := make(map[string]string)
 	if privateKey != "" {
 		if pub, err := wgutil.PublicKeyFromPrivate(privateKey); err == nil {
@@ -866,19 +865,40 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			params["disablecookies"] = "true"
 		}
 	}
-	out := buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
-	// Second line: the same client conf as an AmneziaVPN vpn:// envelope.
-	// Neither NekoBox+ (imports AWG from .conf / vpn://) nor Exclave parses
-	// the amneziawg:// scheme, so a URI-only subscription never added the
-	// node there (tester report; HYDRA emits vpn:// alongside its links for
-	// the same reason). BuildAwgClientConf is the exact builder behind
-	// /awg/?format=vpn, so the envelope matches the client-card copy.
-	if conf, err := service.BuildAwgClientConf(inbound, client, s.resolveInboundAddress(inbound)); err == nil {
-		if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
-			out += "\n" + uri
+	render := func(dest string, port int, remark string) string {
+		link := fmt.Sprintf("amneziawg://%s@%s", encodeUserinfo(client.PrivateKey), joinHostPort(dest, port))
+		out := buildLinkWithParams(link, params, remark)
+		if conf, err := service.BuildAwgClientConf(inbound, client, dest); err == nil {
+			conf = stampAwgShare(conf, dest, port, remark)
+			if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
+				out += "\n" + uri
+			}
+		}
+		return out
+	}
+	if joined := s.sidecarHostLinks(inbound, email, render); joined != "" {
+		return joined
+	}
+	return render(s.resolveInboundAddress(inbound), inbound.Port, s.genRemark(inbound, email, "", ""))
+}
+
+func stampAwgShare(conf, host string, port int, remark string) string {
+	if r := strings.TrimSpace(remark); r != "" {
+		r = strings.ReplaceAll(strings.ReplaceAll(r, "\r", " "), "\n", " ")
+		conf = "# " + r + "\n" + conf
+	}
+	if host == "" || port <= 0 {
+		return conf
+	}
+	ep := "Endpoint = " + net.JoinHostPort(host, strconv.Itoa(port))
+	lines := strings.Split(conf, "\n")
+	for i, ln := range lines {
+		if strings.HasPrefix(strings.TrimSpace(ln), "Endpoint") {
+			lines[i] = ep
+			return strings.Join(lines, "\n")
 		}
 	}
-	return out
+	return conf
 }
 
 // END LUCX-HOOK
