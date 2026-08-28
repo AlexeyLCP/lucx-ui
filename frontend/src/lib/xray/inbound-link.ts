@@ -15,6 +15,7 @@ import type { XHttpStreamSettings } from '@/schemas/protocols/stream/xhttp';
 
 import { collapseKeepaliveForVersion } from '@/lib/awg/timer';
 import { bytesFromBase64Url, isQCompress, vpnUriFromConf } from '@/lib/awg/vpnuri'; // LUCX-HOOK
+import { awgIBytes, awgWorstCaseIBytesBudget } from './awg-budget'; // LUCX-HOOK
 import { getHeaderValue } from './headers';
 import { canEnableTlsFlow } from './protocol-capabilities';
 import { deriveSpiderX } from './spider-x';
@@ -1909,14 +1910,24 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   if (settings.h2) txt += `H2 = ${settings.h2}\n`;
   if (settings.h3) txt += `H3 = ${settings.h3}\n`;
   if (settings.h4) txt += `H4 = ${settings.h4}\n`;
-  // I1-I5 are stored verbatim in CPS tag format ("<b 0xHEX>" or "<r 2><b 0xHEX>")
-  // — write as-is, no double wrapping. AWG v2+ only.
-  if (awgVersionAtLeast(override, '2')) {
-    if (settings.i1) txt += `I1 = ${settings.i1}\n`;
-    if (settings.i2) txt += `I2 = ${settings.i2}\n`;
-    if (settings.i3) txt += `I3 = ${settings.i3}\n`;
-    if (settings.i4) txt += `I4 = ${settings.i4}\n`;
-    if (settings.i5) txt += `I5 = ${settings.i5}\n`;
+  // Verbatim CPS tags ("<b 0xHEX>"), AWG v2+, and budgeted all-or-nothing like
+  // every Go renderer: a set the kernel cannot read back must not be shown.
+  if (
+    awgVersionAtLeast(override, '2') &&
+    awgIBytes(settings.i1, settings.i2, settings.i3, settings.i4, settings.i5) <=
+      awgWorstCaseIBytesBudget(Boolean(settings.headerProtectionKey))
+  ) {
+    const iFields: Array<[string, string | undefined]> = [
+      ['I1', settings.i1],
+      ['I2', settings.i2],
+      ['I3', settings.i3],
+      ['I4', settings.i4],
+      ['I5', settings.i5],
+    ];
+    for (const [key, value] of iFields) {
+      const v = (value ?? '').trim();
+      if (v !== '') txt += `${key} = ${v}\n`;
+    }
   }
   // HeaderProtectionKey (AWG3) — written only at version '3'. Older awg-quick
   // builds reject the line ("Line unrecognized"), so it must never reach a v1/v2
