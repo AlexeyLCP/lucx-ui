@@ -69,6 +69,34 @@ func TestAwgGenerateObfuscation_NoIFieldsOnV15(t *testing.T) {
 	}
 }
 
+// Both generator endpoints share awgWithHPK, and awgCaptureHost's use of it is
+// unreachable from httptest (signature.Capture does live DNS + QUIC first).
+func TestAwgWithHPK(t *testing.T) {
+	nodeID := func(v int) *int { return &v }
+	for _, tc := range []struct {
+		name         string
+		awgVersion   string
+		nodeID       *int
+		hostSupports bool
+		want         bool
+	}{
+		{"node inbound is judged by the node", "3", nodeID(7), false, true},
+		{"local inbound follows this host's probe", "3", nil, false, false},
+		{"local inbound with a capable host", "3", nil, true, true},
+		{"nodeId 0 is this master, not node 0", "3", nodeID(0), false, false},
+		{"a negative nodeId is not a node either", "3", nodeID(-1), false, false},
+		{"v2 never asks for a key, node or not", "2", nodeID(7), true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			awg.SetModuleSupportsAwg3(&tc.hostSupports)
+			t.Cleanup(func() { awg.SetModuleSupportsAwg3(nil) })
+			if got := awgWithHPK(tc.awgVersion, tc.nodeID); got != tc.want {
+				t.Errorf("awgWithHPK(%q, %v) = %v, want %v", tc.awgVersion, tc.nodeID, got, tc.want)
+			}
+		})
+	}
+}
+
 // awg3ResponseKeys is the whole v3 block the generator owes a v3 inbound: the
 // header-protection key plus the six AWG 3.0 device timer/padding ranges.
 var awg3ResponseKeys = []string{
@@ -118,6 +146,10 @@ func TestAwgGenerateObfuscation_NodeInboundKeepsAwg3Fields(t *testing.T) {
 		{"node inbound keeps the v3 block the master cannot judge", `{"awgVersion":"3","nodeId":7}`, true},
 		{"local inbound stays gated on the master's own probe", `{"awgVersion":"3","nodeId":null}`, false},
 		{"nodeId omitted behaves exactly as before the field existed", `{"awgVersion":"3"}`, false},
+		// 0 is never a Node row id — this package already reads it as "no node"
+		// (inbound.go), and Swagger's "Try it out" fills integers with exactly 0.
+		{"nodeId 0 is this master, as everywhere else in the package", `{"awgVersion":"3","nodeId":0}`, false},
+		{"a negative nodeId is not a node either", `{"awgVersion":"3","nodeId":-1}`, false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			obj := generateObfuscation(t, router, tc.body)

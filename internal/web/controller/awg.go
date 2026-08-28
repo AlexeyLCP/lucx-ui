@@ -27,7 +27,7 @@ import (
 // (Lite/Standard). awgVersion targets the AmneziaWG protocol version
 // ("1.5"/"2"/"3"); when "3", the response carries a freshly generated
 // HeaderProtectionKey (the AWG3 kernel/tools now parse it). nodeId names the
-// host the inbound will run on — null/absent means this master.
+// host the inbound will run on — null, absent or <= 0 means this master.
 type awgGenerateObfuscationRequest struct {
 	ObfProfile     string `json:"obfProfile"`
 	MimicryProfile string `json:"mimicryProfile"`
@@ -42,6 +42,13 @@ type awgGenerateObfuscationRequest struct {
 // awgCPSBudget is the one number the generator and the save-time guard
 // (awg.ValidateIFields) must never disagree on — see cps_budget.go.
 func awgCPSBudget(withHPK bool) int { return awg.WorstCaseIBytesBudget(withHPK) }
+
+// awgWithHPK reports whether the host the inbound is bound for may take a
+// header-protection key. nodeID <= 0 is this master, as everywhere in this package.
+func awgWithHPK(awgVersion string, nodeID *int) bool {
+	localInbound := nodeID == nil || *nodeID <= 0
+	return awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(awgVersion), localInbound, awg.ModuleSupportsAwg3())
+}
 
 // awgGenerateObfuscation generates a fresh set of AmneziaWG obfuscation
 // parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and CPS packets (I1-I5) for the AWG
@@ -75,7 +82,7 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 	}
 	// A header-protection key takes netlink bytes the I-fields then cannot have,
 	// so the budget the generator aims at has to know one is coming.
-	withHPK := awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(req.AwgVersion), req.NodeID == nil, awg.ModuleSupportsAwg3())
+	withHPK := awgWithHPK(req.AwgVersion, req.NodeID)
 	cpsResult, err := cps.GenerateCPS(
 		cps.MimicryProfile(req.MimicryProfile),
 		cps.Region(req.Region),
@@ -180,10 +187,7 @@ func (a *InboundController) awgCaptureHost(c *gin.Context) {
 		jsonMsg(c, "awg capture: domain required", nil)
 		return
 	}
-	// Same withHPK expression as awgGenerateObfuscation: an HPK claims netlink
-	// bytes I-fields then cannot have, so the capture budget must know one is coming.
-	withHPK := awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(req.AwgVersion), req.NodeID == nil, awg.ModuleSupportsAwg3())
-	res, err := signature.Capture(req.Domain, withHPK)
+	res, err := signature.Capture(req.Domain, awgWithHPK(req.AwgVersion, req.NodeID))
 	if err != nil {
 		jsonMsg(c, "awg capture failed: "+err.Error(), nil)
 		return
