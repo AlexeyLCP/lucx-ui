@@ -213,10 +213,8 @@ func TestFillPackets_KeptSetAlwaysPassesValidateIFields(t *testing.T) {
 	}
 }
 
-// TestFillPackets_HeaderProtectionShrinksBudget: a header-protection key
-// claims 36 netlink bytes I-fields cannot then use. A 1400+331-byte pair
-// lands at 3488 IBytes — inside the 3457-3492 gap between the two budgets —
-// so it must survive whole without HPK and lose its last packet with one.
+// TestFillPackets_HeaderProtectionShrinksBudget: an HPK claims 36 netlink
+// bytes I-fields cannot use, so this packet pair passes one budget but fails the other (see subcase names).
 func TestFillPackets_HeaderProtectionShrinksBudget(t *testing.T) {
 	pkt1 := bytes.Repeat([]byte{0xAA}, 1400) // nlaBytes 2812
 	pkt2 := bytes.Repeat([]byte{0xBB}, 331)  // nlaBytes 676; sum 3488

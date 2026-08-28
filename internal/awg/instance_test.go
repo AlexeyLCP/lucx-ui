@@ -296,11 +296,8 @@ func TestRenderServerConf_V15OmitsS3S4(t *testing.T) {
 	}
 }
 
-// TestRenderServerConf_NoIFieldsOnV15 guards the same must-match rule for
-// I1-I5: v1.5 tools reject the tags ("Line unrecognized") and the client
-// export already strips them, so a v1.5 server .conf must not carry them
-// either. The "2" subcase is the anti-oversell check — I-fields must still
-// reach a v2 server .conf.
+// I1-I5 must be dropped for v1.5: those tools reject the tags with
+// "Line unrecognized," and the client export already strips them too.
 func TestRenderServerConf_NoIFieldsOnV15(t *testing.T) {
 	for _, tc := range []struct {
 		name       string
@@ -752,9 +749,8 @@ func TestNatRulesFor(t *testing.T) {
 	}
 }
 
-// A host between DHCP leases answers `ip route show default` with exit 0 and no
-// output. Without stickiness that empties PostUp, moves the fingerprint, and
-// restarts every non-routed AWG interface — twice, once back when the route returns.
+// A host between DHCP leases answers `ip route show default` with exit 0 and
+// no output; without stickiness that flaps every non-routed interface twice.
 func TestStickyDefaultRoute_SurvivesAMissingDefaultRoute(t *testing.T) {
 	t.Cleanup(func() { lastDefaultRouteIface.Store("") })
 	lastDefaultRouteIface.Store("")

@@ -86,9 +86,8 @@ func TestRenderClientConf_S3S4OmittedFor15(t *testing.T) {
 	}
 }
 
-// TestRenderClientConf_IFieldsOmittedFor15 mirrors
-// TestRenderClientConf_S3S4OmittedFor15 for I1-I5: v1.5 tools reject the
-// tags, so the awgo-N outbound .conf must not carry them either.
+// v1.5 tools reject the I1-I5 tags, so the awgo-N outbound .conf
+// must not carry them either (mirrors S3S4OmittedFor15).
 func TestRenderClientConf_IFieldsOmittedFor15(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"aa","i2":"bb","i3":"cc","i4":"dd","i5":"ee","awgVersion":"1.5"}`}
 	ci, _ := ClientInstanceFromOutbound(o)

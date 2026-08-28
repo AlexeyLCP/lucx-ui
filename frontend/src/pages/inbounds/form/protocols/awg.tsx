@@ -76,8 +76,7 @@ async function generateAwgObfuscationFromBackend(
   return (msg?.obj ?? null) as Record<string, unknown> | null;
 }
 
-// captureHostSignature captures a real QUIC handshake from the given domain.
-// awgVersion lets the backend know whether the inbound will carry a
+// awgVersion tells the backend whether the inbound will carry a
 // header-protection key, which narrows the capture's netlink byte budget.
 async function captureHostSignature(
   domain: string,

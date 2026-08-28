@@ -28,9 +28,8 @@ func TestAwgCPSBudget_MatchesSaveTimeGuard(t *testing.T) {
 	}
 }
 
-// TestAwgGenerateObfuscation_NoIFieldsOnV15: the generator must not hand a
-// 1.5 request I1-I5, because renderServerConf/renderClientConf drop them at
-// 1.5 — offering them lets the form show mimicry that never reaches the wire.
+// The generator must not hand a 1.5 request I1-I5 — renderServerConf and
+// renderClientConf drop them at 1.5, so offering them would show mimicry that never reaches the wire.
 func TestAwgGenerateObfuscation_NoIFieldsOnV15(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()

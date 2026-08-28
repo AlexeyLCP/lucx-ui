@@ -198,10 +198,8 @@ var moduleSupportsAwg31Override *bool
 // file — the real sysfs file cannot be downgraded on a live module.
 var moduleVersionPath = "/sys/module/amneziawg/version"
 
-// moduleVersionAtLeast reports whether the LOADED amneziawg module's own
-// version (not the awg userspace tools) is at least major.minor. Tools and
-// module upgrade independently, so a host can carry 3.1 tools over a stale
-// 3.0 module — that module still rejects RandomTrailers/DisableCookies.
+// moduleVersionAtLeast checks the LOADED module, not the awg tools — the two
+// upgrade independently, so a stale module still rejects RandomTrailers/DisableCookies.
 func moduleVersionAtLeast(wantMajor, wantMinor int) bool {
 	data, err := os.ReadFile(moduleVersionPath)
 	if err != nil {
@@ -217,13 +215,8 @@ func moduleVersionAtLeast(wantMajor, wantMinor int) bool {
 	return minor >= wantMinor
 }
 
-// ModuleSupportsAwg31 reports whether this host can consume AWG 3.1 fields
-// (RandomTrailers / DisableCookies). Both the loaded kernel module and the
-// awg tools must be v3.1+: a stale module accepts the .conf line but does
-// not implement the semantics, and tools older than v3.1 reject the line
-// outright with "Line unrecognized", rolling awg-quick back. Only a positive
-// result is cached; a negative one is transient (tools mid-rebuild, module
-// about to be reloaded) so the next call retries.
+// ModuleSupportsAwg31 needs module AND tools at v3.1+: a stale module accepts
+// the .conf line without the semantics; older tools reject it outright ("Line unrecognized").
 func ModuleSupportsAwg31() bool {
 	if moduleSupportsAwg31Override != nil {
 		return *moduleSupportsAwg31Override
@@ -239,6 +232,8 @@ func ModuleSupportsAwg31() bool {
 		return false
 	}
 	supported := awgToolsAtLeast(string(out), 3, 1)
+	// Cache only success — a miss may be a transient mid-upgrade race, so
+	// the next call retries instead of latching a false result.
 	if supported {
 		moduleAwg31Checked = true
 		moduleAwg31Supported = true
@@ -272,12 +267,8 @@ func awg3CapabilityCheck(p prober) DiagCheck {
 	return DiagCheck{awg3SupportCheckName, kernelOK && toolsOK, detail}
 }
 
-// awg31CapabilityCheck builds the informational diagnostics line for AWG 3.1
-// (RandomTrailers / DisableCookies) readiness: the kernel module and the awg
-// tools must both be v3.1+ (see ModuleSupportsAwg31). A failing line does not
-// make the inbound unhealthy (Healthy skips it) — it explains why the panel
-// renders configs without those fields here. The tools probe goes through
-// the prober so tests can replay it; the module probe reads sysfs directly.
+// awg31CapabilityCheck reports informational readiness only — a failing line
+// does not mark the inbound unhealthy (Healthy skips it); see ModuleSupportsAwg31.
 func awg31CapabilityCheck(p prober) DiagCheck {
 	moduleOK := moduleVersionAtLeast(3, 1)
 	toolsOut, err := p.Run("awg", "version")

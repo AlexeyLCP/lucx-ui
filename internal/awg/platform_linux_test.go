@@ -107,11 +107,8 @@ func TestKallsymsHasSymbol(t *testing.T) {
 	}
 }
 
-// TestModuleVersionAtLeast locks in the sysfs probe that gates AWG 3.1 on the
-// LOADED kernel module's own version, not the awg tools' (Д12: tools and
-// module upgrade independently, so a 3.1-tools host can still carry a stale
-// 3.0 module). moduleVersionPath is a package var precisely so this can point
-// at a fixture instead of the real /sys/module/amneziawg/version.
+// TestModuleVersionAtLeast locks in Д12: AWG 3.1 gates on the LOADED module's
+// own version, not the awg tools' — a 3.1-tools host can still carry a stale 3.0 module.
 func TestModuleVersionAtLeast(t *testing.T) {
 	cases := []struct {
 		name      string
@@ -152,15 +149,8 @@ func TestModuleVersionAtLeast(t *testing.T) {
 	}
 }
 
-// TestModuleSupportsAwg31_ToolsAheadOfModule reproduces Д12: a host whose awg
-// userspace tools were updated to 3.1 while the loaded kernel module is still
-// 3.0. Before the moduleVersionAtLeast gate, ModuleSupportsAwg31 asked only
-// the tools and returned true, so the renderer emitted RandomTrailers /
-// DisableCookies into a .conf the module cannot apply — awg-quick then rolls
-// the interface back. The 3.1 tools are a planted fake binary on an isolated
-// PATH (same technique as TestAwgBinFindsAbsoluteFallback in
-// process_bin_test.go), so the result does not depend on what is actually
-// installed on the machine running the test — it must hold on bare CI too.
+// TestModuleSupportsAwg31_ToolsAheadOfModule reproduces Д12: a tools-only
+// check let 3.1 tools over a stale 3.0 module render fields awg-quick then rolled back.
 func TestModuleSupportsAwg31_ToolsAheadOfModule(t *testing.T) {
 	origPath := moduleVersionPath
 	origChecked, origSupported := moduleAwg31Checked, moduleAwg31Supported
