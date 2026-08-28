@@ -1,31 +1,18 @@
 # LucX-UI — Прогресс
 
-## chore — GHCR Docker images + README install (2026-08-29)
+## lucx.188 — CTO hardening + GHCR Docker (2026-08-29)
 
-`docker.yml` still pushed to upstream `hsanaeii/3x-ui` / `ghcr.io/mhsanaei/3x-ui` and logged into Docker Hub without secrets — lucx tags failed in ~20s.
+- Naive Clients password matches Caddyfile/sub (`ClientAuthForInbound`).
+- `StopAllClients` on panel stop; rebuild pause during `rmmod`.
+- LUCX-HOOK around LucX needRestart/inject.
+- Download dial pins public IPs; `captureHost` refuses RFC1918; vpnuri 1 MiB cap; core upload 200 MB.
+- `.conf`/Caddy/ExtraArgs/AwgTimer reject newline inject; `awg-quick` 60s timeout; HPK `headerprotectionkey=`.
+- TUN gateways no wrap id 1 onto 255; subBody no redirects.
+- Docker: `ghcr.io/alexeylcp/lucx-ui` on release tags; Node 24; README `docker run`.
 
-- Publish `ghcr.io/alexeylcp/lucx-ui` (`:tag` + `:latest`) on `v*.*.*`.
-- Node 24 in Dockerfile (Vite 8). compose pulls the GHCR image.
-- README RU/EN: `docker run` / compose snippet.
+Tests: `go test ./internal/awg/... ./internal/lucx/...` PASS.
 
-**lucxVersion:** lucx.187 (unchanged)
-
----
-
-## fix — CTO review: Naive HMAC, HOOK holes, SSRF, sanitizers (2026-08-29)
-
-Panel/daemon hardening from the lucx.187 CTO review. No lucxVersion bump, no tag.
-
-- Naive Clients password uses `ClientAuthForInbound` (same as Caddyfile/sub).
-- `StopAllClients` on panel stop; rebuild pause so AwgJob cannot `awg-quick up` during `rmmod`.
-- LUCX-HOOK around LucX needRestart/inject (`lucxRoutesThroughXray`, Naive egress, `case model.AWG`).
-- Download dial pins public IPs; `captureHost` refuses RFC1918/CGNAT; vpnuri decode cap 1 MiB; core upload 200 MB.
-- `.conf`/Caddy/ExtraArgs/AwgTimer reject newline inject; `awg-quick` 60s timeout; HPK query key `headerprotectionkey=`.
-- TUN gateways no longer wrap id 1 onto 255; subBody does not follow redirects; `/sub` does not match `/subscription`.
-
-Tests: `go test ./internal/awg/... ./internal/lucx/...` PASS. Windows CGO still skips `database`/`controller`/`sub` packages.
-
-**lucxVersion:** lucx.187 (unchanged)
+**lucxVersion:** lucx.188
 
 ---
 
