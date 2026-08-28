@@ -7,6 +7,9 @@ import type { MenuProps } from 'antd';
 import {
   ApiOutlined,
   ApartmentOutlined,
+  // LUCX-HOOK: palette switch button icon
+  BgColorsOutlined,
+  // END LUCX-HOOK
   CloseOutlined,
   CloudServerOutlined,
   ClusterOutlined,
@@ -180,6 +183,34 @@ function ThemeCycleButton({
   );
 }
 
+// LUCX-HOOK: color palette switch (default blue / warm sand-graphite)
+function PaletteCycleButton({
+  id,
+  isWarm,
+  onCycle,
+  ariaLabel,
+}: {
+  id: string;
+  isWarm: boolean;
+  onCycle: () => void;
+  ariaLabel: string;
+}) {
+  return (
+    <button
+      id={id}
+      type="button"
+      className="sidebar-theme-cycle sidebar-palette-cycle"
+      aria-label={ariaLabel}
+      aria-pressed={isWarm}
+      title={ariaLabel}
+      onClick={onCycle}
+    >
+      <BgColorsOutlined />
+    </button>
+  );
+}
+// END LUCX-HOOK
+
 function readSidebarPinned() {
   try {
     return localStorage.getItem(SIDEBAR_PINNED_KEY) === 'true';
@@ -196,7 +227,9 @@ function saveSidebarPinned(pinned: boolean) {
 
 export default function AppSidebar() {
   const { t } = useTranslation();
-  const { isDark, isUltra, toggleTheme, toggleUltra } = useTheme();
+  // LUCX-HOOK: palette switch added to the upstream dark/ultra cycle
+  const { isDark, isUltra, toggleTheme, toggleUltra, palette, togglePalette } = useTheme();
+  // END LUCX-HOOK
   const navigate = useNavigate();
   const { pathname, hash } = useLocation();
   const { allSetting } = useAllSettings();
@@ -443,6 +476,17 @@ export default function AppSidebar() {
                 onCycle={() => cycleTheme('theme-cycle')}
                 ariaLabel={t('menu.theme')}
               />
+              {/* LUCX-HOOK: palette switch (blue / sand-graphite) */}
+              <PaletteCycleButton
+                id="palette-cycle"
+                isWarm={palette === 'warm'}
+                onCycle={() => {
+                  pauseAnimationsUntilLeave('palette-cycle');
+                  togglePalette();
+                }}
+                ariaLabel={t('menu.palette')}
+              />
+              {/* END LUCX-HOOK */}
             </div>
           )}
         </div>
@@ -496,6 +540,17 @@ export default function AppSidebar() {
               onCycle={() => cycleTheme('theme-cycle-drawer')}
               ariaLabel={t('menu.theme')}
             />
+            {/* LUCX-HOOK: palette switch in the mobile drawer too */}
+            <PaletteCycleButton
+              id="palette-cycle-drawer"
+              isWarm={palette === 'warm'}
+              onCycle={() => {
+                pauseAnimationsUntilLeave('palette-cycle-drawer');
+                togglePalette();
+              }}
+              ariaLabel={t('menu.palette')}
+            />
+            {/* END LUCX-HOOK */}
             <button
               className="drawer-close"
               type="button"

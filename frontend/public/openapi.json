@@ -112,6 +112,12 @@
           "ldapVlessField": {
             "type": "string"
           },
+          "logRetentionDays": {
+            "description": "END LUCX-HOOK\nLUCX-HOOK: auto-delete log files older than N days (0 = disabled)",
+            "maximum": 3650,
+            "minimum": 0,
+            "type": "integer"
+          },
           "outboundDownThreshold": {
             "maximum": 100,
             "minimum": 1,
@@ -423,6 +429,7 @@
           "ldapUserAttr",
           "ldapUserFilter",
           "ldapVlessField",
+          "logRetentionDays",
           "outboundDownThreshold",
           "pageSize",
           "panelOutbound",
@@ -616,6 +623,12 @@
           },
           "ldapVlessField": {
             "type": "string"
+          },
+          "logRetentionDays": {
+            "description": "END LUCX-HOOK\nLUCX-HOOK: auto-delete log files older than N days (0 = disabled)",
+            "maximum": 3650,
+            "minimum": 0,
+            "type": "integer"
           },
           "outboundDownThreshold": {
             "maximum": 100,
@@ -935,6 +948,7 @@
           "ldapUserAttr",
           "ldapUserFilter",
           "ldapVlessField",
+          "logRetentionDays",
           "outboundDownThreshold",
           "pageSize",
           "panelOutbound",
@@ -2223,7 +2237,8 @@
               "olcrtc",
               "qwdtt",
               "mieru",
-              "trusttunnel"
+              "trusttunnel",
+              "anytls"
             ],
             "example": "vless",
             "type": "string"
@@ -7838,6 +7853,181 @@
         ],
         "summary": "Stop every TrustTunnel instance and remove the binary from disk. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_trusttunnel_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "AnyTLS core status for the Cores page: binary presence and aggregate process state across all anytls-{id} inbound sidecars. Inbound-only core. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_anytls_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent log lines of all AnyTLS instances (ring buffer, tagged per key, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_anytls_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the anytls-server binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_anytls_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the anytls-server binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_anytls_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/anytls-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop every AnyTLS instance and remove the binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_anytls_deleteBinary",
         "responses": {
           "200": {
             "description": "Successful response",

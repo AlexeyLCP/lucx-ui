@@ -15,6 +15,7 @@ import {
   QwdttStatusSchema,
   MieruStatusSchema,
   TrustTunnelStatusSchema,
+  AnytlsStatusSchema,
   type NaiveConfig,
   type NaiveStatus,
   type OlcrtcConfig,
@@ -23,6 +24,7 @@ import {
   type QwdttStatus,
   type MieruStatus,
   type TrustTunnelStatus,
+  type AnytlsStatus,
 } from '@/schemas/tunnel';
 
 export type {
@@ -34,6 +36,7 @@ export type {
   QwdttStatus,
   MieruStatus,
   TrustTunnelStatus,
+  AnytlsStatus,
 };
 
 // JSON_HEADERS is load-bearing on every POST (lucx.69 lesson).
@@ -44,6 +47,7 @@ const OLCRTC = '/panel/api/tunnel/olcrtc';
 const QWDTT = '/panel/api/tunnel/qwdtt';
 const MIERU = '/panel/api/tunnel/mieru';
 const TRUSTTUNNEL = '/panel/api/tunnel/trusttunnel';
+const ANYTLS = '/panel/api/tunnel/anytls';
 
 export const tunnelsApi = {
   status: async (): Promise<Msg<NaiveStatus>> => {
@@ -169,4 +173,20 @@ export const tunnelsApi = {
   },
   trustTunnelDeleteBinary: (): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${TRUSTTUNNEL}/deleteBinary`, {}, JSON_HEADERS),
+
+  anytlsStatus: async (): Promise<Msg<AnytlsStatus>> => {
+    const raw = await HttpUtil.get<AnytlsStatus>(`${ANYTLS}/status`, undefined, { silent: true });
+    return parseMsg(raw, AnytlsStatusSchema, 'tunnel/anytlsStatus');
+  },
+  anytlsLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${ANYTLS}/logs?lines=${lines}`),
+  anytlsDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${ANYTLS}/download`, { url, sha256 }, JSON_HEADERS),
+  anytlsUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${ANYTLS}/upload`, fd);
+  },
+  anytlsDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${ANYTLS}/deleteBinary`, {}, JSON_HEADERS),
 };

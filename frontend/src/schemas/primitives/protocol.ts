@@ -19,6 +19,7 @@ export const ProtocolSchema = z.enum([
   'qwdtt', // LUCX-HOOK: qWDTT sidecar
   'mieru', // LUCX-HOOK: mieru sidecar
   'trusttunnel', // LUCX-HOOK: TrustTunnel sidecar
+  'anytls', // LUCX-HOOK: AnyTLS sidecar
 ]);
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
@@ -47,4 +48,5 @@ export const Protocols = Object.freeze({
   QWDTT: 'qwdtt', // LUCX-HOOK: qWDTT
   MIERU: 'mieru', // LUCX-HOOK: mieru
   TRUSTTUNNEL: 'trusttunnel', // LUCX-HOOK: TrustTunnel
+  ANYTLS: 'anytls', // LUCX-HOOK: AnyTLS
 });

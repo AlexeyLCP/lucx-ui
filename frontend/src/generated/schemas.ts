@@ -86,6 +86,12 @@ export const SCHEMAS: Record<string, unknown> = {
       "ldapVlessField": {
         "type": "string"
       },
+      "logRetentionDays": {
+        "description": "END LUCX-HOOK\nLUCX-HOOK: auto-delete log files older than N days (0 = disabled)",
+        "maximum": 3650,
+        "minimum": 0,
+        "type": "integer"
+      },
       "outboundDownThreshold": {
         "maximum": 100,
         "minimum": 1,
@@ -397,6 +403,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "ldapUserAttr",
       "ldapUserFilter",
       "ldapVlessField",
+      "logRetentionDays",
       "outboundDownThreshold",
       "pageSize",
       "panelOutbound",
@@ -590,6 +597,12 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "ldapVlessField": {
         "type": "string"
+      },
+      "logRetentionDays": {
+        "description": "END LUCX-HOOK\nLUCX-HOOK: auto-delete log files older than N days (0 = disabled)",
+        "maximum": 3650,
+        "minimum": 0,
+        "type": "integer"
       },
       "outboundDownThreshold": {
         "maximum": 100,
@@ -909,6 +922,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "ldapUserAttr",
       "ldapUserFilter",
       "ldapVlessField",
+      "logRetentionDays",
       "outboundDownThreshold",
       "pageSize",
       "panelOutbound",
@@ -2197,7 +2211,8 @@ export const SCHEMAS: Record<string, unknown> = {
           "olcrtc",
           "qwdtt",
           "mieru",
-          "trusttunnel"
+          "trusttunnel",
+          "anytls"
         ],
         "example": "vless",
         "type": "string"

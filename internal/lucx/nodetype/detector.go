@@ -29,6 +29,7 @@ var DefaultLucXFeatures = []string{
 	"qwdtt",
 	"mieru",
 	"trusttunnel",
+	"anytls",
 	"cluster",
 }
 
@@ -39,6 +40,7 @@ var LucXOnlyProtocols = map[string]bool{
 	"qwdtt":       true,
 	"mieru":       true,
 	"trusttunnel": true,
+	"anytls":      true,
 }
 
 type NodeInfo struct {

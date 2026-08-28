@@ -262,6 +262,28 @@ export default function GeneralTab({ allSetting, updateSetting }: GeneralTabProp
                 />
               </SettingListItem>
 
+              {/* LUCX-HOOK: auto-delete log files older than N days */}
+              <SettingListItem
+                paddings="small"
+                title={t('pages.settings.logRetention')}
+                badge={
+                  <DefaultSettingTag
+                    settingKey="logRetentionDays"
+                    value={allSetting.logRetentionDays}
+                  />
+                }
+                description={t('pages.settings.logRetentionDesc')}
+              >
+                <InputNumber
+                  value={allSetting.logRetentionDays}
+                  min={0}
+                  max={3650}
+                  style={{ width: '100%' }}
+                  onChange={onNumber((v) => updateSetting({ logRetentionDays: v }))}
+                />
+              </SettingListItem>
+              {/* END LUCX-HOOK */}
+
               <SettingListItem
                 paddings="small"
                 title={t('pages.settings.sessionMaxAge')}

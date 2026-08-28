@@ -107,6 +107,15 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	trusttunnel.POST("/upload", a.trustTunnelUploadBinary)
 	trusttunnel.POST("/download", a.trustTunnelDownloadBinary)
 	trusttunnel.POST("/deleteBinary", a.trustTunnelDeleteBinary)
+
+	// anytls is inbound-only (no legacy config/lifecycle): status, logs and
+	// binary management for the Settings → Cores page.
+	anytls := g.Group("/anytls")
+	anytls.GET("/status", a.anytlsStatus)
+	anytls.GET("/logs", a.anytlsLogs)
+	anytls.POST("/upload", a.anytlsUploadBinary)
+	anytls.POST("/download", a.anytlsDownloadBinary)
+	anytls.POST("/deleteBinary", a.anytlsDeleteBinary)
 }
 
 func (a *TunnelController) status(c *gin.Context) {
@@ -607,4 +616,66 @@ func (a *TunnelController) trustTunnelDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.trusttunnel.toasts.deleted"), nil)
+}
+
+// --- AnyTLS (inbound-only: status/logs/binary for the Cores page) ----------
+
+func (a *TunnelController) anytlsStatus(c *gin.Context) {
+	st, err := a.svc.AnytlsStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: anytls status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) anytlsLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.AnytlsLogs(lines), nil)
+}
+
+func (a *TunnelController) anytlsUploadBinary(c *gin.Context) {
+	file, err := c.FormFile("file")
+	if err != nil {
+		jsonMsg(c, "tunnel: anytls upload failed", err)
+		return
+	}
+	dst := tunnel.Anytls.BinaryPath()
+	if err := c.SaveUploadedFile(file, dst); err != nil {
+		logger.Warning("tunnel: save uploaded anytls binary failed:", err)
+		jsonMsg(c, "tunnel: anytls upload failed", err)
+		return
+	}
+	if runtime.GOOS != "windows" {
+		if err := os.Chmod(dst, 0o755); err != nil {
+			logger.Warning("tunnel: chmod uploaded anytls binary failed:", err)
+		}
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.anytls.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) anytlsDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid anytls download body", err)
+		return
+	}
+	if err := a.svc.DownloadAnytlsBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: anytls download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.anytls.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) anytlsDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteAnytlsBinary(); err != nil {
+		jsonMsg(c, "tunnel: anytls binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.anytls.toasts.deleted"), nil)
 }

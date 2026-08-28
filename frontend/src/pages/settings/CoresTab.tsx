@@ -34,7 +34,7 @@ import { sidecarOutboundsApi } from '@/api/sidecar-outbounds';
 import type { SidecarProtocol } from '@/schemas/sidecar-outbound';
 import type { BbrStatus } from '@/models/status';
 
-type CoreKind = 'naive' | 'olcrtc' | 'qwdtt' | 'mieru' | 'trusttunnel';
+type CoreKind = 'naive' | 'olcrtc' | 'qwdtt' | 'mieru' | 'trusttunnel' | 'anytls';
 
 interface CoreStatusView {
   probe?: { running?: boolean };
@@ -97,6 +97,14 @@ const CORE_API: Record<
     upload: tunnelsApi.trustTunnelUpload,
     download: tunnelsApi.trustTunnelDownload,
     deleteBinary: tunnelsApi.trustTunnelDeleteBinary,
+  },
+  anytls: {
+    key: keys.tunnels.anytlsStatus,
+    status: tunnelsApi.anytlsStatus,
+    logs: tunnelsApi.anytlsLogs,
+    upload: tunnelsApi.anytlsUpload,
+    download: tunnelsApi.anytlsDownload,
+    deleteBinary: tunnelsApi.anytlsDeleteBinary,
   },
 };
 
@@ -505,6 +513,7 @@ export default function CoresTab() {
       <BinaryCard kind="qwdtt" title="qWDTT" />
       <BinaryCard kind="mieru" title="mieru" />
       <BinaryCard kind="trusttunnel" title="TrustTunnel" />
+      <BinaryCard kind="anytls" title="AnyTLS" />
       <Divider />
       <Typography.Title level={5}>{t('pages.settings.cores.clientBinaries')}</Typography.Title>
       <ClientBinaryCard protocol="naive" titleKey="pages.settings.cores.naiveClient" />

@@ -1055,7 +1055,7 @@ func (s *InboundService) normalizeMtprotoSecret(inbound *model.Inbound) {
 
 func inboundHasSidecar(p model.Protocol) bool {
 	switch p {
-	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel:
+	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel, model.Anytls:
 		return true
 	default:
 		return false
@@ -1354,6 +1354,44 @@ func (s *InboundService) normalizeMieruSettings(inbound *model.Inbound) {
 		inbound.Settings = string(bs)
 	}
 	inbound.Port = tunnel.MieruPrimaryPort(cfg)
+	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
+		inbound.Remark = cfg.Remark
+	}
+}
+
+// normalizeAnytlsSettings merges defaults into the stored settings and mints
+// the shared password on first save. Syncs inbound.Port to the TCP listen
+// port so the generic port bookkeeping has a single value.
+func (s *InboundService) normalizeAnytlsSettings(inbound *model.Inbound) {
+	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
+	if !ok {
+		return
+	}
+	cfg = cfg.Merge()
+	if inbound.Port > 0 {
+		cfg.Port = inbound.Port
+	}
+	if strings.TrimSpace(cfg.Password) == "" {
+		if c2, err := cfg.EnsurePassword(); err == nil {
+			cfg = c2
+		}
+	}
+	var settings map[string]any
+	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
+		_ = json.Unmarshal([]byte(raw), &settings)
+	}
+	if settings == nil {
+		settings = map[string]any{}
+	}
+	settings["port"] = cfg.Port
+	settings["password"] = cfg.Password
+	if strings.TrimSpace(cfg.Remark) != "" {
+		settings["remark"] = cfg.Remark
+	}
+	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
+		inbound.Settings = string(bs)
+	}
+	inbound.Port = tunnel.AnytlsPrimaryPort(cfg)
 	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
 		inbound.Remark = cfg.Remark
 	}
@@ -1813,6 +1851,14 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		}
 		if err := s.normalizeTrustTunnelMetricsPort(inbound, ""); err != nil {
 			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.Anytls {
+		s.normalizeAnytlsSettings(inbound)
+		if cfg, ok := tunnel.AnytlsConfigFromInbound(inbound); ok {
+			if err := cfg.Merge().Validate(); err != nil {
+				return inbound, false, err
+			}
 		}
 	}
 	// END LUCX-HOOK
@@ -2423,6 +2469,14 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		}
 		if err := s.normalizeTrustTunnelMetricsPort(inbound, oldInbound.Settings); err != nil {
 			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.Anytls {
+		s.normalizeAnytlsSettings(inbound)
+		if cfg, ok := tunnel.AnytlsConfigFromInbound(inbound); ok {
+			if err := cfg.Merge().Validate(); err != nil {
+				return inbound, false, err
+			}
 		}
 	}
 	// END LUCX-HOOK

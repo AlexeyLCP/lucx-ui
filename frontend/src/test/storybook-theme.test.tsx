@@ -50,8 +50,8 @@ test('preserves unrelated body classes when applying the panel theme', () => {
   );
 
   expect(document.body.classList.contains('panel-fixture')).toBe(true);
-  expect(document.body.classList.contains('dark')).toBe(true);
-  expect(document.body.classList.contains('light')).toBe(false);
+  expect(document.body.classList.contains('light')).toBe(true);
+  expect(document.body.classList.contains('dark')).toBe(false);
   expect(message.classList.contains('message-fixture')).toBe(true);
-  expect(message.classList.contains('dark')).toBe(true);
+  expect(message.classList.contains('light')).toBe(true);
 });

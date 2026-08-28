@@ -43,6 +43,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'trusttunnel',
   'qwdtt',
   'olcrtc',
+  'anytls',
 ]);
 
 const EMPTY: ClientBulkAddFormValues = {

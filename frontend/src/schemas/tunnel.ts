@@ -146,3 +146,14 @@ export const TrustTunnelStatusSchema = z.object({
 });
 
 export type TrustTunnelStatus = z.infer<typeof TrustTunnelStatusSchema>;
+
+export const AnytlsStatusSchema = z.object({
+  core: z.string(),
+  displayName: z.string(),
+  binaryExists: z.boolean(),
+  binaryPath: z.string(),
+  probe: TunnelProbeSchema,
+  lastLog: z.string(),
+});
+
+export type AnytlsStatus = z.infer<typeof AnytlsStatusSchema>;

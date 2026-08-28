@@ -14,7 +14,7 @@ import type { FinalMaskStreamSettings } from '@/schemas/protocols/stream/finalma
 import type { XHttpStreamSettings } from '@/schemas/protocols/stream/xhttp';
 
 import { collapseKeepaliveForVersion } from '@/lib/awg/timer';
-import { bytesFromBase64Url, isQCompress } from '@/lib/awg/vpnuri'; // LUCX-HOOK
+import { bytesFromBase64Url, isQCompress, vpnUriFromConf } from '@/lib/awg/vpnuri'; // LUCX-HOOK
 import { getHeaderValue } from './headers';
 import { canEnableTlsFlow } from './protocol-capabilities';
 import { deriveSpiderX } from './spider-x';
@@ -931,29 +931,17 @@ function amneziaWGHLine(key: string, value: string | undefined, fallback: string
   return `${key} = ${value && value.trim() !== '' ? value : fallback}`;
 }
 
-// Base64url (RFC 4648 §5), no padding — matches the real AmneziaVPN app's
-// own Qt::Base64UrlEncoding | Qt::OmitTrailingEquals framing for vpn:// links.
-function toBase64Url(text: string): string {
-  const bytes = new TextEncoder().encode(text);
-  let binary = '';
-  for (const b of bytes) binary += String.fromCharCode(b);
-  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-// AmneziaWG share link: vpn://<base64url .conf text>, matching the real
-// AmneziaVPN app's own share-link scheme. The app's import path base64url-
-// decodes, best-effort qUncompresses (falls back to the raw bytes when the
-// input isn't qCompress-framed, which plain text never is), then parses the
-// result as a flat bag of "Key = Value" lines regardless of which
-// [Interface]/[Peer] section they came from — so wrapping the same .conf
-// text genAmneziaWGConfig already produces is sufficient; no JSON schema or
-// compression needs replicating. Confirmed against the app's own source
-// (importController.cpp's checkConfigFormat/extractWireGuardConfig).
+// AmneziaWG share link. LUCX-HOOK: the payload is the official Amnezia JSON
+// container (vpn:// + Base64URL(qCompress(JSON)), same envelope as the Go
+// side in internal/awg/vpnuri) — AmneziaVPN 5.x imports it natively and keeps
+// every AWG 3.0 field, while a raw-.conf vpn:// payload makes the app drop
+// HeaderProtectionKey & co, so the tunnel never handshakes.
 export function genAmneziaWGLink(input: GenAmneziaWGLinkInput): string {
   const cfgText = genAmneziaWGConfig(input);
   if (!cfgText) return '';
-  return `vpn://${toBase64Url(cfgText)}`;
+  return vpnUriFromConf(cfgText);
 }
+// END LUCX-HOOK
 
 // Plain-text AmneziaWG client config (.conf format). Mirrors
 // genWireguardConfig, plus the obfuscation lines every AmneziaWG client must
@@ -1141,15 +1129,13 @@ export function wireguardConfigFromLink(link: string, fallbackRemark = ''): stri
   return lines.join('\n');
 }
 
-// Reverse of toBase64Url above -- recovers a vpn:// link's plain .conf
-// payload for display/copy/download/QR, the AmneziaWG counterpart of
-// wireguardConfigFromLink. Simpler than that function: a vpn:// link's
-// payload already *is* the .conf text (see genAmneziaWGLink's own doc
-// comment), so there's nothing to reconstruct from query params -- just
-// decode. Mirrors link-label.tsx's own private fromBase64Url (used there
-// only to pull the remark/port back out for the tag label); duplicated
-// rather than imported since both are tiny, self-contained, and each
-// file already owns the matching encode or decode half of this pair.
+// Base64url decode (RFC 4648 §5) -- recovers a legacy plain-.conf vpn://
+// link's payload for display/copy/download/QR, the AmneziaWG counterpart of
+// wireguardConfigFromLink. A vpn:// payload already *is* the .conf text, so
+// there's nothing to reconstruct from query params -- just decode. Mirrors
+// link-label.tsx's own private fromBase64Url (used there only to pull the
+// remark/port back out for the tag label); duplicated rather than imported
+// since both files already own the matching half of this pair.
 function fromBase64Url(value: string): string {
   const b64 = value.replace(/-/g, '+').replace(/_/g, '/');
   const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
@@ -1417,6 +1403,8 @@ export function genLink(input: GenLinkInput): string {
       return genMtprotoLink({ inbound, address, port, clientSecret: client.secret ?? '' });
     case 'qwdtt':
       return genQwdttLink({ inbound, address, remark });
+    case 'anytls':
+      return genAnytlsLink({ inbound, address, remark });
     case 'olcrtc':
       return genOlcrtcLink({ inbound, remark });
     default:
@@ -1540,6 +1528,9 @@ export function genInboundLinks(input: GenInboundLinksInput): string {
   if (inbound.protocol === 'olcrtc') {
     return genOlcrtcLink({ inbound, remark });
   }
+  if (inbound.protocol === 'anytls') {
+    return genAnytlsLink({ inbound, address: addr, remark });
+  }
   // END LUCX-HOOK
   return '';
 }
@@ -1553,6 +1544,27 @@ export interface GenQwdttLinkInput {
 // genQwdttLink builds qwdtt://config?... for the SpaceNeuroX Android client.
 // peer = settings.subHost, else address:dtlsPort (address from resolveAddr /
 // panel host). Empty password → ''.
+export interface GenAnytlsLinkInput {
+  inbound: Inbound;
+  address?: string;
+  remark?: string;
+}
+
+export function genAnytlsLink(input: GenAnytlsLinkInput): string {
+  if (input.inbound.protocol !== 'anytls') return '';
+  const s = input.inbound.settings as { port?: number; password?: string };
+  const pass = (s.password ?? '').trim();
+  if (!pass) return '';
+  const host = (input.address ?? '').trim();
+  if (!host) return '';
+  const port = input.inbound.port > 0 ? input.inbound.port : s.port && s.port > 0 ? s.port : 8443;
+  const hostPort =
+    host.includes(':') && !host.startsWith('[') ? `[${host}]:${port}` : `${host}:${port}`;
+  const remark = (input.remark ?? '').trim();
+  const frag = remark ? `#${encodeURIComponent(remark)}` : '';
+  return `anytls://${encodeURIComponent(pass)}@${hostPort}/?insecure=1${frag}`;
+}
+
 export function genQwdttLink(input: GenQwdttLinkInput): string {
   if (input.inbound.protocol !== 'qwdtt') return '';
   const s = input.inbound.settings as {

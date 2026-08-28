@@ -12,6 +12,7 @@ import type { OlcrtcInboundSettings } from '@/schemas/protocols/inbound/olcrtc';
 import type { QwdttInboundSettings } from '@/schemas/protocols/inbound/qwdtt';
 import type { MieruInboundSettings } from '@/schemas/protocols/inbound/mieru';
 import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/trusttunnel';
+import type { AnytlsInboundSettings } from '@/schemas/protocols/inbound/anytls';
 import type {
   ShadowsocksClient,
   ShadowsocksInboundSettings,
@@ -305,6 +306,13 @@ export function createDefaultMieruInboundSettings(): MieruInboundSettings {
   };
 }
 
+export function createDefaultAnytlsInboundSettings(): AnytlsInboundSettings {
+  return {
+    port: 8443,
+    password: '',
+  };
+}
+
 export function createDefaultTrustTunnelInboundSettings(): TrustTunnelInboundSettings {
   return {
     hostname: '',
@@ -501,7 +509,8 @@ export type AnyInboundSettings =
   | OlcrtcInboundSettings
   | QwdttInboundSettings
   | MieruInboundSettings
-  | TrustTunnelInboundSettings;
+  | TrustTunnelInboundSettings
+  | AnytlsInboundSettings;
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -541,6 +550,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultMieruInboundSettings();
     case 'trusttunnel':
       return createDefaultTrustTunnelInboundSettings();
+    case 'anytls':
+      return createDefaultAnytlsInboundSettings();
     default:
       return null;
   }

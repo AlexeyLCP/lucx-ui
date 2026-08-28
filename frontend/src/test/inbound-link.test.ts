@@ -20,14 +20,9 @@ import {
 import { InboundSchema } from '@/schemas/api/inbound';
 import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
 import type { WireguardInboundSettings } from '@/schemas/protocols/inbound/wireguard';
-
-// reverse of inbound-link.ts's own toBase64Url, for asserting on the
-// decoded vpn:// payload without depending on that helper being exported.
-function fromBase64Url(value: string): string {
-  const b64 = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
-  return atob(padded);
-}
+// LUCX-HOOK: envelope decode helpers for the vpn:// JSON container assertions
+import { bytesFromBase64Url, inflateStored, vpnConfFromLink } from '@/lib/awg/vpnuri';
+// END LUCX-HOOK
 
 // Snapshot baseline for the share-link generators. Snapshots were locked
 // at the close of the legacy class migration — at that point each
@@ -678,11 +673,35 @@ describe('genInboundLinks awg export path', () => {
   });
 });
 // END LUCX-HOOK
-// Real AmneziaVPN app's import path (confirmed by reading its own source)
-// base64url-decodes a vpn:// link, best-effort decompresses it (falling back
-// to the raw bytes for plain text, which is never qCompress-framed), then
-// parses the result as a flat "Key = Value" bag -- so genAmneziaWGLink just
-// needs to wrap genAmneziaWGConfig's already-correct .conf text.
+// LUCX-HOOK: AmneziaVPN 5.x drops the AWG 3.0 fields when importing a raw
+// .conf, so genAmneziaWGLink emits the official Amnezia JSON container —
+// vpn:// + Base64URL(qCompress(JSON)) — the same envelope the Go side builds
+// in internal/awg/vpnuri. The app's importController parses that container
+// natively and keeps every structured field.
+interface DecodedAwgProtocol {
+  isThirdPartyConfig?: boolean;
+  transport_proto?: string;
+  port?: string;
+  protocol_version?: string;
+  last_config?: string;
+}
+
+interface DecodedEnvelope {
+  defaultContainer?: string;
+  hostName?: string;
+  description?: string;
+  dns1?: string;
+  dns2?: string;
+  containers?: { container?: string; awg?: DecodedAwgProtocol }[];
+}
+
+function decodeEnvelope(link: string): DecodedEnvelope {
+  const bytes = bytesFromBase64Url(link.slice('vpn://'.length));
+  const inflated = inflateStored(bytes);
+  if (!inflated) throw new Error('vpn:// payload is not a stored-block zlib envelope');
+  return JSON.parse(new TextDecoder().decode(inflated)) as DecodedEnvelope;
+}
+
 describe('genAmneziaWGLink vpn:// scheme', () => {
   const settings = {
     server: {
@@ -721,22 +740,53 @@ describe('genAmneziaWGLink vpn:// scheme', () => {
     peerIndex: 0,
   };
 
-  it('wraps the .conf text as a base64url-encoded vpn:// link, byte-identical to genAmneziaWGConfig', () => {
+  it('wraps the .conf text in the Amnezia JSON container; the async decoder recovers it byte-identical', async () => {
     const link = genAmneziaWGLink(input);
     expect(link.startsWith('vpn://')).toBe(true);
 
-    const decoded = fromBase64Url(link.slice('vpn://'.length));
-    expect(decoded).toBe(genAmneziaWGConfig(input));
-    expect(decoded).toContain('PrivateKey = clientPrivKey==\n');
-    expect(decoded).toContain('PublicKey = serverPubKey==\n');
-    expect(decoded).toContain('Endpoint = awg.example.test:51820');
+    const conf = await vpnConfFromLink(link);
+    expect(conf).toBe(genAmneziaWGConfig(input));
+    expect(conf).toContain('PrivateKey = clientPrivKey==\n');
+    expect(conf).toContain('PublicKey = serverPubKey==\n');
+    expect(conf).toContain('Endpoint = awg.example.test:51820');
     // No trailing newline: the text ends on its last set field whichever that
     // is, so the three emitters produce the same shape for the same client.
-    expect(decoded.endsWith('PersistentKeepalive = 25')).toBe(true);
+    expect(conf.endsWith('PersistentKeepalive = 25')).toBe(true);
   });
 
-  it('omits every unset 3.1 field — a lone HeaderProtectionKey line would break the handshake', () => {
-    const decoded = fromBase64Url(genAmneziaWGLink(input).slice('vpn://'.length));
+  it('carries the structured fields the AmneziaVPN import path reads', () => {
+    const env = decodeEnvelope(genAmneziaWGLink(input));
+    expect(env.defaultContainer).toBe('amnezia-awg');
+    expect(env.hostName).toBe('awg.example.test');
+    expect(env.description).toBe('awg-peer-1');
+    expect(env.dns1).toBe('8.8.8.8');
+    expect(env.dns2).toBe('8.8.4.4');
+
+    const container = env.containers?.[0];
+    expect(container?.container).toBe('amnezia-awg');
+    const awg = container?.awg;
+    expect(awg?.isThirdPartyConfig).toBe(true);
+    expect(awg?.transport_proto).toBe('udp');
+    expect(awg?.port).toBe('51820');
+    // S3/S4 set, no AWG 3.0 keys — the app must generate a v2 client
+    expect(awg?.protocol_version).toBe('2');
+
+    const inner = JSON.parse(awg?.last_config ?? '{}') as Record<string, unknown>;
+    expect(typeof inner.config).toBe('string');
+    expect(inner.client_priv_key).toBe('clientPrivKey==');
+    expect(inner.server_pub_key).toBe('serverPubKey==');
+    expect(inner.client_ip).toBe('10.8.1.2/32');
+    expect(inner.psk_key).toBeUndefined();
+    expect(inner.hostName).toBe('awg.example.test');
+    expect(inner.port).toBe(51820);
+    expect(inner.Jc).toBe('5');
+    expect(inner.S3).toBe('10');
+    expect(inner.allowed_ips).toEqual(['0.0.0.0/0', '::/0']);
+    expect(inner.persistent_keep_alive).toBe('25');
+  });
+
+  it('omits every unset 3.1 field — a lone HeaderProtectionKey line would break the handshake', async () => {
+    const conf = await vpnConfFromLink(genAmneziaWGLink(input));
     for (const absent of [
       'I2',
       'HeaderProtectionKey',
@@ -749,7 +799,7 @@ describe('genAmneziaWGLink vpn:// scheme', () => {
       'RandomTrailers',
       'DisableCookies',
     ]) {
-      expect(decoded).not.toContain(absent);
+      expect(conf).not.toContain(absent);
     }
   });
 
@@ -757,16 +807,13 @@ describe('genAmneziaWGLink vpn:// scheme', () => {
     expect(genAmneziaWGLink({ ...input, peerIndex: 5 })).toBe('');
   });
 
-  // The subscription page's own reverse of the above: recovers a vpn://
-  // link's .conf text for the same copy/download/QR "Config" block
-  // WireGuard already gets there (wireguardConfigFromLink's AmneziaWG
-  // counterpart) -- found missing from that page in production (no
-  // download-config affordance for AmneziaWG links, unlike WireGuard's),
-  // even though every other surface in the panel (InboundInfoModal,
-  // ClientInfoModal, ClientQrModal) already had parity.
-  it('amneziawgConfigFromLink round-trips genAmneziaWGLink byte-identical to genAmneziaWGConfig', () => {
+  // The sync decoder refuses the qCompress envelope (never UTF-8 it — that is
+  // the client-card mojibake); the subscription page's async vpnConfFromLink
+  // is the supported reverse path for copy/download/QR "Config" blocks.
+  it('sync amneziawgConfigFromLink refuses the envelope; the async decoder round-trips it', async () => {
     const link = genAmneziaWGLink(input);
-    expect(amneziawgConfigFromLink(link)).toBe(genAmneziaWGConfig(input));
+    expect(amneziawgConfigFromLink(link)).toBe('');
+    expect(await vpnConfFromLink(link)).toBe(genAmneziaWGConfig(input));
   });
 });
 
@@ -840,7 +887,7 @@ describe('genAmneziaWGConfig 3.1 parameters', () => {
     peerIndex: 0,
   };
 
-  it('emits every 3.1 line in the shared emitter order and round-trips through vpn://', () => {
+  it('emits every 3.1 line in the shared emitter order and round-trips through vpn://', async () => {
     const cfg = genAmneziaWGConfig(input);
     const expectedOrder = [
       'Jc = 4',
@@ -865,7 +912,9 @@ describe('genAmneziaWGConfig 3.1 parameters', () => {
       pos = i;
     }
     expect(cfg).not.toContain('I3');
-    expect(amneziawgConfigFromLink(genAmneziaWGLink(input))).toBe(cfg);
+    const link = genAmneziaWGLink(input);
+    expect(decodeEnvelope(link).containers?.[0]?.awg?.protocol_version).toBe('3');
+    expect(await vpnConfFromLink(link)).toBe(cfg);
   });
 });
 

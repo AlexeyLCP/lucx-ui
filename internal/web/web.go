@@ -177,7 +177,7 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 	const maxRequestBodyBytes = 10 << 20 // 10 MiB
 	// LUCX-HOOK: the tunnel core binary upload (~50 MB caddy build) is exempt
 	// from the global body limit, like the DB import.
-	engine.Use(middleware.MaxBodyBytes(maxRequestBodyBytes, "/panel/api/server/importDB", "/panel/api/tunnel/naive/upload", "/panel/api/tunnel/olcrtc/upload", "/panel/api/tunnel/qwdtt/upload", "/panel/api/tunnel/mieru/upload", "/panel/api/tunnel/trusttunnel/upload", "/panel/api/sidecar-outbounds/upload/naive", "/panel/api/sidecar-outbounds/upload/mieru", "/panel/api/sidecar-outbounds/upload/trusttunnel"))
+	engine.Use(middleware.MaxBodyBytes(maxRequestBodyBytes, "/panel/api/server/importDB", "/panel/api/tunnel/naive/upload", "/panel/api/tunnel/olcrtc/upload", "/panel/api/tunnel/qwdtt/upload", "/panel/api/tunnel/mieru/upload", "/panel/api/tunnel/trusttunnel/upload", "/panel/api/tunnel/anytls/upload", "/panel/api/sidecar-outbounds/upload/naive", "/panel/api/sidecar-outbounds/upload/mieru", "/panel/api/sidecar-outbounds/upload/trusttunnel"))
 	// END LUCX-HOOK
 
 	webDomain, err := s.settingService.GetWebDomain()
@@ -377,6 +377,9 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	// check client ips from log file every day
 	_, _ = s.cron.AddJob("@daily", job.NewClearLogsJob())
 	_, _ = s.cron.AddJob(cadenceXrayLogPrune, job.NewPruneXrayLogsJob())
+	// LUCX-HOOK: delete log files older than the configured retention period
+	_, _ = s.cron.AddJob("@daily", job.NewLogRetentionJob())
+	// END LUCX-HOOK
 	_, _ = s.cron.AddJob("@hourly", job.NewWarpIpJob())
 
 	// Inbound traffic reset jobs

@@ -1,5 +1,8 @@
 import { Tag } from 'antd';
 import { Base64 } from '@/utils';
+// LUCX-HOOK: stored-block inflate for panel-minted vpn:// envelopes
+import { inflateStored } from '@/lib/awg/vpnuri';
+// END LUCX-HOOK
 
 /* Shared parsing + rendering for the "protocol / transport / security"
    labels shown above share links in the QR modal, the client info modal
@@ -36,6 +39,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   mieru: 'mieru',
   mierus: 'mieru',
   tt: 'TrustTunnel',
+  anytls: 'AnyTLS',
 };
 
 const PROTOCOL_COLORS: Record<string, string> = {
@@ -53,6 +57,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
   qWDTT: 'gold',
   mieru: 'geekblue',
   TrustTunnel: 'purple',
+  AnyTLS: 'gold',
 };
 
 const SECURITY_COLORS: Record<string, string> = {
@@ -84,7 +89,17 @@ function isQCompress(bytes: Uint8Array): boolean {
 // Never TextDecoder the compressed envelope — that is the client-card mojibake.
 function vpnLinkPlaintext(payload: string): string {
   const bytes = bytesFromBase64Url(payload);
-  if (isQCompress(bytes)) return '';
+  if (isQCompress(bytes)) {
+    // LUCX-HOOK: panel-minted envelopes use stored-block zlib — inflate them
+    // synchronously so labels keep the remark/port; Go-side (real deflate)
+    // envelopes return null and degrade to a protocol-only label.
+    const inflated = inflateStored(bytes);
+    if (!inflated) return '';
+    const text = new TextDecoder().decode(inflated);
+    if (text.includes('\uFFFD')) return '';
+    return text.trimStart().startsWith('{') ? text : '';
+    // END LUCX-HOOK
+  }
   const text = new TextDecoder().decode(bytes);
   if (text.includes('\uFFFD')) return '';
   if (
@@ -145,8 +160,16 @@ export function parseLinkParts(link: string): LinkParts | null {
     try {
       const cfgText = vpnLinkPlaintext(trimmed.slice('vpn://'.length));
       if (cfgText.trimStart().startsWith('{')) {
-        const env = JSON.parse(cfgText) as { description?: string; hostName?: string };
+        const env = JSON.parse(cfgText) as {
+          description?: string;
+          containers?: { awg?: { port?: string | number } }[];
+        };
         remark = typeof env.description === 'string' ? env.description : '';
+        // LUCX-HOOK: the JSON container carries the endpoint port in
+        // containers[0].awg.port — surface it like the raw .conf branch does
+        const envPort = env.containers?.[0]?.awg?.port;
+        if (envPort != null && String(envPort) !== '') port = String(envPort);
+        // END LUCX-HOOK
       } else if (cfgText) {
         remark = /^#\s?(.*)$/m.exec(cfgText)?.[1]?.trim() ?? '';
         port = /^Endpoint\s*=\s*.+:(\d+)\s*$/m.exec(cfgText)?.[1] ?? '';
@@ -160,6 +183,14 @@ export function parseLinkParts(link: string): LinkParts | null {
     const main = hashIdx >= 0 ? body.slice(0, hashIdx) : body;
     const at = main.lastIndexOf('@');
     remark = at >= 0 ? main.slice(at + 1) : main;
+  } else if (scheme === 'anytls') {
+    try {
+      const url = new URL(trimmed);
+      port = url.port || '';
+      remark = url.hostname || '';
+    } catch {
+      remark = '';
+    }
   } else if (scheme === 'qwdtt' || scheme === 'wdtt') {
     try {
       const url = new URL(trimmed.replace(/^wdtt:/i, 'qwdtt:'));

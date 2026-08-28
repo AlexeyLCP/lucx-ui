@@ -345,6 +345,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileQwdttInbound()
 	s.reconcileMieruInbounds()
 	s.reconcileTrustTunnelInbounds()
+	s.reconcileAnytlsInbounds()
 }
 
 // tunnelBlobMigrated reports whether the legacy settings blob carries the
@@ -547,6 +548,28 @@ func (s *TunnelService) reconcileMieruInbounds() {
 		want = append(want, inst)
 	}
 	tunnel.GetManager().ReconcileMieru(want)
+}
+
+// reconcileAnytlsInbounds Ensures every AnyTls inbound sidecar and stops
+// orphans. Inbound-only like mieru: zero inbounds sweeps every anytls-* key.
+func (s *TunnelService) reconcileAnytlsInbounds() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: anytls inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Anytls || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.AnytlsInstanceFromInbound(ib)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	tunnel.GetManager().ReconcileAnytls(want)
 }
 
 // panelCertFiles reads the panel ACME certificate paths from settings (the
@@ -1388,4 +1411,54 @@ func (s *TunnelService) DeleteTrustTunnelBinary() error {
 // DownloadTrustTunnelBinary fetches the endpoint binary from a URL into place.
 func (s *TunnelService) DownloadTrustTunnelBinary(downloadURL, wantSHA256 string) error {
 	return s.downloadBinaryTo(tunnel.TrustTunnel.BinaryPath(), downloadURL, wantSHA256)
+}
+
+// --- AnyTLS core (inbound-only) ---------------------------------------------
+
+// AnytlsStatus is the Cores-page payload of the AnyTLS core: binary presence
+// plus the aggregate process state across all anytls-{id} instances.
+type AnytlsStatus struct {
+	Core         string        `json:"core"`
+	DisplayName  string        `json:"displayName"`
+	BinaryExists bool          `json:"binaryExists"`
+	BinaryPath   string        `json:"binaryPath"`
+	Probe        tunnel.Status `json:"probe"`
+	LastLog      string        `json:"lastLog"`
+}
+
+// AnytlsStatus assembles the Cores-page payload from the live manager state.
+func (s *TunnelService) AnytlsStatus() (AnytlsStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Anytls.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return AnytlsStatus{
+		Core:         string(tunnel.Anytls),
+		DisplayName:  tunnel.Anytls.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("anytls-")},
+		LastLog:      mgr.LastLogPrefixed("anytls-"),
+	}, nil
+}
+
+// AnytlsLogs returns the most recent output lines of all anytls instances.
+func (s *TunnelService) AnytlsLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().LogsPrefixed("anytls-", lines)
+}
+
+// DeleteAnytlsBinary stops every anytls instance and removes the binary.
+func (s *TunnelService) DeleteAnytlsBinary() error {
+	tunnel.GetManager().StopPrefixed("anytls-")
+	if err := os.Remove(tunnel.Anytls.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DownloadAnytlsBinary fetches the anytls-server binary from a URL into place.
+func (s *TunnelService) DownloadAnytlsBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Anytls.BinaryPath(), downloadURL, wantSHA256)
 }

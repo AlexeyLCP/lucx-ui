@@ -195,3 +195,43 @@ func TestEncodeConf_RejectsEmpty(t *testing.T) {
 		t.Fatal("expected error for missing sections")
 	}
 }
+
+func envelopeAwg(t *testing.T, conf string) map[string]any {
+	t.Helper()
+	uri, err := EncodeConf(conf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := Decode(uri)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var env map[string]any
+	if err := json.Unmarshal(raw, &env); err != nil {
+		t.Fatal(err)
+	}
+	containers, _ := env["containers"].([]any)
+	c0, _ := containers[0].(map[string]any)
+	awg, _ := c0["awg"].(map[string]any)
+	if awg == nil {
+		t.Fatal("missing awg key")
+	}
+	return awg
+}
+
+func TestEncodeConf_ProtocolVersion(t *testing.T) {
+	if pv, ok := envelopeAwg(t, sampleConf)["protocol_version"]; ok {
+		t.Fatalf("v1 config must omit protocol_version, got %v", pv)
+	}
+
+	v2 := strings.Replace(sampleConf, "Jc = 4", "Jc = 4\nS3 = 10\nS4 = 5", 1)
+	if got := envelopeAwg(t, v2)["protocol_version"]; got != "2" {
+		t.Fatalf("S3/S4 config must carry protocol_version 2, got %v", got)
+	}
+
+	v3 := strings.Replace(sampleConf, "Jc = 4",
+		"Jc = 4\nHeaderProtectionKey = MCPfRGcDGotJ6TcnIdDqsemj2cMIiGHnPUHM5ivXN18=", 1)
+	if got := envelopeAwg(t, v3)["protocol_version"]; got != "3" {
+		t.Fatalf("HPK config must carry protocol_version 3, got %v", got)
+	}
+}

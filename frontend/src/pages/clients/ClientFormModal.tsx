@@ -67,6 +67,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'trusttunnel',
   'qwdtt',
   'olcrtc',
+  'anytls',
 ]);
 
 const CLIENT_FORM_MODAL_Z_INDEX = 1000;

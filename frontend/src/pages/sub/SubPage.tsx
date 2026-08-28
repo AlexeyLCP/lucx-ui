@@ -22,6 +22,9 @@ import {
 import {
   AndroidOutlined,
   AppleOutlined,
+  // LUCX-HOOK: palette switch button icon
+  BgColorsOutlined,
+  // END LUCX-HOOK
   CopyOutlined,
   DownOutlined,
   DownloadOutlined,
@@ -87,7 +90,10 @@ const isActive = (() => {
 
 export default function SubPage() {
   const { t } = useTranslation();
-  const { isDark, isUltra, toggleTheme, toggleUltra, antdThemeConfig } = useTheme();
+  // LUCX-HOOK: palette switch added to the upstream dark/ultra cycle
+  const { isDark, isUltra, toggleTheme, toggleUltra, palette, togglePalette, antdThemeConfig } =
+    useTheme();
+  // END LUCX-HOOK
   const [messageApi, messageContextHolder] = message.useMessage();
   useEffect(() => {
     setMessageInstance(messageApi);
@@ -308,6 +314,22 @@ export default function SubPage() {
         icon={themeIcon}
         onClick={cycleTheme}
       />
+      {/* LUCX-HOOK: palette switch (blue / sand-graphite) */}
+      <Button
+        id="sub-palette-cycle"
+        shape="circle"
+        size="large"
+        className="toolbar-btn"
+        aria-label={t('menu.palette')}
+        aria-pressed={palette === 'warm'}
+        title={t('menu.palette')}
+        icon={<BgColorsOutlined />}
+        onClick={() => {
+          pauseAnimationsUntilLeave('sub-palette-cycle');
+          togglePalette();
+        }}
+      />
+      {/* END LUCX-HOOK */}
       <Popover
         rootClassName={isDark ? 'dark' : 'light'}
         placement="bottomRight"
