@@ -51,9 +51,9 @@ func applyClientRecordMerge(row *model.ClientRecord, incoming *model.ClientRecor
 	if incoming.AllowedIPs != "" {
 		row.AllowedIPs = incoming.AllowedIPs
 	}
-	// A record carrying tunnel keys is the authoritative copy, so its blank PSK
-	// means cleared; a keyless inbound's copy has none and means "not applicable".
-	if incoming.PreSharedKey != "" || incoming.PrivateKey != "" || incoming.PublicKey != "" {
+	// Blank never clears: settings JSON omits preSharedKey, so a replayed inbound
+	// snapshot and a keyless inbound's copy both arrive without one.
+	if incoming.PreSharedKey != "" {
 		row.PreSharedKey = incoming.PreSharedKey
 	}
 	row.KeepAlive = incoming.KeepAlive
