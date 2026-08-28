@@ -442,6 +442,38 @@ func TestValidateAwgSettingsJSON_BrokenJSON(t *testing.T) {
 	})
 }
 
+// amneziawg-tools bound-check against UINT32_MAX and silently truncate
+// (RekeyTimeout=70000 becomes 4464), so this must be caught before save.
+func TestValidateAwgSettingsJSON_RejectsOversizedTimer(t *testing.T) {
+	settings := `{"awgVersion":"3","jc":4,"jmin":1,"jmax":3,"s1":20,"s2":20,"s3":20,"s4":20,` +
+		`"h1":"1","h2":"2","h3":"3","h4":"4","rekeyTimeout":"70000"}`
+	err := validateAwgSettingsJSON(settings)
+	if !errors.Is(err, awg.ErrTimerOutOfRange) {
+		t.Fatalf("validateAwgSettingsJSON(%s) = %v, want awg.ErrTimerOutOfRange", settings, err)
+	}
+}
+
+// A legal single-value timer and a legal lo-hi range must both still pass, so
+// the new check does not degenerate into "no device timers allowed".
+func TestValidateAwgSettingsJSON_AcceptsLegalTimers(t *testing.T) {
+	base := `{"awgVersion":"3","jc":4,"jmin":1,"jmax":3,"s1":20,"s2":20,"s3":20,"s4":20,` +
+		`"h1":"1","h2":"2","h3":"3","h4":"4"`
+	tests := []struct {
+		name string
+		json string
+	}{
+		{"single value", base + `,"rekeyTimeout":"150"}`},
+		{"lo-hi range", base + `,"rekeyTimeout":"100-500"}`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if err := validateAwgSettingsJSON(tt.json); err != nil {
+				t.Fatalf("validateAwgSettingsJSON(%s) = %v, want nil", tt.json, err)
+			}
+		})
+	}
+}
+
 func TestCountAwgOrWireguard(t *testing.T) {
 	got := countAwgOrWireguard([]*model.Inbound{
 		{Protocol: model.AWG},

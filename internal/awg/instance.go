@@ -396,6 +396,35 @@ func ValidateObfuscationFields(version string, jc, s1 int, h1, h2, h3, h4 string
 	return nil
 }
 
+// ErrTimerOutOfRange: upstream tools bound-check against UINT32_MAX and
+// silently truncate (RekeyTimeout=70000 becomes 4464); catch it here first.
+var ErrTimerOutOfRange = errors.New("awg: device timer out of range")
+
+// ValidateDeviceTimer checks one AWG3 device timer (name labels the error).
+// Empty/zero passes; else it must match H1-H4's lo-hi grammar, hi >= lo, both <= 65535.
+func ValidateDeviceTimer(name string, t AwgTimer) error {
+	if t.IsZero() {
+		return nil
+	}
+	s := strings.TrimSpace(string(t))
+	if !awgHFieldRe.MatchString(s) {
+		return fmt.Errorf("awg: %s is not an integer or lo-hi range", name)
+	}
+	lo, hi := s, s
+	if i := strings.IndexByte(s, '-'); i >= 0 {
+		lo, hi = s[:i], s[i+1:]
+	}
+	loN, loErr := strconv.ParseUint(lo, 10, 32)
+	hiN, hiErr := strconv.ParseUint(hi, 10, 32)
+	if loErr != nil || hiErr != nil || loN > 65535 || hiN > 65535 {
+		return fmt.Errorf("%w: %s (%s) must be 0-65535", ErrTimerOutOfRange, name, s)
+	}
+	if hiN < loN {
+		return fmt.Errorf("%w: %s range %s has hi < lo", ErrTimerOutOfRange, name, s)
+	}
+	return nil
+}
+
 func timerHi(t AwgTimer) int64 {
 	s := strings.TrimSpace(string(t))
 	if s == "" || s == "0" || s == "0-0" {

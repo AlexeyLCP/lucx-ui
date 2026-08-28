@@ -125,6 +125,14 @@ func validateAwgSettingsJSON(settings string) error {
 		HeaderProtectionKey string `json:"headerProtectionKey"`
 		Address             string `json:"address"`
 		DNS                 string `json:"dns"`
+		// AWG3 device-level timers/padding: string-typed so a lo-hi range
+		// ("100-500") survives, same shape as awg.Instance's own fields.
+		ContentPaddingAddition awg.AwgTimer `json:"contentPaddingAddition"`
+		RekeyAfterTime         awg.AwgTimer `json:"rekeyAfterTime"`
+		RekeyTimeout           awg.AwgTimer `json:"rekeyTimeout"`
+		RejectAfterTime        awg.AwgTimer `json:"rejectAfterTime"`
+		KeepaliveTimeout       awg.AwgTimer `json:"keepaliveTimeout"`
+		MaxHandshakeAttempts   awg.AwgTimer `json:"maxHandshakeAttempts"`
 	}
 	if strings.TrimSpace(settings) == "" {
 		return nil
@@ -134,6 +142,21 @@ func validateAwgSettingsJSON(settings string) error {
 	}
 	if err := awg.ValidateObfuscationFields(s.AwgVersion, s.Jc, s.S1, s.H1, s.H2, s.H3, s.H4); err != nil {
 		return err
+	}
+	for _, dt := range []struct {
+		name string
+		val  awg.AwgTimer
+	}{
+		{"ContentPaddingAddition", s.ContentPaddingAddition},
+		{"RekeyAfterTime", s.RekeyAfterTime},
+		{"RekeyTimeout", s.RekeyTimeout},
+		{"RejectAfterTime", s.RejectAfterTime},
+		{"KeepaliveTimeout", s.KeepaliveTimeout},
+		{"MaxHandshakeAttempts", s.MaxHandshakeAttempts},
+	} {
+		if err := awg.ValidateDeviceTimer(dt.name, dt.val); err != nil {
+			return err
+		}
 	}
 	// Oversized I1-I5 still apply and pass traffic, but `awg show` then fails
 	// with EMSGSIZE and the panel goes blind on that interface.

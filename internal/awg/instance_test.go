@@ -878,6 +878,45 @@ func TestValidateObfuscationFields_RejectsEmptyH(t *testing.T) {
 	}
 }
 
+// Upstream tools bound-check against UINT32_MAX and silently truncate
+// (RekeyTimeout=70000 -> 4464); the panel must reject what u16 cannot hold.
+func TestValidateDeviceTimer(t *testing.T) {
+	tests := []struct {
+		name         string
+		value        AwgTimer
+		wantErr      bool
+		wantOutRange bool
+	}{
+		{"empty is kernel default", "", false, false},
+		{"zero is kernel default", "0", false, false},
+		{"zero range is kernel default", "0-0", false, false},
+		{"legal single value", "150", false, false},
+		{"legal range", "100-500", false, false},
+		{"single value above u16 max", "70000", true, true},
+		{"range hi above u16 max", "100-70000", true, true},
+		{"range hi below lo", "500-100", true, true},
+		{"not a number", "abc", true, false},
+		{"trailing hyphen with no hi", "100-", true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateDeviceTimer("RekeyTimeout", tt.value)
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("ValidateDeviceTimer(%q) = %v, want nil", tt.value, err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("ValidateDeviceTimer(%q) = nil, want error", tt.value)
+			}
+			if got := errors.Is(err, ErrTimerOutOfRange); got != tt.wantOutRange {
+				t.Fatalf("ValidateDeviceTimer(%q) = %v, errors.Is(_, ErrTimerOutOfRange) = %v, want %v", tt.value, err, got, tt.wantOutRange)
+			}
+		})
+	}
+}
+
 func TestOnlineTTLSeconds_UsesRekeyHi(t *testing.T) {
 	inst := Instance{RekeyAfterTime: "300-600"}
 	if got := onlineTTLSeconds(inst); got != 660 {
