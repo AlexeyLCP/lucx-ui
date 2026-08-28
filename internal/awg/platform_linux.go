@@ -33,9 +33,9 @@ func renameAwgInterface(oldName, newName string) error {
 func defaultRouteInterface() string {
 	out, err := exec.CommandContext(context.Background(), "ip", "-o", "-4", "route", "show", "default").Output()
 	if err != nil {
-		return ""
+		out = nil
 	}
-	return parseDefaultRouteInterface(string(out))
+	return stickyDefaultRoute(parseDefaultRouteInterface(string(out)))
 }
 
 // killStrayAwgInterfaces removes AWG kernel interfaces left over from a

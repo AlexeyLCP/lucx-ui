@@ -58,13 +58,15 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 	clientMu.Lock()
 	defer clientMu.Unlock()
 	confPath := filepath.Join(awgConfigDir, ci.Ifname+".conf")
-	newFP := ci.fingerprint()
-	if st, ok := clients[ci.Ifname]; ok && st.fp == newFP {
+	// The rendered file IS the restart trigger here: an outbound has no
+	// syncconf path, so every change goes in by taking the interface down and up.
+	conf := renderClientConf(ci)
+	if st, ok := clients[ci.Ifname]; ok && st.fp == conf {
 		if _, err := awgShowIfname(ci.Ifname); err == nil {
 			return nil
 		}
 	}
-	if err := os.WriteFile(confPath, []byte(renderClientConf(ci)), 0o600); err != nil {
+	if err := os.WriteFile(confPath, []byte(conf), 0o600); err != nil {
 		return err
 	}
 	if _, err := awgShowIfname(ci.Ifname); err == nil {
@@ -75,7 +77,7 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 	if out, err := awgQuick("up", confPath); err != nil {
 		return fmt.Errorf("awg-quick up %s: %w (%s)", confPath, err, string(out))
 	}
-	clients[ci.Ifname] = clientState{fp: newFP}
+	clients[ci.Ifname] = clientState{fp: conf}
 	return nil
 }
 

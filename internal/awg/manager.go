@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -92,7 +93,8 @@ func (m *Manager) sweepOrphansLocked() {
 }
 
 func (m *Manager) ensureLocked(inst Instance) error {
-	fp := inst.fingerprint()
+	conf := renderServerConf(inst)
+	fp := deviceFingerprint(conf)
 	peerFP := inst.peerFingerprint()
 	ttl := onlineTTLSeconds(inst)
 	if cur, ok := m.procs[inst.Id]; ok {
@@ -101,7 +103,7 @@ func (m *Manager) ensureLocked(inst Instance) error {
 			cur.onlineTTL = ttl
 			cur.peers = inst.Peers
 			if cur.peerFP != peerFP {
-				if err := m.syncPeersLocked(inst); err != nil {
+				if err := m.syncPeersLocked(inst, conf); err != nil {
 					return err
 				}
 				cur.peerFP = peerFP
@@ -114,7 +116,7 @@ func (m *Manager) ensureLocked(inst Instance) error {
 		_ = cur.proc.Stop()
 		delete(m.procs, inst.Id)
 	}
-	if err := writeServerConfigFile(inst); err != nil {
+	if err := writeServerConfig(inst.Id, conf); err != nil {
 		return err
 	}
 	proc := newProcess(inst.Ifname, configPathForID(inst.Id), fmt.Sprintf("inbound %d", inst.Id))
@@ -293,7 +295,8 @@ func (m *Manager) Adopt(inst Instance, currentIfname string, startIfDown bool) e
 			return err
 		}
 	}
-	if err := writeServerConfigFile(inst); err != nil {
+	conf := renderServerConf(inst)
+	if err := writeServerConfig(inst.Id, conf); err != nil {
 		return err
 	}
 	proc := newProcess(inst.Ifname, configPathForID(inst.Id), fmt.Sprintf("inbound %d", inst.Id))
@@ -305,7 +308,7 @@ func (m *Manager) Adopt(inst Instance, currentIfname string, startIfDown bool) e
 	m.procs[inst.Id] = &managed{
 		proc:        proc,
 		tag:         inst.Tag,
-		fingerprint: inst.fingerprint(),
+		fingerprint: deviceFingerprint(conf),
 		peerFP:      inst.peerFingerprint(),
 		ifname:      inst.Ifname,
 		onlineTTL:   onlineTTLSeconds(inst),
@@ -486,11 +489,16 @@ func (m *Manager) CollectTraffic() ([]Traffic, []PeerTraffic, map[string][]strin
 // writeServerConfigFile renders the .conf for an instance and writes it to
 // the conventional AWG config path. Mirrors mtproto's writeConfig.
 func writeServerConfigFile(inst Instance) error {
+	return writeServerConfig(inst.Id, renderServerConf(inst))
+}
+
+// writeServerConfig takes already-rendered text so a caller that also needs it
+// for the fingerprint does not pay a second render (and second module probe).
+func writeServerConfig(id int, conf string) error {
 	if err := os.MkdirAll(awgConfigDir, 0o750); err != nil {
 		return err
 	}
-	conf := renderServerConf(inst)
-	return os.WriteFile(configPathForID(inst.Id), []byte(conf), 0o600)
+	return os.WriteFile(configPathForID(id), []byte(conf), 0o600)
 }
 
 // tunNameFor returns the name of the Xray TUN inbound device paired with an
@@ -557,6 +565,19 @@ func (m *Manager) ensureXrayRouting(inst Instance) {
 	if out2, err2 := exec.CommandContext(context.Background(), "ip", "rule", "add", "iif", inst.Ifname, "lookup", strconv.Itoa(table)).CombinedOutput(); err2 != nil {
 		logger.Warningf("awg: re-add policy rule for %s: %v\n%s", inst.Ifname, err2, string(out2))
 	}
+}
+
+var lastDefaultRouteIface atomic.Value
+
+// stickyDefaultRoute keeps the last interface seen. `ip route show default`
+// exits 0 with no output between DHCP leases, and "" erases PostUp — the fingerprint.
+func stickyDefaultRoute(probed string) string {
+	if probed != "" {
+		lastDefaultRouteIface.Store(probed)
+		return probed
+	}
+	last, _ := lastDefaultRouteIface.Load().(string)
+	return last
 }
 
 // clientSubnet extracts the network prefix (e.g. "10.8.0.0/24") from the
@@ -812,6 +833,7 @@ func renderServerConf(inst Instance) string {
 	fmt.Fprintf(&b, "H2 = %s\n", inst.H2)
 	fmt.Fprintf(&b, "H3 = %s\n", inst.H3)
 	fmt.Fprintf(&b, "H4 = %s\n", inst.H4)
+	awg3ok := IsAwg3Plus(inst.AwgVersion) && ModuleSupportsAwg3()
 	// HeaderProtectionKey (AWG3) is written ONLY when AwgVersion == "3" and the
 	// key is non-empty. The upstream kernel module (v3.0.20260731) + tools
 	// (v3.0.20260730) now parse the field; older builds reject it with "Line
@@ -821,7 +843,7 @@ func renderServerConf(inst Instance) string {
 	// working on any kernel, and lets a v3 inbound opt in once the operator has
 	// installed the AWG3 module. The S1-S4 >= 12 invariant (enforced by the
 	// generator) is required for the kernel to accept the key.
-	if IsAwg3Plus(inst.AwgVersion) && inst.HeaderProtectionKey != "" && ModuleSupportsAwg3() {
+	if awg3ok && inst.HeaderProtectionKey != "" {
 		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", inst.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — all optional (0 = kernel uses the
@@ -832,7 +854,6 @@ func renderServerConf(inst Instance) string {
 	// kernel rejects "Line unrecognized" and awg-quick deletes the interface,
 	// producing "Device <awgN> does not exist". Blocks the regression seen
 	// when an operator picks v3 on a host still running the v1.x module.
-	awg3ok := IsAwg3Plus(inst.AwgVersion) && ModuleSupportsAwg3()
 	if awg3ok {
 		// Values are written verbatim: each is a single integer ("150") or an
 		// inclusive range ("100-500"). The kernel u16_range_t parses both and
@@ -941,10 +962,10 @@ func stripAwgQuick(conf string) string {
 	return b.String()
 }
 
-func (m *Manager) syncPeersLocked(inst Instance) error {
+func (m *Manager) syncPeersLocked(inst Instance, conf string) error {
 	// Full .conf stays on disk for awg-quick up; syncconf gets a stripped
 	// temp file — its parser rejects Address/MTU/PostUp (lucx.154).
-	if err := writeServerConfigFile(inst); err != nil {
+	if err := writeServerConfig(inst.Id, conf); err != nil {
 		return err
 	}
 	cur, ok := m.procs[inst.Id]
@@ -957,7 +978,7 @@ func (m *Manager) syncPeersLocked(inst Instance) error {
 	}
 	tmpPath := tmp.Name()
 	defer os.Remove(tmpPath)
-	if _, err := tmp.WriteString(stripAwgQuick(renderServerConf(inst))); err != nil {
+	if _, err := tmp.WriteString(stripAwgQuick(conf)); err != nil {
 		_ = tmp.Close()
 		return fmt.Errorf("awg syncconf temp: %w", err)
 	}

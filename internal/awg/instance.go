@@ -133,48 +133,11 @@ type PeerSpec struct {
 	ForwardedPorts string
 }
 
-// fingerprint changes whenever a device-level .conf field changes, so
-// ensureLocked restarts awg-quick. Peers are NOT included — adding/removing a
-// client uses awg syncconf (SyncPeers) so existing handshakes survive.
-// DNS is client-export-only; I1-I5 go into both, since either side may
-// initiate a handshake and each sends its own CPS burst first.
-func (inst Instance) fingerprint() string {
-	parts := []string{
-		inst.Ifname,
-		strconv.Itoa(inst.Port),
-		inst.PrivateKey,
-		strconv.Itoa(inst.MTU),
-		inst.Address,
-		strconv.Itoa(inst.Jc),
-		strconv.Itoa(inst.Jmin),
-		strconv.Itoa(inst.Jmax),
-		strconv.Itoa(inst.S1),
-		strconv.Itoa(inst.S2),
-		strconv.Itoa(inst.S3),
-		strconv.Itoa(inst.S4),
-		inst.H1,
-		inst.H2,
-		inst.H3,
-		inst.H4,
-		inst.I1,
-		inst.I2,
-		inst.I3,
-		inst.I4,
-		inst.I5,
-		inst.HeaderProtectionKey,
-		string(inst.ContentPaddingAddition),
-		string(inst.RekeyAfterTime),
-		string(inst.RekeyTimeout),
-		string(inst.RejectAfterTime),
-		string(inst.KeepaliveTimeout),
-		string(inst.MaxHandshakeAttempts),
-		strconv.FormatBool(inst.RandomTrailers),
-		strconv.FormatBool(inst.DisableCookies),
-		inst.AwgVersion,
-		strconv.FormatBool(inst.RouteThroughXray),
-		inst.OutboundTag,
-	}
-	return strings.Join(parts, "|")
+// deviceFingerprint takes a rendered server .conf and keeps the half awg-quick
+// can only apply by recreating the interface; peers go in through syncconf.
+func deviceFingerprint(serverConf string) string {
+	device, _, _ := strings.Cut(serverConf, "\n[Peer]\n")
+	return device
 }
 
 func (inst Instance) peerFingerprint() string {

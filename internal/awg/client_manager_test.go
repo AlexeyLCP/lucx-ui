@@ -18,7 +18,7 @@ func TestClientFingerprint_RestartDetection(t *testing.T) {
 	ci1, _ := ClientInstanceFromOutbound(o)
 	o.Settings = `{"privateKey":"k","address":"10.9.0.6/32","publicKey":"pub","endpoint":"up:51820","mtu":1320}`
 	ci2, _ := ClientInstanceFromOutbound(o)
-	if ci1.fingerprint() == ci2.fingerprint() {
+	if renderClientConf(ci1) == renderClientConf(ci2) {
 		t.Fatal("fingerprint must change when Address changes (restart trigger)")
 	}
 }
