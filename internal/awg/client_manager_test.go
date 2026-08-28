@@ -107,7 +107,10 @@ func TestParseClientDump_Empty(t *testing.T) {
 	}
 }
 
+// TestSweepOrphanClients_Idempotent guards the once-only bookkeeping;
+// withTempConfigDir keeps it off the real host's awgo-* interfaces.
 func TestSweepOrphanClients_Idempotent(t *testing.T) {
+	withTempConfigDir(t)
 	m := GetManager()
 	m.sweepOrphanClientsOnce()
 	m.sweepOrphanClientsOnce()
