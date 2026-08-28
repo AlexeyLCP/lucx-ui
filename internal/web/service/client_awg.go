@@ -8,11 +8,13 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
 	"strings"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	awgcps "github.com/mhsanaei/3x-ui/v3/internal/awg/cps"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
@@ -21,6 +23,10 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
+
+// errAwgControlChar: a value rendered verbatim into a .conf held a control
+// character, which would open a new config line downstream.
+var errAwgControlChar = errors.New("awg: value contains control characters")
 
 // defaultAwgBase is the tunnel subnet AWG clients are allocated from. It is
 // intentionally distinct from WireGuard's 10.0.0.0/24 so an AWG inbound and a
@@ -113,6 +119,8 @@ func validateAwgSettingsJSON(settings string) error {
 		I4                  string `json:"i4"`
 		I5                  string `json:"i5"`
 		HeaderProtectionKey string `json:"headerProtectionKey"`
+		Address             string `json:"address"`
+		DNS                 string `json:"dns"`
 	}
 	if err := json.Unmarshal([]byte(settings), &s); err != nil {
 		return nil
@@ -124,6 +132,26 @@ func validateAwgSettingsJSON(settings string) error {
 	// with EMSGSIZE and the panel goes blind on that interface.
 	if err := awg.ValidateIFields(awg.BaselineIfname, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5); err != nil {
 		return err
+	}
+	// TrimSpace tolerates a trailing \r\n from a Windows-exported value
+	// without weakening the check against internal control characters.
+	for _, cv := range []struct{ field, v string }{
+		{"i1", s.I1},
+		{"i2", s.I2},
+		{"i3", s.I3},
+		{"i4", s.I4},
+		{"i5", s.I5},
+		{"h1", s.H1},
+		{"h2", s.H2},
+		{"h3", s.H3},
+		{"h4", s.H4},
+		{"headerProtectionKey", s.HeaderProtectionKey},
+		{"address", s.Address},
+		{"dns", s.DNS},
+	} {
+		if err := amneziawg.ValidateConfigValue(cv.field, strings.TrimSpace(cv.v)); err != nil {
+			return fmt.Errorf("%w: %w", errAwgControlChar, err)
+		}
 	}
 	if s.Jc == 0 && s.S1 == 0 {
 		return nil

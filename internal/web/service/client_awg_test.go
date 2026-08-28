@@ -8,6 +8,7 @@ package service
 
 import (
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -360,6 +361,52 @@ func TestClearBroadcastTunnelIP(t *testing.T) {
 	clearBroadcastTunnelIP(&c, model.VLESS, 2)
 	if len(c.AllowedIPs) != 1 {
 		t.Fatalf("non-tunnel proto must keep IP, got %v", c.AllowedIPs)
+	}
+}
+
+// A control character embedded in a value rendered into a .conf must be
+// rejected before save, not reach a file awg-quick runs as root via PostUp.
+func TestValidateAwgSettingsJSON_RejectsControlCharacters(t *testing.T) {
+	base := map[string]any{
+		"awgVersion": "1", "h1": "1", "h2": "2", "h3": "3", "h4": "4",
+		"jc": 1, "jmin": 1, "jmax": 3, "s1": 20, "s2": 20, "s3": 20, "s4": 20,
+		"address": "10.200.0.1/24", "dns": "1.1.1.1, 1.0.0.1",
+	}
+	cases := []struct {
+		name  string
+		field string
+		value string
+	}{
+		{"i1 with newline", "i1", "abc\ndef"},
+		{"address with CR", "address", "10.200.0.1\r/24"},
+		{"dns with NUL", "dns", "1.1.1.1\x001.0.0.1"},
+		{"headerProtectionKey with DEL", "headerProtectionKey", "MCPfR\x7fGcDG"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			settings := make(map[string]any, len(base)+1)
+			for k, v := range base {
+				settings[k] = v
+			}
+			settings[tc.field] = tc.value
+			raw, err := json.Marshal(settings)
+			if err != nil {
+				t.Fatalf("marshal settings: %v", err)
+			}
+			err = validateAwgSettingsJSON(string(raw))
+			if !errors.Is(err, errAwgControlChar) {
+				t.Fatalf("validateAwgSettingsJSON(%s=%q) = %v, want errAwgControlChar", tc.field, tc.value, err)
+			}
+		})
+	}
+	// Sanity: the same shape with no control characters must still pass, so
+	// the new check does not overreject legitimate values.
+	raw, err := json.Marshal(base)
+	if err != nil {
+		t.Fatalf("marshal base settings: %v", err)
+	}
+	if err := validateAwgSettingsJSON(string(raw)); err != nil {
+		t.Fatalf("validateAwgSettingsJSON(clean settings) = %v, want nil", err)
 	}
 }
 
