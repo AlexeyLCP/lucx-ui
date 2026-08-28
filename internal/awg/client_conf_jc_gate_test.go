@@ -68,6 +68,59 @@ func TestRenderClientConf_Awg3FieldsSurviveJcZero(t *testing.T) {
 	}
 }
 
+// Jc gates junk packets only. S1-S4 pad the handshake on their own, and
+// ParseConf keeps them when an imported provider conf carries Jc = 0.
+func TestRenderClientConf_PaddingSizesIndependentOfJc(t *testing.T) {
+	const base = `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820",`
+	for _, tc := range []struct {
+		name         string
+		obfuscation  string
+		want, absent []string
+	}{
+		{
+			"padding without junk packets",
+			`"jc":0,"s1":20,"s2":30`,
+			[]string{"S1 = 20", "S2 = 30"},
+			[]string{"Jc =", "Jmin =", "Jmax ="},
+		},
+		// Guards the naive dedent: lifting the gate wholesale would start writing
+		// these zeros into configs that render none today.
+		{
+			"nothing is written when no size is set",
+			`"jc":0`,
+			nil,
+			[]string{"Jc =", "Jmin =", "Jmax =", "S1 =", "S2 =", "S3 =", "S4 ="},
+		},
+		// Guards the opposite over-correction: per-field gating would drop these
+		// zeros from a config that emits them today, shifting its fingerprint.
+		{
+			"zero members of an obfuscated set are still written",
+			`"jc":4,"jmin":0,"jmax":0,"s1":20,"s2":0`,
+			[]string{"Jc = 4", "Jmin = 0", "Jmax = 0", "S1 = 20", "S2 = 0"},
+			nil,
+		},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			settings := base + tc.obfuscation + "}"
+			ci, ok := ClientInstanceFromOutbound(&model.AwgOutbound{Id: 1, Settings: settings})
+			if !ok {
+				t.Fatalf("ClientInstanceFromOutbound rejected %s", settings)
+			}
+			conf := renderClientConf(ci)
+			for _, w := range tc.want {
+				if !strings.Contains(conf, w) {
+					t.Errorf("missing %q, got:\n%s", w, conf)
+				}
+			}
+			for _, a := range tc.absent {
+				if strings.Contains(conf, a) {
+					t.Errorf("%q must be absent, got:\n%s", a, conf)
+				}
+			}
+		})
+	}
+}
+
 // The rendered text IS EnsureClient's restart fingerprint (client_manager.go:63),
 // so a drift here bounces every live tunnel on upgrade — not just a red test.
 func TestRenderClientConf_ObfuscatedRenderIsByteStable(t *testing.T) {

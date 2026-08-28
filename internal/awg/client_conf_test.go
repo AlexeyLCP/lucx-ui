@@ -210,10 +210,8 @@ func TestRenderClientConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 	}
 }
 
-// The six device-level AWG3 fields are version-gated in the client .conf too:
-// emitted only when Jc > 0 (the whole obfuscation block is), AwgVersion == "3",
-// and the field > 0. On a non-v3 outbound the lines must NOT appear even when
-// the field carries a value. Mirrors TestRenderClientConf_HeaderProtectionKeyVersionGated.
+// The six device-level AWG3 fields are version- and module-gated, never Jc-gated:
+// on a non-v3 outbound the lines must not appear even when the field has a value.
 func TestRenderClientConf_DeviceFieldsGated(t *testing.T) {
 	awg3 := true
 	SetModuleSupportsAwg3(&awg3)

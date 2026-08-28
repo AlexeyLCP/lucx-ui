@@ -40,14 +40,25 @@ func renderClientConf(ci ClientInstance) string {
 	// on hosts without systemd-resolved/openresolv took down every reconcile.
 	awg3ok := IsAwg3Plus(s.AwgVersion) && ModuleSupportsAwg3()
 	awg31ok := IsAwg31(s.AwgVersion) && ModuleSupportsAwg31()
-	if s.Jc > 0 {
+	// Jc gates the junk-packet fields only. S1-S4 pad the handshake on their own
+	// and ParseConf keeps them, so an imported Jc = 0 conf must not lose them.
+	junk := s.Jc > 0
+	if junk {
 		fmt.Fprintf(&b, "Jc = %d\n", s.Jc)
 		fmt.Fprintf(&b, "Jmin = %d\n", s.Jmin)
 		fmt.Fprintf(&b, "Jmax = %d\n", s.Jmax)
+	}
+	if junk || s.S1 > 0 {
 		fmt.Fprintf(&b, "S1 = %d\n", s.S1)
+	}
+	if junk || s.S2 > 0 {
 		fmt.Fprintf(&b, "S2 = %d\n", s.S2)
-		if NormalizeAWGVersion(s.AwgVersion) != "1.5" {
+	}
+	if NormalizeAWGVersion(s.AwgVersion) != "1.5" {
+		if junk || s.S3 > 0 {
 			fmt.Fprintf(&b, "S3 = %d\n", s.S3)
+		}
+		if junk || s.S4 > 0 {
 			fmt.Fprintf(&b, "S4 = %d\n", s.S4)
 		}
 	}
