@@ -9,11 +9,13 @@ package service
 import (
 	"encoding/json"
 	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
 
 func TestAwgAllocationFallback(t *testing.T) {
@@ -472,6 +474,88 @@ func TestValidateAwgSettingsJSON_AcceptsLegalTimers(t *testing.T) {
 			}
 		})
 	}
+}
+
+// mtuLineFromConf extracts the MTU value written into a client .conf's
+// [Interface] section, e.g. "MTU = 1420".
+func mtuLineFromConf(t *testing.T, conf string) int {
+	t.Helper()
+	for _, line := range strings.Split(conf, "\n") {
+		if v, ok := strings.CutPrefix(line, "MTU = "); ok {
+			n, err := strconv.Atoi(strings.TrimSpace(v))
+			if err != nil {
+				t.Fatalf("MTU line %q: %v", line, err)
+			}
+			return n
+		}
+	}
+	t.Fatalf("conf has no MTU line:\n%s", conf)
+	return 0
+}
+
+// TestBuildAwgClientConf_DefaultMTUMatchesInstance guards D5: an inbound
+// missing mtu must give the client .conf and server Instance the same value.
+func TestBuildAwgClientConf_DefaultMTUMatchesInstance(t *testing.T) {
+	priv, pub, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("keypair: %v", err)
+	}
+	cpriv, _, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("client keypair: %v", err)
+	}
+	client := &model.Client{PrivateKey: cpriv, AllowedIPs: []string{"10.200.0.2/32"}, Enable: true}
+
+	t.Run("mtu omitted", func(t *testing.T) {
+		settings, _ := json.Marshal(map[string]any{
+			"privateKey": priv,
+			"publicKey":  pub,
+			"dns":        "1.1.1.1",
+		})
+		inbound := &model.Inbound{Id: 1, Protocol: model.AWG, Port: 51820, Settings: string(settings)}
+
+		inst, ok := awg.InstanceFromInbound(inbound)
+		if !ok {
+			t.Fatalf("InstanceFromInbound: not ok")
+		}
+		conf, err := BuildAwgClientConf(inbound, client, "203.0.113.9")
+		if err != nil {
+			t.Fatalf("BuildAwgClientConf: %v", err)
+		}
+		clientMTU := mtuLineFromConf(t, conf)
+
+		if clientMTU != inst.MTU {
+			t.Fatalf("client conf MTU = %d, server Instance MTU = %d; must agree when mtu is omitted", clientMTU, inst.MTU)
+		}
+		if inst.MTU != awg.DefaultMTU {
+			t.Fatalf("server Instance MTU = %d, want awg.DefaultMTU = %d", inst.MTU, awg.DefaultMTU)
+		}
+	})
+
+	t.Run("explicit mtu is not overridden", func(t *testing.T) {
+		settings, _ := json.Marshal(map[string]any{
+			"privateKey": priv,
+			"publicKey":  pub,
+			"dns":        "1.1.1.1",
+			"mtu":        1280,
+		})
+		inbound := &model.Inbound{Id: 2, Protocol: model.AWG, Port: 51820, Settings: string(settings)}
+
+		inst, ok := awg.InstanceFromInbound(inbound)
+		if !ok {
+			t.Fatalf("InstanceFromInbound: not ok")
+		}
+		if inst.MTU != 1280 {
+			t.Fatalf("server Instance MTU = %d, want explicit 1280", inst.MTU)
+		}
+		conf, err := BuildAwgClientConf(inbound, client, "203.0.113.9")
+		if err != nil {
+			t.Fatalf("BuildAwgClientConf: %v", err)
+		}
+		if got := mtuLineFromConf(t, conf); got != 1280 {
+			t.Fatalf("client conf MTU = %d, want explicit 1280", got)
+		}
+	})
 }
 
 func TestCountAwgOrWireguard(t *testing.T) {

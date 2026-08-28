@@ -692,7 +692,7 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	}
 	mtu := s.MTU
 	if mtu <= 0 {
-		mtu = 1320
+		mtu = awg.DefaultMTU
 	}
 	host := formatEndpointHost(endpointHost)
 	if host == "" {

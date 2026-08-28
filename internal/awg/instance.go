@@ -185,6 +185,10 @@ func (inst Instance) peerFingerprint() string {
 	return strings.Join(parts, "|")
 }
 
+// DefaultMTU is 1500 (typical Ethernet) minus AWG overhead — optimal for a
+// normal VPS; a client behind CGNAT may need 1320, set via the mtu field.
+const DefaultMTU = 1420
+
 // InstanceFromInbound derives a desired Instance from an AWG inbound. Returns
 // false when the inbound is not a usable AWG inbound (wrong protocol, missing
 // server key, etc.).
@@ -253,12 +257,9 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		Listen: ib.Listen,
 		Port:   ib.Port,
 		Ifname: ifnameFor(ib.Id),
-		// 1420 = 1500 (typical Ethernet) minus WireGuard/AWG overhead, the
-		// throughput-optimal fallback on a normal VPS. Only used when an
-		// inbound's settings JSON omits mtu entirely (pre-lucx MTU field,
-		// or hand-crafted JSON); the panel form always sends an explicit
-		// value (1420 default, operator can drop to 1320 for mobile/CGNAT).
-		MTU:                    orDefault(s.MTU, 1420),
+		// Falls back only when settings JSON omits mtu (pre-lucx field,
+		// hand-crafted JSON); the panel form always sends an explicit value.
+		MTU:                    orDefault(s.MTU, DefaultMTU),
 		DNS:                    s.DNS,
 		Address:                s.Address,
 		PrivateKey:             s.PrivateKey,
