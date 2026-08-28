@@ -16,14 +16,17 @@ const optionalClearedInt = (schema: z.ZodNumber) =>
   z.preprocess((v) => (v == null ? undefined : v), schema.optional());
 
 // LUCX-HOOK: LucX KeepAliveValue / overlay write-back may store a string
-const optionalKeepAlive = z.preprocess((v) => {
-  if (v == null || v === '') return undefined;
-  if (typeof v === 'string') {
-    const n = Number.parseInt(v, 10);
-    return Number.isFinite(n) ? n : undefined;
-  }
-  return v;
-}, z.number().int().min(0).optional());
+const optionalKeepAlive = z.preprocess(
+  (v) => {
+    if (v == null || v === '') return undefined;
+    if (typeof v === 'string') {
+      if (/^\d+$/.test(v)) return Number.parseInt(v, 10);
+      return v;
+    }
+    return v;
+  },
+  z.union([z.number().int().min(0), z.string()]).optional(),
+);
 // END LUCX-HOOK
 
 // Wireguard inbound is peer-based (no clients). Each peer is a client device

@@ -130,3 +130,12 @@ func TestParseInboundConfName(t *testing.T) {
 		}
 	}
 }
+
+func TestSetRebuildPause_BlocksEnsure(t *testing.T) {
+	m := GetManager()
+	SetRebuildPause(true)
+	t.Cleanup(func() { SetRebuildPause(false) })
+	if err := m.Ensure(Instance{Id: 1, Ifname: "awg1", Port: 51820}); err == nil {
+		t.Fatal("Ensure must fail while rebuild is paused")
+	}
+}

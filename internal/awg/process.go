@@ -15,8 +15,14 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+)
+
+const (
+	awgQuickTimeout = 60 * time.Second
+	maxPartialLine  = 64 << 10
 )
 
 // awgConfigDir is the conventional AWG tools config directory, matching the
@@ -27,7 +33,9 @@ var awgConfigDir = "/etc/amnezia/amneziawg"
 // awgQuick wraps an `awg-quick <verb> <confPath>` invocation, returning the
 // combined stdout+stderr output.
 func awgQuick(verb, confPath string) ([]byte, error) {
-	return exec.CommandContext(context.Background(), awgBin("awg-quick"), verb, confPath).CombinedOutput()
+	ctx, cancel := context.WithTimeout(context.Background(), awgQuickTimeout)
+	defer cancel()
+	return exec.CommandContext(ctx, awgBin("awg-quick"), verb, confPath).CombinedOutput()
 }
 
 func awgBin(name string) string {
@@ -86,6 +94,11 @@ func (w *procLogWriter) Write(p []byte) (int, error) {
 		}
 		line := w.buf[:i]
 		w.buf = w.buf[i+1:]
+		w.emitLocked(line)
+	}
+	if len(w.buf) >= maxPartialLine {
+		line := w.buf
+		w.buf = ""
 		w.emitLocked(line)
 	}
 	return len(p), nil

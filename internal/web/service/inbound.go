@@ -1049,6 +1049,7 @@ func (s *InboundService) normalizeMtprotoSecret(inbound *model.Inbound) {
 	}
 }
 
+// LUCX-HOOK: protocols whose datapath is a sidecar, not an Xray inbound.
 func inboundHasSidecar(p model.Protocol) bool {
 	switch p {
 	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel, model.Anytls:
@@ -1057,6 +1058,8 @@ func inboundHasSidecar(p model.Protocol) bool {
 		return false
 	}
 }
+
+// END LUCX-HOOK
 
 func mtprotoRoutesThroughXray(inbound *model.Inbound) bool {
 	if inbound == nil || inbound.Protocol != model.MTProto {
@@ -1071,7 +1074,7 @@ func mtprotoRoutesThroughXray(inbound *model.Inbound) bool {
 	return parsed.RouteThroughXray
 }
 
-// awgRoutesThroughXray reports whether an AWG inbound is configured to egress
+// LUCX-HOOK: awgRoutesThroughXray reports whether an AWG inbound is configured to egress
 // through the core's router (the TUN bridge in §xray.go). Such inbounds live
 // only in the generated config, so every mutation of one must force a config
 // regen — the kernel sidecar push alone never touches Xray.
@@ -1088,6 +1091,9 @@ func awgRoutesThroughXray(inbound *model.Inbound) bool {
 	return parsed.RouteThroughXray
 }
 
+// END LUCX-HOOK
+
+// LUCX-HOOK
 // naiveRoutesThroughXray reports whether a Naive inbound uses the SOCKS bridge.
 func naiveRoutesThroughXray(inbound *model.Inbound) bool {
 	if inbound == nil || inbound.Protocol != model.Naive {
@@ -1102,6 +1108,9 @@ func naiveRoutesThroughXray(inbound *model.Inbound) bool {
 	return parsed.RouteThroughXray
 }
 
+// END LUCX-HOOK
+
+// LUCX-HOOK
 // qwdttRoutesThroughXray reports whether qWDTT uses the Xray TUN bridge.
 func qwdttRoutesThroughXray(inbound *model.Inbound) bool {
 	if inbound == nil || inbound.Protocol != model.Qwdtt {
@@ -1119,6 +1128,8 @@ func olcrtcRoutesThroughXray(inbound *model.Inbound) bool {
 	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
 	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
 }
+
+// END LUCX-HOOK
 
 // checkQwdttSingle rejects a second qWDTT inbound on the same host
 // (local panel or a given node). ignoreId=0 on create.
@@ -1302,6 +1313,18 @@ func trustTunnelRoutesThroughXray(inbound *model.Inbound) bool {
 	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
 	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
 }
+
+// LUCX-HOOK: any LucX sidecar whose egress bridge lives only in generated Xray JSON.
+func lucxRoutesThroughXray(inbound *model.Inbound) bool {
+	return awgRoutesThroughXray(inbound) ||
+		naiveRoutesThroughXray(inbound) ||
+		qwdttRoutesThroughXray(inbound) ||
+		olcrtcRoutesThroughXray(inbound) ||
+		mieruRoutesThroughXray(inbound) ||
+		trustTunnelRoutesThroughXray(inbound)
+}
+
+// END LUCX-HOOK
 
 // normalizeMieruSettings merges defaults into the stored settings WITHOUT
 // touching clients[] (multi-client inbound — the config struct has no client
@@ -2093,7 +2116,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// runtime push above only (re)starts its sidecar. The egress bridge (SOCKS
 	// loopback for mtproto, TUN for AWG) lives in the generated config, so
 	// force a regen to wire it in.
-	if mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) || olcrtcRoutesThroughXray(inbound) || mieruRoutesThroughXray(inbound) || trustTunnelRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) || lucxRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -2202,7 +2225,7 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 		}
 	}
 	// Drop the egress bridge a routed mtproto or AWG inbound left in the config.
-	if mtprotoRoutesThroughXray(&ib) || awgRoutesThroughXray(&ib) || naiveRoutesThroughXray(&ib) || qwdttRoutesThroughXray(&ib) || olcrtcRoutesThroughXray(&ib) || mieruRoutesThroughXray(&ib) || trustTunnelRoutesThroughXray(&ib) {
+	if mtprotoRoutesThroughXray(&ib) || lucxRoutesThroughXray(&ib) {
 		needRestart = true
 	}
 	return needRestart, nil
@@ -2337,7 +2360,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	// TUN) only in the generated config, so flipping enable in either
 	// direction must regenerate it — the runtime push below only touches the
 	// sidecar process, never Xray.
-	routedBridge := mtprotoRoutesThroughXray(inbound) || awgRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) || qwdttRoutesThroughXray(inbound) || olcrtcRoutesThroughXray(inbound) || mieruRoutesThroughXray(inbound) || trustTunnelRoutesThroughXray(inbound)
+	routedBridge := mtprotoRoutesThroughXray(inbound) || lucxRoutesThroughXray(inbound)
 
 	needRestart := false
 	rt, push, _, perr := s.nodePushPlan(inbound)
@@ -2792,12 +2815,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// the egress bridge (SOCKS or TUN) is added, moved, or dropped to match
 		// the new settings.
 		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto ||
-			awgRoutesThroughXray(inbound) || oldRoutedAwg ||
-			naiveRoutesThroughXray(inbound) || oldRoutedNaive ||
-			qwdttRoutesThroughXray(inbound) || oldRoutedQwdtt ||
-			olcrtcRoutesThroughXray(inbound) || oldRoutedOlcrtc ||
-			mieruRoutesThroughXray(inbound) || oldRoutedMieru ||
-			trustTunnelRoutesThroughXray(inbound) || oldRoutedTrustTunnel {
+			lucxRoutesThroughXray(inbound) || oldRoutedAwg ||
+			oldRoutedNaive || oldRoutedQwdtt || oldRoutedOlcrtc ||
+			oldRoutedMieru || oldRoutedTrustTunnel {
 			needRestart = true
 		}
 		return nil

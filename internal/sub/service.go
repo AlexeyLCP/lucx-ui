@@ -837,7 +837,7 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	// All gated by isV3 so a v1/v2 share-link never carries v3-only params.
 	if isV3 {
 		if v, ok := settings["headerProtectionKey"].(string); ok && v != "" {
-			params["headerProtectionKey"] = v
+			params["headerprotectionkey"] = v
 		}
 		for _, p := range []struct{ key, jk string }{
 			{"contentpaddingaddition", "contentPaddingAddition"},

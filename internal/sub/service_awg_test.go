@@ -32,7 +32,7 @@ func TestGenAwgLink_HeaderProtectionKeyOmittedWhenEmpty(t *testing.T) {
 	if link == "" {
 		t.Fatal("expected a non-empty amneziawg:// link")
 	}
-	if strings.Contains(link, "headerProtectionKey=") {
+	if strings.Contains(link, "headerprotectionkey=") {
 		t.Errorf("headerProtectionKey param must be absent when empty, got:\n%s", link)
 	}
 }
@@ -46,7 +46,7 @@ func TestGenAwgLink_HeaderProtectionKeyEmittedWhenSet(t *testing.T) {
 		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
 	s := &SubService{}
 	link := s.genAwgLink(awgLinkInbound(settings), "user")
-	if !strings.Contains(link, "headerProtectionKey=aBcD...base64hpk%3D%3D") {
+	if !strings.Contains(link, "headerprotectionkey=aBcD...base64hpk%3D%3D") {
 		t.Errorf("headerProtectionKey param (base64 == percent-encoded) must appear when set + awgVersion=3, got:\n%s", link)
 	}
 }
@@ -60,7 +60,7 @@ func TestGenAwgLink_HeaderProtectionKeyEmittedOnV31(t *testing.T) {
 		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
 	s := &SubService{}
 	link := s.genAwgLink(awgLinkInbound(settings), "user")
-	if !strings.Contains(link, "headerProtectionKey=") {
+	if !strings.Contains(link, "headerprotectionkey=") {
 		t.Errorf("HPK must appear for awgVersion=3.1, got:\n%s", link)
 	}
 	if !strings.Contains(link, "randomtrailers=true") {
@@ -77,7 +77,7 @@ func TestGenAwgLink_HeaderProtectionKeyOmittedOnNonV3(t *testing.T) {
 		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
 	s := &SubService{}
 	link := s.genAwgLink(awgLinkInbound(settings), "user")
-	if strings.Contains(link, "headerProtectionKey=") {
+	if strings.Contains(link, "headerprotectionkey=") {
 		t.Errorf("headerProtectionKey must be omitted when awgVersion != '3', got:\n%s", link)
 	}
 }

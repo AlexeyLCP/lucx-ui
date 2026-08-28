@@ -7,6 +7,7 @@
 package awg
 
 import (
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -829,5 +830,45 @@ func TestOnlineTTLSeconds_UsesRekeyHi(t *testing.T) {
 	}
 	if got := onlineTTLSeconds(Instance{}); got != handshakeOnlineTTL {
 		t.Fatalf("default TTL = %d, want %d", got, handshakeOnlineTTL)
+	}
+}
+
+func TestAwgTimer_RejectsInject(t *testing.T) {
+	var tm AwgTimer
+	if err := json.Unmarshal([]byte(`"15\nPostUp = id"`), &tm); err != nil {
+		t.Fatal(err)
+	}
+	if tm != "" {
+		t.Fatalf("inject timer must unmarshal empty, got %q", tm)
+	}
+	if err := json.Unmarshal([]byte(`"100-500"`), &tm); err != nil {
+		t.Fatal(err)
+	}
+	if tm != "100-500" {
+		t.Fatalf("range timer = %q", tm)
+	}
+}
+
+func TestConfValue_StripsNewlines(t *testing.T) {
+	got := confValue("abc\nPostUp = evil")
+	if strings.Contains(got, "\n") || strings.Contains(got, "PostUp") && strings.Contains(got, "\n") {
+		t.Fatalf("newline survived: %q", got)
+	}
+	if got != "abcPostUp = evil" {
+		t.Fatalf("confValue = %q", got)
+	}
+}
+
+func TestRenderServerConf_NoInjectedLine(t *testing.T) {
+	conf := renderServerConf(Instance{
+		PrivateKey: "k",
+		Port:       51820,
+		H1:         "1\nPostUp = wget",
+		Peers:      []PeerSpec{{PublicKey: "p"}},
+	})
+	for _, line := range strings.Split(conf, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "PostUp") && strings.Contains(line, "wget") {
+			t.Fatalf("injected PostUp: %q", line)
+		}
 	}
 }

@@ -1,5 +1,22 @@
 # LucX-UI — Прогресс
 
+## fix — CTO review: Naive HMAC, HOOK holes, SSRF, sanitizers (2026-08-29)
+
+Panel/daemon hardening from the lucx.187 CTO review. No lucxVersion bump, no tag.
+
+- Naive Clients password uses `ClientAuthForInbound` (same as Caddyfile/sub).
+- `StopAllClients` on panel stop; rebuild pause so AwgJob cannot `awg-quick up` during `rmmod`.
+- LUCX-HOOK around LucX needRestart/inject (`lucxRoutesThroughXray`, Naive egress, `case model.AWG`).
+- Download dial pins public IPs; `captureHost` refuses RFC1918/CGNAT; vpnuri decode cap 1 MiB; core upload 200 MB.
+- `.conf`/Caddy/ExtraArgs/AwgTimer reject newline inject; `awg-quick` 60s timeout; HPK query key `headerprotectionkey=`.
+- TUN gateways no longer wrap id 1 onto 255; subBody does not follow redirects; `/sub` does not match `/subscription`.
+
+Tests: `go test ./internal/awg/... ./internal/lucx/...` PASS. Windows CGO still skips `database`/`controller`/`sub` packages.
+
+**lucxVersion:** lucx.187 (unchanged)
+
+---
+
 ## lucx.187 — Host dest:port + names on sidecar/AWG share links (2026-08-28)
 
 Tuna: Host `test.com:443` while Naive listens 3500 → link kept 3500. AWG showed the endpoint address instead of the inbound/host name. Host names only worked for HY2 and VLESS.

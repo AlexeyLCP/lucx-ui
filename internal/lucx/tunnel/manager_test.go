@@ -285,6 +285,19 @@ func selfSignedCert(t *testing.T) tls.Certificate {
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 }
 
+func TestExtraArgsSafe(t *testing.T) {
+	ok, err := extraArgsSafe("--verbose")
+	if err != nil || len(ok) != 1 || ok[0] != "--verbose" {
+		t.Fatalf("verbose: %v %v", ok, err)
+	}
+	if _, err := extraArgsSafe("--config /tmp/x"); err == nil {
+		t.Fatal("--config must be rejected")
+	}
+	if _, err := extraArgsSafe("--adapter=caddyfile"); err == nil {
+		t.Fatal("--adapter must be rejected")
+	}
+}
+
 func freePort(t *testing.T) string {
 	t.Helper()
 	ln, err := net.Listen("tcp", "127.0.0.1:0")

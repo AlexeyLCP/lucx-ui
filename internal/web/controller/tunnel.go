@@ -7,16 +7,58 @@
 package controller
 
 import (
+	"io"
 	"os"
-	"runtime"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
+
+const coreUploadMax = 200 << 20
+
+func saveCoreUpload(c *gin.Context, dst string) error {
+	file, err := c.FormFile("file")
+	if err != nil {
+		return err
+	}
+	if file.Size > coreUploadMax {
+		return common.NewError("upload exceeds 200 MB")
+	}
+	src, err := file.Open()
+	if err != nil {
+		return err
+	}
+	defer src.Close()
+	tmp := dst + ".upload"
+	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
+	if err != nil {
+		return err
+	}
+	n, err := io.Copy(out, io.LimitReader(src, coreUploadMax+1))
+	if closeErr := out.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	if n > coreUploadMax {
+		_ = os.Remove(tmp)
+		return common.NewError("upload exceeds 200 MB")
+	}
+	_ = os.Remove(dst)
+	if err := os.Rename(tmp, dst); err != nil {
+		_ = os.Remove(tmp)
+		return err
+	}
+	return nil
+}
 
 // TunnelController exposes the external tunnel sidecars (NaiveProxy caddy):
 // config CRUD, lifecycle, logs, Caddyfile preview/validation and binary
@@ -223,21 +265,11 @@ func (a *TunnelController) validate(c *gin.Context) {
 // The route is exempt from the global body limit in web.go because caddy
 // builds are ~50 MB.
 func (a *TunnelController) uploadBinary(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		jsonMsg(c, "tunnel: upload failed", err)
-		return
-	}
 	dst := tunnel.Naive.BinaryPath()
-	if err := c.SaveUploadedFile(file, dst); err != nil {
+	if err := saveCoreUpload(c, dst); err != nil {
 		logger.Warning("tunnel: save uploaded binary failed:", err)
 		jsonMsg(c, "tunnel: upload failed", err)
 		return
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(dst, 0o755); err != nil {
-			logger.Warning("tunnel: chmod uploaded binary failed:", err)
-		}
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.naive.toasts.uploaded"), nil)
 }
@@ -350,21 +382,11 @@ func (a *TunnelController) olcrtcPreview(c *gin.Context) {
 }
 
 func (a *TunnelController) olcrtcUploadBinary(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		jsonMsg(c, "tunnel: olcrtc upload failed", err)
-		return
-	}
 	dst := tunnel.Olcrtc.BinaryPath()
-	if err := c.SaveUploadedFile(file, dst); err != nil {
+	if err := saveCoreUpload(c, dst); err != nil {
 		logger.Warning("tunnel: save uploaded olcrtc binary failed:", err)
 		jsonMsg(c, "tunnel: olcrtc upload failed", err)
 		return
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(dst, 0o755); err != nil {
-			logger.Warning("tunnel: chmod uploaded olcrtc binary failed:", err)
-		}
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.olcrtc.toasts.uploaded"), nil)
 }
@@ -454,21 +476,11 @@ func (a *TunnelController) qwdttLogs(c *gin.Context) {
 }
 
 func (a *TunnelController) qwdttUploadBinary(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		jsonMsg(c, "tunnel: qwdtt upload failed", err)
-		return
-	}
 	dst := tunnel.Qwdtt.BinaryPath()
-	if err := c.SaveUploadedFile(file, dst); err != nil {
+	if err := saveCoreUpload(c, dst); err != nil {
 		logger.Warning("tunnel: save uploaded qwdtt binary failed:", err)
 		jsonMsg(c, "tunnel: qwdtt upload failed", err)
 		return
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(dst, 0o755); err != nil {
-			logger.Warning("tunnel: chmod uploaded qwdtt binary failed:", err)
-		}
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.uploaded"), nil)
 }
@@ -516,21 +528,11 @@ func (a *TunnelController) mieruLogs(c *gin.Context) {
 }
 
 func (a *TunnelController) mieruUploadBinary(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		jsonMsg(c, "tunnel: mieru upload failed", err)
-		return
-	}
 	dst := tunnel.Mieru.BinaryPath()
-	if err := c.SaveUploadedFile(file, dst); err != nil {
+	if err := saveCoreUpload(c, dst); err != nil {
 		logger.Warning("tunnel: save uploaded mieru binary failed:", err)
 		jsonMsg(c, "tunnel: mieru upload failed", err)
 		return
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(dst, 0o755); err != nil {
-			logger.Warning("tunnel: chmod uploaded mieru binary failed:", err)
-		}
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.mieru.toasts.uploaded"), nil)
 }
@@ -578,21 +580,11 @@ func (a *TunnelController) trustTunnelLogs(c *gin.Context) {
 }
 
 func (a *TunnelController) trustTunnelUploadBinary(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		jsonMsg(c, "tunnel: trusttunnel upload failed", err)
-		return
-	}
 	dst := tunnel.TrustTunnel.BinaryPath()
-	if err := c.SaveUploadedFile(file, dst); err != nil {
+	if err := saveCoreUpload(c, dst); err != nil {
 		logger.Warning("tunnel: save uploaded trusttunnel binary failed:", err)
 		jsonMsg(c, "tunnel: trusttunnel upload failed", err)
 		return
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(dst, 0o755); err != nil {
-			logger.Warning("tunnel: chmod uploaded trusttunnel binary failed:", err)
-		}
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.trusttunnel.toasts.uploaded"), nil)
 }
@@ -640,21 +632,11 @@ func (a *TunnelController) anytlsLogs(c *gin.Context) {
 }
 
 func (a *TunnelController) anytlsUploadBinary(c *gin.Context) {
-	file, err := c.FormFile("file")
-	if err != nil {
-		jsonMsg(c, "tunnel: anytls upload failed", err)
-		return
-	}
 	dst := tunnel.Anytls.BinaryPath()
-	if err := c.SaveUploadedFile(file, dst); err != nil {
+	if err := saveCoreUpload(c, dst); err != nil {
 		logger.Warning("tunnel: save uploaded anytls binary failed:", err)
 		jsonMsg(c, "tunnel: anytls upload failed", err)
 		return
-	}
-	if runtime.GOOS != "windows" {
-		if err := os.Chmod(dst, 0o755); err != nil {
-			logger.Warning("tunnel: chmod uploaded anytls binary failed:", err)
-		}
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.anytls.toasts.uploaded"), nil)
 }

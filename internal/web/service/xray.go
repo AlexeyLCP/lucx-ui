@@ -722,7 +722,7 @@ func routingTagIsBalancer(routing map[string]any, tag string) bool {
 // Shared with injectTunnelEgress (NaiveProxy also dials plain TCP via SOCKS5).
 const mtprotoEgressSocksSettings = `{"auth":"noauth","udp":false}`
 
-// injectNaiveInboundEgress wires one routed Naive inbound into Xray as a
+// LUCX-HOOK: injectNaiveInboundEgress wires one routed Naive inbound into Xray as a
 // loopback SOCKS bridge tagged with the inbound's own tag (mtproto pattern).
 func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
 	var parsed struct {
@@ -738,6 +738,8 @@ func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
 	}
 	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "naive egress")
 }
+
+// END LUCX-HOOK
 
 // LUCX-HOOK: injectTunnelEgress wires the legacy global NaiveProxy tunnel
 // core (settings lucxTunnel_naive) into Xray. Kept for pre-migration hosts.
@@ -884,7 +886,10 @@ const awgEgressTunSettingsFmt = `{"name":"%s","mtu":%d,"gateway":["%s"],"userLev
 // under 10.254/16 satisfies both against the 10.200.0.0/24-style defaults the
 // panel hands out.
 func awgTunGateway(id int) string {
-	return fmt.Sprintf("10.254.%d.1/30", id%254)
+	if id >= 1 && id < 254 {
+		return fmt.Sprintf("10.254.%d.1/30", id)
+	}
+	return fmt.Sprintf("10.252.%d.1/30", (id%253)+1)
 }
 
 // injectAwgEgress wires one routed AWG inbound into the generated config: it
@@ -930,6 +935,10 @@ func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 				logger.Warning("awg egress: routing section is unparsable, skipping rule:", err)
 				parseOK = false
 			}
+		}
+		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, parsed.OutboundTag) {
+			logger.Warning("awg egress: target tag [", parsed.OutboundTag, "] not found, injecting TUN without force-route")
+			parseOK = false
 		}
 		if parseOK {
 			rules, _ := routing["rules"].([]any)
@@ -1029,6 +1038,10 @@ func injectQwdttEgress(cfg *xray.Config, inbound *model.Inbound) {
 				logger.Warning("qwdtt egress: routing unparsable, skipping rule:", err)
 				parseOK = false
 			}
+		}
+		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, cfgQ.OutboundTag) {
+			logger.Warning("qwdtt egress: target tag [", cfgQ.OutboundTag, "] not found, injecting TUN without force-route")
+			parseOK = false
 		}
 		if parseOK {
 			rules, _ := routing["rules"].([]any)
@@ -1211,6 +1224,7 @@ func injectAmneziawgnetSocks(cfg *xray.Config, inbounds []*model.Inbound) {
 		switch inbound.Protocol {
 		case model.AmneziaWG:
 			inst, ok = amneziawg.InstanceFromInbound(inbound)
+		// LUCX-HOOK: sans-kernel AWG inbound uses the same gVisor SOCKS path
 		case model.AWG:
 			if awg.KernelAvailable() {
 				continue
@@ -1220,6 +1234,7 @@ func injectAmneziawgnetSocks(cfg *xray.Config, inbounds []*model.Inbound) {
 				continue
 			}
 			inst, ok = kernelAwgToEmbedded(src)
+		// END LUCX-HOOK
 		default:
 			continue
 		}

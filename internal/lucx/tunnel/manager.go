@@ -739,7 +739,11 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 	case inst.Core == Naive:
 		args = []string{"run", "--config", cfgPath, "--adapter", "caddyfile"}
 		if extra := strings.TrimSpace(inst.ExtraArgs); extra != "" {
-			args = append(args, strings.Fields(extra)...)
+			more, err := extraArgsSafe(extra)
+			if err != nil {
+				return err
+			}
+			args = append(args, more...)
 		}
 	case inst.Core == Olcrtc:
 		args = []string{cfgPath}
@@ -774,4 +778,21 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 		return fmt.Errorf("tunnel: start %s: %w", key, err)
 	}
 	return nil
+}
+
+func extraArgsSafe(extra string) ([]string, error) {
+	fields := strings.Fields(extra)
+	blocked := map[string]struct{}{
+		"-c": {}, "--config": {}, "--adapter": {},
+	}
+	for _, f := range fields {
+		if strings.ContainsAny(f, "\n\r") {
+			return nil, fmt.Errorf("tunnel: ExtraArgs contains invalid characters")
+		}
+		name, _, _ := strings.Cut(f, "=")
+		if _, ok := blocked[name]; ok {
+			return nil, fmt.Errorf("tunnel: ExtraArgs cannot override %s", name)
+		}
+	}
+	return fields, nil
 }

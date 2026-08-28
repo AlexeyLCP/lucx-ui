@@ -25,6 +25,8 @@ import (
 // a number), normalizing it to its string form.
 type AwgTimer string
 
+var awgTimerPat = regexp.MustCompile(`^[0-9]+(-[0-9]+)?$`)
+
 func (t *AwgTimer) UnmarshalJSON(b []byte) error {
 	s := strings.TrimSpace(string(b))
 	if s == "" || s == "null" {
@@ -36,11 +38,23 @@ func (t *AwgTimer) UnmarshalJSON(b []byte) error {
 		if err := json.Unmarshal(b, &str); err != nil {
 			return err
 		}
-		*t = AwgTimer(strings.TrimSpace(str))
+		s = strings.TrimSpace(str)
+	}
+	if s != "" && !awgTimerPat.MatchString(s) {
+		*t = ""
 		return nil
 	}
 	*t = AwgTimer(s)
 	return nil
+}
+
+func confValue(v string) string {
+	return strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == 0 {
+			return -1
+		}
+		return r
+	}, v)
 }
 
 // IsZero reports whether the value is empty or a zero (the kernel built-in

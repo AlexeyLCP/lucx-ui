@@ -704,7 +704,11 @@ func matchSubRoute(path string, subPath, jsonPath, clashPath, awgPath string) (s
 		{"clash", clashPath},
 		{"awg", awgPath},
 	} {
-		if candidate.prefix != "" && len(path) > len(candidate.prefix) && strings.HasPrefix(path, candidate.prefix) {
+		if candidate.prefix == "" || !strings.HasPrefix(path, candidate.prefix) {
+			continue
+		}
+		rest := path[len(candidate.prefix):]
+		if rest == "" || rest[0] == '/' || candidate.prefix[len(candidate.prefix)-1] == '/' {
 			return candidate.format, true
 		}
 	}
@@ -787,6 +791,9 @@ func (a *ClientController) getSubBody(c *gin.Context) {
 
 	client := &http.Client{
 		Timeout: 10 * time.Second,
+		CheckRedirect: func(*http.Request, []*http.Request) error {
+			return http.ErrUseLastResponse
+		},
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		},

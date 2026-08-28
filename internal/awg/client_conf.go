@@ -40,8 +40,8 @@ func renderClientConf(ci ClientInstance) string {
 	s := ci.Settings
 	var b strings.Builder
 	b.WriteString("[Interface]\n")
-	fmt.Fprintf(&b, "PrivateKey = %s\n", s.PrivateKey)
-	fmt.Fprintf(&b, "Address = %s\n", s.Address)
+	fmt.Fprintf(&b, "PrivateKey = %s\n", confValue(s.PrivateKey))
+	fmt.Fprintf(&b, "Address = %s\n", confValue(s.Address))
 	fmt.Fprintf(&b, "MTU = %d\n", s.MTU)
 	b.WriteString("Table = off\n")
 	// DNS deliberately NOT written — see function comment. resolvconf crash
@@ -58,10 +58,10 @@ func renderClientConf(ci ClientInstance) string {
 			fmt.Fprintf(&b, "S3 = %d\n", s.S3)
 			fmt.Fprintf(&b, "S4 = %d\n", s.S4)
 		}
-		fmt.Fprintf(&b, "H1 = %s\n", s.H1)
-		fmt.Fprintf(&b, "H2 = %s\n", s.H2)
-		fmt.Fprintf(&b, "H3 = %s\n", s.H3)
-		fmt.Fprintf(&b, "H4 = %s\n", s.H4)
+		fmt.Fprintf(&b, "H1 = %s\n", confValue(s.H1))
+		fmt.Fprintf(&b, "H2 = %s\n", confValue(s.H2))
+		fmt.Fprintf(&b, "H3 = %s\n", confValue(s.H3))
+		fmt.Fprintf(&b, "H4 = %s\n", confValue(s.H4))
 		// HeaderProtectionKey (AWG3) is written ONLY when AwgVersion == "3" and
 		// the key is non-empty — mirrors renderServerConf. The upstream kernel
 		// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds
@@ -70,28 +70,28 @@ func renderClientConf(ci ClientInstance) string {
 		// the generator when version "3" is selected). Module-gated so a v3
 		// outbound on a host with a v1.x module does not emit the line.
 		if awg3ok && s.HeaderProtectionKey != "" {
-			fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
+			fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", confValue(s.HeaderProtectionKey))
 		}
 		// AWG3 device-level timers/padding — AwgTimer holds single or range
 		// ("lo-hi") values verbatim; IsZero omits the kernel default.
 		if awg3ok {
 			if !s.ContentPaddingAddition.IsZero() {
-				fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
+				fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", confValue(string(s.ContentPaddingAddition)))
 			}
 			if !s.RekeyAfterTime.IsZero() {
-				fmt.Fprintf(&b, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
+				fmt.Fprintf(&b, "RekeyAfterTime = %s\n", confValue(string(s.RekeyAfterTime)))
 			}
 			if !s.RekeyTimeout.IsZero() {
-				fmt.Fprintf(&b, "RekeyTimeout = %s\n", s.RekeyTimeout)
+				fmt.Fprintf(&b, "RekeyTimeout = %s\n", confValue(string(s.RekeyTimeout)))
 			}
 			if !s.RejectAfterTime.IsZero() {
-				fmt.Fprintf(&b, "RejectAfterTime = %s\n", s.RejectAfterTime)
+				fmt.Fprintf(&b, "RejectAfterTime = %s\n", confValue(string(s.RejectAfterTime)))
 			}
 			if !s.KeepaliveTimeout.IsZero() {
-				fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
+				fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", confValue(string(s.KeepaliveTimeout)))
 			}
 			if !s.MaxHandshakeAttempts.IsZero() {
-				fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
+				fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", confValue(string(s.MaxHandshakeAttempts)))
 			}
 		}
 		if awg31ok {
@@ -104,14 +104,14 @@ func renderClientConf(ci ClientInstance) string {
 		}
 	}
 	b.WriteString("\n[Peer]\n")
-	fmt.Fprintf(&b, "PublicKey = %s\n", s.PublicKey)
+	fmt.Fprintf(&b, "PublicKey = %s\n", confValue(s.PublicKey))
 	if psk := strings.TrimSpace(s.PSK); psk != "" {
-		fmt.Fprintf(&b, "PresharedKey = %s\n", psk)
+		fmt.Fprintf(&b, "PresharedKey = %s\n", confValue(psk))
 	}
-	fmt.Fprintf(&b, "Endpoint = %s\n", s.Endpoint)
-	fmt.Fprintf(&b, "AllowedIPs = %s\n", s.AllowedIPs)
+	fmt.Fprintf(&b, "Endpoint = %s\n", confValue(s.Endpoint))
+	fmt.Fprintf(&b, "AllowedIPs = %s\n", confValue(s.AllowedIPs))
 	if !s.Keepalive.IsZero() {
-		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", s.Keepalive)
+		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", confValue(string(s.Keepalive)))
 	}
 	return b.String()
 }

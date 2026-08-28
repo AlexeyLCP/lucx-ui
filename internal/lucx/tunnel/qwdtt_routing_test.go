@@ -22,6 +22,12 @@ func TestQwdttTunHelpers(t *testing.T) {
 	if got := QwdttTunGateway(35); got != "10.253.35.1/30" {
 		t.Fatalf("Gateway: %s", got)
 	}
+	if QwdttTunGateway(1) == QwdttTunGateway(255) {
+		t.Fatal("gateway must not wrap id 1 onto id 255")
+	}
+	if QwdttRouteTable(1) == QwdttRouteTable(91) {
+		t.Fatal("route table must not wrap at %90")
+	}
 }
 
 func TestRuleMissingLookup(t *testing.T) {

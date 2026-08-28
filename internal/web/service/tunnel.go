@@ -858,6 +858,9 @@ func (s *TunnelService) downloadBinaryTo(dst, downloadURL, wantSHA256 string) er
 		return err
 	}
 	client := &http.Client{
+		Transport: &http.Transport{
+			DialContext: publicOnlyDialContext,
+		},
 		CheckRedirect: func(r *http.Request, via []*http.Request) error {
 			if len(via) >= maxTunnelDownloadRedirects {
 				return common.NewErrorf("tunnel: too many redirects (>%d)", maxTunnelDownloadRedirects)
@@ -950,6 +953,40 @@ func checkDownloadURL(raw string) error {
 // isPublicUnicast reports whether ip is a routable public address — anything
 // loopback, link-local (which covers the 169.254.169.254 metadata service),
 // private, multicast or unspecified is refused.
+func publicOnlyDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	dialer := &net.Dialer{Timeout: 30 * time.Second}
+	if ip := net.ParseIP(host); ip != nil {
+		if !isPublicUnicast(ip) {
+			return nil, common.NewErrorf("tunnel: refused non-public address %s", host)
+		}
+		return dialer.DialContext(ctx, network, addr)
+	}
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	var last error
+	for _, a := range addrs {
+		if !isPublicUnicast(a.IP) {
+			last = common.NewErrorf("tunnel: %s resolved to a non-public address", host)
+			continue
+		}
+		c, err := dialer.DialContext(ctx, network, net.JoinHostPort(a.IP.String(), port))
+		if err == nil {
+			return c, nil
+		}
+		last = err
+	}
+	if last == nil {
+		last = common.NewErrorf("tunnel: no public address for %s", host)
+	}
+	return nil, last
+}
+
 func isPublicUnicast(ip net.IP) bool {
 	if ip == nil || ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() ||
 		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||

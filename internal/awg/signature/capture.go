@@ -103,14 +103,27 @@ func resolveHost(domain string) (string, error) {
 		return "", err
 	}
 	for _, ip := range ips {
-		if ip.IP.To4() != nil {
-			return ip.IP.To4().String(), nil
+		v4 := ip.IP.To4()
+		if v4 == nil {
+			continue
 		}
+		if !captureIPAllowed(v4) {
+			continue
+		}
+		return v4.String(), nil
 	}
-	if len(ips) > 0 {
-		return ips[0].IP.String(), nil
+	return "", errors.New("no public IPv4 found")
+}
+
+func captureIPAllowed(ip net.IP) bool {
+	if ip == nil || ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() || ip.IsMulticast() {
+		return false
 	}
-	return "", errors.New("no IP found")
+	if v4 := ip.To4(); v4 != nil && v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
+		return false
+	}
+	return true
 }
 
 // captureQUIC dials UDP 443, sends a QUIC Initial (with a TLS ClientHello

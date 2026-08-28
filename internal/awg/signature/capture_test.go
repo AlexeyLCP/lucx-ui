@@ -9,6 +9,7 @@ package signature
 import (
 	"bytes"
 	"encoding/hex"
+	"net"
 	"strings"
 	"testing"
 )
@@ -150,5 +151,17 @@ func TestBuildQUICInitial_Structure(t *testing.T) {
 func TestCapture_EmptyDomain(t *testing.T) {
 	if _, err := Capture("  "); err == nil {
 		t.Error("Capture with blank domain must fail")
+	}
+}
+
+func TestCaptureIPAllowed(t *testing.T) {
+	deny := []string{"127.0.0.1", "10.0.0.1", "192.168.1.1", "169.254.169.254", "100.64.1.1", "::1"}
+	for _, s := range deny {
+		if captureIPAllowed(net.ParseIP(s)) {
+			t.Errorf("%s must be refused", s)
+		}
+	}
+	if !captureIPAllowed(net.ParseIP("1.1.1.1")) {
+		t.Error("1.1.1.1 must be allowed")
 	}
 }
