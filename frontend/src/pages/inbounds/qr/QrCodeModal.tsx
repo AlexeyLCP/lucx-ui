@@ -29,7 +29,7 @@ interface ClientSetting {
 interface QrCodeModalProps {
   open: boolean;
   onClose: () => void;
-  dbInbound: (DbInboundLike & { remark?: string; nodeId?: number | null }) | null;
+  dbInbound: (DbInboundLike & { remark?: string; nodeId: number | null }) | null;
   client?: ClientSetting | null;
   nodeAddress?: string;
   subSettings?: SubSettings;
@@ -52,7 +52,7 @@ export default function QrCodeModal({
   subSettings,
 }: QrCodeModalProps) {
   const { t } = useTranslation();
-  const { status } = useStatusQuery();
+  const { status, fetched: statusFetched } = useStatusQuery();
   const [links, setLinks] = useState<{ remark?: string; link: string }[]>([]);
   const [wireguardConfigs, setWireguardConfigs] = useState<string[]>([]);
   const [wireguardLinks, setWireguardLinks] = useState<string[]>([]);
@@ -144,7 +144,7 @@ export default function QrCodeModal({
           remark: peerRemark,
           hostOverride: nodeAddress,
           fallbackHostname,
-          nodeId: dbInbound.nodeId,
+          nodeId: statusFetched ? dbInbound.nodeId : undefined,
           hostAwgSupport: {
             moduleAwg3: status.awg.moduleAwg3,
             moduleAwg31: status.awg.moduleAwg31,

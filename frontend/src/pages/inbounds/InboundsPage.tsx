@@ -116,7 +116,7 @@ export default function InboundsPage() {
   }, [messageApi]);
 
   const { nodes: nodesList, fetched: nodesFetched } = useNodesQuery();
-  const { status } = useStatusQuery();
+  const { status, fetched: statusFetched } = useStatusQuery();
   const nodesById = useMemo(() => {
     const map = new Map<number, ReturnType<typeof useNodesQuery>['nodes'][number]>();
     for (const n of nodesList || []) map.set(n.id, n);
@@ -336,7 +336,9 @@ export default function InboundsPage() {
         remark: projected.remark,
         hostOverride: hostOverrideFor(dbInbound),
         fallbackHostname: preferPublicHost(window.location.hostname, subSettings.publicHost),
-        nodeId: projected.nodeId,
+        // Before the status poll resolves, moduleAwg3/31 default to false and
+        // would silently strip fields the host actually supports.
+        nodeId: statusFetched ? projected.nodeId : undefined,
         hostAwgSupport: { moduleAwg3: status.awg.moduleAwg3, moduleAwg31: status.awg.moduleAwg31 },
       };
       let content = genInboundLinks(genInput);
@@ -395,7 +397,16 @@ export default function InboundsPage() {
         tabs,
       });
     },
-    [checkFallback, hostOverrideFor, subSettings.publicHost, status, openText, t, messageApi],
+    [
+      checkFallback,
+      hostOverrideFor,
+      subSettings.publicHost,
+      status,
+      statusFetched,
+      openText,
+      t,
+      messageApi,
+    ],
   );
 
   const exportInboundClipboard = useCallback(
