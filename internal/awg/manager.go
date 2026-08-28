@@ -829,10 +829,14 @@ func renderServerConf(inst Instance) string {
 		fmt.Fprintf(&b, "S3 = %d\n", inst.S3)
 		fmt.Fprintf(&b, "S4 = %d\n", inst.S4)
 	}
-	fmt.Fprintf(&b, "H1 = %s\n", inst.H1)
-	fmt.Fprintf(&b, "H2 = %s\n", inst.H2)
-	fmt.Fprintf(&b, "H3 = %s\n", inst.H3)
-	fmt.Fprintf(&b, "H4 = %s\n", inst.H4)
+	// Matches ValidateObfuscationFields' obfuscated check: an unobfuscated
+	// instance can carry blank H, and "H1 = " makes setconf reject the whole file.
+	if inst.Jc > 0 || inst.S1 > 0 {
+		fmt.Fprintf(&b, "H1 = %s\n", inst.H1)
+		fmt.Fprintf(&b, "H2 = %s\n", inst.H2)
+		fmt.Fprintf(&b, "H3 = %s\n", inst.H3)
+		fmt.Fprintf(&b, "H4 = %s\n", inst.H4)
+	}
 	awg3ok := IsAwg3Plus(inst.AwgVersion) && ModuleSupportsAwg3()
 	// HeaderProtectionKey (AWG3) is written ONLY when AwgVersion == "3" and the
 	// key is non-empty. The upstream kernel module (v3.0.20260731) + tools
