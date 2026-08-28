@@ -202,6 +202,112 @@ func TestBulkCreateClient_KeylessInboundNeverSeesTunnelKeys(t *testing.T) {
 	}
 }
 
+// Attach reuses an existing identity, whose ClientRecord already holds the
+// tunnel keypair and PSK; a keyless target must not be handed them.
+func TestAttach_KeylessInboundNeverSeesTunnelKeys(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	homeIb := mkInbound(t, 21401, model.AWG, `{"address":"10.70.0.1/24","clients":[]}`)
+	vlessIb := mkInbound(t, 21402, model.VLESS, `{"clients":[]}`)
+	awgIb := mkInbound(t, 21403, model.AWG, `{"address":"10.71.0.1/24","clients":[]}`)
+
+	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+		Client:     model.Client{Email: "attach-mixed@x", SubID: "sub-attach-mixed", Enable: true},
+		InboundIds: []int{homeIb.Id},
+	}); err != nil {
+		t.Fatalf("AWG Create: %v", err)
+	}
+	identity := lookupClientRecord(t, "attach-mixed@x")
+	if identity.PrivateKey == "" || identity.PreSharedKey == "" {
+		t.Fatalf("AWG create did not mint a keypair and PSK: %+v", identity)
+	}
+
+	// Keyless target first, tunnel target second: a strip applied to the shared
+	// clientWire instead of the per-inbound copy would empty the AWG one below.
+	if _, err := svc.Attach(inboundSvc, identity.Id, []int{vlessIb.Id, awgIb.Id}); err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+
+	vless, err := inboundSvc.GetInbound(vlessIb.Id)
+	if err != nil {
+		t.Fatalf("GetInbound(vless): %v", err)
+	}
+	for _, leak := range []string{"privateKey", "publicKey", "preSharedKey"} {
+		if strings.Contains(vless.Settings, leak) {
+			t.Errorf("attached VLESS inbound settings must not carry the identity's tunnel key %q, got:\n%s", leak, vless.Settings)
+		}
+	}
+
+	awg, err := inboundSvc.GetInbound(awgIb.Id)
+	if err != nil {
+		t.Fatalf("GetInbound(awg): %v", err)
+	}
+	if !strings.Contains(awg.Settings, identity.PrivateKey) {
+		t.Errorf("attached AWG inbound settings must still carry the identity's tunnel key, got:\n%s", awg.Settings)
+	}
+	if !strings.Contains(awg.Settings, identity.PreSharedKey) {
+		t.Errorf("attached AWG inbound settings must still carry the identity's PSK, got:\n%s", awg.Settings)
+	}
+}
+
+// BulkAttach's sibling of the fix above: ToClient copies the identity's tunnel
+// keypair and PSK onto every target, keyless ones included.
+func TestBulkAttach_KeylessInboundNeverSeesTunnelKeys(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	homeIb := mkInbound(t, 21501, model.AWG, `{"address":"10.80.0.1/24","clients":[]}`)
+	vlessIb := mkInbound(t, 21502, model.VLESS, `{"clients":[]}`)
+	awgIb := mkInbound(t, 21503, model.AWG, `{"address":"10.81.0.1/24","clients":[]}`)
+
+	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+		Client:     model.Client{Email: "bulk-attach-mixed@x", SubID: "sub-bulk-attach-mixed", Enable: true},
+		InboundIds: []int{homeIb.Id},
+	}); err != nil {
+		t.Fatalf("AWG Create: %v", err)
+	}
+	identity := lookupClientRecord(t, "bulk-attach-mixed@x")
+	if identity.PrivateKey == "" || identity.PreSharedKey == "" {
+		t.Fatalf("AWG create did not mint a keypair and PSK: %+v", identity)
+	}
+
+	// Keyless target first, tunnel target second — see the Attach sibling above.
+	res, _, err := svc.BulkAttach(inboundSvc, []string{"bulk-attach-mixed@x"}, []int{vlessIb.Id, awgIb.Id})
+	if err != nil {
+		t.Fatalf("BulkAttach: %v", err)
+	}
+	if len(res.Errors) != 0 {
+		t.Fatalf("BulkAttach errors: %v", res.Errors)
+	}
+	if len(res.Attached) != 2 {
+		t.Fatalf("BulkAttach attached = %v, want both targets", res.Attached)
+	}
+
+	vless, err := inboundSvc.GetInbound(vlessIb.Id)
+	if err != nil {
+		t.Fatalf("GetInbound(vless): %v", err)
+	}
+	for _, leak := range []string{"privateKey", "publicKey", "preSharedKey"} {
+		if strings.Contains(vless.Settings, leak) {
+			t.Errorf("bulk-attached VLESS inbound settings must not carry the identity's tunnel key %q, got:\n%s", leak, vless.Settings)
+		}
+	}
+
+	awg, err := inboundSvc.GetInbound(awgIb.Id)
+	if err != nil {
+		t.Fatalf("GetInbound(awg): %v", err)
+	}
+	if !strings.Contains(awg.Settings, identity.PrivateKey) {
+		t.Errorf("bulk-attached AWG inbound settings must still carry the identity's tunnel key, got:\n%s", awg.Settings)
+	}
+	if !strings.Contains(awg.Settings, identity.PreSharedKey) {
+		t.Errorf("bulk-attached AWG inbound settings must still carry the identity's PSK, got:\n%s", awg.Settings)
+	}
+}
+
 // The keyless copy of an identity is stripped of its PSK, so the merge onto
 // the shared row must not read that blank as "the operator cleared it".
 func TestCreateClient_KeylessAttachKeepsIdentityPSK(t *testing.T) {

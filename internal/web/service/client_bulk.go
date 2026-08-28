@@ -89,6 +89,7 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 			if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
 				client.AllowedIPs = nil
 			}
+			clearForeignTunnelKeys(&client, inbound.Protocol)
 			// END LUCX-HOOK
 			if err := s.fillProtocolDefaults(&client, inbound); err != nil {
 				recordErr("%s -> inbound %d: %v", rec.Email, ibId, err)

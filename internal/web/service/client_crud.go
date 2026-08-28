@@ -919,6 +919,7 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 		if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
 			copyClient.AllowedIPs = nil
 		}
+		clearForeignTunnelKeys(&copyClient, inbound.Protocol)
 		// END LUCX-HOOK
 		if !addressesFitAmneziaWGInbound(copyClient.AllowedIPs, inbound) {
 			copyClient.AllowedIPs = nil
