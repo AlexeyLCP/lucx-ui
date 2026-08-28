@@ -1827,10 +1827,10 @@ export function genAwgLink(input: GenAwgLinkInput): string {
     if (settings.s3) url.searchParams.set('s3', String(settings.s3));
     if (settings.s4) url.searchParams.set('s4', String(settings.s4));
   }
-  if (settings.h1) url.searchParams.set('h1', settings.h1);
-  if (settings.h2) url.searchParams.set('h2', settings.h2);
-  if (settings.h3) url.searchParams.set('h3', settings.h3);
-  if (settings.h4) url.searchParams.set('h4', settings.h4);
+  if (settings.h1.trim()) url.searchParams.set('h1', settings.h1);
+  if (settings.h2.trim()) url.searchParams.set('h2', settings.h2);
+  if (settings.h3.trim()) url.searchParams.set('h3', settings.h3);
+  if (settings.h4.trim()) url.searchParams.set('h4', settings.h4);
   if (awgVersionAtLeast(v, '2')) {
     if (settings.i1) url.searchParams.set('i1', settings.i1);
     if (settings.i2) url.searchParams.set('i2', settings.i2);
@@ -1840,7 +1840,7 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   }
   if (
     awgVersionFieldsAllowed(awgVersionAtLeast(v, '3'), localInbound, hostSupports3) &&
-    settings.headerProtectionKey
+    settings.headerProtectionKey.trim()
   ) {
     url.searchParams.set('headerprotectionkey', settings.headerProtectionKey);
   }
@@ -1910,16 +1910,16 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
     if (settings.s3) txt += `S3 = ${settings.s3}\n`;
     if (settings.s4) txt += `S4 = ${settings.s4}\n`;
   }
-  if (settings.h1) txt += `H1 = ${settings.h1}\n`;
-  if (settings.h2) txt += `H2 = ${settings.h2}\n`;
-  if (settings.h3) txt += `H3 = ${settings.h3}\n`;
-  if (settings.h4) txt += `H4 = ${settings.h4}\n`;
+  if (settings.h1.trim()) txt += `H1 = ${settings.h1}\n`;
+  if (settings.h2.trim()) txt += `H2 = ${settings.h2}\n`;
+  if (settings.h3.trim()) txt += `H3 = ${settings.h3}\n`;
+  if (settings.h4.trim()) txt += `H4 = ${settings.h4}\n`;
   // Verbatim CPS tags ("<b 0xHEX>"), AWG v2+, and budgeted all-or-nothing like
   // every Go renderer: a set the kernel cannot read back must not be shown.
   if (
     awgVersionAtLeast(override, '2') &&
     awgIBytes(settings.i1, settings.i2, settings.i3, settings.i4, settings.i5) <=
-      awgWorstCaseIBytesBudget(Boolean(settings.headerProtectionKey))
+      awgWorstCaseIBytesBudget(settings.headerProtectionKey.trim() !== '')
   ) {
     const iFields: Array<[string, string | undefined]> = [
       ['I1', settings.i1],
@@ -1938,7 +1938,7 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   // config. S1-S4 >= 12 is required (enforced by the generator for v3).
   if (
     awgVersionFieldsAllowed(awgVersionAtLeast(override, '3'), localInbound, hostSupports3) &&
-    settings.headerProtectionKey
+    settings.headerProtectionKey.trim()
   ) {
     txt += `HeaderProtectionKey = ${settings.headerProtectionKey}\n`;
   }

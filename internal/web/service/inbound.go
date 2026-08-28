@@ -537,7 +537,7 @@ func inboundAwgHints(settings string, localInbound bool) (address string, obfusc
 		}
 	}
 	for i, h := range []string{s.H1, s.H2, s.H3, s.H4} {
-		if h != "" {
+		if strings.TrimSpace(h) != "" {
 			fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
 		}
 	}
@@ -563,7 +563,7 @@ func inboundAwgHints(settings string, localInbound bool) (address string, obfusc
 	// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject
 	// it, so v1/v2 inbounds must never carry it. S1-S4 >= 12 is required for the
 	// kernel to accept the key (enforced by the generator for v3).
-	if s.HeaderProtectionKey != "" && awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(s.AwgVersion), localInbound, awg.ModuleSupportsAwg3()) {
+	if strings.TrimSpace(s.HeaderProtectionKey) != "" && awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(s.AwgVersion), localInbound, awg.ModuleSupportsAwg3()) {
 		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — empty/"0" = kernel default. Emitted only

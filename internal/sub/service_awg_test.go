@@ -216,3 +216,29 @@ func TestGenAwgLink_OmitsV3FieldsWhenTheHostCannotApplyThem(t *testing.T) {
 		}
 	}
 }
+
+// A field of blanks is not a value: the client would write "H1 =  " into its
+// own .conf and awg setconf then rejects the file whole.
+func TestGenAwgLink_BlankFieldsAreNotValues(t *testing.T) {
+	withAwgSupport(t, true)
+	const base = `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,`
+	const clients = `"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
+	s := &SubService{}
+	for _, tc := range []struct {
+		name, settings, absent string
+	}{
+		{"blank header", base + `"awgVersion":"2","h1":"   ",` + clients, "h1="},
+		{"blank key", base + `"awgVersion":"3","headerProtectionKey":"  ",` + clients, "headerProtectionKey="},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lines := splitLinkLines(s.genAwgLink(awgLinkInbound(tc.settings), "user"))
+			if len(lines) == 0 {
+				t.Fatal("expected a non-empty amneziawg:// link")
+			}
+			if strings.Contains(lines[0], tc.absent) {
+				t.Errorf("%q must not reach the share link, got:\n%s", tc.absent, lines[0])
+			}
+		})
+	}
+}

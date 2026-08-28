@@ -825,7 +825,7 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	for _, p := range []struct{ key, jk string }{
 		{"h1", "h1"}, {"h2", "h2"}, {"h3", "h3"}, {"h4", "h4"},
 	} {
-		if v, ok := settings[p.jk].(string); ok && v != "" {
+		if v, ok := settings[p.jk].(string); ok && strings.TrimSpace(v) != "" {
 			params[p.key] = v
 		}
 	}
@@ -851,7 +851,7 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	// AWG3 (version "3") — HeaderProtectionKey + device-level timers/padding.
 	// All gated by isV3 so a v1/v2 share-link never carries v3-only params.
 	if isV3 {
-		if v, ok := settings["headerProtectionKey"].(string); ok && v != "" {
+		if v, ok := settings["headerProtectionKey"].(string); ok && strings.TrimSpace(v) != "" {
 			params["headerProtectionKey"] = v
 		}
 		for _, p := range []struct{ key, jk string }{

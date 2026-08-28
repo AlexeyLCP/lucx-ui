@@ -846,7 +846,7 @@ func renderServerConf(inst Instance) string {
 	// working on any kernel, and lets a v3 inbound opt in once the operator has
 	// installed the AWG3 module. The S1-S4 >= 12 invariant (enforced by the
 	// generator) is required for the kernel to accept the key.
-	if awg3ok && inst.HeaderProtectionKey != "" {
+	if awg3ok && strings.TrimSpace(inst.HeaderProtectionKey) != "" {
 		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", inst.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — all optional (0 = kernel uses the
@@ -896,7 +896,7 @@ func renderServerConf(inst Instance) string {
 	// Worst-case, not this ifname: the exported client .conf and the share link
 	// budget that way, and a set only one side writes is one-way mimicry.
 	if NormalizeAWGVersion(inst.AwgVersion) != "1.5" &&
-		IBytes(inst.I1, inst.I2, inst.I3, inst.I4, inst.I5) <= WorstCaseIBytesBudget(inst.HeaderProtectionKey != "") {
+		IBytes(inst.I1, inst.I2, inst.I3, inst.I4, inst.I5) <= WorstCaseIBytesBudget(strings.TrimSpace(inst.HeaderProtectionKey) != "") {
 		for _, kv := range []struct{ k, v string }{
 			{"I1", inst.I1}, {"I2", inst.I2}, {"I3", inst.I3}, {"I4", inst.I4}, {"I5", inst.I5},
 		} {

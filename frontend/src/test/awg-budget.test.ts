@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { awgIBytes, awgWorstCaseIBytesBudget } from '@/lib/xray/awg-budget';
-import { genAwgConfig } from '@/lib/xray/inbound-link';
+import { genAwgConfig, genAwgLink } from '@/lib/xray/inbound-link';
 import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg';
 
 function awgSettings(over: Partial<AwgInboundSettings> = {}): AwgInboundSettings {
@@ -72,6 +72,43 @@ function conf(over: Partial<AwgInboundSettings> = {}): string {
     peerIndex: 0,
   });
 }
+
+function link(over: Partial<AwgInboundSettings> = {}): string {
+  return genAwgLink({
+    settings: awgSettings(over),
+    address: 'wg.example.test',
+    port: 51820,
+    peerIndex: 0,
+  });
+}
+
+// A JS truthiness gate passes a single space, and "H1 =  " makes awg setconf
+// reject the whole file; a blank key must not claim the 36-byte slot either.
+describe('genAwgConfig blank fields are not values', () => {
+  it('omits a header made only of spaces', () => {
+    const txt = conf({ h1: ' ' });
+    expect(txt).not.toContain('H1 = ');
+    expect(txt).toContain('H2 = 600000-900000\n');
+  });
+
+  it('omits a header made only of spaces from the share link', () => {
+    expect(link({ h1: ' ' })).not.toContain('h1=');
+  });
+
+  it('does not charge a blank key the 36 bytes a real one costs', () => {
+    const v = 'x'.repeat(3463); // IBytes 3468: fits 3492, not 3456
+    expect(conf({ i1: v, headerProtectionKey: '   ' })).toContain(`I1 = ${v}\n`);
+  });
+
+  it('omits a blank key from the config and the share link at version 3', () => {
+    expect(conf({ awgVersion: '3', headerProtectionKey: '   ' })).not.toContain(
+      'HeaderProtectionKey',
+    );
+    expect(link({ awgVersion: '3', headerProtectionKey: '   ' })).not.toContain(
+      'headerprotectionkey=',
+    );
+  });
+});
 
 // An I-set over the netlink read budget vanishes from the live interface, so
 // the exported .conf must drop it whole — same gate as the four Go renderers.

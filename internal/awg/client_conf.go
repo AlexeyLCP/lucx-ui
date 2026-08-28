@@ -71,7 +71,7 @@ func renderClientConf(ci ClientInstance) string {
 	}
 	// Version- and module-gated like renderServerConf (manager.go:840 carries the
 	// full why): an older kernel rejects the line and awg-quick then deletes awgo-N.
-	if awg3ok && s.HeaderProtectionKey != "" {
+	if awg3ok && strings.TrimSpace(s.HeaderProtectionKey) != "" {
 		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
 	}
 	// AWG3 device-level timers/padding — AwgTimer holds single or range
@@ -107,7 +107,7 @@ func renderClientConf(ci ClientInstance) string {
 	// In the .conf so the FIRST handshake carries CPS mimicry — a post-up `awg
 	// set` landed 20.4 ms late. Budgeted worst-case, like every other renderer.
 	if NormalizeAWGVersion(s.AwgVersion) != "1.5" &&
-		IBytes(s.I1, s.I2, s.I3, s.I4, s.I5) <= WorstCaseIBytesBudget(s.HeaderProtectionKey != "") {
+		IBytes(s.I1, s.I2, s.I3, s.I4, s.I5) <= WorstCaseIBytesBudget(strings.TrimSpace(s.HeaderProtectionKey) != "") {
 		for _, f := range []struct{ key, value string }{
 			{"I1", s.I1}, {"I2", s.I2}, {"I3", s.I3}, {"I4", s.I4}, {"I5", s.I5},
 		} {

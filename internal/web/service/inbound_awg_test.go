@@ -315,3 +315,28 @@ func TestInboundAwgHints_NodeInboundKeepsAwg3Fields(t *testing.T) {
 		})
 	}
 }
+
+// A field of blanks is not a value: "H1 =  " or a blank key makes awg setconf
+// reject the whole file, exactly as the empty ones the .conf renderers skip.
+func TestInboundAwgHints_BlankFieldsAreNotValues(t *testing.T) {
+	awg3 := true
+	awg.SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { awg.SetModuleSupportsAwg3(nil) })
+	const base = `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40`
+	for _, tc := range []struct {
+		name, settings, absent, present string
+	}{
+		{"blank header", base + `,"awgVersion":"2","h1":"   ","h2":"600-900"}`, "H1 =", "H2 = 600-900"},
+		{"blank key", base + `,"awgVersion":"3","headerProtectionKey":"   "}`, "HeaderProtectionKey", "Jc = 8"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf, _ := inboundAwgHints(tc.settings, true)
+			if strings.Contains(obf, tc.absent) {
+				t.Errorf("%q must not reach the export, got:\n%q", tc.absent, obf)
+			}
+			if !strings.Contains(obf, tc.present) {
+				t.Errorf("the rest of the block must survive, %q missing from:\n%q", tc.present, obf)
+			}
+		})
+	}
+}
