@@ -319,13 +319,19 @@ func (s *ClientService) fillProtocolDefaults(c *model.Client, ib *model.Inbound)
 	return nil
 }
 
-// LUCX-HOOK: the three helpers below exist because one identity attaches to
+// LUCX-HOOK: the helpers below exist because one identity attaches to
 // inbounds of mixed protocols, in one call, and must hold ONE keypair for all.
+
+// isTunnelProtocol reports whether proto gives a client its own keypair and PSK.
+// Not countAwgOrWireguard > 0: that one deliberately leaves AmneziaWG out.
+func isTunnelProtocol(proto model.Protocol) bool {
+	return proto == model.AWG || proto == model.WireGuard || proto == model.AmneziaWG
+}
 
 // clearForeignTunnelKeys keeps an identity's tunnel keypair and PSK out of a
 // keyless protocol's settings JSON — unlike Password/Auth/Secret, these decrypt a tunnel.
 func clearForeignTunnelKeys(c *model.Client, proto model.Protocol) {
-	if c == nil || proto == model.AWG || proto == model.WireGuard || proto == model.AmneziaWG {
+	if c == nil || isTunnelProtocol(proto) {
 		return
 	}
 	c.PrivateKey = ""
@@ -348,11 +354,10 @@ func mintTunnelKeypairOnce(c *model.Client, tunnelTarget bool) error {
 	return nil
 }
 
-// hasTunnelInbound is hasTunnelAttachment for already-loaded targets. Not
-// countAwgOrWireguard > 0: that one deliberately leaves AmneziaWG out.
+// hasTunnelInbound is hasTunnelAttachment for already-loaded targets.
 func hasTunnelInbound(inbounds []*model.Inbound) bool {
 	for _, ib := range inbounds {
-		if ib != nil && (ib.Protocol == model.AWG || ib.Protocol == model.WireGuard || ib.Protocol == model.AmneziaWG) {
+		if ib != nil && isTunnelProtocol(ib.Protocol) {
 			return true
 		}
 	}
@@ -851,7 +856,7 @@ func (s *ClientService) hasTunnelAttachment(inboundSvc *InboundService, inboundI
 		if err != nil {
 			continue
 		}
-		if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG {
+		if isTunnelProtocol(inbound.Protocol) {
 			return true
 		}
 	}
