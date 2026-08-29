@@ -205,7 +205,7 @@ chmod +x "trusttunnel-client-linux-${ARCH}"
 rm -rf /tmp/ttclient "${TT_CLIENT_TGZ}"
 
 ANYTLS_REF="v0.0.13"
-ANYTLS_OVERLAY="$(cd ../.. && pwd)/third_party/patches/anytls-server-main.go"
+ANYTLS_OVERLAY="$(cd ../.. && pwd)/third_party/patches/anytls-server-main.go.overlay"
 git init -q /tmp/anytls
 git -C /tmp/anytls remote add origin https://github.com/anytls/anytls-go.git
 git -C /tmp/anytls fetch -q --depth 1 origin "${ANYTLS_REF}"

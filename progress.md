@@ -2,7 +2,7 @@
 
 ## lucx.189 — AnyTLS panel TLS cert (2026-08-29)
 
-Stock anytls-go always self-signs (`GenerateKeyPair`, no cert flags). Overlay `third_party/patches/anytls-server-main.go` adds `-cert/-key`. Panel reuses ACME like TrustTunnel; save refuses without a cert covering SNI. Share URI is `anytls://…/?sni=` (no `insecure=1`). Rule 0 waived for AnyTLS (unused).
+Stock anytls-go always self-signs (`GenerateKeyPair`, no cert flags). Overlay `third_party/patches/anytls-server-main.go.overlay` adds `-cert/-key`. Panel reuses ACME like TrustTunnel; save refuses without a cert covering SNI. Share URI is `anytls://…/?sni=` (no `insecure=1`). Rule 0 waived for AnyTLS (unused).
 
 Tests: `go test ./internal/lucx/tunnel` AnyTLS cases; frontend `genAnytlsLink`.
 
