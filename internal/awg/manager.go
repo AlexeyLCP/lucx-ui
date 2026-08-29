@@ -900,7 +900,7 @@ func renderServerConf(inst Instance) string {
 		for _, kv := range []struct{ k, v string }{
 			{"I1", inst.I1}, {"I2", inst.I2}, {"I3", inst.I3}, {"I4", inst.I4}, {"I5", inst.I5},
 		} {
-			if kv.v != "" {
+			if strings.TrimSpace(kv.v) != "" {
 				fmt.Fprintf(&b, "%s = %s\n", kv.k, kv.v)
 			}
 		}

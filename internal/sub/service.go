@@ -842,7 +842,7 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			for _, p := range []struct{ key, jk string }{
 				{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
 			} {
-				if v, ok := settings[p.jk].(string); ok && v != "" {
+				if v, ok := settings[p.jk].(string); ok && strings.TrimSpace(v) != "" {
 					params[p.key] = v
 				}
 			}

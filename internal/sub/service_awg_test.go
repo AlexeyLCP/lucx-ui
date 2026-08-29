@@ -1,6 +1,7 @@
 package sub
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 
@@ -238,6 +239,38 @@ func TestGenAwgLink_BlankFieldsAreNotValues(t *testing.T) {
 			}
 			if strings.Contains(lines[0], tc.absent) {
 				t.Errorf("%q must not reach the share link, got:\n%s", tc.absent, lines[0])
+			}
+		})
+	}
+}
+
+// A blank I-field is not a value: the client writes the param into its own
+// .conf as "I1 =  ", and awg setconf then rejects that file whole.
+func TestGenAwgLink_BlankIFieldIsNotAValue(t *testing.T) {
+	const base = `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"2","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,`
+	const clients = `"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
+	s := &SubService{}
+	for _, tc := range []struct{ name, i1, want string }{
+		{"blanks only", "   ", ""},
+		{"whitespace edges stay raw", " <b 0x00> ", " <b 0x00> "},
+		{"plain descriptor", "<b 0x00>", "<b 0x00>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lines := splitLinkLines(s.genAwgLink(awgLinkInbound(base+`"i1":"`+tc.i1+`","i2":"<b 0xff>",`+clients), "user"))
+			if len(lines) == 0 {
+				t.Fatal("expected a non-empty amneziawg:// link")
+			}
+			u, err := url.Parse(lines[0])
+			if err != nil {
+				t.Fatalf("share link must parse: %v, got:\n%s", err, lines[0])
+			}
+			q := u.Query()
+			if got := q.Get("i1"); got != tc.want {
+				t.Errorf("i1 = %q, want %q, in:\n%s", got, tc.want, lines[0])
+			}
+			if got := q.Get("i2"); got != "<b 0xff>" {
+				t.Errorf("the rest of the I-set must survive, i2 = %q, in:\n%s", got, lines[0])
 			}
 		})
 	}

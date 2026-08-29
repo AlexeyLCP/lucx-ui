@@ -183,3 +183,46 @@ func TestRenderers_IFieldGateMatchesTheExportedConfig(t *testing.T) {
 		})
 	}
 }
+
+// A field of blanks is not a value: awg-tools collapse "I1 =    " to "I1=" and
+// then refuse the whole file, the same refusal a blank H or a blank key gets.
+func TestRenderers_BlankIFieldIsNotAValue(t *testing.T) {
+	for _, tc := range []struct {
+		name, i1, wantServer, wantClient string
+	}{
+		{"blanks only", "   ", "", ""},
+		// The predicate trims; what the server emits stays raw, because trimming
+		// it would move deviceFingerprint and bounce every live inbound.
+		{"whitespace edges", " <b 0x00> ", "I1 =  <b 0x00> \n", "I1 = <b 0x00>\n"},
+		{"plain descriptor", "<b 0x00>", "I1 = <b 0x00>\n", "I1 = <b 0x00>\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			confs := map[string]string{
+				"server": renderServerConf(Instance{
+					Ifname: "awg9", PrivateKey: "k", Port: 51820, MTU: 1320,
+					AwgVersion: "2", I1: tc.i1, I2: "<b 0xff>",
+				}),
+				"client": renderClientConf(ClientInstance{
+					Id: 1, Ifname: "awgo-1",
+					Settings: ClientSettings{
+						PrivateKey: "k", Address: "10.9.0.5/32", MTU: 1320,
+						PublicKey: "pub", Endpoint: "up:51820",
+						AwgVersion: "2", I1: tc.i1, I2: "<b 0xff>",
+					},
+				}),
+			}
+			for side, want := range map[string]string{"server": tc.wantServer, "client": tc.wantClient} {
+				conf := confs[side]
+				switch {
+				case want == "" && strings.Contains(conf, "I1"):
+					t.Errorf("%s .conf: blank I1 %q must not be written, got:\n%s", side, tc.i1, conf)
+				case want != "" && !strings.Contains(conf, want):
+					t.Errorf("%s .conf: missing %q, got:\n%s", side, want, conf)
+				}
+				if !strings.Contains(conf, "I2 = <b 0xff>\n") {
+					t.Errorf("%s .conf: the rest of the I-set must survive, got:\n%s", side, conf)
+				}
+			}
+		})
+	}
+}

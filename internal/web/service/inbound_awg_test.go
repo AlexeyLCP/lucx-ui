@@ -340,3 +340,27 @@ func TestInboundAwgHints_BlankFieldsAreNotValues(t *testing.T) {
 		})
 	}
 }
+
+// A blank I-field is not a value: this block is pasted verbatim into the client
+// card and the vpn:// line, where "I1 =" makes awg setconf refuse the file.
+func TestInboundAwgHints_BlankIFieldIsNotAValue(t *testing.T) {
+	const base = `{"address":"10.8.0.1/24","awgVersion":"2","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40`
+	for _, tc := range []struct{ name, i1, want string }{
+		{"blanks only", "   ", ""},
+		{"whitespace edges stay raw", " <b 0x00> ", "I1 =  <b 0x00> \n"},
+		{"plain descriptor", "<b 0x00>", "I1 = <b 0x00>\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf, _ := inboundAwgHints(base+`,"i1":"`+tc.i1+`","i2":"<b 0xff>"}`, true)
+			switch {
+			case tc.want == "" && strings.Contains(obf, "I1"):
+				t.Errorf("blank I1 %q must not reach the export, got:\n%s", tc.i1, obf)
+			case tc.want != "" && !strings.Contains(obf, tc.want):
+				t.Errorf("missing %q, got:\n%s", tc.want, obf)
+			}
+			if !strings.Contains(obf, "I2 = <b 0xff>\n") {
+				t.Errorf("the rest of the I-set must survive, got:\n%s", obf)
+			}
+		})
+	}
+}

@@ -550,7 +550,7 @@ func inboundAwgHints(settings string, localInbound bool) (address string, obfusc
 		for _, ip := range []struct{ idx, val string }{
 			{"1", s.I1}, {"2", s.I2}, {"3", s.I3}, {"4", s.I4}, {"5", s.I5},
 		} {
-			if ip.val != "" {
+			if strings.TrimSpace(ip.val) != "" {
 				fmt.Fprintf(&out, "I%s = %s\n", ip.idx, ip.val)
 			}
 		}
