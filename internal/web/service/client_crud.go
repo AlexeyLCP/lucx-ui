@@ -217,6 +217,9 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		createTargets = append(createTargets, inbound)
 	}
 	tunnelN := countAwgOrWireguard(createTargets)
+	if err := mintTunnelKeypairOnce(&client, createTargets); err != nil {
+		return needRestart, err
+	}
 	for _, inbound := range createTargets {
 		per := client
 		// LUCX-HOOK: AWG/WG tunnel IPs are per-inbound. Multi-attach must not
@@ -328,6 +331,27 @@ func clearForeignTunnelKeys(c *model.Client, proto model.Protocol) {
 }
 
 // END LUCX-HOOK
+
+// mintTunnelKeypairOnce gives an identity its keypair before the per-inbound
+// loop, which would otherwise mint a separate pair inside every tunnel inbound.
+func mintTunnelKeypairOnce(c *model.Client, targets []*model.Inbound) error {
+	if c.PrivateKey != "" || c.PublicKey != "" {
+		return nil
+	}
+	for _, ib := range targets {
+		if ib == nil || (ib.Protocol != model.AWG && ib.Protocol != model.WireGuard && ib.Protocol != model.AmneziaWG) {
+			continue
+		}
+		priv, pub, err := wgutil.GenerateWireguardKeypair()
+		if err != nil {
+			return err
+		}
+		c.PrivateKey = priv
+		c.PublicKey = pub
+		return nil
+	}
+	return nil
+}
 
 // defaultMtprotoDomain is the FakeTLS fronting domain used when an mtproto
 // inbound carries no fakeTlsDomain of its own; it mirrors the frontend default.

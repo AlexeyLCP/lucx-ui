@@ -139,6 +139,85 @@ func TestAddClient_ReusesStoredKeypairForKnownIdentity(t *testing.T) {
 	}
 }
 
+// One call naming two tunnel inbounds must mint ONE keypair: the subscription
+// is built from the record, so a second pair leaves that peer never handshaking.
+func TestCreateClient_TwoTunnelInboundsShareOneKeypair(t *testing.T) {
+	const awgSettings = `{"address":"10.90.0.1/24","clients":[]}`
+	const amneziaSettings = `{"server":{"subnetIp":"10.91.1.0","subnetCidr":24},"clients":[]}`
+	cases := []struct {
+		name                 string
+		protoA, protoB       model.Protocol
+		settingsA, settingsB string
+	}{
+		{"two AWG inbounds", model.AWG, model.AWG, awgSettings, `{"address":"10.92.0.1/24","clients":[]}`},
+		{"two AmneziaWG inbounds", model.AmneziaWG, model.AmneziaWG, amneziaSettings, `{"server":{"subnetIp":"10.93.1.0","subnetCidr":24},"clients":[]}`},
+		{"AWG plus AmneziaWG", model.AWG, model.AmneziaWG, awgSettings, amneziaSettings},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setupBulkDB(t)
+			svc := &ClientService{}
+			inboundSvc := &InboundService{}
+
+			ibA := mkInbound(t, 21701, tc.protoA, tc.settingsA)
+			ibB := mkInbound(t, 21702, tc.protoB, tc.settingsB)
+
+			if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+				Client:     model.Client{Email: "twin@x", SubID: "sub-twin", Enable: true},
+				InboundIds: []int{ibA.Id, ibB.Id},
+			}); err != nil {
+				t.Fatalf("Create across two tunnel inbounds: %v", err)
+			}
+
+			peerA := awgPeer(t, inboundSvc, ibA.Id, "twin@x")
+			peerB := awgPeer(t, inboundSvc, ibB.Id, "twin@x")
+			record := lookupClientRecord(t, "twin@x")
+			if peerA.PublicKey == "" || peerB.PublicKey == "" {
+				t.Fatalf("one of the two tunnel inbounds got no public key at all: %+v / %+v", peerA, peerB)
+			}
+			if peerA.PublicKey != peerB.PublicKey || record.PublicKey != peerA.PublicKey {
+				t.Errorf("one Create minted a keypair per inbound: inbound %d holds public key %q, inbound %d holds %q, the client record holds %q — the subscription carries the record's key, so the other inbound's handshake silently never completes",
+					ibA.Id, peerA.PublicKey, ibB.Id, peerB.PublicKey, record.PublicKey)
+			}
+			if peerA.PrivateKey != peerB.PrivateKey {
+				t.Errorf("private key differs between inbound %d (%q) and inbound %d (%q)", ibA.Id, peerA.PrivateKey, ibB.Id, peerB.PrivateKey)
+			}
+		})
+	}
+}
+
+// Minting once before the loop must not leak into a keyless target's settings:
+// the per-inbound copy is what clearForeignTunnelKeys strips, not the identity.
+func TestCreateClient_MintedKeypairSkipsKeylessInboundInSameCall(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	awgIb := mkInbound(t, 21711, model.AWG, `{"address":"10.92.0.1/24","clients":[]}`)
+	vlessIb := mkInbound(t, 21712, model.VLESS, `{"clients":[]}`)
+
+	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+		Client:     model.Client{Email: "minted-mixed@x", SubID: "sub-minted-mixed", Enable: true},
+		InboundIds: []int{awgIb.Id, vlessIb.Id},
+	}); err != nil {
+		t.Fatalf("Create across AWG + VLESS: %v", err)
+	}
+
+	peer := awgPeer(t, inboundSvc, awgIb.Id, "minted-mixed@x")
+	if peer.PrivateKey == "" || peer.PublicKey == "" {
+		t.Errorf("AWG inbound %d got no keypair: %+v", awgIb.Id, peer)
+	}
+	vless, err := inboundSvc.GetInbound(vlessIb.Id)
+	if err != nil {
+		t.Fatalf("GetInbound(vless): %v", err)
+	}
+	for _, leak := range []string{"privateKey", "publicKey", "preSharedKey"} {
+		if strings.Contains(vless.Settings, leak) {
+			t.Errorf("the minted tunnel key %q reached the VLESS inbound named in the same call:\n%s", leak, vless.Settings)
+		}
+	}
+}
+
 // bulkCreateOne runs the bulk path for a single client and fails on a skip, so
 // callers assert on what the inbounds got rather than on the result counter.
 func bulkCreateOne(t *testing.T, svc *ClientService, inboundSvc *InboundService, c model.Client, inboundIds ...int) {
@@ -149,6 +228,33 @@ func bulkCreateOne(t *testing.T, svc *ClientService, inboundSvc *InboundService,
 	}
 	if res.Created != 1 {
 		t.Fatalf("BulkCreate(%s -> inbounds %v) created = %d, want 1 (skipped: %+v)", c.Email, inboundIds, res.Created, res.Skipped)
+	}
+}
+
+// The bulk sibling of TestCreateClient_TwoTunnelInboundsShareOneKeypair, which
+// ImportClients also delegates to: one payload, two tunnel inbounds, one pair.
+func TestBulkCreateClient_TwoTunnelInboundsShareOneKeypair(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	ibA := mkInbound(t, 21721, model.AWG, `{"address":"10.93.0.1/24","clients":[]}`)
+	ibB := mkInbound(t, 21722, model.AWG, `{"address":"10.94.0.1/24","clients":[]}`)
+
+	bulkCreateOne(t, svc, inboundSvc, model.Client{Email: "bulk-twin@x", SubID: "sub-bulk-twin", Enable: true}, ibA.Id, ibB.Id)
+
+	peerA := awgPeer(t, inboundSvc, ibA.Id, "bulk-twin@x")
+	peerB := awgPeer(t, inboundSvc, ibB.Id, "bulk-twin@x")
+	record := lookupClientRecord(t, "bulk-twin@x")
+	if peerA.PublicKey == "" || peerB.PublicKey == "" {
+		t.Fatalf("one of the two AWG inbounds got no public key at all: %+v / %+v", peerA, peerB)
+	}
+	if peerA.PublicKey != peerB.PublicKey || record.PublicKey != peerA.PublicKey {
+		t.Errorf("one BulkCreate payload minted a keypair per inbound: inbound %d holds public key %q, inbound %d holds %q, the client record holds %q — the subscription carries the record's key, so the other inbound's handshake silently never completes",
+			ibA.Id, peerA.PublicKey, ibB.Id, peerB.PublicKey, record.PublicKey)
+	}
+	if peerA.PrivateKey != peerB.PrivateKey {
+		t.Errorf("private key differs between inbound %d (%q) and inbound %d (%q)", ibA.Id, peerA.PrivateKey, ibB.Id, peerB.PrivateKey)
 	}
 }
 

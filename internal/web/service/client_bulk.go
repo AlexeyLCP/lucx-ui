@@ -1303,6 +1303,11 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			bulkTargets = append(bulkTargets, ib)
 		}
 		tunnelN := countAwgOrWireguard(bulkTargets)
+		if e := mintTunnelKeypairOnce(&prep[idx].client, bulkTargets); e != nil {
+			failed[idx] = true
+			reason[idx] = e.Error()
+			continue
+		}
 		for _, ibId := range prep[idx].inboundIds {
 			ib, _ := getIb(ibId)
 			if _, seen := byInbound[ibId]; !seen {
