@@ -1,5 +1,23 @@
 # LucX-UI — Прогресс
 
+## lucx.191 — AWG contract (PR #70) (2026-08-29)
+
+Merge of rudenko-ks/fix/awg-contract-defects. Config used to save as OK while the tunnel stayed down.
+
+- All four renderers (server/outbound/client export/sub) share one I-field budget and version gate; QR `genAwgConfig` too.
+- I1–I5 go into the server `.conf` (first handshake had no CPS when they were `awg set` after up).
+- Fingerprint is the rendered `[Interface]` text; adding a peer no longer recreates the iface.
+- One identity, one Curve25519 pair across AWG/WG attaches; keyless protocols do not inherit tunnel keys.
+- Save rejects empty H, timers outside u16, control chars, non-JSON settings, HPK that is not 32-byte base64.
+- Capability gates use the **target node**, not the master module.
+- Default MTU 1420.
+
+Not in this PR: `sweepOrphanClientsOnce` still tears down live `awgo-N` after a panel restart.
+
+**lucxVersion:** lucx.191
+
+---
+
 ## lucx.190 — sidecar traffic + AWG node port rename (2026-08-29)
 
 Max: AnyTLS works on Android, panel shows zeros. Arseniy: changing AWG port on a remote node duplicated the inbound in Attached inbounds.
