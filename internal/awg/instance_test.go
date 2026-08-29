@@ -1135,6 +1135,7 @@ func TestFingerprint_ChangesWithIFields(t *testing.T) {
 		})
 	}
 }
+
 func TestAwgTimer_RejectsInject(t *testing.T) {
 	var tm AwgTimer
 	if err := json.Unmarshal([]byte(`"15\nPostUp = id"`), &tm); err != nil {
