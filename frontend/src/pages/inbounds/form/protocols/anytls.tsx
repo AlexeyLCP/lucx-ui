@@ -20,6 +20,28 @@ export default function AnytlsFields() {
         message={t('pages.inbounds.form.anytlsNote')}
       />
       <FormField
+        name={['settings', 'sni']}
+        label={t('pages.inbounds.form.anytlsSni')}
+        tooltip={t('pages.inbounds.form.anytlsSniHint')}
+        required
+      >
+        <Input placeholder="vpn.example.com" />
+      </FormField>
+      <FormField
+        name={['settings', 'certFile']}
+        label={t('pages.inbounds.form.trustTunnelCertFile')}
+        tooltip={t('pages.inbounds.form.trustTunnelCertFileHint')}
+      >
+        <Input placeholder="" />
+      </FormField>
+      <FormField
+        name={['settings', 'keyFile']}
+        label={t('pages.inbounds.form.trustTunnelKeyFile')}
+        tooltip={t('pages.inbounds.form.trustTunnelCertFileHint')}
+      >
+        <Input placeholder="" />
+      </FormField>
+      <FormField
         name={['settings', 'password']}
         label={t('pages.inbounds.form.anytlsPassword')}
         tooltip={t('pages.inbounds.form.anytlsPasswordHint')}

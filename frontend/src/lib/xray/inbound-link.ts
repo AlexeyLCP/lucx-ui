@@ -1535,9 +1535,10 @@ export interface GenAnytlsLinkInput {
 
 export function genAnytlsLink(input: GenAnytlsLinkInput): string {
   if (input.inbound.protocol !== 'anytls') return '';
-  const s = input.inbound.settings as { port?: number; password?: string };
+  const s = input.inbound.settings as { port?: number; password?: string; sni?: string };
   const pass = (s.password ?? '').trim();
-  if (!pass) return '';
+  const sni = (s.sni ?? '').trim();
+  if (!pass || !sni) return '';
   const host = (input.address ?? '').trim();
   if (!host) return '';
   const port = input.inbound.port > 0 ? input.inbound.port : s.port && s.port > 0 ? s.port : 8443;
@@ -1545,7 +1546,7 @@ export function genAnytlsLink(input: GenAnytlsLinkInput): string {
     host.includes(':') && !host.startsWith('[') ? `[${host}]:${port}` : `${host}:${port}`;
   const remark = (input.remark ?? '').trim();
   const frag = remark ? `#${encodeURIComponent(remark)}` : '';
-  return `anytls://${encodeURIComponent(pass)}@${hostPort}/?insecure=1${frag}`;
+  return `anytls://${encodeURIComponent(pass)}@${hostPort}/?sni=${encodeURIComponent(sni)}${frag}`;
 }
 
 export function genQwdttLink(input: GenQwdttLinkInput): string {

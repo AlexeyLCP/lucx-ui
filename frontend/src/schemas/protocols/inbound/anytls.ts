@@ -9,5 +9,8 @@ import { z } from 'zod';
 export const AnytlsInboundSettingsSchema = z.object({
   port: z.number().int().min(1).max(65535).default(8443),
   password: z.string().default(''),
+  sni: z.string().default(''),
+  certFile: z.string().default(''),
+  keyFile: z.string().default(''),
 });
 export type AnytlsInboundSettings = z.infer<typeof AnytlsInboundSettingsSchema>;

@@ -40,9 +40,10 @@ func AnytlsConfigFromInbound(ib *model.Inbound) (AnytlsConfig, bool) {
 }
 
 // AnytlsInstanceFromInbound builds a supervised Instance for one AnyTls
-// inbound. Disabled or invalid rows yield Enabled:false so reconcile
-// converges them down.
-func AnytlsInstanceFromInbound(ib *model.Inbound) (Instance, bool) {
+// inbound. panelCert/panelKey are the ACME pair used when the inbound has
+// no explicit paths. Disabled, invalid, or uncertified rows yield
+// Enabled:false so reconcile converges them down.
+func AnytlsInstanceFromInbound(ib *model.Inbound, panelCert, panelKey string) (Instance, bool) {
 	cfg, ok := AnytlsConfigFromInbound(ib)
 	if !ok {
 		return Instance{}, false
@@ -54,12 +55,17 @@ func AnytlsInstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 	if err := cfg.Validate(); err != nil {
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
 	}
+	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
+	if err := validatePEMCert("anytls", certFile, keyFile, cfg.SNI); err != nil {
+		return Instance{Core: Anytls, Key: key, Enabled: false}, true
+	}
 	return Instance{
-		Core:      Anytls,
-		Key:       key,
-		Enabled:   true,
-		Args:      cfg.BuildArgs(),
-		ProbePort: cfg.Port,
+		Core:             Anytls,
+		Key:              key,
+		Enabled:          true,
+		Args:             cfg.BuildArgs(certFile, keyFile),
+		FingerprintExtra: CertFileHash(certFile),
+		ProbePort:        cfg.Port,
 	}, true
 }
 

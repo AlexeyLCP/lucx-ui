@@ -15,15 +15,18 @@ import (
 )
 
 // AnytlsConfig is one anytls-server instance (anytls/anytls-go reference
-// implementation): a TLS proxy over the AnyTLS protocol (splits the outer
-// TLS handshake to dodge TLS-in-TLS fingerprints) with a single shared
-// password per server port. Clients: sing-box, mihomo, Shadowrocket,
-// Stash, Loon. URI scheme: anytls://password@host:port.
+// implementation plus LucX -cert/-key overlay): a TLS proxy over the AnyTLS
+// protocol (splits the outer TLS handshake to dodge TLS-in-TLS fingerprints)
+// with a single shared password per server port. Clients: sing-box, mihomo,
+// Shadowrocket, Stash, Loon. URI scheme: anytls://password@host:port/?sni=.
 type AnytlsConfig struct {
 	Remark   string `json:"remark"`
 	Enabled  bool   `json:"enabled"`
 	Port     int    `json:"port"`
 	Password string `json:"password"`
+	SNI      string `json:"sni"`
+	CertFile string `json:"certFile"`
+	KeyFile  string `json:"keyFile"`
 }
 
 // DefaultAnytlsConfig returns factory defaults (port 8443, as in the
@@ -40,14 +43,17 @@ func (c AnytlsConfig) Merge() AnytlsConfig {
 	return c
 }
 
-// Validate checks the runnable config (password enforced: anytls-server
-// refuses to start without -p).
+// Validate checks the runnable config (password and SNI enforced: the
+// overlay anytls-server needs -p, and a real cert must cover SNI).
 func (c AnytlsConfig) Validate() error {
 	if c.Port < 1 || c.Port > 65535 {
 		return errors.New("anytls: port must be in 1..65535")
 	}
 	if strings.TrimSpace(c.Password) == "" {
 		return errors.New("anytls: password is required")
+	}
+	if strings.TrimSpace(c.SNI) == "" {
+		return errors.New("anytls: sni/domain is required")
 	}
 	return nil
 }
@@ -57,9 +63,32 @@ func (c AnytlsConfig) ListenAddr() string {
 	return net.JoinHostPort("0.0.0.0", strconv.Itoa(c.Port))
 }
 
-// BuildArgs renders the argv for anytls-server (flags only).
-func (c AnytlsConfig) BuildArgs() []string {
-	return []string{"-l", c.ListenAddr(), "-p", strings.TrimSpace(c.Password)}
+// ResolveCertPaths returns explicit config paths, else the panel ACME pair.
+func (c AnytlsConfig) ResolveCertPaths(panelCert, panelKey string) (cert, key string) {
+	cert = strings.TrimSpace(c.CertFile)
+	if cert == "" {
+		cert = strings.TrimSpace(panelCert)
+	}
+	key = strings.TrimSpace(c.KeyFile)
+	if key == "" {
+		key = strings.TrimSpace(panelKey)
+	}
+	return cert, key
+}
+
+// ValidateCert checks the resolved certificate covers SNI.
+func (c AnytlsConfig) ValidateCert(panelCert, panelKey string) error {
+	cert, key := c.ResolveCertPaths(panelCert, panelKey)
+	return validatePEMCert("anytls", cert, key, strings.TrimSpace(c.SNI))
+}
+
+// BuildArgs renders the argv for the LucX-overlay anytls-server.
+func (c AnytlsConfig) BuildArgs(cert, key string) []string {
+	args := []string{"-l", c.ListenAddr(), "-p", strings.TrimSpace(c.Password)}
+	if strings.TrimSpace(cert) != "" && strings.TrimSpace(key) != "" {
+		args = append(args, "-cert", cert, "-key", key)
+	}
+	return args
 }
 
 // EnsurePassword returns c with a generated shared password when empty.
@@ -76,13 +105,12 @@ func (c AnytlsConfig) EnsurePassword() (AnytlsConfig, error) {
 }
 
 // ClientLink renders the anytls:// share URI (anytls-go URI scheme).
-// anytls-server ships a self-signed cert, so insecure=1 is required or
-// sing-box/mihomo/Shadowrocket refuse the handshake. Password and remark
-// are percent-encoded per the scheme.
+// A trusted cert is required, so the query is sni= (no insecure=1).
 func (c AnytlsConfig) ClientLink(host, remark string) string {
 	host = strings.TrimSpace(host)
 	pass := strings.TrimSpace(c.Password)
-	if host == "" || pass == "" {
+	sni := strings.TrimSpace(c.SNI)
+	if host == "" || pass == "" || sni == "" {
 		return ""
 	}
 	u := url.URL{
@@ -90,7 +118,7 @@ func (c AnytlsConfig) ClientLink(host, remark string) string {
 		User:     url.User(pass),
 		Host:     net.JoinHostPort(host, strconv.Itoa(c.Port)),
 		Path:     "/",
-		RawQuery: "insecure=1",
+		RawQuery: "sni=" + url.QueryEscape(sni),
 	}
 	if r := strings.TrimSpace(remark); r != "" {
 		u.Fragment = r

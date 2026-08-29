@@ -204,14 +204,20 @@ mv "$TT_CLIENT_BIN" "trusttunnel-client-linux-${ARCH}"
 chmod +x "trusttunnel-client-linux-${ARCH}"
 rm -rf /tmp/ttclient "${TT_CLIENT_TGZ}"
 
-ANYTLS_VER="v0.0.13"
-ANYTLS_ZIP="anytls_${ANYTLS_VER#v}_linux_${ARCH}.zip"
-fetch -O "${ANYTLS_ZIP}" "https://github.com/anytls/anytls-go/releases/download/${ANYTLS_VER}/${ANYTLS_ZIP}"
-mkdir -p /tmp/anytls
-unzip -qo "${ANYTLS_ZIP}" -d /tmp/anytls
-mv /tmp/anytls/anytls-server "anytls-linux-${ARCH}"
+ANYTLS_REF="v0.0.13"
+ANYTLS_OVERLAY="$(cd ../.. && pwd)/third_party/patches/anytls-server-main.go"
+git init -q /tmp/anytls
+git -C /tmp/anytls remote add origin https://github.com/anytls/anytls-go.git
+git -C /tmp/anytls fetch -q --depth 1 origin "${ANYTLS_REF}"
+git -C /tmp/anytls checkout -q FETCH_HEAD
+cp "${ANYTLS_OVERLAY}" /tmp/anytls/cmd/server/main.go
+(
+    cd /tmp/anytls
+    GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "/tmp/anytls-linux-${ARCH}" ./cmd/server
+)
+mv "/tmp/anytls-linux-${ARCH}" "anytls-linux-${ARCH}"
 chmod +x "anytls-linux-${ARCH}"
-rm -rf /tmp/anytls "${ANYTLS_ZIP}"
+rm -rf /tmp/anytls
 
 cd ../..
 tar -zcvf "$OUT" x-ui

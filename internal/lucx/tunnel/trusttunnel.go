@@ -244,37 +244,41 @@ func (c TrustTunnelConfig) ResolveCertPaths(panelCert, panelKey string) (cert, k
 // ValidateCertFiles verifies the cert/key pair exists, parses, covers the
 // hostname in its SANs and is not expired.
 func ValidateCertFiles(certFile, keyFile, hostname string) error {
+	return validatePEMCert("trusttunnel", certFile, keyFile, hostname)
+}
+
+func validatePEMCert(label, certFile, keyFile, hostname string) error {
 	if certFile == "" || keyFile == "" {
-		return fmt.Errorf("trusttunnel: no TLS certificate — issue a domain certificate (x-ui console menu → SSL) or provide cert/key paths")
+		return fmt.Errorf("%s: no TLS certificate — issue a domain certificate (x-ui console menu → SSL) or provide cert/key paths", label)
 	}
 	certPEM, err := os.ReadFile(certFile)
 	if err != nil {
-		return fmt.Errorf("trusttunnel: read certificate %s: %w", certFile, err)
+		return fmt.Errorf("%s: read certificate %s: %w", label, certFile, err)
 	}
 	if _, err := os.Stat(keyFile); err != nil {
-		return fmt.Errorf("trusttunnel: read key %s: %w", keyFile, err)
+		return fmt.Errorf("%s: read key %s: %w", label, keyFile, err)
 	}
 	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
-		return fmt.Errorf("trusttunnel: certificate/key pair invalid: %w", err)
+		return fmt.Errorf("%s: certificate/key pair invalid: %w", label, err)
 	}
 	block, _ := pem.Decode(certPEM)
 	if block == nil {
-		return fmt.Errorf("trusttunnel: certificate %s has no PEM block", certFile)
+		return fmt.Errorf("%s: certificate %s has no PEM block", label, certFile)
 	}
 	x, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return fmt.Errorf("trusttunnel: parse certificate: %w", err)
+		return fmt.Errorf("%s: parse certificate: %w", label, err)
 	}
 	now := time.Now()
 	if now.After(x.NotAfter) {
-		return fmt.Errorf("trusttunnel: certificate expired %s — renew it (x-ui console menu → SSL)", x.NotAfter.Format(time.RFC3339))
+		return fmt.Errorf("%s: certificate expired %s — renew it (x-ui console menu → SSL)", label, x.NotAfter.Format(time.RFC3339))
 	}
 	if now.Before(x.NotBefore) {
-		return fmt.Errorf("trusttunnel: certificate not valid until %s", x.NotBefore.Format(time.RFC3339))
+		return fmt.Errorf("%s: certificate not valid until %s", label, x.NotBefore.Format(time.RFC3339))
 	}
 	host := strings.TrimSpace(hostname)
 	if !certCoversHost(x, host) {
-		return fmt.Errorf("trusttunnel: certificate does not cover domain %q (SAN: %s)", host, strings.Join(x.DNSNames, ", "))
+		return fmt.Errorf("%s: certificate does not cover domain %q (SAN: %s)", label, host, strings.Join(x.DNSNames, ", "))
 	}
 	return nil
 }

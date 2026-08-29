@@ -1404,6 +1404,9 @@ func (s *InboundService) normalizeAnytlsSettings(inbound *model.Inbound) {
 	}
 	settings["port"] = cfg.Port
 	settings["password"] = cfg.Password
+	settings["sni"] = strings.TrimSpace(cfg.SNI)
+	settings["certFile"] = strings.TrimSpace(cfg.CertFile)
+	settings["keyFile"] = strings.TrimSpace(cfg.KeyFile)
 	if strings.TrimSpace(cfg.Remark) != "" {
 		settings["remark"] = cfg.Remark
 	}
@@ -1414,6 +1417,18 @@ func (s *InboundService) normalizeAnytlsSettings(inbound *model.Inbound) {
 	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
 		inbound.Remark = cfg.Remark
 	}
+}
+
+func (s *InboundService) validateAnytlsCert(inbound *model.Inbound) error {
+	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
+	if !ok {
+		return nil
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	panelCert, panelKey := panelCertFiles()
+	return cfg.ValidateCert(panelCert, panelKey)
 }
 
 func inboundListenRanges(ib *model.Inbound) [][2]int {
@@ -1874,10 +1889,8 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	}
 	if inbound.Protocol == model.Anytls {
 		s.normalizeAnytlsSettings(inbound)
-		if cfg, ok := tunnel.AnytlsConfigFromInbound(inbound); ok {
-			if err := cfg.Merge().Validate(); err != nil {
-				return inbound, false, err
-			}
+		if err := s.validateAnytlsCert(inbound); err != nil {
+			return inbound, false, err
 		}
 	}
 	// END LUCX-HOOK
@@ -2492,10 +2505,8 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	}
 	if inbound.Protocol == model.Anytls {
 		s.normalizeAnytlsSettings(inbound)
-		if cfg, ok := tunnel.AnytlsConfigFromInbound(inbound); ok {
-			if err := cfg.Merge().Validate(); err != nil {
-				return inbound, false, err
-			}
+		if err := s.validateAnytlsCert(inbound); err != nil {
+			return inbound, false, err
 		}
 	}
 	// END LUCX-HOOK

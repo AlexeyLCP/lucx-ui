@@ -925,8 +925,8 @@ func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 	return cfg.EnsureSubHost().ClientURI()
 }
 
-// genAnytlsLink returns the single anytls://password@host:port URI for an
-// AnyTls inbound (one shared password — every subscriber gets the same line).
+// genAnytlsLink returns the single anytls://password@host:port/?sni= URI for
+// an AnyTls inbound (one shared password — every subscriber gets the same line).
 func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
 	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
 	if !ok || !inbound.Enable {

@@ -9,29 +9,33 @@ package tunnel
 import (
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
 func TestAnytlsValidate(t *testing.T) {
-	if err := (AnytlsConfig{Port: 8443, Password: "s3cret"}).Validate(); err != nil {
+	if err := (AnytlsConfig{Port: 8443, Password: "s3cret", SNI: "vpn.example.com"}).Validate(); err != nil {
 		t.Fatalf("valid config rejected: %v", err)
 	}
-	if err := (AnytlsConfig{Port: 0, Password: "x"}).Validate(); err == nil {
+	if err := (AnytlsConfig{Port: 0, Password: "x", SNI: "vpn.example.com"}).Validate(); err == nil {
 		t.Fatal("port 0 must be rejected")
 	}
-	if err := (AnytlsConfig{Port: 70000, Password: "x"}).Validate(); err == nil {
+	if err := (AnytlsConfig{Port: 70000, Password: "x", SNI: "vpn.example.com"}).Validate(); err == nil {
 		t.Fatal("port 70000 must be rejected")
 	}
-	if err := (AnytlsConfig{Port: 8443}).Validate(); err == nil {
+	if err := (AnytlsConfig{Port: 8443, SNI: "vpn.example.com"}).Validate(); err == nil {
 		t.Fatal("empty password must be rejected")
+	}
+	if err := (AnytlsConfig{Port: 8443, Password: "x"}).Validate(); err == nil {
+		t.Fatal("empty sni must be rejected")
 	}
 }
 
 func TestAnytlsBuildArgsAndListen(t *testing.T) {
-	cfg := AnytlsConfig{Port: 9443, Password: "pass word"}
-	args := cfg.BuildArgs()
-	want := []string{"-l", "0.0.0.0:9443", "-p", "pass word"}
+	cfg := AnytlsConfig{Port: 9443, Password: "pass word", SNI: "vpn.example.com"}
+	args := cfg.BuildArgs("/etc/ssl/cert.pem", "/etc/ssl/key.pem")
+	want := []string{"-l", "0.0.0.0:9443", "-p", "pass word", "-cert", "/etc/ssl/cert.pem", "-key", "/etc/ssl/key.pem"}
 	if len(args) != len(want) {
 		t.Fatalf("args = %v", args)
 	}
@@ -43,28 +47,34 @@ func TestAnytlsBuildArgsAndListen(t *testing.T) {
 }
 
 func TestAnytlsClientLink(t *testing.T) {
-	cfg := AnytlsConfig{Port: 8443, Password: "hunter2"}
+	cfg := AnytlsConfig{Port: 8443, Password: "hunter2", SNI: "vpn.example.com"}
 	got := cfg.ClientLink("node.example", "home")
 	if !strings.HasPrefix(got, "anytls://hunter2@node.example:8443/") {
 		t.Fatalf("ClientLink = %q", got)
 	}
-	if !strings.Contains(got, "insecure=1") {
-		t.Fatalf("self-signed anytls-server needs insecure=1: %q", got)
+	if !strings.Contains(got, "sni=vpn.example.com") {
+		t.Fatalf("trusted cert needs sni=: %q", got)
+	}
+	if strings.Contains(got, "insecure=") {
+		t.Fatalf("must not skip TLS verify: %q", got)
 	}
 	if !strings.Contains(got, "#home") {
 		t.Fatalf("remark fragment missing: %q", got)
 	}
-	got = (AnytlsConfig{Port: 443, Password: "p@ss"}).ClientLink("203.0.113.9", "")
+	got = (AnytlsConfig{Port: 443, Password: "p@ss", SNI: "vpn.example.com"}).ClientLink("203.0.113.9", "")
 	if !strings.Contains(got, "p%40ss") {
 		t.Fatalf("password must be percent-encoded: %q", got)
 	}
 	if cfg.ClientLink("", "x") != "" {
 		t.Fatal("empty host must yield empty link")
 	}
+	if (AnytlsConfig{Port: 8443, Password: "x"}).ClientLink("h", "") != "" {
+		t.Fatal("empty sni must yield empty link")
+	}
 }
 
 func TestAnytlsEnsurePassword(t *testing.T) {
-	cfg := AnytlsConfig{Port: 8443}
+	cfg := AnytlsConfig{Port: 8443, SNI: "vpn.example.com"}
 	out, err := cfg.EnsurePassword()
 	if err != nil {
 		t.Fatal(err)
@@ -82,14 +92,17 @@ func TestAnytlsEnsurePassword(t *testing.T) {
 }
 
 func TestAnytlsInstanceFromInbound(t *testing.T) {
+	dir := t.TempDir()
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "vpn.example.com")
+
 	ib := &model.Inbound{
 		Id:       12,
 		Protocol: model.Anytls,
 		Enable:   true,
 		Remark:   "anytls-home",
-		Settings: `{"port": 9443, "password": "shared"}`,
+		Settings: `{"port": 9443, "password": "shared", "sni": "vpn.example.com"}`,
 	}
-	inst, ok := AnytlsInstanceFromInbound(ib)
+	inst, ok := AnytlsInstanceFromInbound(ib, cert, key)
 	if !ok {
 		t.Fatal("expected ok")
 	}
@@ -102,19 +115,26 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 	if inst.ProbePort != 9443 {
 		t.Fatalf("ProbePort = %d", inst.ProbePort)
 	}
-	if strings.Join(inst.Args, " ") != "-l 0.0.0.0:9443 -p shared" {
+	joined := strings.Join(inst.Args, " ")
+	if !strings.Contains(joined, "-l 0.0.0.0:9443 -p shared") {
 		t.Fatalf("Args = %v", inst.Args)
+	}
+	if !strings.Contains(joined, "-cert "+cert) || !strings.Contains(joined, "-key "+key) {
+		t.Fatalf("Args missing cert/key: %v", inst.Args)
+	}
+	if inst.FingerprintExtra == "" {
+		t.Fatal("FingerprintExtra must hash the cert so ACME renewal restarts")
 	}
 
 	disabled := *ib
 	disabled.Enable = false
-	inst, ok = AnytlsInstanceFromInbound(&disabled)
+	inst, ok = AnytlsInstanceFromInbound(&disabled, cert, key)
 	if !ok || inst.Enabled {
 		t.Fatalf("disabled inbound must yield Enabled:false, got %+v", inst)
 	}
 
 	other := &model.Inbound{Id: 1, Protocol: model.VLESS}
-	if _, ok := AnytlsInstanceFromInbound(other); ok {
+	if _, ok := AnytlsInstanceFromInbound(other, cert, key); ok {
 		t.Fatal("non-anytls inbound must not map")
 	}
 
@@ -122,11 +142,22 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		Id:       7,
 		Protocol: model.Anytls,
 		Enable:   true,
-		Settings: `{"port": 8443}`,
+		Settings: `{"port": 8443, "sni": "vpn.example.com"}`,
 	}
-	inst, ok = AnytlsInstanceFromInbound(passwordless)
+	inst, ok = AnytlsInstanceFromInbound(passwordless, cert, key)
 	if !ok || inst.Enabled {
 		t.Fatalf("passwordless inbound must stay down until save mints a password: %+v", inst)
+	}
+
+	nocert := &model.Inbound{
+		Id:       8,
+		Protocol: model.Anytls,
+		Enable:   true,
+		Settings: `{"port": 8443, "password": "x", "sni": "vpn.example.com"}`,
+	}
+	inst, ok = AnytlsInstanceFromInbound(nocert, "", "")
+	if !ok || inst.Enabled {
+		t.Fatalf("no cert must stay down: %+v", inst)
 	}
 
 	ported := &model.Inbound{
@@ -134,9 +165,9 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		Protocol: model.Anytls,
 		Enable:   true,
 		Port:     9444,
-		Settings: `{"port": 8443, "password": "x"}`,
+		Settings: `{"port": 8443, "password": "x", "sni": "vpn.example.com"}`,
 	}
-	inst, ok = AnytlsInstanceFromInbound(ported)
+	inst, ok = AnytlsInstanceFromInbound(ported, cert, key)
 	if !ok || inst.ProbePort != 9444 {
 		t.Fatalf("inbound.Port must win over settings.port: %+v", inst)
 	}
