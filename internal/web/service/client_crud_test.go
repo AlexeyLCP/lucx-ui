@@ -15,30 +15,27 @@ import (
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
 
-// awgPeerPublicKey reads the key the inbound's own settings JSON hands the
-// server, which is what a desynced identity makes diverge from the record.
-func awgPeerPublicKey(t *testing.T, inboundSvc *InboundService, inboundId int, email string) string {
+// awgPeer reads the peer the inbound's own settings JSON hands the server. The
+// record column hides a loss: a blank incoming key never clears a stored one.
+func awgPeer(t *testing.T, inboundSvc *InboundService, inboundId int, email string) model.Client {
 	t.Helper()
 	ib, err := inboundSvc.GetInbound(inboundId)
 	if err != nil {
 		t.Fatalf("GetInbound(%d): %v", inboundId, err)
 	}
 	var parsed struct {
-		Clients []struct {
-			Email     string `json:"email"`
-			PublicKey string `json:"publicKey"`
-		} `json:"clients"`
+		Clients []model.Client `json:"clients"`
 	}
 	if err := json.Unmarshal([]byte(ib.Settings), &parsed); err != nil {
 		t.Fatalf("parse inbound %d settings: %v (%s)", inboundId, err, ib.Settings)
 	}
 	for _, c := range parsed.Clients {
 		if c.Email == email {
-			return c.PublicKey
+			return c
 		}
 	}
 	t.Fatalf("inbound %d settings carry no client %q: %s", inboundId, email, ib.Settings)
-	return ""
+	return model.Client{}
 }
 
 // Guards the "one identity, one keypair" rule (awg-cps-facts.md §6): a second
@@ -142,6 +139,19 @@ func TestAddClient_ReusesStoredKeypairForKnownIdentity(t *testing.T) {
 	}
 }
 
+// bulkCreateOne runs the bulk path for a single client and fails on a skip, so
+// callers assert on what the inbounds got rather than on the result counter.
+func bulkCreateOne(t *testing.T, svc *ClientService, inboundSvc *InboundService, c model.Client, inboundIds ...int) {
+	t.Helper()
+	res, _, err := svc.BulkCreate(inboundSvc, []ClientCreatePayload{{Client: c, InboundIds: inboundIds}})
+	if err != nil {
+		t.Fatalf("BulkCreate(%s -> inbounds %v): %v", c.Email, inboundIds, err)
+	}
+	if res.Created != 1 {
+		t.Fatalf("BulkCreate(%s -> inbounds %v) created = %d, want 1 (skipped: %+v)", c.Email, inboundIds, res.Created, res.Skipped)
+	}
+}
+
 // Same "one identity, one keypair" rule on the bulk path, which ImportClients
 // also delegates to: a re-add must reuse the stored keys, not mint fresh ones.
 func TestBulkCreateClient_ReusesStoredKeypairForKnownIdentity(t *testing.T) {
@@ -149,53 +159,44 @@ func TestBulkCreateClient_ReusesStoredKeypairForKnownIdentity(t *testing.T) {
 	svc := &ClientService{}
 	inboundSvc := &InboundService{}
 
-	ibA := mkInbound(t, 21501, model.AWG, `{"address":"10.80.0.1/24","clients":[]}`)
-	ibB := mkInbound(t, 21502, model.AWG, `{"address":"10.81.0.1/24","clients":[]}`)
-	ibC := mkInbound(t, 21503, model.AWG, `{"address":"10.82.0.1/24","clients":[]}`)
+	ibA := mkInbound(t, 21601, model.AWG, `{"address":"10.80.0.1/24","clients":[]}`)
+	ibB := mkInbound(t, 21602, model.AWG, `{"address":"10.81.0.1/24","clients":[]}`)
+	ibC := mkInbound(t, 21603, model.AWG, `{"address":"10.82.0.1/24","clients":[]}`)
 
-	bulkAdd := func(c model.Client, inboundId int) {
-		t.Helper()
-		res, _, err := svc.BulkCreate(inboundSvc, []ClientCreatePayload{{Client: c, InboundIds: []int{inboundId}}})
-		if err != nil {
-			t.Fatalf("BulkCreate(%s -> inbound %d): %v", c.Email, inboundId, err)
+	bulkCreateOne(t, svc, inboundSvc, model.Client{Email: "demo@x", SubID: "sub-demo", Enable: true}, ibA.Id)
+	peerA := awgPeer(t, inboundSvc, ibA.Id, "demo@x")
+	if peerA.PrivateKey == "" || peerA.PublicKey == "" || peerA.PreSharedKey == "" {
+		t.Fatalf("first bulk add gave inbound %d an incomplete key set: %+v", ibA.Id, peerA)
+	}
+
+	bulkCreateOne(t, svc, inboundSvc, model.Client{Email: "demo@x", SubID: "sub-demo", Enable: true}, ibB.Id)
+	peerB := awgPeer(t, inboundSvc, ibB.Id, "demo@x")
+	for _, f := range []struct{ field, onA, onB string }{
+		{"private key", peerA.PrivateKey, peerB.PrivateKey},
+		{"public key", peerA.PublicKey, peerB.PublicKey},
+		{"preshared key", peerA.PreSharedKey, peerB.PreSharedKey},
+	} {
+		if f.onA != f.onB {
+			t.Errorf("%s rotated on bulk re-add of a known identity: inbound %d holds %q, inbound %d holds %q — one server waits for a key the other end never uses",
+				f.field, ibA.Id, f.onA, ibB.Id, f.onB)
 		}
-		if res.Created != 1 {
-			t.Fatalf("BulkCreate(%s -> inbound %d) created = %d, want 1 (skipped: %+v)", c.Email, inboundId, res.Created, res.Skipped)
-		}
+	}
+	record := lookupClientRecord(t, "demo@x")
+	if record.PublicKey != peerA.PublicKey {
+		t.Errorf("client record public key %q left the deployed peers behind (inbound %d holds %q)", record.PublicKey, ibA.Id, peerA.PublicKey)
 	}
 
-	bulkAdd(model.Client{Email: "demo@x", SubID: "sub-demo", Enable: true}, ibA.Id)
-	first := lookupClientRecord(t, "demo@x")
-	if first.PrivateKey == "" || first.PublicKey == "" || first.PreSharedKey == "" {
-		t.Fatalf("first bulk add minted an incomplete key set: %+v", first)
-	}
-
-	bulkAdd(model.Client{Email: "demo@x", SubID: "sub-demo", Enable: true}, ibB.Id)
-	second := lookupClientRecord(t, "demo@x")
-	if second.PrivateKey != first.PrivateKey {
-		t.Errorf("private key rotated on bulk re-add of a known identity: first %q, second %q", first.PrivateKey, second.PrivateKey)
-	}
-	if second.PublicKey != first.PublicKey {
-		t.Errorf("public key rotated on bulk re-add of a known identity: first %q, second %q", first.PublicKey, second.PublicKey)
-	}
-	if second.PreSharedKey != first.PreSharedKey {
-		t.Errorf("PSK rotated on bulk re-add of a known identity: first %q, second %q", first.PreSharedKey, second.PreSharedKey)
-	}
-	pubA := awgPeerPublicKey(t, inboundSvc, ibA.Id, "demo@x")
-	pubB := awgPeerPublicKey(t, inboundSvc, ibB.Id, "demo@x")
-	if pubA != pubB {
-		t.Errorf("one identity, two peer public keys: inbound %d holds %q, inbound %d holds %q — one of the two servers waits for a key the subscription never hands out", ibA.Id, pubA, ibB.Id, pubB)
-	}
-
-	bulkAdd(model.Client{Email: "stranger@x", SubID: "sub-stranger", Enable: true}, ibA.Id)
-	stranger := lookupClientRecord(t, "stranger@x")
+	bulkCreateOne(t, svc, inboundSvc, model.Client{Email: "stranger@x", SubID: "sub-stranger", Enable: true}, ibA.Id)
+	stranger := awgPeer(t, inboundSvc, ibA.Id, "stranger@x")
 	if stranger.PrivateKey == "" || stranger.PublicKey == "" || stranger.PreSharedKey == "" {
 		t.Errorf("previously unknown identity got no key set of its own: %+v", stranger)
 	}
-	if stranger.PrivateKey == first.PrivateKey || stranger.PublicKey == first.PublicKey || stranger.PreSharedKey == first.PreSharedKey {
+	if stranger.PrivateKey == peerA.PrivateKey || stranger.PublicKey == peerA.PublicKey || stranger.PreSharedKey == peerA.PreSharedKey {
 		t.Errorf("previously unknown identity was handed the known identity's keys: %+v", stranger)
 	}
 
+	// A non-empty incoming value wins over the stored one, like the four fields
+	// next to it; inbounds A and B are left holding the superseded key.
 	priv, pub, err := wgutil.GenerateWireguardKeypair()
 	if err != nil {
 		t.Fatalf("keypair: %v", err)
@@ -204,19 +205,84 @@ func TestBulkCreateClient_ReusesStoredKeypairForKnownIdentity(t *testing.T) {
 	if err != nil {
 		t.Fatalf("psk: %v", err)
 	}
-	bulkAdd(model.Client{
+	bulkCreateOne(t, svc, inboundSvc, model.Client{
 		Email: "demo@x", SubID: "sub-demo", Enable: true,
 		PrivateKey: priv, PublicKey: pub, PreSharedKey: psk,
 	}, ibC.Id)
-	if got := awgPeerPublicKey(t, inboundSvc, ibC.Id, "demo@x"); got != pub {
-		t.Errorf("a supplied public key was overwritten by the stored one: sent %q, inbound %d holds %q", pub, ibC.Id, got)
+	peerC := awgPeer(t, inboundSvc, ibC.Id, "demo@x")
+	if peerC.PrivateKey != priv || peerC.PublicKey != pub || peerC.PreSharedKey != psk {
+		t.Errorf("the supplied key set was overwritten by the stored one: sent %q/%q/%q, inbound %d holds %q/%q/%q",
+			priv, pub, psk, ibC.Id, peerC.PrivateKey, peerC.PublicKey, peerC.PreSharedKey)
 	}
-	third := lookupClientRecord(t, "demo@x")
-	if third.PrivateKey != priv {
-		t.Errorf("a supplied private key was overwritten by the stored one: sent %q, stored %q", priv, third.PrivateKey)
+}
+
+// The stored public key is load-bearing only for an identity registered with a
+// public key and no private one: a peer the operator holds the private half of.
+func TestBulkCreateClient_ReusesStoredPublicKeyWithoutPrivateKey(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	ibA := mkInbound(t, 21611, model.AWG, `{"address":"10.83.0.1/24","clients":[]}`)
+	ibB := mkInbound(t, 21612, model.AWG, `{"address":"10.84.0.1/24","clients":[]}`)
+
+	_, pub, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("keypair: %v", err)
 	}
-	if third.PreSharedKey != psk {
-		t.Errorf("a supplied PSK was overwritten by the stored one: sent %q, stored %q", psk, third.PreSharedKey)
+	bulkCreateOne(t, svc, inboundSvc, model.Client{Email: "pubonly@x", SubID: "sub-pubonly", Enable: true, PublicKey: pub}, ibA.Id)
+	peerA := awgPeer(t, inboundSvc, ibA.Id, "pubonly@x")
+	if peerA.PublicKey != pub || peerA.PrivateKey != "" {
+		t.Fatalf("first bulk add did not register a public-key-only peer: %+v", peerA)
+	}
+
+	bulkCreateOne(t, svc, inboundSvc, model.Client{Email: "pubonly@x", SubID: "sub-pubonly", Enable: true}, ibB.Id)
+	peerB := awgPeer(t, inboundSvc, ibB.Id, "pubonly@x")
+	if peerB.PublicKey != pub {
+		t.Errorf("public key rotated on bulk re-add: inbound %d holds %q, inbound %d holds %q — the operator's private half now matches only one of the two",
+			ibA.Id, pub, ibB.Id, peerB.PublicKey)
+	}
+}
+
+// The combination this fix first makes reachable: bulk-adding a KNOWN identity
+// to a keyless inbound, whose copy must be stripped after the keys are filled in.
+func TestBulkCreateClient_KnownIdentityKeylessInboundNeverSeesTunnelKeys(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	homeIb := mkInbound(t, 21621, model.AWG, `{"address":"10.85.0.1/24","clients":[]}`)
+	vlessIb := mkInbound(t, 21622, model.VLESS, `{"clients":[]}`)
+	awgIb := mkInbound(t, 21623, model.AWG, `{"address":"10.86.0.1/24","clients":[]}`)
+
+	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+		Client:     model.Client{Email: "bulk-known@x", SubID: "sub-bulk-known", Enable: true},
+		InboundIds: []int{homeIb.Id},
+	}); err != nil {
+		t.Fatalf("AWG Create: %v", err)
+	}
+	home := awgPeer(t, inboundSvc, homeIb.Id, "bulk-known@x")
+	if home.PrivateKey == "" || home.PreSharedKey == "" {
+		t.Fatalf("AWG create did not mint a keypair and PSK: %+v", home)
+	}
+
+	// Keyless target first, tunnel target second — see the Attach sibling below.
+	bulkCreateOne(t, svc, inboundSvc, model.Client{Email: "bulk-known@x", SubID: "sub-bulk-known", Enable: true}, vlessIb.Id, awgIb.Id)
+
+	vless, err := inboundSvc.GetInbound(vlessIb.Id)
+	if err != nil {
+		t.Fatalf("GetInbound(vless): %v", err)
+	}
+	for _, leak := range []string{"privateKey", "publicKey", "preSharedKey"} {
+		if strings.Contains(vless.Settings, leak) {
+			t.Errorf("bulk re-add of a known identity leaked its tunnel key %q into VLESS settings:\n%s", leak, vless.Settings)
+		}
+	}
+
+	peer := awgPeer(t, inboundSvc, awgIb.Id, "bulk-known@x")
+	if peer.PrivateKey != home.PrivateKey || peer.PreSharedKey != home.PreSharedKey {
+		t.Errorf("the second AWG inbound got a different key set than inbound %d: %q/%q vs %q/%q",
+			homeIb.Id, home.PrivateKey, home.PreSharedKey, peer.PrivateKey, peer.PreSharedKey)
 	}
 }
 
