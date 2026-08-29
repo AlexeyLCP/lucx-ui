@@ -61,3 +61,10 @@ Extracted from AGENTS.md. This file is project law.
 - **Diagnostics:** `ps aux | grep qwdtt`; `ss -ulnp | grep 56000`; inbound `listenAddr=0.0.0.0:56000` and `subHost=<public>:56000`; client APK ≥ 1.4.2. Binary date under `/usr/local/x-ui/bin/qwdtt-linux-amd64` older than 19.08.2026 = this bug.
 - **Healing an already-hit host without lucx.163:** replace `/usr/local/x-ui/bin/qwdtt-linux-amd64` with a `v1.4.2` `./server` build (Cores upload or gunzip the third_party blob), restart the inbound. Confirm `subHost` is the public IP, re-issue the `qwdtt://` link.
 - **Lesson:** same as Pattern 1o. A sidecar taken from a third-party panel tarball ages in silence. Pin the upstream SHA of the protocol we claim to speak; bump only with a matching client.
+
+### Pattern 1v: AnyTLS dead when UFW is on, port is allowed — FIXED
+- **Symptom (Max, 29.08.2026):** AnyTLS works with UFW off. Port 8555 is in `ufw status` and `ufw-user-input` ACCEPT, but clients hang. `tcpdump` shows SYN in, no SYN-ACK. `iptables -L INPUT`: first rules are `RETURN tcp dpt:8555 /* lucx-anytls-anytls-17 */` with packet counters climbing; UFW’s 8555 ACCEPT stays at 0 pkts.
+- **Cause:** lucx.190 traffic scrape inserted `-j RETURN` at the top of builtin INPUT. RETURN from a builtin chain applies the chain policy. UFW sets INPUT policy DROP → SYN is counted then dropped, never reaches `ufw-user-input`. Comment `lucx-anytls-anytls-17` = `lucx-anytls-` + inbound key `anytls-17` (inbound id 17). Same for leftover 8443 rules from older anytls inbounds.
+- **Fix (lucx.192):** jump to empty user chain `LUCX_ANYTLS_ACCT` (implicit RETURN back into INPUT, UFW still decides). Sweep leftover `-j RETURN` `lucx-anytls-*` (stale ports too). On ensure, replace any leftover RETURN for the live port with the jump.
+- **Healing without lucx.192:** `iptables -I INPUT 1 -p tcp --dport 8555 -j ACCEPT` (and 8443 if those RETURN rules exist). Deleting RETURN is pointless — scrape re-inserts until the update. Or leave UFW off.
+- **Lesson:** accounting rules must not change filter policy. `-j RETURN` on a builtin chain is not a no-op when policy is DROP.

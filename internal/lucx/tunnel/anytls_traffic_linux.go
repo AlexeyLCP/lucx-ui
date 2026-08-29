@@ -27,25 +27,51 @@ func anytlsSessionCount(port int) int {
 	return n
 }
 
+const anytlsAcctChain = "LUCX_ANYTLS_ACCT"
+
+func dropLegacyAnytlsReturn() {
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "iptables-save").Output()
+	if err != nil {
+		return
+	}
+	for _, args := range legacyAnytlsReturnArgs(string(out)) {
+		_ = exec.CommandContext(ctx, "iptables", args...).Run()
+	}
+}
+
 func ensureAnytlsAcct(key string, port int) {
 	if port <= 0 || key == "" {
 		return
 	}
+	ensureAnytlsAcctChain()
 	comment := anytlsAcctComment(key)
 	p := strconv.Itoa(port)
-	ensureIptablesReturn("INPUT", "--dport", p, comment)
-	ensureIptablesReturn("OUTPUT", "--sport", p, comment)
+	ensureIptablesAcct("INPUT", "--dport", p, comment)
+	ensureIptablesAcct("OUTPUT", "--sport", p, comment)
 }
 
-func ensureIptablesReturn(chain, portFlag, port, comment string) {
+func ensureAnytlsAcctChain() {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	check := exec.CommandContext(ctx, "iptables", "-C", chain, "-p", "tcp", portFlag, port, "-m", "comment", "--comment", comment, "-j", "RETURN")
-	if check.Run() == nil {
+	if exec.CommandContext(ctx, "iptables", "-L", anytlsAcctChain, "-n").Run() == nil {
 		return
 	}
-	ins := exec.CommandContext(ctx, "iptables", "-I", chain, "-p", "tcp", portFlag, port, "-m", "comment", "--comment", comment, "-j", "RETURN")
-	_ = ins.Run()
+	_ = exec.CommandContext(ctx, "iptables", "-N", anytlsAcctChain).Run()
+}
+
+func ensureIptablesAcct(chain, portFlag, port, comment string) {
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	rule := func(action, target string) *exec.Cmd {
+		return exec.CommandContext(ctx, "iptables", action, chain, "-p", "tcp", portFlag, port, "-m", "comment", "--comment", comment, "-j", target)
+	}
+	if rule("-C", anytlsAcctChain).Run() == nil {
+		return
+	}
+	_ = rule("-D", "RETURN").Run()
+	_ = rule("-I", anytlsAcctChain).Run()
 }
 
 func anytlsByteCounters(key string) (up, down int64, ok bool) {

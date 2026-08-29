@@ -29,12 +29,42 @@ func TestParseTCPEstablished(t *testing.T) {
 
 func TestParseIptablesSave(t *testing.T) {
 	dump := `*filter
-[10:100] -A INPUT -p tcp -m tcp --dport 8443 -m comment --comment lucx-anytls-anytls-1 -j RETURN
-[4:40] -A OUTPUT -p tcp -m tcp --sport 8443 -m comment --comment "lucx-anytls-anytls-1" -j RETURN
+[10:100] -A INPUT -p tcp -m tcp --dport 8443 -m comment --comment lucx-anytls-anytls-1 -j LUCX_ANYTLS_ACCT
+[4:40] -A OUTPUT -p tcp -m tcp --sport 8443 -m comment --comment "lucx-anytls-anytls-1" -j LUCX_ANYTLS_ACCT
 `
 	up, down, ok := parseIptablesSave(dump, "lucx-anytls-anytls-1")
 	if !ok || up != 40 || down != 100 {
 		t.Fatalf("up=%d down=%d ok=%v", up, down, ok)
+	}
+	legacy := `*filter
+[10:100] -A INPUT -p tcp --dport 8443 -m comment --comment lucx-anytls-anytls-1 -j RETURN
+[4:40] -A OUTPUT -p tcp --sport 8443 -m comment --comment lucx-anytls-anytls-1 -j RETURN
+`
+	up, down, ok = parseIptablesSave(legacy, "lucx-anytls-anytls-1")
+	if !ok || up != 40 || down != 100 {
+		t.Fatalf("legacy RETURN up=%d down=%d ok=%v", up, down, ok)
+	}
+}
+
+func TestAnytlsAcctComment(t *testing.T) {
+	if got := anytlsAcctComment("anytls-17"); got != "lucx-anytls-anytls-17" {
+		t.Fatalf("got %q", got)
+	}
+}
+
+func TestLegacyAnytlsReturnArgs(t *testing.T) {
+	dump := `*filter
+[6520:399000] -A INPUT -p tcp -m tcp --dport 8555 -m comment --comment lucx-anytls-anytls-17 -j RETURN
+[195:11660] -A INPUT -p tcp -m tcp --dport 8443 -m comment --comment lucx-anytls-anytls-17 -j RETURN
+[10:100] -A INPUT -p tcp -m tcp --dport 8443 -m comment --comment lucx-anytls-anytls-1 -j LUCX_ANYTLS_ACCT
+-A OUTPUT -p tcp -m tcp --sport 8555 -m comment --comment lucx-anytls-anytls-17 -j RETURN
+`
+	got := legacyAnytlsReturnArgs(dump)
+	if len(got) != 3 {
+		t.Fatalf("n=%d want 3", len(got))
+	}
+	if got[0][0] != "-D" || got[0][1] != "INPUT" || got[2][1] != "OUTPUT" {
+		t.Fatalf("got %#v", got)
 	}
 }
 

@@ -10,6 +10,8 @@ package tunnel
 
 func anytlsSessionCount(port int) int { return 0 }
 
+func dropLegacyAnytlsReturn() {}
+
 func ensureAnytlsAcct(key string, port int) {}
 
 func anytlsByteCounters(key string) (up, down int64, ok bool) { return 0, 0, false }

@@ -1,5 +1,22 @@
 # LucX-UI — Прогресс
 
+## lucx.192 — AnyTLS UFW DROP from iptables RETURN (2026-08-30)
+
+Max: AnyTLS works with UFW off; port 8555 is allowed but clients hang. `tcpdump` SYN in, no SYN-ACK. INPUT first rules were `-j RETURN /* lucx-anytls-anytls-17 */` with counters climbing; UFW ACCEPT stayed at 0 pkts.
+
+Cause: lucx.190 traffic scrape inserted `-j RETURN` at the top of builtin INPUT. RETURN from a builtin chain applies the chain policy. UFW policy DROP → SYN counted then dropped.
+
+Fix:
+- Jump to empty user chain `LUCX_ANYTLS_ACCT` (return into INPUT, UFW still decides).
+- Sweep leftover `-j RETURN` comments `lucx-anytls-*` (stale 8443 rules from old inbounds).
+- Comment `lucx-anytls-anytls-17` = `lucx-anytls-` + inbound key `anytls-17`.
+
+Tests: `TestParseIptablesSave`, `TestAnytlsAcctComment`, `TestLegacyAnytlsReturnArgs`.
+
+**lucxVersion:** lucx.192
+
+---
+
 ## lucx.191 — AWG contract (PR #70) (2026-08-29)
 
 Merge of rudenko-ks/fix/awg-contract-defects. Config used to save as OK while the tunnel stayed down.

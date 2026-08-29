@@ -37,6 +37,7 @@ func (m *Manager) CollectAnytlsTraffic(targets []AnytlsScrapeTarget) []AnytlsTra
 	}
 	m.mu.Unlock()
 
+	dropLegacyAnytlsReturn()
 	for _, t := range targets {
 		if t.Port <= 0 || !m.IsRunningKey(t.Key) {
 			continue
@@ -161,4 +162,21 @@ func iptablesSaveBytes(line string) int64 {
 
 func anytlsAcctComment(key string) string {
 	return "lucx-anytls-" + strings.TrimSpace(key)
+}
+
+func legacyAnytlsReturnArgs(dump string) [][]string {
+	var out [][]string
+	for _, line := range strings.Split(dump, "\n") {
+		line = strings.TrimSpace(line)
+		if i := strings.Index(line, "-A "); i >= 0 {
+			line = line[i:]
+		}
+		if !strings.HasPrefix(line, "-A ") || !strings.Contains(line, "lucx-anytls") || !strings.HasSuffix(line, "-j RETURN") {
+			continue
+		}
+		args := strings.Fields(line)
+		args[0] = "-D"
+		out = append(out, args)
+	}
+	return out
 }
