@@ -54,6 +54,35 @@ func TestBlankHeaderProtectionKey_SameVerdictAsTheSavePath(t *testing.T) {
 	}
 }
 
+// The predicate trims, the emitted value must not. Trimming it too would shift
+// the fingerprint of every config whose value was pasted with a stray space.
+func TestRenderers_WhitespaceEdgesAreEmittedVerbatim(t *testing.T) {
+	awg3Modules(t)
+	const hpk = "  abc  "
+	const h1 = "100-500 "
+	confs := map[string]string{
+		"server": renderServerConf(Instance{
+			Ifname: "awg9", PrivateKey: "k", Port: 51820, MTU: 1320,
+			AwgVersion: "3", HeaderProtectionKey: hpk, H1: h1,
+		}),
+		"client": renderClientConf(ClientInstance{
+			Id: 1, Ifname: "awgo-1",
+			Settings: ClientSettings{
+				PrivateKey: "k", Address: "10.9.0.5/32", MTU: 1320,
+				PublicKey: "pub", Endpoint: "up:51820",
+				AwgVersion: "3", HeaderProtectionKey: hpk, H1: h1,
+			},
+		}),
+	}
+	for side, conf := range confs {
+		for _, want := range []string{"HeaderProtectionKey = " + hpk + "\n", "H1 = " + h1 + "\n"} {
+			if !strings.Contains(conf, want) {
+				t.Errorf("%s .conf: missing %q — the emitted value must stay raw, got:\n%s", side, want, conf)
+			}
+		}
+	}
+}
+
 // The device half of this text is the reconcile fingerprint (deviceFingerprint),
 // so a byte of drift bounces every live inbound on upgrade.
 func TestRenderServerConf_ObfuscatedRenderIsByteStable(t *testing.T) {

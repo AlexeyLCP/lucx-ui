@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import { awgIBytes, awgWorstCaseIBytesBudget } from '@/lib/xray/awg-budget';
-import { genAwgConfig, genAwgLink } from '@/lib/xray/inbound-link';
+import { inboundFromDb } from '@/lib/xray/inbound-from-db';
+import { genAwgConfig, genAwgConfigs, genAwgLink } from '@/lib/xray/inbound-link';
 import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg';
 
 function awgSettings(over: Partial<AwgInboundSettings> = {}): AwgInboundSettings {
@@ -81,6 +82,67 @@ function link(over: Partial<AwgInboundSettings> = {}): string {
     peerIndex: 0,
   });
 }
+
+// fillProtocolSettingsDefaults hands back the raw blob when safeParse fails, so
+// a field zod would have defaulted reaches these gates as undefined, not ''.
+describe('AWG generators survive settings the schema rejected', () => {
+  // A blank h1 fails the h-regex on its own, so the blob skips zod's defaults
+  // and h2-h4 plus headerProtectionKey never materialise.
+  const rawSettings = {
+    privateKey: 'serverPrivKeyBase64',
+    h1: ' ',
+    clients: [
+      {
+        privateKey: 'clientPrivKeyBase64',
+        publicKey: 'peerPub',
+        allowedIPs: ['10.8.0.2/32'],
+        email: 'u',
+      },
+    ],
+  };
+
+  it('does not throw from the .conf entry point', () => {
+    const inbound = inboundFromDb({
+      port: 51820,
+      listen: '',
+      protocol: 'awg',
+      settings: rawSettings,
+      streamSettings: {},
+      sniffing: {},
+    });
+    expect(inbound.settings).not.toHaveProperty('h2');
+    expect(() => genAwgConfigs({ inbound, fallbackHostname: 'wg.example.test' })).not.toThrow();
+  });
+
+  it('does not throw from the share-link entry point', () => {
+    expect(() =>
+      genAwgLink({
+        settings: rawSettings as unknown as AwgInboundSettings,
+        address: 'wg.example.test',
+        port: 51820,
+        peerIndex: 0,
+      }),
+    ).not.toThrow();
+  });
+});
+
+// The predicate trims, the emitted value does not: trimming it too would change
+// the bytes of every config whose value was pasted with a stray space.
+describe('AWG generators emit whitespace edges verbatim', () => {
+  const edges = { h1: '100-500 ', awgVersion: '3' as const, headerProtectionKey: '  abc  ' };
+
+  it('keeps the untrimmed value in the .conf', () => {
+    const txt = conf(edges);
+    expect(txt).toContain('H1 = 100-500 \n');
+    expect(txt).toContain('HeaderProtectionKey =   abc  \n');
+  });
+
+  it('keeps the untrimmed value in the share link', () => {
+    const url = new URL(link(edges));
+    expect(url.searchParams.get('h1')).toBe('100-500 ');
+    expect(url.searchParams.get('headerprotectionkey')).toBe('  abc  ');
+  });
+});
 
 // A JS truthiness gate passes a single space, and "H1 =  " makes awg setconf
 // reject the whole file; a blank key must not claim the 36-byte slot either.
