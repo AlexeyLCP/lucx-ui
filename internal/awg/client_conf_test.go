@@ -86,6 +86,19 @@ func TestRenderClientConf_S3S4OmittedFor15(t *testing.T) {
 	}
 }
 
+// v1.5 tools reject the I1-I5 tags, so the awgo-N outbound .conf
+// must not carry them either (mirrors S3S4OmittedFor15).
+func TestRenderClientConf_IFieldsOmittedFor15(t *testing.T) {
+	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"aa","i2":"bb","i3":"cc","i4":"dd","i5":"ee","awgVersion":"1.5"}`}
+	ci, _ := ClientInstanceFromOutbound(o)
+	conf := renderClientConf(ci)
+	for _, bad := range []string{"I1 =", "I2 =", "I3 =", "I4 =", "I5 ="} {
+		if strings.Contains(conf, bad) {
+			t.Errorf("I-fields must be omitted for awgVersion 1.5, got %q in:\n%s", bad, conf)
+		}
+	}
+}
+
 func TestRenderClientConf_ObfuscationWhenSet(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","jc":3,"jmin":50,"jmax":150,"s1":20,"s2":30,"s3":40,"s4":50,"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000"}`}
 	ci, _ := ClientInstanceFromOutbound(o)
@@ -108,18 +121,53 @@ func TestRenderClientConf_ObfuscationOmittedWhenZero(t *testing.T) {
 	}
 }
 
-func TestRenderClientConf_NoI1toI5(t *testing.T) {
-	// I1-I5 crash `awg setconf` (kernel module rejects CPS tags in setconf
-	// input, same as server-side — caught live by a tester on awgo-2: every
-	// reconcile failed with exit status 1). Even when set in Settings, they
-	// must NEVER be written to the .conf. Regression guard.
+// I1-I5 must ride in the .conf: applying them with `awg set` after awg-quick
+// up landed 20.4 ms after the first handshake initiation had left the wire, so
+// the very first handshake carried no CPS mimicry. setconf accepts the tags
+// (tools v3.1.20260812); the historical "Invalid argument" came from malformed
+// descriptors, not from I-fields as a class.
+func TestRenderClientConf_I1toI5Written(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"aa","i2":"bb","i3":"cc","i4":"dd","i5":"ee"}`}
 	ci, _ := ClientInstanceFromOutbound(o)
 	conf := renderClientConf(ci)
-	for _, bad := range []string{"I1 = aa", "I2 = bb", "I3 = cc", "I4 = dd", "I5 = ee"} {
-		if strings.Contains(conf, bad) {
-			t.Errorf("CPS tag %q must NOT appear in client .conf (crashes awg setconf), got:\n%s", bad, conf)
+	for _, want := range []string{"I1 = aa", "I2 = bb", "I3 = cc", "I4 = dd", "I5 = ee"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("missing %q in client .conf — first handshake loses CPS mimicry:\n%s", want, conf)
 		}
+	}
+}
+
+func TestRenderClientConf_IFieldsOmittedWhenUnset(t *testing.T) {
+	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"   "}`}
+	ci, _ := ClientInstanceFromOutbound(o)
+	conf := renderClientConf(ci)
+	for _, bad := range []string{"I1 =", "I2 =", "I3 =", "I4 =", "I5 ="} {
+		if strings.Contains(conf, bad) {
+			t.Errorf("blank I-field %q must not be written, got:\n%s", bad, conf)
+		}
+	}
+}
+
+// Past the netlink budget the interface still comes up and passes traffic but
+// `awg show` fails with EMSGSIZE, so the whole I-set is dropped instead.
+func TestRenderClientConf_IFieldsBudget(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		chars   int
+		written bool
+	}{
+		{"exactly at budget", 3484, true},    // IBytes 3492
+		{"one align step over", 3488, false}, // IBytes 3496
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v := strings.Repeat("x", tc.chars)
+			o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"` + v + `"}`}
+			ci, _ := ClientInstanceFromOutbound(o)
+			if got := strings.Contains(renderClientConf(ci), "I1 = "+v); got != tc.written {
+				t.Fatalf("%d chars (IBytes %d, budget %d): written = %v, want %v",
+					tc.chars, IBytes(v, "", "", "", ""), WorstCaseIBytesBudget(false), got, tc.written)
+			}
+		})
 	}
 }
 
@@ -162,10 +210,8 @@ func TestRenderClientConf_HeaderProtectionKeyVersionGated(t *testing.T) {
 	}
 }
 
-// The six device-level AWG3 fields are version-gated in the client .conf too:
-// emitted only when Jc > 0 (the whole obfuscation block is), AwgVersion == "3",
-// and the field > 0. On a non-v3 outbound the lines must NOT appear even when
-// the field carries a value. Mirrors TestRenderClientConf_HeaderProtectionKeyVersionGated.
+// The six device-level AWG3 fields are version- and module-gated, never Jc-gated:
+// on a non-v3 outbound the lines must not appear even when the field has a value.
 func TestRenderClientConf_DeviceFieldsGated(t *testing.T) {
 	awg3 := true
 	SetModuleSupportsAwg3(&awg3)

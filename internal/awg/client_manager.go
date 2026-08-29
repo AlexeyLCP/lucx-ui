@@ -61,13 +61,15 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 	clientMu.Lock()
 	defer clientMu.Unlock()
 	confPath := filepath.Join(awgConfigDir, ci.Ifname+".conf")
-	newFP := ci.fingerprint()
-	if st, ok := clients[ci.Ifname]; ok && st.fp == newFP {
+	// The rendered file IS the restart trigger here: an outbound has no
+	// syncconf path, so every change goes in by taking the interface down and up.
+	conf := renderClientConf(ci)
+	if st, ok := clients[ci.Ifname]; ok && st.fp == conf {
 		if _, err := awgShowIfname(ci.Ifname); err == nil {
 			return nil
 		}
 	}
-	if err := os.WriteFile(confPath, []byte(renderClientConf(ci)), 0o600); err != nil {
+	if err := os.WriteFile(confPath, []byte(conf), 0o600); err != nil {
 		return err
 	}
 	if _, err := awgShowIfname(ci.Ifname); err == nil {
@@ -78,41 +80,8 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 	if out, err := awgQuick("up", confPath); err != nil {
 		return fmt.Errorf("awg-quick up %s: %w (%s)", confPath, err, string(out))
 	}
-	// I1-I5 (CPS mimicry packets) cannot go into the .conf — the kernel module
-	// rejects CPS tags in setconf and awg-quick rolls the interface back
-	// (renderClientConf documents it). They are applied with one `awg set`
-	// immediately after up: the outbound is the handshake initiator, so this
-	// is the only moment the fields can land before the first CPS window —
-	// an external watcher loses that race (~120 ms vs the first handshake).
-	// Failure stays a warning: the interface is up and carries traffic, only
-	// the mimicry is missing (e.g. tools too old for the i-arguments).
-	if args := clientCpsSetArgs(ci); len(args) > 0 {
-		if out, err := exec.CommandContext(context.Background(), awgBin("awg"), args...).CombinedOutput(); err != nil {
-			logger.Warningf("awg: apply CPS fields %s: %s %v", ci.Ifname, string(out), err)
-		}
-	}
-	clients[ci.Ifname] = clientState{fp: newFP}
+	clients[ci.Ifname] = clientState{fp: conf}
 	return nil
-}
-
-// clientCpsSetArgs builds the `awg set <ifname> i1 <v1> ...` argv applying the
-// non-empty I1-I5 CPS fields of one client instance to its kernel interface.
-// Returns nil when no I-field is set. The fingerprint already covers I1-I5, so
-// any edit restarts the interface and the new values are re-applied here.
-func clientCpsSetArgs(ci ClientInstance) []string {
-	s := ci.Settings
-	args := []string{"set", ci.Ifname}
-	for _, f := range []struct{ tag, value string }{
-		{"i1", s.I1}, {"i2", s.I2}, {"i3", s.I3}, {"i4", s.I4}, {"i5", s.I5},
-	} {
-		if v := strings.TrimSpace(f.value); v != "" {
-			args = append(args, f.tag, v)
-		}
-	}
-	if len(args) == 2 {
-		return nil
-	}
-	return args
 }
 
 // RemoveClient tears down a client interface (awg-quick down + rm conf) and

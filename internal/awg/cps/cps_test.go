@@ -211,7 +211,7 @@ func TestGenerateCPS_AllProfilesNonEmpty(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(7)))
 	for _, mp := range []MimicryProfile{ProfileTLS, ProfileDNS, ProfileSIP, ProfileQUIC} {
 		for _, reg := range []Region{RegionRU, RegionWorld} {
-			r1, err := GenerateCPS(mp, reg, "", BrowserChrome, true)
+			r1, err := GenerateCPS(mp, reg, "", BrowserChrome, true, kernelBudget())
 			if err != nil {
 				t.Fatalf("profile %s region %s onlyI1: %v", mp, reg, err)
 			}
@@ -221,67 +221,13 @@ func TestGenerateCPS_AllProfilesNonEmpty(t *testing.T) {
 			if r1.I2 != "" {
 				t.Fatalf("profile %s region %s: onlyI1 leaked I2", mp, reg)
 			}
-			r5, err := GenerateCPS(mp, reg, "", BrowserChrome, false)
-			if err != nil {
-				t.Fatalf("profile %s region %s full: %v", mp, reg, err)
-			}
-			if r5.I1 == "" {
-				t.Fatalf("profile %s region %s: I1 empty in full mode", mp, reg)
-			}
-			if sum := r5.PayloadSum(); sum > MaxIPayload {
-				t.Fatalf("profile %s region %s: payload %d > %d", mp, reg, sum, MaxIPayload)
-			}
-		}
-	}
-}
-
-func TestCPSPayloadBytes(t *testing.T) {
-	if got := tagPayloadBytes("<b 0xaabbcc>"); got != 3 {
-		t.Fatalf("hex tag = %d, want 3", got)
-	}
-	if got := tagPayloadBytes("<r 2><b 0x0011>"); got != 2 {
-		t.Fatalf("dns tag = %d, want 2", got)
-	}
-	if got := tagPayloadBytes(""); got != 0 {
-		t.Fatalf("empty = %d", got)
-	}
-}
-
-func TestShrinkCPS_DropsTrailingUntilUnderLimit(t *testing.T) {
-	big := strings.Repeat("aa", MaxIPayload+1)
-	r := shrinkCPS(CPSResult{
-		I1: "<b 0x" + big + ">",
-		I2: "<b 0xaabb>",
-		I3: "<b 0xccdd>",
-		I4: "<b 0xeeff>",
-		I5: "<b 0x1122>",
-	})
-	if r.I2 != "" || r.I3 != "" || r.I4 != "" || r.I5 != "" {
-		t.Fatalf("must drop I2-I5 when I1 is already over the cap, got %+v", r)
-	}
-}
-
-func TestGenerateCPS_FullStaysUnderIPayloadCap(t *testing.T) {
-	for seed := int64(1); seed <= 40; seed++ {
-		SetRand(crand.New(crand.NewSource(seed)))
-		for _, mp := range []MimicryProfile{ProfileTLS, ProfileDNS, ProfileSIP, ProfileQUIC} {
-			r, err := GenerateCPS(mp, RegionWorld, "example.com", BrowserChrome, false)
-			if err != nil {
-				t.Fatalf("seed %d profile %s: %v", seed, mp, err)
-			}
-			if sum := r.PayloadSum(); sum > MaxIPayload {
-				t.Fatalf("seed %d profile %s payload %d > %d", seed, mp, sum, MaxIPayload)
-			}
-			if r.I1 == "" {
-				t.Fatalf("seed %d profile %s dropped I1", seed, mp)
-			}
 		}
 	}
 }
 
 func TestGenerateCPS_ExplicitDomain(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(1)))
-	r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", BrowserChrome, true)
+	r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", BrowserChrome, true, kernelBudget())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -292,7 +238,7 @@ func TestGenerateCPS_ExplicitDomain(t *testing.T) {
 
 func TestGenerateCPS_DNSHasR2Prefix(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(3)))
-	r, err := GenerateCPS(ProfileDNS, RegionWorld, "example.com", BrowserChrome, true)
+	r, err := GenerateCPS(ProfileDNS, RegionWorld, "example.com", BrowserChrome, true, kernelBudget())
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -304,7 +250,7 @@ func TestGenerateCPS_DNSHasR2Prefix(t *testing.T) {
 func TestGenerateCPS_NonDNSNoR2Prefix(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(5)))
 	for _, mp := range []MimicryProfile{ProfileTLS, ProfileSIP, ProfileQUIC} {
-		r, err := GenerateCPS(mp, RegionWorld, "example.com", BrowserChrome, true)
+		r, err := GenerateCPS(mp, RegionWorld, "example.com", BrowserChrome, true, kernelBudget())
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -317,7 +263,7 @@ func TestGenerateCPS_NonDNSNoR2Prefix(t *testing.T) {
 func TestGenerateCPS_AllBrowsersNonEmpty(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(11)))
 	for _, browser := range []BrowserProfile{BrowserChrome, BrowserFirefox, BrowserSafari} {
-		r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", browser, true)
+		r, err := GenerateCPS(ProfileTLS, RegionWorld, "example.com", browser, true, kernelBudget())
 		if err != nil {
 			t.Fatalf("browser %s: %v", browser, err)
 		}
@@ -326,54 +272,6 @@ func TestGenerateCPS_AllBrowsersNonEmpty(t *testing.T) {
 		}
 		if !strings.HasPrefix(r.I1, "<b 0x") {
 			t.Fatalf("browser %s: I1 must be hex tag, got %q", browser, r.I1[:20])
-		}
-	}
-}
-
-func TestQuicInitialPacket_RespectsBrowser(t *testing.T) {
-	SetRand(crand.New(crand.NewSource(7)))
-	chrome := quicInitialPacket("example.com", BrowserChrome)
-	SetRand(crand.New(crand.NewSource(7)))
-	firefox := quicInitialPacket("example.com", BrowserFirefox)
-	if chrome == firefox {
-		t.Error("chrome and firefox QUIC Initials must differ (embedded ClientHello differs)")
-	}
-	for name, tag := range map[string]string{"chrome": chrome, "firefox": firefox} {
-		if len(tag) < 2400 {
-			t.Errorf("%s: QUIC Initial must pad to ~1200 bytes (>=2400 hex chars), got %d", name, len(tag))
-		}
-	}
-}
-
-// TestQuicInitialPacket_NoZeroPaddingRun guards the regression where the QUIC
-// Initial padded its ~1200-byte minimum with open 0x00 bytes, producing a hex
-// string with ~1700 consecutive zeros — a fingerprint no real client (whose
-// payload is AEAD-encrypted) ever shows. The padding must be high-entropy: the
-// longest "00" run in the hex should stay tiny relative to the packet. Chrome
-// and Safari are tested — Firefox's embedded ClientHello pads to a 512-byte
-// boundary with a legitimate (for the open TLS ClientHello) zero-filled
-// padding extension, so it is excluded here.
-func TestQuicInitialPacket_NoZeroPaddingRun(t *testing.T) {
-	SetRand(crand.New(crand.NewSource(7)))
-	for _, browser := range []BrowserProfile{BrowserChrome, BrowserSafari} {
-		tag := quicInitialPacket("example.com", browser)
-		raw, err := hex.DecodeString(strings.TrimPrefix(strings.TrimSuffix(tag, ">"), "<b 0x"))
-		if err != nil {
-			t.Fatalf("%s: not valid hex: %v", browser, err)
-		}
-		maxRun, curRun := 0, 0
-		for _, b := range raw {
-			if b == 0x00 {
-				curRun++
-				if curRun > maxRun {
-					maxRun = curRun
-				}
-			} else {
-				curRun = 0
-			}
-		}
-		if maxRun > 128 {
-			t.Fatalf("%s: QUIC Initial has a %d-byte zero run — padding must be high-entropy", browser, maxRun)
 		}
 	}
 }
@@ -626,5 +524,31 @@ func TestGenerateAwg3DeviceTimings_FormatAndInvariants(t *testing.T) {
 				t.Errorf("MaxHandshakeAttempts lo=%d < 1", parsed["MaxHandshakeAttempts"][0])
 			}
 		})
+	}
+}
+
+// Every panel process must draw its own obfuscation. A fixed seed makes the
+// first inbound created after a restart identical on every server that runs
+// this code — Jc, S1-S4 and H1-H4 included.
+func TestNewSeededRand_DiffersBetweenSources(t *testing.T) {
+	draw := func() [8]int64 {
+		r := newSeededRand()
+		var out [8]int64
+		for i := range out {
+			out[i] = r.Int63()
+		}
+		return out
+	}
+	a, b := draw(), draw()
+	if a == b {
+		t.Fatalf("two sources produced the same sequence %v — the seed is fixed", a)
+	}
+	fixed := crand.New(crand.NewSource(1))
+	var seedOne [8]int64
+	for i := range seedOne {
+		seedOne[i] = fixed.Int63()
+	}
+	if a == seedOne {
+		t.Fatal("the source is seeded with the literal 1")
 	}
 }

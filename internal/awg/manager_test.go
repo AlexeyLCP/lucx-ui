@@ -52,11 +52,10 @@ func TestManager_CollectTraffic_Empty(t *testing.T) {
 	}
 }
 
-// TestManager_Reconcile_EmptyDesired verifies Reconcile with an empty desired
-// set is safe and leaves the manager empty. Does not exercise awg-quick
-// (which requires Linux + the amneziawg kernel module); this guards the
-// state-machine bookkeeping only.
+// TestManager_Reconcile_EmptyDesired verifies Reconcile(nil) is safe and empties
+// the manager without touching the real host (see withTempConfigDir).
 func TestManager_Reconcile_EmptyDesired(t *testing.T) {
+	withTempConfigDir(t)
 	m := GetManager()
 	m.Reconcile(nil)
 	if len(m.procs) != 0 {

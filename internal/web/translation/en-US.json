@@ -700,7 +700,7 @@
         "awgVersion31": "3.1 — AWG3 + random trailers",
         "awgVersion31CompatNote": "Version 3.1 adds RandomTrailers and DisableCookies. Tools older than v3.1 reject these lines. v1/v2 and plain-WireGuard clients still cannot connect (HPK).",
         "awgRandomTrailers": "Random trailers",
-        "awgRandomTrailersHint": "Append a random tail to each packet within the per-peer UDP window. Anti-DPI by packet size. AWG 3.1 only.",
+        "awgRandomTrailersHint": "Pads packets to a random size within the UDP window. Must be enabled on both ends: the config carries it, so an AWG 3.1 client turns it on itself, but an older client will not connect at all, with no error. Inflates small packets and reverse traffic. AWG 3.1 only.",
         "awgDisableCookies": "Disable cookies",
         "awgDisableCookiesHint": "Do not reply to cookie challenges. AWG 3.1 only.",
         "awgSRangeWarning": "AWG3 requires S1-S4 ≥ 12 (the header-protection cipher reads its nonce from the first 12 bytes of S-padding). The generator enforces this; verify before editing by hand.",

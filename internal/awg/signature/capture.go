@@ -22,6 +22,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 )
 
 // CaptureResult holds the I1-I5 packet strings captured from a real host.
@@ -35,11 +37,10 @@ type CaptureResult struct {
 var quicV1Salt = []byte{0x38, 0x76, 0x2c, 0xf7, 0xf5, 0x59, 0x34, 0xb3, 0x4d, 0x17, 0x9a, 0xe6, 0xa4, 0xc8, 0x0c, 0xad, 0xcc, 0xbb, 0x7f, 0x0a}
 
 const (
-	maxPackets    = 5    // I1-I5
-	maxPacketSize = 1500 // truncate longer captures
-	quicPort      = "443"
-	readTimeout   = 5 * time.Second
-	minPackets    = 2 // need at least our Initial + 1 reply
+	maxPackets  = 5 // I1-I5
+	quicPort    = "443"
+	readTimeout = 5 * time.Second
+	minPackets  = 2 // need at least our Initial + 1 reply
 )
 
 // randomBytes returns n cryptographically-strong random bytes.
@@ -58,7 +59,11 @@ func randomBytes(n int) []byte {
 // timeout) — AWG can only mimic QUIC-fronted hosts. TLS capture is not
 // supported (TLS signatures are incompatible with AWG and crash it, per
 // hoaxisr).
-func Capture(domain string) (CaptureResult, error) {
+//
+// hasHPK must be true when the inbound being captured for carries a
+// header-protection key: that key claims 36 netlink bytes the I-fields
+// then cannot have, same as the CPS generator's own budget.
+func Capture(domain string, hasHPK bool) (CaptureResult, error) {
 	host := normalizeDomain(domain)
 	if host == "" {
 		return CaptureResult{}, errors.New("signature: empty domain")
@@ -71,7 +76,7 @@ func Capture(domain string) (CaptureResult, error) {
 	if err != nil {
 		return CaptureResult{}, err
 	}
-	return fillPackets(packets), nil
+	return fillPackets(packets, hasHPK), nil
 }
 
 // normalizeDomain strips scheme/path/port from the user input, leaving the
@@ -165,18 +170,25 @@ func captureQUIC(host, ip string) ([][]byte, error) {
 }
 
 // fillPackets converts raw packet bytes into AmneziaWG CPS "<b 0xHEX>" strings,
-// truncating each to maxPacketSize. Fewer than 5 packets leave the rest empty.
-func fillPackets(packets [][]byte) CaptureResult {
+// keeping whole packets while the set stays inside what `awg show` can read
+// back. A packet that no longer fits ends the set: truncating one would put a
+// malformed packet on the wire, a worse signature than a shorter burst.
+func fillPackets(packets [][]byte, hasHPK bool) CaptureResult {
 	res := CaptureResult{}
 	fields := [5]*string{&res.I1, &res.I2, &res.I3, &res.I4, &res.I5}
+	budget := awg.WorstCaseIBytesBudget(hasHPK)
 	for i, pkt := range packets {
 		if i >= maxPackets {
 			break
 		}
-		if len(pkt) > maxPacketSize {
-			pkt = pkt[:maxPacketSize]
+		if len(pkt) > awg.MaxIPacketBytes {
+			break // a fragmented replay is worse than a shorter, contiguous one
 		}
 		*fields[i] = "<b 0x" + hex.EncodeToString(pkt) + ">"
+		if awg.IBytes(res.I1, res.I2, res.I3, res.I4, res.I5) > budget {
+			*fields[i] = ""
+			break
+		}
 	}
 	return res
 }
@@ -187,18 +199,23 @@ func fillPackets(packets [][]byte) CaptureResult {
 // RFC 9001 §5.2), and applies header protection (RFC 9001 §5.4). Ported from
 // hoaxisr/awg-manager internal/signature/capture.go.
 func buildQUICInitial(host string) ([]byte, error) {
+	// buildTLSClientHello returns the ClientHello handshake message (starts with
+	// type 0x01), which is what the CRYPTO frame carries — no record to strip.
 	chPayload, err := buildTLSClientHello(host)
 	if err != nil {
 		return nil, err
 	}
-	// buildTLSClientHello returns the ClientHello handshake message (starts
-	// with type 0x01), which is exactly what the QUIC CRYPTO frame carries —
-	// no TLS record header to strip.
-
 	dcid := make([]byte, 8)
 	if _, err := rand.Read(dcid); err != nil {
 		return nil, err
 	}
+	return BuildQUICInitial(dcid, chPayload)
+}
+
+// BuildQUICInitial assembles a genuine QUIC v1 Initial around an already-built
+// ClientHello: AEAD-sealed and header-protected under keys derived from dcid,
+// so an observer that derives the same keys can decrypt it like a real one.
+func BuildQUICInitial(dcid, chPayload []byte) ([]byte, error) {
 	// Derive initial keys from dcid (RFC 9001 §5.2).
 	initialSecret, _ := hkdf.Extract(sha256.New, dcid, quicV1Salt)
 	clientSecret := hkdfExpandLabel(initialSecret, "client in", nil, 32)
@@ -221,7 +238,9 @@ func buildQUICInitial(host string) ([]byte, error) {
 	// scid_len(0), token_len(0), length var-int, packet number.
 	block, _ := aes.NewCipher(clientKey)
 	gcm, _ := cipher.NewGCM(block)
-	plaintext := append(append([]byte{}, pn...), crypto.Bytes()...)
+	// RFC 9001 §5.3: the AEAD seals the frames alone. The packet number is
+	// associated data only — sealing it too opens the frames with PADDING.
+	plaintext := crypto.Bytes()
 	// Pad plaintext so the full packet reaches 1200 bytes (QUIC minimum Initial).
 	// headerEstimate = 1(flags) + 4(version) + 1(dcid_len) + 8(dcid) + 1(scid_len) +
 	//                   1(token_len) + 2(length var-int, our sizes fit 2 bytes) + 4(pn)

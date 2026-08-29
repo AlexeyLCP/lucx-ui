@@ -18,7 +18,7 @@ func TestClientFingerprint_RestartDetection(t *testing.T) {
 	ci1, _ := ClientInstanceFromOutbound(o)
 	o.Settings = `{"privateKey":"k","address":"10.9.0.6/32","publicKey":"pub","endpoint":"up:51820","mtu":1320}`
 	ci2, _ := ClientInstanceFromOutbound(o)
-	if ci1.fingerprint() == ci2.fingerprint() {
+	if renderClientConf(ci1) == renderClientConf(ci2) {
 		t.Fatal("fingerprint must change when Address changes (restart trigger)")
 	}
 }
@@ -107,34 +107,11 @@ func TestParseClientDump_Empty(t *testing.T) {
 	}
 }
 
+// TestSweepOrphanClients_Idempotent guards the once-only bookkeeping;
+// withTempConfigDir keeps it off the real host's awgo-* interfaces.
 func TestSweepOrphanClients_Idempotent(t *testing.T) {
+	withTempConfigDir(t)
 	m := GetManager()
 	m.sweepOrphanClientsOnce()
 	m.sweepOrphanClientsOnce()
-}
-
-// TestClientCpsSetArgs locks the `awg set <ifname> iN <value>` argv built by
-// EnsureClient after awg-quick up: only non-empty I1-I5 are passed, in field
-// order, values verbatim (CPS strings carry spaces/angle brackets). Empty
-// I-fields must produce no set call at all.
-func TestClientCpsSetArgs(t *testing.T) {
-	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820"}`}
-	ci, _ := ClientInstanceFromOutbound(o)
-	if args := clientCpsSetArgs(ci); args != nil {
-		t.Fatalf("no I-fields must skip the awg set call, got %v", args)
-	}
-
-	o.Settings = `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820",` +
-		`"i1":"<b 0xaa>","i3":"<r 2> dns","i5":"<b 0xee>"}`
-	ci, _ = ClientInstanceFromOutbound(o)
-	args := clientCpsSetArgs(ci)
-	want := []string{"set", "awgo-1", "i1", "<b 0xaa>", "i3", "<r 2> dns", "i5", "<b 0xee>"}
-	if len(args) != len(want) {
-		t.Fatalf("args = %v, want %v", args, want)
-	}
-	for i := range want {
-		if args[i] != want[i] {
-			t.Fatalf("args[%d] = %q, want %q (full: %v)", i, args[i], want[i], args)
-		}
-	}
 }

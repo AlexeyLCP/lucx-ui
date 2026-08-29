@@ -714,7 +714,7 @@
         "awgVersion31": "3.1 — AWG3 + випадкові хвости",
         "awgVersion31CompatNote": "Версія 3.1 додає RandomTrailers і DisableCookies. Інструменти старші за v3.1 відхилять ці рядки. Клієнти v1/v2 та plain-WireGuard і далі не підключаться (HPK).",
         "awgRandomTrailers": "Випадкові хвости",
-        "awgRandomTrailersHint": "Випадковий хвіст кожного пакета в межах per-peer UDP-вікна. Анти-DPI за розмірами. Лише AWG 3.1.",
+        "awgRandomTrailersHint": "Доповнює пакети до випадкового розміру в межах UDP-вікна. Має бути увімкнено на обох сторонах: параметр передається в конфізі, тож клієнт із підтримкою AWG 3.1 увімкне його сам, а старіший клієнт не підключиться взагалі — без повідомлення про помилку. Збільшує дрібні пакети та зворотний трафік. Лише AWG 3.1.",
         "awgDisableCookies": "Вимкнути cookies",
         "awgDisableCookiesHint": "Не відповідати на cookie-challenge. Лише AWG 3.1.",
         "awgSRangeWarning": "AWG3 вимагає S1-S4 ≥ 12 (шифр header-protection бере nonce з перших 12 байт S-padding). Генератор це гарантує; перевір при ручному вводі.",

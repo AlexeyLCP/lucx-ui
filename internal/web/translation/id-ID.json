@@ -714,7 +714,7 @@
         "awgVersion31": "3.1 — AWG3 + ekor acak",
         "awgVersion31CompatNote": "Versi 3.1 menambahkan RandomTrailers dan DisableCookies. Tools lebih lama dari v3.1 menolak baris ini. Klien v1/v2 dan plain-WireGuard tetap tidak bisa terhubung (HPK).",
         "awgRandomTrailers": "Ekor acak",
-        "awgRandomTrailersHint": "Menambah ekor acak pada setiap paket dalam jendela UDP per-peer. Anti-DPI menurut ukuran. Hanya AWG 3.1.",
+        "awgRandomTrailersHint": "Mengisi paket hingga ukuran acak dalam jendela UDP. Harus aktif di kedua sisi: pengaturan ini dibawa oleh konfigurasi, sehingga klien dengan AWG 3.1 mengaktifkannya sendiri, sedangkan klien lama tidak akan tersambung sama sekali, tanpa pesan kesalahan. Membesarkan paket kecil dan trafik balik. Hanya AWG 3.1.",
         "awgDisableCookies": "Nonaktifkan cookies",
         "awgDisableCookiesHint": "Jangan menjawab cookie-challenge. Hanya AWG 3.1.",
         "awgSRangeWarning": "AWG3 memerlukan S1-S4 ≥ 12 (cipher perlindungan header membaca nonce dari 12 byte pertama S-padding). Generator menegaskannya; verifikasi sebelum menyunting manual.",

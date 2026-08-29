@@ -899,7 +899,13 @@ export default function InboundFormModal({
 
       {protocol === Protocols.MTPROTO && <MtprotoFields />}
       {/* LUCX-HOOK: AWG protocol form */}
-      {protocol === Protocols.AWG && <AwgFields otherAwgSubnets={otherAwgSubnets} />}
+      {protocol === Protocols.AWG && (
+        <AwgFields
+          otherAwgSubnets={otherAwgSubnets}
+          nodeId={typeof wNodeId === 'number' ? wNodeId : null}
+        />
+      )}
+      {/* END LUCX-HOOK */}
       {/* LUCX-HOOK: NaiveProxy inbound form */}
       {protocol === Protocols.NAIVE && <NaiveFields />}
       {protocol === Protocols.OLCRTC && <OlcrtcFields />}

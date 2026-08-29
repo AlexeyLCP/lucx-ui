@@ -1,0 +1,228 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
+package awg
+
+import (
+	"errors"
+	"strings"
+	"testing"
+)
+
+// 3500 is the budget for interface awgo-1 with no header-protection key;
+// 3628 is the measured max readable set on that shape — the 128-byte gap is unrelated to nlSafetyMargin (now 40).
+func TestIBytesBudget(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		ifname string
+		hpk    bool
+		want   int
+	}{
+		{"baseline awgo-1", "awgo-1", false, 3500},
+		{"same align class awgo-99", "awgo-99", false, 3500},
+		{"longer ifname costs one align step", "awgo-100", false, 3496},
+		{"shorter ifname gains one align step", "wg0", false, 3504},
+		{"header protection key costs 36", "awgo-1", true, 3464},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := IBytesBudget(tc.ifname, tc.hpk); got != tc.want {
+				t.Fatalf("IBytesBudget(%q, %v) = %d, want %d", tc.ifname, tc.hpk, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestIBytes(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		fields [5]string
+		want   int
+	}{
+		{"empty set", [5]string{}, 0},
+		{"one byte pays a full aligned slot", [5]string{"a"}, 8},
+		{"len 4..7 share one slot", [5]string{"aaaaaaa"}, 12},
+		{"len 8 crosses into the next slot", [5]string{"aaaaaaaa"}, 16},
+		{"blank fields are not charged", [5]string{"aaaa", "", "  ", "", ""}, 12},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := tc.fields
+			if got := IBytes(f[0], f[1], f[2], f[3], f[4]); got != tc.want {
+				t.Fatalf("IBytes(%q) = %d, want %d", f, got, tc.want)
+			}
+		})
+	}
+}
+
+// NLA_ALIGN quantises per field, so the character sum is not monotonic in
+// IBytes — measured on a real device, 3594 and 3596 chars fail while 3598
+// succeeds. Any guard written against len(I1)+…+len(I5) is therefore wrong.
+func TestIBytes_NotMonotonicInCharacterSum(t *testing.T) {
+	whole := strings.Repeat("a", 10)
+	half := strings.Repeat("a", 5)
+	if len(whole) != len(half)*2 {
+		t.Fatalf("test setup: character sums must match")
+	}
+	one := IBytes(whole, "", "", "", "")
+	split := IBytes(half, half, "", "", "")
+	if one != 16 || split != 24 {
+		t.Fatalf("one field = %d (want 16), split = %d (want 24) — same 10 characters", one, split)
+	}
+}
+
+func TestValidateIFields(t *testing.T) {
+	underBudget := strings.Repeat("x", 3484) // IBytes 3492, exactly the worst-case budget
+	overBudget := strings.Repeat("x", 3488)  // IBytes 3496, one align step over
+
+	if err := ValidateIFields("awgo-1", "", underBudget, "", "", "", ""); err != nil {
+		t.Fatalf("set at exactly the budget must pass, got %v", err)
+	}
+	err := ValidateIFields("awgo-1", "", overBudget, "", "", "", "")
+	if !errors.Is(err, ErrIFieldsTooLarge) {
+		t.Fatalf("want ErrIFieldsTooLarge, got %v", err)
+	}
+	// The same set becomes illegal once a header-protection key claims its
+	// netlink attribute — real per-instance state, unlike the ifname half.
+	fits := strings.Repeat("x", 3463)
+	if err := ValidateIFields("awgo-1", "", fits, "", "", "", ""); err != nil {
+		t.Fatalf("3463 chars must fit without an HPK, got %v", err)
+	}
+	if err := ValidateIFields("awgo-1", "key=", fits, "", "", "", ""); !errors.Is(err, ErrIFieldsTooLarge) {
+		t.Fatalf("3463 chars must not fit with an HPK, got %v", err)
+	}
+}
+
+// TestValidateIFields_UsesWorstCaseIfname pins the budget to worstIfnameBytes
+// regardless of the ifname argument — see ValidateIFields's own comment.
+func TestValidateIFields_UsesWorstCaseIfname(t *testing.T) {
+	bytes3496 := strings.Repeat("x", 3488) // IBytes 3496, over the 3492 worst-case budget
+	bytes3400 := strings.Repeat("x", 3392) // IBytes 3400, under either budget
+
+	err := ValidateIFields(BaselineIfname, "", bytes3496, "", "", "", "")
+	if !errors.Is(err, ErrIFieldsTooLarge) {
+		t.Fatalf("3496 bytes on BaselineIfname must fail the worst-case budget, got %v", err)
+	}
+	if err := ValidateIFields(BaselineIfname, "", bytes3400, "", "", "", ""); err != nil {
+		t.Fatalf("3400 bytes must pass under either budget, got %v", err)
+	}
+}
+
+// TestWorstCaseIBytesBudget pins both HPK states of the constant this whole
+// fix hangs on — an HPK regression here would be silent, not a build error.
+func TestWorstCaseIBytesBudget(t *testing.T) {
+	if got := WorstCaseIBytesBudget(false); got != 3492 {
+		t.Fatalf("WorstCaseIBytesBudget(false) = %d, want 3492", got)
+	}
+	if got := WorstCaseIBytesBudget(true); got != 3456 {
+		t.Fatalf("WorstCaseIBytesBudget(true) = %d, want 3456", got)
+	}
+}
+
+// Derives one peer's netlink cost independently of the nlPeerBytes constant;
+// peer-count independence itself is guarded by the budget pin in TestWorstCaseIBytesBudget, not here.
+func TestPeerReserve_CountsOneWholePeerNotAPrefix(t *testing.T) {
+	// nlAttrBytes is NLA_ALIGN(NLA_HDRLEN+payload). Payload 0 is a bare header:
+	// a nest opener or the pad attribute nla_put_u64_64bit may insert.
+	nlAttrBytes := func(payload int) int { return (payload + 7) &^ 3 }
+
+	// get_peer, netlink.c:282-376; the IPv6 endpoint is the worse of the two.
+	fixed := nlAttrBytes(0) + // peer_nest
+		nlAttrBytes(4) + // WGPEER_A_FLAGS
+		nlAttrBytes(32) + // WGPEER_A_PUBLIC_KEY
+		nlAttrBytes(32) + // WGPEER_A_PRESHARED_KEY
+		nlAttrBytes(16) + // WGPEER_A_LAST_HANDSHAKE_TIME
+		nlAttrBytes(4) + // WGPEER_A_PERSISTENT_KEEPALIVE_INTERVAL
+		nlAttrBytes(8) + nlAttrBytes(0) + // WGPEER_A_TX_BYTES + 64-bit pad
+		nlAttrBytes(8) + nlAttrBytes(0) + // WGPEER_A_RX_BYTES + 64-bit pad
+		nlAttrBytes(4) + // WGPEER_A_PROTOCOL_VERSION
+		nlAttrBytes(28) + // WGPEER_A_ENDPOINT, sockaddr_in6
+		nlAttrBytes(0) // WGPEER_A_ALLOWEDIPS nest
+
+	// get_allowedips, netlink.c:118-137: nest + cidr u8 + family u16 + address.
+	allowedIP := func(addrBytes int) int {
+		return nlAttrBytes(0) + nlAttrBytes(1) + nlAttrBytes(2) + nlAttrBytes(addrBytes)
+	}
+
+	// Every renderer here defaults a peer to "0.0.0.0/0, ::/0" — two entries.
+	want := fixed + allowedIP(4) + allowedIP(16)
+	if nlPeerBytes != want {
+		t.Fatalf("nlPeerBytes = %d, want %d (fixed %d + AllowedIPs %d v4 + %d v6)",
+			nlPeerBytes, want, fixed, allowedIP(4), allowedIP(16))
+	}
+}
+
+// The exported client .conf and the share link both budget worst-case, so a
+// set in the 3493-3500 band rode the server alone — mimicry in one direction.
+func TestRenderers_IFieldGateMatchesTheExportedConfig(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		chars   int
+		written bool
+	}{
+		{"at the worst-case budget", 3484, true},       // IBytes 3492
+		{"inside the old 3493-3500 band", 3488, false}, // IBytes 3496
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			v := strings.Repeat("x", tc.chars)
+			confs := map[string]string{
+				"server": renderServerConf(Instance{
+					Ifname: "awg9", PrivateKey: "k", Port: 51820, MTU: 1320, AwgVersion: "2", I1: v,
+				}),
+				"client": renderClientConf(ClientInstance{
+					Id: 1, Ifname: "awgo-1",
+					Settings: ClientSettings{
+						PrivateKey: "k", Address: "10.9.0.5/32", MTU: 1320,
+						PublicKey: "pub", Endpoint: "up:51820", AwgVersion: "2", I1: v,
+					},
+				}),
+			}
+			for side, conf := range confs {
+				if got := strings.Contains(conf, "I1 = "+v); got != tc.written {
+					t.Errorf("%s .conf: %d chars (IBytes %d, worst-case budget %d): written = %v, want %v",
+						side, tc.chars, IBytes(v, "", "", "", ""), WorstCaseIBytesBudget(false), got, tc.written)
+				}
+			}
+		})
+	}
+}
+
+// A field of blanks is not a value: awg-tools collapse "I1 =    " to "I1=" and
+// then refuse the whole file, the same refusal a blank H or a blank key gets.
+func TestRenderers_BlankIFieldIsNotAValue(t *testing.T) {
+	for _, tc := range []struct {
+		name, i1, wantServer, wantClient string
+	}{
+		{"blanks only", "   ", "", ""},
+		// The predicate trims; what the server emits stays raw, because trimming
+		// it would move deviceFingerprint and bounce every live inbound.
+		{"whitespace edges", " <b 0x00> ", "I1 =  <b 0x00> \n", "I1 = <b 0x00>\n"},
+		{"plain descriptor", "<b 0x00>", "I1 = <b 0x00>\n", "I1 = <b 0x00>\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			confs := map[string]string{
+				"server": renderServerConf(Instance{
+					Ifname: "awg9", PrivateKey: "k", Port: 51820, MTU: 1320,
+					AwgVersion: "2", I1: tc.i1, I2: "<b 0xff>",
+				}),
+				"client": renderClientConf(ClientInstance{
+					Id: 1, Ifname: "awgo-1",
+					Settings: ClientSettings{
+						PrivateKey: "k", Address: "10.9.0.5/32", MTU: 1320,
+						PublicKey: "pub", Endpoint: "up:51820",
+						AwgVersion: "2", I1: tc.i1, I2: "<b 0xff>",
+					},
+				}),
+			}
+			for side, want := range map[string]string{"server": tc.wantServer, "client": tc.wantClient} {
+				conf := confs[side]
+				switch {
+				case want == "" && strings.Contains(conf, "I1"):
+					t.Errorf("%s .conf: blank I1 %q must not be written, got:\n%s", side, tc.i1, conf)
+				case want != "" && !strings.Contains(conf, want):
+					t.Errorf("%s .conf: missing %q, got:\n%s", side, want, conf)
+				}
+				if !strings.Contains(conf, "I2 = <b 0xff>\n") {
+					t.Errorf("%s .conf: the rest of the I-set must survive, got:\n%s", side, conf)
+				}
+			}
+		})
+	}
+}

@@ -9,16 +9,28 @@ package cps
 import (
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	crand "math/rand"
 	"strings"
+	"time"
 )
 
-// rng is the package-level random source. In Go 1.20+ the global rand is
-// automatically seeded, but tests need deterministic output. rand.Seed is
-// deprecated; instead tests call SetRand with a seeded source.
-var rng = crand.New(crand.NewSource(1))
+// rng is the package-level random source. It must be seeded per process: Jc,
+// S1-S4 and H1-H4 all come from here, so a fixed seed would hand every server
+// running this code the same obfuscation in the same order.
+var rng = newSeededRand()
+
+// newSeededRand takes its seed from crypto/rand. math/rand is fine for the
+// structural choices it drives; a predictable seed is not.
+func newSeededRand() *crand.Rand {
+	var b [8]byte
+	if _, err := rand.Read(b[:]); err != nil {
+		return crand.New(crand.NewSource(time.Now().UnixNano()))
+	}
+	return crand.New(crand.NewSource(int64(binary.BigEndian.Uint64(b[:]))))
+}
 
 // SetRand replaces the package-level random source. Used by tests for
 // deterministic output; production code leaves the auto-seeded source.

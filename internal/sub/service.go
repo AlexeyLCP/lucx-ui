@@ -791,8 +791,12 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 		params["keepalive"] = ka
 	}
 	isV2Plus := awgVer != "1.5"
-	isV3 := awg.IsAwg3Plus(awgVer)
-	isV31 := awg.IsAwg31(awgVer)
+	// The server side gates 3.x fields on the host tools; a link that enables one
+	// the server dropped leaves the client unable to connect. Only a local inbound
+	// can be judged here — a node's capability is not stored on the master.
+	localInbound := inbound.NodeID == nil
+	isV3 := awgVersionFieldsAllowed(awg.IsAwg3Plus(awgVer), localInbound, awg.ModuleSupportsAwg3())
+	isV31 := awgVersionFieldsAllowed(awg.IsAwg31(awgVer), localInbound, awg.ModuleSupportsAwg31())
 
 	if v, ok := settings["jc"].(float64); ok {
 		params["jc"] = strconv.Itoa(int(v))
@@ -820,23 +824,33 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	for _, p := range []struct{ key, jk string }{
 		{"h1", "h1"}, {"h2", "h2"}, {"h3", "h3"}, {"h4", "h4"},
 	} {
-		if v, ok := settings[p.jk].(string); ok && v != "" {
+		if v, ok := settings[p.jk].(string); ok && strings.TrimSpace(v) != "" {
 			params[p.key] = v
 		}
 	}
 	if isV2Plus {
-		for _, p := range []struct{ key, jk string }{
-			{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
-		} {
-			if v, ok := settings[p.jk].(string); ok && v != "" {
-				params[p.key] = v
+		i1, _ := settings["i1"].(string)
+		i2, _ := settings["i2"].(string)
+		i3, _ := settings["i3"].(string)
+		i4, _ := settings["i4"].(string)
+		i5, _ := settings["i5"].(string)
+		hpk, _ := settings["headerProtectionKey"].(string)
+		// Same all-or-nothing gate the two .conf renderers use: an oversized
+		// set vanishes from the real interface, so it must vanish from the link.
+		if awg.IBytes(i1, i2, i3, i4, i5) <= awg.WorstCaseIBytesBudget(strings.TrimSpace(hpk) != "") {
+			for _, p := range []struct{ key, jk string }{
+				{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
+			} {
+				if v, ok := settings[p.jk].(string); ok && strings.TrimSpace(v) != "" {
+					params[p.key] = v
+				}
 			}
 		}
 	}
 	// AWG3 (version "3") — HeaderProtectionKey + device-level timers/padding.
 	// All gated by isV3 so a v1/v2 share-link never carries v3-only params.
 	if isV3 {
-		if v, ok := settings["headerProtectionKey"].(string); ok && v != "" {
+		if v, ok := settings["headerProtectionKey"].(string); ok && strings.TrimSpace(v) != "" {
 			params["headerprotectionkey"] = v
 		}
 		for _, p := range []struct{ key, jk string }{

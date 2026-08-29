@@ -9,6 +9,8 @@
 package awg
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -102,5 +104,79 @@ func TestKallsymsHasSymbol(t *testing.T) {
 				t.Fatalf("kallsymsHasSymbol(...) = %v, want %v", got, c.want)
 			}
 		})
+	}
+}
+
+// TestModuleVersionAtLeast locks in Д12: AWG 3.1 gates on the LOADED module's
+// own version, not the awg tools' — a 3.1-tools host can still carry a stale 3.0 module.
+func TestModuleVersionAtLeast(t *testing.T) {
+	cases := []struct {
+		name      string
+		content   string
+		missing   bool
+		wantMajor int
+		wantMinor int
+		want      bool
+	}{
+		{name: "3.1 module satisfies want 3.1", content: "3.1.20260812\n", wantMajor: 3, wantMinor: 1, want: true},
+		{name: "3.1 module satisfies want 3.0", content: "3.1.20260812\n", wantMajor: 3, wantMinor: 0, want: true},
+		{name: "3.0 module fails want 3.1", content: "3.0.20260730\n", wantMajor: 3, wantMinor: 1, want: false},
+		{name: "3.0 module satisfies want 3.0", content: "3.0.20260730\n", wantMajor: 3, wantMinor: 0, want: true},
+		{name: "pre-AWG3 module fails want 3.1", content: "1.0.0\n", wantMajor: 3, wantMinor: 1, want: false},
+		{name: "pre-AWG3 module fails want 3.0", content: "1.0.0\n", wantMajor: 3, wantMinor: 0, want: false},
+		{name: "empty file fails", content: "", wantMajor: 3, wantMinor: 1, want: false},
+		{name: "garbage content fails", content: "not-a-version\n", wantMajor: 3, wantMinor: 1, want: false},
+		{name: "missing file fails", missing: true, wantMajor: 3, wantMinor: 1, want: false},
+	}
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			orig := moduleVersionPath
+			t.Cleanup(func() { moduleVersionPath = orig })
+			if c.missing {
+				moduleVersionPath = filepath.Join(t.TempDir(), "does-not-exist")
+			} else {
+				path := filepath.Join(t.TempDir(), "version")
+				if err := os.WriteFile(path, []byte(c.content), 0o644); err != nil {
+					t.Fatalf("WriteFile: %v", err)
+				}
+				moduleVersionPath = path
+			}
+			if got := moduleVersionAtLeast(c.wantMajor, c.wantMinor); got != c.want {
+				t.Fatalf("moduleVersionAtLeast(%d, %d) with content %q = %v, want %v", c.wantMajor, c.wantMinor, c.content, got, c.want)
+			}
+		})
+	}
+}
+
+// TestModuleSupportsAwg31_ToolsAheadOfModule reproduces Д12: a tools-only
+// check let 3.1 tools over a stale 3.0 module render fields awg-quick then rolled back.
+func TestModuleSupportsAwg31_ToolsAheadOfModule(t *testing.T) {
+	origPath := moduleVersionPath
+	origChecked, origSupported := moduleAwg31Checked, moduleAwg31Supported
+	t.Cleanup(func() {
+		moduleVersionPath = origPath
+		moduleAwg31Checked, moduleAwg31Supported = origChecked, origSupported
+	})
+	// Reset the cache: an earlier green test's cached "supported" would
+	// otherwise mask this regression (only positives are cached).
+	moduleAwg31Checked, moduleAwg31Supported = false, false
+
+	dir := t.TempDir()
+	fakeAwg := filepath.Join(dir, "awg")
+	script := "#!/bin/sh\necho 'amneziawg-tools v3.1.20260812 - https://amnezia.org'\n"
+	if err := os.WriteFile(fakeAwg, []byte(script), 0o755); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	t.Setenv("PATH", dir)
+
+	versionPath := filepath.Join(dir, "version")
+	if err := os.WriteFile(versionPath, []byte("3.0.20260730\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile: %v", err)
+	}
+	moduleVersionPath = versionPath
+
+	if got := ModuleSupportsAwg31(); got {
+		t.Fatalf("ModuleSupportsAwg31() = true with mocked 3.1 tools + a 3.0 module, want false — 3.1 tools alone must not pass the gate")
 	}
 }

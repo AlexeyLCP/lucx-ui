@@ -3,8 +3,13 @@
 package service
 
 import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
 	"testing"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/vpnuri"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
@@ -406,5 +411,130 @@ func TestAwgOutboundSubnetClash(t *testing.T) {
 				t.Errorf("awgOutboundSubnetClash(%q) err = %v, wantClash %v", tt.addr, err, tt.wantClash)
 			}
 		})
+	}
+}
+
+// checkOutboundIFields is the save-time guard behind AddOutbound and
+// UpdateOutbound, so a .conf pasted through ParseConf or discovered by the
+// host scan is rejected too — not just a set the panel's own generator built.
+func TestCheckOutboundIFields(t *testing.T) {
+	fits := strings.Repeat("x", 3484)     // IBytes 3492, exactly the worst-case budget
+	oversize := strings.Repeat("x", 3496) // IBytes 3504
+	for _, tc := range []struct {
+		name     string
+		settings string
+		wantErr  bool
+	}{
+		{"malformed settings are not this guard's business", `{nope`, false},
+		{"no I-fields", `{"privateKey":"k"}`, false},
+		{"at budget", `{"i1":"` + fits + `"}`, false},
+		{"over budget", `{"i1":"` + oversize + `"}`, true},
+		{"split under the same character sum", `{"i1":"` + fits[:1748] + `","i2":"` + fits[1748:] + `"}`, true},
+		{"header protection key shrinks the budget", `{"headerProtectionKey":"k=","i1":"` + fits + `"}`, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			err := checkOutboundIFields(&model.AwgOutbound{Id: 1, Settings: tc.settings})
+			if gotErr := err != nil; gotErr != tc.wantErr {
+				t.Fatalf("checkOutboundIFields = %v, wantErr %v", err, tc.wantErr)
+			}
+			if tc.wantErr && !errors.Is(err, awg.ErrIFieldsTooLarge) {
+				t.Fatalf("want ErrIFieldsTooLarge, got %v", err)
+			}
+		})
+	}
+}
+
+// Nothing checked the key's format on the way in, and the failure that follows
+// is silent: awg-quick drops awgo-N and the cron job retries every 10 seconds.
+func TestAwgOutbound_RejectsBadHeaderProtectionKey(t *testing.T) {
+	setupConflictDB(t)
+	svc := &AwgOutboundService{}
+	const validKey = "MCPfRGcDGotJ6TcnIdDqsemj2cMIiGHnPUHM5ivXN18="
+	settingsWith := func(key string) string {
+		raw, err := json.Marshal(map[string]any{
+			"privateKey": "k", "publicKey": "p", "endpoint": "203.0.113.9:51820",
+			"address": "10.9.0.5/32", "mtu": 1320, "awgVersion": "3",
+			"headerProtectionKey": key,
+		})
+		if err != nil {
+			t.Fatalf("marshal settings: %v", err)
+		}
+		return string(raw)
+	}
+	for i, tc := range []struct {
+		name    string
+		key     string
+		wantErr error
+	}{
+		{"no key at all", "", nil},
+		{"base64 of 32 bytes saves", validKey, nil},
+		{"a wrapped key leaves a truncated stub", "MCPfRGcDGotJ6Tcn", errAwgHeaderProtectionKey},
+		{"a word is not a key", "привет", errAwgHeaderProtectionKey},
+		{"a key of blanks is not an absent key", "   ", errAwgHeaderProtectionKey},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tag := fmt.Sprintf("awgo-hpk-%d", i)
+			added, err := svc.AddOutbound(&model.AwgOutbound{Tag: tag, Settings: settingsWith(tc.key)})
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("AddOutbound(key=%q) = %v, want %v", tc.key, err, tc.wantErr)
+			}
+			if tc.wantErr != nil {
+				return
+			}
+			// UpdateOutbound is a second, independent call site.
+			added.Settings = settingsWith("привет")
+			if err := svc.UpdateOutbound(added); !errors.Is(err, errAwgHeaderProtectionKey) {
+				t.Fatalf("UpdateOutbound(bad key) = %v, want errAwgHeaderProtectionKey", err)
+			}
+		})
+	}
+}
+
+// A .conf wrapped in transit loses everything past the break, and the stub left
+// behind is what promotes the outbound to v3 — so it re-renders itself.
+func TestAddOutbound_RejectsWrappedKeyFromPastedConf(t *testing.T) {
+	setupConflictDB(t)
+	const pasted = `[Interface]
+PrivateKey = abcDEF
+Address = 10.9.0.5/32
+MTU = 1320
+Jc = 4
+HeaderProtectionKey = MCPfRGcDGotJ6Tcn
+IdDqsemj2cMIiGHnPUHM5ivXN18=
+
+[Peer]
+PublicKey = pubKEY
+Endpoint = 203.0.113.9:51820
+AllowedIPs = 0.0.0.0/0
+`
+	s, err := ParseConf(pasted)
+	if err != nil {
+		t.Fatalf("ParseConf: %v", err)
+	}
+	if s.HeaderProtectionKey != "MCPfRGcDGotJ6Tcn" {
+		t.Fatalf("the paste path keeps only the first line of a wrapped key, got %q", s.HeaderProtectionKey)
+	}
+	if s.AwgVersion != "3" {
+		t.Fatalf("a non-empty key promotes the outbound to v3, got %q", s.AwgVersion)
+	}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal parsed settings: %v", err)
+	}
+	if _, err := (&AwgOutboundService{}).AddOutbound(&model.AwgOutbound{Tag: "awgo-pasted", Settings: string(raw)}); !errors.Is(err, errAwgHeaderProtectionKey) {
+		t.Fatalf("AddOutbound(pasted wrapped key) = %v, want errAwgHeaderProtectionKey", err)
+	}
+}
+
+// The AWG inbound side stores I1-I5 for client export; validateAwgSettingsJSON
+// is the choke point AddInbound and UpdateInbound both pass through.
+func TestValidateAwgSettingsJSON_IFieldBudget(t *testing.T) {
+	oversize := strings.Repeat("x", 3496)
+	err := validateAwgSettingsJSON(`{"i1":"` + oversize + `"}`)
+	if !errors.Is(err, awg.ErrIFieldsTooLarge) {
+		t.Fatalf("want ErrIFieldsTooLarge, got %v", err)
+	}
+	if err := validateAwgSettingsJSON(`{"i1":"` + oversize[:3484] + `"}`); err != nil {
+		t.Fatalf("a set at exactly the budget must save, got %v", err)
 	}
 }

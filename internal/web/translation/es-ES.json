@@ -714,7 +714,7 @@
         "awgVersion31": "3.1 — AWG3 + colas aleatorias",
         "awgVersion31CompatNote": "La versión 3.1 añade RandomTrailers y DisableCookies. Las herramientas anteriores a v3.1 rechazan estas líneas. Los clientes v1/v2 y plain-WireGuard siguen sin poder conectar (HPK).",
         "awgRandomTrailers": "Colas aleatorias",
-        "awgRandomTrailersHint": "Añade una cola aleatoria a cada paquete dentro de la ventana UDP por peer. Anti-DPI por tamaño. Solo AWG 3.1.",
+        "awgRandomTrailersHint": "Rellena los paquetes hasta un tamaño aleatorio dentro de la ventana UDP. Debe estar activado en ambos extremos: la configuración lo incluye, así que un cliente con AWG 3.1 lo activa solo, pero un cliente más antiguo no conectará en absoluto, sin ningún error. Aumenta los paquetes pequeños y el tráfico de vuelta. Solo AWG 3.1.",
         "awgDisableCookies": "Desactivar cookies",
         "awgDisableCookiesHint": "No responder a cookie-challenge. Solo AWG 3.1.",
         "awgSRangeWarning": "AWG3 requiere S1-S4 ≥ 12 (el cifrado de protección de cabecera lee su nonce de los primeros 12 bytes del S-padding). El generador lo garantiza; verifícalo antes de editar a mano.",

@@ -7,12 +7,15 @@
 package service
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"net/netip"
 	"strings"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	awgcps "github.com/mhsanaei/3x-ui/v3/internal/awg/cps"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
@@ -21,6 +24,18 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
+
+// errAwgControlChar: a value rendered verbatim into a .conf held a control
+// character, which would open a new config line downstream.
+var errAwgControlChar = errors.New("awg: value contains control characters")
+
+// errAwgSettingsMalformed: awg inbound settings are non-empty but not valid
+// JSON, so none of the checks that follow parsing could run.
+var errAwgSettingsMalformed = errors.New("awg: settings is not valid JSON")
+
+// errAwgHeaderProtectionKey: the AWG3 cipher takes a 32-byte key, and the awg
+// tools reject the whole .conf over a bad one, without naming the field.
+var errAwgHeaderProtectionKey = errors.New("awg: headerProtectionKey is not a base64 32-byte key")
 
 // defaultAwgBase is the tunnel subnet AWG clients are allocated from. It is
 // intentionally distinct from WireGuard's 10.0.0.0/24 so an AWG inbound and a
@@ -93,6 +108,25 @@ func awgSettingsAddress(settings string) string {
 	return s.Address
 }
 
+// Blank means the feature is off. The control-character check must stay (a
+// \r\n-wrapped key decodes fine) and go first, or DEL reads as bad base64.
+func validateAwgHeaderProtectionKey(v string) error {
+	if v == "" {
+		return nil
+	}
+	if err := amneziawg.ValidateConfigValue("headerProtectionKey", v); err != nil {
+		return fmt.Errorf("%w: %w", errAwgControlChar, err)
+	}
+	key, err := base64.StdEncoding.DecodeString(v)
+	if err != nil {
+		return fmt.Errorf("%w: not base64: %w", errAwgHeaderProtectionKey, err)
+	}
+	if len(key) != 32 {
+		return fmt.Errorf("%w: got %d bytes, want 32", errAwgHeaderProtectionKey, len(key))
+	}
+	return nil
+}
+
 func validateAwgSettingsJSON(settings string) error {
 	var s struct {
 		AwgVersion          string `json:"awgVersion"`
@@ -107,12 +141,72 @@ func validateAwgSettingsJSON(settings string) error {
 		S2                  int    `json:"s2"`
 		S3                  int    `json:"s3"`
 		S4                  int    `json:"s4"`
+		I1                  string `json:"i1"`
+		I2                  string `json:"i2"`
+		I3                  string `json:"i3"`
+		I4                  string `json:"i4"`
+		I5                  string `json:"i5"`
 		HeaderProtectionKey string `json:"headerProtectionKey"`
+		Address             string `json:"address"`
+		DNS                 string `json:"dns"`
+		// AWG3 device-level timers/padding: string-typed so a lo-hi range
+		// ("100-500") survives, same shape as awg.Instance's own fields.
+		ContentPaddingAddition awg.AwgTimer `json:"contentPaddingAddition"`
+		RekeyAfterTime         awg.AwgTimer `json:"rekeyAfterTime"`
+		RekeyTimeout           awg.AwgTimer `json:"rekeyTimeout"`
+		RejectAfterTime        awg.AwgTimer `json:"rejectAfterTime"`
+		KeepaliveTimeout       awg.AwgTimer `json:"keepaliveTimeout"`
+		MaxHandshakeAttempts   awg.AwgTimer `json:"maxHandshakeAttempts"`
 	}
-	if err := json.Unmarshal([]byte(settings), &s); err != nil {
+	if strings.TrimSpace(settings) == "" {
 		return nil
 	}
-	if err := awg.ValidateObfuscationFields(s.AwgVersion, s.H1, s.H2, s.H3, s.H4); err != nil {
+	if err := json.Unmarshal([]byte(settings), &s); err != nil {
+		return fmt.Errorf("%w: %w", errAwgSettingsMalformed, err)
+	}
+	if err := awg.ValidateObfuscationFields(s.AwgVersion, s.Jc, s.S1, s.H1, s.H2, s.H3, s.H4); err != nil {
+		return err
+	}
+	for _, dt := range []struct {
+		name string
+		val  awg.AwgTimer
+	}{
+		{"ContentPaddingAddition", s.ContentPaddingAddition},
+		{"RekeyAfterTime", s.RekeyAfterTime},
+		{"RekeyTimeout", s.RekeyTimeout},
+		{"RejectAfterTime", s.RejectAfterTime},
+		{"KeepaliveTimeout", s.KeepaliveTimeout},
+		{"MaxHandshakeAttempts", s.MaxHandshakeAttempts},
+	} {
+		if err := awg.ValidateDeviceTimer(dt.name, dt.val); err != nil {
+			return err
+		}
+	}
+	// Oversized I1-I5 still apply and pass traffic, but `awg show` then fails
+	// with EMSGSIZE and the panel goes blind on that interface.
+	if err := awg.ValidateIFields(awg.BaselineIfname, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5); err != nil {
+		return err
+	}
+	// Checked raw, because the renderers write raw: trimming here let a leading
+	// "\n" hide a second directive from this loop and still reach the .conf.
+	for _, cv := range []struct{ field, v string }{
+		{"i1", s.I1},
+		{"i2", s.I2},
+		{"i3", s.I3},
+		{"i4", s.I4},
+		{"i5", s.I5},
+		{"h1", s.H1},
+		{"h2", s.H2},
+		{"h3", s.H3},
+		{"h4", s.H4},
+		{"address", s.Address},
+		{"dns", s.DNS},
+	} {
+		if err := amneziawg.ValidateConfigValue(cv.field, cv.v); err != nil {
+			return fmt.Errorf("%w: %w", errAwgControlChar, err)
+		}
+	}
+	if err := validateAwgHeaderProtectionKey(s.HeaderProtectionKey); err != nil {
 		return err
 	}
 	if s.Jc == 0 && s.S1 == 0 {
@@ -624,13 +718,13 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	}
 	mtu := s.MTU
 	if mtu <= 0 {
-		mtu = 1320
+		mtu = awg.DefaultMTU
 	}
 	host := formatEndpointHost(endpointHost)
 	if host == "" {
 		host = "127.0.0.1"
 	}
-	_, obf, _ := inboundAwgHints(inbound.Settings)
+	_, obf, _ := inboundAwgHints(inbound.Settings, inbound.NodeID == nil)
 
 	var b strings.Builder
 	b.WriteString("[Interface]\n")

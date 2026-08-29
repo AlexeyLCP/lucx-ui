@@ -714,7 +714,7 @@
         "awgVersion31": "3.1 — AWG3 + đuôi ngẫu nhiên",
         "awgVersion31CompatNote": "Phiên bản 3.1 thêm RandomTrailers và DisableCookies. Công cụ cũ hơn v3.1 sẽ từ chối các dòng này. Client v1/v2 và plain-WireGuard vẫn không kết nối được (HPK).",
         "awgRandomTrailers": "Đuôi ngẫu nhiên",
-        "awgRandomTrailersHint": "Thêm đuôi ngẫu nhiên vào mỗi gói trong cửa sổ UDP theo peer. Chống DPI theo kích thước. Chỉ AWG 3.1.",
+        "awgRandomTrailersHint": "Đệm gói tin đến kích thước ngẫu nhiên trong phạm vi cửa sổ UDP. Phải bật ở cả hai đầu: cấu hình mang theo tham số này nên máy khách hỗ trợ AWG 3.1 tự bật, còn máy khách cũ hơn sẽ không kết nối được, không báo lỗi. Làm phình các gói nhỏ và lưu lượng chiều về. Chỉ dành cho AWG 3.1.",
         "awgDisableCookies": "Tắt cookies",
         "awgDisableCookiesHint": "Không trả lời cookie-challenge. Chỉ AWG 3.1.",
         "awgSRangeWarning": "AWG3 yêu cầu S1-S4 ≥ 12 (cipher bảo vệ tiêu đề đọc nonce từ 12 byte đầu của S-padding). Trình tạo đảm bảo điều này; hãy xác minh trước khi chỉnh sửa thủ công.",

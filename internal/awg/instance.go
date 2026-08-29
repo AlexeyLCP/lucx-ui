@@ -8,6 +8,7 @@ package awg
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"regexp"
 	"strconv"
@@ -146,42 +147,11 @@ type PeerSpec struct {
 	ForwardedPorts string
 }
 
-// fingerprint changes whenever a device-level .conf field changes, so
-// ensureLocked restarts awg-quick. Peers are NOT included — adding/removing a
-// client uses awg syncconf (SyncPeers) so existing handshakes survive.
-// DNS and I1-I5 are client-export-only and do not go into the server .conf.
-func (inst Instance) fingerprint() string {
-	parts := []string{
-		inst.Ifname,
-		strconv.Itoa(inst.Port),
-		inst.PrivateKey,
-		strconv.Itoa(inst.MTU),
-		inst.Address,
-		strconv.Itoa(inst.Jc),
-		strconv.Itoa(inst.Jmin),
-		strconv.Itoa(inst.Jmax),
-		strconv.Itoa(inst.S1),
-		strconv.Itoa(inst.S2),
-		strconv.Itoa(inst.S3),
-		strconv.Itoa(inst.S4),
-		inst.H1,
-		inst.H2,
-		inst.H3,
-		inst.H4,
-		inst.HeaderProtectionKey,
-		string(inst.ContentPaddingAddition),
-		string(inst.RekeyAfterTime),
-		string(inst.RekeyTimeout),
-		string(inst.RejectAfterTime),
-		string(inst.KeepaliveTimeout),
-		string(inst.MaxHandshakeAttempts),
-		strconv.FormatBool(inst.RandomTrailers),
-		strconv.FormatBool(inst.DisableCookies),
-		inst.AwgVersion,
-		strconv.FormatBool(inst.RouteThroughXray),
-		inst.OutboundTag,
-	}
-	return strings.Join(parts, "|")
+// deviceFingerprint takes a rendered server .conf and keeps the half awg-quick
+// can only apply by recreating the interface; peers go in through syncconf.
+func deviceFingerprint(serverConf string) string {
+	device, _, _ := strings.Cut(serverConf, "\n[Peer]\n")
+	return device
 }
 
 func (inst Instance) peerFingerprint() string {
@@ -191,6 +161,10 @@ func (inst Instance) peerFingerprint() string {
 	}
 	return strings.Join(parts, "|")
 }
+
+// DefaultMTU is 1500 (typical Ethernet) minus AWG overhead — optimal for a
+// normal VPS; a client behind CGNAT may need 1320, set via the mtu field.
+const DefaultMTU = 1420
 
 // InstanceFromInbound derives a desired Instance from an AWG inbound. Returns
 // false when the inbound is not a usable AWG inbound (wrong protocol, missing
@@ -260,12 +234,9 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		Listen: ib.Listen,
 		Port:   ib.Port,
 		Ifname: ifnameFor(ib.Id),
-		// 1420 = 1500 (typical Ethernet) minus WireGuard/AWG overhead, the
-		// throughput-optimal fallback on a normal VPS. Only used when an
-		// inbound's settings JSON omits mtu entirely (pre-lucx MTU field,
-		// or hand-crafted JSON); the panel form always sends an explicit
-		// value (1420 default, operator can drop to 1320 for mobile/CGNAT).
-		MTU:                    orDefault(s.MTU, 1420),
+		// Falls back only when settings JSON omits mtu (pre-lucx field,
+		// hand-crafted JSON); the panel form always sends an explicit value.
+		MTU:                    orDefault(s.MTU, DefaultMTU),
 		DNS:                    s.DNS,
 		Address:                s.Address,
 		PrivateKey:             s.PrivateKey,
@@ -376,14 +347,21 @@ func CollapseTimerForVersion(raw, version string) string {
 
 var awgHFieldRe = regexp.MustCompile(`^[0-9]+(-[0-9]+)?$`)
 
-// ValidateObfuscationFields rejects garbage H1-H4 and range-form H on a 1.5
-// inbound (v1.x awg-quick: "Unable to parse H1"). Empty H is allowed (generator
-// always fills them; blank means the operator has not generated yet).
-func ValidateObfuscationFields(version, h1, h2, h3, h4 string) error {
+// ErrEmptyObfuscationHeader: blank H1-H4 on an obfuscated inbound falls back
+// to the kernel default 1,2,3,4 (cleartext WireGuard) — not silently applied.
+var ErrEmptyObfuscationHeader = errors.New("awg: H1-H4 must not be empty when obfuscation is enabled")
+
+// Blank H1-H4 writes "H1 = " to the .conf; awg setconf then rejects the
+// WHOLE file and the interface never comes up (1.5 also rejects range H: v1.x awg-quick errors "Unable to parse H1").
+func ValidateObfuscationFields(version string, jc, s1 int, h1, h2, h3, h4 string) error {
 	ver := NormalizeAWGVersion(version)
+	obfuscated := jc > 0 || s1 > 0
 	for i, h := range []string{h1, h2, h3, h4} {
 		h = strings.TrimSpace(h)
 		if h == "" {
+			if obfuscated {
+				return fmt.Errorf("awg: H%d is empty: %w", i+1, ErrEmptyObfuscationHeader)
+			}
 			continue
 		}
 		if !awgHFieldRe.MatchString(h) {
@@ -392,6 +370,35 @@ func ValidateObfuscationFields(version, h1, h2, h3, h4 string) error {
 		if ver == "1.5" && strings.Contains(h, "-") {
 			return fmt.Errorf("awg: H%d is a range but awgVersion is 1.5 — regenerate obfuscation", i+1)
 		}
+	}
+	return nil
+}
+
+// ErrTimerOutOfRange: upstream tools bound-check against UINT32_MAX and
+// silently truncate (RekeyTimeout=70000 becomes 4464); catch it here first.
+var ErrTimerOutOfRange = errors.New("awg: device timer out of range")
+
+// ValidateDeviceTimer checks one AWG3 device timer (name labels the error).
+// Empty/zero passes; else it must match H1-H4's lo-hi grammar, hi >= lo, both <= 65535.
+func ValidateDeviceTimer(name string, t AwgTimer) error {
+	if t.IsZero() {
+		return nil
+	}
+	s := strings.TrimSpace(string(t))
+	if !awgHFieldRe.MatchString(s) {
+		return fmt.Errorf("awg: %s is not an integer or lo-hi range", name)
+	}
+	lo, hi := s, s
+	if i := strings.IndexByte(s, '-'); i >= 0 {
+		lo, hi = s[:i], s[i+1:]
+	}
+	loN, loErr := strconv.ParseUint(lo, 10, 32)
+	hiN, hiErr := strconv.ParseUint(hi, 10, 32)
+	if loErr != nil || hiErr != nil || loN > 65535 || hiN > 65535 {
+		return fmt.Errorf("%w: %s (%s) must be 0-65535", ErrTimerOutOfRange, name, s)
+	}
+	if hiN < loN {
+		return fmt.Errorf("%w: %s range %s has hi < lo", ErrTimerOutOfRange, name, s)
 	}
 	return nil
 }

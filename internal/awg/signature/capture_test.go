@@ -12,6 +12,8 @@ import (
 	"net"
 	"strings"
 	"testing"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 )
 
 func TestNormalizeDomain(t *testing.T) {
@@ -40,7 +42,7 @@ func TestNormalizeDomain(t *testing.T) {
 }
 
 func TestFillPackets(t *testing.T) {
-	two := fillPackets([][]byte{{0xAA}, {0xBB, 0xCC}})
+	two := fillPackets([][]byte{{0xAA}, {0xBB, 0xCC}}, false)
 	if two.I1 != "<b 0xaa>" || two.I2 != "<b 0xbbcc>" {
 		t.Errorf("I1/I2 wrong: %q %q", two.I1, two.I2)
 	}
@@ -49,17 +51,16 @@ func TestFillPackets(t *testing.T) {
 	}
 
 	oversized := bytes.Repeat([]byte{0xFF}, 2000)
-	trunc := fillPackets([][]byte{oversized})
-	want := "<b 0x" + strings.Repeat("ff", maxPacketSize) + ">"
-	if trunc.I1 != want {
-		t.Errorf("packet longer than %d bytes must be truncated, got len(I1)=%d", maxPacketSize, len(trunc.I1))
+	dropped := fillPackets([][]byte{oversized}, false)
+	if dropped.I1 != "" {
+		t.Errorf("a packet that busts the netlink budget must be dropped whole, got len(I1)=%d", len(dropped.I1))
 	}
 
 	six := make([][]byte, 6)
 	for i := range six {
 		six[i] = []byte{byte(i + 1)}
 	}
-	filled := fillPackets(six)
+	filled := fillPackets(six, false)
 	if filled.I5 != "<b 0x05>" {
 		t.Errorf("I5 = %q, want <b 0x05> (5th packet)", filled.I5)
 	}
@@ -149,8 +150,98 @@ func TestBuildQUICInitial_Structure(t *testing.T) {
 }
 
 func TestCapture_EmptyDomain(t *testing.T) {
-	if _, err := Capture("  "); err == nil {
+	if _, err := Capture("  ", false); err == nil {
 		t.Error("Capture with blank domain must fail")
+	}
+}
+
+// A captured packet is only useful whole: half a QUIC Initial is a malformed
+// packet on the wire. An oversized capture must lose whole packets, never
+// bytes, and what survives must still fit what `awg show` can read back.
+func TestFillPackets_KeepsWholePacketsWithinNetlinkBudget(t *testing.T) {
+	budget := awg.WorstCaseIBytesBudget(false)
+	packet := func(b byte) []byte { return bytes.Repeat([]byte{b}, 1200) }
+	res := fillPackets([][]byte{packet(1), packet(2), packet(3), packet(4), packet(5)}, false)
+
+	if got := awg.IBytes(res.I1, res.I2, res.I3, res.I4, res.I5); got > budget {
+		t.Fatalf("captured set is %d bytes, budget %d — the interface comes up unreadable", got, budget)
+	}
+	if res.I1 == "" {
+		t.Fatal("the first packet fits on its own and must be kept")
+	}
+	for n, f := range map[string]string{"I1": res.I1, "I2": res.I2, "I3": res.I3, "I4": res.I4, "I5": res.I5} {
+		if f == "" {
+			continue
+		}
+		payload := strings.TrimSuffix(strings.TrimPrefix(f, "<b 0x"), ">")
+		if len(payload) != 2*1200 {
+			t.Fatalf("%s carries %d hex chars — a packet was truncated, not dropped", n, len(payload))
+		}
+	}
+}
+
+// A capture small enough to fit must survive whole — the budget must not cost
+// packets it does not have to.
+func TestFillPackets_KeepsAllFiveWhenTheyFit(t *testing.T) {
+	packet := func(b byte) []byte { return bytes.Repeat([]byte{b}, 300) }
+	res := fillPackets([][]byte{packet(1), packet(2), packet(3), packet(4), packet(5)}, false)
+	for n, f := range map[string]string{"I1": res.I1, "I2": res.I2, "I3": res.I3, "I4": res.I4, "I5": res.I5} {
+		if f == "" {
+			t.Fatalf("%s dropped although the whole set fits the budget", n)
+		}
+	}
+}
+
+// A captured reply can be larger than the path carries as UDP payload; replaying
+// it would leave the wire fragmented. It fits the netlink budget comfortably, so
+// only the packet-size rule can drop it.
+func TestFillPackets_DropsAPacketThatWouldFragment(t *testing.T) {
+	big := bytes.Repeat([]byte{0xAA}, awg.MaxIPacketBytes+50)
+	if n := awg.IBytes("<b 0x"+strings.Repeat("aa", len(big))+">", "", "", "", ""); n > awg.WorstCaseIBytesBudget(false) {
+		t.Fatalf("test packet is %d netlink bytes; it must fit the budget so the size rule is what drops it", n)
+	}
+	if res := fillPackets([][]byte{big}, false); res.I1 != "" {
+		t.Fatalf("kept a %d-byte packet; the path carries %d", len(big), awg.MaxIPacketBytes)
+	}
+}
+
+// TestFillPackets_KeptSetAlwaysPassesValidateIFields: a 1400+335-byte pair
+// lands at 3496 IBytes — over worst-case, but the kept set must still validate.
+func TestFillPackets_KeptSetAlwaysPassesValidateIFields(t *testing.T) {
+	res := fillPackets([][]byte{bytes.Repeat([]byte{0xAA}, 1400), bytes.Repeat([]byte{0xBB}, 335)}, false)
+	if err := awg.ValidateIFields(awg.BaselineIfname, "", res.I1, res.I2, res.I3, res.I4, res.I5); err != nil {
+		t.Fatalf("fillPackets kept a set the save-time guard rejects: %v", err)
+	}
+}
+
+// TestFillPackets_HeaderProtectionShrinksBudget: an HPK claims 36 netlink
+// bytes I-fields cannot use, so this packet pair passes one budget but fails the other (see subcase names).
+func TestFillPackets_HeaderProtectionShrinksBudget(t *testing.T) {
+	pkt1 := bytes.Repeat([]byte{0xAA}, 1400) // nlaBytes 2812
+	pkt2 := bytes.Repeat([]byte{0xBB}, 331)  // nlaBytes 676; sum 3488
+
+	tests := []struct {
+		name   string
+		hasHPK bool
+		hpk    string
+		wantI2 bool
+	}{
+		{"no HPK: 3488 fits the 3492 budget, both packets kept", false, "", true},
+		{"with HPK: 3488 exceeds the 3456 budget, second packet dropped", true, "deadbeef", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			res := fillPackets([][]byte{pkt1, pkt2}, tt.hasHPK)
+			if res.I1 == "" {
+				t.Fatal("I1 alone fits either budget and must survive")
+			}
+			if got := res.I2 != ""; got != tt.wantI2 {
+				t.Errorf("I2 present = %v, want %v", got, tt.wantI2)
+			}
+			if err := awg.ValidateIFields(awg.BaselineIfname, tt.hpk, res.I1, res.I2, res.I3, res.I4, res.I5); err != nil {
+				t.Errorf("fillPackets kept a set the save-time guard rejects: %v", err)
+			}
+		})
 	}
 }
 

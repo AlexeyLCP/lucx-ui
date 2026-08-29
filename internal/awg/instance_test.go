@@ -8,11 +8,16 @@ package awg
 
 import (
 	"encoding/json"
+	"errors"
+	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
+
+// deviceFP is what ensureLocked compares: the device half of the rendered conf.
+func deviceFP(inst Instance) string { return deviceFingerprint(renderServerConf(inst)) }
 
 func TestInstanceFromInbound(t *testing.T) {
 	ib := &model.Inbound{
@@ -139,65 +144,100 @@ func TestInstanceFingerprint_StableForEqualInstances(t *testing.T) {
 		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k",
 		MTU: 1320, Jc: 5, Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk", Keepalive: "25", AllowedIPs: "0.0.0.0/0, ::/0"}},
 	}
-	a := inst.fingerprint()
-	b := inst.fingerprint()
+	a := deviceFP(inst)
+	b := deviceFP(inst)
 	if a != b {
 		t.Fatal("fingerprint must be deterministic for equal instances")
 	}
 }
 
+// Address must be set and both routing modes covered: PostUp/PostDown are the
+// only device lines peer data could ever leak into, and no Address means no PostUp.
 func TestInstanceFingerprint_StableOnPeerMutation(t *testing.T) {
-	inst := Instance{
-		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k",
-		Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk"}},
-	}
-	before := inst.fingerprint()
-	peerBefore := inst.peerFingerprint()
-	inst.Peers = append(inst.Peers, PeerSpec{PublicKey: "p2", PSK: "psk2"})
-	if inst.fingerprint() != before {
-		t.Fatal("device fingerprint must NOT change when a peer is added (syncconf, not restart)")
-	}
-	if inst.peerFingerprint() == peerBefore {
-		t.Fatal("peer fingerprint must change when a peer is added")
+	for _, routed := range []bool{false, true} {
+		t.Run("routeThroughXray="+strconv.FormatBool(routed), func(t *testing.T) {
+			inst := Instance{
+				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k",
+				Address: "10.8.0.1/24", RouteThroughXray: routed,
+				Peers: []PeerSpec{{PublicKey: "p1", PSK: "psk", AllowedIPs: "10.8.0.2/32"}},
+			}
+			before := deviceFP(inst)
+			if routed && !strings.Contains(before, "PostUp") {
+				t.Fatal("PostUp missing from the device half: this test would guard nothing")
+			}
+			peerBefore := inst.peerFingerprint()
+			inst.Peers = append(inst.Peers, PeerSpec{PublicKey: "p2", PSK: "psk2", AllowedIPs: "10.8.0.3/32"})
+			if deviceFP(inst) != before {
+				t.Fatal("device fingerprint must NOT change when a peer is added (syncconf, not restart)")
+			}
+			if inst.peerFingerprint() == peerBefore {
+				t.Fatal("peer fingerprint must change when a peer is added")
+			}
+			peerBefore = inst.peerFingerprint()
+			inst.Peers[0].PSK = "psk1-rotated"
+			inst.Peers[0].AllowedIPs = "10.8.0.9/32"
+			if deviceFP(inst) != before {
+				t.Fatal("device fingerprint must NOT change when an existing peer is edited")
+			}
+			if inst.peerFingerprint() == peerBefore {
+				t.Fatal("peer fingerprint must change when an existing peer is edited")
+			}
+		})
 	}
 }
 
-func TestInstanceFingerprint_StableOnDNSAndCPS(t *testing.T) {
+// DNS is the one field that really is client-export-only: it lands in the
+// exported .conf and never in the server's, so it cannot need a restart.
+func TestInstanceFingerprint_StableOnDNS(t *testing.T) {
 	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", DNS: "1.1.1.1"}
-	before := inst.fingerprint()
+	before := deviceFP(inst)
 	inst.DNS = "8.8.8.8"
-	inst.I1 = "<b 0xaa>"
-	if inst.fingerprint() != before {
-		t.Fatal("DNS/I1-I5 are client-export-only and must not restart the interface")
+	if deviceFP(inst) != before {
+		t.Fatal("DNS is client-export-only and must not restart the interface")
 	}
 }
 
 func TestInstanceFingerprint_ChangesOnObfuscation(t *testing.T) {
 	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", Jc: 5}
-	before := inst.fingerprint()
+	before := deviceFP(inst)
 	inst.Jc = 9
-	after := inst.fingerprint()
+	after := deviceFP(inst)
 	if before == after {
 		t.Fatal("fingerprint must change when obfuscation (Jc) changes")
 	}
 }
 
+// Address is what makes PostUp/PostDown render at all, and those two lines are
+// where routeThroughXray reaches the file.
 func TestInstanceFingerprint_ChangesOnRoutingToggle(t *testing.T) {
-	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k"}
-	before := inst.fingerprint()
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", Address: "10.8.0.1/24"}
+	before := deviceFP(inst)
 	inst.RouteThroughXray = true
-	inst.OutboundTag = "warp"
-	after := inst.fingerprint()
+	after := deviceFP(inst)
 	if before == after {
 		t.Fatal("fingerprint must change when routeThroughXray is toggled")
 	}
 }
 
-func TestInstanceFingerprint_ChangesOnHeaderProtectionKey(t *testing.T) {
+// Without an Address neither routing mode renders PostUp, so the .conf is
+// byte-identical and a restart would drop every client for nothing.
+func TestInstanceFingerprint_StableOnRoutingToggleWithoutAddress(t *testing.T) {
 	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k"}
-	before := inst.fingerprint()
+	before := deviceFP(inst)
+	inst.RouteThroughXray = true
+	if deviceFP(inst) != before {
+		t.Fatal("no Address means no PostUp either way: the fingerprint must not move")
+	}
+}
+
+func TestInstanceFingerprint_ChangesOnHeaderProtectionKey(t *testing.T) {
+	awg3 := true
+	SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", AwgVersion: "3"}
+	before := deviceFP(inst)
 	inst.HeaderProtectionKey = "aBcD...base64hpk=="
-	after := inst.fingerprint()
+	after := deviceFP(inst)
 	if before == after {
 		t.Fatal("fingerprint must change when HeaderProtectionKey is set (restart trigger)")
 	}
@@ -254,6 +294,32 @@ func TestRenderServerConf_V15OmitsS3S4(t *testing.T) {
 	}
 	if strings.Contains(conf, "S3 =") || strings.Contains(conf, "S4 =") {
 		t.Fatalf("v1.5 server conf must omit S3/S4 (client export strips them), got:\n%s", conf)
+	}
+}
+
+// I1-I5 must be dropped for v1.5: those tools reject the tags with
+// "Line unrecognized," and the client export already strips them too.
+func TestRenderServerConf_NoIFieldsOnV15(t *testing.T) {
+	for _, tc := range []struct {
+		name       string
+		awgVersion string
+		wantI      bool
+	}{
+		{"1.5 drops I-fields", "1.5", false},
+		{"2 keeps I-fields", "2", true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			inst := Instance{
+				Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
+				AwgVersion: tc.awgVersion,
+				I1:         "aa", I2: "bb", I3: "cc", I4: "dd", I5: "ee",
+			}
+			conf := renderServerConf(inst)
+			got := strings.Contains(conf, "I1 = aa")
+			if got != tc.wantI {
+				t.Fatalf("awgVersion %q: I1 present = %v, want %v\nConf:\n%s", tc.awgVersion, got, tc.wantI, conf)
+			}
+		})
 	}
 }
 
@@ -357,13 +423,27 @@ func TestRenderServerConf_HeaderProtectionKeyDroppedOnV1Module(t *testing.T) {
 	}
 }
 
+// Every version step adds fields the peer must match: 1.5→2 brings S3/S4,
+// 2→3 the header protection key, 3→3.1 the device flags.
 func TestInstanceFingerprint_ChangesOnAwgVersion(t *testing.T) {
-	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k"}
-	before := inst.fingerprint()
-	inst.AwgVersion = "3"
-	after := inst.fingerprint()
-	if before == after {
-		t.Fatal("fingerprint must change when AwgVersion is set (restart trigger)")
+	yes := true
+	SetModuleSupportsAwg3(&yes)
+	SetModuleSupportsAwg31(&yes)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil); SetModuleSupportsAwg31(nil) })
+	base := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", S3: 20, S4: 10,
+		HeaderProtectionKey: "aBcD...base64hpk==", RandomTrailers: true,
+	}
+	for _, tc := range []struct{ from, to string }{
+		{"1.5", "2"}, {"2", "3"}, {"3", "3.1"},
+	} {
+		t.Run(tc.from+"->"+tc.to, func(t *testing.T) {
+			before, after := base, base
+			before.AwgVersion, after.AwgVersion = tc.from, tc.to
+			if deviceFP(before) == deviceFP(after) {
+				t.Fatalf("%s -> %s adds fields to the .conf but does not restart the interface", tc.from, tc.to)
+			}
+		})
 	}
 }
 
@@ -670,6 +750,28 @@ func TestNatRulesFor(t *testing.T) {
 	}
 }
 
+// A host between DHCP leases answers `ip route show default` with exit 0 and
+// no output; without stickiness that flaps every non-routed interface twice.
+func TestStickyDefaultRoute_SurvivesAMissingDefaultRoute(t *testing.T) {
+	t.Cleanup(func() { lastDefaultRouteIface.Store("") })
+	lastDefaultRouteIface.Store("")
+	if got := stickyDefaultRoute(""); got != "" {
+		t.Fatalf("nothing seen yet: got %q, want empty", got)
+	}
+	if got := stickyDefaultRoute("eth0"); got != "eth0" {
+		t.Fatalf("a real answer must pass through: got %q", got)
+	}
+	if got := stickyDefaultRoute(""); got != "eth0" {
+		t.Fatalf("a momentary gap must keep the last interface: got %q, want eth0", got)
+	}
+	if got := stickyDefaultRoute("eth1"); got != "eth1" {
+		t.Fatalf("a real failover must still land: got %q, want eth1", got)
+	}
+	if got := stickyDefaultRoute(""); got != "eth1" {
+		t.Fatalf("after failover the new interface must stick: got %q, want eth1", got)
+	}
+}
+
 func TestNatRulesFor_SkipsUnroutable(t *testing.T) {
 	base := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320, Address: "10.8.0.1/24"}
 
@@ -691,10 +793,13 @@ func TestNatRulesFor_SkipsUnroutable(t *testing.T) {
 }
 
 func TestInstanceFingerprint_ChangesOnDeviceField(t *testing.T) {
-	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k"}
-	before := inst.fingerprint()
+	awg3 := true
+	SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil) })
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", AwgVersion: "3"}
+	before := deviceFP(inst)
 	inst.RekeyAfterTime = "120"
-	after := inst.fingerprint()
+	after := deviceFP(inst)
 	if before == after {
 		t.Fatal("fingerprint must change when an AWG3 device timer field changes (restart trigger)")
 	}
@@ -809,17 +914,81 @@ func TestCollapseTimerForVersion(t *testing.T) {
 }
 
 func TestValidateObfuscationFields(t *testing.T) {
-	if err := ValidateObfuscationFields("2", "5000-40000", "1", "2", "3"); err != nil {
+	if err := ValidateObfuscationFields("2", 4, 0, "5000-40000", "1", "2", "3"); err != nil {
 		t.Fatalf("v2 range H must pass: %v", err)
 	}
-	if err := ValidateObfuscationFields("1.5", "5000-40000", "1", "2", "3"); err == nil {
+	if err := ValidateObfuscationFields("1.5", 4, 0, "5000-40000", "1", "2", "3"); err == nil {
 		t.Fatal("v1.5 range H must fail")
 	}
-	if err := ValidateObfuscationFields("1.5", "abc", "1", "2", "3"); err == nil {
+	if err := ValidateObfuscationFields("1.5", 4, 0, "abc", "1", "2", "3"); err == nil {
 		t.Fatal("garbage H must fail")
 	}
-	if err := ValidateObfuscationFields("1.5", "5000", "100005", "200005", "300005"); err != nil {
+	if err := ValidateObfuscationFields("1.5", 4, 0, "5000", "100005", "200005", "300005"); err != nil {
 		t.Fatalf("v1.5 singles must pass: %v", err)
+	}
+}
+
+// Blank H1-H4 must fail when obfuscated (it would render "H1 = " and awg
+// setconf rejects the whole conf); a plain WireGuard inbound must still pass.
+func TestValidateObfuscationFields_RejectsEmptyH(t *testing.T) {
+	tests := []struct {
+		name    string
+		jc, s1  int
+		h       [4]string
+		wantErr bool
+	}{
+		{"blank H2 with jc>0 is rejected", 4, 0, [4]string{"1001", "", "1003", "1004"}, true},
+		{"blank H with no obfuscation passes", 0, 0, [4]string{"", "", "", ""}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateObfuscationFields("2", tt.jc, tt.s1, tt.h[0], tt.h[1], tt.h[2], tt.h[3])
+			if tt.wantErr && !errors.Is(err, ErrEmptyObfuscationHeader) {
+				t.Fatalf("want %v, got %v", ErrEmptyObfuscationHeader, err)
+			}
+			if !tt.wantErr && err != nil {
+				t.Fatalf("want nil, got %v", err)
+			}
+		})
+	}
+}
+
+// Upstream tools bound-check against UINT32_MAX and silently truncate
+// (RekeyTimeout=70000 -> 4464); the panel must reject what u16 cannot hold.
+func TestValidateDeviceTimer(t *testing.T) {
+	tests := []struct {
+		name         string
+		value        AwgTimer
+		wantErr      bool
+		wantOutRange bool
+	}{
+		{"empty is kernel default", "", false, false},
+		{"zero is kernel default", "0", false, false},
+		{"zero range is kernel default", "0-0", false, false},
+		{"legal single value", "150", false, false},
+		{"legal range", "100-500", false, false},
+		{"single value above u16 max", "70000", true, true},
+		{"range hi above u16 max", "100-70000", true, true},
+		{"range hi below lo", "500-100", true, true},
+		{"not a number", "abc", true, false},
+		{"trailing hyphen with no hi", "100-", true, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := ValidateDeviceTimer("RekeyTimeout", tt.value)
+			if !tt.wantErr {
+				if err != nil {
+					t.Fatalf("ValidateDeviceTimer(%q) = %v, want nil", tt.value, err)
+				}
+				return
+			}
+			if err == nil {
+				t.Fatalf("ValidateDeviceTimer(%q) = nil, want error", tt.value)
+			}
+			if got := errors.Is(err, ErrTimerOutOfRange); got != tt.wantOutRange {
+				t.Fatalf("ValidateDeviceTimer(%q) = %v, errors.Is(_, ErrTimerOutOfRange) = %v, want %v", tt.value, err, got, tt.wantOutRange)
+			}
+		})
 	}
 }
 
@@ -830,6 +999,140 @@ func TestOnlineTTLSeconds_UsesRekeyHi(t *testing.T) {
 	}
 	if got := onlineTTLSeconds(Instance{}); got != handshakeOnlineTTL {
 		t.Fatalf("default TTL = %d, want %d", got, handshakeOnlineTTL)
+	}
+}
+
+// OutboundTag steers the Xray routing rule injectAwgEgress builds; it never
+// reaches the .conf, and its edit already forces an Xray config regen.
+func TestInstanceFingerprint_StableOnOutboundTag(t *testing.T) {
+	inst := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
+		Address: "10.8.0.1/24", RouteThroughXray: true, OutboundTag: "warp",
+	}
+	before := deviceFP(inst)
+	inst.OutboundTag = "vless-out"
+	if deviceFP(inst) != before {
+		t.Fatal("OutboundTag never reaches the .conf: editing it must not restart the interface")
+	}
+}
+
+// The renderer drops HPK, the device timers and the 3.1 flags when the host's
+// module cannot take them, so the fingerprint has to follow the host too.
+func TestInstanceFingerprint_ReflectsModuleCapabilities(t *testing.T) {
+	base := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
+		Address: "10.8.0.1/24", AwgVersion: "3.1", Jc: 4,
+		HeaderProtectionKey: "aBcD...base64hpk==",
+		RekeyAfterTime:      "120",
+		RandomTrailers:      true,
+	}
+	for _, tc := range []struct {
+		name string
+		flip func(*bool)
+	}{
+		{"awg3", SetModuleSupportsAwg3},
+		{"awg31", SetModuleSupportsAwg31},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			yes, no := true, false
+			SetModuleSupportsAwg3(&yes)
+			SetModuleSupportsAwg31(&yes)
+			t.Cleanup(func() { SetModuleSupportsAwg3(nil); SetModuleSupportsAwg31(nil) })
+			supported := deviceFP(base)
+			tc.flip(&no)
+			if deviceFP(base) == supported {
+				t.Fatalf("%s support is invisible to the fingerprint: a module upgrade changes the .conf without restarting the interface", tc.name)
+			}
+		})
+	}
+}
+
+// Every renderable [Interface] value must restart the device; nothing else can
+// carry a new key or port to the kernel.
+func TestInstanceFingerprint_ChangesOnInterfaceFields(t *testing.T) {
+	base := Instance{
+		Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", MTU: 1320,
+		Address: "10.8.0.1/24", Jc: 4,
+	}
+	for _, tc := range []struct {
+		name string
+		mod  func(*Instance)
+	}{
+		{"Port", func(i *Instance) { i.Port = 47001 }},
+		{"PrivateKey", func(i *Instance) { i.PrivateKey = "k2" }},
+		{"MTU", func(i *Instance) { i.MTU = 1280 }},
+		{"Address", func(i *Instance) { i.Address = "10.9.0.1/24" }},
+		{"H1", func(i *Instance) { i.H1 = "100000-500000" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changed := base
+			tc.mod(&changed)
+			if deviceFP(base) == deviceFP(changed) {
+				t.Fatalf("%s is not in the fingerprint: editing it would not restart the interface", tc.name)
+			}
+		})
+	}
+}
+
+// A non-deterministic renderer would make the fingerprint drift on its own and
+// restart every tunnel on the host for no reason.
+func TestRenderServerConf_Deterministic(t *testing.T) {
+	yes := true
+	SetModuleSupportsAwg3(&yes)
+	SetModuleSupportsAwg31(&yes)
+	t.Cleanup(func() { SetModuleSupportsAwg3(nil); SetModuleSupportsAwg31(nil) })
+	base := Instance{
+		Id: 3, Ifname: "awg3", Port: 47000, PrivateKey: "k", MTU: 1320,
+		Address: "10.8.0.1/24", AwgVersion: "3.1", DNS: "1.1.1.1",
+		Jc: 8, Jmin: 70, Jmax: 200, S1: 30, S2: 60, S3: 20, S4: 10,
+		H1: "1-2", H2: "3-4", H3: "5-6", H4: "7-8",
+		I1: "<b 0xaa>", I2: "<b 0xbb>", I3: "<b 0xcc>", I4: "<b 0xdd>", I5: "<b 0xee>",
+		HeaderProtectionKey:    "aBcD...base64hpk==",
+		ContentPaddingAddition: "16", RekeyAfterTime: "120-180", RekeyTimeout: "5",
+		RejectAfterTime: "180", KeepaliveTimeout: "10", MaxHandshakeAttempts: "18",
+		RandomTrailers: true, DisableCookies: true,
+		Peers: []PeerSpec{
+			{PublicKey: "p1", PSK: "psk1", AllowedIPs: "10.8.0.2/32"},
+			{PublicKey: "p2", AllowedIPs: "10.8.0.3/32"},
+		},
+	}
+	for _, routed := range []bool{false, true} {
+		inst := base
+		inst.RouteThroughXray = routed
+		want := renderServerConf(inst)
+		for i := 0; i < 20; i++ {
+			if got := renderServerConf(inst); got != want {
+				t.Fatalf("routeThroughXray=%v: render %d differs from the first:\n%s\n---\n%s", routed, i, want, got)
+			}
+		}
+		if fp := deviceFP(inst); fp != deviceFP(inst) {
+			t.Fatalf("routeThroughXray=%v: fingerprint is not stable: %q", routed, fp)
+		}
+	}
+}
+
+// I1-I5 now go into the server .conf, so a change to one has to restart the
+// interface. Without this the panel saves a new CPS set and the running device
+// keeps sending the old one, with nothing to show for it.
+func TestFingerprint_ChangesWithIFields(t *testing.T) {
+	base := Instance{Ifname: "awg1", Port: 51820, PrivateKey: "k", Jc: 4}
+	for _, tc := range []struct {
+		name string
+		mod  func(*Instance)
+	}{
+		{"I1", func(i *Instance) { i.I1 = "<b 0xaa>" }},
+		{"I2", func(i *Instance) { i.I2 = "<b 0xaa>" }},
+		{"I3", func(i *Instance) { i.I3 = "<b 0xaa>" }},
+		{"I4", func(i *Instance) { i.I4 = "<b 0xaa>" }},
+		{"I5", func(i *Instance) { i.I5 = "<b 0xaa>" }},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			changed := base
+			tc.mod(&changed)
+			if deviceFP(base) == deviceFP(changed) {
+				t.Fatalf("%s is not in the fingerprint: editing it would not restart the interface", tc.name)
+			}
+		})
 	}
 }
 

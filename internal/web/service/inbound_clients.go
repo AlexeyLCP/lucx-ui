@@ -215,6 +215,11 @@ func (s *InboundService) buildTargetClientFromSource(source model.Client, target
 	target.Auth = ""
 	target.Flow = ""
 	target.Secret = ""
+	// A copy is a new identity (new email, new credentials below), so its tunnel
+	// keys are minted for it too — inheriting them shares one secret with two peers.
+	target.PrivateKey = ""
+	target.PublicKey = ""
+	target.PreSharedKey = ""
 
 	targetProtocol := targetInbound.Protocol
 	switch targetProtocol {

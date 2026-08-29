@@ -51,7 +51,12 @@ func applyClientRecordMerge(row *model.ClientRecord, incoming *model.ClientRecor
 	if incoming.AllowedIPs != "" {
 		row.AllowedIPs = incoming.AllowedIPs
 	}
-	row.PreSharedKey = incoming.PreSharedKey
+	// LUCX-HOOK: blank never clears — settings JSON omits preSharedKey, so a
+	// replayed snapshot and a keyless inbound's copy both arrive without one.
+	if incoming.PreSharedKey != "" {
+		row.PreSharedKey = incoming.PreSharedKey
+	}
+	// END LUCX-HOOK
 	row.KeepAlive = incoming.KeepAlive
 	row.SubID = incoming.SubID
 	row.LimitIP = incoming.LimitIP

@@ -14,7 +14,7 @@ import (
 
 func TestInboundAwgHints_HIndexesStayAligned(t *testing.T) {
 	settings := `{"address":"10.200.0.1/24","jc":4,"jmin":10,"jmax":50,"s1":40,"s2":60,"h1":"1-10","h3":"30-40","h4":"50-60","awgVersion":"2"}`
-	_, obf, _ := inboundAwgHints(settings)
+	_, obf, _ := inboundAwgHints(settings, true)
 	if !strings.Contains(obf, "H1 = 1-10") || !strings.Contains(obf, "H3 = 30-40") || !strings.Contains(obf, "H4 = 50-60") {
 		t.Fatalf("H labels misaligned:\n%s", obf)
 	}
@@ -179,7 +179,7 @@ func TestInboundAwgHints_HeaderProtectionKeyVersionGated(t *testing.T) {
 		{"no version", base + `,"headerProtectionKey":"aBcD...base64hpk=="}`, false, "2"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, obf, ver := inboundAwgHints(tc.settings)
+			_, obf, ver := inboundAwgHints(tc.settings, true)
 			if strings.Contains(obf, "HeaderProtectionKey") != tc.wantHPK {
 				t.Errorf("HeaderProtectionKey in block = %v, want %v, got:\n%s", !tc.wantHPK, tc.wantHPK, obf)
 			}
@@ -220,7 +220,7 @@ func TestInboundAwgHints_DeviceFieldsEmission(t *testing.T) {
 		{"no version all set", base + `,` + fields + `}`, []bool{false, false, false, false, false, false}, "2"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			_, obf, ver := inboundAwgHints(tc.settings)
+			_, obf, ver := inboundAwgHints(tc.settings, true)
 			for i, line := range deviceLines {
 				got := strings.Contains(obf, line)
 				if got != tc.want[i] {
@@ -264,6 +264,102 @@ func TestAwgOutboundSubnetConflict(t *testing.T) {
 			_, got := awgOutboundSubnetConflict(tc.newNet, tc.outAddr)
 			if got != tc.want {
 				t.Errorf("awgOutboundSubnetConflict(%v, %q) = %v, want %v", tc.newNet, tc.outAddr, got, tc.want)
+			}
+		})
+	}
+}
+
+// TestInboundAwgHints_DropsOversizedIFields pins the same all-or-nothing gate
+// renderServerConf already has: an oversized set must vanish whole.
+func TestInboundAwgHints_DropsOversizedIFields(t *testing.T) {
+	huge := strings.Repeat("x", 712) // 5 fields x 712 chars = 3600 IBytes, over the worst-case budget
+	settings := `{"address":"10.8.0.1/24","awgVersion":"2",` +
+		`"i1":"` + huge + `","i2":"` + huge + `","i3":"` + huge + `","i4":"` + huge + `","i5":"` + huge + `"}`
+	_, obf, _ := inboundAwgHints(settings, true)
+	for _, key := range []string{"I1 = ", "I2 = ", "I3 = ", "I4 = ", "I5 = "} {
+		if strings.Contains(obf, key) {
+			t.Errorf("oversized I-set must be dropped whole, found %q in block", key)
+		}
+	}
+}
+
+// TestInboundAwgHints_NodeInboundKeepsAwg3Fields pins localInbound as the only
+// switch gating 3.x fields on this host's own tools-support probe.
+func TestInboundAwgHints_NodeInboundKeepsAwg3Fields(t *testing.T) {
+	unsupported := false
+	awg.SetModuleSupportsAwg3(&unsupported)
+	awg.SetModuleSupportsAwg31(&unsupported)
+	t.Cleanup(func() {
+		awg.SetModuleSupportsAwg3(nil)
+		awg.SetModuleSupportsAwg31(nil)
+	})
+	const settings = `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,` +
+		`"awgVersion":"3.1","headerProtectionKey":"aBcD...base64hpk==","randomTrailers":true}`
+
+	for _, tc := range []struct {
+		name         string
+		localInbound bool
+		wantPresent  bool
+	}{
+		{"node inbound keeps fields the host cannot itself confirm", false, true},
+		{"local inbound is still gated on this host's own probe", true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf, _ := inboundAwgHints(settings, tc.localInbound)
+			if strings.Contains(obf, "HeaderProtectionKey") != tc.wantPresent {
+				t.Errorf("HeaderProtectionKey present = %v, want %v, got:\n%s", !tc.wantPresent, tc.wantPresent, obf)
+			}
+			if strings.Contains(obf, "RandomTrailers") != tc.wantPresent {
+				t.Errorf("RandomTrailers present = %v, want %v, got:\n%s", !tc.wantPresent, tc.wantPresent, obf)
+			}
+		})
+	}
+}
+
+// A field of blanks is not a value: "H1 =  " or a blank key makes awg setconf
+// reject the whole file, exactly as the empty ones the .conf renderers skip.
+func TestInboundAwgHints_BlankFieldsAreNotValues(t *testing.T) {
+	awg3 := true
+	awg.SetModuleSupportsAwg3(&awg3)
+	t.Cleanup(func() { awg.SetModuleSupportsAwg3(nil) })
+	const base = `{"address":"10.8.0.1/24","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40`
+	for _, tc := range []struct {
+		name, settings, absent, present string
+	}{
+		{"blank header", base + `,"awgVersion":"2","h1":"   ","h2":"600-900"}`, "H1 =", "H2 = 600-900"},
+		{"blank key", base + `,"awgVersion":"3","headerProtectionKey":"   "}`, "HeaderProtectionKey", "Jc = 8"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf, _ := inboundAwgHints(tc.settings, true)
+			if strings.Contains(obf, tc.absent) {
+				t.Errorf("%q must not reach the export, got:\n%q", tc.absent, obf)
+			}
+			if !strings.Contains(obf, tc.present) {
+				t.Errorf("the rest of the block must survive, %q missing from:\n%q", tc.present, obf)
+			}
+		})
+	}
+}
+
+// A blank I-field is not a value: this block is pasted verbatim into the client
+// card and the vpn:// line, where "I1 =" makes awg setconf refuse the file.
+func TestInboundAwgHints_BlankIFieldIsNotAValue(t *testing.T) {
+	const base = `{"address":"10.8.0.1/24","awgVersion":"2","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40`
+	for _, tc := range []struct{ name, i1, want string }{
+		{"blanks only", "   ", ""},
+		{"whitespace edges stay raw", " <b 0x00> ", "I1 =  <b 0x00> \n"},
+		{"plain descriptor", "<b 0x00>", "I1 = <b 0x00>\n"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf, _ := inboundAwgHints(base+`,"i1":"`+tc.i1+`","i2":"<b 0xff>"}`, true)
+			switch {
+			case tc.want == "" && strings.Contains(obf, "I1"):
+				t.Errorf("blank I1 %q must not reach the export, got:\n%s", tc.i1, obf)
+			case tc.want != "" && !strings.Contains(obf, tc.want):
+				t.Errorf("missing %q, got:\n%s", tc.want, obf)
+			}
+			if !strings.Contains(obf, "I2 = <b 0xff>\n") {
+				t.Errorf("the rest of the I-set must survive, got:\n%s", obf)
 			}
 		})
 	}

@@ -714,7 +714,7 @@
         "awgVersion31": "3.1 — AWG3 + ランダムトレーラー",
         "awgVersion31CompatNote": "バージョン 3.1 は RandomTrailers と DisableCookies を追加します。v3.1 未満のツールはこれらの行を拒否します。v1/v2 および plain-WireGuard クライアントは引き続き接続できません（HPK）。",
         "awgRandomTrailers": "ランダムトレーラー",
-        "awgRandomTrailersHint": "ピアごとの UDP ウィンドウ内で各パケットにランダムな末尾を付けます。サイズによる DPI 回避。AWG 3.1 のみ。",
+        "awgRandomTrailersHint": "UDP ウィンドウ内のランダムなサイズまでパケットを詰めます。両端で有効にする必要があります。設定ファイルに含まれるため AWG 3.1 対応クライアントは自動で有効化しますが、古いクライアントはエラーも出さずに一切接続できません。小さなパケットと戻り方向の通信量が増えます。AWG 3.1 のみ。",
         "awgDisableCookies": "cookies を無効化",
         "awgDisableCookiesHint": "cookie-challenge に応答しない。AWG 3.1 のみ。",
         "awgSRangeWarning": "AWG3 は S1-S4 ≥ 12 を要求します（ヘッダー保護暗号は S-padding の先頭 12 バイトから nonce を読み取ります）。ジェネレーターがこれを保証しますが、手動編集前に確認してください。",

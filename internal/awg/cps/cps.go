@@ -11,135 +11,95 @@ import (
 	crand "crypto/rand"
 	"encoding/binary"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"strings"
 )
 
-// CPSResult holds the I1-I5 packet strings in the AmneziaWG CPS format
-// ("<b 0xHEX>" for TLS/QUIC/SIP, "<r 2><b 0xHEX>" for DNS). Empty fields are
-// omitted from the .conf.
+// CPSResult holds the rendered I1-I5 descriptors. Empty fields are omitted
+// from the .conf.
 type CPSResult struct {
 	I1, I2, I3, I4, I5 string
 }
 
-const MaxIPayload = 1800
+// ErrCPSBudgetExceeded means no draw of the requested set fit maxIBytes.
+var ErrCPSBudgetExceeded = errors.New("awg cps: I1-I5 exceed the netlink read budget")
 
-func tagPayloadBytes(tag string) int {
-	i := strings.Index(strings.ToLower(tag), "0x")
-	if i < 0 {
-		return 0
-	}
-	hexpart := tag[i+2:]
-	if j := strings.IndexAny(hexpart, ">"); j >= 0 {
-		hexpart = hexpart[:j]
-	}
+// generateAttempts bounds the redraw loop: a full quic set clears a 3500-byte
+// budget on ~1.7% of draws, so 16 rolls refused it most of the time. At ~0.11ms
+// a draw this costs ~110ms in the worst case, which only a refusal pays.
+const generateAttempts = 1024
+
+// IBytes is what the kernel actually charges for I1-I5: each is a
+// NUL-terminated netlink string attribute costing NLA_ALIGN(4+len+1).
+func (r CPSResult) IBytes() int {
 	n := 0
-	for _, c := range hexpart {
-		switch {
-		case c >= '0' && c <= '9', c >= 'a' && c <= 'f', c >= 'A' && c <= 'F':
-			n++
+	for _, v := range []string{r.I1, r.I2, r.I3, r.I4, r.I5} {
+		if v != "" {
+			n += (len(v) + 8) &^ 3
 		}
 	}
-	return n / 2
+	return n
 }
 
-func (r CPSResult) PayloadSum() int {
-	return tagPayloadBytes(r.I1) + tagPayloadBytes(r.I2) + tagPayloadBytes(r.I3) + tagPayloadBytes(r.I4) + tagPayloadBytes(r.I5)
-}
-
-func shrinkCPS(r CPSResult) CPSResult {
-	for r.PayloadSum() > MaxIPayload {
-		switch {
-		case r.I5 != "":
-			r.I5 = ""
-		case r.I4 != "":
-			r.I4 = ""
-		case r.I3 != "":
-			r.I3 = ""
-		case r.I2 != "":
-			r.I2 = ""
-		default:
-			return r
-		}
-	}
-	return r
-}
-
-func GenerateCPS(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool) (CPSResult, error) {
-	var last CPSResult
-	for try := 0; try < 16; try++ {
+// GenerateCPS redraws until the set fits maxIBytes (awg.IBytesBudget for the
+// target interface). It refuses rather than shedding fields: a set the operator
+// cannot save beats one that silently carries fewer packets than it asked for.
+func GenerateCPS(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool, maxIBytes int) (CPSResult, error) {
+	smallest := 0
+	for try := 0; try < generateAttempts; try++ {
 		r, err := generateCPSOnce(profile, region, domain, browser, onlyI1)
 		if err != nil {
 			return r, err
 		}
-		if r.PayloadSum() <= MaxIPayload {
+		got := r.IBytes()
+		if got <= maxIBytes {
 			return r, nil
 		}
-		last = r
+		if smallest == 0 || got < smallest {
+			smallest = got
+		}
 	}
-	return shrinkCPS(last), nil
+	return CPSResult{}, fmt.Errorf("%w: smallest of %d draws was %d bytes, budget %d — pick a lighter mimicry profile, or turn the full I1-I5 set off",
+		ErrCPSBudgetExceeded, generateAttempts, smallest, maxIBytes)
 }
 
 func generateCPSOnce(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool) (CPSResult, error) {
 	dom := SelectDomain(profile, region, domain)
+	var set [5]Descriptor
 	switch profile {
 	case ProfileTLS:
-		i1 := tlsPacket(dom, browser)
-		if onlyI1 {
-			return CPSResult{I1: i1}, nil
-		}
-		pool := DomainPool(ProfileTLS, region)
-		i2 := tlsPacket(pool[rng.Intn(len(pool))], browser)
-		i3 := tlsPacket(pool[rng.Intn(len(pool))], browser)
-		i4 := tlsPacket(pool[rng.Intn(len(pool))], browser)
-		i5 := tlsPacket(pool[rng.Intn(len(pool))], browser)
-		return CPSResult{I1: i1, I2: i2, I3: i3, I4: i4, I5: i5}, nil
-	case ProfileDNS:
-		i1 := dnsPacket(dom)
-		if onlyI1 {
-			return CPSResult{I1: i1}, nil
-		}
-		pool := DomainPool(ProfileDNS, region)
-		i2 := dnsPacket(pool[rng.Intn(len(pool))])
-		i3 := dnsPacket(pool[rng.Intn(len(pool))])
-		i4 := dnsPacket(pool[rng.Intn(len(pool))])
-		i5 := dnsPacket(pool[rng.Intn(len(pool))])
-		return CPSResult{I1: i1, I2: i2, I3: i3, I4: i4, I5: i5}, nil
+		set = tlsSession(dom, browser)
 	case ProfileSIP:
-		i1 := sipPacket(dom)
-		if onlyI1 {
-			return CPSResult{I1: i1}, nil
-		}
-		i2 := sipPacket(dom)
-		i3 := sipPacket(dom)
-		i4 := sipPacket(dom)
-		i5 := sipPacket(dom)
-		return CPSResult{I1: i1, I2: i2, I3: i3, I4: i4, I5: i5}, nil
+		set = sipSession(dom)
 	case ProfileQUIC:
-		i1 := quicInitialPacket(dom, browser)
-		if onlyI1 {
-			return CPSResult{I1: i1}, nil
+		var err error
+		if set, err = quicSession(dom, browser); err != nil {
+			return CPSResult{}, err
 		}
-		i2 := quicSecondInitial()
-		i3 := quicShortPacket()
-		i4 := quicShortPacket()
-		i5 := quicShortPacket()
-		return CPSResult{I1: i1, I2: i2, I3: i3, I4: i4, I5: i5}, nil
+	case ProfileDNS:
+		set = dnsSession(dom, region)
 	default:
 		return CPSResult{}, fmt.Errorf("awg cps: unknown profile %q", profile)
 	}
+	return fromSession(set, onlyI1)
 }
 
-// hexTag formats raw bytes as a CPS "<b 0xHEX>" tag (used by TLS/QUIC/SIP).
-func hexTag(b []byte) string {
-	return "<b 0x" + hex.EncodeToString(b) + ">"
-}
-
-// dnsTag wraps a DNS packet with the AmneziaWG "<r 2><b 0xHEX>" prefix — the
-// leading <r 2> is a 2-byte random tag the AWG kernel expects on DNS-shaped
-// CPS packets (it distinguishes them from TLS-shaped ones in the parser).
-func dnsTag(b []byte) string {
-	return "<r 2><b 0x" + hex.EncodeToString(b) + ">"
+// fromSession renders a session, refusing anything the descriptor layer would
+// not stand behind rather than letting it reach a .conf.
+func fromSession(set [5]Descriptor, onlyI1 bool) (CPSResult, error) {
+	var r CPSResult
+	out := [5]*string{&r.I1, &r.I2, &r.I3, &r.I4, &r.I5}
+	for i, d := range set {
+		if onlyI1 && i > 0 {
+			break
+		}
+		if err := d.Validate(); err != nil {
+			return CPSResult{}, err
+		}
+		*out[i] = d.String()
+	}
+	return r, nil
 }
 
 // randomBytes returns n cryptographically-strong random bytes.
@@ -197,28 +157,6 @@ func greaseValue() uint16 {
 
 // ---- TLS ClientHello (browser-shaped) ----
 
-// tlsPacket builds a TLS 1.2 ClientHello record for the given SNI host and
-// returns it as a "<b 0xHEX>" CPS tag. The browser parameter selects which
-// fingerprint to mimic (Chrome, Firefox, or Safari). Ported from pumbaX
-// gen_tls_clienthello, extended with browser-specific profiles.
-func tlsPacket(host string, browser BrowserProfile) string {
-	var ch []byte
-	switch browser {
-	case BrowserFirefox:
-		ch = buildFirefoxHello(host)
-	case BrowserSafari:
-		ch = buildSafariHello(host)
-	default:
-		ch = buildChromeHello(host)
-	}
-	var rec bytes.Buffer
-	rec.WriteByte(0x16)
-	rec.Write([]byte{0x03, 0x01})
-	writeLen16(&rec, len(ch))
-	rec.Write(ch)
-	return hexTag(rec.Bytes())
-}
-
 // buildChromeHello builds a Chrome-shaped TLS 1.2 ClientHello handshake body:
 // GREASE cipher group, Chrome extension order, compress_certificate, ALPS,
 // random padding 0..48. Ported from the original pumbaX buildTLSClientHello.
@@ -247,7 +185,13 @@ func buildChromeHello(host string) []byte {
 	hs.WriteByte(0x00)
 
 	var ext bytes.Buffer
-	writeLen16(&ext, greaseValue())
+	// Chrome draws its two GREASE extension types distinct. Letting them collide
+	// makes a duplicate extension type, which strict parsers reject outright.
+	greaseExt1, greaseExt2 := greaseValue(), greaseValue()
+	for greaseExt2 == greaseExt1 {
+		greaseExt2 = greaseValue()
+	}
+	writeLen16(&ext, greaseExt1)
 	writeLen16(&ext, 0)
 	writeServerNameExt(&ext, host)
 	writeLen16(&ext, 0x0017)
@@ -264,8 +208,12 @@ func buildChromeHello(host string) []byte {
 	writeLen16(&ext, 0)
 	writeALPNExt(&ext)
 	writeLen16(&ext, 0x0005)
-	writeLen16(&ext, 1)
-	ext.WriteByte(0x00)
+	// RFC 6066 status_request: OCSP, then two empty lists. A 1-byte body is
+	// short by four and every strict parser stops there.
+	writeLen16(&ext, 5)
+	ext.WriteByte(0x01)
+	writeLen16(&ext, 0)
+	writeLen16(&ext, 0)
 	writeSigAlgsExt(&ext, chromeSigAlgs)
 	writeLen16(&ext, 0x0012)
 	writeLen16(&ext, 0)
@@ -277,15 +225,15 @@ func buildChromeHello(host string) []byte {
 	ext.WriteByte(0x01)
 	writeLen16(&ext, 0x001B)
 	writeLen16(&ext, 3)
+	// RFC 8879: one byte of list length, then the brotli algorithm id.
 	ext.WriteByte(0x02)
-	writeLen16(&ext, 1)
-	ext.WriteByte(0x02)
+	writeLen16(&ext, 0x0002)
 	writeLen16(&ext, 0x4469)
 	writeLen16(&ext, 4)
 	writeLen16(&ext, 2)
 	ext.WriteByte(0x68)
 	ext.WriteByte(0x32)
-	writeLen16(&ext, greaseValue())
+	writeLen16(&ext, greaseExt2)
 	writeLen16(&ext, 0)
 	pad := rng.Intn(49)
 	writeLen16(&ext, 0x0015)
@@ -342,8 +290,12 @@ func buildFirefoxHello(host string) []byte {
 	writeLen16(&ext, 0)
 	writeALPNExt(&ext)
 	writeLen16(&ext, 0x0005)
-	writeLen16(&ext, 1)
-	ext.WriteByte(0x00)
+	// RFC 6066 status_request: OCSP, then two empty lists. A 1-byte body is
+	// short by four and every strict parser stops there.
+	writeLen16(&ext, 5)
+	ext.WriteByte(0x01)
+	writeLen16(&ext, 0)
+	writeLen16(&ext, 0)
 	writeKeyShareExt(&ext, false)
 	writeSupportedVersionsExt(&ext, false)
 	writeSigAlgsExt(&ext, firefoxSigAlgs)
@@ -405,8 +357,12 @@ func buildSafariHello(host string) []byte {
 	writeLen16(&ext, 0x0023)
 	writeLen16(&ext, 0)
 	writeLen16(&ext, 0x0005)
-	writeLen16(&ext, 1)
-	ext.WriteByte(0x00)
+	// RFC 6066 status_request: OCSP, then two empty lists. A 1-byte body is
+	// short by four and every strict parser stops there.
+	writeLen16(&ext, 5)
+	ext.WriteByte(0x01)
+	writeLen16(&ext, 0)
+	writeLen16(&ext, 0)
 	writeSigAlgsExt(&ext, safariSigAlgs)
 	writeSupportedVersionsExtSafari(&ext)
 	writeLen16(&ext, 0x002D)
@@ -530,7 +486,8 @@ func writeServerNameExt(b *bytes.Buffer, host string) {
 	writeLen16(&list, len(name.Bytes()))
 	list.Write(name.Bytes())
 	writeLen16(b, 0x0000)
-	writeLen16(b, list.Len()+2)
+	// list already carries the server_name_list length; wrapping it in another
+	// one made the extension unreadable to every TLS parser.
 	writeLen16(b, list.Len())
 	b.Write(list.Bytes())
 }
@@ -590,8 +547,11 @@ func writeSupportedVersionsExt(b *bytes.Buffer, grease bool) {
 func writeKeyShareExt(b *bytes.Buffer, grease bool) {
 	var ks bytes.Buffer
 	if grease {
+		// A GREASE share carries one byte, as Chrome sends it; a zero-length
+		// key_exchange is rejected outright by strict parsers.
 		writeLen16(&ks, greaseValue())
-		writeLen16(&ks, 0)
+		writeLen16(&ks, 1)
+		ks.WriteByte(0x00)
 	}
 	writeLen16(&ks, 0x001D) // x25519
 	writeLen16(&ks, 32)
@@ -603,47 +563,6 @@ func writeKeyShareExt(b *bytes.Buffer, grease bool) {
 }
 
 // ---- DNS query (EDNS0) ----
-
-// dnsPacket builds a DNS query (flags 0x0100, RD, 1 query, EDNS0 OPT) for the
-// given domain and returns it as a "<r 2><b 0xHEX>" CPS tag. Ported from
-// pumbaX gen_dns.
-func dnsPacket(domain string) string {
-	var b bytes.Buffer
-	// ID (random 16-bit)
-	writeLen16(&b, uint16(rng.Intn(65536)))
-	// flags: 0x0100 (RD)
-	writeLen16(&b, 0x0100)
-	// counts: 1 query, 0 answer, 0 authority, 1 additional (OPT)
-	writeLen16(&b, 1)
-	writeLen16(&b, 0)
-	writeLen16(&b, 0)
-	writeLen16(&b, 1)
-	// Question: QNAME (label-encoded), qtype (A/AAAA/MX weighted), qclass IN
-	writeQName(&b, domain)
-	// Weighted qtype: A 60%, AAAA 30%, MX 10%
-	r := rng.Intn(100)
-	qtype := uint16(1) // A
-	if r >= 60 && r < 90 {
-		qtype = 28 // AAAA
-	} else if r >= 90 {
-		qtype = 15 // MX
-	}
-	writeLen16(&b, qtype)
-	writeLen16(&b, 1) // IN
-	// EDNS0 OPT RR: name=0 (root), type=0x0029, class=udp_size, TTL=DO bit, rdlen=0
-	b.WriteByte(0x00) // root name
-	writeLen16(&b, 0x0029)
-	udpSize := 1232
-	if rng.Intn(2) == 0 {
-		udpSize = 4096
-	}
-	writeLen16(&b, uint16(udpSize))
-	// TTL: DO bit is in the high 16 bits (0x8000), low 16 = 0
-	writeLen16(&b, 0x8000)
-	writeLen16(&b, 0x0000)
-	writeLen16(&b, 0) // rdlen 0
-	return dnsTag(b.Bytes())
-}
 
 func writeQName(b *bytes.Buffer, domain string) {
 	for _, label := range strings.Split(domain, ".") {
@@ -658,40 +577,6 @@ func writeQName(b *bytes.Buffer, domain string) {
 
 // ---- SIP REGISTER ----
 
-// sipPacket builds a SIP REGISTER request for a random host in the SIP pool
-// and returns it as a "<b 0xHEX>" CPS tag. Ported from pumbaX gen_sip: full
-// REGISTER with Via/From/To/Contact/Allow/Supported/Expires headers.
-func sipPacket(domain string) string {
-	if domain == "" {
-		domain = PickRandomDomain(sipDomains)
-	}
-	user := randLowerAlphaNum(rng.Intn(5) + 4)
-	callID := randomHex(8)
-	branch := "z9hG4bK" + randomHex(7)
-	tag := randomHex(4)
-	cseq := rng.Intn(50) + 1
-	host := domain
-	// Random private IP for Contact/Via
-	privIP := randomPrivateIP()
-	lport := []int{5060, 5062, 5080, 5160, rng.Intn(55000) + 10000}
-	port := lport[rng.Intn(len(lport))]
-
-	var b bytes.Buffer
-	fmt.Fprintf(&b, "REGISTER sip:%s SIP/2.0\r\n", host)
-	fmt.Fprintf(&b, "Via: SIP/2.0/UDP %s:%d;branch=%s\r\n", privIP, port, branch)
-	fmt.Fprintf(&b, "From: <sip:%s@%s>;tag=%s\r\n", user, host, tag)
-	fmt.Fprintf(&b, "To: <sip:%s@%s>\r\n", user, host)
-	fmt.Fprintf(&b, "Call-ID: %s@%s\r\n", callID, privIP)
-	fmt.Fprintf(&b, "CSeq: %d REGISTER\r\n", cseq)
-	fmt.Fprintf(&b, "Contact: <sip:%s@%s:%d>;expires=3600\r\n", user, privIP, port)
-	fmt.Fprintf(&b, "Allow: REGISTER,INVITE,ACK,CANCEL,BYE,OPTIONS\r\n")
-	fmt.Fprintf(&b, "Supported: path,replaces\r\n")
-	fmt.Fprintf(&b, "User-Agent: Linphone/5.1.2 (belle-sip/1.6.3)\r\n")
-	fmt.Fprintf(&b, "Expires: 3600\r\n")
-	fmt.Fprintf(&b, "Content-Length: 0\r\n\r\n")
-	return hexTag(b.Bytes())
-}
-
 func randomPrivateIP() string {
 	switch rng.Intn(3) {
 	case 0:
@@ -704,103 +589,6 @@ func randomPrivateIP() string {
 }
 
 // ---- QUIC Initial (plain, no crypto lib) ----
-
-// quicInitialPacket builds a QUIC v1 Long Header Initial carrying a synthetic
-// CRYPTO frame (a raw ClientHello-like blob) padded to ~1200 bytes. Returns
-// a "<b 0xHEX>" CPS tag. This is the plain/masked variant from pumbaX
-// (gen_quic_initial without the cryptography lib): a structurally valid QUIC
-// Initial that the AWG kernel accepts. Real QUIC encryption (HKDF-SHA256 +
-// AES-128-GCM + header protection) is not needed for CPS — the packets are
-// signature templates, not live wire traffic. The embedded ClientHello follows
-// the chosen browser profile (h3 over QUIC is still TLS underneath, so the
-// same Chrome/Firefox/Safari fingerprint split applies).
-func quicInitialPacket(domain string, browser BrowserProfile) string {
-	dcid := randomBytes(8)
-	scid := randomBytes(8)
-	// CRYPTO frame (type 0x06) with a synthetic ClientHello-like payload.
-	var crypto bytes.Buffer
-	crypto.WriteByte(0x06)           // CRYPTO frame type
-	crypto.Write([]byte{0x00, 0x00}) // offset 0, var-int length placeholder
-	var ch []byte
-	switch browser {
-	case BrowserFirefox:
-		ch = buildFirefoxHello(domain)
-	case BrowserSafari:
-		ch = buildSafariHello(domain)
-	default:
-		ch = buildChromeHello(domain)
-	}
-	writeVarint(&crypto, len(ch))
-	crypto.Write(ch)
-
-	// Long header: 0xC3 (long, 4-byte packet number), version 0x00000001.
-	var pkt bytes.Buffer
-	pkt.WriteByte(0xC3)
-	pkt.Write([]byte{0x00, 0x00, 0x00, 0x01}) // QUIC v1
-	pkt.WriteByte(byte(len(dcid)))
-	pkt.Write(dcid)
-	pkt.WriteByte(byte(len(scid)))
-	pkt.Write(scid)
-	// token: length 0
-	pkt.WriteByte(0x00)
-	// length: var-int — packet number (4) + payload, with padding to 1200.
-	payload := crypto.Bytes()
-	// Pad the payload to make the full initial ~1200 bytes (QUIC minimum).
-	pnLen := 4
-	needed := 1200 - pkt.Len() - 4 // length field covers pn + payload + padding
-	pad := needed - pnLen - len(payload)
-	if pad < 0 {
-		pad = 0
-	}
-	writeVarint(&pkt, pnLen+len(payload)+pad)
-	// packet number (4 bytes, 0)
-	pkt.Write([]byte{0x00, 0x00, 0x00, 0x00})
-	pkt.Write(payload)
-	// Fill the QUIC-minimum padding with RANDOM bytes, not 0x00. A real QUIC
-	// Initial's payload (PADDING frames included) is AEAD-encrypted with keys
-	// derived from the DCID (RFC 9001 §5.2), so everything after the header
-	// looks like high-entropy ciphertext on the wire — a zero run of ~850 bytes
-	// is a tell no real client produces. randomBytes reads crypto/rand.
-	if pad > 0 {
-		pkt.Write(randomBytes(pad))
-	}
-	return hexTag(pkt.Bytes())
-}
-
-// quicSecondInitial builds a second QUIC Initial (I2) — a random short
-// packet with a different first byte, ported from pumbaX gen_quic_second_initial.
-func quicSecondInitial() string {
-	var pkt bytes.Buffer
-	fb := []byte{0xC0, 0xC0, 0xC3}[rng.Intn(3)]
-	pkt.WriteByte(fb)
-	pkt.Write([]byte{0x00, 0x00, 0x00, 0x01})
-	pkt.WriteByte(8)
-	pkt.Write(randomBytes(8))
-	pkt.WriteByte(8)
-	pkt.Write(randomBytes(8))
-	pkt.WriteByte(0x00) // token len 0
-	target := rng.Intn(300) + 300
-	payload := randomBytes(target - pkt.Len())
-	writeVarint(&pkt, len(payload)+4)
-	pkt.Write([]byte{0x00, 0x00, 0x00, 0x00})
-	pkt.Write(payload)
-	return hexTag(pkt.Bytes())
-}
-
-// quicShortPacket builds a QUIC short header (I3-I5), ported from
-// pumbaX gen_quic_short: 0x40 | spin<<5 | key<<2 | (pn_len-1).
-func quicShortPacket() string {
-	var pkt bytes.Buffer
-	spin := rng.Intn(2)
-	key := rng.Intn(2)
-	pnLen := 1 + rng.Intn(4)
-	fb := byte(0x40) | byte(spin<<5) | byte(key<<2) | byte(pnLen-1)
-	pkt.WriteByte(fb)
-	pkt.Write(randomBytes(8)) // dcid
-	pkt.Write(randomBytes(pnLen))
-	pkt.Write(randomBytes(rng.Intn(50) + 40))
-	return hexTag(pkt.Bytes())
-}
 
 // writeVarint writes a QUIC variable-length integer (RFC 9000 §16) using the
 // minimal encoding for the value.

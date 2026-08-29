@@ -1219,3 +1219,26 @@ func TestGenHysteriaLinkKeepsHopPortsWithExternalProxy(t *testing.T) {
 		}
 	}
 }
+
+// TestAwgLinkDropsOversizedIFields pins the same all-or-nothing gate the two
+// .conf renderers already have — see inboundAwgHints's comment.
+func TestAwgLinkDropsOversizedIFields(t *testing.T) {
+	huge := strings.Repeat("x", 712) // 5 fields x 712 chars = 3600 IBytes, over the worst-case budget
+	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"2",` +
+		`"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,"h1":"100-500",` +
+		`"i1":"` + huge + `","i2":"` + huge + `","i3":"` + huge + `","i4":"` + huge + `","i5":"` + huge + `",` +
+		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
+	s := &SubService{}
+	link := s.genAwgLink(awgLinkInbound(settings), "user")
+	for _, key := range []string{"i1=", "i2=", "i3=", "i4=", "i5="} {
+		if strings.Contains(link, key) {
+			t.Errorf("oversized I-set must be dropped whole, found %q in:\n%s", key, link)
+		}
+	}
+	for _, want := range []string{"jc=8", "s1=30", "h1=100-500"} {
+		if !strings.Contains(link, want) {
+			t.Errorf("non-I fields must survive, missing %q in:\n%s", want, link)
+		}
+	}
+}

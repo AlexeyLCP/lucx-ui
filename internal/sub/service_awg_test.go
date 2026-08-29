@@ -1,9 +1,11 @@
 package sub
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/vpnuri"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
@@ -38,6 +40,7 @@ func TestGenAwgLink_HeaderProtectionKeyOmittedWhenEmpty(t *testing.T) {
 }
 
 func TestGenAwgLink_HeaderProtectionKeyEmittedWhenSet(t *testing.T) {
+	withAwgSupport(t, true)
 	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
 		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"3",` +
 		`"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,` +
@@ -52,6 +55,7 @@ func TestGenAwgLink_HeaderProtectionKeyEmittedWhenSet(t *testing.T) {
 }
 
 func TestGenAwgLink_HeaderProtectionKeyEmittedOnV31(t *testing.T) {
+	withAwgSupport(t, true)
 	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
 		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"3.1",` +
 		`"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,` +
@@ -83,6 +87,7 @@ func TestGenAwgLink_HeaderProtectionKeyOmittedOnNonV3(t *testing.T) {
 }
 
 func TestGenAwgLink_DeviceFieldsGatedToV3(t *testing.T) {
+	withAwgSupport(t, true)
 	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
 		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"3",` +
 		`"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,` +
@@ -168,6 +173,106 @@ func TestGenAwgLink_VpnEnvelopeLine(t *testing.T) {
 		if !strings.Contains(conf, want) {
 			t.Errorf("vpn:// conf missing %q, got:\n%s", want, conf)
 		}
+	}
+}
+
+// withAwgSupport forces the host-capability probe for the duration of a test.
+// Without it these link tests silently depend on whether the machine running
+// them has the amneziawg module — they passed on a lab node and would fail in CI.
+func withAwgSupport(t *testing.T, supported bool) {
+	t.Helper()
+	awg.SetModuleSupportsAwg3(&supported)
+	awg.SetModuleSupportsAwg31(&supported)
+	t.Cleanup(func() {
+		awg.SetModuleSupportsAwg3(nil)
+		awg.SetModuleSupportsAwg31(nil)
+	})
+}
+
+// The server omits 3.x lines the host tools cannot parse, so a link that turns
+// them on hands the client a config the server never applied. For RandomTrailers
+// that is fatal: the receiver checks the length against its own flag, so the
+// server drops every handshake from a client that padded.
+func TestGenAwgLink_OmitsV3FieldsWhenTheHostCannotApplyThem(t *testing.T) {
+	settings := `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"3.1",` +
+		`"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,` +
+		`"h1":"100-500","h2":"600-900","h3":"1000-1500","h4":"1600-2000",` +
+		`"headerProtectionKey":"aBcD...base64hpk==","randomTrailers":true,"disableCookies":true,` +
+		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
+	s := &SubService{}
+
+	withAwgSupport(t, false)
+	for _, param := range []string{"randomtrailers=", "disablecookies=", "headerprotectionkey="} {
+		if link := s.genAwgLink(awgLinkInbound(settings), "user"); strings.Contains(link, param) {
+			t.Fatalf("%s must be absent when the host cannot apply it, got:\n%s", param, link)
+		}
+	}
+
+	withAwgSupport(t, true)
+	link := s.genAwgLink(awgLinkInbound(settings), "user")
+	for _, param := range []string{"randomtrailers=true", "disablecookies=true"} {
+		if !strings.Contains(link, param) {
+			t.Fatalf("%s must appear when the host supports it, got:\n%s", param, link)
+		}
+	}
+}
+
+// A field of blanks is not a value: the client would write "H1 =  " into its
+// own .conf and awg setconf then rejects the file whole.
+func TestGenAwgLink_BlankFieldsAreNotValues(t *testing.T) {
+	withAwgSupport(t, true)
+	const base = `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,"s3":20,"s4":15,`
+	const clients = `"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
+	s := &SubService{}
+	for _, tc := range []struct {
+		name, settings, absent string
+	}{
+		{"blank header", base + `"awgVersion":"2","h1":"   ",` + clients, "h1="},
+		{"blank key", base + `"awgVersion":"3","headerProtectionKey":"  ",` + clients, "headerprotectionkey="},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lines := splitLinkLines(s.genAwgLink(awgLinkInbound(tc.settings), "user"))
+			if len(lines) == 0 {
+				t.Fatal("expected a non-empty amneziawg:// link")
+			}
+			if strings.Contains(lines[0], tc.absent) {
+				t.Errorf("%q must not reach the share link, got:\n%s", tc.absent, lines[0])
+			}
+		})
+	}
+}
+
+// A blank I-field is not a value: the client writes the param into its own
+// .conf as "I1 =  ", and awg setconf then rejects that file whole.
+func TestGenAwgLink_BlankIFieldIsNotAValue(t *testing.T) {
+	const base = `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"2","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,`
+	const clients = `"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
+	s := &SubService{}
+	for _, tc := range []struct{ name, i1, want string }{
+		{"blanks only", "   ", ""},
+		{"whitespace edges stay raw", " <b 0x00> ", " <b 0x00> "},
+		{"plain descriptor", "<b 0x00>", "<b 0x00>"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			lines := splitLinkLines(s.genAwgLink(awgLinkInbound(base+`"i1":"`+tc.i1+`","i2":"<b 0xff>",`+clients), "user"))
+			if len(lines) == 0 {
+				t.Fatal("expected a non-empty amneziawg:// link")
+			}
+			u, err := url.Parse(lines[0])
+			if err != nil {
+				t.Fatalf("share link must parse: %v, got:\n%s", err, lines[0])
+			}
+			q := u.Query()
+			if got := q.Get("i1"); got != tc.want {
+				t.Errorf("i1 = %q, want %q, in:\n%s", got, tc.want, lines[0])
+			}
+			if got := q.Get("i2"); got != "<b 0xff>" {
+				t.Errorf("the rest of the I-set must survive, i2 = %q, in:\n%s", got, lines[0])
+			}
+		})
 	}
 }
 
