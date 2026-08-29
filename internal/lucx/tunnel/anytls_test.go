@@ -14,6 +14,30 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
+func TestParseTCPEstablished(t *testing.T) {
+	dump := `  sl  local_address rem_address   st tx_queue rx_queue tr tm->when retrnsmt   uid  timeout inode
+   0: 00000000:20FB 00000000:0000 0A 00000000:00000000 00:00000000 00000000     0        0 1 1 0000000000000000 100 0 0 10 0
+   1: 0100007F:20FB 0100007F:C001 01 00000000:00000000 00:00000000 00000000     0        0 2 1 0000000000000000 100 0 0 10 0
+   2: 0101A8C0:20FB 0201A8C0:C002 01 00000000:00000000 00:00000000 00000000     0        0 3 1 0000000000000000 100 0 0 10 0`
+	if n := parseTCPEstablished(dump, 8443, true); n != 1 {
+		t.Fatalf("established = %d, want 1 (skip listen + loopback)", n)
+	}
+	if n := parseTCPEstablished(dump, 8443, false); n != 2 {
+		t.Fatalf("with loopback = %d, want 2", n)
+	}
+}
+
+func TestParseIptablesSave(t *testing.T) {
+	dump := `*filter
+[10:100] -A INPUT -p tcp -m tcp --dport 8443 -m comment --comment lucx-anytls-anytls-1 -j RETURN
+[4:40] -A OUTPUT -p tcp -m tcp --sport 8443 -m comment --comment "lucx-anytls-anytls-1" -j RETURN
+`
+	up, down, ok := parseIptablesSave(dump, "lucx-anytls-anytls-1")
+	if !ok || up != 40 || down != 100 {
+		t.Fatalf("up=%d down=%d ok=%v", up, down, ok)
+	}
+}
+
 func TestAnytlsValidate(t *testing.T) {
 	if err := (AnytlsConfig{Port: 8443, Password: "s3cret", SNI: "vpn.example.com"}).Validate(); err != nil {
 		t.Fatalf("valid config rejected: %v", err)

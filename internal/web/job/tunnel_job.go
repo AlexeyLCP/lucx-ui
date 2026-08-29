@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
@@ -42,6 +43,9 @@ func (j *TunnelJob) Run() {
 	j.collectNaiveTraffic()
 	j.collectMieruTraffic()
 	j.collectTrustTunnelTraffic()
+	j.collectAnytlsTraffic()
+	j.collectOlcrtcTraffic()
+	j.collectQwdttTraffic()
 }
 
 func (j *TunnelJob) collectNaiveTraffic() {
@@ -321,6 +325,187 @@ func (j *TunnelJob) collectTrustTunnelTraffic() {
 		}
 	}
 	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
+}
+
+func (j *TunnelJob) collectAnytlsTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var targets []tunnel.AnytlsScrapeTarget
+	activeTags := make([]string, 0)
+	emailsByTag := map[string][]string{}
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Anytls || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		cfg, ok := tunnel.AnytlsConfigFromInbound(ib)
+		if !ok {
+			continue
+		}
+		activeTags = append(activeTags, tag)
+		emailsByTag[tag] = anytlsEmailsForInbound(ib)
+		targets = append(targets, tunnel.AnytlsScrapeTarget{
+			Key:  tunnel.AnytlsKey(ib.Id),
+			Tag:  tag,
+			Port: cfg.Port,
+		})
+	}
+	if len(targets) == 0 {
+		if len(activeTags) > 0 {
+			j.inboundService.RefreshLocalOnlineClients(nil, activeTags)
+		}
+		return
+	}
+	snaps := tunnel.GetManager().CollectAnytlsTraffic(targets)
+	traffics := make([]*xray.Traffic, 0, len(snaps))
+	clientTraffics := make([]*xray.ClientTraffic, 0)
+	onlineEmails := make([]string, 0)
+	for _, d := range snaps {
+		if d.Up > 0 || d.Down > 0 {
+			traffics = append(traffics, &xray.Traffic{
+				IsInbound: true,
+				Tag:       d.Tag,
+				Up:        d.Up,
+				Down:      d.Down,
+			})
+		}
+		email := tunnel.TrustTunnelSoleClient(emailsByTag[d.Tag])
+		if email == "" {
+			continue
+		}
+		if d.Up > 0 || d.Down > 0 {
+			clientTraffics = append(clientTraffics, &xray.ClientTraffic{
+				Email: email,
+				Up:    d.Up,
+				Down:  d.Down,
+			})
+		}
+		if d.Sessions > 0 || d.Up > 0 || d.Down > 0 {
+			onlineEmails = append(onlineEmails, email)
+		}
+	}
+	if len(traffics) > 0 || len(clientTraffics) > 0 {
+		if _, _, err := j.inboundService.AddTraffic(traffics, clientTraffics); err != nil {
+			logger.Warning("tunnel job: add anytls traffic failed:", err)
+		}
+	}
+	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
+}
+
+func (j *TunnelJob) collectOlcrtcTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var snaps []tunnel.SidecarTraffic
+	activeTags := make([]string, 0)
+	emailsByTag := map[string][]string{}
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Olcrtc || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		activeTags = append(activeTags, tag)
+		emailsByTag[tag] = anytlsEmailsForInbound(ib)
+		snaps = append(snaps, tunnel.GetManager().CollectOlcrtcTraffic(tunnel.OlcrtcKey(ib.Id), tag))
+	}
+	j.commitSidecarScrape("olcrtc", snaps, emailsByTag, activeTags)
+}
+
+func (j *TunnelJob) collectQwdttTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var snaps []tunnel.SidecarTraffic
+	activeTags := make([]string, 0)
+	emailsByTag := map[string][]string{}
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Qwdtt || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		activeTags = append(activeTags, tag)
+		emailsByTag[tag] = anytlsEmailsForInbound(ib)
+		snaps = append(snaps, tunnel.GetManager().CollectQwdttTraffic(tag))
+	}
+	j.commitSidecarScrape("qwdtt", snaps, emailsByTag, activeTags)
+}
+
+func (j *TunnelJob) commitSidecarScrape(name string, snaps []tunnel.SidecarTraffic, emailsByTag map[string][]string, activeTags []string) {
+	if len(snaps) == 0 {
+		if len(activeTags) > 0 {
+			j.inboundService.RefreshLocalOnlineClients(nil, activeTags)
+		}
+		return
+	}
+	traffics := make([]*xray.Traffic, 0, len(snaps))
+	clientTraffics := make([]*xray.ClientTraffic, 0)
+	onlineEmails := make([]string, 0)
+	for _, d := range snaps {
+		if d.Up > 0 || d.Down > 0 {
+			traffics = append(traffics, &xray.Traffic{
+				IsInbound: true,
+				Tag:       d.Tag,
+				Up:        d.Up,
+				Down:      d.Down,
+			})
+		}
+		email := tunnel.TrustTunnelSoleClient(emailsByTag[d.Tag])
+		if email == "" {
+			continue
+		}
+		if d.Up > 0 || d.Down > 0 {
+			clientTraffics = append(clientTraffics, &xray.ClientTraffic{
+				Email: email,
+				Up:    d.Up,
+				Down:  d.Down,
+			})
+		}
+		if d.Sessions > 0 || d.Up > 0 || d.Down > 0 {
+			onlineEmails = append(onlineEmails, email)
+		}
+	}
+	if len(traffics) > 0 || len(clientTraffics) > 0 {
+		if _, _, err := j.inboundService.AddTraffic(traffics, clientTraffics); err != nil {
+			logger.Warningf("tunnel job: add %s traffic failed: %v", name, err)
+		}
+	}
+	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
+}
+
+func anytlsEmailsForInbound(ib *model.Inbound) []string {
+	if ib == nil {
+		return nil
+	}
+	clients, err := (&service.ClientService{}).ListForInbound(database.GetDB(), ib.Id)
+	if err != nil {
+		return nil
+	}
+	out := make([]string, 0, len(clients))
+	for i := range clients {
+		if !clients[i].Enable {
+			continue
+		}
+		if e := strings.TrimSpace(clients[i].Email); e != "" {
+			out = append(out, e)
+		}
+	}
+	return out
 }
 
 func trustTunnelEmailsForInbound(ib *model.Inbound) []string {

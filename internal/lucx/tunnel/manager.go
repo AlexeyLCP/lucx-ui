@@ -154,6 +154,8 @@ type Manager struct {
 	naiveTraffic       map[string]*naiveLogCursor
 	mieruTraffic       map[string]map[string]*mieruUserCursor
 	trustTunnelTraffic map[string]*trustTunnelCursor
+	anytlsTraffic      map[string]*anytlsCursor
+	sidecarDelta       map[string]*deltaCursor
 }
 
 func newManager() *Manager {
@@ -161,6 +163,8 @@ func newManager() *Manager {
 		cores:              make(map[string]*managed),
 		mieruTraffic:       make(map[string]map[string]*mieruUserCursor),
 		trustTunnelTraffic: make(map[string]*trustTunnelCursor),
+		anytlsTraffic:      make(map[string]*anytlsCursor),
+		sidecarDelta:       make(map[string]*deltaCursor),
 	}
 }
 
@@ -478,6 +482,16 @@ func (m *Manager) IsRunningKey(key string) bool {
 	defer m.mu.Unlock()
 	mc, ok := m.cores[key]
 	return ok && mc.proc != nil && mc.proc.IsRunning()
+}
+
+func (m *Manager) PidOf(key string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	mc, ok := m.cores[key]
+	if !ok || mc.proc == nil {
+		return 0
+	}
+	return mc.proc.Pid()
 }
 
 // AnyRunning reports whether any managed key carrying the prefix is alive
