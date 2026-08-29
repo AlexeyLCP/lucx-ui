@@ -149,6 +149,18 @@ func checkOutboundIFields(o *model.AwgOutbound) error {
 	return awg.ValidateIFields("awgo-"+strconv.Itoa(o.Id), s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5)
 }
 
+// Same rule as the inbound side, deliberately the same function. A bad key here
+// fails at awg-quick instead, which drops awgo-N every 10s and says nothing.
+func checkOutboundHeaderProtectionKey(o *model.AwgOutbound) error {
+	var s struct {
+		HeaderProtectionKey string `json:"headerProtectionKey"`
+	}
+	if json.Unmarshal([]byte(o.Settings), &s) != nil {
+		return nil
+	}
+	return validateAwgHeaderProtectionKey(s.HeaderProtectionKey)
+}
+
 // AddOutbound persists a new AWG outbound row. If Settings is empty, fills in
 // a default keypair via defaultAwgOutboundSettings. Tag uniqueness is enforced.
 // When the operator supplied a non-empty Tag it is kept; otherwise the Tag is
@@ -171,6 +183,9 @@ func (s *AwgOutboundService) AddOutbound(o *model.AwgOutbound) (*model.AwgOutbou
 		o.Settings = defaultAwgOutboundSettings()
 	}
 	if err := checkOutboundIFields(o); err != nil {
+		return nil, err
+	}
+	if err := checkOutboundHeaderProtectionKey(o); err != nil {
 		return nil, err
 	}
 	if err := s.checkSubnetConflict(o); err != nil {
@@ -205,6 +220,9 @@ func (s *AwgOutboundService) UpdateOutbound(o *model.AwgOutbound) error {
 		return err
 	}
 	if err := checkOutboundIFields(o); err != nil {
+		return err
+	}
+	if err := checkOutboundHeaderProtectionKey(o); err != nil {
 		return err
 	}
 	if err := s.checkSubnetConflict(o); err != nil {

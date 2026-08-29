@@ -3,7 +3,9 @@
 package service
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
@@ -439,6 +441,88 @@ func TestCheckOutboundIFields(t *testing.T) {
 				t.Fatalf("want ErrIFieldsTooLarge, got %v", err)
 			}
 		})
+	}
+}
+
+// Nothing checked the key's format on the way in, and the failure that follows
+// is silent: awg-quick drops awgo-N and the cron job retries every 10 seconds.
+func TestAwgOutbound_RejectsBadHeaderProtectionKey(t *testing.T) {
+	setupConflictDB(t)
+	svc := &AwgOutboundService{}
+	const validKey = "MCPfRGcDGotJ6TcnIdDqsemj2cMIiGHnPUHM5ivXN18="
+	settingsWith := func(key string) string {
+		raw, err := json.Marshal(map[string]any{
+			"privateKey": "k", "publicKey": "p", "endpoint": "203.0.113.9:51820",
+			"address": "10.9.0.5/32", "mtu": 1320, "awgVersion": "3",
+			"headerProtectionKey": key,
+		})
+		if err != nil {
+			t.Fatalf("marshal settings: %v", err)
+		}
+		return string(raw)
+	}
+	for i, tc := range []struct {
+		name    string
+		key     string
+		wantErr error
+	}{
+		{"no key at all", "", nil},
+		{"base64 of 32 bytes saves", validKey, nil},
+		{"a wrapped key leaves a truncated stub", "MCPfRGcDGotJ6Tcn", errAwgHeaderProtectionKey},
+		{"a word is not a key", "привет", errAwgHeaderProtectionKey},
+		{"a key of blanks is not an absent key", "   ", errAwgHeaderProtectionKey},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			tag := fmt.Sprintf("awgo-hpk-%d", i)
+			added, err := svc.AddOutbound(&model.AwgOutbound{Tag: tag, Settings: settingsWith(tc.key)})
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("AddOutbound(key=%q) = %v, want %v", tc.key, err, tc.wantErr)
+			}
+			if tc.wantErr != nil {
+				return
+			}
+			// UpdateOutbound is a second, independent call site.
+			added.Settings = settingsWith("привет")
+			if err := svc.UpdateOutbound(added); !errors.Is(err, errAwgHeaderProtectionKey) {
+				t.Fatalf("UpdateOutbound(bad key) = %v, want errAwgHeaderProtectionKey", err)
+			}
+		})
+	}
+}
+
+// A .conf wrapped in transit loses everything past the break, and the stub left
+// behind is what promotes the outbound to v3 — so it re-renders itself.
+func TestAddOutbound_RejectsWrappedKeyFromPastedConf(t *testing.T) {
+	setupConflictDB(t)
+	const pasted = `[Interface]
+PrivateKey = abcDEF
+Address = 10.9.0.5/32
+MTU = 1320
+Jc = 4
+HeaderProtectionKey = MCPfRGcDGotJ6Tcn
+IdDqsemj2cMIiGHnPUHM5ivXN18=
+
+[Peer]
+PublicKey = pubKEY
+Endpoint = 203.0.113.9:51820
+AllowedIPs = 0.0.0.0/0
+`
+	s, err := ParseConf(pasted)
+	if err != nil {
+		t.Fatalf("ParseConf: %v", err)
+	}
+	if s.HeaderProtectionKey != "MCPfRGcDGotJ6Tcn" {
+		t.Fatalf("the paste path keeps only the first line of a wrapped key, got %q", s.HeaderProtectionKey)
+	}
+	if s.AwgVersion != "3" {
+		t.Fatalf("a non-empty key promotes the outbound to v3, got %q", s.AwgVersion)
+	}
+	raw, err := json.Marshal(s)
+	if err != nil {
+		t.Fatalf("marshal parsed settings: %v", err)
+	}
+	if _, err := (&AwgOutboundService{}).AddOutbound(&model.AwgOutbound{Tag: "awgo-pasted", Settings: string(raw)}); !errors.Is(err, errAwgHeaderProtectionKey) {
+		t.Fatalf("AddOutbound(pasted wrapped key) = %v, want errAwgHeaderProtectionKey", err)
 	}
 }
 
