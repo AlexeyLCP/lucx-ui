@@ -7,6 +7,7 @@
 package service
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -31,6 +32,10 @@ var errAwgControlChar = errors.New("awg: value contains control characters")
 // errAwgSettingsMalformed: awg inbound settings are non-empty but not valid
 // JSON, so none of the checks that follow parsing could run.
 var errAwgSettingsMalformed = errors.New("awg: settings is not valid JSON")
+
+// errAwgHeaderProtectionKey: the AWG3 cipher takes a 32-byte key, and the awg
+// tools reject the whole .conf over a bad one, without naming the field.
+var errAwgHeaderProtectionKey = errors.New("awg: headerProtectionKey is not a base64 32-byte key")
 
 // defaultAwgBase is the tunnel subnet AWG clients are allocated from. It is
 // intentionally distinct from WireGuard's 10.0.0.0/24 so an AWG inbound and a
@@ -101,6 +106,25 @@ func awgSettingsAddress(settings string) string {
 		return ""
 	}
 	return s.Address
+}
+
+// Blank means the feature is off. The control-character check must stay (a
+// \r\n-wrapped key decodes fine) and go first, or DEL reads as bad base64.
+func validateAwgHeaderProtectionKey(v string) error {
+	if v == "" {
+		return nil
+	}
+	if err := amneziawg.ValidateConfigValue("headerProtectionKey", v); err != nil {
+		return fmt.Errorf("%w: %w", errAwgControlChar, err)
+	}
+	key, err := base64.StdEncoding.DecodeString(v)
+	if err != nil {
+		return fmt.Errorf("%w: not base64: %w", errAwgHeaderProtectionKey, err)
+	}
+	if len(key) != 32 {
+		return fmt.Errorf("%w: got %d bytes, want 32", errAwgHeaderProtectionKey, len(key))
+	}
+	return nil
 }
 
 func validateAwgSettingsJSON(settings string) error {
@@ -175,13 +199,15 @@ func validateAwgSettingsJSON(settings string) error {
 		{"h2", s.H2},
 		{"h3", s.H3},
 		{"h4", s.H4},
-		{"headerProtectionKey", s.HeaderProtectionKey},
 		{"address", s.Address},
 		{"dns", s.DNS},
 	} {
 		if err := amneziawg.ValidateConfigValue(cv.field, cv.v); err != nil {
 			return fmt.Errorf("%w: %w", errAwgControlChar, err)
 		}
+	}
+	if err := validateAwgHeaderProtectionKey(s.HeaderProtectionKey); err != nil {
+		return err
 	}
 	if s.Jc == 0 && s.S1 == 0 {
 		return nil

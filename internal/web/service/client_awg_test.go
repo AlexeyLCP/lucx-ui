@@ -613,3 +613,58 @@ func TestValidateAwgSettingsJSON_RejectsLeadingNewline(t *testing.T) {
 		t.Fatalf("validateAwgSettingsJSON(clean settings) = %v, want nil", err)
 	}
 }
+
+// Nothing checked the key was a key, so a bogus one reached the .conf and the
+// awg tools rejected the whole file — reason unnamed, tunnel already down.
+func TestValidateAwgSettingsJSON_HeaderProtectionKeyFormat(t *testing.T) {
+	// 44 base64 chars = 32 bytes, the only shape the AWG3 cipher accepts.
+	const validKey = "MCPfRGcDGotJ6TcnIdDqsemj2cMIiGHnPUHM5ivXN18="
+	base := map[string]any{
+		"awgVersion": "3", "h1": "1", "h2": "2", "h3": "3", "h4": "4",
+		"jc": 4, "jmin": 10, "jmax": 50, "s1": 20, "s2": 30, "s3": 15, "s4": 13,
+		"address": "10.200.0.1/24", "dns": "1.1.1.1, 1.0.0.1",
+	}
+	for _, tc := range []struct {
+		name     string
+		key      string
+		override map[string]any
+		wantErr  error
+	}{
+		{"blank key is header protection switched off", "", nil, nil},
+		{"base64 of 32 bytes saves", validKey, nil, nil},
+		{"a word is not a key", "привет", nil, errAwgHeaderProtectionKey},
+		{"base64 of 30 bytes is the wrong size", "MCPfRGcDGotJ6TcnIdDqsemj2cMIiGHnPUHM5ivX", nil, errAwgHeaderProtectionKey},
+		// Pins the check order: the decoder ignores \r\n, so a mail-wrapped key
+		// decodes to 32 bytes and only the control-character check ever sees it.
+		{"a line-wrapped key is caught before it is decoded", validKey[:16] + "\r\n" + validKey[16:], nil, errAwgControlChar},
+		{"a key of blanks is not an absent key", "   ", nil, errAwgHeaderProtectionKey},
+		// Jc 0 / S1 0 is a working mode here and still renders the key, so the
+		// check has to sit ahead of the "no obfuscation, nothing to check" return.
+		{"an unobfuscated inbound still renders the key", "привет", map[string]any{"jc": 0, "s1": 0}, errAwgHeaderProtectionKey},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			settings := make(map[string]any, len(base)+1)
+			for k, v := range base {
+				settings[k] = v
+			}
+			for k, v := range tc.override {
+				settings[k] = v
+			}
+			settings["headerProtectionKey"] = tc.key
+			raw, err := json.Marshal(settings)
+			if err != nil {
+				t.Fatalf("marshal settings: %v", err)
+			}
+			got := validateAwgSettingsJSON(string(raw))
+			if tc.wantErr == nil {
+				if got != nil {
+					t.Fatalf("validateAwgSettingsJSON(headerProtectionKey=%q) = %v, want nil", tc.key, got)
+				}
+				return
+			}
+			if !errors.Is(got, tc.wantErr) {
+				t.Fatalf("validateAwgSettingsJSON(headerProtectionKey=%q) = %v, want %v", tc.key, got, tc.wantErr)
+			}
+		})
+	}
+}
