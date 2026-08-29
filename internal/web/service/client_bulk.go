@@ -60,6 +60,19 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 		records = append(records, rec)
 	}
 
+	// LUCX-HOOK: one identity, one keypair. The loop below rebuilds each client
+	// per inbound, so a keyless identity would collect a pair from every target.
+	tunnelTarget := s.hasTunnelAttachment(inboundSvc, inboundIds)
+	wires := make([]model.Client, 0, len(records))
+	for _, rec := range records {
+		wire := *rec.ToClient()
+		if err := mintTunnelKeypairOnce(&wire, tunnelTarget); err != nil {
+			return result, false, err
+		}
+		wires = append(wires, wire)
+	}
+	// END LUCX-HOOK
+
 	needRestart := false
 	for _, ibId := range inboundIds {
 		inbound, err := inboundSvc.GetInbound(ibId)
@@ -78,12 +91,12 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 		}
 
 		clientsToAdd := make([]model.Client, 0, len(records))
-		for _, rec := range records {
+		for i, rec := range records {
 			if _, attached := have[strings.ToLower(rec.Email)]; attached {
 				result.Skipped = append(result.Skipped, rec.Email)
 				continue
 			}
-			client := *rec.ToClient()
+			client := wires[i]
 			client.UpdatedAt = time.Now().UnixMilli()
 			// LUCX-HOOK: AWG/WG multi-attach — fresh tunnel IP per inbound; the
 			// identity's keys/PSK stay shared, but not with keyless protocols.
@@ -1303,11 +1316,14 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			bulkTargets = append(bulkTargets, ib)
 		}
 		tunnelN := countAwgOrWireguard(bulkTargets)
-		if e := mintTunnelKeypairOnce(&prep[idx].client, bulkTargets); e != nil {
+		// LUCX-HOOK: one identity, one keypair — minting inside the loop below
+		// hands every tunnel inbound a different pair (see Create).
+		if e := mintTunnelKeypairOnce(&prep[idx].client, hasTunnelInbound(bulkTargets)); e != nil {
 			failed[idx] = true
 			reason[idx] = e.Error()
 			continue
 		}
+		// END LUCX-HOOK
 		for _, ibId := range prep[idx].inboundIds {
 			ib, _ := getIb(ibId)
 			if _, seen := byInbound[ibId]; !seen {

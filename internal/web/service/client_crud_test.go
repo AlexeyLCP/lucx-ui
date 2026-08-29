@@ -151,6 +151,7 @@ func TestCreateClient_TwoTunnelInboundsShareOneKeypair(t *testing.T) {
 	}{
 		{"two AWG inbounds", model.AWG, model.AWG, awgSettings, `{"address":"10.92.0.1/24","clients":[]}`},
 		{"two AmneziaWG inbounds", model.AmneziaWG, model.AmneziaWG, amneziaSettings, `{"server":{"subnetIp":"10.93.1.0","subnetCidr":24},"clients":[]}`},
+		{"two WireGuard inbounds", model.WireGuard, model.WireGuard, wgServerSettings(), wgServerSettings()},
 		{"AWG plus AmneziaWG", model.AWG, model.AmneziaWG, awgSettings, amneziaSettings},
 	}
 	for _, tc := range cases {
@@ -597,6 +598,103 @@ func TestBulkAttach_KeylessInboundNeverSeesTunnelKeys(t *testing.T) {
 	}
 	if !strings.Contains(awg.Settings, identity.PreSharedKey) {
 		t.Errorf("bulk-attached AWG inbound settings must still carry the identity's PSK, got:\n%s", awg.Settings)
+	}
+}
+
+// Attach is the third of the four multi-inbound paths: an identity registered
+// on a keyless inbound must not collect a keypair per tunnel inbound it joins.
+func TestAttach_TwoTunnelInboundsShareOneKeypair(t *testing.T) {
+	cases := []struct {
+		name                 string
+		proto                model.Protocol
+		settingsA, settingsB string
+	}{
+		{"two AWG inbounds", model.AWG, `{"address":"10.96.0.1/24","clients":[]}`, `{"address":"10.97.0.1/24","clients":[]}`},
+		{"two WireGuard inbounds", model.WireGuard, wgServerSettings(), wgServerSettings()},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			setupBulkDB(t)
+			svc := &ClientService{}
+			inboundSvc := &InboundService{}
+
+			vlessIb := mkInbound(t, 21801, model.VLESS, `{"clients":[]}`)
+			ibA := mkInbound(t, 21802, tc.proto, tc.settingsA)
+			ibB := mkInbound(t, 21803, tc.proto, tc.settingsB)
+
+			if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+				Client:     model.Client{Email: "roamer@x", SubID: "sub-roamer", Enable: true},
+				InboundIds: []int{vlessIb.Id},
+			}); err != nil {
+				t.Fatalf("keyless Create: %v", err)
+			}
+			identity := lookupClientRecord(t, "roamer@x")
+			if identity.PrivateKey != "" || identity.PublicKey != "" {
+				t.Fatalf("the keyless create already stored tunnel keys: %+v", identity)
+			}
+
+			if _, err := svc.Attach(inboundSvc, identity.Id, []int{ibA.Id, ibB.Id}); err != nil {
+				t.Fatalf("Attach to two tunnel inbounds: %v", err)
+			}
+
+			peerA := awgPeer(t, inboundSvc, ibA.Id, "roamer@x")
+			peerB := awgPeer(t, inboundSvc, ibB.Id, "roamer@x")
+			record := lookupClientRecord(t, "roamer@x")
+			if peerA.PublicKey == "" || peerB.PublicKey == "" {
+				t.Fatalf("one of the two tunnel inbounds got no public key at all: %+v / %+v", peerA, peerB)
+			}
+			if peerA.PublicKey != peerB.PublicKey || record.PublicKey != peerA.PublicKey {
+				t.Errorf("one Attach minted a keypair per inbound: inbound %d holds public key %q, inbound %d holds %q, the client record holds %q — the subscription carries the record's key, so the other inbound's handshake silently never completes",
+					ibA.Id, peerA.PublicKey, ibB.Id, peerB.PublicKey, record.PublicKey)
+			}
+			if peerA.PrivateKey != peerB.PrivateKey {
+				t.Errorf("private key differs between inbound %d (%q) and inbound %d (%q)", ibA.Id, peerA.PrivateKey, ibB.Id, peerB.PrivateKey)
+			}
+		})
+	}
+}
+
+// BulkAttach is the fourth path, the one the multi-select attach modal calls:
+// same rule, same silent failure when each inbound mints its own pair.
+func TestBulkAttach_TwoTunnelInboundsShareOneKeypair(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	vlessIb := mkInbound(t, 21811, model.VLESS, `{"clients":[]}`)
+	ibA := mkInbound(t, 21812, model.AWG, `{"address":"10.98.0.1/24","clients":[]}`)
+	ibB := mkInbound(t, 21813, model.AWG, `{"address":"10.99.0.1/24","clients":[]}`)
+
+	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+		Client:     model.Client{Email: "bulk-roamer@x", SubID: "sub-bulk-roamer", Enable: true},
+		InboundIds: []int{vlessIb.Id},
+	}); err != nil {
+		t.Fatalf("keyless Create: %v", err)
+	}
+	if identity := lookupClientRecord(t, "bulk-roamer@x"); identity.PrivateKey != "" || identity.PublicKey != "" {
+		t.Fatalf("the keyless create already stored tunnel keys: %+v", identity)
+	}
+
+	res, _, err := svc.BulkAttach(inboundSvc, []string{"bulk-roamer@x"}, []int{ibA.Id, ibB.Id})
+	if err != nil {
+		t.Fatalf("BulkAttach: %v", err)
+	}
+	if len(res.Errors) != 0 || len(res.Attached) != 2 {
+		t.Fatalf("BulkAttach attached = %v, errors = %v, want both targets and no errors", res.Attached, res.Errors)
+	}
+
+	peerA := awgPeer(t, inboundSvc, ibA.Id, "bulk-roamer@x")
+	peerB := awgPeer(t, inboundSvc, ibB.Id, "bulk-roamer@x")
+	record := lookupClientRecord(t, "bulk-roamer@x")
+	if peerA.PublicKey == "" || peerB.PublicKey == "" {
+		t.Fatalf("one of the two tunnel inbounds got no public key at all: %+v / %+v", peerA, peerB)
+	}
+	if peerA.PublicKey != peerB.PublicKey || record.PublicKey != peerA.PublicKey {
+		t.Errorf("one BulkAttach minted a keypair per inbound: inbound %d holds public key %q, inbound %d holds %q, the client record holds %q — the subscription carries the record's key, so the other inbound's handshake silently never completes",
+			ibA.Id, peerA.PublicKey, ibB.Id, peerB.PublicKey, record.PublicKey)
+	}
+	if peerA.PrivateKey != peerB.PrivateKey {
+		t.Errorf("private key differs between inbound %d (%q) and inbound %d (%q)", ibA.Id, peerA.PrivateKey, ibB.Id, peerB.PrivateKey)
 	}
 }
 
