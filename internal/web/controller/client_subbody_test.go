@@ -22,6 +22,7 @@ func TestMatchSubRoute(t *testing.T) {
 		{"awg bare prefix", "/awg/", "", false},
 		{"foreign path", "/evil/abc123", "", false},
 		{"prefix lookalike", "/submarine/abc", "", false},
+		{"subscription vs sub", "/subscription/abc", "", false},
 		{"custom path", "/my-sub/x9", "sub", true},
 	}
 	for _, tc := range cases {
@@ -35,5 +36,8 @@ func TestMatchSubRoute(t *testing.T) {
 				t.Fatalf("matchSubRoute(%q) = %q,%v; want %q,%v", tc.path, format, ok, tc.format, tc.ok)
 			}
 		})
+	}
+	if format, ok := matchSubRoute("/subscription/abc", "/sub", "/json/", "/clash/", "/awg/"); ok {
+		t.Fatalf("/sub must not match /subscription, got %q", format)
 	}
 }

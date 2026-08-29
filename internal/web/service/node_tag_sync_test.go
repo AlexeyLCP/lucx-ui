@@ -98,3 +98,60 @@ func TestSetRemoteTraffic_AdoptsCompatibleOriginAliasWithoutDuplicate(t *testing
 		t.Fatalf("alias traffic = %d/%d, want 11/22", rows[0].Up, rows[0].Down)
 	}
 }
+
+func TestSetRemoteTraffic_PortChangeAutoTagNoDuplicate(t *testing.T) {
+	setupConflictDB(t)
+	db := database.GetDB()
+
+	const nodeID = 1
+	if err := db.Create(&model.Node{Id: nodeID, Name: "node", Address: "10.0.0.2", Port: 2053, ApiToken: "t", Guid: "node-guid"}).Error; err != nil {
+		t.Fatalf("create node: %v", err)
+	}
+	id := nodeID
+	central := &model.Inbound{
+		UserId:         1,
+		NodeID:         &id,
+		OriginNodeGuid: "node-guid",
+		Tag:            "n1-in-51820-udp",
+		Enable:         true,
+		Port:           51820,
+		Protocol:       model.AWG,
+		Remark:         "nlv3 atomique",
+		Settings:       `{}`,
+	}
+	if err := db.Create(central).Error; err != nil {
+		t.Fatalf("create central inbound: %v", err)
+	}
+	centralID := central.Id
+
+	snap := &runtime.TrafficSnapshot{Inbounds: []*model.Inbound{{
+		Tag:      "in-51821-udp",
+		Enable:   true,
+		Port:     51821,
+		Protocol: model.AWG,
+		Remark:   "nlv3 atomique",
+		Settings: `{}`,
+		Up:       3,
+		Down:     4,
+	}}}
+	if _, err := (&InboundService{}).setRemoteTrafficLocked(nodeID, snap, false, false); err != nil {
+		t.Fatalf("setRemoteTrafficLocked: %v", err)
+	}
+
+	var rows []model.Inbound
+	if err := db.Where("node_id = ?", nodeID).Find(&rows).Error; err != nil {
+		t.Fatalf("list node inbounds: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("expected 1 inbound after port change, got %d (%#v)", len(rows), rows)
+	}
+	if rows[0].Id != centralID {
+		t.Fatalf("inbound was recreated: id %d -> %d", centralID, rows[0].Id)
+	}
+	if rows[0].Port != 51821 {
+		t.Fatalf("port = %d, want 51821", rows[0].Port)
+	}
+	if rows[0].Tag != "n1-in-51821-udp" {
+		t.Fatalf("tag = %q, want n1-in-51821-udp", rows[0].Tag)
+	}
+}

@@ -49,9 +49,14 @@ type Manager struct {
 }
 
 var (
-	managerOnce sync.Once
-	manager     *Manager
+	managerOnce   sync.Once
+	manager       *Manager
+	rebuildPaused atomic.Bool
 )
+
+func SetRebuildPause(v bool) {
+	rebuildPaused.Store(v)
+}
 
 // GetManager returns the process-wide AWG manager singleton.
 func GetManager() *Manager {
@@ -67,6 +72,9 @@ func GetManager() *Manager {
 func (m *Manager) Ensure(inst Instance) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if rebuildPaused.Load() {
+		return fmt.Errorf("awg: module rebuild in progress")
+	}
 	m.sweepOrphansLocked()
 	if err := m.ensureLocked(inst); err != nil {
 		return err
@@ -171,6 +179,9 @@ func (m *Manager) Remove(id int) {
 func (m *Manager) Reconcile(desired []Instance) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	if rebuildPaused.Load() {
+		return
+	}
 	m.sweepOrphansLocked()
 	want := make(map[int]struct{}, len(desired))
 	for _, inst := range desired {
@@ -806,10 +817,10 @@ func renderServerConf(inst Instance) string {
 	// a '#' comment, invisible to awg-quick.
 	b.WriteString(xuiManagedMarker + "\n")
 	fmt.Fprintf(&b, "[Interface]\n")
-	fmt.Fprintf(&b, "PrivateKey = %s\n", inst.PrivateKey)
+	fmt.Fprintf(&b, "PrivateKey = %s\n", confValue(inst.PrivateKey))
 	fmt.Fprintf(&b, "ListenPort = %d\n", inst.Port)
 	if inst.Address != "" {
-		fmt.Fprintf(&b, "Address = %s\n", inst.Address)
+		fmt.Fprintf(&b, "Address = %s\n", confValue(inst.Address))
 	}
 	fmt.Fprintf(&b, "MTU = %d\n", inst.MTU)
 	// DNS is CLIENT-ONLY — the server does not resolve through the tunnel.
@@ -833,7 +844,7 @@ func renderServerConf(inst Instance) string {
 	// "H1 = " alone makes setconf reject the whole file.
 	for i, h := range []string{inst.H1, inst.H2, inst.H3, inst.H4} {
 		if strings.TrimSpace(h) != "" {
-			fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
+			fmt.Fprintf(&b, "H%d = %s\n", i+1, confValue(h))
 		}
 	}
 	awg3ok := IsAwg3Plus(inst.AwgVersion) && ModuleSupportsAwg3()
@@ -847,7 +858,7 @@ func renderServerConf(inst Instance) string {
 	// installed the AWG3 module. The S1-S4 >= 12 invariant (enforced by the
 	// generator) is required for the kernel to accept the key.
 	if awg3ok && strings.TrimSpace(inst.HeaderProtectionKey) != "" {
-		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", inst.HeaderProtectionKey)
+		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", confValue(inst.HeaderProtectionKey))
 	}
 	// AWG3 device-level timers/padding — all optional (0 = kernel uses the
 	// built-in WireGuard constant). Written only when > 0 and IsAwg3Plus;
@@ -863,22 +874,22 @@ func renderServerConf(inst Instance) string {
 		// randomizes within a range at rekey (same semantics as H1-H4), so a
 		// range must reach the .conf intact — never collapsed to one value.
 		if !inst.ContentPaddingAddition.IsZero() {
-			fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", inst.ContentPaddingAddition)
+			fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", confValue(string(inst.ContentPaddingAddition)))
 		}
 		if !inst.RekeyAfterTime.IsZero() {
-			fmt.Fprintf(&b, "RekeyAfterTime = %s\n", inst.RekeyAfterTime)
+			fmt.Fprintf(&b, "RekeyAfterTime = %s\n", confValue(string(inst.RekeyAfterTime)))
 		}
 		if !inst.RekeyTimeout.IsZero() {
-			fmt.Fprintf(&b, "RekeyTimeout = %s\n", inst.RekeyTimeout)
+			fmt.Fprintf(&b, "RekeyTimeout = %s\n", confValue(string(inst.RekeyTimeout)))
 		}
 		if !inst.RejectAfterTime.IsZero() {
-			fmt.Fprintf(&b, "RejectAfterTime = %s\n", inst.RejectAfterTime)
+			fmt.Fprintf(&b, "RejectAfterTime = %s\n", confValue(string(inst.RejectAfterTime)))
 		}
 		if !inst.KeepaliveTimeout.IsZero() {
-			fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", inst.KeepaliveTimeout)
+			fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", confValue(string(inst.KeepaliveTimeout)))
 		}
 		if !inst.MaxHandshakeAttempts.IsZero() {
-			fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", inst.MaxHandshakeAttempts)
+			fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", confValue(string(inst.MaxHandshakeAttempts)))
 		}
 	}
 	// AWG 3.1 device flags — omitted when false so v3.0 tools keep accepting
@@ -911,7 +922,7 @@ func renderServerConf(inst Instance) string {
 	}
 	for _, p := range inst.Peers {
 		b.WriteString("\n[Peer]\n")
-		fmt.Fprintf(&b, "PublicKey = %s\n", p.PublicKey)
+		fmt.Fprintf(&b, "PublicKey = %s\n", confValue(p.PublicKey))
 		// PresharedKey is written ONLY when non-empty. An empty value renders as
 		// "PresharedKey = " which awg setconf rejects ("invalid key"), awg-quick
 		// rolls back the half-built interface, and reconcile reports "Device
@@ -921,13 +932,13 @@ func renderServerConf(inst Instance) string {
 		// Absent PresharedKey is the WireGuard convention for "no PSK" and
 		// matches renderClientConf + SyncPeers, which already omit it.
 		if psk := strings.TrimSpace(p.PSK); psk != "" {
-			fmt.Fprintf(&b, "PresharedKey = %s\n", psk)
+			fmt.Fprintf(&b, "PresharedKey = %s\n", confValue(psk))
 		}
 		allowed := p.AllowedIPs
 		if allowed == "" {
 			allowed = "0.0.0.0/0, ::/0"
 		}
-		fmt.Fprintf(&b, "AllowedIPs = %s\n", allowed)
+		fmt.Fprintf(&b, "AllowedIPs = %s\n", confValue(allowed))
 	}
 	return b.String()
 }

@@ -34,7 +34,7 @@ func TestGenAwgLink_HeaderProtectionKeyOmittedWhenEmpty(t *testing.T) {
 	if link == "" {
 		t.Fatal("expected a non-empty amneziawg:// link")
 	}
-	if strings.Contains(link, "headerProtectionKey=") {
+	if strings.Contains(link, "headerprotectionkey=") {
 		t.Errorf("headerProtectionKey param must be absent when empty, got:\n%s", link)
 	}
 }
@@ -49,7 +49,7 @@ func TestGenAwgLink_HeaderProtectionKeyEmittedWhenSet(t *testing.T) {
 		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
 	s := &SubService{}
 	link := s.genAwgLink(awgLinkInbound(settings), "user")
-	if !strings.Contains(link, "headerProtectionKey=aBcD...base64hpk%3D%3D") {
+	if !strings.Contains(link, "headerprotectionkey=aBcD...base64hpk%3D%3D") {
 		t.Errorf("headerProtectionKey param (base64 == percent-encoded) must appear when set + awgVersion=3, got:\n%s", link)
 	}
 }
@@ -64,7 +64,7 @@ func TestGenAwgLink_HeaderProtectionKeyEmittedOnV31(t *testing.T) {
 		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
 	s := &SubService{}
 	link := s.genAwgLink(awgLinkInbound(settings), "user")
-	if !strings.Contains(link, "headerProtectionKey=") {
+	if !strings.Contains(link, "headerprotectionkey=") {
 		t.Errorf("HPK must appear for awgVersion=3.1, got:\n%s", link)
 	}
 	if !strings.Contains(link, "randomtrailers=true") {
@@ -81,7 +81,7 @@ func TestGenAwgLink_HeaderProtectionKeyOmittedOnNonV3(t *testing.T) {
 		`"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
 	s := &SubService{}
 	link := s.genAwgLink(awgLinkInbound(settings), "user")
-	if strings.Contains(link, "headerProtectionKey=") {
+	if strings.Contains(link, "headerprotectionkey=") {
 		t.Errorf("headerProtectionKey must be omitted when awgVersion != '3', got:\n%s", link)
 	}
 }
@@ -203,7 +203,7 @@ func TestGenAwgLink_OmitsV3FieldsWhenTheHostCannotApplyThem(t *testing.T) {
 	s := &SubService{}
 
 	withAwgSupport(t, false)
-	for _, param := range []string{"randomtrailers=", "disablecookies=", "headerProtectionKey="} {
+	for _, param := range []string{"randomtrailers=", "disablecookies=", "headerprotectionkey="} {
 		if link := s.genAwgLink(awgLinkInbound(settings), "user"); strings.Contains(link, param) {
 			t.Fatalf("%s must be absent when the host cannot apply it, got:\n%s", param, link)
 		}
@@ -230,7 +230,7 @@ func TestGenAwgLink_BlankFieldsAreNotValues(t *testing.T) {
 		name, settings, absent string
 	}{
 		{"blank header", base + `"awgVersion":"2","h1":"   ",` + clients, "h1="},
-		{"blank key", base + `"awgVersion":"3","headerProtectionKey":"  ",` + clients, "headerProtectionKey="},
+		{"blank key", base + `"awgVersion":"3","headerProtectionKey":"  ",` + clients, "headerprotectionkey="},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			lines := splitLinkLines(s.genAwgLink(awgLinkInbound(tc.settings), "user"))
@@ -273,5 +273,36 @@ func TestGenAwgLink_BlankIFieldIsNotAValue(t *testing.T) {
 				t.Errorf("the rest of the I-set must survive, i2 = %q, in:\n%s", got, lines[0])
 			}
 		})
+	}
+}
+
+func TestGenAwgLink_HostDestPortAndRemark(t *testing.T) {
+	ib := awgLinkInbound(awgLinkClientSettings)
+	ib.StreamSettings = `{"externalProxy":[{"dest":"test.com","port":443,"remark":"cdn","isHost":true,"remarkFinal":true}]}`
+	s := &SubService{}
+	link := s.genAwgLink(ib, "user")
+	if !strings.Contains(link, "@test.com:443") {
+		t.Errorf("amneziawg:// must use host dest:port, got:\n%s", link)
+	}
+	if strings.Contains(link, ":51820") {
+		t.Errorf("inbound listen port must not leak, got:\n%s", link)
+	}
+	lines := splitLinkLines(link)
+	if len(lines) != 2 || !strings.HasPrefix(lines[1], "vpn://") {
+		t.Fatalf("want amneziawg:// + vpn://, got %d lines", len(lines))
+	}
+	payload, err := vpnuri.Decode(lines[1])
+	if err != nil {
+		t.Fatalf("vpn:// decode: %v", err)
+	}
+	conf, err := vpnuri.ConfFromPayload(payload)
+	if err != nil {
+		t.Fatalf("vpn:// conf: %v", err)
+	}
+	if !strings.Contains(conf, "Endpoint = test.com:443") {
+		t.Errorf("vpn:// Endpoint must be host dest:port, got:\n%s", conf)
+	}
+	if !strings.HasPrefix(strings.TrimSpace(conf), "# cdn") {
+		t.Errorf("vpn:// must name the host remark, got:\n%s", conf)
 	}
 }

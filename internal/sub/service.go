@@ -760,7 +760,6 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	}
 	client := &resolved
 
-	link := fmt.Sprintf("amneziawg://%s@%s", encodeUserinfo(client.PrivateKey), joinHostPort(s.resolveInboundAddress(inbound), inbound.Port))
 	params := make(map[string]string)
 	if privateKey != "" {
 		if pub, err := wgutil.PublicKeyFromPrivate(privateKey); err == nil {
@@ -852,7 +851,7 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 	// All gated by isV3 so a v1/v2 share-link never carries v3-only params.
 	if isV3 {
 		if v, ok := settings["headerProtectionKey"].(string); ok && strings.TrimSpace(v) != "" {
-			params["headerProtectionKey"] = v
+			params["headerprotectionkey"] = v
 		}
 		for _, p := range []struct{ key, jk string }{
 			{"contentpaddingaddition", "contentPaddingAddition"},
@@ -880,19 +879,40 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			params["disablecookies"] = "true"
 		}
 	}
-	out := buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
-	// Second line: the same client conf as an AmneziaVPN vpn:// envelope.
-	// Neither NekoBox+ (imports AWG from .conf / vpn://) nor Exclave parses
-	// the amneziawg:// scheme, so a URI-only subscription never added the
-	// node there (tester report; HYDRA emits vpn:// alongside its links for
-	// the same reason). BuildAwgClientConf is the exact builder behind
-	// /awg/?format=vpn, so the envelope matches the client-card copy.
-	if conf, err := service.BuildAwgClientConf(inbound, client, s.resolveInboundAddress(inbound)); err == nil {
-		if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
-			out += "\n" + uri
+	render := func(dest string, port int, remark string) string {
+		link := fmt.Sprintf("amneziawg://%s@%s", encodeUserinfo(client.PrivateKey), joinHostPort(dest, port))
+		out := buildLinkWithParams(link, params, remark)
+		if conf, err := service.BuildAwgClientConf(inbound, client, dest); err == nil {
+			conf = stampAwgShare(conf, dest, port, remark)
+			if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
+				out += "\n" + uri
+			}
+		}
+		return out
+	}
+	if joined := s.sidecarHostLinks(inbound, email, render); joined != "" {
+		return joined
+	}
+	return render(s.resolveInboundAddress(inbound), inbound.Port, s.genRemark(inbound, email, "", ""))
+}
+
+func stampAwgShare(conf, host string, port int, remark string) string {
+	if r := strings.TrimSpace(remark); r != "" {
+		r = strings.ReplaceAll(strings.ReplaceAll(r, "\r", " "), "\n", " ")
+		conf = "# " + r + "\n" + conf
+	}
+	if host == "" || port <= 0 {
+		return conf
+	}
+	ep := "Endpoint = " + net.JoinHostPort(host, strconv.Itoa(port))
+	lines := strings.Split(conf, "\n")
+	for i, ln := range lines {
+		if strings.HasPrefix(strings.TrimSpace(ln), "Endpoint") {
+			lines[i] = ep
+			return strings.Join(lines, "\n")
 		}
 	}
-	return out
+	return conf
 }
 
 // END LUCX-HOOK
@@ -919,8 +939,8 @@ func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 	return cfg.EnsureSubHost().ClientURI()
 }
 
-// genAnytlsLink returns the single anytls://password@host:port URI for an
-// AnyTls inbound (one shared password — every subscriber gets the same line).
+// genAnytlsLink returns the single anytls://password@host:port/?sni= URI for
+// an AnyTls inbound (one shared password — every subscriber gets the same line).
 func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
 	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
 	if !ok || !inbound.Enable {
@@ -937,23 +957,56 @@ func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
 	return cfg.ClientLink(host, inbound.Remark)
 }
 
-// genNaiveLink builds naive+https://user:pass@domain:port#email for a client
+// sidecarHostLinks fans out one share URL per Host / externalProxy dest+port.
+// Empty when the inbound has none — caller falls back to the inbound address.
+func (s *SubService) sidecarHostLinks(inbound *model.Inbound, email string, render func(dest string, port int, remark string) string) string {
+	stream := unmarshalStreamSettings(inbound.StreamSettings)
+	raw, _ := stream["externalProxy"].([]any)
+	if len(raw) == 0 {
+		return ""
+	}
+	links := make([]string, 0, len(raw))
+	for _, item := range raw {
+		ep, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		dest, _ := ep["dest"].(string)
+		portF, okPort := ep["port"].(float64)
+		if dest == "" || !okPort {
+			continue
+		}
+		if u := render(dest, int(portF), s.endpointRemark(inbound, email, ep, "")); u != "" {
+			links = append(links, u)
+		}
+	}
+	return strings.Join(links, "\n")
+}
+
+func mieruBindHostPort(cfg tunnel.MieruConfig, port int) tunnel.MieruConfig {
+	if port <= 0 || len(cfg.PortBindings) == 0 {
+		return cfg
+	}
+	binds := make([]tunnel.MieruPortBinding, len(cfg.PortBindings))
+	copy(binds, cfg.PortBindings)
+	for i := range binds {
+		binds[i].Port = port
+		binds[i].PortRange = ""
+	}
+	cfg.PortBindings = binds
+	return cfg
+}
+
+// genNaiveLink builds naive+https://user:pass@host:port#remark for a client
 // attached to a Naive inbound. Credentials are HMAC-derived (inbound-scoped).
-// Returns "" when domain is missing or the client is not enabled on the inbound.
+// Hosts / externalProxy win for dest+port (same fan-out as hysteria); remark
+// uses genRemark so Happ shows the inbound name, not the email.
 func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
 	if inbound == nil || inbound.Protocol != model.Naive {
 		return ""
 	}
 	cfg, ok := tunnel.ConfigFromInbound(inbound)
 	if !ok || cfg.UseRawConfig {
-		return ""
-	}
-	domain := strings.TrimSpace(cfg.Domain)
-	if domain == "" {
-		// Fall back to inbound listen/share host resolution.
-		domain = s.resolveInboundAddress(inbound)
-	}
-	if domain == "" {
 		return ""
 	}
 	resolved, ok := s.clientForLink(inbound, email)
@@ -965,9 +1018,24 @@ func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
 		return ""
 	}
 	pair := tunnel.ClientAuthForInbound(secret, inbound.Id, email)
-	cfg.Domain = domain
+	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
+		one := cfg
+		one.Domain = dest
+		one.Port = port
+		return one.ClientURLFor(pair, remark)
+	}); joined != "" {
+		return joined
+	}
+	fallbackHost := strings.TrimSpace(cfg.Domain)
+	if fallbackHost == "" {
+		fallbackHost = s.resolveInboundAddress(inbound)
+	}
+	if fallbackHost == "" {
+		return ""
+	}
+	cfg.Domain = fallbackHost
 	cfg.Port = inbound.Port
-	return cfg.ClientURLFor(pair, email)
+	return cfg.ClientURLFor(pair, s.genRemark(inbound, email, "", ""))
 }
 
 // genMieruLink builds a per-client mierus:// simple share link for a client
@@ -982,10 +1050,6 @@ func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
 	if !ok {
 		return ""
 	}
-	host := s.resolveInboundAddress(inbound)
-	if host == "" {
-		return ""
-	}
 	resolved, ok := s.clientForLink(inbound, email)
 	if !ok || !resolved.Enable {
 		return ""
@@ -995,7 +1059,16 @@ func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
 		return ""
 	}
 	pair := tunnel.MieruClientAuth(secret, inbound.Id, email)
-	return cfg.ClientLink(host, pair, email)
+	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
+		return mieruBindHostPort(cfg, port).ClientLink(dest, pair, remark)
+	}); joined != "" {
+		return joined
+	}
+	host := s.resolveInboundAddress(inbound)
+	if host == "" {
+		return ""
+	}
+	return cfg.ClientLink(host, pair, s.genRemark(inbound, email, "", ""))
 }
 
 // genTrustTunnelLink builds the per-client tt:// subscription lines for a
@@ -1037,14 +1110,22 @@ func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) st
 		address = net.JoinHostPort(host, strconv.Itoa(p))
 	}
 	pair := tunnel.TrustTunnelClientAuth(secret, inbound.Id, email)
-	var links []string
-	if dl := cfg.ClientDeepLink(address, pair, email); dl != "" {
-		links = append(links, dl)
+	ttLines := func(addr, remark string) string {
+		var links []string
+		if dl := cfg.ClientDeepLink(addr, pair, remark); dl != "" {
+			links = append(links, dl)
+		}
+		if uri := cfg.ClientURI(addr, pair, remark); uri != "" {
+			links = append(links, uri)
+		}
+		return strings.Join(links, "\n")
 	}
-	if uri := cfg.ClientURI(address, pair, email); uri != "" {
-		links = append(links, uri)
+	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
+		return ttLines(net.JoinHostPort(dest, strconv.Itoa(port)), remark)
+	}); joined != "" {
+		return joined
 	}
-	return strings.Join(links, "\n")
+	return ttLines(address, s.genRemark(inbound, email, "", ""))
 }
 
 // amneziaWGHeaderOrDefault mirrors the frontend's amneziaWGHLine: AmneziaWG's

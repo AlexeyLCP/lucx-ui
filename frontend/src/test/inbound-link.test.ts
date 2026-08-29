@@ -14,6 +14,7 @@ import {
   genVmessLink,
   genWireguardConfig,
   genWireguardLink,
+  genAnytlsLink,
   preferPublicHost,
   resolveAddr,
 } from '@/lib/xray/inbound-link';
@@ -1425,5 +1426,29 @@ describe('genVlessLink XHTTP extra compatibility', () => {
     expect(extra.sessionIDKey).toBe('X-Session');
     expect(extra.sessionPlacement).toBe('header');
     expect(extra.sessionKey).toBe('X-Session');
+  });
+});
+
+describe('genAnytlsLink', () => {
+  const inbound = {
+    protocol: 'anytls',
+    port: 8443,
+    settings: { password: 'hunter2', sni: 'vpn.example.com' },
+  } as Parameters<typeof genAnytlsLink>[0]['inbound'];
+
+  it('emits sni without insecure', () => {
+    const link = genAnytlsLink({ inbound, address: 'node.example', remark: 'home' });
+    expect(link).toContain('anytls://hunter2@node.example:8443/');
+    expect(link).toContain('sni=vpn.example.com');
+    expect(link).not.toContain('insecure=');
+    expect(link).toContain('#home');
+  });
+
+  it('returns empty without sni', () => {
+    const noSni = {
+      ...inbound,
+      settings: { password: 'hunter2', sni: '' },
+    } as typeof inbound;
+    expect(genAnytlsLink({ inbound: noSni, address: 'node.example' })).toBe('');
   });
 });

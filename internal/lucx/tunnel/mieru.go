@@ -267,7 +267,11 @@ func (c MieruConfig) ClientLink(host string, pair AuthPair, remark string) strin
 		return ""
 	}
 	var q []string
-	q = append(q, "profile=default")
+	profile := strings.TrimSpace(remark)
+	if profile == "" {
+		profile = "default"
+	}
+	q = append(q, "profile="+url.QueryEscape(profile))
 	if c.MTU > 0 {
 		q = append(q, "mtu="+strconv.Itoa(c.MTU))
 	}

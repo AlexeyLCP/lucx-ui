@@ -44,7 +44,24 @@ XUI_NONINTERACTIVE=1 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP
 ```
 Credentials are saved to `/etc/x-ui/install-result.env`.
 
-### Docker with PostgreSQL
+### Docker
+Images are published on every release tag (`ghcr.io/alexeylcp/lucx-ui`):
+
+```bash
+docker run -d \
+  --name lucx-ui \
+  --restart unless-stopped \
+  --cap-add=NET_ADMIN \
+  --cap-add=NET_RAW \
+  -p 2053:2053 \
+  -v $PWD/db/:/etc/x-ui/ \
+  ghcr.io/alexeylcp/lucx-ui:latest
+```
+
+Or `docker compose up -d` (pulls the same image; `docker compose build` builds locally).
+
+PostgreSQL: uncomment the `XUI_DB_*` lines in `docker-compose.yml` and:
+
 ```bash
 docker compose --profile postgres up -d
 ```

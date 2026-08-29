@@ -154,6 +154,8 @@ type Manager struct {
 	naiveTraffic       map[string]*naiveLogCursor
 	mieruTraffic       map[string]map[string]*mieruUserCursor
 	trustTunnelTraffic map[string]*trustTunnelCursor
+	anytlsTraffic      map[string]*anytlsCursor
+	sidecarDelta       map[string]*deltaCursor
 }
 
 func newManager() *Manager {
@@ -161,6 +163,8 @@ func newManager() *Manager {
 		cores:              make(map[string]*managed),
 		mieruTraffic:       make(map[string]map[string]*mieruUserCursor),
 		trustTunnelTraffic: make(map[string]*trustTunnelCursor),
+		anytlsTraffic:      make(map[string]*anytlsCursor),
+		sidecarDelta:       make(map[string]*deltaCursor),
 	}
 }
 
@@ -480,6 +484,16 @@ func (m *Manager) IsRunningKey(key string) bool {
 	return ok && mc.proc != nil && mc.proc.IsRunning()
 }
 
+func (m *Manager) PidOf(key string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	mc, ok := m.cores[key]
+	if !ok || mc.proc == nil {
+		return 0
+	}
+	return mc.proc.Pid()
+}
+
 // AnyRunning reports whether any managed key carrying the prefix is alive
 // (multi-instance cores on the Cores page: mieru-*, trusttunnel-*).
 func (m *Manager) AnyRunning(prefix string) bool {
@@ -739,7 +753,11 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 	case inst.Core == Naive:
 		args = []string{"run", "--config", cfgPath, "--adapter", "caddyfile"}
 		if extra := strings.TrimSpace(inst.ExtraArgs); extra != "" {
-			args = append(args, strings.Fields(extra)...)
+			more, err := extraArgsSafe(extra)
+			if err != nil {
+				return err
+			}
+			args = append(args, more...)
 		}
 	case inst.Core == Olcrtc:
 		args = []string{cfgPath}
@@ -774,4 +792,21 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 		return fmt.Errorf("tunnel: start %s: %w", key, err)
 	}
 	return nil
+}
+
+func extraArgsSafe(extra string) ([]string, error) {
+	fields := strings.Fields(extra)
+	blocked := map[string]struct{}{
+		"-c": {}, "--config": {}, "--adapter": {},
+	}
+	for _, f := range fields {
+		if strings.ContainsAny(f, "\n\r") {
+			return nil, fmt.Errorf("tunnel: ExtraArgs contains invalid characters")
+		}
+		name, _, _ := strings.Cut(f, "=")
+		if _, ok := blocked[name]; ok {
+			return nil, fmt.Errorf("tunnel: ExtraArgs cannot override %s", name)
+		}
+	}
+	return fields, nil
 }

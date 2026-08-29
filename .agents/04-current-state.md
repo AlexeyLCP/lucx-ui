@@ -12,7 +12,7 @@ Changelog: `progress.md`, last 1–2 entries only.
 
 **Resolved (2026-07-13):** refactor by deleting dead code. Files `params.go`, `cps.go`, `config.go`, `templates.go`, `types.go`, `helpers.go` + 5 tests were fully dead — their functions (`GenerateAWGParams`, `GenerateCPS`, `BuildServerConfig`, `RenderPostUp`, etc.) were only called by tests, no live call site used them. Key/obfuscation generation is done in the frontend (`createDefaultAwgInboundSettings`). AWG cut from 19 to 8 files (6 .go + 2 tests) — nearly symmetric with mtproto (9 files). Upstream updates now need ~20 files ported instead of 29.
 
-**Finished (2026-07-18):** final slimming to exact parity. `traffic.go` merged into `manager.go` (Traffic + scrapeTransfer, later → scrapePeers, live only for CollectTraffic); `nat_{linux,other}.go` + `orphans_{linux,other}.go` merged into one platform pair `platform_{linux,other}.go`; also cleaned unused-import var guards (`strconv`/`syscall`) — leftovers from removed tun2socks. Core package result: **6 source + 3 test = 9 files**, exactly like mtproto (4 source + 2 platform + 3 test). `cps/` and `signature/` stay separate packages — features mtproto doesn’t have.
+**Finished (2026-07-18):** slimming toward mtproto parity. `cps/` and `signature/` stay separate. **Do not re-slim:** import, diagnostics, outbound (`awgo-N`), portfwd, vpnuri, kernel/gVisor fallback are live product, not dead mtproto copies. A second Amnezia path (`protocol=amneziawg` / `amneziawgnet`) exists for no-module hosts — do not mix with kernel `protocol=awg` on the same iface name without checking.
 
 ### 2. ~~Sidecar not verified in real runtime on a VPS~~ — CLOSED
 

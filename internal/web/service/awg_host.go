@@ -198,6 +198,8 @@ func (s *ServerService) RebuildAwgModule() error {
 		// busy, and AwgJob's reconcile tick (skipped while this rebuild is in
 		// flight) would otherwise bring them back up mid-build. RestartAwg
 		// re-creates them after the script finishes.
+		awg.SetRebuildPause(true)
+		defer awg.SetRebuildPause(false)
 		mgr := awg.GetManager()
 		mgr.StopAll()
 		mgr.StopAllClients()
@@ -215,6 +217,7 @@ func (s *ServerService) RebuildAwgModule() error {
 			return
 		}
 		logger.Info("awg: module rebuild finished OK")
+		awg.SetRebuildPause(false)
 		time.Sleep(2 * time.Second)
 		if err := s.RestartAwg(); err != nil {
 			logger.Warning("awg: post-rebuild restart interfaces:", err)

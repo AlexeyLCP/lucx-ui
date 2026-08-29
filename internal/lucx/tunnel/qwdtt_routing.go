@@ -35,13 +35,16 @@ func QwdttTunName(inboundID int) string {
 // QwdttRouteTable is the policy-routing table for qWDTT → Xray TUN.
 // Offset 1900 keeps clear of AWG's 1000+N and common admin tables.
 func QwdttRouteTable(inboundID int) int {
-	return 1900 + inboundID%90
+	return 1900 + inboundID
 }
 
 // QwdttTunGateway is the /30 gateway on the Xray TUN (outside AWG 10.254.N and
 // qWDTT client subnets).
 func QwdttTunGateway(inboundID int) string {
-	return "10.253." + strconv.Itoa(inboundID%254) + ".1/30"
+	if inboundID >= 1 && inboundID < 254 {
+		return "10.253." + strconv.Itoa(inboundID) + ".1/30"
+	}
+	return "10.251." + strconv.Itoa((inboundID%253)+1) + ".1/30"
 }
 
 // ensureQwdttXrayRouting converges kernel state so traffic from wdtt0/wdttraw0

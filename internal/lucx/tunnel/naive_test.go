@@ -105,6 +105,9 @@ func TestNaiveValidate(t *testing.T) {
 		{"bad log level", func(c *NaiveConfig) { c.LogLevel = "LOUD" }},
 		{"acme without domain", func(c *NaiveConfig) { c.UseAcme = true; c.Domain = "" }},
 		{"acme on custom port", func(c *NaiveConfig) { c.UseAcme = true; c.Domain = "n.example.org"; c.Port = 8443 }},
+		{"domain brace inject", func(c *NaiveConfig) { c.Domain = "x.com {\n foo" }},
+		{"listen not ip", func(c *NaiveConfig) { c.Listen = "not-an-ip" }},
+		{"email newline", func(c *NaiveConfig) { c.AcmeEmail = "a@b.com\nfoo" }},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -376,6 +379,19 @@ func TestNaiveClientURL(t *testing.T) {
 	cfg.Domain = ""
 	if got := cfg.ClientURL(); got != "" {
 		t.Errorf("ClientURL without domain = %q, want empty", got)
+	}
+}
+
+func TestNaiveClientURLForRemark(t *testing.T) {
+	cfg := DefaultNaiveConfig()
+	cfg.Domain = "n.example.org"
+	cfg.Port = 443
+	got := cfg.ClientURLFor(AuthPair{User: "alice", Pass: "s3cret"}, "naive-in-user")
+	if !strings.HasSuffix(got, "#naive-in-user") {
+		t.Errorf("ClientURLFor fragment: %q", got)
+	}
+	if !strings.Contains(got, "@n.example.org:443") {
+		t.Errorf("ClientURLFor host:port: %q", got)
 	}
 }
 

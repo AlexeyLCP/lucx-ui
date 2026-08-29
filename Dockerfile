@@ -1,7 +1,9 @@
 # ========================================================
 # Stage: Frontend (Vite)
 # ========================================================
-FROM --platform=$BUILDPLATFORM node:22-alpine AS frontend
+# LUCX-HOOK: Vite 8 / engines.node >=24
+FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+# END LUCX-HOOK
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci

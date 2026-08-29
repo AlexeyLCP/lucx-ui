@@ -105,6 +105,8 @@ git log --oneline v3.7.0-lucx.$((N-1))..HEAD
 git tag v3.7.0-lucx.N && git push gh v3.7.0-lucx.N
 gh run watch --repo AlexeyLCP/lucx-ui          # Release LucX-UI
 gh release view v3.7.0-lucx.N --repo AlexeyLCP/lucx-ui   # asset x-ui-linux-amd64.tar.gz
+# Same tag also runs docker.yml → ghcr.io/alexeylcp/lucx-ui:<tag> and :latest
+# (amd64+arm64). First publish: GitHub → Packages → lucx-ui → Public.
 
 # 2. REQUIRED: release body (release notes) — what the operator sees
 #    in the panel on update (getPanelUpdateInfo → releaseNotes).

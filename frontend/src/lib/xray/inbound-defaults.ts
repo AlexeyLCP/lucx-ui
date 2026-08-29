@@ -310,6 +310,9 @@ export function createDefaultAnytlsInboundSettings(): AnytlsInboundSettings {
   return {
     port: 8443,
     password: '',
+    sni: '',
+    certFile: '',
+    keyFile: '',
   };
 }
 

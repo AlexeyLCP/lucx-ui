@@ -1,5 +1,61 @@
 # LucX-UI — Прогресс
 
+## lucx.190 — sidecar traffic + AWG node port rename (2026-08-29)
+
+Max: AnyTLS works on Android, panel shows zeros. Arseniy: changing AWG port on a remote node duplicated the inbound in Attached inbounds.
+
+- AnyTLS: ESTABLISHED on listen port = online; iptables RETURN counters = traffic. Sole attached client gets the totals (shared password).
+- olcRTC: `/proc/PID/io` rchar/wchar deltas.
+- qWDTT: `ip -s link` on `wdtt0`/`wdttraw0`.
+- Node sync: auto-tag `in-{port}-…` port change is a rename, not a new central inbound.
+
+Tests: parse TCP/iptables/procIO/ip-link + foldDelta; `TestSetRemoteTraffic_PortChangeAutoTagNoDuplicate`.
+
+**lucxVersion:** lucx.190
+
+---
+
+## lucx.189 — AnyTLS panel TLS cert (2026-08-29)
+
+Stock anytls-go always self-signs (`GenerateKeyPair`, no cert flags). Overlay `third_party/patches/anytls-server-main.go.overlay` adds `-cert/-key`. Panel reuses ACME like TrustTunnel; save refuses without a cert covering SNI. Share URI is `anytls://…/?sni=` (no `insecure=1`). Rule 0 waived for AnyTLS (unused).
+
+Tests: `go test ./internal/lucx/tunnel` AnyTLS cases; frontend `genAnytlsLink`.
+
+**lucxVersion:** lucx.189
+
+---
+
+## lucx.188 — CTO hardening + GHCR Docker (2026-08-29)
+
+- Naive Clients password matches Caddyfile/sub (`ClientAuthForInbound`).
+- `StopAllClients` on panel stop; rebuild pause during `rmmod`.
+- LUCX-HOOK around LucX needRestart/inject.
+- Download dial pins public IPs; `captureHost` refuses RFC1918; vpnuri 1 MiB cap; core upload 200 MB.
+- `.conf`/Caddy/ExtraArgs/AwgTimer reject newline inject; `awg-quick` 60s timeout; HPK `headerprotectionkey=`.
+- TUN gateways no wrap id 1 onto 255; subBody no redirects.
+- Docker: `ghcr.io/alexeylcp/lucx-ui` on release tags; Node 24; README `docker run`.
+
+Tests: `go test ./internal/awg/... ./internal/lucx/...` PASS.
+
+**lucxVersion:** lucx.188
+
+---
+
+## lucx.187 — Host dest:port + names on sidecar/AWG share links (2026-08-28)
+
+Tuna: Host `test.com:443` while Naive listens 3500 → link kept 3500. AWG showed the endpoint address instead of the inbound/host name. Host names only worked for HY2 and VLESS.
+
+- Hosts / `externalProxy` dest+port fan-out for naive, mieru, TrustTunnel, AWG.
+- Share remark is `genRemark` / host remark, not email or hostname.
+- mieru `profile=` is the remark, not hardcoded `default`.
+- AWG `vpn://` gets `# remark` so Amnezia/Happ uses description, not `hostName`.
+
+Tests: `TestNaiveClientURLForRemark`, `TestMieruClientLink` profile, `TestGetSubs_{Naive,Mieru,TrustTunnel}_HostPort`, `TestGenAwgLink_HostDestPortAndRemark`.
+
+**lucxVersion:** lucx.187
+
+---
+
 ## lucx.186 — strip Vision flow on VLESS+XHTTP (2026-08-28)
 
 Ilije: VLESS+XHTTPS routing dead (also on vanilla 3x-ui); AWG2 routing fine. Andrey: flow is not for XHTTP.

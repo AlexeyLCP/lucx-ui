@@ -13,7 +13,7 @@ Not packed into `x-ui-linux-amd64.tar.gz` (SourceCraft 100 MB release cap).
 | `mieru-client-linux-amd64.gz` | enfein/mieru `v3.35.0` mieru |
 | `trusttunnel-linux-amd64.gz` | TrustTunnel/TrustTunnel `v1.0.33` |
 | `trusttunnel-client-linux-amd64.gz` | TrustTunnel/TrustTunnelClient `v1.0.49` |
-| `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` |
+| `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` + LucX `-cert/-key` overlay |
 
 Licenses stay with those projects. Refresh from a LucX release tarball:
 

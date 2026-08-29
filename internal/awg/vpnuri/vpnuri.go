@@ -25,13 +25,15 @@ import (
 	"encoding/binary"
 	"encoding/json"
 	"fmt"
+	"io"
 	"strconv"
 	"strings"
 )
 
 const (
-	containerName = "amnezia-awg"
-	protoName     = "awg"
+	containerName  = "amnezia-awg"
+	protoName      = "awg"
+	maxDecodeBytes = 1 << 20
 )
 
 // EncodeConf builds a vpn:// URI from an awg-quick client .conf body.
@@ -310,8 +312,12 @@ func Decode(uri string) ([]byte, error) {
 	}
 	defer r.Close()
 	var out bytes.Buffer
-	if _, err := out.ReadFrom(r); err != nil {
+	n, err := out.ReadFrom(io.LimitReader(r, maxDecodeBytes+1))
+	if err != nil {
 		return nil, err
+	}
+	if n > maxDecodeBytes {
+		return nil, fmt.Errorf("vpnuri: decompressed payload too large")
 	}
 	return out.Bytes(), nil
 }

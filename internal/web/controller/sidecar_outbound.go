@@ -7,8 +7,6 @@
 package controller
 
 import (
-	"os"
-	"runtime"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -246,18 +244,10 @@ func (a *SidecarOutboundController) upload(c *gin.Context) {
 		jsonMsg(c, "sidecar-outbound: unknown protocol", nil)
 		return
 	}
-	file, err := c.FormFile("file")
-	if err != nil {
-		jsonMsg(c, "sidecar-outbound: upload failed", err)
-		return
-	}
 	dst := core.BinaryPath()
-	if err := c.SaveUploadedFile(file, dst); err != nil {
+	if err := saveCoreUpload(c, dst); err != nil {
 		jsonMsg(c, "sidecar-outbound: upload failed", err)
 		return
-	}
-	if runtime.GOOS != "windows" {
-		_ = os.Chmod(dst, 0o755)
 	}
 	jsonObj(c, gin.H{"path": dst}, nil)
 }

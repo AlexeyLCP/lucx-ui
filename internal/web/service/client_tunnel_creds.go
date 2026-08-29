@@ -59,7 +59,7 @@ func (s *ClientService) TunnelClientCredentials(inboundId int, email string) (*T
 	var pair tunnel.AuthPair
 	switch inbound.Protocol {
 	case model.Naive:
-		pair = tunnel.ClientAuth(secret, email)
+		pair = tunnel.ClientAuthForInbound(secret, inbound.Id, email)
 	case model.Mieru:
 		pair = tunnel.MieruClientAuth(secret, inbound.Id, email)
 	case model.TrustTunnel:

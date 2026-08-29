@@ -172,6 +172,15 @@ func (p *Proc) IsRunning() bool {
 	return true
 }
 
+func (p *Proc) Pid() int {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
+	if p.cmd == nil || p.cmd.Process == nil {
+		return 0
+	}
+	return p.cmd.Process.Pid
+}
+
 // LastLine returns the most recent captured log line.
 func (p *Proc) LastLine() string { return p.lines.last() }
 

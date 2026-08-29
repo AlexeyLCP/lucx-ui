@@ -1344,4 +1344,13 @@ func TestInjectTrustTunnelEgress_KnownOutboundForceRoutes(t *testing.T) {
 	}
 }
 
+func TestAwgTunGateway_NoWrap(t *testing.T) {
+	if awgTunGateway(1) != "10.254.1.1/30" {
+		t.Fatalf("id 1: %s", awgTunGateway(1))
+	}
+	if awgTunGateway(1) == awgTunGateway(255) {
+		t.Fatal("id 1 and 255 must not share a gateway")
+	}
+}
+
 // END LUCX-HOOK

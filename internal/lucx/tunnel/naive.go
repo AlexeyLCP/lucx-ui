@@ -12,6 +12,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"net"
 	"net/url"
 	"strconv"
@@ -129,6 +130,20 @@ func (c NaiveConfig) Validate() error {
 	if strings.TrimSpace(c.AuthUser) == "" || strings.TrimSpace(c.AuthPass) == "" {
 		return errors.New("naive: auth user and password are required")
 	}
+	if err := rejectCaddyInject("domain", c.Domain); err != nil {
+		return err
+	}
+	if err := rejectCaddyInject("listen", c.Listen); err != nil {
+		return err
+	}
+	if err := rejectCaddyInject("acme email", c.AcmeEmail); err != nil {
+		return err
+	}
+	if listen := strings.TrimSpace(c.Listen); listen != "" && listen != "0.0.0.0" && listen != "::" {
+		if net.ParseIP(listen) == nil {
+			return errors.New("naive: listen must be an IP address")
+		}
+	}
 	if c.UseAcme {
 		if strings.TrimSpace(c.Domain) == "" {
 			return errors.New("naive: Auto TLS requires a domain")
@@ -152,6 +167,13 @@ func (c NaiveConfig) Validate() error {
 // caddyToken quotes a value for the Caddyfile lexer, escaping embedded
 // backslashes, quotes and newlines so operator input cannot break out of the
 // token or inject directives.
+func rejectCaddyInject(name, v string) error {
+	if strings.ContainsAny(v, "\n\r{}") {
+		return fmt.Errorf("naive: %s contains invalid characters", name)
+	}
+	return nil
+}
+
 func caddyToken(s string) string {
 	s = strings.ReplaceAll(s, "\\", "\\\\")
 	s = strings.ReplaceAll(s, "\"", "\\\"")

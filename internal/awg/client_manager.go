@@ -54,6 +54,9 @@ var (
 // methods but keeps its own state map and mutex so the two sides never block
 // each other.
 func (m *Manager) EnsureClient(ci ClientInstance) error {
+	if rebuildPaused.Load() {
+		return fmt.Errorf("awg: module rebuild in progress")
+	}
 	m.sweepOrphanClientsOnce()
 	clientMu.Lock()
 	defer clientMu.Unlock()

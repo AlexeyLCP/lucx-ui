@@ -32,8 +32,8 @@ func renderClientConf(ci ClientInstance) string {
 	s := ci.Settings
 	var b strings.Builder
 	b.WriteString("[Interface]\n")
-	fmt.Fprintf(&b, "PrivateKey = %s\n", s.PrivateKey)
-	fmt.Fprintf(&b, "Address = %s\n", s.Address)
+	fmt.Fprintf(&b, "PrivateKey = %s\n", confValue(s.PrivateKey))
+	fmt.Fprintf(&b, "Address = %s\n", confValue(s.Address))
 	fmt.Fprintf(&b, "MTU = %d\n", s.MTU)
 	b.WriteString("Table = off\n")
 	// DNS deliberately NOT written — see function comment. resolvconf crash
@@ -66,34 +66,34 @@ func renderClientConf(ci ClientInstance) string {
 	// is skipped ("H1 = " makes setconf reject the file), Jc=0 keeps its headers.
 	for i, h := range []string{s.H1, s.H2, s.H3, s.H4} {
 		if strings.TrimSpace(h) != "" {
-			fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
+			fmt.Fprintf(&b, "H%d = %s\n", i+1, confValue(h))
 		}
 	}
 	// Version- and module-gated like renderServerConf (manager.go:840 carries the
 	// full why): an older kernel rejects the line and awg-quick then deletes awgo-N.
 	if awg3ok && strings.TrimSpace(s.HeaderProtectionKey) != "" {
-		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
+		fmt.Fprintf(&b, "HeaderProtectionKey = %s\n", confValue(s.HeaderProtectionKey))
 	}
 	// AWG3 device-level timers/padding — AwgTimer holds single or range
 	// ("lo-hi") values verbatim; IsZero omits the kernel default.
 	if awg3ok {
 		if !s.ContentPaddingAddition.IsZero() {
-			fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
+			fmt.Fprintf(&b, "ContentPaddingAddition = %s\n", confValue(string(s.ContentPaddingAddition)))
 		}
 		if !s.RekeyAfterTime.IsZero() {
-			fmt.Fprintf(&b, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
+			fmt.Fprintf(&b, "RekeyAfterTime = %s\n", confValue(string(s.RekeyAfterTime)))
 		}
 		if !s.RekeyTimeout.IsZero() {
-			fmt.Fprintf(&b, "RekeyTimeout = %s\n", s.RekeyTimeout)
+			fmt.Fprintf(&b, "RekeyTimeout = %s\n", confValue(string(s.RekeyTimeout)))
 		}
 		if !s.RejectAfterTime.IsZero() {
-			fmt.Fprintf(&b, "RejectAfterTime = %s\n", s.RejectAfterTime)
+			fmt.Fprintf(&b, "RejectAfterTime = %s\n", confValue(string(s.RejectAfterTime)))
 		}
 		if !s.KeepaliveTimeout.IsZero() {
-			fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
+			fmt.Fprintf(&b, "KeepaliveTimeout = %s\n", confValue(string(s.KeepaliveTimeout)))
 		}
 		if !s.MaxHandshakeAttempts.IsZero() {
-			fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
+			fmt.Fprintf(&b, "MaxHandshakeAttempts = %s\n", confValue(string(s.MaxHandshakeAttempts)))
 		}
 	}
 	if awg31ok {
@@ -117,14 +117,14 @@ func renderClientConf(ci ClientInstance) string {
 		}
 	}
 	b.WriteString("\n[Peer]\n")
-	fmt.Fprintf(&b, "PublicKey = %s\n", s.PublicKey)
+	fmt.Fprintf(&b, "PublicKey = %s\n", confValue(s.PublicKey))
 	if psk := strings.TrimSpace(s.PSK); psk != "" {
-		fmt.Fprintf(&b, "PresharedKey = %s\n", psk)
+		fmt.Fprintf(&b, "PresharedKey = %s\n", confValue(psk))
 	}
-	fmt.Fprintf(&b, "Endpoint = %s\n", s.Endpoint)
-	fmt.Fprintf(&b, "AllowedIPs = %s\n", s.AllowedIPs)
+	fmt.Fprintf(&b, "Endpoint = %s\n", confValue(s.Endpoint))
+	fmt.Fprintf(&b, "AllowedIPs = %s\n", confValue(s.AllowedIPs))
 	if !s.Keepalive.IsZero() {
-		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", s.Keepalive)
+		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", confValue(string(s.Keepalive)))
 	}
 	return b.String()
 }
