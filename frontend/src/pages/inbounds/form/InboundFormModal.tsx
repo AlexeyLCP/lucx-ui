@@ -59,6 +59,7 @@ import { AdvancedAllEditor, AdvancedSliceEditor } from './advanced-editors';
 import { AwgInboundIdProvider } from './awg-inbound-id-context';
 // END LUCX-HOOK
 import { formatInboundIssue, formatInboundValidation } from './formatValidationError';
+import { awgIFieldSetFrom, awgIFieldSetRefused, awgSavedIFieldSet } from './awgIFieldBudget';
 import {
   AmneziawgFields,
   HttpFields,
@@ -665,6 +666,19 @@ export default function InboundFormModal({
         '[InboundFormModal] schema validation failed:',
         issues.map((issue) => formatInboundIssue(issue, values, t)),
       );
+      return;
+    }
+    // Only the form knows both the new I-set and the stored one, so only it can
+    // refuse the operator's own over-budget set while sparing an inherited one.
+    if (
+      values.protocol === Protocols.AWG &&
+      awgIFieldSetRefused(
+        awgIFieldSetFrom(values.settings),
+        awgSavedIFieldSet(mode === 'edit' ? dbInbound : null),
+      )
+    ) {
+      setActiveTab('protocol');
+      messageApi.error(t('pages.inbounds.form.awgIFieldBudget'));
       return;
     }
     setSaving(true);
