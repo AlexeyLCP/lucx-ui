@@ -23,9 +23,8 @@ func importedAwgInbound(t *testing.T, port int, i1 string) *model.Inbound {
 	}
 }
 
-// An imported server is foreign and already running: our budget bounds what OUR
-// kernel can read back, not what its kernel accepted. ~21% of Amnezia Pro sets
-// are over it, and refusing them made those servers unimportable.
+// A foreign server is already running: our budget bounds what OUR kernel reads
+// back, not what its kernel accepted, and ~21% of Amnezia Pro sets are over it.
 func TestAwgImport_OversizeIFieldSetSavesWithWarning(t *testing.T) {
 	setupConflictDB(t)
 	oversize := strings.Repeat("x", oversizeIFieldChars)

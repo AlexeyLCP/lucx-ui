@@ -21,6 +21,7 @@ func TestIFieldBudgetErrorNamesTheInterfaceItIsAbout(t *testing.T) {
 	}{
 		{"inbound", validateAwgSettingsJSON(settings), "awgN", "awgo-"},
 		{"outbound", checkOutboundIFields(&model.AwgOutbound{Id: 7, Settings: settings}), "awgo-7", "awgN"},
+		{"new outbound", checkOutboundIFields(&model.AwgOutbound{Settings: settings}), "awgo-N", "awgo-0"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.side, func(t *testing.T) {

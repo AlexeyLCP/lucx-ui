@@ -29,8 +29,8 @@ const (
 	nlSafetyMargin = 40
 )
 
-// BaselineIfname is the 6-character shape the 3500-byte budget is quoted for.
-// An exported client config names its own interface, so it is checked here.
+// BaselineIfname is the 6-character name the 3500-byte figure is quoted for.
+// Tests only: every production caller passes the real interface name.
 const BaselineIfname = "awgo-1"
 
 // worstIfnameBytes is nlaBytes of the longest name a node can hand this

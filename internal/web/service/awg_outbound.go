@@ -146,7 +146,12 @@ func checkOutboundIFields(o *model.AwgOutbound) error {
 	if json.Unmarshal([]byte(o.Settings), &s) != nil {
 		return nil
 	}
-	return awg.ValidateIFields("awgo-"+strconv.Itoa(o.Id), s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5)
+	ifname := "awgo-" + strconv.Itoa(o.Id)
+	if o.Id == 0 {
+		// A new outbound has no id yet; name the shape, not a nonexistent awgo-0.
+		ifname = "awgo-N"
+	}
+	return awg.ValidateIFields(ifname, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5)
 }
 
 // Same rule as the inbound side, deliberately the same function. A bad key here
