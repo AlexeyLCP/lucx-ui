@@ -26,9 +26,9 @@ printf 'iface-privkey\tiface-pubkey\t51820\toff\n'
 printf 'peerkey\t(none)\t1.2.3.4:1234\t10.0.0.2/32\t%s\t4000\t9000\t0\n' "$(date +%s)"
 `
 
-// fakeAwgShow installs the stub as the only `awg` on PATH and returns the flag
-// file whose presence makes the wedged interface hang.
-func fakeAwgShow(t *testing.T, wedged string) string {
+// fakeAwgShow installs the stub as the first `awg` on PATH and returns its
+// directory plus the flag file whose presence makes the wedged interface hang.
+func fakeAwgShow(t *testing.T, wedged string) (string, string) {
 	t.Helper()
 	dir := t.TempDir()
 	flag := filepath.Join(dir, "wedged")
@@ -41,7 +41,7 @@ func fakeAwgShow(t *testing.T, wedged string) string {
 	}
 	// Prepended, not replacing: the stub itself shells out to sleep and date.
 	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
-	return flag
+	return dir, flag
 }
 
 // managedOnLoopback builds a managed entry whose liveness check passes (the
@@ -65,7 +65,7 @@ func countStuckWarnings(t *testing.T, ifname string) int {
 	t.Helper()
 	n := 0
 	for _, line := range logger.GetLogs(1000, "warning") {
-		if strings.Contains(line, "awg show") && strings.Contains(line, ifname) {
+		if strings.Contains(line, "reading interface "+ifname+" timed out") {
 			n++
 		}
 	}
@@ -132,7 +132,7 @@ func TestCollectTraffic_WedgedInterfaceDoesNotBlockOthers(t *testing.T) {
 // job rescrapes every 10s for the whole half-hour a wedged device is stuck.
 func TestScrapePeers_TimeoutWarnsOncePerInterface(t *testing.T) {
 	const wedged = "awgtest-stuck"
-	flag := fakeAwgShow(t, wedged)
+	_, flag := fakeAwgShow(t, wedged)
 
 	before := countStuckWarnings(t, wedged)
 	for i := range 3 {

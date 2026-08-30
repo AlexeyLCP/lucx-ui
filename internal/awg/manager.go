@@ -1034,9 +1034,24 @@ type peerStat struct {
 // (~1 ms measured), while an oversized I-field set spins it for ~30 minutes.
 const awgShowTimeout = 5 * time.Second
 
-// stuckShows latches the timeout warning per interface — the traffic job
-// rescrapes every 10s for as long as a wedged device stays unreadable.
+// stuckShows latches the timeout warning per interface — three readers probe
+// the same device, and the traffic job retries every 10s while it stays stuck.
 var stuckShows sync.Map
+
+// noteAwgRead turns the outcome of one bounded read of ifname into at most one
+// log line while the device is unreadable; answering again re-arms the warning.
+func noteAwgRead(ctx context.Context, ifname string, err error) {
+	if err == nil {
+		stuckShows.Delete(ifname)
+		return
+	}
+	if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return
+	}
+	if _, warned := stuckShows.LoadOrStore(ifname, true); !warned {
+		logger.Warningf("awg: reading interface %s timed out after %s, treating it as unreadable until it answers", ifname, awgShowTimeout)
+	}
+}
 
 // scrapePeers runs `awg show <iface> dump` and parses the peer rows. The dump
 // format is one interface line followed by one line per peer:
@@ -1052,15 +1067,10 @@ func scrapePeers(ifname string) ([]peerStat, bool) {
 	ctx, cancel := context.WithTimeout(context.Background(), awgShowTimeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, awgBin("awg"), "show", ifname, "dump").Output()
+	noteAwgRead(ctx, ifname, err)
 	if err != nil {
-		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
-			if _, warned := stuckShows.LoadOrStore(ifname, true); !warned {
-				logger.Warningf("awg: `awg show %s dump` timed out after %s, skipping its statistics until it answers", ifname, awgShowTimeout)
-			}
-		}
 		return nil, false
 	}
-	stuckShows.Delete(ifname)
 	return parseAwgDump(string(out))
 }
 
