@@ -2519,7 +2519,11 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// (no re-export). Only rewrites a peer that collides with the server's
 	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
 	if inbound.Protocol == model.AWG {
-		if err := validateAwgSettingsJSON(inbound.Settings); err != nil {
+		oldSettings := ""
+		if oldInbound != nil {
+			oldSettings = oldInbound.Settings
+		}
+		if err := validateAwgSettingsJSONDiff(inbound.Settings, oldSettings); err != nil {
 			return inbound, false, err
 		}
 	}

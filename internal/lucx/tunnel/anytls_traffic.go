@@ -171,7 +171,10 @@ func legacyAnytlsReturnArgs(dump string) [][]string {
 		if i := strings.Index(line, "-A "); i >= 0 {
 			line = line[i:]
 		}
-		if !strings.HasPrefix(line, "-A ") || !strings.Contains(line, "lucx-anytls") || !strings.HasSuffix(line, "-j RETURN") {
+		if !strings.HasPrefix(line, "-A ") || !strings.Contains(line, "lucx-anytls") {
+			continue
+		}
+		if !strings.HasSuffix(line, "-j RETURN") && !strings.Contains(line, "-j LUCX_ANYTLS_ACCT") {
 			continue
 		}
 		args := strings.Fields(line)

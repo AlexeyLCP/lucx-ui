@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.193 — AnyTLS traffic counters + grandfather AWG I-fields (2026-08-30)
+
+Max: after lucx.192 AnyTLS works with UFW on, but panel shows no online and no traffic. Arseniy: node reconcile / inbound save fails `I1-I5 exceed the netlink read budget: 3604 > 3456` on already-working inbounds.
+
+- AnyTLS accounting: empty-chain jump left iptables-nft counters at 0. Now `-j MARK --set-xmark 0x0/0x0` (non-terminating). Sweep leftover RETURN and `LUCX_ANYTLS_ACCT`.
+- AWG update: same I1-I5 as already stored → skip the budget check (Rule 0). New/changed oversize still rejected.
+
+Tests: `TestParseIptablesSave`, `TestLegacyAnytlsReturnArgs`, `TestValidateAwgSettingsJSON_IFieldBudget` grandfather case.
+
+**lucxVersion:** lucx.193
+
+---
+
 ## lucx.192 — AnyTLS UFW DROP from iptables RETURN (2026-08-30)
 
 Max: AnyTLS works with UFW off; port 8555 is allowed but clients hang. `tcpdump` SYN in, no SYN-ACK. INPUT first rules were `-j RETURN /* lucx-anytls-anytls-17 */` with counters climbing; UFW ACCEPT stayed at 0 pkts.

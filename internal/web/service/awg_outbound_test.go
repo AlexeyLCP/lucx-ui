@@ -537,4 +537,11 @@ func TestValidateAwgSettingsJSON_IFieldBudget(t *testing.T) {
 	if err := validateAwgSettingsJSON(`{"i1":"` + oversize[:3484] + `"}`); err != nil {
 		t.Fatalf("a set at exactly the budget must save, got %v", err)
 	}
+	blob := `{"i1":"` + oversize + `"}`
+	if err := validateAwgSettingsJSONDiff(blob, blob); err != nil {
+		t.Fatalf("unchanged oversize on update must save, got %v", err)
+	}
+	if err := validateAwgSettingsJSONDiff(`{"i1":"`+strings.Repeat("y", 3496)+`"}`, blob); !errors.Is(err, awg.ErrIFieldsTooLarge) {
+		t.Fatalf("changed oversize must fail, got %v", err)
+	}
 }

@@ -29,8 +29,8 @@ func TestParseTCPEstablished(t *testing.T) {
 
 func TestParseIptablesSave(t *testing.T) {
 	dump := `*filter
-[10:100] -A INPUT -p tcp -m tcp --dport 8443 -m comment --comment lucx-anytls-anytls-1 -j LUCX_ANYTLS_ACCT
-[4:40] -A OUTPUT -p tcp -m tcp --sport 8443 -m comment --comment "lucx-anytls-anytls-1" -j LUCX_ANYTLS_ACCT
+[10:100] -A INPUT -p tcp -m tcp --dport 8443 -m comment --comment lucx-anytls-anytls-1 -j MARK --set-xmark 0x0/0x0
+[4:40] -A OUTPUT -p tcp -m tcp --sport 8443 -m comment --comment "lucx-anytls-anytls-1" -j MARK --set-xmark 0x0/0x0
 `
 	up, down, ok := parseIptablesSave(dump, "lucx-anytls-anytls-1")
 	if !ok || up != 40 || down != 100 {
@@ -60,10 +60,10 @@ func TestLegacyAnytlsReturnArgs(t *testing.T) {
 -A OUTPUT -p tcp -m tcp --sport 8555 -m comment --comment lucx-anytls-anytls-17 -j RETURN
 `
 	got := legacyAnytlsReturnArgs(dump)
-	if len(got) != 3 {
-		t.Fatalf("n=%d want 3", len(got))
+	if len(got) != 4 {
+		t.Fatalf("n=%d want 4", len(got))
 	}
-	if got[0][0] != "-D" || got[0][1] != "INPUT" || got[2][1] != "OUTPUT" {
+	if got[0][0] != "-D" || got[0][1] != "INPUT" || got[3][1] != "OUTPUT" {
 		t.Fatalf("got %#v", got)
 	}
 }
