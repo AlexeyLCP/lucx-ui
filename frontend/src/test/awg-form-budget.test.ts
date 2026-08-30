@@ -38,6 +38,21 @@ describe('awgIFieldSetRefused', () => {
     expect(awgIFieldSetRefused({ i1: BETWEEN, headerProtectionKey: HPK }, stored)).toBe(true);
   });
 
+  // The budget is a property of the RESULT, not of the difference: dropping the
+  // key raises the ceiling back to 3492, so a set that now fits is not compared.
+  it('saves a grandfathered set once dropping the key brings it inside the budget', () => {
+    const stored = { i1: BETWEEN, headerProtectionKey: HPK };
+    expect(awgIFieldSetRefused({ i1: BETWEEN, headerProtectionKey: '' }, stored)).toBe(false);
+    expect(awgIFieldSetRefused({ i1: 'y'.repeat(3480), headerProtectionKey: '' }, stored)).toBe(
+      false,
+    );
+  });
+
+  it('still refuses when dropping the key leaves the set over the 3492 ceiling', () => {
+    const stored = { i1: OVERSIZE, headerProtectionKey: HPK };
+    expect(awgIFieldSetRefused({ i1: OVERSIZE, headerProtectionKey: '' }, stored)).toBe(true);
+  });
+
   it('never refuses a set inside the budget, stored or not', () => {
     const small = { i1: 'x'.repeat(100) };
     expect(awgIFieldSetRefused(small, null)).toBe(false);
