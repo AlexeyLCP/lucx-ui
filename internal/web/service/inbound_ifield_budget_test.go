@@ -86,9 +86,8 @@ func reloadAwgIFieldSettings(t *testing.T, id int) (i1, dns string) {
 	return s.I1, s.DNS
 }
 
-// A node's reconcile push resubmits the inbound's own stored settings every 5s.
-// The budget gate shipped in lucx.191 turned that into a permanent 400, and the
-// node stayed dirty forever. An untouched I-set must not be budgeted.
+// A node's reconcile push resubmits the inbound's own stored settings every 5s,
+// so budgeting an untouched I-set left the node permanently dirty.
 func TestUpdateInbound_UnchangedOversizeIFieldSetStaysSavable(t *testing.T) {
 	oversize := strings.Repeat("x", oversizeIFieldChars)
 	// encoding/json matches tags case-insensitively, so a hand-written "I1"
@@ -203,6 +202,28 @@ func TestUpdateInbound_IFieldExemptionCoversTheBudgetOnly(t *testing.T) {
 	update := *existing
 	if _, _, err := (&InboundService{}).UpdateInbound(&update); !errors.Is(err, errAwgControlChar) {
 		t.Fatalf("UpdateInbound(unchanged injected i1) = %v, want errAwgControlChar", err)
+	}
+}
+
+// Only an AWG inbound can have a grandfathered set. Parking one under a
+// protocol with no AWG validation and then switching must not inherit it.
+func TestUpdateInbound_ProtocolSwitchToAwgIsNotGrandfathered(t *testing.T) {
+	setupConflictDB(t)
+	oversize := strings.Repeat("x", oversizeIFieldChars)
+	seeded := awgIFieldSettings(t, oversize, "1.1.1.1")
+	seedInboundConflict(t, "in-51820-tcp", "0.0.0.0", 51820, model.VLESS, `{"network":"tcp"}`, seeded)
+	var existing model.Inbound
+	if err := database.GetDB().Where("tag = ?", "in-51820-tcp").First(&existing).Error; err != nil {
+		t.Fatalf("read seeded row: %v", err)
+	}
+
+	update := existing
+	update.Protocol = model.AWG
+	if _, _, err := (&InboundService{}).UpdateInbound(&update); !errors.Is(err, awg.ErrIFieldsTooLarge) {
+		t.Fatalf("UpdateInbound(VLESS -> AWG, oversize I-set) = %v, want awg.ErrIFieldsTooLarge", err)
+	}
+	if got := reloadAwgSettingsRaw(t, existing.Id); got != seeded {
+		t.Fatalf("a rejected update must not persist, stored settings changed")
 	}
 }
 
