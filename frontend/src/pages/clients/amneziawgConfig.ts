@@ -73,8 +73,8 @@ export function buildAmneziaWGClientConfig(
   lines.push(`Jmax = ${server?.jmax ?? 50}`);
   lines.push(`S1 = ${server?.s1 ?? 30}`);
   lines.push(`S2 = ${server?.s2 ?? 45}`);
-  if (server?.s3) lines.push(`S3 = ${server.s3}`);
-  if (server?.s4) lines.push(`S4 = ${server.s4}`);
+  lines.push(`S3 = ${server?.s3 ?? 10}`);
+  lines.push(`S4 = ${server?.s4 ?? 5}`);
   lines.push(hLine('H1', server?.h1, '1'));
   lines.push(hLine('H2', server?.h2, '2'));
   lines.push(hLine('H3', server?.h3, '3'));

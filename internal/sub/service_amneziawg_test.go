@@ -275,3 +275,16 @@ func TestAmneziaWGConfigTextRejectsNewlineInjection(t *testing.T) {
 		})
 	}
 }
+
+// A zero S is a real value ("do not pad"). The subscription .conf must carry
+// it, or the client pads to its own default and must-match sizes diverge.
+func TestAmneziaWGConfigTextKeepsZeroPaddingSizes(t *testing.T) {
+	server := &amneziawg.ServerSettings{PublicKey: "serverPub", Jc: 4, Jmin: 40, Jmax: 100}
+	client := &model.Client{PrivateKey: "clientPriv", AllowedIPs: []string{"10.8.1.2/32"}}
+	conf := amneziaWGConfigText(server, client, "203.0.113.7", 51820, "peer-1")
+	for _, want := range []string{"S1 = 0", "S2 = 0", "S3 = 0", "S4 = 0"} {
+		if !strings.Contains(conf, want) {
+			t.Fatalf("missing %q:\n%s", want, conf)
+		}
+	}
+}

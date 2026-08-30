@@ -978,8 +978,8 @@ export function genAmneziaWGConfig(input: GenAmneziaWGLinkInput): string {
   txt += `Jmax = ${server.jmax}\n`;
   txt += `S1 = ${server.s1}\n`;
   txt += `S2 = ${server.s2}\n`;
-  if (server.s3) txt += `S3 = ${server.s3}\n`;
-  if (server.s4) txt += `S4 = ${server.s4}\n`;
+  txt += `S3 = ${server.s3}\n`;
+  txt += `S4 = ${server.s4}\n`;
   txt += `${amneziaWGHLine('H1', server.h1, '1')}\n`;
   txt += `${amneziaWGHLine('H2', server.h2, '2')}\n`;
   txt += `${amneziaWGHLine('H3', server.h3, '3')}\n`;
@@ -1822,11 +1822,11 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   if (settings.jc) url.searchParams.set('jc', String(settings.jc));
   if (settings.jmin) url.searchParams.set('jmin', String(settings.jmin));
   if (settings.jmax) url.searchParams.set('jmax', String(settings.jmax));
-  if (settings.s1) url.searchParams.set('s1', String(settings.s1));
-  if (settings.s2) url.searchParams.set('s2', String(settings.s2));
+  url.searchParams.set('s1', String(settings.s1));
+  url.searchParams.set('s2', String(settings.s2));
   if (awgVersionAtLeast(v, '2')) {
-    if (settings.s3) url.searchParams.set('s3', String(settings.s3));
-    if (settings.s4) url.searchParams.set('s4', String(settings.s4));
+    url.searchParams.set('s3', String(settings.s3));
+    url.searchParams.set('s4', String(settings.s4));
   }
   if ((settings.h1 ?? '').trim()) url.searchParams.set('h1', settings.h1);
   if ((settings.h2 ?? '').trim()) url.searchParams.set('h2', settings.h2);
@@ -1905,11 +1905,13 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
   if (settings.jc) txt += `Jc = ${settings.jc}\n`;
   if (settings.jmin) txt += `Jmin = ${settings.jmin}\n`;
   if (settings.jmax) txt += `Jmax = ${settings.jmax}\n`;
-  if (settings.s1) txt += `S1 = ${settings.s1}\n`;
-  if (settings.s2) txt += `S2 = ${settings.s2}\n`;
+  // Written always, zeros included: 0 means "do not pad", and a dropped line
+  // makes the client pad to its own default instead. Only the version gates.
+  txt += `S1 = ${settings.s1}\n`;
+  txt += `S2 = ${settings.s2}\n`;
   if (awgVersionAtLeast(override, '2')) {
-    if (settings.s3) txt += `S3 = ${settings.s3}\n`;
-    if (settings.s4) txt += `S4 = ${settings.s4}\n`;
+    txt += `S3 = ${settings.s3}\n`;
+    txt += `S4 = ${settings.s4}\n`;
   }
   if ((settings.h1 ?? '').trim()) txt += `H1 = ${settings.h1}\n`;
   if ((settings.h2 ?? '').trim()) txt += `H2 = ${settings.h2}\n`;

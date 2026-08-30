@@ -1176,12 +1176,10 @@ func amneziaWGConfigText(server *amneziawg.ServerSettings, client *model.Client,
 	fmt.Fprintf(&b, "Jmax = %d\n", server.Jmax)
 	fmt.Fprintf(&b, "S1 = %d\n", server.S1)
 	fmt.Fprintf(&b, "S2 = %d\n", server.S2)
-	if server.S3 > 0 {
-		fmt.Fprintf(&b, "S3 = %d\n", server.S3)
-	}
-	if server.S4 > 0 {
-		fmt.Fprintf(&b, "S4 = %d\n", server.S4)
-	}
+	// Zero is a value ("do not pad"), not an unset field; AmneziaWG settings
+	// carry no version, so these two are unconditional like S1/S2 above.
+	fmt.Fprintf(&b, "S3 = %d\n", server.S3)
+	fmt.Fprintf(&b, "S4 = %d\n", server.S4)
 	fmt.Fprintf(&b, "H1 = %s\n", amneziaWGHeaderOrDefault(server.H1, "1"))
 	fmt.Fprintf(&b, "H2 = %s\n", amneziaWGHeaderOrDefault(server.H2, "2"))
 	fmt.Fprintf(&b, "H3 = %s\n", amneziaWGHeaderOrDefault(server.H3, "3"))
