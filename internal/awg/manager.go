@@ -1034,8 +1034,12 @@ type peerStat struct {
 // (~1 ms measured), while an oversized I-field set spins it for ~30 minutes.
 const awgShowTimeout = 5 * time.Second
 
-// stuckShows latches the timeout warning per interface — three readers probe
-// the same device, and the traffic job retries every 10s while it stays stuck.
+// awgStuckCooldown leaves a timed-out interface unread for this long: the read
+// itself leaks ~164 MB/s. A var (not a const) so tests can shorten it.
+var awgStuckCooldown = 10 * time.Minute
+
+// stuckShows maps an interface to when its read last ran out of time; three
+// readers share it, so one sick device is one warning and one read per cooldown.
 var stuckShows sync.Map
 
 // noteAwgRead turns the outcome of one bounded read of ifname into at most one
@@ -1048,9 +1052,23 @@ func noteAwgRead(ctx context.Context, ifname string, err error) {
 	if !errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return
 	}
-	if _, warned := stuckShows.LoadOrStore(ifname, true); !warned {
-		logger.Warningf("awg: reading interface %s timed out after %s, treating it as unreadable until it answers", ifname, awgShowTimeout)
+	if _, warned := stuckShows.Swap(ifname, time.Now()); !warned {
+		logger.Warningf("awg: reading interface %s timed out after %s, leaving it unread for %s", ifname, awgShowTimeout, awgStuckCooldown)
 	}
+}
+
+// stuckReadErr answers for an interface still inside its cooldown, so a reader
+// reports it unreadable without spawning the read that wedges and leaks.
+func stuckReadErr(ifname string) error {
+	v, ok := stuckShows.Load(ifname)
+	if !ok {
+		return nil
+	}
+	stuck, _ := v.(time.Time)
+	if time.Since(stuck) >= awgStuckCooldown {
+		return nil
+	}
+	return fmt.Errorf("awg show %s: %w", ifname, context.DeadlineExceeded)
 }
 
 // scrapePeers runs `awg show <iface> dump` and parses the peer rows. The dump
@@ -1064,6 +1082,9 @@ func noteAwgRead(ctx context.Context, ifname string, err error) {
 // peer (download). Returns ok=false when the interface is down or awg is
 // unavailable.
 func scrapePeers(ifname string) ([]peerStat, bool) {
+	if stuckReadErr(ifname) != nil {
+		return nil, false
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), awgShowTimeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, awgBin("awg"), "show", ifname, "dump").Output()

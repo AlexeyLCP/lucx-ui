@@ -21,6 +21,7 @@ import (
 // awgShowStub stands in for the amneziawg-tools binary: it wedges on the named
 // interface while the flag file exists, and dumps one peer for anything else.
 const awgShowStub = `#!/bin/sh
+echo "$2" >> "@CALLS@"
 if [ "$2" = "@WEDGED@" ] && [ -f "@FLAG@" ]; then exec sleep 60; fi
 printf 'iface-privkey\tiface-pubkey\t51820\toff\n'
 printf 'peerkey\t(none)\t1.2.3.4:1234\t10.0.0.2/32\t%s\t4000\t9000\t0\n' "$(date +%s)"
@@ -35,7 +36,11 @@ func fakeAwgShow(t *testing.T, wedged string) (string, string) {
 	if err := os.WriteFile(flag, nil, 0o600); err != nil {
 		t.Fatalf("write wedge flag: %v", err)
 	}
-	script := strings.NewReplacer("@WEDGED@", wedged, "@FLAG@", flag).Replace(awgShowStub)
+	script := strings.NewReplacer(
+		"@WEDGED@", wedged,
+		"@FLAG@", flag,
+		"@CALLS@", filepath.Join(dir, "calls"),
+	).Replace(awgShowStub)
 	if err := os.WriteFile(filepath.Join(dir, "awg"), []byte(script), 0o755); err != nil {
 		t.Fatalf("write awg stub: %v", err)
 	}
@@ -133,6 +138,8 @@ func TestCollectTraffic_WedgedInterfaceDoesNotBlockOthers(t *testing.T) {
 func TestScrapePeers_TimeoutWarnsOncePerInterface(t *testing.T) {
 	const wedged = "awgtest-stuck"
 	_, flag := fakeAwgShow(t, wedged)
+	// This test is about the log latch, not the read gate; the gate has its own.
+	withStuckCooldown(t, 0)
 
 	before := countStuckWarnings(t, wedged)
 	for i := range 3 {

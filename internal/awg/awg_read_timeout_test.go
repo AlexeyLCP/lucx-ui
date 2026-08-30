@@ -9,6 +9,8 @@
 package awg
 
 import (
+	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"strings"
@@ -26,6 +28,29 @@ func hangingBin(t *testing.T, dir, name string) {
 	if err := os.WriteFile(filepath.Join(dir, name), []byte("#!/bin/sh\nexec sleep 60\n"), 0o755); err != nil {
 		t.Fatalf("write %s stub: %v", name, err)
 	}
+}
+
+func withStuckCooldown(t *testing.T, d time.Duration) {
+	t.Helper()
+	orig := awgStuckCooldown
+	awgStuckCooldown = d
+	t.Cleanup(func() { awgStuckCooldown = orig })
+}
+
+// countAwgRuns counts how many times the stub was actually executed for ifname.
+func countAwgRuns(t *testing.T, dir, ifname string) int {
+	t.Helper()
+	b, err := os.ReadFile(filepath.Join(dir, "calls"))
+	if err != nil {
+		t.Fatalf("read stub call log: %v", err)
+	}
+	n := 0
+	for _, line := range strings.Split(string(b), "\n") {
+		if line == ifname {
+			n++
+		}
+	}
+	return n
 }
 
 func countTimeoutWarnings(t *testing.T) int {
@@ -112,6 +137,48 @@ func TestExecProber_WedgedProbeIsBoundedAndShared(t *testing.T) {
 	}
 }
 
+// TestStuckInterfaceIsReadOncePerCooldown pins the damage bound: the deadline
+// caps one read at ~820 MB of leak, and only the cooldown caps how often.
+func TestStuckInterfaceIsReadOncePerCooldown(t *testing.T) {
+	const wedged = "awgtest-cooldown"
+	dir, flag := fakeAwgShow(t, wedged)
+
+	for i := range 10 {
+		if _, ok := scrapePeers(wedged); ok {
+			t.Fatalf("traffic tick %d reported ok on a wedged interface", i+1)
+		}
+	}
+	if n := countAwgRuns(t, dir, wedged); n != 1 {
+		t.Fatalf("ten traffic ticks spawned %d `awg show` runs on one wedged interface, want 1: each run is a 5s read leaking ~164 MB/s, so ten of them are ~8 GB churned per hundred seconds", n)
+	}
+
+	for i := range 10 {
+		if _, err := awgShowIfname(wedged); !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("outbound read %d returned %v, want a deadline error without running awg", i+1, err)
+		}
+	}
+	if _, err := (execProber{}).Run("awg", "show", wedged, "peers"); !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("diagnostics probe returned %v, want a deadline error without running awg", err)
+	}
+	if n := countAwgRuns(t, dir, wedged); n != 1 {
+		t.Fatalf("the other two readers spawned %d runs in total, want the same 1: the cooldown is shared, not per-reader", n)
+	}
+
+	withStuckCooldown(t, 0)
+	if err := os.Remove(flag); err != nil {
+		t.Fatalf("clear wedge flag: %v", err)
+	}
+	if _, ok := scrapePeers(wedged); !ok {
+		t.Fatal("an interface must be retried once its cooldown expires, otherwise a fixed device stays dead forever")
+	}
+	if _, err := awgShowIfname(wedged); err != nil {
+		t.Fatalf("after a successful read the interface must be back in normal rotation: %v", err)
+	}
+	if n := countAwgRuns(t, dir, wedged); n != 3 {
+		t.Fatalf("%d runs in total, want 3 (one while stuck, two after recovery)", n)
+	}
+}
+
 // TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf guards the consequence
 // the deadline introduced: a read that ran out of time is not a missing device.
 func TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf(t *testing.T) {
@@ -160,6 +227,9 @@ func TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf(t *testing.T) {
 func TestStuckInterfaceWarnsOnceAcrossAllReaders(t *testing.T) {
 	const wedged = "awgtest-shared"
 	fakeAwgShow(t, wedged)
+	// All three must actually run the read here, or the latch is not what is
+	// being tested; the read gate is pinned separately.
+	withStuckCooldown(t, 0)
 
 	before := countStuckWarnings(t, wedged)
 	if _, ok := scrapePeers(wedged); ok {

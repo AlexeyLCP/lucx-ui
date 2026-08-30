@@ -64,10 +64,14 @@ type prober interface {
 type execProber struct{}
 
 func (execProber) Run(name string, args ...string) (string, error) {
+	ifname := probedIfname(name, args)
+	if err := stuckReadErr(ifname); err != nil {
+		return "", err
+	}
 	ctx, cancel := context.WithTimeout(context.Background(), awgShowTimeout)
 	defer cancel()
 	out, err := exec.CommandContext(ctx, awgBin(name), args...).CombinedOutput()
-	if ifname := probedIfname(name, args); ifname != "" {
+	if ifname != "" {
 		noteAwgRead(ctx, ifname, err)
 	}
 	return string(out), err
