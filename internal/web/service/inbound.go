@@ -1730,12 +1730,12 @@ func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefi
 // nodes are separate kernels — same subnet is fine. ignoreId excludes the
 // inbound being edited. Outbound clash applies only to local inbounds (outbounds
 // live on the master kernel). Empty/unparseable address is not an error here.
-// awgImportAllowOverlap: official Amnezia docker stacks all use 10.8.1.0/24
-// in isolated namespaces — import must not refuse them (Rule 0: keep IPs).
-var awgImportAllowOverlap bool
+// awgImportInProgress waives what a live foreign server already runs with and
+// import must not refuse: an Amnezia 10.8.1.0/24 overlap, an over-budget I-set.
+var awgImportInProgress bool
 
 func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, nodeID *int) error {
-	if awgImportAllowOverlap {
+	if awgImportInProgress {
 		return nil
 	}
 	newAddr = strings.TrimSpace(newAddr)
@@ -1836,8 +1836,14 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound on this host
 	// already owns (Pattern 1e kernel route conflict). New inbounds have no id.
 	if inbound.Protocol == model.AWG {
-		if err := validateAwgSettingsJSON(inbound.Settings); err != nil {
-			return inbound, false, err
+		awgErr := validateAwgSettingsJSON(inbound.Settings)
+		// Waived on import only: that server already runs this set, and every
+		// renderer drops an over-budget one before a kernel of ours sees it.
+		if awgImportInProgress && errors.Is(awgErr, awg.ErrIFieldsTooLarge) {
+			awgErr = validateAwgSettingsJSON(awgSettingsWithoutIFields(inbound.Settings))
+		}
+		if awgErr != nil {
+			return inbound, false, awgErr
 		}
 		if err := s.checkAwgSubnetConflict(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID); err != nil {
 			return inbound, false, err

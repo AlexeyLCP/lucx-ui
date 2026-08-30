@@ -234,7 +234,7 @@ Extracted from AGENTS.md. This file is project law.
 ### Pattern 1y: Import finds Docker AWG but only vanilla WG commits — FIXED (lucx.172)
 
 - **Cause:** `Validate` required S1–S4 ≥ 12 always. Official Amnezia 1.5 omits S3/S4 (0); AWG2 often has S3=1. Vanilla WG (`Jc=0,S1=0`) skipped the check, so only it imported. Next trap: all three stacks use `10.8.1.0/24` — `checkAwgSubnetConflict` would refuse the rest.
-- **Fix:** S≥12 only with HeaderProtectionKey. Import sets `awgImportAllowOverlap` (do not rewrite IPs). Operator must stop Docker and change a subnet before bringing more than one kernel iface up.
+- **Fix:** S≥12 only with HeaderProtectionKey. Import sets `awgImportInProgress` (do not rewrite IPs). Operator must stop Docker and change a subnet before bringing more than one kernel iface up.
 - **Seen on:** estonia-zakez-ru, 2026-08-24.
 
 ### Pattern 1ab: after Docker import the kernel iface cannot bind the port — FIXED (lucx.177)

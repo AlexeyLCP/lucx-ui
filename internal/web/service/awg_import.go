@@ -7,10 +7,12 @@
 package service
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
@@ -89,6 +91,19 @@ func (s *AwgImportService) reservedEmails() map[string]struct{} {
 	return used
 }
 
+// addImportedInbound saves a discovered server, returning the operator note an
+// over-budget I-set earns: it stays stored, but no renderer will emit it.
+func (s *AwgImportService) addImportedInbound(ib *model.Inbound) (*model.Inbound, string, error) {
+	warn := ""
+	if err := validateAwgSettingsJSON(ib.Settings); errors.Is(err, awg.ErrIFieldsTooLarge) {
+		warn = "saved, I-fields will not be applied: " + err.Error()
+	}
+	awgImportInProgress = true
+	created, _, err := s.Inbound.AddInbound(ib)
+	awgImportInProgress = false
+	return created, warn, err
+}
+
 func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImportResult {
 	res := AwgImportResult{ID: c.ID, Clients: c.PeerCount}
 	if _, err := awg.BackupImportSources(c); err != nil {
@@ -101,9 +116,7 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 		return res
 	}
 	res.MissingKeys = built.MissingKeys
-	awgImportAllowOverlap = true
-	created, _, err := s.Inbound.AddInbound(built.Inbound)
-	awgImportAllowOverlap = false
+	created, iFieldWarn, err := s.addImportedInbound(built.Inbound)
 	if err != nil {
 		res.Error = err.Error()
 		return res
@@ -144,6 +157,9 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 				}
 			}
 		}
+	}
+	if res.Error == "" {
+		res.Error = iFieldWarn
 	}
 	return res
 }
