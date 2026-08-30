@@ -1678,6 +1678,9 @@ func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSet
 	}
 
 	port := parseSettingsIntKey(oldSettings, "routeXrayPort")
+	if port <= 0 && proto != model.Naive {
+		port = settingsIntKey(parsed, "routeXrayPort")
+	}
 	if port <= 0 {
 		allocated, err := mtproto.FreeLocalPort()
 		if err != nil {
