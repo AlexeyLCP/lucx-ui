@@ -845,7 +845,7 @@ func (s *TunnelService) downloadBinaryTo(dst, downloadURL, wantSHA256 string) er
 		return common.NewError("tunnel: empty download url")
 	}
 	wantSHA256 = strings.ToLower(strings.TrimSpace(wantSHA256))
-	if wantSHA256 != "" && !isSHA256Hex(wantSHA256) {
+	if wantSHA256 == "" || !isSHA256Hex(wantSHA256) {
 		return common.NewError("tunnel: sha256 must be 64 hex characters")
 	}
 	if err := checkDownloadURL(downloadURL); err != nil {

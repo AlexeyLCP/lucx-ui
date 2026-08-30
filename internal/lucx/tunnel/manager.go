@@ -251,6 +251,7 @@ func (m *Manager) Ensure(inst Instance) error {
 			}
 		}
 		mc.fp = ""
+		clearQwdttRoutingForKey(key)
 		return nil
 	}
 
@@ -317,6 +318,7 @@ func (m *Manager) Remove(key string) {
 		mc.fp = ""
 		mc.opMu.Unlock()
 	}
+	clearQwdttRoutingForKey(key)
 	removeManagedFiles(key)
 }
 

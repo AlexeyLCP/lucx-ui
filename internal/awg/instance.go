@@ -49,6 +49,20 @@ func (t *AwgTimer) UnmarshalJSON(b []byte) error {
 	return nil
 }
 
+func validIptablesIface(name string) bool {
+	if name == "" || len(name) > 15 {
+		return false
+	}
+	for i := 0; i < len(name); i++ {
+		c := name[i]
+		if c >= 'A' && c <= 'Z' || c >= 'a' && c <= 'z' || c >= '0' && c <= '9' || c == '_' || c == '.' || c == '-' {
+			continue
+		}
+		return false
+	}
+	return true
+}
+
 func confValue(v string) string {
 	return strings.Map(func(r rune) rune {
 		if r == '\n' || r == '\r' || r == 0 {
@@ -290,10 +304,10 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		if pub == "" {
 			continue
 		}
-		allowed := "0.0.0.0/0, ::/0"
-		if len(c.AllowedIPs) > 0 && c.AllowedIPs[0] != "" {
-			allowed = strings.Join(c.AllowedIPs, ", ")
+		if len(c.AllowedIPs) == 0 || strings.TrimSpace(c.AllowedIPs[0]) == "" {
+			continue
 		}
+		allowed := strings.Join(c.AllowedIPs, ", ")
 		inst.Peers = append(inst.Peers, PeerSpec{
 			PrivateKey:     c.PrivateKey,
 			PublicKey:      pub,

@@ -31,16 +31,29 @@ func (m *Manager) ensurePortForwards(inst Instance) {
 		if dest == "" || len(ports) == 0 {
 			continue
 		}
+		ext := defaultRouteInterface()
+		if !validIptablesIface(ext) {
+			ext = ""
+		}
 		for _, port := range ports {
 			ps := strconvPort(port)
 			for _, proto := range []string{"tcp", "udp"} {
 				dnat := []string{"-t", "nat", "-A", "PREROUTING", "-p", proto, "--dport", ps, "-m", "comment", "--comment", comment, "-j", "DNAT", "--to-destination", dest + ":" + ps}
+				if ext != "" {
+					dnat = []string{"-t", "nat", "-A", "PREROUTING", "-i", ext, "-p", proto, "--dport", ps, "-m", "comment", "--comment", comment, "-j", "DNAT", "--to-destination", dest + ":" + ps}
+				}
 				fwd := []string{"-t", "filter", "-A", "FORWARD", "-p", proto, "-d", dest, "--dport", ps, "-m", "comment", "--comment", comment, "-j", "ACCEPT"}
 				runIptables(dnat)
 				runIptables(fwd)
 			}
 		}
 	}
+}
+
+func (m *Manager) flushPortForwards(id int) {
+	comment := portFwdComment(id)
+	flushIptablesComment("nat", "PREROUTING", comment)
+	flushIptablesComment("filter", "FORWARD", comment)
 }
 
 func strconvPort(p int) string {

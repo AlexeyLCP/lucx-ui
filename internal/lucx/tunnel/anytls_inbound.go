@@ -8,6 +8,8 @@ package tunnel
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -59,11 +61,18 @@ func AnytlsInstanceFromInbound(ib *model.Inbound, panelCert, panelKey string) (I
 	if err := validatePEMCert("anytls", certFile, keyFile, cfg.SNI); err != nil {
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
 	}
+	pwFile := filepath.Join(dataDirFor(key, Anytls), "password")
+	if err := os.MkdirAll(filepath.Dir(pwFile), 0o700); err != nil {
+		return Instance{Core: Anytls, Key: key, Enabled: false}, true
+	}
+	if err := os.WriteFile(pwFile, []byte(strings.TrimSpace(cfg.Password)+"\n"), 0o600); err != nil {
+		return Instance{Core: Anytls, Key: key, Enabled: false}, true
+	}
 	return Instance{
 		Core:             Anytls,
 		Key:              key,
 		Enabled:          true,
-		Args:             cfg.BuildArgs(certFile, keyFile),
+		Args:             cfg.BuildArgs(certFile, keyFile, pwFile),
 		FingerprintExtra: CertFileHash(certFile),
 		ProbePort:        cfg.Port,
 	}, true

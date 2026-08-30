@@ -19,7 +19,10 @@ export const NaiveClientSchema = z.object({
 export type NaiveClient = z.infer<typeof NaiveClientSchema>;
 
 export const NaiveInboundSettingsSchema = z.object({
-  domain: z.string().default(''),
+  domain: z
+    .string()
+    .refine((v) => !/[\n\r{}, ]/.test(v))
+    .default(''),
   useAcme: z.boolean().default(false),
   acmeEmail: z.string().default(''),
   certFile: z.string().default(''),

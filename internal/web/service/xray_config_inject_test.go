@@ -1282,7 +1282,7 @@ func TestNaiveBridgeChanged(t *testing.T) {
 
 func TestInjectSocksEgress_SniffingRouteOnly(t *testing.T) {
 	cfg := egressTestConfig()
-	injectSocksEgress(cfg, "in-mieru-9", 39111, "", "mieru egress")
+	injectSocksEgress(cfg, "in-mieru-9", 39111, "", "mieru egress", false)
 	if len(cfg.InboundConfigs) < 2 {
 		t.Fatal("expected SOCKS bridge")
 	}

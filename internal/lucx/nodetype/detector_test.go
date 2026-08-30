@@ -132,6 +132,13 @@ func TestToJSONFromJSON_RoundTrip(t *testing.T) {
 	}
 }
 
+func TestHasFeature_EmptyIsFalse(t *testing.T) {
+	n := &NodeInfo{NodeType: TypeLucX}
+	if n.HasFeature("awg") {
+		t.Fatal("empty features must not grant lucx-only protocols")
+	}
+}
+
 func TestIsLucXOnlyProtocol(t *testing.T) {
 	if !IsLucXOnlyProtocol("awg") || !IsLucXOnlyProtocol("NAIVE") {
 		t.Fatal("expected lucx-only")

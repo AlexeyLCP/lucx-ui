@@ -102,6 +102,7 @@ func TestRenderServerConf_ObfuscatedRenderIsByteStable(t *testing.T) {
 PrivateKey = server-priv
 ListenPort = 21860
 MTU = 1320
+Table = off
 Jc = 4
 Jmin = 10
 Jmax = 50

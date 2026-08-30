@@ -9,3 +9,5 @@
 package awg
 
 func (m *Manager) ensurePortForwards(inst Instance) {}
+
+func (m *Manager) flushPortForwards(id int) {}

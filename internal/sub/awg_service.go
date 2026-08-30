@@ -71,6 +71,7 @@ func (s *SubAwgService) GetAwg(subId, host, format string, inboundId int) (body,
 				if label == "" {
 					label = inbound.Tag
 				}
+				label = strings.NewReplacer("\n", " ", "\r", " ").Replace(label)
 				conf = "# " + label + "\n" + conf
 			}
 			confs = append(confs, conf)

@@ -56,10 +56,12 @@ func TestQwdttBuildArgs(t *testing.T) {
 	cfg.ConfigDir = "/var/lib/qwdtt"
 	args := cfg.BuildArgs()
 	joined := strings.Join(args, " ")
+	if strings.Contains(joined, "/var/lib/qwdtt") {
+		t.Errorf("configDir outside workDir must be ignored: %v", args)
+	}
 	for _, want := range []string{
 		"-listen 0.0.0.0:56000",
 		"-wg-port 56001",
-		"-config-dir /var/lib/qwdtt",
 		"-password s3cret",
 		"-dns 8.8.8.8",
 		"-listen-raw 0.0.0.0:56003",

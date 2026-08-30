@@ -76,6 +76,24 @@ func TestInstanceFromInbound_RendersClients(t *testing.T) {
 	}
 }
 
+func TestValidateInbound_RejectsCaddyInject(t *testing.T) {
+	c := NaiveConfig{Port: 443, CertFile: "/c.pem", KeyFile: "/k.pem", Domain: "x.com, :80"}
+	if err := c.ValidateInbound(true); err == nil {
+		t.Fatal("comma in domain must be rejected")
+	}
+}
+
+func TestInstanceFromInbound_InjectDomainDisabled(t *testing.T) {
+	ib := &model.Inbound{
+		Id: 1, Enable: true, Port: 8443, Protocol: model.Naive,
+		Settings: `{"domain":"x.com {\n reverse_proxy 127.0.0.1","certFile":"/c.pem","keyFile":"/k.pem","clients":[{"email":"a@x","enable":true}]}`,
+	}
+	inst, ok := InstanceFromInbound(ib, []byte("s"))
+	if !ok || inst.Enabled {
+		t.Fatalf("inject domain must not start: ok=%v enabled=%v", ok, inst.Enabled)
+	}
+}
+
 func TestInstanceFromInbound_Disabled(t *testing.T) {
 	ib := &model.Inbound{Id: 1, Enable: false, Protocol: model.Naive, Port: 443, Settings: `{}`}
 	inst, ok := InstanceFromInbound(ib, nil)
@@ -105,7 +123,7 @@ func TestInstanceFromInbound_RouteThroughXrayUpstream(t *testing.T) {
 	if !ok || !inst.Enabled {
 		t.Fatal("expected enabled instance")
 	}
-	if !strings.Contains(inst.ConfigText, "upstream socks5://127.0.0.1:39123") {
+	if !strings.Contains(inst.ConfigText, "upstream socks5://") || !strings.Contains(inst.ConfigText, "@127.0.0.1:39123") {
 		t.Fatalf("routed inbound must render SOCKS upstream:\n%s", inst.ConfigText)
 	}
 	if inst.ProbePort != 8443 {

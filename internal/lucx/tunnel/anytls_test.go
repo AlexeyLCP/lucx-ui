@@ -88,8 +88,8 @@ func TestAnytlsValidate(t *testing.T) {
 
 func TestAnytlsBuildArgsAndListen(t *testing.T) {
 	cfg := AnytlsConfig{Port: 9443, Password: "pass word", SNI: "vpn.example.com"}
-	args := cfg.BuildArgs("/etc/ssl/cert.pem", "/etc/ssl/key.pem")
-	want := []string{"-l", "0.0.0.0:9443", "-p", "pass word", "-cert", "/etc/ssl/cert.pem", "-key", "/etc/ssl/key.pem"}
+	args := cfg.BuildArgs("/etc/ssl/cert.pem", "/etc/ssl/key.pem", "/tmp/anytls-password")
+	want := []string{"-l", "0.0.0.0:9443", "-password-file", "/tmp/anytls-password", "-cert", "/etc/ssl/cert.pem", "-key", "/etc/ssl/key.pem"}
 	if len(args) != len(want) {
 		t.Fatalf("args = %v", args)
 	}
@@ -170,8 +170,11 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		t.Fatalf("ProbePort = %d", inst.ProbePort)
 	}
 	joined := strings.Join(inst.Args, " ")
-	if !strings.Contains(joined, "-l 0.0.0.0:9443 -p shared") {
+	if !strings.Contains(joined, "-l 0.0.0.0:9443") || !strings.Contains(joined, "-password-file ") {
 		t.Fatalf("Args = %v", inst.Args)
+	}
+	if strings.Contains(joined, "-p ") {
+		t.Fatalf("password must not be on argv: %v", inst.Args)
 	}
 	if !strings.Contains(joined, "-cert "+cert) || !strings.Contains(joined, "-key "+key) {
 		t.Fatalf("Args missing cert/key: %v", inst.Args)

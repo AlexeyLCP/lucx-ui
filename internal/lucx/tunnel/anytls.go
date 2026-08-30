@@ -83,8 +83,13 @@ func (c AnytlsConfig) ValidateCert(panelCert, panelKey string) error {
 }
 
 // BuildArgs renders the argv for the LucX-overlay anytls-server.
-func (c AnytlsConfig) BuildArgs(cert, key string) []string {
-	args := []string{"-l", c.ListenAddr(), "-p", strings.TrimSpace(c.Password)}
+func (c AnytlsConfig) BuildArgs(cert, key, passwordFile string) []string {
+	args := []string{"-l", c.ListenAddr()}
+	if strings.TrimSpace(passwordFile) != "" {
+		args = append(args, "-password-file", passwordFile)
+	} else {
+		args = append(args, "-p", strings.TrimSpace(c.Password))
+	}
 	if strings.TrimSpace(cert) != "" && strings.TrimSpace(key) != "" {
 		args = append(args, "-cert", cert, "-key", key)
 	}

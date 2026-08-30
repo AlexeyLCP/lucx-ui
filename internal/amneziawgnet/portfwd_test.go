@@ -189,11 +189,19 @@ func TestPortForwardSetReconcileSurvivesPreBoundPort(t *testing.T) {
 
 	const collidingPort = 58911
 	const okPort = 58912
-	blocker, err := net.Listen("tcp", fmt.Sprintf(":%d", collidingPort))
-	if err != nil {
-		t.Fatalf("pre-bind test port: %v", err)
+	var blockers []net.Listener
+	for _, host := range portfwdListenHosts() {
+		b, err := net.Listen("tcp", net.JoinHostPort(host, fmt.Sprintf("%d", collidingPort)))
+		if err != nil {
+			t.Fatalf("pre-bind %s:%d: %v", host, collidingPort, err)
+		}
+		blockers = append(blockers, b)
 	}
-	defer blocker.Close()
+	defer func() {
+		for _, b := range blockers {
+			b.Close()
+		}
+	}()
 
 	inst := amneziawg.Instance{Peers: []amneziawg.Peer{
 		peerWithPortsAndIPs("a@x", fmt.Sprintf("%d,%d", collidingPort, okPort), "10.211.1.2/32"),

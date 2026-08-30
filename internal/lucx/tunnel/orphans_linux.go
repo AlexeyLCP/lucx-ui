@@ -45,11 +45,11 @@ import (
 func killStrayTunnelProcesses(binaryPaths []string) int {
 	wanted := make(map[string]struct{}, len(binaryPaths))
 	for _, path := range binaryPaths {
-		base := filepath.Base(path)
-		if base == "" || base == "." || base == string(filepath.Separator) {
+		path = filepath.Clean(path)
+		if path == "" || path == "." || path == string(filepath.Separator) {
 			continue
 		}
-		wanted[base] = struct{}{}
+		wanted[path] = struct{}{}
 	}
 	if len(wanted) == 0 {
 		return 0
@@ -75,19 +75,14 @@ func killStrayTunnelProcesses(binaryPaths []string) int {
 	return killed
 }
 
-// matchesWantedBinary reports whether pid runs one of the core binaries.
 func matchesWantedBinary(pid int, wanted map[string]struct{}) bool {
-	if base := procExeBase(pid); base != "" {
-		if _, ok := wanted[base]; ok {
-			return true
-		}
+	exe, err := os.Readlink(fmt.Sprintf("/proc/%d/exe", pid))
+	if err != nil {
+		return false
 	}
-	if base := cmdlineArgv0Base(pid); base != "" {
-		if _, ok := wanted[base]; ok {
-			return true
-		}
-	}
-	return false
+	path := filepath.Clean(strings.TrimSuffix(exe, " (deleted)"))
+	_, ok := wanted[path]
+	return ok
 }
 
 // procExeBase returns the base name of /proc/<pid>/exe, or "" if unreadable.

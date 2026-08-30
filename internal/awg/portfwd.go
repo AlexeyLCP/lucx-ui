@@ -63,7 +63,7 @@ func parsePortToken(tok string) (lo, hi int, ok bool) {
 
 func parsePortNum(s string) (int, bool) {
 	n, err := strconv.Atoi(s)
-	if err != nil || n < 1 || n > 65535 {
+	if err != nil || n < 1 || n > 65535 || n == 22 {
 		return 0, false
 	}
 	return n, true

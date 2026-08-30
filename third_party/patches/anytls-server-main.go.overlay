@@ -14,6 +14,7 @@ import (
 	"io"
 	"net"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -24,11 +25,22 @@ var passwordSha256 []byte
 func main() {
 	listen := flag.String("l", "0.0.0.0:8443", "server listen port")
 	password := flag.String("p", "", "password")
+	passwordFile := flag.String("password-file", "", "read password from file (0600); preferred over -p")
 	paddingScheme := flag.String("padding-scheme", "", "padding-scheme")
 	certFile := flag.String("cert", "", "tls certificate pem")
 	keyFile := flag.String("key", "", "tls private key pem")
 	flag.Parse()
 
+	if *passwordFile != "" {
+		b, err := os.ReadFile(*passwordFile)
+		if err != nil {
+			logrus.Fatalln("password-file:", err)
+		}
+		*password = strings.TrimSpace(string(b))
+	}
+	if *password == "" {
+		*password = strings.TrimSpace(os.Getenv("ANYTLS_PASSWORD"))
+	}
 	if *password == "" {
 		logrus.Fatalln("please set password")
 	}

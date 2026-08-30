@@ -417,6 +417,13 @@ func TestAwgOutboundSubnetClash(t *testing.T) {
 // checkOutboundIFields is the save-time guard behind AddOutbound and
 // UpdateOutbound, so a .conf pasted through ParseConf or discovered by the
 // host scan is rejected too — not just a set the panel's own generator built.
+func TestCheckOutboundIFields_RejectsControlChars(t *testing.T) {
+	err := checkOutboundIFields(&model.AwgOutbound{Id: 1, Settings: `{"i1":"x\nPostUp = wget"}`})
+	if err == nil {
+		t.Fatal("newline in i1 must be rejected")
+	}
+}
+
 func TestCheckOutboundIFields(t *testing.T) {
 	fits := strings.Repeat("x", 3484)     // IBytes 3492, exactly the worst-case budget
 	oversize := strings.Repeat("x", 3496) // IBytes 3504

@@ -134,7 +134,8 @@ func TestRenderClientConf_ObfuscatedRenderIsByteStable(t *testing.T) {
 		`"contentPaddingAddition":"32","rekeyAfterTime":"120","rekeyTimeout":"5",` +
 		`"rejectAfterTime":"180","keepaliveTimeout":"10","maxHandshakeAttempts":"18",` +
 		`"randomTrailers":true,"disableCookies":true}`
-	const want = `[Interface]
+	const want = `# Managed by x-ui - do not edit
+[Interface]
 PrivateKey = k
 Address = 10.9.0.5/32
 MTU = 1320

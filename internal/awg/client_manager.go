@@ -139,7 +139,13 @@ func (m *Manager) sweepOrphanClientsOnce() {
 				continue
 			}
 			ifname := strings.TrimSuffix(name, ".conf")
+			if !isOutboundAwgInterface(ifname) {
+				continue
+			}
 			if _, ok := clients[ifname]; ok {
+				continue
+			}
+			if !configIsManaged(filepath.Join(awgConfigDir, name)) {
 				continue
 			}
 			if _, err := awgShowIfname(ifname); err != nil {

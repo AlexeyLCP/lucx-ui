@@ -246,7 +246,7 @@ func TestFillPackets_HeaderProtectionShrinksBudget(t *testing.T) {
 }
 
 func TestCaptureIPAllowed(t *testing.T) {
-	deny := []string{"127.0.0.1", "10.0.0.1", "192.168.1.1", "169.254.169.254", "100.64.1.1", "::1"}
+	deny := []string{"127.0.0.1", "10.0.0.1", "192.168.1.1", "169.254.169.254", "100.64.1.1", "0.1.2.3", "0.0.0.0", "::1"}
 	for _, s := range deny {
 		if captureIPAllowed(net.ParseIP(s)) {
 			t.Errorf("%s must be refused", s)

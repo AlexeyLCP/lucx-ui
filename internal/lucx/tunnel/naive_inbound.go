@@ -173,6 +173,9 @@ func (c NaiveConfig) ValidateInbound(hasClientAuth bool) error {
 	if c.RouteThroughXray && c.UseRawConfig {
 		return fmt.Errorf("naive: Route through Xray is unavailable in raw Caddyfile mode")
 	}
+	if err := c.checkCaddyFields(); err != nil {
+		return err
+	}
 	return nil
 }
 

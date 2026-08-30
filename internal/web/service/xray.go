@@ -736,7 +736,7 @@ func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
 	if !parsed.RouteThroughXray || parsed.RouteXrayPort <= 0 || inbound.Tag == "" {
 		return
 	}
-	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "naive egress")
+	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "naive egress", true)
 }
 
 // END LUCX-HOOK
@@ -747,10 +747,10 @@ func injectTunnelEgress(cfg *xray.Config, naive tunnel.NaiveConfig) {
 	if !naive.Enabled || !naive.RouteThroughXray || naive.RouteXrayPort <= 0 {
 		return
 	}
-	injectSocksEgress(cfg, tunnel.NaiveEgressTag, naive.RouteXrayPort, naive.OutboundTag, "tunnel egress")
+	injectSocksEgress(cfg, tunnel.NaiveEgressTag, naive.RouteXrayPort, naive.OutboundTag, "tunnel egress", true)
 }
 
-func injectSocksEgress(cfg *xray.Config, tag string, port int, outboundTag, logPrefix string) {
+func injectSocksEgress(cfg *xray.Config, tag string, port int, outboundTag, logPrefix string, auth bool) {
 	for i := range cfg.InboundConfigs {
 		if cfg.InboundConfigs[i].Tag == tag {
 			logger.Warning(logPrefix, ": inbound tag [", tag, "] already present in generated config, skipping bridge")
@@ -790,11 +790,24 @@ func injectSocksEgress(cfg *xray.Config, tag string, port int, outboundTag, logP
 			}
 		}
 	}
+	settings := json_util.RawMessage(mtprotoEgressSocksSettings)
+	if auth {
+		user, pass := tunnel.SocksBridgeAuth()
+		if raw, err := json.Marshal(map[string]any{
+			"auth": "password",
+			"udp":  false,
+			"accounts": []map[string]string{
+				{"user": user, "pass": pass},
+			},
+		}); err == nil {
+			settings = json_util.RawMessage(raw)
+		}
+	}
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
 		Listen:   json_util.RawMessage(`"127.0.0.1"`),
 		Port:     port,
 		Protocol: "socks",
-		Settings: json_util.RawMessage(mtprotoEgressSocksSettings),
+		Settings: settings,
 		Sniffing: json_util.RawMessage(awgEgressTunSniffing),
 		Tag:      tag,
 	})
@@ -988,7 +1001,7 @@ func injectOlcrtcEgress(cfg *xray.Config, inbound *model.Inbound) {
 	if !ok || !cfgO.RouteThroughXray || cfgO.RouteXrayPort <= 0 || inbound.Tag == "" {
 		return
 	}
-	injectSocksEgress(cfg, inbound.Tag, cfgO.RouteXrayPort, cfgO.OutboundTag, "olcrtc egress")
+	injectSocksEgress(cfg, inbound.Tag, cfgO.RouteXrayPort, cfgO.OutboundTag, "olcrtc egress", false)
 }
 
 // injectMieruEgress wires a routed mieru inbound as a loopback SOCKS bridge.
@@ -1000,7 +1013,7 @@ func injectMieruEgress(cfg *xray.Config, inbound *model.Inbound) {
 	if !ok || !cfgM.RouteThroughXray || cfgM.RouteXrayPort <= 0 || inbound.Tag == "" {
 		return
 	}
-	injectSocksEgress(cfg, inbound.Tag, cfgM.RouteXrayPort, cfgM.OutboundTag, "mieru egress")
+	injectSocksEgress(cfg, inbound.Tag, cfgM.RouteXrayPort, cfgM.OutboundTag, "mieru egress", false)
 }
 
 // injectTrustTunnelEgress wires a routed TrustTunnel inbound as a loopback
@@ -1012,7 +1025,7 @@ func injectTrustTunnelEgress(cfg *xray.Config, inbound *model.Inbound) {
 	if !ok || !cfgT.RouteThroughXray || cfgT.RouteXrayPort <= 0 || inbound.Tag == "" {
 		return
 	}
-	injectSocksEgress(cfg, inbound.Tag, cfgT.RouteXrayPort, cfgT.OutboundTag, "trusttunnel egress")
+	injectSocksEgress(cfg, inbound.Tag, cfgT.RouteXrayPort, cfgT.OutboundTag, "trusttunnel egress", false)
 }
 
 // injectQwdttEgress wires a routed qWDTT inbound into Xray as a TUN bridge

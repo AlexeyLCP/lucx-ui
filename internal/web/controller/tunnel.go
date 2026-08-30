@@ -35,12 +35,24 @@ func saveCoreUpload(c *gin.Context, dst string) error {
 		return err
 	}
 	defer src.Close()
+	var magic [4]byte
+	if _, err := io.ReadFull(src, magic[:]); err != nil {
+		return common.NewError("upload is not an ELF binary")
+	}
+	if string(magic[:]) != "\x7fELF" {
+		return common.NewError("upload is not an ELF binary")
+	}
 	tmp := dst + ".upload"
 	out, err := os.OpenFile(tmp, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o755)
 	if err != nil {
 		return err
 	}
-	n, err := io.Copy(out, io.LimitReader(src, coreUploadMax+1))
+	if _, err := out.Write(magic[:]); err != nil {
+		_ = out.Close()
+		_ = os.Remove(tmp)
+		return err
+	}
+	n, err := io.Copy(out, io.LimitReader(src, coreUploadMax+1-4))
 	if closeErr := out.Close(); err == nil {
 		err = closeErr
 	}

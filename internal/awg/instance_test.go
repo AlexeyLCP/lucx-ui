@@ -35,8 +35,8 @@ func TestInstanceFromInbound(t *testing.T) {
 			`"headerProtectionKey":"aBcD...base64hpk==",` +
 			`"awgVersion":"3",` +
 			`"routeThroughXray":true,"outboundTag":"warp",` +
-			`"clients":[{"id":"peer-pub-1","password":"psk-1","enable":true},` +
-			`{"id":"peer-pub-2","password":"psk-2","enable":false},` +
+			`"clients":[{"id":"peer-pub-1","password":"psk-1","enable":true,"allowedIPs":["10.8.0.2/32"]},` +
+			`{"id":"peer-pub-2","password":"psk-2","enable":false,"allowedIPs":["10.8.0.3/32"]},` +
 			`{"id":"","password":"psk-3","enable":true}]}`,
 	}
 	inst, ok := InstanceFromInbound(ib)
@@ -91,8 +91,8 @@ func TestInstanceFromInbound_FormPasswordIsNotPSK(t *testing.T) {
 		Id:       32,
 		Protocol: model.AWG,
 		Settings: `{"privateKey":"yKb...priv","clients":[` +
-			`{"publicKey":"peer-pub-real","password":"vgmg2ms952ceemgc","enable":true},` +
-			`{"id":"legacy-pub","password":"legacy-psk","enable":true}]}`,
+			`{"publicKey":"peer-pub-real","password":"vgmg2ms952ceemgc","enable":true,"allowedIPs":["10.8.0.2/32"]},` +
+			`{"id":"legacy-pub","password":"legacy-psk","enable":true,"allowedIPs":["10.8.0.3/32"]}]}`,
 	}
 	inst, ok := InstanceFromInbound(ib)
 	if !ok {
@@ -258,6 +258,7 @@ func TestRenderServerConf_IncludesObfuscationAndPeers(t *testing.T) {
 		"PrivateKey = server-priv",
 		"ListenPort = 47000",
 		"MTU = 1320",
+		"Table = off",
 		"Jc = 8", "Jmin = 70", "Jmax = 200",
 		"S1 = 30", "S2 = 60", "S3 = 20", "S4 = 10",
 		"H1 = 100000-500000", "H4 = 1600000-2000000",
@@ -561,6 +562,8 @@ func TestClientSubnet(t *testing.T) {
 		{"", ""},
 		{"garbage", ""},
 		{"10.8.0.1", ""},
+		{"0.0.0.0/0", ""},
+		{"1.2.3.4/7", ""},
 	}
 	for _, c := range cases {
 		got := clientSubnet(c.in)
@@ -1163,15 +1166,15 @@ func TestConfValue_StripsNewlines(t *testing.T) {
 }
 
 func TestRenderServerConf_NoInjectedLine(t *testing.T) {
-	conf := renderServerConf(Instance{
-		PrivateKey: "k",
-		Port:       51820,
-		H1:         "1\nPostUp = wget",
-		Peers:      []PeerSpec{{PublicKey: "p"}},
-	})
-	for _, line := range strings.Split(conf, "\n") {
-		if strings.HasPrefix(strings.TrimSpace(line), "PostUp") && strings.Contains(line, "wget") {
-			t.Fatalf("injected PostUp: %q", line)
+	for _, inst := range []Instance{
+		{PrivateKey: "k", Port: 51820, H1: "1\nPostUp = wget", Peers: []PeerSpec{{PublicKey: "p"}}},
+		{PrivateKey: "k", Port: 51820, AwgVersion: "2", I1: "x\nPostUp = wget", Peers: []PeerSpec{{PublicKey: "p"}}},
+	} {
+		conf := renderServerConf(inst)
+		for _, line := range strings.Split(conf, "\n") {
+			if strings.HasPrefix(strings.TrimSpace(line), "PostUp") && strings.Contains(line, "wget") {
+				t.Fatalf("injected PostUp: %q", line)
+			}
 		}
 	}
 }

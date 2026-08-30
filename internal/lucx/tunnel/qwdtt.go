@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -59,6 +60,9 @@ type QwdttConfig struct {
 	RouteThroughXray bool `json:"routeThroughXray"`
 	// OutboundTag optional force-route target (empty = Xray default kettle).
 	OutboundTag string `json:"outboundTag"`
+
+	MigratedToInbound bool `json:"migratedToInbound,omitempty"`
+	MigratedInboundId int  `json:"migratedInboundId,omitempty"`
 }
 
 // DefaultQwdttConfig returns sensible defaults for a fresh qWDTT core.
@@ -185,10 +189,24 @@ func detectOutboundIPv4() string {
 
 // ResolveConfigDir returns the effective state directory.
 func (c QwdttConfig) ResolveConfigDir() string {
-	if d := strings.TrimSpace(c.ConfigDir); d != "" {
-		return d
+	fallback := DataDir(Qwdtt)
+	d := strings.TrimSpace(c.ConfigDir)
+	if d == "" {
+		return fallback
 	}
-	return DataDir(Qwdtt)
+	abs, err := filepath.Abs(d)
+	if err != nil {
+		return fallback
+	}
+	root, err := filepath.Abs(workDir())
+	if err != nil {
+		return fallback
+	}
+	sep := string(filepath.Separator)
+	if abs == root || strings.HasPrefix(abs, root+sep) {
+		return abs
+	}
+	return fallback
 }
 
 // BuildArgs converts the config into the argv passed to the binary

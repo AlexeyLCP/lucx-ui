@@ -49,7 +49,7 @@ func TestKillStrayTunnelProcessesKillsMatchingName(t *testing.T) {
 		close(done)
 	}()
 
-	if n := killStrayTunnelProcesses([]string{"/opt/x-ui/bin/qwdtt-linux-amd64"}); n != 1 {
+	if n := killStrayTunnelProcesses([]string{proc.Path}); n != 1 {
 		t.Fatalf("killStrayTunnelProcesses = %d, want 1", n)
 	}
 	select {
@@ -72,7 +72,7 @@ func TestKillStrayTunnelProcessesMatchesAnyCore(t *testing.T) {
 	paths := []string{
 		"/opt/x-ui/bin/caddy-naive-linux-amd64",
 		"/opt/x-ui/bin/olcrtc-linux-amd64",
-		"/opt/x-ui/bin/mieru-linux-amd64",
+		proc.Path,
 		"/opt/x-ui/bin/trusttunnel-linux-amd64",
 	}
 	if n := killStrayTunnelProcesses(paths); n != 1 {

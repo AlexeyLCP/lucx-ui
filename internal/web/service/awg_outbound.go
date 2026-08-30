@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/vpnuri"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
@@ -145,6 +146,13 @@ func checkOutboundIFields(o *model.AwgOutbound) error {
 	}
 	if json.Unmarshal([]byte(o.Settings), &s) != nil {
 		return nil
+	}
+	for _, cv := range []struct{ field, v string }{
+		{"i1", s.I1}, {"i2", s.I2}, {"i3", s.I3}, {"i4", s.I4}, {"i5", s.I5},
+	} {
+		if err := amneziawg.ValidateConfigValue(cv.field, cv.v); err != nil {
+			return err
+		}
 	}
 	return awg.ValidateIFields("awgo-"+strconv.Itoa(o.Id), s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5)
 }

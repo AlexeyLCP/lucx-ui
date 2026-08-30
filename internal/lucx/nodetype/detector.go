@@ -74,7 +74,7 @@ func (n *NodeInfo) HasFeature(feature string) bool {
 		return false
 	}
 	if len(n.Features) == 0 {
-		return true
+		return false
 	}
 	for _, f := range n.Features {
 		if strings.EqualFold(f, feature) {
@@ -213,6 +213,9 @@ func FromJSON(s string) *NodeInfo {
 	switch strings.ToLower(strings.TrimSpace(f.NodeType)) {
 	case TypeLucX:
 		info.NodeType = TypeLucX
+		if len(info.Features) == 0 {
+			info.Features = slices.Clone(DefaultLucXFeatures)
+		}
 	case TypeVanilla, "":
 		if len(f.Features) > 0 {
 			info.NodeType = TypeLucX

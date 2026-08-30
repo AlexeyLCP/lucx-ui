@@ -1,5 +1,32 @@
 # LucX-UI — Прогресс
 
+## lucx.194 — adversarial hardening (2026-08-30)
+
+Adversarial review of LucX-owned code (not upstream). Stolen panel session must not become root via .conf/Caddyfile; leftover host state after delete; local cmdline leaks.
+
+- AWG I1–I5 through `confValue` on server+client render; outbound save rejects control chars.
+- Naive: `ValidateInbound` + quoted domain/bind/email; raw Caddyfile always `admin off` + `skip_install_trust`.
+- Port-forward DNAT flushed on Remove/Reconcile; `-i` default-route iface; port 22 refused.
+- Uninstall `ip link delete` only with x-ui marker; Adopt will not rename eth0/default-route.
+- Server `Table = off`; empty peer AllowedIPs skipped (no silent `0.0.0.0/0`).
+- AnyTLS password via `-password-file` 0600, not argv. Overlay reads the file.
+- Binary download requires SHA-256; upload must be ELF.
+- Naive SOCKS bridge has password auth; client cannot pick `routeXrayPort` on create.
+- Import overlap is an `addInbound` arg, not a process-wide bool.
+- PostUp iface names sanitized; orphan kill matches full BinaryPath; qWDTT `ip rule` flushed on stop.
+- `HasFeature` empty list is false; sub `.conf` remark strips newlines.
+- syncconf temp under `awgConfigDir`; Address `/0` skips MASQUERADE; captureHost rejects `0.0.0.0/8`.
+- gVisor port-forward binds 127.0.0.1 + first non-lo IPv4, not `:port`.
+- hello no longer returns `moduleLoaded` / `moduleAwg3` / `moduleAwg31` (Cores still uses `/server/status`).
+
+Not in this release: qWDTT `-password` still on argv (upstream binary); AWG outbound down still freedom (needs Xray restart coupling).
+
+Tests: `go test ./internal/awg/... ./internal/lucx/... ./internal/amneziawgnet/`
+
+**lucxVersion:** lucx.194
+
+---
+
 ## lucx.193 — AnyTLS traffic counters + grandfather AWG I-fields (2026-08-30)
 
 Max: after lucx.192 AnyTLS works with UFW on, but panel shows no online and no traffic. Arseniy: node reconcile / inbound save fails `I1-I5 exceed the netlink read budget: 3604 > 3456` on already-working inbounds.

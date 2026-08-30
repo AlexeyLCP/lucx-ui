@@ -1679,9 +1679,6 @@ func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSet
 
 	port := parseSettingsIntKey(oldSettings, "routeXrayPort")
 	if port <= 0 {
-		port = settingsIntKey(parsed, "routeXrayPort")
-	}
-	if port <= 0 {
 		allocated, err := mtproto.FreeLocalPort()
 		if err != nil {
 			return common.NewError(label+": could not allocate an Xray egress port:", err)
@@ -1730,12 +1727,12 @@ func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefi
 // nodes are separate kernels — same subnet is fine. ignoreId excludes the
 // inbound being edited. Outbound clash applies only to local inbounds (outbounds
 // live on the master kernel). Empty/unparseable address is not an error here.
-// awgImportAllowOverlap: official Amnezia docker stacks all use 10.8.1.0/24
-// in isolated namespaces — import must not refuse them (Rule 0: keep IPs).
-var awgImportAllowOverlap bool
-
 func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, nodeID *int) error {
-	if awgImportAllowOverlap {
+	return s.checkAwgSubnetConflictAllow(newAddr, ignoreId, nodeID, false)
+}
+
+func (s *InboundService) checkAwgSubnetConflictAllow(newAddr string, ignoreId int, nodeID *int, allowOverlap bool) error {
+	if allowOverlap {
 		return nil
 	}
 	newAddr = strings.TrimSpace(newAddr)
@@ -1801,6 +1798,10 @@ func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, no
 // then saves the inbound to the database and optionally adds it to the running Xray instance.
 // Returns the created inbound, whether Xray needs restart, and any error.
 func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, bool, error) {
+	return s.addInbound(inbound, false)
+}
+
+func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool) (*model.Inbound, bool, error) {
 	inbound.Id = 0
 	inbound.TrafficResetDay = normalizeTrafficResetDay(inbound.TrafficResetDay)
 	// Normalize streamSettings based on protocol
@@ -1839,7 +1840,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		if err := validateAwgSettingsJSON(inbound.Settings); err != nil {
 			return inbound, false, err
 		}
-		if err := s.checkAwgSubnetConflict(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID); err != nil {
+		if err := s.checkAwgSubnetConflictAllow(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID, allowAwgOverlap); err != nil {
 			return inbound, false, err
 		}
 	}

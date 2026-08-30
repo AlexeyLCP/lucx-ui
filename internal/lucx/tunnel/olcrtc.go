@@ -48,6 +48,9 @@ type OlcrtcConfig struct {
 	OutboundTag      string `json:"outboundTag"`
 	// RouteXrayPort is backend-owned loopback SOCKS port (0 when not routed).
 	RouteXrayPort int `json:"routeXrayPort"`
+
+	MigratedToInbound bool `json:"migratedToInbound,omitempty"`
+	MigratedInboundId int  `json:"migratedInboundId,omitempty"`
 }
 
 // DefaultOlcrtcConfig returns sensible defaults for a fresh olcRTC core.

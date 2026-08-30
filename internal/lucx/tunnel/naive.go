@@ -8,6 +8,7 @@ package tunnel
 
 import (
 	"crypto/hmac"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -15,8 +16,10 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // AuthPair is one basic_auth credential pair for the forward_proxy block.
@@ -81,6 +84,9 @@ type NaiveConfig struct {
 
 	UseRawConfig bool   `json:"useRawConfig"`
 	RawConfig    string `json:"rawConfig"`
+
+	MigratedToInbound bool `json:"migratedToInbound,omitempty"`
+	MigratedInboundId int  `json:"migratedInboundId,omitempty"`
 }
 
 // NaiveEgressTag is the stable Xray inbound tag of the hidden SOCKS
@@ -130,19 +136,8 @@ func (c NaiveConfig) Validate() error {
 	if strings.TrimSpace(c.AuthUser) == "" || strings.TrimSpace(c.AuthPass) == "" {
 		return errors.New("naive: auth user and password are required")
 	}
-	if err := rejectCaddyInject("domain", c.Domain); err != nil {
+	if err := c.checkCaddyFields(); err != nil {
 		return err
-	}
-	if err := rejectCaddyInject("listen", c.Listen); err != nil {
-		return err
-	}
-	if err := rejectCaddyInject("acme email", c.AcmeEmail); err != nil {
-		return err
-	}
-	if listen := strings.TrimSpace(c.Listen); listen != "" && listen != "0.0.0.0" && listen != "::" {
-		if net.ParseIP(listen) == nil {
-			return errors.New("naive: listen must be an IP address")
-		}
 	}
 	if c.UseAcme {
 		if strings.TrimSpace(c.Domain) == "" {
@@ -167,11 +162,42 @@ func (c NaiveConfig) Validate() error {
 // caddyToken quotes a value for the Caddyfile lexer, escaping embedded
 // backslashes, quotes and newlines so operator input cannot break out of the
 // token or inject directives.
+func (c NaiveConfig) checkCaddyFields() error {
+	if err := rejectCaddyInject("domain", c.Domain); err != nil {
+		return err
+	}
+	if err := rejectCaddyInject("listen", c.Listen); err != nil {
+		return err
+	}
+	if err := rejectCaddyInject("acme email", c.AcmeEmail); err != nil {
+		return err
+	}
+	if listen := strings.TrimSpace(c.Listen); listen != "" && listen != "0.0.0.0" && listen != "::" {
+		if net.ParseIP(listen) == nil {
+			return errors.New("naive: listen must be an IP address")
+		}
+	}
+	return nil
+}
+
 func rejectCaddyInject(name, v string) error {
-	if strings.ContainsAny(v, "\n\r{}") {
+	if strings.ContainsAny(v, "\n\r{}, ") {
 		return fmt.Errorf("naive: %s contains invalid characters", name)
 	}
 	return nil
+}
+
+var caddyAdminStmt = regexp.MustCompile(`(?i)\badmin\b[^\n]*`)
+
+func forceCaddySafeGlobal(raw string) string {
+	s := caddyAdminStmt.ReplaceAllString(raw, "")
+	s = strings.TrimRight(s, "\n") + "\n"
+	const inject = "\n\tadmin off\n\tskip_install_trust\n"
+	if strings.HasPrefix(strings.TrimLeft(s, " \t\n"), "{") {
+		brace := strings.Index(s, "{")
+		return s[:brace+1] + inject + s[brace+1:]
+	}
+	return "{\n\tadmin off\n\tskip_install_trust\n}\n\n" + s
 }
 
 func caddyToken(s string) string {
@@ -203,7 +229,7 @@ func caddyToken(s string) string {
 //     caught a rendered `padding` line failing `caddy adapt` (lucx.91).
 func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string) string {
 	if c.UseRawConfig {
-		return strings.TrimRight(c.RawConfig, "\n") + "\n"
+		return forceCaddySafeGlobal(c.RawConfig)
 	}
 
 	level := strings.ToUpper(strings.TrimSpace(c.LogLevel))
@@ -239,7 +265,7 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 
 	var addrs []string
 	if c.UseAcme {
-		addrs = append(addrs, domain)
+		addrs = append(addrs, caddyToken(domain))
 	} else {
 		addrs = append(addrs, ":"+strconv.Itoa(c.Port))
 		if domain != "" {
@@ -248,19 +274,19 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 			// listener there — E2E caught ":443 bind permission denied" on
 			// a non-root panel with port 18443 (lucx.91).
 			if c.Port == 443 {
-				addrs = append(addrs, domain)
+				addrs = append(addrs, caddyToken(domain))
 			} else {
-				addrs = append(addrs, net.JoinHostPort(domain, strconv.Itoa(c.Port)))
+				addrs = append(addrs, caddyToken(net.JoinHostPort(domain, strconv.Itoa(c.Port))))
 			}
 		}
 	}
 	b.WriteString(strings.Join(addrs, ", ") + " {\n")
 	if !wildcard {
-		b.WriteString("\tbind " + listen + "\n")
+		b.WriteString("\tbind " + caddyToken(listen) + "\n")
 	}
 	if c.UseAcme {
 		if email := strings.TrimSpace(c.AcmeEmail); email != "" {
-			b.WriteString("\ttls " + email + "\n")
+			b.WriteString("\ttls " + caddyToken(email) + "\n")
 		}
 	} else {
 		b.WriteString("\ttls " + caddyToken(strings.TrimSpace(c.CertFile)) + " " +
@@ -300,7 +326,9 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 	// natively (no binary patch). The panel injects the matching SOCKS
 	// inbound at RouteXrayPort via injectTunnelEgress.
 	if c.RouteThroughXray && c.RouteXrayPort > 0 {
-		b.WriteString("\t\t\tupstream socks5://127.0.0.1:" + strconv.Itoa(c.RouteXrayPort) + "\n")
+		user, pass := SocksBridgeAuth()
+		b.WriteString("\t\t\tupstream socks5://" + url.UserPassword(user, pass).String() +
+			"@127.0.0.1:" + strconv.Itoa(c.RouteXrayPort) + "\n")
 	}
 	b.WriteString("\t\t}\n")
 	b.WriteString("\t}\n")
@@ -333,4 +361,22 @@ func (c NaiveConfig) ClientURL() string {
 		Host:   host,
 	}
 	return "naive+" + u.String()
+}
+
+var (
+	socksBridgeOnce sync.Once
+	socksBridgeUser = "lucx"
+	socksBridgePass string
+)
+
+func SocksBridgeAuth() (user, pass string) {
+	socksBridgeOnce.Do(func() {
+		var b [18]byte
+		if _, err := rand.Read(b[:]); err != nil {
+			socksBridgePass = "lucx-bridge"
+			return
+		}
+		socksBridgePass = base64.RawURLEncoding.EncodeToString(b[:])
+	})
+	return socksBridgeUser, socksBridgePass
 }

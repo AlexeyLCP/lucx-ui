@@ -210,7 +210,7 @@ func isImportIfname(name string) bool {
 }
 
 func guessIfname(fileBase string) string {
-	if fileBase != "" {
+	if isImportIfname(fileBase) {
 		return fileBase
 	}
 	return "awg"
@@ -448,4 +448,20 @@ func isInboundAwgInterface(name string) bool {
 	}
 	r := rune(rest[0])
 	return r >= '0' && r <= '9'
+}
+
+func isOutboundAwgInterface(name string) bool {
+	if !strings.HasPrefix(name, "awgo-") {
+		return false
+	}
+	rest := name[len("awgo-"):]
+	if rest == "" {
+		return false
+	}
+	for i := 0; i < len(rest); i++ {
+		if rest[i] < '0' || rest[i] > '9' {
+			return false
+		}
+	}
+	return true
 }

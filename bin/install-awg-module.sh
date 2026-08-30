@@ -87,6 +87,10 @@ uninstall_awg_module() {
     if command -v ip >/dev/null 2>&1; then
         while read -r iface; do
             [[ -n "$iface" ]] || continue
+            conf="/etc/amnezia/amneziawg/${iface}.conf"
+            if ! grep -qF "# Managed by x-ui - do not edit" "$conf" 2>/dev/null; then
+                continue
+            fi
             echo -e "${YELLOW}ip link delete ${iface}${NC}"
             ip link delete "$iface" >/dev/null 2>&1 || true
         done < <(ip -o link show 2>/dev/null | awk -F': ' '{print $2}' | cut -d'@' -f1 | grep -E '^(awg[0-9]+|awgo-[0-9]+)$' || true)

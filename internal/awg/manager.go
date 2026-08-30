@@ -162,6 +162,7 @@ func (m *Manager) Remove(id int) {
 		delete(m.procs, id)
 		logger.Infof("awg: stopped interface %s for inbound %d", cur.ifname, id)
 	}
+	m.flushPortForwards(id)
 	path := configPathForID(id)
 	if _, err := os.Stat(path); err == nil {
 		if berr := backupConfigFile(path); berr != nil {
@@ -191,6 +192,7 @@ func (m *Manager) Reconcile(desired []Instance) {
 		if _, ok := want[id]; !ok {
 			_ = cur.proc.Stop()
 			delete(m.procs, id)
+			m.flushPortForwards(id)
 			// lucx.67: back up rather than delete (see Remove).
 			path := configPathForID(id)
 			if _, err := os.Stat(path); err == nil {
@@ -302,6 +304,12 @@ func (m *Manager) Adopt(inst Instance, currentIfname string, startIfDown bool) e
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	if currentIfname != "" && currentIfname != inst.Ifname {
+		if !isImportIfname(currentIfname) {
+			return fmt.Errorf("awg: refuse to rename interface %s", currentIfname)
+		}
+		if currentIfname == defaultRouteInterface() {
+			return fmt.Errorf("awg: refuse to rename default-route interface %s", currentIfname)
+		}
 		if err := renameAwgInterface(currentIfname, inst.Ifname); err != nil {
 			return err
 		}
@@ -600,7 +608,7 @@ func clientSubnet(address string) string {
 		return ""
 	}
 	prefix, err := netip.ParsePrefix(address)
-	if err != nil {
+	if err != nil || prefix.Bits() < 8 {
 		return ""
 	}
 	return prefix.Masked().String()
@@ -690,7 +698,7 @@ func natPostUpPostDown(inst Instance) (postUp, postDown string) {
 	}
 
 	extIface := defaultRouteInterface()
-	if extIface == "" {
+	if extIface == "" || !validIptablesIface(extIface) {
 		return "", ""
 	}
 	// Subnet MASQUERADE is the reliable path (mark-only NAT silently fails
@@ -823,6 +831,7 @@ func renderServerConf(inst Instance) string {
 		fmt.Fprintf(&b, "Address = %s\n", confValue(inst.Address))
 	}
 	fmt.Fprintf(&b, "MTU = %d\n", inst.MTU)
+	b.WriteString("Table = off\n")
 	// DNS is CLIENT-ONLY — the server does not resolve through the tunnel.
 	// Writing DNS to the server .conf makes awg-quick call resolvconf/openresolv
 	// and overwrite the server's system DNS (e.g. with "1.1.1.1, 1.0.0.1"),
@@ -912,7 +921,7 @@ func renderServerConf(inst Instance) string {
 			{"I1", inst.I1}, {"I2", inst.I2}, {"I3", inst.I3}, {"I4", inst.I4}, {"I5", inst.I5},
 		} {
 			if strings.TrimSpace(kv.v) != "" {
-				fmt.Fprintf(&b, "%s = %s\n", kv.k, kv.v)
+				fmt.Fprintf(&b, "%s = %s\n", kv.k, confValue(kv.v))
 			}
 		}
 	}
@@ -934,11 +943,9 @@ func renderServerConf(inst Instance) string {
 		if psk := strings.TrimSpace(p.PSK); psk != "" {
 			fmt.Fprintf(&b, "PresharedKey = %s\n", confValue(psk))
 		}
-		allowed := p.AllowedIPs
-		if allowed == "" {
-			allowed = "0.0.0.0/0, ::/0"
+		if allowed := strings.TrimSpace(p.AllowedIPs); allowed != "" {
+			fmt.Fprintf(&b, "AllowedIPs = %s\n", confValue(allowed))
 		}
-		fmt.Fprintf(&b, "AllowedIPs = %s\n", confValue(allowed))
 	}
 	return b.String()
 }
@@ -986,7 +993,10 @@ func (m *Manager) syncPeersLocked(inst Instance, conf string) error {
 	if !ok || cur.proc == nil || !cur.proc.IsRunning() {
 		return nil
 	}
-	tmp, err := os.CreateTemp("", "awg-sync-*.conf")
+	if err := os.MkdirAll(awgConfigDir, 0o750); err != nil {
+		return fmt.Errorf("awg syncconf temp: %w", err)
+	}
+	tmp, err := os.CreateTemp(awgConfigDir, "awg-sync-*.conf")
 	if err != nil {
 		return fmt.Errorf("awg syncconf temp: %w", err)
 	}

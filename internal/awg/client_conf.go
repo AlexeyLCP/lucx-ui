@@ -31,6 +31,7 @@ import (
 func renderClientConf(ci ClientInstance) string {
 	s := ci.Settings
 	var b strings.Builder
+	b.WriteString(xuiManagedMarker + "\n")
 	b.WriteString("[Interface]\n")
 	fmt.Fprintf(&b, "PrivateKey = %s\n", confValue(s.PrivateKey))
 	fmt.Fprintf(&b, "Address = %s\n", confValue(s.Address))
@@ -112,7 +113,7 @@ func renderClientConf(ci ClientInstance) string {
 			{"I1", s.I1}, {"I2", s.I2}, {"I3", s.I3}, {"I4", s.I4}, {"I5", s.I5},
 		} {
 			if v := strings.TrimSpace(f.value); v != "" {
-				fmt.Fprintf(&b, "%s = %s\n", f.key, v)
+				fmt.Fprintf(&b, "%s = %s\n", f.key, confValue(v))
 			}
 		}
 	}

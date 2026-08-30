@@ -126,6 +126,17 @@ func TestRenderClientConf_ObfuscationOmittedWhenZero(t *testing.T) {
 // the very first handshake carried no CPS mimicry. setconf accepts the tags
 // (tools v3.1.20260812); the historical "Invalid argument" came from malformed
 // descriptors, not from I-fields as a class.
+func TestRenderClientConf_I1StripsNewline(t *testing.T) {
+	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"x\nPostUp = wget"}`}
+	ci, _ := ClientInstanceFromOutbound(o)
+	conf := renderClientConf(ci)
+	for _, line := range strings.Split(conf, "\n") {
+		if strings.HasPrefix(strings.TrimSpace(line), "PostUp") {
+			t.Fatalf("injected PostUp: %q", line)
+		}
+	}
+}
+
 func TestRenderClientConf_I1toI5Written(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"aa","i2":"bb","i3":"cc","i4":"dd","i5":"ee"}`}
 	ci, _ := ClientInstanceFromOutbound(o)

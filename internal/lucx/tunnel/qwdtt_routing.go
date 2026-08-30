@@ -97,6 +97,32 @@ func ensureQwdttXrayRouting(inst Instance) {
 	stripQwdttMasquerade()
 }
 
+func clearQwdttRoutingForKey(key string) {
+	const p = "qwdtt-"
+	if !strings.HasPrefix(key, p) {
+		return
+	}
+	id, err := strconv.Atoi(key[len(p):])
+	if err != nil || id <= 0 {
+		return
+	}
+	clearQwdttXrayRouting(QwdttRouteTable(id), nil)
+}
+
+func clearQwdttXrayRouting(table int, ifaces []string) {
+	if runtime.GOOS != "linux" || table <= 0 {
+		return
+	}
+	if len(ifaces) == 0 {
+		ifaces = []string{qwdttIfaceWG, qwdttIfaceRaw}
+	}
+	ts := strconv.Itoa(table)
+	for _, iface := range ifaces {
+		_ = exec.CommandContext(context.Background(), "ip", "rule", "del", "iif", iface, "lookup", ts).Run()
+	}
+	_ = exec.CommandContext(context.Background(), "ip", "route", "flush", "table", ts).Run()
+}
+
 func stripQwdttMasquerade() {
 	for _, subnet := range []string{qwdttSubnetWG, qwdttSubnetRaw} {
 		// Delete repeatedly until gone (binary may have added one rule).
