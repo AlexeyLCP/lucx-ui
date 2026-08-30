@@ -2428,6 +2428,42 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	return needRestart || routedBridge, nil
 }
 
+// awgSettingsIFields returns the I1-I5 set an AWG settings JSON carries, the
+// unit the netlink budget is measured over (all blank when malformed).
+func awgSettingsIFields(settings string) [5]string {
+	var s struct {
+		I1 string `json:"i1"`
+		I2 string `json:"i2"`
+		I3 string `json:"i3"`
+		I4 string `json:"i4"`
+		I5 string `json:"i5"`
+	}
+	if err := json.Unmarshal([]byte(settings), &s); err != nil {
+		return [5]string{}
+	}
+	return [5]string{s.I1, s.I2, s.I3, s.I4, s.I5}
+}
+
+// awgSettingsWithoutIFields drops I1-I5 so the checks that sit behind the budget
+// still run on a set exempted from it. Key case follows encoding/json: lenient.
+func awgSettingsWithoutIFields(settings string) string {
+	var m map[string]any
+	if err := json.Unmarshal([]byte(settings), &m); err != nil {
+		return settings
+	}
+	for k := range m {
+		switch strings.ToLower(k) {
+		case "i1", "i2", "i3", "i4", "i5":
+			delete(m, k)
+		}
+	}
+	stripped, err := json.Marshal(m)
+	if err != nil {
+		return settings
+	}
+	return string(stripped)
+}
+
 func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, bool, error) {
 	inbound.TrafficResetDay = normalizeTrafficResetDay(inbound.TrafficResetDay)
 	// Normalize streamSettings based on protocol
@@ -2519,8 +2555,15 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// (no re-export). Only rewrites a peer that collides with the server's
 	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
 	if inbound.Protocol == model.AWG {
-		if err := validateAwgSettingsJSON(inbound.Settings); err != nil {
-			return inbound, false, err
+		awgErr := validateAwgSettingsJSON(inbound.Settings)
+		// Only enforced when the I1-I5 set actually changes: editing other fields
+		// of an inbound whose set is a pre-existing oversize stays allowed (back-compat).
+		if errors.Is(awgErr, awg.ErrIFieldsTooLarge) &&
+			awgSettingsIFields(inbound.Settings) == awgSettingsIFields(oldInbound.Settings) {
+			awgErr = validateAwgSettingsJSON(awgSettingsWithoutIFields(inbound.Settings))
+		}
+		if awgErr != nil {
+			return inbound, false, awgErr
 		}
 	}
 	if inbound.Protocol == model.AWG && oldInbound.Protocol == model.AWG {
