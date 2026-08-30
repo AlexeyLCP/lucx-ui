@@ -2428,22 +2428,6 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	return needRestart || routedBridge, nil
 }
 
-// awgSettingsIFields returns the I1-I5 set an AWG settings JSON carries, the
-// unit the netlink budget is measured over (all blank when malformed).
-func awgSettingsIFields(settings string) [5]string {
-	var s struct {
-		I1 string `json:"i1"`
-		I2 string `json:"i2"`
-		I3 string `json:"i3"`
-		I4 string `json:"i4"`
-		I5 string `json:"i5"`
-	}
-	if err := json.Unmarshal([]byte(settings), &s); err != nil {
-		return [5]string{}
-	}
-	return [5]string{s.I1, s.I2, s.I3, s.I4, s.I5}
-}
-
 // awgSettingsWithoutIFields drops I1-I5 (any key case) so the checks behind the
 // budget still run. Safe only while every renderer drops an over-budget set.
 func awgSettingsWithoutIFields(settings string) string {
@@ -2555,15 +2539,14 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// (no re-export). Only rewrites a peer that collides with the server's
 	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
 	if inbound.Protocol == model.AWG {
-		awgErr := validateAwgSettingsJSON(inbound.Settings)
-		// Only enforced when the I1-I5 set actually changes: editing other fields
-		// of an inbound whose set is a pre-existing oversize stays allowed (back-compat).
-		if errors.Is(awgErr, awg.ErrIFieldsTooLarge) && oldInbound.Protocol == model.AWG &&
-			awgSettingsIFields(inbound.Settings) == awgSettingsIFields(oldInbound.Settings) {
-			awgErr = validateAwgSettingsJSON(awgSettingsWithoutIFields(inbound.Settings))
+		// A protocol switch brings no AWG settings to compare against, so the
+		// grandfather cannot fire on a set this inbound never had.
+		oldSettings := ""
+		if oldInbound != nil && oldInbound.Protocol == model.AWG {
+			oldSettings = oldInbound.Settings
 		}
-		if awgErr != nil {
-			return inbound, false, awgErr
+		if err := validateAwgSettingsJSONDiff(inbound.Settings, oldSettings); err != nil {
+			return inbound, false, err
 		}
 	}
 	if inbound.Protocol == model.AWG && oldInbound.Protocol == model.AWG {

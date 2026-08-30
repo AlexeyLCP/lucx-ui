@@ -27,8 +27,6 @@ func anytlsSessionCount(port int) int {
 	return n
 }
 
-const anytlsAcctChain = "LUCX_ANYTLS_ACCT"
-
 func dropLegacyAnytlsReturn() {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -39,39 +37,31 @@ func dropLegacyAnytlsReturn() {
 	for _, args := range legacyAnytlsReturnArgs(string(out)) {
 		_ = exec.CommandContext(ctx, "iptables", args...).Run()
 	}
+	_ = exec.CommandContext(ctx, "iptables", "-F", "LUCX_ANYTLS_ACCT").Run()
+	_ = exec.CommandContext(ctx, "iptables", "-X", "LUCX_ANYTLS_ACCT").Run()
 }
 
 func ensureAnytlsAcct(key string, port int) {
 	if port <= 0 || key == "" {
 		return
 	}
-	ensureAnytlsAcctChain()
 	comment := anytlsAcctComment(key)
 	p := strconv.Itoa(port)
 	ensureIptablesAcct("INPUT", "--dport", p, comment)
 	ensureIptablesAcct("OUTPUT", "--sport", p, comment)
 }
 
-func ensureAnytlsAcctChain() {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	if exec.CommandContext(ctx, "iptables", "-L", anytlsAcctChain, "-n").Run() == nil {
-		return
-	}
-	_ = exec.CommandContext(ctx, "iptables", "-N", anytlsAcctChain).Run()
-}
-
 func ensureIptablesAcct(chain, portFlag, port, comment string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancel()
-	rule := func(action, target string) *exec.Cmd {
-		return exec.CommandContext(ctx, "iptables", action, chain, "-p", "tcp", portFlag, port, "-m", "comment", "--comment", comment, "-j", target)
-	}
-	if rule("-C", anytlsAcctChain).Run() == nil {
+	base := []string{chain, "-p", "tcp", portFlag, port, "-m", "comment", "--comment", comment}
+	mark := append(append([]string{}, base...), "-j", "MARK", "--set-xmark", "0x0/0x0")
+	if exec.CommandContext(ctx, "iptables", append([]string{"-C"}, mark...)...).Run() == nil {
 		return
 	}
-	_ = rule("-D", "RETURN").Run()
-	_ = rule("-I", anytlsAcctChain).Run()
+	_ = exec.CommandContext(ctx, "iptables", append([]string{"-D"}, append(append([]string{}, base...), "-j", "RETURN")...)...).Run()
+	_ = exec.CommandContext(ctx, "iptables", append([]string{"-D"}, append(append([]string{}, base...), "-j", "LUCX_ANYTLS_ACCT")...)...).Run()
+	_ = exec.CommandContext(ctx, "iptables", append([]string{"-I"}, mark...)...).Run()
 }
 
 func anytlsByteCounters(key string) (up, down int64, ok bool) {

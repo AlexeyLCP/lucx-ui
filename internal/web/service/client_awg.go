@@ -132,6 +132,10 @@ func validateAwgHeaderProtectionKey(v string) error {
 const awgInboundIfnameShape = "awgN"
 
 func validateAwgSettingsJSON(settings string) error {
+	return validateAwgSettingsJSONDiff(settings, "")
+}
+
+func validateAwgSettingsJSONDiff(settings, oldSettings string) error {
 	var s struct {
 		AwgVersion          string `json:"awgVersion"`
 		H1                  string `json:"h1"`
@@ -189,7 +193,9 @@ func validateAwgSettingsJSON(settings string) error {
 	// Oversized I1-I5 still apply and pass traffic, but `awg show` then fails
 	// with EMSGSIZE and the panel goes blind on that interface.
 	if err := awg.ValidateIFields(awgInboundIfnameShape, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5); err != nil {
-		return err
+		if !awgIFieldsUnchanged(settings, oldSettings) {
+			return err
+		}
 	}
 	// Checked raw, because the renderers write raw: trimming here let a leading
 	// "\n" hide a second directive from this loop and still reach the .conf.
@@ -222,6 +228,21 @@ func validateAwgSettingsJSON(settings string) error {
 		HeaderProtectionKey: s.HeaderProtectionKey,
 	}
 	return p.Validate()
+}
+
+func awgIFieldsUnchanged(settings, oldSettings string) bool {
+	if strings.TrimSpace(oldSettings) == "" {
+		return false
+	}
+	type iFields struct {
+		I1, I2, I3, I4, I5  string
+		HeaderProtectionKey string `json:"headerProtectionKey"`
+	}
+	var cur, old iFields
+	if json.Unmarshal([]byte(settings), &cur) != nil || json.Unmarshal([]byte(oldSettings), &old) != nil {
+		return false
+	}
+	return cur.I1 == old.I1 && cur.I2 == old.I2 && cur.I3 == old.I3 && cur.I4 == old.I4 && cur.I5 == old.I5 && cur.HeaderProtectionKey == old.HeaderProtectionKey
 }
 
 func (s *InboundService) applyLocalAwg(inboundId int) {
