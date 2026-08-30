@@ -49,6 +49,7 @@ export const AwgImportResultSchema = z.object({
   adopted: z.boolean(),
   stopped: z.boolean().optional(),
   error: z.string().optional(),
+  warning: z.string().optional(),
 });
 
 export type AwgImportCandidate = z.infer<typeof AwgImportCandidateSchema>;

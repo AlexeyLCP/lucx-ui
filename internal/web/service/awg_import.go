@@ -39,6 +39,7 @@ type AwgImportResult struct {
 	Adopted     bool   `json:"adopted"`
 	Stopped     bool   `json:"stopped"`
 	Error       string `json:"error,omitempty"`
+	Warning     string `json:"warning,omitempty" example:"saved, I-fields will not be applied"`
 }
 
 // Preview lists unmanaged AWG configs on this host.
@@ -96,7 +97,10 @@ func (s *AwgImportService) reservedEmails() map[string]struct{} {
 func (s *AwgImportService) addImportedInbound(ib *model.Inbound) (*model.Inbound, string, error) {
 	warn := ""
 	if err := validateAwgSettingsJSON(ib.Settings); errors.Is(err, awg.ErrIFieldsTooLarge) {
-		warn = "saved, I-fields will not be applied: " + err.Error()
+		// The error's advice tail names a knob the operator of an adopted
+		// foreign server does not have; keep the measured sizes, drop the tail.
+		measured, _, _ := strings.Cut(err.Error(), " — ")
+		warn = "saved, I-fields will not be applied: " + measured
 	}
 	awgImportInProgress = true
 	created, _, err := s.Inbound.AddInbound(ib)
@@ -123,6 +127,7 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 	}
 	res.InboundId = created.Id
 	res.Remark = created.Remark
+	res.Warning = iFieldWarn
 	inst, ok := awg.InstanceFromInbound(created)
 	if !ok {
 		res.Error = "inbound saved but is not a usable AWG instance"
@@ -157,9 +162,6 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 				}
 			}
 		}
-	}
-	if res.Error == "" {
-		res.Error = iFieldWarn
 	}
 	return res
 }

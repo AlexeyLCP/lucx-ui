@@ -74,6 +74,27 @@ func TestAwgImport_LeavesManualCreateRejected(t *testing.T) {
 	}
 }
 
+// The set belongs to a server the operator is adopting, not editing: telling
+// them to shorten it points at a knob they do not have.
+func TestAwgImport_WarningDropsAdviceTheOperatorCannotAct(t *testing.T) {
+	setupConflictDB(t)
+	oversize := strings.Repeat("x", oversizeIFieldChars)
+
+	_, warn, err := (&AwgImportService{}).addImportedInbound(importedAwgInbound(t, 51827, oversize))
+	if err != nil {
+		t.Fatalf("addImportedInbound(oversize I-set) = %v, want nil", err)
+	}
+	if strings.Contains(warn, "shorten or drop") {
+		t.Fatalf("warning = %q, still asks for an edit to a set the operator does not own", warn)
+	}
+	if !strings.Contains(warn, awg.ErrIFieldsTooLarge.Error()) {
+		t.Fatalf("warning = %q, want it to keep naming %v", warn, awg.ErrIFieldsTooLarge)
+	}
+	if !strings.Contains(warn, "worst-case bytes") {
+		t.Fatalf("warning = %q, want it to keep the measured sizes", warn)
+	}
+}
+
 // Why the warning is enough: the renderers drop an over-budget set whole, so an
 // imported one is stored for the record and never reaches a kernel.
 func TestAwgImport_RendererKeepsOnlyTheWithinBudgetIFieldSet(t *testing.T) {
