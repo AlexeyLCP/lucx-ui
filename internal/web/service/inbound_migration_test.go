@@ -322,13 +322,20 @@ const (
 	staleTunnelPSK  = "vless-copy-psk"
 )
 
+// Vision is only restorable on a transport that can carry it; plain is the neutral
+// stand-in mkInbound omits, and json_extract rejects that empty column outright.
+const (
+	plainStream  = `{"network":"tcp","security":"none"}`
+	visionStream = `{"network":"tcp","security":"tls"}`
+)
+
 // mkMigrationInbound is mkInbound plus stream settings: the externalProxy detection
 // query runs json_extract over that column and rejects the empty string mkInbound leaves.
-func mkMigrationInbound(t *testing.T, port int, proto model.Protocol, settings string) *model.Inbound {
+func mkMigrationInbound(t *testing.T, port int, proto model.Protocol, settings, stream string) *model.Inbound {
 	t.Helper()
 	ib := mkInbound(t, port, proto, settings)
 	if err := database.GetDB().Model(&model.Inbound{}).Where("id = ?", ib.Id).
-		Update("stream_settings", `{"network":"tcp","security":"none"}`).Error; err != nil {
+		Update("stream_settings", stream).Error; err != nil {
 		t.Fatalf("set stream settings on inbound %d: %v", port, err)
 	}
 	return ib
@@ -347,7 +354,7 @@ func seedTunnelKeyClobber(t *testing.T, email string, awgPort, keylessPort int) 
 		PreSharedKey: liveTunnelPSK,
 		AllowedIPs:   []string{"10.200.0.2/32"},
 	}
-	awgIb := mkMigrationInbound(t, awgPort, model.AWG, clientsSettings(t, []model.Client{awgClient}))
+	awgIb := mkMigrationInbound(t, awgPort, model.AWG, clientsSettings(t, []model.Client{awgClient}), plainStream)
 	if err := (&ClientService{}).SyncInbound(nil, awgIb.Id, []model.Client{awgClient}); err != nil {
 		t.Fatalf("seed AWG client record: %v", err)
 	}
@@ -358,7 +365,7 @@ func seedTunnelKeyClobber(t *testing.T, email string, awgPort, keylessPort int) 
 	stale.PrivateKey = staleTunnelPriv
 	stale.PublicKey = staleTunnelPub
 	stale.PreSharedKey = staleTunnelPSK
-	mkMigrationInbound(t, keylessPort, model.VLESS, clientsSettings(t, []model.Client{stale}))
+	mkMigrationInbound(t, keylessPort, model.VLESS, clientsSettings(t, []model.Client{stale}), plainStream)
 	return awgIb
 }
 
@@ -441,4 +448,56 @@ func TestMigrateDB_TunnelKeysUnchangedOnSecondRun(t *testing.T) {
 	if first != second {
 		t.Fatalf("second MigrateDB changed the client record:\n first  = %+v\n second = %+v", first, second)
 	}
+}
+
+// MigrationRestoreVisionFlow is the second migrate path that syncs a keyless inbound's
+// settings into the clients table, and it clobbered the tunnel keypair the same way.
+func TestMigrationRestoreVisionFlow_KeepsTunnelKeys(t *testing.T) {
+	setupBulkDB(t)
+	const email = "demo-vision@example.test"
+	clientSvc := &ClientService{}
+
+	awgClient := model.Client{
+		Email:        email,
+		SubID:        "sub-vision",
+		Enable:       true,
+		PrivateKey:   liveTunnelPriv,
+		PublicKey:    liveTunnelPub,
+		PreSharedKey: liveTunnelPSK,
+		AllowedIPs:   []string{"10.200.0.4/32"},
+	}
+	awgIb := mkMigrationInbound(t, 32031, model.AWG, clientsSettings(t, []model.Client{awgClient}), plainStream)
+	if err := clientSvc.SyncInbound(nil, awgIb.Id, []model.Client{awgClient}); err != nil {
+		t.Fatalf("seed AWG client record: %v", err)
+	}
+
+	// The sibling link supplies flow_override=vision, which is the intended flow the
+	// restore reads back; with no such link it finds nothing to heal and never syncs.
+	sibling := model.Client{
+		Email: email, ID: "5c6d7e8f-9a0b-4c1d-8e2f-3a4b5c6d7e8f",
+		SubID: "sub-vision", Enable: true, Flow: visionFlow,
+	}
+	siblingIb := mkMigrationInbound(t, 32032, model.VLESS, clientsSettings(t, []model.Client{sibling}), visionStream)
+	if err := clientSvc.SyncInbound(nil, siblingIb.Id, []model.Client{sibling}); err != nil {
+		t.Fatalf("seed vision flow override: %v", err)
+	}
+
+	// The inbound to heal: flow lost, and the stale copy of the tunnel keypair alongside.
+	stale := model.Client{
+		Email: email, ID: "5c6d7e8f-9a0b-4c1d-8e2f-3a4b5c6d7e8f",
+		SubID: "sub-vision", Enable: true,
+		PrivateKey: staleTunnelPriv, PublicKey: staleTunnelPub, PreSharedKey: staleTunnelPSK,
+	}
+	targetIb := mkMigrationInbound(t, 32033, model.VLESS, clientsSettings(t, []model.Client{stale}), visionStream)
+
+	(&InboundService{}).MigrationRestoreVisionFlow()
+
+	var healed model.Inbound
+	if err := database.GetDB().First(&healed, targetIb.Id).Error; err != nil {
+		t.Fatalf("reload healed inbound: %v", err)
+	}
+	if !strings.Contains(healed.Settings, visionFlow) {
+		t.Fatalf("restore never ran, so the sync under test never happened: settings = %s", healed.Settings)
+	}
+	assertLiveTunnelKeys(t, email, "after vision flow restore")
 }

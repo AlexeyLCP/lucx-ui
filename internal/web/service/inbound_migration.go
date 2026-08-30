@@ -320,6 +320,12 @@ func (s *InboundService) MigrationRestoreVisionFlow() {
 			logger.Warning("MigrationRestoreVisionFlow: parse clients for inbound", ib.Id, "failed:", err)
 			continue
 		}
+		// LUCX-HOOK: same clobber as in MigrationRequirements — this inbound is keyless,
+		// so a stale tunnel keypair in its settings must not reach the clients table.
+		for i := range clients {
+			clearForeignTunnelKeys(&clients[i], ib.Protocol)
+		}
+		// END LUCX-HOOK
 		err = db.Transaction(func(tx *gorm.DB) error {
 			if e := tx.Model(&model.Inbound{}).Where("id = ?", ib.Id).Update("settings", restored).Error; e != nil {
 				return e
