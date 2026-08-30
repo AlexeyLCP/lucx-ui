@@ -8,6 +8,7 @@ package awg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -34,6 +35,9 @@ func awgShowIfname(ifname string) ([]byte, error) {
 	defer cancel()
 	out, err := exec.CommandContext(ctx, awgBin("awg"), "show", ifname, "dump").CombinedOutput()
 	noteAwgRead(ctx, ifname, err)
+	if err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return out, fmt.Errorf("awg show %s: %w", ifname, ctx.Err())
+	}
 	return out, err
 }
 
@@ -147,6 +151,11 @@ func (m *Manager) sweepOrphanClientsOnce() {
 				continue
 			}
 			if _, err := awgShowIfname(ifname); err != nil {
+				// A read that ran out of time says nothing about whether the
+				// interface exists, so it must not be swept as an orphan.
+				if errors.Is(err, context.DeadlineExceeded) {
+					continue
+				}
 				_ = os.Remove(filepath.Join(awgConfigDir, name))
 				continue
 			}

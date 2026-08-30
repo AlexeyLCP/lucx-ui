@@ -12,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -108,6 +109,49 @@ func TestExecProber_WedgedProbeIsBoundedAndShared(t *testing.T) {
 	}
 	if n := countTimeoutWarnings(t) - beforeAny; n != 0 {
 		t.Fatalf("a host-wide probe timing out logged %d interface warnings, want 0", n)
+	}
+}
+
+// TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf guards the consequence
+// the deadline introduced: a read that ran out of time is not a missing device.
+func TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf(t *testing.T) {
+	const wedged, gone = "awgo-tb-wedged", "awgo-tb-gone"
+	dir := withTempConfigDir(t)
+
+	bin := t.TempDir()
+	script := "#!/bin/sh\nif [ \"$2\" = \"" + wedged + "\" ]; then exec sleep 60; fi\nexit 1\n"
+	if err := os.WriteFile(filepath.Join(bin, "awg"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write awg stub: %v", err)
+	}
+	// Nothing here may answer ok: an up interface would send the sweep into
+	// awg-quick down, which edits the real host's routing.
+	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
+
+	for _, name := range []string{wedged + ".conf", gone + ".conf"} {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte("[Interface]\n"), 0o600); err != nil {
+			t.Fatalf("write %s: %v", name, err)
+		}
+	}
+
+	clientMu.Lock()
+	saved := clients
+	// Re-arm the once so this test drives a real sweep; it leaves it consumed,
+	// which is the state any earlier sweep would also have left it in.
+	clients, clientSwept = map[string]clientState{}, sync.Once{}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clients = saved
+		clientMu.Unlock()
+	})
+
+	(&Manager{}).sweepOrphanClientsOnce()
+
+	if _, err := os.Stat(filepath.Join(dir, gone+".conf")); err == nil {
+		t.Fatal("the sweep kept a genuinely absent interface's .conf — it never ran its normal path, so this test proves nothing about the wedged one")
+	}
+	if _, err := os.Stat(filepath.Join(dir, wedged+".conf")); err != nil {
+		t.Fatalf("the sweep deleted the .conf of an interface it merely failed to read in time: %v", err)
 	}
 }
 
