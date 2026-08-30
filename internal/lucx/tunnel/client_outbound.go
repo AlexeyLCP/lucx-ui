@@ -186,7 +186,7 @@ func parseMieruLink(raw string) (SidecarSettings, error) {
 		Pass:              pass,
 		Multiplexing:      q.Get("multiplexing"),
 		HandshakeMode:     q.Get("handshake-mode"),
-		TrafficPatternB64: q.Get("traffic-pattern"),
+		TrafficPatternB64: strings.ReplaceAll(q.Get("traffic-pattern"), " ", "+"),
 	}
 	if m := q.Get("mtu"); m != "" {
 		s.MTU, _ = strconv.Atoi(m)

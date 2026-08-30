@@ -290,7 +290,7 @@ func (c MieruConfig) ClientLink(host string, pair AuthPair, remark string) strin
 		q = append(q, "protocol="+strings.ToUpper(strings.TrimSpace(b.Protocol)))
 	}
 	if tp := c.TrafficPattern.LinkParam(); tp != "" {
-		q = append(q, "traffic-pattern="+url.QueryEscape(tp))
+		q = append(q, "traffic-pattern="+tp)
 	}
 	if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
 		host = "[" + host + "]"

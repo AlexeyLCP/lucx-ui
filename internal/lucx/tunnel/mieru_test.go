@@ -436,12 +436,26 @@ func TestMieruClientLinkTrafficPattern(t *testing.T) {
 
 	cfg.Multiplexing = "MULTIPLEXING_HIGH"
 	cfg.HandshakeMode = "HANDSHAKE_NO_WAIT"
-	cfg.TrafficPattern = &MieruTrafficPattern{Seed: 42, UnlockAll: true}
+	padM, padE := int32(128), int32(64)
+	cfg.TrafficPattern = &MieruTrafficPattern{
+		Seed:        1494251231,
+		TCPFragment: &MieruTCPFragment{Enable: true, MaxSleepMs: 20},
+		Nonce:       &MieruNoncePattern{Type: "NONCE_TYPE_PRINTABLE", ApplyToAllUDPPacket: true},
+		Padding:     &MieruPaddingPattern{MaxMiddlePaddingLen: &padM, MaxEndPaddingLen: &padE},
+		LowEntropy:  &MieruLowEntropyPattern{Mode: "LOW_ENTROPY_MODE_48", MaskRotation: "LOW_ENTROPY_MASK_ROTATE_RIGHT_4"},
+	}
+	tp := cfg.TrafficPattern.LinkParam()
+	if !strings.Contains(tp, "/") {
+		t.Fatalf("fixture base64 has no slash: %s", tp)
+	}
 	link := cfg.ClientLink("1.2.3.4", AuthPair{User: "u", Pass: "p"}, "")
-	for _, want := range []string{"multiplexing=MULTIPLEXING_HIGH", "handshake-mode=HANDSHAKE_NO_WAIT", "traffic-pattern="} {
+	for _, want := range []string{"multiplexing=MULTIPLEXING_HIGH", "handshake-mode=HANDSHAKE_NO_WAIT", "traffic-pattern=" + tp} {
 		if !strings.Contains(link, want) {
 			t.Fatalf("link missing %q: %s", want, link)
 		}
+	}
+	if strings.Contains(link, "%2F") {
+		t.Fatalf("Throne does not decode %%2F in traffic-pattern: %s", link)
 	}
 }
 

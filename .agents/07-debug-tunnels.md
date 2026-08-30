@@ -33,6 +33,12 @@ Extracted from AGENTS.md. This file is project law.
 - **Fix (lucx.144):** `UpdateInboundClient` no-op for share-only; `Update` skips those inbounds and still writes `ClientRecord` when nothing else is attached. Tests `TestUpdateAfterShareOnlyAttach`, `TestUpdateShareOnlyOnlyClient`.
 - **Lesson:** if attach/detach have a protocol-specific path, **update must too**. Walking “every inbound id” through the Xray-clients JSON path breaks share-only sidecars.
 
+### Pattern 1w: Throne mieru `traffic-pattern` shows `%2F` — FIXED (lucx.196)
+- **Symptom (Tuna, 30.08.2026):** Throne on PC gets `CO%2FD%2FvIF…==` instead of `CO/D/vIF…==`.
+- **Cause:** `ClientLink` used `url.QueryEscape` on std base64. `/` → `%2F`. Throne does not decode `%2F` (same as Pattern 1r).
+- **Fix:** write `traffic-pattern=` as-is. Test forbids `%2F`.
+- **Healing without update:** none — the link is generated live. Update the panel and re-copy `mierus://`.
+
 ### Pattern 1r: TrustTunnel `client_random_prefix=%2F` — NekoBox+ drops it — FIXED (lucx.145)
 - **Symptom (doc. bravn, lucx.144):** Throne/NekoBox+ link has `client_random_prefix=3eb5d634%2Fffffffff`; NekoBox+ does not write the prefix.
 - **Cause:** lucx.142 appended the prefix via `url.QueryEscape`, which encodes `/` as `%2F`. The value is only hex or hex/mask (`ValidClientRandomPrefix`) — `/` is safe raw in the query. NekoBox+ does not URL-decode that param.

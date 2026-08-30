@@ -25,7 +25,7 @@ func TestParseNaiveLink(t *testing.T) {
 }
 
 func TestParseMieruLink(t *testing.T) {
-	raw := "mierus://baozi:manlianpenfen@1.2.3.4?handshake-mode=HANDSHAKE_NO_WAIT&mtu=1400&multiplexing=MULTIPLEXING_HIGH&port=6666&protocol=TCP&profile=default"
+	raw := "mierus://baozi:manlianpenfen@1.2.3.4?handshake-mode=HANDSHAKE_NO_WAIT&mtu=1400&multiplexing=MULTIPLEXING_HIGH&port=6666&protocol=TCP&profile=default&traffic-pattern=CO/D/vIFGgQIARAUIgQIARABKgUIgAEQQDIECAMQBA=="
 	p, s, err := ParseSidecarLink(raw)
 	if err != nil {
 		t.Fatal(err)
@@ -38,6 +38,9 @@ func TestParseMieruLink(t *testing.T) {
 	}
 	if s.HandshakeMode != "HANDSHAKE_NO_WAIT" || s.Multiplexing != "MULTIPLEXING_HIGH" {
 		t.Fatalf("client fields = %+v", s)
+	}
+	if s.TrafficPatternB64 != "CO/D/vIFGgQIARAUIgQIARABKgUIgAEQQDIECAMQBA==" {
+		t.Fatalf("traffic-pattern = %q", s.TrafficPatternB64)
 	}
 }
 
