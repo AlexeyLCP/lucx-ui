@@ -7,6 +7,7 @@
 package tunnel
 
 import (
+	"context"
 	"errors"
 	"net"
 	"net/url"
@@ -14,6 +15,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 )
 
 // AnytlsConfig is one anytls-server instance (anytls/anytls-go reference
@@ -92,7 +94,9 @@ var (
 
 func anytlsSupportsPasswordFile() bool {
 	anytlsPWFileOnce.Do(func() {
-		out, _ := exec.Command(Anytls.BinaryPath(), "-h").CombinedOutput()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		out, _ := exec.CommandContext(ctx, Anytls.BinaryPath(), "-h").CombinedOutput()
 		anytlsPWFileOK = strings.Contains(string(out), "password-file")
 	})
 	return anytlsPWFileOK
