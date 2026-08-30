@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.196 — Throne mieru traffic-pattern `%2F` (2026-08-30)
+
+Tuna: Throne on PC shows `CO%2FD%2FvIF…==` instead of `CO/D/vIF…==`.
+
+`ClientLink` used `url.QueryEscape` on std base64 → `/` became `%2F`. Throne does not decode that (same as lucx.145 TrustTunnel prefix). Write `traffic-pattern=` raw. Parse keeps `+` (form-decode would turn it into space).
+
+Tests: `TestMieruClientLinkTrafficPattern`, `TestParseMieruLink`.
+
+**lucxVersion:** lucx.196
+
+---
+
 ## lucx.195 — AnyTLS old binary + AWG outbound fail-closed (2026-08-30)
 
 lucx.194 used `-password-file` always; the tarball still ships the pre-overlay anytls that only knows `-p`. Inbound stayed down.
