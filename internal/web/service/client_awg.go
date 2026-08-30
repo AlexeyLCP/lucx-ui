@@ -127,6 +127,10 @@ func validateAwgHeaderProtectionKey(v string) error {
 	return nil
 }
 
+// awgInboundIfnameShape names the awg+id interface these settings describe. The
+// id is unknowable here (a node numbers its own), hence the shape, not a name.
+const awgInboundIfnameShape = "awgN"
+
 func validateAwgSettingsJSON(settings string) error {
 	var s struct {
 		AwgVersion          string `json:"awgVersion"`
@@ -184,7 +188,7 @@ func validateAwgSettingsJSON(settings string) error {
 	}
 	// Oversized I1-I5 still apply and pass traffic, but `awg show` then fails
 	// with EMSGSIZE and the panel goes blind on that interface.
-	if err := awg.ValidateIFields(awg.BaselineIfname, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5); err != nil {
+	if err := awg.ValidateIFields(awgInboundIfnameShape, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5); err != nil {
 		return err
 	}
 	// Checked raw, because the renderers write raw: trimming here let a leading
