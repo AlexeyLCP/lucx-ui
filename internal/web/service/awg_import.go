@@ -7,7 +7,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"strings"
 
@@ -96,10 +95,7 @@ func (s *AwgImportService) reservedEmails() map[string]struct{} {
 // over-budget I-set earns: it stays stored, but no renderer will emit it.
 func (s *AwgImportService) addImportedInbound(ib *model.Inbound) (*model.Inbound, string, error) {
 	warn := ""
-	if err := validateAwgSettingsJSON(ib.Settings); errors.Is(err, awg.ErrIFieldsTooLarge) {
-		// The error's advice tail names a knob the operator of an adopted
-		// foreign server does not have; keep the measured sizes, drop the tail.
-		measured, _, _ := strings.Cut(err.Error(), " — ")
+	if measured := AwgIFieldBudgetWarning(ib.Settings); measured != "" {
 		warn = "saved, I-fields will not be applied: " + measured
 	}
 	awgImportInProgress = true

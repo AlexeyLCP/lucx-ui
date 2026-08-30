@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { WireguardClientSchema } from './wireguard';
 
 import { normalizeAwgTimer } from '@/lib/awg/timer';
+import { awgIBytes, awgWorstCaseIBytesBudget } from '@/lib/xray/awg-budget';
 
 // AWG Client = WireGuard client + legacy поля (id/password)
 // Переиспользуем WireguardClientSchema чтобы не дублировать comment/limitIp/etc.
@@ -117,6 +118,16 @@ export const AwgInboundSettingsSchema = z
     outboundTag: z.string().default(''),
   })
   .superRefine((val, ctx) => {
+    // The server stores an over-budget set and only warns; this form is the one
+    // place with an author of the change, so it is the only hard stop left.
+    const budget = awgWorstCaseIBytesBudget(val.headerProtectionKey.trim() !== '');
+    if (awgIBytes(val.i1, val.i2, val.i3, val.i4, val.i5) > budget) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['i1'],
+        message: 'pages.inbounds.form.awgIFieldBudget',
+      });
+    }
     if (val.awgVersion !== '1.5') return;
     for (const key of ['h1', 'h2', 'h3', 'h4'] as const) {
       if (val[key].includes('-')) {

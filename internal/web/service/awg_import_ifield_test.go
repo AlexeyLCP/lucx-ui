@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
@@ -59,18 +60,49 @@ func TestAwgImport_WithinBudgetIFieldSetSavesWithoutWarning(t *testing.T) {
 	}
 }
 
-// The waiver belongs to the import path and to one import at a time. An
-// operator typing the same set in by hand still has to be told.
-func TestAwgImport_LeavesManualCreateRejected(t *testing.T) {
+// Import used to reach the budget by stripping I1-I5 and revalidating the rest,
+// which silently disarmed the control-character scan over those same fields.
+func TestAwgImport_ControlCharInOversizeIFieldRejected(t *testing.T) {
 	setupConflictDB(t)
-	oversize := strings.Repeat("x", oversizeIFieldChars)
-	if _, _, err := (&AwgImportService{}).addImportedInbound(importedAwgInbound(t, 51824, oversize)); err != nil {
-		t.Fatalf("addImportedInbound(oversize I-set) = %v, want nil", err)
+	injected := strings.Repeat("x", oversizeIFieldChars) + "\nEndpoint = attacker.example"
+
+	_, _, err := (&AwgImportService{}).addImportedInbound(importedAwgInbound(t, 51824, injected))
+	if !errors.Is(err, errAwgControlChar) {
+		t.Fatalf("addImportedInbound(control char in an oversize i1) = %v, want errAwgControlChar", err)
+	}
+	var stored int64
+	if dbErr := database.GetDB().Model(&model.Inbound{}).Count(&stored).Error; dbErr != nil {
+		t.Fatalf("count inbounds: %v", dbErr)
+	}
+	if stored != 0 {
+		t.Fatalf("a rejected import persisted %d inbound(s)", stored)
+	}
+}
+
+// The import flag survives the budget downgrade because it also waives a
+// tunnel subnet another AWG inbound owns — Amnezia's 10.8.1.0/24 collides.
+func TestAwgImport_StillWaivesSubnetOverlap(t *testing.T) {
+	setupConflictDB(t)
+	const overlapping = `{"clients":[],"address":"10.8.1.1/24"}`
+	seedInboundConflict(t, "in-51830-udp", "0.0.0.0", 51830, model.AWG, `{"network":"udp"}`, overlapping)
+
+	imported := importedAwgInbound(t, 51831, "")
+	imported.Settings = overlapping
+	if _, _, err := (&AwgImportService{}).addImportedInbound(imported); err != nil {
+		t.Fatalf("addImportedInbound(overlapping subnet) = %v, want nil", err)
 	}
 
-	manual := importedAwgInbound(t, 51825, oversize)
-	if _, _, err := (&InboundService{}).AddInbound(manual); !errors.Is(err, awg.ErrIFieldsTooLarge) {
-		t.Fatalf("AddInbound(oversize I-set) after an import = %v, want awg.ErrIFieldsTooLarge", err)
+	manual := importedAwgInbound(t, 51832, "")
+	manual.Settings = overlapping
+	if _, _, err := (&InboundService{}).AddInbound(manual); err == nil {
+		t.Fatalf("AddInbound(overlapping subnet) = nil, want the subnet conflict")
+	}
+	var stored int64
+	if dbErr := database.GetDB().Model(&model.Inbound{}).Count(&stored).Error; dbErr != nil {
+		t.Fatalf("count inbounds: %v", dbErr)
+	}
+	if stored != 2 {
+		t.Fatalf("stored %d inbounds, want the seed and the import only", stored)
 	}
 }
 

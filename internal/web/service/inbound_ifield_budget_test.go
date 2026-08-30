@@ -7,7 +7,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
@@ -70,6 +69,25 @@ func reloadAwgSettingsRaw(t *testing.T, id int) string {
 	return reloaded.Settings
 }
 
+func reloadAwgSpreadIFields(t *testing.T, id int) [5]string {
+	t.Helper()
+	var reloaded model.Inbound
+	if err := database.GetDB().First(&reloaded, id).Error; err != nil {
+		t.Fatalf("reload inbound %d: %v", id, err)
+	}
+	var s struct {
+		I1 string `json:"i1"`
+		I2 string `json:"i2"`
+		I3 string `json:"i3"`
+		I4 string `json:"i4"`
+		I5 string `json:"i5"`
+	}
+	if err := json.Unmarshal([]byte(reloaded.Settings), &s); err != nil {
+		t.Fatalf("unmarshal reloaded settings: %v", err)
+	}
+	return [5]string{s.I1, s.I2, s.I3, s.I4, s.I5}
+}
+
 func reloadAwgIFieldSettings(t *testing.T, id int) (i1, dns string) {
 	t.Helper()
 	var reloaded model.Inbound
@@ -108,14 +126,14 @@ func TestUpdateInbound_UnchangedOversizeIFieldSetStaysSavable(t *testing.T) {
 	}
 }
 
-// The gate still has to bite where it prevents something: an operator handing
-// this inbound a NEW oversized set gets told, exactly as before.
-func TestUpdateInbound_ChangedOversizeIFieldSetStillRejected(t *testing.T) {
+// Refusing the save protected nothing — the renderers drop an over-budget set
+// before a kernel of ours reads it — and froze node reconcile on every retry.
+func TestUpdateInbound_ChangedOversizeIFieldSetSaves(t *testing.T) {
 	var base [5]string
 	for i := range base {
 		base[i] = strings.Repeat("x", 720)
 	}
-	// Every field of the set counts, so moving any one of the five must bite.
+	// Every field of the set counts, so moving any one of the five must save.
 	for idx := range base {
 		t.Run(fmt.Sprintf("i%d", idx+1), func(t *testing.T) {
 			setupConflictDB(t)
@@ -130,13 +148,55 @@ func TestUpdateInbound_ChangedOversizeIFieldSetStillRejected(t *testing.T) {
 			changed[idx] = strings.Repeat("y", 720)
 			update := existing
 			update.Settings = awgSpreadIFieldSettings(t, changed)
-			if _, _, err := (&InboundService{}).UpdateInbound(&update); !errors.Is(err, awg.ErrIFieldsTooLarge) {
-				t.Fatalf("UpdateInbound(new oversize I-set) = %v, want awg.ErrIFieldsTooLarge", err)
+			if _, _, err := (&InboundService{}).UpdateInbound(&update); err != nil {
+				t.Fatalf("UpdateInbound(new oversize I-set) = %v, want nil", err)
 			}
-			if got := reloadAwgSettingsRaw(t, existing.Id); got != seeded {
-				t.Fatalf("a rejected update must not persist, stored settings changed")
+			if got := reloadAwgSpreadIFields(t, existing.Id); got != changed {
+				t.Fatalf("stored i%d = %d chars, want the submitted %d", idx+1, len(got[idx]), len(changed[idx]))
 			}
 		})
+	}
+}
+
+// 4040 bytes shrunk to 3640 is still over 3492. Only this downgrade lets an
+// operator get there in steps instead of one jump under the budget.
+func TestUpdateInbound_SmallerButStillOversizeIFieldSetSaves(t *testing.T) {
+	setupConflictDB(t)
+	var base, shrunk [5]string
+	for i := range base {
+		base[i] = strings.Repeat("x", 800)
+		shrunk[i] = strings.Repeat("x", 720)
+	}
+	seedInboundConflict(t, "in-51820-udp", "0.0.0.0", 51820, model.AWG, `{"network":"udp"}`, awgSpreadIFieldSettings(t, base))
+	var existing model.Inbound
+	if err := database.GetDB().Where("tag = ?", "in-51820-udp").First(&existing).Error; err != nil {
+		t.Fatalf("read seeded row: %v", err)
+	}
+
+	update := existing
+	update.Settings = awgSpreadIFieldSettings(t, shrunk)
+	if _, _, err := (&InboundService{}).UpdateInbound(&update); err != nil {
+		t.Fatalf("UpdateInbound(smaller but still oversize I-set) = %v, want nil", err)
+	}
+	if got := reloadAwgSpreadIFields(t, existing.Id); got != shrunk {
+		t.Fatalf("stored i1 = %d chars, want the shrunk %d", len(got[0]), len(shrunk[0]))
+	}
+}
+
+// IBytes trims each field before measuring, so a cosmetic space edit changes
+// nothing the budget can see — the byte-for-byte comparison refused it anyway.
+func TestUpdateInbound_WhitespaceOnlyIFieldEditSaves(t *testing.T) {
+	setupConflictDB(t)
+	oversize := strings.Repeat("x", oversizeIFieldChars)
+	existing := seedAwgIFieldInbound(t, oversize, "1.1.1.1")
+
+	update := *existing
+	update.Settings = awgIFieldSettings(t, " "+oversize, "1.1.1.1")
+	if _, _, err := (&InboundService{}).UpdateInbound(&update); err != nil {
+		t.Fatalf("UpdateInbound(whitespace-only I-field edit) = %v, want nil", err)
+	}
+	if i1, _ := reloadAwgIFieldSettings(t, existing.Id); i1 != " "+oversize {
+		t.Fatalf("stored i1 = %d chars, want the submitted %d", len(i1), len(oversize)+1)
 	}
 }
 
@@ -175,9 +235,9 @@ func TestUpdateInbound_ChangedWithinBudgetIFieldSetSaves(t *testing.T) {
 	}
 }
 
-// The budget check sits ahead of the control-char, header-key and CPS checks
-// inside validateAwgSettingsJSON. Exempting it must not take those with it.
-func TestUpdateInbound_ExemptOversizeIFieldSetStillChecksOtherFields(t *testing.T) {
+// A caller that forgives the budget must still have had every other check run,
+// so the budget has to be the last verdict validateAwgSettingsJSON reaches.
+func TestUpdateInbound_OversizeIFieldSetStillChecksOtherFields(t *testing.T) {
 	setupConflictDB(t)
 	oversize := strings.Repeat("x", oversizeIFieldChars)
 	existing := seedAwgIFieldInbound(t, oversize, "1.1.1.1")
@@ -192,9 +252,9 @@ func TestUpdateInbound_ExemptOversizeIFieldSetStillChecksOtherFields(t *testing.
 	}
 }
 
-// Only the budget is grandfathered. An I-set that is within budget is still
-// checked for everything else, unchanged or not.
-func TestUpdateInbound_IFieldExemptionCoversTheBudgetOnly(t *testing.T) {
+// Only the budget was ever downgraded to a warning. Everything else about an
+// I-field still refuses the save, over budget or not.
+func TestUpdateInbound_ControlCharInWithinBudgetIFieldRejected(t *testing.T) {
 	setupConflictDB(t)
 	injected := strings.Repeat("x", normalIFieldChars) + "\nEndpoint = attacker.example"
 	existing := seedAwgIFieldInbound(t, injected, "1.1.1.1")
@@ -205,13 +265,12 @@ func TestUpdateInbound_IFieldExemptionCoversTheBudgetOnly(t *testing.T) {
 	}
 }
 
-// Only an AWG inbound can have a grandfathered set. Parking one under a
-// protocol with no AWG validation and then switching must not inherit it.
-func TestUpdateInbound_ProtocolSwitchToAwgIsNotGrandfathered(t *testing.T) {
+// A protocol switch is still an ordinary save: the set is measured, warned
+// about and stored, exactly as it would be on an inbound that was always AWG.
+func TestUpdateInbound_ProtocolSwitchToAwgSaves(t *testing.T) {
 	setupConflictDB(t)
 	oversize := strings.Repeat("x", oversizeIFieldChars)
-	seeded := awgIFieldSettings(t, oversize, "1.1.1.1")
-	seedInboundConflict(t, "in-51820-tcp", "0.0.0.0", 51820, model.VLESS, `{"network":"tcp"}`, seeded)
+	seedInboundConflict(t, "in-51820-tcp", "0.0.0.0", 51820, model.VLESS, `{"network":"tcp"}`, awgIFieldSettings(t, oversize, "1.1.1.1"))
 	var existing model.Inbound
 	if err := database.GetDB().Where("tag = ?", "in-51820-tcp").First(&existing).Error; err != nil {
 		t.Fatalf("read seeded row: %v", err)
@@ -219,17 +278,48 @@ func TestUpdateInbound_ProtocolSwitchToAwgIsNotGrandfathered(t *testing.T) {
 
 	update := existing
 	update.Protocol = model.AWG
-	if _, _, err := (&InboundService{}).UpdateInbound(&update); !errors.Is(err, awg.ErrIFieldsTooLarge) {
-		t.Fatalf("UpdateInbound(VLESS -> AWG, oversize I-set) = %v, want awg.ErrIFieldsTooLarge", err)
+	if _, _, err := (&InboundService{}).UpdateInbound(&update); err != nil {
+		t.Fatalf("UpdateInbound(VLESS -> AWG, oversize I-set) = %v, want nil", err)
 	}
-	if got := reloadAwgSettingsRaw(t, existing.Id); got != seeded {
-		t.Fatalf("a rejected update must not persist, stored settings changed")
+	if i1, _ := reloadAwgIFieldSettings(t, existing.Id); i1 != oversize {
+		t.Fatalf("stored i1 = %d chars, want the submitted %d", len(i1), len(oversize))
 	}
 }
 
-// A brand-new inbound has no grandfathered set to be back-compatible with.
-func TestAddInbound_OversizeIFieldSetStillRejected(t *testing.T) {
+// AddInbound is the door a node push falls through when the tag does not
+// resolve, so refusing here left a fresh node dirty on every 5s retry.
+func TestAddInbound_OversizeIFieldSetSaves(t *testing.T) {
+	// encoding/json matches tags case-insensitively, so a hand-written "I1"
+	// reaches the same single reader the budget and the warning now share.
+	for _, key := range []string{"i1", "I1"} {
+		t.Run(key, func(t *testing.T) {
+			setupConflictDB(t)
+			oversize := strings.Repeat("x", oversizeIFieldChars)
+			in := &model.Inbound{
+				Tag:            "in-51821-udp",
+				Enable:         true,
+				Listen:         "0.0.0.0",
+				Port:           51821,
+				Protocol:       model.AWG,
+				StreamSettings: `{"network":"udp"}`,
+				Settings:       awgIFieldSettingsKeyed(t, key, oversize, "1.1.1.1"),
+			}
+			created, _, err := (&InboundService{}).AddInbound(in)
+			if err != nil {
+				t.Fatalf("AddInbound(oversize I-set) = %v, want nil", err)
+			}
+			if i1, _ := reloadAwgIFieldSettings(t, created.Id); i1 != oversize {
+				t.Fatalf("stored i1 = %d chars, want the submitted %d", len(i1), len(oversize))
+			}
+		})
+	}
+}
+
+// The hole the import waiver opened: stripping I1-I5 to re-run the checks
+// behind the budget took the control-character scan over those same fields.
+func TestAddInbound_ControlCharInOversizeIFieldRejected(t *testing.T) {
 	setupConflictDB(t)
+	injected := strings.Repeat("x", oversizeIFieldChars) + "\nEndpoint = attacker.example"
 	in := &model.Inbound{
 		Tag:            "in-51821-udp",
 		Enable:         true,
@@ -237,9 +327,16 @@ func TestAddInbound_OversizeIFieldSetStillRejected(t *testing.T) {
 		Port:           51821,
 		Protocol:       model.AWG,
 		StreamSettings: `{"network":"udp"}`,
-		Settings:       awgIFieldSettings(t, strings.Repeat("x", oversizeIFieldChars), "1.1.1.1"),
+		Settings:       awgIFieldSettings(t, injected, "1.1.1.1"),
 	}
-	if _, _, err := (&InboundService{}).AddInbound(in); !errors.Is(err, awg.ErrIFieldsTooLarge) {
-		t.Fatalf("AddInbound(oversize I-set) = %v, want awg.ErrIFieldsTooLarge", err)
+	if _, _, err := (&InboundService{}).AddInbound(in); !errors.Is(err, errAwgControlChar) {
+		t.Fatalf("AddInbound(control char in an oversize i1) = %v, want errAwgControlChar", err)
+	}
+	var stored int64
+	if err := database.GetDB().Model(&model.Inbound{}).Count(&stored).Error; err != nil {
+		t.Fatalf("count inbounds: %v", err)
+	}
+	if stored != 0 {
+		t.Fatalf("a rejected create persisted %d inbound(s)", stored)
 	}
 }

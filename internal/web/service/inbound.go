@@ -1724,8 +1724,8 @@ func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefi
 // nodes are separate kernels — same subnet is fine. ignoreId excludes the
 // inbound being edited. Outbound clash applies only to local inbounds (outbounds
 // live on the master kernel). Empty/unparseable address is not an error here.
-// awgImportInProgress waives what a live foreign server already runs with and
-// import must not refuse: an Amnezia 10.8.1.0/24 overlap, an over-budget I-set.
+// awgImportInProgress waives the subnet a live foreign server already runs on
+// and import must not refuse — every Amnezia stack sits on 10.8.1.0/24.
 var awgImportInProgress bool
 
 func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, nodeID *int) error {
@@ -1830,14 +1830,8 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound on this host
 	// already owns (Pattern 1e kernel route conflict). New inbounds have no id.
 	if inbound.Protocol == model.AWG {
-		awgErr := validateAwgSettingsJSON(inbound.Settings)
-		// Waived on import only: that server already runs this set, and every
-		// renderer drops an over-budget one before a kernel of ours sees it.
-		if awgImportInProgress && errors.Is(awgErr, awg.ErrIFieldsTooLarge) {
-			awgErr = validateAwgSettingsJSON(awgSettingsWithoutIFields(inbound.Settings))
-		}
-		if awgErr != nil {
-			return inbound, false, awgErr
+		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
+			return inbound, false, err
 		}
 		if err := s.checkAwgSubnetConflict(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID); err != nil {
 			return inbound, false, err
@@ -2428,26 +2422,6 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	return needRestart || routedBridge, nil
 }
 
-// awgSettingsWithoutIFields drops I1-I5 (any key case) so the checks behind the
-// budget still run. Safe only while every renderer drops an over-budget set.
-func awgSettingsWithoutIFields(settings string) string {
-	var m map[string]any
-	if err := json.Unmarshal([]byte(settings), &m); err != nil {
-		return settings
-	}
-	for k := range m {
-		switch strings.ToLower(k) {
-		case "i1", "i2", "i3", "i4", "i5":
-			delete(m, k)
-		}
-	}
-	stripped, err := json.Marshal(m)
-	if err != nil {
-		return settings
-	}
-	return string(stripped)
-}
-
 func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, bool, error) {
 	inbound.TrafficResetDay = normalizeTrafficResetDay(inbound.TrafficResetDay)
 	// Normalize streamSettings based on protocol
@@ -2539,13 +2513,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// (no re-export). Only rewrites a peer that collides with the server's
 	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
 	if inbound.Protocol == model.AWG {
-		// A protocol switch brings no AWG settings to compare against, so the
-		// grandfather cannot fire on a set this inbound never had.
-		oldSettings := ""
-		if oldInbound != nil && oldInbound.Protocol == model.AWG {
-			oldSettings = oldInbound.Settings
-		}
-		if err := validateAwgSettingsJSONDiff(inbound.Settings, oldSettings); err != nil {
+		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
 			return inbound, false, err
 		}
 	}
