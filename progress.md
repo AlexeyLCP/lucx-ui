@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.195 — AnyTLS old binary + AWG outbound fail-closed (2026-08-30)
+
+lucx.194 used `-password-file` always; the tarball still ships the pre-overlay anytls that only knows `-p`. Inbound stayed down.
+
+- AnyTLS: `-password-file` only if `anytls -h` lists it; else `-p`. Password file still written 0600.
+- AWG outbound: down iface → blackhole (not freedom/clearnet). AwgJob restarts Xray once when an `awgo-N` comes up.
+
+qWDTT password still on argv (not our binary).
+
+**lucxVersion:** lucx.195
+
+---
+
 ## lucx.194 — adversarial hardening (2026-08-30)
 
 Adversarial review of LucX-owned code (not upstream). Stolen panel session must not become root via .conf/Caddyfile; leftover host state after delete; local cmdline leaks.
