@@ -169,15 +169,28 @@ func (j *AwgJob) Run() {
 		outbounds, err := svc.GetOutbounds()
 		if err == nil {
 			m := awg.GetManager()
+			needXray := false
 			for _, o := range outbounds {
 				if !o.Enable {
 					_ = m.RemoveClient("awgo-" + strconv.Itoa(o.Id))
 					continue
 				}
 				if ci, ok := awg.ClientInstanceFromOutbound(o); ok {
+					_, _, _, wasUp := m.CollectClientTraffic(ci.Ifname)
 					if err := m.EnsureClient(ci); err != nil {
 						logger.Warning("awg: outbound reconcile failed for", o.Tag, err)
+						continue
 					}
+					if !wasUp {
+						if _, _, _, up := m.CollectClientTraffic(ci.Ifname); up {
+							needXray = true
+						}
+					}
+				}
+			}
+			if needXray {
+				if err := (&service.XrayService{}).RestartXray(false); err != nil {
+					logger.Warning("awg: restart xray after outbound iface up:", err)
 				}
 			}
 		}

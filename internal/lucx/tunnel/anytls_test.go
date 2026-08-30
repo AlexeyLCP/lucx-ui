@@ -170,11 +170,13 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		t.Fatalf("ProbePort = %d", inst.ProbePort)
 	}
 	joined := strings.Join(inst.Args, " ")
-	if !strings.Contains(joined, "-l 0.0.0.0:9443") || !strings.Contains(joined, "-password-file ") {
+	if !strings.Contains(joined, "-l 0.0.0.0:9443") {
 		t.Fatalf("Args = %v", inst.Args)
 	}
-	if strings.Contains(joined, "-p ") {
-		t.Fatalf("password must not be on argv: %v", inst.Args)
+	hasFile := strings.Contains(joined, "-password-file ")
+	hasP := strings.Contains(joined, "-p shared")
+	if hasFile == hasP {
+		t.Fatalf("want password-file (new overlay) or -p (old binary), got %v", inst.Args)
 	}
 	if !strings.Contains(joined, "-cert "+cert) || !strings.Contains(joined, "-key "+key) {
 		t.Fatalf("Args missing cert/key: %v", inst.Args)

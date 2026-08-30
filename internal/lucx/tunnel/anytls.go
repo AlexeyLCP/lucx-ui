@@ -10,8 +10,10 @@ import (
 	"errors"
 	"net"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // AnytlsConfig is one anytls-server instance (anytls/anytls-go reference
@@ -83,6 +85,19 @@ func (c AnytlsConfig) ValidateCert(panelCert, panelKey string) error {
 }
 
 // BuildArgs renders the argv for the LucX-overlay anytls-server.
+var (
+	anytlsPWFileOnce sync.Once
+	anytlsPWFileOK   bool
+)
+
+func anytlsSupportsPasswordFile() bool {
+	anytlsPWFileOnce.Do(func() {
+		out, _ := exec.Command(Anytls.BinaryPath(), "-h").CombinedOutput()
+		anytlsPWFileOK = strings.Contains(string(out), "password-file")
+	})
+	return anytlsPWFileOK
+}
+
 func (c AnytlsConfig) BuildArgs(cert, key, passwordFile string) []string {
 	args := []string{"-l", c.ListenAddr()}
 	if strings.TrimSpace(passwordFile) != "" {

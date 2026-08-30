@@ -1113,6 +1113,14 @@ func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 		if !ok {
 			continue
 		}
+		if awg.KernelAvailable() {
+			if _, _, _, up := awg.GetManager().CollectClientTraffic(ci.Ifname); !up {
+				if err := appendAwgOutbound(cfg, blackholeOutbound(o.Tag)); err != nil {
+					logger.Warning("awg outbound: failed to inject blackhole for down iface", ci.Ifname, ":", err)
+				}
+				continue
+			}
+		}
 		settings := map[string]any{
 			"domainStrategy": "UseIP",
 		}

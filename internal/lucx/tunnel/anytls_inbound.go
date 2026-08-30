@@ -68,11 +68,15 @@ func AnytlsInstanceFromInbound(ib *model.Inbound, panelCert, panelKey string) (I
 	if err := os.WriteFile(pwFile, []byte(strings.TrimSpace(cfg.Password)+"\n"), 0o600); err != nil {
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
 	}
+	pwArg := ""
+	if anytlsSupportsPasswordFile() {
+		pwArg = pwFile
+	}
 	return Instance{
 		Core:             Anytls,
 		Key:              key,
 		Enabled:          true,
-		Args:             cfg.BuildArgs(certFile, keyFile, pwFile),
+		Args:             cfg.BuildArgs(certFile, keyFile, pwArg),
 		FingerprintExtra: CertFileHash(certFile),
 		ProbePort:        cfg.Port,
 	}, true
