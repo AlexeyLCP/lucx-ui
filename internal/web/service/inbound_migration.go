@@ -190,6 +190,13 @@ func (s *InboundService) MigrationRequirements() (err error) {
 			}
 		}
 
+		// LUCX-HOOK: a keyless inbound's settings can hold a stale copy of the tunnel
+		// keypair, and syncing it overwrites the client's working one (x-ui migrate).
+		for i := range modelClients {
+			clearForeignTunnelKeys(&modelClients[i], inbounds[inbound_index].Protocol)
+		}
+		// END LUCX-HOOK
+
 		// Heal clients table for installs where the one-shot seeder
 		// skipped clients due to a tgId-string unmarshal error.
 		if err = s.clientService.SyncInbound(tx, inbounds[inbound_index].Id, modelClients); err != nil {

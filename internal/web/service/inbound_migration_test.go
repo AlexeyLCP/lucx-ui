@@ -312,3 +312,133 @@ func TestMigrationRequirements_NormalizesShareAddressFields(t *testing.T) {
 		t.Fatalf("invalid address share fields = (%q, %q), want (node, empty)", gotInvalidAddress.ShareAddrStrategy, gotInvalidAddress.ShareAddr)
 	}
 }
+
+const (
+	liveTunnelPriv  = "awg-live-priv"
+	liveTunnelPub   = "awg-live-pub"
+	liveTunnelPSK   = "awg-live-psk"
+	staleTunnelPriv = "vless-copy-priv"
+	staleTunnelPub  = "vless-copy-pub"
+	staleTunnelPSK  = "vless-copy-psk"
+)
+
+// mkMigrationInbound is mkInbound plus stream settings: the externalProxy detection
+// query runs json_extract over that column and rejects the empty string mkInbound leaves.
+func mkMigrationInbound(t *testing.T, port int, proto model.Protocol, settings string) *model.Inbound {
+	t.Helper()
+	ib := mkInbound(t, port, proto, settings)
+	if err := database.GetDB().Model(&model.Inbound{}).Where("id = ?", ib.Id).
+		Update("stream_settings", `{"network":"tcp","security":"none"}`).Error; err != nil {
+		t.Fatalf("set stream settings on inbound %d: %v", port, err)
+	}
+	return ib
+}
+
+// seedTunnelKeyClobber builds the shape that broke two live panels: one identity whose
+// live keypair comes from an AWG inbound, plus a keyless inbound holding a stale copy.
+func seedTunnelKeyClobber(t *testing.T, email string, awgPort, keylessPort int) *model.Inbound {
+	t.Helper()
+	awgClient := model.Client{
+		Email:        email,
+		SubID:        "sub-" + email,
+		Enable:       true,
+		PrivateKey:   liveTunnelPriv,
+		PublicKey:    liveTunnelPub,
+		PreSharedKey: liveTunnelPSK,
+		AllowedIPs:   []string{"10.200.0.2/32"},
+	}
+	awgIb := mkMigrationInbound(t, awgPort, model.AWG, clientsSettings(t, []model.Client{awgClient}))
+	if err := (&ClientService{}).SyncInbound(nil, awgIb.Id, []model.Client{awgClient}); err != nil {
+		t.Fatalf("seed AWG client record: %v", err)
+	}
+
+	stale := awgClient
+	stale.ID = "9f1d0f6e-1c2b-4a3d-8e5f-0a1b2c3d4e5f"
+	stale.AllowedIPs = nil
+	stale.PrivateKey = staleTunnelPriv
+	stale.PublicKey = staleTunnelPub
+	stale.PreSharedKey = staleTunnelPSK
+	mkMigrationInbound(t, keylessPort, model.VLESS, clientsSettings(t, []model.Client{stale}))
+	return awgIb
+}
+
+func assertLiveTunnelKeys(t *testing.T, email, when string) {
+	t.Helper()
+	rec := lookupClientRecord(t, email)
+	if rec.PrivateKey != liveTunnelPriv || rec.PublicKey != liveTunnelPub || rec.PreSharedKey != liveTunnelPSK {
+		t.Fatalf("%s: client record keys = (%q, %q, %q), want (%q, %q, %q)",
+			when, rec.PrivateKey, rec.PublicKey, rec.PreSharedKey,
+			liveTunnelPriv, liveTunnelPub, liveTunnelPSK)
+	}
+}
+
+// x-ui migrate runs on every web update and syncs only keyless inbounds, so a stale
+// tunnel keypair sitting in their settings JSON used to overwrite the working one.
+func TestMigrationRequirements_KeylessInboundKeepsTunnelKeys(t *testing.T) {
+	setupBulkDB(t)
+	const email = "demo-user@example.test"
+	seedTunnelKeyClobber(t, email, 32001, 32002)
+
+	if err := (&InboundService{}).MigrationRequirements(); err != nil {
+		t.Fatalf("MigrationRequirements: %v", err)
+	}
+	assertLiveTunnelKeys(t, email, "after migrate")
+}
+
+// The record feeds the subscription .conf and the AWG inbound's settings feed the kernel
+// peer: a tunnel client's keys are legitimate, and migrate must not drive the two apart.
+func TestMigrationRequirements_ClientRecordStillMatchesTunnelPeer(t *testing.T) {
+	setupBulkDB(t)
+	const email = "demo-pair@example.test"
+	awgIb := seedTunnelKeyClobber(t, email, 32021, 32022)
+
+	if err := (&InboundService{}).MigrationRequirements(); err != nil {
+		t.Fatalf("MigrationRequirements: %v", err)
+	}
+
+	var got model.Inbound
+	if err := database.GetDB().First(&got, awgIb.Id).Error; err != nil {
+		t.Fatalf("reload AWG inbound: %v", err)
+	}
+	peers, err := (&InboundService{}).GetClients(&got)
+	if err != nil {
+		t.Fatalf("parse AWG inbound clients: %v", err)
+	}
+	var peer model.Client
+	for _, p := range peers {
+		if p.Email == email {
+			peer = p
+		}
+	}
+	if peer.Email == "" {
+		t.Fatalf("client %q vanished from the AWG inbound settings: %s", email, got.Settings)
+	}
+
+	rec := lookupClientRecord(t, email)
+	if rec.PrivateKey != peer.PrivateKey || rec.PublicKey != peer.PublicKey || rec.PreSharedKey != peer.PreSharedKey {
+		t.Fatalf("record drifted from the AWG peer: record = (%q, %q, %q), inbound = (%q, %q, %q)",
+			rec.PrivateKey, rec.PublicKey, rec.PreSharedKey,
+			peer.PrivateKey, peer.PublicKey, peer.PreSharedKey)
+	}
+}
+
+func TestMigrateDB_TunnelKeysUnchangedOnSecondRun(t *testing.T) {
+	setupBulkDB(t)
+	const email = "demo-idem@example.test"
+	seedTunnelKeyClobber(t, email, 32011, 32012)
+
+	svc := &InboundService{}
+	svc.MigrateDB()
+	assertLiveTunnelKeys(t, email, "after first migrate")
+	first := lookupClientRecord(t, email)
+
+	svc.MigrateDB()
+	assertLiveTunnelKeys(t, email, "after second migrate")
+	second := lookupClientRecord(t, email)
+
+	// Every run restamps updated_at in the settings JSON by design; nothing else may move.
+	first.UpdatedAt = second.UpdatedAt
+	if first != second {
+		t.Fatalf("second MigrateDB changed the client record:\n first  = %+v\n second = %+v", first, second)
+	}
+}
