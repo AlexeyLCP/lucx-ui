@@ -32,8 +32,11 @@ var portableIFieldCases = []struct {
 	{"<ds>", false, "go-only"},
 	{"<dz 4>", false, "go-only"},
 
+	{" <b 0x41>", true, "padding around the value never reaches a tag parser"},
+	{"<b 0x41>\t", true, "and the .conf line format strips it either way"},
+
 	{"<r -5>", false, "negative count crashes one engine and ENOMEMs the other"},
-	{"<r +5>", false, "both engines take the plus, but the portable form has no sign"},
+	{"<r +5>", false, "both engines take the plus, but nothing emits it, so no third parser is known to"},
 	{"<r abc>", false, "not a number"},
 	{"<r 0x10>", false, "count is base 10"},
 	{"<x 5>", false, "unknown tag"},

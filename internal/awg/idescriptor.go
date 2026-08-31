@@ -6,7 +6,10 @@
 
 package awg
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // portableIField is the junk-packet descriptor form both AmneziaWG engines
 // accept. Neither is a superset of the other — the kernel module has <c> and
@@ -23,6 +26,10 @@ var portableIField = regexp.MustCompile(`^(?:<(?:b 0x(?:[0-9a-fA-F]{2})+|t|r [0-
 // PortableIField reports whether an I1-I5 value can be handed to a client
 // without knowing which engine will read it. A blank value is not portable:
 // writing "I1 = " into a .conf makes amneziawg-tools refuse the whole file.
+//
+// Padding around the value is not held against it — no engine ever sees it,
+// every .conf reader strips it off the line — so callers emit the trimmed form.
+// Padding inside a tag is a different matter and stays refused.
 func PortableIField(v string) bool {
-	return portableIField.MatchString(v)
+	return portableIField.MatchString(strings.TrimSpace(v))
 }
