@@ -28,7 +28,7 @@ func importedAwgInbound(t *testing.T, port int, i1 string) *model.Inbound {
 // back, not what its kernel accepted, and ~21% of Amnezia Pro sets are over it.
 func TestAwgImport_OversizeIFieldSetSavesWithWarning(t *testing.T) {
 	setupConflictDB(t)
-	oversize := strings.Repeat("x", oversizeIFieldChars)
+	oversize := portableIFieldOfChars(t, oversizeIFieldChars)
 
 	created, warn, err := (&AwgImportService{}).addImportedInbound(importedAwgInbound(t, 51822, oversize))
 	if err != nil {
@@ -46,7 +46,7 @@ func TestAwgImport_OversizeIFieldSetSavesWithWarning(t *testing.T) {
 // must stay silent — otherwise operators learn to ignore it.
 func TestAwgImport_WithinBudgetIFieldSetSavesWithoutWarning(t *testing.T) {
 	setupConflictDB(t)
-	normal := strings.Repeat("x", normalIFieldChars)
+	normal := portableIFieldOfChars(t, normalIFieldChars)
 
 	created, warn, err := (&AwgImportService{}).addImportedInbound(importedAwgInbound(t, 51823, normal))
 	if err != nil {
@@ -110,7 +110,7 @@ func TestAwgImport_StillWaivesSubnetOverlap(t *testing.T) {
 // them to shorten it points at a knob they do not have.
 func TestAwgImport_WarningDropsAdviceTheOperatorCannotAct(t *testing.T) {
 	setupConflictDB(t)
-	oversize := strings.Repeat("x", oversizeIFieldChars)
+	oversize := portableIFieldOfChars(t, oversizeIFieldChars)
 
 	_, warn, err := (&AwgImportService{}).addImportedInbound(importedAwgInbound(t, 51827, oversize))
 	if err != nil {
@@ -150,5 +150,23 @@ func TestAwgImport_RendererKeepsOnlyTheWithinBudgetIFieldSet(t *testing.T) {
 				t.Fatalf("rendered I1 = %v, want %v; block:\n%s", got, tc.wantRendered, obfuscation)
 			}
 		})
+	}
+}
+
+// An adopted server is exactly where a descriptor written for the other engine
+// comes from, so the import path has to name what will not reach a client.
+func TestAwgImport_UnportableIFieldSetSavesWithWarning(t *testing.T) {
+	setupConflictDB(t)
+
+	created, warn, err := (&AwgImportService{}).addImportedInbound(importedAwgInbound(t, 51828, "<c>"))
+	if err != nil {
+		t.Fatalf("addImportedInbound(unportable I-set) = %v, want nil", err)
+	}
+	if !strings.Contains(warn, "I1") {
+		t.Fatalf("warning = %q, want it to name the field", warn)
+	}
+	// Stored verbatim: the foreign server it came from is running on it.
+	if i1, _ := reloadAwgIFieldSettings(t, created.Id); i1 != "<c>" {
+		t.Fatalf("stored i1 = %q, want the imported descriptor kept", i1)
 	}
 }
