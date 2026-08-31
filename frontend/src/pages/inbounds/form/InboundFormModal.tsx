@@ -59,7 +59,12 @@ import { AdvancedAllEditor, AdvancedSliceEditor } from './advanced-editors';
 import { AwgInboundIdProvider } from './awg-inbound-id-context';
 // END LUCX-HOOK
 import { formatInboundIssue, formatInboundValidation } from './formatValidationError';
-import { awgIFieldSetFrom, awgIFieldSetRefused, awgSavedIFieldSet } from './awgIFieldBudget';
+import {
+  awgIFieldGrammarRefused,
+  awgIFieldSetFrom,
+  awgIFieldSetRefused,
+  awgSavedIFieldSet,
+} from './awgIFieldBudget';
 import {
   AmneziawgFields,
   HttpFields,
@@ -680,6 +685,17 @@ export default function InboundFormModal({
       setActiveTab('protocol');
       messageApi.error(t('pages.inbounds.form.awgIFieldBudget'));
       return;
+    }
+    if (values.protocol === Protocols.AWG) {
+      const refused = awgIFieldGrammarRefused(
+        awgIFieldSetFrom(values.settings),
+        awgSavedIFieldSet(mode === 'edit' ? dbInbound : null),
+      );
+      if (refused.length > 0) {
+        setActiveTab('protocol');
+        messageApi.error(`${t('pages.inbounds.form.awgIFieldGrammar')} (${refused.join(', ')})`);
+        return;
+      }
     }
     setSaving(true);
     try {
