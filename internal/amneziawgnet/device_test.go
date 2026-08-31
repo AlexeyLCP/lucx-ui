@@ -578,6 +578,12 @@ func TestBuildUAPIConfigRefusesACounterThatWouldPanicTheEngine(t *testing.T) {
 		"<b 0xaabbccddeeff00112233><r -4>",
 		// Order must not matter, and neither must which of the five fields.
 		"<r -4><b 0xaabb>",
+		// The kernel accepts an unclosed tag — strsep returns the whole
+		// remainder when the separator is absent — so the .conf takes it too.
+		"<r -5",
+		"<rc -1",
+		"<dz -2",
+		"<b 0xaabb><rd -3",
 	} {
 		t.Run(descriptor, func(t *testing.T) {
 			inst := base
@@ -617,5 +623,34 @@ func TestBuildUAPIConfigKeepsValidDescriptors(t *testing.T) {
 		if !strings.Contains(conf, want) {
 			t.Errorf("missing %q in:\n%s", want, conf)
 		}
+	}
+}
+
+// <c> is the one tag the kernel has and amneziawg-go does not. IpcSetOperation
+// stops on it — but only after private_key, listen_port and replace_peers=true
+// have been applied, so the device is left holding the port with every peer
+// wiped and the padding, H-fields and timers of the aborted merge lost.
+// Refusing before IpcSet leaves the running device untouched instead.
+func TestBuildUAPIConfigRefusesTheKernelOnlyCounterTag(t *testing.T) {
+	priv, _, err := wireguard.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	base := amneziawg.Instance{
+		PrivateKey:  priv,
+		Obfuscation: amneziawg.Obfuscation31{S1: 20, S2: 20, S3: 20, S4: 20},
+	}
+	for _, descriptor := range []string{"<c>", "<b 0x41><c>", "<c><r 8>", "<c"} {
+		t.Run(descriptor, func(t *testing.T) {
+			inst := base
+			inst.Obfuscation.I2 = descriptor
+			conf, err := buildUAPIConfig(inst, DeviceOptions{})
+			if err == nil {
+				t.Fatalf("<c> must not reach IpcSet, got:\n%s", conf)
+			}
+			if strings.Contains(conf, "i2=") {
+				t.Errorf("the rejected descriptor still reached the config: %s", conf)
+			}
+		})
 	}
 }

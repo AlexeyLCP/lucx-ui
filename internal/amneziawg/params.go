@@ -293,23 +293,38 @@ func ValidateConfigValue(field, v string) error {
 	return nil
 }
 
-// negativeCountTag finds a junk-packet tag whose count is negative, the one
-// descriptor shape amneziawg-go accepts and then dies on.
-var negativeCountTag = regexp.MustCompile(`<(r|rc|rd|dz)\s+-\d+\s*>`)
+// negativeCountTag finds a junk-packet tag whose count is negative. The closing
+// bracket is optional: the kernel's strsep returns the whole remainder when the
+// separator is absent, so an unclosed tag reaches its parser like a closed one.
+var negativeCountTag = regexp.MustCompile(`<(r|rc|rd|dz)\s+-\d+\s*>?`)
 
-// ValidateIFieldRuntimeSafe rejects an I1-I5 descriptor that would panic the
-// embedded engine. Every counted tag is read with strconv.Atoi, which takes the
-// minus, and ObfuscatedLen returns it unchanged; the first handshake then
-// slices with a negative length. That panic surfaces in a timer goroutine, and
-// neither amneziawg-go nor this panel recovers anywhere on that stack, so it
-// ends the whole process — minutes after a save that looked successful.
+// kernelOnlyTag finds <c>, the one tag the kernel module has and this engine
+// does not. Closing bracket optional, for the same reason as above.
+var kernelOnlyTag = regexp.MustCompile(`<c\s*>?`)
+
+// ValidateIFieldRuntimeSafe rejects an I1-I5 descriptor that would leave the
+// embedded engine worse off than not applying it at all.
+//
+// A negative count: every counted tag is read with strconv.Atoi, which takes
+// the minus, and ObfuscatedLen returns it unchanged, so the first handshake
+// slices with a negative length. That panic surfaces in a timer goroutine with
+// no recover anywhere on the stack, ending the whole process — minutes after a
+// save that looked successful.
+//
+// <c>: IpcSetOperation stops on the unknown tag, but only after private_key,
+// listen_port and replace_peers=true have been applied. The device is left
+// holding the port with every peer wiped, and the padding, H-fields and timers
+// of the aborted merge are lost.
 //
 // Deliberately narrow: this is the gate in front of IpcSet, not a grammar
-// check. Everything else malformed is either refused by the engine's own
-// parser or merely produces a tunnel that does not obfuscate.
+// check. A descriptor that merely fails to obfuscate is not worth a dead
+// tunnel, and refusing one on save would repeat lucx.191.
 func ValidateIFieldRuntimeSafe(field, v string) error {
 	if m := negativeCountTag.FindString(v); m != "" {
 		return fmt.Errorf("invalid %s: %s has a negative count, which crashes the tunnel engine", field, m)
+	}
+	if m := kernelOnlyTag.FindString(v); m != "" {
+		return fmt.Errorf("invalid %s: %s is kernel-only and aborts this engine after it has dropped every peer", field, m)
 	}
 	return nil
 }
