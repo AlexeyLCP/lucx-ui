@@ -2779,6 +2779,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			} else {
 				oldSnapshot := *oldInbound
 				oldSnapshot.Tag = tag
+				// Taken after the field was overwritten, so the teardown would
+				// otherwise be routed by the NEW protocol and miss its sidecar.
+				oldSnapshot.Protocol = oldProtocol
 				var runtimeInbound *model.Inbound
 				if inbound.Enable {
 					var err2 error

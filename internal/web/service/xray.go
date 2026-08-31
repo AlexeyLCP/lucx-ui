@@ -1097,6 +1097,17 @@ func injectQwdttEgress(cfg *xray.Config, inbound *model.Inbound) {
 // re-marshaled — mirroring mergeSubscriptionOutbounds. A corrupt template is
 // left untouched (the user will see the error on Xray start / next save),
 // never silently dropped.
+// awgOutboundIsUp answers the one question in config generation that can change
+// between builds. Recorded state, never a live probe: a shell call here would
+// make the generated config — and so the decision to restart Xray — depend on
+// the probe's mood. A var so a test can drive it without a kernel module.
+var awgOutboundIsUp = func(ifname string) bool {
+	if !awg.KernelAvailable() {
+		return true
+	}
+	return awg.GetManager().ClientIfaceUp(ifname)
+}
+
 func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 	for _, o := range outbounds {
 		if !o.Enable {
@@ -1113,15 +1124,11 @@ func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 		if !ok {
 			continue
 		}
-		if awg.KernelAvailable() {
-			// Recorded state, not a live probe: this runs inside every config
-			// build, and a probe's mood must not decide whether Xray restarts.
-			if !awg.GetManager().ClientIfaceUp(ci.Ifname) {
-				if err := appendAwgOutbound(cfg, blackholeOutbound(o.Tag)); err != nil {
-					logger.Warning("awg outbound: failed to inject blackhole for down iface", ci.Ifname, ":", err)
-				}
-				continue
+		if !awgOutboundIsUp(ci.Ifname) {
+			if err := appendAwgOutbound(cfg, blackholeOutbound(o.Tag)); err != nil {
+				logger.Warning("awg outbound: failed to inject blackhole for down iface", ci.Ifname, ":", err)
 			}
+			continue
 		}
 		settings := map[string]any{
 			"domainStrategy": "UseIP",

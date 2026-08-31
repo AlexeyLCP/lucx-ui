@@ -188,3 +188,35 @@ func TestInjectAwgOutbounds_SendThroughSitsOnTheOutbound(t *testing.T) {
 		t.Error("sendThrough under settings is dropped by the config loader")
 	}
 }
+
+// The blackhole decision is the only part of config generation that can differ
+// between two builds of the same database, and RestartXray compares configs to
+// decide whether to restart. It must follow recorded state, never a probe.
+func TestInjectAwgOutbounds_BlackholeFollowsRecordedLiveness(t *testing.T) {
+	saved := awgOutboundIsUp
+	t.Cleanup(func() { awgOutboundIsUp = saved })
+
+	for _, tc := range []struct {
+		name      string
+		up        bool
+		wantProto string
+	}{
+		{"recorded up stays a tunnel", true, "freedom"},
+		{"recorded down is fail-closed", false, "blackhole"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			probed := 0
+			awgOutboundIsUp = func(string) bool { probed++; return tc.up }
+			cfg := awgOutboundTestConfig()
+			injectAwgOutbounds(cfg, []*model.AwgOutbound{
+				{Id: 1, Tag: "awgo-1", Enable: true, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820"}`},
+			})
+			if got := outboundProtocolByTag(t, cfg, "awgo-1"); got != tc.wantProto {
+				t.Errorf("protocol = %q, want %q", got, tc.wantProto)
+			}
+			if probed != 1 {
+				t.Errorf("liveness must be consulted exactly once per outbound, got %d", probed)
+			}
+		})
+	}
+}

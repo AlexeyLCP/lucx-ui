@@ -71,6 +71,11 @@ func (m *Manager) ClientIfaceUp(ifname string) bool {
 	clientMu.Unlock()
 
 	_, err := awgShowIfname(ifname)
+	// A read that ran out of time says nothing. Recording down here would
+	// blackhole a wedged but live tunnel and rewrite the config to do it.
+	if errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
 	up := err == nil
 
 	clientMu.Lock()
@@ -132,16 +137,27 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 			return nil
 		}
 	}
+	prev, hadPrev := os.ReadFile(confPath)
 	if err := os.WriteFile(confPath, []byte(conf), 0o600); err != nil {
 		return err
 	}
-	if _, err := awgShowIfname(ci.Ifname); err == nil {
+	_, readErr := awgShowIfname(ci.Ifname)
+	if readErr == nil {
 		if out, err := awgQuick("down", confPath); err != nil {
 			logger.Warningf("awg: awg-quick down failed before restart: %s %v", string(out), err)
 		}
 	}
 	if out, err := awgQuick("up", confPath); err != nil {
-		noteClientUp(ci.Ifname, false)
+		// Put the old file back: a .conf the kernel never ran would be adopted
+		// as the live fingerprint on the next start and believed forever.
+		if hadPrev == nil {
+			_ = os.WriteFile(confPath, prev, 0o600)
+		}
+		// A wedged read is not proof the interface is down, and up failing
+		// against a live device is what a wedged read looks like from here.
+		if !errors.Is(readErr, context.DeadlineExceeded) {
+			noteClientUp(ci.Ifname, false)
+		}
 		return fmt.Errorf("awg-quick up %s: %w (%s)", confPath, err, string(out))
 	}
 	clients[ci.Ifname] = clientState{fp: conf}

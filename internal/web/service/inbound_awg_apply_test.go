@@ -146,3 +146,33 @@ func TestUpdateInboundAmneziaWGDispatchesAsUpdate(t *testing.T) {
 		t.Fatalf("an AmneziaWG edit must reach the runtime as one update, got %+v", got)
 	}
 }
+
+// The in-place branch fixed its snapshot; the Del+Add branch beside it took the
+// snapshot after the protocol field had already been overwritten, so switching
+// a sidecar protocol to an Xray one asked the Xray API to delete a tag it never
+// had while the sidecar kept its port.
+func TestUpdateInboundSidecarToVlessCarriesTheOldProtocol(t *testing.T) {
+	setupConflictDB(t)
+	mgr := runtime.NewManager(runtime.LocalDeps{APIPort: func() int { return 0 }})
+	rec := &recordingRuntime{}
+	mgr.SetLocalRuntimeOverride(rec)
+	runtime.SetManager(mgr)
+	t.Cleanup(func() { runtime.SetManager(nil) })
+
+	seedInboundConflict(t, "mieru-switch", "0.0.0.0", 51920, model.Mieru, ``,
+		`{"portBindings":[{"port":51920,"protocol":"TCP"}],"clients":[]}`)
+
+	update := *loadInboundByTag(t, "mieru-switch")
+	update.Protocol = model.VLESS
+	update.Settings = `{"clients":[{"id":"7f1d0f6e-1c2b-4a3d-8e5f-0a1b2c3d4e5f","email":"s@x","enable":true}]}`
+	update.StreamSettings = `{"network":"tcp","security":"none"}`
+	if _, _, err := (&InboundService{}).UpdateInbound(&update); err != nil {
+		t.Fatalf("UpdateInbound: %v", err)
+	}
+
+	for _, c := range rec.calls() {
+		if c.op == "del" && c.oldProto != model.Mieru {
+			t.Fatalf("teardown saw protocol %q, so the mieru sidecar was never stopped: %+v", c.oldProto, c)
+		}
+	}
+}

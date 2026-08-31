@@ -13,6 +13,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -181,6 +182,27 @@ func (inst Instance) peerFingerprint() string {
 // normal VPS; a client behind CGNAT may need 1320, set via the mtu field.
 const DefaultMTU = 1420
 
+// addresslessWarned keys the peers already reported. Reconcile re-derives every
+// instance every 10s, so an unthrottled line would be 8640 a day per client.
+var addresslessWarned sync.Map
+
+func addresslessKey(inboundID int, email string) string {
+	return strconv.Itoa(inboundID) + "\x00" + email
+}
+
+func warnAddresslessPeerOnce(inboundID int, email string) {
+	if _, seen := addresslessWarned.LoadOrStore(addresslessKey(inboundID, email), struct{}{}); seen {
+		return
+	}
+	logger.Warningf("awg: inbound %d: client %q has no allowedIPs, peer not written", inboundID, email)
+}
+
+// clearAddresslessPeerWarning re-arms the line once the client has an address,
+// so the same peer losing it again is reported rather than swallowed.
+func clearAddresslessPeerWarning(inboundID int, email string) {
+	addresslessWarned.Delete(addresslessKey(inboundID, email))
+}
+
 // InstanceFromInbound derives a desired Instance from an AWG inbound. Returns
 // false when the inbound is not a usable AWG inbound (wrong protocol, missing
 // server key, etc.).
@@ -308,9 +330,10 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		if len(c.AllowedIPs) == 0 || strings.TrimSpace(c.AllowedIPs[0]) == "" {
 			// Dropped rather than defaulted to 0.0.0.0/0, which made awg-quick
 			// seize the host's routing. Say so: the client just stops connecting.
-			logger.Warningf("awg: inbound %d: client %q has no allowedIPs, peer not written", ib.Id, c.Email)
+			warnAddresslessPeerOnce(ib.Id, c.Email)
 			continue
 		}
+		clearAddresslessPeerWarning(ib.Id, c.Email)
 		allowed := strings.Join(c.AllowedIPs, ", ")
 		inst.Peers = append(inst.Peers, PeerSpec{
 			PrivateKey:     c.PrivateKey,

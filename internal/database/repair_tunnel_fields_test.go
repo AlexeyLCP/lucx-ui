@@ -196,6 +196,10 @@ func TestRepairClobberedTunnelFields_DrainsTheKeylessInbound(t *testing.T) {
 		t.Fatalf("drain: %v", err)
 	}
 
+	if rec := reloadRecord(t, email); rec.PublicKey != liveTunnelPub {
+		t.Fatalf("repair must have run before the drain; record still holds %q", rec.PublicKey)
+	}
+
 	var got model.Inbound
 	if err := db.First(&got, keyless.Id).Error; err != nil {
 		t.Fatalf("reload keyless inbound: %v", err)
@@ -241,5 +245,66 @@ func TestRepairClobberedTunnelFields_RunsOnce(t *testing.T) {
 	}
 	if rows != 1 {
 		t.Fatalf("seeder row count = %d, want 1", rows)
+	}
+}
+
+// Order is load-bearing, not incidental: the stale copy is the evidence the
+// repair recognises, and the drain removes it. Run the two the wrong way round
+// and the record stays broken with nothing left to diagnose it from.
+func TestRepairClobberedTunnelFields_DrainFirstLosesTheEvidence(t *testing.T) {
+	repairTestDB(t)
+	const email = "order@example.test"
+	seedRepairInbound(t, 41051, model.AWG, clientJSON(t, email, live()))
+	seedRepairInbound(t, 41052, model.VLESS, clientJSON(t, email, copied()))
+	seedRepairRecord(t, email, copied())
+
+	if err := stripTunnelFieldsFromKeylessInbounds(); err != nil {
+		t.Fatalf("drain: %v", err)
+	}
+	if err := repairClobberedTunnelFields(); err != nil {
+		t.Fatalf("repair: %v", err)
+	}
+
+	if got := reloadRecord(t, email); got.PublicKey != copyTunnelPub {
+		t.Fatalf("this test only means something while the wrong order leaves the record broken; got %q", got.PublicKey)
+	}
+}
+
+// Driving InitDB a second time runs the seeders in their production order, so
+// this one fails if the two are ever swapped in runSeeders.
+func TestRepairClobberedTunnelFields_RunsInOrderFromInitDB(t *testing.T) {
+	dbDir := t.TempDir()
+	dbPath := filepath.Join(dbDir, "x-ui.db")
+	t.Setenv("XUI_DB_FOLDER", dbDir)
+	if err := InitDB(dbPath); err != nil {
+		t.Fatalf("InitDB: %v", err)
+	}
+	closed := false
+	t.Cleanup(func() {
+		if !closed {
+			_ = CloseDB()
+		}
+	})
+
+	const email = "seeded@example.test"
+	seedRepairInbound(t, 41061, model.AWG, clientJSON(t, email, live()))
+	seedRepairInbound(t, 41062, model.VLESS, clientJSON(t, email, copied()))
+	seedRepairRecord(t, email, copied())
+	if err := db.Where("seeder_name = ?", "RepairClobberedTunnelFields").
+		Delete(&model.HistoryOfSeeders{}).Error; err != nil {
+		t.Fatalf("clear seeder row: %v", err)
+	}
+	if err := CloseDB(); err != nil {
+		t.Fatalf("CloseDB: %v", err)
+	}
+	closed = true
+
+	if err := InitDB(dbPath); err != nil {
+		t.Fatalf("second InitDB: %v", err)
+	}
+	closed = false
+
+	if got := reloadRecord(t, email); got.PublicKey != liveTunnelPub {
+		t.Fatalf("startup left the record broken: %q — the drain ran before the repair", got.PublicKey)
 	}
 }

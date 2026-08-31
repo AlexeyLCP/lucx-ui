@@ -1222,3 +1222,46 @@ func TestInstanceFromInbound_LogsTheAddresslessPeerItDrops(t *testing.T) {
 		}
 	}
 }
+
+// Reconcile re-derives every instance every ten seconds, so an unthrottled line
+// is 8640 a day per client and washes the panel's 10240-entry log out in one.
+func TestInstanceFromInbound_AddresslessWarningIsThrottled(t *testing.T) {
+	logger.InitLogger(logging.WARNING)
+	const email = "throttled@awg"
+	ib := &model.Inbound{
+		Id:       11,
+		Protocol: model.AWG,
+		Settings: `{"privateKey":"srv-priv","address":"10.8.0.1/24","clients":[` +
+			`{"id":"peer-no-address","enable":true,"email":"` + email + `"}]}`,
+	}
+	addresslessWarned.Delete(addresslessKey(ib.Id, email))
+	t.Cleanup(func() { addresslessWarned.Delete(addresslessKey(ib.Id, email)) })
+
+	count := func() int {
+		n := 0
+		for _, l := range logger.GetLogs(1000, "warning") {
+			if strings.Contains(l, email) {
+				n++
+			}
+		}
+		return n
+	}
+	before := count()
+	for i := 0; i < 6; i++ {
+		InstanceFromInbound(ib)
+	}
+	if got := count() - before; got != 1 {
+		t.Fatalf("six reconcile ticks produced %d warning lines, want 1", got)
+	}
+
+	// Once the client has an address again the line must re-arm, or a peer that
+	// breaks a second time in the same process is swallowed.
+	fixed := *ib
+	fixed.Settings = `{"privateKey":"srv-priv","address":"10.8.0.1/24","clients":[` +
+		`{"id":"peer-no-address","enable":true,"email":"` + email + `","allowedIPs":["10.8.0.5/32"]}]}`
+	InstanceFromInbound(&fixed)
+	InstanceFromInbound(ib)
+	if got := count() - before; got != 2 {
+		t.Fatalf("after the address came and went the count is %d, want 2", got)
+	}
+}

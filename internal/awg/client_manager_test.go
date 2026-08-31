@@ -208,3 +208,101 @@ func TestClientIfaceUp_ProbesOnceForAnUnknownInterface(t *testing.T) {
 		t.Fatal("the one probe an unknown interface earns must be remembered, or every config build repeats it")
 	}
 }
+
+// seedStuckRead makes awgShowIfname answer DeadlineExceeded for ifname without
+// any binary, which is what a wedged interface looks like from every reader.
+func seedStuckRead(t *testing.T, ifname string) {
+	t.Helper()
+	stuckShows.Store(ifname, time.Now())
+	t.Cleanup(func() { stuckShows.Delete(ifname) })
+}
+
+func swapClientState(t *testing.T) {
+	t.Helper()
+	clientMu.Lock()
+	savedClients, savedUp := clients, clientUp
+	clients, clientUp = map[string]clientState{}, map[string]bool{}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clients, clientUp = savedClients, savedUp
+		clientMu.Unlock()
+	})
+}
+
+// A read that ran out of time says nothing. Recording down would put a
+// blackhole in front of a wedged but live tunnel — and because the config then
+// differs from the running one, restart Xray for every user to do it.
+func TestClientIfaceUp_WedgedReadIsNotTakenAsDown(t *testing.T) {
+	withTempConfigDir(t)
+	swapClientState(t)
+	const ifname = "awgo-81"
+	seedStuckRead(t, ifname)
+
+	if !GetManager().ClientIfaceUp(ifname) {
+		t.Error("a wedged read must not be reported as down")
+	}
+	clientMu.Lock()
+	_, recorded := clientUp[ifname]
+	clientMu.Unlock()
+	if recorded {
+		t.Error("a wedged read must record nothing; the next real read decides")
+	}
+}
+
+// Same rule one layer down: awg-quick up failing against a device that is
+// merely unreadable is not evidence the device is gone.
+func TestEnsureClient_WedgedReadDoesNotRecordDown(t *testing.T) {
+	withTempConfigDir(t)
+	swapClientState(t)
+	ci := clientInstanceForTest(t, 82)
+	seedStuckRead(t, ci.Ifname)
+
+	if err := GetManager().EnsureClient(ci); err == nil {
+		t.Fatal("awg-quick is absent here, so this must fail; the test asserts what it records")
+	}
+	clientMu.Lock()
+	up, recorded := clientUp[ci.Ifname]
+	clientMu.Unlock()
+	if recorded && !up {
+		t.Error("a failed up after a wedged read must not record the interface down")
+	}
+}
+
+// The .conf is the fingerprint a later start adopts. Leaving a file the kernel
+// never ran makes that start believe a stale interface is current, forever.
+func TestEnsureClient_FailedUpRestoresThePreviousConf(t *testing.T) {
+	dir := withTempConfigDir(t)
+	swapClientState(t)
+	ci := clientInstanceForTest(t, 83)
+	confPath := filepath.Join(dir, ci.Ifname+".conf")
+	const previous = "# Managed by x-ui - do not edit\n[Interface]\nPrivateKey = the-one-actually-running\n"
+	if err := os.WriteFile(confPath, []byte(previous), 0o600); err != nil {
+		t.Fatalf("seed conf: %v", err)
+	}
+
+	if err := GetManager().EnsureClient(ci); err == nil {
+		t.Fatal("awg-quick is absent here, so up must fail")
+	}
+
+	got, err := os.ReadFile(confPath)
+	if err != nil {
+		t.Fatalf("read conf: %v", err)
+	}
+	if string(got) != previous {
+		t.Errorf("a .conf the kernel never ran was left on disk:\n%s", got)
+	}
+}
+
+func clientInstanceForTest(t *testing.T, id int) ClientInstance {
+	t.Helper()
+	o := &model.AwgOutbound{
+		Id:       id,
+		Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","mtu":1320}`,
+	}
+	ci, ok := ClientInstanceFromOutbound(o)
+	if !ok {
+		t.Fatal("fixture must produce a client instance")
+	}
+	return ci
+}
