@@ -74,8 +74,17 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 	// The rendered file IS the restart trigger here: an outbound has no
 	// syncconf path, so every change goes in by taking the interface down and up.
 	conf := renderClientConf(ci)
-	if st, ok := clients[ci.Ifname]; ok && st.fp == conf {
+	st, tracked := clients[ci.Ifname]
+	// A restart empties the map, but the .conf on disk still records what the
+	// live interface was brought up with — adopt it instead of bouncing it.
+	if !tracked {
+		if disk, rerr := os.ReadFile(confPath); rerr == nil {
+			st, tracked = clientState{fp: string(disk)}, true
+		}
+	}
+	if tracked && st.fp == conf {
 		if _, err := awgShowIfname(ci.Ifname); err == nil {
+			clients[ci.Ifname] = clientState{fp: conf}
 			return nil
 		}
 	}
