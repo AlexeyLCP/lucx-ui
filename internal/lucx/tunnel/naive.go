@@ -187,18 +187,41 @@ func rejectCaddyInject(name, v string) error {
 	return nil
 }
 
-var caddyAdminStmt = regexp.MustCompile(`(?i)\badmin\b[^\n]*`)
+// Only a line whose first token is exactly admin: "admin.example.com {" is a
+// site address and "basic_auth admin pw" is a credential, not the endpoint.
+var caddyAdminStmt = regexp.MustCompile(`(?im)^[ \t]*admin(?:[ \t][^\n]*)?$`)
+
+// caddyGlobalBraceIndex locates the opening brace of an existing global options
+// block, or -1. Caddy takes it only ahead of every site, comments excepted.
+func caddyGlobalBraceIndex(s string) int {
+	off := 0
+	for _, line := range strings.SplitAfter(s, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			off += len(line)
+			continue
+		}
+		if strings.HasPrefix(trimmed, "{") {
+			return off + strings.Index(line, "{")
+		}
+		return -1
+	}
+	return -1
+}
 
 func forceCaddySafeGlobal(raw string) string {
 	s := caddyAdminStmt.ReplaceAllString(raw, "")
 	s = strings.TrimRight(s, "\n") + "\n"
 	const inject = "\n\tadmin off\n\tskip_install_trust\n"
-	if strings.HasPrefix(strings.TrimLeft(s, " \t\n"), "{") {
-		brace := strings.Index(s, "{")
+	if brace := caddyGlobalBraceIndex(s); brace >= 0 {
 		return s[:brace+1] + inject + s[brace+1:]
 	}
 	return "{\n\tadmin off\n\tskip_install_trust\n}\n\n" + s
 }
+
+// HardenRawCaddyfile is what a raw config becomes before caddy sees it, so the
+// editor's Validate button can check the text the server will actually run.
+func HardenRawCaddyfile(raw string) string { return forceCaddySafeGlobal(raw) }
 
 func caddyToken(s string) string {
 	s = strings.ReplaceAll(s, "\\", "\\\\")
