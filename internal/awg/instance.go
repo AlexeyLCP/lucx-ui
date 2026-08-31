@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
 // AwgTimer is the stored form of an AWG3 device-level timer/padding value.
@@ -305,6 +306,9 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 			continue
 		}
 		if len(c.AllowedIPs) == 0 || strings.TrimSpace(c.AllowedIPs[0]) == "" {
+			// Dropped rather than defaulted to 0.0.0.0/0, which made awg-quick
+			// seize the host's routing. Say so: the client just stops connecting.
+			logger.Warningf("awg: inbound %d: client %q has no allowedIPs, peer not written", ib.Id, c.Email)
 			continue
 		}
 		allowed := strings.Join(c.AllowedIPs, ", ")

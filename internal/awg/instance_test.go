@@ -13,7 +13,10 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/op/go-logging"
+
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
 // deviceFP is what ensureLocked compares: the device half of the rendered conf.
@@ -1175,6 +1178,47 @@ func TestRenderServerConf_NoInjectedLine(t *testing.T) {
 			if strings.HasPrefix(strings.TrimSpace(line), "PostUp") && strings.Contains(line, "wget") {
 				t.Fatalf("injected PostUp: %q", line)
 			}
+		}
+	}
+}
+
+// lucx.194 stopped defaulting a peer without allowedIPs to 0.0.0.0/0 and
+// dropped it instead. Dropping is right — the old default made awg-quick seize
+// the host's routing — but a client that stops connecting with nothing in the
+// log leaves the operator no thread to pull.
+func TestInstanceFromInbound_LogsTheAddresslessPeerItDrops(t *testing.T) {
+	logger.InitLogger(logging.WARNING)
+
+	ib := &model.Inbound{
+		Id:       9,
+		Tag:      "inbound-awg-9",
+		Protocol: model.AWG,
+		Settings: `{"privateKey":"srv-priv","address":"10.8.0.1/24","clients":[` +
+			`{"id":"peer-with-address","enable":true,"email":"kept@awg","allowedIPs":["10.8.0.2/32"]},` +
+			`{"id":"peer-no-address","enable":true,"email":"dropped@awg"},` +
+			`{"id":"peer-blank-address","enable":true,"email":"blank@awg","allowedIPs":[""]}]}`,
+	}
+	inst, ok := InstanceFromInbound(ib)
+	if !ok {
+		t.Fatal("expected a usable instance")
+	}
+	if len(inst.Peers) != 1 || inst.Peers[0].Email != "kept@awg" {
+		t.Fatalf("only the peer with an address belongs in the config, got %+v", inst.Peers)
+	}
+
+	// Scanned whole, not sliced from a mark: GetLogs walks the ring newest
+	// first, and both emails are unique to this test.
+	lines := logger.GetLogs(1000, "warning")
+	for _, email := range []string{"dropped@awg", "blank@awg"} {
+		found := false
+		for _, l := range lines {
+			if strings.Contains(l, email) && strings.Contains(l, "allowedIPs") {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Errorf("dropping %s must say so; warnings were %v", email, lines)
 		}
 	}
 }
