@@ -182,7 +182,7 @@ func TestStuckInterfaceIsReadOncePerCooldown(t *testing.T) {
 // TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf guards the consequence
 // the deadline introduced: a read that ran out of time is not a missing device.
 func TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf(t *testing.T) {
-	const wedged, gone = "awgo-tb-wedged", "awgo-tb-gone"
+	const wedged, gone = "awgo-91", "awgo-92"
 	dir := withTempConfigDir(t)
 
 	bin := t.TempDir()
@@ -195,7 +195,7 @@ func TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf(t *testing.T) {
 	t.Setenv("PATH", bin+string(os.PathListSeparator)+os.Getenv("PATH"))
 
 	for _, name := range []string{wedged + ".conf", gone + ".conf"} {
-		if err := os.WriteFile(filepath.Join(dir, name), []byte("[Interface]\n"), 0o600); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), []byte(xuiManagedMarker+"\n[Interface]\n"), 0o600); err != nil {
 			t.Fatalf("write %s: %v", name, err)
 		}
 	}
