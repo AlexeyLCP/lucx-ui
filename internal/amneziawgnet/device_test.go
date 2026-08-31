@@ -584,6 +584,11 @@ func TestBuildUAPIConfigRefusesACounterThatWouldPanicTheEngine(t *testing.T) {
 		"<rc -1",
 		"<dz -2",
 		"<b 0xaabb><rd -3",
+		// This engine splits a tag with strings.Fields, so the space after the
+		// bracket is not part of the key and the count still reaches Atoi.
+		"< r -5>",
+		"<  rc -1>",
+		"<\tdz -2>",
 	} {
 		t.Run(descriptor, func(t *testing.T) {
 			inst := base
@@ -640,7 +645,7 @@ func TestBuildUAPIConfigRefusesTheKernelOnlyCounterTag(t *testing.T) {
 		PrivateKey:  priv,
 		Obfuscation: amneziawg.Obfuscation31{S1: 20, S2: 20, S3: 20, S4: 20},
 	}
-	for _, descriptor := range []string{"<c>", "<b 0x41><c>", "<c><r 8>", "<c"} {
+	for _, descriptor := range []string{"<c>", "<b 0x41><c>", "<c><r 8>", "<c", "< c>", "<  c >"} {
 		t.Run(descriptor, func(t *testing.T) {
 			inst := base
 			inst.Obfuscation.I2 = descriptor

@@ -293,14 +293,15 @@ func ValidateConfigValue(field, v string) error {
 	return nil
 }
 
-// negativeCountTag finds a junk-packet tag whose count is negative. The closing
-// bracket is optional: the kernel's strsep returns the whole remainder when the
-// separator is absent, so an unclosed tag reaches its parser like a closed one.
-var negativeCountTag = regexp.MustCompile(`<(r|rc|rd|dz)\s+-\d+\s*>?`)
+// negativeCountTag finds a junk-packet tag whose count is negative. Space after
+// the bracket and a missing closing bracket both have to be tolerated: this
+// engine splits a tag with strings.Fields, so leading space is not part of the
+// key, and the kernel's strsep returns the whole remainder with no separator.
+var negativeCountTag = regexp.MustCompile(`<\s*(r|rc|rd|dz)\s+-\d+\s*>?`)
 
 // kernelOnlyTag finds <c>, the one tag the kernel module has and this engine
-// does not. Closing bracket optional, for the same reason as above.
-var kernelOnlyTag = regexp.MustCompile(`<c\s*>?`)
+// does not. Lenient in the same two ways, for the same two reasons.
+var kernelOnlyTag = regexp.MustCompile(`<\s*c\s*>?`)
 
 // ValidateIFieldRuntimeSafe rejects an I1-I5 descriptor that would leave the
 // embedded engine worse off than not applying it at all.
