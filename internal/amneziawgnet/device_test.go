@@ -548,3 +548,74 @@ func TestNewDeviceRandomTrailersAndDisableCookiesRoundTrip(t *testing.T) {
 		t.Fatal("timed out waiting for the server side to finish")
 	}
 }
+
+// A negative counter is accepted by amneziawg-go's parser — strconv.Atoi takes
+// the minus — and ObfuscatedLen hands it straight back, so the first handshake
+// slices with a negative length and panics. The panic happens in a timer
+// goroutine with no recover anywhere in the engine or in this package, which
+// takes down the whole panel process, minutes after a save that looked fine.
+// The config must never reach IpcSet.
+func TestBuildUAPIConfigRefusesACounterThatWouldPanicTheEngine(t *testing.T) {
+	priv, _, err := wireguard.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	base := amneziawg.Instance{
+		PrivateKey:  priv,
+		Obfuscation: amneziawg.Obfuscation31{S1: 20, S2: 20, S3: 20, S4: 20},
+	}
+
+	// Every tag amneziawg-go reads a count for with strconv.Atoi and returns
+	// unchecked from ObfuscatedLen: obf_rand, obf_randchars, obf_randdigits,
+	// obf_datasize.
+	for _, descriptor := range []string{
+		"<r -5>",
+		"<rc -1>",
+		"<rd -100>",
+		"<dz -2>",
+		// A big literal makes the chain's total positive, so the panic moves
+		// from make() to the slice in Obfuscate — still a panic.
+		"<b 0xaabbccddeeff00112233><r -4>",
+		// Order must not matter, and neither must which of the five fields.
+		"<r -4><b 0xaabb>",
+	} {
+		t.Run(descriptor, func(t *testing.T) {
+			inst := base
+			inst.Obfuscation.I3 = descriptor
+			conf, err := buildUAPIConfig(inst, DeviceOptions{})
+			if err == nil {
+				t.Fatalf("a descriptor that panics the engine must not build a config, got:\n%s", conf)
+			}
+			if strings.Contains(conf, "i3=") {
+				t.Errorf("the rejected descriptor still reached the config: %s", conf)
+			}
+		})
+	}
+}
+
+// The gate must not cost a working descriptor: these are what our own
+// generators emit, and a zero count is legal for the engine.
+func TestBuildUAPIConfigKeepsValidDescriptors(t *testing.T) {
+	priv, _, err := wireguard.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("generate keypair: %v", err)
+	}
+	inst := amneziawg.Instance{
+		PrivateKey:  priv,
+		Obfuscation: amneziawg.Obfuscation31{S1: 20, S2: 20, S3: 20, S4: 20},
+	}
+	inst.Obfuscation.I1 = "<b 0x160301><r 64>"
+	inst.Obfuscation.I2 = "<rc 16><rd 8><t>"
+	inst.Obfuscation.I3 = "<r 0>"
+	inst.Obfuscation.I4 = "<d><ds><dz 2>"
+
+	conf, err := buildUAPIConfig(inst, DeviceOptions{})
+	if err != nil {
+		t.Fatalf("valid descriptors must build: %v", err)
+	}
+	for _, want := range []string{"i1=<b 0x160301><r 64>", "i2=<rc 16><rd 8><t>", "i3=<r 0>", "i4=<d><ds><dz 2>"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("missing %q in:\n%s", want, conf)
+		}
+	}
+}

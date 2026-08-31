@@ -293,6 +293,27 @@ func ValidateConfigValue(field, v string) error {
 	return nil
 }
 
+// negativeCountTag finds a junk-packet tag whose count is negative, the one
+// descriptor shape amneziawg-go accepts and then dies on.
+var negativeCountTag = regexp.MustCompile(`<(r|rc|rd|dz)\s+-\d+\s*>`)
+
+// ValidateIFieldRuntimeSafe rejects an I1-I5 descriptor that would panic the
+// embedded engine. Every counted tag is read with strconv.Atoi, which takes the
+// minus, and ObfuscatedLen returns it unchanged; the first handshake then
+// slices with a negative length. That panic surfaces in a timer goroutine, and
+// neither amneziawg-go nor this panel recovers anywhere on that stack, so it
+// ends the whole process — minutes after a save that looked successful.
+//
+// Deliberately narrow: this is the gate in front of IpcSet, not a grammar
+// check. Everything else malformed is either refused by the engine's own
+// parser or merely produces a tunnel that does not obfuscate.
+func ValidateIFieldRuntimeSafe(field, v string) error {
+	if m := negativeCountTag.FindString(v); m != "" {
+		return fmt.Errorf("invalid %s: %s has a negative count, which crashes the tunnel engine", field, m)
+	}
+	return nil
+}
+
 // validateUintRange checks a uint32-range parameter (H1-H4, the 3.x padding
 // and timing fields): blank, an integer, or "low-high" within the bounds.
 func validateUintRange(v string, minAllowed int64) error {

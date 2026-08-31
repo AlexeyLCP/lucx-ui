@@ -207,11 +207,16 @@ func buildUAPIConfig(inst amneziawg.Instance, opts DeviceOptions) (string, error
 	writeOptionalLine(&b, "h2", o.H2)
 	writeOptionalLine(&b, "h3", o.H3)
 	writeOptionalLine(&b, "h4", o.H4)
-	writeOptionalLine(&b, "i1", o.I1)
-	writeOptionalLine(&b, "i2", o.I2)
-	writeOptionalLine(&b, "i3", o.I3)
-	writeOptionalLine(&b, "i4", o.I4)
-	writeOptionalLine(&b, "i5", o.I5)
+	// Checked here rather than on save: this is the last point before IpcSet,
+	// and it is the only one every caller of this function passes through.
+	for _, f := range []struct{ name, value string }{
+		{"i1", o.I1}, {"i2", o.I2}, {"i3", o.I3}, {"i4", o.I4}, {"i5", o.I5},
+	} {
+		if err := amneziawg.ValidateIFieldRuntimeSafe(f.name, f.value); err != nil {
+			return "", err
+		}
+		writeOptionalLine(&b, f.name, f.value)
+	}
 
 	if opts.HeaderProtectionKey != "" {
 		hpHex, err := wireguard.KeyToHex(opts.HeaderProtectionKey)
