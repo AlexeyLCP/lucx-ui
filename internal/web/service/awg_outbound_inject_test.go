@@ -149,3 +149,42 @@ func TestInjectAwgOutbounds_IncompleteSettingsSkipped(t *testing.T) {
 }
 
 // END LUCX-HOOK
+
+// outboundByTag returns the whole outbound object so a test can assert where a
+// key sits, not merely that the value appears somewhere in the JSON.
+func outboundByTag(t *testing.T, cfg *xray.Config, tag string) map[string]any {
+	t.Helper()
+	var raw []map[string]any
+	if err := json.Unmarshal(cfg.OutboundConfigs, &raw); err != nil {
+		t.Fatalf("outbounds unmarshal: %v", err)
+	}
+	for _, ob := range raw {
+		if got, _ := ob["tag"].(string); got == tag {
+			return ob
+		}
+	}
+	t.Fatalf("outbound %q not found in %s", tag, cfg.OutboundConfigs)
+	return nil
+}
+
+// Xray reads sendThrough from the outbound itself (OutboundDetourConfig);
+// FreedomConfig has no such field and the loader drops unknown keys without a
+// word. Nested under settings the value is silently lost, which turns the
+// binding from fail-closed — a bad address refuses to bind and the connection
+// errors out — into fail-open, leaking the host's real address whenever
+// sockopt.interface also fails, and that failure is only logged.
+func TestInjectAwgOutbounds_SendThroughSitsOnTheOutbound(t *testing.T) {
+	cfg := awgOutboundTestConfig()
+	injectAwgOutbounds(cfg, []*model.AwgOutbound{
+		{Id: 1, Tag: "vpn-frankfurt", Enable: true, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820"}`},
+	})
+
+	ob := outboundByTag(t, cfg, "vpn-frankfurt")
+	if got, _ := ob["sendThrough"].(string); got != "10.9.0.5" {
+		t.Errorf("sendThrough must sit on the outbound, got %q; outbound = %v", got, ob)
+	}
+	settings, _ := ob["settings"].(map[string]any)
+	if _, nested := settings["sendThrough"]; nested {
+		t.Error("sendThrough under settings is dropped by the config loader")
+	}
+}

@@ -1126,20 +1126,23 @@ func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 		settings := map[string]any{
 			"domainStrategy": "UseIP",
 		}
-		if ip := strings.SplitN(ci.Settings.Address, "/", 2)[0]; ip != "" {
-			settings["sendThrough"] = ip
-		}
 		streamSettings := map[string]any{
 			"sockopt": map[string]any{
 				"interface": ci.Ifname,
 			},
 		}
-		if err := appendAwgOutbound(cfg, map[string]any{
+		outbound := map[string]any{
 			"protocol":       "freedom",
 			"tag":            o.Tag,
 			"settings":       settings,
 			"streamSettings": streamSettings,
-		}); err != nil {
+		}
+		// Xray reads sendThrough from the outbound, not from a protocol's
+		// settings, and drops the unknown key there without a word.
+		if ip := strings.SplitN(ci.Settings.Address, "/", 2)[0]; ip != "" {
+			outbound["sendThrough"] = ip
+		}
+		if err := appendAwgOutbound(cfg, outbound); err != nil {
 			logger.Warning("awg outbound: failed to inject freedom outbound for tag", o.Tag, ":", err)
 		}
 	}
