@@ -188,7 +188,7 @@ func TestCreateClient_TwoTunnelInboundsShareOneKeypair(t *testing.T) {
 }
 
 // Minting once before the loop must not leak into a keyless target's settings:
-// the per-inbound copy is what clearForeignTunnelKeys strips, not the identity.
+// the per-inbound copy is what clearForeignTunnelFields strips, not the identity.
 func TestCreateClient_MintedKeypairSkipsKeylessInboundInSameCall(t *testing.T) {
 	setupBulkDB(t)
 	svc := &ClientService{}

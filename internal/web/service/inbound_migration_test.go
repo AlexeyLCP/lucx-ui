@@ -320,6 +320,8 @@ const (
 	staleTunnelPriv = "vless-copy-priv"
 	staleTunnelPub  = "vless-copy-pub"
 	staleTunnelPSK  = "vless-copy-psk"
+	// Observed on a live node: the keyless copy carried another server's subnet.
+	staleTunnelAddr = "10.8.0.3/32"
 )
 
 // Vision is only restorable on a transport that can carry it; plain is the neutral
@@ -361,7 +363,7 @@ func seedTunnelKeyClobber(t *testing.T, email string, awgPort, keylessPort int) 
 
 	stale := awgClient
 	stale.ID = "9f1d0f6e-1c2b-4a3d-8e5f-0a1b2c3d4e5f"
-	stale.AllowedIPs = nil
+	stale.AllowedIPs = []string{staleTunnelAddr}
 	stale.PrivateKey = staleTunnelPriv
 	stale.PublicKey = staleTunnelPub
 	stale.PreSharedKey = staleTunnelPSK
@@ -369,13 +371,18 @@ func seedTunnelKeyClobber(t *testing.T, email string, awgPort, keylessPort int) 
 	return awgIb
 }
 
-func assertLiveTunnelKeys(t *testing.T, email, when string) {
+func assertLiveTunnelKeys(t *testing.T, email, wantAddr, when string) {
 	t.Helper()
 	rec := lookupClientRecord(t, email)
 	if rec.PrivateKey != liveTunnelPriv || rec.PublicKey != liveTunnelPub || rec.PreSharedKey != liveTunnelPSK {
 		t.Fatalf("%s: client record keys = (%q, %q, %q), want (%q, %q, %q)",
 			when, rec.PrivateKey, rec.PublicKey, rec.PreSharedKey,
 			liveTunnelPriv, liveTunnelPub, liveTunnelPSK)
+	}
+	// The address decides which subnet the kernel routes to this peer, so a
+	// foreign copy kills the tunnel just as surely as a foreign key.
+	if rec.AllowedIPs != wantAddr {
+		t.Fatalf("%s: client record allowedIPs = %q, want %q", when, rec.AllowedIPs, wantAddr)
 	}
 }
 
@@ -389,7 +396,7 @@ func TestMigrationRequirements_KeylessInboundKeepsTunnelKeys(t *testing.T) {
 	if err := (&InboundService{}).MigrationRequirements(); err != nil {
 		t.Fatalf("MigrationRequirements: %v", err)
 	}
-	assertLiveTunnelKeys(t, email, "after migrate")
+	assertLiveTunnelKeys(t, email, "10.200.0.2/32", "after migrate")
 }
 
 // The record feeds the subscription .conf and the AWG inbound's settings feed the kernel
@@ -436,11 +443,11 @@ func TestMigrateDB_TunnelKeysUnchangedOnSecondRun(t *testing.T) {
 
 	svc := &InboundService{}
 	svc.MigrateDB()
-	assertLiveTunnelKeys(t, email, "after first migrate")
+	assertLiveTunnelKeys(t, email, "10.200.0.2/32", "after first migrate")
 	first := lookupClientRecord(t, email)
 
 	svc.MigrateDB()
-	assertLiveTunnelKeys(t, email, "after second migrate")
+	assertLiveTunnelKeys(t, email, "10.200.0.2/32", "after second migrate")
 	second := lookupClientRecord(t, email)
 
 	// Every run restamps updated_at in the settings JSON by design; nothing else may move.
@@ -487,6 +494,7 @@ func TestMigrationRestoreVisionFlow_KeepsTunnelKeys(t *testing.T) {
 		Email: email, ID: "5c6d7e8f-9a0b-4c1d-8e2f-3a4b5c6d7e8f",
 		SubID: "sub-vision", Enable: true,
 		PrivateKey: staleTunnelPriv, PublicKey: staleTunnelPub, PreSharedKey: staleTunnelPSK,
+		AllowedIPs: []string{staleTunnelAddr},
 	}
 	targetIb := mkMigrationInbound(t, 32033, model.VLESS, clientsSettings(t, []model.Client{stale}), visionStream)
 
@@ -499,5 +507,5 @@ func TestMigrationRestoreVisionFlow_KeepsTunnelKeys(t *testing.T) {
 	if !strings.Contains(healed.Settings, visionFlow) {
 		t.Fatalf("restore never ran, so the sync under test never happened: settings = %s", healed.Settings)
 	}
-	assertLiveTunnelKeys(t, email, "after vision flow restore")
+	assertLiveTunnelKeys(t, email, "10.200.0.4/32", "after vision flow restore")
 }
