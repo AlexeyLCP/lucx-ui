@@ -20,6 +20,17 @@ import (
 // 3596 chars = 3604 IBytes against a 3492 budget — the set from the field report.
 const oversizeIFieldChars = 3596
 
+// A real descriptor of a chosen length. A save now earns a second note for a
+// value no client could parse, and a run of "x" is not a descriptor at all —
+// these tests would then be measuring both notes while claiming to measure one.
+func portableIFieldOfChars(t *testing.T, n int) string {
+	t.Helper()
+	if n < 8 || n%2 != 0 {
+		t.Fatalf("portableIFieldOfChars(%d): need an even length of at least 8", n)
+	}
+	return "<b 0x" + strings.Repeat("ab", (n-6)/2) + ">"
+}
+
 func inboundSaveRouter(t *testing.T) *gin.Engine {
 	t.Helper()
 	dbDir := t.TempDir()
@@ -82,7 +93,7 @@ func awgInboundBody(t *testing.T, port int, i1, dns string) string {
 // has to ride the success text of the very save that stored it.
 func TestInboundSave_OversizeIFieldSetWarnsInTheSuccessMessage(t *testing.T) {
 	router := inboundSaveRouter(t)
-	oversize := strings.Repeat("x", oversizeIFieldChars)
+	oversize := portableIFieldOfChars(t, oversizeIFieldChars)
 
 	ok, msg, id := postInbound(t, router, "/panel/api/inbounds/add", awgInboundBody(t, 51820, oversize, "1.1.1.1"))
 	if !ok {
@@ -110,7 +121,7 @@ func TestInboundSave_OversizeIFieldSetWarnsInTheSuccessMessage(t *testing.T) {
 func TestInboundSave_LeavesOrdinarySavesUntouched(t *testing.T) {
 	router := inboundSaveRouter(t)
 
-	ok, msg, _ := postInbound(t, router, "/panel/api/inbounds/add", awgInboundBody(t, 51821, strings.Repeat("x", 100), "1.1.1.1"))
+	ok, msg, _ := postInbound(t, router, "/panel/api/inbounds/add", awgInboundBody(t, 51821, portableIFieldOfChars(t, 100), "1.1.1.1"))
 	if !ok || msg != "pages.inbounds.toasts.inboundCreateSuccess" {
 		t.Fatalf("add(within-budget AWG) success = %v, msg = %q, want the plain success text", ok, msg)
 	}
@@ -126,5 +137,38 @@ func TestInboundSave_LeavesOrdinarySavesUntouched(t *testing.T) {
 	ok, msg, _ = postInbound(t, router, "/panel/api/inbounds/add", string(vless))
 	if !ok || msg != "pages.inbounds.toasts.inboundCreateSuccess" {
 		t.Fatalf("add(vless) success = %v, msg = %q, want the plain success text", ok, msg)
+	}
+}
+
+// A descriptor no client can parse is the other silent loss: the server keeps
+// running, and only this note says the exported config lost a field.
+func TestInboundSave_UnportableIFieldWarnsInTheSuccessMessage(t *testing.T) {
+	router := inboundSaveRouter(t)
+
+	ok, msg, _ := postInbound(t, router, "/panel/api/inbounds/add", awgInboundBody(t, 51823, "<c>", "1.1.1.1"))
+	if !ok {
+		t.Fatalf("add(unportable I-set) success = false, msg = %q", msg)
+	}
+	for _, want := range []string{"pages.inbounds.form.awgIFieldGrammar", "(I1)"} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("add message = %q, want it to carry %q", msg, want)
+		}
+	}
+}
+
+// Both notes on one save, joined rather than one silently winning: a set can be
+// too large for netlink and unreadable by the client at the same time.
+func TestInboundSave_BothNotesRideOneMessage(t *testing.T) {
+	router := inboundSaveRouter(t)
+
+	ok, msg, _ := postInbound(t, router, "/panel/api/inbounds/add",
+		awgInboundBody(t, 51824, strings.Repeat("x", oversizeIFieldChars), "1.1.1.1"))
+	if !ok {
+		t.Fatalf("add success = false, msg = %q", msg)
+	}
+	for _, want := range []string{"pages.inbounds.form.awgIFieldBudget", "pages.inbounds.form.awgIFieldGrammar", "; "} {
+		if !strings.Contains(msg, want) {
+			t.Fatalf("add message = %q, want it to carry %q", msg, want)
+		}
 	}
 }
