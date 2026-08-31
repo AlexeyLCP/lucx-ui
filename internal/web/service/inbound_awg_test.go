@@ -364,3 +364,46 @@ func TestInboundAwgHints_BlankIFieldIsNotAValue(t *testing.T) {
 		})
 	}
 }
+
+// S1-S4 = 0 means "do not pad", not "unset": a client that finds no line
+// substitutes its own non-zero default and the handshake sizes diverge.
+func TestInboundAwgHints_ZeroPaddingSizesStayInBlock(t *testing.T) {
+	cases := []struct {
+		name     string
+		settings string
+		want     []string
+		absent   []string
+	}{
+		{
+			name:     "v2 keeps all four zeros",
+			settings: `{"address":"10.200.0.1/24","s1":0,"s2":0,"s3":0,"s4":0,"awgVersion":"2"}`,
+			want:     []string{"S1 = 0", "S2 = 0", "S3 = 0", "S4 = 0"},
+		},
+		{
+			name:     "v1.5 keeps the zeros it owns and still drops S3/S4",
+			settings: `{"address":"10.200.0.1/24","s1":0,"s2":0,"s3":0,"s4":0,"awgVersion":"1.5"}`,
+			want:     []string{"S1 = 0", "S2 = 0"},
+			absent:   []string{"S3 =", "S4 ="},
+		},
+		{
+			name:     "v2 mixed set keeps the zero member",
+			settings: `{"address":"10.200.0.1/24","s1":30,"s2":0,"s3":0,"s4":80,"awgVersion":"2"}`,
+			want:     []string{"S1 = 30", "S2 = 0", "S3 = 0", "S4 = 80"},
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, obf, _ := inboundAwgHints(tc.settings, true)
+			for _, w := range tc.want {
+				if !strings.Contains(obf, w) {
+					t.Fatalf("missing %q in block:\n%s", w, obf)
+				}
+			}
+			for _, a := range tc.absent {
+				if strings.Contains(obf, a) {
+					t.Fatalf("unexpected %q in block:\n%s", a, obf)
+				}
+			}
+		})
+	}
+}

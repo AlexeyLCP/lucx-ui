@@ -519,22 +519,16 @@ func inboundAwgHints(settings string, localInbound bool) (address string, obfusc
 	if s.Jmax > 0 {
 		fmt.Fprintf(&b, "Jmax = %d\n", s.Jmax)
 	}
-	if s.S1 > 0 {
-		fmt.Fprintf(&b, "S1 = %d\n", s.S1)
-	}
-	if s.S2 > 0 {
-		fmt.Fprintf(&b, "S2 = %d\n", s.S2)
-	}
+	// Written always, zeros included, like renderServerConf: 0 means "do not
+	// pad", and a dropped line makes the client pad to its own default instead.
+	fmt.Fprintf(&b, "S1 = %d\n", s.S1)
+	fmt.Fprintf(&b, "S2 = %d\n", s.S2)
 	ver := awg.NormalizeAWGVersion(s.AwgVersion)
 	// S3/S4 + I1-I5 are AWG v2+; keep the ceiling block aligned with the
 	// server conf and with filterAwgObfuscation so v1.5 must-match holds.
 	if ver != "1.5" {
-		if s.S3 > 0 {
-			fmt.Fprintf(&b, "S3 = %d\n", s.S3)
-		}
-		if s.S4 > 0 {
-			fmt.Fprintf(&b, "S4 = %d\n", s.S4)
-		}
+		fmt.Fprintf(&b, "S3 = %d\n", s.S3)
+		fmt.Fprintf(&b, "S4 = %d\n", s.S4)
 	}
 	for i, h := range []string{s.H1, s.H2, s.H3, s.H4} {
 		if strings.TrimSpace(h) != "" {
@@ -1840,7 +1834,7 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound on this host
 	// already owns (Pattern 1e kernel route conflict). New inbounds have no id.
 	if inbound.Protocol == model.AWG {
-		if err := validateAwgSettingsJSON(inbound.Settings); err != nil {
+		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
 			return inbound, false, err
 		}
 		if err := s.checkAwgSubnetConflictAllow(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID, allowAwgOverlap); err != nil {
@@ -2523,11 +2517,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// (no re-export). Only rewrites a peer that collides with the server's
 	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
 	if inbound.Protocol == model.AWG {
-		oldSettings := ""
-		if oldInbound != nil {
-			oldSettings = oldInbound.Settings
-		}
-		if err := validateAwgSettingsJSONDiff(inbound.Settings, oldSettings); err != nil {
+		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
 			return inbound, false, err
 		}
 	}

@@ -8,6 +8,7 @@ package awg
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -30,7 +31,17 @@ import (
 // avoid touching the server-side helper surface (scrapePeers runs its own
 // `awg show <iface> dump` directly and is unaffected).
 func awgShowIfname(ifname string) ([]byte, error) {
-	return exec.CommandContext(context.Background(), awgBin("awg"), "show", ifname, "dump").CombinedOutput()
+	if err := stuckReadErr(ifname); err != nil {
+		return nil, err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), awgShowTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, awgBin("awg"), "show", ifname, "dump").CombinedOutput()
+	noteAwgRead(ctx, ifname, err)
+	if err != nil && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+		return out, fmt.Errorf("awg show %s: %w", ifname, ctx.Err())
+	}
+	return out, err
 }
 
 // clientState tracks one running client interface so EnsureClient can detect
@@ -149,6 +160,11 @@ func (m *Manager) sweepOrphanClientsOnce() {
 				continue
 			}
 			if _, err := awgShowIfname(ifname); err != nil {
+				// A read that ran out of time says nothing about whether the
+				// interface exists, so it must not be swept as an orphan.
+				if errors.Is(err, context.DeadlineExceeded) {
+					continue
+				}
 				_ = os.Remove(filepath.Join(awgConfigDir, name))
 				continue
 			}

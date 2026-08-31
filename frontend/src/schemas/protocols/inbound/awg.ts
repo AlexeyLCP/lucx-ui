@@ -117,6 +117,8 @@ export const AwgInboundSettingsSchema = z
     outboundTag: z.string().default(''),
   })
   .superRefine((val, ctx) => {
+    // The I-field budget is checked in InboundFormModal, not here: a schema
+    // cannot see the stored set, so it cannot spare a grandfathered one.
     if (val.awgVersion !== '1.5') return;
     for (const key of ['h1', 'h2', 'h3', 'h4'] as const) {
       if (val[key].includes('-')) {

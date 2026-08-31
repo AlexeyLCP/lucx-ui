@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
@@ -37,6 +38,7 @@ type AwgImportResult struct {
 	Adopted     bool   `json:"adopted"`
 	Stopped     bool   `json:"stopped"`
 	Error       string `json:"error,omitempty"`
+	Warning     string `json:"warning,omitempty" example:"saved, I-fields will not be applied"`
 }
 
 // Preview lists unmanaged AWG configs on this host.
@@ -89,6 +91,17 @@ func (s *AwgImportService) reservedEmails() map[string]struct{} {
 	return used
 }
 
+// addImportedInbound saves a discovered server, returning the operator note an
+// over-budget I-set earns: it stays stored, but no renderer will emit it.
+func (s *AwgImportService) addImportedInbound(ib *model.Inbound) (*model.Inbound, string, error) {
+	warn := ""
+	if measured := AwgIFieldBudgetWarning(ib.Settings); measured != "" {
+		warn = "saved, I-fields will not be applied: " + measured
+	}
+	created, _, err := s.Inbound.addInbound(ib, true)
+	return created, warn, err
+}
+
 func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImportResult {
 	res := AwgImportResult{ID: c.ID, Clients: c.PeerCount}
 	if _, err := awg.BackupImportSources(c); err != nil {
@@ -101,13 +114,14 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 		return res
 	}
 	res.MissingKeys = built.MissingKeys
-	created, _, err := s.Inbound.addInbound(built.Inbound, true)
+	created, iFieldWarn, err := s.addImportedInbound(built.Inbound)
 	if err != nil {
 		res.Error = err.Error()
 		return res
 	}
 	res.InboundId = created.Id
 	res.Remark = created.Remark
+	res.Warning = iFieldWarn
 	inst, ok := awg.InstanceFromInbound(created)
 	if !ok {
 		res.Error = "inbound saved but is not a usable AWG instance"

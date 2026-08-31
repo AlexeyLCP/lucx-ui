@@ -190,6 +190,13 @@ func (s *InboundService) MigrationRequirements() (err error) {
 			}
 		}
 
+		// LUCX-HOOK: a keyless inbound's settings can hold a stale copy of the tunnel
+		// keypair, and syncing it overwrites the client's working one (x-ui migrate).
+		for i := range modelClients {
+			clearForeignTunnelKeys(&modelClients[i], inbounds[inbound_index].Protocol)
+		}
+		// END LUCX-HOOK
+
 		// Heal clients table for installs where the one-shot seeder
 		// skipped clients due to a tgId-string unmarshal error.
 		if err = s.clientService.SyncInbound(tx, inbounds[inbound_index].Id, modelClients); err != nil {
@@ -313,6 +320,12 @@ func (s *InboundService) MigrationRestoreVisionFlow() {
 			logger.Warning("MigrationRestoreVisionFlow: parse clients for inbound", ib.Id, "failed:", err)
 			continue
 		}
+		// LUCX-HOOK: same clobber as in MigrationRequirements — this inbound is keyless,
+		// so a stale tunnel keypair in its settings must not reach the clients table.
+		for i := range clients {
+			clearForeignTunnelKeys(&clients[i], ib.Protocol)
+		}
+		// END LUCX-HOOK
 		err = db.Transaction(func(tx *gorm.DB) error {
 			if e := tx.Model(&model.Inbound{}).Where("id = ?", ib.Id).Update("settings", restored).Error; e != nil {
 				return e

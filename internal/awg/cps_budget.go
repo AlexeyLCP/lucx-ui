@@ -21,16 +21,16 @@ const (
 	nlHpkBytes    = 36  // WGDEVICE_A_HEADER_PROTECTION_KEY attribute
 	nlPeersNest   = 4   // WGDEVICE_A_PEERS nest header
 
-	// Peer count doesn't affect the I-field limit: the device block rides the
-	// first message and shares it only with the start of the peer list (netlink.c:517-523) — 188 fixed + two AllowedIPs.
+	// Only the first peer's prefix shares the device block (netlink.c:282-378):
+	// 148 bytes, plus up to 32 the KERNEL adds at handshake — not the config.
 	nlPeerBytes = 256
-	// Only two AllowedIPs are reserved, the "0.0.0.0/0, ::/0" every renderer here
-	// defaults to; a hand-written third one would eat this whole margin.
+	// AllowedIPs cost nothing here, the kernel paginates them. This slack covers
+	// the ifname a node picks and one protocol step; 3.1 cost ~64 bytes over 1.5.
 	nlSafetyMargin = 40
 )
 
-// BaselineIfname is the 6-character shape the 3500-byte budget is quoted for.
-// An exported client config names its own interface, so it is checked here.
+// BaselineIfname is the 6-character name the 3500-byte figure is quoted for.
+// Tests only: every production caller passes the real interface name.
 const BaselineIfname = "awgo-1"
 
 // worstIfnameBytes is nlaBytes of the longest name a node can hand this

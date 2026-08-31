@@ -59,6 +59,19 @@ func (a *InboundController) broadcastInboundsUpdate(userId int) {
 	websocket.BroadcastInbounds(inbounds)
 }
 
+// awgSaveNote appends the note an over-budget I-set earns to a save's success
+// text: entity.Msg has no warning channel, and the operator has to be told.
+func awgSaveNote(c *gin.Context, msg string, inbound *model.Inbound) string {
+	if inbound == nil || inbound.Protocol != model.AWG {
+		return msg
+	}
+	measured := service.AwgIFieldBudgetWarning(inbound.Settings)
+	if measured == "" {
+		return msg
+	}
+	return msg + " — " + I18nWeb(c, "pages.inbounds.form.awgIFieldBudget") + " (" + measured + ")"
+}
+
 // initRouter initializes the routes for inbound-related operations.
 func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/list", a.getInbounds)
@@ -199,7 +212,7 @@ func (a *InboundController) addInbound(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	jsonMsgObj(c, I18nWeb(c, "pages.inbounds.toasts.inboundCreateSuccess"), inbound, nil)
+	jsonMsgObj(c, awgSaveNote(c, I18nWeb(c, "pages.inbounds.toasts.inboundCreateSuccess"), inbound), inbound, nil)
 	if needRestart {
 		a.xrayService.SetToNeedRestart()
 	}
@@ -279,7 +292,7 @@ func (a *InboundController) updateInbound(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	jsonMsgObj(c, I18nWeb(c, "pages.inbounds.toasts.inboundUpdateSuccess"), inbound, nil)
+	jsonMsgObj(c, awgSaveNote(c, I18nWeb(c, "pages.inbounds.toasts.inboundUpdateSuccess"), inbound), inbound, nil)
 	if needRestart {
 		a.xrayService.SetToNeedRestart()
 	}
@@ -457,7 +470,7 @@ func (a *InboundController) importInbound(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	jsonMsgObj(c, I18nWeb(c, "pages.inbounds.toasts.inboundCreateSuccess"), inbound, nil)
+	jsonMsgObj(c, awgSaveNote(c, I18nWeb(c, "pages.inbounds.toasts.inboundCreateSuccess"), inbound), inbound, nil)
 	if needRestart {
 		a.xrayService.SetToNeedRestart()
 	}

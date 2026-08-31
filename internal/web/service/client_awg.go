@@ -127,11 +127,34 @@ func validateAwgHeaderProtectionKey(v string) error {
 	return nil
 }
 
-func validateAwgSettingsJSON(settings string) error {
-	return validateAwgSettingsJSONDiff(settings, "")
+// awgInboundIfnameShape names the awg+id interface these settings describe. The
+// id is unknowable here (a node numbers its own), hence the shape, not a name.
+const awgInboundIfnameShape = "awgN"
+
+// AwgIFieldBudgetWarning is the note an over-budget I-set earns on a save: it
+// stays stored, but `awg show` would fail on it, so no renderer emits it.
+func AwgIFieldBudgetWarning(settings string) string {
+	err := validateAwgSettingsJSON(settings)
+	if !errors.Is(err, awg.ErrIFieldsTooLarge) {
+		return ""
+	}
+	// The advice tail names a knob the operator of an adopted server lacks.
+	measured, _, _ := strings.Cut(err.Error(), " — ")
+	return measured
 }
 
-func validateAwgSettingsJSONDiff(settings, oldSettings string) error {
+// validateAwgSettingsForSave refuses everything except an over-budget I-set,
+// which is stored and logged once: refusing it froze node reconcile instead.
+func validateAwgSettingsForSave(settings, tag string) error {
+	err := validateAwgSettingsJSON(settings)
+	if !errors.Is(err, awg.ErrIFieldsTooLarge) {
+		return err
+	}
+	logger.Warningf("awg: inbound %s saved with an I-set no renderer will emit: %v", tag, err)
+	return nil
+}
+
+func validateAwgSettingsJSON(settings string) error {
 	var s struct {
 		AwgVersion          string `json:"awgVersion"`
 		H1                  string `json:"h1"`
@@ -186,13 +209,9 @@ func validateAwgSettingsJSONDiff(settings, oldSettings string) error {
 			return err
 		}
 	}
-	// Oversized I1-I5 still apply and pass traffic, but `awg show` then fails
-	// with EMSGSIZE and the panel goes blind on that interface.
-	if err := awg.ValidateIFields(awg.BaselineIfname, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5); err != nil {
-		if !awgIFieldsUnchanged(settings, oldSettings) {
-			return err
-		}
-	}
+	// Reported last, never first: a caller that downgrades this to a warning
+	// must still have had every other check run over these same I-fields.
+	iFieldErr := awg.ValidateIFields(awgInboundIfnameShape, s.HeaderProtectionKey, s.I1, s.I2, s.I3, s.I4, s.I5)
 	// Checked raw, because the renderers write raw: trimming here let a leading
 	// "\n" hide a second directive from this loop and still reach the .conf.
 	for _, cv := range []struct{ field, v string }{
@@ -216,29 +235,17 @@ func validateAwgSettingsJSONDiff(settings, oldSettings string) error {
 		return err
 	}
 	if s.Jc == 0 && s.S1 == 0 {
-		return nil
+		return iFieldErr
 	}
 	p := awgcps.AWGParams{
 		Jc: s.Jc, Jmin: s.Jmin, Jmax: s.Jmax,
 		S1: s.S1, S2: s.S2, S3: s.S3, S4: s.S4,
 		HeaderProtectionKey: s.HeaderProtectionKey,
 	}
-	return p.Validate()
-}
-
-func awgIFieldsUnchanged(settings, oldSettings string) bool {
-	if strings.TrimSpace(oldSettings) == "" {
-		return false
+	if err := p.Validate(); err != nil {
+		return err
 	}
-	type iFields struct {
-		I1, I2, I3, I4, I5  string
-		HeaderProtectionKey string `json:"headerProtectionKey"`
-	}
-	var cur, old iFields
-	if json.Unmarshal([]byte(settings), &cur) != nil || json.Unmarshal([]byte(oldSettings), &old) != nil {
-		return false
-	}
-	return cur.I1 == old.I1 && cur.I2 == old.I2 && cur.I3 == old.I3 && cur.I4 == old.I4 && cur.I5 == old.I5 && cur.HeaderProtectionKey == old.HeaderProtectionKey
+	return iFieldErr
 }
 
 func (s *InboundService) applyLocalAwg(inboundId int) {

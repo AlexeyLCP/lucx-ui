@@ -79,6 +79,7 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
       }
       const ok = msg.obj.filter((r) => !r.error);
       const fail = msg.obj.filter((r) => r.error);
+      const warned = msg.obj.filter((r) => r.warning);
       const clients = ok.reduce((n, r) => n + r.clients, 0);
       const missing = ok.reduce((n, r) => n + r.missingKeys, 0);
       setResults(msg.obj);
@@ -94,6 +95,9 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
       }
       if (fail.length > 0) {
         message.warning(fail.map((r) => `${r.id}: ${r.error}`).join('; '));
+      }
+      if (warned.length > 0) {
+        message.warning(warned.map((r) => `${r.id}: ${r.warning}`).join('; '));
       }
       if (fail.length === 0) {
         setModalOpen(false);

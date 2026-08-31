@@ -64,8 +64,26 @@ type prober interface {
 type execProber struct{}
 
 func (execProber) Run(name string, args ...string) (string, error) {
-	out, err := exec.CommandContext(context.Background(), awgBin(name), args...).CombinedOutput()
+	ifname := probedIfname(name, args)
+	if err := stuckReadErr(ifname); err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), awgShowTimeout)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, awgBin(name), args...).CombinedOutput()
+	if ifname != "" {
+		noteAwgRead(ctx, ifname, err)
+	}
 	return string(out), err
+}
+
+// probedIfname names the device an `awg show <if> …` probe reads, so its stuck
+// warning shares the latch with the traffic scrapers; "" for host-wide probes.
+func probedIfname(name string, args []string) string {
+	if name == "awg" && len(args) >= 2 && args[0] == "show" {
+		return args[1]
+	}
+	return ""
 }
 
 // Diagnose probes the live kernel state of an instance (interface, forwarding,
