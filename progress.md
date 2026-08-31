@@ -1,5 +1,23 @@
 # LucX-UI — Прогресс
 
+## lucx.197 — I-field budget, migrate keys, S1=0, awg show timeout (2026-08-31)
+
+PR #76 (rudenko-ks). lucx.193 only grandfathered an unchanged oversize set on Update. Add/import/node-push still refused; `x-ui migrate` still overwrote tunnel keys.
+
+- Save stores an over-budget I1-I5 set and warns. Renderers still drop it. The form refuses only a *changed* set.
+- Import warning is not `Error` (red fail on a successful adopt). Overlap still `addInbound(..., true)` from lucx.194, not a process flag.
+- `MigrationRequirements` / `MigrationRestoreVisionFlow` run `clearForeignTunnelKeys`.
+- S1–S4 `= 0` stays in client-facing artifacts (`.conf` / `vpn://`). Clash YAML left as-is: missing key = 0.
+- `awg show`: 5s deadline + 10 min cooldown. A timeout is not an orphan.
+
+Update order: **nodes first, then master**.
+
+Tests: `go test ./internal/awg/...`; frontend budget/import/zero-padding. `web/service` CGO on CI.
+
+**lucxVersion:** lucx.197
+
+---
+
 ## lucx.196 — Throne mieru traffic-pattern `%2F` (2026-08-30)
 
 Tuna: Throne on PC shows `CO%2FD%2FvIF…==` instead of `CO/D/vIF…==`.
