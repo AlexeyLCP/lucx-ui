@@ -83,6 +83,14 @@ function link(over: Partial<AwgInboundSettings> = {}): string {
   });
 }
 
+// A real descriptor of a chosen length. The emitters check grammar as well as
+// the budget now, so a run of 'x' would be dropped for a reason these tests are
+// not measuring. '<t>' takes up the odd character where one is needed.
+function descriptorOfChars(n: number): string {
+  const head = n % 2 === 0 ? '' : '<t>';
+  return `${head}<b 0x${'ab'.repeat((n - head.length - 6) / 2)}>`;
+}
+
 // fillProtocolSettingsDefaults hands back the raw blob when safeParse fails, so
 // a field zod would have defaulted reaches these gates as undefined, not ''.
 describe('AWG generators survive settings the schema rejected', () => {
@@ -126,8 +134,9 @@ describe('AWG generators survive settings the schema rejected', () => {
   });
 });
 
-// The predicate trims, the emitted value does not: trimming it too would change
-// the bytes of every config whose value was pasted with a stray space.
+// For these fields the predicate trims and the emitted value does not: trimming
+// them too would change the bytes of every config pasted with a stray space.
+// I1-I5 are the exception — see the descriptor tests for why.
 describe('AWG generators emit whitespace edges verbatim', () => {
   const edges = { h1: '100-500 ', awgVersion: '3' as const, headerProtectionKey: '  abc  ' };
 
@@ -158,7 +167,7 @@ describe('genAwgConfig blank fields are not values', () => {
   });
 
   it('does not charge a blank key the 36 bytes a real one costs', () => {
-    const v = 'x'.repeat(3463); // IBytes 3468: fits 3492, not 3456
+    const v = descriptorOfChars(3463); // IBytes 3468: fits 3492, not 3456
     expect(conf({ i1: v, headerProtectionKey: '   ' })).toContain(`I1 = ${v}\n`);
   });
 
@@ -176,16 +185,16 @@ describe('genAwgConfig blank fields are not values', () => {
 // the exported .conf must drop it whole — same gate as the four Go renderers.
 describe('genAwgConfig I-field budget', () => {
   it('keeps every field when the set lands exactly on the budget', () => {
-    const big = 'x'.repeat(3452); // 3460 bytes + 4 x 8 = 3492, the worst-case budget
-    const txt = conf({ i1: big, i2: 'a', i3: 'a', i4: 'a', i5: 'a' });
+    const big = descriptorOfChars(3452); // 3460 bytes + 4 x 8 = 3492, the worst-case budget
+    const txt = conf({ i1: big, i2: '<t>', i3: '<t>', i4: '<t>', i5: '<t>' });
     expect(txt).toContain(`I1 = ${big}\n`);
-    expect(txt).toContain('I2 = a\n');
-    expect(txt).toContain('I5 = a\n');
+    expect(txt).toContain('I2 = <t>\n');
+    expect(txt).toContain('I5 = <t>\n');
   });
 
   it('drops all five fields one align step over the budget', () => {
-    const big = 'x'.repeat(3456); // 3464 bytes + 4 x 8 = 3496, one step over
-    const txt = conf({ i1: big, i2: 'a', i3: 'a', i4: 'a', i5: 'a' });
+    const big = descriptorOfChars(3456); // 3464 bytes + 4 x 8 = 3496, one step over
+    const txt = conf({ i1: big, i2: '<t>', i3: '<t>', i4: '<t>', i5: '<t>' });
     expect(txt).not.toContain('I1 = ');
     expect(txt).not.toContain('I2 = ');
     expect(txt).not.toContain('I3 = ');
@@ -194,20 +203,20 @@ describe('genAwgConfig I-field budget', () => {
   });
 
   it('agrees with the Go .conf renderer on its two pinned sample sizes', () => {
-    const fits = 'x'.repeat(3484); // IBytes 3492 in TestRenderClientConf_IFieldsBudget
-    const over = 'x'.repeat(3488); // IBytes 3496
+    const fits = descriptorOfChars(3484); // IBytes 3492 in TestRenderClientConf_IFieldsBudget
+    const over = descriptorOfChars(3488); // IBytes 3496
     expect(conf({ i1: fits })).toContain(`I1 = ${fits}\n`);
     expect(conf({ i1: over })).not.toContain('I1 = ');
   });
 
   it('charges a header protection key the 36 bytes Go charges it', () => {
-    const v = 'x'.repeat(3463); // IBytes 3468: fits 3492, not 3456
+    const v = descriptorOfChars(3463); // IBytes 3468: fits 3492, not 3456
     expect(conf({ i1: v })).toContain(`I1 = ${v}\n`);
     expect(conf({ i1: v, headerProtectionKey: 'aBcD...base64hpk==' })).not.toContain('I1 = ');
   });
 
   it('measures and writes the trimmed value, as Go does', () => {
-    const v = 'x'.repeat(3484);
+    const v = descriptorOfChars(3484);
     const txt = conf({ i1: `  ${v}  `, i2: '   ' });
     expect(txt).toContain(`I1 = ${v}\n`);
     expect(txt).not.toContain('I2 = ');

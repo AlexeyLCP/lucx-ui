@@ -16,6 +16,7 @@ import type { XHttpStreamSettings } from '@/schemas/protocols/stream/xhttp';
 import { collapseKeepaliveForVersion } from '@/lib/awg/timer';
 import { bytesFromBase64Url, isQCompress, vpnUriFromConf } from '@/lib/awg/vpnuri'; // LUCX-HOOK
 import { awgIBytes, awgWorstCaseIBytesBudget } from './awg-budget'; // LUCX-HOOK
+import { awgPortableIField } from './awg-descriptor'; // LUCX-HOOK
 import { getHeaderValue } from './headers';
 import { canEnableTlsFlow } from './protocol-capabilities';
 import { deriveSpiderX } from './spider-x';
@@ -984,11 +985,17 @@ export function genAmneziaWGConfig(input: GenAmneziaWGLinkInput): string {
   txt += `${amneziaWGHLine('H2', server.h2, '2')}\n`;
   txt += `${amneziaWGHLine('H3', server.h3, '3')}\n`;
   txt += `${amneziaWGHLine('H4', server.h4, '4')}\n`;
-  if (server.i1) txt += `I1 = ${server.i1}\n`;
-  if (server.i2) txt += `I2 = ${server.i2}\n`;
-  if (server.i3) txt += `I3 = ${server.i3}\n`;
-  if (server.i4) txt += `I4 = ${server.i4}\n`;
-  if (server.i5) txt += `I5 = ${server.i5}\n`;
+  // Per field: a descriptor this client's engine cannot parse costs it the
+  // whole file, and one blank value used to be enough to do that.
+  for (const [key, value] of [
+    ['I1', server.i1],
+    ['I2', server.i2],
+    ['I3', server.i3],
+    ['I4', server.i4],
+    ['I5', server.i5],
+  ] as Array<[string, string | undefined]>) {
+    if (awgPortableIField(value)) txt += `${key} = ${(value ?? '').trim()}\n`;
+  }
   const optional31: Array<[string, string | undefined]> = [
     ['HeaderProtectionKey', server.headerProtectionKey],
     ['ContentPaddingAddition', server.contentPaddingAddition],
@@ -1832,12 +1839,22 @@ export function genAwgLink(input: GenAwgLinkInput): string {
   if ((settings.h2 ?? '').trim()) url.searchParams.set('h2', settings.h2);
   if ((settings.h3 ?? '').trim()) url.searchParams.set('h3', settings.h3);
   if ((settings.h4 ?? '').trim()) url.searchParams.set('h4', settings.h4);
-  if (awgVersionAtLeast(v, '2')) {
-    if (settings.i1) url.searchParams.set('i1', settings.i1);
-    if (settings.i2) url.searchParams.set('i2', settings.i2);
-    if (settings.i3) url.searchParams.set('i3', settings.i3);
-    if (settings.i4) url.searchParams.set('i4', settings.i4);
-    if (settings.i5) url.searchParams.set('i5', settings.i5);
+  // Budgeted all-or-nothing like every other emitter — this one was the odd
+  // link out — then per field, since grammar is a property of the value.
+  if (
+    awgVersionAtLeast(v, '2') &&
+    awgIBytes(settings.i1, settings.i2, settings.i3, settings.i4, settings.i5) <=
+      awgWorstCaseIBytesBudget((settings.headerProtectionKey ?? '').trim() !== '')
+  ) {
+    for (const [key, value] of [
+      ['i1', settings.i1],
+      ['i2', settings.i2],
+      ['i3', settings.i3],
+      ['i4', settings.i4],
+      ['i5', settings.i5],
+    ] as Array<[string, string | undefined]>) {
+      if (awgPortableIField(value)) url.searchParams.set(key, (value ?? '').trim());
+    }
   }
   if (
     awgVersionFieldsAllowed(awgVersionAtLeast(v, '3'), localInbound, hostSupports3) &&
@@ -1932,8 +1949,7 @@ export function genAwgConfig(input: GenAwgLinkInput): string {
       ['I5', settings.i5],
     ];
     for (const [key, value] of iFields) {
-      const v = (value ?? '').trim();
-      if (v !== '') txt += `${key} = ${v}\n`;
+      if (awgPortableIField(value)) txt += `${key} = ${(value ?? '').trim()}\n`;
     }
   }
   // HeaderProtectionKey (AWG3) — written only at version '3'. Older awg-quick
