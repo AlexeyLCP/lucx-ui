@@ -106,3 +106,22 @@ func TestAwgOversizeIFieldSetLogsOncePerSave(t *testing.T) {
 		t.Fatalf("UpdateInbound logged %d budget lines, want exactly 1", got)
 	}
 }
+
+// The note is what tells an operator their server is fine and their clients are
+// not — the one signal that this class of defect ever produces.
+func TestAwgIFieldExportNote(t *testing.T) {
+	for _, tc := range []struct{ name, settings, want string }{
+		{"all portable", `{"i1":"<b 0x01>","i2":"<t>"}`, ""},
+		{"kernel-only tag", `{"i1":"<b 0x01>","i3":"<c>"}`, "I3"},
+		{"two lost, in order", `{"i2":"<d>","i1":"<c>","i5":"<t>"}`, "I1, I2"},
+		{"blank is not a loss", `{"i1":"   ","i2":""}`, ""},
+		{"padding is not a loss", `{"i1":" <b 0x01> "}`, ""},
+		{"unparsable settings", `{nope`, ""},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := AwgIFieldExportNote(tc.settings); got != tc.want {
+				t.Errorf("AwgIFieldExportNote(%s) = %q, want %q", tc.settings, got, tc.want)
+			}
+		})
+	}
+}

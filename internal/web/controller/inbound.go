@@ -59,17 +59,24 @@ func (a *InboundController) broadcastInboundsUpdate(userId int) {
 	websocket.BroadcastInbounds(inbounds)
 }
 
-// awgSaveNote appends the note an over-budget I-set earns to a save's success
-// text: entity.Msg has no warning channel, and the operator has to be told.
+// awgSaveNote appends the notes an I-set earns to a save's success text:
+// entity.Msg has no warning channel, and the operator has to be told. Neither
+// note refuses the save — a save that refuses froze node reconcile once already.
 func awgSaveNote(c *gin.Context, msg string, inbound *model.Inbound) string {
 	if inbound == nil || inbound.Protocol != model.AWG {
 		return msg
 	}
-	measured := service.AwgIFieldBudgetWarning(inbound.Settings)
-	if measured == "" {
+	var notes []string
+	if measured := service.AwgIFieldBudgetWarning(inbound.Settings); measured != "" {
+		notes = append(notes, I18nWeb(c, "pages.inbounds.form.awgIFieldBudget")+" ("+measured+")")
+	}
+	if lost := service.AwgIFieldExportNote(inbound.Settings); lost != "" {
+		notes = append(notes, I18nWeb(c, "pages.inbounds.form.awgIFieldGrammar")+" ("+lost+")")
+	}
+	if len(notes) == 0 {
 		return msg
 	}
-	return msg + " — " + I18nWeb(c, "pages.inbounds.form.awgIFieldBudget") + " (" + measured + ")"
+	return msg + " — " + strings.Join(notes, "; ")
 }
 
 // initRouter initializes the routes for inbound-related operations.

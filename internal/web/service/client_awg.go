@@ -143,6 +143,31 @@ func AwgIFieldBudgetWarning(settings string) string {
 	return measured
 }
 
+// AwgIFieldExportNote names the I-fields that will not reach a client, because
+// one of the two engines cannot parse them and would fail the whole config.
+// Deliberately outside validateAwgSettingsJSON: this never refuses a save, and
+// folding it into the error path would make its class forgivable too.
+func AwgIFieldExportNote(settings string) string {
+	var s struct {
+		I1 string `json:"i1"`
+		I2 string `json:"i2"`
+		I3 string `json:"i3"`
+		I4 string `json:"i4"`
+		I5 string `json:"i5"`
+	}
+	if json.Unmarshal([]byte(settings), &s) != nil {
+		return ""
+	}
+	var lost []string
+	for i, v := range []string{s.I1, s.I2, s.I3, s.I4, s.I5} {
+		// An empty field is not a loss — it was never a value.
+		if strings.TrimSpace(v) != "" && !awg.PortableIField(v) {
+			lost = append(lost, fmt.Sprintf("I%d", i+1))
+		}
+	}
+	return strings.Join(lost, ", ")
+}
+
 // validateAwgSettingsForSave refuses everything except an over-budget I-set,
 // which is stored and logged once: refusing it froze node reconcile instead.
 func validateAwgSettingsForSave(settings, tag string) error {

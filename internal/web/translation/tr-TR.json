@@ -706,6 +706,7 @@
         "awgHInvalid": "H must be an integer or lo-hi range (e.g. 5000 or 5000-40000)",
         "awgH15Range": "AWG 1.5 does not accept H ranges — regenerate obfuscation",
         "awgIFieldBudget": "I1-I5 exceed the netlink read budget and will not be applied",
+        "awgIFieldGrammar": "bu I alanları taşınabilir değil ve istemcilere ulaşmayacak",
         "awgVersion": "AWG sürümü",
         "awgVersionHint": "Bu inbound'ın hedeflediği AmneziaWG protokol sürümü (sunucu yapılandırması tavanı). 1.5 = eski (Jc/S1/S2/H1-H4); 2 = S3/S4 + I1-I5 ekler (Android 2.0.1); 3 = HeaderProtectionKey ekler (masaüstü 5.0.0.5 / Android 3.0.1). Bir v3 sunucusu v1/v2/plain-WG istemcilerini KABUL ETMEZ — karma istemci filosu için ayrı bir v2 inbound kullanın.",
         "awgVersion15": "1.5 — eski (eski istemciler)",
