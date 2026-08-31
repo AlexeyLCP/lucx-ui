@@ -347,7 +347,9 @@ func TestInboundAwgHints_BlankIFieldIsNotAValue(t *testing.T) {
 	const base = `{"address":"10.8.0.1/24","awgVersion":"2","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40`
 	for _, tc := range []struct{ name, i1, want string }{
 		{"blanks only", "   ", ""},
-		{"whitespace edges stay raw", " <b 0x00> ", "I1 =  <b 0x00> \n"},
+		// Padding around a value reaches no tag parser, so it is not part of
+		// the value and the export carries the trimmed form.
+		{"whitespace edges are trimmed off", " <b 0x00> ", "I1 = <b 0x00>\n"},
 		{"plain descriptor", "<b 0x00>", "I1 = <b 0x00>\n"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -405,5 +407,21 @@ func TestInboundAwgHints_ZeroPaddingSizesStayInBlock(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// <c> exists in the kernel module and not in the embedded engine, which aborts
+// its config merge on it after it has already dropped every peer. Whichever
+// engine the client runs, one bad field must not cost it the other four.
+func TestInboundAwgHints_UnportableIFieldIsDroppedAlone(t *testing.T) {
+	const base = `{"address":"10.8.0.1/24","awgVersion":"2","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40`
+	_, obf, _ := inboundAwgHints(base+`,"i1":"<b 0x01>","i2":"<t>","i3":"<c>","i4":"<r 8>","i5":"<rc 4>"}`, true)
+	if strings.Contains(obf, "I3") {
+		t.Errorf("<c> must not reach the export, got:\n%s", obf)
+	}
+	for _, want := range []string{"I1 = <b 0x01>\n", "I2 = <t>\n", "I4 = <r 8>\n", "I5 = <rc 4>\n"} {
+		if !strings.Contains(obf, want) {
+			t.Errorf("missing %q — grammar is a property of one field, not of the set, got:\n%s", want, obf)
+		}
 	}
 }

@@ -544,8 +544,10 @@ func inboundAwgHints(settings string, localInbound bool) (address string, obfusc
 		for _, ip := range []struct{ idx, val string }{
 			{"1", s.I1}, {"2", s.I2}, {"3", s.I3}, {"4", s.I4}, {"5", s.I5},
 		} {
-			if strings.TrimSpace(ip.val) != "" {
-				fmt.Fprintf(&out, "I%s = %s\n", ip.idx, ip.val)
+			// Per field, not all-or-nothing: grammar is a property of the
+			// value, where the budget above is a property of the whole set.
+			if awg.PortableIField(ip.val) {
+				fmt.Fprintf(&out, "I%s = %s\n", ip.idx, strings.TrimSpace(ip.val))
 			}
 		}
 	}

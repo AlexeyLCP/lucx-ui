@@ -135,8 +135,8 @@ func TestAwgImport_RendererKeepsOnlyTheWithinBudgetIFieldSet(t *testing.T) {
 		i1           string
 		wantRendered bool
 	}{
-		{"oversize", strings.Repeat("x", oversizeIFieldChars), false},
-		{"within budget", strings.Repeat("x", normalIFieldChars), true},
+		{"oversize", portableIFieldOfChars(t, oversizeIFieldChars), false},
+		{"within budget", portableIFieldOfChars(t, normalIFieldChars), true},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

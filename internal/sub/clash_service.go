@@ -581,8 +581,8 @@ func (s *SubClashService) buildAwgProxy(subReq *SubService, inbound *model.Inbou
 			"i1": inboundSettings.I1, "i2": inboundSettings.I2, "i3": inboundSettings.I3,
 			"i4": inboundSettings.I4, "i5": inboundSettings.I5,
 		} {
-			if strings.TrimSpace(v) != "" {
-				opt[k] = v
+			if awg.PortableIField(v) {
+				opt[k] = strings.TrimSpace(v)
 			}
 		}
 	}

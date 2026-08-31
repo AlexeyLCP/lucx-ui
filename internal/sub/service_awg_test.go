@@ -253,7 +253,9 @@ func TestGenAwgLink_BlankIFieldIsNotAValue(t *testing.T) {
 	s := &SubService{}
 	for _, tc := range []struct{ name, i1, want string }{
 		{"blanks only", "   ", ""},
-		{"whitespace edges stay raw", " <b 0x00> ", " <b 0x00> "},
+		// Padding around a value reaches no tag parser, so it is not part of
+		// the value and the link carries the trimmed form.
+		{"whitespace edges are trimmed off", " <b 0x00> ", "<b 0x00>"},
 		{"plain descriptor", "<b 0x00>", "<b 0x00>"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -304,5 +306,32 @@ func TestGenAwgLink_HostDestPortAndRemark(t *testing.T) {
 	}
 	if !strings.HasPrefix(strings.TrimSpace(conf), "# cdn") {
 		t.Errorf("vpn:// must name the host remark, got:\n%s", conf)
+	}
+}
+
+// One field the client's engine cannot read must not cost it the other four:
+// grammar is a property of the value, unlike the netlink budget above it.
+func TestGenAwgLink_UnportableIFieldIsDroppedAlone(t *testing.T) {
+	const base = `{"privateKey":"serverPrivKeyBase64==","publicKey":"serverPubKeyBase64==",` +
+		`"address":"10.8.0.1/24","mtu":1320,"awgVersion":"2","jc":8,"jmin":50,"jmax":200,"s1":30,"s2":40,`
+	const clients = `"clients":[{"publicKey":"peerPub","privateKey":"peerPriv","preSharedKey":"peerPsk","email":"user","enable":true}]}`
+	s := &SubService{}
+	lines := splitLinkLines(s.genAwgLink(awgLinkInbound(base+
+		`"i1":"<b 0x01>","i2":"<t>","i3":"<c>","i4":"<r 8>","i5":"<rc 4>",`+clients), "user"))
+	if len(lines) == 0 {
+		t.Fatal("expected a non-empty amneziawg:// link")
+	}
+	u, err := url.Parse(lines[0])
+	if err != nil {
+		t.Fatalf("share link must parse: %v, got:\n%s", err, lines[0])
+	}
+	q := u.Query()
+	if q.Has("i3") {
+		t.Errorf("<c> must not reach the share link, got i3 = %q", q.Get("i3"))
+	}
+	for key, want := range map[string]string{"i1": "<b 0x01>", "i2": "<t>", "i4": "<r 8>", "i5": "<rc 4>"} {
+		if got := q.Get(key); got != want {
+			t.Errorf("%s = %q, want %q, in:\n%s", key, got, want, lines[0])
+		}
 	}
 }

@@ -190,3 +190,25 @@ func TestBuildProxy_DispatchesAwg(t *testing.T) {
 		t.Fatalf("proxy JSON missing amnezia-wg-option: %s", raw)
 	}
 }
+
+// mihomo reads the same descriptors, so one field it cannot parse must not cost
+// the client the other four.
+func TestBuildAwgProxy_UnportableIFieldIsDroppedAlone(t *testing.T) {
+	settings, _ := json.Marshal(map[string]any{
+		"privateKey": "YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",
+		"awgVersion": "2",
+		"i1":         "<b 0x01>", "i2": "<t>", "i3": "<c>", "i4": "<r 8>", "i5": "<rc 4>",
+	})
+	ib := &model.Inbound{Protocol: model.AWG, Port: 1, Listen: "1.1.1.1", Settings: string(settings)}
+	client := model.Client{Email: "a", PrivateKey: "CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=", AllowedIPs: []string{"10.0.0.2/32"}}
+	svc := NewSubClashService(false, "", &SubService{})
+	opt := svc.buildAwgProxy(svc.SubService, ib, client, nil)["amnezia-wg-option"].(map[string]any)
+	if _, ok := opt["i3"]; ok {
+		t.Errorf("<c> must not reach the proxy, got i3 = %v", opt["i3"])
+	}
+	for k, want := range map[string]string{"i1": "<b 0x01>", "i2": "<t>", "i4": "<r 8>", "i5": "<rc 4>"} {
+		if got, _ := opt[k].(string); got != want {
+			t.Errorf("%s = %q, want %q", k, got, want)
+		}
+	}
+}

@@ -18,6 +18,17 @@ const (
 	normalIFieldChars   = 100
 )
 
+// A real descriptor of a chosen length, for the tests that assert what gets
+// rendered. There the budget is no longer the only gate — a run of "x" is not a
+// descriptor at all, and would be dropped for the wrong reason.
+func portableIFieldOfChars(t *testing.T, n int) string {
+	t.Helper()
+	if n < 8 || n%2 != 0 {
+		t.Fatalf("portableIFieldOfChars(%d): need an even length of at least 8", n)
+	}
+	return "<b 0x" + strings.Repeat("ab", (n-6)/2) + ">"
+}
+
 func awgIFieldSettings(t *testing.T, i1, dns string) string {
 	t.Helper()
 	return awgIFieldSettingsKeyed(t, "i1", i1, dns)
