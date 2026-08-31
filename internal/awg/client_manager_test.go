@@ -151,3 +151,60 @@ func TestSweepOrphanClients_KeepsWhatTheDatabaseStillWants(t *testing.T) {
 		t.Errorf("a live outbound the database still wants was swept away: %v", err)
 	}
 }
+
+// The blackhole decision in the Xray config reads this: a recorded down must
+// stay down and a recorded up must stay up. That it does so without shelling
+// out is pinned separately, where the call can be counted.
+func TestClientIfaceUp_ReportsTheRecordedState(t *testing.T) {
+	withTempConfigDir(t)
+	const ifname = "awgo-77"
+
+	clientMu.Lock()
+	savedUp := clientUp
+	clientUp = map[string]bool{ifname: true}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clientUp = savedUp
+		clientMu.Unlock()
+	})
+
+	// No awg binary is reachable here, so a probe could only answer "down".
+	// Answering "up" proves the recorded state was read instead.
+	if !GetManager().ClientIfaceUp(ifname) {
+		t.Fatal("a recorded up interface must be reported up without a probe")
+	}
+
+	clientMu.Lock()
+	clientUp[ifname] = false
+	clientMu.Unlock()
+	if GetManager().ClientIfaceUp(ifname) {
+		t.Fatal("a recorded down interface must be reported down")
+	}
+}
+
+// An interface this process has never touched still has to get a real answer,
+// or the first config after a boot would blackhole a tunnel that is up.
+func TestClientIfaceUp_ProbesOnceForAnUnknownInterface(t *testing.T) {
+	withTempConfigDir(t)
+	const ifname = "awgo-78"
+
+	clientMu.Lock()
+	savedUp := clientUp
+	clientUp = map[string]bool{}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clientUp = savedUp
+		clientMu.Unlock()
+	})
+
+	_ = GetManager().ClientIfaceUp(ifname)
+
+	clientMu.Lock()
+	_, remembered := clientUp[ifname]
+	clientMu.Unlock()
+	if !remembered {
+		t.Fatal("the one probe an unknown interface earns must be remembered, or every config build repeats it")
+	}
+}

@@ -1114,7 +1114,9 @@ func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 			continue
 		}
 		if awg.KernelAvailable() {
-			if _, _, _, up := awg.GetManager().CollectClientTraffic(ci.Ifname); !up {
+			// Recorded state, not a live probe: this runs inside every config
+			// build, and a probe's mood must not decide whether Xray restarts.
+			if !awg.GetManager().ClientIfaceUp(ci.Ifname) {
 				if err := appendAwgOutbound(cfg, blackholeOutbound(o.Tag)); err != nil {
 					logger.Warning("awg outbound: failed to inject blackhole for down iface", ci.Ifname, ":", err)
 				}

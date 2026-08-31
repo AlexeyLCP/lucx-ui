@@ -107,3 +107,45 @@ func TestEnsureClient_StaleConfStillRestarts(t *testing.T) {
 		t.Fatal("a changed config must reach awg-quick, but it was never called")
 	}
 }
+
+// installAwgCallRecorder puts an `awg` on PATH that records every invocation
+// and reports the interface as up. Returns the path of the record file.
+func installAwgCallRecorder(t *testing.T) string {
+	t.Helper()
+	dir := t.TempDir()
+	calls := filepath.Join(dir, "awg-calls")
+	script := "#!/bin/sh\necho \"$@\" >> \"" + calls + "\"\nprintf 'iface-privkey\tiface-pubkey\t51820\toff\n'\n"
+	if err := os.WriteFile(filepath.Join(dir, "awg"), []byte(script), 0o755); err != nil {
+		t.Fatalf("write awg stub: %v", err)
+	}
+	t.Setenv("PATH", dir+string(os.PathListSeparator)+os.Getenv("PATH"))
+	return calls
+}
+
+// This runs inside every Xray config build. A live probe there made the
+// generated config depend on a 5s-deadline shell call, so a single flaky read
+// flipped configUnchanged and restarted Xray for every user on the panel.
+func TestClientIfaceUp_DoesNotProbeWhenTheStateIsKnown(t *testing.T) {
+	withTempConfigDir(t)
+	calls := installAwgCallRecorder(t)
+	const ifname = "awgo-79"
+
+	clientMu.Lock()
+	saved := clientUp
+	clientUp = map[string]bool{ifname: false}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clientUp = saved
+		clientMu.Unlock()
+	})
+
+	// The stub answers "up"; the recorded state says down. The recorded state
+	// has to win, and the stub must not be reached at all.
+	if GetManager().ClientIfaceUp(ifname) {
+		t.Error("a recorded down interface was reported up, so the probe answered instead of the state")
+	}
+	if b, err := os.ReadFile(calls); err == nil && len(b) > 0 {
+		t.Fatalf("config generation shelled out to awg: %s", b)
+	}
+}

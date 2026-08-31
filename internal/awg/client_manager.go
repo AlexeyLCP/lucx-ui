@@ -51,10 +51,53 @@ type clientState struct {
 }
 
 var (
-	clientMu    sync.Mutex
-	clients     = map[string]clientState{} // ifname -> state
+	clientMu sync.Mutex
+	clients  = map[string]clientState{} // ifname -> state
+	// clientUp is liveness, kept apart from the fingerprint above: a reader may
+	// record it for an interface this process has not brought up itself.
+	clientUp    = map[string]bool{}
 	clientSwept sync.Once
 )
+
+// ClientIfaceUp reports an outbound interface's liveness from what the
+// reconcile job last recorded, so a caller on a hot path never shells out. An
+// interface this process has not seen earns one probe, then it is remembered.
+func (m *Manager) ClientIfaceUp(ifname string) bool {
+	clientMu.Lock()
+	if up, ok := clientUp[ifname]; ok {
+		clientMu.Unlock()
+		return up
+	}
+	clientMu.Unlock()
+
+	_, err := awgShowIfname(ifname)
+	up := err == nil
+
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	// A reconcile tick that landed while the probe ran knows better.
+	if fresh, ok := clientUp[ifname]; ok {
+		return fresh
+	}
+	clientUp[ifname] = up
+	return up
+}
+
+// noteClientUp records liveness; the caller already holds clientMu.
+func noteClientUp(ifname string, up bool) {
+	clientUp[ifname] = up
+}
+
+// recordClientRead turns a probe's outcome into recorded liveness. A read that
+// ran out of time says nothing about the interface, so it changes nothing.
+func recordClientRead(ifname string, err error) {
+	if errors.Is(err, context.DeadlineExceeded) {
+		return
+	}
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	clientUp[ifname] = err == nil
+}
 
 // EnsureClient reconciles a single client AWG interface to desired state.
 // Writes the awg-quick .conf (mode 0600 — awg-quick rejects world-readable
@@ -85,6 +128,7 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 	if tracked && st.fp == conf {
 		if _, err := awgShowIfname(ci.Ifname); err == nil {
 			clients[ci.Ifname] = clientState{fp: conf}
+			noteClientUp(ci.Ifname, true)
 			return nil
 		}
 	}
@@ -97,9 +141,11 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 		}
 	}
 	if out, err := awgQuick("up", confPath); err != nil {
+		noteClientUp(ci.Ifname, false)
 		return fmt.Errorf("awg-quick up %s: %w (%s)", confPath, err, string(out))
 	}
 	clients[ci.Ifname] = clientState{fp: conf}
+	noteClientUp(ci.Ifname, true)
 	return nil
 }
 
@@ -117,6 +163,7 @@ func (m *Manager) RemoveClient(ifname string) error {
 	}
 	_ = os.Remove(confPath)
 	delete(clients, ifname)
+	delete(clientUp, ifname)
 	return nil
 }
 
@@ -137,6 +184,7 @@ func (m *Manager) StopAllClients() {
 		}
 	}
 	clients = map[string]clientState{}
+	clientUp = map[string]bool{}
 }
 
 // SweepOrphanClients removes awgo-N interfaces and .conf files left over from a
@@ -231,6 +279,7 @@ func (m *Manager) RunningClientIfnames() []string {
 // tx=6), which is the proven server-side parser.
 func (m *Manager) CollectClientTraffic(ifname string) (handshakeAge time.Duration, rx, tx int64, ok bool) {
 	out, err := awgShowIfname(ifname)
+	recordClientRead(ifname, err)
 	if err != nil {
 		return 0, 0, 0, false
 	}
