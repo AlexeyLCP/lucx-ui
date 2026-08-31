@@ -68,7 +68,6 @@ func (m *Manager) EnsureClient(ci ClientInstance) error {
 	if rebuildPaused.Load() {
 		return fmt.Errorf("awg: module rebuild in progress")
 	}
-	m.sweepOrphanClientsOnce()
 	clientMu.Lock()
 	defer clientMu.Unlock()
 	confPath := filepath.Join(awgConfigDir, ci.Ifname+".conf")
@@ -131,12 +130,12 @@ func (m *Manager) StopAllClients() {
 	clients = map[string]clientState{}
 }
 
-// SweepOrphanClients removes awgo-* interfaces and .conf files left over from
-// a previous x-ui run that have no matching awg_outbounds row (or whose row is
-// disabled). Runs once on first EnsureClient call (sync.Once) — not every tick.
-// Uses a sync.Once separate from the server-side m.swept flag so the two
-// sweeps stay independent.
-func (m *Manager) sweepOrphanClientsOnce() {
+// SweepOrphanClients removes awgo-N interfaces and .conf files left over from a
+// previous x-ui run that have no awg_outbounds row. want holds the ifname of
+// every row the caller read from the database — this package must not reach for
+// it itself. Runs once per process (sync.Once), on a flag separate from the
+// server-side m.swept so the two sweeps stay independent.
+func (m *Manager) SweepOrphanClients(want map[string]struct{}) {
 	clientSwept.Do(func() {
 		clientMu.Lock()
 		defer clientMu.Unlock()
@@ -153,7 +152,7 @@ func (m *Manager) sweepOrphanClientsOnce() {
 			if !isOutboundAwgInterface(ifname) {
 				continue
 			}
-			if _, ok := clients[ifname]; ok {
+			if _, ok := want[ifname]; ok {
 				continue
 			}
 			if !configIsManaged(filepath.Join(awgConfigDir, name)) {

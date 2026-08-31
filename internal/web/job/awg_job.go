@@ -169,6 +169,13 @@ func (j *AwgJob) Run() {
 		outbounds, err := svc.GetOutbounds()
 		if err == nil {
 			m := awg.GetManager()
+			// The rows are the only record of what should exist; a disabled one
+			// is still wanted here, RemoveClient below tears it down properly.
+			want := make(map[string]struct{}, len(outbounds))
+			for _, o := range outbounds {
+				want["awgo-"+strconv.Itoa(o.Id)] = struct{}{}
+			}
+			m.SweepOrphanClients(want)
 			needXray := false
 			for _, o := range outbounds {
 				if !o.Enable {

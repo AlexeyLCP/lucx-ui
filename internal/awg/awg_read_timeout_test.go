@@ -212,7 +212,7 @@ func TestSweepOrphanClients_TimedOutInterfaceKeepsItsConf(t *testing.T) {
 		clientMu.Unlock()
 	})
 
-	(&Manager{}).sweepOrphanClientsOnce()
+	(&Manager{}).SweepOrphanClients(nil)
 
 	if _, err := os.Stat(filepath.Join(dir, gone+".conf")); err == nil {
 		t.Fatal("the sweep kept a genuinely absent interface's .conf — it never ran its normal path, so this test proves nothing about the wedged one")

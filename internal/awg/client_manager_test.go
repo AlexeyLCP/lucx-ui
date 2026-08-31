@@ -7,6 +7,9 @@
 package awg
 
 import (
+	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -112,6 +115,39 @@ func TestParseClientDump_Empty(t *testing.T) {
 func TestSweepOrphanClients_Idempotent(t *testing.T) {
 	withTempConfigDir(t)
 	m := GetManager()
-	m.sweepOrphanClientsOnce()
-	m.sweepOrphanClientsOnce()
+	m.SweepOrphanClients(nil)
+	m.SweepOrphanClients(nil)
+}
+
+// The sweep's doc comment promised a check against awg_outbounds, but the body
+// consulted the in-memory clients map — empty on every fresh process, so the
+// first tick after a restart swept every live outbound away. The wanted set now
+// comes from the caller, which reads the rows.
+func TestSweepOrphanClients_KeepsWhatTheDatabaseStillWants(t *testing.T) {
+	dir := withTempConfigDir(t)
+	const kept, orphan = "awgo-3", "awgo-4"
+	for _, name := range []string{kept + ".conf", orphan + ".conf"} {
+		writeConf(t, name, xuiManagedMarker+"\n[Interface]\nPrivateKey = x\n")
+	}
+
+	clientMu.Lock()
+	saved := clients
+	// The map is deliberately left empty: that is the state a fresh process is
+	// in, and the whole point is that it must no longer decide anything.
+	clients, clientSwept = map[string]clientState{}, sync.Once{}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clients = saved
+		clientMu.Unlock()
+	})
+
+	GetManager().SweepOrphanClients(map[string]struct{}{kept: {}})
+
+	if _, err := os.Stat(filepath.Join(dir, orphan+".conf")); err == nil {
+		t.Error("an outbound with no row left must be swept")
+	}
+	if _, err := os.Stat(filepath.Join(dir, kept+".conf")); err != nil {
+		t.Errorf("a live outbound the database still wants was swept away: %v", err)
+	}
 }
