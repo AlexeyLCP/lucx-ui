@@ -1133,7 +1133,7 @@ func (s *TunnelService) checkNaivePortConflict(cfg tunnel.NaiveConfig) error {
 			continue
 		}
 		switch ib.Protocol {
-		case model.WireGuard, model.AWG, model.Hysteria:
+		case model.WireGuard, model.AWG, model.AmneziaWG, model.Hysteria:
 			continue // UDP-only listeners never collide with naive's TCP port
 		}
 		if tunnelListenOverlap(cfg.Listen, ib.Listen) {

@@ -1507,7 +1507,8 @@ func (s *InboundService) checkMieruPortConflict(inbound *model.Inbound, ignoreId
 			if hit == 0 {
 				continue
 			}
-			udpOnly := other.Protocol == model.WireGuard || other.Protocol == model.AWG || other.Protocol == model.Hysteria
+			udpOnly := other.Protocol == model.WireGuard || other.Protocol == model.AWG ||
+				other.Protocol == model.AmneziaWG || other.Protocol == model.Hysteria
 			if udp {
 				if udpOnly || other.Protocol == model.Mieru || other.Protocol == model.TrustTunnel {
 					return common.NewErrorf("mieru: UDP port %d-%d collides with inbound %q (port %d)", lo, hi, other.Remark, hit)
