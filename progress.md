@@ -1,5 +1,26 @@
 # LucX-UI — Прогресс
 
+## lucx.201 — silent loss of live state (PR #77) (2026-09-01)
+
+PR #77 (rudenko-ks). Panel dropped live interfaces, overwrote tunnel fields, or handed clients a config their engine cannot parse — with no error.
+
+Server:
+- `allowedIPs` was still clobbered by `x-ui migrate`; one-shot seeder restores a record only when it matches the keyless copy and differs from the tunnel inbound. Then drains those four keys from keyless settings.
+- AWG inbound edit no longer Del+Add (kept peer sessions). Outbounds survive panel restart (`awgo-N` not StopAllClients); sweep vs DB, not an empty in-memory map.
+- `sendThrough` on the outbound object (was inside freedom settings → silently dropped → leak via default route).
+- `awg show` out of GetXrayConfig (a flaky probe restarted Xray for everyone).
+- Caddyfile `admin` only as first token; AmneziaWG counted as UDP in Naive/Mieru port checks.
+- Empty allowedIPs: still skip the peer, now log (throttled).
+
+Client export:
+- Drop I-fields the other engine cannot read (`<c>` vs `<d>/<ds>/<dz>`). Kernel renderers untouched (fingerprint). Form refuses only a field the operator is typing now. Save warns, does not refuse stored descriptors.
+
+Tests: PR CI green (`go-test`, `race`, frontend). Local `./internal/awg/...` + frontend typecheck.
+
+**lucxVersion:** lucx.201
+
+---
+
 ## lucx.200 — olcRTC OLC2 data: path (2026-09-01)
 
 OLC2 resolves `data:` relative to the YAML file and treats it as a names-file override. We wrote `bin/tunnel/olcrtc-N-data` into YAML that already lives in `bin/tunnel/` → `bin/tunnel/bin/tunnel/…` and `exit status 1` (no `names` file).
