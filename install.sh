@@ -1907,6 +1907,12 @@ install_x-ui() {
     fi
     trap - EXIT INT TERM
 
+    # LUCX-HOOK: geo before panel start. Slim tarball / SC split left first
+    # start without .dat; second install only worked via bin/ backup restore.
+    # Never fatal (Rule 0). Yandex unpacks x-ui-geo.tar.gz; GitHub fetches.
+    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    # END LUCX-HOOK
+
     # Update x-ui cli and se set permission
     mv -f "${xui_script_temp}" /usr/bin/x-ui
     if [[ $? -ne 0 ]]; then
@@ -2073,9 +2079,8 @@ install_x-ui() {
 
     echo -e "${green}x-ui ${tag_version}${plain} installation finished, it is running now..."
     echo -e ""
-    # LUCX-HOOK: geo + tunnel sidecars are not in the slim tarball. Fetch
-    # AFTER the panel is installed and running; never fatal (Rule 0).
-    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    # LUCX-HOOK: sidecar refresh after start (ETXTBSY / lucx.161). Geo is
+    # fetched before start.
     lucx_fetch_sidecars bin
     [[ -n "${LUCX_DIST_DIR}" ]] && rm -rf "${LUCX_DIST_DIR}"
     # END LUCX-HOOK

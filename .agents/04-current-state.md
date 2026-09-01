@@ -62,7 +62,7 @@ Not to re-add: tun2socks (replaced by TUN inbound), DNS in the server .conf (bre
 
 ### 6. geo files overwritten on panel update — upstream behavior, we do NOT fix (decision 2026-08-09)
 
-**Essence:** `release.yml` packs fresh stock geo into the tarball; `update.sh` unpacks over the top → **any** panel update resets those names to stock. Symptom (Aleksandr SacredX, lucx.88): custom geosite groups vanished after web update → Xray won’t start (routing can’t find groups in geo.dat). **Decision:** leave `update.sh` alone (parity with upstream). Advice to operators: keep custom groups in files with a **separate name** — the tarball won’t touch them; or restore via cron after update.
+**Essence:** if geo is in the tarball, `update.sh` unpacks over the top → stock names reset. Symptom (Aleksandr SacredX, lucx.88): custom geosite groups vanished after web update → Xray won’t start. **Decision:** leave unpack-overwrite alone (parity with upstream). Advice: keep custom groups in a **separate filename**. lucx.198: fetch runs **before** first start so a fresh install is not missing geo. Geo is not packed in the panel tarball.
 
 **Stock since lucx.99 (8 files):** `geoip/geosite.dat` (Loyalsoldier), `_IR` (chocolate4u), `_RU` (runetfreedom), **`_ROSCOM`** (hydraponique/roscomvpn-{geoip,geosite} — RKN geoblock / category-ru / category-ads / youtube/telegram/steam). ROSCOM is a separate name, doesn’t overwrite others’ customs. Update: panel Version → Geofiles / `x-ui` menu → RoscomVPN / `update-all-geofiles`. In routing: `ext:geosite_ROSCOM.dat:category-geoblock-ru` etc. (presets in `constants.ts`). Geodata browser picks up any `*.dat` in `bin/`.
 

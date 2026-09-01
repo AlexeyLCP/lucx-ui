@@ -1246,6 +1246,10 @@ update_x-ui() {
         chmod +x bin/mtg-linux-$(arch) > /dev/null 2>&1
     fi
 
+    # LUCX-HOOK: geo before panel start. Never fatal (Rule 0).
+    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    # END LUCX-HOOK
+
     echo -e "${green}Downloading and installing x-ui.sh script...${plain}"
     local xui_script_temp="/usr/bin/x-ui-temp.$$"
     rm -f "${xui_script_temp}"
@@ -1425,10 +1429,8 @@ update_x-ui() {
     # Never fatal.
     setup_fail2ban
 
-    # LUCX-HOOK: geo + tunnel sidecars are not in the slim tarball. Fetch AFTER
-    # the panel is running; never fatal, so a slow/blocked download can never
-    # leave the host without a panel.
-    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    # LUCX-HOOK: sidecar refresh after start (ETXTBSY / lucx.161). Geo is
+    # fetched before start.
     lucx_fetch_sidecars bin
     [[ -n "${LUCX_DIST_DIR}" ]] && rm -rf "${LUCX_DIST_DIR}"
     # END LUCX-HOOK

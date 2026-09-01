@@ -193,7 +193,7 @@ x-ui-linux-amd64.tar.gz → x-ui/
           ← GitHub amd64 tarball unpacks these from third_party/sidecars/
 ```
 
-Geo (`geoip*.dat` / `geosite*.dat`) is not in the tarball. `install.sh` / `update.sh` download it after extract (Loyalsoldier + IR/RU/ROSCOM).
+Geo is not in the panel tarball (GitHub slim / SourceCraft 100 MB). `install.sh` / `update.sh` fetch Loyalsoldier + IR/RU/ROSCOM **before** panel start (never fatal). SourceCraft unpacks `x-ui-geo.tar.gz` from the dist bundle at the same point.
 
 Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub amd64 tarball includes the unpacked binaries (lucx.184 — first install was missing cores). SourceCraft stays SLIM (100 MB cap); `install.sh` / `update.sh` still fetch after start as a refresh.
 

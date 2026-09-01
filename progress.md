@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.198 — geo before first start (2026-09-01)
+
+Slim tarball left `bin/` without `geoip*.dat` / `geosite*.dat` on first install. Fetch ran after `systemctl start` (and after AWG), so Xray came up with no geo. Second install only worked because `bin/` backup restored the files before start.
+
+- `install.sh` / `update.sh`: `lucx_fetch_geofiles` after extract, before start. Still never fatal.
+- Panel tarball stays slim (no geo). SourceCraft unpacks `x-ui-geo.tar.gz` at the same point.
+- Sidecar fetch stays after start (lucx.161 ETXTBSY).
+
+**lucxVersion:** lucx.198
+
+---
+
 ## lucx.197 — I-field budget, migrate keys, S1=0, awg show timeout (2026-08-31)
 
 PR #76 (rudenko-ks). lucx.193 only grandfathered an unchanged oversize set on Update. Add/import/node-push still refused; `x-ui migrate` still overwrote tunnel keys.
