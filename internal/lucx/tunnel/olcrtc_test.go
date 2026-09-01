@@ -74,7 +74,6 @@ func TestOlcrtcRenderYAML(t *testing.T) {
 		`key: "` + cfg.CryptoKey + `"`,
 		`transport: "datachannel"`,
 		`dns: "8.8.8.8:53"`,
-		`data: "/tmp/olcrtc-data"`,
 		"debug: true",
 		"interval: 10s",
 		"timeout: 15s",
@@ -83,6 +82,9 @@ func TestOlcrtcRenderYAML(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("YAML missing %q:\n%s", want, got)
 		}
+	}
+	if strings.Contains(got, "data:") {
+		t.Errorf("OLC2 treats data: as a names-file override; omit it:\n%s", got)
 	}
 	if strings.Contains(got, "vp8:") {
 		t.Errorf("datachannel must not render vp8 block:\n%s", got)

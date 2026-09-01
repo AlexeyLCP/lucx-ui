@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.200 — olcRTC OLC2 data: path (2026-09-01)
+
+OLC2 resolves `data:` relative to the YAML file and treats it as a names-file override. We wrote `bin/tunnel/olcrtc-N-data` into YAML that already lives in `bin/tunnel/` → `bin/tunnel/bin/tunnel/…` and `exit status 1` (no `names` file).
+
+Omit `data:` — embedded dictionaries. Callers still mkdir the state dir.
+
+**lucxVersion:** lucx.200
+
+---
+
 ## lucx.199 — olcRTC OLC2 pin (2026-09-01)
 
 VladufQa: session in the room, then `muxconn: decrypt failed` / `chacha20poly1305: message authentication failed`. Server was still on pre-OLC2 pin `3339cd36` (lucx.132); current olcbox speaks OLC2.

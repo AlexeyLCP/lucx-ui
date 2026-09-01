@@ -232,6 +232,7 @@ func (c OlcrtcConfig) ClampVP8() OlcrtcConfig {
 // CLI argument. Schema mirrors upstream docs/examples/server/*.yaml and
 // Ex3-ui's ServerYAML().
 func (c OlcrtcConfig) RenderYAML(dataDir string) string {
+	_ = dataDir
 	var b strings.Builder
 	b.WriteString("mode: srv\n")
 	b.WriteString("auth:\n")
@@ -278,9 +279,6 @@ func (c OlcrtcConfig) RenderYAML(dataDir string) string {
 	b.WriteString("  interval: 10s\n")
 	b.WriteString("  timeout: 15s\n")
 	b.WriteString("  failures: 4\n")
-	if dataDir != "" {
-		b.WriteString("data: " + yamlString(dataDir) + "\n")
-	}
 	b.WriteString("debug: " + strconv.FormatBool(c.Debug) + "\n")
 	return b.String()
 }
