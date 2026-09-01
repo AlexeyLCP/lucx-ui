@@ -718,9 +718,10 @@ func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 	if stopXray {
 		_ = s.xrayService.StopXray()
 		mtproto.GetManager().StopAll()
-		awg.GetManager().StopAll()        // LUCX-HOOK: stop AWG sidecars
-		awg.GetManager().StopAllClients() // LUCX-HOOK: stop awgo-N outbounds
-		tunnel.GetManager().StopAll()     // LUCX-HOOK: stop tunnel sidecars (NaiveProxy)
+		// Inbound awgN only: its Start refuses a device that already exists, so a
+		// survivor holds the UDP port. An outbound awgo-N adopts itself instead.
+		awg.GetManager().StopAll()    // LUCX-HOOK: stop AWG sidecars
+		tunnel.GetManager().StopAll() // LUCX-HOOK: stop tunnel sidecars (NaiveProxy)
 		amneziawgnet.GetManager().StopAll()
 	}
 	if s.cron != nil {

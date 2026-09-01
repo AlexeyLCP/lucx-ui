@@ -229,7 +229,7 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		// reuse one AllowedIPs across different subnets. A single target keeps
 		// the operator-typed IP (Vlad: dummy clients just to skip addresses).
 		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
-		clearForeignTunnelKeys(&per, inbound.Protocol)
+		clearForeignTunnelFields(&per, inbound.Protocol)
 		// END LUCX-HOOK
 		if ips, ok := client.AllowedIPsByInbound[inbound.Id]; ok {
 			per.AllowedIPs = ips
@@ -328,15 +328,17 @@ func isTunnelProtocol(proto model.Protocol) bool {
 	return proto == model.AWG || proto == model.WireGuard || proto == model.AmneziaWG
 }
 
-// clearForeignTunnelKeys keeps an identity's tunnel keypair and PSK out of a
-// keyless protocol's settings JSON — unlike Password/Auth/Secret, these decrypt a tunnel.
-func clearForeignTunnelKeys(c *model.Client, proto model.Protocol) {
+// clearForeignTunnelFields keeps an identity's tunnel keypair, PSK and address
+// out of a keyless protocol's settings JSON — unlike Password/Auth/Secret, these
+// four decide who decrypts the tunnel and which subnet the kernel routes there.
+func clearForeignTunnelFields(c *model.Client, proto model.Protocol) {
 	if c == nil || isTunnelProtocol(proto) {
 		return
 	}
 	c.PrivateKey = ""
 	c.PublicKey = ""
 	c.PreSharedKey = ""
+	c.AllowedIPs = nil
 }
 
 // mintTunnelKeypairOnce fills a blank keypair BEFORE the caller's loop over
@@ -629,7 +631,7 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		// LUCX-HOOK: never broadcast one AllowedIPs to every AWG/WG inbound.
 		// One tunnel inbound → keep the typed IP (edit was rolling back).
 		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
-		clearForeignTunnelKeys(&per, inbound.Protocol)
+		clearForeignTunnelFields(&per, inbound.Protocol)
 		// END LUCX-HOOK
 		if ips, ok := updated.AllowedIPsByInbound[inbound.Id]; ok {
 			per.AllowedIPs = ips
@@ -962,7 +964,7 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 		if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
 			copyClient.AllowedIPs = nil
 		}
-		clearForeignTunnelKeys(&copyClient, inbound.Protocol)
+		clearForeignTunnelFields(&copyClient, inbound.Protocol)
 		// END LUCX-HOOK
 		if !addressesFitAmneziaWGInbound(copyClient.AllowedIPs, inbound) {
 			copyClient.AllowedIPs = nil

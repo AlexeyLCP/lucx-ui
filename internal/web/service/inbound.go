@@ -544,8 +544,10 @@ func inboundAwgHints(settings string, localInbound bool) (address string, obfusc
 		for _, ip := range []struct{ idx, val string }{
 			{"1", s.I1}, {"2", s.I2}, {"3", s.I3}, {"4", s.I4}, {"5", s.I5},
 		} {
-			if strings.TrimSpace(ip.val) != "" {
-				fmt.Fprintf(&out, "I%s = %s\n", ip.idx, ip.val)
+			// Per field, not all-or-nothing: grammar is a property of the
+			// value, where the budget above is a property of the whole set.
+			if awg.PortableIField(ip.val) {
+				fmt.Fprintf(&out, "I%s = %s\n", ip.idx, strings.TrimSpace(ip.val))
 			}
 		}
 	}
@@ -1504,7 +1506,8 @@ func (s *InboundService) checkMieruPortConflict(inbound *model.Inbound, ignoreId
 			if hit == 0 {
 				continue
 			}
-			udpOnly := other.Protocol == model.WireGuard || other.Protocol == model.AWG || other.Protocol == model.Hysteria
+			udpOnly := other.Protocol == model.WireGuard || other.Protocol == model.AWG ||
+				other.Protocol == model.AmneziaWG || other.Protocol == model.Hysteria
 			if udp {
 				if udpOnly || other.Protocol == model.Mieru || other.Protocol == model.TrustTunnel {
 					return common.NewErrorf("mieru: UDP port %d-%d collides with inbound %q (port %d)", lo, hi, other.Remark, hit)
@@ -2743,7 +2746,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 			if !push {
 				needRestart = true
-			} else if oldProtocol == model.MTProto || oldInbound.Protocol == model.MTProto {
+			} else if protoReconfiguresInPlace(oldProtocol) || protoReconfiguresInPlace(oldInbound.Protocol) {
 				oldSnapshot := *oldInbound
 				oldSnapshot.Tag = tag
 				oldSnapshot.Protocol = oldProtocol
@@ -2757,14 +2760,16 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 						pushable = false
 					}
 				}
-				newProtocolIsMtproto := oldInbound.Protocol == model.MTProto
+				// A failed apply is retried by that manager's own reconcile job;
+				// an Xray protocol has no such tick, so it needs the restart.
+				newProtocolSelfHeals := protoReconfiguresInPlace(oldInbound.Protocol)
 				if pushable {
 					postCommitApply = func() {
 						if err2 := rt.UpdateInbound(context.Background(), &oldSnapshot, payload); err2 == nil {
 							logger.Debug("Updated inbound applied on", rt.Name(), ":", oldInbound.Tag)
 						} else {
 							logger.Debug("Unable to update inbound on", rt.Name(), ":", err2)
-							if !newProtocolIsMtproto {
+							if !newProtocolSelfHeals {
 								needRestart = true
 							}
 						}
@@ -2773,6 +2778,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			} else {
 				oldSnapshot := *oldInbound
 				oldSnapshot.Tag = tag
+				// Taken after the field was overwritten, so the teardown would
+				// otherwise be routed by the NEW protocol and miss its sidecar.
+				oldSnapshot.Protocol = oldProtocol
 				var runtimeInbound *model.Inbound
 				if inbound.Enable {
 					var err2 error

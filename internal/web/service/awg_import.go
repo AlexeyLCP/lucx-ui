@@ -94,10 +94,14 @@ func (s *AwgImportService) reservedEmails() map[string]struct{} {
 // addImportedInbound saves a discovered server, returning the operator note an
 // over-budget I-set earns: it stays stored, but no renderer will emit it.
 func (s *AwgImportService) addImportedInbound(ib *model.Inbound) (*model.Inbound, string, error) {
-	warn := ""
+	var notes []string
 	if measured := AwgIFieldBudgetWarning(ib.Settings); measured != "" {
-		warn = "saved, I-fields will not be applied: " + measured
+		notes = append(notes, "saved, I-fields will not be applied: "+measured)
 	}
+	if lost := AwgIFieldExportNote(ib.Settings); lost != "" {
+		notes = append(notes, "saved, these will not reach a client: "+lost)
+	}
+	warn := strings.Join(notes, "; ")
 	created, _, err := s.Inbound.addInbound(ib, true)
 	return created, warn, err
 }

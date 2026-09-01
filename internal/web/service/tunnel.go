@@ -294,7 +294,8 @@ func (s *TunnelService) PreviewNaive(cfg tunnel.NaiveConfig) (string, error) {
 }
 
 // ValidateCaddyfile runs `caddy adapt` against the raw text using the
-// installed core binary, returning the parser output on failure.
+// installed core binary, returning the parser output on failure. It adapts the
+// hardened form, which is what the server runs — the editor's text never is.
 func (s *TunnelService) ValidateCaddyfile(text string) error {
 	if strings.TrimSpace(text) == "" {
 		return common.NewError("tunnel: Caddyfile is empty")
@@ -306,7 +307,7 @@ func (s *TunnelService) ValidateCaddyfile(text string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, bin, "adapt", "--adapter", "caddyfile", "--config", "-")
-	cmd.Stdin = strings.NewReader(text)
+	cmd.Stdin = strings.NewReader(tunnel.HardenRawCaddyfile(text))
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		msg := strings.TrimSpace(string(out))
@@ -1133,7 +1134,7 @@ func (s *TunnelService) checkNaivePortConflict(cfg tunnel.NaiveConfig) error {
 			continue
 		}
 		switch ib.Protocol {
-		case model.WireGuard, model.AWG, model.Hysteria:
+		case model.WireGuard, model.AWG, model.AmneziaWG, model.Hysteria:
 			continue // UDP-only listeners never collide with naive's TCP port
 		}
 		if tunnelListenOverlap(cfg.Listen, ib.Listen) {

@@ -193,7 +193,7 @@ func (s *InboundService) MigrationRequirements() (err error) {
 		// LUCX-HOOK: a keyless inbound's settings can hold a stale copy of the tunnel
 		// keypair, and syncing it overwrites the client's working one (x-ui migrate).
 		for i := range modelClients {
-			clearForeignTunnelKeys(&modelClients[i], inbounds[inbound_index].Protocol)
+			clearForeignTunnelFields(&modelClients[i], inbounds[inbound_index].Protocol)
 		}
 		// END LUCX-HOOK
 
@@ -323,7 +323,7 @@ func (s *InboundService) MigrationRestoreVisionFlow() {
 		// LUCX-HOOK: same clobber as in MigrationRequirements — this inbound is keyless,
 		// so a stale tunnel keypair in its settings must not reach the clients table.
 		for i := range clients {
-			clearForeignTunnelKeys(&clients[i], ib.Protocol)
+			clearForeignTunnelFields(&clients[i], ib.Protocol)
 		}
 		// END LUCX-HOOK
 		err = db.Transaction(func(tx *gorm.DB) error {

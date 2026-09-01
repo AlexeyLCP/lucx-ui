@@ -179,6 +179,10 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 	if oldIb.Protocol == model.MTProto || newIb.Protocol == model.MTProto {
 		return l.updateMtprotoInbound(ctx, oldIb, newIb)
 	}
+	// LUCX-HOOK: AWG — keep the kernel interface across an inbound edit.
+	if oldIb.Protocol == model.AWG || newIb.Protocol == model.AWG {
+		return l.updateAwgInbound(ctx, oldIb, newIb)
+	}
 	// LUCX-HOOK: tunnel inbound update (Del+Add / Ensure restart).
 	if isTunnelInboundProto(oldIb.Protocol) || isTunnelInboundProto(newIb.Protocol) {
 		_ = l.DelInbound(ctx, oldIb)
@@ -315,6 +319,31 @@ func (l *Local) updateMtprotoInbound(ctx context.Context, oldIb, newIb *model.In
 		return nil
 	}
 	return mtproto.GetManager().Ensure(inst)
+}
+
+// updateAwgInbound mirrors updateMtprotoInbound. Manager.Remove drops
+// m.procs[id], the entry holding the fingerprint ensureLocked compares against.
+func (l *Local) updateAwgInbound(ctx context.Context, oldIb, newIb *model.Inbound) error {
+	if oldIb.Protocol == model.AWG && newIb.Protocol != model.AWG {
+		awg.GetManager().Remove(oldIb.Id)
+		if !newIb.Enable {
+			return nil
+		}
+		return l.AddInbound(ctx, newIb)
+	}
+	if oldIb.Protocol != model.AWG {
+		_ = l.DelInbound(ctx, oldIb)
+	}
+	if !newIb.Enable {
+		awg.GetManager().Remove(newIb.Id)
+		return nil
+	}
+	inst, ok := awg.InstanceFromInbound(newIb)
+	if !ok {
+		awg.GetManager().Remove(newIb.Id)
+		return nil
+	}
+	return awg.GetManager().Ensure(inst)
 }
 
 // updateAmneziaWGInbound mirrors updateMtprotoInbound: it skips the

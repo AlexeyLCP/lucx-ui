@@ -1097,6 +1097,17 @@ func injectQwdttEgress(cfg *xray.Config, inbound *model.Inbound) {
 // re-marshaled — mirroring mergeSubscriptionOutbounds. A corrupt template is
 // left untouched (the user will see the error on Xray start / next save),
 // never silently dropped.
+// awgOutboundIsUp answers the one question in config generation that can change
+// between builds. Recorded state, never a live probe: a shell call here would
+// make the generated config — and so the decision to restart Xray — depend on
+// the probe's mood. A var so a test can drive it without a kernel module.
+var awgOutboundIsUp = func(ifname string) bool {
+	if !awg.KernelAvailable() {
+		return true
+	}
+	return awg.GetManager().ClientIfaceUp(ifname)
+}
+
 func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 	for _, o := range outbounds {
 		if !o.Enable {
@@ -1113,31 +1124,32 @@ func injectAwgOutbounds(cfg *xray.Config, outbounds []*model.AwgOutbound) {
 		if !ok {
 			continue
 		}
-		if awg.KernelAvailable() {
-			if _, _, _, up := awg.GetManager().CollectClientTraffic(ci.Ifname); !up {
-				if err := appendAwgOutbound(cfg, blackholeOutbound(o.Tag)); err != nil {
-					logger.Warning("awg outbound: failed to inject blackhole for down iface", ci.Ifname, ":", err)
-				}
-				continue
+		if !awgOutboundIsUp(ci.Ifname) {
+			if err := appendAwgOutbound(cfg, blackholeOutbound(o.Tag)); err != nil {
+				logger.Warning("awg outbound: failed to inject blackhole for down iface", ci.Ifname, ":", err)
 			}
+			continue
 		}
 		settings := map[string]any{
 			"domainStrategy": "UseIP",
-		}
-		if ip := strings.SplitN(ci.Settings.Address, "/", 2)[0]; ip != "" {
-			settings["sendThrough"] = ip
 		}
 		streamSettings := map[string]any{
 			"sockopt": map[string]any{
 				"interface": ci.Ifname,
 			},
 		}
-		if err := appendAwgOutbound(cfg, map[string]any{
+		outbound := map[string]any{
 			"protocol":       "freedom",
 			"tag":            o.Tag,
 			"settings":       settings,
 			"streamSettings": streamSettings,
-		}); err != nil {
+		}
+		// Xray reads sendThrough from the outbound, not from a protocol's
+		// settings, and drops the unknown key there without a word.
+		if ip := strings.SplitN(ci.Settings.Address, "/", 2)[0]; ip != "" {
+			outbound["sendThrough"] = ip
+		}
+		if err := appendAwgOutbound(cfg, outbound); err != nil {
 			logger.Warning("awg outbound: failed to inject freedom outbound for tag", o.Tag, ":", err)
 		}
 	}

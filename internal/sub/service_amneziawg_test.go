@@ -288,3 +288,25 @@ func TestAmneziaWGConfigTextKeepsZeroPaddingSizes(t *testing.T) {
 		}
 	}
 }
+
+// One field the client's engine cannot read must not cost it the other four,
+// and must not cost it the whole file either: amneziawg-tools refuses a .conf
+// whole on one unparsable line.
+func TestAmneziaWGConfigText_UnportableIFieldIsDroppedAlone(t *testing.T) {
+	server := &amneziawg.ServerSettings{
+		PublicKey: "serverPub", PrimaryDNS: "8.8.8.8", MTU: 1420,
+		I1: "<b 0x01>", I2: "<t>", I3: "<c>", I4: "<r 8>", I5: "   ",
+	}
+	client := &model.Client{PrivateKey: "clientPriv", AllowedIPs: []string{"10.8.1.2/32"}}
+	conf := amneziaWGConfigText(server, client, "203.0.113.7", 51820, "remark")
+	for _, absent := range []string{"I3", "I5"} {
+		if strings.Contains(conf, absent) {
+			t.Errorf("%s is not portable and must not reach the client, got:\n%s", absent, conf)
+		}
+	}
+	for _, want := range []string{"I1 = <b 0x01>", "I2 = <t>", "I4 = <r 8>"} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("missing %q, got:\n%s", want, conf)
+		}
+	}
+}

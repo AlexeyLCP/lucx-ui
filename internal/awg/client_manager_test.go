@@ -7,6 +7,9 @@
 package awg
 
 import (
+	"os"
+	"path/filepath"
+	"sync"
 	"testing"
 	"time"
 
@@ -112,6 +115,194 @@ func TestParseClientDump_Empty(t *testing.T) {
 func TestSweepOrphanClients_Idempotent(t *testing.T) {
 	withTempConfigDir(t)
 	m := GetManager()
-	m.sweepOrphanClientsOnce()
-	m.sweepOrphanClientsOnce()
+	m.SweepOrphanClients(nil)
+	m.SweepOrphanClients(nil)
+}
+
+// The sweep's doc comment promised a check against awg_outbounds, but the body
+// consulted the in-memory clients map — empty on every fresh process, so the
+// first tick after a restart swept every live outbound away. The wanted set now
+// comes from the caller, which reads the rows.
+func TestSweepOrphanClients_KeepsWhatTheDatabaseStillWants(t *testing.T) {
+	dir := withTempConfigDir(t)
+	const kept, orphan = "awgo-3", "awgo-4"
+	for _, name := range []string{kept + ".conf", orphan + ".conf"} {
+		writeConf(t, name, xuiManagedMarker+"\n[Interface]\nPrivateKey = x\n")
+	}
+
+	clientMu.Lock()
+	saved := clients
+	// The map is deliberately left empty: that is the state a fresh process is
+	// in, and the whole point is that it must no longer decide anything.
+	clients, clientSwept = map[string]clientState{}, sync.Once{}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clients = saved
+		clientMu.Unlock()
+	})
+
+	GetManager().SweepOrphanClients(map[string]struct{}{kept: {}})
+
+	if _, err := os.Stat(filepath.Join(dir, orphan+".conf")); err == nil {
+		t.Error("an outbound with no row left must be swept")
+	}
+	if _, err := os.Stat(filepath.Join(dir, kept+".conf")); err != nil {
+		t.Errorf("a live outbound the database still wants was swept away: %v", err)
+	}
+}
+
+// The blackhole decision in the Xray config reads this: a recorded down must
+// stay down and a recorded up must stay up. That it does so without shelling
+// out is pinned separately, where the call can be counted.
+func TestClientIfaceUp_ReportsTheRecordedState(t *testing.T) {
+	withTempConfigDir(t)
+	const ifname = "awgo-77"
+
+	clientMu.Lock()
+	savedUp := clientUp
+	clientUp = map[string]bool{ifname: true}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clientUp = savedUp
+		clientMu.Unlock()
+	})
+
+	// No awg binary is reachable here, so a probe could only answer "down".
+	// Answering "up" proves the recorded state was read instead.
+	if !GetManager().ClientIfaceUp(ifname) {
+		t.Fatal("a recorded up interface must be reported up without a probe")
+	}
+
+	clientMu.Lock()
+	clientUp[ifname] = false
+	clientMu.Unlock()
+	if GetManager().ClientIfaceUp(ifname) {
+		t.Fatal("a recorded down interface must be reported down")
+	}
+}
+
+// An interface this process has never touched still has to get a real answer,
+// or the first config after a boot would blackhole a tunnel that is up.
+func TestClientIfaceUp_ProbesOnceForAnUnknownInterface(t *testing.T) {
+	withTempConfigDir(t)
+	const ifname = "awgo-78"
+
+	clientMu.Lock()
+	savedUp := clientUp
+	clientUp = map[string]bool{}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clientUp = savedUp
+		clientMu.Unlock()
+	})
+
+	_ = GetManager().ClientIfaceUp(ifname)
+
+	clientMu.Lock()
+	_, remembered := clientUp[ifname]
+	clientMu.Unlock()
+	if !remembered {
+		t.Fatal("the one probe an unknown interface earns must be remembered, or every config build repeats it")
+	}
+}
+
+// seedStuckRead makes awgShowIfname answer DeadlineExceeded for ifname without
+// any binary, which is what a wedged interface looks like from every reader.
+func seedStuckRead(t *testing.T, ifname string) {
+	t.Helper()
+	stuckShows.Store(ifname, time.Now())
+	t.Cleanup(func() { stuckShows.Delete(ifname) })
+}
+
+func swapClientState(t *testing.T) {
+	t.Helper()
+	clientMu.Lock()
+	savedClients, savedUp := clients, clientUp
+	clients, clientUp = map[string]clientState{}, map[string]bool{}
+	clientMu.Unlock()
+	t.Cleanup(func() {
+		clientMu.Lock()
+		clients, clientUp = savedClients, savedUp
+		clientMu.Unlock()
+	})
+}
+
+// A read that ran out of time says nothing. Recording down would put a
+// blackhole in front of a wedged but live tunnel — and because the config then
+// differs from the running one, restart Xray for every user to do it.
+func TestClientIfaceUp_WedgedReadIsNotTakenAsDown(t *testing.T) {
+	withTempConfigDir(t)
+	swapClientState(t)
+	const ifname = "awgo-81"
+	seedStuckRead(t, ifname)
+
+	if !GetManager().ClientIfaceUp(ifname) {
+		t.Error("a wedged read must not be reported as down")
+	}
+	clientMu.Lock()
+	_, recorded := clientUp[ifname]
+	clientMu.Unlock()
+	if recorded {
+		t.Error("a wedged read must record nothing; the next real read decides")
+	}
+}
+
+// Same rule one layer down: awg-quick up failing against a device that is
+// merely unreadable is not evidence the device is gone.
+func TestEnsureClient_WedgedReadDoesNotRecordDown(t *testing.T) {
+	withTempConfigDir(t)
+	swapClientState(t)
+	ci := clientInstanceForTest(t, 82)
+	seedStuckRead(t, ci.Ifname)
+
+	if err := GetManager().EnsureClient(ci); err == nil {
+		t.Fatal("awg-quick is absent here, so this must fail; the test asserts what it records")
+	}
+	clientMu.Lock()
+	up, recorded := clientUp[ci.Ifname]
+	clientMu.Unlock()
+	if recorded && !up {
+		t.Error("a failed up after a wedged read must not record the interface down")
+	}
+}
+
+// The .conf is the fingerprint a later start adopts. Leaving a file the kernel
+// never ran makes that start believe a stale interface is current, forever.
+func TestEnsureClient_FailedUpRestoresThePreviousConf(t *testing.T) {
+	dir := withTempConfigDir(t)
+	swapClientState(t)
+	ci := clientInstanceForTest(t, 83)
+	confPath := filepath.Join(dir, ci.Ifname+".conf")
+	const previous = "# Managed by x-ui - do not edit\n[Interface]\nPrivateKey = the-one-actually-running\n"
+	if err := os.WriteFile(confPath, []byte(previous), 0o600); err != nil {
+		t.Fatalf("seed conf: %v", err)
+	}
+
+	if err := GetManager().EnsureClient(ci); err == nil {
+		t.Fatal("awg-quick is absent here, so up must fail")
+	}
+
+	got, err := os.ReadFile(confPath)
+	if err != nil {
+		t.Fatalf("read conf: %v", err)
+	}
+	if string(got) != previous {
+		t.Errorf("a .conf the kernel never ran was left on disk:\n%s", got)
+	}
+}
+
+func clientInstanceForTest(t *testing.T, id int) ClientInstance {
+	t.Helper()
+	o := &model.AwgOutbound{
+		Id:       id,
+		Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","mtu":1320}`,
+	}
+	ci, ok := ClientInstanceFromOutbound(o)
+	if !ok {
+		t.Fatal("fixture must produce a client instance")
+	}
+	return ci
 }

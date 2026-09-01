@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { DBInbound } from '@/models/dbinbound';
 import {
   awgIFieldSetFrom,
+  awgIFieldGrammarRefused,
   awgIFieldSetRefused,
   awgSavedIFieldSet,
 } from '@/pages/inbounds/form/awgIFieldBudget';
@@ -103,5 +104,35 @@ describe('awgIFieldSetFrom', () => {
       i5: '',
       headerProtectionKey: HPK,
     });
+  });
+});
+
+// The stored value may be someone's working config on the engine it was written
+// for, so the form refuses only what this operator just typed.
+describe('awgIFieldGrammarRefused', () => {
+  it('spares a stored value the operator did not touch', () => {
+    const stored = { i1: '<b 0x01>', i3: '<c>' };
+    expect(awgIFieldGrammarRefused({ i1: '<t>', i3: '<c>' }, stored)).toEqual([]);
+  });
+
+  it('refuses a value typed now', () => {
+    expect(awgIFieldGrammarRefused({ i1: '<c>' }, null)).toEqual(['I1']);
+  });
+
+  it('refuses a stored value the operator edited into another bad one', () => {
+    expect(awgIFieldGrammarRefused({ i3: '<d>' }, { i3: '<c>' })).toEqual(['I3']);
+  });
+
+  it('allows fixing one field while another stays bad', () => {
+    const stored = { i1: '<c>', i3: '<c>' };
+    expect(awgIFieldGrammarRefused({ i1: '<t>', i3: '<c>' }, stored)).toEqual([]);
+  });
+
+  it('names every field it refuses, in order', () => {
+    expect(awgIFieldGrammarRefused({ i2: '<c>', i5: 'helloworld' }, null)).toEqual(['I2', 'I5']);
+  });
+
+  it('does not refuse a blank field', () => {
+    expect(awgIFieldGrammarRefused({ i1: '   ', i2: '' }, null)).toEqual([]);
   });
 });

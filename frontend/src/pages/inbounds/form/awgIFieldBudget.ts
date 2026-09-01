@@ -5,6 +5,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { awgIBytes, awgWorstCaseIBytesBudget } from '@/lib/xray/awg-budget';
+import { awgPortableIField } from '@/lib/xray/awg-descriptor';
 import { coerceInboundJsonField, DBInbound } from '@/models/dbinbound';
 import { Protocols } from '@/schemas/primitives';
 
@@ -49,4 +50,19 @@ export function awgIFieldSetRefused(next: AwgIFieldSet, saved: AwgIFieldSet | nu
   const budget = awgWorstCaseIBytesBudget((next.headerProtectionKey ?? '').trim() !== '');
   if (awgIBytes(next.i1, next.i2, next.i3, next.i4, next.i5) <= budget) return false;
   return saved === null || !sameIFieldSet(next, saved);
+}
+
+const I_FIELDS = ['i1', 'i2', 'i3', 'i4', 'i5'] as const;
+
+// awgIFieldGrammarRefused names the fields this operator just typed that no
+// client could use. Per field, unlike the budget: grammar is a property of the
+// value. And only what changed — a stored descriptor the panel will not export
+// may still be someone's working config on the engine it was written for, and
+// refusing to save around it would strand the whole inbound.
+export function awgIFieldGrammarRefused(next: AwgIFieldSet, saved: AwgIFieldSet | null): string[] {
+  return I_FIELDS.filter((key) => {
+    const v = (next[key] ?? '').trim();
+    if (v === '' || awgPortableIField(v)) return false;
+    return saved === null || (saved[key] ?? '').trim() !== v;
+  }).map((key) => key.toUpperCase());
 }

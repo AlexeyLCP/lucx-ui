@@ -706,6 +706,7 @@
         "awgHInvalid": "H must be an integer or lo-hi range (e.g. 5000 or 5000-40000)",
         "awgH15Range": "AWG 1.5 does not accept H ranges — regenerate obfuscation",
         "awgIFieldBudget": "I1-I5 exceed the netlink read budget and will not be applied",
+        "awgIFieldGrammar": "這些 I 欄位不通用，不會下發給客戶端",
         "awgVersion": "AWG 版本",
         "awgVersionHint": "此入站目標的 AmneziaWG 協定版本（伺服器設定上限）。1.5 = 舊版（Jc/S1/S2/H1-H4）；2 = 增加 S3/S4 + I1-I5（Android 2.0.1）；3 = 增加 HeaderProtectionKey（桌面 5.0.0.5 / Android 3.0.1）。v3 伺服器不接受 v1/v2/plain-WG 客戶端——混合客戶端群請使用單獨的 v2 入站。",
         "awgVersion15": "1.5 — 舊版（舊客戶端）",

@@ -103,7 +103,7 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 			if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
 				client.AllowedIPs = nil
 			}
-			clearForeignTunnelKeys(&client, inbound.Protocol)
+			clearForeignTunnelFields(&client, inbound.Protocol)
 			// END LUCX-HOOK
 			if err := s.fillProtocolDefaults(&client, inbound); err != nil {
 				recordErr("%s -> inbound %d: %v", rec.Email, ibId, err)
@@ -1333,7 +1333,7 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			// LUCX-HOOK: AWG/WG — typed IP only when this client hits one tunnel inbound.
 			if ib != nil {
 				clearBroadcastTunnelIP(&per, ib.Protocol, tunnelN)
-				clearForeignTunnelKeys(&per, ib.Protocol)
+				clearForeignTunnelFields(&per, ib.Protocol)
 			}
 			// END LUCX-HOOK
 			byInbound[ibId] = append(byInbound[ibId], clientWithInboundFlow(per, ib))

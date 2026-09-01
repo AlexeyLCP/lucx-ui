@@ -12,6 +12,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	xuilogger "github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 )
 
 // the panel logger is a process-wide singleton. init it once per test
@@ -942,5 +943,63 @@ func TestCheckPortConflict_AmneziawgnetSocksRelayReverseDirectionBlockedOnUpdate
 	}
 	if got == nil {
 		t.Fatalf("awg-1's own derived relay port %d collides with vless-1's real port; must be rejected", relayPort)
+	}
+}
+
+// AmneziaWG is a UDP listener, and both sidecar port checks kept their own copy
+// of that rule with AmneziaWG missing from it. The canonical list lives in
+// inboundTransports; these four pin the two copies against it.
+
+func TestCheckMieruPortConflict_UDPCollidesWithAmneziaWG(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflict(t, "awg-1", "0.0.0.0", 51820, model.AmneziaWG, ``, amneziawgRoutedSettings)
+
+	candidate := &model.Inbound{
+		Tag:      "mieru-udp",
+		Protocol: model.Mieru,
+		Port:     51820,
+		Settings: `{"portBindings":[{"port":51820,"protocol":"UDP"}]}`,
+	}
+	err := (&InboundService{}).checkMieruPortConflict(candidate, 0)
+	if err == nil {
+		t.Fatal("a mieru UDP binding on an AmneziaWG port must be refused; it went through silently")
+	}
+	if !strings.Contains(err.Error(), "UDP port 51820") {
+		t.Fatalf("conflict must name the UDP binding it refused; got %q", err)
+	}
+}
+
+func TestCheckMieruPortConflict_TCPCoexistsWithAmneziaWG(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflict(t, "awg-1", "0.0.0.0", 51820, model.AmneziaWG, ``, amneziawgRoutedSettings)
+
+	candidate := &model.Inbound{
+		Tag:      "mieru-tcp",
+		Protocol: model.Mieru,
+		Port:     51820,
+		Settings: `{"portBindings":[{"port":51820,"protocol":"TCP"}]}`,
+	}
+	if err := (&InboundService{}).checkMieruPortConflict(candidate, 0); err != nil {
+		t.Fatalf("TCP and UDP coexist on one port number, so this must be allowed: %v", err)
+	}
+}
+
+func TestCheckNaivePortConflict_CoexistsWithAmneziaWG(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflict(t, "awg-1", "0.0.0.0", 8443, model.AmneziaWG, ``, amneziawgRoutedSettings)
+
+	cfg := tunnel.NaiveConfig{Remark: "naive-1", Listen: "0.0.0.0", Port: 8443}
+	if err := (&TunnelService{}).checkNaivePortConflict(cfg); err != nil {
+		t.Fatalf("naive is TCP-only and AmneziaWG is UDP-only, so this must be allowed: %v", err)
+	}
+}
+
+func TestCheckNaivePortConflict_StillRefusesATCPInbound(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflict(t, "vless-1", "0.0.0.0", 8443, model.VLESS, `{"network":"tcp"}`, `{"clients":[]}`)
+
+	cfg := tunnel.NaiveConfig{Remark: "naive-1", Listen: "0.0.0.0", Port: 8443}
+	if err := (&TunnelService{}).checkNaivePortConflict(cfg); err == nil {
+		t.Fatal("a TCP inbound on the same port must still conflict")
 	}
 }

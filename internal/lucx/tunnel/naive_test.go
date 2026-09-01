@@ -429,3 +429,63 @@ func TestInstanceFingerprint(t *testing.T) {
 		t.Error("enabled flag must not move the fingerprint")
 	}
 }
+
+// The forced global block must disarm the admin endpoint without touching
+// anything else that happens to contain the word. Each case below is an
+// ordinary Caddyfile the regex used to mangle into an unparseable one.
+func TestForceCaddySafeGlobal_KeepsUnrelatedAdminWords(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		keep string
+	}{
+		{"site address", "admin.example.com {\n\troot * /srv\n}\n", "admin.example.com {"},
+		{"credential", ":443 {\n\tbasic_auth admin S3cretPassw0rd\n}\n", "basic_auth admin S3cretPassw0rd"},
+		{"path", ":443 {\n\ttls /etc/ssl/admin.crt /etc/ssl/admin.key\n}\n", "/etc/ssl/admin.key"},
+		{"header value", ":443 {\n\theader X-Role admin\n}\n", "header X-Role admin"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := forceCaddySafeGlobal(tc.raw)
+			if !strings.Contains(got, tc.keep) {
+				t.Errorf("hardening ate a line it does not own; want %q in:\n%s", tc.keep, got)
+			}
+			if !strings.Contains(got, "admin off") {
+				t.Errorf("forced global missing:\n%s", got)
+			}
+		})
+	}
+}
+
+// Caddy refuses a global options block that is not the first thing in the file,
+// and a leading comment is the ordinary way to head a config.
+func TestForceCaddySafeGlobal_LeadingCommentKeepsOneGlobalBlock(t *testing.T) {
+	raw := "# my config\n{\n\tdebug\n}\n\n:8443 {\n\trespond \"ok\"\n}\n"
+	got := forceCaddySafeGlobal(raw)
+	if n := strings.Count(got, "skip_install_trust"); n != 1 {
+		t.Fatalf("expected exactly one forced global block, got %d:\n%s", n, got)
+	}
+	if !strings.Contains(got, "debug") {
+		t.Errorf("the operator's own global options were dropped:\n%s", got)
+	}
+	if strings.Contains(got, "}\n\n{\n") || strings.HasPrefix(got, "{\n\tadmin off") {
+		t.Errorf("a second global block was prepended ahead of the existing one:\n%s", got)
+	}
+}
+
+// The real admin directive still has to go, in every position it can occupy.
+func TestForceCaddySafeGlobal_StillDisarmsTheAdminEndpoint(t *testing.T) {
+	for _, raw := range []string{
+		"{\n\tadmin 0.0.0.0:2019\n}\n:443 {\n}\n",
+		"{\n\tadmin unix//run/caddy.sock\n}\n:443 {\n}\n",
+		"# lead\n{\n\tadmin :2019\n}\n:443 {\n}\n",
+	} {
+		got := forceCaddySafeGlobal(raw)
+		if strings.Contains(got, "2019") || strings.Contains(got, "caddy.sock") {
+			t.Errorf("raw admin listener survived:\n%s", got)
+		}
+		if !strings.Contains(got, "admin off") {
+			t.Errorf("forced global missing:\n%s", got)
+		}
+	}
+}

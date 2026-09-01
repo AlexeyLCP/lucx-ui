@@ -1,4 +1,5 @@
 import { formatInboundLabel } from '@/lib/inbounds/label';
+import { awgPortableIField } from '@/lib/xray/awg-descriptor';
 import { preferPublicHost, resolveShareHost } from '@/lib/xray/inbound-link';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 
@@ -79,11 +80,17 @@ export function buildAmneziaWGClientConfig(
   lines.push(hLine('H2', server?.h2, '2'));
   lines.push(hLine('H3', server?.h3, '3'));
   lines.push(hLine('H4', server?.h4, '4'));
-  if (server?.i1) lines.push(`I1 = ${server.i1}`);
-  if (server?.i2) lines.push(`I2 = ${server.i2}`);
-  if (server?.i3) lines.push(`I3 = ${server.i3}`);
-  if (server?.i4) lines.push(`I4 = ${server.i4}`);
-  if (server?.i5) lines.push(`I5 = ${server.i5}`);
+  // Per field: a descriptor this client's engine cannot parse costs it the
+  // whole file, and one blank value used to be enough to do that.
+  for (const [key, value] of [
+    ['I1', server?.i1],
+    ['I2', server?.i2],
+    ['I3', server?.i3],
+    ['I4', server?.i4],
+    ['I5', server?.i5],
+  ] as Array<[string, string | undefined]>) {
+    if (awgPortableIField(value)) lines.push(`${key} = ${(value ?? '').trim()}`);
+  }
   const optional31: Array<[string, string | undefined]> = [
     ['HeaderProtectionKey', server?.headerProtectionKey],
     ['ContentPaddingAddition', server?.contentPaddingAddition],

@@ -841,8 +841,10 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 			for _, p := range []struct{ key, jk string }{
 				{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
 			} {
-				if v, ok := settings[p.jk].(string); ok && strings.TrimSpace(v) != "" {
-					params[p.key] = v
+				// Per field, not all-or-nothing: grammar is a property of the
+				// value, where the budget above is a property of the whole set.
+				if v, ok := settings[p.jk].(string); ok && awg.PortableIField(v) {
+					params[p.key] = strings.TrimSpace(v)
 				}
 			}
 		}
@@ -1185,8 +1187,10 @@ func amneziaWGConfigText(server *amneziawg.ServerSettings, client *model.Client,
 	fmt.Fprintf(&b, "H3 = %s\n", amneziaWGHeaderOrDefault(server.H3, "3"))
 	fmt.Fprintf(&b, "H4 = %s\n", amneziaWGHeaderOrDefault(server.H4, "4"))
 	for i, v := range []string{server.I1, server.I2, server.I3, server.I4, server.I5} {
-		if v != "" {
-			fmt.Fprintf(&b, "I%d = %s\n", i+1, v)
+		// A value of pure whitespace used to pass here, and "I1 = " makes
+		// amneziawg-tools reject the client's whole file, not just the line.
+		if awg.PortableIField(v) {
+			fmt.Fprintf(&b, "I%d = %s\n", i+1, strings.TrimSpace(v))
 		}
 	}
 	optional := []struct{ key, v string }{
