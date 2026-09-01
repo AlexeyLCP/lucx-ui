@@ -43,7 +43,7 @@ export default function OlcrtcFields() {
           ? ['vp8channel', 'seichannel', 'videochannel']
           : ['datachannel', 'vp8channel', 'seichannel', 'videochannel'];
     if (!transport || allowed.includes(transport)) return;
-    setValue('settings.transport', allowed[0], { shouldDirty: true });
+    setValue('settings.transport', 'vp8channel', { shouldDirty: true });
   }, [provider, transport, setValue]);
 
   return (

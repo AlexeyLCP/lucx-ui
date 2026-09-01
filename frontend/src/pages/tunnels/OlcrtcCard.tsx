@@ -92,7 +92,7 @@ export function OlcrtcCard() {
           ? ['vp8channel', 'seichannel', 'videochannel']
           : ['datachannel', 'vp8channel', 'seichannel', 'videochannel'];
     if (!transport || allowed.includes(transport)) return;
-    form.setValue('transport', allowed[0], { shouldDirty: true });
+    form.setValue('transport', 'vp8channel', { shouldDirty: true });
   }, [provider, transport, form]);
 
   const [logsOpen, setLogsOpen] = useState(false);
