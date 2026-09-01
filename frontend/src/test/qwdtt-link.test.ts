@@ -78,4 +78,49 @@ describe('genOlcrtcLink', () => {
     const link = genOlcrtcLink({ inbound: ib });
     expect(link).toBe(`olcrtc://jitsi?datachannel@https://meet.jit.si/r#${'a'.repeat(64)}`);
   });
+
+  it('builds seichannel and videochannel payloads', () => {
+    const key = 'a'.repeat(64);
+    const base = {
+      protocol: 'olcrtc',
+      port: 0,
+      listen: '',
+      streamSettings: {},
+      sniffing: {},
+    };
+    const sei = genOlcrtcLink({
+      inbound: {
+        ...base,
+        settings: {
+          provider: 'jitsi',
+          roomId: 'r',
+          cryptoKey: key,
+          transport: 'seichannel',
+          seiFps: 30,
+          seiBatch: 64,
+          seiFrag: 900,
+          seiAck: 2000,
+        },
+      } as unknown as Inbound,
+    });
+    expect(sei).toBe(`olcrtc://jitsi?seichannel<fps=30&batch=64&frag=900&ack-ms=2000>@r#${key}`);
+    const video = genOlcrtcLink({
+      inbound: {
+        ...base,
+        settings: {
+          provider: 'telemost',
+          roomId: 'r',
+          cryptoKey: key,
+          transport: 'videochannel',
+          videoW: 1080,
+          videoH: 1080,
+          videoFps: 30,
+          videoCodec: 'qrcode',
+        },
+      } as unknown as Inbound,
+    });
+    expect(video).toBe(
+      `olcrtc://telemost?videochannel<video-w=1080&video-h=1080&video-fps=30&video-codec=qrcode>@r#${key}`,
+    );
+  });
 });

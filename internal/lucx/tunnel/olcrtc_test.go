@@ -37,8 +37,10 @@ func TestOlcrtcValidate(t *testing.T) {
 	}{
 		{"no room", func(c *OlcrtcConfig) { c.RoomID = " " }},
 		{"bad provider", func(c *OlcrtcConfig) { c.Provider = "zoom" }},
-		{"bad transport", func(c *OlcrtcConfig) { c.Transport = "seichannel" }},
+		{"bad transport", func(c *OlcrtcConfig) { c.Transport = "udp" }},
 		{"telemost+datachannel", func(c *OlcrtcConfig) { c.Provider = "telemost"; c.Transport = "datachannel" }},
+		{"telemost+seichannel", func(c *OlcrtcConfig) { c.Provider = "telemost"; c.Transport = "seichannel" }},
+		{"wbstream+datachannel", func(c *OlcrtcConfig) { c.Provider = "wbstream"; c.Transport = "datachannel" }},
 		{"dns bare ip", func(c *OlcrtcConfig) { c.DNS = "8.8.8.8" }},
 		{"bad key", func(c *OlcrtcConfig) { c.CryptoKey = "short" }},
 	}
@@ -75,6 +77,8 @@ func TestOlcrtcRenderYAML(t *testing.T) {
 		`data: "/tmp/olcrtc-data"`,
 		"debug: true",
 		"interval: 10s",
+		"timeout: 15s",
+		"failures: 4",
 	} {
 		if !strings.Contains(got, want) {
 			t.Errorf("YAML missing %q:\n%s", want, got)
@@ -101,6 +105,52 @@ func TestOlcrtcRenderYAML(t *testing.T) {
 	if strings.Contains(got, "data:") {
 		t.Errorf("empty dataDir must omit data key:\n%s", got)
 	}
+
+	cfg.Transport = "seichannel"
+	cfg.SeiFps, cfg.SeiBatch, cfg.SeiFrag, cfg.SeiAck = 30, 64, 900, 2000
+	got = cfg.RenderYAML("")
+	for _, want := range []string{
+		`transport: "seichannel"`,
+		"sei:",
+		"fragment_size: 900",
+		"ack_timeout_ms: 2000",
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("sei YAML missing %q:\n%s", want, got)
+		}
+	}
+
+	cfg.Transport = "videochannel"
+	cfg.VideoW, cfg.VideoH, cfg.VideoFps, cfg.VideoCodec = 1080, 1080, 30, "qrcode"
+	got = cfg.RenderYAML("")
+	for _, want := range []string{
+		`transport: "videochannel"`,
+		"video:",
+		"width: 1080",
+		`codec: "qrcode"`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("video YAML missing %q:\n%s", want, got)
+		}
+	}
+}
+
+func TestOlcrtcTransportMatrix(t *testing.T) {
+	ok := func(provider, transport string) {
+		t.Helper()
+		c := DefaultOlcrtcConfig()
+		c.RoomID = "r"
+		c.Provider, c.Transport = provider, transport
+		if err := c.Validate(); err != nil {
+			t.Fatalf("%s+%s: %v", provider, transport, err)
+		}
+	}
+	ok("jitsi", "seichannel")
+	ok("jitsi", "videochannel")
+	ok("telemost", "videochannel")
+	ok("wbstream", "seichannel")
+	ok("wbstream", "videochannel")
+	ok("wbstream", "vp8channel")
 }
 
 func TestOlcrtcClientURI(t *testing.T) {
@@ -119,6 +169,20 @@ func TestOlcrtcClientURI(t *testing.T) {
 	got = cfg.ClientURI()
 	if !strings.Contains(got, "vp8channel<vp8-fps=60&vp8-batch=64>") {
 		t.Fatalf("vp8 URI = %q", got)
+	}
+
+	cfg.Transport = "seichannel"
+	cfg.SeiFps, cfg.SeiBatch, cfg.SeiFrag, cfg.SeiAck = 30, 64, 900, 2000
+	got = cfg.ClientURI()
+	if !strings.Contains(got, "seichannel<fps=30&batch=64&frag=900&ack-ms=2000>") {
+		t.Fatalf("sei URI = %q", got)
+	}
+
+	cfg.Transport = "videochannel"
+	cfg.VideoW, cfg.VideoH, cfg.VideoFps, cfg.VideoCodec = 1080, 1080, 30, "qrcode"
+	got = cfg.ClientURI()
+	if !strings.Contains(got, "videochannel<video-w=1080&video-h=1080&video-fps=30&video-codec=qrcode>") {
+		t.Fatalf("video URI = %q", got)
 	}
 
 	cfg.RoomID = ""

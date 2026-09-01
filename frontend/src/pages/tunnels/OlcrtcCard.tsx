@@ -85,9 +85,14 @@ export function OlcrtcCard() {
   const transport = useWatch({ control: form.control, name: 'transport' });
 
   useEffect(() => {
-    if (provider === 'telemost' && transport !== 'vp8channel') {
-      form.setValue('transport', 'vp8channel', { shouldDirty: true });
-    }
+    const allowed =
+      provider === 'telemost'
+        ? ['vp8channel', 'videochannel']
+        : provider === 'wbstream'
+          ? ['vp8channel', 'seichannel', 'videochannel']
+          : ['datachannel', 'vp8channel', 'seichannel', 'videochannel'];
+    if (!transport || allowed.includes(transport)) return;
+    form.setValue('transport', allowed[0], { shouldDirty: true });
   }, [provider, transport, form]);
 
   const [logsOpen, setLogsOpen] = useState(false);
@@ -171,11 +176,22 @@ export function OlcrtcCard() {
 
   const transportOptions =
     provider === 'telemost'
-      ? [{ value: 'vp8channel', label: 'vp8channel' }]
-      : [
-          { value: 'datachannel', label: 'datachannel' },
+      ? [
           { value: 'vp8channel', label: 'vp8channel' },
-        ];
+          { value: 'videochannel', label: 'videochannel' },
+        ]
+      : provider === 'wbstream'
+        ? [
+            { value: 'vp8channel', label: 'vp8channel' },
+            { value: 'seichannel', label: 'seichannel' },
+            { value: 'videochannel', label: 'videochannel' },
+          ]
+        : [
+            { value: 'datachannel', label: 'datachannel' },
+            { value: 'vp8channel', label: 'vp8channel' },
+            { value: 'seichannel', label: 'seichannel' },
+            { value: 'videochannel', label: 'videochannel' },
+          ];
 
   return (
     <Card
@@ -394,6 +410,91 @@ export function OlcrtcCard() {
                       label={t('pages.tunnels.olcrtc.form.vp8Batch')}
                     >
                       <InputNumber min={1} max={64} style={{ width: '100%' }} />
+                    </FormField>
+                  </Col>
+                </Row>
+              )}
+              {transport === 'seichannel' && (
+                <Row gutter={16}>
+                  <Col xs={12} sm={6}>
+                    <FormField
+                      name="seiFps"
+                      control={form.control}
+                      label={t('pages.inbounds.form.olcrtcSeiFps')}
+                    >
+                      <InputNumber min={1} max={120} style={{ width: '100%' }} />
+                    </FormField>
+                  </Col>
+                  <Col xs={12} sm={6}>
+                    <FormField
+                      name="seiBatch"
+                      control={form.control}
+                      label={t('pages.inbounds.form.olcrtcSeiBatch')}
+                    >
+                      <InputNumber min={1} max={64} style={{ width: '100%' }} />
+                    </FormField>
+                  </Col>
+                  <Col xs={12} sm={6}>
+                    <FormField
+                      name="seiFrag"
+                      control={form.control}
+                      label={t('pages.inbounds.form.olcrtcSeiFrag')}
+                    >
+                      <InputNumber min={1} style={{ width: '100%' }} />
+                    </FormField>
+                  </Col>
+                  <Col xs={12} sm={6}>
+                    <FormField
+                      name="seiAck"
+                      control={form.control}
+                      label={t('pages.inbounds.form.olcrtcSeiAck')}
+                    >
+                      <InputNumber min={1} style={{ width: '100%' }} />
+                    </FormField>
+                  </Col>
+                </Row>
+              )}
+              {transport === 'videochannel' && (
+                <Row gutter={16}>
+                  <Col xs={12} sm={6}>
+                    <FormField
+                      name="videoW"
+                      control={form.control}
+                      label={t('pages.inbounds.form.olcrtcVideoWidth')}
+                    >
+                      <InputNumber min={1} style={{ width: '100%' }} />
+                    </FormField>
+                  </Col>
+                  <Col xs={12} sm={6}>
+                    <FormField
+                      name="videoH"
+                      control={form.control}
+                      label={t('pages.inbounds.form.olcrtcVideoHeight')}
+                    >
+                      <InputNumber min={1} style={{ width: '100%' }} />
+                    </FormField>
+                  </Col>
+                  <Col xs={12} sm={6}>
+                    <FormField
+                      name="videoFps"
+                      control={form.control}
+                      label={t('pages.inbounds.form.olcrtcVideoFps')}
+                    >
+                      <InputNumber min={1} max={120} style={{ width: '100%' }} />
+                    </FormField>
+                  </Col>
+                  <Col xs={12} sm={6}>
+                    <FormField
+                      name="videoCodec"
+                      control={form.control}
+                      label={t('pages.inbounds.form.olcrtcVideoCodec')}
+                    >
+                      <Select
+                        options={[
+                          { value: 'qrcode', label: 'qrcode' },
+                          { value: 'tile', label: 'tile' },
+                        ]}
+                      />
                     </FormField>
                   </Col>
                 </Row>

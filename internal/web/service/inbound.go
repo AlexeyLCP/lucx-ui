@@ -1187,10 +1187,7 @@ func (s *InboundService) normalizeOlcrtcSettings(inbound *model.Inbound) {
 	if !ok {
 		return
 	}
-	cfg = cfg.Merge()
-	if cfg.Provider == "telemost" && cfg.Transport != "vp8channel" {
-		cfg.Transport = "vp8channel"
-	}
+	cfg = tunnel.CoerceOlcrtcTransport(cfg.Merge())
 	cfg = cfg.ClampVP8()
 	if c2, err := cfg.EnsureCryptoKey(); err == nil {
 		cfg = c2

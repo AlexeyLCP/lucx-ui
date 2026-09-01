@@ -32,14 +32,24 @@ type OlcrtcConfig struct {
 	// CryptoKey is 64 hex chars (32 bytes), shared with the client. Empty
 	// on save is auto-generated.
 	CryptoKey string `json:"cryptoKey"`
-	// Transport: datachannel (jitsi recommended) | vp8channel (telemost/wb).
+	// Transport: datachannel | vp8channel | seichannel | videochannel.
 	Transport string `json:"transport"`
-	// DNS is the resolver in host:port form (olcrtc dials it directly).
-	DNS string `json:"dns"`
+	DNS       string `json:"dns"`
 
-	VP8Fps   int  `json:"vp8Fps"`
-	VP8Batch int  `json:"vp8Batch"`
-	Debug    bool `json:"debug"`
+	VP8Fps   int `json:"vp8Fps"`
+	VP8Batch int `json:"vp8Batch"`
+
+	SeiFps   int `json:"seiFps"`
+	SeiBatch int `json:"seiBatch"`
+	SeiFrag  int `json:"seiFrag"`
+	SeiAck   int `json:"seiAck"`
+
+	VideoW     int    `json:"videoW"`
+	VideoH     int    `json:"videoH"`
+	VideoFps   int    `json:"videoFps"`
+	VideoCodec string `json:"videoCodec"`
+
+	Debug bool `json:"debug"`
 
 	// RouteThroughXray: dial egress (and transport HTTP) via SOCKS bridge in
 	// Xray (native socks: YAML). Default false — Telemost/Jitsi need direct
@@ -56,11 +66,19 @@ type OlcrtcConfig struct {
 // DefaultOlcrtcConfig returns sensible defaults for a fresh olcRTC core.
 func DefaultOlcrtcConfig() OlcrtcConfig {
 	return OlcrtcConfig{
-		Provider:  "jitsi",
-		Transport: "datachannel",
-		DNS:       "8.8.8.8:53",
-		VP8Fps:    60,
-		VP8Batch:  64,
+		Provider:   "jitsi",
+		Transport:  "datachannel",
+		DNS:        "8.8.8.8:53",
+		VP8Fps:     60,
+		VP8Batch:   64,
+		SeiFps:     30,
+		SeiBatch:   64,
+		SeiFrag:    900,
+		SeiAck:     2000,
+		VideoW:     1080,
+		VideoH:     1080,
+		VideoFps:   30,
+		VideoCodec: "qrcode",
 	}
 }
 
@@ -82,6 +100,51 @@ func (c OlcrtcConfig) Merge() OlcrtcConfig {
 	if c.VP8Batch == 0 {
 		c.VP8Batch = def.VP8Batch
 	}
+	if c.SeiFps == 0 {
+		c.SeiFps = def.SeiFps
+	}
+	if c.SeiBatch == 0 {
+		c.SeiBatch = def.SeiBatch
+	}
+	if c.SeiFrag == 0 {
+		c.SeiFrag = def.SeiFrag
+	}
+	if c.SeiAck == 0 {
+		c.SeiAck = def.SeiAck
+	}
+	if c.VideoW == 0 {
+		c.VideoW = def.VideoW
+	}
+	if c.VideoH == 0 {
+		c.VideoH = def.VideoH
+	}
+	if c.VideoFps == 0 {
+		c.VideoFps = def.VideoFps
+	}
+	if c.VideoCodec == "" {
+		c.VideoCodec = def.VideoCodec
+	}
+	return c
+}
+
+func olcrtcTransportOK(provider, transport string) bool {
+	switch transport {
+	case "datachannel":
+		return provider == "jitsi"
+	case "vp8channel", "videochannel":
+		return provider == "jitsi" || provider == "telemost" || provider == "wbstream"
+	case "seichannel":
+		return provider == "jitsi" || provider == "wbstream"
+	default:
+		return false
+	}
+}
+
+func CoerceOlcrtcTransport(c OlcrtcConfig) OlcrtcConfig {
+	if olcrtcTransportOK(c.Provider, c.Transport) {
+		return c
+	}
+	c.Transport = "vp8channel"
 	return c
 }
 
@@ -97,12 +160,19 @@ func (c OlcrtcConfig) Validate() error {
 		return errors.New("olcrtc: provider must be jitsi | telemost | wbstream")
 	}
 	switch c.Transport {
-	case "datachannel", "vp8channel":
+	case "datachannel", "vp8channel", "seichannel", "videochannel":
 	default:
-		return errors.New("olcrtc: transport must be datachannel | vp8channel")
+		return errors.New("olcrtc: transport must be datachannel | vp8channel | seichannel | videochannel")
 	}
-	if c.Provider == "telemost" && c.Transport != "vp8channel" {
-		return errors.New("olcrtc: Telemost supports only the vp8channel transport")
+	if !olcrtcTransportOK(c.Provider, c.Transport) {
+		return errors.New("olcrtc: " + c.Provider + " does not support " + c.Transport)
+	}
+	if c.Transport == "videochannel" {
+		switch c.VideoCodec {
+		case "", "qrcode", "tile":
+		default:
+			return errors.New("olcrtc: video codec must be qrcode | tile")
+		}
 	}
 	if strings.TrimSpace(c.DNS) == "" {
 		return errors.New("olcrtc: dns must be set (host:port)")
@@ -132,11 +202,29 @@ func (c OlcrtcConfig) EnsureCryptoKey() (OlcrtcConfig, error) {
 
 // ClampVP8 bounds vp8 fps/batch to the ranges the client sanitizes.
 func (c OlcrtcConfig) ClampVP8() OlcrtcConfig {
-	if c.Transport != "vp8channel" {
-		return c
-	}
 	c.VP8Fps = clampInt(c.VP8Fps, 1, 120)
 	c.VP8Batch = clampInt(c.VP8Batch, 1, 64)
+	c.SeiFps = clampInt(c.SeiFps, 1, 120)
+	c.SeiBatch = clampInt(c.SeiBatch, 1, 64)
+	if c.SeiFrag <= 0 {
+		c.SeiFrag = 900
+	}
+	if c.SeiAck <= 0 {
+		c.SeiAck = 2000
+	}
+	c.VideoFps = clampInt(c.VideoFps, 1, 120)
+	if c.VideoW <= 0 {
+		c.VideoW = 1080
+	}
+	if c.VideoH <= 0 {
+		c.VideoH = 1080
+	}
+	if c.VideoCodec != "tile" {
+		c.VideoCodec = "qrcode"
+	}
+	if c.VideoCodec == "tile" {
+		c.VideoW, c.VideoH = 1080, 1080
+	}
 	return c
 }
 
@@ -159,10 +247,23 @@ func (c OlcrtcConfig) RenderYAML(dataDir string) string {
 	if dns := strings.TrimSpace(c.DNS); dns != "" {
 		b.WriteString("  dns: " + yamlString(dns) + "\n")
 	}
-	if c.Transport == "vp8channel" {
+	switch c.Transport {
+	case "vp8channel":
 		b.WriteString("vp8:\n")
 		b.WriteString("  fps: " + strconv.Itoa(c.VP8Fps) + "\n")
 		b.WriteString("  batch_size: " + strconv.Itoa(c.VP8Batch) + "\n")
+	case "seichannel":
+		b.WriteString("sei:\n")
+		b.WriteString("  fps: " + strconv.Itoa(c.SeiFps) + "\n")
+		b.WriteString("  batch_size: " + strconv.Itoa(c.SeiBatch) + "\n")
+		b.WriteString("  fragment_size: " + strconv.Itoa(c.SeiFrag) + "\n")
+		b.WriteString("  ack_timeout_ms: " + strconv.Itoa(c.SeiAck) + "\n")
+	case "videochannel":
+		b.WriteString("video:\n")
+		b.WriteString("  width: " + strconv.Itoa(c.VideoW) + "\n")
+		b.WriteString("  height: " + strconv.Itoa(c.VideoH) + "\n")
+		b.WriteString("  fps: " + strconv.Itoa(c.VideoFps) + "\n")
+		b.WriteString("  codec: " + yamlString(c.VideoCodec) + "\n")
 	}
 	// Native SOCKS upstream (upstream olcrtc YAML). When routed, point at the
 	// panel-injected Xray loopback SOCKS bridge (noauth).
@@ -175,8 +276,8 @@ func (c OlcrtcConfig) RenderYAML(dataDir string) string {
 	}
 	b.WriteString("liveness:\n")
 	b.WriteString("  interval: 10s\n")
-	b.WriteString("  timeout: 5s\n")
-	b.WriteString("  failures: 3\n")
+	b.WriteString("  timeout: 15s\n")
+	b.WriteString("  failures: 4\n")
 	if dataDir != "" {
 		b.WriteString("data: " + yamlString(dataDir) + "\n")
 	}
@@ -197,6 +298,14 @@ func (c OlcrtcConfig) ClientURI() string {
 	switch transport {
 	case "vp8channel":
 		transport = fmt.Sprintf("vp8channel<vp8-fps=%d&vp8-batch=%d>", c.VP8Fps, c.VP8Batch)
+	case "seichannel":
+		transport = fmt.Sprintf("seichannel<fps=%d&batch=%d&frag=%d&ack-ms=%d>", c.SeiFps, c.SeiBatch, c.SeiFrag, c.SeiAck)
+	case "videochannel":
+		codec := c.VideoCodec
+		if codec == "" {
+			codec = "qrcode"
+		}
+		transport = fmt.Sprintf("videochannel<video-w=%d&video-h=%d&video-fps=%d&video-codec=%s>", c.VideoW, c.VideoH, c.VideoFps, codec)
 	case "":
 		transport = "datachannel"
 	}

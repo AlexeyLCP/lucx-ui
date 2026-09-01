@@ -1623,6 +1623,14 @@ export function genOlcrtcLink(input: GenOlcrtcLinkInput): string {
     transport?: string;
     vp8Fps?: number;
     vp8Batch?: number;
+    seiFps?: number;
+    seiBatch?: number;
+    seiFrag?: number;
+    seiAck?: number;
+    videoW?: number;
+    videoH?: number;
+    videoFps?: number;
+    videoCodec?: string;
   };
   const room = (s.roomId ?? '').trim();
   const key = (s.cryptoKey ?? '').trim();
@@ -1633,6 +1641,10 @@ export function genOlcrtcLink(input: GenOlcrtcLinkInput): string {
     const fps = s.vp8Fps && s.vp8Fps > 0 ? s.vp8Fps : 60;
     const batch = s.vp8Batch && s.vp8Batch > 0 ? s.vp8Batch : 64;
     transport = `vp8channel<vp8-fps=${fps}&vp8-batch=${batch}>`;
+  } else if (transport === 'seichannel') {
+    transport = `seichannel<fps=${s.seiFps || 30}&batch=${s.seiBatch || 64}&frag=${s.seiFrag || 900}&ack-ms=${s.seiAck || 2000}>`;
+  } else if (transport === 'videochannel') {
+    transport = `videochannel<video-w=${s.videoW || 1080}&video-h=${s.videoH || 1080}&video-fps=${s.videoFps || 30}&video-codec=${s.videoCodec || 'qrcode'}>`;
   }
   return `olcrtc://${provider}?${transport}@${room}#${key}`;
 }

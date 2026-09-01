@@ -16,10 +16,34 @@ export default function OlcrtcFields() {
     | undefined;
   const { data: outboundTags } = useOutboundTags();
 
+  const transportOptions =
+    provider === 'telemost'
+      ? [
+          { value: 'vp8channel', label: 'vp8channel' },
+          { value: 'videochannel', label: 'videochannel' },
+        ]
+      : provider === 'wbstream'
+        ? [
+            { value: 'vp8channel', label: 'vp8channel' },
+            { value: 'seichannel', label: 'seichannel' },
+            { value: 'videochannel', label: 'videochannel' },
+          ]
+        : [
+            { value: 'datachannel', label: 'datachannel' },
+            { value: 'vp8channel', label: 'vp8channel' },
+            { value: 'seichannel', label: 'seichannel' },
+            { value: 'videochannel', label: 'videochannel' },
+          ];
+
   useEffect(() => {
-    if (provider === 'telemost' && transport !== 'vp8channel') {
-      setValue('settings.transport', 'vp8channel', { shouldDirty: true });
-    }
+    const allowed =
+      provider === 'telemost'
+        ? ['vp8channel', 'videochannel']
+        : provider === 'wbstream'
+          ? ['vp8channel', 'seichannel', 'videochannel']
+          : ['datachannel', 'vp8channel', 'seichannel', 'videochannel'];
+    if (!transport || allowed.includes(transport)) return;
+    setValue('settings.transport', allowed[0], { shouldDirty: true });
   }, [provider, transport, setValue]);
 
   return (
@@ -94,13 +118,7 @@ export default function OlcrtcFields() {
         <Input placeholder="openssl rand -hex 32" />
       </FormField>
       <FormField name={['settings', 'transport']} label={t('pages.inbounds.form.olcrtcTransport')}>
-        <Select
-          disabled={provider === 'telemost'}
-          options={[
-            { value: 'datachannel', label: 'datachannel' },
-            { value: 'vp8channel', label: 'vp8channel' },
-          ]}
-        />
+        <Select options={transportOptions} />
       </FormField>
       {transport === 'vp8channel' && (
         <>
@@ -112,6 +130,58 @@ export default function OlcrtcFields() {
             label={t('pages.inbounds.form.olcrtcVp8Batch')}
           >
             <InputNumber min={1} max={64} style={{ width: '100%' }} />
+          </FormField>
+        </>
+      )}
+      {transport === 'seichannel' && (
+        <>
+          <FormField name={['settings', 'seiFps']} label={t('pages.inbounds.form.olcrtcSeiFps')}>
+            <InputNumber min={1} max={120} style={{ width: '100%' }} />
+          </FormField>
+          <FormField
+            name={['settings', 'seiBatch']}
+            label={t('pages.inbounds.form.olcrtcSeiBatch')}
+          >
+            <InputNumber min={1} max={64} style={{ width: '100%' }} />
+          </FormField>
+          <FormField name={['settings', 'seiFrag']} label={t('pages.inbounds.form.olcrtcSeiFrag')}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </FormField>
+          <FormField name={['settings', 'seiAck']} label={t('pages.inbounds.form.olcrtcSeiAck')}>
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </FormField>
+        </>
+      )}
+      {transport === 'videochannel' && (
+        <>
+          <FormField
+            name={['settings', 'videoW']}
+            label={t('pages.inbounds.form.olcrtcVideoWidth')}
+          >
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </FormField>
+          <FormField
+            name={['settings', 'videoH']}
+            label={t('pages.inbounds.form.olcrtcVideoHeight')}
+          >
+            <InputNumber min={1} style={{ width: '100%' }} />
+          </FormField>
+          <FormField
+            name={['settings', 'videoFps']}
+            label={t('pages.inbounds.form.olcrtcVideoFps')}
+          >
+            <InputNumber min={1} max={120} style={{ width: '100%' }} />
+          </FormField>
+          <FormField
+            name={['settings', 'videoCodec']}
+            label={t('pages.inbounds.form.olcrtcVideoCodec')}
+          >
+            <Select
+              options={[
+                { value: 'qrcode', label: 'qrcode' },
+                { value: 'tile', label: 'tile' },
+              ]}
+            />
           </FormField>
         </>
       )}

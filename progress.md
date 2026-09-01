@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.199 — olcRTC OLC2 pin (2026-09-01)
+
+VladufQa: session in the room, then `muxconn: decrypt failed` / `chacha20poly1305: message authentication failed`. Server was still on pre-OLC2 pin `3339cd36` (lucx.132); current olcbox speaks OLC2.
+
+- Pin `OLCRTC_REF` → `ebe518a2` (upstream master 2026-08-31). `third_party/sidecars/linux-amd64/olcrtc-linux-amd64.gz` rebuilt.
+- YAML: liveness `timeout: 15s` / `failures: 4` (OLC2 control-stream defaults; old `5s`/`3` was shorter than the 10s ping).
+- WB Stream + datachannel rejected (upstream matrix; guest token cannot publish DC). Telemost still vp8-only.
+- Transports: seichannel + videochannel (YAML + `olcrtc://` payload). Matrix: Telemost vp8/video; WB Stream vp8/sei/video; Jitsi all four. No `auth.token` for WB datachannel.
+
+**lucxVersion:** lucx.199
+
+---
+
 ## lucx.198 — geo before first start (2026-09-01)
 
 Slim tarball left `bin/` without `geoip*.dat` / `geosite*.dat` on first install. Fetch ran after `systemctl start` (and after AWG), so Xray came up with no geo. Second install only worked because `bin/` backup restored the files before start.
