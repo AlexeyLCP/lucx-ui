@@ -1051,6 +1051,7 @@
       "clearAllInbounds": "全部清除",
       "noSubId": "该客户端没有 subId，无法生成共享链接。",
       "noLinks": "没有可共享的链接 — 请先将此客户端关联到支持协议的入站。",
+      "awgEmptyHint": "AWG 密钥就是 AmneziaWG 入站上的客户端。先添加入站（协议 AmneziaWG），再添加客户端并打开 QR / .conf。",
       "link": "链接",
       "resetNotPossible": "请先将此客户端关联到入站。",
       "resetAllTraffics": "重置所有客户端流量",

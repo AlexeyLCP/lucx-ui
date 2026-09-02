@@ -1051,6 +1051,7 @@
       "clearAllInbounds": "全部清除",
       "noSubId": "此客戶端沒有 subId，無法產生共享連結。",
       "noLinks": "沒有可共享的連結 — 請先將此客戶端關聯至支援協定的入站。",
+      "awgEmptyHint": "AWG 金鑰就是 AmneziaWG 入站上的用戶端。先新增入站（協定 AmneziaWG），再新增用戶端並開啟 QR / .conf。",
       "link": "連結",
       "resetNotPossible": "請先將此客戶端關聯至入站。",
       "resetAllTraffics": "重設所有客戶端流量",

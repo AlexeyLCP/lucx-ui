@@ -186,6 +186,16 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 The AWG kernel module is built automatically by the installer (`bin/install-awg-module.sh`, DKMS). After install, run `x-ui` in the console to confirm AWG kernel module version and start adding AWG inbounds from the panel.
 
+### AWG keys in the panel
+
+There is no separate “keys” screen. A key is a client on an AmneziaWG inbound:
+
+1. **Inbounds → Add inbound**, protocol **AmneziaWG (kernel)** (or native `amneziawg`).
+2. **Clients → Add client**, attach to that inbound.
+3. QR / download `.conf` / subscription `/awg/{subId}`.
+
+Default inbound subnet is `/24` — up to ~253 clients.
+
 ### From existing AWG on the host
 
 If the server already runs **awg-multi**, **toolza3** or **Docker Amnezia**, the panel **does not tear down** foreign `awg0`/`awg1`. Inbounds shows an **Import existing AWG** banner: preview peers → one inbound per interface. Keys / IPs / port / obfuscation are copied as-is. A kernel iface is renamed in place (`awg{id}`) — handshakes stay. Userspace/Docker: stop the old manager; those clients reconnect once.

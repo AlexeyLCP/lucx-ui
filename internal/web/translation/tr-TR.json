@@ -1051,6 +1051,7 @@
       "clearAllInbounds": "Tümünü Temizle",
       "noSubId": "Bu kullanıcının subId'si yok, dolayısıyla paylaşılabilir bir bağlantısı bulunmuyor.",
       "noLinks": "Paylaşılabilir bağlantı yok — önce bu kullanıcıyı bir protokole sahip olan gelen bağlantıya bağlayın.",
+      "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "link": "Bağlantı",
       "resetNotPossible": "Önce bu kullanıcıyı bir gelen bağlantıya bağlayın.",
       "resetAllTraffics": "Tüm Kullanıcıların Trafiğini Sıfırla",

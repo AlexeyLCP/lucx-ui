@@ -1051,6 +1051,7 @@
       "clearAllInbounds": "پاک کردن همه",
       "noSubId": "این کلاینت subId ندارد، لینک اشتراک‌گذاری وجود ندارد.",
       "noLinks": "لینکی برای اشتراک‌گذاری نیست — ابتدا این کلاینت را به یک اینباند با پروتکل سازگار متصل کنید.",
+      "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "link": "لینک",
       "resetNotPossible": "ابتدا این کلاینت را به یک اینباند متصل کنید.",
       "resetAllTraffics": "بازنشانی ترافیک همه کلاینت‌ها",

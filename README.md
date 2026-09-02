@@ -194,6 +194,16 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 AWG kernel-модуль собирается автоматически установщиком (`bin/install-awg-module.sh`, DKMS). После установки запустите `x-ui` в консоли, чтобы подтвердить версию AWG kernel-модуля, и начните добавлять AWG inbounds из панели.
 
+### Ключи AWG в панели
+
+Отдельного экрана «ключи» нет. Ключ = клиент на inbound AmneziaWG:
+
+1. **Inbounds → Add inbound**, протокол **AmneziaWG (ядро)** (или родной `amneziawg`).
+2. **Clients → Add client**, привязать к этому inbound.
+3. QR / скачать `.conf` / подписка `/awg/{subId}`.
+
+По умолчанию подсеть inbound `/24` — до ~253 клиентов.
+
 ### С существующего AWG на хосте
 
 Если на сервере уже крутится **awg-multi**, **toolza3** или **Docker Amnezia** — панель **не сносит** чужие `awg0`/`awg1`. На Inbounds появится баннер **«Импорт существующего AWG»**: превью пиров → один inbound на интерфейс. Ключи / IP / порт / обфускация копируются как есть. Kernel-интерфейс переименовывается на месте (`awg{id}`), handshake не падает. Userspace/Docker: остановите старый менеджер — клиенты переподключатся один раз.

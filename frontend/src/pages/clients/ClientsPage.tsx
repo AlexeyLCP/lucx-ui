@@ -1664,6 +1664,13 @@ export default function ClientsPage() {
                               <div className="clients-empty">
                                 <TeamOutlined style={{ fontSize: 32, marginBottom: 8 }} />
                                 <div>{t('noData')}</div>
+                                {/* LUCX-HOOK: AWG keys = clients on an AmneziaWG inbound */}
+                                <div
+                                  style={{ maxWidth: 420, margin: '8px auto 0', lineHeight: 1.45 }}
+                                >
+                                  {t('pages.clients.awgEmptyHint')}
+                                </div>
+                                {/* END LUCX-HOOK */}
                               </div>
                             ),
                           }}
@@ -1689,6 +1696,13 @@ export default function ClientsPage() {
                               <div className="card-empty">
                                 <TeamOutlined style={{ fontSize: 28, opacity: 0.5 }} />
                                 <div>{t('noData')}</div>
+                                {/* LUCX-HOOK: AWG keys = clients on an AmneziaWG inbound */}
+                                <div
+                                  style={{ maxWidth: 420, margin: '8px auto 0', lineHeight: 1.45 }}
+                                >
+                                  {t('pages.clients.awgEmptyHint')}
+                                </div>
+                                {/* END LUCX-HOOK */}
                               </div>
                             )}
                             {filteredClients.length > 0 && (

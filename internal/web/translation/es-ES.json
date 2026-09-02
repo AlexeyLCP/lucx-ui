@@ -1051,6 +1051,7 @@
       "clearAllInbounds": "Limpiar todo",
       "noSubId": "Este cliente no tiene subId, no hay enlace compartible.",
       "noLinks": "No hay enlaces compartibles — asocia primero este cliente a un inbound con protocolo válido.",
+      "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "link": "Enlace",
       "resetNotPossible": "Asocia primero este cliente a un inbound.",
       "resetAllTraffics": "Restablecer tráfico de todos los clientes",

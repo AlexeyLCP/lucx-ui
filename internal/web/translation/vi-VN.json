@@ -1051,6 +1051,7 @@
       "clearAllInbounds": "Xóa tất cả",
       "noSubId": "Khách hàng này không có subId, không có liên kết chia sẻ.",
       "noLinks": "Không có liên kết chia sẻ — hãy gắn khách hàng này vào một inbound có giao thức tương thích trước.",
+      "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "link": "Liên kết",
       "resetNotPossible": "Hãy gắn khách hàng này vào một inbound trước.",
       "resetAllTraffics": "Đặt lại lưu lượng của tất cả khách hàng",

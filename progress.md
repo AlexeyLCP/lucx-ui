@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.202 — AWG keys empty hint (2026-09-03)
+
+No separate “keys” screen: empty Clients/Inbounds and README say a key is a client on an AmneziaWG inbound (`pages.clients.awgEmptyHint`).
+
+**lucxVersion:** lucx.202 (no bump)
+
+---
+
 ## lucx.202 — routing client picker scroll (2026-09-03)
 
 panel/routing: scrolling the user/client Select painted one client over the rest (Ant Design `rc-virtual-list` reuses rows by option value). `virtual={false}` on the picker.

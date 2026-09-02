@@ -1051,6 +1051,7 @@
       "clearAllInbounds": "مسح الكل",
       "noSubId": "هذا العميل ليس لديه subId، لا يوجد رابط قابل للمشاركة.",
       "noLinks": "لا توجد روابط للمشاركة — قم بإرفاق هذا العميل بأحد الاتصالات الواردة الداعمة للبروتوكول أولاً.",
+      "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "link": "الرابط",
       "resetNotPossible": "قم بإرفاق هذا العميل بأحد الاتصالات الواردة أولاً.",
       "resetAllTraffics": "إعادة ضبط حركة مرور كل العملاء",
