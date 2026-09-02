@@ -568,11 +568,13 @@ export default function RuleFormModal({
               mode="tags"
               showSearch
               allowClear
+              // rc-virtual-list reuses rows by value; scrolling paints one client over the rest.
+              virtual={false}
               value={clientPick}
               onChange={applyClientPick}
               optionFilterProp="label"
               placeholder={t('pages.xray.ruleForm.clientPickPlaceholder')}
-              options={clientOptions.map((o) => ({ value: o.value, label: o.label }))}
+              options={clientOptions}
               filterOption={(input, option) =>
                 String(option?.label ?? '')
                   .toLowerCase()

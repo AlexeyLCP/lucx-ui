@@ -6,7 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import RuleFormModal from '@/pages/xray/routing/RuleFormModal';
 import { HttpUtil, Msg } from '@/utils';
 
-import { chooseSelectOption, renderWithProviders } from './test-utils';
+import { chooseSelectOption, listSelectOptions, renderWithProviders } from './test-utils';
 
 describe('RuleFormModal edit preserves unsurfaced fields', () => {
   afterEach(() => vi.restoreAllMocks());
@@ -89,6 +89,46 @@ describe('RuleFormModal edit preserves unsurfaced fields', () => {
     expect(onConfirm).toHaveBeenCalledWith(
       expect.objectContaining({ user: ['alice@example.com', 'bob@example.com'] }),
     );
+  });
+
+  it('keeps every AWG client distinct in the picker (no virtual-list reuse)', async () => {
+    const clients = Array.from({ length: 40 }, (_, i) => ({
+      id: i + 1,
+      email: `peer_${String(i + 1).padStart(2, '0')}`,
+      inboundIds: [1],
+      allowedIPs: `10.200.2.${i + 1}/32`,
+    }));
+    vi.spyOn(HttpUtil, 'get').mockImplementation(async (url) => {
+      if (String(url).includes('inbounds/options')) {
+        return new Msg(true, '', [{ id: 1, protocol: 'awg', tag: 'awg-1' }]);
+      }
+      return new Msg(true, '', clients);
+    });
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    renderWithProviders(
+      <RuleFormModal
+        open
+        rule={null}
+        inboundTags={[]}
+        outboundTags={['direct']}
+        balancerTags={[]}
+        onClose={vi.fn()}
+        onConfirm={vi.fn()}
+      />,
+      { queryClient },
+    );
+
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['routing', 'clientPickList'])).toHaveLength(40),
+    );
+    await waitFor(() => expect(queryClient.getQueryData(['inbounds', 'options'])).toBeTruthy());
+
+    const labels = listSelectOptions('clientPick');
+    expect(document.querySelector('.rc-virtual-list')).toBeNull();
+    expect(new Set(labels).size).toBe(40);
+    expect(labels).toContain('peer_01 · AWG · 10.200.2.1/32');
+    expect(labels).toContain('peer_40 · AWG · 10.200.2.40/32');
   });
   // END LUCX-HOOK
 

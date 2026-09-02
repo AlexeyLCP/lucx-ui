@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.202 — routing client picker scroll (2026-09-03)
+
+panel/routing: scrolling the user/client Select painted one client over the rest (Ant Design `rc-virtual-list` reuses rows by option value). `virtual={false}` on the picker.
+
+Files: `frontend/src/pages/xray/routing/RuleFormModal.tsx`, `frontend/src/test/rule-form-preserve-fields.test.tsx`.
+
+Tests: `npx vitest run --project=components src/test/rule-form-preserve-fields.test.tsx`.
+
+**lucxVersion:** lucx.202 (no bump)
+
+---
+
 ## lucx.202 — node sidecar HMAC + qWDTT peer host (2026-09-02)
 
 Master subscription for naive / mieru / TrustTunnel on a node used HMAC(master secret, master inbound id). The node sidecar used HMAC(node secret, node id). `wireInbound` never sends id.
