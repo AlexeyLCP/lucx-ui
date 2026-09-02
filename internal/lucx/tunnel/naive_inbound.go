@@ -116,7 +116,7 @@ func InstanceFromInbound(ib *model.Inbound, secret []byte) (Instance, bool) {
 			if !c.Enable || strings.TrimSpace(c.Email) == "" {
 				continue
 			}
-			extra = append(extra, ClientAuthForInbound(secret, ib.Id, c.Email))
+			extra = append(extra, InboundAuthPair(secret, ib, c.Email))
 		}
 	}
 

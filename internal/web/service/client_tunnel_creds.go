@@ -56,15 +56,7 @@ func (s *ClientService) TunnelClientCredentials(inboundId int, email string) (*T
 		return nil, common.NewError("panel secret is empty")
 	}
 
-	var pair tunnel.AuthPair
-	switch inbound.Protocol {
-	case model.Naive:
-		pair = tunnel.ClientAuthForInbound(secret, inbound.Id, email)
-	case model.Mieru:
-		pair = tunnel.MieruClientAuth(secret, inbound.Id, email)
-	case model.TrustTunnel:
-		pair = tunnel.TrustTunnelClientAuth(secret, inbound.Id, email)
-	}
+	pair := tunnel.InboundAuthPair(secret, &inbound, email)
 
 	return &TunnelClientCredentials{
 		Protocol: string(inbound.Protocol),

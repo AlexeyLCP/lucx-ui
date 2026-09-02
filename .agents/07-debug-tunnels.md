@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1x: naive / mieru / TrustTunnel sub from the master is dead — FIXED (lucx.202)
+- **Symptom (Alexandr_Sh / Илья, 01.09.2026):** standalone node links work; after adding the node to a master, master’s subscription for naive/mieru (and TrustTunnel) does not connect.
+- **Cause:** pairs were `HMAC(this panel’s secret, this row’s inbound.Id, email)`. `wireInbound` does not send `id`. Master sub used master secret+id; node sidecar used node secret+id.
+- **Fix:** `settings.authSeed` minted on the master when `NodeID != nil`, pushed with settings. `InboundAuthPair` uses the seed when present. Empty seed = old HMAC (local inbounds unchanged). Form strip: Zod `authSeed` optional + `PreserveAuthSeed` on update. qWDTT empty `subHost` uses `resolveInboundAddress` (node host), not the master’s outbound IP.
+- **Healing:** update master and node to lucx.202+. Next node reconcile writes the seed and pushes; clients must re-fetch the **master** subscription (node-issued links for that inbound rotate once).
+- **Lesson:** anything derived from panel-local secret/id cannot be the client password of a node-hosted sidecar. Put the HMAC key in the inbound JSON that already syncs.
+
 ### Pattern 1m: tunnel-sidecar lives on after inbound delete (“spams logs even though I deleted it”) — FIXED (lucx.115)
 - **Cause:** dual source of truth for tunnel cores. Besides inbounds (`olcrtc-{id}` / `naive-{id}`) the legacy path lives on: settings blob `lucxTunnel_{naive,olcrtc,qwdtt}` + Tunnels-page card (Start/Stop/Save) + manager key without prefix (`olcrtc`). `reconcile{Naive,Olcrtc}Inbounds` with NO inbounds fell back to the blob and `Ensure`’d the legacy core: a blob with `enabled:true` resurrected the process every tick (10 s). Deleting the inbound only tore down `{core}-{id}`. How the blob becomes `enabled:true` after lucx.102 migration: migration writes `migratedToInbound` and REMOVES `enabled`, but the legacy Start/Save button on the Tunnels page re-saves the blob as a struct without the marker and with `enabled:true`. Two adjacent gaps: with empty `want`, `Reconcile{Naive,Olcrtc}` wasn’t called → orphan `{core}-{id}` weren’t swept; a migrated blob was treated as legitimate desired-state. Same footgun on all three cores (naive/olcrtc/qwdtt).
 - **Symptom (VladufQa, 13.08.2026):** deleted olcRTC inbound — panel keeps spamming olcrtc `[ice] TRACE` logs, process holds the client (STUN from client IP).

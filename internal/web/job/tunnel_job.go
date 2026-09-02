@@ -541,7 +541,7 @@ func mieruUserMapForInbound(secret []byte, ib *model.Inbound) map[string]string 
 		if !c.Enable || email == "" {
 			continue
 		}
-		pair := tunnel.MieruClientAuth(secret, ib.Id, email)
+		pair := tunnel.InboundAuthPair(secret, ib, email)
 		if pair.User != "" {
 			out[pair.User] = email
 		}
@@ -563,7 +563,7 @@ func naiveUserMapForInbound(secret []byte, ib *model.Inbound) map[string]string 
 		if !c.Enable || email == "" {
 			continue
 		}
-		pair := tunnel.ClientAuthForInbound(secret, ib.Id, email)
+		pair := tunnel.InboundAuthPair(secret, ib, email)
 		if pair.User != "" {
 			out[pair.User] = email
 		}

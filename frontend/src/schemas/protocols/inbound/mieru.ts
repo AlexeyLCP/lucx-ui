@@ -99,6 +99,7 @@ export const MieruInboundSettingsSchema = z.object({
   multiplexing: MieruMultiplexingSchema.optional(),
   handshakeMode: MieruHandshakeModeSchema.optional(),
   trafficPattern: MieruTrafficPatternSchema.optional(),
+  authSeed: z.string().optional(),
   clients: z.array(NaiveClientSchema).default([]),
 });
 export type MieruInboundSettings = z.infer<typeof MieruInboundSettingsSchema>;

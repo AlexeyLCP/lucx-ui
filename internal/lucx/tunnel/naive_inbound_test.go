@@ -130,3 +130,28 @@ func TestInstanceFromInbound_RouteThroughXrayUpstream(t *testing.T) {
 		t.Fatalf("ProbePort = %d", inst.ProbePort)
 	}
 }
+
+func TestInstanceFromInbound_AuthSeed(t *testing.T) {
+	settings := SetAuthSeed(`{
+		"domain":"n.example.com",
+		"certFile":"/c.pem",
+		"keyFile":"/k.pem",
+		"authUser":"svc",
+		"authPass":"svcpass",
+		"clients":[{"email":"a@x","enable":true}]
+	}`, "shared-seed")
+	master := &model.Inbound{Id: 15, Enable: true, Port: 8443, Protocol: model.Naive, Settings: settings}
+	node := &model.Inbound{Id: 3, Enable: true, Port: 8443, Protocol: model.Naive, Settings: settings}
+	a, ok := InstanceFromInbound(master, []byte("master-secret"))
+	if !ok || !a.Enabled {
+		t.Fatal("master instance")
+	}
+	b, ok := InstanceFromInbound(node, []byte("node-secret"))
+	if !ok || !b.Enabled {
+		t.Fatal("node instance")
+	}
+	pair := InboundAuthPair([]byte("master-secret"), master, "a@x")
+	if !strings.Contains(a.ConfigText, pair.User) || !strings.Contains(b.ConfigText, pair.User) {
+		t.Fatalf("seeded user %q missing from Caddyfile", pair.User)
+	}
+}

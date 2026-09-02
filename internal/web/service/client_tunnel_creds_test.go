@@ -36,13 +36,13 @@ func TestTunnelClientCredentials_MatchesSidecarDerivation(t *testing.T) {
 		want     func(ib *model.Inbound) tunnel.AuthPair
 	}{
 		{model.TrustTunnel, func(ib *model.Inbound) tunnel.AuthPair {
-			return tunnel.TrustTunnelClientAuth(secret, ib.Id, "user@lucx.local")
+			return tunnel.InboundAuthPair(secret, ib, "user@lucx.local")
 		}},
 		{model.Mieru, func(ib *model.Inbound) tunnel.AuthPair {
-			return tunnel.MieruClientAuth(secret, ib.Id, "user@lucx.local")
+			return tunnel.InboundAuthPair(secret, ib, "user@lucx.local")
 		}},
 		{model.Naive, func(ib *model.Inbound) tunnel.AuthPair {
-			return tunnel.ClientAuthForInbound(secret, ib.Id, "user@lucx.local")
+			return tunnel.InboundAuthPair(secret, ib, "user@lucx.local")
 		}},
 	}
 

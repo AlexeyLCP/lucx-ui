@@ -938,7 +938,13 @@ func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 	if !ok || !inbound.Enable {
 		return ""
 	}
-	return cfg.EnsureSubHost().ClientURI()
+	if strings.TrimSpace(cfg.SubHost) == "" {
+		cfg = cfg.WithPeerHost(s.resolveInboundAddress(inbound))
+		if strings.TrimSpace(cfg.SubHost) == "" {
+			cfg = cfg.EnsureSubHost()
+		}
+	}
+	return cfg.ClientURI()
 }
 
 // genAnytlsLink returns the single anytls://password@host:port/?sni= URI for
@@ -1019,7 +1025,7 @@ func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
 	if err != nil || len(secret) == 0 {
 		return ""
 	}
-	pair := tunnel.ClientAuthForInbound(secret, inbound.Id, email)
+	pair := tunnel.InboundAuthPair(secret, inbound, email)
 	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
 		one := cfg
 		one.Domain = dest
@@ -1060,7 +1066,7 @@ func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
 	if err != nil || len(secret) == 0 {
 		return ""
 	}
-	pair := tunnel.MieruClientAuth(secret, inbound.Id, email)
+	pair := tunnel.InboundAuthPair(secret, inbound, email)
 	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
 		return mieruBindHostPort(cfg, port).ClientLink(dest, pair, remark)
 	}); joined != "" {
@@ -1111,7 +1117,7 @@ func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) st
 	if p := cfg.ListenPort(); p > 0 {
 		address = net.JoinHostPort(host, strconv.Itoa(p))
 	}
-	pair := tunnel.TrustTunnelClientAuth(secret, inbound.Id, email)
+	pair := tunnel.InboundAuthPair(secret, inbound, email)
 	ttLines := func(addr, remark string) string {
 		var links []string
 		if dl := cfg.ClientDeepLink(addr, pair, remark); dl != "" {

@@ -152,6 +152,16 @@ func (c QwdttConfig) EnsurePassword() (QwdttConfig, error) {
 	return c, nil
 }
 
+// WithPeerHost sets SubHost to host:dtlsPort. Empty host is a no-op.
+func (c QwdttConfig) WithPeerHost(host string) QwdttConfig {
+	host = strings.TrimSpace(host)
+	if host == "" {
+		return c
+	}
+	c.SubHost = net.JoinHostPort(host, strconv.Itoa(c.publicDTLSPort()))
+	return c
+}
+
 // EnsureSubHost fills SubHost with "<outboundIPv4>:<dtlsPort>" when empty so
 // ClientURI / subscription always have a peer after save. Dial-based probe
 // (no HTTP); fails open (leaves empty) when the host has no outbound route.

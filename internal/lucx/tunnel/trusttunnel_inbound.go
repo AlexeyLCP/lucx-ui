@@ -104,7 +104,7 @@ func TrustTunnelInstanceFromInbound(ib *model.Inbound, secret []byte, panelCert,
 			if !c.Enable || strings.TrimSpace(c.Email) == "" {
 				continue
 			}
-			users = append(users, TrustTunnelClientAuth(secret, ib.Id, c.Email))
+			users = append(users, InboundAuthPair(secret, ib, c.Email))
 		}
 	}
 	if len(users) == 0 {

@@ -1181,6 +1181,30 @@ func (s *InboundService) ensureNodeSupportsProtocol(protocol model.Protocol, nod
 	return nil
 }
 
+// ensureNodeAuthSeed mints settings.authSeed for HMAC sidecars on a node so
+// the master's sub and the node's sidecar share one key. Local inbounds stay
+// on HMAC(panel secret, id). Persists before push; skip the in-memory seed
+// if the write fails so the next tick cannot rotate it.
+func (s *InboundService) ensureNodeAuthSeed(ib *model.Inbound) {
+	if ib == nil || ib.NodeID == nil || !tunnel.UsesDerivedAuth(ib.Protocol) {
+		return
+	}
+	if tunnel.AuthSeed(ib.Settings) != "" {
+		return
+	}
+	next, changed := tunnel.EnsureAuthSeed(ib.Settings)
+	if !changed {
+		return
+	}
+	if ib.Id > 0 {
+		if err := database.GetDB().Model(&model.Inbound{}).Where("id = ?", ib.Id).Update("settings", next).Error; err != nil {
+			logger.Warning("authSeed persist failed for inbound", ib.Id, ":", err)
+			return
+		}
+	}
+	ib.Settings = next
+}
+
 // normalizeOlcrtcSettings ensures cryptoKey on save and coerces Telemost to
 // vp8channel (datachannel is rejected by Validate and left the process stopped
 // forever while the form still showed "enabled" — Vlad thrash 2026-08-12).
@@ -1895,6 +1919,7 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 			return inbound, false, err
 		}
 	}
+	s.ensureNodeAuthSeed(inbound)
 	// END LUCX-HOOK
 
 	tag, err := s.resolveInboundTag(inbound, 0)
@@ -2511,6 +2536,8 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			return inbound, false, err
 		}
 	}
+	inbound.Settings = tunnel.PreserveAuthSeed(oldInbound.Settings, inbound.Settings)
+	s.ensureNodeAuthSeed(inbound)
 	// END LUCX-HOOK
 
 	// LUCX-HOOK: AWG — keep client tunnel IPs stable across Address edits
@@ -2868,8 +2895,9 @@ func (s *InboundService) buildInboundForNodePush(tx *gorm.DB, inbound *model.Inb
 	}
 
 	built := *inbound
+	s.ensureNodeAuthSeed(&built)
 	settings := map[string]any{}
-	if err := json.Unmarshal([]byte(inbound.Settings), &settings); err != nil {
+	if err := json.Unmarshal([]byte(built.Settings), &settings); err != nil {
 		return nil, err
 	}
 

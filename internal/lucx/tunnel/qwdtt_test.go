@@ -178,3 +178,18 @@ func TestQwdttNameRegistry(t *testing.T) {
 		t.Fatalf("All() = %v", all)
 	}
 }
+
+func TestQwdttWithPeerHost(t *testing.T) {
+	cfg := DefaultQwdttConfig()
+	cfg = cfg.WithPeerHost("10.1.2.3")
+	if cfg.SubHost != "10.1.2.3:56000" {
+		t.Fatalf("SubHost = %q", cfg.SubHost)
+	}
+	if cfg.WithPeerHost("").SubHost != cfg.SubHost {
+		t.Fatal("empty host must not clear SubHost")
+	}
+	v6 := DefaultQwdttConfig().WithPeerHost("2001:db8::1")
+	if v6.SubHost != "[2001:db8::1]:56000" {
+		t.Fatalf("ipv6 SubHost = %q", v6.SubHost)
+	}
+}

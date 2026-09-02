@@ -85,7 +85,7 @@ func MieruInstanceFromInbound(ib *model.Inbound, secret []byte) (Instance, bool)
 			if !c.Enable || strings.TrimSpace(c.Email) == "" {
 				continue
 			}
-			users = append(users, MieruClientAuth(secret, ib.Id, c.Email))
+			users = append(users, InboundAuthPair(secret, ib, c.Email))
 		}
 	}
 

@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.202 — node sidecar HMAC + qWDTT peer host (2026-09-02)
+
+Master subscription for naive / mieru / TrustTunnel on a node used HMAC(master secret, master inbound id). The node sidecar used HMAC(node secret, node id). `wireInbound` never sends id.
+
+- `settings.authSeed` minted on the master when `NodeID != nil`, pushed with settings. `InboundAuthPair` prefers the seed. Empty seed = old HMAC (standalone).
+- Form cannot strip the seed: Zod optional + `PreserveAuthSeed` on update. Persist before push so a failed write cannot rotate the key.
+- qWDTT empty `subHost`: `resolveInboundAddress` (node host), then `EnsureSubHost`.
+
+Tests: `go test ./internal/lucx/tunnel/...` (seed match across ids, preserve, WithPeerHost).
+
+**lucxVersion:** lucx.202
+
+---
+
 ## lucx.201 — silent loss of live state (PR #77) (2026-09-01)
 
 PR #77 (rudenko-ks). Panel dropped live interfaces, overwrote tunnel fields, or handed clients a config their engine cannot parse — with no error.
