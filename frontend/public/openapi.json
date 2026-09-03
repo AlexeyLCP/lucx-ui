@@ -2238,7 +2238,8 @@
               "qwdtt",
               "mieru",
               "trusttunnel",
-              "anytls"
+              "anytls",
+              "tproxy"
             ],
             "example": "vless",
             "type": "string"
@@ -8026,6 +8027,364 @@
         ],
         "summary": "Stop every AnyTLS instance and remove the binary from disk. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_anytls_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Telegram WEB proxy core status for the Cores page: tproxy-server binary and process state. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_tproxy_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent tproxy-server log lines. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_tproxy_logs",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the tproxy-server binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_tproxy_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch tproxy-server from a URL. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_tproxy_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/tproxy-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop tproxy instances and remove the binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_tproxy_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/uploadSite": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Upload a camouflage-site zip for one tproxy inbound (query id). Needs index.html. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_tproxy_uploadSite",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Official MTProxy binary status for Telegram WEB proxy backends. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_mtproxy_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent official MTProxy log lines. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_mtproxy_logs",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the official MTProxy binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproxy_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch official MTProxy from a URL. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproxy_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/mtproxy-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop MTProxy instances and remove the binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproxy_deleteBinary",
         "responses": {
           "200": {
             "description": "Successful response",

@@ -815,4 +815,3 @@ func tproxyLogLines(c *gin.Context) int {
 	}
 	return lines
 }
-}
