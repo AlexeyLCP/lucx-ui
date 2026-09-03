@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.202 — node qWDTT attach wiped by heartbeat (#59) (2026-09-03)
+
+qWDTT/olcRTC on a managed node: attach succeeded, refresh dropped the client and the subscription. Node snapshot has no `clients[]`; `setRemoteTraffic` `SyncInbound` pruned master `client_inbounds`. Skip `shareOnlySidecar` in that loop.
+
+**lucxVersion:** lucx.202 (no bump)
+
+---
+
 ## lucx.202 — AWG keys empty hint (2026-09-03)
 
 No separate “keys” screen: empty Clients/Inbounds and README say a key is a client on an AmneziaWG inbound (`pages.clients.awgEmptyHint`).

@@ -1186,6 +1186,12 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 		if dirty {
 			continue
 		}
+		// LUCX-HOOK: share-only sidecars have no clients[] on the node; syncing
+		// the snapshot would wipe master attaches (#59).
+		if shareOnlySidecar(c.Protocol) {
+			continue
+		}
+		// END LUCX-HOOK
 		var oldEmailsRows []string
 		if err := tx.Table("clients").
 			Joins("JOIN client_inbounds ON client_inbounds.client_id = clients.id").

@@ -160,3 +160,53 @@ func TestSyncInboundStoresTrimmedEmail(t *testing.T) {
 		t.Fatalf("links after re-sync = %d, want 1", links)
 	}
 }
+
+// qWDTT/olcRTC on a node have no clients[] in settings. Heartbeat SyncInbound
+// from that snapshot used to drop every master attach (issue #59).
+func TestSetRemoteTraffic_ShareOnlyKeepsMasterAttach(t *testing.T) {
+	db := initTrafficTestDB(t)
+	svc := &InboundService{}
+	seedNodeRow(t, db, &model.Node{Id: 1, Name: "n1", Address: "127.0.0.1", Port: 2096, ApiToken: "tok", Enable: true})
+
+	nid := 1
+	ib := &model.Inbound{
+		UserId:   1,
+		Tag:      "n1-qwdtt",
+		Enable:   true,
+		Port:     56000,
+		Protocol: model.Qwdtt,
+		NodeID:   &nid,
+		Settings: `{"listenAddr":"0.0.0.0:56000","password":"x"}`,
+	}
+	if err := db.Create(ib).Error; err != nil {
+		t.Fatalf("create qWDTT inbound: %v", err)
+	}
+	rec := &model.ClientRecord{Email: "q@x", Enable: true, SubID: "subq"}
+	if err := db.Create(rec).Error; err != nil {
+		t.Fatalf("create client: %v", err)
+	}
+	if err := db.Create(&model.ClientInbound{ClientId: rec.Id, InboundId: ib.Id}).Error; err != nil {
+		t.Fatalf("attach: %v", err)
+	}
+
+	snap := &runtime.TrafficSnapshot{
+		Inbounds: []*model.Inbound{{
+			Tag:      "n1-qwdtt",
+			Protocol: model.Qwdtt,
+			Settings: `{"listenAddr":"0.0.0.0:56000","password":"x"}`,
+		}},
+	}
+	if _, err := svc.setRemoteTrafficLocked(1, snap, false, false); err != nil {
+		t.Fatalf("setRemoteTrafficLocked: %v", err)
+	}
+
+	var n int64
+	if err := db.Model(&model.ClientInbound{}).
+		Where("client_id = ? AND inbound_id = ?", rec.Id, ib.Id).
+		Count(&n).Error; err != nil {
+		t.Fatalf("count links: %v", err)
+	}
+	if n != 1 {
+		t.Fatalf("node qWDTT snapshot wiped the master attach, links=%d", n)
+	}
+}

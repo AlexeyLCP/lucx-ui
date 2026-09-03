@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1y: qWDTT from a managed node vanishes after attach — FIXED
+- **Symptom (xFilosofx, #59, 03.09.2026):** attach qWDTT (node inbound) to a client → success → refresh → gone from attached list and subscription.
+- **Cause:** qWDTT/olcRTC are share-only (`client_inbounds`, no `settings.clients[]`). Node heartbeat `setRemoteTraffic` did `GetClients(snapshot)` → empty → `SyncInbound(..., [])` pruned every attach.
+- **Fix:** skip `shareOnlySidecar` in that sync loop. Membership stays on the master.
+- **Healing:** update master; re-attach. Local (non-node) qWDTT was never wiped.
+- **Lesson:** never rebuild master membership from a node snapshot that cannot represent it.
+
 ### Pattern 1x: naive / mieru / TrustTunnel sub from the master is dead — FIXED (lucx.202)
 - **Symptom (Alexandr_Sh / Илья, 01.09.2026):** standalone node links work; after adding the node to a master, master’s subscription for naive/mieru (and TrustTunnel) does not connect.
 - **Cause:** pairs were `HMAC(this panel’s secret, this row’s inbound.Id, email)`. `wireInbound` does not send `id`. Master sub used master secret+id; node sidecar used node secret+id.
