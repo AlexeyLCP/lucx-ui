@@ -1280,6 +1280,25 @@ func TestNaiveBridgeChanged(t *testing.T) {
 	}
 }
 
+func TestInjectTproxyEgress_DokodemoFollowRedirect(t *testing.T) {
+	cfg := egressTestConfig()
+	ib := &model.Inbound{
+		Id: 18, Tag: "in-tproxy-18", Protocol: model.Tproxy, Enable: true,
+		Settings: `{"routeThroughXray":true,"routeXrayPort":39150}`,
+	}
+	injectTproxyEgress(cfg, ib)
+	if len(cfg.InboundConfigs) < 2 {
+		t.Fatal("expected dokodemo bridge")
+	}
+	got := cfg.InboundConfigs[len(cfg.InboundConfigs)-1]
+	if got.Protocol != "dokodemo-door" || got.Port != 39150 {
+		t.Fatalf("got proto=%s port=%d", got.Protocol, got.Port)
+	}
+	if !strings.Contains(string(got.Settings), "followRedirect") {
+		t.Fatalf("settings = %s", got.Settings)
+	}
+}
+
 func TestInjectSocksEgress_SniffingRouteOnly(t *testing.T) {
 	cfg := egressTestConfig()
 	injectSocksEgress(cfg, "in-mieru-9", 39111, "", "mieru egress", false)

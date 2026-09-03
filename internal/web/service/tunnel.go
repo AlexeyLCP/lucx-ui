@@ -583,6 +583,7 @@ func (s *TunnelService) reconcileTproxyInbounds() {
 		return
 	}
 	var relays, mtps, caddies []tunnel.Instance
+	xrayPort := 0
 	for _, ib := range inbounds {
 		if ib == nil || ib.Protocol != model.Tproxy || ib.NodeID != nil {
 			continue
@@ -603,9 +604,17 @@ func (s *TunnelService) reconcileTproxyInbounds() {
 		}
 		if ib.Enable {
 			tunnel.EnsureMtproxyLocalOnly(ib.Id)
+			if cfg, cfgOK := tunnel.TproxyConfigFromInbound(ib); cfgOK && cfg.RouteThroughXray && cfg.RouteXrayPort > 0 {
+				xrayPort = cfg.RouteXrayPort
+			}
 		} else {
 			tunnel.ClearMtproxyLocalOnly(ib.Id)
 		}
+	}
+	if xrayPort > 0 {
+		tunnel.EnsureMtproxyXrayRedirect(xrayPort)
+	} else {
+		tunnel.ClearMtproxyXrayRedirect()
 	}
 	mgr := tunnel.GetManager()
 	mgr.ReconcileMtproxy(mtps)

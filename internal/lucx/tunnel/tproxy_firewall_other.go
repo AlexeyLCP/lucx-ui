@@ -11,3 +11,7 @@ package tunnel
 func EnsureMtproxyLocalOnly(id int) {}
 
 func ClearMtproxyLocalOnly(id int) {}
+
+func EnsureMtproxyXrayRedirect(port int) {}
+
+func ClearMtproxyXrayRedirect() {}

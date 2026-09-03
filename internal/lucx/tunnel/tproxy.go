@@ -33,17 +33,20 @@ const TproxySitePrompt = `Create a distinctive, self-contained static website wi
 // TproxyConfig is one Telegram WEB proxy inbound (tproxy-server + official
 // MTProxy + Caddy TLS reverse_proxy). Share link: t.me/webproxy?server=&secret=.
 type TproxyConfig struct {
-	Remark       string `json:"remark"`
-	Enabled      bool   `json:"enabled"`
-	Port         int    `json:"port"`
-	Hostname     string `json:"hostname"`
-	Secret       string `json:"secret"`
-	SiteSource   string `json:"siteSource"` // zip | dir | upstream
-	SiteDir      string `json:"siteDir"`
-	SiteUpstream string `json:"siteUpstream"`
-	CarrierMode  string `json:"carrierMode"`
-	CertFile     string `json:"certFile"`
-	KeyFile      string `json:"keyFile"`
+	Remark           string `json:"remark"`
+	Enabled          bool   `json:"enabled"`
+	Port             int    `json:"port"`
+	Hostname         string `json:"hostname"`
+	Secret           string `json:"secret"`
+	SiteSource       string `json:"siteSource"` // zip | dir | upstream
+	SiteDir          string `json:"siteDir"`
+	SiteUpstream     string `json:"siteUpstream"`
+	CarrierMode      string `json:"carrierMode"`
+	CertFile         string `json:"certFile"`
+	KeyFile          string `json:"keyFile"`
+	RouteThroughXray bool   `json:"routeThroughXray"`
+	RouteXrayPort    int    `json:"routeXrayPort"`
+	OutboundTag      string `json:"outboundTag"`
 }
 
 func DefaultTproxyConfig() TproxyConfig {

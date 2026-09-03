@@ -18,6 +18,24 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
+func TestTproxyConfigRouteThroughXray(t *testing.T) {
+	ib := &model.Inbound{
+		Protocol: model.Tproxy,
+		Enable:   true,
+		Settings: `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f","routeThroughXray":true,"routeXrayPort":39111,"outboundTag":"warp"}`,
+	}
+	cfg, ok := TproxyConfigFromInbound(ib)
+	if !ok || !cfg.RouteThroughXray || cfg.RouteXrayPort != 39111 || cfg.OutboundTag != "warp" {
+		t.Fatalf("got %+v ok=%v", cfg, ok)
+	}
+	plain := *ib
+	plain.Settings = `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f"}`
+	cfg, ok = TproxyConfigFromInbound(&plain)
+	if !ok || cfg.RouteThroughXray {
+		t.Fatal("absent routeThroughXray must stay false")
+	}
+}
+
 func TestTproxyClientLink(t *testing.T) {
 	cfg := TproxyConfig{Hostname: "proxy.example.com", Secret: "000102030405060708090a0b0c0d0e0f"}
 	got := cfg.ClientLink()

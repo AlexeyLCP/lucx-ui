@@ -834,6 +834,7 @@
         "tproxySitePromptCopied": "Prompt copied. Generate a unique site and upload the ZIP.",
         "tproxySaveFirst": "Save the inbound first, then upload the ZIP.",
         "tproxyCarrier": "Carrier",
+        "tproxyRouteThroughXrayHint": "MTProxy has no SOCKS. LucX redirects its DC TCP (uid mtproxy) into Xray via dokodemo-door. Off = direct to Telegram DCs (needs unblocked egress). On = through Xray outbounds — use on a RU host.",
         "qwdttDns": "DNS",
         "qwdttSubHost": "Public host:port (for clients)",
         "qwdttSubHostHint": "Advertised peer address, e.g. 1.2.3.4:56000",

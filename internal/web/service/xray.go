@@ -453,6 +453,15 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		injectTrustTunnelEgress(xrayConfig, inbound)
 	}
+	// tproxy routeThroughXray: dokodemo-door + iptables OUTPUT uid mtproxy
+	// (stock MTProxy has no SOCKS egress).
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.Tproxy || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectTproxyEgress(xrayConfig, inbound)
+	}
 	// NaiveProxy: prefer inbound rows (mtproto pattern — tag = inbound.Tag).
 	// Fall back to legacy global lucxTunnel_naive settings until migrated.
 	naiveInboundSeen := false
@@ -740,10 +749,70 @@ func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
 	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "naive egress", true)
 }
 
-// END LUCX-HOOK
+const tproxyEgressDokodemoSettings = `{"network":"tcp","followRedirect":true}`
 
-// LUCX-HOOK: injectTunnelEgress wires the legacy global NaiveProxy tunnel
-// core (settings lucxTunnel_naive) into Xray. Kept for pre-migration hosts.
+func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
+	var parsed struct {
+		RouteThroughXray bool   `json:"routeThroughXray"`
+		RouteXrayPort    int    `json:"routeXrayPort"`
+		OutboundTag      string `json:"outboundTag"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
+		return
+	}
+	if !parsed.RouteThroughXray || parsed.RouteXrayPort <= 0 || inbound.Tag == "" {
+		return
+	}
+	tag := inbound.Tag
+	for i := range cfg.InboundConfigs {
+		if cfg.InboundConfigs[i].Tag == tag {
+			logger.Warning("tproxy egress: inbound tag [", tag, "] already present in generated config, skipping bridge")
+			return
+		}
+	}
+	if parsed.OutboundTag != "" {
+		routing := map[string]any{}
+		parseOK := true
+		if len(cfg.RouterConfig) > 0 {
+			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+				logger.Warning("tproxy egress: routing section is unparsable, skipping rule:", err)
+				parseOK = false
+			}
+		}
+		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, parsed.OutboundTag) {
+			logger.Warning("tproxy egress: target tag [", parsed.OutboundTag, "] not found, injecting dokodemo without force-route")
+			parseOK = false
+		}
+		if parseOK {
+			rules, _ := routing["rules"].([]any)
+			rule := map[string]any{
+				"type":       "field",
+				"inboundTag": []any{tag},
+			}
+			if routingTagIsBalancer(routing, parsed.OutboundTag) {
+				rule["balancerTag"] = parsed.OutboundTag
+			} else {
+				rule["outboundTag"] = parsed.OutboundTag
+			}
+			routing["rules"] = append([]any{rule}, rules...)
+			newRouting, err := json.Marshal(routing)
+			if err != nil {
+				logger.Warning("tproxy egress: failed to rebuild routing section, skipping rule:", err)
+			} else {
+				cfg.RouterConfig = json_util.RawMessage(newRouting)
+			}
+		}
+	}
+	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
+		Listen:   json_util.RawMessage(`"127.0.0.1"`),
+		Port:     parsed.RouteXrayPort,
+		Protocol: "dokodemo-door",
+		Settings: json_util.RawMessage(tproxyEgressDokodemoSettings),
+		Sniffing: json_util.RawMessage(awgEgressTunSniffing),
+		Tag:      tag,
+	})
+}
+
 func injectTunnelEgress(cfg *xray.Config, naive tunnel.NaiveConfig) {
 	if !naive.Enabled || !naive.RouteThroughXray || naive.RouteXrayPort <= 0 {
 		return

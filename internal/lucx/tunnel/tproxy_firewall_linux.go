@@ -11,9 +11,12 @@ package tunnel
 import (
 	"context"
 	"os/exec"
+	"os/user"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
 func tproxyMtproxyComment(id int) string {
@@ -35,6 +38,34 @@ func ClearMtproxyLocalOnly(id int) {
 	_ = clearMtproxyIptables(tproxyMtproxyComment(id))
 }
 
+func tproxyXrayComment() string { return "lucx-tproxy-xray" }
+
+// EnsureMtproxyXrayRedirect hijacks MTProxy's DC TCP (uid mtproxy, not
+// loopback) into a local dokodemo-door. Stock MTProxy has no SOCKS egress;
+// this is the wrap. All tproxy inbounds share that uid — one redirect.
+func EnsureMtproxyXrayRedirect(port int) {
+	comment := tproxyXrayComment()
+	_ = clearIptablesNatOutput(comment)
+	if port <= 0 {
+		return
+	}
+	if _, err := user.Lookup(mtproxyEngineUser); err != nil {
+		logger.Warningf("tunnel: tproxy xray redirect skipped: no %s user", mtproxyEngineUser)
+		return
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	_ = exec.CommandContext(ctx, "iptables", "-t", "nat", "-I", "OUTPUT",
+		"-m", "owner", "--uid-owner", mtproxyEngineUser,
+		"-p", "tcp", "!", "-d", "127.0.0.0/8",
+		"-m", "comment", "--comment", comment,
+		"-j", "REDIRECT", "--to-ports", strconv.Itoa(port)).Run()
+}
+
+func ClearMtproxyXrayRedirect() {
+	_ = clearIptablesNatOutput(tproxyXrayComment())
+}
+
 func clearMtproxyIptables(comment string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
@@ -47,6 +78,25 @@ func clearMtproxyIptables(comment string) error {
 			continue
 		}
 		args := append([]string{"-D", "INPUT"}, strings.Fields(strings.TrimPrefix(line, "-A INPUT "))...)
+		c2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = exec.CommandContext(c2, "iptables", args...).Run()
+		cancel2()
+	}
+	return nil
+}
+
+func clearIptablesNatOutput(comment string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "iptables-save", "-t", "nat").Output()
+	if err != nil {
+		return err
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		if !strings.Contains(line, comment) || !strings.HasPrefix(line, "-A OUTPUT") {
+			continue
+		}
+		args := append([]string{"-t", "nat", "-D", "OUTPUT"}, strings.Fields(strings.TrimPrefix(line, "-A OUTPUT "))...)
 		c2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 		_ = exec.CommandContext(c2, "iptables", args...).Run()
 		cancel2()

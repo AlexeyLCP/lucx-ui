@@ -834,6 +834,7 @@
         "tproxySitePromptCopied": "Промпт скопирован. Сгенерируй уникальный сайт и залей ZIP.",
         "tproxySaveFirst": "Сначала сохрани inbound, потом загрузи ZIP.",
         "tproxyCarrier": "Carrier",
+        "tproxyRouteThroughXrayHint": "У MTProxy нет SOCKS. LucX редиректит его TCP к ДЦ (uid mtproxy) в Xray через dokodemo-door. Выкл = напрямую в ДЦ (нужен незаблокированный исходящий). Вкл = через outbound Xray — для РФ.",
         "qwdttDns": "DNS",
         "qwdttSubHost": "Публичный host:port (для клиентов)",
         "qwdttSubHostHint": "Адрес для клиентов, напр. 1.2.3.4:56000",

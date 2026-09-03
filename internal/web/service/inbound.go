@@ -1342,7 +1342,16 @@ func lucxRoutesThroughXray(inbound *model.Inbound) bool {
 		qwdttRoutesThroughXray(inbound) ||
 		olcrtcRoutesThroughXray(inbound) ||
 		mieruRoutesThroughXray(inbound) ||
-		trustTunnelRoutesThroughXray(inbound)
+		trustTunnelRoutesThroughXray(inbound) ||
+		tproxyRoutesThroughXray(inbound)
+}
+
+func tproxyRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Tproxy {
+		return false
+	}
+	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
+	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
 }
 
 // END LUCX-HOOK
@@ -1482,6 +1491,9 @@ func (s *InboundService) normalizeTproxySettings(inbound *model.Inbound) {
 	settings["carrierMode"] = cfg.CarrierMode
 	settings["certFile"] = strings.TrimSpace(cfg.CertFile)
 	settings["keyFile"] = strings.TrimSpace(cfg.KeyFile)
+	settings["routeThroughXray"] = cfg.RouteThroughXray
+	settings["routeXrayPort"] = cfg.RouteXrayPort
+	settings["outboundTag"] = strings.TrimSpace(cfg.OutboundTag)
 	if strings.TrimSpace(cfg.Remark) != "" {
 		settings["remark"] = cfg.Remark
 	}
@@ -1492,6 +1504,10 @@ func (s *InboundService) normalizeTproxySettings(inbound *model.Inbound) {
 	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
 		inbound.Remark = cfg.Remark
 	}
+}
+
+func (s *InboundService) normalizeTproxyXrayPort(inbound *model.Inbound, oldSettings string) error {
+	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Tproxy, "tproxy")
 }
 
 func (s *InboundService) validateTproxySettings(inbound *model.Inbound) error {
@@ -1984,6 +2000,9 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 	if inbound.Protocol == model.Tproxy {
 		s.normalizeTproxySettings(inbound)
 		if err := s.validateTproxySettings(inbound); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeTproxyXrayPort(inbound, ""); err != nil {
 			return inbound, false, err
 		}
 	}
@@ -2609,6 +2628,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		if err := s.validateTproxySettings(inbound); err != nil {
 			return inbound, false, err
 		}
+		if err := s.normalizeTproxyXrayPort(inbound, oldInbound.Settings); err != nil {
+			return inbound, false, err
+		}
 	}
 	inbound.Settings = tunnel.PreserveAuthSeed(oldInbound.Settings, inbound.Settings)
 	s.ensureNodeAuthSeed(inbound)
@@ -2700,6 +2722,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	oldRoutedOlcrtc := olcrtcRoutesThroughXray(oldInbound)
 	oldRoutedMieru := mieruRoutesThroughXray(oldInbound)
 	oldRoutedTrustTunnel := trustTunnelRoutesThroughXray(oldInbound)
+	oldRoutedTproxy := tproxyRoutesThroughXray(oldInbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
@@ -2936,7 +2959,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto ||
 			lucxRoutesThroughXray(inbound) || oldRoutedAwg ||
 			oldRoutedNaive || oldRoutedQwdtt || oldRoutedOlcrtc ||
-			oldRoutedMieru || oldRoutedTrustTunnel {
+			oldRoutedMieru || oldRoutedTrustTunnel || oldRoutedTproxy {
 			needRestart = true
 		}
 		return nil
