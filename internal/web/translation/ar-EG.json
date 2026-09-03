@@ -902,6 +902,7 @@
         "trustTunnelHostname": "الدومين (hostname)",
         "trustTunnelHostnameHint": "دومين يشير لهذا السيرفر. لازم يكون مغطي بشهادة TLS. العملاء بيتصلوا بيه.",
         "trustTunnelListen": "عنوان الاستماع",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "ملف الشهادة (اختياري)",
         "trustTunnelKeyFile": "ملف المفتاح (اختياري)",
         "trustTunnelCertFileHint": "فاضي = شهادة ACME بتاعة اللوحة نفسها (Settings → Panel SSL / كونسول x-ui). الشهادة لازم تغطي الدومين فوق.",

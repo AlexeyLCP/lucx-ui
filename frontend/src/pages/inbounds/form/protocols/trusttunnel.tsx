@@ -5,7 +5,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { useTranslation } from 'react-i18next';
-import { Button, Collapse, Input, Select, Space, Switch } from 'antd';
+import { Button, Collapse, Input, InputNumber, Select, Space, Switch } from 'antd';
 import { ReloadOutlined } from '@ant-design/icons';
 import { useFormContext, useWatch } from 'react-hook-form';
 
@@ -16,6 +16,35 @@ function randomHex(bytes: number): string {
   const a = new Uint8Array(bytes);
   crypto.getRandomValues(a);
   return Array.from(a, (b) => b.toString(16).padStart(2, '0')).join('');
+}
+
+// Splits the single "ip:port" listen field into address + port inputs so the
+// port is visibly selectable (e.g. move TrustTunnel off 443 for the WEB proxy).
+function ListenAddrInput({ value, onChange }: { value?: string; onChange?: (v: string) => void }) {
+  const raw = (value ?? '').trim() || '0.0.0.0:443';
+  const i = raw.lastIndexOf(':');
+  const ip = i > 0 ? raw.slice(0, i) : raw;
+  const port = i > 0 ? parseInt(raw.slice(i + 1), 10) : 443;
+  const safePort = Number.isFinite(port) && port > 0 ? port : 443;
+  const emit = (nextIp: string, nextPort: number) =>
+    onChange?.(`${nextIp.trim() || '0.0.0.0'}:${nextPort}`);
+  return (
+    <Space.Compact style={{ width: '100%' }}>
+      <Input
+        style={{ flex: 1 }}
+        value={ip}
+        placeholder="0.0.0.0"
+        onChange={(e) => emit(e.target.value, safePort)}
+      />
+      <InputNumber
+        style={{ width: 110 }}
+        min={1}
+        max={65535}
+        value={safePort}
+        onChange={(v) => emit(ip, typeof v === 'number' && v > 0 ? v : safePort)}
+      />
+    </Space.Compact>
+  );
 }
 
 export default function TrustTunnelFields() {
@@ -63,8 +92,12 @@ export default function TrustTunnelFields() {
       >
         <Input placeholder="vpn.example.com" />
       </FormField>
-      <FormField name={['settings', 'listen']} label={t('pages.inbounds.form.trustTunnelListen')}>
-        <Input placeholder="0.0.0.0:443" />
+      <FormField
+        name={['settings', 'listen']}
+        label={t('pages.inbounds.form.trustTunnelListen')}
+        tooltip={t('pages.inbounds.form.trustTunnelListenHint')}
+      >
+        <ListenAddrInput />
       </FormField>
       <FormField
         name={['settings', 'certFile']}

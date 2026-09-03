@@ -902,6 +902,7 @@
         "trustTunnelHostname": "ドメイン (hostname)",
         "trustTunnelHostnameHint": "このサーバーを指すドメイン。TLS 証明書でカバーされている必要があります。クライアントはこれに接続します。",
         "trustTunnelListen": "リッスンアドレス",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "証明書ファイル（任意）",
         "trustTunnelKeyFile": "秘密鍵ファイル（任意）",
         "trustTunnelCertFileHint": "空 = パネル自身の ACME 証明書（Settings → Panel SSL / x-ui コンソール）。証明書は上のドメインをカバーしている必要があります。",

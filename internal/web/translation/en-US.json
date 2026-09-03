@@ -902,6 +902,7 @@
         "trustTunnelHostname": "Domain (hostname)",
         "trustTunnelHostnameHint": "A domain pointing to this server. Must be covered by the TLS certificate. Clients connect to it.",
         "trustTunnelListen": "Listen address",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "Certificate file (optional)",
         "trustTunnelKeyFile": "Private key file (optional)",
         "trustTunnelCertFileHint": "Empty = the panel's own ACME certificate (Settings → Panel SSL / x-ui console). The certificate must cover the domain above.",

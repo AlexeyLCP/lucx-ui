@@ -902,6 +902,7 @@
         "trustTunnelHostname": "Tên miền (hostname)",
         "trustTunnelHostnameHint": "Tên miền trỏ tới máy chủ này. Phải được chứng chỉ TLS bao phủ. Máy khách kết nối tới nó.",
         "trustTunnelListen": "Địa chỉ lắng nghe",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "Tệp chứng chỉ (tùy chọn)",
         "trustTunnelKeyFile": "Tệp khóa riêng (tùy chọn)",
         "trustTunnelCertFileHint": "Trống = chứng chỉ ACME của chính panel (Settings → Panel SSL / console x-ui). Chứng chỉ phải bao phủ tên miền ở trên.",

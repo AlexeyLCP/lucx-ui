@@ -902,6 +902,7 @@
         "trustTunnelHostname": "دامنه (hostname)",
         "trustTunnelHostnameHint": "دامنه‌ای که به این سرور اشاره می‌کند. باید در گواهی TLS پوشش داده شود. کلاینت‌ها به آن وصل می‌شوند.",
         "trustTunnelListen": "آدرس گوش دادن",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "فایل گواهی (اختیاری)",
         "trustTunnelKeyFile": "فایل کلید خصوصی (اختیاری)",
         "trustTunnelCertFileHint": "خالی = گواهی ACME خود پنل (Settings → Panel SSL / کنسول x-ui). گواهی باید دامنه بالا را پوشش دهد.",

@@ -902,6 +902,7 @@
         "trustTunnelHostname": "Alan adı (hostname)",
         "trustTunnelHostnameHint": "Bu sunucuyu gösteren alan adı. TLS sertifikası tarafından kapsanmalıdır. İstemciler buna bağlanır.",
         "trustTunnelListen": "Dinleme adresi",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "Sertifika dosyası (isteğe bağlı)",
         "trustTunnelKeyFile": "Özel anahtar dosyası (isteğe bağlı)",
         "trustTunnelCertFileHint": "Boş = panelin kendi ACME sertifikası (Settings → Panel SSL / x-ui konsolu). Sertifika yukarıdaki alan adını kapsamalıdır.",

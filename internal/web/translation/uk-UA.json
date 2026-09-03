@@ -902,6 +902,7 @@
         "trustTunnelHostname": "Домен (hostname)",
         "trustTunnelHostnameHint": "Домен, що вказує на цей сервер. Має бути покритий TLS-сертифікатом. Клієнти підключаються до нього.",
         "trustTunnelListen": "Адреса слухача",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "Файл сертифіката (опціонально)",
         "trustTunnelKeyFile": "Файл ключа (опціонально)",
         "trustTunnelCertFileHint": "Порожньо = власний ACME-сертифікат панелі (Settings → Panel SSL / консоль x-ui). Сертифікат має покривати домен вище.",

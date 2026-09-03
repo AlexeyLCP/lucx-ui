@@ -902,6 +902,7 @@
         "trustTunnelHostname": "網域 (hostname)",
         "trustTunnelHostnameHint": "指向此伺服器的網域，必須包含在 TLS 憑證中。用戶端連接該網域。",
         "trustTunnelListen": "監聽位址",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "憑證檔案（選填）",
         "trustTunnelKeyFile": "金鑰檔案（選填）",
         "trustTunnelCertFileHint": "留空 = 使用面板自身的 ACME 憑證（Settings → Panel SSL / x-ui 主控台）。憑證必須涵蓋上面的網域。",

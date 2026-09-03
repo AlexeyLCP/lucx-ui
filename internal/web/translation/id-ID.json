@@ -902,6 +902,7 @@
         "trustTunnelHostname": "Domain (hostname)",
         "trustTunnelHostnameHint": "Domain yang menunjuk ke server ini. Harus tercakup oleh sertifikat TLS. Klien terhubung ke sana.",
         "trustTunnelListen": "Alamat listen",
+        "trustTunnelListenHint": "Address and port. Change the port to free 443 for the Telegram WEB proxy or another service.",
         "trustTunnelCertFile": "File sertifikat (opsional)",
         "trustTunnelKeyFile": "File kunci privat (opsional)",
         "trustTunnelCertFileHint": "Kosong = sertifikat ACME panel sendiri (Settings → Panel SSL / konsol x-ui). Sertifikat harus mencakup domain di atas.",
