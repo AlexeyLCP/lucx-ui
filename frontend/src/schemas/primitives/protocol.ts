@@ -20,6 +20,7 @@ export const ProtocolSchema = z.enum([
   'mieru', // LUCX-HOOK: mieru sidecar
   'trusttunnel', // LUCX-HOOK: TrustTunnel sidecar
   'anytls', // LUCX-HOOK: AnyTLS sidecar
+  'tproxy', // LUCX-HOOK: Telegram WEB proxy
 ]);
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
@@ -49,4 +50,5 @@ export const Protocols = Object.freeze({
   MIERU: 'mieru', // LUCX-HOOK: mieru
   TRUSTTUNNEL: 'trusttunnel', // LUCX-HOOK: TrustTunnel
   ANYTLS: 'anytls', // LUCX-HOOK: AnyTLS
+  TPROXY: 'tproxy', // LUCX-HOOK: Telegram WEB proxy
 });

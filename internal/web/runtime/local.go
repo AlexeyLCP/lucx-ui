@@ -85,6 +85,9 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 	if ib.Protocol == model.Anytls {
 		return l.ensureAnytlsInbound(ib)
 	}
+	if ib.Protocol == model.Tproxy {
+		return l.ensureTproxyInbound(ib)
+	}
 	// END LUCX-HOOK
 	if ib.Protocol == model.AmneziaWG {
 		inst, ok := amneziawg.InstanceFromInbound(ib)
@@ -159,6 +162,14 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		tunnel.GetManager().Remove(tunnel.AnytlsKey(ib.Id))
 		return nil
 	}
+	if ib.Protocol == model.Tproxy {
+		id := ib.Id
+		tunnel.GetManager().Remove(tunnel.TproxyCaddyKey(id))
+		tunnel.GetManager().Remove(tunnel.TproxyKey(id))
+		tunnel.GetManager().Remove(tunnel.MtproxyKey(id))
+		tunnel.ClearMtproxyLocalOnly(id)
+		return nil
+	}
 	// END LUCX-HOOK
 	if ib.Protocol == model.AmneziaWG {
 		amneziawgnet.GetManager().Remove(ib.Id)
@@ -206,7 +217,7 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func isTunnelInboundProto(p model.Protocol) bool {
-	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy
 }
 
 // ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret
@@ -261,6 +272,26 @@ func (l *Local) ensureAnytlsInbound(ib *model.Inbound) error {
 		return nil
 	}
 	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureTproxyInbound(ib *model.Inbound) error {
+	cert, key := panelCertFilesForRuntime()
+	insts, ok := tunnel.TproxyInstancesFromInbound(ib, cert, key)
+	if !ok {
+		return nil
+	}
+	mgr := tunnel.GetManager()
+	for _, inst := range insts {
+		if err := mgr.Ensure(inst); err != nil {
+			return err
+		}
+	}
+	if ib.Enable {
+		tunnel.EnsureMtproxyLocalOnly(ib.Id)
+	} else {
+		tunnel.ClearMtproxyLocalOnly(ib.Id)
+	}
+	return nil
 }
 
 // panelCertFilesForRuntime reads webCertFile/webKeyFile settings (TrustTunnel

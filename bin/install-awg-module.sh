@@ -62,13 +62,39 @@ AWG_MODULE_MARKER="/etc/x-ui/.awg-module-version"
 AWG_KMOD_PIN="46803204e7ec3b068199cd671143bec661d3fe21"
 AWG_TOOLS_PIN="ee0f0a9aa34ff0a0da4b3433b9512781cfe02843"
 
+# Prefer a GitHub tarball over `git fetch`. git-smart-HTTP 401 prompts
+# Username/Password on a headless install (Igor, 2026-09-02) and then dies.
 git_clone_sha() {
     local url="$1" sha="$2" dest="$3"
+    local repo tmp
+    repo="${url#https://github.com/}"
+    repo="${repo%.git}"
     rm -rf "$dest"
     mkdir -p "$dest"
+    tmp="$(mktemp /tmp/awg-src-XXXXXX.tar.gz)"
+    export GIT_TERMINAL_PROMPT=0
+    export GIT_ASKPASS=/bin/true
+    if command -v curl >/dev/null 2>&1; then
+        if curl -fsSL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 180 \
+            -o "$tmp" "https://codeload.github.com/${repo}/tar.gz/${sha}" \
+            && tar -tzf "$tmp" >/dev/null 2>&1; then
+            tar -C "$dest" --strip-components=1 -xzf "$tmp"
+            rm -f "$tmp"
+            return 0
+        fi
+        if curl -fsSL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 180 \
+            -o "$tmp" "https://github.com/${repo}/archive/${sha}.tar.gz" \
+            && tar -tzf "$tmp" >/dev/null 2>&1; then
+            tar -C "$dest" --strip-components=1 -xzf "$tmp"
+            rm -f "$tmp"
+            return 0
+        fi
+    fi
+    rm -f "$tmp"
     git -C "$dest" init -q
-    git -C "$dest" remote add origin "$url"
-    git -C "$dest" fetch --depth 1 origin "$sha" && git -C "$dest" checkout -q FETCH_HEAD
+    git -C "$dest" -c credential.helper= remote add origin "$url"
+    GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/true git -C "$dest" fetch --depth 1 origin "$sha" \
+        && git -C "$dest" checkout -q FETCH_HEAD
 }
 
 uninstall_awg_module() {
@@ -283,7 +309,7 @@ apt-get update -qq
 # transaction and leave dkms missing → "dkms: command not found" at `dkms
 # build` (line ~232). Optional utilities stay best-effort and never block.
 apt-get install -y -q \
-    build-essential dkms git libmnl-dev pkg-config python3 \
+    build-essential dkms git libmnl-dev pkg-config python3 curl ca-certificates \
     2>/dev/null || true
 apt-get install -y -q \
     unzip curl python3 net-tools qrencode bc ca-certificates gnupg \
@@ -432,8 +458,13 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
     }
     cd "$KERNEL_MOD_DIR/src"
 
-    MOD_VER=$(git describe --tags --always --dirty 2>/dev/null || echo "1.0.0")
-    MOD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "")
+    if [[ -d "$KERNEL_MOD_DIR/.git" ]]; then
+        MOD_VER=$(git describe --tags --always --dirty 2>/dev/null || echo "${AWG_KMOD_PIN:0:12}")
+        MOD_SHA=$(git rev-parse HEAD 2>/dev/null || echo "$AWG_KMOD_PIN")
+    else
+        MOD_VER="${AWG_KMOD_PIN:0:12}"
+        MOD_SHA="$AWG_KMOD_PIN"
+    fi
     OLD_DKMS_VER=$(dkms status amneziawg 2>/dev/null | grep -oP 'amneziawg, \K[^,]+(?=,)' | head -1 || true)
 
     apply_udp_tunnel_abi_compat socket.c || \
@@ -543,7 +574,7 @@ fi
 # with a running kernel module but no awg-quick (reconcile fails every 10s).
 if ! command -v awg-quick &>/dev/null; then
     echo -e "${RED}ВНИМАНИЕ: awg-quick не найден после установки. AWG-инбаунды не поднимутся.${NC}"
-    echo -e "${RED}Дособрать вручную: apt install build-essential && cd /tmp && git clone --depth 1 https://github.com/amnezia-vpn/amneziawg-tools.git && cd amneziawg-tools/src && make && make install${NC}"
+    echo -e "${RED}Дособрать вручную: apt install build-essential curl && bash /usr/local/x-ui/bin/install-awg-module.sh${NC}"
 fi
 
 # 5. Load module and enable autostart (only if the running kernel has the module)

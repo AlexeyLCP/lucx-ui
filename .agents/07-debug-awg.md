@@ -4,6 +4,12 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1z: first install — GitHub git 401, no awg-quick — FIXED (lucx.203)
+- **Symptom (Igor, 02.09.2026):** first install → “AWG module not installed”. Cores → Install hung on `Username for 'https://github.com'` then `HTTP 401` cloning `amneziawg-tools`.
+- **Cause:** `git_clone_sha` used `git fetch` (smart HTTP). GitHub 401 makes git prompt for a password on a headless install, then fail. Panel install is best-effort, so AWG is simply missing.
+- **Fix:** download `codeload.github.com/.../tar.gz/<pin>` (archive fallback) with `GIT_TERMINAL_PROMPT=0`. Never prompt. DKMS version = pin SHA when the tree has no `.git`.
+- **Healing:** `x-ui install-awg` / Cores → Install after update.
+
 ### Pattern 1: AWG inbound won’t start
 - **Cause:** `awg-quick` not installed or kernel module not loaded. Since lucx.131 the module is installed by default again on `install.sh` (lucx.130 was opt-in, reverted by owner decision); hosts installed in the lucx.130–131 window without the module stay without it until manual install.
 - **Fix:** `x-ui install-awg` / Settings → Cores → Install / `bash /usr/local/x-ui/bin/install-awg-module.sh`. Rollback: `x-ui uninstall-awg` (`.conf` kept). Check `awg show`, `ip link show awgN`.

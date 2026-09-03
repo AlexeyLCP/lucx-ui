@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.203 — Telegram WEB proxy inbound (2026-09-03)
+
+Inbound `tproxy`: tproxy-server + official MTProxy + Caddy reverse_proxy on hostname:443. Site from ZIP / dir / loopback; prompt copy, no shared stub. Cores: tproxy-server and MTProxy binaries (Caddy = NaiveProxy card). Share `t.me/webproxy`.
+
+GitHub amd64 tarball: `release.yml` builds `tproxy-linux-amd64` (tproxy-server `52a5feb7`) and `mtproxy-linux-amd64` (MTProxy `f36d8af7`). `install.sh` / `update.sh` sidecar list includes both.
+
+AWG first install (Igor): `git fetch` of amneziawg-tools hit GitHub 401 and prompted Username/Password. `git_clone_sha` now pulls the pinned tarball via curl (no git prompt).
+
+Tests: `go test ./internal/lucx/tunnel/` ; frontend typecheck, lint, `inbound-link` + `i18n-dead-keys`.
+
+**lucxVersion:** lucx.203
+
+---
+
 ## lucx.202 — node qWDTT attach wiped by heartbeat (#59) (2026-09-03)
 
 qWDTT/olcRTC on a managed node: attach succeeded, refresh dropped the client and the subscription. Node snapshot has no `clients[]`; `setRemoteTraffic` `SyncInbound` pruned master `client_inbounds`. Skip `shareOnlySidecar` in that loop.

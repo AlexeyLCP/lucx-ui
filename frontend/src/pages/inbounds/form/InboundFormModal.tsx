@@ -78,6 +78,7 @@ import {
   MieruFields, // LUCX-HOOK: mieru
   TrustTunnelFields, // LUCX-HOOK: TrustTunnel
   AnytlsFields, // LUCX-HOOK: AnyTLS
+  TproxyFields, // LUCX-HOOK: Telegram WEB proxy
   ShadowsocksFields,
   TunFields,
   TunnelFields,
@@ -623,7 +624,8 @@ export default function InboundFormModal({
         next === Protocols.QWDTT ||
         next === Protocols.MIERU ||
         next === Protocols.TRUSTTUNNEL ||
-        next === Protocols.ANYTLS
+        next === Protocols.ANYTLS ||
+        next === Protocols.TPROXY
       ) {
         setV('streamSettings', { security: 'none' });
         // LUCX-HOOK: qWDTT Port must match DTLS listen (backend also normalizes).
@@ -641,6 +643,9 @@ export default function InboundFormModal({
         }
         if (next === Protocols.ANYTLS) {
           setV('port', 8443);
+        }
+        if (next === Protocols.TPROXY) {
+          setV('port', 443);
         }
         // END LUCX-HOOK
       } else {
@@ -943,6 +948,7 @@ export default function InboundFormModal({
       {protocol === Protocols.MIERU && <MieruFields />}
       {protocol === Protocols.TRUSTTUNNEL && <TrustTunnelFields />}
       {protocol === Protocols.ANYTLS && <AnytlsFields />}
+      {protocol === Protocols.TPROXY && <TproxyFields />}
       {/* END LUCX-HOOK */}
 
       {protocol === Protocols.SHADOWSOCKS && <ShadowsocksFields isSSWith2022={isSSWith2022} />}
@@ -1284,6 +1290,7 @@ export default function InboundFormModal({
                       Protocols.MIERU,
                       Protocols.TRUSTTUNNEL,
                       Protocols.ANYTLS,
+                      Protocols.TPROXY,
                     ] as string[]
                   ).includes(protocol) || isFallbackHost
                     ? [

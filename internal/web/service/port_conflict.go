@@ -29,7 +29,7 @@ func inboundTransports(protocol model.Protocol, streamSettings, settings string)
 	case model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt:
 		return transportTCP
 	// LUCX-HOOK: AnyTls is a single TCP listener (anytls-server)
-	case model.Anytls:
+	case model.Anytls, model.Tproxy:
 		return transportTCP
 	// END LUCX-HOOK
 	case model.TrustTunnel:

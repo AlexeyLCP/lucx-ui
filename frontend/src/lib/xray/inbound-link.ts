@@ -1413,6 +1413,8 @@ export function genLink(input: GenLinkInput): string {
       return genQwdttLink({ inbound, address, remark });
     case 'anytls':
       return genAnytlsLink({ inbound, address, remark });
+    case 'tproxy':
+      return genTproxyLink({ inbound });
     case 'olcrtc':
       return genOlcrtcLink({ inbound, remark });
     default:
@@ -1543,6 +1545,9 @@ export function genInboundLinks(input: GenInboundLinksInput): string {
   if (inbound.protocol === 'anytls') {
     return genAnytlsLink({ inbound, address: addr, remark });
   }
+  if (inbound.protocol === 'tproxy') {
+    return genTproxyLink({ inbound });
+  }
   // END LUCX-HOOK
   return '';
 }
@@ -1560,6 +1565,15 @@ export interface GenAnytlsLinkInput {
   inbound: Inbound;
   address?: string;
   remark?: string;
+}
+
+export function genTproxyLink(input: { inbound: Inbound }): string {
+  if (input.inbound.protocol !== 'tproxy') return '';
+  const s = input.inbound.settings as { hostname?: string; secret?: string };
+  const host = (s.hostname ?? '').trim();
+  const secret = (s.secret ?? '').trim();
+  if (!host || !secret) return '';
+  return `https://t.me/webproxy?server=${encodeURIComponent(host)}&secret=${encodeURIComponent(secret)}`;
 }
 
 export function genAnytlsLink(input: GenAnytlsLinkInput): string {

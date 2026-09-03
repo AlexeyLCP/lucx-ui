@@ -15,6 +15,7 @@ import {
   genWireguardConfig,
   genWireguardLink,
   genAnytlsLink,
+  genTproxyLink,
   preferPublicHost,
   resolveAddr,
 } from '@/lib/xray/inbound-link';
@@ -1450,5 +1451,18 @@ describe('genAnytlsLink', () => {
       settings: { password: 'hunter2', sni: '' },
     } as typeof inbound;
     expect(genAnytlsLink({ inbound: noSni, address: 'node.example' })).toBe('');
+  });
+});
+
+describe('genTproxyLink', () => {
+  it('emits t.me/webproxy without a port', () => {
+    const inbound = {
+      protocol: 'tproxy',
+      port: 443,
+      settings: { hostname: 'proxy.example.com', secret: '000102030405060708090a0b0c0d0e0f' },
+    } as Parameters<typeof genTproxyLink>[0]['inbound'];
+    expect(genTproxyLink({ inbound })).toBe(
+      'https://t.me/webproxy?server=proxy.example.com&secret=000102030405060708090a0b0c0d0e0f',
+    );
   });
 });

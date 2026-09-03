@@ -347,6 +347,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileMieruInbounds()
 	s.reconcileTrustTunnelInbounds()
 	s.reconcileAnytlsInbounds()
+	s.reconcileTproxyInbounds()
 }
 
 // tunnelBlobMigrated reports whether the legacy settings blob carries the
@@ -572,6 +573,44 @@ func (s *TunnelService) reconcileAnytlsInbounds() {
 		want = append(want, inst)
 	}
 	tunnel.GetManager().ReconcileAnytls(want)
+}
+
+func (s *TunnelService) reconcileTproxyInbounds() {
+	panelCert, panelKey := panelCertFiles()
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: tproxy inbound list failed:", err)
+		return
+	}
+	var relays, mtps, caddies []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Tproxy || ib.NodeID != nil {
+			continue
+		}
+		insts, ok := tunnel.TproxyInstancesFromInbound(ib, panelCert, panelKey)
+		if !ok {
+			continue
+		}
+		for _, inst := range insts {
+			switch inst.Core {
+			case tunnel.Tproxy:
+				relays = append(relays, inst)
+			case tunnel.Mtproxy:
+				mtps = append(mtps, inst)
+			case tunnel.TproxyCaddy:
+				caddies = append(caddies, inst)
+			}
+		}
+		if ib.Enable {
+			tunnel.EnsureMtproxyLocalOnly(ib.Id)
+		} else {
+			tunnel.ClearMtproxyLocalOnly(ib.Id)
+		}
+	}
+	mgr := tunnel.GetManager()
+	mgr.ReconcileMtproxy(mtps)
+	mgr.ReconcileTproxy(relays)
+	mgr.ReconcileTproxyCaddy(caddies)
 }
 
 // panelCertFiles reads the panel ACME certificate paths from settings (the
@@ -1500,4 +1539,95 @@ func (s *TunnelService) DeleteAnytlsBinary() error {
 // DownloadAnytlsBinary fetches the anytls-server binary from a URL into place.
 func (s *TunnelService) DownloadAnytlsBinary(downloadURL, wantSHA256 string) error {
 	return s.downloadBinaryTo(tunnel.Anytls.BinaryPath(), downloadURL, wantSHA256)
+}
+
+type TproxyStatus struct {
+	Core         string        `json:"core"`
+	DisplayName  string        `json:"displayName"`
+	BinaryExists bool          `json:"binaryExists"`
+	BinaryPath   string        `json:"binaryPath"`
+	Probe        tunnel.Status `json:"probe"`
+	LastLog      string        `json:"lastLog"`
+}
+
+func (s *TunnelService) TproxyStatus() (TproxyStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Tproxy.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return TproxyStatus{
+		Core:         string(tunnel.Tproxy),
+		DisplayName:  tunnel.Tproxy.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("tproxy-")},
+		LastLog:      mgr.LastLogPrefixed("tproxy-"),
+	}, nil
+}
+
+func (s *TunnelService) TproxyLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().LogsPrefixed("tproxy-", lines)
+}
+
+func (s *TunnelService) DeleteTproxyBinary() error {
+	tunnel.GetManager().StopPrefixed("tproxy-")
+	tunnel.GetManager().StopPrefixed("tproxycaddy-")
+	if err := os.Remove(tunnel.Tproxy.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *TunnelService) DownloadTproxyBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Tproxy.BinaryPath(), downloadURL, wantSHA256)
+}
+
+func (s *TunnelService) MtproxyStatus() (TproxyStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Mtproxy.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return TproxyStatus{
+		Core:         string(tunnel.Mtproxy),
+		DisplayName:  tunnel.Mtproxy.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("mtproxy-")},
+		LastLog:      mgr.LastLogPrefixed("mtproxy-"),
+	}, nil
+}
+
+func (s *TunnelService) MtproxyLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().LogsPrefixed("mtproxy-", lines)
+}
+
+func (s *TunnelService) DeleteMtproxyBinary() error {
+	tunnel.GetManager().StopPrefixed("mtproxy-")
+	if err := os.Remove(tunnel.Mtproxy.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *TunnelService) DownloadMtproxyBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Mtproxy.BinaryPath(), downloadURL, wantSHA256)
+}
+
+func (s *TunnelService) UploadTproxySite(inboundID int, zipBytes []byte) error {
+	ib, err := s.inboundService.GetInbound(inboundID)
+	if err != nil {
+		return err
+	}
+	if ib == nil || ib.Protocol != model.Tproxy {
+		return common.NewError("inbound is not tproxy")
+	}
+	if err := tunnel.ExtractTproxySiteZip(tunnel.TproxySiteDir(inboundID), zipBytes); err != nil {
+		return err
+	}
+	s.reconcileTproxyInbounds()
+	return nil
 }

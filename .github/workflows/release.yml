@@ -196,6 +196,33 @@ jobs:
           # END LUCX-HOOK
           cd ../..
 
+      - name: Build Telegram WEB proxy sidecars
+        if: matrix.platform == 'amd64'
+        run: |
+          set -euo pipefail
+          DEST="$PWD/x-ui/bin"
+          mkdir -p "$DEST"
+          TPROXY_SHA=52a5feb7fac38f68da5afef9cedd9b3bfc8473ca
+          rm -rf /tmp/tproxy-src
+          mkdir /tmp/tproxy-src
+          git -C /tmp/tproxy-src init
+          git -C /tmp/tproxy-src fetch --depth 1 https://github.com/telegramdesktop/tproxy-server.git "$TPROXY_SHA"
+          git -C /tmp/tproxy-src checkout FETCH_HEAD
+          (cd /tmp/tproxy-src && CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o "$DEST/tproxy-linux-amd64" ./cmd/tproxy-server)
+          chmod +x "$DEST/tproxy-linux-amd64"
+          MTPROXY_SHA=f36d8af769ffaeac36978d38c2c0f6d1104c2137
+          MTPROXY_SUM=919795c416b870670841a21d1930ad97a24c7b84b9eb8c6f9e3de32f2fdf4655
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential libssl-dev zlib1g-dev
+          curl -fsSL -o /tmp/MTProxy.tar.gz "https://github.com/TelegramMessenger/MTProxy/archive/${MTPROXY_SHA}.tar.gz"
+          echo "${MTPROXY_SUM}  /tmp/MTProxy.tar.gz" | sha256sum -c
+          rm -rf /tmp/MTProxy
+          mkdir /tmp/MTProxy
+          tar -C /tmp/MTProxy --strip-components=1 -xzf /tmp/MTProxy.tar.gz
+          make -C /tmp/MTProxy -j"$(nproc)"
+          cp /tmp/MTProxy/objs/bin/mtproto-proxy "$DEST/mtproxy-linux-amd64"
+          chmod +x "$DEST/mtproxy-linux-amd64"
+
       - name: Package
         run: tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
 

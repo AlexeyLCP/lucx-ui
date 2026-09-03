@@ -14,6 +14,7 @@ Not packed into `x-ui-linux-amd64.tar.gz` (SourceCraft 100 MB release cap).
 | `trusttunnel-linux-amd64.gz` | TrustTunnel/TrustTunnel `v1.0.33` |
 | `trusttunnel-client-linux-amd64.gz` | TrustTunnel/TrustTunnelClient `v1.0.49` |
 | `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` + LucX `-cert/-key` overlay |
+| `tproxy-linux-amd64` / `mtproxy-linux-amd64` | telegramdesktop/tproxy-server `52a5feb7` + TelegramMessenger/MTProxy `f36d8af7` — packed by `.github/workflows/release.yml` into the GitHub amd64 tarball (not stored as gz here) |
 
 Licenses stay with those projects. Refresh from a LucX release tarball:
 

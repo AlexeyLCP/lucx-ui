@@ -27,7 +27,7 @@ func TestNameRegistry(t *testing.T) {
 	if !Olcrtc.Valid() || Olcrtc.DisplayName() != "olcRTC" {
 		t.Errorf("Olcrtc Valid/DisplayName broken: %v %q", Olcrtc.Valid(), Olcrtc.DisplayName())
 	}
-	if got := All(); len(got) != 6 || got[0] != Naive || got[1] != Olcrtc || got[2] != Qwdtt || got[3] != Mieru || got[4] != TrustTunnel || got[5] != Anytls {
+	if got := All(); len(got) != 9 || got[0] != Naive || got[1] != Olcrtc || got[2] != Qwdtt || got[3] != Mieru || got[4] != TrustTunnel || got[5] != Anytls || got[6] != Tproxy || got[7] != Mtproxy || got[8] != TproxyCaddy {
 		t.Errorf("All() = %v", got)
 	}
 	if got := Olcrtc.BinaryName(); !strings.HasPrefix(got, "olcrtc-") {
@@ -50,6 +50,12 @@ func TestNameRegistry(t *testing.T) {
 	}
 	if got := Anytls.BinaryName(); !strings.HasPrefix(got, "anytls-") {
 		t.Errorf("Anytls.BinaryName = %q", got)
+	}
+	if !Tproxy.Valid() || Tproxy.DisplayName() != "Telegram WEB proxy" {
+		t.Errorf("Tproxy Valid/DisplayName broken: %v %q", Tproxy.Valid(), Tproxy.DisplayName())
+	}
+	if got := TproxyCaddy.BinaryName(); !strings.Contains(got, "caddy-naive") {
+		t.Errorf("TproxyCaddy.BinaryName = %q, want caddy-naive", got)
 	}
 }
 

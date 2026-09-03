@@ -13,6 +13,7 @@ import type { QwdttInboundSettings } from '@/schemas/protocols/inbound/qwdtt';
 import type { MieruInboundSettings } from '@/schemas/protocols/inbound/mieru';
 import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/trusttunnel';
 import type { AnytlsInboundSettings } from '@/schemas/protocols/inbound/anytls';
+import type { TproxyInboundSettings } from '@/schemas/protocols/inbound/tproxy';
 import type {
   ShadowsocksClient,
   ShadowsocksInboundSettings,
@@ -324,6 +325,20 @@ export function createDefaultAnytlsInboundSettings(): AnytlsInboundSettings {
   };
 }
 
+export function createDefaultTproxyInboundSettings(): TproxyInboundSettings {
+  return {
+    port: 443,
+    hostname: '',
+    secret: '',
+    siteSource: 'zip',
+    siteDir: '',
+    siteUpstream: '',
+    carrierMode: 'https',
+    certFile: '',
+    keyFile: '',
+  };
+}
+
 export function createDefaultTrustTunnelInboundSettings(): TrustTunnelInboundSettings {
   return {
     hostname: '',
@@ -521,7 +536,8 @@ export type AnyInboundSettings =
   | QwdttInboundSettings
   | MieruInboundSettings
   | TrustTunnelInboundSettings
-  | AnytlsInboundSettings;
+  | AnytlsInboundSettings
+  | TproxyInboundSettings;
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -563,6 +579,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultTrustTunnelInboundSettings();
     case 'anytls':
       return createDefaultAnytlsInboundSettings();
+    case 'tproxy':
+      return createDefaultTproxyInboundSettings();
     default:
       return null;
   }

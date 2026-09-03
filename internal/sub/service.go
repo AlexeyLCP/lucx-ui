@@ -526,7 +526,7 @@ func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) 
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','awg','naive','olcrtc','qwdtt','mieru','trusttunnel','anytls')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','awg','naive','olcrtc','qwdtt','mieru','trusttunnel','anytls','tproxy')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC").Find(&inbounds).Error
 	if err != nil {
@@ -691,6 +691,8 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genQwdttLink(inbound)
 	case "anytls": // LUCX-HOOK: single-credential AnyTLS URI (ignore email)
 		return s.genAnytlsLink(inbound)
+	case "tproxy": // LUCX-HOOK: Telegram WEB proxy t.me/webproxy link
+		return s.genTproxyLink(inbound)
 	case "amneziawg":
 		return s.genAmneziaWGLink(inbound, email)
 	}
@@ -963,6 +965,14 @@ func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
 		return ""
 	}
 	return cfg.ClientLink(host, inbound.Remark)
+}
+
+func (s *SubService) genTproxyLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	return cfg.Merge().ClientLink()
 }
 
 // sidecarHostLinks fans out one share URL per Host / externalProxy dest+port.

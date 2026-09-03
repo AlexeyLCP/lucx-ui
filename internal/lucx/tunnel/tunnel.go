@@ -62,6 +62,10 @@ const TrustTunnel Name = "trusttunnel"
 // sing-box / mihomo / Shadowrocket / Stash / Loon.
 const Anytls Name = "anytls"
 
+// Tproxy is Telegram Desktop WEB proxy (tproxy-server + official MTProxy
+// + Caddy TLS reverse_proxy). Share: https://t.me/webproxy?server=&secret=.
+// Mtproxy / TproxyCaddy are the companion processes of one tproxy inbound.
+
 // Client-mode cores (outbound sidecars). Distinct Name values so BinaryName
 // never collides with inbound servers (caddy-naive / mita / trusttunnel_endpoint)
 // and ReconcileWanted prefixes (naive- / mieru- / trusttunnel-) never sweep
@@ -74,7 +78,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls}
+	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -85,7 +89,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -106,6 +110,12 @@ func (n Name) DisplayName() string {
 		return "TrustTunnel"
 	case Anytls:
 		return "AnyTLS"
+	case Tproxy:
+		return "Telegram WEB proxy"
+	case Mtproxy:
+		return "MTProxy"
+	case TproxyCaddy:
+		return "Caddy (tproxy)"
 	case NaiveClient:
 		return "NaiveProxy client"
 	case MieruClient:
@@ -123,7 +133,7 @@ func (n Name) DisplayName() string {
 func (n Name) BinaryName() string {
 	var name string
 	switch n {
-	case Naive:
+	case Naive, TproxyCaddy:
 		name = fmt.Sprintf("caddy-naive-%s-%s", runtime.GOOS, runtime.GOARCH)
 	case NaiveClient:
 		name = fmt.Sprintf("naive-client-%s-%s", runtime.GOOS, runtime.GOARCH)
@@ -182,11 +192,11 @@ func trustTunnelHostsFileName(key string) string {
 func configPathFor(key string, n Name) string {
 	if key != "" && key != string(n) {
 		switch n {
-		case Naive:
+		case Naive, TproxyCaddy:
 			return filepath.Join(workDir(), key+".caddyfile")
 		case Olcrtc:
 			return filepath.Join(workDir(), key+".yaml")
-		case Mieru, MieruClient, NaiveClient:
+		case Mieru, MieruClient, NaiveClient, Tproxy:
 			return filepath.Join(workDir(), key+".json")
 		case TrustTunnel, TrustTunnelClient:
 			return filepath.Join(workDir(), key+".toml")

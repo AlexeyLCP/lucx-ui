@@ -18,6 +18,7 @@ const LUCX_NODE_PROTOCOLS = new Set<string>([
   Protocols.MIERU,
   Protocols.TRUSTTUNNEL,
   Protocols.ANYTLS,
+  Protocols.TPROXY,
 ]);
 
 export function isProtocolNodeEligible(protocol: string): boolean {

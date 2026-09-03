@@ -40,6 +40,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   mierus: 'mieru',
   tt: 'TrustTunnel',
   anytls: 'AnyTLS',
+  webproxy: 'Telegram WEB',
 };
 
 const PROTOCOL_COLORS: Record<string, string> = {

@@ -34,7 +34,15 @@ import { sidecarOutboundsApi } from '@/api/sidecar-outbounds';
 import type { SidecarProtocol } from '@/schemas/sidecar-outbound';
 import type { BbrStatus } from '@/models/status';
 
-type CoreKind = 'naive' | 'olcrtc' | 'qwdtt' | 'mieru' | 'trusttunnel' | 'anytls';
+type CoreKind =
+  | 'naive'
+  | 'olcrtc'
+  | 'qwdtt'
+  | 'mieru'
+  | 'trusttunnel'
+  | 'anytls'
+  | 'tproxy'
+  | 'mtproxy';
 
 interface CoreStatusView {
   probe?: { running?: boolean };
@@ -105,6 +113,22 @@ const CORE_API: Record<
     upload: tunnelsApi.anytlsUpload,
     download: tunnelsApi.anytlsDownload,
     deleteBinary: tunnelsApi.anytlsDeleteBinary,
+  },
+  tproxy: {
+    key: keys.tunnels.tproxyStatus,
+    status: tunnelsApi.tproxyStatus,
+    logs: tunnelsApi.tproxyLogs,
+    upload: tunnelsApi.tproxyUpload,
+    download: tunnelsApi.tproxyDownload,
+    deleteBinary: tunnelsApi.tproxyDeleteBinary,
+  },
+  mtproxy: {
+    key: keys.tunnels.mtproxyStatus,
+    status: tunnelsApi.mtproxyStatus,
+    logs: tunnelsApi.mtproxyLogs,
+    upload: tunnelsApi.mtproxyUpload,
+    download: tunnelsApi.mtproxyDownload,
+    deleteBinary: tunnelsApi.mtproxyDeleteBinary,
   },
 };
 
@@ -514,6 +538,8 @@ export default function CoresTab() {
       <BinaryCard kind="mieru" title="mieru" />
       <BinaryCard kind="trusttunnel" title="TrustTunnel" />
       <BinaryCard kind="anytls" title="AnyTLS" />
+      <BinaryCard kind="tproxy" title="Telegram WEB proxy" />
+      <BinaryCard kind="mtproxy" title="MTProxy" />
       <Divider />
       <Typography.Title level={5}>{t('pages.settings.cores.clientBinaries')}</Typography.Title>
       <ClientBinaryCard protocol="naive" titleKey="pages.settings.cores.naiveClient" />

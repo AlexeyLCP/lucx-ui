@@ -2212,7 +2212,8 @@ export const SCHEMAS: Record<string, unknown> = {
           "qwdtt",
           "mieru",
           "trusttunnel",
-          "anytls"
+          "anytls",
+          "tproxy"
         ],
         "example": "vless",
         "type": "string"

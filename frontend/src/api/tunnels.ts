@@ -16,6 +16,7 @@ import {
   MieruStatusSchema,
   TrustTunnelStatusSchema,
   AnytlsStatusSchema,
+  TproxyStatusSchema,
   type NaiveConfig,
   type NaiveStatus,
   type OlcrtcConfig,
@@ -25,6 +26,7 @@ import {
   type MieruStatus,
   type TrustTunnelStatus,
   type AnytlsStatus,
+  type TproxyStatus,
 } from '@/schemas/tunnel';
 
 export type {
@@ -37,6 +39,7 @@ export type {
   MieruStatus,
   TrustTunnelStatus,
   AnytlsStatus,
+  TproxyStatus,
 };
 
 // JSON_HEADERS is load-bearing on every POST (lucx.69 lesson).
@@ -48,6 +51,8 @@ const QWDTT = '/panel/api/tunnel/qwdtt';
 const MIERU = '/panel/api/tunnel/mieru';
 const TRUSTTUNNEL = '/panel/api/tunnel/trusttunnel';
 const ANYTLS = '/panel/api/tunnel/anytls';
+const TPROXY = '/panel/api/tunnel/tproxy';
+const MTPROXY = '/panel/api/tunnel/mtproxy';
 
 export const tunnelsApi = {
   status: async (): Promise<Msg<NaiveStatus>> => {
@@ -189,4 +194,41 @@ export const tunnelsApi = {
   },
   anytlsDeleteBinary: (): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${ANYTLS}/deleteBinary`, {}, JSON_HEADERS),
+
+  tproxyStatus: async (): Promise<Msg<TproxyStatus>> => {
+    const raw = await HttpUtil.get<TproxyStatus>(`${TPROXY}/status`, undefined, { silent: true });
+    return parseMsg(raw, TproxyStatusSchema, 'tunnel/tproxyStatus');
+  },
+  tproxyLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${TPROXY}/logs?lines=${lines}`),
+  tproxyDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${TPROXY}/download`, { url, sha256 }, JSON_HEADERS),
+  tproxyUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${TPROXY}/upload`, fd);
+  },
+  tproxyDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${TPROXY}/deleteBinary`, {}, JSON_HEADERS),
+  tproxyUploadSite: (id: number, file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${TPROXY}/uploadSite?id=${id}`, fd);
+  },
+
+  mtproxyStatus: async (): Promise<Msg<TproxyStatus>> => {
+    const raw = await HttpUtil.get<TproxyStatus>(`${MTPROXY}/status`, undefined, { silent: true });
+    return parseMsg(raw, TproxyStatusSchema, 'tunnel/mtproxyStatus');
+  },
+  mtproxyLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${MTPROXY}/logs?lines=${lines}`),
+  mtproxyDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${MTPROXY}/download`, { url, sha256 }, JSON_HEADERS),
+  mtproxyUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${MTPROXY}/upload`, fd);
+  },
+  mtproxyDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${MTPROXY}/deleteBinary`, {}, JSON_HEADERS),
 };

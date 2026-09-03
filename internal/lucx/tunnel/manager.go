@@ -338,6 +338,12 @@ func removeManagedFiles(key string) {
 		core = Mieru
 	case strings.HasPrefix(key, "anytls-"):
 		core = Anytls
+	case strings.HasPrefix(key, "tproxycaddy-"):
+		core = TproxyCaddy
+	case strings.HasPrefix(key, "tproxy-"):
+		core = Tproxy
+	case strings.HasPrefix(key, "mtproxy-"):
+		core = Mtproxy
 	case strings.HasPrefix(key, "naiveout-"):
 		core = NaiveClient
 	case strings.HasPrefix(key, "naive-"):
@@ -357,6 +363,9 @@ func removeManagedFiles(key string) {
 			filepath.Join(workDir(), key+"-rules.toml"),
 		)
 	}
+	if core == Tproxy {
+		paths = append(paths, filepath.Join(workDir(), key+"-profiles.json"))
+	}
 	paths = append(paths, dataDirFor(key, core))
 	for _, p := range paths {
 		if err := os.RemoveAll(p); err != nil && !os.IsNotExist(err) {
@@ -366,7 +375,7 @@ func removeManagedFiles(key string) {
 }
 
 func isMultiInstanceKey(key string) bool {
-	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-", "anytls-", "naiveout-", "mieruout-", "ttout-"} {
+	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-", "anytls-", "tproxycaddy-", "tproxy-", "mtproxy-", "naiveout-", "mieruout-", "ttout-"} {
 		if strings.HasPrefix(key, p) && len(key) > len(p) {
 			return true
 		}
@@ -643,6 +652,18 @@ func (m *Manager) ReconcileTrustTunnel(want []Instance) {
 // ReconcileAnytls drives every desired AnyTls inbound instance.
 func (m *Manager) ReconcileAnytls(want []Instance) {
 	m.ReconcileWanted(Anytls, "anytls-", string(Anytls), want)
+}
+
+func (m *Manager) ReconcileTproxy(want []Instance) {
+	m.ReconcileWanted(Tproxy, "tproxy-", string(Tproxy), want)
+}
+
+func (m *Manager) ReconcileMtproxy(want []Instance) {
+	m.ReconcileWanted(Mtproxy, "mtproxy-", string(Mtproxy), want)
+}
+
+func (m *Manager) ReconcileTproxyCaddy(want []Instance) {
+	m.ReconcileWanted(TproxyCaddy, "tproxycaddy-", string(TproxyCaddy), want)
 }
 
 // ReconcileWanted Ensures each wanted instance of core and Removes orphan

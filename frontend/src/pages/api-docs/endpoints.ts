@@ -1046,6 +1046,65 @@ export const sections: readonly Section[] = [
         path: '/panel/api/tunnel/anytls/deleteBinary',
         summary: 'Stop every AnyTLS instance and remove the binary from disk. LucX-UI only.',
       },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/tproxy/status',
+        summary:
+          'Telegram WEB proxy core status for the Cores page: tproxy-server binary and process state. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/tproxy/logs',
+        summary: 'Recent tproxy-server log lines. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/tproxy/upload',
+        summary: 'Replace the tproxy-server binary. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/tproxy/download',
+        summary: 'Fetch tproxy-server from a URL. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/tproxy-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/tproxy/deleteBinary',
+        summary: 'Stop tproxy instances and remove the binary. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/tproxy/uploadSite',
+        summary:
+          'Upload a camouflage-site zip for one tproxy inbound (query id). Needs index.html. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/mtproxy/status',
+        summary: 'Official MTProxy binary status for Telegram WEB proxy backends. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/mtproxy/logs',
+        summary: 'Recent official MTProxy log lines. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mtproxy/upload',
+        summary: 'Replace the official MTProxy binary. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mtproxy/download',
+        summary: 'Fetch official MTProxy from a URL. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/mtproxy-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mtproxy/deleteBinary',
+        summary: 'Stop MTProxy instances and remove the binary. LucX-UI only.',
+      },
     ],
   },
   // END LUCX-HOOK

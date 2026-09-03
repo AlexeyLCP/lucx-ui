@@ -136,6 +136,8 @@ const (
 	// AnyTLS — anytls-server (anytls/anytls-go), single shared password,
 	// multi-inbound.
 	Anytls Protocol = "anytls"
+	// Tproxy — Telegram WEB proxy (tproxy-server). Single secret, hostname:443.
+	Tproxy Protocol = "tproxy"
 	// END LUCX-HOOK
 )
 
@@ -166,7 +168,7 @@ type Inbound struct {
 	// Xray configuration fields
 	Listen            string   `json:"listen" form:"listen"`
 	Port              int      `json:"port" form:"port" validate:"gte=0,lte=65535" example:"443"`
-	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto amneziawg awg naive olcrtc qwdtt mieru trusttunnel anytls" example:"vless"`
+	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto amneziawg awg naive olcrtc qwdtt mieru trusttunnel anytls tproxy" example:"vless"`
 	Settings          string   `json:"settings" form:"settings"`
 	StreamSettings    string   `json:"streamSettings" form:"streamSettings"`
 	Tag               string   `json:"tag" form:"tag" gorm:"unique" example:"in-443-tcp"`

@@ -819,6 +819,21 @@
         "anytlsPasswordHint": "Пусто = сгенерируется при сохранении",
         "anytlsSni": "SNI / домен",
         "anytlsSniHint": "Должен быть в сертификате панели (x-ui SSL). Пустые пути cert/key = Settings → Panel SSL.",
+        "tproxyNote": "Telegram WEB proxy (tproxy-server). Нужны hostname:443, TLS панели на этот hostname, сайт-камуфляж и бинарники в Настройки → Ядра (tproxy-server, MTProxy, Caddy/NaiveProxy). Клиенты: Telegram Desktop WEB proxy. Ссылка: t.me/webproxy",
+        "tproxyHostname": "Hostname",
+        "tproxyHostnameHint": "Голое DNS-имя, без https:// и порта. Должно совпадать с сертификатом.",
+        "tproxySecret": "Секрет",
+        "tproxySecretHint": "32 hex-символа. Пусто = сгенерируется при сохранении.",
+        "tproxySiteSource": "Сайт-камуфляж",
+        "tproxySiteZip": "ZIP",
+        "tproxySiteDir": "Каталог",
+        "tproxySiteDirHint": "Путь на сервере с index.html",
+        "tproxySiteUpstream": "Loopback-приложение",
+        "tproxySiteUpstreamHint": "Только http://127.0.0.1:port",
+        "tproxySitePrompt": "Скопировать промпт генератора сайта",
+        "tproxySitePromptCopied": "Промпт скопирован. Сгенерируй уникальный сайт и залей ZIP.",
+        "tproxySaveFirst": "Сначала сохрани inbound, потом загрузи ZIP.",
+        "tproxyCarrier": "Carrier",
         "qwdttDns": "DNS",
         "qwdttSubHost": "Публичный host:port (для клиентов)",
         "qwdttSubHostHint": "Адрес для клиентов, напр. 1.2.3.4:56000",
@@ -949,7 +964,8 @@
       "protocolNames": {
         "awg": "AmneziaWG (ядро)",
         "amneziawg": "AmneziaWG",
-        "anytls": "AnyTLS"
+        "anytls": "AnyTLS",
+        "tproxy": "Telegram WEB proxy"
       }
     },
     "clients": {
@@ -2649,6 +2665,43 @@
           "download": "Скачать",
           "delete": "Удалить",
           "deleteConfirm": "Остановить все инстансы AnyTLS и удалить бинарник?",
+          "sha256Placeholder": "Контрольная сумма SHA-256 (необязательно)",
+          "sha256Hint": "Пусто — будет установлено то, что вернёт ссылка. Если указать, загрузка с другим хешем отбрасывается, текущий бинарник остаётся на месте.",
+          "sha256Invalid": "Контрольная сумма SHA-256 — это 64 шестнадцатеричных символа."
+        },
+        "toasts": {
+          "uploaded": "Бинарник загружен",
+          "downloaded": "Бинарник скачан",
+          "deleted": "Бинарник удалён"
+        }
+      },
+      "tproxy": {
+        "binary": {
+          "exists": "установлен",
+          "missing": "не установлен",
+          "upload": "Загрузить",
+          "download": "Скачать",
+          "delete": "Удалить",
+          "deleteConfirm": "Остановить Telegram WEB proxy и удалить tproxy-server?",
+          "sha256Placeholder": "Контрольная сумма SHA-256 (необязательно)",
+          "sha256Hint": "Пусто — будет установлено то, что вернёт ссылка. Если указать, загрузка с другим хешем отбрасывается, текущий бинарник остаётся на месте.",
+          "sha256Invalid": "Контрольная сумма SHA-256 — это 64 шестнадцатеричных символа."
+        },
+        "toasts": {
+          "uploaded": "Бинарник загружен",
+          "downloaded": "Бинарник скачан",
+          "deleted": "Бинарник удалён",
+          "siteUploaded": "Сайт загружен"
+        }
+      },
+      "mtproxy": {
+        "binary": {
+          "exists": "установлен",
+          "missing": "не установлен",
+          "upload": "Загрузить",
+          "download": "Скачать",
+          "delete": "Удалить",
+          "deleteConfirm": "Остановить MTProxy и удалить бинарник?",
           "sha256Placeholder": "Контрольная сумма SHA-256 (необязательно)",
           "sha256Hint": "Пусто — будет установлено то, что вернёт ссылка. Если указать, загрузка с другим хешем отбрасывается, текущий бинарник остаётся на месте.",
           "sha256Invalid": "Контрольная сумма SHA-256 — это 64 шестнадцатеричных символа."

@@ -190,7 +190,8 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		// Tunnel sidecars as inbounds — not Xray protocols.
 		if inbound.Protocol == model.Naive || inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt ||
-			inbound.Protocol == model.Mieru || inbound.Protocol == model.TrustTunnel || inbound.Protocol == model.Anytls {
+			inbound.Protocol == model.Mieru || inbound.Protocol == model.TrustTunnel || inbound.Protocol == model.Anytls ||
+			inbound.Protocol == model.Tproxy {
 			continue
 		}
 		// END LUCX-HOOK

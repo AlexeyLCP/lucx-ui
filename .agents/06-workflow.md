@@ -189,8 +189,8 @@ x-ui-linux-amd64.tar.gz → x-ui/
       ├── xray-linux-amd64    ← from upstream release (not our code)
       ├── mtg-linux-amd64     ← from upstream release (not our code)
       ├── install-awg-module.sh  ← our DKMS script
-      └── caddy-naive / olcrtc / qwdtt / mieru / trusttunnel / anytls (+ clients)
-          ← GitHub amd64 tarball unpacks these from third_party/sidecars/
+      └── caddy-naive / olcrtc / qwdtt / mieru / trusttunnel / anytls / tproxy / mtproxy (+ clients)
+          ← GitHub amd64 tarball unpacks gz from third_party/sidecars/; tproxy+mtproxy are built in release.yml
 ```
 
 Geo is not in the panel tarball (GitHub slim / SourceCraft 100 MB). `install.sh` / `update.sh` fetch Loyalsoldier + IR/RU/ROSCOM **before** panel start (never fatal). SourceCraft unpacks `x-ui-geo.tar.gz` from the dist bundle at the same point.

@@ -170,6 +170,21 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	anytls.POST("/upload", a.anytlsUploadBinary)
 	anytls.POST("/download", a.anytlsDownloadBinary)
 	anytls.POST("/deleteBinary", a.anytlsDeleteBinary)
+
+	tproxy := g.Group("/tproxy")
+	tproxy.GET("/status", a.tproxyStatus)
+	tproxy.GET("/logs", a.tproxyLogs)
+	tproxy.POST("/upload", a.tproxyUploadBinary)
+	tproxy.POST("/download", a.tproxyDownloadBinary)
+	tproxy.POST("/deleteBinary", a.tproxyDeleteBinary)
+	tproxy.POST("/uploadSite", a.tproxyUploadSite)
+
+	mtproxy := g.Group("/mtproxy")
+	mtproxy.GET("/status", a.mtproxyStatus)
+	mtproxy.GET("/logs", a.mtproxyLogs)
+	mtproxy.POST("/upload", a.mtproxyUploadBinary)
+	mtproxy.POST("/download", a.mtproxyDownloadBinary)
+	mtproxy.POST("/deleteBinary", a.mtproxyDeleteBinary)
 }
 
 func (a *TunnelController) status(c *gin.Context) {
@@ -672,4 +687,132 @@ func (a *TunnelController) anytlsDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.anytls.toasts.deleted"), nil)
+}
+
+func (a *TunnelController) tproxyStatus(c *gin.Context) {
+	st, err := a.svc.TproxyStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: tproxy status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) tproxyLogs(c *gin.Context) {
+	jsonObj(c, a.svc.TproxyLogs(tproxyLogLines(c)), nil)
+}
+
+func (a *TunnelController) tproxyUploadBinary(c *gin.Context) {
+	if err := saveCoreUpload(c, tunnel.Tproxy.BinaryPath()); err != nil {
+		jsonMsg(c, "tunnel: tproxy upload failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.tproxy.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) tproxyDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid tproxy download body", err)
+		return
+	}
+	if err := a.svc.DownloadTproxyBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: tproxy download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.tproxy.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) tproxyDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteTproxyBinary(); err != nil {
+		jsonMsg(c, "tunnel: tproxy binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.tproxy.toasts.deleted"), nil)
+}
+
+func (a *TunnelController) tproxyUploadSite(c *gin.Context) {
+	id, err := strconv.Atoi(c.Query("id"))
+	if err != nil || id <= 0 {
+		jsonMsg(c, "tunnel: tproxy site needs inbound id", err)
+		return
+	}
+	file, err := c.FormFile("file")
+	if err != nil {
+		jsonMsg(c, "tunnel: tproxy site upload failed", err)
+		return
+	}
+	if file.Size > 20<<20 {
+		jsonMsg(c, "tunnel: tproxy site zip exceeds 20 MB", common.NewError("zip too large"))
+		return
+	}
+	src, err := file.Open()
+	if err != nil {
+		jsonMsg(c, "tunnel: tproxy site upload failed", err)
+		return
+	}
+	defer src.Close()
+	body, err := io.ReadAll(io.LimitReader(src, 20<<20+1))
+	if err != nil {
+		jsonMsg(c, "tunnel: tproxy site upload failed", err)
+		return
+	}
+	if err := a.svc.UploadTproxySite(id, body); err != nil {
+		jsonMsg(c, "tunnel: tproxy site extract failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.tproxy.toasts.siteUploaded"), nil)
+}
+
+func (a *TunnelController) mtproxyStatus(c *gin.Context) {
+	st, err := a.svc.MtproxyStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: mtproxy status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) mtproxyLogs(c *gin.Context) {
+	jsonObj(c, a.svc.MtproxyLogs(tproxyLogLines(c)), nil)
+}
+
+func (a *TunnelController) mtproxyUploadBinary(c *gin.Context) {
+	if err := saveCoreUpload(c, tunnel.Mtproxy.BinaryPath()); err != nil {
+		jsonMsg(c, "tunnel: mtproxy upload failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.mtproxy.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) mtproxyDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid mtproxy download body", err)
+		return
+	}
+	if err := a.svc.DownloadMtproxyBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: mtproxy download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.mtproxy.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) mtproxyDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteMtproxyBinary(); err != nil {
+		jsonMsg(c, "tunnel: mtproxy binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.mtproxy.toasts.deleted"), nil)
+}
+
+func tproxyLogLines(c *gin.Context) int {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	return lines
+}
 }

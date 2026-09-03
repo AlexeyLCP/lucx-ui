@@ -819,6 +819,21 @@
         "anytlsPasswordHint": "Empty = auto-generate on save",
         "anytlsSni": "SNI / domain",
         "anytlsSniHint": "Must be covered by the panel TLS certificate (x-ui SSL). Empty cert paths use Settings → Panel SSL.",
+        "tproxyNote": "Telegram WEB proxy (tproxy-server). Needs hostname:443, panel TLS cert covering the hostname, camouflage site, and binaries on Settings → Cores (tproxy-server, MTProxy, Caddy/NaiveProxy). Clients: Telegram Desktop WEB proxy. Share: t.me/webproxy",
+        "tproxyHostname": "Hostname",
+        "tproxyHostnameHint": "Bare DNS name, no https:// or port. Must match the TLS certificate.",
+        "tproxySecret": "Secret",
+        "tproxySecretHint": "32 hex chars. Empty = auto-generate on save.",
+        "tproxySiteSource": "Camouflage site",
+        "tproxySiteZip": "ZIP",
+        "tproxySiteDir": "Directory",
+        "tproxySiteDirHint": "Server path with index.html",
+        "tproxySiteUpstream": "Loopback app",
+        "tproxySiteUpstreamHint": "http://127.0.0.1:port only",
+        "tproxySitePrompt": "Copy site-generator prompt",
+        "tproxySitePromptCopied": "Prompt copied. Generate a unique site and upload the ZIP.",
+        "tproxySaveFirst": "Save the inbound first, then upload the ZIP.",
+        "tproxyCarrier": "Carrier",
         "qwdttDns": "DNS",
         "qwdttSubHost": "Public host:port (for clients)",
         "qwdttSubHostHint": "Advertised peer address, e.g. 1.2.3.4:56000",
@@ -949,7 +964,8 @@
       "protocolNames": {
         "awg": "AmneziaWG (kernel)",
         "amneziawg": "AmneziaWG",
-        "anytls": "AnyTLS"
+        "anytls": "AnyTLS",
+        "tproxy": "Telegram WEB proxy"
       }
     },
     "clients": {
@@ -2659,6 +2675,43 @@
           "deleted": "Binary deleted"
         }
       },
+      "tproxy": {
+        "binary": {
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop Telegram WEB proxy and delete tproxy-server?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
+        },
+        "toasts": {
+          "uploaded": "Binary uploaded",
+          "downloaded": "Binary downloaded",
+          "deleted": "Binary deleted",
+          "siteUploaded": "Site uploaded"
+        }
+      },
+      "mtproxy": {
+        "binary": {
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop MTProxy backends and delete the binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
+        },
+        "toasts": {
+          "uploaded": "Binary uploaded",
+          "downloaded": "Binary downloaded",
+          "deleted": "Binary deleted"
+        }
+      },
       "inboundMovedTitle": "Configuration is in Inbounds",
       "inboundMovedDesc": "Add and edit NaiveProxy, olcRTC and qWDTT as Inbounds. This page is only for binaries, process logs and rare advanced ops."
     }
@@ -2861,3 +2914,4 @@
   "disable": "停用",
   "qrTooLarge": "QR 碼過大無法顯示 — 請使用下載或複製"
 }
+
