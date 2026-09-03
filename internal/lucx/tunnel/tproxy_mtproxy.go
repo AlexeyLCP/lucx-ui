@@ -67,7 +67,9 @@ func ensureMtproxyUser() {
 	if os.Geteuid() != 0 {
 		return
 	}
-	if err := exec.Command("useradd", "-r", "-M", "-N", "-s", "/usr/sbin/nologin", mtproxyEngineUser).Run(); err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	if err := exec.CommandContext(ctx, "useradd", "-r", "-M", "-N", "-s", "/usr/sbin/nologin", mtproxyEngineUser).Run(); err != nil {
 		logger.Warningf("tunnel: mtproxy: create %s user failed: %v", mtproxyEngineUser, err)
 	}
 }
