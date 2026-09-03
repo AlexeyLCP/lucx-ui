@@ -194,6 +194,9 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 	if oldIb.Protocol == model.AWG || newIb.Protocol == model.AWG {
 		return l.updateAwgInbound(ctx, oldIb, newIb)
 	}
+	if oldIb.Protocol == model.Tproxy || newIb.Protocol == model.Tproxy {
+		return l.updateTproxyInbound(ctx, oldIb, newIb)
+	}
 	// LUCX-HOOK: tunnel inbound update (Del+Add / Ensure restart).
 	if isTunnelInboundProto(oldIb.Protocol) || isTunnelInboundProto(newIb.Protocol) {
 		_ = l.DelInbound(ctx, oldIb)
@@ -272,6 +275,20 @@ func (l *Local) ensureAnytlsInbound(ib *model.Inbound) error {
 		return nil
 	}
 	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) updateTproxyInbound(ctx context.Context, oldIb, newIb *model.Inbound) error {
+	if oldIb.Protocol == model.Tproxy && newIb.Protocol != model.Tproxy {
+		_ = l.DelInbound(ctx, oldIb)
+		if !newIb.Enable {
+			return nil
+		}
+		return l.AddInbound(ctx, newIb)
+	}
+	if oldIb.Protocol != model.Tproxy {
+		_ = l.DelInbound(ctx, oldIb)
+	}
+	return l.ensureTproxyInbound(newIb)
 }
 
 func (l *Local) ensureTproxyInbound(ib *model.Inbound) error {

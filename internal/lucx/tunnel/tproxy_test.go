@@ -18,6 +18,33 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
+func TestTproxySiteDirOutsideDataDir(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+
+	site := TproxySiteDir(18)
+	data := dataDirFor(TproxyKey(18), Tproxy)
+	if site == data || strings.HasPrefix(site, data+string(os.PathSeparator)) {
+		t.Fatalf("site dir %q must not live under wiped data dir %q", site, data)
+	}
+	if err := os.MkdirAll(site, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	removeManagedFiles(TproxyKey(18))
+	if _, err := os.Stat(filepath.Join(site, "index.html")); err != nil {
+		t.Fatalf("save/update Remove must not delete the camouflage site: %v", err)
+	}
+	RemoveTproxySite(18)
+	if _, err := os.Stat(site); !os.IsNotExist(err) {
+		t.Fatalf("inbound delete must remove the site, stat=%v", err)
+	}
+}
+
 func TestTproxyConfigRouteThroughXray(t *testing.T) {
 	ib := &model.Inbound{
 		Protocol: model.Tproxy,

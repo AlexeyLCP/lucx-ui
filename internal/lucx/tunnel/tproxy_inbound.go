@@ -24,7 +24,11 @@ func MtproxyKey(id int) string     { return "mtproxy-" + strconv.Itoa(id) }
 func TproxyCaddyKey(id int) string { return "tproxycaddy-" + strconv.Itoa(id) }
 
 func TproxySiteDir(id int) string {
-	return filepath.Join(dataDirFor(TproxyKey(id), Tproxy), "site")
+	return filepath.Join(workDir(), TproxyKey(id)+"-site")
+}
+
+func RemoveTproxySite(id int) {
+	_ = os.RemoveAll(TproxySiteDir(id))
 }
 
 func TproxyConfigFromInbound(ib *model.Inbound) (TproxyConfig, bool) {
@@ -75,6 +79,9 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 		return disabled
 	}
 	if !cfg.Enabled {
+		return disabled, true
+	}
+	if cfg.ExternalTLS {
 		return disabled, true
 	}
 	if err := cfg.Validate(); err != nil {

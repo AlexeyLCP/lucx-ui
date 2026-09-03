@@ -2333,6 +2333,9 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 	if postCommitApply != nil {
 		postCommitApply()
 	}
+	if loadErr == nil && ib.Protocol == model.Tproxy {
+		tunnel.RemoveTproxySite(ib.Id)
+	}
 	if loadErr == nil && ib.Tag != "" {
 		if routingChanged, syncErr := (&XraySettingService{}).RemoveInboundTagReferences(ib.Tag); syncErr != nil {
 			logger.Warning("DelInbound: sync routing on inbound delete failed:", syncErr)
