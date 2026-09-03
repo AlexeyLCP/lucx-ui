@@ -14,10 +14,12 @@ import (
 )
 
 const (
-	ImportSourceMulti   = "awg-multi"
-	ImportSourceToolza3 = "awg-toolza3"
-	ImportSourceDocker  = "amnezia-docker"
-	ImportSourceConf    = "awg-conf"
+	ImportSourceMulti    = "awg-multi"
+	ImportSourceToolza3  = "awg-toolza3"
+	ImportSourceDocker   = "amnezia-docker"
+	ImportSourceConf     = "awg-conf"
+	ImportSourceOutbound = "awg-exit"
+	ImportSourceTproxy   = "tproxy"
 )
 
 const suspendIP = "127.0.0.2"
@@ -52,6 +54,7 @@ type ServerPeer struct {
 	PublicKey  string
 	PSK        string
 	AllowedIPs string
+	Endpoint   string
 	Keepalive  AwgTimer
 	Suspended  bool
 	OrigIPs    string
@@ -141,6 +144,8 @@ func ParseServerConf(text string) ServerConf {
 				peer.PSK = val
 			case "AllowedIPs":
 				peer.AllowedIPs = val
+			case "Endpoint":
+				peer.Endpoint = val
 			case "PersistentKeepalive":
 				peer.Keepalive = AwgTimer(val)
 			}

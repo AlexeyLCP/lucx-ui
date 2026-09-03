@@ -47,6 +47,7 @@ type TproxyConfig struct {
 	RouteThroughXray bool   `json:"routeThroughXray"`
 	RouteXrayPort    int    `json:"routeXrayPort"`
 	OutboundTag      string `json:"outboundTag"`
+	ExternalTLS      bool   `json:"externalTLS"`
 }
 
 func DefaultTproxyConfig() TproxyConfig {

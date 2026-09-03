@@ -107,6 +107,71 @@ func itoa(n int) string {
 	return string(buf[i:])
 }
 
+func TestParseServerConf_Endpoint(t *testing.T) {
+	s := ParseServerConf(`[Interface]
+PrivateKey = k
+Address = 10.9.0.2/32
+
+[Peer]
+PublicKey = srv
+Endpoint = 1.2.3.4:51820
+AllowedIPs = 0.0.0.0/0
+`)
+	if !isClientConf(s) || len(s.Peers) != 1 || s.Peers[0].Endpoint != "1.2.3.4:51820" {
+		t.Fatalf("%+v", s)
+	}
+}
+
+func TestDiscover_ExitConfIsOutbound(t *testing.T) {
+	dir := t.TempDir()
+	exit := `[Interface]
+PrivateKey = exitpriv
+Address = 10.9.0.2/32
+
+[Peer]
+PublicKey = srvpub
+Endpoint = 203.0.113.8:51820
+AllowedIPs = 0.0.0.0/0
+`
+	if err := os.WriteFile(filepath.Join(dir, "awg-exit-n3-v3.conf"), []byte(exit), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := Discover(DiscoverPaths{AmneziaDir: dir})
+	if len(got) != 1 {
+		t.Fatalf("got %d: %+v", len(got), got)
+	}
+	if got[0].Source != ImportSourceOutbound || got[0].Ifname != "awg-exit-n3-v3" || got[0].Port != 51820 {
+		t.Fatalf("%+v", got[0])
+	}
+	built, err := BuildOutbound(got[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	if built.Enable {
+		t.Fatal("imported outbound must start disabled")
+	}
+}
+
+func TestDiscover_ClientKeyInAmneziaDir(t *testing.T) {
+	dir := t.TempDir()
+	priv, pub, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatal(err)
+	}
+	server := "[Interface]\nPrivateKey = srv\nAddress = 10.8.0.1/24\nListenPort = 51820\n\n[Peer]\nPublicKey = " + pub + "\nAllowedIPs = 10.8.0.2/32\n"
+	if err := os.WriteFile(filepath.Join(dir, "awg0.conf"), []byte(server), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	client := "[Interface]\nPrivateKey = " + priv + "\nAddress = 10.8.0.2/32\n"
+	if err := os.WriteFile(filepath.Join(dir, "alice.conf"), []byte(client), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	got := Discover(DiscoverPaths{AmneziaDir: dir, ClientDirs: []string{dir}})
+	if len(got) != 1 || got[0].KeysFound != 1 {
+		t.Fatalf("%+v", got)
+	}
+}
+
 func TestDiscover_EmptyIsJSONArray(t *testing.T) {
 	got := Discover(DiscoverPaths{AmneziaDir: t.TempDir()})
 	if got == nil {

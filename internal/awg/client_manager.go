@@ -112,6 +112,31 @@ func recordClientRead(ifname string, err error) {
 // client (egress) side. Lives on the same *Manager singleton as the server
 // methods but keeps its own state map and mutex so the two sides never block
 // each other.
+func (m *Manager) AdoptClient(ci ClientInstance, currentIfname string) error {
+	clientMu.Lock()
+	defer clientMu.Unlock()
+	if currentIfname != "" && currentIfname != ci.Ifname {
+		if isInboundAwgInterface(currentIfname) {
+			return fmt.Errorf("awg: refuse to rename inbound interface %s", currentIfname)
+		}
+		if currentIfname == defaultRouteInterface() {
+			return fmt.Errorf("awg: refuse to rename default-route interface %s", currentIfname)
+		}
+		if err := renameAwgInterface(currentIfname, ci.Ifname); err != nil {
+			return err
+		}
+	}
+	confPath := filepath.Join(awgConfigDir, ci.Ifname+".conf")
+	conf := renderClientConf(ci)
+	if err := os.WriteFile(confPath, []byte(conf), 0o600); err != nil {
+		return err
+	}
+	clients[ci.Ifname] = clientState{fp: conf}
+	noteClientUp(ci.Ifname, true)
+	logger.Infof("awg: adopted client interface %s as %s", currentIfname, ci.Ifname)
+	return nil
+}
+
 func (m *Manager) EnsureClient(ci ClientInstance) error {
 	if rebuildPaused.Load() {
 		return fmt.Errorf("awg: module rebuild in progress")

@@ -138,7 +138,11 @@ lucx_fetch_sidecars() {
         if [[ -s "${gz}" ]]; then
             cp -f "${gz}" "${tmp}"
         elif ! lucx_sc_curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o "${tmp}" "$(lucx_raw_url "${gz}")"; then
-            echo -e "${yellow}${name}: download failed${plain}"
+            if [[ -x "${dest}/${name}" ]]; then
+                echo -e "${yellow}${name}: no remote gz, keeping tarball copy${plain}"
+            else
+                echo -e "${yellow}${name}: download failed${plain}"
+            fi
             rm -f "${tmp}"
             continue
         fi
@@ -1036,6 +1040,11 @@ prompt_and_setup_ssl() {
     echo -e "${green}4.${plain} Skip SSL (advanced — behind reverse proxy / SSH tunnel only)"
     echo -e "${blue}Note:${plain} Options 1 & 2 require port 80 open. Option 3 requires manual paths."
     echo -e "${blue}Note:${plain} Option 4 serves the panel over plain HTTP — only safe behind nginx/Caddy or an SSH tunnel."
+    local port80_busy=0
+    if ss -ltn sport = :80 2>/dev/null | grep -q ':80'; then
+        port80_busy=1
+        echo -e "${yellow}Port 80 is already in use — ACME HTTP-01 would steal it from nginx/Caddy.${plain}"
+    fi
     if [[ "$NONINTERACTIVE" == "1" ]]; then
         case "${XUI_SSL_MODE:-none}" in
             domain) ssl_choice="1" ;;
@@ -1046,13 +1055,24 @@ prompt_and_setup_ssl() {
                 ssl_choice="4"
                 ;;
         esac
+        if [[ "$port80_busy" == "1" && ( "$ssl_choice" == "1" || "$ssl_choice" == "2" ) && "${XUI_SSL_FORCE:-}" != "1" ]]; then
+            echo -e "${yellow}Skipping ACME because :80 is busy (set XUI_SSL_FORCE=1 to override).${plain}"
+            ssl_choice="4"
+        fi
     else
-        read -rp "Choose an option (default 2 for IP): " ssl_choice
-        ssl_choice="${ssl_choice// /}" # Trim whitespace
-
-        # Default to 2 (IP cert) if input is empty or invalid (not 1, 3 or 4)
-        if [[ "$ssl_choice" != "1" && "$ssl_choice" != "3" && "$ssl_choice" != "4" ]]; then
-            ssl_choice="2"
+        local ssl_default="2"
+        local ssl_prompt="Choose an option (default 2 for IP): "
+        if [[ "$port80_busy" == "1" ]]; then
+            ssl_default="4"
+            ssl_prompt="Choose an option (default 4 skip — port 80 busy): "
+        fi
+        read -rp "${ssl_prompt}" ssl_choice
+        ssl_choice="${ssl_choice// /}"
+        if [[ "$ssl_choice" != "1" && "$ssl_choice" != "3" && "$ssl_choice" != "4" && "$ssl_choice" != "2" ]]; then
+            ssl_choice="${ssl_default}"
+        fi
+        if [[ -z "$ssl_choice" ]]; then
+            ssl_choice="${ssl_default}"
         fi
     fi
 

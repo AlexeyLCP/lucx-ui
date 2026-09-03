@@ -8,8 +8,10 @@ package awg
 
 import (
 	"encoding/json"
+	"net"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -31,7 +33,7 @@ func DefaultDiscoverPaths() DiscoverPaths {
 		AmneziaDir:     awgConfigDir,
 		Toolza3Dir:     "/etc/awg3",
 		DockerRoots:    []string{"/opt/amnezia"},
-		ClientDirs:     []string{"/root", "/etc/awg3/clients"},
+		ClientDirs:     []string{"/root", "/etc/awg3/clients", awgConfigDir},
 		ScanLiveDocker: true,
 	}
 }
@@ -100,6 +102,20 @@ func Discover(paths DiscoverPaths) []ImportCandidate {
 		for _, c := range scanConfDir(paths.AmneziaDir, ImportSourceMulti, "kernel", false) {
 			add(c)
 		}
+		for _, c := range scanOutboundConfDir(paths.AmneziaDir) {
+			if c.Conf.PrivateKey == "" {
+				continue
+			}
+			if _, ok := seen[c.ID]; ok {
+				continue
+			}
+			if _, ok := seen["pk:"+c.Conf.PrivateKey]; ok {
+				continue
+			}
+			seen[c.ID] = struct{}{}
+			seen["pk:"+c.Conf.PrivateKey] = struct{}{}
+			out = append(out, finishOutboundCandidate(c))
+		}
 	}
 	if paths.Toolza3Dir != "" {
 		for _, c := range scanConfDir(paths.Toolza3Dir, ImportSourceToolza3, "userspace", true) {
@@ -144,6 +160,9 @@ func scanConfDir(dir, source, backend string, drop bool) []ImportCandidate {
 			continue
 		}
 		conf := ParseServerConf(string(data))
+		if isClientConf(conf) {
+			continue
+		}
 		ifname := strings.TrimSuffix(e.Name(), ".conf")
 		if !isImportIfname(ifname) {
 			ifname = guessIfname(ifname)
@@ -464,4 +483,88 @@ func isOutboundAwgInterface(name string) bool {
 		}
 	}
 	return true
+}
+
+func isClientConf(conf ServerConf) bool {
+	for _, p := range conf.Peers {
+		if strings.TrimSpace(p.Endpoint) != "" {
+			return true
+		}
+	}
+	return false
+}
+
+func scanOutboundConfDir(dir string) []ImportCandidate {
+	entries, err := os.ReadDir(dir)
+	if err != nil {
+		return nil
+	}
+	var out []ImportCandidate
+	for _, e := range entries {
+		if e.IsDir() || !strings.HasSuffix(e.Name(), ".conf") {
+			continue
+		}
+		if strings.HasPrefix(e.Name(), "awgo-") || strings.HasPrefix(e.Name(), "client") {
+			continue
+		}
+		path := filepath.Join(dir, e.Name())
+		if configIsManaged(path) {
+			continue
+		}
+		data, err := os.ReadFile(path)
+		if err != nil {
+			continue
+		}
+		conf := ParseServerConf(string(data))
+		if !isClientConf(conf) || conf.PrivateKey == "" || conf.Address == "" {
+			continue
+		}
+		ifname := strings.TrimSuffix(e.Name(), ".conf")
+		if isInboundAwgInterface(ifname) {
+			continue
+		}
+		peer := conf.Peers[0]
+		for _, p := range conf.Peers {
+			if p.Endpoint != "" {
+				peer = p
+				break
+			}
+		}
+		port := 0
+		if _, portStr, err := net.SplitHostPort(peer.Endpoint); err == nil {
+			port, _ = strconv.Atoi(portStr)
+		}
+		out = append(out, ImportCandidate{
+			ID:         ImportSourceOutbound + ":" + ifname,
+			Source:     ImportSourceOutbound,
+			Ifname:     ifname,
+			ConfPath:   path,
+			Port:       port,
+			Address:    conf.Address,
+			AwgVersion: conf.AwgVersion,
+			Backend:    "kernel",
+			Conf:       conf,
+		})
+	}
+	return out
+}
+
+func finishOutboundCandidate(c ImportCandidate) ImportCandidate {
+	c.PeerCount = len(c.Conf.Peers)
+	c.KeysFound = 1
+	c.NamedPeers = 1
+	c.Live = interfaceIsUp(c.Ifname)
+	c.Peers = []ImportPeer{}
+	for _, p := range c.Conf.Peers {
+		if p.Endpoint == "" {
+			continue
+		}
+		c.Peers = append(c.Peers, ImportPeer{
+			Email:      p.Endpoint,
+			AllowedIPs: p.AllowedIPs,
+			PublicKey:  p.PublicKey,
+			HasKey:     true,
+		})
+	}
+	return c
 }

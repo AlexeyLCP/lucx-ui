@@ -248,3 +248,10 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** commit saved the inbound disabled (`DropOnImport`) so Amnezia Docker kept the UDP port. Operator had to `docker stop` by hand.
 - **Fix:** successful import stops that source (`docker stop` + `--restart=no`, or `systemctl stop awg3`) then enables the inbound. Container is not removed. Stop failure does not roll back the saved inbound.
 - **Seen on:** estonia-zakez-ru, 2026-08-24.
+
+### Pattern 1ac: live kernel import cannot rename awg0 → awgN — FIXED (lucx.206)
+
+- **Symptom:** commit reports `saved, adopt failed: ip link set awg0 name awg1: Device or resource busy`. Inbound exists in the DB. Reconcile every 10s creates `awg1`, hits `Address already in use`, deletes it. Live `awg0` stays up.
+- **Cause:** Linux will not rename an UP netdev. Import saved the inbound enabled, so `AddInbound` raced Adopt and tried to `awg-quick up awg1` beside the live iface. Failed Adopt left the row in the DB.
+- **Fix:** `renameAwgInterfaceSeq` does admin-down → rename → up. Commit saves disabled, Adopt, then enable. Adopt failure `DelInbound`s the row.
+- **Seen on:** n1 replica of dns (awg0 :55555), 2026-09-03.

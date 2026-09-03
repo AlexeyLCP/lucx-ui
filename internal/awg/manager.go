@@ -295,8 +295,8 @@ func BackupForeignConf(path string) error {
 }
 
 // Adopt takes over a live foreign interface for a newly created inbound:
-// rename it to awg{id} when needed, write the managed .conf, and register it
-// without awg-quick down/up so existing handshakes survive.
+// rename it to awg{id} when needed (admin-down → rename → up; the netdev
+// stays, unlike awg-quick down/up), write the managed .conf, and register it.
 // startIfDown is false for userspace/docker: the inbound is already in the DB
 // and reconcile will bring the kernel iface up after the operator stops the
 // old manager. Calling Start while the old process still holds the UDP port

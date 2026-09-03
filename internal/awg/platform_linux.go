@@ -20,12 +20,14 @@ import (
 )
 
 func renameAwgInterface(oldName, newName string) error {
-	if oldName == "" || oldName == newName {
-		return nil
-	}
-	out, err := exec.CommandContext(context.Background(), "ip", "link", "set", oldName, "name", newName).CombinedOutput()
+	return renameAwgInterfaceSeq(ipLinkSet, oldName, newName)
+}
+
+func ipLinkSet(args ...string) error {
+	cmdArgs := append([]string{"link", "set"}, args...)
+	out, err := exec.CommandContext(context.Background(), "ip", cmdArgs...).CombinedOutput()
 	if err != nil {
-		return fmt.Errorf("ip link set %s name %s: %w (%s)", oldName, newName, err, strings.TrimSpace(string(out)))
+		return fmt.Errorf("ip link set %s: %w (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
 	return nil
 }

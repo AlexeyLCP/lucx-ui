@@ -1,5 +1,30 @@
 # LucX-UI — Прогресс
 
+## lucx.207 — host import: exits, tproxy, keys, install (2026-09-03)
+
+- AWG client confs (`awg-exit-*`, Endpoint set) import as outbounds; live iface admin-down/rename/up to `awgo-N`. Adopt failure rolls back the row.
+- Client private keys also scanned in `/etc/amnezia/amneziawg`.
+- Existing `tproxy-server` (`/etc/tproxy-server`) imports as a tproxy inbound with `externalTLS` — nginx keeps :443, panel does not start Caddy/tproxy/mtproxy.
+- `install.sh`: ACME defaults to skip when :80 is busy; sidecar fetch keeps tarball `tproxy`/`mtproxy` when GitHub raw gz 404s.
+
+Tests: `go test ./internal/awg/ ./internal/lucx/tunnel/ -count=1`
+
+**lucxVersion:** lucx.207
+
+---
+
+## lucx.206 — live AWG import adopt (2026-09-03)
+
+Kernel refuses `ip link set awg0 name awg1` while UP (`Device or resource busy`). Import still saved the inbound, then reconcile spawned `awg1` against the live `awg0` (same address/port).
+
+Adopt now admin-down → rename → up (netdev kept, not awg-quick rebuild). Commit saves disabled, Adopt, then enable. Adopt failure deletes the inbound.
+
+Tests: `go test ./internal/awg/ -count=1` (rename sequence).
+
+**lucxVersion:** lucx.206
+
+---
+
 ## lucx.203 — Telegram WEB proxy inbound (2026-09-03)
 
 Inbound `tproxy`: tproxy-server + official MTProxy + Caddy reverse_proxy on hostname:443. Site from ZIP / dir / loopback; prompt copy, no shared stub. Cores: tproxy-server and MTProxy binaries (Caddy = NaiveProxy card). Share `t.me/webproxy`.

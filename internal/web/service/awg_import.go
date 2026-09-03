@@ -7,12 +7,14 @@
 package service
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 )
 
 const awgImportDismissKey = "awgImportBannerDismissed"
@@ -48,6 +50,7 @@ func (s *AwgImportService) Preview() AwgImportPreview {
 	if found == nil {
 		found = []awg.ImportCandidate{}
 	}
+	found = append(found, tproxyCandidates()...)
 	return AwgImportPreview{
 		Dismissed:  dismissed == "1",
 		Candidates: found,
@@ -65,6 +68,9 @@ func (s *AwgImportService) Commit(userId int, ids []string) []AwgImportResult {
 	for _, c := range awg.Discover(awg.DefaultDiscoverPaths()) {
 		found[c.ID] = c
 	}
+	for _, c := range tproxyCandidates() {
+		found[c.ID] = c
+	}
 	out := make([]AwgImportResult, 0, len(ids))
 	for _, id := range ids {
 		c, ok := found[id]
@@ -72,7 +78,14 @@ func (s *AwgImportService) Commit(userId int, ids []string) []AwgImportResult {
 			out = append(out, AwgImportResult{ID: id, Error: "candidate not found"})
 			continue
 		}
-		out = append(out, s.commitOne(userId, c))
+		switch c.Source {
+		case awg.ImportSourceOutbound:
+			out = append(out, s.commitOutbound(c))
+		case awg.ImportSourceTproxy:
+			out = append(out, s.commitTproxy(userId, c))
+		default:
+			out = append(out, s.commitOne(userId, c))
+		}
 	}
 	return out
 }
@@ -118,6 +131,8 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 		return res
 	}
 	res.MissingKeys = built.MissingKeys
+	wantEnable := built.Inbound.Enable
+	built.Inbound.Enable = false
 	created, iFieldWarn, err := s.addImportedInbound(built.Inbound)
 	if err != nil {
 		res.Error = err.Error()
@@ -128,7 +143,12 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 	res.Warning = iFieldWarn
 	inst, ok := awg.InstanceFromInbound(created)
 	if !ok {
-		res.Error = "inbound saved but is not a usable AWG instance"
+		if delErr := s.rollbackImported(created.Id); delErr != nil {
+			res.Error = "inbound saved but is not a usable AWG instance; rollback failed: " + delErr.Error()
+			return res
+		}
+		res.InboundId = 0
+		res.Error = "inbound rolled back: not a usable AWG instance"
 		return res
 	}
 	liveName := ""
@@ -137,10 +157,20 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 	}
 	if err := awg.GetManager().Adopt(inst, liveName, !c.DropOnImport); err != nil {
 		logger.Warningf("awg import: adopt %s: %v", c.ID, err)
-		res.Error = fmt.Sprintf("saved, adopt failed: %v", err)
+		if delErr := s.rollbackImported(created.Id); delErr != nil {
+			res.Error = fmt.Sprintf("saved, adopt failed: %v; rollback failed: %v", err, delErr)
+			return res
+		}
+		res.InboundId = 0
+		res.Error = "adopt failed, inbound rolled back: " + err.Error()
 		return res
 	}
 	res.Adopted = true
+	if wantEnable {
+		if _, err := s.Inbound.SetInboundEnable(created.Id, true); err != nil {
+			logger.Warningf("awg import: enable %d after adopt: %v", created.Id, err)
+		}
+	}
 	if c.ConfPath != "" && !awg.ConfigPathIsManaged(c.ConfPath) {
 		if err := awg.BackupForeignConf(c.ConfPath); err != nil {
 			logger.Warningf("awg import: backup %s: %v", c.ConfPath, err)
@@ -161,5 +191,123 @@ func (s *AwgImportService) commitOne(userId int, c awg.ImportCandidate) AwgImpor
 			}
 		}
 	}
+	return res
+}
+
+func (s *AwgImportService) rollbackImported(id int) error {
+	_, err := s.Inbound.DelInbound(id)
+	if err != nil {
+		logger.Warningf("awg import: rollback inbound %d: %v", id, err)
+	}
+	return err
+}
+
+func tproxyCandidates() []awg.ImportCandidate {
+	var out []awg.ImportCandidate
+	for _, t := range tunnel.DiscoverTproxy() {
+		cfg := t.Config()
+		raw, err := json.Marshal(cfg)
+		if err != nil {
+			continue
+		}
+		out = append(out, awg.ImportCandidate{
+			ID:         awg.ImportSourceTproxy + ":" + t.Hostname,
+			Source:     awg.ImportSourceTproxy,
+			Ifname:     "tproxy-server",
+			ConfPath:   t.ConfPath,
+			Live:       t.Live,
+			Port:       443,
+			Address:    t.Hostname,
+			Warning:    "Existing nginx/Caddy keeps TLS. Panel will not bind :443 or start another tproxy-server.",
+			PeerCount:  1,
+			NamedPeers: 1,
+			KeysFound:  1,
+			ConfText:   string(raw),
+			Peers: []awg.ImportPeer{{
+				Email:     t.Hostname,
+				PublicKey: t.Listen,
+				HasKey:    true,
+			}},
+		})
+	}
+	return out
+}
+
+func (s *AwgImportService) commitOutbound(c awg.ImportCandidate) AwgImportResult {
+	res := AwgImportResult{ID: c.ID, Clients: 1}
+	built, err := awg.BuildOutbound(c)
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	outSvc := &AwgOutboundService{}
+	created, err := outSvc.AddOutbound(built)
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	res.InboundId = created.Id
+	res.Remark = created.Remark
+	ci, ok := awg.ClientInstanceFromOutbound(created)
+	if !ok {
+		_ = outSvc.DelOutbound(created.Id)
+		res.InboundId = 0
+		res.Error = "outbound rolled back: not a usable AWG client"
+		return res
+	}
+	liveName := ""
+	if c.Live {
+		liveName = c.Ifname
+	}
+	if err := awg.GetManager().AdoptClient(ci, liveName); err != nil {
+		logger.Warningf("awg import: adopt exit %s: %v", c.ID, err)
+		if delErr := outSvc.DelOutbound(created.Id); delErr != nil {
+			res.Error = fmt.Sprintf("saved, adopt failed: %v; rollback failed: %v", err, delErr)
+			return res
+		}
+		res.InboundId = 0
+		res.Error = "adopt failed, outbound rolled back: " + err.Error()
+		return res
+	}
+	res.Adopted = true
+	if err := outSvc.SetOutboundEnable(created.Id, true); err != nil {
+		logger.Warningf("awg import: enable outbound %d: %v", created.Id, err)
+	}
+	if c.ConfPath != "" && !awg.ConfigPathIsManaged(c.ConfPath) {
+		_ = awg.BackupForeignConf(c.ConfPath)
+	}
+	return res
+}
+
+func (s *AwgImportService) commitTproxy(userId int, c awg.ImportCandidate) AwgImportResult {
+	res := AwgImportResult{ID: c.ID, Clients: 1}
+	var cfg tunnel.TproxyConfig
+	if err := json.Unmarshal([]byte(c.ConfText), &cfg); err != nil {
+		res.Error = "tproxy settings missing"
+		return res
+	}
+	raw, err := json.Marshal(cfg)
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	ib := &model.Inbound{
+		UserId:         userId,
+		Port:           443,
+		Protocol:       model.Tproxy,
+		Remark:         "imported-" + cfg.Hostname,
+		Enable:         true,
+		Settings:       string(raw),
+		StreamSettings: `{}`,
+		Sniffing:       `{}`,
+	}
+	created, _, err := s.Inbound.addInbound(ib, true)
+	if err != nil {
+		res.Error = err.Error()
+		return res
+	}
+	res.InboundId = created.Id
+	res.Remark = created.Remark
+	res.Adopted = true
 	return res
 }

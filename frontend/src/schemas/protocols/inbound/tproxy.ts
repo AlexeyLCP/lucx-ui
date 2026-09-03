@@ -16,6 +16,7 @@ export const TproxyInboundSettingsSchema = z.object({
   carrierMode: z.enum(['https', 'https-lanes', 'websocket', 'websocket-lanes']).default('https'),
   certFile: z.string().default(''),
   keyFile: z.string().default(''),
+  externalTLS: z.boolean().optional().default(false),
   routeThroughXray: z.boolean().default(false),
   outboundTag: z.string().default(''),
   routeXrayPort: z.number().int().min(0).max(65535).optional(),
