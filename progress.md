@@ -4532,3 +4532,16 @@ Tests: TestMtproxyArgsAlwaysDropUser, TestTproxyInstancesMissingSiteDisables
 green. Pattern 1z in .agents/07-debug-tunnels.md.
 
 lucxVersion: lucx.204
+
+## Feat: tproxy routeThroughXray via uid REDIRECT (lucx.205)
+
+Stock MTProxy has no SOCKS egress. On a RU host DC IPs are blocked, so
+WEB proxy inbound (Caddy + tproxy-server + MTProxy) stayed official and
+we wrap only MTProxy's outbound: iptables OUTPUT --uid-owner mtproxy
+! -d 127.0.0.0/8 REDIRECT into a generated dokodemo-door (followRedirect)
+tagged with the inbound; optional outboundTag force-route. Default off
+(Rule 0). All tproxy inbounds share uid mtproxy — one redirect.
+Form: same "via Xray" switch as TrustTunnel + outbound picker.
+Tests: TestTproxyConfigRouteThroughXray, TestInjectTproxyEgress_DokodemoFollowRedirect.
+
+lucxVersion: lucx.205
