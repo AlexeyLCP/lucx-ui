@@ -178,6 +178,7 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	tproxy.POST("/download", a.tproxyDownloadBinary)
 	tproxy.POST("/deleteBinary", a.tproxyDeleteBinary)
 	tproxy.POST("/uploadSite", a.tproxyUploadSite)
+	tproxy.GET("/site", a.tproxySiteFiles)
 
 	mtproxy := g.Group("/mtproxy")
 	mtproxy.GET("/status", a.mtproxyStatus)
@@ -762,6 +763,20 @@ func (a *TunnelController) tproxyUploadSite(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.tproxy.toasts.siteUploaded"), nil)
+}
+
+func (a *TunnelController) tproxySiteFiles(c *gin.Context) {
+	id, err := strconv.Atoi(c.Query("id"))
+	if err != nil || id <= 0 {
+		jsonMsg(c, "tunnel: tproxy site needs inbound id", err)
+		return
+	}
+	files, err := a.svc.TproxySiteFiles(id)
+	if err != nil {
+		jsonMsg(c, "tunnel: tproxy site list failed", err)
+		return
+	}
+	jsonObj(c, files, nil)
 }
 
 func (a *TunnelController) mtproxyStatus(c *gin.Context) {

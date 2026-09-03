@@ -215,6 +215,8 @@ export const tunnelsApi = {
     fd.append('file', file);
     return HttpUtil.post<null>(`${TPROXY}/uploadSite?id=${id}`, fd);
   },
+  tproxySiteFiles: (id: number): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${TPROXY}/site?id=${id}`, undefined, { silent: true }),
 
   mtproxyStatus: async (): Promise<Msg<TproxyStatus>> => {
     const raw = await HttpUtil.get<TproxyStatus>(`${MTPROXY}/status`, undefined, { silent: true });

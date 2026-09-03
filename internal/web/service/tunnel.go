@@ -1640,3 +1640,14 @@ func (s *TunnelService) UploadTproxySite(inboundID int, zipBytes []byte) error {
 	s.reconcileTproxyInbounds()
 	return nil
 }
+
+func (s *TunnelService) TproxySiteFiles(inboundID int) ([]string, error) {
+	ib, err := s.inboundService.GetInbound(inboundID)
+	if err != nil {
+		return nil, err
+	}
+	if ib == nil || ib.Protocol != model.Tproxy {
+		return nil, common.NewError("inbound is not tproxy")
+	}
+	return tunnel.ListTproxySite(inboundID), nil
+}

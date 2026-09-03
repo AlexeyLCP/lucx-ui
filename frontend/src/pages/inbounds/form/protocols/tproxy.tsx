@@ -8,6 +8,7 @@ import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Input, Radio, Select, Switch, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
+import { useQuery } from '@tanstack/react-query';
 import { useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
@@ -25,6 +26,15 @@ export default function TproxyFields() {
   const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
   const { data: outboundTags } = useOutboundTags();
   const [busy, setBusy] = useState(false);
+  const siteQuery = useQuery({
+    queryKey: ['tproxySiteFiles', inboundId],
+    queryFn: async () => {
+      const msg = await tunnelsApi.tproxySiteFiles(inboundId!);
+      return msg.success && Array.isArray(msg.obj) ? msg.obj : [];
+    },
+    enabled: Boolean(inboundId) && siteSource === 'zip',
+  });
+  const siteFiles = siteQuery.data ?? [];
 
   const copyPrompt = async () => {
     await navigator.clipboard.writeText(SITE_PROMPT);
@@ -40,6 +50,7 @@ export default function TproxyFields() {
     void (async () => {
       try {
         await tunnelsApi.tproxyUploadSite(inboundId, file);
+        await siteQuery.refetch();
         void message.success(t('pages.tunnels.tproxy.toasts.siteUploaded'));
       } finally {
         setBusy(false);
@@ -114,6 +125,11 @@ export default function TproxyFields() {
               {t('pages.inbounds.form.tproxySiteZip')}
             </Button>
           </Upload>
+          {siteFiles.length > 0 && (
+            <div style={{ marginTop: 8, opacity: 0.75, fontSize: 12, whiteSpace: 'pre-wrap' }}>
+              {siteFiles.join('\n')}
+            </div>
+          )}
           <Button type="link" onClick={() => void copyPrompt()}>
             {t('pages.inbounds.form.tproxySitePrompt')}
           </Button>

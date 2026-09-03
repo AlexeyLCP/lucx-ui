@@ -100,3 +100,23 @@ func ExtractTproxySiteZip(dest string, zipBytes []byte) error {
 	}
 	return errors.New("tproxy: zip needs index.html")
 }
+
+func ListTproxySite(id int) []string {
+	dir := TproxySiteDir(id)
+	var out []string
+	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+		if err != nil || d.IsDir() {
+			return err
+		}
+		rel, err := filepath.Rel(dir, path)
+		if err != nil {
+			return nil
+		}
+		out = append(out, filepath.ToSlash(rel))
+		if len(out) >= 40 {
+			return filepath.SkipAll
+		}
+		return nil
+	})
+	return out
+}

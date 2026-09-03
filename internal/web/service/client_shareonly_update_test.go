@@ -7,7 +7,7 @@ import (
 )
 
 func TestUpdateAfterShareOnlyAttach(t *testing.T) {
-	for _, proto := range []model.Protocol{model.Qwdtt, model.Olcrtc} {
+	for _, proto := range []model.Protocol{model.Qwdtt, model.Olcrtc, model.Tproxy} {
 		t.Run(string(proto), func(t *testing.T) {
 			setupBulkDB(t)
 			svc := &ClientService{}
@@ -68,5 +68,32 @@ func TestUpdateShareOnlyOnlyClient(t *testing.T) {
 	got := lookupClientRecord(t, "fox")
 	if got.TotalGB != 7 || got.Comment != "ok" {
 		t.Fatalf("record after update totalGB=%d comment=%q", got.TotalGB, got.Comment)
+	}
+}
+
+func TestTproxyInboundSaveMustNotSyncEmptyClients(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+	source := []model.Client{{Email: "fox", SubID: "sub-fox", Enable: true, ID: "aaaaaaaa-0000-0000-0000-0000000000aa"}}
+	vless := mkInbound(t, 22102, model.VLESS, clientsSettings(t, source))
+	if err := svc.SyncInbound(nil, vless.Id, source); err != nil {
+		t.Fatal(err)
+	}
+	share := mkInbound(t, 443, model.Tproxy, `{"hostname":"x.example","secret":"000102030405060708090a0b0c0d0e0f"}`)
+	rec := lookupClientRecord(t, "fox")
+	if _, err := svc.Attach(inboundSvc, rec.Id, []int{share.Id}); err != nil {
+		t.Fatal(err)
+	}
+	if !shareOnlySidecar(model.Tproxy) {
+		t.Fatal("tproxy must be share-only: GetClients is empty and SyncInbound would drop attaches")
+	}
+	clients, err := inboundSvc.GetClients(share)
+	if err != nil || len(clients) != 0 {
+		t.Fatalf("tproxy GetClients = %d %v", len(clients), err)
+	}
+	got, err := svc.ListForInbound(nil, share.Id)
+	if err != nil || len(got) != 1 || got[0].Email != "fox" {
+		t.Fatalf("attach after tproxy save-guard: %+v %v", got, err)
 	}
 }

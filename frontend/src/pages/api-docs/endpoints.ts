@@ -1081,6 +1081,12 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/tunnel/tproxy/site',
+        summary:
+          'List camouflage-site files on disk for one tproxy inbound (query id). LucX-UI only.',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/tunnel/mtproxy/status',
         summary: 'Official MTProxy binary status for Telegram WEB proxy backends. LucX-UI only.',
       },

@@ -45,6 +45,38 @@ func TestTproxySiteDirOutsideDataDir(t *testing.T) {
 	}
 }
 
+func TestExtractTproxySiteZipReplaces(t *testing.T) {
+	dir := t.TempDir()
+	dest := filepath.Join(dir, "site")
+	writeZip := func(body string) []byte {
+		var buf bytes.Buffer
+		zw := zip.NewWriter(&buf)
+		w, err := zw.Create("index.html")
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, _ = w.Write([]byte(body))
+		_ = zw.Close()
+		return buf.Bytes()
+	}
+	if err := ExtractTproxySiteZip(dest, writeZip("old")); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dest, "gone.css"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := ExtractTproxySiteZip(dest, writeZip("new")); err != nil {
+		t.Fatal(err)
+	}
+	got, err := os.ReadFile(filepath.Join(dest, "index.html"))
+	if err != nil || string(got) != "new" {
+		t.Fatalf("index.html = %q", got)
+	}
+	if _, err := os.Stat(filepath.Join(dest, "gone.css")); !os.IsNotExist(err) {
+		t.Fatal("old extra file must be gone after a new zip")
+	}
+}
+
 func TestTproxyConfigRouteThroughXray(t *testing.T) {
 	ib := &model.Inbound{
 		Protocol: model.Tproxy,

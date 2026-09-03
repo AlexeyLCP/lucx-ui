@@ -20,13 +20,13 @@ import (
 )
 
 func shareOnlySidecar(p model.Protocol) bool {
-	return p == model.Qwdtt || p == model.Olcrtc
+	return p == model.Qwdtt || p == model.Olcrtc || p == model.Tproxy
 }
 
 // protoReconfiguresInPlace: its manager adopts a new config without dropping
 // the live one, so an edit must arrive as UpdateInbound, not DelInbound+Add.
 func protoReconfiguresInPlace(p model.Protocol) bool {
-	return p == model.MTProto || p == model.AWG || p == model.AmneziaWG
+	return p == model.MTProto || p == model.AWG || p == model.AmneziaWG || p == model.Tproxy
 }
 
 func (s *ClientService) attachShareOnly(inboundId int, added []model.Client) (bool, error) {
