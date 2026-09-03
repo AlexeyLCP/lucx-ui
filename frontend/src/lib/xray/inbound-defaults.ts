@@ -336,6 +336,7 @@ export function createDefaultTproxyInboundSettings(): TproxyInboundSettings {
     carrierMode: 'https',
     certFile: '',
     keyFile: '',
+    externalTLS: false,
     routeThroughXray: false,
     outboundTag: '',
   };

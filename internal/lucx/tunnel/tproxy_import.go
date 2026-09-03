@@ -8,11 +8,9 @@ package tunnel
 
 import (
 	"encoding/json"
-	"net"
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 type TproxyImport struct {
@@ -50,7 +48,7 @@ func DiscoverTproxyAt(dir string) []TproxyImport {
 	if carrier == "" {
 		carrier = "https"
 	}
-	live := listen != "" && dialOK(listen)
+	live := listen != "" && probeListening(listen)
 	return []TproxyImport{{
 		Hostname: strings.ToLower(host),
 		Secret:   strings.ToLower(secret),
@@ -109,13 +107,4 @@ func jsonString(m map[string]any, keys ...string) string {
 		}
 	}
 	return ""
-}
-
-func dialOK(addr string) bool {
-	c, err := net.DialTimeout("tcp", addr, 200*time.Millisecond)
-	if err != nil {
-		return false
-	}
-	_ = c.Close()
-	return true
 }
