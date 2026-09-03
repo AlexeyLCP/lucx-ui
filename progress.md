@@ -4504,3 +4504,31 @@ clients.flow after add/update; EffectiveFlow falls back to that column.
 Form Flow Select bound like UUID (value/onChange).
 
 lucxVersion: lucx.182
+
+## Fix: Telegram WEB proxy (tproxy) crash-loop + silent teardown + TT port UX (lucx.204)
+
+Tester VladufQa (03.09.2026): tproxy inbound "connects, no traffic"; stack
+dies after save with zero logs; mtproxy-18 exit 1 loop
+"can't find the user mtproxy to switch to". Root causes:
+(1) pinned MTProxy f36d8af has DEFAULT_ENGINE_USER "mtproxy", we passed no
+-u and the panel runs as root -> fatal on every start. Fix:
+ensureMtproxyUser() (useradd -r when root) + mtproxyArgs always passes -u
+(mtproxy -> nobody -> current user); assets relaxed to 0755/0644 (public
+core.telegram.org values, re-read after the drop). (2)
+TproxyInstancesFromInbound swallowed every disable reason -> reconcile
+killed all three processes silently. Every path now logs
+"tunnel: tproxy-<id> disabled: <reason>". (3) TrustTunnel port was already
+selectable via settings.listen but buried in a "0.0.0.0:443" text field ->
+form now renders address + InputNumber port writing the same field; tooltip
+key trustTunnelListenHint added to all 13 locales (ru translated).
+Not bugs: stock proxy-multi.conf (DC list from getProxyConfig) is correct;
+"port busy" with TT on 443 is correct (webproxy is hardwired to 443).
+Remaining for testers: retest traffic with a WEB-proxy-capable client
+(TD desktop POC / POC Android) - regular Telegram apps do not register
+t.me/webproxy.
+
+Tests: TestMtproxyArgsAlwaysDropUser, TestTproxyInstancesMissingSiteDisables
+(go test ./internal/lucx/... green); frontend typecheck + lint + i18n key-set
+green. Pattern 1z in .agents/07-debug-tunnels.md.
+
+lucxVersion: lucx.204
