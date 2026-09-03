@@ -7,6 +7,7 @@
 package tunnel
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -42,8 +43,13 @@ func fetchIfMissing(path, src string) error {
 	if st, err := os.Stat(path); err == nil && st.Size() > 0 {
 		return nil
 	}
-	client := &http.Client{Timeout: 20 * time.Second}
-	resp, err := client.Get(src)
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, src, nil)
+	if err != nil {
+		return fmt.Errorf("tproxy: fetch %s: %w", src, err)
+	}
+	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Errorf("tproxy: fetch %s: %w", src, err)
 	}

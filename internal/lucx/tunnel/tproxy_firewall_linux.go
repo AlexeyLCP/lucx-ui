@@ -9,9 +9,11 @@
 package tunnel
 
 import (
+	"context"
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 )
 
 func tproxyMtproxyComment(id int) string {
@@ -23,7 +25,9 @@ func EnsureMtproxyLocalOnly(id int) {
 	_ = clearMtproxyIptables(comment)
 	for _, off := range []int{0, 1} {
 		port := strconv.Itoa(tproxyLoopback(id, off))
-		_ = exec.Command("iptables", "-I", "INPUT", "!", "-i", "lo", "-p", "tcp", "--dport", port, "-m", "comment", "--comment", comment, "-j", "DROP").Run()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = exec.CommandContext(ctx, "iptables", "-I", "INPUT", "!", "-i", "lo", "-p", "tcp", "--dport", port, "-m", "comment", "--comment", comment, "-j", "DROP").Run()
+		cancel()
 	}
 }
 
@@ -32,7 +36,9 @@ func ClearMtproxyLocalOnly(id int) {
 }
 
 func clearMtproxyIptables(comment string) error {
-	out, err := exec.Command("iptables-save").Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "iptables-save").Output()
 	if err != nil {
 		return err
 	}
@@ -41,7 +47,9 @@ func clearMtproxyIptables(comment string) error {
 			continue
 		}
 		args := append([]string{"-D", "INPUT"}, strings.Fields(strings.TrimPrefix(line, "-A INPUT "))...)
-		_ = exec.Command("iptables", args...).Run()
+		c2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
+		_ = exec.CommandContext(c2, "iptables", args...).Run()
+		cancel2()
 	}
 	return nil
 }
