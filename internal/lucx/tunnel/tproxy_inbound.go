@@ -8,6 +8,7 @@ package tunnel
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 	"os"
 	"path/filepath"
@@ -15,6 +16,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
 func TproxyKey(id int) string      { return "tproxy-" + strconv.Itoa(id) }
@@ -65,22 +67,29 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 		{Core: Tproxy, Key: TproxyKey(id), Enabled: false},
 		{Core: TproxyCaddy, Key: TproxyCaddyKey(id), Enabled: false},
 	}
+	// LUCX note: every non-enable failure below logs WHY the whole stack is
+	// being torn down — reconcile stops all three processes and without this
+	// line the operator sees "connected but dead" with zero log output.
+	disabledWhy := func(err error) []Instance {
+		logger.Warningf("tunnel: tproxy-%d disabled: %v", id, err)
+		return disabled
+	}
 	if !cfg.Enabled {
 		return disabled, true
 	}
 	if err := cfg.Validate(); err != nil {
-		return disabled, true
+		return disabledWhy(err), true
 	}
 	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
 	if err := validatePEMCert("tproxy", certFile, keyFile, cfg.Hostname); err != nil {
-		return disabled, true
+		return disabledWhy(err), true
 	}
 	if err := ensureTelegramMtproxyFiles(); err != nil {
-		return disabled, true
+		return disabledWhy(err), true
 	}
 	publicDir, publicUpstream, err := tproxyPublicSource(id, cfg)
 	if err != nil {
-		return disabled, true
+		return disabledWhy(err), true
 	}
 
 	mtH := tproxyLoopback(id, 0)
@@ -95,15 +104,15 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 	profilesName := key + "-profiles.json"
 	profilesPath := filepath.Join(workDir(), profilesName)
 	if err := os.MkdirAll(workDir(), 0o755); err != nil {
-		return disabled, true
+		return disabledWhy(err), true
 	}
 	cfgJSON, err := RenderTproxyConfigJSON(cfg.Hostname, relayListen, adminListen, publicDir, publicUpstream, absPath(profilesPath))
 	if err != nil {
-		return disabled, true
+		return disabledWhy(err), true
 	}
 	profilesJSON, err := RenderTproxyProfilesJSON("default", cfg.Secret, backend, cfg.CarrierMode)
 	if err != nil {
-		return disabled, true
+		return disabledWhy(err), true
 	}
 	caddyfile := RenderTproxyCaddyfile(cfg.Hostname, cfg.Port, certFile, keyFile, relayPort)
 	cfgPath := configPathFor(key, Tproxy)
@@ -111,7 +120,7 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 
 	mtArgs := mtproxyArgs(mtStats, mtH, cfg.Secret)
 	if len(mtArgs) == 0 {
-		return disabled, true
+		return disabledWhy(errors.New("mtproxy assets or secret missing")), true
 	}
 
 	return []Instance{

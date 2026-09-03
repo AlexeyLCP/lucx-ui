@@ -83,6 +83,17 @@ Extracted from AGENTS.md. This file is project law.
 - **Healing an already-hit host without lucx.163:** replace `/usr/local/x-ui/bin/qwdtt-linux-amd64` with a `v1.4.2` `./server` build (Cores upload or gunzip the third_party blob), restart the inbound. Confirm `subHost` is the public IP, re-issue the `qwdtt://` link.
 - **Lesson:** same as Pattern 1o. A sidecar taken from a third-party panel tarball ages in silence. Pin the upstream SHA of the protocol we claim to speak; bump only with a matching client.
 
+---
+
+### Pattern 1z: Telegram WEB proxy (tproxy) "connects, no traffic" + dies on save — FIXED (lucx.203)
+- **Symptom (VladufQa, 03.09.2026):** tproxy inbound: TCP to the port connects but no traffic; after saving the inbound the whole stack stops listening. mtproxy-18 log: `change_user_group: can't find the user mtproxy to switch to` / `fatal: cannot change user to (none)`, exit 1 loop. Zero panel-log lines explaining the teardown.
+- **Cause 1 (crash loop):** the pinned MTProxy `f36d8af` has `DEFAULT_ENGINE_USER "mtproxy"` (common/server-functions.h). We passed no `-u`; the panel runs as root, so the engine drops to user `mtproxy`, which does not exist → fatal on every start. Backend dead → Caddy accepts TCP, no data flows.
+- **Cause 2 (silent teardown):** `TproxyInstancesFromInbound` returned the all-disabled triple on ANY failed check (missing site zip, cert not covering hostname, asset fetch) without logging — reconcile stopped all three processes with no reason in the log. "Works with the modal open" was just the upload endpoint's immediate reconcile with the still-valid stored row; the save rewrote the row and a check (most likely the site dir) failed.
+- **Fix:** (1) `ensureMtproxyUser()` — `useradd -r -M -N mtproxy` when root, and `mtproxyArgs` always passes `-u <resolved>` (mtproxy → nobody → current user); assets relaxed to 0755/0644 (public core.telegram.org values, the dropped user re-reads proxy-multi.conf on periodic reload). (2) every disable path now logs `tunnel: tproxy-<id> disabled: <reason>`.
+- **Not bugs:** `proxy-multi.conf` full of `proxy_for <dc> 149.154.x.x:8888;` lines is the stock file from `core.telegram.org/getProxyConfig` — correct. "Port busy" with TrustTunnel on 443 is correct: WEB proxy is hardwired to 443 by the client type, one port = one listener, TT already owns it.
+- **Still client-side:** WEB proxy is a POC type — regular Telegram apps do not register `t.me/webproxy`; testing needs a TD desktop POC build or the POC Android client.
+- **Lesson:** a C sidecar with a built-in privilege-drop user needs that user provisioned (or an explicit `-u`), and a function that returns "all disabled" must say why — otherwise every field report starts with "чет не завелось" and nothing else.
+
 ### Pattern 1v: AnyTLS dead when UFW is on, port is allowed — FIXED
 - **Symptom (Max, 29.08.2026):** AnyTLS works with UFW off. Port 8555 is in `ufw status` and `ufw-user-input` ACCEPT, but clients hang. `tcpdump` shows SYN in, no SYN-ACK. `iptables -L INPUT`: first rules are `RETURN tcp dpt:8555 /* lucx-anytls-anytls-17 */` with packet counters climbing; UFW’s 8555 ACCEPT stays at 0 pkts.
 - **Cause:** lucx.190 traffic scrape inserted `-j RETURN` at the top of builtin INPUT. RETURN from a builtin chain applies the chain policy. UFW sets INPUT policy DROP → SYN is counted then dropped, never reaches `ufw-user-input`. Comment `lucx-anytls-anytls-17` = `lucx-anytls-` + inbound key `anytls-17` (inbound id 17). Same for leftover 8443 rules from older anytls inbounds.

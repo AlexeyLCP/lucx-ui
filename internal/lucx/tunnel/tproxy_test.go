@@ -117,6 +117,66 @@ func TestExtractTproxySiteZip(t *testing.T) {
 	}
 }
 
+func TestMtproxyArgsAlwaysDropUser(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+
+	if err := os.MkdirAll(mtproxyAssetsDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mtproxyAssetsDir(), "proxy-secret"), []byte("s"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mtproxyAssetsDir(), "proxy-multi.conf"), []byte("c"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	args := mtproxyArgs(24001, 24000, "000102030405060708090a0b0c0d0e0f")
+	for i, a := range args {
+		if a == "-u" && i+1 < len(args) && strings.TrimSpace(args[i+1]) != "" {
+			return
+		}
+	}
+	t.Fatalf("mtproxy args must carry -u <user> (engine default user must exist): %v", args)
+}
+
+func TestTproxyInstancesMissingSiteDisables(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+
+	if err := os.MkdirAll(mtproxyAssetsDir(), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mtproxyAssetsDir(), "proxy-secret"), []byte("s"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mtproxyAssetsDir(), "proxy-multi.conf"), []byte("c"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "proxy.example.com")
+
+	// siteSource=zip but no uploaded site dir → all three slots disabled.
+	ib := &model.Inbound{
+		Id:       5,
+		Protocol: model.Tproxy,
+		Enable:   true,
+		Port:     443,
+		Settings: `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f","siteSource":"zip"}`,
+	}
+	insts, ok := TproxyInstancesFromInbound(ib, cert, key)
+	if !ok || len(insts) != 3 {
+		t.Fatalf("len=%d ok=%v", len(insts), ok)
+	}
+	for _, inst := range insts {
+		if inst.Enabled {
+			t.Fatalf("missing site must disable the stack: %+v", inst)
+		}
+	}
+}
+
 func TestTproxyInstancesFromInbound(t *testing.T) {
 	prev := tunnelDir
 	dir := t.TempDir()
