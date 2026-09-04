@@ -4717,7 +4717,7 @@
                 "properties": {
                   "obfProfile": {
                     "type": "string",
-                    "description": "Obfuscation preset: \"lite\", \"standard\", or \"pro\". Defaults to \"standard\"."
+                    "description": "Obfuscation preset: \"lite\", \"standard\", \"pro\", or \"premium\". Defaults to \"standard\"."
                   },
                   "mimicryProfile": {
                     "type": "string",
