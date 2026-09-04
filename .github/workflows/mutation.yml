@@ -15,30 +15,20 @@ permissions:
 jobs:
   gremlins:
     runs-on: ubuntu-latest
-    # LUCX-HOOK: 120 минут не хватает матрице (service/database упирались в
-    # таймаут и job отменялся GitHub'ом как cancelled) — поднимаем до 360,
-    # максимума для hosted runner'ов.
-    timeout-minutes: 360
+    # LUCX-HOOK: mutate LucX packages only. service/sub/database are mostly
+    # upstream 3x-ui — gremlins there ran 2–4h and hung the nightly job.
+    timeout-minutes: 60
     # END LUCX-HOOK
     strategy:
       fail-fast: false
       matrix:
         include:
-          - name: sub
-            path: ./internal/sub/
+          - name: awg
+            path: ./internal/awg/
             exclude: ""
-          - name: runtime
-            path: ./internal/web/runtime/
+          - name: lucx
+            path: ./internal/lucx/
             exclude: ""
-          - name: link
-            path: ./internal/util/link/
-            exclude: ""
-          - name: database
-            path: ./internal/database/
-            exclude: 'dump_sqlite\.go'
-          - name: service
-            path: ./internal/web/service/
-            exclude: 'server\.go|xray\.go|inbound\.go|client_bulk\.go|inbound_traffic\.go|.*_postgres_test\.go'
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-go@v7
