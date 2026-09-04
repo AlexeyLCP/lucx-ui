@@ -749,8 +749,10 @@ func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
 	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "naive egress", true)
 }
 
-const tproxyEgressDokodemoSettings = `{"network":"tcp","followRedirect":true}`
-const tproxyEgressDokodemoSockopt = `{"sockopt":{"tproxy":"redirect"}}`
+const (
+	tproxyEgressDokodemoSettings = `{"network":"tcp","followRedirect":true}`
+	tproxyEgressDokodemoSockopt  = `{"sockopt":{"tproxy":"redirect"}}`
+)
 
 func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 	var parsed struct {
