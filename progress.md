@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## chore — drop leftover root docs (2026-09-05)
+
+Removed `RELEASE-NOTES-lucx.123.md`, `RELEASE-NOTES-lucx.124.md`, `REVIEW-lucx.md`. Kept `REVIEW.md` (Claude review bot).
+
+**lucxVersion:** unchanged (lucx.212)
+
+---
+
 ## docs — README: collapse remaining large blocks (2026-09-05)
 
 Migration (AWG keys / host import), license matrix, credits, donate — `<details>` closed by default, all 7 locales.
