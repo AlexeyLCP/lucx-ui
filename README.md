@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined RU README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Продвинутая панель Xray** — AmneziaWG (ядро + родной, до 3.1), импорт существующего AWG, туннельные сайдкары и sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), подписки Clash / Amnezia `vpn://` / Happ, geodata browser и RoscomVPN routing.
+> **Продвинутая панель Xray** — AmneziaWG (ядро + родной, до 3.1), импорт существующего AWG, туннельные сайдкары и sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), подписки Clash / Amnezia `vpn://` / Happ, RoscomVPN geo + Happ routing.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -88,7 +88,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Почему LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) — отличная мультипротокольная панель с современным React 19 + Ant Design 6 фронтендом. LucX-UI сохраняет всё, что есть у 3x-ui, и добавляет то, чего у апстрима нет: **kernel AmneziaWG** (рядом с родным `amneziawg` апстрима), **импорт существующего AWG**, **туннельные сайдкары** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), **расширенные подписки** (Clash Meta AWG, Amnezia `vpn://`, Happ) и **geodata-инструменты** (браузер в панели + пакеты RoscomVPN):
+[3x-ui](https://github.com/MHSanaei/3x-ui) — отличная мультипротокольная панель с современным React 19 + Ant Design 6 фронтендом. LucX-UI сохраняет всё, что есть у 3x-ui, и добавляет то, чего у апстрима нет: **kernel AmneziaWG** (рядом с родным `amneziawg` апстрима), **импорт существующего AWG**, **туннельные сайдкары** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), **расширенные подписки** (Clash Meta AWG, Amnezia `vpn://`, Happ) и **пакеты RoscomVPN geo + профили Happ** (geodata browser уже в апстриме с [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0):
 
 | Возможность | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -112,15 +112,14 @@ docker compose --profile postgres up -d
 | Туннельный сайдкар mieru (`mita`, per-client трафик, под надзором) | ✗ | ✓ |
 | Сайдкар TrustTunnel (протокол AdGuard VPN, похож на HTTPS, под надзором) | ✗ | ✓ |
 | Sidecar outbounds (клиент Naive / mieru / TrustTunnel → SOCKS, routing и пулы) | ✗ | ✓ |
-| Geodata browser — выбор категорий geosite/geoip из панели | ✗* | ✓ |
+| Geodata browser — выбор категорий geosite/geoip из панели | ✓ | ✓ |
 | Пакет RoscomVPN geo (`geoip/geosite_ROSCOM.dat`, списки РКН) | ✗ | ✓ |
 | Профили маршрутизации Happ (RoscomVPN deeplink + custom) | ✗ | ✓ |
 | Smart Cluster outbound-связи | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 фронтенд | ✓ | ✓ (inherited) |
 | Все протоколы Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
-| Бесшовный upstream sync (изоляция LUCX-HOOK, 49 файлов) | — | ✓ |
-
-\* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (ещё не влит) — портирован в LucX-UI.
+| Telegram WEB proxy inbound (`tproxy`, t.me/webproxy) | ✗ | ✓ |
+| Бесшовный upstream sync (изоляция LUCX-HOOK) | — | ✓ |
 
 Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG работает как настоящий интерфейс ядра — а не как userspace-обёртка — поэтому Xray маршрутизирует расшифрованный трафик через собственный TUN inbound, давая вам полную мощь маршрутизации, sniffing'а и доменных правил Xray на AWG-трафике. Модуля нет — тот же LucX-inbound `awg` поднимается на встроенном amneziawg-go. Рядом в панели остаётся родной протокол апстрима `amneziawg`.
 
@@ -128,7 +127,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 
 ## 🌟 О проекте LucX-UI
 
-**LucX-UI** — расширенный форк [3x-ui](https://github.com/MHSanaei/3x-ui) (сейчас синхронизирован с upstream **v3.7.0**). Поверх стоковых протоколов Xray: **AmneziaWG** в двух режимах — kernel sidecar `awg` (как MTProto/`mtg`) и родной `amneziawg` апстрима, до **AWG 3.1**; **импорт** awg-multi / toolza3 / Docker; **туннельные сайдкары** под надзором панели (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), расширенные **подписки** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing) и **geodata browser** со стоком RoscomVPN. 100% совместимость с upstream через строгую изоляцию `LUCX-HOOK`.
+**LucX-UI** — расширенный форк [3x-ui](https://github.com/MHSanaei/3x-ui) (сейчас синхронизирован с upstream **v3.7.0**). Поверх стоковых протоколов Xray: **AmneziaWG** в двух режимах — kernel sidecar `awg` (как MTProto/`mtg`) и родной `amneziawg` апстрима, до **AWG 3.1**; **импорт** awg-multi / toolza3 / Docker; **туннельные сайдкары** под надзором панели (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), расширенные **подписки** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), **Telegram WEB proxy** (`tproxy`) и **сток RoscomVPN geo** (браузер категорий — общий с апстримом v3.7.0). 100% совместимость с upstream через строгую изоляцию `LUCX-HOOK`.
 
 ### 🛡️ Возможности AmneziaWG (AWG)
 - **AWG Inbounds & Outbounds** — kernel sidecar (`awg-quick`), клиентский режим dial-out к upstream AWG-серверам (`awgo-{id}`), цикл автоматического reconcile каждые 10 секунд и сборщик DKMS kernel-модуля.
@@ -142,7 +141,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **Live Signature Capture** — преобразование реальных QUIC-handshake'ов с front-доменов в параметры обфускации I1–I5.
 - **Маршрутизация и диагностика** — двойной режим маршрутизации (Kernel NAT и Route through Xray с policy routing и sniffing'ом) + однокликовая диагностика из панели.
 
-### 🚇 Туннельные сайдкары (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel)
+### 🚇 Туннельные сайдкары (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel, Telegram WEB proxy)
 - **NaiveProxy** — Caddy с плагином `forward_proxy` (форк [klzgrad](https://github.com/klzgrad/forwardproxy), HTTP/2 padding) работает как сайдкар под надзором панели: рендер Caddyfile, start/stop/restart с crash-revive reconcile и трёхуровневым health-probe (process → TCP → TLS).
 - **Per-client креды** — каждый включённый клиент панели автоматически получает личную пару `basic_auth` (выводится из секрета панели, ничего не хранится); disable клиента отзывает креды на следующем reconcile.
 - **Подписки** — в подписке каждого клиента его личная ссылка `naive+https://` рядом с Xray/AWG (стандарт NekoBox / husi / Exclave), плюс QR-код и генератор сильного пароля в панели.
@@ -152,12 +151,13 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **qWDTT** — WireGuard через TURN-релеи VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android), GPL-3.0 server). Нужен root (TUN + NAT). Панель супервизит процесс, отдаёт `qwdtt://` / `wdtt://` и JSON-подписку для Android-клиента. Оператор передаёт живые VK call hash.
 - **mieru** — censorship-resistant прокси поверх собственного протокола вместо TLS ([enfein/mieru](https://github.com/enfein/mieru) `mita`, GPL-3.0). Мульти-клиент с HMAC-кредами на каждого клиента панели, per-client трафик и онлайн, шер-ссылка `mierus://`. Клиенты: mieru CLI, mihomo, Clash Verge Rev, husi, Exclave.
 - **TrustTunnel** — протокол AdGuard VPN ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel), Apache-2.0): трафик неотличим от HTTPS (HTTP/1.1 + HTTP/2 + QUIC). Использует ACME-серт панели (нужен домен с выпущенным сертом), отдаёт `tt://?` deep-link для Flutter / CLI клиентов.
+- **Telegram WEB proxy (`tproxy`)** — сайдкар `tproxy-server` + официальный MTProxy + Caddy TLS reverse_proxy на `hostname:443`, share `t.me/webproxy`. Маршрут «через Xray» сейчас **припаркован** (direct egress MTProxy; см. lucx.211).
 - **Sidecar outbounds** — клиентский режим Naive / mieru / TrustTunnel: вставил share-ссылку (`naive+https://` / `mierus://` / `tt://`), тег появляется в routing и пулах балансировщиков (как AWG outbound). Выключение = blackhole (не утекает в `direct`). Клиентские бинарники в tar.gz.
 
 ### 📦 Подписки, geodata и маршрутизация клиентов
 - **Подписка Amnezia** — отдельный endpoint `/awg/{subId}` отдаёт чистый AmneziaWG `.conf` (или `?format=vpn` → тело `vpn://…`) для AmneziaVPN / Happ; ссылки рядом с Clash / JSON / base64 в панели и Telegram-боте.
 - **AWG в Clash Meta** — подписка эмитит пиры AmneziaWG через `amnezia-wg-option`, чтобы Clash Meta принимал AWG вместе с VLESS/Trojan.
-- **Geodata browser** — открыть любой `geoip*.dat` / `geosite*.dat` из UI роутинга, поиск категорий, multi-select в правило (порт upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) от [STRENCH0](https://github.com/STRENCH0)).
+- **Geodata browser** — открыть любой `geoip*.dat` / `geosite*.dat` из UI роутинга, поиск категорий, multi-select в правило (в апстриме с [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0, [STRENCH0](https://github.com/STRENCH0)).
 - **Пакет RoscomVPN geo** — сток `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([hydraponique/roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)): списки РКН (`category-geoblock-ru`, `category-ru`, ads, YouTube / Telegram / Steam, …). Обновление: панель Version → Geofiles или меню `x-ui`.
 - **Профили Happ** — Settings → Happ: встроенный deeplink RoscomVPN и free-text custom (из [hydraponique/roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
@@ -193,6 +193,8 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ```
 
 AWG kernel-модуль собирается автоматически установщиком (`bin/install-awg-module.sh`, DKMS). После установки запустите `x-ui` в консоли, чтобы подтвердить версию AWG kernel-модуля, и начните добавлять AWG inbounds из панели.
+
+**После установки:** подписки (`/sub/`, `/json/`, `/clash/`, `/awg/`) слушают **отдельный порт** (по умолчанию **2096**), не порт панели — reverse proxy должен проксировать и его. Кастомные geo-группы держите в **отдельном имени файла** — stock-имена (`geoip.dat` / `geosite.dat` и `_IR` / `_RU` / `_ROSCOM`) перезаписываются при обновлении geofile.
 
 ### Ключи AWG в панели
 
@@ -286,15 +288,15 @@ LucX-UI бесплатен для личного использования. **�
 
 **Архитектура и правило изоляции.** Весь код LucX живёт в изолированных пакетах (`internal/awg/`, `internal/lucx/`); изменения файлов upstream 3x-ui вносятся только внутри маркеров `// LUCX-HOOK` / `// END LUCX-HOOK`, поэтому каждый upstream-релиз сводится к почти тривиальному портированию. См. [AGENTS.md](AGENTS.md) — полная карта архитектуры, 10 правил, известные проблемы и шаблоны отладки.
 
-**Сборка из исходников** (требуется Go 1.23+, Node.js 20+, gcc — только Linux, CGO для SQLite):
+**Сборка из исходников** (требуется Go 1.27+, Node.js 24+, gcc — только Linux, CGO для SQLite):
 
 ```bash
 cd frontend && npm run build && cd ..
 go build -o /tmp/x-ui .
-# проверка перед push: bin/check-lucx.sh  (gofumpt на 49 файлах LucX)
+# проверка перед push: bin/check-lucx.sh  (LUCX-HOOK + internal/awg|lucx)
 ```
 
-**Процедура upstream sync** (проверено на v3.5.0→v3.6.0, 103 коммита / 432 файла / 7 конфликтов):
+**Процедура upstream sync** (актуальная база — апстрим **v3.7.0**; мержить теги/main апстрима, не старые v3.5→v3.6):
 
 ```bash
 git fetch origin --tags
