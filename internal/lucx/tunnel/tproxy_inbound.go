@@ -47,6 +47,10 @@ func TproxyConfigFromInbound(ib *model.Inbound) (TproxyConfig, bool) {
 	if ib.Port > 0 {
 		cfg.Port = ib.Port
 	}
+	if !TproxyXrayRouting {
+		cfg.RouteThroughXray = false
+		cfg.RouteXrayPort = 0
+	}
 	return cfg, true
 }
 

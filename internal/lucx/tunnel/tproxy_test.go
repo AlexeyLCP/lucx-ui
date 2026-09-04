@@ -84,8 +84,15 @@ func TestTproxyConfigRouteThroughXray(t *testing.T) {
 		Settings: `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f","routeThroughXray":true,"routeXrayPort":39111,"outboundTag":"warp"}`,
 	}
 	cfg, ok := TproxyConfigFromInbound(ib)
-	if !ok || !cfg.RouteThroughXray || cfg.RouteXrayPort != 39111 || cfg.OutboundTag != "warp" {
-		t.Fatalf("got %+v ok=%v", cfg, ok)
+	if !ok {
+		t.Fatal("parse")
+	}
+	if TproxyXrayRouting {
+		if !cfg.RouteThroughXray || cfg.RouteXrayPort != 39111 || cfg.OutboundTag != "warp" {
+			t.Fatalf("got %+v", cfg)
+		}
+	} else if cfg.RouteThroughXray || cfg.RouteXrayPort != 0 {
+		t.Fatalf("via Xray parked, got %+v", cfg)
 	}
 	plain := *ib
 	plain.Settings = `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f"}`

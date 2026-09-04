@@ -94,13 +94,13 @@ Extracted from AGENTS.md. This file is project law.
 - **Still client-side:** WEB proxy is a POC type — regular Telegram apps do not register `t.me/webproxy`; testing needs a TD desktop POC build or the POC Android client.
 - **Lesson:** a C sidecar with a built-in privilege-drop user needs that user provisioned (or an explicit `-u`), and a function that returns "all disabled" must say why — otherwise every field report starts with "чет не завелось" and nothing else.
 
-### Pattern 1af: tproxy “via Xray” hangs and kills all routing — FIXED (lucx.210)
+### Pattern 1af: tproxy “via Xray” hangs and kills all routing — PARKED (lucx.211)
 
 - **Symptom (VladufQa / Max, 04.09.2026):** WEB proxy + routeThroughXray. Telegram connects, no DC traffic. Other inbounds die until tproxy is off.
 - **Cause (prod Vladru.work.gd, lucx.209):** not uid 0 (mtproxy uid 999). iptables REDIRECT and dokodemo `tproxy:redirect` work. Sniffing `http,tls,quic` was copied from AWG TUN onto that dokodemo. MTProxy DC sockets are raw MTProto, not TLS. Sniffer stalls (`CLOSE-WAIT Recv-Q=1`), mtproxy keeps dialing every DC, xray hits thousands of fds, **all** routing dies.
-- **lucx.209:** dokodemo `tproxy:redirect`; numeric `--uid-owner`; skip uid 0. Necessary, not sufficient.
-- **Fix (lucx.210):** do not sniff on the tproxy dokodemo. Force-route is inboundTag → outbound tag.
-- **Healing:** `x-ui update` to 210, enable via Xray + outbound tag. Empty outbound on RU = hang.
+- **lucx.209–210:** dokodemo `tproxy:redirect`; skip uid 0; no sniffing. Still hung for testers.
+- **lucx.211:** `TproxyXrayRouting=false` — no dokodemo, no NAT REDIRECT, UI toggle removed. WEB proxy egresses direct.
+- **Healing:** `x-ui update` to 211. On RU, WEB proxy to Telegram DCs is direct (may still fail); it must not kill other inbounds.
 
 ### Pattern 1v: AnyTLS dead when UFW is on, port is allowed — FIXED
 - **Symptom (Max, 29.08.2026):** AnyTLS works with UFW off. Port 8555 is in `ufw status` and `ufw-user-input` ACCEPT, but clients hang. `tcpdump` shows SYN in, no SYN-ACK. `iptables -L INPUT`: first rules are `RETURN tcp dpt:8555 /* lucx-anytls-anytls-17 */` with packet counters climbing; UFW’s 8555 ACCEPT stays at 0 pkts.

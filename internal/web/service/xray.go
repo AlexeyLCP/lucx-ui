@@ -755,6 +755,9 @@ const (
 )
 
 func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
+	if !tunnel.TproxyXrayRouting {
+		return
+	}
 	var parsed struct {
 		RouteThroughXray bool   `json:"routeThroughXray"`
 		RouteXrayPort    int    `json:"routeXrayPort"`

@@ -23,6 +23,7 @@ const (
 	Mtproxy           Name = "mtproxy"
 	TproxyCaddy       Name = "tproxycaddy"
 	tproxyDefaultPort      = 443
+	TproxyXrayRouting      = false
 )
 
 // TproxySitePrompt is the operator-facing generator prompt from

@@ -6,14 +6,13 @@
 
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Input, Radio, Select, Switch, Upload, message } from 'antd';
+import { Alert, Button, Input, Radio, Select, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
 import { tunnelsApi } from '@/api/tunnels';
-import { useOutboundTags } from '@/api/queries/useOutboundTags';
 import { useAwgInboundId } from '../awg-inbound-id-context';
 
 const SITE_PROMPT =
@@ -23,8 +22,6 @@ export default function TproxyFields() {
   const { t } = useTranslation();
   const inboundId = useAwgInboundId();
   const siteSource = useWatch({ name: 'settings.siteSource' }) as string | undefined;
-  const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
-  const { data: outboundTags } = useOutboundTags();
   const [busy, setBusy] = useState(false);
   const siteQuery = useQuery({
     queryKey: ['tproxySiteFiles', inboundId],
@@ -67,30 +64,6 @@ export default function TproxyFields() {
         style={{ marginBottom: 12 }}
         message={t('pages.inbounds.form.tproxyNote')}
       />
-      <FormField
-        name={['settings', 'routeThroughXray']}
-        label={t('pages.inbounds.form.trustTunnelRouteThroughXray')}
-        tooltip={t('pages.inbounds.form.tproxyRouteThroughXrayHint')}
-        valueProp="checked"
-      >
-        <Switch />
-      </FormField>
-      {routeThroughXray && (
-        <FormField
-          name={['settings', 'outboundTag']}
-          label={t('pages.inbounds.form.trustTunnelRouteOutbound')}
-          tooltip={t('pages.inbounds.form.trustTunnelRouteOutboundHint')}
-        >
-          <Select
-            showSearch
-            optionFilterProp="label"
-            options={[
-              { value: '', label: t('pages.inbounds.form.trustTunnelRouteOutboundPlaceholder') },
-              ...(outboundTags || []).map((tag) => ({ value: tag, label: tag })),
-            ]}
-          />
-        </FormField>
-      )}
       <FormField
         name={['settings', 'hostname']}
         label={t('pages.inbounds.form.tproxyHostname')}

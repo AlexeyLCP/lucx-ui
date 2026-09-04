@@ -1282,11 +1282,18 @@ func TestNaiveBridgeChanged(t *testing.T) {
 
 func TestInjectTproxyEgress_DokodemoFollowRedirect(t *testing.T) {
 	cfg := egressTestConfig()
+	before := len(cfg.InboundConfigs)
 	ib := &model.Inbound{
 		Id: 18, Tag: "in-tproxy-18", Protocol: model.Tproxy, Enable: true,
 		Settings: `{"routeThroughXray":true,"routeXrayPort":39150}`,
 	}
 	injectTproxyEgress(cfg, ib)
+	if !tunnel.TproxyXrayRouting {
+		if len(cfg.InboundConfigs) != before {
+			t.Fatal("via Xray parked: must not inject dokodemo")
+		}
+		return
+	}
 	if len(cfg.InboundConfigs) < 2 {
 		t.Fatal("expected dokodemo bridge")
 	}
