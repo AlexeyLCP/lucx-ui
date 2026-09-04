@@ -812,7 +812,6 @@ func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 		Protocol:       "dokodemo-door",
 		Settings:       json_util.RawMessage(tproxyEgressDokodemoSettings),
 		StreamSettings: json_util.RawMessage(tproxyEgressDokodemoSockopt),
-		Sniffing:       json_util.RawMessage(awgEgressTunSniffing),
 		Tag:            tag,
 	})
 }

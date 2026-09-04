@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.210 — tproxy dokodemo: no TLS sniffing (2026-09-04)
+
+Prod (VladufQa, 209): uid 999 redirect + dokodemo `tproxy:redirect` live; still hung. ~1100 CLOSE-WAIT Recv-Q=1, xray ~3800 fds. Sniffing `http,tls,quic` on MTProto DC sockets. Removed from `injectTproxyEgress`. Test: `TestInjectTproxyEgress_DokodemoFollowRedirect` forbids enabled sniffing.
+
+**lucxVersion:** lucx.210
+
+---
+
 ## lucx.209 — tproxy via Xray (2026-09-04)
 
 WEB proxy routeThroughXray hung and broke every other inbound until tproxy was off. Dokodemo now has `sockopt.tproxy=redirect`; NAT OUTPUT REDIRECT uses numeric uid and skips root.

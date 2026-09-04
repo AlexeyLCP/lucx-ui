@@ -94,12 +94,13 @@ Extracted from AGENTS.md. This file is project law.
 - **Still client-side:** WEB proxy is a POC type — regular Telegram apps do not register `t.me/webproxy`; testing needs a TD desktop POC build or the POC Android client.
 - **Lesson:** a C sidecar with a built-in privilege-drop user needs that user provisioned (or an explicit `-u`), and a function that returns "all disabled" must say why — otherwise every field report starts with "чет не завелось" and nothing else.
 
-### Pattern 1af: tproxy “via Xray” hangs and kills all routing — FIXED
+### Pattern 1af: tproxy “via Xray” hangs and kills all routing — FIXED (lucx.210)
 
-- **Symptom (VladufQa, 04.09.2026):** WEB proxy + routeThroughXray, VLESS or AWG outbound. Connects, no traffic. Disabling the tproxy inbound restores every other inbound’s routing.
-- **Cause:** (1) dokodemo-door had `followRedirect` but no `sockopt.tproxy=redirect`, so iptables REDIRECT never recovered the Telegram DC dest. (2) NAT OUTPUT REDIRECT on uid 0 (if `mtproxy` is root) hijacks **all** locally generated TCP, including Xray itself.
-- **Fix:** set dokodemo `tproxy: redirect`; iptables `--uid-owner` is the numeric uid; skip uid 0; log iptables errors.
-- **Healing:** update, keep “via Xray” + outbound tag (VLESS/AWG). On a RU host empty outbound = default/direct = hang.
+- **Symptom (VladufQa / Max, 04.09.2026):** WEB proxy + routeThroughXray. Telegram connects, no DC traffic. Other inbounds die until tproxy is off.
+- **Cause (prod Vladru.work.gd, lucx.209):** not uid 0 (mtproxy uid 999). iptables REDIRECT and dokodemo `tproxy:redirect` work. Sniffing `http,tls,quic` was copied from AWG TUN onto that dokodemo. MTProxy DC sockets are raw MTProto, not TLS. Sniffer stalls (`CLOSE-WAIT Recv-Q=1`), mtproxy keeps dialing every DC, xray hits thousands of fds, **all** routing dies.
+- **lucx.209:** dokodemo `tproxy:redirect`; numeric `--uid-owner`; skip uid 0. Necessary, not sufficient.
+- **Fix (lucx.210):** do not sniff on the tproxy dokodemo. Force-route is inboundTag → outbound tag.
+- **Healing:** `x-ui update` to 210, enable via Xray + outbound tag. Empty outbound on RU = hang.
 
 ### Pattern 1v: AnyTLS dead when UFW is on, port is allowed — FIXED
 - **Symptom (Max, 29.08.2026):** AnyTLS works with UFW off. Port 8555 is in `ufw status` and `ufw-user-input` ACCEPT, but clients hang. `tcpdump` shows SYN in, no SYN-ACK. `iptables -L INPUT`: first rules are `RETURN tcp dpt:8555 /* lucx-anytls-anytls-17 */` with packet counters climbing; UFW’s 8555 ACCEPT stays at 0 pkts.

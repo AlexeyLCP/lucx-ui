@@ -1300,6 +1300,9 @@ func TestInjectTproxyEgress_DokodemoFollowRedirect(t *testing.T) {
 	if !strings.Contains(string(got.StreamSettings), `"tproxy":"redirect"`) {
 		t.Fatalf("dokodemo must set sockopt.tproxy=redirect, got %s", got.StreamSettings)
 	}
+	if strings.Contains(string(got.Sniffing), `"enabled":true`) || strings.Contains(string(got.Sniffing), "destOverride") {
+		t.Fatalf("mtproxy DC sockets are not TLS; sniffing stalls dokodemo, got %s", got.Sniffing)
+	}
 }
 
 func TestInjectSocksEgress_SniffingRouteOnly(t *testing.T) {
