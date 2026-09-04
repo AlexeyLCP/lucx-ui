@@ -72,6 +72,9 @@ docker compose --profile postgres up -d
 
 [3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve upstream'de olmayanları ekler: **çekirdek AmneziaWG** (upstream'in yerel `amneziawg`'siyle yan yana), **mevcut AWG içe aktarma**, **tünel sidecar'ları** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), **zengin abonelikler** (Clash Meta AWG, Amnezia `vpn://`, Happ) ve **RoscomVPN geo paketleri + Happ profilleri** (geodata browser [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 ile upstream'de):
 
+<details>
+<summary><b>3x-ui ile karşılaştırma</b></summary>
+
 | Özellik | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG inbound (çekirdek sidecar'ı `awg-quick` ile) | ✗ | ✓ |
@@ -103,6 +106,8 @@ docker compose --profile postgres up -d
 | Telegram WEB proxy inbound (`tproxy`, t.me/webproxy) | ✗ | ✓ |
 | Sürtünmesiz üst senkronizasyon (LUCX-HOOK izolasyonu) | — | ✓ |
 
+</details>
+
 Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir çekirdek arabirimi olarak çalıştığı (kullanıcı alanı shim'i değil) anlamına gelir; böylece Xray çözülmüş trafiği kendi TUN inbound'u üzerinden yönlendirir ve AWG trafiğinde Xray'ın tam yönlendirme, sniffing ve alan adı kural gücünü kullanırsınız. Modül yoksa aynı LucX `awg` inbound'u gömülü amneziawg-go üzerinde çalışır. Upstream'in yerel `amneziawg` protokolü panelde yanında kalır.
 
 ---
@@ -111,7 +116,9 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 
 **LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.7.0** ile senkron). Stok Xray protokollerinin ötesinde: iki modda **AmneziaWG** — çekirdek sidecar `awg` (MTProto/`mtg` ile aynı fikir) ve upstream'in yerel `amneziawg`'si, **AWG 3.1**'e kadar; awg-multi / toolza3 / Docker **içe aktarma**; panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ), **Telegram WEB proxy** (`tproxy`) ve **stok RoscomVPN geo** (kategori tarayıcısı upstream v3.7.0 ile ortak). Katı `LUCX-HOOK` ile %100 upstream uyumu.
 
-### 🛡️ AmneziaWG (AWG) Özellikleri
+<details>
+<summary><b>🛡️ AmneziaWG (AWG) Özellikleri</b></summary>
+
 - **AWG Inbound & Outbound** — Çekirdek sidecar'ı (`awg-quick`), üst AWG sunucularına istemci modunda bağlanma (`awgo-{id}`), 10 saniyelik otomatik uzlaştırma döngüsü ve DKMS modül derleyicisi.
 - **İki motor** — hem `AmneziaWG (kernel)` (modül varken `awg-quick`) hem de upstream'in yerel `amneziawg`'si. Modül yoksa LucX `awg` inbound'ları gömülü amneziawg-go üzerinde çalışır (SOCKS → Xray); modül varken çekirdek yolu değişmez.
 - **Mevcut AWG içe aktarma** — Inbounds banner'ı: awg-multi / toolza3 / Docker Amnezia. Anahtarlar, IP'ler, port ve gizleme olduğu gibi kopyalanır; çekirdek arabirimi yerinde yeniden adlandırılır (el sıkışmalar kalır).
@@ -123,7 +130,11 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **Canlı İmza Yakalama** — Ön alan adlarından gerçek QUIC el sıkışmalarını I1–I5 gizleme parametrelerine dönüştürür.
 - **Yönlendirme & Teşhis** — İki yönlendirme modu (Kernel NAT ve politika yönlendirmeli & sniffing'li Route through Xray) + panel içi tek tıkla teşhis.
 
-### 🚇 Tünel Sidecar'ları (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel, Telegram WEB proxy)
+</details>
+
+<details>
+<summary><b>🚇 Tünel Sidecar'ları (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel, Telegram WEB proxy)</b></summary>
+
 - **NaiveProxy** — `forward_proxy` eklentili Caddy ([klzgrad](https://github.com/klzgrad/forwardproxy) fork'u, HTTP/2 padding) panel denetimli bir sidecar olarak çalışır: render edilmiş Caddyfile, crash-revive reconcile ile start/stop/restart ve üç seviyeli sağlık sondası (process → TCP → TLS).
 - **İstemci başına kimlik bilgileri** — paneldeki her etkin istemci otomatik olarak kişisel bir `basic_auth` çifti alır (panel sırrından türetilir, saklanmaz); istemciyi devre dışı bırakmak bir sonraki reconcile'da iptal eder.
 - **Abonelikler** — her istemcinin aboneliği Xray/AWG bağlantılarının yanında kişisel `naive+https://` bağlantısını taşır (NekoBox / husi / Exclave standart formatı), ayrıca panelde QR kod ve güçlü parola üreteci vardır.
@@ -136,17 +147,27 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **Telegram WEB proxy (`tproxy`)** — `tproxy-server` + resmi MTProxy + Caddy TLS reverse_proxy, `hostname:443`, paylaşım `t.me/webproxy`. Xray üzerinden yönlendirme şu an **park edilmiş** (doğrudan MTProxy çıkışı; bkz. lucx.211).
 - **Sidecar outbound'lar** — Naive / mieru / TrustTunnel istemci modu: paylaşım bağlantısını yapıştırın (`naive+https://` / `mierus://` / `tt://`), etiket routing kurallarında ve dengeleyici havuzlarında görünür (AWG outbound gibi). Devre dışı = blackhole (fail-closed, `direct`'e sızmaz). İstemci ikilileri tar.gz'de.
 
-### 📦 Abonelikler, geodata ve istemci yönlendirme
+</details>
+
+<details>
+<summary><b>📦 Abonelikler, geodata ve istemci yönlendirme</b></summary>
+
 - **Amnezia aboneliği** — `/awg/{subId}` saf `.conf` veya `vpn://…` döner.
 - **Clash Meta'ta AWG** — `amnezia-wg-option` ile peer'ler.
 - **Geodata browser** — routing UI'dan `geoip*.dat` / `geosite*.dat` gezinme (upstream'de [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0'dan beri, [STRENCH0](https://github.com/STRENCH0)).
 - **RoscomVPN geo paketi** — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)).
 - **Happ profilleri** — Settings → Happ: RoscomVPN deeplink ([roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
-### 🚀 Temel 3x-ui Özellikleri
+</details>
+
+<details>
+<summary><b>🚀 Temel 3x-ui Özellikleri</b></summary>
+
 - **Protokoller:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
 - **Taşımalar & Güvenlik:** REALITY, TLS, XTLS, gRPC, WebSocket, XHTTP, Fallbacks.
 - **Yönetim:** Trafik kotaları, IP limitleri (Fail2ban), canlı çevrimiçi durum, abonelikler, Telegram botu, REST API, Çoklu Düğüm desteği, SQLite / PostgreSQL.
+
+</details>
 
 <details>
 <summary><b>📸 Ekran Görüntüleri</b></summary>

@@ -90,6 +90,9 @@ docker compose --profile postgres up -d
 
 [3x-ui](https://github.com/MHSanaei/3x-ui) is an excellent multi-protocol panel with a modern React 19 + Ant Design 6 frontend. LucX-UI keeps everything 3x-ui offers and adds what upstream does not: **kernel AmneziaWG** (alongside upstream's native `amneziawg`), **import of existing AWG**, **tunnel sidecars** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), **richer subscriptions** (Clash Meta AWG, Amnezia `vpn://`, Happ), and **RoscomVPN geo packs + Happ profiles** (geodata browser is already upstream since [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0):
 
+<details>
+<summary><b>Compare with 3x-ui</b></summary>
+
 | Feature | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG inbound (kernel sidecar via `awg-quick`) | ✗ | ✓ |
@@ -121,6 +124,8 @@ docker compose --profile postgres up -d
 | Telegram WEB proxy inbound (`tproxy`, t.me/webproxy) | ✗ | ✓ |
 | Frictionless upstream sync (LUCX-HOOK isolation) | — | ✓ |
 
+</details>
+
 A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel interface — not a userspace shim — so Xray routes decrypted traffic through its own TUN inbound, giving you the full routing, sniffing and domain-rule power of Xray on AWG traffic. No module — the same LucX `awg` inbound runs on embedded amneziawg-go. Upstream's native `amneziawg` protocol stays in the panel next to it.
 
 ---
@@ -129,7 +134,9 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 
 **LucX-UI** is an enhanced fork of [3x-ui](https://github.com/MHSanaei/3x-ui) (currently synced to upstream **v3.7.0**). Beyond stock Xray protocols it adds **AmneziaWG** in two modes — kernel sidecar `awg` (same idea as MTProto/`mtg`) and upstream's native `amneziawg`, up to **AWG 3.1**; **import** of awg-multi / toolza3 / Docker; panel-supervised **tunnel sidecars** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), extended **subscriptions** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), **Telegram WEB proxy** (`tproxy`), and **stock RoscomVPN geo** (category browser shared with upstream v3.7.0). 100% upstream compatibility via strict `LUCX-HOOK` isolation.
 
-### 🛡️ AmneziaWG (AWG) Features
+<details>
+<summary><b>🛡️ AmneziaWG (AWG) Features</b></summary>
+
 - **AWG Inbounds & Outbounds** — Kernel sidecar (`awg-quick`), client mode dial-out to upstream AWG servers (`awgo-{id}`), 10-second automatic reconcile loop, and DKMS kernel module builder.
 - **Two engines** — both `AmneziaWG (kernel)` (`awg-quick` when the module is present) and upstream's native `amneziawg`. No module — LucX `awg` inbounds run on embedded amneziawg-go (SOCKS into Xray); the kernel path is unchanged when the module is there.
 - **Import existing AWG** — Inbounds banner: awg-multi / toolza3 / Docker Amnezia. Keys, IPs, port and obfuscation copied as-is; kernel iface renamed in place (handshakes stay).
@@ -141,7 +148,11 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 - **Live Signature Capture** — Convert real QUIC handshakes from front domains into I1–I5 obfuscation parameters.
 - **Routing & Diagnostics** — Dual routing modes (Kernel NAT and Route through Xray with policy routing & sniffing) + one-click in-panel diagnostics.
 
-### 🚇 Tunnel Sidecars (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel, Telegram WEB proxy)
+</details>
+
+<details>
+<summary><b>🚇 Tunnel Sidecars (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel, Telegram WEB proxy)</b></summary>
+
 - **NaiveProxy** — Caddy with the `forward_proxy` plugin ([klzgrad](https://github.com/klzgrad/forwardproxy) fork, HTTP/2 padding) runs as a panel-supervised sidecar: rendered Caddyfile, start/stop/restart with crash-reviving reconcile, and a three-level health probe (process → TCP → TLS).
 - **Per-client credentials** — every enabled panel client automatically gets a personal `basic_auth` pair (derived from the panel secret, nothing stored); disabling a client revokes it on the next reconcile.
 - **Subscriptions** — each client's subscription carries their personal `naive+https://` link alongside their Xray/AWG links (standard format for NekoBox / husi / Exclave), plus a QR code and a strong-password generator in the panel.
@@ -154,17 +165,27 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 - **Telegram WEB proxy (`tproxy`)** — `tproxy-server` + official MTProxy + Caddy TLS reverse_proxy on `hostname:443`, share link `t.me/webproxy`. Route-through-Xray is currently **parked** (direct MTProxy egress; see lucx.211).
 - **Sidecar outbounds** — client-mode Naive / mieru / TrustTunnel: paste a share link (`naive+https://` / `mierus://` / `tt://`), the tag shows up in routing rules and balancer pools (same as AWG outbound). Disable = blackhole (fail-closed, does not leak to `direct`). Client binaries ship in the tarball (`naive-client`, `mieru-client`, `trusttunnel-client`).
 
-### 📦 Subscriptions, Geodata & Client Routing
+</details>
+
+<details>
+<summary><b>📦 Subscriptions, Geodata & Client Routing</b></summary>
+
 - **Amnezia subscription** — dedicated `/awg/{subId}` endpoint returns a pure AmneziaWG `.conf` (or `?format=vpn` → `vpn://…` body) for AmneziaVPN / Happ; also listed next to Clash / JSON / base64 links in the panel and Telegram bot.
 - **AWG in Clash Meta** — subscription emits AmneziaWG peers via `amnezia-wg-option` so Clash Meta clients can consume AWG alongside VLESS/Trojan.
 - **Geodata browser** — open any `geoip*.dat` / `geosite*.dat` from the routing UI, search categories, multi-select into a rule (in upstream since [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 by [STRENCH0](https://github.com/STRENCH0)).
 - **RoscomVPN geo pack** — stock `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([hydraponique/roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)): RKN geoblock lists (`category-geoblock-ru`, `category-ru`, ads, YouTube / Telegram / Steam, …). Update from panel Version → Geofiles or `x-ui` menu.
 - **Happ routing profiles** — Settings → Happ: built-in RoscomVPN deeplink profile plus free-text custom (from [hydraponique/roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
-### 🚀 Core 3x-ui Features
+</details>
+
+<details>
+<summary><b>🚀 Core 3x-ui Features</b></summary>
+
 - **Protocols:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
 - **Transports & Security:** REALITY, TLS, XTLS, gRPC, WebSocket, XHTTP, Fallbacks.
 - **Management:** Traffic quotas, IP limits (Fail2ban), live online status, subscriptions, Telegram bot, REST API, Multi-node support, SQLite / PostgreSQL.
+
+</details>
 
 <details>
 <summary><b>📸 Screenshots</b></summary>

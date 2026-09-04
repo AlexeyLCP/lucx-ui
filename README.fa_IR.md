@@ -72,6 +72,9 @@ docker compose --profile postgres up -d
 
 [3x-ui](https://github.com/MHSanaei/3x-ui) یک پنل چندپروتکله عالی با فرانت‌اند React 19 + Ant Design 6 است. LucX-UI همهٔ قابلیت‌های 3x-ui را نگه می‌دارد و آنچه upstream ندارد را اضافه می‌کند: **AmneziaWG کرنل** (در کنار `amneziawg` بومیِ upstream)، **وارد کردن AWG موجود**، **سایدی‌کارهای تونل** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy)، **اشتراک‌های غنی‌تر** (Clash Meta AWG، Amnezia `vpn://`، Happ) و **بسته‌های RoscomVPN geo + پروفایل‌های Happ** (geodata browser از [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 در upstream است):
 
+<details>
+<summary><b>مقایسه با 3x-ui</b></summary>
+
 | ویژگی | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG ورودی (سایدی‌کار کرنل از طریق `awg-quick`) | ✗ | ✓ |
@@ -103,6 +106,8 @@ docker compose --profile postgres up -d
 | ورودی پروکسی وب تلگرام (`tproxy`، t.me/webproxy) | ✗ | ✓ |
 | همگام‌سازی بدون اصطکاک بالا‌دست (ایزوله‌سازی LUCX-HOOK) | — | ✓ |
 
+</details>
+
 یک سایدی‌کار کرنل (مانند `mtg` در MTProto ِ 3x-ui) به این معناست که AWG به‌عنوان یک رابط کرنل واقعی اجرا می‌شود — نه یک shim فضای کاربری — در نتیجه Xray ترافیک رمزگشاشده را از طریق TUN ورودیِ خود عبور می‌دهد و قدرت کامل مسیریابی، شنود و قوانین دامنهٔ Xray را روی ترافیک AWG در اختیار شما قرار می‌دهد. بدون ماژول، همان inboundِ LucXیِ `awg` روی amneziawg-go توکار بالا می‌آید. پروتکل بومیِ upstream یعنی `amneziawg` هم در پنل کنار آن می‌ماند.
 
 ---
@@ -111,7 +116,9 @@ docker compose --profile postgres up -d
 
 **LucX-UI** فورک ارتقایافتهٔ [3x-ui](https://github.com/MHSanaei/3x-ui) است (همگام با upstream **v3.7.0**). فراتر از پروتکل‌های Xray استوک: **AmneziaWG** در دو حالت — سایدی‌کار کرنل `awg` (همان ایدهٔ MTProto/`mtg`) و `amneziawg` بومیِ upstream، تا **AWG 3.1**؛ **وارد کردن** awg-multi / toolza3 / Docker؛ **تونل‌های تحت نظارت پنل** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراک‌های گسترش‌یافته** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ)، **پروکسی وب تلگرام** (`tproxy`) و **geo استوک RoscomVPN** (مرورگر دسته‌ها مشترک با upstream v3.7.0). سازگاری ۱۰۰٪ با upstream از طریق ایزولهٔ `LUCX-HOOK`.
 
-### 🛡️ ویژگی‌های AmneziaWG (AWG)
+<details>
+<summary><b>🛡️ ویژگی‌های AmneziaWG (AWG)</b></summary>
+
 - **ورودی‌ها و خروجی‌های AWG** — سایدی‌کار کرنل (`awg-quick`)، شماره‌گیری حالت کلاینت به سرورهای AWG بالا‌دستی (`awgo-{id}`)، حلقه همگام‌سازی اتوماتیک ۱۰ ثانیه‌ای، و سازنده ماژول کرنل DKMS.
 - **دو موتور** — هم `AmneziaWG (kernel)` (با ماژول از طریق `awg-quick`) و هم `amneziawg` بومیِ upstream. بدون ماژول، inboundهای LucXیِ `awg` روی amneziawg-go توکار (SOCKS به Xray) اجرا می‌شوند؛ مسیر کرنل وقتی ماژول هست عوض نمی‌شود.
 - **وارد کردن AWG موجود** — بنر در Inbounds: awg-multi / toolza3 / Docker Amnezia. کلیدها، IP، پورت و پنهان‌سازی همان‌طور کپی می‌شوند؛ اینترفیس کرنل درجا عوض‌نام می‌شود (دست‌دادن قطع نمی‌شود).
@@ -123,7 +130,11 @@ docker compose --profile postgres up -d
 - **استخراج امضای زنده** — تبدیل دست‌دادن‌های واقعی QUIC از دامنه‌های فرانت به پارامترهای مخفی‌سازی I1–I5.
 - **مسیریابی و عیب‌یابی** — دو حالت مسیریابی (Kernel NAT و Route through Xray با مسیریابی سیاست و شنود) + عیب‌یابی تک‌کلیکه درون پنل.
 
-### 🚇 سایدی‌کارهای تونل (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel، Telegram WEB proxy)
+</details>
+
+<details>
+<summary><b>🚇 سایدی‌کارهای تونل (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel، Telegram WEB proxy)</b></summary>
+
 - **NaiveProxy** — Caddy با افزونهٔ `forward_proxy` (فورک [klzgrad](https://github.com/klzgrad/forwardproxy)، padding مربوط به HTTP/2) به‌عنوان سایدی‌کار تحت نظارت پنل اجرا می‌شود: Caddyfile رندر‌شده، start/stop/restart با reconcile احیای پس از کرش، و پروب سلامت سه‌سطحی (process → TCP → TLS).
 - **اعتبارنامه‌های per-client** — هر کلاینت فعال پنل به‌طور اتوماتیک یک جفت شخصی `basic_auth` می‌گیرد (مشتق از راز پنل، بدون ذخیره‌سازی)؛ غیرفعال‌کردن کلاینت در reconcile بعدی آن را باطل می‌کند.
 - **اشتراک‌ها** — اشتراک هر کلاینت لینک شخصی `naive+https://` او را در کنار لینک‌های Xray/AWG حمل می‌کند (فرمت استاندارد NekoBox / husi / Exclave)، به‌علاوه کد QR و تولیدکنندهٔ رمز عبور قوی در پنل.
@@ -136,17 +147,27 @@ docker compose --profile postgres up -d
 - **پروکسی وب تلگرام (`tproxy`)** — `tproxy-server` + MTProxy رسمی + Caddy TLS reverse_proxy روی `hostname:443`، لینک اشتراک `t.me/webproxy`. مسیریابی از طریق Xray فعلاً **متوقف** است (خروج مستقیم MTProxy؛ نک. lucx.211).
 - **Sidecar outbounds** — حالت کلاینت Naive / mieru / TrustTunnel: لینک اشتراک را بچسبانید (`naive+https://` / `mierus://` / `tt://`)، تگ در قوانین مسیریابی و استخرهای balancer ظاهر می‌شود (مثل AWG outbound). غیرفعال = blackhole (fail-closed، به `direct` نشت نمی‌کند). باینری‌های کلاینت در tar.gz.
 
-### 📦 اشتراک‌ها، geodata و مسیریابی کلاینت
+</details>
+
+<details>
+<summary><b>📦 اشتراک‌ها، geodata و مسیریابی کلاینت</b></summary>
+
 - **اشتراک Amnezia** — `/awg/{subId}` فایل `.conf` خالص یا `vpn://…` برمی‌گرداند.
 - **AWG در Clash Meta** — peerها با `amnezia-wg-option`.
 - **Geodata browser** — مرور `geoip*.dat` / `geosite*.dat` از UI مسیریابی (در upstream از [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0، [STRENCH0](https://github.com/STRENCH0)).
 - **بسته RoscomVPN geo** — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)).
 - **پروفایل‌های Happ** — Settings → Happ: deeplink RoscomVPN ([roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
-### 🚀 ویژگی‌های اصلی 3x-ui
+</details>
+
+<details>
+<summary><b>🚀 ویژگی‌های اصلی 3x-ui</b></summary>
+
 - **پروتکل‌ها:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
 - **انتقال و امنیت:** REALITY, TLS, XTLS, gRPC, WebSocket, XHTTP, Fallbacks.
 - **مدیریت:** حجم ترافیک، محدودیت IP (Fail2ban)، وضعیت آنلاین، اشتراک‌ها، ربات تلگرام، REST API، چند نود، SQLite / PostgreSQL.
+
+</details>
 
 <details>
 <summary><b>📸 تصاویر محیط پنل</b></summary>

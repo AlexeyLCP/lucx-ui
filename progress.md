@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## docs — README: collapse table and About sections (2026-09-05)
+
+Comparison table and About subsections (AWG / tunnels / geo / 3x-ui) are `<details>` closed by default, all 7 locales.
+
+**lucxVersion:** unchanged (lucx.212)
+
+---
+
 ## docs — README locales P0/P1 after v3.7.0 (2026-09-05)
 
 zh / fa / ar / es / tr match RU/EN from #78: tproxy, Yandex install, geodata ✓/✓, Go 1.27 / Node 24, sub port 2096.

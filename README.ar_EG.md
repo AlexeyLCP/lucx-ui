@@ -72,6 +72,9 @@ docker compose --profile postgres up -d
 
 [3x-ui](https://github.com/MHSanaei/3x-ui) لوحة متعددة البروتوكولات ممتازة بواجهة React 19 + Ant Design 6. يحافظ LucX-UI على كل ما في 3x-ui ويضيف ما لا يملكه upstream: **AmneziaWG للنواة** (إلى جانب `amneziawg` الأصلي لدى upstream)، **استيراد AWG الموجود**، **sidecars للأنفاق** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy)، **اشتراكات أوسع** (Clash Meta AWG، Amnezia `vpn://`، Happ) و**حزم RoscomVPN geo + ملفات Happ** (متصفح geodata في upstream منذ [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0):
 
+<details>
+<summary><b>مقارنة مع 3x-ui</b></summary>
+
 | الميزة | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG inbound (sidecar للنواة عبر `awg-quick`) | ✗ | ✓ |
@@ -103,6 +106,8 @@ docker compose --profile postgres up -d
 | inbound وكيل ويب تلغرام (`tproxy`، t.me/webproxy) | ✗ | ✓ |
 | مزامنة upstream بلا احتكاك (عزل LUCX-HOOK) | — | ✓ |
 
+</details>
+
 Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG يعمل كواجهة نواة حقيقية — وليس shim لمساحة المستخدم — مما يتيح لـ Xray توجيه الترافيك المفكوك عبر inbound الـ TUN الخاص به، فتحصل على القوة الكاملة للتوجيه والشمّ وقواعد النطاقات لدى Xray على ترافيك AWG. بلا وحدة — نفس inbound LucX `awg` يعمل على amneziawg-go المدمج. بروتوكول upstream الأصلي `amneziawg` يبقى في اللوحة بجانبه.
 
 ---
@@ -111,7 +116,9 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 
 **LucX-UI** نسخة محسّنة من [3x-ui](https://github.com/MHSanaei/3x-ui) (متزامنة مع upstream **v3.7.0**). فوق بروتوكولات Xray الافتراضية: **AmneziaWG** بوضعَين — sidecar للنواة `awg` (كـ MTProto/`mtg`) و`amneziawg` الأصلي لدى upstream، حتى **AWG 3.1**؛ **استيراد** awg-multi / toolza3 / Docker؛ **أنفاق تحت إشراف اللوحة** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراكات موسّعة** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ)، **وكيل ويب تلغرام** (`tproxy`) و**geo RoscomVPN الافتراضي** (متصفح الفئات مشترك مع upstream v3.7.0). توافق 100% مع upstream عبر عزل `LUCX-HOOK`.
 
-### 🛡️ ميزات AmneziaWG (AWG)
+<details>
+<summary><b>🛡️ ميزات AmneziaWG (AWG)</b></summary>
+
 - **AWG Inbounds & Outbounds** — Sidecar للنواة (`awg-quick`)، اتصال بوضع العميل إلى سيرفرات AWG الرئيسية (`awgo-{id}`)، حلقة توفيق تلقائية كل 10 ثوانٍ، ومثبت موديل النواة عبر DKMS.
 - **محرّكان** — `AmneziaWG (kernel)` عبر `awg-quick` عند وجود الوحدة، و`amneziawg` الأصلي لدى upstream. بلا وحدة — تعمل inboundات LucX `awg` على amneziawg-go المدمج (SOCKS إلى Xray)؛ مسار النواة لا يتغيّر عندما تكون الوحدة موجودة.
 - **استيراد AWG الموجود** — لافتة في Inbounds: awg-multi / toolza3 / Docker Amnezia. تُنسَخ المفاتيح وIP والمنفذ والتعتيم كما هي؛ تُعاد تسمية واجهة النواة في مكانها (المصافحات تبقى).
@@ -123,7 +130,11 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 - **التقاط التوقيع المباشر** — تحويل مصافحات QUIC الحقيقية من نطاقات front إلى قيم تعتيم I1–I5.
 - **التوجيه والتشخيص** — نمطا توجيه (Kernel NAT و Route through Xray مع توجيه السياسات والشمّ) + تشخيص بنقرة واحدة من داخل اللوحة.
 
-### 🚇 Sidecar-ات الأنفاق (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel، Telegram WEB proxy)
+</details>
+
+<details>
+<summary><b>🚇 Sidecar-ات الأنفاق (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel، Telegram WEB proxy)</b></summary>
+
 - **NaiveProxy** — Caddy مع إضافة `forward_proxy` (نسخة [klzgrad](https://github.com/klzgrad/forwardproxy)، حشو HTTP/2) يعمل كـ sidecar تحت إشراف اللوحة: Caddyfile مُولَّد، start/stop/restart مع reconcile لإحياء الأعطال، وفحص صحة ثلاثي المستويات (process → TCP → TLS).
 - **بيانات اعتماد لكل عميل** — كل عميل مفعّل في اللوحة يحصل تلقائياً على زوج `basic_auth` شخصي (مشتق من سر اللوحة، دون تخزين)؛ تعطيل العميل يُلغي الاعتماد في reconcile التالي.
 - **الاشتراكات** — يحمل اشتراك كل عميل رابطه الشخصي `naive+https://` إلى جانب روابط Xray/AWG (الصيغة القياسية لـ NekoBox / husi / Exclave)، مع رمز QR ومولّد كلمات مرور قوية في اللوحة.
@@ -136,17 +147,27 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 - **وكيل ويب تلغرام (`tproxy`)** — `tproxy-server` + MTProxy الرسمي + Caddy TLS reverse_proxy على `hostname:443`، رابط المشاركة `t.me/webproxy`. التوجيه عبر Xray **موقوف** حالياً (خروج MTProxy مباشر؛ انظر lucx.211).
 - **Sidecar outbounds** — وضع عميل Naive / mieru / TrustTunnel: الصق رابط المشاركة (`naive+https://` / `mierus://` / `tt://`)، يظهر الوسم في قواعد التوجيه ومجمّعات الموازنة (مثل AWG outbound). التعطيل = blackhole (fail-closed، لا يتسرّب إلى `direct`). ثنائيات العميل في tar.gz.
 
-### 📦 الاشتراكات و geodata وتوجيه العملاء
+</details>
+
+<details>
+<summary><b>📦 الاشتراكات و geodata وتوجيه العملاء</b></summary>
+
 - **اشتراك Amnezia** — `/awg/{subId}` يُرجع `.conf` صرفاً أو `vpn://…`.
 - **AWG في Clash Meta** — peers عبر `amnezia-wg-option`.
 - **Geodata browser** — تصفح `geoip*.dat` / `geosite*.dat` من واجهة التوجيه (في upstream منذ [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0، [STRENCH0](https://github.com/STRENCH0)).
 - **حزمة RoscomVPN geo** — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)).
 - **ملفات Happ** — Settings → Happ: deeplink RoscomVPN ([roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
-### 🚀 الميزات الأساسية لـ 3x-ui
+</details>
+
+<details>
+<summary><b>🚀 الميزات الأساسية لـ 3x-ui</b></summary>
+
 - **البروتوكولات:** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN.
 - **الأمان والنقل:** REALITY, TLS, XTLS, gRPC, WebSocket, XHTTP, Fallbacks.
 - **الإدارة:** حصص الترافيك، حدود IP (Fail2ban)، حالة الاتصال، الاشتراكات، بوت تلجرام، REST API، السيرفرات المتعددة، SQLite / PostgreSQL.
+
+</details>
 
 <details>
 <summary><b>📸 لقطات الشاشة</b></summary>

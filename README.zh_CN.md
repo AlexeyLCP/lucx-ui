@@ -72,6 +72,9 @@ docker compose --profile postgres up -d
 
 [3x-ui](https://github.com/MHSanaei/3x-ui) 是一款出色的多协议面板，前端采用现代化的 React 19 + Ant Design 6。LucX-UI 保留 3x-ui 的全部能力，并补充上游没有的部分：**内核 AmneziaWG**（与上游原生 `amneziawg` 并存）、**导入已有 AWG**、**隧道 Sidecar**（NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy）、**更丰富的订阅**（Clash Meta AWG、Amnezia `vpn://`、Happ）以及 **RoscomVPN geo 包 + Happ 配置**（geodata browser 已随 [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 进入上游）：
 
+<details>
+<summary><b>与 3x-ui 对比</b></summary>
+
 | 特性 | 3x-ui | LucX-UI |
 |---|:---:|:---:|
 | AmneziaWG 入站（通过 `awg-quick` 的内核 Sidecar） | ✗ | ✓ |
@@ -103,6 +106,8 @@ docker compose --profile postgres up -d
 | Telegram WEB proxy inbound（`tproxy`，t.me/webproxy） | ✗ | ✓ |
 | 无摩擦上游同步（LUCX-HOOK 隔离） | — | ✓ |
 
+</details>
+
 内核 Sidecar（就像 3x-ui 的 MTProto `mtg` 一样）意味着 AWG 作为真正的内核接口运行 —— 而非用户态垫片 —— 因此 Xray 通过自身的 TUN inbound 路由解密后的流量，让您在 AWG 流量上获得 Xray 完整的路由、嗅探与域名规则能力。没有模块时，同一个 LucX `awg` 入站会走内置 amneziawg-go。上游原生协议 `amneziawg` 仍在面板中并列可选。
 
 ---
@@ -111,7 +116,9 @@ docker compose --profile postgres up -d
 
 **LucX-UI** 是 [3x-ui](https://github.com/MHSanaei/3x-ui) 的增强分叉（已同步上游 **v3.7.0**）。在原有 Xray 协议之外提供：两种 **AmneziaWG** —— 内核 Sidecar `awg`（思路同 MTProto/`mtg`）与上游原生 `amneziawg`，现已至 **AWG 3.1**；**导入** awg-multi / toolza3 / Docker；面板监管的 **隧道**（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel）、扩展 **订阅**（Clash Meta AWG、Amnezia `/awg/` + `vpn://`、Happ）、**Telegram WEB proxy**（`tproxy`）以及 **预置 RoscomVPN geo**（分类浏览器与上游 v3.7.0 共用）。通过严格 `LUCX-HOOK` 隔离保持与上游 100% 兼容。
 
-### 🛡️ AmneziaWG (AWG) 特性
+<details>
+<summary><b>🛡️ AmneziaWG (AWG) 特性</b></summary>
+
 - **AWG 入站与出站** —— 内核 Sidecar (`awg-quick`)、客户端模式连接上游 AWG 服务器 (`awgo-{id}`)、10 秒自动协调循环及 DKMS 内核模块构建器。
 - **双引擎** —— 面板同时提供 `AmneziaWG (kernel)`（有模块时走 `awg-quick`）与上游原生 `amneziawg`。无模块时 LucX `awg` 入站走内置 amneziawg-go（SOCKS 进入 Xray）；有模块时内核路径不变。
 - **导入已有 AWG** —— 入站页横幅：awg-multi / toolza3 / Docker Amnezia。密钥、IP、端口与混淆原样复制；内核接口就地改名（握手不断）。
@@ -123,7 +130,11 @@ docker compose --profile postgres up -d
 - **真实签名抓取 (Live Capture)** —— 将真实域名的 QUIC 握手实时转换为 I1–I5 混淆参数。
 - **路由与诊断** —— 双路由模式 (Kernel NAT 与带策略路由及 sniffing 的 Route through Xray) + 面板内一键诊断。
 
-### 🚇 隧道 Sidecar（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel、Telegram WEB proxy）
+</details>
+
+<details>
+<summary><b>🚇 隧道 Sidecar（NaiveProxy、olcRTC、qWDTT、mieru、TrustTunnel、Telegram WEB proxy）</b></summary>
+
 - **NaiveProxy** —— 带 `forward_proxy` 插件的 Caddy（[klzgrad](https://github.com/klzgrad/forwardproxy) 分叉，HTTP/2 padding）作为面板监管的 Sidecar 运行：渲染 Caddyfile、start/stop/restart 与崩溃自愈 reconcile，以及三级健康探测（process → TCP → TLS）。
 - **每客户端凭证** —— 每个已启用的面板客户端自动获得个人 `basic_auth` 凭据对（由面板密钥派生，不落库）；禁用客户端会在下一次 reconcile 时吊销。
 - **订阅** —— 每个客户端的订阅除 Xray/AWG 外还携带其个人 `naive+https://` 链接（NekoBox / husi / Exclave 标准格式），面板内另有二维码与强密码生成器。
@@ -136,17 +147,27 @@ docker compose --profile postgres up -d
 - **Telegram WEB proxy (`tproxy`)** —— `tproxy-server` + 官方 MTProxy + Caddy TLS reverse_proxy，监听 `hostname:443`，分享链接 `t.me/webproxy`。经 Xray 路由目前**搁置**（MTProxy 直连出口；见 lucx.211）。
 - **Sidecar 出站** —— 客户端模式 Naive / mieru / TrustTunnel：粘贴分享链接（`naive+https://` / `mierus://` / `tt://`），标签会出现在路由规则与负载均衡池中（与 AWG 出站相同）。禁用 = blackhole（故障关闭，不会泄漏到 `direct`）。客户端二进制随 tar 包提供。
 
-### 📦 订阅、Geodata 与客户端路由
+</details>
+
+<details>
+<summary><b>📦 订阅、Geodata 与客户端路由</b></summary>
+
 - **Amnezia 订阅** — `/awg/{subId}` 返回纯 AmneziaWG `.conf`（或 `?format=vpn` → `vpn://…`）。
 - **Clash Meta 中的 AWG** — 通过 `amnezia-wg-option` 输出。
 - **Geodata browser** — 从路由 UI 浏览 `geoip*.dat` / `geosite*.dat`（自 [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 进入上游，[STRENCH0](https://github.com/STRENCH0)）。
 - **RoscomVPN geo 包** — 库存 `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat`（[roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)）。
 - **Happ 路由配置** — Settings → Happ：内置 RoscomVPN deeplink（[roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)）。
 
-### 🚀 3x-ui 核心特性
+</details>
+
+<details>
+<summary><b>🚀 3x-ui 核心特性</b></summary>
+
 - **协议支持：** VLESS, VMess, Trojan, Shadowsocks, WireGuard, Hysteria2, HTTP, SOCKS, TUN。
 - **传输与安全：** REALITY, TLS, XTLS, gRPC, WebSocket, XHTTP, Fallbacks。
 - **面板管理：** 流量限额、IP 限制 (Fail2ban)、在线状态、订阅服务、Telegram 机器人、REST API、多节点支持、SQLite / PostgreSQL。
+
+</details>
 
 <details>
 <summary><b>📸 面板截图</b></summary>
