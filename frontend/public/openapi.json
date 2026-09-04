@@ -8244,6 +8244,36 @@
         }
       }
     },
+    "/panel/api/tunnel/tproxy/site": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "List camouflage-site files on disk for one tproxy inbound (query id). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_tproxy_site",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/tunnel/mtproxy/status": {
       "get": {
         "tags": [

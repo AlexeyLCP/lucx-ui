@@ -10,6 +10,8 @@ Mutation CI (nightly gremlins) no longer walks upstream `service/`/`sub/` — on
 
 Tests: `TestDisableAttachEnable_Awg2ThenAwg31` (CGO; GitHub Actions).
 
+CI codegen: `openapi.json` was missing `GET /panel/api/tunnel/tproxy/site` from the prior tproxy commit.
+
 **lucxVersion:** lucx.207 (no bump)
 
 ---
