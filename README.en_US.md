@@ -217,7 +217,8 @@ The AWG kernel module is built automatically by the installer (`bin/install-awg-
 
 **After install:** subscription endpoints (`/sub/`, `/json/`, `/clash/`, `/awg/`) listen on a **separate port** (default **2096**), not the panel port — reverse proxies must forward that too. Keep custom geo groups under a **separate filename** — stock names (`geoip.dat` / `geosite.dat` and `_IR` / `_RU` / `_ROSCOM`) are overwritten on geofile update.
 
-### AWG keys in the panel
+<details>
+<summary><b>AWG keys in the panel</b></summary>
 
 There is no separate “keys” screen. A key is a client on an AmneziaWG inbound:
 
@@ -227,17 +228,25 @@ There is no separate “keys” screen. A key is a client on an AmneziaWG inboun
 
 Default inbound subnet is `/24` — up to ~253 clients.
 
-### From existing AWG on the host
+</details>
+
+<details>
+<summary><b>From existing AWG on the host</b></summary>
 
 If the server already runs **awg-multi**, **toolza3** or **Docker Amnezia**, the panel **does not tear down** foreign `awg0`/`awg1`. Inbounds shows an **Import existing AWG** banner: preview peers → one inbound per interface. Keys / IPs / port / obfuscation are copied as-is. A kernel iface is renamed in place (`awg{id}`) — handshakes stay. Userspace/Docker: stop the old manager; those clients reconnect once.
 
 Without a kernel module, LucX `awg` inbounds still come up on embedded amneziawg-go. Upstream's native `amneziawg` protocol is available in the panel next to it.
+
+</details>
 
 ---
 
 ## 📜 License & Terms
 
 This project is published under **two licenses** for first-party code, plus third-party binaries/data kept under their upstream terms (full matrix in [LICENSING.md](LICENSING.md)):
+
+<details>
+<summary><b>License matrix</b></summary>
 
 | Component | License |
 |---|---|
@@ -255,19 +264,31 @@ This project is published under **two licenses** for first-party code, plus thir
 
 Tunnel binaries are **child processes** — the panel does not link them. qWDTT GPL applies to that binary and its sources, not to LucX PolyForm code.
 
+</details>
+
 ---
 
 ## 🤝 Acknowledgements & Credits
 
 LucX-UI stands on the shoulders of many open-source projects and people. Thank you.
 
-### Testers & contributors
+<details>
+<summary><b>Testers & contributors</b></summary>
+
 - **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13) — AWG `routeThroughXray`), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, the **[3x-ui](https://github.com/MHSanaei/3x-ui)** team ([MHSanaei](https://github.com/MHSanaei) and contributors).
 
-### Upstream PRs we ported / built on
+</details>
+
+<details>
+<summary><b>Upstream PRs we ported</b></summary>
+
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) *feat(xray): browse geosite/geoip categories from routing rules* (geodata browser).
 
-### Projects & inspiration
+</details>
+
+<details>
+<summary><b>Projects & inspiration</b></summary>
+
 | Project | What we use | License |
 |---|---|---|
 | [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Base panel | GPL-3.0 |
@@ -285,11 +306,16 @@ LucX-UI stands on the shoulders of many open-source projects and people. Thank y
 | [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | AWG ops inspiration | — |
 | [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | TLS fingerprint references for CPS | — |
 
+</details>
+
 ---
 
 ## ☕ Support the project
 
 LucX-UI is free for personal use. **Liked it? Star the repo ⭐** — it helps others find the project and keeps development going. Donations are optional and always appreciated:
+
+<details>
+<summary><b>Donate</b></summary>
 
 | Method | Details |
 |---|---|
@@ -299,6 +325,8 @@ LucX-UI is free for personal use. **Liked it? Star the repo ⭐** — it helps o
 | 🇷🇺 **YooMoney** (RUB, Russia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+</details>
 
 ---
 

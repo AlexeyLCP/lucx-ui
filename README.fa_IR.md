@@ -199,17 +199,23 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 **پس از نصب:** نقاط پایانی اشتراک (`/sub/`، `/json/`، `/clash/`، `/awg/`) روی **پورتی جدا** (پیش‌فرض **2096**) گوش می‌دهند، نه پورت پنل — reverse proxy باید آن را هم فوروارد کند. گروه‌های geo سفارشی را در **نام فایل جدا** نگه دارید — نام‌های استوک (`geoip.dat` / `geosite.dat` و `_IR` / `_RU` / `_ROSCOM`) هنگام به‌روزرسانی geofile بازنویسی می‌شوند.
 
-### از AWG موجود روی میزبان
+<details>
+<summary><b>از AWG موجود روی میزبان</b></summary>
 
 اگر روی سرور از قبل **awg-multi**، **toolza3** یا **Docker Amnezia** در حال اجراست، پنل اینترفیس‌های خارجی `awg0`/`awg1` را **حذف نمی‌کند**. در Inbounds بنر **«وارد کردن AWG موجود»** ظاهر می‌شود: پیش‌نمایش همتاها → یک inbound برای هر اینترفیس. کلیدها / IP / پورت / پنهان‌سازی همان‌طور کپی می‌شوند. اینترفیس کرنل درجا عوض‌نام می‌شود (`awg{id}`) و دست‌دادن قطع نمی‌شود. Userspace/Docker: مدیر قدیمی را متوقف کنید؛ آن کلاینت‌ها یک‌بار دوباره وصل می‌شوند.
 
 بدون ماژول کرنل، inboundهای LucXیِ `awg` همچنان روی amneziawg-go توکار بالا می‌آیند. پروتکل بومیِ upstream یعنی `amneziawg` در پنل کنار آن در دسترس است.
+
+</details>
 
 ---
 
 ## 📜 مجوز و شرایط
 
 این پروژه برای کد خود تحت **دو مجوز** و برای باینری/دادهٔ شخص ثالث تحت شرایط upstream منتشر می‌شود (جدول کامل در [LICENSING.md](LICENSING.md)):
+
+<details>
+<summary><b>جدول مجوزها</b></summary>
 
 | بخش | مجوز |
 |---|---|
@@ -227,20 +233,34 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 باینری‌های تونل **فرآیند فرزند** هستند — پنل آن‌ها را لینک نمی‌کند. GPL مربوط به qWDTT فقط برای همان باینری و سورس‌هایش است، نه کد PolyFormِ LucX.
 
+</details>
+
 ---
 
 ## 🤝 قدردانی و اعتبارها
 
 از همهٔ پروژه‌ها و افراد open-source سپاسگزاریم.
 
-### تست‌کنندگان و مشارکت‌کنندگان
+<details>
+<summary><b>تست‌کنندگان و مشارکت‌کنندگان</b></summary>
+
 - **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, تیم **[3x-ui](https://github.com/MHSanaei/3x-ui)**.
 
-### PRهای upstream پورت‌شده / مبنا
+</details>
+
+<details>
+<summary><b>PRهای upstream پورت‌شده</b></summary>
+
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
 
-### پروژه‌ها و الهام
+</details>
+
+<details>
+<summary><b>پروژه‌ها و الهام</b></summary>
+
 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
+
+</details>
 
 ---
 
@@ -248,12 +268,17 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 LucX-UI برای استفاده شخصی رایگان است. **خوش‌تان آمد؟ ⭐ بزنید** — به دیده شدن پروژه کمک می‌کند. کمک مالی اختیاری است:
 
+<details>
+<summary><b>کمک مالی</b></summary>
+
 | Method | Details |
 |---|---|
 | ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (RUB, Russia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+</details>
 
 ---
 

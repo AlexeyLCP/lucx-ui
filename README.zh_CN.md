@@ -199,17 +199,23 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 
 **安装后：** 订阅端点（`/sub/`、`/json/`、`/clash/`、`/awg/`）监听**独立端口**（默认 **2096**），不是面板端口 — 反向代理也必须转发该端口。自定义 geo 分组请使用**单独文件名** — 预置名（`geoip.dat` / `geosite.dat` 以及 `_IR` / `_RU` / `_ROSCOM`）会在 geofile 更新时被覆盖。
 
-### 从主机上已有的 AWG
+<details>
+<summary><b>从主机上已有的 AWG</b></summary>
 
 若服务器上已在运行 **awg-multi**、**toolza3** 或 **Docker Amnezia**，面板**不会拆除**外来的 `awg0`/`awg1`。入站页会出现 **「导入已有 AWG」** 横幅：预览对等端 → 每个接口一个入站。密钥 / IP / 端口 / 混淆原样复制。内核接口就地改名（`awg{id}`），握手不断。用户态/Docker：先停掉旧管理器，客户端会重连一次。
 
 没有内核模块时，LucX `awg` 入站仍会通过内置 amneziawg-go 启动。上游原生协议 `amneziawg` 在面板中并列可用。
+
+</details>
 
 ---
 
 ## 📜 许可证与条款
 
 本项目自有代码遵循**双重许可证**，第三方二进制/数据遵循各自上游条款（完整矩阵见 [LICENSING.md](LICENSING.md)）：
+
+<details>
+<summary><b>许可证矩阵</b></summary>
 
 | 组件 | 许可证 |
 |---|---|
@@ -227,20 +233,34 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 
 隧道二进制为**子进程**——面板不链接它们。qWDTT 的 GPL 适用于该二进制及其源码，不适用于 LucX 的 PolyForm 代码。
 
+</details>
+
 ---
 
 ## 🤝 致谢与来源
 
 感谢所有开源项目与贡献者。
 
-### 测试者与贡献者
+<details>
+<summary><b>测试者与贡献者</b></summary>
+
 - **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, **[3x-ui](https://github.com/MHSanaei/3x-ui)** 团队。
 
-### 移植 / 依赖的上游 PR
+</details>
+
+<details>
+<summary><b>移植的上游 PR</b></summary>
+
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser。
 
-### 项目与灵感
+</details>
+
+<details>
+<summary><b>项目与灵感</b></summary>
+
 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN（[geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)） · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
+
+</details>
 
 ---
 
@@ -248,12 +268,17 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 
 LucX-UI 个人使用完全免费。**喜欢的话请点 ⭐** — 能帮助更多人发现本项目。捐赠可选：
 
+<details>
+<summary><b>捐赠</b></summary>
+
 | 方式 | 详情 |
 |---|---|
 | ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (卢布, 俄罗斯) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+</details>
 
 ---
 

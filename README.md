@@ -217,7 +217,8 @@ AWG kernel-модуль собирается автоматически уста
 
 **После установки:** подписки (`/sub/`, `/json/`, `/clash/`, `/awg/`) слушают **отдельный порт** (по умолчанию **2096**), не порт панели — reverse proxy должен проксировать и его. Кастомные geo-группы держите в **отдельном имени файла** — stock-имена (`geoip.dat` / `geosite.dat` и `_IR` / `_RU` / `_ROSCOM`) перезаписываются при обновлении geofile.
 
-### Ключи AWG в панели
+<details>
+<summary><b>Ключи AWG в панели</b></summary>
 
 Отдельного экрана «ключи» нет. Ключ = клиент на inbound AmneziaWG:
 
@@ -227,17 +228,25 @@ AWG kernel-модуль собирается автоматически уста
 
 По умолчанию подсеть inbound `/24` — до ~253 клиентов.
 
-### С существующего AWG на хосте
+</details>
+
+<details>
+<summary><b>С существующего AWG на хосте</b></summary>
 
 Если на сервере уже крутится **awg-multi**, **toolza3** или **Docker Amnezia** — панель **не сносит** чужие `awg0`/`awg1`. На Inbounds появится баннер **«Импорт существующего AWG»**: превью пиров → один inbound на интерфейс. Ключи / IP / порт / обфускация копируются как есть. Kernel-интерфейс переименовывается на месте (`awg{id}`), handshake не падает. Userspace/Docker: остановите старый менеджер — клиенты переподключатся один раз.
 
 Без kernel-модуля LucX-инбаунды `awg` всё равно поднимаются на встроенном amneziawg-go. Родной протокол апстрима `amneziawg` доступен в панели рядом.
+
+</details>
 
 ---
 
 ## 📜 Лицензия и условия
 
 Проект публикуется под **двумя лицензиями** на свой код плюс third-party бинарники/данные по условиям апстрима (полная матрица в [LICENSING.md](LICENSING.md)):
+
+<details>
+<summary><b>Матрица лицензий</b></summary>
 
 | Компонент | Лицензия |
 |---|---|
@@ -255,19 +264,31 @@ AWG kernel-модуль собирается автоматически уста
 
 Туннельные бинарники — **дочерние процессы**, панель их не линкует. GPL у qWDTT относится к этому бинарнику и его исходникам, не к PolyForm-коду LucX.
 
+</details>
+
 ---
 
 ## 🤝 Благодарности и источники
 
 LucX-UI стоит на плечах многих open-source проектов и людей. Спасибо вам.
 
-### Тестировщики и контрибьюторы
+<details>
+<summary><b>Тестировщики и контрибьюторы</b></summary>
+
 - **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13) — AWG `routeThroughXray`), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, команда **[3x-ui](https://github.com/MHSanaei/3x-ui)** ([MHSanaei](https://github.com/MHSanaei) и контрибьюторы).
 
-### Upstream PR, которые мы портировали / на которые опирались
+</details>
+
+<details>
+<summary><b>Upstream PR, которые мы портировали</b></summary>
+
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) *feat(xray): browse geosite/geoip categories from routing rules* (geodata browser).
 
-### Проекты и вдохновение
+</details>
+
+<details>
+<summary><b>Проекты и вдохновение</b></summary>
+
 | Проект | Что используем | Лицензия |
 |---|---|---|
 | [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Базовая панель | GPL-3.0 |
@@ -285,11 +306,16 @@ LucX-UI стоит на плечах многих open-source проектов �
 | [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | Вдохновение по AWG ops | — |
 | [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | Референсы TLS-отпечатков для CPS | — |
 
+</details>
+
 ---
 
 ## ☕ Поддержать проект
 
 LucX-UI бесплатен для личного использования. **Понравилось — ставь ⭐** репозиторию: это помогает другим найти проект и поддерживает разработку. Донаты необязательны, но всегда приятны:
+
+<details>
+<summary><b>Донаты</b></summary>
 
 | Способ | Реквизиты |
 |---|---|
@@ -299,6 +325,8 @@ LucX-UI бесплатен для личного использования. **�
 | 🇷🇺 **YooMoney** (RUB, Россия) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+</details>
 
 ---
 

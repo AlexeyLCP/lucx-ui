@@ -199,17 +199,23 @@ El módulo de kernel AWG se construye automáticamente mediante el instalador (`
 
 **Tras instalar:** los endpoints de suscripción (`/sub/`, `/json/`, `/clash/`, `/awg/`) escuchan en un **puerto aparte** (por defecto **2096**), no el del panel — el reverse proxy debe reenviarlo también. Guarde grupos geo personalizados con un **nombre de archivo distinto** — los nombres de stock (`geoip.dat` / `geosite.dat` y `_IR` / `_RU` / `_ROSCOM`) se sobrescriben al actualizar geofile.
 
-### Desde AWG existente en el host
+<details>
+<summary><b>Desde AWG existente en el host</b></summary>
 
 Si el servidor ya ejecuta **awg-multi**, **toolza3** o **Docker Amnezia**, el panel **no derriba** las ifaces ajenas `awg0`/`awg1`. En Inbounds aparece el banner **Importar AWG existente**: previsualizar peers → un inbound por interfaz. Claves / IPs / puerto / ofuscación se copian tal cual. Una iface de kernel se renombra en el sitio (`awg{id}`) — los handshakes siguen. Userspace/Docker: detenga el gestor antiguo; esos clientes se reconectan una vez.
 
 Sin módulo de kernel, los inbounds LucX `awg` siguen levantándose sobre amneziawg-go embebido. El protocolo nativo de upstream `amneziawg` está en el panel a su lado.
+
+</details>
 
 ---
 
 ## 📜 Licencia y Términos
 
 Este proyecto se publica bajo **dos licencias** para el código propio, más binarios/datos de terceros bajo sus términos upstream (matriz completa en [LICENSING.md](LICENSING.md)):
+
+<details>
+<summary><b>Matriz de licencias</b></summary>
 
 | Componente | Licencia |
 |---|---|
@@ -227,20 +233,34 @@ Este proyecto se publica bajo **dos licencias** para el código propio, más bin
 
 Los binarios de túnel son **procesos hijos** — el panel no los enlaza. El GPL de qWDTT aplica a ese binario y sus fuentes, no al código PolyForm de LucX.
 
+</details>
+
 ---
 
 ## 🤝 Agradecimientos y Créditos
 
 Gracias a todos los proyectos y personas open-source.
 
-### Probadores y colaboradores
+<details>
+<summary><b>Probadores y colaboradores</b></summary>
+
 - **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, equipo **[3x-ui](https://github.com/MHSanaei/3x-ui)**.
 
-### PRs upstream portados / base
+</details>
+
+<details>
+<summary><b>PRs upstream portados</b></summary>
+
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
 
-### Proyectos e inspiración
+</details>
+
+<details>
+<summary><b>Proyectos e inspiración</b></summary>
+
 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
+
+</details>
 
 ---
 
@@ -248,12 +268,17 @@ Gracias a todos los proyectos y personas open-source.
 
 LucX-UI es gratuito para uso personal. **¿Te gustó? Pon una ⭐** al repositorio — ayuda a que otros lo encuentren. Las donaciones son opcionales:
 
+<details>
+<summary><b>Donaciones</b></summary>
+
 | Método | Detalles |
 |---|---|
 | ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (RUB, Rusia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+</details>
 
 ---
 

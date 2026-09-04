@@ -199,17 +199,23 @@ AWG çekirdek modülü, yükleyici tarafından otomatik olarak derlenir (`bin/in
 
 **Kurulumdan sonra:** abonelik uç noktaları (`/sub/`, `/json/`, `/clash/`, `/awg/`) **ayrı bir portta** dinler (varsayılan **2096**), panel portunda değil — reverse proxy onu da iletmelidir. Özel geo gruplarını **ayrı bir dosya adında** tutun — stok adlar (`geoip.dat` / `geosite.dat` ve `_IR` / `_RU` / `_ROSCOM`) geofile güncellemesinde üzerine yazılır.
 
-### Host'taki mevcut AWG'den
+<details>
+<summary><b>Host'taki mevcut AWG'den</b></summary>
 
 Sunucuda zaten **awg-multi**, **toolza3** veya **Docker Amnezia** çalışıyorsa panel yabancı `awg0`/`awg1` arabirimlerini **silmez**. Inbounds'ta **Mevcut AWG'yi içe aktar** banner'ı çıkar: eşleri önizle → arabirim başına bir inbound. Anahtarlar / IP'ler / port / gizleme olduğu gibi kopyalanır. Çekirdek arabirimi yerinde yeniden adlandırılır (`awg{id}`) — el sıkışmalar kalır. Userspace/Docker: eski yöneticiyi durdurun; o istemciler bir kez yeniden bağlanır.
 
 Çekirdek modülü yokken LucX `awg` inbound'ları yine gömülü amneziawg-go üzerinde ayağa kalkar. Upstream'in yerel `amneziawg` protokolü panelde yanında durur.
+
+</details>
 
 ---
 
 ## 📜 Lisans ve Şartlar
 
 Bu proje kendi kodu için **iki lisans** ve üçüncü taraf ikili/veriler için upstream koşulları altında yayınlanır (tam matris: [LICENSING.md](LICENSING.md)):
+
+<details>
+<summary><b>Lisans matrisi</b></summary>
 
 | Bileşen | Lisans |
 |---|---|
@@ -227,20 +233,34 @@ Bu proje kendi kodu için **iki lisans** ve üçüncü taraf ikili/veriler için
 
 Tünel ikilileri **alt süreçlerdir** — panel onlara link etmez. qWDTT GPL'si o ikiliye ve kaynaklarına aittir, LucX PolyForm koduna değil.
 
+</details>
+
 ---
 
 ## 🤝 Teşekkürler ve Katkıda Bulunanlar
 
 Tüm açık kaynak projelere ve insanlara teşekkürler.
 
-### Test edenler & katkıda bulunanlar
+<details>
+<summary><b>Test edenler & katkıda bulunanlar</b></summary>
+
 - **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, **[3x-ui](https://github.com/MHSanaei/3x-ui)** ekibi.
 
-### Taşınan / dayanak upstream PR'lar
+</details>
+
+<details>
+<summary><b>Taşınan upstream PR'lar</b></summary>
+
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
 
-### Projeler & ilham
+</details>
+
+<details>
+<summary><b>Projeler & ilham</b></summary>
+
 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
+
+</details>
 
 ---
 
@@ -248,12 +268,17 @@ Tüm açık kaynak projelere ve insanlara teşekkürler.
 
 LucX-UI kişisel kullanım için ücretsizdir. **Beğendiniz mi? ⭐ verin** — projenin bulunmasına yardımcı olur. Bağışlar isteğe bağlıdır:
 
+<details>
+<summary><b>Bağışlar</b></summary>
+
 | Method | Details |
 |---|---|
 | ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (RUB, Russia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+</details>
 
 ---
 

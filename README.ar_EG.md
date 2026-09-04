@@ -199,17 +199,23 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 **بعد التثبيت:** نقاط نهاية الاشتراك (`/sub/`، `/json/`، `/clash/`، `/awg/`) تستمع على **منفذ منفصل** (الافتراضي **2096**)، وليس منفذ اللوحة — يجب أن يمرّر الـ reverse proxy ذلك أيضاً. أبقِ مجموعات geo المخصّصة تحت **اسم ملف منفصل** — الأسماء الافتراضية (`geoip.dat` / `geosite.dat` و`_IR` / `_RU` / `_ROSCOM`) تُستبدل عند تحديث geofile.
 
-### من AWG الموجود على المضيف
+<details>
+<summary><b>من AWG الموجود على المضيف</b></summary>
 
 إذا كان السيرفر يشغّل مسبقاً **awg-multi** أو **toolza3** أو **Docker Amnezia**، فاللوحة **لا تحذف** واجهات `awg0`/`awg1` الأجنبية. تظهر في Inbounds لافتة **«استيراد AWG الموجود»**: معاينة الأقران → inbound واحد لكل واجهة. تُنسَخ المفاتيح / IP / المنفذ / التعتيم كما هي. تُعاد تسمية واجهة النواة في مكانها (`awg{id}`) — المصافحات تبقى. Userspace/Docker: أوقف المدير القديم؛ يعيد أولئك العملاء الاتصال مرة واحدة.
 
 بلا وحدة نواة، تُرفع inboundات LucX `awg` على amneziawg-go المدمج. بروتوكول upstream الأصلي `amneziawg` متاح في اللوحة بجانبه.
+
+</details>
 
 ---
 
 ## 📜 الترخيص والشروط
 
 يُنشر هذا المشروع تحت **ترخيصين** للكود الخاص به، بالإضافة إلى ثنائيات/بيانات طرف ثالث وفق شروط upstream (المصفوفة الكاملة في [LICENSING.md](LICENSING.md)):
+
+<details>
+<summary><b>مصفوفة التراخيص</b></summary>
 
 | المكون | الترخيص |
 |---|---|
@@ -227,20 +233,34 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 ثنائيات الأنفاق هي **عمليات فرعية** — اللوحة لا تربطها. GPL الخاص بـ qWDTT ينطبق على ذلك الثنائي ومصادره، وليس على كود LucX تحت PolyForm.
 
+</details>
+
 ---
 
 ## 🤝 الشكر والتقدير
 
 شكراً لكل المشاريع والأشخاص في المصدر المفتوح.
 
-### المختبرون والمساهمون
+<details>
+<summary><b>المختبرون والمساهمون</b></summary>
+
 - **VladufQa**, **Kirill Rudenko** ([PR #13](https://github.com/AlexeyLCP/lucx-ui/pull/13)), **302ba (Alex)** ([PR #24](https://github.com/AlexeyLCP/lucx-ui/pull/24)), **Aleksandr SacredX**, **alireza0**, فريق **[3x-ui](https://github.com/MHSanaei/3x-ui)**.
 
-### PR-ات upstream المُرحَّلة / الأساس
+</details>
+
+<details>
+<summary><b>PR-ات upstream المُرحَّلة</b></summary>
+
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
 
-### المشاريع والإلهام
+</details>
+
+<details>
+<summary><b>المشاريع والإلهام</b></summary>
+
 [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
+
+</details>
 
 ---
 
@@ -248,12 +268,17 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 LucX-UI مجاني للاستخدام الشخصي. **أعجبك؟ ضع ⭐** على المستودع — يساعد الآخرين على اكتشافه. التبرعات اختيارية:
 
+<details>
+<summary><b>التبرعات</b></summary>
+
 | Method | Details |
 |---|---|
 | ⭐ **GitHub Star** | [Star AlexeyLCP/lucx-ui](https://github.com/AlexeyLCP/lucx-ui) |
 | 🇷🇺 **YooMoney** (RUB, Russia) | [yoomoney.ru/to/41001989176429](https://yoomoney.ru/to/41001989176429) |
 | 💎 **USDT (TON)** | `UQC48dE4i35bjEU4jljx0h1CGeXMu77eKZwN5W4gbcibmqDs` |
 | 💠 **USDT (ERC-20)** | `0xA49aBc042c5BB3d682788D3DEB2eAC833343a873` |
+
+</details>
 
 ---
 

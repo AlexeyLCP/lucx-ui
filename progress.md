@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## docs — README: collapse remaining large blocks (2026-09-05)
+
+Migration (AWG keys / host import), license matrix, credits, donate — `<details>` closed by default, all 7 locales.
+
+**lucxVersion:** unchanged (lucx.212)
+
+---
+
 ## docs — README: collapse table and About sections (2026-09-05)
 
 Comparison table and About subsections (AWG / tunnels / geo / 3x-ui) are `<details>` closed by default, all 7 locales.
