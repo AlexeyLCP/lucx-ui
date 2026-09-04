@@ -1,1 +1,1 @@
-LOAD_FROM_PATH:/workspace/lucx-readme/README.md
+FILE_REF:/tmp/create_or_update_file_arguments.json
