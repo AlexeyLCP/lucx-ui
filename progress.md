@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.207 — AWG Update PSK + mutation scope (2026-09-04)
+
+Clients page enable switch is a partial `Update` without keys/PSK. `Create` reused stored PSK; `Update` did not, so `fillProtocolDefaults` minted a new PSK per inbound. Disable → attach second AWG → enable broke both handshakes (Never).
+
+`Update` now copies empty PrivateKey/PublicKey/PreSharedKey from the record.
+
+Mutation CI (nightly gremlins) no longer walks upstream `service/`/`sub/` — only `internal/awg/` and `internal/lucx/`.
+
+Tests: `TestDisableAttachEnable_Awg2ThenAwg31` (CGO; GitHub Actions).
+
+**lucxVersion:** lucx.207 (no bump)
+
+---
+
 ## lucx.207 — host import: exits, tproxy, keys, install (2026-09-03)
 
 - AWG client confs (`awg-exit-*`, Endpoint set) import as outbounds; live iface admin-down/rename/up to `awgo-N`. Adopt failure rolls back the row.

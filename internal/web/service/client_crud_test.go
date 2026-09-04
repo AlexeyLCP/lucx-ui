@@ -11,6 +11,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
@@ -36,6 +37,25 @@ func awgPeer(t *testing.T, inboundSvc *InboundService, inboundId int, email stri
 	}
 	t.Fatalf("inbound %d settings carry no client %q: %s", inboundId, email, ib.Settings)
 	return model.Client{}
+}
+
+// Matches the Clients page enable switch: hydrate + Update with no tunnel keys.
+func updateEnableLikeUI(t *testing.T, svc *ClientService, inboundSvc *InboundService, id int, enable bool) {
+	t.Helper()
+	rec, err := svc.GetByID(id)
+	if err != nil {
+		t.Fatalf("GetByID: %v", err)
+	}
+	c := rec.ToClient()
+	c.Enable = enable
+	c.PrivateKey = ""
+	c.PublicKey = ""
+	c.PreSharedKey = ""
+	c.AllowedIPs = nil
+	c.KeepAlive = ""
+	if _, err := svc.Update(inboundSvc, id, *c, 0); err != nil {
+		t.Fatalf("Update enable=%v: %v", enable, err)
+	}
 }
 
 // Guards the "one identity, one keypair" rule (awg-cps-facts.md §6): a second
@@ -755,5 +775,93 @@ func TestCreateClient_KeylessAttachKeepsIdentityPSK(t *testing.T) {
 	}
 	if !strings.Contains(conf, "PresharedKey = "+psk) {
 		t.Fatalf("client .conf lost PresharedKey while the server peer keeps it, got:\n%s", conf)
+	}
+}
+
+// Clients page enable switch is Update with no keys/PSK. That used to mint a
+// new PSK per inbound (disable → attach 3.1 → enable: both handshakes die;
+// a fresh client created on both inbounds was fine).
+func TestDisableAttachEnable_Awg2ThenAwg31(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	ib2 := mkInbound(t, 21901, model.AWG,
+		`{"privateKey":"server-priv-2","address":"10.200.0.1/24","awgVersion":"2","clients":[]}`)
+	ib31 := mkInbound(t, 21902, model.AWG,
+		`{"privateKey":"server-priv-31","address":"10.201.0.1/24","awgVersion":"3.1","clients":[]}`)
+
+	const email = "never@x"
+	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+		Client:     model.Client{Email: email, SubID: "sub-never", Enable: true},
+		InboundIds: []int{ib2.Id},
+	}); err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	rec := lookupClientRecord(t, email)
+	psk := awgPeer(t, inboundSvc, ib2.Id, email).PreSharedKey
+	if psk == "" {
+		t.Fatal("create did not mint a PSK")
+	}
+
+	updateEnableLikeUI(t, svc, inboundSvc, rec.Id, false)
+	if got := awgPeer(t, inboundSvc, ib2.Id, email).PreSharedKey; got != psk {
+		t.Fatalf("disable rotated PSK: got %q want %q", got, psk)
+	}
+	if _, err := svc.Attach(inboundSvc, rec.Id, []int{ib31.Id}); err != nil {
+		t.Fatalf("Attach 3.1: %v", err)
+	}
+	updateEnableLikeUI(t, svc, inboundSvc, rec.Id, true)
+
+	p2 := awgPeer(t, inboundSvc, ib2.Id, email)
+	p31 := awgPeer(t, inboundSvc, ib31.Id, email)
+	if !p2.Enable {
+		t.Errorf("awg2 peer still disabled after enable")
+	}
+	if !p31.Enable {
+		t.Errorf("awg3.1 peer still disabled after enable")
+	}
+	if p2.PublicKey == "" || p2.PreSharedKey == "" || len(p2.AllowedIPs) == 0 {
+		t.Errorf("awg2 peer missing keys/address: %+v", p2)
+	}
+	if p31.PublicKey == "" || p31.PreSharedKey == "" || len(p31.AllowedIPs) == 0 {
+		t.Errorf("awg3.1 peer missing keys/address: %+v", p31)
+	}
+	if p2.PublicKey != p31.PublicKey {
+		t.Errorf("keypair split: awg2 %q awg3.1 %q", p2.PublicKey, p31.PublicKey)
+	}
+	if p2.PreSharedKey != psk || p31.PreSharedKey != psk {
+		t.Errorf("PSK rotated: awg2 %q awg3.1 %q want %q", p2.PreSharedKey, p31.PreSharedKey, psk)
+	}
+	if ka := p2.KeepAlive.String(); strings.Contains(ka, "-") {
+		t.Errorf("awg2 keepAlive = %q, range is rejected by pre-v3 clients", ka)
+	}
+
+	ib2row, err := inboundSvc.GetInbound(ib2.Id)
+	if err != nil {
+		t.Fatalf("GetInbound awg2: %v", err)
+	}
+	inst2, ok := awg.InstanceFromInbound(ib2row)
+	if !ok {
+		t.Fatal("InstanceFromInbound awg2 failed")
+	}
+	if len(inst2.Peers) != 1 {
+		t.Errorf("awg2 server peers = %d, want 1 (disabled peer dropped from .conf)", len(inst2.Peers))
+	}
+
+	ib31row, err := inboundSvc.GetInbound(ib31.Id)
+	if err != nil {
+		t.Fatalf("GetInbound awg3.1: %v", err)
+	}
+	inst31, ok := awg.InstanceFromInbound(ib31row)
+	if !ok {
+		t.Fatal("InstanceFromInbound awg3.1 failed")
+	}
+	if len(inst31.Peers) != 1 {
+		t.Errorf("awg3.1 server peers = %d, want 1", len(inst31.Peers))
+	}
+
+	if rec2 := lookupClientRecord(t, email); !rec2.Enable {
+		t.Errorf("client record still disabled")
 	}
 }

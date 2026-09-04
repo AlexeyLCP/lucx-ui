@@ -255,3 +255,11 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** Linux will not rename an UP netdev. Import saved the inbound enabled, so `AddInbound` raced Adopt and tried to `awg-quick up awg1` beside the live iface. Failed Adopt left the row in the DB.
 - **Fix:** `renameAwgInterfaceSeq` does admin-down → rename → up. Commit saves disabled, Adopt, then enable. Adopt failure `DelInbound`s the row.
 - **Seen on:** n1 replica of dns (awg0 :55555), 2026-09-03.
+
+### Pattern 1ad: disable client → attach second AWG → enable, neither connects — FIXED
+
+- **Symptom (Never):** client on awg2 works; disable; attach awg3.1; enable. Neither connects. New configs still dead. Delete client, create on both inbounds at once → OK.
+- **Cause:** Clients page enable switch is a full `Update` that omits keys/PSK. `Create` reuses stored PSK; `Update` did not, so `fillProtocolDefaults` minted a **new PSK per inbound**. Issued .conf still has the old PSK. Two inbounds → two new PSKs; the record keeps the last one.
+- **Fix:** `Update` copies empty PrivateKey/PublicKey/PreSharedKey from the record, same as `Create`.
+- **Healing:** panel update, then re-download .conf (PSK already rotated). Or delete+recreate the client.
+- **Lesson:** any partial client save that can hit `fillProtocolDefaults` must preserve tunnel credentials the way Create does.

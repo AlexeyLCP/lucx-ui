@@ -576,6 +576,19 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 	if updated.Secret == "" {
 		updated.Secret = existing.Secret
 	}
+	// LUCX-HOOK: enable toggle (and any partial save) omits keys/PSK. Create
+	// already reuses them; without this, fillProtocolDefaults mints a new PSK
+	// per inbound and the issued client .conf never handshakes again.
+	if updated.PrivateKey == "" {
+		updated.PrivateKey = existing.PrivateKey
+	}
+	if updated.PublicKey == "" {
+		updated.PublicKey = existing.PublicKey
+	}
+	if updated.PreSharedKey == "" {
+		updated.PreSharedKey = existing.PreSharedKey
+	}
+	// END LUCX-HOOK
 
 	if updated.Email != existing.Email {
 		var collisionCount int64
