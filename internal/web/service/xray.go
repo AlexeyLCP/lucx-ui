@@ -750,6 +750,7 @@ func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
 }
 
 const tproxyEgressDokodemoSettings = `{"network":"tcp","followRedirect":true}`
+const tproxyEgressDokodemoSockopt = `{"sockopt":{"tproxy":"redirect"}}`
 
 func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 	var parsed struct {
@@ -804,12 +805,13 @@ func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 		}
 	}
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
-		Listen:   json_util.RawMessage(`"127.0.0.1"`),
-		Port:     parsed.RouteXrayPort,
-		Protocol: "dokodemo-door",
-		Settings: json_util.RawMessage(tproxyEgressDokodemoSettings),
-		Sniffing: json_util.RawMessage(awgEgressTunSniffing),
-		Tag:      tag,
+		Listen:         json_util.RawMessage(`"127.0.0.1"`),
+		Port:           parsed.RouteXrayPort,
+		Protocol:       "dokodemo-door",
+		Settings:       json_util.RawMessage(tproxyEgressDokodemoSettings),
+		StreamSettings: json_util.RawMessage(tproxyEgressDokodemoSockopt),
+		Sniffing:       json_util.RawMessage(awgEgressTunSniffing),
+		Tag:            tag,
 	})
 }
 

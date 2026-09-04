@@ -95,6 +95,26 @@ func TestTproxyConfigRouteThroughXray(t *testing.T) {
 	}
 }
 
+func TestMtproxyRedirectUIDOK(t *testing.T) {
+	if mtproxyRedirectUIDOK("0") || mtproxyRedirectUIDOK("") {
+		t.Fatal("root/empty uid must not get a NAT OUTPUT REDIRECT")
+	}
+	if !mtproxyRedirectUIDOK("123") {
+		t.Fatal("unprivileged uid must be allowed")
+	}
+}
+
+func TestMtproxyXrayRedirectArgs_OwnerNotCatchAll(t *testing.T) {
+	args := mtproxyXrayRedirectArgs("123", 39111)
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "--uid-owner 123") {
+		t.Fatalf("must pin numeric uid, got %s", joined)
+	}
+	if strings.Contains(joined, "--uid-owner 0") || !strings.Contains(joined, "REDIRECT") {
+		t.Fatalf("got %s", joined)
+	}
+}
+
 func TestTproxyClientLink(t *testing.T) {
 	cfg := TproxyConfig{Hostname: "proxy.example.com", Secret: "000102030405060708090a0b0c0d0e0f"}
 	got := cfg.ClientLink()

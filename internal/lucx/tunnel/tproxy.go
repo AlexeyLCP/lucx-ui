@@ -179,6 +179,25 @@ func tproxyLoopback(id, offset int) int {
 	return 24000 + id*4 + offset
 }
 
+func tproxyXrayComment() string { return "lucx-tproxy-xray" }
+
+// mtproxyRedirectUIDOK rejects root: a NAT OUTPUT REDIRECT on uid 0
+// hijacks every locally generated TCP (Xray, Caddy, the panel) and
+// kills all routing until the tproxy inbound is disabled.
+func mtproxyRedirectUIDOK(uid string) bool {
+	return uid != "" && uid != "0"
+}
+
+func mtproxyXrayRedirectArgs(uid string, port int) []string {
+	return []string{
+		"-t", "nat", "-I", "OUTPUT",
+		"-m", "owner", "--uid-owner", uid,
+		"-p", "tcp", "!", "-d", "127.0.0.0/8",
+		"-m", "comment", "--comment", tproxyXrayComment(),
+		"-j", "REDIRECT", "--to-ports", strconv.Itoa(port),
+	}
+}
+
 func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int) string {
 	hostPort := hostname + ":" + strconv.Itoa(port)
 	var b strings.Builder

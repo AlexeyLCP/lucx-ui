@@ -94,6 +94,13 @@ Extracted from AGENTS.md. This file is project law.
 - **Still client-side:** WEB proxy is a POC type — regular Telegram apps do not register `t.me/webproxy`; testing needs a TD desktop POC build or the POC Android client.
 - **Lesson:** a C sidecar with a built-in privilege-drop user needs that user provisioned (or an explicit `-u`), and a function that returns "all disabled" must say why — otherwise every field report starts with "чет не завелось" and nothing else.
 
+### Pattern 1af: tproxy “via Xray” hangs and kills all routing — FIXED
+
+- **Symptom (VladufQa, 04.09.2026):** WEB proxy + routeThroughXray, VLESS or AWG outbound. Connects, no traffic. Disabling the tproxy inbound restores every other inbound’s routing.
+- **Cause:** (1) dokodemo-door had `followRedirect` but no `sockopt.tproxy=redirect`, so iptables REDIRECT never recovered the Telegram DC dest. (2) NAT OUTPUT REDIRECT on uid 0 (if `mtproxy` is root) hijacks **all** locally generated TCP, including Xray itself.
+- **Fix:** set dokodemo `tproxy: redirect`; iptables `--uid-owner` is the numeric uid; skip uid 0; log iptables errors.
+- **Healing:** update, keep “via Xray” + outbound tag (VLESS/AWG). On a RU host empty outbound = default/direct = hang.
+
 ### Pattern 1v: AnyTLS dead when UFW is on, port is allowed — FIXED
 - **Symptom (Max, 29.08.2026):** AnyTLS works with UFW off. Port 8555 is in `ufw status` and `ufw-user-input` ACCEPT, but clients hang. `tcpdump` shows SYN in, no SYN-ACK. `iptables -L INPUT`: first rules are `RETURN tcp dpt:8555 /* lucx-anytls-anytls-17 */` with packet counters climbing; UFW’s 8555 ACCEPT stays at 0 pkts.
 - **Cause:** lucx.190 traffic scrape inserted `-j RETURN` at the top of builtin INPUT. RETURN from a builtin chain applies the chain policy. UFW sets INPUT policy DROP → SYN is counted then dropped, never reaches `ufw-user-input`. Comment `lucx-anytls-anytls-17` = `lucx-anytls-` + inbound key `anytls-17` (inbound id 17). Same for leftover 8443 rules from older anytls inbounds.

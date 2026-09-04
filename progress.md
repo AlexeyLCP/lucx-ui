@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.208 — tproxy via Xray hangs + kills routing (2026-09-04)
+
+WEB proxy routeThroughXray: connects, no DC traffic; other inbounds die until tproxy is off. Dokodemo lacked `sockopt.tproxy=redirect`. NAT OUTPUT REDIRECT on uid 0 would hijack all local TCP. Numeric uid, skip root, log iptables errors.
+
+Tests: `TestMtproxyRedirectUIDOK`, `TestMtproxyXrayRedirectArgs_OwnerNotCatchAll`, `TestInjectTproxyEgress_DokodemoFollowRedirect`.
+
+**lucxVersion:** lucx.208 (no bump)
+
+---
+
 ## lucx.208 — AWG PSK/DKMS + tproxy save (2026-09-04)
 
 Unreleased since v3.7.0-lucx.207:
