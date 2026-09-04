@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.209 — tproxy via Xray (2026-09-04)
+
+WEB proxy routeThroughXray hung and broke every other inbound until tproxy was off. Dokodemo now has `sockopt.tproxy=redirect`; NAT OUTPUT REDIRECT uses numeric uid and skips root.
+
+**lucxVersion:** lucx.209
+
+---
+
 ## lucx.208 — tproxy via Xray hangs + kills routing (2026-09-04)
 
 WEB proxy routeThroughXray: connects, no DC traffic; other inbounds die until tproxy is off. Dokodemo lacked `sockopt.tproxy=redirect`. NAT OUTPUT REDIRECT on uid 0 would hijack all local TCP. Numeric uid, skip root, log iptables errors.
