@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.207 — DKMS timer_delete on Ubuntu 22.04 5.15 (2026-09-04)
+
+Kernel 5.15.0-82-generic: `implicit declaration of function ‘timer_delete’` in `device.c`. Upstream compat skipped the `del_timer` wrapper on all `ISUBUNTU2204`. `install-awg-module.sh` drops that exception after clone.
+
+**lucxVersion:** lucx.207 (no bump)
+
+---
+
 ## lucx.207 — AWG Update PSK + mutation scope (2026-09-04)
 
 Clients page enable switch is a partial `Update` without keys/PSK. `Create` reused stored PSK; `Update` did not, so `fillProtocolDefaults` minted a new PSK per inbound. Disable → attach second AWG → enable broke both handshakes (Never).

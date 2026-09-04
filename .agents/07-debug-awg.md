@@ -263,3 +263,11 @@ Extracted from AGENTS.md. This file is project law.
 - **Fix:** `Update` copies empty PrivateKey/PublicKey/PreSharedKey from the record, same as `Create`.
 - **Healing:** panel update, then re-download .conf (PSK already rotated). Or delete+recreate the client.
 - **Lesson:** any partial client save that can hit `fillProtocolDefaults` must preserve tunnel credentials the way Create does.
+
+### Pattern 1ae: DKMS fail on Ubuntu 22.04 5.15 — `timer_delete` — FIXED
+
+- **Symptom:** `x-ui install-awg` / first install: DKMS exit 2, old module left. `make.log`: `implicit declaration of function ‘timer_delete’` in `device.c` / `wg_pm_notification`. Kernel `5.15.0-82-generic`.
+- **Cause:** pin `46803204e7ec` `compat.h` wraps `timer_delete` → `del_timer` for kernels `< 6.1.91`, but skips `ISUBUNTU2204` (assumed backport). 5.15.0-82 has no backport.
+- **Fix:** `apply_timer_delete_compat` drops the Ubuntu 22.04 exception after clone.
+- **Healing:** update panel, then `x-ui install-awg` / Cores → Install.
+- **Not a bug:** `tproxy-linux-amd64` / `mtproxy-linux-amd64` curl 404 + “keeping tarball copy” — gz is not on GitHub raw; the tarball binary stays (lucx.207).
