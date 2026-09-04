@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.207 — skip tproxy/mtproxy GitHub-raw fetch (2026-09-04)
+
+Those binaries are built in `release.yml` and packed in the tarball. They were never in `third_party/sidecars/`. install/update still curled GitHub raw → 404 → “keeping tarball copy”. Skip the curl when there is no local gz.
+
+**lucxVersion:** lucx.207 (no bump)
+
+---
+
 ## lucx.207 — DKMS timer_delete on Ubuntu 22.04 5.15 (2026-09-04)
 
 Kernel 5.15.0-82-generic: `implicit declaration of function ‘timer_delete’` in `device.c`. Upstream compat skipped the `del_timer` wrapper on all `ISUBUNTU2204`. `install-awg-module.sh` drops that exception after clone.

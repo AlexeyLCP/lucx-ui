@@ -118,6 +118,8 @@ lucx_fetch_sidecars() {
         tmp="${dest}/${name}.gz"
         if [[ -s "${gz}" ]]; then
             cp -f "${gz}" "${tmp}"
+        elif [[ "$name" == tproxy-linux-* || "$name" == mtproxy-linux-* ]]; then
+            continue
         elif ! lucx_sc_curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o "${tmp}" "$(lucx_raw_url "${gz}")"; then
             if [[ -x "${dest}/${name}" ]]; then
                 echo -e "${yellow}${name}: no remote gz, keeping tarball copy${plain}"
