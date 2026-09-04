@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined TR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Gelişmiş Xray paneli** — AmneziaWG (çekirdek + yerel, 3.1'e kadar), mevcut AWG içe aktarma, denetimli tüneller ve sidecar outbound'lar (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), Clash / Amnezia `vpn://` / Happ abonelikleri, geodata browser ve RoscomVPN yönlendirme.
+> **Gelişmiş Xray paneli** — AmneziaWG (çekirdek + yerel, 3.1'e kadar), mevcut AWG içe aktarma, denetimli tüneller ve sidecar outbound'lar (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), Clash / Amnezia `vpn://` / Happ abonelikleri, RoscomVPN geo ve Happ yönlendirme.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -34,6 +34,14 @@
 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
 ```
 
+GitHub erişilemezse Yandex (SourceCraft) üzerinden isteğe bağlı kurulum. Token veya git yok — panel, geo ve betikler tek pakette:
+
+```bash
+mkdir -p /tmp/lucx-dist && curl -fsSL https://codeload.sourcecraft.tech/alexeylcp/lucx-ui/tarball/refs/heads/dist | tar -xz --strip-components=1 -C /tmp/lucx-dist && sudo bash /tmp/lucx-dist/install.sh --yandex
+```
+
+Sonraki `x-ui update` aynı kaynağı kullanır (`/etc/x-ui/install-source`).
+
 <details>
 <summary><b>🛠️ Gelişmiş Kurulum & Yapılandırma (Cloud-Init, Docker, PostgreSQL, Ortam Değişkenleri)</b></summary>
 
@@ -62,7 +70,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Neden LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve upstream'de olmayanları ekler: **çekirdek AmneziaWG** (upstream'in yerel `amneziawg`'siyle yan yana), **mevcut AWG içe aktarma**, **tünel sidecar'ları** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel), **zengin abonelikler** (Clash Meta AWG, Amnezia `vpn://`, Happ) ve **geodata araçları** (panel browser + RoscomVPN paketleri):
+[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve upstream'de olmayanları ekler: **çekirdek AmneziaWG** (upstream'in yerel `amneziawg`'siyle yan yana), **mevcut AWG içe aktarma**, **tünel sidecar'ları** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), **zengin abonelikler** (Clash Meta AWG, Amnezia `vpn://`, Happ) ve **RoscomVPN geo paketleri + Happ profilleri** (geodata browser [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 ile upstream'de):
 
 | Özellik | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -86,15 +94,14 @@ docker compose --profile postgres up -d
 | TrustTunnel sidecar'ı (AdGuard VPN protokolü, HTTPS benzeri, denetimli) | ✗ | ✓ |
 | Sidecar outbound'lar (Naive / mieru / TrustTunnel istemci → SOCKS, routing ve havuzlar) | ✗ | ✓ |
 | Clash Meta'ta AWG + Amnezia aboneliği `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
-| Geodata browser — panelden geosite/geoip kategorileri | ✗* | ✓ |
+| Geodata browser — panelden geosite/geoip kategorileri | ✓ | ✓ |
 | RoscomVPN geo paketi (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
 | Happ yönlendirme profilleri (RoscomVPN deeplink + özel) | ✗ | ✓ |
 | Akıllı Cluster outbound bağlantıları | ✗ | ✓ |
 | React 19 + AntD 6 + Vite 8 + Zod 4 ön yüz | ✓ | ✓ (devralınan) |
 | Tüm Xray protokolleri (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
-| Sürtünmesiz üst senkronizasyon (LUCX-HOOK izolasyonu, 49 dosya) | — | ✓ |
-
-\* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (henüz birleştirilmedi) — LucX-UI'ye taşındı.
+| Telegram WEB proxy inbound (`tproxy`, t.me/webproxy) | ✗ | ✓ |
+| Sürtünmesiz üst senkronizasyon (LUCX-HOOK izolasyonu) | — | ✓ |
 
 Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir çekirdek arabirimi olarak çalıştığı (kullanıcı alanı shim'i değil) anlamına gelir; böylece Xray çözülmüş trafiği kendi TUN inbound'u üzerinden yönlendirir ve AWG trafiğinde Xray'ın tam yönlendirme, sniffing ve alan adı kural gücünü kullanırsınız. Modül yoksa aynı LucX `awg` inbound'u gömülü amneziawg-go üzerinde çalışır. Upstream'in yerel `amneziawg` protokolü panelde yanında kalır.
 
@@ -102,7 +109,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 
 ## 🌟 LucX-UI Hakkında
 
-**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.7.0** ile senkron). Stok Xray protokollerinin ötesinde: iki modda **AmneziaWG** — çekirdek sidecar `awg` (MTProto/`mtg` ile aynı fikir) ve upstream'in yerel `amneziawg`'si, **AWG 3.1**'e kadar; awg-multi / toolza3 / Docker **içe aktarma**; panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ) ve RoscomVPN listeli **geodata browser**. Katı `LUCX-HOOK` ile %100 upstream uyumu.
+**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.7.0** ile senkron). Stok Xray protokollerinin ötesinde: iki modda **AmneziaWG** — çekirdek sidecar `awg` (MTProto/`mtg` ile aynı fikir) ve upstream'in yerel `amneziawg`'si, **AWG 3.1**'e kadar; awg-multi / toolza3 / Docker **içe aktarma**; panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ), **Telegram WEB proxy** (`tproxy`) ve **stok RoscomVPN geo** (kategori tarayıcısı upstream v3.7.0 ile ortak). Katı `LUCX-HOOK` ile %100 upstream uyumu.
 
 ### 🛡️ AmneziaWG (AWG) Özellikleri
 - **AWG Inbound & Outbound** — Çekirdek sidecar'ı (`awg-quick`), üst AWG sunucularına istemci modunda bağlanma (`awgo-{id}`), 10 saniyelik otomatik uzlaştırma döngüsü ve DKMS modül derleyicisi.
@@ -116,7 +123,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **Canlı İmza Yakalama** — Ön alan adlarından gerçek QUIC el sıkışmalarını I1–I5 gizleme parametrelerine dönüştürür.
 - **Yönlendirme & Teşhis** — İki yönlendirme modu (Kernel NAT ve politika yönlendirmeli & sniffing'li Route through Xray) + panel içi tek tıkla teşhis.
 
-### 🚇 Tünel Sidecar'ları (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel)
+### 🚇 Tünel Sidecar'ları (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel, Telegram WEB proxy)
 - **NaiveProxy** — `forward_proxy` eklentili Caddy ([klzgrad](https://github.com/klzgrad/forwardproxy) fork'u, HTTP/2 padding) panel denetimli bir sidecar olarak çalışır: render edilmiş Caddyfile, crash-revive reconcile ile start/stop/restart ve üç seviyeli sağlık sondası (process → TCP → TLS).
 - **İstemci başına kimlik bilgileri** — paneldeki her etkin istemci otomatik olarak kişisel bir `basic_auth` çifti alır (panel sırrından türetilir, saklanmaz); istemciyi devre dışı bırakmak bir sonraki reconcile'da iptal eder.
 - **Abonelikler** — her istemcinin aboneliği Xray/AWG bağlantılarının yanında kişisel `naive+https://` bağlantısını taşır (NekoBox / husi / Exclave standart formatı), ayrıca panelde QR kod ve güçlü parola üreteci vardır.
@@ -126,12 +133,13 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **qWDTT** — VK Calls TURN üzerinden WireGuard ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
 - **mieru** — TLS yerine özel bir protokol üzerinden sansüre dayanıklı proxy ([enfein/mieru](https://github.com/enfein/mieru) `mita`, GPL-3.0). Panel istemcisi başına HMAC kimlik bilgileriyle çok istemcili, istemci başına trafik & çevrimiçi durumu ve `mierus://` paylaşım bağlantısı. İstemciler: mieru CLI, mihomo, Clash Verge Rev, husi, Exclave.
 - **TrustTunnel** — AdGuard VPN protokolü ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel), Apache-2.0): trafik HTTPS'den ayırt edilemez (HTTP/1.1 + HTTP/2 + QUIC). Panelin ACME sertifikasını yeniden kullanır (sertifikası verilmiş bir alan adı gerekir) ve Flutter / CLI istemcileri için `tt://?` deep-link üretir.
+- **Telegram WEB proxy (`tproxy`)** — `tproxy-server` + resmi MTProxy + Caddy TLS reverse_proxy, `hostname:443`, paylaşım `t.me/webproxy`. Xray üzerinden yönlendirme şu an **park edilmiş** (doğrudan MTProxy çıkışı; bkz. lucx.211).
 - **Sidecar outbound'lar** — Naive / mieru / TrustTunnel istemci modu: paylaşım bağlantısını yapıştırın (`naive+https://` / `mierus://` / `tt://`), etiket routing kurallarında ve dengeleyici havuzlarında görünür (AWG outbound gibi). Devre dışı = blackhole (fail-closed, `direct`'e sızmaz). İstemci ikilileri tar.gz'de.
 
 ### 📦 Abonelikler, geodata ve istemci yönlendirme
 - **Amnezia aboneliği** — `/awg/{subId}` saf `.conf` veya `vpn://…` döner.
 - **Clash Meta'ta AWG** — `amnezia-wg-option` ile peer'ler.
-- **Geodata browser** — routing UI'dan `geoip*.dat` / `geosite*.dat` gezinme ([PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / [STRENCH0](https://github.com/STRENCH0) portu).
+- **Geodata browser** — routing UI'dan `geoip*.dat` / `geosite*.dat` gezinme (upstream'de [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0'dan beri, [STRENCH0](https://github.com/STRENCH0)).
 - **RoscomVPN geo paketi** — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)).
 - **Happ profilleri** — Settings → Happ: RoscomVPN deeplink ([roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
@@ -167,6 +175,8 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ```
 
 AWG çekirdek modülü, yükleyici tarafından otomatik olarak derlenir (`bin/install-awg-module.sh`, DKMS). Kurulumdan sonra, AWG çekirdek modülü sürümünü doğrulamak için konsolda `x-ui` komutunu çalıştırın ve panelden AWG inbound'ları eklemeye başlayın.
+
+**Kurulumdan sonra:** abonelik uç noktaları (`/sub/`, `/json/`, `/clash/`, `/awg/`) **ayrı bir portta** dinler (varsayılan **2096**), panel portunda değil — reverse proxy onu da iletmelidir. Özel geo gruplarını **ayrı bir dosya adında** tutun — stok adlar (`geoip.dat` / `geosite.dat` ve `_IR` / `_RU` / `_ROSCOM`) geofile güncellemesinde üzerine yazılır.
 
 ### Host'taki mevcut AWG'den
 
@@ -233,15 +243,15 @@ LucX-UI kişisel kullanım için ücretsizdir. **Beğendiniz mi? ⭐ verin** —
 
 **Mimari ve izolasyon kuralı.** Tüm LucX kodu izole paketlerde yaşar (`internal/awg/`, `internal/lucx/`); üst 3x-ui dosyalarındaki değişiklikler yalnızca `// LUCX-HOOK` / `// END LUCX-HOOK` işaretçileri içinde yapılır, böylece her üst sürüm yakın-zamanlı bir port olur. Tam mimari haritası, 10 kural, bilinen sorunlar ve hata ayıklama desenleri için [AGENTS.md](AGENTS.md) dosyasına bakın.
 
-**Kaynaktan derleyin** (Go 1.23+, Node.js 20+, gcc gerekli — yalnızca Linux, SQLite için CGO):
+**Kaynaktan derleyin** (Go 1.27+, Node.js 24+, gcc gerekli — yalnızca Linux, SQLite için CGO):
 
 ```bash
 cd frontend && npm run build && cd ..
 go build -o /tmp/x-ui .
-# pre-push hygiene: bin/check-lucx.sh  (gofumpt on the 49 LucX-owned files)
+# pre-push hygiene: bin/check-lucx.sh  (LUCX-HOOK + internal/awg|lucx)
 ```
 
-**Üst senkronizasyon prosedürü** (v3.5.0→v3.6.0 doğrulandı, 103 commit / 432 dosya / 7 çakışma):
+**Üst senkronizasyon prosedürü** (güncel taban — upstream **v3.7.0**; upstream tags/main birleştirin, eski v3.5→v3.6 değil):
 
 ```bash
 git fetch origin --tags

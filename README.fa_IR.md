@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined FA README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **پنل پیشرفته Xray** — AmneziaWG (کرنل + بومی، تا 3.1)، وارد کردن AWG موجود، تونل‌های تحت نظارت و sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، اشتراک Clash / Amnezia `vpn://` / Happ، geodata browser و مسیریابی RoscomVPN.
+> **پنل پیشرفته Xray** — AmneziaWG (کرنل + بومی، تا 3.1)، وارد کردن AWG موجود، تونل‌های تحت نظارت و sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy)، اشتراک Clash / Amnezia `vpn://` / Happ، RoscomVPN geo و مسیریابی Happ.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -34,6 +34,14 @@
 bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)
 ```
 
+نصب اختیاری از Yandex (SourceCraft) وقتی GitHub در دسترس نیست. بدون توکن و git — پنل، geo و اسکریپت‌ها در یک بسته:
+
+```bash
+mkdir -p /tmp/lucx-dist && curl -fsSL https://codeload.sourcecraft.tech/alexeylcp/lucx-ui/tarball/refs/heads/dist | tar -xz --strip-components=1 -C /tmp/lucx-dist && sudo bash /tmp/lucx-dist/install.sh --yandex
+```
+
+بعداً `x-ui update` از همان منبع استفاده می‌کند (`/etc/x-ui/install-source`).
+
 <details>
 <summary><b>🛠️ نصب پیشرفته و پیکربندی (Cloud-Init، Docker، PostgreSQL، متغیرهای محیطی)</b></summary>
 
@@ -62,7 +70,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ چرا LucX-UI؟
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) یک پنل چندپروتکله عالی با فرانت‌اند React 19 + Ant Design 6 است. LucX-UI همهٔ قابلیت‌های 3x-ui را نگه می‌دارد و آنچه upstream ندارد را اضافه می‌کند: **AmneziaWG کرنل** (در کنار `amneziawg` بومیِ upstream)، **وارد کردن AWG موجود**، **سایدی‌کارهای تونل** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel)، **اشتراک‌های غنی‌تر** (Clash Meta AWG، Amnezia `vpn://`، Happ) و **ابزار geodata** (مرورگر در پنل + بسته‌های RoscomVPN):
+[3x-ui](https://github.com/MHSanaei/3x-ui) یک پنل چندپروتکله عالی با فرانت‌اند React 19 + Ant Design 6 است. LucX-UI همهٔ قابلیت‌های 3x-ui را نگه می‌دارد و آنچه upstream ندارد را اضافه می‌کند: **AmneziaWG کرنل** (در کنار `amneziawg` بومیِ upstream)، **وارد کردن AWG موجود**، **سایدی‌کارهای تونل** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy)، **اشتراک‌های غنی‌تر** (Clash Meta AWG، Amnezia `vpn://`، Happ) و **بسته‌های RoscomVPN geo + پروفایل‌های Happ** (geodata browser از [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 در upstream است):
 
 | ویژگی | 3x-ui | LucX-UI |
 |---|:---:|:---:|
@@ -86,15 +94,14 @@ docker compose --profile postgres up -d
 | سایدی‌کار TrustTunnel (پروتکل AdGuard VPN، شبیه HTTPS، تحت نظارت) | ✗ | ✓ |
 | Sidecar outbounds (کلاینت Naive / mieru / TrustTunnel → SOCKS، مسیریابی و استخرها) | ✗ | ✓ |
 | AWG در Clash Meta + اشتراک Amnezia `/awg/` (`.conf` / `vpn://`) | ✗ | ✓ |
-| Geodata browser — انتخاب دسته‌های geosite/geoip از پنل | ✗* | ✓ |
+| Geodata browser — انتخاب دسته‌های geosite/geoip از پنل | ✓ | ✓ |
 | بسته geo RoscomVPN (`geoip/geosite_ROSCOM.dat`) | ✗ | ✓ |
 | پروفایل‌های مسیریابی Happ (RoscomVPN deeplink + سفارشی) | ✗ | ✓ |
 | لینک‌های خروجی Smart Cluster | ✗ | ✓ |
 | فرانت‌اند React 19 + AntD 6 + Vite 8 + Zod 4 | ✓ | ✓ (به ارث رسیده) |
 | تمام پروتکل‌های Xray (VLESS / VMess / Trojan / Shadowsocks / ...) | ✓ | ✓ |
-| همگام‌سازی بدون اصطکاک بالا‌دست (ایزوله‌سازی LUCX-HOOK، ۴۹ فایل) | — | ✓ |
-
-\* Upstream [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) (هنوز merge نشده) — به LucX-UI پورت شده.
+| ورودی پروکسی وب تلگرام (`tproxy`، t.me/webproxy) | ✗ | ✓ |
+| همگام‌سازی بدون اصطکاک بالا‌دست (ایزوله‌سازی LUCX-HOOK) | — | ✓ |
 
 یک سایدی‌کار کرنل (مانند `mtg` در MTProto ِ 3x-ui) به این معناست که AWG به‌عنوان یک رابط کرنل واقعی اجرا می‌شود — نه یک shim فضای کاربری — در نتیجه Xray ترافیک رمزگشاشده را از طریق TUN ورودیِ خود عبور می‌دهد و قدرت کامل مسیریابی، شنود و قوانین دامنهٔ Xray را روی ترافیک AWG در اختیار شما قرار می‌دهد. بدون ماژول، همان inboundِ LucXیِ `awg` روی amneziawg-go توکار بالا می‌آید. پروتکل بومیِ upstream یعنی `amneziawg` هم در پنل کنار آن می‌ماند.
 
@@ -102,7 +109,7 @@ docker compose --profile postgres up -d
 
 ## 🌟 درباره LucX-UI
 
-**LucX-UI** فورک ارتقایافتهٔ [3x-ui](https://github.com/MHSanaei/3x-ui) است (همگام با upstream **v3.7.0**). فراتر از پروتکل‌های Xray استوک: **AmneziaWG** در دو حالت — سایدی‌کار کرنل `awg` (همان ایدهٔ MTProto/`mtg`) و `amneziawg` بومیِ upstream، تا **AWG 3.1**؛ **وارد کردن** awg-multi / toolza3 / Docker؛ **تونل‌های تحت نظارت پنل** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراک‌های گسترش‌یافته** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ) و **geodata browser** با لیست‌های RoscomVPN. سازگاری ۱۰۰٪ با upstream از طریق ایزولهٔ `LUCX-HOOK`.
+**LucX-UI** فورک ارتقایافتهٔ [3x-ui](https://github.com/MHSanaei/3x-ui) است (همگام با upstream **v3.7.0**). فراتر از پروتکل‌های Xray استوک: **AmneziaWG** در دو حالت — سایدی‌کار کرنل `awg` (همان ایدهٔ MTProto/`mtg`) و `amneziawg` بومیِ upstream، تا **AWG 3.1**؛ **وارد کردن** awg-multi / toolza3 / Docker؛ **تونل‌های تحت نظارت پنل** (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)، **اشتراک‌های گسترش‌یافته** (Clash Meta AWG، Amnezia `/awg/` + `vpn://`، Happ)، **پروکسی وب تلگرام** (`tproxy`) و **geo استوک RoscomVPN** (مرورگر دسته‌ها مشترک با upstream v3.7.0). سازگاری ۱۰۰٪ با upstream از طریق ایزولهٔ `LUCX-HOOK`.
 
 ### 🛡️ ویژگی‌های AmneziaWG (AWG)
 - **ورودی‌ها و خروجی‌های AWG** — سایدی‌کار کرنل (`awg-quick`)، شماره‌گیری حالت کلاینت به سرورهای AWG بالا‌دستی (`awgo-{id}`)، حلقه همگام‌سازی اتوماتیک ۱۰ ثانیه‌ای، و سازنده ماژول کرنل DKMS.
@@ -116,7 +123,7 @@ docker compose --profile postgres up -d
 - **استخراج امضای زنده** — تبدیل دست‌دادن‌های واقعی QUIC از دامنه‌های فرانت به پارامترهای مخفی‌سازی I1–I5.
 - **مسیریابی و عیب‌یابی** — دو حالت مسیریابی (Kernel NAT و Route through Xray با مسیریابی سیاست و شنود) + عیب‌یابی تک‌کلیکه درون پنل.
 
-### 🚇 سایدی‌کارهای تونل (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel)
+### 🚇 سایدی‌کارهای تونل (NaiveProxy، olcRTC، qWDTT، mieru، TrustTunnel، Telegram WEB proxy)
 - **NaiveProxy** — Caddy با افزونهٔ `forward_proxy` (فورک [klzgrad](https://github.com/klzgrad/forwardproxy)، padding مربوط به HTTP/2) به‌عنوان سایدی‌کار تحت نظارت پنل اجرا می‌شود: Caddyfile رندر‌شده، start/stop/restart با reconcile احیای پس از کرش، و پروب سلامت سه‌سطحی (process → TCP → TLS).
 - **اعتبارنامه‌های per-client** — هر کلاینت فعال پنل به‌طور اتوماتیک یک جفت شخصی `basic_auth` می‌گیرد (مشتق از راز پنل، بدون ذخیره‌سازی)؛ غیرفعال‌کردن کلاینت در reconcile بعدی آن را باطل می‌کند.
 - **اشتراک‌ها** — اشتراک هر کلاینت لینک شخصی `naive+https://` او را در کنار لینک‌های Xray/AWG حمل می‌کند (فرمت استاندارد NekoBox / husi / Exclave)، به‌علاوه کد QR و تولیدکنندهٔ رمز عبور قوی در پنل.
@@ -126,12 +133,13 @@ docker compose --profile postgres up -d
 - **qWDTT** — WireGuard از طریق TURN ِ VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
 - **mieru** — پروکسی مقاوم در برابر سانسور روی پروتکلی اختصاصی به‌جای TLS ([enfein/mieru](https://github.com/enfein/mieru) `mita`، GPL-3.0). چندکاربره با اعتبارنامه‌های HMAC به‌ازای هر کلاینت پنل، ترافیک و وضعیت آنلاین per-client، و لینک اشتراک `mierus://`. کلاینت‌ها: mieru CLI، mihomo، Clash Verge Rev، husi، Exclave.
 - **TrustTunnel** — پروتکل AdGuard VPN ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)، Apache-2.0): ترافیک از HTTPS قابل تشخیص نیست (HTTP/1.1 + HTTP/2 + QUIC). از گواهی ACME پنل استفاده مجدد می‌کند (نیاز به دامنه با گواهی صادرشده) و deep-link `tt://?` برای کلاینت‌های Flutter / CLI تولید می‌کند.
+- **پروکسی وب تلگرام (`tproxy`)** — `tproxy-server` + MTProxy رسمی + Caddy TLS reverse_proxy روی `hostname:443`، لینک اشتراک `t.me/webproxy`. مسیریابی از طریق Xray فعلاً **متوقف** است (خروج مستقیم MTProxy؛ نک. lucx.211).
 - **Sidecar outbounds** — حالت کلاینت Naive / mieru / TrustTunnel: لینک اشتراک را بچسبانید (`naive+https://` / `mierus://` / `tt://`)، تگ در قوانین مسیریابی و استخرهای balancer ظاهر می‌شود (مثل AWG outbound). غیرفعال = blackhole (fail-closed، به `direct` نشت نمی‌کند). باینری‌های کلاینت در tar.gz.
 
 ### 📦 اشتراک‌ها، geodata و مسیریابی کلاینت
 - **اشتراک Amnezia** — `/awg/{subId}` فایل `.conf` خالص یا `vpn://…` برمی‌گرداند.
 - **AWG در Clash Meta** — peerها با `amnezia-wg-option`.
-- **Geodata browser** — مرور `geoip*.dat` / `geosite*.dat` از UI مسیریابی (پورت [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) توسط [STRENCH0](https://github.com/STRENCH0)).
+- **Geodata browser** — مرور `geoip*.dat` / `geosite*.dat` از UI مسیریابی (در upstream از [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0، [STRENCH0](https://github.com/STRENCH0)).
 - **بسته RoscomVPN geo** — `geoip_ROSCOM.dat` / `geosite_ROSCOM.dat` ([roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip) / [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite)).
 - **پروفایل‌های Happ** — Settings → Happ: deeplink RoscomVPN ([roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing)).
 
@@ -167,6 +175,8 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 ```
 
 ماژول کرنل AWG توسط نصب‌کننده اتوماتیک ساخته می‌شود (`bin/install-awg-module.sh`, DKMS). پس از نصب، برای تأیید نسخهٔ ماژول کرنل AWG در کنسول `x-ui` را اجرا کنید و افزودن ورودی‌های AWG را از پنل آغاز کنید.
+
+**پس از نصب:** نقاط پایانی اشتراک (`/sub/`، `/json/`، `/clash/`، `/awg/`) روی **پورتی جدا** (پیش‌فرض **2096**) گوش می‌دهند، نه پورت پنل — reverse proxy باید آن را هم فوروارد کند. گروه‌های geo سفارشی را در **نام فایل جدا** نگه دارید — نام‌های استوک (`geoip.dat` / `geosite.dat` و `_IR` / `_RU` / `_ROSCOM`) هنگام به‌روزرسانی geofile بازنویسی می‌شوند.
 
 ### از AWG موجود روی میزبان
 
@@ -233,15 +243,15 @@ LucX-UI برای استفاده شخصی رایگان است. **خوش‌تان 
 
 **قانون معماری و ایزوله‌سازی.** تمام کد LucX در پکیج‌های ایزوله زندگی می‌کند (`internal/awg/`, `internal/lucx/`)؛ تغییرات در فایل‌های 3x-ui بالا‌دست تنها در داخل نشانگرهای `// LUCX-HOOK` / `// END LUCX-HOOK` انجام می‌شوند تا هر نسخهٔ بالا‌دست یک پورت تقریباً ساده باشد. برای نقشهٔ کامل معماری، ۱۰ قانون، مشکلات شناخته‌شده و الگوهای دیباگ به [AGENTS.md](AGENTS.md) مراجعه کنید.
 
-**بیلد از سورس** (نیازمند Go 1.23+, Node.js 20+, gcc — فقط لینوکس، CGO برای SQLite):
+**بیلد از سورس** (نیازمند Go 1.27+, Node.js 24+, gcc — فقط لینوکس، CGO برای SQLite):
 
 ```bash
 cd frontend && npm run build && cd ..
 go build -o /tmp/x-ui .
-# pre-push hygiene: bin/check-lucx.sh  (gofumpt on the 49 LucX-owned files)
+# pre-push hygiene: bin/check-lucx.sh  (LUCX-HOOK + internal/awg|lucx)
 ```
 
-**روال همگام‌سازی بالا‌دست** (اعتبارسنجی‌شده v3.5.0→v3.6.0، 103 commit / 432 فایل / 7 تداخل):
+**روال همگام‌سازی بالا‌دست** (پایهٔ فعلی — آپ‌استریم **v3.7.0**؛ تگ/main آپ‌استریم را merge کنید، نه v3.5→v3.6 قدیمی):
 
 ```bash
 git fetch origin --tags

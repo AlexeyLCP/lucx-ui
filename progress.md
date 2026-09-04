@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## docs — README locales P0/P1 after v3.7.0 (2026-09-05)
+
+zh / fa / ar / es / tr match RU/EN from #78: tproxy, Yandex install, geodata ✓/✓, Go 1.27 / Node 24, sub port 2096.
+
+**lucxVersion:** unchanged (lucx.212)
+
+---
+
 ## lucx.212 — AWG Amnesia Premium preset (2026-09-05)
 
 New optional obfuscation profile (obfLevel 4). Pick it and regenerate — existing inbounds unchanged (Rule 0).
