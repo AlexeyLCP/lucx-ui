@@ -1,1 +1,1 @@
-PLACEHOLDER
+file:///workspace/lucx-readme/FOR_MCP_CONTENT.md
