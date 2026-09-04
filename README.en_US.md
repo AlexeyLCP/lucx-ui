@@ -1,1 +1,1 @@
-@file:///tmp/lucx-push/README.en_US.md
+LOAD_FROM_PATH:/workspace/lucx-readme/EN_ONLY.md
