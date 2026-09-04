@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.208 — AWG PSK/DKMS + tproxy save (2026-09-04)
+
+Unreleased since v3.7.0-lucx.207:
+
+- Clients enable toggle no longer mints a new AWG PSK (`Update` reuses the record, same as `Create`). Re-download .conf if you already hit disable→attach→enable.
+- DKMS on Ubuntu 22.04 5.15: `timer_delete` compat (5.15.0-82-generic). Then `x-ui install-awg`.
+- tproxy: saving the inbound no longer drops client attach; ZIP site file list API in openapi.
+- install/update: no GitHub-raw curl for tproxy/mtproxy (never in `third_party/sidecars/`).
+- Mutation CI scoped to `internal/awg` + `internal/lucx`.
+
+**lucxVersion:** lucx.208
+
+---
+
 ## lucx.207 — skip tproxy/mtproxy GitHub-raw fetch (2026-09-04)
 
 Those binaries are built in `release.yml` and packed in the tarball. They were never in `third_party/sidecars/`. install/update still curled GitHub raw → 404 → “keeping tarball copy”. Skip the curl when there is no local gz.
