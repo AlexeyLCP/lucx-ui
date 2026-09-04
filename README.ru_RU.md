@@ -3,5 +3,5 @@
 
 Русская документация перенесена в [главный README](README.md).
 
-[English](README.en_US.md)
+[English](docs/readme/README.en_US.md)
 <!-- END LUCX-HOOK -->

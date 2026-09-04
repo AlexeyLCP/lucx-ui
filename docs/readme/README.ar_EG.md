@@ -7,13 +7,13 @@
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
-  <a href="LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="../../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
   <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
 </p>
 
 <p align="center">
   <a href="README.en_US.md">English</a> |
-  <a href="README.md">Русский</a> |
+  <a href="../../README.md">Русский</a> |
   <a href="README.fa_IR.md">فارسی</a> |
   <b>العربية</b> |
   <a href="README.zh_CN.md">中文</a> |
@@ -173,13 +173,13 @@ Sidecar للنواة (مثل `mtg` لـ MTProto في 3x-ui) يعني أن AWG ي
 <summary><b>📸 لقطات الشاشة</b></summary>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./media/01-overview-dark.png">
-  <img alt="Overview" src="./media/01-overview-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="../../media/01-overview-dark.png">
+  <img alt="Overview" src="../../media/01-overview-light.png">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./media/02-add-inbound-dark.png">
-  <img alt="Inbounds" src="./media/02-add-inbound-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="../../media/02-add-inbound-dark.png">
+  <img alt="Inbounds" src="../../media/02-add-inbound-light.png">
 </picture>
 
 </details>
@@ -212,7 +212,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 ## 📜 الترخيص والشروط
 
-يُنشر هذا المشروع تحت **ترخيصين** للكود الخاص به، بالإضافة إلى ثنائيات/بيانات طرف ثالث وفق شروط upstream (المصفوفة الكاملة في [LICENSING.md](LICENSING.md)):
+يُنشر هذا المشروع تحت **ترخيصين** للكود الخاص به، بالإضافة إلى ثنائيات/بيانات طرف ثالث وفق شروط upstream (المصفوفة الكاملة في [LICENSING.md](../../LICENSING.md)):
 
 <details>
 <summary><b>مصفوفة التراخيص</b></summary>
@@ -287,7 +287,7 @@ LucX-UI مجاني للاستخدام الشخصي. **أعجبك؟ ضع ⭐** ع
 <details>
 <summary><b>المعمارية، البناء والمزامنة مع upstream (انقر للتوسعة)</b></summary>
 
-**قاعدة المعمارية والعزل.** يعيش كود LucX بالكامل في حزم معزولة (`internal/awg/`, `internal/lucx/`)؛ والتغييرات على ملفات 3x-ui upstream تتم فقط داخل علامات `// LUCX-HOOK` / `// END LUCX-HOOK` بحيث يكون كل إصدار upstream نقلاً شبه تافه. راجع [AGENTS.md](AGENTS.md) لخريطة المعمارية الكاملة والقواعد العشر والمشكلات المعروفة وأنماط التنقيح.
+**قاعدة المعمارية والعزل.** يعيش كود LucX بالكامل في حزم معزولة (`internal/awg/`, `internal/lucx/`)؛ والتغييرات على ملفات 3x-ui upstream تتم فقط داخل علامات `// LUCX-HOOK` / `// END LUCX-HOOK` بحيث يكون كل إصدار upstream نقلاً شبه تافه. راجع [AGENTS.md](../../AGENTS.md) لخريطة المعمارية الكاملة والقواعد العشر والمشكلات المعروفة وأنماط التنقيح.
 
 **البناء من المصدر** (يتطلب Go 1.27+, Node.js 24+, gcc — Linux فقط، CGO لـ SQLite):
 

@@ -7,13 +7,13 @@
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
-  <a href="LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="../../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
   <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
 </p>
 
 <p align="center">
   <a href="README.en_US.md">English</a> |
-  <a href="README.md">Русский</a> |
+  <a href="../../README.md">Русский</a> |
   <a href="README.fa_IR.md">فارسی</a> |
   <a href="README.ar_EG.md">العربية</a> |
   <b>中文</b> |
@@ -173,13 +173,13 @@ docker compose --profile postgres up -d
 <summary><b>📸 面板截图</b></summary>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./media/01-overview-dark.png">
-  <img alt="Overview" src="./media/01-overview-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="../../media/01-overview-dark.png">
+  <img alt="Overview" src="../../media/01-overview-light.png">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./media/02-add-inbound-dark.png">
-  <img alt="Inbounds" src="./media/02-add-inbound-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="../../media/02-add-inbound-dark.png">
+  <img alt="Inbounds" src="../../media/02-add-inbound-light.png">
 </picture>
 
 </details>
@@ -212,7 +212,7 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 
 ## 📜 许可证与条款
 
-本项目自有代码遵循**双重许可证**，第三方二进制/数据遵循各自上游条款（完整矩阵见 [LICENSING.md](LICENSING.md)）：
+本项目自有代码遵循**双重许可证**，第三方二进制/数据遵循各自上游条款（完整矩阵见 [LICENSING.md](../../LICENSING.md)）：
 
 <details>
 <summary><b>许可证矩阵</b></summary>
@@ -287,7 +287,7 @@ LucX-UI 个人使用完全免费。**喜欢的话请点 ⭐** — 能帮助更�
 <details>
 <summary><b>架构、构建与上游同步（点击展开）</b></summary>
 
-**架构与隔离规则。** 所有 LucX 代码都位于隔离的包中（`internal/awg/`, `internal/lucx/`）；对上游 3x-ui 文件的修改仅放在 `// LUCX-HOOK` / `// END LUCX-HOOK` 标记之间，从而使每次上游发布都近乎平凡的移植。请参阅 [AGENTS.md](AGENTS.md) 了解完整的架构图、10 条规则、已知问题与调试模式。
+**架构与隔离规则。** 所有 LucX 代码都位于隔离的包中（`internal/awg/`, `internal/lucx/`）；对上游 3x-ui 文件的修改仅放在 `// LUCX-HOOK` / `// END LUCX-HOOK` 标记之间，从而使每次上游发布都近乎平凡的移植。请参阅 [AGENTS.md](../../AGENTS.md) 了解完整的架构图、10 条规则、已知问题与调试模式。
 
 **源码构建**（需 Go 1.27+、Node.js 24+、gcc —— 仅 Linux，CGO 用于 SQLite）：
 

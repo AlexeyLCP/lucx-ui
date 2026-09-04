@@ -13,13 +13,13 @@
 </p>
 
 <p align="center">
-  <a href="README.en_US.md">English</a> |
+  <a href="docs/readme/README.en_US.md">English</a> |
   <b>Русский</b> |
-  <a href="README.fa_IR.md">فارسی</a> |
-  <a href="README.ar_EG.md">العربية</a> |
-  <a href="README.zh_CN.md">中文</a> |
-  <a href="README.es_ES.md">Español</a> |
-  <a href="README.tr_TR.md">Türkçe</a>
+  <a href="docs/readme/README.fa_IR.md">فارسی</a> |
+  <a href="docs/readme/README.ar_EG.md">العربية</a> |
+  <a href="docs/readme/README.zh_CN.md">中文</a> |
+  <a href="docs/readme/README.es_ES.md">Español</a> |
+  <a href="docs/readme/README.tr_TR.md">Türkçe</a>
 </p>
 
 > [!WARNING]

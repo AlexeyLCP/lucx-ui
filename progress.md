@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## docs — move locale READMEs to docs/readme/ (2026-09-05)
+
+Root keeps `README.md` (RU) and stub `README.ru_RU.md`. EN/zh/fa/ar/es/tr live in `docs/readme/`. Language switcher, LICENSING, AGENTS, screenshots relinked.
+
+**lucxVersion:** unchanged (lucx.212)
+
+---
+
 ## chore — drop leftover root docs (2026-09-05)
 
 Removed `RELEASE-NOTES-lucx.123.md`, `RELEASE-NOTES-lucx.124.md`, `REVIEW-lucx.md`. Kept `REVIEW.md` (Claude review bot).

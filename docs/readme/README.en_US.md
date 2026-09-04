@@ -7,14 +7,14 @@
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
-  <a href="LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="../../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
   <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
   <a href="https://boosty.to/alexeylcp"><img src="https://img.shields.io/badge/boosty-subscribe-orange" alt="Boosty"></a>
 </p>
 
 <p align="center">
   <b>English</b> |
-  <a href="README.md">Русский</a> |
+  <a href="../../README.md">Русский</a> |
   <a href="README.fa_IR.md">فارسی</a> |
   <a href="README.ar_EG.md">العربية</a> |
   <a href="README.zh_CN.md">中文</a> |
@@ -191,13 +191,13 @@ A kernel sidecar (like 3x-ui's MTProto `mtg`) means AWG runs as a real kernel in
 <summary><b>📸 Screenshots</b></summary>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./media/01-overview-dark.png">
-  <img alt="Overview" src="./media/01-overview-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="../../media/01-overview-dark.png">
+  <img alt="Overview" src="../../media/01-overview-light.png">
 </picture>
 
 <picture>
-  <source media="(prefers-color-scheme: dark)" srcset="./media/02-add-inbound-dark.png">
-  <img alt="Inbounds" src="./media/02-add-inbound-light.png">
+  <source media="(prefers-color-scheme: dark)" srcset="../../media/02-add-inbound-dark.png">
+  <img alt="Inbounds" src="../../media/02-add-inbound-light.png">
 </picture>
 
 </details>
@@ -243,7 +243,7 @@ Without a kernel module, LucX `awg` inbounds still come up on embedded amneziawg
 
 ## 📜 License & Terms
 
-This project is published under **two licenses** for first-party code, plus third-party binaries/data kept under their upstream terms (full matrix in [LICENSING.md](LICENSING.md)):
+This project is published under **two licenses** for first-party code, plus third-party binaries/data kept under their upstream terms (full matrix in [LICENSING.md](../../LICENSING.md)):
 
 <details>
 <summary><b>License matrix</b></summary>
@@ -335,7 +335,7 @@ LucX-UI is free for personal use. **Liked it? Star the repo ⭐** — it helps o
 <details>
 <summary><b>Architecture, build & upstream sync (click to expand)</b></summary>
 
-**Architecture & isolation rule.** All LucX code lives in isolated packages (`internal/awg/`, `internal/lucx/`); changes to upstream 3x-ui files go only inside `// LUCX-HOOK` / `// END LUCX-HOOK` markers so that every upstream release is a near-trivial port. See [AGENTS.md](AGENTS.md) for the full architecture map, the 10 rules, known issues and debug patterns.
+**Architecture & isolation rule.** All LucX code lives in isolated packages (`internal/awg/`, `internal/lucx/`); changes to upstream 3x-ui files go only inside `// LUCX-HOOK` / `// END LUCX-HOOK` markers so that every upstream release is a near-trivial port. See [AGENTS.md](../../AGENTS.md) for the full architecture map, the 10 rules, known issues and debug patterns.
 
 **Build from source** (requires Go 1.27+, Node.js 24+, gcc — Linux only, CGO for SQLite):
 
