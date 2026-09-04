@@ -236,7 +236,7 @@ export const sections: readonly Section[] = [
             in: 'body',
             type: 'string',
             optional: true,
-            desc: 'Obfuscation preset: "lite", "standard", or "pro". Defaults to "standard".',
+            desc: 'Obfuscation preset: "lite", "standard", "pro", or "premium". Defaults to "standard".',
           },
           {
             name: 'mimicryProfile',

@@ -36,7 +36,7 @@ export const AwgInboundSettingsSchema = z
     mtu: z.number().int().min(576).max(65535).default(1420),
     dns: z.string().optional(),
     // Obfuscation level: 1 = none, 2 = Jc/Jmin/Jmax + S/H, 3 = full + CPS I1-I5.
-    obfLevel: z.number().int().min(1).max(3).default(2),
+    obfLevel: z.number().int().min(1).max(4).default(2),
     mimicryProfile: z.enum(['tls', 'quic', 'sip', 'dns']).default('tls'),
     browserProfile: z.enum(['chrome', 'firefox', 'safari']).default('chrome'),
     region: z.string().default('ru'),

@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.212 — AWG Amnesia Premium preset (2026-09-05)
+
+New optional obfuscation profile (obfLevel 4). Pick it and regenerate — existing inbounds unchanged (Rule 0).
+
+TLS 1.3 handshake sizes S1=164/S2=528/S3=389/S4=12, Jc=5/Jmin=10/Jmax=80, H=1/2/3/4 under HPK on v3/3.1, I1, ContentPadding 10-100, RekeyAfter 100-120, KeepaliveTimeout 7-13.
+
+Test: `TestGenerateAWGParams_Premium31`.
+
+**lucxVersion:** lucx.212
+
+---
+
 ## lucx.211 — tproxy via Xray parked (2026-09-04)
 
 210 did not fix tester hang. `TproxyXrayRouting=false`: no dokodemo, no NAT REDIRECT, UI toggle gone. Direct MTProxy egress. Flip the const to bring it back.

@@ -20,7 +20,7 @@ import (
 
 // awgGenerateObfuscationRequest is the body the AWG inbound form posts to
 // /panel/api/inbounds/awg/generateObfuscation. obfProfile selects the
-// junk/transport strength (lite/standard/pro); mimicryProfile picks the CPS
+// junk/transport strength (lite/standard/pro/premium); mimicryProfile picks the CPS
 // packet shape (tls/dns/sip/quic); region selects the front-domain pool
 // (ru/world); domain is an optional explicit front host (empty = random from
 // the pool); fullI1I5 reports whether I1-I5 are all emitted (Pro) or just I1

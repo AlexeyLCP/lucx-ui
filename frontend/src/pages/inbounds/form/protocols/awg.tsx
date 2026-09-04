@@ -34,15 +34,15 @@ import { useOutboundTags } from '@/api/queries/useOutboundTags';
 import { maskSubnet, subnetsOverlap } from '@/lib/awg/subnet';
 import { useAwgInboundId } from '../awg-inbound-id-context';
 
-// LUCX-HOOK: AWG — map the panel obfLevel (1/2/3) and mimicryProfile to the
+// LUCX-HOOK: AWG — map the panel obfLevel (1/2/3/4) and mimicryProfile to the
 // backend cps package's profile enums. The backend owns the invariant-
 // enforcing RNG (Jmin<Jmax, |S1+56-S2|>=10, H1-H4 in disjoint quadrants) and
 // the CPS packet generators (TLS/DNS/SIP/QUIC), so the form calls the API
 // instead of a local Math.random stub.
-const OBF_PROFILE: Record<number, string> = { 1: 'lite', 2: 'standard', 3: 'pro' };
+const OBF_PROFILE: Record<number, string> = { 1: 'lite', 2: 'standard', 3: 'pro', 4: 'premium' };
 
 function levelToFullI1I5(level: number): boolean {
-  return level >= 3;
+  return level === 3;
 }
 
 // generateAwgObfuscationFromBackend calls /panel/api/inbounds/awg/generateObfuscation
@@ -189,10 +189,8 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
       for (const [k, v] of Object.entries(obf)) {
         setValue(`settings.${k}`, v, { shouldDirty: true });
       }
-      // Lite/Standard only keep I1; drop stale Pro I2-I5 so client .conf does not
-      // inherit leftover packets after switching profile down.
       const level = (watch('settings.obfLevel') as number) ?? 2;
-      if (level < 3) {
+      if (level !== 3) {
         for (const k of ['i2', 'i3', 'i4', 'i5'] as const) {
           setValue(`settings.${k}`, '', { shouldDirty: true });
         }
@@ -337,6 +335,7 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
             { value: 1, label: t('pages.inbounds.form.awgObfLite') },
             { value: 2, label: t('pages.inbounds.form.awgObfStandard') },
             { value: 3, label: t('pages.inbounds.form.awgObfPro') },
+            { value: 4, label: t('pages.inbounds.form.awgObfPremium') },
           ]}
         />
       </FormField>

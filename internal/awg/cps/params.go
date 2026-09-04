@@ -213,12 +213,17 @@ func genHSingle(n int) string {
 //   - "2"/"3"/"3.1"/empty: "lo-hi" ranges in disjoint narrow bands. See genHRange.
 //     v3 HPK still encrypts the on-wire header; H is randomized anyway so the
 //     form does not look broken and v2/v3 share one generator.
+//   - ObfPremium on "3"/"3.1": H=1,2,3,4 (HPK encrypts them). Other versions
+//     keep the same H format as lite/standard/pro.
 //
 // An empty awgVersion is treated as "2" (the project default; see
 // awg.NormalizeAWGVersion). The caller is responsible for adding a
 // HeaderProtectionKey (via WithHeaderProtectionKey) only when a version "3"
 // or "3.1" inbound is generated.
 func GenerateAWGParams(profile ObfProfile, awgVersion string) (AWGParams, error) {
+	if profile == ObfPremium {
+		return generatePremiumParams(awgVersion), nil
+	}
 	r, err := rangesFor(profile)
 	if err != nil {
 		return AWGParams{}, err
@@ -264,6 +269,19 @@ func GenerateAWGParams(profile ObfProfile, awgVersion string) (AWGParams, error)
 		H3:   h3,
 		H4:   h4,
 	}, nil
+}
+
+func generatePremiumParams(awgVersion string) AWGParams {
+	p := AWGParams{Jc: 5, Jmin: 10, Jmax: 80, S1: 164, S2: 528, S3: 389, S4: 12}
+	switch awgVersion {
+	case "1.5":
+		p.H1, p.H2, p.H3, p.H4 = genHSingle(0), genHSingle(1), genHSingle(2), genHSingle(3)
+	case "3", "3.1":
+		p.H1, p.H2, p.H3, p.H4 = "1", "2", "3", "4"
+	default:
+		p.H1, p.H2, p.H3, p.H4 = genHRange(0), genHRange(1), genHRange(2), genHRange(3)
+	}
+	return p
 }
 
 // WithHeaderProtectionKey returns a copy of the params with a freshly
@@ -335,16 +353,35 @@ func awg3Range(lo, hi int) string {
 //	RejectAfterTime must exceed KeepaliveTimeout+RekeyTimeout or the receiving
 //	side's key-refresh window collapses to zero; RekeyAfterTime must finish
 //	before RejectAfterTime; MaxHandshakeAttempts >= 1.
+func generatePremiumTimings() Awg3DeviceTimings {
+	rekeyTimeoutLo := randInt(4, 6)
+	rekeyTimeoutHi := rekeyTimeoutLo + randInt(1, 4)
+	rejectLo := 170
+	if rejectLo <= 120+13+rekeyTimeoutHi {
+		rejectLo = 120 + 13 + rekeyTimeoutHi + 15
+	}
+	attemptsLo := randInt(12, 18)
+	return Awg3DeviceTimings{
+		ContentPaddingAddition: "10-100",
+		RekeyAfterTime:         "100-120",
+		RekeyTimeout:           awg3Range(rekeyTimeoutLo, rekeyTimeoutHi),
+		RejectAfterTime:        awg3Range(rejectLo, rejectLo+randInt(10, 25)),
+		KeepaliveTimeout:       "7-13",
+		MaxHandshakeAttempts:   awg3Range(attemptsLo, attemptsLo+randInt(2, 10)),
+	}
+}
+
 func GenerateAwg3DeviceTimings(profile ObfProfile) Awg3DeviceTimings {
-	// Intensity knobs, keyed by profile. padLo/padHi bound ContentPaddingAddition;
-	// spread is the timing-jitter width.
+	if profile == ObfPremium {
+		return generatePremiumTimings()
+	}
 	var padLo, padHi, spread int
 	switch profile {
 	case ObfLite:
 		padLo, padHi, spread = 8, 64, 10
 	case ObfPro:
 		padLo, padHi, spread = 24, 200, 45
-	default: // ObfStandard and anything unrecognised
+	default:
 		padLo, padHi, spread = 16, 128, 25
 	}
 

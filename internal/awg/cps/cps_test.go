@@ -17,8 +17,7 @@ import (
 
 func TestGenerateAWGParams_Invariants(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(42)))
-	// Version "2" (no header protection key): H1-H4 are "lo-hi" ranges.
-	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
+	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro, ObfPremium} {
 		for i := 0; i < 200; i++ {
 			p, err := GenerateAWGParams(prof, "2")
 			if err != nil {
@@ -50,7 +49,7 @@ func TestGenerateAWGParams_Invariants(t *testing.T) {
 // 64+S3, 32+S4) must stay pairwise distinct across many generations.
 func TestGenerateAWGParams_PacketSizesDistinct(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(1337)))
-	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
+	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro, ObfPremium} {
 		for i := 0; i < 500; i++ {
 			p, err := GenerateAWGParams(prof, "2")
 			if err != nil {
@@ -147,6 +146,45 @@ func TestGenerateAWGParams_HFormatByVersion(t *testing.T) {
 				}
 			}
 		}
+	}
+}
+
+func TestGenerateAWGParams_Premium31(t *testing.T) {
+	SetRand(crand.New(crand.NewSource(1)))
+	p, err := GenerateAWGParams(ObfPremium, "3.1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := p.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	if p.Jc != 5 || p.Jmin != 10 || p.Jmax != 80 {
+		t.Fatalf("junk = Jc=%d Jmin=%d Jmax=%d, want 5/10/80", p.Jc, p.Jmin, p.Jmax)
+	}
+	if p.S1 != 164 || p.S2 != 528 || p.S3 != 389 || p.S4 != 12 {
+		t.Fatalf("S = %d/%d/%d/%d, want 164/528/389/12", p.S1, p.S2, p.S3, p.S4)
+	}
+	got := strings.Join([]string{p.H1, p.H2, p.H3, p.H4}, ",")
+	if got != "1,2,3,4" {
+		t.Fatalf("H1-H4 = %q, want 1,2,3,4", got)
+	}
+	p2, err := GenerateAWGParams(ObfPremium, "2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got2 := strings.Join([]string{p2.H1, p2.H2, p2.H3, p2.H4}, ",")
+	if got2 == "1,2,3,4" {
+		t.Fatal("premium on v2 must not use WireGuard default headers")
+	}
+	d := GenerateAwg3DeviceTimings(ObfPremium)
+	if d.ContentPaddingAddition != "10-100" {
+		t.Fatalf("ContentPaddingAddition = %q, want 10-100", d.ContentPaddingAddition)
+	}
+	if d.RekeyAfterTime != "100-120" {
+		t.Fatalf("RekeyAfterTime = %q, want 100-120", d.RekeyAfterTime)
+	}
+	if d.KeepaliveTimeout != "7-13" {
+		t.Fatalf("KeepaliveTimeout = %q, want 7-13", d.KeepaliveTimeout)
 	}
 }
 
@@ -478,7 +516,7 @@ func parseAwg3Range(t *testing.T, s string) (int, int) {
 // KeepaliveTimeout+RekeyTimeout, RekeyAfterTime below RejectAfterTime,
 // MaxHandshakeAttempts >= 1).
 func TestGenerateAwg3DeviceTimings_FormatAndInvariants(t *testing.T) {
-	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro} {
+	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro, ObfPremium} {
 		prof := prof
 		t.Run(string(prof), func(t *testing.T) {
 			SetRand(crand.New(crand.NewSource(42)))
