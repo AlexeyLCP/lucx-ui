@@ -2,7 +2,7 @@
 
 Extracted from AGENTS.md. This file is project law.
 Read when the task depends on a known issue or product constraint.
-Changelog: `progress.md`, last 1–2 entries only.
+Changelog: `docs/progress.md`, last 1–2 entries only.
 
 ---
 

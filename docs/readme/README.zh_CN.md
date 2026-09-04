@@ -7,7 +7,7 @@
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
-  <a href="../../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
   <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
 </p>
 
@@ -212,7 +212,7 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 
 ## 📜 许可证与条款
 
-本项目自有代码遵循**双重许可证**，第三方二进制/数据遵循各自上游条款（完整矩阵见 [LICENSING.md](../../LICENSING.md)）：
+本项目自有代码遵循**双重许可证**，第三方二进制/数据遵循各自上游条款（完整矩阵见 [LICENSING.md](../LICENSING.md)）：
 
 <details>
 <summary><b>许可证矩阵</b></summary>

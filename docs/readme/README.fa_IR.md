@@ -7,7 +7,7 @@
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
-  <a href="../../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
   <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
 </p>
 
@@ -212,7 +212,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 ## 📜 مجوز و شرایط
 
-این پروژه برای کد خود تحت **دو مجوز** و برای باینری/دادهٔ شخص ثالث تحت شرایط upstream منتشر می‌شود (جدول کامل در [LICENSING.md](../../LICENSING.md)):
+این پروژه برای کد خود تحت **دو مجوز** و برای باینری/دادهٔ شخص ثالث تحت شرایط upstream منتشر می‌شود (جدول کامل در [LICENSING.md](../LICENSING.md)):
 
 <details>
 <summary><b>جدول مجوزها</b></summary>

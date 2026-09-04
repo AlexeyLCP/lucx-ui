@@ -8,7 +8,7 @@ Extracted from AGENTS.md. This file is project law.
 
 ```
 1. READ    → Read .agents/00-index.md, then 01-purpose.md + 05-rules.md.
-             progress.md: last 1–2 entries only. git log --oneline -15
+             docs/progress.md: last 1–2 entries only. git log --oneline -15
 2. AUDIT   → Read all relevant files, trace data flow end-to-end
 3. PLAN    → Write a short plan: which files, what changes, what tests
 4. BRANCH  → Work on `main` (active branch, v3.7.0 merge complete)
@@ -32,8 +32,8 @@ Extracted from AGENTS.md. This file is project law.
              offer: (a) review/merge the PR first, (b) fix the issue first,
              (c) push after. Do not silently push over someone else's PR —
              you can overwrite or break their work.
-12. DOCS   → ALWAYS keep progress.md and .agents/ up to date. Every commit —
-             a new entry in progress.md (what was done, which lucxVersion, which
+12. DOCS   → ALWAYS keep docs/progress.md and .agents/ up to date. Every commit —
+             a new entry in docs/progress.md (what was done, which lucxVersion, which
              files, which tests). On architecture / rules / env / debug changes —
              update the matching .agents/ file. Do not grow AGENTS.md.
              Write all agent/project docs in English (Rule 11).
@@ -97,7 +97,7 @@ legacy — don’t use them: they drift from CI on xray/mtg versions.
 #    and lose features/fixes that landed on main without their own tag.
 git fetch gh --tags
 git log --oneline v3.7.0-lucx.$((N-1))..HEAD
-# In notes and progress.md — EVERY non-docs commit from that list, not only lucx.N.
+# In notes and docs/progress.md — EVERY non-docs commit from that list, not only lucx.N.
 # Empty list except the previous release’s docs tail — OK.
 
 # 1. Wait for green CI on main, then tag — Release workflow
@@ -118,7 +118,7 @@ gh release edit v3.7.0-lucx.N --repo AlexeyLCP/lucx-ui --notes-file - <<'EOF'
 - item 2
 - …
 EOF
-# Source: lucx.N entry in progress.md (compress to 5–15 bullets, in Russian
+# Source: lucx.N entry in docs/progress.md (compress to 5–15 bullets, in Russian
 # or EN+RU). Without notes the operator sees empty “What’s new” or raw compare.
 
 # 3. Install/update the panel on a VPS:
@@ -133,7 +133,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 - The panel shows `release.Body` in the update modal (`PanelUpdateInfo.releaseNotes`).
 - Empty body → fallback `fetchCompareNotes` (raw commit subjects) — bad for testers.
 - Write **after** a successful Release workflow (`gh release edit … --notes` / `--notes-file`).
-- In parallel: entry in `progress.md` (detailed, for agents) + notes (short for UI/testers).
+- In parallel: entry in `docs/progress.md` (detailed, for agents) + notes (short for UI/testers).
 - If notes were forgotten on an already published tag — fill them immediately (`gh release edit`), don’t wait for the next release.
 
 #### Notes style (how we write for people)

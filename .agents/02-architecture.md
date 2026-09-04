@@ -143,7 +143,7 @@ bin/install-awg-module.sh          DKMS install (`--force-rebuild`, `--no-kernel
 bin/check-lucx.sh                  gofumpt check for LucX files (49) — run before push; -w autofixes
 bin/pre-push                       git hook: check-lucx + fast go tests + PR/issues guard (AGENTS.md 11.5)
 install.sh                         AWG module installs by default again (lucx.131 reverted lucx.130 opt-in) — fresh AND over-the-top installs run `bin/install-awg-module.sh` (lucx.145 no-ops when SHA already matches). Over-the-top install keeps login/password/port/webBasePath (detects existing sqlite DB / postgres env). Re-prints panel credentials from /etc/x-ui/install-result.env (LUCX-HOOK, lucx.68)
-LICENSING.md                       GPL-3.0 / PolyForm-NC split documentation
+docs/LICENSING.md                  GPL-3.0 / PolyForm-NC split documentation
 LICENSE-PolyForm-Noncommercial.txt Canonical PolyForm NC 1.0.0 text
 ```
 

@@ -7,7 +7,7 @@
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/actions"><img src="https://img.shields.io/github/actions/workflow/status/AlexeyLCP/lucx-ui/release.yml.svg" alt="Build"></a>
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases/latest"><img src="https://img.shields.io/github/downloads/AlexeyLCP/lucx-ui/total.svg" alt="Downloads"></a>
-  <a href="../../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
+  <a href="../LICENSING.md"><img src="https://img.shields.io/badge/license-GPL--3.0%20%2B%20PolyForm--NC-blue" alt="License"></a>
   <a href="https://yoomoney.ru/to/41001989176429"><img src="https://img.shields.io/badge/donate-☕-yellow" alt="Donate"></a>
   <a href="https://boosty.to/alexeylcp"><img src="https://img.shields.io/badge/boosty-subscribe-orange" alt="Boosty"></a>
 </p>
@@ -243,7 +243,7 @@ Without a kernel module, LucX `awg` inbounds still come up on embedded amneziawg
 
 ## 📜 License & Terms
 
-This project is published under **two licenses** for first-party code, plus third-party binaries/data kept under their upstream terms (full matrix in [LICENSING.md](../../LICENSING.md)):
+This project is published under **two licenses** for first-party code, plus third-party binaries/data kept under their upstream terms (full matrix in [LICENSING.md](../LICENSING.md)):
 
 <details>
 <summary><b>License matrix</b></summary>

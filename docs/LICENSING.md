@@ -4,11 +4,11 @@ LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) and uses **two l
 
 ## 1. Upstream 3x-ui code — GPL-3.0
 
-All original 3x-ui code remains under the **GNU General Public License v3.0** (see [LICENSE](LICENSE)), as required by the upstream project. This includes every file not listed below, and every upstream file that carries inline `LUCX-HOOK` integration blocks (the surrounding file stays GPL; the hook blocks themselves are small integration glue).
+All original 3x-ui code remains under the **GNU General Public License v3.0** (see [LICENSE](../LICENSE)), as required by the upstream project. This includes every file not listed below, and every upstream file that carries inline `LUCX-HOOK` integration blocks (the surrounding file stays GPL; the hook blocks themselves are small integration glue).
 
 ## 2. LucX-specific components — PolyForm Noncommercial 1.0.0
 
-The components **authored by the LucX-UI project** are licensed under the **PolyForm Noncommercial License 1.0.0** (see [LICENSE-PolyForm-Noncommercial.txt](LICENSE-PolyForm-Noncommercial.txt)):
+The components **authored by the LucX-UI project** are licensed under the **PolyForm Noncommercial License 1.0.0** (see [LICENSE-PolyForm-Noncommercial.txt](../LICENSE-PolyForm-Noncommercial.txt)):
 
 - `internal/awg/` — the entire AWG sidecar (manager, process, instance, traffic, diagnostics, NAT/orphan helpers, `cps/`, `signature/`)
 - `internal/lucx/` — Smart Cluster packages (`parser/`, `nodetype/`, `outbound_link/`) and the tunnel sidecar package (`tunnel/`)

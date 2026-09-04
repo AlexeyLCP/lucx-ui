@@ -17,8 +17,8 @@ Do not read every file. Session default: this file + `01-purpose.md` + `05-rules
 
 Also on demand, not at start:
 
-- `progress.md` — last 1–2 entries
+- `docs/progress.md` — last 1–2 entries
 - `CLAUDE.md` / `docs/architecture.md` — vanilla 3x-ui navigation
-- `LICENSING.md` — license split
+- `docs/LICENSING.md` — license split
 
 `AGENTS.md` is only a pointer. Update the matching `.agents/` file, not `AGENTS.md`.

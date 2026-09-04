@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## docs — LICENSING.md and progress.md into docs/ (2026-09-05)
+
+Root keeps GitHub/agent files (README, LICENSE*, AGENTS, CLAUDE, CONTRIBUTING, SECURITY, REVIEW). `docs/LICENSING.md`, `docs/progress.md`. Links in README, `.agents/`, locale READMEs updated.
+
+**lucxVersion:** unchanged (lucx.212)
+
+---
+
 ## docs — move locale READMEs to docs/readme/ (2026-09-05)
 
 Root keeps `README.md` (RU) and stub `README.ru_RU.md`. EN/zh/fa/ar/es/tr live in `docs/readme/`. Language switcher, LICENSING, AGENTS, screenshots relinked.

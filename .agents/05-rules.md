@@ -150,16 +150,16 @@ LucX-UI components (`internal/awg/`, `internal/awg/cps/`, `internal/awg/signatur
 
 Original 3x-ui code remains under GPL-3.0.
 
-**Every new LucX-owned file MUST carry the SPDX header** (see any existing file in `internal/awg/` for the exact 5-line block). Files with `//go:build` tags put the header after the constraint line; shell scripts after the shebang. The full split (which files are PolyForm vs GPL, why, commercial contact) is documented in [LICENSING.md](LICENSING.md); the canonical license text is [LICENSE-PolyForm-Noncommercial.txt](LICENSE-PolyForm-Noncommercial.txt). Upstream files with LUCX-HOOK blocks stay GPL — never put SPDX headers in them.
+**Every new LucX-owned file MUST carry the SPDX header** (see any existing file in `internal/awg/` for the exact 5-line block). Files with `//go:build` tags put the header after the constraint line; shell scripts after the shebang. The full split (which files are PolyForm vs GPL, why, commercial contact) is documented in [LICENSING.md](../docs/LICENSING.md); the canonical license text is [LICENSE-PolyForm-Noncommercial.txt](../LICENSE-PolyForm-Noncommercial.txt). Upstream files with LUCX-HOOK blocks stay GPL — never put SPDX headers in them.
 
 ### 11. Documentation language — English
 
 **Law:** agent and project documentation is **English only**.
 
 Write in English:
-- `.agents/*`, `progress.md`, `LICENSING.md`, and any other agent/project ops docs
+- `.agents/*`, `docs/progress.md`, `docs/LICENSING.md`, and any other agent/project ops docs
 - Architecture Map, Known Issues, Debug Patterns, workflow notes
-- New entries in `progress.md` and edits to existing doc prose
+- New entries in `docs/progress.md` and edits to existing doc prose
 
 Exceptions (do not “translate away”):
 - **Commit messages** — Russian (see Commit Convention), unless asked otherwise
@@ -167,4 +167,4 @@ Exceptions (do not “translate away”):
 - **UI i18n** — locale files under `internal/web/translation/` stay multi-language
 - Quoted user/tester phrases, log lines, or fixed product strings that are inherently non-English
 
-Do not mix Russian/Chinese prose into `.agents/` or progress.md. English keeps one style and saves tokens for every agent session.
+Do not mix Russian/Chinese prose into `.agents/` or `docs/progress.md`. English keeps one style and saves tokens for every agent session.
