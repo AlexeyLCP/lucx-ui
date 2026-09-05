@@ -1,8 +1,9 @@
 import { lazy, Suspense } from 'react';
-import { createBrowserRouter, type RouteObject } from 'react-router';
+import { createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
 import { Spin } from 'antd';
 
 import PanelLayout from '@/layouts/PanelLayout';
+import { reloadOnceOnStaleChunk } from '@/lib/stale-chunk';
 
 const IndexPage = lazy(() => import('@/pages/index/IndexPage'));
 const InboundsPage = lazy(() => import('@/pages/inbounds/InboundsPage'));
@@ -38,10 +39,20 @@ function withSuspense(node: React.ReactNode) {
   );
 }
 
+function StaleAssetReload() {
+  const error = useRouteError();
+  if (reloadOnceOnStaleChunk(error)) return null;
+  const msg = error instanceof Error ? error.message : String(error ?? '');
+  return (
+    <div style={{ padding: 48, textAlign: 'center' }}>{msg || 'Unexpected Application Error'}</div>
+  );
+}
+
 const routes: RouteObject[] = [
   {
     path: '/',
     element: <PanelLayout />,
+    errorElement: <StaleAssetReload />,
     children: [
       { index: true, element: withSuspense(<IndexPage />) },
       { path: 'inbounds', element: withSuspense(<InboundsPage />) },

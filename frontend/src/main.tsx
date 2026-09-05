@@ -7,12 +7,17 @@ import '@/styles/page-shell.css';
 import '@/styles/page-cards.css';
 
 import { setupHttp } from '@/api/http-init';
+import { reloadOnceOnStaleChunk } from '@/lib/stale-chunk';
 import { readyI18n } from '@/i18n/react';
 import { ThemeProvider } from '@/hooks/useTheme';
 import { QueryProvider } from '@/api/QueryProvider';
 import { router } from '@/routes';
 
 setupHttp();
+
+window.addEventListener('unhandledrejection', (e) => {
+  if (reloadOnceOnStaleChunk(e.reason)) e.preventDefault();
+});
 
 const messageContainer = document.getElementById('message');
 if (messageContainer) {

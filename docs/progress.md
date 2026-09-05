@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.214 — stale Vite chunk after panel update (2026-09-05)
+
+After `x-ui update` the old JS still tries to lazy-load `PanelUpdateModal-<hash>.js`. The new build has a different hash → white screen `Failed to fetch dynamically imported module`. Not a 212 regression — any Vite deploy. One sessionStorage-guarded `location.reload()`.
+
+**lucxVersion:** lucx.214
+
+---
+
 ## lucx.213 — empty client ID + database locked (2026-09-05)
 
 Adam: after 212, saving a client on AnyTLS+AWG Premium failed with `empty client ID`; deleting a node failed with `database is locked`.
