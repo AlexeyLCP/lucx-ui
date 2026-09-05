@@ -840,7 +840,7 @@
         "coverHostname": "Hostname",
         "coverHostnameHint": "Bare DNS name. Must match the TLS certificate. Naive/tproxy Behind cover must use this same name.",
         "coverRoutes": "Path routes",
-        "coverRoutesHint": "One per line: /path 127.0.0.1:port  — Xray must listen on that loopback port, not 443.",
+        "coverRoutesHint": "Leave empty unless you hide VLESS/Trojan+WS behind this site. Not for Naive — use Behind cover on that inbound. Example: /ws 127.0.0.1:10000",
         "behindCover": "Behind cover",
         "behindCoverHint": "Do not bind 443. Cover inbound terminates TLS on 80/443 and fronts this protocol. Hostname/domain must match the cover hostname.",
         "qwdttDns": "DNS",

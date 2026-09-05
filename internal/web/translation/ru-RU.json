@@ -840,7 +840,7 @@
         "coverHostname": "Hostname",
         "coverHostnameHint": "Голое DNS-имя. Должно совпадать с TLS-сертификатом. Naive/tproxy Behind cover — то же имя.",
         "coverRoutes": "Path routes",
-        "coverRoutesHint": "Строка: /path 127.0.0.1:port — Xray слушает этот loopback, не 443.",
+        "coverRoutesHint": "Пусто — нормально. Только если прячешь VLESS/Trojan+WS за сайтом. Naive сюда не писать — галка Behind cover у naive. Пример: /ws 127.0.0.1:10000",
         "behindCover": "Behind cover",
         "behindCoverHint": "Не биндить 443. Cover принимает TLS на 80/443 и фронтит этот протокол. Hostname/domain = hostname cover.",
         "qwdttDns": "DNS",
