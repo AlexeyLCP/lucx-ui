@@ -453,8 +453,7 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		injectTrustTunnelEgress(xrayConfig, inbound)
 	}
-	// tproxy routeThroughXray: dokodemo-door + iptables OUTPUT uid mtproxy
-	// (stock MTProxy has no SOCKS egress).
+	// tproxy routeThroughXray: uid REDIRECT → SOCKS5 (mtg pattern). No sniffing.
 	for i := range inbounds {
 		inbound := inbounds[i]
 		if inbound.Protocol != model.Tproxy || !inbound.Enable || inbound.NodeID != nil {
@@ -749,15 +748,7 @@ func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
 	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "naive egress", true)
 }
 
-const (
-	tproxyEgressDokodemoSettings = `{"network":"tcp","followRedirect":true}`
-	tproxyEgressDokodemoSockopt  = `{"sockopt":{"tproxy":"redirect"}}`
-)
-
 func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
-	if !tunnel.TproxyXrayRouting {
-		return
-	}
 	var parsed struct {
 		RouteThroughXray bool   `json:"routeThroughXray"`
 		RouteXrayPort    int    `json:"routeXrayPort"`
@@ -769,13 +760,16 @@ func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 	if !parsed.RouteThroughXray || parsed.RouteXrayPort <= 0 || inbound.Tag == "" {
 		return
 	}
-	tag := inbound.Tag
 	for i := range cfg.InboundConfigs {
-		if cfg.InboundConfigs[i].Tag == tag {
-			logger.Warning("tproxy egress: inbound tag [", tag, "] already present in generated config, skipping bridge")
+		if cfg.InboundConfigs[i].Tag == inbound.Tag {
+			logger.Warning("tproxy egress: inbound tag [", inbound.Tag, "] already present, skipping bridge")
+			return
+		}
+		if cfg.InboundConfigs[i].Protocol == "socks" && cfg.InboundConfigs[i].Port == parsed.RouteXrayPort {
 			return
 		}
 	}
+	tag := inbound.Tag
 	if parsed.OutboundTag != "" {
 		routing := map[string]any{}
 		parseOK := true
@@ -786,7 +780,7 @@ func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 			}
 		}
 		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, parsed.OutboundTag) {
-			logger.Warning("tproxy egress: target tag [", parsed.OutboundTag, "] not found, injecting dokodemo without force-route")
+			logger.Warning("tproxy egress: target tag [", parsed.OutboundTag, "] not found, injecting SOCKS without force-route")
 			parseOK = false
 		}
 		if parseOK {
@@ -810,12 +804,11 @@ func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 		}
 	}
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
-		Listen:         json_util.RawMessage(`"127.0.0.1"`),
-		Port:           parsed.RouteXrayPort,
-		Protocol:       "dokodemo-door",
-		Settings:       json_util.RawMessage(tproxyEgressDokodemoSettings),
-		StreamSettings: json_util.RawMessage(tproxyEgressDokodemoSockopt),
-		Tag:            tag,
+		Listen:   json_util.RawMessage(`"127.0.0.1"`),
+		Port:     parsed.RouteXrayPort,
+		Protocol: "socks",
+		Settings: json_util.RawMessage(mtprotoEgressSocksSettings),
+		Tag:      tag,
 	})
 }
 
@@ -1970,6 +1963,7 @@ func (s *XrayService) RestartXray(isForce bool) error {
 	// synchronously with the restart, so there is no window.
 	s.ensureAwgRouting()
 	s.ensureQwdttRouting()
+	s.ensureTproxyRouting()
 	// END LUCX-HOOK
 
 	return nil
@@ -2012,6 +2006,22 @@ func (s *XrayService) ensureQwdttRouting() {
 		}
 		if inst, ok := tunnel.QwdttInstanceFromInbound(ib); ok && inst.RouteThroughXray {
 			tunnel.GetManager().EnsureQwdttRouting(inst)
+		}
+	}
+}
+
+func (s *XrayService) ensureTproxyRouting() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		return
+	}
+	for _, ib := range inbounds {
+		if ib.Protocol != model.Tproxy || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		if cfg, ok := tunnel.TproxyConfigFromInbound(ib); ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0 {
+			tunnel.EnsureMtproxyXraySocks(cfg.RouteXrayPort)
+			return
 		}
 	}
 }

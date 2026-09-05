@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.219 — tproxy via Xray SOCKS (2026-09-06)
+
+WEB proxy `routeThroughXray` is back. Dokodemo REDIRECT (lucx.208–211) and a TUN/fwmark attempt both stalled MTProto (CLOSE-WAIT). Wrap is now uid `lucx-mtproxy` REDIRECT → panel SOCKS5 bridge (`:23990`) → hidden Xray SOCKS inbound, no sniffing (mtg pattern). Host `mtproxy` is not redirected. Cover in front of tproxy: `header -Via`, h1/h2 only. UI toggle restored. Default still off.
+
+Tests: `TestInjectTproxyEgress_SocksNoSniffing`, `TestMtproxyXrayRedirectArgs_OwnerNotCatchAll`, `TestTproxyConfigRouteThroughXray`.
+
+**lucxVersion:** lucx.219
+
+---
+
 ## lucx.218 — sidecar + AWG upstream bump (2026-09-06)
 
 Refreshed pinned sidecar binaries and AWG kmod/go. CLI/TOML/YAML unchanged; TrustTunnel `per_client_metrics` stays off (default).

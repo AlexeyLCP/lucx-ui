@@ -26,7 +26,7 @@ const (
 	telegramProxySecretURL = "https://core.telegram.org/getProxySecret"
 	telegramProxyConfigURL = "https://core.telegram.org/getProxyConfig"
 	mtproxyAssetMaxBytes   = 2 << 20
-	mtproxyEngineUser      = "mtproxy"
+	mtproxyEngineUser      = "lucx-mtproxy"
 )
 
 func mtproxyAssetsDir() string {

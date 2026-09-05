@@ -1280,35 +1280,25 @@ func TestNaiveBridgeChanged(t *testing.T) {
 	}
 }
 
-func TestInjectTproxyEgress_DokodemoFollowRedirect(t *testing.T) {
+func TestInjectTproxyEgress_SocksNoSniffing(t *testing.T) {
 	cfg := egressTestConfig()
-	before := len(cfg.InboundConfigs)
 	ib := &model.Inbound{
 		Id: 18, Tag: "in-tproxy-18", Protocol: model.Tproxy, Enable: true,
 		Settings: `{"routeThroughXray":true,"routeXrayPort":39150}`,
 	}
 	injectTproxyEgress(cfg, ib)
-	if !tunnel.TproxyXrayRouting {
-		if len(cfg.InboundConfigs) != before {
-			t.Fatal("via Xray parked: must not inject dokodemo")
-		}
-		return
-	}
 	if len(cfg.InboundConfigs) < 2 {
-		t.Fatal("expected dokodemo bridge")
+		t.Fatal("expected SOCKS bridge")
 	}
 	got := cfg.InboundConfigs[len(cfg.InboundConfigs)-1]
-	if got.Protocol != "dokodemo-door" || got.Port != 39150 {
+	if got.Protocol != "socks" || got.Port != 39150 {
 		t.Fatalf("got proto=%s port=%d", got.Protocol, got.Port)
 	}
-	if !strings.Contains(string(got.Settings), "followRedirect") {
-		t.Fatalf("settings = %s", got.Settings)
-	}
-	if !strings.Contains(string(got.StreamSettings), `"tproxy":"redirect"`) {
-		t.Fatalf("dokodemo must set sockopt.tproxy=redirect, got %s", got.StreamSettings)
+	if got.Protocol == "dokodemo-door" || got.Protocol == "tun" {
+		t.Fatal("dokodemo/TUN must not return")
 	}
 	if strings.Contains(string(got.Sniffing), `"enabled":true`) || strings.Contains(string(got.Sniffing), "destOverride") {
-		t.Fatalf("mtproxy DC sockets are not TLS; sniffing stalls dokodemo, got %s", got.Sniffing)
+		t.Fatalf("mtproxy DC sockets are not TLS; sniffing stalls xray, got %s", got.Sniffing)
 	}
 }
 

@@ -38,34 +38,39 @@ func ClearMtproxyLocalOnly(id int) {
 	_ = clearMtproxyIptables(tproxyMtproxyComment(id))
 }
 
-// EnsureMtproxyXrayRedirect hijacks MTProxy's DC TCP (uid mtproxy, not
-// loopback) into a local dokodemo-door. Stock MTProxy has no SOCKS egress;
-// this is the wrap. All tproxy inbounds share that uid — one redirect.
-func EnsureMtproxyXrayRedirect(port int) {
-	comment := tproxyXrayComment()
-	_ = clearIptablesNatOutput(comment)
-	if port <= 0 {
+func EnsureMtproxyXraySocks(socksPort int) {
+	clearTproxyTunLeftovers()
+	if socksPort <= 0 {
 		return
 	}
 	u, err := user.Lookup(mtproxyEngineUser)
 	if err != nil {
-		logger.Warningf("tunnel: tproxy xray redirect skipped: no %s user", mtproxyEngineUser)
+		logger.Warningf("tunnel: tproxy xray socks skipped: no %s user", mtproxyEngineUser)
 		return
 	}
 	if !mtproxyRedirectUIDOK(u.Uid) {
-		logger.Warningf("tunnel: tproxy xray redirect skipped: %s uid=%s (root would hijack all TCP)", mtproxyEngineUser, u.Uid)
+		logger.Warningf("tunnel: tproxy xray socks skipped: %s uid=%s", mtproxyEngineUser, u.Uid)
 		return
 	}
+	startTproxySocksBridge(tproxySocksRedirectPort, socksPort)
+	_ = clearIptablesNatOutput(tproxyXrayComment())
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	args := mtproxyXrayRedirectArgs(u.Uid, port)
-	if err := exec.CommandContext(ctx, "iptables", args...).Run(); err != nil {
-		logger.Warningf("tunnel: tproxy xray redirect iptables: %v", err)
+	if err := exec.CommandContext(ctx, "iptables", mtproxyXrayRedirectArgs(u.Uid, tproxySocksRedirectPort)...).Run(); err != nil {
+		logger.Warningf("tunnel: tproxy xray socks iptables: %v", err)
 	}
 }
 
-func ClearMtproxyXrayRedirect() {
+func ClearMtproxyXraySocks() {
 	_ = clearIptablesNatOutput(tproxyXrayComment())
+	clearTproxyTunLeftovers()
+}
+
+func clearTproxyTunLeftovers() {
+	_ = clearIptablesMangleOutput(tproxyXrayComment())
+	_ = clearIptablesTableChain(tproxyXrayComment(), "nat", "POSTROUTING")
+	_ = exec.CommandContext(context.Background(), "ip", "rule", "del", "fwmark", "29120", "lookup", "1800").Run()
+	_ = exec.CommandContext(context.Background(), "ip", "route", "flush", "table", "1800").Run()
 }
 
 func clearMtproxyIptables(comment string) error {
@@ -88,17 +93,26 @@ func clearMtproxyIptables(comment string) error {
 }
 
 func clearIptablesNatOutput(comment string) error {
+	return clearIptablesTableChain(comment, "nat", "OUTPUT")
+}
+
+func clearIptablesMangleOutput(comment string) error {
+	return clearIptablesTableChain(comment, "mangle", "OUTPUT")
+}
+
+func clearIptablesTableChain(comment, table, chain string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "iptables-save", "-t", "nat").Output()
+	out, err := exec.CommandContext(ctx, "iptables-save", "-t", table).Output()
 	if err != nil {
 		return err
 	}
+	prefix := "-A " + chain + " "
 	for _, line := range strings.Split(string(out), "\n") {
-		if !strings.Contains(line, comment) || !strings.HasPrefix(line, "-A OUTPUT") {
+		if !strings.Contains(line, comment) || !strings.HasPrefix(line, prefix) {
 			continue
 		}
-		args := append([]string{"-t", "nat", "-D", "OUTPUT"}, strings.Fields(strings.TrimPrefix(line, "-A OUTPUT "))...)
+		args := append([]string{"-t", table, "-D", chain}, strings.Fields(strings.TrimPrefix(line, prefix))...)
 		c2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
 		_ = exec.CommandContext(c2, "iptables", args...).Run()
 		cancel2()

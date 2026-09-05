@@ -13,6 +13,7 @@ import { useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
 import { tunnelsApi } from '@/api/tunnels';
+import { useOutboundTags } from '@/api/queries/useOutboundTags';
 import { useAwgInboundId } from '../awg-inbound-id-context';
 
 const SITE_PROMPT =
@@ -22,6 +23,8 @@ export default function TproxyFields() {
   const { t } = useTranslation();
   const inboundId = useAwgInboundId();
   const siteSource = useWatch({ name: 'settings.siteSource' }) as string | undefined;
+  const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
+  const { data: outboundTags } = useOutboundTags();
   const [busy, setBusy] = useState(false);
   const siteQuery = useQuery({
     queryKey: ['tproxySiteFiles', inboundId],
@@ -132,6 +135,30 @@ export default function TproxyFields() {
           tooltip={t('pages.inbounds.form.tproxySiteUpstreamHint')}
         >
           <Input placeholder="http://127.0.0.1:3000" />
+        </FormField>
+      )}
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.tproxyRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.tproxyRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.naiveRouteOutbound')}
+          tooltip={t('pages.inbounds.form.naiveRouteOutboundHint')}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            options={[
+              { value: '', label: t('pages.inbounds.form.naiveRouteOutboundPlaceholder') },
+              ...(outboundTags || []).map((tag) => ({ value: tag, label: tag })),
+            ]}
+          />
         </FormField>
       )}
       <FormField name={['settings', 'carrierMode']} label={t('pages.inbounds.form.tproxyCarrier')}>

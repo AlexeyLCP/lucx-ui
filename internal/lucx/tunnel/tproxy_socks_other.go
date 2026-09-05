@@ -8,10 +8,4 @@
 
 package tunnel
 
-func EnsureMtproxyLocalOnly(id int) {}
-
-func ClearMtproxyLocalOnly(id int) {}
-
-func EnsureMtproxyXraySocks(socksPort int) {}
-
-func ClearMtproxyXraySocks() {}
+func startTproxySocksBridge(redirPort, socksPort int) {}

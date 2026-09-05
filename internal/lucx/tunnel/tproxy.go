@@ -22,9 +22,11 @@ const (
 	Tproxy            Name = "tproxy"
 	Mtproxy           Name = "mtproxy"
 	TproxyCaddy       Name = "tproxycaddy"
-	tproxyDefaultPort      = 443
-	TproxyXrayRouting      = false
+	tproxyDefaultPort         = 443
+	tproxySocksRedirectPort   = 23990
 )
+
+func TproxySocksRedirectPort() int { return tproxySocksRedirectPort }
 
 // TproxySitePrompt is the operator-facing generator prompt from
 // telegramdesktop/tproxy-server PUBLIC_SITE.md. Copied to the clipboard so
@@ -184,8 +186,7 @@ func tproxyLoopback(id, offset int) int {
 func tproxyXrayComment() string { return "lucx-tproxy-xray" }
 
 // mtproxyRedirectUIDOK rejects root: a NAT OUTPUT REDIRECT on uid 0
-// hijacks every locally generated TCP (Xray, Caddy, the panel) and
-// kills all routing until the tproxy inbound is disabled.
+// hijacks every locally generated TCP (Xray, Caddy, the panel).
 func mtproxyRedirectUIDOK(uid string) bool {
 	return uid != "" && uid != "0"
 }

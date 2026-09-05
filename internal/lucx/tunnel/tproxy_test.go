@@ -87,12 +87,8 @@ func TestTproxyConfigRouteThroughXray(t *testing.T) {
 	if !ok {
 		t.Fatal("parse")
 	}
-	if TproxyXrayRouting {
-		if !cfg.RouteThroughXray || cfg.RouteXrayPort != 39111 || cfg.OutboundTag != "warp" {
-			t.Fatalf("got %+v", cfg)
-		}
-	} else if cfg.RouteThroughXray || cfg.RouteXrayPort != 0 {
-		t.Fatalf("via Xray parked, got %+v", cfg)
+	if !cfg.RouteThroughXray || cfg.RouteXrayPort != 39111 || cfg.OutboundTag != "warp" {
+		t.Fatalf("got %+v", cfg)
 	}
 	plain := *ib
 	plain.Settings = `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f"}`
@@ -112,12 +108,12 @@ func TestMtproxyRedirectUIDOK(t *testing.T) {
 }
 
 func TestMtproxyXrayRedirectArgs_OwnerNotCatchAll(t *testing.T) {
-	args := mtproxyXrayRedirectArgs("123", 39111)
+	args := mtproxyXrayRedirectArgs("123", tproxySocksRedirectPort)
 	joined := strings.Join(args, " ")
 	if !strings.Contains(joined, "--uid-owner 123") {
 		t.Fatalf("must pin numeric uid, got %s", joined)
 	}
-	if strings.Contains(joined, "--uid-owner 0") || !strings.Contains(joined, "REDIRECT") {
+	if !strings.Contains(joined, "REDIRECT") || strings.Contains(joined, "--uid-owner 0") {
 		t.Fatalf("got %s", joined)
 	}
 }

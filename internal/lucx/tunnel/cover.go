@@ -131,13 +131,19 @@ type coverAttach struct {
 
 func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	var b strings.Builder
-	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tskip_install_trust\n}\n")
+	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tskip_install_trust\n")
+	if a.tproxyRelay > 0 {
+		b.WriteString("\tservers {\n\t\tprotocols h1 h2\n\t}\n")
+	}
+	b.WriteString("}\n")
 	b.WriteString(":" + strconv.Itoa(coverHTTPPort) + " {\n\tredir https://{host}{uri} permanent\n}\n")
 	b.WriteString(hostname + ":" + strconv.Itoa(coverHTTPSPort) + " {\n")
 	if strings.TrimSpace(cert) != "" && strings.TrimSpace(key) != "" {
 		b.WriteString("\ttls " + caddyToken(cert) + " " + caddyToken(key) + "\n")
 	}
 	if a.tproxyRelay > 0 {
+		b.WriteString("\tencode zstd gzip\n")
+		b.WriteString("\theader -Via\n")
 		b.WriteString("\treverse_proxy 127.0.0.1:" + strconv.Itoa(a.tproxyRelay) +
 			" {\n\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")
 		return b.String()

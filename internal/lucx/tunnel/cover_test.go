@@ -40,8 +40,10 @@ func TestRenderCoverCaddyfile_TproxyWins(t *testing.T) {
 		routes:         []CoverRoute{{Path: "/ws", Dest: "127.0.0.1:10000"}},
 		publicUpstream: "http://127.0.0.1:3000",
 	})
-	if !strings.Contains(got, "reverse_proxy 127.0.0.1:24002") {
-		t.Fatalf("tproxy relay missing:\n%s", got)
+	for _, need := range []string{"reverse_proxy 127.0.0.1:24002", "header -Via", "protocols h1 h2", "encode zstd gzip"} {
+		if !strings.Contains(got, need) {
+			t.Fatalf("tproxy caddy missing %q:\n%s", need, got)
+		}
 	}
 	for _, no := range []string{"file_server", "forward_proxy", "handle /ws", "127.0.0.1:3000"} {
 		if strings.Contains(got, no) {
