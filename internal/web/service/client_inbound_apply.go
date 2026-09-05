@@ -23,6 +23,63 @@ func shareOnlySidecar(p model.Protocol) bool {
 	return p == model.Qwdtt || p == model.Olcrtc || p == model.Tproxy
 }
 
+func missingClientCredential(p model.Protocol, c model.Client) error {
+	switch p {
+	case model.Trojan:
+		if c.Password == "" {
+			return common.NewError("empty client ID")
+		}
+	case model.Shadowsocks:
+		if strings.TrimSpace(c.Email) == "" {
+			return common.NewError("empty client ID")
+		}
+	case model.Hysteria:
+		if c.Auth == "" {
+			return common.NewError("empty client ID")
+		}
+	case model.WireGuard, model.AmneziaWG:
+		if c.PublicKey == "" {
+			return common.NewError("wireguard client requires a key")
+		}
+	case model.AWG:
+		if c.PublicKey == "" {
+			return common.NewError("awg client requires a key")
+		}
+	case model.MTProto:
+		if c.Secret == "" {
+			return common.NewError("mtproto client requires a secret")
+		}
+		if c.AdTag != "" && !model.ValidMtprotoAdTag(c.AdTag) {
+			return common.NewError("mtproto client ad tag must be 32 hex characters")
+		}
+	case model.VMESS, model.VLESS:
+		if c.ID == "" {
+			return common.NewError("empty client ID")
+		}
+	default:
+		if strings.TrimSpace(c.Email) == "" && c.ID == "" {
+			return common.NewError("empty client ID")
+		}
+	}
+	return nil
+}
+
+func inboundClientKey(p model.Protocol, c model.Client) string {
+	switch p {
+	case model.Trojan:
+		return c.Password
+	case model.Hysteria:
+		return c.Auth
+	case model.VMESS, model.VLESS:
+		return c.ID
+	default:
+		if e := strings.TrimSpace(c.Email); e != "" {
+			return e
+		}
+		return c.ID
+	}
+}
+
 // protoReconfiguresInPlace: its manager adopts a new config without dropping
 // the live one, so an edit must arrive as UpdateInbound, not DelInbound+Add.
 func protoReconfiguresInPlace(p model.Protocol) bool {
@@ -498,39 +555,8 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 		if strings.TrimSpace(client.Email) == "" {
 			return false, common.NewError("client email is required")
 		}
-		switch oldInbound.Protocol {
-		case "trojan":
-			if client.Password == "" {
-				return false, common.NewError("empty client ID")
-			}
-		case "shadowsocks":
-			if client.Email == "" {
-				return false, common.NewError("empty client ID")
-			}
-		case "hysteria":
-			if client.Auth == "" {
-				return false, common.NewError("empty client ID")
-			}
-		case "wireguard", "amneziawg":
-			if client.PublicKey == "" {
-				return false, common.NewError("wireguard client requires a key")
-			}
-		case "awg": // LUCX-HOOK: AWG
-			if client.PublicKey == "" {
-				return false, common.NewError("awg client requires a key")
-			}
-		// END LUCX-HOOK
-		case "mtproto":
-			if client.Secret == "" {
-				return false, common.NewError("mtproto client requires a secret")
-			}
-			if client.AdTag != "" && !model.ValidMtprotoAdTag(client.AdTag) {
-				return false, common.NewError("mtproto client ad tag must be 32 hex characters")
-			}
-		default:
-			if client.ID == "" {
-				return false, common.NewError("empty client ID")
-			}
+		if err := missingClientCredential(oldInbound.Protocol, client); err != nil {
+			return false, err
 		}
 		if oldInbound.Protocol == model.AmneziaWG || oldInbound.Protocol == model.AWG {
 			if hit := inboundSvc.checkForwardedPortsConflict(portCtx, client.ForwardedPorts); hit != "" {
@@ -701,7 +727,13 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 }
 
 func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *model.Inbound, oldEmail string) (bool, error) {
-	defer lockInbound(data.Id).Unlock()
+	mu := lockInbound(data.Id)
+	held := true
+	defer func() {
+		if held {
+			mu.Unlock()
+		}
+	}()
 
 	oldInbound, err := inboundSvc.GetInbound(data.Id)
 	if err != nil {
@@ -714,6 +746,9 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 	clients, err := inboundSvc.GetClients(data)
 	if err != nil {
 		return false, err
+	}
+	if len(clients) == 0 {
+		return false, common.NewError("empty client ID")
 	}
 
 	var settings map[string]any
@@ -729,27 +764,8 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		return false, err
 	}
 
-	newClientId := ""
-	switch oldInbound.Protocol {
-	case "trojan":
-		newClientId = clients[0].Password
-	case "shadowsocks":
-		newClientId = clients[0].Email
-	case "hysteria":
-		newClientId = clients[0].Auth
-	case "wireguard", "amneziawg":
-		newClientId = clients[0].Email
-	case "awg": // LUCX-HOOK: AWG
-		newClientId = clients[0].Email
-	case "mtproto":
-		newClientId = clients[0].Email
-	default:
-		newClientId = clients[0].ID
-	}
+	newClientId := inboundClientKey(oldInbound.Protocol, clients[0])
 
-	// Locate the client to replace by email — the client's stable identity.
-	// Credentials (uuid/password/auth) can drift from the inbound JSON, so they
-	// are never used for matching.
 	clientIndex := -1
 	for index, oldClient := range oldClients {
 		if strings.EqualFold(oldClient.Email, oldEmail) {
@@ -759,8 +775,13 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		}
 	}
 
-	if newClientId == "" || clientIndex == -1 {
+	if newClientId == "" {
 		return false, common.NewError("empty client ID")
+	}
+	if clientIndex == -1 {
+		held = false
+		mu.Unlock()
+		return s.AddInboundClient(inboundSvc, data)
 	}
 	if strings.TrimSpace(clients[0].Email) == "" {
 		return false, common.NewError("client email is required")

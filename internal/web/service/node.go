@@ -840,7 +840,7 @@ func (s *NodeService) Delete(id int) error {
 	// children (traffic baselines, IP attribution) before the parent node row so
 	// the ordering already matches a future ON DELETE constraint. Delete stays
 	// tolerant of a missing node row so it can still clean up orphaned baselines.
-	if err := db.Transaction(func(tx *gorm.DB) error {
+	if err := runSerializedTx(func(tx *gorm.DB) error {
 		if err := tx.Where("node_id = ?", id).Delete(&model.NodeClientTraffic{}).Error; err != nil {
 			return err
 		}

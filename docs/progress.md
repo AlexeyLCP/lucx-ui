@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.213 — empty client ID + database locked (2026-09-05)
+
+Adam: after 212, saving a client on AnyTLS+AWG Premium failed with `empty client ID`; deleting a node failed with `database is locked`.
+
+Email-keyed protocols (AnyTLS, naive, mieru, TrustTunnel, …) no longer require a UUID. If the peer is missing from inbound settings JSON, update falls through to attach. Node delete writes through the same serial traffic-writer queue as client/inbound mutations.
+
+Test: `TestCreateAndAttach_AnyTLSThenAWG`.
+
+**lucxVersion:** lucx.213
+
+---
+
 ## docs — LICENSING.md and progress.md into docs/ (2026-09-05)
 
 Root keeps GitHub/agent files (README, LICENSE*, AGENTS, CLAUDE, CONTRIBUTING, SECURITY, REVIEW). `docs/LICENSING.md`, `docs/progress.md`. Links in README, `.agents/`, locale READMEs updated.

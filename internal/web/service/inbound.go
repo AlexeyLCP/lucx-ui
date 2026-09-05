@@ -2066,41 +2066,12 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 		inbound.Settings = normalized
 	}
 
-	// Secure client ID
 	for _, client := range clients {
-		switch inbound.Protocol {
-		case "trojan":
-			if client.Password == "" {
-				return inbound, false, common.NewError("empty client ID")
-			}
-		case "shadowsocks":
-			if client.Email == "" {
-				return inbound, false, common.NewError("empty client ID")
-			}
-		case "hysteria":
-			if client.Auth == "" {
-				return inbound, false, common.NewError("empty client ID")
-			}
-		case "wireguard", "amneziawg":
-			if client.PublicKey == "" {
-				return inbound, false, common.NewError("wireguard client requires a key")
-			}
-		case "awg":
-			// LUCX-HOOK: AWG clients receive keypair/PSK/tunnel address from
-			// defaultAwgClients below — nothing to validate before allocation
-			// (unlike wireguard the key may legitimately be blank at this point).
-			// END LUCX-HOOK
-		case "mtproto":
-			if client.Secret == "" {
-				return inbound, false, common.NewError("mtproto client requires a secret")
-			}
-			if client.AdTag != "" && !model.ValidMtprotoAdTag(client.AdTag) {
-				return inbound, false, common.NewError("mtproto client ad tag must be 32 hex characters")
-			}
-		default:
-			if client.ID == "" {
-				return inbound, false, common.NewError("empty client ID")
-			}
+		if inbound.Protocol == model.AWG {
+			continue
+		}
+		if err := missingClientCredential(inbound.Protocol, client); err != nil {
+			return inbound, false, err
 		}
 	}
 

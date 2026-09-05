@@ -865,3 +865,35 @@ func TestDisableAttachEnable_Awg2ThenAwg31(t *testing.T) {
 		t.Errorf("client record still disabled")
 	}
 }
+
+func TestCreateAndAttach_AnyTLSThenAWG(t *testing.T) {
+	setupBulkDB(t)
+	svc := &ClientService{}
+	inboundSvc := &InboundService{}
+
+	anytlsIb := mkInbound(t, 443, model.Anytls, `{"clients":[]}`)
+	awgIb := mkInbound(t, 51820, model.AWG, `{"address":"10.50.1.1/24","awgVersion":"3.1","clients":[]}`)
+
+	if _, err := svc.Create(inboundSvc, &ClientCreatePayload{
+		Client:     model.Client{Email: "adam@x", SubID: "sub-adam", Enable: true},
+		InboundIds: []int{anytlsIb.Id},
+	}); err != nil {
+		t.Fatalf("create on anytls: %v", err)
+	}
+	rec := lookupClientRecord(t, "adam@x")
+	if _, err := svc.Attach(inboundSvc, rec.Id, []int{awgIb.Id}); err != nil {
+		t.Fatalf("attach anytls client to awg: %v", err)
+	}
+	peer := awgPeer(t, inboundSvc, awgIb.Id, "adam@x")
+	if peer.PublicKey == "" {
+		t.Fatal("awg attach minted no public key")
+	}
+	if _, err := svc.Update(inboundSvc, rec.Id, model.Client{
+		Email:   "adam@x",
+		SubID:   "sub-adam",
+		Enable:  true,
+		Comment: "saved",
+	}, 0); err != nil {
+		t.Fatalf("update client on anytls+awg: %v", err)
+	}
+}
