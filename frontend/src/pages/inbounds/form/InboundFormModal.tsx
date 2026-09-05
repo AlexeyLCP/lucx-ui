@@ -79,6 +79,7 @@ import {
   TrustTunnelFields, // LUCX-HOOK: TrustTunnel
   AnytlsFields, // LUCX-HOOK: AnyTLS
   TproxyFields, // LUCX-HOOK: Telegram WEB proxy
+  CoverFields, // LUCX-HOOK: cover site
   ShadowsocksFields,
   TunFields,
   TunnelFields,
@@ -625,7 +626,8 @@ export default function InboundFormModal({
         next === Protocols.MIERU ||
         next === Protocols.TRUSTTUNNEL ||
         next === Protocols.ANYTLS ||
-        next === Protocols.TPROXY
+        next === Protocols.TPROXY ||
+        next === Protocols.COVER
       ) {
         setV('streamSettings', { security: 'none' });
         // LUCX-HOOK: qWDTT Port must match DTLS listen (backend also normalizes).
@@ -644,7 +646,7 @@ export default function InboundFormModal({
         if (next === Protocols.ANYTLS) {
           setV('port', 8443);
         }
-        if (next === Protocols.TPROXY) {
+        if (next === Protocols.TPROXY || next === Protocols.COVER) {
           setV('port', 443);
         }
         // END LUCX-HOOK
@@ -949,6 +951,7 @@ export default function InboundFormModal({
       {protocol === Protocols.TRUSTTUNNEL && <TrustTunnelFields />}
       {protocol === Protocols.ANYTLS && <AnytlsFields />}
       {protocol === Protocols.TPROXY && <TproxyFields />}
+      {protocol === Protocols.COVER && <CoverFields />}
       {/* END LUCX-HOOK */}
 
       {protocol === Protocols.SHADOWSOCKS && <ShadowsocksFields isSSWith2022={isSSWith2022} />}
@@ -1291,6 +1294,7 @@ export default function InboundFormModal({
                       Protocols.TRUSTTUNNEL,
                       Protocols.ANYTLS,
                       Protocols.TPROXY,
+                      Protocols.COVER,
                     ] as string[]
                   ).includes(protocol) || isFallbackHost
                     ? [

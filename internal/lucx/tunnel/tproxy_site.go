@@ -102,7 +102,10 @@ func ExtractTproxySiteZip(dest string, zipBytes []byte) error {
 }
 
 func ListTproxySite(id int) []string {
-	dir := TproxySiteDir(id)
+	return ListSiteFiles(TproxySiteDir(id))
+}
+
+func ListSiteFiles(dir string) []string {
 	var out []string
 	_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() {

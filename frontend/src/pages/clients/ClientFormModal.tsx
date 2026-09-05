@@ -69,6 +69,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'olcrtc',
   'anytls',
   'tproxy',
+  'cover',
 ]);
 
 const CLIENT_FORM_MODAL_Z_INDEX = 1000;

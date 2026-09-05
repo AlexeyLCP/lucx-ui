@@ -88,6 +88,9 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 	if ib.Protocol == model.Tproxy {
 		return l.ensureTproxyInbound(ib)
 	}
+	if ib.Protocol == model.Cover {
+		return l.ensureCoverInbound(ib)
+	}
 	// END LUCX-HOOK
 	if ib.Protocol == model.AmneziaWG {
 		inst, ok := amneziawg.InstanceFromInbound(ib)
@@ -140,6 +143,7 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 	// LUCX-HOOK: tunnel inbound teardown.
 	if ib.Protocol == model.Naive {
 		tunnel.GetManager().Remove(tunnel.NaiveKey(ib.Id))
+		l.refreshCoverFronts()
 		return nil
 	}
 	if ib.Protocol == model.Olcrtc {
@@ -168,6 +172,11 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		tunnel.GetManager().Remove(tunnel.TproxyKey(id))
 		tunnel.GetManager().Remove(tunnel.MtproxyKey(id))
 		tunnel.ClearMtproxyLocalOnly(id)
+		l.refreshCoverFronts()
+		return nil
+	}
+	if ib.Protocol == model.Cover {
+		tunnel.GetManager().Remove(tunnel.CoverKey(ib.Id))
 		return nil
 	}
 	// END LUCX-HOOK
@@ -220,7 +229,7 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func isTunnelInboundProto(p model.Protocol) bool {
-	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover
 }
 
 // ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret
@@ -232,7 +241,11 @@ func (l *Local) ensureNaiveInbound(ib *model.Inbound) error {
 	if !ok {
 		return nil
 	}
-	return tunnel.GetManager().Ensure(inst)
+	if err := tunnel.GetManager().Ensure(inst); err != nil {
+		return err
+	}
+	l.refreshCoverFronts()
+	return nil
 }
 
 func (l *Local) ensureOlcrtcInbound(ib *model.Inbound) error {
@@ -291,6 +304,37 @@ func (l *Local) updateTproxyInbound(ctx context.Context, oldIb, newIb *model.Inb
 	return l.ensureTproxyInbound(newIb)
 }
 
+func (l *Local) ensureCoverInbound(ib *model.Inbound) error {
+	cert, key := panelCertFilesForRuntime()
+	inst, ok := tunnel.CoverInstanceFromInbound(ib, listLocalInboundsForCover(), panelSecretBytes(), cert, key)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func listLocalInboundsForCover() []*model.Inbound {
+	var rows []*model.Inbound
+	_ = database.GetDB().Where("node_id IS NULL").Find(&rows).Error
+	return rows
+}
+
+func (l *Local) refreshCoverFronts() {
+	cert, key := panelCertFilesForRuntime()
+	others := listLocalInboundsForCover()
+	secret := panelSecretBytes()
+	mgr := tunnel.GetManager()
+	for _, ib := range others {
+		if ib == nil || ib.Protocol != model.Cover {
+			continue
+		}
+		inst, ok := tunnel.CoverInstanceFromInbound(ib, others, secret, cert, key)
+		if ok {
+			_ = mgr.Ensure(inst)
+		}
+	}
+}
+
 func (l *Local) ensureTproxyInbound(ib *model.Inbound) error {
 	cert, key := panelCertFilesForRuntime()
 	insts, ok := tunnel.TproxyInstancesFromInbound(ib, cert, key)
@@ -303,6 +347,7 @@ func (l *Local) ensureTproxyInbound(ib *model.Inbound) error {
 			return err
 		}
 	}
+	l.refreshCoverFronts()
 	if ib.Enable {
 		tunnel.EnsureMtproxyLocalOnly(ib.Id)
 	} else {

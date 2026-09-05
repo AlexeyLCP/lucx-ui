@@ -340,6 +340,8 @@ func removeManagedFiles(key string) {
 		core = Anytls
 	case strings.HasPrefix(key, "tproxycaddy-"):
 		core = TproxyCaddy
+	case strings.HasPrefix(key, "cover-"):
+		core = Cover
 	case strings.HasPrefix(key, "tproxy-"):
 		core = Tproxy
 	case strings.HasPrefix(key, "mtproxy-"):
@@ -375,7 +377,7 @@ func removeManagedFiles(key string) {
 }
 
 func isMultiInstanceKey(key string) bool {
-	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-", "anytls-", "tproxycaddy-", "tproxy-", "mtproxy-", "naiveout-", "mieruout-", "ttout-"} {
+	for _, p := range []string{"trusttunnel-", "mieru-", "naive-", "olcrtc-", "anytls-", "tproxycaddy-", "cover-", "tproxy-", "mtproxy-", "naiveout-", "mieruout-", "ttout-"} {
 		if strings.HasPrefix(key, p) && len(key) > len(p) {
 			return true
 		}
@@ -664,6 +666,10 @@ func (m *Manager) ReconcileMtproxy(want []Instance) {
 
 func (m *Manager) ReconcileTproxyCaddy(want []Instance) {
 	m.ReconcileWanted(TproxyCaddy, "tproxycaddy-", string(TproxyCaddy), want)
+}
+
+func (m *Manager) ReconcileCover(want []Instance) {
+	m.ReconcileWanted(Cover, "cover-", string(Cover), want)
 }
 
 // ReconcileWanted Ensures each wanted instance of core and Removes orphan

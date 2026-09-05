@@ -75,6 +75,7 @@ var nodeEligibleProtocols = map[model.Protocol]bool{
 	model.TrustTunnel: true,
 	model.Anytls:      true,
 	model.Tproxy:      true,
+	model.Cover:       true,
 	// END LUCX-HOOK
 }
 

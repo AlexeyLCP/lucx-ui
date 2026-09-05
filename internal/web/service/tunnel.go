@@ -348,6 +348,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileTrustTunnelInbounds()
 	s.reconcileAnytlsInbounds()
 	s.reconcileTproxyInbounds()
+	s.reconcileCoverInbounds()
 }
 
 // tunnelBlobMigrated reports whether the legacy settings blob carries the
@@ -620,6 +621,28 @@ func (s *TunnelService) reconcileTproxyInbounds() {
 	mgr.ReconcileMtproxy(mtps)
 	mgr.ReconcileTproxy(relays)
 	mgr.ReconcileTproxyCaddy(caddies)
+}
+
+func (s *TunnelService) reconcileCoverInbounds() {
+	panelCert, panelKey := panelCertFiles()
+	secret, _ := s.settingService.GetSecret()
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: cover inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Cover || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.CoverInstanceFromInbound(ib, inbounds, secret, panelCert, panelKey)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	tunnel.GetManager().ReconcileCover(want)
 }
 
 // panelCertFiles reads the panel ACME certificate paths from settings (the
@@ -1631,13 +1654,18 @@ func (s *TunnelService) UploadTproxySite(inboundID int, zipBytes []byte) error {
 	if err != nil {
 		return err
 	}
-	if ib == nil || ib.Protocol != model.Tproxy {
-		return common.NewError("inbound is not tproxy")
+	if ib == nil || (ib.Protocol != model.Tproxy && ib.Protocol != model.Cover) {
+		return common.NewError("inbound is not tproxy or cover")
 	}
-	if err := tunnel.ExtractTproxySiteZip(tunnel.TproxySiteDir(inboundID), zipBytes); err != nil {
+	dir := tunnel.TproxySiteDir(inboundID)
+	if ib.Protocol == model.Cover {
+		dir = tunnel.CoverSiteDir(inboundID)
+	}
+	if err := tunnel.ExtractTproxySiteZip(dir, zipBytes); err != nil {
 		return err
 	}
 	s.reconcileTproxyInbounds()
+	s.reconcileCoverInbounds()
 	return nil
 }
 
@@ -1646,8 +1674,11 @@ func (s *TunnelService) TproxySiteFiles(inboundID int) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if ib == nil || ib.Protocol != model.Tproxy {
-		return nil, common.NewError("inbound is not tproxy")
+	if ib == nil || (ib.Protocol != model.Tproxy && ib.Protocol != model.Cover) {
+		return nil, common.NewError("inbound is not tproxy or cover")
+	}
+	if ib.Protocol == model.Cover {
+		return tunnel.ListCoverSite(inboundID), nil
 	}
 	return tunnel.ListTproxySite(inboundID), nil
 }

@@ -78,7 +78,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy}
+	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -89,7 +89,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -116,6 +116,8 @@ func (n Name) DisplayName() string {
 		return "MTProxy"
 	case TproxyCaddy:
 		return "Caddy (tproxy)"
+	case Cover:
+		return "Cover site"
 	case NaiveClient:
 		return "NaiveProxy client"
 	case MieruClient:
@@ -133,7 +135,7 @@ func (n Name) DisplayName() string {
 func (n Name) BinaryName() string {
 	var name string
 	switch n {
-	case Naive, TproxyCaddy:
+	case Naive, TproxyCaddy, Cover:
 		name = fmt.Sprintf("caddy-naive-%s-%s", runtime.GOOS, runtime.GOARCH)
 	case NaiveClient:
 		name = fmt.Sprintf("naive-client-%s-%s", runtime.GOOS, runtime.GOARCH)
@@ -192,7 +194,7 @@ func trustTunnelHostsFileName(key string) string {
 func configPathFor(key string, n Name) string {
 	if key != "" && key != string(n) {
 		switch n {
-		case Naive, TproxyCaddy:
+		case Naive, TproxyCaddy, Cover:
 			return filepath.Join(workDir(), key+".caddyfile")
 		case Olcrtc:
 			return filepath.Join(workDir(), key+".yaml")

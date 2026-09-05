@@ -18,6 +18,14 @@ export default function NaiveFields() {
   return (
     <>
       <FormField
+        name={['settings', 'behindCover']}
+        label={t('pages.inbounds.form.behindCover')}
+        tooltip={t('pages.inbounds.form.behindCoverHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      <FormField
         name={['settings', 'routeThroughXray']}
         label={t('pages.inbounds.form.naiveRouteThroughXray')}
         tooltip={t('pages.inbounds.form.naiveRouteThroughXrayHint')}

@@ -14,6 +14,7 @@ import type { MieruInboundSettings } from '@/schemas/protocols/inbound/mieru';
 import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/trusttunnel';
 import type { AnytlsInboundSettings } from '@/schemas/protocols/inbound/anytls';
 import type { TproxyInboundSettings } from '@/schemas/protocols/inbound/tproxy';
+import type { CoverInboundSettings } from '@/schemas/protocols/inbound/cover';
 import type {
   ShadowsocksClient,
   ShadowsocksInboundSettings,
@@ -258,6 +259,7 @@ export function createDefaultNaiveInboundSettings(): NaiveInboundSettings {
     routeThroughXray: true,
     useRawConfig: false,
     rawConfig: '',
+    behindCover: false,
     clients: [],
   };
 }
@@ -325,6 +327,18 @@ export function createDefaultAnytlsInboundSettings(): AnytlsInboundSettings {
   };
 }
 
+export function createDefaultCoverInboundSettings(): CoverInboundSettings {
+  return {
+    hostname: '',
+    siteSource: 'zip',
+    siteDir: '',
+    siteUpstream: '',
+    certFile: '',
+    keyFile: '',
+    routes: [],
+  };
+}
+
 export function createDefaultTproxyInboundSettings(): TproxyInboundSettings {
   return {
     port: 443,
@@ -337,6 +351,7 @@ export function createDefaultTproxyInboundSettings(): TproxyInboundSettings {
     certFile: '',
     keyFile: '',
     externalTLS: false,
+    behindCover: false,
     routeThroughXray: false,
     outboundTag: '',
   };
@@ -540,7 +555,8 @@ export type AnyInboundSettings =
   | MieruInboundSettings
   | TrustTunnelInboundSettings
   | AnytlsInboundSettings
-  | TproxyInboundSettings;
+  | TproxyInboundSettings
+  | CoverInboundSettings;
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -584,6 +600,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultAnytlsInboundSettings();
     case 'tproxy':
       return createDefaultTproxyInboundSettings();
+    case 'cover':
+      return createDefaultCoverInboundSettings();
     default:
       return null;
   }

@@ -14,5 +14,6 @@ export { default as MieruFields } from './mieru'; // LUCX-HOOK: mieru
 export { default as TrustTunnelFields } from './trusttunnel'; // LUCX-HOOK: TrustTunnel
 export { default as AnytlsFields } from './anytls'; // LUCX-HOOK: AnyTLS
 export { default as TproxyFields } from './tproxy'; // LUCX-HOOK: Telegram WEB proxy
+export { default as CoverFields } from './cover'; // LUCX-HOOK: cover site
 export { default as VlessFields } from './vless';
 export { default as AmneziawgFields } from './amneziawg';

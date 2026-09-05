@@ -45,6 +45,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'olcrtc',
   'anytls',
   'tproxy',
+  'cover',
 ]);
 
 const EMPTY: ClientBulkAddFormValues = {

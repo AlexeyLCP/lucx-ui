@@ -2239,7 +2239,8 @@
               "mieru",
               "trusttunnel",
               "anytls",
-              "tproxy"
+              "tproxy",
+              "cover"
             ],
             "example": "vless",
             "type": "string"
@@ -8219,7 +8220,7 @@
         "tags": [
           "Tunnel tools"
         ],
-        "summary": "Upload a camouflage-site zip for one tproxy inbound (query id). Needs index.html. LucX-UI only.",
+        "summary": "Upload a camouflage-site zip for one tproxy or cover inbound (query id). Needs index.html. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_tproxy_uploadSite",
         "responses": {
           "200": {
@@ -8249,7 +8250,7 @@
         "tags": [
           "Tunnel tools"
         ],
-        "summary": "List camouflage-site files on disk for one tproxy inbound (query id). LucX-UI only.",
+        "summary": "List camouflage-site files on disk for one tproxy or cover inbound (query id). LucX-UI only.",
         "operationId": "get_panel_api_tunnel_tproxy_site",
         "responses": {
           "200": {

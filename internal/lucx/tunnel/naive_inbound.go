@@ -50,6 +50,7 @@ type naiveInboundSettings struct {
 	OutboundTag      string `json:"outboundTag"`
 	UseRawConfig     bool   `json:"useRawConfig"`
 	RawConfig        string `json:"rawConfig"`
+	BehindCover      bool   `json:"behindCover"`
 	Clients          []struct {
 		Email  string `json:"email"`
 		Enable bool   `json:"enable"`
@@ -87,6 +88,7 @@ func ConfigFromInbound(ib *model.Inbound) (NaiveConfig, bool) {
 		OutboundTag:      s.OutboundTag,
 		UseRawConfig:     s.UseRawConfig,
 		RawConfig:        s.RawConfig,
+		BehindCover:      s.BehindCover,
 	}.Merge()
 	return cfg, true
 }
@@ -100,7 +102,7 @@ func InstanceFromInbound(ib *model.Inbound, secret []byte) (Instance, bool) {
 	if !ok {
 		return Instance{}, false
 	}
-	if !ib.Enable {
+	if !ib.Enable || cfg.BehindCover {
 		return Instance{
 			Core:    Naive,
 			Key:     NaiveKey(ib.Id),

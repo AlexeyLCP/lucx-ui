@@ -85,6 +85,10 @@ type NaiveConfig struct {
 	UseRawConfig bool   `json:"useRawConfig"`
 	RawConfig    string `json:"rawConfig"`
 
+	// BehindCover: this inbound does not bind. Cover Caddy on :80/:443
+	// owns TLS and injects forward_proxy. Own caddy stays down.
+	BehindCover bool `json:"behindCover"`
+
 	MigratedToInbound bool `json:"migratedToInbound,omitempty"`
 	MigratedInboundId int  `json:"migratedInboundId,omitempty"`
 }
@@ -325,38 +329,37 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 		b.WriteString("\t}\n")
 	}
 	b.WriteString("\troute {\n")
-	b.WriteString("\t\tforward_proxy {\n")
-	// Service-level pair is optional for inbound mode (clients may be the
-	// only basic_auth lines). Skip when AuthUser is empty.
-	if u := strings.TrimSpace(c.AuthUser); u != "" {
-		b.WriteString("\t\t\tbasic_auth " +
-			caddyToken(u) + " " +
-			caddyToken(strings.TrimSpace(c.AuthPass)) + "\n")
-	}
-	for _, pair := range extraAuth {
-		if strings.TrimSpace(pair.User) == "" {
-			continue
-		}
-		b.WriteString("\t\t\tbasic_auth " +
-			caddyToken(pair.User) + " " + caddyToken(pair.Pass) + "\n")
-	}
-	b.WriteString("\t\t\thide_ip\n")
-	b.WriteString("\t\t\thide_via\n")
-	if c.ProbeResistance {
-		b.WriteString("\t\t\tprobe_resistance\n")
-	}
-	// klzgrad/forwardproxy supports `upstream socks5://…` to localhost
-	// natively (no binary patch). The panel injects the matching SOCKS
-	// inbound at RouteXrayPort via injectTunnelEgress.
-	if c.RouteThroughXray && c.RouteXrayPort > 0 {
-		user, pass := SocksBridgeAuth()
-		b.WriteString("\t\t\tupstream socks5://" + url.UserPassword(user, pass).String() +
-			"@127.0.0.1:" + strconv.Itoa(c.RouteXrayPort) + "\n")
-	}
-	b.WriteString("\t\t}\n")
+	c.appendForwardProxy(&b, extraAuth, "\t\t")
 	b.WriteString("\t}\n")
 	b.WriteString("}\n")
 	return b.String()
+}
+
+func (c NaiveConfig) appendForwardProxy(b *strings.Builder, extra []AuthPair, indent string) {
+	b.WriteString(indent + "forward_proxy {\n")
+	in := indent + "\t"
+	if u := strings.TrimSpace(c.AuthUser); u != "" {
+		b.WriteString(in + "basic_auth " +
+			caddyToken(u) + " " +
+			caddyToken(strings.TrimSpace(c.AuthPass)) + "\n")
+	}
+	for _, pair := range extra {
+		if strings.TrimSpace(pair.User) == "" {
+			continue
+		}
+		b.WriteString(in + "basic_auth " + caddyToken(pair.User) + " " + caddyToken(pair.Pass) + "\n")
+	}
+	b.WriteString(in + "hide_ip\n")
+	b.WriteString(in + "hide_via\n")
+	if c.ProbeResistance {
+		b.WriteString(in + "probe_resistance\n")
+	}
+	if c.RouteThroughXray && c.RouteXrayPort > 0 {
+		user, pass := SocksBridgeAuth()
+		b.WriteString(in + "upstream socks5://" + url.UserPassword(user, pass).String() +
+			"@127.0.0.1:" + strconv.Itoa(c.RouteXrayPort) + "\n")
+	}
+	b.WriteString(indent + "}\n")
 }
 
 // ClientURL renders the share link consumed by naive-compatible clients

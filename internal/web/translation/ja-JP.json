@@ -836,6 +836,13 @@
         "tproxySaveFirst": "Save the inbound first, then upload the ZIP.",
         "tproxyCarrier": "Carrier",
         "tproxyRouteThroughXrayHint": "MTProxy has no SOCKS. LucX redirects its DC TCP (uid mtproxy) into Xray via dokodemo-door. Off = direct to Telegram DCs (needs unblocked egress). On = through Xray outbounds — use on a RU host.",
+        "coverNote": "Camouflage website on ports 80 and 443. NaiveProxy and Telegram WEB proxy can sit behind it (Behind cover). Path routes send HTTP to a loopback Xray inbound (VLESS-WS). Not for REALITY, AnyTLS, TrustTunnel, or AWG. Uses the panel TLS certificate. Port 80 is taken (HTTP-01 ACME will fail).",
+        "coverHostname": "Hostname",
+        "coverHostnameHint": "Bare DNS name. Must match the TLS certificate. Naive/tproxy Behind cover must use this same name.",
+        "coverRoutes": "Path routes",
+        "coverRoutesHint": "One per line: /path 127.0.0.1:port  — Xray must listen on that loopback port, not 443.",
+        "behindCover": "Behind cover",
+        "behindCoverHint": "Do not bind 443. Cover inbound terminates TLS on 80/443 and fronts this protocol. Hostname/domain must match the cover hostname.",
         "qwdttDns": "DNS",
         "qwdttSubHost": "Public host:port (for clients)",
         "qwdttSubHostHint": "Advertised peer address, e.g. 1.2.3.4:56000",
@@ -968,7 +975,8 @@
         "awg": "AmneziaWG (kernel)",
         "amneziawg": "AmneziaWG",
         "anytls": "AnyTLS",
-        "tproxy": "Telegram WEB proxy"
+        "tproxy": "Telegram WEB proxy",
+        "cover": "Cover site"
       }
     },
     "clients": {

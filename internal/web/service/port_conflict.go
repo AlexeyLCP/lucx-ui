@@ -9,6 +9,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 
 	"gorm.io/gorm"
@@ -29,7 +30,7 @@ func inboundTransports(protocol model.Protocol, streamSettings, settings string)
 	case model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt:
 		return transportTCP
 	// LUCX-HOOK: AnyTls is a single TCP listener (anytls-server)
-	case model.Anytls, model.Tproxy:
+	case model.Anytls, model.Tproxy, model.Cover:
 		return transportTCP
 	// END LUCX-HOOK
 	case model.TrustTunnel:
@@ -199,6 +200,9 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 	if inbound.Port <= 0 {
 		return nil, nil
 	}
+	if tunnel.SettingsBehindCover(inbound.Protocol, inbound.Settings) {
+		return nil, nil
+	}
 	newBits := inboundTransports(inbound.Protocol, inbound.StreamSettings, inbound.Settings)
 
 	// The internal Xray API inbound (tag "api", loopback TCP) isn't a DB row,
@@ -255,6 +259,9 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 	}
 
 	for _, c := range candidates {
+		if tunnel.SettingsBehindCover(c.Protocol, c.Settings) {
+			continue
+		}
 		if !sameNode(c.NodeID, inbound.NodeID) {
 			continue
 		}
@@ -273,6 +280,58 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 			Listen:     c.Listen,
 			Port:       c.Port,
 			Transports: shared,
+		}, nil
+	}
+	return checkCoverHTTPPorts(db, inbound, ignoreId, newBits)
+}
+
+func checkCoverHTTPPorts(db *gorm.DB, inbound *model.Inbound, ignoreId int, newBits transportBits) (*portConflictDetail, error) {
+	if newBits&transportTCP == 0 {
+		return nil, nil
+	}
+	if inbound.Protocol == model.Cover {
+		var on80 []*model.Inbound
+		q := db.Model(model.Inbound{}).Where("port = ?", 80)
+		if ignoreId > 0 {
+			q = q.Where("id != ?", ignoreId)
+		}
+		if err := q.Find(&on80).Error; err != nil {
+			return nil, err
+		}
+		for _, c := range on80 {
+			if tunnel.SettingsBehindCover(c.Protocol, c.Settings) {
+				continue
+			}
+			if !sameNode(c.NodeID, inbound.NodeID) || !listenOverlaps(c.Listen, inbound.Listen) {
+				continue
+			}
+			if inboundTransports(c.Protocol, c.StreamSettings, c.Settings)&transportTCP == 0 {
+				continue
+			}
+			return &portConflictDetail{
+				InboundID: c.Id, Remark: c.Remark, Tag: c.Tag,
+				Listen: c.Listen, Port: 80, Transports: transportTCP,
+			}, nil
+		}
+	}
+	if inbound.Port != 80 {
+		return nil, nil
+	}
+	var covers []*model.Inbound
+	q := db.Model(model.Inbound{}).Where("protocol = ?", model.Cover)
+	if ignoreId > 0 {
+		q = q.Where("id != ?", ignoreId)
+	}
+	if err := q.Find(&covers).Error; err != nil {
+		return nil, err
+	}
+	for _, c := range covers {
+		if !c.Enable || !sameNode(c.NodeID, inbound.NodeID) || !listenOverlaps(c.Listen, inbound.Listen) {
+			continue
+		}
+		return &portConflictDetail{
+			InboundID: c.Id, Remark: c.Remark, Tag: c.Tag,
+			Listen: c.Listen, Port: 80, Transports: transportTCP,
 		}, nil
 	}
 	return nil, nil

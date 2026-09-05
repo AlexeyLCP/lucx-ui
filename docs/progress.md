@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.215 — cover site inbound (2026-09-05)
+
+Camouflage website without Telegram WEB proxy. Inbound `cover` owns :80 and :443 (one per host). Caddy `file_server` from ZIP/dir/upstream (reuses tproxy site upload). Naive/tproxy `behindCover` skip their own Caddy; cover injects `forward_proxy` or reverse_proxies the whole hostname to tproxy-server. Path routes `/path 127.0.0.1:port` for VLESS-WS. Not REALITY/AnyTLS/TrustTunnel/AWG. Panel cert. :80 taken (HTTP-01 ACME fails).
+
+Tests: `TestRenderCoverCaddyfile_*`, `TestCoverInstanceBehindCoverSkipsOwnCaddy`, `TestSettingsBehindCover`.
+
+**lucxVersion:** lucx.215
+
+---
+
 ## lucx.214 — stale Vite chunk after panel update (2026-09-05)
 
 After `x-ui update` the old JS still tries to lazy-load `PanelUpdateModal-<hash>.js`. The new build has a different hash → white screen `Failed to fetch dynamically imported module`. Not a 212 regression — any Vite deploy. One sessionStorage-guarded `location.reload()`.

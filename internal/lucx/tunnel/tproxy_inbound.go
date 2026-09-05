@@ -92,8 +92,10 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 		return disabledWhy(err), true
 	}
 	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
-	if err := validatePEMCert("tproxy", certFile, keyFile, cfg.Hostname); err != nil {
-		return disabledWhy(err), true
+	if !cfg.BehindCover {
+		if err := validatePEMCert("tproxy", certFile, keyFile, cfg.Hostname); err != nil {
+			return disabledWhy(err), true
+		}
 	}
 	if err := ensureTelegramMtproxyFiles(); err != nil {
 		return disabledWhy(err), true
@@ -128,6 +130,7 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 	caddyfile := RenderTproxyCaddyfile(cfg.Hostname, cfg.Port, certFile, keyFile, relayPort)
 	cfgPath := configPathFor(key, Tproxy)
 	caddyPath := configPathFor(TproxyCaddyKey(id), TproxyCaddy)
+	caddyOn := !cfg.BehindCover
 
 	mtArgs := mtproxyArgs(mtStats, mtH, cfg.Secret)
 	if len(mtArgs) == 0 {
@@ -154,7 +157,7 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 		{
 			Core:             TproxyCaddy,
 			Key:              TproxyCaddyKey(id),
-			Enabled:          true,
+			Enabled:          caddyOn,
 			ConfigText:       caddyfile,
 			Args:             []string{"run", "--config", absPath(caddyPath), "--adapter", "caddyfile"},
 			FingerprintExtra: CertFileHash(certFile),

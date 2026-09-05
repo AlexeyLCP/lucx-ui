@@ -6,20 +6,18 @@
 
 import { z } from 'zod';
 
-export const TproxyInboundSettingsSchema = z.object({
-  port: z.number().int().min(1).max(65535).default(443),
+export const CoverRouteSchema = z.object({
+  path: z.string().default(''),
+  dest: z.string().default(''),
+});
+
+export const CoverInboundSettingsSchema = z.object({
   hostname: z.string().default(''),
-  secret: z.string().default(''),
   siteSource: z.enum(['zip', 'dir', 'upstream']).default('zip'),
   siteDir: z.string().default(''),
   siteUpstream: z.string().default(''),
-  carrierMode: z.enum(['https', 'https-lanes', 'websocket', 'websocket-lanes']).default('https'),
   certFile: z.string().default(''),
   keyFile: z.string().default(''),
-  externalTLS: z.boolean().optional().default(false),
-  behindCover: z.boolean().default(false),
-  routeThroughXray: z.boolean().default(false),
-  outboundTag: z.string().default(''),
-  routeXrayPort: z.number().int().min(0).max(65535).optional(),
+  routes: z.array(CoverRouteSchema).default([]),
 });
-export type TproxyInboundSettings = z.infer<typeof TproxyInboundSettingsSchema>;
+export type CoverInboundSettings = z.infer<typeof CoverInboundSettingsSchema>;

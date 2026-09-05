@@ -1077,13 +1077,13 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/tunnel/tproxy/uploadSite',
         summary:
-          'Upload a camouflage-site zip for one tproxy inbound (query id). Needs index.html. LucX-UI only.',
+          'Upload a camouflage-site zip for one tproxy or cover inbound (query id). Needs index.html. LucX-UI only.',
       },
       {
         method: 'GET',
         path: '/panel/api/tunnel/tproxy/site',
         summary:
-          'List camouflage-site files on disk for one tproxy inbound (query id). LucX-UI only.',
+          'List camouflage-site files on disk for one tproxy or cover inbound (query id). LucX-UI only.',
       },
       {
         method: 'GET',

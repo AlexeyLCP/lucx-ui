@@ -6,10 +6,10 @@
 
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Input, Radio, Select, Switch, Upload, message } from 'antd';
+import { Alert, Button, Input, Radio, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
-import { useWatch } from 'react-hook-form';
+import { useFormContext, useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
 import { tunnelsApi } from '@/api/tunnels';
@@ -18,13 +18,16 @@ import { useAwgInboundId } from '../awg-inbound-id-context';
 const SITE_PROMPT =
   'Create a distinctive, self-contained static website with three to five HTML pages, shared external CSS, an SVG favicon, a custom 404 page, and no remote resources. Use plain HTML/CSS and optional same-origin external JavaScript. Do not use inline script, inline CSS, forms, analytics, service workers, frames, or a client-side router. Output only deployable files, with index.html at the root and ordinary .html files for clean extensionless links. Do not mention Telegram or a proxy.';
 
-export default function TproxyFields() {
+export default function CoverFields() {
   const { t } = useTranslation();
   const inboundId = useAwgInboundId();
+  const { setValue } = useFormContext();
   const siteSource = useWatch({ name: 'settings.siteSource' }) as string | undefined;
+  const routes =
+    (useWatch({ name: 'settings.routes' }) as { path?: string; dest?: string }[]) ?? [];
   const [busy, setBusy] = useState(false);
   const siteQuery = useQuery({
-    queryKey: ['tproxySiteFiles', inboundId],
+    queryKey: ['coverSiteFiles', inboundId],
     queryFn: async () => {
       const msg = await tunnelsApi.tproxySiteFiles(inboundId!);
       return msg.success && Array.isArray(msg.obj) ? msg.obj : [];
@@ -56,36 +59,26 @@ export default function TproxyFields() {
     return false;
   };
 
+  const routeText = routes
+    .filter((r) => (r.path ?? '').trim() || (r.dest ?? '').trim())
+    .map((r) => `${(r.path ?? '').trim()} ${(r.dest ?? '').trim()}`.trim())
+    .join('\n');
+
   return (
     <>
       <Alert
         type="info"
         showIcon
         style={{ marginBottom: 12 }}
-        message={t('pages.inbounds.form.tproxyNote')}
+        message={t('pages.inbounds.form.coverNote')}
       />
       <FormField
         name={['settings', 'hostname']}
-        label={t('pages.inbounds.form.tproxyHostname')}
-        tooltip={t('pages.inbounds.form.tproxyHostnameHint')}
+        label={t('pages.inbounds.form.coverHostname')}
+        tooltip={t('pages.inbounds.form.coverHostnameHint')}
         required
       >
-        <Input placeholder="proxy.example.com" />
-      </FormField>
-      <FormField
-        name={['settings', 'behindCover']}
-        label={t('pages.inbounds.form.behindCover')}
-        tooltip={t('pages.inbounds.form.behindCoverHint')}
-        valueProp="checked"
-      >
-        <Switch />
-      </FormField>
-      <FormField
-        name={['settings', 'secret']}
-        label={t('pages.inbounds.form.tproxySecret')}
-        tooltip={t('pages.inbounds.form.tproxySecretHint')}
-      >
-        <Input.Password autoComplete="new-password" />
+        <Input placeholder="shop.example.com" />
       </FormField>
       <FormField
         name={['settings', 'siteSource']}
@@ -134,14 +127,28 @@ export default function TproxyFields() {
           <Input placeholder="http://127.0.0.1:3000" />
         </FormField>
       )}
-      <FormField name={['settings', 'carrierMode']} label={t('pages.inbounds.form.tproxyCarrier')}>
-        <Select
-          options={['https', 'https-lanes', 'websocket', 'websocket-lanes'].map((v) => ({
-            value: v,
-            label: v,
-          }))}
+      <FormItemLike>
+        <div style={{ marginBottom: 8 }}>{t('pages.inbounds.form.coverRoutes')}</div>
+        <Input.TextArea
+          rows={3}
+          placeholder="/ws 127.0.0.1:10000"
+          value={routeText}
+          onChange={(e) => {
+            const parsed = e.target.value
+              .split('\n')
+              .map((line) => line.trim())
+              .filter(Boolean)
+              .map((line) => {
+                const [path, dest] = line.split(/\s+/);
+                return { path: path ?? '', dest: dest ?? '' };
+              });
+            setValue('settings.routes', parsed, { shouldDirty: true });
+          }}
         />
-      </FormField>
+        <div style={{ opacity: 0.65, fontSize: 12, marginTop: 4 }}>
+          {t('pages.inbounds.form.coverRoutesHint')}
+        </div>
+      </FormItemLike>
       <FormField
         name={['settings', 'certFile']}
         label={t('pages.inbounds.form.trustTunnelCertFile')}

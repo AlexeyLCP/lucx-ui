@@ -1052,7 +1052,7 @@ func (s *InboundService) normalizeMtprotoSecret(inbound *model.Inbound) {
 // LUCX-HOOK: protocols whose datapath is a sidecar, not an Xray inbound.
 func inboundHasSidecar(p model.Protocol) bool {
 	switch p {
-	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy:
+	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover:
 		return true
 	default:
 		return false
@@ -1508,6 +1508,75 @@ func (s *InboundService) normalizeTproxySettings(inbound *model.Inbound) {
 
 func (s *InboundService) normalizeTproxyXrayPort(inbound *model.Inbound, oldSettings string) error {
 	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Tproxy, "tproxy")
+}
+
+func (s *InboundService) normalizeCoverSettings(inbound *model.Inbound) {
+	cfg, ok := tunnel.CoverConfigFromInbound(inbound)
+	if !ok {
+		return
+	}
+	cfg = cfg.Merge()
+	var settings map[string]any
+	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
+		_ = json.Unmarshal([]byte(raw), &settings)
+	}
+	if settings == nil {
+		settings = map[string]any{}
+	}
+	settings["hostname"] = strings.TrimSpace(cfg.Hostname)
+	settings["siteSource"] = cfg.SiteSource
+	settings["siteDir"] = strings.TrimSpace(cfg.SiteDir)
+	settings["siteUpstream"] = strings.TrimSpace(cfg.SiteUpstream)
+	settings["certFile"] = strings.TrimSpace(cfg.CertFile)
+	settings["keyFile"] = strings.TrimSpace(cfg.KeyFile)
+	settings["routes"] = cfg.Routes
+	if strings.TrimSpace(cfg.Remark) != "" {
+		settings["remark"] = cfg.Remark
+	}
+	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
+		inbound.Settings = string(bs)
+	}
+	inbound.Port = 443
+	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
+		inbound.Remark = cfg.Remark
+	}
+}
+
+func (s *InboundService) validateCoverSettings(inbound *model.Inbound) error {
+	cfg, ok := tunnel.CoverConfigFromInbound(inbound)
+	if !ok {
+		return nil
+	}
+	if err := cfg.Validate(); err != nil {
+		return err
+	}
+	if cfg.SiteSource == "dir" {
+		if err := tunnel.RequireIndexHTML(strings.TrimSpace(cfg.SiteDir)); err != nil {
+			return err
+		}
+	}
+	if cfg.SiteSource == "upstream" {
+		return nil
+	}
+	panelCert, panelKey := panelCertFiles()
+	return cfg.ValidateCert(panelCert, panelKey)
+}
+
+func (s *InboundService) checkSingleCover(inbound *model.Inbound, ignoreId int) error {
+	if inbound == nil || inbound.Protocol != model.Cover || inbound.NodeID != nil {
+		return nil
+	}
+	inbounds, err := s.GetAllInbounds()
+	if err != nil {
+		return err
+	}
+	for _, o := range inbounds {
+		if o == nil || o.Protocol != model.Cover || o.NodeID != nil || o.Id == ignoreId {
+			continue
+		}
+		return common.NewError("cover: only one cover inbound per host (:80 and :443)")
+	}
+	return nil
 }
 
 func (s *InboundService) validateTproxySettings(inbound *model.Inbound) error {
@@ -2006,6 +2075,15 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 			return inbound, false, err
 		}
 	}
+	if inbound.Protocol == model.Cover {
+		s.normalizeCoverSettings(inbound)
+		if err := s.validateCoverSettings(inbound); err != nil {
+			return inbound, false, err
+		}
+		if err := s.checkSingleCover(inbound, 0); err != nil {
+			return inbound, false, err
+		}
+	}
 	s.ensureNodeAuthSeed(inbound)
 	// END LUCX-HOOK
 
@@ -2307,6 +2385,9 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 	if loadErr == nil && ib.Protocol == model.Tproxy {
 		tunnel.RemoveTproxySite(ib.Id)
 	}
+	if loadErr == nil && ib.Protocol == model.Cover {
+		tunnel.RemoveCoverSite(ib.Id)
+	}
 	if loadErr == nil && ib.Tag != "" {
 		if routingChanged, syncErr := (&XraySettingService{}).RemoveInboundTagReferences(ib.Tag); syncErr != nil {
 			logger.Warning("DelInbound: sync routing on inbound delete failed:", syncErr)
@@ -2603,6 +2684,15 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			return inbound, false, err
 		}
 		if err := s.normalizeTproxyXrayPort(inbound, oldInbound.Settings); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.Cover {
+		s.normalizeCoverSettings(inbound)
+		if err := s.validateCoverSettings(inbound); err != nil {
+			return inbound, false, err
+		}
+		if err := s.checkSingleCover(inbound, inbound.Id); err != nil {
 			return inbound, false, err
 		}
 	}

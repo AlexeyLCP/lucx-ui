@@ -836,6 +836,13 @@
         "tproxySaveFirst": "Сначала сохрани inbound, потом загрузи ZIP.",
         "tproxyCarrier": "Carrier",
         "tproxyRouteThroughXrayHint": "У MTProxy нет SOCKS. LucX редиректит его TCP к ДЦ (uid mtproxy) в Xray через dokodemo-door. Выкл = напрямую в ДЦ (нужен незаблокированный исходящий). Вкл = через outbound Xray — для РФ.",
+        "coverNote": "Сайт-камуфляж на портах 80 и 443. NaiveProxy и Telegram WEB proxy можно повесить за ним (Behind cover). Path routes — HTTP на loopback Xray (VLESS-WS). Не для REALITY, AnyTLS, TrustTunnel, AWG. Сертификат панели. Порт 80 занят (HTTP-01 ACME не заработает).",
+        "coverHostname": "Hostname",
+        "coverHostnameHint": "Голое DNS-имя. Должно совпадать с TLS-сертификатом. Naive/tproxy Behind cover — то же имя.",
+        "coverRoutes": "Path routes",
+        "coverRoutesHint": "Строка: /path 127.0.0.1:port — Xray слушает этот loopback, не 443.",
+        "behindCover": "Behind cover",
+        "behindCoverHint": "Не биндить 443. Cover принимает TLS на 80/443 и фронтит этот протокол. Hostname/domain = hostname cover.",
         "qwdttDns": "DNS",
         "qwdttSubHost": "Публичный host:port (для клиентов)",
         "qwdttSubHostHint": "Адрес для клиентов, напр. 1.2.3.4:56000",
@@ -968,7 +975,8 @@
         "awg": "AmneziaWG (ядро)",
         "amneziawg": "AmneziaWG",
         "anytls": "AnyTLS",
-        "tproxy": "Telegram WEB proxy"
+        "tproxy": "Telegram WEB proxy",
+        "cover": "Cover site"
       }
     },
     "clients": {

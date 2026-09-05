@@ -21,6 +21,7 @@ export const ProtocolSchema = z.enum([
   'trusttunnel', // LUCX-HOOK: TrustTunnel sidecar
   'anytls', // LUCX-HOOK: AnyTLS sidecar
   'tproxy', // LUCX-HOOK: Telegram WEB proxy
+  'cover', // LUCX-HOOK: camouflage site on :80/:443
 ]);
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
@@ -51,4 +52,5 @@ export const Protocols = Object.freeze({
   TRUSTTUNNEL: 'trusttunnel', // LUCX-HOOK: TrustTunnel
   ANYTLS: 'anytls', // LUCX-HOOK: AnyTLS
   TPROXY: 'tproxy', // LUCX-HOOK: Telegram WEB proxy
+  COVER: 'cover', // LUCX-HOOK: camouflage site
 });

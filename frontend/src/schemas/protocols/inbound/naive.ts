@@ -38,6 +38,7 @@ export const NaiveInboundSettingsSchema = z.object({
   routeXrayPort: z.number().int().min(0).max(65535).optional(),
   useRawConfig: z.boolean().default(false),
   rawConfig: z.string().default(''),
+  behindCover: z.boolean().default(false),
   authSeed: z.string().optional(),
   clients: z.array(NaiveClientSchema).default([]),
 });
