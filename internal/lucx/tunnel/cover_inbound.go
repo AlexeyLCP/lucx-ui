@@ -102,7 +102,7 @@ func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret
 				continue
 			}
 			ncfg, ok := ConfigFromInbound(o)
-			if !ok || !ncfg.BehindCover || strings.ToLower(strings.TrimSpace(ncfg.Domain)) != cfg.Hostname {
+			if !ok || !naiveMatchesCover(ncfg, cfg.Hostname) {
 				continue
 			}
 			if ncfg.UseRawConfig {
@@ -159,4 +159,36 @@ func coverPublicSource(id int, cfg CoverConfig) (publicDir, publicUpstream strin
 
 func ListCoverSite(id int) []string {
 	return ListSiteFiles(CoverSiteDir(id))
+}
+
+func naiveMatchesCover(n NaiveConfig, hostname string) bool {
+	if !n.BehindCover || n.UseRawConfig {
+		return false
+	}
+	h := strings.ToLower(strings.TrimSpace(hostname))
+	if h == "" {
+		return false
+	}
+	d := strings.ToLower(strings.TrimSpace(n.Domain))
+	return d == "" || d == h
+}
+
+// NaiveFrontedByCover is true when a runnable cover inbound will inject this
+// naive's forward_proxy. Only then should naive's own Caddy stay down.
+func NaiveFrontedByCover(ib *model.Inbound, all []*model.Inbound, secret []byte, panelCert, panelKey string) bool {
+	ncfg, ok := ConfigFromInbound(ib)
+	if !ok || !ncfg.BehindCover {
+		return false
+	}
+	for _, o := range all {
+		inst, ok := CoverInstanceFromInbound(o, all, secret, panelCert, panelKey)
+		if !ok || !inst.Enabled {
+			continue
+		}
+		cfg, ok := CoverConfigFromInbound(o)
+		if ok && naiveMatchesCover(ncfg, cfg.Hostname) {
+			return true
+		}
+	}
+	return false
 }

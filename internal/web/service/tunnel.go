@@ -404,6 +404,7 @@ func (s *TunnelService) legacyLifecycleBlocked(proto model.Protocol, settingKey 
 // lucxTunnel_naive settings core (pre-migration hosts).
 func (s *TunnelService) reconcileNaiveInbounds() {
 	secret, _ := s.settingService.GetSecret()
+	panelCert, panelKey := panelCertFiles()
 	inbounds, err := s.inboundService.GetAllInbounds()
 	if err != nil {
 		logger.Warning("tunnel: naive inbound list failed:", err)
@@ -417,6 +418,9 @@ func (s *TunnelService) reconcileNaiveInbounds() {
 		inst, ok := tunnel.InstanceFromInbound(ib, secret)
 		if !ok {
 			continue
+		}
+		if tunnel.NaiveFrontedByCover(ib, inbounds, secret, panelCert, panelKey) {
+			inst.Enabled = false
 		}
 		want = append(want, inst)
 	}

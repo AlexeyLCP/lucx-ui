@@ -102,7 +102,7 @@ func InstanceFromInbound(ib *model.Inbound, secret []byte) (Instance, bool) {
 	if !ok {
 		return Instance{}, false
 	}
-	if !ib.Enable || cfg.BehindCover {
+	if !ib.Enable {
 		return Instance{
 			Core:    Naive,
 			Key:     NaiveKey(ib.Id),

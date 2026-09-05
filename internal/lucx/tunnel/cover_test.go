@@ -95,9 +95,8 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 		Settings: `{"hostname":"shop.example.com","secret":"000102030405060708090a0b0c0d0e0f","behindCover":true,"siteSource":"zip"}`,
 	}
 
-	nInst, ok := InstanceFromInbound(naive, nil)
-	if !ok || nInst.Enabled {
-		t.Fatalf("naive behind cover must not run own caddy: %+v", nInst)
+	if !NaiveFrontedByCover(naive, []*model.Inbound{cover, naive, tproxy}, nil, cert, key) {
+		t.Fatal("live cover must front matching naive")
 	}
 
 	insts, ok := TproxyInstancesFromInbound(tproxy, cert, key)
@@ -119,6 +118,53 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 	}
 	if strings.Contains(cInst.ConfigText, "forward_proxy") {
 		t.Fatal("tproxy hostname must not keep naive")
+	}
+}
+
+func TestCoverAttachesNaiveEmptyDomain(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+
+	site := CoverSiteDir(3)
+	if err := os.MkdirAll(site, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "shop.example.com")
+	cover := &model.Inbound{
+		Id: 3, Protocol: model.Cover, Enable: true, Port: 443,
+		Settings: `{"hostname":"shop.example.com","siteSource":"zip"}`,
+	}
+	naive := &model.Inbound{
+		Id: 4, Protocol: model.Naive, Enable: true, Port: 443,
+		Settings: `{"behindCover":true,"clients":[{"email":"a@x","enable":true}]}`,
+	}
+	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{naive}, nil, cert, key)
+	if !ok || !cInst.Enabled {
+		t.Fatalf("cover: %+v ok=%v", cInst, ok)
+	}
+	if !strings.Contains(cInst.ConfigText, "forward_proxy") {
+		t.Fatalf("empty naive domain must still attach:\n%s", cInst.ConfigText)
+	}
+}
+
+func TestNaiveMatchesCover_EmptyDomain(t *testing.T) {
+	n := DefaultNaiveConfig()
+	n.BehindCover = true
+	if !naiveMatchesCover(n, "shop.example.com") {
+		t.Fatal("empty domain must match cover hostname")
+	}
+	n.Domain = "other.example.com"
+	if naiveMatchesCover(n, "shop.example.com") {
+		t.Fatal("mismatch")
+	}
+	n.Domain = "shop.example.com"
+	if !naiveMatchesCover(n, "shop.example.com") {
+		t.Fatal("same hostname")
 	}
 }
 

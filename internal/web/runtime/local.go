@@ -236,16 +236,17 @@ func isTunnelInboundProto(p model.Protocol) bool {
 // is required for per-client basic_auth derivation (read from settings table
 // without importing service — avoids an import cycle with runtime).
 func (l *Local) ensureNaiveInbound(ib *model.Inbound) error {
+	l.refreshCoverFronts()
 	secret := panelSecretBytes()
 	inst, ok := tunnel.InstanceFromInbound(ib, secret)
 	if !ok {
 		return nil
 	}
-	if err := tunnel.GetManager().Ensure(inst); err != nil {
-		return err
+	cert, key := panelCertFilesForRuntime()
+	if tunnel.NaiveFrontedByCover(ib, listLocalInboundsForCover(), secret, cert, key) {
+		inst.Enabled = false
 	}
-	l.refreshCoverFronts()
-	return nil
+	return tunnel.GetManager().Ensure(inst)
 }
 
 func (l *Local) ensureOlcrtcInbound(ib *model.Inbound) error {
@@ -332,6 +333,19 @@ func (l *Local) refreshCoverFronts() {
 		if ok {
 			_ = mgr.Ensure(inst)
 		}
+	}
+	for _, ib := range others {
+		if ib == nil || ib.Protocol != model.Naive {
+			continue
+		}
+		inst, ok := tunnel.InstanceFromInbound(ib, secret)
+		if !ok {
+			continue
+		}
+		if tunnel.NaiveFrontedByCover(ib, others, secret, cert, key) {
+			inst.Enabled = false
+		}
+		_ = mgr.Ensure(inst)
 	}
 }
 
