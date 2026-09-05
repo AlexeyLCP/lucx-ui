@@ -212,16 +212,19 @@ jobs:
           chmod +x "$DEST/tproxy-linux-amd64"
           MTPROXY_SHA=f36d8af769ffaeac36978d38c2c0f6d1104c2137
           MTPROXY_SUM=919795c416b870670841a21d1930ad97a24c7b84b9eb8c6f9e3de32f2fdf4655
-          sudo apt-get update
-          sudo apt-get install -y --no-install-recommends build-essential libssl-dev zlib1g-dev
           curl -fsSL -o /tmp/MTProxy.tar.gz "https://github.com/TelegramMessenger/MTProxy/archive/${MTPROXY_SHA}.tar.gz"
           echo "${MTPROXY_SUM}  /tmp/MTProxy.tar.gz" | sha256sum -c
           rm -rf /tmp/MTProxy
           mkdir /tmp/MTProxy
           tar -C /tmp/MTProxy --strip-components=1 -xzf /tmp/MTProxy.tar.gz
-          make -C /tmp/MTProxy -j"$(nproc)"
+          docker run --rm --user 0 -v /tmp/MTProxy:/src -w /src ubuntu:22.04 bash -lc \
+            'apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc make libssl-dev zlib1g-dev >/dev/null && make -j"$(nproc)"'
           cp /tmp/MTProxy/objs/bin/mtproto-proxy "$DEST/mtproxy-linux-amd64"
           chmod +x "$DEST/mtproxy-linux-amd64"
+          if readelf -V "$DEST/mtproxy-linux-amd64" | grep -E 'GLIBC_2\.(3[6-9]|[4-9])'; then
+            echo "mtproxy linked against glibc newer than 2.35 (breaks Debian 12)" >&2
+            exit 1
+          fi
 
       - name: Package
         run: tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
