@@ -27,7 +27,7 @@ require (
 	github.com/xlzd/gotp v0.1.0
 	github.com/xtls/xray-core v1.260327.1-0.20260728075948-5ca6f4b7d4dc
 	go.uber.org/atomic v1.11.0
-	golang.org/x/crypto v0.55.0
+	golang.org/x/crypto v0.56.0
 	golang.org/x/net v0.58.0
 	golang.org/x/sys v0.47.0
 	golang.org/x/text v0.41.0
