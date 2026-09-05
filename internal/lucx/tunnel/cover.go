@@ -58,6 +58,9 @@ func (c CoverConfig) Merge() CoverConfig {
 		}
 		routes = append(routes, r)
 	}
+	if routes == nil {
+		routes = []CoverRoute{}
+	}
 	c.Routes = routes
 	return c
 }
@@ -158,16 +161,14 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 		if a.naive != nil {
 			a.naive.appendForwardProxy(&b, a.naiveAuth, "\t\t")
 		}
-		if a.publicUpstream != "" {
-			b.WriteString("\t\treverse_proxy " + coverUpstreamHost(a.publicUpstream) + "\n")
-		} else if a.publicDir != "" {
-			b.WriteString("\t\tfile_server\n")
-		}
 		b.WriteString("\t}\n")
-	} else if a.publicUpstream != "" {
-		b.WriteString("\treverse_proxy " + coverUpstreamHost(a.publicUpstream) + "\n")
-	} else if a.publicDir != "" {
-		b.WriteString("\tfile_server\n")
+	}
+	if a.naive == nil {
+		if a.publicUpstream != "" {
+			b.WriteString("\treverse_proxy " + coverUpstreamHost(a.publicUpstream) + "\n")
+		} else if a.publicDir != "" {
+			b.WriteString("\tfile_server\n")
+		}
 	}
 	b.WriteString("}\n")
 	return b.String()

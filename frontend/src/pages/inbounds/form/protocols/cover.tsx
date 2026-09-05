@@ -131,7 +131,7 @@ export default function CoverFields() {
         <div style={{ marginBottom: 8 }}>{t('pages.inbounds.form.coverRoutes')}</div>
         <Input.TextArea
           rows={3}
-          placeholder="/ws 127.0.0.1:10000"
+          placeholder=""
           value={routeText}
           onChange={(e) => {
             const parsed = e.target.value

@@ -18,6 +18,6 @@ export const CoverInboundSettingsSchema = z.object({
   siteUpstream: z.string().default(''),
   certFile: z.string().default(''),
   keyFile: z.string().default(''),
-  routes: z.array(CoverRouteSchema).default([]),
+  routes: z.preprocess((v) => (v == null ? [] : v), z.array(CoverRouteSchema)).default([]),
 });
 export type CoverInboundSettings = z.infer<typeof CoverInboundSettingsSchema>;

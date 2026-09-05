@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.217 — cover+naive padding (2026-09-05)
+
+Stand: `file_server` in the same Caddy site as `forward_proxy` made naive negotiate padding `None` and drop tunnels. Naive-only Caddyfile: padding `Variant1`, `ifconfig.me` = server IP. Renderer skips `file_server` when naive is behind cover (camouflage = `probe_resistance`). Save failed with `settings.routes — Invalid input` because the backend wrote `routes: null`; Merge now emits `[]`, Zod preprocesses null. Path-routes textarea has no fake example value.
+
+**lucxVersion:** lucx.217
+
+---
+
 ## lucx.216 — cover naive Behind cover (2026-09-05)
 
 Naive with Behind cover stayed dead: own Caddy was stopped even when cover did not inject `forward_proxy` (empty/mismatched domain). Empty naive domain now matches cover hostname; own Caddy stops only when a live cover actually fronts it. Path-routes hint: leave empty unless VLESS/Trojan+WS.
