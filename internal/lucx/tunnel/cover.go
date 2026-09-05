@@ -15,10 +15,11 @@ import (
 	"strings"
 )
 
+const Cover Name = "cover"
+
 const (
-	Cover          Name = "cover"
-	coverHTTPSPort      = 443
-	coverHTTPPort       = 80
+	coverHTTPSPort = 443
+	coverHTTPPort  = 80
 )
 
 // CoverRoute is one path → loopback reverse_proxy (VLESS-WS etc.).
@@ -128,8 +129,8 @@ type coverAttach struct {
 func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tskip_install_trust\n}\n")
-	b.WriteString(":80 {\n\tredir https://{host}{uri} permanent\n}\n")
-	b.WriteString(hostname + ":443 {\n")
+	b.WriteString(":" + strconv.Itoa(coverHTTPPort) + " {\n\tredir https://{host}{uri} permanent\n}\n")
+	b.WriteString(hostname + ":" + strconv.Itoa(coverHTTPSPort) + " {\n")
 	if strings.TrimSpace(cert) != "" && strings.TrimSpace(key) != "" {
 		b.WriteString("\ttls " + caddyToken(cert) + " " + caddyToken(key) + "\n")
 	}
