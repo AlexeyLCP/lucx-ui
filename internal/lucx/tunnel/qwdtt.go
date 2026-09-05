@@ -23,7 +23,7 @@ import (
 // QwdttConfig is the operator-facing configuration of the qWDTT core
 // (SpaceNeuroX/proxy-turn-vk-android server.go — WireGuard over VK TURN).
 // The binary takes pure CLI flags (no config file); state lives in ConfigDir
-// (passwords.json, wg-keys.dat). Sidecar pin: SpaceNeuroX v1.4.2 (see release.yml).
+// (passwords.json, wg-keys.dat). Sidecar pin: SpaceNeuroX v1.4.3 (see release.yml).
 type QwdttConfig struct {
 	Remark  string `json:"remark"`
 	Enabled bool   `json:"enabled"`
@@ -261,7 +261,7 @@ func (c QwdttConfig) peerHost() string {
 }
 
 // ClientURI renders the single qwdtt://config?... share link understood by
-// the SpaceNeuroX Android client (v1.4.2 parsePayload / parseQwdttUri).
+// the SpaceNeuroX Android client (v1.4.3 parsePayload / parseQwdttUri).
 // Never concatenate LegacyURI onto this string — a second line is parsed as
 // part of pass and the DTLS handshake dies. Empty password or peer yields "".
 func (c QwdttConfig) ClientURI() string {

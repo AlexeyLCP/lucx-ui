@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.218 — sidecar + AWG upstream bump (2026-09-06)
+
+Refreshed pinned sidecar binaries and AWG kmod/go. CLI/TOML/YAML unchanged; TrustTunnel `per_client_metrics` stays off (default).
+
+- mieru/mita `v3.35.0` → `v3.36.0`
+- TrustTunnel `v1.0.33` → `v1.1.0`, client `v1.0.49` → `v1.1.5`
+- qWDTT `v1.4.2` → `v1.4.3` (`fae121ef`)
+- olcRTC `ebe518a2` → `54bd269b` (OLC2, KCP framing)
+- tproxy-server `52a5feb7` → `f7a6acc4` (probe harden + websocket-lanes)
+- AWG kmod pin `v3.1.20260812` → `v3.1.20260828` (`3c38e168`); amneziawg-go same tag. Tools pin unchanged (`v3.1.20260812`).
+- Unchanged: caddy-naive `v2.11.2-naive`, naiveproxy `v150.0.7871.63-1`, anytls `v0.0.13`, MTProxy `f36d8af7`
+
+**lucxVersion:** lucx.218
+
+---
+
 ## lucx.217 — cover+naive padding (2026-09-05)
 
 Stand: `file_server` in the same Caddy site as `forward_proxy` made naive negotiate padding `None` and drop tunnels. Naive-only Caddyfile: padding `Variant1`, `ifconfig.me` = server IP. Renderer skips `file_server` when naive is behind cover (camouflage = `probe_resistance`). Save failed with `settings.routes — Invalid input` because the backend wrote `routes: null`; Merge now emits `[]`, Zod preprocesses null. Path-routes textarea has no fake example value.

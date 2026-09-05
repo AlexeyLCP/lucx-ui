@@ -148,7 +148,7 @@ mv "$NAIVE_CLIENT_BIN" "naive-client-linux-${ARCH}"
 chmod +x "naive-client-linux-${ARCH}"
 rm -rf /tmp/naiveclient "${NAIVE_CLIENT_XZ}"
 
-OLCRTC_REF="ebe518a2af2d3c5da4d55c3872f8f3298a4d2f45"
+OLCRTC_REF="54bd269bbc8c1c97c966307e0bca733366694a09"
 git init -q /tmp/olcrtc
 git -C /tmp/olcrtc remote add origin https://github.com/openlibrecommunity/olcrtc.git
 git -C /tmp/olcrtc fetch -q --depth 1 origin "${OLCRTC_REF}"
@@ -160,7 +160,7 @@ git -C /tmp/olcrtc checkout -q FETCH_HEAD
 mv "/tmp/olcrtc-linux-${ARCH}" "olcrtc-linux-${ARCH}"
 rm -rf /tmp/olcrtc
 
-QWDTT_REF="6c2f7a627d9fc0b54240035818ff86b6d2b6c76f"
+QWDTT_REF="fae121efc3ef57b633516601d3c0d6b1be1fde7c"
 git init -q /tmp/qwdtt
 git -C /tmp/qwdtt remote add origin https://github.com/SpaceNeuroX/proxy-turn-vk-android.git
 git -C /tmp/qwdtt fetch -q --depth 1 origin "${QWDTT_REF}"
@@ -173,7 +173,7 @@ mv "/tmp/qwdtt-linux-${ARCH}" "qwdtt-linux-${ARCH}"
 chmod +x "qwdtt-linux-${ARCH}"
 rm -rf /tmp/qwdtt
 
-MIERU_REF="v3.35.0"
+MIERU_REF="v3.36.0"
 git clone --depth 1 --branch "${MIERU_REF}" https://github.com/enfein/mieru.git /tmp/mieru
 (
     cd /tmp/mieru
@@ -185,8 +185,8 @@ mv "/tmp/mieru-client-linux-${ARCH}" "mieru-client-linux-${ARCH}"
 chmod +x "mieru-linux-${ARCH}" "mieru-client-linux-${ARCH}"
 rm -rf /tmp/mieru
 
-TT_VER="v1.0.33"
-TT_CLIENT_VER="v1.0.49"
+TT_VER="v1.1.0"
+TT_CLIENT_VER="v1.1.5"
 TT_TGZ="trusttunnel-${TT_VER}-linux-x86_64.tar.gz"
 TT_CLIENT_TGZ="trusttunnel_client-${TT_CLIENT_VER}-linux-x86_64.tar.gz"
 fetch -O "${TT_TGZ}" "https://github.com/TrustTunnel/TrustTunnel/releases/download/${TT_VER}/${TT_TGZ}"

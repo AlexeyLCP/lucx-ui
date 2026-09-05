@@ -59,7 +59,7 @@ done
 # PACKAGE_VERSION is always "1.0.0" (v1 and v3 alike), so a version string
 # cannot discriminate builds.
 AWG_MODULE_MARKER="/etc/x-ui/.awg-module-version"
-AWG_KMOD_PIN="46803204e7ec3b068199cd671143bec661d3fe21"
+AWG_KMOD_PIN="3c38e168beb7c60dec41dfe423d41555205a3dac"
 AWG_TOOLS_PIN="ee0f0a9aa34ff0a0da4b3433b9512781cfe02843"
 
 # Prefer a GitHub tarball over `git fetch`. git-smart-HTTP 401 prompts

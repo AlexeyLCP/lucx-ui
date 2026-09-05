@@ -202,7 +202,7 @@ jobs:
           set -euo pipefail
           DEST="$PWD/x-ui/bin"
           mkdir -p "$DEST"
-          TPROXY_SHA=52a5feb7fac38f68da5afef9cedd9b3bfc8473ca
+          TPROXY_SHA=f7a6acc4d536a787d442fd7df3ba4ebfd728f406
           rm -rf /tmp/tproxy-src
           mkdir /tmp/tproxy-src
           git -C /tmp/tproxy-src init
