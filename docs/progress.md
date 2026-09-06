@@ -4,7 +4,7 @@
 
 WEB proxy `routeThroughXray` is back. Dokodemo REDIRECT (lucx.208–211) and a TUN/fwmark attempt both stalled MTProto (CLOSE-WAIT). Wrap is now uid `lucx-mtproxy` REDIRECT → panel SOCKS5 bridge (`:23990`) → hidden Xray SOCKS inbound, no sniffing (mtg pattern). Host `mtproxy` is not redirected. Cover in front of tproxy: `header -Via`, h1/h2 only. UI toggle restored. Default still off. CI builds mtproxy in Ubuntu 22.04 (glibc 2.35) so Debian 12 does not die on GLIBC_2.38.
 
-Tests: `TestInjectTproxyEgress_SocksNoSniffing`, `TestMtproxyXrayRedirectArgs_OwnerNotCatchAll`, `TestTproxyConfigRouteThroughXray`.
+Tests: `TestInjectTproxyEgress_SocksNoSniffing`, `TestMtproxyXrayRedirectArgs_OwnerNotCatchAll`, `TestTproxyConfigRouteThroughXray`. golangci: ListenConfig + gofumpt/goimports on the SOCKS bridge.
 
 **lucxVersion:** lucx.219
 

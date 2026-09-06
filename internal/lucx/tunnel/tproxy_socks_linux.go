@@ -9,6 +9,7 @@
 package tunnel
 
 import (
+	"context"
 	"encoding/binary"
 	"io"
 	"net"
@@ -17,8 +18,9 @@ import (
 	"syscall"
 	"unsafe"
 
-	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"golang.org/x/net/proxy"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
 var (
@@ -38,7 +40,7 @@ func startTproxySocksBridge(redirPort, socksPort int) {
 	if tproxySocksLn != nil {
 		return
 	}
-	ln, err := net.Listen("tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(redirPort)))
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", net.JoinHostPort("127.0.0.1", strconv.Itoa(redirPort)))
 	if err != nil {
 		logger.Warningf("tunnel: tproxy socks bridge listen: %v", err)
 		return

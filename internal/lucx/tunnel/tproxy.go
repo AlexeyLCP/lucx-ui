@@ -19,11 +19,14 @@ import (
 )
 
 const (
-	Tproxy            Name = "tproxy"
-	Mtproxy           Name = "mtproxy"
-	TproxyCaddy       Name = "tproxycaddy"
-	tproxyDefaultPort         = 443
-	tproxySocksRedirectPort   = 23990
+	Tproxy      Name = "tproxy"
+	Mtproxy     Name = "mtproxy"
+	TproxyCaddy Name = "tproxycaddy"
+)
+
+const (
+	tproxyDefaultPort       = 443
+	tproxySocksRedirectPort = 23990
 )
 
 func TproxySocksRedirectPort() int { return tproxySocksRedirectPort }
