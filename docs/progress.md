@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## unreleased — cover ZIP + naive (after lucx.221)
+
+Stand (`naive-client`): `file_server` + `encode` next to `forward_proxy` is Variant1 and serves `index.html` when the site address is `:443, "host"`. `host:443` + the same ZIP is padding `None` (naive dead). lucx.217 blamed the site; the listen was the killer (fixed 220), then we stripped ZIP for nothing. Cover renders root/file_server/encode with naive again. No tag.
+
+Tests: `TestRenderCoverCaddyfile_NaiveAndPath` wants `file_server` + `:443, "host"`.
+
+**lucxVersion:** lucx.221 (unchanged)
+
+---
+
 ## lucx.221 — cover HTTP/3 + dead tproxy must not steal naive (2026-09-06)
 
 Max: naive Behind cover → NekoBox timeout. Cover Caddyfile was correct (`:443, "host"`, `forward_proxy`) but always pinned `protocols h1 h2` whenever naive was attached. Standalone naive with `enableH3` (UI default) speaks QUIC; NekoBox tries h3 and hangs. Cover now follows naive `enableH3` (tproxy still h1/h2).

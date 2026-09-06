@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ad: cover+naive white page — ZIP is fine (unreleased, after 221)
+- **Symptom (Max, 06.09.2026):** naive Behind cover works, browser gets a white page instead of the cover ZIP.
+- **Cause:** lucx.217 stripped `root`/`encode`/`file_server` next to `forward_proxy` (padding `None` on the stand). The real killer was `host:443` (lucx.220). Re-test with `:443, "host"`: ZIP + encode → site 200 and padding Variant1. `host:443` + ZIP → None.
+- **Fix:** cover emits the ZIP again when naive is attached. Listen stays `:443, "host"`.
+- **Healing without update:** none on 221 — wait for the next panel, or hand-edit the cover Caddyfile (will be overwritten on reconcile).
+- **Lesson:** after a listen-address fix, re-test the thing you deleted “because padding”. Do not keep a workaround whose cause moved.
+
 ### Pattern 1ab: naive Behind cover, NekoBox “timeout” — FIXED (lucx.221)
 - **Symptom (Max, 06.09.2026):** naive and tproxy work alone; Behind cover + NekoBox+ → «Тайм-аут». Cover Caddyfile has `forward_proxy` and `:443, "host"`. Panel shows naive-N stopped (expected: cover fronts it).
 - **Cause:** cover always wrote `protocols h1 h2` when naive was attached. UI default `enableH3: true`. Standalone naive Caddy allows QUIC; NekoBox tries HTTP/3 and never falls back. Same host with h1/h2-only cover times out.

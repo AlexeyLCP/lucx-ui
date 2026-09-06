@@ -137,8 +137,8 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	}
 	b.WriteString("}\n")
 	b.WriteString(":" + strconv.Itoa(coverHTTPPort) + " {\n\tredir https://{host}{uri} permanent\n}\n")
-	// Naive padding dies on a host:443 site address (stand: None vs Variant1
-	// on :443, "host" — same Caddy, same forward_proxy). Match naive's listen.
+	// Naive padding dies on host:443 (None). :443, "host" is Variant1 even
+	// with file_server/encode in the same site (stand 2026-09-06).
 	if a.naive != nil {
 		b.WriteString(":" + strconv.Itoa(coverHTTPSPort) + ", " + caddyToken(hostname) + " {\n")
 	} else {
@@ -154,11 +154,9 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 			" {\n\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")
 		return b.String()
 	}
-	if a.naive == nil {
-		b.WriteString("\tencode zstd gzip\n")
-		if a.publicDir != "" {
-			b.WriteString("\troot * " + caddyToken(a.publicDir) + "\n")
-		}
+	b.WriteString("\tencode zstd gzip\n")
+	if a.publicDir != "" {
+		b.WriteString("\troot * " + caddyToken(a.publicDir) + "\n")
 	}
 	needRoute := a.naive != nil || len(a.routes) > 0
 	if needRoute {
@@ -177,12 +175,10 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 		}
 		b.WriteString("\t}\n")
 	}
-	if a.naive == nil {
-		if a.publicUpstream != "" {
-			b.WriteString("\treverse_proxy " + coverUpstreamHost(a.publicUpstream) + "\n")
-		} else if a.publicDir != "" {
-			b.WriteString("\tfile_server\n")
-		}
+	if a.publicUpstream != "" {
+		b.WriteString("\treverse_proxy " + coverUpstreamHost(a.publicUpstream) + "\n")
+	} else if a.publicDir != "" {
+		b.WriteString("\tfile_server\n")
 	}
 	b.WriteString("}\n")
 	return b.String()
