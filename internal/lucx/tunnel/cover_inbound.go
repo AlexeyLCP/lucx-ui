@@ -53,6 +53,19 @@ func SettingsBehindCover(protocol model.Protocol, settings string) bool {
 	return s.BehindCover
 }
 
+func tproxyBehindCoverReady(ib *model.Inbound, panelCert, panelKey string) bool {
+	insts, ok := TproxyInstancesFromInbound(ib, panelCert, panelKey)
+	if !ok {
+		return false
+	}
+	for _, inst := range insts {
+		if inst.Core == Tproxy && inst.Enabled {
+			return true
+		}
+	}
+	return false
+}
+
 // CoverInstanceFromInbound builds the single Caddy process for one cover
 // inbound, folding matching behindCover naive/tproxy + path routes.
 func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret []byte, panelCert, panelKey string) (Instance, bool) {
@@ -89,6 +102,9 @@ func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret
 		case model.Tproxy:
 			tcfg, ok := TproxyConfigFromInbound(o)
 			if !ok || !tcfg.BehindCover || tcfg.Hostname != cfg.Hostname {
+				continue
+			}
+			if !tproxyBehindCoverReady(o, panelCert, panelKey) {
 				continue
 			}
 			att.tproxyRelay = tproxyLoopback(o.Id, 2)
@@ -186,7 +202,7 @@ func NaiveFrontedByCover(ib *model.Inbound, all []*model.Inbound, secret []byte,
 			continue
 		}
 		cfg, ok := CoverConfigFromInbound(o)
-		if ok && naiveMatchesCover(ncfg, cfg.Hostname) {
+		if ok && naiveMatchesCover(ncfg, cfg.Hostname) && strings.Contains(inst.ConfigText, "forward_proxy") {
 			return true
 		}
 	}

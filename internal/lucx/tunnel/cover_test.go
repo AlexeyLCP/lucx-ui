@@ -64,11 +64,14 @@ func TestRenderCoverCaddyfile_NaiveAndPath(t *testing.T) {
 	})
 	for _, need := range []string{
 		`:443, "shop.example.com"`, "forward_proxy", "basic_auth",
-		"handle /ws*", "reverse_proxy 127.0.0.1:10000", "protocols h1 h2",
+		"handle /ws*", "reverse_proxy 127.0.0.1:10000",
 	} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("missing %q in:\n%s", need, got)
 		}
+	}
+	if strings.Contains(got, "protocols h1 h2") {
+		t.Fatalf("H3 on: cover must not restrict protocols:\n%s", got)
 	}
 	if strings.Contains(got, "shop.example.com:443") {
 		t.Fatalf("host:443 site address kills naive padding:\n%s", got)
@@ -109,7 +112,7 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 	}
 
 	if !NaiveFrontedByCover(naive, []*model.Inbound{cover, naive, tproxy}, nil, cert, key) {
-		t.Fatal("live cover must front matching naive")
+		t.Fatal("dead tproxy must not steal naive from cover")
 	}
 
 	insts, ok := TproxyInstancesFromInbound(tproxy, cert, key)
@@ -117,11 +120,63 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 		t.Fatal("tproxy instances")
 	}
 	for _, inst := range insts {
-		if inst.Core == TproxyCaddy && inst.Enabled {
-			t.Fatal("tproxy behind cover must not run own caddy")
+		if inst.Enabled {
+			t.Fatal("tproxy without site must stay down")
 		}
 	}
 
+	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{naive, tproxy}, nil, cert, key)
+	if !ok || !cInst.Enabled {
+		t.Fatalf("cover instance: enabled=%v ok=%v", cInst.Enabled, ok)
+	}
+	if !strings.Contains(cInst.ConfigText, "forward_proxy") {
+		t.Fatalf("cover must keep naive when tproxy is down:\n%s", cInst.ConfigText)
+	}
+	if strings.Contains(cInst.ConfigText, "reverse_proxy 127.0.0.1:") {
+		t.Fatal("dead tproxy must not own cover")
+	}
+}
+
+func TestCoverTproxyWinsWhenStackReady(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+
+	if err := os.MkdirAll(mtproxyAssetsDir(), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mtproxyAssetsDir(), "proxy-secret"), []byte("s"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(mtproxyAssetsDir(), "proxy-multi.conf"), []byte("c"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	for _, site := range []string{CoverSiteDir(3), TproxySiteDir(5)} {
+		if err := os.MkdirAll(site, 0o755); err != nil {
+			t.Fatal(err)
+		}
+		if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html/>"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "shop.example.com")
+	cover := &model.Inbound{
+		Id: 3, Protocol: model.Cover, Enable: true, Port: 443,
+		Settings: `{"hostname":"shop.example.com","siteSource":"zip"}`,
+	}
+	naive := &model.Inbound{
+		Id: 4, Protocol: model.Naive, Enable: true, Port: 443,
+		Settings: `{"domain":"shop.example.com","behindCover":true,"clients":[{"email":"a@x","enable":true}]}`,
+	}
+	tproxy := &model.Inbound{
+		Id: 5, Protocol: model.Tproxy, Enable: true, Port: 443,
+		Settings: `{"hostname":"shop.example.com","secret":"000102030405060708090a0b0c0d0e0f","behindCover":true,"siteSource":"zip"}`,
+	}
+
+	if NaiveFrontedByCover(naive, []*model.Inbound{cover, naive, tproxy}, nil, cert, key) {
+		t.Fatal("live tproxy must own the host")
+	}
 	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{naive, tproxy}, nil, cert, key)
 	if !ok || !cInst.Enabled {
 		t.Fatalf("cover instance: enabled=%v ok=%v", cInst.Enabled, ok)

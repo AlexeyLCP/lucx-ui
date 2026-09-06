@@ -4,6 +4,20 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ab: naive Behind cover, NekoBox “timeout” — FIXED (lucx.221)
+- **Symptom (Max, 06.09.2026):** naive and tproxy work alone; Behind cover + NekoBox+ → «Тайм-аут». Cover Caddyfile has `forward_proxy` and `:443, "host"`. Panel shows naive-N stopped (expected: cover fronts it).
+- **Cause:** cover always wrote `protocols h1 h2` when naive was attached. UI default `enableH3: true`. Standalone naive Caddy allows QUIC; NekoBox tries HTTP/3 and never falls back. Same host with h1/h2-only cover times out.
+- **Fix:** cover copies naive `enableH3`. Tproxy-in-front still pins h1/h2.
+- **Healing without update:** turn off HTTP/3 (QUIC) on the naive inbound, save, reconnect.
+- **Lesson:** a camouflage front must inherit the protocol flags of the thing it fronts. E2E with `naive-client` over TCP does not catch NekoBox QUIC.
+
+### Pattern 1ac: dead tproxy Behind cover kills naive — FIXED (lucx.221)
+- **Symptom:** tproxy Behind cover without its own `index.html` logs `tproxy-N disabled: site needs index.html`, but cover still `reverse_proxy` to the loopback relay. Naive on the same hostname is stopped (`NaiveFrontedByCover`) and has no `forward_proxy`.
+- **Cause:** `CoverInstanceFromInbound` attached tproxy on hostname match alone. `NaiveFrontedByCover` did not check that cover actually injected naive.
+- **Fix:** attach tproxy only if `Tproxy` core is Enabled. Naive is fronted only when cover `ConfigText` contains `forward_proxy`.
+- **Healing without update:** upload a site zip on the tproxy inbound (cover’s zip is not reused), or disable tproxy Behind cover.
+- **Lesson:** exclusive “tproxy owns the host” must not run when the tproxy stack is down.
+
 ### Pattern 1aa: tproxy “token.key: no such file” on a fresh panel — FIXED (lucx.220)
 - **Symptom (Andrey, 06.09.2026):** new Telegram WEB proxy → `tproxy-N process exited: exit status 1` / `token_key_file: open /usr/local/x-ui/bin/tunnel/token.key: no such file or directory`. Pasting the panel 32-hex secret into that file does not help (wrong key, often 0644 or 33 bytes with newline).
 - **Cause:** tproxy-server `f7a6acc4` (lucx.218) requires a persistent 32-byte HMAC file, mode `0600`/`0400`. Default path is `token.key` next to the relay JSON. LucX never created it.

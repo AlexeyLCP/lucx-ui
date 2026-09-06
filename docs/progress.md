@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.221 — cover HTTP/3 + dead tproxy must not steal naive (2026-09-06)
+
+Max: naive Behind cover → NekoBox timeout. Cover Caddyfile was correct (`:443, "host"`, `forward_proxy`) but always pinned `protocols h1 h2` whenever naive was attached. Standalone naive with `enableH3` (UI default) speaks QUIC; NekoBox tries h3 and hangs. Cover now follows naive `enableH3` (tproxy still h1/h2).
+
+Dead tproxy Behind cover (no `index.html`) still took the hostname (`reverse_proxy` to a silent loopback) and `NaiveFrontedByCover` stayed true → naive Caddy down, cover not injecting `forward_proxy`. Cover now attaches tproxy only if the relay is actually enabled; naive stays if cover has `forward_proxy`.
+
+Tests: `TestRenderCoverCaddyfile_NaiveAndPath` (H3 on → no protocol pin), `TestCoverInstanceBehindCoverSkipsOwnCaddy`, `TestCoverTproxyWinsWhenStackReady`.
+
+**lucxVersion:** lucx.221
+
+---
+
 ## lucx.220 — tproxy token.key + AWG SHA in panel (2026-09-06)
 
 Fresh Telegram WEB proxy died on tproxy-server `f7a6acc4`: `token_key_file: open …/bin/tunnel/token.key: no such file`. lucx.218 bumped the sidecar; we never provisioned the 32-byte HMAC key. Panel now writes `bin/tunnel/token.key` once (0600, never rotated) and puts the absolute path in the relay JSON. The panel secret is not this key.
