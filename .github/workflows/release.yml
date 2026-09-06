@@ -221,7 +221,7 @@ jobs:
             'apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc make libssl-dev zlib1g-dev >/dev/null && make -j"$(nproc)"'
           cp /tmp/MTProxy/objs/bin/mtproto-proxy "$DEST/mtproxy-linux-amd64"
           chmod +x "$DEST/mtproxy-linux-amd64"
-          if readelf -V "$DEST/mtproxy-linux-amd64" | grep -E 'GLIBC_2\.(3[6-9]|[4-9])'; then
+          if readelf -V "$DEST/mtproxy-linux-amd64" | grep -E 'GLIBC_2\.(3[6-9]|[4-9][0-9])'; then
             echo "mtproxy linked against glibc newer than 2.35 (breaks Debian 12)" >&2
             exit 1
           fi
