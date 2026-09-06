@@ -14,6 +14,8 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -27,6 +29,7 @@ const (
 const (
 	tproxyDefaultPort       = 443
 	tproxySocksRedirectPort = 23990
+	tproxyTokenKeyBytes     = 32
 )
 
 func TproxySocksRedirectPort() int { return tproxySocksRedirectPort }
@@ -224,7 +227,59 @@ func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPor
 	return b.String()
 }
 
-func RenderTproxyConfigJSON(hostname, listen, admin, publicDir, publicUpstream, profilesFile string) (string, error) {
+func tproxyTokenKeyPath() string {
+	return filepath.Join(workDir(), "token.key")
+}
+
+// ensureTproxyTokenKey writes a persistent 32-byte HMAC key once (tproxy-server
+// f7a6acc4+ refuses to start without it). Existing bytes are never replaced.
+func ensureTproxyTokenKey() (string, error) {
+	path := tproxyTokenKeyPath()
+	if err := os.MkdirAll(workDir(), 0o755); err != nil {
+		return "", err
+	}
+	if _, err := os.Stat(path); err == nil {
+		return keepTproxyTokenKey(path)
+	} else if !os.IsNotExist(err) {
+		return "", err
+	}
+	var key [tproxyTokenKeyBytes]byte
+	if _, err := rand.Read(key[:]); err != nil {
+		return "", err
+	}
+	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
+	if err != nil {
+		if os.IsExist(err) {
+			return keepTproxyTokenKey(path)
+		}
+		return "", err
+	}
+	_, werr := f.Write(key[:])
+	cerr := f.Close()
+	if werr != nil {
+		_ = os.Remove(path)
+		return "", werr
+	}
+	if cerr != nil {
+		return "", cerr
+	}
+	_ = os.Chmod(path, 0o600)
+	return absPath(path), nil
+}
+
+func keepTproxyTokenKey(path string) (string, error) {
+	st, err := os.Stat(path)
+	if err != nil {
+		return "", err
+	}
+	if !st.Mode().IsRegular() || st.Size() != tproxyTokenKeyBytes {
+		return "", fmt.Errorf("tproxy: token.key must be a regular file of %d bytes", tproxyTokenKeyBytes)
+	}
+	_ = os.Chmod(path, 0o600)
+	return absPath(path), nil
+}
+
+func RenderTproxyConfigJSON(hostname, listen, admin, publicDir, publicUpstream, profilesFile, tokenKeyFile string) (string, error) {
 	cfg := map[string]any{
 		"public_hostname": hostname,
 		"listen":          listen,
@@ -232,6 +287,7 @@ func RenderTproxyConfigJSON(hostname, listen, admin, publicDir, publicUpstream, 
 		"public_dir":      publicDir,
 		"public_upstream": publicUpstream,
 		"profiles_file":   profilesFile,
+		"token_key_file":  tokenKeyFile,
 		"enable_pprof":    false,
 		"limits": map[string]any{
 			"max_header_bytes":              16384,

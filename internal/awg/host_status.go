@@ -7,13 +7,9 @@
 package awg
 
 import (
-	"context"
 	"os"
-	"os/exec"
-	"regexp"
 	"runtime"
 	"strings"
-	"time"
 )
 
 // HostStatus is the dashboard-level AWG snapshot (module + running ifaces).
@@ -26,9 +22,10 @@ type HostStatus struct {
 	Ifnames      []string `json:"ifnames,omitempty"`
 }
 
-var awgToolsVersionRe = regexp.MustCompile(`(?i)v?(\d+\.\d+(?:\.\d+)?(?:\.\d+)?)`)
+// moduleSHAPath is the install-awg-module.sh marker (full commit SHA).
+var moduleSHAPath = "/etc/x-ui/.awg-module-version"
 
-// CollectHostStatus probes the kernel module, tools version, and how many
+// CollectHostStatus probes the kernel module, build SHA, and how many
 // managed AWG interfaces are currently up (inbound awgN + outbound awgo-N).
 func CollectHostStatus() HostStatus {
 	hs := HostStatus{}
@@ -40,7 +37,7 @@ func CollectHostStatus() HostStatus {
 	}
 	hs.ModuleAwg3 = ModuleSupportsAwg3()
 	hs.ModuleAwg31 = ModuleSupportsAwg31()
-	hs.Version = toolsVersion()
+	hs.Version = moduleSHA()
 	mgr := GetManager()
 	in := mgr.RunningIfnames()
 	out := mgr.RunningClientIfnames()
@@ -88,24 +85,14 @@ func (m *Manager) RunningIfnames() []string {
 	return names
 }
 
-func toolsVersion() string {
-	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-	defer cancel()
-	out, err := exec.CommandContext(ctx, awgBin("awg"), "version").CombinedOutput()
+func moduleSHA() string {
+	data, err := os.ReadFile(moduleSHAPath)
 	if err != nil {
 		return ""
 	}
-	s := strings.TrimSpace(string(out))
-	if m := awgToolsVersionRe.FindStringSubmatch(s); len(m) > 1 {
-		return m[1]
-	}
-	// Fall back to first token after "v" if present.
-	if i := strings.Index(strings.ToLower(s), "v"); i >= 0 && i+1 < len(s) {
-		rest := s[i+1:]
-		if j := strings.IndexAny(rest, " \t\n-"); j > 0 {
-			return rest[:j]
-		}
-		return rest
+	s := strings.TrimSpace(string(data))
+	if len(s) == 40 {
+		return s[:12]
 	}
 	return s
 }

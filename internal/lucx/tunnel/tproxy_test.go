@@ -77,6 +77,45 @@ func TestExtractTproxySiteZipReplaces(t *testing.T) {
 	}
 }
 
+func TestEnsureTproxyTokenKeyPersistent(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+
+	p1, err := ensureTproxyTokenKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	first, err := os.ReadFile(p1)
+	if err != nil || len(first) != tproxyTokenKeyBytes {
+		t.Fatalf("len=%d err=%v", len(first), err)
+	}
+	p2, err := ensureTproxyTokenKey()
+	if err != nil {
+		t.Fatal(err)
+	}
+	second, err := os.ReadFile(p2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if p1 != p2 || string(first) != string(second) {
+		t.Fatal("token.key must not rotate")
+	}
+
+	bad := filepath.Join(dir, "token.key")
+	if err := os.WriteFile(bad, []byte("not-32-bytes"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := ensureTproxyTokenKey(); err == nil {
+		t.Fatal("wrong-size token.key must fail, not overwrite")
+	}
+	kept, _ := os.ReadFile(bad)
+	if string(kept) != "not-32-bytes" {
+		t.Fatal("wrong-size key was overwritten")
+	}
+}
+
 func TestTproxyConfigRouteThroughXray(t *testing.T) {
 	ib := &model.Inbound{
 		Protocol: model.Tproxy,
@@ -325,6 +364,13 @@ func TestTproxyInstancesFromInbound(t *testing.T) {
 	}
 	if insts[1].Key != "tproxy-4" || insts[2].Key != "tproxycaddy-4" {
 		t.Fatalf("keys %q %q", insts[1].Key, insts[2].Key)
+	}
+	if !strings.Contains(insts[1].ConfigText, `"token_key_file"`) {
+		t.Fatalf("config missing token_key_file:\n%s", insts[1].ConfigText)
+	}
+	got, err := os.ReadFile(tproxyTokenKeyPath())
+	if err != nil || len(got) != tproxyTokenKeyBytes {
+		t.Fatalf("token.key len=%d err=%v", len(got), err)
 	}
 	if !strings.Contains(insts[2].ConfigText, "reverse_proxy 127.0.0.1:") {
 		t.Fatalf("caddyfile = %s", insts[2].ConfigText)

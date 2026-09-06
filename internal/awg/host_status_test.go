@@ -6,26 +6,36 @@
 
 package awg
 
-import "testing"
+import (
+	"os"
+	"path/filepath"
+	"testing"
+)
 
-func TestToolsVersionRegex(t *testing.T) {
-	cases := []struct {
-		in   string
-		want string
-	}{
-		{"amneziawg-tools v3.0.20260730 - https://amnezia.org", "3.0.20260730"},
-		{"amneziawg-tools v1.0.20241101\n", "1.0.20241101"},
-		{"no version here", ""},
+func TestModuleSHA(t *testing.T) {
+	orig := moduleSHAPath
+	t.Cleanup(func() { moduleSHAPath = orig })
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "marker")
+	moduleSHAPath = path
+	if got := moduleSHA(); got != "" {
+		t.Fatalf("missing marker: %q", got)
 	}
-	for _, tc := range cases {
-		m := awgToolsVersionRe.FindStringSubmatch(tc.in)
-		got := ""
-		if len(m) > 1 {
-			got = m[1]
-		}
-		if got != tc.want {
-			t.Errorf("in %q: got %q want %q", tc.in, got, tc.want)
-		}
+
+	full := "3c38e168beb7c60dec41dfe423d41555205a3dac"
+	if err := os.WriteFile(path, []byte(full+"\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := moduleSHA(); got != "3c38e168beb7" {
+		t.Fatalf("sha = %q", got)
+	}
+
+	if err := os.WriteFile(path, []byte("1.0.20260611\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if got := moduleSHA(); got != "1.0.20260611" {
+		t.Fatalf("legacy marker = %q", got)
 	}
 }
 

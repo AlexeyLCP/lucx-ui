@@ -83,7 +83,7 @@ export default function OverviewActionBar({
   const stateText = t(XRAY_STATE_KEYS[status.xray.state] ?? 'pages.index.xrayStatusUnknown');
   const hasVersion = !!status.xray.version && status.xray.version !== 'Unknown';
   const awgStateText = t(AWG_STATE_KEYS[status.awg.state] ?? 'pages.index.awgStatusUnknown');
-  const awgVersion = (status.awg.version || '').replace(/^v/i, '');
+  const awgVersion = status.awg.version || '';
   const hasAwgVersion = !!awgVersion;
   const size = isMobile ? ('small' as const) : ('middle' as const);
 
@@ -197,7 +197,7 @@ export default function OverviewActionBar({
       <span>{`${t('pages.index.awgStatus')} · ${awgStateText}`}</span>
       {hasAwgVersion && (
         <span className="ov-state-version" style={{ cursor: 'default' }}>
-          {`v${awgVersion}`}
+          {awgVersion}
         </span>
       )}
     </span>

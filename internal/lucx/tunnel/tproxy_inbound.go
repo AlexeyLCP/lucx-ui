@@ -115,7 +115,11 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 	if err := os.MkdirAll(workDir(), 0o755); err != nil {
 		return disabledWhy(err), true
 	}
-	cfgJSON, err := RenderTproxyConfigJSON(cfg.Hostname, relayListen, adminListen, publicDir, publicUpstream, absPath(profilesPath))
+	tokenKey, err := ensureTproxyTokenKey()
+	if err != nil {
+		return disabledWhy(err), true
+	}
+	cfgJSON, err := RenderTproxyConfigJSON(cfg.Hostname, relayListen, adminListen, publicDir, publicUpstream, absPath(profilesPath), tokenKey)
 	if err != nil {
 		return disabledWhy(err), true
 	}

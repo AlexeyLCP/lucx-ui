@@ -132,12 +132,18 @@ type coverAttach struct {
 func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tskip_install_trust\n")
-	if a.tproxyRelay > 0 {
+	if a.tproxyRelay > 0 || a.naive != nil {
 		b.WriteString("\tservers {\n\t\tprotocols h1 h2\n\t}\n")
 	}
 	b.WriteString("}\n")
 	b.WriteString(":" + strconv.Itoa(coverHTTPPort) + " {\n\tredir https://{host}{uri} permanent\n}\n")
-	b.WriteString(hostname + ":" + strconv.Itoa(coverHTTPSPort) + " {\n")
+	// Naive padding dies on a host:443 site address (stand: None vs Variant1
+	// on :443, "host" — same Caddy, same forward_proxy). Match naive's listen.
+	if a.naive != nil {
+		b.WriteString(":" + strconv.Itoa(coverHTTPSPort) + ", " + caddyToken(hostname) + " {\n")
+	} else {
+		b.WriteString(hostname + ":" + strconv.Itoa(coverHTTPSPort) + " {\n")
+	}
 	if strings.TrimSpace(cert) != "" && strings.TrimSpace(key) != "" {
 		b.WriteString("\ttls " + caddyToken(cert) + " " + caddyToken(key) + "\n")
 	}
@@ -148,9 +154,11 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 			" {\n\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")
 		return b.String()
 	}
-	b.WriteString("\tencode zstd gzip\n")
-	if a.publicDir != "" {
-		b.WriteString("\troot * " + caddyToken(a.publicDir) + "\n")
+	if a.naive == nil {
+		b.WriteString("\tencode zstd gzip\n")
+		if a.publicDir != "" {
+			b.WriteString("\troot * " + caddyToken(a.publicDir) + "\n")
+		}
 	}
 	needRoute := a.naive != nil || len(a.routes) > 0
 	if needRoute {

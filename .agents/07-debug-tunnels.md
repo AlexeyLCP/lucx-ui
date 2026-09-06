@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1aa: tproxy “token.key: no such file” on a fresh panel — FIXED (lucx.220)
+- **Symptom (Andrey, 06.09.2026):** new Telegram WEB proxy → `tproxy-N process exited: exit status 1` / `token_key_file: open /usr/local/x-ui/bin/tunnel/token.key: no such file or directory`. Pasting the panel 32-hex secret into that file does not help (wrong key, often 0644 or 33 bytes with newline).
+- **Cause:** tproxy-server `f7a6acc4` (lucx.218) requires a persistent 32-byte HMAC file, mode `0600`/`0400`. Default path is `token.key` next to the relay JSON. LucX never created it.
+- **Fix:** `ensureTproxyTokenKey` writes the file once and sets `token_key_file` in the rendered config. Existing bytes are never replaced.
+- **Healing without update:** `head -c 32 /dev/urandom | sudo tee /usr/local/x-ui/bin/tunnel/token.key >/dev/null; sudo chmod 600 /usr/local/x-ui/bin/tunnel/token.key` then wait one reconcile tick (or save the inbound).
+- **Lesson:** a sidecar pin bump that adds a required secret file is a panel provisioner change, not “the operator should mkdir”.
+
 ### Pattern 1y: qWDTT from a managed node vanishes after attach — FIXED
 - **Symptom (xFilosofx, #59, 03.09.2026):** attach qWDTT (node inbound) to a client → success → refresh → gone from attached list and subscription.
 - **Cause:** qWDTT/olcRTC are share-only (`client_inbounds`, no `settings.clients[]`). Node heartbeat `setRemoteTraffic` did `GetClients(snapshot)` → empty → `SyncInbound(..., [])` pruned every attach.

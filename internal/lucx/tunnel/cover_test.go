@@ -62,13 +62,21 @@ func TestRenderCoverCaddyfile_NaiveAndPath(t *testing.T) {
 		publicDir: "/site",
 		routes:    []CoverRoute{{Path: "/ws", Dest: "127.0.0.1:10000"}},
 	})
-	for _, need := range []string{"forward_proxy", "basic_auth", "handle /ws*", "reverse_proxy 127.0.0.1:10000"} {
+	for _, need := range []string{
+		`:443, "shop.example.com"`, "forward_proxy", "basic_auth",
+		"handle /ws*", "reverse_proxy 127.0.0.1:10000", "protocols h1 h2",
+	} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("missing %q in:\n%s", need, got)
 		}
 	}
-	if strings.Contains(got, "file_server") {
-		t.Fatalf("file_server next to forward_proxy kills naive padding:\n%s", got)
+	if strings.Contains(got, "shop.example.com:443") {
+		t.Fatalf("host:443 site address kills naive padding:\n%s", got)
+	}
+	for _, no := range []string{"file_server", "root *", "encode zstd gzip"} {
+		if strings.Contains(got, no) {
+			t.Fatalf("%q next to forward_proxy:\n%s", no, got)
+		}
 	}
 }
 

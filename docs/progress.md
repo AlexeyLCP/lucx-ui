@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.220 — tproxy token.key + AWG SHA in panel (2026-09-06)
+
+Fresh Telegram WEB proxy died on tproxy-server `f7a6acc4`: `token_key_file: open …/bin/tunnel/token.key: no such file`. lucx.218 bumped the sidecar; we never provisioned the 32-byte HMAC key. Panel now writes `bin/tunnel/token.key` once (0600, never rotated) and puts the absolute path in the relay JSON. The panel secret is not this key.
+
+Overview / Cores AWG tag shows the module marker SHA (`/etc/x-ui/.awg-module-version`, 12 hex), not `awg version` (tools pin). Makefile `/sys/module/amneziawg/version` is not used.
+
+Cover+naive: site address `host:443` makes the client negotiate padding `None` and drop the tunnel. Standalone `:443, "host"` is Variant1. Cover now uses that listen when naive is behind it; no `root`/`encode`/`file_server` next to `forward_proxy`.
+
+Tests: `TestEnsureTproxyTokenKeyPersistent`, `TestTproxyInstancesFromInbound` checks `token_key_file`. `TestModuleSHA`. `TestRenderCoverCaddyfile_NaiveAndPath`.
+
+**lucxVersion:** lucx.220
+
+---
+
 ## lucx.219 — tproxy via Xray SOCKS (2026-09-06)
 
 WEB proxy `routeThroughXray` is back. Dokodemo REDIRECT (lucx.208–211) and a TUN/fwmark attempt both stalled MTProto (CLOSE-WAIT). Wrap is now uid `lucx-mtproxy` REDIRECT → panel SOCKS5 bridge (`:23990`) → hidden Xray SOCKS inbound, no sniffing (mtg pattern). Host `mtproxy` is not redirected. Cover in front of tproxy: `header -Via`, h1/h2 only. UI toggle restored. Default still off. CI builds mtproxy in Ubuntu 22.04 (glibc 2.35) so Debian 12 does not die on GLIBC_2.38. Release glibc gate matches 2.36+ only (not 2.4). Docs oxfmt ignores progress/readme/superpowers.
