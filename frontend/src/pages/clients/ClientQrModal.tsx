@@ -4,7 +4,7 @@ import { Collapse, Modal, Select, Space, Spin, Tag, Typography } from 'antd';
 import { HttpUtil } from '@/utils';
 import { awgVersionAtLeast, awgVersionCeiling, isPostQuantumLink } from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
-import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
+import { LinkTags, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 import { formatInboundLabel } from '@/lib/inbounds/label';
@@ -225,8 +225,8 @@ export default function ClientQrModal({
         children: <QrPanel value={subAwgLink} remark={`${client?.email || ''} — Amnezia .conf`} />,
       });
     }
-    links.forEach((link, idx) => {
-      const parts = parseLinkParts(link);
+    displaySubLinks(links).forEach((row, idx) => {
+      const { link, parts } = row;
       const meta = parts ? linkMetaText(parts) : '';
       const label: React.ReactNode = parts ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
