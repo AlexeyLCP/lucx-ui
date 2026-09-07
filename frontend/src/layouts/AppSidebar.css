@@ -309,7 +309,7 @@
   opacity: 0.85;
 }
 
-.ant-layout-sider-collapsed .sider-version {
+.ant-layout-sider-collapsed .sider-footer-links a {
   justify-content: center;
   padding: 8px 0;
 }

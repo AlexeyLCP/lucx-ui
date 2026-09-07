@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.223 — collapsed sidebar TG icon + QR modal Amnezia rows (2026-09-07)
+
+Collapsed rail: Telegram footer link kept `flex-start` + 16px padding while GitHub was centered. One rule on `.sider-footer-links a`.
+
+Also unreleased after lucx.222: ClientQrModal walked raw share lines, so AmneziaWG showed twice (`amneziawg://` + `vpn://`). Now `displaySubLinks` like the sub page.
+
+**lucxVersion:** lucx.223
+
+---
+
 ## lucx.222 — sub page Amnezia per-server paste + cover ZIP with naive (2026-09-07)
 
 Nik Targon: `/sub/` AMNEZIA row copied every inbound at once; AmneziaVPN imports only the first. Copy-link showed `AmneziaWG Link N` (vpn:// has no remark; the sibling `amneziawg://` was hidden). QR of vpn:// was a white square (payload > QR capacity).
