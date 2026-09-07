@@ -973,8 +973,8 @@
         "savedDisabled": "After import the old Docker/awg3 manager is stopped and the inbound is enabled. Stacks that share 10.8.1.0/24 need different subnets before more than one kernel iface is up."
       },
       "protocolNames": {
-        "awg": "AmneziaWG (kernel)",
-        "amneziawg": "AmneziaWG",
+        "awg": "awg (kernel)",
+        "amneziawg": "amneziawg",
         "anytls": "AnyTLS",
         "tproxy": "Telegram WEB proxy",
         "cover": "Cover site"
