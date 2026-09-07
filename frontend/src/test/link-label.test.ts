@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-import { parseLinkParts, linkMetaText } from '@/lib/xray/link-label';
+import { parseLinkParts, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
 import { genAmneziaWGLink } from '@/lib/xray/inbound-link';
 import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
 
@@ -117,5 +117,25 @@ describe('link-label parseLinkParts', () => {
     expect(parts?.port).toBe('');
     expect(parts?.remark).not.toMatch(/\uFFFD/);
     expect(parts && linkMetaText(parts)).toBe('');
+  });
+
+  it('displaySubLinks labels vpn:// from the preceding amneziawg:// and groups by protocol', () => {
+    const rows = displaySubLinks([
+      'vless://u@h:443?type=tcp&security=reality#DE-satx',
+      'amneziawg://k@10.0.0.1:51820?publickey=x#NL-ams',
+      'vpn://e30',
+      'vless://u@h:443?type=xhttp&security=reality#CH-switz',
+      'amneziawg://k@10.0.0.2:51821#DE-awg',
+      'vpn://e30',
+    ]);
+    expect(rows.map((r) => r.parts?.protocol)).toEqual([
+      'Vless',
+      'Vless',
+      'AmneziaWG',
+      'AmneziaWG',
+    ]);
+    expect(rows.map((r) => r.parts?.remark)).toEqual(['DE-satx', 'CH-switz', 'NL-ams', 'DE-awg']);
+    expect(rows.filter((r) => r.link.startsWith('amneziawg://'))).toHaveLength(0);
+    expect(rows.filter((r) => r.link.startsWith('vpn://'))).toHaveLength(2);
   });
 });

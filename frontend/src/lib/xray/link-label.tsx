@@ -301,3 +301,61 @@ export function LinkTags({ parts }: { parts: LinkParts }) {
     </span>
   );
 }
+
+// LUCX-HOOK: AWG share is amneziawg:// (has #remark) + vpn:// (opaque). Hide the
+// first; steal its remark. Group rows by protocol so mixed inbounds don't interleave.
+export interface DisplaySubLink {
+  link: string;
+  parts: LinkParts | null;
+}
+
+const PROTOCOL_RANK: Record<string, number> = {
+  Vless: 0,
+  Vmess: 1,
+  Trojan: 2,
+  Shadowsocks: 3,
+  Hysteria2: 4,
+  Hysteria: 5,
+  AnyTLS: 6,
+  Naive: 7,
+  MTProto: 8,
+  'Telegram WEB': 9,
+  WireGuard: 10,
+  AmneziaWG: 11,
+  olcRTC: 12,
+  qWDTT: 13,
+  mieru: 14,
+  TrustTunnel: 15,
+};
+
+export function displaySubLinks(links: string[]): DisplaySubLink[] {
+  const rows: DisplaySubLink[] = [];
+  for (let i = 0; i < links.length; i++) {
+    const link = links[i];
+    if (link.startsWith('amneziawg://')) continue;
+    let parts = parseLinkParts(link);
+    if (link.startsWith('vpn://') && i > 0 && links[i - 1].startsWith('amneziawg://')) {
+      const prev = parseLinkParts(links[i - 1]);
+      if (prev) {
+        parts = {
+          protocol: parts?.protocol || prev.protocol,
+          network: parts?.network || prev.network,
+          security: parts?.security || prev.security,
+          remark: (parts?.remark || prev.remark).trim(),
+          port: parts?.port || prev.port,
+        };
+      }
+    }
+    rows.push({ link, parts });
+  }
+  return rows
+    .map((row, idx) => ({ row, idx }))
+    .sort((a, b) => {
+      const ra = PROTOCOL_RANK[a.row.parts?.protocol ?? ''] ?? 50;
+      const rb = PROTOCOL_RANK[b.row.parts?.protocol ?? ''] ?? 50;
+      if (ra !== rb) return ra - rb;
+      return a.idx - b.idx;
+    })
+    .map((x) => x.row);
+}
+// END LUCX-HOOK

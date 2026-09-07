@@ -4,6 +4,12 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 15: Sub page AMNEZIA copies all servers / “Link N” / white QR — FIXED (lucx.222)
+- **Symptom (Nik Targon, 05.09.2026):** `/sub/` AMNEZIA copy dumps every inbound; AmneziaVPN keeps only the first. Copy-link rows are `AmneziaWG Link N`. QR is a white square.
+- **Cause:** `/awg/{subId}` is the concatenated body. Share lines are `amneziawg://#remark` + opaque `vpn://`; the page hid the first so the remark vanished. `vpn://` is thousands of chars — antd QRCode renders empty.
+- **Fix:** `displaySubLinks` (steal remark, group by protocol). One AMNEZIA row per `vpn://`. QrPanel for copy-link QR (`qrTooLarge` over 2000 chars).
+- **Not a handshake bug.**
+
 ### Pattern 14: Sub page “Конфиг AmneziaWG” is binary garbage — FIXED (lucx.180)
 - **Symptom:** public `/sub/` page, AmneziaWG ConfigBlock is zlib/mojibake. Copy/download from that block is unusable. Title often “Link N” (lucx.170 already skipped the remark).
 - **Cause:** lucx.169 ConfigBlock uses upstream `amneziawgConfigFromLink` = UTF-8 of `vpn://` bytes. LucX `vpn://` is `qCompress(JSON)`, not plain `.conf`.

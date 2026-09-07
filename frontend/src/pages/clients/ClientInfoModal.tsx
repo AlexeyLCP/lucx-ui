@@ -28,7 +28,7 @@ import { useClientHwids } from '@/hooks/useClientHwids';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 import { awgVersionAtLeast, awgVersionCeiling, isPostQuantumLink } from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
-import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
+import { LinkTags, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ClientHwidListModal from '@/components/clients/ClientHwidList';
 import ConfigBlock from '@/components/clients/ConfigBlock';
@@ -881,53 +881,51 @@ export default function ClientInfoModal({
             {links.length > 0 && (
               <>
                 <Divider>{t('pages.inbounds.copyLink')}</Divider>
-                {links
-                  .filter((link) => !link.startsWith('amneziawg://'))
-                  .map((link, idx) => {
-                    const parts = parseLinkParts(link);
-                    const fallback = `${t('pages.clients.link')} ${idx + 1}`;
-                    const rowTitle = (parts && linkMetaText(parts)) || fallback;
-                    const qrRemark = parts?.remark || rowTitle;
-                    const canQr = !isPostQuantumLink(link);
-                    return (
-                      <div key={idx} className="link-row">
-                        {parts ? (
-                          <LinkTags parts={parts} />
-                        ) : (
-                          <Tag className="link-row-tag">LINK</Tag>
+                {displaySubLinks(links).map((row, idx) => {
+                  const { link, parts } = row;
+                  const fallback = `${t('pages.clients.link')} ${idx + 1}`;
+                  const rowTitle = (parts && linkMetaText(parts)) || fallback;
+                  const qrRemark = parts?.remark || rowTitle;
+                  const canQr = !isPostQuantumLink(link);
+                  return (
+                    <div key={idx} className="link-row">
+                      {parts ? (
+                        <LinkTags parts={parts} />
+                      ) : (
+                        <Tag className="link-row-tag">LINK</Tag>
+                      )}
+                      <span className="link-row-title" title={rowTitle}>
+                        {rowTitle}
+                      </span>
+                      <div className="link-row-actions">
+                        <Tooltip title={t('copy')}>
+                          <Button
+                            size="small"
+                            icon={<CopyOutlined />}
+                            aria-label={t('copy')}
+                            onClick={() => copyValue(link)}
+                          />
+                        </Tooltip>
+                        {canQr && (
+                          <Popover
+                            trigger="click"
+                            placement="left"
+                            destroyOnHidden
+                            content={<QrPanel value={link} remark={qrRemark} size={220} />}
+                          >
+                            <Tooltip title={t('pages.clients.qrCode')}>
+                              <Button
+                                size="small"
+                                icon={<QrcodeOutlined />}
+                                aria-label={t('pages.clients.qrCode')}
+                              />
+                            </Tooltip>
+                          </Popover>
                         )}
-                        <span className="link-row-title" title={rowTitle}>
-                          {rowTitle}
-                        </span>
-                        <div className="link-row-actions">
-                          <Tooltip title={t('copy')}>
-                            <Button
-                              size="small"
-                              icon={<CopyOutlined />}
-                              aria-label={t('copy')}
-                              onClick={() => copyValue(link)}
-                            />
-                          </Tooltip>
-                          {canQr && (
-                            <Popover
-                              trigger="click"
-                              placement="left"
-                              destroyOnHidden
-                              content={<QrPanel value={link} remark={qrRemark} size={220} />}
-                            >
-                              <Tooltip title={t('pages.clients.qrCode')}>
-                                <Button
-                                  size="small"
-                                  icon={<QrcodeOutlined />}
-                                  aria-label={t('pages.clients.qrCode')}
-                                />
-                              </Tooltip>
-                            </Popover>
-                          )}
-                        </div>
                       </div>
-                    );
-                  })}
+                    </div>
+                  );
+                })}
               </>
             )}
 

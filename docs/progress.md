@@ -1,12 +1,16 @@
 # LucX-UI — Прогресс
 
-## unreleased — cover ZIP + naive (after lucx.221)
+## lucx.222 — sub page Amnezia per-server paste + cover ZIP with naive (2026-09-07)
 
-Stand (`naive-client`): `file_server` + `encode` next to `forward_proxy` is Variant1 and serves `index.html` when the site address is `:443, "host"`. `host:443` + the same ZIP is padding `None` (naive dead). lucx.217 blamed the site; the listen was the killer (fixed 220), then we stripped ZIP for nothing. Cover renders root/file_server/encode with naive again. No tag.
+Nik Targon: `/sub/` AMNEZIA row copied every inbound at once; AmneziaVPN imports only the first. Copy-link showed `AmneziaWG Link N` (vpn:// has no remark; the sibling `amneziawg://` was hidden). QR of vpn:// was a white square (payload > QR capacity).
 
-Tests: `TestRenderCoverCaddyfile_NaiveAndPath` wants `file_server` + `:443, "host"`.
+Fix: `displaySubLinks` steals the remark from the preceding `amneziawg://`, groups rows by protocol, one AMNEZIA paste row per inbound (vpn:// + .conf). Copy-link QR uses QrPanel (`qrTooLarge` instead of a blank canvas).
 
-**lucxVersion:** lucx.221 (unchanged)
+Also in this tag (unreleased after lucx.221): cover ZIP + naive. Stand (`naive-client`): `file_server` + `encode` next to `forward_proxy` is Variant1 and serves `index.html` when the site address is `:443, "host"`. `host:443` + the same ZIP is padding `None` (naive dead). lucx.217 blamed the site; the listen was the killer (fixed 220), then we stripped ZIP for nothing. Cover renders root/file_server/encode with naive again.
+
+Tests: `link-label.test.ts` pairing + protocol group. `TestRenderCoverCaddyfile_NaiveAndPath` wants `file_server` + `:443, "host"`.
+
+**lucxVersion:** lucx.222
 
 ---
 
