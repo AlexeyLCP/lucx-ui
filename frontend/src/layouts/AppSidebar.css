@@ -244,7 +244,7 @@
 
 .sider-footer {
   flex: 0 0 auto;
-  padding: 8px 8px 12px;
+  padding: 8px 0 12px;
 }
 
 .sider-footer-links {
@@ -331,7 +331,7 @@
 
 .drawer-footer {
   flex: 0 0 auto;
-  padding: 8px 8px 12px;
+  padding: 8px 0 12px;
 }
 
 @media (max-width: 768px) {
