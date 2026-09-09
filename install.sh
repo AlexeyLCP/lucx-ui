@@ -1868,6 +1868,12 @@ install_x-ui() {
         echo -e "${red}Extracted x-ui archive is missing the x-ui binary -- the previous installation has already been removed, so the panel will not start until this is fixed; try running the installer again${plain}"
         exit 1
     fi
+    # LUCX-HOOK: refuse a tarball built for another CPU (amd64 vs arm64).
+    if [[ ! -s "bin/xray-linux-$(arch)" ]]; then
+        echo -e "${red}Tarball has no bin/xray-linux-$(arch) — this package is for a different architecture${plain}"
+        exit 1
+    fi
+    # END LUCX-HOOK
     chmod +x x-ui
     chmod +x x-ui.sh
     if [[ "${xui_script_from_tarball}" == "1" ]]; then

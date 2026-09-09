@@ -104,7 +104,7 @@ git log --oneline v3.7.0-lucx.$((N-1))..HEAD
 #    will build the tarball and publish the stable release:
 git tag v3.7.0-lucx.N && git push gh v3.7.0-lucx.N
 gh run watch --repo AlexeyLCP/lucx-ui          # Release LucX-UI
-gh release view v3.7.0-lucx.N --repo AlexeyLCP/lucx-ui   # asset x-ui-linux-amd64.tar.gz
+gh release view v3.7.0-lucx.N --repo AlexeyLCP/lucx-ui   # assets x-ui-linux-amd64.tar.gz, x-ui-linux-arm64.tar.gz
 # Same tag also runs docker.yml → ghcr.io/alexeylcp/lucx-ui:<tag> and :latest
 # (amd64+arm64). First publish: GitHub → Packages → lucx-ui → Public.
 
@@ -181,21 +181,22 @@ stays on the last stable tag.
 
 ### Release layout (same as upstream)
 ```
-x-ui-linux-amd64.tar.gz → x-ui/
-  ├── x-ui                    ← our binary (CGO, built from the fork)
+x-ui-linux-{amd64,arm64}.tar.gz → x-ui/
+  ├── x-ui                    ← our binary (CGO, Bootlin musl static)
   ├── x-ui.sh, x-ui.rc        ← from the repo
   ├── x-ui.service.{debian,arch,rhel}  ← from the repo
   └── bin/
-      ├── xray-linux-amd64    ← from upstream release (not our code)
-      ├── mtg-linux-amd64     ← from upstream release (not our code)
+      ├── xray-linux-{arch}   ← from upstream Xray-core release
+      ├── mtg-linux-{arch}    ← from upstream mtg-multi release
       ├── install-awg-module.sh  ← our DKMS script
       └── caddy-naive / olcrtc / qwdtt / mieru / trusttunnel / anytls / tproxy / mtproxy (+ clients)
-          ← GitHub amd64 tarball unpacks gz from third_party/sidecars/; tproxy+mtproxy are built in release.yml
+          ← GitHub amd64 unpacks gz from third_party/sidecars/linux-amd64/; tproxy is built per-arch;
+            mtproxy is amd64-only (C, Ubuntu 22.04). arm64 sidecars: Cores tab until vendored.
 ```
 
 Geo is not in the panel tarball (GitHub slim / SourceCraft 100 MB). `install.sh` / `update.sh` fetch Loyalsoldier + IR/RU/ROSCOM **before** panel start (never fatal). SourceCraft unpacks `x-ui-geo.tar.gz` from the dist bundle at the same point.
 
-Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub amd64 tarball includes the unpacked binaries (lucx.184 — first install was missing cores). SourceCraft stays SLIM (100 MB cap); `install.sh` / `update.sh` still fetch after start as a refresh.
+Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub amd64 tarball includes the unpacked binaries (lucx.184 — first install was missing cores). arm64 tarball ships panel+xray+mtg+tproxy; other cores via Cores tab. SourceCraft stays SLIM amd64 (100 MB cap); `install.sh` / `update.sh` still fetch after start as a refresh.
 
 ---
 

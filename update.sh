@@ -1231,6 +1231,11 @@ update_x-ui() {
     if [[ $? -ne 0 || ! -s x-ui ]]; then
         _fail "ERROR: Extracted x-ui archive is missing the x-ui binary -- the previous installation has already been removed, so the panel will not start until this is fixed; try running the update again"
     fi
+    # LUCX-HOOK: refuse a tarball built for another CPU (amd64 vs arm64).
+    if [[ ! -s "bin/xray-linux-$(arch)" ]]; then
+        _fail "ERROR: Tarball has no bin/xray-linux-$(arch) — this package is for a different architecture"
+    fi
+    # END LUCX-HOOK
     chmod +x x-ui > /dev/null 2>&1
 
     # Check the system's architecture and rename the file accordingly.

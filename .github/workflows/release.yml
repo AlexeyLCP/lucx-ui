@@ -7,40 +7,21 @@ on:
       - "**"
     tags:
       - "v*.*.*"
-    paths:
-      - "**.go"
-      - "go.mod"
-      - "go.sum"
-      - "**.sh"
-      - "frontend/**"
-      - "x-ui.service.debian"
-      - "x-ui.service.arch"
-      - "x-ui.service.rhel"
-      - ".github/workflows/release.yml"
-      - "third_party/sidecars/**"
   pull_request:
-    paths:
-      - "**.go"
-      - "go.mod"
-      - "go.sum"
-      - "**.sh"
-      - "frontend/**"
-      - "x-ui.service.debian"
-      - "x-ui.service.arch"
-      - "x-ui.service.rhel"
-      - ".github/workflows/release.yml"
-      - "third_party/sidecars/**"
 
 jobs:
   build:
     permissions:
       contents: write
     strategy:
-      # One platform hitting a transient outage must not cancel the other six.
+      # One platform hitting a transient outage must not cancel the other.
       fail-fast: false
       matrix:
         platform:
           - amd64
+          # LUCX-HOOK: linux/arm64 tarball (Oracle/Hetzner/RPi). Not armv7/v6.
+          - arm64
+          # END LUCX-HOOK
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -79,6 +60,8 @@ jobs:
           # Use Bootlin prebuilt cross-toolchains (musl 1.2.5 in stable series)
           case "${{ matrix.platform }}" in
             amd64) BOOTLIN_ARCH="x86-64" ;;
+            arm64) BOOTLIN_ARCH="aarch64" ;;
+            *) echo "unsupported platform ${{ matrix.platform }}" >&2; exit 1 ;;
           esac
           echo "Resolving Bootlin musl toolchain for arch=$BOOTLIN_ARCH (platform=${{ matrix.platform }})"
           TARBALL_BASE="https://toolchains.bootlin.com/downloads/releases/toolchains/$BOOTLIN_ARCH/tarballs/"
@@ -181,12 +164,14 @@ jobs:
               rm -rf "${MTG_PKG}" "${MTG_PKG}.tar.gz"
               ;;
           esac
-          # LUCX-HOOK: unpack amd64 sidecars from third_party into the GitHub
-          # tarball so first install has cores without a second GitHub-raw
-          # fetch. SourceCraft stays SLIM (100 MB). install.sh still fetches
+          # LUCX-HOOK: unpack third_party sidecars into the GitHub tarball so
+          # first install has cores without a second GitHub-raw fetch.
+          # SourceCraft stays SLIM (100 MB). install.sh still fetches
           # afterwards as a refresh (existing files survive a failed fetch).
-          if [ "${{ matrix.platform }}" == "amd64" ]; then
-            for gz in ../../third_party/sidecars/linux-amd64/*.gz; do
+          # linux-arm64/ is empty — Cores tab until those gz are vendored.
+          sidecar_dir="../../third_party/sidecars/linux-${{ matrix.platform }}"
+          if [ -d "$sidecar_dir" ]; then
+            for gz in "$sidecar_dir"/*.gz; do
               [ -f "$gz" ] || continue
               name=$(basename "$gz" .gz)
               gzip -dc "$gz" > "$name"
@@ -197,7 +182,6 @@ jobs:
           cd ../..
 
       - name: Build Telegram WEB proxy sidecars
-        if: matrix.platform == 'amd64'
         run: |
           set -euo pipefail
           DEST="$PWD/x-ui/bin"
@@ -208,8 +192,11 @@ jobs:
           git -C /tmp/tproxy-src init
           git -C /tmp/tproxy-src fetch --depth 1 https://github.com/telegramdesktop/tproxy-server.git "$TPROXY_SHA"
           git -C /tmp/tproxy-src checkout FETCH_HEAD
-          (cd /tmp/tproxy-src && CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o "$DEST/tproxy-linux-amd64" ./cmd/tproxy-server)
-          chmod +x "$DEST/tproxy-linux-amd64"
+          (cd /tmp/tproxy-src && CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.platform }} go build -trimpath -ldflags='-s -w' -o "$DEST/tproxy-linux-${{ matrix.platform }}" ./cmd/tproxy-server)
+          chmod +x "$DEST/tproxy-linux-${{ matrix.platform }}"
+          if [ "${{ matrix.platform }}" != "amd64" ]; then
+            exit 0
+          fi
           MTPROXY_SHA=f36d8af769ffaeac36978d38c2c0f6d1104c2137
           MTPROXY_SUM=919795c416b870670841a21d1930ad97a24c7b84b9eb8c6f9e3de32f2fdf4655
           curl -fsSL -o /tmp/MTProxy.tar.gz "https://github.com/TelegramMessenger/MTProxy/archive/${MTPROXY_SHA}.tar.gz"
@@ -228,6 +215,22 @@ jobs:
 
       - name: Package
         run: tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
+
+      - name: Check tarball layout
+        run: |
+          set -euo pipefail
+          P="${{ matrix.platform }}"
+          tar -tzf "x-ui-linux-${P}.tar.gz" | tee /tmp/list
+          for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" "x-ui/bin/tproxy-linux-${P}" x-ui/bin/install-awg-module.sh; do
+            grep -Fxq "$f" /tmp/list || { echo "missing $f"; exit 1; }
+          done
+          if [ "$P" = amd64 ]; then
+            grep -Fq "x-ui/bin/caddy-naive-linux-amd64" /tmp/list
+            grep -Fq "x-ui/bin/mtproxy-linux-amd64" /tmp/list
+          elif grep -E 'linux-amd64|linux-armv' /tmp/list; then
+            echo "arm64 tarball contains wrong-arch binaries" >&2
+            exit 1
+          fi
 
       - name: Upload files to Artifacts
         uses: actions/upload-artifact@v7
@@ -249,138 +252,6 @@ jobs:
           # the panel's stable update channel both read that endpoint.
           prerelease: false
           # END LUCX-HOOK
-
-  # =================================
-  #  Windows Build
-  # =================================
-  build-windows:
-    name: Build for Windows
-    permissions:
-      contents: write
-    strategy:
-      matrix:
-        platform:
-          - amd64
-    runs-on: windows-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v7
-
-      - name: Setup Go
-        uses: actions/setup-go@v7
-        with:
-          go-version-file: go.mod
-          check-latest: true
-
-      # Frontend dist must be built BEFORE go build — see comment on the
-      # Linux job above. This step is identical except npm runs on the
-      # Windows runner here.
-      - name: Setup Node.js
-        uses: actions/setup-node@v7
-        with:
-          node-version-file: .nvmrc
-          cache: 'npm'
-          cache-dependency-path: frontend/package-lock.json
-
-      - name: Build frontend bundle
-        shell: pwsh
-        run: |
-          npm ci
-          npm run build
-        working-directory: frontend
-
-      - name: Install MSYS2
-        uses: msys2/setup-msys2@v2
-        with:
-          msystem: MINGW64
-          update: true
-          install: >-
-            git
-            mingw-w64-x86_64-gcc
-            mingw-w64-x86_64-sqlite3
-            mingw-w64-x86_64-pkg-config
-
-      - name: Build 3X-UI for Windows (CGO)
-        shell: msys2 {0}
-        run: |
-          export PATH="/c/hostedtoolcache/windows/go/$(ls /c/hostedtoolcache/windows/go | sort -V | tail -n1)/x64/bin:$PATH"
-
-          export CGO_ENABLED=1
-          export GOOS=windows
-          export GOARCH=amd64
-          export CC=x86_64-w64-mingw32-gcc
-
-          which go
-          go version
-          gcc --version
-
-          # Stamp the commit into per-commit (dev channel) builds only.
-          LDFLAGS="-w -s"
-          if [[ "$GITHUB_REF" != refs/tags/* ]]; then
-            LDFLAGS="$LDFLAGS -X github.com/mhsanaei/3x-ui/v3/internal/config.buildCommit=${GITHUB_SHA:0:8} -X github.com/mhsanaei/3x-ui/v3/internal/config.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-          fi
-          go build -buildvcs=true -ldflags "$LDFLAGS" -o xui-release.exe -v .
-
-      - name: Copy and download resources
-        shell: pwsh
-        run: |
-          $retry = @{ MaximumRetryCount = 5; RetryIntervalSec = 10 }
-          mkdir x-ui
-          Copy-Item xui-release.exe x-ui\x-ui.exe
-          mkdir x-ui\bin
-          cd x-ui\bin
-
-          # Download Xray for Windows
-          $Xray_URL = "https://github.com/XTLS/Xray-core/releases/download/v26.7.28/"
-          Invoke-WebRequest @retry -Uri "${Xray_URL}Xray-windows-64.zip" -OutFile "Xray-windows-64.zip"
-          Expand-Archive -Path "Xray-windows-64.zip" -DestinationPath .
-          Remove-Item "Xray-windows-64.zip"
-          Remove-Item geoip.dat, geosite.dat -ErrorAction SilentlyContinue
-          Invoke-WebRequest @retry -Uri "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat" -OutFile "geoip.dat"
-          Invoke-WebRequest @retry -Uri "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat" -OutFile "geosite.dat"
-          Invoke-WebRequest @retry -Uri "https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat" -OutFile "geoip_IR.dat"
-          Invoke-WebRequest @retry -Uri "https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat" -OutFile "geosite_IR.dat"
-          Invoke-WebRequest @retry -Uri "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat" -OutFile "geoip_RU.dat"
-          Invoke-WebRequest @retry -Uri "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat" -OutFile "geosite_RU.dat"
-          Rename-Item xray.exe xray-windows-amd64.exe
-
-          # mtg-multi (MTProto sidecar) publishes a prebuilt Windows binary, so
-          # download and unpack it instead of compiling. The tag comes from the
-          # release-page redirect on github.com — not api.github.com, whose
-          # outages have failed release runs while asset downloads kept working.
-          $MTG_MULTI_VER = (curl.exe -sf --retry 5 --retry-all-errors --retry-delay 3 -o NUL -w '%{redirect_url}' "https://github.com/mhsanaei/mtg-multi/releases/latest") -replace '^.*/releases/tag/', ''
-          if (-not $MTG_MULTI_VER -or $MTG_MULTI_VER -notmatch '^v[\d.]+$') { throw "could not resolve the latest mtg-multi release tag" }
-          $MTG_PKG = "mtg-multi-$($MTG_MULTI_VER.TrimStart('v'))-windows-amd64"
-          curl.exe -sfLRO --retry 5 --retry-all-errors --retry-delay 3 "https://github.com/mhsanaei/mtg-multi/releases/download/$MTG_MULTI_VER/$MTG_PKG.zip"
-          Expand-Archive -Path "$MTG_PKG.zip" -DestinationPath "mtg-tmp" -Force
-          Move-Item "mtg-tmp/$MTG_PKG/mtg-multi.exe" "mtg-windows-amd64.exe"
-          Remove-Item -Recurse -Force "mtg-tmp", "$MTG_PKG.zip"
-
-          cd ..
-          Copy-Item -Path ..\windows_files\* -Destination . -Recurse
-          cd ..
-
-      - name: Package to Zip
-        shell: pwsh
-        run: |
-          Compress-Archive -Path .\x-ui -DestinationPath "x-ui-windows-amd64.zip"
-
-      - name: Upload files to Artifacts
-        uses: actions/upload-artifact@v7
-        with:
-          name: x-ui-windows-amd64
-          path: ./x-ui-windows-amd64.zip
-
-      - name: Upload files to GH release
-        uses: svenstaro/upload-release-action@v2
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-        with:
-          repo_token: ${{ secrets.GITHUB_TOKEN }}
-          tag: ${{ github.ref_name }}
-          file: x-ui-windows-amd64.zip
-          asset_name: x-ui-windows-amd64.zip
-          overwrite: true
-          prerelease: false
 
   # =================================
   #  Rolling dev channel (per-commit)
@@ -446,9 +317,6 @@ jobs:
               --target "${COMMIT}" --title "Dev build ${short}" --notes "${notes}"
           fi
 
-          # LUCX-HOOK: only Linux tarballs — the fork does not publish the
-          # upstream Windows build (AWG is a Linux kernel module, so a Windows
-          # panel cannot run the sidecar at all). Upstream's glob also lists
-          # dev-artifacts/*.zip, which would fail here with no zip artifact.
+          # LUCX-HOOK: Linux tarballs only (amd64+arm64).
           retry gh release upload dev-latest dev-artifacts/*.tar.gz --clobber
           # END LUCX-HOOK

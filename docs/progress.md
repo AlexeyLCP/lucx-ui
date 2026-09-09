@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.225 — linux/arm64 release tarball (2026-09-09)
+
+GitHub `release.yml` matrix now builds `x-ui-linux-amd64.tar.gz` and `x-ui-linux-arm64.tar.gz` on every push/PR/tag (Bootlin musl, static CGO). Windows job removed. Contents: panel + xray + mtg + tproxy; amd64 also unpacks `third_party/sidecars/` + mtproxy. Layout step fails the job if the tarball is missing `xray-linux-$arch` or an arm64 archive contains `linux-amd64` binaries. `install.sh` / `update.sh` fetch `x-ui-linux-$(arch).tar.gz` and abort if `bin/xray-linux-$(arch)` is missing. Smoke stays amd64 until `releases/latest` has the arm64 asset. SourceCraft stays SLIM amd64 (100 MB). Not armv7/v6.
+
+**lucxVersion:** lucx.225
+
+---
+
 ## lucx.224 — AWG inbound P2P toggle (2026-09-09)
 
 Optional client-to-client on one AWG inbound (`settings.p2p`, missing key = off). Kernel hairpin for the inbound subnet; OFF isolates with `FORWARD -i awgN -o awgN DROP`. Xray mode: extra `ip rule` dest=subnet lookup main so tunN does not steal peer traffic. Reconcile-only (not PostUp) — no iface bounce, no client re-export. No kernel module: checkbox disabled. Diagnostics: one `p2p` line. Userspace / LAN / mDNS / hysteria2 / 6in4 — not this.

@@ -54,7 +54,7 @@ jobs:
           push: true
           provenance: mode=max
           sbom: true
-          # LUCX-HOOK: amd64+arm64; 386/armv6/v7 QEMU+CGO is unused (tarball is amd64)
+          # LUCX-HOOK: amd64+arm64; 386/armv6/v7 QEMU+CGO is unused
           platforms: linux/amd64,linux/arm64
           # END LUCX-HOOK
           tags: ${{ steps.meta.outputs.tags }}
