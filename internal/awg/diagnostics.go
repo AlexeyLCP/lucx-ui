@@ -89,8 +89,8 @@ func probedIfname(name string, args []string) string {
 // Diagnose probes the live kernel state of an instance (interface, forwarding,
 // peers, and the mode-specific routing rules) and returns the report rendered
 // by the panel's AWG diagnostics view. It never mutates state — fixes belong
-// to the reconcile loop (ensureNatRules / ensureXrayRouting); this only makes
-// their failures visible.
+// to the reconcile loop (ensureNatRules / ensureXrayRouting / ensureP2PRules);
+// this only makes their failures visible.
 func Diagnose(inst Instance) Diagnostics {
 	return diagnose(inst, execProber{}, time.Now)
 }
@@ -151,7 +151,32 @@ func diagnose(inst Instance, p prober, now func() time.Time) Diagnostics {
 	} else {
 		d.Checks = append(d.Checks, diagnoseKernelNAT(inst, p)...)
 	}
+	d.Checks = append(d.Checks, diagnoseP2P(inst, p))
 	return d
+}
+
+func diagnoseP2P(inst Instance, p prober) DiagCheck {
+	dropArgs := append([]string{"-C", "FORWARD"}, p2pDropSpec(inst.Ifname)...)
+	_, dropErr := p.Run("iptables", dropArgs...)
+	isolated := dropErr == nil
+	if !inst.P2P {
+		if isolated {
+			return DiagCheck{"p2p", true, "isolated (FORWARD DROP hairpin on " + inst.Ifname + ")"}
+		}
+		return DiagCheck{"p2p", false, "isolation missing — clients may talk; reconcile re-adds DROP within 10s"}
+	}
+	if isolated {
+		return DiagCheck{"p2p", false, "hairpin still DROPped — toggle on did not clear isolation"}
+	}
+	if inst.RouteThroughXray {
+		subnet := clientSubnet(inst.Address)
+		out, err := p.Run("ip", "rule", "show", "pref", strconv.Itoa(awgP2PRulePref(inst.Id)))
+		if err != nil || !p2pHairpinRulePresent(out, subnet) {
+			return DiagCheck{"p2p", false, fmt.Sprintf("no dest %s lookup main — subnet still stolen by tunN: %s", subnet, oneLine(out))}
+		}
+		return DiagCheck{"p2p", true, "hairpin allowed, dest " + subnet + " stays in main"}
+	}
+	return DiagCheck{"p2p", true, "hairpin allowed on " + inst.Ifname}
 }
 
 // diagnoseXrayTun probes the routeThroughXray chain: Xray-owned tunN device,

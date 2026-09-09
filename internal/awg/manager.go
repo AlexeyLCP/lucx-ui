@@ -82,6 +82,7 @@ func (m *Manager) Ensure(inst Instance) error {
 	}
 	m.ensureXrayRouting(inst)
 	m.ensureNatRules(inst)
+	m.ensureP2PRules(inst)
 	m.ensurePortForwards(inst)
 	return nil
 }
@@ -164,6 +165,7 @@ func (m *Manager) Remove(id int) {
 		logger.Infof("awg: stopped interface %s for inbound %d", cur.ifname, id)
 	}
 	m.flushPortForwards(id)
+	m.flushP2PRules(id)
 	path := configPathForID(id)
 	if _, err := os.Stat(path); err == nil {
 		if berr := backupConfigFile(path); berr != nil {
@@ -194,6 +196,7 @@ func (m *Manager) Reconcile(desired []Instance) {
 			_ = cur.proc.Stop()
 			delete(m.procs, id)
 			m.flushPortForwards(id)
+			m.flushP2PRules(id)
 			// lucx.67: back up rather than delete (see Remove).
 			path := configPathForID(id)
 			if _, err := os.Stat(path); err == nil {
@@ -227,6 +230,7 @@ func (m *Manager) Reconcile(desired []Instance) {
 		}
 		m.ensureXrayRouting(inst)
 		m.ensureNatRules(inst)
+		m.ensureP2PRules(inst)
 		m.ensurePortForwards(inst)
 	}
 }
@@ -814,6 +818,80 @@ func (m *Manager) ensureNatRules(inst Instance) {
 			logger.Warningf("awg: ensure nat (iptables %s): %v\n%s", strings.Join(add, " "), err, string(out))
 		}
 	}
+}
+
+func p2pDropSpec(ifname string) []string {
+	return []string{"-i", ifname, "-o", ifname, "-j", "DROP"}
+}
+
+func awgP2PRulePref(id int) int {
+	if id < 0 {
+		id = 0
+	}
+	return 200 + id
+}
+
+func p2pHairpinRulePresent(ruleOutput, subnet string) bool {
+	if subnet == "" {
+		return false
+	}
+	needle := "to " + subnet
+	for _, line := range strings.Split(ruleOutput, "\n") {
+		line = strings.TrimSpace(line)
+		if strings.Contains(line, needle) && strings.HasSuffix(line, "lookup main") {
+			return true
+		}
+	}
+	return false
+}
+
+// ensureP2PRules converges client-to-client isolation vs hairpin.
+// Not in PostUp: toggling must not rewrite the .conf / bounce the iface.
+func (m *Manager) ensureP2PRules(inst Instance) {
+	if inst.Ifname == "" || !validIptablesIface(inst.Ifname) {
+		return
+	}
+	if err := exec.CommandContext(context.Background(), "ip", "link", "show", inst.Ifname).Run(); err != nil {
+		return
+	}
+	drop := p2pDropSpec(inst.Ifname)
+	del := append([]string{"-D", "FORWARD"}, drop...)
+	_ = exec.CommandContext(context.Background(), "iptables", del...).Run()
+	if !inst.P2P {
+		ins := append([]string{"-I", "FORWARD", "1"}, drop...)
+		if out, err := exec.CommandContext(context.Background(), "iptables", ins...).CombinedOutput(); err != nil {
+			logger.Warningf("awg: ensure p2p isolation (iptables %s): %v\n%s", strings.Join(ins, " "), err, string(out))
+		}
+	} else if err := exec.CommandContext(context.Background(), "sysctl", "-qw", "net.ipv4.conf."+inst.Ifname+".rp_filter=2").Run(); err != nil {
+		logger.Warningf("awg: ensure p2p rp_filter: %v", err)
+	}
+	m.ensureP2PHairpinRule(inst)
+}
+
+func (m *Manager) ensureP2PHairpinRule(inst Instance) {
+	subnet := clientSubnet(inst.Address)
+	pref := strconv.Itoa(awgP2PRulePref(inst.Id))
+	if inst.P2P && inst.RouteThroughXray && subnet != "" {
+		out, err := exec.CommandContext(context.Background(), "ip", "rule", "show", "pref", pref).Output()
+		if err == nil && p2pHairpinRulePresent(string(out), subnet) {
+			return
+		}
+		args := []string{"rule", "add", "pref", pref, "iif", inst.Ifname, "to", subnet, "lookup", "main"}
+		if out2, err2 := exec.CommandContext(context.Background(), "ip", args...).CombinedOutput(); err2 != nil {
+			logger.Warningf("awg: ensure p2p hairpin rule: %v\n%s", err2, string(out2))
+		}
+		return
+	}
+	_ = exec.CommandContext(context.Background(), "ip", "rule", "del", "pref", pref).Run()
+}
+
+func (m *Manager) flushP2PRules(id int) {
+	ifname := ifnameFor(id)
+	if validIptablesIface(ifname) {
+		del := append([]string{"-D", "FORWARD"}, p2pDropSpec(ifname)...)
+		_ = exec.CommandContext(context.Background(), "iptables", del...).Run()
+	}
+	_ = exec.CommandContext(context.Background(), "ip", "rule", "del", "pref", strconv.Itoa(awgP2PRulePref(id))).Run()
 }
 
 // renderServerConf builds the awg-quick .conf for an instance, reading from

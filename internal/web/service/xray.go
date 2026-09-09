@@ -1970,7 +1970,7 @@ func (s *XrayService) RestartXray(isForce bool) error {
 }
 
 // LUCX-HOOK: ensureAwgRouting re-derives the desired AWG sidecar state from the
-// DB and runs the reconcile-loop convergence (ensureXrayRouting + ensureNatRules)
+// DB and runs the reconcile-loop convergence (ensureXrayRouting + ensureNatRules + ensureP2PRules)
 // synchronously. Called right after Xray (re)starts so the tunN policy route is
 // restored in the same instant the new tunN appears, not on the next 10 s tick.
 // Best-effort: failures are logged, never fail the Xray start itself.

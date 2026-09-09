@@ -67,6 +67,7 @@ function awgSettings(): AwgInboundSettings {
     disableCookies: false,
     routeThroughXray: true,
     outboundTag: '',
+    p2p: false,
     clients: [
       {
         privateKey: 'clientPrivKeyBase64',

@@ -4,6 +4,12 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ag: P2P on, clients still cannot ping each other (lucx.224)
+- **Symptom:** inbound `p2p` is on, `.conf` already `AllowedIPs = 0.0.0.0/0`, but `.2` cannot reach `.3`.
+- **Cause:** `routeThroughXray` policy rule `iif awgN lookup 1000+N` still steals dest=subnet into tunN, or leftover `FORWARD -i awgN -o awgN DROP`. Userspace/no-module: not supported.
+- **Check:** AWG diagnostics line `p2p`. Expect `dest <subnet> lookup main` (Xray mode) or no hairpin DROP (kernel-NAT). Reconcile (10s) re-adds; toggle does not bounce the iface.
+- **Not this:** extra AllowedIPs outside the inbound /24 (site-to-site) — v1 hairpin is subnet-only.
+
 ### Pattern 1z: first install — GitHub git 401, no awg-quick — FIXED (lucx.203)
 - **Symptom (Igor, 02.09.2026):** first install → “AWG module not installed”. Cores → Install hung on `Username for 'https://github.com'` then `HTTP 401` cloning `amneziawg-tools`.
 - **Cause:** `git_clone_sha` used `git fetch` (smart HTTP). GitHub 401 makes git prompt for a password on a headless install, then fail. Panel install is best-effort, so AWG is simply missing.

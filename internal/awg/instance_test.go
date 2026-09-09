@@ -76,6 +76,9 @@ func TestInstanceFromInbound(t *testing.T) {
 	if !inst.RouteThroughXray || inst.OutboundTag != "warp" {
 		t.Fatalf("routing not parsed: %+v", inst)
 	}
+	if inst.P2P {
+		t.Fatal("missing p2p key must stay off")
+	}
 	// Only enabled peers with non-empty id+psk should be desired.
 	if len(inst.Peers) != 1 {
 		t.Fatalf("expected 1 enabled peer, got %d", len(inst.Peers))
@@ -230,6 +233,45 @@ func TestInstanceFingerprint_StableOnRoutingToggleWithoutAddress(t *testing.T) {
 	inst.RouteThroughXray = true
 	if deviceFP(inst) != before {
 		t.Fatal("no Address means no PostUp either way: the fingerprint must not move")
+	}
+}
+
+func TestInstanceFingerprint_StableOnP2PToggle(t *testing.T) {
+	inst := Instance{Id: 1, Ifname: "awg1", Port: 47000, PrivateKey: "k", Address: "10.8.0.1/24"}
+	before := deviceFP(inst)
+	inst.P2P = true
+	if deviceFP(inst) != before {
+		t.Fatal("p2p must not change the .conf fingerprint (no iface bounce)")
+	}
+}
+
+func TestP2PHairpinRulePresent(t *testing.T) {
+	out := "201: from all to 10.8.0.0/24 iif awg1 lookup main\n32000: from all iif awg1 lookup 1001\n"
+	if !p2pHairpinRulePresent(out, "10.8.0.0/24") {
+		t.Fatal("must see dest subnet lookup main")
+	}
+	if p2pHairpinRulePresent(out, "10.9.0.0/24") {
+		t.Fatal("other subnet must not match")
+	}
+	if p2pHairpinRulePresent("32000: from all iif awg1 lookup 1001\n", "10.8.0.0/24") {
+		t.Fatal("catch-all tun rule is not a hairpin exception")
+	}
+}
+
+func TestAwgP2PRulePref(t *testing.T) {
+	if awgP2PRulePref(1) != 201 {
+		t.Fatalf("pref(1)=%d", awgP2PRulePref(1))
+	}
+}
+
+func TestInstanceFromInbound_P2P(t *testing.T) {
+	ib := &model.Inbound{
+		Id: 8, Protocol: model.AWG,
+		Settings: `{"privateKey":"k","p2p":true,"clients":[]}`,
+	}
+	inst, ok := InstanceFromInbound(ib)
+	if !ok || !inst.P2P {
+		t.Fatalf("p2p true must parse, ok=%v inst=%+v", ok, inst)
 	}
 }
 

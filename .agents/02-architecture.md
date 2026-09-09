@@ -10,7 +10,7 @@ Upstream 3x-ui map: `docs/architecture.md` and `CLAUDE.md` — on demand only.
 
 AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactly symmetric with `internal/mtproto.Manager`:
 
-- **Manager** (`internal/awg/manager.go`): singleton with `Ensure`/`Reconcile`/`StopAll`/`CollectTraffic`; fingerprint-based restart on device config change; peer add/remove via `awg syncconf` on a stripped temp file (no Address/MTU/PostUp — lucx.154); fingerprint excludes peers. Orphan sweep at first call. Reconcile-loop convergence: `ensureXrayRouting` (routeThroughXray: table/rule into tunN, dies with tunN on Xray restart) + `ensureNatRules` (kernel NAT: MASQUERADE/FORWARD, dies on iptables flush — fail2ban/docker) + `ensurePortForwards` (per-client DNAT, lucx.169). **No kernel module** (`KernelAvailable` false): skip awg-quick; the same `awg` inbound is converted and run on upstream `amneziawgnet` (gVisor + SOCKS into Xray). Live kernel peers also feed the overview AmneziaWG log modal.
+- **Manager** (`internal/awg/manager.go`): singleton with `Ensure`/`Reconcile`/`StopAll`/`CollectTraffic`; fingerprint-based restart on device config change; peer add/remove via `awg syncconf` on a stripped temp file (no Address/MTU/PostUp — lucx.154); fingerprint excludes peers. Orphan sweep at first call. Reconcile-loop convergence: `ensureXrayRouting` (routeThroughXray: table/rule into tunN, dies with tunN on Xray restart) + `ensureNatRules` (kernel NAT: MASQUERADE/FORWARD, dies on iptables flush — fail2ban/docker) + `ensureP2PRules` (inbound `p2p`: hairpin vs FORWARD DROP isolation, not in PostUp) + `ensurePortForwards` (per-client DNAT, lucx.169). **No kernel module** (`KernelAvailable` false): skip awg-quick; the same `awg` inbound is converted and run on upstream `amneziawgnet` (gVisor + SOCKS into Xray). Live kernel peers also feed the overview AmneziaWG log modal.
 - **Process** (`internal/awg/process.go`): wraps `awg-quick up/down` (kernel interface lifecycle, not a daemon). No tun2socks — routing is via Xray TUN inbound.
 - **Instance** (`internal/awg/instance.go`): desired runtime state + `InstanceFromInbound` + `fingerprint`.
 - **Traffic** (`internal/awg/manager.go`, merged from traffic.go): `awg show <iface> transfer` parsing for per-peer byte accounting (replaces mtg's Prometheus HTTP scrape).
@@ -57,10 +57,10 @@ Tunnel sidecars are external tunnel servers that the panel supervises **alongsid
 
 ```
 internal/awg/                      AWG sidecar — INBOUND (mirrors internal/mtproto/) + OUTBOUND (awgo-N clients)
-├── manager.go                     Manager singleton: Ensure/Reconcile/StopAll/CollectTraffic/SyncPeers + renderServerConf/writeServerConfigFile + natPostUpPostDown + ensureXrayRouting + ensureNatRules/natRulesFor + Traffic/PeerTraffic/scrapePeers (one `awg show dump` per iface: counters + handshakes)
+├── manager.go                     Manager singleton: Ensure/Reconcile/StopAll/CollectTraffic/SyncPeers + renderServerConf/writeServerConfigFile + natPostUpPostDown + ensureXrayRouting + ensureNatRules/natRulesFor + ensureP2PRules + Traffic/PeerTraffic/scrapePeers (one `awg show dump` per iface: counters + handshakes)
 ├── process.go                     Process wrapping awg-quick up/down + procLogWriter + awgConfigDir + awgQuick
 ├── instance.go                    Instance + InstanceFromInbound + fingerprint + PeerSpec (server-side desired state for awgN)
-├── diagnostics.go                 Diagnose(inst) — read-only probe chain (interface/ip_forward/peers/NAT or TUN rules), prober interface, DiagCheck/Diagnostics
+├── diagnostics.go                 Diagnose(inst) — read-only probe chain (interface/ip_forward/peers/NAT or TUN rules + p2p isolation/hairpin), prober interface, DiagCheck/Diagnostics
 ├── platform_linux.go              defaultRouteInterface() + killStrayAwgInterfaces + ModuleSupportsAwg3 (kallsyms symbol + awg version ≥ 3, cache true only) + ModuleSupportsAwg31 (tools ≥ 3.1) + awg3CapabilityCheck/awg31CapabilityCheck for diagnostics
 ├── platform_other.go              no-ops off Linux
 ├── client_instance.go             ClientInstance + ClientSettings + ClientInstanceFromOutbound + fingerprint (desired state for awgo-N outbounds)

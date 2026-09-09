@@ -115,6 +115,7 @@ export const AwgInboundSettingsSchema = z
     // Default ON: most operators want Xray routing; empty outboundTag = kettle.
     routeThroughXray: z.boolean().default(true),
     outboundTag: z.string().default(''),
+    p2p: z.boolean().default(false),
   })
   .superRefine((val, ctx) => {
     // The I-field budget is checked in InboundFormModal, not here: a schema

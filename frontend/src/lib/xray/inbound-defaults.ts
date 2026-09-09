@@ -445,6 +445,7 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     awgVersion: '2',
     routeThroughXray: true,
     outboundTag: '',
+    p2p: false,
     clients: [],
   };
 }

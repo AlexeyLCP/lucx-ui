@@ -31,6 +31,7 @@ import {
 import { FormField } from '@/components/form/rhf';
 import { HttpUtil, Wireguard } from '@/utils';
 import { useOutboundTags } from '@/api/queries/useOutboundTags';
+import { useStatusQuery } from '@/api/queries/useStatusQuery';
 import { maskSubnet, subnetsOverlap } from '@/lib/awg/subnet';
 import { useAwgInboundId } from '../awg-inbound-id-context';
 
@@ -156,9 +157,12 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
   const awgVersion = watch('settings.awgVersion') as '1.5' | '2' | '3' | '3.1' | undefined;
   const awg3Plus = awgVersion === '3' || awgVersion === '3.1';
   const routeThroughXray = watch('settings.routeThroughXray') as boolean | undefined;
+  const p2pOn = watch('settings.p2p') as boolean | undefined;
   const mimicryProfileVal = watch('settings.mimicryProfile') as string | undefined;
   const addressVal = watch('settings.address') as string | undefined;
   const { data: outboundTags } = useOutboundTags();
+  const { status, fetched: statusFetched } = useStatusQuery();
+  const kernelOk = nodeId != null || !statusFetched || status.awg.moduleLoaded;
 
   // Detect a subnet collision: the operator's Address overlaps with another
   // AWG inbound's tunnel subnet. Advisory-only (yellow Alert, not a form
@@ -280,29 +284,38 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
       >
         <Switch />
       </FormField>
+      <FormField
+        name={['settings', 'p2p']}
+        label={t('pages.inbounds.form.awgP2P')}
+        tooltip={t('pages.inbounds.form.awgP2PHint')}
+        extra={!kernelOk ? t('pages.inbounds.form.awgP2PNeedsKernel') : undefined}
+        valueProp="checked"
+      >
+        <Switch disabled={!kernelOk} />
+      </FormField>
+      {(routeThroughXray || p2pOn) && (
+        <Alert
+          type="info"
+          showIcon
+          className="mb-12"
+          title={t('pages.inbounds.form.awgRouteThroughXrayNoReexport')}
+        />
+      )}
       {routeThroughXray && (
-        <>
-          <Alert
-            type="info"
-            showIcon
-            className="mb-12"
-            title={t('pages.inbounds.form.awgRouteThroughXrayNoReexport')}
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.awgRouteOutbound')}
+          tooltip={t('pages.inbounds.form.awgRouteOutboundHint')}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            options={[
+              { value: '', label: t('pages.inbounds.form.awgRouteOutboundPlaceholder') },
+              ...(outboundTags ?? []).map((tag) => ({ value: tag, label: tag })),
+            ]}
           />
-          <FormField
-            name={['settings', 'outboundTag']}
-            label={t('pages.inbounds.form.awgRouteOutbound')}
-            tooltip={t('pages.inbounds.form.awgRouteOutboundHint')}
-          >
-            <Select
-              showSearch
-              optionFilterProp="label"
-              options={[
-                { value: '', label: t('pages.inbounds.form.awgRouteOutboundPlaceholder') },
-                ...(outboundTags ?? []).map((tag) => ({ value: tag, label: tag })),
-              ]}
-            />
-          </FormField>
-        </>
+        </FormField>
       )}
 
       <Form.Item label={t('pages.inbounds.form.awgServerKeys')}>

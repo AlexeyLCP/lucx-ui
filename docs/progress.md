@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.224 — AWG inbound P2P toggle (2026-09-09)
+
+Optional client-to-client on one AWG inbound (`settings.p2p`, missing key = off). Kernel hairpin for the inbound subnet; OFF isolates with `FORWARD -i awgN -o awgN DROP`. Xray mode: extra `ip rule` dest=subnet lookup main so tunN does not steal peer traffic. Reconcile-only (not PostUp) — no iface bounce, no client re-export. No kernel module: checkbox disabled. Diagnostics: one `p2p` line. Userspace / LAN / mDNS / hysteria2 / 6in4 — not this.
+
+Tests: `TestInstanceFromInbound_P2P`, `TestInstanceFingerprint_StableOnP2PToggle`, `TestDiagnose_P2P*`.
+
+**lucxVersion:** lucx.224
+
+---
+
 ## lucx.223 — collapsed sidebar TG icon + QR modal Amnezia rows (2026-09-07)
 
 Collapsed rail: Telegram footer link kept `flex-start` + 16px padding while GitHub was centered. One rule on `.sider-footer-links a`.

@@ -150,6 +150,10 @@ type Instance struct {
 	// Xray's routing rules. Mirrors mtproto's RouteThroughXray.
 	RouteThroughXray bool
 	OutboundTag      string
+	// P2P, when set, lets clients of this inbound reach each other by tunnel
+	// IP (kernel hairpin). Off (default, missing JSON key) isolates them.
+	// Server-only: not written to the .conf, so toggling does not bounce the iface.
+	P2P bool
 }
 
 // PeerSpec is one desired peer on an AWG interface.
@@ -235,6 +239,7 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		AwgVersion          string `json:"awgVersion"`
 		RouteThroughXray    bool   `json:"routeThroughXray"`
 		OutboundTag         string `json:"outboundTag"`
+		P2P                 bool   `json:"p2p"`
 		Clients             []struct {
 			PublicKey      string   `json:"publicKey"`
 			PrivateKey     string   `json:"privateKey"`
@@ -297,6 +302,7 @@ func InstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 		AwgVersion:             NormalizeAWGVersion(s.AwgVersion),
 		RouteThroughXray:       s.RouteThroughXray,
 		OutboundTag:            s.OutboundTag,
+		P2P:                    s.P2P,
 		ContentPaddingAddition: s.ContentPaddingAddition,
 		RekeyAfterTime:         s.RekeyAfterTime,
 		RekeyTimeout:           s.RekeyTimeout,
