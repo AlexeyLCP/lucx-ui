@@ -6,6 +6,8 @@ Optional client-to-client on one AWG inbound (`settings.p2p`, missing key = off)
 
 Tests: `TestInstanceFromInbound_P2P`, `TestInstanceFingerprint_StableOnP2PToggle`, `TestDiagnose_P2P*`.
 
+Also: pin `js-yaml` override to `^4.3.2` (CVE-2026-84375) so CI `npm audit --audit-level=high` is green.
+
 **lucxVersion:** lucx.224
 
 ---
