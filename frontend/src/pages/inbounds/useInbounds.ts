@@ -71,6 +71,16 @@ const TRACKED_PROTOCOLS: readonly string[] = [
   Protocols.WIREGUARD,
   Protocols.MTPROTO,
   Protocols.AMNEZIAWG,
+  // LUCX-HOOK: sidecar inbounds share the same online email set as Clients.
+  Protocols.AWG,
+  Protocols.NAIVE,
+  Protocols.OLCRTC,
+  Protocols.QWDTT,
+  Protocols.MIERU,
+  Protocols.TRUSTTUNNEL,
+  Protocols.ANYTLS,
+  Protocols.TPROXY,
+  // END LUCX-HOOK
 ];
 
 async function fetchSlimInbounds(): Promise<unknown[]> {

@@ -9,7 +9,12 @@ package tunnel
 import (
 	"strconv"
 	"strings"
+	"time"
 )
+
+// SidecarOnlineGrace is how long olcRTC/qWDTT stay "online" after the last
+// byte delta. Same window as NaiveOnlineGrace: idle tunnels produce sparse IO.
+const SidecarOnlineGrace = 120 * time.Second
 
 type SidecarTraffic struct {
 	Tag      string
@@ -21,11 +26,19 @@ type SidecarTraffic struct {
 type deltaCursor struct {
 	up, down    int64
 	initialized bool
+	lastIO      time.Time
 }
 
-func (m *Manager) foldDelta(key string, up, down int64, ok bool) (dUp, dDown int64) {
+func sidecarOnline(lastIO, now time.Time) bool {
+	return !lastIO.IsZero() && now.Sub(lastIO) <= SidecarOnlineGrace
+}
+
+func (m *Manager) foldDelta(key string, up, down int64, ok bool, now time.Time) (dUp, dDown int64, lastIO time.Time) {
 	if !ok {
-		return 0, 0
+		return 0, 0, time.Time{}
+	}
+	if now.IsZero() {
+		now = time.Now()
 	}
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -45,8 +58,48 @@ func (m *Manager) foldDelta(key string, up, down int64, ok bool) (dUp, dDown int
 			dDown = down - cur.down
 		}
 	}
+	if dUp > 0 || dDown > 0 {
+		cur.lastIO = now
+	}
 	cur.up, cur.down, cur.initialized = up, down, true
-	return dUp, dDown
+	return dUp, dDown, cur.lastIO
+}
+
+// LiveTags returns inbound tags that currently have an online email or that
+// appear in extraTags (byte/session activity without a per-user label).
+func LiveTags(emailsByTag map[string][]string, onlineEmails []string, extraTags []string) []string {
+	on := make(map[string]struct{}, len(onlineEmails))
+	for _, e := range onlineEmails {
+		e = strings.TrimSpace(e)
+		if e != "" {
+			on[e] = struct{}{}
+		}
+	}
+	seen := make(map[string]struct{})
+	out := make([]string, 0)
+	add := func(tag string) {
+		tag = strings.TrimSpace(tag)
+		if tag == "" {
+			return
+		}
+		if _, ok := seen[tag]; ok {
+			return
+		}
+		seen[tag] = struct{}{}
+		out = append(out, tag)
+	}
+	for tag, emails := range emailsByTag {
+		for _, e := range emails {
+			if _, ok := on[strings.TrimSpace(e)]; ok {
+				add(tag)
+				break
+			}
+		}
+	}
+	for _, tag := range extraTags {
+		add(tag)
+	}
+	return out
 }
 
 func parseProcIO(dump string) (rchar, wchar int64) {
@@ -105,7 +158,7 @@ func firstFieldInt(line string) int64 {
 	return 0
 }
 
-func (m *Manager) CollectOlcrtcTraffic(key, tag string) SidecarTraffic {
+func (m *Manager) collectProcIO(key, tag string) SidecarTraffic {
 	d := SidecarTraffic{Tag: tag}
 	if !m.IsRunningKey(key) {
 		return d
@@ -114,11 +167,21 @@ func (m *Manager) CollectOlcrtcTraffic(key, tag string) SidecarTraffic {
 	if !ok {
 		return d
 	}
-	d.Up, d.Down = m.foldDelta(key, wchar, rchar, true)
-	if d.Up > 0 || d.Down > 0 {
+	now := time.Now()
+	var lastIO time.Time
+	d.Up, d.Down, lastIO = m.foldDelta(key, wchar, rchar, true, now)
+	if sidecarOnline(lastIO, now) {
 		d.Sessions = 1
 	}
 	return d
+}
+
+func (m *Manager) CollectOlcrtcTraffic(key, tag string) SidecarTraffic {
+	return m.collectProcIO(key, tag)
+}
+
+func (m *Manager) CollectTproxyTraffic(key, tag string) SidecarTraffic {
+	return m.collectProcIO(key, tag)
 }
 
 func (m *Manager) CollectQwdttTraffic(tag string) SidecarTraffic {
@@ -130,8 +193,10 @@ func (m *Manager) CollectQwdttTraffic(tag string) SidecarTraffic {
 	if !ok {
 		return d
 	}
-	d.Up, d.Down = m.foldDelta(QwdttKey, rx, tx, true)
-	if d.Up > 0 || d.Down > 0 {
+	now := time.Now()
+	var lastIO time.Time
+	d.Up, d.Down, lastIO = m.foldDelta(QwdttKey, rx, tx, true, now)
+	if sidecarOnline(lastIO, now) {
 		d.Sessions = 1
 	}
 	return d

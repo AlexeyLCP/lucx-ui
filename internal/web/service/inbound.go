@@ -229,6 +229,9 @@ func (s *InboundService) GetInboundsSlim(userId int) ([]*model.Inbound, error) {
 	for _, ib := range inbounds {
 		ib.Settings = slimSettingsClients(ib.Settings)
 	}
+	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not settings.
+	s.injectShareOnlySlimClients(db, inbounds)
+	// END LUCX-HOOK
 	return inbounds, nil
 }
 

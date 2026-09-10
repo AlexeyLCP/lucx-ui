@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.226 — sidecar client online on Clients + Inbounds (2026-09-10)
+
+Green “online” for LucX sidecars was missing or lying: Inbounds `TRACKED_PROTOCOLS` skipped every LucX protocol; collectors stamped **all** enabled tags as active (a VLESS-online client lit a quiet sidecar inbound); TrustTunnel/AnyTLS/olc/qWDTT only worked with exactly one client; olc/qWDTT went dark 20s after the last byte; tproxy had no scrape; share-only inbounds never put clients in slim `settings.clients`; RefreshLocalOnline no-op’d when Xray was down (node / sidecar-only).
+
+Fix: Inbounds tracks `awg`/`naive`/`mieru`/`trusttunnel`/`anytls`/`olcrtc`/`qwdtt`/`tproxy`. `activeTags` only when handshake/session/bytes. 1 enabled client → that email; 0 or 2+ → nobody on Clients, tag still live for gating. olc/qWDTT/tproxy last-io 120s (naive window). tproxy = tproxy-server `/proc/PID/io`. Slim injects share-only clients from `client_inbounds` (in-memory, not persisted). `onlineProcess()` fallback so sidecar/node online stamps without a running Xray. Node-hosted inbounds still scrape on the node; master pulls `onlinesByGuid`.
+
+Not in this tag: cover, `last_online` DB bump. Client configs untouched (Rule 0).
+
+Tests: `TestFoldDelta` lastIO, `TestSidecarOnlineGrace`, `TestLiveTags`, `TestMergeShareOnlySlimClients`, `TestOnlineProcessFallback`.
+
+Also unreleased after lucx.224: linux/arm64 release tarball (lucx.225).
+
+**lucxVersion:** lucx.226
+
+---
+
 ## lucx.225 — linux/arm64 release tarball (2026-09-09)
 
 GitHub `release.yml` matrix now builds `x-ui-linux-amd64.tar.gz` and `x-ui-linux-arm64.tar.gz` on every push/PR/tag (Bootlin musl, static CGO). Windows job removed. Contents: panel + xray + mtg + tproxy; amd64 also unpacks `third_party/sidecars/` + mtproxy. Layout step fails the job if the tarball is missing `xray-linux-$arch` or an arm64 archive contains `linux-amd64` binaries. `install.sh` / `update.sh` fetch `x-ui-linux-$(arch).tar.gz` and abort if `bin/xray-linux-$(arch)` is missing. Smoke stays amd64 until `releases/latest` has the arm64 asset. SourceCraft stays SLIM amd64 (100 MB). Not armv7/v6.

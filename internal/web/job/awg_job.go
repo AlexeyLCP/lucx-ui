@@ -145,19 +145,18 @@ func (j *AwgJob) Run() {
 	j.lastTick = now
 	// END LUCX-HOOK
 
-	// Online status: fresh handshake (<180 s) = online. activeTags marks the
-	// running AWG inbounds so the "active inbound" gating works for AWG too.
+	// Online status: fresh handshake (<180 s) = online. activeTags only for
+	// inbounds that actually have a live peer, so a quiet AWG inbound does
+	// not steal another protocol's online client on the Inbounds page.
 	var onlineEmails []string
+	activeTags := make([]string, 0, len(onlineByTag))
 	for tag, keys := range onlineByTag {
+		activeTags = append(activeTags, tag)
 		for _, key := range keys {
 			if email, ok := emailsByTag[tag][key]; ok {
 				onlineEmails = append(onlineEmails, email)
 			}
 		}
-	}
-	activeTags := make([]string, 0, len(desired))
-	for _, inst := range desired {
-		activeTags = append(activeTags, inst.Tag)
 	}
 	j.inboundService.RefreshLocalOnlineClients(onlineEmails, activeTags)
 

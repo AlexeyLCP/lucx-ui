@@ -50,6 +50,8 @@ EXTRA_FILES=(
     internal/web/controller/client_subbody_test.go
     internal/web/service/sidecar_outbound.go
     internal/web/service/sidecar_outbound_inject_test.go
+    internal/web/service/lucx_online.go
+    internal/web/service/lucx_online_test.go
     internal/web/controller/sidecar_outbound.go
 )
 

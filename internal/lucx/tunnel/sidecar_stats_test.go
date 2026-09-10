@@ -6,7 +6,10 @@
 
 package tunnel
 
-import "testing"
+import (
+	"testing"
+	"time"
+)
 
 func TestParseProcIO(t *testing.T) {
 	rchar, wchar := parseProcIO("rchar: 100\nwchar: 250\nread_bytes: 3\n")
@@ -31,12 +34,53 @@ func TestParseIpLinkStats(t *testing.T) {
 
 func TestFoldDelta(t *testing.T) {
 	m := newManager()
-	u, d := m.foldDelta("k", 50, 80, true)
-	if u != 0 || d != 0 {
-		t.Fatalf("first scrape must baseline, got %d/%d", u, d)
+	t0 := time.Unix(1000, 0)
+	u, d, last := m.foldDelta("k", 50, 80, true, t0)
+	if u != 0 || d != 0 || !last.IsZero() {
+		t.Fatalf("first scrape must baseline, got %d/%d last=%v", u, d, last)
 	}
-	u, d = m.foldDelta("k", 60, 90, true)
-	if u != 10 || d != 10 {
-		t.Fatalf("delta = %d/%d, want 10/10", u, d)
+	t1 := t0.Add(10 * time.Second)
+	u, d, last = m.foldDelta("k", 60, 90, true, t1)
+	if u != 10 || d != 10 || !last.Equal(t1) {
+		t.Fatalf("delta = %d/%d last=%v, want 10/10 at t1", u, d, last)
+	}
+	t2 := t1.Add(30 * time.Second)
+	u, d, last = m.foldDelta("k", 60, 90, true, t2)
+	if u != 0 || d != 0 || !last.Equal(t1) {
+		t.Fatalf("idle keeps lastIO, got %d/%d last=%v", u, d, last)
+	}
+}
+
+func TestSidecarOnlineGrace(t *testing.T) {
+	now := time.Unix(10_000, 0)
+	if sidecarOnline(time.Time{}, now) {
+		t.Fatal("zero lastIO")
+	}
+	if !sidecarOnline(now, now) {
+		t.Fatal("now")
+	}
+	if !sidecarOnline(now.Add(-SidecarOnlineGrace), now) {
+		t.Fatal("edge")
+	}
+	if sidecarOnline(now.Add(-SidecarOnlineGrace-time.Second), now) {
+		t.Fatal("expired")
+	}
+}
+
+func TestLiveTags(t *testing.T) {
+	got := LiveTags(map[string][]string{
+		"a": {"alice@x"},
+		"b": {"bob@x", "carol@x"},
+		"c": {"alice@x"},
+		"":  {"ghost@x"},
+	}, []string{"alice@x", "ghost@x"}, []string{"extra", "a", ""})
+	want := map[string]bool{"a": true, "c": true, "extra": true}
+	if len(got) != len(want) {
+		t.Fatalf("got %v", got)
+	}
+	for _, tag := range got {
+		if !want[tag] {
+			t.Fatalf("unexpected %q in %v", tag, got)
+		}
 	}
 }

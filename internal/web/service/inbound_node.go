@@ -1339,7 +1339,8 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 		}
 	}
 
-	if process := currentXrayProcess(); process != nil {
+	// LUCX-HOOK: sidecar/node online must stamp even when Xray is down.
+	if process := onlineProcess(); process != nil {
 		tree := snap.OnlineTree
 		switch {
 		case len(tree) == 0 && len(snap.OnlineEmails) > 0:
@@ -1367,6 +1368,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 		}
 		process.SetNodeActiveInboundTree(nodeID, activeTree)
 	}
+	// END LUCX-HOOK
 
 	return structuralChange, nil
 }
@@ -1394,7 +1396,9 @@ func (s *InboundService) restartRemoteNodesOnDisable(nodeIDs []int) {
 }
 
 func (s *InboundService) GetOnlineClients() []string {
-	process := currentXrayProcess()
+	// LUCX-HOOK: sidecar online survives a stopped Xray.
+	process := onlineProcess()
+	// END LUCX-HOOK
 	if process == nil {
 		return []string{}
 	}
@@ -1407,7 +1411,9 @@ func (s *InboundService) GetOnlineClients() []string {
 // node-id keying so a client three hops down is attributed to its real node,
 // not the intermediate one it was synced through.
 func (s *InboundService) GetOnlineClientsByGuid() map[string][]string {
-	process := currentXrayProcess()
+	// LUCX-HOOK: sidecar online survives a stopped Xray.
+	process := onlineProcess()
+	// END LUCX-HOOK
 	if process == nil {
 		return map[string][]string{}
 	}
@@ -1425,7 +1431,9 @@ func (s *InboundService) GetOnlineClientsByGuid() map[string][]string {
 // each inbound. A GUID missing from the map means "don't gate" for that node's
 // inbounds (old-build node or no active-inbound signal).
 func (s *InboundService) GetActiveInboundsByGuid() map[string][]string {
-	process := currentXrayProcess()
+	// LUCX-HOOK: sidecar online survives a stopped Xray.
+	process := onlineProcess()
+	// END LUCX-HOOK
 	if process == nil {
 		return map[string][]string{}
 	}
@@ -1443,15 +1451,19 @@ func (s *InboundService) GetActiveInboundsByGuid() map[string][]string {
 }
 
 func (s *InboundService) SetNodeOnlineTree(nodeID int, tree map[string][]string) {
-	if process := currentXrayProcess(); process != nil {
+	// LUCX-HOOK: sidecar online survives a stopped Xray.
+	if process := onlineProcess(); process != nil {
 		process.SetNodeOnlineTree(nodeID, tree)
 	}
+	// END LUCX-HOOK
 }
 
 func (s *InboundService) ClearNodeOnlineClients(nodeID int) {
-	if process := currentXrayProcess(); process != nil {
+	// LUCX-HOOK: sidecar online survives a stopped Xray.
+	if process := onlineProcess(); process != nil {
 		process.ClearNodeOnlineClients(nodeID)
 	}
+	// END LUCX-HOOK
 }
 
 // panelGuid returns this panel's stable self-identifier, used to key the local
@@ -1590,9 +1602,11 @@ func (s *InboundService) GetClientsLastOnline() (map[string]int64, error) {
 // xray.Process for why the local sets are kept separate from the shared
 // last_online column.
 func (s *InboundService) RefreshLocalOnlineClients(activeEmails, activeInboundTags []string) {
-	if process := currentXrayProcess(); process != nil {
+	// LUCX-HOOK: sidecar online survives a stopped Xray.
+	if process := onlineProcess(); process != nil {
 		process.RefreshLocalOnline(activeEmails, activeInboundTags, time.Now().UnixMilli(), onlineGracePeriodMs)
 	}
+	// END LUCX-HOOK
 }
 
 func (s *InboundService) FilterAndSortClientEmails(emails []string) ([]string, []string, error) {
