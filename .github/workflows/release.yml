@@ -168,7 +168,6 @@ jobs:
           # first install has cores without a second GitHub-raw fetch.
           # SourceCraft stays SLIM (100 MB). install.sh still fetches
           # afterwards as a refresh (existing files survive a failed fetch).
-          # linux-arm64/ is empty — Cores tab until those gz are vendored.
           sidecar_dir="../../third_party/sidecars/linux-${{ matrix.platform }}"
           if [ -d "$sidecar_dir" ]; then
             for gz in "$sidecar_dir"/*.gz; do
@@ -181,22 +180,23 @@ jobs:
           # END LUCX-HOOK
           cd ../..
 
+      - name: Pack tunnel sidecars
+        run: bash bin/pack-sidecars.sh ${{ matrix.platform }} "$PWD/x-ui/bin"
+
       - name: Build Telegram WEB proxy sidecars
         run: |
           set -euo pipefail
           DEST="$PWD/x-ui/bin"
           mkdir -p "$DEST"
+          P="${{ matrix.platform }}"
           TPROXY_SHA=f7a6acc4d536a787d442fd7df3ba4ebfd728f406
           rm -rf /tmp/tproxy-src
           mkdir /tmp/tproxy-src
           git -C /tmp/tproxy-src init
           git -C /tmp/tproxy-src fetch --depth 1 https://github.com/telegramdesktop/tproxy-server.git "$TPROXY_SHA"
           git -C /tmp/tproxy-src checkout FETCH_HEAD
-          (cd /tmp/tproxy-src && CGO_ENABLED=0 GOOS=linux GOARCH=${{ matrix.platform }} go build -trimpath -ldflags='-s -w' -o "$DEST/tproxy-linux-${{ matrix.platform }}" ./cmd/tproxy-server)
-          chmod +x "$DEST/tproxy-linux-${{ matrix.platform }}"
-          if [ "${{ matrix.platform }}" != "amd64" ]; then
-            exit 0
-          fi
+          (cd /tmp/tproxy-src && CGO_ENABLED=0 GOOS=linux GOARCH="$P" go build -trimpath -ldflags='-s -w' -o "$DEST/tproxy-linux-${P}" ./cmd/tproxy-server)
+          chmod +x "$DEST/tproxy-linux-${P}"
           MTPROXY_SHA=f36d8af769ffaeac36978d38c2c0f6d1104c2137
           MTPROXY_SUM=919795c416b870670841a21d1930ad97a24c7b84b9eb8c6f9e3de32f2fdf4655
           curl -fsSL -o /tmp/MTProxy.tar.gz "https://github.com/TelegramMessenger/MTProxy/archive/${MTPROXY_SHA}.tar.gz"
@@ -204,11 +204,16 @@ jobs:
           rm -rf /tmp/MTProxy
           mkdir /tmp/MTProxy
           tar -C /tmp/MTProxy --strip-components=1 -xzf /tmp/MTProxy.tar.gz
-          docker run --rm --user 0 -v /tmp/MTProxy:/src -w /src ubuntu:22.04 bash -lc \
+          docker_plat="linux/amd64"
+          if [ "$P" = arm64 ]; then
+            docker_plat="linux/arm64"
+            docker run --privileged --rm tonistiigi/binfmt --install arm64
+          fi
+          docker run --rm --user 0 --platform "$docker_plat" -v /tmp/MTProxy:/src -w /src ubuntu:22.04 bash -lc \
             'apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc make libssl-dev zlib1g-dev >/dev/null && make -j"$(nproc)"'
-          cp /tmp/MTProxy/objs/bin/mtproto-proxy "$DEST/mtproxy-linux-amd64"
-          chmod +x "$DEST/mtproxy-linux-amd64"
-          if readelf -V "$DEST/mtproxy-linux-amd64" | grep -E 'GLIBC_2\.(3[6-9]|[4-9][0-9])'; then
+          cp /tmp/MTProxy/objs/bin/mtproto-proxy "$DEST/mtproxy-linux-${P}"
+          chmod +x "$DEST/mtproxy-linux-${P}"
+          if readelf -V "$DEST/mtproxy-linux-${P}" | grep -E 'GLIBC_2\.(3[6-9]|[4-9][0-9])'; then
             echo "mtproxy linked against glibc newer than 2.35 (breaks Debian 12)" >&2
             exit 1
           fi
@@ -221,14 +226,14 @@ jobs:
           set -euo pipefail
           P="${{ matrix.platform }}"
           tar -tzf "x-ui-linux-${P}.tar.gz" | tee /tmp/list
-          for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" "x-ui/bin/tproxy-linux-${P}" x-ui/bin/install-awg-module.sh; do
+          for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" x-ui/bin/install-awg-module.sh; do
             grep -Fxq "$f" /tmp/list || { echo "missing $f"; exit 1; }
           done
-          if [ "$P" = amd64 ]; then
-            grep -Fq "x-ui/bin/caddy-naive-linux-amd64" /tmp/list
-            grep -Fq "x-ui/bin/mtproxy-linux-amd64" /tmp/list
-          elif grep -E 'linux-amd64|linux-armv' /tmp/list; then
-            echo "arm64 tarball contains wrong-arch binaries" >&2
+          for c in caddy-naive naive-client olcrtc qwdtt mieru mieru-client trusttunnel trusttunnel-client anytls tproxy mtproxy; do
+            grep -Fxq "x-ui/bin/${c}-linux-${P}" /tmp/list || { echo "missing ${c}-linux-${P}"; exit 1; }
+          done
+          if [ "$P" != amd64 ] && grep -E 'linux-amd64' /tmp/list; then
+            echo "arm64 tarball contains amd64 binaries" >&2
             exit 1
           fi
 

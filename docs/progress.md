@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.227 — arm64 tarball ships the same sidecars as amd64 (2026-09-10)
+
+AverTV on ARM had panel+xray+mtg+tproxy and empty Cores. `release.yml` now runs `bin/pack-sidecars.sh` per platform: Go cores (olcrtc/qwdtt/mieru/anytls) cross-compiled, naive-client + TrustTunnel from upstream arm64/aarch64 assets, caddy-naive via xcaddy `v2.11.2` + `forwardproxy@v2.11.2-naive`, mtproxy via `docker --platform linux/arm64` Ubuntu 22.04. Layout check requires every `*-linux-$arch` name. `install.sh` / `update.sh` fetch `linux-$(arch)/` (404 keeps the tarball copy). SourceCraft stays SLIM amd64.
+
+**lucxVersion:** lucx.227
+
+---
+
 ## lucx.226 — sidecar client online on Clients + Inbounds (2026-09-10)
 
 Green “online” for LucX sidecars was missing or lying: Inbounds `TRACKED_PROTOCOLS` skipped every LucX protocol; collectors stamped **all** enabled tags as active (a VLESS-online client lit a quiet sidecar inbound); TrustTunnel/AnyTLS/olc/qWDTT only worked with exactly one client; olc/qWDTT went dark 20s after the last byte; tproxy had no scrape; share-only inbounds never put clients in slim `settings.clients`; RefreshLocalOnline no-op’d when Xray was down (node / sidecar-only).

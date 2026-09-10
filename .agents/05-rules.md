@@ -94,6 +94,7 @@ New functionality lives ONLY in:
 - **Frontend:** `frontend/src/schemas/tunnel.ts`, `frontend/src/api/tunnels.ts`, `frontend/src/pages/tunnels/TunnelsPage.tsx` — tunnel sidecar UI
 - **Shell:** `bin/install-awg-module.sh` — DKMS install
 - **Shell:** `bin/sourcecraft-release.sh` — SourceCraft (Yandex) release tarball
+- **Shell:** `bin/pack-sidecars.sh` — per-arch tunnel cores for GitHub tarballs
 
 Integration points (`model.go`, `db.go`, `web.go`, `runtime/local.go`, `service/xray.go`, `install.sh`, `inbound-defaults.ts`, `InboundFormModal.tsx`, `protocols/index.ts`, `primitives/protocol.ts`, `protocols/inbound/index.ts`, `api.go`, `routes.tsx`, `AppSidebar.tsx`, `queryKeys.ts`, `endpoints.ts`) get LUCX-HOOK blocks only.
 

@@ -190,13 +190,12 @@ x-ui-linux-{amd64,arm64}.tar.gz → x-ui/
       ├── mtg-linux-{arch}    ← from upstream mtg-multi release
       ├── install-awg-module.sh  ← our DKMS script
       └── caddy-naive / olcrtc / qwdtt / mieru / trusttunnel / anytls / tproxy / mtproxy (+ clients)
-          ← GitHub amd64 unpacks gz from third_party/sidecars/linux-amd64/; tproxy is built per-arch;
-            mtproxy is amd64-only (C, Ubuntu 22.04). arm64 sidecars: Cores tab until vendored.
+          ← same names for amd64 and arm64. amd64 unpacks third_party gz; arm64 from bin/pack-sidecars.sh + tproxy/mtproxy in release.yml.
 ```
 
 Geo is not in the panel tarball (GitHub slim / SourceCraft 100 MB). `install.sh` / `update.sh` fetch Loyalsoldier + IR/RU/ROSCOM **before** panel start (never fatal). SourceCraft unpacks `x-ui-geo.tar.gz` from the dist bundle at the same point.
 
-Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub amd64 tarball includes the unpacked binaries (lucx.184 — first install was missing cores). arm64 tarball ships panel+xray+mtg+tproxy; other cores via Cores tab. SourceCraft stays SLIM amd64 (100 MB cap); `install.sh` / `update.sh` still fetch after start as a refresh.
+Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub tarball (amd64 and arm64) includes the unpacked binaries. SourceCraft stays SLIM amd64 (100 MB cap); `install.sh` / `update.sh` still fetch `linux-$(arch)/` after start as a refresh.
 
 ---
 

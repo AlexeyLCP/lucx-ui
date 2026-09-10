@@ -107,14 +107,14 @@ lucx_fetch_sidecars() {
     local dest="${1:-bin}"
     local a
     a="$(arch)"
-    if [[ "$a" != "amd64" ]]; then
+    if [[ "$a" != "amd64" && "$a" != "arm64" ]]; then
         return 0
     fi
     mkdir -p "$dest"
     echo -e "${green}Downloading tunnel sidecars...${plain}"
     local name gz tmp
-    for name in caddy-naive-linux-amd64 naive-client-linux-amd64 olcrtc-linux-amd64 qwdtt-linux-amd64 mieru-linux-amd64 mieru-client-linux-amd64 trusttunnel-linux-amd64 trusttunnel-client-linux-amd64 anytls-linux-amd64 tproxy-linux-amd64 mtproxy-linux-amd64; do
-        gz="third_party/sidecars/linux-amd64/${name}.gz"
+    for name in caddy-naive-linux-${a} naive-client-linux-${a} olcrtc-linux-${a} qwdtt-linux-${a} mieru-linux-${a} mieru-client-linux-${a} trusttunnel-linux-${a} trusttunnel-client-linux-${a} anytls-linux-${a} tproxy-linux-${a} mtproxy-linux-${a}; do
+        gz="third_party/sidecars/linux-${a}/${name}.gz"
         tmp="${dest}/${name}.gz"
         if [[ -s "${gz}" ]]; then
             cp -f "${gz}" "${tmp}"
