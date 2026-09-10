@@ -197,6 +197,9 @@ jobs:
           git -C /tmp/tproxy-src checkout FETCH_HEAD
           (cd /tmp/tproxy-src && CGO_ENABLED=0 GOOS=linux GOARCH="$P" go build -trimpath -ldflags='-s -w' -o "$DEST/tproxy-linux-${P}" ./cmd/tproxy-server)
           chmod +x "$DEST/tproxy-linux-${P}"
+          if [ "$P" != amd64 ]; then
+            exit 0
+          fi
           MTPROXY_SHA=f36d8af769ffaeac36978d38c2c0f6d1104c2137
           MTPROXY_SUM=919795c416b870670841a21d1930ad97a24c7b84b9eb8c6f9e3de32f2fdf4655
           curl -fsSL -o /tmp/MTProxy.tar.gz "https://github.com/TelegramMessenger/MTProxy/archive/${MTPROXY_SHA}.tar.gz"
@@ -204,14 +207,8 @@ jobs:
           rm -rf /tmp/MTProxy
           mkdir /tmp/MTProxy
           tar -C /tmp/MTProxy --strip-components=1 -xzf /tmp/MTProxy.tar.gz
-          if [ "$P" = arm64 ]; then
-            docker run --privileged --rm tonistiigi/binfmt --install arm64
-            docker run --rm --user 0 --platform linux/arm64 -v /tmp/MTProxy:/src -w /src ubuntu:22.04 bash -lc \
-              'apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc make libssl-dev zlib1g-dev >/dev/null && sed -i "s/-mpclmul//g;s/-march=core2//g;s/-mfpmath=sse//g;s/-mssse3//g;s/-DAES=1//g" Makefile && make -j"$(nproc)"'
-          else
-            docker run --rm --user 0 -v /tmp/MTProxy:/src -w /src ubuntu:22.04 bash -lc \
-              'apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc make libssl-dev zlib1g-dev >/dev/null && make -j"$(nproc)"'
-          fi
+          docker run --rm --user 0 -v /tmp/MTProxy:/src -w /src ubuntu:22.04 bash -lc \
+            'apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc make libssl-dev zlib1g-dev >/dev/null && make -j"$(nproc)"'
           cp /tmp/MTProxy/objs/bin/mtproto-proxy "$DEST/mtproxy-linux-${P}"
           chmod +x "$DEST/mtproxy-linux-${P}"
           if readelf -V "$DEST/mtproxy-linux-${P}" | grep -E 'GLIBC_2\.(3[6-9]|[4-9][0-9])'; then
@@ -230,9 +227,12 @@ jobs:
           for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" x-ui/bin/install-awg-module.sh; do
             grep -Fxq "$f" /tmp/list || { echo "missing $f"; exit 1; }
           done
-          for c in caddy-naive naive-client olcrtc qwdtt mieru mieru-client trusttunnel trusttunnel-client anytls tproxy mtproxy; do
+          for c in caddy-naive naive-client olcrtc qwdtt mieru mieru-client trusttunnel trusttunnel-client anytls tproxy; do
             grep -Fxq "x-ui/bin/${c}-linux-${P}" /tmp/list || { echo "missing ${c}-linux-${P}"; exit 1; }
           done
+          if [ "$P" = amd64 ]; then
+            grep -Fxq "x-ui/bin/mtproxy-linux-amd64" /tmp/list || { echo "missing mtproxy-linux-amd64"; exit 1; }
+          fi
           if [ "$P" != amd64 ] && grep -E 'linux-amd64' /tmp/list; then
             echo "arm64 tarball contains amd64 binaries" >&2
             exit 1
