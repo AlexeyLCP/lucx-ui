@@ -31,7 +31,7 @@ if ! have "caddy-naive-linux-${ARCH}"; then
     else
         go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.7
         CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" "$(go env GOPATH)/bin/xcaddy" build v2.11.2 \
-            --with github.com/klzgrad/forwardproxy/v2@v2.11.2-naive \
+            --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@v2.11.2-naive \
             --output "${DEST}/caddy-naive-linux-${ARCH}"
     fi
     chmod +x "${DEST}/caddy-naive-linux-${ARCH}"
