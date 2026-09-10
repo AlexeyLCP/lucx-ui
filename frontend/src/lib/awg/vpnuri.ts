@@ -291,7 +291,8 @@ export async function vpnConfFromLink(link: string): Promise<string> {
   let payload = bytes;
   if (isQCompress(bytes)) {
     try {
-      payload = await inflateZlib(bytes.subarray(4));
+      const stored = inflateStored(bytes);
+      payload = stored ?? (await inflateZlib(bytes.subarray(4)));
     } catch {
       return '';
     }
@@ -301,10 +302,11 @@ export async function vpnConfFromLink(link: string): Promise<string> {
 
 async function inflateZlib(data: Uint8Array): Promise<Uint8Array> {
   const ds = new DecompressionStream('deflate');
+  const out = new Response(ds.readable).arrayBuffer();
   const writer = ds.writable.getWriter();
   await writer.write(data as BufferSource);
   await writer.close();
-  return new Uint8Array(await new Response(ds.readable).arrayBuffer());
+  return new Uint8Array(await out);
 }
 
 function confFromPayload(payload: Uint8Array): string {

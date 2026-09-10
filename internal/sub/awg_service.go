@@ -38,7 +38,6 @@ func (s *SubAwgService) GetAwg(subId, host, format string, inboundId int) (body,
 
 	var confs []string
 	seenEmails := make(map[string]struct{})
-	var lastBuildErr error
 	for _, inbound := range inbounds {
 		if inbound.Protocol != model.AWG || !awgInboundWanted(inbound.Id, inboundId) {
 			continue
@@ -53,16 +52,12 @@ func (s *SubAwgService) GetAwg(subId, host, format string, inboundId int) (body,
 		}
 		for i := range clients {
 			client := clients[i]
-			if !client.Enable {
+			if !client.Enable || strings.TrimSpace(client.PrivateKey) == "" {
 				continue
 			}
 			seenEmails[client.Email] = struct{}{}
 			conf, confErr := service.BuildAwgClientConf(inbound, &client, endpointHost)
-			if confErr != nil {
-				lastBuildErr = confErr
-				continue
-			}
-			if strings.TrimSpace(conf) == "" {
+			if confErr != nil || strings.TrimSpace(conf) == "" {
 				continue
 			}
 			// Label multi-inbound confs so operators can split them.
@@ -79,9 +74,6 @@ func (s *SubAwgService) GetAwg(subId, host, format string, inboundId int) (body,
 	}
 
 	if len(confs) == 0 {
-		if lastBuildErr != nil {
-			return "", "", lastBuildErr
-		}
 		return "", "", nil
 	}
 

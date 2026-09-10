@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.228 — sub page Amnezia .conf copy + imported peers no longer 500 (2026-09-10)
+
+Nik Targon on lucx.226: `/sub/` AMNEZIA `vpn://` copied, `.conf` did nothing; Amnezia listed twice; a client imported from an AWG docker had one AMNEZIA row and the buttons returned 500.
+
+`.conf` decoded `vpn://` by writing into `DecompressionStream` then reading — large AWG 3.1 payloads deadlock in the browser. Decode now `pipeThrough`s (stored-block zlib first). Duplicate top AMNEZIA rows are gone; `.conf` download/copy and `vpn://` sit on the copy-link AmneziaWG row. `GetAwg` skips peers with no private key and returns an empty body instead of 500. Rule 0: do not invent a client key for an imported docker peer.
+
+Tests: `vpnConfFromLink` large zlib envelope; `TestBuildAwgClientConf_ErrsWhenClientHasNoPrivateKey`.
+
+**lucxVersion:** lucx.228
+
+---
+
 ## lucx.227 — arm64 tarball ships the same sidecars as amd64 (2026-09-10)
 
 AverTV on ARM had panel+xray+mtg+tproxy and empty Cores. `release.yml` now runs `bin/pack-sidecars.sh` per platform: Go cores (olcrtc/qwdtt/mieru/anytls) cross-compiled, naive-client + TrustTunnel from upstream arm64/aarch64 assets, caddy-naive via xcaddy `v2.11.2` + `forwardproxy@v2.11.2-naive`, mtproxy via `docker --platform linux/arm64` Ubuntu 22.04. Layout check requires every `*-linux-$arch` name. `install.sh` / `update.sh` fetch `linux-$(arch)/` (404 keeps the tarball copy). SourceCraft stays SLIM amd64.

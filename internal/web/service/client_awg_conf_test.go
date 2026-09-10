@@ -152,3 +152,17 @@ func TestBuildAwgClientConf_ErrsWhenNoServerKeyRecoverable(t *testing.T) {
 		t.Fatal("expected an error when neither privateKey nor publicKey is usable")
 	}
 }
+
+func TestBuildAwgClientConf_ErrsWhenClientHasNoPrivateKey(t *testing.T) {
+	priv, pub, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("keypair: %v", err)
+	}
+	settings, _ := json.Marshal(map[string]any{
+		"privateKey": priv,
+		"publicKey":  pub,
+	})
+	if _, err := BuildAwgClientConf(awgConfInbound(string(settings)), awgConfClient(""), "203.0.113.9"); err == nil {
+		t.Fatal("imported docker peers have no private key; must not emit a fake .conf")
+	}
+}

@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 16: Sub page .conf buttons do nothing / imported AWG is 1 row + 500 — FIXED (lucx.228)
+- **Symptom (Nik Targon, lucx.226):** `/sub/` AMNEZIA `vpn://` copy works; both `.conf` buttons do nothing. Duplicate Amnezia list in “subscription info” and “copy link”. A client imported from an AWG docker has one AMNEZIA row even after more inbounds; the buttons return HTTP 500.
+- **Cause 1:** `vpnConfFromLink` wrote into `DecompressionStream` then read the output. Large AWG 3.1 `vpn://` (I1–I5) fills the writable and deadlocks in the browser — no toast, no copy. Node tests used a tiny fixture so CI stayed green.
+- **Cause 2:** Docker import often has peer public keys only. `genAwgLink` returns "" without a private key, `displaySubLinks` hides `amneziawg://`, the page fell back to one `/awg/{subId}` row, `GetAwg` returned `lastBuildErr` → 500.
+- **Fix:** `pipeThrough` inflate (stored-block first). Drop the top AMNEZIA block; `.conf` / `vpn://` live on the copy-link AmneziaWG row. `GetAwg` skips empty keys and returns empty body, not 500. No key invented (Rule 0) — without a recovered client private key there is nothing to export.
+- **Not a handshake bug.** Existing imported tunnels keep working; the phone still has the key.
+
 ### Pattern 15: Sub page AMNEZIA copies all servers / “Link N” / white QR — FIXED (lucx.222)
 - **Symptom (Nik Targon, 05.09.2026):** `/sub/` AMNEZIA copy dumps every inbound; AmneziaVPN keeps only the first. Copy-link rows are `AmneziaWG Link N`. QR is a white square.
 - **Cause:** `/awg/{subId}` is the concatenated body. Share lines are `amneziawg://#remark` + opaque `vpn://`; the page hid the first so the remark vanished. `vpn://` is thousands of chars — antd QRCode renders empty.

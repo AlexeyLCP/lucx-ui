@@ -70,6 +70,24 @@ describe('vpnConfFromLink', () => {
     await expect(vpnConfFromLink('amneziawg://x')).resolves.toBe('');
   });
 
+  it('inflates a large Go-style zlib envelope', async () => {
+    const big = `${sampleConf}I1 = ${'a'.repeat(80_000)}\n`;
+    const inner = { config: big };
+    const env = {
+      defaultContainer: 'amnezia-awg',
+      containers: [
+        {
+          container: 'amnezia-awg',
+          awg: { last_config: JSON.stringify(inner), isThirdPartyConfig: true },
+        },
+      ],
+    };
+    const link = vpnUriFromBytes(qCompress(new TextEncoder().encode(JSON.stringify(env))));
+    const conf = await vpnConfFromLink(link);
+    expect(conf).toContain('[Interface]');
+    expect(conf).toContain('a'.repeat(80_000));
+  });
+
   // Cross-language fixture: this exact URI was produced by the Go encoder
   // internal/awg/vpnuri.EncodeConf(sampleConf). If the TS decoder stops
   // understanding the Go side (or vice versa), subscriptions and panel

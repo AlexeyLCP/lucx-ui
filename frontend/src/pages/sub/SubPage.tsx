@@ -65,9 +65,6 @@ const lastOnlineMs = Number(subData.lastOnline || 0);
 const subUrl = subData.subUrl || '';
 const subJsonUrl = subData.subJsonUrl || '';
 const subClashUrl = subData.subClashUrl || '';
-// LUCX-HOOK: AmneziaWG subscription URL (same-origin on this page).
-const subAwgUrl = subData.subAwgUrl || '';
-// END LUCX-HOOK
 const subTitle = subData.subTitle || '';
 const links: string[] = Array.isArray(subData.links) ? subData.links : [];
 const linkEmails: string[] = Array.isArray(subData.emails) ? subData.emails : [];
@@ -142,48 +139,8 @@ export default function SubPage() {
     window.open(url, '_blank');
   }, []);
 
-  // LUCX-HOOK: the AMNEZIA row's Copy puts the .conf body into the clipboard,
-  // not the URL — same-origin here, so a plain fetch works (lucx.135).
-  const copyAwgBody = useCallback(async () => {
-    if (!subAwgUrl) return;
-    try {
-      const res = await fetch(subAwgUrl, { headers: { Accept: 'text/plain,*/*' } });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      let text = (await res.text()).trim();
-      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-      if (!text) throw new Error('empty body');
-      const ok = await ClipboardManager.copyText(text);
-      if (ok) messageApi.success(t('copied'));
-    } catch (e) {
-      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
-    }
-  }, [t, messageApi]);
-
-  // LUCX-HOOK: "copy vpn://" fetches the single vpn:// line (?format=vpn) and
-  // puts it in the clipboard for pasting into AmneziaVPN (lucx.135+).
-  const copyAwgVpn = useCallback(async () => {
-    if (!subAwgUrl) return;
-    try {
-      const sep = subAwgUrl.includes('?') ? '&' : '?';
-      const res = await fetch(`${subAwgUrl}${sep}format=vpn`, {
-        headers: { Accept: 'text/plain,*/*' },
-      });
-      if (!res.ok) throw new Error(`HTTP ${res.status}`);
-      let text = (await res.text()).trim();
-      if (text.charCodeAt(0) === 0xfeff) text = text.slice(1);
-      if (!text) throw new Error('empty body');
-      const ok = await ClipboardManager.copyText(text);
-      if (ok) messageApi.success(t('copied'));
-    } catch (e) {
-      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
-    }
-  }, [t, messageApi]);
-
+  // LUCX-HOOK: decode vpn:// on the copy-link AmneziaWG row (no duplicate AMNEZIA block).
   const displayLinks = useMemo(() => displaySubLinks(links), []);
-  const awgPasteRows = useMemo(
-    () => displayLinks.filter((r) => r.link.startsWith('vpn://')),
-    [displayLinks],
-  );
 
   const copyVpnConf = useCallback(
     async (link: string) => {
@@ -424,7 +381,7 @@ export default function SubPage() {
                   isActive={isActive}
                 />
 
-                {(subUrl || subJsonUrl || subClashUrl || subAwgUrl || awgPasteRows.length > 0) && (
+                {(subUrl || subJsonUrl || subClashUrl) && (
                   <>
                     <Divider>{t('subscription.title')}</Divider>
                     <div className="links-section">
@@ -604,102 +561,6 @@ export default function SubPage() {
                           </div>
                         </div>
                       )}
-                      {/* LUCX-HOOK: one AMNEZIA row per inbound — AmneziaVPN imports only the first vpn:// */}
-                      {awgPasteRows.length > 0
-                        ? awgPasteRows.map((row) => {
-                            const name = row.parts?.remark || sId;
-                            return (
-                              <div className="sub-link-row" key={row.link}>
-                                <Tooltip title="AmneziaWG">
-                                  <Tag color="magenta" className="sub-link-tag">
-                                    AMNEZIA
-                                  </Tag>
-                                </Tooltip>
-                                <span className="sub-link-title" title={name}>
-                                  {name}
-                                </span>
-                                <div className="sub-link-actions">
-                                  <Button
-                                    size="small"
-                                    icon={<DownloadOutlined />}
-                                    aria-label={t('download')}
-                                    title=".conf"
-                                    onClick={() => void downloadVpnConf(row.link, name)}
-                                  >
-                                    .conf
-                                  </Button>
-                                  <Button
-                                    size="small"
-                                    icon={<CopyOutlined />}
-                                    onClick={() => void copy(row.link)}
-                                    aria-label="vpn://"
-                                    title="vpn://"
-                                  >
-                                    vpn://
-                                  </Button>
-                                  <Button
-                                    size="small"
-                                    icon={<CopyOutlined />}
-                                    onClick={() => void copyVpnConf(row.link)}
-                                    aria-label=".conf"
-                                    title=".conf"
-                                  >
-                                    .conf
-                                  </Button>
-                                </div>
-                              </div>
-                            );
-                          })
-                        : subAwgUrl && (
-                            <div className="sub-link-row">
-                              <Tooltip title="AmneziaWG">
-                                <Tag color="magenta" className="sub-link-tag">
-                                  AMNEZIA
-                                </Tag>
-                              </Tooltip>
-                              <a
-                                href={subAwgUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="sub-link-title sub-link-anchor"
-                                title={subAwgUrl}
-                              >
-                                {sId}
-                              </a>
-                              <div className="sub-link-actions">
-                                <Button
-                                  size="small"
-                                  href={subAwgUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  icon={<DownloadOutlined />}
-                                  aria-label={t('download')}
-                                  title=".conf"
-                                >
-                                  .conf
-                                </Button>
-                                <Button
-                                  size="small"
-                                  icon={<CopyOutlined />}
-                                  onClick={() => void copyAwgVpn()}
-                                  aria-label="vpn://"
-                                  title="vpn://"
-                                >
-                                  vpn://
-                                </Button>
-                                <Button
-                                  size="small"
-                                  icon={<CopyOutlined />}
-                                  onClick={() => void copyAwgBody()}
-                                  aria-label=".conf"
-                                  title=".conf"
-                                >
-                                  .conf
-                                </Button>
-                              </div>
-                            </div>
-                          )}
-                      {/* END LUCX-HOOK */}
                     </div>
                   </>
                 )}
@@ -741,13 +602,47 @@ export default function SubPage() {
                                 {rowTitle}
                               </span>
                               <div className="sub-link-actions">
-                                <Button
-                                  size="small"
-                                  icon={<CopyOutlined />}
-                                  onClick={() => copy(link)}
-                                  aria-label={t('copy')}
-                                  title={t('copy')}
-                                />
+                                {/* LUCX-HOOK: AmneziaWG row — .conf download/copy + vpn:// (was a duplicate top block) */}
+                                {isAmneziawgLink ? (
+                                  <>
+                                    <Button
+                                      size="small"
+                                      icon={<DownloadOutlined />}
+                                      aria-label={t('download')}
+                                      title=".conf"
+                                      onClick={() => void downloadVpnConf(link, rowTitle)}
+                                    >
+                                      .conf
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      icon={<CopyOutlined />}
+                                      onClick={() => void copy(link)}
+                                      aria-label="vpn://"
+                                      title="vpn://"
+                                    >
+                                      vpn://
+                                    </Button>
+                                    <Button
+                                      size="small"
+                                      icon={<CopyOutlined />}
+                                      onClick={() => void copyVpnConf(link)}
+                                      aria-label=".conf"
+                                      title=".conf"
+                                    >
+                                      .conf
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Button
+                                    size="small"
+                                    icon={<CopyOutlined />}
+                                    onClick={() => copy(link)}
+                                    aria-label={t('copy')}
+                                    title={t('copy')}
+                                  />
+                                )}
+                                {/* END LUCX-HOOK */}
                                 {canQr && (
                                   <Popover
                                     trigger="click"
