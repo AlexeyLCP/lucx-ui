@@ -4,6 +4,8 @@
 
 AverTV ARM install: panel tarball now ships the same sidecar names as amd64 except `mtproxy`. Official TelegramMessenger/MTProxy is an x86 C engine (SSE4.2/pclmul/`sys/io.h`/`mfence`); ARM compile was tried and reverted. `tproxy` is on arm64. `install.sh` / `update.sh` fetch `x-ui-linux-$(arch).tar.gz`. lucx.227’s “mtproxy via docker arm64” was wrong.
 
+tproxy card on arm64 now disables itself cleanly (`TproxyInstancesFromInbound` checks `Mtproxy.BinaryPath()`): mtproxy is the MTProto backend every other process relays into, and there is no substitute — mtg is FakeTLS-only (ee-secrets, mandatory faketls handshake) while the WEB-proxy v1 protocol relays plain/dd streams verbatim. Card stays down with a log reason instead of failing exec every reconcile tick.
+
 Nightly mutation (`gremlins` on `internal/awg` + `internal/lucx`) is informational: hung mutant / runner SIGTERM used to fail the workflow. Now `continue-on-error`, per-step 50m, `--timeout-coefficient 2 --workers 2`, always upload the JSON.
 
 Unreleased after lucx.228: MTProxy ARM compile attempts (reverted). ARM sidecars themselves landed in 227/228 tarballs.

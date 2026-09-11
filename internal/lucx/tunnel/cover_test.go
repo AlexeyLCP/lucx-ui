@@ -138,6 +138,7 @@ func TestCoverTproxyWinsWhenStackReady(t *testing.T) {
 	dir := t.TempDir()
 	tunnelDir = func() string { return dir }
 	t.Cleanup(func() { tunnelDir = prev })
+	stubMtproxyBinary(t, dir)
 
 	if err := os.MkdirAll(mtproxyAssetsDir(), 0o700); err != nil {
 		t.Fatal(err)

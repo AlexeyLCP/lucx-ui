@@ -316,11 +316,48 @@ func TestTproxyInstancesMissingSiteDisables(t *testing.T) {
 	}
 }
 
+// stubMtproxyBinary points XUI_BIN_FOLDER at dir and drops a dummy mtproxy
+// executable there, so TproxyInstancesFromInbound's engine-presence check
+// passes on hosts without a real mtproxy build (e.g. Windows/arm64 dev).
+func stubMtproxyBinary(t *testing.T, dir string) {
+	t.Helper()
+	t.Setenv("XUI_BIN_FOLDER", dir)
+	if err := os.WriteFile(filepath.Join(dir, Mtproxy.BinaryName()), []byte("#!/bin/sh\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestTproxyInstancesDisabledWithoutMtproxyBinary(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+	t.Setenv("XUI_BIN_FOLDER", filepath.Join(dir, "empty-bin"))
+
+	ib := &model.Inbound{
+		Id:       7,
+		Protocol: model.Tproxy,
+		Enable:   true,
+		Port:     443,
+		Settings: `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f","siteSource":"zip"}`,
+	}
+	insts, ok := TproxyInstancesFromInbound(ib, "", "")
+	if !ok || len(insts) != 3 {
+		t.Fatalf("ok=%v len=%d", ok, len(insts))
+	}
+	for _, inst := range insts {
+		if inst.Enabled {
+			t.Fatalf("missing mtproxy binary must disable the stack: %+v", inst)
+		}
+	}
+}
+
 func TestTproxyInstancesFromInbound(t *testing.T) {
 	prev := tunnelDir
 	dir := t.TempDir()
 	tunnelDir = func() string { return dir }
 	t.Cleanup(func() { tunnelDir = prev })
+	stubMtproxyBinary(t, dir)
 
 	if err := os.MkdirAll(mtproxyAssetsDir(), 0o700); err != nil {
 		t.Fatal(err)

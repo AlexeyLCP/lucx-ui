@@ -9,9 +9,11 @@ package tunnel
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strconv"
 	"strings"
 
@@ -80,6 +82,15 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 	}
 	if !cfg.Enabled {
 		return disabled, true
+	}
+	// The MTProxy engine is the MTProto backend every other process of the card
+	// relays into (tproxy-server profiles point at its loopback port), so the
+	// whole stack is dead without it. Upstream TelegramMessenger/MTProxy is an
+	// x86-only C engine (SSE4.2/pclmul/sys/io.h/mfence); on arm64 the tarball
+	// ships no binary and mtg is FakeTLS-only, so disable cleanly instead of
+	// failing every reconcile tick on a missing executable.
+	if _, err := os.Stat(Mtproxy.BinaryPath()); err != nil {
+		return disabledWhy(fmt.Errorf("mtproxy engine not available for %s/%s (upstream MTProxy is x86-only)", runtime.GOOS, runtime.GOARCH)), true
 	}
 	if cfg.ExternalTLS {
 		return disabled, true
