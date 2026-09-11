@@ -19,6 +19,13 @@ concurrency:
 jobs:
   gremlins:
     runs-on: ubuntu-latest
+    # Mutation is informational: a red nightly must never gate anyone. The awg
+    # leg has repeatedly killed its runner mid-run (resource spike while a
+    # mutated test executes -> "runner received a shutdown signal"), which
+    # step-level continue-on-error cannot absorb (the step shell dies with the
+    # runner). Job-level continue-on-error keeps the run green; the surviving
+    # leg still uploads its report and the annotation stays visible.
+    continue-on-error: true
     # LUCX-HOOK: mutate LucX packages only. service/sub/database are mostly
     # upstream 3x-ui — gremlins there ran 2–4h and hung the nightly job.
     timeout-minutes: 60
