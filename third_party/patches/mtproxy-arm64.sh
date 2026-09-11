@@ -109,3 +109,21 @@ if old not in c:
 Path("common/crc32.c").write_text(c.replace(old, new, 1))
 print("mtproxy arm64 patch ok")
 PY
+
+# x86-only headers / fences leftover after CRC wrap
+sed -i '/#include <sys\/io.h>/s/.*/#ifdef __x86_64__\n#include <sys\/io.h>\n#endif/' net/net-events.c
+python3 - <<'PY'
+from pathlib import Path
+import re
+for p in Path(".").rglob("*"):
+    if p.suffix not in {".c", ".h"}:
+        continue
+    t = p.read_text(errors="ignore")
+    n = t
+    n = re.sub(r'asm\s+volatile\s*\(\s*"mfence"[^)]*\)', "__sync_synchronize()", n)
+    n = n.replace("mfence ()", "__sync_synchronize()")
+    n = n.replace("mfence()", "__sync_synchronize()")
+    if n != t:
+        p.write_text(n)
+        print("mfence patched", p)
+PY
