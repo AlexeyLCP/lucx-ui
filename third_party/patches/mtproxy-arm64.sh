@@ -70,7 +70,10 @@ if old not in c:
     raise SystemExit("crc32c_init not found")
 Path("common/crc32c.c").write_text(c.replace(old, new, 1))
 
-wrap_x86(Path("common/crc32.c"), "/******************** CLMUL ********************/", "static void crc32_init")
+wrap_x86(Path("common/crc32.c"), "/******************** CLMUL ********************/", "/* {{{ GF-32 */")
+wrap_x86(Path("common/crc32.c"), "void gf32_compute_powers_clmul", "static unsigned compute_crc32_combine_generic")
+wrap_x86(Path("common/crc32.c"), "static unsigned compute_crc32_combine_clmul", "static uint64_t compute_crc64_combine_clmul")
+wrap_x86(Path("common/crc32.c"), "static uint64_t compute_crc64_combine_clmul", "static uint64_t compute_crc64_combine_generic")
 
 c = Path("common/crc32.c").read_text()
 old = """void crc32_init (void) {
