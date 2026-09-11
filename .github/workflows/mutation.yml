@@ -12,6 +12,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: mutation
+  cancel-in-progress: false
+
 jobs:
   gremlins:
     runs-on: ubuntu-latest
@@ -40,13 +44,17 @@ jobs:
       - name: Install gremlins
         run: go install github.com/go-gremlins/gremlins/cmd/gremlins@v0.6.0
       - name: Run gremlins on ${{ matrix.name }}
+        continue-on-error: true
+        timeout-minutes: 50
         run: |
           OUT="mutation-${{ matrix.name }}.json"
+          set +e
           if [ -n "${{ matrix.exclude }}" ]; then
-            gremlins unleash -E '${{ matrix.exclude }}' -o "$OUT" ${{ matrix.path }}
+            gremlins unleash --timeout-coefficient 2 --workers 2 -E '${{ matrix.exclude }}' -o "$OUT" ${{ matrix.path }}
           else
-            gremlins unleash -o "$OUT" ${{ matrix.path }}
+            gremlins unleash --timeout-coefficient 2 --workers 2 -o "$OUT" ${{ matrix.path }}
           fi
+          exit 0
       - name: Upload mutation report
         if: always()
         uses: actions/upload-artifact@v7

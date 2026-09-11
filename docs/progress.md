@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.229 — ARM tarball sidecars (no mtproxy) + mutation job no longer fails CI (2026-09-11)
+
+AverTV ARM install: panel tarball now ships the same sidecar names as amd64 except `mtproxy`. Official TelegramMessenger/MTProxy is an x86 C engine (SSE4.2/pclmul/`sys/io.h`/`mfence`); ARM compile was tried and reverted. `tproxy` is on arm64. `install.sh` / `update.sh` fetch `x-ui-linux-$(arch).tar.gz`. lucx.227’s “mtproxy via docker arm64” was wrong.
+
+Nightly mutation (`gremlins` on `internal/awg` + `internal/lucx`) is informational: hung mutant / runner SIGTERM used to fail the workflow. Now `continue-on-error`, per-step 50m, `--timeout-coefficient 2 --workers 2`, always upload the JSON.
+
+Unreleased after lucx.228: MTProxy ARM compile attempts (reverted). ARM sidecars themselves landed in 227/228 tarballs.
+
+**lucxVersion:** lucx.229
+
+---
+
 ## lucx.228 — sub page Amnezia .conf copy + imported peers no longer 500 (2026-09-10)
 
 Nik Targon on lucx.226: `/sub/` AMNEZIA `vpn://` copied, `.conf` did nothing; Amnezia listed twice; a client imported from an AWG docker had one AMNEZIA row and the buttons returned 500.
