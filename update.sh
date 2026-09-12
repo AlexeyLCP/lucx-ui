@@ -70,19 +70,85 @@ lucx_fetch_dist() {
     LUCX_SC_SHA=$(tr -d '[:space:]' < "${LUCX_DIST_DIR}/sha.txt" 2> /dev/null)
     [[ -n "${LUCX_SC_SHA}" ]] || return 1
 }
+lucx_pin_matches() {
+    local dest="$1" name="$2"
+    local pins="${dest}/lucx-pins.txt" bin="${dest}/${name}"
+    [[ -s "$pins" && -x "$bin" ]] || return 1
+    command -v sha256sum >/dev/null 2>&1 || return 1
+    local want have
+    want=$(awk -v n="$name" '$1 == n { print $2; exit }' "$pins")
+    [[ -n "$want" ]] || return 1
+    have=$(sha256sum "$bin" | awk '{ print $1 }')
+    [[ "$have" == "$want" ]]
+}
+
+lucx_unpack_dist_sidecars() {
+    local dest="${1:-bin}"
+    [[ -n "${LUCX_DIST_DIR}" ]] || return 0
+    mkdir -p "$dest"
+    local a tarf gz name
+    a="$(arch)"
+    tarf="${LUCX_DIST_DIR}/x-ui-sidecars-${a}.tar.gz"
+    if [[ -s "$tarf" ]]; then
+        echo -e "${green}Unpacking tunnel sidecars from SourceCraft dist...${plain}"
+        local stmp f
+        stmp=$(mktemp -d)
+        if tar -xzf "$tarf" -C "$stmp"; then
+            for f in "$stmp"/*; do
+                [[ -f "$f" ]] || continue
+                mv -f "$f" "${dest}/$(basename "$f")"
+            done
+        else
+            echo -e "${yellow}sidecar bundle is broken${plain}"
+        fi
+        rm -rf "$stmp"
+        return 0
+    fi
+    if [[ -d "${LUCX_DIST_DIR}/sidecars" ]]; then
+        echo -e "${green}Unpacking tunnel sidecars from SourceCraft dist...${plain}"
+        for gz in "${LUCX_DIST_DIR}/sidecars"/*-linux-${a}.gz; do
+            [[ -f "$gz" ]] || continue
+            name=$(basename "$gz" .gz)
+            if ! gzip -dc "$gz" > "${dest}/${name}.new"; then
+                rm -f "${dest}/${name}.new"
+                continue
+            fi
+            chmod +x "${dest}/${name}.new"
+            mv -f "${dest}/${name}.new" "${dest}/${name}"
+        done
+        if [[ -s "${LUCX_DIST_DIR}/sidecars/lucx-pins.txt" ]]; then
+            cp -f "${LUCX_DIST_DIR}/sidecars/lucx-pins.txt" "${dest}/lucx-pins.txt"
+        fi
+    fi
+}
+
 lucx_fetch_geofiles() {
     local dest="${1:-bin}"
     mkdir -p "$dest"
     if [[ -n "${LUCX_DIST_DIR}" && -s "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" ]]; then
         echo -e "${green}Unpacking geodata from SourceCraft dist...${plain}"
-        if tar -xzf "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" -C "$dest"; then
-            return 0
+        local gtmp f name
+        gtmp=$(mktemp -d)
+        if tar -xzf "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" -C "$gtmp"; then
+            for f in "$gtmp"/*; do
+                [[ -f "$f" ]] || continue
+                name=$(basename "$f")
+                [[ -s "${dest}/${name}" ]] && continue
+                cp -f "$f" "${dest}/${name}"
+            done
         fi
+        rm -rf "$gtmp"
     fi
-    echo -e "${green}Downloading geodata...${plain}"
-    local failed=0 name url
+    local failed=0 name url fetched=0
     while IFS='|' read -r name url; do
         [[ -z "$name" ]] && continue
+        if [[ -s "${dest}/${name}" ]]; then
+            continue
+        fi
+        if [[ "$fetched" -eq 0 ]]; then
+            echo -e "${green}Downloading geodata...${plain}"
+        fi
+        fetched=1
         if ! ${curl_bin:-curl} -fLRo "${dest}/${name}" --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 180 "$url"; then
             echo -e "${yellow}${name}: download failed${plain}"
             rm -f "${dest}/${name}"
@@ -100,6 +166,9 @@ geosite_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/l
 geoip_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
 geosite_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
 GEO
+    if [[ "$fetched" -eq 0 ]]; then
+        echo -e "${green}geodata already present — skip${plain}"
+    fi
     return "$failed"
 }
 
@@ -111,13 +180,18 @@ lucx_fetch_sidecars() {
         return 0
     fi
     mkdir -p "$dest"
-    echo -e "${green}Downloading tunnel sidecars...${plain}"
-    local name gz tmp
+    local name gz tmp fetched=0 skipped=0
     for name in caddy-naive-linux-${a} naive-client-linux-${a} olcrtc-linux-${a} qwdtt-linux-${a} mieru-linux-${a} mieru-client-linux-${a} trusttunnel-linux-${a} trusttunnel-client-linux-${a} anytls-linux-${a} tproxy-linux-${a} mtproxy-linux-${a}; do
+        if lucx_pin_matches "$dest" "$name"; then
+            skipped=$((skipped + 1))
+            continue
+        fi
         gz="third_party/sidecars/linux-${a}/${name}.gz"
         tmp="${dest}/${name}.gz"
         if [[ -s "${gz}" ]]; then
             cp -f "${gz}" "${tmp}"
+        elif [[ -n "${LUCX_DIST_DIR}" && -s "${LUCX_DIST_DIR}/sidecars/${name}.gz" ]]; then
+            cp -f "${LUCX_DIST_DIR}/sidecars/${name}.gz" "${tmp}"
         elif [[ "$name" == tproxy-linux-* || "$name" == mtproxy-linux-* ]]; then
             continue
         elif ! lucx_sc_curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o "${tmp}" "$(lucx_raw_url "${gz}")"; then
@@ -129,6 +203,7 @@ lucx_fetch_sidecars() {
             rm -f "${tmp}"
             continue
         fi
+        fetched=$((fetched + 1))
         # Write to a sibling then mv. `gzip > dest` opens the existing inode
         # O_WRONLY and fails with ETXTBSY when a live sidecar still exec'd it
         # (fetch runs AFTER panel start, lucx.161). mv swaps the directory
@@ -147,13 +222,19 @@ lucx_fetch_sidecars() {
         rm -f "${tmp}"
         pkill -f "${name}" > /dev/null 2>&1 || true
     done
+    if [[ "$fetched" -eq 0 && "$skipped" -gt 0 ]]; then
+        echo -e "${green}tunnel sidecars match this release — skip${plain}"
+    elif [[ "$fetched" -gt 0 ]]; then
+        echo -e "${green}Updated ${fetched} tunnel sidecar(s)${plain}"
+    fi
 }
 
 lucx_latest_tag() {
     if [[ "$LUCX_SOURCE" == "yandex" ]]; then
         cat "${LUCX_DIST_DIR}/version.txt" 2> /dev/null
     else
-        ${curl_bin:-curl} -Ls "https://api.github.com/repos/AlexeyLCP/lucx-ui/releases/latest" \
+        ${curl_bin:-curl} -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 \
+            "https://api.github.com/repos/AlexeyLCP/lucx-ui/releases/latest" \
             | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
     fi
 }
@@ -1161,7 +1242,7 @@ update_x-ui() {
     if [[ "$LUCX_SOURCE" == "yandex" ]]; then
         cp -f "${LUCX_DIST_DIR}/x-ui-linux-$(arch).tar.gz" ${xui_folder}-linux-$(arch).tar.gz 2> /dev/null
     else
-        ${curl_bin} -fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2> /dev/null
+        ${curl_bin} -fLRo ${xui_folder}-linux-$(arch).tar.gz --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2> /dev/null
     fi
     if [[ $? -ne 0 ]]; then
         _fail "ERROR: Failed to download x-ui, please be sure that your server can access GitHub"
@@ -1259,6 +1340,7 @@ update_x-ui() {
 
     # LUCX-HOOK: geo before panel start. Never fatal (Rule 0).
     lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    lucx_unpack_dist_sidecars bin
     # END LUCX-HOOK
 
     echo -e "${green}Downloading and installing x-ui.sh script...${plain}"
@@ -1381,55 +1463,6 @@ update_x-ui() {
         systemctl daemon-reload > /dev/null 2>&1
         systemctl enable x-ui > /dev/null 2>&1
 
-        # LUCX-HOOK: rebuild AWG kernel module when upstream moved + reboot
-        # into a freshly upgraded kernel at the very end of the update.
-        # update.sh runs both on web-panel and console `x-ui update`. The panel
-        # is stopped (line ~1019), so awgN interfaces are gone and rmmod is
-        # safe. The rebuild gate compares the marker file — the commit SHA the
-        # module was built from, written by bin/install-awg-module.sh — against
-        # upstream master via git ls-remote (no clone). A version string
-        # cannot discriminate: upstream stamps PACKAGE_VERSION="1.0.0" into
-        # every module build, v1 and v3 alike. lucx.145: matching SHA skips
-        # reinstall and kernel upgrade; mismatch still --force-rebuild (and
-        # may reboot into the new kernel). Never fatal: a failed rebuild
-        # keeps the existing module (panel still starts).
-        if [[ -x bin/install-awg-module.sh ]]; then
-            # Opt-in (lucx.130): never install AWG on a host that never had it.
-            # Marker, loaded module, or awg-quick means the operator installed
-            # it (or a pre-130 auto-install left it). Otherwise skip — Cores /
-            # `x-ui install-awg` is the install path.
-            AWG_ALREADY=0
-            [[ -f /etc/x-ui/.awg-module-version ]] && AWG_ALREADY=1
-            [[ -d /sys/module/amneziawg ]] && AWG_ALREADY=1
-            command -v awg-quick >/dev/null 2>&1 && AWG_ALREADY=1
-            if [[ $AWG_ALREADY -eq 0 ]]; then
-                echo -e "${yellow}AWG module not installed — skip. Install: x-ui install-awg${plain}"
-            else
-            INSTALLED_AWG_SHA=""
-            [[ -f /etc/x-ui/.awg-module-version ]] && INSTALLED_AWG_SHA=$(tr -d '[:space:]' < /etc/x-ui/.awg-module-version 2>/dev/null)
-            AWG_KMOD_PIN=$(awk -F= '/^AWG_KMOD_PIN=/{gsub(/"/,"",$2); print $2; exit}' bin/install-awg-module.sh)
-            if [[ -n "$AWG_KMOD_PIN" && "$INSTALLED_AWG_SHA" != "$AWG_KMOD_PIN" ]]; then
-                echo -e "${green}AWG module ${INSTALLED_AWG_SHA:-none} → ${AWG_KMOD_PIN:0:12}: rebuilding...${plain}"
-                bash bin/install-awg-module.sh --force-rebuild || \
-                    echo -e "${red}AWG module rebuild failed (non-fatal). Run: bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)${plain}"
-                # Kernel upgraded inside install-awg-module.sh: schedule the
-                # reboot once everything else (panel start, migrate, fail2ban)
-                # has finished.
-                NEWEST_KERNEL=$(ls -1 /lib/modules 2>/dev/null | sort -V | tail -1)
-                if [[ -n "$NEWEST_KERNEL" && "$NEWEST_KERNEL" != "$(uname -r)" && -d "/lib/modules/$NEWEST_KERNEL/build" ]]; then
-                    xui_kernel_reboot=1
-                    xui_newest_kernel="$NEWEST_KERNEL"
-                fi
-            elif [[ -z "$AWG_KMOD_PIN" ]]; then
-                echo -e "${yellow}AWG module: pin missing in install-awg-module.sh — leave installed module as-is.${plain}"
-            else
-                bash bin/install-awg-module.sh || true
-                echo -e "${green}AWG module up to date (${INSTALLED_AWG_SHA:0:12}).${plain}"
-            fi
-            fi
-        fi
-        # END LUCX-HOOK
-
         systemctl start x-ui > /dev/null 2>&1
     fi
 
@@ -1440,8 +1473,13 @@ update_x-ui() {
     # Never fatal.
     setup_fail2ban
 
-    # LUCX-HOOK: sidecar refresh after start (ETXTBSY / lucx.161). Geo is
-    # fetched before start.
+    # LUCX-HOOK: AWG after panel start (script no-ops when pin matches).
+    # Missing module = not current → try install (overlay / fresh). Never
+    # fatal. Sidecar refresh after start (ETXTBSY / lucx.161).
+    if [[ -x bin/install-awg-module.sh ]]; then
+        echo -e "${green}Checking AmneziaWG kernel module...${plain}"
+        bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
+    fi
     lucx_fetch_sidecars bin
     [[ -n "${LUCX_DIST_DIR}" ]] && rm -rf "${LUCX_DIST_DIR}"
     # END LUCX-HOOK
@@ -1467,22 +1505,10 @@ update_x-ui() {
 │  ${blue}x-ui uninstall${plain}    - Uninstall                        │
 └───────────────────────────────────────────────────────┘"
 
-    # LUCX-HOOK: reboot into the freshly upgraded kernel once the update is
-    # fully finished — the panel is running on the old kernel right now;
-    # systemd brings it back after the reboot, and install-awg-module.sh has
-    # already compiled the AWG module for the new kernel. The delay lets the
-    # final output reach the web-panel/console session.
-    # Also honor /etc/x-ui/.awg-reboot-needed from install-awg-module.sh
-    # (lucx.122: never reboot mid-script).
-    if [[ "${xui_kernel_reboot:-0}" == "1" || -f /etc/x-ui/.awg-reboot-needed ]]; then
+    # LUCX-HOOK: never auto-reboot on update (web update looked hung).
+    if [[ -f /etc/x-ui/.awg-reboot-needed ]]; then
         echo -e ""
-        if [[ "${xui_kernel_reboot:-0}" == "1" ]]; then
-            echo -e "${green}Ядро обновлено: $(uname -r) → ${xui_newest_kernel}. Перезагрузка через 10 секунд...${plain}"
-        else
-            echo -e "${green}AWG: module built for a newer kernel — reboot in 10s (panel already running).${plain}"
-        fi
-        rm -f /etc/x-ui/.awg-reboot-needed
-        ( sleep 10 && reboot ) > /dev/null 2>&1 &
+        echo -e "${yellow}AWG: reboot required so the new kernel module loads. Reboot when convenient.${plain}"
     fi
     # END LUCX-HOOK
 }

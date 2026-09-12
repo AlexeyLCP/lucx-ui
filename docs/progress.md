@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.230 — install/update: skip current cores, Yandex sidecars, geo cron (2026-09-12)
+
+Complaints: update hangs (SSH reinstall), fresh install missing sidecar cores, geo re-downloaded every time.
+
+Skip-if-current: sidecars vs `bin/lucx-pins.txt` sha256; geo install/update skips existing `.dat`; AWG still pin SHA in `install-awg-module.sh` (missing module = try, including overlay). `update.sh` tarball curl has `--max-time 300`; AWG archive-only (no git fetch fallback). Panel starts, then AWG. Web/console **update does not reboot**. Yandex dist: `x-ui-sidecars-amd64.tar.gz` (or `sidecars/*.gz` if >100 MB). Xray `geodata.assets` + cron `0 4 * * *` for all 8 stock files; live DB: empty → 8, exactly 2 Loyalsoldier → append IR/RU/ROSCOM, custom → leave.
+
+Tests: `TestApplyGeodata`.
+
+**lucxVersion:** lucx.230
+
+---
+
 ## lucx.229 — ARM tarball sidecars (no mtproxy) + mutation job no longer fails CI (2026-09-11)
 
 AverTV ARM install: panel tarball now ships the same sidecar names as amd64 except `mtproxy`. Official TelegramMessenger/MTProxy is an x86 C engine (SSE4.2/pclmul/`sys/io.h`/`mfence`); ARM compile was tried and reverted. `tproxy` is on arm64. `install.sh` / `update.sh` fetch `x-ui-linux-$(arch).tar.gz`. lucx.227’s “mtproxy via docker arm64” was wrong.

@@ -167,11 +167,11 @@ release.yml fails the build on mismatch. Push to main without a tag updates
 the rolling pre-release `dev-latest` (panel Dev channel); `releases/latest`
 stays on the last stable tag.
 
-### What `x-ui update` does (lucx.58+)
+### What `x-ui update` does (lucx.230+)
 1. Installs the new binary/frontend, stops the panel.
-2. **Auto kernel upgrade** to the latest packaged (Debian/Ubuntu meta-package) — only if AWG is already installed (inside `install-awg-module.sh`).
-3. AWG-gate (only if the module was already installed: marker / `amneziawg` loaded / `awg-quick` in PATH). Else skip — `x-ui install-awg`. Marker `/etc/x-ui/.awg-module-version` vs `git ls-remote refs/heads/master`; mismatch → `--force-rebuild`.
-4. Start panel, migrate, fail2ban; if a new kernel was installed — **reboot in 10s** (AWG module already built for the new kernel; panel comes up via systemd).
+2. Geo: skip files that already exist; fetch only missing. Sidecars from the tarball (GitHub) or `x-ui-sidecars-*.tar.gz` (Yandex); refresh after start only when `lucx-pins.txt` sha mismatches.
+3. Start panel, then AWG `install-awg-module.sh` (missing = not current → try; pin match → no-op). Never fatal. **No auto-reboot** on update (print `.awg-reboot-needed`). Fresh `install.sh` may still reboot after DKMS kernel upgrade.
+4. fail2ban; sidecar pin skip.
 
 ### VPS build dependencies
 - Go 1.23+ (1.26 recommended)
@@ -194,9 +194,9 @@ x-ui-linux-{amd64,arm64}.tar.gz → x-ui/
             amd64 unpacks third_party gz; arm64 from bin/pack-sidecars.sh + tproxy in release.yml.
 ```
 
-Geo is not in the panel tarball (GitHub slim / SourceCraft 100 MB). `install.sh` / `update.sh` fetch Loyalsoldier + IR/RU/ROSCOM **before** panel start (never fatal). SourceCraft unpacks `x-ui-geo.tar.gz` from the dist bundle at the same point.
+Geo is not in the GitHub panel tarball. `install.sh` / `update.sh` fetch Loyalsoldier + IR/RU/ROSCOM **before** panel start if the file is missing (never fatal). SourceCraft unpacks `x-ui-geo.tar.gz` for missing names only. Xray `geodata.assets` cron (`0 4 * * *`) refreshes all 8 on a live panel.
 
-Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub tarball (amd64 and arm64) includes the unpacked binaries. SourceCraft stays SLIM amd64 (100 MB cap); `install.sh` / `update.sh` still fetch `linux-$(arch)/` after start as a refresh.
+Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub tarball includes unpacked binaries + `bin/lucx-pins.txt`. SourceCraft stays SLIM amd64 (100 MB cap) and adds `x-ui-sidecars-amd64.tar.gz` (split to `sidecars/*.gz` if over 100 MB).
 
 ---
 

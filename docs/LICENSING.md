@@ -13,6 +13,7 @@ The components **authored by the LucX-UI project** are licensed under the **Poly
 - `internal/awg/` — the entire AWG sidecar (manager, process, instance, traffic, diagnostics, NAT/orphan helpers, `cps/`, `signature/`)
 - `internal/lucx/` — Smart Cluster packages (`parser/`, `nodetype/`, `outbound_link/`) and the tunnel sidecar package (`tunnel/`)
 - `internal/database/migrate_awg.go` and its test
+- `internal/database/migrate_geodata.go` and its test
 - `internal/web/controller/awg.go` — AWG API endpoints
 - `internal/web/controller/tunnel.go` — tunnel sidecar API endpoints
 - `internal/web/job/awg_job.go` — AWG reconcile cron

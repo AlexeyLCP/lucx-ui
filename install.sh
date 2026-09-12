@@ -84,23 +84,90 @@ lucx_save_source() {
     lucx_normalize_source "$LUCX_SOURCE" > "${LUCX_INSTALL_SOURCE_FILE}"
 }
 
+lucx_pin_matches() {
+    local dest="$1" name="$2"
+    local pins="${dest}/lucx-pins.txt" bin="${dest}/${name}"
+    [[ -s "$pins" && -x "$bin" ]] || return 1
+    command -v sha256sum >/dev/null 2>&1 || return 1
+    local want have
+    want=$(awk -v n="$name" '$1 == n { print $2; exit }' "$pins")
+    [[ -n "$want" ]] || return 1
+    have=$(sha256sum "$bin" | awk '{ print $1 }')
+    [[ "$have" == "$want" ]]
+}
+
+lucx_unpack_dist_sidecars() {
+    local dest="${1:-bin}"
+    [[ -n "${LUCX_DIST_DIR}" ]] || return 0
+    mkdir -p "$dest"
+    local a tarf gz name
+    a="$(arch)"
+    tarf="${LUCX_DIST_DIR}/x-ui-sidecars-${a}.tar.gz"
+    if [[ -s "$tarf" ]]; then
+        echo -e "${green}Unpacking tunnel sidecars from SourceCraft dist...${plain}"
+        local stmp f
+        stmp=$(mktemp -d)
+        if tar -xzf "$tarf" -C "$stmp"; then
+            for f in "$stmp"/*; do
+                [[ -f "$f" ]] || continue
+                mv -f "$f" "${dest}/$(basename "$f")"
+            done
+        else
+            echo -e "${yellow}sidecar bundle is broken${plain}"
+        fi
+        rm -rf "$stmp"
+        return 0
+    fi
+    if [[ -d "${LUCX_DIST_DIR}/sidecars" ]]; then
+        echo -e "${green}Unpacking tunnel sidecars from SourceCraft dist...${plain}"
+        for gz in "${LUCX_DIST_DIR}/sidecars"/*-linux-${a}.gz; do
+            [[ -f "$gz" ]] || continue
+            name=$(basename "$gz" .gz)
+            if ! gzip -dc "$gz" > "${dest}/${name}.new"; then
+                rm -f "${dest}/${name}.new"
+                continue
+            fi
+            chmod +x "${dest}/${name}.new"
+            mv -f "${dest}/${name}.new" "${dest}/${name}"
+        done
+        if [[ -s "${LUCX_DIST_DIR}/sidecars/lucx-pins.txt" ]]; then
+            cp -f "${LUCX_DIST_DIR}/sidecars/lucx-pins.txt" "${dest}/lucx-pins.txt"
+        fi
+    fi
+}
+
 lucx_fetch_geofiles() {
     local dest="${1:-bin}"
     mkdir -p "$dest"
     # LUCX-HOOK: yandex dist ships a prebuilt geo bundle — no GitHub needed
     if [[ -n "${LUCX_DIST_DIR}" && -s "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" ]]; then
         echo -e "${green}Unpacking geodata from SourceCraft dist...${plain}"
-        if tar -xzf "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" -C "$dest"; then
-            return 0
+        local gtmp f name
+        gtmp=$(mktemp -d)
+        if tar -xzf "${LUCX_DIST_DIR}/x-ui-geo.tar.gz" -C "$gtmp"; then
+            for f in "$gtmp"/*; do
+                [[ -f "$f" ]] || continue
+                name=$(basename "$f")
+                [[ -s "${dest}/${name}" ]] && continue
+                cp -f "$f" "${dest}/${name}"
+            done
+        else
+            echo -e "${yellow}geo bundle is broken, falling back to GitHub${plain}"
         fi
-        echo -e "${yellow}geo bundle is broken, falling back to GitHub${plain}"
+        rm -rf "$gtmp"
     fi
     # END LUCX-HOOK
-    echo -e "${green}Downloading geodata...${plain}"
     local failed=0
-    local name url
+    local name url fetched=0
     while IFS='|' read -r name url; do
         [[ -z "$name" ]] && continue
+        if [[ -s "${dest}/${name}" ]]; then
+            continue
+        fi
+        if [[ "$fetched" -eq 0 ]]; then
+            echo -e "${green}Downloading geodata...${plain}"
+        fi
+        fetched=1
         if ! curl -fLRo "${dest}/${name}" --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 180 "$url"; then
             echo -e "${yellow}${name}: download failed${plain}"
             rm -f "${dest}/${name}"
@@ -118,6 +185,9 @@ geosite_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/l
 geoip_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
 geosite_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
 GEO
+    if [[ "$fetched" -eq 0 ]]; then
+        echo -e "${green}geodata already present — skip${plain}"
+    fi
     return "$failed"
 }
 
@@ -130,13 +200,18 @@ lucx_fetch_sidecars() {
         return 0
     fi
     mkdir -p "$dest"
-    echo -e "${green}Downloading tunnel sidecars...${plain}"
-    local name gz tmp
+    local name gz tmp fetched=0 skipped=0
     for name in caddy-naive-linux-${a} naive-client-linux-${a} olcrtc-linux-${a} qwdtt-linux-${a} mieru-linux-${a} mieru-client-linux-${a} trusttunnel-linux-${a} trusttunnel-client-linux-${a} anytls-linux-${a} tproxy-linux-${a} mtproxy-linux-${a}; do
+        if lucx_pin_matches "$dest" "$name"; then
+            skipped=$((skipped + 1))
+            continue
+        fi
         gz="third_party/sidecars/linux-${a}/${name}.gz"
         tmp="${dest}/${name}.gz"
         if [[ -s "${gz}" ]]; then
             cp -f "${gz}" "${tmp}"
+        elif [[ -s "${LUCX_DIST_DIR}/sidecars/${name}.gz" ]]; then
+            cp -f "${LUCX_DIST_DIR}/sidecars/${name}.gz" "${tmp}"
         elif [[ "$name" == tproxy-linux-* || "$name" == mtproxy-linux-* ]]; then
             continue
         elif ! lucx_sc_curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o "${tmp}" "$(lucx_raw_url "${gz}")"; then
@@ -148,6 +223,7 @@ lucx_fetch_sidecars() {
             rm -f "${tmp}"
             continue
         fi
+        fetched=$((fetched + 1))
         # Write to a sibling then mv. `gzip > dest` opens the existing inode
         # O_WRONLY and fails with ETXTBSY when a live sidecar still exec'd it
         # (fetch runs AFTER panel start, lucx.161). mv swaps the directory
@@ -166,6 +242,11 @@ lucx_fetch_sidecars() {
         rm -f "${tmp}"
         pkill -f "${name}" > /dev/null 2>&1 || true
     done
+    if [[ "$fetched" -eq 0 && "$skipped" -gt 0 ]]; then
+        echo -e "${green}tunnel sidecars match this release — skip${plain}"
+    elif [[ "$fetched" -gt 0 ]]; then
+        echo -e "${green}Updated ${fetched} tunnel sidecar(s)${plain}"
+    fi
 }
 
 lucx_parse_args() {
@@ -1939,6 +2020,7 @@ install_x-ui() {
     # start without .dat; second install only worked via bin/ backup restore.
     # Never fatal (Rule 0). Yandex unpacks x-ui-geo.tar.gz; GitHub fetches.
     lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    lucx_unpack_dist_sidecars bin
     # END LUCX-HOOK
 
     # Update x-ui cli and se set permission

@@ -91,10 +91,8 @@ git_clone_sha() {
         fi
     fi
     rm -f "$tmp"
-    git -C "$dest" init -q
-    git -C "$dest" -c credential.helper= remote add origin "$url"
-    GIT_TERMINAL_PROMPT=0 GIT_ASKPASS=/bin/true git -C "$dest" fetch --depth 1 origin "$sha" \
-        && git -C "$dest" checkout -q FETCH_HEAD
+    echo -e "${RED}failed to fetch ${repo}@${sha}${NC}" >&2
+    return 1
 }
 
 uninstall_awg_module() {

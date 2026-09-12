@@ -166,8 +166,7 @@ jobs:
           esac
           # LUCX-HOOK: unpack third_party sidecars into the GitHub tarball so
           # first install has cores without a second GitHub-raw fetch.
-          # SourceCraft stays SLIM (100 MB). install.sh still fetches
-          # afterwards as a refresh (existing files survive a failed fetch).
+          # SourceCraft stays SLIM (100 MB) and ships a separate sidecar tar.
           sidecar_dir="../../third_party/sidecars/linux-${{ matrix.platform }}"
           if [ -d "$sidecar_dir" ]; then
             for gz in "$sidecar_dir"/*.gz; do
@@ -216,6 +215,21 @@ jobs:
             exit 1
           fi
 
+      - name: Pin sidecar hashes
+        run: |
+          set -euo pipefail
+          P="${{ matrix.platform }}"
+          : > x-ui/bin/lucx-pins.txt
+          for c in caddy-naive naive-client olcrtc qwdtt mieru mieru-client trusttunnel trusttunnel-client anytls tproxy; do
+            f="x-ui/bin/${c}-linux-${P}"
+            [ -x "$f" ] || continue
+            echo "${c}-linux-${P} $(sha256sum "$f" | awk '{print $1}')" >> x-ui/bin/lucx-pins.txt
+          done
+          if [ "$P" = amd64 ] && [ -x x-ui/bin/mtproxy-linux-amd64 ]; then
+            echo "mtproxy-linux-amd64 $(sha256sum x-ui/bin/mtproxy-linux-amd64 | awk '{print $1}')" >> x-ui/bin/lucx-pins.txt
+          fi
+          test -s x-ui/bin/lucx-pins.txt
+
       - name: Package
         run: tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
 
@@ -224,7 +238,7 @@ jobs:
           set -euo pipefail
           P="${{ matrix.platform }}"
           tar -tzf "x-ui-linux-${P}.tar.gz" | tee /tmp/list
-          for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" x-ui/bin/install-awg-module.sh; do
+          for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" x-ui/bin/install-awg-module.sh x-ui/bin/lucx-pins.txt; do
             grep -Fxq "$f" /tmp/list || { echo "missing $f"; exit 1; }
           done
           for c in caddy-naive naive-client olcrtc qwdtt mieru mieru-client trusttunnel trusttunnel-client anytls tproxy; do

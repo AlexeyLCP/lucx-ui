@@ -2238,7 +2238,7 @@ func (s *ServerService) UpdateGeofile(fileName string) error {
 		}
 	}
 
-	client := s.settingService.NewProxiedHTTPClient(0)
+	client := s.settingService.NewProxiedHTTPClient(180 * time.Second)
 
 	downloadFile := func(url, destPath string) error {
 		var req *http.Request

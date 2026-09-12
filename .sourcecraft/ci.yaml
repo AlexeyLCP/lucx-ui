@@ -69,6 +69,12 @@ workflows:
                 rm -rf /tmp/lucx-dist
                 mkdir -p /tmp/lucx-dist
                 cp x-ui-linux-amd64.tar.gz x-ui-geo.tar.gz install.sh update.sh x-ui.sh /tmp/lucx-dist/
+                if [[ -s x-ui-sidecars-amd64.tar.gz ]]; then
+                  cp x-ui-sidecars-amd64.tar.gz /tmp/lucx-dist/
+                fi
+                if [[ -d sidecars ]]; then
+                  cp -a sidecars /tmp/lucx-dist/
+                fi
                 printf '%s\n' "${SOURCECRAFT_COMMIT_SHA}" > /tmp/lucx-dist/sha.txt
                 printf '%s\n' "${TAG}" > /tmp/lucx-dist/version.txt
                 cd /tmp/lucx-dist

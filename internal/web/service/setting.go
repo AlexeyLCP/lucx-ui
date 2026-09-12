@@ -22,6 +22,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/netproxy"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
@@ -40,6 +41,15 @@ const (
 	DefaultTrustedProxyCIDRs      = "127.0.0.1/32,::1/128"
 	maxRegexLength                = 2048
 )
+
+func init() {
+	// LUCX-HOOK: stock Xray geodata auto-update (Loyalsoldier + IR + RU + ROSCOM)
+	if patched, changed, err := lucx.ApplyGeodata(xrayTemplateConfig); err == nil && changed {
+		xrayTemplateConfig = patched
+		defaultValueMap["xrayTemplateConfig"] = patched
+	}
+	// END LUCX-HOOK
+}
 
 var defaultValueMap = map[string]string{
 	"xrayTemplateConfig": xrayTemplateConfig,

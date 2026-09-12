@@ -123,12 +123,38 @@ GEO
     echo "Wrote ${dest} ($(wc -c < "${dest}") bytes)"
 }
 
+make_sidecar_tarball() {
+    local arch="${ARCH:-amd64}"
+    local dest="x-ui-sidecars-${arch}.tar.gz"
+    local tmp gz name bytes
+    tmp=$(mktemp -d)
+    for gz in third_party/sidecars/linux-${arch}/*.gz; do
+        [[ -f "$gz" ]] || continue
+        name=$(basename "$gz" .gz)
+        gzip -dc "$gz" > "${tmp}/${name}"
+        chmod +x "${tmp}/${name}"
+        echo "${name} $(sha256sum "${tmp}/${name}" | awk '{print $1}')" >> "${tmp}/lucx-pins.txt"
+    done
+    tar -czf "$dest" -C "$tmp" .
+    bytes=$(wc -c < "$dest")
+    echo "Wrote ${dest} (${bytes} bytes)"
+    if (( bytes > 104857600 )); then
+        echo "sidecar tar >100MB — split to sidecars/*.gz"
+        mkdir -p sidecars
+        cp -f third_party/sidecars/linux-${arch}/*.gz sidecars/
+        [[ -s "${tmp}/lucx-pins.txt" ]] && cp -f "${tmp}/lucx-pins.txt" sidecars/
+        rm -f "$dest"
+    fi
+    rm -rf "$tmp"
+}
+
 if [[ "${SLIM:-}" == "1" ]]; then
-    echo "SLIM=1: skip tunnel sidecars; geo goes into x-ui-geo.tar.gz"
+    echo "SLIM=1: sidecars in x-ui-sidecars-${ARCH:-amd64}.tar.gz; geo in x-ui-geo.tar.gz"
     cd ../..
     tar -zcvf "$OUT" x-ui
     echo "Wrote $OUT ($(wc -c < "$OUT") bytes)"
     make_geo_tarball
+    make_sidecar_tarball
     exit 0
 fi
 
