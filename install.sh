@@ -79,6 +79,31 @@ lucx_tarball_url() {
     echo "https://github.com/${LUCX_REPO}/releases/download/${tag}/x-ui-linux-${a}.tar.gz"
 }
 
+verify_release_checksum() {
+    local url="$1" file="$2" sums="$2.sha256" code expected actual
+    rm -f "${sums}"
+    code=$(curl -sL --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 60 -o "${sums}" -w '%{http_code}' "${url}.sha256")
+    if [[ "${code}" == "404" ]]; then
+        rm -f "${sums}"
+        echo -e "${yellow}No checksum published for this release, skipping verification${plain}"
+        return 0
+    fi
+    if [[ "${code}" != "200" ]]; then
+        rm -f "${sums}" "${file}"
+        echo -e "${red}Failed to download the checksum for $(basename "${file}") (HTTP ${code})${plain}"
+        exit 1
+    fi
+    expected=$(awk 'NR == 1 {print $1}' "${sums}")
+    actual=$(sha256sum "${file}" | awk '{print $1}')
+    rm -f "${sums}"
+    if [[ ! "${expected}" =~ ^[0-9a-f]{64}$ || "${expected}" != "${actual}" ]]; then
+        rm -f "${file}"
+        echo -e "${red}Checksum mismatch for $(basename "${file}"): expected ${expected:-<none>}, got ${actual}${plain}"
+        exit 1
+    fi
+    echo -e "${green}Checksum verified: ${actual}${plain}"
+}
+
 lucx_save_source() {
     mkdir -p /etc/x-ui
     lucx_normalize_source "$LUCX_SOURCE" > "${LUCX_INSTALL_SOURCE_FILE}"
@@ -1840,6 +1865,7 @@ install_x-ui() {
             echo -e "${red}Downloaded x-ui release archive is empty${plain}"
             exit 1
         fi
+        verify_release_checksum "${lucx_tb_url}" "${xui_folder}-linux-$(arch).tar.gz"
     else
         tag_version=$1
         # The rolling dev channel ships under a fixed, non-semver tag that is
@@ -1875,6 +1901,7 @@ install_x-ui() {
             echo -e "${red}Downloaded x-ui release archive is empty${plain}"
             exit 1
         fi
+        verify_release_checksum "${url}" "${xui_folder}-linux-$(arch).tar.gz"
     fi
     local xui_script_temp="/usr/bin/x-ui-temp.$$"
     local xui_script_from_tarball=0

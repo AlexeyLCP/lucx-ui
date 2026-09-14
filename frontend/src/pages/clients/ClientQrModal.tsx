@@ -1,29 +1,57 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Collapse, Modal, Select, Space, Spin, Tag, Typography } from 'antd';
+import { useNavigate } from 'react-router';
+import {
+  Alert,
+  Button,
+  Collapse,
+  Empty,
+  Modal,
+  Segmented,
+  Select,
+  Space,
+  Spin,
+  Tag,
+  Typography,
+} from 'antd';
+import { LockOutlined } from '@ant-design/icons';
 import { HttpUtil } from '@/utils';
+import type { HappLinkResult } from '@/generated/types';
+import { HappLinkResultSchema } from '@/generated/zod';
 import { awgVersionAtLeast, awgVersionCeiling, isPostQuantumLink } from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
-import { LinkTags, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
+import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
-import { formatInboundLabel } from '@/lib/inbounds/label';
-import { buildSubLinks, withAwgInboundId, type SubSettingsLinks } from '@/lib/sub/links';
+import { formatInboundLabel, formatTunnelConfigMeta } from '@/lib/inbounds/label';
+import { buildSubLinks } from '@/lib/sub/links';
 import {
-  buildWireguardClientConfig,
-  findWireguardInbound,
-  isWireguardClient,
   buildAwgClientConfig,
+  buildWireguardClientConfig,
   findAwgInbounds,
+  findWireguardInbounds,
   isAwgClient,
+  isWireguardClient,
 } from './wireguardConfig';
 import {
   buildAmneziaWGClientConfig,
-  findAmneziaWGInbound,
+  findAmneziaWGInbounds,
   isAmneziaWGClient,
 } from './amneziawgConfig';
+import { buildTuicClientConfig, findTuicInbound, isTuicClient } from './tuicConfig';
 
-type SubSettings = SubSettingsLinks;
+interface SubSettings {
+  enable: boolean;
+  happLinkEnable?: boolean;
+  subURI: string;
+  subJsonURI: string;
+  subJsonEnable: boolean;
+  subClashURI?: string;
+  subClashEnable?: boolean;
+  subAwgURI?: string;
+  subAwgEnable?: boolean;
+  publicHost?: string;
+}
 
 interface ClientQrModalProps {
   open: boolean;
@@ -39,26 +67,186 @@ interface ApiMsg<T = unknown> {
   obj?: T;
 }
 
-const DEFAULT_SUB: SubSettings = {
-  enable: false,
-  subURI: '',
-  subJsonURI: '',
-  subJsonEnable: false,
-  subClashURI: '',
-  subClashEnable: false,
-  subAwgURI: '',
-  subAwgEnable: false,
-  publicHost: '',
-};
+type QrVariant = 'standard' | 'happ';
+type HappError = 'too_long' | 'unavailable' | null;
 
-// isVersionAvailable reports whether an export version is selectable given the
-// inbound ceiling (a client config may target any version at or below the
-// server's). Mirrors the clamp logic in buildAwgClientConfig.
 function isVersionAvailable(version: AwgVersion, ceiling: AwgVersion): boolean {
   return awgVersionAtLeast(ceiling, version);
 }
 
-export default function ClientQrModal({
+const HAPP_CRYPT5_PREFIX = 'happ://crypt5/';
+const HAPP_SETTINGS_PATH = '/settings?subscriptionTab=happ&happTab=links#subscription';
+// QrPanel encodes at error level L; QR version 40 holds 2953 UTF-8 bytes at that level.
+const HAPP_QR_MAX_BYTES = 2953;
+const UTF8_ENCODER = new TextEncoder();
+
+function hasHappForbiddenCharacter(link: string) {
+  return Array.from(link).some((character) => {
+    const codePoint = character.codePointAt(0) ?? 0;
+    return /\s/u.test(character) || codePoint <= 0x1f || (codePoint >= 0x7f && codePoint <= 0x9f);
+  });
+}
+
+function isValidHappCrypt5Link(link: string) {
+  return (
+    link.startsWith(HAPP_CRYPT5_PREFIX) &&
+    link.length > HAPP_CRYPT5_PREFIX.length &&
+    !hasHappForbiddenCharacter(link)
+  );
+}
+
+function canRenderHappQr(link: string) {
+  return UTF8_ENCODER.encode(link).byteLength <= HAPP_QR_MAX_BYTES;
+}
+
+interface SubscriptionQrPresentationProps {
+  variant: QrVariant;
+  standardLink: string;
+  remark: string;
+  happLink: string;
+  happLoading: boolean;
+  happError: HappError;
+  happLinkEnabled: boolean;
+  onVariantChange: (variant: QrVariant) => void;
+  onRegenerate: () => void;
+  onOpenHappSettings: () => void;
+}
+
+function SubscriptionQrPresentation({
+  variant,
+  standardLink,
+  remark,
+  happLink,
+  happLoading,
+  happError,
+  happLinkEnabled,
+  onVariantChange,
+  onRegenerate,
+  onOpenHappSettings,
+}: SubscriptionQrPresentationProps) {
+  const { t } = useTranslation();
+  const showHappQr = canRenderHappQr(happLink);
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <Segmented<QrVariant>
+        block
+        value={variant}
+        options={[
+          { label: t('pages.clients.qrStandard'), value: 'standard' },
+          {
+            label: (
+              <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                {!happLinkEnabled ? (
+                  <LockOutlined aria-label={t('pages.clients.happLinkDisabledHint')} />
+                ) : null}
+                <span>{t('pages.clients.happLinkOptionLabel')}</span>
+              </span>
+            ),
+            value: 'happ',
+          },
+        ]}
+        onChange={onVariantChange}
+      />
+      {variant === 'standard' ? (
+        <QrPanel value={standardLink} remark={remark} />
+      ) : !happLinkEnabled ? (
+        <Empty
+          image={<LockOutlined aria-hidden style={{ fontSize: 40, opacity: 0.45 }} />}
+          styles={{ image: { height: 44, marginBottom: 12 } }}
+          style={{
+            minHeight: 190,
+            margin: 0,
+            padding: '20px 12px',
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'center',
+          }}
+          description={
+            <div style={{ maxWidth: 400, margin: '0 auto' }}>
+              <Typography.Text strong>{t('pages.clients.happLinkDisabledTitle')}</Typography.Text>
+              <Typography.Paragraph type="secondary" style={{ margin: '6px 0 0' }}>
+                {t('pages.clients.happLinkDisabledDescription')}
+              </Typography.Paragraph>
+            </div>
+          }
+        >
+          <Button type="primary" onClick={onOpenHappSettings}>
+            {t('pages.clients.happLinkSettingsAction')}
+          </Button>
+        </Empty>
+      ) : (
+        <div>
+          <Alert
+            style={{ marginBottom: 16 }}
+            type="warning"
+            showIcon
+            title={t('pages.clients.happLinkDisclosure')}
+          />
+          <Spin spinning={happLoading}>
+            <div style={{ minHeight: happLoading ? 48 : undefined }}>
+              {happLink ? (
+                <>
+                  {!showHappQr ? (
+                    <Alert
+                      style={{ marginBottom: 12 }}
+                      type="info"
+                      showIcon
+                      title={t('pages.clients.happLinkQrTooLong')}
+                    />
+                  ) : null}
+                  <QrPanel value={happLink} remark={remark} showQr={showHappQr} />
+                </>
+              ) : null}
+              {happError ? (
+                <Alert
+                  type="error"
+                  showIcon
+                  title={
+                    happError === 'too_long'
+                      ? t('pages.clients.happLinkSourceTooLong')
+                      : t('pages.clients.happLinkErrorHint', {
+                          dashboard: t('menu.dashboard'),
+                          logs: t('pages.index.logs'),
+                        })
+                  }
+                />
+              ) : null}
+            </div>
+          </Spin>
+          {happLink || happError === 'unavailable' ? (
+            <Button style={{ marginTop: 12 }} onClick={onRegenerate}>
+              {happError ? t('pages.clients.happLinkRetry') : t('regenerate')}
+            </Button>
+          ) : null}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DEFAULT_SUB: SubSettings = {
+  enable: false,
+  happLinkEnable: false,
+  subURI: '',
+  subJsonURI: '',
+  subJsonEnable: false,
+  publicHost: '',
+};
+
+export default function ClientQrModal(props: ClientQrModalProps) {
+  const subSettings = props.subSettings ?? DEFAULT_SUB;
+  const subId = props.client?.subId ?? '';
+  const subLink =
+    subId && subSettings.enable && subSettings.subURI ? subSettings.subURI + subId : '';
+  const happLinkEnabled = subSettings.happLinkEnable === true;
+  // A gate or source change remounts this scope to clear Happ state and retire any in-flight response.
+  const scopeKey = `${props.client?.id ?? ''}\0${subId}\0${subLink}\0${happLinkEnabled ? 1 : 0}`;
+
+  return <ClientQrModalContent key={scopeKey} {...props} />;
+}
+
+function ClientQrModalContent({
   open,
   client,
   inboundsById,
@@ -67,55 +255,159 @@ export default function ClientQrModal({
   onOpenChange,
 }: ClientQrModalProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [links, setLinks] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
 
-  const linksBuilt = useMemo(
-    () => buildSubLinks(subSettings, client?.subId),
-    [subSettings, client?.subId],
-  );
-  const subLink = linksBuilt.sub;
-  const subJsonLink = linksBuilt.json;
-  const subClashLink = linksBuilt.clash;
-  const subAwgLink = linksBuilt.amnezia;
-  const subAwgVpnLink = linksBuilt.amneziaVpn;
+  const subId = client?.subId;
+  const subEnabled = !!subSettings?.enable;
+  const subLink = subId && subEnabled && subSettings?.subURI ? subSettings.subURI + subId : '';
+  const subJsonLink =
+    subId && subEnabled && subSettings?.subJsonEnable && subSettings?.subJsonURI
+      ? subSettings.subJsonURI + subId
+      : '';
+  const clientId = client?.id;
+  const clientSubId = subId ?? '';
+  const happLinkEnabled = subSettings.happLinkEnable === true;
+  const [variant, setVariant] = useState<QrVariant>('standard');
+  const [happAttempt, setHappAttempt] = useState(0);
+  const [happLink, setHappLink] = useState('');
+  const [happLoading, setHappLoading] = useState(false);
+  const [happError, setHappError] = useState<HappError>(null);
+  const canGenerateHapp =
+    happLinkEnabled &&
+    typeof clientId === 'number' &&
+    Number.isSafeInteger(clientId) &&
+    clientId > 0 &&
+    !!clientSubId &&
+    !!subLink;
 
-  const wgInbound = useMemo(
-    () => findWireguardInbound(client, inboundsById),
+  useEffect(() => {
+    if (!open || variant !== 'happ' || !canGenerateHapp) return;
+
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const msg = await HttpUtil.post<HappLinkResult>(
+          `/panel/api/clients/happLink/${clientId}`,
+          undefined,
+          { silent: true },
+        );
+        if (cancelled) return;
+
+        const result = HappLinkResultSchema.safeParse(msg?.obj);
+        if (msg?.success && result.success && isValidHappCrypt5Link(result.data.encryptedLink)) {
+          setHappLink(result.data.encryptedLink);
+        } else {
+          // Only this fixed API code is safe to localize; arbitrary error messages stay hidden.
+          setHappError(
+            msg?.success === false && msg.msg === 'happ_source_too_long'
+              ? 'too_long'
+              : 'unavailable',
+          );
+        }
+      } catch {
+        if (!cancelled) setHappError('unavailable');
+      } finally {
+        if (!cancelled) setHappLoading(false);
+      }
+    })();
+
+    return () => {
+      // A retired generation must never replace the QR for a newer modal scope.
+      cancelled = true;
+    };
+  }, [open, variant, clientId, clientSubId, subLink, happAttempt, canGenerateHapp]);
+
+  const selectVariant = useCallback(
+    (nextVariant: QrVariant) => {
+      const generateHapp = nextVariant === 'happ' && happLinkEnabled;
+      setVariant(nextVariant);
+      setHappLink('');
+      setHappLoading(generateHapp && canGenerateHapp);
+      setHappError(generateHapp && !canGenerateHapp ? 'unavailable' : null);
+    },
+    [canGenerateHapp, happLinkEnabled],
+  );
+
+  const regenerateHappLink = useCallback(() => {
+    setHappLink('');
+    setHappLoading(canGenerateHapp);
+    setHappError(canGenerateHapp ? null : 'unavailable');
+    if (!canGenerateHapp) return;
+    setHappAttempt((attempt) => attempt + 1);
+  }, [canGenerateHapp]);
+
+  const openHappSettings = useCallback(() => {
+    // This path only exposes the operator gate; authorization and saving remain explicit in Settings.
+    onOpenChange(false);
+    navigate(HAPP_SETTINGS_PATH);
+  }, [navigate, onOpenChange]);
+
+  const wgInbounds = useMemo(
+    () => findWireguardInbounds(client, inboundsById),
     [client, inboundsById],
   );
-  const wgConfigText = useMemo(() => {
-    if (!client || !wgInbound || !isWireguardClient(client)) return '';
-    return buildWireguardClientConfig(
-      client,
-      wgInbound,
-      window.location.hostname,
-      subSettings?.publicHost ?? '',
-    );
-  }, [client, wgInbound, subSettings?.publicHost]);
+  const wgConfigs = useMemo(() => {
+    if (!client || !isWireguardClient(client)) return [];
+    return wgInbounds
+      .map((ib) => {
+        const address = tunnelAllowedIPs?.[ib.id] ?? '';
+        const text = buildWireguardClientConfig(
+          client,
+          ib,
+          window.location.hostname,
+          subSettings.publicHost ?? '',
+          address,
+        );
+        return { inbound: ib, text };
+      })
+      .filter((c) => !!c.text);
+  }, [client, wgInbounds, tunnelAllowedIPs, subSettings.publicHost]);
 
-  // LUCX-HOOK: AWG — one .conf panel per attached AWG inbound. Each inbound has
-  // its own awgVersion ceiling; a shared selector keyed off the first inbound
-  // locked multi-attach clients to the lowest ceiling (AWG1=v1.5 disabled v2/v3).
-  const awgInbounds = useMemo(() => findAwgInbounds(client, inboundsById), [client, inboundsById]);
+  const awgInbounds = useMemo(
+    () => findAmneziaWGInbounds(client, inboundsById),
+    [client, inboundsById],
+  );
+  const awgConfigs = useMemo(() => {
+    if (!client || !isAmneziaWGClient(client)) return [];
+    return awgInbounds
+      .map((ib) => {
+        const address = tunnelAllowedIPs?.[ib.id] ?? '';
+        const text = buildAmneziaWGClientConfig(
+          client,
+          ib,
+          window.location.hostname,
+          subSettings.publicHost ?? '',
+          address,
+        );
+        return { inbound: ib, text };
+      })
+      .filter((c) => !!c.text);
+  }, [client, awgInbounds, tunnelAllowedIPs, subSettings.publicHost]);
+
+  const kernelAwgInbounds = useMemo(
+    () => findAwgInbounds(client, inboundsById),
+    [client, inboundsById],
+  );
   const [awgExportById, setAwgExportById] = useState<Record<number, AwgVersion>>({});
   useEffect(() => {
     setAwgExportById((prev) => {
       const next: Record<number, AwgVersion> = {};
-      for (const ib of awgInbounds) {
+      for (const ib of kernelAwgInbounds) {
         const ceiling = awgVersionCeiling(ib.awgVersion);
         next[ib.id] =
           prev[ib.id] && awgVersionAtLeast(ceiling, prev[ib.id]) ? prev[ib.id] : ceiling;
       }
       return next;
     });
-  }, [awgInbounds]);
-  const awgConfigs = useMemo(() => {
-    if (!client || !isAwgClient(client))
-      return [] as { ib: InboundOption; text: string; ceiling: AwgVersion; version: AwgVersion }[];
+  }, [kernelAwgInbounds]);
+  const kernelAwgConfigs = useMemo(() => {
+    if (!client || !isAwgClient(client)) return [];
     const host = window.location.hostname;
-    const pub = subSettings?.publicHost ?? '';
-    return awgInbounds.map((ib) => {
+    const pub = subSettings.publicHost ?? '';
+    return kernelAwgInbounds.map((ib) => {
       const ceiling = awgVersionCeiling(ib.awgVersion);
       const version = awgExportById[ib.id] ?? ceiling;
       return {
@@ -125,33 +417,26 @@ export default function ClientQrModal({
         text: buildAwgClientConfig(client, ib, host, pub, version),
       };
     });
-  }, [client, awgInbounds, subSettings?.publicHost, awgExportById]);
-  // END LUCX-HOOK
+  }, [client, kernelAwgInbounds, subSettings.publicHost, awgExportById]);
 
-  const awgInbound = useMemo(
-    () => findAmneziaWGInbound(client, inboundsById),
-    [client, inboundsById],
-  );
-  const awgConfigText = useMemo(() => {
-    if (!client || !awgInbound || !isAmneziaWGClient(client)) return '';
-    const address = awgInbound ? (tunnelAllowedIPs?.[awgInbound.id] ?? '') : '';
-    return buildAmneziaWGClientConfig(
+  const tuicInbound = useMemo(() => findTuicInbound(client, inboundsById), [client, inboundsById]);
+  const tuicConfigText = useMemo(() => {
+    if (!client || !tuicInbound || !isTuicClient(client)) return '';
+    return buildTuicClientConfig(
       client,
-      awgInbound,
+      tuicInbound,
       window.location.hostname,
-      subSettings?.publicHost ?? '',
-      address,
+      subSettings.publicHost ?? '',
     );
-  }, [client, awgInbound, tunnelAllowedIPs, subSettings?.publicHost]);
+  }, [client, tuicInbound, subSettings.publicHost]);
 
   const hasAnything =
     !!subLink ||
     !!subJsonLink ||
-    !!subClashLink ||
-    !!subAwgLink ||
-    !!wgConfigText ||
+    wgConfigs.length > 0 ||
     awgConfigs.length > 0 ||
-    !!awgConfigText ||
+    kernelAwgConfigs.length > 0 ||
+    !!tuicConfigText ||
     links.length > 0;
 
   // The reset runs during render so the effect only carries the request.
@@ -161,6 +446,10 @@ export default function ClientQrModal({
     setSyncedSubId(openSubId);
     setLinks([]);
     setLoading(!!openSubId);
+    setVariant('standard');
+    setHappLink('');
+    setHappLoading(false);
+    setHappError(null);
   }
 
   useEffect(() => {
@@ -183,6 +472,7 @@ export default function ClientQrModal({
     };
   }, [open, client?.subId]);
 
+  const extraSubs = buildSubLinks(subSettings, client?.subId);
   const [activeKey, setActiveKey] = useState<string[]>([]);
 
   const items = useMemo(() => {
@@ -192,7 +482,18 @@ export default function ClientQrModal({
         key: 'sub',
         label: t('subscription.title'),
         children: (
-          <QrPanel value={subLink} remark={`${client?.email || ''} — ${t('subscription.title')}`} />
+          <SubscriptionQrPresentation
+            variant={variant}
+            standardLink={subLink}
+            remark={`${client?.email || ''} — ${t('subscription.title')}`}
+            happLink={happLink}
+            happLoading={happLoading}
+            happError={happError}
+            happLinkEnabled={happLinkEnabled}
+            onVariantChange={selectVariant}
+            onRegenerate={regenerateHappLink}
+            onOpenHappSettings={openHappSettings}
+          />
         ),
       });
     }
@@ -203,7 +504,7 @@ export default function ClientQrModal({
         children: <QrPanel value={subJsonLink} remark={`${client?.email || ''} — JSON`} />,
       });
     }
-    if (subClashLink) {
+    if (extraSubs.clash) {
       out.push({
         key: 'subClash',
         label: (
@@ -211,10 +512,10 @@ export default function ClientQrModal({
             CLASH
           </Tag>
         ),
-        children: <QrPanel value={subClashLink} remark={`${client?.email || ''} — Clash`} />,
+        children: <QrPanel value={extraSubs.clash} remark={`${client?.email || ''} — Clash`} />,
       });
     }
-    if (subAwgLink && awgConfigs.length > 0) {
+    if (extraSubs.amnezia && kernelAwgConfigs.length > 0) {
       out.push({
         key: 'subAwg',
         label: (
@@ -222,11 +523,13 @@ export default function ClientQrModal({
             AMNEZIA
           </Tag>
         ),
-        children: <QrPanel value={subAwgLink} remark={`${client?.email || ''} — Amnezia .conf`} />,
+        children: (
+          <QrPanel value={extraSubs.amnezia} remark={`${client?.email || ''} — Amnezia .conf`} />
+        ),
       });
     }
-    displaySubLinks(links).forEach((row, idx) => {
-      const { link, parts } = row;
+    links.forEach((link, idx) => {
+      const parts = parseLinkParts(link);
       const meta = parts ? linkMetaText(parts) : '';
       const label: React.ReactNode = parts ? (
         <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
@@ -248,28 +551,42 @@ export default function ClientQrModal({
         ),
       });
     });
-    if (wgConfigText) {
-      out.push({
-        key: 'wg-config',
-        label: (
+    wgConfigs.forEach(({ inbound, text }) => {
+      const meta = formatTunnelConfigMeta(inbound, client?.email, wgConfigs.length);
+      const label = (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
           <Tag color="cyan" style={{ margin: 0 }}>
             {t('pages.clients.wireguardConfig')}
           </Tag>
-        ),
-        children: (
-          <QrPanel
-            value={wgConfigText}
-            remark={client?.email || 'peer'}
-            downloadName={`${client?.email || 'peer'}.conf`}
-          />
-        ),
+          {meta.label && <span style={{ opacity: 0.85, fontSize: 12 }}>{meta.label}</span>}
+        </span>
+      );
+      out.push({
+        key: `wg-config-${inbound.id}`,
+        label,
+        children: <QrPanel value={text} remark={meta.qrRemark} downloadName={meta.fileName} />,
       });
-    }
-    // LUCX-HOOK: AWG — one .conf panel per inbound (own ceiling + version selector).
-    for (const cfg of awgConfigs) {
+    });
+    awgConfigs.forEach(({ inbound, text }) => {
+      const meta = formatTunnelConfigMeta(inbound, client?.email, awgConfigs.length);
+      const label = (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Tag color="purple" style={{ margin: 0 }}>
+            {t('pages.clients.amneziaWgConfig')}
+          </Tag>
+          {meta.label && <span style={{ opacity: 0.85, fontSize: 12 }}>{meta.label}</span>}
+        </span>
+      );
+      out.push({
+        key: `awg-config-${inbound.id}`,
+        label,
+        children: <QrPanel value={text} remark={meta.qrRemark} downloadName={meta.fileName} />,
+      });
+    });
+    for (const cfg of kernelAwgConfigs) {
       const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
       out.push({
-        key: `awg-config-${cfg.ib.id}`,
+        key: `awg-kernel-${cfg.ib.id}`,
         label: (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Tag color="purple" style={{ margin: 0 }}>
@@ -279,7 +596,7 @@ export default function ClientQrModal({
           </span>
         ),
         children: (
-          <Space direction="vertical" style={{ width: '100%' }} size="middle">
+          <Space orientation="vertical" style={{ width: '100%' }} size="middle">
             <Space style={{ width: '100%', justifyContent: 'space-between' }} align="center">
               <Typography.Text type="secondary" style={{ fontSize: 12 }}>
                 {t('pages.clients.awgExportVersion')}
@@ -318,30 +635,23 @@ export default function ClientQrModal({
               remark={client?.email || 'peer'}
               downloadName={`${client?.email || 'peer'}-awg${cfg.ib.id}.conf`}
             />
-            {subAwgVpnLink ? (
-              <QrPanel
-                value={withAwgInboundId(subAwgVpnLink, cfg.ib.id)}
-                remark={`${client?.email || ''} — vpn://`}
-              />
-            ) : null}
           </Space>
         ),
       });
     }
-    // END LUCX-HOOK
-    if (awgConfigText) {
+    if (tuicConfigText) {
       out.push({
-        key: 'amneziawg-config',
+        key: 'tuic-config',
         label: (
-          <Tag color="purple" style={{ margin: 0 }}>
-            {t('pages.clients.amneziaWgConfig')}
+          <Tag color="orange" style={{ margin: 0 }}>
+            {t('pages.clients.tuicConfig')}
           </Tag>
         ),
         children: (
           <QrPanel
-            value={awgConfigText}
-            remark={client?.email || 'peer'}
-            downloadName={`${client?.email || 'peer'}.conf`}
+            value={tuicConfigText}
+            remark={client?.email || 'tuic'}
+            downloadName={`${client?.email || 'tuic'}.yaml`}
           />
         ),
       });
@@ -350,14 +660,21 @@ export default function ClientQrModal({
   }, [
     subLink,
     subJsonLink,
-    subClashLink,
-    subAwgLink,
-    subAwgVpnLink,
-    wgConfigText,
+    variant,
+    happLink,
+    happLoading,
+    happError,
+    happLinkEnabled,
+    wgConfigs,
     awgConfigs,
-    awgConfigText,
+    kernelAwgConfigs,
+    extraSubs,
     links,
     client?.email,
+    selectVariant,
+    regenerateHappLink,
+    openHappSettings,
+    tuicConfigText,
     t,
   ]);
 

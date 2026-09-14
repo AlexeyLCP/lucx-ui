@@ -52,6 +52,16 @@ func missingClientCredential(p model.Protocol, c model.Client) error {
 		if c.AdTag != "" && !model.ValidMtprotoAdTag(c.AdTag) {
 			return common.NewError("mtproto client ad tag must be 32 hex characters")
 		}
+	case model.TUIC:
+		if c.ID == "" {
+			return common.NewError("empty client ID")
+		}
+		if c.Password == "" {
+			return common.NewError("tuic client requires a password")
+		}
+		if strings.TrimSpace(c.Email) == "" {
+			return common.NewError("empty client email")
+		}
 	case model.VMESS, model.VLESS:
 		if c.ID == "" {
 			return common.NewError("empty client ID")

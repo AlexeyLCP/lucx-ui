@@ -82,6 +82,29 @@ lucx_pin_matches() {
     [[ "$have" == "$want" ]]
 }
 
+verify_release_checksum() {
+    local url="$1" file="$2" sums="$2.sha256" code expected actual
+    rm -f "${sums}"
+    code=$(${curl_bin:-curl} -sL --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 60 -o "${sums}" -w '%{http_code}' "${url}.sha256")
+    if [[ "${code}" == "404" ]]; then
+        rm -f "${sums}"
+        echo -e "${yellow}No checksum published for this release, skipping verification${plain}"
+        return 0
+    fi
+    if [[ "${code}" != "200" ]]; then
+        rm -f "${sums}" "${file}"
+        _fail "ERROR: Failed to download the checksum for $(basename "${file}") (HTTP ${code})"
+    fi
+    expected=$(awk 'NR == 1 {print $1}' "${sums}")
+    actual=$(sha256sum "${file}" | awk '{print $1}')
+    rm -f "${sums}"
+    if [[ ! "${expected}" =~ ^[0-9a-f]{64}$ || "${expected}" != "${actual}" ]]; then
+        rm -f "${file}"
+        _fail "ERROR: Checksum mismatch for $(basename "${file}"): expected ${expected:-<none>}, got ${actual}"
+    fi
+    echo -e "${green}Checksum verified: ${actual}${plain}"
+}
+
 lucx_unpack_dist_sidecars() {
     local dest="${1:-bin}"
     [[ -n "${LUCX_DIST_DIR}" ]] || return 0
@@ -1250,6 +1273,9 @@ update_x-ui() {
     if [[ ! -s ${xui_folder}-linux-$(arch).tar.gz ]]; then
         rm ${xui_folder}-linux-$(arch).tar.gz -f > /dev/null 2>&1
         _fail "ERROR: Downloaded x-ui release archive is empty, please be sure that your server can access GitHub"
+    fi
+    if [[ "$LUCX_SOURCE" != "yandex" ]]; then
+        verify_release_checksum "https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz" "${xui_folder}-linux-$(arch).tar.gz"
     fi
 
     if [[ -e ${xui_folder}/ ]]; then

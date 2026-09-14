@@ -6,6 +6,7 @@
 
 export interface SubSettingsLinks {
   enable?: boolean;
+  happLinkEnable?: boolean;
   subURI?: string;
   subJsonEnable?: boolean;
   subJsonURI?: string;

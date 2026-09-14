@@ -4,7 +4,7 @@
 
 Merge `origin/main` (v3.8.0 + #6530) onto LucX. Kernel `awg` stays beside userspace `amneziawg`. Kernel AWG + sidecar outbounds now sit on Xray → Outbounds; label **AmneziaWG (kernel)**.
 
-Follow-up done in the next commit: TUIC share/Clash, JSON sub skip+baked routing, OpenAPI UUID/ML-DSA/ML-KEM examples. Still later: Happ QR modal, install.sh SHA-256, TUIC password checks in `inbound.go`.
+Follow-up: TUIC share/Clash + password checks, JSON baked routing, OpenAPI examples, Happ QR, GitHub tarball SHA-256 on install/update.
 
 Tests: `go test ./internal/awg/... ./internal/lucx/... ./internal/database/model`; frontend `tsc --noEmit`.
 

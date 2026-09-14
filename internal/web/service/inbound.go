@@ -2623,6 +2623,13 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 		}
 	}
+	if inbound.Protocol == model.TUIC {
+		for _, client := range clients {
+			if err := missingClientCredential(inbound.Protocol, client); err != nil {
+				return inbound, false, err
+			}
+		}
+	}
 
 	oldInbound, err := s.GetInbound(inbound.Id)
 	if err != nil {
