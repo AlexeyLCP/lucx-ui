@@ -18,7 +18,7 @@ panel's subscription settings:
 | ------------- | ------- | --------------------------------------------------------------- |
 | `subPort`     | `2096`  | Listen port (separate from the panel).                          |
 | `subListen`   | _(all)_ | Bind address.                                                   |
-| `subPath`     | `/sub/` | Base path for raw subscription URLs.                            |
+| `subPath`     | _(random per panel)_ | Base path for raw subscription URLs.                 |
 | `subDomain`   | _(none)_| Public host; if set, the server only answers for that Host.     |
 | `subCertFile` / `subKeyFile` | _(none)_ | TLS cert + key — when set, the server serves **HTTPS**. |
 | `subEncrypt`  | `true`  | Base64-encode the raw subscription body.                        |
@@ -27,7 +27,7 @@ panel's subscription settings:
 A subscription URL looks like:
 
 ```text
-https://<sub-host>:<sub-port>/sub/<sub-id>
+https://<sub-host>:<sub-port>/<sub-path>/<sub-id>
 ```
 
 where `<sub-id>` is the client's **Sub ID**.
@@ -42,22 +42,43 @@ URLs and preview both bodies here:
 
 The **format is chosen by path**, each with its own enable toggle:
 
-| Format                | Path      | Enabled by       | Output                                              |
-| --------------------- | --------- | ---------------- | --------------------------------------------------- |
-| **Raw links**         | `/sub/`   | always (if on)   | A list of `vless://`, `vmess://`, … links (base64-encoded when `subEncrypt` is on). |
-| **JSON**              | `/json/`  | `subJsonEnable`  | Full Xray client config(s).                         |
-| **Clash / Mihomo**    | `/clash/` | `subClashEnable` | YAML profile.                                       |
+| Format                         | Path             | Enabled by       | Output                                              |
+| ------------------------------ | ---------------- | ---------------- | --------------------------------------------------- |
+| **Raw links**                  | `subPath`        | always (if on)   | A list of `vless://`, `vmess://`, … links (base64-encoded when `subEncrypt` is on). |
+| **JSON**                       | `subJsonPath`    | `subJsonEnable`  | Full Xray client config(s).                         |
+| **Clash / Mihomo**             | `subClashPath`   | `subClashEnable` | Full Mihomo-compatible YAML profile.                |
+| **Mihomo (explicit)**          | `/mihomo/`       | `subClashEnable` | Alias for the full `subClashPath` profile.          |
+| **Clash for Windows (legacy)** | `/clash-legacy/` | `subClashEnable` | YAML limited to proxy types, transports, and ciphers supported by the legacy Clash core. |
 
-Only enabled inbounds using **VLESS, VMess, Trojan, Shadowsocks, or Hysteria2**
-appear in a subscription, ordered by their sub-sort index. Requesting `/sub/`
+Only enabled inbounds using **VLESS, VMess, Trojan, Shadowsocks, WireGuard, AmneziaWG, MTProto, TUIC, or Hysteria2**
+appear in a subscription, ordered by their sub-sort index (TUIC and AmneziaWG are included in raw links and Clash/Mihomo profiles, but omitted from JSON endpoints; MTProto is included in raw links). Requesting `subPath`
 with an `Accept: text/html` header (or `?html=1`) returns a human-readable info
 page instead of the raw body.
+
+Use `/mihomo/<sub-id>` for Clash Verge Rev, Mihomo, and other maintained
+Mihomo-based clients. Use `/clash-legacy/<sub-id>` only for the discontinued
+Clash for Windows client. The legacy endpoint keeps compatible VMess, Trojan,
+and Shadowsocks nodes and excludes VLESS, Hysteria2, Reality, XHTTP,
+HTTPUpgrade, and Shadowsocks 2022. If no compatible node exists, it returns an
+explicit `422` response instead of a YAML profile the client cannot import.
+To avoid Mihomo-only syntax entering the legacy profile, this endpoint always
+uses its minimal `PROXY` group and `MATCH,PROXY` rule and ignores custom Clash
+routing settings.
+
+If an administrator has already assigned `/mihomo/` or `/clash-legacy/` to a
+different configurable subscription path, that existing path is preserved and
+the conflicting alias is skipped with a warning at startup.
+
+Automatic Clash format detection keeps the existing `(?i)(clash|mihomo)`
+default matcher so existing subscription URLs continue returning YAML.
+It does not distinguish legacy clients from Mihomo-based clients; Clash for
+Windows users must use `/clash-legacy/<sub-id>` for a compatible profile.
 
 ### Base64 vs JSON
 
 The **Base64** body is just the newline-joined share links, standard-base64
 encoded (toggle with `subEncrypt`). The **JSON** body wraps each client in a
-complete Xray client config — a fixed skeleton (local mixed/HTTP inbounds, DNS,
+complete Xray client config — a fixed skeleton (local SOCKS/HTTP inbounds bound to 127.0.0.1, DNS,
 routing, policy) plus a `proxy` outbound pointing at the inbound. 3x-ui emits a
 **single config object for one client and an array for several**, uses the flat
 outbound `settings` form (`address`/`port`/`id`, `level: 8`), and strips
@@ -72,6 +93,31 @@ Subscriptions return standard headers that compatible apps read:
 - **`Profile-Update-Interval`** — refresh interval in hours (`subUpdates`).
 - **`Profile-Title`**, **`Support-Url`**, **`Profile-Web-Page-Url`**,
   **`Announce`** — optional branding shown by some clients.
+
+### Optional month-end expiry display
+
+Under **Subscription → Information**, **Month-end subscription expiry display**
+(`subCalendarExpireInclusive`, default `false`) reports the last valid second
+of the month in `Subscription-Userinfo` instead of the next month's midnight.
+It applies only when every client contributing to the subscription has calendar
+renewal day `1`, shares the same fixed expiry, and that expiry is exactly day `1`
+at `00:00:00` in the configured panel timezone, immediately after the previous
+month's last second. A later repeated midnight during a DST rollback is not
+converted. Raw, JSON, Mihomo, and legacy
+Clash subscriptions use the same conversion.
+
+For example, the real cutoff `2030-10-01 00:00:00` is presented as
+`2030-09-30 23:59:59`. The stored expiry, access cutoff, traffic accounting,
+renewal schedule, remark expiry variables, and HTML/JSON info-page cutoff stay
+unchanged. Arbitrary times, other renewal days, interval renewal, first-use
+durations, unlimited expiries, mixed renewal modes, and different cutoffs are
+not converted.
+
+This is an opt-in compatibility tradeoff, not a change to expiry semantics by
+default: apps receive a timestamp one second before the real cutoff and may
+consider the subscription expired one second early. Apps format it in their own
+timezone; matching the panel timezone is needed to display the same month-end
+date. Cached subscription information changes only after the app refreshes it.
 
 ## Custom page templates
 

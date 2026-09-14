@@ -216,6 +216,11 @@ func parseVmess(link string) (*ParseResult, error) {
 		if alpn := getString(j, "alpn", ""); alpn != "" {
 			tls["alpn"] = splitComma(alpn)
 		}
+		// The vmess object names the certificate checks v2rayN does the same way
+		// the url-param protocols name them in applySecurity.
+		tls["echConfigList"] = getString(j, "ech", "")
+		tls["verifyPeerCertByName"] = getString(j, "vcn", "")
+		tls["pinnedPeerCertSha256"] = getString(j, "pcs", "")
 	}
 
 	port := num(j["port"])
@@ -348,16 +353,23 @@ func parseShadowsocks(link string) (*ParseResult, error) {
 	// Two shapes:
 	//   ss://base64(method:pass)@host:port#remark
 	//   ss://base64(method:pass@host:port)#remark
+	// Query may carry Xray-native stream params (type/security/sni/alpn/fp)
+	// emitted by genShadowsocksLink — preserve them like trojan/vless.
 	remark := ""
 	if i := strings.Index(link, "#"); i >= 0 {
 		remark, _ = url.QueryUnescape(link[i+1:])
 		link = link[:i]
 	}
+	rawQuery := ""
 	if i := strings.Index(link, "?"); i >= 0 {
+		rawQuery = link[i+1:]
 		link = link[:i]
 	}
+	params, _ := url.ParseQuery(rawQuery)
 	core := strings.TrimPrefix(link, "ss://")
 	at := strings.Index(core, "@")
+	var host, method, pass string
+	var port int
 	if at >= 0 {
 		// modern
 		userB64 := core[:at]
@@ -375,46 +387,51 @@ func parseShadowsocks(link string) (*ParseResult, error) {
 		if colon < 0 {
 			return nil, fmt.Errorf("bad ss host:port")
 		}
-		host := hp[:colon]
-		port, err := strconv.Atoi(hp[colon+1:])
+		host = hp[:colon]
+		port, err = strconv.Atoi(hp[colon+1:])
 		if err != nil {
 			return nil, fmt.Errorf("bad ss port %q: %w", hp[colon+1:], err)
 		}
-		method, pass := splitMethodPass(userInfo)
-		identity := "ss:" + method + ":" + pass + "@" + host + ":" + strconv.Itoa(port)
-		ob := Outbound{
-			"protocol": "shadowsocks",
-			"tag":      remark,
-			"settings": map[string]any{
-				"servers": []any{
-					map[string]any{"address": host, "port": port, "password": pass, "method": method},
-				},
-			},
+		method, pass = splitMethodPass(userInfo)
+	} else {
+		// legacy: whole thing b64
+		dec, err := base64DecodeFlexible(core)
+		if err != nil {
+			return nil, err
 		}
-		return &ParseResult{Outbound: ob, Identity: identity}, nil
+		at = strings.Index(dec, "@")
+		if at < 0 {
+			return nil, fmt.Errorf("bad legacy ss")
+		}
+		userInfo := dec[:at]
+		hp := dec[at+1:]
+		colon := strings.LastIndex(hp, ":")
+		if colon < 0 {
+			return nil, fmt.Errorf("bad legacy ss hp")
+		}
+		host = hp[:colon]
+		port, err = strconv.Atoi(hp[colon+1:])
+		if err != nil {
+			return nil, fmt.Errorf("bad legacy ss port %q: %w", hp[colon+1:], err)
+		}
+		method, pass = splitMethodPass(userInfo)
 	}
-	// legacy: whole thing b64
-	dec, err := base64DecodeFlexible(core)
-	if err != nil {
-		return nil, err
-	}
-	at = strings.Index(dec, "@")
-	if at < 0 {
-		return nil, fmt.Errorf("bad legacy ss")
-	}
-	userInfo := dec[:at]
-	hp := dec[at+1:]
-	colon := strings.LastIndex(hp, ":")
-	if colon < 0 {
-		return nil, fmt.Errorf("bad legacy ss hp")
-	}
-	host := hp[:colon]
-	port, err := strconv.Atoi(hp[colon+1:])
-	if err != nil {
-		return nil, fmt.Errorf("bad legacy ss port %q: %w", hp[colon+1:], err)
-	}
-	method, pass := splitMethodPass(userInfo)
 	identity := "ss:" + method + ":" + pass + "@" + host + ":" + strconv.Itoa(port)
+	// The panel and v2rayN express shadowsocks tcp/http obfuscation only as the
+	// SIP002 plugin, so it has to become the header it stands for.
+	applyObfsLocalPlugin(params, rawQuery)
+	network := params.Get("type")
+	if network == "" {
+		network = "tcp"
+	}
+	security := params.Get("security")
+	if security == "" {
+		security = "none"
+	}
+	stream := buildStream(network, security)
+	applyTransport(stream, params)
+	applySecurity(stream, params)
+	applyFinalMask(stream, params)
 	ob := Outbound{
 		"protocol": "shadowsocks",
 		"tag":      remark,
@@ -423,6 +440,7 @@ func parseShadowsocks(link string) (*ParseResult, error) {
 				map[string]any{"address": host, "port": port, "password": pass, "method": method},
 			},
 		},
+		"streamSettings": stream,
 	}
 	return &ParseResult{Outbound: ob, Identity: identity}, nil
 }
@@ -433,6 +451,54 @@ func splitMethodPass(userInfo string) (string, string) {
 		return "2022-blake3-aes-128-gcm", userInfo // guess
 	}
 	return before, after
+}
+
+// applyObfsLocalPlugin maps a SIP002 obfs-local=http plugin onto the tcp/http
+// response header it stands for; the other plugin values have no Xray header.
+func applyObfsLocalPlugin(p url.Values, rawQuery string) {
+	if p.Get("headerType") != "" || p.Get("type") == "http" {
+		return
+	}
+	plugin := p.Get("plugin")
+	if plugin == "" {
+		plugin = rawQueryPlugin(rawQuery)
+	}
+	parts := strings.Split(plugin, ";")
+	if len(parts) == 0 || parts[0] != "obfs-local" {
+		return
+	}
+	obfs, host := "", ""
+	for _, part := range parts[1:] {
+		if k, v, ok := strings.Cut(part, "="); ok {
+			switch k {
+			case "obfs":
+				obfs = v
+			case "obfs-host":
+				host = v
+			}
+		}
+	}
+	if obfs != "http" {
+		return
+	}
+	p.Set("type", "tcp")
+	p.Set("headerType", "http")
+	if host != "" {
+		p.Set("host", host)
+	}
+}
+
+// rawQueryPlugin reads the plugin parameter straight out of the query string for
+// the pair stdlib discards: a value holding an unencoded semicolon never parses.
+func rawQueryPlugin(rawQuery string) string {
+	for _, segment := range strings.Split(rawQuery, "&") {
+		if key, value, ok := strings.Cut(segment, "="); ok && key == "plugin" {
+			if decoded, err := url.QueryUnescape(value); err == nil {
+				return decoded
+			}
+		}
+	}
+	return ""
 }
 
 // --- hysteria2 ---
@@ -649,6 +715,15 @@ func applyTransport(stream map[string]any, p url.Values) {
 				xh[k] = v
 			}
 		}
+	case "kcp":
+		// mtu/tti live on kcpSettings; header/seed are finalmask mkcp-legacy (see applyMkcpLegacyFromShare).
+		kcp := stream["kcpSettings"].(map[string]any)
+		if n, ok := kcpParamInRange(p.Get("mtu"), kcpMinMTU, kcpMaxMTU); ok {
+			kcp["mtu"] = n
+		}
+		if n, ok := kcpParamInRange(p.Get("tti"), kcpMinTTI, kcpMaxTTI); ok {
+			kcp["tti"] = n
+		}
 	case "tcp":
 		if p.Get("headerType") == "http" || p.Get("type") == "http" {
 			stream["tcpSettings"] = map[string]any{
@@ -677,6 +752,7 @@ func applySecurity(stream map[string]any, p url.Values) {
 			tls["alpn"] = splitComma(alpn)
 		}
 		tls["echConfigList"] = p.Get("ech")
+		tls["verifyPeerCertByName"] = p.Get("vcn")
 		tls["pinnedPeerCertSha256"] = p.Get("pcs")
 	case "reality":
 		re := stream["realitySettings"].(map[string]any)
@@ -697,20 +773,127 @@ func applyFinalMask(stream map[string]any, p url.Values) {
 			stream["finalmask"] = parsed
 		}
 	}
+	applyMkcpLegacyFromShare(stream, p)
+}
+
+// mKCP bounds mirror xray-core's KCPConfig.Build checks (a value outside them fails
+// the whole config load); mtu's ceiling is the int32 that fits its uint32 field everywhere.
+const (
+	kcpMinMTU = 21
+	kcpMaxMTU = math.MaxInt32
+	kcpMinTTI = 10
+	kcpMaxTTI = 1000
+)
+
+// kcpParamInRange rejects an out-of-range or malformed link value so buildStream's default stays.
+func kcpParamInRange(s string, minVal, maxVal int) (int, bool) {
+	n, err := strconv.Atoi(s)
+	return n, err == nil && n >= minVal && n <= maxVal
+}
+
+// kcpHeaderTypeToMask maps share-link headerType to mkcp-legacy settings.header
+// (inverse of sub.kcpMaskToHeaderType).
+var kcpHeaderTypeToMask = map[string]string{
+	"dns":          "dns",
+	"dtls":         "dtls",
+	"srtp":         "srtp",
+	"utp":          "utp",
+	"wechat-video": "wechat",
+	"wireguard":    "wireguard",
+}
+
+// applyMkcpLegacyFromShare restores headerType/seed into finalmask.udp mkcp-legacy,
+// matching the shape InboundFormModal / FinalMaskForm emit. fm= mkcp-legacy wins.
+func applyMkcpLegacyFromShare(stream map[string]any, p url.Values) {
+	headerType := strings.TrimSpace(p.Get("headerType"))
+	seed := p.Get("seed")
+	if headerType == "" || headerType == "none" {
+		headerType = ""
+	}
+	if headerType == "" && seed == "" {
+		return
+	}
+	if network, _ := stream["network"].(string); network != "" && network != "kcp" {
+		return
+	}
+	maskHeader := ""
+	if headerType != "" {
+		mapped, ok := kcpHeaderTypeToMask[headerType]
+		if !ok {
+			return
+		}
+		maskHeader = mapped
+	}
+	finalmask, _ := stream["finalmask"].(map[string]any)
+	if finalmask == nil {
+		finalmask = map[string]any{}
+	}
+	udp, _ := finalmask["udp"].([]any)
+	for _, raw := range udp {
+		m, _ := raw.(map[string]any)
+		if m != nil {
+			if t, _ := m["type"].(string); t == "mkcp-legacy" {
+				return // fm= (or prior) already carries the live mask
+			}
+		}
+	}
+	// One mask per field, seed first: MkcpLegacy.Build ignores value once header is set,
+	// and the chain puts the last mask outermost on the wire (header around the cipher).
+	if seed != "" {
+		udp = append(udp, mkcpLegacyMask("", seed))
+	}
+	if maskHeader != "" {
+		udp = append(udp, mkcpLegacyMask(maskHeader, ""))
+	}
+	finalmask["udp"] = udp
+	stream["finalmask"] = finalmask
+}
+
+func mkcpLegacyMask(header, value string) map[string]any {
+	return map[string]any{
+		"type":     "mkcp-legacy",
+		"settings": map[string]any{"header": header, "value": value},
+	}
+}
+
+// gecko packetSize bounds mirror xray-core's salamander buffer cap.
+const (
+	geckoMinPacketSize = 1
+	geckoMaxPacketSize = 2048
+)
+
+// parsePacketSizeRange validates a min/max pair for the Gecko obfs marker.
+func parsePacketSizeRange(minStr, maxStr string) (int, int, bool) {
+	minVal, err1 := strconv.Atoi(minStr)
+	maxVal, err2 := strconv.Atoi(maxStr)
+	if err1 != nil || err2 != nil ||
+		minVal < geckoMinPacketSize || maxVal < minVal || maxVal > geckoMaxPacketSize {
+		return 0, 0, false
+	}
+	return minVal, maxVal, true
 }
 
 // applyHysteria2Obfs rebuilds the salamander mask from the standard Hysteria2
-// obfs=salamander & obfs-password=<pw> pair (every non-3x-ui client, and this
-// panel's own generator, speak it instead of the private fm=<json> dump). A
-// salamander mask already carrying a password via fm= wins; a password-less one
-// is completed rather than left empty.
+// obfs pair. An fm=-carried password wins; gecko adds the packetSize pair.
 func applyHysteria2Obfs(stream map[string]any, p url.Values) {
-	if !strings.EqualFold(p.Get("obfs"), "salamander") {
+	obfs := p.Get("obfs")
+	isGecko := strings.EqualFold(obfs, "gecko")
+	if !isGecko && !strings.EqualFold(obfs, "salamander") {
 		return
 	}
 	password := firstParam(p, "obfs-password", "obfs_password", "obfsPassword")
 	if password == "" {
 		return
+	}
+	packetSize := ""
+	if isGecko {
+		// Both halves required with digit+range validation, matching the
+		// export side; half-specified or non-numeric values are dropped.
+		minSize := strings.TrimSpace(p.Get("minPacketSize"))
+		maxSize := strings.TrimSpace(p.Get("maxPacketSize"))
+		if min, max, ok := parsePacketSizeRange(minSize, maxSize); ok {
+			packetSize = fmt.Sprintf("%d-%d", min, max)
+		}
 	}
 	finalmask := ensureChildMap(stream, "finalmask")
 	udp, _ := finalmask["udp"].([]any)
@@ -727,30 +910,48 @@ func applyHysteria2Obfs(stream map[string]any, p url.Values) {
 		if pw, _ := settings["password"].(string); pw == "" {
 			settings["password"] = password
 		}
+		if packetSize != "" {
+			if ps, _ := settings["packetSize"].(string); ps == "" {
+				settings["packetSize"] = packetSize
+			}
+		}
 		return
+	}
+	settings := map[string]any{"password": password}
+	if packetSize != "" {
+		settings["packetSize"] = packetSize
 	}
 	finalmask["udp"] = append(udp, map[string]any{
 		"type":     "salamander",
-		"settings": map[string]any{"password": password},
+		"settings": settings,
 	})
 }
 
 // applyHysteria2Hop rebuilds the UDP port-hopping range from the standard mport
-// param, which the generator emits as finalmask.quicParams.udpHop.ports. A range
-// already supplied via fm= wins; the client-side interval falls back to the same
-// default the panel writes.
+// param. xray-core 26.9.9 replaced finalmask.quicParams.udpHop with a "udphop"
+// UDP mask, whose intervalremote mode is what the old key used to do; a mask
+// already supplied via fm= wins.
 func applyHysteria2Hop(stream map[string]any, p url.Values) {
 	ports := firstParam(p, "mport")
 	if ports == "" {
 		return
 	}
-	quicParams := ensureChildMap(ensureChildMap(stream, "finalmask"), "quicParams")
-	if udpHop, ok := quicParams["udpHop"].(map[string]any); ok {
-		if existing, _ := udpHop["ports"].(string); existing != "" {
+	finalmask := ensureChildMap(stream, "finalmask")
+	masks, _ := finalmask["udp"].([]any)
+	for _, rawMask := range masks {
+		mask, _ := rawMask.(map[string]any)
+		if maskType, _ := mask["type"].(string); maskType == "udphop" {
 			return
 		}
 	}
-	quicParams["udpHop"] = map[string]any{"ports": ports, "interval": "5-10"}
+	finalmask["udp"] = append(masks, map[string]any{
+		"type": "udphop",
+		"settings": map[string]any{
+			"mode":        "intervalremote",
+			"interval":    "5-10",
+			"remotePorts": ports,
+		},
+	})
 }
 
 func ensureChildMap(parent map[string]any, key string) map[string]any {

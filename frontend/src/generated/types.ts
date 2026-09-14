@@ -5,8 +5,6 @@ export type KeepAliveValue = string;
 export type OnlineAPISupport = number;
 export type ProcessState = string;
 export type Protocol = string;
-export type SubLinkProvider = unknown;
-export type prober = unknown;
 export type staticEgressResolver = string;
 export type trafficLocalApplyAction = number;
 export type transportBits = number;
@@ -313,6 +311,16 @@ export interface ClientInbound {
   inboundId: number;
 }
 
+export interface ClientPageResponse {
+  filtered: number;
+  groups: string[];
+  items: ClientSlim[];
+  page: number;
+  pageSize: number;
+  summary: ClientsSummary;
+  total: number;
+}
+
 export interface ClientRecord {
   adTag: string;
   allowedIPs: string;
@@ -352,6 +360,25 @@ export interface ClientReverse {
   tag: string;
 }
 
+export interface ClientSlim {
+  comment?: string;
+  createdAt: number;
+  email: string;
+  enable: boolean;
+  expiryTime: number;
+  group?: string;
+  inboundIds: number[];
+  limitHwid: number;
+  limitIp: number;
+  reset: number;
+  resetDay: number;
+  resetMax: number;
+  subId: string;
+  totalGB: number;
+  traffic?: ClientTraffic | null;
+  updatedAt: number;
+}
+
 export interface ClientTraffic {
   down: number;
   email: string;
@@ -369,6 +396,19 @@ export interface ClientTraffic {
   total: number;
   up: number;
   uuid: string;
+}
+
+export interface ClientsSummary {
+  active: number;
+  deactive: string[];
+  deactiveCount: number;
+  depleted: string[];
+  depletedCount: number;
+  expiring: string[];
+  expiringCount: number;
+  online: string[];
+  onlineCount: number;
+  total: number;
 }
 
 export interface FallbackParentInfo {
@@ -411,6 +451,10 @@ export interface GeodataTokenIssue {
   file?: string;
   reason: string;
   token: string;
+}
+
+export interface HappLinkResult {
+  encryptedLink: string;
 }
 
 export interface HistoryOfSeeders {
@@ -498,6 +542,14 @@ export interface HostStatus {
   version: string;
 }
 
+export interface HwidSlotStatus {
+  active: boolean;
+  full: boolean;
+  limit: number;
+  registered: number;
+  remaining: number;
+}
+
 export interface Inbound {
   clientStats: ClientTraffic[];
   disableFlow: boolean;
@@ -567,6 +619,24 @@ export interface InboundOption {
   wgDns?: string;
   wgMtu?: number;
   wgPublicKey?: string;
+}
+
+export interface InboundTrafficSummary {
+  down: number;
+  enable: boolean;
+  id: number;
+  total: number;
+  up: number;
+}
+
+export interface LogEntry {
+  dateTime: string;
+  email: string;
+  event: number;
+  fromAddress: string;
+  inbound: string;
+  outbound: string;
+  toAddress: string;
 }
 
 export interface Msg {
@@ -738,6 +808,7 @@ export interface ProbeResultUI {
 
 export interface RealityScanResult {
   alpn: string;
+  certChainBytes: number;
   certChainValid: boolean;
   certIssuer: string;
   certSubject: string;
@@ -810,10 +881,39 @@ export interface SubBalancer {
   enabled: boolean;
   id: number;
   inboundIds: number[];
+  memberWeights?: Record<number, number>;
   remark: string;
   sortOrder: number;
   strategy: string;
   updatedAt: number;
+}
+
+export interface Traffic {
+  Down: number;
+  IsInbound: boolean;
+  IsOutbound: boolean;
+  Tag: string;
+  Up: number;
+}
+
+export interface TuicClientSettings {
+  email: string;
+  password: string;
+  uuid: string;
+}
+
+export interface TuicServerSettings {
+  alpn: string[];
+  authentication_timeout: number;
+  certificate: string;
+  congestion_control: string;
+  log_level: string;
+  max_idle_time: number;
+  max_udp_relay_packet_size: number;
+  private_key: string;
+  sni?: string;
+  udp_relay_mode: string;
+  zero_rtt_handshake: boolean;
 }
 
 export interface User {

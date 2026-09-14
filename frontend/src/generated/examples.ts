@@ -272,7 +272,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "token": "new-token-string"
   },
   "Client": {
-    "adTag": "0123456789abcdef0123456789abcdef",
+    "adTag": "ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d",
     "allowedIPs": [
       ""
     ],
@@ -312,6 +312,55 @@ export const EXAMPLES: Record<string, unknown> = {
     "flowOverride": "",
     "inboundId": 0
   },
+  "ClientPageResponse": {
+    "filtered": 47,
+    "groups": [
+      "staff",
+      "trial"
+    ],
+    "items": [
+      {
+        "comment": "Primary device",
+        "createdAt": 1735000000000,
+        "email": "alice@example.com",
+        "enable": true,
+        "expiryTime": 1735689600000,
+        "group": "staff",
+        "inboundIds": [
+          3,
+          5
+        ],
+        "limitHwid": 0,
+        "limitIp": 0,
+        "reset": 0,
+        "resetDay": 0,
+        "resetMax": 0,
+        "subId": "abcd1234",
+        "totalGB": 53687091200,
+        "traffic": null,
+        "updatedAt": 1735100000000
+      }
+    ],
+    "page": 1,
+    "pageSize": 25,
+    "summary": {
+      "active": 1850,
+      "deactive": [
+        "bob@example.com"
+      ],
+      "deactiveCount": 150,
+      "depleted": [],
+      "depletedCount": 0,
+      "expiring": [],
+      "expiringCount": 0,
+      "online": [
+        "alice@example.com"
+      ],
+      "onlineCount": 1,
+      "total": 2000
+    },
+    "total": 2000
+  },
   "ClientRecord": {
     "adTag": "",
     "allowedIPs": "",
@@ -349,6 +398,27 @@ export const EXAMPLES: Record<string, unknown> = {
   "ClientReverse": {
     "tag": ""
   },
+  "ClientSlim": {
+    "comment": "Primary device",
+    "createdAt": 1735000000000,
+    "email": "alice@example.com",
+    "enable": true,
+    "expiryTime": 1735689600000,
+    "group": "staff",
+    "inboundIds": [
+      3,
+      5
+    ],
+    "limitHwid": 0,
+    "limitIp": 0,
+    "reset": 0,
+    "resetDay": 0,
+    "resetMax": 0,
+    "subId": "abcd1234",
+    "totalGB": 53687091200,
+    "traffic": null,
+    "updatedAt": 1735100000000
+  },
   "ClientTraffic": {
     "down": 2097152,
     "email": "user1",
@@ -366,6 +436,22 @@ export const EXAMPLES: Record<string, unknown> = {
     "total": 10737418240,
     "up": 1048576,
     "uuid": "e18c9a96-71bf-48d4-933f-8b9a46d4290c"
+  },
+  "ClientsSummary": {
+    "active": 1850,
+    "deactive": [
+      "bob@example.com"
+    ],
+    "deactiveCount": 150,
+    "depleted": [],
+    "depletedCount": 0,
+    "expiring": [],
+    "expiringCount": 0,
+    "online": [
+      "alice@example.com"
+    ],
+    "onlineCount": 1,
+    "total": 2000
   },
   "FallbackParentInfo": {
     "masterId": 0,
@@ -418,6 +504,9 @@ export const EXAMPLES: Record<string, unknown> = {
     "file": "geosite.dat",
     "reason": "categoryMissing",
     "token": "geosite:blabla"
+  },
+  "HappLinkResult": {
+    "encryptedLink": "happ://crypt5/example"
   },
   "HistoryOfSeeders": {
     "id": 0,
@@ -526,6 +615,13 @@ export const EXAMPLES: Record<string, unknown> = {
     "moduleLoaded": false,
     "version": ""
   },
+  "HwidSlotStatus": {
+    "active": true,
+    "full": false,
+    "limit": 2,
+    "registered": 1,
+    "remaining": 1
+  },
   "Inbound": {
     "clientStats": [
       {
@@ -611,6 +707,22 @@ export const EXAMPLES: Record<string, unknown> = {
     "wgDns": "",
     "wgMtu": 0,
     "wgPublicKey": ""
+  },
+  "InboundTrafficSummary": {
+    "down": 2097152,
+    "enable": true,
+    "id": 1,
+    "total": 10737418240,
+    "up": 1048576
+  },
+  "LogEntry": {
+    "dateTime": "2025-01-01T00:00:00Z",
+    "email": "",
+    "event": 0,
+    "fromAddress": "",
+    "inbound": "",
+    "outbound": "",
+    "toAddress": ""
   },
   "Msg": {
     "msg": "",
@@ -786,6 +898,7 @@ export const EXAMPLES: Record<string, unknown> = {
   },
   "RealityScanResult": {
     "alpn": "h2",
+    "certChainBytes": 3427,
     "certChainValid": true,
     "certIssuer": "Google Trust Services",
     "certSubject": "cloudflare.com",
@@ -860,10 +973,38 @@ export const EXAMPLES: Record<string, unknown> = {
       1,
       3
     ],
+    "memberWeights": {},
     "remark": "auto-fastest",
     "sortOrder": 1,
     "strategy": "random",
     "updatedAt": 1710000000000
+  },
+  "Traffic": {
+    "Down": 2097152,
+    "IsInbound": true,
+    "IsOutbound": false,
+    "Tag": "inbound-443",
+    "Up": 1048576
+  },
+  "TuicClientSettings": {
+    "email": "",
+    "password": "",
+    "uuid": ""
+  },
+  "TuicServerSettings": {
+    "alpn": [
+      ""
+    ],
+    "authentication_timeout": 0,
+    "certificate": "",
+    "congestion_control": "",
+    "log_level": "",
+    "max_idle_time": 0,
+    "max_udp_relay_packet_size": 0,
+    "private_key": "",
+    "sni": "",
+    "udp_relay_mode": "",
+    "zero_rtt_handshake": false
   },
   "User": {
     "id": 0,

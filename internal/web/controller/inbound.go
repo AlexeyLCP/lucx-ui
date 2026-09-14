@@ -79,6 +79,15 @@ func awgSaveNote(c *gin.Context, msg string, inbound *model.Inbound) string {
 	return msg + " — " + strings.Join(notes, "; ")
 }
 
+// inboundServiceFor tells the service whether this request is a master's
+// node-sync push, so the node stores the row instead of re-judging it.
+func (a *InboundController) inboundServiceFor(c *gin.Context) *service.InboundService {
+	svc := a.inboundService
+	scope, _ := c.Get("api_token_scope")
+	svc.FromNodeSync = scope == model.ApiScopeNodeSync
+	return &svc
+}
+
 // initRouter initializes the routes for inbound-related operations.
 func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/list", a.getInbounds)
@@ -214,7 +223,7 @@ func (a *InboundController) addInbound(c *gin.Context) {
 		inbound.NodeID = nil
 	}
 
-	inbound, needRestart, err := a.inboundService.AddInbound(inbound)
+	inbound, needRestart, err := a.inboundServiceFor(c).AddInbound(inbound)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
@@ -294,7 +303,7 @@ func (a *InboundController) updateInbound(c *gin.Context) {
 	if inbound.NodeID != nil && *inbound.NodeID == 0 {
 		inbound.NodeID = nil
 	}
-	inbound, needRestart, err := a.inboundService.UpdateInbound(inbound)
+	inbound, needRestart, err := a.inboundServiceFor(c).UpdateInbound(inbound)
 	if err != nil {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
@@ -317,7 +326,7 @@ func (a *InboundController) setInboundSubSortIndex(c *gin.Context) {
 		return
 	}
 	type form struct {
-		SubSortIndex int `json:"subSortIndex" form:"subSortIndex" binding:"required,min=1"`
+		SubSortIndex int `json:"subSortIndex" form:"subSortIndex" binding:"required"`
 	}
 	var f form
 	if err := c.ShouldBind(&f); err != nil {

@@ -71,6 +71,7 @@ const TRACKED_PROTOCOLS: readonly string[] = [
   Protocols.WIREGUARD,
   Protocols.MTPROTO,
   Protocols.AMNEZIAWG,
+  Protocols.TUIC,
   // LUCX-HOOK: sidecar inbounds share the same online email set as Clients.
   Protocols.AWG,
   Protocols.NAIVE,

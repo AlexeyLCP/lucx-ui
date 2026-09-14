@@ -87,7 +87,7 @@ func pageMessage(message string, limit int) []string {
 	}
 
 	pages := make([]string, 0)
-	for _, block := range strings.Split(message, "\r\n\r\n") {
+	for block := range strings.SplitSeq(message, "\r\n\r\n") {
 		for _, page := range splitMessageLines(block, limit) {
 			last := len(pages) - 1
 			if last >= 0 && len(pages[last])+len("\r\n\r\n")+len(page) <= limit {
@@ -123,7 +123,7 @@ func splitMessageLines(block string, limit int) []string {
 
 // SendMsgToTgbot sends a message to the Telegram bot with optional reply markup.
 func (t *Tgbot) SendMsgToTgbot(chatId int64, msg string, replyMarkup ...telego.ReplyMarkup) {
-	if !isRunning {
+	if !t.IsRunning() {
 		return
 	}
 
@@ -182,12 +182,13 @@ func (t *Tgbot) SendMsgToTgbot(chatId int64, msg string, replyMarkup ...telego.R
 
 // SendMsgToTgbotAdmins sends a message to all admin Telegram chats.
 func (t *Tgbot) SendMsgToTgbotAdmins(msg string, replyMarkup ...telego.ReplyMarkup) {
+	admins := adminSnapshot()
 	if len(replyMarkup) > 0 {
-		for _, adminId := range adminIds {
+		for _, adminId := range admins {
 			t.SendMsgToTgbot(adminId, msg, replyMarkup[0])
 		}
 	} else {
-		for _, adminId := range adminIds {
+		for _, adminId := range admins {
 			t.SendMsgToTgbot(adminId, msg)
 		}
 	}
@@ -212,6 +213,10 @@ func (t *Tgbot) editMessageCallbackTgBot(chatId int64, messageID int, inlineKeyb
 		ReplyMarkup: inlineKeyboard,
 	}
 	if _, err := bot.EditMessageReplyMarkup(context.Background(), &params); err != nil {
+		if isTelegramNotModifiedError(err) {
+			logger.Debug("Telegram reply markup unchanged, skipping edit")
+			return
+		}
 		logger.Warning(err)
 	}
 }
@@ -228,8 +233,23 @@ func (t *Tgbot) editMessageTgBot(chatId int64, messageID int, text string, inlin
 		params.ReplyMarkup = inlineKeyboard[0]
 	}
 	if _, err := bot.EditMessageText(context.Background(), &params); err != nil {
+		if isTelegramNotModifiedError(err) {
+			logger.Debug("Telegram message text unchanged, skipping edit")
+			return
+		}
 		logger.Warning(err)
 	}
+}
+
+// Telegram answers a no-op edit with a 400 whose description carries this text;
+// a refresh tap that changed nothing is not an operator-visible failure.
+func isTelegramNotModifiedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return strings.Contains(errStr, "not modified") ||
+		strings.Contains(errStr, "No fields to modify")
 }
 
 // SendMsgToTgbotDeleteAfter sends a message and deletes it after a specified delay.

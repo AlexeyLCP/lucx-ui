@@ -1125,7 +1125,7 @@ export const SCHEMAS: Record<string, unknown> = {
     "description": "Client represents a client configuration for Xray inbounds with traffic limits and settings.",
     "properties": {
       "adTag": {
-        "example": "0123456789abcdef0123456789abcdef",
+        "example": "ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d",
         "type": "string"
       },
       "allowedIPs": {
@@ -1312,6 +1312,56 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "ClientPageResponse": {
+    "description": "ClientPageResponse is the shape returned by ListPaged. `Total` is the\nrow count in the DB; `Filtered` is the count after Search/Filter/Protocol\nwere applied, before pagination. The page contains at most PageSize items.\nSummary is computed across the full DB row set so dashboard counters\non the clients page stay stable as the user paginates/filters.",
+    "properties": {
+      "filtered": {
+        "example": 47,
+        "type": "integer"
+      },
+      "groups": {
+        "example": [
+          "staff",
+          "trial"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "items": {
+        "items": {
+          "$ref": "#/components/schemas/ClientSlim"
+        },
+        "type": "array"
+      },
+      "page": {
+        "example": 1,
+        "type": "integer"
+      },
+      "pageSize": {
+        "example": 25,
+        "type": "integer"
+      },
+      "summary": {
+        "$ref": "#/components/schemas/ClientsSummary"
+      },
+      "total": {
+        "example": 2000,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "filtered",
+      "groups",
+      "items",
+      "page",
+      "pageSize",
+      "summary",
+      "total"
+    ],
+    "type": "object"
+  },
   "ClientRecord": {
     "properties": {
       "adTag": {
@@ -1463,6 +1513,105 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "ClientSlim": {
+    "description": "ClientSlim is the row-shape used by the clients page. It drops fields the\ntable never reads (UUID, password, auth, flow, security, reverse, tgId)\nso the list payload stays compact even when the panel manages thousands\nof clients. Modals that need the full record still call /get/:email.",
+    "properties": {
+      "comment": {
+        "example": "Primary device",
+        "type": "string"
+      },
+      "createdAt": {
+        "example": 1735000000000,
+        "format": "int64",
+        "type": "integer"
+      },
+      "email": {
+        "example": "alice@example.com",
+        "type": "string"
+      },
+      "enable": {
+        "example": true,
+        "type": "boolean"
+      },
+      "expiryTime": {
+        "example": 1735689600000,
+        "format": "int64",
+        "type": "integer"
+      },
+      "group": {
+        "example": "staff",
+        "type": "string"
+      },
+      "inboundIds": {
+        "example": [
+          3,
+          5
+        ],
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
+      },
+      "limitHwid": {
+        "example": 0,
+        "type": "integer"
+      },
+      "limitIp": {
+        "example": 0,
+        "type": "integer"
+      },
+      "reset": {
+        "example": 0,
+        "type": "integer"
+      },
+      "resetDay": {
+        "example": 0,
+        "type": "integer"
+      },
+      "resetMax": {
+        "example": 0,
+        "type": "integer"
+      },
+      "subId": {
+        "example": "abcd1234",
+        "type": "string"
+      },
+      "totalGB": {
+        "example": 53687091200,
+        "format": "int64",
+        "type": "integer"
+      },
+      "traffic": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/ClientTraffic"
+          }
+        ],
+        "nullable": true
+      },
+      "updatedAt": {
+        "example": 1735100000000,
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "createdAt",
+      "email",
+      "enable",
+      "expiryTime",
+      "inboundIds",
+      "limitHwid",
+      "limitIp",
+      "reset",
+      "resetDay",
+      "resetMax",
+      "subId",
+      "totalGB",
+      "updatedAt"
+    ],
+    "type": "object"
+  },
   "ClientTraffic": {
     "description": "ClientTraffic represents traffic statistics and limits for a specific client.\nIt tracks upload/download usage, expiry times, and online status for inbound clients.",
     "properties": {
@@ -1557,6 +1706,80 @@ export const SCHEMAS: Record<string, unknown> = {
       "total",
       "up",
       "uuid"
+    ],
+    "type": "object"
+  },
+  "ClientsSummary": {
+    "description": "ClientsSummary collects per-bucket counts plus the matching email lists so\nthe clients page can render the dashboard stat cards and their hover\npopovers without shipping the full client array. The counters are exact;\nthe lists stop at clientSummaryEmailCap entries and only back the popovers.",
+    "properties": {
+      "active": {
+        "example": 1850,
+        "type": "integer"
+      },
+      "deactive": {
+        "example": [
+          "bob@example.com"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "deactiveCount": {
+        "example": 150,
+        "type": "integer"
+      },
+      "depleted": {
+        "example": [],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "depletedCount": {
+        "example": 0,
+        "type": "integer"
+      },
+      "expiring": {
+        "example": [],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "expiringCount": {
+        "example": 0,
+        "type": "integer"
+      },
+      "online": {
+        "example": [
+          "alice@example.com"
+        ],
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "onlineCount": {
+        "example": 1,
+        "type": "integer"
+      },
+      "total": {
+        "example": 2000,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "active",
+      "deactive",
+      "deactiveCount",
+      "depleted",
+      "depletedCount",
+      "expiring",
+      "expiringCount",
+      "online",
+      "onlineCount",
+      "total"
     ],
     "type": "object"
   },
@@ -1723,6 +1946,18 @@ export const SCHEMAS: Record<string, unknown> = {
     "required": [
       "reason",
       "token"
+    ],
+    "type": "object"
+  },
+  "HappLinkResult": {
+    "properties": {
+      "encryptedLink": {
+        "example": "happ://crypt5/example",
+        "type": "string"
+      }
+    },
+    "required": [
+      "encryptedLink"
     ],
     "type": "object"
   },
@@ -2126,6 +2361,39 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "HwidSlotStatus": {
+    "description": "HwidSlotStatus is the aggregate device-slot view exposed to subscribers:\ncounters only, no hwid value or hash, no email, no device metadata.",
+    "properties": {
+      "active": {
+        "example": true,
+        "type": "boolean"
+      },
+      "full": {
+        "example": false,
+        "type": "boolean"
+      },
+      "limit": {
+        "example": 2,
+        "type": "integer"
+      },
+      "registered": {
+        "example": 1,
+        "type": "integer"
+      },
+      "remaining": {
+        "example": 1,
+        "type": "integer"
+      }
+    },
+    "required": [
+      "active",
+      "full",
+      "limit",
+      "registered",
+      "remaining"
+    ],
+    "type": "object"
+  },
   "Inbound": {
     "description": "Inbound represents an Xray inbound configuration with traffic statistics and settings.",
     "properties": {
@@ -2206,6 +2474,7 @@ export const SCHEMAS: Record<string, unknown> = {
           "tun",
           "mtproto",
           "amneziawg",
+          "tuic",
           "awg",
           "naive",
           "olcrtc",
@@ -2239,9 +2508,8 @@ export const SCHEMAS: Record<string, unknown> = {
       "sniffing": {},
       "streamSettings": {},
       "subSortIndex": {
-        "description": "1-based sort order of this inbound's links in subscription output only (lower first; ties by id)",
+        "description": "Sort order of this inbound's links in subscription output only (lower first; negatives allowed; 0/omitted → 1; ties by id)",
         "example": 1,
-        "minimum": 1,
         "type": "integer"
       },
       "tag": {
@@ -2464,6 +2732,77 @@ export const SCHEMAS: Record<string, unknown> = {
       "ssMethod",
       "tag",
       "tlsFlowCapable"
+    ],
+    "type": "object"
+  },
+  "InboundTrafficSummary": {
+    "properties": {
+      "down": {
+        "example": 2097152,
+        "format": "int64",
+        "type": "integer"
+      },
+      "enable": {
+        "example": true,
+        "type": "boolean"
+      },
+      "id": {
+        "example": 1,
+        "type": "integer"
+      },
+      "total": {
+        "example": 10737418240,
+        "format": "int64",
+        "type": "integer"
+      },
+      "up": {
+        "example": 1048576,
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "down",
+      "enable",
+      "id",
+      "total",
+      "up"
+    ],
+    "type": "object"
+  },
+  "LogEntry": {
+    "properties": {
+      "dateTime": {
+        "format": "date-time",
+        "type": "string"
+      },
+      "email": {
+        "type": "string"
+      },
+      "event": {
+        "type": "integer"
+      },
+      "fromAddress": {
+        "type": "string"
+      },
+      "inbound": {
+        "type": "string"
+      },
+      "outbound": {
+        "type": "string"
+      },
+      "toAddress": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "dateTime",
+      "email",
+      "event",
+      "fromAddress",
+      "inbound",
+      "outbound",
+      "toAddress"
     ],
     "type": "object"
   },
@@ -3263,6 +3602,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": "h2",
         "type": "string"
       },
+      "certChainBytes": {
+        "description": "CertChainBytes is the sum of DER lengths of the presented peer chain.\nxray-core ML-DSA-65 REALITY needs \u003e= 3500 bytes (constant lives in xray-core).",
+        "example": 3427,
+        "type": "integer"
+      },
       "certChainValid": {
         "description": "CertChainValid ignores the name: a trusted chain presented for other names\nstill has serverNames the panel can offer instead of the failing SNI.",
         "example": true,
@@ -3345,6 +3689,7 @@ export const SCHEMAS: Record<string, unknown> = {
     },
     "required": [
       "alpn",
+      "certChainBytes",
       "certChainValid",
       "certIssuer",
       "certSubject",
@@ -3558,6 +3903,13 @@ export const SCHEMAS: Record<string, unknown> = {
         },
         "type": "array"
       },
+      "memberWeights": {
+        "additionalProperties": {
+          "type": "number"
+        },
+        "description": "inboundId -\u003e leastLoad weight; absent entries mean 1.0. Only meaningful\nwith Strategy \"leastLoad\" — xray ignores costs on every other strategy.",
+        "type": "object"
+      },
       "remark": {
         "example": "auto-fastest",
         "maxLength": 256,
@@ -3593,6 +3945,113 @@ export const SCHEMAS: Record<string, unknown> = {
       "sortOrder",
       "strategy",
       "updatedAt"
+    ],
+    "type": "object"
+  },
+  "Traffic": {
+    "description": "Traffic represents network traffic statistics for Xray connections.\nIt tracks upload and download bytes for inbound or outbound traffic.",
+    "properties": {
+      "Down": {
+        "example": 2097152,
+        "format": "int64",
+        "type": "integer"
+      },
+      "IsInbound": {
+        "example": true,
+        "type": "boolean"
+      },
+      "IsOutbound": {
+        "example": false,
+        "type": "boolean"
+      },
+      "Tag": {
+        "example": "inbound-443",
+        "type": "string"
+      },
+      "Up": {
+        "example": 1048576,
+        "format": "int64",
+        "type": "integer"
+      }
+    },
+    "required": [
+      "Down",
+      "IsInbound",
+      "IsOutbound",
+      "Tag",
+      "Up"
+    ],
+    "type": "object"
+  },
+  "TuicClientSettings": {
+    "properties": {
+      "email": {
+        "type": "string"
+      },
+      "password": {
+        "type": "string"
+      },
+      "uuid": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "email",
+      "password",
+      "uuid"
+    ],
+    "type": "object"
+  },
+  "TuicServerSettings": {
+    "properties": {
+      "alpn": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
+      "authentication_timeout": {
+        "type": "integer"
+      },
+      "certificate": {
+        "type": "string"
+      },
+      "congestion_control": {
+        "type": "string"
+      },
+      "log_level": {
+        "type": "string"
+      },
+      "max_idle_time": {
+        "type": "integer"
+      },
+      "max_udp_relay_packet_size": {
+        "type": "integer"
+      },
+      "private_key": {
+        "type": "string"
+      },
+      "sni": {
+        "type": "string"
+      },
+      "udp_relay_mode": {
+        "type": "string"
+      },
+      "zero_rtt_handshake": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "alpn",
+      "authentication_timeout",
+      "certificate",
+      "congestion_control",
+      "log_level",
+      "max_idle_time",
+      "max_udp_relay_packet_size",
+      "private_key",
+      "udp_relay_mode",
+      "zero_rtt_handshake"
     ],
     "type": "object"
   },

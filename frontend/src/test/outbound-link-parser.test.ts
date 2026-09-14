@@ -57,6 +57,34 @@ describe('parseVmessLink', () => {
     expect((stream.tlsSettings as Record<string, unknown>).alpn).toEqual(['h2', 'http/1.1']);
   });
 
+  // The exporter writes ech/vcn/pcs into the vmess object, so the importer has
+  // to read them instead of leaving the tls checks it seeded empty.
+  it('keeps the ech, vcn and pcs certificate checks', () => {
+    const json = {
+      v: '2',
+      ps: 'pinned-vmess',
+      add: '1.2.3.4',
+      port: 8443,
+      id: '11111111-2222-4333-8444-555555555555',
+      scy: 'auto',
+      net: 'tcp',
+      tls: 'tls',
+      sni: 'vmess.example.com',
+      fp: 'chrome',
+      ech: 'AEX+DQBB',
+      vcn: 'vcn.example.com',
+      pcs: 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=',
+    };
+    const link = `vmess://${Base64.encode(JSON.stringify(json))}`;
+    const out = parseVmessLink(link);
+    expect(out).not.toBeNull();
+    const stream = out?.streamSettings as Record<string, unknown>;
+    const tls = stream.tlsSettings as Record<string, unknown>;
+    expect(tls.echConfigList).toBe('AEX+DQBB');
+    expect(tls.verifyPeerCertByName).toBe('vcn.example.com');
+    expect(tls.pinnedPeerCertSha256).toBe('AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=');
+  });
+
   it('returns null for non-vmess links', () => {
     expect(parseVmessLink('vless://x@y:1')).toBeNull();
   });
@@ -238,6 +266,67 @@ describe('parseVlessLink', () => {
   });
 });
 
+describe('mKCP share params', () => {
+  // The emitter flattens one mkcp-legacy mask per field into headerType/seed; a merged
+  // mask drops the seed in xray-core (MkcpLegacy.Build), so import rebuilds them separately.
+  type Mask = { type: string; settings: { header: string; value: string } };
+  const parse = (link: string) => {
+    const out = link.startsWith('trojan://') ? parseTrojanLink(link) : parseVlessLink(link);
+    expect(out).not.toBeNull();
+    const stream = out!.streamSettings as Record<string, unknown>;
+    const kcp = stream.kcpSettings as { mtu: number; tti: number };
+    const udp = (stream.finalmask as { udp?: Mask[] } | undefined)?.udp ?? [];
+    return {
+      kcp: { mtu: kcp.mtu, tti: kcp.tti },
+      masks: udp.map((m) => [m.type, m.settings.header, m.settings.value]),
+    };
+  };
+
+  it.each([
+    [
+      'vless header and seed become two masks, seed first',
+      'vless://11111111-2222-4333-8444-555555555555@h.com:443?type=kcp&headerType=wechat-video&seed=secret-seed&mtu=1400&tti=50&security=none#kcp1',
+      { mtu: 1400, tti: 50 },
+      [
+        ['mkcp-legacy', '', 'secret-seed'],
+        ['mkcp-legacy', 'wechat', ''],
+      ],
+    ],
+    [
+      'trojan header only adds no seed mask',
+      'trojan://pw@h.com:443?type=kcp&headerType=srtp&security=none#kcp-tj',
+      { mtu: 1350, tti: 20 },
+      [['mkcp-legacy', 'srtp', '']],
+    ],
+    [
+      'seed only adds no header mask',
+      'vless://uuid@h.com:443?type=kcp&headerType=none&seed=abc123&security=none',
+      { mtu: 1350, tti: 20 },
+      [['mkcp-legacy', '', 'abc123']],
+    ],
+    [
+      'mtu/tti outside KCPConfig.Build bounds keep the defaults',
+      'vless://uuid@h.com:443?type=kcp&mtu=10&tti=5000&security=none',
+      { mtu: 1350, tti: 20 },
+      [],
+    ],
+    [
+      'non-decimal mtu keeps the default like the Go importer',
+      'vless://uuid@h.com:443?type=kcp&mtu=1.5&tti=1e2&security=none',
+      { mtu: 1350, tti: 20 },
+      [],
+    ],
+    [
+      'a prototype key is not a header type',
+      'vless://uuid@h.com:443?type=kcp&headerType=constructor&seed=abc&security=none',
+      { mtu: 1350, tti: 20 },
+      [],
+    ],
+  ])('%s', (_name, link, kcp, masks) => {
+    expect(parse(link)).toEqual({ kcp, masks });
+  });
+});
+
 describe('parseTrojanLink', () => {
   it('parses a trojan:// link with ws + tls', () => {
     const link =
@@ -302,6 +391,53 @@ describe('parseShadowsocksLink', () => {
     expect(settings.servers[0].port).toBe(1080);
     expect(settings.servers[0].method).toBe('aes-256-gcm');
     expect(settings.servers[0].password).toBe('legacypw');
+  });
+
+  it('preserves Xray TLS query params on import (round-trip)', () => {
+    const userinfo = Base64.encode('chacha20-ietf-poly1305:secretpass', true);
+    const link =
+      `ss://${userinfo}@example.com:443` +
+      '?alpn=h2%2Chttp%2F1.1&fp=firefox&security=tls&sni=example.com&type=tcp#user';
+    const out = parseShadowsocksLink(link);
+    expect(out?.protocol).toBe('shadowsocks');
+    expect(out?.tag).toBe('user');
+    const settings = out?.settings as {
+      servers: Array<{ address: string; port: number; method: string; password: string }>;
+    };
+    expect(settings.servers[0]).toMatchObject({
+      address: 'example.com',
+      port: 443,
+      method: 'chacha20-ietf-poly1305',
+      password: 'secretpass',
+    });
+    const stream = out?.streamSettings as Record<string, unknown>;
+    expect(stream.network).toBe('tcp');
+    expect(stream.security).toBe('tls');
+    const tls = stream.tlsSettings as Record<string, unknown>;
+    expect(tls.serverName).toBe('example.com');
+    expect(tls.fingerprint).toBe('firefox');
+    expect(tls.alpn).toEqual(['h2', 'http/1.1']);
+  });
+
+  // The panel exports tcp/http obfuscation as the SIP002 plugin only, so the
+  // importer has to rebuild the header it stands for.
+  it('rebuilds the tcp/http header from the obfs-local plugin', () => {
+    const userinfo = Base64.encode('aes-256-gcm:secretpass', true);
+    const plugin = encodeURIComponent('obfs-local;obfs=http;obfs-host=obfs.example.com');
+    const link = `ss://${userinfo}@example.com:8388?plugin=${plugin}#user`;
+    const stream = parseShadowsocksLink(link)?.streamSettings as Record<string, unknown>;
+    expect((stream.tcpSettings as Record<string, unknown>).header).toMatchObject({
+      type: 'http',
+      request: { headers: { Host: ['obfs.example.com'] } },
+    });
+  });
+
+  it('leaves a plugin without an xray header alone', () => {
+    const userinfo = Base64.encode('aes-256-gcm:secretpass', true);
+    const plugin = encodeURIComponent('obfs-local;obfs=tls');
+    const link = `ss://${userinfo}@example.com:8388?plugin=${plugin}#user`;
+    const stream = parseShadowsocksLink(link)?.streamSettings as Record<string, unknown>;
+    expect((stream.tcpSettings as Record<string, unknown>).header).toMatchObject({ type: 'none' });
   });
 
   it('decodes URL-safe base64 userinfo (as the emitter writes it)', () => {
@@ -443,7 +579,9 @@ describe('parseHysteria2Link', () => {
     expect((udp[0].settings as Record<string, unknown>).password).toBe('fromobfs');
   });
 
-  it('reconstructs udpHop from the standard mport param', () => {
+  // xray-core 26.9.9 ignores quicParams.udpHop; hopping is a 'udphop' UDP mask
+  // and its mode must be one the core's UDPHop.Build() accepts.
+  it('reconstructs a udphop mask from the standard mport param', () => {
     const out = parseHysteria2Link(
       'hysteria2://auth@srv:443?security=tls&mport=20000-50000#hy2-mport',
     );
@@ -451,16 +589,25 @@ describe('parseHysteria2Link', () => {
       string,
       unknown
     >;
-    const quic = finalmask.quicParams as Record<string, unknown>;
-    const udpHop = quic.udpHop as Record<string, unknown>;
-    expect(udpHop.ports).toBe('20000-50000');
-    expect(udpHop.interval).toBe('5-10');
+    const udp = finalmask.udp as Array<Record<string, unknown>>;
+    const hop = udp.find((mask) => mask.type === 'udphop');
+    expect(hop).toBeDefined();
+    const settings = hop!.settings as Record<string, unknown>;
+    expect(settings.remotePorts).toBe('20000-50000');
+    expect(settings.interval).toBe('5-10');
+    expect(settings.mode).toBe('intervalremote');
+    expect((finalmask.quicParams as Record<string, unknown> | undefined)?.udpHop).toBeUndefined();
   });
 
-  it('lets an fm= udpHop win over mport', () => {
+  it('lets an fm= udphop mask win over mport', () => {
     const fm = encodeURIComponent(
       JSON.stringify({
-        quicParams: { udpHop: { ports: '30000-40000', interval: '7-9' } },
+        udp: [
+          {
+            type: 'udphop',
+            settings: { mode: 'intervalremote', interval: '7-9', remotePorts: '30000-40000' },
+          },
+        ],
       }),
     );
     const link = `hysteria2://auth@srv:443?security=tls&mport=1-2&fm=${fm}#hy2-mport-fm`;
@@ -469,12 +616,11 @@ describe('parseHysteria2Link', () => {
       string,
       unknown
     >;
-    const udpHop = (finalmask.quicParams as Record<string, unknown>).udpHop as Record<
-      string,
-      unknown
-    >;
-    expect(udpHop.ports).toBe('30000-40000');
-    expect(udpHop.interval).toBe('7-9');
+    const udp = finalmask.udp as Array<Record<string, unknown>>;
+    expect(udp).toHaveLength(1);
+    const settings = udp[0].settings as Record<string, unknown>;
+    expect(settings.remotePorts).toBe('30000-40000');
+    expect(settings.interval).toBe('7-9');
   });
 
   it('round-trips the salamander packetSize (Gecko) under fm', () => {
@@ -806,5 +952,37 @@ describe('parseOutboundLink dispatcher', () => {
   it('returns null for empty input', () => {
     expect(parseOutboundLink('')).toBeNull();
     expect(parseOutboundLink('   ')).toBeNull();
+  });
+});
+
+describe('obfs=gecko packetSize validation', () => {
+  const base = 'hysteria2://secret@1.2.3.4:443?security=tls&obfs=gecko&obfs-password=pw';
+
+  const packetSizeOf = (link: string): string | undefined => {
+    const out = parseHysteria2Link(link);
+    expect(out).not.toBeNull();
+    const finalmask = (out!.streamSettings as Record<string, unknown>).finalmask as
+      | Record<string, unknown>
+      | undefined;
+    const udp = (finalmask?.udp ?? []) as Array<Record<string, unknown>>;
+    const mask = udp.find((m) => m.type === 'salamander');
+    return (mask?.settings as Record<string, unknown> | undefined)?.packetSize as
+      | string
+      | undefined;
+  };
+
+  it('stores a valid range', () => {
+    expect(packetSizeOf(`${base}&minPacketSize=512&maxPacketSize=1200`)).toBe('512-1200');
+  });
+
+  it.each([
+    ['min only', `${base}&minPacketSize=512`],
+    ['max only', `${base}&maxPacketSize=1200`],
+    ['non-numeric', `${base}&minPacketSize=abc&maxPacketSize=def`],
+    ['zero min', `${base}&minPacketSize=0&maxPacketSize=1200`],
+    ['inverted', `${base}&minPacketSize=1200&maxPacketSize=512`],
+    ['over cap', `${base}&minPacketSize=512&maxPacketSize=4096`],
+  ])('drops the %s range', (_name, link) => {
+    expect(packetSizeOf(link)).toBeUndefined();
   });
 });

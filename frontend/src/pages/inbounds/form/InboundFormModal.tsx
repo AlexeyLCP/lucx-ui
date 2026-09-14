@@ -81,6 +81,7 @@ import {
   TproxyFields, // LUCX-HOOK: Telegram WEB proxy
   CoverFields, // LUCX-HOOK: cover site
   ShadowsocksFields,
+  TuicFields,
   TunFields,
   TunnelFields,
   VlessFields,
@@ -326,7 +327,8 @@ export default function InboundFormModal({
   const hasSelectableTransport =
     protocol !== Protocols.HYSTERIA &&
     protocol !== Protocols.WIREGUARD &&
-    protocol !== Protocols.TUNNEL;
+    protocol !== Protocols.TUNNEL &&
+    protocol !== Protocols.TUIC;
 
   const wPort = useWatch({ control, name: 'port' });
   const wListen = (useWatch({ control, name: 'listen' }) ?? '') as string;
@@ -538,8 +540,14 @@ export default function InboundFormModal({
    */
   useEffect(() => {
     if (!open) return;
-    if (!availableNodesFetched || !protocol) return;
+    if (!protocol) return;
     const current = getV('shareAddrStrategy') as InboundFormValues['shareAddrStrategy'] | undefined;
+    if (protocol === Protocols.MTPROTO) {
+      if (current !== 'listen') setV('shareAddrStrategy', 'listen');
+      if (getV('shareAddr')) setV('shareAddr', '');
+      return;
+    }
+    if (!availableNodesFetched) return;
     if (!nodeShareOptionAvailable && (current ?? 'node') === 'node') {
       setV('shareAddrStrategy', 'listen');
     }
@@ -673,6 +681,7 @@ export default function InboundFormModal({
     const parsed = InboundFormSchema.safeParse(values);
     if (!parsed.success) {
       const issues = parsed.error.issues;
+      setActiveTab(tabForValidationPath(issues[0].path));
       messageApi.error(formatInboundValidation(issues, values, t));
       console.error(
         '[InboundFormModal] schema validation failed:',
@@ -785,37 +794,42 @@ export default function InboundFormModal({
         <Input placeholder={t('pages.inbounds.monitorDesc')} />
       </FormField>
 
-      <FormField
-        name="shareAddrStrategy"
-        label={labelWithHint(
-          t('pages.inbounds.form.shareAddrStrategy'),
-          t('pages.inbounds.form.shareAddrStrategyHelp'),
-        )}
-      >
-        <Select
-          options={SHARE_ADDR_STRATEGIES.filter(
-            (strategy) => strategy !== 'node' || nodeShareOptionAvailable,
-          ).map((strategy) => ({
-            value: strategy,
-            label: t(`pages.inbounds.form.shareAddrStrategyOptions.${strategy}`),
-          }))}
-        />
-      </FormField>
+      {protocol !== Protocols.MTPROTO && (
+        <>
+          <FormField
+            name="shareAddrStrategy"
+            label={labelWithHint(
+              t('pages.inbounds.form.shareAddrStrategy'),
+              t('pages.inbounds.form.shareAddrStrategyHelp'),
+            )}
+          >
+            <Select
+              options={SHARE_ADDR_STRATEGIES.filter(
+                (strategy) => strategy !== 'node' || nodeShareOptionAvailable,
+              ).map((strategy) => ({
+                value: strategy,
+                label: t(`pages.inbounds.form.shareAddrStrategyOptions.${strategy}`),
+              }))}
+            />
+          </FormField>
 
-      {shareAddrStrategy === 'custom' && (
-        <FormField
-          name="shareAddr"
-          label={labelWithHint(
-            t('pages.inbounds.form.shareAddr'),
-            t('pages.inbounds.form.shareAddrHelp'),
+          {shareAddrStrategy === 'custom' && (
+            <FormField
+              name="shareAddr"
+              label={labelWithHint(
+                t('pages.inbounds.form.shareAddr'),
+                t('pages.inbounds.form.shareAddrHelp'),
+              )}
+              rules={{
+                validate: (value) =>
+                  isValidShareAddrInput(String(value ?? '')) ||
+                  t('pages.inbounds.form.shareAddrHelp'),
+              }}
+            >
+              <Input placeholder="edge.example.com" />
+            </FormField>
           )}
-          rules={{
-            validate: (value) =>
-              isValidShareAddrInput(String(value ?? '')) || t('pages.inbounds.form.shareAddrHelp'),
-          }}
-        >
-          <Input placeholder="edge.example.com" />
-        </FormField>
+        </>
       )}
 
       <FormField
@@ -825,7 +839,7 @@ export default function InboundFormModal({
           t('pages.inbounds.form.subSortIndexHelp'),
         )}
       >
-        <InputNumber min={1} />
+        <InputNumber />
       </FormField>
 
       {protocol === Protocols.VLESS && (
@@ -926,6 +940,8 @@ export default function InboundFormModal({
           regenInboundAwgObfuscation={regenInboundAwgObfuscation}
         />
       )}
+
+      {protocol === Protocols.TUIC && <TuicFields />}
 
       {protocol === Protocols.TUN && <TunFields />}
 
@@ -1256,6 +1272,84 @@ export default function InboundFormModal({
         destroyOnHidden
       >
         <FormProvider {...methods}>
+          <Form
+            colon={false}
+            labelCol={{ sm: { span: 8 } }}
+            wrapperCol={{ sm: { span: 14 } }}
+            labelWrap
+          >
+            <Tabs
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              items={[
+                {
+                  key: 'basic',
+                  label: t('pages.xray.basicTemplate'),
+                  children: basicTab,
+                  forceRender: true,
+                },
+                ...((
+                  [
+                    Protocols.VLESS,
+                    Protocols.SHADOWSOCKS,
+                    Protocols.HTTP,
+                    Protocols.MIXED,
+                    Protocols.TUNNEL,
+                    Protocols.TUN,
+                    Protocols.WIREGUARD,
+                    Protocols.MTPROTO,
+                    Protocols.AMNEZIAWG,
+                    Protocols.TUIC,
+                  ] as string[]
+                ).includes(protocol) || isFallbackHost
+                  ? [
+                      {
+                        key: 'protocol',
+                        label: t('pages.inbounds.protocol'),
+                        children: protocolTab,
+                        forceRender: true,
+                      },
+                    ]
+                  : []),
+                ...(streamEnabled
+                  ? [
+                      {
+                        key: 'stream',
+                        label: t('pages.inbounds.streamTab'),
+                        children: streamTab,
+                        forceRender: true,
+                      },
+                      ...(protocol !== Protocols.WIREGUARD && protocol !== Protocols.TUNNEL
+                        ? [
+                            {
+                              key: 'security',
+                              label: t('pages.inbounds.securityTab'),
+                              children: securityTab,
+                              forceRender: true,
+                            },
+                          ]
+                        : []),
+                    ]
+                  : []),
+                ...(sniffingSupported
+                  ? [
+                      {
+                        key: 'sniffing',
+                        label: t('pages.inbounds.sniffingTab'),
+                        children: sniffingTab,
+                        forceRender: true,
+                      },
+                    ]
+                  : []),
+                {
+                  key: 'advanced',
+                  label: t('pages.xray.advancedTemplate'),
+                  children: advancedTab,
+                  forceRender: true,
+                },
+              ]}
+            />
+          </Form>
           {/* LUCX-HOOK: AWG — publish the editing inbound id for the diagnostics button (null for new inbound) */}
           <AwgInboundIdProvider value={mode === 'edit' && dbInbound ? dbInbound.id : null}>
             {/* END LUCX-HOOK */}

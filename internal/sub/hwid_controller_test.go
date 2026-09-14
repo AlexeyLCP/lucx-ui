@@ -1,10 +1,12 @@
 package sub
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"reflect"
 	"testing"
 
 	"github.com/gin-gonic/gin"
@@ -87,7 +89,17 @@ func requestSub(t *testing.T, router *gin.Engine, method string, path string, hw
 func TestSubscriptionHwidGateAcrossBodyRoutes(t *testing.T) {
 	router, subID := initHwidSubRouter(t, 1)
 
-	for _, path := range []string{"/sub/" + subID, "/json/" + subID, "/clash/" + subID} {
+	// ?view=raw only tells /json/ and /clash/ to serve the body instead of the
+	// HTML page, so it stays gated like the plain route (#GHSA-7ww3).
+	bodyRoutes := []string{
+		"/sub/" + subID,
+		"/json/" + subID,
+		"/clash/" + subID,
+		"/json/" + subID + "?view=raw",
+		"/clash/" + subID + "?view=RaW",
+	}
+
+	for _, path := range bodyRoutes {
 		rec := requestSub(t, router, http.MethodGet, path, "", "")
 		if rec.Code != http.StatusNotFound {
 			t.Fatalf("%s missing HWID status = %d, want 404", path, rec.Code)
@@ -102,7 +114,7 @@ func TestSubscriptionHwidGateAcrossBodyRoutes(t *testing.T) {
 		t.Fatalf("HEAD missing HWID = %d %#v", rec.Code, rec.Header())
 	}
 
-	for _, path := range []string{"/sub/" + subID, "/json/" + subID, "/clash/" + subID} {
+	for _, path := range bodyRoutes {
 		rec = requestSub(t, router, http.MethodGet, path, "device-one", "")
 		if rec.Code != http.StatusOK {
 			t.Fatalf("%s registered HWID status = %d, body=%q", path, rec.Code, rec.Body.String())
@@ -112,12 +124,14 @@ func TestSubscriptionHwidGateAcrossBodyRoutes(t *testing.T) {
 		}
 	}
 
-	rec = requestSub(t, router, http.MethodGet, "/json/"+subID, "device-two", "")
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("new HWID after limit status = %d, want 404", rec.Code)
-	}
-	if rec.Header().Get("X-Hwid-Max-Devices-Reached") != "true" || rec.Header().Get("X-Hwid-Limit") != "true" {
-		t.Fatalf("limit headers missing: %#v", rec.Header())
+	for _, path := range bodyRoutes {
+		rec = requestSub(t, router, http.MethodGet, path, "device-two", "")
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("%s new HWID after limit status = %d, want 404", path, rec.Code)
+		}
+		if rec.Header().Get("X-Hwid-Max-Devices-Reached") != "true" || rec.Header().Get("X-Hwid-Limit") != "true" {
+			t.Fatalf("%s limit headers missing: %#v", path, rec.Header())
+		}
 	}
 }
 
@@ -130,5 +144,115 @@ func TestSubscriptionHwidGateSkipsHtmlInfoPage(t *testing.T) {
 	}
 	if rec.Header().Get("X-Hwid-Not-Supported") != "" {
 		t.Fatalf("HTML sub page should not be HWID-gated: %#v", rec.Header())
+	}
+}
+
+// Decoding into a map rather than the service struct keeps the exact field set
+// asserted, so an extra field leaking into the response fails the test.
+func assertHwidStatus(t *testing.T, rec *httptest.ResponseRecorder, active bool, limit, registered, remaining int, full bool) {
+	t.Helper()
+	if rec.Code != http.StatusOK {
+		t.Fatalf("hwid-status status = %d, body=%q", rec.Code, rec.Body.String())
+	}
+	var got map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode hwid-status body %q: %v", rec.Body.String(), err)
+	}
+	want := map[string]any{
+		"active":     active,
+		"limit":      float64(limit),
+		"registered": float64(registered),
+		"remaining":  float64(remaining),
+		"full":       full,
+	}
+	if len(got) != len(want) {
+		t.Fatalf("hwid-status fields = %#v, want exactly %#v", got, want)
+	}
+	for key, value := range want {
+		if got[key] != value {
+			t.Fatalf("hwid-status[%q] = %#v, want %#v (body %#v)", key, got[key], value, got)
+		}
+	}
+}
+
+func TestSubscriptionHwidStatusCountsRegisteredDevices(t *testing.T) {
+	router, subID := initHwidSubRouter(t, 2)
+	statusPath := "/sub/" + subID + "/hwid-status"
+
+	assertHwidStatus(t, requestSub(t, router, http.MethodGet, statusPath, "", ""), true, 2, 0, 2, false)
+
+	for i, hwid := range []string{"device-one", "device-two"} {
+		if rec := requestSub(t, router, http.MethodGet, "/sub/"+subID, hwid, ""); rec.Code != http.StatusOK {
+			t.Fatalf("register %s = %d, want 200", hwid, rec.Code)
+		}
+		registered := i + 1
+		rec := requestSub(t, router, http.MethodGet, statusPath, "", "")
+		assertHwidStatus(t, rec, true, 2, registered, 2-registered, registered == 2)
+	}
+
+	if rec := requestSub(t, router, http.MethodHead, statusPath, "", ""); rec.Code != http.StatusOK {
+		t.Fatalf("HEAD hwid-status = %d, want 200", rec.Code)
+	}
+}
+
+// The endpoint must stay SELECT-only: asking about slots while carrying an
+// X-HWID header must not spend the slot the caller is asking about.
+func TestSubscriptionHwidStatusDoesNotRegisterDevice(t *testing.T) {
+	router, subID := initHwidSubRouter(t, 1)
+
+	rec := requestSub(t, router, http.MethodGet, "/sub/"+subID+"/hwid-status", "device-probe", "")
+	assertHwidStatus(t, rec, true, 1, 0, 1, false)
+	for _, header := range []string{"X-Hwid-Active", "X-Hwid-Limit", "X-Hwid-Not-Supported", "X-Hwid-Max-Devices-Reached"} {
+		if value := rec.Header().Get(header); value != "" {
+			t.Fatalf("hwid-status leaked gate header %s = %q", header, value)
+		}
+	}
+
+	var count int64
+	if err := database.GetDB().Model(&model.ClientHwid{}).Where("sub_id = ?", subID).Count(&count).Error; err != nil {
+		t.Fatalf("count hwids: %v", err)
+	}
+	if count != 0 {
+		t.Fatalf("client_hwids rows after status probe = %d, want 0", count)
+	}
+	if rec := requestSub(t, router, http.MethodGet, "/sub/"+subID, "device-probe", ""); rec.Code != http.StatusOK {
+		t.Fatalf("subscription fetch after probe = %d, want 200", rec.Code)
+	}
+}
+
+func TestSubscriptionHwidStatusWithoutLimit(t *testing.T) {
+	router, subID := initHwidSubRouter(t, 0)
+
+	assertHwidStatus(t, requestSub(t, router, http.MethodGet, "/sub/"+subID+"/hwid-status", "", ""), false, 0, 0, 0, false)
+}
+
+// An unknown and a disabled subscription must be indistinguishable, so a
+// caller cannot probe which subscription ids exist.
+func TestSubscriptionHwidStatusHidesUnknownVersusDisabled(t *testing.T) {
+	router, subID := initHwidSubRouter(t, 1)
+
+	unknown := requestSub(t, router, http.MethodGet, "/sub/does-not-exist/hwid-status", "", "")
+	if unknown.Code != http.StatusNotFound {
+		t.Fatalf("unknown subId status = %d, want 404", unknown.Code)
+	}
+
+	if err := database.GetDB().Model(&model.ClientRecord{}).
+		Where("sub_id = ?", subID).
+		UpdateColumn("enable", false).Error; err != nil {
+		t.Fatalf("disable client: %v", err)
+	}
+	disabled := requestSub(t, router, http.MethodGet, "/sub/"+subID+"/hwid-status", "", "")
+
+	if disabled.Code != unknown.Code {
+		t.Fatalf("disabled status = %d, unknown status = %d, want identical", disabled.Code, unknown.Code)
+	}
+	if disabled.Body.String() != unknown.Body.String() {
+		t.Fatalf("disabled body = %q, unknown body = %q, want identical", disabled.Body.String(), unknown.Body.String())
+	}
+	if !reflect.DeepEqual(disabled.Header(), unknown.Header()) {
+		t.Fatalf("disabled headers = %#v, unknown headers = %#v, want identical", disabled.Header(), unknown.Header())
+	}
+	if disabled.Body.Len() != 0 {
+		t.Fatalf("404 body = %q, want empty", disabled.Body.String())
 	}
 }

@@ -11,6 +11,7 @@ import {
   NaiveClientSchema,
   ShadowsocksClientSchema,
   TrojanClientSchema,
+  TuicClientSchema,
   VlessClientSchema,
   VmessClientSchema,
   WireguardClientSchema,
@@ -20,6 +21,7 @@ import type { Sniffing } from '@/schemas/primitives';
 import type { z } from 'zod';
 import { normalizeStreamSettingsForWire } from '@/lib/xray/stream-wire-normalize';
 import { canEnableSniffing } from '@/lib/xray/protocol-capabilities';
+import { tlsCertUsesFiles } from '@/schemas/protocols/security/tls';
 import { SockoptStreamSettingsSchema } from '@/schemas/protocols/stream/sockopt';
 import { XHttpStreamSettingsSchema, XHttpXmuxSchema } from '@/schemas/protocols/stream/xhttp';
 
@@ -153,14 +155,7 @@ function tlsCerts(stream: Record<string, unknown>): Record<string, unknown>[] {
 }
 
 function synthesizeTlsCertUseFile(stream: Record<string, unknown>): void {
-  for (const c of tlsCerts(stream)) {
-    if (typeof c.useFile === 'boolean') continue;
-    const hasFile = !!c.certificateFile || !!c.keyFile;
-    const hasInline =
-      (Array.isArray(c.certificate) && c.certificate.length > 0) ||
-      (Array.isArray(c.key) && c.key.length > 0);
-    c.useFile = hasFile || !hasInline;
-  }
+  for (const c of tlsCerts(stream)) c.useFile = tlsCertUsesFiles(c);
 }
 
 function stripTlsCertUseFile(stream: Record<string, unknown>): void {
@@ -190,9 +185,17 @@ export function rawInboundToFormValues(row: RawInboundRow): InboundFormValues {
     }
     const so = streamRecord.sockopt;
     if (so && typeof so === 'object' && !Array.isArray(so)) {
-      const parsed = SockoptStreamSettingsSchema.safeParse(so);
+      const raw = { ...(so as Record<string, unknown>) };
+      // Imported/API configs may use lowercase v6only; the form key is V6Only.
+      if ('v6only' in raw) {
+        if (!('V6Only' in raw)) raw.V6Only = Boolean(raw.v6only);
+        delete raw.v6only;
+      }
+      const parsed = SockoptStreamSettingsSchema.safeParse(raw);
       if (parsed.success) {
-        streamRecord.sockopt = { ...(so as Record<string, unknown>), ...parsed.data };
+        streamRecord.sockopt = { ...raw, ...parsed.data };
+      } else {
+        streamRecord.sockopt = raw;
       }
     }
   }
@@ -216,7 +219,7 @@ export function rawInboundToFormValues(row: RawInboundRow): InboundFormValues {
     nodeId: row.nodeId ?? null,
     shareAddrStrategy: coerceShareAddrStrategy(row.shareAddrStrategy),
     shareAddr: row.shareAddr ?? '',
-    subSortIndex: Math.max(1, row.subSortIndex ?? 1),
+    subSortIndex: row.subSortIndex == null || row.subSortIndex === 0 ? 1 : row.subSortIndex,
     disableFlow: row.disableFlow ?? false,
     protocol,
     settings,
@@ -272,6 +275,8 @@ function clientSchemaForProtocol(protocol: string): z.ZodType | null {
       return MtprotoClientSchema;
     case 'amneziawg':
       return AmneziawgClientSchema;
+    case 'tuic':
+      return TuicClientSchema;
     case 'naive':
       return NaiveClientSchema;
     case 'mieru':

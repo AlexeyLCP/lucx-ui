@@ -30,9 +30,11 @@ const PROTOCOL_LABELS: Record<string, string> = {
   wg: 'WireGuard',
   tg: 'MTProto',
   vpn: 'AmneziaWG',
+  amneziawg: 'AmneziaWG',
+  awg: 'AmneziaWG (kernel)',
+  tuic: 'TUIC',
   // LUCX-HOOK: tunnel / AWG share schemes
   naive: 'Naive',
-  amneziawg: 'AmneziaWG',
   olcrtc: 'olcRTC',
   qwdtt: 'qWDTT',
   wdtt: 'qWDTT',
@@ -53,6 +55,8 @@ const PROTOCOL_COLORS: Record<string, string> = {
   WireGuard: 'cyan',
   MTProto: 'blue',
   AmneziaWG: 'yellow',
+  'AmneziaWG (kernel)': 'yellow',
+  TUIC: 'orange',
   Naive: 'orange',
   olcRTC: 'cyan',
   qWDTT: 'gold',
@@ -230,6 +234,10 @@ export function parseLinkParts(link: string): LinkParts | null {
       /* not URL-shaped, fall back to protocol only */
     }
     if (scheme === 'tg') security = 'FakeTLS';
+    if (scheme === 'tuic') {
+      network = 'quic';
+      security = 'TLS';
+    }
   }
   if (security === 'none') security = '';
   return {

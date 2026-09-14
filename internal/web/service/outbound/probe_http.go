@@ -18,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
@@ -177,6 +178,8 @@ func (s *OutboundService) testOutboundsParsed(items []map[string]any, testURL st
 		r := &TestOutboundResult{Tag: tag, Mode: probeLabel}
 		results[i] = r
 		protocol, _ := ob["protocol"].(string)
+		// The core lowercases the id before it resolves the handler.
+		protocol = strings.ToLower(protocol)
 		switch {
 		case tag == "":
 			r.Error = "Outbound has no tag"
@@ -384,13 +387,40 @@ func buildBatchTestConfig(items []*httpBatchItem, allOutbounds []any, ports []in
 			outbounds = append(outbounds, it.outbound)
 		}
 	}
+	// Bridge amneziawg entries like GetXrayConfig does -- one raw entry fails
+	// the whole temp config; drop unbridgeable ones, not unrelated items.
+	bridged := make([]any, 0, len(outbounds))
+	for _, ob := range outbounds {
+		m, ok := ob.(map[string]any)
+		if !ok {
+			bridged = append(bridged, ob)
+			continue
+		}
+		if p, _ := m["protocol"].(string); !strings.EqualFold(p, "amneziawg") {
+			bridged = append(bridged, ob)
+			continue
+		}
+		raw, err := json.Marshal(m)
+		if err != nil {
+			continue
+		}
+		repl, ok := amneziawgnet.BuildSocksBridge(raw)
+		if !ok {
+			continue
+		}
+		var replacement any
+		if json.Unmarshal(repl, &replacement) == nil {
+			bridged = append(bridged, replacement)
+		}
+	}
+	outbounds = bridged
 	for _, ob := range outbounds {
 		outbound, ok := ob.(map[string]any)
 		if !ok {
 			continue
 		}
 		// The temp instance must not touch kernel WireGuard devices.
-		if protocol, ok := outbound["protocol"].(string); ok && protocol == "wireguard" {
+		if protocol, ok := outbound["protocol"].(string); ok && strings.EqualFold(protocol, "wireguard") {
 			if settings, ok := outbound["settings"].(map[string]any); ok {
 				settings["noKernelTun"] = true
 			} else {

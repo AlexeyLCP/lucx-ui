@@ -27,6 +27,7 @@ import GeneralTab from './GeneralTab';
 import SecurityTab from './SecurityTab';
 import TelegramTab from './TelegramTab';
 import EmailTab from './EmailTab';
+import DiscordTab from './DiscordTab';
 import SubscriptionGeneralTab from './SubscriptionGeneralTab';
 import SubscriptionFormatsTab from './SubscriptionFormatsTab';
 import CoresTab from './CoresTab';
@@ -42,6 +43,7 @@ const tabSlugs = [
   'security',
   'telegram',
   'email',
+  'discord',
   'subscription',
   'subscription-formats',
   'subscription-balancers',
@@ -219,6 +221,8 @@ export default function SettingsPage() {
         return <TelegramTab allSetting={allSetting} updateSetting={updateSetting} />;
       case 'email':
         return <EmailTab allSetting={allSetting} updateSetting={updateSetting} />;
+      case 'discord':
+        return <DiscordTab allSetting={allSetting} updateSetting={updateSetting} />;
       case 'subscription':
         return <SubscriptionGeneralTab allSetting={allSetting} updateSetting={updateSetting} />;
       case 'subscription-formats':

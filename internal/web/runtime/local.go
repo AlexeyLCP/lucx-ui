@@ -15,6 +15,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel" // LUCX-HOOK: Naive inbound sidecar
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
+	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
 
@@ -121,6 +122,13 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 		}
 		return err
 	}
+	if ib.Protocol == model.TUIC {
+		inst, ok := tuic.InstanceFromInbound(ib)
+		if !ok {
+			return nil
+		}
+		return tuic.GetManager().Ensure(inst)
+	}
 	body, err := json.MarshalIndent(ib.GenXrayInboundConfig(), "", "  ")
 	if err != nil {
 		return err
@@ -190,6 +198,10 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		}
 		return nil
 	}
+	if ib.Protocol == model.TUIC {
+		tuic.GetManager().Remove(ib.Id)
+		return nil
+	}
 	return l.withAPI(func(api *xray.XrayAPI) error {
 		return api.DelInbound(ib.Tag)
 	})
@@ -220,6 +232,9 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 	// END LUCX-HOOK
 	if oldIb.Protocol == model.AmneziaWG || newIb.Protocol == model.AmneziaWG {
 		return l.updateAmneziaWGInbound(ctx, oldIb, newIb)
+	}
+	if oldIb.Protocol == model.TUIC || newIb.Protocol == model.TUIC {
+		return l.updateTuicInbound(ctx, oldIb, newIb)
 	}
 	_ = l.DelInbound(ctx, oldIb)
 	if !newIb.Enable {
@@ -458,7 +473,8 @@ func (l *Local) updateAwgInbound(ctx context.Context, oldIb, newIb *model.Inboun
 // AmneziaWG-to-AmneziaWG edit, Manager.Ensure's own fingerprint comparison
 // can reconfigure the running embedded Device in place via IpcSet instead
 // of always rebuilding it (see internal/amneziawgnet.Manager.ensureLocked --
-// only an address/MTU change forces a rebuild there, not a peer edit).
+// only an address or effective-MTU change forces a rebuild there, S4
+// included, not a peer edit).
 //
 // Every exit path below only touches the embedded Device via
 // amneziawgnet.GetManager() -- none of it rebuilds Xray's own config, which
@@ -506,8 +522,31 @@ func (l *Local) updateAmneziaWGInbound(ctx context.Context, oldIb, newIb *model.
 	})
 }
 
+func (l *Local) updateTuicInbound(ctx context.Context, oldIb, newIb *model.Inbound) error {
+	if oldIb.Protocol == model.TUIC && newIb.Protocol != model.TUIC {
+		tuic.GetManager().Remove(oldIb.Id)
+		if !newIb.Enable {
+			return nil
+		}
+		return l.AddInbound(ctx, newIb)
+	}
+	if oldIb.Protocol != model.TUIC {
+		_ = l.DelInbound(ctx, oldIb)
+	}
+	if !newIb.Enable {
+		tuic.GetManager().Remove(newIb.Id)
+		return nil
+	}
+	inst, ok := tuic.InstanceFromInbound(newIb)
+	if !ok {
+		tuic.GetManager().Remove(newIb.Id)
+		return nil
+	}
+	return tuic.GetManager().Ensure(inst)
+}
+
 func (l *Local) AddUser(_ context.Context, ib *model.Inbound, userMap map[string]any) error {
-	if ib.Protocol == model.MTProto || ib.Protocol == model.AmneziaWG {
+	if ib.Protocol == model.MTProto || ib.Protocol == model.AmneziaWG || ib.Protocol == model.TUIC {
 		return nil
 	}
 	// LUCX-HOOK: AWG — peer reconciliation is driven by the periodic awg job,
@@ -526,7 +565,7 @@ func (l *Local) AddUser(_ context.Context, ib *model.Inbound, userMap map[string
 }
 
 func (l *Local) RemoveUser(_ context.Context, ib *model.Inbound, email string) error {
-	if ib.Protocol == model.MTProto || ib.Protocol == model.AmneziaWG {
+	if ib.Protocol == model.MTProto || ib.Protocol == model.AmneziaWG || ib.Protocol == model.TUIC {
 		return nil
 	}
 	// LUCX-HOOK: AWG — peer removal is picked up by the next Reconcile tick.
@@ -557,7 +596,7 @@ func (l *Local) AddClient(ctx context.Context, ib *model.Inbound, client model.C
 		"publicKey":    client.PublicKey,
 		"allowedIPs":   client.AllowedIPs,
 		"preSharedKey": client.PreSharedKey,
-		"keepAlive":    wgKeepAlive(client.KeepAlive),
+		"keepAlive":    wgKeepAlive(client.KeepAliveSeconds()),
 	}
 	return l.AddUser(ctx, ib, user)
 }
@@ -598,7 +637,7 @@ func (l *Local) UpdateUser(ctx context.Context, ib *model.Inbound, oldEmail stri
 		"publicKey":    payload.PublicKey,
 		"allowedIPs":   payload.AllowedIPs,
 		"preSharedKey": payload.PreSharedKey,
-		"keepAlive":    wgKeepAlive(payload.KeepAlive),
+		"keepAlive":    wgKeepAlive(payload.KeepAliveSeconds()),
 	}
 	return l.AddUser(ctx, ib, user)
 }

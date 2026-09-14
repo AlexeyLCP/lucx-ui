@@ -191,7 +191,12 @@ func TestBuildUAPIConfigHeaderProtectionAndContentPaddingLines(t *testing.T) {
 	if err != nil {
 		t.Fatalf("buildUAPIConfig with empty options: %v", err)
 	}
-	if strings.Contains(conf, "header_protection_key=") || strings.Contains(conf, "content_padding_addition=") {
+	// header_protection_key is the exception: an omitted line reads as
+	// "unchanged", so clearing the key has to be sent as the all-zero one.
+	if !strings.Contains(conf, "header_protection_key="+strings.Repeat("0", 64)+"\n") {
+		t.Fatalf("an unset key must be emitted as the all-zero key, got:\n%s", conf)
+	}
+	if strings.Contains(conf, "content_padding_addition=") {
 		t.Fatalf("empty DeviceOptions must not emit AWG 3.0 lines, got:\n%s", conf)
 	}
 
@@ -549,64 +554,88 @@ func TestNewDeviceRandomTrailersAndDisableCookiesRoundTrip(t *testing.T) {
 	}
 }
 
-// A negative counter is accepted by amneziawg-go's parser — strconv.Atoi takes
-// the minus — and ObfuscatedLen hands it straight back, so the first handshake
-// slices with a negative length and panics. The panic happens in a timer
-// goroutine with no recover anywhere in the engine or in this package, which
-// takes down the whole panel process, minutes after a save that looked fine.
-// The config must never reach IpcSet.
-func TestBuildUAPIConfigRefusesACounterThatWouldPanicTheEngine(t *testing.T) {
-	priv, _, err := wireguard.GenerateWireguardKeypair()
+// TestValidatedObfuscationAlwaysApplies pins the contract ValidateObfuscation
+// exists for: whatever it accepts, amneziawg-go's own IpcSet must accept too.
+func TestValidatedObfuscationAlwaysApplies(t *testing.T) {
+	priv, pub, err := wireguard.GenerateWireguardKeypair()
 	if err != nil {
-		t.Fatalf("generate keypair: %v", err)
+		t.Fatalf("server keypair: %v", err)
 	}
-	base := amneziawg.Instance{
-		PrivateKey:  priv,
-		Obfuscation: amneziawg.Obfuscation31{S1: 20, S2: 20, S3: 20, S4: 20},
+	_, peerPub, err := wireguard.GenerateWireguardKeypair()
+	if err != nil {
+		t.Fatalf("peer keypair: %v", err)
+	}
+	base := amneziawg.Obfuscation31{Jc: 4, Jmin: 40, Jmax: 70, S1: 20, S2: 30, S3: 20, S4: 20}
+
+	cases := []struct {
+		name string
+		mut  func(*amneziawg.Obfuscation31)
+	}{
+		{"generated defaults", func(o *amneziawg.Obfuscation31) { *o = amneziawg.GenerateObfuscation31() }},
+		{"S1 over uint16", func(o *amneziawg.Obfuscation31) { o.S1 = 70000 }},
+		{"S2 over uint16", func(o *amneziawg.Obfuscation31) { o.S2 = 70000 }},
+		{"negative Jc", func(o *amneziawg.Obfuscation31) { o.Jc = -1 }},
+		{"negative Jmin and Jmax", func(o *amneziawg.Obfuscation31) { o.Jmin, o.Jmax = -5, -1 }},
+		{"Jc over uint32", func(o *amneziawg.Obfuscation31) { o.Jc = 5000000000 }},
+		{"I1 unknown tag", func(o *amneziawg.Obfuscation31) { o.I1 = "<rand 100>" }},
+		{"I1 missing close", func(o *amneziawg.Obfuscation31) { o.I1 = "<r 100" }},
+		{"I1 empty tag", func(o *amneziawg.Obfuscation31) { o.I1 = "<>" }},
+		// The specs validateObfChain deliberately accepts must really apply.
+		{"I1 chained tags", func(o *amneziawg.Obfuscation31) { o.I1 = "<b ff00><r 10>" }},
+		{"I1 valueless tag", func(o *amneziawg.Obfuscation31) { o.I1 = "<t><rc 5>" }},
+		{"I1 no tags at all", func(o *amneziawg.Obfuscation31) { o.I1 = "plain text" }},
 	}
 
-	// Every tag amneziawg-go reads a count for with strconv.Atoi and returns
-	// unchecked from ObfuscatedLen: obf_rand, obf_randchars, obf_randdigits,
-	// obf_datasize.
-	for _, descriptor := range []string{
-		"<r -5>",
-		"<rc -1>",
-		"<rd -100>",
-		"<dz -2>",
-		// A big literal makes the chain's total positive, so the panic moves
-		// from make() to the slice in Obfuscate — still a panic.
-		"<b 0xaabbccddeeff00112233><r -4>",
-		// Order must not matter, and neither must which of the five fields.
-		"<r -4><b 0xaabb>",
-		// The kernel accepts an unclosed tag — strsep returns the whole
-		// remainder when the separator is absent — so the .conf takes it too.
-		"<r -5",
-		"<rc -1",
-		"<dz -2",
-		"<b 0xaabb><rd -3",
-		// This engine splits a tag with strings.Fields, so the space after the
-		// bracket is not part of the key and the count still reaches Atoi.
-		"< r -5>",
-		"<  rc -1>",
-		"<\tdz -2>",
-	} {
-		t.Run(descriptor, func(t *testing.T) {
-			inst := base
-			inst.Obfuscation.I3 = descriptor
-			conf, err := buildUAPIConfig(inst, DeviceOptions{})
-			if err == nil {
-				t.Fatalf("a descriptor that panics the engine must not build a config, got:\n%s", conf)
+	for i, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			o := base
+			tc.mut(&o)
+			if err := amneziawg.ValidateObfuscation(o); err != nil {
+				return // rejected before saving, which is the whole point
 			}
-			if strings.Contains(conf, "i3=") {
-				t.Errorf("the rejected descriptor still reached the config: %s", conf)
+			inst := amneziawg.Instance{
+				Id: 88, InterfaceName: "awgcontract", ListenPort: 58900 + i,
+				PrivateKey: priv, PublicKey: pub,
+				Address: []string{"10.198.0.1/24"}, MTU: 1420,
+				Obfuscation: o,
+				Peers: []amneziawg.Peer{{
+					Email: "contract@example.com", PublicKey: peerPub,
+					AllowedIPs: []string{"10.198.0.2/32"},
+				}},
+			}
+			opts := DeviceOptions{
+				HeaderProtectionKey:    o.HeaderProtectionKey,
+				ContentPaddingAddition: o.ContentPaddingAddition,
+				RekeyAfterTime:         o.RekeyAfterTime,
+				RekeyTimeout:           o.RekeyTimeout,
+				RejectAfterTime:        o.RejectAfterTime,
+				KeepaliveTimeout:       o.KeepaliveTimeout,
+				MaxHandshakeAttempts:   o.MaxHandshakeAttempts,
+				RandomTrailers:         o.RandomTrailers,
+				DisableCookies:         o.DisableCookies,
+			}
+			dev, err := newUnconfiguredDevice(inst, opts)
+			if err != nil {
+				t.Fatalf("newUnconfiguredDevice: %v", err)
+			}
+			defer dev.Close()
+			conf, err := buildUAPIConfig(inst, opts)
+			if err != nil {
+				t.Fatalf("buildUAPIConfig: %v", err)
+			}
+			if err := dev.IpcSet(conf); err != nil {
+				t.Fatalf("ValidateObfuscation accepted this config but amneziawg-go rejected it: %v", err)
 			}
 		})
 	}
 }
 
-// The gate must not cost a working descriptor: these are what our own
-// generators emit, and a zero count is legal for the engine.
-func TestBuildUAPIConfigKeepsValidDescriptors(t *testing.T) {
+// Clearing HeaderProtectionKey on a running inbound must actually reach the
+// device: amneziawg-go treats an absent UAPI line as "keep the current value",
+// so an omitted key leaves header protection permanently on. Worse, the stale
+// key keeps the S1-S4 minimum alive, so lowering them then fails IpcSet with
+// -22 on every reconcile after the peers were already replaced.
+func TestBuildUAPIConfigClearedHeaderProtectionKeyIsSentAsZero(t *testing.T) {
 	priv, _, err := wireguard.GenerateWireguardKeypair()
 	if err != nil {
 		t.Fatalf("generate keypair: %v", err)
@@ -615,47 +644,28 @@ func TestBuildUAPIConfigKeepsValidDescriptors(t *testing.T) {
 		PrivateKey:  priv,
 		Obfuscation: amneziawg.Obfuscation31{S1: 20, S2: 20, S3: 20, S4: 20},
 	}
-	inst.Obfuscation.I1 = "<b 0x160301><r 64>"
-	inst.Obfuscation.I2 = "<rc 16><rd 8><t>"
-	inst.Obfuscation.I3 = "<r 0>"
-	inst.Obfuscation.I4 = "<d><ds><dz 2>"
 
-	conf, err := buildUAPIConfig(inst, DeviceOptions{})
+	key, err := wireguard.GenerateWireguardPSK()
 	if err != nil {
-		t.Fatalf("valid descriptors must build: %v", err)
+		t.Fatalf("generate header protection key: %v", err)
 	}
-	for _, want := range []string{"i1=<b 0x160301><r 64>", "i2=<rc 16><rd 8><t>", "i3=<r 0>", "i4=<d><ds><dz 2>"} {
-		if !strings.Contains(conf, want) {
-			t.Errorf("missing %q in:\n%s", want, conf)
-		}
+	withKey, err := buildUAPIConfig(inst, DeviceOptions{HeaderProtectionKey: key})
+	if err != nil {
+		t.Fatalf("buildUAPIConfig with a key: %v", err)
 	}
-}
+	cleared, err := buildUAPIConfig(inst, DeviceOptions{})
+	if err != nil {
+		t.Fatalf("buildUAPIConfig with the key cleared: %v", err)
+	}
+	if withKey == cleared {
+		t.Fatal("clearing the key produced an identical UAPI config, so the device would never see the change")
+	}
 
-// <c> is the one tag the kernel has and amneziawg-go does not. IpcSetOperation
-// stops on it — but only after private_key, listen_port and replace_peers=true
-// have been applied, so the device is left holding the port with every peer
-// wiped and the padding, H-fields and timers of the aborted merge lost.
-// Refusing before IpcSet leaves the running device untouched instead.
-func TestBuildUAPIConfigRefusesTheKernelOnlyCounterTag(t *testing.T) {
-	priv, _, err := wireguard.GenerateWireguardKeypair()
-	if err != nil {
-		t.Fatalf("generate keypair: %v", err)
+	zero := "header_protection_key=" + strings.Repeat("0", 64) + "\n"
+	if !strings.Contains(cleared, zero) {
+		t.Fatalf("cleared config must carry the all-zero key, got:\n%s", cleared)
 	}
-	base := amneziawg.Instance{
-		PrivateKey:  priv,
-		Obfuscation: amneziawg.Obfuscation31{S1: 20, S2: 20, S3: 20, S4: 20},
-	}
-	for _, descriptor := range []string{"<c>", "<b 0x41><c>", "<c><r 8>", "<c", "< c>", "<  c >"} {
-		t.Run(descriptor, func(t *testing.T) {
-			inst := base
-			inst.Obfuscation.I2 = descriptor
-			conf, err := buildUAPIConfig(inst, DeviceOptions{})
-			if err == nil {
-				t.Fatalf("<c> must not reach IpcSet, got:\n%s", conf)
-			}
-			if strings.Contains(conf, "i2=") {
-				t.Errorf("the rejected descriptor still reached the config: %s", conf)
-			}
-		})
+	if strings.Contains(withKey, zero) {
+		t.Fatalf("a configured key must not be emitted as zero, got:\n%s", withKey)
 	}
 }

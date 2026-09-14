@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import type { ComponentType, CSSProperties } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { useTranslation } from 'react-i18next';
-import { Drawer, Layout, Menu } from 'antd';
+import { Drawer, Layout, Menu, Tooltip } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   ApiOutlined,
@@ -16,6 +16,7 @@ import {
   CodeOutlined,
   DashboardOutlined,
   DatabaseOutlined,
+  DiscordOutlined,
   ExportOutlined,
   GithubOutlined,
   GlobalOutlined,
@@ -27,11 +28,11 @@ import {
   MessageOutlined,
   MoonFilled,
   MoonOutlined,
-  CloudOutlined,
   PushpinFilled,
   PushpinOutlined,
   ReadOutlined,
   SafetyOutlined,
+  SearchOutlined,
   SettingOutlined,
   SunOutlined,
   SwapOutlined,
@@ -44,10 +45,12 @@ import { HttpUtil } from '@/utils';
 import { formatPanelVersion } from '@/lib/panel-version';
 import { pauseAnimationsUntilLeave, useTheme } from '@/hooks/useTheme';
 import { useAllSettings } from '@/api/queries/useAllSettings';
+import { useCommandPalette } from '@/components/command-palette/useCommandPalette';
 import './AppSidebar.css';
 
 // LUCX-HOOK: point sidebar links at the LucX-UI fork, not upstream.
 const DONATE_URL = 'https://yoomoney.ru/to/41001989176429';
+const SHORTCUT_MODIFIER = /Mac|iPhone|iPad|iPod/.test(navigator.userAgent) ? '⌘' : 'Ctrl';
 const DOCS_URL = 'https://github.com/AlexeyLCP/lucx-ui#readme';
 const REPO_URL = 'https://github.com/AlexeyLCP/lucx-ui';
 const TG_URL = 'https://t.me/Lucx_soft';
@@ -230,6 +233,7 @@ export default function AppSidebar() {
   // LUCX-HOOK: palette switch added to the upstream dark/ultra cycle
   const { isDark, isUltra, toggleTheme, toggleUltra, palette, togglePalette } = useTheme();
   // END LUCX-HOOK
+  const { open: openCommandPalette } = useCommandPalette();
   const navigate = useNavigate();
   const { pathname, hash } = useLocation();
   const { allSetting } = useAllSettings();
@@ -316,6 +320,11 @@ export default function AppSidebar() {
       },
       { key: '/settings#email', icon: <MailOutlined />, label: t('pages.settings.emailSettings') },
       {
+        key: '/settings#discord',
+        icon: <DiscordOutlined />,
+        label: t('pages.settings.discordSettings'),
+      },
+      {
         key: '/settings#subscription',
         icon: <CloudServerOutlined />,
         label: t('pages.settings.subSettings'),
@@ -348,19 +357,12 @@ export default function AppSidebar() {
   const xrayChildren = useMemo<NonNullable<MenuProps['items']>>(
     () => [
       { key: '/xray#basic', icon: <SettingOutlined />, label: t('pages.xray.basicTemplate') },
-      // LUCX-HOOK: AWG outbound — Xray outbounds (renamed) + AWG outbounds nav entry.
-      // Ordered above Routing so the egress targets are visible before the rules
-      // that reference them (user request 2026-07-20). /outbound no longer has a
-      // top-level menu entry — this is the only path to it.
+      // LUCX-HOOK: Outbounds above Routing (user request 2026-07-20).
+      // Kernel AWG + sidecar outbounds render on this same page.
       {
         key: '/xray#outbound',
         icon: <ExportOutlined />,
         label: t('pages.xray.tabs.xrayOutbounds'),
-      },
-      {
-        key: '/xray#awg-outbound',
-        icon: <CloudOutlined />,
-        label: t('pages.xray.tabs.awgOutbounds'),
       },
       { key: '/xray#routing', icon: <SwapOutlined />, label: t('menu.routing') },
       // END LUCX-HOOK
@@ -490,6 +492,30 @@ export default function AppSidebar() {
             </div>
           )}
         </div>
+        <Tooltip
+          title={
+            railCollapsed ? t('commandPalette.title') || 'Command Palette (Ctrl + K)' : undefined
+          }
+          placement="right"
+        >
+          <button
+            type="button"
+            className={`sidebar-command-trigger${railCollapsed ? ' collapsed' : ''}`}
+            onClick={openCommandPalette}
+            aria-label={t('commandPalette.title') || 'Command Palette (Ctrl + K)'}
+          >
+            <span className="sidebar-command-left">
+              <SearchOutlined className="sidebar-command-icon" />
+              <span className="sidebar-command-text">
+                {t('commandPalette.search') || 'Search...'}
+              </span>
+            </span>
+            <span className="sidebar-command-kbd">
+              <span className="kbd-cmd">{SHORTCUT_MODIFIER}</span>
+              <span className="kbd-key">K</span>
+            </span>
+          </button>
+        </Tooltip>
         <Menu
           theme={currentTheme}
           mode="inline"
@@ -561,6 +587,25 @@ export default function AppSidebar() {
             </button>
           </div>
         </div>
+        <button
+          type="button"
+          className="sidebar-command-trigger"
+          onClick={() => {
+            setDrawerOpen(false);
+            openCommandPalette();
+          }}
+          aria-label={t('commandPalette.title') || 'Command Palette (Ctrl + K)'}
+          style={{ margin: '8px 12px 4px', width: 'calc(100% - 24px)' }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <SearchOutlined className="sidebar-command-icon" />
+            <span>{t('commandPalette.search') || 'Search...'}</span>
+          </span>
+          <span className="sidebar-command-kbd">
+            <span className="kbd-cmd">{SHORTCUT_MODIFIER}</span>
+            <span className="kbd-key">K</span>
+          </span>
+        </button>
         <Menu
           theme={currentTheme}
           mode="inline"

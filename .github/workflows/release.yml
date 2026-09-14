@@ -112,7 +112,7 @@ jobs:
           cd x-ui/bin
 
           # Download dependencies
-          Xray_URL="https://github.com/XTLS/Xray-core/releases/download/v26.7.28/"
+          Xray_URL="https://github.com/XTLS/Xray-core/releases/download/v26.9.9/"
           if [ "${{ matrix.platform }}" == "amd64" ]; then
             fetch ${Xray_URL}Xray-linux-64.zip
             unzip Xray-linux-64.zip
@@ -162,6 +162,28 @@ jobs:
               tar -xzf "${MTG_PKG}.tar.gz"
               mv "${MTG_PKG}/mtg-multi" "mtg-linux-${{ matrix.platform }}"
               rm -rf "${MTG_PKG}" "${MTG_PKG}.tar.gz"
+              ;;
+          esac
+          case "${{ matrix.platform }}" in
+            amd64)
+              curl -sfLRO $CURL_RETRY "https://github.com/EAimTY/tuic/releases/download/tuic-server-1.0.0/tuic-server-1.0.0-x86_64-unknown-linux-musl"
+              mv "tuic-server-1.0.0-x86_64-unknown-linux-musl" "tuic-server"
+              chmod +x "tuic-server"
+              ;;
+            arm64)
+              curl -sfLRO $CURL_RETRY "https://github.com/EAimTY/tuic/releases/download/tuic-server-1.0.0/tuic-server-1.0.0-aarch64-unknown-linux-musl"
+              mv "tuic-server-1.0.0-aarch64-unknown-linux-musl" "tuic-server"
+              chmod +x "tuic-server"
+              ;;
+            armv7)
+              curl -sfLRO $CURL_RETRY "https://github.com/EAimTY/tuic/releases/download/tuic-server-1.0.0/tuic-server-1.0.0-armv7-unknown-linux-musleabihf"
+              mv "tuic-server-1.0.0-armv7-unknown-linux-musleabihf" "tuic-server"
+              chmod +x "tuic-server"
+              ;;
+            386)
+              curl -sfLRO $CURL_RETRY "https://github.com/EAimTY/tuic/releases/download/tuic-server-1.0.0/tuic-server-1.0.0-i686-unknown-linux-musl"
+              mv "tuic-server-1.0.0-i686-unknown-linux-musl" "tuic-server"
+              chmod +x "tuic-server"
               ;;
           esac
           # LUCX-HOOK: unpack third_party sidecars into the GitHub tarball so
@@ -231,7 +253,9 @@ jobs:
           test -s x-ui/bin/lucx-pins.txt
 
       - name: Package
-        run: tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
+        run: |
+          tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui
+          sha256sum x-ui-linux-${{ matrix.platform }}.tar.gz > x-ui-linux-${{ matrix.platform }}.tar.gz.sha256
 
       - name: Check tarball layout
         run: |
@@ -256,7 +280,9 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: x-ui-linux-${{ matrix.platform }}
-          path: ./x-ui-linux-${{ matrix.platform }}.tar.gz
+          path: |
+            ./x-ui-linux-${{ matrix.platform }}.tar.gz
+            ./x-ui-linux-${{ matrix.platform }}.tar.gz.sha256
 
       - name: Upload files to GH release
         uses: svenstaro/upload-release-action@v2
@@ -264,8 +290,8 @@ jobs:
         with:
           repo_token: ${{ secrets.GITHUB_TOKEN }}
           tag: ${{ github.ref_name }}
-          file: x-ui-linux-${{ matrix.platform }}.tar.gz
-          asset_name: x-ui-linux-${{ matrix.platform }}.tar.gz
+          file: x-ui-linux-${{ matrix.platform }}.tar.gz*
+          file_glob: true
           overwrite: true
           # LUCX-HOOK: publish tagged builds as stable, not pre-release, so
           # /releases/latest resolves to our newest lucx tag — install.sh and
@@ -338,5 +364,5 @@ jobs:
           fi
 
           # LUCX-HOOK: Linux tarballs only (amd64+arm64).
-          retry gh release upload dev-latest dev-artifacts/*.tar.gz --clobber
+          retry gh release upload dev-latest dev-artifacts/*.tar.gz dev-artifacts/*.sha256 --clobber
           # END LUCX-HOOK

@@ -2,6 +2,7 @@ package service
 
 import (
 	"path/filepath"
+	"regexp"
 	"testing"
 
 	"github.com/xlzd/gotp"
@@ -9,6 +10,44 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
+
+func TestResetSettingsRegeneratesSubscriptionPaths(t *testing.T) {
+	setupSettingTestDB(t)
+	s := &SettingService{}
+	for key, value := range map[string]string{
+		"subPath":      "/sub/",
+		"subJsonPath":  "/json/",
+		"subClashPath": "/clash/",
+		"webPort":      "8443",
+	} {
+		if err := s.saveSetting(key, value); err != nil {
+			t.Fatalf("save %s: %v", key, err)
+		}
+	}
+
+	if err := s.ResetSettings(); err != nil {
+		t.Fatalf("ResetSettings: %v", err)
+	}
+
+	pathPattern := regexp.MustCompile(`^/[0-9a-z]{16}/$`)
+	paths := map[string]string{}
+	for _, key := range []string{"subPath", "subJsonPath", "subClashPath"} {
+		value, err := s.getString(key)
+		if err != nil {
+			t.Fatalf("read %s: %v", key, err)
+		}
+		if !pathPattern.MatchString(value) {
+			t.Errorf("%s = %q, want /<16 lowercase alphanumeric characters>/", key, value)
+		}
+		paths[key] = value
+	}
+	if paths["subPath"] == paths["subJsonPath"] || paths["subPath"] == paths["subClashPath"] || paths["subJsonPath"] == paths["subClashPath"] {
+		t.Fatalf("subscription paths must be distinct: %v", paths)
+	}
+	if port, err := s.GetPort(); err != nil || port != 2053 {
+		t.Fatalf("web port after reset = %d, %v; want 2053", port, err)
+	}
+}
 
 func setupSettingTestDB(t *testing.T) {
 	t.Helper()
@@ -37,6 +76,9 @@ func TestGetAllSettingViewRedactsSecrets(t *testing.T) {
 	if err := s.saveSetting("smtpPassword", "smtp-secret"); err != nil {
 		t.Fatal(err)
 	}
+	if err := s.saveSetting("discordBotToken", "discord-secret"); err != nil {
+		t.Fatal(err)
+	}
 	if err := database.GetDB().Create(&model.ApiToken{Name: "test", Token: "api-secret", Enabled: true}).Error; err != nil {
 		t.Fatal(err)
 	}
@@ -45,10 +87,10 @@ func TestGetAllSettingViewRedactsSecrets(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if view.TgBotToken != "" || view.TwoFactorToken != "" || view.LdapPassword != "" || view.SmtpPassword != "" {
+	if view.TgBotToken != "" || view.TwoFactorToken != "" || view.LdapPassword != "" || view.SmtpPassword != "" || view.DiscordBotToken != "" {
 		t.Fatalf("settings view leaked secrets: %#v", view)
 	}
-	if !view.HasTgBotToken || !view.HasTwoFactorToken || !view.HasLdapPassword || !view.HasApiToken || !view.HasSmtpPassword {
+	if !view.HasTgBotToken || !view.HasTwoFactorToken || !view.HasLdapPassword || !view.HasApiToken || !view.HasSmtpPassword || !view.HasDiscordBotToken {
 		t.Fatalf("settings view did not report configured secret flags: %#v", view)
 	}
 }
@@ -69,6 +111,9 @@ func TestUpdateAllSettingPreservesRedactedSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := s.saveSetting("smtpPassword", "smtp-secret"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.saveSetting("discordBotToken", "discord-secret"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -92,6 +137,9 @@ func TestUpdateAllSettingPreservesRedactedSecrets(t *testing.T) {
 	if got, _ := s.GetSmtpPassword(); got != "smtp-secret" {
 		t.Fatalf("smtp password = %q, want preserved secret", got)
 	}
+	if got, _ := s.GetDiscordBotToken(); got != "discord-secret" {
+		t.Fatalf("discord token = %q, want preserved secret", got)
+	}
 }
 
 func TestUpdateAllSettingClearsFlaggedSecrets(t *testing.T) {
@@ -104,6 +152,9 @@ func TestUpdateAllSettingClearsFlaggedSecrets(t *testing.T) {
 		t.Fatal(err)
 	}
 	if err := s.saveSetting("smtpPassword", "smtp-secret"); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.saveSetting("discordBotToken", "discord-secret"); err != nil {
 		t.Fatal(err)
 	}
 
@@ -123,6 +174,9 @@ func TestUpdateAllSettingClearsFlaggedSecrets(t *testing.T) {
 	if got, _ := s.GetLdapPassword(); got != "ldap-secret" {
 		t.Fatalf("ldap password = %q, unflagged secret must stay preserved", got)
 	}
+	if got, _ := s.GetDiscordBotToken(); got != "discord-secret" {
+		t.Fatalf("discord token = %q, unflagged secret must stay preserved", got)
+	}
 
 	view, err = s.GetAllSettingView()
 	if err != nil {
@@ -131,7 +185,7 @@ func TestUpdateAllSettingClearsFlaggedSecrets(t *testing.T) {
 	if view.HasSmtpPassword {
 		t.Fatal("hasSmtpPassword must report false after clearing")
 	}
-	if err := s.UpdateAllSetting(&view.AllSetting, SecretClears{TgBotToken: true, LdapPassword: true}); err != nil {
+	if err := s.UpdateAllSetting(&view.AllSetting, SecretClears{TgBotToken: true, LdapPassword: true, DiscordBotToken: true}); err != nil {
 		t.Fatal(err)
 	}
 	if got, _ := s.GetTgBotToken(); got != "" {
@@ -139,6 +193,17 @@ func TestUpdateAllSettingClearsFlaggedSecrets(t *testing.T) {
 	}
 	if got, _ := s.GetLdapPassword(); got != "" {
 		t.Fatalf("ldap password = %q, want cleared", got)
+	}
+	if got, _ := s.GetDiscordBotToken(); got != "" {
+		t.Fatalf("discord token = %q, want cleared", got)
+	}
+
+	view, err = s.GetAllSettingView()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if view.HasDiscordBotToken {
+		t.Fatal("hasDiscordBotToken must report false after clearing")
 	}
 }
 

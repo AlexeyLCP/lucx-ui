@@ -23,10 +23,9 @@ package amneziawgnet
 
 import (
 	"context"
-	"io"
+	"fmt"
 	"net"
 	"net/netip"
-	"strconv"
 	"sync"
 	"time"
 
@@ -272,35 +271,8 @@ func tunnelFullAddress(addr netip.Addr, port int) tcpip.FullAddress {
 
 // tcpForwardListener is one open host-facing TCP listener for a single
 // portForwardKey.
-func portfwdListenHosts() []string {
-	hosts := []string{"127.0.0.1"}
-	if ip := portfwdNonLoopbackIPv4(); ip != "" && ip != "127.0.0.1" {
-		hosts = append(hosts, ip)
-	}
-	return hosts
-}
-
-func portfwdNonLoopbackIPv4() string {
-	addrs, err := net.InterfaceAddrs()
-	if err != nil {
-		return ""
-	}
-	for _, a := range addrs {
-		n, ok := a.(*net.IPNet)
-		if !ok || n.IP == nil {
-			continue
-		}
-		ip := n.IP.To4()
-		if ip == nil || ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() {
-			continue
-		}
-		return ip.String()
-	}
-	return ""
-}
-
 type tcpForwardListener struct {
-	lns     []net.Listener
+	ln      net.Listener
 	closing chan struct{}
 }
 
@@ -312,29 +284,20 @@ type tcpForwardListener struct {
 // result as "not open this round" and retries on every future Reconcile
 // call for as long as the key stays desired.
 func listenPortForwardTCP(gstack *stack.Stack, inboundID int, key portForwardKey, target portForwardTargetFunc) *tcpForwardListener {
-	var lns []net.Listener
-	for _, host := range portfwdListenHosts() {
-		ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", net.JoinHostPort(host, strconv.Itoa(key.port)))
-		if err != nil {
-			logger.Warningf("amneziawgnet: port-forward: inbound %d peer %q: listen tcp %s:%d: %v", inboundID, key.email, host, key.port, err)
-			continue
-		}
-		lns = append(lns, ln)
-	}
-	if len(lns) == 0 {
+	ln, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", fmt.Sprintf(":%d", key.port))
+	if err != nil {
+		logger.Warningf("amneziawgnet: port-forward: inbound %d peer %q: listen tcp :%d: %v", inboundID, key.email, key.port, err)
 		return nil
 	}
-	l := &tcpForwardListener{lns: lns, closing: make(chan struct{})}
-	logger.Infof("amneziawgnet: port-forward: inbound %d peer %q: listening tcp :%d on %d addr(s)", inboundID, key.email, key.port, len(lns))
-	for _, ln := range lns {
-		go l.acceptLoop(ln, gstack, inboundID, key, target)
-	}
+	l := &tcpForwardListener{ln: ln, closing: make(chan struct{})}
+	logger.Infof("amneziawgnet: port-forward: inbound %d peer %q: listening tcp :%d", inboundID, key.email, key.port)
+	go l.acceptLoop(gstack, inboundID, key, target)
 	return l
 }
 
-func (l *tcpForwardListener) acceptLoop(ln net.Listener, gstack *stack.Stack, inboundID int, key portForwardKey, target portForwardTargetFunc) {
+func (l *tcpForwardListener) acceptLoop(gstack *stack.Stack, inboundID int, key portForwardKey, target portForwardTargetFunc) {
 	for {
-		conn, err := ln.Accept()
+		conn, err := l.ln.Accept()
 		if err != nil {
 			select {
 			case <-l.closing:
@@ -363,10 +326,7 @@ func relayTCPForward(gstack *stack.Stack, conn net.Conn, inboundID int, key port
 	}
 	defer tunnelConn.Close()
 
-	done := make(chan struct{}, 2)
-	go func() { _, _ = io.Copy(tunnelConn, conn); done <- struct{}{} }()
-	go func() { _, _ = io.Copy(conn, tunnelConn); done <- struct{}{} }()
-	<-done
+	pipeBothWays(conn, tunnelConn)
 }
 
 // Close stops accepting new connections. Already-relaying connections are
@@ -375,7 +335,5 @@ func relayTCPForward(gstack *stack.Stack, conn net.Conn, inboundID int, key port
 // external client was mid-transfer.
 func (l *tcpForwardListener) Close() {
 	close(l.closing)
-	for _, ln := range l.lns {
-		ln.Close()
-	}
+	l.ln.Close()
 }

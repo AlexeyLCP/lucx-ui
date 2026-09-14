@@ -18,12 +18,6 @@ export type ProcessState = z.infer<typeof ProcessStateSchema>;
 export const ProtocolSchema = z.string();
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
-export const SubLinkProviderSchema = z.unknown();
-export type SubLinkProvider = z.infer<typeof SubLinkProviderSchema>;
-
-export const proberSchema = z.unknown();
-export type prober = z.infer<typeof proberSchema>;
-
 export const staticEgressResolverSchema = z.string();
 export type staticEgressResolver = z.infer<typeof staticEgressResolverSchema>;
 
@@ -342,6 +336,17 @@ export const ClientInboundSchema = z.object({
 });
 export type ClientInbound = z.infer<typeof ClientInboundSchema>;
 
+export const ClientPageResponseSchema = z.object({
+  filtered: z.number().int(),
+  groups: z.array(z.string()),
+  items: z.array(z.lazy(() => ClientSlimSchema)),
+  page: z.number().int(),
+  pageSize: z.number().int(),
+  summary: z.lazy(() => ClientsSummarySchema),
+  total: z.number().int(),
+});
+export type ClientPageResponse = z.infer<typeof ClientPageResponseSchema>;
+
 export const ClientRecordSchema = z.object({
   adTag: z.string(),
   allowedIPs: z.string(),
@@ -383,6 +388,26 @@ export const ClientReverseSchema = z.object({
 });
 export type ClientReverse = z.infer<typeof ClientReverseSchema>;
 
+export const ClientSlimSchema = z.object({
+  comment: z.string().optional(),
+  createdAt: z.number().int(),
+  email: z.string(),
+  enable: z.boolean(),
+  expiryTime: z.number().int(),
+  group: z.string().optional(),
+  inboundIds: z.array(z.number().int()),
+  limitHwid: z.number().int(),
+  limitIp: z.number().int(),
+  reset: z.number().int(),
+  resetDay: z.number().int(),
+  resetMax: z.number().int(),
+  subId: z.string(),
+  totalGB: z.number().int(),
+  traffic: z.lazy(() => ClientTrafficSchema).nullable().optional(),
+  updatedAt: z.number().int(),
+});
+export type ClientSlim = z.infer<typeof ClientSlimSchema>;
+
 export const ClientTrafficSchema = z.object({
   down: z.number().int(),
   email: z.string(),
@@ -402,6 +427,20 @@ export const ClientTrafficSchema = z.object({
   uuid: z.string(),
 });
 export type ClientTraffic = z.infer<typeof ClientTrafficSchema>;
+
+export const ClientsSummarySchema = z.object({
+  active: z.number().int(),
+  deactive: z.array(z.string()),
+  deactiveCount: z.number().int(),
+  depleted: z.array(z.string()),
+  depletedCount: z.number().int(),
+  expiring: z.array(z.string()),
+  expiringCount: z.number().int(),
+  online: z.array(z.string()),
+  onlineCount: z.number().int(),
+  total: z.number().int(),
+});
+export type ClientsSummary = z.infer<typeof ClientsSummarySchema>;
 
 export const FallbackParentInfoSchema = z.object({
   masterId: z.number().int(),
@@ -451,6 +490,11 @@ export const GeodataTokenIssueSchema = z.object({
   token: z.string(),
 });
 export type GeodataTokenIssue = z.infer<typeof GeodataTokenIssueSchema>;
+
+export const HappLinkResultSchema = z.object({
+  encryptedLink: z.string(),
+});
+export type HappLinkResult = z.infer<typeof HappLinkResultSchema>;
 
 export const HistoryOfSeedersSchema = z.object({
   id: z.number().int(),
@@ -541,6 +585,15 @@ export const HostStatusSchema = z.object({
 });
 export type HostStatus = z.infer<typeof HostStatusSchema>;
 
+export const HwidSlotStatusSchema = z.object({
+  active: z.boolean(),
+  full: z.boolean(),
+  limit: z.number().int(),
+  registered: z.number().int(),
+  remaining: z.number().int(),
+});
+export type HwidSlotStatus = z.infer<typeof HwidSlotStatusSchema>;
+
 export const InboundSchema = z.object({
   clientStats: z.array(z.lazy(() => ClientTrafficSchema)),
   disableFlow: z.boolean(),
@@ -554,14 +607,14 @@ export const InboundSchema = z.object({
   nodeId: z.number().int().nullable().optional(),
   originNodeGuid: z.string().optional(),
   port: z.number().int().min(0).max(65535),
-  protocol: z.enum(['vmess', 'vless', 'trojan', 'shadowsocks', 'wireguard', 'hysteria', 'http', 'mixed', 'tunnel', 'tun', 'mtproto', 'amneziawg', 'awg', 'naive', 'olcrtc', 'qwdtt', 'mieru', 'trusttunnel', 'anytls', 'tproxy', 'cover']),
+  protocol: z.enum(['vmess', 'vless', 'trojan', 'shadowsocks', 'wireguard', 'hysteria', 'http', 'mixed', 'tunnel', 'tun', 'mtproto', 'amneziawg', 'tuic', 'awg', 'naive', 'olcrtc', 'qwdtt', 'mieru', 'trusttunnel', 'anytls', 'tproxy', 'cover']),
   remark: z.string(),
   settings: z.unknown(),
   shareAddr: z.string(),
   shareAddrStrategy: z.enum(['node', 'listen', 'custom']),
   sniffing: z.unknown(),
   streamSettings: z.unknown(),
-  subSortIndex: z.number().int().min(1),
+  subSortIndex: z.number().int(),
   tag: z.string(),
   total: z.number().int(),
   trafficReset: z.enum(['never', 'hourly', 'daily', 'weekly', 'monthly']),
@@ -615,6 +668,26 @@ export const InboundOptionSchema = z.object({
   wgPublicKey: z.string().optional(),
 });
 export type InboundOption = z.infer<typeof InboundOptionSchema>;
+
+export const InboundTrafficSummarySchema = z.object({
+  down: z.number().int(),
+  enable: z.boolean(),
+  id: z.number().int(),
+  total: z.number().int(),
+  up: z.number().int(),
+});
+export type InboundTrafficSummary = z.infer<typeof InboundTrafficSummarySchema>;
+
+export const LogEntrySchema = z.object({
+  dateTime: z.string(),
+  email: z.string(),
+  event: z.number().int(),
+  fromAddress: z.string(),
+  inbound: z.string(),
+  outbound: z.string(),
+  toAddress: z.string(),
+});
+export type LogEntry = z.infer<typeof LogEntrySchema>;
 
 export const MsgSchema = z.object({
   msg: z.string(),
@@ -795,6 +868,7 @@ export type ProbeResultUI = z.infer<typeof ProbeResultUISchema>;
 
 export const RealityScanResultSchema = z.object({
   alpn: z.string(),
+  certChainBytes: z.number().int(),
   certChainValid: z.boolean(),
   certIssuer: z.string(),
   certSubject: z.string(),
@@ -870,12 +944,44 @@ export const SubBalancerSchema = z.object({
   enabled: z.boolean(),
   id: z.number().int(),
   inboundIds: z.array(z.number().int()),
+  memberWeights: z.record(z.number().int(), z.number()).optional(),
   remark: z.string().max(256),
   sortOrder: z.number().int().min(1),
   strategy: z.enum(['leastLoad', 'leastPing', 'random', 'roundRobin']),
   updatedAt: z.number().int(),
 });
 export type SubBalancer = z.infer<typeof SubBalancerSchema>;
+
+export const TrafficSchema = z.object({
+  Down: z.number().int(),
+  IsInbound: z.boolean(),
+  IsOutbound: z.boolean(),
+  Tag: z.string(),
+  Up: z.number().int(),
+});
+export type Traffic = z.infer<typeof TrafficSchema>;
+
+export const TuicClientSettingsSchema = z.object({
+  email: z.string(),
+  password: z.string(),
+  uuid: z.string(),
+});
+export type TuicClientSettings = z.infer<typeof TuicClientSettingsSchema>;
+
+export const TuicServerSettingsSchema = z.object({
+  alpn: z.array(z.string()),
+  authentication_timeout: z.number().int(),
+  certificate: z.string(),
+  congestion_control: z.string(),
+  log_level: z.string(),
+  max_idle_time: z.number().int(),
+  max_udp_relay_packet_size: z.number().int(),
+  private_key: z.string(),
+  sni: z.string().optional(),
+  udp_relay_mode: z.string(),
+  zero_rtt_handshake: z.boolean(),
+});
+export type TuicServerSettings = z.infer<typeof TuicServerSettingsSchema>;
 
 export const UserSchema = z.object({
   id: z.number().int(),

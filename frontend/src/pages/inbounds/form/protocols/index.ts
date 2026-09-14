@@ -17,3 +17,4 @@ export { default as TproxyFields } from './tproxy'; // LUCX-HOOK: Telegram WEB p
 export { default as CoverFields } from './cover'; // LUCX-HOOK: cover site
 export { default as VlessFields } from './vless';
 export { default as AmneziawgFields } from './amneziawg';
+export { default as TuicFields } from './tuic';

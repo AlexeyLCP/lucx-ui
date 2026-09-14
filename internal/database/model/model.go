@@ -118,6 +118,7 @@ const (
 	Hysteria    Protocol = "hysteria"
 	MTProto     Protocol = "mtproto"
 	AmneziaWG   Protocol = "amneziawg"
+	TUIC        Protocol = "tuic"
 	// LUCX-HOOK: AmneziaWG protocol — managed as a kernel-interface sidecar,
 	// excluded from the generated Xray config (see internal/awg).
 	AWG Protocol = "awg"
@@ -159,7 +160,7 @@ type Inbound struct {
 	Down                 int64                `json:"down" form:"down"`                                                                                                                                             // Download traffic in bytes
 	Total                int64                `json:"total" form:"total"`                                                                                                                                           // Total traffic limit in bytes
 	Remark               string               `json:"remark" form:"remark" example:"VLESS-443"`                                                                                                                     // Human-readable remark
-	SubSortIndex         int                  `json:"subSortIndex" form:"subSortIndex" gorm:"default:1" validate:"omitempty,gte=1" example:"1"`                                                                     // 1-based sort order of this inbound's links in subscription output only (lower first; ties by id)
+	SubSortIndex         int                  `json:"subSortIndex" form:"subSortIndex" gorm:"default:1" validate:"omitempty" example:"1"`                                                                           // Sort order of this inbound's links in subscription output only (lower first; negatives allowed; 0/omitted → 1; ties by id)
 	Enable               bool                 `json:"enable" form:"enable" gorm:"index:idx_enable_traffic_reset,priority:1" example:"true"`                                                                         // Whether the inbound is enabled
 	ExpiryTime           int64                `json:"expiryTime" form:"expiryTime"`                                                                                                                                 // Expiration timestamp
 	TrafficReset         string               `json:"trafficReset" form:"trafficReset" gorm:"default:never;index:idx_enable_traffic_reset,priority:2" validate:"omitempty,oneof=never hourly daily weekly monthly"` // Traffic reset schedule
@@ -170,7 +171,7 @@ type Inbound struct {
 	// Xray configuration fields
 	Listen            string   `json:"listen" form:"listen"`
 	Port              int      `json:"port" form:"port" validate:"gte=0,lte=65535" example:"443"`
-	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto amneziawg awg naive olcrtc qwdtt mieru trusttunnel anytls tproxy cover" example:"vless"`
+	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto amneziawg tuic awg naive olcrtc qwdtt mieru trusttunnel anytls tproxy cover" example:"vless"`
 	Settings          string   `json:"settings" form:"settings"`
 	StreamSettings    string   `json:"streamSettings" form:"streamSettings"`
 	Tag               string   `json:"tag" form:"tag" gorm:"unique" example:"in-443-tcp"`
@@ -940,8 +941,8 @@ type Node struct {
 	ConfigDirty   bool  `json:"configDirty" gorm:"default:false"`
 	ConfigDirtyAt int64 `json:"configDirtyAt"`
 
-	// InboundsAdoptedAt records the first clean traffic sync that imported the
-	// node's pre-existing inbounds; reconcile must not sweep remote tags before it.
+	// InboundsAdoptedAt is the clean sync that imported the node's inbounds; a
+	// save that grows the selection zeroes it so reconcile waits before sweeping.
 	InboundsAdoptedAt int64 `json:"-" gorm:"column:inbounds_adopted_at;default:0"`
 
 	InboundCount  int `json:"inboundCount" gorm:"-" example:"5"`
@@ -1013,7 +1014,7 @@ type Client struct {
 	// END LUCX-HOOK
 	ForwardedPorts string `json:"forwardedPorts,omitempty"` // AmneziaWG per-client port-forwarding spec, e.g. "80,443,8000-8100"
 	Secret         string `json:"secret,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
-	AdTag          string `json:"adTag,omitempty" example:"0123456789abcdef0123456789abcdef"`
+	AdTag          string `json:"adTag,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
 	Email          string `json:"email"`                        // Client email identifier
 	LimitIP        int    `json:"limitIp"`                      // IP limit for this client
 	TotalGB        int64  `json:"totalGB" form:"totalGB"`       // Total traffic limit in GB
@@ -1235,6 +1236,23 @@ type Host struct {
 
 func (Host) TableName() string { return "hosts" }
 
+// KeepAliveSeconds is the client's PersistentKeepalive, 0 when unset.
+func (c Client) KeepAliveSeconds() int {
+	return c.KeepAlive.Int()
+}
+
+// KeepAlivePtr wraps an explicit PersistentKeepalive for tests and callers.
+func KeepAlivePtr(v int) KeepAliveValue { return KeepAliveValue(strconv.Itoa(v)) }
+
+// nonZeroKeepAlive drops stored 0/empty so omitempty does not emit keepAlive
+// on every protocol.
+func nonZeroKeepAlive(k KeepAliveValue) KeepAliveValue {
+	if k.IsZero() {
+		return ""
+	}
+	return k
+}
+
 func (c *Client) ToRecord() *ClientRecord {
 	rec := &ClientRecord{
 		Email:           c.Email,
@@ -1321,7 +1339,7 @@ func (r *ClientRecord) ToClient() *Client {
 		PublicKey:      r.PublicKey,
 		AllowedIPs:     splitWireguardAllowedIPs(r.AllowedIPs),
 		PreSharedKey:   r.PreSharedKey,
-		KeepAlive:      r.KeepAlive,
+		KeepAlive:      nonZeroKeepAlive(r.KeepAlive),
 		ForwardedPorts: r.ForwardedPorts,
 		Secret:         r.Secret,
 		AdTag:          r.AdTag,
@@ -1349,6 +1367,7 @@ type OutboundSubscription struct {
 	Enabled              bool   `json:"enabled" form:"enabled" gorm:"default:true"`
 	AllowPrivate         bool   `json:"allowPrivate" form:"allowPrivate" gorm:"default:false"`
 	AllowInsecure        bool   `json:"allowInsecure" form:"allowInsecure" gorm:"default:false"`
+	UserAgent            string `json:"userAgent" form:"userAgent"`
 	TagPrefix            string `json:"tagPrefix" form:"tagPrefix"`
 	UpdateInterval       int    `json:"updateInterval" form:"updateInterval" gorm:"default:600"` // seconds between refreshes
 	Priority             int    `json:"priority" form:"priority" gorm:"default:0"`               // order among subscriptions in the merged outbounds (lower = earlier)
@@ -1369,7 +1388,10 @@ type SubBalancer struct {
 	Remark     string `json:"remark" form:"remark" validate:"required,max=256" example:"auto-fastest"`
 	Strategy   string `json:"strategy" form:"strategy" validate:"omitempty,oneof=leastLoad leastPing random roundRobin" example:"random"`
 	InboundIds []int  `json:"inboundIds" form:"inboundIds" gorm:"serializer:json;column:inbound_ids" example:"[1,3]"`
-	SortOrder  int    `json:"sortOrder" form:"sortOrder" gorm:"column:sort_order" validate:"omitempty,gte=1" example:"1"`
+	// inboundId -> leastLoad weight; absent entries mean 1.0. Only meaningful
+	// with Strategy "leastLoad" — xray ignores costs on every other strategy.
+	MemberWeights map[int]float64 `json:"memberWeights,omitempty" form:"memberWeights" gorm:"serializer:json;column:member_weights"`
+	SortOrder     int             `json:"sortOrder" form:"sortOrder" gorm:"column:sort_order" validate:"omitempty,gte=1" example:"1"`
 	// No gorm default:true — a bool default makes an explicit false at insert
 	// collapse back to the column default (zero value is skipped).
 	Enabled   bool  `json:"enabled" form:"enabled" example:"true"`

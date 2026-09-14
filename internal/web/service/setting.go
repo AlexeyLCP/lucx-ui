@@ -29,17 +29,20 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/util/reflect_util"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/entity"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
+	"github.com/mhsanaei/3x-ui/v3/internal/xray/dnsconf"
 )
 
 //go:embed config.json
 var xrayTemplateConfig string
 
 const (
-	DefaultSubClashUserAgentRegex = `(?i)(clash|mihomo)`
-	DefaultSubJsonUserAgentRegex  = ``
-	DefaultRemarkTemplate         = "{{INBOUND}}-{{EMAIL}}|📊{{TRAFFIC_LEFT}}|⏳{{DAYS_LEFT}}D"
-	DefaultTrustedProxyCIDRs      = "127.0.0.1/32,::1/128"
-	maxRegexLength                = 2048
+	DefaultSubClashUserAgentRegex     = `(?i)(clash|mihomo)`
+	DefaultSubJsonUserAgentRegex      = ``
+	DefaultRemarkTemplate             = "{{INBOUND}}-{{EMAIL}}|📊{{TRAFFIC_LEFT}}|⏳{{DAYS_LEFT}}D"
+	DefaultSubExpiredTemplate         = "⛔ {{EMAIL}} | Expired: {{EXPIRE_DATE}}"
+	DefaultSubTrafficDepletedTemplate = "🚫 {{EMAIL}} | Traffic Depleted | {{TRAFFIC_USED}}/{{TRAFFIC_TOTAL}}"
+	DefaultTrustedProxyCIDRs          = "127.0.0.1/32,::1/128"
+	maxRegexLength                    = 2048
 )
 
 func init() {
@@ -76,12 +79,17 @@ var defaultValueMap = map[string]string{
 	"logRetentionDays":            "0", // LUCX-HOOK: auto-delete logs older than N days (0 = off)
 	"sessionMaxAge":               "360",
 	"trustedProxyCIDRs":           DefaultTrustedProxyCIDRs,
+	"realityScanCandidates":       DefaultRealityScanCandidatesCSV,
 	"ipLimitAllowlist":            "",
 	"pageSize":                    "25",
 	"expireDiff":                  "0",
 	"trafficDiff":                 "0",
 	"remarkTemplate":              DefaultRemarkTemplate,
 	"subShowIdentityOnAllLinks":   "false",
+	"subInfoNodeEnable":           "false",
+	"subCalendarExpireInclusive":  "false",
+	"subExpiredTemplate":          DefaultSubExpiredTemplate,
+	"subTrafficDepletedTemplate":  DefaultSubTrafficDepletedTemplate,
 	"timeLocation":                "Local",
 	"tgBotEnable":                 "false",
 	"tgBotToken":                  "",
@@ -95,6 +103,7 @@ var defaultValueMap = map[string]string{
 	"tgLang":                      "en-US",
 	"twoFactorEnable":             "false",
 	"twoFactorToken":              "",
+	"happLinkEnable":              "false",
 	"subEnable":                   "true",
 	"subJsonEnable":               "false",
 	"subJsonAutoDetect":           "false",
@@ -110,6 +119,29 @@ var defaultValueMap = map[string]string{
 	"subRoutingRules":             "",
 	"subRoutingSource":            "custom", // LUCX-HOOK: RoscomVPN Happ profiles; custom = free-text rules
 	"subHideSettings":             "false",
+	"subHappAutoDetect":           "false",
+	"subHappProviderId":           "",
+	"subHappNewUrl":               "",
+	"subHappFallbackUrl":          "",
+	"subHappSubInfoColor":         "blue",
+	"subHappSubInfoText":          "",
+	"subHappSubInfoButtonText":    "",
+	"subHappSubInfoButtonLink":    "",
+	"subHappSubExpire":            "false",
+	"subHappSubExpireButtonLink":  "",
+	"subHappNotificationExpire":   "false",
+	"subHappNoLimit":              "false",
+	"subHappAlwaysHwid":           "false",
+	"subHappTunMode":              "",
+	"subHappTunType":              "",
+	"subHappExcludeRoutes":        "",
+	"subHappExcludeApns":          "false",
+	"subHappColorProfile":         "",
+	"subHappPingType":             "",
+	"subHappAutoConnect":          "false",
+	"subHappAutoConnectType":      "lowestdelay",
+	"subHappPerAppMode":           "off",
+	"subHappPerAppList":           "",
 	"subIncyEnableRouting":        "false",
 	"subIncyRoutingRules":         "",
 	"subListen":                   "",
@@ -133,6 +165,8 @@ var defaultValueMap = map[string]string{
 	"subAwgURI":                   "",
 	"subJsonMux":                  "",
 	"subJsonRules":                "",
+	"subJsonRoutingRules":         "",
+	"subJsonDns":                  "",
 	"subJsonFinalMask":            "",
 	"subJsonObservatory":          "",
 	"subThemeDir":                 "",
@@ -190,20 +224,23 @@ var defaultValueMap = map[string]string{
 	"smtpFromName":       "",
 	"smtpTo":             "",
 	"smtpEncryptionType": "starttls", // no, starttls, tls
+
+	// Discord bot notifications
+	"discordBotEnable":     "false",
+	"discordBotToken":      "",
+	"discordChannelId":     "",
+	"discordAdminIds":      "",
+	"discordRunTime":       "@daily",
+	"discordBotBackup":     "false",
+	"discordCpu":           "80",
+	"discordMemory":        "80",
+	"discordLang":          "en-US",
+	"discordEnabledEvents": "login.attempt,cpu.high",
 }
 
 // SettingService provides business logic for application settings management.
 // It handles configuration storage, retrieval, and validation for all system settings.
 type SettingService struct{}
-
-func (s *SettingService) GetDefaultJSONConfig() (any, error) {
-	var jsonData any
-	err := json.Unmarshal([]byte(xrayTemplateConfig), &jsonData)
-	if err != nil {
-		return nil, err
-	}
-	return jsonData, nil
-}
 
 func (s *SettingService) GetAllSetting() (*entity.AllSetting, error) {
 	db := database.GetDB()
@@ -292,6 +329,7 @@ func (s *SettingService) GetAllSettingView() (*entity.AllSettingView, error) {
 	view.HasWarpSecret = secretConfigured(mustString(s.GetWarp()))
 	view.HasNordSecret = secretConfigured(mustString(s.GetNord()))
 	view.HasSmtpPassword = secretConfigured(allSetting.SmtpPassword)
+	view.HasDiscordBotToken = secretConfigured(allSetting.DiscordBotToken)
 	var apiTokenCount int64
 	if err := database.GetDB().Model(model.ApiToken{}).Where("enabled = ?", true).Count(&apiTokenCount).Error; err == nil {
 		view.HasApiToken = apiTokenCount > 0
@@ -300,6 +338,7 @@ func (s *SettingService) GetAllSettingView() (*entity.AllSettingView, error) {
 	view.TwoFactorToken = ""
 	view.LdapPassword = ""
 	view.SmtpPassword = ""
+	view.DiscordBotToken = ""
 	return view, nil
 }
 
@@ -325,12 +364,17 @@ func getEnv(key, fallback string) string {
 
 func (s *SettingService) ResetSettings() error {
 	db := database.GetDB()
-	err := db.Where("1 = 1").Delete(model.Setting{}).Error
-	if err != nil {
-		return err
-	}
-	return db.Model(model.User{}).
-		Where("1 = 1").Error
+	return db.Transaction(func(tx *gorm.DB) error {
+		if err := tx.Where("1 = 1").Delete(model.Setting{}).Error; err != nil {
+			return err
+		}
+		paths := []model.Setting{
+			{Key: "subPath", Value: "/" + random.NumLower(16) + "/"},
+			{Key: "subJsonPath", Value: "/" + random.NumLower(16) + "/"},
+			{Key: "subClashPath", Value: "/" + random.NumLower(16) + "/"},
+		}
+		return tx.Create(&paths).Error
+	})
 }
 
 func (s *SettingService) getSetting(key string) (*model.Setting, error) {
@@ -679,12 +723,32 @@ func (s *SettingService) GetTrustedProxyCIDRs() (string, error) {
 	return s.getString("trustedProxyCIDRs")
 }
 
+func (s *SettingService) GetRealityScanCandidates() (string, error) {
+	return s.getString("realityScanCandidates")
+}
+
 func (s *SettingService) GetRemarkTemplate() (string, error) {
 	return s.getString("remarkTemplate")
 }
 
 func (s *SettingService) GetSubShowIdentityOnAllLinks() (bool, error) {
 	return s.getBool("subShowIdentityOnAllLinks")
+}
+
+func (s *SettingService) GetSubInfoNodeEnable() (bool, error) {
+	return s.getBool("subInfoNodeEnable")
+}
+
+func (s *SettingService) GetSubCalendarExpireInclusive() (bool, error) {
+	return s.getBool("subCalendarExpireInclusive")
+}
+
+func (s *SettingService) GetSubExpiredTemplate() (string, error) {
+	return s.getString("subExpiredTemplate")
+}
+
+func (s *SettingService) GetSubTrafficDepletedTemplate() (string, error) {
+	return s.getString("subTrafficDepletedTemplate")
 }
 
 func (s *SettingService) GetSecret() ([]byte, error) {
@@ -780,6 +844,10 @@ func (s *SettingService) GetSubEnable() (bool, error) {
 	return s.getBool("subEnable")
 }
 
+func (s *SettingService) GetHappLinkEnable() (bool, error) {
+	return s.getBool("happLinkEnable")
+}
+
 func (s *SettingService) GetSubJsonEnable() (bool, error) {
 	return s.getBool("subJsonEnable")
 }
@@ -840,6 +908,98 @@ func (s *SettingService) GetSubRoutingSource() (string, error) {
 
 func (s *SettingService) GetSubHideSettings() (bool, error) {
 	return s.getBool("subHideSettings")
+}
+
+func (s *SettingService) GetSubHappAutoDetect() (bool, error) {
+	return s.getBool("subHappAutoDetect")
+}
+
+func (s *SettingService) GetSubHappProviderId() (string, error) {
+	return s.getString("subHappProviderId")
+}
+
+func (s *SettingService) GetSubHappNewUrl() (string, error) {
+	return s.getString("subHappNewUrl")
+}
+
+func (s *SettingService) GetSubHappFallbackUrl() (string, error) {
+	return s.getString("subHappFallbackUrl")
+}
+
+func (s *SettingService) GetSubHappSubInfoColor() (string, error) {
+	return s.getString("subHappSubInfoColor")
+}
+
+func (s *SettingService) GetSubHappSubInfoText() (string, error) {
+	return s.getString("subHappSubInfoText")
+}
+
+func (s *SettingService) GetSubHappSubInfoButtonText() (string, error) {
+	return s.getString("subHappSubInfoButtonText")
+}
+
+func (s *SettingService) GetSubHappSubInfoButtonLink() (string, error) {
+	return s.getString("subHappSubInfoButtonLink")
+}
+
+func (s *SettingService) GetSubHappSubExpire() (bool, error) {
+	return s.getBool("subHappSubExpire")
+}
+
+func (s *SettingService) GetSubHappSubExpireButtonLink() (string, error) {
+	return s.getString("subHappSubExpireButtonLink")
+}
+
+func (s *SettingService) GetSubHappNotificationExpire() (bool, error) {
+	return s.getBool("subHappNotificationExpire")
+}
+
+func (s *SettingService) GetSubHappNoLimit() (bool, error) {
+	return s.getBool("subHappNoLimit")
+}
+
+func (s *SettingService) GetSubHappAlwaysHwid() (bool, error) {
+	return s.getBool("subHappAlwaysHwid")
+}
+
+func (s *SettingService) GetSubHappTunMode() (string, error) {
+	return s.getString("subHappTunMode")
+}
+
+func (s *SettingService) GetSubHappTunType() (string, error) {
+	return s.getString("subHappTunType")
+}
+
+func (s *SettingService) GetSubHappExcludeRoutes() (string, error) {
+	return s.getString("subHappExcludeRoutes")
+}
+
+func (s *SettingService) GetSubHappExcludeApns() (bool, error) {
+	return s.getBool("subHappExcludeApns")
+}
+
+func (s *SettingService) GetSubHappColorProfile() (string, error) {
+	return s.getString("subHappColorProfile")
+}
+
+func (s *SettingService) GetSubHappPingType() (string, error) {
+	return s.getString("subHappPingType")
+}
+
+func (s *SettingService) GetSubHappAutoConnect() (bool, error) {
+	return s.getBool("subHappAutoConnect")
+}
+
+func (s *SettingService) GetSubHappAutoConnectType() (string, error) {
+	return s.getString("subHappAutoConnectType")
+}
+
+func (s *SettingService) GetSubHappPerAppMode() (string, error) {
+	return s.getString("subHappPerAppMode")
+}
+
+func (s *SettingService) GetSubHappPerAppList() (string, error) {
+	return s.getString("subHappPerAppList")
 }
 
 func (s *SettingService) GetSubIncyEnableRouting() (bool, error) {
@@ -947,6 +1107,14 @@ func (s *SettingService) GetSubJsonMux() (string, error) {
 
 func (s *SettingService) GetSubJsonRules() (string, error) {
 	return s.getString("subJsonRules")
+}
+
+func (s *SettingService) GetSubJsonRoutingRules() (string, error) {
+	return s.getString("subJsonRoutingRules")
+}
+
+func (s *SettingService) GetSubJsonDns() (string, error) {
+	return s.getString("subJsonDns")
 }
 
 func (s *SettingService) GetSubJsonFinalMask() (string, error) {
@@ -1235,6 +1403,88 @@ func (s *SettingService) SetSmtpMemory(value int) error {
 	return s.setInt("smtpMemory", value)
 }
 
+// Discord bot settings
+
+func (s *SettingService) GetDiscordBotEnable() (bool, error) {
+	return s.getBool("discordBotEnable")
+}
+
+func (s *SettingService) SetDiscordBotEnable(value bool) error {
+	return s.setBool("discordBotEnable", value)
+}
+
+func (s *SettingService) GetDiscordBotToken() (string, error) {
+	return s.getString("discordBotToken")
+}
+
+func (s *SettingService) SetDiscordBotToken(value string) error {
+	return s.setString("discordBotToken", value)
+}
+
+func (s *SettingService) GetDiscordChannelId() (string, error) {
+	return s.getString("discordChannelId")
+}
+
+func (s *SettingService) SetDiscordChannelId(value string) error {
+	return s.setString("discordChannelId", value)
+}
+
+func (s *SettingService) GetDiscordAdminIds() (string, error) {
+	return s.getString("discordAdminIds")
+}
+
+func (s *SettingService) SetDiscordAdminIds(value string) error {
+	return s.setString("discordAdminIds", value)
+}
+
+func (s *SettingService) GetDiscordEnabledEvents() (string, error) {
+	return s.getString("discordEnabledEvents")
+}
+
+func (s *SettingService) SetDiscordEnabledEvents(events string) error {
+	return s.setString("discordEnabledEvents", events)
+}
+
+func (s *SettingService) GetDiscordCpu() (int, error) {
+	return s.getInt("discordCpu")
+}
+
+func (s *SettingService) SetDiscordCpu(value int) error {
+	return s.setInt("discordCpu", value)
+}
+
+func (s *SettingService) GetDiscordMemory() (int, error) {
+	return s.getInt("discordMemory")
+}
+
+func (s *SettingService) SetDiscordMemory(value int) error {
+	return s.setInt("discordMemory", value)
+}
+
+func (s *SettingService) GetDiscordRunTime() (string, error) {
+	return s.getString("discordRunTime")
+}
+
+func (s *SettingService) SetDiscordRunTime(value string) error {
+	return s.setString("discordRunTime", value)
+}
+
+func (s *SettingService) GetDiscordBotBackup() (bool, error) {
+	return s.getBool("discordBotBackup")
+}
+
+func (s *SettingService) SetDiscordBotBackup(value bool) error {
+	return s.setBool("discordBotBackup", value)
+}
+
+func (s *SettingService) GetDiscordLang() (string, error) {
+	return s.getString("discordLang")
+}
+
+func (s *SettingService) SetDiscordLang(value string) error {
+	return s.setString("discordLang", value)
+}
+
 // GetOutboundDownThreshold returns how many consecutive failed observatory
 // probes an outbound must accumulate before an outbound.down notification is
 // emitted. 1 preserves the legacy "notify on the first failed probe" behaviour.
@@ -1250,9 +1500,10 @@ func (s *SettingService) SetOutboundDownThreshold(value int) error {
 // flag, a blank submitted secret means "unchanged" (the field is always served
 // blank to the browser) and the stored value is preserved.
 type SecretClears struct {
-	TgBotToken   bool
-	LdapPassword bool
-	SmtpPassword bool
+	TgBotToken      bool
+	LdapPassword    bool
+	SmtpPassword    bool
+	DiscordBotToken bool
 }
 
 func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting, clears SecretClears) error {
@@ -1263,6 +1514,9 @@ func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting, clears 
 		return err
 	}
 	if err := validateSubUserAgentRegexes(allSetting); err != nil {
+		return err
+	}
+	if err := validateSubJsonDnsSetting(allSetting); err != nil {
 		return err
 	}
 	if err := allSetting.CheckValid(); err != nil {
@@ -1376,6 +1630,13 @@ func (s *SettingService) preserveRedactedSecrets(allSetting *entity.AllSetting, 
 		}
 		allSetting.SmtpPassword = value
 	}
+	if !clears.DiscordBotToken && strings.TrimSpace(allSetting.DiscordBotToken) == "" {
+		value, err := s.GetDiscordBotToken()
+		if err != nil {
+			return err
+		}
+		allSetting.DiscordBotToken = value
+	}
 	return nil
 }
 
@@ -1400,10 +1661,21 @@ func validateSettingsURLs(allSetting *entity.AllSetting) error {
 	// the scheme instead of forcing SanitizeHTTPURL's http(s)-only rule.
 	allSetting.SubSupportUrl = common.EnsureURLScheme(allSetting.SubSupportUrl)
 	allSetting.SubProfileUrl = common.EnsureURLScheme(allSetting.SubProfileUrl)
+	for _, ptr := range []*string{
+		&allSetting.SubHappNewUrl,
+		&allSetting.SubHappFallbackUrl,
+		&allSetting.SubHappSubInfoButtonLink,
+		&allSetting.SubHappSubExpireButtonLink,
+	} {
+		if strings.TrimSpace(*ptr) != "" {
+			*ptr = common.EnsureURLScheme(strings.TrimSpace(*ptr))
+		}
+	}
 	for name, value := range map[string]*string{
-		"Happ routing source":         &allSetting.SubRoutingRules,
-		"Clash/Mihomo routing source": &allSetting.SubClashRules,
-		"Incy routing source":         &allSetting.SubIncyRoutingRules,
+		"Happ routing source":              &allSetting.SubRoutingRules,
+		"Clash/Mihomo routing source":      &allSetting.SubClashRules,
+		"Incy routing source":              &allSetting.SubIncyRoutingRules,
+		"JSON subscription routing source": &allSetting.SubJsonRoutingRules,
 	} {
 		if err := validateRemoteRoutingURLSetting(name, value); err != nil {
 			return err
@@ -1420,6 +1692,19 @@ func validateRemoteRoutingURLSetting(name string, value *string) error {
 	if remote {
 		*value = canonical
 	}
+	return nil
+}
+
+// The same parser the sub server uses, so a value can never be saved as valid
+// and then silently ignored at request time.
+func validateSubJsonDnsSetting(allSetting *entity.AllSetting) error {
+	value := strings.TrimSpace(allSetting.SubJsonDns)
+	if value != "" {
+		if _, err := dnsconf.Parse(value); err != nil {
+			return common.NewError("JSON subscription DNS is invalid:", err.Error())
+		}
+	}
+	allSetting.SubJsonDns = value
 	return nil
 }
 
@@ -1495,6 +1780,7 @@ func (s *SettingService) GetDefaultSettings(host string) (any, error) {
 		"defaultKey":       func() (any, error) { return s.GetKeyFile() },
 		"tgBotEnable":      func() (any, error) { return s.GetTgbotEnabled() },
 		"subThemeDir":      func() (any, error) { return s.GetSubThemeDir() },
+		"happLinkEnable":   func() (any, error) { return s.GetHappLinkEnable() },
 		"subEnable":        func() (any, error) { return s.GetSubEnable() },
 		"subJsonEnable":    func() (any, error) { return s.GetSubJsonEnable() },
 		"subClashEnable":   func() (any, error) { return s.GetSubClashEnable() },
@@ -1571,10 +1857,11 @@ func (s *SettingService) GetDefaultSettings(host string) (any, error) {
 }
 
 var factoryDefaultSecretKeys = map[string]bool{
-	"tgBotToken":     true,
-	"twoFactorToken": true,
-	"ldapPassword":   true,
-	"smtpPassword":   true,
+	"tgBotToken":      true,
+	"twoFactorToken":  true,
+	"ldapPassword":    true,
+	"smtpPassword":    true,
+	"discordBotToken": true,
 }
 
 /*

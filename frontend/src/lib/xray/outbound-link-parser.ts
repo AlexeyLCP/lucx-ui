@@ -219,6 +219,15 @@ function applyTransportParams(stream: Raw, params: URLSearchParams): void {
       applyXhttpStringFromParams(xhttp, params);
       break;
     }
+    case 'kcp': {
+      // mtu/tti on kcpSettings; header/seed via applyMkcpLegacyFromShare.
+      const kcp = stream.kcpSettings as Raw;
+      const mtu = kcpParamInRange(params.get('mtu'), KCP_MIN_MTU, KCP_MAX_MTU);
+      if (mtu !== null) kcp.mtu = mtu;
+      const tti = kcpParamInRange(params.get('tti'), KCP_MIN_TTI, KCP_MAX_TTI);
+      if (tti !== null) kcp.tti = tti;
+      break;
+    }
     case 'tcp':
       // vless/trojan TCP HTTP camouflage rides on header=http+host+path
       if (params.get('headerType') === 'http' || params.get('type') === 'http') {
@@ -236,21 +245,78 @@ function applyTransportParams(stream: Raw, params: URLSearchParams): void {
   }
 }
 
+// mKCP bounds mirror xray-core's KCPConfig.Build checks (a value outside them fails
+// the whole config load); mtu's ceiling is the int32 that fits its uint32 field.
+const KCP_MIN_MTU = 21;
+const KCP_MAX_MTU = 0x7fffffff;
+const KCP_MIN_TTI = 10;
+const KCP_MAX_TTI = 1000;
+
+// Decimal digits only, like the Go importer's strconv.Atoi; anything else keeps
+// buildStream's default.
+function kcpParamInRange(raw: string | null, min: number, max: number): number | null {
+  if (raw === null || !/^\d+$/.test(raw)) return null;
+  const n = Number(raw);
+  return Number.isSafeInteger(n) && n >= min && n <= max ? n : null;
+}
+
+const kcpHeaderTypeToMask: Record<string, string> = {
+  dns: 'dns',
+  dtls: 'dtls',
+  srtp: 'srtp',
+  utp: 'utp',
+  'wechat-video': 'wechat',
+  wireguard: 'wireguard',
+};
+
 // The inbound link emits the entire finalmask object as a JSON-encoded
 // `fm` query param. Decode and attach to streamSettings so udpHop /
 // quicParams / tcp+udp masks round-trip on outbound import.
 function applyFinalMaskParam(stream: Raw, params: URLSearchParams): void {
   const fm = params.get('fm');
-  if (!fm) return;
-  try {
-    const parsed = JSON.parse(fm) as Record<string, unknown>;
-    if (parsed && typeof parsed === 'object') {
-      sanitizeFinalMaskQuicParams(parsed);
-      stream.finalmask = parsed;
+  if (fm) {
+    try {
+      const parsed = JSON.parse(fm) as Record<string, unknown>;
+      if (parsed && typeof parsed === 'object') {
+        sanitizeFinalMaskQuicParams(parsed);
+        stream.finalmask = parsed;
+      }
+    } catch {
+      // malformed fm — leave streamSettings.finalmask absent
     }
-  } catch {
-    // malformed fm — leave streamSettings.finalmask absent
   }
+  applyMkcpLegacyFromShare(stream, params);
+}
+
+/** Restore headerType/seed into finalmask.udp mkcp-legacy; fm= mkcp-legacy wins. */
+function applyMkcpLegacyFromShare(stream: Raw, params: URLSearchParams): void {
+  let headerType = (params.get('headerType') ?? '').trim();
+  const seed = params.get('seed') ?? '';
+  if (headerType === 'none') headerType = '';
+  if (!headerType && !seed) return;
+  const network = stream.network;
+  if (typeof network === 'string' && network && network !== 'kcp') return;
+
+  let maskHeader = '';
+  if (headerType) {
+    if (!Object.hasOwn(kcpHeaderTypeToMask, headerType)) return;
+    maskHeader = kcpHeaderTypeToMask[headerType];
+  }
+
+  const finalmask = (stream.finalmask as Raw) ?? {};
+  const udp = Array.isArray(finalmask.udp) ? [...(finalmask.udp as unknown[])] : [];
+  if (udp.some((m) => (m as Raw)?.type === 'mkcp-legacy')) return;
+
+  // One mask per field, seed first: MkcpLegacy.Build ignores value once header is
+  // set, and the chain puts the last mask outermost on the wire (header around cipher).
+  if (seed) udp.push(mkcpLegacyMask('', seed));
+  if (maskHeader) udp.push(mkcpLegacyMask(maskHeader, ''));
+  finalmask.udp = udp;
+  stream.finalmask = finalmask;
+}
+
+function mkcpLegacyMask(header: string, value: string): Raw {
+  return { type: 'mkcp-legacy', settings: { header, value } };
 }
 
 function ensureFinalMask(stream: Raw): Raw {
@@ -258,14 +324,34 @@ function ensureFinalMask(stream: Raw): Raw {
   return stream.finalmask as Raw;
 }
 
-// Rebuild the salamander mask from the standard Hysteria2 obfs pair (every
-// non-3x-ui client, and this panel's own generator, speak it instead of the
-// private fm=<json> dump). A salamander mask already carrying a password via fm=
-// wins; a password-less one is completed rather than left empty.
+// Rebuild the salamander mask from the standard Hysteria2 obfs pair; an fm=
+// password wins. obfs=gecko adds min/maxPacketSize stored as packetSize.
 function applyHysteria2Obfs(stream: Raw, params: URLSearchParams): void {
-  if ((params.get('obfs') ?? '').toLowerCase() !== 'salamander') return;
+  const obfs = (params.get('obfs') ?? '').toLowerCase();
+  const isGecko = obfs === 'gecko';
+  if (!isGecko && obfs !== 'salamander') return;
   const password = firstParam(params, 'obfs-password', 'obfs_password', 'obfsPassword');
   if (!password) return;
+  let packetSize = '';
+  if (isGecko) {
+    // Both halves required and numeric, matching the export side; anything
+    // else is dropped rather than stored as a malformed range.
+    const minSize = (params.get('minPacketSize') ?? '').trim();
+    const maxSize = (params.get('maxPacketSize') ?? '').trim();
+    const min = Number(minSize);
+    const max = Number(maxSize);
+    if (
+      /^\d+$/.test(minSize) &&
+      /^\d+$/.test(maxSize) &&
+      Number.isSafeInteger(min) &&
+      Number.isSafeInteger(max) &&
+      min >= 1 &&
+      max >= min &&
+      max <= 2048
+    ) {
+      packetSize = `${min}-${max}`;
+    }
+  }
   const finalmask = ensureFinalMask(stream);
   const udp = Array.isArray(finalmask.udp) ? (finalmask.udp as Raw[]) : [];
   const existing = udp.find(
@@ -279,26 +365,31 @@ function applyHysteria2Obfs(stream: Raw, params: URLSearchParams): void {
     ) as Raw;
     if (typeof settings.password !== 'string' || settings.password.length === 0)
       settings.password = password;
+    if (
+      packetSize !== '' &&
+      !(typeof settings.packetSize === 'string' && settings.packetSize.length > 0)
+    )
+      settings.packetSize = packetSize;
     return;
   }
-  finalmask.udp = [...udp, { type: 'salamander', settings: { password } }];
+  const settings: Raw = { password };
+  if (packetSize !== '') settings.packetSize = packetSize;
+  finalmask.udp = [...udp, { type: 'salamander', settings }];
 }
 
-// Rebuild the UDP port-hopping range from the standard mport param, which the
-// generator emits as finalmask.quicParams.udpHop.ports. A range already supplied
-// via fm= wins; the client-side interval falls back to the panel's default.
+// Rebuild the UDP port-hopping range from the standard mport param. xray-core
+// 26.9.9 replaced finalmask.quicParams.udpHop with a 'udphop' UDP mask, whose
+// intervalremote mode is what the old key used to do; an fm= mask wins.
 function applyHysteria2Hop(stream: Raw, params: URLSearchParams): void {
   const ports = firstParam(params, 'mport');
   if (!ports) return;
   const finalmask = ensureFinalMask(stream);
-  const quicParams = (
-    finalmask.quicParams && typeof finalmask.quicParams === 'object'
-      ? finalmask.quicParams
-      : (finalmask.quicParams = {})
-  ) as Raw;
-  const existingHop = quicParams.udpHop as Raw | undefined;
-  if (existingHop && typeof existingHop.ports === 'string' && existingHop.ports.length > 0) return;
-  quicParams.udpHop = { ports, interval: '5-10' };
+  const udp = Array.isArray(finalmask.udp) ? (finalmask.udp as Raw[]) : [];
+  if (udp.some((mask) => (mask as Raw | undefined)?.type === 'udphop')) return;
+  finalmask.udp = [
+    ...udp,
+    { type: 'udphop', settings: { mode: 'intervalremote', interval: '5-10', remotePorts: ports } },
+  ];
 }
 
 const QUIC_PARAMS_NUMERIC_KEYS = [
@@ -361,6 +452,27 @@ function sanitizeFinalMaskQuicParams(parsed: Record<string, unknown>): void {
     }
     quic[key] = clamped;
   }
+}
+
+// The panel exports tcp/http obfuscation as the SIP002 obfs-local plugin only,
+// so the header it stands for has to be rebuilt before the transport is applied.
+function applyObfsLocalPluginParams(params: URLSearchParams): void {
+  if (params.get('headerType') || params.get('type') === 'http') return;
+  const parts = (params.get('plugin') ?? '').split(';');
+  if (parts[0] !== 'obfs-local') return;
+  let obfs = '';
+  let host = '';
+  for (const part of parts.slice(1)) {
+    const eq = part.indexOf('=');
+    if (eq < 0) continue;
+    const key = part.slice(0, eq);
+    if (key === 'obfs') obfs = part.slice(eq + 1);
+    else if (key === 'obfs-host') host = part.slice(eq + 1);
+  }
+  if (obfs !== 'http') return;
+  params.set('type', 'tcp');
+  params.set('headerType', 'http');
+  if (host) params.set('host', host);
 }
 
 function applySecurityParams(stream: Raw, params: URLSearchParams): void {
@@ -433,6 +545,11 @@ export function parseVmessLink(link: string): Raw | null {
       tls.serverName = json.sni ?? '';
       tls.fingerprint = json.fp ?? '';
       if (json.alpn) tls.alpn = (json.alpn as string).split(',');
+      // The vmess object names the certificate checks the url-param protocols
+      // pass through applySecurityParams, under the same short names.
+      if (typeof json.ech === 'string') tls.echConfigList = json.ech;
+      if (typeof json.vcn === 'string') tls.verifyPeerCertByName = json.vcn;
+      if (typeof json.pcs === 'string') tls.pinnedPeerCertSha256 = json.pcs;
     }
 
     const port = Number(json.port) || 443;
@@ -522,6 +639,8 @@ export function parseShadowsocksLink(link: string): Raw | null {
   // Two link shapes coexist:
   //   modern:  ss://base64(method:password)@host:port#remark
   //   legacy:  ss://base64(method:password@host:port)#remark
+  // Query may carry Xray-native stream params (type/security/sni/alpn/fp)
+  // emitted by the SS share-link generator — preserve them like trojan/vless.
   // Try modern first; fall back to legacy decode of the whole userinfo+host.
   let userInfo: string;
   let host: string;
@@ -537,6 +656,7 @@ export function parseShadowsocksLink(link: string): Raw | null {
     }
   }
   const queryIndex = linkNoHash.indexOf('?');
+  const rawQuery = queryIndex >= 0 ? linkNoHash.slice(queryIndex + 1) : '';
   const core = queryIndex >= 0 ? linkNoHash.slice(0, queryIndex) : linkNoHash;
   const atIndex = core.indexOf('@');
   if (atIndex >= 0) {
@@ -556,7 +676,7 @@ export function parseShadowsocksLink(link: string): Raw | null {
         userInfo = rawUserInfo;
       }
     }
-    const hostPort = core.slice(atIndex + 1);
+    const hostPort = core.slice(atIndex + 1).replace(/\/+$/, '');
     const colon = hostPort.lastIndexOf(':');
     if (colon < 0) return null;
     host = hostPort.slice(0, colon);
@@ -580,12 +700,21 @@ export function parseShadowsocksLink(link: string): Raw | null {
   const sep = userInfo.indexOf(':');
   const method = sep < 0 ? '2022-blake3-aes-128-gcm' : userInfo.slice(0, sep);
   const password = sep < 0 ? userInfo : userInfo.slice(sep + 1);
+  const params = new URLSearchParams(rawQuery);
+  applyObfsLocalPluginParams(params);
+  const network = params.get('type') ?? 'tcp';
+  const security = (params.get('security') ?? 'none') as string;
+  const stream = buildStream(network, security);
+  applyTransportParams(stream, params);
+  applySecurityParams(stream, params);
+  applyFinalMaskParam(stream, params);
   return {
     protocol: 'shadowsocks',
     tag: remark,
     settings: {
       servers: [{ address: host, port, password, method }],
     },
+    streamSettings: stream,
   };
 }
 

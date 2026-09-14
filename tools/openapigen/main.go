@@ -73,6 +73,7 @@ func run(root, outDir string) error {
 			Path: resolveRel(root, "internal/xray"),
 			StructAllow: setOf(
 				"ClientTraffic",
+				"Traffic",
 			),
 		},
 		{
@@ -90,6 +91,15 @@ func run(root, outDir string) error {
 			Path: resolveRel(root, "internal/web/service"),
 			StructAllow: setOf(
 				"InboundOption",
+				"HappLinkResult",
+				"ClientSlim",
+				"ClientPageResponse",
+				"ClientsSummary",
+				"InboundTrafficSummary",
+				"LogEntry",
+				"NewUUIDResponse",
+				"MLDSA65Response",
+				"MLKEM768Response",
 				"NodeMutationRequest",
 				"NodeView",
 				"ProbeResultUI",
@@ -97,6 +107,7 @@ func run(root, outDir string) error {
 				"GeodataTokenIssue",
 				"AmneziaWGLogs",
 				"PeerActivity",
+				"HwidSlotStatus",
 			),
 		},
 		{
@@ -106,6 +117,10 @@ func run(root, outDir string) error {
 		{
 			Path:        resolveRel(root, "internal/amneziawg"),
 			StructAllow: setOf("ServerSettings"),
+		},
+		{
+			Path:        resolveRel(root, "internal/tuic"),
+			StructAllow: setOf("TuicServerSettings", "TuicClientSettings"),
 		},
 		{
 			Path:        resolveRel(root, "internal/awg"),

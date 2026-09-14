@@ -15,6 +15,7 @@ import { buildRemarkByTag, formatInboundTag, isApiRule } from './helpers';
 
 export interface RoutingRule {
   enabled?: boolean;
+  comment?: string;
   type?: string;
   domain?: string | string[];
   ip?: string | string[];
@@ -44,6 +45,7 @@ interface RuleFormModalProps {
 
 const initialForm = (): RuleFormValues => ({
   enabled: true,
+  comment: '',
   domain: '',
   ip: '',
   port: '',
@@ -238,6 +240,7 @@ export default function RuleFormModal({
       const user = Array.isArray(rule.user) ? rule.user.join(',') : rule.user || '';
       methods.reset({
         enabled: rule.enabled !== false,
+        comment: rule.comment || '',
         domain: Array.isArray(rule.domain) ? rule.domain.join(',') : rule.domain || '',
         ip: Array.isArray(rule.ip) ? rule.ip.join(',') : rule.ip || '',
         port: rule.port || '',
@@ -316,6 +319,7 @@ export default function RuleFormModal({
     const built: Record<string, unknown> = {
       type: 'field',
       enabled: v.enabled,
+      comment: v.comment,
       domain: csv(v.domain),
       ip: csv(v.ip),
       port: v.port,
@@ -424,6 +428,9 @@ export default function RuleFormModal({
             <Switch disabled={isApiRule(rule ?? {})} />
           </FormField>
 
+          <FormField name="comment" label={t('comment')}>
+            <Input maxLength={200} showCount placeholder={t('comment')} />
+          </FormField>
           {/* LUCX-HOOK: AWG outbound — routing-rule validation UX.
               Xray rejects a field rule with no effective matchers and fails to
               start (AGENTS.md Pattern 5). A common footgun was creating a rule

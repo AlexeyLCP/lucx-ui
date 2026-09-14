@@ -3,6 +3,9 @@ package service
 import (
 	"bytes"
 	"errors"
+	"net/http"
+	"net/http/httptest"
+	"slices"
 	"testing"
 
 	"gorm.io/gorm"
@@ -39,7 +42,7 @@ func TestOutboundSubscriptionCreatePropagatesAllocationDatabaseFailures(t *testi
 		{name: "priority count query", tagPrefix: "custom-", operation: "priority allocation"},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			created, err := (&OutboundSubscriptionService{}).Create("test", "https://1.1.1.1/sub", tc.tagPrefix, true, 600, false, false, false)
+			created, err := (&OutboundSubscriptionService{}).Create("test", "https://1.1.1.1/sub", tc.tagPrefix, "", true, 600, false, false, false)
 			if !errors.Is(err, errInjected) {
 				t.Fatalf("Create error = %v, want injected %s query failure", err, tc.operation)
 			}
@@ -82,7 +85,7 @@ func TestOutboundSubscriptionUpdatePropagatesPrefixQueryFailureWithoutMutation(t
 	})
 
 	err := (&OutboundSubscriptionService{}).Update(
-		original.Id, "after", "https://1.1.1.1/changed", "", false, 1200, false, false, false,
+		original.Id, "after", "https://1.1.1.1/changed", "", "", false, 1200, false, false, false,
 	)
 	if !errors.Is(err, errInjected) {
 		t.Fatalf("Update error = %v, want injected prefix query failure", err)
@@ -98,6 +101,30 @@ func TestOutboundSubscriptionUpdatePropagatesPrefixQueryFailureWithoutMutation(t
 	if got.Remark != original.Remark || got.Url != original.Url || got.TagPrefix != original.TagPrefix ||
 		got.Enabled != original.Enabled || got.UpdateInterval != original.UpdateInterval {
 		t.Fatalf("subscription changed after failed allocation: got %+v, want %+v", got, *original)
+	}
+}
+
+func TestOutboundSubscriptionRefreshUsesCustomUserAgent(t *testing.T) {
+	setupSettingTestDB(t)
+	const wantUserAgent = "ClashMetaForAndroid/2.11.13"
+	var gotUserAgent string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotUserAgent = r.UserAgent()
+		_, _ = w.Write([]byte("vless://00000000-0000-4000-8000-000000000000@1.1.1.1:443?security=tls&type=tcp#node"))
+	}))
+	t.Cleanup(server.Close)
+
+	sub := &model.OutboundSubscription{
+		Url: server.URL, AllowPrivate: true, UserAgent: wantUserAgent, TagPrefix: "test-",
+	}
+	if err := database.GetDB().Create(sub).Error; err != nil {
+		t.Fatalf("seed subscription: %v", err)
+	}
+	if _, err := (&OutboundSubscriptionService{}).Refresh(sub.Id); err != nil {
+		t.Fatalf("Refresh: %v", err)
+	}
+	if gotUserAgent != wantUserAgent {
+		t.Fatalf("User-Agent = %q, want %q", gotUserAgent, wantUserAgent)
 	}
 }
 
@@ -166,9 +193,50 @@ func TestAssignStableTags(t *testing.T) {
 
 	t.Run("falls back to the previous tag at the same position", func(t *testing.T) {
 		parsed := []link.Outbound{{"tag": "JP-Tokyo"}}
-		got := assignStableTags(parsed, []string{"id-new"}, map[string]string{}, map[int]string{0: "sub1-oldpos"}, 1, "")
+		prev := map[string]string{"id-gone": "sub1-oldpos"}
+		got := assignStableTags(parsed, []string{"id-new"}, prev, map[int]string{0: "sub1-oldpos"}, 1, "")
 		if got[0] != "sub1-oldpos" {
 			t.Fatalf("got %q, want sub1-oldpos", got[0])
+		}
+	})
+
+	t.Run("does not let an inserted link steal a stable tag", func(t *testing.T) {
+		parsed := []link.Outbound{{"tag": "Poland"}, {"tag": "NewServer"}, {"tag": "Netherlands"}}
+		prev := map[string]string{
+			"id-poland":      "sub1-poland",
+			"id-netherlands": "sub1-netherlands",
+		}
+		prevTagByIndex := map[int]string{0: "sub1-poland", 1: "sub1-netherlands"}
+
+		got := assignStableTags(parsed, []string{"id-poland", "id-new", "id-netherlands"}, prev, prevTagByIndex, 1, "")
+		want := []string{"sub1-poland", "sub1-newserver", "sub1-netherlands"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("does not let a fresh tag steal a stable tag", func(t *testing.T) {
+		parsed := []link.Outbound{{"tag": "Netherlands"}, {"tag": "Renamed"}}
+		prev := map[string]string{"id-netherlands": "sub1-netherlands"}
+
+		got := assignStableTags(parsed, []string{"id-new", "id-netherlands"}, prev, nil, 1, "")
+		want := []string{"sub1-netherlands-1", "sub1-netherlands"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("got %v, want %v", got, want)
+		}
+	})
+
+	t.Run("skips reserved tags while adding a suffix", func(t *testing.T) {
+		parsed := []link.Outbound{{"tag": "Netherlands"}, {"tag": "First"}, {"tag": "Second"}}
+		prev := map[string]string{
+			"id-first":  "sub1-netherlands",
+			"id-second": "sub1-netherlands-1",
+		}
+
+		got := assignStableTags(parsed, []string{"id-new", "id-first", "id-second"}, prev, nil, 1, "")
+		want := []string{"sub1-netherlands-2", "sub1-netherlands", "sub1-netherlands-1"}
+		if !slices.Equal(got, want) {
+			t.Fatalf("got %v, want %v", got, want)
 		}
 	})
 

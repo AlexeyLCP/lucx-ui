@@ -1,7 +1,9 @@
 package model
 
 import (
+	"encoding/json"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -29,7 +31,7 @@ func TestClientToRecordRoundTripWireGuard(t *testing.T) {
 		{"PrivateKey", c.PrivateKey, got.PrivateKey},
 		{"PublicKey", c.PublicKey, got.PublicKey},
 		{"PreSharedKey", c.PreSharedKey, got.PreSharedKey},
-		{"KeepAlive", c.KeepAlive, got.KeepAlive},
+		{"KeepAlive", c.KeepAliveSeconds(), got.KeepAliveSeconds()},
 	} {
 		if f.a != f.b {
 			t.Errorf("%s round-trip = %v, want %v", f.name, f.b, f.a)
@@ -37,6 +39,23 @@ func TestClientToRecordRoundTripWireGuard(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got.AllowedIPs, c.AllowedIPs) {
 		t.Errorf("AllowedIPs round-trip = %v, want %v", got.AllowedIPs, c.AllowedIPs)
+	}
+}
+
+// ToClient feeds the settings JSON of every protocol, not just the tunnels, and
+// that JSON reaches xray-core verbatim through GenXrayInboundConfig.
+func TestClientToClientOmitsUnsetKeepAlive(t *testing.T) {
+	rec := &ClientRecord{Email: "vless@example.test", UUID: "11111111-2222-3333-4444-555555555555", Enable: true}
+
+	if got := rec.ToClient().KeepAlive; !got.IsZero() {
+		t.Fatalf("KeepAlive for a record that never set one = %q, want empty", got)
+	}
+	blob, err := json.Marshal(map[string][]Client{"clients": {*rec.ToClient()}})
+	if err != nil {
+		t.Fatalf("marshal settings payload: %v", err)
+	}
+	if strings.Contains(string(blob), "keepAlive") {
+		t.Fatalf("settings payload carries keepAlive for a non-tunnel client: %s", blob)
 	}
 }
 

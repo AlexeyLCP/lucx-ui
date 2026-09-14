@@ -43,18 +43,7 @@ import { SidecarOutboundsTab } from './sidecar-outbounds/SidecarOutboundsTab';
 // END LUCX-HOOK
 import './XrayPage.css';
 
-// LUCX-HOOK: AWG outbound — add the 'awg-outbound' section slug after 'outbound'.
-const SECTION_SLUGS = [
-  'basic',
-  'routing',
-  'outbound',
-  'awg-outbound',
-  'sidecar-outbound',
-  'balancer',
-  'dns',
-  'advanced',
-];
-// END LUCX-HOOK
+const SECTION_SLUGS = ['basic', 'routing', 'outbound', 'balancer', 'dns', 'advanced'];
 
 type AdvKey = 'xraySetting' | 'inboundSettings' | 'outboundSettings' | 'routingRuleSettings';
 
@@ -111,7 +100,9 @@ export default function XrayPage() {
       : location.pathname === '/routing'
         ? 'routing'
         : '';
-  const sectionSlug = pathSection || location.hash.replace(/^#/, '');
+  const rawSlug = pathSection || location.hash.replace(/^#/, '');
+  const sectionSlug =
+    rawSlug === 'awg-outbound' || rawSlug === 'sidecar-outbound' ? 'outbound' : rawSlug;
   const activeSection = SECTION_SLUGS.includes(sectionSlug) ? sectionSlug : 'basic';
 
   const mutate = useCallback(
@@ -163,19 +154,6 @@ export default function XrayPage() {
       if (idx >= 0) tt.outbounds.splice(idx, 1);
     });
   }
-  function onRemoveOutboundByIndex(index: number) {
-    mutate((tt) => {
-      if (tt.outbounds && index >= 0) tt.outbounds.splice(index, 1);
-    });
-  }
-  function onRemoveRoutingRules(payload: { prefix: string }) {
-    mutate((tt) => {
-      const rules = tt.routing?.rules;
-      if (!Array.isArray(rules)) return;
-      tt.routing!.rules = rules.filter((r) => !r?.outboundTag?.startsWith?.(payload.prefix));
-    });
-  }
-
   const advancedText = useMemo(() => {
     if (advSettings === 'xraySetting') return xraySetting;
     const tpl = templateSettings;
@@ -270,39 +248,37 @@ export default function XrayPage() {
         );
       case 'outbound':
         return (
-          <OutboundsTab
-            templateSettings={templateSettings}
-            setTemplateSettings={setTemplateSettings}
-            outboundsTraffic={outboundsTraffic}
-            outboundTestStates={outboundTestStates}
-            subscriptionTestStates={subscriptionTestStates}
-            testingAll={testingAll}
-            inboundTags={inboundTags}
-            subscriptionOutbounds={subscriptionOutbounds}
-            subscriptionOutboundTags={subscriptionOutboundTags}
-            isMobile={isMobile}
-            onResetTraffic={resetOutboundsTraffic}
-            onTest={onTestOutbound}
-            onTestSubscription={onTestSubscription}
-            onTestAll={testAllOutbounds}
-            onShowWarp={() => setWarpOpen(true)}
-            onShowNord={() => setNordOpen(true)}
-            onShowPia={() => setPiaOpen(true)}
-            onRefreshXrayData={fetchAll}
-          />
-        );
-      // LUCX-HOOK: sidecar outbounds — AWG kernel + naive/mieru/TrustTunnel SOCKS.
-      case 'awg-outbound':
-      case 'sidecar-outbound':
-        return (
           <>
-            <AwgOutboundsTab />
+            <OutboundsTab
+              templateSettings={templateSettings}
+              setTemplateSettings={setTemplateSettings}
+              outboundsTraffic={outboundsTraffic}
+              outboundTestStates={outboundTestStates}
+              subscriptionTestStates={subscriptionTestStates}
+              testingAll={testingAll}
+              inboundTags={inboundTags}
+              subscriptionOutbounds={subscriptionOutbounds}
+              subscriptionOutboundTags={subscriptionOutboundTags}
+              isMobile={isMobile}
+              onResetTraffic={resetOutboundsTraffic}
+              onTest={onTestOutbound}
+              onTestSubscription={onTestSubscription}
+              onTestAll={testAllOutbounds}
+              onShowWarp={() => setWarpOpen(true)}
+              onShowNord={() => setNordOpen(true)}
+              onShowPia={() => setPiaOpen(true)}
+              onRefreshXrayData={fetchAll}
+            />
+            {/* LUCX-HOOK: kernel AWG + naive/mieru/TrustTunnel sit with Xray outbounds. */}
+            <div style={{ marginTop: 24 }}>
+              <AwgOutboundsTab />
+            </div>
             <div style={{ marginTop: 24 }}>
               <SidecarOutboundsTab />
             </div>
+            {/* END LUCX-HOOK */}
           </>
         );
-      // END LUCX-HOOK
       case 'balancer':
         return (
           <BalancersTab
@@ -430,8 +406,6 @@ export default function XrayPage() {
           onClose={() => setNordOpen(false)}
           onAddOutbound={onAddOutbound}
           onResetOutbound={onResetOutbound}
-          onRemoveOutbound={onRemoveOutboundByIndex}
-          onRemoveRoutingRules={onRemoveRoutingRules}
         />
         <PiaModal
           open={piaOpen}

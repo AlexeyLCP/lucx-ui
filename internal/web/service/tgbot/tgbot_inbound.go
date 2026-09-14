@@ -109,12 +109,7 @@ func (t *Tgbot) getInboundsFor(nextAction string) (*telego.InlineKeyboardMarkup,
 }
 
 // getInboundClientsFor lists clients of an inbound with a specific action prefix to be appended with email
-func (t *Tgbot) getInboundClientsFor(inboundID int, action string) (*telego.InlineKeyboardMarkup, error) {
-	inbound, err := t.inboundService.GetInbound(inboundID)
-	if err != nil {
-		logger.Warning("getInboundClientsFor run failed:", err)
-		return nil, errors.New(t.I18nBot("tgbot.answers.getInboundsFailed"))
-	}
+func (t *Tgbot) getInboundClientsFor(inbound *model.Inbound, action string) (*telego.InlineKeyboardMarkup, error) {
 	clients, err := t.inboundService.GetClients(inbound)
 	var buttons []telego.InlineKeyboardButton
 
@@ -190,7 +185,7 @@ func (t *Tgbot) getInboundsAddClient() (*telego.InlineKeyboardMarkup, error) {
 // current selection state for the inbound; tapping fires
 // add_client_toggle_attach <id> which flips it and re-renders. A final
 // "Done" button (add_client_attach_done) returns to the field-edit screen.
-func (t *Tgbot) getInboundsAttachPicker() (*telego.InlineKeyboardMarkup, error) {
+func (t *Tgbot) getInboundsAttachPicker(draft *clientDraft) (*telego.InlineKeyboardMarkup, error) {
 	inbounds, err := t.inboundService.GetAllInbounds()
 	if err != nil {
 		logger.Warning("GetAllInbounds run failed:", err)
@@ -206,8 +201,8 @@ func (t *Tgbot) getInboundsAttachPicker() (*telego.InlineKeyboardMarkup, error) 
 		model.AmneziaWG: true,
 		model.HTTP:      true,
 	}
-	selected := make(map[int]bool, len(receiver_inbound_IDs))
-	for _, id := range receiver_inbound_IDs {
+	selected := make(map[int]bool, len(draft.receiverInboundIDs))
+	for _, id := range draft.receiverInboundIDs {
 		selected[id] = true
 	}
 	var buttons []telego.InlineKeyboardButton

@@ -17,6 +17,7 @@ const LINK_PROTOCOLS: ReadonlySet<string> = new Set([
   Protocols.SHADOWSOCKS,
   Protocols.HYSTERIA,
   Protocols.MTPROTO,
+  Protocols.TUIC,
   Protocols.QWDTT, // LUCX-HOOK: single-credential qwdtt://
   Protocols.OLCRTC, // LUCX-HOOK: single-credential olcrtc://
 ]);

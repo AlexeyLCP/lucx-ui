@@ -84,6 +84,7 @@ export function canEnableSniffing(values: { protocol: string }): boolean {
   return (
     values.protocol !== 'mtproto' &&
     values.protocol !== 'amneziawg' &&
+    values.protocol !== 'tuic' &&
     values.protocol !== 'awg' &&
     values.protocol !== 'naive' &&
     values.protocol !== 'olcrtc' &&

@@ -40,6 +40,8 @@ import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { useWebSocket } from '@/hooks/useWebSocket';
 import { useNodesQuery } from '@/api/queries/useNodesQuery';
+import { useHostsQuery } from '@/api/queries/useHostsQuery';
+import { withMtprotoHostEndpoints } from '@/lib/hosts/host-link';
 import { useStatusQuery } from '@/api/queries/useStatusQuery';
 import AppSidebar from '@/layouts/AppSidebar';
 const TextModal = lazy(() => import('@/components/feedback/TextModal'));
@@ -116,6 +118,16 @@ export default function InboundsPage() {
   }, [messageApi]);
 
   const { nodes: nodesList, fetched: nodesFetched } = useNodesQuery();
+  // MTProto share links are generated from this list, so an empty one must mean
+  // "no hosts" and not "not loaded yet" — the gate below waits for it.
+  const {
+    hosts,
+    fetched: hostsFetched,
+    fetchError: hostsFetchError,
+    refetch: refetchHosts,
+  } = useHostsQuery();
+  // A background refetch that fails while rows are still cached is not fatal.
+  const hostsError = hosts.length > 0 ? '' : hostsFetchError;
   const { status, fetched: statusFetched } = useStatusQuery();
   const nodesById = useMemo(() => {
     const map = new Map<number, ReturnType<typeof useNodesQuery>['nodes'][number]>();
@@ -331,11 +343,19 @@ export default function InboundsPage() {
   const exportInboundLinks = useCallback(
     async (dbInbound: DBInbound) => {
       const projected = checkFallback(dbInbound);
+      const hostOverride = hostOverrideFor(dbInbound);
+      const fallbackHostname = preferPublicHost(window.location.hostname, subSettings.publicHost);
       const genInput = {
-        inbound: inboundFromDb(projected),
+        inbound: withMtprotoHostEndpoints(
+          inboundFromDb(projected),
+          dbInbound.id,
+          hosts,
+          hostOverride,
+          fallbackHostname,
+        ),
         remark: projected.remark,
-        hostOverride: hostOverrideFor(dbInbound),
-        fallbackHostname: preferPublicHost(window.location.hostname, subSettings.publicHost),
+        hostOverride,
+        fallbackHostname,
         // Before the status poll resolves, moduleAwg3/31 default to false and
         // would silently strip fields the host actually supports.
         nodeId: statusFetched ? projected.nodeId : undefined,
@@ -400,6 +420,7 @@ export default function InboundsPage() {
     [
       checkFallback,
       hostOverrideFor,
+      hosts,
       subSettings.publicHost,
       status,
       statusFetched,
@@ -764,16 +785,27 @@ export default function InboundsPage() {
 
         <Layout className="content-shell">
           <Layout.Content id="content-layout" className="content-area">
-            <Spin spinning={!fetched} delay={200} description={t('loading')} size="large">
-              {!fetched ? (
+            <Spin
+              spinning={!fetched || !hostsFetched}
+              delay={200}
+              description={t('loading')}
+              size="large"
+            >
+              {!fetched || !hostsFetched ? (
                 <div className="loading-spacer" />
-              ) : fetchError ? (
+              ) : fetchError || hostsError ? (
                 <Result
                   status="error"
                   title={t('somethingWentWrong')}
-                  subTitle={fetchError}
+                  subTitle={fetchError || hostsError}
                   extra={
-                    <Button type="primary" onClick={refresh}>
+                    <Button
+                      type="primary"
+                      onClick={() => {
+                        void refresh();
+                        void refetchHosts();
+                      }}
+                    >
                       {t('refresh')}
                     </Button>
                   }
@@ -831,6 +863,7 @@ export default function InboundsPage() {
                       subEnable={subSettings.enable}
                       nodesById={nodesById}
                       hasActiveNode={showNodeInfo}
+                      hosts={hosts}
                       onAddInbound={onAddInbound}
                       onGeneralAction={onGeneralAction}
                       onRowAction={({ key, dbInbound }) =>
@@ -868,6 +901,7 @@ export default function InboundsPage() {
             ipLimitEnable={ipLimitEnable}
             tgBotEnable={tgBotEnable}
             subSettings={subSettings}
+            hosts={hosts}
             lastOnlineMap={lastOnlineMap}
             nodeAddress={infoNodeAddress}
           />

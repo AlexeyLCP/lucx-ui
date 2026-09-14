@@ -104,6 +104,16 @@ describe('link-label parseLinkParts', () => {
     expect(parts && linkMetaText(parts)).toBe('wg-Майфун:36541');
   });
 
+  it('labels a tuic link with QUIC network and TLS security', () => {
+    const link = 'tuic://uuid:pass@tuic.example.com:8443?congestion_control=bbr#tuic-remark';
+    const parts = parseLinkParts(link);
+    expect(parts?.protocol).toBe('TUIC');
+    expect(parts?.network).toBe('QUIC');
+    expect(parts?.security).toBe('TLS');
+    expect(parts?.port).toBe('8443');
+    expect(parts?.remark).toBe('tuic-remark');
+  });
+
   it('does not treat a LucX qCompress vpn:// envelope as a .conf remark', () => {
     const raw = Uint8Array.from([
       0, 0, 0, 16, 0x78, 0x9c, 0xff, 0x23, 0x20, 0x62, 0x61, 0x64, 0xfe, 0x00,

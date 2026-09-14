@@ -104,6 +104,23 @@ export const AwgServerOptionSchema = z
   })
   .loose();
 
+export const TuicServerOptionSchema = z
+  .object({
+    certificate: z.string().optional(),
+    congestion_control: z.string().optional(),
+    alpn: z.array(z.string()).optional(),
+    udp_relay_mode: z.string().optional(),
+    zero_rtt_handshake: z.boolean().optional(),
+    log_level: z.string().optional(),
+    max_idle_time: z.number().optional(),
+    authentication_timeout: z.number().optional(),
+    max_udp_relay_packet_size: z.number().optional(),
+    sni: z.string().optional(),
+  })
+  .loose();
+
+export type TuicServerOption = z.infer<typeof TuicServerOptionSchema>;
+
 export const InboundOptionSchema = z
   .object({
     id: z.number(),
@@ -111,6 +128,8 @@ export const InboundOptionSchema = z
     tag: z.string().optional(),
     protocol: z.string().optional(),
     port: z.number().optional(),
+    network: z.string().optional(),
+    security: z.string().optional(),
     enable: z.boolean().optional(),
     tlsFlowCapable: z.boolean().optional(),
     ssMethod: z.string().optional(),
@@ -118,6 +137,7 @@ export const InboundOptionSchema = z
     wgMtu: z.number().optional(),
     wgDns: z.string().optional(),
     awgServer: AwgServerOptionSchema.nullable().optional(),
+    tuicServer: TuicServerOptionSchema.nullable().optional(),
     // LUCX-HOOK: AWG — server public key is reused via wgPublicKey (Curve25519);
     // awgObfuscation is the pre-rendered Jc/S1-S4/H1-H4/I1-I5/HPK block (the
     // inbound ceiling), awgServerAddress the server tunnel address, awgVersion
@@ -342,10 +362,31 @@ export const ClientBulkAdjustFormSchema = z
     addDays: z.number().int(),
     addGB: z.number(),
     flow: z.string().optional().default(''),
+    limitHwid: z.number().int().min(0).nullable().optional(),
+    adTag: z.string().optional().default(''),
   })
-  .refine((v) => v.addDays !== 0 || v.addGB !== 0 || v.flow !== '', {
-    message: 'pages.clients.bulkAdjustNothing',
-  });
+  .refine(
+    (v) =>
+      v.addDays !== 0 ||
+      v.addGB !== 0 ||
+      v.flow !== '' ||
+      (v.limitHwid !== undefined && v.limitHwid !== null) ||
+      (v.adTag !== undefined && v.adTag.trim() !== ''),
+    {
+      message: 'pages.clients.bulkAdjustNothing',
+    },
+  )
+  .refine(
+    (v) => {
+      const tag = v.adTag?.trim();
+      if (!tag || tag === 'none') return true;
+      return /^[0-9a-fA-F]{32}$/.test(tag);
+    },
+    {
+      message: 'pages.inbounds.form.mtgAdTagInvalid',
+      path: ['adTag'],
+    },
+  );
 
 export const ClientBulkAddFormSchema = z.object({
   emailMethod: z.number().int().min(0).max(4),

@@ -33,6 +33,7 @@ node_modules/
 
 # Ignore compiled binaries
 main
+3x-ui
 
 # Ignore OS specific files
 .DS_Store
