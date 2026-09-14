@@ -596,7 +596,7 @@ func (l *Local) AddClient(ctx context.Context, ib *model.Inbound, client model.C
 		"publicKey":    client.PublicKey,
 		"allowedIPs":   client.AllowedIPs,
 		"preSharedKey": client.PreSharedKey,
-		"keepAlive":    wgKeepAlive(client.KeepAliveSeconds()),
+		"keepAlive":    wgKeepAlive(client.KeepAlive),
 	}
 	return l.AddUser(ctx, ib, user)
 }
@@ -637,7 +637,7 @@ func (l *Local) UpdateUser(ctx context.Context, ib *model.Inbound, oldEmail stri
 		"publicKey":    payload.PublicKey,
 		"allowedIPs":   payload.AllowedIPs,
 		"preSharedKey": payload.PreSharedKey,
-		"keepAlive":    wgKeepAlive(payload.KeepAliveSeconds()),
+		"keepAlive":    wgKeepAlive(payload.KeepAlive),
 	}
 	return l.AddUser(ctx, ib, user)
 }

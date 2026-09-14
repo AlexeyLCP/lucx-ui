@@ -166,16 +166,16 @@ describe('generated OpenAPI runtime contracts', () => {
     expect(logEntryFields).toHaveLength(7);
     expect(logEntryFields).toEqual(
       expect.arrayContaining([
-        'DateTime',
-        'FromAddress',
-        'ToAddress',
-        'Inbound',
-        'Outbound',
-        'Email',
-        'Event',
+        'dateTime',
+        'fromAddress',
+        'toAddress',
+        'inbound',
+        'outbound',
+        'email',
+        'event',
       ]),
     );
-    expect(spec.components.schemas.LogEntry.properties?.DateTime).toMatchObject({
+    expect(spec.components.schemas.LogEntry.properties?.dateTime).toMatchObject({
       type: 'string',
       format: 'date-time',
     });
