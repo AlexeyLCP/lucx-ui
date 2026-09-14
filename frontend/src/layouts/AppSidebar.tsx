@@ -74,7 +74,6 @@ type IconName =
   | 'logout'
   | 'apidocs'
   | 'outbound'
-  | 'routing'
   | 'tunnels';
 
 const iconByName: Record<IconName, ComponentType> = {
@@ -89,7 +88,6 @@ const iconByName: Record<IconName, ComponentType> = {
   logout: LogoutOutlined,
   apidocs: ApiOutlined,
   outbound: ExportOutlined,
-  routing: SwapOutlined,
   // LUCX-HOOK: tunnel sidecars (NaiveProxy) menu icon
   tunnels: CloudServerOutlined,
   // END LUCX-HOOK
@@ -283,12 +281,8 @@ export default function AppSidebar() {
       // LUCX-HOOK: tunnels moved to Settings → Cores (binaries + AWG module).
       // /tunnels route kept for advanced tunnel config deep-link.
       // END LUCX-HOOK
-      // LUCX-HOOK: AWG outbound — /outbound removed from the top-level menu.
-      // It duplicated the "Xray outbounds" entry inside the "Xray Configs"
-      // submenu (the same XrayPage rendered under two nav entries). The
-      // outbounds tab now lives only under /xray#outbound. /routing stays as a
-      // top-level entry by explicit user request.
-      { key: '/routing', icon: 'routing', title: t('menu.routing') },
+      // LUCX-HOOK: /outbound and /routing are only under Xray Configs
+      // (/xray#outbound, /xray#routing). Old URLs still open the same page.
       // END LUCX-HOOK
       { key: '/settings', icon: 'setting', title: t('menu.settings') },
       { key: '/xray', icon: 'tool', title: t('menu.xray') },

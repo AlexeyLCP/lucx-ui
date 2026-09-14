@@ -395,7 +395,7 @@ export default function CommandPalette() {
         icon: <ExportOutlined />,
       },
       {
-        path: '/routing',
+        path: '/xray#routing',
         title: t('menu.routing'),
         keywords: ['routing', 'rules', 'geoip', 'geosite', 'direct', 'block'],
         icon: <SwapOutlined />,
