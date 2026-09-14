@@ -11,6 +11,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
@@ -228,6 +229,9 @@ func (s *SubClashService) getProxies(subReq *SubService, inbound *model.Inbound,
 func (s *SubClashService) buildProxy(subReq *SubService, inbound *model.Inbound, client model.Client, stream map[string]any, ep map[string]any) map[string]any {
 	// Hysteria has its own transport + TLS model, applyTransport /
 	// applySecurity don't fit.
+	if inbound.Protocol == model.TUIC {
+		return s.buildTuicProxy(subReq, inbound, client, ep)
+	}
 	if inbound.Protocol == model.Hysteria {
 		return s.buildHysteriaProxy(subReq, inbound, client, ep)
 	}
@@ -382,6 +386,60 @@ func (s *SubClashService) buildHysteriaProxy(subReq *SubService, inbound *model.
 		proxy["ports"] = hopPorts
 	}
 
+	return proxy
+}
+
+func (s *SubClashService) buildTuicProxy(subReq *SubService, inbound *model.Inbound, client model.Client, ep map[string]any) map[string]any {
+	inst, ok := tuic.InstanceFromInbound(inbound)
+	if !ok {
+		return nil
+	}
+	uuid := client.ID
+	password := client.Password
+	for _, c := range inst.Clients {
+		if c.Email == client.Email {
+			if uuid == "" {
+				uuid = c.UUID
+			}
+			if password == "" {
+				password = c.Password
+			}
+			break
+		}
+	}
+	if uuid == "" || password == "" {
+		return nil
+	}
+	server := inbound.Listen
+	if server == "" || server == "0.0.0.0" || server == "::" {
+		server = subReq.resolveInboundAddress(inbound)
+	}
+	proxy := map[string]any{
+		"name":                  subReq.endpointRemark(inbound, client.Email, ep, "tuic"),
+		"type":                  "tuic",
+		"server":                server,
+		"port":                  inbound.Port,
+		"uuid":                  uuid,
+		"password":              password,
+		"congestion-controller": inst.CongestionControl,
+		"udp-relay-mode":        inst.UDPRelayMode,
+		"reduce-rtt":            inst.ZeroRTTHandshake,
+	}
+	if len(inst.ALPN) > 0 {
+		proxy["alpn"] = inst.ALPN
+	}
+	if inst.SNI != "" {
+		proxy["sni"] = inst.SNI
+	}
+	if sni, ok := externalProxySNI(ep); ok {
+		proxy["sni"] = sni
+	}
+	if alpn, ok := externalProxyALPN(ep["alpn"]); ok {
+		proxy["alpn"] = strings.Split(alpn, ",")
+	}
+	if ai, ok := ep["allowInsecure"].(bool); ok && ai {
+		proxy["skip-cert-verify"] = true
+	}
 	return proxy
 }
 

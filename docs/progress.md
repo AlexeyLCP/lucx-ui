@@ -4,7 +4,7 @@
 
 Merge `origin/main` (v3.8.0 + #6530) onto LucX. Kernel `awg` stays beside userspace `amneziawg`. Kernel AWG + sidecar outbounds now sit on Xray → Outbounds; label **AmneziaWG (kernel)**.
 
-Follow-up (not in this merge): port leftover 3.8 bits we kept `--ours` to compile — Happ QR, TUIC paths in `client_crud`/`inbound.go`/`clash_service`/`sub/service`, install.sh SHA-256 verify. `npm run gen:api` still wants `NewUUIDResponse` example.
+Follow-up done in the next commit: TUIC share/Clash, JSON sub skip+baked routing, OpenAPI UUID/ML-DSA/ML-KEM examples. Still later: Happ QR modal, install.sh SHA-256, TUIC password checks in `inbound.go`.
 
 Tests: `go test ./internal/awg/... ./internal/lucx/... ./internal/database/model`; frontend `tsc --noEmit`.
 

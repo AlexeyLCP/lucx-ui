@@ -2,9 +2,9 @@ package amneziawgnet
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"net/netip"
-	"strconv"
 	"sync"
 	"time"
 
@@ -35,7 +35,7 @@ type udpForwardSession struct {
 // model of its own, so this package tracks sessions itself here, the same
 // way UDPRelay already does in relay.go.
 type udpForwardListener struct {
-	pcs []net.PacketConn
+	pc net.PacketConn
 
 	mu       sync.Mutex
 	sessions map[netip.AddrPort]*udpForwardSession
@@ -46,30 +46,21 @@ type udpForwardListener struct {
 // toward target(key.email). Bind-failure contract matches
 // listenPortForwardTCP exactly: log, return nil, Reconcile retries later.
 func listenPortForwardUDP(gstack *stack.Stack, inboundID int, key portForwardKey, target portForwardTargetFunc) *udpForwardListener {
-	var pcs []net.PacketConn
-	for _, host := range portfwdListenHosts() {
-		pc, err := (&net.ListenConfig{}).ListenPacket(context.Background(), "udp", net.JoinHostPort(host, strconv.Itoa(key.port)))
-		if err != nil {
-			logger.Warningf("amneziawgnet: port-forward: inbound %d peer %q: listen udp %s:%d: %v", inboundID, key.email, host, key.port, err)
-			continue
-		}
-		pcs = append(pcs, pc)
-	}
-	if len(pcs) == 0 {
+	pc, err := (&net.ListenConfig{}).ListenPacket(context.Background(), "udp", fmt.Sprintf(":%d", key.port))
+	if err != nil {
+		logger.Warningf("amneziawgnet: port-forward: inbound %d peer %q: listen udp :%d: %v", inboundID, key.email, key.port, err)
 		return nil
 	}
-	l := &udpForwardListener{pcs: pcs, sessions: map[netip.AddrPort]*udpForwardSession{}}
-	logger.Infof("amneziawgnet: port-forward: inbound %d peer %q: listening udp :%d on %d addr(s)", inboundID, key.email, key.port, len(pcs))
-	for _, pc := range pcs {
-		go l.readLoop(pc, gstack, inboundID, key, target)
-	}
+	l := &udpForwardListener{pc: pc, sessions: map[netip.AddrPort]*udpForwardSession{}}
+	logger.Infof("amneziawgnet: port-forward: inbound %d peer %q: listening udp :%d", inboundID, key.email, key.port)
+	go l.readLoop(gstack, inboundID, key, target)
 	return l
 }
 
-func (l *udpForwardListener) readLoop(pc net.PacketConn, gstack *stack.Stack, inboundID int, key portForwardKey, target portForwardTargetFunc) {
+func (l *udpForwardListener) readLoop(gstack *stack.Stack, inboundID int, key portForwardKey, target portForwardTargetFunc) {
 	buf := make([]byte, 65536)
 	for {
-		n, from, err := pc.ReadFrom(buf)
+		n, from, err := l.pc.ReadFrom(buf)
 		if err != nil {
 			return // closed
 		}
@@ -97,7 +88,7 @@ func (l *udpForwardListener) readLoop(pc net.PacketConn, gstack *stack.Stack, in
 			l.mu.Lock()
 			l.sessions[src] = sess
 			l.mu.Unlock()
-			go l.pump(pc, src, sess)
+			go l.pump(src, sess)
 		}
 		// buf is reused by the next ReadFrom the instant this loop continues,
 		// so the session's own goroutine can't be handed a slice into it --
@@ -112,7 +103,7 @@ func (l *udpForwardListener) readLoop(pc net.PacketConn, gstack *stack.Stack, in
 // pump reads replies from sess and writes them back to the external source
 // src until the session errors out or goes idle, mirroring UDPRelay.pump's
 // exact structure (relay.go) for the opposite direction.
-func (l *udpForwardListener) pump(pc net.PacketConn, src netip.AddrPort, sess *udpForwardSession) {
+func (l *udpForwardListener) pump(src netip.AddrPort, sess *udpForwardSession) {
 	defer func() {
 		l.mu.Lock()
 		delete(l.sessions, src)
@@ -126,7 +117,7 @@ func (l *udpForwardListener) pump(pc net.PacketConn, src netip.AddrPort, sess *u
 		if err != nil {
 			return
 		}
-		if _, err := pc.WriteTo(buf[:n], net.UDPAddrFromAddrPort(src)); err != nil {
+		if _, err := l.pc.WriteTo(buf[:n], net.UDPAddrFromAddrPort(src)); err != nil {
 			return
 		}
 	}
@@ -141,9 +132,7 @@ func (l *udpForwardListener) Close() {
 	for _, sess := range sessions {
 		sess.conn.Close()
 	}
-	for _, pc := range l.pcs {
-		pc.Close()
-	}
+	l.pc.Close()
 }
 
 // udpAddrPort extracts a netip.AddrPort from a net.Addr returned by

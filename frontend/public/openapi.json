@@ -31,40 +31,6 @@
           "datepicker": {
             "type": "string"
           },
-          "discordAdminIds": {
-            "type": "string"
-          },
-          "discordBotBackup": {
-            "type": "boolean"
-          },
-          "discordBotEnable": {
-            "type": "boolean"
-          },
-          "discordBotToken": {
-            "type": "string"
-          },
-          "discordChannelId": {
-            "type": "string"
-          },
-          "discordCpu": {
-            "maximum": 100,
-            "minimum": 0,
-            "type": "integer"
-          },
-          "discordEnabledEvents": {
-            "type": "string"
-          },
-          "discordLang": {
-            "type": "string"
-          },
-          "discordMemory": {
-            "maximum": 100,
-            "minimum": 0,
-            "type": "integer"
-          },
-          "discordRunTime": {
-            "type": "string"
-          },
           "expireDiff": {
             "minimum": 0,
             "type": "integer"
@@ -74,9 +40,6 @@
           },
           "externalTrafficInformURI": {
             "type": "string"
-          },
-          "happLinkEnable": {
-            "type": "boolean"
           },
           "ipLimitAllowlist": {
             "type": "string"
@@ -149,6 +112,12 @@
           "ldapVlessField": {
             "type": "string"
           },
+          "logRetentionDays": {
+            "description": "END LUCX-HOOK\nLUCX-HOOK: auto-delete log files older than N days (0 = disabled)",
+            "maximum": 3650,
+            "minimum": 0,
+            "type": "integer"
+          },
           "outboundDownThreshold": {
             "maximum": 100,
             "minimum": 1,
@@ -162,9 +131,6 @@
           "panelOutbound": {
             "type": "string"
           },
-          "realityScanCandidates": {
-            "type": "string"
-          },
           "remarkTemplate": {
             "type": "string"
           },
@@ -172,6 +138,7 @@
             "type": "boolean"
           },
           "sessionMaxAge": {
+            "description": "END LUCX-HOOK",
             "maximum": 525600,
             "minimum": 1,
             "type": "integer"
@@ -221,8 +188,15 @@
           "subAnnounce": {
             "type": "string"
           },
-          "subCalendarExpireInclusive": {
+          "subAwgEnable": {
+            "description": "LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint",
             "type": "boolean"
+          },
+          "subAwgPath": {
+            "type": "string"
+          },
+          "subAwgURI": {
+            "type": "string"
           },
           "subCertFile": {
             "type": "string"
@@ -260,99 +234,21 @@
           "subEncrypt": {
             "type": "boolean"
           },
-          "subExpiredTemplate": {
-            "type": "string"
-          },
-          "subHappAlwaysHwid": {
-            "type": "boolean"
-          },
-          "subHappAutoConnect": {
-            "type": "boolean"
-          },
-          "subHappAutoConnectType": {
-            "type": "string"
-          },
-          "subHappAutoDetect": {
-            "description": "Happ client customization settings (app-management / routing / UX).",
-            "type": "boolean"
-          },
-          "subHappColorProfile": {
-            "type": "string"
-          },
-          "subHappExcludeApns": {
-            "type": "boolean"
-          },
-          "subHappExcludeRoutes": {
-            "type": "string"
-          },
-          "subHappFallbackUrl": {
-            "type": "string"
-          },
-          "subHappNewUrl": {
-            "type": "string"
-          },
-          "subHappNoLimit": {
-            "type": "boolean"
-          },
-          "subHappNotificationExpire": {
-            "type": "boolean"
-          },
-          "subHappPerAppList": {
-            "type": "string"
-          },
-          "subHappPerAppMode": {
-            "type": "string"
-          },
-          "subHappPingType": {
-            "type": "string"
-          },
-          "subHappProviderId": {
-            "type": "string"
-          },
-          "subHappSubExpire": {
-            "type": "boolean"
-          },
-          "subHappSubExpireButtonLink": {
-            "type": "string"
-          },
-          "subHappSubInfoButtonLink": {
-            "type": "string"
-          },
-          "subHappSubInfoButtonText": {
-            "type": "string"
-          },
-          "subHappSubInfoColor": {
-            "type": "string"
-          },
-          "subHappSubInfoText": {
-            "type": "string"
-          },
-          "subHappTunMode": {
-            "type": "string"
-          },
-          "subHappTunType": {
-            "type": "string"
-          },
           "subHideSettings": {
             "type": "boolean"
           },
           "subIncyEnableRouting": {
+            "description": "END LUCX-HOOK",
             "type": "boolean"
           },
           "subIncyRoutingRules": {
             "type": "string"
-          },
-          "subInfoNodeEnable": {
-            "type": "boolean"
           },
           "subJsonAlwaysArray": {
             "type": "boolean"
           },
           "subJsonAutoDetect": {
             "type": "boolean"
-          },
-          "subJsonDns": {
-            "type": "string"
           },
           "subJsonEnable": {
             "type": "boolean"
@@ -361,15 +257,13 @@
             "type": "string"
           },
           "subJsonMux": {
+            "description": "END LUCX-HOOK",
             "type": "string"
           },
           "subJsonObservatory": {
             "type": "string"
           },
           "subJsonPath": {
-            "type": "string"
-          },
-          "subJsonRoutingRules": {
             "type": "string"
           },
           "subJsonRules": {
@@ -401,6 +295,10 @@
           "subRoutingRules": {
             "type": "string"
           },
+          "subRoutingSource": {
+            "description": "LUCX-HOOK: RoscomVPN Happ routing source (default|jsonsub|whitelist|custom).",
+            "type": "string"
+          },
           "subShowIdentityOnAllLinks": {
             "type": "boolean"
           },
@@ -411,9 +309,6 @@
             "type": "string"
           },
           "subTitle": {
-            "type": "string"
-          },
-          "subTrafficDepletedTemplate": {
             "type": "string"
           },
           "subURI": {
@@ -491,6 +386,10 @@
           "webDomain": {
             "type": "string"
           },
+          "webFavicon": {
+            "description": "LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)",
+            "type": "string"
+          },
           "webKeyFile": {
             "type": "string"
           },
@@ -505,20 +404,9 @@
         },
         "required": [
           "datepicker",
-          "discordAdminIds",
-          "discordBotBackup",
-          "discordBotEnable",
-          "discordBotToken",
-          "discordChannelId",
-          "discordCpu",
-          "discordEnabledEvents",
-          "discordLang",
-          "discordMemory",
-          "discordRunTime",
           "expireDiff",
           "externalTrafficInformEnable",
           "externalTrafficInformURI",
-          "happLinkEnable",
           "ipLimitAllowlist",
           "ldapAutoCreate",
           "ldapAutoDelete",
@@ -541,10 +429,10 @@
           "ldapUserAttr",
           "ldapUserFilter",
           "ldapVlessField",
+          "logRetentionDays",
           "outboundDownThreshold",
           "pageSize",
           "panelOutbound",
-          "realityScanCandidates",
           "remarkTemplate",
           "restartXrayOnClientDisable",
           "sessionMaxAge",
@@ -561,7 +449,9 @@
           "smtpTo",
           "smtpUsername",
           "subAnnounce",
-          "subCalendarExpireInclusive",
+          "subAwgEnable",
+          "subAwgPath",
+          "subAwgURI",
           "subCertFile",
           "subClashAutoDetect",
           "subClashEnable",
@@ -574,43 +464,16 @@
           "subEnable",
           "subEnableRouting",
           "subEncrypt",
-          "subExpiredTemplate",
-          "subHappAlwaysHwid",
-          "subHappAutoConnect",
-          "subHappAutoConnectType",
-          "subHappAutoDetect",
-          "subHappColorProfile",
-          "subHappExcludeApns",
-          "subHappExcludeRoutes",
-          "subHappFallbackUrl",
-          "subHappNewUrl",
-          "subHappNoLimit",
-          "subHappNotificationExpire",
-          "subHappPerAppList",
-          "subHappPerAppMode",
-          "subHappPingType",
-          "subHappProviderId",
-          "subHappSubExpire",
-          "subHappSubExpireButtonLink",
-          "subHappSubInfoButtonLink",
-          "subHappSubInfoButtonText",
-          "subHappSubInfoColor",
-          "subHappSubInfoText",
-          "subHappTunMode",
-          "subHappTunType",
           "subHideSettings",
           "subIncyEnableRouting",
           "subIncyRoutingRules",
-          "subInfoNodeEnable",
           "subJsonAlwaysArray",
           "subJsonAutoDetect",
-          "subJsonDns",
           "subJsonEnable",
           "subJsonFinalMask",
           "subJsonMux",
           "subJsonObservatory",
           "subJsonPath",
-          "subJsonRoutingRules",
           "subJsonRules",
           "subJsonURI",
           "subJsonUserAgentRegex",
@@ -620,11 +483,11 @@
           "subPort",
           "subProfileUrl",
           "subRoutingRules",
+          "subRoutingSource",
           "subShowIdentityOnAllLinks",
           "subSupportUrl",
           "subThemeDir",
           "subTitle",
-          "subTrafficDepletedTemplate",
           "subURI",
           "subUpdates",
           "tgBotAPIServer",
@@ -647,6 +510,7 @@
           "webBasePath",
           "webCertFile",
           "webDomain",
+          "webFavicon",
           "webKeyFile",
           "webListen",
           "webPort"
@@ -656,40 +520,6 @@
       "AllSettingView": {
         "properties": {
           "datepicker": {
-            "type": "string"
-          },
-          "discordAdminIds": {
-            "type": "string"
-          },
-          "discordBotBackup": {
-            "type": "boolean"
-          },
-          "discordBotEnable": {
-            "type": "boolean"
-          },
-          "discordBotToken": {
-            "type": "string"
-          },
-          "discordChannelId": {
-            "type": "string"
-          },
-          "discordCpu": {
-            "maximum": 100,
-            "minimum": 0,
-            "type": "integer"
-          },
-          "discordEnabledEvents": {
-            "type": "string"
-          },
-          "discordLang": {
-            "type": "string"
-          },
-          "discordMemory": {
-            "maximum": 100,
-            "minimum": 0,
-            "type": "integer"
-          },
-          "discordRunTime": {
             "type": "string"
           },
           "expireDiff": {
@@ -702,13 +532,7 @@
           "externalTrafficInformURI": {
             "type": "string"
           },
-          "happLinkEnable": {
-            "type": "boolean"
-          },
           "hasApiToken": {
-            "type": "boolean"
-          },
-          "hasDiscordBotToken": {
             "type": "boolean"
           },
           "hasLdapPassword": {
@@ -800,6 +624,12 @@
           "ldapVlessField": {
             "type": "string"
           },
+          "logRetentionDays": {
+            "description": "END LUCX-HOOK\nLUCX-HOOK: auto-delete log files older than N days (0 = disabled)",
+            "maximum": 3650,
+            "minimum": 0,
+            "type": "integer"
+          },
           "outboundDownThreshold": {
             "maximum": 100,
             "minimum": 1,
@@ -813,9 +643,6 @@
           "panelOutbound": {
             "type": "string"
           },
-          "realityScanCandidates": {
-            "type": "string"
-          },
           "remarkTemplate": {
             "type": "string"
           },
@@ -823,6 +650,7 @@
             "type": "boolean"
           },
           "sessionMaxAge": {
+            "description": "END LUCX-HOOK",
             "maximum": 525600,
             "minimum": 1,
             "type": "integer"
@@ -872,8 +700,15 @@
           "subAnnounce": {
             "type": "string"
           },
-          "subCalendarExpireInclusive": {
+          "subAwgEnable": {
+            "description": "LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint",
             "type": "boolean"
+          },
+          "subAwgPath": {
+            "type": "string"
+          },
+          "subAwgURI": {
+            "type": "string"
           },
           "subCertFile": {
             "type": "string"
@@ -911,99 +746,21 @@
           "subEncrypt": {
             "type": "boolean"
           },
-          "subExpiredTemplate": {
-            "type": "string"
-          },
-          "subHappAlwaysHwid": {
-            "type": "boolean"
-          },
-          "subHappAutoConnect": {
-            "type": "boolean"
-          },
-          "subHappAutoConnectType": {
-            "type": "string"
-          },
-          "subHappAutoDetect": {
-            "description": "Happ client customization settings (app-management / routing / UX).",
-            "type": "boolean"
-          },
-          "subHappColorProfile": {
-            "type": "string"
-          },
-          "subHappExcludeApns": {
-            "type": "boolean"
-          },
-          "subHappExcludeRoutes": {
-            "type": "string"
-          },
-          "subHappFallbackUrl": {
-            "type": "string"
-          },
-          "subHappNewUrl": {
-            "type": "string"
-          },
-          "subHappNoLimit": {
-            "type": "boolean"
-          },
-          "subHappNotificationExpire": {
-            "type": "boolean"
-          },
-          "subHappPerAppList": {
-            "type": "string"
-          },
-          "subHappPerAppMode": {
-            "type": "string"
-          },
-          "subHappPingType": {
-            "type": "string"
-          },
-          "subHappProviderId": {
-            "type": "string"
-          },
-          "subHappSubExpire": {
-            "type": "boolean"
-          },
-          "subHappSubExpireButtonLink": {
-            "type": "string"
-          },
-          "subHappSubInfoButtonLink": {
-            "type": "string"
-          },
-          "subHappSubInfoButtonText": {
-            "type": "string"
-          },
-          "subHappSubInfoColor": {
-            "type": "string"
-          },
-          "subHappSubInfoText": {
-            "type": "string"
-          },
-          "subHappTunMode": {
-            "type": "string"
-          },
-          "subHappTunType": {
-            "type": "string"
-          },
           "subHideSettings": {
             "type": "boolean"
           },
           "subIncyEnableRouting": {
+            "description": "END LUCX-HOOK",
             "type": "boolean"
           },
           "subIncyRoutingRules": {
             "type": "string"
-          },
-          "subInfoNodeEnable": {
-            "type": "boolean"
           },
           "subJsonAlwaysArray": {
             "type": "boolean"
           },
           "subJsonAutoDetect": {
             "type": "boolean"
-          },
-          "subJsonDns": {
-            "type": "string"
           },
           "subJsonEnable": {
             "type": "boolean"
@@ -1012,15 +769,13 @@
             "type": "string"
           },
           "subJsonMux": {
+            "description": "END LUCX-HOOK",
             "type": "string"
           },
           "subJsonObservatory": {
             "type": "string"
           },
           "subJsonPath": {
-            "type": "string"
-          },
-          "subJsonRoutingRules": {
             "type": "string"
           },
           "subJsonRules": {
@@ -1052,6 +807,10 @@
           "subRoutingRules": {
             "type": "string"
           },
+          "subRoutingSource": {
+            "description": "LUCX-HOOK: RoscomVPN Happ routing source (default|jsonsub|whitelist|custom).",
+            "type": "string"
+          },
           "subShowIdentityOnAllLinks": {
             "type": "boolean"
           },
@@ -1062,9 +821,6 @@
             "type": "string"
           },
           "subTitle": {
-            "type": "string"
-          },
-          "subTrafficDepletedTemplate": {
             "type": "string"
           },
           "subURI": {
@@ -1142,6 +898,10 @@
           "webDomain": {
             "type": "string"
           },
+          "webFavicon": {
+            "description": "LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)",
+            "type": "string"
+          },
           "webKeyFile": {
             "type": "string"
           },
@@ -1156,22 +916,10 @@
         },
         "required": [
           "datepicker",
-          "discordAdminIds",
-          "discordBotBackup",
-          "discordBotEnable",
-          "discordBotToken",
-          "discordChannelId",
-          "discordCpu",
-          "discordEnabledEvents",
-          "discordLang",
-          "discordMemory",
-          "discordRunTime",
           "expireDiff",
           "externalTrafficInformEnable",
           "externalTrafficInformURI",
-          "happLinkEnable",
           "hasApiToken",
-          "hasDiscordBotToken",
           "hasLdapPassword",
           "hasNordSecret",
           "hasSmtpPassword",
@@ -1200,10 +948,10 @@
           "ldapUserAttr",
           "ldapUserFilter",
           "ldapVlessField",
+          "logRetentionDays",
           "outboundDownThreshold",
           "pageSize",
           "panelOutbound",
-          "realityScanCandidates",
           "remarkTemplate",
           "restartXrayOnClientDisable",
           "sessionMaxAge",
@@ -1220,7 +968,9 @@
           "smtpTo",
           "smtpUsername",
           "subAnnounce",
-          "subCalendarExpireInclusive",
+          "subAwgEnable",
+          "subAwgPath",
+          "subAwgURI",
           "subCertFile",
           "subClashAutoDetect",
           "subClashEnable",
@@ -1233,43 +983,16 @@
           "subEnable",
           "subEnableRouting",
           "subEncrypt",
-          "subExpiredTemplate",
-          "subHappAlwaysHwid",
-          "subHappAutoConnect",
-          "subHappAutoConnectType",
-          "subHappAutoDetect",
-          "subHappColorProfile",
-          "subHappExcludeApns",
-          "subHappExcludeRoutes",
-          "subHappFallbackUrl",
-          "subHappNewUrl",
-          "subHappNoLimit",
-          "subHappNotificationExpire",
-          "subHappPerAppList",
-          "subHappPerAppMode",
-          "subHappPingType",
-          "subHappProviderId",
-          "subHappSubExpire",
-          "subHappSubExpireButtonLink",
-          "subHappSubInfoButtonLink",
-          "subHappSubInfoButtonText",
-          "subHappSubInfoColor",
-          "subHappSubInfoText",
-          "subHappTunMode",
-          "subHappTunType",
           "subHideSettings",
           "subIncyEnableRouting",
           "subIncyRoutingRules",
-          "subInfoNodeEnable",
           "subJsonAlwaysArray",
           "subJsonAutoDetect",
-          "subJsonDns",
           "subJsonEnable",
           "subJsonFinalMask",
           "subJsonMux",
           "subJsonObservatory",
           "subJsonPath",
-          "subJsonRoutingRules",
           "subJsonRules",
           "subJsonURI",
           "subJsonUserAgentRegex",
@@ -1279,11 +1002,11 @@
           "subPort",
           "subProfileUrl",
           "subRoutingRules",
+          "subRoutingSource",
           "subShowIdentityOnAllLinks",
           "subSupportUrl",
           "subThemeDir",
           "subTitle",
-          "subTrafficDepletedTemplate",
           "subURI",
           "subUpdates",
           "tgBotAPIServer",
@@ -1306,6 +1029,7 @@
           "webBasePath",
           "webCertFile",
           "webDomain",
+          "webFavicon",
           "webKeyFile",
           "webListen",
           "webPort"
@@ -1427,7 +1151,7 @@
         "description": "Client represents a client configuration for Xray inbounds with traffic limits and settings.",
         "properties": {
           "adTag": {
-            "example": "0123456789abcdef0123456789abcdef",
+            "example": "ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d",
             "type": "string"
           },
           "allowedIPs": {
@@ -1477,7 +1201,7 @@
             "type": "string"
           },
           "forwardedPorts": {
-            "description": "AmneziaWG per-client port-forwarding spec, e.g. \"80,443,8000-8100\"",
+            "description": "END LUCX-HOOK\nAmneziaWG per-client port-forwarding spec, e.g. \"80,443,8000-8100\"",
             "type": "string"
           },
           "group": {
@@ -1489,9 +1213,8 @@
             "type": "string"
           },
           "keepAlive": {
-            "description": "Seconds between PersistentKeepalive packets; 0 sends none, omit to keep the stored value",
-            "nullable": true,
-            "type": "integer"
+            "description": "LUCX-HOOK: KeepAliveValue (number or AWG3 range string)",
+            "type": "string"
           },
           "limitIp": {
             "description": "IP limit for this client",
@@ -1697,6 +1420,7 @@
             "type": "string"
           },
           "forwardedPorts": {
+            "description": "END LUCX-HOOK",
             "type": "string"
           },
           "group": {
@@ -1706,7 +1430,8 @@
             "type": "integer"
           },
           "keepAlive": {
-            "type": "integer"
+            "description": "LUCX-HOOK: string column so AWG3 ranges (\"15-25\") round-trip; legacy ints coerce via SQLite/PG text",
+            "type": "string"
           },
           "limitHwid": {
             "type": "integer"
@@ -2628,6 +2353,40 @@
         ],
         "type": "object"
       },
+      "HostStatus": {
+        "description": "HostStatus is the dashboard-level AWG snapshot (module + running ifaces).",
+        "properties": {
+          "ifnames": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "interfaces": {
+            "type": "integer"
+          },
+          "moduleAwg3": {
+            "type": "boolean"
+          },
+          "moduleAwg31": {
+            "type": "boolean"
+          },
+          "moduleLoaded": {
+            "type": "boolean"
+          },
+          "version": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "interfaces",
+          "moduleAwg3",
+          "moduleAwg31",
+          "moduleLoaded",
+          "version"
+        ],
+        "type": "object"
+      },
       "HwidSlotStatus": {
         "description": "HwidSlotStatus is the aggregate device-slot view exposed to subscribers:\ncounters only, no hwid value or hash, no email, no device metadata.",
         "properties": {
@@ -2741,7 +2500,16 @@
               "tun",
               "mtproto",
               "amneziawg",
-              "tuic"
+              "tuic",
+              "awg",
+              "naive",
+              "olcrtc",
+              "qwdtt",
+              "mieru",
+              "trusttunnel",
+              "anytls",
+              "tproxy",
+              "cover"
             ],
             "example": "vless",
             "type": "string"
@@ -2892,6 +2660,16 @@
       },
       "InboundOption": {
         "properties": {
+          "awgObfuscation": {
+            "type": "string"
+          },
+          "awgPeerAddresses": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "description": "AwgPeerAddresses maps client email → first single-host AllowedIPs for\nTHIS inbound (multi-attach clients have a different tunnel IP per AWG\ninbound; the clients-table allowedIPs field is only one of them).",
+            "type": "object"
+          },
           "awgServer": {
             "allOf": [
               {
@@ -2900,6 +2678,14 @@
             ],
             "description": "AwgServer carries the full AmneziaWG server block (keys, subnet,\nobfuscation params) so the clients page can render a downloadable\nper-client .conf without a second round trip.",
             "nullable": true
+          },
+          "awgServerAddress": {
+            "description": "AWG obfuscation block — the Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines as they\nappear in a client .conf [Interface] section, plus the server tunnel\naddress. Populated for AWG inbounds so the clients-page QR/.conf path\ncan build a full AmneziaWG client config (mirrors the WG hints above).",
+            "type": "string"
+          },
+          "awgVersion": {
+            "description": "AwgVersion is the inbound's AWG protocol version (\"1.5\"/\"2\"/\"3\") — the\nclient-config ceiling the clients page uses to gate the per-client export\nversion selector. Empty/absent is treated as \"2\" by the frontend.",
+            "type": "string"
           },
           "enable": {
             "example": true,
@@ -2913,9 +2699,6 @@
             "type": "string"
           },
           "mtprotoDomain": {
-            "type": "string"
-          },
-          "network": {
             "type": "string"
           },
           "nodeAddress": {
@@ -2939,9 +2722,6 @@
             "example": "VLESS-443",
             "type": "string"
           },
-          "security": {
-            "type": "string"
-          },
           "shareAddr": {
             "type": "string"
           },
@@ -2958,14 +2738,6 @@
           "tlsFlowCapable": {
             "example": true,
             "type": "boolean"
-          },
-          "tuicServer": {
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/TuicServerSettings"
-              }
-            ],
-            "nullable": true
           },
           "wgDns": {
             "type": "string"
@@ -3026,44 +2798,37 @@
       },
       "LogEntry": {
         "properties": {
-          "DateTime": {
-            "example": "2025-01-01T12:00:00Z",
+          "dateTime": {
             "format": "date-time",
             "type": "string"
           },
-          "Email": {
-            "example": "alice@example.com",
+          "email": {
             "type": "string"
           },
-          "Event": {
-            "example": 0,
+          "event": {
             "type": "integer"
           },
-          "FromAddress": {
-            "example": "192.0.2.10:54321",
+          "fromAddress": {
             "type": "string"
           },
-          "Inbound": {
-            "example": "inbound-443",
+          "inbound": {
             "type": "string"
           },
-          "Outbound": {
-            "example": "direct",
+          "outbound": {
             "type": "string"
           },
-          "ToAddress": {
-            "example": "example.com:443",
+          "toAddress": {
             "type": "string"
           }
         },
         "required": [
-          "DateTime",
-          "Email",
-          "Event",
-          "FromAddress",
-          "Inbound",
-          "Outbound",
-          "ToAddress"
+          "dateTime",
+          "email",
+          "event",
+          "fromAddress",
+          "inbound",
+          "outbound",
+          "toAddress"
         ],
         "type": "object"
       },
@@ -3466,6 +3231,7 @@
             "type": "integer"
           },
           "configDirty": {
+            "description": "END LUCX-HOOK",
             "example": false,
             "type": "boolean"
           },
@@ -3553,6 +3319,21 @@
             "example": 2097152,
             "format": "int64",
             "type": "integer"
+          },
+          "nodeFeatures": {
+            "example": [
+              "awg",
+              "naive"
+            ],
+            "items": {
+              "type": "string"
+            },
+            "type": "array"
+          },
+          "nodeType": {
+            "description": "LUCX-HOOK: LucX capability for inbound deploy gating (from hello/probe).",
+            "example": "lucx",
+            "type": "string"
           },
           "onlineCount": {
             "example": 5,
@@ -3644,6 +3425,8 @@
           "name",
           "netDown",
           "netUp",
+          "nodeFeatures",
+          "nodeType",
           "onlineCount",
           "outboundTag",
           "panelVersion",
@@ -3689,6 +3472,52 @@
           "tag",
           "total",
           "up"
+        ],
+        "type": "object"
+      },
+      "PanelReleaseNote": {
+        "description": "PanelReleaseNote is one GitHub release in the skipped-version feed.",
+        "properties": {
+          "body": {
+            "example": "- fix: changelog",
+            "type": "string"
+          },
+          "publishedAt": {
+            "example": "2026-08-20T10:00:00Z",
+            "type": "string"
+          },
+          "tag": {
+            "example": "v3.6.0-lucx.145",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tag"
+        ],
+        "type": "object"
+      },
+      "PanelReleaseNotes": {
+        "description": "PanelReleaseNotes is one page of skipped releases newer than the running panel.",
+        "properties": {
+          "hasMore": {
+            "example": true,
+            "type": "boolean"
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/PanelReleaseNote"
+            },
+            "type": "array"
+          },
+          "page": {
+            "example": 1,
+            "type": "integer"
+          }
+        },
+        "required": [
+          "hasMore",
+          "items",
+          "page"
         ],
         "type": "object"
       },
@@ -4370,6 +4199,22 @@
       "description": "Manage inbound configurations and their clients. All endpoints live under /panel/api/inbounds and require a logged-in session or Bearer token. Link-generating endpoints honour forwarded headers only when the request comes from a configured trusted proxy."
     },
     {
+      "name": "AWG Outbounds",
+      "description": "Manage client-mode AmneziaWG outbounds — connections from this panel out to an upstream AmneziaWG server (the mirror image of an AWG inbound, which accepts clients). Each row owns a kernel interface named awgo-{id}: the reconcile job converges it with the DB row every 10 seconds, and a freedom outbound bound to that interface via sockopt.interface is injected into the generated Xray config, so routing rules and balancers can send traffic through the upstream VPN. Every mutating endpoint force-restarts Xray rather than hot-applying, because a hot-applied config silently kept stale sockopt-bound outbounds in live testing — and an outbound pointing at a missing interface falls back to the default route, bypassing the VPN. All endpoints live under /panel/api/awg-outbounds and require a logged-in session or Bearer token. LucX-UI only."
+    },
+    {
+      "name": "Sidecar Outbounds",
+      "description": "Client-mode NaiveProxy, mieru and TrustTunnel outbounds. Each row runs a userspace client that listens SOCKS on loopback; a socks outbound with the row tag is injected into the generated Xray config so routing and balancers can send traffic through the upstream. Naive client is upload-only (not in the tarball). Mutating endpoints force-restart Xray. LucX-UI only."
+    },
+    {
+      "name": "LucX",
+      "description": "LucX-UI identity and capability surface. Masters probe remote nodes with GET /panel/api/lucx/hello to learn whether the node is a LucX fork (and which sidecar protocols it supports) before offering AWG/tunnel inbound deploy. Vanilla 3x-ui returns 404. LucX-UI only."
+    },
+    {
+      "name": "Tunnel tools",
+      "description": "Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI; (3) qWDTT — WireGuard over VK TURN (SpaceNeuroX wdtt-server), CLI flags, qwdtt:// URI + subscription JSON. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only."
+    },
+    {
       "name": "Server",
       "description": "System status, log retrieval, certificate generators, Xray binary management, and backup/restore. All under /panel/api/server."
     },
@@ -4773,24 +4618,25 @@
                   "success": true,
                   "obj": [
                     {
+                      "awgObfuscation": "",
+                      "awgPeerAddresses": {},
                       "awgServer": null,
+                      "awgServerAddress": "",
+                      "awgVersion": "",
                       "enable": true,
                       "id": 1,
                       "listen": "",
                       "mtprotoDomain": "",
-                      "network": "",
                       "nodeAddress": "",
                       "nodeId": null,
                       "port": 443,
                       "protocol": "vless",
                       "remark": "VLESS-443",
-                      "security": "",
                       "shareAddr": "",
                       "shareAddrStrategy": "",
                       "ssMethod": "",
                       "tag": "in-443-tcp",
                       "tlsFlowCapable": true,
-                      "tuicServer": null,
                       "wgDns": "",
                       "wgMtu": 0,
                       "wgPublicKey": ""
@@ -4838,6 +4684,54 @@
                   "obj": [
                     "vless://uuid@host:443?security=reality&...#Germany-alice",
                     "vmess://eyJ2IjoyLC..."
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/links": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Return the share links of a single inbound, rendered through the subscription engine. For Naive inbounds this is the only source of truth: per-client credentials are HMAC-derived from the panel secret server-side, so the response carries the service-level naive+https link (authUser/authPass, same as the legacy Tunnels-page clientUrl) followed by one personal link per enabled attached client. Protocols whose links the panel renders client-side contribute their sub-engine links as well. Used by the Inbounds page \"Export links\" action when the frontend generator yields nothing (Naive).",
+        "operationId": "get_panel_api_inbounds_id_links",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    "naive+https://svc:pass@naive.example.org:8443",
+                    "naive+https://nx0000000001:abcd@naive.example.org:8443#alice"
                   ]
                 }
               }
@@ -5394,6 +5288,339 @@
         }
       }
     },
+    "/panel/api/inbounds/awg/generateObfuscation": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. For awgVersion \"3\"/\"3.1\" on an AWG3-capable host also returns HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges. RandomTrailers is never auto-enabled. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_awg_generateObfuscation",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "obfProfile": {
+                    "type": "string",
+                    "description": "Obfuscation preset: \"lite\", \"standard\", \"pro\", or \"premium\". Defaults to \"standard\"."
+                  },
+                  "mimicryProfile": {
+                    "type": "string",
+                    "description": "CPS mimicry type: \"tls\", \"dns\", \"sip\", or \"quic\". Defaults to \"tls\"."
+                  },
+                  "browserProfile": {
+                    "type": "string",
+                    "description": "CPS browser fingerprint: \"chrome\", \"firefox\", or \"safari\". Defaults to \"chrome\"."
+                  },
+                  "region": {
+                    "type": "string",
+                    "description": "Domain pool region: \"ru\" or \"world\". Defaults to \"world\"."
+                  },
+                  "domain": {
+                    "type": "string",
+                    "description": "Optional explicit domain for CPS capture. Empty picks a random host from the region pool."
+                  },
+                  "fullI1I5": {
+                    "type": "boolean",
+                    "description": "When true, generate all five CPS packets; when false (the default), only I1."
+                  },
+                  "awgVersion": {
+                    "type": "string",
+                    "description": "Target AmneziaWG version: \"1.5\", \"2\", \"3\", or \"3.1\". When \"3\" or \"3.1\" (and the target host supports AWG3) the response adds headerProtectionKey plus the six timer/padding ranges. RandomTrailers is never auto-enabled (must-match; current GUI clients drop the handshake)."
+                  },
+                  "nodeId": {
+                    "type": "integer",
+                    "description": "Host the inbound will run on: a node ID = node-hosted, and the node judges its own AWG3 support. Null, omitted or <= 0 means this panel, whose own module support then gates the AWG3 block."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/awg/captureHost": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Capture real QUIC Initial packets from a remote host and extract I1-I5 CPS values for AmneziaWG mimicry. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_awg_captureHost",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "domain": {
+                    "type": "string",
+                    "description": "Domain to probe (QUIC Initial with TLS SNI=domain). The only required field."
+                  },
+                  "awgVersion": {
+                    "type": "string",
+                    "description": "Target AmneziaWG version. \"3\"/\"3.1\" on an AWG3-capable target host narrows the I1-I5 byte budget so a header-protection key still fits."
+                  },
+                  "nodeId": {
+                    "type": "integer",
+                    "description": "Host the inbound will run on, with the same meaning as on generateObfuscation: a node ID = node-hosted; null, omitted or <= 0 = this panel. Together with awgVersion it sets the I1-I5 budget."
+                  }
+                },
+                "required": [
+                  "domain"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/awgDiagnostics": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Probe the live kernel state of an AWG inbound (interface, ip_forward, peers/handshakes, plus MASQUERADE/FORWARD rules in kernel-nat mode or tunN/policy-rule/route-table chain in routeThroughXray mode). Read-only. LucX-UI only.",
+        "operationId": "get_panel_api_inbounds_id_awgDiagnostics",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Inbound ID. Must be an AWG inbound.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/awg/import/preview": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "List unmanaged AmneziaWG interfaces on this host (awg-multi / toolza3 / Docker) for optional import. LucX-UI only.",
+        "operationId": "get_panel_api_inbounds_awg_import_preview",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/awg/import/dismiss": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Hide the existing-AWG import banner. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_awg_import_dismiss",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/awg/import/commit": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Import selected unmanaged AWG interfaces as inbounds and clients without rotating keys or IPs. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_awg_import_commit",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "ids": {
+                    "type": "string",
+                    "description": "JSON array of candidate IDs from preview (source:ifname)."
+                  }
+                },
+                "required": [
+                  "ids"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/awgTestMtu": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Binary-search the server's own outbound path MTU with DF (don't-fragment) pings against a fixed public anchor, and report whether the inbound's configured MTU fits under it with WireGuard/AWG overhead headroom. Ceiling check on the server uplink only — cannot see the client<->server path. Read-only. LucX-UI only.",
+        "operationId": "get_panel_api_inbounds_id_awgTestMtu",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Inbound ID. Must be an AWG inbound.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "target": "1.1.1.1",
+                    "pathMtu": 1500,
+                    "reached": true,
+                    "configuredMtu": 1420,
+                    "fits": true,
+                    "detail": "largest non-fragmented ping to 1.1.1.1 = 1500 bytes; configured MTU 1420 fits within the 80-byte WG/AWG overhead headroom"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/import": {
       "post": {
         "tags": [
@@ -5649,6 +5876,3270 @@
         }
       }
     },
+    "/panel/api/awg-outbounds/list": {
+      "get": {
+        "tags": [
+          "AWG Outbounds"
+        ],
+        "summary": "List every AWG outbound row, each augmented with a human-readable status string derived from the live kernel interface: \"up; handshake <duration> ago; rx=N tx=N\" when the interface is up, \"down (fallback to default route active — WARNING)\" when it is enabled but has no handshake (traffic is bypassing the VPN), or \"disabled\" when the row is switched off. LucX-UI only.",
+        "operationId": "get_panel_api_awg_outbounds_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 1,
+                      "tag": "awgo-upstream",
+                      "remark": "Amnezia NL",
+                      "enable": true,
+                      "settings": "{\"privateKey\":\"…\",\"address\":\"10.9.0.5/32\",\"endpoint\":\"vpn.example.com:51820\"}",
+                      "created_at": 1753000000,
+                      "updated_at": 1753000000,
+                      "status": "up; handshake 12s ago; rx=1048576 tx=524288"
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/awg-outbounds/add": {
+      "post": {
+        "tags": [
+          "AWG Outbounds"
+        ],
+        "summary": "Create an AWG outbound row. Tag is optional — when omitted the server assigns \"awgo-{id}\" after the row is inserted; when supplied it must not collide with an existing outbound tag or an outbound tag already present in the Xray template. Settings is optional too: an empty value is replaced with a generated default (fresh keypair, MTU 1320, allowedIPs 0.0.0.0/0, ::/0). The kernel interface itself is brought up by the reconcile job, not by this call. Returns the created row. LucX-UI only.",
+        "operationId": "post_panel_api_awg_outbounds_add",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tag": {
+                    "type": "string",
+                    "description": "Xray outbound tag. Leave empty to auto-assign \"awgo-{id}\"."
+                  },
+                  "remark": {
+                    "type": "string",
+                    "description": "Free-form label shown in the UI."
+                  },
+                  "enable": {
+                    "type": "boolean",
+                    "description": "Whether the reconcile job should bring the interface up. Defaults to true."
+                  },
+                  "settings": {
+                    "type": "string",
+                    "description": "JSON-encoded string (not an object) holding the connection: privateKey, address (mandatory tunnel IP, e.g. \"10.9.0.5/32\"), publicKey (upstream), psk, endpoint (\"host:port\"), mtu, keepalive, allowedIPs, dns, plus obfuscation jc/jmin/jmax, s1-s4, h1-h4, i1-i5 and headerProtectionKey. Leave empty for generated defaults."
+                  }
+                }
+              },
+              "example": {
+                "tag": "awgo-upstream",
+                "remark": "Amnezia NL",
+                "enable": true,
+                "settings": "{\"privateKey\":\"…\",\"address\":\"10.9.0.5/32\",\"publicKey\":\"…\",\"endpoint\":\"vpn.example.com:51820\",\"mtu\":1320,\"allowedIPs\":\"0.0.0.0/0, ::/0\"}"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "awg-outbound: add failed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/awg-outbounds/update/{id}": {
+      "post": {
+        "tags": [
+          "AWG Outbounds"
+        ],
+        "summary": "Overwrite an AWG outbound row. The path id wins over any id in the body. Tag uniqueness is re-checked, excluding this row. Settings changes (endpoint, keys, MTU, obfuscation) take effect on the kernel interface at the next reconcile tick. LucX-UI only.",
+        "operationId": "post_panel_api_awg_outbounds_update_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "AWG outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "tag": {
+                    "type": "string",
+                    "description": "Xray outbound tag. Must stay unique across outbounds and the Xray template."
+                  },
+                  "remark": {
+                    "type": "string",
+                    "description": "Free-form label shown in the UI."
+                  },
+                  "enable": {
+                    "type": "boolean",
+                    "description": "Whether the reconcile job should bring the interface up."
+                  },
+                  "settings": {
+                    "type": "string",
+                    "description": "JSON-encoded settings string — same shape as on add."
+                  }
+                },
+                "required": [
+                  "tag"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "awg-outbound: update failed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/awg-outbounds/del/{id}": {
+      "post": {
+        "tags": [
+          "AWG Outbounds"
+        ],
+        "summary": "Delete an AWG outbound row and tear down its awgo-{id} kernel interface immediately, without waiting for the next reconcile tick, so a removed outbound stops carrying traffic right away. The matching freedom outbound is dropped from the Xray config by the forced restart. Destructive and cannot be undone. LucX-UI only.",
+        "operationId": "post_panel_api_awg_outbounds_del_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "AWG outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "awg-outbound: del failed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/awg-outbounds/enable/{id}": {
+      "post": {
+        "tags": [
+          "AWG Outbounds"
+        ],
+        "summary": "Toggle only the enable flag without serialising the whole settings JSON — the counterpart of the inbound enable switch. The reconcile job is what actually brings the kernel interface up or down in response. A missing or unparsable body is treated as {\"enable\": false}. LucX-UI only.",
+        "operationId": "post_panel_api_awg_outbounds_enable_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "AWG outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "enable": {
+                    "type": "boolean",
+                    "description": "Target state. Absent or invalid body means false."
+                  }
+                },
+                "required": [
+                  "enable"
+                ]
+              },
+              "example": {
+                "enable": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/awg-outbounds/status/{id}": {
+      "get": {
+        "tags": [
+          "AWG Outbounds"
+        ],
+        "summary": "Read the live kernel state of one AWG outbound from a single \"awg show dump\" call. Read-only. When up is false the interface is missing or has never completed a handshake, rx/tx are zero, and the outbound must be treated as down — its traffic is bypassing the VPN via the default route. LucX-UI only.",
+        "operationId": "get_panel_api_awg_outbounds_status_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "AWG outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "up": true,
+                    "handshakeAge": "12s",
+                    "rx": 1048576,
+                    "tx": 524288,
+                    "ifname": "awgo-1"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/awg-outbounds/test/{id}": {
+      "post": {
+        "tags": [
+          "AWG Outbounds"
+        ],
+        "summary": "Prove the tunnel actually carries traffic by pinging a public target bound to the awgo-{id} interface (ping -I) — a completed handshake is necessary but not sufficient. Sends three probes to 1.1.1.1, or ping6 to 2606:4700:4700::1111 when the row is IPv6. A down interface short-circuits with an explicit warning instead of an opaque ping error. Note that a reachable upstream can still report failure when it does not route the probe target back, which is an upstream-side NAT/AllowedIPs issue, not a panel one. LucX-UI only.",
+        "operationId": "post_panel_api_awg_outbounds_test_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "AWG outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "ok": true,
+                    "latency_ms": 14,
+                    "raw": "3 packets transmitted, 3 received…"
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "interface awgo-1 is down — traffic bypasses VPN"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/awg-outbounds/parseConf": {
+      "post": {
+        "tags": [
+          "AWG Outbounds"
+        ],
+        "summary": "Parse a pasted awg-quick .conf and return it as a settings object so the \"Paste .conf\" UI drawer can autofill the form. Reads the [Interface] and [Peer] sections, tolerates comments, blank lines and valueless keys, and does not validate that mandatory fields are present — the caller fills the gaps before saving. Stateless: nothing is written to the database. LucX-UI only.",
+        "operationId": "post_panel_api_awg_outbounds_parseConf",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "conf": {
+                    "type": "string",
+                    "description": "Raw awg-quick .conf text."
+                  }
+                },
+                "required": [
+                  "conf"
+                ]
+              },
+              "example": {
+                "conf": "[Interface]\nPrivateKey = …\nAddress = 10.9.0.5/32\nMTU = 1320\nJc = 4\n\n[Peer]\nPublicKey = …\nEndpoint = vpn.example.com:51820\nAllowedIPs = 0.0.0.0/0, ::/0"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "privateKey": "…",
+                    "address": "10.9.0.5/32",
+                    "mtu": 1320,
+                    "publicKey": "…",
+                    "psk": "",
+                    "endpoint": "vpn.example.com:51820",
+                    "keepalive": 25,
+                    "allowedIPs": "0.0.0.0/0, ::/0",
+                    "dns": "",
+                    "jc": 4
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "awg-outbound: parse failed"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/list": {
+      "get": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "List sidecar outbound rows with live SOCKS status and binaryExists. LucX-UI only.",
+        "operationId": "get_panel_api_sidecar_outbounds_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "id": 1,
+                      "protocol": "mieru",
+                      "tag": "mieruout-1",
+                      "enable": true,
+                      "settings": "{\"socksPort\":39222,\"host\":\"1.2.3.4\",\"user\":\"a\"}",
+                      "status": "up",
+                      "binaryExists": true
+                    }
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/add": {
+      "post": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Create a sidecar outbound. Protocol is naive|mieru|trusttunnel. Empty tag becomes {protocol}out-{id}. socksPort is allocated if missing. LucX-UI only.",
+        "operationId": "post_panel_api_sidecar_outbounds_add",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "protocol": "naive",
+                "tag": "nv-up",
+                "enable": true,
+                "settings": "{\"host\":\"n.example.org\",\"port\":443,\"user\":\"alice\",\"pass\":\"s3cret\"}"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/update/{id}": {
+      "post": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Overwrite a sidecar outbound. socksPort is kept stable. LucX-UI only.",
+        "operationId": "post_panel_api_sidecar_outbounds_update_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sidecar outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/del/{id}": {
+      "post": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Delete a sidecar outbound and stop its client process immediately. LucX-UI only.",
+        "operationId": "post_panel_api_sidecar_outbounds_del_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sidecar outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/enable/{id}": {
+      "post": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Toggle enable. LucX-UI only.",
+        "operationId": "post_panel_api_sidecar_outbounds_enable_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sidecar outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enable": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/status/{id}": {
+      "get": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Live SOCKS listen state. LucX-UI only.",
+        "operationId": "get_panel_api_sidecar_outbounds_status_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sidecar outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/test/{id}": {
+      "post": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "TCP probe of the local SOCKS port. LucX-UI only.",
+        "operationId": "post_panel_api_sidecar_outbounds_test_id",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Sidecar outbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/parseLink": {
+      "post": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Parse naive+https://, mierus:// or Throne tt:// into settings. LucX-UI only.",
+        "operationId": "post_panel_api_sidecar_outbounds_parseLink",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "link": "naive+https://alice:s3cret@n.example.org:8443"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/binaries": {
+      "get": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Client binary presence for naive/mieru/trusttunnel. LucX-UI only.",
+        "operationId": "get_panel_api_sidecar_outbounds_binaries",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/upload/{protocol}": {
+      "post": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Upload a client binary (naive-client, mieru-client, trusttunnel-client). LucX-UI only.",
+        "operationId": "post_panel_api_sidecar_outbounds_upload_protocol",
+        "parameters": [
+          {
+            "name": "protocol",
+            "in": "path",
+            "required": true,
+            "description": "naive | mieru | trusttunnel",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/sidecar-outbounds/deleteBinary/{protocol}": {
+      "post": {
+        "tags": [
+          "Sidecar Outbounds"
+        ],
+        "summary": "Delete a client binary. LucX-UI only.",
+        "operationId": "post_panel_api_sidecar_outbounds_deleteBinary_protocol",
+        "parameters": [
+          {
+            "name": "protocol",
+            "in": "path",
+            "required": true,
+            "description": "naive | mieru | trusttunnel",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/lucx/hello": {
+      "get": {
+        "tags": [
+          "LucX"
+        ],
+        "summary": "Return this panel's LucX identity: panel version, supported feature tags (awg, mtproto, naive, olcrtc, qwdtt, cluster), AWG tools version, and whether the AmneziaWG kernel module is loaded / AWG3-capable. Used by a master panel during node heartbeat to gate LucX-only inbound deploy. Requires session or Bearer token.",
+        "operationId": "get_panel_api_lucx_hello",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "version": "3.6.0-lucx.114",
+                    "features": [
+                      "awg",
+                      "mtproto",
+                      "naive",
+                      "olcrtc",
+                      "qwdtt",
+                      "cluster"
+                    ],
+                    "awgVersion": "v3.0.20260730",
+                    "mtprotoVersion": "",
+                    "moduleLoaded": true,
+                    "moduleAwg3": true,
+                    "moduleAwg31": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Full status of the NaiveProxy core: the live three-level probe (running/listening/responding), binary presence and path, the stored config, the generated naive+https client URL and the last process log line. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_naive_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "core": "naive",
+                    "displayName": "NaiveProxy",
+                    "binaryExists": true,
+                    "binaryPath": "bin/caddy-naive-linux-amd64",
+                    "clientUrl": "naive+https://alice:secret@vpn.example.com",
+                    "config": {
+                      "port": 443,
+                      "domain": "vpn.example.com",
+                      "enabled": true
+                    },
+                    "probe": {
+                      "running": true,
+                      "listening": true,
+                      "responding": true
+                    },
+                    "lastLog": ""
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/config": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Read the stored NaiveProxy config (defaults when nothing is stored yet). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_naive_config",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "remark": "",
+                    "enabled": false,
+                    "listen": "",
+                    "port": 443,
+                    "domain": "",
+                    "useAcme": false,
+                    "acmeEmail": "",
+                    "certFile": "",
+                    "keyFile": "",
+                    "authUser": "",
+                    "authPass": "",
+                    "enableH3": true,
+                    "probeResistance": true,
+                    "logLevel": "WARN",
+                    "extraArgs": "",
+                    "useRawConfig": false,
+                    "rawConfig": ""
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Validate, persist and apply the NaiveProxy config. Validation covers port range, credentials, TLS mode requirements (Auto TLS needs a domain and port 443; manual TLS needs cert/key paths) and the log level; a non-raw config is also cross-checked against TCP Xray inbounds for port collisions. A running core whose rendered Caddyfile changed is restarted. Returns the fresh status. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_config",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enabled": true,
+                "port": 443,
+                "domain": "vpn.example.com",
+                "useAcme": true,
+                "acmeEmail": "admin@example.com",
+                "authUser": "alice",
+                "authPass": "secret",
+                "enableH3": true,
+                "probeResistance": true,
+                "logLevel": "WARN"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "naive: Auto TLS requires a domain"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/start": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Mark the core enabled, persist, and start the caddy process. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_start",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/stop": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Mark the core disabled, persist, and stop the caddy process (SIGTERM with kill fallback). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_stop",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/restart": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Force a fresh start with the stored config (and enable the core). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_restart",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Return the most recent captured output lines of the caddy process (ring buffer, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_naive_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    "…"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/preview": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Render the Caddyfile the given form state would produce, without persisting anything. Same validation as save. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_preview",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "port": 443,
+                "domain": "vpn.example.com",
+                "authUser": "alice",
+                "authPass": "secret"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "caddyfile": "{\n\tadmin off\n…}\n"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/validate": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Run \"caddy adapt\" against raw Caddyfile text using the installed core binary; the parser output is returned on failure. Requires the binary to be installed. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_validate",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "text": ":443 {\n\trespond \"ok\"\n}\n"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "valid": true
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "tunnel: caddy adapt: …"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the core binary on disk (multipart field \"file\"). Exempt from the global 10 MiB body limit because caddy builds are ~50 MB. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the core binary from a URL into a temp file and swap it into place (an interrupted download never leaves a half-written binary). https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/caddy-naive-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/naive/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_naive_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Full status of the olcRTC core: process probe, binary presence, stored config and the generated olcrtc:// connect URI. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_olcrtc_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "core": "olcrtc",
+                    "displayName": "olcRTC",
+                    "binaryExists": true,
+                    "binaryPath": "bin/olcrtc-linux-amd64",
+                    "clientUri": "olcrtc://jitsi?datachannel@https://meet.example.org/r#…",
+                    "config": {
+                      "provider": "jitsi",
+                      "transport": "datachannel",
+                      "enabled": true
+                    },
+                    "probe": {
+                      "running": true,
+                      "listening": false,
+                      "responding": false
+                    },
+                    "lastLog": ""
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/config": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Read the stored olcRTC config (defaults when nothing is stored yet). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_olcrtc_config",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Validate, persist and apply the olcRTC config. Auto-generates a 64-hex crypto key when empty. Renders server YAML and restarts the process on fingerprint change. Returns the fresh status. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_config",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enabled": true,
+                "provider": "jitsi",
+                "roomId": "https://meet.example.org/myroom",
+                "transport": "datachannel",
+                "dns": "8.8.8.8:53"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/start": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Mark the core enabled, persist, and start olcrtc. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_start",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/stop": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Mark the core disabled, persist, and stop olcrtc. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_stop",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/restart": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Force a fresh start with the stored config. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_restart",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent process log lines (ring buffer, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_olcrtc_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/preview": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Render the server YAML the given form state would produce, without persisting. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_preview",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "yaml": "mode: srv\n…"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the olcrtc binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the olcrtc binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/olcrtc-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/olcrtc/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_olcrtc_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Full status of the qWDTT core: process probe, binary presence, stored config, qwdtt:// / wdtt:// URIs and subscription JSON. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_qwdtt_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/config": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Read the stored qWDTT config (defaults when nothing is stored yet). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_qwdtt_config",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Validate, persist and apply the qWDTT config. Auto-generates the main password when empty. Restarts the process on argv fingerprint change. Returns the fresh status. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_config",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enabled": true,
+                "listenAddr": "0.0.0.0:56000",
+                "wgPort": 56001,
+                "dns": "8.8.8.8",
+                "subHost": "203.0.113.10:56000",
+                "vkHashes": "hash1"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/start": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Mark the core enabled, persist, and start wdtt-server. Requires root/CAP_NET_ADMIN. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_start",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/stop": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Mark the core disabled, persist, and stop wdtt-server. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_stop",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/restart": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Force a fresh start with the stored config. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_restart",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent process log lines (ring buffer, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_qwdtt_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the qwdtt binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the qwdtt binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/qwdtt-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/qwdtt/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop the core and remove its binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_qwdtt_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mieru/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "mieru core status for the Cores page: binary presence and aggregate process state across all mieru-{id} inbound sidecars. Inbound-only core — no legacy config/lifecycle. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_mieru_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mieru/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent log lines of all mieru instances (ring buffer, tagged per key, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_mieru_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mieru/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the mita binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mieru_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mieru/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the mita binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mieru_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/mieru-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mieru/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop every mieru instance and remove the binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mieru_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/trusttunnel/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "TrustTunnel core status for the Cores page: binary presence and aggregate process state across all trusttunnel-{id} inbound sidecars. Inbound-only core. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_trusttunnel_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/trusttunnel/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent log lines of all TrustTunnel instances (ring buffer, tagged per key, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_trusttunnel_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/trusttunnel/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the trusttunnel_endpoint binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_trusttunnel_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/trusttunnel/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the trusttunnel_endpoint binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_trusttunnel_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/trusttunnel-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/trusttunnel/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop every TrustTunnel instance and remove the binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_trusttunnel_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "AnyTLS core status for the Cores page: binary presence and aggregate process state across all anytls-{id} inbound sidecars. Inbound-only core. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_anytls_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent log lines of all AnyTLS instances (ring buffer, tagged per key, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_anytls_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the anytls-server binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_anytls_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the anytls-server binary from a URL into place. https only, to a public host; redirects are bounded and re-checked, so the panel cannot be walked onto loopback, the LAN or a metadata endpoint. 200 MB cap. Pass the optional sha256 to have the download discarded on digest mismatch instead of replacing a working binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_anytls_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/anytls-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/anytls/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop every AnyTLS instance and remove the binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_anytls_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Telegram WEB proxy core status for the Cores page: tproxy-server binary and process state. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_tproxy_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent tproxy-server log lines. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_tproxy_logs",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the tproxy-server binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_tproxy_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch tproxy-server from a URL. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_tproxy_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/tproxy-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop tproxy instances and remove the binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_tproxy_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/uploadSite": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Upload a camouflage-site zip for one tproxy or cover inbound (query id). Needs index.html. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_tproxy_uploadSite",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/tproxy/site": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "List camouflage-site files on disk for one tproxy or cover inbound (query id). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_tproxy_site",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Official MTProxy binary status for Telegram WEB proxy backends. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_mtproxy_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent official MTProxy log lines. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_mtproxy_logs",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the official MTProxy binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproxy_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch official MTProxy from a URL. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproxy_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/mtproxy-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproxy/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop MTProxy instances and remove the binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproxy_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/openapi.json": {
       "get": {
         "tags": [
@@ -5771,6 +9262,46 @@
                     "enabled": true,
                     "installed": true,
                     "usable": true,
+                    "windows": false
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/bbrStatus": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Reports whether TCP BBR congestion control (paired with fq/cake) is active. AWG/WireGuard itself is UDP and unaffected, but TCP flows the panel proxies benefit on higher-latency or lossy paths.",
+        "operationId": "get_panel_api_server_bbrStatus",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "supported": true,
+                    "enabled": false,
+                    "congestionControl": "cubic",
+                    "qdisc": "fq_codel",
                     "windows": false
                   }
                 }
@@ -6104,6 +9635,63 @@
                       "type": "string"
                     },
                     "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/getPanelReleaseNotes": {
+      "get": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Paged changelog of stable GitHub releases newer than the running panel (skipped versions). LucX-UI only.",
+        "operationId": "get_panel_api_server_getPanelReleaseNotes",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": true,
+            "description": "1-based page (10 releases per page).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {
+                      "$ref": "#/components/schemas/PanelReleaseNotes"
+                    }
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "hasMore": true,
+                    "items": [
+                      {
+                        "body": "- fix: changelog",
+                        "publishedAt": "2026-08-20T10:00:00Z",
+                        "tag": "v3.6.0-lucx.145"
+                      }
+                    ],
+                    "page": 1
                   }
                 }
               }
@@ -6663,6 +10251,156 @@
         }
       }
     },
+    "/panel/api/server/restartAwg": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Stop and re-up managed AWG kernel interfaces (inbounds + outbounds).",
+        "operationId": "post_panel_api_server_restartAwg",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/rebuildAwgModule": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Install or rebuild the amneziawg DKMS module from upstream master (async). Runs bin/install-awg-module.sh --force-rebuild --no-kernel-upgrade.",
+        "operationId": "post_panel_api_server_rebuildAwgModule",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/uninstallAwgModule": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Remove the amneziawg DKMS module and awg/awg-quick tools. Inbound .conf files are kept.",
+        "operationId": "post_panel_api_server_uninstallAwgModule",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/enableBbr": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Enable TCP BBR + fq (writes /etc/sysctl.d/99-bbr-x-ui.conf and applies it live). Linux only.",
+        "operationId": "post_panel_api_server_enableBbr",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/server/disableBbr": {
+      "post": {
+        "tags": [
+          "Server"
+        ],
+        "summary": "Restore the congestion control / qdisc that were active before enableBbr ran, and remove the drop-in file. Linux only.",
+        "operationId": "post_panel_api_server_disableBbr",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/server/updatePanel": {
       "post": {
         "tags": [
@@ -6982,13 +10720,13 @@
                   "success": true,
                   "obj": [
                     {
-                      "DateTime": "2025-01-01T12:00:00Z",
-                      "Email": "alice@example.com",
-                      "Event": 0,
-                      "FromAddress": "192.0.2.10:54321",
-                      "Inbound": "inbound-443",
-                      "Outbound": "direct",
-                      "ToAddress": "example.com:443"
+                      "dateTime": "2025-01-01T00:00:00Z",
+                      "email": "",
+                      "event": 0,
+                      "fromAddress": "",
+                      "inbound": "",
+                      "outbound": "",
+                      "toAddress": ""
                     }
                   ]
                 }
@@ -10246,6 +13984,178 @@
         }
       }
     },
+    "/panel/api/clients/awgBody/{subId}": {
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "LUCX-UI only. Same-origin Amnezia subscription body for panel Copy/QR (avoids CORS on the public /awg/ port). format=vpn → vpn:// lines; format=conf → awg-quick .conf. JSON envelope obj.body.",
+        "operationId": "get_panel_api_clients_awgBody_subId",
+        "parameters": [
+          {
+            "name": "subId",
+            "in": "path",
+            "required": true,
+            "description": "Subscription ID from the client's subId field.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "format",
+            "in": "query",
+            "required": false,
+            "description": "vpn (default) or conf.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "inboundId",
+            "in": "query",
+            "required": false,
+            "description": "When set, return only this AWG inbound (one vpn:// / .conf). Omit for every attached inbound.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "body": "vpn://BASE64…\n",
+                    "format": "vpn"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/clients/subBody": {
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "LUCX-UI only. Same-origin body of any public subscription URL (base64 sub, JSON, Clash YAML, Amnezia .conf / vpn://) for panel Download/Copy — the sub server has no CORS headers, so browsers cannot fetch it cross-origin. Only path+query of the submitted url are used; the request goes to the local sub server, byte-identical to what VPN apps receive. JSON envelope obj.body.",
+        "operationId": "get_panel_api_clients_subBody",
+        "parameters": [
+          {
+            "name": "url",
+            "in": "query",
+            "required": true,
+            "description": "The public subscription URL shown in the panel (sub/json/clash/awg route).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "body": "dmxlc3M6Ly8…\n",
+                    "format": "sub"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/clients/tunnelCreds/{inboundId}/{email}": {
+      "get": {
+        "tags": [
+          "Clients"
+        ],
+        "summary": "LUCX-UI only. Username/password a NaiveProxy, mieru or TrustTunnel client has to type in. The pair is HMAC-derived from the panel secret and stored nowhere, so this is the only way to read it back. Errors for any other protocol, for a client not attached to the inbound, and for a disabled client (the sidecar drops its credentials line).",
+        "operationId": "get_panel_api_clients_tunnelCreds_inboundId_email",
+        "parameters": [
+          {
+            "name": "inboundId",
+            "in": "path",
+            "required": true,
+            "description": "Inbound the credentials are scoped to.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "email",
+            "in": "path",
+            "required": true,
+            "description": "Client email (identifier).",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "protocol": "trusttunnel",
+                    "username": "tr9f2c1ab0de",
+                    "password": "kQ8mZ2rC7wN4tX1vB6yH3sL0pJd"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/clients/links/{email}": {
       "get": {
         "tags": [
@@ -10353,6 +14263,11 @@
                       "name": "edge-1",
                       "netDown": 1048576,
                       "netUp": 2097152,
+                      "nodeFeatures": [
+                        "awg",
+                        "naive"
+                      ],
+                      "nodeType": "lucx",
                       "onlineCount": 5,
                       "outboundTag": "direct",
                       "panelVersion": "v3.x.x",
@@ -10554,6 +14469,11 @@
                     "name": "edge-1",
                     "netDown": 1048576,
                     "netUp": 2097152,
+                    "nodeFeatures": [
+                      "awg",
+                      "naive"
+                    ],
+                    "nodeType": "lucx",
                     "onlineCount": 5,
                     "outboundTag": "direct",
                     "panelVersion": "v3.x.x",
@@ -10704,6 +14624,11 @@
                     "name": "edge-1",
                     "netDown": 1048576,
                     "netUp": 2097152,
+                    "nodeFeatures": [
+                      "awg",
+                      "naive"
+                    ],
+                    "nodeType": "lucx",
                     "onlineCount": 5,
                     "outboundTag": "direct",
                     "panelVersion": "v3.x.x",
@@ -15730,6 +19655,11 @@
                   "name": "edge-1",
                   "netDown": 1048576,
                   "netUp": 2097152,
+                  "nodeFeatures": [
+                    "awg",
+                    "naive"
+                  ],
+                  "nodeType": "lucx",
                   "onlineCount": 5,
                   "outboundTag": "direct",
                   "panelVersion": "v3.x.x",

@@ -2378,8 +2378,7 @@ func (s *ServerService) GetNewX25519Cert() (any, error) {
 	return keyPair, nil
 }
 
-func (s *ServerService) GetNewmldsa65() (any, error) {
-	// Run the command
+func (s *ServerService) GetNewmldsa65() (*MLDSA65Response, error) {
 	cmd := exec.CommandContext(context.Background(), xray.GetBinaryPath(), "mldsa65")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -2393,12 +2392,7 @@ func (s *ServerService) GetNewmldsa65() (any, error) {
 		return nil, err
 	}
 
-	keyPair := map[string]any{
-		"seed":   seed,
-		"verify": verify,
-	}
-
-	return keyPair, nil
+	return &MLDSA65Response{Seed: seed, Verify: verify}, nil
 }
 
 // GetCertHash parses a certificate (from a file path or inline PEM/DER content)
@@ -2686,19 +2680,32 @@ func vlessEncAuthID(label string) string {
 	}
 }
 
-func (s *ServerService) GetNewUUID() (map[string]string, error) {
+type NewUUIDResponse struct {
+	UUID string `json:"uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
+}
+
+type MLDSA65Response struct {
+	Seed   string `json:"seed" example:"mldsa65-seed"`
+	Verify string `json:"verify" example:"mldsa65-verify"`
+}
+
+type MLKEM768Response struct {
+	Seed   string `json:"seed" example:"mlkem768-seed"`
+	Client string `json:"client" example:"mlkem768-client"`
+}
+
+func (s *ServerService) GetNewUUID() (*NewUUIDResponse, error) {
 	newUUID, err := uuid.NewRandom()
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate UUID: %w", err)
 	}
 
-	return map[string]string{
-		"uuid": newUUID.String(),
+	return &NewUUIDResponse{
+		UUID: newUUID.String(),
 	}, nil
 }
 
-func (s *ServerService) GetNewmlkem768() (any, error) {
-	// Run the command
+func (s *ServerService) GetNewmlkem768() (*MLKEM768Response, error) {
 	cmd := exec.CommandContext(context.Background(), xray.GetBinaryPath(), "mlkem768")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -2712,10 +2719,5 @@ func (s *ServerService) GetNewmlkem768() (any, error) {
 		return nil, err
 	}
 
-	keyPair := map[string]any{
-		"seed":   seed,
-		"client": client,
-	}
-
-	return keyPair, nil
+	return &MLKEM768Response{Seed: seed, Client: client}, nil
 }
