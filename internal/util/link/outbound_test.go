@@ -148,16 +148,25 @@ func finalmaskUDP(t *testing.T, res *ParseResult) []any {
 	return udp
 }
 
+func hopMask(t *testing.T, res *ParseResult) (map[string]any, bool) {
+	t.Helper()
+	for _, rawMask := range finalmaskUDP(t, res) {
+		mask, _ := rawMask.(map[string]any)
+		if maskType, _ := mask["type"].(string); maskType == "udphop" {
+			settings, _ := mask["settings"].(map[string]any)
+			return settings, true
+		}
+	}
+	return nil, false
+}
+
 func hopPorts(t *testing.T, res *ParseResult) (string, bool) {
 	t.Helper()
-	stream, _ := res.Outbound["streamSettings"].(map[string]any)
-	finalmask, _ := stream["finalmask"].(map[string]any)
-	quicParams, _ := finalmask["quicParams"].(map[string]any)
-	udpHop, ok := quicParams["udpHop"].(map[string]any)
+	settings, ok := hopMask(t, res)
 	if !ok {
 		return "", false
 	}
-	ports, _ := udpHop["ports"].(string)
+	ports, _ := settings["remotePorts"].(string)
 	return ports, true
 }
 
@@ -258,9 +267,17 @@ func TestParseHysteria2_Mport(t *testing.T) {
 		{"standard mport", "mport=20000-50000", "20000-50000", true},
 		{"no mport", "sni=ex.com", "", false},
 		{
-			name:      "fm udpHop wins over mport",
-			query:     "mport=1-2&fm=" + url.QueryEscape(`{"quicParams":{"udpHop":{"ports":"30000-40000","interval":"7-9"}}}`),
+			name: "fm udphop mask wins over mport",
+			query: "mport=1-2&fm=" + url.QueryEscape(
+				`{"udp":[{"type":"udphop","settings":{"mode":"intervalremote","interval":"7-9","remotePorts":"30000-40000"}}]}`,
+			),
 			wantPorts: "30000-40000",
+			wantHop:   true,
+		},
+		{
+			name:      "legacy fm quicParams.udpHop no longer suppresses mport",
+			query:     "mport=1-2&fm=" + url.QueryEscape(`{"quicParams":{"udpHop":{"ports":"30000-40000","interval":"7-9"}}}`),
+			wantPorts: "1-2",
 			wantHop:   true,
 		},
 	}

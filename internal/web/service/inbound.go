@@ -1990,7 +1990,7 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 	if err := s.normalizeNaiveXrayPort(inbound, ""); err != nil {
 		return inbound, false, err
 	}
-	if err := s.normalizeAmneziaWGSettings(inbound); err != nil {
+	if err := s.normalizeAmneziaWGSettings(inbound, ""); err != nil {
 		return inbound, false, err
 	}
 	if inbound.NodeID != nil && !isNodeEligibleProtocol(inbound.Protocol) {
@@ -2607,9 +2607,6 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		return inbound, false, err
 	}
 	s.normalizeMtprotoSecret(inbound)
-	if err := s.normalizeAmneziaWGSettings(inbound); err != nil {
-		return inbound, false, err
-	}
 	inbound.SubSortIndex = normalizeSubSortIndex(inbound.SubSortIndex)
 
 	clients, err := s.GetClients(inbound)
@@ -2633,6 +2630,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 
 	oldInbound, err := s.GetInbound(inbound.Id)
 	if err != nil {
+		return inbound, false, err
+	}
+	if err := s.normalizeAmneziaWGSettings(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
 	// Restore the stored NodeID before the port-conflict check so a node inbound

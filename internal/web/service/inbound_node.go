@@ -27,6 +27,12 @@ var reportedRemoteTagConflict sync.Map
 // sequential round-trips. Small ops stay on the live per-client path.
 const nodeBulkPushThreshold = 32
 
+const nodeClientPushTimeout = 4 * time.Second
+
+func nodePushContext() (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.Background(), nodeClientPushTimeout)
+}
+
 func (s *InboundService) runtimeFor(ib *model.Inbound) (runtime.Runtime, error) {
 	mgr := runtime.GetManager()
 	if mgr == nil {

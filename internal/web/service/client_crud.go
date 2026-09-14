@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"runtime/debug"
 	"strings"
+	"sync"
+	"sync/atomic"
 	"time"
 	"unicode"
 
@@ -14,6 +17,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
@@ -1146,4 +1150,43 @@ func (s *ClientService) Detach(inboundSvc *InboundService, id int, inboundIds []
 		}
 	}
 	return needRestart, nil
+}
+
+const inboundFanoutConcurrency = 4
+
+type inboundApply struct {
+	id  int
+	run func() (bool, error)
+}
+
+func fanoutInboundApplies(applies []inboundApply) (bool, error) {
+	var needRestart atomic.Bool
+	errs := make([]error, len(applies))
+	sem := make(chan struct{}, inboundFanoutConcurrency)
+	var wg sync.WaitGroup
+	for i := range applies {
+		wg.Add(1)
+		sem <- struct{}{}
+		go func() {
+			defer wg.Done()
+			defer func() { <-sem }()
+			defer func() {
+				if r := recover(); r != nil {
+					needRestart.Store(true)
+					errs[i] = fmt.Errorf("inbound %d: panic: %v", applies[i].id, r)
+					logger.Errorf("panic applying client change to inbound %d: %v\n%s", applies[i].id, r, debug.Stack())
+				}
+			}()
+			nr, err := applies[i].run()
+			if nr {
+				needRestart.Store(true)
+			}
+			if err != nil {
+				errs[i] = fmt.Errorf("inbound %d: %w", applies[i].id, err)
+			}
+		}()
+	}
+	wg.Wait()
+
+	return needRestart.Load(), errors.Join(errs...)
 }

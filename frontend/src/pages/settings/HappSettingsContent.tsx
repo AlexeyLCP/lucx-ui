@@ -109,6 +109,24 @@ export default function HappSettingsContent({
 
                 <SettingListItem
                   paddings="small"
+                  title={t('pages.settings.subRoutingSource')}
+                  description={t('pages.settings.subRoutingSourceDesc')}
+                >
+                  <Select
+                    style={{ minWidth: 220 }}
+                    value={allSetting.subRoutingSource || 'custom'}
+                    onChange={(v) => updateSetting({ subRoutingSource: v })}
+                    options={[
+                      { value: 'default', label: t('pages.settings.subRoutingSourceDefault') },
+                      { value: 'jsonsub', label: t('pages.settings.subRoutingSourceJsonSub') },
+                      { value: 'whitelist', label: t('pages.settings.subRoutingSourceWhitelist') },
+                      { value: 'custom', label: t('pages.settings.subRoutingSourceCustom') },
+                    ]}
+                  />
+                </SettingListItem>
+
+                <SettingListItem
+                  paddings="small"
                   title={t('pages.settings.subHappPresets')}
                   description={t('pages.settings.subHappPresetsDesc')}
                 >
@@ -152,6 +170,7 @@ export default function HappSettingsContent({
                     rows={4}
                     placeholder="happ://routing/onadd/... or https://.../DEFAULT.DEEPLINK"
                     onChange={(e) => updateSetting({ subRoutingRules: e.target.value })}
+                    disabled={(allSetting.subRoutingSource || 'custom') !== 'custom'}
                   />
                 </SettingListItem>
 

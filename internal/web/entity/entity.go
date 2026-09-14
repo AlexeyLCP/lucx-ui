@@ -69,6 +69,17 @@ type AllSetting struct {
 	SmtpCpu            int    `json:"smtpCpu" form:"smtpCpu" validate:"gte=0,lte=100"`
 	SmtpMemory         int    `json:"smtpMemory" form:"smtpMemory" validate:"gte=0,lte=100"`
 
+	DiscordBotEnable     bool   `json:"discordBotEnable" form:"discordBotEnable"`
+	DiscordBotToken      string `json:"discordBotToken" form:"discordBotToken"`
+	DiscordChannelId     string `json:"discordChannelId" form:"discordChannelId"`
+	DiscordAdminIds      string `json:"discordAdminIds" form:"discordAdminIds"`
+	DiscordRunTime       string `json:"discordRunTime" form:"discordRunTime"`
+	DiscordBotBackup     bool   `json:"discordBotBackup" form:"discordBotBackup"`
+	DiscordCpu           int    `json:"discordCpu" form:"discordCpu" validate:"gte=0,lte=100"`
+	DiscordMemory        int    `json:"discordMemory" form:"discordMemory" validate:"gte=0,lte=100"`
+	DiscordLang          string `json:"discordLang" form:"discordLang"`
+	DiscordEnabledEvents string `json:"discordEnabledEvents" form:"discordEnabledEvents"`
+
 	OutboundDownThreshold int `json:"outboundDownThreshold" form:"outboundDownThreshold" validate:"gte=1,lte=100"`
 
 	TimeLocation    string `json:"timeLocation" form:"timeLocation"`
@@ -152,13 +163,14 @@ type AllSetting struct {
 type AllSettingView struct {
 	AllSetting
 
-	HasTgBotToken     bool `json:"hasTgBotToken"`
-	HasTwoFactorToken bool `json:"hasTwoFactorToken"`
-	HasLdapPassword   bool `json:"hasLdapPassword"`
-	HasApiToken       bool `json:"hasApiToken"`
-	HasWarpSecret     bool `json:"hasWarpSecret"`
-	HasNordSecret     bool `json:"hasNordSecret"`
-	HasSmtpPassword   bool `json:"hasSmtpPassword"`
+	HasTgBotToken      bool `json:"hasTgBotToken"`
+	HasTwoFactorToken  bool `json:"hasTwoFactorToken"`
+	HasLdapPassword    bool `json:"hasLdapPassword"`
+	HasApiToken        bool `json:"hasApiToken"`
+	HasWarpSecret      bool `json:"hasWarpSecret"`
+	HasNordSecret      bool `json:"hasNordSecret"`
+	HasSmtpPassword    bool `json:"hasSmtpPassword"`
+	HasDiscordBotToken bool `json:"hasDiscordBotToken"`
 }
 
 func pathHasForbiddenChar(s string) bool {

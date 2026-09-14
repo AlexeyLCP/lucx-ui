@@ -397,9 +397,11 @@ func TestStandardGeodataSources(t *testing.T) {
 	want := []GeodataSource{
 		{URL: "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat", File: "geoip.dat"},
 		{URL: "https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat", File: "geoip_IR.dat"},
+		{URL: "https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat", File: "geoip_ROSCOM.dat"},
 		{URL: "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat", File: "geoip_RU.dat"},
 		{URL: "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat", File: "geosite.dat"},
 		{URL: "https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat", File: "geosite_IR.dat"},
+		{URL: "https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat", File: "geosite_ROSCOM.dat"},
 		{URL: "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat", File: "geosite_RU.dat"},
 	}
 
