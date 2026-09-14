@@ -2806,6 +2806,40 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "MLDSA65Response": {
+    "properties": {
+      "seed": {
+        "example": "mldsa65-seed",
+        "type": "string"
+      },
+      "verify": {
+        "example": "mldsa65-verify",
+        "type": "string"
+      }
+    },
+    "required": [
+      "seed",
+      "verify"
+    ],
+    "type": "object"
+  },
+  "MLKEM768Response": {
+    "properties": {
+      "client": {
+        "example": "mlkem768-client",
+        "type": "string"
+      },
+      "seed": {
+        "example": "mlkem768-seed",
+        "type": "string"
+      }
+    },
+    "required": [
+      "client",
+      "seed"
+    ],
+    "type": "object"
+  },
   "Msg": {
     "properties": {
       "msg": {
@@ -2820,6 +2854,18 @@ export const SCHEMAS: Record<string, unknown> = {
       "msg",
       "obj",
       "success"
+    ],
+    "type": "object"
+  },
+  "NewUUIDResponse": {
+    "properties": {
+      "uuid": {
+        "example": "550e8400-e29b-41d4-a716-446655440000",
+        "type": "string"
+      }
+    },
+    "required": [
+      "uuid"
     ],
     "type": "object"
   },

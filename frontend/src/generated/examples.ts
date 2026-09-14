@@ -724,10 +724,21 @@ export const EXAMPLES: Record<string, unknown> = {
     "outbound": "",
     "toAddress": ""
   },
+  "MLDSA65Response": {
+    "seed": "mldsa65-seed",
+    "verify": "mldsa65-verify"
+  },
+  "MLKEM768Response": {
+    "client": "mlkem768-client",
+    "seed": "mlkem768-seed"
+  },
   "Msg": {
     "msg": "",
     "obj": null,
     "success": false
+  },
+  "NewUUIDResponse": {
+    "uuid": "550e8400-e29b-41d4-a716-446655440000"
   },
   "Node": {
     "activeCount": 23,

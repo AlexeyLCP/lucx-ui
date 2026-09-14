@@ -689,12 +689,29 @@ export const LogEntrySchema = z.object({
 });
 export type LogEntry = z.infer<typeof LogEntrySchema>;
 
+export const MLDSA65ResponseSchema = z.object({
+  seed: z.string(),
+  verify: z.string(),
+});
+export type MLDSA65Response = z.infer<typeof MLDSA65ResponseSchema>;
+
+export const MLKEM768ResponseSchema = z.object({
+  client: z.string(),
+  seed: z.string(),
+});
+export type MLKEM768Response = z.infer<typeof MLKEM768ResponseSchema>;
+
 export const MsgSchema = z.object({
   msg: z.string(),
   obj: z.unknown(),
   success: z.boolean(),
 });
 export type Msg = z.infer<typeof MsgSchema>;
+
+export const NewUUIDResponseSchema = z.object({
+  uuid: z.string(),
+});
+export type NewUUIDResponse = z.infer<typeof NewUUIDResponseSchema>;
 
 export const NodeSchema = z.object({
   activeCount: z.number().int(),

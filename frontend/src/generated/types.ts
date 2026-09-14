@@ -639,10 +639,24 @@ export interface LogEntry {
   toAddress: string;
 }
 
+export interface MLDSA65Response {
+  seed: string;
+  verify: string;
+}
+
+export interface MLKEM768Response {
+  client: string;
+  seed: string;
+}
+
 export interface Msg {
   msg: string;
   obj: unknown;
   success: boolean;
+}
+
+export interface NewUUIDResponse {
+  uuid: string;
 }
 
 export interface Node {
