@@ -72,8 +72,14 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 	}
 
 	needRestart := false
-	// Prepared in order first, as in Create: fillProtocolDefaults mints the
-	// shared credentials, so only the node pushes below may overlap.
+	tunnelTarget := s.hasTunnelAttachment(inboundSvc, inboundIds)
+	wires := make([]model.Client, len(records))
+	for i, rec := range records {
+		wires[i] = *rec.ToClient()
+		if err := mintTunnelKeypairOnce(&wires[i], tunnelTarget); err != nil {
+			return result, false, err
+		}
+	}
 	attachIds := make([]int, 0, len(inboundIds))
 	attachPayloads := make([]string, 0, len(inboundIds))
 	attachClients := make([][]model.Client, 0, len(inboundIds))
@@ -105,21 +111,17 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 		}
 
 		clientsToAdd := make([]model.Client, 0, len(records))
-		for _, rec := range records {
+		for i, rec := range records {
 			if _, attached := have[strings.ToLower(rec.Email)]; attached {
 				result.Skipped = append(result.Skipped, rec.Email)
 				continue
 			}
-			client := *rec.ToClient()
+			client := wires[i]
 			if flow, ok := flowsByEmail[rec.Email]; ok && flow != "" {
 				client.Flow = flow
 			}
 			client.UpdatedAt = time.Now().UnixMilli()
 			if err := s.fillProtocolDefaults(&client, inbound); err != nil {
-				recordErr("%s -> inbound %d: %v", rec.Email, ibId, err)
-				continue
-			}
-			if err := mintTunnelKeypairOnce(&client, attachAnyTunnel || inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG); err != nil {
 				recordErr("%s -> inbound %d: %v", rec.Email, ibId, err)
 				continue
 			}

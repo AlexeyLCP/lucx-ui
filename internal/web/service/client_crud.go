@@ -1049,6 +1049,10 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 	}
 	clientWire.Flow = flow
 	clientWire.UpdatedAt = time.Now().UnixMilli()
+	if err := mintTunnelKeypairOnce(clientWire, s.hasTunnelAttachment(inboundSvc, inboundIds) || s.hasTunnelAttachment(inboundSvc, currentIds)); err != nil {
+		return false, err
+	}
+	tunnelN, _ := tunnelInboundCount(append(append([]int{}, currentIds...), inboundIds...))
 
 	// If this identity has no CURRENT WireGuard/AmneziaWG attachment,
 	// clientWire.AllowedIPs (from the ClientRecord) is a leftover from
@@ -1075,6 +1079,8 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 		if !addressesFitAmneziaWGInbound(copyClient.AllowedIPs, inbound) {
 			copyClient.AllowedIPs = nil
 		}
+		clearBroadcastTunnelIP(&copyClient, inbound.Protocol, int(tunnelN))
+		clearForeignTunnelFields(&copyClient, inbound.Protocol)
 		if err := s.fillProtocolDefaults(&copyClient, inbound); err != nil {
 			return false, fmt.Errorf("inbound %d: %w", ibId, err)
 		}

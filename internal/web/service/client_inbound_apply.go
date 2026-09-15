@@ -453,6 +453,7 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 			if client.PublicKey == "" {
 				return false, common.NewError("wireguard client requires a key")
 			}
+		case "awg", "naive", "olcrtc", "qwdtt", "mieru", "trusttunnel", "anytls", "tproxy", "cover":
 		case "mtproto":
 			if client.Secret == "" {
 				return false, common.NewError("mtproto client requires a secret")
@@ -492,11 +493,12 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 		applyShadowsocksClientMethod(interfaceClients, oldSettings)
 	}
 
-	oldClients, _ := oldSettings["clients"].([]any)
-	oldClients = compactOrphans(database.GetDB(), oldClients)
-	oldClients = append(oldClients, interfaceClients...)
-
-	oldSettings["clients"] = oldClients
+	if !shareOnlySidecar(oldInbound.Protocol) {
+		oldClients, _ := oldSettings["clients"].([]any)
+		oldClients = compactOrphans(database.GetDB(), oldClients)
+		oldClients = append(oldClients, interfaceClients...)
+		oldSettings["clients"] = oldClients
+	}
 
 	newSettings, err := json.MarshalIndent(oldSettings, "", "  ")
 	if err != nil {
@@ -582,7 +584,9 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 			inboundSvc.applyLocalMtproto(oldInbound.Id)
 		} else if oldInbound.Protocol == model.AmneziaWG {
 			inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
+		} else if oldInbound.Protocol == model.Naive {
 			inboundSvc.applyLocalNaive(oldInbound.Id)
+		} else if oldInbound.Protocol == model.AWG {
 			inboundSvc.applyLocalAwg(oldInbound.Id)
 		} else if oldInbound.Protocol == model.TUIC {
 			inboundSvc.applyLocalTuic(oldInbound.Id)
@@ -686,7 +690,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		newClientId = clients[0].Email
 	case "hysteria":
 		newClientId = clients[0].Auth
-	case "wireguard", "amneziawg":
+	case "wireguard", "amneziawg", "awg", "naive", "olcrtc", "qwdtt", "mieru", "trusttunnel", "anytls", "tproxy", "cover":
 		newClientId = clients[0].Email
 	case "mtproto":
 		newClientId = clients[0].Email
@@ -763,7 +767,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		if clients[0].PreSharedKey == "" {
 			clients[0].PreSharedKey = old.PreSharedKey
 		}
-		if clients[0].KeepAlive.IsZero() {
+		if clients[0].KeepAlive == "" {
 			clients[0].KeepAlive = old.KeepAlive
 		}
 		// ForwardedPorts is AmneziaWG-only (WireGuard's own inbound never
@@ -1015,7 +1019,9 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 				inboundSvc.applyLocalMtproto(oldInbound.Id)
 			} else if oldInbound.Protocol == model.AmneziaWG {
 				inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
+			} else if oldInbound.Protocol == model.Naive {
 				inboundSvc.applyLocalNaive(oldInbound.Id)
+			} else if oldInbound.Protocol == model.AWG {
 				inboundSvc.applyLocalAwg(oldInbound.Id)
 			} else if oldInbound.Protocol == model.TUIC {
 				inboundSvc.applyLocalTuic(oldInbound.Id)
@@ -1200,10 +1206,10 @@ func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inbo
 				// client's enable state.
 				inboundSvc.applyLocalMtproto(oldInbound.Id)
 			} else if oldInbound.Protocol == model.AmneziaWG {
-				// Same reasoning as MTProto above: the interface config is
-				// regenerated from the full peer set, so any delete re-applies it.
 				inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
+			} else if oldInbound.Protocol == model.Naive {
 				inboundSvc.applyLocalNaive(oldInbound.Id)
+			} else if oldInbound.Protocol == model.AWG {
 				inboundSvc.applyLocalAwg(oldInbound.Id)
 			} else if oldInbound.Protocol == model.TUIC {
 				inboundSvc.applyLocalTuic(oldInbound.Id)
