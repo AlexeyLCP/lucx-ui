@@ -2968,6 +2968,7 @@ type PageData struct {
 	SubUrl        string
 	SubJsonUrl    string
 	SubClashUrl   string
+	SubAwgUrl     string
 	SubTitle      string
 	SubSupportUrl string
 	SubAnnounce   string
@@ -3653,10 +3654,35 @@ func (s *SubService) BuildAwgURL(subAwgPath, subId string) string {
 	return s.buildSingleURL(configuredSubAwgURI, awgBase, subAwgPath, subId)
 }
 
-// END LUCX-HOOK
+func stampAwgShare(conf, host string, port int, remark string) string {
+	if r := strings.TrimSpace(remark); r != "" {
+		r = strings.ReplaceAll(strings.ReplaceAll(r, "\r", " "), "\n", " ")
+		conf = "# " + r + "\n" + conf
+	}
+	if host == "" || port <= 0 {
+		return conf
+	}
+	ep := "Endpoint = " + net.JoinHostPort(host, strconv.Itoa(port))
+	lines := strings.Split(conf, "\n")
+	for i, ln := range lines {
+		if strings.HasPrefix(strings.TrimSpace(ln), "Endpoint") {
+			lines[i] = ep
+			return strings.Join(lines, "\n")
+		}
+	}
+	return conf
+}
 
-// extractBaseFromURI extracts scheme://host from a configured URI.
-// e.g., "https://example.com/sub-xxx/" → "https://example.com".
-// Returns "" when the URI is empty or lacks a scheme/host, so callers can
-// fall back to the request-derived base instead of emitting a broken value.
-// END LUCX-HOOK
+func mieruBindHostPort(cfg tunnel.MieruConfig, port int) tunnel.MieruConfig {
+	if port <= 0 || len(cfg.PortBindings) == 0 {
+		return cfg
+	}
+	binds := make([]tunnel.MieruPortBinding, len(cfg.PortBindings))
+	copy(binds, cfg.PortBindings)
+	for i := range binds {
+		binds[i].Port = port
+		binds[i].PortRange = ""
+	}
+	cfg.PortBindings = binds
+	return cfg
+}

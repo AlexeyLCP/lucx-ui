@@ -61,14 +61,7 @@ type SUBController struct {
 	subJsonRoutingRules string
 	subHideSettings     bool
 	happConfig          HappConfig
-	subTitle            string
-	subSupportUrl       string
-	subProfileUrl       string
-	subAnnounce         string
-	subEnableRouting    bool
-	subRoutingRules     string
 	subRoutingSource    string // LUCX-HOOK: RoscomVPN Happ profile source
-	subHideSettings     bool
 
 	subIncyEnableRouting bool
 	subIncyRoutingRules  string
@@ -318,14 +311,7 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 		subJsonRoutingRules: config.subJsonRoutingRules,
 		subHideSettings:     config.subHideSettings,
 		happConfig:          config.happConfig,
-		subTitle:            config.subTitle,
-		subSupportUrl:       config.subSupportURL,
-		subProfileUrl:       config.subProfileURL,
-		subAnnounce:         config.subAnnounce,
-		subEnableRouting:    config.subEnableRouting,
-		subRoutingRules:     config.subRoutingRules,
 		subRoutingSource:    config.subRoutingSource,
-		subHideSettings:     config.subHideSettings,
 
 		subIncyEnableRouting: config.subIncyEnableRouting,
 		subIncyRoutingRules:  config.subIncyRoutingRules,
@@ -390,6 +376,13 @@ func (a *SUBController) initRouter(g *gin.RouterGroup) {
 			gLegacy.HEAD(":subid", a.subClashLegacy)
 		}
 	}
+	// LUCX-HOOK: AmneziaWG conf / vpn:// subscription
+	if a.awgEnabled {
+		gAwg := g.Group(a.subAwgPath)
+		gAwg.GET(":subid", a.subAwgs)
+		gAwg.HEAD(":subid", a.subAwgs)
+	}
+	// END LUCX-HOOK
 }
 
 func sameSubscriptionPath(left, right string) bool {
@@ -407,13 +400,6 @@ func (a *SUBController) configuredSubscriptionPathOwner(candidate string) string
 		return "Clash subscription"
 	}
 	return ""
-	// LUCX-HOOK: AmneziaWG conf / vpn:// subscription
-	if a.awgEnabled {
-		gAwg := g.Group(a.subAwgPath)
-		gAwg.GET(":subid", a.subAwgs)
-		gAwg.HEAD(":subid", a.subAwgs)
-	}
-	// END LUCX-HOOK
 }
 
 // maybeServeSubPage renders the HTML info page when the request comes from a
