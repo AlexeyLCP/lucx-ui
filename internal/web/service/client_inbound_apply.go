@@ -493,20 +493,18 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 		applyShadowsocksClientMethod(interfaceClients, oldSettings)
 	}
 
+	prevSettings := oldInbound.Settings
 	if !shareOnlySidecar(oldInbound.Protocol) {
 		oldClients, _ := oldSettings["clients"].([]any)
 		oldClients = compactOrphans(database.GetDB(), oldClients)
 		oldClients = append(oldClients, interfaceClients...)
 		oldSettings["clients"] = oldClients
+		newSettings, err := json.MarshalIndent(oldSettings, "", "  ")
+		if err != nil {
+			return false, err
+		}
+		oldInbound.Settings = string(newSettings)
 	}
-
-	newSettings, err := json.MarshalIndent(oldSettings, "", "  ")
-	if err != nil {
-		return false, err
-	}
-
-	prevSettings := oldInbound.Settings
-	oldInbound.Settings = string(newSettings)
 
 	// From the stamped wire entries, not from clients: created_at / updated_at /
 	// subId are written onto interfaceClients above, after clients was parsed.

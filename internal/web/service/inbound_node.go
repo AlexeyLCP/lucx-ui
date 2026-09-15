@@ -683,6 +683,9 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 					c, ok = portMoved[0], true
 					tagToCentral[snapIb.Tag] = c
 					snapTags[c.Tag] = struct{}{}
+					if tag := retargetAutoTag(c, snapIb); tag != "" {
+						snapTags[tag] = struct{}{}
+					}
 				}
 				// END LUCX-HOOK
 			default:
@@ -794,6 +797,9 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 			updates["sub_sort_index"] = normalizeSubSortIndex(snapIb.SubSortIndex)
 			updates["listen"] = snapIb.Listen
 			updates["port"] = snapIb.Port
+			if tag := retargetAutoTag(c, snapIb); tag != "" {
+				updates["tag"] = tag
+			}
 			updates["protocol"] = snapIb.Protocol
 			updates["total"] = snapIb.Total
 			updates["expiry_time"] = snapIb.ExpiryTime
