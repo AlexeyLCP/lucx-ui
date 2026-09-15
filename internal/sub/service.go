@@ -476,8 +476,16 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	for e := range seenEmails {
 		uniqueEmails = append(uniqueEmails, e)
 	}
+	slices.Sort(uniqueEmails)
 	traffic, lastOnline := s.AggregateTrafficByEmails(uniqueEmails)
 	traffic.Enable = hasEnabledClient
+	if mode, remark := s.resolveInfoNodeRemark(subId, uniqueEmails, traffic, len(result) > 0); mode != infoNodeNone {
+		dummyLink := fmt.Sprintf("socks://127.0.0.1:1080#%s", strings.ReplaceAll(url.QueryEscape(remark), "+", "%20"))
+		if mode == infoNodeExpired || mode == infoNodeDepleted {
+			return []string{dummyLink}, emails, lastOnline, traffic, nil
+		}
+		result = append([]string{dummyLink}, result...)
+	}
 	return result, emails, lastOnline, traffic, nil
 }
 

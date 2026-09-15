@@ -347,6 +347,8 @@ func (a *SUBController) initRouter(g *gin.RouterGroup) {
 	gLink := g.Group(a.subPath)
 	gLink.GET(":subid", a.subs)
 	gLink.HEAD(":subid", a.subs)
+	gLink.GET(":subid/hwid-status", a.hwidStatus)
+	gLink.HEAD(":subid/hwid-status", a.hwidStatus)
 	if a.jsonEnabled {
 		gJson := g.Group(a.subJsonPath)
 		gJson.GET(":subid", a.subJsons)
@@ -356,6 +358,21 @@ func (a *SUBController) initRouter(g *gin.RouterGroup) {
 		gClash := g.Group(a.subClashPath)
 		gClash.GET(":subid", a.subClashs)
 		gClash.HEAD(":subid", a.subClashs)
+		if sameSubscriptionPath(a.subClashPath, subMihomoPath) {
+		} else if owner := a.configuredSubscriptionPathOwner(subMihomoPath); owner != "" {
+			logger.Warningf("Mihomo subscription alias %q is unavailable because it conflicts with the configured %s path", subMihomoPath, owner)
+		} else {
+			gMihomo := g.Group(subMihomoPath)
+			gMihomo.GET(":subid", a.subClashs)
+			gMihomo.HEAD(":subid", a.subClashs)
+		}
+		if owner := a.configuredSubscriptionPathOwner(subClashLegacyPath); owner != "" {
+			logger.Warningf("Legacy Clash subscription alias %q is unavailable because it conflicts with the configured %s path", subClashLegacyPath, owner)
+		} else {
+			gLegacy := g.Group(subClashLegacyPath)
+			gLegacy.GET(":subid", a.subClashLegacy)
+			gLegacy.HEAD(":subid", a.subClashLegacy)
+		}
 	}
 	// LUCX-HOOK: AmneziaWG conf / vpn:// subscription
 	if a.awgEnabled {
@@ -364,6 +381,33 @@ func (a *SUBController) initRouter(g *gin.RouterGroup) {
 		gAwg.HEAD(":subid", a.subAwgs)
 	}
 	// END LUCX-HOOK
+}
+
+func sameSubscriptionPath(left, right string) bool {
+	return strings.Trim(left, "/") == strings.Trim(right, "/")
+}
+
+func (a *SUBController) configuredSubscriptionPathOwner(candidate string) string {
+	if sameSubscriptionPath(candidate, a.subPath) {
+		return "raw subscription"
+	}
+	if a.jsonEnabled && sameSubscriptionPath(candidate, a.subJsonPath) {
+		return "JSON subscription"
+	}
+	if a.clashEnabled && sameSubscriptionPath(candidate, a.subClashPath) {
+		return "Clash subscription"
+	}
+	return ""
+}
+
+func (a *SUBController) hwidStatus(c *gin.Context) {
+	status, found, err := a.clientService.HwidSlotStatusForSubID(c.Param("subid"))
+	if err != nil || !found {
+		writeSubError(c, err)
+		return
+	}
+	setNoCacheHeaders(c)
+	c.JSON(http.StatusOK, status)
 }
 
 // maybeServeSubPage renders the HTML info page when the request comes from a
@@ -466,7 +510,7 @@ func (a *SUBController) subs(c *gin.Context) {
 	if !a.enforceHwid(c) {
 		return
 	}
-	if shouldAutoServeClash(a.subClashAutoDetect, a.clashEnabled, false, userAgent, a.clashUserAgent) && a.serveClashBody(c, false) {
+	if shouldAutoServeClash(a.subClashAutoDetect, a.clashEnabled, false, userAgent, a.clashUserAgent) && a.serveClashBody(c, false, false) {
 		a.recordSubscriptionFetch(c)
 		logSubscriptionRoute(userAgent, "clash")
 		return
@@ -829,8 +873,19 @@ func (a *SUBController) serveJsonBody(c *gin.Context, alwaysReturnArray bool, co
 }
 
 func (a *SUBController) subClashs(c *gin.Context) {
+	a.subClash(c, false)
+}
+
+func (a *SUBController) subClashLegacy(c *gin.Context) {
+	a.subClash(c, true)
+}
+
+func (a *SUBController) subClash(c *gin.Context, legacy bool) {
 	if strings.EqualFold(c.Query("view"), "raw") {
-		if !a.serveClashBody(c, true) {
+		if !a.enforceHwid(c) {
+			return
+		}
+		if !a.serveClashBody(c, true, legacy) {
 			writeSubError(c, nil)
 		}
 		a.recordSubscriptionFetch(c)
@@ -842,16 +897,22 @@ func (a *SUBController) subClashs(c *gin.Context) {
 	if !a.enforceHwid(c) {
 		return
 	}
-	if !a.serveClashBody(c, false) {
+	if !a.serveClashBody(c, false, legacy) {
 		writeSubError(c, nil)
 	}
 	a.recordSubscriptionFetch(c)
 }
 
-func (a *SUBController) serveClashBody(c *gin.Context, rawDownload bool) bool {
+func (a *SUBController) serveClashBody(c *gin.Context, rawDownload bool, legacy bool) bool {
 	subId := c.Param("subid")
 	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
-	clashSub, header, err := a.subClashService.GetClash(subId, host)
+	var clashSub, header string
+	var err error
+	if legacy {
+		clashSub, header, err = a.subClashService.GetClashLegacy(subId, host)
+	} else {
+		clashSub, header, err = a.subClashService.GetClash(subId, host)
+	}
 	if err != nil {
 		writeSubError(c, err)
 		return true
@@ -972,6 +1033,9 @@ func (a *SUBController) ApplyCommonHeaders(
 		if (routingErr == nil || !remote) && strings.TrimSpace(remoteRules) != "" {
 			rules = remoteRules
 		}
+	}
+	if strings.TrimSpace(rules) == "" {
+		rules = jsonRoutingHeaderSource(a.subJsonRoutingRules)
 	}
 	if strings.TrimSpace(rules) != "" {
 		c.Writer.Header().Set("Routing", rules)
