@@ -36,78 +36,6 @@ func advancePushedInbound(rt runtime.Runtime, prevSettings string, ib *model.Inb
 	if !ok {
 		return
 	}
-	// LUCX-HOOK: AWG — carry stored credentials forward on edit (mirror WireGuard).
-	// Tunnel AllowedIPs stay per-inbound. Empty payload → keep existing peer IP
-	// forever (never auto-rotate: client .conf Address would change → re-download).
-	// Multi-attach Update clears AllowedIPs before this so we don't broadcast one
-	// IP across inbounds; we still do NOT reallocate stale IPs here without an
-	// explicit operator-supplied new value.
-	if oldInbound.Protocol == model.AWG && clientIndex >= 0 && clientIndex < len(oldClients) {
-		old := oldClients[clientIndex]
-		if clients[0].PrivateKey == "" {
-			clients[0].PrivateKey = old.PrivateKey
-		}
-		if clients[0].PublicKey == "" {
-			clients[0].PublicKey = old.PublicKey
-		}
-		if len(clients[0].AllowedIPs) == 0 {
-			clients[0].AllowedIPs = old.AllowedIPs
-		} else {
-			normalized, nErr := normalizeWireguardAllowedIPs(clients[0].AllowedIPs)
-			if nErr != nil {
-				return false, nErr
-			}
-			// LUCX-HOOK: AWG — persist client keypair/PSK/allowedIPs into settings (mirror WireGuard).
-			if oldInbound.Protocol == model.AWG {
-				newMap["privateKey"] = clients[0].PrivateKey
-				newMap["publicKey"] = clients[0].PublicKey
-				newMap["allowedIPs"] = clients[0].AllowedIPs
-				if clients[0].PreSharedKey != "" {
-					newMap["preSharedKey"] = clients[0].PreSharedKey
-				}
-				if !clients[0].KeepAlive.IsZero() {
-					newMap["keepAlive"] = clients[0].KeepAlive.String()
-				}
-				if clients[0].ForwardedPorts != "" {
-					newMap["forwardedPorts"] = clients[0].ForwardedPorts
-				}
-			}
-			// END LUCX-HOOK
-			if len(normalized) == 0 {
-				clients[0].AllowedIPs = old.AllowedIPs
-			} else {
-				peers := make([]string, 0, len(oldClients))
-				for i := range oldClients {
-					if i == clientIndex {
-						continue
-					}
-					peers = append(peers, oldClients[i].AllowedIPs...)
-				}
-				if hit := wireguardAllowedIPsCollision(normalized, peers); hit != "" {
-					return false, common.NewError("awg: allowedIPs entry already used by another client:", hit)
-				}
-				clients[0].AllowedIPs = normalized
-			}
-		}
-		if clients[0].PreSharedKey == "" {
-			clients[0].PreSharedKey = old.PreSharedKey
-		}
-		if clients[0].KeepAlive.IsZero() {
-			clients[0].KeepAlive = old.KeepAlive
-		}
-	}
-	// END LUCX-HOOK
-	// LUCX-HOOK: AWG — generate blank Curve25519 keypair/PSK and allocate a
-	// unique tunnel address for newly added AWG clients, mirroring WireGuard.
-	// The allocation subnet comes from the inbound's own tunnel address, not a
-	// hardcoded pool, so non-default subnets get correctly routed addresses.
-	if oldInbound.Protocol == model.AWG {
-		serverAddr := awgSettingsAddress(oldInbound.Settings)
-		if dErr := defaultAwgClients(existingClients, clients, interfaceClients, serverAddr, awgSettingsVersion(oldInbound.Settings)); dErr != nil {
-			return false, dErr
-		}
-	}
-	// END LUCX-HOOK
 	prev := *ib
 	prev.Settings = prevSettings
 	rem.AdvancePushedInbound(&prev, ib)
@@ -487,6 +415,15 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 			}
 		}
 	}
+	// LUCX-HOOK: AWG — generate blank Curve25519 keypair/PSK and allocate a
+	// unique tunnel address for newly added AWG clients, mirroring WireGuard.
+	if oldInbound.Protocol == model.AWG {
+		serverAddr := awgSettingsAddress(oldInbound.Settings)
+		if dErr := defaultAwgClients(existingClients, clients, interfaceClients, serverAddr, awgSettingsVersion(oldInbound.Settings)); dErr != nil {
+			return false, dErr
+		}
+	}
+	// END LUCX-HOOK
 
 	var portCtx portConflictContext
 	if oldInbound.Protocol == model.AmneziaWG {
@@ -790,7 +727,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 	// WireGuard/AmneziaWG keys are never rotated by an edit: when the incoming
 	// payload omits them (a metadata-only change), carry the stored credentials
 	// forward so the settings JSON and the running peer keep the client's identity.
-	if (oldInbound.Protocol == model.WireGuard || oldInbound.Protocol == model.AmneziaWG) && clientIndex >= 0 && clientIndex < len(oldClients) {
+	if (oldInbound.Protocol == model.WireGuard || oldInbound.Protocol == model.AmneziaWG || oldInbound.Protocol == model.AWG) && clientIndex >= 0 && clientIndex < len(oldClients) {
 		old := oldClients[clientIndex]
 		if clients[0].PrivateKey == "" {
 			clients[0].PrivateKey = old.PrivateKey
@@ -884,7 +821,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 			if v, ok2 := newMap["subId"].(string); ok2 {
 				clients[0].SubID = v
 			}
-			if oldInbound.Protocol == model.WireGuard || oldInbound.Protocol == model.AmneziaWG {
+			if oldInbound.Protocol == model.WireGuard || oldInbound.Protocol == model.AmneziaWG || oldInbound.Protocol == model.AWG {
 				newMap["privateKey"] = clients[0].PrivateKey
 				newMap["publicKey"] = clients[0].PublicKey
 				newMap["allowedIPs"] = clients[0].AllowedIPs

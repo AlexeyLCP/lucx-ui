@@ -631,6 +631,54 @@ func clearBroadcastTunnelIP(c *model.Client, proto model.Protocol, tunnelInbound
 	}
 }
 
+func isTunnelProtocol(proto model.Protocol) bool {
+	return proto == model.AWG || proto == model.WireGuard || proto == model.AmneziaWG
+}
+
+func clearForeignTunnelFields(c *model.Client, proto model.Protocol) {
+	if c == nil || isTunnelProtocol(proto) {
+		return
+	}
+	c.PrivateKey = ""
+	c.PublicKey = ""
+	c.PreSharedKey = ""
+	c.AllowedIPs = nil
+}
+
+func mintTunnelKeypairOnce(c *model.Client, tunnelTarget bool) error {
+	if !tunnelTarget || c.PrivateKey != "" || c.PublicKey != "" {
+		return nil
+	}
+	priv, pub, err := wgutil.GenerateWireguardKeypair()
+	if err != nil {
+		return err
+	}
+	c.PrivateKey = priv
+	c.PublicKey = pub
+	return nil
+}
+
+func hasTunnelInbound(inbounds []*model.Inbound) bool {
+	for _, ib := range inbounds {
+		if ib != nil && isTunnelProtocol(ib.Protocol) {
+			return true
+		}
+	}
+	return false
+}
+
+func fillAwgPSK(c *model.Client) error {
+	if c.PreSharedKey != "" {
+		return nil
+	}
+	psk, err := wgutil.GenerateWireguardPSK()
+	if err != nil {
+		return err
+	}
+	c.PreSharedKey = psk
+	return nil
+}
+
 func awgOwnAllowedIPs(own map[string]map[string]struct{}, c *model.Client) map[string]struct{} {
 	if set, ok := own[strings.ToLower(strings.TrimSpace(c.Email))]; ok {
 		return set

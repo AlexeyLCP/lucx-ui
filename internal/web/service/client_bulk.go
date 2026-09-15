@@ -70,16 +70,6 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 	if err != nil {
 		return result, false, err
 	}
-	// LUCX-HOOK: one identity, one keypair. The loop below rebuilds each client
-	// per inbound, so a keyless identity would collect a pair from every target.
-	tunnelTarget := s.hasTunnelAttachment(inboundSvc, inboundIds)
-	wires := make([]model.Client, 0, len(records))
-	wire := *rec.ToClient()
-	if err := mintTunnelKeypairOnce(&wire, tunnelTarget); err != nil {
-		return result, false, err
-	}
-	wires = append(wires, wire)
-	// END LUCX-HOOK
 
 	needRestart := false
 	// Prepared in order first, as in Create: fillProtocolDefaults mints the
@@ -101,7 +91,7 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 			recordErr("inbound %d: %v", ibId, err)
 			continue
 		}
-		if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG {
+		if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG {
 			attachAnyTunnel = true
 		}
 		existingClients, err := inboundSvc.GetClients(inbound)
@@ -115,7 +105,7 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 		}
 
 		clientsToAdd := make([]model.Client, 0, len(records))
-		for i, rec := range records {
+		for _, rec := range records {
 			if _, attached := have[strings.ToLower(rec.Email)]; attached {
 				result.Skipped = append(result.Skipped, rec.Email)
 				continue
@@ -124,19 +114,19 @@ func (s *ClientService) BulkAttach(inboundSvc *InboundService, emails []string, 
 			if flow, ok := flowsByEmail[rec.Email]; ok && flow != "" {
 				client.Flow = flow
 			}
-			client := wires[i]
 			client.UpdatedAt = time.Now().UnixMilli()
-			// LUCX-HOOK: AWG/WG multi-attach — fresh tunnel IP per inbound; the
-			// identity's keys/PSK stay shared, but not with keyless protocols.
-			if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
-				client.AllowedIPs = nil
-			}
-			clearForeignTunnelFields(&client, inbound.Protocol)
-			// END LUCX-HOOK
 			if err := s.fillProtocolDefaults(&client, inbound); err != nil {
 				recordErr("%s -> inbound %d: %v", rec.Email, ibId, err)
 				continue
 			}
+			if err := mintTunnelKeypairOnce(&client, attachAnyTunnel || inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG); err != nil {
+				recordErr("%s -> inbound %d: %v", rec.Email, ibId, err)
+				continue
+			}
+			if inbound.Protocol == model.AWG || inbound.Protocol == model.WireGuard {
+				client.AllowedIPs = nil
+			}
+			clearForeignTunnelFields(&client, inbound.Protocol)
 			clientsToAdd = append(clientsToAdd, clientWithInboundFlow(client, inbound))
 		}
 
@@ -1435,8 +1425,7 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			if prep[idx].client.Secret == "" {
 				prep[idx].client.Secret = rec.Secret
 			}
-			// LUCX-HOOK: one identity attaches to many AWG/WG inbounds, so a re-add
-			// that mints a fresh keypair or PSK desyncs every peer already deployed.
+			// LUCX-HOOK: one identity attaches to many AWG/WG inbounds.
 			if prep[idx].client.PrivateKey == "" {
 				prep[idx].client.PrivateKey = rec.PrivateKey
 			}
@@ -1463,7 +1452,7 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 				ok = false
 				break
 			}
-			if ib.Protocol == model.WireGuard || ib.Protocol == model.AmneziaWG {
+			if ib.Protocol == model.WireGuard || ib.Protocol == model.AmneziaWG || ib.Protocol == model.AWG {
 				createAnyTunnel = true
 			}
 			if e := s.fillProtocolDefaults(&prep[idx].client, ib); e != nil {
@@ -1482,26 +1471,21 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			bulkTargets = append(bulkTargets, ib)
 		}
 		tunnelN := countAwgOrWireguard(bulkTargets)
-		// LUCX-HOOK: one identity, one keypair — minting inside the loop below
-		// hands every tunnel inbound a different pair (see Create).
 		if e := mintTunnelKeypairOnce(&prep[idx].client, hasTunnelInbound(bulkTargets)); e != nil {
 			failed[idx] = true
 			reason[idx] = e.Error()
 			continue
 		}
-		// END LUCX-HOOK
 		for _, ibId := range prep[idx].inboundIds {
 			ib, _ := getIb(ibId)
 			if _, seen := byInbound[ibId]; !seen {
 				inboundOrder = append(inboundOrder, ibId)
 			}
 			per := prep[idx].client
-			// LUCX-HOOK: AWG/WG — typed IP only when this client hits one tunnel inbound.
 			if ib != nil {
 				clearBroadcastTunnelIP(&per, ib.Protocol, tunnelN)
 				clearForeignTunnelFields(&per, ib.Protocol)
 			}
-			// END LUCX-HOOK
 			byInbound[ibId] = append(byInbound[ibId], clientWithInboundFlow(per, ib))
 			idxByInbound[ibId] = append(idxByInbound[ibId], idx)
 		}

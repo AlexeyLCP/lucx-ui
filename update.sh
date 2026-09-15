@@ -18,7 +18,6 @@ while [ -h "$b_source" ]; do
 done
 cur_dir="$(cd -P "$(dirname "$b_source")" > /dev/null 2>&1 && pwd || pwd -P)"
 script_name=$(basename "$0")
-# LUCX-HOOK (lucx.66): detect interactive vs headless execution. The panel's
 
 # Check command exist function
 _command_exists() {
@@ -61,16 +60,6 @@ _report_update_exit() {
     else
         _write_update_status "failed" "${code}"
     fi
-    # LUCX-HOOK (lucx.131): never reset an existing webBasePath on update.
-    # LUCX-HOOK: geo before panel start. Never fatal (Rule 0).
-    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
-    lucx_unpack_dist_sidecars bin
-    # END LUCX-HOOK
-    # LUCX-HOOK: refuse a tarball built for another CPU (amd64 vs arm64).
-    if [[ ! -s "bin/xray-linux-$(arch)" ]]; then
-        _fail "ERROR: Tarball has no bin/xray-linux-$(arch) — this package is for a different architecture"
-    fi
-    # END LUCX-HOOK
 }
 trap _report_update_exit EXIT
 trap 'exit 143' TERM
@@ -200,7 +189,6 @@ install_base() {
             if [[ "${VERSION_ID}" =~ ^7 ]]; then
                 yum makecache -y > /dev/null 2>&1 && yum install -y -q cronie curl tar tzdata socat openssl > /dev/null 2>&1
             else
-            # LUCX-HOOK (lucx.66): headless (web-panel) update. The SSL wizard
                 dnf makecache -y > /dev/null 2>&1 && dnf install -y -q cronie curl tar tzdata socat openssl > /dev/null 2>&1
             fi
             ;;
@@ -994,7 +982,7 @@ require_repo_files() {
     shift
     [[ "${ref}" == "main" ]] && return 0
     for name in "$@"; do
-        status=$(${curl_bin} -sIL --retry 3 --connect-timeout 15 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/MHSanaei/3x-ui/${ref}/${name}")
+        status=$(${curl_bin} -sIL --retry 3 --connect-timeout 15 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${ref}/${name}")
         if [[ "${status}" != "200" ]]; then
             _fail "ERROR: ${name} is not available for ${ref} (HTTP ${status}). Update to a release that ships it, or to 'dev-latest'. The current installation is untouched."
         fi
@@ -1014,13 +1002,6 @@ update_x-ui() {
     fi
 
     echo -e "${green}Downloading new x-ui version...${plain}"
-    # LUCX-HOOK: yandex source = anonymous dist bundle from SourceCraft
-    if [[ "$LUCX_SOURCE" == "yandex" ]]; then
-        if ! lucx_fetch_dist; then
-            _fail "ERROR: Failed to download the SourceCraft dist bundle"
-        fi
-    fi
-    # END LUCX-HOOK
 
     # XUI_UPDATE_TAG lets the panel target a specific release tag (e.g. the
     # rolling dev-latest pre-release). Empty keeps the default latest-stable flow.
@@ -1028,7 +1009,7 @@ update_x-ui() {
         tag_version="${XUI_UPDATE_TAG}"
         echo -e "${green}Using update tag: ${tag_version}${plain}"
     else
-        tag_version=$(${curl_bin} -Ls "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" 2> /dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+        tag_version=$(${curl_bin} -Ls "https://api.github.com/repos/AlexeyLCP/lucx-ui/releases/latest" 2> /dev/null | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
         if [[ ! -n "$tag_version" ]]; then
             _fail "ERROR: Failed to fetch x-ui version, it may be due to GitHub API restrictions, please try it later"
         fi
@@ -1045,7 +1026,7 @@ update_x-ui() {
     local required_files=("x-ui.sh")
     [[ $release == "alpine" ]] && required_files+=("x-ui.rc")
     require_repo_files "${script_ref}" "${required_files[@]}"
-    ${curl_bin} -fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2> /dev/null
+    ${curl_bin} -fLRo ${xui_folder}-linux-$(arch).tar.gz https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz 2> /dev/null
     if [[ $? -ne 0 ]]; then
         _fail "ERROR: Failed to download x-ui, please be sure that your server can access GitHub"
     fi
@@ -1058,7 +1039,7 @@ update_x-ui() {
     # predating the sidecar) is tolerated with a warning.
     archive="${xui_folder}-linux-$(arch).tar.gz"
     rm -f "${archive}.sha256"
-    sidecar_code=$(${curl_bin} -sL --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 60 -o "${archive}.sha256" -w '%{http_code}' "https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz.sha256" 2> /dev/null)
+    sidecar_code=$(${curl_bin} -sL --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 60 -o "${archive}.sha256" -w '%{http_code}' "https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz.sha256" 2> /dev/null)
     if [[ "${sidecar_code}" == "200" ]]; then
         expected_sha256=$(awk 'NR == 1 {print $1}' "${archive}.sha256")
         actual_sha256=$(sha256sum "${archive}" | awk '{print $1}')
@@ -1164,14 +1145,7 @@ update_x-ui() {
     echo -e "${green}Downloading and installing x-ui.sh script...${plain}"
     local xui_script_temp="/usr/bin/x-ui-temp.$$"
     rm -f "${xui_script_temp}"
-    # LUCX-HOOK: prefer the copy shipped in the dist bundle / panel tarball
-    if [[ -n "${LUCX_DIST_DIR}" && -s "${LUCX_DIST_DIR}/x-ui.sh" ]]; then
-        cp -f "${LUCX_DIST_DIR}/x-ui.sh" "${xui_script_temp}"
-    else
-        lucx_sc_curl -fLRo "${xui_script_temp}" "$(lucx_raw_url x-ui.sh)" > /dev/null 2>&1
-    fi
-    # END LUCX-HOOK
-    ${curl_bin} -fLRo "${xui_script_temp}" "https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.sh" > /dev/null 2>&1
+    ${curl_bin} -fLRo "${xui_script_temp}" "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.sh" > /dev/null 2>&1
     if [[ $? -ne 0 ]]; then
         rm -f "${xui_script_temp}"
         _fail "ERROR: Failed to download x-ui.sh script, please be sure that your server can access GitHub"
@@ -1202,7 +1176,7 @@ update_x-ui() {
         echo -e "${green}Downloading and installing startup unit x-ui.rc...${plain}"
         xui_rc_temp="/etc/init.d/x-ui.tmp.$$"
         rm -f "${xui_rc_temp}"
-        ${curl_bin} -fLRo "${xui_rc_temp}" "https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.rc" > /dev/null 2>&1
+        ${curl_bin} -fLRo "${xui_rc_temp}" "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.rc" > /dev/null 2>&1
         if [[ $? -ne 0 ]]; then
             rm -f "${xui_rc_temp}"
             _fail "ERROR: Failed to download startup unit x-ui.rc, please be sure that your server can access GitHub"
@@ -1261,13 +1235,13 @@ update_x-ui() {
                 echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
                 case "${release}" in
                     ubuntu | debian | armbian)
-                        service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.debian"
+                        service_unit_url="https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.service.debian"
                         ;;
                     arch | manjaro | parch)
-                        service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.arch"
+                        service_unit_url="https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.service.arch"
                         ;;
                     *)
-                        service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.rhel"
+                        service_unit_url="https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.service.rhel"
                         ;;
                 esac
 
@@ -1290,16 +1264,6 @@ update_x-ui() {
     # works out of the box on update too (no-op when XUI_ENABLE_FAIL2BAN=false).
     # Never fatal.
     setup_fail2ban
-    # LUCX-HOOK: AWG after panel start (script no-ops when pin matches).
-    # Missing module = not current → try install (overlay / fresh). Never
-    # fatal. Sidecar refresh after start (ETXTBSY / lucx.161).
-    if [[ -x bin/install-awg-module.sh ]]; then
-        echo -e "${green}Checking AmneziaWG kernel module...${plain}"
-        bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
-    fi
-    lucx_fetch_sidecars bin
-    [[ -n "${LUCX_DIST_DIR}" ]] && rm -rf "${LUCX_DIST_DIR}"
-    # END LUCX-HOOK
 
     echo -e "${green}x-ui ${tag_version}${plain} updating finished, it is running now..."
     echo -e ""
@@ -1321,12 +1285,6 @@ update_x-ui() {
 │  ${blue}x-ui install${plain}      - Install                          │
 │  ${blue}x-ui uninstall${plain}    - Uninstall                        │
 └───────────────────────────────────────────────────────┘"
-    # LUCX-HOOK: never auto-reboot on update (web update looked hung).
-    if [[ -f /etc/x-ui/.awg-reboot-needed ]]; then
-        echo -e ""
-        echo -e "${yellow}AWG: reboot required so the new kernel module loads. Reboot when convenient.${plain}"
-    fi
-    # END LUCX-HOOK
 }
 
 echo -e "${green}Running...${plain}"

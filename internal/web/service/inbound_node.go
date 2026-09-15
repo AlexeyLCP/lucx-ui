@@ -42,36 +42,6 @@ func (s *InboundService) runtimeFor(ib *model.Inbound) (runtime.Runtime, error) 
 	if mgr == nil {
 		return nil, fmt.Errorf("runtime manager not initialised")
 	}
-	// LUCX-HOOK: sidecar/node online must stamp even when Xray is down.
-	if process := onlineProcess(); process != nil {
-		tree := snap.OnlineTree
-		switch {
-		case len(tree) == 0 && len(snap.OnlineEmails) > 0:
-			// Old-build node (no GUID tree): key its flat online list under its
-			// own effective identity so attribution still works for that branch.
-			tree = map[string][]string{selfKey: snap.OnlineEmails}
-		case guidShared && len(tree) > 0:
-			// Newer cloned node: its own clients arrive keyed under the shared
-			// panelGuid. Remap just that entry to the node-unique key so the
-			// clones don't merge; descendant subtrees keep their distinct GUIDs.
-			if _, ok := tree[nodeRow.Guid]; ok {
-				tree = remapGuidTreeKey(tree, nodeRow.Guid, selfKey)
-			}
-		}
-		process.SetNodeOnlineTree(nodeID, tree)
-
-		activeTree := normalizeActiveInboundTreeTags(snap.ActiveInboundTree, tagToCentral)
-		if guidShared && len(activeTree) > 0 {
-			if _, ok := activeTree[nodeRow.Guid]; ok {
-				activeTree = remapGuidTreeKey(activeTree, nodeRow.Guid, selfKey)
-			}
-		}
-		if len(activeTree) > 0 {
-			activeTree = filterGuidTreeKeys(activeTree, activeInboundGuidKeys(snap.Inbounds, tagToCentral, originGuidFor))
-		}
-		process.SetNodeActiveInboundTree(nodeID, activeTree)
-	}
-	// END LUCX-HOOK
 	return mgr.RuntimeFor(ib.NodeID)
 }
 
@@ -81,12 +51,6 @@ func (s *InboundService) nodePushPlan(ib *model.Inbound) (runtime.Runtime, bool,
 		if err != nil {
 			return nil, false, false, nil
 		}
-		// LUCX-HOOK: share-only sidecars have no clients[] on the node; syncing
-		// the snapshot would wipe master attaches (#59).
-		if shareOnlySidecar(c.Protocol) {
-			continue
-		}
-		// END LUCX-HOOK
 		return rt, true, false, nil
 	}
 	nodeSvc := NodeService{}
@@ -1198,6 +1162,12 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 		if !ok {
 			continue
 		}
+		// LUCX-HOOK: share-only sidecars have no clients[] on the node; syncing
+		// the snapshot would wipe master attaches (#59).
+		if shareOnlySidecar(c.Protocol) {
+			continue
+		}
+		// END LUCX-HOOK
 		if dirty {
 			continue
 		}
@@ -1371,7 +1341,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 		}
 	}
 
-	if process := currentXrayProcess(); process != nil {
+	if process := onlineProcess(); process != nil {
 		tree := snap.OnlineTree
 		switch {
 		case len(tree) == 0 && len(snap.OnlineEmails) > 0:
@@ -1426,10 +1396,7 @@ func (s *InboundService) restartRemoteNodesOnDisable(nodeIDs []int) {
 }
 
 func (s *InboundService) GetOnlineClients() []string {
-	// LUCX-HOOK: sidecar online survives a stopped Xray.
 	process := onlineProcess()
-	// END LUCX-HOOK
-	process := currentXrayProcess()
 	if process == nil {
 		return []string{}
 	}
@@ -1442,7 +1409,7 @@ func (s *InboundService) GetOnlineClients() []string {
 // node-id keying so a client three hops down is attributed to its real node,
 // not the intermediate one it was synced through.
 func (s *InboundService) GetOnlineClientsByGuid() map[string][]string {
-	process := currentXrayProcess()
+	process := onlineProcess()
 	if process == nil {
 		return map[string][]string{}
 	}
@@ -1460,7 +1427,7 @@ func (s *InboundService) GetOnlineClientsByGuid() map[string][]string {
 // each inbound. A GUID missing from the map means "don't gate" for that node's
 // inbounds (old-build node or no active-inbound signal).
 func (s *InboundService) GetActiveInboundsByGuid() map[string][]string {
-	process := currentXrayProcess()
+	process := onlineProcess()
 	if process == nil {
 		return map[string][]string{}
 	}
@@ -1478,23 +1445,13 @@ func (s *InboundService) GetActiveInboundsByGuid() map[string][]string {
 }
 
 func (s *InboundService) SetNodeOnlineTree(nodeID int, tree map[string][]string) {
-	// LUCX-HOOK: sidecar online survives a stopped Xray.
 	if process := onlineProcess(); process != nil {
-		process.SetNodeOnlineTree(nodeID, tree)
-	}
-	// END LUCX-HOOK
-	if process := currentXrayProcess(); process != nil {
 		process.SetNodeOnlineTree(nodeID, tree)
 	}
 }
 
 func (s *InboundService) ClearNodeOnlineClients(nodeID int) {
-	// LUCX-HOOK: sidecar online survives a stopped Xray.
 	if process := onlineProcess(); process != nil {
-		process.ClearNodeOnlineClients(nodeID)
-	}
-	// END LUCX-HOOK
-	if process := currentXrayProcess(); process != nil {
 		process.ClearNodeOnlineClients(nodeID)
 	}
 }
@@ -1635,12 +1592,7 @@ func (s *InboundService) GetClientsLastOnline() (map[string]int64, error) {
 // xray.Process for why the local sets are kept separate from the shared
 // last_online column.
 func (s *InboundService) RefreshLocalOnlineClients(activeEmails, activeInboundTags []string) {
-	// LUCX-HOOK: sidecar online survives a stopped Xray.
 	if process := onlineProcess(); process != nil {
-		process.RefreshLocalOnline(activeEmails, activeInboundTags, time.Now().UnixMilli(), onlineGracePeriodMs)
-	}
-	// END LUCX-HOOK
-	if process := currentXrayProcess(); process != nil {
 		process.RefreshLocalOnline(activeEmails, activeInboundTags, time.Now().UnixMilli(), onlineGracePeriodMs)
 	}
 }

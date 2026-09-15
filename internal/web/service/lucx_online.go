@@ -27,6 +27,10 @@ func onlineProcess() *xray.Process {
 	return sidecarOnlineProc
 }
 
+func shareOnlySidecar(p model.Protocol) bool {
+	return p == model.Qwdtt || p == model.Olcrtc || p == model.Tproxy
+}
+
 type shareOnlySlimClient struct {
 	InboundID int
 	Email     string

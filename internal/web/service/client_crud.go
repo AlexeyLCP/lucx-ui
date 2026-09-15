@@ -21,7 +21,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
-	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 
 	"gorm.io/gorm"
@@ -186,6 +185,18 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		if client.Secret == "" {
 			client.Secret = existing.Secret
 		}
+		// LUCX-HOOK: one identity attaches to many AWG/WG inbounds, so a re-add
+		// that mints a fresh keypair or PSK desyncs every peer already deployed.
+		if client.PrivateKey == "" {
+			client.PrivateKey = existing.PrivateKey
+		}
+		if client.PublicKey == "" {
+			client.PublicKey = existing.PublicKey
+		}
+		if client.PreSharedKey == "" {
+			client.PreSharedKey = existing.PreSharedKey
+		}
+		// END LUCX-HOOK
 	}
 
 	if client.SubID != "" {
@@ -202,42 +213,34 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 
 	// Prepared before any inbound is written: fillProtocolDefaults mints the
 	// shared credentials on the first inbound and every later one reuses them.
-	adds := make([]*model.Inbound, 0, len(payload.InboundIds))
 	createTargets := make([]*model.Inbound, 0, len(payload.InboundIds))
 	for _, ibId := range payload.InboundIds {
 		inbound, getErr := inboundSvc.GetInbound(ibId)
 		if getErr != nil {
 			return false, fmt.Errorf("inbound %d: %w", ibId, getErr)
 		}
+		if err := s.fillProtocolDefaults(&client, inbound); err != nil {
+			return false, fmt.Errorf("inbound %d: %w", ibId, err)
+		}
 		createTargets = append(createTargets, inbound)
 	}
-	tunnelN := countAwgOrWireguard(createTargets)
-	// LUCX-HOOK: one identity, one keypair.
+	// LUCX-HOOK: one identity, one keypair — minting inside the loop hands
+	// every tunnel inbound a different pair, and the subscription matches one.
 	if err := mintTunnelKeypairOnce(&client, hasTunnelInbound(createTargets)); err != nil {
 		return false, err
 	}
-	// END LUCX-HOOK
+	tunnelN := countAwgOrWireguard(createTargets)
+	adds := make([]*model.Inbound, 0, len(createTargets))
 	for _, inbound := range createTargets {
-		if err := s.fillProtocolDefaults(&client, inbound); err != nil {
-			return false, fmt.Errorf("inbound %d: %w", inbound.Id, err)
-		}
-		clientForInbound := client
-		// LUCX-HOOK: AWG/WG tunnel IPs are per-inbound.
-		clearBroadcastTunnelIP(&clientForInbound, inbound.Protocol, tunnelN)
-		clearForeignTunnelFields(&clientForInbound, inbound.Protocol)
-		// END LUCX-HOOK
+		per := client
+		clearBroadcastTunnelIP(&per, inbound.Protocol, tunnelN)
+		clearForeignTunnelFields(&per, inbound.Protocol)
 		if ips, ok := client.AllowedIPsByInbound[inbound.Id]; ok {
-			clientForInbound.AllowedIPs = ips
-		} else if !addressesFitAmneziaWGInbound(clientForInbound.AllowedIPs, inbound) {
-			// The shared AllowedIPs value (e.g. from a single-field legacy
-			// caller) came from a different subnet than this inbound's own --
-			// clear it so defaultAmneziaWGClients allocates a fresh, correct
-			// address for THIS inbound instead of persisting an unroutable
-			// peer. Same reasoning as addressesFitAmneziaWGInbound's own doc
-			// comment on the Attach path.
-			clientForInbound.AllowedIPs = nil
+			per.AllowedIPs = ips
+		} else if !addressesFitAmneziaWGInbound(per.AllowedIPs, inbound) {
+			per.AllowedIPs = nil
 		}
-		settingsPayload, mErr := json.Marshal(map[string][]model.Client{"clients": {clientWithInboundFlow(clientForInbound, inbound)}})
+		settingsPayload, mErr := json.Marshal(map[string][]model.Client{"clients": {clientWithInboundFlow(per, inbound)}})
 		if mErr != nil {
 			return false, fmt.Errorf("inbound %d: %w", inbound.Id, mErr)
 		}
@@ -428,14 +431,9 @@ func (s *ClientService) fillProtocolDefaults(c *model.Client, ib *model.Inbound)
 		if c.Password == "" {
 			c.Password = strings.ReplaceAll(uuid.NewString(), "-", "")
 		}
-	// LUCX-HOOK: AWG — same PSK for every attach; defaultAwgClients then keeps it.
 	case model.AWG:
-		if c.PreSharedKey == "" {
-			psk, err := wgutil.GenerateWireguardPSK()
-			if err != nil {
-				return err
-			}
-			c.PreSharedKey = psk
+		if err := fillAwgPSK(c); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -652,6 +650,17 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 	if updated.Secret == "" {
 		updated.Secret = existing.Secret
 	}
+	// LUCX-HOOK: enable toggle (and any partial save) omits keys/PSK.
+	if updated.PrivateKey == "" {
+		updated.PrivateKey = existing.PrivateKey
+	}
+	if updated.PublicKey == "" {
+		updated.PublicKey = existing.PublicKey
+	}
+	if updated.PreSharedKey == "" {
+		updated.PreSharedKey = existing.PreSharedKey
+	}
+	// END LUCX-HOOK
 
 	if updated.Email != existing.Email {
 		var collisionCount int64
@@ -707,13 +716,10 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		clientForInbound := updated
 		if ips, ok := updated.AllowedIPsByInbound[ibId]; ok {
 			clientForInbound.AllowedIPs = ips
-		} else if tunnelCount > 1 && (inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG) {
-			// One shared peer field set cannot describe several peers: broadcast
-			// it and they all end up with the same keys and tunnel address.
-			clientForInbound.AllowedIPs = nil
-			clientForInbound.PrivateKey = ""
-			clientForInbound.PublicKey = ""
-			clientForInbound.PreSharedKey = ""
+		} else if tunnelCount > 1 && (inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG) {
+			// LUCX-HOOK: never broadcast one AllowedIPs; keep the shared keypair.
+			clearBroadcastTunnelIP(&clientForInbound, inbound.Protocol, int(tunnelCount))
+			clearForeignTunnelFields(&clientForInbound, inbound.Protocol)
 		} else if !addressesFitAmneziaWGInbound(clientForInbound.AllowedIPs, inbound) {
 			// A single shared AllowedIPs field (the common case for a caller
 			// that never sends AllowedIPsByInbound) must never overwrite an
@@ -940,7 +946,7 @@ func (s *ClientService) hasTunnelAttachment(inboundSvc *InboundService, inboundI
 		if err != nil {
 			continue
 		}
-		if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG {
+		if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG {
 			return true
 		}
 	}
@@ -955,7 +961,7 @@ func tunnelInboundCount(inboundIds []int) (int64, error) {
 	}
 	var n int64
 	err := database.GetDB().Model(&model.Inbound{}).
-		Where("id IN ? AND protocol IN ?", inboundIds, []model.Protocol{model.WireGuard, model.AmneziaWG}).
+		Where("id IN ? AND protocol IN ?", inboundIds, []model.Protocol{model.WireGuard, model.AmneziaWG, model.AWG}).
 		Count(&n).Error
 	return n, err
 }
@@ -1201,71 +1207,3 @@ func (s *ClientService) Detach(inboundSvc *InboundService, id int, inboundIds []
 	}
 	return fanoutInboundApplies(applies)
 }
-
-// LUCX-HOOK: tunnel identity helpers
-// LUCX-HOOK: the helpers below exist because one identity attaches to
-// inbounds of mixed protocols, in one call, and must hold ONE keypair for all.
-
-// isTunnelProtocol reports whether proto gives a client its own keypair and PSK.
-// Not countAwgOrWireguard > 0: that one deliberately leaves AmneziaWG out.
-func isTunnelProtocol(proto model.Protocol) bool {
-	return proto == model.AWG || proto == model.WireGuard || proto == model.AmneziaWG
-}
-
-// clearForeignTunnelFields keeps an identity's tunnel keypair, PSK and address
-// out of a keyless protocol's settings JSON — unlike Password/Auth/Secret, these
-// four decide who decrypts the tunnel and which subnet the kernel routes there.
-
-// clearForeignTunnelFields keeps an identity's tunnel keypair, PSK and address
-// out of a keyless protocol's settings JSON — unlike Password/Auth/Secret, these
-// four decide who decrypts the tunnel and which subnet the kernel routes there.
-func clearForeignTunnelFields(c *model.Client, proto model.Protocol) {
-	if c == nil || isTunnelProtocol(proto) {
-		return
-	}
-	c.PrivateKey = ""
-	c.PublicKey = ""
-	c.PreSharedKey = ""
-	c.AllowedIPs = nil
-}
-
-// mintTunnelKeypairOnce fills a blank keypair BEFORE the caller's loop over
-// inbounds, which would otherwise mint a separate pair inside each tunnel one.
-
-// mintTunnelKeypairOnce fills a blank keypair BEFORE the caller's loop over
-// inbounds, which would otherwise mint a separate pair inside each tunnel one.
-func mintTunnelKeypairOnce(c *model.Client, tunnelTarget bool) error {
-	if !tunnelTarget || c.PrivateKey != "" || c.PublicKey != "" {
-		return nil
-	}
-	priv, pub, err := wgutil.GenerateWireguardKeypair()
-	if err != nil {
-		return err
-	}
-	c.PrivateKey = priv
-	c.PublicKey = pub
-	return nil
-}
-
-// hasTunnelInbound is hasTunnelAttachment for already-loaded targets.
-
-// hasTunnelInbound is hasTunnelAttachment for already-loaded targets.
-func hasTunnelInbound(inbounds []*model.Inbound) bool {
-	for _, ib := range inbounds {
-		if ib != nil && isTunnelProtocol(ib.Protocol) {
-			return true
-		}
-	}
-	return false
-}
-
-// END LUCX-HOOK
-
-// defaultMtprotoDomain is the FakeTLS fronting domain used when an mtproto
-// inbound carries no fakeTlsDomain of its own; it mirrors the frontend default.
-const defaultMtprotoDomain = "www.cloudflare.com"
-
-// mtprotoDomainFromSettings returns the inbound-level FakeTLS domain, falling
-// back to the default when unset, so a generated client secret always fronts a
-// real hostname.
-// END LUCX-HOOK

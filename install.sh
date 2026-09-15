@@ -8,7 +8,7 @@ plain='\033[0m'
 
 xui_folder="${XUI_MAIN_FOLDER:=/usr/local/x-ui}"
 xui_service="${XUI_SERVICE:=/etc/systemd/system}"
-# LUCX-HOOK: LucX-UI fork source — replaces MHSanaei/3x-ui for our builds.
+# LUCX-HOOK: LucX-UI fork source — replaces AlexeyLCP/lucx-ui for our builds.
 # GitHub is the default. --yandex / LUCX_SOURCE=yandex pulls the SourceCraft
 # (Yandex) release instead. Each host builds and tags on its own.
 LUCX_REPO="AlexeyLCP/lucx-ui"
@@ -33,13 +33,6 @@ lucx_sc_curl() {
     else
         curl "$@"
     fi
-    # LUCX-HOOK (lucx.131): install over an existing DB — NEVER reset
-    # LUCX-HOOK: refuse a tarball built for another CPU (amd64 vs arm64).
-    if [[ ! -s "bin/xray-linux-$(arch)" ]]; then
-        echo -e "${red}Tarball has no bin/xray-linux-$(arch) — this package is for a different architecture${plain}"
-        exit 1
-    fi
-    # END LUCX-HOOK
 }
 
 LUCX_SC_DIST_URL="https://codeload.sourcecraft.tech/${LUCX_SC_ORG}/${LUCX_SC_REPO}/tarball/refs/heads/dist"
@@ -121,12 +114,6 @@ lucx_unpack_dist_sidecars() {
         else
             echo -e "${yellow}sidecar bundle is broken${plain}"
         fi
-        # LUCX-HOOK: fallback release URL for GitHub or SourceCraft
-        url=$(lucx_tarball_url "$tag_version") || {
-            echo -e "${red}No x-ui-linux-$(arch).tar.gz on ${LUCX_SOURCE} for ${tag_version}${plain}"
-            exit 1
-        }
-        # END LUCX-HOOK
         rm -rf "$stmp"
         return 0
     fi
@@ -169,6 +156,149 @@ lucx_fetch_geofiles() {
         rm -rf "$gtmp"
     fi
     # END LUCX-HOOK
+    local failed=0
+    local name url fetched=0
+    while IFS='|' read -r name url; do
+        [[ -z "$name" ]] && continue
+        if [[ -s "${dest}/${name}" ]]; then
+            continue
+        fi
+        if [[ "$fetched" -eq 0 ]]; then
+            echo -e "${green}Downloading geodata...${plain}"
+        fi
+        fetched=1
+        if ! curl -fLRo "${dest}/${name}" --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 180 "$url"; then
+            echo -e "${yellow}${name}: download failed${plain}"
+            rm -f "${dest}/${name}"
+            case "$name" in
+                geoip.dat | geosite.dat) failed=1 ;;
+            esac
+        fi
+    done <<'GEO'
+geoip.dat|https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat
+geosite.dat|https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat
+geoip_IR.dat|https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat
+geosite_IR.dat|https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat
+geoip_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat
+geosite_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
+geoip_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
+geosite_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
+GEO
+    if [[ "$fetched" -eq 0 ]]; then
+        echo -e "${green}geodata already present — skip${plain}"
+    fi
+    return "$failed"
+}
+
+lucx_fetch_sidecars() {
+    local dest="${1:-bin}"
+    local a
+    a="$(arch)"
+    if [[ "$a" != "amd64" && "$a" != "arm64" ]]; then
+        echo -e "${yellow}No packaged tunnel sidecars for arch ${a}${plain}"
+        return 0
+    fi
+    mkdir -p "$dest"
+    local name gz tmp fetched=0 skipped=0
+    for name in caddy-naive-linux-${a} naive-client-linux-${a} olcrtc-linux-${a} qwdtt-linux-${a} mieru-linux-${a} mieru-client-linux-${a} trusttunnel-linux-${a} trusttunnel-client-linux-${a} anytls-linux-${a} tproxy-linux-${a} mtproxy-linux-${a}; do
+        if lucx_pin_matches "$dest" "$name"; then
+            skipped=$((skipped + 1))
+            continue
+        fi
+        gz="third_party/sidecars/linux-${a}/${name}.gz"
+        tmp="${dest}/${name}.gz"
+        if [[ -s "${gz}" ]]; then
+            cp -f "${gz}" "${tmp}"
+        elif [[ -s "${LUCX_DIST_DIR}/sidecars/${name}.gz" ]]; then
+            cp -f "${LUCX_DIST_DIR}/sidecars/${name}.gz" "${tmp}"
+        elif [[ "$name" == tproxy-linux-* || "$name" == mtproxy-linux-* ]]; then
+            continue
+        elif ! lucx_sc_curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o "${tmp}" "$(lucx_raw_url "${gz}")"; then
+            if [[ -x "${dest}/${name}" ]]; then
+                echo -e "${yellow}${name}: no remote gz, keeping tarball copy${plain}"
+            else
+                echo -e "${yellow}${name}: download failed${plain}"
+            fi
+            rm -f "${tmp}"
+            continue
+        fi
+        fetched=$((fetched + 1))
+        # Write to a sibling then mv. `gzip > dest` opens the existing inode
+        # O_WRONLY and fails with ETXTBSY when a live sidecar still exec'd it
+        # (fetch runs AFTER panel start, lucx.161). mv swaps the directory
+        # entry; the old process keeps the old inode until we pkill it.
+        if ! gzip -dc "${tmp}" > "${dest}/${name}.new"; then
+            echo -e "${yellow}${name}: gunzip failed${plain}"
+            rm -f "${tmp}" "${dest}/${name}.new"
+            continue
+        fi
+        chmod +x "${dest}/${name}.new"
+        if ! mv -f "${dest}/${name}.new" "${dest}/${name}"; then
+            echo -e "${yellow}${name}: replace failed${plain}"
+            rm -f "${tmp}" "${dest}/${name}.new"
+            continue
+        fi
+        rm -f "${tmp}"
+        pkill -f "${name}" > /dev/null 2>&1 || true
+    done
+    if [[ "$fetched" -eq 0 && "$skipped" -gt 0 ]]; then
+        echo -e "${green}tunnel sidecars match this release — skip${plain}"
+    elif [[ "$fetched" -gt 0 ]]; then
+        echo -e "${green}Updated ${fetched} tunnel sidecar(s)${plain}"
+    fi
+}
+
+lucx_parse_args() {
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --yandex | --sourcecraft)
+                LUCX_SOURCE=yandex
+                shift
+                ;;
+            --github)
+                LUCX_SOURCE=github
+                shift
+                ;;
+            --source)
+                LUCX_SOURCE="$2"
+                shift 2
+                ;;
+            --source=*)
+                LUCX_SOURCE="${1#--source=}"
+                shift
+                ;;
+            --token)
+                LUCX_SC_TOKEN="$2"
+                shift 2
+                ;;
+            --token=*)
+                LUCX_SC_TOKEN="${1#--token=}"
+                shift
+                ;;
+            -h | --help)
+                echo "Usage: install.sh [--yandex|--github] [--token PAT] [version]"
+                echo "  --yandex   install from SourceCraft (Yandex)"
+                echo "  --github   install from GitHub (default)"
+                echo "  --token    SourceCraft PAT (private repo / API)"
+                echo "  version    tag, e.g. v3.7.0-lucx.172 or dev-latest"
+                echo "Env: LUCX_SOURCE LUCX_SC_TOKEN LUCX_SC_ORG LUCX_SC_REPO"
+                exit 0
+                ;;
+            -*)
+                echo "Unknown option: $1" >&2
+                exit 1
+                ;;
+            *)
+                LUCX_VERSION_ARG="$1"
+                shift
+                ;;
+        esac
+    done
+    LUCX_SOURCE="$(lucx_normalize_source "$LUCX_SOURCE")"
+}
+lucx_parse_args "$@"
+# END LUCX-HOOK
+
 
 # check root
 [[ $EUID -ne 0 ]] && echo -e "${red}Fatal error: ${plain} Please run this script with root privilege \n " && exit 1
@@ -1611,13 +1741,13 @@ _install_xui_service_unit() {
 # fails with "Failed to fetch x-ui version"), and falls back to the API.
 resolve_latest_tag() {
     local url tag
-    url=$(curl -sSLI -o /dev/null -w '%{url_effective}' --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 "https://github.com/MHSanaei/3x-ui/releases/latest" 2>/dev/null)
+    url=$(curl -sSLI -o /dev/null -w '%{url_effective}' --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 "https://github.com/AlexeyLCP/lucx-ui/releases/latest" 2>/dev/null)
     tag=${url##*/tag/}
     if [[ "$tag" != "$url" && -n "$tag" && "$tag" != "latest" ]]; then
         echo "$tag"
         return 0
     fi
-    curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 "https://api.github.com/repos/MHSanaei/3x-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
+    curl -Ls --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 60 "https://api.github.com/repos/AlexeyLCP/lucx-ui/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/'
 }
 
 # Releases publish <asset>.sha256 next to each archive. A mismatch or a failed
@@ -1656,7 +1786,7 @@ require_repo_files() {
     shift
     [[ "${ref}" == "main" ]] && return 0
     for name in "$@"; do
-        status=$(curl -sIL --retry 3 --connect-timeout 15 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/MHSanaei/3x-ui/${ref}/${name}")
+        status=$(curl -sIL --retry 3 --connect-timeout 15 -o /dev/null -w '%{http_code}' "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${ref}/${name}")
         if [[ "${status}" != "200" ]]; then
             echo -e "${red}${name} is not available for ${ref} (HTTP ${status})${plain}"
             echo -e "${red}Install a release that ships it, or 'dev' for the rolling build. Your existing installation has not been touched.${plain}"
@@ -1667,28 +1797,8 @@ require_repo_files() {
 
 install_x-ui() {
     cd ${xui_folder%/x-ui}/
-    # LUCX-HOOK (lucx.131): detect a pre-existing panel BEFORE anything is
 
     # Download resources
-    # LUCX-HOOK: yandex source = anonymous dist bundle from SourceCraft
-    if [[ "$(lucx_normalize_source "$LUCX_SOURCE")" == "yandex" ]]; then
-        if ! lucx_fetch_dist; then
-            echo -e "${red}Failed to download the SourceCraft dist bundle${plain}"
-            exit 1
-        fi
-        if [[ $# -gt 0 ]]; then
-            echo -e "${yellow}--yandex ships the latest dist build; ignoring version '$1'${plain}"
-        fi
-        tag_version=$(lucx_latest_tag)
-        echo -e "Got x-ui latest version: ${tag_version} (SourceCraft dist), beginning the installation..."
-        if ! cp -f "${LUCX_DIST_DIR}/x-ui-linux-$(arch).tar.gz" ${xui_folder}-linux-$(arch).tar.gz || [[ ! -s ${xui_folder}-linux-$(arch).tar.gz ]]; then
-            echo -e "${red}SourceCraft dist bundle has no x-ui-linux-$(arch).tar.gz${plain}"
-            exit 1
-        fi
-    elif [ $# == 0 ]; then
-        # LUCX-HOOK: fetch latest release tag from GitHub or SourceCraft
-        tag_version=$(lucx_latest_tag)
-        # END LUCX-HOOK
     if [ $# == 0 ]; then
         tag_version=$(resolve_latest_tag)
         if [[ ! -n "$tag_version" ]]; then
@@ -1696,14 +1806,7 @@ install_x-ui() {
             exit 1
         fi
         echo -e "Got x-ui latest version: ${tag_version}, beginning the installation..."
-        # LUCX-HOOK: download release tarball from GitHub or SourceCraft
-        lucx_tb_url=$(lucx_tarball_url "$tag_version") || {
-            echo -e "${red}No x-ui-linux-$(arch).tar.gz on ${LUCX_SOURCE} for ${tag_version}${plain}"
-            exit 1
-        }
-        lucx_sc_curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 300 -o ${xui_folder}-linux-$(arch).tar.gz "${lucx_tb_url}"
-        # END LUCX-HOOK
-        curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --speed-limit 1 --speed-time 300 -o ${xui_folder}-linux-$(arch).tar.gz https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
+        curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --speed-limit 1 --speed-time 300 -o ${xui_folder}-linux-$(arch).tar.gz https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz
         if [[ $? -ne 0 ]]; then
             echo -e "${red}Downloading x-ui failed, please be sure that your server can access GitHub ${plain}"
             exit 1
@@ -1713,7 +1816,7 @@ install_x-ui() {
             echo -e "${red}Downloaded x-ui release archive is empty${plain}"
             exit 1
         fi
-        verify_release_checksum "https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz" "${xui_folder}-linux-$(arch).tar.gz"
+        verify_release_checksum "https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz" "${xui_folder}-linux-$(arch).tar.gz"
     else
         tag_version=$1
         # The rolling dev channel ships under a fixed, non-semver tag that is
@@ -1732,7 +1835,7 @@ install_x-ui() {
             fi
         fi
 
-        url="https://github.com/MHSanaei/3x-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
+        url="https://github.com/AlexeyLCP/lucx-ui/releases/download/${tag_version}/x-ui-linux-$(arch).tar.gz"
         echo -e "Beginning to install x-ui ${tag_version}"
         curl -fLR --retry 5 --retry-delay 3 --connect-timeout 15 --speed-limit 1 --speed-time 300 -o ${xui_folder}-linux-$(arch).tar.gz ${url}
         if [[ $? -ne 0 ]]; then
@@ -1759,10 +1862,7 @@ install_x-ui() {
     require_repo_files "${script_ref}" "${required_files[@]}"
     local xui_script_temp="/usr/bin/x-ui-temp.$$"
     rm -f "${xui_script_temp}"
-    # LUCX-HOOK: fetch x-ui.sh from GitHub or SourceCraft; tarball fallback on Yandex
-    lucx_sc_curl -fLRo "${xui_script_temp}" "$(lucx_raw_url x-ui.sh)"
-    # END LUCX-HOOK
-    curl -fLRo "${xui_script_temp}" "https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.sh"
+    curl -fLRo "${xui_script_temp}" "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.sh"
     if [[ $? -ne 0 ]]; then
         rm -f "${xui_script_temp}"
         echo -e "${red}Failed to download x-ui.sh${plain}"
@@ -1890,12 +1990,6 @@ install_x-ui() {
         fi
     fi
     trap - EXIT INT TERM
-    # LUCX-HOOK: geo before panel start. Slim tarball / SC split left first
-    # start without .dat; second install only worked via bin/ backup restore.
-    # Never fatal (Rule 0). Yandex unpacks x-ui-geo.tar.gz; GitHub fetches.
-    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
-    lucx_unpack_dist_sidecars bin
-    # END LUCX-HOOK
 
     # Update x-ui cli and se set permission
     mv -f "${xui_script_temp}" /usr/bin/x-ui
@@ -1925,10 +2019,7 @@ install_x-ui() {
     if [[ $release == "alpine" ]]; then
         xui_rc_temp="/etc/init.d/x-ui.tmp.$$"
         rm -f "${xui_rc_temp}"
-        # LUCX-HOOK: fetch x-ui.rc from GitHub or SourceCraft
-        lucx_sc_curl -fLRo "${xui_rc_temp}" "$(lucx_raw_url x-ui.rc)"
-        # END LUCX-HOOK
-        curl -fLRo "${xui_rc_temp}" "https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.rc"
+        curl -fLRo "${xui_rc_temp}" "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.rc"
         if [[ $? -ne 0 ]]; then
             rm -f "${xui_rc_temp}"
             echo -e "${red}Failed to download x-ui.rc${plain}"
@@ -1991,28 +2082,15 @@ install_x-ui() {
         # If service file not found in tar.gz, download from GitHub
         if [ "$service_installed" = false ]; then
             echo -e "${yellow}Service files not found in tar.gz, downloading from GitHub...${plain}"
-            # LUCX-HOOK: fetch systemd service units from GitHub or SourceCraft
             case "${release}" in
                 ubuntu | debian | armbian)
-                    service_unit_url="$(lucx_raw_url x-ui.service.debian)"
+                    service_unit_url="https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.service.debian"
                     ;;
                 arch | manjaro | parch)
-                    service_unit_url="$(lucx_raw_url x-ui.service.arch)"
+                    service_unit_url="https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.service.arch"
                     ;;
                 *)
-                    service_unit_url="$(lucx_raw_url x-ui.service.rhel)"
-                    ;;
-            esac
-            # END LUCX-HOOK
-            case "${release}" in
-                ubuntu | debian | armbian)
-                    service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.debian"
-                    ;;
-                arch | manjaro | parch)
-                    service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.arch"
-                    ;;
-                *)
-                    service_unit_url="https://raw.githubusercontent.com/MHSanaei/3x-ui/${script_ref}/x-ui.service.rhel"
+                    service_unit_url="https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/${script_ref}/x-ui.service.rhel"
                     ;;
             esac
 
@@ -2039,46 +2117,9 @@ install_x-ui() {
     # IP Limit relies on fail2ban; install + configure it now so the feature
     # works out of the box (no-op when XUI_ENABLE_FAIL2BAN=false). Never fatal.
     setup_fail2ban
-    # LUCX-HOOK: Install AmneziaWG kernel module + tools (default again since
-    # lucx.131; lucx.130 shipped it opt-in and that was reverted by owner
-    # decision — install must give a working AWG out of the box). The AWG
-    # sidecar (internal/awg) needs `awg-quick`, `awg`, and the amneziawg
-    # kernel module. Routing of decrypted traffic into Xray is via an injected
-    # TUN inbound (injectAwgEgress), so no tun2socks daemon is needed.
-    # Best-effort: a failure logs a warning but does not abort the panel
-    # install — AWG inbounds simply won't start until the module is available.
-    # install-awg-module.sh writes /etc/x-ui/.awg-module-version after a
-    # successful build (or backfills it from modinfo on the no-op path), so
-    # update.sh can version-gate future rebuilds without re-cloning.
-    # lucx.145: if the marker SHA already matches upstream master and tools
-    # are ≥ 3.1, the script exits before apt/kernel/DKMS.
-    # Rollback stays available: x-ui uninstall-awg / Cores → Uninstall
-    # (.conf files are kept).
-    if [[ -x bin/install-awg-module.sh ]]; then
-        echo -e "${green}Installing AmneziaWG kernel module and tools...${plain}"
-        bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
-        # Post-check: the module script is best-effort (set -e + network/make can
-        # abort it silently). If awg-quick is still missing, surface it loudly in
-        # the final install output instead of letting the admin discover it from
-        # "awg-quick: executable file not found" reconcile warnings later.
-        if ! command -v awg-quick &>/dev/null; then
-            echo -e "${red}╔══════════════════════════════════════════════════════╗${plain}"
-            echo -e "${red}║  AWG: awg-quick НЕ установлен!                       ║${plain}"
-            echo -e "${red}║  AWG-инбаунды не поднимутся (reconcile будет падать). ║${plain}"
-            echo -e "${red}║  Дособрать: apt install build-essential libmnl-dev    ║${plain}"
-            echo -e "${red}║  pkg-config dkms git, затем bash bin/install-awg-module.sh ${plain}"
-            echo -e "${red}╚══════════════════════════════════════════════════════╝${plain}"
-        fi
-    fi
-    # END LUCX-HOOK
 
     echo -e "${green}x-ui ${tag_version}${plain} installation finished, it is running now..."
     echo -e ""
-    # LUCX-HOOK: sidecar refresh after start (ETXTBSY / lucx.161). Geo is
-    # fetched before start.
-    lucx_fetch_sidecars bin
-    [[ -n "${LUCX_DIST_DIR}" ]] && rm -rf "${LUCX_DIST_DIR}"
-    # END LUCX-HOOK
     echo -e "┌───────────────────────────────────────────────────────┐
 │  ${blue}x-ui control menu usages (subcommands):${plain}              │
 │                                                       │
@@ -2097,60 +2138,6 @@ install_x-ui() {
 │  ${blue}x-ui install${plain}      - Install                          │
 │  ${blue}x-ui uninstall${plain}    - Uninstall                        │
 └───────────────────────────────────────────────────────┘"
-    # LUCX-HOOK: Final access summary + deferred AWG reboot (lucx.68/71/122).
-    # Credentials (user/pass) ONLY when THIS run wrote install-result.env
-    # (fresh install or default-creds reset). On a routine update the file is
-    # stale — never source it for password; print Access URL only.
-    echo ""
-    echo -e "${green}═══════════════════════════════════════════${plain}"
-    if [[ "${XUI_INSTALL_RESULT_WRITTEN:-}" == "1" && -r /etc/x-ui/install-result.env ]]; then
-        # shellcheck disable=SC1091
-        set -a; . /etc/x-ui/install-result.env; set +a
-        echo -e "${green}     Panel Access (save these)            ${plain}"
-        echo -e "${green}═══════════════════════════════════════════${plain}"
-        echo -e "${green}Username:    ${XUI_USERNAME}${plain}"
-        echo -e "${green}Password:    ${XUI_PASSWORD}${plain}"
-        echo -e "${green}Access URL:  ${XUI_ACCESS_URL}${plain}"
-    else
-        echo -e "${green}     Panel Access Information              ${plain}"
-        echo -e "${green}═══════════════════════════════════════════${plain}"
-        local end_port end_path end_cert end_host
-        end_port=$(${xui_folder}/x-ui setting -getPort true 2>/dev/null | grep -Eo 'port: .+' | awk '{print $2}')
-        end_path=$(${xui_folder}/x-ui setting -getBasePath true 2>/dev/null | grep -Eo 'webBasePath: .+' | awk '{print $2}')
-        end_cert=$(${xui_folder}/x-ui setting -getCert true 2>/dev/null | grep 'cert:' | awk -F': ' '{print $2}' | tr -d '[:space:]')
-        end_host=$(curl -s4m3 https://api.ipify.org 2>/dev/null || hostname -I 2>/dev/null | awk '{print $1}')
-        if [[ -n "$end_cert" ]]; then
-            end_host=$(basename "$(dirname "$end_cert")" 2>/dev/null || echo "$end_host")
-            echo -e "${green}Access URL:  https://${end_host}:${end_port}${end_path}${plain}"
-        else
-            echo -e "${green}Access URL:  http://${end_host:-SERVER_IP}:${end_port}${end_path}${plain}"
-        fi
-        echo -e "${yellow}Login/password were not changed this run.${plain}"
-    fi
-    echo -e "${green}═══════════════════════════════════════════${plain}"
-
-    # Deferred reboot after AWG kernel upgrade (install-awg-module never reboots
-    # mid-script; module is already built for the new kernel). Container-safe:
-    # without systemd as init (docker/CI smoke test) `reboot` cannot work and
-    # used to fail the whole install at the very last step — skip it there and
-    # treat a failed reboot as a warning, since the panel install itself is
-    # already complete.
-    if [[ -f /etc/x-ui/.awg-reboot-needed ]]; then
-        rm -f /etc/x-ui/.awg-reboot-needed
-        if [[ -d /run/systemd/system ]]; then
-            echo ""
-            echo -e "${yellow}AWG: new kernel installed — rebooting in 10s so amneziawg loads.${plain}"
-            echo -e "${yellow}Panel install is complete; AWG module is already built for the new kernel.${plain}"
-            sleep 10
-            reboot || echo -e "${red}Reboot failed — please reboot the server manually so the AWG module loads.${plain}"
-        else
-            echo ""
-            echo -e "${yellow}AWG: new kernel installed, but no systemd init detected (container?).${plain}"
-            echo -e "${yellow}Reboot the host manually so the amneziawg module loads.${plain}"
-        fi
-    fi
-    lucx_save_source
-    # END LUCX-HOOK
 }
 
 echo -e "${green}Running...${plain}"

@@ -38,331 +38,14 @@ type InboundService struct {
 	// FromNodeSync marks a master push: the row was validated where the operator
 	// acted, and a node that refuses it only falls out of sync.
 	FromNodeSync bool
+	// LUCX-HOOK: import path may re-create overlapping AWG tunnels.
+	allowAwgOverlap bool
 }
-
-// LUCX-HOOK: awgOutboundSubnetConflict reports whether the inbound tunnel
-// subnet newNet collides with one AWG outbound's tunnel address outAddr. Only
-// an outbound prefix no more specific than the inbound's (oP.Bits() <=
-// newNet.Bits(), i.e. a /24 or wider when the inbound is a /24) installs a
-// conflicting connected route; a bare /32 host address is exempt because it
-// creates no /24 route of its own and defaultAwgClients already keeps client
-// IPs off it. Pure (no DB) for unit testing. Returns the masked conflicting
-// outbound prefix and true on a clash.
-func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefix, bool) {
-	outAddr = strings.TrimSpace(outAddr)
-	if outAddr == "" {
-		return netip.Prefix{}, false
-	}
-	// LUCX-HOOK: AWG — allocate keypair/PSK/tunnel address for AWG clients added
-	// inline via the inbound form. This path (unlike the clients-page
-	// addInboundClient) does not otherwise run defaultAwgClients, so inline AWG
-	// clients would be persisted with blank credentials and no subnet-aware
-	// address. Allocation is confined to the inbound's own tunnel subnet.
-	if inbound.Protocol == model.AWG && len(clients) > 0 {
-		var settings map[string]any
-		if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
-			if ic, ok := settings["clients"].([]any); ok {
-				serverAddr := awgSettingsAddress(inbound.Settings)
-				if err3 := defaultAwgClients(nil, clients, ic, serverAddr, awgSettingsVersion(inbound.Settings)); err3 != nil {
-					return inbound, false, err3
-				}
-				settings["clients"] = ic
-				if bs, err4 := json.Marshal(settings); err4 == nil {
-					inbound.Settings = string(bs)
-				}
-			}
-		}
-	}
-	// END LUCX-HOOK
-	// LUCX-HOOK
-	// LUCX-HOOK: AWG — allocate credentials/address for any NEW clients added
-	// inline while editing the inbound. defaultAwgClients only fills blank
-	// fields, so existing clients (keypair + allowedIPs already set) are left
-	// untouched; the pre-edit client list seeds the exclusion set so a fresh
-	// client never collides with one already on the inbound. Runs after
-	// migrateAwgClientSubnets so a subnet change's re-allocation is preserved.
-	if inbound.Protocol == model.AWG {
-		if newClients, cErr := s.GetClients(inbound); cErr == nil && len(newClients) > 0 {
-			existingClients, _ := s.GetClients(oldInbound)
-			var settings map[string]any
-			if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
-				if ic, ok := settings["clients"].([]any); ok {
-					serverAddr := awgSettingsAddress(inbound.Settings)
-					if err3 := defaultAwgClients(existingClients, newClients, ic, serverAddr, awgSettingsVersion(inbound.Settings)); err3 != nil {
-						return inbound, false, err3
-					}
-					settings["clients"] = ic
-					if bs, err4 := json.Marshal(settings); err4 == nil {
-						inbound.Settings = string(bs)
-					}
-				}
-			}
-		}
-	}
-	// END LUCX-HOOK
-	// LUCX-HOOK: AWG — block re-pointing this inbound's tunnel subnet onto one
-	// another AWG inbound already owns (Pattern 1e). Only enforced when the
-	// masked subnet actually changes: editing other fields of an inbound whose
-	// subnet is a pre-existing duplicate must stay allowed (back-compat).
-	if inbound.Protocol == model.AWG {
-		oldAddr := awgSettingsAddress(oldInbound.Settings)
-		newAddr := awgSettingsAddress(inbound.Settings)
-		subnetChanged := true
-		if oldP, oErr := netip.ParsePrefix(strings.TrimSpace(oldAddr)); oErr == nil {
-			if newP, nErr := netip.ParsePrefix(strings.TrimSpace(newAddr)); nErr == nil {
-				subnetChanged = oldP.Masked().String() != newP.Masked().String()
-			}
-		}
-		if subnetChanged {
-			if err := s.checkAwgSubnetConflict(newAddr, inbound.Id, inbound.NodeID); err != nil {
-				return inbound, false, err
-			}
-		}
-	}
-	// END LUCX-HOOK
-	// LUCX-HOOK: AWG — keep client tunnel IPs stable across Address edits
-	// (no re-export). Only rewrites a peer that collides with the server's
-	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
-	if inbound.Protocol == model.AWG {
-		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.AWG && oldInbound.Protocol == model.AWG {
-		inbound.Settings = migrateAwgClientSubnets(
-			awgSettingsAddress(oldInbound.Settings),
-			awgSettingsAddress(inbound.Settings),
-			inbound.Settings,
-		)
-	}
-	// END LUCX-HOOK
-	// LUCX-HOOK: LucX-only protocols may only deploy to LucX-capable nodes.
-	if err := s.ensureNodeSupportsProtocol(inbound.Protocol, inbound.NodeID); err != nil {
-		return inbound, false, err
-	}
-	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound on this host
-	// already owns (Pattern 1e kernel route conflict). New inbounds have no id.
-	if inbound.Protocol == model.AWG {
-		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
-			return inbound, false, err
-		}
-		if err := s.checkAwgSubnetConflictAllow(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID, allowAwgOverlap); err != nil {
-			return inbound, false, err
-		}
-	}
-	// qWDTT is single-instance per host (TUN + multi-port + root). Normalize BEFORE
-	// port-conflict so DTLS listenAddr port (not the form's random Port)
-	// is what we check — otherwise create accepts a free random port then
-	// silently rebinds to 56000 which may already be taken.
-	if inbound.Protocol == model.Qwdtt {
-		if err := s.checkQwdttSingle(0, inbound.NodeID); err != nil {
-			return inbound, false, err
-		}
-		s.normalizeQwdttSettings(inbound)
-	}
-	if inbound.Protocol == model.Olcrtc {
-		s.normalizeOlcrtcSettings(inbound)
-		// No listen port — avoid clashing with real TCP binds.
-		inbound.Port = 0
-		// SOCKS bridge port after settings coerce (default routeThroughXray=true).
-		if err := s.normalizeOlcrtcXrayPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Mieru {
-		s.normalizeMieruSettings(inbound)
-		if cfg, ok := tunnel.MieruConfigFromInbound(inbound); ok {
-			if err := cfg.Merge().Validate(); err != nil {
-				return inbound, false, err
-			}
-		}
-		if err := s.checkMieruPortConflict(inbound, 0); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeMieruXrayPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.TrustTunnel {
-		s.normalizeTrustTunnelSettings(inbound)
-		if err := s.checkTrustTunnelPortConflict(inbound, 0); err != nil {
-			return inbound, false, err
-		}
-		if err := s.validateTrustTunnelCert(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTrustTunnelXrayPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTrustTunnelMetricsPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Anytls {
-		s.normalizeAnytlsSettings(inbound)
-		if err := s.validateAnytlsCert(inbound); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Tproxy {
-		s.normalizeTproxySettings(inbound)
-		if err := s.validateTproxySettings(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTproxyXrayPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Cover {
-		s.normalizeCoverSettings(inbound)
-		if err := s.validateCoverSettings(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.checkSingleCover(inbound, 0); err != nil {
-			return inbound, false, err
-		}
-	}
-	s.ensureNodeAuthSeed(inbound)
-	// END LUCX-HOOK
-	oP, err := netip.ParsePrefix(outAddr)
-	if err != nil {
-		return netip.Prefix{}, false
-	}
-	if oP.Bits() <= newNet.Bits() && newNet.Overlaps(oP.Masked()) {
-		return oP.Masked(), true
-	}
-	return netip.Prefix{}, false
-}
-
-// LUCX-HOOK: checkAwgSubnetConflict blocks an AWG inbound whose tunnel subnet
-// overlaps another AWG inbound on the SAME host (local panel or the same node).
-// Two awg interfaces on one kernel with the same connected subnet install
-// duplicate routes; reverse path picks the wrong iface (Pattern 1e). Different
-// nodes are separate kernels — same subnet is fine. ignoreId excludes the
-// inbound being edited. Outbound clash applies only to local inbounds (outbounds
-// live on the master kernel). Empty/unparseable address is not an error here.
-func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, nodeID *int) error {
-	return s.checkAwgSubnetConflictAllow(newAddr, ignoreId, nodeID, false)
-}
-
-func (s *InboundService) checkAwgSubnetConflictAllow(newAddr string, ignoreId int, nodeID *int, allowOverlap bool) error {
-	if allowOverlap {
-		return nil
-	}
-	newAddr = strings.TrimSpace(newAddr)
-	if newAddr == "" {
-		return nil
-	}
-	newP, err := netip.ParsePrefix(newAddr)
-	if err != nil {
-		return nil
-	}
-	newNet := newP.Masked()
-
-	db := database.GetDB()
-	var candidates []*model.Inbound
-	q := db.Model(model.Inbound{}).Where("protocol = ?", model.AWG)
-	if ignoreId > 0 {
-		q = q.Where("id != ?", ignoreId)
-	}
-	if nodeID == nil {
-		q = q.Where("node_id IS NULL")
-	} else {
-		q = q.Where("node_id = ?", *nodeID)
-	}
-	if err := q.Find(&candidates).Error; err != nil {
-		return err
-	}
-
-	for _, c := range candidates {
-		cAddr := awgSettingsAddress(c.Settings)
-		if cAddr == "" {
-			continue
-		}
-		cP, pErr := netip.ParsePrefix(cAddr)
-		if pErr != nil {
-			continue
-		}
-		if newNet.Overlaps(cP.Masked()) {
-			label := c.Remark
-			if label == "" {
-				label = c.Tag
-			}
-			return common.NewError("AWG subnet", newNet.String(), "conflicts with inbound", label, "("+cP.Masked().String()+")", "— two AWG inbounds cannot share a tunnel subnet")
-		}
-	}
-
-	// Outbounds are local to the master kernel — only local inbounds clash.
-	if nodeID == nil {
-		if outAddrs, oErr := (&AwgOutboundService{}).outboundAddresses(false); oErr == nil {
-			for _, oAddr := range outAddrs {
-				if oNet, clash := awgOutboundSubnetConflict(newNet, oAddr); clash {
-					return common.NewError("AWG subnet", newNet.String(), "conflicts with AWG outbound tunnel", oNet.String(), "— the upstream server's subnet overlaps this inbound's tunnel subnet")
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// END LUCX-HOOK
-// LUCX-HOOK: any LucX sidecar whose egress bridge lives only in generated Xray JSON.
-func lucxRoutesThroughXray(inbound *model.Inbound) bool {
-	return awgRoutesThroughXray(inbound) ||
-		naiveRoutesThroughXray(inbound) ||
-		qwdttRoutesThroughXray(inbound) ||
-		olcrtcRoutesThroughXray(inbound) ||
-		mieruRoutesThroughXray(inbound) ||
-		trustTunnelRoutesThroughXray(inbound) ||
-		tproxyRoutesThroughXray(inbound)
-}
-
-func tproxyRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.Tproxy {
-		return false
-	}
-	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
-	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
-}
-
-// END LUCX-HOOK
-// LUCX-HOOK: awgRoutesThroughXray reports whether an AWG inbound is configured to egress
-// through the core's router (the TUN bridge in §xray.go). Such inbounds live
-// only in the generated config, so every mutation of one must force a config
-// regen — the kernel sidecar push alone never touches Xray.
-func awgRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.AWG {
-		return false
-	}
-	var parsed struct {
-		RouteThroughXray bool `json:"routeThroughXray"`
-	}
-	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
-		return false
-	}
-	return parsed.RouteThroughXray
-}
-
-// END LUCX-HOOK
-// LUCX-HOOK: protocols whose datapath is a sidecar, not an Xray inbound.
-func inboundHasSidecar(p model.Protocol) bool {
-	switch p {
-	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover:
-		return true
-	default:
-		return false
-	}
-}
-
-// END LUCX-HOOK
 
 func normalizeTrafficResetDay(day int) int {
 	if day < 1 {
 		return 1
 	}
-	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not settings.
-	s.injectShareOnlySlimClients(db, inbounds)
-	// END LUCX-HOOK
 	return min(day, 31)
 }
 
@@ -569,6 +252,9 @@ func (s *InboundService) GetInboundsSlim(userId int) ([]*model.Inbound, error) {
 	for _, ib := range inbounds {
 		ib.Settings = slimSettingsClients(ib.Settings)
 	}
+	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not settings.
+	s.injectShareOnlySlimClients(db, inbounds)
+	// END LUCX-HOOK
 	return inbounds, nil
 }
 
@@ -667,6 +353,11 @@ type InboundOption struct {
 	// per-client .conf without a second round trip.
 	AwgServer  *amneziawg.ServerSettings `json:"awgServer,omitempty"`
 	TuicServer *tuic.TuicServerSettings  `json:"tuicServer,omitempty"`
+	// LUCX-HOOK: kernel AWG QR/.conf hints (userspace AmneziaWG uses AwgServer).
+	AwgObfuscation   string            `json:"awgObfuscation,omitempty"`
+	AwgPeerAddresses map[string]string `json:"awgPeerAddresses,omitempty"`
+	AwgServerAddress string            `json:"awgServerAddress,omitempty"`
+	AwgVersion       string            `json:"awgVersion,omitempty"`
 	// Hosting node; nil for this panel's own inbounds. Lets the clients
 	// page map a node filter onto inbound IDs (#4997).
 	NodeId *int `json:"nodeId,omitempty"`
@@ -745,6 +436,10 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			MtprotoDomain:     inboundMtprotoDomain(r.Protocol, r.Settings),
 			AwgServer:         inboundAmneziaWGServer(r.Protocol, r.Settings),
 			TuicServer:        inboundTuicServer(r.Protocol, r.Settings),
+			AwgObfuscation:    awgObf,
+			AwgPeerAddresses:  awgPeers,
+			AwgServerAddress:  awgAddr,
+			AwgVersion:        awgVer,
 			NodeId:            r.NodeId,
 			NodeAddress:       r.NodeAddress,
 			Listen:            r.Listen,
@@ -794,17 +489,15 @@ func inboundStreamHints(protocol string, streamSettings string, settings string)
 }
 
 func inboundWireguardHints(protocol string, settings string) (string, int, string) {
-	// LUCX-HOOK: AWG — AmneziaWG stores the server keypair/mtu/dns in the same
-	// settings fields as WireGuard (privateKey/publicKey/mtu/dns), and uses
-	// the same Curve25519 base key, so the key-derivation hints are identical.
+	// LUCX-HOOK: AWG — same Curve25519 key fields as WireGuard (privateKey vs secretKey).
 	if (protocol != string(model.WireGuard) && protocol != string(model.AWG)) || strings.TrimSpace(settings) == "" {
 		return "", 0, ""
 	}
 	var parsed struct {
 		PublicKey string `json:"publicKey"`
 		PubKey    string `json:"pubKey"`
-		SecretKey string `json:"privateKey"` // AWG stores the server key as `privateKey`
-		WgSecret  string `json:"secretKey"`  // WG stores it as `secretKey`
+		SecretKey string `json:"privateKey"`
+		WgSecret  string `json:"secretKey"`
 		MTU       int    `json:"mtu"`
 		DNS       string `json:"dns"`
 	}
@@ -815,211 +508,12 @@ func inboundWireguardHints(protocol string, settings string) (string, int, strin
 	if publicKey == "" {
 		publicKey = parsed.PubKey
 	}
-	// Derive the server public key from whichever private-key field is set.
-	// AWG uses `privateKey`, WG uses `secretKey` — try both so this works for
-	// either protocol.
 	secret := parsed.SecretKey
 	if secret == "" {
 		secret = parsed.WgSecret
 	}
 	if publicKey == "" && secret != "" {
 		if derived, err := wgutil.PublicKeyFromPrivate(secret); err == nil {
-			publicKey = derived
-		}
-	}
-	return publicKey, parsed.MTU, parsed.DNS
-}
-
-// inboundAwgHints returns the AWG obfuscation block as it should appear in a
-// client .conf [Interface] section (Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines), the
-// server tunnel address, and the inbound's AWG protocol version. All three are
-// read from the inbound settings so the clients-page QR/.conf path can render a
-// full AmneziaWG client config and gate the per-client export-version selector.
-// The obfuscation block is empty when the settings carry no obfuscation
-// (lite/level-1); version defaults to "2" for pre-lucx.50 inbounds.
-// localInbound must be false for a node-hosted inbound (awg.AwgVersionFieldsAllowed).
-//
-// LUCX-HOOK: AWG obfuscation hints for the clients-page QR/.conf path.
-func inboundAwgHints(settings string, localInbound bool) (address string, obfuscation string, version string) {
-	if strings.TrimSpace(settings) == "" {
-		return "", "", ""
-	}
-	var s struct {
-		Address                string       `json:"address"`
-		Jc                     int          `json:"jc"`
-		Jmin                   int          `json:"jmin"`
-		Jmax                   int          `json:"jmax"`
-		S1                     int          `json:"s1"`
-		S2                     int          `json:"s2"`
-		S3                     int          `json:"s3"`
-		S4                     int          `json:"s4"`
-		H1                     string       `json:"h1"`
-		H2                     string       `json:"h2"`
-		H3                     string       `json:"h3"`
-		H4                     string       `json:"h4"`
-		I1                     string       `json:"i1"`
-		I2                     string       `json:"i2"`
-		I3                     string       `json:"i3"`
-		I4                     string       `json:"i4"`
-		I5                     string       `json:"i5"`
-		HeaderProtectionKey    string       `json:"headerProtectionKey"`
-		AwgVersion             string       `json:"awgVersion"`
-		ContentPaddingAddition awg.AwgTimer `json:"contentPaddingAddition"`
-		RekeyAfterTime         awg.AwgTimer `json:"rekeyAfterTime"`
-		RekeyTimeout           awg.AwgTimer `json:"rekeyTimeout"`
-		RejectAfterTime        awg.AwgTimer `json:"rejectAfterTime"`
-		KeepaliveTimeout       awg.AwgTimer `json:"keepaliveTimeout"`
-		MaxHandshakeAttempts   awg.AwgTimer `json:"maxHandshakeAttempts"`
-		RandomTrailers         bool         `json:"randomTrailers"`
-		DisableCookies         bool         `json:"disableCookies"`
-	}
-	if err := json.Unmarshal([]byte(settings), &s); err != nil {
-		return "", "", ""
-	}
-	var b strings.Builder
-	if s.Jc > 0 {
-		fmt.Fprintf(&b, "Jc = %d\n", s.Jc)
-	}
-	if s.Jmin > 0 {
-		fmt.Fprintf(&b, "Jmin = %d\n", s.Jmin)
-	}
-	if s.Jmax > 0 {
-		fmt.Fprintf(&b, "Jmax = %d\n", s.Jmax)
-	}
-	// Written always, zeros included, like renderServerConf: 0 means "do not
-	// pad", and a dropped line makes the client pad to its own default instead.
-	fmt.Fprintf(&b, "S1 = %d\n", s.S1)
-	fmt.Fprintf(&b, "S2 = %d\n", s.S2)
-	ver := awg.NormalizeAWGVersion(s.AwgVersion)
-	// S3/S4 + I1-I5 are AWG v2+; keep the ceiling block aligned with the
-	// server conf and with filterAwgObfuscation so v1.5 must-match holds.
-	if ver != "1.5" {
-		fmt.Fprintf(&b, "S3 = %d\n", s.S3)
-		fmt.Fprintf(&b, "S4 = %d\n", s.S4)
-	}
-	for i, h := range []string{s.H1, s.H2, s.H3, s.H4} {
-		if strings.TrimSpace(h) != "" {
-			fmt.Fprintf(&b, "H%d = %s\n", i+1, h)
-		}
-	}
-	var out strings.Builder
-	out.WriteString(b.String())
-	// Same all-or-nothing gate the two .conf renderers use: an oversized set
-	// silently vanishes from the real interface, so it must vanish here too.
-	iFieldsFit := awg.IBytes(s.I1, s.I2, s.I3, s.I4, s.I5) <= awg.WorstCaseIBytesBudget(strings.TrimSpace(s.HeaderProtectionKey) != "")
-	if ver != "1.5" && iFieldsFit {
-		for _, ip := range []struct{ idx, val string }{
-			{"1", s.I1}, {"2", s.I2}, {"3", s.I3}, {"4", s.I4}, {"5", s.I5},
-		} {
-			// Per field, not all-or-nothing: grammar is a property of the
-			// value, where the budget above is a property of the whole set.
-			if awg.PortableIField(ip.val) {
-				fmt.Fprintf(&out, "I%s = %s\n", ip.idx, strings.TrimSpace(ip.val))
-			}
-		}
-	}
-	// HeaderProtectionKey (AWG3) is emitted ONLY when awgVersion == "3" and the
-	// key is non-empty — this obfuscation block represents the inbound's
-	// "ceiling" (the full field set for version 3). The clients page then
-	// filters it down to the export version chosen in the QR/info modal
-	// (filterAwgObfuscation in wireguardConfig.ts). Upstream kernel
-	// v3.0.20260731 + tools v3.0.20260730 parse the field; older builds reject
-	// it, so v1/v2 inbounds must never carry it. S1-S4 >= 12 is required for the
-	// kernel to accept the key (enforced by the generator for v3).
-	if strings.TrimSpace(s.HeaderProtectionKey) != "" && awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(s.AwgVersion), localInbound, awg.ModuleSupportsAwg3()) {
-		fmt.Fprintf(&out, "HeaderProtectionKey = %s\n", s.HeaderProtectionKey)
-	}
-	// AWG3 device-level timers/padding — empty/"0" = kernel default. Emitted only
-	// for v3+ so the clients-page filterAwgObfuscation can drop them for < v3.
-	// Values are written verbatim (a single "150" or an inclusive range
-	// "100-500"); this ceiling block mirrors the H1-H4 ranges already exported,
-	// so client configs carry native kernel ranges intact.
-	if awg.AwgVersionFieldsAllowed(awg.IsAwg3Plus(s.AwgVersion), localInbound, awg.ModuleSupportsAwg3()) {
-		if !s.ContentPaddingAddition.IsZero() {
-			fmt.Fprintf(&out, "ContentPaddingAddition = %s\n", s.ContentPaddingAddition)
-		}
-		if !s.RekeyAfterTime.IsZero() {
-			fmt.Fprintf(&out, "RekeyAfterTime = %s\n", s.RekeyAfterTime)
-		}
-		if !s.RekeyTimeout.IsZero() {
-			fmt.Fprintf(&out, "RekeyTimeout = %s\n", s.RekeyTimeout)
-		}
-		if !s.RejectAfterTime.IsZero() {
-			fmt.Fprintf(&out, "RejectAfterTime = %s\n", s.RejectAfterTime)
-		}
-		if !s.KeepaliveTimeout.IsZero() {
-			fmt.Fprintf(&out, "KeepaliveTimeout = %s\n", s.KeepaliveTimeout)
-		}
-		if !s.MaxHandshakeAttempts.IsZero() {
-			fmt.Fprintf(&out, "MaxHandshakeAttempts = %s\n", s.MaxHandshakeAttempts)
-		}
-	}
-	if awg.AwgVersionFieldsAllowed(awg.IsAwg31(s.AwgVersion), localInbound, awg.ModuleSupportsAwg31()) {
-		if s.RandomTrailers {
-			out.WriteString("RandomTrailers = on\n")
-		}
-		if s.DisableCookies {
-			out.WriteString("DisableCookies = on\n")
-		}
-	}
-	return s.Address, out.String(), awg.NormalizeAWGVersion(s.AwgVersion)
-}
-
-// InboundAwgPeerAddresses maps email → first AllowedIPs entry for each client
-// stored on this AWG inbound. Used by the clients-page .conf builder and
-// subscription export so multi-attach peers get the tunnel IP for THIS inbound,
-// not the single clients-table field shared across all attachments.
-func InboundAwgPeerAddresses(settings string) map[string]string {
-	if strings.TrimSpace(settings) == "" {
-		return nil
-	}
-	var s struct {
-		Clients []struct {
-			Email      string   `json:"email"`
-			AllowedIPs []string `json:"allowedIPs"`
-		} `json:"clients"`
-	}
-	if err := json.Unmarshal([]byte(settings), &s); err != nil {
-		return nil
-	}
-	out := make(map[string]string, len(s.Clients))
-	for _, c := range s.Clients {
-		email := strings.TrimSpace(c.Email)
-		if email == "" || len(c.AllowedIPs) == 0 {
-			continue
-		}
-		if ip := strings.TrimSpace(c.AllowedIPs[0]); ip != "" {
-			out[email] = ip
-		}
-	}
-	if len(out) == 0 {
-		return nil
-	}
-	return out
-}
-
-// END LUCX-HOOK
-
-func inboundWireguardHints(protocol string, settings string) (string, int, string) {
-	if protocol != string(model.WireGuard) || strings.TrimSpace(settings) == "" {
-		return "", 0, ""
-	}
-	var parsed struct {
-		PublicKey string `json:"publicKey"`
-		PubKey    string `json:"pubKey"`
-		SecretKey string `json:"secretKey"`
-		MTU       int    `json:"mtu"`
-		DNS       string `json:"dns"`
-	}
-	if err := json.Unmarshal([]byte(settings), &parsed); err != nil {
-		return "", 0, ""
-	}
-	publicKey := parsed.PublicKey
-	if publicKey == "" {
-		publicKey = parsed.PubKey
-	}
-	if publicKey == "" && parsed.SecretKey != "" {
-		if derived, err := wgutil.PublicKeyFromPrivate(parsed.SecretKey); err == nil {
 			publicKey = derived
 		}
 	}
@@ -1656,6 +1150,22 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	if inbound.NodeID != nil && !isNodeEligibleProtocol(inbound.Protocol) {
 		return inbound, false, common.NewErrorf("%s inbounds cannot be assigned to a node", inbound.Protocol)
 	}
+	// LUCX-HOOK: LucX-only protocols may only deploy to LucX-capable nodes.
+	if err := s.ensureNodeSupportsProtocol(inbound.Protocol, inbound.NodeID); err != nil {
+		return inbound, false, err
+	}
+	if inbound.Protocol == model.AWG {
+		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
+			return inbound, false, err
+		}
+		if err := s.checkAwgSubnetConflictAllow(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID, s.allowAwgOverlap); err != nil {
+			return inbound, false, err
+		}
+	}
+	if err := s.normalizeLucxSidecarsOnCreate(inbound); err != nil {
+		return inbound, false, err
+	}
+	// END LUCX-HOOK
 	inbound.SubSortIndex = normalizeSubSortIndex(inbound.SubSortIndex)
 	if err := normalizeInboundShareAddressStrict(inbound); err != nil {
 		return inbound, false, err
@@ -1737,6 +1247,8 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 			if client.PublicKey == "" {
 				return inbound, false, common.NewError("wireguard client requires a key")
 			}
+		case "awg":
+			continue
 		case "mtproto":
 			if client.Secret == "" {
 				return inbound, false, common.NewError("mtproto client requires a secret")
@@ -1760,6 +1272,12 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 			}
 		}
 	}
+
+	// LUCX-HOOK: AWG — allocate keypair/PSK/tunnel address for inline form clients.
+	if err := defaultAwgInlineClients(inbound, nil, clients); err != nil {
+		return inbound, false, err
+	}
+	// END LUCX-HOOK
 
 	needRestart := false
 	var postCommitApply func()
@@ -2230,75 +1748,19 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// Restore the stored NodeID before the port-conflict check so a node inbound
 	// stays scoped to its own node (the payload's nodeId is unreliable, often absent).
 	inbound.NodeID = oldInbound.NodeID
-	// LUCX-HOOK: tunnel inbound normalize + qWDTT single-instance guard (per host).
-	if inbound.Protocol == model.Qwdtt {
-		if err := s.checkQwdttSingle(inbound.Id, inbound.NodeID); err != nil {
-			return inbound, false, err
-		}
-		s.normalizeQwdttSettings(inbound)
+	// LUCX-HOOK: sidecar normalize + AWG subnet/client allocation.
+	if err := s.normalizeLucxSidecarsOnUpdate(inbound, oldInbound); err != nil {
+		return inbound, false, err
 	}
-	if inbound.Protocol == model.Olcrtc {
-		s.normalizeOlcrtcSettings(inbound)
-		inbound.Port = 0
-		if err := s.normalizeOlcrtcXrayPort(inbound, oldInbound.Settings); err != nil {
-			return inbound, false, err
-		}
+	if err := s.migrateAwgSettingsOnUpdate(inbound, oldInbound); err != nil {
+		return inbound, false, err
 	}
-	if inbound.Protocol == model.Mieru {
-		s.normalizeMieruSettings(inbound)
-		if cfg, ok := tunnel.MieruConfigFromInbound(inbound); ok {
-			if err := cfg.Merge().Validate(); err != nil {
-				return inbound, false, err
-			}
-		}
-		if err := s.checkMieruPortConflict(inbound, inbound.Id); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeMieruXrayPort(inbound, oldInbound.Settings); err != nil {
+	if newClients, cErr := s.GetClients(inbound); cErr == nil {
+		existingClients, _ := s.GetClients(oldInbound)
+		if err := defaultAwgInlineClients(inbound, existingClients, newClients); err != nil {
 			return inbound, false, err
 		}
 	}
-	if inbound.Protocol == model.TrustTunnel {
-		s.normalizeTrustTunnelSettings(inbound)
-		if err := s.checkTrustTunnelPortConflict(inbound, inbound.Id); err != nil {
-			return inbound, false, err
-		}
-		if err := s.validateTrustTunnelCert(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTrustTunnelXrayPort(inbound, oldInbound.Settings); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTrustTunnelMetricsPort(inbound, oldInbound.Settings); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Anytls {
-		s.normalizeAnytlsSettings(inbound)
-		if err := s.validateAnytlsCert(inbound); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Tproxy {
-		s.normalizeTproxySettings(inbound)
-		if err := s.validateTproxySettings(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTproxyXrayPort(inbound, oldInbound.Settings); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Cover {
-		s.normalizeCoverSettings(inbound)
-		if err := s.validateCoverSettings(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.checkSingleCover(inbound, inbound.Id); err != nil {
-			return inbound, false, err
-		}
-	}
-	inbound.Settings = tunnel.PreserveAuthSeed(oldInbound.Settings, inbound.Settings)
-	s.ensureNodeAuthSeed(inbound)
 	// END LUCX-HOOK
 	// The node assignment is the stored one, so only a protocol change can
 	// introduce one; a row adopted from a node keeps the protocol it arrived with.

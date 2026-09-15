@@ -22,9 +22,6 @@ import {
 import { InboundSchema } from '@/schemas/api/inbound';
 import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
 import type { WireguardInboundSettings } from '@/schemas/protocols/inbound/wireguard';
-// LUCX-HOOK: envelope decode helpers for the vpn:// JSON container assertions
-import { bytesFromBase64Url, inflateStored, vpnConfFromLink } from '@/lib/awg/vpnuri';
-// END LUCX-HOOK
 
 // reverse of inbound-link.ts's own toBase64Url, for asserting on the
 // decoded vpn:// payload without depending on that helper being exported.
