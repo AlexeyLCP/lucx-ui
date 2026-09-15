@@ -255,7 +255,21 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 	// A re-created email is a live identity again: a delete tombstone left
 	// standing makes the next node merge prune the new client's inbound links.
 	withdrawClientTombstones(client.Email)
-	return needRestart, s.setClientLimitHwidByEmail(nil, client.Email, payload.LimitHwid)
+	if err := s.setClientLimitHwidByEmail(nil, client.Email, payload.LimitHwid); err != nil {
+		return needRestart, err
+	}
+	if rec, recErr := s.GetRecordByEmail(nil, client.Email); recErr == nil {
+		if err := s.persistIntendedFlow(rec.Id, client.Flow); err != nil {
+			return needRestart, err
+		}
+	}
+	return needRestart, nil
+}
+
+func (s *ClientService) persistIntendedFlow(id int, flow string) error {
+	return database.GetDB().Model(&model.ClientRecord{}).
+		Where("id = ?", id).
+		UpdateColumn("flow", flow).Error
 }
 
 // inboundFanoutConcurrency caps how many inbounds one client op applies at
@@ -749,6 +763,9 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 	needRestart, applyErr := fanoutInboundApplies(applies)
 	if applyErr != nil {
 		return needRestart, applyErr
+	}
+	if err := s.persistIntendedFlow(id, updated.Flow); err != nil {
+		return needRestart, err
 	}
 
 	// UpdateInboundClient renames the record atomically with each inbound's
