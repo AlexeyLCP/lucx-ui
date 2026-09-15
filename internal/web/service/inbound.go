@@ -1403,7 +1403,7 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 	// A routed mtproto inbound is not an Xray inbound itself, so the runtime
 	// push above only (re)starts the mtg sidecar. The egress SOCKS bridge lives
 	// in the generated config, so force a regen to wire it in.
-	if mtprotoRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) || lucxRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -1512,7 +1512,7 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 		}
 	}
 	// Drop the egress SOCKS bridge a routed mtproto inbound left in the config.
-	if mtprotoRoutesThroughXray(&ib) {
+	if mtprotoRoutesThroughXray(&ib) || lucxRoutesThroughXray(&ib) {
 		needRestart = true
 	}
 	return needRestart, nil
@@ -1663,7 +1663,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		return false, nil
 	}
 
-	if mtprotoRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) || lucxRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -1776,6 +1776,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// inbound keeps a stable egress port (reusing the one already stored).
 	oldProtocol := oldInbound.Protocol
 	oldRoutedMtproto := mtprotoRoutesThroughXray(oldInbound)
+	oldRoutedLucx := lucxRoutesThroughXray(oldInbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
@@ -2004,7 +2005,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// (Re)generate the Xray config whenever routing was or is now enabled, so
 		// the egress SOCKS bridge is added, moved, or dropped to match the new
 		// settings.
-		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto {
+		if mtprotoRoutesThroughXray(inbound) || lucxRoutesThroughXray(inbound) || oldRoutedMtproto || oldRoutedLucx {
 			needRestart = true
 		}
 		return nil

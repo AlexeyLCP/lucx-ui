@@ -582,6 +582,8 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 			inboundSvc.applyLocalMtproto(oldInbound.Id)
 		} else if oldInbound.Protocol == model.AmneziaWG {
 			inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
+			inboundSvc.applyLocalNaive(oldInbound.Id)
+			inboundSvc.applyLocalAwg(oldInbound.Id)
 		} else if oldInbound.Protocol == model.TUIC {
 			inboundSvc.applyLocalTuic(oldInbound.Id)
 		} else {
@@ -1013,6 +1015,8 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 				inboundSvc.applyLocalMtproto(oldInbound.Id)
 			} else if oldInbound.Protocol == model.AmneziaWG {
 				inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
+				inboundSvc.applyLocalNaive(oldInbound.Id)
+				inboundSvc.applyLocalAwg(oldInbound.Id)
 			} else if oldInbound.Protocol == model.TUIC {
 				inboundSvc.applyLocalTuic(oldInbound.Id)
 			} else {
@@ -1199,6 +1203,8 @@ func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inbo
 				// Same reasoning as MTProto above: the interface config is
 				// regenerated from the full peer set, so any delete re-applies it.
 				inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
+				inboundSvc.applyLocalNaive(oldInbound.Id)
+				inboundSvc.applyLocalAwg(oldInbound.Id)
 			} else if oldInbound.Protocol == model.TUIC {
 				inboundSvc.applyLocalTuic(oldInbound.Id)
 			} else if needApiDel {
