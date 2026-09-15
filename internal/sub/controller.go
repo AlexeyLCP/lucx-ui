@@ -24,6 +24,8 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
 
+const subMihomoPath = "/mihomo/"
+
 // writeSubError translates a service-layer result into an HTTP response.
 // A nil error with no rows means the subId doesn't match anything (deleted
 // client, never-existed id) and becomes 404. A real error becomes 500. No

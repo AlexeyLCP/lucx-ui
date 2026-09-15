@@ -954,7 +954,6 @@ func TestBuildWireguardProxyForClash(t *testing.T) {
 		Email:        "user",
 		PrivateKey:   clientPriv,
 		PreSharedKey: "psk-value",
-		KeepAlive:    model.KeepAlivePtr(25),
 		KeepAlive:    "25",
 		AllowedIPs:   []string{"10.0.0.2/32", "fd00::2/128"},
 	}
@@ -1207,8 +1206,8 @@ func TestBuildAmneziaWGProxyForClashNoKey(t *testing.T) {
 	}
 	client := model.Client{Email: "user"}
 
-	if proxy := svc.buildAmneziaWGProxy(svc.SubService, inbound, client, nil); proxy != nil {
-		t.Fatalf("buildAmneziaWGProxy = %v, want nil for a keyless amneziawg client", proxy)
+	if proxy := svc.buildProxy(svc.SubService, inbound, client, map[string]any{}, nil); proxy != nil {
+		t.Fatalf("buildProxy(amneziawg) = %v, want nil for a keyless amneziawg client", proxy)
 	}
 }
 

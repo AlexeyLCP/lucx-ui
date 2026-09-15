@@ -26,6 +26,102 @@ func NewSubClashService(enableRouting bool, clashRules string, subService *SubSe
 	return &SubClashService{enableRouting: enableRouting, clashRules: clashRules, SubService: subService}
 }
 
+func legacyClashProxies(proxies []map[string]any) []map[string]any {
+	compatible := make([]map[string]any, 0, len(proxies))
+	for _, proxy := range proxies {
+		if filtered := legacyClashProxy(proxy); filtered != nil {
+			compatible = append(compatible, filtered)
+		}
+	}
+	return compatible
+}
+
+func legacyClashProxy(proxy map[string]any) map[string]any {
+	proxyType, _ := proxy["type"].(string)
+	network, _ := proxy["network"].(string)
+	if _, reality := proxy["reality-opts"]; reality {
+		return nil
+	}
+
+	var fields []string
+	var cipher string
+	switch proxyType {
+	case "vmess":
+		if !legacyClashNetwork(network) || !legacyVmessCipher(proxy["cipher"]) {
+			return nil
+		}
+		fields = []string{
+			"name", "type", "server", "port", "uuid", "alterId", "cipher", "udp",
+			"network", "tls", "skip-cert-verify", "servername", "grpc-opts", "ws-opts",
+		}
+	case "trojan":
+		tls, _ := proxy["tls"].(bool)
+		if !tls || !legacyClashNetwork(network) {
+			return nil
+		}
+		fields = []string{
+			"name", "type", "server", "port", "password", "alpn", "sni", "skip-cert-verify",
+			"udp", "network", "grpc-opts", "ws-opts",
+		}
+	case "ss":
+		tls, _ := proxy["tls"].(bool)
+		cipher = legacyShadowsocksCipher(proxy["cipher"])
+		if (network != "" && network != "tcp") || tls || cipher == "" {
+			return nil
+		}
+		fields = []string{"name", "type", "server", "port", "password", "cipher", "udp", "plugin", "plugin-opts"}
+	default:
+		return nil
+	}
+
+	filtered := make(map[string]any, len(fields))
+	for _, field := range fields {
+		if value, exists := proxy[field]; exists {
+			filtered[field] = value
+		}
+	}
+	if proxyType == "ss" {
+		filtered["cipher"] = cipher
+	}
+	return filtered
+}
+
+func legacyClashNetwork(network string) bool {
+	switch network {
+	case "", "tcp", "ws", "grpc":
+		return true
+	default:
+		return false
+	}
+}
+
+func legacyVmessCipher(value any) bool {
+	cipher, _ := value.(string)
+	switch strings.ToLower(strings.TrimSpace(cipher)) {
+	case "auto", "aes-128-gcm", "chacha20-poly1305", "none":
+		return true
+	default:
+		return false
+	}
+}
+
+func legacyShadowsocksCipher(value any) string {
+	cipher, _ := value.(string)
+	cipher = strings.ToLower(strings.TrimSpace(cipher))
+	switch cipher {
+	case "chacha20-poly1305":
+		return "chacha20-ietf-poly1305"
+	case "aes-128-gcm", "aes-192-gcm", "aes-256-gcm",
+		"aes-128-cfb", "aes-192-cfb", "aes-256-cfb",
+		"aes-128-ctr", "aes-192-ctr", "aes-256-ctr",
+		"rc4-md5", "chacha20-ietf", "xchacha20",
+		"chacha20-ietf-poly1305", "xchacha20-ietf-poly1305":
+		return cipher
+	default:
+		return ""
+	}
+}
+
 func (s *SubClashService) GetClash(subId string, host string) (string, string, error) {
 	subReq := s.SubService.ForRequest(host)
 	subReq.subscriptionBody = true
