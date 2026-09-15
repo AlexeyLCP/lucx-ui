@@ -1230,8 +1230,7 @@
       "bulkAdTagHint": "输入 32 位十六进制标签以设置，或输入 'none' 清除 MTProto 赞助频道。",
       "awgEmptyHint": "AWG 密钥就是 AmneziaWG 入站上的客户端。先添加入站（协议 AmneziaWG），再添加客户端并打开 QR / .conf。",
       "awgConfig": "AWG 配置",
-      "awgExportVersion": "客户端配置版本",
-      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
+      "awgExportVersion": "客户端配置版本"
     },
     "groups": {
       "name": "名称",

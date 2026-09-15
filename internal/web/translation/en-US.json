@@ -1230,8 +1230,7 @@
       "bulkAdTagHint": "Enter a 32-character hex tag to set, or 'none' to clear sponsor channel on MTProto inbounds.",
       "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "awgConfig": "AWG config",
-      "awgExportVersion": "Client config version",
-      "subAwgVpnHint": "vpn:// body for this inbound"
+      "awgExportVersion": "Client config version"
     },
     "groups": {
       "name": "Name",

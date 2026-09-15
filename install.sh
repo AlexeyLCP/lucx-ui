@@ -1934,6 +1934,9 @@ install_x-ui() {
     fi
     chmod +x x-ui
     chmod +x x-ui.sh
+    # LUCX-HOOK: geo before panel start. Slim tarball left first start without .dat.
+    lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    # END LUCX-HOOK
 
     # Check the system's architecture and rename the file accordingly.
     # The panel binary maps GOARCH=arm to "arm32" (internal/xray/process.go),

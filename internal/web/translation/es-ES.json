@@ -1230,8 +1230,7 @@
       "bulkAdTagHint": "Introduce una etiqueta hexadecimal de 32 caracteres para asignar, o 'none' para borrarla en MTProto.",
       "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "awgConfig": "Configuración AWG",
-      "awgExportVersion": "Versión de configuración del cliente",
-      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
+      "awgExportVersion": "Versión de configuración del cliente"
     },
     "groups": {
       "name": "Nombre",

@@ -1230,8 +1230,7 @@
       "bulkAdTagHint": "輸入 32 位十六進位標籤以設定，或輸入 'none' 清除 MTProto 贊助頻道。",
       "awgEmptyHint": "AWG 金鑰就是 AmneziaWG 入站上的用戶端。先新增入站（協定 AmneziaWG），再新增用戶端並開啟 QR / .conf。",
       "awgConfig": "AWG 設定",
-      "awgExportVersion": "客戶端設定版本",
-      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
+      "awgExportVersion": "客戶端設定版本"
     },
     "groups": {
       "name": "名稱",

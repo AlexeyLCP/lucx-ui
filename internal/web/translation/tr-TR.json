@@ -1230,8 +1230,7 @@
       "bulkAdTagHint": "Aramak için 32 karakterlik onaltılık etiket girin veya MTProto üzerinde temizlemek için 'none' yazın.",
       "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "awgConfig": "AWG yapılandırması",
-      "awgExportVersion": "İstemci yapılandırma sürümü",
-      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
+      "awgExportVersion": "İstemci yapılandırma sürümü"
     },
     "groups": {
       "name": "İsim",

@@ -1230,8 +1230,7 @@
       "bulkAdTagHint": "Nhập thẻ hex 32 ký tự để đặt hoặc 'none' để xóa kênh tài trợ trên MTProto.",
       "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "awgConfig": "Cấu hình AWG",
-      "awgExportVersion": "Phiên bản cấu hình client",
-      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
+      "awgExportVersion": "Phiên bản cấu hình client"
     },
     "groups": {
       "name": "Tên",

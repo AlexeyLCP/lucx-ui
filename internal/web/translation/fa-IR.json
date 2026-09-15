@@ -1230,8 +1230,7 @@
       "bulkAdTagHint": "یک برچسب هگز ۳۲ کاراکتری برای تنظیم وارد کنید، یا 'none' برای پاک کردن در MTProto.",
       "awgEmptyHint": "AWG keys are clients on an AmneziaWG inbound. Add inbound (protocol AmneziaWG), then Add client and open QR / .conf.",
       "awgConfig": "پیکربندی AWG",
-      "awgExportVersion": "نسخه پیکربندی کلاینت",
-      "subAwgVpnHint": "AmneziaVPN one-tap vpn:// link body"
+      "awgExportVersion": "نسخه پیکربندی کلاینت"
     },
     "groups": {
       "name": "نام",

@@ -22,14 +22,7 @@ import {
 import { InboundSchema } from '@/schemas/api/inbound';
 import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
 import type { WireguardInboundSettings } from '@/schemas/protocols/inbound/wireguard';
-
-// reverse of inbound-link.ts's own toBase64Url, for asserting on the
-// decoded vpn:// payload without depending on that helper being exported.
-function fromBase64Url(value: string): string {
-  const b64 = value.replace(/-/g, '+').replace(/_/g, '/');
-  const padded = b64 + '='.repeat((4 - (b64.length % 4)) % 4);
-  return atob(padded);
-}
+import { vpnConfFromLink } from '@/lib/awg/vpnuri';
 
 // Snapshot baseline for the share-link generators. Snapshots were locked
 // at the close of the legacy class migration — at that point each
@@ -755,22 +748,20 @@ describe('genAmneziaWGLink vpn:// scheme', () => {
     peerIndex: 0,
   };
 
-  it('wraps the .conf text as a base64url-encoded vpn:// link, byte-identical to genAmneziaWGConfig', () => {
+  it('wraps the .conf text in the Amnezia JSON container; the async decoder recovers it byte-identical', async () => {
     const link = genAmneziaWGLink(input);
     expect(link.startsWith('vpn://')).toBe(true);
 
-    const decoded = fromBase64Url(link.slice('vpn://'.length));
-    expect(decoded).toBe(genAmneziaWGConfig(input));
-    expect(decoded).toContain('PrivateKey = clientPrivKey==\n');
-    expect(decoded).toContain('PublicKey = serverPubKey==\n');
-    expect(decoded).toContain('Endpoint = awg.example.test:51820');
-    // No trailing newline: the text ends on its last set field whichever that
-    // is, so the three emitters produce the same shape for the same client.
-    expect(decoded.endsWith('PersistentKeepalive = 25')).toBe(true);
+    const conf = await vpnConfFromLink(link);
+    expect(conf).toBe(genAmneziaWGConfig(input));
+    expect(conf).toContain('PrivateKey = clientPrivKey==\n');
+    expect(conf).toContain('PublicKey = serverPubKey==\n');
+    expect(conf).toContain('Endpoint = awg.example.test:51820');
+    expect(conf.endsWith('PersistentKeepalive = 25')).toBe(true);
   });
 
-  it('omits every unset 3.1 field — a lone HeaderProtectionKey line would break the handshake', () => {
-    const decoded = fromBase64Url(genAmneziaWGLink(input).slice('vpn://'.length));
+  it('omits every unset 3.1 field — a lone HeaderProtectionKey line would break the handshake', async () => {
+    const conf = await vpnConfFromLink(genAmneziaWGLink(input));
     for (const absent of [
       'I2',
       'HeaderProtectionKey',
@@ -783,7 +774,7 @@ describe('genAmneziaWGLink vpn:// scheme', () => {
       'RandomTrailers',
       'DisableCookies',
     ]) {
-      expect(decoded).not.toContain(absent);
+      expect(conf).not.toContain(absent);
     }
   });
 
@@ -798,9 +789,10 @@ describe('genAmneziaWGLink vpn:// scheme', () => {
   // download-config affordance for AmneziaWG links, unlike WireGuard's),
   // even though every other surface in the panel (InboundInfoModal,
   // ClientInfoModal, ClientQrModal) already had parity.
-  it('amneziawgConfigFromLink round-trips genAmneziaWGLink byte-identical to genAmneziaWGConfig', () => {
+  it('sync amneziawgConfigFromLink refuses the envelope; the async decoder round-trips it', async () => {
     const link = genAmneziaWGLink(input);
-    expect(amneziawgConfigFromLink(link)).toBe(genAmneziaWGConfig(input));
+    expect(amneziawgConfigFromLink(link)).toBe('');
+    expect(await vpnConfFromLink(link)).toBe(genAmneziaWGConfig(input));
   });
 });
 
@@ -861,7 +853,7 @@ describe('genAmneziaWGConfig 3.1 parameters', () => {
     peerIndex: 0,
   };
 
-  it('emits every 3.1 line in the shared emitter order and round-trips through vpn://', () => {
+  it('emits every 3.1 line in the shared emitter order and round-trips through vpn://', async () => {
     const cfg = genAmneziaWGConfig(input);
     const expectedOrder = [
       'Jc = 4',
@@ -886,7 +878,7 @@ describe('genAmneziaWGConfig 3.1 parameters', () => {
       pos = i;
     }
     expect(cfg).not.toContain('I3');
-    expect(amneziawgConfigFromLink(genAmneziaWGLink(input))).toBe(cfg);
+    expect(await vpnConfFromLink(genAmneziaWGLink(input))).toBe(cfg);
   });
 });
 

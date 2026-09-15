@@ -1230,8 +1230,7 @@
       "bulkAdTagHint": "Введите 32-значный hex-тег для установки или 'none' для очистки спонсорского канала на MTProto.",
       "awgEmptyHint": "Ключи AWG — это клиенты на входящем AmneziaWG. Сначала Inbounds → добавить входящий (протокол AmneziaWG), затем добавить клиента и QR / .conf.",
       "awgConfig": "AWG-конфиг",
-      "awgExportVersion": "Версия конфига клиента",
-      "subAwgVpnHint": "vpn:// этого инбаунда"
+      "awgExportVersion": "Версия конфига клиента"
     },
     "groups": {
       "name": "Имя",
