@@ -196,6 +196,16 @@ export default function SubscriptionGeneralTab({
                   onChange={(v) => updateSetting({ subShowIdentityOnAllLinks: v })}
                 />
               </SettingListItem>
+              <SettingListItem
+                paddings="small"
+                title={t('pages.settings.subCalendarExpireInclusive')}
+                description={t('pages.settings.subCalendarExpireInclusiveDesc')}
+              >
+                <Switch
+                  checked={allSetting.subCalendarExpireInclusive}
+                  onChange={(v) => updateSetting({ subCalendarExpireInclusive: v })}
+                />
+              </SettingListItem>
 
               <SettingListItem
                 paddings="small"

@@ -32,17 +32,22 @@ type AllSetting struct {
 	// LUCX-HOOK: auto-delete log files older than N days (0 = disabled)
 	LogRetentionDays int `json:"logRetentionDays" form:"logRetentionDays" validate:"gte=0,lte=3650"`
 	// END LUCX-HOOK
-	SessionMaxAge     int    `json:"sessionMaxAge" form:"sessionMaxAge" validate:"gte=1,lte=525600"`
-	TrustedProxyCIDRs string `json:"trustedProxyCIDRs" form:"trustedProxyCIDRs"`
-	IpLimitAllowlist  string `json:"ipLimitAllowlist" form:"ipLimitAllowlist"`
-	PanelOutbound     string `json:"panelOutbound" form:"panelOutbound"`
+	SessionMaxAge         int    `json:"sessionMaxAge" form:"sessionMaxAge" validate:"gte=1,lte=525600"`
+	TrustedProxyCIDRs     string `json:"trustedProxyCIDRs" form:"trustedProxyCIDRs"`
+	RealityScanCandidates string `json:"realityScanCandidates" form:"realityScanCandidates"`
+	IpLimitAllowlist      string `json:"ipLimitAllowlist" form:"ipLimitAllowlist"`
+	PanelOutbound         string `json:"panelOutbound" form:"panelOutbound"`
 
-	PageSize                  int    `json:"pageSize" form:"pageSize" validate:"gte=0,lte=1000"`
-	ExpireDiff                int    `json:"expireDiff" form:"expireDiff" validate:"gte=0"`
-	TrafficDiff               int    `json:"trafficDiff" form:"trafficDiff" validate:"gte=0,lte=100"`
-	RemarkTemplate            string `json:"remarkTemplate" form:"remarkTemplate"`
-	SubShowIdentityOnAllLinks bool   `json:"subShowIdentityOnAllLinks" form:"subShowIdentityOnAllLinks"`
-	Datepicker                string `json:"datepicker" form:"datepicker"`
+	PageSize                   int    `json:"pageSize" form:"pageSize" validate:"gte=0,lte=1000"`
+	ExpireDiff                 int    `json:"expireDiff" form:"expireDiff" validate:"gte=0"`
+	TrafficDiff                int    `json:"trafficDiff" form:"trafficDiff" validate:"gte=0,lte=100"`
+	RemarkTemplate             string `json:"remarkTemplate" form:"remarkTemplate"`
+	SubShowIdentityOnAllLinks  bool   `json:"subShowIdentityOnAllLinks" form:"subShowIdentityOnAllLinks"`
+	SubInfoNodeEnable          bool   `json:"subInfoNodeEnable" form:"subInfoNodeEnable"`
+	SubCalendarExpireInclusive bool   `json:"subCalendarExpireInclusive" form:"subCalendarExpireInclusive"`
+	SubExpiredTemplate         string `json:"subExpiredTemplate" form:"subExpiredTemplate"`
+	SubTrafficDepletedTemplate string `json:"subTrafficDepletedTemplate" form:"subTrafficDepletedTemplate"`
+	Datepicker                 string `json:"datepicker" form:"datepicker"`
 
 	TgBotEnable     bool   `json:"tgBotEnable" form:"tgBotEnable"`
 	TgBotToken      string `json:"tgBotToken" form:"tgBotToken"`
@@ -86,6 +91,7 @@ type AllSetting struct {
 	TwoFactorEnable bool   `json:"twoFactorEnable" form:"twoFactorEnable"`
 	TwoFactorToken  string `json:"twoFactorToken" form:"twoFactorToken"`
 
+	HappLinkEnable         bool   `json:"happLinkEnable" form:"happLinkEnable"`
 	SubEnable              bool   `json:"subEnable" form:"subEnable"`
 	SubJsonEnable          bool   `json:"subJsonEnable" form:"subJsonEnable"`
 	SubJsonAutoDetect      bool   `json:"subJsonAutoDetect" form:"subJsonAutoDetect"`
@@ -128,12 +134,38 @@ type AllSetting struct {
 	SubAwgPath   string `json:"subAwgPath" form:"subAwgPath"`
 	SubAwgURI    string `json:"subAwgURI" form:"subAwgURI"`
 	// END LUCX-HOOK
-	SubJsonMux         string `json:"subJsonMux" form:"subJsonMux"`
-	SubJsonRules       string `json:"subJsonRules" form:"subJsonRules"`
-	SubJsonFinalMask   string `json:"subJsonFinalMask" form:"subJsonFinalMask"`
-	SubJsonObservatory string `json:"subJsonObservatory" form:"subJsonObservatory"`
-	SubThemeDir        string `json:"subThemeDir" form:"subThemeDir"`
-	SubHideSettings    bool   `json:"subHideSettings" form:"subHideSettings"`
+	SubJsonMux          string `json:"subJsonMux" form:"subJsonMux"`
+	SubJsonRules        string `json:"subJsonRules" form:"subJsonRules"`
+	SubJsonRoutingRules string `json:"subJsonRoutingRules" form:"subJsonRoutingRules"`
+	SubJsonDns          string `json:"subJsonDns" form:"subJsonDns"`
+	SubJsonFinalMask    string `json:"subJsonFinalMask" form:"subJsonFinalMask"`
+	SubJsonObservatory  string `json:"subJsonObservatory" form:"subJsonObservatory"`
+	SubThemeDir         string `json:"subThemeDir" form:"subThemeDir"`
+	SubHideSettings     bool   `json:"subHideSettings" form:"subHideSettings"`
+
+	SubHappAutoDetect          bool   `json:"subHappAutoDetect" form:"subHappAutoDetect"`
+	SubHappProviderId          string `json:"subHappProviderId" form:"subHappProviderId"`
+	SubHappNewUrl              string `json:"subHappNewUrl" form:"subHappNewUrl"`
+	SubHappFallbackUrl         string `json:"subHappFallbackUrl" form:"subHappFallbackUrl"`
+	SubHappSubInfoColor        string `json:"subHappSubInfoColor" form:"subHappSubInfoColor"`
+	SubHappSubInfoText         string `json:"subHappSubInfoText" form:"subHappSubInfoText"`
+	SubHappSubInfoButtonText   string `json:"subHappSubInfoButtonText" form:"subHappSubInfoButtonText"`
+	SubHappSubInfoButtonLink   string `json:"subHappSubInfoButtonLink" form:"subHappSubInfoButtonLink"`
+	SubHappSubExpire           bool   `json:"subHappSubExpire" form:"subHappSubExpire"`
+	SubHappSubExpireButtonLink string `json:"subHappSubExpireButtonLink" form:"subHappSubExpireButtonLink"`
+	SubHappNotificationExpire  bool   `json:"subHappNotificationExpire" form:"subHappNotificationExpire"`
+	SubHappNoLimit             bool   `json:"subHappNoLimit" form:"subHappNoLimit"`
+	SubHappAlwaysHwid          bool   `json:"subHappAlwaysHwid" form:"subHappAlwaysHwid"`
+	SubHappTunMode             string `json:"subHappTunMode" form:"subHappTunMode"`
+	SubHappTunType             string `json:"subHappTunType" form:"subHappTunType"`
+	SubHappExcludeRoutes       string `json:"subHappExcludeRoutes" form:"subHappExcludeRoutes"`
+	SubHappExcludeApns         bool   `json:"subHappExcludeApns" form:"subHappExcludeApns"`
+	SubHappColorProfile        string `json:"subHappColorProfile" form:"subHappColorProfile"`
+	SubHappPingType            string `json:"subHappPingType" form:"subHappPingType"`
+	SubHappAutoConnect         bool   `json:"subHappAutoConnect" form:"subHappAutoConnect"`
+	SubHappAutoConnectType     string `json:"subHappAutoConnectType" form:"subHappAutoConnectType"`
+	SubHappPerAppMode          string `json:"subHappPerAppMode" form:"subHappPerAppMode"`
+	SubHappPerAppList          string `json:"subHappPerAppList" form:"subHappPerAppList"`
 
 	LdapEnable             bool   `json:"ldapEnable" form:"ldapEnable"`
 	LdapHost               string `json:"ldapHost" form:"ldapHost"`

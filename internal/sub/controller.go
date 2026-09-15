@@ -54,6 +54,7 @@ type SUBController struct {
 	subRoutingRules  string
 	subRoutingSource string // LUCX-HOOK: RoscomVPN Happ profile source
 	subHideSettings  bool
+	happConfig       HappConfig
 
 	subIncyEnableRouting bool
 	subIncyRoutingRules  string
@@ -121,6 +122,7 @@ type subControllerConfig struct {
 	subRoutingRules  string
 	subRoutingSource string // LUCX-HOOK
 	subHideSettings  bool
+	happConfig       HappConfig
 
 	subIncyEnableRouting bool
 	subIncyRoutingRules  string
@@ -258,6 +260,10 @@ func WithSUBHideSettings(value bool) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subHideSettings = value }
 }
 
+func WithSUBHappConfig(value HappConfig) SUBControllerOption {
+	return func(config *subControllerConfig) { config.happConfig = value }
+}
+
 func WithSUBIncyEnableRouting(value bool) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subIncyEnableRouting = value }
 }
@@ -298,6 +304,7 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 		subRoutingRules:  config.subRoutingRules,
 		subRoutingSource: config.subRoutingSource,
 		subHideSettings:  config.subHideSettings,
+		happConfig:       config.happConfig,
 
 		subIncyEnableRouting: config.subIncyEnableRouting,
 		subIncyRoutingRules:  config.subIncyRoutingRules,
@@ -945,8 +952,11 @@ func (a *SUBController) ApplyCommonHeaders(
 	// Advanced (Happ). LUCX-HOOK: resolve RoscomVPN profile sources
 	// (default/jsonsub/whitelist) into the Routing header; custom keeps free-text.
 	// Upstream remote routing is used when the source is custom/empty.
+	happManaged := a.happConfig.AutoDetect && c.Request != nil && IsHappClient(c.GetHeader("User-Agent"))
 	if profileEnableRouting {
 		c.Writer.Header().Set("Routing-Enable", "true")
+	} else if happManaged {
+		c.Writer.Header().Set("Routing-Enable", "0")
 	}
 	src := strings.TrimSpace(a.subRoutingSource)
 	var rules string
@@ -964,5 +974,8 @@ func (a *SUBController) ApplyCommonHeaders(
 	// END LUCX-HOOK
 	if profileHideSettings {
 		c.Writer.Header().Set("Hide-Settings", "1")
+	} else if happManaged {
+		c.Writer.Header().Set("Hide-Settings", "0")
 	}
+	ApplyHappHeaders(c, a.happConfig, happManaged)
 }

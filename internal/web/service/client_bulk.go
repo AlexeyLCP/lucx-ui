@@ -281,7 +281,7 @@ var bulkFlowAllowed = map[string]struct{}{
 // Like BulkDelete, the work is grouped by inbound so each inbound's
 // settings JSON is parsed and written exactly once regardless of how
 // many target emails it contains.
-func (s *ClientService) BulkAdjust(inboundSvc *InboundService, emails []string, addDays int, addBytes int64, flow string) (BulkAdjustResult, bool, error) {
+func (s *ClientService) BulkAdjust(inboundSvc *InboundService, emails []string, addDays int, addBytes int64, flow string, limitHwid *int, adTag string) (BulkAdjustResult, bool, error) {
 	result := BulkAdjustResult{}
 	if len(emails) == 0 {
 		return result, false, nil
@@ -290,8 +290,18 @@ func (s *ClientService) BulkAdjust(inboundSvc *InboundService, emails []string, 
 	if _, ok := bulkFlowAllowed[flow]; !ok {
 		flow = "" // ignore unknown directives — "" means "leave flow untouched"
 	}
+	adTag = strings.TrimSpace(adTag)
+	if adTag != "" && adTag != bulkFlowClear && !model.ValidMtprotoAdTag(adTag) {
+		return result, false, common.NewError("mtproto client ad tag must be 32 hex characters")
+	}
+	if limitHwid != nil && *limitHwid < 0 {
+		zero := 0
+		limitHwid = &zero
+	}
 	adjustFlow := flow != ""
-	if addDays == 0 && addBytes == 0 && !adjustFlow {
+	adjustHwid := limitHwid != nil
+	adjustAdTag := adTag != ""
+	if addDays == 0 && addBytes == 0 && !adjustFlow && !adjustHwid && !adjustAdTag {
 		return result, false, common.NewError("no adjustment specified")
 	}
 
@@ -483,9 +493,27 @@ func (s *ClientService) BulkAdjust(inboundSvc *InboundService, emails []string, 
 				continue
 			}
 		}
-		// Counted when expiry/total changed, or a flow directive was honored
-		// for this client (flow lives in the inbound JSON, not ClientTraffic).
-		if len(updates) > 0 || flowHonored[email] {
+		if adjustHwid {
+			if err := s.setClientLimitHwidByEmail(db, email, *limitHwid); err != nil {
+				if _, already := skippedReasons[email]; !already {
+					skippedReasons[email] = err.Error()
+				}
+				continue
+			}
+		}
+		if adjustAdTag {
+			wantAdTag := ""
+			if adTag != bulkFlowClear {
+				wantAdTag = strings.ToLower(adTag)
+			}
+			if err := db.Model(&model.ClientRecord{}).Where("email = ?", email).UpdateColumn("ad_tag", wantAdTag).Error; err != nil {
+				if _, already := skippedReasons[email]; !already {
+					skippedReasons[email] = err.Error()
+				}
+				continue
+			}
+		}
+		if len(updates) > 0 || flowHonored[email] || adjustHwid || adjustAdTag {
 			adjusted[email] = struct{}{}
 		}
 	}

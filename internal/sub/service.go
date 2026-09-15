@@ -48,10 +48,15 @@ type SubService struct {
 	subscriptionBody bool
 	// usageShown emits info once per subscription identity, including twins.
 	// PrepareForRequest resets this per-request state.
-	usageShown             map[string]bool
-	showIdentityOnAllLinks bool
-	inboundService         service.InboundService
-	settingService         service.SettingService
+	usageShown                 map[string]bool
+	showIdentityOnAllLinks     bool
+	subInfoNodeEnable          bool
+	subCalendarExpireInclusive bool
+	calendarExpireLocation     *time.Location
+	subExpiredTemplate         string
+	subTrafficDepletedTemplate string
+	inboundService             service.InboundService
+	settingService             service.SettingService
 	// nodesByID is populated per request from the Node table so
 	// resolveInboundAddress can return the node's address for any
 	// inbound whose NodeID is set. Keeps the per-link host derivation
@@ -111,6 +116,11 @@ func (s *SubService) PrepareForRequest(host string) {
 	s.settingsByInbound = map[int]map[string]any{}
 	s.loadNodes()
 	s.loadRemarkSettings()
+	s.subCalendarExpireInclusive, _ = s.settingService.GetSubCalendarExpireInclusive()
+	s.calendarExpireLocation = nil
+	if s.subCalendarExpireInclusive {
+		s.calendarExpireLocation, _ = s.settingService.GetTimeLocation()
+	}
 }
 
 // primeLinkClients caches clients (first occurrence per email, matching the
@@ -201,14 +211,29 @@ func (s *SubService) linkSettings(inbound *model.Inbound) map[string]any {
 // (the date formatter reads datepicker). Loading it only in getSubs left
 // JSON/Clash with the zero value.
 func (s *SubService) loadRemarkSettings() {
-	var err error
-	s.datepicker, err = s.settingService.GetDatepicker()
-	if err != nil {
+	if s.datepicker == "" {
 		s.datepicker = "gregorian"
 	}
-	s.showIdentityOnAllLinks, err = s.settingService.GetSubShowIdentityOnAllLinks()
-	if err != nil {
-		s.showIdentityOnAllLinks = false
+	if s.subExpiredTemplate == "" {
+		s.subExpiredTemplate = service.DefaultSubExpiredTemplate
+	}
+	if s.subTrafficDepletedTemplate == "" {
+		s.subTrafficDepletedTemplate = service.DefaultSubTrafficDepletedTemplate
+	}
+	if datepicker, err := s.settingService.GetDatepicker(); err == nil && datepicker != "" {
+		s.datepicker = datepicker
+	}
+	if enabled, err := s.settingService.GetSubShowIdentityOnAllLinks(); err == nil && enabled {
+		s.showIdentityOnAllLinks = enabled
+	}
+	if enabled, err := s.settingService.GetSubInfoNodeEnable(); err == nil && enabled {
+		s.subInfoNodeEnable = enabled
+	}
+	if tmpl, err := s.settingService.GetSubExpiredTemplate(); err == nil && tmpl != "" {
+		s.subExpiredTemplate = tmpl
+	}
+	if tmpl, err := s.settingService.GetSubTrafficDepletedTemplate(); err == nil && tmpl != "" {
+		s.subTrafficDepletedTemplate = tmpl
 	}
 }
 
@@ -290,6 +315,70 @@ func (s *SubService) RecordSubscriptionFetch(subId string) error {
 	return database.GetDB().Model(&xray.ClientTraffic{}).
 		Where("email IN (SELECT email FROM clients WHERE sub_id = ?)", subId).
 		Update("last_sub_fetch", time.Now().UnixMilli()).Error
+}
+
+type infoNodeMode int
+
+const (
+	infoNodeNone infoNodeMode = iota
+	infoNodeActive
+	infoNodeExpired
+	infoNodeDepleted
+)
+
+func (s *SubService) resolveInfoNodeRemark(subId string, uniqueEmails []string, traffic xray.ClientTraffic, hasEntries bool) (infoNodeMode, string) {
+	if !s.subInfoNodeEnable || !s.subscriptionBody {
+		return infoNodeNone, ""
+	}
+	nowSec := time.Now().Unix()
+	isExpired := traffic.ExpiryTime > 0 && traffic.ExpiryTime/1000 <= nowSec
+	isDepleted := traffic.Total > 0 && (traffic.Up+traffic.Down) >= traffic.Total
+
+	primaryEmail := ""
+	if len(uniqueEmails) > 0 {
+		primaryEmail = uniqueEmails[0]
+	}
+	ctx := remarkContext{
+		client: model.Client{Email: primaryEmail, SubID: subId},
+		stats:  traffic,
+	}
+
+	if isExpired {
+		tmpl := s.subExpiredTemplate
+		if tmpl == "" {
+			tmpl = service.DefaultSubExpiredTemplate
+		}
+		remark := expandRemarkVars(tmpl, ctx)
+		if strings.TrimSpace(remark) == "" {
+			remark = "Expired"
+		}
+		return infoNodeExpired, remark
+	}
+
+	if isDepleted {
+		tmpl := s.subTrafficDepletedTemplate
+		if tmpl == "" {
+			tmpl = service.DefaultSubTrafficDepletedTemplate
+		}
+		remark := expandRemarkVars(tmpl, ctx)
+		if strings.TrimSpace(remark) == "" {
+			remark = "Traffic Depleted"
+		}
+		return infoNodeDepleted, remark
+	}
+
+	if hasEntries {
+		tmpl := s.remarkTemplate
+		if tmpl == "" {
+			tmpl = service.DefaultRemarkTemplate
+		}
+		remark := expandRemarkVars(tmpl, ctx)
+		if strings.TrimSpace(remark) != "" {
+			return infoNodeActive, remark
+		}
+	}
+
+	return infoNodeNone, ""
 }
 
 // GetSubs retrieves subscription links for a given subscription ID and host.
