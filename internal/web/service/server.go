@@ -367,13 +367,13 @@ func (s *ServerService) AggregateSystemMetric(metric string, bucketSeconds int, 
 }
 
 type LogEntry struct {
-	DateTime    time.Time `json:"DateTime" example:"2025-01-01T12:00:00Z"`
-	FromAddress string    `json:"FromAddress" example:"192.0.2.10:54321"`
-	ToAddress   string    `json:"ToAddress" example:"example.com:443"`
-	Inbound     string    `json:"Inbound" example:"inbound-443"`
-	Outbound    string    `json:"Outbound" example:"direct"`
-	Email       string    `json:"Email" example:"alice@example.com"`
-	Event       int       `json:"Event" example:"0"`
+	DateTime    time.Time `json:"dateTime" example:"2025-01-01T12:00:00Z"`
+	FromAddress string    `json:"fromAddress" example:"192.0.2.10:54321"`
+	ToAddress   string    `json:"toAddress" example:"example.com:443"`
+	Inbound     string    `json:"inbound" example:"inbound-443"`
+	Outbound    string    `json:"outbound" example:"direct"`
+	Email       string    `json:"email" example:"alice@example.com"`
+	Event       int       `json:"event" example:"0"`
 }
 
 type NewUUIDResponse struct {

@@ -354,10 +354,13 @@ type InboundOption struct {
 	AwgServer  *amneziawg.ServerSettings `json:"awgServer,omitempty"`
 	TuicServer *tuic.TuicServerSettings  `json:"tuicServer,omitempty"`
 	// LUCX-HOOK: kernel AWG QR/.conf hints (userspace AmneziaWG uses AwgServer).
+	// AwgPeerAddresses maps client email to first single-host AllowedIPs for THIS inbound.
 	AwgObfuscation   string            `json:"awgObfuscation,omitempty"`
 	AwgPeerAddresses map[string]string `json:"awgPeerAddresses,omitempty"`
-	AwgServerAddress string            `json:"awgServerAddress,omitempty"`
-	AwgVersion       string            `json:"awgVersion,omitempty"`
+	// AWG obfuscation block plus the server tunnel address for clients-page QR/.conf.
+	AwgServerAddress string `json:"awgServerAddress,omitempty"`
+	// AwgVersion is the inbound's AWG protocol version ("1.5"/"2"/"3"); empty is "2".
+	AwgVersion string `json:"awgVersion,omitempty"`
 	// Hosting node; nil for this panel's own inbounds. Lets the clients
 	// page map a node filter onto inbound IDs (#4997).
 	NodeId *int `json:"nodeId,omitempty"`
