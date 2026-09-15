@@ -34,7 +34,6 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
-	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -368,13 +367,27 @@ func (s *ServerService) AggregateSystemMetric(metric string, bucketSeconds int, 
 }
 
 type LogEntry struct {
-	DateTime    time.Time
-	FromAddress string
-	ToAddress   string
-	Inbound     string
-	Outbound    string
-	Email       string
-	Event       int
+	DateTime    time.Time `json:"DateTime" example:"2025-01-01T12:00:00Z"`
+	FromAddress string    `json:"FromAddress" example:"192.0.2.10:54321"`
+	ToAddress   string    `json:"ToAddress" example:"example.com:443"`
+	Inbound     string    `json:"Inbound" example:"inbound-443"`
+	Outbound    string    `json:"Outbound" example:"direct"`
+	Email       string    `json:"Email" example:"alice@example.com"`
+	Event       int       `json:"Event" example:"0"`
+}
+
+type NewUUIDResponse struct {
+	UUID string `json:"uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
+}
+
+type MLDSA65Response struct {
+	Seed   string `json:"seed" example:"mldsa65-seed"`
+	Verify string `json:"verify" example:"mldsa65-verify"`
+}
+
+type MLKEM768Response struct {
+	Seed   string `json:"seed" example:"mlkem768-seed"`
+	Client string `json:"client" example:"mlkem768-client"`
 }
 
 func getPublicIP(url string) string {
@@ -651,6 +664,7 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	}
 	status.AmneziaWG.Configured = amneziawgCount > 0
 	status.AmneziaWG.Running = amneziawgnet.GetManager().HasRunning()
+
 	status.PanelVersion = config.GetPanelVersion()
 	if guid, err := s.settingService.GetPanelGuid(); err == nil {
 		status.PanelGuid = guid
@@ -1303,34 +1317,6 @@ func amneziawgLogActivity() []PeerActivity {
 			})
 		}
 	}
-	for _, lp := range awg.GetManager().LivePeers() {
-		var handshakeMs int64
-		online := false
-		if lp.LastHandshake > 0 {
-			handshakeMs = lp.LastHandshake * 1000
-			if handshakeMs > 1e12 {
-				handshakeMs = lp.LastHandshake
-			}
-			hs := time.Unix(lp.LastHandshake, 0)
-			if lp.LastHandshake > 1e12 {
-				hs = time.UnixMilli(lp.LastHandshake)
-			}
-			online = now.Sub(hs) < amneziawgOnlineWindow
-		}
-		out = append(out, PeerActivity{
-			Interface:  lp.Ifname,
-			Tag:        lp.Tag,
-			InboundId:  lp.InboundId,
-			Email:      lp.Email,
-			Endpoint:   lp.Endpoint,
-			AllowedIPs: lp.AllowedIPs,
-			Handshake:  handshakeMs,
-			Up:         lp.Rx,
-			Down:       lp.Tx,
-			Online:     online,
-		})
-	}
-
 	slices.SortFunc(out, func(a, b PeerActivity) int {
 		if a.Handshake != b.Handshake {
 			return cmp.Compare(b.Handshake, a.Handshake)
@@ -1350,7 +1336,7 @@ func (s *ServerService) GetAmneziaWGLogs(count string, filter string) *AmneziaWG
 	}
 	needle := strings.ToLower(strings.TrimSpace(filter))
 
-	logs := &AmneziaWGLogs{Peers: []PeerActivity{}, Events: []string{}, Running: amneziawgnet.GetManager().HasRunning() || awg.GetManager().HasRunning()}
+	logs := &AmneziaWGLogs{Peers: []PeerActivity{}, Events: []string{}, Running: amneziawgnet.GetManager().HasRunning()}
 
 	for _, peer := range amneziawgLogActivity() {
 		if len(logs.Peers) >= limit {
@@ -1366,8 +1352,7 @@ func (s *ServerService) GetAmneziaWGLogs(count string, filter string) *AmneziaWG
 		if len(logs.Events) >= limit {
 			break
 		}
-		low := strings.ToLower(line)
-		if !strings.Contains(low, amneziawgEventMarker) && !strings.Contains(low, "awg:") && !strings.Contains(line, "[LUCX-AWG]") {
+		if !strings.Contains(strings.ToLower(line), amneziawgEventMarker) {
 			continue
 		}
 		if needle != "" && !strings.Contains(strings.ToLower(line), needle) {
@@ -2215,6 +2200,8 @@ func (s *ServerService) IsValidGeofileName(filename string) bool {
 	return matched
 }
 
+// Repo is the upstream release base and Asset the name it publishes under; all
+// three publish "geoip.dat", so only FileName tells the local copies apart.
 type geofileEntry struct {
 	Repo     string
 	Asset    string
@@ -2560,6 +2547,7 @@ func (s *ServerService) GetNewX25519Cert() (any, error) {
 }
 
 func (s *ServerService) GetNewmldsa65() (*MLDSA65Response, error) {
+	// Run the command
 	cmd := exec.CommandContext(context.Background(), xray.GetBinaryPath(), "mldsa65")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -2573,7 +2561,12 @@ func (s *ServerService) GetNewmldsa65() (*MLDSA65Response, error) {
 		return nil, err
 	}
 
-	return &MLDSA65Response{Seed: seed, Verify: verify}, nil
+	keyPair := &MLDSA65Response{
+		Seed:   seed,
+		Verify: verify,
+	}
+
+	return keyPair, nil
 }
 
 // GetCertHash parses a certificate (from a file path or inline PEM/DER content)
@@ -2861,20 +2854,6 @@ func vlessEncAuthID(label string) string {
 	}
 }
 
-type NewUUIDResponse struct {
-	UUID string `json:"uuid" example:"550e8400-e29b-41d4-a716-446655440000"`
-}
-
-type MLDSA65Response struct {
-	Seed   string `json:"seed" example:"mldsa65-seed"`
-	Verify string `json:"verify" example:"mldsa65-verify"`
-}
-
-type MLKEM768Response struct {
-	Seed   string `json:"seed" example:"mlkem768-seed"`
-	Client string `json:"client" example:"mlkem768-client"`
-}
-
 func (s *ServerService) GetNewUUID() (*NewUUIDResponse, error) {
 	newUUID, err := uuid.NewRandom()
 	if err != nil {
@@ -2887,6 +2866,7 @@ func (s *ServerService) GetNewUUID() (*NewUUIDResponse, error) {
 }
 
 func (s *ServerService) GetNewmlkem768() (*MLKEM768Response, error) {
+	// Run the command
 	cmd := exec.CommandContext(context.Background(), xray.GetBinaryPath(), "mlkem768")
 	var out bytes.Buffer
 	cmd.Stdout = &out
@@ -2900,5 +2880,10 @@ func (s *ServerService) GetNewmlkem768() (*MLKEM768Response, error) {
 		return nil, err
 	}
 
-	return &MLKEM768Response{Seed: seed, Client: client}, nil
+	keyPair := &MLKEM768Response{
+		Seed:   seed,
+		Client: client,
+	}
+
+	return keyPair, nil
 }

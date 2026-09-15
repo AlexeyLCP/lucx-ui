@@ -20,14 +20,14 @@ import type { HappLinkResult } from '@/generated/types';
 import { HappLinkResultSchema } from '@/generated/zod';
 import { awgVersionAtLeast, awgVersionCeiling, isPostQuantumLink } from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
+import { formatInboundLabel } from '@/lib/inbounds/label';
 import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
-import { formatInboundLabel, formatTunnelConfigMeta } from '@/lib/inbounds/label';
-import { buildSubLinks } from '@/lib/sub/links';
+import { formatTunnelConfigMeta } from '@/lib/inbounds/label';
 import {
-  buildAwgClientConfig,
   buildWireguardClientConfig,
+  buildAwgClientConfig,
   findAwgInbounds,
   findWireguardInbounds,
   isAwgClient,
@@ -46,10 +46,6 @@ interface SubSettings {
   subURI: string;
   subJsonURI: string;
   subJsonEnable: boolean;
-  subClashURI?: string;
-  subClashEnable?: boolean;
-  subAwgURI?: string;
-  subAwgEnable?: boolean;
   publicHost?: string;
 }
 
@@ -69,10 +65,6 @@ interface ApiMsg<T = unknown> {
 
 type QrVariant = 'standard' | 'happ';
 type HappError = 'too_long' | 'unavailable' | null;
-
-function isVersionAvailable(version: AwgVersion, ceiling: AwgVersion): boolean {
-  return awgVersionAtLeast(ceiling, version);
-}
 
 const HAPP_CRYPT5_PREFIX = 'happ://crypt5/';
 const HAPP_SETTINGS_PATH = '/settings?subscriptionTab=happ&happTab=links#subscription';
@@ -387,6 +379,7 @@ function ClientQrModalContent({
       .filter((c) => !!c.text);
   }, [client, awgInbounds, tunnelAllowedIPs, subSettings.publicHost]);
 
+  // LUCX-HOOK: AWG — one .conf panel per attached AWG inbound.
   const kernelAwgInbounds = useMemo(
     () => findAwgInbounds(client, inboundsById),
     [client, inboundsById],
@@ -418,6 +411,7 @@ function ClientQrModalContent({
       };
     });
   }, [client, kernelAwgInbounds, subSettings.publicHost, awgExportById]);
+  // END LUCX-HOOK
 
   const tuicInbound = useMemo(() => findTuicInbound(client, inboundsById), [client, inboundsById]);
   const tuicConfigText = useMemo(() => {
@@ -472,7 +466,6 @@ function ClientQrModalContent({
     };
   }, [open, client?.subId]);
 
-  const extraSubs = buildSubLinks(subSettings, client?.subId);
   const [activeKey, setActiveKey] = useState<string[]>([]);
 
   const items = useMemo(() => {
@@ -502,30 +495,6 @@ function ClientQrModalContent({
         key: 'subJson',
         label: `${t('subscription.title')} (JSON)`,
         children: <QrPanel value={subJsonLink} remark={`${client?.email || ''} — JSON`} />,
-      });
-    }
-    if (extraSubs.clash) {
-      out.push({
-        key: 'subClash',
-        label: (
-          <Tag color="gold" style={{ margin: 0 }}>
-            CLASH
-          </Tag>
-        ),
-        children: <QrPanel value={extraSubs.clash} remark={`${client?.email || ''} — Clash`} />,
-      });
-    }
-    if (extraSubs.amnezia && kernelAwgConfigs.length > 0) {
-      out.push({
-        key: 'subAwg',
-        label: (
-          <Tag color="magenta" style={{ margin: 0 }}>
-            AMNEZIA
-          </Tag>
-        ),
-        children: (
-          <QrPanel value={extraSubs.amnezia} remark={`${client?.email || ''} — Amnezia .conf`} />
-        ),
       });
     }
     links.forEach((link, idx) => {
@@ -583,10 +552,11 @@ function ClientQrModalContent({
         children: <QrPanel value={text} remark={meta.qrRemark} downloadName={meta.fileName} />,
       });
     });
+    // LUCX-HOOK: AWG — one .conf panel per inbound (own ceiling + version selector).
     for (const cfg of kernelAwgConfigs) {
       const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
       out.push({
-        key: `awg-kernel-${cfg.ib.id}`,
+        key: `kernel-awg-config-${cfg.ib.id}`,
         label: (
           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
             <Tag color="purple" style={{ margin: 0 }}>
@@ -610,22 +580,22 @@ function ClientQrModalContent({
                   {
                     value: '1.5',
                     label: t('pages.inbounds.form.awgVersion15'),
-                    disabled: !isVersionAvailable('1.5', cfg.ceiling),
+                    disabled: !awgVersionAtLeast(cfg.ceiling, '1.5'),
                   },
                   {
                     value: '2',
                     label: t('pages.inbounds.form.awgVersion2'),
-                    disabled: !isVersionAvailable('2', cfg.ceiling),
+                    disabled: !awgVersionAtLeast(cfg.ceiling, '2'),
                   },
                   {
                     value: '3',
                     label: t('pages.inbounds.form.awgVersion3'),
-                    disabled: !isVersionAvailable('3', cfg.ceiling),
+                    disabled: !awgVersionAtLeast(cfg.ceiling, '3'),
                   },
                   {
                     value: '3.1',
                     label: t('pages.inbounds.form.awgVersion31'),
-                    disabled: !isVersionAvailable('3.1', cfg.ceiling),
+                    disabled: !awgVersionAtLeast(cfg.ceiling, '3.1'),
                   },
                 ]}
               />
@@ -639,6 +609,7 @@ function ClientQrModalContent({
         ),
       });
     }
+    // END LUCX-HOOK
     if (tuicConfigText) {
       out.push({
         key: 'tuic-config',
@@ -668,7 +639,6 @@ function ClientQrModalContent({
     wgConfigs,
     awgConfigs,
     kernelAwgConfigs,
-    extraSubs,
     links,
     client?.email,
     selectVariant,

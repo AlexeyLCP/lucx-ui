@@ -152,8 +152,10 @@ func (s *SubService) primeLinkClients(inboundId int, clients []model.Client, com
 }
 
 // clientForLink resolves one client of an inbound by email for link
-// generation: from the per-request cache when primed, otherwise by parsing
-// the settings JSON once and caching every client from it.
+// generation: from the per-request cache when primed, otherwise via
+// clientsForLinkExport (clients-table UUID identity with settings-JSON
+// fallback for share-link protocols; settings JSON for WireGuard/AmneziaWG
+// tunnel fields) and caches the list.
 func (s *SubService) clientForLink(inbound *model.Inbound, email string) (model.Client, bool) {
 	if m, ok := s.clientsByInbound[inbound.Id]; ok {
 		if c, hit := m[email]; hit {
@@ -163,7 +165,7 @@ func (s *SubService) clientForLink(inbound *model.Inbound, email string) (model.
 			return model.Client{}, false
 		}
 	}
-	clients, err := s.inboundService.GetClients(inbound)
+	clients, err := s.clientsForLinkExport(inbound)
 	if err != nil {
 		return model.Client{}, false
 	}
@@ -174,6 +176,29 @@ func (s *SubService) clientForLink(inbound *model.Inbound, email string) (model.
 		}
 	}
 	return model.Client{}, false
+}
+
+// clientsForLinkExport returns the clients used to build share / QR / allLinks
+// exports for one inbound. UUID-bearing protocols prefer the normalized clients
+// table so the link matches the running Xray identity when settings JSON is
+// stale (#6436). When that list is empty or unavailable (settings-only inbounds,
+// unsynced rows, unit tests without a DB), fall back to GetClients so links
+// still generate from the embedded settings JSON (#6458). WireGuard and
+// AmneziaWG always keep the inbound's own settings JSON: private key,
+// AllowedIPs, and related tunnel fields are deliberately per-inbound there,
+// while the shared clients.wg_* columns collapse to whichever tunnel inbound
+// synced last (see TunnelAllowedIPsByInbound / amneziaWGClientAddresses).
+func (s *SubService) clientsForLinkExport(inbound *model.Inbound) ([]model.Client, error) {
+	if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG {
+		return s.inboundService.GetClients(inbound)
+	}
+	if database.GetDB() != nil {
+		clients, err := s.inboundService.ListClientsForInbound(inbound.Id)
+		if err == nil && len(clients) > 0 {
+			return clients, nil
+		}
+	}
+	return s.inboundService.GetClients(inbound)
 }
 
 // linkSettings returns the inbound's settings decoded once per request with
@@ -317,6 +342,11 @@ func (s *SubService) RecordSubscriptionFetch(subId string) error {
 		Update("last_sub_fetch", time.Now().UnixMilli()).Error
 }
 
+// GetSubs retrieves subscription links for a given subscription ID and host.
+func (s *SubService) GetSubs(subId string, host string) ([]string, []string, int64, xray.ClientTraffic, error) {
+	return s.ForRequest(host).getSubs(subId)
+}
+
 type infoNodeMode int
 
 const (
@@ -381,11 +411,6 @@ func (s *SubService) resolveInfoNodeRemark(subId string, uniqueEmails []string, 
 	return infoNodeNone, ""
 }
 
-// GetSubs retrieves subscription links for a given subscription ID and host.
-func (s *SubService) GetSubs(subId string, host string) ([]string, []string, int64, xray.ClientTraffic, error) {
-	return s.ForRequest(host).getSubs(subId)
-}
-
 func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.ClientTraffic, error) {
 	var result []string
 	var emails []string
@@ -405,7 +430,6 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	}
 
 	seenEmails := make(map[string]struct{})
-	enabledEmails := make(map[string]struct{}) // LUCX-HOOK: naive links only for enabled clients
 	for _, inbound := range inbounds {
 		clients := s.matchingClients(inbound, subId)
 		if len(clients) == 0 {
@@ -418,9 +442,6 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 		for _, client := range clients {
 			if client.Enable {
 				hasEnabledClient = true
-				if strings.TrimSpace(client.Email) != "" { // LUCX-HOOK
-					enabledEmails[client.Email] = struct{}{} // LUCX-HOOK
-				} // LUCX-HOOK
 			}
 			var link string
 			if len(hostEps) > 0 {
@@ -436,9 +457,13 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	for _, ext := range externalLinks {
 		if ext.Enable {
 			hasEnabledClient = true
-			if strings.TrimSpace(ext.Email) != "" { // LUCX-HOOK
-				enabledEmails[ext.Email] = struct{}{} // LUCX-HOOK
-			} // LUCX-HOOK
+		}
+		if !ext.Active {
+			seenEmails[ext.Email] = struct{}{}
+			if result == nil {
+				result = []string{}
+			}
+			continue
 		}
 		for _, el := range expandEntry(ext) {
 			if link := applyRemarkToLink(el.Link, el.Name); link != "" {
@@ -449,29 +474,6 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 		}
 	}
 
-	// LUCX-HOOK: legacy global Naive tunnel (lucxTunnel_naive) — only when no
-	// protocol=naive inbound is already producing genNaiveLink rows above.
-	// Prefer inbound-attached clients; this bolt-on is for pre-migration hosts.
-	hasNaiveInbound := false
-	for _, ib := range inbounds {
-		if ib != nil && ib.Protocol == model.Naive {
-			hasNaiveInbound = true
-			break
-		}
-	}
-	if !hasNaiveInbound && len(enabledEmails) > 0 {
-		naiveEmails := make([]string, 0, len(enabledEmails))
-		for e := range enabledEmails {
-			naiveEmails = append(naiveEmails, e)
-		}
-		slices.Sort(naiveEmails)
-		if naiveLinks := (&service.TunnelService{}).NaiveSubLinks(naiveEmails); len(naiveLinks) > 0 {
-			result = append(result, naiveLinks...)
-			emails = append(emails, naiveEmails...)
-		}
-	}
-	// END LUCX-HOOK
-
 	uniqueEmails := make([]string, 0, len(seenEmails))
 	for e := range seenEmails {
 		uniqueEmails = append(uniqueEmails, e)
@@ -479,6 +481,7 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	slices.Sort(uniqueEmails)
 	traffic, lastOnline := s.AggregateTrafficByEmails(uniqueEmails)
 	traffic.Enable = hasEnabledClient
+
 	if mode, remark := s.resolveInfoNodeRemark(subId, uniqueEmails, traffic, len(result) > 0); mode != infoNodeNone {
 		dummyLink := fmt.Sprintf("socks://127.0.0.1:1080#%s", strings.ReplaceAll(url.QueryEscape(remark), "+", "%20"))
 		if mode == infoNodeExpired || mode == infoNodeDepleted {
@@ -486,16 +489,18 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 		}
 		result = append([]string{dummyLink}, result...)
 	}
+
 	return result, emails, lastOnline, traffic, nil
 }
 
 // inboundLinks builds the share links for every distinct client of one inbound
 // the same way getSubs does — managed Host endpoints win over the plain link so
 // {{HOST}} and per-host variants render — but across all clients rather than a
-// single subId. Dedups duplicate client JSON entries by email (#5134). Backs the
-// panel's "Export all inbound links" so it matches the client/QR pages.
+// single subId. Resolves clients via clientsForLinkExport so UUID-bearing
+// protocols match the running Xray config (#6436) while WireGuard/AmneziaWG
+// keep per-inbound tunnel identity from settings. Dedups by email (#5134).
+// Backs the panel's "Export all inbound links" and matches client/QR pages.
 func (s *SubService) inboundLinks(inbound *model.Inbound) []string {
-	// Single-credential tunnel sidecars: one share URI for the whole inbound.
 	// LUCX-HOOK: AnyTls added to the single-credential set.
 	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Anytls) {
 		if link := s.GetLink(inbound, ""); link != "" {
@@ -504,7 +509,7 @@ func (s *SubService) inboundLinks(inbound *model.Inbound) []string {
 		return nil
 	}
 	// END LUCX-HOOK
-	clients, err := s.inboundService.GetClients(inbound)
+	clients, err := s.clientsForLinkExport(inbound)
 	if err != nil {
 		return nil
 	}
@@ -557,13 +562,13 @@ func (s *SubService) AggregateTrafficByEmails(emails []string) (xray.ClientTraff
 	// runtime traffic rows. In a multi-node setup the node snapshot can reset
 	// client_traffics.total/expiry_time to 0, so fall back to the clients
 	// table to keep the Subscription-Userinfo header in sync with the UI (#4645).
-	limits := make(map[string][2]int64, len(emails))
+	limits := make(map[string]model.ClientRecord, len(emails))
 	var records []model.ClientRecord
 	if err := db.Model(&model.ClientRecord{}).Where("email IN ?", emails).Find(&records).Error; err != nil {
 		logger.Warning("SubService - AggregateTrafficByEmails: load client limits:", err)
 	} else {
 		for _, r := range records {
-			limits[r.Email] = [2]int64{r.TotalGB, r.ExpiryTime}
+			limits[r.Email] = r
 		}
 	}
 
@@ -573,25 +578,33 @@ func (s *SubService) AggregateTrafficByEmails(emails []string) (xray.ClientTraff
 		if ct.LastOnline > lastOnline {
 			lastOnline = ct.LastOnline
 		}
-		total, expiry := ct.Total, ct.ExpiryTime
+		total, expiry, resetDay := ct.Total, ct.ExpiryTime, ct.ResetDay
 		if lim, ok := limits[ct.Email]; ok {
+			resetDay = lim.ResetDay
 			if total == 0 {
-				total = lim[0]
+				total = lim.TotalGB
 			}
 			if expiry == 0 {
-				expiry = lim[1]
+				expiry = lim.ExpiryTime
 			}
+		}
+		if expiry <= 0 {
+			resetDay = 0
 		}
 		if first {
 			agg.Up = ct.Up
 			agg.Down = ct.Down
 			agg.Total = total
 			agg.ExpiryTime = subscriptionExpiryFromClient(now, expiry)
+			agg.ResetDay = resetDay
 			first = false
 			continue
 		}
 		agg.Up += ct.Up
 		agg.Down += ct.Down
+		if resetDay != agg.ResetDay {
+			agg.ResetDay = 0
+		}
 		if agg.Total == 0 || total == 0 {
 			agg.Total = 0
 		} else {
@@ -624,7 +637,7 @@ func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) 
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic','awg','naive','olcrtc','qwdtt','mieru','trusttunnel','anytls','tproxy')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC").Find(&inbounds).Error
 	if err != nil {
@@ -910,415 +923,10 @@ func (s *SubService) genWireguardLink(inbound *model.Inbound, email string) stri
 	if client.PreSharedKey != "" {
 		params["presharedkey"] = client.PreSharedKey
 	}
-	if !client.KeepAlive.IsZero() {
-		params["keepalive"] = client.KeepAlive.String()
+	if ka := client.KeepAliveSeconds(); ka > 0 {
+		params["keepalive"] = strconv.Itoa(ka)
 	}
 	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", ""))
-}
-
-// genAwgLink builds a per-client amneziawg:// share link mirroring the
-// WireGuard link shape, with the AWG obfuscation parameters (Jc/Jmin/Jmax,
-// S1-S4, H1-H4, I1-I5) carried as query params. The client's private key is
-// the userinfo, the server public key (derived from the inbound privateKey)
-// and the client's tunnel address ride in the query. Returns "" when the
-// client has no stored private key.
-//
-// LUCX-HOOK: AWG share link.
-func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
-	if inbound.Protocol != model.AWG {
-		return ""
-	}
-	settings := s.linkSettings(inbound)
-	privateKey, _ := settings["privateKey"].(string)
-
-	resolved, ok := s.clientForLink(inbound, email)
-	if !ok || resolved.PrivateKey == "" {
-		return ""
-	}
-	client := &resolved
-
-	params := make(map[string]string)
-	if privateKey != "" {
-		if pub, err := wgutil.PublicKeyFromPrivate(privateKey); err == nil {
-			params["publickey"] = pub
-		}
-	}
-	if address := service.AwgClientTunnelAddress(inbound.Settings, email, client.AllowedIPs); address != "" {
-		params["address"] = address
-	}
-	if mtu, ok := settings["mtu"].(float64); ok && mtu > 0 {
-		params["mtu"] = strconv.Itoa(int(mtu))
-	}
-	if dns, ok := settings["dns"].(string); ok && dns != "" {
-		params["dns"] = dns
-	}
-	if client.PreSharedKey != "" {
-		params["presharedkey"] = client.PreSharedKey
-	}
-	// Obfuscation parameters (AWG-specific; absent on plain WireGuard).
-	// Version-gate: S3/S4 and I1-I5 are AWG v2+ (Android 2.0.1); HPK and the
-	// device-level timers/padding are AWG v3 only (desktop 5.0.0.5 / Android
-	// 3.0.1). Share-link URL params are advisory (client apps ignore unknown
-	// params), but version-gating keeps the Go builder consistent with the
-	// frontend genAwgLink (inbound-link.ts) and avoids confusing a v1.5 client
-	// with v2/v3 params it cannot parse.
-	awgVer, _ := settings["awgVersion"].(string)
-	awgVer = awg.NormalizeAWGVersion(awgVer)
-	if ka := awg.CollapseTimerForVersion(client.KeepAlive.String(), awgVer); ka != "" {
-		params["keepalive"] = ka
-	}
-	isV2Plus := awgVer != "1.5"
-	// The server side gates 3.x fields on the host tools; a link that enables one
-	// the server dropped leaves the client unable to connect. Only a local inbound
-	// can be judged here — a node's capability is not stored on the master.
-	localInbound := inbound.NodeID == nil
-	isV3 := awgVersionFieldsAllowed(awg.IsAwg3Plus(awgVer), localInbound, awg.ModuleSupportsAwg3())
-	isV31 := awgVersionFieldsAllowed(awg.IsAwg31(awgVer), localInbound, awg.ModuleSupportsAwg31())
-
-	if v, ok := settings["jc"].(float64); ok {
-		params["jc"] = strconv.Itoa(int(v))
-	}
-	if v, ok := settings["jmin"].(float64); ok {
-		params["jmin"] = strconv.Itoa(int(v))
-	}
-	if v, ok := settings["jmax"].(float64); ok {
-		params["jmax"] = strconv.Itoa(int(v))
-	}
-	if v, ok := settings["s1"].(float64); ok {
-		params["s1"] = strconv.Itoa(int(v))
-	}
-	if v, ok := settings["s2"].(float64); ok {
-		params["s2"] = strconv.Itoa(int(v))
-	}
-	if isV2Plus {
-		if v, ok := settings["s3"].(float64); ok {
-			params["s3"] = strconv.Itoa(int(v))
-		}
-		if v, ok := settings["s4"].(float64); ok {
-			params["s4"] = strconv.Itoa(int(v))
-		}
-	}
-	for _, p := range []struct{ key, jk string }{
-		{"h1", "h1"}, {"h2", "h2"}, {"h3", "h3"}, {"h4", "h4"},
-	} {
-		if v, ok := settings[p.jk].(string); ok && strings.TrimSpace(v) != "" {
-			params[p.key] = v
-		}
-	}
-	if isV2Plus {
-		i1, _ := settings["i1"].(string)
-		i2, _ := settings["i2"].(string)
-		i3, _ := settings["i3"].(string)
-		i4, _ := settings["i4"].(string)
-		i5, _ := settings["i5"].(string)
-		hpk, _ := settings["headerProtectionKey"].(string)
-		// Same all-or-nothing gate the two .conf renderers use: an oversized
-		// set vanishes from the real interface, so it must vanish from the link.
-		if awg.IBytes(i1, i2, i3, i4, i5) <= awg.WorstCaseIBytesBudget(strings.TrimSpace(hpk) != "") {
-			for _, p := range []struct{ key, jk string }{
-				{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
-			} {
-				// Per field, not all-or-nothing: grammar is a property of the
-				// value, where the budget above is a property of the whole set.
-				if v, ok := settings[p.jk].(string); ok && awg.PortableIField(v) {
-					params[p.key] = strings.TrimSpace(v)
-				}
-			}
-		}
-	}
-	// AWG3 (version "3") — HeaderProtectionKey + device-level timers/padding.
-	// All gated by isV3 so a v1/v2 share-link never carries v3-only params.
-	if isV3 {
-		if v, ok := settings["headerProtectionKey"].(string); ok && strings.TrimSpace(v) != "" {
-			params["headerprotectionkey"] = v
-		}
-		for _, p := range []struct{ key, jk string }{
-			{"contentpaddingaddition", "contentPaddingAddition"},
-			{"rekeyaftertime", "rekeyAfterTime"},
-			{"rekeytimeout", "rekeyTimeout"},
-			{"rejectaftertime", "rejectAfterTime"},
-			{"keepalivetimeout", "keepaliveTimeout"},
-			{"maxhandshakeattempts", "maxHandshakeAttempts"},
-		} {
-			// A timer is either a legacy JSON number or a string that may carry
-			// an inclusive range ("100-500") — pass the range through verbatim
-			// so the share link keeps the kernel's native range semantics.
-			if v, ok := settings[p.jk].(float64); ok && v > 0 {
-				params[p.key] = strconv.Itoa(int(v))
-			} else if sv, ok := settings[p.jk].(string); ok && sv != "" && sv != "0" && sv != "0-0" {
-				params[p.key] = sv
-			}
-		}
-	}
-	if isV31 {
-		if v, ok := settings["randomTrailers"].(bool); ok && v {
-			params["randomtrailers"] = "true"
-		}
-		if v, ok := settings["disableCookies"].(bool); ok && v {
-			params["disablecookies"] = "true"
-		}
-	}
-	render := func(dest string, port int, remark string) string {
-		link := fmt.Sprintf("amneziawg://%s@%s", encodeUserinfo(client.PrivateKey), joinHostPort(dest, port))
-		out := buildLinkWithParams(link, params, remark)
-		if conf, err := service.BuildAwgClientConf(inbound, client, dest); err == nil {
-			conf = stampAwgShare(conf, dest, port, remark)
-			if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
-				out += "\n" + uri
-			}
-		}
-		return out
-	}
-	if joined := s.sidecarHostLinks(inbound, email, render); joined != "" {
-		return joined
-	}
-	return render(s.resolveInboundAddress(inbound), inbound.Port, s.genRemark(inbound, email, "", ""))
-}
-
-func stampAwgShare(conf, host string, port int, remark string) string {
-	if r := strings.TrimSpace(remark); r != "" {
-		r = strings.ReplaceAll(strings.ReplaceAll(r, "\r", " "), "\n", " ")
-		conf = "# " + r + "\n" + conf
-	}
-	if host == "" || port <= 0 {
-		return conf
-	}
-	ep := "Endpoint = " + net.JoinHostPort(host, strconv.Itoa(port))
-	lines := strings.Split(conf, "\n")
-	for i, ln := range lines {
-		if strings.HasPrefix(strings.TrimSpace(ln), "Endpoint") {
-			lines[i] = ep
-			return strings.Join(lines, "\n")
-		}
-	}
-	return conf
-}
-
-// END LUCX-HOOK
-
-// genOlcrtcLink returns the single olcrtc:// URI for an olcRTC inbound.
-func (s *SubService) genOlcrtcLink(inbound *model.Inbound) string {
-	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
-	if !ok || !inbound.Enable {
-		return ""
-	}
-	return cfg.ClientURI()
-}
-
-// genQwdttLink returns the single qwdtt://config? URI for the qWDTT inbound.
-// Do not append LegacyURI (wdtt://): SpaceNeuroX 1.4.2 parsePayload treats the
-// whole clipboard as one URI, so a second line corrupts pass and DTLS dies.
-// EnsureSubHost fills an empty peer from the host's outbound IPv4 so export
-// works for pre-lucx.108 rows that never stored subHost (no DB write here).
-func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
-	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
-	if !ok || !inbound.Enable {
-		return ""
-	}
-	if strings.TrimSpace(cfg.SubHost) == "" {
-		cfg = cfg.WithPeerHost(s.resolveInboundAddress(inbound))
-		if strings.TrimSpace(cfg.SubHost) == "" {
-			cfg = cfg.EnsureSubHost()
-		}
-	}
-	return cfg.ClientURI()
-}
-
-// genAnytlsLink returns the single anytls://password@host:port/?sni= URI for
-// an AnyTls inbound (one shared password — every subscriber gets the same line).
-func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
-	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
-	if !ok || !inbound.Enable {
-		return ""
-	}
-	cfg = cfg.Merge()
-	if strings.TrimSpace(cfg.Password) == "" {
-		return ""
-	}
-	host := s.resolveInboundAddress(inbound)
-	if host == "" {
-		return ""
-	}
-	return cfg.ClientLink(host, inbound.Remark)
-}
-
-func (s *SubService) genTproxyLink(inbound *model.Inbound) string {
-	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
-	if !ok || !inbound.Enable {
-		return ""
-	}
-	return cfg.Merge().ClientLink()
-}
-
-// sidecarHostLinks fans out one share URL per Host / externalProxy dest+port.
-// Empty when the inbound has none — caller falls back to the inbound address.
-func (s *SubService) sidecarHostLinks(inbound *model.Inbound, email string, render func(dest string, port int, remark string) string) string {
-	stream := unmarshalStreamSettings(inbound.StreamSettings)
-	raw, _ := stream["externalProxy"].([]any)
-	if len(raw) == 0 {
-		return ""
-	}
-	links := make([]string, 0, len(raw))
-	for _, item := range raw {
-		ep, ok := item.(map[string]any)
-		if !ok {
-			continue
-		}
-		dest, _ := ep["dest"].(string)
-		portF, okPort := ep["port"].(float64)
-		if dest == "" || !okPort {
-			continue
-		}
-		if u := render(dest, int(portF), s.endpointRemark(inbound, email, ep, "")); u != "" {
-			links = append(links, u)
-		}
-	}
-	return strings.Join(links, "\n")
-}
-
-func mieruBindHostPort(cfg tunnel.MieruConfig, port int) tunnel.MieruConfig {
-	if port <= 0 || len(cfg.PortBindings) == 0 {
-		return cfg
-	}
-	binds := make([]tunnel.MieruPortBinding, len(cfg.PortBindings))
-	copy(binds, cfg.PortBindings)
-	for i := range binds {
-		binds[i].Port = port
-		binds[i].PortRange = ""
-	}
-	cfg.PortBindings = binds
-	return cfg
-}
-
-// genNaiveLink builds naive+https://user:pass@host:port#remark for a client
-// attached to a Naive inbound. Credentials are HMAC-derived (inbound-scoped).
-// Hosts / externalProxy win for dest+port (same fan-out as hysteria); remark
-// uses genRemark so Happ shows the inbound name, not the email.
-func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
-	if inbound == nil || inbound.Protocol != model.Naive {
-		return ""
-	}
-	cfg, ok := tunnel.ConfigFromInbound(inbound)
-	if !ok || cfg.UseRawConfig {
-		return ""
-	}
-	resolved, ok := s.clientForLink(inbound, email)
-	if !ok || !resolved.Enable {
-		return ""
-	}
-	secret, err := s.settingService.GetSecret()
-	if err != nil || len(secret) == 0 {
-		return ""
-	}
-	pair := tunnel.InboundAuthPair(secret, inbound, email)
-	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
-		one := cfg
-		one.Domain = dest
-		one.Port = port
-		return one.ClientURLFor(pair, remark)
-	}); joined != "" {
-		return joined
-	}
-	fallbackHost := strings.TrimSpace(cfg.Domain)
-	if fallbackHost == "" {
-		fallbackHost = s.resolveInboundAddress(inbound)
-	}
-	if fallbackHost == "" {
-		return ""
-	}
-	cfg.Domain = fallbackHost
-	cfg.Port = inbound.Port
-	return cfg.ClientURLFor(pair, s.genRemark(inbound, email, "", ""))
-}
-
-// genMieruLink builds a per-client mierus:// simple share link for a client
-// attached to a mieru inbound. Credentials are HMAC-derived (inbound-scoped).
-// Returns "" when the server address cannot be resolved or the client is not
-// enabled on the inbound.
-func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
-	if inbound == nil || inbound.Protocol != model.Mieru {
-		return ""
-	}
-	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
-	if !ok {
-		return ""
-	}
-	resolved, ok := s.clientForLink(inbound, email)
-	if !ok || !resolved.Enable {
-		return ""
-	}
-	secret, err := s.settingService.GetSecret()
-	if err != nil || len(secret) == 0 {
-		return ""
-	}
-	pair := tunnel.InboundAuthPair(secret, inbound, email)
-	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
-		return mieruBindHostPort(cfg, port).ClientLink(dest, pair, remark)
-	}); joined != "" {
-		return joined
-	}
-	host := s.resolveInboundAddress(inbound)
-	if host == "" {
-		return ""
-	}
-	return cfg.ClientLink(host, pair, s.genRemark(inbound, email, "", ""))
-}
-
-// genTrustTunnelLink builds the per-client tt:// subscription lines for a
-// client attached to a TrustTunnel inbound. Credentials are HMAC-derived
-// (inbound-scoped). Returns "" when the hostname is unset or the client is
-// not enabled on the inbound. Two forms are emitted, one per line: the
-// official TLV deep link (ClientDeepLink — the only form Exclave and the
-// official TrustTunnel app parse) and the Throne-compatible URI (ClientURI —
-// the form Throne and NekoBox+ parse). Each client skips the line whose
-// format it does not understand; a URI-only subscription left Exclave without
-// TrustTunnel entirely (tester report: base64-decoding the URI part fails
-// inside parseTrustTunnel and the line is dropped).
-func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) string {
-	if inbound == nil || inbound.Protocol != model.TrustTunnel {
-		return ""
-	}
-	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
-	if !ok {
-		return ""
-	}
-	hostname := strings.TrimSpace(cfg.Hostname)
-	if hostname == "" {
-		return ""
-	}
-	resolved, ok := s.clientForLink(inbound, email)
-	if !ok || !resolved.Enable {
-		return ""
-	}
-	secret, err := s.settingService.GetSecret()
-	if err != nil || len(secret) == 0 {
-		return ""
-	}
-	host := s.resolveInboundAddress(inbound)
-	if host == "" {
-		host = hostname
-	}
-	address := host
-	if p := cfg.ListenPort(); p > 0 {
-		address = net.JoinHostPort(host, strconv.Itoa(p))
-	}
-	pair := tunnel.InboundAuthPair(secret, inbound, email)
-	ttLines := func(addr, remark string) string {
-		var links []string
-		if dl := cfg.ClientDeepLink(addr, pair, remark); dl != "" {
-			links = append(links, dl)
-		}
-		if uri := cfg.ClientURI(addr, pair, remark); uri != "" {
-			links = append(links, uri)
-		}
-		return strings.Join(links, "\n")
-	}
-	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
-		return ttLines(net.JoinHostPort(dest, strconv.Itoa(port)), remark)
-	}); joined != "" {
-		return joined
-	}
-	return ttLines(address, s.genRemark(inbound, email, "", ""))
 }
 
 // amneziaWGHeaderOrDefault mirrors the frontend's amneziaWGHLine: AmneziaWG's
@@ -1360,28 +968,28 @@ func amneziaWGConfigText(server *amneziawg.ServerSettings, client *model.Client,
 	if len(dns) > 0 {
 		fmt.Fprintf(&b, "DNS = %s\n", strings.Join(dns, ", "))
 	}
-	if server.MTU > 0 {
-		fmt.Fprintf(&b, "MTU = %d\n", server.MTU)
-	}
+	// Always emitted: a missing MTU line leaves the client on its own 1420
+	// default and fragments the client-to-server direction once S4 passes 20.
+	fmt.Fprintf(&b, "MTU = %d\n", amneziawg.EffectiveMTU(server.MTU, server.S4))
 
 	fmt.Fprintf(&b, "Jc = %d\n", server.Jc)
 	fmt.Fprintf(&b, "Jmin = %d\n", server.Jmin)
 	fmt.Fprintf(&b, "Jmax = %d\n", server.Jmax)
 	fmt.Fprintf(&b, "S1 = %d\n", server.S1)
 	fmt.Fprintf(&b, "S2 = %d\n", server.S2)
-	// Zero is a value ("do not pad"), not an unset field; AmneziaWG settings
-	// carry no version, so these two are unconditional like S1/S2 above.
-	fmt.Fprintf(&b, "S3 = %d\n", server.S3)
-	fmt.Fprintf(&b, "S4 = %d\n", server.S4)
+	if server.S3 > 0 {
+		fmt.Fprintf(&b, "S3 = %d\n", server.S3)
+	}
+	if server.S4 > 0 {
+		fmt.Fprintf(&b, "S4 = %d\n", server.S4)
+	}
 	fmt.Fprintf(&b, "H1 = %s\n", amneziaWGHeaderOrDefault(server.H1, "1"))
 	fmt.Fprintf(&b, "H2 = %s\n", amneziaWGHeaderOrDefault(server.H2, "2"))
 	fmt.Fprintf(&b, "H3 = %s\n", amneziaWGHeaderOrDefault(server.H3, "3"))
 	fmt.Fprintf(&b, "H4 = %s\n", amneziaWGHeaderOrDefault(server.H4, "4"))
 	for i, v := range []string{server.I1, server.I2, server.I3, server.I4, server.I5} {
-		// A value of pure whitespace used to pass here, and "I1 = " makes
-		// amneziawg-tools reject the client's whole file, not just the line.
-		if awg.PortableIField(v) {
-			fmt.Fprintf(&b, "I%d = %s\n", i+1, strings.TrimSpace(v))
+		if v != "" {
+			fmt.Fprintf(&b, "I%d = %s\n", i+1, v)
 		}
 	}
 	optional := []struct{ key, v string }{
@@ -1417,8 +1025,8 @@ func amneziaWGConfigText(server *amneziawg.ServerSettings, client *model.Client,
 	}
 	b.WriteString("AllowedIPs = 0.0.0.0/0, ::/0\n")
 	fmt.Fprintf(&b, "Endpoint = %s:%d", host, port)
-	if !client.KeepAlive.IsZero() {
-		fmt.Fprintf(&b, "\nPersistentKeepalive = %s", client.KeepAlive.String())
+	if ka := client.KeepAliveSeconds(); ka > 0 {
+		fmt.Fprintf(&b, "\nPersistentKeepalive = %d", ka)
 	}
 
 	return b.String()
@@ -1451,12 +1059,8 @@ func (s *SubService) genAmneziaWGLink(inbound *model.Inbound, email string) stri
 	return "vpn://" + base64.RawURLEncoding.EncodeToString([]byte(text))
 }
 
-// genMtprotoLink builds a per-client Telegram proxy deep link for an mtproto
-// inbound: the server/port pair plus the client's own FakeTLS secret. The link
-// carries no remark fragment — Telegram proxy deep links have no name field, and
-// a trailing "#remark" is appended to the last query value by lenient parsers,
-// corrupting the server address. The remark is shown separately in the panel UI.
-// Returns "" when the client has no secret.
+// genMtprotoLink builds one Telegram link per advertised endpoint with the client's FakeTLS secret.
+// It omits remarks because lenient parsers fold a fragment into the last query value.
 func (s *SubService) genMtprotoLink(inbound *model.Inbound, email string) string {
 	if inbound.Protocol != model.MTProto {
 		return ""
@@ -1465,12 +1069,28 @@ func (s *SubService) genMtprotoLink(inbound *model.Inbound, email string) string
 	if !ok || resolved.Secret == "" {
 		return ""
 	}
-	params := map[string]string{
-		"server": s.resolveInboundAddress(inbound),
-		"port":   fmt.Sprintf("%d", inbound.Port),
-		"secret": resolved.Secret,
+	endpoints := []ShareEndpoint{s.inboundDefaultEndpoint(inbound)}
+	stream := unmarshalStreamSettings(inbound.StreamSettings)
+	if externalProxies, ok := stream["externalProxy"].([]any); ok && len(externalProxies) > 0 {
+		overrides := make([]ShareEndpoint, 0, len(externalProxies))
+		for _, raw := range externalProxies {
+			if ep, ok := raw.(map[string]any); ok {
+				overrides = append(overrides, externalProxyToEndpoint(ep))
+			}
+		}
+		if len(overrides) > 0 {
+			endpoints = overrides
+		}
 	}
-	return buildLinkWithParams("tg://proxy", params, "")
+	links := make([]string, 0, len(endpoints))
+	for _, endpoint := range endpoints {
+		links = append(links, buildLinkWithParams("tg://proxy", map[string]string{
+			"server": endpoint.Address,
+			"port":   fmt.Sprintf("%d", endpoint.Port),
+			"secret": resolved.Secret,
+		}, ""))
+	}
+	return strings.Join(links, "\n")
 }
 
 // Protocol link generators are intentionally ordered as:
@@ -1814,9 +1434,8 @@ func (s *SubService) genHysteriaLink(inbound *model.Inbound, email string) strin
 		}
 	}
 
-	// salamander obfs (Hysteria2). Emit only the standard URI fields;
-	// the non-standard fm=<json> finalmask dump breaks mihomo and other
-	// Hysteria2 clients that reject unknown query params.
+	// salamander obfs (Hysteria2): standard URI fields only -- an fm=<json>
+	// dump breaks strict clients. packetSize exports as v2rayN's gecko pair.
 	if finalmask, ok := stream["finalmask"].(map[string]any); ok {
 		if udpMasks, ok := finalmask["udp"].([]any); ok {
 			for _, m := range udpMasks {
@@ -1826,13 +1445,23 @@ func (s *SubService) genHysteriaLink(inbound *model.Inbound, email string) strin
 				}
 				settings, _ := mask["settings"].(map[string]any)
 				if pw, ok := settings["password"].(string); ok && pw != "" {
-					if extra := extraSalamanderKeys(settings, false); len(extra) > 0 {
+					packetSize, _ := settings["packetSize"].(string)
+					gecko := parseHysteriaPacketSize(packetSize)
+					if gecko != "" {
+						params["obfs"] = "gecko"
+						params["minPacketSize"], params["maxPacketSize"] = splitHysteriaPacketSize(gecko)
+					}
+					// packetSize rides its own URI fields; anything else still
+					// breaks standard clients and must warn even when gecko fires.
+					if extra := extraSalamanderKeys(settings, gecko != ""); len(extra) > 0 {
 						warningKey := fmt.Sprintf("%d:%v", inbound.Id, extra)
 						if _, loaded := salamanderWarningSeen.LoadOrStore(warningKey, struct{}{}); !loaded {
 							logger.Warningf("SubService - inbound %d: salamander settings %v cannot be expressed in a hysteria2 URI; standard clients will fail the handshake", inbound.Id, extra)
 						}
 					}
-					params["obfs"] = "salamander"
+					if params["obfs"] == "" {
+						params["obfs"] = "salamander"
+					}
 					params["obfs-password"] = pw
 					break
 				}
@@ -1886,16 +1515,75 @@ func (s *SubService) genHysteriaLink(inbound *model.Inbound, email string) strin
 	return buildLinkWithParams(link, params, s.genRemark(inbound, email, "", "quic"))
 }
 
-// hysteriaHopPorts returns the configured Hysteria2 UDP port-hopping range
-// (finalmask.quicParams.udpHop.ports), or "" when port hopping is off. The
-// range is emitted as the v2rayN-compatible `mport` query param; the URL port
-// field stays numeric so .NET-Uri-based importers (v2rayN) can parse the link.
+// hysteriaHopPorts returns the configured Hysteria2 UDP port-hopping range, or
+// "" when port hopping is off. The range is emitted as the v2rayN-compatible
+// `mport` query param; the URL port field stays numeric so .NET-Uri-based
+// importers (v2rayN) can parse the link.
 func hysteriaHopPorts(stream map[string]any) string {
 	finalmask, _ := stream["finalmask"].(map[string]any)
+	if ports := udpHopMaskPorts(finalmask); ports != "" {
+		return ports
+	}
 	quicParams, _ := finalmask["quicParams"].(map[string]any)
 	udpHop, _ := quicParams["udpHop"].(map[string]any)
 	ports, _ := udpHop["ports"].(string)
 	return strings.TrimSpace(ports)
+}
+
+// udpHopMaskPorts reads remotePorts off the first "udphop" UDP mask. xray-core
+// 26.9.9 moved hopping here from finalmask.quicParams.udpHop, which it now ignores.
+func udpHopMaskPorts(finalmask map[string]any) string {
+	masks, _ := finalmask["udp"].([]any)
+	for _, rawMask := range masks {
+		mask, _ := rawMask.(map[string]any)
+		if maskType, _ := mask["type"].(string); maskType != "udphop" {
+			continue
+		}
+		settings, _ := mask["settings"].(map[string]any)
+		ports, _ := settings["remotePorts"].(string)
+		if ports = strings.TrimSpace(ports); ports != "" {
+			return ports
+		}
+	}
+	return ""
+}
+
+// gecko packetSize bounds mirror xray-core's salamander buffer cap and the
+// frontend editor, so both link generators emit identical URIs.
+const (
+	geckoMinPacketSize = 1
+	geckoMaxPacketSize = 2048
+)
+
+// parseHysteriaPacketSize validates an xray-core salamander packetSize range
+// ("512-1200", the Gecko obfs marker). Returns canonical "min-max" or "".
+func parseHysteriaPacketSize(value string) string {
+	minStr, maxStr, ok := strings.Cut(value, "-")
+	if !ok || minStr == "" || maxStr == "" {
+		return ""
+	}
+	for _, c := range minStr {
+		if c < '0' || c > '9' {
+			return ""
+		}
+	}
+	for _, c := range maxStr {
+		if c < '0' || c > '9' {
+			return ""
+		}
+	}
+	minVal, err1 := strconv.Atoi(minStr)
+	maxVal, err2 := strconv.Atoi(maxStr)
+	if err1 != nil || err2 != nil ||
+		minVal < geckoMinPacketSize || maxVal < minVal || maxVal > geckoMaxPacketSize {
+		return ""
+	}
+	return fmt.Sprintf("%d-%d", minVal, maxVal)
+}
+
+func splitHysteriaPacketSize(value string) (string, string) {
+	minStr, maxStr, _ := strings.Cut(value, "-")
+	return minStr, maxStr
 }
 
 // loadNodes refreshes nodesByID from the DB. Called once per request so
@@ -2625,9 +2313,18 @@ func appendQueryAndFragment(link string, params map[string]string, fragment, sec
 
 	if fragment != "" {
 		sb.WriteByte('#')
-		// Match the frontend's encodeURIComponent(remark): spaces become
-		// %20 (not + as in query strings).
-		sb.WriteString(strings.ReplaceAll(url.QueryEscape(fragment), "+", "%20"))
+		if before, after, ok := strings.Cut(fragment, "?serverDescription="); ok {
+			if _, err := base64.StdEncoding.DecodeString(after); err == nil && len(after) > 0 && !strings.ContainsAny(after, " \r\n\t#&") {
+				sb.WriteString(strings.ReplaceAll(url.QueryEscape(before), "+", "%20"))
+				sb.WriteString("?serverDescription=")
+				sb.WriteString(after)
+			} else {
+				sb.WriteString(strings.ReplaceAll(url.QueryEscape(fragment), "+", "%20"))
+			}
+		} else {
+			// Match the frontend's encodeURIComponent(remark): spaces become %20.
+			sb.WriteString(strings.ReplaceAll(url.QueryEscape(fragment), "+", "%20"))
+		}
 	}
 	return sb.String()
 }
@@ -2949,6 +2646,7 @@ var validFinalMaskUDPTypes = map[string]struct{}{
 	"noise":         {},
 	"header-custom": {},
 	"realm":         {},
+	"udphop":        {},
 }
 
 var validFinalMaskTCPTypes = map[string]struct{}{
@@ -3270,7 +2968,6 @@ type PageData struct {
 	SubUrl        string
 	SubJsonUrl    string
 	SubClashUrl   string
-	SubAwgUrl     string // LUCX-HOOK: AmneziaWG subscription URL for the page's AWG row
 	SubTitle      string
 	SubSupportUrl string
 	SubAnnounce   string
@@ -3299,7 +2996,19 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 	}
 
 	// base host (no port)
-	host = requestServerHost(c, trusted)
+	if h, err := getHostFromXFH(forwarded("X-Forwarded-Host")); err == nil && h != "" {
+		host = h
+	}
+	if host == "" {
+		host = forwarded("X-Real-IP")
+	}
+	if host == "" {
+		var err error
+		host, _, err = net.SplitHostPort(c.Request.Host)
+		if err != nil {
+			host = c.Request.Host
+		}
+	}
 
 	// host:port for URLs
 	hostWithPort = forwarded("X-Forwarded-Host")
@@ -3320,37 +3029,6 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 	}
 	return
 }
-
-// LUCX-HOOK: the host every subscription format advertises as the server.
-// X-Real-IP carries the subscriber's own address: behind nginx with
-// `proxy_set_header X-Real-IP $remote_addr` it leaked into the AWG Endpoint
-// and Amnezia dialed the user's own router (report Aleksandr, lucx.89), then
-// into the Clash `server:` of AWG proxies the same way (lucx.124) — any
-// inbound whose own chain (ShareAddr/node/listen/public host) resolves to
-// nothing lands on this value. Trusted X-Forwarded-Host, then the Host
-// header; never X-Real-IP.
-func requestServerHost(c *gin.Context, trusted bool) string {
-	xfh := ""
-	if trusted {
-		xfh = c.GetHeader("X-Forwarded-Host")
-	}
-	if h, err := getHostFromXFH(xfh); err == nil && h != "" {
-		return h
-	}
-	h := c.Request.Host
-	if bare, _, err := net.SplitHostPort(h); err == nil {
-		return bare
-	}
-	return h
-}
-
-// AwgEndpointHost is the Endpoint host for generated AWG confs. The inbound's
-// own chain in resolveInboundAddress still wins over this value.
-func (s *SubService) AwgEndpointHost(c *gin.Context) string {
-	return requestServerHost(c, s.forwardedHeadersTrusted(c))
-}
-
-// END LUCX-HOOK
 
 // BuildURLs constructs absolute subscription and JSON subscription URLs for a given subscription ID.
 // It prioritizes configured URIs, then individual settings, and finally falls back to request-derived components.
@@ -3386,25 +3064,6 @@ func (s *SubService) BuildURLs(subPath, subJsonPath, subClashPath, subId string)
 
 	return subURL, subJsonURL, subClashURL
 }
-
-// LUCX-HOOK: BuildAwgURL constructs the AmneziaWG conf subscription URL.
-func (s *SubService) BuildAwgURL(subAwgPath, subId string) string {
-	if subId == "" {
-		return ""
-	}
-	configuredSubURI, _ := s.settingService.GetSubURI()
-	configuredSubAwgURI, _ := s.settingService.GetSubAwgURI()
-	base := s.settingService.BuildSubURIBase(s.address)
-	awgBase := base
-	if configuredSubURI != "" {
-		if derived := s.extractBaseFromURI(configuredSubURI); derived != "" {
-			awgBase = derived
-		}
-	}
-	return s.buildSingleURL(configuredSubAwgURI, awgBase, subAwgPath, subId)
-}
-
-// END LUCX-HOOK
 
 // extractBaseFromURI extracts scheme://host from a configured URI.
 // e.g., "https://example.com/sub-xxx/" → "https://example.com".
@@ -3520,8 +3179,8 @@ func getHostFromXFH(s string) (string, error) {
 	return s, nil
 }
 
-// extraSalamanderKeys lists salamander settings the hysteria2 URI cannot carry.
-// A server using them rejects every client built from the emitted link.
+// extraSalamanderKeys lists salamander settings unexpressible in hysteria2 URI;
+// a server using any reported key rejects clients built from the link.
 func extraSalamanderKeys(settings map[string]any, expressedPacketSize bool) []string {
 	var extra []string
 	for k := range settings {
@@ -3534,31 +3193,470 @@ func extraSalamanderKeys(settings map[string]any, expressedPacketSize bool) []st
 	return extra
 }
 
-const (
-	geckoMinPacketSize = 1
-	geckoMaxPacketSize = 2048
-)
+// LUCX-HOOK: LucX share-link builders and AWG subscription URL.
+// genAwgLink builds a per-client amneziawg:// share link mirroring the
+// WireGuard link shape, with the AWG obfuscation parameters (Jc/Jmin/Jmax,
+// S1-S4, H1-H4, I1-I5) carried as query params. The client's private key is
+// the userinfo, the server public key (derived from the inbound privateKey)
+// and the client's tunnel address ride in the query. Returns "" when the
+// client has no stored private key.
+//
+// LUCX-HOOK: AWG share link.
+func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
+	if inbound.Protocol != model.AWG {
+		return ""
+	}
+	settings := s.linkSettings(inbound)
+	privateKey, _ := settings["privateKey"].(string)
 
-func parseHysteriaPacketSize(value string) string {
-	minStr, maxStr, ok := strings.Cut(value, "-")
-	if !ok || minStr == "" || maxStr == "" {
+	resolved, ok := s.clientForLink(inbound, email)
+	if !ok || resolved.PrivateKey == "" {
 		return ""
 	}
-	for _, c := range minStr {
-		if c < '0' || c > '9' {
-			return ""
+	client := &resolved
+
+	params := make(map[string]string)
+	if privateKey != "" {
+		if pub, err := wgutil.PublicKeyFromPrivate(privateKey); err == nil {
+			params["publickey"] = pub
 		}
 	}
-	for _, c := range maxStr {
-		if c < '0' || c > '9' {
-			return ""
+	if address := service.AwgClientTunnelAddress(inbound.Settings, email, client.AllowedIPs); address != "" {
+		params["address"] = address
+	}
+	if mtu, ok := settings["mtu"].(float64); ok && mtu > 0 {
+		params["mtu"] = strconv.Itoa(int(mtu))
+	}
+	if dns, ok := settings["dns"].(string); ok && dns != "" {
+		params["dns"] = dns
+	}
+	if client.PreSharedKey != "" {
+		params["presharedkey"] = client.PreSharedKey
+	}
+	// Obfuscation parameters (AWG-specific; absent on plain WireGuard).
+	// Version-gate: S3/S4 and I1-I5 are AWG v2+ (Android 2.0.1); HPK and the
+	// device-level timers/padding are AWG v3 only (desktop 5.0.0.5 / Android
+	// 3.0.1). Share-link URL params are advisory (client apps ignore unknown
+	// params), but version-gating keeps the Go builder consistent with the
+	// frontend genAwgLink (inbound-link.ts) and avoids confusing a v1.5 client
+	// with v2/v3 params it cannot parse.
+	awgVer, _ := settings["awgVersion"].(string)
+	awgVer = awg.NormalizeAWGVersion(awgVer)
+	if ka := awg.CollapseTimerForVersion(client.KeepAlive.String(), awgVer); ka != "" {
+		params["keepalive"] = ka
+	}
+	isV2Plus := awgVer != "1.5"
+	// The server side gates 3.x fields on the host tools; a link that enables one
+	// the server dropped leaves the client unable to connect. Only a local inbound
+	// can be judged here — a node's capability is not stored on the master.
+	localInbound := inbound.NodeID == nil
+	isV3 := awgVersionFieldsAllowed(awg.IsAwg3Plus(awgVer), localInbound, awg.ModuleSupportsAwg3())
+	isV31 := awgVersionFieldsAllowed(awg.IsAwg31(awgVer), localInbound, awg.ModuleSupportsAwg31())
+
+	if v, ok := settings["jc"].(float64); ok {
+		params["jc"] = strconv.Itoa(int(v))
+	}
+	if v, ok := settings["jmin"].(float64); ok {
+		params["jmin"] = strconv.Itoa(int(v))
+	}
+	if v, ok := settings["jmax"].(float64); ok {
+		params["jmax"] = strconv.Itoa(int(v))
+	}
+	if v, ok := settings["s1"].(float64); ok {
+		params["s1"] = strconv.Itoa(int(v))
+	}
+	if v, ok := settings["s2"].(float64); ok {
+		params["s2"] = strconv.Itoa(int(v))
+	}
+	if isV2Plus {
+		if v, ok := settings["s3"].(float64); ok {
+			params["s3"] = strconv.Itoa(int(v))
+		}
+		if v, ok := settings["s4"].(float64); ok {
+			params["s4"] = strconv.Itoa(int(v))
 		}
 	}
-	minVal, err1 := strconv.Atoi(minStr)
-	maxVal, err2 := strconv.Atoi(maxStr)
-	if err1 != nil || err2 != nil ||
-		minVal < geckoMinPacketSize || maxVal < minVal || maxVal > geckoMaxPacketSize {
-		return ""
+	for _, p := range []struct{ key, jk string }{
+		{"h1", "h1"}, {"h2", "h2"}, {"h3", "h3"}, {"h4", "h4"},
+	} {
+		if v, ok := settings[p.jk].(string); ok && strings.TrimSpace(v) != "" {
+			params[p.key] = v
+		}
 	}
-	return fmt.Sprintf("%d-%d", minVal, maxVal)
+	if isV2Plus {
+		i1, _ := settings["i1"].(string)
+		i2, _ := settings["i2"].(string)
+		i3, _ := settings["i3"].(string)
+		i4, _ := settings["i4"].(string)
+		i5, _ := settings["i5"].(string)
+		hpk, _ := settings["headerProtectionKey"].(string)
+		// Same all-or-nothing gate the two .conf renderers use: an oversized
+		// set vanishes from the real interface, so it must vanish from the link.
+		if awg.IBytes(i1, i2, i3, i4, i5) <= awg.WorstCaseIBytesBudget(strings.TrimSpace(hpk) != "") {
+			for _, p := range []struct{ key, jk string }{
+				{"i1", "i1"}, {"i2", "i2"}, {"i3", "i3"}, {"i4", "i4"}, {"i5", "i5"},
+			} {
+				// Per field, not all-or-nothing: grammar is a property of the
+				// value, where the budget above is a property of the whole set.
+				if v, ok := settings[p.jk].(string); ok && awg.PortableIField(v) {
+					params[p.key] = strings.TrimSpace(v)
+				}
+			}
+		}
+	}
+	// AWG3 (version "3") — HeaderProtectionKey + device-level timers/padding.
+	// All gated by isV3 so a v1/v2 share-link never carries v3-only params.
+	if isV3 {
+		if v, ok := settings["headerProtectionKey"].(string); ok && strings.TrimSpace(v) != "" {
+			params["headerprotectionkey"] = v
+		}
+		for _, p := range []struct{ key, jk string }{
+			{"contentpaddingaddition", "contentPaddingAddition"},
+			{"rekeyaftertime", "rekeyAfterTime"},
+			{"rekeytimeout", "rekeyTimeout"},
+			{"rejectaftertime", "rejectAfterTime"},
+			{"keepalivetimeout", "keepaliveTimeout"},
+			{"maxhandshakeattempts", "maxHandshakeAttempts"},
+		} {
+			// A timer is either a legacy JSON number or a string that may carry
+			// an inclusive range ("100-500") — pass the range through verbatim
+			// so the share link keeps the kernel's native range semantics.
+			if v, ok := settings[p.jk].(float64); ok && v > 0 {
+				params[p.key] = strconv.Itoa(int(v))
+			} else if sv, ok := settings[p.jk].(string); ok && sv != "" && sv != "0" && sv != "0-0" {
+				params[p.key] = sv
+			}
+		}
+	}
+	if isV31 {
+		if v, ok := settings["randomTrailers"].(bool); ok && v {
+			params["randomtrailers"] = "true"
+		}
+		if v, ok := settings["disableCookies"].(bool); ok && v {
+			params["disablecookies"] = "true"
+		}
+	}
+	render := func(dest string, port int, remark string) string {
+		link := fmt.Sprintf("amneziawg://%s@%s", encodeUserinfo(client.PrivateKey), joinHostPort(dest, port))
+		out := buildLinkWithParams(link, params, remark)
+		if conf, err := service.BuildAwgClientConf(inbound, client, dest); err == nil {
+			conf = stampAwgShare(conf, dest, port, remark)
+			if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
+				out += "\n" + uri
+			}
+		}
+		return out
+	}
+	if joined := s.sidecarHostLinks(inbound, email, render); joined != "" {
+		return joined
+	}
+	return render(s.resolveInboundAddress(inbound), inbound.Port, s.genRemark(inbound, email, "", ""))
 }
+
+// END LUCX-HOOK
+
+// genOlcrtcLink returns the single olcrtc:// URI for an olcRTC inbound.
+func (s *SubService) genOlcrtcLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	return cfg.ClientURI()
+}
+
+// genQwdttLink returns the single qwdtt://config? URI for the qWDTT inbound.
+// Do not append LegacyURI (wdtt://): SpaceNeuroX 1.4.2 parsePayload treats the
+// whole clipboard as one URI, so a second line corrupts pass and DTLS dies.
+// EnsureSubHost fills an empty peer from the host's outbound IPv4 so export
+// works for pre-lucx.108 rows that never stored subHost (no DB write here).
+
+// genQwdttLink returns the single qwdtt://config? URI for the qWDTT inbound.
+// Do not append LegacyURI (wdtt://): SpaceNeuroX 1.4.2 parsePayload treats the
+// whole clipboard as one URI, so a second line corrupts pass and DTLS dies.
+// EnsureSubHost fills an empty peer from the host's outbound IPv4 so export
+// works for pre-lucx.108 rows that never stored subHost (no DB write here).
+func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	if strings.TrimSpace(cfg.SubHost) == "" {
+		cfg = cfg.WithPeerHost(s.resolveInboundAddress(inbound))
+		if strings.TrimSpace(cfg.SubHost) == "" {
+			cfg = cfg.EnsureSubHost()
+		}
+	}
+	return cfg.ClientURI()
+}
+
+// genAnytlsLink returns the single anytls://password@host:port/?sni= URI for
+// an AnyTls inbound (one shared password — every subscriber gets the same line).
+
+// genAnytlsLink returns the single anytls://password@host:port/?sni= URI for
+// an AnyTls inbound (one shared password — every subscriber gets the same line).
+func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	cfg = cfg.Merge()
+	if strings.TrimSpace(cfg.Password) == "" {
+		return ""
+	}
+	host := s.resolveInboundAddress(inbound)
+	if host == "" {
+		return ""
+	}
+	return cfg.ClientLink(host, inbound.Remark)
+}
+
+func (s *SubService) genTproxyLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	return cfg.Merge().ClientLink()
+}
+
+// sidecarHostLinks fans out one share URL per Host / externalProxy dest+port.
+// Empty when the inbound has none — caller falls back to the inbound address.
+
+// sidecarHostLinks fans out one share URL per Host / externalProxy dest+port.
+// Empty when the inbound has none — caller falls back to the inbound address.
+func (s *SubService) sidecarHostLinks(inbound *model.Inbound, email string, render func(dest string, port int, remark string) string) string {
+	stream := unmarshalStreamSettings(inbound.StreamSettings)
+	raw, _ := stream["externalProxy"].([]any)
+	if len(raw) == 0 {
+		return ""
+	}
+	links := make([]string, 0, len(raw))
+	for _, item := range raw {
+		ep, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		dest, _ := ep["dest"].(string)
+		portF, okPort := ep["port"].(float64)
+		if dest == "" || !okPort {
+			continue
+		}
+		if u := render(dest, int(portF), s.endpointRemark(inbound, email, ep, "")); u != "" {
+			links = append(links, u)
+		}
+	}
+	return strings.Join(links, "\n")
+}
+
+// genNaiveLink builds naive+https://user:pass@host:port#remark for a client
+// attached to a Naive inbound. Credentials are HMAC-derived (inbound-scoped).
+// Hosts / externalProxy win for dest+port (same fan-out as hysteria); remark
+// uses genRemark so Happ shows the inbound name, not the email.
+func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
+	if inbound == nil || inbound.Protocol != model.Naive {
+		return ""
+	}
+	cfg, ok := tunnel.ConfigFromInbound(inbound)
+	if !ok || cfg.UseRawConfig {
+		return ""
+	}
+	resolved, ok := s.clientForLink(inbound, email)
+	if !ok || !resolved.Enable {
+		return ""
+	}
+	secret, err := s.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return ""
+	}
+	pair := tunnel.InboundAuthPair(secret, inbound, email)
+	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
+		one := cfg
+		one.Domain = dest
+		one.Port = port
+		return one.ClientURLFor(pair, remark)
+	}); joined != "" {
+		return joined
+	}
+	fallbackHost := strings.TrimSpace(cfg.Domain)
+	if fallbackHost == "" {
+		fallbackHost = s.resolveInboundAddress(inbound)
+	}
+	if fallbackHost == "" {
+		return ""
+	}
+	cfg.Domain = fallbackHost
+	cfg.Port = inbound.Port
+	return cfg.ClientURLFor(pair, s.genRemark(inbound, email, "", ""))
+}
+
+// genMieruLink builds a per-client mierus:// simple share link for a client
+// attached to a mieru inbound. Credentials are HMAC-derived (inbound-scoped).
+// Returns "" when the server address cannot be resolved or the client is not
+// enabled on the inbound.
+
+// genMieruLink builds a per-client mierus:// simple share link for a client
+// attached to a mieru inbound. Credentials are HMAC-derived (inbound-scoped).
+// Returns "" when the server address cannot be resolved or the client is not
+// enabled on the inbound.
+func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
+	if inbound == nil || inbound.Protocol != model.Mieru {
+		return ""
+	}
+	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
+	if !ok {
+		return ""
+	}
+	resolved, ok := s.clientForLink(inbound, email)
+	if !ok || !resolved.Enable {
+		return ""
+	}
+	secret, err := s.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return ""
+	}
+	pair := tunnel.InboundAuthPair(secret, inbound, email)
+	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
+		return mieruBindHostPort(cfg, port).ClientLink(dest, pair, remark)
+	}); joined != "" {
+		return joined
+	}
+	host := s.resolveInboundAddress(inbound)
+	if host == "" {
+		return ""
+	}
+	return cfg.ClientLink(host, pair, s.genRemark(inbound, email, "", ""))
+}
+
+// genTrustTunnelLink builds the per-client tt:// subscription lines for a
+// client attached to a TrustTunnel inbound. Credentials are HMAC-derived
+// (inbound-scoped). Returns "" when the hostname is unset or the client is
+// not enabled on the inbound. Two forms are emitted, one per line: the
+// official TLV deep link (ClientDeepLink — the only form Exclave and the
+// official TrustTunnel app parse) and the Throne-compatible URI (ClientURI —
+// the form Throne and NekoBox+ parse). Each client skips the line whose
+// format it does not understand; a URI-only subscription left Exclave without
+// TrustTunnel entirely (tester report: base64-decoding the URI part fails
+// inside parseTrustTunnel and the line is dropped).
+
+// genTrustTunnelLink builds the per-client tt:// subscription lines for a
+// client attached to a TrustTunnel inbound. Credentials are HMAC-derived
+// (inbound-scoped). Returns "" when the hostname is unset or the client is
+// not enabled on the inbound. Two forms are emitted, one per line: the
+// official TLV deep link (ClientDeepLink — the only form Exclave and the
+// official TrustTunnel app parse) and the Throne-compatible URI (ClientURI —
+// the form Throne and NekoBox+ parse). Each client skips the line whose
+// format it does not understand; a URI-only subscription left Exclave without
+// TrustTunnel entirely (tester report: base64-decoding the URI part fails
+// inside parseTrustTunnel and the line is dropped).
+func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) string {
+	if inbound == nil || inbound.Protocol != model.TrustTunnel {
+		return ""
+	}
+	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
+	if !ok {
+		return ""
+	}
+	hostname := strings.TrimSpace(cfg.Hostname)
+	if hostname == "" {
+		return ""
+	}
+	resolved, ok := s.clientForLink(inbound, email)
+	if !ok || !resolved.Enable {
+		return ""
+	}
+	secret, err := s.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return ""
+	}
+	host := s.resolveInboundAddress(inbound)
+	if host == "" {
+		host = hostname
+	}
+	address := host
+	if p := cfg.ListenPort(); p > 0 {
+		address = net.JoinHostPort(host, strconv.Itoa(p))
+	}
+	pair := tunnel.InboundAuthPair(secret, inbound, email)
+	ttLines := func(addr, remark string) string {
+		var links []string
+		if dl := cfg.ClientDeepLink(addr, pair, remark); dl != "" {
+			links = append(links, dl)
+		}
+		if uri := cfg.ClientURI(addr, pair, remark); uri != "" {
+			links = append(links, uri)
+		}
+		return strings.Join(links, "\n")
+	}
+	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
+		return ttLines(net.JoinHostPort(dest, strconv.Itoa(port)), remark)
+	}); joined != "" {
+		return joined
+	}
+	return ttLines(address, s.genRemark(inbound, email, "", ""))
+}
+
+// amneziaWGHeaderOrDefault mirrors the frontend's amneziaWGHLine: AmneziaWG's
+// H1-H4 magic-header fields always render into the config text, falling back
+// to their protocol-default values (1/2/3/4) when unset rather than being
+// omitted, since a native AmneziaWG client needs all four to be present.
+
+// LUCX-HOOK: the host every subscription format advertises as the server.
+// X-Real-IP carries the subscriber's own address: behind nginx with
+// `proxy_set_header X-Real-IP $remote_addr` it leaked into the AWG Endpoint
+// and Amnezia dialed the user's own router (report Aleksandr, lucx.89), then
+// into the Clash `server:` of AWG proxies the same way (lucx.124) — any
+// inbound whose own chain (ShareAddr/node/listen/public host) resolves to
+// nothing lands on this value. Trusted X-Forwarded-Host, then the Host
+// header; never X-Real-IP.
+func requestServerHost(c *gin.Context, trusted bool) string {
+	xfh := ""
+	if trusted {
+		xfh = c.GetHeader("X-Forwarded-Host")
+	}
+	if h, err := getHostFromXFH(xfh); err == nil && h != "" {
+		return h
+	}
+	h := c.Request.Host
+	if bare, _, err := net.SplitHostPort(h); err == nil {
+		return bare
+	}
+	return h
+}
+
+// AwgEndpointHost is the Endpoint host for generated AWG confs. The inbound's
+// own chain in resolveInboundAddress still wins over this value.
+
+// AwgEndpointHost is the Endpoint host for generated AWG confs. The inbound's
+// own chain in resolveInboundAddress still wins over this value.
+func (s *SubService) AwgEndpointHost(c *gin.Context) string {
+	return requestServerHost(c, s.forwardedHeadersTrusted(c))
+}
+
+// END LUCX-HOOK
+
+// BuildURLs constructs absolute subscription and JSON subscription URLs for a given subscription ID.
+// It prioritizes configured URIs, then individual settings, and finally falls back to request-derived components.
+
+// LUCX-HOOK: BuildAwgURL constructs the AmneziaWG conf subscription URL.
+func (s *SubService) BuildAwgURL(subAwgPath, subId string) string {
+	if subId == "" {
+		return ""
+	}
+	configuredSubURI, _ := s.settingService.GetSubURI()
+	configuredSubAwgURI, _ := s.settingService.GetSubAwgURI()
+	base := s.settingService.BuildSubURIBase(s.address)
+	awgBase := base
+	if configuredSubURI != "" {
+		if derived := s.extractBaseFromURI(configuredSubURI); derived != "" {
+			awgBase = derived
+		}
+	}
+	return s.buildSingleURL(configuredSubAwgURI, awgBase, subAwgPath, subId)
+}
+
+// END LUCX-HOOK
+
+// extractBaseFromURI extracts scheme://host from a configured URI.
+// e.g., "https://example.com/sub-xxx/" → "https://example.com".
+// Returns "" when the URI is empty or lacks a scheme/host, so callers can
+// fall back to the request-derived base instead of emitting a broken value.
+// END LUCX-HOOK

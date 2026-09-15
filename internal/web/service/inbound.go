@@ -8,7 +8,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"net/netip"
 	"regexp"
 	"slices"
 	"sort"
@@ -19,13 +18,11 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgnet"
-	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
-	"github.com/mhsanaei/3x-ui/v3/internal/lucx/nodetype"
-	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
+	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/netsafe"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
@@ -38,13 +35,334 @@ import (
 type InboundService struct {
 	clientService   ClientService
 	fallbackService FallbackService
-	FromNodeSync    bool
+	// FromNodeSync marks a master push: the row was validated where the operator
+	// acted, and a node that refuses it only falls out of sync.
+	FromNodeSync bool
 }
+
+// LUCX-HOOK: awgOutboundSubnetConflict reports whether the inbound tunnel
+// subnet newNet collides with one AWG outbound's tunnel address outAddr. Only
+// an outbound prefix no more specific than the inbound's (oP.Bits() <=
+// newNet.Bits(), i.e. a /24 or wider when the inbound is a /24) installs a
+// conflicting connected route; a bare /32 host address is exempt because it
+// creates no /24 route of its own and defaultAwgClients already keeps client
+// IPs off it. Pure (no DB) for unit testing. Returns the masked conflicting
+// outbound prefix and true on a clash.
+func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefix, bool) {
+	outAddr = strings.TrimSpace(outAddr)
+	if outAddr == "" {
+		return netip.Prefix{}, false
+	}
+	// LUCX-HOOK: AWG — allocate keypair/PSK/tunnel address for AWG clients added
+	// inline via the inbound form. This path (unlike the clients-page
+	// addInboundClient) does not otherwise run defaultAwgClients, so inline AWG
+	// clients would be persisted with blank credentials and no subnet-aware
+	// address. Allocation is confined to the inbound's own tunnel subnet.
+	if inbound.Protocol == model.AWG && len(clients) > 0 {
+		var settings map[string]any
+		if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
+			if ic, ok := settings["clients"].([]any); ok {
+				serverAddr := awgSettingsAddress(inbound.Settings)
+				if err3 := defaultAwgClients(nil, clients, ic, serverAddr, awgSettingsVersion(inbound.Settings)); err3 != nil {
+					return inbound, false, err3
+				}
+				settings["clients"] = ic
+				if bs, err4 := json.Marshal(settings); err4 == nil {
+					inbound.Settings = string(bs)
+				}
+			}
+		}
+	}
+	// END LUCX-HOOK
+	// LUCX-HOOK
+	// LUCX-HOOK: AWG — allocate credentials/address for any NEW clients added
+	// inline while editing the inbound. defaultAwgClients only fills blank
+	// fields, so existing clients (keypair + allowedIPs already set) are left
+	// untouched; the pre-edit client list seeds the exclusion set so a fresh
+	// client never collides with one already on the inbound. Runs after
+	// migrateAwgClientSubnets so a subnet change's re-allocation is preserved.
+	if inbound.Protocol == model.AWG {
+		if newClients, cErr := s.GetClients(inbound); cErr == nil && len(newClients) > 0 {
+			existingClients, _ := s.GetClients(oldInbound)
+			var settings map[string]any
+			if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
+				if ic, ok := settings["clients"].([]any); ok {
+					serverAddr := awgSettingsAddress(inbound.Settings)
+					if err3 := defaultAwgClients(existingClients, newClients, ic, serverAddr, awgSettingsVersion(inbound.Settings)); err3 != nil {
+						return inbound, false, err3
+					}
+					settings["clients"] = ic
+					if bs, err4 := json.Marshal(settings); err4 == nil {
+						inbound.Settings = string(bs)
+					}
+				}
+			}
+		}
+	}
+	// END LUCX-HOOK
+	// LUCX-HOOK: AWG — block re-pointing this inbound's tunnel subnet onto one
+	// another AWG inbound already owns (Pattern 1e). Only enforced when the
+	// masked subnet actually changes: editing other fields of an inbound whose
+	// subnet is a pre-existing duplicate must stay allowed (back-compat).
+	if inbound.Protocol == model.AWG {
+		oldAddr := awgSettingsAddress(oldInbound.Settings)
+		newAddr := awgSettingsAddress(inbound.Settings)
+		subnetChanged := true
+		if oldP, oErr := netip.ParsePrefix(strings.TrimSpace(oldAddr)); oErr == nil {
+			if newP, nErr := netip.ParsePrefix(strings.TrimSpace(newAddr)); nErr == nil {
+				subnetChanged = oldP.Masked().String() != newP.Masked().String()
+			}
+		}
+		if subnetChanged {
+			if err := s.checkAwgSubnetConflict(newAddr, inbound.Id, inbound.NodeID); err != nil {
+				return inbound, false, err
+			}
+		}
+	}
+	// END LUCX-HOOK
+	// LUCX-HOOK: AWG — keep client tunnel IPs stable across Address edits
+	// (no re-export). Only rewrites a peer that collides with the server's
+	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
+	if inbound.Protocol == model.AWG {
+		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.AWG && oldInbound.Protocol == model.AWG {
+		inbound.Settings = migrateAwgClientSubnets(
+			awgSettingsAddress(oldInbound.Settings),
+			awgSettingsAddress(inbound.Settings),
+			inbound.Settings,
+		)
+	}
+	// END LUCX-HOOK
+	// LUCX-HOOK: LucX-only protocols may only deploy to LucX-capable nodes.
+	if err := s.ensureNodeSupportsProtocol(inbound.Protocol, inbound.NodeID); err != nil {
+		return inbound, false, err
+	}
+	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound on this host
+	// already owns (Pattern 1e kernel route conflict). New inbounds have no id.
+	if inbound.Protocol == model.AWG {
+		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
+			return inbound, false, err
+		}
+		if err := s.checkAwgSubnetConflictAllow(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID, allowAwgOverlap); err != nil {
+			return inbound, false, err
+		}
+	}
+	// qWDTT is single-instance per host (TUN + multi-port + root). Normalize BEFORE
+	// port-conflict so DTLS listenAddr port (not the form's random Port)
+	// is what we check — otherwise create accepts a free random port then
+	// silently rebinds to 56000 which may already be taken.
+	if inbound.Protocol == model.Qwdtt {
+		if err := s.checkQwdttSingle(0, inbound.NodeID); err != nil {
+			return inbound, false, err
+		}
+		s.normalizeQwdttSettings(inbound)
+	}
+	if inbound.Protocol == model.Olcrtc {
+		s.normalizeOlcrtcSettings(inbound)
+		// No listen port — avoid clashing with real TCP binds.
+		inbound.Port = 0
+		// SOCKS bridge port after settings coerce (default routeThroughXray=true).
+		if err := s.normalizeOlcrtcXrayPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.Mieru {
+		s.normalizeMieruSettings(inbound)
+		if cfg, ok := tunnel.MieruConfigFromInbound(inbound); ok {
+			if err := cfg.Merge().Validate(); err != nil {
+				return inbound, false, err
+			}
+		}
+		if err := s.checkMieruPortConflict(inbound, 0); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeMieruXrayPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.TrustTunnel {
+		s.normalizeTrustTunnelSettings(inbound)
+		if err := s.checkTrustTunnelPortConflict(inbound, 0); err != nil {
+			return inbound, false, err
+		}
+		if err := s.validateTrustTunnelCert(inbound); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeTrustTunnelXrayPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeTrustTunnelMetricsPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.Anytls {
+		s.normalizeAnytlsSettings(inbound)
+		if err := s.validateAnytlsCert(inbound); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.Tproxy {
+		s.normalizeTproxySettings(inbound)
+		if err := s.validateTproxySettings(inbound); err != nil {
+			return inbound, false, err
+		}
+		if err := s.normalizeTproxyXrayPort(inbound, ""); err != nil {
+			return inbound, false, err
+		}
+	}
+	if inbound.Protocol == model.Cover {
+		s.normalizeCoverSettings(inbound)
+		if err := s.validateCoverSettings(inbound); err != nil {
+			return inbound, false, err
+		}
+		if err := s.checkSingleCover(inbound, 0); err != nil {
+			return inbound, false, err
+		}
+	}
+	s.ensureNodeAuthSeed(inbound)
+	// END LUCX-HOOK
+	oP, err := netip.ParsePrefix(outAddr)
+	if err != nil {
+		return netip.Prefix{}, false
+	}
+	if oP.Bits() <= newNet.Bits() && newNet.Overlaps(oP.Masked()) {
+		return oP.Masked(), true
+	}
+	return netip.Prefix{}, false
+}
+
+// LUCX-HOOK: checkAwgSubnetConflict blocks an AWG inbound whose tunnel subnet
+// overlaps another AWG inbound on the SAME host (local panel or the same node).
+// Two awg interfaces on one kernel with the same connected subnet install
+// duplicate routes; reverse path picks the wrong iface (Pattern 1e). Different
+// nodes are separate kernels — same subnet is fine. ignoreId excludes the
+// inbound being edited. Outbound clash applies only to local inbounds (outbounds
+// live on the master kernel). Empty/unparseable address is not an error here.
+func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, nodeID *int) error {
+	return s.checkAwgSubnetConflictAllow(newAddr, ignoreId, nodeID, false)
+}
+
+func (s *InboundService) checkAwgSubnetConflictAllow(newAddr string, ignoreId int, nodeID *int, allowOverlap bool) error {
+	if allowOverlap {
+		return nil
+	}
+	newAddr = strings.TrimSpace(newAddr)
+	if newAddr == "" {
+		return nil
+	}
+	newP, err := netip.ParsePrefix(newAddr)
+	if err != nil {
+		return nil
+	}
+	newNet := newP.Masked()
+
+	db := database.GetDB()
+	var candidates []*model.Inbound
+	q := db.Model(model.Inbound{}).Where("protocol = ?", model.AWG)
+	if ignoreId > 0 {
+		q = q.Where("id != ?", ignoreId)
+	}
+	if nodeID == nil {
+		q = q.Where("node_id IS NULL")
+	} else {
+		q = q.Where("node_id = ?", *nodeID)
+	}
+	if err := q.Find(&candidates).Error; err != nil {
+		return err
+	}
+
+	for _, c := range candidates {
+		cAddr := awgSettingsAddress(c.Settings)
+		if cAddr == "" {
+			continue
+		}
+		cP, pErr := netip.ParsePrefix(cAddr)
+		if pErr != nil {
+			continue
+		}
+		if newNet.Overlaps(cP.Masked()) {
+			label := c.Remark
+			if label == "" {
+				label = c.Tag
+			}
+			return common.NewError("AWG subnet", newNet.String(), "conflicts with inbound", label, "("+cP.Masked().String()+")", "— two AWG inbounds cannot share a tunnel subnet")
+		}
+	}
+
+	// Outbounds are local to the master kernel — only local inbounds clash.
+	if nodeID == nil {
+		if outAddrs, oErr := (&AwgOutboundService{}).outboundAddresses(false); oErr == nil {
+			for _, oAddr := range outAddrs {
+				if oNet, clash := awgOutboundSubnetConflict(newNet, oAddr); clash {
+					return common.NewError("AWG subnet", newNet.String(), "conflicts with AWG outbound tunnel", oNet.String(), "— the upstream server's subnet overlaps this inbound's tunnel subnet")
+				}
+			}
+		}
+	}
+	return nil
+}
+
+// END LUCX-HOOK
+// LUCX-HOOK: any LucX sidecar whose egress bridge lives only in generated Xray JSON.
+func lucxRoutesThroughXray(inbound *model.Inbound) bool {
+	return awgRoutesThroughXray(inbound) ||
+		naiveRoutesThroughXray(inbound) ||
+		qwdttRoutesThroughXray(inbound) ||
+		olcrtcRoutesThroughXray(inbound) ||
+		mieruRoutesThroughXray(inbound) ||
+		trustTunnelRoutesThroughXray(inbound) ||
+		tproxyRoutesThroughXray(inbound)
+}
+
+func tproxyRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Tproxy {
+		return false
+	}
+	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
+	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
+}
+
+// END LUCX-HOOK
+// LUCX-HOOK: awgRoutesThroughXray reports whether an AWG inbound is configured to egress
+// through the core's router (the TUN bridge in §xray.go). Such inbounds live
+// only in the generated config, so every mutation of one must force a config
+// regen — the kernel sidecar push alone never touches Xray.
+func awgRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.AWG {
+		return false
+	}
+	var parsed struct {
+		RouteThroughXray bool `json:"routeThroughXray"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
+		return false
+	}
+	return parsed.RouteThroughXray
+}
+
+// END LUCX-HOOK
+// LUCX-HOOK: protocols whose datapath is a sidecar, not an Xray inbound.
+func inboundHasSidecar(p model.Protocol) bool {
+	switch p {
+	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover:
+		return true
+	default:
+		return false
+	}
+}
+
+// END LUCX-HOOK
 
 func normalizeTrafficResetDay(day int) int {
 	if day < 1 {
 		return 1
 	}
+	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not settings.
+	s.injectShareOnlySlimClients(db, inbounds)
+	// END LUCX-HOOK
 	return min(day, 31)
 }
 
@@ -62,6 +380,11 @@ func normalizeInboundShareAddress(inbound *model.Inbound) {
 	if inbound == nil {
 		return
 	}
+	if inbound.Protocol == model.MTProto {
+		inbound.ShareAddrStrategy = "listen"
+		inbound.ShareAddr = ""
+		return
+	}
 	inbound.ShareAddrStrategy = normalizeInboundShareAddrStrategy(inbound.ShareAddrStrategy)
 	if addr, err := normalizeInboundShareHost(inbound.ShareAddr); err == nil {
 		inbound.ShareAddr = addr
@@ -72,6 +395,11 @@ func normalizeInboundShareAddress(inbound *model.Inbound) {
 
 func normalizeInboundShareAddressStrict(inbound *model.Inbound) error {
 	if inbound == nil {
+		return nil
+	}
+	if inbound.Protocol == model.MTProto {
+		inbound.ShareAddrStrategy = "listen"
+		inbound.ShareAddr = ""
 		return nil
 	}
 	inbound.ShareAddrStrategy = normalizeInboundShareAddrStrategy(inbound.ShareAddrStrategy)
@@ -116,6 +444,17 @@ func normalizeInboundShareHost(raw string) (string, error) {
 		return "", err
 	}
 	return host, nil
+}
+
+func legacyMtprotoShareAddr(inbound *model.Inbound) string {
+	if inbound == nil || inbound.Protocol != model.MTProto || strings.TrimSpace(inbound.ShareAddrStrategy) != "custom" {
+		return ""
+	}
+	addr, err := normalizeInboundShareHost(inbound.ShareAddr)
+	if err != nil {
+		return ""
+	}
+	return addr
 }
 
 func normalizeInboundShareAddressColumns(tx *gorm.DB) error {
@@ -230,9 +569,6 @@ func (s *InboundService) GetInboundsSlim(userId int) ([]*model.Inbound, error) {
 	for _, ib := range inbounds {
 		ib.Settings = slimSettingsClients(ib.Settings)
 	}
-	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not settings.
-	s.injectShareOnlySlimClients(db, inbounds)
-	// END LUCX-HOOK
 	return inbounds, nil
 }
 
@@ -318,30 +654,19 @@ type InboundOption struct {
 	Protocol       string `json:"protocol" example:"vless"`
 	Port           int    `json:"port" example:"443"`
 	Enable         bool   `json:"enable" example:"true"`
+	Network        string `json:"network,omitempty"`
+	Security       string `json:"security,omitempty"`
 	TlsFlowCapable bool   `json:"tlsFlowCapable" example:"true"`
 	SsMethod       string `json:"ssMethod"`
 	WgPublicKey    string `json:"wgPublicKey,omitempty"`
 	WgMtu          int    `json:"wgMtu,omitempty"`
 	WgDns          string `json:"wgDns,omitempty"`
-	// AWG obfuscation block — the Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines as they
-	// appear in a client .conf [Interface] section, plus the server tunnel
-	// address. Populated for AWG inbounds so the clients-page QR/.conf path
-	// can build a full AmneziaWG client config (mirrors the WG hints above).
-	AwgServerAddress string `json:"awgServerAddress,omitempty"`
-	AwgObfuscation   string `json:"awgObfuscation,omitempty"`
-	// AwgVersion is the inbound's AWG protocol version ("1.5"/"2"/"3") — the
-	// client-config ceiling the clients page uses to gate the per-client export
-	// version selector. Empty/absent is treated as "2" by the frontend.
-	AwgVersion string `json:"awgVersion,omitempty"`
-	// AwgPeerAddresses maps client email → first single-host AllowedIPs for
-	// THIS inbound (multi-attach clients have a different tunnel IP per AWG
-	// inbound; the clients-table allowedIPs field is only one of them).
-	AwgPeerAddresses map[string]string `json:"awgPeerAddresses,omitempty"`
-	MtprotoDomain    string            `json:"mtprotoDomain,omitempty"`
+	MtprotoDomain  string `json:"mtprotoDomain,omitempty"`
 	// AwgServer carries the full AmneziaWG server block (keys, subnet,
 	// obfuscation params) so the clients page can render a downloadable
 	// per-client .conf without a second round trip.
-	AwgServer *amneziawg.ServerSettings `json:"awgServer,omitempty"`
+	AwgServer  *amneziawg.ServerSettings `json:"awgServer,omitempty"`
+	TuicServer *tuic.TuicServerSettings  `json:"tuicServer,omitempty"`
 	// Hosting node; nil for this panel's own inbounds. Lets the clients
 	// page map a node filter onto inbound IDs (#4997).
 	NodeId *int `json:"nodeId,omitempty"`
@@ -398,6 +723,7 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			awgPeers = InboundAwgPeerAddresses(r.Settings)
 		}
 		// END LUCX-HOOK
+		netHint, secHint := inboundStreamHints(r.Protocol, r.StreamSettings, r.Settings)
 		shareAddrStrategy := r.ShareAddrStrategy
 		if shareAddrStrategy == "node" {
 			shareAddrStrategy = ""
@@ -409,17 +735,16 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			Protocol:          r.Protocol,
 			Port:              r.Port,
 			Enable:            r.Enable,
+			Network:           netHint,
+			Security:          secHint,
 			TlsFlowCapable:    !r.DisableFlow && inboundCanEnableTlsFlow(r.Protocol, r.StreamSettings, r.Settings),
 			SsMethod:          inboundShadowsocksMethod(r.Protocol, r.Settings),
 			WgPublicKey:       wgPublicKey,
 			WgMtu:             wgMtu,
 			WgDns:             wgDns,
-			AwgServerAddress:  awgAddr,
-			AwgObfuscation:    awgObf,
-			AwgVersion:        awgVer,
-			AwgPeerAddresses:  awgPeers,
 			MtprotoDomain:     inboundMtprotoDomain(r.Protocol, r.Settings),
 			AwgServer:         inboundAmneziaWGServer(r.Protocol, r.Settings),
+			TuicServer:        inboundTuicServer(r.Protocol, r.Settings),
 			NodeId:            r.NodeId,
 			NodeAddress:       r.NodeAddress,
 			Listen:            r.Listen,
@@ -428,6 +753,44 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 		})
 	}
 	return out, nil
+}
+
+func inboundStreamHints(protocol string, streamSettings string, settings string) (string, string) {
+	p := strings.ToLower(protocol)
+	if p == "wireguard" || p == "amneziawg" || p == "hysteria" {
+		return "udp", ""
+	}
+	var netHint, secHint string
+	if strings.TrimSpace(streamSettings) != "" {
+		var raw struct {
+			Network  string `json:"network"`
+			Security string `json:"security"`
+		}
+		if err := json.Unmarshal([]byte(streamSettings), &raw); err == nil {
+			netHint = raw.Network
+			secHint = raw.Security
+		}
+	}
+	if netHint == "" && strings.TrimSpace(settings) != "" {
+		var raw struct {
+			Network        string `json:"network"`
+			AllowedNetwork string `json:"allowedNetwork"`
+			UDP            bool   `json:"udp"`
+		}
+		if err := json.Unmarshal([]byte(settings), &raw); err == nil {
+			if raw.Network != "" {
+				netHint = raw.Network
+			} else if raw.AllowedNetwork != "" {
+				netHint = raw.AllowedNetwork
+			} else if raw.UDP {
+				netHint = "tcp,udp"
+			}
+		}
+	}
+	if netHint == "" {
+		netHint = "tcp"
+	}
+	return netHint, secHint
 }
 
 func inboundWireguardHints(protocol string, settings string) (string, int, string) {
@@ -637,6 +1000,32 @@ func InboundAwgPeerAddresses(settings string) map[string]string {
 
 // END LUCX-HOOK
 
+func inboundWireguardHints(protocol string, settings string) (string, int, string) {
+	if protocol != string(model.WireGuard) || strings.TrimSpace(settings) == "" {
+		return "", 0, ""
+	}
+	var parsed struct {
+		PublicKey string `json:"publicKey"`
+		PubKey    string `json:"pubKey"`
+		SecretKey string `json:"secretKey"`
+		MTU       int    `json:"mtu"`
+		DNS       string `json:"dns"`
+	}
+	if err := json.Unmarshal([]byte(settings), &parsed); err != nil {
+		return "", 0, ""
+	}
+	publicKey := parsed.PublicKey
+	if publicKey == "" {
+		publicKey = parsed.PubKey
+	}
+	if publicKey == "" && parsed.SecretKey != "" {
+		if derived, err := wgutil.PublicKeyFromPrivate(parsed.SecretKey); err == nil {
+			publicKey = derived
+		}
+	}
+	return publicKey, parsed.MTU, parsed.DNS
+}
+
 // inboundAmneziaWGServer returns the AmneziaWG server block for the clients
 // page's config-download builder, or nil when the inbound isn't AmneziaWG or
 // its settings don't parse. PrivateKey is redacted: GetInboundOptions is a
@@ -649,6 +1038,21 @@ func inboundAmneziaWGServer(protocol string, settings string) *amneziawg.ServerS
 		return nil
 	}
 	var parsed amneziawg.InboundSettings
+	if err := json.Unmarshal([]byte(settings), &parsed); err != nil || parsed.Server == nil {
+		return nil
+	}
+	redacted := *parsed.Server
+	redacted.PrivateKey = ""
+	return &redacted
+}
+
+func inboundTuicServer(protocol string, settings string) *tuic.TuicServerSettings {
+	if protocol != string(model.TUIC) || strings.TrimSpace(settings) == "" {
+		return nil
+	}
+	var parsed struct {
+		Server *tuic.TuicServerSettings `json:"server"`
+	}
 	if err := json.Unmarshal([]byte(settings), &parsed); err != nil || parsed.Server == nil {
 		return nil
 	}
@@ -704,6 +1108,14 @@ func (s *InboundService) GetClients(inbound *model.Inbound) ([]model.Client, err
 // Xray users are built from) instead of parsing the settings JSON blob.
 func (s *InboundService) GetClientsBySubId(inboundId int, subId string) ([]model.Client, error) {
 	return s.clientService.ListForInboundBySubId(nil, inboundId, subId)
+}
+
+// ListClientsForInbound returns every client attached to the inbound from the
+// normalized clients tables — the same source the running Xray config uses —
+// instead of parsing the embedded settings JSON, which can hold a stale UUID
+// after a client identity change (#6436).
+func (s *InboundService) ListClientsForInbound(inboundId int) ([]model.Client, error) {
+	return s.clientService.ListForInbound(nil, inboundId)
 }
 
 func (s *InboundService) GetAllEmails() ([]string, error) {
@@ -805,6 +1217,64 @@ func canonicalizeStreamNetworkKey(streamSettings string) string {
 		return streamSettings
 	}
 	return string(out)
+}
+
+// validateInboundTLSCertificates rejects incomplete TLS credentials before a save
+// can restart Xray. File paths belong to the node, so only presence is checked.
+func validateInboundTLSCertificates(streamSettings string) error {
+	if strings.TrimSpace(streamSettings) == "" {
+		return nil
+	}
+	var stream struct {
+		Security    string          `json:"security"`
+		TLSSettings json.RawMessage `json:"tlsSettings"`
+	}
+	if err := json.Unmarshal([]byte(streamSettings), &stream); err != nil {
+		return common.NewError("Invalid inbound stream settings: ", err)
+	}
+	if !strings.EqualFold(stream.Security, "tls") {
+		return nil
+	}
+	var settings struct {
+		Certificates []struct {
+			CertificateFile string   `json:"certificateFile"`
+			KeyFile         string   `json:"keyFile"`
+			Certificate     []string `json:"certificate"`
+			Key             []string `json:"key"`
+			Usage           string   `json:"usage"`
+		} `json:"certificates"`
+	}
+	if len(stream.TLSSettings) > 0 {
+		if err := json.Unmarshal(stream.TLSSettings, &settings); err != nil {
+			return common.NewError("Invalid inbound TLS settings: ", err)
+		}
+	}
+	hasServerCertificate := false
+	for i, cert := range settings.Certificates {
+		// Match Xray's file-over-inline precedence for each credential.
+		certificate := cert.CertificateFile
+		if certificate == "" {
+			certificate = strings.Join(cert.Certificate, "\n")
+		}
+		if strings.TrimSpace(certificate) == "" {
+			return common.NewErrorf("TLS certificate %d is missing. Configure a certificate file path or certificate content before saving the inbound.", i+1)
+		}
+		if strings.EqualFold(cert.Usage, "verify") {
+			continue
+		}
+		key := cert.KeyFile
+		if key == "" {
+			key = strings.Join(cert.Key, "\n")
+		}
+		if strings.TrimSpace(key) == "" {
+			return common.NewErrorf("TLS certificate %d is missing its private key. Configure a private key file path or private key content before saving the inbound.", i+1)
+		}
+		hasServerCertificate = true
+	}
+	if !hasServerCertificate {
+		return common.NewError("TLS requires a server certificate and private key. Configure an encipherment or issue certificate before saving the inbound.")
+	}
+	return nil
 }
 
 // finalMaskRealityTcpMasks returns the stream's finalmask.tcp masks when the
@@ -1053,18 +1523,8 @@ func (s *InboundService) normalizeMtprotoSecret(inbound *model.Inbound) {
 	}
 }
 
-// LUCX-HOOK: protocols whose datapath is a sidecar, not an Xray inbound.
-func inboundHasSidecar(p model.Protocol) bool {
-	switch p {
-	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover:
-		return true
-	default:
-		return false
-	}
-}
-
-// END LUCX-HOOK
-
+// mtprotoRoutesThroughXray reports whether an mtproto inbound is configured to
+// egress through the core's router (the loopback SOCKS bridge in §xray.go).
 func mtprotoRoutesThroughXray(inbound *model.Inbound) bool {
 	if inbound == nil || inbound.Protocol != model.MTProto {
 		return false
@@ -1078,191 +1538,8 @@ func mtprotoRoutesThroughXray(inbound *model.Inbound) bool {
 	return parsed.RouteThroughXray
 }
 
-// LUCX-HOOK: awgRoutesThroughXray reports whether an AWG inbound is configured to egress
-// through the core's router (the TUN bridge in §xray.go). Such inbounds live
-// only in the generated config, so every mutation of one must force a config
-// regen — the kernel sidecar push alone never touches Xray.
-func awgRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.AWG {
-		return false
-	}
-	var parsed struct {
-		RouteThroughXray bool `json:"routeThroughXray"`
-	}
-	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
-		return false
-	}
-	return parsed.RouteThroughXray
-}
-
-// END LUCX-HOOK
-
-// LUCX-HOOK
-// naiveRoutesThroughXray reports whether a Naive inbound uses the SOCKS bridge.
-func naiveRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.Naive {
-		return false
-	}
-	var parsed struct {
-		RouteThroughXray bool `json:"routeThroughXray"`
-	}
-	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
-		return false
-	}
-	return parsed.RouteThroughXray
-}
-
-// END LUCX-HOOK
-
-// LUCX-HOOK
-// qwdttRoutesThroughXray reports whether qWDTT uses the Xray TUN bridge.
-func qwdttRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.Qwdtt {
-		return false
-	}
-	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
-	return ok && cfg.RouteThroughXray
-}
-
-// olcrtcRoutesThroughXray reports whether olcRTC uses the SOCKS bridge.
-func olcrtcRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.Olcrtc {
-		return false
-	}
-	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
-	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
-}
-
-// END LUCX-HOOK
-
-// checkQwdttSingle rejects a second qWDTT inbound on the same host
-// (local panel or a given node). ignoreId=0 on create.
-func (s *InboundService) checkQwdttSingle(ignoreId int, nodeID *int) error {
-	db := database.GetDB()
-	var n int64
-	q := db.Model(&model.Inbound{}).Where("protocol = ?", model.Qwdtt)
-	if ignoreId > 0 {
-		q = q.Where("id <> ?", ignoreId)
-	}
-	if nodeID == nil {
-		q = q.Where("node_id IS NULL")
-	} else {
-		q = q.Where("node_id = ?", *nodeID)
-	}
-	if err := q.Count(&n).Error; err != nil {
-		return err
-	}
-	if n > 0 {
-		return common.NewError("qWDTT supports only one inbound per host — edit or delete the existing qWDTT inbound (TUN + multi-port + root)")
-	}
-	return nil
-}
-
-// ensureNodeSupportsProtocol rejects LucX-only protocols on vanilla/unknown
-// remote nodes. Local panel (NodeID nil) always allows LucX protocols.
-func (s *InboundService) ensureNodeSupportsProtocol(protocol model.Protocol, nodeID *int) error {
-	if nodeID == nil || *nodeID <= 0 {
-		return nil
-	}
-	proto := string(protocol)
-	if !nodetype.IsLucXOnlyProtocol(proto) {
-		return nil
-	}
-	n, err := (&NodeService{}).GetById(*nodeID)
-	if err != nil {
-		return common.NewError("node", *nodeID, "not found for LucX protocol", proto)
-	}
-	info := nodetype.FromJSON(n.Features)
-	if n.NodeType != "" {
-		info.NodeType = n.NodeType
-	}
-	if info.NodeType == "" {
-		info = nodetype.FromPanelVersion(n.PanelVersion)
-	}
-	if !info.SupportsProtocol(proto) {
-		return common.NewError("protocol", proto, "requires a LucX-UI node with feature", proto, "— node", n.Name, "is", info.NodeType)
-	}
-	return nil
-}
-
-// ensureNodeAuthSeed mints settings.authSeed for HMAC sidecars on a node so
-// the master's sub and the node's sidecar share one key. Local inbounds stay
-// on HMAC(panel secret, id). Persists before push; skip the in-memory seed
-// if the write fails so the next tick cannot rotate it.
-func (s *InboundService) ensureNodeAuthSeed(ib *model.Inbound) {
-	if ib == nil || ib.NodeID == nil || !tunnel.UsesDerivedAuth(ib.Protocol) {
-		return
-	}
-	if tunnel.AuthSeed(ib.Settings) != "" {
-		return
-	}
-	next, changed := tunnel.EnsureAuthSeed(ib.Settings)
-	if !changed {
-		return
-	}
-	if ib.Id > 0 {
-		if err := database.GetDB().Model(&model.Inbound{}).Where("id = ?", ib.Id).Update("settings", next).Error; err != nil {
-			logger.Warning("authSeed persist failed for inbound", ib.Id, ":", err)
-			return
-		}
-	}
-	ib.Settings = next
-}
-
-// normalizeOlcrtcSettings ensures cryptoKey on save and coerces Telemost to
-// vp8channel (datachannel is rejected by Validate and left the process stopped
-// forever while the form still showed "enabled" — Vlad thrash 2026-08-12).
-func (s *InboundService) normalizeOlcrtcSettings(inbound *model.Inbound) {
-	cfg, ok := tunnel.OlcrtcConfigFromInbound(inbound)
-	if !ok {
-		return
-	}
-	cfg = tunnel.CoerceOlcrtcTransport(cfg.Merge())
-	cfg = cfg.ClampVP8()
-	if c2, err := cfg.EnsureCryptoKey(); err == nil {
-		cfg = c2
-	}
-	if bs, err := json.MarshalIndent(cfg, "", "  "); err == nil {
-		inbound.Settings = string(bs)
-	}
-	if inbound.Remark == "" && cfg.Remark != "" {
-		inbound.Remark = cfg.Remark
-	}
-}
-
-// normalizeQwdttSettings ensures password + public peer (subHost) and syncs
-// Port from listenAddr. subHost is required for qwdtt:// ClientURI — without
-// it the inbound saves but export/QR/sub stay empty (tester report: "inbound
-// creates but nothing to share").
-func (s *InboundService) normalizeQwdttSettings(inbound *model.Inbound) {
-	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
-	if !ok {
-		return
-	}
-	cfg = cfg.Merge()
-	if c2, err := cfg.EnsurePassword(); err == nil {
-		cfg = c2
-	}
-	cfg = cfg.EnsureSubHost()
-	if bs, err := json.MarshalIndent(cfg, "", "  "); err == nil {
-		inbound.Settings = string(bs)
-	}
-	if p := tunnel.QwdttDTLSPort(cfg); p > 0 {
-		inbound.Port = p
-	}
-	if inbound.Remark == "" && cfg.Remark != "" {
-		inbound.Remark = cfg.Remark
-	}
-}
-
-// settingsRouteXrayPort is the upstream helper name (mtproto egress); the
-// LucX sidecar ports reuse the generic settingsIntKey below.
 func settingsRouteXrayPort(parsed map[string]any) int {
-	return settingsIntKey(parsed, "routeXrayPort")
-}
-
-func settingsIntKey(parsed map[string]any, key string) int {
-	switch v := parsed[key].(type) {
+	switch v := parsed["routeXrayPort"].(type) {
 	case float64:
 		return int(v)
 	case int:
@@ -1275,7 +1552,7 @@ func settingsIntKey(parsed map[string]any, key string) int {
 	return 0
 }
 
-func parseSettingsIntKey(settings string, key string) int {
+func parseRouteXrayPort(settings string) int {
 	if settings == "" {
 		return 0
 	}
@@ -1283,7 +1560,7 @@ func parseSettingsIntKey(settings string, key string) int {
 	if err := json.Unmarshal([]byte(settings), &parsed); err != nil {
 		return 0
 	}
-	return settingsIntKey(parsed, key)
+	return settingsRouteXrayPort(parsed)
 }
 
 // normalizeMtprotoXrayPort guarantees a routed mtproto inbound carries a stable
@@ -1299,530 +1576,7 @@ func parseSettingsIntKey(settings string, key string) int {
 // which would otherwise route no traffic and have its mtg metrics skipped (see
 // mtproto_job) — silently losing its accounting.
 func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSettings string) error {
-	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.MTProto, "mtproto")
-}
-
-// normalizeNaiveXrayPort allocates/persists the SOCKS bridge port for Naive
-// inbounds with routeThroughXray (same logic as mtproto).
-func (s *InboundService) normalizeNaiveXrayPort(inbound *model.Inbound, oldSettings string) error {
-	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Naive, "naive")
-}
-
-// normalizeOlcrtcXrayPort allocates/persists the SOCKS bridge port for olcRTC
-// (binary dials via socks: proxy_addr/port in YAML).
-func (s *InboundService) normalizeOlcrtcXrayPort(inbound *model.Inbound, oldSettings string) error {
-	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Olcrtc, "olcrtc")
-}
-
-// normalizeMieruXrayPort allocates/persists the SOCKS bridge port for mieru
-// (mita dials via native egress.proxies SOCKS5).
-func (s *InboundService) normalizeMieruXrayPort(inbound *model.Inbound, oldSettings string) error {
-	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Mieru, "mieru")
-}
-
-// mieruRoutesThroughXray reports whether mieru uses the Xray SOCKS bridge.
-func mieruRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.Mieru {
-		return false
-	}
-	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
-	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
-}
-
-// trustTunnelRoutesThroughXray reports whether TrustTunnel uses the Xray
-// SOCKS bridge ([forward_protocol.socks5]).
-func trustTunnelRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.TrustTunnel {
-		return false
-	}
-	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
-	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
-}
-
-// LUCX-HOOK: any LucX sidecar whose egress bridge lives only in generated Xray JSON.
-func lucxRoutesThroughXray(inbound *model.Inbound) bool {
-	return awgRoutesThroughXray(inbound) ||
-		naiveRoutesThroughXray(inbound) ||
-		qwdttRoutesThroughXray(inbound) ||
-		olcrtcRoutesThroughXray(inbound) ||
-		mieruRoutesThroughXray(inbound) ||
-		trustTunnelRoutesThroughXray(inbound) ||
-		tproxyRoutesThroughXray(inbound)
-}
-
-func tproxyRoutesThroughXray(inbound *model.Inbound) bool {
-	if inbound == nil || inbound.Protocol != model.Tproxy {
-		return false
-	}
-	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
-	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
-}
-
-// END LUCX-HOOK
-
-// normalizeMieruSettings merges defaults into the stored settings WITHOUT
-// touching clients[] (multi-client inbound — the config struct has no client
-// field, so a plain re-marshal would drop them). Syncs inbound.Port to the
-// primary binding so the generic port bookkeeping has a single value.
-func (s *InboundService) normalizeMieruSettings(inbound *model.Inbound) {
-	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
-	if !ok {
-		return
-	}
-	cfg = cfg.Merge()
-	var settings map[string]any
-	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
-		_ = json.Unmarshal([]byte(raw), &settings)
-	}
-	if settings == nil {
-		settings = map[string]any{}
-	}
-	settings["portBindings"] = cfg.PortBindings
-	settings["mtu"] = cfg.MTU
-	settings["loggingLevel"] = cfg.LoggingLevel
-	settings["routeThroughXray"] = cfg.RouteThroughXray
-	settings["routeXrayPort"] = cfg.RouteXrayPort
-	settings["outboundTag"] = cfg.OutboundTag
-	// Optional traffic shaping: written only when set, deleted when cleared,
-	// so pre-feature inbounds keep their stored settings byte-identical.
-	if m := strings.TrimSpace(cfg.Multiplexing); m != "" {
-		settings["multiplexing"] = m
-	} else {
-		delete(settings, "multiplexing")
-	}
-	if h := strings.TrimSpace(cfg.HandshakeMode); h != "" {
-		settings["handshakeMode"] = h
-	} else {
-		delete(settings, "handshakeMode")
-	}
-	if tp := cfg.TrafficPattern.Normalized(); tp != nil {
-		settings["trafficPattern"] = tp
-	} else {
-		delete(settings, "trafficPattern")
-	}
-	if strings.TrimSpace(cfg.Remark) != "" {
-		settings["remark"] = cfg.Remark
-	}
-	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
-		inbound.Settings = string(bs)
-	}
-	inbound.Port = tunnel.MieruPrimaryPort(cfg)
-	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
-		inbound.Remark = cfg.Remark
-	}
-}
-
-// normalizeAnytlsSettings merges defaults into the stored settings and mints
-// the shared password on first save. Syncs inbound.Port to the TCP listen
-// port so the generic port bookkeeping has a single value.
-func (s *InboundService) normalizeAnytlsSettings(inbound *model.Inbound) {
-	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
-	if !ok {
-		return
-	}
-	cfg = cfg.Merge()
-	if inbound.Port > 0 {
-		cfg.Port = inbound.Port
-	}
-	if strings.TrimSpace(cfg.Password) == "" {
-		if c2, err := cfg.EnsurePassword(); err == nil {
-			cfg = c2
-		}
-	}
-	var settings map[string]any
-	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
-		_ = json.Unmarshal([]byte(raw), &settings)
-	}
-	if settings == nil {
-		settings = map[string]any{}
-	}
-	settings["port"] = cfg.Port
-	settings["password"] = cfg.Password
-	settings["sni"] = strings.TrimSpace(cfg.SNI)
-	settings["certFile"] = strings.TrimSpace(cfg.CertFile)
-	settings["keyFile"] = strings.TrimSpace(cfg.KeyFile)
-	if strings.TrimSpace(cfg.Remark) != "" {
-		settings["remark"] = cfg.Remark
-	}
-	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
-		inbound.Settings = string(bs)
-	}
-	inbound.Port = tunnel.AnytlsPrimaryPort(cfg)
-	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
-		inbound.Remark = cfg.Remark
-	}
-}
-
-func (s *InboundService) validateAnytlsCert(inbound *model.Inbound) error {
-	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
-	if !ok {
-		return nil
-	}
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-	panelCert, panelKey := panelCertFiles()
-	return cfg.ValidateCert(panelCert, panelKey)
-}
-
-func (s *InboundService) normalizeTproxySettings(inbound *model.Inbound) {
-	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
-	if !ok {
-		return
-	}
-	cfg = cfg.Merge()
-	if inbound.Port > 0 {
-		cfg.Port = inbound.Port
-	}
-	if strings.TrimSpace(cfg.Secret) == "" {
-		if c2, err := cfg.EnsureSecret(); err == nil {
-			cfg = c2
-		}
-	}
-	var settings map[string]any
-	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
-		_ = json.Unmarshal([]byte(raw), &settings)
-	}
-	if settings == nil {
-		settings = map[string]any{}
-	}
-	settings["port"] = cfg.Port
-	settings["hostname"] = strings.TrimSpace(cfg.Hostname)
-	settings["secret"] = strings.TrimSpace(cfg.Secret)
-	settings["siteSource"] = cfg.SiteSource
-	settings["siteDir"] = strings.TrimSpace(cfg.SiteDir)
-	settings["siteUpstream"] = strings.TrimSpace(cfg.SiteUpstream)
-	settings["carrierMode"] = cfg.CarrierMode
-	settings["certFile"] = strings.TrimSpace(cfg.CertFile)
-	settings["keyFile"] = strings.TrimSpace(cfg.KeyFile)
-	settings["routeThroughXray"] = cfg.RouteThroughXray
-	settings["routeXrayPort"] = cfg.RouteXrayPort
-	settings["outboundTag"] = strings.TrimSpace(cfg.OutboundTag)
-	if strings.TrimSpace(cfg.Remark) != "" {
-		settings["remark"] = cfg.Remark
-	}
-	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
-		inbound.Settings = string(bs)
-	}
-	inbound.Port = tunnel.TproxyPrimaryPort(cfg)
-	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
-		inbound.Remark = cfg.Remark
-	}
-}
-
-func (s *InboundService) normalizeTproxyXrayPort(inbound *model.Inbound, oldSettings string) error {
-	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Tproxy, "tproxy")
-}
-
-func (s *InboundService) normalizeCoverSettings(inbound *model.Inbound) {
-	cfg, ok := tunnel.CoverConfigFromInbound(inbound)
-	if !ok {
-		return
-	}
-	cfg = cfg.Merge()
-	var settings map[string]any
-	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
-		_ = json.Unmarshal([]byte(raw), &settings)
-	}
-	if settings == nil {
-		settings = map[string]any{}
-	}
-	settings["hostname"] = strings.TrimSpace(cfg.Hostname)
-	settings["siteSource"] = cfg.SiteSource
-	settings["siteDir"] = strings.TrimSpace(cfg.SiteDir)
-	settings["siteUpstream"] = strings.TrimSpace(cfg.SiteUpstream)
-	settings["certFile"] = strings.TrimSpace(cfg.CertFile)
-	settings["keyFile"] = strings.TrimSpace(cfg.KeyFile)
-	settings["routes"] = cfg.Routes
-	if strings.TrimSpace(cfg.Remark) != "" {
-		settings["remark"] = cfg.Remark
-	}
-	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
-		inbound.Settings = string(bs)
-	}
-	inbound.Port = 443
-	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
-		inbound.Remark = cfg.Remark
-	}
-}
-
-func (s *InboundService) validateCoverSettings(inbound *model.Inbound) error {
-	cfg, ok := tunnel.CoverConfigFromInbound(inbound)
-	if !ok {
-		return nil
-	}
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-	if cfg.SiteSource == "dir" {
-		if err := tunnel.RequireIndexHTML(strings.TrimSpace(cfg.SiteDir)); err != nil {
-			return err
-		}
-	}
-	if cfg.SiteSource == "upstream" {
-		return nil
-	}
-	panelCert, panelKey := panelCertFiles()
-	return cfg.ValidateCert(panelCert, panelKey)
-}
-
-func (s *InboundService) checkSingleCover(inbound *model.Inbound, ignoreId int) error {
-	if inbound == nil || inbound.Protocol != model.Cover || inbound.NodeID != nil {
-		return nil
-	}
-	inbounds, err := s.GetAllInbounds()
-	if err != nil {
-		return err
-	}
-	for _, o := range inbounds {
-		if o == nil || o.Protocol != model.Cover || o.NodeID != nil || o.Id == ignoreId {
-			continue
-		}
-		return common.NewError("cover: only one cover inbound per host (:80 and :443)")
-	}
-	return nil
-}
-
-func (s *InboundService) validateTproxySettings(inbound *model.Inbound) error {
-	cfg, ok := tunnel.TproxyConfigFromInbound(inbound)
-	if !ok {
-		return nil
-	}
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-	if cfg.SiteSource == "dir" {
-		if err := tunnel.RequireIndexHTML(strings.TrimSpace(cfg.SiteDir)); err != nil {
-			return err
-		}
-	}
-	if cfg.SiteSource == "upstream" {
-		return nil
-	}
-	panelCert, panelKey := panelCertFiles()
-	return cfg.ValidateCert(panelCert, panelKey)
-}
-
-func inboundListenRanges(ib *model.Inbound) [][2]int {
-	if ib == nil {
-		return nil
-	}
-	if ib.Protocol == model.Mieru {
-		cfg, ok := tunnel.MieruConfigFromInbound(ib)
-		if !ok {
-			if ib.Port > 0 {
-				return [][2]int{{ib.Port, ib.Port}}
-			}
-			return nil
-		}
-		var out [][2]int
-		for _, b := range cfg.Merge().PortBindings {
-			if strings.TrimSpace(b.PortRange) != "" {
-				lo, hi, ok := tunnel.MieruPortRangeBounds(b.PortRange)
-				if ok {
-					out = append(out, [2]int{lo, hi})
-				}
-				continue
-			}
-			if b.Port > 0 {
-				out = append(out, [2]int{b.Port, b.Port})
-			}
-		}
-		return out
-	}
-	if ib.Port > 0 {
-		return [][2]int{{ib.Port, ib.Port}}
-	}
-	return nil
-}
-
-// checkMieruPortConflict rejects bindings colliding with other local
-// inbounds. TCP bindings collide with every non-UDP-only listener; UDP
-// bindings collide only with UDP-capable listeners (wireguard/AWG/hysteria,
-// another mieru UDP binding, TrustTunnel QUIC) — TCP and UDP coexist on one
-// port number. Node inbounds listen elsewhere and are skipped.
-func (s *InboundService) checkMieruPortConflict(inbound *model.Inbound, ignoreId int) error {
-	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
-	if !ok {
-		return nil
-	}
-	cfg = cfg.Merge()
-	inbounds, err := s.GetAllInbounds()
-	if err != nil {
-		return err
-	}
-	for _, b := range cfg.PortBindings {
-		lo, hi := b.Port, b.Port
-		if strings.TrimSpace(b.PortRange) != "" {
-			var rngOK bool
-			lo, hi, rngOK = tunnel.MieruPortRangeBounds(b.PortRange)
-			if !rngOK {
-				continue
-			}
-		}
-		if lo <= 0 {
-			continue
-		}
-		if webPort, err := (&SettingService{}).GetPort(); err == nil && webPort >= lo && webPort <= hi {
-			return common.NewErrorf("mieru: port %d-%d collides with the panel itself", lo, hi)
-		}
-		udp := strings.EqualFold(strings.TrimSpace(b.Protocol), "UDP")
-		for _, other := range inbounds {
-			if other == nil || other.Id == ignoreId || other.Id == inbound.Id || other.NodeID != nil {
-				continue
-			}
-			hit := 0
-			for _, r := range inboundListenRanges(other) {
-				if lo <= r[1] && r[0] <= hi {
-					hit = r[0]
-					break
-				}
-			}
-			if hit == 0 {
-				continue
-			}
-			udpOnly := other.Protocol == model.WireGuard || other.Protocol == model.AWG ||
-				other.Protocol == model.AmneziaWG || other.Protocol == model.Hysteria
-			if udp {
-				if udpOnly || other.Protocol == model.Mieru || other.Protocol == model.TrustTunnel {
-					return common.NewErrorf("mieru: UDP port %d-%d collides with inbound %q (port %d)", lo, hi, other.Remark, hit)
-				}
-				continue
-			}
-			if !udpOnly {
-				return common.NewErrorf("mieru: TCP port %d-%d collides with inbound %q (port %d)", lo, hi, other.Remark, hit)
-			}
-		}
-	}
-	return nil
-}
-
-// normalizeTrustTunnelSettings merges defaults into the stored settings
-// without touching clients[] and syncs inbound.Port from the listen address.
-func (s *InboundService) normalizeTrustTunnelSettings(inbound *model.Inbound) {
-	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
-	if !ok {
-		return
-	}
-	cfg = cfg.Merge()
-	cfg.EnsureClientRandomPrefix()
-	var settings map[string]any
-	if raw := strings.TrimSpace(inbound.Settings); raw != "" && raw != "{}" {
-		_ = json.Unmarshal([]byte(raw), &settings)
-	}
-	if settings == nil {
-		settings = map[string]any{}
-	}
-	settings["hostname"] = cfg.Hostname
-	settings["listen"] = cfg.Listen
-	settings["ipv6"] = cfg.IPv6
-	settings["certFile"] = cfg.CertFile
-	settings["keyFile"] = cfg.KeyFile
-	settings["clientDns"] = cfg.ClientDNS
-	settings["upstreamProtocol"] = cfg.UpstreamProtocol
-	settings["routeThroughXray"] = cfg.RouteThroughXray
-	settings["routeXrayPort"] = cfg.RouteXrayPort
-	settings["outboundTag"] = cfg.OutboundTag
-	settings["metricsPort"] = cfg.MetricsPort
-	settings["listenPreset"] = cfg.ListenPreset
-	settings["clientRandomPrefix"] = cfg.ClientRandomPrefix
-	if strings.TrimSpace(cfg.Remark) != "" {
-		settings["remark"] = cfg.Remark
-	}
-	if bs, err := json.MarshalIndent(settings, "", "  "); err == nil {
-		inbound.Settings = string(bs)
-	}
-	inbound.Port = cfg.ListenPort()
-	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
-		inbound.Remark = cfg.Remark
-	}
-}
-
-// validateTrustTunnelCert rejects the save when the endpoint cannot start:
-// no hostname, or the resolved certificate (explicit paths or the panel ACME
-// cert) does not parse / cover the hostname / expired. Fail-fast by design —
-// TrustTunnel without a trusted domain cert is unusable.
-func (s *InboundService) validateTrustTunnelCert(inbound *model.Inbound) error {
-	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
-	if !ok {
-		return nil
-	}
-	if err := cfg.Validate(); err != nil {
-		return err
-	}
-	panelCert, panelKey := panelCertFiles()
-	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
-	return tunnel.ValidateCertFiles(certFile, keyFile, cfg.Hostname)
-}
-
-// normalizeTrustTunnelXrayPort allocates/persists the SOCKS bridge port for a
-// routed TrustTunnel inbound (endpoint [forward_protocol.socks5] dials it).
-func (s *InboundService) normalizeTrustTunnelXrayPort(inbound *model.Inbound, oldSettings string) error {
-	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.TrustTunnel, "trusttunnel")
-}
-
-// normalizeTrustTunnelMetricsPort allocates a stable loopback Prometheus port
-// for traffic accounting (first save only; kept across edits).
-func (s *InboundService) normalizeTrustTunnelMetricsPort(inbound *model.Inbound, oldSettings string) error {
-	if inbound.Protocol != model.TrustTunnel {
-		return nil
-	}
-	var parsed map[string]any
-	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil || parsed == nil {
-		return nil
-	}
-	if port := settingsIntKey(parsed, "metricsPort"); port > 0 {
-		return nil
-	}
-	if port := parseSettingsIntKey(oldSettings, "metricsPort"); port > 0 {
-		parsed["metricsPort"] = port
-	} else {
-		free, err := mtproto.FreeLocalPort()
-		if err != nil {
-			return common.NewError("trusttunnel: allocate metrics port: ", err)
-		}
-		parsed["metricsPort"] = free
-	}
-	if bs, err := json.MarshalIndent(parsed, "", "  "); err == nil {
-		inbound.Settings = string(bs)
-	}
-	return nil
-}
-
-// checkTrustTunnelPortConflict rejects a listen port already bound by another
-// local inbound (TrustTunnel listens TCP+UDP/QUIC on one port, so both
-// directions collide) and the panel's own HTTPS port.
-func (s *InboundService) checkTrustTunnelPortConflict(inbound *model.Inbound, ignoreId int) error {
-	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
-	if !ok {
-		return nil
-	}
-	port := cfg.ListenPort()
-	if port <= 0 {
-		return nil
-	}
-	if webPort, err := (&SettingService{}).GetPort(); err == nil && webPort == port {
-		return common.NewErrorf("trusttunnel: port %d is used by the panel itself", port)
-	}
-	inbounds, err := s.GetAllInbounds()
-	if err != nil {
-		return err
-	}
-	for _, other := range inbounds {
-		if other == nil || other.Id == ignoreId || other.Id == inbound.Id || other.NodeID != nil {
-			continue
-		}
-		for _, r := range inboundListenRanges(other) {
-			if port >= r[0] && port <= r[1] {
-				return common.NewErrorf("trusttunnel: port %d collides with inbound %q", port, other.Remark)
-			}
-		}
-	}
-	return nil
-}
-
-func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSettings string, proto model.Protocol, label string) error {
-	if inbound.Protocol != proto {
+	if inbound.Protocol != model.MTProto {
 		return nil
 	}
 	var parsed map[string]any
@@ -1841,140 +1595,43 @@ func (s *InboundService) normalizeSidecarXrayPort(inbound *model.Inbound, oldSet
 		if bs, err := json.MarshalIndent(parsed, "", "  "); err == nil {
 			inbound.Settings = string(bs)
 		} else {
-			logger.Warning(label, ": failed to marshal settings after disabling routing:", err)
+			logger.Warning("mtproto: failed to marshal settings after disabling routing:", err)
 		}
 		return nil
 	}
 
-	port := parseSettingsIntKey(oldSettings, "routeXrayPort")
-	if port <= 0 && proto != model.Naive {
-		port = settingsIntKey(parsed, "routeXrayPort")
+	// Prefer the already-stored port (carried across edits), then any value the
+	// client sent, then allocate a fresh one.
+	port := parseRouteXrayPort(oldSettings)
+	if port <= 0 {
+		port = settingsRouteXrayPort(parsed)
 	}
 	if port <= 0 {
 		allocated, err := mtproto.FreeLocalPort()
 		if err != nil {
-			return common.NewError(label+": could not allocate an Xray egress port:", err)
+			return common.NewError("mtproto: could not allocate an Xray egress port:", err)
 		}
 		port = allocated
 	}
-	if settingsIntKey(parsed, "routeXrayPort") == port {
+	if settingsRouteXrayPort(parsed) == port {
 		return nil
 	}
 	parsed["routeXrayPort"] = port
 	bs, err := json.MarshalIndent(parsed, "", "  ")
 	if err != nil {
-		return common.NewError(label+": could not persist the Xray egress port:", err)
+		return common.NewError("mtproto: could not persist the Xray egress port:", err)
 	}
 	inbound.Settings = string(bs)
 	return nil
 }
-
-// LUCX-HOOK: awgOutboundSubnetConflict reports whether the inbound tunnel
-// subnet newNet collides with one AWG outbound's tunnel address outAddr. Only
-// an outbound prefix no more specific than the inbound's (oP.Bits() <=
-// newNet.Bits(), i.e. a /24 or wider when the inbound is a /24) installs a
-// conflicting connected route; a bare /32 host address is exempt because it
-// creates no /24 route of its own and defaultAwgClients already keeps client
-// IPs off it. Pure (no DB) for unit testing. Returns the masked conflicting
-// outbound prefix and true on a clash.
-func awgOutboundSubnetConflict(newNet netip.Prefix, outAddr string) (netip.Prefix, bool) {
-	outAddr = strings.TrimSpace(outAddr)
-	if outAddr == "" {
-		return netip.Prefix{}, false
-	}
-	oP, err := netip.ParsePrefix(outAddr)
-	if err != nil {
-		return netip.Prefix{}, false
-	}
-	if oP.Bits() <= newNet.Bits() && newNet.Overlaps(oP.Masked()) {
-		return oP.Masked(), true
-	}
-	return netip.Prefix{}, false
-}
-
-// LUCX-HOOK: checkAwgSubnetConflict blocks an AWG inbound whose tunnel subnet
-// overlaps another AWG inbound on the SAME host (local panel or the same node).
-// Two awg interfaces on one kernel with the same connected subnet install
-// duplicate routes; reverse path picks the wrong iface (Pattern 1e). Different
-// nodes are separate kernels — same subnet is fine. ignoreId excludes the
-// inbound being edited. Outbound clash applies only to local inbounds (outbounds
-// live on the master kernel). Empty/unparseable address is not an error here.
-func (s *InboundService) checkAwgSubnetConflict(newAddr string, ignoreId int, nodeID *int) error {
-	return s.checkAwgSubnetConflictAllow(newAddr, ignoreId, nodeID, false)
-}
-
-func (s *InboundService) checkAwgSubnetConflictAllow(newAddr string, ignoreId int, nodeID *int, allowOverlap bool) error {
-	if allowOverlap {
-		return nil
-	}
-	newAddr = strings.TrimSpace(newAddr)
-	if newAddr == "" {
-		return nil
-	}
-	newP, err := netip.ParsePrefix(newAddr)
-	if err != nil {
-		return nil
-	}
-	newNet := newP.Masked()
-
-	db := database.GetDB()
-	var candidates []*model.Inbound
-	q := db.Model(model.Inbound{}).Where("protocol = ?", model.AWG)
-	if ignoreId > 0 {
-		q = q.Where("id != ?", ignoreId)
-	}
-	if nodeID == nil {
-		q = q.Where("node_id IS NULL")
-	} else {
-		q = q.Where("node_id = ?", *nodeID)
-	}
-	if err := q.Find(&candidates).Error; err != nil {
-		return err
-	}
-
-	for _, c := range candidates {
-		cAddr := awgSettingsAddress(c.Settings)
-		if cAddr == "" {
-			continue
-		}
-		cP, pErr := netip.ParsePrefix(cAddr)
-		if pErr != nil {
-			continue
-		}
-		if newNet.Overlaps(cP.Masked()) {
-			label := c.Remark
-			if label == "" {
-				label = c.Tag
-			}
-			return common.NewError("AWG subnet", newNet.String(), "conflicts with inbound", label, "("+cP.Masked().String()+")", "— two AWG inbounds cannot share a tunnel subnet")
-		}
-	}
-
-	// Outbounds are local to the master kernel — only local inbounds clash.
-	if nodeID == nil {
-		if outAddrs, oErr := (&AwgOutboundService{}).outboundAddresses(false); oErr == nil {
-			for _, oAddr := range outAddrs {
-				if oNet, clash := awgOutboundSubnetConflict(newNet, oAddr); clash {
-					return common.NewError("AWG subnet", newNet.String(), "conflicts with AWG outbound tunnel", oNet.String(), "— the upstream server's subnet overlaps this inbound's tunnel subnet")
-				}
-			}
-		}
-	}
-	return nil
-}
-
-// END LUCX-HOOK
 
 // AddInbound creates a new inbound configuration.
 // It validates port uniqueness, client email uniqueness, and required fields,
 // then saves the inbound to the database and optionally adds it to the running Xray instance.
 // Returns the created inbound, whether Xray needs restart, and any error.
 func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, bool, error) {
-	return s.addInbound(inbound, false)
-}
-
-func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool) (*model.Inbound, bool, error) {
 	inbound.Id = 0
+	legacyShareAddr := legacyMtprotoShareAddr(inbound)
 	inbound.TrafficResetDay = normalizeTrafficResetDay(inbound.TrafficResetDay)
 	// Normalize streamSettings based on protocol
 	s.normalizeStreamSettings(inbound)
@@ -1993,9 +1650,6 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 	if err := s.normalizeMtprotoXrayPort(inbound, ""); err != nil {
 		return inbound, false, err
 	}
-	if err := s.normalizeNaiveXrayPort(inbound, ""); err != nil {
-		return inbound, false, err
-	}
 	if err := s.normalizeAmneziaWGSettings(inbound, ""); err != nil {
 		return inbound, false, err
 	}
@@ -2006,95 +1660,6 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 	if err := normalizeInboundShareAddressStrict(inbound); err != nil {
 		return inbound, false, err
 	}
-
-	// LUCX-HOOK: LucX-only protocols may only deploy to LucX-capable nodes.
-	if err := s.ensureNodeSupportsProtocol(inbound.Protocol, inbound.NodeID); err != nil {
-		return inbound, false, err
-	}
-	// LUCX-HOOK: AWG — block a tunnel subnet another AWG inbound on this host
-	// already owns (Pattern 1e kernel route conflict). New inbounds have no id.
-	if inbound.Protocol == model.AWG {
-		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
-			return inbound, false, err
-		}
-		if err := s.checkAwgSubnetConflictAllow(awgSettingsAddress(inbound.Settings), 0, inbound.NodeID, allowAwgOverlap); err != nil {
-			return inbound, false, err
-		}
-	}
-	// qWDTT is single-instance per host (TUN + multi-port + root). Normalize BEFORE
-	// port-conflict so DTLS listenAddr port (not the form's random Port)
-	// is what we check — otherwise create accepts a free random port then
-	// silently rebinds to 56000 which may already be taken.
-	if inbound.Protocol == model.Qwdtt {
-		if err := s.checkQwdttSingle(0, inbound.NodeID); err != nil {
-			return inbound, false, err
-		}
-		s.normalizeQwdttSettings(inbound)
-	}
-	if inbound.Protocol == model.Olcrtc {
-		s.normalizeOlcrtcSettings(inbound)
-		// No listen port — avoid clashing with real TCP binds.
-		inbound.Port = 0
-		// SOCKS bridge port after settings coerce (default routeThroughXray=true).
-		if err := s.normalizeOlcrtcXrayPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Mieru {
-		s.normalizeMieruSettings(inbound)
-		if cfg, ok := tunnel.MieruConfigFromInbound(inbound); ok {
-			if err := cfg.Merge().Validate(); err != nil {
-				return inbound, false, err
-			}
-		}
-		if err := s.checkMieruPortConflict(inbound, 0); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeMieruXrayPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.TrustTunnel {
-		s.normalizeTrustTunnelSettings(inbound)
-		if err := s.checkTrustTunnelPortConflict(inbound, 0); err != nil {
-			return inbound, false, err
-		}
-		if err := s.validateTrustTunnelCert(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTrustTunnelXrayPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTrustTunnelMetricsPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Anytls {
-		s.normalizeAnytlsSettings(inbound)
-		if err := s.validateAnytlsCert(inbound); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Tproxy {
-		s.normalizeTproxySettings(inbound)
-		if err := s.validateTproxySettings(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.normalizeTproxyXrayPort(inbound, ""); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.Cover {
-		s.normalizeCoverSettings(inbound)
-		if err := s.validateCoverSettings(inbound); err != nil {
-			return inbound, false, err
-		}
-		if err := s.checkSingleCover(inbound, 0); err != nil {
-			return inbound, false, err
-		}
-	}
-	s.ensureNodeAuthSeed(inbound)
-	// END LUCX-HOOK
 
 	tag, err := s.resolveInboundTag(inbound, 0)
 	if err != nil {
@@ -2114,7 +1679,7 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 		return inbound, false, common.NewError("Duplicate email:", existEmail)
 	}
 
-	if inboundShouldStripClientFlows(inbound) {
+	if inbound.DisableFlow {
 		if stripped, changed := stripClientFlows(inbound.Settings); changed {
 			inbound.Settings = stripped
 		}
@@ -2153,36 +1718,48 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 		inbound.Settings = normalized
 	}
 
+	// Secure client ID
 	for _, client := range clients {
-		if inbound.Protocol == model.AWG {
-			continue
-		}
-		if err := missingClientCredential(inbound.Protocol, client); err != nil {
-			return inbound, false, err
-		}
-	}
-
-	// LUCX-HOOK: AWG — allocate keypair/PSK/tunnel address for AWG clients added
-	// inline via the inbound form. This path (unlike the clients-page
-	// addInboundClient) does not otherwise run defaultAwgClients, so inline AWG
-	// clients would be persisted with blank credentials and no subnet-aware
-	// address. Allocation is confined to the inbound's own tunnel subnet.
-	if inbound.Protocol == model.AWG && len(clients) > 0 {
-		var settings map[string]any
-		if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
-			if ic, ok := settings["clients"].([]any); ok {
-				serverAddr := awgSettingsAddress(inbound.Settings)
-				if err3 := defaultAwgClients(nil, clients, ic, serverAddr, awgSettingsVersion(inbound.Settings)); err3 != nil {
-					return inbound, false, err3
-				}
-				settings["clients"] = ic
-				if bs, err4 := json.Marshal(settings); err4 == nil {
-					inbound.Settings = string(bs)
-				}
+		switch inbound.Protocol {
+		case "trojan":
+			if client.Password == "" {
+				return inbound, false, common.NewError("empty client ID")
+			}
+		case "shadowsocks":
+			if client.Email == "" {
+				return inbound, false, common.NewError("empty client ID")
+			}
+		case "hysteria":
+			if client.Auth == "" {
+				return inbound, false, common.NewError("empty client ID")
+			}
+		case "wireguard", "amneziawg":
+			if client.PublicKey == "" {
+				return inbound, false, common.NewError("wireguard client requires a key")
+			}
+		case "mtproto":
+			if client.Secret == "" {
+				return inbound, false, common.NewError("mtproto client requires a secret")
+			}
+			if client.AdTag != "" && !model.ValidMtprotoAdTag(client.AdTag) {
+				return inbound, false, common.NewError("mtproto client ad tag must be 32 hex characters")
+			}
+		case "tuic":
+			if client.ID == "" {
+				return inbound, false, common.NewError("empty client ID")
+			}
+			if client.Password == "" {
+				return inbound, false, common.NewError("tuic client requires a password")
+			}
+			if client.Email == "" {
+				return inbound, false, common.NewError("empty client email")
+			}
+		default:
+			if client.ID == "" {
+				return inbound, false, common.NewError("empty client ID")
 			}
 		}
 	}
-	// END LUCX-HOOK
 
 	needRestart := false
 	var postCommitApply func()
@@ -2247,6 +1824,9 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 		if _, err := database.CreateHostsFromExternalProxy(tx, inbound.Id, inbound.StreamSettings); err != nil {
 			return err
 		}
+		if err := database.CreateHostFromMtprotoCustomShareAddr(tx, inbound.Id, legacyShareAddr); err != nil {
+			return err
+		}
 		if inbound.NodeID != nil {
 			nodeID := *inbound.NodeID
 			if err := (&NodeService{}).EnsureInboundTagAllowedTx(tx, nodeID, inbound.Tag); err != nil {
@@ -2264,7 +1844,7 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 				if push {
 					payload := inbound
 					pushable := true
-					if inbound.Protocol == model.MTProto {
+					if inbound.Protocol == model.MTProto || inbound.Protocol == model.TUIC {
 						if built, bErr := s.buildInboundForLocalRuntime(tx, inbound); bErr == nil {
 							payload = built
 						} else {
@@ -2278,7 +1858,9 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 								logger.Debug("New inbound added on", rt.Name(), ":", inbound.Tag)
 							} else {
 								logger.Debug("Unable to add inbound on", rt.Name(), ":", err1)
-								needRestart = true
+								if inbound.Protocol != model.MTProto && inbound.Protocol != model.TUIC {
+									needRestart = true
+								}
 							}
 						}
 					}
@@ -2297,11 +1879,10 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 		postCommitApply()
 	}
 
-	// A routed mtproto or AWG inbound is not an Xray inbound itself, so the
-	// runtime push above only (re)starts its sidecar. The egress bridge (SOCKS
-	// loopback for mtproto, TUN for AWG) lives in the generated config, so
-	// force a regen to wire it in.
-	if mtprotoRoutesThroughXray(inbound) || lucxRoutesThroughXray(inbound) {
+	// A routed mtproto inbound is not an Xray inbound itself, so the runtime
+	// push above only (re)starts the mtg sidecar. The egress SOCKS bridge lives
+	// in the generated config, so force a regen to wire it in.
+	if mtprotoRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -2316,7 +1897,7 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 	var ib model.Inbound
 	loadErr := db.Model(model.Inbound{}).Where("id = ?", id).First(&ib).Error
 	if loadErr == nil {
-		shouldPushToRuntime := ib.NodeID != nil || ib.Enable || inboundHasSidecar(ib.Protocol)
+		shouldPushToRuntime := ib.NodeID != nil || ib.Enable
 		if shouldPushToRuntime {
 			if ib.NodeID != nil {
 				rt, push, _, perr := s.nodePushPlan(&ib)
@@ -2391,12 +1972,6 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 	if postCommitApply != nil {
 		postCommitApply()
 	}
-	if loadErr == nil && ib.Protocol == model.Tproxy {
-		tunnel.RemoveTproxySite(ib.Id)
-	}
-	if loadErr == nil && ib.Protocol == model.Cover {
-		tunnel.RemoveCoverSite(ib.Id)
-	}
 	if loadErr == nil && ib.Tag != "" {
 		if routingChanged, syncErr := (&XraySettingService{}).RemoveInboundTagReferences(ib.Tag); syncErr != nil {
 			logger.Warning("DelInbound: sync routing on inbound delete failed:", syncErr)
@@ -2415,8 +1990,8 @@ func (s *InboundService) DelInbound(id int) (bool, error) {
 			}
 		}
 	}
-	// Drop the egress bridge a routed mtproto or AWG inbound left in the config.
-	if mtprotoRoutesThroughXray(&ib) || lucxRoutesThroughXray(&ib) {
+	// Drop the egress SOCKS bridge a routed mtproto inbound left in the config.
+	if mtprotoRoutesThroughXray(&ib) {
 		needRestart = true
 	}
 	return needRestart, nil
@@ -2547,12 +2122,6 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 	}
 	inbound.Enable = enable
 
-	// A routed mtproto/AWG inbound keeps its egress bridge (SOCKS loopback or
-	// TUN) only in the generated config, so flipping enable in either
-	// direction must regenerate it — the runtime push below only touches the
-	// sidecar process, never Xray.
-	routedBridge := mtprotoRoutesThroughXray(inbound) || lucxRoutesThroughXray(inbound)
-
 	needRestart := false
 	rt, push, _, perr := s.nodePushPlan(inbound)
 	if perr != nil {
@@ -2573,7 +2142,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		return false, nil
 	}
 
-	if mtprotoRoutesThroughXray(inbound) || naiveRoutesThroughXray(inbound) {
+	if mtprotoRoutesThroughXray(inbound) {
 		needRestart = true
 	}
 
@@ -2587,7 +2156,7 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		needRestart = true
 	}
 	if !enable {
-		return needRestart || routedBridge, nil
+		return needRestart, nil
 	}
 
 	runtimeInbound, err := s.buildInboundForLocalRuntime(db, inbound)
@@ -2599,10 +2168,11 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		logger.Debug("SetInboundEnable: AddInbound on", rt.Name(), "failed:", err)
 		needRestart = true
 	}
-	return needRestart || routedBridge, nil
+	return needRestart, nil
 }
 
 func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, bool, error) {
+	legacyShareAddr := legacyMtprotoShareAddr(inbound)
 	inbound.TrafficResetDay = normalizeTrafficResetDay(inbound.TrafficResetDay)
 	// Normalize streamSettings based on protocol
 	s.normalizeStreamSettings(inbound)
@@ -2613,6 +2183,14 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		return inbound, false, err
 	}
 	s.normalizeMtprotoSecret(inbound)
+
+	oldInbound, err := s.GetInbound(inbound.Id)
+	if err != nil {
+		return inbound, false, err
+	}
+	if err := s.normalizeAmneziaWGSettings(inbound, oldInbound.Settings); err != nil {
+		return inbound, false, err
+	}
 	inbound.SubSortIndex = normalizeSubSortIndex(inbound.SubSortIndex)
 
 	clients, err := s.GetClients(inbound)
@@ -2628,19 +2206,20 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	}
 	if inbound.Protocol == model.TUIC {
 		for _, client := range clients {
-			if err := missingClientCredential(inbound.Protocol, client); err != nil {
-				return inbound, false, err
+			if client.ID == "" {
+				return inbound, false, common.NewError("empty client ID")
+			}
+			if client.Password == "" {
+				return inbound, false, common.NewError("tuic client requires a password")
+			}
+			if client.Email == "" {
+				return inbound, false, common.NewError("empty client email")
 			}
 		}
 	}
 
-	oldInbound, err := s.GetInbound(inbound.Id)
-	if err != nil {
-		return inbound, false, err
-	}
-	if err := s.normalizeAmneziaWGSettings(inbound, oldInbound.Settings); err != nil {
-		return inbound, false, err
-	}
+	// Grandfather a row that was already stored incomplete so it stays editable;
+	// only a save that breaks a previously valid TLS block is refused.
 	if !s.FromNodeSync {
 		if err := validateInboundTLSCertificates(inbound.StreamSettings); err != nil {
 			if validateInboundTLSCertificates(oldInbound.StreamSettings) == nil {
@@ -2651,7 +2230,6 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// Restore the stored NodeID before the port-conflict check so a node inbound
 	// stays scoped to its own node (the payload's nodeId is unreliable, often absent).
 	inbound.NodeID = oldInbound.NodeID
-
 	// LUCX-HOOK: tunnel inbound normalize + qWDTT single-instance guard (per host).
 	if inbound.Protocol == model.Qwdtt {
 		if err := s.checkQwdttSingle(inbound.Id, inbound.NodeID); err != nil {
@@ -2722,79 +2300,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	inbound.Settings = tunnel.PreserveAuthSeed(oldInbound.Settings, inbound.Settings)
 	s.ensureNodeAuthSeed(inbound)
 	// END LUCX-HOOK
-
-	// LUCX-HOOK: AWG — keep client tunnel IPs stable across Address edits
-	// (no re-export). Only rewrites a peer that collides with the server's
-	// new host IP. Kernel NAT marks by iif; routeThroughXray ignores subnet.
-	if inbound.Protocol == model.AWG {
-		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
-			return inbound, false, err
-		}
-	}
-	if inbound.Protocol == model.AWG && oldInbound.Protocol == model.AWG {
-		inbound.Settings = migrateAwgClientSubnets(
-			awgSettingsAddress(oldInbound.Settings),
-			awgSettingsAddress(inbound.Settings),
-			inbound.Settings,
-		)
-	}
-	// END LUCX-HOOK
-
-	// LUCX-HOOK: AWG — block re-pointing this inbound's tunnel subnet onto one
-	// another AWG inbound already owns (Pattern 1e). Only enforced when the
-	// masked subnet actually changes: editing other fields of an inbound whose
-	// subnet is a pre-existing duplicate must stay allowed (back-compat).
-	if inbound.Protocol == model.AWG {
-		oldAddr := awgSettingsAddress(oldInbound.Settings)
-		newAddr := awgSettingsAddress(inbound.Settings)
-		subnetChanged := true
-		if oldP, oErr := netip.ParsePrefix(strings.TrimSpace(oldAddr)); oErr == nil {
-			if newP, nErr := netip.ParsePrefix(strings.TrimSpace(newAddr)); nErr == nil {
-				subnetChanged = oldP.Masked().String() != newP.Masked().String()
-			}
-		}
-		if subnetChanged {
-			if err := s.checkAwgSubnetConflict(newAddr, inbound.Id, inbound.NodeID); err != nil {
-				return inbound, false, err
-			}
-		}
-	}
-	// END LUCX-HOOK
-
-	// LUCX-HOOK: AWG — allocate credentials/address for any NEW clients added
-	// inline while editing the inbound. defaultAwgClients only fills blank
-	// fields, so existing clients (keypair + allowedIPs already set) are left
-	// untouched; the pre-edit client list seeds the exclusion set so a fresh
-	// client never collides with one already on the inbound. Runs after
-	// migrateAwgClientSubnets so a subnet change's re-allocation is preserved.
-	if inbound.Protocol == model.AWG {
-		if newClients, cErr := s.GetClients(inbound); cErr == nil && len(newClients) > 0 {
-			existingClients, _ := s.GetClients(oldInbound)
-			var settings map[string]any
-			if err2 := json.Unmarshal([]byte(inbound.Settings), &settings); err2 == nil && settings != nil {
-				if ic, ok := settings["clients"].([]any); ok {
-					serverAddr := awgSettingsAddress(inbound.Settings)
-					if err3 := defaultAwgClients(existingClients, newClients, ic, serverAddr, awgSettingsVersion(inbound.Settings)); err3 != nil {
-						return inbound, false, err3
-					}
-					settings["clients"] = ic
-					if bs, err4 := json.Marshal(settings); err4 == nil {
-						inbound.Settings = string(bs)
-					}
-				}
-			}
-		}
-	}
-	// END LUCX-HOOK
-
-	conflict, err := s.checkPortConflict(inbound, inbound.Id)
-	if err != nil {
-		return inbound, false, err
-	}
-	if conflict != nil {
-		return inbound, false, common.NewError(conflict.String())
-	}
-	if inbound.NodeID != nil && !isNodeEligibleProtocol(inbound.Protocol) {
+	// The node assignment is the stored one, so only a protocol change can
+	// introduce one; a row adopted from a node keeps the protocol it arrived with.
+	if inbound.NodeID != nil && inbound.Protocol != oldInbound.Protocol && !isNodeEligibleProtocol(inbound.Protocol) {
 		return inbound, false, common.NewErrorf("%s inbounds cannot be assigned to a node", inbound.Protocol)
 	}
 
@@ -2803,17 +2311,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	// inbound keeps a stable egress port (reusing the one already stored).
 	oldProtocol := oldInbound.Protocol
 	oldRoutedMtproto := mtprotoRoutesThroughXray(oldInbound)
-	oldRoutedAwg := awgRoutesThroughXray(oldInbound)
-	oldRoutedNaive := naiveRoutesThroughXray(oldInbound)
-	oldRoutedQwdtt := qwdttRoutesThroughXray(oldInbound)
-	oldRoutedOlcrtc := olcrtcRoutesThroughXray(oldInbound)
-	oldRoutedMieru := mieruRoutesThroughXray(oldInbound)
-	oldRoutedTrustTunnel := trustTunnelRoutesThroughXray(oldInbound)
-	oldRoutedTproxy := tproxyRoutesThroughXray(oldInbound)
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
-		return inbound, false, err
-	}
-	if err := s.normalizeNaiveXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
 
@@ -2907,12 +2405,14 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// VLESS inbound just became flow-eligible (e.g. vlessenc was enabled on an
 		// XHTTP inbound), restore Vision for clients whose intended flow is Vision
 		// but was stripped while the inbound was ineligible.
-		if inboundShouldStripClientFlows(inbound) {
+		if !inbound.DisableFlow {
+			if restored, changed := s.restoreVisionFlowForEligibleInbound(tx, inbound.Settings, inbound.StreamSettings, inbound.Protocol); changed {
+				inbound.Settings = restored
+			}
+		} else {
 			if stripped, changed := stripClientFlows(inbound.Settings); changed {
 				inbound.Settings = stripped
 			}
-		} else if restored, changed := s.restoreVisionFlowForEligibleInbound(tx, inbound.Settings, inbound.StreamSettings, inbound.Protocol); changed {
-			inbound.Settings = restored
 		}
 
 		oldInbound.Total = inbound.Total
@@ -2939,6 +2439,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 			oldInbound.ShareAddrStrategy = inbound.ShareAddrStrategy
 			oldInbound.ShareAddr = inbound.ShareAddr
+			if err := database.CreateHostFromMtprotoCustomShareAddr(tx, inbound.Id, legacyShareAddr); err != nil {
+				return err
+			}
 		}
 		if oldTagWasAuto && inbound.Tag == tag {
 			inbound.Tag = ""
@@ -2957,7 +2460,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 			if !push {
 				needRestart = true
-			} else if protoReconfiguresInPlace(oldProtocol) || protoReconfiguresInPlace(oldInbound.Protocol) {
+			} else if oldProtocol == model.MTProto || oldInbound.Protocol == model.MTProto || oldProtocol == model.TUIC || oldInbound.Protocol == model.TUIC {
 				oldSnapshot := *oldInbound
 				oldSnapshot.Tag = tag
 				oldSnapshot.Protocol = oldProtocol
@@ -2971,16 +2474,14 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 						pushable = false
 					}
 				}
-				// A failed apply is retried by that manager's own reconcile job;
-				// an Xray protocol has no such tick, so it needs the restart.
-				newProtocolSelfHeals := protoReconfiguresInPlace(oldInbound.Protocol)
+				newProtocolIsSidecar := oldInbound.Protocol == model.MTProto || oldInbound.Protocol == model.TUIC
 				if pushable {
 					postCommitApply = func() {
 						if err2 := rt.UpdateInbound(context.Background(), &oldSnapshot, payload); err2 == nil {
 							logger.Debug("Updated inbound applied on", rt.Name(), ":", oldInbound.Tag)
 						} else {
 							logger.Debug("Unable to update inbound on", rt.Name(), ":", err2)
-							if !newProtocolSelfHeals {
+							if !newProtocolIsSidecar {
 								needRestart = true
 							}
 						}
@@ -2989,9 +2490,6 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			} else {
 				oldSnapshot := *oldInbound
 				oldSnapshot.Tag = tag
-				// Taken after the field was overwritten, so the teardown would
-				// otherwise be routed by the NEW protocol and miss its sidecar.
-				oldSnapshot.Protocol = oldProtocol
 				var runtimeInbound *model.Inbound
 				if inbound.Enable {
 					var err2 error
@@ -3026,14 +2524,12 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		if err := tx.Save(oldInbound).Error; err != nil {
 			return err
 		}
-		if !shareOnlySidecar(oldInbound.Protocol) {
-			newClients, gcErr := s.GetClients(oldInbound)
-			if gcErr != nil {
-				return gcErr
-			}
-			if err := s.clientService.SyncInbound(tx, oldInbound.Id, newClients); err != nil {
-				return err
-			}
+		newClients, gcErr := s.GetClients(oldInbound)
+		if gcErr != nil {
+			return gcErr
+		}
+		if err := s.clientService.SyncInbound(tx, oldInbound.Id, newClients); err != nil {
+			return err
 		}
 		if oldInbound.NodeID != nil {
 			if err := (&NodeService{}).MarkNodeDirtyTx(tx, *oldInbound.NodeID); err != nil {
@@ -3041,12 +2537,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 		}
 		// (Re)generate the Xray config whenever routing was or is now enabled, so
-		// the egress bridge (SOCKS or TUN) is added, moved, or dropped to match
-		// the new settings.
-		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto ||
-			lucxRoutesThroughXray(inbound) || oldRoutedAwg ||
-			oldRoutedNaive || oldRoutedQwdtt || oldRoutedOlcrtc ||
-			oldRoutedMieru || oldRoutedTrustTunnel || oldRoutedTproxy {
+		// the egress SOCKS bridge is added, moved, or dropped to match the new
+		// settings.
+		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto {
 			needRestart = true
 		}
 		return nil
@@ -3079,9 +2572,8 @@ func (s *InboundService) buildInboundForNodePush(tx *gorm.DB, inbound *model.Inb
 	}
 
 	built := *inbound
-	s.ensureNodeAuthSeed(&built)
 	settings := map[string]any{}
-	if err := json.Unmarshal([]byte(built.Settings), &settings); err != nil {
+	if err := json.Unmarshal([]byte(inbound.Settings), &settings); err != nil {
 		return nil, err
 	}
 
@@ -3305,59 +2797,4 @@ func (s *InboundService) SearchInbounds(query string) ([]*model.Inbound, error) 
 		return nil, err
 	}
 	return inbounds, nil
-}
-
-func validateInboundTLSCertificates(streamSettings string) error {
-	if strings.TrimSpace(streamSettings) == "" {
-		return nil
-	}
-	var stream struct {
-		Security    string          `json:"security"`
-		TLSSettings json.RawMessage `json:"tlsSettings"`
-	}
-	if err := json.Unmarshal([]byte(streamSettings), &stream); err != nil {
-		return common.NewError("Invalid inbound stream settings: ", err)
-	}
-	if !strings.EqualFold(stream.Security, "tls") {
-		return nil
-	}
-	var settings struct {
-		Certificates []struct {
-			CertificateFile string   `json:"certificateFile"`
-			KeyFile         string   `json:"keyFile"`
-			Certificate     []string `json:"certificate"`
-			Key             []string `json:"key"`
-			Usage           string   `json:"usage"`
-		} `json:"certificates"`
-	}
-	if len(stream.TLSSettings) > 0 {
-		if err := json.Unmarshal(stream.TLSSettings, &settings); err != nil {
-			return common.NewError("Invalid inbound TLS settings: ", err)
-		}
-	}
-	hasServerCertificate := false
-	for i, cert := range settings.Certificates {
-		certificate := cert.CertificateFile
-		if certificate == "" {
-			certificate = strings.Join(cert.Certificate, "\n")
-		}
-		if strings.TrimSpace(certificate) == "" {
-			return common.NewErrorf("TLS certificate %d is missing. Configure a certificate file path or certificate content before saving the inbound.", i+1)
-		}
-		if strings.EqualFold(cert.Usage, "verify") {
-			continue
-		}
-		key := cert.KeyFile
-		if key == "" {
-			key = strings.Join(cert.Key, "\n")
-		}
-		if strings.TrimSpace(key) == "" {
-			return common.NewErrorf("TLS certificate %d is missing its private key. Configure a private key file path or private key content before saving the inbound.", i+1)
-		}
-		hasServerCertificate = true
-	}
-	if !hasServerCertificate {
-		return common.NewError("TLS requires a server certificate and private key. Configure an encipherment or issue certificate before saving the inbound.")
-	}
-	return nil
 }

@@ -1,17 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import {
-  Button,
-  Divider,
-  Modal,
-  Popover,
-  Select,
-  Space,
-  Tag,
-  Tooltip,
-  Typography,
-  message,
-} from 'antd';
+import { Button, Divider, Modal, Popover, Tag, Tooltip, message } from 'antd';
 import {
   CopyOutlined,
   DownloadOutlined,
@@ -21,29 +10,24 @@ import {
 } from '@ant-design/icons';
 
 import { ClipboardManager, FileManager, HttpUtil, IntlUtil, SizeFormatter } from '@/utils';
-import { formatInboundLabel } from '@/lib/inbounds/label';
+import { formatInboundLabel, formatTunnelConfigMeta } from '@/lib/inbounds/label';
 import { normalizeClientIps, type ClientIpInfo } from '@/lib/clients/ip-log';
 import { useDatepicker } from '@/hooks/useDatepicker';
 import { useClientHwids } from '@/hooks/useClientHwids';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
-import { awgVersionAtLeast, awgVersionCeiling, isPostQuantumLink } from '@/lib/xray/inbound-link';
-import type { AwgVersion } from '@/lib/xray/inbound-link';
-import { LinkTags, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
+import { isPostQuantumLink } from '@/lib/xray/inbound-link';
+import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ClientHwidListModal from '@/components/clients/ClientHwidList';
 import ConfigBlock from '@/components/clients/ConfigBlock';
-import { buildSubLinks, withAwgInboundId } from '@/lib/sub/links';
 import {
   buildWireguardClientConfig,
-  findWireguardInbound,
+  findWireguardInbounds,
   isWireguardClient,
-  buildAwgClientConfig,
-  findAwgInbounds,
-  isAwgClient,
 } from './wireguardConfig';
 import {
   buildAmneziaWGClientConfig,
-  findAmneziaWGInbound,
+  findAmneziaWGInbounds,
   isAmneziaWGClient,
 } from './amneziawgConfig';
 import './ClientInfoModal.css';
@@ -60,6 +44,7 @@ const INBOUND_PROTOCOL_COLORS: Record<string, string> = {
   http: 'purple',
   mixed: 'lime',
   tunnel: 'orange',
+  tuic: 'orange',
 };
 
 const INBOUND_CHIP_LIMIT = 1;
@@ -71,8 +56,6 @@ interface SubSettings {
   subJsonEnable: boolean;
   subClashURI: string;
   subClashEnable: boolean;
-  subAwgURI?: string;
-  subAwgEnable?: boolean;
   publicHost?: string;
 }
 
@@ -91,21 +74,6 @@ interface ApiMsg<T = unknown> {
   obj?: T;
 }
 
-/* LUCX-HOOK: protocols whose per-client credentials are HMAC-derived server-side. */
-const DERIVED_CRED_PROTOCOLS = new Set(['naive', 'mieru', 'trusttunnel']);
-
-interface TunnelCreds {
-  protocol?: string;
-  username?: string;
-  password?: string;
-}
-
-interface TunnelCredRow {
-  inbound: InboundOption;
-  creds: TunnelCreds;
-}
-/* END LUCX-HOOK */
-
 const DEFAULT_SUB: SubSettings = {
   enable: false,
   subURI: '',
@@ -113,8 +81,6 @@ const DEFAULT_SUB: SubSettings = {
   subJsonEnable: false,
   subClashURI: '',
   subClashEnable: false,
-  subAwgURI: '',
-  subAwgEnable: false,
   publicHost: '',
 };
 
@@ -122,8 +88,6 @@ const SUBSCRIPTION_DOWNLOAD_NAMES = {
   standard: 'subscription-standard.txt',
   json: 'subscription-json.json',
   clash: 'subscription-clash.yaml',
-  amnezia: 'amneziawg.conf',
-  amneziaVpn: 'amnezia-vpn.txt',
 } as const;
 
 export default function ClientInfoModal({
@@ -152,7 +116,6 @@ export default function ClientInfoModal({
   const [ipsLoading, setIpsLoading] = useState(false);
   const [ipsClearing, setIpsClearing] = useState(false);
   const [ipsModalOpen, setIpsModalOpen] = useState(false);
-  const [tunnelCreds, setTunnelCreds] = useState<TunnelCredRow[]>([]);
   const {
     clientHwids,
     hwidsLoading,
@@ -197,49 +160,6 @@ export default function ClientInfoModal({
     };
   }, [open, client?.subId]);
 
-  /*
-   * LUCX-HOOK: NaiveProxy / mieru / TrustTunnel derive their username and
-   * password from the panel secret and store neither, so the card used to show
-   * only the unrelated settings password — the operator had no way to find the
-   * real pair short of reading the sidecar's credentials file over SSH (#45).
-   */
-  const derivedCredInbounds = useMemo(
-    () =>
-      (client?.inboundIds || [])
-        .map((id) => inboundsById[id])
-        .filter(
-          (ib): ib is InboundOption =>
-            Boolean(ib) && DERIVED_CRED_PROTOCOLS.has((ib.protocol || '').toLowerCase()),
-        ),
-    [client?.inboundIds, inboundsById],
-  );
-
-  useEffect(() => {
-    if (!open) {
-      setTunnelCreds([]);
-      return;
-    }
-    if (!client?.email || derivedCredInbounds.length === 0) return;
-    let cancelled = false;
-    (async () => {
-      const fetched = await Promise.all(
-        derivedCredInbounds.map(async (ib) => {
-          const msg = (await HttpUtil.get(
-            `/panel/api/clients/tunnelCreds/${ib.id}/${encodeURIComponent(client.email)}`,
-          )) as ApiMsg<TunnelCreds>;
-          if (!msg?.success || !msg.obj?.username) return null;
-          return { inbound: ib, creds: msg.obj };
-        }),
-      );
-      if (cancelled) return;
-      setTunnelCreds(fetched.filter((row): row is TunnelCredRow => row !== null));
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [open, client?.email, derivedCredInbounds]);
-  /* END LUCX-HOOK */
-
   const traffic = client?.traffic || null;
   const totalBytes = client?.totalGB || 0;
   const used = (traffic?.up || 0) + (traffic?.down || 0);
@@ -249,76 +169,59 @@ export default function ClientInfoModal({
     return r > 0 ? r : 0;
   }, [totalBytes, used]);
 
-  const linksBuilt = useMemo(
-    () => buildSubLinks(subSettings, client?.subId),
-    [subSettings, client?.subId],
-  );
-  const subLink = linksBuilt.sub;
-  const subJsonLink = linksBuilt.json;
-  const subClashLink = linksBuilt.clash;
-  const subAwgVpnLink = linksBuilt.amneziaVpn;
+  const subId = client?.subId;
+  const subLink = subId && subSettings?.subURI ? subSettings.subURI + subId : '';
+  const subJsonLink =
+    subId && subSettings?.subJsonEnable && subSettings?.subJsonURI
+      ? subSettings.subJsonURI + subId
+      : '';
+  const subClashLink =
+    subId && subSettings?.subClashEnable && subSettings?.subClashURI
+      ? subSettings.subClashURI + subId
+      : '';
 
-  const showSubscription = !!(client?.subId && (subLink || subJsonLink || subClashLink));
-  const wgInbound = useMemo(
-    () => findWireguardInbound(client, inboundsById),
+  const showSubscription = !!(subSettings?.enable && client?.subId);
+  const wgInbounds = useMemo(
+    () => findWireguardInbounds(client, inboundsById),
     [client, inboundsById],
   );
-  const wgConfigText = useMemo(() => {
-    if (!client || !wgInbound || !isWireguardClient(client)) return '';
-    return buildWireguardClientConfig(
-      client,
-      wgInbound,
-      window.location.hostname,
-      subSettings?.publicHost ?? '',
-    );
-  }, [client, wgInbound, subSettings?.publicHost]);
-  // LUCX-HOOK: AWG — one .conf per attached inbound (own ceiling + version select).
-  const awgInbounds = useMemo(() => findAwgInbounds(client, inboundsById), [client, inboundsById]);
-  const [awgExportById, setAwgExportById] = useState<Record<number, AwgVersion>>({});
-  useEffect(() => {
-    setAwgExportById((prev) => {
-      const next: Record<number, AwgVersion> = {};
-      for (const ib of awgInbounds) {
-        const ceiling = awgVersionCeiling(ib.awgVersion);
-        next[ib.id] =
-          prev[ib.id] && awgVersionAtLeast(ceiling, prev[ib.id]) ? prev[ib.id] : ceiling;
-      }
-      return next;
-    });
-  }, [awgInbounds]);
+  const wgConfigs = useMemo(() => {
+    if (!client || !isWireguardClient(client)) return [];
+    return wgInbounds
+      .map((ib) => {
+        const address = tunnelAllowedIPs?.[ib.id] ?? '';
+        const text = buildWireguardClientConfig(
+          client,
+          ib,
+          window.location.hostname,
+          subSettings?.publicHost ?? '',
+          address,
+        );
+        return { inbound: ib, text };
+      })
+      .filter((c) => !!c.text);
+  }, [client, wgInbounds, tunnelAllowedIPs, subSettings?.publicHost]);
+
+  const awgInbounds = useMemo(
+    () => findAmneziaWGInbounds(client, inboundsById),
+    [client, inboundsById],
+  );
   const awgConfigs = useMemo(() => {
-    if (!client || !isAwgClient(client))
-      return [] as { ib: InboundOption; text: string; ceiling: AwgVersion; version: AwgVersion }[];
-    const host = window.location.hostname;
-    const pub = subSettings?.publicHost ?? '';
-    return awgInbounds.map((ib) => {
-      const ceiling = awgVersionCeiling(ib.awgVersion);
-      const version = awgExportById[ib.id] ?? ceiling;
-      return {
-        ib,
-        ceiling,
-        version,
-        text: buildAwgClientConfig(client, ib, host, pub, version),
-      };
-    });
-  }, [client, awgInbounds, subSettings?.publicHost, awgExportById]);
-  // END LUCX-HOOK
-
-  const awgInbound = useMemo(
-    () => findAmneziaWGInbound(client, inboundsById),
-    [client, inboundsById],
-  );
-  const awgConfigText = useMemo(() => {
-    if (!client || !awgInbound || !isAmneziaWGClient(client)) return '';
-    const address = awgInbound ? (tunnelAllowedIPs?.[awgInbound.id] ?? '') : '';
-    return buildAmneziaWGClientConfig(
-      client,
-      awgInbound,
-      window.location.hostname,
-      subSettings?.publicHost ?? '',
-      address,
-    );
-  }, [client, awgInbound, tunnelAllowedIPs, subSettings?.publicHost]);
+    if (!client || !isAmneziaWGClient(client)) return [];
+    return awgInbounds
+      .map((ib) => {
+        const address = tunnelAllowedIPs?.[ib.id] ?? '';
+        const text = buildAmneziaWGClientConfig(
+          client,
+          ib,
+          window.location.hostname,
+          subSettings?.publicHost ?? '',
+          address,
+        );
+        return { inbound: ib, text };
+      })
+      .filter((c) => !!c.text);
+  }, [client, awgInbounds, tunnelAllowedIPs, subSettings?.publicHost]);
 
   async function copyValue(text: string) {
     if (!text) return;
@@ -331,10 +234,11 @@ export default function ClientInfoModal({
       const payload =
         isAmneziaVpnUrl(text) || isAmneziaConfUrl(text) ? await fetchSubscriptionBody(text) : text;
       // END LUCX-HOOK
-      const ok = await ClipboardManager.copyText(payload);
+      const ok = await ClipboardManager.copyText(String(payload));
       if (ok) messageApi.success(t('copied'));
-    } catch (e) {
-      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
+    } catch {
+      const ok = await ClipboardManager.copyText(String(text));
+      if (ok) messageApi.success(t('copied'));
     }
   }
 
@@ -345,15 +249,12 @@ export default function ClientInfoModal({
     if (!url || downloadingFormat) return;
     setDownloadingFormat(format);
     try {
-      // LUCX-HOOK: every subscription row goes through the same-origin panel
-      // proxy (awgBody/subBody) — the public sub port has no CORS headers, so
-      // a cross-origin browser fetch died with "Failed to fetch" (lucx.135).
-      const { fetchSubscriptionBody } = await import('@/lib/sub/fetchBody');
-      const content = await fetchSubscriptionBody(url);
-      // END LUCX-HOOK
+      const response = await fetch(url);
+      if (!response.ok) throw new Error('Subscription download failed');
+      const content = await response.text();
       FileManager.downloadTextFile(content, SUBSCRIPTION_DOWNLOAD_NAMES[format]);
-    } catch (e) {
-      messageApi.error(e instanceof Error && e.message ? e.message : t('somethingWentWrong'));
+    } catch (_) {
+      messageApi.error(t('somethingWentWrong'));
     } finally {
       setDownloadingFormat(null);
     }
@@ -495,31 +396,6 @@ export default function ClientInfoModal({
                     </td>
                   </tr>
                 )}
-                {/* LUCX-HOOK: derived sidecar credentials (naive/mieru/TrustTunnel) */}
-                {tunnelCreds.map(({ inbound, creds }) => (
-                  <tr key={`creds-${inbound.id}`}>
-                    <td>{`${formatInboundLabel(inbound.tag, inbound.remark)} — ${t('username')} / ${t('password')}`}</td>
-                    <td>
-                      <Tag className="info-large-tag">{creds.username}</Tag>
-                      <Button
-                        size="small"
-                        type="text"
-                        icon={<CopyOutlined />}
-                        aria-label={t('copy')}
-                        onClick={() => copyValue(creds.username!)}
-                      />
-                      <Tag className="info-large-tag">{creds.password}</Tag>
-                      <Button
-                        size="small"
-                        type="text"
-                        icon={<CopyOutlined />}
-                        aria-label={t('copy')}
-                        onClick={() => copyValue(creds.password!)}
-                      />
-                    </td>
-                  </tr>
-                ))}
-                {/* END LUCX-HOOK */}
                 {client.auth && (
                   <tr>
                     <td>{t('pages.clients.auth')}</td>
@@ -704,7 +580,7 @@ export default function ClientInfoModal({
               </tbody>
             </table>
 
-            {showSubscription && client && (
+            {showSubscription && subLink && (
               <>
                 <Divider>{t('subscription.title')}</Divider>
                 <div className="link-row">
@@ -881,8 +757,8 @@ export default function ClientInfoModal({
             {links.length > 0 && (
               <>
                 <Divider>{t('pages.inbounds.copyLink')}</Divider>
-                {displaySubLinks(links).map((row, idx) => {
-                  const { link, parts } = row;
+                {links.map((link, idx) => {
+                  const parts = parseLinkParts(link);
                   const fallback = `${t('pages.clients.link')} ${idx + 1}`;
                   const rowTitle = (parts && linkMetaText(parts)) || fallback;
                   const qrRemark = parts?.remark || rowTitle;
@@ -929,109 +805,41 @@ export default function ClientInfoModal({
               </>
             )}
 
-            {wgConfigText && client && (
+            {wgConfigs.length > 0 && client && (
               <>
                 <Divider>{t('pages.clients.wireguardConfig')}</Divider>
-                <ConfigBlock
-                  label={t('pages.clients.config')}
-                  text={wgConfigText}
-                  fileName={`${client.email}.conf`}
-                  qrRemark={client.email || 'peer'}
-                />
-              </>
-            )}
-            {/* LUCX-HOOK: AWG — unified AmneziaWG block: one .conf editor per inbound with
-                its own ceiling + version select, plus a vpn:// one-tap copy button
-                (the .conf download/copy live in the ConfigBlock itself). */}
-            {client && awgConfigs.length > 0 && (
-              <>
-                <Divider>AmneziaWG</Divider>
-                {awgConfigs.map((cfg) => {
-                  const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
+                {wgConfigs.map(({ inbound, text }) => {
+                  const meta = formatTunnelConfigMeta(inbound, client.email, wgConfigs.length);
                   return (
-                    <div key={cfg.ib.id}>
-                      <Space
-                        style={{
-                          width: '100%',
-                          justifyContent: 'space-between',
-                          marginTop: 12,
-                          marginBottom: 8,
-                        }}
-                        align="center"
-                      >
-                        {labelName ? <Tag color="purple">{labelName}</Tag> : <span />}
-                        <Space align="center">
-                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
-                            {t('pages.clients.awgExportVersion')}
-                          </Typography.Text>
-                          <Select<AwgVersion>
-                            size="small"
-                            style={{ width: 180 }}
-                            value={cfg.version}
-                            onChange={(v) =>
-                              setAwgExportById((prev) => ({ ...prev, [cfg.ib.id]: v }))
-                            }
-                            options={[
-                              {
-                                value: '1.5',
-                                label: t('pages.inbounds.form.awgVersion15'),
-                                disabled: !awgVersionAtLeast(cfg.ceiling, '1.5'),
-                              },
-                              {
-                                value: '2',
-                                label: t('pages.inbounds.form.awgVersion2'),
-                                disabled: !awgVersionAtLeast(cfg.ceiling, '2'),
-                              },
-                              {
-                                value: '3',
-                                label: t('pages.inbounds.form.awgVersion3'),
-                                disabled: !awgVersionAtLeast(cfg.ceiling, '3'),
-                              },
-                              {
-                                value: '3.1',
-                                label: t('pages.inbounds.form.awgVersion31'),
-                                disabled: !awgVersionAtLeast(cfg.ceiling, '3.1'),
-                              },
-                            ]}
-                          />
-                          {subAwgVpnLink && (
-                            <Tooltip title={t('pages.clients.subAwgVpnHint')}>
-                              <Button
-                                size="small"
-                                icon={<CopyOutlined />}
-                                onClick={() =>
-                                  copyValue(withAwgInboundId(subAwgVpnLink, cfg.ib.id))
-                                }
-                              >
-                                vpn://
-                              </Button>
-                            </Tooltip>
-                          )}
-                        </Space>
-                      </Space>
-                      <ConfigBlock
-                        label={t('pages.clients.config')}
-                        text={cfg.text}
-                        fileName={`${client.email}-awg${cfg.ib.id}.conf`}
-                        qrRemark={client.email || 'peer'}
-                        showQr={false}
-                      />
-                    </div>
+                    <ConfigBlock
+                      key={`wg-${inbound.id}`}
+                      label={meta.label || t('pages.clients.config')}
+                      text={text}
+                      fileName={meta.fileName}
+                      qrRemark={meta.qrRemark}
+                      tagColor="cyan"
+                    />
                   );
                 })}
               </>
             )}
-            {/* END LUCX-HOOK */}
 
-            {awgConfigText && client && (
+            {awgConfigs.length > 0 && client && (
               <>
                 <Divider>{t('pages.clients.amneziaWgConfig')}</Divider>
-                <ConfigBlock
-                  label={t('pages.clients.config')}
-                  text={awgConfigText}
-                  fileName={`${client.email}.conf`}
-                  qrRemark={client.email || 'peer'}
-                />
+                {awgConfigs.map(({ inbound, text }) => {
+                  const meta = formatTunnelConfigMeta(inbound, client.email, awgConfigs.length);
+                  return (
+                    <ConfigBlock
+                      key={`awg-${inbound.id}`}
+                      label={meta.label || t('pages.clients.config')}
+                      text={text}
+                      fileName={meta.fileName}
+                      qrRemark={meta.qrRemark}
+                      tagColor="purple"
+                    />
+                  );
+                })}
               </>
             )}
           </>

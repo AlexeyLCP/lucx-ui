@@ -143,6 +143,7 @@ type AllSetting struct {
 	SubThemeDir         string `json:"subThemeDir" form:"subThemeDir"`
 	SubHideSettings     bool   `json:"subHideSettings" form:"subHideSettings"`
 
+	// Happ client customization settings (app-management / routing / UX).
 	SubHappAutoDetect          bool   `json:"subHappAutoDetect" form:"subHappAutoDetect"`
 	SubHappProviderId          string `json:"subHappProviderId" form:"subHappProviderId"`
 	SubHappNewUrl              string `json:"subHappNewUrl" form:"subHappNewUrl"`
@@ -332,17 +333,6 @@ func (s *AllSetting) CheckValid() error {
 	if !strings.HasSuffix(s.SubClashPath, "/") {
 		s.SubClashPath += "/"
 	}
-	// LUCX-HOOK: AmneziaWG subscription path
-	if s.SubAwgPath == "" {
-		s.SubAwgPath = "/awg/"
-	}
-	if !strings.HasPrefix(s.SubAwgPath, "/") {
-		s.SubAwgPath = "/" + s.SubAwgPath
-	}
-	if !strings.HasSuffix(s.SubAwgPath, "/") {
-		s.SubAwgPath += "/"
-	}
-	// END LUCX-HOOK
 
 	if err := checkIPOrCIDRList(s.TrustedProxyCIDRs, "trusted proxy CIDR is not valid:"); err != nil {
 		return err
@@ -365,6 +355,17 @@ func (s *AllSetting) CheckValid() error {
 		}
 	}
 
+	// LUCX-HOOK: AmneziaWG subscription path
+	if s.SubAwgPath == "" {
+		s.SubAwgPath = "/awg/"
+	}
+	if !strings.HasPrefix(s.SubAwgPath, "/") {
+		s.SubAwgPath = "/" + s.SubAwgPath
+	}
+	if !strings.HasSuffix(s.SubAwgPath, "/") {
+		s.SubAwgPath += "/"
+	}
+	// END LUCX-HOOK
 	// LUCX-HOOK: panel tab favicon
 	if _, err := favicon.Href(s.WebFavicon); err != nil {
 		return common.NewError("web favicon is not valid:", err)
