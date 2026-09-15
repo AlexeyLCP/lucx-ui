@@ -1027,27 +1027,19 @@ func (a *SUBController) ApplyCommonHeaders(
 		c.Writer.Header().Set("Announce", "base64:"+base64.StdEncoding.EncodeToString([]byte(profileAnnounce)))
 	}
 
-	rules, remote, routingErr := resolveRoutingSource(remoteRoutingHapp, profileRoutingRules)
-	if strings.TrimSpace(profileRoutingRules) == "" {
-		// Happ/INCY fetch the geo files the baked rules reference through this
-		// header; unlike the documents, it keeps the profile's own DNS servers.
-		rules, remote, routingErr = jsonRoutingHeaderSource(a.subJsonRoutingRules), false, nil
-	}
-	// The off values undo a previously pushed setting, so they ride the same
-	// opt-in as every other Happ header rather than reaching every Happ client.
 	happManaged := a.happConfig.AutoDetect && c.Request != nil && IsHappClient(c.GetHeader("User-Agent"))
-	// Advanced (Happ). LUCX-HOOK: resolve RoscomVPN profile sources
-	// (default/jsonsub/whitelist) into the Routing header; custom keeps free-text.
-	// Upstream remote routing is used when the source is custom/empty.
 	if profileEnableRouting {
 		c.Writer.Header().Set("Routing-Enable", "true")
 	} else if happManaged {
 		c.Writer.Header().Set("Routing-Enable", "0")
 	}
+	// LUCX-HOOK: RoscomVPN profile sources into Routing; custom uses free-text/remote.
 	src := strings.TrimSpace(a.subRoutingSource)
 	var rules string
 	if src != "" && src != "custom" {
 		rules = ResolveRoutingRules(src, profileRoutingRules)
+	} else if strings.TrimSpace(profileRoutingRules) == "" {
+		rules = jsonRoutingHeaderSource(a.subJsonRoutingRules)
 	} else {
 		remoteRules, remote, routingErr := resolveRoutingSource(remoteRoutingHapp, profileRoutingRules)
 		if (routingErr == nil || !remote) && strings.TrimSpace(remoteRules) != "" {
