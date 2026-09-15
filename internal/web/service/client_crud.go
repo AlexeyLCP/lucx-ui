@@ -730,10 +730,12 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		clientForInbound := updated
 		if ips, ok := updated.AllowedIPsByInbound[ibId]; ok {
 			clientForInbound.AllowedIPs = ips
-		} else if tunnelCount > 1 && (inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG) {
-			// LUCX-HOOK: never broadcast one AllowedIPs; keep the shared keypair.
+		} else if tunnelCount > 1 && isTunnelProtocol(inbound.Protocol) {
+			// LUCX-HOOK: never broadcast one AllowedIPs or peer keys across tunnel inbounds.
 			clearBroadcastTunnelIP(&clientForInbound, inbound.Protocol, int(tunnelCount))
-			clearForeignTunnelFields(&clientForInbound, inbound.Protocol)
+			clientForInbound.PrivateKey = ""
+			clientForInbound.PublicKey = ""
+			clientForInbound.PreSharedKey = ""
 		} else if !addressesFitAmneziaWGInbound(clientForInbound.AllowedIPs, inbound) {
 			// A single shared AllowedIPs field (the common case for a caller
 			// that never sends AllowedIPsByInbound) must never overwrite an

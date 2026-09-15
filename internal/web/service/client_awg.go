@@ -626,7 +626,7 @@ func clearBroadcastTunnelIP(c *model.Client, proto model.Protocol, tunnelInbound
 	if c == nil {
 		return
 	}
-	if (proto == model.AWG || proto == model.WireGuard) && tunnelInboundCount != 1 {
+	if isTunnelProtocol(proto) && tunnelInboundCount != 1 {
 		c.AllowedIPs = nil
 	}
 }

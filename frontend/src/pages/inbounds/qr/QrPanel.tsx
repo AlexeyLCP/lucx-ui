@@ -165,7 +165,7 @@ export default function QrPanel({
           <Spin />
         </div>
       )}
-      {showQr && !resolving && resolved.length <= 2000 && (
+      {showQr && !resolving && resolved.length <= 2953 && (
         <div
           ref={qrRef}
           className="qr-panel-canvas"
@@ -190,7 +190,7 @@ export default function QrPanel({
           </Tooltip>
         </div>
       )}
-      {showQr && !resolving && resolved.length > 2000 && (
+      {showQr && !resolving && resolved.length > 2953 && (
         <div
           className="qr-panel-canvas"
           style={{ padding: 16, textAlign: 'center', color: 'var(--ant-color-text-tertiary)' }}

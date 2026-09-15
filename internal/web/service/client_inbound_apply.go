@@ -677,6 +677,20 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		return false, err
 	}
 
+	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not settings.
+	if shareOnlySidecar(oldInbound.Protocol) {
+		if len(clients) == 0 || strings.TrimSpace(clients[0].Email) == "" {
+			return false, common.NewError("client email is required")
+		}
+		if txErr := runSerializedTx(func(tx *gorm.DB) error {
+			return s.ApplyInboundClientDelta(tx, oldInbound.Id, clients[:1], nil)
+		}); txErr != nil {
+			return false, txErr
+		}
+		return false, nil
+	}
+	// END LUCX-HOOK
+
 	oldClients, err := inboundSvc.GetClients(oldInbound)
 	if err != nil {
 		return false, err

@@ -1272,87 +1272,8 @@ export default function InboundFormModal({
         destroyOnHidden
       >
         <FormProvider {...methods}>
-          <Form
-            colon={false}
-            labelCol={{ sm: { span: 8 } }}
-            wrapperCol={{ sm: { span: 14 } }}
-            labelWrap
-          >
-            <Tabs
-              activeKey={activeTab}
-              onChange={setActiveTab}
-              items={[
-                {
-                  key: 'basic',
-                  label: t('pages.xray.basicTemplate'),
-                  children: basicTab,
-                  forceRender: true,
-                },
-                ...((
-                  [
-                    Protocols.VLESS,
-                    Protocols.SHADOWSOCKS,
-                    Protocols.HTTP,
-                    Protocols.MIXED,
-                    Protocols.TUNNEL,
-                    Protocols.TUN,
-                    Protocols.WIREGUARD,
-                    Protocols.MTPROTO,
-                    Protocols.AMNEZIAWG,
-                    Protocols.TUIC,
-                  ] as string[]
-                ).includes(protocol) || isFallbackHost
-                  ? [
-                      {
-                        key: 'protocol',
-                        label: t('pages.inbounds.protocol'),
-                        children: protocolTab,
-                        forceRender: true,
-                      },
-                    ]
-                  : []),
-                ...(streamEnabled
-                  ? [
-                      {
-                        key: 'stream',
-                        label: t('pages.inbounds.streamTab'),
-                        children: streamTab,
-                        forceRender: true,
-                      },
-                      ...(protocol !== Protocols.WIREGUARD && protocol !== Protocols.TUNNEL
-                        ? [
-                            {
-                              key: 'security',
-                              label: t('pages.inbounds.securityTab'),
-                              children: securityTab,
-                              forceRender: true,
-                            },
-                          ]
-                        : []),
-                    ]
-                  : []),
-                ...(sniffingSupported
-                  ? [
-                      {
-                        key: 'sniffing',
-                        label: t('pages.inbounds.sniffingTab'),
-                        children: sniffingTab,
-                        forceRender: true,
-                      },
-                    ]
-                  : []),
-                {
-                  key: 'advanced',
-                  label: t('pages.xray.advancedTemplate'),
-                  children: advancedTab,
-                  forceRender: true,
-                },
-              ]}
-            />
-          </Form>
-          {/* LUCX-HOOK: AWG — publish the editing inbound id for the diagnostics button (null for new inbound) */}
+          {/* LUCX-HOOK: AWG — publish the editing inbound id for the diagnostics button */}
           <AwgInboundIdProvider value={mode === 'edit' && dbInbound ? dbInbound.id : null}>
-            {/* END LUCX-HOOK */}
             <Form
               colon={false}
               labelCol={{ sm: { span: 8 } }}
@@ -1380,8 +1301,9 @@ export default function InboundFormModal({
                       Protocols.WIREGUARD,
                       Protocols.MTPROTO,
                       Protocols.AMNEZIAWG,
-                      Protocols.AWG, // LUCX-HOOK: AWG — показывать вкладку протокола (обфускация, ключи, скан хоста)
-                      Protocols.NAIVE, // LUCX-HOOK: NaiveProxy
+                      Protocols.TUIC,
+                      Protocols.AWG,
+                      Protocols.NAIVE,
                       Protocols.OLCRTC,
                       Protocols.QWDTT,
                       Protocols.MIERU,
@@ -1439,9 +1361,7 @@ export default function InboundFormModal({
                 ]}
               />
             </Form>
-            {/* LUCX-HOOK: AWG — end diagnostics id provider */}
           </AwgInboundIdProvider>
-          {/* END LUCX-HOOK */}
         </FormProvider>
       </Modal>
     </>

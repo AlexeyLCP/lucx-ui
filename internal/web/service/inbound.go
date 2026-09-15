@@ -1926,7 +1926,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 			if !push {
 				needRestart = true
-			} else if oldProtocol == model.MTProto || oldInbound.Protocol == model.MTProto || oldProtocol == model.TUIC || oldInbound.Protocol == model.TUIC {
+			} else if oldProtocol == model.MTProto || oldInbound.Protocol == model.MTProto || oldProtocol == model.TUIC || oldInbound.Protocol == model.TUIC || lucxRuntimeSidecar(oldProtocol) || lucxRuntimeSidecar(oldInbound.Protocol) {
 				oldSnapshot := *oldInbound
 				oldSnapshot.Tag = tag
 				oldSnapshot.Protocol = oldProtocol
@@ -1940,7 +1940,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 						pushable = false
 					}
 				}
-				newProtocolIsSidecar := oldInbound.Protocol == model.MTProto || oldInbound.Protocol == model.TUIC
+				newProtocolIsSidecar := oldInbound.Protocol == model.MTProto || oldInbound.Protocol == model.TUIC || lucxRuntimeSidecar(oldInbound.Protocol)
 				if pushable {
 					postCommitApply = func() {
 						if err2 := rt.UpdateInbound(context.Background(), &oldSnapshot, payload); err2 == nil {
@@ -1956,6 +1956,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			} else {
 				oldSnapshot := *oldInbound
 				oldSnapshot.Tag = tag
+				oldSnapshot.Protocol = oldProtocol
 				var runtimeInbound *model.Inbound
 				if inbound.Enable {
 					var err2 error

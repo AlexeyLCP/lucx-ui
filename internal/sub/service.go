@@ -637,7 +637,7 @@ func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) 
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic','awg','naive','olcrtc','qwdtt','mieru','trusttunnel','anytls','tproxy')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC").Find(&inbounds).Error
 	if err != nil {
@@ -977,19 +977,16 @@ func amneziaWGConfigText(server *amneziawg.ServerSettings, client *model.Client,
 	fmt.Fprintf(&b, "Jmax = %d\n", server.Jmax)
 	fmt.Fprintf(&b, "S1 = %d\n", server.S1)
 	fmt.Fprintf(&b, "S2 = %d\n", server.S2)
-	if server.S3 > 0 {
-		fmt.Fprintf(&b, "S3 = %d\n", server.S3)
-	}
-	if server.S4 > 0 {
-		fmt.Fprintf(&b, "S4 = %d\n", server.S4)
-	}
+	// LUCX-HOOK: zero S is "do not pad"; a dropped line makes the client pad to its own default.
+	fmt.Fprintf(&b, "S3 = %d\n", server.S3)
+	fmt.Fprintf(&b, "S4 = %d\n", server.S4)
 	fmt.Fprintf(&b, "H1 = %s\n", amneziaWGHeaderOrDefault(server.H1, "1"))
 	fmt.Fprintf(&b, "H2 = %s\n", amneziaWGHeaderOrDefault(server.H2, "2"))
 	fmt.Fprintf(&b, "H3 = %s\n", amneziaWGHeaderOrDefault(server.H3, "3"))
 	fmt.Fprintf(&b, "H4 = %s\n", amneziaWGHeaderOrDefault(server.H4, "4"))
 	for i, v := range []string{server.I1, server.I2, server.I3, server.I4, server.I5} {
-		if v != "" {
-			fmt.Fprintf(&b, "I%d = %s\n", i+1, v)
+		if awg.PortableIField(v) {
+			fmt.Fprintf(&b, "I%d = %s\n", i+1, strings.TrimSpace(v))
 		}
 	}
 	optional := []struct{ key, v string }{
@@ -3000,9 +2997,7 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 	if h, err := getHostFromXFH(forwarded("X-Forwarded-Host")); err == nil && h != "" {
 		host = h
 	}
-	if host == "" {
-		host = forwarded("X-Real-IP")
-	}
+	// LUCX-HOOK: X-Real-IP is the subscriber, never the advertised server host.
 	if host == "" {
 		var err error
 		host, _, err = net.SplitHostPort(c.Request.Host)
@@ -3022,9 +3017,7 @@ func (s *SubService) ResolveRequest(c *gin.Context) (scheme string, host string,
 
 	// header display host
 	hostHeader = forwarded("X-Forwarded-Host")
-	if hostHeader == "" {
-		hostHeader = forwarded("X-Real-IP")
-	}
+	// LUCX-HOOK: never fall back to X-Real-IP for the display host.
 	if hostHeader == "" {
 		hostHeader = host
 	}
