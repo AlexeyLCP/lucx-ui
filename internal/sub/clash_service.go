@@ -12,6 +12,7 @@ import (
 	yaml "github.com/goccy/go-yaml"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
+	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
@@ -1702,4 +1703,12 @@ func (s *SubClashService) buildAwgProxy(subReq *SubService, inbound *model.Inbou
 		proxy["amnezia-wg-option"] = opt
 	}
 	return proxy
+}
+
+func putAwgTimerOpt(opt map[string]any, key, raw string) {
+	v := strings.TrimSpace(raw)
+	if v == "" || v == "0" || v == "0-0" {
+		return
+	}
+	opt[key] = v
 }
