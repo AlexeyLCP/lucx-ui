@@ -24,7 +24,10 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
 
-const subMihomoPath = "/mihomo/"
+const (
+	subMihomoPath      = "/mihomo/"
+	subClashLegacyPath = "/clash-legacy/"
+)
 
 // writeSubError translates a service-layer result into an HTTP response.
 // A nil error with no rows means the subId doesn't match anything (deleted

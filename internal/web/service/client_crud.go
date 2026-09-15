@@ -227,6 +227,7 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		return needRestart, err
 	}
 	// END LUCX-HOOK
+	adds := make([]*model.Inbound, 0, len(createTargets))
 	for _, inbound := range createTargets {
 		per := client
 		// LUCX-HOOK: AWG/WG tunnel IPs are per-inbound. Multi-attach must not
@@ -256,16 +257,14 @@ func (s *ClientService) Create(inboundSvc *InboundService, payload *ClientCreate
 		if mErr != nil {
 			return needRestart, mErr
 		}
-		nr, addErr := s.AddInboundClient(inboundSvc, &model.Inbound{
-			Id:       inbound.Id,
-			Settings: string(settingsPayload),
-		})
-		if addErr != nil {
-			return needRestart, addErr
-		}
-		if nr {
-			needRestart = true
-		}
+		adds = append(adds, &model.Inbound{Id: inbound.Id, Settings: string(settingsPayload)})
+	}
+	nr, fanoutErr := s.fanoutInboundClientAdds(inboundSvc, adds)
+	if nr {
+		needRestart = true
+	}
+	if fanoutErr != nil {
+		return needRestart, fanoutErr
 	}
 	if err := s.setClientLimitHwidByEmail(nil, client.Email, payload.LimitHwid); err != nil {
 		return needRestart, err
@@ -967,6 +966,7 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 	// END LUCX-HOOK
 
 	needRestart := false
+	adds := make([]*model.Inbound, 0, len(inboundIds))
 	for _, ibId := range inboundIds {
 		if _, attached := have[ibId]; attached {
 			continue
@@ -993,18 +993,9 @@ func (s *ClientService) Attach(inboundSvc *InboundService, id int, inboundIds []
 		if mErr != nil {
 			return needRestart, mErr
 		}
-		nr, addErr := s.AddInboundClient(inboundSvc, &model.Inbound{
-			Id:       ibId,
-			Settings: string(settingsPayload),
-		})
-		if addErr != nil {
-			return needRestart, addErr
-		}
-		if nr {
-			needRestart = true
-		}
+		adds = append(adds, &model.Inbound{Id: ibId, Settings: string(settingsPayload)})
 	}
-	return needRestart, nil
+	return s.fanoutInboundClientAdds(inboundSvc, adds)
 }
 
 func (s *ClientService) CreateOne(inboundSvc *InboundService, inboundId int, client model.Client) (bool, error) {
@@ -1189,4 +1180,14 @@ func fanoutInboundApplies(applies []inboundApply) (bool, error) {
 	wg.Wait()
 
 	return needRestart.Load(), errors.Join(errs...)
+}
+
+func (s *ClientService) fanoutInboundClientAdds(inboundSvc *InboundService, adds []*model.Inbound) (bool, error) {
+	applies := make([]inboundApply, 0, len(adds))
+	for _, add := range adds {
+		applies = append(applies, inboundApply{id: add.Id, run: func() (bool, error) {
+			return s.AddInboundClient(inboundSvc, add)
+		}})
+	}
+	return fanoutInboundApplies(applies)
 }
