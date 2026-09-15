@@ -264,6 +264,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subHappAutoDetect": {
+        "description": "Happ client customization settings (app-management / routing / UX).",
         "type": "boolean"
       },
       "subHappColorProfile": {
@@ -947,6 +948,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subHappAutoDetect": {
+        "description": "Happ client customization settings (app-management / routing / UX).",
         "type": "boolean"
       },
       "subHappColorProfile": {
@@ -2975,13 +2977,13 @@ export const SCHEMAS: Record<string, unknown> = {
   "InboundOption": {
     "properties": {
       "awgObfuscation": {
+        "description": "LUCX-HOOK: kernel AWG QR/.conf hints (userspace AmneziaWG uses AwgServer).\nAwgPeerAddresses maps client email to first single-host AllowedIPs for THIS inbound.",
         "type": "string"
       },
       "awgPeerAddresses": {
         "additionalProperties": {
           "type": "string"
         },
-        "description": "AwgPeerAddresses maps client email → first single-host AllowedIPs for\nTHIS inbound (multi-attach clients have a different tunnel IP per AWG\ninbound; the clients-table allowedIPs field is only one of them).",
         "type": "object"
       },
       "awgServer": {
@@ -2994,11 +2996,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "nullable": true
       },
       "awgServerAddress": {
-        "description": "AWG obfuscation block — the Jc/Jmin/Jmax/S1-S4/H1-H4/I1-I5 lines as they\nappear in a client .conf [Interface] section, plus the server tunnel\naddress. Populated for AWG inbounds so the clients-page QR/.conf path\ncan build a full AmneziaWG client config (mirrors the WG hints above).",
+        "description": "AWG obfuscation block plus the server tunnel address for clients-page QR/.conf.",
         "type": "string"
       },
       "awgVersion": {
-        "description": "AwgVersion is the inbound's AWG protocol version (\"1.5\"/\"2\"/\"3\") — the\nclient-config ceiling the clients page uses to gate the per-client export\nversion selector. Empty/absent is treated as \"2\" by the frontend.",
+        "description": "AwgVersion is the inbound's AWG protocol version (\"1.5\"/\"2\"/\"3\"); empty is \"2\".",
         "type": "string"
       },
       "enable": {
@@ -3013,6 +3015,9 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "mtprotoDomain": {
+        "type": "string"
+      },
+      "network": {
         "type": "string"
       },
       "nodeAddress": {
@@ -3036,6 +3041,9 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": "VLESS-443",
         "type": "string"
       },
+      "security": {
+        "type": "string"
+      },
       "shareAddr": {
         "type": "string"
       },
@@ -3052,6 +3060,14 @@ export const SCHEMAS: Record<string, unknown> = {
       "tlsFlowCapable": {
         "example": true,
         "type": "boolean"
+      },
+      "tuicServer": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/TuicServerSettings"
+          }
+        ],
+        "nullable": true
       },
       "wgDns": {
         "type": "string"
@@ -3113,25 +3129,32 @@ export const SCHEMAS: Record<string, unknown> = {
   "LogEntry": {
     "properties": {
       "dateTime": {
+        "example": "2025-01-01T12:00:00Z",
         "format": "date-time",
         "type": "string"
       },
       "email": {
+        "example": "alice@example.com",
         "type": "string"
       },
       "event": {
+        "example": 0,
         "type": "integer"
       },
       "fromAddress": {
+        "example": "192.0.2.10:54321",
         "type": "string"
       },
       "inbound": {
+        "example": "inbound-443",
         "type": "string"
       },
       "outbound": {
+        "example": "direct",
         "type": "string"
       },
       "toAddress": {
+        "example": "example.com:443",
         "type": "string"
       }
     },

@@ -777,16 +777,19 @@ export const EXAMPLES: Record<string, unknown> = {
     "id": 1,
     "listen": "",
     "mtprotoDomain": "",
+    "network": "",
     "nodeAddress": "",
     "nodeId": null,
     "port": 443,
     "protocol": "vless",
     "remark": "VLESS-443",
+    "security": "",
     "shareAddr": "",
     "shareAddrStrategy": "",
     "ssMethod": "",
     "tag": "in-443-tcp",
     "tlsFlowCapable": true,
+    "tuicServer": null,
     "wgDns": "",
     "wgMtu": 0,
     "wgPublicKey": ""
@@ -799,13 +802,13 @@ export const EXAMPLES: Record<string, unknown> = {
     "up": 1048576
   },
   "LogEntry": {
-    "dateTime": "2025-01-01T00:00:00Z",
-    "email": "",
+    "dateTime": "2025-01-01T12:00:00Z",
+    "email": "alice@example.com",
     "event": 0,
-    "fromAddress": "",
-    "inbound": "",
-    "outbound": "",
-    "toAddress": ""
+    "fromAddress": "192.0.2.10:54321",
+    "inbound": "inbound-443",
+    "outbound": "direct",
+    "toAddress": "example.com:443"
   },
   "MLDSA65Response": {
     "seed": "mldsa65-seed",

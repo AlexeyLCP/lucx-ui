@@ -28,7 +28,7 @@
     "prepare": "cd .. && husky frontend/.husky || true"
   },
   "lint-staged": {
-    "src/**/*.{ts,tsx}": [
+    "src/!(generated)/**/*.{ts,tsx}": [
       "oxfmt",
       "oxlint --fix"
     ]
