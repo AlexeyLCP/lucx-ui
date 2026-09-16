@@ -202,14 +202,14 @@ Keep the directory. Origin will not have these.
 | `internal/web/favicon/` | panel tab icon |
 | `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` | LucX service |
 | `frontend/src/pages/tunnels/` | Tunnels page |
-| `frontend/src/pages/inbounds/form/protocols/{awg,naive,olcrtc,qwdtt,mieru,trusttunnel,anytls,tproxy,cover}.tsx` | lucx forms |
+| `frontend/src/pages/inbounds/form/protocols/{awg,naive,olcrtc,qwdtt,csqtt,mieru,trusttunnel,anytls,tproxy,cover}.tsx` | lucx forms |
 | `frontend/src/pages/xray/awg-outbounds/` `sidecar-outbounds/` | lucx outbound UI |
 | `frontend/src/pages/settings/CoresTab.tsx` | sidecar binaries |
 | `frontend/src/pages/inbounds/AwgImportBanner.tsx` | AWG import |
 | `frontend/src/lib/awg/` `lib/mieru/` `lib/sub/` `lib/xray/awg-*.ts` | lucx libs |
 | `frontend/src/api/{awg-import,awg-outbounds,sidecar-outbounds,tunnels}.ts` | lucx API |
 | `frontend/src/schemas/{awg-*,tunnel,sidecar-outbound}.ts` `protocols/inbound/{awg,naive,…}.ts` | lucx zod |
-| `frontend/src/test/awg-*.ts*` `qwdtt-*.ts` `vpnuri.test.ts` `sub-*.ts` `cores-*.tsx` | lucx tests |
+| `frontend/src/test/awg-*.ts*` `qwdtt-*.ts` `csqtt-*.ts` `vpnuri.test.ts` `sub-*.ts` `cores-*.tsx` | lucx tests |
 | `bin/` | install-awg, check-lucx, pack-sidecars, sourcecraft |
 | `third_party/sidecars/` `third_party/patches/` | sidecar blobs |
 | `.github/workflows/upstream-watch.yml` | watch origin releases |

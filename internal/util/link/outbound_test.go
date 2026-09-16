@@ -456,6 +456,7 @@ func TestParseLink_QwdttAndWdtt(t *testing.T) {
 		"qwdtt://config?name=Home&peer=1.2.3.4%3A56000&pass=x",
 		"wdtt://1.2.3.4:56000:56001:9000:pass:abc",
 		"olcrtc://jitsi?datachannel@https://meet.jit.si/r#key",
+		"csqtt://connect?v=2&host=1.2.3.4&peer=46000&password=x",
 	} {
 		res, err := ParseLink(raw)
 		if err != nil {

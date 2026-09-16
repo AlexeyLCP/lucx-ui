@@ -189,7 +189,7 @@ x-ui-linux-{amd64,arm64}.tar.gz → x-ui/
       ├── xray-linux-{arch}   ← from upstream Xray-core release
       ├── mtg-linux-{arch}    ← from upstream mtg-multi release
       ├── install-awg-module.sh  ← our DKMS script
-      └── caddy-naive / olcrtc / qwdtt / mieru / trusttunnel / anytls / tproxy / mtproxy (+ clients)
+      └── caddy-naive / olcrtc / qwdtt / csqtt / mieru / trusttunnel / anytls / tproxy / mtproxy (+ clients)
           ← same names for amd64 and arm64 except mtproxy (amd64-only, x86 C engine).
             amd64 unpacks third_party gz; arm64 from bin/pack-sidecars.sh + tproxy in release.yml.
 ```

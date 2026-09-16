@@ -75,6 +75,7 @@ import {
   NaiveFields, // LUCX-HOOK: Naive
   OlcrtcFields, // LUCX-HOOK: olcRTC
   QwdttFields, // LUCX-HOOK: qWDTT
+  CsqttFields, // LUCX-HOOK: CSQTT
   MieruFields, // LUCX-HOOK: mieru
   TrustTunnelFields, // LUCX-HOOK: TrustTunnel
   AnytlsFields, // LUCX-HOOK: AnyTLS
@@ -631,6 +632,7 @@ export default function InboundFormModal({
         next === Protocols.NAIVE ||
         next === Protocols.OLCRTC ||
         next === Protocols.QWDTT ||
+        next === Protocols.CSQTT ||
         next === Protocols.MIERU ||
         next === Protocols.TRUSTTUNNEL ||
         next === Protocols.ANYTLS ||
@@ -641,6 +643,9 @@ export default function InboundFormModal({
         // LUCX-HOOK: qWDTT Port must match DTLS listen (backend also normalizes).
         if (next === Protocols.QWDTT) {
           setV('port', 56000);
+        }
+        if (next === Protocols.CSQTT) {
+          setV('port', 46000);
         }
         if (next === Protocols.OLCRTC) {
           setV('port', 0);
@@ -963,6 +968,7 @@ export default function InboundFormModal({
       {protocol === Protocols.NAIVE && <NaiveFields />}
       {protocol === Protocols.OLCRTC && <OlcrtcFields />}
       {protocol === Protocols.QWDTT && <QwdttFields />}
+      {protocol === Protocols.CSQTT && <CsqttFields />}
       {protocol === Protocols.MIERU && <MieruFields />}
       {protocol === Protocols.TRUSTTUNNEL && <TrustTunnelFields />}
       {protocol === Protocols.ANYTLS && <AnytlsFields />}
@@ -1306,6 +1312,7 @@ export default function InboundFormModal({
                       Protocols.NAIVE,
                       Protocols.OLCRTC,
                       Protocols.QWDTT,
+                      Protocols.CSQTT,
                       Protocols.MIERU,
                       Protocols.TRUSTTUNNEL,
                       Protocols.ANYTLS,

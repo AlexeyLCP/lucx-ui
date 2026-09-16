@@ -1075,6 +1075,44 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/tunnel/csqtt/status',
+        summary:
+          'CSQTT core status for the Cores page: binary presence and process state. Inbound-only. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/csqtt/logs',
+        summary: 'Recent log lines of the CSQTT process (ring buffer, default 200). LucX-UI only.',
+        params: [
+          {
+            name: 'lines',
+            in: 'query',
+            type: 'number',
+            desc: 'Max lines to return (default 200).',
+            optional: true,
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/csqtt/upload',
+        summary:
+          'Replace the csqtt binary on disk (multipart field "file"). Body-limit exempt. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/csqtt/download',
+        summary:
+          'Fetch the csqtt binary from a URL into place. https only, to a public host; redirects are bounded and re-checked. 200 MB cap. Optional sha256. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/csqtt-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/csqtt/deleteBinary',
+        summary: 'Stop the CSQTT core and remove its binary from disk. LucX-UI only.',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/tunnel/mieru/status',
         summary:
           'mieru core status for the Cores page: binary presence and aggregate process state across all mieru-{id} inbound sidecars. Inbound-only core — no legacy config/lifecycle. LucX-UI only.',

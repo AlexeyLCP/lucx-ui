@@ -109,7 +109,11 @@ export function showQrCodeMenu(dbInbound: DBInboundRecord): boolean {
     return !isSSMultiUser({ protocol: 'shadowsocks', settings: readSettings(dbInbound.settings) });
   }
   // LUCX-HOOK: single-credential tunnel sidecars — one QR for the whole inbound.
-  if (dbInbound.protocol === 'qwdtt' || dbInbound.protocol === 'olcrtc') {
+  if (
+    dbInbound.protocol === 'qwdtt' ||
+    dbInbound.protocol === 'csqtt' ||
+    dbInbound.protocol === 'olcrtc'
+  ) {
     return true;
   }
   return false;

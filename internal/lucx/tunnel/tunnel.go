@@ -10,6 +10,7 @@
 //   - NaiveProxy — Caddy + klzgrad/forwardproxy (HTTP/2 padding)
 //   - olcRTC — openlibrecommunity/olcrtc (TCP-over-WebRTC via meet rooms)
 //   - qWDTT — SpaceNeuroX wdtt-server (WireGuard over VK TURN)
+//   - CSQTT — amurcanov/csqtt rust-server (TURN/RTP; not qWDTT)
 //
 // Each core is one supervised process with a panel-rendered config file (or
 // CLI args), an isolated data directory and a health probe (process alive;
@@ -45,6 +46,11 @@ const Olcrtc Name = "olcrtc"
 // external process — not linked into the panel.
 const Qwdtt Name = "qwdtt"
 
+// Csqtt is the CSQTT core: TURN/RTP tunnel (amurcanov/csqtt rust-server,
+// PolyForm NC). Not wire-compatible with qWDTT. Needs root (TUN csqtt1).
+// Binary is an external process — not linked into the panel.
+const Csqtt Name = "csqtt"
+
 // Mieru is the mieru core: mita server (enfein/mieru, GPL-3.0) — a
 // censorship-resistant SOCKS/HTTP proxy over a custom TCP/UDP protocol
 // (XChaCha20-Poly1305, no TLS). Multi-user; per-panel-client credentials.
@@ -78,7 +84,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover}
+	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -89,7 +95,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -104,6 +110,8 @@ func (n Name) DisplayName() string {
 		return "olcRTC"
 	case Qwdtt:
 		return "qWDTT"
+	case Csqtt:
+		return "CSQTT"
 	case Mieru:
 		return "mieru"
 	case TrustTunnel:

@@ -1507,6 +1507,8 @@ export function genLink(input: GenLinkInput): string {
       });
     case 'qwdtt':
       return genQwdttLink({ inbound, address, remark });
+    case 'csqtt':
+      return genCsqttLink({ inbound, address });
     case 'anytls':
       return genAnytlsLink({ inbound, address, remark });
     case 'tproxy':
@@ -1635,6 +1637,9 @@ export function genInboundLinks(input: GenInboundLinksInput): string {
   if (inbound.protocol === 'qwdtt') {
     return genQwdttLink({ inbound, address: addr, remark });
   }
+  if (inbound.protocol === 'csqtt') {
+    return genCsqttLink({ inbound, address: addr });
+  }
   if (inbound.protocol === 'olcrtc') {
     return genOlcrtcLink({ inbound, remark });
   }
@@ -1686,6 +1691,49 @@ export function genAnytlsLink(input: GenAnytlsLinkInput): string {
   const remark = (input.remark ?? '').trim();
   const frag = remark ? `#${encodeURIComponent(remark)}` : '';
   return `anytls://${encodeURIComponent(pass)}@${hostPort}/?sni=${encodeURIComponent(sni)}${frag}`;
+}
+
+export interface GenCsqttLinkInput {
+  inbound: Inbound;
+  address?: string;
+}
+
+export function genCsqttLink(input: GenCsqttLinkInput): string {
+  if (input.inbound.protocol !== 'csqtt') return '';
+  const s = input.inbound.settings as {
+    listenAddr?: string;
+    password?: string;
+    subHost?: string;
+    vkHashes?: string;
+  };
+  const pass = (s.password ?? '').trim();
+  if (!pass) return '';
+  let host = (s.subHost ?? '').trim();
+  if (host.includes(':') && !host.startsWith('[')) {
+    host = host.slice(0, host.lastIndexOf(':'));
+  }
+  if (!host) {
+    host = (input.address ?? '').trim();
+  }
+  if (!host) return '';
+  let port = input.inbound.port || 46000;
+  const la = (s.listenAddr ?? '').trim();
+  if (la.includes(':')) {
+    const p = Number(la.slice(la.lastIndexOf(':') + 1));
+    if (Number.isFinite(p) && p > 0) port = p;
+  }
+  const hashes = (s.vkHashes ?? '')
+    .split(/[,+\s]+/)
+    .map((h) => h.trim())
+    .filter(Boolean)
+    .slice(0, 6);
+  const q = new URLSearchParams();
+  q.set('v', '2');
+  q.set('host', host);
+  q.set('peer', String(port));
+  q.set('password', pass);
+  if (hashes.length) q.set('hashes', hashes.join('+'));
+  return `csqtt://connect?${q.toString()}`;
 }
 
 export function genQwdttLink(input: GenQwdttLinkInput): string {

@@ -38,6 +38,7 @@ type CoreKind =
   | 'naive'
   | 'olcrtc'
   | 'qwdtt'
+  | 'csqtt'
   | 'mieru'
   | 'trusttunnel'
   | 'anytls'
@@ -89,6 +90,14 @@ const CORE_API: Record<
     upload: tunnelsApi.qwdttUpload,
     download: tunnelsApi.qwdttDownload,
     deleteBinary: tunnelsApi.qwdttDeleteBinary,
+  },
+  csqtt: {
+    key: keys.tunnels.csqttStatus,
+    status: tunnelsApi.csqttStatus,
+    logs: tunnelsApi.csqttLogs,
+    upload: tunnelsApi.csqttUpload,
+    download: tunnelsApi.csqttDownload,
+    deleteBinary: tunnelsApi.csqttDeleteBinary,
   },
   mieru: {
     key: keys.tunnels.mieruStatus,
@@ -535,6 +544,7 @@ export default function CoresTab() {
       <BinaryCard kind="naive" title="NaiveProxy" />
       <BinaryCard kind="olcrtc" title="olcRTC" />
       <BinaryCard kind="qwdtt" title="qWDTT" />
+      <BinaryCard kind="csqtt" title="CSQTT" />
       <BinaryCard kind="mieru" title="mieru" />
       <BinaryCard kind="trusttunnel" title="TrustTunnel" />
       <BinaryCard kind="anytls" title="AnyTLS" />

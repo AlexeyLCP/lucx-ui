@@ -344,6 +344,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileNaiveInbounds()
 	s.reconcileOlcrtcInbounds()
 	s.reconcileQwdttInbound()
+	s.reconcileCsqttInbound()
 	s.reconcileMieruInbounds()
 	s.reconcileTrustTunnelInbounds()
 	s.reconcileAnytlsInbounds()
@@ -529,6 +530,34 @@ func (s *TunnelService) reconcileQwdttInbound() {
 	}
 	if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: qwdtt reconcile failed:", err)
+	}
+}
+
+func (s *TunnelService) reconcileCsqttInbound() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: csqtt inbound list failed:", err)
+		return
+	}
+	var one *model.Inbound
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Csqtt || ib.NodeID != nil {
+			continue
+		}
+		if one == nil || (ib.Enable && !one.Enable) {
+			one = ib
+		}
+	}
+	if one == nil {
+		_ = tunnel.GetManager().Stop(tunnel.Csqtt)
+		return
+	}
+	inst, ok := tunnel.CsqttInstanceFromInbound(one)
+	if !ok {
+		return
+	}
+	if err := tunnel.GetManager().Ensure(inst); err != nil {
+		logger.Warning("tunnel: csqtt inbound reconcile failed:", err)
 	}
 }
 
@@ -1426,6 +1455,53 @@ func (s *TunnelService) qwdttInstance(cfg tunnel.QwdttConfig) (tunnel.Instance, 
 		Enabled: cfg.Enabled,
 		Args:    cfg.BuildArgs(),
 	}, nil
+}
+
+// --- CSQTT core (inbound-only) ---------------------------------------------
+
+type CsqttStatus struct {
+	Core         string        `json:"core"`
+	DisplayName  string        `json:"displayName"`
+	BinaryExists bool          `json:"binaryExists"`
+	BinaryPath   string        `json:"binaryPath"`
+	Probe        tunnel.Status `json:"probe"`
+	LastLog      string        `json:"lastLog"`
+}
+
+func (s *TunnelService) CsqttStatus() (CsqttStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Csqtt.BinaryPath()
+	info, statErr := os.Stat(bin)
+	inst := tunnel.Instance{Core: tunnel.Csqtt, Key: tunnel.CsqttKey}
+	return CsqttStatus{
+		Core:         string(tunnel.Csqtt),
+		DisplayName:  tunnel.Csqtt.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        mgr.StatusOf(inst),
+		LastLog:      mgr.LastLog(tunnel.Csqtt),
+	}, nil
+}
+
+func (s *TunnelService) CsqttLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().Logs(tunnel.Csqtt, lines)
+}
+
+func (s *TunnelService) DeleteCsqttBinary() error {
+	if err := tunnel.GetManager().Stop(tunnel.Csqtt); err != nil {
+		logger.Warning("tunnel: stop before csqtt binary delete failed:", err)
+	}
+	if err := os.Remove(tunnel.Csqtt.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *TunnelService) DownloadCsqttBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Csqtt.BinaryPath(), downloadURL, wantSHA256)
 }
 
 // --- mieru core (inbound-only, lucx.117) -----------------------------------

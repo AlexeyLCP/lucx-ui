@@ -43,6 +43,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'mieru',
   'trusttunnel',
   'qwdtt',
+  'csqtt',
   'olcrtc',
   'anytls',
   'tproxy',

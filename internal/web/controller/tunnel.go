@@ -146,6 +146,13 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	qwdtt.POST("/download", a.qwdttDownloadBinary)
 	qwdtt.POST("/deleteBinary", a.qwdttDeleteBinary)
 
+	csqtt := g.Group("/csqtt")
+	csqtt.GET("/status", a.csqttStatus)
+	csqtt.GET("/logs", a.csqttLogs)
+	csqtt.POST("/upload", a.csqttUploadBinary)
+	csqtt.POST("/download", a.csqttDownloadBinary)
+	csqtt.POST("/deleteBinary", a.csqttDeleteBinary)
+
 	// mieru is inbound-only (no legacy config/lifecycle): status, logs and
 	// binary management for the Settings → Cores page.
 	mieru := g.Group("/mieru")
@@ -532,6 +539,56 @@ func (a *TunnelController) qwdttDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.qwdtt.toasts.deleted"), nil)
+}
+
+func (a *TunnelController) csqttStatus(c *gin.Context) {
+	st, err := a.svc.CsqttStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: csqtt status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) csqttLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.CsqttLogs(lines), nil)
+}
+
+func (a *TunnelController) csqttUploadBinary(c *gin.Context) {
+	dst := tunnel.Csqtt.BinaryPath()
+	if err := saveCoreUpload(c, dst); err != nil {
+		logger.Warning("tunnel: save uploaded csqtt binary failed:", err)
+		jsonMsg(c, "tunnel: csqtt upload failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.csqtt.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) csqttDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid csqtt download body", err)
+		return
+	}
+	if err := a.svc.DownloadCsqttBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: csqtt download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.csqtt.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) csqttDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteCsqttBinary(); err != nil {
+		jsonMsg(c, "tunnel: csqtt binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.csqtt.toasts.deleted"), nil)
 }
 
 // --- mieru (inbound-only: status/logs/binary for the Cores page) ----------

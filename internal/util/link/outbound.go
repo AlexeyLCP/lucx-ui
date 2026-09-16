@@ -132,6 +132,8 @@ func ParseLink(link string) (*ParseResult, error) {
 		return parseWireguard(link)
 	case strings.HasPrefix(link, "qwdtt://"), strings.HasPrefix(link, "wdtt://"):
 		return opaqueShareLink(link, "qwdtt")
+	case strings.HasPrefix(link, "csqtt://"):
+		return opaqueShareLink(link, "csqtt")
 	case strings.HasPrefix(link, "olcrtc://"):
 		return opaqueShareLink(link, "olcrtc")
 	default:

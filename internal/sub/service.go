@@ -637,7 +637,7 @@ func (s *SubService) getInboundsBySubId(subId string) ([]*model.Inbound, error) 
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic','awg','naive','olcrtc','qwdtt','mieru','trusttunnel','anytls','tproxy')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic','awg','naive','olcrtc','qwdtt','csqtt','mieru','trusttunnel','anytls','tproxy')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC").Find(&inbounds).Error
 	if err != nil {
@@ -800,6 +800,8 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genOlcrtcLink(inbound)
 	case "qwdtt": // LUCX-HOOK: single-credential qWDTT URI (ignore email)
 		return s.genQwdttLink(inbound)
+	case "csqtt": // LUCX-HOOK: single-credential CSQTT URI (ignore email)
+		return s.genCsqttLink(inbound)
 	case "anytls": // LUCX-HOOK: single-credential AnyTLS URI (ignore email)
 		return s.genAnytlsLink(inbound)
 	case "tproxy": // LUCX-HOOK: Telegram WEB proxy t.me/webproxy link
@@ -3371,6 +3373,20 @@ func (s *SubService) genOlcrtcLink(inbound *model.Inbound) string {
 // works for pre-lucx.108 rows that never stored subHost (no DB write here).
 func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 	cfg, ok := tunnel.QwdttConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	if strings.TrimSpace(cfg.SubHost) == "" {
+		cfg = cfg.WithPeerHost(s.resolveInboundAddress(inbound))
+		if strings.TrimSpace(cfg.SubHost) == "" {
+			cfg = cfg.EnsureSubHost()
+		}
+	}
+	return cfg.ClientURI()
+}
+
+func (s *SubService) genCsqttLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.CsqttConfigFromInbound(inbound)
 	if !ok || !inbound.Enable {
 		return ""
 	}

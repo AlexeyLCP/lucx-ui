@@ -67,6 +67,9 @@ describe('link-label parseLinkParts', () => {
     expect(parseLinkParts('qwdtt://config?name=Home&peer=1.2.3.4%3A56000&pass=x')?.protocol).toBe(
       'qWDTT',
     );
+    expect(parseLinkParts('csqtt://connect?v=2&host=1.2.3.4&peer=46000&password=x')?.protocol).toBe(
+      'CSQTT',
+    );
   });
 
   it('labels an AmneziaWG vpn:// link with its decoded remark and endpoint port', () => {

@@ -89,6 +89,7 @@ export function canEnableSniffing(values: { protocol: string }): boolean {
     values.protocol !== 'naive' &&
     values.protocol !== 'olcrtc' &&
     values.protocol !== 'qwdtt' &&
+    values.protocol !== 'csqtt' &&
     values.protocol !== 'mieru' &&
     values.protocol !== 'trusttunnel' &&
     values.protocol !== 'anytls' &&

@@ -37,6 +37,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   naive: 'Naive',
   olcrtc: 'olcRTC',
   qwdtt: 'qWDTT',
+  csqtt: 'CSQTT',
   wdtt: 'qWDTT',
   mieru: 'mieru',
   mierus: 'mieru',
@@ -200,6 +201,14 @@ export function parseLinkParts(link: string): LinkParts | null {
     try {
       const url = new URL(trimmed.replace(/^wdtt:/i, 'qwdtt:'));
       remark = url.searchParams.get('name') || url.searchParams.get('peer') || '';
+    } catch {
+      remark = '';
+    }
+  } else if (scheme === 'csqtt') {
+    try {
+      const url = new URL(trimmed);
+      remark = url.searchParams.get('host') || '';
+      port = url.searchParams.get('peer') || '';
     } catch {
       remark = '';
     }

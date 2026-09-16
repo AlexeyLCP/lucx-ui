@@ -62,7 +62,11 @@ export function buildRowActionsMenu({
       label: t('pages.inbounds.inboundInfo'),
     });
     // LUCX-HOOK: qWDTT/olcRTC — single share URI export (no clients).
-    if (record.protocol === 'qwdtt' || record.protocol === 'olcrtc') {
+    if (
+      record.protocol === 'qwdtt' ||
+      record.protocol === 'csqtt' ||
+      record.protocol === 'olcrtc'
+    ) {
       items.push({ key: 'export', icon: <ExportOutlined />, label: t('pages.inbounds.export') });
     }
   }

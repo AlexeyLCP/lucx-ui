@@ -837,6 +837,14 @@
         "olcrtcDns": "DNS (host:port)",
         "olcrtcDebug": "Debug",
         "qwdttSingleNote": "Only one qWDTT inbound per panel. Shared password for all clients.",
+        "csqttSingleNote": "One CSQTT inbound per host. One password = one device. Cannot run next to qWDTT. Upload the binary on Settings → Cores. Clients: CSQTT Android APK or iOS anton48 (CSQTT mode, not WRAP-A).",
+        "csqttListenAddr": "UDP listen",
+        "csqttPassword": "Password",
+        "csqttPasswordHint": "Empty = auto-generate on save. Bound to the first device_id that connects.",
+        "csqttSubHost": "Public host (for clients)",
+        "csqttSubHostHint": "Advertised IP or hostname, e.g. 1.2.3.4",
+        "csqttVkHashes": "VK call hashes",
+        "csqttVkHashesHint": "Comma-separated live VK TURN hashes (up to 6)",
         "qwdttListenAddr": "DTLS listen",
         "qwdttWgPort": "WG port",
         "qwdttPassword": "Password",
@@ -2837,6 +2845,13 @@
           "uploaded": "Binary uploaded",
           "downloaded": "Binary downloaded",
           "deleted": "Binary deleted"
+        }
+      },
+      "csqtt": {
+        "toasts": {
+          "uploaded": "CSQTT binary uploaded",
+          "downloaded": "CSQTT binary downloaded",
+          "deleted": "CSQTT binary deleted"
         }
       },
       "mieru": {

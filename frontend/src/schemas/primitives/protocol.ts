@@ -18,6 +18,7 @@ export const ProtocolSchema = z.enum([
   'naive', // LUCX-HOOK: NaiveProxy sidecar (inbound model)
   'olcrtc', // LUCX-HOOK: olcRTC sidecar
   'qwdtt', // LUCX-HOOK: qWDTT sidecar
+  'csqtt', // LUCX-HOOK: CSQTT sidecar
   'mieru', // LUCX-HOOK: mieru sidecar
   'trusttunnel', // LUCX-HOOK: TrustTunnel sidecar
   'anytls', // LUCX-HOOK: AnyTLS sidecar
@@ -50,6 +51,7 @@ export const Protocols = Object.freeze({
   NAIVE: 'naive', // LUCX-HOOK: NaiveProxy
   OLCRTC: 'olcrtc', // LUCX-HOOK: olcRTC
   QWDTT: 'qwdtt', // LUCX-HOOK: qWDTT
+  CSQTT: 'csqtt', // LUCX-HOOK: CSQTT
   MIERU: 'mieru', // LUCX-HOOK: mieru
   TRUSTTUNNEL: 'trusttunnel', // LUCX-HOOK: TrustTunnel
   ANYTLS: 'anytls', // LUCX-HOOK: AnyTLS

@@ -58,6 +58,7 @@ The panel **supervises external processes** and ships optional geo datasets. Not
 | [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) | Protocol / client reference | **BSD-3-Clause** |
 | `bin/olcrtc-linux-*` — [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | olcRTC WebRTC tunnel core | **WTFPL** |
 | `bin/qwdtt-linux-*` — [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) server | qWDTT (WG over VK TURN) | **GPL-3.0** |
+| `bin/csqtt-linux-*` — [amurcanov/csqtt](https://github.com/amurcanov/csqtt) rust-server (GitHub tarball; pin `ace21228`) | CSQTT (TURN/RTP) | **PolyForm Noncommercial 1.0.0** (amurcanov; LucX commercial grant does not cover it) |
 | `bin/mieru-linux-*` — [enfein/mieru](https://github.com/enfein/mieru) `mita` | mieru server | **GPL-3.0** |
 | `bin/trusttunnel-linux-*` — [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) `trusttunnel_endpoint` | TrustTunnel endpoint | **Apache-2.0** |
 | [amnezia-vpn](https://github.com/amnezia-vpn) kernel module & tools | AmneziaWG / AWG3 (installed by host scripts, not the panel binary) | **GPL-2.0** (kernel module) |
@@ -71,6 +72,7 @@ The panel **supervises external processes** and ships optional geo datasets. Not
 
 - Tunnel binaries are **child processes**. LucX code under `internal/lucx/tunnel/` (PolyForm) only writes configs, spawns/kills, and probes health.
 - qWDTT is GPL-3.0 **as an external program**. Shipping the binary does not relicense LucX PolyForm sources; operators who redistribute qWDTT must still honour GPL-3.0 for that binary and its sources.
+- CSQTT is amurcanov PolyForm NC **as an external program**. Redistribute with **their** LICENSE/Required Notice. LucX commercial permission does not sublicense CSQTT.
 - Geo `.dat` files are data packs refreshed from upstream releases; their license/terms follow the linked repositories.
 - Design references (not shipped as code): [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui), geodata browser port of [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) (STRENCH0).
 

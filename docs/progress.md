@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.233 — CSQTT inbound sidecar v1 (2026-09-16)
+
+Inbound `csqtt`: LucX supervises amurcanov/csqtt rust-server (TURN/RTP). Not qWDTT. Share `csqtt://connect?v=2…`. One per host; mutex vs qWDTT. One password = one device. GitHub tarball builds musl via `pack-sidecars.sh` (pin `ace21228`). SourceCraft: Cores upload. No Xray, nodes, online/traffic.
+
+**lucxVersion:** lucx.233
+
+---
+
 ## lucx.232 — merge v3.8.5 + sidecar pins (2026-09-16)
 
 Merge `origin/main` v3.8.5 (sub page tabs, node/traffic fixes). Keep LucX HOOKs; vpn:// on the new Configs tab.

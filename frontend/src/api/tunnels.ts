@@ -17,6 +17,7 @@ import {
   TrustTunnelStatusSchema,
   AnytlsStatusSchema,
   TproxyStatusSchema,
+  CsqttStatusSchema,
   type NaiveConfig,
   type NaiveStatus,
   type OlcrtcConfig,
@@ -27,6 +28,7 @@ import {
   type TrustTunnelStatus,
   type AnytlsStatus,
   type TproxyStatus,
+  type CsqttStatus,
 } from '@/schemas/tunnel';
 
 export type {
@@ -40,6 +42,7 @@ export type {
   TrustTunnelStatus,
   AnytlsStatus,
   TproxyStatus,
+  CsqttStatus,
 };
 
 // JSON_HEADERS is load-bearing on every POST (lucx.69 lesson).
@@ -48,6 +51,7 @@ const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
 const NAIVE = '/panel/api/tunnel/naive';
 const OLCRTC = '/panel/api/tunnel/olcrtc';
 const QWDTT = '/panel/api/tunnel/qwdtt';
+const CSQTT = '/panel/api/tunnel/csqtt';
 const MIERU = '/panel/api/tunnel/mieru';
 const TRUSTTUNNEL = '/panel/api/tunnel/trusttunnel';
 const ANYTLS = '/panel/api/tunnel/anytls';
@@ -144,6 +148,22 @@ export const tunnelsApi = {
   },
   qwdttDeleteBinary: (): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${QWDTT}/deleteBinary`, {}, JSON_HEADERS),
+
+  csqttStatus: async (): Promise<Msg<CsqttStatus>> => {
+    const raw = await HttpUtil.get<CsqttStatus>(`${CSQTT}/status`, undefined, { silent: true });
+    return parseMsg(raw, CsqttStatusSchema, 'tunnel/csqttStatus');
+  },
+  csqttLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${CSQTT}/logs?lines=${lines}`),
+  csqttDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${CSQTT}/download`, { url, sha256 }, JSON_HEADERS),
+  csqttUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${CSQTT}/upload`, fd);
+  },
+  csqttDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${CSQTT}/deleteBinary`, {}, JSON_HEADERS),
 
   mieruStatus: async (): Promise<Msg<MieruStatus>> => {
     const raw = await HttpUtil.get<MieruStatus>(`${MIERU}/status`, undefined, { silent: true });

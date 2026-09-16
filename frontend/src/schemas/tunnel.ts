@@ -170,3 +170,6 @@ export type AnytlsStatus = z.infer<typeof AnytlsStatusSchema>;
 
 export const TproxyStatusSchema = AnytlsStatusSchema;
 export type TproxyStatus = AnytlsStatus;
+
+export const CsqttStatusSchema = AnytlsStatusSchema;
+export type CsqttStatus = AnytlsStatus;

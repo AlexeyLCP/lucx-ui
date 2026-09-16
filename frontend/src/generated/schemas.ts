@@ -2829,6 +2829,7 @@ export const SCHEMAS: Record<string, unknown> = {
           "naive",
           "olcrtc",
           "qwdtt",
+          "csqtt",
           "mieru",
           "trusttunnel",
           "anytls",

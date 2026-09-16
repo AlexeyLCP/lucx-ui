@@ -837,6 +837,14 @@
         "olcrtcDns": "DNS (host:port)",
         "olcrtcDebug": "Debug",
         "qwdttSingleNote": "Только один qWDTT inbound на панель. Общий password для всех.",
+        "csqttSingleNote": "Один CSQTT inbound на хост. Один пароль = одно устройство. Нельзя рядом с qWDTT. Бинарь — Settings → Cores. Клиенты: CSQTT Android APK или iOS anton48 (режим CSQTT, не WRAP-A).",
+        "csqttListenAddr": "UDP listen",
+        "csqttPassword": "Пароль",
+        "csqttPasswordHint": "Пусто = сгенерировать при сохранении. Привязывается к первому device_id.",
+        "csqttSubHost": "Публичный хост (для клиентов)",
+        "csqttSubHostHint": "IP или hostname, например 1.2.3.4",
+        "csqttVkHashes": "VK call hashes",
+        "csqttVkHashesHint": "Хеши VK TURN через запятую (до 6)",
         "qwdttListenAddr": "DTLS listen",
         "qwdttWgPort": "WG port",
         "qwdttPassword": "Password",
@@ -2931,7 +2939,14 @@
         }
       },
       "inboundMovedTitle": "Настройка — в Inbounds",
-      "inboundMovedDesc": "Создавайте и редактируйте NaiveProxy, olcRTC и qWDTT в разделе Inbounds. Здесь только бинарники, логи процесса и редкие advanced-опции."
+      "inboundMovedDesc": "Создавайте и редактируйте NaiveProxy, olcRTC и qWDTT в разделе Inbounds. Здесь только бинарники, логи процесса и редкие advanced-опции.",
+      "csqtt": {
+        "toasts": {
+          "uploaded": "CSQTT binary uploaded",
+          "downloaded": "CSQTT binary downloaded",
+          "deleted": "CSQTT binary deleted"
+        }
+      }
     }
   },
   "tgbot": {

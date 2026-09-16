@@ -10,6 +10,7 @@ import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg'; // LU
 import type { NaiveInboundSettings } from '@/schemas/protocols/inbound/naive'; // LUCX-HOOK: Naive
 import type { OlcrtcInboundSettings } from '@/schemas/protocols/inbound/olcrtc';
 import type { QwdttInboundSettings } from '@/schemas/protocols/inbound/qwdtt';
+import type { CsqttInboundSettings } from '@/schemas/protocols/inbound/csqtt';
 import type { MieruInboundSettings } from '@/schemas/protocols/inbound/mieru';
 import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/trusttunnel';
 import type { AnytlsInboundSettings } from '@/schemas/protocols/inbound/anytls';
@@ -305,6 +306,15 @@ export function createDefaultOlcrtcInboundSettings(): OlcrtcInboundSettings {
   };
 }
 
+export function createDefaultCsqttInboundSettings(): CsqttInboundSettings {
+  return {
+    listenAddr: '0.0.0.0:46000',
+    password: '',
+    subHost: '',
+    vkHashes: '',
+  };
+}
+
 export function createDefaultQwdttInboundSettings(): QwdttInboundSettings {
   return {
     listenAddr: '0.0.0.0:56000',
@@ -590,6 +600,7 @@ export type AnyInboundSettings =
   | NaiveInboundSettings
   | OlcrtcInboundSettings
   | QwdttInboundSettings
+  | CsqttInboundSettings
   | MieruInboundSettings
   | TrustTunnelInboundSettings
   | AnytlsInboundSettings
@@ -632,6 +643,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultOlcrtcInboundSettings();
     case 'qwdtt':
       return createDefaultQwdttInboundSettings();
+    case 'csqtt':
+      return createDefaultCsqttInboundSettings();
     case 'mieru':
       return createDefaultMieruInboundSettings();
     case 'trusttunnel':

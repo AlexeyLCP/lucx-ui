@@ -28,7 +28,7 @@ func onlineProcess() *xray.Process {
 }
 
 func shareOnlySidecar(p model.Protocol) bool {
-	return p == model.Qwdtt || p == model.Olcrtc || p == model.Tproxy
+	return p == model.Qwdtt || p == model.Csqtt || p == model.Olcrtc || p == model.Tproxy
 }
 
 type shareOnlySlimClient struct {

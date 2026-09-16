@@ -65,6 +65,33 @@ if ! have "olcrtc-linux-${ARCH}"; then
     rm -rf /tmp/olcrtc
 fi
 
+# CSQTT rust-server (amurcanov/csqtt). PIN ace21228 — not unpinned master.
+# Needs rustc 1.97.1 + zig + cargo-zigbuild (release.yml installs them).
+if ! have "csqtt-linux-${ARCH}"; then
+    case "$ARCH" in
+        amd64) csqtt_tgt="x86_64-unknown-linux-musl" ;;
+        arm64) csqtt_tgt="aarch64-unknown-linux-musl" ;;
+        *) echo "no csqtt for ${ARCH}" >&2; exit 1 ;;
+    esac
+    command -v cargo >/dev/null
+    command -v rustup >/dev/null
+    command -v zig >/dev/null
+    cargo zigbuild --help >/dev/null
+    git init -q /tmp/csqtt
+    git -C /tmp/csqtt remote add origin https://github.com/amurcanov/csqtt.git
+    git -C /tmp/csqtt fetch -q --depth 1 origin ace21228f46f056e4a2ba734f2ecb67361d401ad
+    git -C /tmp/csqtt checkout -q FETCH_HEAD
+    (
+        cd /tmp/csqtt/rust-server
+        rustup toolchain install 1.97.1 --profile minimal
+        rustup target add "${csqtt_tgt}" --toolchain 1.97.1
+        cargo +1.97.1 zigbuild --release --target "${csqtt_tgt}"
+        cp "target/${csqtt_tgt}/release/csqtt" "${DEST}/csqtt-linux-${ARCH}"
+    )
+    chmod +x "${DEST}/csqtt-linux-${ARCH}"
+    rm -rf /tmp/csqtt
+fi
+
 if ! have "qwdtt-linux-${ARCH}"; then
     git init -q /tmp/qwdtt
     git -C /tmp/qwdtt remote add origin https://github.com/SpaceNeuroX/proxy-turn-vk-android.git
