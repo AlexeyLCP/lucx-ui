@@ -12,6 +12,8 @@ import { useQuery } from '@tanstack/react-query';
 import { HttpUtil } from '@/utils';
 import { keys } from '@/api/queryKeys';
 
+const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } } as const;
+
 type PreviewRow = {
   inboundId: number;
   remark: string;
@@ -69,11 +71,11 @@ export default function MaskingPage() {
     if (!gateway) return;
     setBusy(true);
     try {
-      const msg = await HttpUtil.post(`/panel/api/inbounds/${gateway.id}/gatewayApply`, {
-        selected,
-        steal,
-        publicHost,
-      });
+      const msg = await HttpUtil.post(
+        `/panel/api/inbounds/${gateway.id}/gatewayApply`,
+        { selected, steal, publicHost },
+        JSON_HEADERS,
+      );
       if (!msg?.success) throw new Error(msg?.msg);
       void message.success(t('pages.masking.applied'));
       await previewQuery.refetch();
@@ -88,7 +90,11 @@ export default function MaskingPage() {
     if (!gateway) return;
     setBusy(true);
     try {
-      const msg = await HttpUtil.post(`/panel/api/inbounds/${gateway.id}/gatewayRevert`, {});
+      const msg = await HttpUtil.post(
+        `/panel/api/inbounds/${gateway.id}/gatewayRevert`,
+        {},
+        JSON_HEADERS,
+      );
       if (!msg?.success) throw new Error(msg?.msg);
       void message.success(t('pages.masking.reverted'));
       setSelected([]);

@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.239 — Masking Apply JSON (2026-09-16)
+
+HttpUtil POST defaults to form-urlencoded. gatewayApply used ShouldBindJSON → `invalid character 's'` (`selected=…`). Masking Apply/Revert now send `Content-Type: application/json`.
+
+**lucxVersion:** lucx.239
+
+---
+
 ## lucx.238 — CSQTT routeThroughXray (TUN like qWDTT) (2026-09-16)
 
 CSQTT TUN `csqtt1` (`10.66.67.0/24`) had no Xray bridge and no form toggle. Same policy-routing path as qWDTT: hidden Xray TUN, `iif csqtt1 lookup 1910`, strip MASQUERADE. Default on. Outbound tag optional.
