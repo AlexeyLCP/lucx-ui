@@ -530,11 +530,11 @@ export const sections: readonly Section[] = [
           'Apply selected preview rows: listen 127.0.0.1, Hosts publicHost:443, start nginx stream. LucX-UI only.',
         params: [
           { name: 'id', in: 'path', type: 'number', desc: 'Gateway inbound ID.' },
-          { name: 'selected', in: 'body', type: 'number[]', desc: 'Inbound IDs to move.' },
+          { name: 'selected', in: 'body', type: 'integer[]', desc: 'Inbound IDs to move.' },
           {
             name: 'steal',
             in: 'body',
-            type: 'number[]',
+            type: 'integer[]',
             desc: 'REALITY inbound IDs to set dest to Cover loopback.',
           },
           { name: 'publicHost', in: 'body', type: 'string', desc: 'Public hostname for Hosts.' },
