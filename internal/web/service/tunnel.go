@@ -341,6 +341,7 @@ func (s *TunnelService) DownloadBinary(downloadURL, wantSHA256 string) error {
 // cron job and after panel boot. A crashed core is revived; a disabled one
 // stays down.
 func (s *TunnelService) Reconcile() {
+	s.inboundService.sweepOrphanGatewayHosts()
 	s.reconcileNaiveInbounds()
 	s.reconcileOlcrtcInbounds()
 	s.reconcileQwdttInbound()

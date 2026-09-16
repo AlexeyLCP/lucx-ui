@@ -93,7 +93,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 			h := model.Host{
 				GroupId:   random.NumLower(16),
 				InboundId: ib.Id,
-				Remark:    "gateway",
+				Remark:    gatewayHostRemark,
 				Address:   row.HostAddress,
 				Port:      row.HostPort,
 				Security:  "same",
@@ -170,8 +170,25 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 		return err
 	}
 	s.ensureGatewayRuntime(gw, others)
+	s.sweepOrphanGatewayHosts()
 	_ = (&XrayService{inboundService: *s}).RestartXray(true)
 	return nil
+}
+
+const gatewayHostRemark = "gateway"
+
+func (s *InboundService) sweepOrphanGatewayHosts() {
+	all, err := s.GetAllInbounds()
+	if err != nil {
+		return
+	}
+	for _, ib := range all {
+		cfg, ok := tunnel.GatewayConfigFromInbound(ib)
+		if ok && cfg.Applied() {
+			return
+		}
+	}
+	_ = database.GetDB().Where("remark = ?", gatewayHostRemark).Delete(&model.Host{}).Error
 }
 
 func (s *InboundService) DisableGatewayMask(id int) (bool, error) {
