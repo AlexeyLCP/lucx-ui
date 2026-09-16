@@ -210,7 +210,7 @@ jobs:
           DEST="$PWD/x-ui/bin"
           mkdir -p "$DEST"
           P="${{ matrix.platform }}"
-          TPROXY_SHA=f7a6acc4d536a787d442fd7df3ba4ebfd728f406
+          TPROXY_SHA=acc252ece3a25c29e9b83f608499a5567a33ab2a
           rm -rf /tmp/tproxy-src
           mkdir /tmp/tproxy-src
           git -C /tmp/tproxy-src init

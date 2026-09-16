@@ -68,7 +68,7 @@ fi
 if ! have "qwdtt-linux-${ARCH}"; then
     git init -q /tmp/qwdtt
     git -C /tmp/qwdtt remote add origin https://github.com/SpaceNeuroX/proxy-turn-vk-android.git
-    git -C /tmp/qwdtt fetch -q --depth 1 origin fae121efc3ef57b633516601d3c0d6b1be1fde7c
+    git -C /tmp/qwdtt fetch -q --depth 1 origin a296c57eaba69bb9479a24f9157856490890e47d
     git -C /tmp/qwdtt checkout -q FETCH_HEAD
     (
         cd /tmp/qwdtt
@@ -79,7 +79,7 @@ if ! have "qwdtt-linux-${ARCH}"; then
 fi
 
 if ! have "mieru-linux-${ARCH}" || ! have "mieru-client-linux-${ARCH}"; then
-    git clone --depth 1 --branch v3.36.0 https://github.com/enfein/mieru.git /tmp/mieru
+    git clone --depth 1 --branch v3.37.0 https://github.com/enfein/mieru.git /tmp/mieru
     (
         cd /tmp/mieru
         GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "${DEST}/mieru-linux-${ARCH}" ./cmd/mita

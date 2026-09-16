@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.232 — merge v3.8.5 + sidecar pins (2026-09-16)
+
+Merge `origin/main` v3.8.5 (sub page tabs, node/traffic fixes). Keep LucX HOOKs; vpn:// on the new Configs tab.
+
+Sidecars: mieru/mita `v3.36.0` → `v3.37.0`; qWDTT `v1.4.3` → `v1.4.4` (`a296c57e`); tproxy-server `f7a6acc4` → `acc252ec`. amd64 gz in `third_party/sidecars/linux-amd64/`.
+
+**lucxVersion:** lucx.232
+
+---
+
 ## lucx.231 — merge upstream v3.8.0 (2026-09-14)
 
 Merge `origin/main` (v3.8.0 + #6530) onto LucX. Kernel `awg` stays beside userspace `amneziawg`. Kernel AWG + sidecar outbounds now sit on Xray → Outbounds; label **AmneziaWG (kernel)**.
