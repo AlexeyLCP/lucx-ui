@@ -71,7 +71,7 @@ func TestCsqttValidate(t *testing.T) {
 }
 
 func TestCsqttRouteThroughXrayDefault(t *testing.T) {
-	ib := &model.Inbound{Id: 7, Protocol: model.Csqtt, Enable: true, Port: 46000, Settings: `{}`}
+	ib := &model.Inbound{Id: 7, Protocol: model.Csqtt, Enable: true, Port: 46000, Settings: `{"listenAddr":"0.0.0.0:46000"}`}
 	cfg, ok := CsqttConfigFromInbound(ib)
 	if !ok || !cfg.RouteThroughXray {
 		t.Fatal("empty settings must route through Xray")
