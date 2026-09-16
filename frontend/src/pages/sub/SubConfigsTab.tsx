@@ -5,7 +5,7 @@ import { CopyOutlined } from '@ant-design/icons';
 
 import ConfigBlock from '@/components/clients/ConfigBlock';
 import { isPostQuantumLink, wireguardConfigFromLink } from '@/lib/xray/inbound-link';
-import { LinkTags, parseLinkParts } from '@/lib/xray/link-label';
+import { LinkTags, displaySubLinks } from '@/lib/xray/link-label';
 import VpnConfBlock from './VpnConfBlock';
 import SubQrButton from './SubQrButton';
 
@@ -27,8 +27,7 @@ export default function SubConfigsTab({ links, onCopy }: SubConfigsTabProps) {
           {t('subscription.copyAllConfigs')}
         </Button>
       </div>
-      {links.map((link, idx) => {
-        const parts = parseLinkParts(link);
+      {displaySubLinks(links).map(({ link, parts }, idx) => {
         const rowTitle = parts?.remark || `Link ${idx + 1}`;
         const isWireguardLink = link.startsWith('wireguard://') || link.startsWith('wg://');
         const isAmneziawgLink = link.startsWith('vpn://');

@@ -16,7 +16,7 @@ import { useDatepicker } from '@/hooks/useDatepicker';
 import { useClientHwids } from '@/hooks/useClientHwids';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 import { isPostQuantumLink } from '@/lib/xray/inbound-link';
-import { LinkTags, linkMetaText, parseLinkParts } from '@/lib/xray/link-label';
+import { LinkTags, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ClientHwidListModal from '@/components/clients/ClientHwidList';
 import ConfigBlock from '@/components/clients/ConfigBlock';
@@ -757,8 +757,8 @@ export default function ClientInfoModal({
             {links.length > 0 && (
               <>
                 <Divider>{t('pages.inbounds.copyLink')}</Divider>
-                {links.map((link, idx) => {
-                  const parts = parseLinkParts(link);
+                {displaySubLinks(links).map((row, idx) => {
+                  const { link, parts } = row;
                   const fallback = `${t('pages.clients.link')} ${idx + 1}`;
                   const rowTitle = (parts && linkMetaText(parts)) || fallback;
                   const qrRemark = parts?.remark || rowTitle;
