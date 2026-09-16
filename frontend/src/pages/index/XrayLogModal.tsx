@@ -16,13 +16,13 @@ interface XrayLogModalProps {
 }
 
 interface XrayLogEntry {
-  DateTime?: string | number;
-  FromAddress?: string;
-  ToAddress?: string;
-  Inbound?: string;
-  Outbound?: string;
-  Email?: string;
-  Event?: number;
+  dateTime?: string | number;
+  fromAddress?: string;
+  toAddress?: string;
+  inbound?: string;
+  outbound?: string;
+  email?: string;
+  event?: number;
 }
 
 // The downloaded log is a data format people grep, so it keeps the stable
@@ -134,11 +134,11 @@ export default function XrayLogModal({ open, onClose }: XrayLogModalProps) {
     const lines = logs
       .map((l) => {
         try {
-          const dt = l.DateTime ? new Date(l.DateTime) : null;
+          const dt = l.dateTime ? new Date(l.dateTime) : null;
           const dateStr = dt && !isNaN(dt.getTime()) ? dt.toISOString() : '';
-          const eventText = eventToken(l.Event);
-          const emailPart = l.Email ? ` Email=${l.Email}` : '';
-          return `${dateStr} FROM=${l.FromAddress || ''} TO=${l.ToAddress || ''} INBOUND=${l.Inbound || ''} OUTBOUND=${l.Outbound || ''}${emailPart} EVENT=${eventText}`.trim();
+          const eventText = eventToken(l.event);
+          const emailPart = l.email ? ` Email=${l.email}` : '';
+          return `${dateStr} FROM=${l.fromAddress || ''} TO=${l.toAddress || ''} INBOUND=${l.inbound || ''} OUTBOUND=${l.outbound || ''}${emailPart} EVENT=${eventText}`.trim();
         } catch {
           return JSON.stringify(l);
         }
@@ -227,35 +227,35 @@ export default function XrayLogModal({ open, onClose }: XrayLogModalProps) {
           orderedLogs.map((log, idx) => (
             <div key={idx} className="log-card">
               <div className="log-card-head">
-                <span className="log-time" title={fullDate(log.DateTime)}>
-                  {shortTime(log.DateTime)}
+                <span className="log-time" title={fullDate(log.dateTime)}>
+                  {shortTime(log.dateTime)}
                 </span>
-                <Tag color={eventColor(log.Event)} className="log-event-tag">
-                  {eventLabel(t, log.Event)}
+                <Tag color={eventColor(log.event)} className="log-event-tag">
+                  {eventLabel(t, log.event)}
                 </Tag>
               </div>
               <div className="log-route">
-                <span className="log-addr">{log.FromAddress}</span>
+                <span className="log-addr">{log.fromAddress}</span>
                 <span className="log-arrow">→</span>
-                <span className="log-addr">{log.ToAddress}</span>
+                <span className="log-addr">{log.toAddress}</span>
               </div>
               <div className="log-meta">
-                {log.Inbound && (
+                {log.inbound && (
                   <span className="log-meta-pair">
                     <span className="log-meta-key">in</span>
-                    <span className="log-meta-val">{log.Inbound}</span>
+                    <span className="log-meta-val">{log.inbound}</span>
                   </span>
                 )}
-                {log.Outbound && (
+                {log.outbound && (
                   <span className="log-meta-pair">
                     <span className="log-meta-key">out</span>
-                    <span className="log-meta-val">{log.Outbound}</span>
+                    <span className="log-meta-val">{log.outbound}</span>
                   </span>
                 )}
-                {log.Email && (
+                {log.email && (
                   <span className="log-meta-pair">
                     <span className="log-meta-key">email</span>
-                    <span className="log-meta-val">{log.Email}</span>
+                    <span className="log-meta-val">{log.email}</span>
                   </span>
                 )}
               </div>
@@ -275,15 +275,15 @@ export default function XrayLogModal({ open, onClose }: XrayLogModalProps) {
             </thead>
             <tbody>
               {orderedLogs.map((log, idx) => (
-                <tr key={idx} className={`log-row-${log.Event}`}>
+                <tr key={idx} className={`log-row-${log.event}`}>
                   <td>
-                    <b>{fullDate(log.DateTime)}</b>
+                    <b>{fullDate(log.dateTime)}</b>
                   </td>
-                  <td>{log.FromAddress}</td>
-                  <td>{log.ToAddress}</td>
-                  <td>{log.Inbound}</td>
-                  <td>{log.Outbound}</td>
-                  <td>{log.Email}</td>
+                  <td>{log.fromAddress}</td>
+                  <td>{log.toAddress}</td>
+                  <td>{log.inbound}</td>
+                  <td>{log.outbound}</td>
+                  <td>{log.email}</td>
                 </tr>
               ))}
             </tbody>

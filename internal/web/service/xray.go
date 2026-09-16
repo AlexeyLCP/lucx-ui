@@ -210,15 +210,8 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if inbound.Protocol == model.MTProto || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.TUIC {
 			continue
 		}
-		// LUCX-HOOK: AWG is a kernel-interface sidecar; skip it when building
-		// the Xray config, mirroring the MTProto exclusion above.
-		if inbound.Protocol == model.AWG {
-			continue
-		}
-		// Tunnel sidecars as inbounds — not Xray protocols.
-		if inbound.Protocol == model.Naive || inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt ||
-			inbound.Protocol == model.Mieru || inbound.Protocol == model.TrustTunnel || inbound.Protocol == model.Anytls ||
-			inbound.Protocol == model.Tproxy || inbound.Protocol == model.Cover || inbound.Protocol == model.Gateway {
+		// LUCX-HOOK: sidecars are not Xray protocols (AWG, tunnels, cover, gateway).
+		if lucxRuntimeSidecar(inbound.Protocol) {
 			continue
 		}
 		// END LUCX-HOOK

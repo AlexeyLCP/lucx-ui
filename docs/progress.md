@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.237 — CSQTT not an Xray protocol; access log camelCase (2026-09-16)
+
+Max: enable CSQTT → Xray exit 23 `unknown config id: csqtt`. lucx.233 registered the sidecar but left it out of the Xray skip list and runtime Add/Del. `GetXrayConfig` now uses `lucxRuntimeSidecar`; Local Ensure/Remove CSQTT like qWDTT.
+
+Art: overview Access Logs empty after 235. Backend LogEntry tags went camelCase (d8fdd5ff); XrayLogModal still read PascalCase.
+
+**lucxVersion:** lucx.237
+
+---
+
 ## lucx.236 — SNI gateway (nginx stream on 443) (2026-09-16)
 
 Optional inbound `gateway` + Masking page. Nginx `ssl_preread` muxes TCP 443 by SNI: REALITY/TLS → Xray loopback, Cover/naive/tproxy/WS → Caddy loopback. Unknown SNI dropped. Apply/Revert with preview; default off, no mutation on update. Cover behind gateway binds `127.0.0.1`. Binary `nginx-linux-{amd64,arm64}` from GitHub tarball (`pack-sidecars.sh`, nginx.org 1.30.5). Tested on stand: preview/apply/revert.

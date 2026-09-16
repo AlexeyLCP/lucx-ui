@@ -77,6 +77,9 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 	if ib.Protocol == model.Qwdtt {
 		return l.ensureQwdttInbound(ib)
 	}
+	if ib.Protocol == model.Csqtt {
+		return l.ensureCsqttInbound(ib)
+	}
 	if ib.Protocol == model.Mieru {
 		return l.ensureMieruInbound(ib)
 	}
@@ -165,6 +168,10 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		tunnel.GetManager().Remove(tunnel.QwdttKey)
 		return nil
 	}
+	if ib.Protocol == model.Csqtt {
+		tunnel.GetManager().Remove(tunnel.CsqttKey)
+		return nil
+	}
 	if ib.Protocol == model.Mieru {
 		tunnel.GetManager().Remove(tunnel.MieruKey(ib.Id))
 		return nil
@@ -251,7 +258,7 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func isTunnelInboundProto(p model.Protocol) bool {
-	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover || p == model.Gateway
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Csqtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover || p == model.Gateway
 }
 
 // ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret
@@ -281,6 +288,14 @@ func (l *Local) ensureOlcrtcInbound(ib *model.Inbound) error {
 
 func (l *Local) ensureQwdttInbound(ib *model.Inbound) error {
 	inst, ok := tunnel.QwdttInstanceFromInbound(ib)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureCsqttInbound(ib *model.Inbound) error {
+	inst, ok := tunnel.CsqttInstanceFromInbound(ib)
 	if !ok {
 		return nil
 	}

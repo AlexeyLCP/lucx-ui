@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 17: overview Access Logs empty though enabled — FIXED (lucx.237)
+- **Symptom (Art, 16.09.2026):** after 235, Access Logs on the home page do not work; Xray settings still have access log on.
+- **Cause:** `LogEntry` json tags became camelCase (`dateTime`, `fromAddress`, …) in d8fdd5ff (v3.8.0 merge). `XrayLogModal` still read PascalCase, so rows rendered blank.
+- **Fix:** modal fields match the API / generated `LogEntry`.
+- **Healing without update:** none in the UI. `journalctl` / `access.log` file still has the lines.
+- **Lesson:** generated OpenAPI type is the wire contract. A local duplicate struct will rot.
+
 ### Pattern 16: Sub page .conf buttons do nothing / imported AWG is 1 row + 500 — FIXED (lucx.228)
 - **Symptom (Nik Targon, lucx.226):** `/sub/` AMNEZIA `vpn://` copy works; both `.conf` buttons do nothing. Duplicate Amnezia list in “subscription info” and “copy link”. A client imported from an AWG docker has one AMNEZIA row even after more inbounds; the buttons return HTTP 500.
 - **Cause 1:** `vpnConfFromLink` wrote into `DecompressionStream` then read the output. Large AWG 3.1 `vpn://` (I1–I5) fills the writable and deadlocks in the browser — no toast, no copy. Node tests used a tiny fixture so CI stayed green.

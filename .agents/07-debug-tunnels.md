@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ae: CSQTT enable kills Xray `unknown config id: csqtt` — FIXED (lucx.237)
+- **Symptom (Max, 16.09.2026):** start CSQTT inbound → `Failure in running xray-core: exit status 23` / `unknown config id: csqtt` (tag `in-46000-tcp`). Whole Xray down.
+- **Cause:** lucx.233 inbound was a sidecar, but `GetXrayConfig` and Local AddInbound still treated it as an Xray protocol. Xray has no `csqtt`.
+- **Fix:** skip via `lucxRuntimeSidecar`; Local Ensure/Remove `CsqttKey` like qWDTT.
+- **Healing without update:** disable the CSQTT inbound (or delete it) so Xray can start.
+- **Lesson:** a new sidecar protocol must be on every “not Xray” list in the same commit (`lucxRuntimeSidecar` / `isTunnelInboundProto` / Add/Del). One shared skip beats a copied if-chain.
+
 ### Pattern 1ad: cover+naive white page — ZIP is fine (unreleased, after 221)
 - **Symptom (Max, 06.09.2026):** naive Behind cover works, browser gets a white page instead of the cover ZIP.
 - **Cause:** lucx.217 stripped `root`/`encode`/`file_server` next to `forward_proxy` (padding `None` on the stand). The real killer was `host:443` (lucx.220). Re-test with `:443, "host"`: ZIP + encode → site 200 and padding Variant1. `host:443` + ZIP → None.
