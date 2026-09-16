@@ -35,10 +35,13 @@ type CsqttConfig struct {
 	SubHost    string `json:"subHost"`
 	VkHashes   string `json:"vkHashes"`
 	ConfigDir  string `json:"configDir"`
+
+	RouteThroughXray bool   `json:"routeThroughXray"`
+	OutboundTag      string `json:"outboundTag"`
 }
 
 func DefaultCsqttConfig() CsqttConfig {
-	return CsqttConfig{ListenAddr: csqttDefaultListen}
+	return CsqttConfig{ListenAddr: csqttDefaultListen, RouteThroughXray: true}
 }
 
 func (c CsqttConfig) Merge() CsqttConfig {

@@ -24,6 +24,10 @@ const (
 	// Subnets claimed by the binary for client addresses (server.go).
 	qwdttSubnetWG  = "10.66.0.0/16"
 	qwdttSubnetRaw = "10.70.0.0/16"
+
+	csqttIface      = "csqtt1"
+	csqttSubnet     = "10.66.67.0/24"
+	csqttRouteTable = 1910
 )
 
 // QwdttTunName returns the Xray TUN device name for a qWDTT inbound id
@@ -67,9 +71,12 @@ func ensureQwdttXrayRouting(inst Instance) {
 		ifaces = []string{qwdttIfaceWG, qwdttIfaceRaw}
 	}
 
-	// Wait briefly for wdtt0 after process start.
+	waitIface := qwdttIfaceWG
+	if len(ifaces) > 0 {
+		waitIface = ifaces[0]
+	}
 	deadline := time.Now().Add(3 * time.Second)
-	for exec.CommandContext(context.Background(), "ip", "link", "show", qwdttIfaceWG).Run() != nil && time.Now().Before(deadline) {
+	for exec.CommandContext(context.Background(), "ip", "link", "show", waitIface).Run() != nil && time.Now().Before(deadline) {
 		time.Sleep(200 * time.Millisecond)
 	}
 
@@ -93,11 +100,28 @@ func ensureQwdttXrayRouting(inst Instance) {
 		}
 	}
 
-	// Drop binary-installed MASQUERADE so replies are not double-NATed via eth0.
 	stripQwdttMasquerade()
+	if inst.Core == Csqtt {
+		stripMasqueradeSubnet(csqttSubnet)
+	}
+}
+
+func CsqttTunName(inboundID int) string {
+	return "tun" + strconv.Itoa(inboundID)
+}
+
+func CsqttTunGateway(inboundID int) string {
+	if inboundID >= 1 && inboundID < 254 {
+		return "10.252." + strconv.Itoa(inboundID) + ".1/30"
+	}
+	return "10.250." + strconv.Itoa((inboundID%253)+1) + ".1/30"
 }
 
 func clearQwdttRoutingForKey(key string) {
+	if key == CsqttKey {
+		clearQwdttXrayRouting(csqttRouteTable, []string{csqttIface})
+		return
+	}
 	const p = "qwdtt-"
 	if !strings.HasPrefix(key, p) {
 		return
@@ -125,14 +149,17 @@ func clearQwdttXrayRouting(table int, ifaces []string) {
 
 func stripQwdttMasquerade() {
 	for _, subnet := range []string{qwdttSubnetWG, qwdttSubnetRaw} {
-		// Delete repeatedly until gone (binary may have added one rule).
-		for i := 0; i < 4; i++ {
-			out, err := exec.CommandContext(context.Background(), "iptables", "-t", "nat", "-D", "POSTROUTING",
-				"-s", subnet, "-j", "MASQUERADE").CombinedOutput()
-			if err != nil {
-				_ = out
-				break
-			}
+		stripMasqueradeSubnet(subnet)
+	}
+}
+
+func stripMasqueradeSubnet(subnet string) {
+	for i := 0; i < 4; i++ {
+		out, err := exec.CommandContext(context.Background(), "iptables", "-t", "nat", "-D", "POSTROUTING",
+			"-s", subnet, "-j", "MASQUERADE").CombinedOutput()
+		if err != nil {
+			_ = out
+			return
 		}
 	}
 }

@@ -24,6 +24,12 @@ func CsqttConfigFromInbound(ib *model.Inbound) (CsqttConfig, bool) {
 	cfg := DefaultCsqttConfig()
 	if raw := strings.TrimSpace(ib.Settings); raw != "" && raw != "{}" {
 		_ = json.Unmarshal([]byte(raw), &cfg)
+		var keys map[string]json.RawMessage
+		if json.Unmarshal([]byte(raw), &keys) == nil {
+			if _, ok := keys["routeThroughXray"]; !ok {
+				cfg.RouteThroughXray = true
+			}
+		}
 	}
 	if r := strings.TrimSpace(ib.Remark); r != "" && strings.TrimSpace(cfg.Remark) == "" {
 		cfg.Remark = r
@@ -63,10 +69,17 @@ func CsqttInstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 	if strings.TrimSpace(cfg.ConfigDir) == "" {
 		cfg.ConfigDir = dataDirFor(CsqttKey, Csqtt)
 	}
-	return Instance{
+	inst := Instance{
 		Core:    Csqtt,
 		Key:     CsqttKey,
 		Enabled: true,
 		Args:    cfg.BuildArgs(),
-	}, true
+	}
+	if cfg.RouteThroughXray {
+		inst.RouteThroughXray = true
+		inst.TunName = CsqttTunName(ib.Id)
+		inst.RouteTable = csqttRouteTable
+		inst.RouteIfaces = []string{csqttIface}
+	}
+	return inst, true
 }

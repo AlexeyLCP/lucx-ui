@@ -1,10 +1,14 @@
 import { useTranslation } from 'react-i18next';
-import { Input, Alert } from 'antd';
+import { Input, Alert, Switch, Select } from 'antd';
+import { useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
+import { useOutboundTags } from '@/api/queries/useOutboundTags';
 
 export default function CsqttFields() {
   const { t } = useTranslation();
+  const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
+  const { data: outboundTags } = useOutboundTags();
   return (
     <>
       <Alert
@@ -13,6 +17,30 @@ export default function CsqttFields() {
         style={{ marginBottom: 12 }}
         message={t('pages.inbounds.form.csqttSingleNote')}
       />
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.csqttRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.csqttRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.csqttRouteOutbound')}
+          tooltip={t('pages.inbounds.form.csqttRouteOutboundHint')}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            options={[
+              { value: '', label: t('pages.inbounds.form.csqttRouteOutboundPlaceholder') },
+              ...(outboundTags || []).map((tag) => ({ value: tag, label: tag })),
+            ]}
+          />
+        </FormField>
+      )}
       <FormField name={['settings', 'listenAddr']} label={t('pages.inbounds.form.csqttListenAddr')}>
         <Input placeholder="0.0.0.0:46000" />
       </FormField>

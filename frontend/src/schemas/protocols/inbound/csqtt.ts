@@ -5,5 +5,7 @@ export const CsqttInboundSettingsSchema = z.object({
   password: z.string().default(''),
   subHost: z.string().default(''),
   vkHashes: z.string().default(''),
+  routeThroughXray: z.boolean().default(true),
+  outboundTag: z.string().default(''),
 });
 export type CsqttInboundSettings = z.infer<typeof CsqttInboundSettingsSchema>;

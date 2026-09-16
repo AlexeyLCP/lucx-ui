@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.238 — CSQTT routeThroughXray (TUN like qWDTT) (2026-09-16)
+
+CSQTT TUN `csqtt1` (`10.66.67.0/24`) had no Xray bridge and no form toggle. Same policy-routing path as qWDTT: hidden Xray TUN, `iif csqtt1 lookup 1910`, strip MASQUERADE. Default on. Outbound tag optional.
+
+Also in this tag (unreleased after 237): AmneziaWG no longer duplicated on the client card; unused SNI gateway does not occupy 443.
+
+**lucxVersion:** lucx.238
+
+---
+
 ## lucx.237 — CSQTT not an Xray protocol; access log camelCase (2026-09-16)
 
 Max: enable CSQTT → Xray exit 23 `unknown config id: csqtt`. lucx.233 registered the sidecar but left it out of the Xray skip list and runtime Add/Del. `GetXrayConfig` now uses `lucxRuntimeSidecar`; Local Ensure/Remove CSQTT like qWDTT.

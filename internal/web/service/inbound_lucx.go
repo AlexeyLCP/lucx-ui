@@ -236,6 +236,14 @@ func qwdttRoutesThroughXray(inbound *model.Inbound) bool {
 	return ok && cfg.RouteThroughXray
 }
 
+func csqttRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Csqtt {
+		return false
+	}
+	cfg, ok := tunnel.CsqttConfigFromInbound(inbound)
+	return ok && cfg.RouteThroughXray
+}
+
 // olcrtcRoutesThroughXray reports whether olcRTC uses the SOCKS bridge.
 func olcrtcRoutesThroughXray(inbound *model.Inbound) bool {
 	if inbound == nil || inbound.Protocol != model.Olcrtc {
@@ -505,6 +513,7 @@ func lucxRoutesThroughXray(inbound *model.Inbound) bool {
 	return awgRoutesThroughXray(inbound) ||
 		naiveRoutesThroughXray(inbound) ||
 		qwdttRoutesThroughXray(inbound) ||
+		csqttRoutesThroughXray(inbound) ||
 		olcrtcRoutesThroughXray(inbound) ||
 		mieruRoutesThroughXray(inbound) ||
 		trustTunnelRoutesThroughXray(inbound) ||

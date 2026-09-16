@@ -463,6 +463,13 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		injectQwdttEgress(xrayConfig, inbound)
 	}
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.Csqtt || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectCsqttEgress(xrayConfig, inbound)
+	}
 	// olcRTC routeThroughXray: SOCKS bridge (binary socks: YAML → loopback SOCKS).
 	for i := range inbounds {
 		inbound := inbounds[i]
@@ -1179,6 +1186,59 @@ func injectQwdttEgress(cfg *xray.Config, inbound *model.Inbound) {
 	tunName := tunnel.QwdttTunName(inbound.Id)
 	mtu := 1280
 	tunSettings := fmt.Sprintf(awgEgressTunSettingsFmt, tunName, mtu, tunnel.QwdttTunGateway(inbound.Id))
+	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
+		Protocol: "tun",
+		Settings: json_util.RawMessage(tunSettings),
+		Sniffing: json_util.RawMessage(awgEgressTunSniffing),
+		Tag:      tag,
+	})
+}
+
+func injectCsqttEgress(cfg *xray.Config, inbound *model.Inbound) {
+	cfgC, ok := tunnel.CsqttConfigFromInbound(inbound)
+	if !ok || !cfgC.RouteThroughXray || inbound.Tag == "" {
+		return
+	}
+	tag := inbound.Tag
+	for i := range cfg.InboundConfigs {
+		if cfg.InboundConfigs[i].Tag == tag {
+			logger.Warning("csqtt egress: inbound tag [", tag, "] already present, skipping bridge")
+			return
+		}
+	}
+	if cfgC.OutboundTag != "" {
+		routing := map[string]any{}
+		parseOK := true
+		if len(cfg.RouterConfig) > 0 {
+			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+				logger.Warning("csqtt egress: routing unparsable, skipping rule:", err)
+				parseOK = false
+			}
+		}
+		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, cfgC.OutboundTag) {
+			logger.Warning("csqtt egress: target tag [", cfgC.OutboundTag, "] not found, injecting TUN without force-route")
+			parseOK = false
+		}
+		if parseOK {
+			rules, _ := routing["rules"].([]any)
+			rule := map[string]any{
+				"type":       "field",
+				"inboundTag": []any{tag},
+			}
+			if routingTagIsBalancer(routing, cfgC.OutboundTag) {
+				rule["balancerTag"] = cfgC.OutboundTag
+			} else {
+				rule["outboundTag"] = cfgC.OutboundTag
+			}
+			routing["rules"] = append([]any{rule}, rules...)
+			if newRouting, err := json.Marshal(routing); err == nil {
+				cfg.RouterConfig = json_util.RawMessage(newRouting)
+			}
+		}
+	}
+	tunName := tunnel.CsqttTunName(inbound.Id)
+	mtu := 1280
+	tunSettings := fmt.Sprintf(awgEgressTunSettingsFmt, tunName, mtu, tunnel.CsqttTunGateway(inbound.Id))
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
 		Protocol: "tun",
 		Settings: json_util.RawMessage(tunSettings),
@@ -2047,6 +2107,7 @@ func (s *XrayService) RestartXray(isForce bool) error {
 	// synchronously with the restart, so there is no window.
 	s.ensureAwgRouting()
 	s.ensureQwdttRouting()
+	s.ensureCsqttRouting()
 	s.ensureTproxyRouting()
 	// END LUCX-HOOK
 
@@ -2089,6 +2150,21 @@ func (s *XrayService) ensureQwdttRouting() {
 			continue
 		}
 		if inst, ok := tunnel.QwdttInstanceFromInbound(ib); ok && inst.RouteThroughXray {
+			tunnel.GetManager().EnsureQwdttRouting(inst)
+		}
+	}
+}
+
+func (s *XrayService) ensureCsqttRouting() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		return
+	}
+	for _, ib := range inbounds {
+		if ib.Protocol != model.Csqtt || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		if inst, ok := tunnel.CsqttInstanceFromInbound(ib); ok && inst.RouteThroughXray {
 			tunnel.GetManager().EnsureQwdttRouting(inst)
 		}
 	}

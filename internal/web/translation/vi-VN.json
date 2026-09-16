@@ -967,7 +967,13 @@
         "csqttSubHost": "Public host (for clients)",
         "csqttSubHostHint": "Advertised IP or hostname, e.g. 1.2.3.4",
         "csqttVkHashes": "VK call hashes",
-        "csqttVkHashesHint": "Comma-separated live VK TURN hashes (up to 6)"
+        "csqttVkHashesHint": "Comma-separated live VK TURN hashes (up to 6)",
+        "csqttRouteThroughXray": "Route through Xray",
+        "csqttRouteThroughXrayHint": "Send csqtt1 packets into an Xray TUN via policy routing so egress follows routing rules / outbound. On by default. Off = binary MASQUERADE to the host NIC.",
+        "csqttRouteOutbound": "Outbound",
+        "csqttRouteOutboundHint": "Optional. Force CSQTT traffic out through this outbound (or balancer). Leave empty to let your Xray routing rules decide.",
+        "csqttRouteOutboundPlaceholder": "Use routing rules",
+
       },
       "info": {
         "mode": "Chế độ",

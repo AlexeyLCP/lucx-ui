@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1af: CSQTT connected, no internet / no Xray outbound — FIXED (lucx.238)
+- **Symptom:** CSQTT inbound up, client connects, no traffic. No “Route through Xray” on the form.
+- **Cause:** lucx.233 skipped Xray on purpose. TUN `csqtt1` (`10.66.67.0/24`) never got policy routing into an Xray TUN (qWDTT has this). Direct MASQUERADE only if the binary installs it; operators expected the qWDTT-style outbound picker.
+- **Fix:** `routeThroughXray` default on. `iif csqtt1 lookup 1910` → Xray TUN. Optional outbound tag.
+- **Healing without update:** none in the panel. Host NAT `iptables -t nat -A POSTROUTING -s 10.66.67.0/24 -j MASQUERADE` + `sysctl net.ipv4.ip_forward=1` is a temporary direct path.
+- **Lesson:** a kernel TUN sidecar without the Xray TUN bridge is “connected, no internet” the first time someone picks an outbound.
+
 ### Pattern 1ae: CSQTT enable kills Xray `unknown config id: csqtt` — FIXED (lucx.237)
 - **Symptom (Max, 16.09.2026):** start CSQTT inbound → `Failure in running xray-core: exit status 23` / `unknown config id: csqtt` (tag `in-46000-tcp`). Whole Xray down.
 - **Cause:** lucx.233 inbound was a sidecar, but `GetXrayConfig` and Local AddInbound still treated it as an Xray protocol. Xray has no `csqtt`.

@@ -313,6 +313,8 @@ export function createDefaultCsqttInboundSettings(): CsqttInboundSettings {
     password: '',
     subHost: '',
     vkHashes: '',
+    routeThroughXray: true,
+    outboundTag: '',
   };
 }
 

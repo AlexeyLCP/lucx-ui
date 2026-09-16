@@ -558,6 +558,8 @@ func (s *TunnelService) reconcileCsqttInbound() {
 	}
 	if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: csqtt inbound reconcile failed:", err)
+	} else if inst.RouteThroughXray {
+		tunnel.GetManager().EnsureQwdttRouting(inst)
 	}
 }
 

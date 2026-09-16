@@ -9,6 +9,8 @@ package tunnel
 import (
 	"strings"
 	"testing"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
 func TestCsqttClientURI(t *testing.T) {
@@ -65,6 +67,21 @@ func TestCsqttValidate(t *testing.T) {
 	bad.ListenAddr = "no-port"
 	if err := bad.Validate(); err == nil {
 		t.Fatal("expected validation error")
+	}
+}
+
+func TestCsqttRouteThroughXrayDefault(t *testing.T) {
+	ib := &model.Inbound{Id: 7, Protocol: model.Csqtt, Enable: true, Port: 46000, Settings: `{}`}
+	cfg, ok := CsqttConfigFromInbound(ib)
+	if !ok || !cfg.RouteThroughXray {
+		t.Fatal("empty settings must route through Xray")
+	}
+	inst, ok := CsqttInstanceFromInbound(ib)
+	if !ok || !inst.RouteThroughXray || inst.TunName != CsqttTunName(7) || inst.RouteTable != csqttRouteTable {
+		t.Fatalf("instance tun bridge missing: %+v", inst)
+	}
+	if len(inst.RouteIfaces) != 1 || inst.RouteIfaces[0] != csqttIface {
+		t.Fatalf("RouteIfaces = %v", inst.RouteIfaces)
 	}
 }
 
