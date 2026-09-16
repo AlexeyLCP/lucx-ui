@@ -115,6 +115,14 @@ func inboundTransports(protocol model.Protocol, streamSettings, settings string)
 	return bits
 }
 
+func gatewayOccupiesListen(ib *model.Inbound) bool {
+	if ib == nil || ib.Protocol != model.Gateway {
+		return true
+	}
+	cfg, ok := tunnel.GatewayConfigFromInbound(ib)
+	return ok && cfg.Applied()
+}
+
 func listenOverlaps(a, b string) bool {
 	if isAnyListen(a) || isAnyListen(b) {
 		return true
@@ -213,6 +221,11 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 	if inbound.Port <= 0 {
 		return nil, nil
 	}
+	// LUCX-HOOK: nginx SNI gateway does not bind until Masking Apply.
+	if !gatewayOccupiesListen(inbound) {
+		return nil, nil
+	}
+	// END LUCX-HOOK
 	if tunnel.SettingsBehindCover(inbound.Protocol, inbound.Settings) {
 		return nil, nil
 	}
@@ -308,6 +321,11 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 		if tunnel.SettingsBehindCover(c.Protocol, c.Settings) {
 			continue
 		}
+		// LUCX-HOOK
+		if !gatewayOccupiesListen(c) {
+			continue
+		}
+		// END LUCX-HOOK
 		if !sameNode(c.NodeID, inbound.NodeID) {
 			continue
 		}

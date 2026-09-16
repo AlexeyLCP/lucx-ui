@@ -1005,3 +1005,35 @@ func TestCheckNaivePortConflict_StillRefusesATCPInbound(t *testing.T) {
 		t.Fatal("a TCP inbound on the same port must still conflict")
 	}
 }
+
+func TestGatewayOccupiesListen(t *testing.T) {
+	if !gatewayOccupiesListen(&model.Inbound{Protocol: model.Cover}) {
+		t.Fatal("non-gateway occupies")
+	}
+	if gatewayOccupiesListen(&model.Inbound{Protocol: model.Gateway, Settings: `{}`}) {
+		t.Fatal("unapplied gateway must not occupy")
+	}
+	if !gatewayOccupiesListen(&model.Inbound{Protocol: model.Gateway, Settings: `{"snapshot":[{"inboundId":1}]}`}) {
+		t.Fatal("applied gateway occupies")
+	}
+}
+
+func TestCheckPortConflict_UnappliedGatewayShares443(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflict(t, "cover-1", "", 443, model.Cover, ``, `{"hostname":"vpn.example.com"}`)
+
+	gw := &model.Inbound{Tag: "gw", Protocol: model.Gateway, Port: 443, Settings: `{}`}
+	if got, err := (&InboundService{}).checkPortConflict(gw, 0); err != nil || got != nil {
+		t.Fatalf("unapplied gateway must not occupy 443: %v %+v", err, got)
+	}
+}
+
+func TestCheckPortConflict_AppliedGatewayOwns443(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflict(t, "gw", "", 443, model.Gateway, ``, `{"snapshot":[{"inboundId":1,"listen":"","port":443}]}`)
+
+	cover := &model.Inbound{Tag: "cover-1", Protocol: model.Cover, Port: 443, Settings: `{"hostname":"vpn.example.com"}`}
+	if got, err := (&InboundService{}).checkPortConflict(cover, 0); err != nil || got == nil {
+		t.Fatal("applied gateway still owns 443")
+	}
+}
