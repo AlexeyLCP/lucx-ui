@@ -972,8 +972,7 @@
         "csqttRouteThroughXrayHint": "Send csqtt1 packets into an Xray TUN via policy routing so egress follows routing rules / outbound. On by default. Off = binary MASQUERADE to the host NIC.",
         "csqttRouteOutbound": "Outbound",
         "csqttRouteOutboundHint": "Optional. Force CSQTT traffic out through this outbound (or balancer). Leave empty to let your Xray routing rules decide.",
-        "csqttRouteOutboundPlaceholder": "Use routing rules",
-
+        "csqttRouteOutboundPlaceholder": "Use routing rules"
       },
       "info": {
         "mode": "模式",
