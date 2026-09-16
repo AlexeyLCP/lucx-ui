@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.242 — SNI gateway disable/delete restores listen (2026-09-16)
+
+Disable or delete of the gateway inbound now Reverts: listen/port off 127.0.0.1, nginx stop, Xray restart. Orphan Hosts with remark `gateway` (the leftover `(gateway)` on VLESS) are swept when no mask is applied.
+
+**lucxVersion:** lucx.242
+
+---
+
 ## lucx.241 — SNI gateway Apply actually rebinds (2026-09-16)
 
 Apply wrote listen=127.0.0.1 but Xray kept the old bind until a manual restart; sidecars waited for the reconcile tick. Apply/Revert now RestartXray(true) + Tunnel Reconcile. Unknown SNI falls through to Cover (scanner saw XTLS on drop). publicHost no longer wiped. Skip rows for mieru/Hysteria/CSQTT. Naive/tproxy honor loopback listen.
