@@ -250,19 +250,6 @@ replace_xui_script() {
     return 0
 }
 
-# The menu must match the installed panel, so update it from that release's
-# tag; fall back to main only when no script is published for the version.
-installed_script_url() {
-    local ver
-    ver=$("${xui_folder}/x-ui" -v 2> /dev/null | tr -d '[:space:]')
-    if [[ "$ver" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] && curl -fsIL -o /dev/null "https://raw.githubusercontent.com/MHSanaei/3x-ui/v${ver}/x-ui.sh"; then
-        echo "https://raw.githubusercontent.com/MHSanaei/3x-ui/v${ver}/x-ui.sh"
-    else
-        echo -e "${yellow}No x-ui.sh published for the installed version (${ver:-unknown}), using main${plain}" >&2
-        echo "https://raw.githubusercontent.com/MHSanaei/3x-ui/main/x-ui.sh"
-    fi
-}
-
 update_menu() {
     echo -e "${yellow}Updating Menu${plain}"
     confirm "This function will update the menu to the latest changes." "y"
@@ -274,7 +261,6 @@ update_menu() {
         return 0
     fi
 
-    if replace_xui_script "$(installed_script_url)" "false"; then
     if replace_xui_script "$(lucx_script_base)/x-ui.sh" "false"; then
         chmod +x ${xui_folder}/x-ui.sh
         echo -e "${green}Update successful. The panel has automatically restarted.${plain}"
@@ -892,7 +878,6 @@ enable_bbr() {
 }
 
 update_shell() {
-    if replace_xui_script "$(installed_script_url)" "true"; then
     if replace_xui_script "https://github.com/AlexeyLCP/lucx-ui/raw/main/x-ui.sh" "true"; then
         LOGI "Upgrade script succeeded, Please rerun the script"
         before_show_menu
