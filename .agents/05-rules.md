@@ -127,7 +127,7 @@ The old architecture used a `tun2socks` userspace daemon to bridge the AWG kerne
 Procedure (validated on v3.5.0→v3.6.0, 103 upstream commits / 432 files / 7 conflicts; v3.6.0→v3.7.0 was incremental: 7 commits / 19 files / 0 conflicts):
 
 1. `git fetch origin --tags`, branch off our current head, then `git merge --no-commit --no-ff origin/main`.
-2. **Record the LUCX-HOOK marker count per file BEFORE resolving** (`git grep -c "LUCX-HOOK"`). After the merge, any file whose count dropped silently lost our code — that is the only reliable detector.
+2. **Record the LUCX-HOOK marker count per file BEFORE resolving** (`git grep -c "LUCX-HOOK"`). After the merge, any file whose count dropped silently lost our code — that is the only reliable detector. Overlay file list: `.agents/08-hooks.md`.
 3. **Resolve conflicts ONLY from the terminal.** Editing a file while it is in conflict state makes the IDE rewrite it from its own merge cache and silently drop content (v3.6.0: `install.sh` lost all 16 LUCX-HOOK blocks, `db.go` lost the new upstream functions).
 4. **Resolve block by block, never one blanket strategy.** Upstream usually *adds* code NEXT TO a HOOK block rather than replacing it, so a wholesale `--ours` yields uncompilable code (v3.6.0: `undefined: database.BackupSQLite`). Rule of thumb: take **both** sides when upstream added a sibling call/test/field; take **ours** only where our block is a deliberate substitution (fork URLs, `prerelease: false`).
 5. Verify: `go build ./...`, `go vet ./...`, `go test ./internal/awg/... ./internal/lucx/...`, `bin/check-lucx.sh`, and frontend `lint` + `typecheck` + `vitest run --project=unit` + `build`.

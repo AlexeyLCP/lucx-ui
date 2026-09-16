@@ -14,6 +14,7 @@ Do not read every file. Session default: this file + `01-purpose.md` + `05-rules
 | `07-debug-tunnels.md` | Naive / olcRTC / TrustTunnel / mieru leftovers. |
 | `07-debug-frontend.md` | UI, CI frontend, subscription host. |
 | `07-debug-sync.md` | Upstream merge lost LUCX-HOOK / i18n keys. |
+| `08-hooks.md` | Overlay catalog: origin files with LUCX-HOOK. Next upstream merge. |
 
 Also on demand, not at start:
 

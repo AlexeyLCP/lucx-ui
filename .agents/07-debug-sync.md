@@ -6,7 +6,7 @@ Extracted from AGENTS.md. This file is project law.
 
 ### Pattern 2: LUCX-HOOK conflict on upstream sync
 - **Cause:** Upstream changed a file with a HOOK marker between releases.
-- **Fix:** Resolve each block separately (see Rule 8). Don’t `git checkout` the whole file and don’t blanket `--ours` — you’ll lose upstream changes.
+- **Fix:** Resolve each block separately (see Rule 8). Don’t `git checkout` the whole file and don’t blanket `--ours` — you’ll lose upstream changes. File list: `.agents/08-hooks.md`.
 
 ### Pattern 2b: after merge a file lost all LUCX-HOOK blocks
 - **Cause:** the file was edited in conflict state via the IDE — it rewrites from its merge cache and silently drops content. On v3.6.0: `install.sh` lost all 16 blocks, `db.go` — upstream functions.
