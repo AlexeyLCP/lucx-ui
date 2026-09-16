@@ -170,7 +170,23 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 		return err
 	}
 	s.ensureGatewayRuntime(gw, others)
+	_ = (&XrayService{inboundService: *s}).RestartXray(true)
 	return nil
+}
+
+func (s *InboundService) DisableGatewayMask(id int) (bool, error) {
+	gw, err := s.GetInbound(id)
+	if err != nil {
+		return false, err
+	}
+	if gw.Protocol != model.Gateway {
+		return false, nil
+	}
+	cfg, ok := tunnel.GatewayConfigFromInbound(gw)
+	if !ok || !cfg.Applied() {
+		return false, nil
+	}
+	return true, s.GatewayRevert(id)
 }
 
 func (s *InboundService) gatewayAndOthers(id int) (*model.Inbound, []*model.Inbound, error) {

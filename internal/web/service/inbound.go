@@ -1438,6 +1438,13 @@ func (s *InboundService) delInbound(id int) (bool, func(), error) {
 	var ib model.Inbound
 	loadErr := db.Model(model.Inbound{}).Where("id = ?", id).First(&ib).Error
 	if loadErr == nil {
+		// LUCX-HOOK
+		if ib.Protocol == model.Gateway {
+			if _, err := s.DisableGatewayMask(id); err != nil {
+				return false, nil, err
+			}
+		}
+		// END LUCX-HOOK
 		shouldPushToRuntime := ib.NodeID != nil || ib.Enable
 		if shouldPushToRuntime {
 			if ib.NodeID != nil {
@@ -1659,6 +1666,16 @@ func (s *InboundService) SetInboundEnable(id int, enable bool) (bool, error) {
 		return false, nil
 	}
 
+	// LUCX-HOOK: turning off SNI gateway restores listen/port from snapshot.
+	if !enable && inbound.Protocol == model.Gateway {
+		if reverted, err := s.DisableGatewayMask(id); err != nil {
+			return false, err
+		} else if reverted {
+			return true, nil
+		}
+	}
+	// END LUCX-HOOK
+
 	db := database.GetDB()
 	// Enabling puts this row's ports into the running config, and the guards ran
 	// only if it was saved: a restored or hand-edited row reaches it unchecked.
@@ -1751,6 +1768,13 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	if err != nil {
 		return inbound, false, err
 	}
+	// LUCX-HOOK
+	if !inbound.Enable && oldInbound.Protocol == model.Gateway {
+		if _, err := s.DisableGatewayMask(inbound.Id); err != nil {
+			return inbound, false, err
+		}
+	}
+	// END LUCX-HOOK
 	if err := s.normalizeAmneziaWGSettings(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
