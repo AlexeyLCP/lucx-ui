@@ -4,6 +4,12 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 18: Client Info has no AWG .conf download, only QR — FIXED (lucx.240)
+- **Symptom (Art, 16.09.2026):** Amnezia .conf used to be in Client Info; after v3.8 only QR has download.
+- **Cause:** merge rebuilt ClientInfoModal from origin and dropped the kernel AWG LUCX-HOOK ConfigBlock. Userspace `amneziawg` block stayed; LucX `awg` did not.
+- **Fix:** restore per-inbound ConfigBlock + version selector + vpn:// copy in Client Info.
+- **Not a handshake bug.**
+
 ### Pattern 17: overview Access Logs empty though enabled — FIXED (lucx.237)
 - **Symptom (Art, 16.09.2026):** after 235, Access Logs on the home page do not work; Xray settings still have access log on.
 - **Cause:** `LogEntry` json tags became camelCase (`dateTime`, `fromAddress`, …) in d8fdd5ff (v3.8.0 merge). `XrayLogModal` still read PascalCase, so rows rendered blank.

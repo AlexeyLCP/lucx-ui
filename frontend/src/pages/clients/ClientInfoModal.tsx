@@ -1,6 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, Divider, Modal, Popover, Tag, Tooltip, message } from 'antd';
+import {
+  Button,
+  Divider,
+  Modal,
+  Popover,
+  Select,
+  Space,
+  Tag,
+  Tooltip,
+  Typography,
+  message,
+} from 'antd';
 import {
   CopyOutlined,
   DownloadOutlined,
@@ -15,14 +26,19 @@ import { normalizeClientIps, type ClientIpInfo } from '@/lib/clients/ip-log';
 import { useDatepicker } from '@/hooks/useDatepicker';
 import { useClientHwids } from '@/hooks/useClientHwids';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
-import { isPostQuantumLink } from '@/lib/xray/inbound-link';
+import { awgVersionAtLeast, awgVersionCeiling, isPostQuantumLink } from '@/lib/xray/inbound-link';
+import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { LinkTags, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
 import ClientHwidListModal from '@/components/clients/ClientHwidList';
 import ConfigBlock from '@/components/clients/ConfigBlock';
+import { buildSubLinks, withAwgInboundId } from '@/lib/sub/links';
 import {
   buildWireguardClientConfig,
+  buildAwgClientConfig,
+  findAwgInbounds,
   findWireguardInbounds,
+  isAwgClient,
   isWireguardClient,
 } from './wireguardConfig';
 import {
@@ -41,6 +57,7 @@ const INBOUND_PROTOCOL_COLORS: Record<string, string> = {
   hysteria2: 'green',
   wireguard: 'gold',
   amneziawg: 'yellow',
+  awg: 'purple',
   http: 'purple',
   mixed: 'lime',
   tunnel: 'orange',
@@ -56,6 +73,8 @@ interface SubSettings {
   subJsonEnable: boolean;
   subClashURI: string;
   subClashEnable: boolean;
+  subAwgURI?: string;
+  subAwgEnable?: boolean;
   publicHost?: string;
 }
 
@@ -81,6 +100,8 @@ const DEFAULT_SUB: SubSettings = {
   subJsonEnable: false,
   subClashURI: '',
   subClashEnable: false,
+  subAwgURI: '',
+  subAwgEnable: false,
   publicHost: '',
 };
 
@@ -222,6 +243,44 @@ export default function ClientInfoModal({
       })
       .filter((c) => !!c.text);
   }, [client, awgInbounds, tunnelAllowedIPs, subSettings?.publicHost]);
+
+  // LUCX-HOOK: kernel AWG — one .conf per inbound (ceiling + version select + download).
+  const kernelAwgInbounds = useMemo(
+    () => findAwgInbounds(client, inboundsById),
+    [client, inboundsById],
+  );
+  const [awgExportById, setAwgExportById] = useState<Record<number, AwgVersion>>({});
+  useEffect(() => {
+    setAwgExportById((prev) => {
+      const next: Record<number, AwgVersion> = {};
+      for (const ib of kernelAwgInbounds) {
+        const ceiling = awgVersionCeiling(ib.awgVersion);
+        next[ib.id] =
+          prev[ib.id] && awgVersionAtLeast(ceiling, prev[ib.id]) ? prev[ib.id] : ceiling;
+      }
+      return next;
+    });
+  }, [kernelAwgInbounds]);
+  const kernelAwgConfigs = useMemo(() => {
+    if (!client || !isAwgClient(client)) return [];
+    const host = window.location.hostname;
+    const pub = subSettings?.publicHost ?? '';
+    return kernelAwgInbounds.map((ib) => {
+      const ceiling = awgVersionCeiling(ib.awgVersion);
+      const version = awgExportById[ib.id] ?? ceiling;
+      return {
+        ib,
+        ceiling,
+        version,
+        text: buildAwgClientConfig(client, ib, host, pub, version),
+      };
+    });
+  }, [client, kernelAwgInbounds, subSettings?.publicHost, awgExportById]);
+  const subAwgVpnLink = useMemo(
+    () => buildSubLinks(subSettings, client?.subId).amneziaVpn,
+    [subSettings, client?.subId],
+  );
+  // END LUCX-HOOK
 
   async function copyValue(text: string) {
     if (!text) return;
@@ -823,6 +882,87 @@ export default function ClientInfoModal({
                 })}
               </>
             )}
+
+            {/* LUCX-HOOK: kernel AWG .conf download in client info (not only QR). */}
+            {client && kernelAwgConfigs.length > 0 && (
+              <>
+                <Divider>{t('pages.clients.awgConfig')}</Divider>
+                {kernelAwgConfigs.map((cfg) => {
+                  const labelName = formatInboundLabel(cfg.ib.tag, cfg.ib.remark);
+                  return (
+                    <div key={cfg.ib.id}>
+                      <Space
+                        style={{
+                          width: '100%',
+                          justifyContent: 'space-between',
+                          marginTop: 12,
+                          marginBottom: 8,
+                        }}
+                        align="center"
+                      >
+                        {labelName ? <Tag color="purple">{labelName}</Tag> : <span />}
+                        <Space align="center">
+                          <Typography.Text type="secondary" style={{ fontSize: 12 }}>
+                            {t('pages.clients.awgExportVersion')}
+                          </Typography.Text>
+                          <Select<AwgVersion>
+                            size="small"
+                            style={{ width: 180 }}
+                            value={cfg.version}
+                            onChange={(v) =>
+                              setAwgExportById((prev) => ({ ...prev, [cfg.ib.id]: v }))
+                            }
+                            options={[
+                              {
+                                value: '1.5',
+                                label: t('pages.inbounds.form.awgVersion15'),
+                                disabled: !awgVersionAtLeast(cfg.ceiling, '1.5'),
+                              },
+                              {
+                                value: '2',
+                                label: t('pages.inbounds.form.awgVersion2'),
+                                disabled: !awgVersionAtLeast(cfg.ceiling, '2'),
+                              },
+                              {
+                                value: '3',
+                                label: t('pages.inbounds.form.awgVersion3'),
+                                disabled: !awgVersionAtLeast(cfg.ceiling, '3'),
+                              },
+                              {
+                                value: '3.1',
+                                label: t('pages.inbounds.form.awgVersion31'),
+                                disabled: !awgVersionAtLeast(cfg.ceiling, '3.1'),
+                              },
+                            ]}
+                          />
+                          {subAwgVpnLink && (
+                            <Tooltip title="vpn://">
+                              <Button
+                                size="small"
+                                icon={<CopyOutlined />}
+                                onClick={() =>
+                                  copyValue(withAwgInboundId(subAwgVpnLink, cfg.ib.id))
+                                }
+                              >
+                                vpn://
+                              </Button>
+                            </Tooltip>
+                          )}
+                        </Space>
+                      </Space>
+                      <ConfigBlock
+                        label={t('pages.clients.config')}
+                        text={cfg.text}
+                        fileName={`${client.email}-awg${cfg.ib.id}.conf`}
+                        qrRemark={client.email || 'peer'}
+                        showQr={false}
+                      />
+                    </div>
+                  );
+                })}
+              </>
+            )}
+            {/* END LUCX-HOOK */}
 
             {awgConfigs.length > 0 && client && (
               <>

@@ -32,6 +32,7 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/web/service/inbound_node.go` | auto-tag port change → same row + new tag |
 | `frontend/.../InboundFormModal.tsx` | **one** Form+Tabs; `AwgInboundIdProvider`; lucx protocols in the list |
 | `frontend/.../qr/QrPanel.tsx` | Happ QR cutoff **2953**, not 2000 (no HOOK) |
+| `frontend/.../clients/ClientInfoModal.tsx` | kernel AWG ConfigBlock (download .conf), not only ClientQrModal |
 
 ---
 

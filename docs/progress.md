@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.240 — AWG .conf download back in Client Info (2026-09-16)
+
+v3.8 merge dropped the kernel AWG ConfigBlock from Client Info. Testers could only download .conf from QR. Restored per-inbound .conf (copy/download) + version selector + vpn:// copy.
+
+**lucxVersion:** lucx.240
+
+---
+
 ## lucx.239 — Masking Apply JSON (2026-09-16)
 
 HttpUtil POST defaults to form-urlencoded. gatewayApply used ShouldBindJSON → `invalid character 's'` (`selected=…`). Masking Apply/Revert now send `Content-Type: application/json`.
