@@ -177,11 +177,7 @@ if ! have "nginx-linux-${ARCH}"; then
             ;;
         arm64)
             echo '#!/bin/sh' >"${ngx_cc}"
-            if command -v zig >/dev/null; then
-                echo 'exec zig cc -target aarch64-linux-gnu "$@"' >>"${ngx_cc}"
-            else
-                echo 'exec aarch64-linux-gnu-gcc "$@"' >>"${ngx_cc}"
-            fi
+            echo 'exec aarch64-linux-gnu-gcc "$@"' >>"${ngx_cc}"
             ;;
         *) echo "no nginx for ${ARCH}" >&2; exit 1 ;;
     esac

@@ -39,7 +39,7 @@ func TestRenderNginxConf_SNIAndDrop(t *testing.T) {
 
 func TestClassify_RealityVsCoverVsUDP(t *testing.T) {
 	reality := &model.Inbound{
-		Protocol: model.VLESS,
+		Protocol:       model.VLESS,
 		StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"],"dest":"www.microsoft.com:443"}}`,
 	}
 	class, sni := Classify(reality)
@@ -124,5 +124,3 @@ func TestGatewayInstance_DisabledUntilSnapshot(t *testing.T) {
 		t.Fatalf("ok=%v enabled=%v", ok, inst.Enabled)
 	}
 }
-
-

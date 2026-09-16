@@ -2834,7 +2834,8 @@ export const SCHEMAS: Record<string, unknown> = {
           "trusttunnel",
           "anytls",
           "tproxy",
-          "cover"
+          "cover",
+          "gateway"
         ],
         "example": "vless",
         "type": "string"

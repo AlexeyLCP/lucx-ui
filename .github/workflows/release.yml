@@ -218,7 +218,12 @@ jobs:
           tool: cargo-zigbuild
 
       - name: Nginx build deps
-        run: sudo apt-get update -qq && sudo apt-get install -y -qq gcc make
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc make
+          if [ "${{ matrix.platform }}" = arm64 ]; then
+            sudo apt-get install -y -qq gcc-aarch64-linux-gnu libc6-dev-arm64-cross
+          fi
 
       - name: Pack tunnel sidecars
         run: bash bin/pack-sidecars.sh ${{ matrix.platform }} "$PWD/x-ui/bin"

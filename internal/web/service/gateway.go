@@ -17,8 +17,8 @@ import (
 )
 
 type GatewayApplyRequest struct {
-	Selected   []int `json:"selected"`
-	Steal      []int `json:"steal"`
+	Selected   []int  `json:"selected"`
+	Steal      []int  `json:"steal"`
 	PublicHost string `json:"publicHost"`
 }
 
