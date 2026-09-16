@@ -200,7 +200,7 @@ lucx_fetch_sidecars() {
     fi
     mkdir -p "$dest"
     local name gz tmp fetched=0 skipped=0
-    for name in caddy-naive-linux-${a} naive-client-linux-${a} olcrtc-linux-${a} qwdtt-linux-${a} csqtt-linux-${a} mieru-linux-${a} mieru-client-linux-${a} trusttunnel-linux-${a} trusttunnel-client-linux-${a} anytls-linux-${a} tproxy-linux-${a} mtproxy-linux-${a}; do
+    for name in caddy-naive-linux-${a} naive-client-linux-${a} olcrtc-linux-${a} qwdtt-linux-${a} csqtt-linux-${a} mieru-linux-${a} mieru-client-linux-${a} trusttunnel-linux-${a} trusttunnel-client-linux-${a} anytls-linux-${a} tproxy-linux-${a} mtproxy-linux-${a} nginx-linux-${a}; do
         if lucx_pin_matches "$dest" "$name"; then
             skipped=$((skipped + 1))
             continue

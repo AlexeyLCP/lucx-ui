@@ -29,6 +29,18 @@ func TestRenderCoverCaddyfile_Site(t *testing.T) {
 	}
 }
 
+func TestRenderCoverCaddyfile_LoopbackBind(t *testing.T) {
+	got := RenderCoverCaddyfile("shop.example.com", "/c.pem", "/k.pem", coverAttach{
+		publicDir: "/var/www/site", skipHTTP: true, httpsPort: 8443,
+	})
+	if strings.Contains(got, ":80") {
+		t.Fatalf("loopback cover still has :80:\n%s", got)
+	}
+	if !strings.Contains(got, "bind 127.0.0.1") || !strings.Contains(got, ":8443") {
+		t.Fatalf("missing bind/port:\n%s", got)
+	}
+}
+
 func TestRenderCoverCaddyfile_TproxyWins(t *testing.T) {
 	naive := DefaultNaiveConfig()
 	naive.AuthUser = "u"

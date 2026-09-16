@@ -127,6 +127,8 @@ type coverAttach struct {
 	routes         []CoverRoute
 	publicDir      string
 	publicUpstream string
+	httpsPort      int
+	skipHTTP       bool
 }
 
 func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
@@ -136,13 +138,22 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 		b.WriteString("\tservers {\n\t\tprotocols h1 h2\n\t}\n")
 	}
 	b.WriteString("}\n")
-	b.WriteString(":" + strconv.Itoa(coverHTTPPort) + " {\n\tredir https://{host}{uri} permanent\n}\n")
+	httpsPort := a.httpsPort
+	if httpsPort <= 0 {
+		httpsPort = coverHTTPSPort
+	}
+	if !a.skipHTTP {
+		b.WriteString(":" + strconv.Itoa(coverHTTPPort) + " {\n\tredir https://{host}{uri} permanent\n}\n")
+	}
 	// Naive padding dies on host:443 (None). :443, "host" is Variant1 even
 	// with file_server/encode in the same site (stand 2026-09-06).
 	if a.naive != nil {
-		b.WriteString(":" + strconv.Itoa(coverHTTPSPort) + ", " + caddyToken(hostname) + " {\n")
+		b.WriteString(":" + strconv.Itoa(httpsPort) + ", " + caddyToken(hostname) + " {\n")
 	} else {
-		b.WriteString(hostname + ":" + strconv.Itoa(coverHTTPSPort) + " {\n")
+		b.WriteString(hostname + ":" + strconv.Itoa(httpsPort) + " {\n")
+	}
+	if a.skipHTTP {
+		b.WriteString("\tbind 127.0.0.1\n")
 	}
 	if strings.TrimSpace(cert) != "" && strings.TrimSpace(key) != "" {
 		b.WriteString("\ttls " + caddyToken(cert) + " " + caddyToken(key) + "\n")

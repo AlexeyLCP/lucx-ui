@@ -84,7 +84,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover}
+	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -95,7 +95,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -126,6 +126,8 @@ func (n Name) DisplayName() string {
 		return "Caddy (tproxy)"
 	case Cover:
 		return "Cover site"
+	case Gateway:
+		return "SNI gateway"
 	case NaiveClient:
 		return "NaiveProxy client"
 	case MieruClient:
@@ -145,6 +147,8 @@ func (n Name) BinaryName() string {
 	switch n {
 	case Naive, TproxyCaddy, Cover:
 		name = fmt.Sprintf("caddy-naive-%s-%s", runtime.GOOS, runtime.GOARCH)
+	case Gateway:
+		name = fmt.Sprintf("nginx-%s-%s", runtime.GOOS, runtime.GOARCH)
 	case NaiveClient:
 		name = fmt.Sprintf("naive-client-%s-%s", runtime.GOOS, runtime.GOARCH)
 	case MieruClient:

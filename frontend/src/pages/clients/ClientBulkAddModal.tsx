@@ -48,6 +48,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'anytls',
   'tproxy',
   'cover',
+  'gateway',
 ]);
 
 const EMPTY: ClientBulkAddFormValues = {

@@ -5,5 +5,6 @@ export function protocolLabel(protocol: string, t: (key: string) => string): str
   if (protocol === 'anytls') return t('pages.inbounds.protocolNames.anytls').toLowerCase();
   if (protocol === 'tproxy') return t('pages.inbounds.protocolNames.tproxy').toLowerCase();
   if (protocol === 'cover') return t('pages.inbounds.protocolNames.cover').toLowerCase();
+  if (protocol === 'gateway') return t('pages.inbounds.protocolNames.gateway').toLowerCase();
   return protocol;
 }

@@ -94,7 +94,8 @@ export function canEnableSniffing(values: { protocol: string }): boolean {
     values.protocol !== 'trusttunnel' &&
     values.protocol !== 'anytls' &&
     values.protocol !== 'tproxy' &&
-    values.protocol !== 'cover'
+    values.protocol !== 'cover' &&
+    values.protocol !== 'gateway'
   );
 }
 

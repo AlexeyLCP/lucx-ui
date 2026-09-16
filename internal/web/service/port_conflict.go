@@ -30,7 +30,7 @@ func inboundTransports(protocol model.Protocol, streamSettings, settings string)
 	case model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt:
 		return transportTCP
 	// LUCX-HOOK: AnyTls is a single TCP listener (anytls-server)
-	case model.Anytls, model.Tproxy, model.Cover:
+	case model.Anytls, model.Tproxy, model.Cover, model.Gateway:
 		return transportTCP
 	// END LUCX-HOOK
 	case model.TrustTunnel:
@@ -335,7 +335,7 @@ func checkCoverHTTPPorts(db *gorm.DB, inbound *model.Inbound, ignoreId int, newB
 	if newBits&transportTCP == 0 {
 		return nil, nil
 	}
-	if inbound.Protocol == model.Cover {
+	if inbound.Protocol == model.Cover && !tunnel.IsLoopbackListen(inbound.Listen) {
 		var on80 []*model.Inbound
 		q := db.Model(model.Inbound{}).Where("port = ?", 80)
 		if ignoreId > 0 {
@@ -372,7 +372,7 @@ func checkCoverHTTPPorts(db *gorm.DB, inbound *model.Inbound, ignoreId int, newB
 		return nil, err
 	}
 	for _, c := range covers {
-		if !c.Enable || !sameNode(c.NodeID, inbound.NodeID) || !listenOverlaps(c.Listen, inbound.Listen) {
+		if !c.Enable || tunnel.IsLoopbackListen(c.Listen) || !sameNode(c.NodeID, inbound.NodeID) || !listenOverlaps(c.Listen, inbound.Listen) {
 			continue
 		}
 		return &portConflictDetail{

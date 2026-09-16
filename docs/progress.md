@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.236 — SNI gateway (nginx stream on 443) (2026-09-16)
+
+Optional inbound `gateway` + Masking page. Nginx `ssl_preread` muxes TCP 443 by SNI: REALITY/TLS → Xray loopback, Cover/naive/tproxy/WS → Caddy loopback. Unknown SNI dropped. Apply/Revert with preview; default off, no mutation on update. Cover behind gateway binds `127.0.0.1`. Binary `nginx-linux-{amd64,arm64}` from GitHub tarball (`pack-sidecars.sh`, nginx.org 1.30.5). Tested on stand: preview/apply/revert.
+
+**lucxVersion:** lucx.236
+
+---
+
 ## lucx.235 — x-ui.sh syntax (two if, one fi) (2026-09-16)
 
 Merge leftover in `update_menu` / `update_shell`: extra `if installed_script_url` (MHSanaei) next to LucX `lucx_script_base`. Bash parse fail on any `/usr/bin/x-ui` command (restart, setup-fail2ban). Dropped the extra if and dead `installed_script_url`. `bash -n x-ui.sh` ok.

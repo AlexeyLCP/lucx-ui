@@ -92,6 +92,9 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 	if ib.Protocol == model.Cover {
 		return l.ensureCoverInbound(ib)
 	}
+	if ib.Protocol == model.Gateway {
+		return l.ensureGatewayInbound(ib)
+	}
 	// END LUCX-HOOK
 	if ib.Protocol == model.AmneziaWG {
 		inst, ok := amneziawg.InstanceFromInbound(ib)
@@ -187,6 +190,10 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 		tunnel.GetManager().Remove(tunnel.CoverKey(ib.Id))
 		return nil
 	}
+	if ib.Protocol == model.Gateway {
+		tunnel.GetManager().Remove(tunnel.GatewayKey(ib.Id))
+		return nil
+	}
 	// END LUCX-HOOK
 	if ib.Protocol == model.AmneziaWG {
 		amneziawgnet.GetManager().Remove(ib.Id)
@@ -244,7 +251,7 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func isTunnelInboundProto(p model.Protocol) bool {
-	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover || p == model.Gateway
 }
 
 // ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret
@@ -323,6 +330,14 @@ func (l *Local) updateTproxyInbound(ctx context.Context, oldIb, newIb *model.Inb
 func (l *Local) ensureCoverInbound(ib *model.Inbound) error {
 	cert, key := panelCertFilesForRuntime()
 	inst, ok := tunnel.CoverInstanceFromInbound(ib, listLocalInboundsForCover(), panelSecretBytes(), cert, key)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureGatewayInbound(ib *model.Inbound) error {
+	inst, ok := tunnel.GatewayInstanceFromInbound(ib, listLocalInboundsForCover())
 	if !ok {
 		return nil
 	}

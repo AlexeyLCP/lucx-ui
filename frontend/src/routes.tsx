@@ -16,6 +16,7 @@ const XrayPage = lazy(() => import('@/pages/xray/XrayPage'));
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 // LUCX-HOOK: tunnel sidecars (NaiveProxy) page
 const TunnelsPage = lazy(() => import('@/pages/tunnels/TunnelsPage'));
+const MaskingPage = lazy(() => import('@/pages/masking/MaskingPage'));
 // END LUCX-HOOK
 
 function withSuspense(node: React.ReactNode) {
@@ -62,6 +63,7 @@ const routes: RouteObject[] = [
       { path: 'hosts', element: withSuspense(<HostsPage />) },
       /* LUCX-HOOK: tunnel sidecars (NaiveProxy) */
       { path: 'tunnels', element: withSuspense(<TunnelsPage />) },
+      { path: 'masking', element: withSuspense(<MaskingPage />) },
       /* END LUCX-HOOK */
       { path: 'settings', element: withSuspense(<SettingsPage />) },
       { path: 'xray', element: withSuspense(<XrayPage />) },

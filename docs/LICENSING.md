@@ -54,6 +54,7 @@ The panel **supervises external processes** and ships optional geo datasets. Not
 | [MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) | Base panel | **GPL-3.0** |
 | LucX-owned paths listed in §2 | AWG / tunnels / Smart Cluster | **PolyForm Noncommercial 1.0.0** |
 | `bin/caddy-naive-linux-*` — [Caddy](https://github.com/caddyserver/caddy) | NaiveProxy sidecar runtime | **Apache-2.0** |
+| `bin/nginx-linux-*` — [nginx](https://nginx.org/) | SNI gateway (`ssl_preread`) | **BSD-2-Clause** |
 | [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) (`naive` branch) | Caddy `forward_proxy` plugin | **MIT** |
 | [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) | Protocol / client reference | **BSD-3-Clause** |
 | `bin/olcrtc-linux-*` — [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | olcRTC WebRTC tunnel core | **WTFPL** |

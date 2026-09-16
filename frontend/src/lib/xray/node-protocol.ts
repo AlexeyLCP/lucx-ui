@@ -20,6 +20,7 @@ const LUCX_NODE_PROTOCOLS = new Set<string>([
   Protocols.ANYTLS,
   Protocols.TPROXY,
   Protocols.COVER,
+  Protocols.GATEWAY,
 ]);
 
 export function isProtocolNodeEligible(protocol: string): boolean {

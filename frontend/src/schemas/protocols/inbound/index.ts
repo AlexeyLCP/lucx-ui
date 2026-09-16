@@ -15,6 +15,7 @@ import { TrustTunnelInboundSettingsSchema } from './trusttunnel'; // LUCX-HOOK: 
 import { AnytlsInboundSettingsSchema } from './anytls'; // LUCX-HOOK: AnyTLS
 import { TproxyInboundSettingsSchema } from './tproxy'; // LUCX-HOOK: Telegram WEB proxy
 import { CoverInboundSettingsSchema } from './cover'; // LUCX-HOOK: cover site
+import { GatewayInboundSettingsSchema } from './gateway'; // LUCX-HOOK: nginx SNI mux
 import { ShadowsocksInboundSettingsSchema } from './shadowsocks';
 import { TrojanInboundSettingsSchema } from './trojan';
 import { TuicInboundSettingsSchema } from './tuic';
@@ -39,6 +40,7 @@ export * from './trusttunnel'; // LUCX-HOOK: TrustTunnel
 export * from './anytls'; // LUCX-HOOK: AnyTLS
 export * from './tproxy'; // LUCX-HOOK: Telegram WEB proxy
 export * from './cover'; // LUCX-HOOK: cover site
+export * from './gateway'; // LUCX-HOOK: nginx SNI mux
 export * from './shadowsocks';
 export * from './trojan';
 export * from './tuic';
@@ -77,5 +79,6 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('anytls'), settings: AnytlsInboundSettingsSchema }), // LUCX-HOOK: AnyTLS
   z.object({ protocol: z.literal('tproxy'), settings: TproxyInboundSettingsSchema }), // LUCX-HOOK: Telegram WEB proxy
   z.object({ protocol: z.literal('cover'), settings: CoverInboundSettingsSchema }), // LUCX-HOOK: cover site
+  z.object({ protocol: z.literal('gateway'), settings: GatewayInboundSettingsSchema }), // LUCX-HOOK: nginx SNI mux
 ]);
 export type InboundSettings = z.infer<typeof InboundSettingsSchema>;

@@ -278,6 +278,7 @@ export default function AppSidebar() {
       { key: '/groups', icon: 'groups', title: t('menu.groups') },
       { key: '/nodes', icon: 'cluster', title: t('menu.nodes') },
       { key: '/hosts', icon: 'hosts', title: t('menu.hosts') },
+      { key: '/masking', icon: 'inbound', title: t('menu.masking') },
       // LUCX-HOOK: tunnels moved to Settings → Cores (binaries + AWG module).
       // /tunnels route kept for advanced tunnel config deep-link.
       // END LUCX-HOOK

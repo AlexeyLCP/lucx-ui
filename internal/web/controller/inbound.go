@@ -123,6 +123,9 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/awg/import/preview", a.awgImportPreview)
 	g.POST("/awg/import/dismiss", a.awgImportDismiss)
 	g.POST("/awg/import/commit", a.awgImportCommit)
+	g.GET("/:id/gatewayPreview", a.gatewayPreview)
+	g.POST("/:id/gatewayApply", a.gatewayApply)
+	g.POST("/:id/gatewayRevert", a.gatewayRevert)
 	// END LUCX-HOOK
 }
 

@@ -16,6 +16,7 @@ import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/tru
 import type { AnytlsInboundSettings } from '@/schemas/protocols/inbound/anytls';
 import type { TproxyInboundSettings } from '@/schemas/protocols/inbound/tproxy';
 import type { CoverInboundSettings } from '@/schemas/protocols/inbound/cover';
+import type { GatewayInboundSettings } from '@/schemas/protocols/inbound/gateway';
 import type {
   ShadowsocksClient,
   ShadowsocksInboundSettings,
@@ -354,6 +355,10 @@ export function createDefaultAnytlsInboundSettings(): AnytlsInboundSettings {
   };
 }
 
+export function createDefaultGatewayInboundSettings(): GatewayInboundSettings {
+  return { publicHost: '' };
+}
+
 export function createDefaultCoverInboundSettings(): CoverInboundSettings {
   return {
     hostname: '',
@@ -605,7 +610,8 @@ export type AnyInboundSettings =
   | TrustTunnelInboundSettings
   | AnytlsInboundSettings
   | TproxyInboundSettings
-  | CoverInboundSettings;
+  | CoverInboundSettings
+  | GatewayInboundSettings;
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -655,6 +661,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultTproxyInboundSettings();
     case 'cover':
       return createDefaultCoverInboundSettings();
+    case 'gateway':
+      return createDefaultGatewayInboundSettings();
     default:
       return null;
   }

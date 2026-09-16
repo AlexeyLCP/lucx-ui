@@ -115,6 +115,7 @@
     "groups": "Groups",
     "nodes": "Nodes",
     "hosts": "Hosts",
+    "masking": "Masking",
     "settings": "Panel Settings",
     "xray": "Xray Configs",
     "routing": "Routing",
@@ -872,6 +873,7 @@
         "tproxyRouteThroughXray": "Route through Xray",
         "tproxyRouteThroughXrayHint": "MTProxy DC TCP (uid lucx-mtproxy) is redirected into an Xray SOCKS bridge. Off = direct to Telegram DCs. On = through Xray outbounds. Other inbounds are not hijacked.",
         "coverNote": "Camouflage website on ports 80 and 443. NaiveProxy and Telegram WEB proxy can sit behind it (Behind cover). Path routes send HTTP to a loopback Xray inbound (VLESS-WS). Not for REALITY, AnyTLS, TrustTunnel, or AWG. Uses the panel TLS certificate. Port 80 is taken (HTTP-01 ACME will fail).",
+        "gatewayNote": "Optional nginx SNI mux on TCP 443. Disabled until you Apply on the Masking page. Does not change existing inbounds on install or update.",
         "coverHostname": "Hostname",
         "coverHostnameHint": "Bare DNS name. Must match the TLS certificate. Naive/tproxy Behind cover must use this same name.",
         "coverRoutes": "Path routes",
@@ -1011,7 +1013,8 @@
         "amneziawg": "amneziawg",
         "anytls": "AnyTLS",
         "tproxy": "Telegram WEB proxy",
-        "cover": "Cover site"
+        "cover": "Cover site",
+        "gateway": "SNI gateway"
       }
     },
     "clients": {
@@ -2660,6 +2663,21 @@
       "tabs": {
         "xrayOutbounds": "Xray outbounds"
       }
+    },
+    "masking": {
+      "title": "443 SNI masking",
+      "help": "Nginx listens on public TCP 443 and splits by SNI. REALITY/TLS go to Xray; HTTP/Naive/Cover go to Caddy. Unknown SNI is dropped. UDP is not nginx. Off until Apply. Revert stops nginx and restores listen/Hosts.",
+      "publicHost": "Public hostname",
+      "publicHostHint": "Written into Hosts as address:443 so client links stay on 443.",
+      "noGateway": "No gateway inbound",
+      "createFirst": "Add an inbound with protocol SNI gateway (leave it disabled), then return here.",
+      "class": "Path",
+      "listen": "Listen",
+      "steal": "Steal-oneself dest",
+      "apply": "Apply selected",
+      "revert": "Revert selected",
+      "applied": "Mask applied",
+      "reverted": "Mask reverted"
     },
     "tunnels": {
       "title": "Tunnel tools",

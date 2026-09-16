@@ -121,6 +121,7 @@
     "apiDocs": "Документация API",
     "donate": "Поддержать",
     "hosts": "Хосты",
+    "masking": "Masking",
     "docs": "Документация",
     "openMenu": "Открыть меню",
     "pinSidebar": "Закрепить боковую панель",
@@ -872,6 +873,7 @@
         "tproxyRouteThroughXray": "Через Xray",
         "tproxyRouteThroughXrayHint": "TCP MTProxy к ДЦ (uid lucx-mtproxy) уходит в SOCKS-мост Xray. Выкл = напрямую в ДЦ. Вкл = через outbound Xray. Остальные inbound не трогает.",
         "coverNote": "Сайт-камуфляж на портах 80 и 443. NaiveProxy и Telegram WEB proxy можно повесить за ним (Behind cover). Path routes — HTTP на loopback Xray (VLESS-WS). Не для REALITY, AnyTLS, TrustTunnel, AWG. Сертификат панели. Порт 80 занят (HTTP-01 ACME не заработает).",
+        "gatewayNote": "Optional nginx SNI mux on TCP 443. Disabled until you Apply on the Masking page. Does not change existing inbounds on install or update.",
         "coverHostname": "Hostname",
         "coverHostnameHint": "Голое DNS-имя. Должно совпадать с TLS-сертификатом. Naive/tproxy Behind cover — то же имя.",
         "coverRoutes": "Path routes",
@@ -1011,7 +1013,8 @@
         "amneziawg": "amneziawg",
         "anytls": "AnyTLS",
         "tproxy": "Telegram WEB proxy",
-        "cover": "Cover site"
+        "cover": "Cover site",
+        "gateway": "SNI gateway"
       }
     },
     "clients": {
@@ -2660,6 +2663,21 @@
         "badTag": "Недопустимый тег",
         "badVlessRoute": "Введите одно число от 0 до 65535"
       }
+    },
+    "masking": {
+          "title": "443 SNI masking",
+          "help": "Nginx listens on public TCP 443 and splits by SNI. REALITY/TLS go to Xray; HTTP/Naive/Cover go to Caddy. Unknown SNI is dropped. UDP is not nginx. Off until Apply. Revert stops nginx and restores listen/Hosts.",
+          "publicHost": "Public hostname",
+          "publicHostHint": "Written into Hosts as address:443 so client links stay on 443.",
+          "noGateway": "No gateway inbound",
+          "createFirst": "Add an inbound with protocol SNI gateway (leave it disabled), then return here.",
+          "class": "Path",
+          "listen": "Listen",
+          "steal": "Steal-oneself dest",
+          "apply": "Apply selected",
+          "revert": "Revert selected",
+          "applied": "Mask applied",
+          "reverted": "Mask reverted"
     },
     "tunnels": {
       "title": "Инструменты туннелей",

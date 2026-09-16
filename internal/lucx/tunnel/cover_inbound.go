@@ -93,7 +93,15 @@ func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret
 		return disabled, true
 	}
 
-	att := coverAttach{routes: cfg.Routes, publicDir: publicDir, publicUpstream: publicUpstream}
+	httpsPort := coverHTTPSPort
+	skipHTTP := false
+	if IsLoopbackListen(ib.Listen) {
+		skipHTTP = true
+		if ib.Port > 0 {
+			httpsPort = ib.Port
+		}
+	}
+	att := coverAttach{routes: cfg.Routes, publicDir: publicDir, publicUpstream: publicUpstream, httpsPort: httpsPort, skipHTTP: skipHTTP}
 	for _, o := range others {
 		if o == nil || !o.Enable || o.NodeID != nil {
 			continue
@@ -150,7 +158,7 @@ func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret
 		ConfigText:       caddyfile,
 		Args:             []string{"run", "--config", absPath(caddyPath), "--adapter", "caddyfile"},
 		FingerprintExtra: CertFileHash(certFile),
-		ProbePort:        coverHTTPSPort,
+		ProbePort:        httpsPort,
 	}, true
 }
 

@@ -74,6 +74,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'anytls',
   'tproxy',
   'cover',
+  'gateway',
 ]);
 
 const CLIENT_FORM_MODAL_Z_INDEX = 1000;
