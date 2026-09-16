@@ -291,12 +291,6 @@ func (s *InboundService) checkVkTurnExclusive(creating model.Protocol, ignoreId 
 	return nil
 }
 
-func (s *InboundService) checkQwdttSingle(ignoreId int, nodeID *int) error {
-	return s.checkVkTurnExclusive(model.Qwdtt, ignoreId, nodeID)
-}
-
-// ensureNodeSupportsProtocol rejects LucX-only protocols on vanilla/unknown
-// remote nodes. Local panel (NodeID nil) always allows LucX protocols.
 func (s *InboundService) ensureNodeSupportsProtocol(protocol model.Protocol, nodeID *int) error {
 	if nodeID == nil || *nodeID <= 0 {
 		return nil
