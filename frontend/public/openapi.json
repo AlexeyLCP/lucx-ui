@@ -5997,6 +5997,173 @@
         }
       }
     },
+    "/panel/api/inbounds/{id}/gatewayPreview": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Preview which inbounds an SNI gateway would move to loopback (listen/port/Hosts). Does not mutate. LucX-UI only.",
+        "operationId": "get_panel_api_inbounds_id_gatewayPreview",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Gateway inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "publicHost",
+            "in": "query",
+            "required": true,
+            "description": "Public hostname for Hosts rows.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/gatewayApply": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Apply selected preview rows: listen 127.0.0.1, Hosts publicHost:443, start nginx stream. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_id_gatewayApply",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Gateway inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "selected": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "Inbound IDs to move."
+                  },
+                  "steal": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "REALITY inbound IDs to set dest to Cover loopback."
+                  },
+                  "publicHost": {
+                    "type": "string",
+                    "description": "Public hostname for Hosts."
+                  }
+                },
+                "required": [
+                  "selected",
+                  "steal",
+                  "publicHost"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/gatewayRevert": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Stop nginx and restore listen/port/Hosts from the Apply snapshot. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_id_gatewayRevert",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Gateway inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/import": {
       "post": {
         "tags": [

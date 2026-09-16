@@ -508,6 +508,44 @@ export const sections: readonly Section[] = [
         response:
           '{\n  "success": true,\n  "obj": {\n    "target": "1.1.1.1",\n    "pathMtu": 1500,\n    "reached": true,\n    "configuredMtu": 1420,\n    "fits": true,\n    "detail": "largest non-fragmented ping to 1.1.1.1 = 1500 bytes; configured MTU 1420 fits within the 80-byte WG/AWG overhead headroom"\n  }\n}',
       },
+      {
+        method: 'GET',
+        path: '/panel/api/inbounds/:id/gatewayPreview',
+        summary:
+          'Preview which inbounds an SNI gateway would move to loopback (listen/port/Hosts). Does not mutate. LucX-UI only.',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'Gateway inbound ID.' },
+          {
+            name: 'publicHost',
+            in: 'query',
+            type: 'string',
+            desc: 'Public hostname for Hosts rows.',
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/inbounds/:id/gatewayApply',
+        summary:
+          'Apply selected preview rows: listen 127.0.0.1, Hosts publicHost:443, start nginx stream. LucX-UI only.',
+        params: [
+          { name: 'id', in: 'path', type: 'number', desc: 'Gateway inbound ID.' },
+          { name: 'selected', in: 'body', type: 'number[]', desc: 'Inbound IDs to move.' },
+          {
+            name: 'steal',
+            in: 'body',
+            type: 'number[]',
+            desc: 'REALITY inbound IDs to set dest to Cover loopback.',
+          },
+          { name: 'publicHost', in: 'body', type: 'string', desc: 'Public hostname for Hosts.' },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/inbounds/:id/gatewayRevert',
+        summary: 'Stop nginx and restore listen/port/Hosts from the Apply snapshot. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'Gateway inbound ID.' }],
+      },
       // END LUCX-HOOK
       {
         method: 'POST',
