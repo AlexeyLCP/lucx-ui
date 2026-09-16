@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.235 — x-ui.sh syntax (two if, one fi) (2026-09-16)
+
+Merge leftover in `update_menu` / `update_shell`: extra `if installed_script_url` (MHSanaei) next to LucX `lucx_script_base`. Bash parse fail on any `/usr/bin/x-ui` command (restart, setup-fail2ban). Dropped the extra if and dead `installed_script_url`. `bash -n x-ui.sh` ok.
+
+**lucxVersion:** lucx.235
+
+---
+
 ## lucx.234 — CI: drop unused checkQwdttSingle (2026-09-16)
 
 golangci unused after lucx.233. Wrapper removed. CSQTT inbound unchanged.
