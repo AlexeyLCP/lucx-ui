@@ -19,7 +19,7 @@ func TestRenderNginxConf_SNIAndDrop(t *testing.T) {
 		{SNI: "www.microsoft.com", Dest: "127.0.0.1:1443"},
 		{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"},
 		{SNI: "www.microsoft.com", Dest: "127.0.0.1:9"},
-	})
+	}, "")
 	for _, need := range []string{
 		"ssl_preread on",
 		"listen 443",
@@ -34,6 +34,10 @@ func TestRenderNginxConf_SNIAndDrop(t *testing.T) {
 	}
 	if strings.Count(got, "www.microsoft.com") != 1 {
 		t.Fatalf("duplicate SNI:\n%s", got)
+	}
+	got = RenderNginxConf(443, "", []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"}}, "127.0.0.1:8443")
+	if !strings.Contains(got, "default 127.0.0.1:8443") {
+		t.Fatalf("cover fallback:\n%s", got)
 	}
 }
 
@@ -97,6 +101,42 @@ func TestBuildPreview_MovesPublic443(t *testing.T) {
 	c := byID[2]
 	if c.Class != ClassCaddy || c.NewPort == 443 {
 		t.Fatalf("cover row: %+v", c)
+	}
+}
+
+func TestBuildPreview_SkipPublicNonSNI(t *testing.T) {
+	rows := BuildPreview(443, "node.example.com", []*model.Inbound{
+		{Id: 3, Protocol: model.Hysteria, Enable: true, Port: 4443, Remark: "hy"},
+		{Id: 4, Protocol: model.AWG, Enable: false, Port: 51820},
+	})
+	if len(rows) != 1 || rows[0].Class != ClassSkip || rows[0].OldPort != 4443 {
+		t.Fatalf("%+v", rows)
+	}
+}
+
+func TestCoverFallback(t *testing.T) {
+	rows := []PreviewRow{
+		{InboundID: 1, Protocol: "vless", NewPort: 1443},
+		{InboundID: 2, Protocol: "cover", NewPort: 8443},
+	}
+	if got := CoverFallback(rows, map[int]bool{2: true}); got != "127.0.0.1:8443" {
+		t.Fatalf("%s", got)
+	}
+	if got := CoverFallback(rows, map[int]bool{1: true}); got != "" {
+		t.Fatalf("no cover selected: %s", got)
+	}
+}
+
+func TestResolveGatewayPublicHost(t *testing.T) {
+	cover := &model.Inbound{Protocol: model.Cover, Settings: `{"hostname":"vpn.example.com"}`}
+	if got := ResolveGatewayPublicHost(" Node.Example.com ", "saved.com", nil); got != "node.example.com" {
+		t.Fatalf("req: %s", got)
+	}
+	if got := ResolveGatewayPublicHost("", "Saved.com", []*model.Inbound{cover}); got != "saved.com" {
+		t.Fatalf("saved: %s", got)
+	}
+	if got := ResolveGatewayPublicHost("", "", []*model.Inbound{cover}); got != "vpn.example.com" {
+		t.Fatalf("cover: %s", got)
 	}
 }
 

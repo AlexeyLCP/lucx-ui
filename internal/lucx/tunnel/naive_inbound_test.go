@@ -17,6 +17,17 @@ func TestNaiveKey(t *testing.T) {
 	}
 }
 
+func TestConfigFromInbound_LoopbackListenWins(t *testing.T) {
+	ib := &model.Inbound{
+		Protocol: model.Naive, Listen: "127.0.0.1", Port: 8443,
+		Settings: `{"listen":"0.0.0.0","domain":"n.example.com"}`,
+	}
+	cfg, ok := ConfigFromInbound(ib)
+	if !ok || cfg.Listen != "127.0.0.1" {
+		t.Fatalf("loopback envelope must win: ok=%v listen=%q", ok, cfg.Listen)
+	}
+}
+
 func TestClientAuthForInbound_Scoped(t *testing.T) {
 	secret := []byte("panel-secret")
 	a := ClientAuthForInbound(secret, 1, "alice@example.com")

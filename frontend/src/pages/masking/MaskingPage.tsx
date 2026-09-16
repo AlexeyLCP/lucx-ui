@@ -7,7 +7,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Input, Table, Typography, message } from 'antd';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { HttpUtil } from '@/utils';
 import { keys } from '@/api/queryKeys';
@@ -35,6 +35,7 @@ type PreviewResult = {
 
 export default function MaskingPage() {
   const { t } = useTranslation();
+  const queryClient = useQueryClient();
   const [publicHost, setPublicHost] = useState('');
   const [selected, setSelected] = useState<number[]>([]);
   const [steal, setSteal] = useState<number[]>([]);
@@ -66,6 +67,7 @@ export default function MaskingPage() {
   const preview = previewQuery.data;
   const rows = preview?.rows ?? [];
   const applied = preview?.applied ?? false;
+  const host = publicHost || preview?.publicHost || rows.find((r) => r.sni)?.sni || '';
 
   const apply = async () => {
     if (!gateway) return;
@@ -73,11 +75,12 @@ export default function MaskingPage() {
     try {
       const msg = await HttpUtil.post(
         `/panel/api/inbounds/${gateway.id}/gatewayApply`,
-        { selected, steal, publicHost },
+        { selected, steal, publicHost: host },
         JSON_HEADERS,
       );
       if (!msg?.success) throw new Error(msg?.msg);
       void message.success(t('pages.masking.applied'));
+      await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await previewQuery.refetch();
     } catch (e) {
       void message.error(e instanceof Error ? e.message : String(e));
@@ -99,6 +102,7 @@ export default function MaskingPage() {
       void message.success(t('pages.masking.reverted'));
       setSelected([]);
       setSteal([]);
+      await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await previewQuery.refetch();
     } catch (e) {
       void message.error(e instanceof Error ? e.message : String(e));
@@ -125,7 +129,7 @@ export default function MaskingPage() {
       <Input
         style={{ maxWidth: 360, marginBottom: 12 }}
         placeholder={t('pages.masking.publicHost')}
-        value={publicHost}
+        value={host}
         onChange={(e) => setPublicHost(e.target.value)}
       />
       <Table
@@ -136,6 +140,7 @@ export default function MaskingPage() {
         rowSelection={{
           selectedRowKeys: selected,
           onChange: (keys) => setSelected(keys.map(Number)),
+          getCheckboxProps: (r: PreviewRow) => ({ disabled: r.class === 'skip' || applied }),
         }}
         columns={[
           { title: t('remark'), dataIndex: 'remark' },

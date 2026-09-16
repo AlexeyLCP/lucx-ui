@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.241 — SNI gateway Apply actually rebinds (2026-09-16)
+
+Apply wrote listen=127.0.0.1 but Xray kept the old bind until a manual restart; sidecars waited for the reconcile tick. Apply/Revert now RestartXray(true) + Tunnel Reconcile. Unknown SNI falls through to Cover (scanner saw XTLS on drop). publicHost no longer wiped. Skip rows for mieru/Hysteria/CSQTT. Naive/tproxy honor loopback listen.
+
+**lucxVersion:** lucx.241
+
+---
+
 ## lucx.240 — AWG .conf download back in Client Info (2026-09-16)
 
 v3.8 merge dropped the kernel AWG ConfigBlock from Client Info. Testers could only download .conf from QR. Restored per-inbound .conf (copy/download) + version selector + vpn:// copy.

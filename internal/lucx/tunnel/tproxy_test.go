@@ -210,11 +210,15 @@ func TestTproxyEnsureSecretStable(t *testing.T) {
 }
 
 func TestRenderTproxyCaddyfile(t *testing.T) {
-	got := RenderTproxyCaddyfile("proxy.example.com", 443, "/c.pem", "/k.pem", 24002)
+	got := RenderTproxyCaddyfile("proxy.example.com", 443, "/c.pem", "/k.pem", 24002, false)
 	for _, need := range []string{"admin off", "auto_https off", "proxy.example.com:443", "tls", "reverse_proxy 127.0.0.1:24002", "response_header_timeout 40s"} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("caddyfile missing %q:\n%s", need, got)
 		}
+	}
+	loop := RenderTproxyCaddyfile("proxy.example.com", 8443, "/c.pem", "/k.pem", 24002, true)
+	if !strings.Contains(loop, "bind 127.0.0.1") {
+		t.Fatalf("loopback bind:\n%s", loop)
 	}
 }
 

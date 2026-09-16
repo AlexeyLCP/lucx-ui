@@ -62,7 +62,11 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound) (Ins
 	}
 	confPath := configPathFor(key, Gateway)
 	pidPath := filepath.Join(workDir(), key+".pid")
-	conf := RenderNginxConf(port, absPath(pidPath), routes)
+	fallback := cfg.Fallback
+	if fallback == "" {
+		fallback = CoverFallback(rows, selected)
+	}
+	conf := RenderNginxConf(port, absPath(pidPath), routes, fallback)
 	return Instance{
 		Core:       Gateway,
 		Key:        key,

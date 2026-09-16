@@ -57,7 +57,8 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	for _, o := range others {
 		byID[o.Id] = o
 	}
-	rows := tunnel.BuildPreview(gw.Port, req.PublicHost, others)
+	host := tunnel.ResolveGatewayPublicHost(req.PublicHost, cfg.PublicHost, others)
+	rows := tunnel.BuildPreview(gw.Port, host, others)
 	selected := map[int]bool{}
 	for _, id := range req.Selected {
 		selected[id] = true
@@ -72,7 +73,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	var snap []tunnel.GatewaySnapshotRow
 	db := database.GetDB()
 	for _, row := range rows {
-		if !selected[row.InboundID] {
+		if !selected[row.InboundID] || row.Class == tunnel.ClassSkip {
 			continue
 		}
 		ib := byID[row.InboundID]
@@ -104,9 +105,10 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		}
 		snap = append(snap, sr)
 	}
-	cfg.PublicHost = req.PublicHost
+	cfg.PublicHost = host
 	cfg.Snapshot = snap
 	cfg.Routes = tunnel.RoutesFromPreview(rows, selected)
+	cfg.Fallback = tunnel.CoverFallback(rows, selected)
 	cfg.Enabled = true
 	body, err := json.Marshal(cfg)
 	if err != nil {
@@ -156,6 +158,7 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 	}
 	cfg.Snapshot = nil
 	cfg.Routes = nil
+	cfg.Fallback = ""
 	cfg.Enabled = false
 	body, err := json.Marshal(cfg)
 	if err != nil {
@@ -194,18 +197,8 @@ func (s *InboundService) gatewayAndOthers(id int) (*model.Inbound, []*model.Inbo
 }
 
 func (s *InboundService) ensureGatewayRuntime(gw *model.Inbound, others []*model.Inbound) {
-	all := append([]*model.Inbound{gw}, others...)
-	cert, key := panelCertFiles()
-	mgr := tunnel.GetManager()
 	if inst, ok := tunnel.GatewayInstanceFromInbound(gw, others); ok {
-		_ = mgr.Ensure(inst)
+		_ = tunnel.GetManager().Ensure(inst)
 	}
-	for _, ib := range others {
-		if ib == nil || ib.Protocol != model.Cover {
-			continue
-		}
-		if inst, ok := tunnel.CoverInstanceFromInbound(ib, all, nil, cert, key); ok {
-			_ = mgr.Ensure(inst)
-		}
-	}
+	(&TunnelService{inboundService: *s}).Reconcile()
 }

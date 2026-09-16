@@ -90,6 +90,9 @@ func ConfigFromInbound(ib *model.Inbound) (NaiveConfig, bool) {
 		RawConfig:        s.RawConfig,
 		BehindCover:      s.BehindCover,
 	}.Merge()
+	if IsLoopbackListen(ib.Listen) {
+		cfg.Listen = ib.Listen
+	}
 	return cfg, true
 }
 

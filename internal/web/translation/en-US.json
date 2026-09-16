@@ -2671,7 +2671,7 @@
     },
     "masking": {
       "title": "443 SNI masking",
-      "help": "Nginx listens on public TCP 443 and splits by SNI. REALITY/TLS go to Xray; HTTP/Naive/Cover go to Caddy. Unknown SNI is dropped. UDP is not nginx. Off until Apply. Revert stops nginx and restores listen/Hosts.",
+      "help": "Nginx listens on public TCP 443 and splits by SNI. REALITY/TLS go to Xray; HTTP/Naive/Cover go to Caddy. Unknown SNI is dropped. UDP/Hysteria, mieru, CSQTT, SSH, panel stay on their own ports — firewall them if you want only 443 open. Off until Apply.",
       "publicHost": "Public hostname",
       "publicHostHint": "Written into Hosts as address:443 so client links stay on 443.",
       "noGateway": "No gateway inbound",

@@ -161,6 +161,22 @@ func coverLoopbackPort(rows []PreviewRow) int {
 	return 0
 }
 
+// ResolveGatewayPublicHost: request, then saved settings, then first classified SNI.
+func ResolveGatewayPublicHost(req, saved string, others []*model.Inbound) string {
+	if h := strings.ToLower(strings.TrimSpace(req)); h != "" {
+		return h
+	}
+	if h := strings.ToLower(strings.TrimSpace(saved)); h != "" {
+		return h
+	}
+	for _, o := range others {
+		if _, sni := Classify(o); sni != "" {
+			return sni
+		}
+	}
+	return ""
+}
+
 // BuildPreview lists inbounds the mask may move behind nginx.
 func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound) []PreviewRow {
 	if gatewayPort <= 0 {
@@ -175,6 +191,14 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound) [
 		}
 		class, sni := Classify(ib)
 		if class == "" {
+			if ib.Enable && ib.Port > 0 && !IsLoopbackListen(ib.Listen) {
+				listen := publicListen(ib.Listen)
+				rows = append(rows, PreviewRow{
+					InboundID: ib.Id, Remark: ib.Remark, Protocol: string(ib.Protocol),
+					Class: ClassSkip, OldListen: listen, NewListen: listen,
+					OldPort: ib.Port, NewPort: ib.Port, Note: "no SNI, stays public",
+				})
+			}
 			continue
 		}
 		if sni == "" {
@@ -235,6 +259,19 @@ func nextFreePort(class string, used map[int]bool) int {
 		}
 	}
 	return base
+}
+
+func CoverFallback(rows []PreviewRow, selected map[int]bool) string {
+	for _, r := range rows {
+		if r.Protocol != string(model.Cover) {
+			continue
+		}
+		if selected != nil && !selected[r.InboundID] {
+			continue
+		}
+		return gatewayLoopbackDest(r.NewPort)
+	}
+	return ""
 }
 
 func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute {

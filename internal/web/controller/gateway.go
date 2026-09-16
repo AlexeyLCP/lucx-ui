@@ -44,7 +44,10 @@ func (a *InboundController) gatewayApply(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	a.xrayService.SetToNeedRestart()
+	if err := a.xrayService.RestartXray(true); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
 	jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.inboundUpdateSuccess"), nil)
 	user := session.GetLoginUser(c)
 	a.broadcastInboundsUpdate(user.Id)
@@ -60,7 +63,10 @@ func (a *InboundController) gatewayRevert(c *gin.Context) {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
 		return
 	}
-	a.xrayService.SetToNeedRestart()
+	if err := a.xrayService.RestartXray(true); err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
 	jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.inboundUpdateSuccess"), nil)
 	user := session.GetLoginUser(c)
 	a.broadcastInboundsUpdate(user.Id)

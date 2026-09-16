@@ -138,7 +138,7 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 	if err != nil {
 		return disabledWhy(err), true
 	}
-	caddyfile := RenderTproxyCaddyfile(cfg.Hostname, cfg.Port, certFile, keyFile, relayPort)
+	caddyfile := RenderTproxyCaddyfile(cfg.Hostname, cfg.Port, certFile, keyFile, relayPort, IsLoopbackListen(ib.Listen))
 	cfgPath := configPathFor(key, Tproxy)
 	caddyPath := configPathFor(TproxyCaddyKey(id), TproxyCaddy)
 	caddyOn := !cfg.BehindCover

@@ -207,12 +207,15 @@ func mtproxyXrayRedirectArgs(uid string, port int) []string {
 	}
 }
 
-func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int) string {
+func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int, loopback bool) string {
 	hostPort := hostname + ":" + strconv.Itoa(port)
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n}\n")
 	b.WriteString(hostPort)
 	b.WriteString(" {\n")
+	if loopback {
+		b.WriteString("\tbind 127.0.0.1\n")
+	}
 	if strings.TrimSpace(cert) != "" && strings.TrimSpace(key) != "" {
 		b.WriteString("\ttls ")
 		b.WriteString(caddyToken(cert))

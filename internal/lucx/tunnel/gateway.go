@@ -24,6 +24,7 @@ const (
 const (
 	ClassPassthrough = "passthrough"
 	ClassCaddy       = "caddy"
+	ClassSkip        = "skip"
 )
 
 // GatewayRoute is one SNI → loopback backend for nginx stream.
@@ -48,6 +49,7 @@ type GatewayConfig struct {
 	PublicHost string               `json:"publicHost"`
 	Routes     []GatewayRoute       `json:"routes"`
 	Snapshot   []GatewaySnapshotRow `json:"snapshot"`
+	Fallback   string               `json:"fallback,omitempty"`
 }
 
 func DefaultGatewayConfig() GatewayConfig {
@@ -76,10 +78,14 @@ func nginxMapKey(sni string) string {
 	return sni
 }
 
-// RenderNginxConf is a stream-only nginx config: ssl_preread by SNI, unknown drop.
-func RenderNginxConf(listenPort int, pidPath string, routes []GatewayRoute) string {
+// RenderNginxConf is stream ssl_preread by SNI. Empty fallback = drop.
+func RenderNginxConf(listenPort int, pidPath string, routes []GatewayRoute, fallback string) string {
 	if listenPort <= 0 {
 		listenPort = gatewayDefaultPort
+	}
+	fallback = strings.TrimSpace(fallback)
+	if fallback == "" {
+		fallback = gatewayDropBackend
 	}
 	var b strings.Builder
 	b.WriteString("worker_processes 1;\n")
@@ -100,7 +106,7 @@ func RenderNginxConf(listenPort int, pidPath string, routes []GatewayRoute) stri
 		seen[k] = true
 		b.WriteString("\t\t" + k + " " + d + ";\n")
 	}
-	b.WriteString("\t\tdefault " + gatewayDropBackend + ";\n")
+	b.WriteString("\t\tdefault " + fallback + ";\n")
 	b.WriteString("\t}\n")
 	b.WriteString("\tserver {\n")
 	b.WriteString("\t\tlisten " + strconv.Itoa(listenPort) + ";\n")
