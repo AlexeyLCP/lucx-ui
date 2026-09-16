@@ -16,6 +16,8 @@ interface SubPageData {
   subClashUrl?: string;
   subAwgUrl?: string; // LUCX-HOOK: AmneziaWG subscription URL for the page's AWG row
   subTitle?: string;
+  subSupportUrl?: string;
+  subUpdates?: number;
   links?: string[];
   emails?: string[];
   datepicker?: 'gregorian' | 'jalalian';

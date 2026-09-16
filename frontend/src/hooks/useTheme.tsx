@@ -35,6 +35,8 @@ function readInitialDark(): boolean {
 function applyDom(isDark: boolean, isUltra: boolean, palette: ThemePalette) {
   document.body.classList.remove('dark', 'light');
   document.body.classList.add(isDark ? 'dark' : 'light');
+  // Native scrollbars read color-scheme, not the body class.
+  document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
   if (isUltra) {
     document.documentElement.setAttribute('data-theme', 'ultra-dark');
   } else {

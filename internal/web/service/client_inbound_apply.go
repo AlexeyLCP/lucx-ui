@@ -19,6 +19,16 @@ import (
 	"gorm.io/gorm"
 )
 
+// droppedClientNeedsRestart is what restartXrayOnClientDisable asks for: the core
+// API drops the credential only, so a live session needs the process replaced.
+func droppedClientNeedsRestart() bool {
+	on, err := (&SettingService{}).GetRestartXrayOnClientDisable()
+	if err != nil {
+		logger.Warning("get RestartXrayOnClientDisable failed:", err)
+	}
+	return on
+}
+
 func sameClientConfigExceptUpdatedAt(a, b map[string]any) bool {
 	aa := maps.Clone(a)
 	bb := maps.Clone(b)
@@ -613,6 +623,7 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 					"allowedIPs":   client.AllowedIPs,
 					"preSharedKey": client.PreSharedKey,
 					"keepAlive":    keepAliveStr(client.KeepAlive),
+					"reverse":      client.Reverse,
 				})
 				if err1 == nil {
 					logger.Debug("Client added on", rt.Name(), ":", client.Email)
@@ -1042,6 +1053,11 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 					err1 := rt.RemoveUser(context.Background(), oldInbound, oldEmail)
 					if err1 == nil {
 						logger.Debug("Old client deleted on", rt.Name(), ":", oldEmail)
+						// The API removal is enough only while the client is re-added; a
+						// dropped one ends its session only through a restart.
+						if !clients[0].Enable && droppedClientNeedsRestart() {
+							needRestart = true
+						}
 					} else if strings.Contains(err1.Error(), fmt.Sprintf("User %s not found.", oldEmail)) {
 						logger.Debug("User is already deleted. Nothing to do more...")
 					} else {
@@ -1066,6 +1082,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 						"allowedIPs":   clients[0].AllowedIPs,
 						"preSharedKey": clients[0].PreSharedKey,
 						"keepAlive":    keepAliveStr(clients[0].KeepAlive),
+						"reverse":      clients[0].Reverse,
 					})
 					if err1 == nil {
 						logger.Debug("Client edited on", rt.Name(), ":", clients[0].Email)
@@ -1232,7 +1249,7 @@ func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inbo
 					needRestart = true
 				} else if err1 := rt.RemoveUser(context.Background(), oldInbound, email); err1 == nil {
 					logger.Debug("Client deleted on", rt.Name(), ":", email)
-					needRestart = false
+					needRestart = droppedClientNeedsRestart()
 				} else if strings.Contains(err1.Error(), fmt.Sprintf("User %s not found.", email)) {
 					logger.Debug("User is already deleted. Nothing to do more...")
 				} else {

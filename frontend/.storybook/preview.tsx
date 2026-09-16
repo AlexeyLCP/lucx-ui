@@ -22,6 +22,7 @@ export const withTheme: Decorator = (Story, context) => {
   useLayoutEffect(() => {
     document.body.classList.remove('dark', 'light');
     document.body.classList.add(dark ? 'dark' : 'light');
+    document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
     document.documentElement.removeAttribute('data-theme');
   }, [dark]);
   // token.motion:false makes antd expand/collapse instant inside stories. The
