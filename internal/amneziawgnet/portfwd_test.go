@@ -142,8 +142,14 @@ func dialLoopback(t *testing.T, network string, port int) {
 func TestPortForwardSetReconcileOpensAndClosesListeners(t *testing.T) {
 	gs := newTestStack(t, "10.211.0.1")
 	set := NewPortForwardSet(gs, 501)
+	t.Cleanup(set.Close)
 
-	const port = 58910
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	port := ln.Addr().(*net.TCPAddr).Port
+	ln.Close()
 	inst := amneziawg.Instance{Peers: []amneziawg.Peer{
 		peerWithPortsAndIPs("a@x", fmt.Sprintf("%d", port), "10.211.0.2/32"),
 	}}

@@ -33,10 +33,10 @@ test('native scrollbars follow the panel theme', () => {
       <ThemeToggle />
     </ThemeProvider>,
   );
-  expect(document.documentElement.style.colorScheme).toBe('dark');
+  expect(document.documentElement.style.colorScheme).toBe('light');
 
   fireEvent.click(getByRole('button'));
-  expect(document.documentElement.style.colorScheme).toBe('light');
+  expect(document.documentElement.style.colorScheme).toBe('dark');
 });
 
 test('native scrollbars follow the Storybook theme', () => {

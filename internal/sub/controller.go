@@ -1010,7 +1010,6 @@ func builtinProfileURL(c *gin.Context, scheme, hostWithPort string) string {
 	return fmt.Sprintf("%s://%s%s?html=1", scheme, hostWithPort, c.Request.URL.EscapedPath())
 }
 
-
 // ApplyCommonHeaders sets common HTTP headers for subscription responses including user info, update interval, and profile title.
 func (a *SUBController) ApplyCommonHeaders(
 	c *gin.Context,

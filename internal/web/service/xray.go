@@ -2133,7 +2133,6 @@ func (s *XrayService) restartToDropClients(diff *xray.HotDiff) bool {
 	return restart
 }
 
-
 // tryHotApply attempts to reconcile the running Xray instance with newCfg
 // through the core gRPC API (HandlerService for inbounds/outbounds,
 // RoutingService for rules/balancers). It returns true when the running
