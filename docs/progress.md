@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.234 — CI: drop unused checkQwdttSingle (2026-09-16)
+
+golangci unused after lucx.233. Wrapper removed. CSQTT inbound unchanged.
+
+**lucxVersion:** lucx.234
+
+---
+
 ## lucx.233 — CSQTT inbound sidecar v1 (2026-09-16)
 
 Inbound `csqtt`: LucX supervises amurcanov/csqtt rust-server (TURN/RTP). Not qWDTT. Share `csqtt://connect?v=2…`. One per host; mutex vs qWDTT. One password = one device. GitHub tarball builds musl via `pack-sidecars.sh` (pin `ace21228`). SourceCraft: Cores upload. No Xray, nodes, online/traffic.
