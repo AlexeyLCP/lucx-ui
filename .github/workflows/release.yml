@@ -289,11 +289,12 @@ jobs:
           for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" x-ui/bin/install-awg-module.sh x-ui/bin/lucx-pins.txt; do
             grep -Fxq "$f" /tmp/list || { echo "missing $f"; exit 1; }
           done
-          for c in caddy-naive naive-client olcrtc qwdtt csqtt mieru mieru-client trusttunnel trusttunnel-client anytls tproxy nginx; do
+          for c in caddy-naive naive-client olcrtc qwdtt csqtt mieru mieru-client trusttunnel trusttunnel-client anytls tproxy; do
             grep -Fxq "x-ui/bin/${c}-linux-${P}" /tmp/list || { echo "missing ${c}-linux-${P}"; exit 1; }
           done
           if [ "$P" = amd64 ]; then
             grep -Fxq "x-ui/bin/mtproxy-linux-amd64" /tmp/list || { echo "missing mtproxy-linux-amd64"; exit 1; }
+            grep -Fxq "x-ui/bin/nginx-linux-amd64" /tmp/list || { echo "missing nginx-linux-amd64"; exit 1; }
           fi
           if [ "$P" != amd64 ] && grep -E 'linux-amd64' /tmp/list; then
             echo "arm64 tarball contains amd64 binaries" >&2

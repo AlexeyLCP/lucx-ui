@@ -70,8 +70,10 @@ func TestClassify_RealityVsCoverVsUDP(t *testing.T) {
 
 func TestBuildPreview_MovesPublic443(t *testing.T) {
 	rows := BuildPreview(443, "node.example.com", []*model.Inbound{
-		{Id: 1, Protocol: model.VLESS, Port: 443, Remark: "R",
-			StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"]}}`},
+		{
+			Id: 1, Protocol: model.VLESS, Port: 443, Remark: "R",
+			StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"]}}`,
+		},
 		{Id: 2, Protocol: model.Cover, Port: 443, Settings: `{"hostname":"vpn.example.com"}`},
 		{Id: 3, Protocol: model.AWG, Port: 443},
 	})

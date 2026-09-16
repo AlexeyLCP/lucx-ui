@@ -161,34 +161,20 @@ if ! have "anytls-linux-${ARCH}"; then
     rm -rf /tmp/anytls
 fi
 
-# nginx stream + ssl_preread for SNI gateway. PIN: nginx.org 1.30.5 (stable).
-# ssl_preread needs no OpenSSL. Zig is already in release.yml for CSQTT.
-if ! have "nginx-linux-${ARCH}"; then
+# nginx stream + ssl_preread for SNI gateway. PIN: nginx.org 1.30.5.
+# amd64 only (native gcc). arm64 skip — same as mtproxy.
+if ! have "nginx-linux-${ARCH}" && [[ "${ARCH}" == amd64 ]]; then
     NGINX_VER=1.30.5
     fetch -O /tmp/nginx.tar.gz "https://nginx.org/download/nginx-${NGINX_VER}.tar.gz"
     rm -rf /tmp/nginx-src
     mkdir /tmp/nginx-src
     tar -xzf /tmp/nginx.tar.gz -C /tmp/nginx-src --strip-components=1
-    ngx_cc=/tmp/ngx-cc-${ARCH}
-    case "${ARCH}" in
-        amd64)
-            echo '#!/bin/sh' >"${ngx_cc}"
-            echo 'exec gcc "$@"' >>"${ngx_cc}"
-            ;;
-        arm64)
-            echo '#!/bin/sh' >"${ngx_cc}"
-            echo 'exec aarch64-linux-gnu-gcc "$@"' >>"${ngx_cc}"
-            ;;
-        *) echo "no nginx for ${ARCH}" >&2; exit 1 ;;
-    esac
-    chmod +x "${ngx_cc}"
     (
         cd /tmp/nginx-src
         ./configure \
             --prefix=/tmp/nginx-pfx \
             --error-log-path=stderr \
             --pid-path=/tmp/nginx-sidecar.pid \
-            --with-cc="${ngx_cc}" \
             --with-stream \
             --with-stream_ssl_preread_module \
             --without-http_rewrite_module \
@@ -200,5 +186,5 @@ if ! have "nginx-linux-${ARCH}"; then
         cp objs/nginx "${DEST}/nginx-linux-${ARCH}"
     )
     chmod +x "${DEST}/nginx-linux-${ARCH}"
-    rm -rf /tmp/nginx-src /tmp/nginx.tar.gz "${ngx_cc}"
+    rm -rf /tmp/nginx-src /tmp/nginx.tar.gz
 fi
