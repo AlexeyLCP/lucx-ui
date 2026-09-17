@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.244 — SNI gateway: AnyTLS + TrustTunnel (2026-09-17)
+
+Classify AnyTLS/TrustTunnel as TLS passthrough (SNI from cert hostname). Loopback bind after Apply. Sub links use Host :443 (sidecarHostLinks reads Hosts, not only stream externalProxy). All REALITY serverNames in nginx map.
+
+**lucxVersion:** lucx.244
+
+---
+
 ## lucx.243 — CSQTT device_id survives inbound delete (2026-09-17)
 
 Deleting a CSQTT inbound stopped the process but left `bin/tunnel/csqtt-data/csqtt.db`. Recreate + re-import on iOS used a new device_id; the rust server still wanted `main_device_id` from the first connect. Password change did not unbind. Wipe data dir on Remove; wipe sqlite when the panel password changes; `--device-id` field on the inbound card.

@@ -19,7 +19,8 @@ type PreviewRow struct {
 	Remark      string `json:"remark"`
 	Protocol    string `json:"protocol"`
 	Class       string `json:"class"`
-	SNI         string `json:"sni"`
+	SNI         string   `json:"sni"`
+	SNIs        []string `json:"snis,omitempty"`
 	OldListen   string `json:"oldListen"`
 	NewListen   string `json:"newListen"`
 	OldPort     int    `json:"oldPort"`
@@ -53,6 +54,14 @@ func parseStream(raw string) (network, security string) {
 }
 
 func streamServerName(raw string) string {
+	ns := streamServerNames(raw)
+	if len(ns) == 0 {
+		return ""
+	}
+	return ns[0]
+}
+
+func streamServerNames(raw string) []string {
 	var s struct {
 		RealitySettings struct {
 			ServerNames []string `json:"serverNames"`
@@ -64,20 +73,26 @@ func streamServerName(raw string) string {
 		} `json:"tlsSettings"`
 	}
 	_ = json.Unmarshal([]byte(raw), &s)
-	for _, n := range s.RealitySettings.ServerNames {
-		n = strings.ToLower(strings.TrimSpace(n))
-		if n != "" {
-			return n
+	var out []string
+	seen := map[string]bool{}
+	add := func(n string) {
+		n = nginxMapKey(n)
+		if n == "" || seen[n] {
+			return
 		}
+		seen[n] = true
+		out = append(out, n)
+	}
+	for _, n := range s.RealitySettings.ServerNames {
+		add(n)
 	}
 	dest := s.RealitySettings.Dest
 	if dest == "" {
 		dest = s.RealitySettings.Target
 	}
-	if h := destHost(dest); h != "" {
-		return h
-	}
-	return strings.ToLower(strings.TrimSpace(s.TLSSettings.ServerName))
+	add(destHost(dest))
+	add(s.TLSSettings.ServerName)
+	return out
 }
 
 func destHost(dest string) string {
@@ -112,9 +127,21 @@ func Classify(ib *model.Inbound) (class, sni string) {
 			return "", ""
 		}
 		return ClassCaddy, cfg.Hostname
+	case model.Anytls:
+		cfg, ok := AnytlsConfigFromInbound(ib)
+		if !ok {
+			return "", ""
+		}
+		return ClassPassthrough, cfg.SNI
+	case model.TrustTunnel:
+		cfg, ok := TrustTunnelConfigFromInbound(ib)
+		if !ok {
+			return "", ""
+		}
+		return ClassPassthrough, cfg.Hostname
 	case model.Gateway, model.AWG, model.Olcrtc, model.Qwdtt, model.Csqtt,
-		model.Mieru, model.Anytls, model.MTProto, model.Tunnel, model.WireGuard,
-		model.Hysteria, model.TrustTunnel:
+		model.Mieru, model.MTProto, model.Tunnel, model.WireGuard,
+		model.Hysteria:
 		return "", ""
 	}
 	netw, sec := parseStream(ib.StreamSettings)
@@ -225,6 +252,7 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound) [
 			Protocol:    string(ib.Protocol),
 			Class:       class,
 			SNI:         sni,
+			SNIs:        streamServerNames(ib.StreamSettings),
 			OldListen:   oldListen,
 			NewListen:   newListen,
 			OldPort:     oldPort,
@@ -281,15 +309,19 @@ func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute 
 		if selected != nil && !selected[r.InboundID] {
 			continue
 		}
-		sni := nginxMapKey(r.SNI)
-		if sni == "" {
-			continue
+		names := r.SNIs
+		if len(names) == 0 && r.SNI != "" {
+			names = []string{r.SNI}
 		}
-		if seen[sni] {
-			continue
+		dest := gatewayLoopbackDest(r.NewPort)
+		for _, sni := range names {
+			sni = nginxMapKey(sni)
+			if sni == "" || seen[sni] {
+				continue
+			}
+			seen[sni] = true
+			out = append(out, GatewayRoute{SNI: sni, Dest: dest})
 		}
-		seen[sni] = true
-		out = append(out, GatewayRoute{SNI: sni, Dest: gatewayLoopbackDest(r.NewPort)})
 	}
 	return out
 }

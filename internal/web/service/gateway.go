@@ -89,7 +89,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		if err := db.Model(ib).Select("listen", "port", "stream_settings").Updates(ib).Error; err != nil {
 			return err
 		}
-		if row.HostAddress != "" && row.Class == tunnel.ClassPassthrough {
+		if row.HostAddress != "" && row.Class != tunnel.ClassSkip {
 			h := model.Host{
 				GroupId:   random.NumLower(16),
 				InboundId: ib.Id,

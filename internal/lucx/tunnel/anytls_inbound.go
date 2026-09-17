@@ -38,6 +38,9 @@ func AnytlsConfigFromInbound(ib *model.Inbound) (AnytlsConfig, bool) {
 	if ib.Port > 0 {
 		cfg.Port = ib.Port
 	}
+	if IsLoopbackListen(ib.Listen) {
+		cfg.Bind = "127.0.0.1"
+	}
 	return cfg, true
 }
 

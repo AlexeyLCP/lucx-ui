@@ -31,6 +31,7 @@ type AnytlsConfig struct {
 	SNI      string `json:"sni"`
 	CertFile string `json:"certFile"`
 	KeyFile  string `json:"keyFile"`
+	Bind     string `json:"-"`
 }
 
 // DefaultAnytlsConfig returns factory defaults (port 8443, as in the
@@ -64,7 +65,11 @@ func (c AnytlsConfig) Validate() error {
 
 // ListenAddr is the anytls-server -l value.
 func (c AnytlsConfig) ListenAddr() string {
-	return net.JoinHostPort("0.0.0.0", strconv.Itoa(c.Port))
+	host := strings.TrimSpace(c.Bind)
+	if host == "" || host == "0.0.0.0" || host == "::" {
+		host = "0.0.0.0"
+	}
+	return net.JoinHostPort(host, strconv.Itoa(c.Port))
 }
 
 // ResolveCertPaths returns explicit config paths, else the panel ACME pair.

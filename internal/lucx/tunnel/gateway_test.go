@@ -58,6 +58,14 @@ func TestClassify_RealityVsCoverVsUDP(t *testing.T) {
 	if class != ClassCaddy || sni != "vpn.example.com" {
 		t.Fatalf("cover: %s %s", class, sni)
 	}
+	class, sni = Classify(&model.Inbound{Protocol: model.Anytls, Settings: `{"sni":"vpn.example.com"}`})
+	if class != ClassPassthrough || sni != "vpn.example.com" {
+		t.Fatalf("anytls: %s %s", class, sni)
+	}
+	class, sni = Classify(&model.Inbound{Protocol: model.TrustTunnel, Settings: `{"hostname":"tt.example.com","listen":"0.0.0.0:8443"}`})
+	if class != ClassPassthrough || sni != "tt.example.com" {
+		t.Fatalf("trusttunnel: %s %s", class, sni)
+	}
 	class, _ = Classify(&model.Inbound{Protocol: model.AWG})
 	if class != "" {
 		t.Fatalf("awg: %s", class)
@@ -155,6 +163,17 @@ func TestRoutesFromPreview_Selected(t *testing.T) {
 	}
 	got := RoutesFromPreview(rows, map[int]bool{2: true})
 	if len(got) != 1 || got[0].SNI != "b.example.com" || got[0].Dest != "127.0.0.1:8443" {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestRoutesFromPreview_AllRealitySNIs(t *testing.T) {
+	rows := []PreviewRow{{
+		InboundID: 1, SNI: "www.microsoft.com",
+		SNIs: []string{"www.microsoft.com", "microsoft.com"}, NewPort: 1443,
+	}}
+	got := RoutesFromPreview(rows, map[int]bool{1: true})
+	if len(got) != 2 {
 		t.Fatalf("%+v", got)
 	}
 }

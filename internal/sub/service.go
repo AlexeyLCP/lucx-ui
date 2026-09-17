@@ -3413,6 +3413,16 @@ func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
 	if strings.TrimSpace(cfg.Password) == "" {
 		return ""
 	}
+	if joined := s.sidecarHostLinks(inbound, "", func(dest string, port int, remark string) string {
+		one := cfg
+		one.Port = port
+		if remark == "" {
+			remark = inbound.Remark
+		}
+		return one.ClientLink(dest, remark)
+	}); joined != "" {
+		return joined
+	}
 	host := s.resolveInboundAddress(inbound)
 	if host == "" {
 		return ""
@@ -3436,6 +3446,11 @@ func (s *SubService) genTproxyLink(inbound *model.Inbound) string {
 func (s *SubService) sidecarHostLinks(inbound *model.Inbound, email string, render func(dest string, port int, remark string) string) string {
 	stream := unmarshalStreamSettings(inbound.StreamSettings)
 	raw, _ := stream["externalProxy"].([]any)
+	if len(raw) == 0 {
+		for _, ep := range s.hostEndpoints(inbound, "raw") {
+			raw = append(raw, ep)
+		}
+	}
 	if len(raw) == 0 {
 		return ""
 	}
