@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined TR README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Gelişmiş Xray paneli** — AmneziaWG (çekirdek + yerel, 3.1'e kadar), mevcut AWG içe aktarma, denetimli tüneller ve sidecar outbound'lar (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), Clash / Amnezia `vpn://` / Happ abonelikleri, RoscomVPN geo ve Happ yönlendirme.
+> **Gelişmiş Xray paneli** — AmneziaWG (çekirdek + yerel, 3.1'e kadar), mevcut AWG içe aktarma, denetimli tüneller ve sidecar outbound'lar (NaiveProxy · olcRTC · qWDTT · CSQTT · mieru · TrustTunnel · Telegram WEB proxy), Clash / Amnezia `vpn://` / Happ abonelikleri, RoscomVPN geo ve Happ yönlendirme.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -70,7 +70,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Neden LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve upstream'de olmayanları ekler: **çekirdek AmneziaWG** (upstream'in yerel `amneziawg`'siyle yan yana), **mevcut AWG içe aktarma**, **tünel sidecar'ları** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), **zengin abonelikler** (Clash Meta AWG, Amnezia `vpn://`, Happ) ve **RoscomVPN geo paketleri + Happ profilleri** (geodata browser [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 ile upstream'de):
+[3x-ui](https://github.com/MHSanaei/3x-ui), modern React 19 + Ant Design 6 ön yüzüne sahip mükemmel bir çoklu protokol panelidir. LucX-UI, 3x-ui'nin sunduğu her şeyi korur ve upstream'de olmayanları ekler: **çekirdek AmneziaWG** (upstream'in yerel `amneziawg`'siyle yan yana), **mevcut AWG içe aktarma**, **tünel sidecar'ları** (NaiveProxy · olcRTC · qWDTT · CSQTT · mieru · TrustTunnel · Telegram WEB proxy), **zengin abonelikler** (Clash Meta AWG, Amnezia `vpn://`, Happ) ve **RoscomVPN geo paketleri + Happ profilleri** (geodata browser [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0 ile upstream'de):
 
 <details>
 <summary><b>3x-ui ile karşılaştırma</b></summary>
@@ -93,6 +93,7 @@ docker compose --profile postgres up -d
 | NaiveProxy → Xray yönlendirme (SOCKS loopback köprüsü, isteğe bağlı) | ✗ | ✓ |
 | olcRTC tünel sidecar'ı (meet odaları üzerinden WebRTC, denetimli) | ✗ | ✓ |
 | qWDTT tünel sidecar'ı (VK TURN üzerinde WireGuard, denetimli) | ✗ | ✓ |
+| CSQTT tunnel sidecar (TURN/RTP, supervised; not qWDTT) | ✗ | ✓ |
 | mieru tünel sidecar'ı (`mita`, istemci başına trafik, denetimli) | ✗ | ✓ |
 | TrustTunnel sidecar'ı (AdGuard VPN protokolü, HTTPS benzeri, denetimli) | ✗ | ✓ |
 | Sidecar outbound'lar (Naive / mieru / TrustTunnel istemci → SOCKS, routing ve havuzlar) | ✗ | ✓ |
@@ -114,7 +115,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 
 ## 🌟 LucX-UI Hakkında
 
-**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.7.0** ile senkron). Stok Xray protokollerinin ötesinde: iki modda **AmneziaWG** — çekirdek sidecar `awg` (MTProto/`mtg` ile aynı fikir) ve upstream'in yerel `amneziawg`'si, **AWG 3.1**'e kadar; awg-multi / toolza3 / Docker **içe aktarma**; panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ), **Telegram WEB proxy** (`tproxy`) ve **stok RoscomVPN geo** (kategori tarayıcısı upstream v3.7.0 ile ortak). Katı `LUCX-HOOK` ile %100 upstream uyumu.
+**LucX-UI**, [3x-ui](https://github.com/MHSanaei/3x-ui)'nun geliştirilmiş fork'udur (upstream **v3.7.0** ile senkron). Stok Xray protokollerinin ötesinde: iki modda **AmneziaWG** — çekirdek sidecar `awg` (MTProto/`mtg` ile aynı fikir) ve upstream'in yerel `amneziawg`'si, **AWG 3.1**'e kadar; awg-multi / toolza3 / Docker **içe aktarma**; panel denetimli **tüneller** (NaiveProxy, olcRTC, qWDTT, CSQTT, mieru, TrustTunnel), genişletilmiş **abonelikler** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ), **Telegram WEB proxy** (`tproxy`) ve **stok RoscomVPN geo** (kategori tarayıcısı upstream v3.7.0 ile ortak). Katı `LUCX-HOOK` ile %100 upstream uyumu.
 
 <details>
 <summary><b>🛡️ AmneziaWG (AWG) Özellikleri</b></summary>
@@ -133,7 +134,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 </details>
 
 <details>
-<summary><b>🚇 Tünel Sidecar'ları (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel, Telegram WEB proxy)</b></summary>
+<summary><b>🚇 Tünel Sidecar'ları (NaiveProxy, olcRTC, qWDTT, CSQTT, mieru, TrustTunnel, Telegram WEB proxy)</b></summary>
 
 - **NaiveProxy** — `forward_proxy` eklentili Caddy ([klzgrad](https://github.com/klzgrad/forwardproxy) fork'u, HTTP/2 padding) panel denetimli bir sidecar olarak çalışır: render edilmiş Caddyfile, crash-revive reconcile ile start/stop/restart ve üç seviyeli sağlık sondası (process → TCP → TLS).
 - **İstemci başına kimlik bilgileri** — paneldeki her etkin istemci otomatik olarak kişisel bir `basic_auth` çifti alır (panel sırrından türetilir, saklanmaz); istemciyi devre dışı bırakmak bir sonraki reconcile'da iptal eder.
@@ -142,6 +143,7 @@ Bir çekirdek sidecar'ı (3x-ui'nin MTProto `mtg`'si gibi), AWG'nin gerçek bir 
 - **Xray üzerinden yönlendir (isteğe bağlı)** — anahtar, Caddy'nin gizli loopback SOCKS köprüsü üzerinden hedeflere bağlanmasını sağlar (`upstream socks5://127.0.0.1:…`, yerel forward_proxy — yama yok), etiket `lucx-tunnel-naive`; böylece NaiveProxy trafiği tam Xray yönlendirme / sniffing / alan adı kurallarını alır (MTProto ile aynı). Varsayılan doğrudan çıkıştır.
 - **olcRTC** — yasal görüntülü arama odası üzerinden TCP-over-WebRTC tüneli ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)).
 - **qWDTT** — VK Calls TURN üzerinden WireGuard ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)).
+- **CSQTT** — TURN/RTP ([amurcanov/csqtt](https://github.com/amurcanov/csqtt), PolyForm NC). Not qWDTT. iOS: [anton48/vk-turn-proxy-ios](https://github.com/anton48/vk-turn-proxy-ios).
 - **mieru** — TLS yerine özel bir protokol üzerinden sansüre dayanıklı proxy ([enfein/mieru](https://github.com/enfein/mieru) `mita`, GPL-3.0). Panel istemcisi başına HMAC kimlik bilgileriyle çok istemcili, istemci başına trafik & çevrimiçi durumu ve `mierus://` paylaşım bağlantısı. İstemciler: mieru CLI, mihomo, Clash Verge Rev, husi, Exclave.
 - **TrustTunnel** — AdGuard VPN protokolü ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel), Apache-2.0): trafik HTTPS'den ayırt edilemez (HTTP/1.1 + HTTP/2 + QUIC). Panelin ACME sertifikasını yeniden kullanır (sertifikası verilmiş bir alan adı gerekir) ve Flutter / CLI istemcileri için `tt://?` deep-link üretir.
 - **Telegram WEB proxy (`tproxy`)** — `tproxy-server` + resmi MTProxy + Caddy TLS reverse_proxy, `hostname:443`, paylaşım `t.me/webproxy`. Xray üzerinden yönlendirme şu an **park edilmiş** (doğrudan MTProxy çıkışı; bkz. lucx.211).
@@ -226,6 +228,7 @@ Bu proje kendi kodu için **iki lisans** ve üçüncü taraf ikili/veriler için
 | NaiveProxy / `bin/naive-client-*` ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
 | `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
 | `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
+| `bin/csqtt-*` ([amurcanov/csqtt](https://github.com/amurcanov/csqtt)) | **PolyForm Noncommercial 1.0.0** |
 | `bin/mieru-*` (`mita`, [enfein/mieru](https://github.com/enfein/mieru)) | **GPL-3.0** |
 | `bin/trusttunnel-*` ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)) | **Apache-2.0** |
 | AmneziaWG kernel module & tools ([amnezia-vpn](https://github.com/amnezia-vpn)) | **GPL-2.0** (modül; host'a kurulur) |
@@ -258,7 +261,7 @@ Tüm açık kaynak projelere ve insanlara teşekkürler.
 <details>
 <summary><b>Projeler & ilham</b></summary>
 
-[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
+[MHSanaei/3x-ui](https://github.com/MHSanaei/3x-ui) · [amnezia-vpn](https://github.com/amnezia-vpn) · [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) / [forwardproxy](https://github.com/klzgrad/forwardproxy) · [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) · [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) · [amurcanov/csqtt](https://github.com/amurcanov/csqtt) · [anton48/vk-turn-proxy-ios](https://github.com/anton48/vk-turn-proxy-ios) · [enfein/mieru](https://github.com/enfein/mieru) · [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) · [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) · [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui) · [hydraponique](https://github.com/hydraponique) RoscomVPN ([geoip](https://github.com/hydraponique/roscomvpn-geoip) / [geosite](https://github.com/hydraponique/roscomvpn-geosite) / [routing](https://github.com/hydraponique/roscomvpn-routing)) · [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) · [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) · [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) · [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script) · [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) · [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client) · [refraction-networking/utls](https://github.com/refraction-networking/utls)
 
 </details>
 

@@ -1,7 +1,7 @@
 <!-- LUCX-HOOK: LucX-UI fork README — Streamlined RU README. Keep in sync with LICENSING.md and AGENTS.md. -->
 # LucX-UI
 
-> **Продвинутая панель Xray** — AmneziaWG (ядро + родной, до 3.1), импорт существующего AWG, туннельные сайдкары и sidecar outbounds (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), подписки Clash / Amnezia `vpn://` / Happ, RoscomVPN geo + Happ routing.
+> **Продвинутая панель Xray** — AmneziaWG (ядро + родной, до 3.1), импорт существующего AWG, туннельные сайдкары и sidecar outbounds (NaiveProxy · olcRTC · qWDTT · CSQTT · mieru · TrustTunnel · Telegram WEB proxy), подписки Clash / Amnezia `vpn://` / Happ, RoscomVPN geo + Happ routing.
 
 <p align="center">
   <a href="https://github.com/AlexeyLCP/lucx-ui/releases"><img src="https://img.shields.io/github/v/release/AlexeyLCP/lucx-ui" alt="Release"></a>
@@ -88,7 +88,7 @@ docker compose --profile postgres up -d
 
 ## 🛡️ Почему LucX-UI?
 
-[3x-ui](https://github.com/MHSanaei/3x-ui) — отличная мультипротокольная панель с современным React 19 + Ant Design 6 фронтендом. LucX-UI сохраняет всё, что есть у 3x-ui, и добавляет то, чего у апстрима нет: **kernel AmneziaWG** (рядом с родным `amneziawg` апстрима), **импорт существующего AWG**, **туннельные сайдкары** (NaiveProxy · olcRTC · qWDTT · mieru · TrustTunnel · Telegram WEB proxy), **расширенные подписки** (Clash Meta AWG, Amnezia `vpn://`, Happ) и **пакеты RoscomVPN geo + профили Happ** (geodata browser уже в апстриме с [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0):
+[3x-ui](https://github.com/MHSanaei/3x-ui) — отличная мультипротокольная панель с современным React 19 + Ant Design 6 фронтендом. LucX-UI сохраняет всё, что есть у 3x-ui, и добавляет то, чего у апстрима нет: **kernel AmneziaWG** (рядом с родным `amneziawg` апстрима), **импорт существующего AWG**, **туннельные сайдкары** (NaiveProxy · olcRTC · qWDTT · CSQTT · mieru · TrustTunnel · Telegram WEB proxy), **расширенные подписки** (Clash Meta AWG, Amnezia `vpn://`, Happ) и **пакеты RoscomVPN geo + профили Happ** (geodata browser уже в апстриме с [PR #6165](https://github.com/MHSanaei/3x-ui/pull/6165) / v3.7.0):
 
 <details>
 <summary><b>Сравнение с 3x-ui</b></summary>
@@ -112,6 +112,7 @@ docker compose --profile postgres up -d
 | NaiveProxy → Xray routing (SOCKS loopback-мост, опционально) | ✗ | ✓ |
 | Туннельный сайдкар olcRTC (WebRTC через meet-комнаты, под надзором) | ✗ | ✓ |
 | Туннельный сайдкар qWDTT (WireGuard через VK TURN, под надзором) | ✗ | ✓ |
+| Туннельный сайдкар CSQTT (TURN/RTP, под надзором; не qWDTT) | ✗ | ✓ |
 | Туннельный сайдкар mieru (`mita`, per-client трафик, под надзором) | ✗ | ✓ |
 | Сайдкар TrustTunnel (протокол AdGuard VPN, похож на HTTPS, под надзором) | ✗ | ✓ |
 | Sidecar outbounds (клиент Naive / mieru / TrustTunnel → SOCKS, routing и пулы) | ✗ | ✓ |
@@ -132,7 +133,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 
 ## 🌟 О проекте LucX-UI
 
-**LucX-UI** — расширенный форк [3x-ui](https://github.com/MHSanaei/3x-ui) (сейчас синхронизирован с upstream **v3.7.0**). Поверх стоковых протоколов Xray: **AmneziaWG** в двух режимах — kernel sidecar `awg` (как MTProto/`mtg`) и родной `amneziawg` апстрима, до **AWG 3.1**; **импорт** awg-multi / toolza3 / Docker; **туннельные сайдкары** под надзором панели (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel), расширенные **подписки** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), **Telegram WEB proxy** (`tproxy`) и **сток RoscomVPN geo** (браузер категорий — общий с апстримом v3.7.0). 100% совместимость с upstream через строгую изоляцию `LUCX-HOOK`.
+**LucX-UI** — расширенный форк [3x-ui](https://github.com/MHSanaei/3x-ui) (сейчас синхронизирован с upstream **v3.7.0**). Поверх стоковых протоколов Xray: **AmneziaWG** в двух режимах — kernel sidecar `awg` (как MTProto/`mtg`) и родной `amneziawg` апстрима, до **AWG 3.1**; **импорт** awg-multi / toolza3 / Docker; **туннельные сайдкары** под надзором панели (NaiveProxy, olcRTC, qWDTT, CSQTT, mieru, TrustTunnel), расширенные **подписки** (Clash Meta AWG, Amnezia `/awg/` + `vpn://`, Happ routing), **Telegram WEB proxy** (`tproxy`) и **сток RoscomVPN geo** (браузер категорий — общий с апстримом v3.7.0). 100% совместимость с upstream через строгую изоляцию `LUCX-HOOK`.
 
 <details>
 <summary><b>🛡️ Возможности AmneziaWG (AWG)</b></summary>
@@ -151,7 +152,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 </details>
 
 <details>
-<summary><b>🚇 Туннельные сайдкары (NaiveProxy, olcRTC, qWDTT, mieru, TrustTunnel, Telegram WEB proxy)</b></summary>
+<summary><b>🚇 Туннельные сайдкары (NaiveProxy, olcRTC, qWDTT, CSQTT, mieru, TrustTunnel, Telegram WEB proxy)</b></summary>
 
 - **NaiveProxy** — Caddy с плагином `forward_proxy` (форк [klzgrad](https://github.com/klzgrad/forwardproxy), HTTP/2 padding) работает как сайдкар под надзором панели: рендер Caddyfile, start/stop/restart с crash-revive reconcile и трёхуровневым health-probe (process → TCP → TLS).
 - **Per-client креды** — каждый включённый клиент панели автоматически получает личную пару `basic_auth` (выводится из секрета панели, ничего не хранится); disable клиента отзывает креды на следующем reconcile.
@@ -160,6 +161,7 @@ Kernel sidecar (как у MTProto `mtg` в 3x-ui) означает, что AWG �
 - **Маршрут через Xray (опционально)** — Caddy ходит к назначениям через скрытый loopback SOCKS-мост (`upstream socks5://127.0.0.1:…`, нативный forward_proxy — без патча бинарника) с тегом `lucx-tunnel-naive`, так что трафик NaiveProxy получает полный роутинг / sniffing / доменные правила Xray (как MTProto). По умолчанию — прямой egress.
 - **olcRTC** — TCP-over-WebRTC туннель через легальную видео-комнату ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc), WTFPL): Jitsi / Яндекс Телемост / WB Stream. На VPS нет публичных портов — бинарник входит в комнату как тихий участник. Панель рендерит server YAML, супервизит процесс и отдаёт копируемый `olcrtc://` URI для клиентов owenclave / olcbox.
 - **qWDTT** — WireGuard через TURN-релеи VK Calls ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android), GPL-3.0 server). Нужен root (TUN + NAT). Панель супервизит процесс, отдаёт `qwdtt://` / `wdtt://` и JSON-подписку для Android-клиента. Оператор передаёт живые VK call hash.
+- **CSQTT** — TURN/RTP туннель ([amurcanov/csqtt](https://github.com/amurcanov/csqtt), PolyForm NC). Не совместим с qWDTT (не на одном хосте). Один пароль = одно устройство. Share `csqtt://connect?v=2…`. Клиенты: Android CSQTT APK, iOS [anton48/vk-turn-proxy-ios](https://github.com/anton48/vk-turn-proxy-ios) в режиме CSQTT. Коммерческий грант LucX на CSQTT не распространяется.
 - **mieru** — censorship-resistant прокси поверх собственного протокола вместо TLS ([enfein/mieru](https://github.com/enfein/mieru) `mita`, GPL-3.0). Мульти-клиент с HMAC-кредами на каждого клиента панели, per-client трафик и онлайн, шер-ссылка `mierus://`. Клиенты: mieru CLI, mihomo, Clash Verge Rev, husi, Exclave.
 - **TrustTunnel** — протокол AdGuard VPN ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel), Apache-2.0): трафик неотличим от HTTPS (HTTP/1.1 + HTTP/2 + QUIC). Использует ACME-серт панели (нужен домен с выпущенным сертом), отдаёт `tt://?` deep-link для Flutter / CLI клиентов.
 - **Telegram WEB proxy (`tproxy`)** — сайдкар `tproxy-server` + официальный MTProxy + Caddy TLS reverse_proxy на `hostname:443`, share `t.me/webproxy`. Маршрут «через Xray» сейчас **припаркован** (direct egress MTProxy; см. lucx.211).
@@ -257,12 +259,13 @@ AWG kernel-модуль собирается автоматически уста
 | NaiveProxy / `bin/naive-client-*` ([klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy)) | **BSD-3-Clause** |
 | `bin/olcrtc-*` ([openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc)) | **WTFPL** |
 | `bin/qwdtt-*` ([SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android)) | **GPL-3.0** |
+| `bin/csqtt-*` ([amurcanov/csqtt](https://github.com/amurcanov/csqtt)) | **PolyForm Noncommercial 1.0.0** (amurcanov; грант LucX не покрывает) |
 | `bin/mieru-*` (`mita`, [enfein/mieru](https://github.com/enfein/mieru)) | **GPL-3.0** |
 | `bin/trusttunnel-*` ([TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel)) | **Apache-2.0** |
 | AmneziaWG kernel module & tools ([amnezia-vpn](https://github.com/amnezia-vpn)) | **GPL-2.0** (модуль; ставится на хост) |
 | Сток geo `.dat` (Loyalsoldier / IR / RU / ROSCOM) | Условия каждого датасета (см. LICENSING.md) |
 
-Туннельные бинарники — **дочерние процессы**, панель их не линкует. GPL у qWDTT относится к этому бинарнику и его исходникам, не к PolyForm-коду LucX.
+Туннельные бинарники — **дочерние процессы**, панель их не линкует. GPL у qWDTT относится к этому бинарнику и его исходникам, не к PolyForm-коду LucX. CSQTT — чужой PolyForm NC: редистрибуция с их LICENSE; коммерческое разрешение LucX его не покрывает.
 
 </details>
 
@@ -297,6 +300,8 @@ LucX-UI стоит на плечах многих open-source проектов �
 | [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) + Caddy | Бинарник сайдкара NaiveProxy | MIT + Apache-2.0 |
 | [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | Ядро olcRTC | WTFPL |
 | [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) | Сервер qWDTT | GPL-3.0 |
+| [amurcanov/csqtt](https://github.com/amurcanov/csqtt) | Сервер CSQTT | PolyForm NC |
+| [anton48/vk-turn-proxy-ios](https://github.com/anton48/vk-turn-proxy-ios) | iOS-клиент CSQTT | GPL-3.0 |
 | [enfein/mieru](https://github.com/enfein/mieru) | Сервер mieru `mita` | GPL-3.0 |
 | [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) | Эндпоинт TrustTunnel | Apache-2.0 |
 | [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive) | Референс интеграции Caddyfile | — |
