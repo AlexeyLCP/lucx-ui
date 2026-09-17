@@ -217,8 +217,11 @@ func TestRenderTproxyCaddyfile(t *testing.T) {
 		}
 	}
 	loop := RenderTproxyCaddyfile("proxy.example.com", 8443, "/c.pem", "/k.pem", 24002, true)
-	if !strings.Contains(loop, "bind 127.0.0.1") {
+	if !strings.Contains(loop, "bind 127.0.0.1") || !strings.Contains(loop, "proxy_protocol") {
 		t.Fatalf("loopback bind:\n%s", loop)
+	}
+	if strings.Contains(got, "proxy_protocol") {
+		t.Fatalf("public tproxy should not wrap PROXY:\n%s", got)
 	}
 }
 

@@ -5,27 +5,16 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { useTranslation } from 'react-i18next';
-import { Alert, Input } from 'antd';
-
-import { FormField } from '@/components/form/rhf';
+import { Alert } from 'antd';
 
 export default function GatewayFields() {
   const { t } = useTranslation();
   return (
-    <>
-      <Alert
-        type="info"
-        showIcon
-        style={{ marginBottom: 12 }}
-        message={t('pages.inbounds.form.gatewayNote')}
-      />
-      <FormField
-        name={['settings', 'publicHost']}
-        label={t('pages.masking.publicHost')}
-        tooltip={t('pages.masking.publicHostHint')}
-      >
-        <Input />
-      </FormField>
-    </>
+    <Alert
+      type="info"
+      showIcon
+      style={{ marginBottom: 12 }}
+      message={t('pages.inbounds.form.gatewayNote')}
+    />
   );
 }

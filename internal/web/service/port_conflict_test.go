@@ -1037,3 +1037,13 @@ func TestCheckPortConflict_AppliedGatewayOwns443(t *testing.T) {
 		t.Fatal("applied gateway still owns 443")
 	}
 }
+
+func TestCheckPortConflict_BindIPAllowsLoopback443(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflict(t, "gw", "203.0.113.5", 443, model.Gateway, ``, `{"snapshot":[{"inboundId":1,"listen":"","port":443}],"bindIP":"203.0.113.5"}`)
+
+	cover := &model.Inbound{Tag: "cover-1", Protocol: model.Cover, Listen: "127.0.0.1", Port: 443, Settings: `{"hostname":"vpn.example.com"}`}
+	if got, err := (&InboundService{}).checkPortConflict(cover, 0); err != nil || got != nil {
+		t.Fatalf("loopback 443 must not clash with bind IP: %v %+v", err, got)
+	}
+}

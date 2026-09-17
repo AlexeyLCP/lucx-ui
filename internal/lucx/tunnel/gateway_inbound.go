@@ -47,7 +47,8 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound) (Ins
 	if port <= 0 {
 		port = gatewayDefaultPort
 	}
-	rows := BuildPreview(port, cfg.PublicHost, others)
+	bindIP := strings.TrimSpace(cfg.BindIP)
+	rows := BuildPreview(port, cfg.PublicHost, others, bindIP)
 	selected := map[int]bool{}
 	for _, s := range cfg.Snapshot {
 		selected[s.InboundID] = true
@@ -66,13 +67,17 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound) (Ins
 	if fallback == "" {
 		fallback = CoverFallback(rows, selected)
 	}
-	conf := RenderNginxConf(port, absPath(pidPath), routes, fallback)
+	conf := RenderNginxConf(port, absPath(pidPath), routes, fallback, bindIP)
+	probe := port
+	if bindIP != "" {
+		probe = 0
+	}
 	return Instance{
 		Core:       Gateway,
 		Key:        key,
 		Enabled:    true,
 		ConfigText: conf,
 		Args:       []string{"-g", "daemon off;", "-c", absPath(confPath)},
-		ProbePort:  port,
+		ProbePort:  probe,
 	}, true
 }

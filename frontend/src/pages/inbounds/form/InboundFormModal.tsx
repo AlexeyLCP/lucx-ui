@@ -271,6 +271,17 @@ export default function InboundFormModal({
     addAllFallbacks,
   } = useInboundFallbacks(dbInbound, dbInbounds);
 
+  const maskedByGateway = useMemo(() => {
+    if (mode !== 'edit' || !dbInbound?.id) return false;
+    const gw = dbInbounds.find((ib) => ib.protocol === 'gateway');
+    if (!gw) return false;
+    const snap = coerceInboundJsonField(gw.settings).snapshot;
+    return (
+      Array.isArray(snap) &&
+      snap.some((r) => (r as { inboundId?: number }).inboundId === dbInbound.id)
+    );
+  }, [mode, dbInbound, dbInbounds]);
+
   const protocol = (useWatch({ control, name: 'protocol' }) ?? '') as string;
   const wNodeId = useWatch({ control, name: 'nodeId' }) ?? null;
   // LUCX-HOOK: AWG subnet-collision feed — masked prefixes of OTHER AWG
@@ -794,11 +805,20 @@ export default function InboundFormModal({
         />
       </FormField>
 
+      {maskedByGateway ? (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.masking.maskedListen')}
+        />
+      ) : null}
+
       <FormField
         name="listen"
         label={labelWithHint(t('pages.inbounds.address'), t('pages.inbounds.form.listenHelp'))}
       >
-        <Input placeholder={t('pages.inbounds.monitorDesc')} />
+        <Input placeholder={t('pages.inbounds.monitorDesc')} disabled={maskedByGateway} />
       </FormField>
 
       {protocol !== Protocols.MTPROTO && (
@@ -867,7 +887,7 @@ export default function InboundFormModal({
         label={t('pages.inbounds.port')}
         rules={{ validate: rhfZodValidate(InboundFormBaseSchema.shape.port) }}
       >
-        <InputNumber min={isUdsListen ? 0 : 1} max={65535} />
+        <InputNumber min={isUdsListen ? 0 : 1} max={65535} disabled={maskedByGateway} />
       </FormField>
 
       <Form.Item

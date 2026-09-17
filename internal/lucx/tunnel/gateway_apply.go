@@ -155,6 +155,15 @@ func Classify(ib *model.Inbound) (class, sni string) {
 	return "", ""
 }
 
+func XrayAcceptsProxyProtocol(p model.Protocol) bool {
+	switch p {
+	case model.VLESS, model.VMESS, model.Trojan, model.Shadowsocks:
+		return true
+	default:
+		return false
+	}
+}
+
 // SetRealityDest writes dest+target in stream JSON. Empty dest is a no-op.
 func SetRealityDest(stream, dest string) string {
 	dest = strings.TrimSpace(dest)
@@ -172,6 +181,59 @@ func SetRealityDest(stream, dest string) string {
 	raw["dest"] = dest
 	raw["target"] = dest
 	m["realitySettings"] = raw
+	out, err := json.Marshal(m)
+	if err != nil {
+		return stream
+	}
+	return string(out)
+}
+
+func xrayTransportSettingsKey(network string) string {
+	switch strings.ToLower(strings.TrimSpace(network)) {
+	case "ws":
+		return "wsSettings"
+	case "httpupgrade":
+		return "httpupgradeSettings"
+	case "tcp", "raw", "":
+		return "tcpSettings"
+	default:
+		return ""
+	}
+}
+
+// SetAcceptProxyProtocol toggles the transport flag Xray needs when nginx
+// sends PROXY protocol. Empty dest-like no-op if JSON is broken.
+func SetAcceptProxyProtocol(stream string, on bool) string {
+	raw := strings.TrimSpace(stream)
+	if raw == "" {
+		if !on {
+			return stream
+		}
+		raw = "{}"
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(raw), &m); err != nil || m == nil {
+		return stream
+	}
+	netw, _ := m["network"].(string)
+	key := xrayTransportSettingsKey(netw)
+	if key == "" {
+		return stream
+	}
+	tr, _ := m[key].(map[string]any)
+	if tr == nil {
+		tr = map[string]any{}
+	}
+	if on {
+		tr["acceptProxyProtocol"] = true
+	} else {
+		delete(tr, "acceptProxyProtocol")
+	}
+	if len(tr) == 0 {
+		delete(m, key)
+	} else {
+		m[key] = tr
+	}
 	out, err := json.Marshal(m)
 	if err != nil {
 		return stream
@@ -205,12 +267,27 @@ func ResolveGatewayPublicHost(req, saved string, others []*model.Inbound) string
 }
 
 // BuildPreview lists inbounds the mask may move behind nginx.
-func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound) []PreviewRow {
+// bindIP set → keep port 443 on loopback (Cover first if it is on 443).
+func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, bindIP string) []PreviewRow {
 	if gatewayPort <= 0 {
 		gatewayPort = gatewayDefaultPort
 	}
 	publicHost = strings.ToLower(strings.TrimSpace(publicHost))
-	used := map[int]bool{gatewayPort: true}
+	keep443 := strings.TrimSpace(bindIP) != ""
+	used := map[int]bool{}
+	if !keep443 {
+		used[gatewayPort] = true
+	}
+	cover443 := false
+	if keep443 {
+		for _, ib := range others {
+			if ib != nil && ib.Protocol == model.Cover && ib.Port == gatewayPort {
+				cover443 = true
+				break
+			}
+		}
+	}
+	slot443 := false
 	var rows []PreviewRow
 	for _, ib := range others {
 		if ib == nil || ib.Protocol == model.Gateway {
@@ -235,8 +312,17 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound) [
 		oldPort := ib.Port
 		newListen := "127.0.0.1"
 		newPort := oldPort
-		if oldPort == gatewayPort || (oldListen != "127.0.0.1" && oldListen != "::1" && oldPort == gatewayPort) {
-			newPort = nextFreePort(class, used)
+		if oldPort == gatewayPort {
+			take := keep443 && !slot443
+			if take && cover443 {
+				take = ib.Protocol == model.Cover
+			}
+			if take {
+				newPort = gatewayPort
+				slot443 = true
+			} else {
+				newPort = nextFreePort(class, used)
+			}
 		}
 		if oldPort <= 0 {
 			newPort = nextFreePort(class, used)
@@ -305,23 +391,30 @@ func CoverFallback(rows []PreviewRow, selected map[int]bool) string {
 func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute {
 	var out []GatewayRoute
 	seen := map[string]bool{}
-	for _, r := range rows {
-		if selected != nil && !selected[r.InboundID] {
-			continue
-		}
-		names := r.SNIs
-		if len(names) == 0 && r.SNI != "" {
-			names = []string{r.SNI}
-		}
-		dest := gatewayLoopbackDest(r.NewPort)
-		for _, sni := range names {
-			sni = nginxMapKey(sni)
-			if sni == "" || seen[sni] {
+	add := func(caddyOnly bool) {
+		for _, r := range rows {
+			if selected != nil && !selected[r.InboundID] {
 				continue
 			}
-			seen[sni] = true
-			out = append(out, GatewayRoute{SNI: sni, Dest: dest})
+			if caddyOnly != (r.Class == ClassCaddy) {
+				continue
+			}
+			names := r.SNIs
+			if len(names) == 0 && r.SNI != "" {
+				names = []string{r.SNI}
+			}
+			dest := gatewayLoopbackDest(r.NewPort)
+			for _, sni := range names {
+				sni = nginxMapKey(sni)
+				if sni == "" || seen[sni] {
+					continue
+				}
+				seen[sni] = true
+				out = append(out, GatewayRoute{SNI: sni, Dest: dest})
+			}
 		}
 	}
+	add(true)
+	add(false)
 	return out
 }

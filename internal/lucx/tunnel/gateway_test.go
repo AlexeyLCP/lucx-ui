@@ -19,9 +19,10 @@ func TestRenderNginxConf_SNIAndDrop(t *testing.T) {
 		{SNI: "www.microsoft.com", Dest: "127.0.0.1:1443"},
 		{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"},
 		{SNI: "www.microsoft.com", Dest: "127.0.0.1:9"},
-	}, "")
+	}, "", "")
 	for _, need := range []string{
 		"ssl_preread on",
+		"proxy_protocol on",
 		"listen 443",
 		"www.microsoft.com 127.0.0.1:1443",
 		"vpn.example.com 127.0.0.1:8443",
@@ -35,7 +36,7 @@ func TestRenderNginxConf_SNIAndDrop(t *testing.T) {
 	if strings.Count(got, "www.microsoft.com") != 1 {
 		t.Fatalf("duplicate SNI:\n%s", got)
 	}
-	got = RenderNginxConf(443, "", []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"}}, "127.0.0.1:8443")
+	got = RenderNginxConf(443, "", []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"}}, "127.0.0.1:8443", "")
 	if !strings.Contains(got, "default 127.0.0.1:8443") {
 		t.Fatalf("cover fallback:\n%s", got)
 	}
@@ -88,7 +89,7 @@ func TestBuildPreview_MovesPublic443(t *testing.T) {
 		},
 		{Id: 2, Protocol: model.Cover, Port: 443, Settings: `{"hostname":"vpn.example.com"}`},
 		{Id: 3, Protocol: model.AWG, Port: 443},
-	})
+	}, "")
 	if len(rows) != 2 {
 		t.Fatalf("rows=%d", len(rows))
 	}
@@ -116,7 +117,7 @@ func TestBuildPreview_SkipPublicNonSNI(t *testing.T) {
 	rows := BuildPreview(443, "node.example.com", []*model.Inbound{
 		{Id: 3, Protocol: model.Hysteria, Enable: true, Port: 4443, Remark: "hy"},
 		{Id: 4, Protocol: model.AWG, Enable: false, Port: 51820},
-	})
+	}, "")
 	if len(rows) != 1 || rows[0].Class != ClassSkip || rows[0].OldPort != 4443 {
 		t.Fatalf("%+v", rows)
 	}
@@ -156,6 +157,18 @@ func TestSetRealityDest(t *testing.T) {
 	}
 }
 
+func TestSetAcceptProxyProtocol(t *testing.T) {
+	in := `{"network":"tcp","security":"reality"}`
+	got := SetAcceptProxyProtocol(in, true)
+	if !strings.Contains(got, `"acceptProxyProtocol":true`) || !strings.Contains(got, `"tcpSettings"`) {
+		t.Fatalf("%s", got)
+	}
+	off := SetAcceptProxyProtocol(got, false)
+	if strings.Contains(off, "acceptProxyProtocol") {
+		t.Fatalf("%s", off)
+	}
+}
+
 func TestRoutesFromPreview_Selected(t *testing.T) {
 	rows := []PreviewRow{
 		{InboundID: 1, SNI: "a.example.com", NewPort: 1443},
@@ -183,5 +196,55 @@ func TestGatewayInstance_DisabledUntilSnapshot(t *testing.T) {
 	inst, ok := GatewayInstanceFromInbound(ib, nil)
 	if !ok || inst.Enabled {
 		t.Fatalf("ok=%v enabled=%v", ok, inst.Enabled)
+	}
+}
+
+func TestRenderNginxConf_BindIP(t *testing.T) {
+	got := RenderNginxConf(443, "", []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:443"}}, "127.0.0.1:443", "203.0.113.5")
+	if !strings.Contains(got, "listen 203.0.113.5:443") {
+		t.Fatalf("%s", got)
+	}
+}
+
+func TestBuildPreview_BindIPKeepsCover443(t *testing.T) {
+	rows := BuildPreview(443, "node.example.com", []*model.Inbound{
+		{
+			Id: 1, Protocol: model.VLESS, Port: 443,
+			StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"]}}`,
+		},
+		{Id: 2, Protocol: model.Cover, Port: 443, Settings: `{"hostname":"vpn.example.com"}`},
+	}, "203.0.113.5")
+	byID := map[int]PreviewRow{}
+	for _, r := range rows {
+		byID[r.InboundID] = r
+	}
+	if byID[2].NewPort != 443 || byID[2].NewListen != "127.0.0.1" {
+		t.Fatalf("cover should keep 443: %+v", byID[2])
+	}
+	if byID[1].NewPort == 443 {
+		t.Fatalf("reality should leave 443: %+v", byID[1])
+	}
+}
+
+func TestBuildPreview_BindIPKeepsSolo443(t *testing.T) {
+	rows := BuildPreview(443, "node.example.com", []*model.Inbound{
+		{
+			Id: 1, Protocol: model.VLESS, Port: 443,
+			StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"]}}`,
+		},
+	}, "203.0.113.5")
+	if len(rows) != 1 || rows[0].NewPort != 443 || rows[0].NewListen != "127.0.0.1" {
+		t.Fatalf("%+v", rows)
+	}
+}
+
+func TestRoutesFromPreview_CoverOwnsSNI(t *testing.T) {
+	rows := []PreviewRow{
+		{InboundID: 1, Class: ClassPassthrough, SNI: "vpn.example.com", NewPort: 1443},
+		{InboundID: 2, Class: ClassCaddy, SNI: "vpn.example.com", NewPort: 443},
+	}
+	got := RoutesFromPreview(rows, map[int]bool{1: true, 2: true})
+	if len(got) != 1 || got[0].Dest != "127.0.0.1:443" {
+		t.Fatalf("%+v", got)
 	}
 }

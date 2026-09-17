@@ -27,6 +27,32 @@ func TestRenderCoverCaddyfile_Site(t *testing.T) {
 			t.Fatalf("missing %q in:\n%s", need, got)
 		}
 	}
+	if strings.Contains(got, "proxy_protocol") {
+		t.Fatalf("public cover must not wrap PROXY:\n%s", got)
+	}
+}
+
+func TestGatewayPanelRoutes(t *testing.T) {
+	gw := &model.Inbound{
+		Protocol: model.Gateway, Enable: true,
+		Settings: `{"snapshot":[{"inboundId":1}],"hidePanel":true,"panelRoutes":[{"path":"/p","dest":"127.0.0.1:2053"}]}`,
+	}
+	got := gatewayPanelRoutes([]*model.Inbound{gw})
+	if len(got) != 1 || got[0].Path != "/p" || got[0].Dest != "127.0.0.1:2053" {
+		t.Fatalf("%+v", got)
+	}
+}
+
+func TestRenderCoverCaddyfile_PanelHTTPS(t *testing.T) {
+	got := RenderCoverCaddyfile("shop.example.com", "/c.pem", "/k.pem", coverAttach{
+		publicDir: "/var/www/site",
+		routes:    []CoverRoute{{Path: "/abc123", Dest: "https://127.0.0.1:2053"}},
+	})
+	for _, need := range []string{"handle /abc123*", "reverse_proxy https://127.0.0.1:2053", "tls_insecure_skip_verify"} {
+		if !strings.Contains(got, need) {
+			t.Fatalf("missing %q in:\n%s", need, got)
+		}
+	}
 }
 
 func TestRenderCoverCaddyfile_LoopbackBind(t *testing.T) {
@@ -38,6 +64,9 @@ func TestRenderCoverCaddyfile_LoopbackBind(t *testing.T) {
 	}
 	if !strings.Contains(got, "bind 127.0.0.1") || !strings.Contains(got, ":8443") {
 		t.Fatalf("missing bind/port:\n%s", got)
+	}
+	if !strings.Contains(got, "proxy_protocol") {
+		t.Fatalf("loopback cover needs PROXY protocol:\n%s", got)
 	}
 }
 

@@ -15,6 +15,17 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/web/session"
 )
 
+func (a *InboundController) gatewayEnsure(c *gin.Context) {
+	user := session.GetLoginUser(c)
+	ib, err := a.inboundService.EnsureGatewayInbound(user.Id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), err)
+		return
+	}
+	jsonObj(c, ib, nil)
+	a.broadcastInboundsUpdate(user.Id)
+}
+
 func (a *InboundController) gatewayPreview(c *gin.Context) {
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil {

@@ -281,9 +281,7 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 		b.WriteString("\tauto_https off\n")
 	}
 	b.WriteString("\tlog {\n\t\tlevel " + level + "\n\t}\n")
-	if !c.EnableH3 {
-		b.WriteString("\tservers {\n\t\tprotocols h1 h2\n\t}\n")
-	}
+	writeCaddyServers(&b, !c.EnableH3, IsLoopbackListen(c.Listen))
 	b.WriteString("}\n\n")
 
 	listen := strings.TrimSpace(c.Listen)

@@ -5997,6 +5997,36 @@
         }
       }
     },
+    "/panel/api/inbounds/gatewayEnsure": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Create the SNI gateway inbound (port 443, disabled) if none exists. Idempotent. LucX-UI only.",
+        "operationId": "post_panel_api_inbounds_gatewayEnsure",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/{id}/gatewayPreview": {
       "get": {
         "tags": [
@@ -6052,7 +6082,7 @@
         "tags": [
           "Inbounds"
         ],
-        "summary": "Apply selected preview rows: listen 127.0.0.1, Hosts publicHost:443, start nginx stream. LucX-UI only.",
+        "summary": "Apply selected preview rows: listen 127.0.0.1 (keep port 443 when BindIP is set), Hosts publicHost:443, nginx on NIC IPv4:443. LucX-UI only.",
         "operationId": "post_panel_api_inbounds_id_gatewayApply",
         "parameters": [
           {
@@ -6089,12 +6119,22 @@
                   "publicHost": {
                     "type": "string",
                     "description": "Public hostname for Hosts."
+                  },
+                  "ufw": {
+                    "type": "boolean",
+                    "description": "If true, allow SSH/panel/80/443/public inbounds and default-deny the rest via UFW. Off by default."
+                  },
+                  "hidePanel": {
+                    "type": "boolean",
+                    "description": "If true, reverse-proxy panel/sub paths through Cover on 443. Needs Cover selected and a non-root webBasePath. Off by default."
                   }
                 },
                 "required": [
                   "selected",
                   "steal",
-                  "publicHost"
+                  "publicHost",
+                  "ufw",
+                  "hidePanel"
                 ]
               }
             }

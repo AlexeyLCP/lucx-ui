@@ -8,6 +8,7 @@ package tunnel
 
 import (
 	"fmt"
+	"net"
 	"strconv"
 	"strings"
 )
@@ -44,12 +45,17 @@ type GatewaySnapshotRow struct {
 
 // GatewayConfig lives in inbound settings. Snapshot empty = mask not applied.
 type GatewayConfig struct {
-	Remark     string               `json:"remark"`
-	Enabled    bool                 `json:"enabled"`
-	PublicHost string               `json:"publicHost"`
-	Routes     []GatewayRoute       `json:"routes"`
-	Snapshot   []GatewaySnapshotRow `json:"snapshot"`
-	Fallback   string               `json:"fallback,omitempty"`
+	Remark       string               `json:"remark"`
+	Enabled      bool                 `json:"enabled"`
+	PublicHost   string               `json:"publicHost"`
+	BindIP       string               `json:"bindIP,omitempty"`
+	Routes       []GatewayRoute       `json:"routes"`
+	Snapshot     []GatewaySnapshotRow `json:"snapshot"`
+	Fallback     string               `json:"fallback,omitempty"`
+	UFW          bool                 `json:"ufw,omitempty"`
+	UFWWasActive bool                 `json:"ufwWasActive,omitempty"`
+	HidePanel    bool                 `json:"hidePanel,omitempty"`
+	PanelRoutes  []CoverRoute         `json:"panelRoutes,omitempty"`
 }
 
 func DefaultGatewayConfig() GatewayConfig {
@@ -78,14 +84,37 @@ func nginxMapKey(sni string) string {
 	return sni
 }
 
+// LocalIPv4 is the IPv4 of the default route. Empty if unknown.
+func LocalIPv4() string {
+	c, err := net.Dial("udp4", "1.1.1.1:53")
+	if err != nil {
+		return ""
+	}
+	defer c.Close()
+	host, _, err := net.SplitHostPort(c.LocalAddr().String())
+	if err != nil {
+		return ""
+	}
+	ip := net.ParseIP(host)
+	if ip == nil || ip.To4() == nil || ip.IsLoopback() || ip.IsUnspecified() || ip.IsLinkLocalUnicast() {
+		return ""
+	}
+	return ip.String()
+}
+
 // RenderNginxConf is stream ssl_preread by SNI. Empty fallback = drop.
-func RenderNginxConf(listenPort int, pidPath string, routes []GatewayRoute, fallback string) string {
+// bindIP set → listen IP:port so loopback:port stays free for backends.
+func RenderNginxConf(listenPort int, pidPath string, routes []GatewayRoute, fallback, bindIP string) string {
 	if listenPort <= 0 {
 		listenPort = gatewayDefaultPort
 	}
 	fallback = strings.TrimSpace(fallback)
 	if fallback == "" {
 		fallback = gatewayDropBackend
+	}
+	listen := strconv.Itoa(listenPort)
+	if ip := strings.TrimSpace(bindIP); ip != "" {
+		listen = ip + ":" + listen
 	}
 	var b strings.Builder
 	b.WriteString("worker_processes 1;\n")
@@ -109,8 +138,9 @@ func RenderNginxConf(listenPort int, pidPath string, routes []GatewayRoute, fall
 	b.WriteString("\t\tdefault " + fallback + ";\n")
 	b.WriteString("\t}\n")
 	b.WriteString("\tserver {\n")
-	b.WriteString("\t\tlisten " + strconv.Itoa(listenPort) + ";\n")
+	b.WriteString("\t\tlisten " + listen + ";\n")
 	b.WriteString("\t\tssl_preread on;\n")
+	b.WriteString("\t\tproxy_protocol on;\n")
 	b.WriteString("\t\tproxy_pass $lucx_gw;\n")
 	b.WriteString("\t\tproxy_timeout 1d;\n")
 	b.WriteString("\t\tproxy_connect_timeout 5s;\n")

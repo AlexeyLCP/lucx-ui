@@ -131,12 +131,28 @@ type coverAttach struct {
 	skipHTTP       bool
 }
 
+func writeCaddyServers(b *strings.Builder, h1h2, proxyProtocol bool) {
+	if !h1h2 && !proxyProtocol {
+		return
+	}
+	b.WriteString("\tservers {\n")
+	if h1h2 {
+		b.WriteString("\t\tprotocols h1 h2\n")
+	}
+	if proxyProtocol {
+		b.WriteString("\t\tlistener_wrappers {\n")
+		b.WriteString("\t\t\tproxy_protocol {\n\t\t\t\ttimeout 5s\n\t\t\t\tallow 127.0.0.1/32 ::1/128\n\t\t\t}\n")
+		b.WriteString("\t\t\ttls\n")
+		b.WriteString("\t\t}\n")
+	}
+	b.WriteString("\t}\n")
+}
+
 func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tskip_install_trust\n")
-	if a.tproxyRelay > 0 || (a.naive != nil && !a.naive.EnableH3) {
-		b.WriteString("\tservers {\n\t\tprotocols h1 h2\n\t}\n")
-	}
+	h1h2 := a.tproxyRelay > 0 || (a.naive != nil && !a.naive.EnableH3)
+	writeCaddyServers(&b, h1h2, a.skipHTTP)
 	b.WriteString("}\n")
 	httpsPort := a.httpsPort
 	if httpsPort <= 0 {
@@ -178,7 +194,7 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 				path += "*"
 			}
 			b.WriteString("\t\thandle " + path + " {\n")
-			b.WriteString("\t\t\treverse_proxy " + strings.TrimSpace(r.Dest) + "\n")
+			writeCoverReverseProxy(&b, r.Dest, "\t\t\t")
 			b.WriteString("\t\t}\n")
 		}
 		if a.naive != nil {
@@ -193,6 +209,20 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	}
 	b.WriteString("}\n")
 	return b.String()
+}
+
+func writeCoverReverseProxy(b *strings.Builder, dest, indent string) {
+	dest = strings.TrimSpace(dest)
+	if strings.HasPrefix(dest, "https://") {
+		b.WriteString(indent + "reverse_proxy " + dest + " {\n")
+		b.WriteString(indent + "\ttransport http {\n" + indent + "\t\ttls_insecure_skip_verify\n" + indent + "\t}\n")
+		b.WriteString(indent + "}\n")
+		return
+	}
+	if strings.HasPrefix(dest, "http://") {
+		dest = strings.TrimPrefix(dest, "http://")
+	}
+	b.WriteString(indent + "reverse_proxy " + dest + "\n")
 }
 
 func coverUpstreamHost(raw string) string {

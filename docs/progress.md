@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.245 — SNI gateway: bind IP, PROXY, UFW, панель за Cover (2026-09-17)
+
+Nginx `listen <NIC IPv4>:443` so backends keep `127.0.0.1:443` (Cover first if it is on 443). Masking auto-creates the gateway inbound; two tables; SNI-clash alert; listen/port read-only while masked. `proxy_protocol on` + Xray `acceptProxyProtocol` + Caddy `listener_wrappers` on loopback. Optional UFW checkbox (SSH/panel/80/443/public inbounds, default deny; Revert disables only if we enabled). Optional hide-panel checkbox: Cover reverse_proxy of webBasePath/sub paths; UFW then omits 2053/2096. Needs Cover selected and base path ≠ `/`.
+
+**lucxVersion:** lucx.245
+
+---
+
 ## lucx.244 — SNI gateway: AnyTLS + TrustTunnel (2026-09-17)
 
 Classify AnyTLS/TrustTunnel as TLS passthrough (SNI from cert hostname). Loopback bind after Apply. Sub links use Host :443 (sidecarHostLinks reads Hosts, not only stream externalProxy). All REALITY serverNames in nginx map.

@@ -6,13 +6,15 @@
 
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Input, Table, Typography, message } from 'antd';
+import { Alert, Button, Checkbox, Input, Popconfirm, Table, Typography, message } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { HttpUtil } from '@/utils';
 import { keys } from '@/api/queryKeys';
 
-const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } } as const;
+const JSON_HEADERS = {
+  headers: { 'Content-Type': 'application/json' },
+} as const;
 
 type PreviewRow = {
   inboundId: number;
@@ -30,8 +32,30 @@ type PreviewRow = {
 type PreviewResult = {
   applied: boolean;
   publicHost: string;
+  bindIP?: string;
   rows: PreviewRow[];
+  ufw?: boolean;
+  ufwAllow?: string[];
+  hidePanel?: boolean;
 };
+
+function classKey(cls: string): string {
+  if (cls === 'passthrough') return 'pages.masking.classPassthrough';
+  if (cls === 'caddy') return 'pages.masking.classCaddy';
+  if (cls === 'skip') return 'pages.masking.classSkip';
+  return '';
+}
+
+function sniClash(rows: PreviewRow[]): string {
+  const cover = new Set(
+    rows
+      .filter((r) => r.protocol === 'cover' || r.protocol === 'naive' || r.protocol === 'tproxy')
+      .map((r) => r.sni)
+      .filter(Boolean),
+  );
+  const hit = rows.find((r) => r.class === 'passthrough' && r.sni && cover.has(r.sni));
+  return hit?.sni ?? '';
+}
 
 export default function MaskingPage() {
   const { t } = useTranslation();
@@ -39,6 +63,9 @@ export default function MaskingPage() {
   const [publicHost, setPublicHost] = useState('');
   const [selected, setSelected] = useState<number[]>([]);
   const [steal, setSteal] = useState<number[]>([]);
+  const [picked, setPicked] = useState(false);
+  const [ufw, setUfw] = useState(false);
+  const [hidePanel, setHidePanel] = useState(false);
   const [busy, setBusy] = useState(false);
 
   const slimQuery = useQuery({
@@ -50,6 +77,19 @@ export default function MaskingPage() {
     },
   });
   const gateway = (slimQuery.data ?? []).find((ib) => ib.protocol === 'gateway');
+
+  const defaultsQuery = useQuery({
+    queryKey: keys.settings.defaults(),
+    queryFn: async () => {
+      const msg = await HttpUtil.post('/panel/api/setting/defaultSettings', undefined, {
+        silent: true,
+      });
+      if (!msg?.success) throw new Error(msg?.msg || 'defaults failed');
+      return (msg.obj ?? {}) as { subDomain?: string; webDomain?: string };
+    },
+    staleTime: Infinity,
+  });
+  const settingHost = defaultsQuery.data?.subDomain || defaultsQuery.data?.webDomain || '';
 
   const previewQuery = useQuery({
     queryKey: ['gatewayPreview', gateway?.id, publicHost],
@@ -67,7 +107,15 @@ export default function MaskingPage() {
   const preview = previewQuery.data;
   const rows = preview?.rows ?? [];
   const applied = preview?.applied ?? false;
-  const host = publicHost || preview?.publicHost || rows.find((r) => r.sni)?.sni || '';
+  const bindIP = preview?.bindIP || '';
+  const host =
+    publicHost || preview?.publicHost || settingHost || rows.find((r) => r.sni)?.sni || '';
+
+  const behind = rows.filter((r) => r.class !== 'skip');
+  const outside = rows.filter((r) => r.class === 'skip');
+  const clash = sniClash(behind);
+  const chosen = picked ? selected : behind.map((r) => r.inboundId);
+  const coverOn = behind.some((r) => r.protocol === 'cover' && chosen.includes(r.inboundId));
 
   const apply = async () => {
     if (!gateway) return;
@@ -75,7 +123,7 @@ export default function MaskingPage() {
     try {
       const msg = await HttpUtil.post(
         `/panel/api/inbounds/${gateway.id}/gatewayApply`,
-        { selected, steal, publicHost: host },
+        { selected: chosen, steal, publicHost: host, ufw, hidePanel },
         JSON_HEADERS,
       );
       if (!msg?.success) throw new Error(msg?.msg);
@@ -102,6 +150,9 @@ export default function MaskingPage() {
       void message.success(t('pages.masking.reverted'));
       setSelected([]);
       setSteal([]);
+      setPicked(false);
+      setUfw(false);
+      setHidePanel(false);
       await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await previewQuery.refetch();
     } catch (e) {
@@ -111,52 +162,126 @@ export default function MaskingPage() {
     }
   };
 
+  const ensure = async () => {
+    setBusy(true);
+    try {
+      const msg = await HttpUtil.post('/panel/api/inbounds/gatewayEnsure', {}, JSON_HEADERS);
+      if (!msg?.success) throw new Error(msg?.msg);
+      await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
+      await slimQuery.refetch();
+    } catch (e) {
+      void message.error(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const listenCol = {
+    title: t('pages.masking.listen'),
+    render: (_: unknown, r: PreviewRow) =>
+      `${r.oldListen}:${r.oldPort} → ${r.newListen}:${r.newPort}`,
+  };
+
   if (!gateway) {
     return (
-      <Alert
-        type="info"
-        showIcon
-        message={t('pages.masking.noGateway')}
-        description={t('pages.masking.createFirst')}
-      />
+      <>
+        <Typography.Title level={4}>{t('pages.masking.title')}</Typography.Title>
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.masking.noGateway')}
+          description={t('pages.masking.createFirst')}
+        />
+        <Button type="primary" loading={busy} onClick={() => void ensure()}>
+          {t('pages.masking.enable')}
+        </Button>
+      </>
     );
   }
 
   return (
     <>
       <Typography.Title level={4}>{t('pages.masking.title')}</Typography.Title>
-      <Alert type="info" showIcon style={{ marginBottom: 12 }} message={t('pages.masking.help')} />
+      {applied ? (
+        <Alert
+          type="success"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.masking.statusOn', {
+            ip: bindIP || '0.0.0.0',
+            port: 443,
+          })}
+          description={
+            [
+              preview?.ufw ? t('pages.masking.ufwOn') : '',
+              preview?.hidePanel ? t('pages.masking.hidePanelOn') : '',
+            ]
+              .filter(Boolean)
+              .join(' · ') || undefined
+          }
+        />
+      ) : (
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.masking.help')}
+        />
+      )}
+      {!bindIP && !applied ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.masking.noBindIP')}
+        />
+      ) : null}
+      {clash ? (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.masking.sniClash', { sni: clash })}
+        />
+      ) : null}
       <Input
         style={{ maxWidth: 360, marginBottom: 12 }}
         placeholder={t('pages.masking.publicHost')}
         value={host}
         onChange={(e) => setPublicHost(e.target.value)}
       />
+      <Typography.Text strong style={{ display: 'block', marginBottom: 8 }}>
+        {t('pages.masking.behind443')}
+      </Typography.Text>
       <Table
         rowKey="inboundId"
         size="small"
-        dataSource={rows}
+        dataSource={behind}
         pagination={false}
         rowSelection={{
-          selectedRowKeys: selected,
-          onChange: (keys) => setSelected(keys.map(Number)),
-          getCheckboxProps: (r: PreviewRow) => ({ disabled: r.class === 'skip' || applied }),
+          selectedRowKeys: chosen,
+          onChange: (keys) => {
+            setPicked(true);
+            setSelected(keys.map(Number));
+          },
+          getCheckboxProps: () => ({ disabled: applied }),
         }}
         columns={[
           { title: t('remark'), dataIndex: 'remark' },
-          { title: t('pages.masking.class'), dataIndex: 'class' },
-          { title: 'SNI', dataIndex: 'sni' },
           {
-            title: t('pages.masking.listen'),
-            render: (_, r: PreviewRow) =>
-              `${r.oldListen}:${r.oldPort} → ${r.newListen}:${r.newPort}`,
+            title: t('pages.masking.class'),
+            render: (_: unknown, r: PreviewRow) => t(classKey(r.class) || r.class),
           },
+          { title: 'SNI', dataIndex: 'sni' },
+          listenCol,
           {
-            title: t('pages.masking.steal'),
-            render: (_, r: PreviewRow) =>
-              r.stealDest ? (
+            title: t('pages.masking.stealHint'),
+            render: (_: unknown, r: PreviewRow) =>
+              r.stealDest && coverOn ? (
                 <input
                   type="checkbox"
+                  disabled={applied}
                   checked={steal.includes(r.inboundId)}
                   onChange={(e) => {
                     setSteal((cur) =>
@@ -170,15 +295,73 @@ export default function MaskingPage() {
           },
         ]}
       />
-      <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-        <Button
-          type="primary"
-          loading={busy}
-          disabled={applied || selected.length === 0}
-          onClick={() => void apply()}
+      {outside.length > 0 ? (
+        <>
+          <Typography.Text strong style={{ display: 'block', margin: '16px 0 8px' }}>
+            {t('pages.masking.staysPublic')}
+          </Typography.Text>
+          <Table
+            rowKey="inboundId"
+            size="small"
+            dataSource={outside}
+            pagination={false}
+            columns={[
+              { title: t('remark'), dataIndex: 'remark' },
+              {
+                title: t('pages.masking.class'),
+                render: (_: unknown, r: PreviewRow) => t(classKey(r.class) || r.class),
+              },
+              listenCol,
+            ]}
+          />
+        </>
+      ) : null}
+      <div style={{ marginTop: 12 }}>
+        <Checkbox
+          checked={applied ? Boolean(preview?.ufw) : ufw}
+          disabled={applied}
+          onChange={(e) => setUfw(e.target.checked)}
         >
-          {t('pages.masking.apply')}
-        </Button>
+          {t('pages.masking.ufw')}
+        </Checkbox>
+        <Typography.Paragraph type="secondary" style={{ margin: '4px 0 12px' }}>
+          {t('pages.masking.ufwHint')}
+          {preview?.ufwAllow?.length ? ` ${preview.ufwAllow.join(', ')}` : ''}
+        </Typography.Paragraph>
+        <Checkbox
+          checked={applied ? Boolean(preview?.hidePanel) : hidePanel}
+          disabled={applied || !coverOn}
+          onChange={(e) => setHidePanel(e.target.checked)}
+        >
+          {t('pages.masking.hidePanel')}
+        </Checkbox>
+        <Typography.Paragraph type="secondary" style={{ margin: '4px 0 12px' }}>
+          {t('pages.masking.hidePanelHint')}
+        </Typography.Paragraph>
+      </div>
+      <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+        <Popconfirm
+          title={t(
+            hidePanel && ufw
+              ? 'pages.masking.confirmApplyBoth'
+              : hidePanel
+                ? 'pages.masking.confirmApplyHide'
+                : ufw
+                  ? 'pages.masking.confirmApplyUfw'
+                  : 'pages.masking.confirmApply',
+            {
+              n: chosen.length,
+              ip: bindIP || '0.0.0.0',
+            },
+          )}
+          okText={t('pages.masking.confirmOk')}
+          disabled={applied || chosen.length === 0}
+          onConfirm={() => void apply()}
+        >
+          <Button type="primary" loading={busy} disabled={applied || chosen.length === 0}>
+            {t('pages.masking.apply')}
+          </Button>
+        </Popconfirm>
         <Button danger loading={busy} disabled={!applied} onClick={() => void revert()}>
           {t('pages.masking.revert')}
         </Button>

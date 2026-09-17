@@ -509,6 +509,12 @@ export const sections: readonly Section[] = [
           '{\n  "success": true,\n  "obj": {\n    "target": "1.1.1.1",\n    "pathMtu": 1500,\n    "reached": true,\n    "configuredMtu": 1420,\n    "fits": true,\n    "detail": "largest non-fragmented ping to 1.1.1.1 = 1500 bytes; configured MTU 1420 fits within the 80-byte WG/AWG overhead headroom"\n  }\n}',
       },
       {
+        method: 'POST',
+        path: '/panel/api/inbounds/gatewayEnsure',
+        summary:
+          'Create the SNI gateway inbound (port 443, disabled) if none exists. Idempotent. LucX-UI only.',
+      },
+      {
         method: 'GET',
         path: '/panel/api/inbounds/:id/gatewayPreview',
         summary:
@@ -527,7 +533,7 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/inbounds/:id/gatewayApply',
         summary:
-          'Apply selected preview rows: listen 127.0.0.1, Hosts publicHost:443, start nginx stream. LucX-UI only.',
+          'Apply selected preview rows: listen 127.0.0.1 (keep port 443 when BindIP is set), Hosts publicHost:443, nginx on NIC IPv4:443. LucX-UI only.',
         params: [
           { name: 'id', in: 'path', type: 'number', desc: 'Gateway inbound ID.' },
           { name: 'selected', in: 'body', type: 'integer[]', desc: 'Inbound IDs to move.' },
@@ -538,6 +544,18 @@ export const sections: readonly Section[] = [
             desc: 'REALITY inbound IDs to set dest to Cover loopback.',
           },
           { name: 'publicHost', in: 'body', type: 'string', desc: 'Public hostname for Hosts.' },
+          {
+            name: 'ufw',
+            in: 'body',
+            type: 'boolean',
+            desc: 'If true, allow SSH/panel/80/443/public inbounds and default-deny the rest via UFW. Off by default.',
+          },
+          {
+            name: 'hidePanel',
+            in: 'body',
+            type: 'boolean',
+            desc: 'If true, reverse-proxy panel/sub paths through Cover on 443. Needs Cover selected and a non-root webBasePath. Off by default.',
+          },
         ],
       },
       {
