@@ -295,7 +295,9 @@ func (m *Manager) EnsureQwdttRouting(inst Instance) {
 // Remove stops and forgets a managed key (inbound delete). For multi-instance
 // inbound cores (trusttunnel-N, mieru-N, naive-N) companion config files and
 // the data dir are removed so a re-created inbound does not leave orphans
-// (tester bravn, lucx.122). Legacy single-key cores keep files on disk.
+// (tester bravn, lucx.122). CSQTT is a singleton key but its SQLite
+// (main_device_id) must die with the inbound. Other legacy single-key cores
+// keep files on disk.
 func (m *Manager) Remove(key string) {
 	key = strings.TrimSpace(key)
 	if key == "" {
@@ -324,7 +326,15 @@ func (m *Manager) Remove(key string) {
 
 // removeManagedFiles deletes on-disk configs/data for multi-instance keys.
 // No-op for legacy single-core keys (naive / olcrtc / qwdtt without suffix).
+// CSQTT is the exception: csqtt.db.main_device_id survives a delete otherwise.
 func removeManagedFiles(key string) {
+	if key == CsqttKey {
+		p := dataDirFor(CsqttKey, Csqtt)
+		if err := os.RemoveAll(p); err != nil && !os.IsNotExist(err) {
+			logger.Warningf("tunnel: remove %s: %v", p, err)
+		}
+		return
+	}
 	if !isMultiInstanceKey(key) {
 		return
 	}

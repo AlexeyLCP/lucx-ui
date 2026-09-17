@@ -7,6 +7,8 @@
 package tunnel
 
 import (
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -39,6 +41,7 @@ func TestCsqttClientURI(t *testing.T) {
 func TestCsqttBuildArgs(t *testing.T) {
 	cfg := DefaultCsqttConfig()
 	cfg.Password = "s3cret"
+	cfg.DeviceID = "phone-1"
 	cfg.WebPass = "web"
 	args := cfg.BuildArgs()
 	joined := strings.Join(args, " ")
@@ -46,6 +49,7 @@ func TestCsqttBuildArgs(t *testing.T) {
 		"--listen 0.0.0.0:46000",
 		"--web-port 46002",
 		"--password s3cret",
+		"--device-id phone-1",
 		"--web-user lucx",
 		"--web-pass web",
 		"--dns 77.88.8.8,77.88.8.1",
@@ -82,6 +86,45 @@ func TestCsqttRouteThroughXrayDefault(t *testing.T) {
 	}
 	if len(inst.RouteIfaces) != 1 || inst.RouteIfaces[0] != csqttIface {
 		t.Fatalf("RouteIfaces = %v", inst.RouteIfaces)
+	}
+}
+
+func TestCsqttPasswordStampWipesDb(t *testing.T) {
+	dir := t.TempDir()
+	db := filepath.Join(dir, "csqtt.db")
+	if err := os.WriteFile(db, []byte("old"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	syncCsqttPasswordStamp(dir, "first")
+	if _, err := os.Stat(db); err != nil {
+		t.Fatalf("first stamp must keep existing db: %v", err)
+	}
+	syncCsqttPasswordStamp(dir, "first")
+	if _, err := os.Stat(db); err != nil {
+		t.Fatalf("same password must keep db: %v", err)
+	}
+	syncCsqttPasswordStamp(dir, "second")
+	if _, err := os.Stat(db); !os.IsNotExist(err) {
+		t.Fatalf("password change must drop csqtt.db, stat=%v", err)
+	}
+}
+
+func TestCsqttRemoveWipesDataDir(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+
+	data := dataDirFor(CsqttKey, Csqtt)
+	if err := os.MkdirAll(data, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(data, "csqtt.db"), []byte("bound"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	removeManagedFiles(CsqttKey)
+	if _, err := os.Stat(data); !os.IsNotExist(err) {
+		t.Fatalf("delete inbound must wipe csqtt-data, stat=%v", err)
 	}
 }
 

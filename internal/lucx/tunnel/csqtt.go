@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -31,6 +32,7 @@ type CsqttConfig struct {
 	Enabled    bool   `json:"enabled"`
 	ListenAddr string `json:"listenAddr"`
 	Password   string `json:"password"`
+	DeviceID   string `json:"deviceId,omitempty"`
 	WebPass    string `json:"webPass,omitempty"`
 	SubHost    string `json:"subHost"`
 	VkHashes   string `json:"vkHashes"`
@@ -147,10 +149,36 @@ func (c CsqttConfig) BuildArgs() []string {
 	if p := strings.TrimSpace(c.Password); p != "" {
 		args = append(args, "--password", p)
 	}
+	if d := strings.TrimSpace(c.DeviceID); d != "" {
+		args = append(args, "--device-id", d)
+	}
 	if w := strings.TrimSpace(c.WebPass); w != "" {
 		args = append(args, "--web-pass", w)
 	}
 	return args
+}
+
+func syncCsqttPasswordStamp(dir, password string) {
+	password = strings.TrimSpace(password)
+	if dir == "" || password == "" {
+		return
+	}
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return
+	}
+	stamp := filepath.Join(dir, "lucx-password")
+	prev, err := os.ReadFile(stamp)
+	if err != nil {
+		_ = os.WriteFile(stamp, []byte(password), 0o600)
+		return
+	}
+	if strings.TrimSpace(string(prev)) == password {
+		return
+	}
+	for _, n := range []string{"csqtt.db", "csqtt.db-wal", "csqtt.db-shm"} {
+		_ = os.Remove(filepath.Join(dir, n))
+	}
+	_ = os.WriteFile(stamp, []byte(password), 0o600)
 }
 
 func (c CsqttConfig) shareHost() string {

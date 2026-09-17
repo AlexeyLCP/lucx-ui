@@ -52,6 +52,13 @@ export default function CsqttFields() {
         <Input.Password autoComplete="new-password" />
       </FormField>
       <FormField
+        name={['settings', 'deviceId']}
+        label={t('pages.inbounds.form.csqttDeviceId')}
+        tooltip={t('pages.inbounds.form.csqttDeviceIdHint')}
+      >
+        <Input placeholder="device_id" autoComplete="off" />
+      </FormField>
+      <FormField
         name={['settings', 'subHost']}
         label={t('pages.inbounds.form.csqttSubHost')}
         tooltip={t('pages.inbounds.form.csqttSubHostHint')}

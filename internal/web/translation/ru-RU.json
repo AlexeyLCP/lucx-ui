@@ -842,6 +842,8 @@
         "csqttListenAddr": "UDP listen",
         "csqttPassword": "Пароль",
         "csqttPasswordHint": "Пусто = сгенерировать при сохранении. Привязывается к первому device_id.",
+        "csqttDeviceId": "Device ID",
+        "csqttDeviceIdHint": "Флаг csqtt --device-id. Пусто = первое подключившееся устройство. После удаления inbound вставьте id телефона или оставьте пустым для новой привязки.",
         "csqttSubHost": "Публичный хост (для клиентов)",
         "csqttSubHostHint": "IP или hostname, например 1.2.3.4",
         "csqttVkHashes": "VK call hashes",

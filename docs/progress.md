@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.243 — CSQTT device_id survives inbound delete (2026-09-17)
+
+Deleting a CSQTT inbound stopped the process but left `bin/tunnel/csqtt-data/csqtt.db`. Recreate + re-import on iOS used a new device_id; the rust server still wanted `main_device_id` from the first connect. Password change did not unbind. Wipe data dir on Remove; wipe sqlite when the panel password changes; `--device-id` field on the inbound card.
+
+**lucxVersion:** lucx.243
+
+---
+
 ## lucx.242 — SNI gateway disable/delete restores listen (2026-09-16)
 
 Disable or delete of the gateway inbound now Reverts: listen/port off 127.0.0.1, nginx stop, Xray restart. Orphan Hosts with remark `gateway` (the leftover `(gateway)` on VLESS) are swept when no mask is applied.

@@ -311,6 +311,7 @@ export function createDefaultCsqttInboundSettings(): CsqttInboundSettings {
   return {
     listenAddr: '0.0.0.0:46000',
     password: '',
+    deviceId: '',
     subHost: '',
     vkHashes: '',
     routeThroughXray: true,

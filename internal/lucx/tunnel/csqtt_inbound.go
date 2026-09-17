@@ -69,6 +69,7 @@ func CsqttInstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 	if strings.TrimSpace(cfg.ConfigDir) == "" {
 		cfg.ConfigDir = dataDirFor(CsqttKey, Csqtt)
 	}
+	syncCsqttPasswordStamp(cfg.ResolveConfigDir(), cfg.Password)
 	inst := Instance{
 		Core:    Csqtt,
 		Key:     CsqttKey,

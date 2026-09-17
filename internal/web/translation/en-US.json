@@ -842,6 +842,8 @@
         "csqttListenAddr": "UDP listen",
         "csqttPassword": "Password",
         "csqttPasswordHint": "Empty = auto-generate on save. Bound to the first device_id that connects.",
+        "csqttDeviceId": "Device ID",
+        "csqttDeviceIdHint": "Passed as csqtt --device-id. Empty = first connecting device. After delete/recreate paste the phone id, or leave empty for a fresh bind.",
         "csqttSubHost": "Public host (for clients)",
         "csqttSubHostHint": "Advertised IP or hostname, e.g. 1.2.3.4",
         "csqttVkHashes": "VK call hashes",

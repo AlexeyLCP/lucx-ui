@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ah: CSQTT “password already assigned to another Device ID” after delete/recreate — FIXED (lucx.243)
+- **Symptom (zk0xch, 17.09.2026):** first inbound + iPhone import works. Delete inbound, create again, import — client says the password belongs to another device_id. New password in the card does not help. Restoring the *first* device_id on the phone works with any password.
+- **Cause:** CSQTT is a singleton key (`csqtt`). `Remove` stopped the process but `removeManagedFiles` skipped singleton data dirs. `csqtt.db` kept `main_device_id`. `--password` overwrites the password; empty `--device-id` does **not** clear the stored id. iOS re-import mints a new device_id.
+- **Fix:** wipe `csqtt-data` on inbound delete. Stamp the panel password; a change drops `csqtt.db`. Optional Device ID field → `csqtt --device-id`.
+- **Healing without update:** stop the inbound, `rm -rf /usr/local/x-ui/bin/tunnel/csqtt-data`, save/enable again, import once.
+- **Lesson:** a sidecar SQLite bind is part of inbound identity. Singleton key + “keep files” means delete is not delete.
+
 ### Pattern 1af: CSQTT connected, no internet / no Xray outbound — FIXED (lucx.238)
 - **Symptom:** CSQTT inbound up, client connects, no traffic. No “Route through Xray” on the form.
 - **Cause:** lucx.233 skipped Xray on purpose. TUN `csqtt1` (`10.66.67.0/24`) never got policy routing into an Xray TUN (qWDTT has this). Direct MASQUERADE only if the binary installs it; operators expected the qWDTT-style outbound picker.
