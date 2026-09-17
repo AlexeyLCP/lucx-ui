@@ -879,7 +879,7 @@
         "tproxyCarrier": "Carrier",
         "tproxyRouteThroughXray": "Через Xray",
         "tproxyRouteThroughXrayHint": "TCP MTProxy к ДЦ (uid lucx-mtproxy) уходит в SOCKS-мост Xray. Выкл = напрямую в ДЦ. Вкл = через outbound Xray. Остальные inbound не трогает.",
-        "coverNote": "Сайт-камуфляж на портах 80 и 443. NaiveProxy и Telegram WEB proxy можно повесить за ним (Behind cover). Path routes — HTTP на loopback Xray (VLESS-WS). Не для REALITY, AnyTLS, TrustTunnel, AWG. Сертификат панели. Порт 80 занят (HTTP-01 ACME не заработает).",
+        "coverNote": "Сайт-камуфляж на :80 и :443. Naive и Telegram WEB proxy — Behind cover. Path routes → VLESS-WS на loopback. Хост Cover забирает этот SNI: VLESS+TCP TLS с тем же доменом до Xray не дойдёт. REALITY — чужой SNI (microsoft.com). Не для AnyTLS/TrustTunnel/AWG. Серт панели. :80 занят (HTTP-01 ACME нет).",
         "gatewayNote": "Optional nginx SNI mux on TCP 443. Disabled until you Apply on the Masking page. Does not change existing inbounds on install or update.",
         "coverHostname": "Hostname",
         "coverHostnameHint": "Голое DNS-имя. Должно совпадать с TLS-сертификатом. Naive/tproxy Behind cover — то же имя.",
@@ -2673,7 +2673,7 @@
     },
     "masking": {
           "title": "443 SNI masking",
-          "help": "Nginx на TCP 443 режет по SNI: REALITY/TLS → Xray, Cover/naive/WS → Caddy. Чужой SNI дропается. UDP/Hysteria, mieru, CSQTT, SSH, панель остаются на своих портах — закрой файрволом, если нужен только 443. Пока не Apply — выкл.",
+          "help": "Nginx на TCP 443 режет по SNI. Хост Cover/Naive забирает этот SNI (сайт). REALITY — другой SNI (microsoft.com), не свой домен: тот же SNI что у Cover до Xray не дойдёт. Чужой SNI → Cover. UDP/mieru/CSQTT/SSH/панель снаружи. Пока не Apply — выкл.",
           "publicHost": "Public hostname",
           "publicHostHint": "Written into Hosts as address:443 so client links stay on 443.",
           "noGateway": "No gateway inbound",
