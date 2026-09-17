@@ -219,9 +219,7 @@ func writeCoverReverseProxy(b *strings.Builder, dest, indent string) {
 		b.WriteString(indent + "}\n")
 		return
 	}
-	if strings.HasPrefix(dest, "http://") {
-		dest = strings.TrimPrefix(dest, "http://")
-	}
+	dest = strings.TrimPrefix(dest, "http://")
 	b.WriteString(indent + "reverse_proxy " + dest + "\n")
 }
 

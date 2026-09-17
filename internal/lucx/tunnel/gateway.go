@@ -7,6 +7,7 @@
 package tunnel
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"strconv"
@@ -87,7 +88,8 @@ func nginxMapKey(sni string) string {
 
 // LocalIPv4 is the IPv4 of the default route. Empty if unknown.
 func LocalIPv4() string {
-	c, err := net.DialTimeout("udp4", "1.1.1.1:53", 2*time.Second)
+	d := &net.Dialer{Timeout: 2 * time.Second}
+	c, err := d.DialContext(context.Background(), "udp4", "1.1.1.1:53")
 	if err != nil {
 		return ""
 	}
