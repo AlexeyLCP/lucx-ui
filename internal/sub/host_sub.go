@@ -17,8 +17,12 @@ import (
 // inbound/externalProxy path, preserving byte-identical output for zero-host
 // inbounds.
 func (s *SubService) hostEndpoints(inbound *model.Inbound, format string) []map[string]any {
+	db := database.GetDB()
+	if db == nil {
+		return nil
+	}
 	var hosts []*model.Host
-	if err := database.GetDB().
+	if err := db.
 		Where("inbound_id = ? AND is_disabled = ?", inbound.Id, false).
 		Order("sort_order asc, id asc").
 		Find(&hosts).Error; err != nil {
