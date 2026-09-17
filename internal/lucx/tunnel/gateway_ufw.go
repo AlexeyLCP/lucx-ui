@@ -7,12 +7,14 @@
 package tunnel
 
 import (
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"runtime"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // GatewayUFWAllow: SSH, 80, 443, panel/sub, and inbounds that stay public.
@@ -82,10 +84,16 @@ var (
 	ufwOSLinux  = runtime.GOOS == "linux"
 	ufwLookPath = exec.LookPath
 	ufwRun      = func(args ...string) error {
-		cmd := exec.Command("ufw", args...)
+		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+		defer cancel()
+		cmd := exec.CommandContext(ctx, "ufw", args...)
 		out, err := cmd.CombinedOutput()
 		if err != nil {
-			return fmt.Errorf("%v: %s", err, strings.TrimSpace(string(out)))
+			msg := strings.TrimSpace(string(out))
+			if msg == "" {
+				return err
+			}
+			return fmt.Errorf("%s: %w", msg, err)
 		}
 		return nil
 	}
@@ -103,8 +111,9 @@ func UFWActive() bool {
 	if !UFWAvailable() {
 		return false
 	}
-	cmd := exec.Command("ufw", "status")
-	out, err := cmd.Output()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "ufw", "status").Output()
 	if err != nil {
 		return false
 	}
