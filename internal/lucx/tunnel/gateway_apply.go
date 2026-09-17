@@ -15,20 +15,20 @@ import (
 
 // PreviewRow is one inbound the wizard may change.
 type PreviewRow struct {
-	InboundID   int    `json:"inboundId"`
-	Remark      string `json:"remark"`
-	Protocol    string `json:"protocol"`
-	Class       string `json:"class"`
+	InboundID   int      `json:"inboundId"`
+	Remark      string   `json:"remark"`
+	Protocol    string   `json:"protocol"`
+	Class       string   `json:"class"`
 	SNI         string   `json:"sni"`
 	SNIs        []string `json:"snis,omitempty"`
-	OldListen   string `json:"oldListen"`
-	NewListen   string `json:"newListen"`
-	OldPort     int    `json:"oldPort"`
-	NewPort     int    `json:"newPort"`
-	HostAddress string `json:"hostAddress"`
-	HostPort    int    `json:"hostPort"`
-	StealDest   string `json:"stealDest,omitempty"`
-	Note        string `json:"note,omitempty"`
+	OldListen   string   `json:"oldListen"`
+	NewListen   string   `json:"newListen"`
+	OldPort     int      `json:"oldPort"`
+	NewPort     int      `json:"newPort"`
+	HostAddress string   `json:"hostAddress"`
+	HostPort    int      `json:"hostPort"`
+	StealDest   string   `json:"stealDest,omitempty"`
+	Note        string   `json:"note,omitempty"`
 }
 
 func publicListen(listen string) string {
