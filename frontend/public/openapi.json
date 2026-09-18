@@ -6082,7 +6082,7 @@
         "tags": [
           "Inbounds"
         ],
-        "summary": "Apply selected preview rows: listen 127.0.0.1 (keep port 443 when BindIP is set), Hosts publicHost:443, nginx on NIC IPv4:443. LucX-UI only.",
+        "summary": "Apply selected preview rows: listen 127.0.0.1 (keep port 443 when BindIP is set), Hosts publicHost:443, Caddy L4 on NIC IPv4:443. LucX-UI only.",
         "operationId": "post_panel_api_inbounds_id_gatewayApply",
         "parameters": [
           {
@@ -6126,7 +6126,7 @@
                   },
                   "hidePanel": {
                     "type": "boolean",
-                    "description": "If true, reverse-proxy panel/sub paths through Cover on 443. Needs Cover selected and a non-root webBasePath. Off by default."
+                    "description": "If true, reverse-proxy panel/sub paths on 443. Needs Cover or WEB proxy selected and a non-root webBasePath. Off by default."
                   }
                 },
                 "required": [
@@ -6168,7 +6168,7 @@
         "tags": [
           "Inbounds"
         ],
-        "summary": "Stop nginx and restore listen/port/Hosts from the Apply snapshot. LucX-UI only.",
+        "summary": "Stop the SNI mux and restore listen/port/Hosts from the Apply snapshot. LucX-UI only.",
         "operationId": "post_panel_api_inbounds_id_gatewayRevert",
         "parameters": [
           {
