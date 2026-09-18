@@ -161,10 +161,10 @@ if ! have "anytls-linux-${ARCH}"; then
     rm -rf /tmp/anytls
 fi
 
-# Caddy L4 SNI mux for the gateway inbound. PIN: caddy v2.11.2 + caddy-l4 42db5690.
+# Caddy L4 SNI mux. PIN: caddy v2.11.4 (l4 42db5690 needs it; naive stays 2.11.2).
 if ! have "caddy-layer4-linux-${ARCH}"; then
     go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.7
-    CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" "$(go env GOPATH)/bin/xcaddy" build v2.11.2 \
+    CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" "$(go env GOPATH)/bin/xcaddy" build v2.11.4 \
         --with github.com/mholt/caddy-l4@42db5690dea199f930a6f08005fe2e4aab10dcc9 \
         --output "${DEST}/caddy-layer4-linux-${ARCH}"
     chmod +x "${DEST}/caddy-layer4-linux-${ARCH}"

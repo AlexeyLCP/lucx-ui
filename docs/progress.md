@@ -2,7 +2,7 @@
 
 ## lucx.246 — SNI gateway: Caddy L4, панель за Cover или WEB proxy (2026-09-18)
 
-Nginx stream sidecar replaced with Caddy L4 (`caddy-layer4`, xcaddy v2.11.2 + caddy-l4 `42db5690`). Hide panel works with Cover **or** tproxy Caddy (handles before reverse_proxy). Masking UI no longer requires Cover. pack-sidecars / release.yml / install.sh drop nginx.
+Nginx stream sidecar replaced with Caddy L4 (`caddy-layer4`, xcaddy v2.11.4 + caddy-l4 `42db5690`). Hide panel works with Cover **or** tproxy Caddy (handles before reverse_proxy). Masking UI no longer requires Cover. pack-sidecars / release.yml / install.sh drop nginx.
 
 **lucxVersion:** lucx.246
 
