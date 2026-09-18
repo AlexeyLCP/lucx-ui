@@ -207,7 +207,7 @@ func mtproxyXrayRedirectArgs(uid string, port int) []string {
 	}
 }
 
-func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int, loopback bool) string {
+func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int, loopback bool, panel []CoverRoute) string {
 	hostPort := hostname + ":" + strconv.Itoa(port)
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n")
@@ -226,6 +226,7 @@ func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPor
 		b.WriteString("\n")
 	}
 	b.WriteString("\tencode zstd gzip\n")
+	writeHTTPPanelRoutes(&b, panel, "\t")
 	b.WriteString("\treverse_proxy 127.0.0.1:")
 	b.WriteString(strconv.Itoa(relayPort))
 	b.WriteString(" {\n\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")

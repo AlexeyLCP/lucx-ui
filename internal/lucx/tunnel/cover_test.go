@@ -78,15 +78,15 @@ func TestRenderCoverCaddyfile_TproxyWins(t *testing.T) {
 		tproxyRelay:    24002,
 		naive:          &naive,
 		publicDir:      "/var/www/site",
-		routes:         []CoverRoute{{Path: "/ws", Dest: "127.0.0.1:10000"}},
+		routes:         []CoverRoute{{Path: "/p", Dest: "https://127.0.0.1:2053"}},
 		publicUpstream: "http://127.0.0.1:3000",
 	})
-	for _, need := range []string{"reverse_proxy 127.0.0.1:24002", "header -Via", "protocols h1 h2", "encode zstd gzip"} {
+	for _, need := range []string{"reverse_proxy 127.0.0.1:24002", "header -Via", "protocols h1 h2", "encode zstd gzip", "handle /p*", "https://127.0.0.1:2053"} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("tproxy caddy missing %q:\n%s", need, got)
 		}
 	}
-	for _, no := range []string{"file_server", "forward_proxy", "handle /ws", "127.0.0.1:3000"} {
+	for _, no := range []string{"file_server", "forward_proxy", "127.0.0.1:3000"} {
 		if strings.Contains(got, no) {
 			t.Fatalf("tproxy must own the host, found %q in:\n%s", no, got)
 		}
@@ -283,5 +283,35 @@ func TestSettingsBehindCover(t *testing.T) {
 	}
 	if SettingsBehindCover(model.Cover, `{"behindCover":true}`) {
 		t.Fatal("cover itself")
+	}
+}
+
+func TestCoverInstanceFromInbound_PanelRoutes(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+	site := CoverSiteDir(3)
+	if err := os.MkdirAll(site, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "shop.example.com")
+	cover := &model.Inbound{
+		Id: 3, Protocol: model.Cover, Enable: true, Port: 443,
+		Settings: `{"hostname":"shop.example.com","siteSource":"zip"}`,
+	}
+	gw := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Enable: true, Port: 443,
+		Settings: `{"snapshot":[{"inboundId":3}],"hidePanel":true,"panelRoutes":[{"path":"/abc","dest":"https://127.0.0.1:2053"}]}`,
+	}
+	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{gw}, nil, cert, key)
+	if !ok || !cInst.Enabled {
+		t.Fatalf("cover: %+v ok=%v", cInst, ok)
+	}
+	if !strings.Contains(cInst.ConfigText, "handle /abc*") || !strings.Contains(cInst.ConfigText, "https://127.0.0.1:2053") {
+		t.Fatalf("panel routes:\n%s", cInst.ConfigText)
 	}
 }

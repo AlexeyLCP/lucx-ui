@@ -161,30 +161,11 @@ if ! have "anytls-linux-${ARCH}"; then
     rm -rf /tmp/anytls
 fi
 
-# nginx stream + ssl_preread for SNI gateway. PIN: nginx.org 1.30.5.
-# amd64 only (native gcc). arm64 skip — same as mtproxy.
-if ! have "nginx-linux-${ARCH}" && [[ "${ARCH}" == amd64 ]]; then
-    NGINX_VER=1.30.5
-    fetch -O /tmp/nginx.tar.gz "https://nginx.org/download/nginx-${NGINX_VER}.tar.gz"
-    rm -rf /tmp/nginx-src
-    mkdir /tmp/nginx-src
-    tar -xzf /tmp/nginx.tar.gz -C /tmp/nginx-src --strip-components=1
-    (
-        cd /tmp/nginx-src
-        ./configure \
-            --prefix=/tmp/nginx-pfx \
-            --error-log-path=stderr \
-            --pid-path=/tmp/nginx-sidecar.pid \
-            --with-stream \
-            --with-stream_ssl_preread_module \
-            --without-http_rewrite_module \
-            --without-http_gzip_module \
-            --without-pcre \
-            --with-cc-opt="-Os" \
-            --with-ld-opt="-s"
-        make -j"$(nproc)"
-        cp objs/nginx "${DEST}/nginx-linux-${ARCH}"
-    )
-    chmod +x "${DEST}/nginx-linux-${ARCH}"
-    rm -rf /tmp/nginx-src /tmp/nginx.tar.gz
+# Caddy L4 SNI mux for the gateway inbound. PIN: caddy v2.11.2 + caddy-l4 42db5690.
+if ! have "caddy-layer4-linux-${ARCH}"; then
+    go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.7
+    CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" "$(go env GOPATH)/bin/xcaddy" build v2.11.2 \
+        --with github.com/mholt/caddy-l4@42db5690dea199f930a6f08005fe2e4aab10dcc9 \
+        --output "${DEST}/caddy-layer4-linux-${ARCH}"
+    chmod +x "${DEST}/caddy-layer4-linux-${ARCH}"
 fi

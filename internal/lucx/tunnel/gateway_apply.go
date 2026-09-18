@@ -76,7 +76,7 @@ func streamServerNames(raw string) []string {
 	var out []string
 	seen := map[string]bool{}
 	add := func(n string) {
-		n = nginxMapKey(n)
+		n = sniMapKey(n)
 		if n == "" || seen[n] {
 			return
 		}
@@ -201,7 +201,7 @@ func xrayTransportSettingsKey(network string) string {
 	}
 }
 
-// SetAcceptProxyProtocol toggles the transport flag Xray needs when nginx
+// SetAcceptProxyProtocol toggles the transport flag Xray needs when the SNI mux
 // sends PROXY protocol. Empty dest-like no-op if JSON is broken.
 func SetAcceptProxyProtocol(stream string, on bool) string {
 	raw := strings.TrimSpace(stream)
@@ -266,7 +266,7 @@ func ResolveGatewayPublicHost(req, saved string, others []*model.Inbound) string
 	return ""
 }
 
-// BuildPreview lists inbounds the mask may move behind nginx.
+// BuildPreview lists inbounds the mask may move behind 443.
 // bindIP set → keep port 443 on loopback (Cover first if it is on 443).
 func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, bindIP string) []PreviewRow {
 	if gatewayPort <= 0 {
@@ -405,7 +405,7 @@ func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute 
 			}
 			dest := gatewayLoopbackDest(r.NewPort)
 			for _, sni := range names {
-				sni = nginxMapKey(sni)
+				sni = sniMapKey(sni)
 				if sni == "" || seen[sni] {
 					continue
 				}

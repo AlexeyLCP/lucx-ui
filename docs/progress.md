@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.246 — SNI gateway: Caddy L4, панель за Cover или WEB proxy (2026-09-18)
+
+Nginx stream sidecar replaced with Caddy L4 (`caddy-layer4`, xcaddy v2.11.2 + caddy-l4 `42db5690`). Hide panel works with Cover **or** tproxy Caddy (handles before reverse_proxy). Masking UI no longer requires Cover. pack-sidecars / release.yml / install.sh drop nginx.
+
+**lucxVersion:** lucx.246
+
+---
+
 ## lucx.245 — SNI gateway: bind IP, PROXY, UFW, панель за Cover (2026-09-17)
 
 Nginx `listen <NIC IPv4>:443` so backends keep `127.0.0.1:443` (Cover first if it is on 443). Masking auto-creates the gateway inbound; two tables; SNI-clash alert; listen/port read-only while masked. `proxy_protocol on` + Xray `acceptProxyProtocol` + Caddy `listener_wrappers` on loopback. Optional UFW checkbox (SSH/panel/80/443/public inbounds, default deny; Revert disables only if we enabled). Optional hide-panel checkbox: Cover reverse_proxy of webBasePath/sub paths; UFW then omits 2053/2096. Needs Cover selected and base path ≠ `/`.

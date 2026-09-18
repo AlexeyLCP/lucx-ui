@@ -144,7 +144,7 @@ const (
 	Tproxy Protocol = "tproxy"
 	// Cover — camouflage site on :80/:443 (Caddy file_server + HTTP front).
 	Cover Protocol = "cover"
-	// Gateway — nginx stream SNI mux on TCP 443 (optional mask).
+	// Gateway — Caddy L4 SNI mux on TCP 443 (optional mask).
 	Gateway Protocol = "gateway"
 	// END LUCX-HOOK
 )

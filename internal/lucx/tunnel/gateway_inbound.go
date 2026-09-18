@@ -8,7 +8,6 @@ package tunnel
 
 import (
 	"encoding/json"
-	"path/filepath"
 	"strconv"
 	"strings"
 
@@ -62,12 +61,11 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound) (Ins
 		return disabled, true
 	}
 	confPath := configPathFor(key, Gateway)
-	pidPath := filepath.Join(workDir(), key+".pid")
 	fallback := cfg.Fallback
 	if fallback == "" {
 		fallback = CoverFallback(rows, selected)
 	}
-	conf := RenderNginxConf(port, absPath(pidPath), routes, fallback, bindIP)
+	conf := RenderGatewayCaddyfile(port, routes, fallback, bindIP)
 	probe := port
 	if bindIP != "" {
 		probe = 0
@@ -77,7 +75,7 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound) (Ins
 		Key:        key,
 		Enabled:    true,
 		ConfigText: conf,
-		Args:       []string{"-g", "daemon off;", "-c", absPath(confPath)},
+		Args:       []string{"run", "--config", absPath(confPath), "--adapter", "caddyfile"},
 		ProbePort:  probe,
 	}, true
 }

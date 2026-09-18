@@ -396,7 +396,7 @@ func (l *Local) refreshCoverFronts() {
 
 func (l *Local) ensureTproxyInbound(ib *model.Inbound) error {
 	cert, key := panelCertFilesForRuntime()
-	insts, ok := tunnel.TproxyInstancesFromInbound(ib, cert, key)
+	insts, ok := tunnel.TproxyInstancesFromInbound(ib, cert, key, listLocalInboundsForCover()...)
 	if !ok {
 		return nil
 	}

@@ -96,15 +96,18 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		return common.NewError("gateway: nothing selected")
 	}
 	if req.HidePanel {
-		cover := false
+		front := false
 		for _, row := range rows {
-			if selected[row.InboundID] && row.Protocol == string(model.Cover) {
-				cover = true
+			if !selected[row.InboundID] {
+				continue
+			}
+			if row.Protocol == string(model.Cover) || row.Protocol == string(model.Tproxy) {
+				front = true
 				break
 			}
 		}
-		if !cover {
-			return common.NewError("gateway: hide panel needs Cover selected")
+		if !front {
+			return common.NewError("gateway: hide panel needs Cover or WEB proxy selected")
 		}
 		routes := panelCoverRoutes()
 		if len(routes) == 0 {

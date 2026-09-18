@@ -116,6 +116,9 @@ export default function MaskingPage() {
   const clash = sniClash(behind);
   const chosen = picked ? selected : behind.map((r) => r.inboundId);
   const coverOn = behind.some((r) => r.protocol === 'cover' && chosen.includes(r.inboundId));
+  const httpFront = behind.some(
+    (r) => (r.protocol === 'cover' || r.protocol === 'tproxy') && chosen.includes(r.inboundId),
+  );
 
   const apply = async () => {
     if (!gateway) return;
@@ -330,7 +333,7 @@ export default function MaskingPage() {
         </Typography.Paragraph>
         <Checkbox
           checked={applied ? Boolean(preview?.hidePanel) : hidePanel}
-          disabled={applied || !coverOn}
+          disabled={applied || !httpFront}
           onChange={(e) => setHidePanel(e.target.checked)}
         >
           {t('pages.masking.hidePanel')}

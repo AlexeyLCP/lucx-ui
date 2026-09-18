@@ -625,7 +625,7 @@ func (s *TunnelService) reconcileTproxyInbounds() {
 		if ib == nil || ib.Protocol != model.Tproxy || ib.NodeID != nil {
 			continue
 		}
-		insts, ok := tunnel.TproxyInstancesFromInbound(ib, panelCert, panelKey)
+		insts, ok := tunnel.TproxyInstancesFromInbound(ib, panelCert, panelKey, inbounds...)
 		if !ok {
 			continue
 		}

@@ -210,18 +210,22 @@ func TestTproxyEnsureSecretStable(t *testing.T) {
 }
 
 func TestRenderTproxyCaddyfile(t *testing.T) {
-	got := RenderTproxyCaddyfile("proxy.example.com", 443, "/c.pem", "/k.pem", 24002, false)
+	got := RenderTproxyCaddyfile("proxy.example.com", 443, "/c.pem", "/k.pem", 24002, false, nil)
 	for _, need := range []string{"admin off", "auto_https off", "proxy.example.com:443", "tls", "reverse_proxy 127.0.0.1:24002", "response_header_timeout 40s"} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("caddyfile missing %q:\n%s", need, got)
 		}
 	}
-	loop := RenderTproxyCaddyfile("proxy.example.com", 8443, "/c.pem", "/k.pem", 24002, true)
+	loop := RenderTproxyCaddyfile("proxy.example.com", 8443, "/c.pem", "/k.pem", 24002, true, nil)
 	if !strings.Contains(loop, "bind 127.0.0.1") || !strings.Contains(loop, "proxy_protocol") {
 		t.Fatalf("loopback bind:\n%s", loop)
 	}
 	if strings.Contains(got, "proxy_protocol") {
 		t.Fatalf("public tproxy should not wrap PROXY:\n%s", got)
+	}
+	withPanel := RenderTproxyCaddyfile("proxy.example.com", 443, "/c.pem", "/k.pem", 24002, true, []CoverRoute{{Path: "/abc", Dest: "https://127.0.0.1:2053"}})
+	if !strings.Contains(withPanel, "handle /abc*") || !strings.Contains(withPanel, "reverse_proxy 127.0.0.1:24002") {
+		t.Fatalf("panel handle before mtproxy:\n%s", withPanel)
 	}
 }
 

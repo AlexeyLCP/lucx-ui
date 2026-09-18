@@ -148,7 +148,7 @@ func (n Name) BinaryName() string {
 	case Naive, TproxyCaddy, Cover:
 		name = fmt.Sprintf("caddy-naive-%s-%s", runtime.GOOS, runtime.GOARCH)
 	case Gateway:
-		name = fmt.Sprintf("nginx-%s-%s", runtime.GOOS, runtime.GOARCH)
+		name = fmt.Sprintf("caddy-layer4-%s-%s", runtime.GOOS, runtime.GOARCH)
 	case NaiveClient:
 		name = fmt.Sprintf("naive-client-%s-%s", runtime.GOOS, runtime.GOARCH)
 	case MieruClient:
@@ -206,7 +206,7 @@ func trustTunnelHostsFileName(key string) string {
 func configPathFor(key string, n Name) string {
 	if key != "" && key != string(n) {
 		switch n {
-		case Naive, TproxyCaddy, Cover:
+		case Naive, TproxyCaddy, Cover, Gateway:
 			return filepath.Join(workDir(), key+".caddyfile")
 		case Olcrtc:
 			return filepath.Join(workDir(), key+".yaml")

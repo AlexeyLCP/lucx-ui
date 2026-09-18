@@ -57,6 +57,9 @@ func TestNameRegistry(t *testing.T) {
 	if got := TproxyCaddy.BinaryName(); !strings.Contains(got, "caddy-naive") {
 		t.Errorf("TproxyCaddy.BinaryName = %q, want caddy-naive", got)
 	}
+	if got := Gateway.BinaryName(); !strings.Contains(got, "caddy-layer4") {
+		t.Errorf("Gateway.BinaryName = %q, want caddy-layer4", got)
+	}
 }
 
 func TestDefaultNaiveConfig(t *testing.T) {

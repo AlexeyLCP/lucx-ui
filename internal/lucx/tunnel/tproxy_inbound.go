@@ -62,7 +62,7 @@ func TproxyPrimaryPort(cfg TproxyConfig) int {
 // TproxyInstancesFromInbound returns the three supervised processes for one
 // inbound (MTProxy, tproxy-server, Caddy). Disabled/invalid rows yield three
 // Enabled:false slots so reconcile tears them down.
-func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) ([]Instance, bool) {
+func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string, others ...*model.Inbound) ([]Instance, bool) {
 	cfg, ok := TproxyConfigFromInbound(ib)
 	if !ok {
 		return nil, false
@@ -138,7 +138,11 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string) (
 	if err != nil {
 		return disabledWhy(err), true
 	}
-	caddyfile := RenderTproxyCaddyfile(cfg.Hostname, cfg.Port, certFile, keyFile, relayPort, IsLoopbackListen(ib.Listen))
+	var panel []CoverRoute
+	if !cfg.BehindCover {
+		panel = gatewayPanelRoutes(others)
+	}
+	caddyfile := RenderTproxyCaddyfile(cfg.Hostname, cfg.Port, certFile, keyFile, relayPort, IsLoopbackListen(ib.Listen), panel)
 	cfgPath := configPathFor(key, Tproxy)
 	caddyPath := configPathFor(TproxyCaddyKey(id), TproxyCaddy)
 	caddyOn := !cfg.BehindCover

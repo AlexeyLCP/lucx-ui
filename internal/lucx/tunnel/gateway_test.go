@@ -14,30 +14,32 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
-func TestRenderNginxConf_SNIAndDrop(t *testing.T) {
-	got := RenderNginxConf(443, "/tmp/gw.pid", []GatewayRoute{
+func TestRenderGatewayCaddyfile_SNIAndDrop(t *testing.T) {
+	got := RenderGatewayCaddyfile(443, []GatewayRoute{
 		{SNI: "www.microsoft.com", Dest: "127.0.0.1:1443"},
 		{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"},
 		{SNI: "www.microsoft.com", Dest: "127.0.0.1:9"},
 	}, "", "")
 	for _, need := range []string{
-		"ssl_preread on",
-		"proxy_protocol on",
-		"listen 443",
-		"www.microsoft.com 127.0.0.1:1443",
-		"vpn.example.com 127.0.0.1:8443",
-		"default 127.0.0.1:1",
-		"pid /tmp/gw.pid",
+		"admin off",
+		"layer4",
+		":443",
+		"tls sni www.microsoft.com",
+		"proxy 127.0.0.1:1443",
+		"tls sni vpn.example.com",
+		"proxy 127.0.0.1:8443",
+		"proxy 127.0.0.1:1",
+		"proxy_protocol v1",
 	} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("missing %q:\n%s", need, got)
 		}
 	}
-	if strings.Count(got, "www.microsoft.com") != 1 {
+	if strings.Count(got, "tls sni www.microsoft.com") != 1 {
 		t.Fatalf("duplicate SNI:\n%s", got)
 	}
-	got = RenderNginxConf(443, "", []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"}}, "127.0.0.1:8443", "")
-	if !strings.Contains(got, "default 127.0.0.1:8443") {
+	got = RenderGatewayCaddyfile(443, []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"}}, "127.0.0.1:8443", "")
+	if strings.Count(got, "proxy 127.0.0.1:8443") < 1 {
 		t.Fatalf("cover fallback:\n%s", got)
 	}
 }
@@ -199,9 +201,9 @@ func TestGatewayInstance_DisabledUntilSnapshot(t *testing.T) {
 	}
 }
 
-func TestRenderNginxConf_BindIP(t *testing.T) {
-	got := RenderNginxConf(443, "", []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:443"}}, "127.0.0.1:443", "203.0.113.5")
-	if !strings.Contains(got, "listen 203.0.113.5:443") {
+func TestRenderGatewayCaddyfile_BindIP(t *testing.T) {
+	got := RenderGatewayCaddyfile(443, []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:443"}}, "127.0.0.1:443", "203.0.113.5")
+	if !strings.Contains(got, "203.0.113.5:443") {
 		t.Fatalf("%s", got)
 	}
 }

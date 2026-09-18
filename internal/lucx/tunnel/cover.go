@@ -177,6 +177,7 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	if a.tproxyRelay > 0 {
 		b.WriteString("\tencode zstd gzip\n")
 		b.WriteString("\theader -Via\n")
+		writeHTTPPanelRoutes(&b, a.routes, "\t")
 		b.WriteString("\treverse_proxy 127.0.0.1:" + strconv.Itoa(a.tproxyRelay) +
 			" {\n\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")
 		return b.String()
@@ -209,6 +210,26 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	}
 	b.WriteString("}\n")
 	return b.String()
+}
+
+func writeHTTPPanelRoutes(b *strings.Builder, routes []CoverRoute, indent string) {
+	if len(routes) == 0 {
+		return
+	}
+	b.WriteString(indent + "route {\n")
+	for _, r := range routes {
+		path := strings.TrimSpace(r.Path)
+		if path == "" {
+			continue
+		}
+		if !strings.HasSuffix(path, "*") {
+			path += "*"
+		}
+		b.WriteString(indent + "\thandle " + path + " {\n")
+		writeCoverReverseProxy(b, r.Dest, indent+"\t\t")
+		b.WriteString(indent + "\t}\n")
+	}
+	b.WriteString(indent + "}\n")
 }
 
 func writeCoverReverseProxy(b *strings.Builder, dest, indent string) {

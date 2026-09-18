@@ -158,9 +158,7 @@ func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret
 			att.naiveAuth = extra
 		}
 	}
-	if att.tproxyRelay == 0 {
-		att.routes = append(att.routes, gatewayPanelRoutes(others)...)
-	}
+	att.routes = append(att.routes, gatewayPanelRoutes(others)...)
 
 	caddyfile := RenderCoverCaddyfile(cfg.Hostname, certFile, keyFile, att)
 	caddyPath := configPathFor(key, Cover)

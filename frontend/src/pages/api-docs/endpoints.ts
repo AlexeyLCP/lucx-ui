@@ -533,7 +533,7 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/inbounds/:id/gatewayApply',
         summary:
-          'Apply selected preview rows: listen 127.0.0.1 (keep port 443 when BindIP is set), Hosts publicHost:443, nginx on NIC IPv4:443. LucX-UI only.',
+          'Apply selected preview rows: listen 127.0.0.1 (keep port 443 when BindIP is set), Hosts publicHost:443, Caddy L4 on NIC IPv4:443. LucX-UI only.',
         params: [
           { name: 'id', in: 'path', type: 'number', desc: 'Gateway inbound ID.' },
           { name: 'selected', in: 'body', type: 'integer[]', desc: 'Inbound IDs to move.' },
@@ -554,14 +554,15 @@ export const sections: readonly Section[] = [
             name: 'hidePanel',
             in: 'body',
             type: 'boolean',
-            desc: 'If true, reverse-proxy panel/sub paths through Cover on 443. Needs Cover selected and a non-root webBasePath. Off by default.',
+            desc: 'If true, reverse-proxy panel/sub paths on 443. Needs Cover or WEB proxy selected and a non-root webBasePath. Off by default.',
           },
         ],
       },
       {
         method: 'POST',
         path: '/panel/api/inbounds/:id/gatewayRevert',
-        summary: 'Stop nginx and restore listen/port/Hosts from the Apply snapshot. LucX-UI only.',
+        summary:
+          'Stop the SNI mux and restore listen/port/Hosts from the Apply snapshot. LucX-UI only.',
         params: [{ name: 'id', in: 'path', type: 'number', desc: 'Gateway inbound ID.' }],
       },
       // END LUCX-HOOK
