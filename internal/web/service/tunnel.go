@@ -351,6 +351,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileAnytlsInbounds()
 	s.reconcileTproxyInbounds()
 	s.reconcileCoverInbounds()
+	s.reconcileGatewayInbounds()
 }
 
 // tunnelBlobMigrated reports whether the legacy settings blob carries the
@@ -679,6 +680,26 @@ func (s *TunnelService) reconcileCoverInbounds() {
 		want = append(want, inst)
 	}
 	tunnel.GetManager().ReconcileCover(want)
+}
+
+func (s *TunnelService) reconcileGatewayInbounds() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: gateway inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Gateway || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.GatewayInstanceFromInbound(ib, inbounds)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	tunnel.GetManager().ReconcileGateway(want)
 }
 
 // panelCertFiles reads the panel ACME certificate paths from settings (the

@@ -434,38 +434,65 @@ func CoverFallback(rows []PreviewRow, selected map[int]bool) string {
 	return ""
 }
 
+func previewRouteNames(r PreviewRow) []string {
+	names := r.SNIs
+	if len(names) == 0 && r.SNI != "" {
+		names = []string{r.SNI}
+	}
+	if h := sniMapKey(r.HostAddress); h != "" {
+		names = append(names, h)
+	}
+	return names
+}
+
+func appendPreviewRoutes(out []GatewayRoute, seen map[string]bool, rows []PreviewRow, selected map[int]bool, caddy bool) []GatewayRoute {
+	for _, r := range rows {
+		if selected != nil && !selected[r.InboundID] {
+			continue
+		}
+		if caddy != (r.Class == ClassCaddy) {
+			continue
+		}
+		dest := gatewayLoopbackDest(r.NewPort)
+		for _, sni := range previewRouteNames(r) {
+			sni = sniMapKey(sni)
+			if sni == "" || seen[sni] {
+				continue
+			}
+			seen[sni] = true
+			out = append(out, GatewayRoute{SNI: sni, Dest: dest})
+		}
+	}
+	return out
+}
+
 func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute {
-	var out []GatewayRoute
 	seen := map[string]bool{}
-	add := func(caddyOnly bool) {
-		for _, r := range rows {
-			if selected != nil && !selected[r.InboundID] {
-				continue
-			}
-			if caddyOnly != (r.Class == ClassCaddy) {
-				continue
-			}
-			names := r.SNIs
-			if len(names) == 0 && r.SNI != "" {
-				names = []string{r.SNI}
-			}
-			if !caddyOnly {
-				if h := sniMapKey(r.HostAddress); h != "" {
-					names = append(names, h)
-				}
-			}
-			dest := gatewayLoopbackDest(r.NewPort)
-			for _, sni := range names {
-				sni = sniMapKey(sni)
-				if sni == "" || seen[sni] {
-					continue
-				}
-				seen[sni] = true
-				out = append(out, GatewayRoute{SNI: sni, Dest: dest})
+	out := appendPreviewRoutes(nil, seen, rows, selected, true)
+	return appendPreviewRoutes(out, seen, rows, selected, false)
+}
+
+// CaddyClaimsHost is true when a selected Cover/WEB-proxy/naive row already owns host.
+func CaddyClaimsHost(rows []PreviewRow, selected map[int]bool, host string) bool {
+	host = sniMapKey(host)
+	if host == "" {
+		return false
+	}
+	for _, r := range rows {
+		if selected != nil && !selected[r.InboundID] {
+			continue
+		}
+		if r.Class != ClassCaddy {
+			continue
+		}
+		if sniMapKey(r.SNI) == host || sniMapKey(r.HostAddress) == host {
+			return true
+		}
+		for _, n := range r.SNIs {
+			if sniMapKey(n) == host {
+				return true
 			}
 		}
 	}
-	add(false)
-	add(true)
-	return out
+	return false
 }

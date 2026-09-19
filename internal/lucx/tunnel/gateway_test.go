@@ -240,17 +240,35 @@ func TestBuildPreview_BindIPKeepsSolo443(t *testing.T) {
 	}
 }
 
-func TestRoutesFromPreview_VLESSOwnsPublicHost(t *testing.T) {
+func TestRoutesFromPreview_CaddyKeepsPublicHost(t *testing.T) {
 	rows := []PreviewRow{
 		{InboundID: 1, Class: ClassPassthrough, SNI: "www.microsoft.com", SNIs: []string{"www.microsoft.com"}, HostAddress: "vpn.example.com", NewPort: 1443},
 		{InboundID: 2, Class: ClassCaddy, SNI: "vpn.example.com", NewPort: 443},
 	}
-	got := RoutesFromPreview(rows, map[int]bool{1: true, 2: true})
+	sel := map[int]bool{1: true, 2: true}
+	got := RoutesFromPreview(rows, sel)
 	by := map[string]string{}
 	for _, r := range got {
 		by[r.SNI] = r.Dest
 	}
-	if by["www.microsoft.com"] != "127.0.0.1:1443" || by["vpn.example.com"] != "127.0.0.1:1443" {
+	if by["www.microsoft.com"] != "127.0.0.1:1443" || by["vpn.example.com"] != "127.0.0.1:443" {
+		t.Fatalf("%+v", got)
+	}
+	if !CaddyClaimsHost(rows, sel, "vpn.example.com") {
+		t.Fatal("cover must own public host")
+	}
+}
+
+func TestRoutesFromPreview_VLESSOwnsPublicHostWhenNoCaddy(t *testing.T) {
+	rows := []PreviewRow{
+		{InboundID: 1, Class: ClassPassthrough, SNI: "www.microsoft.com", SNIs: []string{"www.microsoft.com"}, HostAddress: "vpn.example.com", NewPort: 443},
+	}
+	got := RoutesFromPreview(rows, map[int]bool{1: true})
+	by := map[string]string{}
+	for _, r := range got {
+		by[r.SNI] = r.Dest
+	}
+	if by["www.microsoft.com"] != "127.0.0.1:443" || by["vpn.example.com"] != "127.0.0.1:443" {
 		t.Fatalf("%+v", got)
 	}
 }

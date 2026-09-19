@@ -156,7 +156,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 				Address:                row.HostAddress,
 				Port:                   row.HostPort,
 				Security:               "same",
-				OverrideSniFromAddress: row.Class == tunnel.ClassPassthrough,
+				OverrideSniFromAddress: row.Class == tunnel.ClassPassthrough && !tunnel.CaddyClaimsHost(rows, selected, host),
 			}
 			if err := db.Create(&h).Error; err != nil {
 				return err

@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.249 — Masking survives reboot; WEB proxy keeps public SNI (2026-09-19)
+
+Tunnel Reconcile never started Caddy L4, so after reboot/update VLESS+WEB proxy on 443 stayed dead until Masking Revert→Apply. Reconcile now starts `gateway-*`. lucx.247 gave the public host SNI to VLESS, so Cover/WEB proxy on the same name never received TLS. New Apply: Caddy rows keep that SNI; VLESS `OverrideSniFromAddress` only when no Cover/WEB proxy owns it. Already-applied .247 hosts: one Revert→Apply (do not rewrite live client SNI on boot).
+
+**lucxVersion:** lucx.249
+
+---
+
 ## lucx.248 — install.sh installs AWG module again (2026-09-19)
 
 v3.8 overlay dropped the `bin/install-awg-module.sh` call from `install.sh` / `update.sh`. Clean install of .246 left the panel with “AWG module not installed”. Restored after fail2ban (never fatal). Fresh install may still reboot if DKMS upgraded the kernel; update only prints `.awg-reboot-needed`.
