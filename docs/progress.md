@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.251 — AWG DKMS on Ubuntu 20.04 5.4 (chacha + timer_delete) (2026-09-19)
+
+Pin `3c38e168beb7` failed DKMS on 5.4.0-216 (vladufqaa). `compat.h` `<6.16` wrappers call `chacha_init` / `chacha20_crypt` (Linux 5.5+); 5.4 still has the skcipher header — Zinc fallback. The `<6.19` block also `#include <crypto/blake2s.h>` while Zinc still builds blake2s.o on < 5.10; 5.4.0-216 ships that header → skip the include on < 5.10. Leave `ISUBUNTU2004` on `timer_delete` (5.4.0-216 already declares it).
+
+**lucxVersion:** lucx.251
+
+---
+
 ## Masking page chrome (2026-09-19)
 
 `/masking` now uses the same AppSidebar + content-shell as Hosts. Body is three Cards (status / tables / apply) like Cores. Apply/Revert unchanged. Files: `MaskingPage.tsx`, `page-shell.css`, `page-cards.css`, `usePageTitle.ts`. Checks: `npm run typecheck`, `npm run lint`.

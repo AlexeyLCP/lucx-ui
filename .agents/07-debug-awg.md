@@ -274,6 +274,14 @@ Extracted from AGENTS.md. This file is project law.
 
 - **Symptom:** `x-ui install-awg` / first install: DKMS exit 2, old module left. `make.log`: `implicit declaration of function ‘timer_delete’` in `device.c` / `wg_pm_notification`. Kernel `5.15.0-82-generic`.
 - **Cause:** pin `46803204e7ec` `compat.h` wraps `timer_delete` → `del_timer` for kernels `< 6.1.91`, but skips `ISUBUNTU2204` (assumed backport). 5.15.0-82 has no backport.
-- **Fix:** `apply_timer_delete_compat` drops the Ubuntu 22.04 exception after clone.
+- **Fix:** `apply_timer_delete_compat` drops the Ubuntu 22.04 exception after clone. Keep `ISUBUNTU2004` — 5.4.0-216 declares `timer_delete`.
 - **Healing:** update panel, then `x-ui install-awg` / Cores → Install.
 - **Not a bug (was):** `tproxy`/`mtproxy` curl 404 — they are release-built, never on GitHub raw. install/update now skip that fetch.
+
+### Pattern 1af: DKMS fail on Ubuntu 20.04 5.4 — `chacha_init` undeclared — FIXED (lucx.251)
+
+- **Symptom (VladufQa, 19.09.2026):** web update to lucx.250 ran `install-awg-module.sh`; DKMS exit 2; panel “AWG module not installed”. `make.log`: `‘chacha_init’ undeclared` / `‘chacha20_crypt’ undeclared` in `compat.h` `__compat_chacha_init`. Kernel `5.4.0-216-generic`. Reboot does nothing — module was never built.
+- **Cause:** AWG 3 header protection uses the ChaCha library API. Linux 5.5+ has `chacha_init(u32 *state, …)` / `chacha20_crypt`. The pin’s `< 6.16` wrapper assumes that API and calls `(chacha_init)(state->x, …)`. 5.4 still ships the skcipher `crypto/chacha.h` (`crypto_chacha_init` / `chacha_block`) — include succeeds, symbols do not. Upstream issue #210 / PR #244 (open; PR only shadows the header for VERSION<5.5, which loses to the kernel header already present on 5.4).
+- **Fix:** after clone: `apply_chacha_lib_compat` (Zinc `chacha_init`/`chacha20_crypt` on `< 5.5`) and `apply_blake2s_zinc_compat` (do not `#include <crypto/blake2s.h>` on `< 5.10`, where Zinc still builds `blake2s.o`). 5.5–6.15 keep the kernel ChaCha library. Do not drop `ISUBUNTU2004` on `timer_delete`.
+- **Healing:** update panel, then `x-ui install-awg` / Cores → Install. No reboot if DKMS installs for the running kernel.
+- **Not this:** Debian 13 (6.12 / 7.1.x) — Pattern 1s (udp_tunnel ABI). Ubuntu 22.04 5.15 already has `chacha_init` — Pattern 1ae.
