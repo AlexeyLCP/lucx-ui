@@ -14,6 +14,9 @@ const TITLE_KEYS: Record<string, string> = {
   '/outbound': 'menu.outbounds',
   '/routing': 'menu.routing',
   '/api-docs': 'menu.apiDocs',
+  // LUCX-HOOK: lucx pages
+  '/masking': 'menu.masking',
+  // END LUCX-HOOK
 };
 
 export function usePageTitle() {

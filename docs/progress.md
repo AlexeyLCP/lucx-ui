@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## Masking page chrome (2026-09-19)
+
+`/masking` now uses the same AppSidebar + content-shell as Hosts. Body is three Cards (status / tables / apply) like Cores. Apply/Revert unchanged. Files: `MaskingPage.tsx`, `page-shell.css`, `page-cards.css`, `usePageTitle.ts`. Checks: `npm run typecheck`, `npm run lint`.
+
+**lucxVersion:** lucx.250 (no bump, UI only)
+
+---
+
 ## lucx.250 — XHTTP + Masking: PROXY; REALITY SNI stays dest (2026-09-19)
 
 Caddy L4 sends PROXY v1; TCP/WS got `acceptProxyProtocol`, XHTTP did not → timeout (#104). Apply now sets `sockopt.acceptProxyProtocol` for XHTTP/gRPC. Client REALITY SNI is not rewritten to public host — Caddy matches dest SNI (`i.s-microsoft.com`). Public host is DNS/address only.

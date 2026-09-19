@@ -227,6 +227,41 @@ body.dark .ant-dropdown-menu-item-divider {
   }
 }
 
+/* LUCX-HOOK: masking page shell (same as hosts) */
+.masking-page {
+  --bg-page: #e6e8ec;
+  --bg-card: #ffffff;
+  min-height: 100vh;
+  background: var(--bg-page);
+}
+
+.masking-page.is-dark {
+  --bg-page: #1a1b1f;
+  --bg-card: #23252b;
+}
+
+.masking-page.is-dark.is-ultra {
+  --bg-page: #000;
+  --bg-card: #101013;
+}
+
+.masking-page .ant-layout,
+.masking-page .ant-layout-content,
+.masking-page .content-shell {
+  background: transparent;
+}
+
+.masking-page .content-area {
+  padding: 24px;
+}
+
+@media (max-width: 768px) {
+  .masking-page .content-area {
+    padding: 8px;
+  }
+}
+/* END LUCX-HOOK */
+
 /* LUCX-HOOK: warm palette (angry-box sand/graphite) page backgrounds */
 html[data-palette='warm'] .index-page,
 html[data-palette='warm'] .clients-page,
@@ -236,7 +271,8 @@ html[data-palette='warm'] .settings-page,
 html[data-palette='warm'] .nodes-page,
 html[data-palette='warm'] .groups-page,
 html[data-palette='warm'] .api-docs-page,
-html[data-palette='warm'] .hosts-page {
+html[data-palette='warm'] .hosts-page,
+html[data-palette='warm'] .masking-page {
   --bg-page: #f6f2ea;
   --bg-card: #fffdf8;
 }
@@ -249,7 +285,8 @@ html[data-palette='warm'] .settings-page.is-dark,
 html[data-palette='warm'] .nodes-page.is-dark,
 html[data-palette='warm'] .groups-page.is-dark,
 html[data-palette='warm'] .api-docs-page.is-dark,
-html[data-palette='warm'] .hosts-page.is-dark {
+html[data-palette='warm'] .hosts-page.is-dark,
+html[data-palette='warm'] .masking-page.is-dark {
   --bg-page: #17181a;
   --bg-card: #1e1f22;
 }
@@ -262,7 +299,8 @@ html[data-palette='warm'] .settings-page.is-dark.is-ultra,
 html[data-palette='warm'] .nodes-page.is-dark.is-ultra,
 html[data-palette='warm'] .groups-page.is-dark.is-ultra,
 html[data-palette='warm'] .api-docs-page.is-dark.is-ultra,
-html[data-palette='warm'] .hosts-page.is-dark.is-ultra {
+html[data-palette='warm'] .hosts-page.is-dark.is-ultra,
+html[data-palette='warm'] .masking-page.is-dark.is-ultra {
   --bg-page: #0e0e10;
   --bg-card: #141416;
 }

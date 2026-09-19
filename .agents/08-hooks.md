@@ -121,8 +121,9 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `frontend/src/routes.tsx` | `/panel/tunnels` |
 | `frontend/src/api/queryKeys.ts` `queries/useOutboundTags.ts` | lucx keys |
 | `frontend/src/hooks/useTheme.tsx` `useXraySetting.ts` | Sand/Graphite |
+| `frontend/src/hooks/usePageTitle.ts` | masking title |
 | `frontend/src/models/status.ts` | lucx status |
-| `frontend/src/styles/page-shell.css` | lucx chrome |
+| `frontend/src/styles/page-shell.css` `page-cards.css` | lucx chrome |
 | `frontend/src/env.d.ts` | lucx env |
 | `frontend/src/pages/api-docs/endpoints.ts` | lucx API docs |
 | `frontend/src/test/inbound-link.test.ts` `wireguard-client-config.test.ts` `link-label.test.ts` `rule-form-preserve-fields.test.tsx` | lucx tests |
