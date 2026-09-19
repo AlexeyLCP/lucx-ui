@@ -242,7 +242,7 @@ export default function MaskingPage() {
       ) : null}
       {clash ? (
         <Alert
-          type="warning"
+          type="info"
           showIcon
           style={{ marginBottom: 12 }}
           message={t('pages.masking.sniClash', { sni: clash })}

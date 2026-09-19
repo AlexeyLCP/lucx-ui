@@ -240,13 +240,29 @@ func TestBuildPreview_BindIPKeepsSolo443(t *testing.T) {
 	}
 }
 
-func TestRoutesFromPreview_CoverOwnsSNI(t *testing.T) {
+func TestRoutesFromPreview_VLESSOwnsPublicHost(t *testing.T) {
 	rows := []PreviewRow{
-		{InboundID: 1, Class: ClassPassthrough, SNI: "vpn.example.com", NewPort: 1443},
+		{InboundID: 1, Class: ClassPassthrough, SNI: "www.microsoft.com", SNIs: []string{"www.microsoft.com"}, HostAddress: "vpn.example.com", NewPort: 1443},
 		{InboundID: 2, Class: ClassCaddy, SNI: "vpn.example.com", NewPort: 443},
 	}
 	got := RoutesFromPreview(rows, map[int]bool{1: true, 2: true})
-	if len(got) != 1 || got[0].Dest != "127.0.0.1:443" {
+	by := map[string]string{}
+	for _, r := range got {
+		by[r.SNI] = r.Dest
+	}
+	if by["www.microsoft.com"] != "127.0.0.1:1443" || by["vpn.example.com"] != "127.0.0.1:1443" {
 		t.Fatalf("%+v", got)
+	}
+}
+
+func TestAddRealityServerName(t *testing.T) {
+	in := `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"]}}`
+	got := AddRealityServerName(in, "vpn.example.com")
+	if !strings.Contains(got, `"vpn.example.com"`) || !strings.Contains(got, `"www.microsoft.com"`) {
+		t.Fatalf("%s", got)
+	}
+	same := AddRealityServerName(got, "vpn.example.com")
+	if strings.Count(same, "vpn.example.com") != 1 {
+		t.Fatalf("dup: %s", same)
 	}
 }

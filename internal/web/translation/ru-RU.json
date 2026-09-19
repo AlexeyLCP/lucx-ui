@@ -2673,7 +2673,7 @@
     },
     "masking": {
           "title": "Маскировка 443 по SNI",
-          "help": "Публичный IPv4:443 режет по SNI. Хост Cover/Naive забирает этот SNI (сайт). REALITY — другой SNI (microsoft.com), не свой домен: тот же SNI что у Cover до Xray не дойдёт. Чужой SNI → Cover. UDP/mieru/CSQTT/SSH/панель снаружи. Пока не Apply — выкл.",
+          "help": "Публичный IPv4:443 режет по SNI. У VLESS/REALITY клиентский SNI становится публичным хостом (как у сайта). Cover — dest REALITY на чужой handshake. Dest SNI (microsoft.com) тоже жив. UDP/mieru/CSQTT снаружи. Пока не Apply — выкл.",
           "publicHost": "Публичный хост",
           "noGateway": "Нет inbound gateway",
           "createFirst": "Создастся здесь (выкл., порт 443). Потом отметь, что прятать за 443.",
@@ -2687,7 +2687,7 @@
           "classSkip": "Не в mux",
           "listen": "Listen",
           "stealHint": "Неудачный REALITY handshake → сайт Cover",
-          "sniClash": "Cover/Naive забирает SNI {sni}. REALITY — другой хост (microsoft.com). VLESS+TLS с тем же SNI до Xray не дойдёт.",
+          "sniClash": "Тот же хост что Cover: SNI VLESS станет этим доменом, Cover — dest REALITY (чужой handshake → сайт).",
           "confirmApply": "Спрятать {n} inbound за 443 на {ip}. Revert вернёт listen.",
           "confirmOk": "Применить",
           "maskedListen": "Listen и порт управляет Masking. Сначала Revert.",

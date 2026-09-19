@@ -2673,7 +2673,7 @@
     },
     "masking": {
       "title": "443 SNI masking",
-      "help": "Public IPv4:443 splits by SNI. Cover/Naive hostname owns that SNI (website). REALITY must use a different SNI (microsoft.com), not your domain — same SNI as Cover never reaches Xray. Unknown SNI → Cover. UDP/mieru/CSQTT/SSH/panel stay public. Off until Apply.",
+      "help": "Public IPv4:443 splits by SNI. VLESS/REALITY client SNI becomes the public hostname (like the site). Cover is REALITY dest for failed handshakes. Dest SNI (microsoft.com) still works. UDP/mieru/CSQTT stay public. Off until Apply.",
       "publicHost": "Public hostname",
       "noGateway": "No gateway inbound",
       "createFirst": "Create it here (disabled, port 443). Then pick which inbounds go behind 443.",
@@ -2687,7 +2687,7 @@
       "classSkip": "Cannot mux",
       "listen": "Listen",
       "stealHint": "Failed REALITY handshake → Cover site",
-      "sniClash": "Cover/Naive owns SNI {sni}. REALITY must use another hostname (e.g. microsoft.com). VLESS+TLS with the same SNI never reaches Xray.",
+      "sniClash": "Same hostname as Cover: VLESS SNI becomes this domain, Cover is REALITY dest (failed handshake → site).",
       "confirmApply": "Hide {n} inbound(s) behind 443 on {ip}. Revert restores listen.",
       "confirmOk": "Apply",
       "maskedListen": "Listen and port are managed by Masking. Revert first to edit.",

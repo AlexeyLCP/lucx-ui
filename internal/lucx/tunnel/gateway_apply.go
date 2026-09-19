@@ -188,6 +188,52 @@ func SetRealityDest(stream, dest string) string {
 	return string(out)
 }
 
+func streamIsReality(stream string) bool {
+	_, sec := parseStream(stream)
+	return sec == "reality"
+}
+
+// AddRealityServerName appends name to serverNames if missing.
+func AddRealityServerName(stream, name string) string {
+	name = sniMapKey(name)
+	if name == "" || strings.TrimSpace(stream) == "" || !streamIsReality(stream) {
+		return stream
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(stream), &m); err != nil || m == nil {
+		return stream
+	}
+	raw, _ := m["realitySettings"].(map[string]any)
+	if raw == nil {
+		raw = map[string]any{}
+	}
+	var names []string
+	switch v := raw["serverNames"].(type) {
+	case []any:
+		for _, x := range v {
+			s, _ := x.(string)
+			if s != "" {
+				names = append(names, s)
+			}
+		}
+	case []string:
+		names = append(names, v...)
+	}
+	for _, n := range names {
+		if sniMapKey(n) == name {
+			return stream
+		}
+	}
+	names = append(names, name)
+	raw["serverNames"] = names
+	m["realitySettings"] = raw
+	out, err := json.Marshal(m)
+	if err != nil {
+		return stream
+	}
+	return string(out)
+}
+
 func xrayTransportSettingsKey(network string) string {
 	switch strings.ToLower(strings.TrimSpace(network)) {
 	case "ws":
@@ -403,6 +449,11 @@ func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute 
 			if len(names) == 0 && r.SNI != "" {
 				names = []string{r.SNI}
 			}
+			if !caddyOnly {
+				if h := sniMapKey(r.HostAddress); h != "" {
+					names = append(names, h)
+				}
+			}
 			dest := gatewayLoopbackDest(r.NewPort)
 			for _, sni := range names {
 				sni = sniMapKey(sni)
@@ -414,7 +465,7 @@ func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute 
 			}
 		}
 	}
-	add(true)
 	add(false)
+	add(true)
 	return out
 }
