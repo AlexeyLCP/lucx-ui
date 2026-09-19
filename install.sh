@@ -2121,6 +2121,18 @@ install_x-ui() {
     # works out of the box (no-op when XUI_ENABLE_FAIL2BAN=false). Never fatal.
     setup_fail2ban
 
+    # LUCX-HOOK: AWG kernel module on fresh install (lucx.131; lost in v3.8 overlay).
+    # Never fatal. lucx.145 no-ops when marker SHA already matches.
+    if [[ -x bin/install-awg-module.sh ]]; then
+        echo -e "${green}Installing AmneziaWG kernel module and tools...${plain}"
+        bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
+        if ! command -v awg-quick &>/dev/null; then
+            echo -e "${red}AWG: awg-quick not installed. AWG inbounds will not start.${plain}"
+            echo -e "${red}Fix: x-ui install-awg${plain}"
+        fi
+    fi
+    # END LUCX-HOOK
+
     echo -e "${green}x-ui ${tag_version}${plain} installation finished, it is running now..."
     echo -e ""
     echo -e "┌───────────────────────────────────────────────────────┐
@@ -2141,6 +2153,23 @@ install_x-ui() {
 │  ${blue}x-ui install${plain}      - Install                          │
 │  ${blue}x-ui uninstall${plain}    - Uninstall                        │
 └───────────────────────────────────────────────────────┘"
+    # LUCX-HOOK: deferred reboot after AWG kernel upgrade (never mid-script).
+    if [[ -f /etc/x-ui/.awg-reboot-needed ]]; then
+        rm -f /etc/x-ui/.awg-reboot-needed
+        if [[ -d /run/systemd/system ]]; then
+            echo ""
+            echo -e "${yellow}AWG: new kernel installed — rebooting in 10s so amneziawg loads.${plain}"
+            echo -e "${yellow}Panel install is complete; AWG module is already built for the new kernel.${plain}"
+            sleep 10
+            reboot || echo -e "${red}Reboot failed — please reboot the server manually so the AWG module loads.${plain}"
+        else
+            echo ""
+            echo -e "${yellow}AWG: new kernel installed, but no systemd init detected (container?).${plain}"
+            echo -e "${yellow}Reboot the host manually so the amneziawg module loads.${plain}"
+        fi
+    fi
+    lucx_save_source
+    # END LUCX-HOOK
 }
 
 echo -e "${green}Running...${plain}"

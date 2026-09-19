@@ -33,6 +33,7 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `frontend/.../InboundFormModal.tsx` | **one** Form+Tabs; `AwgInboundIdProvider`; lucx protocols in the list |
 | `frontend/.../qr/QrPanel.tsx` | Happ QR cutoff **2953**, not 2000 (no HOOK) |
 | `frontend/.../clients/ClientInfoModal.tsx` | kernel AWG ConfigBlock (download .conf), not only ClientQrModal |
+| `install.sh` / `update.sh` after fail2ban | `bash bin/install-awg-module.sh` (lost in v3.8 overlay, lucx.248) |
 
 ---
 
@@ -42,7 +43,7 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 
 | File | Why |
 |---|---|
-| `install.sh` | fork URLs, Yandex geo, geo before first start |
+| `install.sh` | fork URLs, Yandex geo, geo before first start, AWG after fail2ban |
 | `x-ui.sh` | install-source, RoscomVPN geo, AWG module menu |
 | `DockerInit.sh` | RoscomVPN geo |
 | `Dockerfile` | LucX image |
@@ -136,7 +137,7 @@ Origin twins. Merge taking origin deletes these with **no count drop**. Re-apply
 
 | File | Why |
 |---|---|
-| `update.sh` | `AlexeyLCP/lucx-ui` URLs, sha256 sidecar |
+| `update.sh` | `AlexeyLCP/lucx-ui` URLs, sha256 sidecar, AWG after fail2ban |
 | `.github/workflows/ci.yml` | lucx CI bits |
 | `.github/workflows/smoke.yml` | lucx smoke |
 | `.github/dependabot.yml` | lucx ignore/grouping |

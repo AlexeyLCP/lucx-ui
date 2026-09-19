@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.248 — install.sh installs AWG module again (2026-09-19)
+
+v3.8 overlay dropped the `bin/install-awg-module.sh` call from `install.sh` / `update.sh`. Clean install of .246 left the panel with “AWG module not installed”. Restored after fail2ban (never fatal). Fresh install may still reboot if DKMS upgraded the kernel; update only prints `.awg-reboot-needed`.
+
+**lucxVersion:** lucx.248
+
+---
+
 ## lucx.247 — Masking: VLESS SNI = public host (2026-09-19)
 
 Apply now sets Host `OverrideSniFromAddress` so the client SNI becomes the public hostname (Vlad). Appends that name to REALITY `serverNames`. L4 routes the public host to Xray, not Cover; Cover is REALITY dest when Cover is selected.

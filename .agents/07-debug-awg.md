@@ -17,7 +17,7 @@ Extracted from AGENTS.md. This file is project law.
 - **Healing:** `x-ui install-awg` / Cores → Install after update.
 
 ### Pattern 1: AWG inbound won’t start
-- **Cause:** `awg-quick` not installed or kernel module not loaded. Since lucx.131 the module is installed by default again on `install.sh` (lucx.130 was opt-in, reverted by owner decision); hosts installed in the lucx.130–131 window without the module stay without it until manual install.
+- **Cause:** `awg-quick` not installed or kernel module not loaded. Since lucx.131 the module is installed by default again on `install.sh` (lucx.130 was opt-in, reverted by owner decision). v3.8 overlay dropped the call in .246; lucx.248 restored it in `install.sh` and `update.sh`. Hosts installed in lucx.130–131 or on .246 without the module stay without it until manual install.
 - **Fix:** `x-ui install-awg` / Settings → Cores → Install / `bash /usr/local/x-ui/bin/install-awg-module.sh`. Rollback: `x-ui uninstall-awg` (`.conf` kept). Check `awg show`, `ip link show awgN`.
 - **Cores button “doesn’t install”:** the panel runs the script with `--no-kernel-upgrade` + `DEBIAN_FRONTEND=noninteractive` (else apt/needrestart hangs without TTY). Watch logs `awg: rebuild | …`; status `rebuildRunning` spins while the build runs. After success a reboot is usually not needed.
 - **DKMS build fail with headers present:** Pattern 1s (udp_tunnel ABI on kernel ≥ 7.1.5).

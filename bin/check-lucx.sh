@@ -72,3 +72,12 @@ if [ -n "$BAD" ]; then
     exit 1
 fi
 echo "gofumpt: OK ($(echo "$FILES" | wc -l) файлов)"
+
+# AWG must run on fresh install and update (dropped in v3.8 overlay, lucx.248).
+for f in install.sh update.sh; do
+    if ! grep -q 'bin/install-awg-module.sh' "$f"; then
+        echo "missing AWG install call in $f" >&2
+        exit 1
+    fi
+done
+echo "AWG install hooks: OK"
