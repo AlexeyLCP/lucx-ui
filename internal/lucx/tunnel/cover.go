@@ -234,14 +234,12 @@ func writeHTTPPanelRoutes(b *strings.Builder, routes []CoverRoute, indent string
 
 func writeCoverReverseProxy(b *strings.Builder, dest, indent string) {
 	dest = strings.TrimSpace(dest)
+	b.WriteString(indent + "reverse_proxy " + dest + " {\n")
+	b.WriteString(indent + "\theader_up Host {http.request.host}\n")
 	if strings.HasPrefix(dest, "https://") {
-		b.WriteString(indent + "reverse_proxy " + dest + " {\n")
 		b.WriteString(indent + "\ttransport http {\n" + indent + "\t\ttls_insecure_skip_verify\n" + indent + "\t}\n")
-		b.WriteString(indent + "}\n")
-		return
 	}
-	dest = strings.TrimPrefix(dest, "http://")
-	b.WriteString(indent + "reverse_proxy " + dest + "\n")
+	b.WriteString(indent + "}\n")
 }
 
 func coverUpstreamHost(raw string) string {

@@ -39,6 +39,7 @@ func TestBuildSubURIBase(t *testing.T) {
 		{"plain + 80 omits the port", "", "80", "", "", "x.com", "http://x.com"},
 		{"tls on a non-standard port keeps it", "", "2096", "/c.crt", "/k.key", "x.com", "https://x.com:2096"},
 		{"ipv6 host is bracketed", "", "2096", "", "", "::1", "http://[::1]:2096"},
+		{"loopback host without webDomain stays loopback", "", "2096", "/c.crt", "/k.key", "127.0.0.1:2053", "https://127.0.0.1:2096"},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {

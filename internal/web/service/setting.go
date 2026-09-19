@@ -22,6 +22,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/netproxy"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
@@ -1773,6 +1774,33 @@ func (s *SettingService) GetDefaultXrayConfig() (any, error) {
 	return jsonData, nil
 }
 
+func isLoopbackHost(host string) bool {
+	h := strings.ToLower(strings.Trim(host, "[]"))
+	if h == "localhost" || h == "::1" {
+		return true
+	}
+	ip := net.ParseIP(h)
+	return ip != nil && ip.IsLoopback()
+}
+
+func gatewayHidesPanel() bool {
+	db := database.GetDB()
+	if db == nil {
+		return false
+	}
+	var rows []model.Inbound
+	if err := db.Where("protocol = ?", model.Gateway).Find(&rows).Error; err != nil {
+		return false
+	}
+	for i := range rows {
+		cfg, ok := tunnel.GatewayConfigFromInbound(&rows[i])
+		if ok && cfg.Applied() && cfg.HidePanel {
+			return true
+		}
+	}
+	return false
+}
+
 func extractHostname(host string) string {
 	h, _, err := net.SplitHostPort(host)
 	// Err is not nil means host does not contain port
@@ -1806,6 +1834,15 @@ func (s *SettingService) BuildSubURIBase(host string) string {
 	subTLS := subKeyFile != "" && subCertFile != ""
 	if subDomain == "" {
 		subDomain = extractHostname(host)
+		if isLoopbackHost(subDomain) {
+			if w, _ := s.GetWebDomain(); w != "" {
+				subDomain = extractHostname(w)
+			}
+		}
+	}
+	if gatewayHidesPanel() {
+		subPort = 443
+		subTLS = true
 	}
 	scheme := "http"
 	if subTLS {
