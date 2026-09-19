@@ -252,6 +252,13 @@ AWG 内核模块由安装脚本 (`bin/install-awg-module.sh`, DKMS) 自动构建
 </details>
 
 <details>
+<summary><b>财务支持者</b></summary>
+
+- **Игорь**, **пётр смолин**, **Камслат Глорихо**, **Михаил Ляшенко**, **Aleksandr S.**, **Сила Растений**, **Виталий Зайцев**.
+
+</details>
+
+<details>
 <summary><b>移植的上游 PR</b></summary>
 
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser。

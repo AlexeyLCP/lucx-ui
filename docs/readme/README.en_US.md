@@ -283,6 +283,13 @@ LucX-UI stands on the shoulders of many open-source projects and people. Thank y
 </details>
 
 <details>
+<summary><b>Financial supporters</b></summary>
+
+- **Игорь**, **пётр смолин**, **Камслат Глорихо**, **Михаил Ляшенко**, **Aleksandr S.**, **Сила Растений**, **Виталий Зайцев**.
+
+</details>
+
+<details>
 <summary><b>Upstream PRs we ported</b></summary>
 
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) *feat(xray): browse geosite/geoip categories from routing rules* (geodata browser).

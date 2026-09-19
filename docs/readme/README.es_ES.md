@@ -252,6 +252,13 @@ Gracias a todos los proyectos y personas open-source.
 </details>
 
 <details>
+<summary><b>Apoyo financiero</b></summary>
+
+- **Игорь**, **пётр смолин**, **Камслат Глорихо**, **Михаил Ляшенко**, **Aleksandr S.**, **Сила Растений**, **Виталий Зайцев**.
+
+</details>
+
+<details>
 <summary><b>PRs upstream portados</b></summary>
 
 - **[STRENCH0](https://github.com/STRENCH0)** — [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) geodata browser.
