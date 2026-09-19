@@ -95,13 +95,6 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	if len(selected) == 0 {
 		return common.NewError("gateway: nothing selected")
 	}
-	coverOn := false
-	for _, row := range rows {
-		if selected[row.InboundID] && row.Protocol == string(model.Cover) {
-			coverOn = true
-			break
-		}
-	}
 	if req.HidePanel {
 		front := false
 		for _, row := range rows {
@@ -136,11 +129,8 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		sr := tunnel.GatewaySnapshotRow{InboundID: ib.Id, Listen: ib.Listen, Port: ib.Port, StreamSettings: ib.StreamSettings}
 		ib.Listen = row.NewListen
 		ib.Port = row.NewPort
-		if row.Class == tunnel.ClassPassthrough && row.StealDest != "" && (steal[row.InboundID] || coverOn) {
+		if steal[row.InboundID] && row.StealDest != "" {
 			ib.StreamSettings = tunnel.SetRealityDest(ib.StreamSettings, row.StealDest)
-		}
-		if row.Class == tunnel.ClassPassthrough && host != "" {
-			ib.StreamSettings = tunnel.AddRealityServerName(ib.StreamSettings, host)
 		}
 		if tunnel.XrayAcceptsProxyProtocol(ib.Protocol) {
 			ib.StreamSettings = tunnel.SetAcceptProxyProtocol(ib.StreamSettings, true)
@@ -150,13 +140,12 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		}
 		if row.HostAddress != "" && row.Class != tunnel.ClassSkip {
 			h := model.Host{
-				GroupId:                random.NumLower(16),
-				InboundId:              ib.Id,
-				Remark:                 gatewayHostRemark,
-				Address:                row.HostAddress,
-				Port:                   row.HostPort,
-				Security:               "same",
-				OverrideSniFromAddress: row.Class == tunnel.ClassPassthrough && !tunnel.CaddyClaimsHost(rows, selected, host),
+				GroupId:   random.NumLower(16),
+				InboundId: ib.Id,
+				Remark:    gatewayHostRemark,
+				Address:   row.HostAddress,
+				Port:      row.HostPort,
+				Security:  "same",
 			}
 			if err := db.Create(&h).Error; err != nil {
 				return err

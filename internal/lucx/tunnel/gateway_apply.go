@@ -188,52 +188,6 @@ func SetRealityDest(stream, dest string) string {
 	return string(out)
 }
 
-func streamIsReality(stream string) bool {
-	_, sec := parseStream(stream)
-	return sec == "reality"
-}
-
-// AddRealityServerName appends name to serverNames if missing.
-func AddRealityServerName(stream, name string) string {
-	name = sniMapKey(name)
-	if name == "" || strings.TrimSpace(stream) == "" || !streamIsReality(stream) {
-		return stream
-	}
-	var m map[string]any
-	if err := json.Unmarshal([]byte(stream), &m); err != nil || m == nil {
-		return stream
-	}
-	raw, _ := m["realitySettings"].(map[string]any)
-	if raw == nil {
-		raw = map[string]any{}
-	}
-	var names []string
-	switch v := raw["serverNames"].(type) {
-	case []any:
-		for _, x := range v {
-			s, _ := x.(string)
-			if s != "" {
-				names = append(names, s)
-			}
-		}
-	case []string:
-		names = append(names, v...)
-	}
-	for _, n := range names {
-		if sniMapKey(n) == name {
-			return stream
-		}
-	}
-	names = append(names, name)
-	raw["serverNames"] = names
-	m["realitySettings"] = raw
-	out, err := json.Marshal(m)
-	if err != nil {
-		return stream
-	}
-	return string(out)
-}
-
 func xrayTransportSettingsKey(network string) string {
 	switch strings.ToLower(strings.TrimSpace(network)) {
 	case "ws":
@@ -264,21 +218,36 @@ func SetAcceptProxyProtocol(stream string, on bool) string {
 	netw, _ := m["network"].(string)
 	key := xrayTransportSettingsKey(netw)
 	if key == "" {
-		return stream
-	}
-	tr, _ := m[key].(map[string]any)
-	if tr == nil {
-		tr = map[string]any{}
-	}
-	if on {
-		tr["acceptProxyProtocol"] = true
+		so, _ := m["sockopt"].(map[string]any)
+		if on {
+			if so == nil {
+				so = map[string]any{}
+			}
+			so["acceptProxyProtocol"] = true
+			m["sockopt"] = so
+		} else if so != nil {
+			delete(so, "acceptProxyProtocol")
+			if len(so) == 0 {
+				delete(m, "sockopt")
+			} else {
+				m["sockopt"] = so
+			}
+		}
 	} else {
-		delete(tr, "acceptProxyProtocol")
-	}
-	if len(tr) == 0 {
-		delete(m, key)
-	} else {
-		m[key] = tr
+		tr, _ := m[key].(map[string]any)
+		if tr == nil {
+			tr = map[string]any{}
+		}
+		if on {
+			tr["acceptProxyProtocol"] = true
+		} else {
+			delete(tr, "acceptProxyProtocol")
+		}
+		if len(tr) == 0 {
+			delete(m, key)
+		} else {
+			m[key] = tr
+		}
 	}
 	out, err := json.Marshal(m)
 	if err != nil {
@@ -435,14 +404,13 @@ func CoverFallback(rows []PreviewRow, selected map[int]bool) string {
 }
 
 func previewRouteNames(r PreviewRow) []string {
-	names := r.SNIs
-	if len(names) == 0 && r.SNI != "" {
-		names = []string{r.SNI}
+	if len(r.SNIs) > 0 {
+		return r.SNIs
 	}
-	if h := sniMapKey(r.HostAddress); h != "" {
-		names = append(names, h)
+	if r.SNI != "" {
+		return []string{r.SNI}
 	}
-	return names
+	return nil
 }
 
 func appendPreviewRoutes(out []GatewayRoute, seen map[string]bool, rows []PreviewRow, selected map[int]bool, caddy bool) []GatewayRoute {
@@ -470,29 +438,4 @@ func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute 
 	seen := map[string]bool{}
 	out := appendPreviewRoutes(nil, seen, rows, selected, true)
 	return appendPreviewRoutes(out, seen, rows, selected, false)
-}
-
-// CaddyClaimsHost is true when a selected Cover/WEB-proxy/naive row already owns host.
-func CaddyClaimsHost(rows []PreviewRow, selected map[int]bool, host string) bool {
-	host = sniMapKey(host)
-	if host == "" {
-		return false
-	}
-	for _, r := range rows {
-		if selected != nil && !selected[r.InboundID] {
-			continue
-		}
-		if r.Class != ClassCaddy {
-			continue
-		}
-		if sniMapKey(r.SNI) == host || sniMapKey(r.HostAddress) == host {
-			return true
-		}
-		for _, n := range r.SNIs {
-			if sniMapKey(n) == host {
-				return true
-			}
-		}
-	}
-	return false
 }
