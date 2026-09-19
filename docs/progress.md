@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.250 — XHTTP + Masking: PROXY; REALITY SNI stays dest (2026-09-19)
+
+Caddy L4 sends PROXY v1; TCP/WS got `acceptProxyProtocol`, XHTTP did not → timeout (#104). Apply now sets `sockopt.acceptProxyProtocol` for XHTTP/gRPC. Client REALITY SNI is not rewritten to public host — Caddy matches dest SNI (`i.s-microsoft.com`). Public host is DNS/address only.
+
+**lucxVersion:** lucx.250
+
+---
+
 ## lucx.249 — Masking survives reboot; WEB proxy keeps public SNI (2026-09-19)
 
 Tunnel Reconcile never started Caddy L4, so after reboot/update VLESS+WEB proxy on 443 stayed dead until Masking Revert→Apply. Reconcile now starts `gateway-*`. lucx.247 gave the public host SNI to VLESS, so Cover/WEB proxy on the same name never received TLS. New Apply: Caddy rows keep that SNI; VLESS `OverrideSniFromAddress` only when no Cover/WEB proxy owns it. Already-applied .247 hosts: one Revert→Apply (do not rewrite live client SNI on boot).
