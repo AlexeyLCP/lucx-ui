@@ -27,8 +27,9 @@ import {
 } from 'antd';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { HttpUtil } from '@/utils';
+import { HttpUtil, PromiseUtil } from '@/utils';
 import { keys } from '@/api/queryKeys';
+import { maskingPanelURL } from '@/pages/masking/maskingUrl';
 import { useTheme } from '@/hooks/useTheme';
 import { useMediaQuery } from '@/hooks/useMediaQuery';
 import AppSidebar from '@/layouts/AppSidebar';
@@ -58,6 +59,8 @@ type PreviewResult = {
   ufw?: boolean;
   ufwAllow?: string[];
   hidePanel?: boolean;
+  webPort?: number;
+  webTLS?: boolean;
 };
 
 function classKey(cls: string): string {
@@ -177,6 +180,11 @@ export default function MaskingPage() {
       );
       if (!msg?.success) throw new Error(msg?.msg);
       void message.success(t('pages.masking.applied'));
+      if (hidePanel && host) {
+        await PromiseUtil.sleep(1500);
+        window.location.replace(maskingPanelURL(host, 443, true, window.X_UI_BASE_PATH || '/'));
+        return;
+      }
       await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await previewQuery.refetch();
     } catch (e) {
@@ -188,6 +196,10 @@ export default function MaskingPage() {
 
   const revert = async () => {
     if (!gateway) return;
+    const bounce = Boolean(preview?.hidePanel);
+    const bounceHost = window.location.hostname;
+    const bouncePort = preview?.webPort ?? 0;
+    const bounceTLS = Boolean(preview?.webTLS);
     setBusy(true);
     try {
       const msg = await HttpUtil.post(
@@ -197,6 +209,13 @@ export default function MaskingPage() {
       );
       if (!msg?.success) throw new Error(msg?.msg);
       void message.success(t('pages.masking.reverted'));
+      if (bounce && bouncePort > 0) {
+        await PromiseUtil.sleep(1500);
+        window.location.replace(
+          maskingPanelURL(bounceHost, bouncePort, bounceTLS, window.X_UI_BASE_PATH || '/'),
+        );
+        return;
+      }
       setSelected([]);
       setSteal([]);
       setPicked(false);

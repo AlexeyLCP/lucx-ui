@@ -37,6 +37,8 @@ type GatewayPreviewResult struct {
 	UFW        bool                `json:"ufw"`
 	UFWAllow   []string            `json:"ufwAllow,omitempty"`
 	HidePanel  bool                `json:"hidePanel"`
+	WebPort    int                 `json:"webPort,omitempty"`
+	WebTLS     bool                `json:"webTLS,omitempty"`
 }
 
 func (s *InboundService) GatewayPreview(gatewayID int, publicHost string) (*GatewayPreviewResult, error) {
@@ -58,6 +60,7 @@ func (s *InboundService) GatewayPreview(gatewayID int, publicHost string) (*Gate
 	}
 	rows := tunnel.BuildPreview(gw.Port, publicHost, others, bindIP)
 	web, sub := gatewayExtraPorts()
+	cert, _ := SettingService{}.GetCertFile()
 	return &GatewayPreviewResult{
 		Applied:    cfg.Applied(),
 		PublicHost: publicHost,
@@ -67,6 +70,8 @@ func (s *InboundService) GatewayPreview(gatewayID int, publicHost string) (*Gate
 		UFW:        cfg.UFW,
 		UFWAllow:   tunnel.GatewayUFWAllow(web, sub, tunnel.SSHDPort(), rows, ufwDefaultSelected(rows), cfg.HidePanel),
 		HidePanel:  cfg.HidePanel,
+		WebPort:    web,
+		WebTLS:     strings.TrimSpace(cert) != "",
 	}, nil
 }
 

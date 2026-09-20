@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.255 — Masking hide-panel redirects like webBasePath (2026-09-20)
+
+Apply with hide-panel bounces the browser to `https://publicHost/<base>/panel/masking`. Revert bounces back to the panel port. Same idea as changing webBasePath. Files: `maskingUrl.ts`, `MaskingPage.tsx`, `gateway.go` preview `webPort`/`webTLS`.
+
+**lucxVersion:** lucx.255
+
+---
+
 ## lucx.254 — qWDTT TUN 10.68/16 so CSQTT can coexist (2026-09-20)
 
 SpaceNeuroX hardcodes `wdtt0` at `10.66.66.1/16`, which contains CSQTT `csqtt1` `10.66.67.0/24`. Overlay `third_party/patches/qwdtt-subnet.patch` (applied in `pack-sidecars.sh`) moves WG to `10.68.66.1/16` and remaps stored `10.66.*` device IPs on load. Panel mutex dropped. Clients GETCONF the new Address on next connect. Needs the rebuilt qWDTT sidecar.
