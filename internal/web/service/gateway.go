@@ -9,6 +9,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
@@ -19,11 +20,12 @@ import (
 )
 
 type GatewayApplyRequest struct {
-	Selected   []int  `json:"selected"`
-	Steal      []int  `json:"steal"`
-	PublicHost string `json:"publicHost"`
-	UFW        bool   `json:"ufw"`
-	HidePanel  bool   `json:"hidePanel"`
+	Selected   []int             `json:"selected"`
+	Steal      []int             `json:"steal"`
+	PublicHost string            `json:"publicHost"`
+	UFW        bool              `json:"ufw"`
+	HidePanel  bool              `json:"hidePanel"`
+	SNI        map[string]string `json:"sni"`
 }
 
 type GatewayPreviewResult struct {
@@ -95,6 +97,25 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	if len(selected) == 0 {
 		return common.NewError("gateway: nothing selected")
 	}
+	db := database.GetDB()
+	for idStr, sni := range req.SNI {
+		id, err := strconv.Atoi(idStr)
+		if err != nil || !selected[id] {
+			continue
+		}
+		ib := byID[id]
+		if ib == nil {
+			continue
+		}
+		tunnel.SetInboundSNI(ib, sni)
+		if err := db.Model(ib).Select("settings", "stream_settings").Updates(ib).Error; err != nil {
+			return err
+		}
+	}
+	rows = tunnel.BuildPreview(gw.Port, host, others, bindIP)
+	if c := tunnel.SNIClash(rows, selected); c != "" {
+		return common.NewError("gateway: duplicate SNI", c)
+	}
 	if req.HidePanel {
 		front := false
 		for _, row := range rows {
@@ -117,7 +138,6 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		cfg.PanelRoutes = routes
 	}
 	var snap []tunnel.GatewaySnapshotRow
-	db := database.GetDB()
 	for _, row := range rows {
 		if !selected[row.InboundID] || row.Class == tunnel.ClassSkip {
 			continue

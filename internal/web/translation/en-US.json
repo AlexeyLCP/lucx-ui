@@ -2673,7 +2673,7 @@
     },
     "masking": {
       "title": "443 SNI masking",
-      "help": "Public IPv4:443 splits by SNI. REALITY client SNI stays dest (i.s-microsoft.com). Public host is only the DNS name/address. Cover owns its own hostname. Unknown SNI → Cover or drop. Off until Apply.",
+      "help": "Public IPv4:443 splits by SNI. Edit SNI in the table — that is the inbound's SNI (Cover hostname / REALITY serverNames / TLS serverName). One SNI per inbound. Apply writes it and builds the mux. Off until Apply.",
       "publicHost": "Public hostname",
       "noGateway": "No gateway inbound",
       "createFirst": "Create it here (disabled, port 443). Then pick which inbounds go behind 443.",
@@ -2687,7 +2687,7 @@
       "classSkip": "Cannot mux",
       "listen": "Listen",
       "stealHint": "Failed REALITY handshake → Cover site",
-      "sniClash": "Cover/Naive owns SNI {sni}. REALITY must keep dest SNI (e.g. microsoft.com), not your domain.",
+      "sniClash": "Two inbounds share SNI {sni}. Each protocol needs its own.",
       "confirmApply": "Hide {n} inbound(s) behind 443 on {ip}. Revert restores listen.",
       "confirmOk": "Apply",
       "maskedListen": "Listen and port are managed by Masking. Revert first to edit.",

@@ -188,6 +188,96 @@ func SetRealityDest(stream, dest string) string {
 	return string(out)
 }
 
+func setSettingsKey(ib *model.Inbound, key, val string) {
+	var m map[string]any
+	_ = json.Unmarshal([]byte(ib.Settings), &m)
+	if m == nil {
+		m = map[string]any{}
+	}
+	m[key] = val
+	out, err := json.Marshal(m)
+	if err != nil {
+		return
+	}
+	ib.Settings = string(out)
+}
+
+func setStreamServerName(stream, sni string, reality bool) string {
+	raw := strings.TrimSpace(stream)
+	if raw == "" {
+		raw = "{}"
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(raw), &m); err != nil || m == nil {
+		return stream
+	}
+	if reality {
+		rs, _ := m["realitySettings"].(map[string]any)
+		if rs == nil {
+			rs = map[string]any{}
+		}
+		rs["serverNames"] = []string{sni}
+		m["realitySettings"] = rs
+	} else {
+		ts, _ := m["tlsSettings"].(map[string]any)
+		if ts == nil {
+			ts = map[string]any{}
+		}
+		ts["serverName"] = sni
+		m["tlsSettings"] = ts
+	}
+	out, err := json.Marshal(m)
+	if err != nil {
+		return stream
+	}
+	return string(out)
+}
+
+// SetInboundSNI writes sni into the inbound's own settings (Cover/Naive/tproxy/AnyTLS)
+// or stream (REALITY serverNames / TLS serverName). Empty sni is a no-op.
+func SetInboundSNI(ib *model.Inbound, sni string) {
+	sni = sniMapKey(sni)
+	if ib == nil || sni == "" {
+		return
+	}
+	switch ib.Protocol {
+	case model.Cover, model.Tproxy, model.TrustTunnel:
+		setSettingsKey(ib, "hostname", sni)
+	case model.Naive:
+		setSettingsKey(ib, "domain", sni)
+	case model.Anytls:
+		setSettingsKey(ib, "sni", sni)
+	default:
+		_, sec := parseStream(ib.StreamSettings)
+		if sec == "reality" {
+			ib.StreamSettings = setStreamServerName(ib.StreamSettings, sni, true)
+		} else if sec == "tls" {
+			ib.StreamSettings = setStreamServerName(ib.StreamSettings, sni, false)
+		}
+	}
+}
+
+func SNIClash(rows []PreviewRow, selected map[int]bool) string {
+	seen := map[string]bool{}
+	for _, r := range rows {
+		if selected != nil && !selected[r.InboundID] {
+			continue
+		}
+		if r.Class == ClassSkip {
+			continue
+		}
+		k := sniMapKey(r.SNI)
+		if k == "" {
+			continue
+		}
+		if seen[k] {
+			return k
+		}
+		seen[k] = true
+	}
+	return ""
+}
+
 func xrayTransportSettingsKey(network string) string {
 	switch strings.ToLower(strings.TrimSpace(network)) {
 	case "ws":

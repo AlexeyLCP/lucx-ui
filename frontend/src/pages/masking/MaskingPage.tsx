@@ -67,15 +67,16 @@ function classKey(cls: string): string {
   return '';
 }
 
-function sniClash(rows: PreviewRow[]): string {
-  const cover = new Set(
-    rows
-      .filter((r) => r.protocol === 'cover' || r.protocol === 'naive' || r.protocol === 'tproxy')
-      .map((r) => r.sni)
-      .filter(Boolean),
-  );
-  const hit = rows.find((r) => r.class === 'passthrough' && r.sni && cover.has(r.sni));
-  return hit?.sni ?? '';
+function sniClash(rows: PreviewRow[], chosen: number[]): string {
+  const seen = new Set<string>();
+  for (const r of rows) {
+    if (!chosen.includes(r.inboundId) || r.class === 'skip') continue;
+    const sni = r.sni.trim().toLowerCase();
+    if (!sni) continue;
+    if (seen.has(sni)) return sni;
+    seen.add(sni);
+  }
+  return '';
 }
 
 export default function MaskingPage() {
@@ -89,6 +90,7 @@ export default function MaskingPage() {
   const [picked, setPicked] = useState(false);
   const [ufw, setUfw] = useState(false);
   const [hidePanel, setHidePanel] = useState(false);
+  const [sniEdits, setSniEdits] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
 
   const pageClass = useMemo(() => {
@@ -143,8 +145,12 @@ export default function MaskingPage() {
 
   const behind = rows.filter((r) => r.class !== 'skip');
   const outside = rows.filter((r) => r.class === 'skip');
-  const clash = sniClash(behind);
   const chosen = picked ? selected : behind.map((r) => r.inboundId);
+  const shown = behind.map((r) => ({
+    ...r,
+    sni: sniEdits[r.inboundId] ?? r.sni,
+  }));
+  const clash = sniClash(shown, chosen);
   const coverOn = behind.some((r) => r.protocol === 'cover' && chosen.includes(r.inboundId));
   const httpFront = behind.some(
     (r) => (r.protocol === 'cover' || r.protocol === 'tproxy') && chosen.includes(r.inboundId),
@@ -157,7 +163,16 @@ export default function MaskingPage() {
     try {
       const msg = await HttpUtil.post(
         `/panel/api/inbounds/${gateway.id}/gatewayApply`,
-        { selected: chosen, steal, publicHost: host, ufw, hidePanel },
+        {
+          selected: chosen,
+          steal,
+          publicHost: host,
+          ufw,
+          hidePanel,
+          sni: Object.fromEntries(
+            shown.filter((r) => chosen.includes(r.inboundId)).map((r) => [r.inboundId, r.sni]),
+          ),
+        },
         JSON_HEADERS,
       );
       if (!msg?.success) throw new Error(msg?.msg);
@@ -187,6 +202,7 @@ export default function MaskingPage() {
       setPicked(false);
       setUfw(false);
       setHidePanel(false);
+      setSniEdits({});
       await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await previewQuery.refetch();
     } catch (e) {
@@ -269,7 +285,7 @@ export default function MaskingPage() {
           ) : null}
           {clash ? (
             <Alert
-              type="info"
+              type="warning"
               showIcon
               style={{ marginBottom: 12 }}
               message={t('pages.masking.sniClash', { sni: clash })}
@@ -291,7 +307,7 @@ export default function MaskingPage() {
           <Table
             rowKey="inboundId"
             size="small"
-            dataSource={behind}
+            dataSource={shown}
             pagination={false}
             rowSelection={{
               selectedRowKeys: chosen,
@@ -307,7 +323,19 @@ export default function MaskingPage() {
                 title: t('pages.masking.class'),
                 render: (_: unknown, r: PreviewRow) => t(classKey(r.class) || r.class),
               },
-              { title: 'SNI', dataIndex: 'sni' },
+              {
+                title: 'SNI',
+                render: (_: unknown, r: PreviewRow) => (
+                  <Input
+                    size="small"
+                    value={r.sni}
+                    disabled={applied}
+                    onChange={(e) =>
+                      setSniEdits((cur) => ({ ...cur, [r.inboundId]: e.target.value }))
+                    }
+                  />
+                ),
+              },
               listenCol,
               {
                 title: t('pages.masking.stealHint'),
@@ -390,10 +418,14 @@ export default function MaskingPage() {
                 },
               )}
               okText={t('pages.masking.confirmOk')}
-              disabled={applied || chosen.length === 0}
+              disabled={applied || chosen.length === 0 || Boolean(clash)}
               onConfirm={() => void apply()}
             >
-              <Button type="primary" loading={busy} disabled={applied || chosen.length === 0}>
+              <Button
+                type="primary"
+                loading={busy}
+                disabled={applied || chosen.length === 0 || Boolean(clash)}
+              >
                 {t('pages.masking.apply')}
               </Button>
             </Popconfirm>

@@ -244,6 +244,38 @@ func TestBuildPreview_BindIPKeepsSolo443(t *testing.T) {
 	}
 }
 
+func TestSetInboundSNI(t *testing.T) {
+	cover := &model.Inbound{Protocol: model.Cover, Settings: `{"hostname":"old.example.com"}`}
+	SetInboundSNI(cover, "New.Example.com")
+	if !strings.Contains(cover.Settings, `"hostname":"new.example.com"`) {
+		t.Fatalf("%s", cover.Settings)
+	}
+	vless := &model.Inbound{
+		Protocol:       model.VLESS,
+		StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"],"dest":"www.microsoft.com:443"}}`,
+	}
+	SetInboundSNI(vless, "vpn.example.com")
+	if !strings.Contains(vless.StreamSettings, `"serverNames":["vpn.example.com"]`) {
+		t.Fatalf("serverNames: %s", vless.StreamSettings)
+	}
+	if !strings.Contains(vless.StreamSettings, `"dest":"www.microsoft.com:443"`) {
+		t.Fatalf("dest: %s", vless.StreamSettings)
+	}
+}
+
+func TestSNIClash(t *testing.T) {
+	rows := []PreviewRow{
+		{InboundID: 1, Class: ClassPassthrough, SNI: "a.example.com"},
+		{InboundID: 2, Class: ClassCaddy, SNI: "a.example.com"},
+	}
+	if got := SNIClash(rows, map[int]bool{1: true, 2: true}); got != "a.example.com" {
+		t.Fatalf("%q", got)
+	}
+	if got := SNIClash(rows, map[int]bool{1: true}); got != "" {
+		t.Fatalf("one selected: %q", got)
+	}
+}
+
 func TestRoutesFromPreview_DestSNIToXray(t *testing.T) {
 	rows := []PreviewRow{
 		{InboundID: 1, Class: ClassPassthrough, SNI: "i.s-microsoft.com", SNIs: []string{"i.s-microsoft.com"}, NewPort: 1443},
