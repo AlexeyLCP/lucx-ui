@@ -1,0 +1,51 @@
+diff --git a/server/core.go b/server/core.go
+index b745846..baa2a00 100644
+--- a/server/core.go
++++ b/server/core.go
+@@ -2,7 +2,7 @@ package main
+ 
+ const (
+ 	wgIfaceName           = "wdtt0"
+-	wgServerAddr          = "10.66.66.1"
++	wgServerAddr          = "10.68.66.1"
+ 	wgServerCIDR          = wgServerAddr + "/16"
+ 	defaultInternalWGPort = 56001
+ 	wgMTU                 = 1280
+diff --git a/server/database_bot.go b/server/database_bot.go
+index c565267..8919f46 100644
+--- a/server/database_bot.go
++++ b/server/database_bot.go
+@@ -583,6 +583,7 @@ func initDB(dir, mainPass, adminID, botToken string) {
+ 	if db.Devices == nil {
+ 		db.Devices = make(map[string]*ClientDevice)
+ 	}
++	migrateWGSubnetLocked()
+ 	db.MainPassword = mainPass
+ 	db.AdminID = adminID
+ 	db.BotToken = botToken
+@@ -644,6 +645,14 @@ func isPasswordExpired(entry *PasswordEntry) bool {
+ 	return time.Now().Unix() > entry.ExpiresAt
+ }
+ 
++func migrateWGSubnetLocked() {
++	for _, dev := range db.Devices {
++		if dev != nil && strings.HasPrefix(dev.IP, "10.66.") {
++			dev.IP = "10.68." + strings.TrimPrefix(dev.IP, "10.66.")
++		}
++	}
++}
++
+ func getNextIP() string {
+ 	used := make(map[string]bool)
+ 	for _, dev := range db.Devices {
+@@ -651,8 +660,8 @@ func getNextIP() string {
+ 	}
+ 	for b3 := 0; b3 <= 255; b3++ {
+ 		for b4 := 1; b4 <= 254; b4++ {
+-			ip := fmt.Sprintf("10.66.%d.%d", b3, b4)
+-			if ip == "10.66.66.1" {
++			ip := fmt.Sprintf("10.68.%d.%d", b3, b4)
++			if ip == "10.68.66.1" {
+ 				continue
+ 			}
+ 			if !used[ip] {

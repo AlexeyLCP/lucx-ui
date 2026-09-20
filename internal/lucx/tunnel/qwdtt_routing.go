@@ -22,8 +22,9 @@ const (
 	qwdttIfaceWG  = "wdtt0"
 	qwdttIfaceRaw = "wdttraw0"
 	// Subnets claimed by the binary for client addresses (server.go).
-	qwdttSubnetWG  = "10.66.0.0/16"
-	qwdttSubnetRaw = "10.70.0.0/16"
+	qwdttSubnetWG       = "10.68.0.0/16"
+	qwdttSubnetWGLegacy = "10.66.0.0/16"
+	qwdttSubnetRaw      = "10.70.0.0/16"
 
 	csqttIface      = "csqtt1"
 	csqttSubnet     = "10.66.67.0/24"
@@ -148,7 +149,7 @@ func clearQwdttXrayRouting(table int, ifaces []string) {
 }
 
 func stripQwdttMasquerade() {
-	for _, subnet := range []string{qwdttSubnetWG, qwdttSubnetRaw} {
+	for _, subnet := range []string{qwdttSubnetWG, qwdttSubnetWGLegacy, qwdttSubnetRaw} {
 		stripMasqueradeSubnet(subnet)
 	}
 }

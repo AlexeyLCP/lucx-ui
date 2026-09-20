@@ -960,7 +960,7 @@
         "trustTunnelClientRandomPrefix": "Client random prefix",
         "trustTunnelClientRandomPrefixHint": "TLS Client Random filter (hex/mask). Written to rules.toml and the client tt:// link. Clients must re-download the link after Regenerate.",
         "trustTunnelClientRandomPrefixRegen": "تولید مجدد",
-        "csqttSingleNote": "One CSQTT inbound per host. One password = one device. Cannot run next to qWDTT. Upload the binary on Settings → Cores. Clients: CSQTT Android APK or iOS anton48 (CSQTT mode, not WRAP-A).",
+        "csqttSingleNote": "One CSQTT inbound per host. One password = one device. Upload the binary on Settings → Cores. Clients: CSQTT Android APK or iOS anton48 (CSQTT mode, not WRAP-A).",
         "csqttListenAddr": "UDP listen",
         "csqttPassword": "Password",
         "csqttPasswordHint": "Empty = auto-generate on save. Bound to the first device_id that connects.",

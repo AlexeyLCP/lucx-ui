@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.254 — qWDTT TUN 10.68/16 so CSQTT can coexist (2026-09-20)
+
+SpaceNeuroX hardcodes `wdtt0` at `10.66.66.1/16`, which contains CSQTT `csqtt1` `10.66.67.0/24`. Overlay `third_party/patches/qwdtt-subnet.patch` (applied in `pack-sidecars.sh`) moves WG to `10.68.66.1/16` and remaps stored `10.66.*` device IPs on load. Panel mutex dropped. Clients GETCONF the new Address on next connect. Needs the rebuilt qWDTT sidecar.
+
+**lucxVersion:** lucx.254
+
+---
+
 ## lucx.253 — Naive behind Masking keeps its SNI (2026-09-20)
 
 Host dest was written into Naive `Domain`, so sub links used public host as TLS SNI and Caddy never routed to Naive. `ClientURLAt`: TCP host/port from Host, `sni=` inbound domain.

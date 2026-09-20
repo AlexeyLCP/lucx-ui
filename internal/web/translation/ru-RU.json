@@ -838,7 +838,7 @@
         "olcrtcDns": "DNS (host:port)",
         "olcrtcDebug": "Debug",
         "qwdttSingleNote": "Только один qWDTT inbound на панель. Общий password для всех.",
-        "csqttSingleNote": "Один CSQTT inbound на хост. Один пароль = одно устройство. Нельзя рядом с qWDTT. Бинарь — Settings → Cores. Клиенты: CSQTT Android APK или iOS anton48 (режим CSQTT, не WRAP-A).",
+        "csqttSingleNote": "Один CSQTT inbound на хост. Один пароль = одно устройство. Бинарь — Settings → Cores. Клиенты: CSQTT Android APK или iOS anton48 (режим CSQTT, не WRAP-A).",
         "csqttListenAddr": "UDP listen",
         "csqttPassword": "Пароль",
         "csqttPasswordHint": "Пусто = сгенерировать при сохранении. Привязывается к первому device_id.",

@@ -253,8 +253,8 @@ func olcrtcRoutesThroughXray(inbound *model.Inbound) bool {
 	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
 }
 
-// checkVkTurnExclusive rejects a second qWDTT/CSQTT inbound on the same host
-// and rejects mixing the two (overlapping 10.66 TUN). ignoreId=0 on create.
+// checkVkTurnExclusive rejects a second qWDTT or CSQTT inbound on the same host.
+// ignoreId=0 on create.
 func (s *InboundService) checkVkTurnExclusive(creating model.Protocol, ignoreId int, nodeID *int) error {
 	if creating != model.Qwdtt && creating != model.Csqtt {
 		return nil
@@ -284,17 +284,6 @@ func (s *InboundService) checkVkTurnExclusive(creating model.Protocol, ignoreId 
 			name = "CSQTT"
 		}
 		return common.NewError(name, "supports only one inbound per host")
-	}
-	other := model.Csqtt
-	if creating == model.Csqtt {
-		other = model.Qwdtt
-	}
-	n, err = count(other, false)
-	if err != nil {
-		return err
-	}
-	if n > 0 {
-		return common.NewError("CSQTT and qWDTT cannot run on the same host (overlapping 10.66 TUN)")
 	}
 	return nil
 }

@@ -838,7 +838,7 @@
         "olcrtcDns": "DNS (host:port)",
         "olcrtcDebug": "Debug",
         "qwdttSingleNote": "Only one qWDTT inbound per panel. Shared password for all clients.",
-        "csqttSingleNote": "One CSQTT inbound per host. One password = one device. Cannot run next to qWDTT. Upload the binary on Settings → Cores. Clients: CSQTT Android APK or iOS anton48 (CSQTT mode, not WRAP-A).",
+        "csqttSingleNote": "One CSQTT inbound per host. One password = one device. Upload the binary on Settings → Cores. Clients: CSQTT Android APK or iOS anton48 (CSQTT mode, not WRAP-A).",
         "csqttListenAddr": "UDP listen",
         "csqttPassword": "Password",
         "csqttPasswordHint": "Empty = auto-generate on save. Bound to the first device_id that connects.",

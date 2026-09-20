@@ -7,10 +7,25 @@
 package tunnel
 
 import (
+	"net"
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
+
+func TestQwdttAndCsqttSubnetsDisjoint(t *testing.T) {
+	_, wg, err := net.ParseCIDR(qwdttSubnetWG)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, cs, err := net.ParseCIDR(csqttSubnet)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if wg.Contains(cs.IP) || cs.Contains(wg.IP) {
+		t.Fatalf("overlap: qWDTT %s CSQTT %s", qwdttSubnetWG, csqttSubnet)
+	}
+}
 
 func TestQwdttTunHelpers(t *testing.T) {
 	if got := QwdttTunName(35); got != "tun35" {

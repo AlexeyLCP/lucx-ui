@@ -129,8 +129,7 @@ const (
 	Olcrtc Protocol = "olcrtc"
 	// qWDTT — WG over VK TURN, single-credential, single inbound (root).
 	Qwdtt Protocol = "qwdtt"
-	// CSQTT — amurcanov TURN/RTP sidecar, single-credential, single inbound
-	// (root). Mutually exclusive with qWDTT on the same host.
+	// CSQTT — amurcanov TURN/RTP sidecar, single-credential, single inbound (root).
 	Csqtt Protocol = "csqtt"
 	// mieru — mita server (enfein/mieru), multi-client, multi-inbound.
 	Mieru Protocol = "mieru"

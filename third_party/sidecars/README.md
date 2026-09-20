@@ -8,7 +8,7 @@ Not packed into `x-ui-linux-amd64.tar.gz` (SourceCraft 100 MB release cap).
 | `caddy-naive-linux-amd64.gz` | klzgrad/forwardproxy `v2.11.2-naive` |
 | `naive-client-linux-amd64.gz` | klzgrad/naiveproxy `v150.0.7871.63-1` |
 | `olcrtc-linux-amd64.gz` | openlibrecommunity/olcrtc `54bd269b` (OLC2, KCP framing fix) |
-| `qwdtt-linux-amd64.gz` | SpaceNeuroX/proxy-turn-vk-android `v1.4.4` (`a296c57e`) `./server` |
+| `qwdtt-linux-amd64.gz` | SpaceNeuroX/proxy-turn-vk-android `v1.4.4` (`a296c57e`) `./server` + LucX `qwdtt-subnet.patch` (`10.68.66.1/16`) |
 | `mieru-linux-amd64.gz` | enfein/mieru `v3.37.0` mita |
 | `mieru-client-linux-amd64.gz` | enfein/mieru `v3.37.0` mieru |
 | `trusttunnel-linux-amd64.gz` | TrustTunnel/TrustTunnel `v1.1.0` |
