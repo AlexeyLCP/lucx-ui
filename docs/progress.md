@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.252 — Masking: edit SNI; hide-panel sub URL (2026-09-20)
+
+Masking table edits inbound SNI (Cover hostname / REALITY serverNames / TLS serverName). Apply writes it and builds the L4 map. Duplicate SNI blocks Apply. Hide-panel Caddy keeps `Host`; sub URL uses 443 not `127.0.0.1:2096`.
+
+**lucxVersion:** lucx.252
+
+---
+
 ## Financial supporters in README (2026-09-19)
 
 Acknowledgements: Игорь, пётр смолин, Камслат Глорихо, Михаил Ляшенко, Aleksandr S., Сила Растений, Виталий Зайцев. Files: `README.md`, `docs/readme/*.md`.

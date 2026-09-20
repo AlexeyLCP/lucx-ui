@@ -85,7 +85,6 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	}
 	host := tunnel.ResolveGatewayPublicHost(req.PublicHost, cfg.PublicHost, others)
 	bindIP := tunnel.LocalIPv4()
-	rows := tunnel.BuildPreview(gw.Port, host, others, bindIP)
 	selected := map[int]bool{}
 	for _, id := range req.Selected {
 		selected[id] = true
@@ -112,7 +111,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 			return err
 		}
 	}
-	rows = tunnel.BuildPreview(gw.Port, host, others, bindIP)
+	rows := tunnel.BuildPreview(gw.Port, host, others, bindIP)
 	if c := tunnel.SNIClash(rows, selected); c != "" {
 		return common.NewError("gateway: duplicate SNI", c)
 	}

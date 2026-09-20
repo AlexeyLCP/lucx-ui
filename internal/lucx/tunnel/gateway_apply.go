@@ -249,9 +249,10 @@ func SetInboundSNI(ib *model.Inbound, sni string) {
 		setSettingsKey(ib, "sni", sni)
 	default:
 		_, sec := parseStream(ib.StreamSettings)
-		if sec == "reality" {
+		switch sec {
+		case "reality":
 			ib.StreamSettings = setStreamServerName(ib.StreamSettings, sni, true)
-		} else if sec == "tls" {
+		case "tls":
 			ib.StreamSettings = setStreamServerName(ib.StreamSettings, sni, false)
 		}
 	}
