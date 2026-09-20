@@ -413,6 +413,10 @@ func TestNaiveClientURLForRemark(t *testing.T) {
 	if !strings.Contains(got, "@n.example.org:443") {
 		t.Errorf("ClientURLFor host:port: %q", got)
 	}
+	at := cfg.ClientURLAt(AuthPair{User: "alice", Pass: "s3cret"}, "example.com", 443, "r")
+	if !strings.Contains(at, "@example.com:443") || !strings.Contains(at, "sni=n.example.org") {
+		t.Fatalf("ClientURLAt: %q", at)
+	}
 }
 
 func TestInstanceFingerprint(t *testing.T) {

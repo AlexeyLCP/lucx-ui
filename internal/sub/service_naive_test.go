@@ -80,6 +80,9 @@ func TestGetSubs_Naive_RemarkAndHostPort(t *testing.T) {
 	if !strings.Contains(got, "@cdn.example.com:443") {
 		t.Errorf("host dest+port must win, got %q", got)
 	}
+	if !strings.Contains(got, "sni=n.example.org") {
+		t.Errorf("naive SNI must stay inbound domain, got %q", got)
+	}
 	if strings.Contains(got, "n.example.org:8443") {
 		t.Errorf("inbound listen port must not leak into the share URL, got %q", got)
 	}

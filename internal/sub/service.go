@@ -3494,10 +3494,7 @@ func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
 	}
 	pair := tunnel.InboundAuthPair(secret, inbound, email)
 	if joined := s.sidecarHostLinks(inbound, email, func(dest string, port int, remark string) string {
-		one := cfg
-		one.Domain = dest
-		one.Port = port
-		return one.ClientURLFor(pair, remark)
+		return cfg.ClientURLAt(pair, dest, port, remark)
 	}); joined != "" {
 		return joined
 	}

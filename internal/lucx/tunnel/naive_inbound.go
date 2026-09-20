@@ -186,21 +186,29 @@ func (c NaiveConfig) ValidateInbound(hasClientAuth bool) error {
 
 // ClientURLFor builds a naive+https share link for one auth pair.
 func (c NaiveConfig) ClientURLFor(pair AuthPair, remark string) string {
-	domain := strings.TrimSpace(c.Domain)
+	return c.ClientURLAt(pair, c.Domain, c.Port, remark)
+}
+
+// ClientURLAt is ClientURLFor with an explicit TCP host/port (masking Host).
+// TLS SNI stays c.Domain; when it differs from addr, extra query sni= is set.
+func (c NaiveConfig) ClientURLAt(pair AuthPair, addr string, port int, remark string) string {
+	sni := strings.TrimSpace(c.Domain)
 	user := strings.TrimSpace(pair.User)
-	if domain == "" || user == "" {
+	addr = strings.TrimSpace(addr)
+	if addr == "" || user == "" {
 		return ""
 	}
-	port := c.Port
 	if port <= 0 {
 		port = 443
 	}
-	host := net.JoinHostPort(domain, strconv.Itoa(port))
 	u := url.URL{
 		Scheme:   "https",
 		User:     url.UserPassword(user, strings.TrimSpace(pair.Pass)),
-		Host:     host,
+		Host:     net.JoinHostPort(addr, strconv.Itoa(port)),
 		Fragment: strings.TrimSpace(remark),
+	}
+	if sni != "" && !strings.EqualFold(sni, addr) {
+		u.RawQuery = "sni=" + url.QueryEscape(sni)
 	}
 	return "naive+" + u.String()
 }

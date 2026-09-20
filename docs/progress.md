@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.253 — Naive behind Masking keeps its SNI (2026-09-20)
+
+Host dest was written into Naive `Domain`, so sub links used public host as TLS SNI and Caddy never routed to Naive. `ClientURLAt`: TCP host/port from Host, `sni=` inbound domain.
+
+**lucxVersion:** lucx.253
+
+---
+
 ## lucx.252 — Masking: edit SNI; hide-panel sub URL (2026-09-20)
 
 Masking table edits inbound SNI (Cover hostname / REALITY serverNames / TLS serverName). Apply writes it and builds the L4 map. Duplicate SNI blocks Apply. Hide-panel Caddy keeps `Host`; sub URL uses 443 not `127.0.0.1:2096`.
