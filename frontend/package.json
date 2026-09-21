@@ -68,7 +68,7 @@
     "@types/swagger-ui-react": "^5.18.0",
     "@vitejs/plugin-react": "^6.1.1",
     "@vitest/browser-playwright": "5.0.0",
-    "@vitest/coverage-v8": "^5.0.0",
+    "@vitest/coverage-v8": "^5.0.1",
     "husky": "^9.1.7",
     "jsdom": "^30.0.1",
     "lint-staged": "^17.5.1",
