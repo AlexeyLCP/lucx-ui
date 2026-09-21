@@ -60,7 +60,7 @@ func (s *InboundService) GatewayPreview(gatewayID int, publicHost string) (*Gate
 	}
 	rows := tunnel.BuildPreview(gw.Port, publicHost, others, bindIP)
 	web, sub := gatewayExtraPorts()
-	cert, _ := SettingService{}.GetCertFile()
+	cert, _ := (&SettingService{}).GetCertFile()
 	return &GatewayPreviewResult{
 		Applied:    cfg.Applied(),
 		PublicHost: publicHost,

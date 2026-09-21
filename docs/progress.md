@@ -2,7 +2,7 @@
 
 ## lucx.255 — Masking hide-panel redirects like webBasePath (2026-09-20)
 
-Apply with hide-panel bounces the browser to `https://publicHost/<base>/panel/masking`. Revert bounces back to the panel port. Same idea as changing webBasePath. Files: `maskingUrl.ts`, `MaskingPage.tsx`, `gateway.go` preview `webPort`/`webTLS`.
+Apply with hide-panel bounces the browser to `https://publicHost/<base>/panel/masking`. Revert bounces back to the panel port. Same idea as changing webBasePath. Files: `maskingUrl.ts`, `MaskingPage.tsx`, `gateway.go` preview `webPort`/`webTLS`. CI: `SettingService{}.GetCertFile()` is not addressable — `(&SettingService{}).GetCertFile()`.
 
 **lucxVersion:** lucx.255
 
