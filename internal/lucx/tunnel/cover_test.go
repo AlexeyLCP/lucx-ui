@@ -68,6 +68,9 @@ func TestRenderCoverCaddyfile_LoopbackBind(t *testing.T) {
 	if !strings.Contains(got, "proxy_protocol") {
 		t.Fatalf("loopback cover needs PROXY protocol:\n%s", got)
 	}
+	if !strings.Contains(got, "protocols h1 h2") {
+		t.Fatalf("loopback cover must pin h1/h2:\n%s", got)
+	}
 }
 
 func TestRenderCoverCaddyfile_TproxyWins(t *testing.T) {

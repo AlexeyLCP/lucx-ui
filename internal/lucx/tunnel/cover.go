@@ -132,6 +132,9 @@ type coverAttach struct {
 }
 
 func writeCaddyServers(b *strings.Builder, h1h2, proxyProtocol bool) {
+	if proxyProtocol {
+		h1h2 = true
+	}
 	if !h1h2 && !proxyProtocol {
 		return
 	}

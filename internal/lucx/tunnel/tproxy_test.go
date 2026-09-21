@@ -220,6 +220,9 @@ func TestRenderTproxyCaddyfile(t *testing.T) {
 	if !strings.Contains(loop, "bind 127.0.0.1") || !strings.Contains(loop, "proxy_protocol") {
 		t.Fatalf("loopback bind:\n%s", loop)
 	}
+	if !strings.Contains(loop, "protocols h1 h2") {
+		t.Fatalf("loopback tproxy must pin h1/h2:\n%s", loop)
+	}
 	if strings.Contains(got, "proxy_protocol") {
 		t.Fatalf("public tproxy should not wrap PROXY:\n%s", got)
 	}

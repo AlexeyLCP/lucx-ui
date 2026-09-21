@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ai: naive behind Masking, SNI → timeout — FIXED (lucx.256)
+- **Symptom (VladufQa, 21.09.2026):** naive up behind SNI gateway. No extra SNI → TCP CONNECT works. With SNI → client timeout.
+- **Cause:** Masking remaps naive to `127.0.0.1:54807`. `enableH3` (default) makes Caddy send `Alt-Svc: h3=":54807"`. L4 muxes TCP 443 only. NekoBox/Chromium QUIC to public `:54807` never falls back (same as Pattern 1ab).
+- **Fix:** `writeCaddyServers` pins `protocols h1 h2` whenever PROXY/loopback is on (naive, cover, tproxy).
+- **Healing without update:** turn off HTTP/3 on the naive inbound, save.
+- **Lesson:** a TCP-only front must not advertise HTTP/3 on the backend’s private port.
+
 ### Pattern 1ah: CSQTT “password already assigned to another Device ID” after delete/recreate — FIXED (lucx.243)
 - **Symptom (zk0xch, 17.09.2026):** first inbound + iPhone import works. Delete inbound, create again, import — client says the password belongs to another device_id. New password in the card does not help. Restoring the *first* device_id on the phone works with any password.
 - **Cause:** CSQTT is a singleton key (`csqtt`). `Remove` stopped the process but `removeManagedFiles` skipped singleton data dirs. `csqtt.db` kept `main_device_id`. `--password` overwrites the password; empty `--device-id` does **not** clear the stored id. iOS re-import mints a new device_id.

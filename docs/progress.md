@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.256 — Naive behind Masking: no HTTP/3 (2026-09-21)
+
+Loopback Caddy (PROXY from L4) pinned h1/h2. EnableH3 still advertised `Alt-Svc: h3=":54807"`; NekoBox QUIC to the remapped port times out (VladufQa). L4 is TCP-only. `writeCaddyServers` forces `protocols h1 h2` whenever `proxyProtocol` is set (naive/cover/tproxy). Tests: `TestRenderCaddyfileLoopbackPinsH1H2` + cover/tproxy loopback.
+
+**lucxVersion:** lucx.256
+
+---
+
 ## lucx.255 — Masking hide-panel redirects like webBasePath (2026-09-20)
 
 Apply with hide-panel bounces the browser to `https://publicHost/<base>/panel/masking`. Revert bounces back to the panel port. Same idea as changing webBasePath. Files: `maskingUrl.ts`, `MaskingPage.tsx`, `gateway.go` preview `webPort`/`webTLS`. CI: `SettingService{}.GetCertFile()` is not addressable — `(&SettingService{}).GetCertFile()`.

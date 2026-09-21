@@ -229,6 +229,22 @@ func TestRenderCaddyfileManual(t *testing.T) {
 	}
 }
 
+func TestRenderCaddyfileLoopbackPinsH1H2(t *testing.T) {
+	cfg := DefaultNaiveConfig()
+	cfg.AuthUser = "u"
+	cfg.AuthPass = "p"
+	cfg.CertFile = "/c.pem"
+	cfg.KeyFile = "/k.pem"
+	cfg.Domain = "n.example.org"
+	cfg.Listen = "127.0.0.1"
+	cfg.Port = 54807
+	cfg.EnableH3 = true
+	got := cfg.RenderCaddyfile(nil, "")
+	if !strings.Contains(got, "protocols h1 h2") {
+		t.Fatalf("loopback naive must pin h1/h2 (L4 has no UDP):\n%s", got)
+	}
+}
+
 func TestRenderCaddyfileBindAndH3Off(t *testing.T) {
 	cfg := DefaultNaiveConfig()
 	cfg.AuthUser = "u"
