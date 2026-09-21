@@ -1,5 +1,26 @@
 # LucX-UI — Прогресс
 
+## lucx.262 — Review fixes: sig-algs, manager race, SPDX sweep (2026-09-21)
+
+Full read-only review of `internal/awg` + `internal/lucx` + hooks
+(`docs/lucx-review-2026-09-21.md`), then fixes. TLS fingerprint: all three
+browser signature_algorithms lists in `cps/cps.go` deviated from the real
+clients (duplicates / bogus `0x0604`/`0x0601`) — now match Chrome, Firefox
+NSS, Safari, and the delegated_credentials list. `Manager.Remove` ran
+`removeManagedFiles` outside `opMu` — a concurrent `Ensure` could write a
+config the delete then removed mid-start; moved inside the critical section.
+`AddOutbound` checked default-tag uniqueness after `db.Create` — now before
+the tag write, deleting the row on failure. `install-awg-module.sh` wiped the
+dest dir before the tarball was fetched+verified (network fail = empty dest)
+and picked the oldest kernel headers (`head -1`) — fixed to `sort -V|tail -1`.
+`awgTunGateway` collided for inbound ids 253 apart — ids ≥254 now map into
+`10.253/16`. `renderClientConf` emitted `MTU = 0` on a zero MTU — line now
+omitted. SPDX headers added to 42 LucX files; `check-lucx.sh` enforces them.
+
+**lucxVersion:** lucx.262
+
+---
+
 ## lucx.261 — Masking: unified Caddy process via l4chan bridge (2026-09-21)
 
 New module `caddylucx/` (network `l4chan` + l4 handler `l4http`) hands a

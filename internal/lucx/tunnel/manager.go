@@ -318,10 +318,10 @@ func (m *Manager) Remove(key string) {
 			}
 		}
 		mc.fp = ""
+		removeManagedFiles(key)
 		mc.opMu.Unlock()
 	}
 	clearQwdttRoutingForKey(key)
-	removeManagedFiles(key)
 }
 
 // removeManagedFiles deletes on-disk configs/data for multi-instance keys.

@@ -1012,7 +1012,14 @@ func awgTunGateway(id int) string {
 	if id >= 1 && id < 254 {
 		return fmt.Sprintf("10.254.%d.1/30", id)
 	}
-	return fmt.Sprintf("10.252.%d.1/30", (id%253)+1)
+	// 10.253/16 for larger ids — distinct from the small-id block and no
+	// wraparound collision (the old (id%253)+1 made ids 254 and 507 share
+	// one gateway on different tunN devices).
+	n := id % 65536
+	if n <= 0 {
+		n = 1
+	}
+	return fmt.Sprintf("10.253.%d.%d/30", n/256, n%256)
 }
 
 // injectAwgEgress wires one routed AWG inbound into the generated config: it

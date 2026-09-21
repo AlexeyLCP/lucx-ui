@@ -61,10 +61,11 @@ func (s *SidecarOutboundService) AddOutbound(o *model.SidecarOutbound) (*model.S
 	}
 	if o.Tag == "" {
 		o.Tag = tunnel.DefaultSidecarTag(o.Protocol, o.Id)
-		if err := db.Model(o).Update("tag", o.Tag).Error; err != nil {
+		if err := checkTagUnique(o.Tag, 0, o.Id); err != nil {
+			_ = db.Delete(o).Error
 			return nil, err
 		}
-		if err := checkTagUnique(o.Tag, 0, o.Id); err != nil {
+		if err := db.Model(o).Update("tag", o.Tag).Error; err != nil {
 			return nil, err
 		}
 	}

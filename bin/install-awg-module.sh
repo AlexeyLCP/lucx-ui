@@ -69,8 +69,6 @@ git_clone_sha() {
     local repo tmp
     repo="${url#https://github.com/}"
     repo="${repo%.git}"
-    rm -rf "$dest"
-    mkdir -p "$dest"
     tmp="$(mktemp /tmp/awg-src-XXXXXX.tar.gz)"
     export GIT_TERMINAL_PROMPT=0
     export GIT_ASKPASS=/bin/true
@@ -78,6 +76,8 @@ git_clone_sha() {
         if curl -fsSL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 180 \
             -o "$tmp" "https://codeload.github.com/${repo}/tar.gz/${sha}" \
             && tar -tzf "$tmp" >/dev/null 2>&1; then
+            rm -rf "$dest"
+            mkdir -p "$dest"
             tar -C "$dest" --strip-components=1 -xzf "$tmp"
             rm -f "$tmp"
             return 0
@@ -85,6 +85,8 @@ git_clone_sha() {
         if curl -fsSL --retry 5 --retry-delay 2 --connect-timeout 20 --max-time 180 \
             -o "$tmp" "https://github.com/${repo}/archive/${sha}.tar.gz" \
             && tar -tzf "$tmp" >/dev/null 2>&1; then
+            rm -rf "$dest"
+            mkdir -p "$dest"
             tar -C "$dest" --strip-components=1 -xzf "$tmp"
             rm -f "$tmp"
             return 0
@@ -584,7 +586,7 @@ fi
 AWG_REBOOT_FLAG="/etc/x-ui/.awg-reboot-needed"
 rm -f "$AWG_REBOOT_FLAG" 2>/dev/null || true
 if [[ ! -d "/lib/modules/${RUNNING_KERNEL}/build" ]]; then
-    NEWEST_HEADERS=$(ls -d /lib/modules/*/build 2>/dev/null | head -1)
+    NEWEST_HEADERS=$(ls -d /lib/modules/*/build 2>/dev/null | sort -V | tail -1)
     if [[ -n "$NEWEST_HEADERS" ]]; then
         NEWEST_KERNEL=$(basename "$(dirname "$NEWEST_HEADERS")")
         echo -e "${YELLOW}Headers for running kernel ${RUNNING_KERNEL} missing; found ${NEWEST_KERNEL}.${NC}"

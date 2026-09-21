@@ -35,7 +35,9 @@ func renderClientConf(ci ClientInstance) string {
 	b.WriteString("[Interface]\n")
 	fmt.Fprintf(&b, "PrivateKey = %s\n", confValue(s.PrivateKey))
 	fmt.Fprintf(&b, "Address = %s\n", confValue(s.Address))
-	fmt.Fprintf(&b, "MTU = %d\n", s.MTU)
+	if s.MTU > 0 {
+		fmt.Fprintf(&b, "MTU = %d\n", s.MTU)
+	}
 	b.WriteString("Table = off\n")
 	// DNS deliberately NOT written — see function comment. resolvconf crash
 	// on hosts without systemd-resolved/openresolv took down every reconcile.
