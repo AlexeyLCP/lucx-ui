@@ -120,6 +120,36 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	if c := tunnel.SNIClash(rows, selected); c != "" {
 		return common.NewError("gateway: duplicate SNI", c)
 	}
+	for _, o := range others {
+		// Anything left public on TCP :443 wins the bind race with the
+		// gateway — one of them then fails to listen.
+		if o == nil || !o.Enable || selected[o.Id] || o.Port != gw.Port ||
+			tunnel.IsLoopbackListen(o.Listen) || !tunnel.InboundUsesTCP(o) {
+			continue
+		}
+		return common.NewErrorf("gateway: inbound %q still occupies TCP :%d — select it or move it off", o.Remark, o.Port)
+	}
+	cert, key := gatewayPanelCertPair()
+	for _, row := range rows {
+		ib := byID[row.InboundID]
+		if !selected[row.InboundID] || row.Class != tunnel.ClassCaddy ||
+			ib == nil || ib.Protocol != model.Naive {
+			continue
+		}
+		ncfg, _ := tunnel.ConfigFromInbound(ib)
+		if !ncfg.UseAcme {
+			continue
+		}
+		// Auto TLS has no public :80/:443 to renew on once masked — point it
+		// at the panel cert when it covers the domain, else fail loudly.
+		if err := tunnel.ValidateCertFiles(cert, key, ncfg.Domain); err != nil {
+			return common.NewErrorf("gateway: %q uses Auto TLS which can't renew behind masking — set cert/key paths (panel cert doesn't cover %q)", ib.Remark, ncfg.Domain)
+		}
+		tunnel.SetNaiveCert(ib, cert, key)
+		if err := db.Model(ib).Select("settings").Updates(ib).Error; err != nil {
+			return err
+		}
+	}
 	if req.HidePanel {
 		front := false
 		for _, row := range rows {
@@ -156,7 +186,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		if steal[row.InboundID] && row.StealDest != "" {
 			ib.StreamSettings = tunnel.SetRealityDest(ib.StreamSettings, row.StealDest)
 		}
-		if tunnel.XrayAcceptsProxyProtocol(ib.Protocol) {
+		if !row.NoProxy && tunnel.XrayAcceptsProxyProtocol(ib.Protocol) {
 			ib.StreamSettings = tunnel.SetAcceptProxyProtocol(ib.StreamSettings, true)
 		}
 		if err := db.Model(ib).Select("listen", "port", "stream_settings").Updates(ib).Error; err != nil {
@@ -267,6 +297,13 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 	s.sweepOrphanGatewayHosts()
 	_ = (&XrayService{inboundService: *s}).RestartXray(true)
 	return nil
+}
+
+func gatewayPanelCertPair() (cert, key string) {
+	st := SettingService{}
+	cert, _ = st.GetCertFile()
+	key, _ = st.GetKeyFile()
+	return
 }
 
 func loopbackDest(tls bool, port int) string {

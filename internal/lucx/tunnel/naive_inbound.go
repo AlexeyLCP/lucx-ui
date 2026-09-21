@@ -184,6 +184,27 @@ func (c NaiveConfig) ValidateInbound(hasClientAuth bool) error {
 	return nil
 }
 
+// SetNaiveCert switches a Naive inbound off Auto TLS onto a concrete cert/key
+// pair — HTTP-01 has no public :80 once the masking gateway owns the port.
+func SetNaiveCert(ib *model.Inbound, certFile, keyFile string) {
+	if ib == nil || ib.Protocol != model.Naive {
+		return
+	}
+	var m map[string]any
+	_ = json.Unmarshal([]byte(ib.Settings), &m)
+	if m == nil {
+		m = map[string]any{}
+	}
+	m["useAcme"] = false
+	m["certFile"] = certFile
+	m["keyFile"] = keyFile
+	out, err := json.Marshal(m)
+	if err != nil {
+		return
+	}
+	ib.Settings = string(out)
+}
+
 // ClientURLFor builds a naive+https share link for one auth pair.
 func (c NaiveConfig) ClientURLFor(pair AuthPair, remark string) string {
 	return c.ClientURLAt(pair, c.Domain, c.Port, remark)

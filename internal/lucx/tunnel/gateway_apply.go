@@ -28,6 +28,7 @@ type PreviewRow struct {
 	HostAddress string   `json:"hostAddress"`
 	HostPort    int      `json:"hostPort"`
 	StealDest   string   `json:"stealDest,omitempty"`
+	NoProxy     bool     `json:"noProxy,omitempty"`
 	Note        string   `json:"note,omitempty"`
 }
 
@@ -106,53 +107,118 @@ func destHost(dest string) string {
 	return dest
 }
 
-// Classify returns passthrough, caddy, or empty (skip).
-func Classify(ib *model.Inbound) (class, sni string) {
+// Classified is what the SNI gateway needs to know about one inbound: route
+// class, SNI, PROXY-v1 capability (NoProxy) and a note for the preview table.
+type Classified struct {
+	Class   string
+	SNI     string
+	NoProxy bool
+	Note    string
+}
+
+// udpOnlyNetwork marks Xray stream transports that never see a TCP listener.
+func udpOnlyNetwork(netw string) bool {
+	switch netw {
+	case "kcp", "mkcp", "quic":
+		return true
+	}
+	return false
+}
+
+// InboundUsesTCP reports whether the inbound holds a TCP listener that would
+// fight the gateway for :443. UDP-only and behindCover inbounds own none.
+func InboundUsesTCP(ib *model.Inbound) bool {
+	if ib == nil || SettingsBehindCover(ib.Protocol, ib.Settings) {
+		return false
+	}
+	switch ib.Protocol {
+	case model.WireGuard, model.AmneziaWG, model.AWG, model.Hysteria, model.TUIC,
+		model.Olcrtc, model.Qwdtt, model.Csqtt, model.Protocol("tun"):
+		return false
+	}
+	netw, _ := parseStream(ib.StreamSettings)
+	return !udpOnlyNetwork(netw)
+}
+
+// ClassifyInbound classifies one inbound for the SNI gateway.
+func ClassifyInbound(ib *model.Inbound) Classified {
 	if ib == nil {
-		return "", ""
+		return Classified{}
 	}
 	switch ib.Protocol {
 	case model.Cover:
 		cfg, _ := CoverConfigFromInbound(ib)
-		return ClassCaddy, cfg.Hostname
+		return Classified{Class: ClassCaddy, SNI: cfg.Hostname}
 	case model.Naive:
 		cfg, ok := ConfigFromInbound(ib)
 		if !ok {
-			return "", ""
+			return Classified{}
 		}
-		return ClassCaddy, cfg.Domain
+		if cfg.BehindCover {
+			return Classified{Note: "fronted by its cover site"}
+		}
+		if cfg.UseRawConfig {
+			return Classified{Note: "raw Caddyfile owns its listener"}
+		}
+		c := Classified{Class: ClassCaddy, SNI: cfg.Domain}
+		if cfg.UseAcme {
+			c.Note = "auto TLS can't renew behind masking; apply rewrites it to the panel cert"
+		}
+		return c
 	case model.Tproxy:
 		cfg, ok := TproxyConfigFromInbound(ib)
-		if !ok {
-			return "", ""
+		if !ok || cfg.BehindCover {
+			return Classified{Note: "fronted by its cover site"}
 		}
-		return ClassCaddy, cfg.Hostname
+		return Classified{Class: ClassCaddy, SNI: cfg.Hostname}
 	case model.Anytls:
 		cfg, ok := AnytlsConfigFromInbound(ib)
 		if !ok {
-			return "", ""
+			return Classified{}
 		}
-		return ClassPassthrough, cfg.SNI
+		return Classified{
+			Class: ClassPassthrough, SNI: cfg.SNI, NoProxy: true,
+			Note: "backend can't parse PROXY — client IP hidden",
+		}
 	case model.TrustTunnel:
 		cfg, ok := TrustTunnelConfigFromInbound(ib)
 		if !ok {
-			return "", ""
+			return Classified{}
 		}
-		return ClassPassthrough, cfg.Hostname
-	case model.Gateway, model.AWG, model.Olcrtc, model.Qwdtt, model.Csqtt,
-		model.Mieru, model.MTProto, model.Tunnel, model.WireGuard,
-		model.Hysteria:
-		return "", ""
+		return Classified{
+			Class: ClassPassthrough, SNI: cfg.Hostname, NoProxy: true,
+			Note: "backend can't parse PROXY — client IP hidden",
+		}
+	case model.Gateway, model.AWG, model.AmneziaWG, model.Olcrtc, model.Qwdtt,
+		model.Csqtt, model.Mieru, model.MTProto, model.Tunnel, model.WireGuard,
+		model.Hysteria, model.TUIC:
+		return Classified{}
 	}
 	netw, sec := parseStream(ib.StreamSettings)
 	if sec == "reality" || sec == "tls" {
-		return ClassPassthrough, streamServerName(ib.StreamSettings)
+		if udpOnlyNetwork(netw) {
+			return Classified{Note: "UDP transport — SNI mux is TCP only"}
+		}
+		c := Classified{Class: ClassPassthrough, SNI: streamServerName(ib.StreamSettings)}
+		if netw == "xhttp" || netw == "splithttp" || !XrayAcceptsProxyProtocol(ib.Protocol) {
+			c.NoProxy = true
+			c.Note = "backend can't parse PROXY — client IP hidden"
+		}
+		return c
 	}
-	switch netw {
-	case "ws", "xhttp", "grpc", "httpupgrade":
-		return ClassCaddy, ""
+	if sec == "" {
+		switch netw {
+		case "ws", "xhttp", "splithttp", "grpc", "httpupgrade":
+			return Classified{Note: "no TLS — SNI can't route it"}
+		}
 	}
-	return "", ""
+	return Classified{}
+}
+
+// Classify returns passthrough, caddy, or empty (skip).
+func Classify(ib *model.Inbound) (class, sni string) {
+	c := ClassifyInbound(ib)
+	return c.Class, c.SNI
 }
 
 func XrayAcceptsProxyProtocol(p model.Protocol) bool {
@@ -399,14 +465,22 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 		if ib == nil || ib.Protocol == model.Gateway {
 			continue
 		}
-		class, sni := Classify(ib)
+		cf := ClassifyInbound(ib)
+		class, sni := cf.Class, cf.SNI
 		if class == "" {
 			if ib.Enable && ib.Port > 0 && !IsLoopbackListen(ib.Listen) {
 				listen := publicListen(ib.Listen)
+				note := cf.Note
+				if note == "" {
+					note = "no SNI, stays public"
+				}
+				if ib.Port == gatewayPort && InboundUsesTCP(ib) {
+					note = "TCP :443 conflicts with the gateway port"
+				}
 				rows = append(rows, PreviewRow{
 					InboundID: ib.Id, Remark: ib.Remark, Protocol: string(ib.Protocol),
 					Class: ClassSkip, OldListen: listen, NewListen: listen,
-					OldPort: ib.Port, NewPort: ib.Port, Note: "no SNI, stays public",
+					OldPort: ib.Port, NewPort: ib.Port, Note: note,
 				})
 			}
 			continue
@@ -451,8 +525,10 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 			NewPort:     newPort,
 			HostAddress: hostAddr,
 			HostPort:    gatewayDefaultPort,
+			NoProxy:     cf.NoProxy,
+			Note:        cf.Note,
 		}
-		if class == ClassCaddy && sni == "" {
+		if class == ClassCaddy && cf.SNI == "" && publicHost == "" {
 			row.Note = "needs Cover or publicHost"
 		}
 		rows = append(rows, row)
@@ -519,7 +595,7 @@ func appendPreviewRoutes(out []GatewayRoute, seen map[string]bool, rows []Previe
 				continue
 			}
 			seen[sni] = true
-			out = append(out, GatewayRoute{SNI: sni, Dest: dest})
+			out = append(out, GatewayRoute{SNI: sni, Dest: dest, NoProxy: r.NoProxy})
 		}
 	}
 	return out

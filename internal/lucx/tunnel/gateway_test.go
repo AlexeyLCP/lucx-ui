@@ -79,8 +79,73 @@ func TestClassify_RealityVsCoverVsUDP(t *testing.T) {
 		StreamSettings: `{"network":"ws","security":"none"}`,
 	}
 	class, _ = Classify(ws)
-	if class != ClassCaddy {
-		t.Fatalf("ws: %s", class)
+	if class != "" {
+		// A plaintext ws client never sends a TLS ClientHello — the SNI mux
+		// can never route it; it must stay public, not die on loopback.
+		t.Fatalf("ws+none must stay public: %s", class)
+	}
+}
+
+func TestClassifyInbound_NoProxyAndSkip(t *testing.T) {
+	// Backends that can't parse PROXY v1 must get a raw proxy route.
+	for _, tc := range []struct {
+		name    string
+		ib      *model.Inbound
+		class   string
+		noProxy bool
+	}{
+		{"anytls", &model.Inbound{Protocol: model.Anytls, Settings: `{"sni":"a.ex.com"}`}, ClassPassthrough, true},
+		{"trusttunnel", &model.Inbound{Protocol: model.TrustTunnel, Settings: `{"hostname":"t.ex.com"}`}, ClassPassthrough, true},
+		{"xhttp+reality", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"xhttp","security":"reality","realitySettings":{"serverNames":["x.ex.com"]}}`}, ClassPassthrough, true},
+		{"tcp+reality", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["x.ex.com"]}}`}, ClassPassthrough, false},
+		{"grpc+reality", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"grpc","security":"reality","realitySettings":{"serverNames":["x.ex.com"]}}`}, ClassPassthrough, false},
+		{"kcp+tls", &model.Inbound{Protocol: model.VMESS, StreamSettings: `{"network":"kcp","security":"tls"}`}, "", false},
+		{"naive behindCover", &model.Inbound{Protocol: model.Naive, Settings: `{"domain":"n.ex.com","behindCover":true}`}, "", false},
+		{"naive raw", &model.Inbound{Protocol: model.Naive, Settings: `{"domain":"n.ex.com","useRawConfig":true}`}, "", false},
+		{"tproxy behindCover", &model.Inbound{Protocol: model.Tproxy, Settings: `{"hostname":"p.ex.com","behindCover":true}`}, "", false},
+	} {
+		got := ClassifyInbound(tc.ib)
+		if got.Class != tc.class || got.NoProxy != tc.noProxy {
+			t.Fatalf("%s: class=%q noProxy=%v", tc.name, got.Class, got.NoProxy)
+		}
+	}
+}
+
+func TestRenderGatewayCaddyfile_NoProxy(t *testing.T) {
+	got := RenderGatewayCaddyfile(443, []GatewayRoute{
+		{SNI: "raw.example.com", Dest: "127.0.0.1:1443", NoProxy: true},
+		{SNI: "proxy.example.com", Dest: "127.0.0.1:1444"},
+	}, "", "")
+	if !strings.Contains(got, "proxy 127.0.0.1:1443\n") {
+		t.Fatalf("NoProxy route must be a bare proxy line:\n%s", got)
+	}
+	if !strings.Contains(got, "proxy 127.0.0.1:1444 {\n\t\t\t\t\tproxy_protocol v1") {
+		t.Fatalf("normal route must keep PROXY v1:\n%s", got)
+	}
+}
+
+func TestInboundUsesTCP(t *testing.T) {
+	if InboundUsesTCP(&model.Inbound{Protocol: model.Hysteria, Port: 443}) {
+		t.Fatal("hysteria is UDP only")
+	}
+	if InboundUsesTCP(&model.Inbound{Protocol: model.Naive, Port: 443, Settings: `{"behindCover":true}`}) {
+		t.Fatal("behindCover naive owns no listener")
+	}
+	if !InboundUsesTCP(&model.Inbound{Protocol: model.Mieru, Port: 443}) {
+		t.Fatal("mieru holds TCP")
+	}
+	if !InboundUsesTCP(&model.Inbound{Protocol: model.VLESS, Port: 443, StreamSettings: `{"network":"tcp","security":"reality"}`}) {
+		t.Fatal("vless tcp holds TCP")
+	}
+}
+
+func TestSetNaiveCert(t *testing.T) {
+	ib := &model.Inbound{Protocol: model.Naive, Settings: `{"domain":"n.ex.com","useAcme":true,"acmeEmail":"a@b.c"}`}
+	SetNaiveCert(ib, "/c.pem", "/k.pem")
+	if !strings.Contains(ib.Settings, `"useAcme":false`) ||
+		!strings.Contains(ib.Settings, `"certFile":"/c.pem"`) ||
+		!strings.Contains(ib.Settings, `"keyFile":"/k.pem"`) {
+		t.Fatalf("%s", ib.Settings)
 	}
 }
 
@@ -178,11 +243,11 @@ func TestSetAcceptProxyProtocol(t *testing.T) {
 
 func TestRoutesFromPreview_Selected(t *testing.T) {
 	rows := []PreviewRow{
-		{InboundID: 1, SNI: "a.example.com", NewPort: 1443},
+		{InboundID: 1, SNI: "a.example.com", NewPort: 1443, NoProxy: true},
 		{InboundID: 2, SNI: "b.example.com", NewPort: 8443},
 	}
-	got := RoutesFromPreview(rows, map[int]bool{2: true})
-	if len(got) != 1 || got[0].SNI != "b.example.com" || got[0].Dest != "127.0.0.1:8443" {
+	got := RoutesFromPreview(rows, map[int]bool{1: true, 2: true})
+	if len(got) != 2 || !got[0].NoProxy || got[1].NoProxy {
 		t.Fatalf("%+v", got)
 	}
 }

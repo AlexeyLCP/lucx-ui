@@ -1,5 +1,27 @@
 # LucX-UI — Прогресс
 
+## lucx.260 — Masking: no PROXY to backends that can't parse it (2026-09-21)
+
+caddy-l4 sent `proxy_protocol v1` to every route — AnyTLS, TrustTunnel and
+Xray xhttp/splithttp feed it to their TLS parser → client timeout.
+`GatewayRoute.NoProxy` renders a bare `proxy` line; Apply skips
+`acceptProxyProtocol` on those rows. ClassifyInbound now skips what SNI
+can never route: ws/xhttp/grpc/httpupgrade with security=none, UDP
+transports (kcp/quic), naive behindCover/raw Caddyfile, tproxy
+behindCover — they stay public instead of dying on loopback. Naive Auto
+TLS can't renew HTTP-01 behind the gateway: Apply switches it to the
+panel cert when it covers the domain, else fails loudly (revert keeps
+cert mode — snapshot stores listen/port/stream only). Apply rejects a
+still-public TCP inbound on the gateway port. Preview rows carry
+`noProxy`/`note`, MaskingPage shows notes as warnings. Tests:
+ClassifyInbound table, NoProxy render/propagation, InboundUsesTCP,
+SetNaiveCert. Gateways applied before lucx.260: Revert → Apply once to
+regenerate routes without PROXY.
+
+**lucxVersion:** lucx.260
+
+---
+
 ## lucx.259 — AWG hook skipped after SSL cd ~ (2026-09-21)
 
 Fresh install with SSL never ran `install-awg-module.sh`: `install_acme` does `cd ~`, the LUCX-HOOK tested relative `bin/install-awg-module.sh` and skipped. Igor, Ubuntu 26.04, lucx.255 — no dkms, no module. Hook now uses `${xui_folder}/bin/…` in `install.sh` and `update.sh`. Already-installed hosts: `x-ui install-awg` (Igor’s box built OK on kernel 7.0).

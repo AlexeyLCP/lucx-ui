@@ -30,10 +30,12 @@ const (
 	ClassSkip        = "skip"
 )
 
-// GatewayRoute is one SNI → loopback backend for Caddy L4.
+// GatewayRoute is one SNI → loopback backend for Caddy L4. NoProxy marks
+// backends that cannot parse PROXY v1 — they see the gateway as the client.
 type GatewayRoute struct {
-	SNI  string `json:"sni"`
-	Dest string `json:"dest"`
+	SNI     string `json:"sni"`
+	Dest    string `json:"dest"`
+	NoProxy bool   `json:"noProxy,omitempty"`
 }
 
 // GatewaySnapshotRow is enough to undo one inbound after Apply.
@@ -137,7 +139,11 @@ func RenderGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallback, bin
 		i++
 		b.WriteString("\t\t\t@" + tag + " tls sni " + k + "\n")
 		b.WriteString("\t\t\troute @" + tag + " {\n")
-		b.WriteString("\t\t\t\tproxy " + d + " {\n\t\t\t\t\tproxy_protocol v1\n\t\t\t\t}\n")
+		if r.NoProxy {
+			b.WriteString("\t\t\t\tproxy " + d + "\n")
+		} else {
+			b.WriteString("\t\t\t\tproxy " + d + " {\n\t\t\t\t\tproxy_protocol v1\n\t\t\t\t}\n")
+		}
 		b.WriteString("\t\t\t}\n")
 	}
 	b.WriteString("\t\t\troute {\n")

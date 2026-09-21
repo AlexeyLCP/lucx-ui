@@ -49,6 +49,8 @@ type PreviewRow = {
   oldPort: number;
   newPort: number;
   stealDest?: string;
+  noProxy?: boolean;
+  note?: string;
 };
 
 type PreviewResult = {
@@ -251,6 +253,12 @@ export default function MaskingPage() {
       `${r.oldListen}:${r.oldPort} → ${r.newListen}:${r.newPort}`,
   };
 
+  const noteCol = {
+    title: '',
+    render: (_: unknown, r: PreviewRow) =>
+      r.note ? <Typography.Text type="warning">{r.note}</Typography.Text> : null,
+  };
+
   const body = !gateway ? (
     <Card hoverable title={t('pages.masking.title')}>
       <Alert
@@ -356,6 +364,7 @@ export default function MaskingPage() {
                 ),
               },
               listenCol,
+              noteCol,
               {
                 title: t('pages.masking.stealHint'),
                 render: (_: unknown, r: PreviewRow) =>
@@ -392,6 +401,7 @@ export default function MaskingPage() {
                     render: (_: unknown, r: PreviewRow) => t(classKey(r.class) || r.class),
                   },
                   listenCol,
+                  noteCol,
                 ]}
               />
             </>
