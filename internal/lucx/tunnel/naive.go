@@ -286,6 +286,27 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 
 	listen := strings.TrimSpace(c.Listen)
 	wildcard := listen == "" || listen == "0.0.0.0" || listen == "::"
+	bind := ""
+	if !wildcard {
+		bind = caddyToken(listen)
+	}
+	c.writeSite(&b, bind, extraAuth, accessLogPath)
+	return b.String()
+}
+
+// RenderSite emits only the site block for embedding into the unified
+// gateway Caddyfile: `bind` is the l4chan listener name instead of a socket.
+// Callers must resolve ACME to cert files first — the gateway owns :80/:443.
+func (c NaiveConfig) RenderSite(chanName string, extraAuth []AuthPair, accessLogPath string) string {
+	if c.UseRawConfig {
+		return ""
+	}
+	var b strings.Builder
+	c.writeSite(&b, "l4chan/"+chanName, extraAuth, accessLogPath)
+	return b.String()
+}
+
+func (c NaiveConfig) writeSite(b *strings.Builder, bind string, extraAuth []AuthPair, accessLogPath string) {
 	domain := strings.TrimSpace(c.Domain)
 
 	var addrs []string
@@ -306,8 +327,8 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 		}
 	}
 	b.WriteString(strings.Join(addrs, ", ") + " {\n")
-	if !wildcard {
-		b.WriteString("\tbind " + caddyToken(listen) + "\n")
+	if bind != "" {
+		b.WriteString("\tbind " + bind + "\n")
 	}
 	if c.UseAcme {
 		if email := strings.TrimSpace(c.AcmeEmail); email != "" {
@@ -327,10 +348,9 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 		b.WriteString("\t}\n")
 	}
 	b.WriteString("\troute {\n")
-	c.appendForwardProxy(&b, extraAuth, "\t\t")
+	c.appendForwardProxy(b, extraAuth, "\t\t")
 	b.WriteString("\t}\n")
 	b.WriteString("}\n")
-	return b.String()
 }
 
 func (c NaiveConfig) appendForwardProxy(b *strings.Builder, extra []AuthPair, indent string) {

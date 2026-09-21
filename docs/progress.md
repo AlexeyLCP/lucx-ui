@@ -1,5 +1,32 @@
 # LucX-UI — Прогресс
 
+## lucx.261 — Masking: unified Caddy process via l4chan bridge (2026-09-21)
+
+New module `caddylucx/` (network `l4chan` + l4 handler `l4http`) hands a
+matched L4 conn straight into an HTTP site block bound `bind l4chan/<key>`
+— same process, no loopback socket, no PROXY header, real client IP
+natively. `caddy-layer4` is now a merged xcaddy build: caddy 2.11.4 +
+caddy-l4 + klzgrad/forwardproxy + caddylucx. New applies set
+`GatewayConfig.Unified` and embed naive/cover/tproxy site blocks into the
+gateway Caddyfile (`RenderSite`/`RenderCoverSite`/`RenderTproxySite`
+extracted from the standalone renderers); the standalone sidecars of
+absorbed inbounds stay off (`GatewayAbsorbed`). Passthrough routes
+(AnyTLS/TrustTunnel/Reality/xhttp) unchanged — `proxy`, PROXY v1 only
+where the backend parses it. Unknown SNI falls back to the cover channel.
+Old gateway configs keep `Unified=false` and render the legacy layout
+(`RenderGatewayCaddyfile` strips `Chan`) until Revert → Apply.
+`GatewaySupportsChan` probes the installed binary for
+`layer4.handlers.l4http` (cached by mtime) — a pre-merge binary falls
+back to the proxy layout instead of dying on an unknown directive.
+E2E on the merged binary: cover SNI 200, naive CONNECT 200/407,
+passthrough no PROXY. Caveat: arbitrary unknown SNI can fail TLS cert
+selection before reaching the cover fallback (no `fallback_sni` in the
+Caddyfile grammar).
+
+**lucxVersion:** lucx.261
+
+---
+
 ## lucx.260 — Masking: no PROXY to backends that can't parse it (2026-09-21)
 
 caddy-l4 sent `proxy_protocol v1` to every route — AnyTLS, TrustTunnel and

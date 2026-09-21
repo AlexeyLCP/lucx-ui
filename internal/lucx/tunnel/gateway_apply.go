@@ -29,6 +29,7 @@ type PreviewRow struct {
 	HostPort    int      `json:"hostPort"`
 	StealDest   string   `json:"stealDest,omitempty"`
 	NoProxy     bool     `json:"noProxy,omitempty"`
+	Chan        string   `json:"chan,omitempty"` // l4chan listener name for unified mode (caddy class)
 	Note        string   `json:"note,omitempty"`
 }
 
@@ -528,6 +529,12 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 			NoProxy:     cf.NoProxy,
 			Note:        cf.Note,
 		}
+		if class == ClassCaddy {
+			row.Chan = GatewayChanKey(ib)
+			if row.Note == "" {
+				row.Note = "served inside the gateway — real client IP kept"
+			}
+		}
 		if class == ClassCaddy && cf.SNI == "" && publicHost == "" {
 			row.Note = "needs Cover or publicHost"
 		}
@@ -570,6 +577,38 @@ func CoverFallback(rows []PreviewRow, selected map[int]bool) string {
 	return ""
 }
 
+// GatewayChanKey is the l4chan listener name serving a masked caddy-class
+// inbound inside the unified gateway Caddyfile — the sidecar key it replaces.
+func GatewayChanKey(ib *model.Inbound) string {
+	if ib == nil {
+		return ""
+	}
+	switch ib.Protocol {
+	case model.Naive:
+		return NaiveKey(ib.Id)
+	case model.Cover:
+		return CoverKey(ib.Id)
+	case model.Tproxy:
+		return TproxyCaddyKey(ib.Id)
+	}
+	return ""
+}
+
+// CoverFallbackChan is CoverFallback's unified-mode twin: the chan name of the
+// first selected cover site, used as the l4http fallback for unknown SNI.
+func CoverFallbackChan(rows []PreviewRow, selected map[int]bool) string {
+	for _, r := range rows {
+		if r.Protocol != string(model.Cover) {
+			continue
+		}
+		if selected != nil && !selected[r.InboundID] {
+			continue
+		}
+		return r.Chan
+	}
+	return ""
+}
+
 func previewRouteNames(r PreviewRow) []string {
 	if len(r.SNIs) > 0 {
 		return r.SNIs
@@ -595,7 +634,7 @@ func appendPreviewRoutes(out []GatewayRoute, seen map[string]bool, rows []Previe
 				continue
 			}
 			seen[sni] = true
-			out = append(out, GatewayRoute{SNI: sni, Dest: dest, NoProxy: r.NoProxy})
+			out = append(out, GatewayRoute{SNI: sni, Dest: dest, Chan: r.Chan, NoProxy: r.NoProxy})
 		}
 	}
 	return out

@@ -30,11 +30,13 @@ const (
 	ClassSkip        = "skip"
 )
 
-// GatewayRoute is one SNI → loopback backend for Caddy L4. NoProxy marks
-// backends that cannot parse PROXY v1 — they see the gateway as the client.
+// GatewayRoute is one SNI → backend for Caddy L4. NoProxy marks backends that
+// cannot parse PROXY v1. Chan names an in-process l4chan listener (unified
+// mode): `l4http` hands the conn to a site block of the same Caddyfile.
 type GatewayRoute struct {
 	SNI     string `json:"sni"`
-	Dest    string `json:"dest"`
+	Dest    string `json:"dest,omitempty"`
+	Chan    string `json:"chan,omitempty"`
 	NoProxy bool   `json:"noProxy,omitempty"`
 }
 
@@ -49,17 +51,21 @@ type GatewaySnapshotRow struct {
 
 // GatewayConfig lives in inbound settings. Snapshot empty = mask not applied.
 type GatewayConfig struct {
-	Remark       string               `json:"remark"`
-	Enabled      bool                 `json:"enabled"`
-	PublicHost   string               `json:"publicHost"`
-	BindIP       string               `json:"bindIP,omitempty"`
-	Routes       []GatewayRoute       `json:"routes"`
-	Snapshot     []GatewaySnapshotRow `json:"snapshot"`
-	Fallback     string               `json:"fallback,omitempty"`
-	UFW          bool                 `json:"ufw,omitempty"`
-	UFWWasActive bool                 `json:"ufwWasActive,omitempty"`
-	HidePanel    bool                 `json:"hidePanel,omitempty"`
-	PanelRoutes  []CoverRoute         `json:"panelRoutes,omitempty"`
+	Remark     string               `json:"remark"`
+	Enabled    bool                 `json:"enabled"`
+	PublicHost string               `json:"publicHost"`
+	BindIP     string               `json:"bindIP,omitempty"`
+	Routes     []GatewayRoute       `json:"routes"`
+	Snapshot   []GatewaySnapshotRow `json:"snapshot"`
+	Fallback   string               `json:"fallback,omitempty"`
+	// Unified: caddy-class routes terminate inside this gateway's Caddy
+	// process (site blocks + l4chan) instead of loopback sidecars. Set on
+	// new applies only; old configs keep the per-process layout.
+	Unified      bool         `json:"unified,omitempty"`
+	UFW          bool         `json:"ufw,omitempty"`
+	UFWWasActive bool         `json:"ufwWasActive,omitempty"`
+	HidePanel    bool         `json:"hidePanel,omitempty"`
+	PanelRoutes  []CoverRoute `json:"panelRoutes,omitempty"`
 }
 
 func DefaultGatewayConfig() GatewayConfig {
@@ -125,13 +131,54 @@ func RenderGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallback, bin
 	b.WriteString("{\n\tadmin off\n\tlayer4 {\n\t\t")
 	b.WriteString(listen)
 	b.WriteString(" {\n")
+	// Legacy mode proxies every route over loopback — strip Chan so routes
+	// built by a newer preview never emit l4http into a file with no sites.
+	legacy := make([]GatewayRoute, len(routes))
+	for i, r := range routes {
+		r.Chan = ""
+		legacy[i] = r
+	}
+	writeL4Mux(&b, legacy, GatewayRoute{Dest: fallback})
+	b.WriteString("\t\t}\n\t}\n}\n")
+	return b.String()
+}
+
+// RenderUnifiedGatewayCaddyfile renders the same SNI mux plus the absorbed
+// caddy-class services as site blocks in one Caddyfile: Chan routes hand the
+// conn to a named in-process listener via `l4http` (caddylucx module in the
+// merged binary), so TLS terminates in the HTTP app with the real client IP.
+func RenderUnifiedGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallbackChan, bindIP string, sites []string) string {
+	if listenPort <= 0 {
+		listenPort = gatewayDefaultPort
+	}
+	listen := ":" + strconv.Itoa(listenPort)
+	if ip := strings.TrimSpace(bindIP); ip != "" {
+		listen = ip + ":" + strconv.Itoa(listenPort)
+	}
+	var b strings.Builder
+	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tlog {\n\t\tlevel WARN\n\t}\n\tservers {\n\t\tprotocols h1 h2\n\t}\n\tlayer4 {\n\t\t")
+	b.WriteString(listen)
+	b.WriteString(" {\n")
+	writeL4Mux(&b, routes, GatewayRoute{Chan: fallbackChan})
+	b.WriteString("\t\t}\n\t}\n}\n")
+	for _, s := range sites {
+		if s = strings.TrimSpace(s); s != "" {
+			b.WriteString(s + "\n")
+		}
+	}
+	return b.String()
+}
+
+// writeL4Mux emits matching_timeout + route blocks shared by both renders.
+// Chan routes emit `l4http`; Dest routes emit proxy (with PROXY v1 unless
+// NoProxy); an empty fallback keeps the drop proxy to a dead loopback.
+func writeL4Mux(b *strings.Builder, routes []GatewayRoute, fallback GatewayRoute) {
 	b.WriteString("\t\t\tmatching_timeout 15s\n")
 	seen := map[string]bool{}
 	i := 0
 	for _, r := range routes {
 		k := sniMapKey(r.SNI)
-		d := strings.TrimSpace(r.Dest)
-		if k == "" || d == "" || seen[k] {
+		if k == "" || (strings.TrimSpace(r.Dest) == "" && r.Chan == "") || seen[k] {
 			continue
 		}
 		seen[k] = true
@@ -139,18 +186,28 @@ func RenderGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallback, bin
 		i++
 		b.WriteString("\t\t\t@" + tag + " tls sni " + k + "\n")
 		b.WriteString("\t\t\troute @" + tag + " {\n")
-		if r.NoProxy {
-			b.WriteString("\t\t\t\tproxy " + d + "\n")
-		} else {
-			b.WriteString("\t\t\t\tproxy " + d + " {\n\t\t\t\t\tproxy_protocol v1\n\t\t\t\t}\n")
-		}
+		writeL4Handler(b, r)
 		b.WriteString("\t\t\t}\n")
 	}
 	b.WriteString("\t\t\troute {\n")
-	b.WriteString("\t\t\t\tproxy " + fallback + " {\n\t\t\t\t\tproxy_protocol v1\n\t\t\t\t}\n")
+	writeL4Handler(b, fallback)
 	b.WriteString("\t\t\t}\n")
-	b.WriteString("\t\t}\n\t}\n}\n")
-	return b.String()
+}
+
+func writeL4Handler(b *strings.Builder, r GatewayRoute) {
+	if r.Chan != "" {
+		b.WriteString("\t\t\t\tl4http " + r.Chan + "\n")
+		return
+	}
+	d := strings.TrimSpace(r.Dest)
+	if d == "" {
+		d = gatewayDropBackend
+	}
+	if r.NoProxy {
+		b.WriteString("\t\t\t\tproxy " + d + "\n")
+	} else {
+		b.WriteString("\t\t\t\tproxy " + d + " {\n\t\t\t\t\tproxy_protocol v1\n\t\t\t\t}\n")
+	}
 }
 
 func gatewayLoopbackDest(port int) string {

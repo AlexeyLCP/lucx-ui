@@ -7,9 +7,11 @@
 package tunnel
 
 import (
+	"os"
 	"strconv"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
@@ -265,7 +267,7 @@ func TestRoutesFromPreview_AllRealitySNIs(t *testing.T) {
 
 func TestGatewayInstance_DisabledUntilSnapshot(t *testing.T) {
 	ib := &model.Inbound{Id: 9, Protocol: model.Gateway, Enable: true, Port: 443, Settings: `{}`}
-	inst, ok := GatewayInstanceFromInbound(ib, nil)
+	inst, ok := GatewayInstanceFromInbound(ib, nil, nil, "", "")
 	if !ok || inst.Enabled {
 		t.Fatalf("ok=%v enabled=%v", ok, inst.Enabled)
 	}
@@ -355,4 +357,234 @@ func TestRoutesFromPreview_DestSNIToXray(t *testing.T) {
 	if by["i.s-microsoft.com"] != "127.0.0.1:1443" || by["vpn.example.com"] != "127.0.0.1:443" {
 		t.Fatalf("%+v", got)
 	}
+}
+
+func TestRenderUnifiedGatewayCaddyfile(t *testing.T) {
+	sites := []string{`:8443, "naive.example.com:8443" {
+	bind l4chan/naive-1
+	tls "/c.pem" "/k.pem"
+	route {
+		forward_proxy {
+			basic_auth "u" "p"
+		}
+	}
+}`}
+	got := RenderUnifiedGatewayCaddyfile(443, []GatewayRoute{
+		{SNI: "naive.example.com", Dest: "127.0.0.1:8443", Chan: "naive-1"},
+		{SNI: "vless.example.com", Dest: "127.0.0.1:1443"},
+		{SNI: "any.example.com", Dest: "127.0.0.1:1444", NoProxy: true},
+	}, "cover-2", "203.0.113.5", sites)
+	for _, need := range []string{
+		"auto_https off",
+		"protocols h1 h2",
+		"203.0.113.5:443",
+		"matching_timeout 15s",
+		"tls sni naive.example.com",
+		"l4http naive-1",
+		"proxy 127.0.0.1:1443 {\n\t\t\t\t\tproxy_protocol v1",
+		"proxy 127.0.0.1:1444\n",
+		"l4http cover-2",
+		"bind l4chan/naive-1",
+		"forward_proxy",
+	} {
+		if !strings.Contains(got, need) {
+			t.Fatalf("missing %q:\n%s", need, got)
+		}
+	}
+}
+
+func TestRenderUnifiedGatewayCaddyfile_NoFallbackDrops(t *testing.T) {
+	got := RenderUnifiedGatewayCaddyfile(443, []GatewayRoute{
+		{SNI: "a.example.com", Dest: "127.0.0.1:8443", Chan: "naive-1"},
+	}, "", "", nil)
+	if !strings.Contains(got, "proxy 127.0.0.1:1") {
+		t.Fatalf("expected drop fallback:\n%s", got)
+	}
+}
+
+func TestRenderGatewayCaddyfile_StripsChan(t *testing.T) {
+	got := RenderGatewayCaddyfile(443, []GatewayRoute{
+		{SNI: "a.example.com", Dest: "127.0.0.1:8443", Chan: "naive-1"},
+	}, "", "")
+	if strings.Contains(got, "l4http") || !strings.Contains(got, "proxy 127.0.0.1:8443") {
+		t.Fatalf("legacy render leaked chan route:\n%s", got)
+	}
+}
+
+func TestBuildPreview_SetsChan(t *testing.T) {
+	rows := BuildPreview(443, "pub.example.com", []*model.Inbound{
+		{
+			Id: 1, Protocol: model.Naive, Port: 8443, Enable: true,
+			Settings: `{"domain":"n.example.com","authUser":"u","authPass":"p","certFile":"/c","keyFile":"/k"}`,
+		},
+		{
+			Id: 2, Protocol: model.Anytls, Port: 8444, Enable: true,
+			Settings: `{"sni":"a.example.com","certFile":"/c","keyFile":"/k"}`,
+		},
+	}, "")
+	byID := map[int]PreviewRow{}
+	for _, r := range rows {
+		byID[r.InboundID] = r
+	}
+	if byID[1].Chan != "naive-1" {
+		t.Fatalf("naive chan: %+v", byID[1])
+	}
+	if byID[2].Chan != "" {
+		t.Fatalf("passthrough row got chan: %+v", byID[2])
+	}
+	routes := RoutesFromPreview(rows, map[int]bool{1: true, 2: true})
+	var n, a *GatewayRoute
+	for i := range routes {
+		switch routes[i].SNI {
+		case "n.example.com":
+			n = &routes[i]
+		case "a.example.com":
+			a = &routes[i]
+		}
+	}
+	if n == nil || n.Chan != "naive-1" || n.Dest == "" {
+		t.Fatalf("naive route: %+v", n)
+	}
+	if a == nil || a.Chan != "" || !a.NoProxy {
+		t.Fatalf("anytls route: %+v", a)
+	}
+}
+
+func stubGatewayChan(t *testing.T, ok bool) {
+	t.Helper()
+	old := GatewaySupportsChan
+	GatewaySupportsChan = func() bool { return ok }
+	t.Cleanup(func() { GatewaySupportsChan = old })
+}
+
+func TestGatewayInstance_UnifiedSites(t *testing.T) {
+	stubGatewayChan(t, true)
+	dir := t.TempDir()
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "cov.example.com", "n.example.com")
+	cover := &model.Inbound{
+		Id: 2, Protocol: model.Cover, Port: 8443, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"hostname":"cov.example.com","siteSource":"upstream","siteUpstream":"http://127.0.0.1:8080"}`,
+	}
+	naive := &model.Inbound{
+		Id: 1, Protocol: model.Naive, Port: 8444, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"domain":"n.example.com","authUser":"u","authPass":"p"}`,
+	}
+	gw := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Port: 443, Enable: true,
+		Settings: `{"enabled":true,"publicHost":"pub.example.com","unified":true,"routes":[{"sni":"n.example.com","dest":"127.0.0.1:8444","chan":"naive-1"},{"sni":"cov.example.com","dest":"127.0.0.1:8443","chan":"cover-2"}],"snapshot":[{"inboundId":1},{"inboundId":2}]}`,
+	}
+	inst, ok := GatewayInstanceFromInbound(gw, []*model.Inbound{naive, cover}, []byte("secret"), cert, key)
+	if !ok || !inst.Enabled {
+		t.Fatalf("ok=%v enabled=%v", ok, inst.Enabled)
+	}
+	for _, need := range []string{
+		"l4http naive-1",
+		"l4http cover-2",
+		"bind l4chan/naive-1",
+		"bind l4chan/cover-2",
+		"forward_proxy",
+		"basic_auth \"u\" \"p\"",
+	} {
+		if !strings.Contains(inst.ConfigText, need) {
+			t.Fatalf("missing %q:\n%s", need, inst.ConfigText)
+		}
+	}
+	if inst.FingerprintExtra == "" {
+		t.Fatalf("no cert fingerprint")
+	}
+}
+
+func TestGatewayInstance_LegacyIgnoresChan(t *testing.T) {
+	stubGatewayChan(t, true)
+	gw := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Port: 443, Enable: true,
+		Settings: `{"enabled":true,"routes":[{"sni":"n.example.com","dest":"127.0.0.1:8444","chan":"naive-1"}],"snapshot":[{"inboundId":1}]}`,
+	}
+	inst, ok := GatewayInstanceFromInbound(gw, nil, nil, "", "")
+	if !ok || !inst.Enabled {
+		t.Fatalf("ok=%v enabled=%v", ok, inst.Enabled)
+	}
+	if strings.Contains(inst.ConfigText, "l4http") {
+		t.Fatalf("legacy gateway emitted l4http:\n%s", inst.ConfigText)
+	}
+}
+
+func TestGatewayAbsorbed(t *testing.T) {
+	stubGatewayChan(t, true)
+	naive := &model.Inbound{
+		Id: 1, Protocol: model.Naive, Port: 8444, Listen: "127.0.0.1",
+		Settings: `{"domain":"n.example.com"}`,
+	}
+	gwUnified := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Enable: true,
+		Settings: `{"enabled":true,"unified":true,"snapshot":[{"inboundId":1}]}`,
+	}
+	gwLegacy := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Enable: true,
+		Settings: `{"enabled":true,"snapshot":[{"inboundId":1}]}`,
+	}
+	if !GatewayAbsorbed(naive, []*model.Inbound{gwUnified, naive}) {
+		t.Fatalf("unified gateway should absorb naive")
+	}
+	if GatewayAbsorbed(naive, []*model.Inbound{gwLegacy, naive}) {
+		t.Fatalf("legacy gateway must not absorb")
+	}
+	naive.Listen = ""
+	if GatewayAbsorbed(naive, []*model.Inbound{gwUnified, naive}) {
+		t.Fatalf("public-listen inbound is never absorbed")
+	}
+	naive.Listen = "127.0.0.1"
+	any := &model.Inbound{
+		Id: 3, Protocol: model.Anytls, Port: 8445, Listen: "127.0.0.1",
+		Settings: `{"sni":"a.example.com"}`,
+	}
+	if GatewayAbsorbed(any, []*model.Inbound{gwUnified}) {
+		t.Fatalf("passthrough inbound is never absorbed")
+	}
+}
+
+// TestDumpUnifiedGatewayCaddyfile writes a rendered unified Caddyfile to
+// $LUCX_DUMP for manual adapt/run verification with the merged binary.
+func TestDumpUnifiedGatewayCaddyfile(t *testing.T) {
+	stubGatewayChan(t, true)
+	out := os.Getenv("LUCX_DUMP")
+	if out == "" {
+		t.Skip("LUCX_DUMP not set")
+	}
+	dir := t.TempDir()
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "cov.test.local", "naive.test.local")
+	cover := &model.Inbound{
+		Id: 2, Protocol: model.Cover, Port: 8443, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"hostname":"cov.test.local","siteSource":"upstream","siteUpstream":"http://127.0.0.1:18080"}`,
+	}
+	naive := &model.Inbound{
+		Id: 1, Protocol: model.Naive, Port: 8444, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"domain":"naive.test.local","authUser":"u","authPass":"p"}`,
+	}
+	any := &model.Inbound{
+		Id: 3, Protocol: model.Anytls, Port: 8445, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"sni":"any.test.local"}`,
+	}
+	gw := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Port: 14443, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"enabled":true,"publicHost":"pub.test.local","unified":true,"bindIP":"127.0.0.1","routes":[{"sni":"naive.test.local","dest":"127.0.0.1:8444","chan":"naive-1"},{"sni":"cov.test.local","dest":"127.0.0.1:8443","chan":"cover-2"},{"sni":"any.test.local","dest":"127.0.0.1:8445","noProxy":true}],"snapshot":[{"inboundId":1},{"inboundId":2},{"inboundId":3}]}`,
+	}
+	inst, ok := GatewayInstanceFromInbound(gw, []*model.Inbound{naive, cover, any}, []byte("secret"), cert, key)
+	if !ok || !inst.Enabled {
+		t.Fatalf("ok=%v enabled=%v", ok, inst.Enabled)
+	}
+	// cert paths are inside t.TempDir — copy to stable paths for manual runs
+	certStable := `C:/Temp/lucx-test.crt`
+	keyStable := `C:/Temp/lucx-test.key`
+	esc := func(p string) string { return strings.ReplaceAll(p, `\`, `\\`) }
+	body := strings.ReplaceAll(inst.ConfigText, esc(cert), esc(certStable))
+	body = strings.ReplaceAll(body, esc(key), esc(keyStable))
+	cb, _ := os.ReadFile(cert)
+	kb, _ := os.ReadFile(key)
+	_ = os.WriteFile(certStable, cb, 0o644)
+	_ = os.WriteFile(keyStable, kb, 0o644)
+	if err := os.WriteFile(out, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Logf("wrote %s\n%s", out, body)
 }

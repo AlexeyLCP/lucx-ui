@@ -88,19 +88,40 @@ func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret
 	if !cfg.Enabled {
 		return disabled, true
 	}
+	att, certFile, keyFile, ok := coverAttachFor(ib, cfg, others, secret, panelCert, panelKey)
+	if !ok {
+		return disabled, true
+	}
+	caddyfile := RenderCoverCaddyfile(cfg.Hostname, certFile, keyFile, att)
+	caddyPath := configPathFor(key, Cover)
+	return Instance{
+		Core:             Cover,
+		Key:              key,
+		Enabled:          true,
+		ConfigText:       caddyfile,
+		Args:             []string{"run", "--config", absPath(caddyPath), "--adapter", "caddyfile"},
+		FingerprintExtra: CertFileHash(certFile),
+		ProbePort:        att.httpsPort,
+	}, true
+}
+
+// coverAttachFor resolves certs, public source and attached naive/tproxy for
+// one cover inbound — shared by the standalone render and the unified
+// gateway site block.
+func coverAttachFor(ib *model.Inbound, cfg CoverConfig, others []*model.Inbound, secret []byte, panelCert, panelKey string) (coverAttach, string, string, bool) {
 	if err := cfg.Validate(); err != nil {
 		logger.Warningf("tunnel: cover-%d disabled: %v", ib.Id, err)
-		return disabled, true
+		return coverAttach{}, "", "", false
 	}
 	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
 	if err := validatePEMCert("cover", certFile, keyFile, cfg.Hostname); err != nil {
 		logger.Warningf("tunnel: cover-%d disabled: %v", ib.Id, err)
-		return disabled, true
+		return coverAttach{}, "", "", false
 	}
 	publicDir, publicUpstream, err := coverPublicSource(ib.Id, cfg)
 	if err != nil {
 		logger.Warningf("tunnel: cover-%d disabled: %v", ib.Id, err)
-		return disabled, true
+		return coverAttach{}, "", "", false
 	}
 
 	httpsPort := coverHTTPSPort
@@ -143,34 +164,30 @@ func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret
 				logger.Warningf("tunnel: cover-%d skip naive-%d: raw Caddyfile", ib.Id, o.Id)
 				continue
 			}
-			var extra []AuthPair
-			if len(secret) > 0 {
-				var s naiveInboundSettings
-				_ = json.Unmarshal([]byte(o.Settings), &s)
-				for _, c := range s.Clients {
-					if !c.Enable || strings.TrimSpace(c.Email) == "" {
-						continue
-					}
-					extra = append(extra, InboundAuthPair(secret, o, c.Email))
-				}
-			}
 			att.naive = &ncfg
-			att.naiveAuth = extra
+			att.naiveAuth = naiveClientAuth(secret, o)
 		}
 	}
 	att.routes = append(att.routes, gatewayPanelRoutes(others)...)
+	return att, certFile, keyFile, true
+}
 
-	caddyfile := RenderCoverCaddyfile(cfg.Hostname, certFile, keyFile, att)
-	caddyPath := configPathFor(key, Cover)
-	return Instance{
-		Core:             Cover,
-		Key:              key,
-		Enabled:          true,
-		ConfigText:       caddyfile,
-		Args:             []string{"run", "--config", absPath(caddyPath), "--adapter", "caddyfile"},
-		FingerprintExtra: CertFileHash(certFile),
-		ProbePort:        httpsPort,
-	}, true
+// naiveClientAuth derives the enabled per-client basic_auth pairs of one
+// Naive inbound from the panel secret.
+func naiveClientAuth(secret []byte, ib *model.Inbound) []AuthPair {
+	if len(secret) == 0 {
+		return nil
+	}
+	var s naiveInboundSettings
+	_ = json.Unmarshal([]byte(ib.Settings), &s)
+	var extra []AuthPair
+	for _, c := range s.Clients {
+		if !c.Enable || strings.TrimSpace(c.Email) == "" {
+			continue
+		}
+		extra = append(extra, InboundAuthPair(secret, ib, c.Email))
+	}
+	return extra
 }
 
 func coverPublicSource(id int, cfg CoverConfig) (publicDir, publicUpstream string, err error) {

@@ -352,7 +352,8 @@ func (l *Local) ensureCoverInbound(ib *model.Inbound) error {
 }
 
 func (l *Local) ensureGatewayInbound(ib *model.Inbound) error {
-	inst, ok := tunnel.GatewayInstanceFromInbound(ib, listLocalInboundsForCover())
+	cert, key := panelCertFilesForRuntime()
+	inst, ok := tunnel.GatewayInstanceFromInbound(ib, listLocalInboundsForCover(), panelSecretBytes(), cert, key)
 	if !ok {
 		return nil
 	}

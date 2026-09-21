@@ -213,6 +213,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	cfg.Snapshot = snap
 	cfg.Routes = tunnel.RoutesFromPreview(rows, selected)
 	cfg.Fallback = tunnel.CoverFallback(rows, selected)
+	cfg.Unified = true
 	cfg.Enabled = true
 	cfg.UFW = req.UFW
 	if req.UFW {
@@ -277,6 +278,7 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 	cfg.Snapshot = nil
 	cfg.Routes = nil
 	cfg.Fallback = ""
+	cfg.Unified = false
 	cfg.BindIP = ""
 	cfg.UFW = false
 	cfg.UFWWasActive = false
@@ -450,7 +452,9 @@ func (s *InboundService) gatewayAndOthers(id int) (*model.Inbound, []*model.Inbo
 }
 
 func (s *InboundService) ensureGatewayRuntime(gw *model.Inbound, others []*model.Inbound) {
-	if inst, ok := tunnel.GatewayInstanceFromInbound(gw, others); ok {
+	secret, _ := (&SettingService{}).GetSecret()
+	cert, key := gatewayPanelCertPair()
+	if inst, ok := tunnel.GatewayInstanceFromInbound(gw, others, secret, cert, key); ok {
 		_ = tunnel.GetManager().Ensure(inst)
 	}
 	(&TunnelService{inboundService: *s}).Reconcile()

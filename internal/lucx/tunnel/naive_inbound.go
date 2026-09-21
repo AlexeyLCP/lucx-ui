@@ -114,15 +114,8 @@ func InstanceFromInbound(ib *model.Inbound, secret []byte) (Instance, bool) {
 	}
 
 	var extra []AuthPair
-	if !cfg.UseRawConfig && len(secret) > 0 {
-		var s naiveInboundSettings
-		_ = json.Unmarshal([]byte(ib.Settings), &s)
-		for _, c := range s.Clients {
-			if !c.Enable || strings.TrimSpace(c.Email) == "" {
-				continue
-			}
-			extra = append(extra, InboundAuthPair(secret, ib, c.Email))
-		}
+	if !cfg.UseRawConfig {
+		extra = naiveClientAuth(secret, ib)
 	}
 
 	// Inbound mode: service auth optional when at least one client pair exists.
