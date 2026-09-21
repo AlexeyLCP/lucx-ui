@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ak: naive behind Masking, share `?sni=` ignored — FIXED (lucx.258)
+- **Symptom (VladufQa):** openssl to naive SNI works; NekoBox/sub link times out. `naive-client` on the stand: Domain host → 200; publicHost and `?sni=` → fail.
+- **Cause:** lucx.253 wrote Masking Host (`vladnl.work.gd`) as URL host and `sni=inbound.domain`. klzgrad naiveproxy has no `?sni=`; SNI = publicHost → L4 to WEB proxy, not naive.
+- **Fix:** `ClientURLAt` URL host = inbound Domain, port from Host (443). No `?sni=`.
+- **Healing without update:** paste `naive+https://user:pass@<naive-domain>:443` (not the public cover host).
+- **Lesson:** do not invent query params the client binary does not implement.
+
 ### Pattern 1aj: Masking L4 `aborted matching according to timeout` — FIXED (lucx.257)
 - **Symptom (VladufQa, 21.09.2026):** openssl/curl to naive SNI work; phone NekoBox → timeout. Log: `layer4 matching connection … aborted matching according to timeout`.
 - **Cause:** caddy-l4 waits for a TLS ClientHello before SNI routing. Default `matching_timeout` is 3s. Slow/mobile/fragmented hello never matches; catch-all never runs.

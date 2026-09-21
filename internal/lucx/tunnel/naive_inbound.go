@@ -189,13 +189,16 @@ func (c NaiveConfig) ClientURLFor(pair AuthPair, remark string) string {
 	return c.ClientURLAt(pair, c.Domain, c.Port, remark)
 }
 
-// ClientURLAt is ClientURLFor with an explicit TCP host/port (masking Host).
-// TLS SNI stays c.Domain; when it differs from addr, extra query sni= is set.
+// ClientURLAt is ClientURLFor with an explicit port (masking Host :443).
+// URL host is always Domain: stock naiveproxy uses the host as TLS SNI and
+// has no ?sni= (lucx.253's query is ignored → L4 sends the client to Cover).
 func (c NaiveConfig) ClientURLAt(pair AuthPair, addr string, port int, remark string) string {
-	sni := strings.TrimSpace(c.Domain)
 	user := strings.TrimSpace(pair.User)
-	addr = strings.TrimSpace(addr)
-	if addr == "" || user == "" {
+	host := strings.TrimSpace(c.Domain)
+	if host == "" {
+		host = strings.TrimSpace(addr)
+	}
+	if host == "" || user == "" {
 		return ""
 	}
 	if port <= 0 {
@@ -204,11 +207,8 @@ func (c NaiveConfig) ClientURLAt(pair AuthPair, addr string, port int, remark st
 	u := url.URL{
 		Scheme:   "https",
 		User:     url.UserPassword(user, strings.TrimSpace(pair.Pass)),
-		Host:     net.JoinHostPort(addr, strconv.Itoa(port)),
+		Host:     net.JoinHostPort(host, strconv.Itoa(port)),
 		Fragment: strings.TrimSpace(remark),
-	}
-	if sni != "" && !strings.EqualFold(sni, addr) {
-		u.RawQuery = "sni=" + url.QueryEscape(sni)
 	}
 	return "naive+" + u.String()
 }

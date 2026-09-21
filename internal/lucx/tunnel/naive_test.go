@@ -430,7 +430,7 @@ func TestNaiveClientURLForRemark(t *testing.T) {
 		t.Errorf("ClientURLFor host:port: %q", got)
 	}
 	at := cfg.ClientURLAt(AuthPair{User: "alice", Pass: "s3cret"}, "example.com", 443, "r")
-	if !strings.Contains(at, "@example.com:443") || !strings.Contains(at, "sni=n.example.org") {
+	if !strings.Contains(at, "@n.example.org:443") || strings.Contains(at, "sni=") {
 		t.Fatalf("ClientURLAt: %q", at)
 	}
 }

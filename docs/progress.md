@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.258 — Naive share URL host is Domain, not Masking Host (2026-09-21)
+
+Official `naive-client`: `@naive.vladnl.run.place` → 200; `@vladnl.work.gd` and `@vladnl.work.gd?sni=naive…` → fail. Stock naive uses URL host as TLS SNI and ignores `?sni=`. lucx.253 put Masking publicHost in the URL → L4 sent the client to WEB proxy. `ClientURLAt`: host = inbound domain, port from Host (443).
+
+**lucxVersion:** lucx.258
+
+---
+
 ## lucx.257 — Masking L4 matching_timeout 15s (2026-09-21)
 
 caddy-l4 default matching phase is 3s. No ClientHello in that window → `aborted matching according to timeout` (VladufQa, naive behind Masking). RenderGatewayCaddyfile now sets `matching_timeout 15s`. Test: `TestRenderGatewayCaddyfile_SNIAndDrop`.

@@ -77,11 +77,11 @@ func TestGetSubs_Naive_RemarkAndHostPort(t *testing.T) {
 		t.Fatalf("GetSubs with host: %v", err)
 	}
 	got = strings.Join(links, "\n")
-	if !strings.Contains(got, "@cdn.example.com:443") {
-		t.Errorf("host dest+port must win, got %q", got)
+	if !strings.Contains(got, "@n.example.org:443") {
+		t.Errorf("naive URL host is Domain, port from Host, got %q", got)
 	}
-	if !strings.Contains(got, "sni=n.example.org") {
-		t.Errorf("naive SNI must stay inbound domain, got %q", got)
+	if strings.Contains(got, "sni=") || strings.Contains(got, "cdn.example.com") {
+		t.Errorf("stock naive has no ?sni=; Host dest is not the URL host, got %q", got)
 	}
 	if strings.Contains(got, "n.example.org:8443") {
 		t.Errorf("inbound listen port must not leak into the share URL, got %q", got)
