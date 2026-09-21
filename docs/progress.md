@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.259 — AWG hook skipped after SSL cd ~ (2026-09-21)
+
+Fresh install with SSL never ran `install-awg-module.sh`: `install_acme` does `cd ~`, the LUCX-HOOK tested relative `bin/install-awg-module.sh` and skipped. Igor, Ubuntu 26.04, lucx.255 — no dkms, no module. Hook now uses `${xui_folder}/bin/…` in `install.sh` and `update.sh`. Already-installed hosts: `x-ui install-awg` (Igor’s box built OK on kernel 7.0).
+
+**lucxVersion:** lucx.259
+
+---
+
 ## lucx.258 — Naive share URL host is Domain, not Masking Host (2026-09-21)
 
 Official `naive-client`: `@naive.vladnl.run.place` → 200; `@vladnl.work.gd` and `@vladnl.work.gd?sni=naive…` → fail. Stock naive uses URL host as TLS SNI and ignores `?sni=`. lucx.253 put Masking publicHost in the URL → L4 sent the client to WEB proxy. `ClientURLAt`: host = inbound domain, port from Host (443).

@@ -285,3 +285,10 @@ Extracted from AGENTS.md. This file is project law.
 - **Fix:** after clone: `apply_chacha_lib_compat` (Zinc `chacha_init`/`chacha20_crypt` on `< 5.5`) and `apply_blake2s_zinc_compat` (do not `#include <crypto/blake2s.h>` on `< 5.10`, where Zinc still builds `blake2s.o`). 5.5–6.15 keep the kernel ChaCha library. Do not drop `ISUBUNTU2004` on `timer_delete`.
 - **Healing:** update panel, then `x-ui install-awg` / Cores → Install. No reboot if DKMS installs for the running kernel.
 - **Not this:** Debian 13 (6.12 / 7.1.x) — Pattern 1s (udp_tunnel ABI). Ubuntu 22.04 5.15 already has `chacha_init` — Pattern 1ae.
+
+### Pattern 1ah: first install + SSL → AWG script never runs — FIXED
+
+- **Symptom (Igor, 21.09.2026):** fresh install, panel “AWG module not installed”. No dkms, no marker, no journal `awg: rebuild`. Ubuntu 26.04 / kernel 7.0 — headers fine; `x-ui install-awg` then builds in ~1 min.
+- **Cause:** `config_after_install` → `install_acme` does `cd ~`. The LUCX-HOOK then tests `-x bin/install-awg-module.sh` relative to cwd (`/root/bin/…` missing) and **silently skips**. Same in `update.sh` after SSL.
+- **Fix:** hook uses `${xui_folder}/bin/install-awg-module.sh`. Else prints the missing path.
+- **Healing:** `x-ui install-awg` / Cores → Install (already absolute). No reboot if DKMS built for the running kernel.

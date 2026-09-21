@@ -1266,9 +1266,13 @@ update_x-ui() {
     setup_fail2ban
 
     # LUCX-HOOK: AWG after panel start (no-op when pin matches). Never fatal.
-    if [[ -x bin/install-awg-module.sh ]]; then
+    # Absolute path: SSL/acme `cd ~` leaves cwd at /root, so relative bin/ skips.
+    local awg_installer="${xui_folder}/bin/install-awg-module.sh"
+    if [[ -x "${awg_installer}" ]]; then
         echo -e "${green}Checking AmneziaWG kernel module...${plain}"
-        bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
+        bash "${awg_installer}" || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
+    else
+        echo -e "${red}AWG installer missing at ${awg_installer}${plain}"
     fi
     # END LUCX-HOOK
 

@@ -2123,13 +2123,19 @@ install_x-ui() {
 
     # LUCX-HOOK: AWG kernel module on fresh install (lucx.131; lost in v3.8 overlay).
     # Never fatal. lucx.145 no-ops when marker SHA already matches.
-    if [[ -x bin/install-awg-module.sh ]]; then
+    # Absolute path: config_after_install → install_acme does `cd ~`, so a
+    # relative bin/install-awg-module.sh silently skips (Igor, Ubuntu 26.04).
+    local awg_installer="${xui_folder}/bin/install-awg-module.sh"
+    if [[ -x "${awg_installer}" ]]; then
         echo -e "${green}Installing AmneziaWG kernel module and tools...${plain}"
-        bash bin/install-awg-module.sh || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
+        bash "${awg_installer}" || echo -e "${red}AWG install failed — AWG inbounds will be unavailable until manually fixed.${plain}"
         if ! command -v awg-quick &>/dev/null; then
             echo -e "${red}AWG: awg-quick not installed. AWG inbounds will not start.${plain}"
             echo -e "${red}Fix: x-ui install-awg${plain}"
         fi
+    else
+        echo -e "${red}AWG installer missing at ${awg_installer}${plain}"
+        echo -e "${red}Fix: x-ui install-awg${plain}"
     fi
     # END LUCX-HOOK
 
