@@ -39,7 +39,7 @@
     "@codemirror/theme-one-dark": "^6.1.3",
     "@hookform/resolvers": "^5.9.1",
     "@noble/hashes": "^2.4.0",
-    "@tanstack/react-query": "^5.102.8",
+    "@tanstack/react-query": "^5.103.1",
     "@tanstack/react-query-devtools": "^5.102.8",
     "antd": "^6.6.4",
     "codemirror": "^6.0.2",
