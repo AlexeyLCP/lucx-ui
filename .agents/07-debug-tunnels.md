@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1aj: Masking L4 `aborted matching according to timeout` — FIXED (lucx.257)
+- **Symptom (VladufQa, 21.09.2026):** openssl/curl to naive SNI work; phone NekoBox → timeout. Log: `layer4 matching connection … aborted matching according to timeout`.
+- **Cause:** caddy-l4 waits for a TLS ClientHello before SNI routing. Default `matching_timeout` is 3s. Slow/mobile/fragmented hello never matches; catch-all never runs.
+- **Fix:** `matching_timeout 15s` in the gateway Caddyfile.
+- **Healing without update:** none — Caddyfile is rewritten on reconcile.
+- **Lesson:** an SNI mux that peeks TLS cannot use a LAN-sized match deadline on WAN clients.
+
 ### Pattern 1ai: naive behind Masking, SNI → timeout — FIXED (lucx.256)
 - **Symptom (VladufQa, 21.09.2026):** naive up behind SNI gateway. No extra SNI → TCP CONNECT works. With SNI → client timeout.
 - **Cause:** Masking remaps naive to `127.0.0.1:54807`. `enableH3` (default) makes Caddy send `Alt-Svc: h3=":54807"`. L4 muxes TCP 443 only. NekoBox/Chromium QUIC to public `:54807` never falls back (same as Pattern 1ab).

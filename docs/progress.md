@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.257 — Masking L4 matching_timeout 15s (2026-09-21)
+
+caddy-l4 default matching phase is 3s. No ClientHello in that window → `aborted matching according to timeout` (VladufQa, naive behind Masking). RenderGatewayCaddyfile now sets `matching_timeout 15s`. Test: `TestRenderGatewayCaddyfile_SNIAndDrop`.
+
+**lucxVersion:** lucx.257
+
+---
+
 ## lucx.256 — Naive behind Masking: no HTTP/3 (2026-09-21)
 
 Loopback Caddy (PROXY from L4) pinned h1/h2. EnableH3 still advertised `Alt-Svc: h3=":54807"`; NekoBox QUIC to the remapped port times out (VladufQa). L4 is TCP-only. `writeCaddyServers` forces `protocols h1 h2` whenever `proxyProtocol` is set (naive/cover/tproxy). Tests: `TestRenderCaddyfileLoopbackPinsH1H2` + cover/tproxy loopback.

@@ -24,6 +24,7 @@ func TestRenderGatewayCaddyfile_SNIAndDrop(t *testing.T) {
 		"admin off",
 		"layer4",
 		":443",
+		"matching_timeout 15s",
 		"tls sni www.microsoft.com",
 		"proxy 127.0.0.1:1443",
 		"tls sni vpn.example.com",

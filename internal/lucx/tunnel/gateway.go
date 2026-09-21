@@ -123,6 +123,7 @@ func RenderGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallback, bin
 	b.WriteString("{\n\tadmin off\n\tlayer4 {\n\t\t")
 	b.WriteString(listen)
 	b.WriteString(" {\n")
+	b.WriteString("\t\t\tmatching_timeout 15s\n")
 	seen := map[string]bool{}
 	i := 0
 	for _, r := range routes {
