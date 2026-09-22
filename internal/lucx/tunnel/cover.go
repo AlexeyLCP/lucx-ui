@@ -201,12 +201,16 @@ func writeCoverSite(b *strings.Builder, hostname, cert, key string, a coverAttac
 	if a.tproxyRelay > 0 {
 		b.WriteString("\tencode zstd gzip\n")
 		b.WriteString("\theader -Via\n")
+		b.WriteString("\theader Server nginx\n")
 		writeHTTPPanelRoutes(b, a.routes, "\t")
-		b.WriteString("\treverse_proxy 127.0.0.1:" + strconv.Itoa(a.tproxyRelay) +
-			" {\n\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")
+		b.WriteString("\treverse_proxy 127.0.0.1:" + strconv.Itoa(a.tproxyRelay) + " {\n")
+		writeReverseProxyCamouflage(b, "\t\t")
+		b.WriteString("\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")
 		return
 	}
 	b.WriteString("\tencode zstd gzip\n")
+	b.WriteString("\theader -Via\n")
+	b.WriteString("\theader Server nginx\n")
 	if a.publicDir != "" {
 		b.WriteString("\troot * " + caddyToken(a.publicDir) + "\n")
 	}
@@ -228,7 +232,9 @@ func writeCoverSite(b *strings.Builder, hostname, cert, key string, a coverAttac
 		b.WriteString("\t}\n")
 	}
 	if a.publicUpstream != "" {
-		b.WriteString("\treverse_proxy " + coverUpstreamHost(a.publicUpstream) + "\n")
+		b.WriteString("\treverse_proxy " + coverUpstreamHost(a.publicUpstream) + " {\n")
+		writeReverseProxyCamouflage(b, "\t\t")
+		b.WriteString("\t}\n")
 	} else if a.publicDir != "" {
 		b.WriteString("\tfile_server\n")
 	}
@@ -259,10 +265,19 @@ func writeCoverReverseProxy(b *strings.Builder, dest, indent string) {
 	dest = strings.TrimSpace(dest)
 	b.WriteString(indent + "reverse_proxy " + dest + " {\n")
 	b.WriteString(indent + "\theader_up Host {http.request.host}\n")
+	writeReverseProxyCamouflage(b, indent+"\t")
 	if strings.HasPrefix(dest, "https://") {
 		b.WriteString(indent + "\ttransport http {\n" + indent + "\t\ttls_insecure_skip_verify\n" + indent + "\t}\n")
 	}
 	b.WriteString(indent + "}\n")
+}
+
+// writeReverseProxyCamouflage strips Caddy's own Via and plants a Server
+// header. Site-level "header -Via" runs before reverse_proxy adds Via, so
+// ByeDPI still sees "1.1 Caddy".
+func writeReverseProxyCamouflage(b *strings.Builder, indent string) {
+	b.WriteString(indent + "header_down -Via\n")
+	b.WriteString(indent + "header_down Server \"nginx\"\n")
 }
 
 func coverUpstreamHost(raw string) string {

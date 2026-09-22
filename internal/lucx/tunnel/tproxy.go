@@ -245,10 +245,14 @@ func writeTproxySite(b *strings.Builder, hostname string, port int, cert, key st
 		b.WriteString("\n")
 	}
 	b.WriteString("\tencode zstd gzip\n")
+	b.WriteString("\theader -Via\n")
+	b.WriteString("\theader Server nginx\n")
 	writeHTTPPanelRoutes(b, panel, "\t")
 	b.WriteString("\treverse_proxy 127.0.0.1:")
 	b.WriteString(strconv.Itoa(relayPort))
-	b.WriteString(" {\n\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")
+	b.WriteString(" {\n")
+	writeReverseProxyCamouflage(b, "\t\t")
+	b.WriteString("\t\ttransport http {\n\t\t\tresponse_header_timeout 40s\n\t\t}\n\t}\n}\n")
 }
 
 func tproxyTokenKeyPath() string {
