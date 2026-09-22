@@ -19,6 +19,9 @@ import { useMediaQuery } from '@/hooks/useMediaQuery';
 import { catTabLabel } from './catTabLabel';
 import { sanitizePath, normalizePath } from './uriPath';
 import HappSettingsContent from './HappSettingsContent';
+// LUCX-HOOK: INCY app-management settings.
+import IncySettingsContent from './IncySettingsContent';
+// END LUCX-HOOK
 import { remoteSourceBadge } from './subscriptionShared';
 
 interface SubscriptionGeneralTabProps {
@@ -405,36 +408,19 @@ export default function SubscriptionGeneralTab({
             </>
           ),
         },
+        // LUCX-HOOK: INCY app-management settings.
         {
           key: '7',
           label: catTabLabel(<CompassOutlined />, 'Incy', isMobile),
           children: (
-            <>
-              <SettingListItem
-                paddings="small"
-                title={t('pages.settings.subIncyEnableRouting')}
-                description={t('pages.settings.subIncyEnableRoutingDesc')}
-              >
-                <Switch
-                  checked={allSetting.subIncyEnableRouting}
-                  onChange={(v) => updateSetting({ subIncyEnableRouting: v })}
-                />
-              </SettingListItem>
-              <SettingListItem
-                paddings="small"
-                title={t('pages.settings.subIncyRoutingRules')}
-                badge={remoteSourceBadge(allSetting.subIncyRoutingRules)}
-                description={t('pages.settings.subIncyRoutingRulesDesc')}
-              >
-                <Input.TextArea
-                  value={allSetting.subIncyRoutingRules}
-                  placeholder="incy://routing/onadd/... or https://.../DEFAULT.JSON"
-                  onChange={(e) => updateSetting({ subIncyRoutingRules: e.target.value })}
-                />
-              </SettingListItem>
-            </>
+            <IncySettingsContent
+              allSetting={allSetting}
+              updateSetting={updateSetting}
+              isMobile={isMobile}
+            />
           ),
         },
+        // END LUCX-HOOK
       ]}
     />
   );

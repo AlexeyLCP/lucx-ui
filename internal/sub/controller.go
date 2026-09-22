@@ -64,8 +64,11 @@ type SUBController struct {
 	happConfig          HappConfig
 	subRoutingSource    string // LUCX-HOOK: RoscomVPN Happ profile source
 
+	// LUCX-HOOK: INCY app-management settings.
 	subIncyEnableRouting bool
 	subIncyRoutingRules  string
+	incyConfig           IncyConfig
+	// END LUCX-HOOK
 
 	subPath            string
 	subJsonPath        string
@@ -132,8 +135,11 @@ type subControllerConfig struct {
 	subHideSettings  bool
 	happConfig       HappConfig
 
+	// LUCX-HOOK: INCY app-management settings.
 	subIncyEnableRouting bool
 	subIncyRoutingRules  string
+	incyConfig           IncyConfig
+	// END LUCX-HOOK
 }
 
 type SUBControllerOption func(*subControllerConfig)
@@ -280,6 +286,13 @@ func WithSUBIncyRoutingRules(value string) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subIncyRoutingRules = value }
 }
 
+// LUCX-HOOK: INCY app-management settings.
+func WithSUBIncyConfig(value IncyConfig) SUBControllerOption {
+	return func(config *subControllerConfig) { config.incyConfig = value }
+}
+
+// END LUCX-HOOK
+
 func WithSUBHappConfig(value HappConfig) SUBControllerOption {
 	return func(config *subControllerConfig) { config.happConfig = value }
 }
@@ -321,8 +334,11 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 		happConfig:          config.happConfig,
 		subRoutingSource:    config.subRoutingSource,
 
+		// LUCX-HOOK: INCY app-management settings.
 		subIncyEnableRouting: config.subIncyEnableRouting,
 		subIncyRoutingRules:  config.subIncyRoutingRules,
+		incyConfig:           config.incyConfig,
+		// END LUCX-HOOK
 
 		subPath:            config.subPath,
 		subJsonPath:        config.subJsonPath,
@@ -1070,4 +1086,7 @@ func (a *SUBController) ApplyCommonHeaders(
 	}
 
 	ApplyHappHeaders(c, a.happConfig, happManaged)
+	// LUCX-HOOK: apply INCY-only app-management headers after common metadata.
+	ApplyIncyHeaders(c, a.incyConfig)
+	// END LUCX-HOOK
 }

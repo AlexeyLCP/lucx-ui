@@ -250,6 +250,18 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 		SubIncyRoutingRules = ""
 	}
 
+	// LUCX-HOOK: INCY app-management settings.
+	IncyConfigRaw, err := s.settingService.GetSubIncyConfig()
+	if err != nil {
+		IncyConfigRaw = ""
+	}
+	incyCfg, err := ParseIncyConfig(IncyConfigRaw)
+	if err != nil {
+		logger.Warning("Invalid INCY app-management config:", err)
+		incyCfg = IncyConfig{}
+	}
+	// END LUCX-HOOK
+
 	happCfg := HappConfig{}
 	happCfg.AutoDetect, _ = s.settingService.GetSubHappAutoDetect()
 	happCfg.ProviderId, _ = s.settingService.GetSubHappProviderId()
@@ -365,6 +377,9 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 		WithSUBHappConfig(happCfg),
 		WithSUBIncyEnableRouting(SubIncyEnableRouting),
 		WithSUBIncyRoutingRules(SubIncyRoutingRules),
+		// LUCX-HOOK: INCY app-management settings.
+		WithSUBIncyConfig(incyCfg),
+		// END LUCX-HOOK
 	)
 
 	return engine, nil
