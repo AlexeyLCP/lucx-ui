@@ -208,14 +208,27 @@ func TestCoverFallback(t *testing.T) {
 
 func TestResolveGatewayPublicHost(t *testing.T) {
 	cover := &model.Inbound{Protocol: model.Cover, Settings: `{"hostname":"vpn.example.com"}`}
-	if got := ResolveGatewayPublicHost(" Node.Example.com ", "saved.com", nil); got != "node.example.com" {
+	reality := &model.Inbound{
+		Protocol:       model.VLESS,
+		StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"],"dest":"www.microsoft.com:443"}}`,
+	}
+	if got := ResolveGatewayPublicHost(" Node.Example.com ", "saved.com", "", nil); got != "node.example.com" {
 		t.Fatalf("req: %s", got)
 	}
-	if got := ResolveGatewayPublicHost("", "Saved.com", []*model.Inbound{cover}); got != "saved.com" {
+	if got := ResolveGatewayPublicHost("", "Saved.com", "", []*model.Inbound{cover}); got != "saved.com" {
 		t.Fatalf("saved: %s", got)
 	}
-	if got := ResolveGatewayPublicHost("", "", []*model.Inbound{cover}); got != "vpn.example.com" {
+	if got := ResolveGatewayPublicHost("", "", "", []*model.Inbound{cover}); got != "vpn.example.com" {
 		t.Fatalf("cover: %s", got)
+	}
+	if got := ResolveGatewayPublicHost("", "www.microsoft.com", "", []*model.Inbound{reality, cover}); got != "vpn.example.com" {
+		t.Fatalf("decoy saved must not beat cover: %s", got)
+	}
+	if got := ResolveGatewayPublicHost("", "", "panel.example.com", []*model.Inbound{reality}); got != "panel.example.com" {
+		t.Fatalf("panel domain over decoy: %s", got)
+	}
+	if got := ResolveGatewayPublicHost("", "", "", []*model.Inbound{reality}); got != "" {
+		t.Fatalf("decoy alone is not a public host: %s", got)
 	}
 }
 

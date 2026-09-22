@@ -48,7 +48,7 @@ func (s *InboundService) GatewayPreview(gatewayID int, publicHost string) (*Gate
 	}
 	cfg, _ := tunnel.GatewayConfigFromInbound(gw)
 	if publicHost == "" {
-		publicHost = cfg.PublicHost
+		publicHost = tunnel.ResolveGatewayPublicHost("", cfg.PublicHost, panelPublicHost(), others)
 	}
 	bindIP := cfg.BindIP
 	if bindIP == "" {
@@ -88,7 +88,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	for _, o := range others {
 		byID[o.Id] = o
 	}
-	host := tunnel.ResolveGatewayPublicHost(req.PublicHost, cfg.PublicHost, others)
+	host := tunnel.ResolveGatewayPublicHost(req.PublicHost, cfg.PublicHost, panelPublicHost(), others)
 	bindIP := tunnel.LocalIPv4()
 	selected := map[int]bool{}
 	for _, id := range req.Selected {
@@ -127,7 +127,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 			tunnel.IsLoopbackListen(o.Listen) || !tunnel.InboundUsesTCP(o) {
 			continue
 		}
-		return common.NewErrorf("gateway: inbound %q still occupies TCP :%d — select it or move it off", o.Remark, o.Port)
+		return common.NewErrorf("gateway: inbound %q still occupies TCP :%d — select it or move it off", inboundLabel(o), o.Port)
 	}
 	cert, key := gatewayPanelCertPair()
 	for _, row := range rows {
@@ -374,6 +374,25 @@ func ufwDefaultSelected(rows []tunnel.PreviewRow) map[int]bool {
 }
 
 const gatewayHostRemark = "gateway"
+
+func panelPublicHost() string {
+	st := SettingService{}
+	if d, err := st.GetSubDomain(); err == nil && strings.TrimSpace(d) != "" {
+		return d
+	}
+	d, _ := st.GetWebDomain()
+	return d
+}
+
+func inboundLabel(ib *model.Inbound) string {
+	if ib == nil {
+		return ""
+	}
+	if s := strings.TrimSpace(ib.Remark); s != "" {
+		return s
+	}
+	return fmt.Sprintf("%s #%d", ib.Protocol, ib.Id)
+}
 
 func (s *InboundService) sweepOrphanGatewayHosts() {
 	all, err := s.GetAllInbounds()

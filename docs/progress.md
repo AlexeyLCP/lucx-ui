@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.263 — Masking public host is the panel domain, not a REALITY decoy (2026-09-22)
+
+Public host fell through to the first SNI (REALITY serverNames / dest, e.g. microsoft). Clients dialed that name and timed out; the field reset on each keystroke because the preview query key included it. Resolve order is now request, saved (unless it is that decoy), panel sub/web domain, Cover hostname. The input is local state. Listen column shows the client port (`· :443`) when it differs from the loopback port. Panel naive export uses the gateway Host port. Occupy error names protocol and id when remark is empty. Console web-path reset no longer hides a failed write and accepts a typed path.
+
+**lucxVersion:** lucx.263
+
+---
+
 ## lucx.262 — Review fixes: sig-algs, manager race, SPDX sweep (2026-09-21)
 
 Full read-only review of `internal/awg` + `internal/lucx` + hooks

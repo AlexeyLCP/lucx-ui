@@ -7,6 +7,7 @@
 package service
 
 import (
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel" // LUCX-HOOK: Naive service-credential share link
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
@@ -53,16 +54,41 @@ func (s *InboundService) GetInboundLinks(host string, inboundId int) ([]string, 
 	}
 	var links []string
 	if inbound.Protocol == model.Naive {
-		if cfg, ok := tunnel.ConfigFromInbound(inbound); ok && !cfg.UseRawConfig {
-			if u := cfg.ClientURL(); u != "" {
-				links = append(links, u)
-			}
+		if u := naiveShareURL(inbound); u != "" {
+			links = append(links, u)
 		}
 	}
 	if registeredSubLinkProvider == nil {
 		return links, nil
 	}
 	return append(links, registeredSubLinkProvider.LinksForInbounds(host, []*model.Inbound{inbound})...), nil
+}
+
+// naiveShareURL is the service-credential link. After Masking Apply the client
+// port is the gateway Host (:443), not the loopback listen port.
+func naiveShareURL(ib *model.Inbound) string {
+	cfg, ok := tunnel.ConfigFromInbound(ib)
+	if !ok || cfg.UseRawConfig {
+		return ""
+	}
+	if p := gatewayHostPort(ib.Id); p > 0 {
+		cfg.Port = p
+	}
+	return cfg.ClientURL()
+}
+
+func gatewayHostPort(inboundID int) int {
+	db := database.GetDB()
+	if db == nil || inboundID <= 0 {
+		return 0
+	}
+	var h model.Host
+	err := db.Where("inbound_id = ? AND remark = ? AND is_disabled = ?", inboundID, gatewayHostRemark, false).
+		Order("id desc").First(&h).Error
+	if err != nil || h.Port <= 0 {
+		return 0
+	}
+	return h.Port
 }
 
 // END LUCX-HOOK

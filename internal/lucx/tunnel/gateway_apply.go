@@ -423,20 +423,66 @@ func coverLoopbackPort(rows []PreviewRow) int {
 	return 0
 }
 
-// ResolveGatewayPublicHost: request, then saved settings, then first classified SNI.
-func ResolveGatewayPublicHost(req, saved string, others []*model.Inbound) string {
-	if h := strings.ToLower(strings.TrimSpace(req)); h != "" {
+// ResolveGatewayPublicHost: request, then saved, then panel domain, then the
+// Cover/site hostname. A REALITY decoy (serverNames / dest) is not a connect
+// address — clients that dial it time out.
+func ResolveGatewayPublicHost(req, saved, panel string, others []*model.Inbound) string {
+	if h := normHost(req); h != "" {
 		return h
 	}
-	if h := strings.ToLower(strings.TrimSpace(saved)); h != "" {
+	site, decoys := siteAndDecoys(others)
+	if h := normHost(saved); h != "" && !decoyHost(h, site, decoys) {
 		return h
 	}
+	if h := normHost(panel); h != "" && !decoyHost(h, site, decoys) {
+		return h
+	}
+	return site
+}
+
+func normHost(s string) string {
+	return strings.ToLower(strings.TrimSpace(s))
+}
+
+// siteAndDecoys: Cover hostname, else the first site (naive/tproxy) SNI.
+// Passthrough SNIs are decoys, not the public host.
+func siteAndDecoys(others []*model.Inbound) (site string, decoys []string) {
+	var other string
 	for _, o := range others {
-		if _, sni := Classify(o); sni != "" {
-			return sni
+		if o == nil {
+			continue
+		}
+		class, sni := Classify(o)
+		sni = normHost(sni)
+		if sni == "" {
+			continue
+		}
+		if o.Protocol == model.Cover && site == "" {
+			site = sni
+		}
+		if class == ClassCaddy && other == "" {
+			other = sni
+		}
+		if class == ClassPassthrough {
+			decoys = append(decoys, sni)
 		}
 	}
-	return ""
+	if site == "" {
+		site = other
+	}
+	return site, decoys
+}
+
+func decoyHost(saved, site string, decoys []string) bool {
+	if site == "" || saved == site {
+		return false
+	}
+	for _, d := range decoys {
+		if d == saved {
+			return true
+		}
+	}
+	return false
 }
 
 // BuildPreview lists inbounds the mask may move behind 443.

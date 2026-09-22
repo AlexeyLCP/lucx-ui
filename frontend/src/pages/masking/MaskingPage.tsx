@@ -51,6 +51,7 @@ type PreviewRow = {
   stealDest?: string;
   noProxy?: boolean;
   note?: string;
+  hostPort?: number;
 };
 
 type PreviewResult = {
@@ -89,7 +90,7 @@ export default function MaskingPage() {
   const { isDark, isUltra, antdThemeConfig } = useTheme();
   const { isMobile } = useMediaQuery();
   const queryClient = useQueryClient();
-  const [publicHost, setPublicHost] = useState('');
+  const [publicHost, setPublicHost] = useState<string | null>(null);
   const [selected, setSelected] = useState<number[]>([]);
   const [steal, setSteal] = useState<number[]>([]);
   const [picked, setPicked] = useState(false);
@@ -129,11 +130,11 @@ export default function MaskingPage() {
   const settingHost = defaultsQuery.data?.subDomain || defaultsQuery.data?.webDomain || '';
 
   const previewQuery = useQuery({
-    queryKey: ['gatewayPreview', gateway?.id, publicHost],
+    queryKey: ['gatewayPreview', gateway?.id],
     queryFn: async () => {
       const msg = await HttpUtil.get(
         `/panel/api/inbounds/${gateway!.id}/gatewayPreview`,
-        { publicHost },
+        undefined,
         { silent: true },
       );
       if (!msg?.success) throw new Error(msg?.msg || 'preview failed');
@@ -145,8 +146,11 @@ export default function MaskingPage() {
   const rows = preview?.rows ?? [];
   const applied = preview?.applied ?? false;
   const bindIP = preview?.bindIP || '';
-  const host =
-    publicHost || preview?.publicHost || settingHost || rows.find((r) => r.sni)?.sni || '';
+  const coverHost =
+    rows.find((r) => r.protocol === 'cover' && r.sni)?.sni ||
+    rows.find((r) => r.class === 'caddy' && r.sni)?.sni ||
+    '';
+  const host = publicHost ?? (preview?.publicHost || settingHost || coverHost || '');
 
   const behind = rows.filter((r) => r.class !== 'skip');
   const outside = rows.filter((r) => r.class === 'skip');
@@ -249,8 +253,15 @@ export default function MaskingPage() {
 
   const listenCol = {
     title: t('pages.masking.listen'),
-    render: (_: unknown, r: PreviewRow) =>
-      `${r.oldListen}:${r.oldPort} → ${r.newListen}:${r.newPort}`,
+    render: (_: unknown, r: PreviewRow) => {
+      const bind = `${r.oldListen}:${r.oldPort} → ${r.newListen}:${r.newPort}`;
+      if (r.hostPort && r.hostPort !== r.newPort) return `${bind} · :${r.hostPort}`;
+      return bind;
+    },
+  };
+  const remarkCol = {
+    title: t('remark'),
+    render: (_: unknown, r: PreviewRow) => r.remark || `${r.protocol} #${r.inboundId}`,
   };
 
   const noteCol = {
@@ -345,7 +356,7 @@ export default function MaskingPage() {
               getCheckboxProps: () => ({ disabled: applied }),
             }}
             columns={[
-              { title: t('remark'), dataIndex: 'remark' },
+              remarkCol,
               {
                 title: t('pages.masking.class'),
                 render: (_: unknown, r: PreviewRow) => t(classKey(r.class) || r.class),
@@ -395,7 +406,7 @@ export default function MaskingPage() {
                 dataSource={outside}
                 pagination={false}
                 columns={[
-                  { title: t('remark'), dataIndex: 'remark' },
+                  remarkCol,
                   {
                     title: t('pages.masking.class'),
                     render: (_: unknown, r: PreviewRow) => t(classKey(r.class) || r.class),

@@ -4,6 +4,12 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1al: Masking public host is a REALITY decoy; page resets while typing — FIXED (lucx.263)
+- **Symptom (VladufQa, 22.09.2026):** public host shows `wwwqa.microsoft.com` instead of the panel/Cover domain. VLESS link times out; manual panel SNI + port 443 works. Typing the host refreshes after each character. Naive listen stays on its old port, so UFW close kills it. Apply: `inbound "" still occupies TCP :443`.
+- **Cause:** empty public host fell through to the first classified SNI (REALITY dest). Preview query key included the field, so each keystroke unmounted the form. Client port (`Host :443`) was not shown; panel naive export used the loopback port. Empty remark made the occupy error useless.
+- **Fix:** resolve host as request → saved (unless it is that decoy) → panel domain → Cover hostname. Local input state. Listen shows `· :443`. Export uses the gateway Host port.
+- **Healing without update:** type is broken on this build — set the Cover hostname in the inbound, or edit the client to panel domain:443. Do not Apply while the field shows a decoy.
+
 ### Pattern 1ak: naive behind Masking, share `?sni=` ignored — FIXED (lucx.258)
 - **Symptom (VladufQa):** openssl to naive SNI works; NekoBox/sub link times out. `naive-client` on the stand: Domain host → 200; publicHost and `?sni=` → fail.
 - **Cause:** lucx.253 wrote Masking Host (`vladnl.work.gd`) as URL host and `sni=inbound.domain`. klzgrad naiveproxy has no `?sni=`; SNI = publicHost → L4 to WEB proxy, not naive.

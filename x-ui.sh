@@ -382,6 +382,12 @@ reset_user() {
 
 gen_random_string() {
     local length="$1"
+    # LUCX-HOOK: openssl missing → empty path, `setting -webBasePath` is a no-op
+    if ! command -v openssl >/dev/null 2>&1; then
+        tr -dc 'a-zA-Z0-9' < /dev/urandom | head -c "$length"
+        return
+    fi
+    # END LUCX-HOOK
     openssl rand -base64 $((length * 2)) \
         | tr -dc 'a-zA-Z0-9' \
         | head -c "$length"
@@ -396,10 +402,20 @@ reset_webbasepath() {
         return
     fi
 
-    config_webBasePath=$(gen_random_string 18)
-
-    # Apply the new web base path setting
-    ${xui_folder}/x-ui setting -webBasePath "${config_webBasePath}" > /dev/null 2>&1
+    # LUCX-HOOK: custom path, and do not hide a failed write (old path stayed)
+    read -rp "New web base path (empty = random): " config_webBasePath
+    if [[ -z "${config_webBasePath}" ]]; then
+        config_webBasePath=$(gen_random_string 18)
+    fi
+    if [[ -z "${config_webBasePath}" ]]; then
+        LOGE "Could not generate a web base path"
+        return
+    fi
+    if ! ${xui_folder}/x-ui setting -webBasePath "${config_webBasePath}"; then
+        LOGE "Failed to set web base path"
+        return
+    fi
+    # END LUCX-HOOK
 
     echo -e "Web base path has been reset to: ${green}${config_webBasePath}${plain}"
     echo -e "${green}Please use the new web base path to access the panel.${plain}"
