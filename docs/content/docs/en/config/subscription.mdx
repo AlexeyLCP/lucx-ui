@@ -94,6 +94,32 @@ Subscriptions return standard headers that compatible apps read:
 - **`Profile-Title`**, **`Support-Url`**, **`Profile-Web-Page-Url`**,
   **`Announce`** — optional branding shown by some clients.
 
+### INCY app management
+
+In **Settings → Subscription → Incy**, enable INCY app management to control
+INCY client behavior from the subscription response. The settings are opt-in
+and do not change existing subscriptions until enabled.
+
+The panel can send INCY-specific headers for:
+
+- profile description, server sort order, support email, announce URL, and
+  Premium URL;
+- banner text, colors, and button URL;
+- hiding the subscription URL or the check button;
+- Android Per-App Proxy mode and package list;
+- TCP fragmentation and noise packets;
+- server address resolution through DoH; and
+- the iOS no-limit mode.
+
+These headers are sent only when the request is identified as INCY by
+`User-Agent: INCY/<version>/<platform>` or `x-client: INCY`. Other clients
+receive no INCY-specific headers. Existing INCY routing settings continue to
+work independently. UTF-8 values are encoded using the `base64:` form where
+supported by INCY.
+
+See the [INCY app-management documentation](https://docs.incy.cc/app-management/)
+for the client-side header behavior and supported values.
+
 ### Profile page links and upgrades
 
 In **Subscription → Profile → Profile page**, choose `subProfileMode` for all

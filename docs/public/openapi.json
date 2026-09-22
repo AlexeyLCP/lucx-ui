@@ -336,6 +336,9 @@
           "subHideSettings": {
             "type": "boolean"
           },
+          "subIncyConfig": {
+            "type": "string"
+          },
           "subIncyEnableRouting": {
             "type": "boolean"
           },
@@ -602,6 +605,7 @@
           "subHappTunMode",
           "subHappTunType",
           "subHideSettings",
+          "subIncyConfig",
           "subIncyEnableRouting",
           "subIncyRoutingRules",
           "subInfoNodeEnable",
@@ -991,6 +995,9 @@
           "subHideSettings": {
             "type": "boolean"
           },
+          "subIncyConfig": {
+            "type": "string"
+          },
           "subIncyEnableRouting": {
             "type": "boolean"
           },
@@ -1265,6 +1272,7 @@
           "subHappTunMode",
           "subHappTunType",
           "subHideSettings",
+          "subIncyConfig",
           "subIncyEnableRouting",
           "subIncyRoutingRules",
           "subInfoNodeEnable",
