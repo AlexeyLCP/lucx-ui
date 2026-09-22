@@ -109,6 +109,7 @@ export interface AllSetting {
   subHappTunMode: string;
   subHappTunType: string;
   subHideSettings: boolean;
+  subIncyConfig: string;
   subIncyEnableRouting: boolean;
   subIncyRoutingRules: string;
   subInfoNodeEnable: boolean;
@@ -273,6 +274,7 @@ export interface AllSettingView {
   subHappTunMode: string;
   subHappTunType: string;
   subHideSettings: boolean;
+  subIncyConfig: string;
   subIncyEnableRouting: boolean;
   subIncyRoutingRules: string;
   subInfoNodeEnable: boolean;

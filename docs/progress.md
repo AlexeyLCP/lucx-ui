@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.264 — INCY subscription app-management headers (2026-09-22)
+
+Added opt-in INCY subscription-header management for profile metadata, Android
+Per-App Proxy, fragmentation, noises, DoH resolution, banner/premium controls,
+and related client settings. Added frontend controls, UTF-8/base64 header
+handling, client detection, and focused unit coverage while preserving INCY
+routing behavior.
+
+**lucxVersion:** lucx.264
+
 ## lucx.264 — Masking: don't hide Naive, strip Caddy Via (2026-09-22)
 
 Naive stays off the 443 mux by default. Masking page and the Naive form say so: NekoBox / naive-client times out behind the mask; leave it on its own port and UFW will keep that port open. Cover/tproxy `reverse_proxy` now emits `header_down -Via` and `header_down Server "nginx"`. Site-level `header -Via` ran before Caddy appended `Via: 1.1 Caddy`, so ByeDPI still saw the proxy.

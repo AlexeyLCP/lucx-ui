@@ -55,8 +55,11 @@ export class AllSetting {
   subEnableRouting = false;
   subRoutingRules = '';
   subRoutingSource = 'custom';
+  // LUCX-HOOK: INCY app-management settings.
   subIncyEnableRouting = false;
   subIncyRoutingRules = '';
+  subIncyConfig = '';
+  // END LUCX-HOOK
   subListen = '';
   subPort = 2096;
   subPath = '/sub/';

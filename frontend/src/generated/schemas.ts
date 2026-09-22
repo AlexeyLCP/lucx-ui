@@ -124,7 +124,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "logRetentionDays": {
-        "description": "END LUCX-HOOK\nLUCX-HOOK: auto-delete log files older than N days (0 = disabled)",
         "maximum": 3650,
         "minimum": 0,
         "type": "integer"
@@ -152,7 +151,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "boolean"
       },
       "sessionMaxAge": {
-        "description": "END LUCX-HOOK",
         "maximum": 525600,
         "minimum": 1,
         "type": "integer"
@@ -203,7 +201,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subAwgEnable": {
-        "description": "LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint",
         "type": "boolean"
       },
       "subAwgPath": {
@@ -327,8 +324,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "subHideSettings": {
         "type": "boolean"
       },
+      "subIncyConfig": {
+        "type": "string"
+      },
       "subIncyEnableRouting": {
-        "description": "END LUCX-HOOK",
         "type": "boolean"
       },
       "subIncyRoutingRules": {
@@ -353,7 +352,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subJsonMux": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "subJsonObservatory": {
@@ -398,7 +396,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subRoutingSource": {
-        "description": "LUCX-HOOK: RoscomVPN Happ routing source (default|jsonsub|whitelist|custom).",
         "type": "string"
       },
       "subShowIdentityOnAllLinks": {
@@ -492,7 +489,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "webFavicon": {
-        "description": "LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)",
         "type": "string"
       },
       "webKeyFile": {
@@ -607,6 +603,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subHappTunMode",
       "subHappTunType",
       "subHideSettings",
+      "subIncyConfig",
       "subIncyEnableRouting",
       "subIncyRoutingRules",
       "subInfoNodeEnable",
@@ -812,7 +809,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "logRetentionDays": {
-        "description": "END LUCX-HOOK\nLUCX-HOOK: auto-delete log files older than N days (0 = disabled)",
         "maximum": 3650,
         "minimum": 0,
         "type": "integer"
@@ -840,7 +836,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "boolean"
       },
       "sessionMaxAge": {
-        "description": "END LUCX-HOOK",
         "maximum": 525600,
         "minimum": 1,
         "type": "integer"
@@ -891,7 +886,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subAwgEnable": {
-        "description": "LUCX-HOOK: AmneziaWG conf / vpn:// subscription endpoint",
         "type": "boolean"
       },
       "subAwgPath": {
@@ -1015,8 +1009,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "subHideSettings": {
         "type": "boolean"
       },
+      "subIncyConfig": {
+        "type": "string"
+      },
       "subIncyEnableRouting": {
-        "description": "END LUCX-HOOK",
         "type": "boolean"
       },
       "subIncyRoutingRules": {
@@ -1041,7 +1037,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subJsonMux": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "subJsonObservatory": {
@@ -1086,7 +1081,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subRoutingSource": {
-        "description": "LUCX-HOOK: RoscomVPN Happ routing source (default|jsonsub|whitelist|custom).",
         "type": "string"
       },
       "subShowIdentityOnAllLinks": {
@@ -1180,7 +1174,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "webFavicon": {
-        "description": "LUCX-HOOK: optional panel tab favicon (emoji or image data URI / base64)",
         "type": "string"
       },
       "webKeyFile": {
@@ -1303,6 +1296,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subHappTunMode",
       "subHappTunType",
       "subHideSettings",
+      "subIncyConfig",
       "subIncyEnableRouting",
       "subIncyRoutingRules",
       "subInfoNodeEnable",
@@ -1525,7 +1519,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "forwardedPorts": {
-        "description": "END LUCX-HOOK\nAmneziaWG per-client port-forwarding spec, e.g. \"80,443,8000-8100\"",
+        "description": "AmneziaWG per-client port-forwarding spec, e.g. \"80,443,8000-8100\"",
         "type": "string"
       },
       "group": {
@@ -1537,7 +1531,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "keepAlive": {
-        "description": "LUCX-HOOK: KeepAliveValue (number or AWG3 range string)",
         "type": "string"
       },
       "limitIp": {
@@ -1744,7 +1737,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "forwardedPorts": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "group": {
@@ -1754,7 +1746,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "integer"
       },
       "keepAlive": {
-        "description": "LUCX-HOOK: string column so AWG3 ranges (\"15-25\") round-trip; legacy ints coerce via SQLite/PG text",
         "type": "string"
       },
       "limitHwid": {
@@ -2987,7 +2978,7 @@ export const SCHEMAS: Record<string, unknown> = {
   "InboundOption": {
     "properties": {
       "awgObfuscation": {
-        "description": "LUCX-HOOK: kernel AWG QR/.conf hints (userspace AmneziaWG uses AwgServer).\nAwgPeerAddresses maps client email to first single-host AllowedIPs for THIS inbound.",
+        "description": "AwgPeerAddresses maps client email to first single-host AllowedIPs for THIS inbound.",
         "type": "string"
       },
       "awgPeerAddresses": {
@@ -3578,7 +3569,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "integer"
       },
       "configDirty": {
-        "description": "END LUCX-HOOK",
         "example": false,
         "type": "boolean"
       },
@@ -3678,7 +3668,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "array"
       },
       "nodeType": {
-        "description": "LUCX-HOOK: LucX capability for inbound deploy gating (from hello/probe).",
         "example": "lucx",
         "type": "string"
       },

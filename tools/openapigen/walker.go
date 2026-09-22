@@ -90,7 +90,13 @@ func collectDoc(group ...*ast.CommentGroup) string {
 		for _, c := range g.List {
 			line := strings.TrimPrefix(c.Text, "// ")
 			line = strings.TrimPrefix(line, "//")
-			b.WriteString(strings.TrimSpace(line))
+			line = strings.TrimSpace(line)
+			// LUCX-HOOK: keep overlay markers out of generated API descriptions.
+			if line == "END LUCX-HOOK" || line == "LUCX-HOOK" || strings.HasPrefix(line, "LUCX-HOOK:") {
+				continue
+			}
+			// END LUCX-HOOK
+			b.WriteString(line)
 			b.WriteByte('\n')
 		}
 	}

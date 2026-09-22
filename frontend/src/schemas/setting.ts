@@ -63,8 +63,11 @@ export const AllSettingSchema = z
     subEnableRouting: z.boolean().optional(),
     subRoutingRules: z.string().optional(),
     subRoutingSource: z.string().optional(),
+    // LUCX-HOOK: INCY app-management settings.
     subIncyEnableRouting: z.boolean().optional(),
     subIncyRoutingRules: z.string().optional(),
+    subIncyConfig: z.string().optional(),
+    // END LUCX-HOOK
     subListen: z.string().optional(),
     subPort: port.optional(),
     subPath: absolutePath.optional(),

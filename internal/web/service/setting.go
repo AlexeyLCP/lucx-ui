@@ -151,8 +151,11 @@ var defaultValueMap = map[string]string{
 	"subHappAutoConnectType":      "lowestdelay",
 	"subHappPerAppMode":           "off",
 	"subHappPerAppList":           "",
+	// LUCX-HOOK: INCY app-management settings.
 	"subIncyEnableRouting":        "false",
 	"subIncyRoutingRules":         "",
+	"subIncyConfig":               "",
+	// END LUCX-HOOK
 	"subListen":                   "",
 	"subPort":                     "2096",
 	"subPath":                     "/sub/",
@@ -1051,6 +1054,13 @@ func (s *SettingService) GetSubIncyEnableRouting() (bool, error) {
 func (s *SettingService) GetSubIncyRoutingRules() (string, error) {
 	return s.getString("subIncyRoutingRules")
 }
+
+// LUCX-HOOK: INCY app-management settings.
+func (s *SettingService) GetSubIncyConfig() (string, error) {
+	return s.getString("subIncyConfig")
+}
+
+// END LUCX-HOOK
 
 func (s *SettingService) GetSubListen() (string, error) {
 	return s.getString("subListen")
