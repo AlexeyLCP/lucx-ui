@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.264 — Masking: don't hide Naive, strip Caddy Via (2026-09-22)
+
+Naive stays off the 443 mux by default. Masking page and the Naive form say so: NekoBox / naive-client times out behind the mask; leave it on its own port and UFW will keep that port open. Cover/tproxy `reverse_proxy` now emits `header_down -Via` and `header_down Server "nginx"`. Site-level `header -Via` ran before Caddy appended `Via: 1.1 Caddy`, so ByeDPI still saw the proxy.
+
+**lucxVersion:** lucx.264
+
+---
+
 ## lucx.263 — Masking public host is the panel domain, not a REALITY decoy (2026-09-22)
 
 Public host fell through to the first SNI (REALITY serverNames / dest, e.g. microsoft). Clients dialed that name and timed out; the field reset on each keystroke because the preview query key included it. Resolve order is now request, saved (unless it is that decoy), panel sub/web domain, Cover hostname. The input is local state. Listen column shows the client port (`· :443`) when it differs from the loopback port. Panel naive export uses the gateway Host port. Occupy error names protocol and id when remark is empty. Console web-path reset no longer hides a failed write and accepts a typed path.
