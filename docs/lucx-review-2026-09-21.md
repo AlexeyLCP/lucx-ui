@@ -39,7 +39,7 @@ All three browser lists deviated from the real clients (fingerprint tells):
 - `firefoxSigAlgs` had `0x0604` and `0x0201` duplicated → now the NSS list
   `{0403, 0503, 0603, 0804, 0805, 0806, 0401, 0501, 0203, 0201}`.
 - `safariSigAlgs` had a bogus `0x0601` → now `{0403, 0804, 0401, 0503, 0805,
-  0501, 0806, 0201}`.
+0501, 0806, 0201}`.
 - `writeDelegatedCredentialsExt` used the same wrong `0x0604` → `0x0603`.
 
 ### 4. `internal/lucx/tunnel/manager.go` — `orphanKeyFromFilename` — NOT CHANGED
@@ -111,9 +111,9 @@ bug fix.
 - `internal/database/db.go` migration order correct.
 - `internal/lucx/tunnel/manager.go` locking model sound.
 - `internal/awg/{manager,instance,process,platform_linux,client_manager,
-  diagnostics,portfwd*,signature/capture}.go` — no correctness issues.
+diagnostics,portfwd*,signature/capture}.go` — no correctness issues.
 - `internal/lucx/tunnel/{naive,process,auth,tunnel,qwdtt_routing,
-  tproxy_firewall_linux,sidecar_traffic_linux,mieru_pattern,traffic}.go` —
+tproxy_firewall_linux,sidecar_traffic_linux,mieru_pattern,traffic}.go` —
   no correctness issues.
 - `internal/web/job/awg_job.go`, `internal/web/controller/{awg,tunnel}.go` —
   binary upload has ELF magic check + size cap + tmp+rename.
