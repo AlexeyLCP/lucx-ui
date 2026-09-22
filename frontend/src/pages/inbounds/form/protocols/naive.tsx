@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { Input, Select, Switch } from 'antd';
+import { Alert, Input, Select, Switch } from 'antd';
 import { useFormContext, useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
@@ -17,6 +17,12 @@ export default function NaiveFields() {
 
   return (
     <>
+      <Alert
+        type="info"
+        showIcon
+        style={{ marginBottom: 12 }}
+        message={t('pages.inbounds.form.naiveMaskHint')}
+      />
       <FormField
         name={['settings', 'behindCover']}
         label={t('pages.inbounds.form.behindCover')}

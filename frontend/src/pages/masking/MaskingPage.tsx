@@ -62,6 +62,7 @@ type PreviewResult = {
   ufw?: boolean;
   ufwAllow?: string[];
   hidePanel?: boolean;
+  maskedIds?: number[];
   webPort?: number;
   webTLS?: boolean;
 };
@@ -154,7 +155,13 @@ export default function MaskingPage() {
 
   const behind = rows.filter((r) => r.class !== 'skip');
   const outside = rows.filter((r) => r.class === 'skip');
-  const chosen = picked ? selected : behind.map((r) => r.inboundId);
+  const masked = new Set(preview?.maskedIds ?? []);
+  const chosen = picked
+    ? selected
+    : applied
+      ? behind.filter((r) => masked.has(r.inboundId)).map((r) => r.inboundId)
+      : behind.filter((r) => r.protocol !== 'naive').map((r) => r.inboundId);
+  const naiveOffered = behind.some((r) => r.protocol === 'naive');
   const shown = behind.map((r) => ({
     ...r,
     sni: sniEdits[r.inboundId] ?? r.sni,
@@ -342,6 +349,14 @@ export default function MaskingPage() {
       </Col>
       <Col span={24}>
         <Card size="small" hoverable title={t('pages.masking.behind443')}>
+          {naiveOffered ? (
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 12 }}
+              message={t('pages.masking.naiveHint')}
+            />
+          ) : null}
           <Table
             rowKey="inboundId"
             size="small"
