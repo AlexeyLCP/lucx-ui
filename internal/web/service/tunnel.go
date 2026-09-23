@@ -677,12 +677,9 @@ func (s *TunnelService) reconcileCoverInbounds() {
 		if ib == nil || ib.Protocol != model.Cover || ib.NodeID != nil {
 			continue
 		}
-		inst, ok := tunnel.CoverInstanceFromInbound(ib, inbounds, secret, panelCert, panelKey)
+		inst, ok := tunnel.StandaloneCoverInstance(ib, inbounds, secret, panelCert, panelKey)
 		if !ok {
 			continue
-		}
-		if tunnel.GatewayAbsorbed(ib, inbounds) {
-			inst.Enabled = false
 		}
 		want = append(want, inst)
 	}

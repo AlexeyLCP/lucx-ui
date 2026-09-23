@@ -536,6 +536,36 @@ func TestGatewayInstance_UnifiedCoverServesStealDest(t *testing.T) {
 	}
 }
 
+func TestStandaloneCoverInstance_OffWhileAbsorbed(t *testing.T) {
+	stubGatewayChan(t, true)
+	dir := t.TempDir()
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "cov.example.com")
+	cover := &model.Inbound{
+		Id: 2, Protocol: model.Cover, Port: 443, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"enabled":true,"hostname":"cov.example.com","siteSource":"upstream","siteUpstream":"http://127.0.0.1:8080"}`,
+	}
+	gw := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Port: 443, Enable: true,
+		Settings: `{"enabled":true,"unified":true,"snapshot":[{"inboundId":2}]}`,
+	}
+	for _, tc := range []struct {
+		name string
+		all  []*model.Inbound
+		want bool
+	}{
+		{"alone", []*model.Inbound{cover}, true},
+		// Its 127.0.0.1:443 would share the gateway's socket via SO_REUSEPORT.
+		{"absorbed by unified gateway", []*model.Inbound{cover, gw}, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			inst, ok := StandaloneCoverInstance(cover, tc.all, nil, cert, key)
+			if !ok || inst.Enabled != tc.want {
+				t.Fatalf("ok=%v enabled=%v, want enabled=%v", ok, inst.Enabled, tc.want)
+			}
+		})
+	}
+}
+
 func TestGatewayInstance_LegacyIgnoresChan(t *testing.T) {
 	stubGatewayChan(t, true)
 	gw := &model.Inbound{
