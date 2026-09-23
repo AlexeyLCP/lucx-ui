@@ -112,10 +112,12 @@ export default function MaskingPage() {
     queryFn: async () => {
       const msg = await HttpUtil.get('/panel/api/inbounds/list/slim', undefined, { silent: true });
       if (!msg?.success) throw new Error(msg?.msg || 'list failed');
-      return (msg.obj ?? []) as { id: number; protocol: string }[];
+      return (msg.obj ?? []) as { id: number; protocol: string; nodeId?: number | null }[];
     },
   });
-  const gateway = (slimQuery.data ?? []).find((ib) => ib.protocol === 'gateway');
+  const gateway = (slimQuery.data ?? []).find(
+    (ib) => ib.protocol === 'gateway' && ib.nodeId == null,
+  );
 
   const defaultsQuery = useQuery({
     queryKey: keys.settings.defaults(),
