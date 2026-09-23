@@ -192,23 +192,34 @@ func (c CsqttConfig) shareHost() string {
 	return h
 }
 
+func csqttHashSep(r rune) bool {
+	return r == ',' || r == '+' || r == ' ' || r == '\n' || r == '\r' || r == '\t'
+}
+
 func csqttHashList(raw string) []string {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
 		return nil
 	}
-	raw = strings.ReplaceAll(raw, "+", ",")
 	var out []string
-	for _, p := range strings.Split(raw, ",") {
-		p = strings.TrimSpace(p)
-		if p != "" {
-			out = append(out, p)
+	for _, p := range strings.FieldsFunc(raw, csqttHashSep) {
+		if p == "" {
+			continue
 		}
+		out = append(out, p)
 		if len(out) == 6 {
 			break
 		}
 	}
 	return out
+}
+
+func csqttHashesParam(hashes []string) string {
+	parts := make([]string, len(hashes))
+	for i, h := range hashes {
+		parts[i] = strings.ReplaceAll(url.QueryEscape(h), "+", "%20")
+	}
+	return strings.Join(parts, "+")
 }
 
 func (c CsqttConfig) ClientURI() string {
@@ -222,10 +233,11 @@ func (c CsqttConfig) ClientURI() string {
 	q.Set("host", host)
 	q.Set("peer", strconv.Itoa(c.publicPort()))
 	q.Set("password", pass)
+	uri := "csqtt://connect?" + q.Encode()
 	if hashes := csqttHashList(c.VkHashes); len(hashes) > 0 {
-		q.Set("hashes", strings.Join(hashes, "+"))
+		uri += "&hashes=" + csqttHashesParam(hashes)
 	}
-	return "csqtt://connect?" + q.Encode()
+	return uri
 }
 
 func CsqttListenPort(cfg CsqttConfig) int {

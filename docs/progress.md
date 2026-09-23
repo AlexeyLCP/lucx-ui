@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.265 — CSQTT share: raw `+` between VK hashes (2026-09-23)
+
+Android `parseLinkHashes` splits the raw `hashes` value on `+` before percent-decode. `url.Values` / `URLSearchParams` turned that separator into `%2B`, so the client treated the list as one hash and never connected. qWDTT was fine: its client wants commas and decodes first. Share and `/sub/` now emit `hashes=h1+h2`.
+
+**lucxVersion:** lucx.265
+
+---
+
 ## lucx.264 — Masking: don't hide Naive, strip Caddy Via (2026-09-22)
 
 Naive stays off the 443 mux by default. Masking page and the Naive form say so: NekoBox / naive-client times out behind the mask; leave it on its own port and UFW will keep that port open. Cover/tproxy `reverse_proxy` now emits `header_down -Via` and `header_down Server "nginx"`. Site-level `header -Via` ran before Caddy appended `Via: 1.1 Caddy`, so ByeDPI still saw the proxy.

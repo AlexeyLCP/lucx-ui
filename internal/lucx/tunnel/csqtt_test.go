@@ -19,15 +19,22 @@ func TestCsqttClientURI(t *testing.T) {
 	cfg := DefaultCsqttConfig()
 	cfg.Password = "pass"
 	cfg.SubHost = "1.2.3.4"
-	cfg.VkHashes = "h1,h2"
+	cfg.VkHashes = "abcdefghijklmnop1,abcdefghijklmnop2"
 	got := cfg.ClientURI()
 	if !strings.HasPrefix(got, "csqtt://connect?") {
 		t.Fatalf("URI = %q", got)
 	}
-	for _, want := range []string{"v=2", "host=1.2.3.4", "peer=46000", "password=pass", "hashes=h1%2Bh2"} {
+	for _, want := range []string{"v=2", "host=1.2.3.4", "peer=46000", "password=pass", "hashes=abcdefghijklmnop1+abcdefghijklmnop2"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("URI missing %q: %s", want, got)
 		}
+	}
+	if strings.Contains(got, "%2B") {
+		t.Fatalf("hash separator must be a raw +, got %q", got)
+	}
+	cfg.VkHashes = "abcdefghijklmnop1\nabcdefghijklmnop2"
+	if !strings.Contains(cfg.ClientURI(), "hashes=abcdefghijklmnop1+abcdefghijklmnop2") {
+		t.Fatalf("newline-separated hashes must split, got %q", cfg.ClientURI())
 	}
 	if strings.ContainsAny(got, "\r\n") || strings.Contains(got, "qwdtt://") {
 		t.Fatalf("ClientURI must be a single csqtt:// line, got %q", got)

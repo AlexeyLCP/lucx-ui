@@ -1732,8 +1732,9 @@ export function genCsqttLink(input: GenCsqttLinkInput): string {
   q.set('host', host);
   q.set('peer', String(port));
   q.set('password', pass);
-  if (hashes.length) q.set('hashes', hashes.join('+'));
-  return `csqtt://connect?${q.toString()}`;
+  const base = `csqtt://connect?${q.toString()}`;
+  if (!hashes.length) return base;
+  return `${base}&hashes=${hashes.map((h) => encodeURIComponent(h)).join('+')}`;
 }
 
 export function genQwdttLink(input: GenQwdttLinkInput): string {

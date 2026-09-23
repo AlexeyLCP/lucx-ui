@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1am: CSQTT hashes in the panel, no connect — FIXED (lucx.265)
+- **Symptom (VladufQa, 23.09.2026):** CSQTT inbound with VK hashes set does not connect. Same hashes on qWDTT connect.
+- **Cause:** Android `parseLinkHashes` splits the raw `hashes` query on `+` before percent-decode. Panel encoded the separator as `%2B`, so the list arrived as one hash. qWDTT wants commas and decodes first.
+- **Fix:** share and `/sub/` emit `hashes=h1+h2` (raw `+`). `%2B` stays only for a plus inside one hash.
+- **Healing without update:** delete the hashes field, re-import, or hand-edit the link: replace `%2B` between hashes with `+`.
+- **Lesson:** a client that splits before decode does not want `url.Values.Encode` on that separator.
+
 ### Pattern 1al: Masking public host is a REALITY decoy; page resets while typing — FIXED (lucx.263)
 - **Symptom (VladufQa, 22.09.2026):** public host shows `wwwqa.microsoft.com` instead of the panel/Cover domain. VLESS link times out; manual panel SNI + port 443 works. Typing the host refreshes after each character. Naive listen stays on its old port, so UFW close kills it. Apply: `inbound "" still occupies TCP :443`.
 - **Cause:** empty public host fell through to the first classified SNI (REALITY dest). Preview query key included the field, so each keystroke unmounted the form. Client port (`Host :443`) was not shown; panel naive export used the loopback port. Empty remark made the occupy error useless.
