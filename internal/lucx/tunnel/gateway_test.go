@@ -507,6 +507,35 @@ func TestGatewayInstance_UnifiedSites(t *testing.T) {
 	}
 }
 
+func TestGatewayInstance_UnifiedCoverServesStealDest(t *testing.T) {
+	stubGatewayChan(t, true)
+	dir := t.TempDir()
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "cov.example.com")
+	cover := &model.Inbound{
+		Id: 2, Protocol: model.Cover, Port: 8443, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"hostname":"cov.example.com","siteSource":"upstream","siteUpstream":"http://127.0.0.1:8080"}`,
+	}
+	gw := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Port: 443, Enable: true,
+		Settings: `{"enabled":true,"unified":true,"routes":[{"sni":"cov.example.com","dest":"127.0.0.1:8443","chan":"cover-2"}],"snapshot":[{"inboundId":2}]}`,
+	}
+	inst, ok := GatewayInstanceFromInbound(gw, []*model.Inbound{cover}, nil, cert, key)
+	if !ok || !inst.Enabled {
+		t.Fatalf("ok=%v enabled=%v", ok, inst.Enabled)
+	}
+	steal := gatewayLoopbackDest(cover.Port)
+	host, port, _ := strings.Cut(steal, ":")
+	// A bare hostname would also bind 127.0.0.1:443 — the gateway's own port.
+	for _, need := range []string{
+		"\tbind l4chan/cover-2 " + host + "\n",
+		":" + port + ", \"cov.example.com:" + port + "\" {\n",
+	} {
+		if !strings.Contains(inst.ConfigText, need) {
+			t.Fatalf("steal dest %s not served, missing %q:\n%s", steal, need, inst.ConfigText)
+		}
+	}
+}
+
 func TestGatewayInstance_LegacyIgnoresChan(t *testing.T) {
 	stubGatewayChan(t, true)
 	gw := &model.Inbound{
