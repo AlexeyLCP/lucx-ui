@@ -96,6 +96,27 @@ func TestRenderCoverCaddyfile_TproxyWins(t *testing.T) {
 	}
 }
 
+func TestEnsureDefaultDecoy(t *testing.T) {
+	dir := t.TempDir()
+	if err := EnsureDefaultDecoy(dir); err != nil {
+		t.Fatal(err)
+	}
+	b, err := os.ReadFile(filepath.Join(dir, "index.html"))
+	if err != nil || !strings.Contains(string(b), "Welcome to nginx!") {
+		t.Fatalf("seed: %v %q", err, b)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "index.html"), []byte("mine"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := EnsureDefaultDecoy(dir); err != nil {
+		t.Fatal(err)
+	}
+	b, _ = os.ReadFile(filepath.Join(dir, "index.html"))
+	if string(b) != "mine" {
+		t.Fatalf("overwrote upload: %q", b)
+	}
+}
+
 func TestRenderCoverCaddyfile_NaiveAndPath(t *testing.T) {
 	naive := DefaultNaiveConfig()
 	naive.AuthUser = "u"

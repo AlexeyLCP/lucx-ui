@@ -83,6 +83,7 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 			}
 		}
 		fallbackChan := ""
+		tproxyChan := ""
 		for _, s := range cfg.Snapshot {
 			o := byID[s.InboundID]
 			if o == nil {
@@ -95,9 +96,17 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 			if certFile != "" {
 				certs = append(certs, certFile)
 			}
-			if fallbackChan == "" && o.Protocol == model.Cover {
+			switch o.Protocol {
+			case model.Cover:
 				fallbackChan = CoverKey(o.Id)
+			case model.Tproxy:
+				if tproxyChan == "" {
+					tproxyChan = TproxyCaddyKey(o.Id)
+				}
 			}
+		}
+		if fallbackChan == "" {
+			fallbackChan = tproxyChan
 		}
 		for _, c := range certs {
 			fpExtra += CertFileHash(c)

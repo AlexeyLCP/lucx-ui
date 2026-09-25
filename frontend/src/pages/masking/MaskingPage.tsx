@@ -161,13 +161,15 @@ export default function MaskingPage() {
     : applied
       ? behind.filter((r) => masked.has(r.inboundId)).map((r) => r.inboundId)
       : behind.filter((r) => r.protocol !== 'naive').map((r) => r.inboundId);
-  const naiveOffered = behind.some((r) => r.protocol === 'naive');
+  const naivePublic = outside.some((r) => r.protocol === 'naive');
   const shown = behind.map((r) => ({
     ...r,
     sni: sniEdits[r.inboundId] ?? r.sni,
   }));
   const clash = sniClash(shown, chosen);
-  const coverOn = behind.some((r) => r.protocol === 'cover' && chosen.includes(r.inboundId));
+  const coverOn = behind.some(
+    (r) => (r.protocol === 'cover' || r.protocol === 'tproxy') && chosen.includes(r.inboundId),
+  );
   const httpFront = behind.some(
     (r) => (r.protocol === 'cover' || r.protocol === 'tproxy') && chosen.includes(r.inboundId),
   );
@@ -349,9 +351,9 @@ export default function MaskingPage() {
       </Col>
       <Col span={24}>
         <Card size="small" hoverable title={t('pages.masking.behind443')}>
-          {naiveOffered ? (
+          {naivePublic ? (
             <Alert
-              type="warning"
+              type="info"
               showIcon
               style={{ marginBottom: 12 }}
               message={t('pages.masking.naiveHint')}
@@ -396,8 +398,8 @@ export default function MaskingPage() {
                 render: (_: unknown, r: PreviewRow) =>
                   r.stealDest && coverOn ? (
                     <Checkbox
-                      disabled={applied}
-                      checked={steal.includes(r.inboundId)}
+                      disabled={applied || coverOn}
+                      checked={coverOn || steal.includes(r.inboundId)}
                       onChange={(e) => {
                         setSteal((cur) =>
                           e.target.checked

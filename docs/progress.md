@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.266 — Masking leaves Naive on its own port (2026-09-25)
+
+Apply no longer offers Naive on the 443 mux (NekoBox times out there). If Naive occupies :443, Apply moves it to a free public port and UFW opens TCP+UDP. A previous Apply that hid Naive on loopback is undone on reconcile, without Revert. Share link stays `naive+https://user:pass@domain:port`. Refresh the subscription after Apply.
+
+Cover with no ZIP gets the nginx welcome page. REALITY dest and unknown SNI fall through to the selected site: Cover, or WEB proxy if there is no Cover. That is the script's decoy. Not ported: nginx TLS fingerprint, the login-decoy catalog, fail2ban.
+
+**lucxVersion:** lucx.266
+
+---
+
 ## lucx.265 — CSQTT share: raw `+` between VK hashes (2026-09-23)
 
 Android `parseLinkHashes` splits the raw `hashes` value on `+` before percent-decode. `url.Values` / `URLSearchParams` turned that separator into `%2B`, so the client treated the list as one hash and never connected. qWDTT was fine: its client wants commas and decodes first. Share and `/sub/` now emit `hashes=h1+h2`.

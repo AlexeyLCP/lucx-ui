@@ -46,11 +46,15 @@ func GatewayUFWAllow(webPort, subPort, sshPort int, rows []PreviewRow, selected 
 		if selected[r.InboundID] && r.Class != ClassSkip {
 			continue
 		}
-		if r.OldPort <= 0 {
+		port := r.OldPort
+		if r.NewPort > 0 {
+			port = r.NewPort
+		}
+		if port <= 0 {
 			continue
 		}
-		add(fmt.Sprintf("%d/tcp", r.OldPort))
-		add(fmt.Sprintf("%d/udp", r.OldPort))
+		add(fmt.Sprintf("%d/tcp", port))
+		add(fmt.Sprintf("%d/udp", port))
 	}
 	return out
 }
@@ -133,6 +137,17 @@ func ApplyUFW(allows []string) error {
 		return err
 	}
 	return ufwRun("--force", "enable")
+}
+
+// AllowUFW opens one public port for a naive inbound that stays off the mux.
+func AllowUFW(port int) error {
+	if port <= 0 || !UFWAvailable() {
+		return nil
+	}
+	if err := ufwRun("allow", fmt.Sprintf("%d/tcp", port)); err != nil {
+		return err
+	}
+	return ufwRun("allow", fmt.Sprintf("%d/udp", port))
 }
 
 func RevertUFW(wasActive bool) error {

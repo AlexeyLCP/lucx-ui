@@ -8,6 +8,7 @@ package tunnel
 
 import (
 	"encoding/json"
+	"errors"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -31,6 +32,33 @@ func gatewayPanelRoutes(others []*model.Inbound) []CoverRoute {
 
 func CoverSiteDir(id int) string {
 	return filepath.Join(workDir(), CoverKey(id)+"-site")
+}
+
+// defaultDecoyHTML is the nginx welcome page the tester's decoy serves.
+// A probe that gets an empty Cover scores as a proxy; this page is the click
+// path so the operator does not upload a ZIP.
+const defaultDecoyHTML = `<!doctype html><html><head><meta charset="utf-8"><title>Welcome to nginx!</title>
+<style>body{font-family:sans-serif;background:#f4f4f4;text-align:center;padding-top:80px;color:#333}
+h1{color:#2b6cb0}p{color:#666}</style></head>
+<body><h1>Welcome to nginx!</h1>
+<p>If you see this page, the nginx web server is successfully installed and working.</p></body></html>
+`
+
+// EnsureDefaultDecoy writes index.html when the cover site dir has none.
+// An uploaded ZIP is left alone.
+func EnsureDefaultDecoy(dir string) error {
+	dir = strings.TrimSpace(dir)
+	if dir == "" {
+		return errors.New("cover: site directory is empty")
+	}
+	index := filepath.Join(dir, "index.html")
+	if st, err := os.Stat(index); err == nil && !st.IsDir() {
+		return nil
+	}
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		return err
+	}
+	return os.WriteFile(index, []byte(defaultDecoyHTML), 0o644)
 }
 
 func RemoveCoverSite(id int) {
@@ -202,7 +230,7 @@ func coverPublicSource(id int, cfg CoverConfig) (publicDir, publicUpstream strin
 		return absPath(dir), "", nil
 	default:
 		dir := CoverSiteDir(id)
-		if err := RequireIndexHTML(dir); err != nil {
+		if err := EnsureDefaultDecoy(dir); err != nil {
 			return "", "", err
 		}
 		return absPath(dir), "", nil

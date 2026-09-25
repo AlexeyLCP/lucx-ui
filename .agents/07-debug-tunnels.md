@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1an: Naive on the 443 mux times out — FIXED (lucx.266)
+
+- **Symptom:** Apply masking, Naive has no traffic, client timeout. Unticked, Apply says Naive still occupies :443.
+- **Cause:** naive-client SNI is the URL host and HTTP/3 does not survive a TCP-only mux. Default port is 443, so leaving it public also loses the bind to the gateway.
+- **Fix:** Classify Naive as public. Apply moves it off 443, opens that port, does not write a gateway Host. Reconcile releases a Naive already in the snapshot. Refresh the subscription.
+- **Lesson:** do not put a protocol on the SNI mux when the client cannot send a different SNI than the host it dials.
+
 ### Pattern 1am: CSQTT hashes in the panel, no connect — FIXED (lucx.265)
 - **Symptom (VladufQa, 23.09.2026):** CSQTT inbound with VK hashes set does not connect. Same hashes on qWDTT connect.
 - **Cause:** Android `parseLinkHashes` splits the raw `hashes` query on `+` before percent-decode. Panel encoded the separator as `%2B`, so the list arrived as one hash. qWDTT wants commas and decodes first.

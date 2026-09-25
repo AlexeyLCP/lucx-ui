@@ -102,6 +102,7 @@ func TestClassifyInbound_NoProxyAndSkip(t *testing.T) {
 		{"tcp+reality", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["x.ex.com"]}}`}, ClassPassthrough, false},
 		{"grpc+reality", &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"grpc","security":"reality","realitySettings":{"serverNames":["x.ex.com"]}}`}, ClassPassthrough, false},
 		{"kcp+tls", &model.Inbound{Protocol: model.VMESS, StreamSettings: `{"network":"kcp","security":"tls"}`}, "", false},
+		{"naive", &model.Inbound{Protocol: model.Naive, Settings: `{"domain":"n.ex.com"}`}, "", false},
 		{"naive behindCover", &model.Inbound{Protocol: model.Naive, Settings: `{"domain":"n.ex.com","behindCover":true}`}, "", false},
 		{"naive raw", &model.Inbound{Protocol: model.Naive, Settings: `{"domain":"n.ex.com","useRawConfig":true}`}, "", false},
 		{"tproxy behindCover", &model.Inbound{Protocol: model.Tproxy, Settings: `{"hostname":"p.ex.com","behindCover":true}`}, "", false},
@@ -110,6 +111,49 @@ func TestClassifyInbound_NoProxyAndSkip(t *testing.T) {
 		if got.Class != tc.class || got.NoProxy != tc.noProxy {
 			t.Fatalf("%s: class=%q noProxy=%v", tc.name, got.Class, got.NoProxy)
 		}
+	}
+}
+
+func TestPlanNaivePublic_Off443(t *testing.T) {
+	naive := &model.Inbound{Id: 7, Protocol: model.Naive, Enable: true, Port: 443, Settings: `{"domain":"n.example.com"}`}
+	got := PlanNaivePublic(443, []*model.Inbound{naive})
+	if len(got) != 1 || got[0].Port == 443 || got[0].Listen != "" {
+		t.Fatalf("%+v", got)
+	}
+	if PlanNaivePublic(443, []*model.Inbound{
+		{Id: 8, Protocol: model.Naive, Enable: true, Port: 8443, Settings: `{"domain":"n.example.com"}`},
+	}) != nil {
+		t.Fatal("already off 443")
+	}
+}
+
+func TestReleaseMaskedNaive(t *testing.T) {
+	naive := &model.Inbound{
+		Id: 7, Protocol: model.Naive, Enable: true, Listen: "127.0.0.1", Port: 54807,
+		Settings: `{"domain":"n.example.com"}`,
+	}
+	cfg := GatewayConfig{
+		Snapshot: []GatewaySnapshotRow{{InboundID: 7, Listen: "", Port: 8443, HostID: 3}},
+		Routes: []GatewayRoute{
+			{SNI: "n.example.com", Dest: "127.0.0.1:54807", Chan: "naive-7"},
+			{SNI: "vpn.example.com", Dest: "127.0.0.1:1443"},
+		},
+	}
+	next, moves, ok := ReleaseMaskedNaive(cfg, []*model.Inbound{naive}, 443)
+	if !ok || len(moves) != 1 || moves[0].Port != 8443 || moves[0].Listen != "" {
+		t.Fatalf("ok=%v moves=%+v", ok, moves)
+	}
+	if len(next.Snapshot) != 0 || len(next.Routes) != 1 || next.Routes[0].SNI != "vpn.example.com" {
+		t.Fatalf("cfg=%+v", next)
+	}
+}
+
+func TestBuildPreview_NaiveStaysPublic(t *testing.T) {
+	rows := BuildPreview(443, "node.example.com", []*model.Inbound{
+		{Id: 7, Protocol: model.Naive, Enable: true, Port: 443, Remark: "n", Settings: `{"domain":"n.example.com"}`},
+	}, "203.0.113.5")
+	if len(rows) != 1 || rows[0].Class != ClassSkip || rows[0].NewPort == 443 {
+		t.Fatalf("%+v", rows)
 	}
 }
 
@@ -203,6 +247,13 @@ func TestCoverFallback(t *testing.T) {
 	}
 	if got := CoverFallback(rows, map[int]bool{1: true}); got != "" {
 		t.Fatalf("no cover selected: %s", got)
+	}
+	web := []PreviewRow{{InboundID: 3, Protocol: "tproxy", NewPort: 8444, Chan: "tproxycaddy-3"}}
+	if got := CoverFallback(web, map[int]bool{3: true}); got != "127.0.0.1:8444" {
+		t.Fatalf("web proxy fallback: %s", got)
+	}
+	if got := CoverFallbackChan(web, map[int]bool{3: true}); got != "tproxycaddy-3" {
+		t.Fatalf("web proxy chan: %s", got)
 	}
 }
 
@@ -439,8 +490,8 @@ func TestBuildPreview_SetsChan(t *testing.T) {
 	for _, r := range rows {
 		byID[r.InboundID] = r
 	}
-	if byID[1].Chan != "naive-1" {
-		t.Fatalf("naive chan: %+v", byID[1])
+	if byID[1].Class != ClassSkip || byID[1].Chan != "" {
+		t.Fatalf("naive stays public: %+v", byID[1])
 	}
 	if byID[2].Chan != "" {
 		t.Fatalf("passthrough row got chan: %+v", byID[2])
@@ -455,8 +506,8 @@ func TestBuildPreview_SetsChan(t *testing.T) {
 			a = &routes[i]
 		}
 	}
-	if n == nil || n.Chan != "naive-1" || n.Dest == "" {
-		t.Fatalf("naive route: %+v", n)
+	if n != nil {
+		t.Fatalf("naive must not be a mux route: %+v", n)
 	}
 	if a == nil || a.Chan != "" || !a.NoProxy {
 		t.Fatalf("anytls route: %+v", a)
@@ -536,8 +587,8 @@ func TestGatewayAbsorbed(t *testing.T) {
 		Id: 9, Protocol: model.Gateway, Enable: true,
 		Settings: `{"enabled":true,"snapshot":[{"inboundId":1}]}`,
 	}
-	if !GatewayAbsorbed(naive, []*model.Inbound{gwUnified, naive}) {
-		t.Fatalf("unified gateway should absorb naive")
+	if GatewayAbsorbed(naive, []*model.Inbound{gwUnified, naive}) {
+		t.Fatalf("naive is never absorbed — it times out behind the mux")
 	}
 	if GatewayAbsorbed(naive, []*model.Inbound{gwLegacy, naive}) {
 		t.Fatalf("legacy gateway must not absorb")
