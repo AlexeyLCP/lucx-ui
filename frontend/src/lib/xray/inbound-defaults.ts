@@ -355,6 +355,7 @@ export function createDefaultAnytlsInboundSettings(): AnytlsInboundSettings {
     sni: '',
     certFile: '',
     keyFile: '',
+    clients: [],
   };
 }
 

@@ -6,6 +6,8 @@ Naive stays out of the 443 table. On the row below, tick «Спрятать за
 
 **lucxVersion:** lucx.268
 
+CI: `createDefaultAnytlsInboundSettings` lacked `clients` after the schema started requiring it. Default is `[]`.
+
 ---
 
 ## lucx.267 — AnyTLS save keeps clients; TrustTunnel listen matches the picker; DKMS timer_delete probe (2026-09-25)
