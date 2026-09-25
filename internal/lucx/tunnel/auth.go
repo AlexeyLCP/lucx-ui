@@ -91,6 +91,33 @@ func EnsureAuthSeed(settings string) (string, bool) {
 	return SetAuthSeed(settings, hex.EncodeToString(b)), true
 }
 
+// PreserveOmittedClients copies settings.clients from old into new when the
+// form schema stripped the key. An explicit clients array (including empty)
+// is kept — that is a real edit, not a strip.
+func PreserveOmittedClients(oldSettings, newSettings string) string {
+	var neu map[string]any
+	if json.Unmarshal([]byte(newSettings), &neu) != nil || neu == nil {
+		return newSettings
+	}
+	if _, ok := neu["clients"]; ok {
+		return newSettings
+	}
+	var old map[string]any
+	if json.Unmarshal([]byte(oldSettings), &old) != nil || old == nil {
+		return newSettings
+	}
+	clients, ok := old["clients"]
+	if !ok {
+		return newSettings
+	}
+	neu["clients"] = clients
+	bs, err := json.MarshalIndent(neu, "", "  ")
+	if err != nil {
+		return newSettings
+	}
+	return string(bs)
+}
+
 // PreserveAuthSeed copies old seed into new settings when the form stripped it.
 func PreserveAuthSeed(oldSettings, newSettings string) string {
 	if AuthSeed(newSettings) != "" {

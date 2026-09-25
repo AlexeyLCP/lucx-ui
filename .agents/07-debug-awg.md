@@ -270,6 +270,13 @@ Extracted from AGENTS.md. This file is project law.
 - **Healing:** panel update, then re-download .conf (PSK already rotated). Or delete+recreate the client.
 - **Lesson:** any partial client save that can hit `fillProtocolDefaults` must preserve tunnel credentials the way Create does.
 
+### Pattern 1ag: DKMS fail on Ubuntu 22.04 5.15.0-194 — `timer_delete` redeclared — FIXED (lucx.267)
+
+- **Symptom (MasyGreen, issue #114):** fresh install / `x-ui install-awg` on `5.15.0-194-generic`. DKMS exit 2. `make.log`: `static declaration of timer_delete follows non-static declaration` in `compat.h`. Panel is up; AWG module is not.
+- **Cause:** lucx.207 always dropped the `ISUBUNTU2204` skip so the `del_timer` wrapper applied. That fixed `5.15.0-82` (no `timer_delete`). `5.15.0-194` backported the symbol; the static wrapper collides.
+- **Fix:** probe `/lib/modules/$BUILD_K/build/include/linux/timer.h` for `timer_delete(`. Declared → leave upstream skip. Absent → apply the wrap.
+- **Healing:** update, then `x-ui install-awg`.
+
 ### Pattern 1ae: DKMS fail on Ubuntu 22.04 5.15 — `timer_delete` — FIXED
 
 - **Symptom:** `x-ui install-awg` / first install: DKMS exit 2, old module left. `make.log`: `implicit declaration of function ‘timer_delete’` in `device.c` / `wg_pm_notification`. Kernel `5.15.0-82-generic`.

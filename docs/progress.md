@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.267 — AnyTLS save keeps clients; TrustTunnel listen matches the picker; DKMS timer_delete probe (2026-09-25)
+
+AnyTLS inbound save dropped every client: the form schema had no `clients`, Zod stripped the key, `SyncInbound` wrote an empty set. The field is passthrough now. A save that omits the key (other sidecar forms with the same hole) copies the stored array back; an explicit `clients` array, including empty, is left alone.
+
+TrustTunnel HTTP/2 no longer writes `[listen_protocols.quic]`. HTTP/3 still listens TCP and QUIC. Share lines always set TLV `upstream_protocol` (1 = http2, 2 = http3) so NekoBox does not treat a missing tag as QUIC. HTTP/3 subscription emits https and quic, each as TLV and Throne URI.
+
+DKMS `timer_delete` wrap runs only when the build kernel's `timer.h` does not declare it. Ubuntu 22.04 `5.15.0-194` declares it; the old unconditional wrap was issue #114.
+
+**lucxVersion:** lucx.267
+
+---
+
 ## lucx.266 — Masking leaves Naive on its own port (2026-09-25)
 
 Apply no longer offers Naive on the 443 mux (NekoBox times out there). If Naive occupies :443, Apply moves it to a free public port and UFW opens TCP+UDP. A previous Apply that hid Naive on loopback is undone on reconcile, without Revert. Share link stays `naive+https://user:pass@domain:port`. Refresh the subscription after Apply.

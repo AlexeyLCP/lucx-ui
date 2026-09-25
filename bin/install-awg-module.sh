@@ -251,21 +251,34 @@ open(path, "w", encoding="utf-8", errors="surrogateescape").write(new)
 PY
 }
 
+# True when the kernel headers already declare timer_delete(). A static
+# wrapper then conflicts (Ubuntu 22.04 5.15.0-194). Older 5.15 (0-82) has
+# no declaration and needs the del_timer wrap.
+kernel_declares_timer_delete() {
+    local kver="${1:-$(uname -r)}"
+    local hdr="/lib/modules/${kver}/build/include/linux/timer.h"
+    [[ -f "$hdr" ]] && grep -qE 'timer_delete[[:space:]]*\(' "$hdr"
+}
+
 # Upstream compat skips timer_delete() on ISUBUNTU2204, assuming a 5.15
-# backport. 5.15.0-82-generic has none → implicit declaration, DKMS fails,
-# old module left in place. Drop that exception so the del_timer wrapper
-# applies. Keep ISUBUNTU2004: 5.4.0-216 *does* declare timer_delete (backport),
-# and a static wrapper then conflicts. No-op if the line is already gone.
+# backport. 5.15.0-82-generic has none → implicit declaration, DKMS fails.
+# Drop that exception only when this kernel's headers do not declare it.
+# 5.15.0-194 and 5.4.0-216 do declare it; a static wrapper conflicts.
 apply_timer_delete_compat() {
     local f="${1:-compat/compat.h}"
+    local kver="${2:-$(uname -r)}"
     if [[ ! -f "$f" ]]; then
+        return 0
+    fi
+    if kernel_declares_timer_delete "$kver"; then
+        echo -e "${GREEN}timer_delete есть в заголовках ${kver} — обёртку не ставим.${NC}"
         return 0
     fi
     if ! grep -qF 'KERNEL_VERSION(6, 1, 91) && !defined(ISUBUNTU2004) && !defined(ISUBUNTU2204)' "$f"; then
         echo -e "${GREEN}timer_delete compat already patched — skip.${NC}"
         return 0
     fi
-    echo -e "${YELLOW}Патч timer_delete (Ubuntu 22.04 5.15 без бэкпорта)...${NC}"
+    echo -e "${YELLOW}Патч timer_delete (ядро ${kver} без timer_delete)...${NC}"
     sed -i 's/KERNEL_VERSION(6, 1, 91) && !defined(ISUBUNTU2004) && !defined(ISUBUNTU2204) && !defined(ISRHEL9)/KERNEL_VERSION(6, 1, 91) \&\& !defined(ISUBUNTU2004) \&\& !defined(ISRHEL9)/' "$f"
 }
 
@@ -636,18 +649,6 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
 
     apply_udp_tunnel_abi_compat socket.c || \
         echo -e "${YELLOW}Патч udp_tunnel ABI не применился — продолжаем (ядра 7.1.5+ могут не собраться).${NC}"
-    apply_timer_delete_compat compat/compat.h || \
-        echo -e "${YELLOW}Патч timer_delete не применился — Ubuntu 22.04 5.15 может не собраться.${NC}"
-    apply_chacha_lib_compat compat/compat.h || \
-        echo -e "${YELLOW}Патч chacha library не применился — ядра < 5.5 могут не собраться.${NC}"
-    apply_blake2s_zinc_compat compat/compat.h || \
-        echo -e "${YELLOW}Патч blake2s zinc не применился — Ubuntu 20.04 5.4 может не собраться.${NC}"
-
-    # Stage the sources under the real version and compile for the booted kernel.
-    sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"${MOD_VER}\"/" dkms.conf
-    rm -rf "/usr/src/amneziawg-${MOD_VER}"
-    make dkms-install WIREGUARD_VERSION="${MOD_VER}" 2>/dev/null || true
-    dkms add -m amneziawg -v "${MOD_VER}" 2>/dev/null || true
     # Prefer the running kernel; if its headers are missing (meta-upgrade
     # already pulled a newer image), build for the first kernel that has
     # headers so install can finish without a mid-script reboot (lucx.122).
@@ -660,6 +661,18 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
             fi
         done
     fi
+    apply_timer_delete_compat compat/compat.h "$BUILD_K" || \
+        echo -e "${YELLOW}Патч timer_delete не применился — Ubuntu 22.04 5.15 может не собраться.${NC}"
+    apply_chacha_lib_compat compat/compat.h || \
+        echo -e "${YELLOW}Патч chacha library не применился — ядра < 5.5 могут не собраться.${NC}"
+    apply_blake2s_zinc_compat compat/compat.h || \
+        echo -e "${YELLOW}Патч blake2s zinc не применился — Ubuntu 20.04 5.4 может не собраться.${NC}"
+
+    # Stage the sources under the real version and compile for the booted kernel.
+    sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"${MOD_VER}\"/" dkms.conf
+    rm -rf "/usr/src/amneziawg-${MOD_VER}"
+    make dkms-install WIREGUARD_VERSION="${MOD_VER}" 2>/dev/null || true
+    dkms add -m amneziawg -v "${MOD_VER}" 2>/dev/null || true
     dkms build -m amneziawg -v "${MOD_VER}" -k "${BUILD_K}" || {
         echo -e "${RED}Ошибка сборки DKMS — текущий модуль не тронут.${NC}"
         mklog="/var/lib/dkms/amneziawg/${MOD_VER}/build/make.log"

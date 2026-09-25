@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ao: TrustTunnel HTTP/2 listens UDP; NekoBox shows the wrong pair — FIXED (lucx.267)
+
+- **Symptom (VladufQa, 24.09.2026):** HTTP/2 picker → NekoBox shows HTTP and QUIC, and the port listens UDP. HTTP/3 picker → QUIC and QUIC. Wanted: HTTP/2 = one HTTPS listener; HTTP/3 = HTTPS + QUIC.
+- **Cause:** `RenderVpnToml` always wrote `[listen_protocols.quic]`. TLV omitted `upstream_protocol` on HTTP/2; NekoBox treated `tt://?` without that tag as QUIC. HTTP/3 tagged both share lines as h3.
+- **Fix:** QUIC listen only when upstream is http3 (TCP stays). TLV always sets protocol 1 or 2. HTTP/3 share emits https and quic, each as TLV and Throne URI.
+- **Healing:** save the inbound (rewrites vpn.toml) and refresh the subscription.
+
 ### Pattern 1an: Naive on the 443 mux times out — FIXED (lucx.266)
 
 - **Symptom:** Apply masking, Naive has no traffic, client timeout. Unticked, Apply says Naive still occupies :443.

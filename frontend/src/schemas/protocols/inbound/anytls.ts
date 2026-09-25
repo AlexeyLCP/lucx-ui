@@ -12,5 +12,8 @@ export const AnytlsInboundSettingsSchema = z.object({
   sni: z.string().default(''),
   certFile: z.string().default(''),
   keyFile: z.string().default(''),
+  // Clients are edited in the client modal, not this form. Without the field
+  // Zod strips them and a no-op save detaches every client.
+  clients: z.array(z.record(z.string(), z.unknown())).default([]),
 });
 export type AnytlsInboundSettings = z.infer<typeof AnytlsInboundSettingsSchema>;

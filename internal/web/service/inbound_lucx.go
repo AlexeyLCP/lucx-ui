@@ -1334,6 +1334,7 @@ func (s *InboundService) normalizeLucxSidecarsOnUpdate(inbound, oldInbound *mode
 		}
 	}
 	inbound.Settings = tunnel.PreserveAuthSeed(oldInbound.Settings, inbound.Settings)
+	inbound.Settings = tunnel.PreserveOmittedClients(oldInbound.Settings, inbound.Settings)
 	s.ensureNodeAuthSeed(inbound)
 	return nil
 }

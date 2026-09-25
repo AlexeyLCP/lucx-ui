@@ -76,6 +76,14 @@ func TestTrustTunnelRenderVpnToml(t *testing.T) {
 	if strings.Contains(got, "socks5") || strings.Contains(got, "[metrics]") {
 		t.Fatal("direct config must not carry socks5/metrics")
 	}
+	if strings.Contains(got, "[listen_protocols.quic]") {
+		t.Fatal("http2 must not listen UDP")
+	}
+	cfg.UpstreamProtocol = "http3"
+	if quic := cfg.RenderVpnToml("/w/creds.toml", "/w/rules.toml", "", ""); !strings.Contains(quic, "[listen_protocols.quic]") || !strings.Contains(quic, "[listen_protocols.http2]") {
+		t.Fatalf("http3 must listen TCP and QUIC:\n%s", quic)
+	}
+	cfg.UpstreamProtocol = "http2"
 
 	cfg.ListenPreset = "stock"
 	got = cfg.Merge().RenderVpnToml("/w/creds.toml", "/w/rules.toml", "", "")
@@ -301,8 +309,8 @@ func TestTrustTunnelClientDeepLink(t *testing.T) {
 	if _, ok := tlvs[0x04]; ok {
 		t.Fatal("has_ipv6=true (default) must be omitted")
 	}
-	if _, ok := tlvs[0x09]; ok {
-		t.Fatal("http2 (default) must be omitted")
+	if got := tlvs[0x09]; len(got) != 1 || len(got[0]) != 1 || got[0][0] != 1 {
+		t.Fatalf("http2 must set upstream_protocol=1, got %v", tlvs[0x09])
 	}
 	dnsVal := tlvs[0x0D][0]
 	// [len][elem][len][elem]
@@ -312,6 +320,54 @@ func TestTrustTunnelClientDeepLink(t *testing.T) {
 
 	if cfg.ClientDeepLink("", AuthPair{User: "u", Pass: "p"}, "") != "" {
 		t.Fatal("empty address must yield empty link")
+	}
+}
+
+func TestTrustTunnelShareLines(t *testing.T) {
+	cfg := DefaultTrustTunnelConfig()
+	cfg.Hostname = "vpn.example.com"
+	pair := AuthPair{User: "u", Pass: "p"}
+	lines := cfg.ShareLines("vpn.example.com:443", pair, "r")
+	if len(lines) != 2 {
+		t.Fatalf("http2 lines = %d, want TLV+URI: %q", len(lines), lines)
+	}
+	for _, line := range lines {
+		if strings.Contains(line, "alpn=h3") {
+			t.Fatalf("http2 must not advertise quic: %s", line)
+		}
+	}
+	if !strings.Contains(lines[1], "alpn=h2") {
+		t.Fatalf("http2 URI must be h2: %s", lines[1])
+	}
+	cfg.UpstreamProtocol = "http3"
+	lines = cfg.ShareLines("vpn.example.com:443", pair, "r")
+	if len(lines) != 4 {
+		t.Fatalf("http3 lines = %d, want http+quic in both formats: %q", len(lines), lines)
+	}
+	var h2, h3 int
+	for _, line := range lines {
+		if strings.Contains(line, "alpn=h2") {
+			h2++
+		}
+		if strings.Contains(line, "alpn=h3") {
+			h3++
+		}
+	}
+	if h2 != 1 || h3 != 1 {
+		t.Fatalf("http3 must advertise one https and one quic URI, h2=%d h3=%d %q", h2, h3, lines)
+	}
+}
+
+func TestPreserveOmittedClients(t *testing.T) {
+	old := `{"password":"p","clients":[{"email":"a@b","enable":true}]}`
+	stripped := `{"password":"q","sni":"x"}`
+	got := PreserveOmittedClients(old, stripped)
+	if !strings.Contains(got, `"email": "a@b"`) && !strings.Contains(got, `"email":"a@b"`) {
+		t.Fatalf("omitted clients must be restored: %s", got)
+	}
+	explicit := `{"clients":[]}`
+	if got := PreserveOmittedClients(old, explicit); strings.Contains(got, "a@b") {
+		t.Fatalf("explicit empty clients must stay empty: %s", got)
 	}
 }
 
