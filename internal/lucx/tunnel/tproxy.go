@@ -212,15 +212,15 @@ func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPor
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n")
 	writeCaddyServers(&b, false, loopback)
 	b.WriteString("}\n")
-	writeTproxySite(&b, hostname, port, cert, key, relayPort, loopbackBind(loopback), panel)
+	writeTproxySite(&b, hostname, port, cert, key, relayPort, loopbackBind(loopback), panel, nil, nil)
 	return b.String()
 }
 
 // RenderTproxySite emits only the tproxy site block for the unified gateway
 // Caddyfile — chanName is the l4chan listener it binds.
-func RenderTproxySite(hostname string, port int, cert, key string, relayPort int, chanName string, panel []CoverRoute) string {
+func RenderTproxySite(hostname string, port int, cert, key string, relayPort int, chanName string, panel []CoverRoute, naive *NaiveConfig, auth []AuthPair) string {
 	var b strings.Builder
-	writeTproxySite(&b, hostname, port, cert, key, relayPort, "l4chan/"+chanName, panel)
+	writeTproxySite(&b, hostname, port, cert, key, relayPort, "l4chan/"+chanName, panel, naive, auth)
 	return b.String()
 }
 
@@ -231,7 +231,7 @@ func loopbackBind(loopback bool) string {
 	return ""
 }
 
-func writeTproxySite(b *strings.Builder, hostname string, port int, cert, key string, relayPort int, bind string, panel []CoverRoute) {
+func writeTproxySite(b *strings.Builder, hostname string, port int, cert, key string, relayPort int, bind string, panel []CoverRoute, naive *NaiveConfig, auth []AuthPair) {
 	b.WriteString(hostname + ":" + strconv.Itoa(port))
 	b.WriteString(" {\n")
 	if bind != "" {
@@ -248,6 +248,11 @@ func writeTproxySite(b *strings.Builder, hostname string, port int, cert, key st
 	b.WriteString("\theader -Via\n")
 	b.WriteString("\theader Server nginx\n")
 	writeHTTPPanelRoutes(b, panel, "\t")
+	if naive != nil {
+		b.WriteString("\troute {\n")
+		naive.appendForwardProxy(b, auth, "\t\t")
+		b.WriteString("\t}\n")
+	}
 	b.WriteString("\treverse_proxy 127.0.0.1:")
 	b.WriteString(strconv.Itoa(relayPort))
 	b.WriteString(" {\n")

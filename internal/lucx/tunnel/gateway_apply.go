@@ -292,6 +292,32 @@ func clearSettingsListen(ib *model.Inbound) {
 	ib.Settings = string(out)
 }
 
+func setSettingsBool(ib *model.Inbound, key string, val bool) {
+	var m map[string]any
+	_ = json.Unmarshal([]byte(ib.Settings), &m)
+	if m == nil {
+		m = map[string]any{}
+	}
+	m[key] = val
+	out, err := json.Marshal(m)
+	if err != nil {
+		return
+	}
+	ib.Settings = string(out)
+}
+
+// HideNaiveOnSite fronts naive on the masking site. cover=true uses Cover's
+// existing behindCover path. Otherwise the WEB proxy site injects forward_proxy.
+func HideNaiveOnSite(ib *model.Inbound, host string, cover bool) {
+	if ib == nil {
+		return
+	}
+	setSettingsKey(ib, "domain", host)
+	setSettingsBool(ib, "hideOn443", true)
+	setSettingsBool(ib, "behindCover", cover)
+	setSettingsBool(ib, "enableH3", false)
+}
+
 func setSettingsKey(ib *model.Inbound, key, val string) {
 	var m map[string]any
 	_ = json.Unmarshal([]byte(ib.Settings), &m)
@@ -583,7 +609,7 @@ func PlanNaivePublic(gatewayPort int, others []*model.Inbound) []NaiveMove {
 			continue
 		}
 		cfg, ok := ConfigFromInbound(ib)
-		if ok && (cfg.BehindCover || cfg.UseRawConfig) {
+		if ok && (cfg.BehindCover || cfg.HideOn443 || cfg.UseRawConfig) {
 			continue
 		}
 		port := nextFreePort(ClassCaddy, used)
@@ -621,7 +647,7 @@ func ReleaseMaskedNaive(cfg GatewayConfig, others []*model.Inbound, gatewayPort 
 			continue
 		}
 		ncfg, ok := ConfigFromInbound(ib)
-		if ok && (ncfg.BehindCover || ncfg.UseRawConfig) {
+		if ok && (ncfg.BehindCover || ncfg.HideOn443 || ncfg.UseRawConfig) {
 			snap = append(snap, sr)
 			continue
 		}

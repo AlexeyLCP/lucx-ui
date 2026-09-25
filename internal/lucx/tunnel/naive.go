@@ -88,6 +88,9 @@ type NaiveConfig struct {
 	// BehindCover: this inbound does not bind. Cover Caddy on :80/:443
 	// owns TLS and injects forward_proxy. Own caddy stays down.
 	BehindCover bool `json:"behindCover"`
+	// HideOn443: masking fronts this inbound on the selected site (Cover or
+	// WEB proxy). Own port stays unused. Share link is domain:443.
+	HideOn443 bool `json:"hideOn443"`
 
 	MigratedToInbound bool `json:"migratedToInbound,omitempty"`
 	MigratedInboundId int  `json:"migratedInboundId,omitempty"`

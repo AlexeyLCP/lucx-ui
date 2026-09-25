@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## lucx.268 — Masking: hide Naive behind the selected site (2026-09-25)
+
+Naive stays out of the 443 table. On the row below, tick «Спрятать за сайт» and Apply: the share link becomes `naive+https://…@site:443`. Cover uses behindCover; WEB proxy injects forward_proxy. HTTP/3 is turned off so NekoBox does not QUIC to a private port.
+
+**lucxVersion:** lucx.268
+
+---
+
 ## lucx.267 — AnyTLS save keeps clients; TrustTunnel listen matches the picker; DKMS timer_delete probe (2026-09-25)
 
 AnyTLS inbound save dropped every client: the form schema had no `clients`, Zod stripped the key, `SyncInbound` wrote an empty set. The field is passthrough now. A save that omits the key (other sidecar forms with the same hole) copies the stored array back; an explicit `clients` array, including empty, is left alone.

@@ -51,6 +51,7 @@ type naiveInboundSettings struct {
 	UseRawConfig     bool   `json:"useRawConfig"`
 	RawConfig        string `json:"rawConfig"`
 	BehindCover      bool   `json:"behindCover"`
+	HideOn443        bool   `json:"hideOn443"`
 	Clients          []struct {
 		Email  string `json:"email"`
 		Enable bool   `json:"enable"`
@@ -89,6 +90,7 @@ func ConfigFromInbound(ib *model.Inbound) (NaiveConfig, bool) {
 		UseRawConfig:     s.UseRawConfig,
 		RawConfig:        s.RawConfig,
 		BehindCover:      s.BehindCover,
+		HideOn443:        s.HideOn443,
 	}.Merge()
 	if IsLoopbackListen(ib.Listen) {
 		cfg.Listen = ib.Listen
@@ -105,7 +107,7 @@ func InstanceFromInbound(ib *model.Inbound, secret []byte) (Instance, bool) {
 	if !ok {
 		return Instance{}, false
 	}
-	if !ib.Enable {
+	if !ib.Enable || cfg.HideOn443 || cfg.BehindCover {
 		return Instance{
 			Core:    Naive,
 			Key:     NaiveKey(ib.Id),

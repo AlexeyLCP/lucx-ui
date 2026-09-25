@@ -97,6 +97,7 @@ export default function MaskingPage() {
   const [picked, setPicked] = useState(false);
   const [ufw, setUfw] = useState(false);
   const [hidePanel, setHidePanel] = useState(false);
+  const [hideNaive, setHideNaive] = useState<number[]>([]);
   const [sniEdits, setSniEdits] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
 
@@ -184,6 +185,7 @@ export default function MaskingPage() {
         {
           selected: chosen,
           steal,
+          hideNaive,
           publicHost: host,
           ufw,
           hidePanel,
@@ -429,7 +431,37 @@ export default function MaskingPage() {
                     render: (_: unknown, r: PreviewRow) => t(classKey(r.class) || r.class),
                   },
                   listenCol,
-                  noteCol,
+                  {
+                    title: '',
+                    render: (_: unknown, r: PreviewRow) => {
+                      if (r.protocol !== 'naive') return r.note || null;
+                      const site = shown.find(
+                        (s) =>
+                          chosen.includes(s.inboundId) &&
+                          (s.protocol === 'cover' || s.protocol === 'tproxy') &&
+                          s.sni,
+                      );
+                      return (
+                        <>
+                          <div>{t('pages.masking.naiveOwnPort', { port: r.newPort })}</div>
+                          {site && !applied ? (
+                            <Checkbox
+                              checked={hideNaive.includes(r.inboundId)}
+                              onChange={(e) =>
+                                setHideNaive((cur) =>
+                                  e.target.checked
+                                    ? [...cur, r.inboundId]
+                                    : cur.filter((id) => id !== r.inboundId),
+                                )
+                              }
+                            >
+                              {t('pages.masking.hideNaive', { host: site.sni })}
+                            </Checkbox>
+                          ) : null}
+                        </>
+                      );
+                    },
+                  },
                 ]}
               />
             </>

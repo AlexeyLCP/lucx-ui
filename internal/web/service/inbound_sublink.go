@@ -71,7 +71,9 @@ func naiveShareURL(ib *model.Inbound) string {
 	if !ok || cfg.UseRawConfig {
 		return ""
 	}
-	if p := gatewayHostPort(ib.Id); p > 0 {
+	if cfg.HideOn443 || cfg.BehindCover {
+		cfg.Port = 443
+	} else if p := gatewayHostPort(ib.Id); p > 0 {
 		cfg.Port = p
 	}
 	return cfg.ClientURL()

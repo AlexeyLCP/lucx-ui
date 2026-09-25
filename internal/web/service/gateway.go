@@ -26,6 +26,7 @@ type GatewayApplyRequest struct {
 	PublicHost string            `json:"publicHost"`
 	UFW        bool              `json:"ufw"`
 	HidePanel  bool              `json:"hidePanel"`
+	HideNaive  []int             `json:"hideNaive"`
 	SNI        map[string]string `json:"sni"`
 }
 
@@ -121,6 +122,9 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		return err
 	}
 	rows := tunnel.BuildPreview(gw.Port, host, others, bindIP)
+	if err := hideNaiveOnSite(byID, rows, selected, req.HideNaive); err != nil {
+		return err
+	}
 	if c := tunnel.SNIClash(rows, selected); c != "" {
 		return common.NewError("gateway: duplicate SNI", c)
 	}
@@ -465,6 +469,48 @@ func (s *InboundService) BindAppliedRealityDest() bool {
 		}
 	}
 	return changed
+}
+
+func hideNaiveOnSite(byID map[int]*model.Inbound, rows []tunnel.PreviewRow, selected map[int]bool, ids []int) error {
+	if len(ids) == 0 {
+		return nil
+	}
+	host, cover := selectedSiteHost(rows, selected)
+	if host == "" {
+		return common.NewError("gateway: pick Cover or WEB proxy to hide Naive behind 443")
+	}
+	db := database.GetDB()
+	for _, id := range ids {
+		ib := byID[id]
+		if ib == nil || ib.Protocol != model.Naive {
+			continue
+		}
+		tunnel.HideNaiveOnSite(ib, host, cover)
+		if err := db.Model(&model.Inbound{}).Where("id = ?", ib.Id).Update("settings", ib.Settings).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func selectedSiteHost(rows []tunnel.PreviewRow, selected map[int]bool) (host string, cover bool) {
+	var tproxy string
+	for _, r := range rows {
+		if selected != nil && !selected[r.InboundID] {
+			continue
+		}
+		switch r.Protocol {
+		case string(model.Cover):
+			if r.SNI != "" {
+				return r.SNI, true
+			}
+		case string(model.Tproxy):
+			if r.SNI != "" && tproxy == "" {
+				tproxy = r.SNI
+			}
+		}
+	}
+	return tproxy, false
 }
 
 func applyNaiveMoves(byID map[int]*model.Inbound, moves []tunnel.NaiveMove) error {

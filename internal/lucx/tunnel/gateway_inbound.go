@@ -130,6 +130,26 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 	}, true
 }
 
+// naiveHiddenOn is a naive inbound the operator hid on this site hostname.
+func naiveHiddenOn(others []*model.Inbound, host string, secret []byte) (*NaiveConfig, []AuthPair) {
+	host = strings.ToLower(strings.TrimSpace(host))
+	if host == "" {
+		return nil, nil
+	}
+	for _, o := range others {
+		cfg, ok := ConfigFromInbound(o)
+		if !ok || !o.Enable || cfg.UseRawConfig || !cfg.HideOn443 || cfg.BehindCover {
+			continue
+		}
+		if strings.ToLower(strings.TrimSpace(cfg.Domain)) != host {
+			continue
+		}
+		c := cfg
+		return &c, naiveClientAuth(secret, o)
+	}
+	return nil, nil
+}
+
 // gatewaySiteBlock renders the site block one absorbed caddy-class inbound
 // contributes to the unified gateway Caddyfile. Returns the cert path so the
 // instance fingerprint tracks renewals. Empty site = the inbound stays down.
@@ -137,7 +157,7 @@ func gatewaySiteBlock(o *model.Inbound, others []*model.Inbound, secret []byte, 
 	switch o.Protocol {
 	case model.Naive:
 		ncfg, ok := ConfigFromInbound(o)
-		if !ok || ncfg.UseRawConfig || ncfg.BehindCover {
+		if !ok || ncfg.UseRawConfig || ncfg.BehindCover || ncfg.HideOn443 {
 			return "", ""
 		}
 		if ncfg.UseAcme || strings.TrimSpace(ncfg.CertFile) == "" || strings.TrimSpace(ncfg.KeyFile) == "" {
@@ -175,7 +195,8 @@ func gatewaySiteBlock(o *model.Inbound, others []*model.Inbound, secret []byte, 
 		if port <= 0 {
 			port = 443
 		}
-		return RenderTproxySite(tcfg.Hostname, port, cf, kf, tproxyLoopback(o.Id, 2), TproxyCaddyKey(o.Id), gatewayPanelRoutes(others)), cf
+		naive, auth := naiveHiddenOn(others, tcfg.Hostname, secret)
+		return RenderTproxySite(tcfg.Hostname, port, cf, kf, tproxyLoopback(o.Id, 2), TproxyCaddyKey(o.Id), gatewayPanelRoutes(others), naive, auth), cf
 	}
 	return "", ""
 }
