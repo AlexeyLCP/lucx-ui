@@ -30,4 +30,8 @@ export const awgImportApi = {
     const raw = await HttpUtil.post<AwgImportResult[]>(`${BASE}/commit`, { ids }, JSON_HEADERS);
     return parseMsg(raw, z.array(AwgImportResultSchema), 'awg-import/commit');
   },
+  remove: async (ids: string[]): Promise<Msg<AwgImportResult[]>> => {
+    const raw = await HttpUtil.post<AwgImportResult[]>(`${BASE}/delete`, { ids }, JSON_HEADERS);
+    return parseMsg(raw, z.array(AwgImportResultSchema), 'awg-import/delete');
+  },
 };

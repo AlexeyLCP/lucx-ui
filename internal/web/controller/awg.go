@@ -296,4 +296,14 @@ func (a *InboundController) awgImportCommit(c *gin.Context) {
 	notifyClientsChanged()
 }
 
+func (a *InboundController) awgImportDelete(c *gin.Context) {
+	var req awgImportCommitRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		jsonMsg(c, "awg import: invalid request body", err)
+		return
+	}
+	svc := &service.AwgImportService{}
+	jsonObj(c, svc.Delete(req.IDs), nil)
+}
+
 // END LUCX-HOOK

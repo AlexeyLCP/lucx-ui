@@ -123,6 +123,7 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/awg/import/preview", a.awgImportPreview)
 	g.POST("/awg/import/dismiss", a.awgImportDismiss)
 	g.POST("/awg/import/commit", a.awgImportCommit)
+	g.POST("/awg/import/delete", a.awgImportDelete)
 	g.POST("/gatewayEnsure", a.gatewayEnsure)
 	g.GET("/:id/gatewayPreview", a.gatewayPreview)
 	g.POST("/:id/gatewayApply", a.gatewayApply)

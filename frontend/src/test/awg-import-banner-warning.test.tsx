@@ -34,7 +34,7 @@ vi.mock('antd', async (importOriginal) => {
 });
 
 vi.mock('@/api/awg-import', () => ({
-  awgImportApi: { preview: vi.fn(), dismiss: vi.fn(), commit: vi.fn() },
+  awgImportApi: { preview: vi.fn(), dismiss: vi.fn(), commit: vi.fn(), remove: vi.fn() },
 }));
 
 const IFIELD_WARNING =

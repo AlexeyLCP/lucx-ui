@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Modal, Space, Table, Tag, Typography, message } from 'antd';
+import { Alert, Button, Modal, Popconfirm, Space, Table, Tag, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 
 import { awgImportApi } from '@/api/awg-import';
@@ -109,6 +109,32 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
     }
   };
 
+  const onDelete = async () => {
+    if (selected.length === 0) {
+      return;
+    }
+    setBusy(true);
+    try {
+      const msg = await awgImportApi.remove(selected);
+      if (!msg.success || !msg.obj) {
+        message.error(msg.msg || t('pages.inbounds.awgImport.none'));
+        return;
+      }
+      const ok = msg.obj.filter((r) => !r.error);
+      const fail = msg.obj.filter((r) => r.error);
+      setResults(msg.obj);
+      if (ok.length > 0) {
+        message.success(t('pages.inbounds.awgImport.deleted', { count: ok.length }));
+      }
+      if (fail.length > 0) {
+        message.warning(fail.map((r) => `${r.id}: ${r.error}`).join('; '));
+      }
+      await load();
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const columns: ColumnsType<AwgImportCandidate> = [
     { title: t('pages.inbounds.awgImport.source'), dataIndex: 'source', width: 130 },
     { title: 'if', dataIndex: 'ifname', width: 90 },
@@ -183,6 +209,18 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
           <Button key="skip" onClick={() => void onSkip()}>
             {t('pages.inbounds.awgImport.skip')}
           </Button>,
+          <Popconfirm
+            key="del"
+            title={t('pages.inbounds.awgImport.deleteConfirm')}
+            okText={t('delete')}
+            cancelText={t('cancel')}
+            okButtonProps={{ danger: true }}
+            onConfirm={() => void onDelete()}
+          >
+            <Button danger disabled={selected.length === 0} loading={busy}>
+              {t('pages.inbounds.awgImport.delete')}
+            </Button>
+          </Popconfirm>,
           <Button key="ok" type="primary" loading={busy} onClick={() => void onCommit()}>
             {t('pages.inbounds.awgImport.confirm')}
           </Button>,

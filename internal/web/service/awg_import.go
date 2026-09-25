@@ -90,6 +90,35 @@ func (s *AwgImportService) Commit(userId int, ids []string) []AwgImportResult {
 	return out
 }
 
+// Delete stops the selected foreign installs and removes them from discover.
+// It does not create or delete panel inbounds.
+func (s *AwgImportService) Delete(ids []string) []AwgImportResult {
+	found := map[string]awg.ImportCandidate{}
+	for _, c := range awg.Discover(awg.DefaultDiscoverPaths()) {
+		found[c.ID] = c
+	}
+	for _, c := range tproxyCandidates() {
+		found[c.ID] = c
+	}
+	out := make([]AwgImportResult, 0, len(ids))
+	for _, id := range ids {
+		c, ok := found[id]
+		if !ok {
+			out = append(out, AwgImportResult{ID: id, Error: "candidate not found"})
+			continue
+		}
+		res := AwgImportResult{ID: c.ID}
+		if err := awg.RemoveImportCandidate(c); err != nil {
+			logger.Warningf("awg import: delete %s: %v", c.ID, err)
+			res.Error = err.Error()
+		} else {
+			res.Stopped = true
+		}
+		out = append(out, res)
+	}
+	return out
+}
+
 func (s *AwgImportService) reservedEmails() map[string]struct{} {
 	used := map[string]struct{}{}
 	emails, err := s.Inbound.GetAllEmails()

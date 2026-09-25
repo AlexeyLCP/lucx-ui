@@ -498,6 +498,20 @@ export const sections: readonly Section[] = [
         ],
       },
       {
+        method: 'POST',
+        path: '/panel/api/inbounds/awg/import/delete',
+        summary:
+          'Stop and remove selected unmanaged AWG or tproxy installs from this host. Does not create or delete panel inbounds. LucX-UI only.',
+        params: [
+          {
+            name: 'ids',
+            in: 'body',
+            type: 'string',
+            desc: 'JSON array of candidate IDs from preview (source:ifname).',
+          },
+        ],
+      },
+      {
         method: 'GET',
         path: '/panel/api/inbounds/:id/awgTestMtu',
         summary:

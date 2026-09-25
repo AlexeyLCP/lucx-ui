@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## unreleased — Delete discovered AWG / tproxy without importing (2026-09-25)
+
+Import modal gained **Delete selected**. It stops the foreign install and drops it from discover. It does not create or delete panel inbounds. AWG `.conf` files move to `x-ui-backup`. tproxy stops `tproxy-server` / `mtprotoproxy`, removes `/etc/tproxy-server`, and drops an nginx vhost that only reverse-proxies that listen port.
+
+No `lucxVersion` bump and no tag — not a release.
+
+Tests: `go test ./internal/awg/ ./internal/lucx/tunnel/`, frontend `awg-import-banner-warning` + i18n dead keys.
+
+---
+
 ## lucx.268 — Masking: hide Naive behind the selected site (2026-09-25)
 
 Naive stays out of the 443 table. On the row below, tick «Спрятать за сайт» and Apply: the share link becomes `naive+https://…@site:443`. Cover uses behindCover; WEB proxy injects forward_proxy. HTTP/3 is turned off so NekoBox does not QUIC to a private port.
