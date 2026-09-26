@@ -180,7 +180,8 @@ func gatewaySiteBlock(o *model.Inbound, others []*model.Inbound, secret []byte, 
 		if !ok {
 			return "", ""
 		}
-		att.bind = "l4chan/" + CoverKey(o.Id)
+		// Loopback too: REALITY steal rows point at 127.0.0.1:<cover port>.
+		att.bind = "l4chan/" + CoverKey(o.Id) + " 127.0.0.1"
 		if o.Port > 0 {
 			att.httpsPort = o.Port
 		}

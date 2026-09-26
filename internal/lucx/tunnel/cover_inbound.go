@@ -133,6 +133,16 @@ func CoverInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secret
 	}, true
 }
 
+// StandaloneCoverInstance is the cover's own sidecar: off while a unified
+// gateway serves the site, which also holds the cover's loopback port.
+func StandaloneCoverInstance(ib *model.Inbound, all []*model.Inbound, secret []byte, panelCert, panelKey string) (Instance, bool) {
+	inst, ok := CoverInstanceFromInbound(ib, all, secret, panelCert, panelKey)
+	if ok && GatewayAbsorbed(ib, all) {
+		inst.Enabled = false
+	}
+	return inst, ok
+}
+
 // coverAttachFor resolves certs, public source and attached naive/tproxy for
 // one cover inbound — shared by the standalone render and the unified
 // gateway site block.
