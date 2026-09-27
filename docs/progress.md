@@ -6,7 +6,7 @@ Apply no longer writes REALITY `dest` or `serverNames`. Reconcile does not eithe
 
 **lucxVersion:** lucx.269
 
-Tests: `go test ./internal/lucx/tunnel/ -count=1` (preview, plain path, cover route, reality SNI, empty listen).
+Tests: `go test ./internal/lucx/tunnel/ -count=1` (preview, plain path, cover route, reality SNI, empty listen). CI golangci: goimports group for gorm, drop unused `coverSelected`.
 
 ---
 

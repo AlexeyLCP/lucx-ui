@@ -18,6 +18,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
+
 	"gorm.io/gorm"
 )
 
@@ -439,15 +440,6 @@ func inboundLabel(ib *model.Inbound) string {
 		return s
 	}
 	return fmt.Sprintf("%s #%d", ib.Protocol, ib.Id)
-}
-
-func coverSelected(rows []tunnel.PreviewRow, selected map[int]bool) bool {
-	for _, row := range rows {
-		if selected[row.InboundID] && (row.Protocol == string(model.Cover) || row.Protocol == string(model.Tproxy)) {
-			return true
-		}
-	}
-	return false
 }
 
 // BindAppliedRealityDest used to rewrite REALITY dest to the Cover loopback
