@@ -486,7 +486,7 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 				return false, common.NewError("empty client ID")
 			}
 		}
-		if oldInbound.Protocol == model.AmneziaWG {
+		if portForwardProtocol(oldInbound.Protocol) {
 			if hit := inboundSvc.checkForwardedPortsConflict(portCtx, client.ForwardedPorts); hit != "" {
 				return false, common.NewError("amneziawg: forwardedPorts collides with", hit)
 			}
@@ -550,7 +550,7 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 				}
 			}
 		}
-		if oldInbound.Protocol == model.AmneziaWG {
+		if portForwardProtocol(oldInbound.Protocol) {
 			txPortCtx, pErr := inboundSvc.loadPortConflictContext(tx)
 			if pErr != nil {
 				return pErr
@@ -793,16 +793,13 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 		if clients[0].KeepAlive == "" {
 			clients[0].KeepAlive = old.KeepAlive
 		}
-		// ForwardedPorts is AmneziaWG-only (WireGuard's own inbound never
-		// reads it), same carry-forward reasoning as the fields above: a
-		// partial edit (e.g. a Telegram-bot enable/expiry toggle, or an API
-		// call that omits the field) must not silently drop a client's
-		// existing port-forwarding spec.
-		if oldInbound.Protocol == model.AmneziaWG && clients[0].ForwardedPorts == "" {
+		// ForwardedPorts is not a WireGuard field. A partial edit that omits
+		// it must not drop a stored spec. Kernel AWG reads the same key.
+		if portForwardProtocol(oldInbound.Protocol) && clients[0].ForwardedPorts == "" {
 			clients[0].ForwardedPorts = old.ForwardedPorts
 		}
 	}
-	if oldInbound.Protocol == model.AmneziaWG {
+	if portForwardProtocol(oldInbound.Protocol) {
 		portCtx, err := inboundSvc.loadPortConflictContext(database.GetDB())
 		if err != nil {
 			return false, err
@@ -860,7 +857,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 				if s := keepAliveStr(clients[0].KeepAlive); s != "" {
 					newMap["keepAlive"] = s
 				}
-				if oldInbound.Protocol == model.AmneziaWG && clients[0].ForwardedPorts != "" {
+				if portForwardProtocol(oldInbound.Protocol) && clients[0].ForwardedPorts != "" {
 					newMap["forwardedPorts"] = clients[0].ForwardedPorts
 				}
 			}
@@ -939,7 +936,7 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 	if txErr := runSerializedTx(func(tx *gorm.DB) error {
 		// Same re-check-inside-the-writer rule as AddInboundClient (#6225):
 		// the pre-tx pass can race a concurrent writer on another inbound.
-		if oldInbound.Protocol == model.AmneziaWG {
+		if portForwardProtocol(oldInbound.Protocol) {
 			txPortCtx, pErr := inboundSvc.loadPortConflictContext(tx)
 			if pErr != nil {
 				return pErr

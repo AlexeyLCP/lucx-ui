@@ -35,6 +35,10 @@ type updateUserForm struct {
 // "unchanged", so clearing needs its own signal — see #5724).
 type updateSettingForm struct {
 	entity.AllSetting
+	// LUCX-HOOK: nil means the client omitted tgBotProxy (keep stored). A
+	// present empty string is an explicit clear. Shadows AllSetting.TgBotProxy.
+	TgBotProxy *string `json:"tgBotProxy" form:"tgBotProxy"`
+	// END LUCX-HOOK
 	TwoFactorCode        string `json:"twoFactorCode" form:"twoFactorCode"`
 	ClearTgBotToken      bool   `json:"clearTgBotToken" form:"clearTgBotToken"`
 	ClearLdapPassword    bool   `json:"clearLdapPassword" form:"clearLdapPassword"`
@@ -134,6 +138,13 @@ func (a *SettingController) updateSetting(c *gin.Context) {
 	oldTgToken, _ := a.settingService.GetTgBotToken()
 	oldTgChatId, _ := a.settingService.GetTgBotChatId()
 	oldTgAPIServer, _ := a.settingService.GetTgBotAPIServer()
+	// LUCX-HOOK: omitted proxy must not wipe a value an older client never sent.
+	oldTgProxy, _ := a.settingService.GetTgBotProxy()
+	allSetting.TgBotProxy = oldTgProxy
+	if form.TgBotProxy != nil {
+		allSetting.TgBotProxy = strings.TrimSpace(*form.TgBotProxy)
+	}
+	// END LUCX-HOOK
 	oldDiscordEnable, _ := a.settingService.GetDiscordBotEnable()
 	oldDiscordToken, _ := a.settingService.GetDiscordBotToken()
 	oldDiscordChannelId, _ := a.settingService.GetDiscordChannelId()
@@ -171,10 +182,14 @@ func (a *SettingController) updateSetting(c *gin.Context) {
 	}
 	// UpdateAllSetting already restored a redacted-blank token, so allSetting.TgBotToken is the effective value to compare.
 	if err == nil && reloadTgbotFunc != nil {
+		// LUCX-HOOK: proxy and panel egress are the bot's dial path.
 		tgChanged := oldTgEnable != allSetting.TgBotEnable ||
 			(allSetting.TgBotEnable && (oldTgToken != allSetting.TgBotToken ||
 				oldTgChatId != allSetting.TgBotChatId ||
-				oldTgAPIServer != allSetting.TgBotAPIServer))
+				oldTgAPIServer != allSetting.TgBotAPIServer ||
+				oldTgProxy != allSetting.TgBotProxy ||
+				oldPanelOutbound != allSetting.PanelOutbound))
+		// END LUCX-HOOK
 		if tgChanged {
 			reloadTgbotFunc()
 		}

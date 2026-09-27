@@ -29,6 +29,10 @@ export class AllSetting {
   datepicker: 'gregorian' | 'jalalian' = 'gregorian';
   tgBotEnable = false;
   tgBotToken = '';
+  // LUCX-HOOK: cloneProps only copies fields that exist on the destination.
+  // Without this, a settings save drops a stored Telegram proxy.
+  tgBotProxy = '';
+  // END LUCX-HOOK
   tgBotAPIServer = '';
   tgBotChatId = '';
   tgRunTime = '@daily';

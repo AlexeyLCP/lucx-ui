@@ -118,6 +118,20 @@ export default function TelegramTab({ allSetting, updateSetting }: TelegramTabPr
                 />
               </SettingListItem>
 
+              {/* LUCX-HOOK: bot proxy is persisted by the backend; the form must round-trip it. */}
+              <SettingListItem
+                paddings="small"
+                title={t('pages.settings.telegramProxy')}
+                description={t('pages.settings.telegramProxyDesc')}
+              >
+                <Input
+                  value={allSetting.tgBotProxy}
+                  placeholder="socks5://127.0.0.1:10881"
+                  onChange={(e) => updateSetting({ tgBotProxy: e.target.value })}
+                />
+              </SettingListItem>
+              {/* END LUCX-HOOK */}
+
               <SettingListItem
                 paddings="small"
                 title={t('pages.settings.telegramAPIServer')}

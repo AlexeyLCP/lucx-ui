@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.270 — AWG port-forward save; Telegram proxy survives settings save (2026-09-27)
+
+Client edit of kernel AWG dropped `forwardedPorts`: the settings write and conflict check only ran for AmneziaWG, so the clients page reopened with an empty field and iptables never saw the spec. Both protocols now share that path, and the editor writes `wg_forwarded_ports` itself when the field is non-empty. Empty still means omit.
+
+Settings save dropped `tgBotProxy` because `AllSetting` did not declare it (`cloneProps` only copies existing fields). The class and Telegram tab now round-trip it. An omitted proxy keeps the stored value; an explicit empty string clears it. The bot restarts when its proxy or panel egress changes.
+
+**lucxVersion:** lucx.270
+
+Tests: frontend `telegram-proxy`, `client-forwarded-ports`. Go controller/service tests need Linux CGO.
+
+---
+
 ## lucx.269 — Masking: stop rewriting REALITY; hide WS inside Cover (2026-09-27)
 
 Apply no longer writes REALITY `dest` or `serverNames`. Reconcile does not either. Passthrough leaves public :443. Revert writes `listen` with a map so an empty listen clears `127.0.0.1`. Other subscription hosts for that inbound are disabled until Revert. WS / HTTPUpgrade (VLESS, VMess, Trojan, Shadowsocks) can sit inside a selected Cover on a path; the inbound TLS is dropped because Cover terminates it. Naive still uses the existing hide-behind-site checkbox. UDP (AWG included) stays public with a note, no checkbox.

@@ -846,6 +846,18 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		return needRestart, err
 	}
 
+	// LUCX-HOOK: the editor always sends forwardedPorts. Sync from inbound
+	// JSON can miss it (kernel AWG used to skip the settings write), so the
+	// clients page reopened with an empty field. Empty still means omit.
+	if updated.ForwardedPorts != "" {
+		if err := database.GetDB().Model(&model.ClientRecord{}).
+			Where("id = ?", id).
+			UpdateColumn("wg_forwarded_ports", updated.ForwardedPorts).Error; err != nil {
+			return needRestart, err
+		}
+	}
+	// END LUCX-HOOK
+
 	if err := database.GetDB().Model(&model.ClientRecord{}).
 		Where("id = ?", id).
 		UpdateColumn("enable", updated.Enable).Error; err != nil {
