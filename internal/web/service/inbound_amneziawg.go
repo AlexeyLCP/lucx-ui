@@ -115,6 +115,9 @@ func (s *InboundService) desiredKernelAwgAsEmbedded() ([]amneziawg.Instance, err
 }
 
 func kernelAwgToEmbedded(src awg.Instance) (amneziawg.Instance, bool) {
+	if src.UsesTproxy() {
+		return amneziawg.Instance{}, false
+	}
 	if src.PrivateKey == "" || src.Port <= 0 {
 		return amneziawg.Instance{}, false
 	}

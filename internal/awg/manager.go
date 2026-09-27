@@ -103,6 +103,11 @@ func (m *Manager) sweepOrphansLocked() {
 }
 
 func (m *Manager) ensureLocked(inst Instance) error {
+	if inst.UsesTproxy() {
+		if err := inst.validateTproxy(); err != nil {
+			return err
+		}
+	}
 	conf := renderServerConf(inst)
 	fp := deviceFingerprint(conf)
 	peerFP := inst.peerFingerprint()
@@ -126,6 +131,7 @@ func (m *Manager) ensureLocked(inst Instance) error {
 		_ = cur.proc.Stop()
 		delete(m.procs, inst.Id)
 	}
+	cleanupTproxyConfig(configPathForID(inst.Id))
 	if err := writeServerConfig(inst.Id, conf); err != nil {
 		return err
 	}
@@ -164,6 +170,7 @@ func (m *Manager) Remove(id int) {
 		delete(m.procs, id)
 		logger.Infof("awg: stopped interface %s for inbound %d", cur.ifname, id)
 	}
+	cleanupTproxyConfig(configPathForID(id))
 	m.flushPortForwards(id)
 	m.flushP2PRules(id)
 	path := configPathForID(id)
@@ -263,6 +270,7 @@ func sweepOrphanInboundConfigs(want map[int]struct{}) {
 		if !configIsManaged(path) {
 			continue
 		}
+		cleanupTproxyConfig(path)
 		if err := backupConfigFile(path); err != nil {
 			logger.Warningf("awg: sweep: could not back up orphan %s (leaving in place): %v", path, err)
 		} else {
@@ -569,6 +577,10 @@ func ruleMissing(ruleOutput string, table int) bool {
 // cannot install it because tunN does not exist yet when awg-quick runs. A
 // no-op (and silent) while tunN is absent — Xray may be down or restarting.
 func (m *Manager) ensureXrayRouting(inst Instance) {
+	if inst.UsesTproxy() {
+		m.ensureTproxyRouting(inst)
+		return
+	}
 	if !inst.RouteThroughXray {
 		return
 	}
@@ -640,6 +652,9 @@ func clientSubnet(address string) string {
 // reconcile loop) owns it. No MASQUERADE here — Xray terminates the flows in
 // its TUN netstack and dials out with the server's own address.
 func natPostUpPostDown(inst Instance) (postUp, postDown string) {
+	if inst.UsesTproxy() {
+		return tproxyPostUpPostDown(inst)
+	}
 	subnet := clientSubnet(inst.Address)
 	if subnet == "" {
 		return "", ""
@@ -871,7 +886,7 @@ func (m *Manager) ensureP2PRules(inst Instance) {
 func (m *Manager) ensureP2PHairpinRule(inst Instance) {
 	subnet := clientSubnet(inst.Address)
 	pref := strconv.Itoa(awgP2PRulePref(inst.Id))
-	if inst.P2P && inst.RouteThroughXray && subnet != "" {
+	if inst.P2P && inst.RouteThroughXray && !inst.UsesTproxy() && subnet != "" {
 		out, err := exec.CommandContext(context.Background(), "ip", "rule", "show", "pref", pref).Output()
 		if err == nil && p2pHairpinRulePresent(string(out), subnet) {
 			return

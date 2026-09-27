@@ -114,6 +114,8 @@ export const AwgInboundSettingsSchema = z
     // kernel) instead of a SOCKS loopback (TCP from a userspace sidecar).
     // Default ON: most operators want Xray routing; empty outboundTag = kettle.
     routeThroughXray: z.boolean().default(true),
+    xrayRoutingMode: z.enum(['tun', 'tproxy']).default('tun').optional(),
+    tproxyPort: z.number().int().min(1024).max(65535).default(51453).optional(),
     outboundTag: z.string().default(''),
     p2p: z.boolean().default(false),
   })

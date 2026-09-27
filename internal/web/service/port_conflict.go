@@ -236,6 +236,23 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 		return nil, nil
 	}
 	newBits := inboundTransports(inbound.Protocol, inbound.StreamSettings, inbound.Settings)
+	if inbound.NodeID == nil && listenOverlaps("127.0.0.1", inbound.Listen) {
+		var bridges []*model.Inbound
+		if err := db.Where("protocol = ? AND node_id IS NULL AND id != ?", model.AWG, ignoreId).Find(&bridges).Error; err != nil {
+			return nil, err
+		}
+		for _, bridge := range bridges {
+			var route struct {
+				RouteThroughXray bool   `json:"routeThroughXray"`
+				XrayRoutingMode  string `json:"xrayRoutingMode"`
+				TproxyPort       int    `json:"tproxyPort"`
+			}
+			if json.Unmarshal([]byte(bridge.Settings), &route) == nil && route.RouteThroughXray && route.XrayRoutingMode == "tproxy" && route.TproxyPort == inbound.Port {
+				return &portConflictDetail{InboundID: bridge.Id, Remark: bridge.Remark, Tag: bridge.Tag,
+					Listen: "127.0.0.1", Port: inbound.Port, Relay: true, Transports: newBits}, nil
+			}
+		}
+	}
 
 	// The internal Xray API inbound (tag "api", loopback TCP) isn't a DB row,
 	// so a local user inbound reusing its port would leave Xray binding the

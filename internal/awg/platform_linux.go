@@ -15,6 +15,7 @@ import (
 	"io"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"strconv"
 	"strings"
 )
@@ -70,6 +71,7 @@ func killStrayAwgInterfaces() int {
 		if !strayInterfaceIsOurs(name) {
 			continue
 		}
+		cleanupTproxyConfig(filepath.Join(awgConfigDir, name+".conf"))
 		if err := exec.CommandContext(context.Background(), "ip", "link", "del", name).Run(); err == nil {
 			killed++
 		}

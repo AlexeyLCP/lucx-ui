@@ -9,6 +9,7 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"net/netip"
 	"strings"
 
@@ -1168,7 +1169,107 @@ func (s *InboundService) addInbound(inbound *model.Inbound, allowAwgOverlap bool
 	return s.AddInbound(inbound)
 }
 
+func (s *InboundService) checkAwgTproxyPort(inbound *model.Inbound) error {
+	if inbound == nil || inbound.Protocol != model.AWG {
+		return nil
+	}
+	var cfg struct {
+		RouteThroughXray bool   `json:"routeThroughXray"`
+		XrayRoutingMode  string `json:"xrayRoutingMode"`
+		TproxyPort       int    `json:"tproxyPort"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &cfg); err != nil {
+		return err
+	}
+	if !cfg.RouteThroughXray || cfg.XrayRoutingMode != "tproxy" {
+		return nil
+	}
+	if inbound.NodeID != nil {
+		return fmt.Errorf("awg: TPROXY currently requires a local kernel inbound")
+	}
+	if !awg.KernelAvailable() {
+		return fmt.Errorf("awg: TPROXY requires the AmneziaWG kernel module")
+	}
+	if err := awg.ValidateTproxySettings(inbound.Settings); err != nil {
+		return err
+	}
+	port := cfg.TproxyPort
+	if port == inbound.Port {
+		return fmt.Errorf("awg: TPROXY port conflicts with the AWG listener")
+	}
+	probe := *inbound
+	probe.Protocol, probe.Listen, probe.Port = model.Tunnel, "127.0.0.1", port
+	probe.Settings = `{"allowedNetwork":"tcp,udp"}`
+	if conflict, err := s.checkPortConflict(&probe, inbound.Id); err != nil {
+		return err
+	} else if conflict != nil {
+		return fmt.Errorf("awg: TPROXY %s", conflict.String())
+	}
+	webPort, err := (&SettingService{}).GetPort()
+	if err != nil {
+		return err
+	}
+	if port == webPort {
+		return fmt.Errorf("awg: TPROXY port conflicts with the panel")
+	}
+	inbounds, err := s.GetAllInbounds()
+	if err != nil {
+		return err
+	}
+	unchanged := false
+	for _, other := range inbounds {
+		if other == nil || other.NodeID != nil {
+			continue
+		}
+		if other.Id == inbound.Id {
+			var old struct {
+				RouteThroughXray bool   `json:"routeThroughXray"`
+				XrayRoutingMode  string `json:"xrayRoutingMode"`
+				TproxyPort       int    `json:"tproxyPort"`
+			}
+			_ = json.Unmarshal([]byte(other.Settings), &old)
+			unchanged = other.Enable && old.RouteThroughXray && old.XrayRoutingMode == "tproxy" && old.TproxyPort == port
+			continue
+		}
+		for _, r := range inboundListenRanges(other) {
+			if port >= r[0] && port <= r[1] {
+				return fmt.Errorf("awg: TPROXY port conflicts with inbound %d", other.Id)
+			}
+		}
+		keys := []string{"routeXrayPort"}
+		var otherRoute struct {
+			RouteThroughXray bool   `json:"routeThroughXray"`
+			XrayRoutingMode  string `json:"xrayRoutingMode"`
+		}
+		if other.Protocol == model.AWG && json.Unmarshal([]byte(other.Settings), &otherRoute) == nil && otherRoute.RouteThroughXray && otherRoute.XrayRoutingMode == "tproxy" {
+			keys = append(keys, "tproxyPort")
+		}
+		for _, key := range keys {
+			if parseSettingsIntKey(other.Settings, key) == port {
+				return fmt.Errorf("awg: TPROXY port reserved by inbound %d", other.Id)
+			}
+		}
+	}
+	if !unchanged {
+		addr := fmt.Sprintf("127.0.0.1:%d", port)
+		tcp, err := net.Listen("tcp4", addr)
+		if err != nil {
+			return fmt.Errorf("awg: TPROXY TCP port unavailable: %w", err)
+		}
+		defer tcp.Close()
+		udp, err := net.ListenPacket("udp4", addr)
+		if err != nil {
+			return fmt.Errorf("awg: TPROXY UDP port unavailable: %w", err)
+		}
+		_ = udp.Close()
+	}
+	return nil
+}
+
 func (s *InboundService) normalizeLucxSidecarsOnCreate(inbound *model.Inbound) error {
+	if err := s.checkAwgTproxyPort(inbound); err != nil {
+		return err
+	}
 	if err := s.normalizeNaiveXrayPort(inbound, ""); err != nil {
 		return err
 	}
@@ -1255,6 +1356,9 @@ func (s *InboundService) normalizeLucxSidecarsOnCreate(inbound *model.Inbound) e
 }
 
 func (s *InboundService) normalizeLucxSidecarsOnUpdate(inbound, oldInbound *model.Inbound) error {
+	if err := s.checkAwgTproxyPort(inbound); err != nil {
+		return err
+	}
 	if inbound.Protocol == model.Qwdtt {
 		if err := s.checkVkTurnExclusive(model.Qwdtt, inbound.Id, inbound.NodeID); err != nil {
 			return err

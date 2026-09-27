@@ -1033,6 +1033,8 @@ func awgTunGateway(id int) string {
 // kernel module, not TCP from a userspace daemon.
 func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 	var parsed struct {
+		XrayRoutingMode  string `json:"xrayRoutingMode"`
+		TproxyPort       int    `json:"tproxyPort"`
 		RouteThroughXray bool   `json:"routeThroughXray"`
 		OutboundTag      string `json:"outboundTag"`
 		MTU              int    `json:"mtu"`
@@ -1041,6 +1043,10 @@ func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 		return
 	}
 	if !parsed.RouteThroughXray || inbound.Tag == "" {
+		return
+	}
+	if parsed.XrayRoutingMode == "tproxy" && (parsed.TproxyPort < 1024 || parsed.TproxyPort > 65535) {
+		logger.Warning("awg egress: invalid TPROXY port, skipping bridge")
 		return
 	}
 	tag := inbound.Tag
@@ -1088,6 +1094,11 @@ func injectAwgEgress(cfg *xray.Config, inbound *model.Inbound) {
 				logger.Warning("awg egress: failed to rebuild routing section, skipping rule:", err)
 			}
 		}
+	}
+
+	if parsed.XrayRoutingMode == "tproxy" {
+		cfg.InboundConfigs = append(cfg.InboundConfigs, awg.TproxyInbound(tag, parsed.TproxyPort))
+		return
 	}
 
 	mtu := parsed.MTU

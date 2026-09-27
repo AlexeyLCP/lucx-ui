@@ -157,6 +157,7 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
   const awgVersion = watch('settings.awgVersion') as '1.5' | '2' | '3' | '3.1' | undefined;
   const awg3Plus = awgVersion === '3' || awgVersion === '3.1';
   const routeThroughXray = watch('settings.routeThroughXray') as boolean | undefined;
+  const xrayRoutingMode = watch('settings.xrayRoutingMode') as string | undefined;
   const p2pOn = watch('settings.p2p') as boolean | undefined;
   const mimicryProfileVal = watch('settings.mimicryProfile') as string | undefined;
   const addressVal = watch('settings.address') as string | undefined;
@@ -279,11 +280,34 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
       <FormField
         name={['settings', 'routeThroughXray']}
         label={t('pages.inbounds.form.awgRouteThroughXray')}
-        tooltip={t('pages.inbounds.form.awgRouteThroughXrayHint')}
+        tooltip={t('pages.inbounds.form.awgRoutingModeHint')}
         valueProp="checked"
       >
         <Switch />
       </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'xrayRoutingMode']}
+          label={t('pages.inbounds.form.awgRoutingMode')}
+          tooltip={t('pages.inbounds.form.awgRoutingModeHint')}
+        >
+          <Select
+            options={[
+              { value: 'tun', label: 'Xray TUN' },
+              {
+                value: 'tproxy',
+                label: 'Xray TPROXY (TCP/UDP, IPv4)',
+                disabled: nodeId != null || !kernelOk,
+              },
+            ]}
+          />
+        </FormField>
+      )}
+      {routeThroughXray && xrayRoutingMode === 'tproxy' && (
+        <FormField name={['settings', 'tproxyPort']} label={t('pages.inbounds.form.awgTproxyPort')}>
+          <InputNumber min={1024} max={65535} precision={0} style={{ width: '100%' }} />
+        </FormField>
+      )}
       <FormField
         name={['settings', 'p2p']}
         label={t('pages.inbounds.form.awgP2P')}

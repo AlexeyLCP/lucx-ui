@@ -480,6 +480,8 @@ export function createDefaultAwgInboundSettings(): AwgInboundSettings {
     // initial seed; the generator is the source of truth for the wire format.
     awgVersion: '2',
     routeThroughXray: true,
+    xrayRoutingMode: 'tun',
+    tproxyPort: 51453,
     outboundTag: '',
     p2p: false,
     clients: [],

@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.271 — Opt-in kernel AWG TPROXY (2026-09-27)
+
+`routeThroughXray=false` stays direct. Missing or `tun` mode stays the Xray TUN bridge. `xrayRoutingMode=tproxy` plus a local `tproxyPort` injects a loopback dokodemo-door and interface-scoped IPv4 TCP/UDP TPROXY rules. No client key or address rewrite. Remote nodes and userspace fallback are refused. Issue #118.
+
+**lucxVersion:** lucx.271
+
+Tests: `go test ./internal/awg/ -count=1 -run Tproxy`, frontend `awg-tproxy`. Linux netns test is opt-in (`LUCX_TPROXY_NETNS_TEST=1`). Service tests need Linux CGO.
+
+---
+
 ## lucx.270 — AWG port-forward save; Telegram proxy survives settings save (2026-09-27)
 
 Client edit of kernel AWG dropped `forwardedPorts`: the settings write and conflict check only ran for AmneziaWG, so the clients page reopened with an empty field and iptables never saw the spec. Both protocols now share that path, and the editor writes `wg_forwarded_ports` itself when the field is non-empty. Empty still means omit.

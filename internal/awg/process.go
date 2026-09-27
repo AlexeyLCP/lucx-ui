@@ -174,6 +174,7 @@ func (p *Process) Start() error {
 	}
 	out, err := awgQuick("up", p.configPath)
 	if err != nil {
+		cleanupTproxyConfig(p.configPath)
 		_, _ = p.logWriter.Write(out)
 		return fmt.Errorf("awg-quick up %s: %w\n%s", p.configPath, err, string(out))
 	}
@@ -186,6 +187,7 @@ func (p *Process) Start() error {
 
 // Stop tears the AWG interface down.
 func (p *Process) Stop() error {
+	defer cleanupTproxyConfig(p.configPath)
 	if !p.IsRunning() {
 		return nil
 	}

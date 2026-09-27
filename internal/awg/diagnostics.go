@@ -100,6 +100,9 @@ func diagnose(inst Instance, p prober, now func() time.Time) Diagnostics {
 	if inst.RouteThroughXray {
 		mode = "xray-tun"
 	}
+	if inst.UsesTproxy() {
+		mode = "xray-tproxy"
+	}
 	d := Diagnostics{Ifname: inst.Ifname, Mode: mode}
 
 	out, err := p.Run("ip", "link", "show", inst.Ifname)
@@ -146,7 +149,9 @@ func diagnose(inst Instance, p prober, now func() time.Time) Diagnostics {
 		d.Checks = append(d.Checks, DiagCheck{"wireguard peers", peers > 0, detail})
 	}
 
-	if inst.RouteThroughXray {
+	if inst.UsesTproxy() {
+		d.Checks = append(d.Checks, diagnoseTproxy(inst, p)...)
+	} else if inst.RouteThroughXray {
 		d.Checks = append(d.Checks, diagnoseXrayTun(inst, p)...)
 	} else {
 		d.Checks = append(d.Checks, diagnoseKernelNAT(inst, p)...)
@@ -168,7 +173,7 @@ func diagnoseP2P(inst Instance, p prober) DiagCheck {
 	if isolated {
 		return DiagCheck{"p2p", false, "hairpin still DROPped — toggle on did not clear isolation"}
 	}
-	if inst.RouteThroughXray {
+	if inst.RouteThroughXray && !inst.UsesTproxy() {
 		subnet := clientSubnet(inst.Address)
 		out, err := p.Run("ip", "rule", "show", "pref", strconv.Itoa(awgP2PRulePref(inst.Id)))
 		if err != nil || !p2pHairpinRulePresent(out, subnet) {

@@ -171,6 +171,9 @@ func AwgIFieldExportNote(settings string) string {
 // validateAwgSettingsForSave refuses everything except an over-budget I-set,
 // which is stored and logged once: refusing it froze node reconcile instead.
 func validateAwgSettingsForSave(settings, tag string) error {
+	if err := awg.ValidateTproxySettings(settings); err != nil {
+		return err
+	}
 	err := validateAwgSettingsJSON(settings)
 	if !errors.Is(err, awg.ErrIFieldsTooLarge) {
 		return err
