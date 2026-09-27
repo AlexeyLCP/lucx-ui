@@ -6131,7 +6131,7 @@
         "tags": [
           "Inbounds"
         ],
-        "summary": "Apply selected preview rows: listen 127.0.0.1 (keep port 443 when BindIP is set), Hosts publicHost:443, Caddy L4 on NIC IPv4:443. LucX-UI only.",
+        "summary": "Apply selected preview rows: listen 127.0.0.1 off public 443, Hosts publicHost:443, Caddy L4 on NIC IPv4:443. Does not rewrite REALITY dest or serverNames. LucX-UI only.",
         "operationId": "post_panel_api_inbounds_id_gatewayApply",
         "parameters": [
           {
@@ -6156,14 +6156,25 @@
                     "items": {
                       "type": "integer"
                     },
-                    "description": "Inbound IDs to move."
+                    "description": "Inbound IDs to move behind the SNI mux."
                   },
                   "steal": {
                     "type": "array",
                     "items": {
                       "type": "integer"
                     },
-                    "description": "REALITY inbound IDs to set dest to Cover loopback."
+                    "description": "Ignored. REALITY dest is not rewritten."
+                  },
+                  "inside": {
+                    "type": "array",
+                    "items": {
+                      "type": "integer"
+                    },
+                    "description": "WS/HTTPUpgrade inbound IDs to hide inside the selected Cover. Needs Cover in selected."
+                  },
+                  "paths": {
+                    "type": "object",
+                    "description": "Optional path per inside inbound id. Empty or / is replaced with a random path."
                   },
                   "publicHost": {
                     "type": "string",
@@ -6181,6 +6192,8 @@
                 "required": [
                   "selected",
                   "steal",
+                  "inside",
+                  "paths",
                   "publicHost",
                   "ufw",
                   "hidePanel"

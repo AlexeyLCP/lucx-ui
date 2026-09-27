@@ -18,6 +18,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
+	"gorm.io/gorm"
 )
 
 type GatewayApplyRequest struct {
@@ -27,6 +28,8 @@ type GatewayApplyRequest struct {
 	UFW        bool              `json:"ufw"`
 	HidePanel  bool              `json:"hidePanel"`
 	HideNaive  []int             `json:"hideNaive"`
+	Inside     []int             `json:"inside"`
+	Paths      map[string]string `json:"paths"`
 	SNI        map[string]string `json:"sni"`
 }
 
@@ -96,42 +99,72 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	for _, id := range req.Selected {
 		selected[id] = true
 	}
-	steal := map[int]bool{}
-	for _, id := range req.Steal {
-		steal[id] = true
+	inside := map[int]bool{}
+	for _, id := range req.Inside {
+		ib := byID[id]
+		if ib != nil && ib.Protocol == model.Naive {
+			req.HideNaive = append(req.HideNaive, id)
+			continue
+		}
+		inside[id] = true
 	}
-	if len(selected) == 0 {
+	if len(selected) == 0 && len(inside) == 0 && len(req.HideNaive) == 0 {
 		return common.NewError("gateway: nothing selected")
 	}
 	db := database.GetDB()
+	// Snapshot originals before any SNI edit. REALITY serverNames are never
+	// written (SetInboundSNI ignores them); other SNI edits must still revert.
+	snap := map[int]*tunnel.GatewaySnapshotRow{}
+	remember := func(ib *model.Inbound) {
+		if ib == nil || snap[ib.Id] != nil {
+			return
+		}
+		snap[ib.Id] = &tunnel.GatewaySnapshotRow{
+			InboundID: ib.Id, Listen: ib.Listen, Port: ib.Port,
+			StreamSettings: ib.StreamSettings, Settings: ib.Settings,
+		}
+	}
+	for id := range selected {
+		remember(byID[id])
+	}
+	for id := range inside {
+		remember(byID[id])
+	}
+	for _, id := range req.HideNaive {
+		remember(byID[id])
+	}
 	for idStr, sni := range req.SNI {
 		id, err := strconv.Atoi(idStr)
-		if err != nil || !selected[id] {
+		if err != nil || !selected[id] || inside[id] {
 			continue
 		}
-		ib := byID[id]
-		if ib == nil {
-			continue
-		}
-		tunnel.SetInboundSNI(ib, sni)
-		if err := db.Model(ib).Select("settings", "stream_settings").Updates(ib).Error; err != nil {
-			return err
-		}
+		tunnel.SetInboundSNI(byID[id], sni)
 	}
 	if err := applyNaiveMoves(byID, tunnel.PlanNaivePublic(gw.Port, others)); err != nil {
 		return err
 	}
 	rows := tunnel.BuildPreview(gw.Port, host, others, bindIP)
+	if len(inside) > 0 {
+		if _, cover := selectedSiteHost(rows, selected); !cover {
+			return common.NewError("gateway: pick Cover to hide a protocol inside the site")
+		}
+	}
 	if err := hideNaiveOnSite(byID, rows, selected, req.HideNaive); err != nil {
 		return err
 	}
-	if c := tunnel.SNIClash(rows, selected); c != "" {
+	routeSelected := map[int]bool{}
+	for id, on := range selected {
+		if on && !inside[id] {
+			routeSelected[id] = true
+		}
+	}
+	if c := tunnel.SNIClash(rows, routeSelected); c != "" {
 		return common.NewError("gateway: duplicate SNI", c)
 	}
 	for _, o := range others {
 		// Anything left public on TCP :443 wins the bind race with the
 		// gateway — one of them then fails to listen.
-		if o == nil || !o.Enable || selected[o.Id] || o.Port != gw.Port ||
+		if o == nil || !o.Enable || selected[o.Id] || inside[o.Id] || o.Port != gw.Port ||
 			tunnel.IsLoopbackListen(o.Listen) || !tunnel.InboundUsesTCP(o) {
 			continue
 		}
@@ -179,49 +212,53 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		cfg.HidePanel = true
 		cfg.PanelRoutes = routes
 	}
-	var snap []tunnel.GatewaySnapshotRow
+	siteHost, _ := selectedSiteHost(rows, selected)
+	insidePath, err := applyInside(byID, rows, inside, req.Paths, siteHost)
+	if err != nil {
+		return err
+	}
+	var snapRows []tunnel.GatewaySnapshotRow
 	for _, row := range rows {
-		if !selected[row.InboundID] || row.Class == tunnel.ClassSkip {
-			continue
-		}
 		ib := byID[row.InboundID]
-		if ib == nil {
+		sr := snap[row.InboundID]
+		if ib == nil || sr == nil {
 			continue
 		}
-		sr := tunnel.GatewaySnapshotRow{InboundID: ib.Id, Listen: ib.Listen, Port: ib.Port, StreamSettings: ib.StreamSettings}
-		ib.Listen = row.NewListen
-		ib.Port = row.NewPort
-		// Cover selected → Reality dest is the local decoy, same as the nginx
-		// script. The checkbox is not required.
-		if row.StealDest != "" && (steal[row.InboundID] || coverSelected(rows, selected)) {
-			ib.StreamSettings = tunnel.SetRealityDest(ib.StreamSettings, row.StealDest)
+		move := (selected[row.InboundID] && row.Class != tunnel.ClassSkip && !inside[row.InboundID]) || inside[row.InboundID]
+		if !move && !hideNaiveID(req.HideNaive, row.InboundID) {
+			delete(snap, row.InboundID)
+			continue
 		}
-		if !row.NoProxy && tunnel.XrayAcceptsProxyProtocol(ib.Protocol) {
-			ib.StreamSettings = tunnel.SetAcceptProxyProtocol(ib.StreamSettings, true)
+		if move {
+			tunnel.MoveListen(ib, row.NewListen, row.NewPort)
+			if !inside[row.InboundID] && !row.NoProxy && tunnel.XrayAcceptsProxyProtocol(ib.Protocol) {
+				ib.StreamSettings = tunnel.SetAcceptProxyProtocol(ib.StreamSettings, true)
+			}
 		}
-		if err := db.Model(ib).Select("listen", "port", "stream_settings").Updates(ib).Error; err != nil {
+		if err := db.Model(&model.Inbound{}).Where("id = ?", ib.Id).Updates(map[string]any{
+			"listen": ib.Listen, "port": ib.Port,
+			"stream_settings": ib.StreamSettings, "settings": ib.Settings,
+		}).Error; err != nil {
 			return err
 		}
-		if row.HostAddress != "" && row.Class != tunnel.ClassSkip {
-			h := model.Host{
-				GroupId:   random.NumLower(16),
-				InboundId: ib.Id,
-				Remark:    gatewayHostRemark,
-				Address:   row.HostAddress,
-				Port:      row.HostPort,
-				Security:  "same",
-			}
+		disabled, err := disableInboundHosts(db, ib.Id)
+		if err != nil {
+			return err
+		}
+		sr.DisabledHostIDs = disabled
+		if (row.HostAddress != "" || inside[row.InboundID]) && (move || hideNaiveID(req.HideNaive, row.InboundID)) {
+			h := gatewayHost(ib.Id, row, inside[row.InboundID], siteHost, insidePath[row.InboundID])
 			if err := db.Create(&h).Error; err != nil {
 				return err
 			}
 			sr.HostID = h.Id
 		}
-		snap = append(snap, sr)
+		snapRows = append(snapRows, *sr)
 	}
 	cfg.PublicHost = host
 	cfg.BindIP = bindIP
-	cfg.Snapshot = snap
-	cfg.Routes = tunnel.RoutesFromPreview(rows, selected)
+	cfg.Snapshot = snapRows
+	cfg.Routes = tunnel.RoutesFromPreview(rows, routeSelected)
 	cfg.Fallback = tunnel.CoverFallback(rows, selected)
 	cfg.Unified = true
 	cfg.Enabled = true
@@ -278,12 +315,12 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 		if ib == nil {
 			continue
 		}
-		ib.Listen = sr.Listen
-		ib.Port = sr.Port
-		if sr.StreamSettings != "" {
-			ib.StreamSettings = sr.StreamSettings
+		if err := db.Model(&model.Inbound{}).Where("id = ?", ib.Id).Updates(tunnel.RevertUpdates(sr)).Error; err != nil {
+			return err
 		}
-		_ = db.Model(ib).Select("listen", "port", "stream_settings").Updates(ib).Error
+		if len(sr.DisabledHostIDs) > 0 {
+			_ = db.Model(&model.Host{}).Where("id IN ?", sr.DisabledHostIDs).Updates(map[string]any{"is_disabled": false}).Error
+		}
 	}
 	cfg.Snapshot = nil
 	cfg.Routes = nil
@@ -413,62 +450,113 @@ func coverSelected(rows []tunnel.PreviewRow, selected map[int]bool) bool {
 	return false
 }
 
-// BindAppliedRealityDest points masked REALITY dest at the Cover loopback,
-// matching the nginx script's fallback. No client-link change. Returns true
-// if Xray must reload.
+// BindAppliedRealityDest used to rewrite REALITY dest to the Cover loopback
+// on every reconcile. That stole the Microsoft handshake and survived Revert
+// when the snapshot was taken after the write. It is a no-op: dest stays
+// whatever the operator set.
 func (s *InboundService) BindAppliedRealityDest() bool {
-	all, err := s.GetAllInbounds()
-	if err != nil {
-		return false
-	}
-	db := database.GetDB()
-	changed := false
-	for _, gw := range all {
-		cfg, ok := tunnel.GatewayConfigFromInbound(gw)
-		if !ok || !cfg.Applied() {
-			continue
-		}
-		byID := indexInbounds(all)
-		var coverPort, tproxyPort int
-		for _, sr := range cfg.Snapshot {
-			ib := byID[sr.InboundID]
-			if ib == nil || ib.Port <= 0 {
-				continue
-			}
-			if ib.Protocol == model.Cover {
-				coverPort = ib.Port
-			}
-			if ib.Protocol == model.Tproxy && tproxyPort == 0 {
-				tproxyPort = ib.Port
-			}
-		}
-		if coverPort == 0 {
-			coverPort = tproxyPort
-		}
-		if coverPort <= 0 {
-			continue
-		}
-		dest := fmt.Sprintf("127.0.0.1:%d", coverPort)
-		for _, sr := range cfg.Snapshot {
-			ib := byID[sr.InboundID]
-			if ib == nil {
-				continue
-			}
-			if !tunnel.IsRealityStream(ib.StreamSettings) {
-				continue
-			}
-			if tunnel.RealityDest(ib.StreamSettings) == dest {
-				continue
-			}
-			ib.StreamSettings = tunnel.SetRealityDest(ib.StreamSettings, dest)
-			if err := db.Model(ib).Select("stream_settings").Updates(ib).Error; err != nil {
-				logger.Warning("gateway: reality dest:", err)
-				continue
-			}
-			changed = true
+	return false
+}
+
+func hideNaiveID(ids []int, id int) bool {
+	for _, x := range ids {
+		if x == id {
+			return true
 		}
 	}
-	return changed
+	return false
+}
+
+func disableInboundHosts(db *gorm.DB, inboundID int) ([]int, error) {
+	var hosts []model.Host
+	if err := db.Where("inbound_id = ? AND is_disabled = ?", inboundID, false).Find(&hosts).Error; err != nil {
+		return nil, err
+	}
+	ids := make([]int, 0, len(hosts))
+	for _, h := range hosts {
+		if err := db.Model(&model.Host{}).Where("id = ?", h.Id).Updates(map[string]any{"is_disabled": true}).Error; err != nil {
+			return nil, err
+		}
+		ids = append(ids, h.Id)
+	}
+	return ids, nil
+}
+
+func gatewayHost(id int, row tunnel.PreviewRow, inside bool, site, path string) model.Host {
+	h := model.Host{
+		GroupId:   random.NumLower(16),
+		InboundId: id,
+		Remark:    gatewayHostRemark,
+		Address:   row.HostAddress,
+		Port:      row.HostPort,
+		Security:  "same",
+	}
+	if h.Port <= 0 {
+		h.Port = 443
+	}
+	if !inside {
+		return h
+	}
+	h.Address = site
+	h.Port = 443
+	h.Security = "tls"
+	h.Sni = site
+	h.Path = path
+	return h
+}
+
+// applyInside parks WS/HTTPUpgrade behind the Cover path and records the path
+// used for the subscription host. Cover settings are mutated in memory; the
+// caller saves them with the rest of the snapshot.
+func applyInside(byID map[int]*model.Inbound, rows []tunnel.PreviewRow, inside map[int]bool, paths map[string]string, site string) (map[int]string, error) {
+	out := map[int]string{}
+	if len(inside) == 0 {
+		return out, nil
+	}
+	var cover *model.Inbound
+	for _, row := range rows {
+		if row.Protocol == string(model.Cover) {
+			if ib := byID[row.InboundID]; ib != nil {
+				cover = ib
+				break
+			}
+		}
+	}
+	if cover == nil {
+		return nil, common.NewError("gateway: pick Cover to hide a protocol inside the site")
+	}
+	for id := range inside {
+		ib := byID[id]
+		row := previewRow(rows, id)
+		if ib == nil || row.InboundID == 0 || !row.CanInside {
+			return nil, common.NewErrorf("gateway: inbound %d cannot hide inside the site", id)
+		}
+		path := ""
+		if paths != nil {
+			path = strings.TrimSpace(paths[strconv.Itoa(id)])
+		}
+		if path == "" || path == "/" {
+			path = "/" + random.NumLower(12)
+		}
+		dest := fmt.Sprintf("127.0.0.1:%d", row.NewPort)
+		next, err := tunnel.AppendCoverRoute(cover.Settings, path, dest)
+		if err != nil {
+			return nil, err
+		}
+		cover.Settings = next
+		ib.StreamSettings = tunnel.SetPlainPath(ib.StreamSettings, path)
+		out[id] = path
+	}
+	return out, nil
+}
+
+func previewRow(rows []tunnel.PreviewRow, id int) tunnel.PreviewRow {
+	for _, row := range rows {
+		if row.InboundID == id {
+			return row
+		}
+	}
+	return tunnel.PreviewRow{}
 }
 
 func hideNaiveOnSite(byID map[int]*model.Inbound, rows []tunnel.PreviewRow, selected map[int]bool, ids []int) error {

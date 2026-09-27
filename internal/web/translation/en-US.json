@@ -2677,7 +2677,7 @@
     },
     "masking": {
       "title": "443 SNI masking",
-      "help": "Public IPv4:443 splits by SNI. Edit SNI in the table — that is the inbound's SNI (Cover hostname / REALITY serverNames / TLS serverName). One SNI per inbound. Apply writes it and builds the mux. Off until Apply.",
+      "help": "Public IPv4:443 splits by SNI. REALITY serverNames and dest are not changed. WS / HTTPUpgrade can sit inside the Cover site on a path. UDP stays on its own port. Off until Apply.",
       "publicHost": "Public hostname",
       "noGateway": "No gateway inbound",
       "createFirst": "Create it here (disabled, port 443). Then pick which inbounds go behind 443.",
@@ -2711,7 +2711,9 @@
       "apply": "Apply selected",
       "revert": "Revert",
       "applied": "Mask applied",
-      "reverted": "Mask reverted"
+      "reverted": "Mask reverted",
+      "insideSite": "Inside the site",
+      "insideHint": "WS / HTTPUpgrade share the Cover hostname. A browser on / sees the site. Refresh the subscription after Apply."
     },
     "tunnels": {
       "title": "Tunnel tools",

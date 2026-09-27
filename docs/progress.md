@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.269 — Masking: stop rewriting REALITY; hide WS inside Cover (2026-09-27)
+
+Apply no longer writes REALITY `dest` or `serverNames`. Reconcile does not either. Passthrough leaves public :443. Revert writes `listen` with a map so an empty listen clears `127.0.0.1`. Other subscription hosts for that inbound are disabled until Revert. WS / HTTPUpgrade (VLESS, VMess, Trojan, Shadowsocks) can sit inside a selected Cover on a path; the inbound TLS is dropped because Cover terminates it. Naive still uses the existing hide-behind-site checkbox. UDP (AWG included) stays public with a note, no checkbox.
+
+**lucxVersion:** lucx.269
+
+Tests: `go test ./internal/lucx/tunnel/ -count=1` (preview, plain path, cover route, reality SNI, empty listen).
+
+---
+
 ## unreleased — Delete discovered AWG / tproxy without importing (2026-09-25)
 
 Import modal gained **Delete selected**. It stops the foreign install and drops it from discover. It does not create or delete panel inbounds. AWG `.conf` files move to `x-ui-backup`. tproxy stops `tproxy-server` / `mtprotoproxy`, removes `/etc/tproxy-server`, and drops an nginx vhost that only reverse-proxies that listen port.

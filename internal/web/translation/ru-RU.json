@@ -2677,7 +2677,7 @@
     },
     "masking": {
           "title": "Маскировка 443 по SNI",
-          "help": "Публичный IPv4:443 режет по SNI. SNI в таблице — это SNI inbound (хост Cover / serverNames REALITY / TLS). Один SNI на inbound. Apply пишет его и собирает mux. Пока не Apply — выкл.",
+          "help": "Публичный IPv4:443 режет по SNI. serverNames и dest REALITY не меняются. WS / HTTPUpgrade можно посадить внутрь Cover на путь. UDP остаётся на своём порту. Пока не Apply — выкл.",
           "publicHost": "Публичный хост",
           "noGateway": "Нет inbound gateway",
           "createFirst": "Создастся здесь (выкл., порт 443). Потом отметь, что прятать за 443.",
@@ -2711,7 +2711,9 @@
           "apply": "Применить",
           "revert": "Вернуть",
           "applied": "Маска включена",
-          "reverted": "Маска снята"
+          "reverted": "Маска снята",
+      "insideSite": "Внутрь сайта",
+      "insideHint": "WS / HTTPUpgrade делят hostname Cover. Браузер на / видит сайт. После Apply обновите подписку."
     },
     "tunnels": {
       "title": "Инструменты туннелей",

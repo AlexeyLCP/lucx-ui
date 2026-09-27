@@ -41,12 +41,30 @@ type GatewayRoute struct {
 }
 
 // GatewaySnapshotRow is enough to undo one inbound after Apply.
+// Settings is omitted on snapshots taken before lucx.269; revert must not
+// blank settings when the field is empty.
 type GatewaySnapshotRow struct {
-	InboundID      int    `json:"inboundId"`
-	Listen         string `json:"listen"`
-	Port           int    `json:"port"`
-	StreamSettings string `json:"streamSettings,omitempty"`
-	HostID         int    `json:"hostId,omitempty"`
+	InboundID       int    `json:"inboundId"`
+	Listen          string `json:"listen"`
+	Port            int    `json:"port"`
+	StreamSettings  string `json:"streamSettings,omitempty"`
+	Settings        string `json:"settings,omitempty"`
+	HostID          int    `json:"hostId,omitempty"`
+	DisabledHostIDs []int  `json:"disabledHostIds,omitempty"`
+}
+
+// RevertUpdates is the column map Apply's undo must write. A struct Updates
+// drops the empty listen and leaves the inbound on 127.0.0.1 after Revert.
+func RevertUpdates(sr GatewaySnapshotRow) map[string]any {
+	u := map[string]any{
+		"listen":          sr.Listen,
+		"port":            sr.Port,
+		"stream_settings": sr.StreamSettings,
+	}
+	if sr.Settings != "" {
+		u["settings"] = sr.Settings
+	}
+	return u
 }
 
 // GatewayConfig lives in inbound settings. Snapshot empty = mask not applied.

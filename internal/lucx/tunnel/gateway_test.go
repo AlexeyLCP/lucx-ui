@@ -8,7 +8,6 @@ package tunnel
 
 import (
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -218,8 +217,8 @@ func TestBuildPreview_MovesPublic443(t *testing.T) {
 	if r.HostAddress != "node.example.com" || r.HostPort != 443 {
 		t.Fatalf("hosts: %+v", r)
 	}
-	if r.StealDest != "127.0.0.1:"+strconv.Itoa(byID[2].NewPort) {
-		t.Fatalf("steal dest %q cover port %d", r.StealDest, byID[2].NewPort)
+	if r.StealDest != "" || !r.SNILocked {
+		t.Fatalf("reality must keep its dest and SNI, got %+v", r)
 	}
 	c := byID[2]
 	if c.Class != ClassCaddy || c.NewPort == 443 {
@@ -371,8 +370,8 @@ func TestBuildPreview_BindIPKeepsSolo443(t *testing.T) {
 			StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"]}}`,
 		},
 	}, "203.0.113.5")
-	if len(rows) != 1 || rows[0].NewPort != 443 || rows[0].NewListen != "127.0.0.1" {
-		t.Fatalf("%+v", rows)
+	if len(rows) != 1 || rows[0].NewPort == 443 || rows[0].NewListen != "127.0.0.1" {
+		t.Fatalf("passthrough must leave public :443: %+v", rows)
 	}
 }
 
@@ -387,11 +386,8 @@ func TestSetInboundSNI(t *testing.T) {
 		StreamSettings: `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"],"dest":"www.microsoft.com:443"}}`,
 	}
 	SetInboundSNI(vless, "vpn.example.com")
-	if !strings.Contains(vless.StreamSettings, `"serverNames":["vpn.example.com"]`) {
-		t.Fatalf("serverNames: %s", vless.StreamSettings)
-	}
-	if !strings.Contains(vless.StreamSettings, `"dest":"www.microsoft.com:443"`) {
-		t.Fatalf("dest: %s", vless.StreamSettings)
+	if strings.Contains(vless.StreamSettings, "vpn.example.com") || !strings.Contains(vless.StreamSettings, "www.microsoft.com") {
+		t.Fatalf("reality SNI must stay: %s", vless.StreamSettings)
 	}
 }
 
@@ -651,4 +647,56 @@ func TestDumpUnifiedGatewayCaddyfile(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Logf("wrote %s\n%s", out, body)
+}
+
+func TestBuildPreview_UDPNote(t *testing.T) {
+	rows := BuildPreview(443, "node.example.com", []*model.Inbound{
+		{Id: 1, Protocol: model.AWG, Enable: true, Port: 51820},
+	}, "")
+	if len(rows) != 1 || rows[0].Note != "UDP — not behind the site" || rows[0].CanInside {
+		t.Fatalf("%+v", rows[0])
+	}
+}
+
+func TestCanHideInside(t *testing.T) {
+	ws := &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"ws","security":"tls","wsSettings":{"path":"/old"}}`}
+	ok, path := CanHideInside(ws)
+	if !ok || path != "/old" {
+		t.Fatalf("ws: %v %q", ok, path)
+	}
+	reality := &model.Inbound{Protocol: model.VLESS, StreamSettings: `{"network":"tcp","security":"reality"}`}
+	if ok, _ := CanHideInside(reality); ok {
+		t.Fatal("reality must not hide inside the site")
+	}
+	if ok, _ := CanHideInside(&model.Inbound{Protocol: model.AWG}); ok {
+		t.Fatal("awg")
+	}
+	if ok, _ := CanHideInside(&model.Inbound{Protocol: model.Naive}); !ok {
+		t.Fatal("naive")
+	}
+}
+
+func TestSetPlainPath(t *testing.T) {
+	got := SetPlainPath(`{"network":"ws","security":"tls","tlsSettings":{"serverName":"a"},"wsSettings":{"path":"/"}}`, "/secret")
+	if !strings.Contains(got, `"path":"/secret"`) || !strings.Contains(got, `"security":"none"`) || strings.Contains(got, "tlsSettings") {
+		t.Fatalf("%s", got)
+	}
+}
+
+func TestAppendCoverRoute(t *testing.T) {
+	got, err := AppendCoverRoute(`{"hostname":"shop.example"}`, "/secret", "127.0.0.1:1443")
+	if err != nil || !strings.Contains(got, `"path":"/secret"`) || !strings.Contains(got, "shop.example") {
+		t.Fatalf("%v %s", err, got)
+	}
+	again, err := AppendCoverRoute(got, "/secret", "127.0.0.1:1443")
+	if err != nil || strings.Count(again, `"/secret"`) != 1 {
+		t.Fatalf("dup: %v %s", err, again)
+	}
+}
+
+func TestRevertUpdates_EmptyListen(t *testing.T) {
+	u := RevertUpdates(GatewaySnapshotRow{Listen: "", Port: 443, StreamSettings: `{"security":"reality"}`})
+	if _, ok := u["listen"]; !ok || u["listen"] != "" {
+		t.Fatalf("empty listen dropped: %#v", u)
+	}
 }

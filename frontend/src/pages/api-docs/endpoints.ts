@@ -547,15 +547,32 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/inbounds/:id/gatewayApply',
         summary:
-          'Apply selected preview rows: listen 127.0.0.1 (keep port 443 when BindIP is set), Hosts publicHost:443, Caddy L4 on NIC IPv4:443. LucX-UI only.',
+          'Apply selected preview rows: listen 127.0.0.1 off public 443, Hosts publicHost:443, Caddy L4 on NIC IPv4:443. Does not rewrite REALITY dest or serverNames. LucX-UI only.',
         params: [
           { name: 'id', in: 'path', type: 'number', desc: 'Gateway inbound ID.' },
-          { name: 'selected', in: 'body', type: 'integer[]', desc: 'Inbound IDs to move.' },
+          {
+            name: 'selected',
+            in: 'body',
+            type: 'integer[]',
+            desc: 'Inbound IDs to move behind the SNI mux.',
+          },
           {
             name: 'steal',
             in: 'body',
             type: 'integer[]',
-            desc: 'REALITY inbound IDs to set dest to Cover loopback.',
+            desc: 'Ignored. REALITY dest is not rewritten.',
+          },
+          {
+            name: 'inside',
+            in: 'body',
+            type: 'integer[]',
+            desc: 'WS/HTTPUpgrade inbound IDs to hide inside the selected Cover. Needs Cover in selected.',
+          },
+          {
+            name: 'paths',
+            in: 'body',
+            type: 'object',
+            desc: 'Optional path per inside inbound id. Empty or / is replaced with a random path.',
           },
           { name: 'publicHost', in: 'body', type: 'string', desc: 'Public hostname for Hosts.' },
           {

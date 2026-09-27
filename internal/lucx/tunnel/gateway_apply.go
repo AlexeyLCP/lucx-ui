@@ -31,6 +31,9 @@ type PreviewRow struct {
 	NoProxy     bool     `json:"noProxy,omitempty"`
 	Chan        string   `json:"chan,omitempty"` // l4chan listener name for unified mode (caddy class)
 	Note        string   `json:"note,omitempty"`
+	CanInside   bool     `json:"canInside,omitempty"`
+	Path        string   `json:"path,omitempty"`
+	SNILocked   bool     `json:"sniLocked,omitempty"`
 }
 
 func publicListen(listen string) string {
@@ -188,9 +191,10 @@ func ClassifyInbound(ib *model.Inbound) Classified {
 			Class: ClassPassthrough, SNI: cfg.Hostname, NoProxy: true,
 			Note: "backend can't parse PROXY — client IP hidden",
 		}
-	case model.Gateway, model.AWG, model.AmneziaWG, model.Olcrtc, model.Qwdtt,
-		model.Csqtt, model.Mieru, model.MTProto, model.Tunnel, model.WireGuard,
-		model.Hysteria, model.TUIC:
+	case model.AWG, model.AmneziaWG, model.WireGuard, model.Hysteria, model.TUIC,
+		model.Olcrtc, model.Qwdtt, model.Csqtt:
+		return Classified{Note: "UDP — not behind the site"}
+	case model.Gateway, model.Mieru, model.MTProto, model.Tunnel:
 		return Classified{}
 	}
 	netw, sec := parseStream(ib.StreamSettings)
@@ -381,11 +385,126 @@ func SetInboundSNI(ib *model.Inbound, sni string) {
 		_, sec := parseStream(ib.StreamSettings)
 		switch sec {
 		case "reality":
-			ib.StreamSettings = setStreamServerName(ib.StreamSettings, sni, true)
+			// serverNames and dest stay. The mux matches the SNI the client
+			// already sends; rewriting them is what broke REALITY on Revert.
+			return
 		case "tls":
 			ib.StreamSettings = setStreamServerName(ib.StreamSettings, sni, false)
 		}
 	}
+}
+
+// CanHideInside reports a stock client that can share the Cover hostname:
+// WS or HTTPUpgrade on VLESS/VMess/Trojan/Shadowsocks, or Naive. REALITY has
+// no HTTP path. The returned path is the one already on the inbound.
+func CanHideInside(ib *model.Inbound) (bool, string) {
+	if ib == nil {
+		return false, ""
+	}
+	if ib.Protocol == model.Naive {
+		return true, ""
+	}
+	switch ib.Protocol {
+	case model.VLESS, model.VMESS, model.Trojan, model.Shadowsocks:
+	default:
+		return false, ""
+	}
+	netw, sec := parseStream(ib.StreamSettings)
+	if sec == "reality" || (netw != "ws" && netw != "httpupgrade") {
+		return false, ""
+	}
+	return true, streamPath(ib.StreamSettings, netw)
+}
+
+func streamPath(raw, network string) string {
+	var m map[string]any
+	if json.Unmarshal([]byte(raw), &m) != nil || m == nil {
+		return ""
+	}
+	ts, _ := m[xrayTransportSettingsKey(network)].(map[string]any)
+	if ts == nil {
+		return ""
+	}
+	p, _ := ts["path"].(string)
+	return strings.TrimSpace(p)
+}
+
+// SetPlainPath points a WS/HTTPUpgrade inbound at path and drops TLS. Cover
+// terminates the site certificate; the loopback hop is plain HTTP.
+func SetPlainPath(stream, path string) string {
+	raw := strings.TrimSpace(stream)
+	if raw == "" {
+		raw = "{}"
+	}
+	var m map[string]any
+	if json.Unmarshal([]byte(raw), &m) != nil || m == nil {
+		return stream
+	}
+	netw, _ := m["network"].(string)
+	key := xrayTransportSettingsKey(netw)
+	if key == "" {
+		return stream
+	}
+	ts, _ := m[key].(map[string]any)
+	if ts == nil {
+		ts = map[string]any{}
+	}
+	ts["path"] = path
+	m[key] = ts
+	m["security"] = "none"
+	delete(m, "tlsSettings")
+	out, err := json.Marshal(m)
+	if err != nil {
+		return stream
+	}
+	return string(out)
+}
+
+// AppendCoverRoute adds one path → loopback hop to a Cover settings blob.
+// Existing keys are kept. A duplicate path is left as-is.
+func AppendCoverRoute(settings, path, dest string) (string, error) {
+	if err := validateCoverRoute(CoverRoute{Path: path, Dest: dest}); err != nil {
+		return settings, err
+	}
+	var m map[string]any
+	if err := json.Unmarshal([]byte(settings), &m); err != nil || m == nil {
+		m = map[string]any{}
+	}
+	var routes []any
+	if cur, ok := m["routes"].([]any); ok {
+		routes = cur
+	}
+	for _, r := range routes {
+		rm, _ := r.(map[string]any)
+		if rm == nil {
+			continue
+		}
+		if p, _ := rm["path"].(string); p == path {
+			out, err := json.Marshal(m)
+			if err != nil {
+				return settings, err
+			}
+			return string(out), nil
+		}
+	}
+	routes = append(routes, map[string]any{"path": path, "dest": dest})
+	m["routes"] = routes
+	out, err := json.Marshal(m)
+	if err != nil {
+		return settings, err
+	}
+	return string(out), nil
+}
+
+// MoveListen sets the envelope listen/port and clears settings.listen, which
+// otherwise wins and leaves the inbound on its old address.
+func MoveListen(ib *model.Inbound, listen string, port int) {
+	if ib == nil {
+		return
+	}
+	clearSettingsListen(ib)
+	ib.Listen = listen
+	ib.Port = port
 }
 
 func SNIClash(rows []PreviewRow, selected map[int]bool) string {
@@ -504,14 +623,6 @@ func siteFallbackRow(rows []PreviewRow, selected map[int]bool) (PreviewRow, bool
 	return tproxy, haveTproxy
 }
 
-func coverLoopbackPort(rows []PreviewRow) int {
-	r, ok := siteFallbackRow(rows, nil)
-	if !ok {
-		return 0
-	}
-	return r.NewPort
-}
-
 // ResolveGatewayPublicHost: request, then saved, then panel domain, then the
 // Cover/site hostname. A REALITY decoy (serverNames / dest) is not a connect
 // address — clients that dial it time out.
@@ -585,12 +696,7 @@ type NaiveMove struct {
 // Apply writes the public listen/port onto the inbound. Settings "listen"
 // wins over the envelope, so it is cleared.
 func (m NaiveMove) Apply(ib *model.Inbound) {
-	if ib == nil {
-		return
-	}
-	clearSettingsListen(ib)
-	ib.Listen = m.Listen
-	ib.Port = m.Port
+	MoveListen(ib, m.Listen, m.Port)
 }
 
 // PlanNaivePublic moves naive off the gateway port onto a free public port.
@@ -742,11 +848,18 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 				} else if ib.Port == gatewayPort && InboundUsesTCP(ib) {
 					note = "TCP :443 conflicts with the gateway port"
 				}
-				rows = append(rows, PreviewRow{
+				row := PreviewRow{
 					InboundID: ib.Id, Remark: ib.Remark, Protocol: string(ib.Protocol),
 					Class: ClassSkip, OldListen: listen, NewListen: newListen,
 					OldPort: ib.Port, NewPort: newPort, Note: note,
-				})
+				}
+				markInside(&row, ib)
+				if row.CanInside && row.Protocol != string(model.Naive) {
+					row.NewListen = "127.0.0.1"
+					row.NewPort = nextFreePort(ClassPassthrough, used)
+					used[row.NewPort] = true
+				}
+				rows = append(rows, row)
 			}
 			continue
 		}
@@ -758,7 +871,9 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 		newListen := "127.0.0.1"
 		newPort := oldPort
 		if oldPort == gatewayPort {
-			take := keep443 && !slot443
+			// Passthrough must leave public :443. Keeping the port on
+			// 127.0.0.1 still shows as :443 and fights a gateway with no bind IP.
+			take := keep443 && !slot443 && class != ClassPassthrough
 			if take && cover443 {
 				take = ib.Protocol == model.Cover
 			}
@@ -802,17 +917,21 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 		if class == ClassCaddy && cf.SNI == "" && publicHost == "" {
 			row.Note = "needs Cover or publicHost"
 		}
+		markInside(&row, ib)
 		rows = append(rows, row)
 	}
-	if p := coverLoopbackPort(rows); p > 0 {
-		steal := gatewayLoopbackDest(p)
-		for i := range rows {
-			if rows[i].Class == ClassPassthrough {
-				rows[i].StealDest = steal
-			}
-		}
-	}
 	return rows
+}
+
+func markInside(row *PreviewRow, ib *model.Inbound) {
+	if row == nil {
+		return
+	}
+	_, sec := parseStream(ib.StreamSettings)
+	row.SNILocked = sec == "reality"
+	ok, path := CanHideInside(ib)
+	row.CanInside = ok
+	row.Path = path
 }
 
 func nextFreePort(class string, used map[int]bool) int {

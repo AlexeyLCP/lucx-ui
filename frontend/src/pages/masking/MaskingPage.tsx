@@ -52,6 +52,9 @@ type PreviewRow = {
   noProxy?: boolean;
   note?: string;
   hostPort?: number;
+  canInside?: boolean;
+  path?: string;
+  sniLocked?: boolean;
 };
 
 type PreviewResult = {
@@ -98,6 +101,8 @@ export default function MaskingPage() {
   const [ufw, setUfw] = useState(false);
   const [hidePanel, setHidePanel] = useState(false);
   const [hideNaive, setHideNaive] = useState<number[]>([]);
+  const [inside, setInside] = useState<number[]>([]);
+  const [paths, setPaths] = useState<Record<number, string>>({});
   const [sniEdits, setSniEdits] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
 
@@ -186,6 +191,8 @@ export default function MaskingPage() {
           selected: chosen,
           steal,
           hideNaive,
+          inside,
+          paths: Object.fromEntries(inside.map((id) => [id, paths[id] || ''])),
           publicHost: host,
           ufw,
           hidePanel,
@@ -238,6 +245,8 @@ export default function MaskingPage() {
       setPicked(false);
       setUfw(false);
       setHidePanel(false);
+      setInside([]);
+      setPaths({});
       setSniEdits({});
       await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await previewQuery.refetch();
@@ -279,6 +288,46 @@ export default function MaskingPage() {
     title: '',
     render: (_: unknown, r: PreviewRow) =>
       r.note ? <Typography.Text type="warning">{r.note}</Typography.Text> : null,
+  };
+  const insideCol = {
+    title: t('pages.masking.insideSite'),
+    render: (_: unknown, r: PreviewRow) => {
+      if (!r.canInside || r.protocol === 'naive') return null;
+      const on = inside.includes(r.inboundId);
+      return (
+        <Space direction="vertical" size={4}>
+          <Checkbox
+            disabled={applied || !coverOn}
+            checked={on}
+            onChange={(e) => {
+              setInside((cur) =>
+                e.target.checked ? [...cur, r.inboundId] : cur.filter((id) => id !== r.inboundId),
+              );
+              if (e.target.checked) {
+                const base = picked ? selected : chosen;
+                setSelected(base.filter((id) => id !== r.inboundId));
+                setPicked(true);
+                setPaths((cur) =>
+                  cur[r.inboundId] && cur[r.inboundId] !== '/'
+                    ? cur
+                    : { ...cur, [r.inboundId]: `/${Math.random().toString(36).slice(2, 10)}` },
+                );
+              }
+            }}
+          >
+            {t('pages.masking.insideSite')}
+          </Checkbox>
+          {on ? (
+            <Input
+              size="small"
+              value={paths[r.inboundId] ?? r.path ?? ''}
+              disabled={applied}
+              onChange={(e) => setPaths((cur) => ({ ...cur, [r.inboundId]: e.target.value }))}
+            />
+          ) : null}
+        </Space>
+      );
+    },
   };
 
   const body = !gateway ? (
@@ -361,6 +410,9 @@ export default function MaskingPage() {
               message={t('pages.masking.naiveHint')}
             />
           ) : null}
+          <Typography.Paragraph type="secondary">
+            {t('pages.masking.insideHint')}
+          </Typography.Paragraph>
           <Table
             rowKey="inboundId"
             size="small"
@@ -386,7 +438,7 @@ export default function MaskingPage() {
                   <Input
                     size="small"
                     value={r.sni}
-                    disabled={applied}
+                    disabled={applied || r.sniLocked}
                     onChange={(e) =>
                       setSniEdits((cur) => ({ ...cur, [r.inboundId]: e.target.value }))
                     }
@@ -395,6 +447,7 @@ export default function MaskingPage() {
               },
               listenCol,
               noteCol,
+              insideCol,
               {
                 title: t('pages.masking.stealHint'),
                 render: (_: unknown, r: PreviewRow) =>
@@ -431,6 +484,7 @@ export default function MaskingPage() {
                     render: (_: unknown, r: PreviewRow) => t(classKey(r.class) || r.class),
                   },
                   listenCol,
+                  insideCol,
                   {
                     title: '',
                     render: (_: unknown, r: PreviewRow) => {
@@ -502,18 +556,28 @@ export default function MaskingPage() {
                       ? 'pages.masking.confirmApplyUfw'
                       : 'pages.masking.confirmApply',
                 {
-                  n: chosen.length,
+                  n: chosen.length + inside.length,
                   ip: bindIP || '0.0.0.0',
                 },
               )}
               okText={t('pages.masking.confirmOk')}
-              disabled={applied || chosen.length === 0 || Boolean(clash)}
+              disabled={
+                applied ||
+                (chosen.length === 0 && inside.length === 0) ||
+                (inside.length > 0 && !coverOn) ||
+                Boolean(clash)
+              }
               onConfirm={() => void apply()}
             >
               <Button
                 type="primary"
                 loading={busy}
-                disabled={applied || chosen.length === 0 || Boolean(clash)}
+                disabled={
+                  applied ||
+                  (chosen.length === 0 && inside.length === 0) ||
+                  (inside.length > 0 && !coverOn) ||
+                  Boolean(clash)
+                }
               >
                 {t('pages.masking.apply')}
               </Button>
