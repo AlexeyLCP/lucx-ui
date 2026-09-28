@@ -42,8 +42,10 @@ func ValidateTproxySettings(settings string) error {
 	if s.XrayRoutingMode != "" && s.XrayRoutingMode != "tun" && s.XrayRoutingMode != "tproxy" {
 		return fmt.Errorf("awg: unknown Xray routing mode")
 	}
-	inst := Instance{Id: 1, Ifname: "awg1", RouteThroughXray: s.RouteThroughXray,
-		XrayRoutingMode: s.XrayRoutingMode, TproxyPort: s.TproxyPort, Address: s.Address}
+	inst := Instance{
+		Id: 1, Ifname: "awg1", RouteThroughXray: s.RouteThroughXray,
+		XrayRoutingMode: s.XrayRoutingMode, TproxyPort: s.TproxyPort, Address: s.Address,
+	}
 	if !inst.UsesTproxy() {
 		return nil
 	}
@@ -100,8 +102,10 @@ func tproxyRules(inst Instance) []tproxyRule {
 		{"iptables", "mangle", chain, "-d " + clientSubnet(inst.Address) + " -j RETURN"},
 	}
 	for _, proto := range []string{"tcp", "udp"} {
-		rules = append(rules, tproxyRule{"iptables", "mangle", chain,
-			fmt.Sprintf("-p %s -j TPROXY --on-ip 127.0.0.1 --on-port %d --tproxy-mark %s", proto, inst.TproxyPort, mark)})
+		rules = append(rules, tproxyRule{
+			"iptables", "mangle", chain,
+			fmt.Sprintf("-p %s -j TPROXY --on-ip 127.0.0.1 --on-port %d --tproxy-mark %s", proto, inst.TproxyPort, mark),
+		})
 	}
 	rules = append(rules,
 		tproxyRule{"iptables", "filter", "INPUT", "-i " + iface + " -m mark --mark " + mark + " -j ACCEPT"},

@@ -7,6 +7,7 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -1252,12 +1253,13 @@ func (s *InboundService) checkAwgTproxyPort(inbound *model.Inbound) error {
 	}
 	if !unchanged {
 		addr := fmt.Sprintf("127.0.0.1:%d", port)
-		tcp, err := net.Listen("tcp4", addr)
+		var lc net.ListenConfig
+		tcp, err := lc.Listen(context.Background(), "tcp4", addr)
 		if err != nil {
 			return fmt.Errorf("awg: TPROXY TCP port unavailable: %w", err)
 		}
 		defer tcp.Close()
-		udp, err := net.ListenPacket("udp4", addr)
+		udp, err := lc.ListenPacket(context.Background(), "udp4", addr)
 		if err != nil {
 			return fmt.Errorf("awg: TPROXY UDP port unavailable: %w", err)
 		}

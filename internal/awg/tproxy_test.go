@@ -15,9 +15,11 @@ import (
 )
 
 func tproxyFixture() Instance {
-	return Instance{Id: 7, Ifname: "awg7", Address: "10.8.0.1/24", PrivateKey: "test-only",
+	return Instance{
+		Id: 7, Ifname: "awg7", Address: "10.8.0.1/24", PrivateKey: "test-only",
 		RouteThroughXray: true, XrayRoutingMode: "tproxy", TproxyPort: 51453,
-		Peers: []PeerSpec{{PublicKey: "test-peer", AllowedIPs: "10.8.0.2/32"}}}
+		Peers: []PeerSpec{{PublicKey: "test-peer", AllowedIPs: "10.8.0.2/32"}},
+	}
 }
 
 func TestTproxyLegacyAndExplicitModes(t *testing.T) {
@@ -27,8 +29,10 @@ func TestTproxyLegacyAndExplicitModes(t *testing.T) {
 	}{
 		{"", false, false}, {"", true, false}, {"tun", true, false}, {"tproxy", false, false}, {"tproxy", true, true},
 	} {
-		raw, _ := json.Marshal(map[string]any{"privateKey": "test-only", "address": "10.8.0.1/24",
-			"routeThroughXray": tc.enabled, "xrayRoutingMode": tc.mode, "tproxyPort": 51453})
+		raw, _ := json.Marshal(map[string]any{
+			"privateKey": "test-only", "address": "10.8.0.1/24",
+			"routeThroughXray": tc.enabled, "xrayRoutingMode": tc.mode, "tproxyPort": 51453,
+		})
 		inst, ok := InstanceFromInbound(&model.Inbound{Id: 7, Protocol: model.AWG, Settings: string(raw)})
 		if !ok || inst.UsesTproxy() != tc.want {
 			t.Fatalf("mode %q enabled %v: wrong effective mode", tc.mode, tc.enabled)
@@ -74,8 +78,10 @@ func TestTproxyValidation(t *testing.T) {
 func TestTproxyPlanOrderingAndIsolation(t *testing.T) {
 	i := tproxyFixture()
 	up, down := tproxyPostUpPostDown(i)
-	for _, s := range []string{"ip -4 route replace local default dev lo table 40007", "fwmark 0x40000007/0xffffffff",
-		"-p tcp -j TPROXY", "-p udp -j TPROXY", "--on-port 51453", "-d 10.8.0.0/24 -j RETURN", "-i awg7 -j DROP", "ip6tables"} {
+	for _, s := range []string{
+		"ip -4 route replace local default dev lo table 40007", "fwmark 0x40000007/0xffffffff",
+		"-p tcp -j TPROXY", "-p udp -j TPROXY", "--on-port 51453", "-d 10.8.0.0/24 -j RETURN", "-i awg7 -j DROP", "ip6tables",
+	} {
 		if !strings.Contains(up, s) {
 			t.Errorf("missing %s", s)
 		}

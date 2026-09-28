@@ -248,8 +248,10 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 				TproxyPort       int    `json:"tproxyPort"`
 			}
 			if json.Unmarshal([]byte(bridge.Settings), &route) == nil && route.RouteThroughXray && route.XrayRoutingMode == "tproxy" && route.TproxyPort == inbound.Port {
-				return &portConflictDetail{InboundID: bridge.Id, Remark: bridge.Remark, Tag: bridge.Tag,
-					Listen: "127.0.0.1", Port: inbound.Port, Relay: true, Transports: newBits}, nil
+				return &portConflictDetail{
+					InboundID: bridge.Id, Remark: bridge.Remark, Tag: bridge.Tag,
+					Listen: "127.0.0.1", Port: inbound.Port, Relay: true, Transports: newBits,
+				}, nil
 			}
 		}
 	}
