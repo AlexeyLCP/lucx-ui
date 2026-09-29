@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.274 — AWG: strip stale routing keys when routeThroughXray goes off (2026-09-29)
+
+Toggling routeThroughXray off left `xrayRoutingMode`/`tproxyPort`/`outboundTag` in the stored settings (tester report: "при выключенной маршрутизации поле режим Xray не обнуляется"), so re-enabling resurrected the stale mode instead of the TUN default. New `stripAwgRouteSettings` (client_awg.go) deletes those keys when routing is off, mirroring `normalizeMtprotoXrayPort`; wired into both save paths (`AddInbound` via `migrateAwgSettingsOnUpdate` chain, update path in `migrateAwgSettingsOnUpdate`). TPROXY kernel side (mangle/Filter rules, policy rule, local table) is torn down by `cleanupTproxyConfig`/PostDown when the conf is re-rendered without the tproxy block, and `ensureXrayRouting` becomes a no-op once routed=false, so traffic falls back to kernel NAT (MASQUERADE by subnet) correctly.
+
+**lucxVersion:** lucx.274
+
+Tests: `go test ./internal/web/service/ -run "TestStripAwgRouteSettings|TestAddInbound_ToggledOffAwgDropsRouteKeys|TestAwgRoutesThroughXray" -count=1` green (zig cc as CGO cross-gcc on Windows); `go test ./internal/awg/ ./internal/lucx/... -count=1` green.
+
+---
+
 ## lucx.273 — AnyTLS: routeThroughXray via uid REDIRECT (2026-09-29)
 
 anytls-go has no SOCKS dialer, so the sidecar's own outbound TCP is redirected by uid (`lucx-mtproxy` user, shared with tproxy's REDIRECT) into the 23990 listener → hidden Xray SOCKS inbound tagged with the inbound's own tag. `routeThroughXray`/`routeXrayPort`/`outboundTag` on the AnyTLS form (schema, defaults, i18n all locales). Empty outboundTag = "let Xray routing decide" (mtproto pattern). `redirectOwners` registry in `tproxy_firewall_linux.go` stops tproxy's reconcile from clearing the shared uid rule while a routed AnyTLS still needs it (and vice versa). Off = direct egress, unchanged.

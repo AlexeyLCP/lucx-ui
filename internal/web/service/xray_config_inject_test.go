@@ -1297,7 +1297,7 @@ func TestInjectAnytlsEgress(t *testing.T) {
 			t.Fatalf("target=%q got proto=%s port=%d", target, got.Protocol, got.Port)
 		}
 		var routing egressRouting
-		if err := json.Unmarshal(string(cfg.RouterConfig), &routing); err != nil {
+		if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
 			t.Fatal(err)
 		}
 		matched := len(routing.Rules) > 0 && len(routing.Rules[0].InboundTag) == 1 && routing.Rules[0].InboundTag[0] == "in-anytls-21"

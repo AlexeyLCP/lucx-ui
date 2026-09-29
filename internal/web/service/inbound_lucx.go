@@ -1493,6 +1493,8 @@ func (s *InboundService) migrateAwgSettingsOnUpdate(inbound, oldInbound *model.I
 	if inbound.Protocol != model.AWG {
 		return nil
 	}
+	// LUCX-HOOK: drop inert routing keys when routing is off (update path).
+	stripAwgRouteSettings(inbound)
 	if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
 		return err
 	}

@@ -182,6 +182,38 @@ func validateAwgSettingsForSave(settings, tag string) error {
 	return nil
 }
 
+// stripAwgRouteSettings deletes the now-inert routing keys when
+// routeThroughXray is off, mirroring normalizeMtprotoXrayPort: without this a
+// toggled-off inbound keeps xrayRoutingMode/tproxyPort/outboundTag in its
+// settings and re-enabling routing resurrects the stale mode instead of the
+// TUN default.
+func stripAwgRouteSettings(inbound *model.Inbound) {
+	if inbound == nil || inbound.Protocol != model.AWG {
+		return
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil || parsed == nil {
+		return
+	}
+	if routed, _ := parsed["routeThroughXray"].(bool); routed {
+		return
+	}
+	_, hadMode := parsed["xrayRoutingMode"]
+	_, hadPort := parsed["tproxyPort"]
+	_, hadTag := parsed["outboundTag"]
+	if !hadMode && !hadPort && !hadTag {
+		return
+	}
+	delete(parsed, "xrayRoutingMode")
+	delete(parsed, "tproxyPort")
+	delete(parsed, "outboundTag")
+	if bs, err := json.MarshalIndent(parsed, "", "  "); err == nil {
+		inbound.Settings = string(bs)
+	} else {
+		logger.Warning("awg: failed to marshal settings after disabling routing:", err)
+	}
+}
+
 func validateAwgSettingsJSON(settings string) error {
 	var s struct {
 		AwgVersion          string `json:"awgVersion"`

@@ -1157,6 +1157,8 @@ func (s *InboundService) AddInbound(inbound *model.Inbound) (*model.Inbound, boo
 		return inbound, false, err
 	}
 	if inbound.Protocol == model.AWG {
+		// LUCX-HOOK: drop inert routing keys when routing is off (create path).
+		stripAwgRouteSettings(inbound)
 		if err := validateAwgSettingsForSave(inbound.Settings, inbound.Tag); err != nil {
 			return inbound, false, err
 		}

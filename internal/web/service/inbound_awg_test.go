@@ -1,6 +1,7 @@
 package service
 
 import (
+	"encoding/json"
 	"net/netip"
 	"path/filepath"
 	"strings"
@@ -40,6 +41,64 @@ func TestLucxRuntimeSidecar_NotXrayProtocols(t *testing.T) {
 	}
 	if lucxRuntimeSidecar(model.VLESS) {
 		t.Fatal("vless must reach xray")
+	}
+}
+
+func TestStripAwgRouteSettings(t *testing.T) {
+	// Routing off → mode/port/tag are removed, nothing else changes.
+	ib := &model.Inbound{Protocol: model.AWG, Settings: `{"privateKey":"k","routeThroughXray":false,"xrayRoutingMode":"tproxy","tproxyPort":51453,"outboundTag":"warp"}`}
+	stripAwgRouteSettings(ib)
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(ib.Settings), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range []string{"xrayRoutingMode", "tproxyPort", "outboundTag"} {
+		if _, ok := parsed[key]; ok {
+			t.Fatalf("routing off must drop %s: %s", key, ib.Settings)
+		}
+	}
+	if parsed["privateKey"] != "k" || parsed["routeThroughXray"] != false {
+		t.Fatalf("other fields must survive: %s", ib.Settings)
+	}
+
+	// Routing on → untouched.
+	const routed = `{"routeThroughXray":true,"xrayRoutingMode":"tproxy","tproxyPort":51453}`
+	ib = &model.Inbound{Protocol: model.AWG, Settings: routed}
+	stripAwgRouteSettings(ib)
+	if ib.Settings != routed {
+		t.Fatalf("routed settings must pass through: %s", ib.Settings)
+	}
+
+	// No stale keys and routing off → untouched (no churn on legacy rows).
+	const plain = `{"privateKey":"k","routeThroughXray":false}`
+	ib = &model.Inbound{Protocol: model.AWG, Settings: plain}
+	stripAwgRouteSettings(ib)
+	if ib.Settings != plain {
+		t.Fatalf("plain settings must pass through: %s", ib.Settings)
+	}
+
+	// Non-AWG → no-op.
+	ib = &model.Inbound{Protocol: model.VLESS, Settings: plain}
+	stripAwgRouteSettings(ib)
+	if ib.Settings != plain {
+		t.Fatal("vless must not be touched")
+	}
+}
+
+func TestAddInbound_ToggledOffAwgDropsRouteKeys(t *testing.T) {
+	initAwgServiceTest(t)
+	svc := &InboundService{}
+	ib := routedAwgTestInbound(40196)
+	ib.Settings = `{"privateKey":"test-priv","address":"10.8.0.1/24","routeThroughXray":false,"xrayRoutingMode":"tproxy","tproxyPort":51453,"outboundTag":"warp","clients":[]}`
+	if _, _, err := svc.AddInbound(ib); err != nil {
+		t.Fatalf("AddInbound: %v", err)
+	}
+	var parsed map[string]any
+	if err := json.Unmarshal([]byte(ib.Settings), &parsed); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := parsed["xrayRoutingMode"]; ok {
+		t.Fatalf("create must strip stale routing keys, got %s", ib.Settings)
 	}
 }
 
