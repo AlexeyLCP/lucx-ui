@@ -141,8 +141,6 @@ func (c AnytlsConfig) EnsurePassword() (AnytlsConfig, error) {
 	return c, nil
 }
 
-func anytlsEngineUser() string { return mtproxyEngineUser }
-
 // ClientLink renders the anytls:// share URI (anytls-go URI scheme).
 // A trusted cert is required, so the query is sni= (no insecure=1).
 func (c AnytlsConfig) ClientLink(host, remark string) string {
