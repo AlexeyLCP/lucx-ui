@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.272 — Masking: auto-install UFW on apply (2026-09-29)
+
+Tickbox "Close extra ports (UFW)" on Debian (minbase, no ufw) failed with "ufw not installed". `ApplyUFW` now installs missing ufw itself: `apt-get update` + `apt-get install -y ufw` (DEBIAN_FRONTEND=noninteractive, 5 min cap) — same behavior as the `x-ui` firewall menu. No apt-get (RHEL etc.) still returns a clear error.
+
+**lucxVersion:** lucx.272
+
+Tests: `go test ./internal/lucx/tunnel/ -count=1` (new: install-on-apply, error without apt); `go vet` clean.
+
+---
+
 ## lucx.271 — Opt-in kernel AWG TPROXY (2026-09-27)
 
 `routeThroughXray=false` stays direct. Missing or `tun` mode stays the Xray TUN bridge. `xrayRoutingMode=tproxy` plus a local `tproxyPort` injects a loopback dokodemo-door and interface-scoped IPv4 TCP/UDP TPROXY rules. No client key or address rewrite. Remote nodes and userspace fallback are refused. Issue #118.

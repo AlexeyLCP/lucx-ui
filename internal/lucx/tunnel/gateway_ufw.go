@@ -101,6 +101,27 @@ var (
 		}
 		return nil
 	}
+	ufwInstall = func() error {
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
+		apt := func(args ...string) error {
+			cmd := exec.CommandContext(ctx, "apt-get", args...)
+			cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
+			out, err := cmd.CombinedOutput()
+			if err != nil {
+				msg := strings.TrimSpace(string(out))
+				if msg == "" {
+					return err
+				}
+				return fmt.Errorf("%s: %w", msg, err)
+			}
+			return nil
+		}
+		if err := apt("update"); err != nil {
+			return err
+		}
+		return apt("install", "-y", "ufw")
+	}
 )
 
 func UFWAvailable() bool {
@@ -109,6 +130,13 @@ func UFWAvailable() bool {
 	}
 	_, err := ufwLookPath("ufw")
 	return err == nil
+}
+
+func ensureUFWInstalled() error {
+	if _, err := ufwLookPath("apt-get"); err != nil {
+		return fmt.Errorf("ufw not installed and apt-get not found: %w", err)
+	}
+	return ufwInstall()
 }
 
 func UFWActive() bool {
@@ -126,7 +154,9 @@ func UFWActive() bool {
 
 func ApplyUFW(allows []string) error {
 	if !UFWAvailable() {
-		return fmt.Errorf("ufw not installed")
+		if err := ensureUFWInstalled(); err != nil {
+			return fmt.Errorf("ufw not installed, apt-get install failed: %w", err)
+		}
 	}
 	for _, a := range allows {
 		if err := ufwRun("allow", a); err != nil {

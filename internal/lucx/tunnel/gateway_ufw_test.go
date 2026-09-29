@@ -7,6 +7,7 @@
 package tunnel
 
 import (
+	"os/exec"
 	"strings"
 	"testing"
 )
@@ -81,5 +82,45 @@ func TestRevertUFW_DisablesOnlyIfWeEnabled(t *testing.T) {
 	}
 	if err := RevertUFW(false); err != nil || len(got) != 1 || got[0] != "disable" {
 		t.Fatalf("disable our enable: %v %q", err, got)
+	}
+}
+
+func TestApplyUFW_InstallsWhenMissing(t *testing.T) {
+	oldLinux, oldPath, oldRun, oldInstall := ufwOSLinux, ufwLookPath, ufwRun, ufwInstall
+	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun, ufwInstall = oldLinux, oldPath, oldRun, oldInstall })
+	ufwOSLinux = true
+	ufwLookPath = func(name string) (string, error) {
+		if name == "apt-get" {
+			return "/usr/bin/apt-get", nil
+		}
+		return "", exec.ErrNotFound
+	}
+	installed := false
+	ufwInstall = func() error { installed = true; return nil }
+	var got []string
+	ufwRun = func(args ...string) error {
+		got = append(got, strings.Join(args, " "))
+		return nil
+	}
+	if err := ApplyUFW([]string{"22/tcp"}); err != nil {
+		t.Fatal(err)
+	}
+	if !installed {
+		t.Fatal("ufw was not installed on apply")
+	}
+	want := "allow 22/tcp;default deny incoming;--force enable"
+	if strings.Join(got, ";") != want {
+		t.Fatalf("%q", got)
+	}
+}
+
+func TestApplyUFW_MissingUFWAndApt(t *testing.T) {
+	oldLinux, oldPath, oldInstall := ufwOSLinux, ufwLookPath, ufwInstall
+	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwInstall = oldLinux, oldPath, oldInstall })
+	ufwOSLinux = true
+	ufwLookPath = func(string) (string, error) { return "", exec.ErrNotFound }
+	ufwInstall = func() error { t.Fatal("install must not run without apt-get"); return nil }
+	if err := ApplyUFW([]string{"22/tcp"}); err == nil {
+		t.Fatal("expected error without ufw and apt-get")
 	}
 }
