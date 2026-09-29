@@ -344,7 +344,7 @@ func (l *Local) updateTproxyInbound(ctx context.Context, oldIb, newIb *model.Inb
 
 func (l *Local) ensureCoverInbound(ib *model.Inbound) error {
 	cert, key := panelCertFilesForRuntime()
-	inst, ok := tunnel.CoverInstanceFromInbound(ib, listLocalInboundsForCover(), panelSecretBytes(), cert, key)
+	inst, ok := tunnel.StandaloneCoverInstance(ib, listLocalInboundsForCover(), panelSecretBytes(), cert, key)
 	if !ok {
 		return nil
 	}
@@ -375,7 +375,7 @@ func (l *Local) refreshCoverFronts() {
 		if ib == nil || ib.Protocol != model.Cover {
 			continue
 		}
-		inst, ok := tunnel.CoverInstanceFromInbound(ib, others, secret, cert, key)
+		inst, ok := tunnel.StandaloneCoverInstance(ib, others, secret, cert, key)
 		if ok {
 			_ = mgr.Ensure(inst)
 		}

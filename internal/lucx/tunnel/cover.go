@@ -129,8 +129,8 @@ type coverAttach struct {
 	publicUpstream string
 	httpsPort      int
 	skipHTTP       bool
-	// bind overrides the site bind directive (e.g. "l4chan/cover-1" when the
-	// site is embedded into the unified gateway Caddyfile).
+	// bind overrides the site bind directive (e.g. "l4chan/cover-1 127.0.0.1"
+	// when the site is embedded into the unified gateway Caddyfile).
 	bind string
 }
 
@@ -184,9 +184,14 @@ func writeCoverSite(b *strings.Builder, hostname, cert, key string, a coverAttac
 	// with file_server/encode in the same site (stand 2026-09-06). Embedded
 	// (a.bind set) is the same: the site is the gateway's unknown-SNI
 	// fallback and must answer any Host.
-	if a.naive != nil || a.bind != "" {
+	switch {
+	case a.bind != "":
+		// Hostname carries the port: bare, it would add a :443 listener that
+		// takes loopback conns away from the gateway when the cover is on 8443.
+		b.WriteString(":" + strconv.Itoa(httpsPort) + ", " + caddyToken(hostname+":"+strconv.Itoa(httpsPort)) + " {\n")
+	case a.naive != nil:
 		b.WriteString(":" + strconv.Itoa(httpsPort) + ", " + caddyToken(hostname) + " {\n")
-	} else {
+	default:
 		b.WriteString(hostname + ":" + strconv.Itoa(httpsPort) + " {\n")
 	}
 	switch {
