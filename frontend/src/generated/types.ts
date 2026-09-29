@@ -93,6 +93,7 @@ export interface AllSetting {
   subHappExcludeApns: boolean;
   subHappExcludeRoutes: string;
   subHappFallbackUrl: string;
+  subHappLocalProxyAuth: string;
   subHappNewUrl: string;
   subHappNoLimit: boolean;
   subHappNotificationExpire: boolean;
@@ -257,6 +258,7 @@ export interface AllSettingView {
   subHappExcludeApns: boolean;
   subHappExcludeRoutes: string;
   subHappFallbackUrl: string;
+  subHappLocalProxyAuth: string;
   subHappNewUrl: string;
   subHappNoLimit: boolean;
   subHappNotificationExpire: boolean;
