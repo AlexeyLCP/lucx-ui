@@ -12,6 +12,11 @@ export const AnytlsInboundSettingsSchema = z.object({
   sni: z.string().default(''),
   certFile: z.string().default(''),
   keyFile: z.string().default(''),
+  // lucx.273: uid REDIRECT bridge (tproxy pattern) — anytls-go has no SOCKS
+  // dialer, so routing works through iptables, not through the binary.
+  routeThroughXray: z.boolean().default(false),
+  routeXrayPort: z.number().int().min(1).max(65535).optional(),
+  outboundTag: z.string().default(''),
   // Clients are edited in the client modal, not this form. Without the field
   // Zod strips them and a no-op save detaches every client.
   clients: z.array(z.record(z.string(), z.unknown())).default([]),

@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.273 — AnyTLS: routeThroughXray via uid REDIRECT (2026-09-29)
+
+anytls-go has no SOCKS dialer, so the sidecar's own outbound TCP is redirected by uid (`lucx-mtproxy` user, shared with tproxy's REDIRECT) into the 23990 listener → hidden Xray SOCKS inbound tagged with the inbound's own tag. `routeThroughXray`/`routeXrayPort`/`outboundTag` on the AnyTLS form (schema, defaults, i18n all locales). Empty outboundTag = "let Xray routing decide" (mtproto pattern). `redirectOwners` registry in `tproxy_firewall_linux.go` stops tproxy's reconcile from clearing the shared uid rule while a routed AnyTLS still needs it (and vice versa). Off = direct egress, unchanged.
+
+**lucxVersion:** lucx.273
+
+Tests: `go test ./internal/lucx/tunnel/ -count=1` (parse routeThroughXray); `internal/web/service` tests need Linux CGO (Windows gate); frontend typecheck + lint clean.
+
+---
+
 ## lucx.272 — Masking: auto-install UFW on apply (2026-09-29)
 
 Tickbox "Close extra ports (UFW)" on Debian (minbase, no ufw) failed with "ufw not installed". `ApplyUFW` now installs missing ufw itself: `apt-get update` + `apt-get install -y ufw` (DEBIAN_FRONTEND=noninteractive, 5 min cap) — same behavior as the `x-ui` firewall menu. No apt-get (RHEL etc.) still returns a clear error.

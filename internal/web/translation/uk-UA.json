@@ -850,6 +850,8 @@
         "anytlsPasswordHint": "Empty = auto-generate on save",
         "anytlsSni": "SNI / domain",
         "anytlsSniHint": "Must be covered by the panel TLS certificate (x-ui SSL). Empty cert paths use Settings → Panel SSL.",
+        "anytlsRouteThroughXray": "Route through Xray",
+        "anytlsRouteThroughXrayHint": "AnyTLS outbound TCP (uid lucx-mtproxy) is redirected into an Xray SOCKS bridge. On = Xray routing rules and outbounds apply. Off = direct egress (default).",
         "tproxyNote": "Telegram WEB proxy (tproxy-server). Needs hostname:443, panel TLS cert covering the hostname, camouflage site, and binaries on Settings → Cores (tproxy-server, MTProxy, Caddy/NaiveProxy). Clients: Telegram Desktop WEB proxy. Share: t.me/webproxy",
         "tproxyHostname": "Hostname",
         "tproxyHostnameHint": "Bare DNS name, no https:// or port. Must match the TLS certificate.",
@@ -3292,3 +3294,4 @@
   "disable": "Вимкнути",
   "qrTooLarge": "QR занадто великий для відображення — скористайтеся завантаженням або копіюванням"
 }
+

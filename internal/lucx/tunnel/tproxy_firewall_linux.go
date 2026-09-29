@@ -14,6 +14,7 @@ import (
 	"os/user"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -39,6 +40,53 @@ func ClearMtproxyLocalOnly(id int) {
 }
 
 func EnsureMtproxyXraySocks(socksPort int) {
+	redirectOwnerEnsure("tproxy", socksPort)
+}
+
+func ClearMtproxyXraySocks() {
+	redirectOwnerClear("tproxy")
+}
+
+// redirectOwners guards the shared uid REDIRECT rule (lucx-mtproxy user,
+// comment lucx-tproxy-xray) against cross-protocol flips: a routed AnyTLS and
+// a routed tproxy both live on the same rule/listener, so one owner's
+// reconcile must not clear what the other still needs (lucx.273).
+var redirectOwners struct {
+	mu  sync.Mutex
+	set map[string]int
+}
+
+func redirectOwnerEnsure(owner string, socksPort int) {
+	if socksPort <= 0 {
+		return
+	}
+	redirectOwners.mu.Lock()
+	if redirectOwners.set == nil {
+		redirectOwners.set = map[string]int{}
+	}
+	redirectOwners.set[owner] = socksPort
+	redirectOwners.mu.Unlock()
+	// ponytail: one shared bridge target (last Ensure wins) — two routed
+	// protocols with different socks ports flap the target; split per-owner
+	// listeners if that combination shows up in the field.
+	EnsureMtproxyXraySocksRule(socksPort)
+}
+
+func redirectOwnerClear(owner string) {
+	redirectOwners.mu.Lock()
+	empty := redirectOwners.set == nil
+	if !empty {
+		delete(redirectOwners.set, owner)
+		empty = len(redirectOwners.set) == 0
+	}
+	redirectOwners.mu.Unlock()
+	if empty {
+		ClearMtproxyXraySocksRule()
+	}
+}
+
+// EnsureMtproxyXraySocksRule is the physical half (listener + iptables rule).
+func EnsureMtproxyXraySocksRule(socksPort int) {
 	clearTproxyTunLeftovers()
 	if socksPort <= 0 {
 		return
@@ -61,7 +109,7 @@ func EnsureMtproxyXraySocks(socksPort int) {
 	}
 }
 
-func ClearMtproxyXraySocks() {
+func ClearMtproxyXraySocksRule() {
 	_ = clearIptablesNatOutput(tproxyXrayComment())
 	clearTproxyTunLeftovers()
 }

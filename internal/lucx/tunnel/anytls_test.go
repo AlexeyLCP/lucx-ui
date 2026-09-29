@@ -231,3 +231,24 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		t.Fatalf("inbound.Port must win over settings.port: %+v", inst)
 	}
 }
+
+func TestAnytlsConfigRouteThroughXray(t *testing.T) {
+	ib := &model.Inbound{
+		Protocol: model.Anytls,
+		Enable:   true,
+		Settings: `{"port":8555,"password":"p","sni":"vpn.example.com","routeThroughXray":true,"routeXrayPort":39111,"outboundTag":"warp"}`,
+	}
+	cfg, ok := AnytlsConfigFromInbound(ib)
+	if !ok {
+		t.Fatal("parse")
+	}
+	if !cfg.RouteThroughXray || cfg.RouteXrayPort != 39111 || cfg.OutboundTag != "warp" {
+		t.Fatalf("got %+v", cfg)
+	}
+	plain := *ib
+	plain.Settings = `{"port":8555,"password":"p","sni":"vpn.example.com"}`
+	cfg, ok = AnytlsConfigFromInbound(&plain)
+	if !ok || cfg.RouteThroughXray || cfg.RouteXrayPort != 0 {
+		t.Fatal("absent routeThroughXray must stay false")
+	}
+}

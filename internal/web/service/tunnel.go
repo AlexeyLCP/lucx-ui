@@ -605,6 +605,7 @@ func (s *TunnelService) reconcileAnytlsInbounds() {
 		return
 	}
 	var want []tunnel.Instance
+	routedPort := 0
 	for _, ib := range inbounds {
 		if ib == nil || ib.Protocol != model.Anytls || ib.NodeID != nil {
 			continue
@@ -614,6 +615,17 @@ func (s *TunnelService) reconcileAnytlsInbounds() {
 			continue
 		}
 		want = append(want, inst)
+		if ib.Enable {
+			if cfg, cfgOK := tunnel.AnytlsConfigFromInbound(ib); cfgOK && cfg.RouteThroughXray && cfg.RouteXrayPort > 0 {
+				routedPort = cfg.RouteXrayPort
+			}
+		}
+	}
+	if routedPort > 0 {
+		// One uid REDIRECT rule (lucx-mtproxy user) serves every routed AnyTLS.
+		tunnel.EnsureAnytlsXraySocks(routedPort)
+	} else {
+		tunnel.ClearAnytlsXraySocks()
 	}
 	tunnel.GetManager().ReconcileAnytls(want)
 }

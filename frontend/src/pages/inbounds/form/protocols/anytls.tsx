@@ -5,12 +5,16 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
 import { useTranslation } from 'react-i18next';
-import { Alert, Input } from 'antd';
+import { Alert, Input, Select, Switch } from 'antd';
+import { useWatch } from 'react-hook-form';
 
 import { FormField } from '@/components/form/rhf';
+import { useOutboundTags } from '@/api/queries/useOutboundTags';
 
 export default function AnytlsFields() {
   const { t } = useTranslation();
+  const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
+  const { data: outboundTags } = useOutboundTags();
   return (
     <>
       <Alert
@@ -48,6 +52,30 @@ export default function AnytlsFields() {
       >
         <Input.Password autoComplete="new-password" />
       </FormField>
+      <FormField
+        name={['settings', 'routeThroughXray']}
+        label={t('pages.inbounds.form.anytlsRouteThroughXray')}
+        tooltip={t('pages.inbounds.form.anytlsRouteThroughXrayHint')}
+        valueProp="checked"
+      >
+        <Switch />
+      </FormField>
+      {routeThroughXray && (
+        <FormField
+          name={['settings', 'outboundTag']}
+          label={t('pages.inbounds.form.naiveRouteOutbound')}
+          tooltip={t('pages.inbounds.form.naiveRouteOutboundHint')}
+        >
+          <Select
+            showSearch
+            optionFilterProp="label"
+            options={[
+              { value: '', label: t('pages.inbounds.form.naiveRouteOutboundPlaceholder') },
+              ...(outboundTags || []).map((tag) => ({ value: tag, label: tag })),
+            ]}
+          />
+        </FormField>
+      )}
     </>
   );
 }

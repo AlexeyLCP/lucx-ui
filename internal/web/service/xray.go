@@ -513,6 +513,14 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		naiveInboundSeen = true
 		injectNaiveInboundEgress(xrayConfig, inbound)
 	}
+	// AnyTLS inbound rows (lucx.273): uid REDIRECT bridge, tag = inbound.Tag.
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.Anytls || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectAnytlsEgress(xrayConfig, inbound)
+	}
 	if !naiveInboundSeen {
 		if naiveCfg, err := (&TunnelService{}).LoadNaiveConfig(); err == nil {
 			injectTunnelEgress(xrayConfig, naiveCfg)
@@ -851,6 +859,26 @@ func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 		Settings: json_util.RawMessage(mtprotoEgressSocksSettings),
 		Tag:      tag,
 	})
+}
+
+// LUCX-HOOK: injectAnytlsEgress wires one routed AnyTLS inbound into Xray as a
+// loopback SOCKS bridge tagged with the inbound's own tag (tproxy pattern).
+// anytls-go has no SOCKS dialer, so the sidecar's own outbound TCP is redirected
+// by uid (lucx-mtproxy, same engine user) into the hidden Xray inbound below;
+// the bridge listen itself is the tproxy uid REDIRECT listener on 23990.
+func injectAnytlsEgress(cfg *xray.Config, inbound *model.Inbound) {
+	var parsed struct {
+		RouteThroughXray bool   `json:"routeThroughXray"`
+		RouteXrayPort    int    `json:"routeXrayPort"`
+		OutboundTag      string `json:"outboundTag"`
+	}
+	if err := json.Unmarshal([]byte(inbound.Settings), &parsed); err != nil {
+		return
+	}
+	if !parsed.RouteThroughXray || parsed.RouteXrayPort <= 0 || inbound.Tag == "" {
+		return
+	}
+	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "anytls egress", true)
 }
 
 func injectTunnelEgress(cfg *xray.Config, naive tunnel.NaiveConfig) {

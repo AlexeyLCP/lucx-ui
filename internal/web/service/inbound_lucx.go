@@ -514,7 +514,16 @@ func lucxRoutesThroughXray(inbound *model.Inbound) bool {
 		olcrtcRoutesThroughXray(inbound) ||
 		mieruRoutesThroughXray(inbound) ||
 		trustTunnelRoutesThroughXray(inbound) ||
-		tproxyRoutesThroughXray(inbound)
+		tproxyRoutesThroughXray(inbound) ||
+		anytlsRoutesThroughXray(inbound)
+}
+
+func anytlsRoutesThroughXray(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Anytls {
+		return false
+	}
+	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
+	return ok && cfg.RouteThroughXray && cfg.RouteXrayPort > 0
 }
 
 func tproxyRoutesThroughXray(inbound *model.Inbound) bool {
@@ -606,6 +615,9 @@ func (s *InboundService) normalizeAnytlsSettings(inbound *model.Inbound) {
 	settings["sni"] = strings.TrimSpace(cfg.SNI)
 	settings["certFile"] = strings.TrimSpace(cfg.CertFile)
 	settings["keyFile"] = strings.TrimSpace(cfg.KeyFile)
+	settings["routeThroughXray"] = cfg.RouteThroughXray
+	settings["routeXrayPort"] = cfg.RouteXrayPort
+	settings["outboundTag"] = strings.TrimSpace(cfg.OutboundTag)
 	if strings.TrimSpace(cfg.Remark) != "" {
 		settings["remark"] = cfg.Remark
 	}
@@ -616,6 +628,10 @@ func (s *InboundService) normalizeAnytlsSettings(inbound *model.Inbound) {
 	if inbound.Remark == "" && strings.TrimSpace(cfg.Remark) != "" {
 		inbound.Remark = cfg.Remark
 	}
+}
+
+func (s *InboundService) normalizeAnytlsXrayPort(inbound *model.Inbound, oldSettings string) error {
+	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Anytls, "anytls")
 }
 
 func (s *InboundService) validateAnytlsCert(inbound *model.Inbound) error {
@@ -1328,6 +1344,9 @@ func (s *InboundService) normalizeLucxSidecarsOnCreate(inbound *model.Inbound) e
 		if err := s.validateAnytlsCert(inbound); err != nil {
 			return err
 		}
+		if err := s.normalizeAnytlsXrayPort(inbound, ""); err != nil {
+			return err
+		}
 	}
 	if inbound.Protocol == model.Tproxy {
 		s.normalizeTproxySettings(inbound)
@@ -1412,6 +1431,9 @@ func (s *InboundService) normalizeLucxSidecarsOnUpdate(inbound, oldInbound *mode
 	if inbound.Protocol == model.Anytls {
 		s.normalizeAnytlsSettings(inbound)
 		if err := s.validateAnytlsCert(inbound); err != nil {
+			return err
+		}
+		if err := s.normalizeAnytlsXrayPort(inbound, oldInbound.Settings); err != nil {
 			return err
 		}
 	}

@@ -355,6 +355,8 @@ export function createDefaultAnytlsInboundSettings(): AnytlsInboundSettings {
     sni: '',
     certFile: '',
     keyFile: '',
+    routeThroughXray: false,
+    outboundTag: '',
     clients: [],
   };
 }

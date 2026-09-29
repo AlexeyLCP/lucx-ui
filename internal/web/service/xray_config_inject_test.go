@@ -1280,6 +1280,50 @@ func TestNaiveBridgeChanged(t *testing.T) {
 	}
 }
 
+func TestInjectAnytlsEgress(t *testing.T) {
+	for _, target := range []string{"", "warp"} {
+		cfg := egressTestConfig()
+		before := string(cfg.RouterConfig)
+		ib := &model.Inbound{
+			Id: 21, Tag: "in-anytls-21", Protocol: model.Anytls, Enable: true,
+			Settings: `{"routeThroughXray":true,"routeXrayPort":39160,"outboundTag":"` + target + `"}`,
+		}
+		injectAnytlsEgress(cfg, ib)
+		if len(cfg.InboundConfigs) != 2 {
+			t.Fatalf("bridge not injected (target=%q)", target)
+		}
+		got := cfg.InboundConfigs[1]
+		if got.Protocol != "socks" || got.Port != 39160 {
+			t.Fatalf("target=%q got proto=%s port=%d", target, got.Protocol, got.Port)
+		}
+		var routing egressRouting
+		if err := json.Unmarshal(string(cfg.RouterConfig), &routing); err != nil {
+			t.Fatal(err)
+		}
+		matched := len(routing.Rules) > 0 && len(routing.Rules[0].InboundTag) == 1 && routing.Rules[0].InboundTag[0] == "in-anytls-21"
+		if target == "warp" {
+			if !matched || routing.Rules[0].OutboundTag != "warp" {
+				t.Fatalf("expected warp rule, got %+v", routing)
+			}
+		} else if string(cfg.RouterConfig) != before {
+			t.Fatal("no target must not change routing")
+		}
+	}
+}
+
+func TestInjectAnytlsEgress_Disabled(t *testing.T) {
+	cfg := egressTestConfig()
+	ib := &model.Inbound{
+		Id: 21, Tag: "in-anytls-21", Protocol: model.Anytls, Enable: true,
+		Settings: `{"routeThroughXray":false,"routeXrayPort":39160}`,
+	}
+	before := len(cfg.InboundConfigs)
+	injectAnytlsEgress(cfg, ib)
+	if len(cfg.InboundConfigs) != before {
+		t.Fatal("unrouted anytls must not inject")
+	}
+}
+
 func TestInjectTproxyEgress_SocksNoSniffing(t *testing.T) {
 	cfg := egressTestConfig()
 	ib := &model.Inbound{

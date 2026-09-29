@@ -866,6 +866,8 @@
         "anytlsPasswordHint": "Пусто = сгенерируется при сохранении",
         "anytlsSni": "SNI / домен",
         "anytlsSniHint": "Должен быть в сертификате панели (x-ui SSL). Пустые пути cert/key = Settings → Panel SSL.",
+        "anytlsRouteThroughXray": "Через Xray",
+        "anytlsRouteThroughXrayHint": "Исходящий TCP AnyTLS (uid lucx-mtproxy) уходит в SOCKS-мост Xray по правилам маршрутизации. Выкл = напрямую (по умолчанию).",
         "tproxyNote": "Telegram WEB proxy (tproxy-server). Нужны hostname:443, TLS панели на этот hostname, сайт-камуфляж и бинарники в Настройки → Ядра (tproxy-server, MTProxy, Caddy/NaiveProxy). Клиенты: Telegram Desktop WEB proxy. Ссылка: t.me/webproxy",
         "tproxyHostname": "Hostname",
         "tproxyHostnameHint": "Голое DNS-имя, без https:// и порта. Должно совпадать с сертификатом.",
@@ -3292,3 +3294,4 @@
   "disable": "Отключить",
   "qrTooLarge": "QR слишком большой — используйте скачивание или копирование"
 }
+
