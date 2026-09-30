@@ -91,15 +91,19 @@
     },
     "swagger-ui-react": {
       "js-yaml": "^4.3.2",
-      "brace-expansion": "^5.0.9"
+      "brace-expansion": "^5.0.12"
     },
     "js-yaml": "^4.3.2",
     "@typeschema/valibot": {
       "valibot": "^1.1.0"
     },
     "minimatch@10.2.5": {
-      "brace-expansion": "5.0.9"
+      "brace-expansion": "5.0.12"
     },
+    "minimatch@10.2.6": {
+      "brace-expansion": "5.0.12"
+    },
+    "brace-expansion": "5.0.12",
     "@storybook/addon-vitest": {
       "vitest": "^5.0.0",
       "@vitest/browser-playwright": "5.0.0",
