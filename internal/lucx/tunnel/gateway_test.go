@@ -233,10 +233,13 @@ func TestRealitySelfDest(t *testing.T) {
 		{"some-other.site:443", "node.example.com", "203.0.113.5", false},
 		{"", "", "", false},
 	}
-	for _, tc := range cases {
-		stream := `{"network":"tcp","security":"reality","realitySettings":{"dest":"` + tc.dest + `"}}`
-		if got := RealitySelfDest(stream, tc.publicHost, tc.bindIP); got != tc.want {
-			t.Errorf("dest=%q host=%q bind=%q: got %v want %v", tc.dest, tc.publicHost, tc.bindIP, got, tc.want)
+	// The panel's form saves "target" (Xray's current name); "dest" is the legacy alias.
+	for _, field := range []string{"dest", "target"} {
+		for _, tc := range cases {
+			stream := `{"network":"tcp","security":"reality","realitySettings":{"` + field + `":"` + tc.dest + `"}}`
+			if got := RealitySelfDest(stream, tc.publicHost, tc.bindIP); got != tc.want {
+				t.Errorf("%s=%q host=%q bind=%q: got %v want %v", field, tc.dest, tc.publicHost, tc.bindIP, got, tc.want)
+			}
 		}
 	}
 	Local := LocalIPv4()

@@ -240,7 +240,8 @@ func IsRealityStream(stream string) bool {
 	return sec == "reality"
 }
 
-// RealityDest reads realitySettings.dest. Empty if the stream is not Reality.
+// RealityDest reads realitySettings.target, falling back to the legacy alias
+// dest (the panel form saves target only). Empty if the stream is not Reality.
 func RealityDest(stream string) string {
 	var m map[string]any
 	if json.Unmarshal([]byte(stream), &m) != nil || m == nil {
@@ -249,6 +250,9 @@ func RealityDest(stream string) string {
 	raw, _ := m["realitySettings"].(map[string]any)
 	if raw == nil {
 		return ""
+	}
+	if t, _ := raw["target"].(string); strings.TrimSpace(t) != "" {
+		return strings.TrimSpace(t)
 	}
 	d, _ := raw["dest"].(string)
 	return strings.TrimSpace(d)
