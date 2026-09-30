@@ -1,14 +1,18 @@
 # LucX-UI — Прогресс
 
-## lucx.275 — Masking: steal a self-referencing REALITY dest (2026-09-29)
+## lucx.275 — Masking: steal a self-referencing REALITY dest (2026-09-30)
 
 Tester report: enabling masking exploded TCP sockets (35k open, zero clients attached, "как будто что-то зацикливается"). Root cause is upstream physics, not a Go leak: xtls/reality's `Server()` dials `realitySettings.dest` on **every** accepted TLS conn — a failed handshake is relayed to dest verbatim (that is the steal mechanism). When dest routes back into the same server (operator's own domain:443 used as publicHost, the server IP, or any loopback), each scanner probe recurses Caddy L4 → Xray → dest → Caddy again; `matching_timeout 15s` bounds one ClientHello wait, not the chain. Public :443 eats thousands of junk SNI probes daily, so sockets multiply with no clients.
 
 Fix: `RealitySelfDest` (gateway_apply.go) flags a dest that matches publicHost / bindIP / server's own LocalIPv4 / loopback / localhost. `BuildPreview` sets `StealDest` on such rows (second pass, once the cover row's port is known) — healthy external dests (microsoft.com) are never touched, honoring the lucx.269 "stop rewriting REALITY" decision. `GatewayApply` forces the steal for marked rows and honors the UI checkbox (`req.Steal`, previously dead plumbing) for healthy rows when a selected cover exists: dest+target become `127.0.0.1:<coverPort>`, which the unified gateway serves via the cover site block (`bind l4chan/cover-N 127.0.0.1`) that terminates TLS in-process — a terminal hop, no recursion. Revert restores the old stream from the snapshot as usual.
 
+PR #125 (rudenko-ks): the panel form saves REALITY's destination as `target`, `dest` is the legacy alias — `RealityDest` now reads `target` first, falling back to `dest`, so the auto-steal also sees panel-saved inbounds (their own server hit ~14k conns and OOM with the panel form on 274). `TestRealitySelfDest` runs every case through both field names.
+
+Also in this release: frontend `brace-expansion` → 5.0.12 via npm overrides (CI `npm audit` high, GHSA-q2hr-2g5m-vwhr — quadratic/recursive brace expansion DoS).
+
 **lucxVersion:** lucx.275
 
-Tests: `go test ./internal/lucx/tunnel/ -count=1` (new: `TestBuildPreview_StealMarksSelfDest`, `TestRealitySelfDest` incl. `[::1]` bracket case); `go vet` clean (Windows CGO gate on internal/database as always).
+Tests: `go test ./internal/lucx/tunnel/ -count=1` (new: `TestBuildPreview_StealMarksSelfDest`, `TestRealitySelfDest` incl. `[::1]` bracket case + target/dest alias); full CI green on main (all 8 jobs); `go vet` clean (Windows CGO gate on internal/database as always).
 
 ---
 
