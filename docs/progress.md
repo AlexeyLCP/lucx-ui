@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.275 — Masking: steal a self-referencing REALITY dest (2026-09-29)
+
+Tester report: enabling masking exploded TCP sockets (35k open, zero clients attached, "как будто что-то зацикливается"). Root cause is upstream physics, not a Go leak: xtls/reality's `Server()` dials `realitySettings.dest` on **every** accepted TLS conn — a failed handshake is relayed to dest verbatim (that is the steal mechanism). When dest routes back into the same server (operator's own domain:443 used as publicHost, the server IP, or any loopback), each scanner probe recurses Caddy L4 → Xray → dest → Caddy again; `matching_timeout 15s` bounds one ClientHello wait, not the chain. Public :443 eats thousands of junk SNI probes daily, so sockets multiply with no clients.
+
+Fix: `RealitySelfDest` (gateway_apply.go) flags a dest that matches publicHost / bindIP / server's own LocalIPv4 / loopback / localhost. `BuildPreview` sets `StealDest` on such rows (second pass, once the cover row's port is known) — healthy external dests (microsoft.com) are never touched, honoring the lucx.269 "stop rewriting REALITY" decision. `GatewayApply` forces the steal for marked rows and honors the UI checkbox (`req.Steal`, previously dead plumbing) for healthy rows when a selected cover exists: dest+target become `127.0.0.1:<coverPort>`, which the unified gateway serves via the cover site block (`bind l4chan/cover-N 127.0.0.1`) that terminates TLS in-process — a terminal hop, no recursion. Revert restores the old stream from the snapshot as usual.
+
+**lucxVersion:** lucx.275
+
+Tests: `go test ./internal/lucx/tunnel/ -count=1` (new: `TestBuildPreview_StealMarksSelfDest`, `TestRealitySelfDest` incl. `[::1]` bracket case); `go vet` clean (Windows CGO gate on internal/database as always).
+
+---
+
 ## lucx.274 — AWG: strip stale routing keys when routeThroughXray goes off (2026-09-29)
 
 Toggling routeThroughXray off left `xrayRoutingMode`/`tproxyPort`/`outboundTag` in the stored settings (tester report: "при выключенной маршрутизации поле режим Xray не обнуляется"), so re-enabling resurrected the stale mode instead of the TUN default. New `stripAwgRouteSettings` (client_awg.go) deletes those keys when routing is off, mirroring `normalizeMtprotoXrayPort`; wired into both save paths (`AddInbound` via `migrateAwgSettingsOnUpdate` chain, update path in `migrateAwgSettingsOnUpdate`). TPROXY kernel side (mangle/Filter rules, policy rule, local table) is torn down by `cleanupTproxyConfig`/PostDown when the conf is re-rendered without the tproxy block, and `ensureXrayRouting` becomes a no-op once routed=false, so traffic falls back to kernel NAT (MASQUERADE by subnet) correctly.

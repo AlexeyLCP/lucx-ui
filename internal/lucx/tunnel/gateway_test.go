@@ -8,6 +8,7 @@ package tunnel
 
 import (
 	"os"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -154,6 +155,101 @@ func TestBuildPreview_NaiveStaysPublic(t *testing.T) {
 	if len(rows) != 1 || rows[0].Class != ClassSkip || rows[0].NewPort == 443 {
 		t.Fatalf("%+v", rows)
 	}
+}
+
+// TestBuildPreview_StealMarksSelfDest: a REALITY dest resolving back into
+// this server (public host, bind IP, own IPv4, loopback) is marked for the
+// steal — Xray dials dest on every failed handshake and a self-referencing
+// dest recurses Caddy↔Xray (tester lucx.275: 35k sockets, zero clients).
+func TestBuildPreview_StealMarksSelfDest(t *testing.T) {
+	stream := func(dest string) string {
+		return `{"network":"tcp","security":"reality","realitySettings":{"serverNames":["www.microsoft.com"],"dest":"` + dest + `"}}`
+	}
+	cover := &model.Inbound{Id: 2, Protocol: model.Cover, Port: 443, Enable: true, Settings: `{"hostname":"cov.example.com"}`}
+	rows := BuildPreview(443, "node.example.com", []*model.Inbound{
+		{Id: 1, Protocol: model.VLESS, Port: 443, Enable: true, StreamSettings: stream("node.example.com:443")},
+		cover,
+	}, "203.0.113.5")
+	byID := map[int]PreviewRow{}
+	for _, r := range rows {
+		byID[r.InboundID] = r
+	}
+	if byID[1].StealDest == "" {
+		t.Fatalf("public-host dest must be steal-marked: %+v", byID[1])
+	}
+	if byID[1].StealDest != "127.0.0.1:"+itoa(byID[2].NewPort) {
+		t.Fatalf("steal dest must be the cover loopback: %+v", byID[1])
+	}
+
+	// Healthy external dest is never touched.
+	rows = BuildPreview(443, "node.example.com", []*model.Inbound{
+		{Id: 1, Protocol: model.VLESS, Port: 443, Enable: true, StreamSettings: stream("www.microsoft.com:443")},
+		cover,
+	}, "203.0.113.5")
+	if rows[0].StealDest != "" {
+		t.Fatalf("healthy dest must stay: %+v", rows[0])
+	}
+
+	// Bind IP dest.
+	rows = BuildPreview(443, "node.example.com", []*model.Inbound{
+		{Id: 1, Protocol: model.VLESS, Port: 443, Enable: true, StreamSettings: stream("203.0.113.5:443")},
+		cover,
+	}, "203.0.113.5")
+	if rows[0].StealDest == "" {
+		t.Fatalf("bind-IP dest must be steal-marked: %+v", rows[0])
+	}
+
+	// Loopback dest.
+	rows = BuildPreview(443, "node.example.com", []*model.Inbound{
+		{Id: 1, Protocol: model.VLESS, Port: 443, Enable: true, StreamSettings: stream("127.0.0.1:443")},
+		cover,
+	}, "203.0.113.5")
+	if rows[0].StealDest == "" {
+		t.Fatalf("loopback dest must be steal-marked: %+v", rows[0])
+	}
+
+	// No cover → nothing to steal to.
+	rows = BuildPreview(443, "node.example.com", []*model.Inbound{
+		{Id: 1, Protocol: model.VLESS, Port: 443, Enable: true, StreamSettings: stream("127.0.0.1:443")},
+	}, "203.0.113.5")
+	if rows[0].StealDest != "" {
+		t.Fatalf("no cover, no steal: %+v", rows[0])
+	}
+}
+
+func TestRealitySelfDest(t *testing.T) {
+	cases := []struct {
+		dest       string
+		publicHost string
+		bindIP     string
+		want       bool
+	}{
+		{"node.example.com:443", "node.example.com", "203.0.113.5", true},
+		{"203.0.113.5:443", "node.example.com", "203.0.113.5", true},
+		{"127.0.0.1:443", "", "", true},
+		{"[::1]:443", "", "", true},
+		{"localhost:443", "", "", true},
+		{"www.microsoft.com:443", "node.example.com", "203.0.113.5", false},
+		{"some-other.site:443", "node.example.com", "203.0.113.5", false},
+		{"", "", "", false},
+	}
+	for _, tc := range cases {
+		stream := `{"network":"tcp","security":"reality","realitySettings":{"dest":"` + tc.dest + `"}}`
+		if got := RealitySelfDest(stream, tc.publicHost, tc.bindIP); got != tc.want {
+			t.Errorf("dest=%q host=%q bind=%q: got %v want %v", tc.dest, tc.publicHost, tc.bindIP, got, tc.want)
+		}
+	}
+	Local := LocalIPv4()
+	if Local != "" {
+		stream := `{"network":"tcp","security":"reality","realitySettings":{"dest":"` + Local + `:443"}}`
+		if !RealitySelfDest(stream, "", "") {
+			t.Fatalf("server's own IPv4 %s must be steal-marked", Local)
+		}
+	}
+}
+
+func itoa(i int) string {
+	return strconv.Itoa(i)
 }
 
 func TestRenderGatewayCaddyfile_NoProxy(t *testing.T) {

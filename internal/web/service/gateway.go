@@ -218,6 +218,33 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	if err != nil {
 		return err
 	}
+	// REALITY steal: loop-marked rows (dest points back into this server)
+	// are forced to the cover loopback — Xray dials dest on every failed
+	// handshake, so a self-referencing dest recurses Caddy↔Xray and
+	// multiplies sockets with zero clients. req.Steal opts healthy reality
+	// rows in; a cover row must exist.
+	coverPort := 0
+	for _, row := range rows {
+		if row.Class == tunnel.ClassCaddy && selected[row.InboundID] {
+			coverPort = row.NewPort
+			break
+		}
+	}
+	selectedSteal := map[int]bool{}
+	for _, id := range req.Steal {
+		selectedSteal[id] = true
+	}
+	for _, row := range rows {
+		loop := row.StealDest != ""
+		if !row.SNILocked || coverPort <= 0 || !selected[row.InboundID] || (!loop && !selectedSteal[row.InboundID]) {
+			continue
+		}
+		ib := byID[row.InboundID]
+		if ib == nil {
+			continue
+		}
+		ib.StreamSettings = tunnel.SetRealityDest(ib.StreamSettings, gatewayStealDest(coverPort))
+	}
 	var snapRows []tunnel.GatewaySnapshotRow
 	for _, row := range rows {
 		ib := byID[row.InboundID]
@@ -448,6 +475,11 @@ func inboundLabel(ib *model.Inbound) string {
 // whatever the operator set.
 func (s *InboundService) BindAppliedRealityDest() bool {
 	return false
+}
+
+// gatewayStealDest is the loopback cover target for a stolen REALITY dest.
+func gatewayStealDest(coverPort int) string {
+	return fmt.Sprintf("127.0.0.1:%d", coverPort)
 }
 
 func hideNaiveID(ids []int, id int) bool {

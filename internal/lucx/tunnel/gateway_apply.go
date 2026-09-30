@@ -8,6 +8,7 @@ package tunnel
 
 import (
 	"encoding/json"
+	"net"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -920,6 +921,34 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 		markInside(&row, ib)
 		rows = append(rows, row)
 	}
+	// Mark the loop only when the dest actually points back at this server —
+	// a healthy external dest (microsoft.com) must stay. Second pass so the
+	// cover row's port is known; the inbound stream comes back by ID since
+	// rows carry no settings.
+	var coverPort int
+	for _, r := range rows {
+		if r.Class == ClassCaddy {
+			coverPort = r.NewPort
+			break
+		}
+	}
+	byID := make(map[int]*model.Inbound, len(others))
+	for _, o := range others {
+		if o != nil {
+			byID[o.Id] = o
+		}
+	}
+	for i := range rows {
+		row := &rows[i]
+		if !row.SNILocked || coverPort <= 0 {
+			continue
+		}
+		ib := byID[row.InboundID]
+		if ib == nil || !RealitySelfDest(ib.StreamSettings, publicHost, bindIP) {
+			continue
+		}
+		row.StealDest = gatewayLoopbackDest(coverPort)
+	}
 	return rows
 }
 
@@ -932,6 +961,34 @@ func markInside(row *PreviewRow, ib *model.Inbound) {
 	ok, path := CanHideInside(ib)
 	row.CanInside = ok
 	row.Path = path
+}
+
+// RealitySelfDest reports a REALITY dest that routes back into this very
+// server: a loopback address, the gateway's own public host, the bind IP or
+// the server's own IPv4. Xray dials dest on every incoming TLS conn — even a
+// failed handshake — so a self-referencing dest turns each scanner probe into
+// a Caddy→Xray→Caddy relay chain that multiplies sockets with no clients
+// attached (tester lucx.275: 35k open sockets, zero clients).
+func RealitySelfDest(stream, publicHost, bindIP string) bool {
+	dest := RealityDest(stream)
+	if dest == "" {
+		return false
+	}
+	host := destHost(dest)
+	if h, _, err := net.SplitHostPort(dest); err == nil {
+		host = h
+	}
+	if host == "" {
+		return false
+	}
+	host = strings.Trim(host, "[]")
+	for _, self := range []string{"127.0.0.1", "::1", "localhost", publicHost, strings.ToLower(bindIP)} {
+		if self != "" && host == self {
+			return true
+		}
+	}
+	ip := net.ParseIP(host)
+	return ip != nil && !ip.IsLoopback() && ip.Equal(net.ParseIP(LocalIPv4()))
 }
 
 func nextFreePort(class string, used map[int]bool) int {
