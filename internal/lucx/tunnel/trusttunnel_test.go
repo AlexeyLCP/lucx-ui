@@ -13,7 +13,9 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/base64"
+	"encoding/binary"
 	"encoding/pem"
+	"io"
 	"math/big"
 	"net"
 	"os"
@@ -328,33 +330,93 @@ func TestTrustTunnelShareLines(t *testing.T) {
 	cfg.Hostname = "vpn.example.com"
 	pair := AuthPair{User: "u", Pass: "p"}
 	lines := cfg.ShareLines("vpn.example.com:443", pair, "r")
-	if len(lines) != 2 {
-		t.Fatalf("http2 lines = %d, want TLV+URI: %q", len(lines), lines)
+	if len(lines) != 1 {
+		t.Fatalf("http2 lines = %d, want single TLV link: %q", len(lines), lines)
+	}
+	if !strings.HasPrefix(lines[0], "tt://?") {
+		t.Fatalf("http2 must emit the spec TLV deep link: %s", lines[0])
 	}
 	for _, line := range lines {
 		if strings.Contains(line, "alpn=h3") {
 			t.Fatalf("http2 must not advertise quic: %s", line)
 		}
 	}
-	if !strings.Contains(lines[1], "alpn=h2") {
-		t.Fatalf("http2 URI must be h2: %s", lines[1])
-	}
 	cfg.UpstreamProtocol = "http3"
 	lines = cfg.ShareLines("vpn.example.com:443", pair, "r")
-	if len(lines) != 4 {
-		t.Fatalf("http3 lines = %d, want http+quic in both formats: %q", len(lines), lines)
+	if len(lines) != 2 {
+		t.Fatalf("http3 lines = %d, want https+quic TLV links: %q", len(lines), lines)
 	}
 	var h2, h3 int
 	for _, line := range lines {
-		if strings.Contains(line, "alpn=h2") {
-			h2++
+		payload, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(line, "tt://?"))
+		if err != nil {
+			t.Fatalf("links must be TLV deep links: %v (%s)", err, line)
 		}
-		if strings.Contains(line, "alpn=h3") {
+		proto, err := tlvcUpstreamProto(payload)
+		if err != nil {
+			t.Fatalf("upstream_protocol TLV: %v (%s)", err, line)
+		}
+		switch proto {
+		case ttProtoHTTP2:
+			h2++
+		case ttProtoHTTP3:
 			h3++
 		}
 	}
 	if h2 != 1 || h3 != 1 {
-		t.Fatalf("http3 must advertise one https and one quic URI, h2=%d h3=%d %q", h2, h3, lines)
+		t.Fatalf("http3 must advertise one https and one quic TLV, h2=%d h3=%d", h2, h3)
+	}
+}
+
+// tlvcUpstreamProto walks the TLV stream and returns tag 0x09's varint value.
+func tlvcUpstreamProto(payload []byte) (int, error) {
+	i := 0
+	for i < len(payload) {
+		tag, n := tlsVarintDecode(payload[i:])
+		if n == 0 {
+			return 0, io.ErrUnexpectedEOF
+		}
+		i += n
+		l, n := tlsVarintDecode(payload[i:])
+		if n == 0 {
+			return 0, io.ErrUnexpectedEOF
+		}
+		i += n
+		if int(l) > len(payload)-i {
+			return 0, io.ErrUnexpectedEOF
+		}
+		if tag == 0x09 {
+			v, _ := tlsVarintDecode(payload[i:])
+			return int(v), nil
+		}
+		i += int(l)
+	}
+	return 0, io.ErrUnexpectedEOF
+}
+
+func tlsVarintDecode(b []byte) (uint64, int) {
+	if len(b) == 0 {
+		return 0, 0
+	}
+	switch prefix := b[0] >> 6; prefix {
+	case 0:
+		return uint64(b[0] & 0x3f), 1
+	case 1:
+		if len(b) < 2 {
+			return 0, 0
+		}
+		return uint64(b[0]&0x3f)<<8 | uint64(b[1]), 2
+	case 2:
+		if len(b) < 4 {
+			return 0, 0
+		}
+		return uint64(b[0]&0x3f)<<24 | uint64(b[1])<<16 | uint64(b[2])<<8 | uint64(b[3]), 4
+	default:
+		if len(b) < 8 {
+			return 0, 0
+		}
+		v := binary.BigEndian.Uint64(b[:8])
+		return v & 0x3fffffffffffffff, 8
 	}
 }
 

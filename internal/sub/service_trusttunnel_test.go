@@ -7,6 +7,7 @@
 package sub
 
 import (
+	"bytes"
 	"encoding/base64"
 	"path/filepath"
 	"strings"
@@ -16,12 +17,12 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
-// TestGetSubs_TrustTunnel_TLVPlusURILines locks the two-line TrustTunnel
-// subscription output: the official TLV deep link (the only form Exclave and
-// the official TrustTunnel app parse) followed by the Throne-compatible URI
-// (the form Throne and NekoBox+ parse). A URI-only subscription left Exclave
-// without TrustTunnel entirely (tester report): parseTrustTunnel base64url-
-// decodes everything after tt:// and drops the line when it is not TLV.
+// TestGetSubs_TrustTunnel_TLVPlusURILines locks the one-link-per-transport
+// TrustTunnel subscription output: only spec TLV deep links go out. Every
+// current client (official TrustTunnel app, Exclave, husi, Throne) parses
+// tt://?TLV; the Throne authority URI threw inside the sing-based Android
+// parsers (base64url-decoding "user:pass@host" fails) and duplicated the
+// profile in Throne itself.
 func TestGetSubs_TrustTunnel_TLVPlusURILines(t *testing.T) {
 	dbDir := t.TempDir()
 	t.Setenv("XUI_DB_FOLDER", dbDir)
@@ -65,12 +66,12 @@ func TestGetSubs_TrustTunnel_TLVPlusURILines(t *testing.T) {
 	for _, l := range links {
 		lines = append(lines, splitLinkLines(l)...)
 	}
-	if len(lines) != 2 {
-		t.Fatalf("TrustTunnel sub must emit TLV + Throne URI lines, got %d: %q", len(lines), lines)
+	if len(lines) != 1 {
+		t.Fatalf("TrustTunnel http2 sub must emit a single TLV link, got %d: %q", len(lines), lines)
 	}
 
 	if !strings.HasPrefix(lines[0], "tt://?") {
-		t.Fatalf("first line must be the TLV deep link, got %q", lines[0])
+		t.Fatalf("line must be the TLV deep link, got %q", lines[0])
 	}
 	payload, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(lines[0], "tt://?"))
 	if err != nil {
@@ -79,18 +80,8 @@ func TestGetSubs_TrustTunnel_TLVPlusURILines(t *testing.T) {
 	if len(payload) == 0 {
 		t.Fatal("TLV payload empty")
 	}
-
-	if strings.HasPrefix(lines[1], "tt://?") || !strings.HasPrefix(lines[1], "tt://") {
-		t.Fatalf("second line must be the Throne URI, got %q", lines[1])
-	}
-	for _, want := range []string{":8443", "security=tls", "sni=tt.example.com", "alpn=h2", "client_random_prefix=aabbccdd/ffffffff"} {
-		if !strings.Contains(lines[1], want) {
-			t.Errorf("Throne URI missing %q, got %q", want, lines[1])
-		}
-	}
-	// Dial address resolves through resolveInboundAddress (request host here);
-	// the inbound hostname rides in sni, not in the authority.
-	if !strings.Contains(lines[1], "@sub.example.com:8443") {
-		t.Errorf("Throne URI must dial the resolved share host, got %q", lines[1])
+	// Hostname rides in TLV 0x01; dial address = resolved share host.
+	if !bytes.Contains(payload, []byte("tt.example.com")) {
+		t.Errorf("TLV must carry the inbound hostname, got %q", payload)
 	}
 }

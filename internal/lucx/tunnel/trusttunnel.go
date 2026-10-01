@@ -412,9 +412,11 @@ func (c TrustTunnelConfig) shareProto() int {
 }
 
 // ShareLines is the subscription set for one client.
-// HTTP/2: one HTTPS listener — TLV + Throne URI, both explicitly HTTP/2.
-// HTTP/3: TCP still accepts HTTPS, plus QUIC. Each transport is emitted in
-// both formats so Exclave (TLV) and NekoBox/Throne (URI) each get http and quic.
+// Only spec TLV deep links go out: every current client (official app,
+// Exclave, husi, Throne) parses tt://?TLV, while the Throne authority URI is
+// parsed only by Throne and throws inside the sing-based Android parsers
+// (they base64url-decode the whole body after tt://). HTTP/2: one HTTPS
+// listener, one link. HTTP/3: TCP accepts HTTPS plus QUIC — two links.
 func (c TrustTunnelConfig) ShareLines(address string, pair AuthPair, remark string) []string {
 	var lines []string
 	add := func(proto string) {
@@ -422,9 +424,6 @@ func (c TrustTunnelConfig) ShareLines(address string, pair AuthPair, remark stri
 		cp.UpstreamProtocol = proto
 		if dl := cp.ClientDeepLink(address, pair, remark); dl != "" {
 			lines = append(lines, dl)
-		}
-		if uri := cp.ClientURI(address, pair, remark); uri != "" {
-			lines = append(lines, uri)
 		}
 	}
 	add("http2")

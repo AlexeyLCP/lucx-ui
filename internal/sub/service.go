@@ -3551,24 +3551,9 @@ func (s *SubService) genMieruLink(inbound *model.Inbound, email string) string {
 // genTrustTunnelLink builds the per-client tt:// subscription lines for a
 // client attached to a TrustTunnel inbound. Credentials are HMAC-derived
 // (inbound-scoped). Returns "" when the hostname is unset or the client is
-// not enabled on the inbound. Two forms are emitted, one per line: the
-// official TLV deep link (ClientDeepLink — the only form Exclave and the
-// official TrustTunnel app parse) and the Throne-compatible URI (ClientURI —
-// the form Throne and NekoBox+ parse). Each client skips the line whose
-// format it does not understand; a URI-only subscription left Exclave without
-// TrustTunnel entirely (tester report: base64-decoding the URI part fails
-// inside parseTrustTunnel and the line is dropped).
-
-// genTrustTunnelLink builds the per-client tt:// subscription lines for a
-// client attached to a TrustTunnel inbound. Credentials are HMAC-derived
-// (inbound-scoped). Returns "" when the hostname is unset or the client is
-// not enabled on the inbound. Two forms are emitted, one per line: the
-// official TLV deep link (ClientDeepLink — the only form Exclave and the
-// official TrustTunnel app parse) and the Throne-compatible URI (ClientURI —
-// the form Throne and NekoBox+ parse). Each client skips the line whose
-// format it does not understand; a URI-only subscription left Exclave without
-// TrustTunnel entirely (tester report: base64-decoding the URI part fails
-// inside parseTrustTunnel and the line is dropped).
+// not enabled on the inbound. Only spec TLV deep links go out (ShareLines) —
+// every current client parses tt://?TLV, the Throne authority URI threw
+// inside the sing-based Android parsers and duplicated the profile in Throne.
 func (s *SubService) genTrustTunnelLink(inbound *model.Inbound, email string) string {
 	if inbound == nil || inbound.Protocol != model.TrustTunnel {
 		return ""
