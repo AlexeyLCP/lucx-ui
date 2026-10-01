@@ -84,16 +84,56 @@ func TestCsqttValidate(t *testing.T) {
 func TestCsqttRouteThroughXrayDefault(t *testing.T) {
 	ib := &model.Inbound{Id: 7, Protocol: model.Csqtt, Enable: true, Port: 46000, Settings: `{"listenAddr":"0.0.0.0:46000"}`}
 	cfg, ok := CsqttConfigFromInbound(ib)
-	if !ok || !cfg.RouteThroughXray {
-		t.Fatal("empty settings must route through Xray")
+	if !ok || cfg.RouteThroughXray {
+		t.Fatal("missing key must stay routeThroughXray=false")
 	}
 	inst, ok := CsqttInstanceFromInbound(ib)
+	if !ok || inst.RouteThroughXray || inst.TunName != "" {
+		t.Fatalf("default must not install the Xray bridge: %+v", inst)
+	}
+
+	ib.Settings = `{"listenAddr":"0.0.0.0:46000","routeThroughXray":true}`
+	inst, ok = CsqttInstanceFromInbound(ib)
 	if !ok || !inst.RouteThroughXray || inst.TunName != CsqttTunName(7) || inst.RouteTable != csqttRouteTable {
 		t.Fatalf("instance tun bridge missing: %+v", inst)
 	}
 	if len(inst.RouteIfaces) != 1 || inst.RouteIfaces[0] != csqttIface {
 		t.Fatalf("RouteIfaces = %v", inst.RouteIfaces)
 	}
+}
+
+func TestCsqttFirewallCoversBothLegs(t *testing.T) {
+	xray := csqttXrayFirewall("tun7")
+	if !csqttFirewallHas(xray, "FORWARD", "-i", csqttIface) || !csqttFirewallHas(xray, "FORWARD", "-i", "tun7") {
+		t.Fatalf("xray bridge missing FORWARD accepts: %+v", xray)
+	}
+	if !csqttFirewallHas(xray, "FORWARD", "--clamp-mss-to-pmtu") {
+		t.Fatal("xray bridge missing MSS clamp")
+	}
+	direct := csqttDirectFirewall()
+	if !csqttFirewallHas(direct, "POSTROUTING", "-j", "MASQUERADE") {
+		t.Fatal("direct path missing MASQUERADE")
+	}
+	if csqttFirewallHas(xray, "POSTROUTING", "MASQUERADE") {
+		t.Fatal("xray bridge must not install MASQUERADE")
+	}
+}
+
+func csqttFirewallHas(rules []csqttFirewallSpec, parts ...string) bool {
+	for _, r := range rules {
+		line := r.chain + " " + strings.Join(r.spec, " ")
+		ok := true
+		for _, p := range parts {
+			if !strings.Contains(line, p) {
+				ok = false
+				break
+			}
+		}
+		if ok {
+			return true
+		}
+	}
+	return false
 }
 
 func TestCsqttPasswordStampWipesDb(t *testing.T) {

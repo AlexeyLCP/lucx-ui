@@ -276,6 +276,8 @@ func (m *Manager) Ensure(inst Instance) error {
 	// with policy routing once the process (and wdtt0) is up.
 	if inst.RouteThroughXray {
 		go ensureQwdttXrayRouting(inst)
+	} else if inst.Core == Csqtt {
+		EnsureCsqttDirect()
 	}
 	return nil
 }

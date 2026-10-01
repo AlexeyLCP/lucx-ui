@@ -1,5 +1,32 @@
 # LucX-UI — Прогресс
 
+## lucx.277 — CSQTT: Xray routing off by default, bridge matches AWG (2026-10-01)
+
+VladufQa: CSQTT connects, traffic does not. lucx.238 turned `routeThroughXray` on and stripped MASQUERADE, but only added `iif csqtt1 lookup 1910`. Missing the AWG half: FORWARD accept, `rp_filter=2` on `csqtt1`, MSS clamp. The binary does not install NAT (`deploy.sh` does). UFW FORWARD DROP then eats `csqtt1 → tunN` while UDP connect stays up.
+
+- Default `routeThroughXray` is off. Missing key is off (no longer forced on). Off installs MASQUERADE + FORWARD and deletes the policy rule.
+- On installs the full bridge. FORWARD rules are `-I 1` so a later UFW reject cannot drop the new flow.
+- Pattern 1aq in `.agents/07-debug-tunnels.md`.
+
+**lucxVersion:** lucx.277
+
+Tests: `go test ./internal/lucx/tunnel/ -count=1 -run Csqtt`.
+
+---
+
+## lucx.276 — TrustTunnel sub: spec TLV links only (2026-10-01)
+
+VladufQa: subscription has two links for TrustTunnel, the second one dead; HTTP/3 → four. ShareLines fanned every transport out as TLV + Throne authority URI; the audit of client parsers (official app, Exclave, husi, Throne desktop) shows TLV-only support on every end — the URI threw inside the sing-based Android parsers and doubled the profile list in Throne.
+
+- `ShareLines` (internal/lucx/tunnel/trusttunnel.go) emits TLV only: http2 → 1 link, quic → 2 (https + quic). `ClientURI` (Throne dialect) stays for the SidecarOutbound paste path but no longer goes into the subscription.
+- Pattern 1ap in `.agents/07-debug-tunnels.md`.
+
+**lucxVersion:** lucx.276
+
+Tests: `go test ./internal/lucx/... -count=1` green; `go test ./internal/sub/ -run TestGetSubs_TrustTunnel` compiles (linux cross-build; exec-gated on Windows CGO as always).
+
+---
+
 ## lucx.275 — Masking: steal a self-referencing REALITY dest (2026-09-30)
 
 Tester report: enabling masking exploded TCP sockets (35k open, zero clients attached, "как будто что-то зацикливается"). Root cause is upstream physics, not a Go leak: xtls/reality's `Server()` dials `realitySettings.dest` on **every** accepted TLS conn — a failed handshake is relayed to dest verbatim (that is the steal mechanism). When dest routes back into the same server (operator's own domain:443 used as publicHost, the server IP, or any loopback), each scanner probe recurses Caddy L4 → Xray → dest → Caddy again; `matching_timeout 15s` bounds one ClientHello wait, not the chain. Public :443 eats thousands of junk SNI probes daily, so sockets multiply with no clients.

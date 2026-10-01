@@ -314,7 +314,7 @@ export function createDefaultCsqttInboundSettings(): CsqttInboundSettings {
     deviceId: '',
     subHost: '',
     vkHashes: '',
-    routeThroughXray: true,
+    routeThroughXray: false,
     outboundTag: '',
   };
 }

@@ -104,7 +104,82 @@ func ensureQwdttXrayRouting(inst Instance) {
 	stripQwdttMasquerade()
 	if inst.Core == Csqtt {
 		stripMasqueradeSubnet(csqttSubnet)
+		applyCsqttFirewall(csqttXrayFirewall(tun))
 	}
+}
+
+// EnsureCsqttDirect is the routeThroughXray=off path. The binary creates
+// csqtt1 but does not install NAT (that lives in upstream deploy.sh, which
+// LucX does not run). Also drops a leftover iif rule so packets are not
+// sent into a tun we are no longer bridging.
+func EnsureCsqttDirect() {
+	if runtime.GOOS != "linux" {
+		return
+	}
+	clearQwdttXrayRouting(csqttRouteTable, []string{csqttIface})
+	applyCsqttFirewall(csqttDirectFirewall())
+}
+
+type csqttFirewallSpec struct {
+	table string
+	chain string
+	spec  []string
+}
+
+func csqttIfaceRules(iface string) []csqttFirewallSpec {
+	return []csqttFirewallSpec{
+		{"", "FORWARD", []string{"-i", iface, "-j", "ACCEPT"}},
+		{"", "FORWARD", []string{"-o", iface, "-j", "ACCEPT"}},
+		{"mangle", "FORWARD", []string{"-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-i", iface, "-j", "TCPMSS", "--clamp-mss-to-pmtu"}},
+		{"mangle", "FORWARD", []string{"-p", "tcp", "--tcp-flags", "SYN,RST", "SYN", "-o", iface, "-j", "TCPMSS", "--clamp-mss-to-pmtu"}},
+	}
+}
+
+func csqttXrayFirewall(tun string) []csqttFirewallSpec {
+	rules := csqttIfaceRules(csqttIface)
+	if tun != "" {
+		rules = append(rules, csqttIfaceRules(tun)...)
+	}
+	return rules
+}
+
+func csqttDirectFirewall() []csqttFirewallSpec {
+	return append(csqttIfaceRules(csqttIface), csqttFirewallSpec{
+		table: "nat", chain: "POSTROUTING",
+		spec: []string{"-s", csqttSubnet, "-j", "MASQUERADE"},
+	})
+}
+
+func applyCsqttFirewall(rules []csqttFirewallSpec) {
+	if runtime.GOOS != "linux" {
+		return
+	}
+	runQuiet("sysctl", "-qw", "net.ipv4.ip_forward=1")
+	runQuiet("sysctl", "-qw", "net.ipv4.conf."+csqttIface+".rp_filter=2")
+	for _, r := range rules {
+		ensureIptables(r.table, r.chain, r.spec...)
+	}
+}
+
+func ensureIptables(table, chain string, spec ...string) {
+	if exec.CommandContext(context.Background(), "iptables", iptablesOp(table, "-C", chain, spec)...).Run() == nil {
+		return
+	}
+	// -I 1 so a UFW reject later in FORWARD cannot drop the new flow.
+	if chain == "FORWARD" {
+		runQuiet("iptables", iptablesOp(table, "-I", chain, append([]string{"1"}, spec...))...)
+		return
+	}
+	runQuiet("iptables", iptablesOp(table, "-A", chain, spec)...)
+}
+
+func iptablesOp(table, op, chain string, spec []string) []string {
+	args := make([]string, 0, 6+len(spec))
+	if table != "" && table != "filter" {
+		args = append(args, "-t", table)
+	}
+	args = append(args, op, chain)
+	return append(args, spec...)
 }
 
 func CsqttTunName(inboundID int) string {

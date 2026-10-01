@@ -24,12 +24,6 @@ func CsqttConfigFromInbound(ib *model.Inbound) (CsqttConfig, bool) {
 	cfg := DefaultCsqttConfig()
 	if raw := strings.TrimSpace(ib.Settings); raw != "" && raw != "{}" {
 		_ = json.Unmarshal([]byte(raw), &cfg)
-		var keys map[string]json.RawMessage
-		if json.Unmarshal([]byte(raw), &keys) == nil {
-			if _, ok := keys["routeThroughXray"]; !ok {
-				cfg.RouteThroughXray = true
-			}
-		}
 	}
 	if r := strings.TrimSpace(ib.Remark); r != "" && strings.TrimSpace(cfg.Remark) == "" {
 		cfg.Remark = r

@@ -4,6 +4,21 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1aq: CSQTT connects, no traffic — Xray bridge incomplete — FIXED (lucx.277)
+
+- **Symptom (VladufQa, 01.10.2026):** CSQTT connects, traffic does not flow.
+- **Cause:** lucx.238 defaulted `routeThroughXray` on and stripped MASQUERADE, but only installed `iif csqtt1 lookup 1910`. AWG's bridge also has FORWARD accept, `rp_filter=2` on the source iface, and MSS clamp. The binary does not install those (upstream `deploy.sh` does; LucX does not run it). With UFW, FORWARD policy DROP eats `csqtt1 → tunN`. UDP connect is INPUT, so the session stays up.
+- **Fix:** default off. Off = host NAT (MASQUERADE + FORWARD) and the policy rule is removed. On = full bridge, FORWARD inserted at 1 so it beats UFW reject.
+- **Healing:** save the inbound (or wait one reconcile). Existing rows with `routeThroughXray: true` stay routed and get the bridge. Rows missing the key, and new inbounds, use host NAT.
+
+### Pattern 1ap: TrustTunnel sub has extra dead links — FIXED (lucx.276)
+
+- **Symptom (VladufQa, 01.10.2026):** TrustTunnel created, subscription has two links — the first works, the second does not. With HTTP/3 selected there are four (two of them dead).
+- **Cause:** `ShareLines` emitted every transport twice — spec TLV (`tt://?`) and the Throne authority URI (`tt://user:pass@host?...`). Audit of the parsers: official app / Exclave (`TrustTunnelFmt.kt` native TLV) / husi (`tturl.Parse`) accept TLV only and throw on the URI (`:` kills base64url) — the line is silently dropped by `runCatching`; Throne desktop parses the TLV too since 18.09.2026 (`trusttunnel.cpp ParseFromDeepLink`), so the URI form is dead weight everywhere and dupes the profile list.
+- **Fix:** `ShareLines` emits TLV only: http2 → 1 link, quic → 2 (https + quic, TLV 0x09 = 1/2).
+- **Healing:** refresh the subscription.
+- **Lesson:** before fanning out the same server in two URI dialects, check which client actually parses each dialect; one spec link beats a compatibility fallback no client needs.
+
 ### Pattern 1ao: TrustTunnel HTTP/2 listens UDP; NekoBox shows the wrong pair — FIXED (lucx.267)
 
 - **Symptom (VladufQa, 24.09.2026):** HTTP/2 picker → NekoBox shows HTTP and QUIC, and the port listens UDP. HTTP/3 picker → QUIC and QUIC. Wanted: HTTP/2 = one HTTPS listener; HTTP/3 = HTTPS + QUIC.

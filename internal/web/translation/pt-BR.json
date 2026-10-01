@@ -977,7 +977,7 @@
         "csqttVkHashes": "VK call hashes",
         "csqttVkHashesHint": "Comma-separated live VK TURN hashes (up to 6)",
         "csqttRouteThroughXray": "Route through Xray",
-        "csqttRouteThroughXrayHint": "Send csqtt1 packets into an Xray TUN via policy routing so egress follows routing rules / outbound. On by default. Off = binary MASQUERADE to the host NIC.",
+        "csqttRouteThroughXrayHint": "Off by default (host NAT). On sends csqtt1 into an Xray TUN so egress follows routing rules.",
         "csqttRouteOutbound": "Outbound",
         "csqttRouteOutboundHint": "Optional. Force CSQTT traffic out through this outbound (or balancer). Leave empty to let your Xray routing rules decide.",
         "csqttRouteOutboundPlaceholder": "Use routing rules"
