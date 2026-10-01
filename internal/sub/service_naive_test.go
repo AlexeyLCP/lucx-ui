@@ -7,6 +7,7 @@
 package sub
 
 import (
+	"encoding/base64"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -189,10 +190,18 @@ func TestGetSubs_TrustTunnel_HostPort(t *testing.T) {
 		t.Fatalf("GetSubs: %v", err)
 	}
 	got := strings.Join(links, "\n")
-	if !strings.Contains(got, "@cdn.example.com:443") {
-		t.Errorf("host dest+port must win, got %q", got)
+	if !strings.HasPrefix(strings.TrimSpace(got), "tt://?") {
+		t.Fatalf("host link must be TLV, got %q", got)
 	}
-	if strings.Contains(got, ":8443") {
-		t.Errorf("inbound listen port must not leak, got %q", got)
+	raw, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(strings.TrimSpace(got), "tt://?"))
+	if err != nil {
+		t.Fatalf("decode TLV: %v", err)
+	}
+	plain := string(raw)
+	if !strings.Contains(plain, "cdn.example.com:443") {
+		t.Errorf("host dest+port must win, got %q", plain)
+	}
+	if strings.Contains(plain, ":8443") {
+		t.Errorf("inbound listen port must not leak, got %q", plain)
 	}
 }
