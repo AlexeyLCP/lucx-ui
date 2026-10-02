@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.278 — Sidecar core bumps: naive-client, mieru, TrustTunnel client (2026-10-02)
+
+Annual review of sidecar pins against upstream releases (per-request refresh of `bin/pack-sidecars.sh` + `third_party/sidecars/linux-amd64/`):
+naive-client `v150.0.7871.63-1` → `v154.0.8037.49-2` (Chromium 154 rebase, release notes: "Added trust_anchors in ClientHello", no server changes), mieru + mieru-client `v3.37.0` → `v3.38.0` (upstream notes: "replace config" appctl commands, high-CPU fix on idle UDP sessions, socks5 egress fixes; no wire break in notes), trusttunnel-client `v1.1.5` → `v1.1.7` (dns-libs 2.10.2 / native-libs-common 8.1.52).
+Pins intentionally NOT bumped (verified this session): caddy-naive `v2.11.2-naive` (latest forwardproxy release), qwdtt `v1.4.4` (upstream latest), olcrtc `54bd269b` (only docs commits after), csqtt `ace21228` (4 commits ahead touch rust-client + Android only, not rust-server), anytls `v0.0.13` (latest release; master is docs-only), mtproxy `f36d8af7` (upstream HEAD), caddy-l4 `42db5690` (upstream HEAD), tproxy-server `acc252ec` — HEAD has 5 newer commits (secret-scan CPU fix, token MAC rollback recognition, MTProxy permissions under umask 077) touching `internal/session/token.go` (+101/-18) / `secrets.go` (+71/-17): deferred, server side only, needs a stand test before bump.
+Note: TrustTunnel server has `v1.3.0-beta.1` (2026-10-01) — beta, not pinned; stable line stays `v1.1.0`.
+amd64 gz rebuilt in WSL (Ubuntu-24.04, Go 1.27.1) into `third_party/sidecars/linux-amd64/`; arm64 is built by CI (`bin/pack-sidecars.sh`) from the same pins.
+
+**lucxVersion:** lucx.278
+
+Tests: `go test ./internal/awg/... ./internal/lucx/... ./internal/database/... -count=1` green; `bin/check-lucx.sh` clean; CI on `gh/main` green; tag `v3.8.5-lucx.278`.
+
+---
+
 ## lucx.277 — CSQTT: Xray routing off by default, bridge matches AWG (2026-10-01)
 
 VladufQa: CSQTT connects, traffic does not. lucx.238 turned `routeThroughXray` on and stripped MASQUERADE, but only added `iif csqtt1 lookup 1910`. Missing the AWG half: FORWARD accept, `rp_filter=2` on `csqtt1`, MSS clamp. The binary does not install NAT (`deploy.sh` does). UFW FORWARD DROP then eats `csqtt1 → tunN` while UDP connect stays up.

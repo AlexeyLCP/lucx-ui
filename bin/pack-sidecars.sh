@@ -39,11 +39,11 @@ fi
 
 if ! have "naive-client-linux-${ARCH}"; then
     case "$ARCH" in
-        amd64) naive_xz="naiveproxy-v150.0.7871.63-1-linux-x64.tar.xz" ;;
-        arm64) naive_xz="naiveproxy-v150.0.7871.63-1-linux-arm64.tar.xz" ;;
+        amd64) naive_xz="naiveproxy-v154.0.8037.49-2-linux-x64.tar.xz" ;;
+        arm64) naive_xz="naiveproxy-v154.0.8037.49-2-linux-arm64.tar.xz" ;;
         *) echo "no naive-client for ${ARCH}" >&2; exit 1 ;;
     esac
-    fetch -O "/tmp/${naive_xz}" "https://github.com/klzgrad/naiveproxy/releases/download/v150.0.7871.63-1/${naive_xz}"
+    fetch -O "/tmp/${naive_xz}" "https://github.com/klzgrad/naiveproxy/releases/download/v154.0.8037.49-2/${naive_xz}"
     mkdir -p /tmp/naiveclient
     tar -xJf "/tmp/${naive_xz}" -C /tmp/naiveclient
     naive_bin=$(find /tmp/naiveclient -type f -name naive | head -n1)
@@ -108,7 +108,7 @@ if ! have "qwdtt-linux-${ARCH}"; then
 fi
 
 if ! have "mieru-linux-${ARCH}" || ! have "mieru-client-linux-${ARCH}"; then
-    git clone --depth 1 --branch v3.37.0 https://github.com/enfein/mieru.git /tmp/mieru
+    git clone --depth 1 --branch v3.38.0 https://github.com/enfein/mieru.git /tmp/mieru
     (
         cd /tmp/mieru
         GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "${DEST}/mieru-linux-${ARCH}" ./cmd/mita
@@ -135,11 +135,11 @@ fi
 
 if ! have "trusttunnel-client-linux-${ARCH}"; then
     case "$ARCH" in
-        amd64) ttc_tgz="trusttunnel_client-v1.1.5-linux-x86_64.tar.gz" ;;
-        arm64) ttc_tgz="trusttunnel_client-v1.1.5-linux-aarch64.tar.gz" ;;
+        amd64) ttc_tgz="trusttunnel_client-v1.1.7-linux-x86_64.tar.gz" ;;
+        arm64) ttc_tgz="trusttunnel_client-v1.1.7-linux-aarch64.tar.gz" ;;
         *) echo "no trusttunnel-client for ${ARCH}" >&2; exit 1 ;;
     esac
-    fetch -O "/tmp/${ttc_tgz}" "https://github.com/TrustTunnel/TrustTunnelClient/releases/download/v1.1.5/${ttc_tgz}"
+    fetch -O "/tmp/${ttc_tgz}" "https://github.com/TrustTunnel/TrustTunnelClient/releases/download/v1.1.7/${ttc_tgz}"
     mkdir -p /tmp/ttclient
     tar -xzf "/tmp/${ttc_tgz}" -C /tmp/ttclient
     ttc_bin=$(find /tmp/ttclient -type f -name trusttunnel_client | head -n1)

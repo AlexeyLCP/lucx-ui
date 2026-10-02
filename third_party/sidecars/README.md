@@ -6,13 +6,13 @@ Not packed into `x-ui-linux-amd64.tar.gz` (SourceCraft 100 MB release cap).
 | File | Upstream |
 |---|---|
 | `caddy-naive-linux-amd64.gz` | klzgrad/forwardproxy `v2.11.2-naive` |
-| `naive-client-linux-amd64.gz` | klzgrad/naiveproxy `v150.0.7871.63-1` |
+| `naive-client-linux-amd64.gz` | klzgrad/naiveproxy `v154.0.8037.49-2` |
 | `olcrtc-linux-amd64.gz` | openlibrecommunity/olcrtc `54bd269b` (OLC2, KCP framing fix) |
 | `qwdtt-linux-amd64.gz` | SpaceNeuroX/proxy-turn-vk-android `v1.4.4` (`a296c57e`) `./server` + LucX `qwdtt-subnet.patch` (`10.68.66.1/16`) |
-| `mieru-linux-amd64.gz` | enfein/mieru `v3.37.0` mita |
-| `mieru-client-linux-amd64.gz` | enfein/mieru `v3.37.0` mieru |
+| `mieru-linux-amd64.gz` | enfein/mieru `v3.38.0` mita |
+| `mieru-client-linux-amd64.gz` | enfein/mieru `v3.38.0` mieru |
 | `trusttunnel-linux-amd64.gz` | TrustTunnel/TrustTunnel `v1.1.0` |
-| `trusttunnel-client-linux-amd64.gz` | TrustTunnel/TrustTunnelClient `v1.1.5` |
+| `trusttunnel-client-linux-amd64.gz` | TrustTunnel/TrustTunnelClient `v1.1.7` |
 | `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` + LucX `-cert/-key` overlay |
 | `tproxy-linux-amd64` / `mtproxy-linux-amd64` | telegramdesktop/tproxy-server `acc252ec` + TelegramMessenger/MTProxy `f36d8af7` — packed by `.github/workflows/release.yml` into the GitHub amd64 tarball (not stored as gz here) |
 | `nginx-linux-*` | nginx.org `1.30.5` stream+ssl_preread — built by `bin/pack-sidecars.sh` into the GitHub tarball |
