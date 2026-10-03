@@ -1,8 +1,8 @@
 # ========================================================
 # Stage: Frontend (Vite)
 # ========================================================
-# LUCX-HOOK: Vite 8 / engines.node >=24
-FROM --platform=$BUILDPLATFORM node:24-alpine AS frontend
+# LUCX-HOOK: upstream frontend stage is Node 26 (v3.9.0).
+FROM --platform=$BUILDPLATFORM node:26-alpine AS frontend
 # END LUCX-HOOK
 WORKDIR /src/frontend
 COPY frontend/package.json frontend/package-lock.json ./

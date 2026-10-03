@@ -869,6 +869,9 @@ func (s *NodeService) Delete(id int) error {
 		if err := tx.Where("node_id = ?", id).Delete(&model.NodeClientTraffic{}).Error; err != nil {
 			return err
 		}
+		if err := tx.Where("node_id = ?", id).Delete(&model.NodePendingReset{}).Error; err != nil {
+			return err
+		}
 		guids := []string{synthNodeGuid(id)}
 		if guid != "" {
 			guids = append(guids, guid)
@@ -1332,8 +1335,14 @@ func (s *NodeService) probe(ctx context.Context, n *model.Node, proxyURL string)
 		patch.LastError = "decode response: " + err.Error()
 		return patch, err
 	}
-	if !envelope.Success || envelope.Obj == nil {
+	if !envelope.Success {
 		patch.LastError = "remote returned success=false: " + envelope.Msg
+		return patch, errors.New(patch.LastError)
+	}
+	// A panel that has not sampled its status yet answers success with a null
+	// obj; saying so beats "success=false: " with nothing after the colon.
+	if envelope.Obj == nil {
+		patch.LastError = "remote panel reported no status yet; it may still be starting up"
 		return patch, errors.New(patch.LastError)
 	}
 	o := envelope.Obj

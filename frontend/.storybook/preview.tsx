@@ -33,7 +33,9 @@ export const withTheme: Decorator = (Story, context) => {
   // removes the race without touching the production app's animations.
   const themeConfig = buildAntdThemeConfig(dark, false);
   return (
-    <ConfigProvider theme={{ ...themeConfig, token: { ...themeConfig.token, motion: false } }}>
+    // The click wave outlives its story and re-renders from a ResizeObserver
+    // inside the next story's act(), tripping React's act-environment warning.
+    <ConfigProvider theme={themeConfig} wave={{ disabled: true }}>
       <div style={{ padding: 24, minWidth: 320 }}>
         <Story />
       </div>

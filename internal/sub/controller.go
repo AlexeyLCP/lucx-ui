@@ -63,6 +63,7 @@ type SUBController struct {
 	subHideSettings     bool
 	happConfig          HappConfig
 	subRoutingSource    string // LUCX-HOOK: RoscomVPN Happ profile source
+	incyConfig          IncyConfig
 
 	subIncyEnableRouting bool
 	subIncyRoutingRules  string
@@ -131,6 +132,7 @@ type subControllerConfig struct {
 	subRoutingSource string // LUCX-HOOK
 	subHideSettings  bool
 	happConfig       HappConfig
+	incyConfig       IncyConfig
 
 	subIncyEnableRouting bool
 	subIncyRoutingRules  string
@@ -284,6 +286,10 @@ func WithSUBHappConfig(value HappConfig) SUBControllerOption {
 	return func(config *subControllerConfig) { config.happConfig = value }
 }
 
+func WithSUBIncyConfig(value IncyConfig) SUBControllerOption {
+	return func(config *subControllerConfig) { config.incyConfig = value }
+}
+
 func defaultSUBControllerConfig() subControllerConfig {
 	return subControllerConfig{
 		subPath:        "/sub/",
@@ -320,6 +326,7 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 		subHideSettings:     config.subHideSettings,
 		happConfig:          config.happConfig,
 		subRoutingSource:    config.subRoutingSource,
+		incyConfig:          config.incyConfig,
 
 		subIncyEnableRouting: config.subIncyEnableRouting,
 		subIncyRoutingRules:  config.subIncyRoutingRules,
@@ -1070,4 +1077,5 @@ func (a *SUBController) ApplyCommonHeaders(
 	}
 
 	ApplyHappHeaders(c, a.happConfig, happManaged)
+	ApplyIncyHeaders(c, a.incyConfig, a.incyConfig.AutoDetect && c.Request != nil && IsIncyClient(c.GetHeader("User-Agent")))
 }

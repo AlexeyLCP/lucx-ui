@@ -2,13 +2,11 @@ package tgbot
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"html"
-	"io"
-	"net/http"
+	"net/url"
 	"slices"
 	"strconv"
 	"strings"
@@ -139,39 +137,23 @@ func (t *Tgbot) SubmitAddClient(draft *clientDraft) (bool, error) {
 	})
 }
 
-// subURLs holds all subscription format URLs for a client (TG + panel parity).
-type subURLs struct {
-	Sub     string
-	JSON    string
-	Clash   string
-	Amnezia string // .conf endpoint
-	Vpn     string // ?format=vpn
-}
-
-// buildSubscriptionURLs builds SUB/JSON/Clash/Amnezia URLs for a client email.
-func (t *Tgbot) buildSubscriptionURLs(email string) (subURLs, error) {
-	var out subURLs
+// buildSubscriptionURLs builds the HTML sub page URL and JSON subscription URL for a client email
+func (t *Tgbot) buildSubscriptionURLs(email string) (string, string, error) {
 	// Resolve subId from client email
 	traffic, client, err := t.inboundService.GetClientByEmail(email)
 	_ = traffic
 	if err != nil || client == nil {
-		return out, errors.New("client not found")
+		return "", "", errors.New("client not found")
 	}
 
 	// Gather settings to construct absolute URLs
 	subURI, _ := t.settingService.GetSubURI()
 	subJsonURI, _ := t.settingService.GetSubJsonURI()
-	subClashURI, _ := t.settingService.GetSubClashURI()
-	subAwgURI, _ := t.settingService.GetSubAwgURI()
 	subDomain, _ := t.settingService.GetSubDomain()
 	subPort, _ := t.settingService.GetSubPort()
 	subPath, _ := t.settingService.GetSubPath()
 	subJsonPath, _ := t.settingService.GetSubJsonPath()
-	subClashPath, _ := t.settingService.GetSubClashPath()
-	subAwgPath, _ := t.settingService.GetSubAwgPath()
 	subJsonEnable, _ := t.settingService.GetSubJsonEnable()
-	subClashEnable, _ := t.settingService.GetSubClashEnable()
-	subAwgEnable, _ := t.settingService.GetSubAwgEnable()
 	subKeyFile, _ := t.settingService.GetSubKeyFile()
 	subCertFile, _ := t.settingService.GetSubCertFile()
 
@@ -200,71 +182,58 @@ func (t *Tgbot) buildSubscriptionURLs(email string) (subURLs, error) {
 		host = fmt.Sprintf("%s:%d", subDomain, subPort)
 	}
 
-	normPath := func(p string) string {
-		if !strings.HasPrefix(p, "/") {
-			p = "/" + p
-		}
-		if !strings.HasSuffix(p, "/") {
-			p = p + "/"
-		}
-		return p
+	// Ensure paths
+	if !strings.HasPrefix(subPath, "/") {
+		subPath = "/" + subPath
 	}
-	subPath = normPath(subPath)
-	subJsonPath = normPath(subJsonPath)
-	subClashPath = normPath(subClashPath)
-	subAwgPath = normPath(subAwgPath)
-
-	build := func(configured, path string) string {
-		if configured != "" {
-			if !strings.HasSuffix(configured, "/") {
-				configured = configured + "/"
-			}
-			return configured + client.SubID
-		}
-		return fmt.Sprintf("%s://%s%s%s", scheme, host, path, client.SubID)
+	if !strings.HasSuffix(subPath, "/") {
+		subPath = subPath + "/"
+	}
+	if !strings.HasPrefix(subJsonPath, "/") {
+		subJsonPath = "/" + subJsonPath
+	}
+	if !strings.HasSuffix(subJsonPath, "/") {
+		subJsonPath = subJsonPath + "/"
 	}
 
-	out.Sub = build(subURI, subPath)
-	if subJsonEnable {
-		out.JSON = build(subJsonURI, subJsonPath)
-	}
-	if subClashEnable {
-		out.Clash = build(subClashURI, subClashPath)
-	}
-	// LUCX-HOOK
-	if subAwgEnable {
-		out.Amnezia = build(subAwgURI, subAwgPath)
-		if out.Amnezia != "" {
-			if strings.Contains(out.Amnezia, "?") {
-				out.Vpn = out.Amnezia + "&format=vpn"
-			} else {
-				out.Vpn = out.Amnezia + "?format=vpn"
-			}
+	var subURL string
+	var subJsonURL string
+
+	// If pre-configured URIs are available, use them directly
+	if subURI != "" {
+		if !strings.HasSuffix(subURI, "/") {
+			subURI = subURI + "/"
 		}
+		subURL = fmt.Sprintf("%s%s", subURI, client.SubID)
+	} else {
+		subURL = fmt.Sprintf("%s://%s%s%s", scheme, host, subPath, client.SubID)
 	}
-	// END LUCX-HOOK
-	return out, nil
+
+	if subJsonURI != "" {
+		if !strings.HasSuffix(subJsonURI, "/") {
+			subJsonURI = subJsonURI + "/"
+		}
+		subJsonURL = fmt.Sprintf("%s%s", subJsonURI, client.SubID)
+	} else {
+		subJsonURL = fmt.Sprintf("%s://%s%s%s", scheme, host, subJsonPath, client.SubID)
+	}
+
+	if !subJsonEnable {
+		subJsonURL = ""
+	}
+	return subURL, subJsonURL, nil
 }
 
 // sendClientSubLinks sends the subscription links for the client to the chat.
 func (t *Tgbot) sendClientSubLinks(chatId int64, email string) {
-	urls, err := t.buildSubscriptionURLs(email)
+	subURL, subJsonURL, err := t.buildSubscriptionURLs(email)
 	if err != nil {
 		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
 		return
 	}
-	msg := "Subscription URL:\r\n<code>" + urls.Sub + "</code>"
-	if urls.JSON != "" {
-		msg += "\r\n\r\nJSON URL:\r\n<code>" + urls.JSON + "</code>"
-	}
-	if urls.Clash != "" {
-		msg += "\r\n\r\nClash / Mihomo:\r\n<code>" + urls.Clash + "</code>"
-	}
-	if urls.Amnezia != "" {
-		msg += "\r\n\r\nAmnezia .conf:\r\n<code>" + urls.Amnezia + "</code>"
-	}
-	if urls.Vpn != "" {
-		msg += "\r\n\r\nAmnezia vpn://:\r\n<code>" + urls.Vpn + "</code>"
+	msg := "Subscription URL:\r\n<code>" + subURL + "</code>"
+	if subJsonURL != "" {
+		msg += "\r\n\r\nJSON URL:\r\n<code>" + subJsonURL + "</code>"
 	}
 	// LUCX-HOOK: AWG clients get a ".conf" download button instead of QR
 	qrLabel := t.I18nBot("qrCode")
@@ -281,186 +250,6 @@ func (t *Tgbot) sendClientSubLinks(chatId int64, email string) {
 		),
 	)
 	t.SendMsgToTgbot(chatId, msg, inlineKeyboard)
-}
-
-// sendClientIndividualLinks fetches the subscription content (individual links) and sends it to the user
-func (t *Tgbot) sendClientIndividualLinks(chatId int64, email string) {
-	// Build the HTML sub page URL; we'll call it with header Accept to get raw content
-	urls, err := t.buildSubscriptionURLs(email)
-	if err != nil {
-		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
-		return
-	}
-	subURL := urls.Sub
-
-	// Try to fetch raw subscription links. Prefer plain text response.
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, subURL, nil)
-	if err != nil {
-		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
-		return
-	}
-	// Force plain text to avoid HTML page; controller respects Accept header
-	req.Header.Set("Accept", "text/plain, */*;q=0.1")
-
-	// Use optimized client with connection pooling
-	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-	defer cancel()
-	req = req.WithContext(ctx)
-
-	resp, err := optimizedHTTPClient.Do(req)
-	if err != nil {
-		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
-		return
-	}
-	defer resp.Body.Close()
-
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
-		return
-	}
-
-	// If service is configured to encode (Base64), decode it
-	encoded, _ := t.settingService.GetSubEncrypt()
-	var content string
-	if encoded {
-		decoded, err := base64.StdEncoding.DecodeString(string(bodyBytes))
-		if err != nil {
-			// fallback to raw text
-			content = string(bodyBytes)
-		} else {
-			content = string(decoded)
-		}
-	} else {
-		content = string(bodyBytes)
-	}
-
-	// Normalize line endings and trim
-	lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
-	var cleaned []string
-	for _, l := range lines {
-		l = strings.TrimSpace(l)
-		if l != "" {
-			cleaned = append(cleaned, l)
-		}
-	}
-	if len(cleaned) == 0 {
-		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.noResult"))
-		return
-	}
-
-	// Send in chunks to respect message length; use monospace formatting
-	const maxPerMessage = 50
-	for i := 0; i < len(cleaned); i += maxPerMessage {
-		j := min(i+maxPerMessage, len(cleaned))
-		chunk := cleaned[i:j]
-		var msg strings.Builder
-		msg.WriteString(t.I18nBot("subscription.individualLinks"))
-		msg.WriteString(":\r\n")
-		for _, link := range chunk {
-			// wrap each link in <code>
-			msg.WriteString("<code>")
-			msg.WriteString(link)
-			msg.WriteString("</code>\r\n")
-		}
-		t.SendMsgToTgbot(chatId, msg.String())
-	}
-}
-
-// sendClientQRLinks generates QR images for subscription URL, JSON URL, and a few individual links, then sends them.
-// LUCX-HOOK: for AWG clients a .conf file is far more useful than a QR of an
-// amneziawg:// URL — send the conf document instead (button label ".conf").
-func (t *Tgbot) sendClientQRLinks(chatId int64, email string) {
-	// LUCX-HOOK: AWG → downloadable .conf
-	if _, inbound, err := t.inboundService.GetClientInboundByEmail(email); err == nil && inbound != nil && inbound.Protocol == model.AWG {
-		t.sendClientAwgConf(chatId, email, inbound)
-		return
-	}
-	// END LUCX-HOOK
-
-	urls, err := t.buildSubscriptionURLs(email)
-	if err != nil {
-		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
-		return
-	}
-
-	// Helper to create QR PNG bytes from content
-	createQR := func(content string, size int) ([]byte, error) {
-		if size <= 0 {
-			size = 256
-		}
-		return qrcode.Encode(content, qrcode.Medium, size)
-	}
-	sendQR := func(content, name string) {
-		if content == "" {
-			return
-		}
-		if png, err := createQR(content, 320); err == nil {
-			document := tu.Document(tu.ID(chatId), tu.FileFromBytes(png, name))
-			_, _ = bot.SendDocument(context.Background(), document)
-		} else {
-			t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
-		}
-	}
-
-	// Inform user
-	t.SendMsgToTgbot(chatId, "QRCode for client "+email+":")
-	sendQR(urls.Sub, "sub.png")
-	sendQR(urls.JSON, "subjson.png")
-	sendQR(urls.Clash, "subclash.png")
-	sendQR(urls.Amnezia, "subawg.png")
-	sendQR(urls.Vpn, "subvpn.png")
-
-	// Also generate a few individual links' QRs (first up to 5)
-	subPageURL := urls.Sub
-	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, subPageURL, nil)
-	if err == nil {
-		req.Header.Set("Accept", "text/plain, */*;q=0.1")
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-		req = req.WithContext(ctx)
-		if resp, err := optimizedHTTPClient.Do(req); err == nil {
-			body, _ := io.ReadAll(resp.Body)
-			_ = resp.Body.Close()
-			encoded, _ := t.settingService.GetSubEncrypt()
-			var content string
-			if encoded {
-				if dec, err := base64.StdEncoding.DecodeString(string(body)); err == nil {
-					content = string(dec)
-				} else {
-					content = string(body)
-				}
-			} else {
-				content = string(body)
-			}
-			lines := strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n")
-			var cleaned []string
-			for _, l := range lines {
-				l = strings.TrimSpace(l)
-				if l != "" {
-					cleaned = append(cleaned, l)
-				}
-			}
-			if len(cleaned) > 0 {
-				max := min(len(cleaned), 5)
-				for i := range max {
-					if png, err := createQR(cleaned[i], 320); err == nil {
-						// Use the email as filename for individual link QR
-						filename := email + ".png"
-						document := tu.Document(
-							tu.ID(chatId),
-							tu.FileFromBytes(png, filename),
-						)
-						_, _ = bot.SendDocument(context.Background(), document)
-						// Reduced delay for better performance
-						if i < max-1 { // Only delay between documents, not after the last one
-							time.Sleep(50 * time.Millisecond)
-						}
-					}
-				}
-			}
-		}
-	}
 }
 
 // sendClientAwgConf builds and sends an AmneziaWG .conf for the given client.
@@ -500,8 +289,8 @@ func (t *Tgbot) sendClientAwgConf(chatId int64, email string, inbound *model.Inb
 }
 
 // awgEndpointHost picks Endpoint= host for bot-exported .conf — same order as
-// panel share/QR (share strategy → node/listen → sub/web domain → public IP).
-// Never uses OS hostname (e.g. ruvds-xxx): that is not client-reachable.
+// panel share/QR. Never uses OS hostname.
+// LUCX-HOOK: Telegram bot AWG export host.
 func (t *Tgbot) awgEndpointHost(inbound *model.Inbound) string {
 	fallback := ""
 	if d, err := t.settingService.GetSubDomain(); err == nil && strings.TrimSpace(d) != "" {
@@ -525,6 +314,127 @@ func (t *Tgbot) awgEndpointHost(inbound *model.Inbound) string {
 		return host
 	}
 	return "127.0.0.1"
+}
+
+// clientSubLinks builds the subscription's links in-process for the host subURL
+// names; fetching subURL instead fails whenever that host does not resolve here.
+func (t *Tgbot) clientSubLinks(email, subURL string) ([]string, error) {
+	u, err := url.Parse(subURL)
+	if err != nil {
+		return nil, err
+	}
+	_, client, err := t.inboundService.GetClientByEmail(email)
+	if err != nil || client == nil {
+		return nil, errors.New("client not found")
+	}
+	return t.inboundService.GetSubLinks(u.Hostname(), client.SubID)
+}
+
+// sendClientIndividualLinks sends the subscription's individual links to the user
+func (t *Tgbot) sendClientIndividualLinks(chatId int64, email string) {
+	subURL, _, err := t.buildSubscriptionURLs(email)
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
+		return
+	}
+	links, err := t.clientSubLinks(email, subURL)
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
+		return
+	}
+	if len(links) == 0 {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.noResult"))
+		return
+	}
+
+	// Send in chunks to respect message length; use monospace formatting
+	const maxPerMessage = 50
+	for i := 0; i < len(links); i += maxPerMessage {
+		j := min(i+maxPerMessage, len(links))
+		chunk := links[i:j]
+		var msg strings.Builder
+		msg.WriteString(t.I18nBot("subscription.individualLinks"))
+		msg.WriteString(":\r\n")
+		for _, link := range chunk {
+			// wrap each link in <code>
+			msg.WriteString("<code>")
+			msg.WriteString(link)
+			msg.WriteString("</code>\r\n")
+		}
+		t.SendMsgToTgbot(chatId, msg.String())
+	}
+}
+
+// sendClientQRLinks generates QR images for subscription URL, JSON URL, and a few individual links, then sends them.
+// LUCX-HOOK: for AWG clients a .conf file is far more useful than a QR of an
+// amneziawg:// URL — send the conf document instead (button label ".conf").
+func (t *Tgbot) sendClientQRLinks(chatId int64, email string) {
+	// LUCX-HOOK: AWG → downloadable .conf
+	if _, inbound, err := t.inboundService.GetClientInboundByEmail(email); err == nil && inbound != nil && inbound.Protocol == model.AWG {
+		t.sendClientAwgConf(chatId, email, inbound)
+		return
+	}
+	// END LUCX-HOOK
+	subURL, subJsonURL, err := t.buildSubscriptionURLs(email)
+	if err != nil {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
+		return
+	}
+
+	// Helper to create QR PNG bytes from content
+	createQR := func(content string, size int) ([]byte, error) {
+		if size <= 0 {
+			size = 256
+		}
+		return qrcode.Encode(content, qrcode.Medium, size)
+	}
+
+	// Inform user
+	t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.qrCodeForClient", "Email=="+email))
+
+	// Send sub URL QR (filename: sub.png)
+	if png, err := createQR(subURL, 320); err == nil {
+		document := tu.Document(
+			tu.ID(chatId),
+			tu.FileFromBytes(png, "sub.png"),
+		)
+		_, _ = bot.SendDocument(context.Background(), document)
+	} else {
+		t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
+	}
+
+	// Send JSON URL QR (filename: subjson.png) when available
+	if subJsonURL != "" {
+		if png, err := createQR(subJsonURL, 320); err == nil {
+			document := tu.Document(
+				tu.ID(chatId),
+				tu.FileFromBytes(png, "subjson.png"),
+			)
+			_, _ = bot.SendDocument(context.Background(), document)
+		} else {
+			t.SendMsgToTgbot(chatId, t.I18nBot("tgbot.answers.errorOperation")+"\r\n"+err.Error())
+		}
+	}
+
+	// Also generate a few individual links' QRs (first up to 5)
+	if links, err := t.clientSubLinks(email, subURL); err == nil {
+		max := min(len(links), 5)
+		for i := range max {
+			if png, err := createQR(links[i], 320); err == nil {
+				// Use the email as filename for individual link QR
+				filename := email + ".png"
+				document := tu.Document(
+					tu.ID(chatId),
+					tu.FileFromBytes(png, filename),
+				)
+				_, _ = bot.SendDocument(context.Background(), document)
+				// Reduced delay for better performance
+				if i < max-1 { // Only delay between documents, not after the last one
+					time.Sleep(50 * time.Millisecond)
+				}
+			}
+		}
+	}
 }
 
 // clientInfoMsg formats client information message based on traffic and flags.
@@ -846,6 +756,7 @@ func (t *Tgbot) searchClient(chatId int64, email string, messageID ...int) {
 		),
 		tu.InlineKeyboardRow(
 			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.setTGUser")).WithCallbackData(t.encodeQuery("tg_user "+email)),
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.inviteLink")).WithCallbackData(t.encodeQuery("client_invite_link "+email)),
 		),
 		tu.InlineKeyboardRow(
 			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.toggle")).WithCallbackData(t.encodeQuery("toggle_enable "+email)),

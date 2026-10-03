@@ -8,6 +8,9 @@ const UPSTREAM_NODE_PROTOCOLS = new Set<string>([
   Protocols.SHADOWSOCKS,
   Protocols.HYSTERIA,
   Protocols.WIREGUARD,
+  Protocols.MTPROTO,
+  Protocols.AMNEZIAWG,
+  Protocols.TUIC,
 ]);
 
 const LUCX_NODE_PROTOCOLS = new Set<string>([

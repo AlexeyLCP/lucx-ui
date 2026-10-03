@@ -701,13 +701,23 @@ func (r *Remote) ResetClientTraffic(ctx context.Context, _ *model.Inbound, email
 	return err
 }
 
+// ResetClientTraffics zeroes many clients on the node in one request.
+func (r *Remote) ResetClientTraffics(ctx context.Context, emails []string) error {
+	_, err := r.do(ctx, http.MethodPost, "panel/api/clients/bulkResetTraffic", map[string]any{"emails": emails})
+	return err
+}
+
 func (r *Remote) ResetAllTraffics(ctx context.Context) error {
 	_, err := r.do(ctx, http.MethodPost, "panel/api/inbounds/resetAllTraffics", nil)
 	return err
 }
 
 func (r *Remote) ResetInboundTraffic(ctx context.Context, ib *model.Inbound) error {
-	_, err := r.do(ctx, http.MethodPost, fmt.Sprintf("panel/api/inbounds/%d/resetTraffic", ib.Id), nil)
+	id, err := r.resolveRemoteID(ctx, ib.Tag)
+	if err != nil {
+		return fmt.Errorf("remote ResetInboundTraffic: resolve tag %q: %w", ib.Tag, err)
+	}
+	_, err = r.do(ctx, http.MethodPost, fmt.Sprintf("panel/api/inbounds/%d/resetTraffic", id), nil)
 	return err
 }
 
@@ -810,6 +820,7 @@ func wireInbound(ib *model.Inbound, remoteNodeID int) url.Values {
 	v.Set("total", strconv.FormatInt(ib.Total, 10))
 	v.Set("remark", ib.Remark)
 	v.Set("subSortIndex", strconv.Itoa(ib.SubSortIndex))
+	v.Set("excludeFromSub", strconv.FormatBool(ib.ExcludeFromSub))
 	v.Set("enable", strconv.FormatBool(ib.Enable))
 	v.Set("expiryTime", strconv.FormatInt(ib.ExpiryTime, 10))
 	v.Set("listen", ib.Listen)

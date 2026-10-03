@@ -4,6 +4,7 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import type { HostEndpoint } from '@/lib/hosts/host-link';
 import { formatInboundLabel } from '@/lib/inbounds/label';
 import { collapseKeepaliveForVersion, normalizeAwgTimer } from '@/lib/awg/timer';
 import {
@@ -54,16 +55,17 @@ export function buildWireguardClientConfig(
   host = window.location.hostname,
   publicHost = '',
   addressOverride = '',
+  hostEndpoint?: HostEndpoint,
 ): string {
-  const endpointHost = resolveShareHost(
-    inbound ?? {},
-    inbound?.nodeAddress ?? '',
-    preferPublicHost(host, publicHost),
-  );
+  const endpointHost =
+    hostEndpoint?.dest ||
+    resolveShareHost(inbound ?? {}, inbound?.nodeAddress ?? '', preferPublicHost(host, publicHost));
   const address = addressOverride || client.allowedIPs || '10.0.0.2/32';
-  const endpoint = `${endpointHost}:${inbound?.port || ''}`;
+  const endpoint = `${endpointHost}:${hostEndpoint?.port || inbound?.port || ''}`;
   const inboundName = inbound ? formatInboundLabel(inbound.tag, inbound.remark) : '';
-  const remark = [inboundName, client.email, client.comment].filter(Boolean).join(' - ');
+  const remark = [inboundName, hostEndpoint?.remark, client.email, client.comment]
+    .filter(Boolean)
+    .join(' - ');
   const lines = [
     '[Interface]',
     `PrivateKey = ${client.privateKey || client.password || ''}`,

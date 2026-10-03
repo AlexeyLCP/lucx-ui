@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
+	"github.com/mhsanaei/3x-ui/v3/internal/database/dbtest"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
@@ -47,10 +48,7 @@ func TestClientWithInboundFlow_GatesByInboundCapability(t *testing.T) {
 func TestFlowIsolation_VisionDoesNotLeakToWsInbound(t *testing.T) {
 	dbDir := t.TempDir()
 	t.Setenv("XUI_DB_FOLDER", dbDir)
-	if err := database.InitDB(filepath.Join(dbDir, "x-ui.db")); err != nil {
-		t.Fatalf("InitDB: %v", err)
-	}
-	t.Cleanup(func() { _ = database.CloseDB() })
+	dbtest.InitDB(t, filepath.Join(dbDir, "x-ui.db"))
 
 	db := database.GetDB()
 
@@ -96,10 +94,7 @@ func TestFlowIsolation_VisionDoesNotLeakToWsInbound(t *testing.T) {
 func TestEffectiveFlow_NonFlowInboundSyncedLastDoesNotHideVision(t *testing.T) {
 	dbDir := t.TempDir()
 	t.Setenv("XUI_DB_FOLDER", dbDir)
-	if err := database.InitDB(filepath.Join(dbDir, "x-ui.db")); err != nil {
-		t.Fatalf("InitDB: %v", err)
-	}
-	t.Cleanup(func() { _ = database.CloseDB() })
+	dbtest.InitDB(t, filepath.Join(dbDir, "x-ui.db"))
 
 	db := database.GetDB()
 	reality := &model.Inbound{Tag: "vless-reality", Enable: true, Port: 40001, Protocol: model.VLESS, StreamSettings: `{"network":"tcp","security":"reality"}`}
@@ -146,10 +141,7 @@ func TestEffectiveFlow_NonFlowInboundSyncedLastDoesNotHideVision(t *testing.T) {
 func TestEffectiveFlow_ClearedFlowStaysCleared(t *testing.T) {
 	dbDir := t.TempDir()
 	t.Setenv("XUI_DB_FOLDER", dbDir)
-	if err := database.InitDB(filepath.Join(dbDir, "x-ui.db")); err != nil {
-		t.Fatalf("InitDB: %v", err)
-	}
-	t.Cleanup(func() { _ = database.CloseDB() })
+	dbtest.InitDB(t, filepath.Join(dbDir, "x-ui.db"))
 
 	db := database.GetDB()
 	reality := &model.Inbound{Tag: "vless-reality", Enable: true, Port: 41001, Protocol: model.VLESS, StreamSettings: `{"network":"tcp","security":"reality"}`}
@@ -192,10 +184,7 @@ func TestEffectiveFlow_ClearedFlowStaysCleared(t *testing.T) {
 func TestAttach_PreservesVisionFlowWhenCanonicalColumnZeroed(t *testing.T) {
 	dbDir := t.TempDir()
 	t.Setenv("XUI_DB_FOLDER", dbDir)
-	if err := database.InitDB(filepath.Join(dbDir, "x-ui.db")); err != nil {
-		t.Fatalf("InitDB: %v", err)
-	}
-	t.Cleanup(func() { _ = database.CloseDB() })
+	dbtest.InitDB(t, filepath.Join(dbDir, "x-ui.db"))
 
 	db := database.GetDB()
 
@@ -271,10 +260,7 @@ func TestAttach_PreservesVisionFlowWhenCanonicalColumnZeroed(t *testing.T) {
 func TestEffectiveFlow_AwgOnlyFallsBackToRecordFlow(t *testing.T) {
 	dbDir := t.TempDir()
 	t.Setenv("XUI_DB_FOLDER", dbDir)
-	if err := database.InitDB(filepath.Join(dbDir, "x-ui.db")); err != nil {
-		t.Fatalf("InitDB: %v", err)
-	}
-	t.Cleanup(func() { _ = database.CloseDB() })
+	dbtest.InitDB(t, filepath.Join(dbDir, "x-ui.db"))
 
 	db := database.GetDB()
 	awg := &model.Inbound{Tag: "awg1", Enable: true, Port: 51820, Protocol: model.AWG, Settings: `{"clients":[]}`}

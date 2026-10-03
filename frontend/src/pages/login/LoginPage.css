@@ -463,3 +463,7 @@ html[data-palette='warm'] .login-app.is-dark.is-ultra {
 .submit-row {
   margin-bottom: 0;
 }
+
+.login-sponsor {
+  margin-top: 20px;
+}

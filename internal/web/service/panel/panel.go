@@ -19,6 +19,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/version"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/global"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 )
@@ -677,9 +678,9 @@ func resolveUpdateFolders() (string, string) {
 }
 
 func isNewerVersion(latest string, current string) bool {
-	cmp, ok := compareVersionStrings(latest, current)
+	cmp, ok := version.Compare(latest, current)
 	if !ok {
-		return normalizeVersionTag(latest) != normalizeVersionTag(current)
+		return version.Normalize(latest) != version.Normalize(current)
 	}
 	if cmp > 0 {
 		return true
@@ -692,47 +693,6 @@ func isNewerVersion(latest string, current string) bool {
 		return lucxMinor(latest) > lucxMinor(current)
 	}
 	return false
-}
-
-func compareVersionStrings(a string, b string) (int, bool) {
-	aParts, okA := parseVersionParts(a)
-	bParts, okB := parseVersionParts(b)
-	if !okA || !okB {
-		return 0, false
-	}
-	for i := range len(aParts) {
-		if aParts[i] > bParts[i] {
-			return 1, true
-		}
-		if aParts[i] < bParts[i] {
-			return -1, true
-		}
-	}
-	return 0, true
-}
-
-func parseVersionParts(version string) ([3]int, bool) {
-	var result [3]int
-	// LUCX-HOOK: strip the LucX fork suffix (e.g. "-lucx.8") for the 3-part
-	// base comparison. The lucx-minor (the ".8" after the dash) is compared
-	// separately in isNewerVersion so a newer fork release (lucx.9 vs lucx.8)
-	// is detected even when the upstream base is identical (3.5.0).
-	v := normalizeVersionTag(version)
-	if i := strings.Index(v, "-"); i >= 0 {
-		v = v[:i]
-	}
-	parts := strings.Split(v, ".")
-	if len(parts) != 3 {
-		return result, false
-	}
-	for i, part := range parts {
-		n, err := strconv.Atoi(part)
-		if err != nil {
-			return result, false
-		}
-		result[i] = n
-	}
-	return result, true
 }
 
 // lucxMinor extracts the numeric minor after the "-lucx." suffix (e.g.

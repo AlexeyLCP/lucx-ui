@@ -4,6 +4,7 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+import type { HostEndpoint } from '@/lib/hosts/host-link';
 import { formatInboundLabel } from '@/lib/inbounds/label';
 import { awgPortableIField } from '@/lib/xray/awg-descriptor';
 import { preferPublicHost, resolveShareHost } from '@/lib/xray/inbound-link';
@@ -58,17 +59,18 @@ export function buildAmneziaWGClientConfig(
   host = window.location.hostname,
   publicHost = '',
   addressOverride = '',
+  hostEndpoint?: HostEndpoint,
 ): string {
   const server = inbound?.awgServer;
-  const endpointHost = resolveShareHost(
-    inbound ?? {},
-    inbound?.nodeAddress ?? '',
-    preferPublicHost(host, publicHost),
-  );
+  const endpointHost =
+    hostEndpoint?.dest ||
+    resolveShareHost(inbound ?? {}, inbound?.nodeAddress ?? '', preferPublicHost(host, publicHost));
   const address = addressOverride || client.allowedIPs || '10.8.1.2/32';
-  const endpoint = `${endpointHost}:${inbound?.port || ''}`;
+  const endpoint = `${endpointHost}:${hostEndpoint?.port || inbound?.port || ''}`;
   const inboundName = inbound ? formatInboundLabel(inbound.tag, inbound.remark) : '';
-  const remark = [inboundName, client.email, client.comment].filter(Boolean).join(' - ');
+  const remark = [inboundName, hostEndpoint?.remark, client.email, client.comment]
+    .filter(Boolean)
+    .join(' - ');
 
   // These land unescaped in [Interface]; a newline here would inject a
   // config line (e.g. a rogue PostUp) into the downloaded .conf.

@@ -16,7 +16,9 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/json_util"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/maskcompat"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 
 	// LUCX-HOOK: AWG — restore policy routing synchronously after Xray restarts.
@@ -377,6 +379,9 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 				logger.Warningf("Inbound %q: dropping %d XMC finalmask mask(s) without complete Minecraft profiles — reconfigure them to restore the obfuscation (see XTLS/Xray-core#6487)", inbound.Tag, dropped)
 			}
 
+			// A row that skipped the save path can still carry the pre-26.9.30 xdns lists.
+			maskcompat.UpgradeLegacyXdns(stream["finalmask"])
+
 			// xray-core v26.6.22 (#6258) renamed the XHTTP session keys and
 			// kept no fallback. Lift legacy sessionPlacement/sessionKey onto the
 			// new names here so inbounds stored before the rename keep working
@@ -540,6 +545,7 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 	// whatever rules the admin adds through the stock Routing page, exactly
 	// like routing any other protocol.
 	injectAmneziawgnetSocks(xrayConfig, inbounds)
+	injectTuicSocks(xrayConfig, inbounds)
 
 	// Restores each opted-in peer's own distinct public IPv6 source identity
 	// for its outbound connections — a peer that has an IPv6 address in its
@@ -1438,7 +1444,9 @@ func appendAwgOutbound(cfg *xray.Config, ob map[string]any) error {
 // QUIC) the same way it already does for every other inbound; without it,
 // only tag/IP/network-based rules can ever match this traffic, and any
 // domain rule above it in the list is silently unreachable.
-const amneziawgEgressSniffingSettings = `{"enabled":true,"destOverride":["http","tls","quic","fakedns"]}`
+// Peers resolve DNS inside the tunnel, so domain rules match only via sniffing; routeOnly
+// keeps the dial on the peer's IP, else Telegram's FakeTLS (IP + foreign SNI) breaks.
+const amneziawgEgressSniffingSettings = `{"enabled":true,"destOverride":["http","tls","quic","fakedns"],"routeOnly":true}`
 
 // injectAmneziawgnetSocks gives every enabled AmneziaWG inbound with at
 // least one qualifying peer its own loopback SOCKS5 inbound for the
@@ -1516,6 +1524,38 @@ func injectAmneziawgnetSocks(cfg *xray.Config, inbounds []*model.Inbound) {
 	}
 }
 
+const (
+	tuicEgressSocksSettings    = `{"auth":"noauth","udp":true}`
+	tuicEgressSniffingSettings = `{"enabled":true,"destOverride":["http","tls","quic","fakedns"]}`
+)
+
+func injectTuicSocks(cfg *xray.Config, inbounds []*model.Inbound) {
+	existingTags := make(map[string]struct{}, len(cfg.InboundConfigs))
+	for i := range cfg.InboundConfigs {
+		existingTags[cfg.InboundConfigs[i].Tag] = struct{}{}
+	}
+
+	for _, inbound := range inbounds {
+		if inbound.Protocol != model.TUIC || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		if _, taken := existingTags[inbound.Tag]; taken {
+			logger.Warning("tuic socks: inbound tag [", inbound.Tag, "] already present in generated config, skipping its relay inbound")
+			continue
+		}
+
+		existingTags[inbound.Tag] = struct{}{}
+		cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
+			Listen:   json_util.RawMessage(`"127.0.0.1"`),
+			Port:     tuic.SOCKSPortForInbound(inbound.Id),
+			Protocol: "socks",
+			Settings: json_util.RawMessage(tuicEgressSocksSettings),
+			Sniffing: json_util.RawMessage(tuicEgressSniffingSettings),
+			Tag:      inbound.Tag,
+		})
+	}
+}
+
 // amneziawgV6EgressTag returns the stable, globally-unique freedom outbound
 // tag for one peer's IPv6 source-identity egress. Stable across config
 // regenerations (a pure function of two stable identifiers), so
@@ -1533,7 +1573,7 @@ func amneziawgV6EgressTag(inboundID int, email string) string {
 // injectAmneziawgV6Egress gives every enabled, non-node-hosted AmneziaWG
 // peer with an IPv6 AllowedIPs entry its own single-purpose freedom
 // outbound, bound via sendThrough to that exact address, plus a routing
-// rule sending only that peer's own traffic through it — restoring the
+// rule sending only that peer's IPv6-destined traffic through it — restoring the
 // per-client public IPv6 identity the hard cutover temporarily dropped
 // (Phase 3.5 of the migration plan). Scoped to outbound source identity
 // only: it depends on internal/amneziawgnet's own alias mechanism actually
@@ -1635,6 +1675,7 @@ func injectAmneziawgV6Egress(cfg *xray.Config, inbounds []*model.Inbound) {
 				"type":        "field",
 				"inboundTag":  []any{inbound.Tag},
 				"user":        []any{p.Email},
+				"ip":          []any{"::/0"},
 				"outboundTag": tag,
 			})
 		}
@@ -2263,6 +2304,7 @@ func (s *XrayService) tryHotApply(process *xray.Process, newCfg *xray.Config) bo
 	}
 	if diff.Empty() {
 		process.SetConfig(newCfg)
+		persistHotConfig(process)
 		return true
 	}
 	// The core's RemoveUser drops the credential only, so a disabled or deleted
@@ -2331,7 +2373,16 @@ func (s *XrayService) tryHotApply(process *xray.Process, newCfg *xray.Config) bo
 	}
 
 	process.SetConfig(newCfg)
+	persistHotConfig(process)
 	return true
+}
+
+// persistHotConfig refreshes config.json after a hot apply; a write failure is
+// logged only, since the running core already has the change.
+func persistHotConfig(process *xray.Process) {
+	if err := process.PersistConfig(); err != nil {
+		logger.Warning("hot apply: failed to update config.json:", err)
+	}
 }
 
 // addUserReconciling adds a user, and on an email conflict (the user was

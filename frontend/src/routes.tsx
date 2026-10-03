@@ -14,6 +14,7 @@ const HostsPage = lazy(() => import('@/pages/hosts/HostsPage'));
 const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
 const XrayPage = lazy(() => import('@/pages/xray/XrayPage'));
 const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
+const SponsorsPage = lazy(() => import('@/pages/sponsors/SponsorsPage'));
 // LUCX-HOOK: tunnel sidecars (NaiveProxy) page
 const TunnelsPage = lazy(() => import('@/pages/tunnels/TunnelsPage'));
 const MaskingPage = lazy(() => import('@/pages/masking/MaskingPage'));
@@ -70,6 +71,7 @@ const routes: RouteObject[] = [
       { path: 'outbound', element: withSuspense(<XrayPage />) },
       { path: 'routing', element: withSuspense(<XrayPage />) },
       { path: 'api-docs', element: withSuspense(<ApiDocsPage />) },
+      { path: 'sponsors', element: withSuspense(<SponsorsPage />) },
     ],
   },
 ];

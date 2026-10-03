@@ -563,7 +563,7 @@ func (s *ClientService) BulkAdjust(inboundSvc *InboundService, emails []string, 
 			}
 		}
 		if adjustHwid {
-			if err := s.setClientLimitHwidByEmail(db, email, *limitHwid); err != nil {
+			if err := s.setClientLimitHwidByEmail(email, *limitHwid); err != nil {
 				if _, already := skippedReasons[email]; !already {
 					skippedReasons[email] = err.Error()
 				}
@@ -805,6 +805,7 @@ func (s *ClientService) bulkAdjustInboundClients(
 		}
 		return res
 	}
+	prevSettings := oldInbound.Settings
 	oldInbound.Settings = string(newSettings)
 
 	// A flow change rewrites the user's xray config, which the lightweight
@@ -817,7 +818,7 @@ func (s *ClientService) bulkAdjustInboundClients(
 	// Serialize against the traffic poll to avoid the cross-transaction
 	// lock-order deadlock on inbounds/client_records (runSerializedTx).
 	txErr := runSerializedTx(func(tx *gorm.DB) error {
-		if err := tx.Save(oldInbound).Error; err != nil {
+		if err := commitInboundClientSettings(tx, oldInbound, prevSettings); err != nil {
 			return err
 		}
 		finalClients, gcErr := inboundSvc.GetClients(oldInbound)
@@ -1122,6 +1123,7 @@ func (s *ClientService) bulkDelInboundClients(
 		}
 		return res
 	}
+	prevSettings := oldInbound.Settings
 	oldInbound.Settings = string(newSettings)
 
 	foundList := make([]string, 0, len(foundEmails))
@@ -1191,7 +1193,7 @@ func (s *ClientService) bulkDelInboundClients(
 	// Serialize against the traffic poll to avoid the cross-transaction
 	// lock-order deadlock on inbounds/client_records (runSerializedTx).
 	txErr := runSerializedTx(func(tx *gorm.DB) error {
-		if err := tx.Save(oldInbound).Error; err != nil {
+		if err := commitInboundClientSettings(tx, oldInbound, prevSettings); err != nil {
 			return err
 		}
 		finalClients, err := inboundSvc.GetClients(oldInbound)
@@ -1275,9 +1277,16 @@ type BulkCreateReport struct {
 }
 
 func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []ClientCreatePayload) (BulkCreateResult, bool, error) {
+	result, _, needRestart, err := s.bulkCreate(inboundSvc, payloads)
+	return result, needRestart, err
+}
+
+// bulkCreate also returns the payload indexes that inserted a new client record;
+// a Created payload whose email already existed only reused that client.
+func (s *ClientService) bulkCreate(inboundSvc *InboundService, payloads []ClientCreatePayload) (BulkCreateResult, []int, bool, error) {
 	result := BulkCreateResult{}
 	if len(payloads) == 0 {
-		return result, false, nil
+		return result, nil, false, nil
 	}
 
 	skip := func(email, reason string) {
@@ -1291,6 +1300,8 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 		client     model.Client
 		inboundIds []int
 		limitHwid  int
+		payloadIdx int
+		reused     bool
 	}
 	prep := make([]prepared, 0, len(payloads))
 	emails := make([]string, 0, len(payloads))
@@ -1313,7 +1324,7 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 			skip(email, verr.Error())
 			continue
 		}
-		if verr := validateClientResetDay(client.ResetDay); verr != nil {
+		if verr := validateClientRenewal(client); verr != nil {
 			skip(email, verr.Error())
 			continue
 		}
@@ -1353,13 +1364,13 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 		seenEmail[le] = struct{}{}
 		seenSubID[client.SubID] = le
 
-		prep = append(prep, prepared{client: client, inboundIds: payloads[i].InboundIds, limitHwid: payloads[i].LimitHwid})
+		prep = append(prep, prepared{client: client, inboundIds: payloads[i].InboundIds, limitHwid: payloads[i].LimitHwid, payloadIdx: i})
 		emails = append(emails, email)
 		subIDs = append(subIDs, client.SubID)
 	}
 
 	if len(prep) == 0 {
-		return result, false, nil
+		return result, nil, false, nil
 	}
 
 	db := database.GetDB()
@@ -1369,7 +1380,7 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 		end := min(start+lookupChunk, len(emails))
 		var rows []model.ClientRecord
 		if e := db.Where("email IN ?", emails[start:end]).Find(&rows).Error; e != nil {
-			return result, false, e
+			return result, nil, false, e
 		}
 		for i := range rows {
 			existingByEmail[strings.ToLower(rows[i].Email)] = rows[i]
@@ -1380,7 +1391,7 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 		end := min(start+lookupChunk, len(subIDs))
 		var rows []model.ClientRecord
 		if e := db.Where("sub_id IN ?", subIDs[start:end]).Find(&rows).Error; e != nil {
-			return result, false, e
+			return result, nil, false, e
 		}
 		for i := range rows {
 			existingSubOwner[rows[i].SubID] = strings.ToLower(rows[i].Email)
@@ -1415,6 +1426,7 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 				reason[idx] = "email already in use: " + prep[idx].client.Email
 				continue
 			}
+			prep[idx].reused = true
 			if prep[idx].client.ID == "" {
 				prep[idx].client.ID = rec.UUID
 			}
@@ -1524,23 +1536,27 @@ func (s *ClientService) BulkCreate(inboundSvc *InboundService, payloads []Client
 		}
 	}
 
-	createdEmails := make([]string, 0, len(prep))
+	inserted := make([]int, 0, len(prep))
 	for idx := range prep {
 		if failed[idx] {
 			skip(prep[idx].client.Email, reason[idx])
 			continue
 		}
-		if err := s.setClientLimitHwidByEmail(nil, prep[idx].client.Email, prep[idx].limitHwid); err != nil {
+		// The client is already live after fanout; never leave a stale delete
+		// tombstone merely because applying its optional HWID limit failed.
+		withdrawClientTombstones(prep[idx].client.Email)
+		if err := s.setClientLimitHwidByEmail(prep[idx].client.Email, prep[idx].limitHwid); err != nil {
 			skip(prep[idx].client.Email, err.Error())
 			continue
 		}
-		createdEmails = append(createdEmails, prep[idx].client.Email)
 		result.Created++
+		if !prep[idx].reused {
+			inserted = append(inserted, prep[idx].payloadIdx)
+		}
 	}
 	// A re-created email is a live identity again: a delete tombstone left
 	// standing makes the next node merge prune the new client's inbound links.
-	withdrawClientTombstones(createdEmails...)
-	return result, needRestart, nil
+	return result, inserted, needRestart, nil
 }
 
 func (s *ClientService) DelDepleted(inboundSvc *InboundService) (int, bool, error) {
@@ -1803,7 +1819,7 @@ func (s *ClientService) bulkSetEnableInboundClients(inboundSvc *InboundService, 
 	}
 
 	txErr := runSerializedTx(func(tx *gorm.DB) error {
-		if e := tx.Save(oldInbound).Error; e != nil {
+		if e := commitInboundClientSettings(tx, oldInbound, prevSettings); e != nil {
 			return e
 		}
 		finalClients, gcErr := inboundSvc.GetClients(oldInbound)
@@ -1873,7 +1889,7 @@ func (s *ClientService) bulkSetEnableInboundClients(inboundSvc *InboundService, 
 			}
 		}
 		if !pushFailed {
-			advancePushedInbound(rt, prevSettings, oldInbound)
+			advancePushedInbound(rt, prevSettings, string(newSettings), oldInbound)
 		}
 	}
 

@@ -21,7 +21,10 @@ describe('node-protocol', () => {
     expect(isProtocolNodeEligible('vless')).toBe(true);
     expect(isProtocolNodeEligible('awg')).toBe(true);
     expect(isProtocolNodeEligible('naive')).toBe(true);
-    expect(isProtocolNodeEligible('mtproto')).toBe(false);
+    expect(isProtocolNodeEligible('mtproto')).toBe(true);
+    expect(isProtocolNodeEligible('amneziawg')).toBe(true);
+    expect(isProtocolNodeEligible('tuic')).toBe(true);
+    expect(isLucxOnlyProtocol('mtproto')).toBe(false);
     expect(isLucxOnlyProtocol('awg')).toBe(true);
     expect(isLucxOnlyProtocol('vless')).toBe(false);
   });

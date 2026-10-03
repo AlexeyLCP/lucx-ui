@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.280 — overlay upstream v3.9.0 (2026-10-03)
+
+Fresh `origin/main` (tag v3.9.0 + two TUIC test fixes). LucX hooks reapplied on top, not a blanket `--ours`.
+
+Kept: kernel `awg` and tunnel sidecars, share-only node sync, inbound save does not rewrite client lifecycle (their new path + sidecar in-place), `KeepAliveValue` Scan, AWG `.conf` in the bot. Took theirs: native TUIC (no `tuic-server` binary), AmneziaWG/TUIC/MTProto node deploy, iOS S1–S3 bounds on server obfuscation only, overlapping `allowedIPs` rejected on save (issued peers not rewritten on boot). Dropped upstream's deleted deploy-smoke workflow.
+
+**lucxVersion:** lucx.280
+
+Tests: `go test ./internal/amneziawg/ ./internal/amneziawgnet/ ./internal/awg/ ./internal/lucx/...`; frontend `tsc --noEmit`. Full `go test ./internal/web/service` not run here (Windows sqlite CGO).
+
+---
+
 ## Fix: DKMS build fails on kernels with backported udp_tunnel ABI below 7.1.5 (lucx.279)
 
 Igor (04.10.2026): fresh install on Ubuntu `7.0.0-38-generic` — DKMS exit 2,

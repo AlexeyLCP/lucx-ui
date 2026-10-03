@@ -137,10 +137,27 @@ func generateHValues() [4]string {
 // Padded handshake messages (148+S1, 92+S2, 64+S3 bytes) must fit the smallest receive
 // buffer amneziawg-go has: MaxSegmentSize 1700 on iOS (device/queueconstants_ios.go).
 const (
-	maxS1 = 1700 - 148
-	maxS2 = 1700 - 92
-	maxS3 = 1700 - 64
+	maxServerS1 = 1700 - 148
+	maxServerS2 = 1700 - 92
+	maxServerS3 = 1700 - 64
 )
+
+// ValidateServerObfuscation adds the receive-buffer bounds to ValidateObfuscation:
+// an inbound's peers may be iOS clients, which cannot receive a larger handshake.
+func ValidateServerObfuscation(o Obfuscation31) error {
+	if err := ValidateObfuscation(o); err != nil {
+		return err
+	}
+	for _, f := range []struct {
+		name   string
+		v, max int
+	}{{"S1", o.S1, maxServerS1}, {"S2", o.S2, maxServerS2}, {"S3", o.S3, maxServerS3}} {
+		if f.v > f.max {
+			return fmt.Errorf("invalid %s value %d (must be 0..%d so every client can receive it)", f.name, f.v, f.max)
+		}
+	}
+	return nil
+}
 
 // ValidateObfuscation rejects malformed parameters before they are saved, so
 // a bad manual entry can't break the embedded amneziawg-go device's own
@@ -152,7 +169,8 @@ func ValidateObfuscation(o Obfuscation31) error {
 	if o.Jmin > o.Jmax {
 		return fmt.Errorf("invalid Jmin/Jmax: %d must not exceed %d", o.Jmin, o.Jmax)
 	}
-	// jc/jmin/jmax: amneziawg-go's uint32 UAPI width (device/uapi.go), wider fails IpcSet.
+	// amneziawg-go parses jc/jmin/jmax as uint32 and s1-s3 as uint16 (device/uapi.go);
+	// a wider value makes IpcSet reject the whole device.
 	for _, f := range []struct {
 		name string
 		v    int
@@ -161,9 +179,9 @@ func ValidateObfuscation(o Obfuscation31) error {
 		{"Jc", o.Jc, math.MaxUint32},
 		{"Jmin", o.Jmin, math.MaxUint32},
 		{"Jmax", o.Jmax, math.MaxUint32},
-		{"S1", o.S1, maxS1},
-		{"S2", o.S2, maxS2},
-		{"S3", o.S3, maxS3},
+		{"S1", o.S1, math.MaxUint16},
+		{"S2", o.S2, math.MaxUint16},
+		{"S3", o.S3, math.MaxUint16},
 	} {
 		if int64(f.v) < 0 || int64(f.v) > f.max {
 			return fmt.Errorf("invalid %s value %d (must be 0..%d)", f.name, f.v, f.max)
@@ -365,33 +383,12 @@ func ValidateConfigValue(field, v string) error {
 	return nil
 }
 
-// negativeCountTag finds a junk-packet tag whose count is negative. Space after
-// the bracket and a missing closing bracket both have to be tolerated: this
-// engine splits a tag with strings.Fields, so leading space is not part of the
-// key, and the kernel's strsep returns the whole remainder with no separator.
+// LUCX-HOOK: gate in front of IpcSet. A negative count panics the engine;
+// <c> is kernel-only and aborts after replace_peers has wiped every peer.
 var negativeCountTag = regexp.MustCompile(`<\s*(r|rc|rd|dz)\s+-\d+\s*>?`)
 
-// kernelOnlyTag finds <c>, the one tag the kernel module has and this engine
-// does not. Lenient in the same two ways, for the same two reasons.
 var kernelOnlyTag = regexp.MustCompile(`<\s*c\s*>?`)
 
-// ValidateIFieldRuntimeSafe rejects an I1-I5 descriptor that would leave the
-// embedded engine worse off than not applying it at all.
-//
-// A negative count: every counted tag is read with strconv.Atoi, which takes
-// the minus, and ObfuscatedLen returns it unchanged, so the first handshake
-// slices with a negative length. That panic surfaces in a timer goroutine with
-// no recover anywhere on the stack, ending the whole process — minutes after a
-// save that looked successful.
-//
-// <c>: IpcSetOperation stops on the unknown tag, but only after private_key,
-// listen_port and replace_peers=true have been applied. The device is left
-// holding the port with every peer wiped, and the padding, H-fields and timers
-// of the aborted merge are lost.
-//
-// Deliberately narrow: this is the gate in front of IpcSet, not a grammar
-// check. A descriptor that merely fails to obfuscate is not worth a dead
-// tunnel, and refusing one on save would repeat lucx.191.
 func ValidateIFieldRuntimeSafe(field, v string) error {
 	if m := negativeCountTag.FindString(v); m != "" {
 		return fmt.Errorf("invalid %s: %s has a negative count, which crashes the tunnel engine", field, m)

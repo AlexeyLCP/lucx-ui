@@ -93,6 +93,8 @@ func run(root, outDir string) error {
 				"InboundOption",
 				"HappLinkResult",
 				"ClientSlim",
+				"ClientRenewalPreviewRequest",
+				"ClientRenewalPreview",
 				"ClientPageResponse",
 				"ClientsSummary",
 				"InboundTrafficSummary",
@@ -112,7 +114,7 @@ func run(root, outDir string) error {
 		},
 		{
 			Path:        resolveRel(root, "internal/web/service/panel"),
-			StructAllow: setOf("ApiTokenView", "PanelUpdateStatus", "PanelReleaseNote", "PanelReleaseNotes"),
+			StructAllow: setOf("ApiTokenView", "PanelUpdateStatus", "PanelReleaseNote", "PanelReleaseNotes", "Sponsor", "SponsorList"),
 		},
 		{
 			Path:        resolveRel(root, "internal/amneziawg"),

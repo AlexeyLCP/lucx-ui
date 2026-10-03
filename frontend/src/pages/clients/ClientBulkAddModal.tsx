@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
   AutoComplete,
@@ -25,6 +25,7 @@ import { DateTimePicker, SelectAllClearButtons } from '@/components/form';
 import { FormField } from '@/components/form/rhf';
 import { useClients, type InboundOption } from '@/hooks/useClients';
 import { useFail2banStatusQuery, getLimitIpNotice } from '@/api/queries/useFail2banStatusQuery';
+import ClientRenewalFields from './ClientRenewalFields';
 import { ClientBulkAddFormSchema, type ClientBulkAddFormValues } from '@/schemas/client';
 
 const FLOW_OPTIONS = Object.values(TLS_FLOW_CONTROL);
@@ -68,6 +69,7 @@ const EMPTY: ClientBulkAddFormValues = {
   expiryTime: 0,
   reset: 0,
   resetDay: 0,
+  resetWeekday: 0,
   resetMax: 0,
   trafficReset: 'never' as const,
   trafficResetDay: 1,
@@ -101,6 +103,7 @@ export default function ClientBulkAddModal({
   const subId = useWatch({ control: methods.control, name: 'subId' });
   const limitIp = useWatch({ control: methods.control, name: 'limitIp' });
   const trafficReset = useWatch({ control: methods.control, name: 'trafficReset' });
+  const flow = useWatch({ control: methods.control, name: 'flow' });
   const [delayedStart, setDelayedStart] = useState(false);
   const [saving, setSaving] = useState(false);
   const fail2ban = useFail2banStatusQuery();
@@ -116,6 +119,19 @@ export default function ClientBulkAddModal({
     }
   }
 
+  const flowCapableIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const row of inbounds || []) {
+      if (row?.tlsFlowCapable) ids.add(row.id);
+    }
+    return ids;
+  }, [inbounds]);
+
+  const showFlow = useMemo(
+    () => (inboundIds || []).some((id) => flowCapableIds.has(id)),
+    [inboundIds, flowCapableIds],
+  );
+
   const ss2022Method = useMemo(() => {
     for (const id of inboundIds || []) {
       const ib = (inbounds || []).find((row) => row.id === id);
@@ -125,18 +141,11 @@ export default function ClientBulkAddModal({
     return '';
   }, [inboundIds, inbounds]);
 
-  const tuicIds = useMemo(() => {
-    const ids = new Set<number>();
-    for (const row of inbounds || []) {
-      if (row && row.protocol === 'tuic') ids.add(row.id);
+  useEffect(() => {
+    if (!showFlow && flow) {
+      methods.setValue('flow', '');
     }
-    return ids;
-  }, [inbounds]);
-
-  const hasTuic = useMemo(
-    () => (inboundIds || []).some((id) => tuicIds.has(id)),
-    [inboundIds, tuicIds],
-  );
+  }, [showFlow, flow, methods]);
 
   const inboundOptions = useMemo(
     () =>
@@ -201,11 +210,12 @@ export default function ClientBulkAddModal({
             ? RandomUtil.randomShadowsocksPassword(ss2022Method)
             : RandomUtil.randomLowerAndNum(16),
           auth: RandomUtil.randomLowerAndNum(16),
-          flow: current.flow || '',
+          flow: showFlow ? current.flow || '' : '',
           totalGB: Math.round((current.totalGB || 0) * SizeFormatter.ONE_GB),
           expiryTime: current.expiryTime,
           reset: Number(current.reset) || 0,
           resetDay: Number(current.resetDay) || 0,
+          resetWeekday: Number(current.resetWeekday) || 0,
           resetMax: Number(current.resetMax) || 0,
           trafficReset: current.trafficReset || 'never',
           trafficResetDay: Number(current.trafficResetDay) || 1,
@@ -364,15 +374,17 @@ export default function ClientBulkAddModal({
               <Input />
             </FormField>
 
-            <FormField name="flow" label={t('pages.clients.flow')}>
-              <Select
-                style={{ width: 220 }}
-                options={[
-                  { value: '', label: t('none') },
-                  ...FLOW_OPTIONS.map((k) => ({ value: k, label: k })),
-                ]}
-              />
-            </FormField>
+            {showFlow && (
+              <FormField name="flow" label={t('pages.clients.flow')}>
+                <Select
+                  style={{ width: 220 }}
+                  options={[
+                    { value: '', label: t('none') },
+                    ...FLOW_OPTIONS.map((k) => ({ value: k, label: k })),
+                  ]}
+                />
+              </FormField>
+            )}
 
             <Form.Item label={t('pages.clients.limitIp')}>
               <Tooltip title={limitIpNotice || undefined}>
@@ -391,9 +403,7 @@ export default function ClientBulkAddModal({
             <FormField
               name="totalGB"
               label={t('pages.clients.totalGB')}
-              tooltip={
-                hasTuic ? t('pages.clients.tuicTotalGBDesc') : t('pages.clients.totalGBDesc')
-              }
+              tooltip={t('pages.clients.totalGBDesc')}
               transform={{ output: (v) => Number(v) || 0 }}
             >
               <InputNumber min={0} step={1} />
@@ -426,32 +436,13 @@ export default function ClientBulkAddModal({
               </Form.Item>
             )}
 
-            <FormField
-              name="reset"
-              label={t('pages.clients.renew')}
-              tooltip={t('pages.clients.renewDesc')}
-              transform={{ output: (v) => Number(v) || 0 }}
-            >
-              <InputNumber min={0} />
-            </FormField>
-
-            <FormField
-              name="resetDay"
-              label={t('pages.clients.renewOnDay')}
-              tooltip={t('pages.clients.renewOnDayDesc')}
-              transform={{ output: (v) => Number(v) || 0 }}
-            >
-              <InputNumber min={0} max={31} />
-            </FormField>
-
-            <FormField
-              name="resetMax"
-              label={t('pages.clients.renewMax')}
-              tooltip={t('pages.clients.renewMaxDesc')}
-              transform={{ output: (v) => Number(v) || 0 }}
-            >
-              <InputNumber min={0} />
-            </FormField>
+            <ClientRenewalFields
+              active={open}
+              delayedStart={delayedStart}
+              expiryTime={expiryTime}
+              bulk
+              setExpiry={(expiry) => methods.setValue('expiryTime', expiry)}
+            />
 
             <FormField name="trafficReset" label={t('pages.inbounds.periodicTrafficResetTitle')}>
               <Select

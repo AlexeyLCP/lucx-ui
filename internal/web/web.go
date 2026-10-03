@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/tls"
 	"embed"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -646,9 +647,14 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 			// Opt-in node mTLS: when a trust CA is configured, request and verify
 			// client certs (VerifyClientCertIfGiven keeps browsers working). With
 			// no CA the listener is unchanged.
-			if pool, perr := s.settingService.NodeMtlsClientCAPool(); perr != nil {
-				logger.Warning("node mTLS: failed to build client CA trust pool:", perr)
-			} else if pool != nil {
+			pool, perr := s.settingService.NodeMtlsClientCAPool()
+			switch {
+			case errors.Is(perr, service.ErrNodeMtlsTrustBundleInvalid):
+				logger.Error("Node mTLS is configured but its trust bundle will not parse, so client certificates are not accepted:", perr)
+			case perr != nil:
+				logger.Error("Node mTLS trust bundle could not be read, so client certificates are not accepted:", perr)
+			}
+			if pool != nil {
 				applyNodeMtls(c, pool)
 				logger.Info("Node mTLS enabled: verifying client certificates for the node API")
 			}
@@ -805,19 +811,34 @@ func (s *Server) StopPanelOnly() error {
 
 func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 	s.cancel()
-	if stopXray {
-		_ = s.xrayService.StopXray()
-		mtproto.GetManager().StopAll()
-		// Inbound awgN only: its Start refuses a device that already exists, so a
-		// survivor holds the UDP port. An outbound awgo-N adopts itself instead.
-		awg.GetManager().StopAll()    // LUCX-HOOK: stop AWG sidecars
-		tunnel.GetManager().StopAll() // LUCX-HOOK: stop tunnel sidecars (NaiveProxy)
-		amneziawgnet.GetManager().StopAll()
-		tuic.GetManager().StopAll()
-		amneziawgnet.GetOutboundManager().StopAll()
+	var err1 error
+	var err2 error
+	if s.httpServer != nil {
+		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
+		err1 = s.httpServer.Shutdown(shutdownCtx)
+		shutdownCancel()
 	}
 	if s.cron != nil {
-		s.cron.Stop()
+		<-s.cron.Stop().Done()
+	}
+	if stopXray {
+		tuic.GetManager().StopAll()
+		if err := job.NewTuicJob().FlushStoppedTraffic(); err != nil {
+			logger.Warning("persist final TUIC traffic on shutdown failed:", err)
+			err2 = err
+		}
+		mtproto.GetManager().StopAll()
+		amneziawgnet.GetManager().StopAll()
+		amneziawgnet.GetOutboundManager().StopAll()
+		// LUCX-HOOK: inbound awgN Start refuses a device that already exists.
+		awg.GetManager().StopAll()
+		tunnel.GetManager().StopAll()
+		// END LUCX-HOOK
+	}
+	if stopXray {
+		if err := s.xrayService.StopXray(); err != nil {
+			err2 = common.Combine(err2, err)
+		}
 	}
 	if s.bus != nil {
 		s.bus.Stop()
@@ -838,15 +859,8 @@ func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 	if s.wsHub != nil {
 		s.wsHub.Stop()
 	}
-	var err1 error
-	var err2 error
-	if s.httpServer != nil {
-		shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer shutdownCancel()
-		err1 = s.httpServer.Shutdown(shutdownCtx)
-	}
 	if s.listener != nil {
-		err2 = s.listener.Close()
+		err1 = common.Combine(err1, s.listener.Close())
 	}
 	return common.Combine(err1, err2)
 }
