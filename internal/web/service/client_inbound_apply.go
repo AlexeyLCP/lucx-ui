@@ -1282,7 +1282,7 @@ func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inbo
 				if err1 != nil {
 					logger.Warning("Error in deleting client on", rt.Name(), ":", err1)
 				} else {
-			advancePushedInbound(rt, prevSettings, oldInbound.Settings, oldInbound)
+					advancePushedInbound(rt, prevSettings, string(newSettings), oldInbound)
 				}
 			}
 		}
