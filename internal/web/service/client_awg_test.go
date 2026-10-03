@@ -246,8 +246,8 @@ func TestFillAwgClients(t *testing.T) {
 		if err == nil {
 			t.Fatal("carol taking alice's IP must be rejected")
 		}
-		if !strings.Contains(err.Error(), "already used") {
-			t.Fatalf("want already-used error, got %v", err)
+		if !strings.Contains(err.Error(), "overlaps") {
+			t.Fatalf("want overlap error, got %v", err)
 		}
 	})
 	t.Run("blank client allocated off the inbound subnet", func(t *testing.T) {

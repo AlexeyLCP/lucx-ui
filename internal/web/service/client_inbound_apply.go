@@ -509,6 +509,7 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 	}
 
 	prevSettings := oldInbound.Settings
+	pushedSettings := prevSettings
 	if !shareOnlySidecar(oldInbound.Protocol) {
 		oldClients, _ := oldSettings["clients"].([]any)
 		oldClients = compactOrphans(database.GetDB(), oldClients)
@@ -518,7 +519,8 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 		if err != nil {
 			return false, err
 		}
-		oldInbound.Settings = string(newSettings)
+		pushedSettings = string(newSettings)
+		oldInbound.Settings = pushedSettings
 	}
 
 	// From the stamped wire entries, not from clients: created_at / updated_at /
@@ -663,7 +665,7 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 			}
 		}
 		if push {
-			advancePushedInbound(rt, prevSettings, oldInbound.Settings, oldInbound)
+			advancePushedInbound(rt, prevSettings, pushedSettings, oldInbound)
 		}
 	}
 

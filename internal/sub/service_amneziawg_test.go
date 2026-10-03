@@ -375,7 +375,7 @@ func TestGetSubs_PreservesPerInboundAmneziaWGIdentity(t *testing.T) {
 			rec := &model.ClientRecord{
 				Email: email, SubID: subID, Enable: true,
 				PrivateKey: mergedPriv, AllowedIPs: mergedAddr,
-				PreSharedKey: "sharedpsk", KeepAlive: 25,
+				PreSharedKey: "sharedpsk", KeepAlive: "25",
 			}
 			if err := db.Create(rec).Error; err != nil {
 				t.Fatalf("create client: %v", err)
@@ -463,7 +463,7 @@ func TestGetSubs_AmneziaWGUnavailableSettingsEmitNoSharedConfig(t *testing.T) {
 	rec := &model.ClientRecord{
 		Email: email, SubID: subID, Enable: true,
 		PrivateKey: mergedPriv, AllowedIPs: mergedAddr,
-		PreSharedKey: "sharedpsk", KeepAlive: 25,
+		PreSharedKey: "sharedpsk", KeepAlive: "25",
 	}
 	if err := db.Create(rec).Error; err != nil {
 		t.Fatalf("create client: %v", err)
@@ -526,7 +526,7 @@ func TestGetSubs_AmneziaWGEmptyOptionalTunnelFieldsDoNotInheritShared(t *testing
 	rec := &model.ClientRecord{
 		Email: email, SubID: subID, Enable: true,
 		PrivateKey: mergedPriv, AllowedIPs: mergedAddr,
-		PreSharedKey: "sharedpsk", KeepAlive: 25,
+		PreSharedKey: "sharedpsk", KeepAlive: "25",
 	}
 	if err := db.Create(rec).Error; err != nil {
 		t.Fatalf("create client: %v", err)
@@ -591,7 +591,7 @@ func TestMatchingClients_TunnelMetadataStaysNormalized(t *testing.T) {
 				Email: email, SubID: subID, UUID: freshID, Enable: true,
 				TotalGB: 5, ExpiryTime: expiry, Comment: "vip", LimitIP: 3,
 				PrivateKey: sharedKey, PublicKey: "shared-pub", AllowedIPs: "10.9.9.9/32",
-				PreSharedKey: "shared-psk", KeepAlive: 99,
+				PreSharedKey: "shared-psk", KeepAlive: "99",
 			}
 			other := &model.ClientRecord{
 				Email: "other-sub@awg", SubID: "other-sub", UUID: "22222222-2222-4333-8444-555555555555", Enable: true,
