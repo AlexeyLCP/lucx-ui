@@ -1717,7 +1717,7 @@ export const SCHEMAS: Record<string, unknown> = {
     "description": "Client represents a client configuration for Xray inbounds with traffic limits and settings.",
     "properties": {
       "adTag": {
-        "example": "ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d",
+        "example": "0123456789abcdef0123456789abcdef",
         "type": "string"
       },
       "allowedIPs": {
@@ -1779,7 +1779,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "keepAlive": {
-        "description": "LUCX-HOOK: KeepAliveValue (number or AWG3 range string)",
+        "description": "LUCX-HOOK: KeepAliveValue (number or AWG3 range string). Not *int:\na vanilla INTEGER column still Scans, and \"15-25\" must round-trip.",
         "type": "string"
       },
       "limitIp": {

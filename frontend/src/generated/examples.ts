@@ -417,7 +417,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "token": "new-token-string"
   },
   "Client": {
-    "adTag": "ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d",
+    "adTag": "0123456789abcdef0123456789abcdef",
     "allowedIPs": [
       ""
     ],

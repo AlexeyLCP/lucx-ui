@@ -98,14 +98,14 @@ func TestIsNodeEligibleProtocol(t *testing.T) {
 	eligible = append(eligible, model.AWG, model.Naive, model.Olcrtc, model.Qwdtt, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover, model.Gateway)
 	// END LUCX-HOOK
 	for _, p := range eligible {
-		if !isNodeEligibleProtocol(p) {
-			t.Errorf("isNodeEligibleProtocol(%q) = false, want true", p)
+		if !nodeEligibleProtocols[p] {
+			t.Errorf("nodeEligibleProtocols[%q] = false, want true", p)
 		}
 	}
 	ineligible := []model.Protocol{model.Mixed, model.HTTP, model.Tunnel}
 	for _, p := range ineligible {
-		if isNodeEligibleProtocol(p) {
-			t.Errorf("isNodeEligibleProtocol(%q) = true, want false", p)
+		if nodeEligibleProtocols[p] {
+			t.Errorf("nodeEligibleProtocols[%q] = true, want false", p)
 		}
 	}
 }

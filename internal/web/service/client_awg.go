@@ -607,8 +607,8 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 					}
 				}
 			}
-			if hit := wireguardAllowedIPsCollision(normalized, peers); hit != "" {
-				return common.NewError("awg: allowedIPs entry already used by another client:", hit)
+			if entry, taken := wireguardAllowedIPsOverlap(normalized, peers); taken != "" {
+				return common.NewError("awg: allowedIPs entry", entry, "overlaps", taken, "used by another client")
 			}
 			c.AllowedIPs = normalized
 		}
