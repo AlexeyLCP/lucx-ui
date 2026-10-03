@@ -181,73 +181,76 @@ awg_tools_stale() {
     return 1
 }
 
-# Compat for Linux ≥ 7.1.5 (and distro backports): udp_tunnel_sock_release /
-# setup_udp_tunnel_sock take struct sock * instead of struct socket *.
-# Upstream PR amnezia-vpn/amneziawg-linux-kernel-module#218. No-op when
-# master already has the wrappers — drop this after that merge.
+# Compat for the udp_tunnel ABI change: Linux 7.1.5 changed
+# udp_tunnel_sock_release / setup_udp_tunnel_sock from struct socket * to
+# struct sock *, but distros backport the new ABI BELOW that version — the
+# version-gated macro in the tree then mis-decodes struct sock * again
+# (Igor, Ubuntu generic 7.0.0-38: "expected 'struct sock *' but argument is
+# of type 'struct socket *'"). Replace the LINUX_VERSION_CODE-gated macro
+# pair in compat/compat.h with a compile-time signature probe (PR #218
+# style); call sites in socket.c already pass struct sock *.
 apply_udp_tunnel_abi_compat() {
-    local f="${1:-socket.c}"
-    if grep -qF 'wg_udp_tunnel_sock_release' "$f" 2>/dev/null; then
+    local f="${1:-compat/compat.h}"
+    if grep -qF 'wg_setup_udp_tunnel_sock' "$f" 2>/dev/null; then
         echo -e "${GREEN}udp_tunnel ABI wrappers already in tree — skip.${NC}"
         return 0
     fi
     if ! command -v python3 >/dev/null 2>&1; then
-        echo -e "${YELLOW}python3 нет — патч udp_tunnel ABI пропущен (ядра 7.1.5+ не соберутся).${NC}"
+        echo -e "${YELLOW}python3 нет — патч udp_tunnel ABI пропущен (ядра с backport-ABI не соберутся).${NC}"
         return 0
     fi
-    echo -e "${YELLOW}Патч udp_tunnel ABI (ядро 7.1.5+, PR #218)...${NC}"
+    echo -e "${YELLOW}Патч udp_tunnel ABI (детект сигнатуры вместо версии)...${NC}"
     python3 - "$f" <<'PY'
 import sys
 path = sys.argv[1]
 text = open(path, encoding="utf-8", errors="surrogateescape").read()
-repls = [
-    ("udp_tunnel_sock_release(sock->sk_socket)",
-     "wg_udp_tunnel_sock_release(sock, sock->sk_socket)"),
-    ("setup_udp_tunnel_sock(net, new4, &cfg)",
-     "wg_setup_udp_tunnel_sock(net, new4, &cfg)"),
-    ("udp_tunnel_sock_release(new4)",
-     "wg_udp_tunnel_sock_release(new4->sk, new4)"),
-    ("setup_udp_tunnel_sock(net, new6, &cfg)",
-     "wg_setup_udp_tunnel_sock(net, new6, &cfg)"),
-]
-new = text
-for old, repl in repls:
-    if old not in new:
-        sys.stderr.write("udp_tunnel ABI: no match for %s\n" % old)
-        sys.exit(1)
-    new = new.replace(old, repl, 1)
-needle = "static void sock_free(struct sock *sock)"
-if needle not in new:
-    sys.stderr.write("udp_tunnel ABI: sock_free not found\n")
-    sys.exit(1)
-wrapper = """\
+needle = """\
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 5)
+#include <net/udp_tunnel.h>
+#define setup_udp_tunnel_sock(net, sk, sock_cfg) setup_udp_tunnel_sock(net, sk->sk_socket, sock_cfg)
+#define udp_tunnel_sock_release(sk) udp_tunnel_sock_release(sk->sk_socket)
+#endif
+"""
+dispatch = """\
 /*
- * Linux 7.1.5+ (and some distro backports) changed
- * udp_tunnel_sock_release()/setup_udp_tunnel_sock() to take struct sock *
- * instead of struct socket *. Detect the real signature at compile time.
- * From amneziawg-linux-kernel-module PR #218. Remove once upstream merges.
+ * Linux 7.1.5 changed udp_tunnel_sock_release()/setup_udp_tunnel_sock() from
+ * struct socket * to struct sock *, but distros backport the new ABI below
+ * that version (Ubuntu generic 7.0.0-38, Debian 13 7.1.7+deb13), so
+ * LINUX_VERSION_CODE cannot detect it. Probe the real signature at compile
+ * time instead; call sites in socket.c already pass struct sock *.
+ * From amneziawg-linux-kernel-module PR #218, adapted. LucX-UI patch.
  */
-static inline void wg_udp_tunnel_sock_release(struct sock *sk, struct socket *sock)
+#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 5)
+#include <net/udp_tunnel.h>
+
+static inline void wg_udp_tunnel_sock_release(struct sock *sk)
 {
 	if (__builtin_types_compatible_p(typeof(&udp_tunnel_sock_release), void (*)(struct sock *)))
 		((void (*)(struct sock *))udp_tunnel_sock_release)(sk);
 	else
-		((void (*)(struct socket *))udp_tunnel_sock_release)(sock);
+		((void (*)(struct socket *))udp_tunnel_sock_release)(sk->sk_socket);
 }
 
-static inline void wg_setup_udp_tunnel_sock(struct net *net, struct socket *sock,
-					     struct udp_tunnel_sock_cfg *cfg)
+static inline void wg_setup_udp_tunnel_sock(struct net *net, struct sock *sk,
+					    struct udp_tunnel_sock_cfg *cfg)
 {
 	if (__builtin_types_compatible_p(typeof(&setup_udp_tunnel_sock),
-					  void (*)(struct net *, struct sock *, struct udp_tunnel_sock_cfg *)))
-		((void (*)(struct net *, struct sock *, struct udp_tunnel_sock_cfg *))setup_udp_tunnel_sock)(net, sock->sk, cfg);
+					 void (*)(struct net *, struct sock *, struct udp_tunnel_sock_cfg *)))
+		((void (*)(struct net *, struct sock *, struct udp_tunnel_sock_cfg *))setup_udp_tunnel_sock)(net, sk, cfg);
 	else
-		((void (*)(struct net *, struct socket *, struct udp_tunnel_sock_cfg *))setup_udp_tunnel_sock)(net, sock, cfg);
+		((void (*)(struct net *, struct socket *, struct udp_tunnel_sock_cfg *))setup_udp_tunnel_sock)(net, sk->sk_socket, cfg);
 }
 
+/* Macros come AFTER the wrapper bodies: inside a wrapper the raw symbol
+ * must still resolve to the real kernel function, not to itself. */
+#define setup_udp_tunnel_sock(net, sk, sock_cfg) wg_setup_udp_tunnel_sock(net, sk, sock_cfg)
+#define udp_tunnel_sock_release(sk) wg_udp_tunnel_sock_release(sk)
+#endif
 """
-new = new.replace(needle, wrapper + needle, 1)
-open(path, "w", encoding="utf-8", errors="surrogateescape").write(new)
+if needle not in text:
+    sys.stderr.write("udp_tunnel ABI: version-gated block not found in compat.h\n")
+    sys.exit(1)
+open(path, "w", encoding="utf-8", errors="surrogateescape").write(text.replace(needle, dispatch, 1))
 PY
 }
 
@@ -647,8 +650,8 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
     fi
     OLD_DKMS_VER=$(dkms status amneziawg 2>/dev/null | grep -oP 'amneziawg, \K[^,]+(?=,)' | head -1 || true)
 
-    apply_udp_tunnel_abi_compat socket.c || \
-        echo -e "${YELLOW}Патч udp_tunnel ABI не применился — продолжаем (ядра 7.1.5+ могут не собраться).${NC}"
+    apply_udp_tunnel_abi_compat compat/compat.h || \
+        echo -e "${YELLOW}Патч udp_tunnel ABI не применился — продолжаем (backport-ABI не соберётся).${NC}"
     # Prefer the running kernel; if its headers are missing (meta-upgrade
     # already pulled a newer image), build for the first kernel that has
     # headers so install can finish without a mid-script reboot (lucx.122).

@@ -1,5 +1,49 @@
 # LucX-UI — Прогресс
 
+## Fix: DKMS build fails on kernels with backported udp_tunnel ABI below 7.1.5 (lucx.279)
+
+Igor (04.10.2026): fresh install on Ubuntu `7.0.0-38-generic` — DKMS exit 2,
+`expected ‘struct sock *’ but argument is of type ‘struct socket *’` in
+`setup_udp_tunnel_sock` (socket.c:432/447). Pattern 1s again, inverted.
+
+The lucx.218 pin `3c38e168` already carries upstream's own 7.1.5 fix
+(upstream commit `0bcc6dfa`): call sites pass `new4->sk`, and
+`compat/compat.h:1447` re-unwraps `sk → sk->sk_socket` gated on
+`LINUX_VERSION_CODE < KERNEL_VERSION(7,1,5)`. Igor's kernel has the NEW
+`struct sock *` ABI backported **under a 7.0.0 version code** → the gate
+enables the macro → it strips a `struct sock *` back to `struct socket *`
+→ the same compile error, now produced by the tree's own fix. The old
+lucx.147 patcher (socket.c call-site rewrite) had silently become dead code:
+needles no longer match the `->sk` call sites, python `sys.exit(1)` was
+swallowed by the `|| echo`, the build ran unpatched.
+
+Fix (bin/install-awg-module.sh): `apply_udp_tunnel_abi_compat` now patches
+compat/compat.h instead of socket.c — replaces the version-gated macro pair
+with compile-time signature dispatch (`__builtin_types_compatible_p` on the
+real prototype, PR #218 style), correct on every kernel. Wrapper bodies are
+defined BEFORE the `#define`s so the raw symbol inside a body resolves to the
+real kernel function. Old-ABI kernels unchanged in behavior.
+
+Verified in WSL gcc: patched tree compiles socket.c clean on new-ABI 7.1.5+,
+new-ABI backport under 7.0.0 (Igor case), old-ABI 6.12 (kernel header) and
+old-ABI with the tree builtin udp_tunnel shim; the unpatched macro on the
+backport reproduces Igor's exact error.
+
+Healing for live hosts before the release lands: delete the
+`#define setup_udp_tunnel_sock …` / `#define udp_tunnel_sock_release …` pair
+(inside `#if LINUX_VERSION_CODE < KERNEL_VERSION(7, 1, 5)` … `#endif` at the
+end of `/usr/src/amneziawg-*/compat/compat.h`) — the call sites already pass
+`struct sock *`, so the raw functions are correct there — then
+`dkms build -m amneziawg -v <ver> -k $(uname -r)` + install + modprobe.
+
+**lucxVersion:** lucx.279
+
+Tests: WSL gcc matrix (4 kernel scenarios + negative repro); gofumpt via
+`bin/check-lucx.sh` OK (229 files, SPDX list unchanged); Pattern 1s extended
+in `.agents/07-debug-awg.md`.
+
+---
+
 ## lucx.278 — Sidecar core bumps: naive-client, mieru, TrustTunnel client (2026-10-02)
 
 Annual review of sidecar pins against upstream releases (per-request refresh of `bin/pack-sidecars.sh` + `third_party/sidecars/linux-amd64/`):
