@@ -663,7 +663,7 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 			}
 		}
 		if push {
-			advancePushedInbound(rt, prevSettings, string(newSettings), oldInbound)
+			advancePushedInbound(rt, prevSettings, oldInbound.Settings, oldInbound)
 		}
 	}
 

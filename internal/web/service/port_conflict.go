@@ -296,7 +296,7 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 		return nil, nil
 	}
 	newBits := inboundTransports(inbound.Protocol, inbound.StreamSettings, inbound.Settings)
-	if inbound.NodeID == nil && listenOverlaps("127.0.0.1", inbound.Listen) {
+	if inbound.NodeID == nil && listenOverlaps(loopbackBind, inboundBindAddr(inbound)) {
 		var bridges []*model.Inbound
 		if err := db.Where("protocol = ? AND node_id IS NULL AND id != ?", model.AWG, ignoreId).Find(&bridges).Error; err != nil {
 			return nil, err
@@ -477,7 +477,7 @@ func checkCoverHTTPPorts(db *gorm.DB, inbound *model.Inbound, ignoreId int, newB
 			if tunnel.SettingsBehindCover(c.Protocol, c.Settings) {
 				continue
 			}
-			if !sameNode(c.NodeID, inbound.NodeID) || !listenOverlaps(c.Listen, inbound.Listen) {
+			if !sameNode(c.NodeID, inbound.NodeID) || !listenOverlaps(inboundBindAddr(c), inboundBindAddr(inbound)) {
 				continue
 			}
 			if inboundTransports(c.Protocol, c.StreamSettings, c.Settings)&transportTCP == 0 {
@@ -501,7 +501,7 @@ func checkCoverHTTPPorts(db *gorm.DB, inbound *model.Inbound, ignoreId int, newB
 		return nil, err
 	}
 	for _, c := range covers {
-		if !c.Enable || tunnel.IsLoopbackListen(c.Listen) || !sameNode(c.NodeID, inbound.NodeID) || !listenOverlaps(c.Listen, inbound.Listen) {
+		if !c.Enable || tunnel.IsLoopbackListen(c.Listen) || !sameNode(c.NodeID, inbound.NodeID) || !listenOverlaps(inboundBindAddr(c), inboundBindAddr(inbound)) {
 			continue
 		}
 		return &portConflictDetail{

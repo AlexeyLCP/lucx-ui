@@ -374,12 +374,7 @@ func (s *SubService) overlayInboundTunnelIdentity(inbound *model.Inbound, client
 		client.PreSharedKey = peer.PreSharedKey
 		// append onto nil copies a non-empty list and clears a shared address when settings omit one.
 		client.AllowedIPs = append([]string(nil), peer.AllowedIPs...)
-		if peer.KeepAlive == nil {
-			client.KeepAlive = nil
-		} else {
-			keepalive := *peer.KeepAlive
-			client.KeepAlive = &keepalive
-		}
+		client.KeepAlive = peer.KeepAlive
 		out = append(out, client)
 	}
 	return out, nil
