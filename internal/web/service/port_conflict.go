@@ -35,7 +35,7 @@ func inboundTransports(protocol model.Protocol, streamSettings, settings string)
 	switch protocol {
 	case model.Hysteria, model.WireGuard, model.AWG, model.AmneziaWG, model.TUIC:
 		return transportUDP
-	case model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt:
+	case model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Openflux:
 		return transportTCP
 	// LUCX-HOOK: AnyTls is a single TCP listener (anytls-server)
 	case model.Anytls, model.Tproxy, model.Cover, model.Gateway:

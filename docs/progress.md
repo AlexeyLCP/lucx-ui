@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.281 — OpenFlux sidecar (2026-10-04)
+
+Inbound-only OpenFlux exit (`openflux-{id}`), same skeleton as olcRTC. Always l4. Direct listens on the inbound port; optional Yandex / Mail.ru / Cups URLs. One `openflux://v1/` link, one active client. Secret minted once on save; clearing the field does not rotate it. New user = new inbound. Form notes on olcRTC / OpenFlux say that; qWDTT / CSQTT notes say a second inbound on the host will not start.
+
+Binary is an external GPL-3.0 process (pin `ba31d0fc` in `bin/pack-sidecars.sh`), not linked. GitHub tarball ships `openflux-linux-{amd64,arm64}`. Skipped: l3 RST drop, routeThroughXray, MAX, captcha IPC, per-client credentials.
+
+**lucxVersion:** lucx.281
+
+Tests: `go test ./internal/lucx/tunnel/ -count=1`; frontend `tsc --noEmit` + `openflux-link` vitest. Full `go test ./internal/web/service` not run here (Windows sqlite CGO).
+
+---
+
 ## lucx.280 — overlay upstream v3.9.0 (2026-10-03)
 
 Fresh `origin/main` (tag v3.9.0 + two TUIC test fixes). LucX hooks reapplied on top, not a blanket `--ours`.

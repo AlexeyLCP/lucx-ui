@@ -556,7 +556,7 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 // Backs the panel's "Export all inbound links" and matches client/QR pages.
 func (s *SubService) inboundLinks(inbound *model.Inbound) []string {
 	// LUCX-HOOK: AnyTls added to the single-credential set.
-	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Anytls) {
+	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Csqtt || inbound.Protocol == model.Openflux || inbound.Protocol == model.Anytls) {
 		if link := s.GetLink(inbound, ""); link != "" {
 			return splitLinkLines(link)
 		}
@@ -856,6 +856,8 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genQwdttLink(inbound)
 	case "csqtt": // LUCX-HOOK: single-credential CSQTT URI (ignore email)
 		return s.genCsqttLink(inbound)
+	case "openflux": // LUCX-HOOK: single openflux:// link (one active client)
+		return s.genOpenfluxLink(inbound)
 	case "anytls": // LUCX-HOOK: single-credential AnyTLS URI (ignore email)
 		return s.genAnytlsLink(inbound)
 	case "tproxy": // LUCX-HOOK: Telegram WEB proxy t.me/webproxy link
@@ -3515,6 +3517,22 @@ func (s *SubService) genQwdttLink(inbound *model.Inbound) string {
 		}
 	}
 	return cfg.ClientURI()
+}
+
+func (s *SubService) genOpenfluxLink(inbound *model.Inbound) string {
+	cfg, ok := tunnel.OpenfluxConfigFromInbound(inbound)
+	if !ok || !inbound.Enable {
+		return ""
+	}
+	host := strings.TrimSpace(cfg.ShareHost)
+	if host == "" {
+		host = s.resolveInboundAddress(inbound)
+	}
+	link, err := cfg.ClientURI(inbound.Remark, host, inbound.Port)
+	if err != nil {
+		return ""
+	}
+	return link
 }
 
 func (s *SubService) genCsqttLink(inbound *model.Inbound) string {

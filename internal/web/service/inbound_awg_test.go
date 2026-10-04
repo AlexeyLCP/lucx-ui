@@ -32,7 +32,7 @@ func TestInboundHasSidecar(t *testing.T) {
 
 func TestLucxRuntimeSidecar_NotXrayProtocols(t *testing.T) {
 	for _, p := range []model.Protocol{
-		model.AWG, model.Naive, model.Olcrtc, model.Qwdtt, model.Csqtt,
+		model.AWG, model.Naive, model.Olcrtc, model.Qwdtt, model.Csqtt, model.Openflux,
 		model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover, model.Gateway,
 	} {
 		if !lucxRuntimeSidecar(p) {

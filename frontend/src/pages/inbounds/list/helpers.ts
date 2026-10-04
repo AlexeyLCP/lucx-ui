@@ -112,6 +112,7 @@ export function showQrCodeMenu(dbInbound: DBInboundRecord): boolean {
   if (
     dbInbound.protocol === 'qwdtt' ||
     dbInbound.protocol === 'csqtt' ||
+    dbInbound.protocol === 'openflux' ||
     dbInbound.protocol === 'olcrtc'
   ) {
     return true;

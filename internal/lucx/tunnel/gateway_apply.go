@@ -192,6 +192,8 @@ func ClassifyInbound(ib *model.Inbound) Classified {
 			Class: ClassPassthrough, SNI: cfg.Hostname, NoProxy: true,
 			Note: "backend can't parse PROXY — client IP hidden",
 		}
+	case model.Openflux:
+		return Classified{Note: "own TCP port — not an SNI backend"}
 	case model.AWG, model.AmneziaWG, model.WireGuard, model.Hysteria, model.TUIC,
 		model.Olcrtc, model.Qwdtt, model.Csqtt:
 		return Classified{Note: "UDP — not behind the site"}

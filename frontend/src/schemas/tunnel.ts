@@ -173,3 +173,6 @@ export type TproxyStatus = AnytlsStatus;
 
 export const CsqttStatusSchema = AnytlsStatusSchema;
 export type CsqttStatus = AnytlsStatus;
+
+export const OpenfluxStatusSchema = AnytlsStatusSchema;
+export type OpenfluxStatus = AnytlsStatus;

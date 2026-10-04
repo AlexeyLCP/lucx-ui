@@ -1208,6 +1208,31 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/tunnel/openflux/status',
+        summary: 'OpenFlux core status for the Cores page. Inbound-only. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/openflux/logs',
+        summary: 'Recent log lines of OpenFlux processes. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/openflux/upload',
+        summary: 'Replace the openflux binary on disk (multipart field "file"). LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/openflux/download',
+        summary: 'Fetch the openflux binary from an https URL. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/openflux/deleteBinary',
+        summary: 'Stop OpenFlux processes and remove the binary. LucX-UI only.',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/tunnel/mieru/status',
         summary:
           'mieru core status for the Cores page: binary presence and aggregate process state across all mieru-{id} inbound sidecars. Inbound-only core — no legacy config/lifecycle. LucX-UI only.',

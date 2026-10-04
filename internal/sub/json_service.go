@@ -138,7 +138,7 @@ func (s *SubJsonService) GetJson(subId string, host string, alwaysReturnArray bo
 	// Prepare Inbounds
 	for _, inbound := range inbounds {
 		switch inbound.Protocol {
-		case model.AWG, model.Naive, model.Olcrtc, model.Qwdtt, model.Csqtt, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover, model.Gateway:
+		case model.AWG, model.Naive, model.Olcrtc, model.Qwdtt, model.Csqtt, model.Openflux, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover, model.Gateway:
 			continue
 		}
 		clients := subReq.matchingClients(inbound, subId)

@@ -7,7 +7,7 @@ import (
 )
 
 func TestIsTunnelInboundProto_Csqtt(t *testing.T) {
-	if !isTunnelInboundProto(model.Csqtt) || !isTunnelInboundProto(model.Qwdtt) {
+	if !isTunnelInboundProto(model.Csqtt) || !isTunnelInboundProto(model.Qwdtt) || !isTunnelInboundProto(model.Openflux) {
 		t.Fatal("csqtt/qwdtt must not be pushed to the xray API")
 	}
 	if isTunnelInboundProto(model.VLESS) || isTunnelInboundProto(model.AWG) {

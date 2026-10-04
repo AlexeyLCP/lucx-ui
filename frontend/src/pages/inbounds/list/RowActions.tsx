@@ -65,6 +65,7 @@ export function buildRowActionsMenu({
     if (
       record.protocol === 'qwdtt' ||
       record.protocol === 'csqtt' ||
+      record.protocol === 'openflux' ||
       record.protocol === 'olcrtc'
     ) {
       items.push({ key: 'export', icon: <ExportOutlined />, label: t('pages.inbounds.export') });

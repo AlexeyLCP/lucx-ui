@@ -11,6 +11,7 @@
 //   - olcRTC — openlibrecommunity/olcrtc (TCP-over-WebRTC via meet rooms)
 //   - qWDTT — SpaceNeuroX wdtt-server (WireGuard over VK TURN)
 //   - CSQTT — amurcanov/csqtt rust-server (TURN/RTP; not qWDTT)
+//   - OpenFlux — p1neappleXpress/OpenFlux exit (l4 gVisor; GPL-3.0 external process)
 //
 // Each core is one supervised process with a panel-rendered config file (or
 // CLI args), an isolated data directory and a health probe (process alive;
@@ -51,6 +52,11 @@ const Qwdtt Name = "qwdtt"
 // Binary is an external process — not linked into the panel.
 const Csqtt Name = "csqtt"
 
+// Openflux is the OpenFlux exit (p1neappleXpress/OpenFlux, GPL-3.0).
+// External process, not linked. l4 only — no kernel RST drop. One active
+// client per process. Binary name openflux-os-arch.
+const Openflux Name = "openflux"
+
 // Mieru is the mieru core: mita server (enfein/mieru, GPL-3.0) — a
 // censorship-resistant SOCKS/HTTP proxy over a custom TCP/UDP protocol
 // (XChaCha20-Poly1305, no TLS). Multi-user; per-panel-client credentials.
@@ -84,7 +90,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway}
+	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Openflux}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -95,7 +101,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Csqtt, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -112,6 +118,8 @@ func (n Name) DisplayName() string {
 		return "qWDTT"
 	case Csqtt:
 		return "CSQTT"
+	case Openflux:
+		return "OpenFlux"
 	case Mieru:
 		return "mieru"
 	case TrustTunnel:

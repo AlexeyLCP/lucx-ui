@@ -20,6 +20,7 @@ import { awgIBytes, awgWorstCaseIBytesBudget } from './awg-budget'; // LUCX-HOOK
 import { awgPortableIField } from './awg-descriptor'; // LUCX-HOOK
 import { parseGeckoPacketSize } from '@/lib/xray/forms/transport/FinalMaskForm';
 import { getHeaderValue } from './headers';
+import { encodeOpenfluxLink } from './openflux-link';
 import { canEnableTlsFlow } from './protocol-capabilities';
 import { deriveSpiderX } from './spider-x';
 import { normalizeTuicCongestionController, resolveTuicServerSettings } from '@/lib/tuic';
@@ -1538,6 +1539,8 @@ export function genLink(input: GenLinkInput): string {
       return genQwdttLink({ inbound, address, remark });
     case 'csqtt':
       return genCsqttLink({ inbound, address });
+    case 'openflux':
+      return genOpenfluxLink({ inbound, address, remark });
     case 'anytls':
       return genAnytlsLink({ inbound, address, remark });
     case 'tproxy':
@@ -1669,6 +1672,9 @@ export function genInboundLinks(input: GenInboundLinksInput): string {
   if (inbound.protocol === 'csqtt') {
     return genCsqttLink({ inbound, address: addr });
   }
+  if (inbound.protocol === 'openflux') {
+    return genOpenfluxLink({ inbound, address: addr, remark });
+  }
   if (inbound.protocol === 'olcrtc') {
     return genOlcrtcLink({ inbound, remark });
   }
@@ -1720,6 +1726,31 @@ export function genAnytlsLink(input: GenAnytlsLinkInput): string {
   const remark = (input.remark ?? '').trim();
   const frag = remark ? `#${encodeURIComponent(remark)}` : '';
   return `anytls://${encodeURIComponent(pass)}@${hostPort}/?sni=${encodeURIComponent(sni)}${frag}`;
+}
+
+export function genOpenfluxLink(input: {
+  inbound: Inbound;
+  address?: string;
+  remark?: string;
+}): string {
+  if (input.inbound.protocol !== 'openflux') return '';
+  const s = input.inbound.settings as {
+    secret?: string;
+    shareHost?: string;
+    yandexUrl?: string;
+    mailruUrl?: string;
+    cupsUrl?: string;
+  };
+  const host = (s.shareHost || input.address || '').trim();
+  return encodeOpenfluxLink({
+    secret: s.secret || '',
+    host,
+    port: input.inbound.port,
+    remark: input.remark || input.inbound.remark,
+    yandexUrl: (s.yandexUrl || '').trim(),
+    mailruUrl: (s.mailruUrl || '').trim(),
+    cupsUrl: (s.cupsUrl || '').trim(),
+  });
 }
 
 export interface GenCsqttLinkInput {

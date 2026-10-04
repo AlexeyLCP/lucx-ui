@@ -825,7 +825,7 @@
         "naiveUseAcme": "Auto TLS (Let\\u2019s Encrypt)",
         "naiveRouteThroughXray": "Маршрут через Xray",
         "naiveKeyFile": "Файл ключа",
-        "olcrtcSingleCredNote": "Один общий секрет (room + crypto key). Без per-client кредов — одна ссылка olcrtc:// на всех.",
+        "olcrtcSingleCredNote": "Одна комната и один ключ. Новый пользователь = новый inbound со своей комнатой. Ссылка olcrtc:// этого inbound общая.",
         "olcrtcProvider": "Провайдер",
         "olcrtcRoomId": "Room ID / URL",
         "olcrtcRoomIdHint": "Полный URL комнаты Jitsi или id Telemost/WB",
@@ -844,8 +844,17 @@
         "olcrtcVideoCodec": "Кодек видео",
         "olcrtcDns": "DNS (host:port)",
         "olcrtcDebug": "Debug",
-        "qwdttSingleNote": "Только один qWDTT inbound на панель. Общий password для всех.",
-        "csqttSingleNote": "Один CSQTT inbound на хост. Один пароль = одно устройство. Бинарь — Settings → Cores. Клиенты: CSQTT Android APK или iOS anton48 (режим CSQTT, не WRAP-A).",
+        "qwdttSingleNote": "Только один qWDTT inbound на хост — второй не стартует. Общий password для всех.",
+        "csqttSingleNote": "Один CSQTT inbound на хост — второй не стартует. Один пароль = одно устройство. Бинарь — Settings → Cores. Клиенты: CSQTT Android APK или iOS anton48 (режим CSQTT, не WRAP-A).",
+        "openfluxNote": "OpenFlux exit (l4). Одна ссылка, один активный клиент. Новый пользователь = новый inbound (свой порт и URL канала). Direct слушает порт inbound. URL Яндекса, Mail.ru или Cups — дополнительный канал. Бинарь — Settings → Cores.",
+        "openfluxShareHost": "Публичный хост",
+        "openfluxShareHostHint": "Адрес, куда клиент стучится по direct. Пусто = хост подписки.",
+        "openfluxYandexUrl": "URL документа Яндекса",
+        "openfluxMailruUrl": "URL документа Mail.ru",
+        "openfluxCupsUrl": "URL Cups.online",
+        "openfluxUrlHint": "Необязательно. Без # и ; — парсер конфига exit режет их.",
+        "openfluxSecret": "Секрет",
+        "openfluxSecretHint": "Пусто при создании = сгенерировать один раз. Очистка поля при сохранении секрет не меняет.",
         "csqttListenAddr": "UDP listen",
         "csqttPassword": "Пароль",
         "csqttPasswordHint": "Пусто = сгенерировать при сохранении. Привязывается к первому device_id.",
@@ -3132,6 +3141,13 @@
       },
       "inboundMovedTitle": "Настройка — в Inbounds",
       "inboundMovedDesc": "Создавайте и редактируйте NaiveProxy, olcRTC и qWDTT в разделе Inbounds. Здесь только бинарники, логи процесса и редкие advanced-опции.",
+      "openflux": {
+        "toasts": {
+          "uploaded": "OpenFlux binary uploaded",
+          "downloaded": "OpenFlux binary downloaded",
+          "deleted": "OpenFlux binary deleted"
+        }
+      },
       "csqtt": {
         "toasts": {
           "uploaded": "CSQTT binary uploaded",

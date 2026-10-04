@@ -59,6 +59,7 @@ export const keys = {
     olcrtcStatus: () => ['tunnels', 'olcrtcStatus'] as const,
     qwdttStatus: () => ['tunnels', 'qwdttStatus'] as const,
     csqttStatus: () => ['tunnels', 'csqttStatus'] as const,
+    openfluxStatus: () => ['tunnels', 'openfluxStatus'] as const,
     mieruStatus: () => ['tunnels', 'mieruStatus'] as const,
     trustTunnelStatus: () => ['tunnels', 'trustTunnelStatus'] as const,
     anytlsStatus: () => ['tunnels', 'anytlsStatus'] as const,

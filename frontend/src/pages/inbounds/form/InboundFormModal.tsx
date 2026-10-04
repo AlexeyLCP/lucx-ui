@@ -80,6 +80,7 @@ import {
   OlcrtcFields, // LUCX-HOOK: olcRTC
   QwdttFields, // LUCX-HOOK: qWDTT
   CsqttFields, // LUCX-HOOK: CSQTT
+  OpenfluxFields, // LUCX-HOOK: OpenFlux
   MieruFields, // LUCX-HOOK: mieru
   TrustTunnelFields, // LUCX-HOOK: TrustTunnel
   AnytlsFields, // LUCX-HOOK: AnyTLS
@@ -651,6 +652,7 @@ export default function InboundFormModal({
         next === Protocols.OLCRTC ||
         next === Protocols.QWDTT ||
         next === Protocols.CSQTT ||
+        next === Protocols.OPENFLUX ||
         next === Protocols.MIERU ||
         next === Protocols.TRUSTTUNNEL ||
         next === Protocols.ANYTLS ||
@@ -665,6 +667,9 @@ export default function InboundFormModal({
         }
         if (next === Protocols.CSQTT) {
           setV('port', 46000);
+        }
+        if (next === Protocols.OPENFLUX) {
+          setV('port', 18445);
         }
         if (next === Protocols.OLCRTC) {
           setV('port', 0);
@@ -1005,6 +1010,7 @@ export default function InboundFormModal({
       {protocol === Protocols.OLCRTC && <OlcrtcFields />}
       {protocol === Protocols.QWDTT && <QwdttFields />}
       {protocol === Protocols.CSQTT && <CsqttFields />}
+      {protocol === Protocols.OPENFLUX && <OpenfluxFields />}
       {protocol === Protocols.MIERU && <MieruFields />}
       {protocol === Protocols.TRUSTTUNNEL && <TrustTunnelFields />}
       {protocol === Protocols.ANYTLS && <AnytlsFields />}
@@ -1350,6 +1356,7 @@ export default function InboundFormModal({
                       Protocols.OLCRTC,
                       Protocols.QWDTT,
                       Protocols.CSQTT,
+                      Protocols.OPENFLUX,
                       Protocols.MIERU,
                       Protocols.TRUSTTUNNEL,
                       Protocols.ANYTLS,

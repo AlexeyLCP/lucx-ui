@@ -350,6 +350,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileOlcrtcInbounds()
 	s.reconcileQwdttInbound()
 	s.reconcileCsqttInbound()
+	s.reconcileOpenfluxInbounds()
 	s.reconcileMieruInbounds()
 	s.reconcileTrustTunnelInbounds()
 	s.reconcileAnytlsInbounds()
@@ -538,6 +539,26 @@ func (s *TunnelService) reconcileQwdttInbound() {
 	if err := tunnel.GetManager().Ensure(inst); err != nil {
 		logger.Warning("tunnel: qwdtt reconcile failed:", err)
 	}
+}
+
+func (s *TunnelService) reconcileOpenfluxInbounds() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: openflux inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Openflux || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.OpenfluxInstanceFromInbound(ib)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	tunnel.GetManager().ReconcileOpenflux(want)
 }
 
 func (s *TunnelService) reconcileCsqttInbound() {
@@ -1555,6 +1576,39 @@ func (s *TunnelService) DeleteCsqttBinary() error {
 
 func (s *TunnelService) DownloadCsqttBinary(downloadURL, wantSHA256 string) error {
 	return s.downloadBinaryTo(tunnel.Csqtt.BinaryPath(), downloadURL, wantSHA256)
+}
+
+func (s *TunnelService) OpenfluxStatus() (MieruStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Openflux.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return MieruStatus{
+		Core:         string(tunnel.Openflux),
+		DisplayName:  tunnel.Openflux.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("openflux-")},
+		LastLog:      mgr.LastLogPrefixed("openflux-"),
+	}, nil
+}
+
+func (s *TunnelService) OpenfluxLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().LogsPrefixed("openflux-", lines)
+}
+
+func (s *TunnelService) DeleteOpenfluxBinary() error {
+	tunnel.GetManager().StopPrefixed("openflux-")
+	if err := os.Remove(tunnel.Openflux.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *TunnelService) DownloadOpenfluxBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Openflux.BinaryPath(), downloadURL, wantSHA256)
 }
 
 // --- mieru core (inbound-only, lucx.117) -----------------------------------

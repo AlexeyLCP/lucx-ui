@@ -11,6 +11,7 @@ import type { NaiveInboundSettings } from '@/schemas/protocols/inbound/naive'; /
 import type { OlcrtcInboundSettings } from '@/schemas/protocols/inbound/olcrtc';
 import type { QwdttInboundSettings } from '@/schemas/protocols/inbound/qwdtt';
 import type { CsqttInboundSettings } from '@/schemas/protocols/inbound/csqtt';
+import type { OpenfluxInboundSettings } from '@/schemas/protocols/inbound/openflux';
 import type { MieruInboundSettings } from '@/schemas/protocols/inbound/mieru';
 import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/trusttunnel';
 import type { AnytlsInboundSettings } from '@/schemas/protocols/inbound/anytls';
@@ -304,6 +305,16 @@ export function createDefaultOlcrtcInboundSettings(): OlcrtcInboundSettings {
     routeThroughXray: false,
     outboundTag: '',
     routeXrayPort: 0,
+  };
+}
+
+export function createDefaultOpenfluxInboundSettings(): OpenfluxInboundSettings {
+  return {
+    secret: '',
+    shareHost: '',
+    yandexUrl: '',
+    mailruUrl: '',
+    cupsUrl: '',
   };
 }
 
@@ -614,6 +625,7 @@ export type AnyInboundSettings =
   | OlcrtcInboundSettings
   | QwdttInboundSettings
   | CsqttInboundSettings
+  | OpenfluxInboundSettings
   | MieruInboundSettings
   | TrustTunnelInboundSettings
   | AnytlsInboundSettings
@@ -659,6 +671,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultQwdttInboundSettings();
     case 'csqtt':
       return createDefaultCsqttInboundSettings();
+    case 'openflux':
+      return createDefaultOpenfluxInboundSettings();
     case 'mieru':
       return createDefaultMieruInboundSettings();
     case 'trusttunnel':

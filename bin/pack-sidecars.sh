@@ -65,6 +65,20 @@ if ! have "olcrtc-linux-${ARCH}"; then
     rm -rf /tmp/olcrtc
 fi
 
+# OpenFlux exit (p1neappleXpress/OpenFlux). PIN ba31d0fc — not unpinned main.
+if ! have "openflux-linux-${ARCH}"; then
+    git init -q /tmp/openflux
+    git -C /tmp/openflux remote add origin https://github.com/p1neappleXpress/OpenFlux.git
+    git -C /tmp/openflux fetch -q --depth 1 origin ba31d0fc38b9b227231056a5ef845f7eae08f42c
+    git -C /tmp/openflux checkout -q FETCH_HEAD
+    (
+        cd /tmp/openflux
+        GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "${DEST}/openflux-linux-${ARCH}" .
+    )
+    chmod +x "${DEST}/openflux-linux-${ARCH}"
+    rm -rf /tmp/openflux
+fi
+
 # CSQTT rust-server (amurcanov/csqtt). PIN ace21228 — not unpinned master.
 # Needs rustc 1.97.1 + zig + cargo-zigbuild (release.yml installs them).
 if ! have "csqtt-linux-${ARCH}"; then

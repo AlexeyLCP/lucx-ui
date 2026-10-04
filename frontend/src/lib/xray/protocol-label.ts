@@ -1,4 +1,5 @@
 export function protocolLabel(protocol: string, t: (key: string) => string): string {
+  if (protocol === 'openflux') return 'OpenFlux';
   if (protocol === 'awg') return t('pages.inbounds.protocolNames.awg');
   if (protocol === 'tuic') return 'TUIC';
   if (protocol === 'amneziawg') return t('pages.inbounds.protocolNames.amneziawg').toLowerCase();

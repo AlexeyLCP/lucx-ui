@@ -38,6 +38,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   olcrtc: 'olcRTC',
   qwdtt: 'qWDTT',
   csqtt: 'CSQTT',
+  openflux: 'OpenFlux',
   wdtt: 'qWDTT',
   mieru: 'mieru',
   mierus: 'mieru',

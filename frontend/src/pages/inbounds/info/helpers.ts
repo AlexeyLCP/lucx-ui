@@ -20,6 +20,7 @@ const LINK_PROTOCOLS: ReadonlySet<string> = new Set([
   Protocols.TUIC,
   Protocols.QWDTT, // LUCX-HOOK: single-credential qwdtt://
   Protocols.CSQTT, // LUCX-HOOK: single-credential csqtt://
+  Protocols.OPENFLUX, // LUCX-HOOK: single openflux://
   Protocols.OLCRTC, // LUCX-HOOK: single-credential olcrtc://
 ]);
 
@@ -30,7 +31,10 @@ export function hasShareLink(protocol: string): boolean {
 // Single-credential tunnel sidecars: no clients to attach; one share URI.
 export function isSingleCredTunnel(protocol: string): boolean {
   return (
-    protocol === Protocols.QWDTT || protocol === Protocols.CSQTT || protocol === Protocols.OLCRTC
+    protocol === Protocols.QWDTT ||
+    protocol === Protocols.CSQTT ||
+    protocol === Protocols.OPENFLUX ||
+    protocol === Protocols.OLCRTC
   );
 }
 

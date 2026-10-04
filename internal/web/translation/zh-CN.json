@@ -824,7 +824,7 @@
         "naiveUseAcme": "Auto TLS (Let's Encrypt)",
         "naiveRouteThroughXray": "Route through Xray",
         "naiveKeyFile": "Private key file",
-        "olcrtcSingleCredNote": "Single shared secret (room + crypto key). No per-client credentials — everyone uses the same olcrtc:// URI.",
+        "olcrtcSingleCredNote": "One room and one key. New user = new inbound with its own room. This inbound's olcrtc:// link is shared.",
         "olcrtcProvider": "Provider",
         "olcrtcRoomId": "Room ID / URL",
         "olcrtcRoomIdHint": "Full Jitsi room URL or Telemost/WB room id",
@@ -843,7 +843,7 @@
         "olcrtcVideoCodec": "Video codec",
         "olcrtcDns": "DNS (host:port)",
         "olcrtcDebug": "Debug",
-        "qwdttSingleNote": "Only one qWDTT inbound per panel. Shared password for all clients.",
+        "qwdttSingleNote": "Only one qWDTT inbound per host — a second one will not start. Everyone shares this password.",
         "qwdttListenAddr": "DTLS listen",
         "qwdttWgPort": "WG port",
         "qwdttPassword": "Password",
@@ -969,7 +969,16 @@
         "trustTunnelClientRandomPrefix": "Client random prefix",
         "trustTunnelClientRandomPrefixHint": "TLS Client Random filter (hex/mask). Written to rules.toml and the client tt:// link. Clients must re-download the link after Regenerate.",
         "trustTunnelClientRandomPrefixRegen": "重新生成",
-        "csqttSingleNote": "One CSQTT inbound per host. One password = one device. Upload the binary on Settings → Cores. Clients: CSQTT Android APK or iOS anton48 (CSQTT mode, not WRAP-A).",
+        "csqttSingleNote": "One CSQTT inbound per host — a second one will not start. One password = one device. Upload the binary on Settings → Cores. Clients: CSQTT Android APK or iOS anton48 (CSQTT mode, not WRAP-A).",
+        "openfluxNote": "OpenFlux exit (l4). One link, one active client. New user = new inbound (own port and carrier URL). Direct uses this inbound port. Paste a Yandex, Mail.ru or Cups URL for an extra carrier. Upload the binary on Settings → Cores.",
+        "openfluxShareHost": "Public host",
+        "openfluxShareHostHint": "Address clients dial for direct. Empty uses the subscription host.",
+        "openfluxYandexUrl": "Yandex document URL",
+        "openfluxMailruUrl": "Mail.ru document URL",
+        "openfluxCupsUrl": "Cups.online URL",
+        "openfluxUrlHint": "Optional. No # or ; — the exit config parser cuts those.",
+        "openfluxSecret": "Secret",
+        "openfluxSecretHint": "Empty on create = generate once. Clearing it on save does not rotate an existing secret.",
         "csqttListenAddr": "UDP listen",
         "csqttPassword": "Password",
         "csqttPasswordHint": "Empty = auto-generate on save. Bound to the first device_id that connects.",
@@ -3132,6 +3141,13 @@
       },
       "inboundMovedTitle": "Configuration is in Inbounds",
       "inboundMovedDesc": "Add and edit NaiveProxy, olcRTC and qWDTT as Inbounds. This page is only for binaries, process logs and rare advanced ops.",
+      "openflux": {
+        "toasts": {
+          "uploaded": "OpenFlux binary uploaded",
+          "downloaded": "OpenFlux binary downloaded",
+          "deleted": "OpenFlux binary deleted"
+        }
+      },
       "csqtt": {
         "toasts": {
           "uploaded": "CSQTT binary uploaded",

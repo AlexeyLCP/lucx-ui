@@ -22,6 +22,7 @@ export const NODE_ELIGIBLE_PROTOCOLS: Readonly<Record<string, true>> = {
   [Protocols.NAIVE]: true,
   [Protocols.OLCRTC]: true,
   [Protocols.QWDTT]: true,
+  [Protocols.OPENFLUX]: true,
   [Protocols.MIERU]: true,
   [Protocols.TRUSTTUNNEL]: true,
   [Protocols.ANYTLS]: true,

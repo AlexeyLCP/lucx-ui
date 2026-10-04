@@ -77,6 +77,7 @@ var nodeEligibleProtocols = map[model.Protocol]bool{
 	model.Naive:       true,
 	model.Olcrtc:      true,
 	model.Qwdtt:       true,
+	model.Openflux:    true,
 	model.Mieru:       true,
 	model.TrustTunnel: true,
 	model.Anytls:      true,

@@ -39,6 +39,7 @@ type CoreKind =
   | 'olcrtc'
   | 'qwdtt'
   | 'csqtt'
+  | 'openflux'
   | 'mieru'
   | 'trusttunnel'
   | 'anytls'
@@ -98,6 +99,14 @@ const CORE_API: Record<
     upload: tunnelsApi.csqttUpload,
     download: tunnelsApi.csqttDownload,
     deleteBinary: tunnelsApi.csqttDeleteBinary,
+  },
+  openflux: {
+    key: keys.tunnels.openfluxStatus,
+    status: tunnelsApi.openfluxStatus,
+    logs: tunnelsApi.openfluxLogs,
+    upload: tunnelsApi.openfluxUpload,
+    download: tunnelsApi.openfluxDownload,
+    deleteBinary: tunnelsApi.openfluxDeleteBinary,
   },
   mieru: {
     key: keys.tunnels.mieruStatus,
@@ -545,6 +554,7 @@ export default function CoresTab() {
       <BinaryCard kind="olcrtc" title="olcRTC" />
       <BinaryCard kind="qwdtt" title="qWDTT" />
       <BinaryCard kind="csqtt" title="CSQTT" />
+      <BinaryCard kind="openflux" title="OpenFlux" />
       <BinaryCard kind="mieru" title="mieru" />
       <BinaryCard kind="trusttunnel" title="TrustTunnel" />
       <BinaryCard kind="anytls" title="AnyTLS" />

@@ -153,6 +153,13 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	csqtt.POST("/download", a.csqttDownloadBinary)
 	csqtt.POST("/deleteBinary", a.csqttDeleteBinary)
 
+	openflux := g.Group("/openflux")
+	openflux.GET("/status", a.openfluxStatus)
+	openflux.GET("/logs", a.openfluxLogs)
+	openflux.POST("/upload", a.openfluxUploadBinary)
+	openflux.POST("/download", a.openfluxDownloadBinary)
+	openflux.POST("/deleteBinary", a.openfluxDeleteBinary)
+
 	// mieru is inbound-only (no legacy config/lifecycle): status, logs and
 	// binary management for the Settings → Cores page.
 	mieru := g.Group("/mieru")
@@ -589,6 +596,55 @@ func (a *TunnelController) csqttDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.csqtt.toasts.deleted"), nil)
+}
+
+func (a *TunnelController) openfluxStatus(c *gin.Context) {
+	st, err := a.svc.OpenfluxStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: openflux status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) openfluxLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.OpenfluxLogs(lines), nil)
+}
+
+func (a *TunnelController) openfluxUploadBinary(c *gin.Context) {
+	if err := saveCoreUpload(c, tunnel.Openflux.BinaryPath()); err != nil {
+		logger.Warning("tunnel: save uploaded openflux binary failed:", err)
+		jsonMsg(c, "tunnel: openflux upload failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.openflux.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) openfluxDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid openflux download body", err)
+		return
+	}
+	if err := a.svc.DownloadOpenfluxBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: openflux download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.openflux.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) openfluxDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteOpenfluxBinary(); err != nil {
+		jsonMsg(c, "tunnel: openflux binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.openflux.toasts.deleted"), nil)
 }
 
 // --- mieru (inbound-only: status/logs/binary for the Cores page) ----------
