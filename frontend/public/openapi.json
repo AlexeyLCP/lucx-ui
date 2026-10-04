@@ -9555,6 +9555,156 @@
         }
       }
     },
+    "/panel/api/tunnel/openflux/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "OpenFlux core status for the Cores page. Inbound-only. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_openflux_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/openflux/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent log lines of OpenFlux processes. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_openflux_logs",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/openflux/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the openflux binary on disk (multipart field \"file\"). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_openflux_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/openflux/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the openflux binary from an https URL. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_openflux_download",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/openflux/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop OpenFlux processes and remove the binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_openflux_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/tunnel/mieru/status": {
       "get": {
         "tags": [
