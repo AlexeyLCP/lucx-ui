@@ -252,9 +252,14 @@ Gracias a todos los proyectos y personas open-source.
 </details>
 
 <details>
-<summary><b>Apoyo financiero</b></summary>
+<summary><b>Apoyo financiero (Boosty, por nivel)</b></summary>
 
-- **Игорь**, **пётр смолин**, **Камслат Глорихо**, **Михаил Ляшенко**, **Aleksandr S.**, **Сила Растений**, **Виталий Зайцев**.
+La misma lista se muestra en la página de patrocinadores del panel (/panel/sponsors\).
+
+- **Handshake**: **VladufQa**, **пётр смолин**
+- **Pong**: **Сила Растений**, **Виталий Зайцев**
+- **Ping**: **Камслат Глорихо**, **Михаил Ляшенко**
+- Подписчики: **Игорь**, **Aleksandr S.**
 
 </details>
 

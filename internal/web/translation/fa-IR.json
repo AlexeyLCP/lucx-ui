@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "اسپانسرها",
-      "intro": "شرکت‌هایی که از توسعه‌ی 3X-UI حمایت می‌کنند. لینک‌های اسپانسر در تب جدید باز می‌شوند.",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "اسپانسر شوید",
       "tag": "اسپانسر",
       "visit": "مشاهده",
       "yourBrand": "جای برند شما",
-      "yourBrandText": "شرکت خود را جلوی چشم هزاران ادمین سروری بگذارید که هر روز 3X-UI را باز می‌کنند.",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "جایگاه‌های موجود",
       "placementDashboard": "بنر داشبورد",
       "placementDashboardDesc": "جایگاه ویژه بالای صفحه‌ی داشبورد، هر بار فقط یک اسپانسر.",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "جمع کنترلی SHA-256 (اختیاری)",
+          "sha256Hint": "خالی بگذارید تا هر چه نشانی برمی‌گرداند نصب شود. در صورت تعیین، دانلودی که چکیده‌اش متفاوت باشد دور ریخته می‌شود و فایل اجرایی فعلی حفظ می‌گردد.",
+          "sha256Invalid": "جمع کنترلی SHA-256 شامل ۶۴ نویسه شانزده‌شانزدهی است."
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "جمع کنترلی SHA-256 (اختیاری)",
+          "sha256Hint": "خالی بگذارید تا هر چه نشانی برمی‌گرداند نصب شود. در صورت تعیین، دانلودی که چکیده‌اش متفاوت باشد دور ریخته می‌شود و فایل اجرایی فعلی حفظ می‌گردد.",
+          "sha256Invalid": "جمع کنترلی SHA-256 شامل ۶۴ نویسه شانزده‌شانزدهی است."
         }
       }
     }

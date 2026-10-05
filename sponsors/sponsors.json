@@ -1,0 +1,165 @@
+{
+  "contact": "https://boosty.to/alexeylcp",
+  "sponsors": [
+    {
+      "id": "boosty-vladufqa",
+      "name": "VladufQa",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "text": {
+        "ru": "Подписчик Boosty (уровень Handshake). Спасибо за поддержку LucX-UI и тестирование!",
+        "en": "Boosty subscriber (Handshake tier). Thank you for supporting LucX-UI and testing!"
+      },
+      "link": "https://boosty.to/alexeylcp"
+    },
+    {
+      "id": "boosty-pyotr-smolin",
+      "name": "пётр смолин",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "title": { "ru": "пётр смолин", "en": "Pyotr Smolin" },
+      "text": {
+        "ru": "Подписчик Boosty (уровень Handshake). Спасибо за поддержку LucX-UI!",
+        "en": "Boosty subscriber (Handshake tier). Thank you for supporting LucX-UI!"
+      },
+      "link": "https://boosty.to/alexeylcp"
+    },
+    {
+      "id": "boosty-sila-rasteniy",
+      "name": "Сила Растений",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "title": { "ru": "Сила Растений", "en": "Sila Rasteniy" },
+      "text": {
+        "ru": "Подписчик Boosty (уровень Pong). Спасибо за поддержку LucX-UI!",
+        "en": "Boosty subscriber (Pong tier). Thank you for supporting LucX-UI!"
+      },
+      "link": "https://boosty.to/alexeylcp"
+    },
+    {
+      "id": "boosty-vitaly-zaytsev",
+      "name": "Виталий Зайцев",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "title": { "ru": "Виталий Зайцев", "en": "Vitaly Zaytsev" },
+      "text": {
+        "ru": "Подписчик Boosty (уровень Pong). Спасибо за поддержку LucX-UI!",
+        "en": "Boosty subscriber (Pong tier). Thank you for supporting LucX-UI!"
+      },
+      "link": "https://boosty.to/alexeylcp"
+    },
+    {
+      "id": "boosty-mikhail-lyashenko",
+      "name": "Михаил Ляшенко",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "title": { "ru": "Михаил Ляшенко", "en": "Mikhail Lyashenko" },
+      "text": {
+        "ru": "Подписчик Boosty (уровень Ping). Спасибо за поддержку LucX-UI!",
+        "en": "Boosty subscriber (Ping tier). Thank you for supporting LucX-UI!"
+      },
+      "link": "https://boosty.to/alexeylcp"
+    },
+    {
+      "id": "boosty-kamslat-glorixo",
+      "name": "Камслат Глорихо",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "title": { "ru": "Камслат Глорихо", "en": "Kamslat Glorixo" },
+      "text": {
+        "ru": "Подписчик Boosty (уровень Ping). Спасибо за поддержку LucX-UI!",
+        "en": "Boosty subscriber (Ping tier). Thank you for supporting LucX-UI!"
+      },
+      "link": "https://boosty.to/alexeylcp"
+    },
+    {
+      "id": "boosty-igor",
+      "name": "Игорь",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "title": { "ru": "Игорь", "en": "Igor" },
+      "text": {
+        "ru": "Подписчик Boosty. Спасибо за поддержку LucX-UI!",
+        "en": "Boosty subscriber. Thank you for supporting LucX-UI!"
+      },
+      "link": "https://boosty.to/alexeylcp"
+    },
+    {
+      "id": "boosty-aleksandr-s",
+      "name": "Aleksandr S.",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "text": {
+        "ru": "Подписчик Boosty. Спасибо за поддержку LucX-UI!",
+        "en": "Boosty subscriber. Thank you for supporting LucX-UI!"
+      },
+      "link": "https://boosty.to/alexeylcp"
+    },
+    {
+      "id": "thanks-kirill-rudenko",
+      "name": "Kirill Rudenko",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "text": {
+        "ru": "Контрибьютор: AWG routeThroughXray (PR #13). Спасибо!",
+        "en": "Contributor: AWG routeThroughXray (PR #13). Thank you!"
+      },
+      "link": "https://github.com/AlexeyLCP/lucx-ui/pull/13"
+    },
+    {
+      "id": "thanks-302ba",
+      "name": "302ba (Alex)",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "text": {
+        "ru": "Контрибьютор: фикс Zod-схемы клиента (PR #24). Спасибо!",
+        "en": "Contributor: client Zod schema fix (PR #24). Thank you!"
+      },
+      "link": "https://github.com/AlexeyLCP/lucx-ui/pull/24"
+    },
+    {
+      "id": "thanks-sacredx",
+      "name": "Aleksandr SacredX",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "text": {
+        "ru": "Тестировщик LucX-UI. Спасибо за баг-репорты!",
+        "en": "LucX-UI tester. Thank you for the bug reports!"
+      },
+      "link": "https://github.com/AlexeyLCP/lucx-ui"
+    },
+    {
+      "id": "thanks-alireza0",
+      "name": "alireza0",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "text": {
+        "ru": "Контрибьютор x-ui / 3x-ui. Спасибо!",
+        "en": "x-ui / 3x-ui contributor. Thank you!"
+      },
+      "link": "https://github.com/alireza0"
+    },
+    {
+      "id": "thanks-strench0",
+      "name": "STRENCH0",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "text": {
+        "ru": "Upstream PR, который мы портировали: гео-браузер категорий (MHSanaei/3x-ui#6165).",
+        "en": "Upstream PR we ported: geo categories browser (MHSanaei/3x-ui#6165)."
+      },
+      "link": "https://github.com/STRENCH0"
+    },
+    {
+      "id": "thanks-3xui-team",
+      "name": "3x-ui team",
+      "slots": ["page"],
+      "until": "2099-01-01T00:00:00Z",
+      "text": {
+        "ru": "Команда MHSanaei/3x-ui — базовая панель и сообщество. Спасибо!",
+        "en": "MHSanaei/3x-ui team — base panel and community. Thank you!"
+      },
+      "link": "https://github.com/MHSanaei/3x-ui"
+    }
+  ]
+}

@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "الرعاة",
-      "intro": "شركات تدعم تطوير 3X-UI. تُفتح روابط الرعاة في علامة تبويب جديدة.",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "كن راعيًا",
       "tag": "راعٍ",
       "visit": "زيارة",
       "yourBrand": "علامتك التجارية هنا",
-      "yourBrandText": "ضع شركتك أمام آلاف مسؤولي الخوادم الذين يفتحون 3X-UI كل يوم.",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "المواضع المتاحة",
       "placementDashboard": "لافتة لوحة المعلومات",
       "placementDashboardDesc": "موضع مميز أعلى لوحة المعلومات، راعٍ واحد في كل مرة.",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "المجموع الاختباري SHA-256 (اختياري)",
+          "sha256Hint": "اتركه فارغًا ليُثبَّت ما يعيده الرابط. عند تعيينه، يُهمَل أي تنزيل يختلف بصمته ويبقى الملف التنفيذي الحالي.",
+          "sha256Invalid": "المجموع الاختباري SHA-256 يتكون من 64 خانة ست عشرية."
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "المجموع الاختباري SHA-256 (اختياري)",
+          "sha256Hint": "اتركه فارغًا ليُثبَّت ما يعيده الرابط. عند تعيينه، يُهمَل أي تنزيل يختلف بصمته ويبقى الملف التنفيذي الحالي.",
+          "sha256Invalid": "المجموع الاختباري SHA-256 يتكون من 64 خانة ست عشرية."
         }
       }
     }

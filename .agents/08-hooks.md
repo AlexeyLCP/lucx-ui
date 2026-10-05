@@ -92,6 +92,7 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/web/service/node.go` + `node_contract.go` | lucx node |
 | `internal/web/service/port_conflict.go` | lucx transports |
 | `internal/web/service/panel/panel.go` + `panel_test.go` | release notes / version |
+| `internal/web/service/panel/sponsor.go` | fork sponsor list URL (`AlexeyLCP/lucx-ui` raw) |
 | `internal/web/service/tgbot/tgbot_client.go` + `tgbot_send.go` | lucx bot |
 
 ### Frontend (HOOK)
@@ -218,6 +219,7 @@ Keep the directory. Origin will not have these.
 | `.github/workflows/upstream-watch.yml` | watch origin releases |
 | `.sourcecraft/` | Yandex CI |
 | `.agents/` `docs/progress.md` `docs/LICENSING.md` | fork docs |
+| `sponsors/` | panel sponsor list (Boosty supporters), fed to `panel/sponsor.go` |
 | `LICENSE-PolyForm-Noncommercial.txt` | LucX license |
 
 PolyForm vs GPL split: Rule 10 / `docs/LICENSING.md`.

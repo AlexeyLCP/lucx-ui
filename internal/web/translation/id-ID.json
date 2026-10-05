@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "Sponsor",
-      "intro": "Perusahaan yang mendukung pengembangan 3X-UI. Tautan sponsor dibuka di tab baru.",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "Jadi sponsor",
       "tag": "Sponsor",
       "visit": "Kunjungi",
       "yourBrand": "Merek Anda di sini",
-      "yourBrandText": "Tampilkan perusahaan Anda kepada ribuan admin server yang membuka 3X-UI setiap hari.",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "Slot yang tersedia",
       "placementDashboard": "Banner dasbor",
       "placementDashboardDesc": "Tempat premium di atas dasbor, satu sponsor dalam satu waktu.",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Checksum SHA-256 (opsional)",
+          "sha256Hint": "Biarkan kosong untuk memasang apa pun yang dikembalikan URL. Jika diisi, unduhan dengan digest berbeda dibuang dan biner saat ini dipertahankan.",
+          "sha256Invalid": "Checksum SHA-256 terdiri dari 64 karakter heksadesimal."
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Checksum SHA-256 (opsional)",
+          "sha256Hint": "Biarkan kosong untuk memasang apa pun yang dikembalikan URL. Jika diisi, unduhan dengan digest berbeda dibuang dan biner saat ini dipertahankan.",
+          "sha256Invalid": "Checksum SHA-256 terdiri dari 64 karakter heksadesimal."
         }
       }
     }

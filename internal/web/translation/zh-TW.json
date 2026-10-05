@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "贊助商",
-      "intro": "支持 3X-UI 開發的公司。贊助連結將在新分頁中開啟。",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "成為贊助商",
       "tag": "贊助",
       "visit": "造訪",
       "yourBrand": "您的品牌展示位",
-      "yourBrandText": "讓每天打開 3X-UI 的數千名伺服器管理員看到您的公司。",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "可用展示位",
       "placementDashboard": "總覽橫幅",
       "placementDashboardDesc": "儀表板頂部的高級位置，每次僅一家贊助商。",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 校驗和（選填）",
+          "sha256Hint": "留空則安裝該連結回傳的任何內容。填寫後，摘要不符的下載將被捨棄，保留目前的二進位檔。",
+          "sha256Invalid": "SHA-256 校驗和為 64 位十六進位字元。"
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 校驗和（選填）",
+          "sha256Hint": "留空則安裝該連結回傳的任何內容。填寫後，摘要不符的下載將被捨棄，保留目前的二進位檔。",
+          "sha256Invalid": "SHA-256 校驗和為 64 位十六進位字元。"
         }
       }
     }

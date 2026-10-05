@@ -345,7 +345,13 @@ uninstall() {
     echo ""
     echo -e "Uninstalled Successfully.\n"
     echo "If you need to install this panel again, you can use below command:"
-    echo -e "${green}bash <(curl -Ls https://raw.githubusercontent.com/mhsanaei/3x-ui/master/install.sh)${plain}"
+    # LUCX-HOOK: same source as install(), so reinstall follows the host's source
+    if [[ "$(lucx_install_source)" == "yandex" ]]; then
+        echo -e "${green}bash <(curl -fL https://codeload.sourcecraft.tech/alexeylcp/lucx-ui/tarball/refs/heads/dist | tar -xz --strip-components=1 -C /tmp/lucx-dist && bash /tmp/lucx-dist/install.sh --yandex)${plain}"
+    else
+        echo -e "${green}bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install.sh)${plain}"
+    fi
+    # END LUCX-HOOK
     echo ""
     # Trap the SIGTERM signal
     trap delete_script SIGTERM

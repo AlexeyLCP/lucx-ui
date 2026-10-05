@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "Sponsors",
-      "intro": "Companies that support 3X-UI development. Sponsored links open in a new tab.",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "Become a sponsor",
       "tag": "Sponsor",
       "visit": "Visit",
       "yourBrand": "Your brand here",
-      "yourBrandText": "Put your company in front of thousands of server admins who open 3X-UI every day.",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "Available placements",
       "placementDashboard": "Overview banner",
       "placementDashboardDesc": "Premium spot at the top of the dashboard, one sponsor at a time.",
@@ -3053,6 +3053,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
         }
       },
       "csqtt": {
@@ -3060,6 +3072,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 checksum (optional)",
+          "sha256Hint": "Leave empty to install whatever the URL returns. When set, a download whose digest differs is discarded and the current binary is kept.",
+          "sha256Invalid": "A SHA-256 checksum is 64 hexadecimal characters."
         }
       },
       "mieru": {

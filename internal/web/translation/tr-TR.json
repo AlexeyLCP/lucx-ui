@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "Sponsorlar",
-      "intro": "3X-UI geliştirmesini destekleyen şirketler. Sponsor bağlantıları yeni sekmede açılır.",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "Sponsor ol",
       "tag": "Sponsor",
       "visit": "Ziyaret et",
       "yourBrand": "Markanız burada",
-      "yourBrandText": "Şirketinizi her gün 3X-UI açan binlerce sunucu yöneticisinin önüne çıkarın.",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "Mevcut yerleşimler",
       "placementDashboard": "Genel bakış afişi",
       "placementDashboardDesc": "Panonun üstünde premium alan, aynı anda tek sponsor.",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 sağlama toplamı (isteğe bağlı)",
+          "sha256Hint": "Boş bırakılırsa URL ne döndürürse kurulur. Girilirse özeti farklı olan indirme atılır ve mevcut ikili dosya korunur.",
+          "sha256Invalid": "SHA-256 sağlama toplamı 64 onaltılık karakterden oluşur."
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 sağlama toplamı (isteğe bağlı)",
+          "sha256Hint": "Boş bırakılırsa URL ne döndürürse kurulur. Girilirse özeti farklı olan indirme atılır ve mevcut ikili dosya korunur.",
+          "sha256Invalid": "SHA-256 sağlama toplamı 64 onaltılık karakterden oluşur."
         }
       }
     }

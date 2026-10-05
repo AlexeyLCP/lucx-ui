@@ -252,9 +252,14 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 </details>
 
 <details>
-<summary><b>حامیان مالی</b></summary>
+<summary><b>حامیان مالی (Boosty، بر اساس سطح)</b></summary>
 
-- **Игорь**, **пётр смолин**, **Камслат Глорихо**, **Михаил Ляшенко**, **Aleksandr S.**, **Сила Растений**, **Виталий Зайцев**.
+همین لیست در صفحه حامیان پنل (/panel/sponsors\) نمایش داده می‌شود.
+
+- **Handshake**: **VladufQa**, **пётр смолин**
+- **Pong**: **Сила Растений**, **Виталий Зайцев**
+- **Ping**: **Камслат Глорихо**, **Михаил Ляшенко**
+- Подписчики: **Игорь**, **Aleksandr S.**
 
 </details>
 

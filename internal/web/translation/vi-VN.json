@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "Nhà tài trợ",
-      "intro": "Các công ty hỗ trợ phát triển 3X-UI. Liên kết tài trợ mở trong tab mới.",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "Trở thành nhà tài trợ",
       "tag": "Tài trợ",
       "visit": "Truy cập",
       "yourBrand": "Thương hiệu của bạn ở đây",
-      "yourBrandText": "Đưa công ty bạn đến hàng nghìn quản trị viên máy chủ mở 3X-UI mỗi ngày.",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "Vị trí hiện có",
       "placementDashboard": "Banner tổng quan",
       "placementDashboardDesc": "Vị trí cao cấp ở đầu bảng điều khiển, mỗi lần một nhà tài trợ.",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Tổng kiểm tra SHA-256 (tùy chọn)",
+          "sha256Hint": "Để trống để cài đặt bất cứ thứ gì URL trả về. Nếu điền, bản tải có digest khác sẽ bị loại bỏ và giữ nguyên tệp nhị phân hiện tại.",
+          "sha256Invalid": "Tổng kiểm tra SHA-256 gồm 64 ký tự thập lục phân."
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Tổng kiểm tra SHA-256 (tùy chọn)",
+          "sha256Hint": "Để trống để cài đặt bất cứ thứ gì URL trả về. Nếu điền, bản tải có digest khác sẽ bị loại bỏ và giữ nguyên tệp nhị phân hiện tại.",
+          "sha256Invalid": "Tổng kiểm tra SHA-256 gồm 64 ký tự thập lục phân."
         }
       }
     }

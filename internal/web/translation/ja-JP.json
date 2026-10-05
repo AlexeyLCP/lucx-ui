@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "スポンサー",
-      "intro": "3X-UI の開発を支援している企業です。スポンサーリンクは新しいタブで開きます。",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "スポンサーになる",
       "tag": "スポンサー",
       "visit": "訪問",
       "yourBrand": "ここにあなたのブランドを",
-      "yourBrandText": "毎日 3X-UI を開く何千人ものサーバー管理者に御社をアピールできます。",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "掲載枠",
       "placementDashboard": "ダッシュボードバナー",
       "placementDashboardDesc": "ダッシュボード上部のプレミアム枠。一度に 1 社のみ。",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 チェックサム（任意）",
+          "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
+          "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "SHA-256 チェックサム（任意）",
+          "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
+          "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
         }
       }
     }

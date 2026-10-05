@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "Patrocinadores",
-      "intro": "Empresas que apoyan el desarrollo de 3X-UI. Los enlaces patrocinados se abren en una pestaña nueva.",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "Hazte patrocinador",
       "tag": "Patrocinador",
       "visit": "Visitar",
       "yourBrand": "Tu marca aquí",
-      "yourBrandText": "Muestra tu empresa a miles de administradores de servidores que abren 3X-UI cada día.",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "Espacios disponibles",
       "placementDashboard": "Banner del panel",
       "placementDashboardDesc": "Espacio premium en la parte superior del panel, un patrocinador a la vez.",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Suma de comprobación SHA-256 (opcional)",
+          "sha256Hint": "Déjalo vacío para instalar lo que devuelva la URL. Si lo indicas, se descarta la descarga cuyo resumen no coincida y se conserva el binario actual.",
+          "sha256Invalid": "Una suma SHA-256 tiene 64 caracteres hexadecimales."
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Suma de comprobación SHA-256 (opcional)",
+          "sha256Hint": "Déjalo vacío para instalar lo que devuelva la URL. Si lo indicas, se descarta la descarga cuyo resumen no coincida y se conserva el binario actual.",
+          "sha256Invalid": "Una suma SHA-256 tiene 64 caracteres hexadecimales."
         }
       }
     }

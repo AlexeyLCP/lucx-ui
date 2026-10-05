@@ -2803,12 +2803,12 @@
     },
     "sponsors": {
       "title": "Спонсори",
-      "intro": "Компанії, що підтримують розробку 3X-UI. Спонсорські посилання відкриваються в новій вкладці.",
+      "intro": "People and projects that support LucX-UI development. Links open in a new tab.",
       "become": "Стати спонсором",
       "tag": "Спонсор",
       "visit": "Перейти",
       "yourBrand": "Тут може бути ваш бренд",
-      "yourBrandText": "Покажіть свою компанію тисячам адміністраторів серверів, які щодня відкривають 3X-UI.",
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
       "placements": "Доступні місця",
       "placementDashboard": "Банер на головній",
       "placementDashboardDesc": "Преміум-місце вгорі панелі, один спонсор за раз.",
@@ -3146,6 +3146,18 @@
           "uploaded": "OpenFlux binary uploaded",
           "downloaded": "OpenFlux binary downloaded",
           "deleted": "OpenFlux binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Контрольна сума SHA-256 (необов'язково)",
+          "sha256Hint": "Порожньо — буде встановлено те, що поверне посилання. Якщо вказати, завантаження з іншим хешем відхиляється, поточний бінарник лишається.",
+          "sha256Invalid": "Контрольна сума SHA-256 — це 64 шістнадцяткові символи."
         }
       },
       "csqtt": {
@@ -3153,6 +3165,18 @@
           "uploaded": "CSQTT binary uploaded",
           "downloaded": "CSQTT binary downloaded",
           "deleted": "CSQTT binary deleted"
+        },
+        "binary": {
+          "title": "Core binary",
+          "exists": "installed",
+          "missing": "not installed",
+          "upload": "Upload",
+          "download": "Download",
+          "delete": "Delete",
+          "deleteConfirm": "Stop the core and delete its binary?",
+          "sha256Placeholder": "Контрольна сума SHA-256 (необов'язково)",
+          "sha256Hint": "Порожньо — буде встановлено те, що поверне посилання. Якщо вказати, завантаження з іншим хешем відхиляється, поточний бінарник лишається.",
+          "sha256Invalid": "Контрольна сума SHA-256 — це 64 шістнадцяткові символи."
         }
       }
     }

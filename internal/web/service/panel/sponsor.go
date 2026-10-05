@@ -46,7 +46,7 @@ const (
 	maxSponsorsBytes = 256 << 10
 	maxLogoBytes     = 256 << 10
 	maxSidebarSlots  = 3
-	localSponsorsDir = "../sponsors/3X"
+	localSponsorsDir = "../sponsors"
 	sponsorLogoPath  = "/sponsors/logo/"
 )
 
@@ -61,9 +61,12 @@ type sponsorLogo struct {
 }
 
 var (
-	sponsorsURL     = "https://sponsors.sanaei.dev/3X/sponsors.json"
-	sponsorLogoBase = "https://sponsors.sanaei.dev/3X/logos/"
-	sponsorNow      = time.Now
+	// LUCX-HOOK: fork sponsor list — our Boosty supporters and contributors,
+	// served from the LucX repo; upstream's sponsors.sanaei.dev stays MHSanaei's.
+	sponsorsURL     = "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/sponsors/sponsors.json"
+	sponsorLogoBase = "https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/sponsors/logos/"
+	// END LUCX-HOOK
+	sponsorNow = time.Now
 
 	// The panel proxies logos from sponsorLogoBase: CSP stays 'self' and no third party sees admin IPs.
 	sponsorLogoRe = regexp.MustCompile(`^[A-Za-z0-9_-][A-Za-z0-9._-]*\.(png|webp|jpg)$`)
@@ -157,8 +160,8 @@ func fetchSponsorLogo(name string) ([]byte, string, error) {
 	}
 }
 
-// readSponsorSource reads a sibling checkout of MHSanaei/sponsors under XUI_DEBUG so
-// sponsor edits can be previewed locally before they are pushed.
+// readSponsorSource reads a sibling checkout of the LucX sponsors dir under
+// XUI_DEBUG so sponsor edits can be previewed locally before they are pushed.
 func readSponsorSource(url, localPath string, limit int) ([]byte, error) {
 	if !config.IsDebug() {
 		return fetchLimited(url, limit)

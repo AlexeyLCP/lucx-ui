@@ -283,9 +283,14 @@ LucX-UI stands on the shoulders of many open-source projects and people. Thank y
 </details>
 
 <details>
-<summary><b>Financial supporters</b></summary>
+<summary><b>Financial supporters</b> (Boosty, by tier)</summary>
 
-- **Игорь**, **пётр смолин**, **Камслат Глорихо**, **Михаил Ляшенко**, **Aleksandr S.**, **Сила Растений**, **Виталий Зайцев**.
+The same list is shown on the panel's Sponsors page (`/panel/sponsors`).
+
+- **Handshake**: **VladufQa**, **пётр смолин** (Pyotr Smolin)
+- **Pong**: **Сила Растений** (Sila Rasteniy), **Виталий Зайцев** (Vitaly Zaytsev)
+- **Ping**: **Камслат Глорихо** (Kamslat Glorixo), **Михаил Ляшенко** (Mikhail Lyashenko)
+- Subscribers: **Игорь** (Igor), **Aleksandr S.**
 
 </details>
 

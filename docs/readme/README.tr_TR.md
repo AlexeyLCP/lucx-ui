@@ -252,9 +252,14 @@ Tüm açık kaynak projelere ve insanlara teşekkürler.
 </details>
 
 <details>
-<summary><b>Mali destekleyenler</b></summary>
+<summary><b>Mali destekleyenler (Boosty, seviyelere göre)</b></summary>
 
-- **Игорь**, **пётр смолин**, **Камслат Глорихо**, **Михаил Ляшенко**, **Aleksandr S.**, **Сила Растений**, **Виталий Зайцев**.
+Aynı liste panelin Sponsorlar sayfasında da görünür (/panel/sponsors\).
+
+- **Handshake**: **VladufQa**, **пётр смолин**
+- **Pong**: **Сила Растений**, **Виталий Зайцев**
+- **Ping**: **Камслат Глорихо**, **Михаил Ляшенко**
+- Подписчики: **Игорь**, **Aleksandr S.**
 
 </details>
 

@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.284 — Sponsors feed to fork + uninstall reinstall hint (2026-10-05)
+
+Upstream v3.9.0 added a Sponsors page fed from `sponsors.sanaei.dev/3X` — MHSanaei's paid slots rendered in our panel. `internal/web/service/panel/sponsor.go` now points `sponsorsURL`/`sponsorLogoBase` at raw `AlexeyLCP/lucx-ui/main/sponsors/*` (LUCX-HOOK) and reads `sponsors/sponsors.json` from the repo under XUI_DEBUG. The list carries Boosty supporters in tier order (Handshake → Pong → Ping → subscribers: VladufQa, пётр смолин, Сила Растений, Виталий Зайцев, Михаил Ляшенко, Камслат Глорихо, Игорь, Aleksandr S.) plus contributor thanks (Kirill Rudenko, 302ba, Aleksandr SacredX, alireza0, STRENCH0, 3x-ui team); contact → Boosty. i18n intro/yourBrandText de-3X-UI'd in all 13 locales. README financial-supporters block re-grouped by Boosty tier in RU + 5 translated READMEs, pointing at `/panel/sponsors`. `x-ui.sh` uninstall hint printed MHSanaei's install command — now it follows `lucx_install_source` (GitHub raw / Yandex dist bundle) like `install()` (LUCX-HOOK).
+
+**lucxVersion:** lucx.284
+
+Tests: `bash -n x-ui.sh`; sponsor tests are upstream files (`go test ./internal/web/service/panel/` needs CGO — CI). JSON validated locally.
+
+---
+
 ## lucx.283 — Node sync: stale cached inbound id self-heals (2026-10-05)
 
 Gennady: deleted a node's cover site and recreated it; the master then POSTed `inbounds/update/3 ... record not found` every 5 s tick forever. `Remote` cached the node-side tag→id; an inbound recreated on the node (new row id) left that cache stale, and `resolveRemoteID` served the dead id without a refetch. `postUpdate` now drops the cache entry on a "record not found" answer and retries once with a refetched id, falling back to create when the tag is gone entirely — the dirty-reconcile loop converges instead of ping-ponging a dead id.
