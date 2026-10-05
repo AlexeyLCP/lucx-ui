@@ -246,9 +246,15 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 	if oldIb.Protocol == model.Tproxy || newIb.Protocol == model.Tproxy {
 		return l.updateTproxyInbound(ctx, oldIb, newIb)
 	}
-	// LUCX-HOOK: tunnel inbound update (Del+Add / Ensure restart).
+	// LUCX-HOOK: tunnel inbound update. Same-protocol enable goes through Ensure
+	// so an unchanged fingerprint does not SIGTERM the process. Del+Add drops
+	// that fingerprint and restarts on every push — fatal when the panel API is
+	// served by the sidecar (gateway on :443): the master's update POST dies
+	// with EOF and retries every 5s (Gennady, lucx.286).
 	if isTunnelInboundProto(oldIb.Protocol) || isTunnelInboundProto(newIb.Protocol) {
-		_ = l.DelInbound(ctx, oldIb)
+		if tunnelUpdateDropsRunning(oldIb.Protocol, newIb.Protocol, newIb.Enable) {
+			_ = l.DelInbound(ctx, oldIb)
+		}
 		if !newIb.Enable || !isTunnelInboundProto(newIb.Protocol) {
 			if !isTunnelInboundProto(newIb.Protocol) && newIb.Enable {
 				return l.AddInbound(ctx, newIb)
@@ -273,6 +279,16 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 
 func isTunnelInboundProto(p model.Protocol) bool {
 	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Csqtt || p == model.Openflux || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover || p == model.Gateway
+}
+
+// tunnelUpdateDropsRunning reports whether an update must stop the old sidecar
+// before Ensure. Same protocol staying enabled keeps the process so an
+// unchanged config is a no-op.
+func tunnelUpdateDropsRunning(oldProto, newProto model.Protocol, newEnable bool) bool {
+	if !isTunnelInboundProto(oldProto) {
+		return true
+	}
+	return oldProto != newProto || !newEnable || !isTunnelInboundProto(newProto)
 }
 
 // ensureNaiveInbound builds and Ensures a Naive sidecar instance. Panel secret

@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.286 — Gateway no longer restarts on every node-sync push (2026-10-05)
+
+Gennady, both panels on lucx.283: exit-node `gateway-3` SIGTERM every ~5s (no `config changed`), master `POST …/inbounds/update/3` EOF on the same tick. The push itself killed caddy, because `Local.UpdateInbound` Del+Add'd every tunnel proto and the panel API is behind that gateway on :443. EOF meant `pushedFP` was never stored, so the 5s reconcile retried forever. Same-protocol enable now goes through Ensure; an unchanged fingerprint does not SIGTERM. Rule 0 safe: no client fields rewritten.
+
+**lucxVersion:** lucx.286
+
+Files: `internal/web/runtime/local.go`, `internal/web/runtime/tunnel_proto_test.go`.
+
+Tests: `go test ./internal/web/runtime/ -count=1 -run TestTunnelUpdateDropsRunning`.
+
+---
+
 ## lucx.285 — Peer LAN routes behind AWG clients (issue #126, 2026-10-05)
 
 admst87: client's LAN in AllowedIPs (`10.201.0.3/32, 192.168.10.0/24`) got no route on the server — `Table = off` leaves awg-quick installing only the peer /32s, so reach-back into the client's LAN needed a manual `ip route add 192.168.10.0/24 dev awg2`. Reconcile now converges those routes: `peerRoutePrefixes` picks IPv4 prefixes wider than /32, excluding the default and the server's own tunnel subnet; `ensurePeerRoutesLocked` (linux) `ip route replace <prefix> dev awgN` every tick (self-heals after reboot / iface restart, like ensureNatRules), the installed list rides `managed.peerRoutes`; `flushPeerRoutesLocked` deletes exactly that list on inbound removal / reconcile sweep — a foreign same-prefix route on another dev is untouched. routeThroughXray inbounds skip it (Xray TUN owns routing). Rule 0 safe: peer AllowedIPs are read-only.

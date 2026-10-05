@@ -4,6 +4,14 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1at: gateway SIGTERM every ~5s, master `update/3` EOF — FIXED (lucx.286)
+
+- **Symptom (Gennady, 05.10.2026):** on the exit node `gateway-N` gets SIGTERM every ~5s, then `stopped` and immediately `started`. No `config changed, restarting`. Caddyfile md5 is stable. Master logs `reconcile inbound "n2-…": POST …/inbounds/update/N: EOF` on the same period. `l4http: no http listener "cover-N"` is only during that shutdown, from the master's IP.
+- **Cause:** node-sync pushes the gateway inbound every 5s. `Local.UpdateInbound` did Del+Add for every tunnel proto, so each push SIGTERM'd caddy. The panel API is behind that caddy on :443, so the POST died with EOF, `pushedFP` was never stored, and the master retried forever.
+- **Fix:** same-protocol enable goes through Ensure. Unchanged fingerprint does not restart. A real config change may EOF once; the next tick matches and sticks.
+- **Healing:** update both panels. The loop stops on the first successful push. No inbound save required.
+- **Not this:** Pattern 1ar (grace timeout, has `config changed` or a one-shot kill). Pattern 1as (`record not found`, not EOF).
+
 ### Pattern 1as: node `update/<id>` "record not found" retry loop — FIXED (lucx.283)
 
 - **Symptom (Gennady, 05.10.2026):** after deleting and recreating a node-side cover site, the master logs `POST /panel/api/inbounds/update/3 ... record not found` on every 5 s node-sync tick.

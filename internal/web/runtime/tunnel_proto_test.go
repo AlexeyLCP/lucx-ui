@@ -14,3 +14,21 @@ func TestIsTunnelInboundProto_Csqtt(t *testing.T) {
 		t.Fatal("vless/awg are not tunnel inbound protos")
 	}
 }
+
+func TestTunnelUpdateDropsRunning(t *testing.T) {
+	if tunnelUpdateDropsRunning(model.Gateway, model.Gateway, true) {
+		t.Fatal("same-protocol enable must keep the process")
+	}
+	if tunnelUpdateDropsRunning(model.Cover, model.Cover, true) {
+		t.Fatal("cover no-op update must keep the process")
+	}
+	if !tunnelUpdateDropsRunning(model.Gateway, model.Gateway, false) {
+		t.Fatal("disable must stop")
+	}
+	if !tunnelUpdateDropsRunning(model.Gateway, model.VLESS, true) {
+		t.Fatal("leaving a tunnel proto must stop the sidecar")
+	}
+	if !tunnelUpdateDropsRunning(model.VLESS, model.Gateway, true) {
+		t.Fatal("incoming tunnel must remove the old handler")
+	}
+}
