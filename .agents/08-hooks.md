@@ -197,6 +197,7 @@ Keep the directory. Origin will not have these.
 | Dir / file | What |
 |---|---|
 | `internal/awg/` | kernel AWG sidecar |
+| `internal/awg/peer_routes{,_linux,_other,_test}.go` | peer LAN routes (issue #126) |
 | `internal/lucx/` | tunnel sidecars, geodata, parser |
 | `internal/database/migrate_awg*.go` `migrate_geodata.go` `migrate_naive_inbound.go` `migrate_tunnel_*.go` `repair_tunnel_fields.go` | LucX migrations |
 | `internal/database/model/awg_outbound.go` `sidecar_outbound.go` | LucX tables |

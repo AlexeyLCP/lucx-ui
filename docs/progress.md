@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.285 — Peer LAN routes behind AWG clients (issue #126, 2026-10-05)
+
+admst87: client's LAN in AllowedIPs (`10.201.0.3/32, 192.168.10.0/24`) got no route on the server — `Table = off` leaves awg-quick installing only the peer /32s, so reach-back into the client's LAN needed a manual `ip route add 192.168.10.0/24 dev awg2`. Reconcile now converges those routes: `peerRoutePrefixes` picks IPv4 prefixes wider than /32, excluding the default and the server's own tunnel subnet; `ensurePeerRoutesLocked` (linux) `ip route replace <prefix> dev awgN` every tick (self-heals after reboot / iface restart, like ensureNatRules), the installed list rides `managed.peerRoutes`; `flushPeerRoutesLocked` deletes exactly that list on inbound removal / reconcile sweep — a foreign same-prefix route on another dev is untouched. routeThroughXray inbounds skip it (Xray TUN owns routing). Rule 0 safe: peer AllowedIPs are read-only.
+
+**lucxVersion:** lucx.285
+
+Files: `internal/awg/peer_routes{,_linux,_other,_test}.go` (new), `internal/awg/manager.go` (managed.peerRoutes + 3 call sites).
+
+Tests: `go test ./internal/awg/ -count=1` (new `TestPeerRoutePrefixes`, issue case exact). Linux paths compile on CI (`go build ./...`).
+
+---
+
 ## lucx.284 — Sponsors feed to fork + uninstall reinstall hint (2026-10-05)
 
 Upstream v3.9.0 added a Sponsors page fed from `sponsors.sanaei.dev/3X` — MHSanaei's paid slots rendered in our panel. `internal/web/service/panel/sponsor.go` now points `sponsorsURL`/`sponsorLogoBase` at raw `AlexeyLCP/lucx-ui/main/sponsors/*` (LUCX-HOOK) and reads `sponsors/sponsors.json` from the repo under XUI_DEBUG. The list carries Boosty supporters in tier order (Handshake → Pong → Ping → subscribers: VladufQa, пётр смолин, Сила Растений, Виталий Зайцев, Михаил Ляшенко, Камслат Глорихо, Игорь, Aleksandr S.) plus contributor thanks (Kirill Rudenko, 302ba, Aleksandr SacredX, alireza0, STRENCH0, 3x-ui team); contact → Boosty. i18n intro/yourBrandText de-3X-UI'd in all 13 locales. README financial-supporters block re-grouped by Boosty tier in RU + 5 translated READMEs, pointing at `/panel/sponsors`. `x-ui.sh` uninstall hint printed MHSanaei's install command — now it follows `lucx_install_source` (GitHub raw / Yandex dist bundle) like `install()` (LUCX-HOOK).

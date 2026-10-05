@@ -35,6 +35,9 @@ type managed struct {
 	lastTx   map[string]int64
 	haveLast bool
 	peers    []PeerSpec
+	// peerLANRoutes: LAN prefixes behind clients (issue #126) this manager has
+	// installed with `ip route replace`, for cleanup on removal.
+	peerRoutes []string
 }
 
 // Manager owns the set of running AWG interfaces keyed by inbound id, exactly
@@ -173,6 +176,7 @@ func (m *Manager) Remove(id int) {
 	cleanupTproxyConfig(configPathForID(id))
 	m.flushPortForwards(id)
 	m.flushP2PRules(id)
+	m.flushPeerRoutesLocked(id)
 	path := configPathForID(id)
 	if _, err := os.Stat(path); err == nil {
 		if berr := backupConfigFile(path); berr != nil {
@@ -204,6 +208,7 @@ func (m *Manager) Reconcile(desired []Instance) {
 			delete(m.procs, id)
 			m.flushPortForwards(id)
 			m.flushP2PRules(id)
+			m.flushPeerRoutesLocked(id)
 			// lucx.67: back up rather than delete (see Remove).
 			path := configPathForID(id)
 			if _, err := os.Stat(path); err == nil {
@@ -239,6 +244,7 @@ func (m *Manager) Reconcile(desired []Instance) {
 		m.ensureNatRules(inst)
 		m.ensureP2PRules(inst)
 		m.ensurePortForwards(inst)
+		m.ensurePeerRoutesLocked(inst)
 	}
 }
 
