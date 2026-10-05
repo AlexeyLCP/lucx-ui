@@ -535,6 +535,7 @@ func TestRenderUnifiedGatewayCaddyfile(t *testing.T) {
 	}, "cover-2", "203.0.113.5", sites)
 	for _, need := range []string{
 		"auto_https off",
+		"grace_period 1s",
 		"protocols h1 h2",
 		"203.0.113.5:443",
 		"matching_timeout 15s",
@@ -606,6 +607,52 @@ func TestBuildPreview_SetsChan(t *testing.T) {
 	}
 	if a == nil || a.Chan != "" || !a.NoProxy {
 		t.Fatalf("anytls route: %+v", a)
+	}
+}
+
+func TestFillEmptyHomeReplacesBlankHOME(t *testing.T) {
+	got := fillEmptyHome([]string{"HOME=", "XDG_CONFIG_HOME=", "PATH=/bin"}, "/var/lib/x-ui")
+	home, xdg := "", ""
+	for _, e := range got {
+		k, v, _ := strings.Cut(e, "=")
+		switch k {
+		case "HOME":
+			if home != "" {
+				t.Fatalf("duplicate HOME: %v", got)
+			}
+			home = v
+		case "XDG_CONFIG_HOME":
+			xdg = v
+		}
+	}
+	if home != "/var/lib/x-ui" || xdg != "/var/lib/x-ui" {
+		t.Fatalf("home=%q xdg=%q env=%v", home, xdg, got)
+	}
+	kept := fillEmptyHome([]string{"HOME=/root"}, "/var/lib/x-ui")
+	if !strings.Contains(strings.Join(kept, "\n"), "HOME=/root") {
+		t.Fatalf("must keep a set HOME: %v", kept)
+	}
+}
+
+func TestGatewayInstance_DropsL4HTTPWhenSiteMissing(t *testing.T) {
+	stubGatewayChan(t, true)
+	cover := &model.Inbound{
+		Id: 2, Protocol: model.Cover, Port: 8443, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"hostname":"cov.example.com","siteSource":"upstream","siteUpstream":"http://127.0.0.1:8080"}`,
+	}
+	gw := &model.Inbound{
+		Id: 3, Protocol: model.Gateway, Port: 443, Enable: true,
+		Settings: `{"enabled":true,"unified":true,"routes":[{"sni":"cov.example.com","dest":"127.0.0.1:8443","chan":"cover-2"},{"sni":"v.example.com","dest":"127.0.0.1:1443"}],"snapshot":[{"inboundId":2}]}`,
+	}
+	inst, ok := GatewayInstanceFromInbound(gw, []*model.Inbound{cover}, nil, "/no/such.crt", "/no/such.key")
+	if !ok || !inst.Enabled {
+		t.Fatalf("ok=%v enabled=%v", ok, inst.Enabled)
+	}
+	if strings.Contains(inst.ConfigText, "l4http cover-2") {
+		t.Fatalf("dead cover still routed:\n%s", inst.ConfigText)
+	}
+	if !strings.Contains(inst.ConfigText, "tls sni v.example.com") {
+		t.Fatalf("passthrough route dropped:\n%s", inst.ConfigText)
 	}
 }
 

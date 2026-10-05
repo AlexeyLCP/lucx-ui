@@ -4,6 +4,14 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ar: gateway SIGTERM timeout while masking is on — FIXED (lucx.282)
+
+- **Symptom (Gennady, 05.10.2026):** `tunnel: gateway-N did not stop after SIGTERM, killing process group` while masking is on. Gone when masking is off. Caddy logs `exiting; byeee` on SIGTERM and stays up. Also `$HOME` empty and `l4http: no http listener "cover-N"`.
+- **Cause:** Caddy HTTP shutdown waits forever when `grace_period` is unset. Masking keeps connections on :443, so the 5s stop always times out. A route can still name `cover-N` after that site block failed to render.
+- **Fix:** `grace_period 1s` in generated Caddyfiles. Drop `l4http` routes whose site did not render. Set `HOME` when systemd left it empty.
+- **Healing:** update, then save masking (or wait one reconcile) so the Caddyfile is rewritten. One warning on the old process is normal; it must not repeat.
+- **If `config changed, restarting` repeats every ~10s:** the gateway fingerprint is still moving. Diff `/usr/local/x-ui/bin/tunnel/gateway-N.caddyfile` across two ticks before changing anything else.
+
 ### Pattern 1aq: CSQTT connects, no traffic — Xray bridge incomplete — FIXED (lucx.277)
 
 - **Symptom (VladufQa, 01.10.2026):** CSQTT connects, traffic does not flow.

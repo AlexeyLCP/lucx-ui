@@ -209,7 +209,7 @@ func mtproxyXrayRedirectArgs(uid string, port int) []string {
 
 func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int, loopback bool, panel []CoverRoute) string {
 	var b strings.Builder
-	b.WriteString("{\n\tadmin off\n\tauto_https off\n")
+	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tgrace_period 1s\n")
 	writeCaddyServers(&b, false, loopback)
 	b.WriteString("}\n")
 	writeTproxySite(&b, hostname, port, cert, key, relayPort, loopbackBind(loopback), panel, nil, nil)

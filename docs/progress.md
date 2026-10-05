@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.282 — Masking gateway exits on SIGTERM (2026-10-05)
+
+Gennady: `gateway-N did not stop after SIGTERM` while masking is on; gone when masking is off. Caddy's default HTTP grace period is eternal, so a :443 with live connections logs `exiting` and never dies inside our 5s stop. Unified gateway, cover, naive and tproxy Caddyfiles now set `grace_period 1s`. A saved `l4http cover-N` route is dropped when that site block did not render (`no http listener`). Empty `HOME` (systemd) is replaced so Caddy stops writing storage into the cwd. A config-change restart logs `config changed, restarting` — if that line repeats every ~10s, the fingerprint is still moving.
+
+**lucxVersion:** lucx.282
+
+Tests: `go test ./internal/lucx/tunnel/ -count=1`
+
+---
+
 ## lucx.281 — OpenFlux sidecar (2026-10-04)
 
 Inbound-only OpenFlux exit (`openflux-{id}`), same skeleton as olcRTC. Always l4. Direct listens on the inbound port; optional Yandex / Mail.ru / Cups URLs. One `openflux://v1/` link, one active client. Secret minted once on save; clearing the field does not rotate it. New user = new inbound. Form notes on olcRTC / OpenFlux say that; qWDTT / CSQTT notes say a second inbound on the host will not start.

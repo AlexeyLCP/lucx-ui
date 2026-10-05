@@ -174,7 +174,7 @@ func RenderUnifiedGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallba
 		listen = ip + ":" + strconv.Itoa(listenPort)
 	}
 	var b strings.Builder
-	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tlog {\n\t\tlevel WARN\n\t}\n\tservers {\n\t\tprotocols h1 h2\n\t}\n\tlayer4 {\n\t\t")
+	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tgrace_period 1s\n\tlog {\n\t\tlevel WARN\n\t}\n\tservers {\n\t\tprotocols h1 h2\n\t}\n\tlayer4 {\n\t\t")
 	b.WriteString(listen)
 	b.WriteString(" {\n")
 	writeL4Mux(&b, routes, GatewayRoute{Chan: fallbackChan})
@@ -210,6 +210,17 @@ func writeL4Mux(b *strings.Builder, routes []GatewayRoute, fallback GatewayRoute
 	b.WriteString("\t\t\troute {\n")
 	writeL4Handler(b, fallback)
 	b.WriteString("\t\t\t}\n")
+}
+
+func dropDeadChans(routes []GatewayRoute, live map[string]bool) []GatewayRoute {
+	out := make([]GatewayRoute, 0, len(routes))
+	for _, r := range routes {
+		if r.Chan != "" && !live[r.Chan] {
+			continue
+		}
+		out = append(out, r)
+	}
+	return out
 }
 
 func writeL4Handler(b *strings.Builder, r GatewayRoute) {

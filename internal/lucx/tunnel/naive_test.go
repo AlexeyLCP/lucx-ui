@@ -321,7 +321,7 @@ func TestRenderCaddyfileEscapesCredentials(t *testing.T) {
 func TestRenderCaddyfileRawMode(t *testing.T) {
 	cfg := NaiveConfig{UseRawConfig: true, RawConfig: ":8443 {\n\trespond \"ok\"\n}"}
 	got := cfg.RenderCaddyfile(nil, "")
-	if !strings.HasPrefix(got, "{\n\tadmin off\n\tskip_install_trust\n}\n\n") {
+	if !strings.HasPrefix(got, "{\n\tadmin off\n\tgrace_period 1s\n\tskip_install_trust\n}\n\n") {
 		t.Errorf("raw mode must prepend admin off:\n%q", got)
 	}
 	if !strings.Contains(got, ":8443 {\n\trespond \"ok\"\n}") {

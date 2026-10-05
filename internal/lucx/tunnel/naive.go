@@ -219,11 +219,11 @@ func caddyGlobalBraceIndex(s string) int {
 func forceCaddySafeGlobal(raw string) string {
 	s := caddyAdminStmt.ReplaceAllString(raw, "")
 	s = strings.TrimRight(s, "\n") + "\n"
-	const inject = "\n\tadmin off\n\tskip_install_trust\n"
+	const inject = "\n\tadmin off\n\tgrace_period 1s\n\tskip_install_trust\n"
 	if brace := caddyGlobalBraceIndex(s); brace >= 0 {
 		return s[:brace+1] + inject + s[brace+1:]
 	}
-	return "{\n\tadmin off\n\tskip_install_trust\n}\n\n" + s
+	return "{\n\tadmin off\n\tgrace_period 1s\n\tskip_install_trust\n}\n\n" + s
 }
 
 // HardenRawCaddyfile is what a raw config becomes before caddy sees it, so the
@@ -270,6 +270,7 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 	var b strings.Builder
 	b.WriteString("{\n")
 	b.WriteString("\tadmin off\n")
+	b.WriteString("\tgrace_period 1s\n")
 	// Caddy tries to install its internal CA root into the system trust
 	// store whenever a localhost/internal cert appears — pointless for a
 	// headless sidecar and noisy in the log.

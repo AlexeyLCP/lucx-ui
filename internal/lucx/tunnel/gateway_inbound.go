@@ -84,30 +84,39 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 		}
 		fallbackChan := ""
 		tproxyChan := ""
+		live := map[string]bool{}
 		for _, s := range cfg.Snapshot {
 			o := byID[s.InboundID]
 			if o == nil {
 				continue
 			}
 			site, certFile := gatewaySiteBlock(o, others, secret, panelCert, panelKey)
+			chanName := GatewayChanKey(o)
 			if site != "" {
 				sites = append(sites, site)
+				if chanName != "" {
+					live[chanName] = true
+				}
 			}
 			if certFile != "" {
 				certs = append(certs, certFile)
 			}
+			if !live[chanName] {
+				continue
+			}
 			switch o.Protocol {
 			case model.Cover:
-				fallbackChan = CoverKey(o.Id)
+				fallbackChan = chanName
 			case model.Tproxy:
 				if tproxyChan == "" {
-					tproxyChan = TproxyCaddyKey(o.Id)
+					tproxyChan = chanName
 				}
 			}
 		}
 		if fallbackChan == "" {
 			fallbackChan = tproxyChan
 		}
+		routes = dropDeadChans(routes, live)
 		for _, c := range certs {
 			fpExtra += CertFileHash(c)
 		}
