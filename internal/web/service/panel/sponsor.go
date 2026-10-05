@@ -46,7 +46,7 @@ const (
 	maxSponsorsBytes = 256 << 10
 	maxLogoBytes     = 256 << 10
 	maxSidebarSlots  = 3
-	localSponsorsDir = "../sponsors"
+	localSponsorsDir = "../sponsors/3X"
 	sponsorLogoPath  = "/sponsors/logo/"
 )
 
@@ -160,8 +160,9 @@ func fetchSponsorLogo(name string) ([]byte, string, error) {
 	}
 }
 
-// readSponsorSource reads a sibling checkout of the LucX sponsors dir under
-// XUI_DEBUG so sponsor edits can be previewed locally before they are pushed.
+// readSponsorSource reads a sibling checkout of MHSanaei/sponsors (upstream
+// layout, sponsors/3X) under XUI_DEBUG so sponsor edits can be previewed
+// locally before they are pushed.
 func readSponsorSource(url, localPath string, limit int) ([]byte, error) {
 	if !config.IsDebug() {
 		return fetchLimited(url, limit)

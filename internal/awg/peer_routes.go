@@ -7,15 +7,14 @@
 package awg
 
 import (
-	"fmt"
 	"net/netip"
 	"strings"
 )
 
 // peerRoutePrefixes extracts the LAN subnets behind a client from its
-// AllowedIPs (issue #126): prefixes wider than /32 (//128) that are not the
-// catch-all default and do not overlap the server's own tunnel subnet. The
-// peer /32 itself already gets a route from awg-quick, so only these need one.
+// AllowedIPs: prefixes wider than /32 (//128) that are not the catch-all
+// default and do not overlap the server's own tunnel subnet. The peer /32
+// itself already gets a route from awg-quick, so only these need one.
 func peerRoutePrefixes(tunnelAddress, allowed string) []string {
 	tunnel := clientSubnet(tunnelAddress)
 	var out []string
@@ -44,10 +43,4 @@ func peerRoutePrefixes(tunnelAddress, allowed string) []string {
 		out = append(out, sub)
 	}
 	return out
-}
-
-// peerRouteComment tags kernel routes LucX manages so they can be listed and
-// flushed without touching foreign ones.
-func peerRouteComment(id int) string {
-	return fmt.Sprintf("lucx-awg-routes-%d", id)
 }
