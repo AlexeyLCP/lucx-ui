@@ -93,6 +93,6 @@ func delPeerRoute(ifname, sub string) {
 	}
 	// Device-scoped delete: a same-prefix route on another dev is not ours.
 	if out, err := exec.CommandContext(context.Background(), "ip", "route", "del", sub, "dev", ifname).CombinedOutput(); err != nil && !strings.Contains(string(out), "No such process") {
-		logger.Warningf("awg: peer route flush (%s %s): %v\n%s", ifname, sub, err, strings.TrimSpace(out))
+		logger.Warningf("awg: peer route flush (%s %s): %v\n%s", ifname, sub, err, strings.TrimSpace(string(out)))
 	}
 }
