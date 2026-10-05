@@ -4,6 +4,13 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1as: node `update/<id>` "record not found" retry loop — FIXED (lucx.283)
+
+- **Symptom (Gennady, 05.10.2026):** after deleting and recreating a node-side cover site, the master logs `POST /panel/api/inbounds/update/3 ... record not found` on every 5 s node-sync tick.
+- **Cause:** `Remote.remoteIDByTag` cached the node-side tag→id; a row recreated on the node got a new id and the stale cache was served without a refetch. The failed push kept the node dirty → retry each tick, forever.
+- **Fix:** `postUpdate` drops the stale cache entry on "record not found" and retries once with a refetched id; a tag gone entirely falls back to create.
+- **Healing:** none needed — a master on lucx.283+ self-heals on the first reconcile tick.
+
 ### Pattern 1ar: gateway SIGTERM timeout while masking is on — FIXED (lucx.282)
 
 - **Symptom (Gennady, 05.10.2026):** `tunnel: gateway-N did not stop after SIGTERM, killing process group` while masking is on. Gone when masking is off. Caddy logs `exiting; byeee` on SIGTERM and stays up. Also `$HOME` empty and `l4http: no http listener "cover-N"`.

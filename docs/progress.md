@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.283 — Node sync: stale cached inbound id self-heals (2026-10-05)
+
+Gennady: deleted a node's cover site and recreated it; the master then POSTed `inbounds/update/3 ... record not found` every 5 s tick forever. `Remote` cached the node-side tag→id; an inbound recreated on the node (new row id) left that cache stale, and `resolveRemoteID` served the dead id without a refetch. `postUpdate` now drops the cache entry on a "record not found" answer and retries once with a refetched id, falling back to create when the tag is gone entirely — the dirty-reconcile loop converges instead of ping-ponging a dead id.
+
+**lucxVersion:** lucx.283
+
+Tests: `go test ./internal/web/runtime/ -count=1` (new: `TestUpdateInboundStaleIDRetriesFreshID`)
+
+---
+
 ## lucx.282 — Masking gateway exits on SIGTERM (2026-10-05)
 
 Gennady: `gateway-N did not stop after SIGTERM` while masking is on; gone when masking is off. Caddy's default HTTP grace period is eternal, so a :443 with live connections logs `exiting` and never dies inside our 5s stop. Unified gateway, cover, naive and tproxy Caddyfiles now set `grace_period 1s`. A saved `l4http cover-N` route is dropped when that site block did not render (`no http listener`). Empty `HOME` (systemd) is replaced so Caddy stops writing storage into the cwd. A config-change restart logs `config changed, restarting` — if that line repeats every ~10s, the fingerprint is still moving.

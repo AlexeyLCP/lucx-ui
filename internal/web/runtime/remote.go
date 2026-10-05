@@ -459,7 +459,8 @@ func (r *Remote) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound)
 		return r.AddInbound(ctx, newIb)
 	}
 	payload := wireInbound(newIb, r.node.Id)
-	if _, err := r.do(ctx, http.MethodPost, "panel/api/inbounds/update/"+strconv.Itoa(id), payload); err != nil {
+	id, err = r.postUpdate(ctx, id, oldIb.Tag, newIb, payload)
+	if err != nil {
 		return err
 	}
 	if oldIb.Tag != newIb.Tag {
@@ -468,6 +469,31 @@ func (r *Remote) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound)
 	r.cacheSet(newIb.Tag, id)
 	r.recordPushedInbound(newIb)
 	return nil
+}
+
+// postUpdate POSTs one inbound update. A "record not found" answer means the
+// cached id is stale — the row was deleted and recreated on the node, so the
+// tag now maps to a different id. The stale cache entry is dropped and a
+// fresh id resolves once; a tag that is gone entirely falls back to create.
+func (r *Remote) postUpdate(ctx context.Context, id int, tag string, newIb *model.Inbound, payload url.Values) (int, error) {
+	if _, err := r.do(ctx, http.MethodPost, "panel/api/inbounds/update/"+strconv.Itoa(id), payload); err == nil {
+		return id, nil
+	} else {
+		var apiErr *remoteAPIError
+		if !errors.As(err, &apiErr) || !strings.Contains(apiErr.msg, "record not found") {
+			return 0, err
+		}
+	}
+	logger.Infof("remote update: node %s has no inbound %q by id %d — refetching", r.node.Name, tag, id)
+	r.cacheDel(tag)
+	next, err := r.resolveRemoteID(ctx, tag)
+	if err != nil {
+		return 0, r.AddInbound(ctx, newIb)
+	}
+	if _, err := r.do(ctx, http.MethodPost, "panel/api/inbounds/update/"+strconv.Itoa(next), payload); err != nil {
+		return 0, err
+	}
+	return next, nil
 }
 
 func (r *Remote) SetInboundSubSortIndex(ctx context.Context, ib *model.Inbound, index int) error {
