@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.287 — Upstream fix 6729: update.sh migrates DB before service start (2026-10-07)
+
+Cherry-pick of MHSanaei/3x-ui#6729 (commit 2ccf1f6, closes upstream issue #6728): `update_x-ui()` used to `systemctl start x-ui` and then run `config_after_update` (`x-ui setting -show true` + `x-ui migrate`), so the service and the CLI both ran `InitDB()` concurrently on the same DB. On a schema-adding upgrade the loser died (`duplicate column name: exclude_from_sub` on 3.8.5→3.9.0; also `table node_pending_resets already exists`). update.sh now runs `"${xui_folder}/x-ui" migrate` to completion **before** both the OpenRC and systemd start paths (+5 lines, upstream order identical at the insertion point). Our `update.sh` has 4 LUCX-HOOK blocks — none near the change; no conflicts.
+
+**lucxVersion:** lucx.287
+
+Files: `update.sh`.
+
+Tests: `bash -n update.sh` (syntax OK); `bin/check-lucx.sh` hook count unchanged (4). Shell step ordering needs a Linux host (CGO/`x-ui` binary), verified upstream by 0/30 concurrent-InitDB reproduction.
+
+---
+
 ## lucx.286 — Gateway no longer restarts on every node-sync push (2026-10-05)
 
 Gennady, both panels on lucx.283: exit-node `gateway-3` SIGTERM every ~5s (no `config changed`), master `POST …/inbounds/update/3` EOF on the same tick. The push itself killed caddy, because `Local.UpdateInbound` Del+Add'd every tunnel proto and the panel API is behind that gateway on :443. EOF meant `pushedFP` was never stored, so the 5s reconcile retried forever. Same-protocol enable now goes through Ensure; an unchanged fingerprint does not SIGTERM. Rule 0 safe: no client fields rewritten.
