@@ -1068,6 +1068,20 @@ func (s *ClientService) bulkDelInboundClients(
 		return res
 	}
 
+	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not
+	// settings; rewriting the absent clients[] slice as [] would detach every
+	// sibling on the inbound. Link-table detach only; the caller's shared
+	// transaction removes the record rows themselves.
+	if shareOnlySidecar(oldInbound.Protocol) {
+		if delErr := s.detachShareOnlyClient(inboundSvc, inboundId, emails, keepTraffic); delErr != nil {
+			for _, e := range emails {
+				res.perEmailSkipped[e] = delErr.Error()
+			}
+			return res
+		}
+		return res
+	}
+	// END LUCX-HOOK
 	var settings map[string]any
 	if err := json.Unmarshal([]byte(oldInbound.Settings), &settings); err != nil {
 		for _, e := range emails {

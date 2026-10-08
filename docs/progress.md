@@ -1,5 +1,22 @@
 # LucX-UI — Прогресс
 
+## lucx.288 — Share-only sidecar clients: удаление и переименование без settings.clients (2026-10-08)
+
+Тестер @dantelcp: удаление клиента с инбаунда qWDTT / CSQTT / Telegram Web Proxy (tproxy) / OpenFlux падало `invalid clients format in inbound settings`, а переименование ловило `UNIQUE constraint failed: clients.email`. Причина: связи клиентов лежат в `client_inbounds` (share-only держит клиентов только там), но все три пути удаления (`DelInboundClientByEmail`, пакетный `delInboundClients` из BulkDetach, `bulkDelInboundClients` из BulkDelete) всё ещё требовали массив `clients[]` внутри settings-JSON — а у share-only его нет (slim-список для UI инжектится на лету, `mergeShareOnlySlimClients`). Обход триггерами в скрипте тестера больше не нужен.
+
+1. `DelInboundClientByEmail` / `delInboundClients` / `bulkDelInboundClients`: ранний выход при `shareOnlySidecar(protocol)` в новый хелпер `detachShareOnlyClient` (`lucx_online.go`): чистка статов/IP для email, которых нет на других инбаундах (та же логика, что и обычный путь, `runSerializedTx`), затем `ApplyInboundClientDelta` только по таблице ссылок. Rebase настроек не нужен (трогать нечего), runtime-push не нужен: все пять share-only ядер аутентифицируют один общий секрет — пер-клиентских списков в sidecar нет, консистентность держит 10-секундный reconcile туннельного джоба. Node-push не требуется: node-sync share-only снапшоты не импортирует (#59), привязки ноды — её собственные.
+2. Переименование (`UpdateInboundClient` share-only-ветка): дельта с новым emails искала запись и вставляла новую — уникальный индекс `clients.email` падал, т.к. старая запись ещё жила. Теперь rename записи в той же транзакции до дельты (guard `renameTaken == 0`, byte-compare — case-переименования тоже проходят, как в generic-ветке), затем дельта находит уже переименованную запись; ссылка сохраняется (id не меняется), detach oldEmail после rename — пустой no-op. Безопасно при смешанных инбаундах: какой apply переименует запись первым, второй видит renameTaken>0 и не дублирует.
+
+Rule 0: не трогает настройки инбаундов/ключи/креды клиентов. Rule 0b: share-only-ветка в UpdateInboundClient уже существовала (эпоха lucx.119) — расширяем, поведение обычных протоколов не меняется.
+
+**lucxVersion:** lucx.288
+
+Files: `internal/web/service/lucx_online.go` (хелпер, PolyForm), `internal/web/service/client_inbound_apply.go` (3 HOOK), `internal/web/service/client_bulk.go` (1 HOOK), `internal/web/service/client_shareonly_delete_test.go` (новый тест).
+
+Tests: новый `TestDeleteClientOnShareOnlyInbound` + `TestRenameClientOnShareOnlyInbound` (qwdtt/csqtt/openflux/tproxy — до фикса падали с теми же сообщениями, что и тестеры). Регрессия: `go test ./internal/web/service/ ./internal/web/runtime/ ./internal/awg/... ./internal/lucx/... ./internal/database/... -count=1` — зелёный; `bin/check-lucx.sh` gofumpt OK; наш тестовый файл с SPDX, origin-файлы без SPDX — как и было (Rule 10).
+
+---
+
 ## lucx.287 — Upstream fix 6729: update.sh migrates DB before service start (2026-10-07)
 
 Cherry-pick of MHSanaei/3x-ui#6729 (commit 2ccf1f6, closes upstream issue #6728): `update_x-ui()` used to `systemctl start x-ui` and then run `config_after_update` (`x-ui setting -show true` + `x-ui migrate`), so the service and the CLI both ran `InitDB()` concurrently on the same DB. On a schema-adding upgrade the loser died (`duplicate column name: exclude_from_sub` on 3.8.5→3.9.0; also `table node_pending_resets already exists`). update.sh now runs `"${xui_folder}/x-ui" migrate` to completion **before** both the OpenRC and systemd start paths (+5 lines, upstream order identical at the insertion point). Our `update.sh` has 4 LUCX-HOOK blocks — none near the change; no conflicts.

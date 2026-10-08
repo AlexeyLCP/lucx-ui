@@ -70,6 +70,16 @@ func (s *ClientService) delInboundClients(inboundSvc *InboundService, inboundId 
 		return false, err
 	}
 
+	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not settings.
+	if shareOnlySidecar(oldInbound.Protocol) {
+		emails := make([]string, 0, len(recs))
+		for _, rec := range recs {
+			emails = append(emails, rec.Email)
+		}
+		return false, s.detachShareOnlyClient(inboundSvc, inboundId, emails, keepTraffic)
+	}
+	// END LUCX-HOOK
+
 	var settings map[string]any
 	if err := json.Unmarshal([]byte(oldInbound.Settings), &settings); err != nil {
 		return false, err
@@ -702,7 +712,26 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 			return false, common.NewError("client email is required")
 		}
 		if txErr := runSerializedTx(func(tx *gorm.DB) error {
-			return s.ApplyInboundClientDelta(tx, oldInbound.Id, clients[:1], nil)
+			newEmail := strings.TrimSpace(clients[0].Email)
+			var detachEmails []string
+			// A rename must move the one client record first: writing the link
+			// delta to the new email while the old row still holds the old one
+			// violates the unique email index instead of renaming (UNIQUE
+			// constraint failed: clients.email). Byte-level compare, like the
+			// generic branch below — case-only edits must rename too.
+			if len(oldEmail) > 0 && oldEmail != newEmail {
+				var renameTaken int64
+				if e := tx.Model(&model.ClientRecord{}).Where("email = ?", newEmail).Count(&renameTaken).Error; e != nil {
+					return e
+				}
+				if renameTaken == 0 {
+					if e := tx.Model(&model.ClientRecord{}).Where("email = ?", oldEmail).Update("email", newEmail).Error; e != nil {
+						return e
+					}
+				}
+				detachEmails = []string{oldEmail}
+			}
+			return s.ApplyInboundClientDelta(tx, oldInbound.Id, clients[:1], detachEmails)
 		}); txErr != nil {
 			return false, txErr
 		}
@@ -1125,6 +1154,12 @@ func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inbo
 		logger.Error("Load Old Data Error")
 		return false, err
 	}
+
+	// LUCX-HOOK: share-only sidecars keep clients in client_inbounds, not settings.
+	if shareOnlySidecar(oldInbound.Protocol) {
+		return false, s.detachShareOnlyClient(inboundSvc, inboundId, []string{email}, keepTraffic)
+	}
+	// END LUCX-HOOK
 
 	var settings map[string]any
 	if err := json.Unmarshal([]byte(oldInbound.Settings), &settings); err != nil {
