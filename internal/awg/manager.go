@@ -180,7 +180,7 @@ func (m *Manager) recoverStaleInterface(proc *Process) error {
 		return nil
 	}
 	if err := deleteNetdev(proc.ifname); err != nil {
-		return fmt.Errorf("awg interface already up: %s (%v)", proc.ifname, err)
+		return fmt.Errorf("awg interface already up: %s (%w)", proc.ifname, err)
 	}
 	logger.Warningf("awg: recovered stale interface %s (awg-quick down failed, netdev deleted)", proc.ifname)
 	return nil
