@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.289 — AWG self-recovery for stale interfaces, fixes post-update "already up" loop (Igor, 2026-10-10)
+
+Igor, after a panel update: every 10 s `awg: reconcile failed for inbound 1: awg interface already up: awg1`, the AWG 3.1 inbound never came up, disable/enable did not help, a panel restart restored it. Mechanism: a tick with a transient `KernelAvailable()==false` (module/tools being swapped during the update's rebuild hook) runs the kernel `Reconcile(nil)` handover — procs emptied + markered `.conf` backed up/removed, while the best-effort `awg-quick down` failed (tools swapped mid-tick) leaving the iface up. Next ticks: conf regenerated, `Start` → "already up" forever — the orphan sweep (`m.swept`) runs once per process and disable/enable does not touch the stray; only a fresh process recovers (new sweep classifies the regenerated marked conf as ours and `ip link del`s it).
+
+Fix in `internal/awg/manager.go`: `recoverStaleInterface` runs before every `ensureLocked` start attempt — graceful `awg-quick down`, hard `ip link del` fallback (same op the orphan sweep uses; the conf at configPath is always ours at that point, and a foreign iface holding our inbound's id breaks its UDP port anyway). Self-heals in ≤1 tick, no user action. Seams for tests: `awgQuickFunc` / `netClassBase` / `deleteNetdev` vars; Adopt unaffected (only starts a DOWN iface).
+
+**lucxVersion:** lucx.289
+
+Files: `internal/awg/process.go` (seams), `internal/awg/manager.go` (`recoverStaleInterface`), `internal/awg/manager_recover_test.go` (new), `.agents/07-debug-awg.md` (Pattern 1ae).
+
+Tests: `TestEnsureLocked_RecoversStaleInterface`, `TestEnsureLocked_RecoversWhenQuickDownFails`; `go test ./internal/awg/... ./internal/lucx/... -count=1` green; `gofumpt` clean.
+
+---
+
 ## lucx.288 — Share-only sidecar clients: удаление и переименование без settings.clients (2026-10-08)
 
 Тестер @dantelcp: удаление клиента с инбаунда qWDTT / CSQTT / Telegram Web Proxy (tproxy) / OpenFlux падало `invalid clients format in inbound settings`, а переименование ловило `UNIQUE constraint failed: clients.email`. Причина: связи клиентов лежат в `client_inbounds` (share-only держит клиентов только там), но все три пути удаления (`DelInboundClientByEmail`, пакетный `delInboundClients` из BulkDetach, `bulkDelInboundClients` из BulkDelete) всё ещё требовали массив `clients[]` внутри settings-JSON — а у share-only его нет (slim-список для UI инжектится на лету, `mergeShareOnlySlimClients`). Обход триггерами в скрипте тестера больше не нужен.

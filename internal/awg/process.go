@@ -30,6 +30,21 @@ const (
 // const) so tests can point it at a temp dir.
 var awgConfigDir = "/etc/amnezia/amneziawg"
 
+// awgQuickFunc drives an `awg-quick <verb> <confPath>` invocation, returning
+// the combined stdout+stderr output. Var so tests fake the kernel sidecar.
+var awgQuickFunc = awgQuick
+
+// netClassBase is where the kernel exposes live netdevs (Linux sysfs). Var so
+// tests fake IsRunning without a kernel.
+var netClassBase = "/sys/class/net"
+
+// deleteNetdev hard-removes a live netdev, the way the orphan sweep does. Var
+// so tests capture the recovery path. Unreachable off Linux: IsRunning stats
+// netClassBase, which only exists there.
+var deleteNetdev = func(ifname string) error {
+	return exec.CommandContext(context.Background(), "ip", "link", "del", ifname).Run()
+}
+
 // awgQuick wraps an `awg-quick <verb> <confPath>` invocation, returning the
 // combined stdout+stderr output.
 func awgQuick(verb, confPath string) ([]byte, error) {
@@ -155,7 +170,7 @@ func (p *Process) IsRunning() bool {
 	if p.ifname == "" {
 		return false
 	}
-	_, err := os.Stat("/sys/class/net/" + p.ifname)
+	_, err := os.Stat(netClassBase + "/" + p.ifname)
 	return err == nil
 }
 
@@ -172,7 +187,7 @@ func (p *Process) Start() error {
 	if err := os.MkdirAll(awgConfigDir, 0o750); err != nil {
 		return err
 	}
-	out, err := awgQuick("up", p.configPath)
+	out, err := awgQuickFunc("up", p.configPath)
 	if err != nil {
 		cleanupTproxyConfig(p.configPath)
 		_, _ = p.logWriter.Write(out)
@@ -191,7 +206,7 @@ func (p *Process) Stop() error {
 	if !p.IsRunning() {
 		return nil
 	}
-	out, err := awgQuick("down", p.configPath)
+	out, err := awgQuickFunc("down", p.configPath)
 	if err != nil {
 		// Interface may already be gone; treat as best-effort.
 		logger.Warningf("awg: awg-quick down %s: %v\n%s", p.ifname, err, string(out))

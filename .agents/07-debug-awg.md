@@ -272,6 +272,13 @@ Extracted from AGENTS.md. This file is project law.
 - **Healing:** panel update, then re-download .conf (PSK already rotated). Or delete+recreate the client.
 - **Lesson:** any partial client save that can hit `fillProtocolDefaults` must preserve tunnel credentials the way Create does.
 
+### Pattern 1ae: post-update loop "reconcile failed ... awg interface already up: awgN" — FIXED (lucx.289)
+
+- **Symptom (Igor, 10.10.2026):** after a panel update the log prints `awg: reconcile failed for inbound 1: awg interface already up: awg1` every 10 s; the AWG 3.1 inbound never comes up; disable/enable does not help; a panel restart restores it.
+- **Cause:** a tick with a transient `KernelAvailable()==false` (module/tools being swapped during the update's rebuild window) runs the kernel `Reconcile(nil)` handover — procs emptied, markered `.conf` backed up/removed — while the best-effort `awg-quick down` failed, leaving the iface up. Next ticks: `writeServerConfig` regenerates the conf, `Start` → "already up" forever: `m.swept` makes the orphan sweep run ONCE per process and disable/enable does not touch the stray. A panel restart recovers because the regenerated conf carries the x-ui marker, so the new process's first sweep classifies the iface as ours and `ip link del`s it.
+- **Fix (lucx.289):** `Manager.recoverStaleInterface` before every `ensureLocked` start attempt: graceful `awg-quick down`, then a hard `ip link del` fallback (the same op the orphan sweep performs). Safe for every start: the conf at configPath is ours (just rewritten) and a foreign iface occupying our inbound id breaks the UDP port anyway. Adopt is unaffected (it only starts a DOWN iface). Test seams: `awgQuickFunc` / `netClassBase` / `deleteNetdev`.
+- **Lesson:** "once per process" flags (`m.swept`) combined with best-effort destroys (`Stop`, conf sweep) can build an unrecoverable loop; interface truth lives in the kernel, not the in-memory procs map, so every start attempt must tolerate the "iface up, no bookkeeping" state.
+
 ### Pattern 1ag: DKMS fail on Ubuntu 22.04 5.15.0-194 — `timer_delete` redeclared — FIXED (lucx.267)
 
 - **Symptom (MasyGreen, issue #114):** fresh install / `x-ui install-awg` on `5.15.0-194-generic`. DKMS exit 2. `make.log`: `static declaration of timer_delete follows non-static declaration` in `compat.h`. Panel is up; AWG module is not.
