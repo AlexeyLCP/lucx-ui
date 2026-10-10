@@ -1,6 +1,6 @@
 module github.com/mhsanaei/3x-ui/v3
 
-go 1.27.1
+go 1.27.2
 
 require (
 	github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260828
@@ -31,7 +31,7 @@ require (
 	github.com/xtls/xray-core v1.260327.1-0.20260930074004-b26a91de4f32
 	go.uber.org/atomic v1.12.0
 	golang.org/x/crypto v0.57.0
-	golang.org/x/net v0.59.0
+	golang.org/x/net v0.60.0
 	golang.org/x/sys v0.48.0
 	golang.org/x/text v0.42.0
 	google.golang.org/grpc v1.86.0-dev
