@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"slices"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
@@ -43,6 +44,8 @@ func inboundTransports(protocol model.Protocol, streamSettings, settings string)
 	// END LUCX-HOOK
 	case model.TrustTunnel:
 		return transportTCP | transportUDP
+	case model.MASQUE:
+		return masqueTransports(streamSettings)
 	}
 
 	var bits transportBits
@@ -130,6 +133,26 @@ func gatewayOccupiesListen(ib *model.Inbound) bool {
 	}
 	cfg, ok := tunnel.GatewayConfigFromInbound(ib)
 	return ok && cfg.Applied()
+}
+
+// masqueTransports mirrors xray-core's MASQUE listener: HTTP/2 on TCP when the TLS
+// ALPN offers h2, HTTP/3 on UDP when it offers h3 or does not offer h2.
+func masqueTransports(streamSettings string) transportBits {
+	var stream struct {
+		TLSSettings struct {
+			ALPN []string `json:"alpn"`
+		} `json:"tlsSettings"`
+	}
+	_ = json.Unmarshal([]byte(streamSettings), &stream)
+	h2 := slices.Contains(stream.TLSSettings.ALPN, "h2")
+	var bits transportBits
+	if h2 {
+		bits |= transportTCP
+	}
+	if !h2 || slices.Contains(stream.TLSSettings.ALPN, "h3") {
+		bits |= transportUDP
+	}
+	return bits
 }
 
 // bindAddr is a listen address plus sockopt.v6only. xray listens on "tcp"/"udp",

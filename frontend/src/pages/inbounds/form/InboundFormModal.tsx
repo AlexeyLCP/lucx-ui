@@ -45,7 +45,11 @@ import { FormField, rhfZodValidate } from '@/components/form/rhf';
 import { Protocols, TRAFFIC_RESETS } from '@/schemas/primitives';
 import { SockoptStreamSettingsSchema } from '@/schemas/protocols/stream/sockopt';
 import { HysteriaStreamSettingsSchema } from '@/schemas/protocols/stream/hysteria';
-import { createHysteriaTlsSettingsWithDefaultCert } from '@/lib/xray/inbound-tls-defaults';
+import {
+  createHysteriaTlsSettingsWithDefaultCert,
+  createMasqueTlsSettingsWithDefaultCert,
+} from '@/lib/xray/inbound-tls-defaults';
+import { MASQUE_DEFAULT_PATH } from '@/schemas/protocols/stream/masque';
 import { VLESS_AUTH_LABEL_KEYS, vlessEncryptionAuthKind } from '@/lib/xray/vless-encryption';
 import { SniffingSchema } from '@/schemas/primitives/sniffing';
 import { TcpStreamSettingsSchema } from '@/schemas/protocols/stream/tcp';
@@ -54,8 +58,10 @@ import { WsStreamSettingsSchema } from '@/schemas/protocols/stream/ws';
 import { GrpcStreamSettingsSchema } from '@/schemas/protocols/stream/grpc';
 import { HttpUpgradeStreamSettingsSchema } from '@/schemas/protocols/stream/httpupgrade';
 import { XHttpStreamSettingsSchema } from '@/schemas/protocols/stream/xhttp';
+import { XDriveStreamSettingsSchema } from '@/schemas/protocols/stream/xdrive';
 import { DateTimePicker } from '@/components/form';
 import { FinalMaskField } from '@/lib/xray/forms/fields';
+import XDriveForm from '@/lib/xray/forms/transport/XDriveForm';
 import './InboundFormModal.css';
 
 import { AdvancedAllEditor, AdvancedSliceEditor } from './advanced-editors';
@@ -73,6 +79,8 @@ import {
   AmneziawgFields,
   HttpFields,
   HysteriaFields,
+  MasqueSettingsFields,
+  MasqueStreamFields,
   MixedFields,
   MtprotoFields,
   AwgFields, // LUCX-HOOK: AWG
@@ -238,6 +246,8 @@ function newStreamSlice(n: string): Record<string, unknown> {
       return HttpUpgradeStreamSettingsSchema.parse({});
     case 'xhttp':
       return XHttpStreamSettingsSchema.parse({});
+    case 'xdrive':
+      return XDriveStreamSettingsSchema.parse({});
     default:
       return {};
   }
@@ -344,6 +354,7 @@ export default function InboundFormModal({
    */
   const hasSelectableTransport =
     protocol !== Protocols.HYSTERIA &&
+    protocol !== Protocols.MASQUE &&
     protocol !== Protocols.WIREGUARD &&
     protocol !== Protocols.TUNNEL &&
     protocol !== Protocols.TUIC;
@@ -642,6 +653,13 @@ export default function InboundFormModal({
             ],
           },
         });
+      } else if (next === Protocols.MASQUE) {
+        setV('streamSettings', {
+          network: 'masque',
+          security: 'tls',
+          masqueSettings: { path: MASQUE_DEFAULT_PATH },
+          tlsSettings: createMasqueTlsSettingsWithDefaultCert(),
+        });
       } else if (
         next === Protocols.WIREGUARD ||
         next === Protocols.TUNNEL ||
@@ -689,7 +707,7 @@ export default function InboundFormModal({
         // END LUCX-HOOK
       } else {
         const current = getV('streamSettings') as { network?: string } | undefined;
-        if (current?.network === 'hysteria' || !current?.network) {
+        if (current?.network === 'hysteria' || current?.network === 'masque' || !current?.network) {
           setV('streamSettings', { network: 'tcp', security: 'none', tcpSettings: {} });
         }
       }
@@ -989,6 +1007,8 @@ export default function InboundFormModal({
 
       {protocol === Protocols.TUIC && <TuicFields />}
 
+      {protocol === Protocols.MASQUE && <MasqueSettingsFields />}
+
       {protocol === Protocols.TUN && <TunFields />}
 
       {protocol === Protocols.TUNNEL && <TunnelFields />}
@@ -1060,11 +1080,21 @@ export default function InboundFormModal({
       'grpcSettings',
       'httpupgradeSettings',
       'xhttpSettings',
+      'xdriveSettings',
     ];
     const current = (getV('streamSettings') as Record<string, unknown>) ?? {};
     const cleaned: Record<string, unknown> = { ...current, network: next };
     for (const k of ALL) {
       if (k !== `${next}Settings`) delete cleaned[k];
+    }
+    if (next === 'xdrive') {
+      /* The core would read the inbound's TLS as the storage API's client TLS. */
+      cleaned.security = 'none';
+      delete cleaned.tlsSettings;
+      delete cleaned.realitySettings;
+    } else {
+      delete cleaned.address;
+      delete cleaned.port;
     }
     cleaned[`${next}Settings`] = newStreamSlice(next);
     if (next === 'kcp') {
@@ -1089,6 +1119,12 @@ export default function InboundFormModal({
         cleaned.finalmask = { ...fm, udp };
       }
     }
+    /* WebSocket needs HTTP/1.1 for its handshake; the TLS default
+     * ALPN ['h2','http/1.1'] makes the server negotiate h2 (see #6782). */
+    if (next === 'ws' && cleaned.security === 'tls') {
+      const tls = (cleaned.tlsSettings as Record<string, unknown> | undefined) ?? {};
+      cleaned.tlsSettings = { ...tls, alpn: ['http/1.1'] };
+    }
     setV('streamSettings', cleaned);
   };
 
@@ -1107,6 +1143,7 @@ export default function InboundFormModal({
               { value: 'grpc', label: 'gRPC' },
               { value: 'httpupgrade', label: 'HTTPUpgrade' },
               { value: 'xhttp', label: 'XHTTP' },
+              { value: 'xdrive', label: 'XDRIVE' },
             ]}
           />
         </Form.Item>
@@ -1116,6 +1153,8 @@ export default function InboundFormModal({
           isn't user-selectable (always 'hysteria'), so the network
           dropdown is hidden above. */}
       {protocol === Protocols.HYSTERIA && <HysteriaFields />}
+
+      {protocol === Protocols.MASQUE && <MasqueStreamFields />}
 
       {hasSelectableTransport && (
         <>
@@ -1130,6 +1169,8 @@ export default function InboundFormModal({
           {network === 'httpupgrade' && <HttpUpgradeForm />}
 
           {network === 'kcp' && <KcpForm />}
+
+          {network === 'xdrive' && <XDriveForm />}
         </>
       )}
 
@@ -1152,6 +1193,7 @@ export default function InboundFormModal({
               onChange={field.onChange}
               network={network}
               protocol={protocol}
+              side="server"
             />
           )}
         />
@@ -1161,7 +1203,7 @@ export default function InboundFormModal({
 
   const tlsOk = canEnableTls({ protocol, streamSettings: { network, security } });
   const realityOk = canEnableReality({ protocol, streamSettings: { network, security } });
-  const tlsOnly = protocol === Protocols.HYSTERIA;
+  const tlsOnly = protocol === Protocols.HYSTERIA || protocol === Protocols.MASQUE;
 
   const securityTab = (
     <>
@@ -1351,6 +1393,7 @@ export default function InboundFormModal({
                       Protocols.MTPROTO,
                       Protocols.AMNEZIAWG,
                       Protocols.TUIC,
+                      Protocols.MASQUE,
                       Protocols.AWG,
                       Protocols.NAIVE,
                       Protocols.OLCRTC,

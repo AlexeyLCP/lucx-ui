@@ -30,4 +30,5 @@ export const NODE_ELIGIBLE_PROTOCOLS: Readonly<Record<string, true>> = {
   [Protocols.COVER]: true,
   [Protocols.GATEWAY]: true,
   // END LUCX-HOOK
+  [Protocols.MASQUE]: true,
 };

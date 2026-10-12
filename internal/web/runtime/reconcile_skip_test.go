@@ -20,7 +20,8 @@ import (
 func TestReconcileInbound_SkipsUnchanged(t *testing.T) {
 	var pushes atomic.Int32
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.Method == http.MethodPost && strings.Contains(r.URL.Path, "/panel/api/inbounds/update/") {
+		if r.Method == http.MethodPost && (strings.Contains(r.URL.Path, "/panel/api/inbounds/update/") ||
+			strings.Contains(r.URL.Path, "/panel/api/inbounds/add")) {
 			pushes.Add(1)
 		}
 		w.Header().Set("Content-Type", "application/json")
@@ -286,7 +287,7 @@ func TestDelInboundDropsReconcileFingerprint(t *testing.T) {
 	ib := &model.Inbound{Tag: "in-del", Protocol: model.VLESS, Port: 443, Settings: `{"clients":[]}`}
 	r.cacheSet(ib.Tag, 7)
 
-	if pushed, err := r.ReconcileInbound(context.Background(), ib, false); err != nil || !pushed {
+	if pushed, err := r.ReconcileInbound(context.Background(), ib, true); err != nil || !pushed {
 		t.Fatalf("initial reconcile: pushed=%v err=%v, want push", pushed, err)
 	}
 	if err := r.DelInbound(context.Background(), ib); err != nil {
@@ -383,4 +384,37 @@ func keys(m map[string]int) []string {
 		out = append(out, k)
 	}
 	return out
+}
+
+// An inbound deleted on the node must be re-created by the next reconcile; a
+// cached tag→id from before the delete used to send update/<gone id> forever.
+func TestReconcileInbound_RecreatesInboundTheNodeLost(t *testing.T) {
+	var adds, staleUpdates atomic.Int32
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		switch {
+		case strings.Contains(r.URL.Path, "/panel/api/inbounds/list"):
+			_, _ = w.Write([]byte(`{"success":true,"obj":[]}`))
+		case strings.Contains(r.URL.Path, "/panel/api/inbounds/update/"):
+			staleUpdates.Add(1)
+			_, _ = w.Write([]byte(`{"success":false,"msg":"record not found"}`))
+		case strings.Contains(r.URL.Path, "/panel/api/inbounds/add"):
+			adds.Add(1)
+			_, _ = w.Write([]byte(`{"success":true,"obj":{"id":9,"tag":"in-1"}}`))
+		default:
+			_, _ = w.Write([]byte(`{"success":true}`))
+		}
+	}))
+	defer srv.Close()
+
+	r := NewRemote(nodeForPlainServer(t, srv, "verify", "tok"), nil)
+	ib := &model.Inbound{Tag: "n1-in-1", Protocol: model.VLESS, Port: 443, Settings: `{"clients":[]}`}
+	r.cacheSet("in-1", 7)
+
+	if pushed, err := r.ReconcileInbound(context.Background(), ib, false); err != nil || !pushed {
+		t.Fatalf("reconcile of a lost inbound: pushed=%v err=%v, want a re-create", pushed, err)
+	}
+	if staleUpdates.Load() != 0 || adds.Load() != 1 {
+		t.Fatalf("updates to the stale id=%d adds=%d, want 0 and 1", staleUpdates.Load(), adds.Load())
+	}
 }

@@ -6,7 +6,6 @@ import { parseMsg } from '@/utils/zodValidate';
 import { DBInbound, coerceInboundJsonField } from '@/models/dbinbound';
 import type { ClientStats, DBInboundInit } from '@/models/dbinbound';
 import { Protocols } from '@/schemas/primitives';
-import { isSSMultiUser } from '@/lib/xray/protocol-capabilities';
 import { setDatepicker } from '@/hooks/useDatepicker';
 import { keys } from '@/api/queryKeys';
 import { SlimInboundListSchema, LastOnlineMapSchema, InboundDetailSchema } from '@/schemas/inbound';
@@ -82,6 +81,7 @@ const TRACKED_PROTOCOLS: readonly string[] = [
   Protocols.ANYTLS,
   Protocols.TPROXY,
   // END LUCX-HOOK
+  Protocols.MASQUE,
 ];
 
 async function fetchSlimInbounds(): Promise<unknown[]> {
@@ -372,10 +372,8 @@ export function useInbounds() {
       const protocol = dbInbound.protocol;
       if (!TRACKED_PROTOCOLS.includes(protocol)) continue;
       const settings = coerceInboundJsonField(dbInbound.settings) as {
-        method?: string;
         clients?: Array<{ email?: string; enable?: boolean; comment?: string }>;
       };
-      if (protocol === Protocols.SHADOWSOCKS && !isSSMultiUser({ protocol, settings })) continue;
       counts[dbInbound.id] = rollupClients(dbInbound, { clients: settings.clients });
     }
     return counts;

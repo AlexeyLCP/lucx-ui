@@ -25,7 +25,8 @@ export const ProtocolSchema = z.enum([
   'anytls', // LUCX-HOOK: AnyTLS sidecar
   'tproxy', // LUCX-HOOK: Telegram WEB proxy
   'cover', // LUCX-HOOK: camouflage site on :80/:443
-  'gateway', // LUCX-HOOK: nginx SNI mux
+  'gateway', // LUCX-HOOK: nginx SNI mux,
+  'masque',
 ]);
 export type Protocol = z.infer<typeof ProtocolSchema>;
 
@@ -60,5 +61,6 @@ export const Protocols = Object.freeze({
   ANYTLS: 'anytls', // LUCX-HOOK: AnyTLS
   TPROXY: 'tproxy', // LUCX-HOOK: Telegram WEB proxy
   COVER: 'cover', // LUCX-HOOK: camouflage site
-  GATEWAY: 'gateway', // LUCX-HOOK: nginx SNI mux
+  GATEWAY: 'gateway', // LUCX-HOOK: nginx SNI mux,
+  MASQUE: 'masque',
 });

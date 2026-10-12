@@ -23,6 +23,7 @@ import { getHeaderValue } from './headers';
 import { encodeOpenfluxLink } from './openflux-link';
 import { canEnableTlsFlow } from './protocol-capabilities';
 import { deriveSpiderX } from './spider-x';
+import { vlessEncryptionAuthKind } from './vless-encryption';
 import { normalizeTuicCongestionController, resolveTuicServerSettings } from '@/lib/tuic';
 
 // Share-link generators. Each per-protocol fn takes a typed inbound plus
@@ -508,10 +509,8 @@ export function genVlessLink(input: GenVlessLinkInput): string {
     params.set('security', 'none');
   }
 
-  // XTLS Vision flow: TCP over tls/reality (classic) or XHTTP+vlessenc (the
-  // VLESS-level encryption stands in for transport TLS). Mirrors the backend's
-  // vlessFlowAllowed and the form's flow-field gating so panel link, share
-  // link and subscription agree.
+  // Same gate as the backend's vlessFlowAllowed and the form's flow field, so the
+  // panel link, share link and subscription agree.
   if (
     flow.length > 0 &&
     canEnableTlsFlow({
@@ -681,13 +680,8 @@ export interface GenShadowsocksLinkInput {
   externalProxy?: ExternalProxyEntry | null;
 }
 
-// Shadowsocks 2022 share link. The userinfo portion is base64(method:pw)
-// for single-user and base64(method:settingsPw:clientPw) for multi-user
-// 2022-blake3. Legacy SS (non-2022) leaves the password out of the
-// userinfo entirely — matches the legacy class's password-array logic.
-// Note: legacy `isSSMultiUser` returns true for everything except
-// 2022-blake3-chacha20-poly1305 (a curious classification, but we
-// preserve it for byte-stable parity).
+// Shadowsocks share link: base64(method:clientPw) for legacy SS, and
+// percent-encoded method:serverPw:clientPw for 2022-blake3 (SIP022).
 export function genShadowsocksLink(input: GenShadowsocksLinkInput): string {
   const {
     inbound,
@@ -730,10 +724,9 @@ export function genShadowsocksLink(input: GenShadowsocksLinkInput): string {
   }
 
   const isSS2022 = settings.method.substring(0, 4) === '2022';
-  const isSSMultiUser = settings.method !== '2022-blake3-chacha20-poly1305';
   const passwords: string[] = [];
   if (isSS2022) passwords.push(settings.password);
-  if (isSSMultiUser) passwords.push(clientPassword);
+  passwords.push(clientPassword);
 
   if (isSS2022) {
     // SIP022 (2022-blake3-*) forbids base64 userinfo: method and each key are
@@ -1397,11 +1390,8 @@ export function preferPublicHost(browserHost: string, publicHost: string): strin
   return publicHost && isLoopbackHost(browserHost) ? publicHost : browserHost;
 }
 
-// Returns the client array for protocols that have one. SS returns its
-// clients only in 2022-blake3 multi-user mode (matches the legacy
-// `this.clients` getter, which used isSSMultiUser to gate). Returns null
-// for SS single-user, http, mixed, tunnel, wireguard, hysteria2-without-
-// clients, and any protocol without a clients array.
+// Returns the client array for protocols that have one; null for http, mixed,
+// tunnel, wireguard, hysteria2-without-clients, and any protocol without one.
 type ClientShape = {
   id?: string;
   uuid?: string;
@@ -1434,10 +1424,8 @@ export function getInboundClients(inbound: Inbound): ClientShape[] | null {
       return (inbound.settings.clients ?? []) as ClientShape[];
     case 'tuic':
       return (inbound.settings.clients ?? []) as ClientShape[];
-    case 'shadowsocks': {
-      const isMultiUser = inbound.settings.method !== '2022-blake3-chacha20-poly1305';
-      return isMultiUser ? ((inbound.settings.clients ?? []) as ClientShape[]) : null;
-    }
+    case 'shadowsocks':
+      return (inbound.settings.clients ?? []) as ClientShape[];
     default:
       return null;
   }
@@ -1451,6 +1439,11 @@ export interface GenLinkInput {
   remark?: string;
   client: ClientShape;
   externalProxy?: ExternalProxyEntry | null;
+}
+
+// XDRIVE has no link format; a link carrying its storage secrets would leak them.
+function hasNoLinkFormat(inbound: Inbound): boolean {
+  return inbound.streamSettings?.network === 'xdrive';
 }
 
 // Per-protocol dispatcher matching the legacy `genLink` switch. Returns
@@ -1467,6 +1460,7 @@ export function genLink(input: GenLinkInput): string {
     client,
     externalProxy = null,
   } = input;
+  if (hasNoLinkFormat(inbound)) return '';
   switch (inbound.protocol) {
     case 'vmess':
       return genVmessLink({
@@ -1491,18 +1485,16 @@ export function genLink(input: GenLinkInput): string {
         flow: client.flow,
         externalProxy,
       });
-    case 'shadowsocks': {
-      const isMultiUser = inbound.settings.method !== '2022-blake3-chacha20-poly1305';
+    case 'shadowsocks':
       return genShadowsocksLink({
         inbound,
         address,
         port,
         forceTls,
         remark,
-        clientPassword: isMultiUser ? (client.password ?? '') : '',
+        clientPassword: client.password ?? '',
         externalProxy,
       });
-    }
     case 'trojan':
       return genTrojanLink({
         inbound,
@@ -1582,7 +1574,10 @@ export function genAllLinks(input: GenAllLinksInput): GenAllLinksEntry[] {
   if (!externals || externals.length === 0) {
     const r = composeRemark('');
     const link = genLink({ inbound, address: addr, port, forceTls: 'same', remark: r, client });
-    return link ? [{ remark: r, link }] : [];
+    // XDRIVE keeps the empty entry (no share URI). Other empty links stay dropped
+    // so a sidecar with no URI does not emit a blank QR row (lucx.109).
+    if (!link && !hasNoLinkFormat(inbound)) return [];
+    return [{ remark: r, link }];
   }
   return externals.map((ep) => {
     const r = composeRemark(ep.remark);
@@ -1629,6 +1624,7 @@ export function genInboundLinks(input: GenInboundLinksInput): string {
     hostAwgSupport,
     // END LUCX-HOOK
   } = input;
+  if (hasNoLinkFormat(inbound)) return '';
   const addr = resolveAddr(inbound, hostOverride, fallbackHostname);
   const clients = getInboundClients(inbound);
   if (clients) {
@@ -2277,9 +2273,13 @@ export function genAwgConfigs(input: GenInboundLinksInput): string {
 }
 // END LUCX-HOOK
 
+// Only the post-quantum key payloads outgrow a QR; the REALITY ML-KEM hint and the
+// mlkem768x25519plus prefix of an X25519-authenticated encryption do not (#6730).
 export function isPostQuantumLink(link: string): boolean {
-  if (/[?&]pqv=/.test(link)) return true;
-  if (link.includes('mlkem768') || link.includes('mldsa65')) return true;
-  if (link.includes('ML-KEM-768')) return true;
-  return false;
+  const withoutRemark = link.split('#', 1)[0];
+  const queryStart = withoutRemark.indexOf('?');
+  if (queryStart < 0) return false;
+  const params = new URLSearchParams(withoutRemark.slice(queryStart + 1));
+  if (params.get('pqv')) return true;
+  return vlessEncryptionAuthKind(params.get('encryption') ?? '')?.startsWith('mlkem768') ?? false;
 }

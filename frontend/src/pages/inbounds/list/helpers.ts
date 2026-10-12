@@ -1,4 +1,3 @@
-import { isSSMultiUser } from '@/lib/xray/protocol-capabilities';
 import { coerceInboundJsonField } from '@/models/dbinbound';
 import type { HostRecord } from '@/schemas/api/host';
 
@@ -82,11 +81,12 @@ export function readSettings(settings: unknown): {
   };
 }
 
-export function isInboundMultiUser(record: { protocol: string; settings: unknown }): boolean {
+export function isInboundMultiUser(record: { protocol: string }): boolean {
   switch (record.protocol) {
     case 'vmess':
     case 'vless':
     case 'trojan':
+    case 'shadowsocks':
     case 'hysteria':
     case 'mtproto':
     case 'wireguard':
@@ -96,28 +96,21 @@ export function isInboundMultiUser(record: { protocol: string; settings: unknown
     case 'naive': // LUCX-HOOK: NaiveProxy inbound multi-client
     case 'mieru':
     case 'trusttunnel':
+    case 'masque':
       return true;
-    case 'shadowsocks':
-      return isSSMultiUser({ protocol: 'shadowsocks', settings: readSettings(record.settings) });
     default:
       return false;
   }
 }
 
 export function showQrCodeMenu(dbInbound: DBInboundRecord): boolean {
-  if (dbInbound.isSS) {
-    return !isSSMultiUser({ protocol: 'shadowsocks', settings: readSettings(dbInbound.settings) });
-  }
   // LUCX-HOOK: single-credential tunnel sidecars — one QR for the whole inbound.
-  if (
+  return (
     dbInbound.protocol === 'qwdtt' ||
     dbInbound.protocol === 'csqtt' ||
     dbInbound.protocol === 'openflux' ||
     dbInbound.protocol === 'olcrtc'
-  ) {
-    return true;
-  }
-  return false;
+  );
 }
 
 /** Max host remarks shown inline before truncating with "+N". */

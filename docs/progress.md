@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.291 — overlay upstream v3.10.0 (2026-10-12)
+
+Fresh `origin/main` (tag v3.10.0). LucX hooks reapplied beside the upstream additions, not a blanket `--ours`. All 1030 `LUCX-HOOK` markers across 150 files are unchanged. Pre-merge snapshot: `backup/v3.9.0-lucx.290`.
+
+Kept: kernel AWG and tunnel sidecars, share-only client apply, inbound QR for single-credential tunnels (upstream removed `QrCodeModal` with single-user Shadowsocks), Happ QR cutoff 2953, release-notes panel update (the confirm dialog closes before the request). Took theirs: MASQUE protocol and transport, XDRIVE (empty share link, no storage secrets in a QR), TUN adapter options, Lua DNS/routing scripts, in-place client updates via `servedOutsideXray` (LucX sidecars stay on the sidecar path), Go 1.27.2 and the xray-core bump. `genAllLinks` still drops other empty URIs (lucx.109) and keeps the one empty XDRIVE entry.
+
+**lucxVersion:** lucx.291
+
+Tests: `CGO_ENABLED=0 go test ./internal/awg/... ./internal/lucx/... ./internal/database/model/`; frontend `tsc --noEmit`; vitest `inbound-link.test.ts` and `panel-update-modal.test.tsx`. `npm run gen` rewrote zod and openapi. Full `go test` of database/service/runtime/sub was not run (no gcc, so sqlite CGO cannot build).
+
+---
+
 ## lucx.290 — Gateway drop no longer logs every unmatched connection (2026-10-12)
 
 A public gateway filled the panel journal with `dial tcp 127.0.0.1:1: connect: connection refused`. Unmatched SNI (scanners on :443) was proxied to a closed loopback port, and caddy-l4 logs that dial failure on every hit; `procLogWriter` copies each line into journald. The catch-all is now omitted. caddy-l4 closes the connection when no SNI route matches (`nopHandler`, no error). A configured fallback (cover site or `l4http` chan) is unchanged. Clients with a matching SNI are unchanged. Rule 0 safe.

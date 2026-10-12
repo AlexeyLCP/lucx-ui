@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { AmneziawgInboundSettingsSchema } from './amneziawg';
 import { HttpInboundSettingsSchema } from './http';
 import { HysteriaInboundSettingsSchema } from './hysteria';
+import { MasqueInboundSettingsSchema } from './masque';
 import { MixedInboundSettingsSchema } from './mixed';
 import { MtprotoInboundSettingsSchema } from './mtproto';
 import { AwgInboundSettingsSchema } from './awg'; // LUCX-HOOK: AWG protocol
@@ -29,6 +30,7 @@ import { WireguardInboundSettingsSchema } from './wireguard';
 export * from './amneziawg';
 export * from './http';
 export * from './hysteria';
+export * from './masque';
 export * from './mixed';
 export * from './mtproto';
 export * from './awg'; // LUCX-HOOK: AWG protocol
@@ -82,6 +84,7 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('anytls'), settings: AnytlsInboundSettingsSchema }), // LUCX-HOOK: AnyTLS
   z.object({ protocol: z.literal('tproxy'), settings: TproxyInboundSettingsSchema }), // LUCX-HOOK: Telegram WEB proxy
   z.object({ protocol: z.literal('cover'), settings: CoverInboundSettingsSchema }), // LUCX-HOOK: cover site
-  z.object({ protocol: z.literal('gateway'), settings: GatewayInboundSettingsSchema }), // LUCX-HOOK: nginx SNI mux
+  z.object({ protocol: z.literal('gateway'), settings: GatewayInboundSettingsSchema }), // LUCX-HOOK: nginx SNI mux,
+  z.object({ protocol: z.literal('masque'), settings: MasqueInboundSettingsSchema }),
 ]);
 export type InboundSettings = z.infer<typeof InboundSettingsSchema>;

@@ -4,6 +4,10 @@ import { generateAwgObfuscation } from '@/lib/xray/amneziawg-obfuscation';
 import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
 import type { HttpInboundSettings } from '@/schemas/protocols/inbound/http';
 import type { HysteriaClient, HysteriaInboundSettings } from '@/schemas/protocols/inbound/hysteria';
+import {
+  MASQUE_DEFAULT_ADDRESS_POOL,
+  type MasqueInboundSettings,
+} from '@/schemas/protocols/inbound/masque';
 import type { MixedInboundSettings } from '@/schemas/protocols/inbound/mixed';
 import type { MtprotoClient, MtprotoInboundSettings } from '@/schemas/protocols/inbound/mtproto';
 import type { AwgInboundSettings } from '@/schemas/protocols/inbound/awg'; // LUCX-HOOK: AWG
@@ -582,6 +586,10 @@ export function createDefaultAmneziawgInboundSettings(): AmneziawgInboundSetting
   };
 }
 
+export function createDefaultMasqueInboundSettings(): MasqueInboundSettings {
+  return { clients: [], address: [...MASQUE_DEFAULT_ADDRESS_POOL] };
+}
+
 export function createDefaultTuicInboundSettings(): TuicInboundSettings {
   return {
     server: {
@@ -631,7 +639,8 @@ export type AnyInboundSettings =
   | AnytlsInboundSettings
   | TproxyInboundSettings
   | CoverInboundSettings
-  | GatewayInboundSettings;
+  | GatewayInboundSettings
+  | MasqueInboundSettings;
 
 export function createDefaultInboundSettings(protocol: string): AnyInboundSettings | null {
   switch (protocol) {
@@ -685,6 +694,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultCoverInboundSettings();
     case 'gateway':
       return createDefaultGatewayInboundSettings();
+    case 'masque':
+      return createDefaultMasqueInboundSettings();
     default:
       return null;
   }

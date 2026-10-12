@@ -3191,6 +3191,7 @@ export const SCHEMAS: Record<string, unknown> = {
           "mtproto",
           "amneziawg",
           "tuic",
+          "masque",
           "awg",
           "naive",
           "olcrtc",
