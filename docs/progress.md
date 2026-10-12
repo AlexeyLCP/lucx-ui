@@ -10,6 +10,8 @@ Kept: kernel AWG and tunnel sidecars, share-only client apply, inbound QR for si
 
 Tests: `CGO_ENABLED=0 go test ./internal/awg/... ./internal/lucx/... ./internal/database/model/`; frontend `tsc --noEmit`; vitest `inbound-link.test.ts` and `panel-update-modal.test.tsx`. `npm run gen` rewrote zod and openapi. Full `go test` of database/service/runtime/sub was not run (no gcc, so sqlite CGO cannot build).
 
+**Release:** `v3.10.0-lucx.291` — https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.291
+
 ---
 
 ## lucx.290 — Gateway drop no longer logs every unmatched connection (2026-10-12)
