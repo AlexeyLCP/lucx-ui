@@ -12,6 +12,8 @@ Tests: `TestRenderGatewayCaddyfile_SNIAndDrop`, `TestRenderUnifiedGatewayCaddyfi
 
 Healing: update the panel. The next reconcile rewrites the Caddyfile and restarts the gateway once.
 
+**Release:** `v3.9.0-lucx.290` — https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.9.0-lucx.290
+
 ---
 
 ## lucx.289 — AWG self-recovery for stale interfaces, fixes post-update "already up" loop (Igor, 2026-10-10)
