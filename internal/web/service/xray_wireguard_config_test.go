@@ -56,7 +56,8 @@ func seedWGInbound(t *testing.T, tag string, port int, clients []model.Client) {
 	}
 }
 
-func seedDualTunnelClient(t *testing.T, enabled bool, wgKeepAlive *int) string {
+// wgKeepAlive is the WireGuard settings value. Empty means the field is absent (#6731).
+func seedDualTunnelClient(t *testing.T, enabled bool, wgKeepAlive model.KeepAliveValue) string {
 	t.Helper()
 	setupSettingTestDB(t)
 	db := database.GetDB()
@@ -202,8 +203,8 @@ func TestGetXrayConfigWireGuardUsesInboundLocalTunnelFields(t *testing.T) {
 	if err := database.GetDB().Where("email = ?", email).First(&shared).Error; err != nil {
 		t.Fatalf("read shared client: %v", err)
 	}
-	if shared.AllowedIPs != "10.8.1.5/32" || shared.PreSharedKey != "awg-psk" || shared.PublicKey != "pub-awg" || shared.KeepAlive != 25 {
-		t.Fatalf("test setup did not persist AmneziaWG last: allowedIPs=%q preSharedKey=%q publicKey=%q keepAlive=%d", shared.AllowedIPs, shared.PreSharedKey, shared.PublicKey, shared.KeepAlive)
+	if shared.AllowedIPs != "10.8.1.5/32" || shared.PreSharedKey != "awg-psk" || shared.PublicKey != "pub-awg" || shared.KeepAlive != "25" {
+		t.Fatalf("test setup did not persist AmneziaWG last: allowedIPs=%q preSharedKey=%q publicKey=%q keepAlive=%q", shared.AllowedIPs, shared.PreSharedKey, shared.PublicKey, shared.KeepAlive)
 	}
 
 	peers := wgPeerList(t, wgInboundEmittedSettings(t, "wg-dual"))
@@ -226,14 +227,14 @@ func TestGetXrayConfigWireGuardUsesInboundLocalTunnelFields(t *testing.T) {
 }
 
 func TestGetXrayConfigWireGuardOmitsKeepAliveAbsentFromSettings(t *testing.T) {
-	email := seedDualTunnelClient(t, true, nil)
+	email := seedDualTunnelClient(t, true, "")
 
 	var shared model.ClientRecord
 	if err := database.GetDB().Where("email = ?", email).First(&shared).Error; err != nil {
 		t.Fatalf("read shared client: %v", err)
 	}
-	if shared.PublicKey != "pub-awg" || shared.KeepAlive != 25 {
-		t.Fatalf("test setup did not persist AmneziaWG identity: publicKey=%q keepAlive=%d", shared.PublicKey, shared.KeepAlive)
+	if shared.PublicKey != "pub-awg" || shared.KeepAlive != "25" {
+		t.Fatalf("test setup did not persist AmneziaWG identity: publicKey=%q keepAlive=%q", shared.PublicKey, shared.KeepAlive)
 	}
 
 	peers := wgPeerList(t, wgInboundEmittedSettings(t, "wg-dual"))

@@ -91,6 +91,7 @@ function sniClash(rows: PreviewRow[], chosen: number[]): string {
 
 export default function MaskingPage() {
   const { t } = useTranslation();
+  const [messageApi, messageContextHolder] = message.useMessage();
   const { isDark, isUltra, antdThemeConfig } = useTheme();
   const { isMobile } = useMediaQuery();
   const queryClient = useQueryClient();
@@ -205,7 +206,7 @@ export default function MaskingPage() {
         JSON_HEADERS,
       );
       if (!msg?.success) throw new Error(msg?.msg);
-      void message.success(t('pages.masking.applied'));
+      void messageApi.success(t('pages.masking.applied'));
       if (hidePanel && host) {
         await PromiseUtil.sleep(1500);
         window.location.replace(maskingPanelURL(host, 443, true, window.X_UI_BASE_PATH || '/'));
@@ -214,7 +215,7 @@ export default function MaskingPage() {
       await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await previewQuery.refetch();
     } catch (e) {
-      void message.error(e instanceof Error ? e.message : String(e));
+      void messageApi.error(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -234,7 +235,7 @@ export default function MaskingPage() {
         JSON_HEADERS,
       );
       if (!msg?.success) throw new Error(msg?.msg);
-      void message.success(t('pages.masking.reverted'));
+      void messageApi.success(t('pages.masking.reverted'));
       if (bounce && bouncePort > 0) {
         await PromiseUtil.sleep(1500);
         window.location.replace(
@@ -253,7 +254,7 @@ export default function MaskingPage() {
       await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await previewQuery.refetch();
     } catch (e) {
-      void message.error(e instanceof Error ? e.message : String(e));
+      void messageApi.error(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -267,7 +268,7 @@ export default function MaskingPage() {
       await queryClient.invalidateQueries({ queryKey: keys.inbounds.root() });
       await slimQuery.refetch();
     } catch (e) {
-      void message.error(e instanceof Error ? e.message : String(e));
+      void messageApi.error(e instanceof Error ? e.message : String(e));
     } finally {
       setBusy(false);
     }
@@ -595,6 +596,7 @@ export default function MaskingPage() {
 
   return (
     <ConfigProvider theme={antdThemeConfig}>
+      {messageContextHolder}
       <Layout className={pageClass}>
         <AppSidebar />
         <Layout className="content-shell">

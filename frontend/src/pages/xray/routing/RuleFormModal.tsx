@@ -202,6 +202,7 @@ export default function RuleFormModal({
   onConfirm,
 }: RuleFormModalProps) {
   const { t } = useTranslation();
+  const [messageApi, messageContextHolder] = message.useMessage();
   const methods = useForm<RuleFormValues>({ defaultValues: initialForm() });
   const isEdit = rule != null;
   const [clientPick, setClientPick] = useState<string[]>([]);
@@ -382,16 +383,16 @@ export default function RuleFormModal({
     // Warn instead — same information, no dead end.
     if (!hasMatcher) {
       if (!isEdit) {
-        message.error(t('pages.xray.ruleForm.noMatcherError'));
+        messageApi.error(t('pages.xray.ruleForm.noMatcherError'));
         return;
       }
-      message.warning(t('pages.xray.ruleForm.noMatcherError'));
+      messageApi.warning(t('pages.xray.ruleForm.noMatcherError'));
     }
     // outboundTag OR balancerTag is also required — a rule with matchers but
     // no target is silently a no-op in Xray. Warn (don't block) so advanced
     // users can still save a half-built rule, but surface the issue clearly.
     if (!out.outboundTag && !out.balancerTag) {
-      message.warning(t('pages.xray.ruleForm.noTargetWarning'));
+      messageApi.warning(t('pages.xray.ruleForm.noTargetWarning'));
     }
     onConfirm(out);
   }
@@ -403,7 +404,7 @@ export default function RuleFormModal({
   // regex/wildcard syntax (the most common footgun that produced empty rules).
   function applyMatchAllPreset() {
     methods.setValue('domain', 'domain:');
-    message.info(t('pages.xray.ruleForm.matchAllApplied'));
+    messageApi.info(t('pages.xray.ruleForm.matchAllApplied'));
   }
 
   const title = isEdit
@@ -412,231 +413,241 @@ export default function RuleFormModal({
   const okText = isEdit ? t('pages.clients.submitEdit') : t('create');
 
   return (
-    <Modal
-      open={open}
-      title={title}
-      okText={okText}
-      cancelText={t('close')}
-      mask={{ closable: false }}
-      width={640}
-      onOk={submit}
-      onCancel={onClose}
-    >
-      <FormProvider {...methods}>
-        <Form colon={false} labelCol={{ md: { span: 8 } }} wrapperCol={{ md: { span: 14 } }}>
-          <FormField name="enabled" label={t('enable')} valueProp="checked">
-            <Switch disabled={isApiRule(rule ?? {})} />
-          </FormField>
+    <>
+      {messageContextHolder}
+      <Modal
+        open={open}
+        title={title}
+        okText={okText}
+        cancelText={t('close')}
+        mask={{ closable: false }}
+        width={640}
+        onOk={submit}
+        onCancel={onClose}
+      >
+        <FormProvider {...methods}>
+          <Form colon={false} labelCol={{ md: { span: 8 } }} wrapperCol={{ md: { span: 14 } }}>
+            <FormField name="enabled" label={t('enable')} valueProp="checked">
+              <Switch disabled={isApiRule(rule ?? {})} />
+            </FormField>
 
-          <FormField name="comment" label={t('comment')}>
-            <Input maxLength={200} showCount placeholder={t('comment')} />
-          </FormField>
-          {/* LUCX-HOOK: AWG outbound — routing-rule validation UX.
+            <FormField name="comment" label={t('comment')}>
+              <Input maxLength={200} showCount placeholder={t('comment')} />
+            </FormField>
+            {/* LUCX-HOOK: AWG outbound — routing-rule validation UX.
               Xray rejects a field rule with no effective matchers and fails to
               start (AGENTS.md Pattern 5). A common footgun was creating a rule
               with only outboundTag set ("send all traffic through VPN") and no
               domain/ip/inboundTag. Offer a one-click "Match all traffic" preset
               so the user doesn't have to know Xray's "domain:" wildcard syntax,
               and guard submit() against saving an invalid rule. */}
-          <Form.Item label=" " colon={false}>
-            <Space direction="vertical" style={{ width: '100%' }}>
+            <Form.Item label=" " colon={false}>
+              <Space direction="vertical" style={{ width: '100%' }}>
+                <Button
+                  size="small"
+                  type="dashed"
+                  icon={<PlusOutlined />}
+                  onClick={applyMatchAllPreset}
+                >
+                  {t('pages.xray.ruleForm.matchAllPreset')}
+                </Button>
+              </Space>
+            </Form.Item>
+            {/* END LUCX-HOOK */}
+
+            <FormField
+              name="sourceIP"
+              label={
+                <Tooltip title={t('pages.xray.rules.useComma')}>
+                  {t('pages.xray.ruleForm.sourceIps')} <QuestionCircleOutlined aria-hidden="true" />
+                </Tooltip>
+              }
+            >
+              <GeoTokenInput kind="ip" placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
+            </FormField>
+
+            <FormField
+              name="sourcePort"
+              label={
+                <Tooltip title={t('pages.xray.rules.useComma')}>
+                  {t('pages.xray.ruleForm.sourcePort')}{' '}
+                  <QuestionCircleOutlined aria-hidden="true" />
+                </Tooltip>
+              }
+            >
+              <Input placeholder="53,443,1000-2000" />
+            </FormField>
+
+            <FormField
+              name="vlessRoute"
+              label={
+                <Tooltip title={t('pages.xray.rules.useComma')}>
+                  {t('pages.xray.ruleForm.vlessRoute')}{' '}
+                  <QuestionCircleOutlined aria-hidden="true" />
+                </Tooltip>
+              }
+            >
+              <Input placeholder="53,443,1000-2000" />
+            </FormField>
+
+            <FormField name="network" label={t('pages.inbounds.network')}>
+              <Select options={NETWORKS.map((n) => ({ value: n, label: n || '(any)' }))} />
+            </FormField>
+
+            <FormField name="protocol" label={t('pages.inbounds.protocol')}>
+              <Select mode="multiple" options={PROTOCOLS.map((p) => ({ value: p, label: p }))} />
+            </FormField>
+
+            <Form.Item label={t('pages.xray.ruleForm.attributes')}>
               <Button
                 size="small"
-                type="dashed"
+                aria-label={t('add')}
                 icon={<PlusOutlined />}
-                onClick={applyMatchAllPreset}
-              >
-                {t('pages.xray.ruleForm.matchAllPreset')}
-              </Button>
-            </Space>
-          </Form.Item>
-          {/* END LUCX-HOOK */}
+                onClick={() => methods.setValue('attrs', [...attrs, ['', ''] as [string, string]])}
+              />
+            </Form.Item>
+            <Form.Item wrapperCol={{ span: 24 }}>
+              {attrs.map((attr, idx) => (
+                <Space.Compact key={idx} block className="mb-8">
+                  <InputAddon>{`${idx + 1}`}</InputAddon>
+                  <Input
+                    value={attr[0]}
+                    aria-label={t('pages.nodes.name')}
+                    placeholder={t('pages.nodes.name')}
+                    onChange={(e) => {
+                      const next = attrs.map((a, i) =>
+                        i === idx ? ([e.target.value, a[1]] as [string, string]) : a,
+                      );
+                      methods.setValue('attrs', next);
+                    }}
+                  />
+                  <Input
+                    value={attr[1]}
+                    aria-label={t('pages.xray.ruleForm.value')}
+                    placeholder={t('pages.xray.ruleForm.value')}
+                    onChange={(e) => {
+                      const next = attrs.map((a, i) =>
+                        i === idx ? ([a[0], e.target.value] as [string, string]) : a,
+                      );
+                      methods.setValue('attrs', next);
+                    }}
+                  />
+                  <Button
+                    aria-label={t('remove')}
+                    icon={<MinusOutlined />}
+                    onClick={() =>
+                      methods.setValue(
+                        'attrs',
+                        attrs.filter((_, i) => i !== idx),
+                      )
+                    }
+                  />
+                </Space.Compact>
+              ))}
+            </Form.Item>
 
-          <FormField
-            name="sourceIP"
-            label={
-              <Tooltip title={t('pages.xray.rules.useComma')}>
-                {t('pages.xray.ruleForm.sourceIps')} <QuestionCircleOutlined aria-hidden="true" />
-              </Tooltip>
-            }
-          >
-            <GeoTokenInput kind="ip" placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
-          </FormField>
-
-          <FormField
-            name="sourcePort"
-            label={
-              <Tooltip title={t('pages.xray.rules.useComma')}>
-                {t('pages.xray.ruleForm.sourcePort')} <QuestionCircleOutlined aria-hidden="true" />
-              </Tooltip>
-            }
-          >
-            <Input placeholder="53,443,1000-2000" />
-          </FormField>
-
-          <FormField
-            name="vlessRoute"
-            label={
-              <Tooltip title={t('pages.xray.rules.useComma')}>
-                {t('pages.xray.ruleForm.vlessRoute')} <QuestionCircleOutlined aria-hidden="true" />
-              </Tooltip>
-            }
-          >
-            <Input placeholder="53,443,1000-2000" />
-          </FormField>
-
-          <FormField name="network" label={t('pages.inbounds.network')}>
-            <Select options={NETWORKS.map((n) => ({ value: n, label: n || '(any)' }))} />
-          </FormField>
-
-          <FormField name="protocol" label={t('pages.inbounds.protocol')}>
-            <Select mode="multiple" options={PROTOCOLS.map((p) => ({ value: p, label: p }))} />
-          </FormField>
-
-          <Form.Item label={t('pages.xray.ruleForm.attributes')}>
-            <Button
-              size="small"
-              aria-label={t('add')}
-              icon={<PlusOutlined />}
-              onClick={() => methods.setValue('attrs', [...attrs, ['', ''] as [string, string]])}
-            />
-          </Form.Item>
-          <Form.Item wrapperCol={{ span: 24 }}>
-            {attrs.map((attr, idx) => (
-              <Space.Compact key={idx} block className="mb-8">
-                <InputAddon>{`${idx + 1}`}</InputAddon>
-                <Input
-                  value={attr[0]}
-                  aria-label={t('pages.nodes.name')}
-                  placeholder={t('pages.nodes.name')}
-                  onChange={(e) => {
-                    const next = attrs.map((a, i) =>
-                      i === idx ? ([e.target.value, a[1]] as [string, string]) : a,
-                    );
-                    methods.setValue('attrs', next);
-                  }}
-                />
-                <Input
-                  value={attr[1]}
-                  aria-label={t('pages.xray.ruleForm.value')}
-                  placeholder={t('pages.xray.ruleForm.value')}
-                  onChange={(e) => {
-                    const next = attrs.map((a, i) =>
-                      i === idx ? ([a[0], e.target.value] as [string, string]) : a,
-                    );
-                    methods.setValue('attrs', next);
-                  }}
-                />
-                <Button
-                  aria-label={t('remove')}
-                  icon={<MinusOutlined />}
-                  onClick={() =>
-                    methods.setValue(
-                      'attrs',
-                      attrs.filter((_, i) => i !== idx),
-                    )
-                  }
-                />
-              </Space.Compact>
-            ))}
-          </Form.Item>
-
-          <FormField
-            name="ip"
-            label={
-              <Tooltip title={t('pages.xray.rules.useComma')}>
-                IP <QuestionCircleOutlined aria-hidden="true" />
-              </Tooltip>
-            }
-          >
-            <GeoTokenInput kind="ip" placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
-          </FormField>
-
-          <FormField
-            name="domain"
-            label={
-              <Tooltip title={t('pages.xray.rules.useComma')}>
-                {t('domainName')} <QuestionCircleOutlined aria-hidden="true" />
-              </Tooltip>
-            }
-          >
-            <GeoTokenInput kind="domain" placeholder="google.com, geosite:cn" />
-          </FormField>
-
-          <Form.Item
-            label={
-              <Tooltip title={t('pages.xray.ruleForm.clientPickHint')}>
-                {t('pages.xray.ruleForm.user')} <QuestionCircleOutlined aria-hidden="true" />
-              </Tooltip>
-            }
-          >
-            <Select
-              id="clientPick"
-              mode="tags"
-              showSearch
-              allowClear
-              // rc-virtual-list reuses rows by value; scrolling paints one client over the rest.
-              virtual={false}
-              value={clientPick}
-              onChange={applyClientPick}
-              optionFilterProp="label"
-              placeholder={t('pages.xray.ruleForm.clientPickPlaceholder')}
-              options={clientOptions}
-              filterOption={(input, option) =>
-                String(option?.label ?? '')
-                  .toLowerCase()
-                  .includes(input.toLowerCase())
+            <FormField
+              name="ip"
+              label={
+                <Tooltip title={t('pages.xray.rules.useComma')}>
+                  IP <QuestionCircleOutlined aria-hidden="true" />
+                </Tooltip>
               }
+            >
+              <GeoTokenInput kind="ip" placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
+            </FormField>
+
+            <FormField
+              name="domain"
+              label={
+                <Tooltip title={t('pages.xray.rules.useComma')}>
+                  {t('domainName')} <QuestionCircleOutlined aria-hidden="true" />
+                </Tooltip>
+              }
+            >
+              <GeoTokenInput kind="domain" placeholder="google.com, geosite:cn" />
+            </FormField>
+
+            <Form.Item
+              label={
+                <Tooltip title={t('pages.xray.ruleForm.clientPickHint')}>
+                  {t('pages.xray.ruleForm.user')} <QuestionCircleOutlined aria-hidden="true" />
+                </Tooltip>
+              }
+            >
+              <Select
+                id="clientPick"
+                mode="tags"
+                showSearch
+                allowClear
+                // rc-virtual-list reuses rows by value; scrolling paints one client over the rest.
+                virtual={false}
+                value={clientPick}
+                onChange={applyClientPick}
+                optionFilterProp="label"
+                placeholder={t('pages.xray.ruleForm.clientPickPlaceholder')}
+                options={clientOptions}
+                filterOption={(input, option) =>
+                  String(option?.label ?? '')
+                    .toLowerCase()
+                    .includes(input.toLowerCase())
+                }
+              />
+            </Form.Item>
+            <Alert
+              type="info"
+              showIcon
+              style={{ marginBottom: 16 }}
+              title={t('pages.xray.ruleForm.clientPickAwgNote')}
             />
-          </Form.Item>
-          <Alert
-            type="info"
-            showIcon
-            style={{ marginBottom: 16 }}
-            title={t('pages.xray.ruleForm.clientPickAwgNote')}
-          />
-          {/* Keep RHF fields in sync for submit (picker writes user + sourceIP). */}
-          <FormField name="user" noStyle>
-            <Input type="hidden" />
-          </FormField>
+            {/* Keep RHF fields in sync for submit (picker writes user + sourceIP). */}
+            <FormField name="user" noStyle>
+              <Input type="hidden" />
+            </FormField>
 
-          <FormField
-            name="port"
-            label={
-              <Tooltip title={t('pages.xray.rules.useComma')}>
-                {t('pages.inbounds.port')} <QuestionCircleOutlined aria-hidden="true" />
-              </Tooltip>
-            }
-          >
-            <Input placeholder="53,443,1000-2000" />
-          </FormField>
+            <FormField
+              name="port"
+              label={
+                <Tooltip title={t('pages.xray.rules.useComma')}>
+                  {t('pages.inbounds.port')} <QuestionCircleOutlined aria-hidden="true" />
+                </Tooltip>
+              }
+            >
+              <Input placeholder="53,443,1000-2000" />
+            </FormField>
 
-          <FormField name="inboundTag" label={t('pages.xray.ruleForm.inboundTags')}>
-            <Select
-              mode="multiple"
-              options={inboundTags.map((tag) => ({
-                value: tag,
-                label: formatInboundTag(tag, remarkByTag),
-              }))}
-            />
-          </FormField>
+            <FormField name="inboundTag" label={t('pages.xray.ruleForm.inboundTags')}>
+              <Select
+                mode="multiple"
+                options={inboundTags.map((tag) => ({
+                  value: tag,
+                  label: formatInboundTag(tag, remarkByTag),
+                }))}
+              />
+            </FormField>
 
-          <FormField name="outboundTag" label={t('pages.xray.ruleForm.outboundTag')}>
-            <Select options={outboundTags.map((tag) => ({ value: tag, label: tag || '(none)' }))} />
-          </FormField>
+            <FormField name="outboundTag" label={t('pages.xray.ruleForm.outboundTag')}>
+              <Select
+                options={outboundTags.map((tag) => ({ value: tag, label: tag || '(none)' }))}
+              />
+            </FormField>
 
-          <FormField
-            name="balancerTag"
-            label={
-              <Tooltip title={t('pages.xray.ruleForm.balancerTagTooltip')}>
-                {t('pages.xray.ruleForm.balancerTag')} <QuestionCircleOutlined aria-hidden="true" />
-              </Tooltip>
-            }
-          >
-            <Select options={balancerTags.map((tag) => ({ value: tag, label: tag || '(none)' }))} />
-          </FormField>
-        </Form>
-      </FormProvider>
-    </Modal>
+            <FormField
+              name="balancerTag"
+              label={
+                <Tooltip title={t('pages.xray.ruleForm.balancerTagTooltip')}>
+                  {t('pages.xray.ruleForm.balancerTag')}{' '}
+                  <QuestionCircleOutlined aria-hidden="true" />
+                </Tooltip>
+              }
+            >
+              <Select
+                options={balancerTags.map((tag) => ({ value: tag, label: tag || '(none)' }))}
+              />
+            </FormField>
+          </Form>
+        </FormProvider>
+      </Modal>
+    </>
   );
 }

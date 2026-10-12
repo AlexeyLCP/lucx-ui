@@ -20,6 +20,7 @@ const SITE_PROMPT =
 
 export default function CoverFields() {
   const { t } = useTranslation();
+  const [messageApi, messageContextHolder] = message.useMessage();
   const inboundId = useAwgInboundId();
   const { setValue } = useFormContext();
   const siteSource = useWatch({ name: 'settings.siteSource' }) as string | undefined;
@@ -38,12 +39,12 @@ export default function CoverFields() {
 
   const copyPrompt = async () => {
     await navigator.clipboard.writeText(SITE_PROMPT);
-    void message.success(t('pages.inbounds.form.tproxySitePromptCopied'));
+    void messageApi.success(t('pages.inbounds.form.tproxySitePromptCopied'));
   };
 
   const uploadZip = (file: File) => {
     if (!inboundId) {
-      void message.warning(t('pages.inbounds.form.tproxySaveFirst'));
+      void messageApi.warning(t('pages.inbounds.form.tproxySaveFirst'));
       return false;
     }
     setBusy(true);
@@ -51,7 +52,7 @@ export default function CoverFields() {
       try {
         await tunnelsApi.tproxyUploadSite(inboundId, file);
         await siteQuery.refetch();
-        void message.success(t('pages.tunnels.tproxy.toasts.siteUploaded'));
+        void messageApi.success(t('pages.tunnels.tproxy.toasts.siteUploaded'));
       } finally {
         setBusy(false);
       }
@@ -66,6 +67,7 @@ export default function CoverFields() {
 
   return (
     <>
+      {messageContextHolder}
       <Alert
         type="info"
         showIcon

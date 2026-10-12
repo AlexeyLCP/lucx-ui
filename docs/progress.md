@@ -8,7 +8,7 @@ Kept: kernel AWG and tunnel sidecars, share-only client apply, inbound QR for si
 
 **lucxVersion:** lucx.291
 
-Tests: `CGO_ENABLED=0 go test ./internal/awg/... ./internal/lucx/... ./internal/database/model/`; frontend `tsc --noEmit`; vitest `inbound-link.test.ts` and `panel-update-modal.test.tsx`. `npm run gen` rewrote zod and openapi. Full `go test` of database/service/runtime/sub was not run (no gcc, so sqlite CGO cannot build). CI `govulncheck` then failed to compile: `detachShareOnlyClient` still called `emailsUsedByOtherInbounds` without the new `*gorm.DB`, and the WireGuard peer path still treated `KeepAlive` as `*int`. Both call sites now match the merged types.
+Tests: `CGO_ENABLED=0 go test ./internal/awg/... ./internal/lucx/... ./internal/database/model/`; frontend `tsc --noEmit`; vitest `inbound-link.test.ts` and `panel-update-modal.test.tsx`. `npm run gen` rewrote zod and openapi. Full `go test` of database/service/runtime/sub was not run (no gcc, so sqlite CGO cannot build). CI `govulncheck` then failed to compile: `detachShareOnlyClient` still called `emailsUsedByOtherInbounds` without the new `*gorm.DB`, and the WireGuard peer path still treated `KeepAlive` as `*int`. Both call sites now match the merged types. The next CI run still failed to build `xray_wireguard_config_test.go` (`*int` vs `KeepAliveValue`) and the new static-`message` test (LucX toasts). The test uses `KeepAliveValue`; AWG import, masking, tproxy, cover, and the routing rule form call `message.useMessage()`.
 
 **Release:** `v3.10.0-lucx.291` — https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.291
 

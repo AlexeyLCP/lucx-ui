@@ -19,6 +19,7 @@ interface Props {
 
 export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
   const { t } = useTranslation();
+  const [messageApi, messageContextHolder] = message.useMessage();
   const [candidates, setCandidates] = useState<AwgImportCandidate[]>([]);
   const [dismissed, setDismissed] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
@@ -74,7 +75,7 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
     try {
       const msg = await awgImportApi.commit(selected);
       if (!msg.success || !msg.obj) {
-        message.error(msg.msg || t('pages.inbounds.awgImport.none'));
+        messageApi.error(msg.msg || t('pages.inbounds.awgImport.none'));
         return;
       }
       const ok = msg.obj.filter((r) => !r.error);
@@ -84,7 +85,7 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
       const missing = ok.reduce((n, r) => n + r.missingKeys, 0);
       setResults(msg.obj);
       if (ok.length > 0) {
-        message.success(
+        messageApi.success(
           t('pages.inbounds.awgImport.success', {
             inbounds: ok.length,
             clients,
@@ -94,10 +95,10 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
         onImported();
       }
       if (fail.length > 0) {
-        message.warning(fail.map((r) => `${r.id}: ${r.error}`).join('; '));
+        messageApi.warning(fail.map((r) => `${r.id}: ${r.error}`).join('; '));
       }
       if (warned.length > 0) {
-        message.warning(warned.map((r) => `${r.id}: ${r.warning}`).join('; '));
+        messageApi.warning(warned.map((r) => `${r.id}: ${r.warning}`).join('; '));
       }
       if (fail.length === 0) {
         setModalOpen(false);
@@ -117,17 +118,17 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
     try {
       const msg = await awgImportApi.remove(selected);
       if (!msg.success || !msg.obj) {
-        message.error(msg.msg || t('pages.inbounds.awgImport.none'));
+        messageApi.error(msg.msg || t('pages.inbounds.awgImport.none'));
         return;
       }
       const ok = msg.obj.filter((r) => !r.error);
       const fail = msg.obj.filter((r) => r.error);
       setResults(msg.obj);
       if (ok.length > 0) {
-        message.success(t('pages.inbounds.awgImport.deleted', { count: ok.length }));
+        messageApi.success(t('pages.inbounds.awgImport.deleted', { count: ok.length }));
       }
       if (fail.length > 0) {
-        message.warning(fail.map((r) => `${r.id}: ${r.error}`).join('; '));
+        messageApi.warning(fail.map((r) => `${r.id}: ${r.error}`).join('; '));
       }
       await load();
     } finally {
@@ -173,11 +174,12 @@ export default function AwgImportBanner({ openMenu = 0, onImported }: Props) {
   ];
 
   if (!showBanner && !modalOpen) {
-    return null;
+    return messageContextHolder;
   }
 
   return (
     <>
+      {messageContextHolder}
       {showBanner && !dismissed && (
         <Alert
           type="info"
