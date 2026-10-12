@@ -116,17 +116,12 @@ func (s *ClientService) detachShareOnlyClient(inboundSvc *InboundService, inboun
 		return nil
 	}
 
-	var shared map[string]bool
-	if !keepTraffic {
-		var err error
-		shared, err = inboundSvc.emailsUsedByOtherInbounds(clean, inboundId)
-		if err != nil {
-			return err
-		}
-	}
-
 	return runSerializedTx(func(tx *gorm.DB) error {
 		if !keepTraffic {
+			shared, err := inboundSvc.emailsUsedByOtherInbounds(tx, clean, inboundId)
+			if err != nil {
+				return err
+			}
 			for _, email := range clean {
 				if shared[strings.ToLower(email)] {
 					continue

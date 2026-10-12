@@ -307,13 +307,14 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 					c.AllowedIPs = inboundClient.AllowedIPs
 					c.PreSharedKey = inboundClient.PreSharedKey
 					c.PublicKey = inboundClient.PublicKey
-					// #6731: a nil settings keepalive must not keep the other tunnel's value.
-					if inboundClient.KeepAlive == nil {
-						c.KeepAlive = nil
+					// LUCX-HOOK: KeepAliveValue is a string, not *int (#6731).
+					// Unset (empty/0) must not keep another tunnel's keepalive.
+					if inboundClient.KeepAlive.IsZero() {
+						c.KeepAlive = ""
 					} else {
-						keepalive := *inboundClient.KeepAlive
-						c.KeepAlive = &keepalive
+						c.KeepAlive = inboundClient.KeepAlive
 					}
+					// END LUCX-HOOK
 				}
 				wgPeers = append(wgPeers, model.WireguardPeerFromClient(c))
 				continue
