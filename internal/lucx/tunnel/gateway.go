@@ -188,8 +188,7 @@ func RenderUnifiedGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallba
 }
 
 // writeL4Mux emits matching_timeout + route blocks shared by both renders.
-// Chan routes emit `l4http`; Dest routes emit proxy (with PROXY v1 unless
-// NoProxy); an empty fallback keeps the drop proxy to a dead loopback.
+// Empty fallback is omitted: dialing 127.0.0.1:1 logs connection refused per hit.
 func writeL4Mux(b *strings.Builder, routes []GatewayRoute, fallback GatewayRoute) {
 	b.WriteString("\t\t\tmatching_timeout 15s\n")
 	seen := map[string]bool{}
@@ -207,9 +206,21 @@ func writeL4Mux(b *strings.Builder, routes []GatewayRoute, fallback GatewayRoute
 		writeL4Handler(b, r)
 		b.WriteString("\t\t\t}\n")
 	}
+	if dropFallback(fallback) {
+		return
+	}
 	b.WriteString("\t\t\troute {\n")
 	writeL4Handler(b, fallback)
 	b.WriteString("\t\t\t}\n")
+}
+
+// dropFallback is the blackhole catch-all. A real dest or l4http chan stays.
+func dropFallback(r GatewayRoute) bool {
+	if strings.TrimSpace(r.Chan) != "" {
+		return false
+	}
+	d := strings.TrimSpace(r.Dest)
+	return d == "" || d == gatewayDropBackend
 }
 
 func dropDeadChans(routes []GatewayRoute, live map[string]bool) []GatewayRoute {

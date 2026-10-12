@@ -4,6 +4,14 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1au: journal full of `dial tcp 127.0.0.1:1: connection refused` — FIXED (lucx.290)
+
+- **Symptom:** `journalctl -u x-ui` is almost only `tunnel: gateway-N | … layer4 … handling connection … dial tcp 127.0.0.1:1: connect: connection refused`. Remotes are scanners, not panel users. Disk growth is journald, not Naive `access.json` (capped at 32MB).
+- **Cause:** unmatched SNI hit a catch-all `proxy 127.0.0.1:1`. Nothing listens there, so caddy-l4 logs every dial, and the sidecar log writer copies each line to the panel log.
+- **Fix:** omit that catch-all. caddy-l4 closes the conn with no error. A real fallback (cover / `l4http`) stays.
+- **Healing:** update. One gateway restart on the next reconcile. `matching connection … EOF` lines can remain: the client hung up before SNI, and caddy logs that itself.
+- **Not this:** a matched SNI whose backend is down. That dials the real loopback port, not `:1`.
+
 ### Pattern 1at: gateway SIGTERM every ~5s, master `update/3` EOF — FIXED (lucx.286)
 
 - **Symptom (Gennady, 05.10.2026):** on the exit node `gateway-N` gets SIGTERM every ~5s, then `stopped` and immediately `started`. No `config changed, restarting`. Caddyfile md5 is stable. Master logs `reconcile inbound "n2-…": POST …/inbounds/update/N: EOF` on the same period. `l4http: no http listener "cover-N"` is only during that shutdown, from the master's IP.

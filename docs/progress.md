@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.290 — Gateway drop no longer logs every unmatched connection (2026-10-12)
+
+A public gateway filled the panel journal with `dial tcp 127.0.0.1:1: connect: connection refused`. Unmatched SNI (scanners on :443) was proxied to a closed loopback port, and caddy-l4 logs that dial failure on every hit; `procLogWriter` copies each line into journald. The catch-all is now omitted. caddy-l4 closes the connection when no SNI route matches (`nopHandler`, no error). A configured fallback (cover site or `l4http` chan) is unchanged. Clients with a matching SNI are unchanged. Rule 0 safe.
+
+**lucxVersion:** lucx.290
+
+Files: `internal/lucx/tunnel/gateway.go`, `internal/lucx/tunnel/gateway_test.go`.
+
+Tests: `TestRenderGatewayCaddyfile_SNIAndDrop`, `TestRenderUnifiedGatewayCaddyfile_NoFallbackDrops`.
+
+Healing: update the panel. The next reconcile rewrites the Caddyfile and restarts the gateway once.
+
+---
+
 ## lucx.289 — AWG self-recovery for stale interfaces, fixes post-update "already up" loop (Igor, 2026-10-10)
 
 Igor, after a panel update: every 10 s `awg: reconcile failed for inbound 1: awg interface already up: awg1`, the AWG 3.1 inbound never came up, disable/enable did not help, a panel restart restored it. Mechanism: a tick with a transient `KernelAvailable()==false` (module/tools being swapped during the update's rebuild hook) runs the kernel `Reconcile(nil)` handover — procs emptied + markered `.conf` backed up/removed, while the best-effort `awg-quick down` failed (tools swapped mid-tick) leaving the iface up. Next ticks: conf regenerated, `Start` → "already up" forever — the orphan sweep (`m.swept`) runs once per process and disable/enable does not touch the stray; only a fresh process recovers (new sweep classifies the regenerated marked conf as ours and `ip link del`s it).

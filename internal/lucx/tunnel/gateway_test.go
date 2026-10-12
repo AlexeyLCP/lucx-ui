@@ -31,19 +31,21 @@ func TestRenderGatewayCaddyfile_SNIAndDrop(t *testing.T) {
 		"proxy 127.0.0.1:1443",
 		"tls sni vpn.example.com",
 		"proxy 127.0.0.1:8443",
-		"proxy 127.0.0.1:1",
 		"proxy_protocol v1",
 	} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("missing %q:\n%s", need, got)
 		}
 	}
+	if strings.Contains(got, "proxy 127.0.0.1:1\n") || strings.Contains(got, "proxy 127.0.0.1:1 {") {
+		t.Fatalf("empty fallback dials a dead port and caddy logs every hit:\n%s", got)
+	}
 	if strings.Count(got, "tls sni www.microsoft.com") != 1 {
 		t.Fatalf("duplicate SNI:\n%s", got)
 	}
-	got = RenderGatewayCaddyfile(443, []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"}}, "127.0.0.1:8443", "")
-	if strings.Count(got, "proxy 127.0.0.1:8443") < 1 {
-		t.Fatalf("cover fallback:\n%s", got)
+	got = RenderGatewayCaddyfile(443, []GatewayRoute{{SNI: "vpn.example.com", Dest: "127.0.0.1:8443"}}, "127.0.0.1:9", "")
+	if !strings.Contains(got, "proxy 127.0.0.1:9") {
+		t.Fatalf("real fallback must stay:\n%s", got)
 	}
 }
 
@@ -557,8 +559,8 @@ func TestRenderUnifiedGatewayCaddyfile_NoFallbackDrops(t *testing.T) {
 	got := RenderUnifiedGatewayCaddyfile(443, []GatewayRoute{
 		{SNI: "a.example.com", Dest: "127.0.0.1:8443", Chan: "naive-1"},
 	}, "", "", nil)
-	if !strings.Contains(got, "proxy 127.0.0.1:1") {
-		t.Fatalf("expected drop fallback:\n%s", got)
+	if strings.Contains(got, "proxy 127.0.0.1:1\n") || strings.Contains(got, "proxy 127.0.0.1:1 {") {
+		t.Fatalf("empty fallback dials a dead port and caddy logs every hit:\n%s", got)
 	}
 }
 
