@@ -26,9 +26,11 @@ vi.mock('antd', async (importOriginal) => {
     ...actual,
     message: {
       ...actual.message,
-      success: messageSuccess,
-      warning: messageWarning,
-      error: messageError,
+      useMessage: () =>
+        [
+          { success: messageSuccess, warning: messageWarning, error: messageError },
+          null,
+        ] as unknown as ReturnType<typeof actual.message.useMessage>,
     },
   };
 });
