@@ -204,9 +204,9 @@ func isAwgModuleObject(name string) bool {
 func readModuleObject(path string) ([]byte, error) {
 	switch {
 	case strings.HasSuffix(path, ".ko.xz"):
-		return exec.Command("xz", "-dc", path).Output()
+		return exec.CommandContext(context.Background(), "xz", "-dc", path).Output()
 	case strings.HasSuffix(path, ".ko.zst"):
-		return exec.Command("zstd", "-dc", path).Output()
+		return exec.CommandContext(context.Background(), "zstd", "-dc", path).Output()
 	default:
 		return os.ReadFile(path)
 	}

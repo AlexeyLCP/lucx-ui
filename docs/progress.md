@@ -8,7 +8,7 @@ v3.10.0-lucx.291 shipped upstream `ProtectSystem=full` plus `ProtectKernelTunabl
 
 Files: `internal/awg/platform_linux.go`, `internal/awg/platform_linux_test.go`, `install.sh`, `update.sh`, `x-ui.service.debian`, `x-ui.service.arch`, `x-ui.service.rhel`.
 
-Tests: `TestKallsymsProbe`, `TestKernelExportsHeaderProtection_SandboxFallback`, `TestKernelExportsHeaderProtection_XZModule`.
+Tests: `TestKallsymsProbe`, `TestKernelExportsHeaderProtection_SandboxFallback`, `TestKernelExportsHeaderProtection_XZModule`. `xz`/`zstd` go through `CommandContext` (`noctx` rejects `exec.Command`).
 
 Healing: `x-ui update` to this release, then restart. The next reconcile rewrites the conf with the 3.x fields and brings the interface up. Issued client configs are not rewritten. A `1.0.0` module whose only object is `.ko.zst` still withholds the fields when `zstd` cannot decompress it.
 
