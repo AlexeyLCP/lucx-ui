@@ -10,6 +10,7 @@ package awg
 
 import (
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -185,13 +186,13 @@ func TestModuleSupportsAwg31_ToolsAheadOfModule(t *testing.T) {
 	}
 }
 
-// TestKernelExportsHeaderProtection_SandboxFallback: masked kallsyms must read the
-// running kernel's DKMS .ko. Sysfs stays 1.0.0 (lucx.58) and must not decide.
+// TestKernelExportsHeaderProtection_SandboxFallback: masked kallsyms trusts a 3.x
+// sysfs version, and a 1.0.0 stamp only yields to the running kernel's DKMS object.
 func TestKernelExportsHeaderProtection_SandboxFallback(t *testing.T) {
 	const kernel = "6.8.0-146-generic"
 	awg3Kallsyms := "ffffffffc05a8e10 T awg_header_protection_set_key\t[amneziawg]\n"
 	plainKallsyms := "0000000000000000 T awg_noise_handshake_init\t[amneziawg]\n"
-	writeKo := func(root, rel string, withSymbol bool) {
+	writeKo := func(root, rel, name string, withSymbol bool) {
 		t.Helper()
 		dir := filepath.Join(root, "3c38e168beb7", rel, "x86_64", "module")
 		if err := os.MkdirAll(dir, 0o755); err != nil {
@@ -201,7 +202,7 @@ func TestKernelExportsHeaderProtection_SandboxFallback(t *testing.T) {
 		if withSymbol {
 			body = append(body, []byte("awg_header_protection_set_key\x00")...)
 		}
-		if err := os.WriteFile(filepath.Join(dir, "amneziawg.ko"), body, 0o644); err != nil {
+		if err := os.WriteFile(filepath.Join(dir, name), body, 0o644); err != nil {
 			t.Fatalf("WriteFile ko: %v", err)
 		}
 	}
@@ -209,22 +210,27 @@ func TestKernelExportsHeaderProtection_SandboxFallback(t *testing.T) {
 		name            string
 		kallsyms        string
 		kallsymsMissing bool
+		sysfs           string
+		sysfsMissing    bool
 		koKernel        string
+		koName          string
 		koSymbol        bool
 		noKo            bool
 		want            bool
 	}{
-		{name: "masked kallsyms + ko with symbol", kallsyms: "", koKernel: kernel, koSymbol: true, want: true},
-		{name: "masked kallsyms + v1 ko", kallsyms: "", koKernel: kernel, want: false},
-		{name: "masked kallsyms + ko for another kernel", kallsyms: "", koKernel: "5.15.0-100-generic", koSymbol: true, want: false},
-		{name: "masked kallsyms + no ko", kallsyms: "", noKo: true, want: false},
-		{name: "kallsyms file absent + ko with symbol", kallsymsMissing: true, koKernel: kernel, koSymbol: true, want: true},
-		{name: "readable kallsyms with symbol, v1 ko ignored", kallsyms: awg3Kallsyms, koKernel: kernel, want: true},
-		{name: "readable kallsyms without symbol, awg3 ko must not rescue", kallsyms: plainKallsyms, koKernel: kernel, koSymbol: true, want: false},
+		{name: "masked kallsyms + sysfs 3.1 and no ko", kallsyms: "", sysfs: "3.1.20260812\n", noKo: true, want: true},
+		{name: "masked kallsyms + 1.0.0 stamp + ko with symbol", kallsyms: "", sysfs: "1.0.0\n", koKernel: kernel, koName: "amneziawg.ko", koSymbol: true, want: true},
+		{name: "masked kallsyms + 1.0.0 stamp + v1 ko", kallsyms: "", sysfs: "1.0.0\n", koKernel: kernel, koName: "amneziawg.ko", want: false},
+		{name: "masked kallsyms + 1.0.0 stamp + ko for another kernel", kallsyms: "", sysfs: "1.0.0\n", koKernel: "5.15.0-100-generic", koName: "amneziawg.ko", koSymbol: true, want: false},
+		{name: "masked kallsyms + 1.0.0 stamp + no ko", kallsyms: "", sysfs: "1.0.0\n", noKo: true, want: false},
+		{name: "kallsyms absent + 1.0.0 stamp + ko with symbol", kallsymsMissing: true, sysfs: "1.0.0\n", koKernel: kernel, koName: "amneziawg.ko", koSymbol: true, want: true},
+		{name: "readable kallsyms with symbol, 1.0.0 sysfs ignored", kallsyms: awg3Kallsyms, sysfs: "1.0.0\n", koKernel: kernel, koName: "amneziawg.ko", want: true},
+		{name: "readable kallsyms without symbol, 3.1 sysfs must not rescue", kallsyms: plainKallsyms, sysfs: "3.1.20260812\n", noKo: true, want: false},
 	}
 	origKallsyms := kallsymsPath
 	origRelease := kernelReleasePath
 	origDKMS := dkmsModuleRoot
+	origModule := moduleVersionPath
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
@@ -232,6 +238,7 @@ func TestKernelExportsHeaderProtection_SandboxFallback(t *testing.T) {
 				kallsymsPath = origKallsyms
 				kernelReleasePath = origRelease
 				dkmsModuleRoot = origDKMS
+				moduleVersionPath = origModule
 			})
 			root := t.TempDir()
 			relPath := filepath.Join(root, "osrelease")
@@ -240,8 +247,20 @@ func TestKernelExportsHeaderProtection_SandboxFallback(t *testing.T) {
 			}
 			kernelReleasePath = relPath
 			dkmsModuleRoot = filepath.Join(root, "dkms")
+			if c.sysfsMissing {
+				moduleVersionPath = filepath.Join(root, "version-absent")
+			} else {
+				moduleVersionPath = filepath.Join(root, "version")
+				if err := os.WriteFile(moduleVersionPath, []byte(c.sysfs), 0o644); err != nil {
+					t.Fatalf("WriteFile version: %v", err)
+				}
+			}
 			if !c.noKo {
-				writeKo(dkmsModuleRoot, c.koKernel, c.koSymbol)
+				name := c.koName
+				if name == "" {
+					name = "amneziawg.ko"
+				}
+				writeKo(dkmsModuleRoot, c.koKernel, name, c.koSymbol)
 			}
 			if c.kallsymsMissing {
 				kallsymsPath = filepath.Join(root, "kallsyms-absent")
@@ -255,5 +274,51 @@ func TestKernelExportsHeaderProtection_SandboxFallback(t *testing.T) {
 				t.Fatalf("kernelExportsHeaderProtection() = %v, want %v", got, c.want)
 			}
 		})
+	}
+}
+
+// TestKernelExportsHeaderProtection_XZModule is the Debian layout: the DKMS
+// object is amneziawg.ko.xz, and a 1.0.0 sysfs stamp must not hide its symbol.
+func TestKernelExportsHeaderProtection_XZModule(t *testing.T) {
+	if _, err := exec.LookPath("xz"); err != nil {
+		t.Skip("xz is not installed")
+	}
+	const kernel = "6.12.107+deb13-amd64"
+	root := t.TempDir()
+	orig := []string{kallsymsPath, kernelReleasePath, dkmsModuleRoot, moduleVersionPath}
+	t.Cleanup(func() {
+		kallsymsPath, kernelReleasePath, dkmsModuleRoot, moduleVersionPath = orig[0], orig[1], orig[2], orig[3]
+	})
+	kallsymsPath = filepath.Join(root, "kallsyms")
+	if err := os.WriteFile(kallsymsPath, nil, 0o644); err != nil {
+		t.Fatalf("WriteFile kallsyms: %v", err)
+	}
+	kernelReleasePath = filepath.Join(root, "osrelease")
+	if err := os.WriteFile(kernelReleasePath, []byte(kernel+"\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile osrelease: %v", err)
+	}
+	moduleVersionPath = filepath.Join(root, "version")
+	if err := os.WriteFile(moduleVersionPath, []byte("1.0.0\n"), 0o644); err != nil {
+		t.Fatalf("WriteFile version: %v", err)
+	}
+	dir := filepath.Join(root, "dkms", "3c38e168beb7", kernel, "x86_64", "module")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("MkdirAll: %v", err)
+	}
+	raw := filepath.Join(root, "amneziawg.ko")
+	body := []byte("awg_noise_handshake_init\x00awg_header_protection_set_key\x00")
+	if err := os.WriteFile(raw, body, 0o644); err != nil {
+		t.Fatalf("WriteFile raw: %v", err)
+	}
+	xzOut, err := exec.Command("xz", "-c", raw).Output()
+	if err != nil {
+		t.Fatalf("xz: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "amneziawg.ko.xz"), xzOut, 0o644); err != nil {
+		t.Fatalf("WriteFile xz: %v", err)
+	}
+	dkmsModuleRoot = filepath.Join(root, "dkms")
+	if got := kernelExportsHeaderProtection(); !got {
+		t.Fatal("kernelExportsHeaderProtection() = false, want true for a .ko.xz that exports the symbol")
 	}
 }

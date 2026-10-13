@@ -7,7 +7,7 @@ Extracted from AGENTS.md. This file is project law.
 ### Pattern 1ah: after v3.10.0-lucx.291, AWG down and conf lost HeaderProtectionKey — FIXED (lucx.292)
 - **Symptom:** `open /etc/amnezia/amneziawg/awgN.conf: read-only file system` every 10s, or the file is written without HeaderProtectionKey / ContentPaddingAddition / the five device timers. Interface missing, or up but the peer handshake fails. Outbound `awgo-N` can be up and still not pass ping. Rollback to .290 restores it.
 - **Cause:** upstream sandbox. `ProtectSystem=full` froze `/etc` and the drop-in omitted `/etc/amnezia`. `ProtectKernelTunables` masks `/proc/kallsyms`, so `ModuleSupportsAwg3` withheld the AWG3 lines. Sysfs version is `1.0.0` on every tree (Pattern 1d) and must not be used as the fallback.
-- **Fix:** drop-in and unit `ReadWritePaths` include `/etc/amnezia`. Masked kallsyms scans `/var/lib/dkms/amneziawg/<ver>/<kernel>/*/module/amneziawg.ko` for `awg_header_protection_set_key`. Update replaces only `10-xui-sandbox.conf`.
+- **Fix:** drop-in and unit `ReadWritePaths` include `/etc/amnezia`. Masked kallsyms trusts sysfs only at 3.x; a `1.0.0` stamp scans `/var/lib/dkms/amneziawg/<ver>/<kernel>/*/module/amneziawg.ko` (also `.ko.xz`). Update replaces only `10-xui-sandbox.conf`.
 - **Healing:** update to lucx.292 and restart. Reconcile rewrites the conf. Clients keep their old profiles.
 
 ### Pattern 1ag: P2P on, clients still cannot ping each other (lucx.224)

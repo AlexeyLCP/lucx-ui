@@ -130,7 +130,7 @@ var (
 const headerProtectionSymbol = "awg_header_protection_set_key"
 
 // kernelExportsHeaderProtection reports an AWG3 module (header_protection.c symbol).
-// Readable kallsyms wins. A masked one (v3.10 sandbox) scans the DKMS .ko, never sysfs 1.0.0.
+// Readable kallsyms wins. A masked one trusts sysfs only at 3.x, else the DKMS object.
 func kernelExportsHeaderProtection() bool {
 	f, err := os.Open(kallsymsPath)
 	if err == nil {
@@ -139,6 +139,9 @@ func kernelExportsHeaderProtection() bool {
 		if readable {
 			return found
 		}
+	}
+	if moduleVersionAtLeast(3, 0) {
+		return true
 	}
 	found, ok := dkmsKoExports(headerProtectionSymbol)
 	return ok && found
@@ -157,8 +160,8 @@ func kallsymsProbe(r io.Reader, symbol string) (found, readable bool) {
 	return false, readable
 }
 
-// dkmsKoExports scans the running kernel's DKMS amneziawg.ko for symbol.
-// ok is false when no .ko was read. shortcut: uncompressed .ko only, upgrade for .ko.zst.
+// dkmsKoExports scans the running kernel's DKMS module object for symbol.
+// Debian ships it as amneziawg.ko.xz; /lib/modules is hidden by the sandbox.
 func dkmsKoExports(symbol string) (found, ok bool) {
 	relRaw, err := os.ReadFile(kernelReleasePath)
 	if err != nil {
@@ -170,10 +173,10 @@ func dkmsKoExports(symbol string) (found, ok bool) {
 	}
 	saw := false
 	_ = filepath.WalkDir(dkmsModuleRoot, func(path string, d fs.DirEntry, err error) error {
-		if err != nil || d.IsDir() || d.Name() != "amneziawg.ko" || !pathForKernel(path, rel) {
+		if err != nil || d.IsDir() || !isAwgModuleObject(d.Name()) || !pathForKernel(path, rel) {
 			return nil
 		}
-		data, rerr := os.ReadFile(path)
+		data, rerr := readModuleObject(path)
 		if rerr != nil {
 			return nil
 		}
@@ -185,6 +188,28 @@ func dkmsKoExports(symbol string) (found, ok bool) {
 		return nil
 	})
 	return found, saw
+}
+
+func isAwgModuleObject(name string) bool {
+	switch name {
+	case "amneziawg.ko", "amneziawg.ko.xz", "amneziawg.ko.zst":
+		return true
+	default:
+		return false
+	}
+}
+
+// readModuleObject returns the uncompressed module image. xz/zstd are the
+// host tools; a missing decompressor is a failed read, not a v1 module.
+func readModuleObject(path string) ([]byte, error) {
+	switch {
+	case strings.HasSuffix(path, ".ko.xz"):
+		return exec.Command("xz", "-dc", path).Output()
+	case strings.HasSuffix(path, ".ko.zst"):
+		return exec.Command("zstd", "-dc", path).Output()
+	default:
+		return os.ReadFile(path)
+	}
 }
 
 // pathForKernel matches a DKMS directory named exactly the running release

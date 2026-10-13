@@ -2,15 +2,15 @@
 
 ## lucx.292 — AWG survives the v3.10 systemd sandbox (2026-10-13)
 
-v3.10.0-lucx.291 shipped upstream `ProtectSystem=full` plus `ProtectKernelTunables=yes`. Two effects took down AWG on every updated node. The drop-in `10-xui-sandbox.conf` did not list `/etc/amnezia`, so reconcile could not write `awgN.conf` / `awgo-*.conf` (`read-only file system`) and `awg-quick up` never ran. The same sandbox masks `/proc/kallsyms`, so `ModuleSupportsAwg3` went false and the renderers dropped HeaderProtectionKey plus the six device timers. Peers still had those fields, so the handshake failed. Sysfs `/sys/module/amneziawg/version` stays `1.0.0` on v1 and v3 trees (lucx.58); it is not a fallback. An empty kallsyms now scans the running kernel's uncompressed DKMS `amneziawg.ko` for `awg_header_protection_set_key`. A readable kallsyms stays authoritative. `install.sh` / `update.sh` and the debian/arch/rhel units add `/etc/amnezia` to `ReadWritePaths`. Update still rewrites only `10-xui-sandbox.conf`; other drop-ins in `x-ui.service.d` are left in place (uninstall still removes the directory).
+v3.10.0-lucx.291 shipped upstream `ProtectSystem=full` plus `ProtectKernelTunables=yes`. Two effects took down AWG on every updated node. The drop-in `10-xui-sandbox.conf` did not list `/etc/amnezia`, so reconcile could not write `awgN.conf` / `awgo-*.conf` (`read-only file system`) and `awg-quick up` never ran. The same sandbox masks `/proc/kallsyms`, so `ModuleSupportsAwg3` went false and the renderers dropped HeaderProtectionKey plus the six device timers. Peers still had those fields, so the handshake failed. An empty kallsyms trusts `/sys/module/amneziawg/version` only when it is 3.x (n9 reports `3.1.20260812`). The dkms `1.0.0` stamp (lucx.58) is not trusted: then the running kernel's DKMS object is scanned, including Debian's `amneziawg.ko.xz`. `/lib/modules` stays hidden by `ProtectKernelModules`. A readable kallsyms stays authoritative. `install.sh` / `update.sh` and the debian/arch/rhel units add `/etc/amnezia` to `ReadWritePaths`. Update still rewrites only `10-xui-sandbox.conf`; other drop-ins in `x-ui.service.d` are left in place (uninstall still removes the directory).
 
 **lucxVersion:** lucx.292
 
 Files: `internal/awg/platform_linux.go`, `internal/awg/platform_linux_test.go`, `install.sh`, `update.sh`, `x-ui.service.debian`, `x-ui.service.arch`, `x-ui.service.rhel`.
 
-Tests: `TestKallsymsProbe`, `TestKernelExportsHeaderProtection_SandboxFallback`.
+Tests: `TestKallsymsProbe`, `TestKernelExportsHeaderProtection_SandboxFallback`, `TestKernelExportsHeaderProtection_XZModule`.
 
-Healing: `x-ui update` to this release, then restart. The next reconcile rewrites the conf with the 3.x fields and brings the interface up. Issued client configs are not rewritten. A host whose only module object is `.ko.zst`/`.ko.xz` still withholds the fields until an uncompressed DKMS `.ko` is readable.
+Healing: `x-ui update` to this release, then restart. The next reconcile rewrites the conf with the 3.x fields and brings the interface up. Issued client configs are not rewritten. A `1.0.0` module whose only object is `.ko.zst` still withholds the fields when `zstd` cannot decompress it.
 
 **Release:** not tagged yet.
 
