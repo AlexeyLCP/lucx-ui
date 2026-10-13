@@ -48,8 +48,10 @@ ProtectSystem=full
 # grant /usr or /etc to accommodate it.
 # ReadWritePaths= requires systemd >= 231; ReadWriteDirectories= is the deprecated
 # alias for older systemd, needed so ProtectSystem=full keeps /etc/x-ui writable.
-ReadWritePaths=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui
-ReadWriteDirectories=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui
+# LUCX-HOOK: /etc/amnezia holds panel-owned AWG configs (awgN.conf, awgo-*.conf).
+ReadWritePaths=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia
+ReadWriteDirectories=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia
+# END LUCX-HOOK
 # A kernel-TUN WireGuard outbound zeroes net.ipv{4,6}.conf.*.rp_filter as Xray starts
 # (#6796). Reopen only /proc/sys/net: kernel.* (core_pattern among them) stays read-only.
 # No ReadWriteDirectories alias needed: ProtectKernelTunables itself requires systemd 232.

@@ -10,9 +10,11 @@ package awg
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -95,9 +97,8 @@ var (
 // the half-built interface back, and every reconcile fails with "Device
 // <awgN> does not exist".
 //
-// The probe is functional, not version-based: sysfs module-version reporting
-// is confirmed accurate on a 3.1 module (measured on ru1). Whether pre-3.1
-// modules report accurately too is unverified, so kallsyms stays the check here.
+// Functional probe (lucx.58): sysfs version is 1.0.0 on every tree, so it is not consulted.
+// kallsyms wins; when the v3.10 sandbox masks it, the running kernel's DKMS .ko is scanned.
 //
 // Only a positive result is cached. A negative one is transient (module not
 // loaded yet right after boot, tools mid-rebuild during an update), so the
@@ -118,29 +119,79 @@ func ModuleSupportsAwg3() bool {
 	return supported
 }
 
-// kernelExportsHeaderProtection reports whether the loaded amneziawg module
-// is an AWG3 build. header_protection.c (merged upstream 2026-07-30, first
-// released in tag v3.0.20260730) defines the non-static symbol
-// awg_header_protection_set_key, and a loaded module's global symbols appear
-// in /proc/kallsyms. Pre-AWG3 modules — and no module at all — leave no such
-// line. Unreadable kallsyms degrades to false, which is always safe:
-// renderers simply omit the AWG3 fields.
+// kallsymsPath, kernelReleasePath and dkmsModuleRoot are package vars so tests
+// can point them at fixtures. The real procfs and DKMS tree cannot be stubbed.
+var (
+	kallsymsPath      = "/proc/kallsyms"
+	kernelReleasePath = "/proc/sys/kernel/osrelease"
+	dkmsModuleRoot    = "/var/lib/dkms/amneziawg"
+)
+
+const headerProtectionSymbol = "awg_header_protection_set_key"
+
+// kernelExportsHeaderProtection reports an AWG3 module (header_protection.c symbol).
+// Readable kallsyms wins. A masked one (v3.10 sandbox) scans the DKMS .ko, never sysfs 1.0.0.
 func kernelExportsHeaderProtection() bool {
-	f, err := os.Open("/proc/kallsyms")
-	if err != nil {
-		return false
+	f, err := os.Open(kallsymsPath)
+	if err == nil {
+		defer f.Close()
+		found, readable := kallsymsProbe(f, headerProtectionSymbol)
+		if readable {
+			return found
+		}
 	}
-	defer f.Close()
-	return kallsymsHasSymbol(f, "awg_header_protection_set_key")
+	found, ok := dkmsKoExports(headerProtectionSymbol)
+	return ok && found
 }
 
-// kallsymsHasSymbol scans kallsyms output for a symbol name. Extracted for
-// tests; a real /proc/kallsyms line looks like
-// "ffffffffc05a8e10 T awg_header_protection_set_key\t[amneziawg]".
-func kallsymsHasSymbol(r io.Reader, symbol string) bool {
+// kallsymsProbe scans kallsyms for symbol. readable is false when the stream is empty:
+// the v3.10 sandbox opens /proc/kallsyms and returns no lines, which is not "symbol absent".
+func kallsymsProbe(r io.Reader, symbol string) (found, readable bool) {
 	sc := bufio.NewScanner(r)
 	for sc.Scan() {
+		readable = true
 		if strings.Contains(sc.Text(), symbol) {
+			return true, true
+		}
+	}
+	return false, readable
+}
+
+// dkmsKoExports scans the running kernel's DKMS amneziawg.ko for symbol.
+// ok is false when no .ko was read. shortcut: uncompressed .ko only, upgrade for .ko.zst.
+func dkmsKoExports(symbol string) (found, ok bool) {
+	relRaw, err := os.ReadFile(kernelReleasePath)
+	if err != nil {
+		return false, false
+	}
+	rel := strings.TrimSpace(string(relRaw))
+	if rel == "" {
+		return false, false
+	}
+	saw := false
+	_ = filepath.WalkDir(dkmsModuleRoot, func(path string, d fs.DirEntry, err error) error {
+		if err != nil || d.IsDir() || d.Name() != "amneziawg.ko" || !pathForKernel(path, rel) {
+			return nil
+		}
+		data, rerr := os.ReadFile(path)
+		if rerr != nil {
+			return nil
+		}
+		saw = true
+		if bytes.Contains(data, []byte(symbol)) {
+			found = true
+			return fs.SkipAll
+		}
+		return nil
+	})
+	return found, saw
+}
+
+// pathForKernel matches a DKMS directory named exactly the running release
+// (or "<release>-<arch>"). A bare substring would treat 5.15.0-1 as 5.15.0-100.
+func pathForKernel(path, rel string) bool {
+	for _, seg := range strings.Split(filepath.ToSlash(path), "/") {
+		if seg == rel || strings.HasPrefix(seg, rel+"-") {
 			return true
 		}
 	}

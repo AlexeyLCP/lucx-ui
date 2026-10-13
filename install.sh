@@ -1793,7 +1793,8 @@ _xui_warn_unsupported_hardening() {
 # install.sh and update.sh therefore regenerate the drop-in from the folders
 # actually in use, and the unit's own ReadWritePaths only carry the
 # plain-install defaults. A relocated store means re-running install or update:
-# the drop-in is only written here.
+# the drop-in is only written here. The AWG config folder (/etc/amnezia) is
+# appended unconditionally -- it is the panel's own sidecar store.
 _xui_service_write_paths_dropin() {
     # $1 is the env file to resolve the XUI_* folders from; callers pass nothing
     # and get the OS-specific path the unit itself uses.
@@ -1834,8 +1835,10 @@ _xui_service_write_paths_dropin() {
     if [[ "$bin_folder" != /* ]]; then
         bin_folder="${main_folder%/}/${bin_folder#./}"
     fi
-
-    for path in "$db_folder" "$log_folder" "$bin_folder" "$main_folder"; do
+    # LUCX-HOOK: AWG sidecar configs (awgN.conf) are rewritten here on every reconcile.
+    local awg_config_dir="/etc/amnezia"
+    for path in "$db_folder" "$log_folder" "$bin_folder" "$main_folder" "$awg_config_dir"; do
+    # END LUCX-HOOK
         [[ "$path" == /* ]] || continue
         # ReadWritePaths= is a whitespace-separated list, and a folder whose
         # name contains whitespace cannot be written into it without relying on

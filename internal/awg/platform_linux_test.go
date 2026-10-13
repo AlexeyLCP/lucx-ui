@@ -78,30 +78,34 @@ func TestParseMajorVersion(t *testing.T) {
 	}
 }
 
-// TestKallsymsHasSymbol verifies the AWG3 kernel-module probe against the
-// real /proc/kallsyms line format. The symbol exists only in builds with
-// header_protection.c (upstream tag v3.0.20260730+).
-func TestKallsymsHasSymbol(t *testing.T) {
+// TestKallsymsProbe verifies the AWG3 kernel-module scan against the real
+// /proc/kallsyms line format. The symbol exists only in builds with
+// header_protection.c (upstream tag v3.0.20260730+). readable distinguishes a
+// masked kallsyms (systemd ProtectKernelTunables hands the panel an empty
+// file) from a genuinely symbol-less one.
+func TestKallsymsProbe(t *testing.T) {
 	awg3Kallsyms := "ffffffffc05a8000 t awg_allowedips_insert	[amneziawg]\n" +
 		"ffffffffc05a8e10 T awg_header_protection_set_key	[amneziawg]\n" +
 		"ffffffffc05a8e40 T awg_header_protection_get_key	[amneziawg]\n"
 	preAwg3Kallsyms := "ffffffffc05a8000 t awg_allowedips_insert	[amneziawg]\n" +
 		"ffffffffc05a8200 T awg_noise_handshake_init	[amneziawg]\n"
 	cases := []struct {
-		name   string
-		input  string
-		symbol string
-		want   bool
+		name         string
+		input        string
+		symbol       string
+		wantFound    bool
+		wantReadable bool
 	}{
-		{"awg3 module exports the symbol", awg3Kallsyms, "awg_header_protection_set_key", true},
-		{"pre-awg3 module lacks it", preAwg3Kallsyms, "awg_header_protection_set_key", false},
-		{"empty kallsyms", "", "awg_header_protection_set_key", false},
+		{"awg3 module exports the symbol", awg3Kallsyms, "awg_header_protection_set_key", true, true},
+		{"pre-awg3 module lacks it", preAwg3Kallsyms, "awg_header_protection_set_key", false, true},
+		{"sandbox masked kallsyms is empty and unreadable", "", "awg_header_protection_set_key", false, false},
 	}
 	for _, c := range cases {
 		c := c
 		t.Run(c.name, func(t *testing.T) {
-			if got := kallsymsHasSymbol(strings.NewReader(c.input), c.symbol); got != c.want {
-				t.Fatalf("kallsymsHasSymbol(...) = %v, want %v", got, c.want)
+			found, readable := kallsymsProbe(strings.NewReader(c.input), c.symbol)
+			if found != c.wantFound || readable != c.wantReadable {
+				t.Fatalf("kallsymsProbe(...) = (%v, %v), want (%v, %v)", found, readable, c.wantFound, c.wantReadable)
 			}
 		})
 	}
@@ -178,5 +182,78 @@ func TestModuleSupportsAwg31_ToolsAheadOfModule(t *testing.T) {
 
 	if got := ModuleSupportsAwg31(); got {
 		t.Fatalf("ModuleSupportsAwg31() = true with mocked 3.1 tools + a 3.0 module, want false — 3.1 tools alone must not pass the gate")
+	}
+}
+
+// TestKernelExportsHeaderProtection_SandboxFallback: masked kallsyms must read the
+// running kernel's DKMS .ko. Sysfs stays 1.0.0 (lucx.58) and must not decide.
+func TestKernelExportsHeaderProtection_SandboxFallback(t *testing.T) {
+	const kernel = "6.8.0-146-generic"
+	awg3Kallsyms := "ffffffffc05a8e10 T awg_header_protection_set_key\t[amneziawg]\n"
+	plainKallsyms := "0000000000000000 T awg_noise_handshake_init\t[amneziawg]\n"
+	writeKo := func(root, rel string, withSymbol bool) {
+		t.Helper()
+		dir := filepath.Join(root, "3c38e168beb7", rel, "x86_64", "module")
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			t.Fatalf("MkdirAll: %v", err)
+		}
+		body := []byte("awg_noise_handshake_init\x00")
+		if withSymbol {
+			body = append(body, []byte("awg_header_protection_set_key\x00")...)
+		}
+		if err := os.WriteFile(filepath.Join(dir, "amneziawg.ko"), body, 0o644); err != nil {
+			t.Fatalf("WriteFile ko: %v", err)
+		}
+	}
+	cases := []struct {
+		name            string
+		kallsyms        string
+		kallsymsMissing bool
+		koKernel        string
+		koSymbol        bool
+		noKo            bool
+		want            bool
+	}{
+		{name: "masked kallsyms + ko with symbol", kallsyms: "", koKernel: kernel, koSymbol: true, want: true},
+		{name: "masked kallsyms + v1 ko", kallsyms: "", koKernel: kernel, want: false},
+		{name: "masked kallsyms + ko for another kernel", kallsyms: "", koKernel: "5.15.0-100-generic", koSymbol: true, want: false},
+		{name: "masked kallsyms + no ko", kallsyms: "", noKo: true, want: false},
+		{name: "kallsyms file absent + ko with symbol", kallsymsMissing: true, koKernel: kernel, koSymbol: true, want: true},
+		{name: "readable kallsyms with symbol, v1 ko ignored", kallsyms: awg3Kallsyms, koKernel: kernel, want: true},
+		{name: "readable kallsyms without symbol, awg3 ko must not rescue", kallsyms: plainKallsyms, koKernel: kernel, koSymbol: true, want: false},
+	}
+	origKallsyms := kallsymsPath
+	origRelease := kernelReleasePath
+	origDKMS := dkmsModuleRoot
+	for _, c := range cases {
+		c := c
+		t.Run(c.name, func(t *testing.T) {
+			t.Cleanup(func() {
+				kallsymsPath = origKallsyms
+				kernelReleasePath = origRelease
+				dkmsModuleRoot = origDKMS
+			})
+			root := t.TempDir()
+			relPath := filepath.Join(root, "osrelease")
+			if err := os.WriteFile(relPath, []byte(kernel+"\n"), 0o644); err != nil {
+				t.Fatalf("WriteFile osrelease: %v", err)
+			}
+			kernelReleasePath = relPath
+			dkmsModuleRoot = filepath.Join(root, "dkms")
+			if !c.noKo {
+				writeKo(dkmsModuleRoot, c.koKernel, c.koSymbol)
+			}
+			if c.kallsymsMissing {
+				kallsymsPath = filepath.Join(root, "kallsyms-absent")
+			} else {
+				kallsymsPath = filepath.Join(root, "kallsyms")
+				if err := os.WriteFile(kallsymsPath, []byte(c.kallsyms), 0o644); err != nil {
+					t.Fatalf("WriteFile kallsyms: %v", err)
+				}
+			}
+			if got := kernelExportsHeaderProtection(); got != c.want {
+				t.Fatalf("kernelExportsHeaderProtection() = %v, want %v", got, c.want)
+			}
+		})
 	}
 }
