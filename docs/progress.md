@@ -12,7 +12,7 @@ Tests: `TestKallsymsProbe`, `TestKernelExportsHeaderProtection_SandboxFallback`,
 
 Healing: `x-ui update` to this release, then restart. The next reconcile rewrites the conf with the 3.x fields and brings the interface up. Issued client configs are not rewritten. A `1.0.0` module whose only object is `.ko.zst` still withholds the fields when `zstd` cannot decompress it.
 
-**Release:** not tagged yet.
+**Release:** `v3.10.0-lucx.292` — https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.292
 
 ---
 
