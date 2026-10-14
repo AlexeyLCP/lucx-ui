@@ -1,5 +1,25 @@
 # LucX-UI — Прогресс
 
+## merge: origin/main v3.10.2 → lucx.299 (2026-10-14)
+
+Upstream sync v3.10.0 → v3.10.2: 14 commits, 56 files. Snapshot: `backup/v3.10.0-lucx.299`. Hook audit: `git grep -c LUCX-HOOK` = 153 files before and after the merge — **zero drops**. LucX base version file reads `3.10.2`.
+
+Merged upstream work: mtg per-IP pending-handshake limit (+ settings i18n, form); whole-crash-report capture and in-place shadowsocks changes in xray; vmess link inline XHTTP/fm/mKCP fields (#6808/#6809); Hysteria2 Gecko obfs into Clash/Mihomo; Incy routing isolation from Happ headers (#6810); node traffic merge writes only changed client rows; syncInboundClients hardening (link-owned fields, lower-tunnel rank, settleRecordFlows); sponsors rework — sidebar slot dropped, simplified Sponsors page, raw.githubusercontent feed; Windows build as 3x-ui.exe with icon/version manifest (winres, go-winres).
+
+Conflicts (16) and resolutions:
+- 13 `internal/web/translation/*.json` — script-merged: ours-base + upstream keys/values on top, upstream-removed sponsor placement keys (`placements`, `placementSidebar*`, `placementDashboard*`, `placementLogin*`, `placementPage*`, `available`, `takenUntil`, `activeCount` — 12, nothing references them anymore) dropped, our `sponsors.intro`/`yourBrandText` (LucX wording, lucx.284) kept. Parity 3289 keys × 13 locales.
+- `internal/sub/controller.go` — upstream Incy isolation in `ApplyCommonHeaders`: their `incyClient` block + `ApplyIncyHeaders(…incyClient)` over our RoscomVPN routing LUCX-HOOK (their duplicate rule-resolution trio dropped — our hook already resolves; INCY with RoscomVPN source still gets source rules, INCY without falls to the shared JSON profile).
+- `internal/web/service/panel/sponsor.go` — ours: fork sponsor URLs LUCX-HOOK over upstream's raw.githubusercontent move.
+- `internal/web/service/xray_wireguard_config_test.go` — ours (`KeepAliveValue` expectations) + upstream's reordering/`AmneziaWG identity` wording.
+
+Post-merge dead-key sweep (per lucx.179 policy): upstream keys `pages.index.{devChannel,devChannelWarning,currentCommit,latestCommit}`, `pages.nodes.updateDevChannel`, `pages.xray.ruleForm.{userPlaceholder,userEmpty,userLoadError}` dropped from all 13 — our PanelUpdateModal/NodesPages stay stable-only and RuleFormModal keeps the lucx client picker; upstream's code using them did not change in this range, so it is not in our tree. i18n-dead-keys green.
+
+Gates on the Windows host: gofumpt clean, `go vet` (all but CGO-locked `internal/database` — pre-existing), `go build` of awg/lucx/mtproto/sub, `go test ./internal/awg/... ./internal/lucx/...` green, `npm run gen` (no delta), typecheck + oxlint + vitest unit (1573/1573) + build green. CGO packages checked by CI after push.
+
+Healing: `x-ui update`. No LucX behavior changed by the sync itself; panel `version` becomes 3.x upstream numbering — the overlay keeps `lucx.299`.
+
+---
+
 ## lucx.299 - masking closes manually created allow rules too (2026-10-14)
 
 Malderin follow-up to lucx.297: the panel port stayed open in `ufw status` when the allow rule was created by hand before applying masking ("сбросил файрвол, сразу добавил 2 правила … потом при применении маскинга эти 2 порта не трогаются"). Root cause (verified live on ufw 0.36.2, stand 144.31.224.212): a bare `ufw allow 35347` is stored as **one proto-less rule** — `ufw --force delete allow 35347/tcp` and `…/udp` both report "Could not delete non-existent rule" — and a full-syntax rule (`ufw allow proto tcp from 1.2.3.4 to any port X`) never matches simple spec deletes either. So the canonical close specs only cleared rules in the panel's own shape; anything pasted in another form survived every apply.

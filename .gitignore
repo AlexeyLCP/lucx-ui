@@ -41,6 +41,7 @@ Thumbs.db
 
 # Ignore Go build files
 *.exe
+*.syso
 x-ui.db
 x-ui.db-shm
 x-ui.db-wal

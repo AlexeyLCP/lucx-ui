@@ -1026,7 +1026,9 @@
         "autoSystemDnsToGateway": "DNS del sistema a la puerta de enlace",
         "autoSystemDnsToGatewayTooltip": "Solo Linux: apunta systemd-resolved a la puerta de enlace del TUN para que las consultas del sistema pasen por Xray. Necesita una puerta de enlace y el TUN no arranca si esto falla.",
         "autoSystemWfpBlockLeak": "Bloquear fugas (WFP)",
-        "autoSystemWfpBlockLeakTooltip": "Solo Windows, con Auto system routes: dns mantiene el DNS dentro del TUN (necesita servidores DNS) y misconfigtun bloquea una versión de IP que ninguna ruta envía al TUN."
+        "autoSystemWfpBlockLeakTooltip": "Solo Windows, con Auto system routes: dns mantiene el DNS dentro del TUN (necesita servidores DNS) y misconfigtun bloquea una versión de IP que ninguna ruta envía al TUN.",
+        "mtgPendingHandshakesMaxPerIp": "Máx. handshakes pendientes por IP",
+        "mtgPendingHandshakesMaxPerIpHint": "Cierra las conexiones nuevas de una IP que ya tiene esta cantidad de handshakes sin completar. Los clientes detrás de una IP compartida (NAT del operador) comparten el límite. 0 lo desactiva."
       },
       "info": {
         "mode": "Modo",
@@ -2859,19 +2861,7 @@
       "tag": "Patrocinador",
       "visit": "Visitar",
       "yourBrand": "Tu marca aquí",
-      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
-      "placements": "Espacios disponibles",
-      "placementDashboard": "Banner del panel",
-      "placementDashboardDesc": "Espacio premium en la parte superior del panel, un patrocinador a la vez.",
-      "placementSidebar": "Tarjeta lateral",
-      "placementSidebarDesc": "Se muestra en todas las páginas del panel, rotando entre patrocinadores.",
-      "placementLogin": "Página de inicio de sesión",
-      "placementLoginDesc": "La ve el administrador en cada inicio de sesión.",
-      "placementPage": "Página de patrocinadores",
-      "placementPageDesc": "Aparece aquí con logo, descripción y enlace.",
-      "available": "Disponible",
-      "takenUntil": "Ocupado hasta {date}",
-      "activeCount": "{count} activos"
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day."
     },
     "masking": {
       "title": "443 SNI masking",

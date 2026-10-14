@@ -1027,7 +1027,9 @@
         "autoSystemDnsToGateway": "Системный DNS на шлюз",
         "autoSystemDnsToGatewayTooltip": "Только Linux: направляет systemd-resolved на шлюз TUN, чтобы системные запросы шли через Xray. Нужен шлюз; при ошибке TUN не запустится.",
         "autoSystemWfpBlockLeak": "Блокировка утечек (WFP)",
-        "autoSystemWfpBlockLeakTooltip": "Только Windows, вместе с авто-маршрутами системы: dns удерживает DNS внутри TUN (нужны DNS-серверы), misconfigtun блокирует версию IP, которую ни один маршрут не ведёт в TUN."
+        "autoSystemWfpBlockLeakTooltip": "Только Windows, вместе с авто-маршрутами системы: dns удерживает DNS внутри TUN (нужны DNS-серверы), misconfigtun блокирует версию IP, которую ни один маршрут не ведёт в TUN.",
+        "mtgPendingHandshakesMaxPerIp": "Макс. незавершённых рукопожатий на IP",
+        "mtgPendingHandshakesMaxPerIpHint": "Новые подключения с IP, у которого уже столько незавершённых рукопожатий, закрываются. Клиенты за общим IP (NAT оператора) делят этот лимит. 0 — отключено."
       },
       "info": {
         "mode": "Режим",
@@ -2859,19 +2861,7 @@
       "tag": "Спонсор",
       "visit": "Перейти",
       "yourBrand": "Здесь может быть ваш бренд",
-      "yourBrandText": "Покажите своё имя тысячам администраторов серверов, которые каждый день открывают LucX-UI.",
-      "placements": "Доступные места",
-      "placementDashboard": "Баннер на главной",
-      "placementDashboardDesc": "Премиум-место вверху панели, один спонсор за раз.",
-      "placementSidebar": "Карточка в боковой панели",
-      "placementSidebarDesc": "Показывается на всех страницах панели, спонсоры чередуются.",
-      "placementLogin": "Страница входа",
-      "placementLoginDesc": "Администратор видит её при каждом входе.",
-      "placementPage": "Страница спонсоров",
-      "placementPageDesc": "Размещение здесь с логотипом, описанием и ссылкой.",
-      "available": "Свободно",
-      "takenUntil": "Занято до {date}",
-      "activeCount": "Активных: {count}"
+      "yourBrandText": "Покажите своё имя тысячам администраторов серверов, которые каждый день открывают LucX-UI."
     },
     "masking": {
       "title": "Маскировка 443 по SNI",

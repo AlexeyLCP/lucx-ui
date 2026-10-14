@@ -1027,7 +1027,9 @@
         "autoSystemDnsToGateway": "System DNS to gateway",
         "autoSystemDnsToGatewayTooltip": "Linux only: points systemd-resolved at the TUN gateway so system lookups go through Xray. Needs a gateway, and the TUN does not start if this fails.",
         "autoSystemWfpBlockLeak": "Block leaks (WFP)",
-        "autoSystemWfpBlockLeakTooltip": "Windows only, with Auto system routes: dns keeps DNS inside the TUN (needs DNS servers), misconfigtun blocks an IP version that no route sends into the TUN."
+        "autoSystemWfpBlockLeakTooltip": "Windows only, with Auto system routes: dns keeps DNS inside the TUN (needs DNS servers), misconfigtun blocks an IP version that no route sends into the TUN.",
+        "mtgPendingHandshakesMaxPerIp": "Max pending handshakes per IP",
+        "mtgPendingHandshakesMaxPerIpHint": "Close new connections from an IP that already has this many unfinished handshakes. Clients behind a shared IP (carrier NAT) share the limit. 0 disables it."
       },
       "info": {
         "mode": "Mode",
@@ -2859,19 +2861,7 @@
       "tag": "Sponsor",
       "visit": "Visit",
       "yourBrand": "Your brand here",
-      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
-      "placements": "Available placements",
-      "placementDashboard": "Overview banner",
-      "placementDashboardDesc": "Premium spot at the top of the dashboard, one sponsor at a time.",
-      "placementSidebar": "Sidebar card",
-      "placementSidebarDesc": "Shown on every panel page, rotating between sponsors.",
-      "placementLogin": "Login page",
-      "placementLoginDesc": "Seen by the admin at every sign-in.",
-      "placementPage": "Sponsors page",
-      "placementPageDesc": "Listed here with logo, description and link.",
-      "available": "Available",
-      "takenUntil": "Taken until {date}",
-      "activeCount": "{count} active"
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day."
     },
     "masking": {
       "title": "443 SNI masking",

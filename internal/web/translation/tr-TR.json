@@ -1026,7 +1026,9 @@
         "autoSystemDnsToGateway": "Sistem DNS'ini ağ geçidine yönlendir",
         "autoSystemDnsToGatewayTooltip": "Yalnızca Linux: sistem sorguları Xray üzerinden gitsin diye systemd-resolved'ı TUN ağ geçidine yönlendirir. Ağ geçidi gerekir ve bu başarısız olursa TUN başlamaz.",
         "autoSystemWfpBlockLeak": "Sızıntıları engelle (WFP)",
-        "autoSystemWfpBlockLeakTooltip": "Yalnızca Windows, Auto system routes ile: dns, DNS'i TUN içinde tutar (DNS sunucuları gerekir); misconfigtun, hiçbir rotanın TUN'a göndermediği IP sürümünü engeller."
+        "autoSystemWfpBlockLeakTooltip": "Yalnızca Windows, Auto system routes ile: dns, DNS'i TUN içinde tutar (DNS sunucuları gerekir); misconfigtun, hiçbir rotanın TUN'a göndermediği IP sürümünü engeller.",
+        "mtgPendingHandshakesMaxPerIp": "IP başına maks. bekleyen el sıkışma",
+        "mtgPendingHandshakesMaxPerIpHint": "Bu sayıda tamamlanmamış el sıkışması olan bir IP'den gelen yeni bağlantıları kapatır. Paylaşılan IP arkasındaki istemciler (operatör NAT) sınırı paylaşır. 0 devre dışı bırakır."
       },
       "info": {
         "mode": "Mod",
@@ -2859,19 +2861,7 @@
       "tag": "Sponsor",
       "visit": "Ziyaret et",
       "yourBrand": "Markanız burada",
-      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
-      "placements": "Mevcut yerleşimler",
-      "placementDashboard": "Genel bakış afişi",
-      "placementDashboardDesc": "Panonun üstünde premium alan, aynı anda tek sponsor.",
-      "placementSidebar": "Kenar çubuğu kartı",
-      "placementSidebarDesc": "Tüm panel sayfalarında gösterilir, sponsorlar arasında döner.",
-      "placementLogin": "Giriş sayfası",
-      "placementLoginDesc": "Yönetici her girişte görür.",
-      "placementPage": "Sponsorlar sayfası",
-      "placementPageDesc": "Logo, açıklama ve bağlantıyla burada listelenir.",
-      "available": "Müsait",
-      "takenUntil": "{date} tarihine kadar dolu",
-      "activeCount": "{count} aktif"
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day."
     },
     "masking": {
       "title": "443 SNI masking",

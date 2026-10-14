@@ -1026,7 +1026,9 @@
         "autoSystemDnsToGateway": "系統 DNS 指向閘道",
         "autoSystemDnsToGatewayTooltip": "僅限 Linux：將 systemd-resolved 指向 TUN 閘道，使系統解析經過 Xray。需要設定閘道，失敗時 TUN 不會啟動。",
         "autoSystemWfpBlockLeak": "阻止洩漏 (WFP)",
-        "autoSystemWfpBlockLeakTooltip": "僅限 Windows，需搭配自動系統路由：dns 讓 DNS 只走 TUN（需設定 DNS 伺服器），misconfigtun 阻止沒有任何路由指向 TUN 的 IP 版本。"
+        "autoSystemWfpBlockLeakTooltip": "僅限 Windows，需搭配自動系統路由：dns 讓 DNS 只走 TUN（需設定 DNS 伺服器），misconfigtun 阻止沒有任何路由指向 TUN 的 IP 版本。",
+        "mtgPendingHandshakesMaxPerIp": "每 IP 最大未完成交握數",
+        "mtgPendingHandshakesMaxPerIpHint": "當某個 IP 的未完成交握達到此數量時，關閉其新連線。共用 IP（電信 NAT）後的用戶端共用此上限。0 表示停用。"
       },
       "info": {
         "mode": "模式",
@@ -2859,19 +2861,7 @@
       "tag": "贊助",
       "visit": "造訪",
       "yourBrand": "您的品牌展示位",
-      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day.",
-      "placements": "可用展示位",
-      "placementDashboard": "總覽橫幅",
-      "placementDashboardDesc": "儀表板頂部的高級位置，每次僅一家贊助商。",
-      "placementSidebar": "側邊欄卡片",
-      "placementSidebarDesc": "在面板所有頁面顯示，並在贊助商之間輪換。",
-      "placementLogin": "登入頁",
-      "placementLoginDesc": "管理員每次登入時都能看到。",
-      "placementPage": "贊助商頁面",
-      "placementPageDesc": "在此頁面展示標誌、簡介與連結。",
-      "available": "可預訂",
-      "takenUntil": "已預訂至 {date}",
-      "activeCount": "{count} 個進行中"
+      "yourBrandText": "Put your name in front of thousands of server admins who open LucX-UI every day."
     },
     "masking": {
       "title": "443 SNI masking",

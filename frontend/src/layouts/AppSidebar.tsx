@@ -47,7 +47,6 @@ import { formatPanelVersion } from '@/lib/panel-version';
 import { pauseAnimationsUntilLeave, useTheme } from '@/hooks/useTheme';
 import { useAllSettings } from '@/api/queries/useAllSettings';
 import { useCommandPalette } from '@/components/command-palette/useCommandPalette';
-import SponsorSlot from '@/components/sponsor/SponsorSlot';
 import './AppSidebar.css';
 
 // LUCX-HOOK: point sidebar links at the LucX-UI fork, not upstream.
@@ -535,13 +534,6 @@ export default function AppSidebar() {
           onClick={onMenuClick}
         />
         <div className="sider-footer">
-          <SponsorSlot
-            slot="sidebar"
-            variant="compact"
-            iconOnly={railCollapsed}
-            rotate
-            className="sider-sponsor"
-          />
           <VersionBadge version={panelVersion} collapsed={railCollapsed} />
         </div>
       </Layout.Sider>
@@ -638,7 +630,6 @@ export default function AppSidebar() {
           }}
         />
         <div className="drawer-footer">
-          <SponsorSlot slot="sidebar" variant="compact" rotate className="sider-sponsor" />
           <VersionBadge version={panelVersion} />
         </div>
       </Drawer>
