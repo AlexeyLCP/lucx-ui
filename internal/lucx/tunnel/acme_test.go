@@ -4,6 +4,8 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
+//go:build !windows
+
 package tunnel
 
 import (

@@ -1,6 +1,8 @@
 # LucX-UI — Прогресс
 
-## Unreleased - ACME HTTP-01 next to a LucX Caddy on :80 (2026-10-14)
+## lucx.298 - ACME HTTP-01 next to a LucX Caddy on :80; AWG version pill again (2026-10-14)
+
+Bundled release: PR #134 (maksimkurb, ACME vs Cover) + the dashboard AWG version pill (below). lucx.295/297-style docs tail of lucx.297 is not duplicated here.
 
 The Cover site (and standalone naive with `useAcme`) binds TCP :80. acme.sh standalone (`x-ui` SSL menu, `install.sh`) then failed with `tcp port 80 is already used`. Cron renewal of a cert issued before Cover was enabled broke silently. The only workaround was disabling the inbound by hand.
 
@@ -15,7 +17,7 @@ The saved port never has to match the :80 owner, so a renewal succeeds on its fi
 
 Migration (`lucx-acme.sh migrate`, run by `install.sh`, `update.sh`, the x-ui renew menu and any port change in the prompt) moves standalone certs with no hooks of their own on port 80 to the saved port and our pre/post hooks, and re-points ours after a port change. Webroot/DNS certs, custom ports, and certs with an operator pre/post hook are left alone, as is everything when socat is missing. `x-ui uninstall` runs `lucx-acme.sh restore` first, so the certs renew on plain :80 again. The hooks are guarded with `[ ! -f … ] ||`, so a removed helper never blocks acme.sh. Docker ships the helper in `/app/bin` (`DockerInit.sh`).
 
-**lucxVersion:** unchanged on the feature branch (bump at release).
+**lucxVersion:** lucx.298
 
 Files: `internal/lucx/tunnel/acme.go` (new), `cover.go`, `naive.go`, `acme_test.go` (new), `cover_test.go`; `bin/lucx-acme.sh` (new); `x-ui.sh`, `install.sh`, `update.sh`, `.github/workflows/release.yml`, `bin/sourcecraft-release.sh`, `DockerInit.sh`.
 
@@ -30,6 +32,18 @@ Manual test plan:
 4. Re-run the issue prompt and choose `31000`: `/etc/x-ui/acme-http-port` holds 31000, the step-1 conf moves to 31000, the Cover Caddyfile (`bin/tunnel/cover-*.caddyfile`) relays to 31000 after the next reconcile, and a renewal right away still works (bridge 29380 -> 31000).
 
 Not covered: with Masking on, nothing listens on :80 (the cover moves to loopback), so the socat path is used. UFW default-deny may still block :80 from outside. `setup_ssl_certificate` in `install.sh` has no caller and was left alone.
+
+Merge note (release time): the PR predates lucx.296/297, so on merge the docs conflict was renumbered (debug pattern `1aw` → `1ay`) and `acme_test.go` got `//go:build !windows` (`syscall.Kill` did not compile on the Windows dev host; tests unchanged and green on Linux/CI).
+
+### AWG version pill shows the module version again
+
+The dashboard pill next to the Xray version showed a 12-char hash since lucx.~90 (`9cd76abb`): `collectHostStatus` read the pin SHA from `/etc/x-ui/.awg-module-version` — the update.sh rebuild-gate marker, not a displayable version. It now reads the loaded module's baked version from `/sys/module/amneziawg/version` (WIREGUARD_VERSION stamp; on the stand = `3.1.20260812`). Module not loaded → empty string, the pill hides and the `module_not_loaded` state stays the single source of truth. The SHA marker keeps its rebuild-gate role in `update.sh`; `moduleSHA()` deleted as dead code.
+
+Files: `internal/awg/host_status.go`, `platform_linux.go` (+`TestLoadedModuleVersion` moved to `platform_linux_test.go`), `platform_other.go`, `host_status_test.go`. Gates: `go vet` + `go test ./internal/awg/` green on the Windows host and cross-`GOOS=linux` vet, `gofmt` clean. Live check: stand `144.31.224.212` — `cat /sys/module/amneziawg/version` = `3.1.20260812`, marker = full pin SHA.
+
+Healing: `x-ui update`. No inbound/client changes; the panel API field `awg.version` merely changes what it carries.
+
+**Release:** v3.10.0-lucx.298 - https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.298
 
 ---
 

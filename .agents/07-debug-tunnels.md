@@ -4,14 +4,14 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
-### Pattern 1ay: acme.sh `tcp port 80 is already used` with Cover on — FIXED (unreleased)
+### Pattern 1ay: acme.sh `tcp port 80 is already used` with Cover on — FIXED (lucx.298)
 
 - **Symptom:** `x-ui` SSL issue or acme.sh cron renew fails with `tcp port 80 is already used by caddy-naive-lin`, or a cert issued before Cover was enabled stops renewing.
 - **Cause:** the LucX Caddy owns :80, and acme.sh standalone wanted :80 itself.
 - **Fix:** acme.sh listens on `127.0.0.1:<port>` (`/etc/x-ui/acme-http-port`, default 29380). Caddy :80 relays `/.well-known/acme-challenge/*` there. With :80 free, the `bin/lucx-acme.sh` pre-hook runs a temporary socat :80 -> port, and the post-hook stops it.
 - **Check:** `bash /usr/local/x-ui/bin/lucx-acme.sh port`; `grep -E 'HTTPPort|LocalAddress|PreHook|PostHook' ~/.acme.sh/<domain>*/<domain>.conf`; `grep -A1 acme-challenge /usr/local/x-ui/bin/tunnel/*.caddyfile`; `curl -i http://<domain>/.well-known/acme-challenge/x` gives 502 while Cover is up (relay alive, acme.sh idle), not 301.
 - **Not this:** a foreign :80 owner (nginx/apache) — the prompt and pre-hook name it and stop. Masking on: nothing listens on :80, so check UFW for TCP 80.
-- Renumbered from 1aw in PR #134: main already had 1aw (lucx.296).
+- Renumbered from 1aw in PR #134: main already had 1aw (lucx.296). Since lucx.298 the dashboard shows the module version (`/sys/module/amneziawg/version`), not the marker SHA — see progress lucx.298.
 
 ### Pattern 1ax: masking on but `ufw status` shows every port allow — FIXED (lucx.297)
 
