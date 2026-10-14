@@ -295,6 +295,9 @@ func (c NaiveConfig) RenderCaddyfile(extraAuth []AuthPair, accessLogPath string)
 		bind = caddyToken(listen)
 	}
 	c.writeSite(&b, bind, extraAuth, accessLogPath)
+	if c.UseAcme {
+		writeHTTPRedirectSite(&b, "http://", bind)
+	}
 	return b.String()
 }
 

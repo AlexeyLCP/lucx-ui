@@ -161,7 +161,7 @@ func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	writeCaddyServers(&b, h1h2, a.skipHTTP)
 	b.WriteString("}\n")
 	if !a.skipHTTP {
-		b.WriteString(":" + strconv.Itoa(coverHTTPPort) + " {\n\tredir https://{host}{uri} permanent\n}\n")
+		writeHTTPRedirectSite(&b, ":"+strconv.Itoa(coverHTTPPort), "")
 	}
 	writeCoverSite(&b, hostname, cert, key, a)
 	return b.String()

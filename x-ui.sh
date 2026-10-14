@@ -126,6 +126,12 @@ if [[ "${running_in_docker}" == "true" ]]; then
 else
     xui_folder="${XUI_MAIN_FOLDER:=/usr/local/x-ui}"
 fi
+# LUCX-HOOK: ACME HTTP-01 on a loopback port, :80 forwarded by LucX (bin/lucx-acme.sh)
+LUCX_ACME_ARGS=()
+lucx_acme_available() {
+    [[ -f "${xui_folder}/bin/lucx-acme.sh" ]] && source "${xui_folder}/bin/lucx-acme.sh"
+}
+# END LUCX-HOOK
 xui_service="${XUI_SERVICE:=/etc/systemd/system}"
 log_folder="${XUI_LOG_FOLDER:=/var/log/x-ui}"
 mkdir -p "${log_folder}"
@@ -340,6 +346,9 @@ uninstall() {
         panel_used_postgres="true"
     fi
 
+    # LUCX-HOOK: certificates renew on plain :80 again once the forwarder is gone
+    lucx_acme_available && lucx_acme_restore
+    # END LUCX-HOOK
     rm /etc/x-ui/ -rf
     rm ${xui_folder}/ -rf
     rm -f "$db_env_file"
@@ -1507,6 +1516,9 @@ ssl_cert_issue_main() {
                 echo "$domains"
                 read -rp "Please enter a domain from the list to renew the SSL certificate: " domain
                 if echo "$domains" | grep -qw "$domain"; then
+                    # LUCX-HOOK: adopt a plain :80 cert into the forwarded scheme before renewing
+                    lucx_acme_available && lucx_acme_migrate
+                    # END LUCX-HOOK
                     ~/.acme.sh/acme.sh --renew -d ${domain} --force
                     LOGI "Certificate forcefully renewed for domain: $domain"
                 else
@@ -1723,18 +1735,25 @@ ssl_cert_issue_for_ip() {
         LOGI "Including IPv6 address: ${ipv6_addr}"
     fi
 
-    # Choose port for HTTP-01 listener (default 80, allow override)
+    # LUCX-HOOK: ACME port prompt: 80 is forwarded by LucX, acme.sh gets a loopback port
     local WebPort=""
-    read -rp "Port to use for ACME HTTP-01 listener (default 80): " WebPort
-    WebPort="${WebPort:-80}"
-    if ! [[ "${WebPort}" =~ ^[0-9]+$ ]] || ((WebPort < 1 || WebPort > 65535)); then
-        LOGE "Invalid port provided. Falling back to 80."
-        WebPort=80
+    if lucx_acme_available; then
+        lucx_acme_prompt_port WebPort || return 1
+    else
+        # Choose port for HTTP-01 listener (default 80, allow override)
+        local WebPort=""
+        read -rp "Port to use for ACME HTTP-01 listener (default 80): " WebPort
+        WebPort="${WebPort:-80}"
+        if ! [[ "${WebPort}" =~ ^[0-9]+$ ]] || ((WebPort < 1 || WebPort > 65535)); then
+            LOGE "Invalid port provided. Falling back to 80."
+            WebPort=80
+        fi
+        LOGI "Using port ${WebPort} to issue certificate for IP: ${server_ip}"
+        if [[ "${WebPort}" -ne 80 ]]; then
+            LOGI "Reminder: Let's Encrypt still reaches port 80; forward external port 80 to ${WebPort} for validation."
+        fi
     fi
-    LOGI "Using port ${WebPort} to issue certificate for IP: ${server_ip}"
-    if [[ "${WebPort}" -ne 80 ]]; then
-        LOGI "Reminder: Let's Encrypt still reaches port 80; forward external port 80 to ${WebPort} for validation."
-    fi
+    # END LUCX-HOOK
 
     while true; do
         if is_port_in_use "${WebPort}"; then
@@ -1764,14 +1783,16 @@ ssl_cert_issue_for_ip() {
 
     # issue the certificate for IP with shortlived profile
     ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt --force
-    ~/.acme.sh/acme.sh --issue \
+    # LUCX-HOOK: loopback listener + :80 forward hooks from lucx_acme_prompt_port
+    LUCX_ACME_LISTEN_PORT="${WebPort}" ~/.acme.sh/acme.sh --issue \
         ${domain_args} \
         --standalone \
         --server letsencrypt \
         --certificate-profile shortlived \
         --days 6 \
-        --httpport ${WebPort} \
+        --httpport ${WebPort} "${LUCX_ACME_ARGS[@]}" \
         --force
+    # END LUCX-HOOK
 
     if [ $? -ne 0 ]; then
         LOGE "Failed to issue certificate for IP: ${server_ip}"
@@ -1941,21 +1962,30 @@ ssl_cert_issue() {
         mkdir -p "$certPath"
     fi
 
-    # get the port number for the standalone server
-    local WebPort=80
-    read -rp "Please choose which port to use (default is 80): " WebPort
-    if [[ -z ${WebPort} ]]; then
-        WebPort=80
-    elif [[ ! ${WebPort} =~ ^[1-9][0-9]*$ || ${WebPort} -gt 65535 ]]; then
-        LOGE "Your input ${WebPort} is invalid, will use default port 80."
-        WebPort=80
+    # LUCX-HOOK: ACME port prompt: 80 is forwarded by LucX, acme.sh gets a loopback port
+    local WebPort=""
+    if lucx_acme_available; then
+        lucx_acme_prompt_port WebPort || return 1
+    else
+        # get the port number for the standalone server
+        local WebPort=80
+        read -rp "Please choose which port to use (default is 80): " WebPort
+        if [[ -z ${WebPort} ]]; then
+            WebPort=80
+        elif [[ ! ${WebPort} =~ ^[1-9][0-9]*$ || ${WebPort} -gt 65535 ]]; then
+            LOGE "Your input ${WebPort} is invalid, will use default port 80."
+            WebPort=80
+        fi
+        LOGI "Will use port: ${WebPort} to issue certificates. Please make sure this port is open."
     fi
-    LOGI "Will use port: ${WebPort} to issue certificates. Please make sure this port is open."
+    # END LUCX-HOOK
 
     if [[ ${cert_exists} -eq 0 ]]; then
         # issue the certificate
         ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt --force
-        ~/.acme.sh/acme.sh --issue -d ${domain} $(acme_listen_flag) --standalone --httpport ${WebPort} --force
+        # LUCX-HOOK: loopback listener + :80 forward hooks from lucx_acme_prompt_port
+        LUCX_ACME_LISTEN_PORT="${WebPort}" ~/.acme.sh/acme.sh --issue -d ${domain} $(acme_listen_flag) --standalone --httpport ${WebPort} "${LUCX_ACME_ARGS[@]}" --force
+        # END LUCX-HOOK
         if [ $? -ne 0 ]; then
             LOGE "Issuing certificate failed, please check logs."
             rm -rf ~/.acme.sh/${domain} ~/.acme.sh/${domain}_ecc

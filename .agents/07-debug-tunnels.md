@@ -4,6 +4,14 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1aw: acme.sh `tcp port 80 is already used` with Cover on — FIXED (unreleased)
+
+- **Symptom:** `x-ui` SSL issue or acme.sh cron renew fails with `tcp port 80 is already used by caddy-naive-lin`, or a cert issued before Cover was enabled stops renewing.
+- **Cause:** the LucX Caddy owns :80, and acme.sh standalone wanted :80 itself.
+- **Fix:** acme.sh listens on `127.0.0.1:<port>` (`/etc/x-ui/acme-http-port`, default 29380). Caddy :80 relays `/.well-known/acme-challenge/*` there. With :80 free, the `bin/lucx-acme.sh` pre-hook runs a temporary socat :80 -> port, and the post-hook stops it.
+- **Check:** `bash /usr/local/x-ui/bin/lucx-acme.sh port`; `grep -E 'HTTPPort|LocalAddress|PreHook|PostHook' ~/.acme.sh/<domain>*/<domain>.conf`; `grep -A1 acme-challenge /usr/local/x-ui/bin/tunnel/*.caddyfile`; `curl -i http://<domain>/.well-known/acme-challenge/x` gives 502 while Cover is up (relay alive, acme.sh idle), not 301.
+- **Not this:** a foreign :80 owner (nginx/apache) — the prompt and pre-hook name it and stop. Masking on: nothing listens on :80, so check UFW for TCP 80.
+
 ### Pattern 1av: mtproxy `Operation not permitted` / masking locks the panel out — FIXED (lucx.293)
 
 - **Symptom (Malderin, 14.10.2026):** after the v3.10 update, `tunnel: mtproxy-N process exited: exit status 1`, then `change_user_group: failed to clear supplementary groups list: Operation not permitted`, `fatal: cannot change user to lucx-mtproxy`, and `mtfront_pre_init: Assertion parent_pid == real_parent_pid failed`. WEB proxy and MTProto on that inbound stay down. Separately, disabling masking with UFW on makes the panel unreachable until `ufw disable` from SSH. After UFW is turned back on, `ufw status` still shows every inbound port and the panel port as ALLOW while the masking page says hide is on.

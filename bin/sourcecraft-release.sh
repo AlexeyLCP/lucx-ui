@@ -81,6 +81,7 @@ cp xui-release x-ui/x-ui
 chmod +x x-ui/x-ui
 cp x-ui.service.debian x-ui.service.arch x-ui.service.rhel x-ui.sh x-ui/
 cp bin/install-awg-module.sh x-ui/bin/
+cp bin/lucx-acme.sh x-ui/bin/
 
 cd x-ui/bin
 Xray_URL="https://github.com/XTLS/Xray-core/releases/download/v26.7.28/"

@@ -9,6 +9,7 @@ package tunnel
 import (
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -193,7 +194,7 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 	if !strings.Contains(cInst.ConfigText, "forward_proxy") {
 		t.Fatalf("cover must keep naive when tproxy is down:\n%s", cInst.ConfigText)
 	}
-	if strings.Contains(cInst.ConfigText, "reverse_proxy 127.0.0.1:") {
+	if strings.Contains(cInst.ConfigText, "reverse_proxy 127.0.0.1:"+strconv.Itoa(tproxyLoopback(tproxy.Id, 2))) {
 		t.Fatal("dead tproxy must not own cover")
 	}
 }
@@ -243,7 +244,7 @@ func TestCoverTproxyWinsWhenStackReady(t *testing.T) {
 	if !ok || !cInst.Enabled {
 		t.Fatalf("cover instance: enabled=%v ok=%v", cInst.Enabled, ok)
 	}
-	if !strings.Contains(cInst.ConfigText, "reverse_proxy 127.0.0.1:") {
+	if !strings.Contains(cInst.ConfigText, "reverse_proxy 127.0.0.1:"+strconv.Itoa(tproxyLoopback(5, 2))) {
 		t.Fatalf("cover should proxy tproxy, got:\n%s", cInst.ConfigText)
 	}
 	if strings.Contains(cInst.ConfigText, "forward_proxy") {
