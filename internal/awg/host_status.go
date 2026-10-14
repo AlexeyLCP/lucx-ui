@@ -9,7 +9,6 @@ package awg
 import (
 	"os"
 	"runtime"
-	"strings"
 )
 
 // HostStatus is the dashboard-level AWG snapshot (module + running ifaces).
@@ -22,11 +21,8 @@ type HostStatus struct {
 	Ifnames      []string `json:"ifnames,omitempty"`
 }
 
-// moduleSHAPath is the install-awg-module.sh marker (full commit SHA).
-var moduleSHAPath = "/etc/x-ui/.awg-module-version"
-
-// CollectHostStatus probes the kernel module, build SHA, and how many
-// managed AWG interfaces are currently up (inbound awgN + outbound awgo-N).
+// CollectHostStatus probes the kernel module (load state + version), and how
+// many managed AWG interfaces are currently up (inbound awgN + outbound awgo-N).
 func CollectHostStatus() HostStatus {
 	hs := HostStatus{}
 	if runtime.GOOS != "linux" {
@@ -37,7 +33,7 @@ func CollectHostStatus() HostStatus {
 	}
 	hs.ModuleAwg3 = ModuleSupportsAwg3()
 	hs.ModuleAwg31 = ModuleSupportsAwg31()
-	hs.Version = moduleSHA()
+	hs.Version = loadedModuleVersion()
 	mgr := GetManager()
 	in := mgr.RunningIfnames()
 	out := mgr.RunningClientIfnames()
@@ -83,16 +79,4 @@ func (m *Manager) RunningIfnames() []string {
 		}
 	}
 	return names
-}
-
-func moduleSHA() string {
-	data, err := os.ReadFile(moduleSHAPath)
-	if err != nil {
-		return ""
-	}
-	s := strings.TrimSpace(string(data))
-	if len(s) == 40 {
-		return s[:12]
-	}
-	return s
 }

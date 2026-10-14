@@ -278,6 +278,22 @@ var moduleSupportsAwg31Override *bool
 // file — the real sysfs file cannot be downgraded on a live module.
 var moduleVersionPath = "/sys/module/amneziawg/version"
 
+// loadedModuleVersion reads the LOADED module's baked version (e.g.
+// "3.1.20260812" — the WIREGUARD_VERSION stamp from install-awg-module.sh)
+// for the dashboard AWG pill. The pin SHA in /etc/x-ui/.awg-module-version
+// stays the update.sh rebuild gate — a commit hash is not a build version.
+func loadedModuleVersion() string {
+	data, err := os.ReadFile(moduleVersionPath)
+	if err != nil {
+		return ""
+	}
+	s := strings.TrimSpace(string(data))
+	if len(s) > 32 || strings.ContainsAny(s, " \t\r\n") {
+		return ""
+	}
+	return s
+}
+
 // moduleVersionAtLeast checks the LOADED module, not the awg tools — the two
 // upgrade independently, so a stale module still rejects RandomTrailers/DisableCookies.
 func moduleVersionAtLeast(wantMajor, wantMinor int) bool {

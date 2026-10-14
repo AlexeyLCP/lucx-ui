@@ -16,6 +16,34 @@ import (
 	"testing"
 )
 
+// TestLoadedModuleVersion locks in the dashboard AWG pill source: the LOADED
+// module's baked version from sysfs, not the build-SHA marker file.
+func TestLoadedModuleVersion(t *testing.T) {
+	orig := moduleVersionPath
+	t.Cleanup(func() { moduleVersionPath = orig })
+
+	dir := t.TempDir()
+	path := filepath.Join(dir, "version")
+	moduleVersionPath = path
+	if got := loadedModuleVersion(); got != "" {
+		t.Fatalf("missing sysfs file: %q", got)
+	}
+
+	for content, want := range map[string]string{
+		"3.1.20260812\n":     "3.1.20260812",
+		"  1.5.2  ":          "1.5.2",
+		"not a version\nv\n": "", // whitespace inside → garbage
+		"":                   "",
+	} {
+		if err := os.WriteFile(path, []byte(content), 0o600); err != nil {
+			t.Fatal(err)
+		}
+		if got := loadedModuleVersion(); got != want {
+			t.Fatalf("loadedModuleVersion(%q) = %q, want %q", content, got, want)
+		}
+	}
+}
+
 // TestIsInboundAwgInterface locks in the rule that the inbound orphan sweep
 // matches only inbound AWG interfaces (awg1, awg2, ...) and never the
 // outbound namespace (awgo-1, awgo-42). Regressing this caused the inbound

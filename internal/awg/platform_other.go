@@ -61,6 +61,9 @@ func SetModuleSupportsAwg31(supported *bool) {
 	moduleSupportsAwg31Override = supported
 }
 
+// loadedModuleVersion is empty off Linux: no kernel module, no version to show.
+func loadedModuleVersion() string { return "" }
+
 // awg3CapabilityCheck is a stub off Linux: AWG is a Linux kernel module, so
 // AWG3 (HeaderProtectionKey) support is never present on dev hosts.
 func awg3CapabilityCheck(prober) DiagCheck {
