@@ -96,6 +96,38 @@ func TestGatewayUFWRestore_PanelAndMovedPorts(t *testing.T) {
 	}
 }
 
+func TestGatewayUFW_SSH22StaysTCPOnly(t *testing.T) {
+	rows := []PreviewRow{
+		{InboundID: 1, Class: ClassPassthrough, OldPort: 22, NewPort: 18022},
+		{InboundID: 2, Class: ClassPassthrough, OldPort: 22},
+	}
+	allows := GatewayUFWAllow(2053, 2096, 22, rows, map[int]bool{1: true}, true)
+	var tcp, udp int
+	for _, s := range allows {
+		if s == "22/tcp" {
+			tcp++
+		}
+		if s == "22/udp" {
+			udp++
+		}
+	}
+	if tcp != 1 || udp != 0 {
+		t.Fatalf("22 must be one tcp allow, got %v", allows)
+	}
+	closed := GatewayUFWClose(2053, 2096, 22, rows, map[int]bool{1: true}, true)
+	for _, s := range closed {
+		if s == "22/tcp" || s == "22/udp" {
+			t.Fatalf("close touches ssh: %v", closed)
+		}
+	}
+	restored := GatewayUFWRestore(2053, 2096, []GatewaySnapshotRow{{Port: 22}, {Port: 8443}}, true)
+	for _, s := range restored {
+		if s == "22/tcp" || s == "22/udp" {
+			t.Fatalf("revert rewrites ssh: %v", restored)
+		}
+	}
+}
+
 func TestApplyUFW_RecordsCommands(t *testing.T) {
 	oldLinux, oldPath, oldRun := ufwOSLinux, ufwLookPath, ufwRun
 	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun = oldLinux, oldPath, oldRun })
@@ -106,7 +138,7 @@ func TestApplyUFW_RecordsCommands(t *testing.T) {
 		got = append(got, strings.Join(args, " "))
 		return nil
 	}
-	if err := ApplyUFW([]string{"22/tcp", "443/tcp"}, []string{"8443/tcp"}); err != nil {
+	if err := ApplyUFW([]string{"22/tcp", "443/tcp"}, []string{"22/tcp", "22/udp", "8443/tcp"}); err != nil {
 		t.Fatal(err)
 	}
 	want := "--force delete allow 8443/tcp;allow 22/tcp;allow 443/tcp;default deny incoming;--force enable"
@@ -134,6 +166,39 @@ func TestRevertUFW_DisablesOnlyIfWeEnabled(t *testing.T) {
 	got = nil
 	if err := RevertUFW(false, []string{"2053/tcp"}); err != nil || len(got) != 1 || got[0] != "disable" {
 		t.Fatalf("disable our enable: %v %q", err, got)
+	}
+}
+
+func TestAllowUFW_Port22StaysTCPOnly(t *testing.T) {
+	oldLinux, oldPath, oldRun := ufwOSLinux, ufwLookPath, ufwRun
+	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun = oldLinux, oldPath, oldRun })
+	ufwOSLinux = true
+	ufwLookPath = func(string) (string, error) { return "/usr/sbin/ufw", nil }
+	var got []string
+	ufwRun = func(args ...string) error {
+		got = append(got, strings.Join(args, " "))
+		return nil
+	}
+	if err := AllowUFW(22); err != nil {
+		t.Fatal(err)
+	}
+	if err := AllowUFW(8443); err != nil {
+		t.Fatal(err)
+	}
+	if err := RevertUFW(true, []string{"22/udp", "22/tcp", "2053/tcp"}); err != nil {
+		t.Fatal(err)
+	}
+	want := "allow 22/tcp;allow 8443/tcp;allow 8443/udp;allow 22/tcp;allow 2053/tcp"
+	if strings.Join(got, ";") != want {
+		t.Fatalf("%q", got)
+	}
+	got = nil
+	if err := ApplyUFW([]string{"22/udp", "22/tcp", "443/tcp"}, []string{"22/tcp", "22/udp"}); err != nil {
+		t.Fatal(err)
+	}
+	want = "allow 22/tcp;allow 443/tcp;default deny incoming;--force enable"
+	if strings.Join(got, ";") != want {
+		t.Fatalf("%q", got)
 	}
 }
 

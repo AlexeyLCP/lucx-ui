@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.294 - UFW masking never touches SSH rules (2026-10-14)
+
+On some hosts `ufw --force delete allow 22/udp` also removes the `22/tcp` rule, and a masked inbound that had lived on port 22 put both specs in the close list - masking deleted SSH out of the firewall. `GatewayUFWAllow` likewise listed a masked inbound's `22/tcp`/`22/udp` next to the real SSH allow. Now: SSH (22 and the custom `sshd_config` port) is skipped in the allow list when it collides, `GatewayUFWClose` and `ApplyUFW` never delete SSH specs, `GatewayUFWRestore` skips reopening 22 (it is always allowed), and every allow goes through `ufwAllowSpec` which drops SSH ports except the single `22/tcp` rule.
+
+**lucxVersion:** lucx.294
+
+Files: `internal/lucx/tunnel/gateway_ufw.go`, `internal/lucx/tunnel/gateway_ufw_test.go`.
+
+Tests: `TestGatewayUFW_SSH22StaysTCPOnly` (close list keeps `22/tcp` for a masked inbound on 22), plus the existing `TestGatewayUFWClose_DropsHiddenKeepsPublic`, `TestGatewayUFWRestore_PanelAndMovedPorts`, `TestApplyUFW_RecordsCommands`, `TestRevertUFW_DisablesOnlyIfWeEnabled`; `go vet ./internal/lucx/... ./internal/awg/...`, `go test ./internal/lucx/... ./internal/awg/...` green.
+
+Healing: `x-ui update`, restart panel, then on the Masking page run Revert and Apply again. UFW rules are rewritten in one pass; SSH keeps its single `22/tcp` rule. Issued client configs are not rewritten.
+
+---
+
 ## lucx.293 — MTProxy and masking UFW under the v3.10 sandbox (2026-10-14)
 
 Malderin, after lucx.292: `mtproxy-41` exits 1 with `change_user_group: failed to clear supplementary groups list: Operation not permitted` and `parent_pid == real_parent_pid`. The v3.10 bounding set has no `CAP_SETGID`/`CAP_SETUID`, and `NoNewPrivileges` blocks the child from gaining them, so `setgroups()` fails and the parent exits before the worker's `getppid()` check. The same sandbox makes `/etc` read-only, so `ufw allow`/`ufw disable` from the panel cannot write `/etc/ufw`. Disabling masking then left default-deny in place and did not put the panel port back when UFW had already been active (`RevertUFW` was a no-op). Apply also only added allows, so existing rules kept every inbound port, including the panel, listed as ALLOW.

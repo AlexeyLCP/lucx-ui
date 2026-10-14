@@ -50,13 +50,32 @@ func GatewayUFWAllow(webPort, subPort, sshPort int, rows []PreviewRow, selected 
 		if r.NewPort > 0 {
 			port = r.NewPort
 		}
-		if port <= 0 {
+		if port <= 0 || port == 22 || port == sshPort {
 			continue
 		}
 		add(fmt.Sprintf("%d/tcp", port))
 		add(fmt.Sprintf("%d/udp", port))
 	}
 	return out
+}
+
+// ufwSpecPort parses "22/tcp". SSH stays tcp-only; a delete of 22/udp can
+// take the tcp half with it on some ufw versions.
+func ufwSpecPort(spec string) (int, bool) {
+	proto := strings.LastIndexByte(spec, '/')
+	if proto <= 0 {
+		return 0, false
+	}
+	n, err := strconv.Atoi(spec[:proto])
+	if err != nil || n <= 0 {
+		return 0, false
+	}
+	return n, true
+}
+
+func ufwSSHSpec(spec string, sshPort int) bool {
+	n, ok := ufwSpecPort(spec)
+	return ok && (n == 22 || (sshPort > 0 && n == sshPort))
 }
 
 // GatewayUFWClose is the allow rules Apply must delete: masked inbound ports,
@@ -69,7 +88,7 @@ func GatewayUFWClose(webPort, subPort, sshPort int, rows []PreviewRow, selected 
 	seen := map[string]bool{}
 	var out []string
 	add := func(spec string) {
-		if spec == "" || seen[spec] || keep[spec] {
+		if spec == "" || seen[spec] || keep[spec] || ufwSSHSpec(spec, sshPort) {
 			return
 		}
 		seen[spec] = true
@@ -119,7 +138,7 @@ func GatewayUFWRestore(webPort, subPort int, snap []GatewaySnapshotRow, hidePane
 		}
 	}
 	for _, sr := range snap {
-		if sr.Port <= 0 {
+		if sr.Port <= 0 || sr.Port == 22 {
 			continue
 		}
 		add(fmt.Sprintf("%d/tcp", sr.Port))
@@ -228,11 +247,14 @@ func ApplyUFW(allows, close []string) error {
 		}
 	}
 	for _, spec := range close {
+		if ufwSSHSpec(spec, 22) {
+			continue
+		}
 		// Missing rule is not a failure: the port was never allowed.
 		_ = ufwRun("--force", "delete", "allow", spec)
 	}
 	for _, a := range allows {
-		if err := ufwRun("allow", a); err != nil {
+		if err := ufwAllowSpec(a); err != nil {
 			return err
 		}
 	}
@@ -242,15 +264,24 @@ func ApplyUFW(allows, close []string) error {
 	return ufwRun("--force", "enable")
 }
 
+// ufwAllowSpec keeps SSH as one 22/tcp rule. 22/udp is dropped: on some ufw
+// versions deleting that half takes the tcp rule with it.
+func ufwAllowSpec(spec string) error {
+	if spec != "22/tcp" && ufwSSHSpec(spec, 22) {
+		return nil
+	}
+	return ufwRun("allow", spec)
+}
+
 // AllowUFW opens one public port for a naive inbound that stays off the mux.
 func AllowUFW(port int) error {
 	if port <= 0 || !UFWAvailable() {
 		return nil
 	}
-	if err := ufwRun("allow", fmt.Sprintf("%d/tcp", port)); err != nil {
+	if err := ufwAllowSpec(fmt.Sprintf("%d/tcp", port)); err != nil {
 		return err
 	}
-	return ufwRun("allow", fmt.Sprintf("%d/udp", port))
+	return ufwAllowSpec(fmt.Sprintf("%d/udp", port))
 }
 
 func RevertUFW(wasActive bool, restore []string) error {
@@ -261,7 +292,7 @@ func RevertUFW(wasActive bool, restore []string) error {
 		return ufwRun("disable")
 	}
 	for _, spec := range restore {
-		if err := ufwRun("allow", spec); err != nil {
+		if err := ufwAllowSpec(spec); err != nil {
 			return err
 		}
 	}
