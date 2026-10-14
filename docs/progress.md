@@ -1,5 +1,23 @@
 # LucX-UI — Прогресс
 
+## lucx.297 - masking no longer leaves hidden ports open in UFW (2026-10-14)
+
+Malderin (v3.10.0-lucx.295): applying masking with hide-panel produced `ufw status` listing every port as allow, including the panel port; re-applying changed nothing. Root cause: the UFW allow/close lists knew only the "selected" maskable rows. Protocols hidden **inside the site** (`req.Inside`) and **hidden naive** (`req.HideNaive`) are not in `selected`, so GatewayUFWAllow kept (and re-added on every apply) their public ports, and GatewayUFWClose never closed them. The ufw `--force delete allow <spec>` syntax itself is valid (canonical ufw 0.36 parser strips `--force` before command parsing — checked the upstream source).
+
+Fix: both lists now take a `moved` set — every inbound whose port leaves the public internet: selected maskables, inside-rows, hideNaive — matching the snapshot loop's move condition exactly. When the panel is hidden, close also removes the udp halves of the panel/sub allow rules (a bare `ufw allow <port>` pasted manually leaves a `/udp` tail that still shows in status). `ufwDefaultSelected` renamed to `ufwDefaultMoved`.
+
+**lucxVersion:** lucx.297
+
+Files: `internal/lucx/tunnel/gateway_ufw.go`, `internal/web/service/gateway.go`, `internal/lucx/tunnel/gateway_ufw_test.go`.
+
+Tests: `TestGatewayUFW_MovedRowsVanishFromAllow` (inside/hideNaive/class-skip rows vs allow and close), existing `TestGatewayUFWAllow`, `TestGatewayUFWClose_DropsHiddenKeepsPublic`, `TestGatewayUFWRestore_PanelAndMovedPorts`, `TestGatewayUFW_SSH22StaysTCPOnly`, `TestApplyUFW_*` green; `gofmt -l` clean. Full gates in CI (`internal/database` needs CGO).
+
+Healing: `x-ui update`, restart, then masking Revert → Apply again. UFW rules are rewritten in one pass. Still correct to see SSH, 80, 443 (the mask facade) and ports of inbounds NOT masked. Issued client configs are not rewritten.
+
+Note: allow rules added manually as a bare port (`ufw allow 5432`) get their tcp half closed; the udp half is removed by this fix too. If something still shows in `ufw status`, `ufw show added` prints the exact rules.
+
+---
+
 ## lucx.296 - no double traffic accounting for routed sidecars (2026-10-14)
 
 Operator report: the panel metered far more traffic than real usage (2 TB class), a sidecar double-count was suspected. Audit of the accounting paths: AWG is clean — kernel `awg show dump` deltas are baseline-corrected and the routed inbound rollup is already skipped in favor of the Xray TUN meter (`awg_job.go` routedTags guard; naive/mieru/trusttunnel have the same guard). Four tunnel collectors lacked the guard, so for `routeThroughXray` inbounds the same bytes were written to the inbound total twice — once by the Xray bridge (SOCKS/TUN inbound carrying the inbound tag), once by the sidecar scraper: anytls, olcrtc, qwdtt, tproxy. (qwdtt defaults `routeThroughXray: true`, so this hit by default.)

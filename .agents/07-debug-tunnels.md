@@ -4,6 +4,15 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ax: masking on but `ufw status` shows every port allow — FIXED (lucx.297)
+
+- **Symptom (Malderin, 14.10.2026, lucx.295):** after applying masking (hide panel), `ufw status` lists all inbound ports and the panel port as ALLOW; Revert→Apply does not change it.
+- **Cause:** the UFW allow/close lists were built from "selected" rows only. Inbound protocols hidden **inside the site** (`req.Inside`) and **hideNaive** rows are not in `selected`, so their public ports stayed (and were re-added by) GatewayUFWAllow, and GatewayUFWClose skipped them. Deterministic, so re-apply reproduces it. The delete syntax `ufw --force delete allow <port>/<proto>` is valid — canonical ufw 0.36.2 strips `--force` before command parsing (checked upstream parser source).
+- **Fix:** GatewayUFWAllow/GatewayUFWClose take a `moved` set (selected maskables + inside + hideNaive), mirror of the snapshot loop's move condition in GatewayApply. Hidden panel/sub close rules now include the `/udp` half (a manual bare `ufw allow <port>` leaves a `/udp` tail in status).
+- **Correct end state:** SSH (+custom sshd port), 80, 443 (the mask facade), panel/sub only when not hidden, and ports of inbounds NOT masked. 443 stays open by design when the gateway itself is the facade.
+- **If something still leaks:** `ufw show added` prints exact rules; a rule added manually in full syntax (`ufw allow proto tcp to any port X`) will not match a simple delete.
+- **Healing:** update, restart, revert then apply masking again.
+
 ### Pattern 1aw: sidecar traffic counted twice when routeThroughXray is on — FIXED (lucx.296)
 
 - **Symptom:** panel inbound totals grow far faster than real usage (2 TB class over time) on tunnel-sidecar inbounds. AWG itself is NOT affected — `awg_job.go` already skips the kernel rollup for routed inbounds (Xray meters the TUN with the same tag).

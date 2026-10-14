@@ -48,6 +48,47 @@ func TestGatewayUFWAllow(t *testing.T) {
 	}
 }
 
+func TestGatewayUFW_MovedRowsVanishFromAllow(t *testing.T) {
+	rows := []PreviewRow{
+		{InboundID: 1, Class: ClassPassthrough, OldPort: 46000},
+		{InboundID: 2, Class: ClassPassthrough, OldPort: 9443},
+		{InboundID: 3, Class: ClassPassthrough, OldPort: 51820},
+	}
+	// 1 = selected maskable, 2 = hidden inside the site, 3 = hidden naive.
+	// All three have their port withdrawn, so none may appear in the allow
+	// list or survive a re-apply (lucx.297).
+	moved := map[int]bool{1: true, 2: true, 3: true}
+	allows := GatewayUFWAllow(2053, 2096, 22, rows, moved, true)
+	for _, s := range allows {
+		if strings.HasPrefix(s, "46000/") || strings.HasPrefix(s, "9443/") || strings.HasPrefix(s, "51820/") {
+			t.Fatalf("moved row still allowed: %s in %v", s, allows)
+		}
+	}
+	closed := GatewayUFWClose(2053, 2096, 22, rows, moved, true)
+	have := map[string]bool{}
+	for _, s := range closed {
+		have[s] = true
+	}
+	for _, need := range []string{"46000/tcp", "46000/udp", "9443/tcp", "9443/udp"} {
+		if !have[need] {
+			t.Fatalf("moved row port not closed: %s in %v", need, closed)
+		}
+	}
+	if have["22/tcp"] || have["443/tcp"] {
+		t.Fatalf("closed a port that stays public: %v", closed)
+	}
+	plain := GatewayUFWAllow(2053, 2096, 22, rows, nil, false)
+	have = map[string]bool{}
+	for _, s := range plain {
+		have[s] = true
+	}
+	for _, need := range []string{"46000/tcp", "46000/udp", "9443/tcp", "9443/udp", "51820/tcp", "51820/udp"} {
+		if !have[need] {
+			t.Fatalf("unmoved row must stay allowed: %s in %v", need, plain)
+		}
+	}
+}
+
 func TestGatewayUFWClose_DropsHiddenKeepsPublic(t *testing.T) {
 	rows := []PreviewRow{
 		{InboundID: 1, Class: ClassPassthrough, OldPort: 8443, NewPort: 18443},
@@ -59,7 +100,7 @@ func TestGatewayUFWClose_DropsHiddenKeepsPublic(t *testing.T) {
 	for _, s := range got {
 		have[s] = true
 	}
-	for _, need := range []string{"2053/tcp", "2096/tcp", "8443/tcp", "8443/udp", "18443/tcp"} {
+	for _, need := range []string{"2053/tcp", "2096/tcp", "2053/udp", "2096/udp", "8443/tcp", "8443/udp", "18443/tcp"} {
 		if !have[need] {
 			t.Fatalf("missing %s in %v", need, got)
 		}

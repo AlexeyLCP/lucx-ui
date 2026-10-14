@@ -17,8 +17,12 @@ import (
 	"time"
 )
 
-// GatewayUFWAllow: SSH, 80, 443, panel/sub, and inbounds that stay public.
-func GatewayUFWAllow(webPort, subPort, sshPort int, rows []PreviewRow, selected map[int]bool, hidePanel bool) []string {
+// GatewayUFWAllow: SSH, 80, 443, panel/sub (unless hidden), and inbounds that
+// stay public. moved marks inbounds whose port is withdrawn behind the mask —
+// selected maskables, protocols hidden inside the site, and hidden naive.
+// Those ports must never re-appear here: Apply re-adds everything in this
+// list, so a leak here survives re-applying (lucx.297).
+func GatewayUFWAllow(webPort, subPort, sshPort int, rows []PreviewRow, moved map[int]bool, hidePanel bool) []string {
 	seen := map[string]bool{}
 	var out []string
 	add := func(spec string) {
@@ -43,7 +47,7 @@ func GatewayUFWAllow(webPort, subPort, sshPort int, rows []PreviewRow, selected 
 		}
 	}
 	for _, r := range rows {
-		if selected[r.InboundID] && r.Class != ClassSkip {
+		if moved[r.InboundID] {
 			continue
 		}
 		port := r.OldPort
@@ -78,11 +82,12 @@ func ufwSSHSpec(spec string, sshPort int) bool {
 	return ok && (n == 22 || (sshPort > 0 && n == sshPort))
 }
 
-// GatewayUFWClose is the allow rules Apply must delete: masked inbound ports,
-// and the panel/sub ports when they are hidden. Ports that stay allowed are kept.
-func GatewayUFWClose(webPort, subPort, sshPort int, rows []PreviewRow, selected map[int]bool, hidePanel bool) []string {
+// GatewayUFWClose is the allow rules Apply must delete: the panel/sub ports
+// when they are hidden, and the ports of every moved inbound. Everything the
+// allow list keeps stays open.
+func GatewayUFWClose(webPort, subPort, sshPort int, rows []PreviewRow, moved map[int]bool, hidePanel bool) []string {
 	keep := map[string]bool{}
-	for _, spec := range GatewayUFWAllow(webPort, subPort, sshPort, rows, selected, hidePanel) {
+	for _, spec := range GatewayUFWAllow(webPort, subPort, sshPort, rows, moved, hidePanel) {
 		keep[spec] = true
 	}
 	seen := map[string]bool{}
@@ -97,13 +102,15 @@ func GatewayUFWClose(webPort, subPort, sshPort int, rows []PreviewRow, selected 
 	if hidePanel {
 		if webPort > 0 {
 			add(fmt.Sprintf("%d/tcp", webPort))
+			add(fmt.Sprintf("%d/udp", webPort))
 		}
 		if subPort > 0 {
 			add(fmt.Sprintf("%d/tcp", subPort))
+			add(fmt.Sprintf("%d/udp", subPort))
 		}
 	}
 	for _, r := range rows {
-		if !selected[r.InboundID] || r.Class == ClassSkip {
+		if !moved[r.InboundID] {
 			continue
 		}
 		for _, port := range []int{r.OldPort, r.NewPort} {
