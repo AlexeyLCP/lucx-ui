@@ -170,10 +170,11 @@ func TestGatewayUFW_SSH22StaysTCPOnly(t *testing.T) {
 }
 
 func TestApplyUFW_RecordsCommands(t *testing.T) {
-	oldLinux, oldPath, oldRun := ufwOSLinux, ufwLookPath, ufwRun
-	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun = oldLinux, oldPath, oldRun })
+	oldLinux, oldPath, oldRun, oldShow := ufwOSLinux, ufwLookPath, ufwRun, ufwShowAdded
+	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun, ufwShowAdded = oldLinux, oldPath, oldRun, oldShow })
 	ufwOSLinux = true
 	ufwLookPath = func(string) (string, error) { return "/usr/sbin/ufw", nil }
+	ufwShowAdded = func() (string, error) { return "", exec.ErrNotFound }
 	var got []string
 	ufwRun = func(args ...string) error {
 		got = append(got, strings.Join(args, " "))
@@ -185,6 +186,126 @@ func TestApplyUFW_RecordsCommands(t *testing.T) {
 	want := "--force delete allow 8443/tcp;allow 22/tcp;allow 443/tcp;default deny incoming;--force enable"
 	if strings.Join(got, ";") != want {
 		t.Fatalf("%q", got)
+	}
+}
+
+func TestApplyUFW_ClosesManualRules(t *testing.T) {
+	oldLinux, oldPath, oldRun, oldShow := ufwOSLinux, ufwLookPath, ufwRun, ufwShowAdded
+	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun, ufwShowAdded = oldLinux, oldPath, oldRun, oldShow })
+	ufwOSLinux = true
+	ufwLookPath = func(string) (string, error) { return "/usr/sbin/ufw", nil }
+	// Exact spec deletes never match a rule the operator pasted by hand:
+	// bare `ufw allow 35347` is one proto-less entry, and a full-syntax rule
+	// only matches its own text (verified on ufw 0.36.2).
+	ufwShowAdded = func() (string, error) {
+		return strings.Join([]string{
+			"Added user rules (see 'ufw status' for running firewall):",
+			"ufw allow 22/tcp",
+			"ufw allow 443/tcp",
+			"ufw allow 35347",
+			"ufw allow in 2053/tcp",
+			"ufw allow from 1.2.3.4 to any port 35387 proto tcp",
+		}, "\n") + "\n", nil
+	}
+	var got []string
+	ufwRun = func(args ...string) error {
+		got = append(got, strings.Join(args, " "))
+		return nil
+	}
+	if err := ApplyUFW([]string{"22/tcp", "443/tcp"}, []string{"2053/tcp", "2053/udp", "35347/tcp", "35347/udp", "35387/tcp"}); err != nil {
+		t.Fatal(err)
+	}
+	var deletes []string
+	for _, cmd := range got {
+		if strings.HasPrefix(cmd, "--force delete") {
+			deletes = append(deletes, cmd)
+		}
+	}
+	want := strings.Join([]string{
+		"--force delete allow 2053/tcp",
+		"--force delete allow 2053/udp",
+		"--force delete allow 35347/tcp",
+		"--force delete allow 35347/udp",
+		"--force delete allow 35387/tcp",
+		"--force delete allow 35347",
+		"--force delete allow in 2053/tcp",
+		"--force delete allow from 1.2.3.4 to any port 35387 proto tcp",
+	}, ";")
+	if strings.Join(deletes, ";") != want {
+		t.Fatalf("%v", deletes)
+	}
+}
+
+func TestApplyUFW_SweepLeavesForeignTargetsAlone(t *testing.T) {
+	oldLinux, oldPath, oldRun, oldShow := ufwOSLinux, ufwLookPath, ufwRun, ufwShowAdded
+	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun, ufwShowAdded = oldLinux, oldPath, oldRun, oldShow })
+	ufwOSLinux = true
+	ufwLookPath = func(string) (string, error) { return "/usr/sbin/ufw", nil }
+	ufwShowAdded = func() (string, error) {
+		return strings.Join([]string{
+			"ufw allow 22/tcp",
+			"ufw allow 35340:35350/tcp",
+			"ufw allow out 35347/tcp",
+			"ufw allow 'Apache'",
+			"ufw allow from 5.6.7.8 port 35347 to any port 4321 proto tcp",
+			"ufw deny 35347/tcp",
+			"ufw route allow 35347/tcp",
+			"ufw allow 80/tcp",
+		}, "\n") + "\n", nil
+	}
+	var got []string
+	ufwRun = func(args ...string) error {
+		got = append(got, strings.Join(args, " "))
+		return nil
+	}
+	if err := ApplyUFW([]string{"22/tcp"}, []string{"35347/tcp", "35347/udp"}); err != nil {
+		t.Fatal(err)
+	}
+	var deletes []string
+	for _, cmd := range got {
+		if strings.HasPrefix(cmd, "--force delete") {
+			deletes = append(deletes, cmd)
+		}
+	}
+	want := "--force delete allow 35347/tcp;--force delete allow 35347/udp"
+	if strings.Join(deletes, ";") != want {
+		t.Fatalf("%v", deletes)
+	}
+}
+
+func TestUfwLineOpensPort(t *testing.T) {
+	closed := map[int]bool{35347: true}
+	yes := []string{
+		"ufw allow 35347",
+		"ufw allow 35347/tcp",
+		" ufw allow 35347/tcp ",
+		"ufw allow in 35347/tcp",
+		"ufw allow log 35347/tcp",
+		"ufw allow from 1.2.3.4 to any port 35347 proto tcp",
+		"ufw allow proto tcp from any to any port 35347",
+		"ufw allow from 1.2.3.4 port 35000 to any port 35347",
+	}
+	no := []string{
+		"Added user rules (see 'ufw status' for running firewall):",
+		"",
+		"ufw allow 22/tcp",
+		"ufw allow 12345",
+		"ufw allow 35347:35350/tcp",
+		"ufw allow out 35347/tcp",
+		"ufw allow 'Apache'",
+		"ufw deny 35347/tcp",
+		"ufw route allow 35347/tcp",
+		"ufw allow from 5.6.7.8 port 35347 to any port 4321 proto tcp",
+	}
+	for _, line := range yes {
+		if !ufwLineOpensPort(line, closed) {
+			t.Fatalf("not matched: %q", line)
+		}
+	}
+	for _, line := range no {
+		if ufwLineOpensPort(line, closed) {
+			t.Fatalf("matched: %q", line)
+		}
 	}
 }
 

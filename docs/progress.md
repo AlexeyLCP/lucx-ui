@@ -1,5 +1,28 @@
 # LucX-UI — Прогресс
 
+## lucx.299 - masking closes manually created allow rules too (2026-10-14)
+
+Malderin follow-up to lucx.297: the panel port stayed open in `ufw status` when the allow rule was created by hand before applying masking ("сбросил файрвол, сразу добавил 2 правила … потом при применении маскинга эти 2 порта не трогаются"). Root cause (verified live on ufw 0.36.2, stand 144.31.224.212): a bare `ufw allow 35347` is stored as **one proto-less rule** — `ufw --force delete allow 35347/tcp` and `…/udp` both report "Could not delete non-existent rule" — and a full-syntax rule (`ufw allow proto tcp from 1.2.3.4 to any port X`) never matches simple spec deletes either. So the canonical close specs only cleared rules in the panel's own shape; anything pasted in another form survived every apply.
+
+Fix: `ApplyUFW` now sweeps `ufw show added` after the per-spec deletes and deletes every remaining **incoming allow** rule whose target port is in the close set (panel/sub hidden, moved inbounds, hidden naive). The `ufw show added` lines minus the `ufw ` prefix are the exact `ufw delete` arguments (verified: bare, `in <port>/tcp`, full-syntax forms all delete). Not touched: `from port … to <any>` source-port matches (last-`port`-token parse wins), port ranges `p1:p2`, outbound rules, application profiles, deny/route rules. Port 22 / sshd spec skips are unchanged.
+
+**lucxVersion:** lucx.299
+
+Files: `internal/config/config.go`, `internal/lucx/tunnel/gateway_ufw.go`, `internal/lucx/tunnel/gateway_ufw_test.go`.
+
+Tests: `TestApplyUFW_ClosesManualRules` (bare + `in` + full-syntax forms deleted, 22/80/443 kept), `TestApplyUFW_SweepLeavesForeignTargetsAlone` (range/out/app-profile/deny/route and foreign target rules stay), `TestUfwLineOpensPort` (7 positive / 10 negative line forms, all captured from the stand), existing `TestApplyUFW_*` green with `ufwShowAdded` stubbed. Live delete semantics on the stand: bare `ufw delete allow 35399` removes the proto-less rule (v4+v6), `ufw delete allow from 1.2.3.4 to any port 35387 proto tcp` removes the full-syntax rule; experiment rules cleaned up. `go test ./internal/lucx/... -count=1` + `go vet` + `gofmt -l` green on the Windows host.
+
+Healing: `x-ui update`; Apply UFW runs only on the next Apply of masking (Revert then Apply with the UFW box on) — no inbound or client config changes.
+
+Manual test plan:
+1. `ufw allow <panel-port>` by hand (bare, while masking is off), note it in `ufw status`.
+2. Panel → masking → apply with hide panel + UFW: `ufw status` must not list `<panel-port>` anymore (in any form: bare, `/tcp`, `/udp`, full syntax).
+3. Revert: the panel/sub/moved ports come back (`ufw status` lists them); the manual bare form returns as `<port>/tcp` (+`/udp`), not the original bare entry — acceptable: the port is open as designed.
+
+Not covered: rules with a port **range** containing the panel port (e.g. `ufw allow 30000:40000/tcp`) are left alone — one close must not delete a range that also opens other ports; a foreign firewall (firewalld/shorewall) is untouched by design (UFW checkbox only).
+
+---
+
 ## lucx.298 - ACME HTTP-01 next to a LucX Caddy on :80; AWG version pill again (2026-10-14)
 
 Bundled release: PR #134 (maksimkurb, ACME vs Cover) + the dashboard AWG version pill (below). lucx.295/297-style docs tail of lucx.297 is not duplicated here.
