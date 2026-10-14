@@ -146,7 +146,7 @@ func (s *ClientService) syncInboundClients(tx *gorm.DB, inboundId int, clients [
 		}
 	}
 
-	isTunnel := inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG
+	isTunnel := inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG
 	var onLowerTunnel map[int]struct{}
 	if isTunnel && len(existing) > 0 {
 		ids := make([]int, 0, len(existing))
@@ -409,7 +409,7 @@ func clientsOnLowerTunnel(tx *gorm.DB, inboundId int, clientIds []int) (map[int]
 		if err := tx.Table("client_inbounds").
 			Joins("JOIN inbounds ON inbounds.id = client_inbounds.inbound_id").
 			Where("client_inbounds.client_id IN ? AND client_inbounds.inbound_id < ? AND inbounds.protocol IN ?",
-				batch, inboundId, []model.Protocol{model.WireGuard, model.AmneziaWG}).
+				batch, inboundId, []model.Protocol{model.WireGuard, model.AmneziaWG, model.AWG}).
 			Distinct().Pluck("client_inbounds.client_id", &ids).Error; err != nil {
 			return nil, err
 		}
