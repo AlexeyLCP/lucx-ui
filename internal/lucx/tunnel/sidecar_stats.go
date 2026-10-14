@@ -158,6 +158,9 @@ func firstFieldInt(line string) int64 {
 	return 0
 }
 
+// shortcut: /proc/<pid>/io rchar/wchar counts every read+write syscall, so a
+// non-routed relay meters roughly its 2x network bytes plus process I/O (logs);
+// routed inbounds do not use these deltas for accounting (routedTags guard).
 func (m *Manager) collectProcIO(key, tag string) SidecarTraffic {
 	d := SidecarTraffic{Tag: tag}
 	if !m.IsRunningKey(key) {

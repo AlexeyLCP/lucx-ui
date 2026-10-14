@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.296 - no double traffic accounting for routed sidecars (2026-10-14)
+
+Operator report: the panel metered far more traffic than real usage (2 TB class), a sidecar double-count was suspected. Audit of the accounting paths: AWG is clean — kernel `awg show dump` deltas are baseline-corrected and the routed inbound rollup is already skipped in favor of the Xray TUN meter (`awg_job.go` routedTags guard; naive/mieru/trusttunnel have the same guard). Four tunnel collectors lacked the guard, so for `routeThroughXray` inbounds the same bytes were written to the inbound total twice — once by the Xray bridge (SOCKS/TUN inbound carrying the inbound tag), once by the sidecar scraper: anytls, olcrtc, qwdtt, tproxy. (qwdtt defaults `routeThroughXray: true`, so this hit by default.)
+
+**lucxVersion:** lucx.296
+
+Files: `internal/web/job/tunnel_job.go` (routedTags guard in collectAnytlsTraffic / collectOlcrtcTraffic / collectQwdttTraffic / collectTproxyTraffic + new commitSidecarScrape parameter), `internal/lucx/tunnel/sidecar_stats.go` (shortcut comment).
+
+Tests: `go test ./internal/lucx/tunnel/ -count=1` green; `gofmt -l` clean. Full gates run in CI (`internal/database` needs CGO, not available on the Windows host).
+
+Known limit (documented, not fixed): non-routed olcrtc/tproxy meter from `/proc/<pid>/io` (rchar/wchar) — every read+write syscall, so a direct (non-routed) relay still meters roughly 2x its network bytes plus process I/O (logs). Upgrading to per-interface counters is a separate change.
+
+Healing: `x-ui update`, restart. Overcounted totals persist in the DB until a per-client/inbound reset — the fix stops future double-adding only.
+
+---
+
 ## lucx.295 - UFW also writes /etc/default/ufw under the sandbox (2026-10-14)
 
 Malderin: hiding a panel under masking now reaches the UFW step but fails: `Gateway applied, ufw: ERROR: '/etc/default/ufw' is not writable: exit status 1`. lucx.293 whitelisted `/etc/ufw`, but ufw's startup check also wants the sibling file `/etc/default/ufw` writable, and `ProtectSystem=full` keeps it read-only. The debian/arch/rhel units and the install/update drop-in generators add `-/etc/default/ufw` (missing-ok, so ufw-less hosts are unaffected).

@@ -4,6 +4,14 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1aw: sidecar traffic counted twice when routeThroughXray is on — FIXED (lucx.296)
+
+- **Symptom:** panel inbound totals grow far faster than real usage (2 TB class over time) on tunnel-sidecar inbounds. AWG itself is NOT affected — `awg_job.go` already skips the kernel rollup for routed inbounds (Xray meters the TUN with the same tag).
+- **Cause:** `collectAnytlsTraffic` / `collectOlcrtcTraffic` / `collectQwdttTraffic` / `collectTproxyTraffic` committed inbound rollups for routed inbounds too. The Xray bridge injected by `injectSocksEgress` / `injectQwdttEgress` carries the same tag, so every bridged byte was added twice. qWDTT defaults `routeThroughXray: true` (qwdtt.go DefaultQwdttConfig), so it doubled out of the box.
+- **Fix:** routedTags guard in all four collectors; `commitSidecarScrape` takes a routedTags map, mirroring the naive/mieru pattern. Per-client rows (TrustTunnelSoleClient) are kept: the bridge cannot attribute to users.
+- **Known limit:** non-routed olcrtc/tproxy still meter from `/proc/<pid>/io` (rchar/wchar — every read+write syscall, ~2x network bytes + log I/O). See the shortcut comment in sidecar_stats.go.
+- **Distinguishing a counting bug from a real loop:** compare the panel with `awg show <iface> transfer` (kernel truth), then with `/proc/net/dev` / vnstat deltas: panel ≫ NIC = accounting bug; NIC ≈ panel on an idle tunnel = real loop (check `ip -s link show awgN` twice, 60 s apart).
+
 ### Pattern 1av: mtproxy `Operation not permitted` / masking locks the panel out — FIXED (lucx.293)
 
 - **Symptom (Malderin, 14.10.2026):** after the v3.10 update, `tunnel: mtproxy-N process exited: exit status 1`, then `change_user_group: failed to clear supplementary groups list: Operation not permitted`, `fatal: cannot change user to lucx-mtproxy`, and `mtfront_pre_init: Assertion parent_pid == real_parent_pid failed`. WEB proxy and MTProto on that inbound stay down. Separately, disabling masking with UFW on makes the panel unreachable until `ufw disable` from SSH. After UFW is turned back on, `ufw status` still shows every inbound port and the panel port as ALLOW while the masking page says hide is on.
