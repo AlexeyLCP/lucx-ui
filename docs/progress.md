@@ -12,9 +12,13 @@ Files: `internal/lucx/tunnel/gateway_ufw.go`, `internal/web/service/gateway.go`,
 
 Tests: `TestGatewayUFW_MovedRowsVanishFromAllow` (inside/hideNaive/class-skip rows vs allow and close), existing `TestGatewayUFWAllow`, `TestGatewayUFWClose_DropsHiddenKeepsPublic`, `TestGatewayUFWRestore_PanelAndMovedPorts`, `TestGatewayUFW_SSH22StaysTCPOnly`, `TestApplyUFW_*` green; `gofmt -l` clean. Full gates in CI (`internal/database` needs CGO).
 
-Healing: `x-ui update`, restart, then masking Revert → Apply again. UFW rules are rewritten in one pass. Still correct to see SSH, 80, 443 (the mask facade) and ports of inbounds NOT masked. Issued client configs are not rewritten.
+Healing: update via `x-ui update`, restart, then masking Revert → Apply again. UFW rules are rewritten in one pass. Still correct to see SSH, 80, 443 (the mask facade) and ports of inbounds NOT masked. Issued client configs are not rewritten.
 
 Note: allow rules added manually as a bare port (`ufw allow 5432`) get their tcp half closed; the udp half is removed by this fix too. If something still shows in `ufw status`, `ufw show added` prints the exact rules.
+
+Verification (test stand 144.31.224.212, dev-latest lucx.297): cover+tproxy on 443, hide panel, UFW on → `ufw status` = exactly `22/tcp, 80/tcp, 443/tcp, 443/udp` (+v6); panel 2053 closed from the outside (TcpTestSucceeded=False); facade 443 open; Revert → UFW inactive again (it was not active before), gateway disabled, snapshot cleared. Fail2ban jails `3x-ipl`/`sshd` on the stand banned the testing IP mid-test and expired — unrelated to the fix.
+
+**Release:** v3.10.0-lucx.297 - https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.297
 
 ---
 
@@ -31,6 +35,10 @@ Tests: `go test ./internal/lucx/tunnel/ -count=1` green; `gofmt -l` clean. Full 
 Known limit (documented, not fixed): non-routed olcrtc/tproxy meter from `/proc/<pid>/io` (rchar/wchar) — every read+write syscall, so a direct (non-routed) relay still meters roughly 2x its network bytes plus process I/O (logs). Upgrading to per-interface counters is a separate change.
 
 Healing: `x-ui update`, restart. Overcounted totals persist in the DB until a per-client/inbound reset — the fix stops future double-adding only.
+
+E2E note: the test stand runs no sidecar inbounds, so this fix was verified by unit tests only (no routed traffic to observe); the masking/UFW fix shipped in the same release has full stand verification (see lucx.297).
+
+**Release:** v3.10.0-lucx.297 - https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.297
 
 ---
 
