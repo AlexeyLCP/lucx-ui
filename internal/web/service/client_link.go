@@ -393,10 +393,22 @@ func keepLinkOwnedFields(row, before *model.ClientRecord, ownsTunnelPeer bool) {
 	if ownsTunnelPeer {
 		return
 	}
-	row.PrivateKey = before.PrivateKey
-	row.PublicKey = before.PublicKey
-	row.AllowedIPs = before.AllowedIPs
-	row.PreSharedKey = before.PreSharedKey
+	// LUCX-HOOK: a blank in `before` is not an ownership claim — the mint of a
+	// missing peer field on an upper tunnel's attach (identity PSK, fresh
+	// AllowedIPs, kernel-AWG keypair) must survive the lower-rank restore.
+	if before.PrivateKey != "" {
+		row.PrivateKey = before.PrivateKey
+	}
+	if before.PublicKey != "" {
+		row.PublicKey = before.PublicKey
+	}
+	if before.AllowedIPs != "" {
+		row.AllowedIPs = before.AllowedIPs
+	}
+	if before.PreSharedKey != "" {
+		row.PreSharedKey = before.PreSharedKey
+	}
+	// END LUCX-HOOK
 	row.KeepAlive = before.KeepAlive
 }
 

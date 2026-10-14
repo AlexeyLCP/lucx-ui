@@ -68,6 +68,44 @@ func TestSyncInbound_StaleSettingsSnapshotKeepsIdentityPreSharedKey(t *testing.T
 	}
 }
 
+// keepLinkOwnedFields with the lower-rank restore: a field `before` does not
+// claim is overwritable by the incoming mint; a claimed field is restored.
+func TestKeepLinkOwnedFields_BlankBeforeIsNotOwnership(t *testing.T) {
+	stored := model.ClientRecord{
+		PrivateKey: "stored-priv", PublicKey: "stored-pub", KeepAlive: "25",
+		AllowedIPs: "10.0.0.2/32", PreSharedKey: "stored-psk", Flow: "flow-a",
+	}
+	mint := model.ClientRecord{
+		PrivateKey: "minted-priv", PublicKey: "minted-pub",
+		AllowedIPs: "10.1.0.2/32", PreSharedKey: "minted-psk",
+	}
+
+	// A fully claimed record keeps every field, Flow included.
+	row := mint
+	keepLinkOwnedFields(&row, &stored, false)
+	if row != stored {
+		t.Fatalf("claimed field was overwritten: %+v", row)
+	}
+
+	// A blank before claims nothing, so the mint survives the restore.
+	row = mint
+	claim := model.ClientRecord{Flow: "flow-kept", PrivateKey: "kept-priv"}
+	keepLinkOwnedFields(&row, &claim, false)
+	if row.PrivateKey != "kept-priv" || row.Flow != "flow-kept" {
+		t.Fatalf("claimed field must win: %+v", row)
+	}
+	if row.PublicKey != "minted-pub" || row.PreSharedKey != "minted-psk" || row.AllowedIPs != "10.1.0.2/32" {
+		t.Fatalf("mint on a blank claim must survive: %+v", row)
+	}
+
+	// A blank record synced against a blank before stays all blank.
+	blank := model.ClientRecord{}
+	keepLinkOwnedFields(&blank, &model.ClientRecord{}, false)
+	if blank != (model.ClientRecord{}) {
+		t.Fatalf("blank-before restore rewrote fields: %+v", blank)
+	}
+}
+
 func TestApplyClientRecordMerge_BlankPreSharedKeyNeverClears(t *testing.T) {
 	const storedPSK = "c3RvcmVkLXBzay0wMDAwMDAwMDAwMDAwMDAwMDAwMD0="
 
