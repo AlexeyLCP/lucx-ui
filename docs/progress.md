@@ -12,6 +12,8 @@ Tests: `TestGatewayUFW_SSH22StaysTCPOnly` (close list keeps `22/tcp` for a maske
 
 Healing: `x-ui update`, restart panel, then on the Masking page run Revert and Apply again. UFW rules are rewritten in one pass; SSH keeps its single `22/tcp` rule. Issued client configs are not rewritten.
 
+**Release:** `v3.10.0-lucx.294` - https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.294
+
 ---
 
 ## lucx.293 — MTProxy and masking UFW under the v3.10 sandbox (2026-10-14)
@@ -27,6 +29,8 @@ Files: `x-ui.service.{debian,arch,rhel}`, `install.sh`, `update.sh`, `internal/l
 Tests: `TestGatewayUFWClose_DropsHiddenKeepsPublic`, `TestGatewayUFWRestore_PanelAndMovedPorts`, `TestApplyUFW_RecordsCommands`, `TestRevertUFW_DisablesOnlyIfWeEnabled`.
 
 Healing: `x-ui update`, then restart. MTProxy comes back on the next reconcile. A mask that is already on does not rewrite UFW until Revert and Apply again. Issued client configs are not rewritten.
+
+**Release:** shipped inside `v3.10.0-lucx.294` - https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.294 (no separate tag)
 
 ---
 
