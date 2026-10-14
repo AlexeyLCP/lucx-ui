@@ -310,7 +310,10 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	s.ensureGatewayRuntime(gw, others)
 	if req.UFW {
 		web, sub := gatewayExtraPorts()
-		if err := tunnel.ApplyUFW(tunnel.GatewayUFWAllow(web, sub, tunnel.SSHDPort(), rows, selected, req.HidePanel)); err != nil {
+		ssh := tunnel.SSHDPort()
+		allows := tunnel.GatewayUFWAllow(web, sub, ssh, rows, selected, req.HidePanel)
+		closePorts := tunnel.GatewayUFWClose(web, sub, ssh, rows, selected, req.HidePanel)
+		if err := tunnel.ApplyUFW(allows, closePorts); err != nil {
 			return common.NewError("gateway applied, ufw:", err)
 		}
 	}
@@ -327,7 +330,11 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 		return common.NewError("gateway: nothing to revert")
 	}
 	if cfg.UFW {
-		_ = tunnel.RevertUFW(cfg.UFWWasActive)
+		web, sub := gatewayExtraPorts()
+		restore := tunnel.GatewayUFWRestore(web, sub, cfg.Snapshot, cfg.HidePanel)
+		if err := tunnel.RevertUFW(cfg.UFWWasActive, restore); err != nil {
+			logger.Warningf("gateway: ufw revert: %v", err)
+		}
 	}
 	tunnel.GetManager().Remove(tunnel.GatewayKey(gw.Id))
 	db := database.GetDB()

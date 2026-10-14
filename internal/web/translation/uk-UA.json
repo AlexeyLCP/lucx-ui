@@ -2895,7 +2895,7 @@
       "maskedListen": "Listen and port are managed by Masking. Revert first to edit.",
       "noBindIP": "Could not read NIC IPv4; Apply will remap ports like before.",
       "ufw": "Close extra ports (UFW)",
-      "ufwHint": "Allows SSH, panel, 80, 443, and inbounds left public. Denies the rest. Revert disables UFW only if we turned it on.",
+      "ufwHint": "Allows SSH, panel, 80, 443, and inbounds left public. Removes allow rules for hidden ports, including the panel port when it is hidden. Revert puts those rules back if UFW was already on, and disables UFW only if we turned it on.",
       "naiveHint": "Naive is not in the table above — it stays on its own port below. To put it on 443, tick Hide behind the site and Apply. Then refresh the subscription.",
       "naiveOwnPort": "Own port {port}. Do not move it to 443 by hand.",
       "hideNaive": "Hide behind {host}:443",

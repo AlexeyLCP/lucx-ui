@@ -4,6 +4,14 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1av: mtproxy `Operation not permitted` / masking locks the panel out — FIXED (lucx.293)
+
+- **Symptom (Malderin, 14.10.2026):** after the v3.10 update, `tunnel: mtproxy-N process exited: exit status 1`, then `change_user_group: failed to clear supplementary groups list: Operation not permitted`, `fatal: cannot change user to lucx-mtproxy`, and `mtfront_pre_init: Assertion parent_pid == real_parent_pid failed`. WEB proxy and MTProto on that inbound stay down. Separately, disabling masking with UFW on makes the panel unreachable until `ufw disable` from SSH. After UFW is turned back on, `ufw status` still shows every inbound port and the panel port as ALLOW while the masking page says hide is on.
+- **Cause:** `CapabilityBoundingSet` had no `CAP_SETUID`/`CAP_SETGID`, so the engine's `setgroups()` got EPERM and the parent exited; the worker's `getppid()` was no longer the parent. `ProtectSystem=full` left `/etc/ufw` read-only, so panel `ufw` writes failed. Revert did nothing when UFW was already active, and Apply never deleted old allow rules.
+- **Fix:** bounding set gains `CAP_SETUID` `CAP_SETGID`. `/etc/ufw` is writable. Apply deletes hidden-port allows. Revert re-allows panel, sub, and moved ports when UFW stays on.
+- **Healing:** update and restart. Re-apply masking if the firewall list should match the page. SSH in and `ufw allow <panel-port>/tcp` if a host is locked out before the update.
+- **Not this:** `database is locked` on the client-ip / traffic jobs. That is SQLite busy past the 10s timeout, a different host, and not this sandbox hole.
+
 ### Pattern 1au: journal full of `dial tcp 127.0.0.1:1: connection refused` — FIXED (lucx.290)
 
 - **Symptom:** `journalctl -u x-ui` is almost only `tunnel: gateway-N | … layer4 … handling connection … dial tcp 127.0.0.1:1: connect: connection refused`. Remotes are scanners, not panel users. Disk growth is journald, not Naive `access.json` (capped at 32MB).

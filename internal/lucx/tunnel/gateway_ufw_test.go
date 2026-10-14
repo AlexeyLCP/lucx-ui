@@ -48,6 +48,54 @@ func TestGatewayUFWAllow(t *testing.T) {
 	}
 }
 
+func TestGatewayUFWClose_DropsHiddenKeepsPublic(t *testing.T) {
+	rows := []PreviewRow{
+		{InboundID: 1, Class: ClassPassthrough, OldPort: 8443, NewPort: 18443},
+		{InboundID: 2, Class: ClassSkip, OldPort: 51820},
+		{InboundID: 3, Class: ClassPassthrough, OldPort: 9443},
+	}
+	got := GatewayUFWClose(2053, 2096, 22, rows, map[int]bool{1: true}, true)
+	have := map[string]bool{}
+	for _, s := range got {
+		have[s] = true
+	}
+	for _, need := range []string{"2053/tcp", "2096/tcp", "8443/tcp", "8443/udp", "18443/tcp"} {
+		if !have[need] {
+			t.Fatalf("missing %s in %v", need, got)
+		}
+	}
+	for _, banned := range []string{"22/tcp", "80/tcp", "443/tcp", "51820/udp", "9443/tcp"} {
+		if have[banned] {
+			t.Fatalf("closed a port that stays public: %s in %v", banned, got)
+		}
+	}
+	shown := GatewayUFWClose(2053, 2096, 22, rows, map[int]bool{1: true}, false)
+	for _, s := range shown {
+		if s == "2053/tcp" || s == "2096/tcp" {
+			t.Fatalf("panel stays open when not hidden: %v", shown)
+		}
+	}
+}
+
+func TestGatewayUFWRestore_PanelAndMovedPorts(t *testing.T) {
+	got := GatewayUFWRestore(2053, 2096, []GatewaySnapshotRow{{Port: 8443}, {Port: 443}}, true)
+	have := map[string]bool{}
+	for _, s := range got {
+		have[s] = true
+	}
+	for _, need := range []string{"2053/tcp", "2096/tcp", "8443/tcp", "8443/udp", "443/tcp"} {
+		if !have[need] {
+			t.Fatalf("missing %s in %v", need, got)
+		}
+	}
+	plain := GatewayUFWRestore(2053, 2096, []GatewaySnapshotRow{{Port: 8443}}, false)
+	for _, s := range plain {
+		if s == "2053/tcp" {
+			t.Fatalf("panel restored while it was never hidden: %v", plain)
+		}
+	}
+}
+
 func TestApplyUFW_RecordsCommands(t *testing.T) {
 	oldLinux, oldPath, oldRun := ufwOSLinux, ufwLookPath, ufwRun
 	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun = oldLinux, oldPath, oldRun })
@@ -58,10 +106,10 @@ func TestApplyUFW_RecordsCommands(t *testing.T) {
 		got = append(got, strings.Join(args, " "))
 		return nil
 	}
-	if err := ApplyUFW([]string{"22/tcp", "443/tcp"}); err != nil {
+	if err := ApplyUFW([]string{"22/tcp", "443/tcp"}, []string{"8443/tcp"}); err != nil {
 		t.Fatal(err)
 	}
-	want := "allow 22/tcp;allow 443/tcp;default deny incoming;--force enable"
+	want := "--force delete allow 8443/tcp;allow 22/tcp;allow 443/tcp;default deny incoming;--force enable"
 	if strings.Join(got, ";") != want {
 		t.Fatalf("%q", got)
 	}
@@ -77,10 +125,14 @@ func TestRevertUFW_DisablesOnlyIfWeEnabled(t *testing.T) {
 		got = append(got, strings.Join(args, " "))
 		return nil
 	}
-	if err := RevertUFW(true); err != nil || len(got) != 0 {
+	if err := RevertUFW(true, nil); err != nil || len(got) != 0 {
 		t.Fatalf("leave active ufw alone: %v %q", err, got)
 	}
-	if err := RevertUFW(false); err != nil || len(got) != 1 || got[0] != "disable" {
+	if err := RevertUFW(true, []string{"2053/tcp"}); err != nil || len(got) != 1 || got[0] != "allow 2053/tcp" {
+		t.Fatalf("restore panel port on an already-active ufw: %v %q", err, got)
+	}
+	got = nil
+	if err := RevertUFW(false, []string{"2053/tcp"}); err != nil || len(got) != 1 || got[0] != "disable" {
 		t.Fatalf("disable our enable: %v %q", err, got)
 	}
 }
@@ -102,7 +154,7 @@ func TestApplyUFW_InstallsWhenMissing(t *testing.T) {
 		got = append(got, strings.Join(args, " "))
 		return nil
 	}
-	if err := ApplyUFW([]string{"22/tcp"}); err != nil {
+	if err := ApplyUFW([]string{"22/tcp"}, nil); err != nil {
 		t.Fatal(err)
 	}
 	if !installed {
@@ -120,7 +172,7 @@ func TestApplyUFW_MissingUFWAndApt(t *testing.T) {
 	ufwOSLinux = true
 	ufwLookPath = func(string) (string, error) { return "", exec.ErrNotFound }
 	ufwInstall = func() error { t.Fatal("install must not run without apt-get"); return nil }
-	if err := ApplyUFW([]string{"22/tcp"}); err == nil {
+	if err := ApplyUFW([]string{"22/tcp"}, nil); err == nil {
 		t.Fatal("expected error without ufw and apt-get")
 	}
 }

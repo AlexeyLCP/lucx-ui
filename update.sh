@@ -381,9 +381,10 @@ _xui_service_write_paths_dropin() {
     if [[ "$bin_folder" != /* ]]; then
         bin_folder="${main_folder%/}/${bin_folder#./}"
     fi
-    # LUCX-HOOK: AWG sidecar configs (awgN.conf) are rewritten here on every reconcile.
+    # LUCX-HOOK: AWG confs under /etc/amnezia. Masking writes UFW rules under /etc/ufw.
     local awg_config_dir="/etc/amnezia"
-    for path in "$db_folder" "$log_folder" "$bin_folder" "$main_folder" "$awg_config_dir"; do
+    local ufw_config_dir="/etc/ufw"
+    for path in "$db_folder" "$log_folder" "$bin_folder" "$main_folder" "$awg_config_dir" "$ufw_config_dir"; do
     # END LUCX-HOOK
         [[ "$path" == /* ]] || continue
         # ReadWritePaths= is a whitespace-separated list, and a folder whose
@@ -426,6 +427,9 @@ _xui_service_write_paths_dropin() {
 [Service]
 ReadWritePaths=${line}
 ReadWriteDirectories=${line}
+# Repeat the full set: a drop-in CapabilityBoundingSet replaces the unit list.
+# CAP_SETUID/CAP_SETGID: mtproxy setgroups()+setuid() to lucx-mtproxy.
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETUID CAP_SETGID
 EOF
     if [[ "$(_xui_systemd_major_version)" -ge 239 ]]; then
         cat >> "$temp_file" << 'EOF'
@@ -483,6 +487,11 @@ _install_xui_service_unit() {
         echo -e "${yellow}If XUI_DB_FOLDER or XUI_LOG_FOLDER points outside /etc/x-ui and /var/log/x-ui, the panel may not be able to write to it under ProtectSystem=full.${plain}"
     fi
     _xui_warn_unsupported_hardening
+    # LUCX-HOOK: panel cannot useradd under ProtectSystem=full (/etc/passwd is read-only).
+    if ! id lucx-mtproxy >/dev/null 2>&1; then
+        useradd -r -M -N -s /usr/sbin/nologin lucx-mtproxy >/dev/null 2>&1 || true
+    fi
+    # END LUCX-HOOK
     return 0
 }
 

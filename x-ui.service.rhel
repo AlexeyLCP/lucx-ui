@@ -48,9 +48,9 @@ ProtectSystem=full
 # grant /usr or /etc to accommodate it.
 # ReadWritePaths= requires systemd >= 231; ReadWriteDirectories= is the deprecated
 # alias for older systemd, needed so ProtectSystem=full keeps /etc/x-ui writable.
-# LUCX-HOOK: /etc/amnezia holds panel-owned AWG configs (awgN.conf, awgo-*.conf).
-ReadWritePaths=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia
-ReadWriteDirectories=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia
+# LUCX-HOOK: /etc/amnezia is AWG confs. /etc/ufw is masking's allow/delete.
+ReadWritePaths=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia -/etc/ufw
+ReadWriteDirectories=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia -/etc/ufw
 # END LUCX-HOOK
 # A kernel-TUN WireGuard outbound zeroes net.ipv{4,6}.conf.*.rp_filter as Xray starts
 # (#6796). Reopen only /proc/sys/net: kernel.* (core_pattern among them) stays read-only.
@@ -85,7 +85,10 @@ RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX AF_NETLINK
 # reads worked before the sandbox because the panel is root.
 # DAC_READ_SEARCH is deliberately absent: directory search is already covered by
 # DAC_OVERRIDE, so it would only widen the set without adding anything.
-CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW
+# LUCX-HOOK: MTProxy setgroups()+setuid() to lucx-mtproxy. Without these the
+# engine exits EPERM and the worker asserts parent_pid == real_parent_pid.
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETUID CAP_SETGID
+# END LUCX-HOOK
 SystemCallArchitectures=native
 # No seccomp whitelist here on purpose. @system-service needs systemd >= 239
 # (other @-named groups exist since 231), and older systemd does not ignore an

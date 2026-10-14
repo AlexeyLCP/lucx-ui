@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.293 — MTProxy and masking UFW under the v3.10 sandbox (2026-10-14)
+
+Malderin, after lucx.292: `mtproxy-41` exits 1 with `change_user_group: failed to clear supplementary groups list: Operation not permitted` and `parent_pid == real_parent_pid`. The v3.10 bounding set has no `CAP_SETGID`/`CAP_SETUID`, and `NoNewPrivileges` blocks the child from gaining them, so `setgroups()` fails and the parent exits before the worker's `getppid()` check. The same sandbox makes `/etc` read-only, so `ufw allow`/`ufw disable` from the panel cannot write `/etc/ufw`. Disabling masking then left default-deny in place and did not put the panel port back when UFW had already been active (`RevertUFW` was a no-op). Apply also only added allows, so existing rules kept every inbound port, including the panel, listed as ALLOW.
+
+The unit and the generated drop-in now include `CAP_SETUID` `CAP_SETGID` and `/etc/ufw`. install/update create `lucx-mtproxy` outside the sandbox (`useradd` from the panel cannot write `/etc/passwd`). Apply deletes allow rules for hidden ports. Revert re-allows the panel, sub, and moved inbound ports when UFW stays on, and still disables UFW only when this panel enabled it.
+
+**lucxVersion:** lucx.293
+
+Files: `x-ui.service.{debian,arch,rhel}`, `install.sh`, `update.sh`, `internal/lucx/tunnel/gateway_ufw.go`, `internal/web/service/gateway.go`, en-US + ru-RU `ufwHint`.
+
+Tests: `TestGatewayUFWClose_DropsHiddenKeepsPublic`, `TestGatewayUFWRestore_PanelAndMovedPorts`, `TestApplyUFW_RecordsCommands`, `TestRevertUFW_DisablesOnlyIfWeEnabled`.
+
+Healing: `x-ui update`, then restart. MTProxy comes back on the next reconcile. A mask that is already on does not rewrite UFW until Revert and Apply again. Issued client configs are not rewritten.
+
+---
+
 ## lucx.292 — AWG survives the v3.10 systemd sandbox (2026-10-13)
 
 v3.10.0-lucx.291 shipped upstream `ProtectSystem=full` plus `ProtectKernelTunables=yes`. Two effects took down AWG on every updated node. The drop-in `10-xui-sandbox.conf` did not list `/etc/amnezia`, so reconcile could not write `awgN.conf` / `awgo-*.conf` (`read-only file system`) and `awg-quick up` never ran. The same sandbox masks `/proc/kallsyms`, so `ModuleSupportsAwg3` went false and the renderers dropped HeaderProtectionKey plus the six device timers. Peers still had those fields, so the handshake failed. An empty kallsyms trusts `/sys/module/amneziawg/version` only when it is 3.x (n9 reports `3.1.20260812`). The dkms `1.0.0` stamp (lucx.58) is not trusted: then the running kernel's DKMS object is scanned, including Debian's `amneziawg.ko.xz`. `/lib/modules` stays hidden by `ProtectKernelModules`. A readable kallsyms stays authoritative. `install.sh` / `update.sh` and the debian/arch/rhel units add `/etc/amnezia` to `ReadWritePaths`. Update still rewrites only `10-xui-sandbox.conf`; other drop-ins in `x-ui.service.d` are left in place (uninstall still removes the directory).

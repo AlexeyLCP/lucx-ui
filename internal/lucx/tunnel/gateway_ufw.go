@@ -59,6 +59,75 @@ func GatewayUFWAllow(webPort, subPort, sshPort int, rows []PreviewRow, selected 
 	return out
 }
 
+// GatewayUFWClose is the allow rules Apply must delete: masked inbound ports,
+// and the panel/sub ports when they are hidden. Ports that stay allowed are kept.
+func GatewayUFWClose(webPort, subPort, sshPort int, rows []PreviewRow, selected map[int]bool, hidePanel bool) []string {
+	keep := map[string]bool{}
+	for _, spec := range GatewayUFWAllow(webPort, subPort, sshPort, rows, selected, hidePanel) {
+		keep[spec] = true
+	}
+	seen := map[string]bool{}
+	var out []string
+	add := func(spec string) {
+		if spec == "" || seen[spec] || keep[spec] {
+			return
+		}
+		seen[spec] = true
+		out = append(out, spec)
+	}
+	if hidePanel {
+		if webPort > 0 {
+			add(fmt.Sprintf("%d/tcp", webPort))
+		}
+		if subPort > 0 {
+			add(fmt.Sprintf("%d/tcp", subPort))
+		}
+	}
+	for _, r := range rows {
+		if !selected[r.InboundID] || r.Class == ClassSkip {
+			continue
+		}
+		for _, port := range []int{r.OldPort, r.NewPort} {
+			if port <= 0 {
+				continue
+			}
+			add(fmt.Sprintf("%d/tcp", port))
+			add(fmt.Sprintf("%d/udp", port))
+		}
+	}
+	return out
+}
+
+// GatewayUFWRestore is what Revert re-allows when UFW was already active:
+// the panel/sub ports if they were hidden, and each moved inbound's old port.
+func GatewayUFWRestore(webPort, subPort int, snap []GatewaySnapshotRow, hidePanel bool) []string {
+	seen := map[string]bool{}
+	var out []string
+	add := func(spec string) {
+		if spec == "" || seen[spec] {
+			return
+		}
+		seen[spec] = true
+		out = append(out, spec)
+	}
+	if hidePanel {
+		if webPort > 0 {
+			add(fmt.Sprintf("%d/tcp", webPort))
+		}
+		if subPort > 0 && subPort != webPort {
+			add(fmt.Sprintf("%d/tcp", subPort))
+		}
+	}
+	for _, sr := range snap {
+		if sr.Port <= 0 {
+			continue
+		}
+		add(fmt.Sprintf("%d/tcp", sr.Port))
+		add(fmt.Sprintf("%d/udp", sr.Port))
+	}
+	return out
+}
+
 func parseSSHDPort(cfg string) int {
 	port := 22
 	for _, line := range strings.Split(cfg, "\n") {
@@ -152,11 +221,15 @@ func UFWActive() bool {
 	return strings.Contains(string(out), "Status: active")
 }
 
-func ApplyUFW(allows []string) error {
+func ApplyUFW(allows, close []string) error {
 	if !UFWAvailable() {
 		if err := ensureUFWInstalled(); err != nil {
 			return fmt.Errorf("ufw not installed, apt-get install failed: %w", err)
 		}
+	}
+	for _, spec := range close {
+		// Missing rule is not a failure: the port was never allowed.
+		_ = ufwRun("--force", "delete", "allow", spec)
 	}
 	for _, a := range allows {
 		if err := ufwRun("allow", a); err != nil {
@@ -180,9 +253,17 @@ func AllowUFW(port int) error {
 	return ufwRun("allow", fmt.Sprintf("%d/udp", port))
 }
 
-func RevertUFW(wasActive bool) error {
-	if !UFWAvailable() || wasActive {
+func RevertUFW(wasActive bool, restore []string) error {
+	if !UFWAvailable() {
 		return nil
 	}
-	return ufwRun("disable")
+	if !wasActive {
+		return ufwRun("disable")
+	}
+	for _, spec := range restore {
+		if err := ufwRun("allow", spec); err != nil {
+			return err
+		}
+	}
+	return nil
 }
