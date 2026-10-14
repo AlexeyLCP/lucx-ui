@@ -367,6 +367,13 @@ acme_listen_flag() {
     fi
 }
 
+# LUCX-HOOK: ACME HTTP-01 on a loopback port, :80 forwarded by LucX (bin/lucx-acme.sh)
+LUCX_ACME_ARGS=()
+lucx_acme_available() {
+    [[ -f "${xui_folder}/bin/lucx-acme.sh" ]] && source "${xui_folder}/bin/lucx-acme.sh"
+}
+# END LUCX-HOOK
+
 # Port helpers
 is_port_in_use() {
     local port="$1"
@@ -829,18 +836,25 @@ setup_ip_certificate() {
     # Set reload command for auto-renewal (add || true so it doesn't fail during first install)
     local reloadCmd="systemctl restart x-ui 2>/dev/null || rc-service x-ui restart 2>/dev/null || true"
 
-    # Choose port for HTTP-01 listener (default 80, prompt override)
+    # LUCX-HOOK: ACME port prompt: 80 is forwarded by LucX, acme.sh gets a loopback port
     local WebPort=""
-    prompt_or_default WebPort "Port to use for ACME HTTP-01 listener (default 80): " "80" XUI_ACME_HTTP_PORT
-    WebPort="${WebPort:-80}"
-    if ! [[ "${WebPort}" =~ ^[0-9]+$ ]] || ((WebPort < 1 || WebPort > 65535)); then
-        echo -e "${red}Invalid port provided. Falling back to 80.${plain}"
-        WebPort=80
+    if lucx_acme_available; then
+        lucx_acme_prompt_port WebPort || return 1
+    else
+        # Choose port for HTTP-01 listener (default 80, prompt override)
+        local WebPort=""
+        prompt_or_default WebPort "Port to use for ACME HTTP-01 listener (default 80): " "80" XUI_ACME_HTTP_PORT
+        WebPort="${WebPort:-80}"
+        if ! [[ "${WebPort}" =~ ^[0-9]+$ ]] || ((WebPort < 1 || WebPort > 65535)); then
+            echo -e "${red}Invalid port provided. Falling back to 80.${plain}"
+            WebPort=80
+        fi
+        echo -e "${green}Using port ${WebPort} for standalone validation.${plain}"
+        if [[ "${WebPort}" -ne 80 ]]; then
+            echo -e "${yellow}Reminder: Let's Encrypt still connects on port 80; forward external port 80 to ${WebPort}.${plain}"
+        fi
     fi
-    echo -e "${green}Using port ${WebPort} for standalone validation.${plain}"
-    if [[ "${WebPort}" -ne 80 ]]; then
-        echo -e "${yellow}Reminder: Let's Encrypt still connects on port 80; forward external port 80 to ${WebPort}.${plain}"
-    fi
+    # END LUCX-HOOK
 
     # Ensure chosen port is available
     while true; do
@@ -875,14 +889,16 @@ setup_ip_certificate() {
     ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt --force > /dev/null 2>&1
     [[ -n "${XUI_ACME_EMAIL:-}" ]] && ~/.acme.sh/acme.sh --register-account -m "${XUI_ACME_EMAIL}" > /dev/null 2>&1
 
-    ~/.acme.sh/acme.sh --issue \
+    # LUCX-HOOK: loopback listener + :80 forward hooks from lucx_acme_prompt_port
+    LUCX_ACME_LISTEN_PORT="${WebPort}" ~/.acme.sh/acme.sh --issue \
         ${domain_args} \
         --standalone \
         --server letsencrypt \
         --certificate-profile shortlived \
         --days 6 \
-        --httpport ${WebPort} \
+        --httpport ${WebPort} "${LUCX_ACME_ARGS[@]}" \
         --force
+    # END LUCX-HOOK
 
     if [ $? -ne 0 ]; then
         echo -e "${red}Failed to issue IP certificate${plain}"
@@ -1025,16 +1041,23 @@ ssl_cert_issue() {
         mkdir -p "$certPath"
     fi
 
-    # get the port number for the standalone server
-    local WebPort=80
-    prompt_or_default WebPort "Please choose which port to use (default is 80): " "80" XUI_ACME_HTTP_PORT
-    if [[ -z ${WebPort} ]]; then
-        WebPort=80
-    elif [[ ! ${WebPort} =~ ^[1-9][0-9]*$ || ${WebPort} -gt 65535 ]]; then
-        echo -e "${yellow}Your input ${WebPort} is invalid, will use default port 80.${plain}"
-        WebPort=80
+    # LUCX-HOOK: ACME port prompt: 80 is forwarded by LucX, acme.sh gets a loopback port
+    local WebPort=""
+    if lucx_acme_available; then
+        lucx_acme_prompt_port WebPort || return 1
+    else
+        # get the port number for the standalone server
+        local WebPort=80
+        prompt_or_default WebPort "Please choose which port to use (default is 80): " "80" XUI_ACME_HTTP_PORT
+        if [[ -z ${WebPort} ]]; then
+            WebPort=80
+        elif [[ ! ${WebPort} =~ ^[1-9][0-9]*$ || ${WebPort} -gt 65535 ]]; then
+            echo -e "${yellow}Your input ${WebPort} is invalid, will use default port 80.${plain}"
+            WebPort=80
+        fi
+        echo -e "${green}Will use port: ${WebPort} to issue certificates. Please make sure this port is open.${plain}"
     fi
-    echo -e "${green}Will use port: ${WebPort} to issue certificates. Please make sure this port is open.${plain}"
+    # END LUCX-HOOK
 
     # Stop panel temporarily
     echo -e "${yellow}Stopping panel temporarily...${plain}"
@@ -1044,7 +1067,9 @@ ssl_cert_issue() {
         # issue the certificate
         ~/.acme.sh/acme.sh --set-default-ca --server letsencrypt --force
         [[ -n "${XUI_ACME_EMAIL:-}" ]] && ~/.acme.sh/acme.sh --register-account -m "${XUI_ACME_EMAIL}" > /dev/null 2>&1
-        ~/.acme.sh/acme.sh --issue -d ${domain} $(acme_listen_flag) --standalone --httpport ${WebPort} --force
+        # LUCX-HOOK: loopback listener + :80 forward hooks from lucx_acme_prompt_port
+        LUCX_ACME_LISTEN_PORT="${WebPort}" ~/.acme.sh/acme.sh --issue -d ${domain} $(acme_listen_flag) --standalone --httpport ${WebPort} "${LUCX_ACME_ARGS[@]}" --force
+        # END LUCX-HOOK
         if [ $? -ne 0 ]; then
             echo -e "${red}Issuing certificate failed, please check logs.${plain}"
             rm -rf ~/.acme.sh/${domain} ~/.acme.sh/${domain}_ecc
@@ -2333,6 +2358,10 @@ install_x-ui() {
     # IP Limit relies on fail2ban; install + configure it now so the feature
     # works out of the box (no-op when XUI_ENABLE_FAIL2BAN=false). Never fatal.
     setup_fail2ban
+
+    # LUCX-HOOK: existing :80 standalone certs move to the forwarded ACME scheme
+    [[ -f "${xui_folder}/bin/lucx-acme.sh" ]] && bash "${xui_folder}/bin/lucx-acme.sh" migrate
+    # END LUCX-HOOK
 
     # LUCX-HOOK: AWG kernel module on fresh install (lucx.131; lost in v3.8 overlay).
     # Never fatal. lucx.145 no-ops when marker SHA already matches.

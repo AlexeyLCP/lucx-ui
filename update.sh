@@ -791,6 +791,10 @@ update_x-ui() {
     # Never fatal.
     setup_fail2ban
 
+    # LUCX-HOOK: existing :80 standalone certs move to the forwarded ACME scheme
+    [[ -f "${xui_folder}/bin/lucx-acme.sh" ]] && bash "${xui_folder}/bin/lucx-acme.sh" migrate
+    # END LUCX-HOOK
+
     # LUCX-HOOK: AWG after panel start (no-op when pin matches). Never fatal.
     # Absolute path: SSL/acme `cd ~` leaves cwd at /root, so relative bin/ skips.
     local awg_installer="${xui_folder}/bin/install-awg-module.sh"

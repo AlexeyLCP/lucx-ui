@@ -1,5 +1,38 @@
 # LucX-UI — Прогресс
 
+## Unreleased - ACME HTTP-01 next to a LucX Caddy on :80 (2026-10-14)
+
+The Cover site (and standalone naive with `useAcme`) binds TCP :80. acme.sh standalone (`x-ui` SSL menu, `install.sh`) then failed with `tcp port 80 is already used`. Cron renewal of a cert issued before Cover was enabled broke silently. The only workaround was disabling the inbound by hand.
+
+acme.sh now always listens on a loopback port, and :80 is forwarded to it:
+- the port is stored in `${XUI_DB_FOLDER:-/etc/x-ui}/acme-http-port`, default 29380. The issue prompt in `x-ui.sh` / `install.sh` asks for it. It explains that LucX forwards :80 automatically and rejects 80 and busy ports. Non-interactive installs take `XUI_ACME_HTTP_PORT` and fall back to the saved port when it is 80;
+- while a LucX Caddy holds :80, its :80 block sends only `/.well-known/acme-challenge/*` to `127.0.0.1:<port>`, matched before the redirect. The panel reads the port file on every render, so changing the port gives one Caddy restart on the next reconcile. Caddy answers its own HTTP-01 tokens first (`caddyhttp/server.go` `HandleHTTPChallenge`), so naive `useAcme` keeps its own cert;
+- while :80 is free, the acme.sh pre-hook starts a temporary socat (TCP4 and TCP6 :80 -> `127.0.0.1:<port>`, killed by the post-hook, `timeout 900` as a backstop);
+- if Caddy still relays to an older port (not reconciled yet, or a cert issued before a port change), the pre-hook bridges that loopback port to the cert's port;
+- a foreign :80 owner (nginx, apache, plain caddy) or a LucX Caddy without the relay (a gateway listening on 80) fails the prompt or the pre-hook with a message that names it.
+
+The saved port never has to match the :80 owner, so a renewal succeeds on its first run and does not print a pre-hook error. acme.sh keeps `--local-address 127.0.0.1 --listen-v4`, so the listener never leaves loopback. The script passes `LUCX_ACME_LISTEN_PORT` on `--issue`, because `Le_HTTPPort` reaches the domain conf only after the pre-hook.
+
+Migration (`lucx-acme.sh migrate`, run by `install.sh`, `update.sh`, the x-ui renew menu and any port change in the prompt) moves standalone certs with no hooks of their own on port 80 to the saved port and our pre/post hooks, and re-points ours after a port change. Webroot/DNS certs, custom ports, and certs with an operator pre/post hook are left alone, as is everything when socat is missing. `x-ui uninstall` runs `lucx-acme.sh restore` first, so the certs renew on plain :80 again. The hooks are guarded with `[ ! -f … ] ||`, so a removed helper never blocks acme.sh. Docker ships the helper in `/app/bin` (`DockerInit.sh`).
+
+**lucxVersion:** unchanged on the feature branch (bump at release).
+
+Files: `internal/lucx/tunnel/acme.go` (new), `cover.go`, `naive.go`, `acme_test.go` (new), `cover_test.go`; `bin/lucx-acme.sh` (new); `x-ui.sh`, `install.sh`, `update.sh`, `.github/workflows/release.yml`, `bin/sourcecraft-release.sh`, `DockerInit.sh`.
+
+Tests: `TestAcmeHTTPChallengePort_FromFile`, `TestAcmeHTTPChallengePort_SameFileAndDefaultAsShellHelper` (Go and the shell helper read the same `$XUI_DB_FOLDER/acme-http-port`), `TestRenderCoverCaddyfile_AcmeRelayOnHTTP`, `TestRenderCoverCaddyfile_NoAcmeRelayWithoutHTTP`, `TestRenderCaddyfileAcme_RelaysForeignChallenges`, `TestNoAcmeRelayWithoutPort80Site` (naive manual TLS, tproxy, unified gateway). Shell helper with stubbed `ss`/`ip`/`socat`: `TestLucxAcmeHelper_PreHookForwardsFreePort80AndPostHookStopsIt`, `TestLucxAcmeHelper_PreHookWithPort80Owners` (relay, stale relay bridge, env port on first issue, gateway without relay, foreign owner), `TestLucxAcmeHelper_MigrateAndRestore`, `TestLucxAcmeHelper_PromptRejectsPort80AndSavesChoice`, `TestLucxAcmeHelper_PromptRefusesForeignPort80`, `TestLucxAcmeHelper_PromptNonInteractiveIgnoresPort80`. `TestCoverInstanceBehindCoverSkipsOwnCaddy` / `TestCoverTproxyWinsWhenStackReady` now look for the tproxy relay port, since `reverse_proxy 127.0.0.1:` alone matches the ACME relay too. Each test went red with its fix mutated. Real `caddy-naive` v2.11.2: `caddy adapt` accepts both renders with the acme-challenge route ahead of the redirect. A live :80 block with acme.sh's own socat responder returned the token through Caddy and a 301 elsewhere. A live pre-hook bridge (real socat, 31111 -> 31222) returned the token, and the post-hook freed the port. `go vet` + `go test ./internal/lucx/... ./internal/awg/...` green, `bash -n` on all touched scripts, `shellcheck` clean on `bin/lucx-acme.sh`.
+
+Healing: `x-ui update`. The changed Caddyfile gives one Cover / naive Caddy restart on the next reconcile. Inbound and client settings are not rewritten. `update.sh` migrates existing standalone certs, and the next renewal goes through the forwarder.
+
+Manual test plan:
+1. Cover running on :80: `x-ui` -> SSL -> issue a cert for a subdomain pointing at this host. The prompt explains the :80 forward and offers 29380. Entering `80` is refused. Issue succeeds, and `~/.acme.sh/<domain>*/<domain>.conf` has `Le_HTTPPort='29380'`, `Le_LocalAddress='127.0.0.1'`, base64 `Le_PreHook` / `Le_PostHook`. `ss -ltnp | grep 29380` during the issue shows only `127.0.0.1`.
+2. `~/.acme.sh/acme.sh --renew -d <domain> --force` with Cover still up: success, no pre-hook error, no socat on :80.
+3. Disable Cover (:80 free) and repeat step 2: `ss -ltnp | grep ':80 '` shows `socat` during the run and nothing after it. Renewal succeeds.
+4. Re-run the issue prompt and choose `31000`: `/etc/x-ui/acme-http-port` holds 31000, the step-1 conf moves to 31000, the Cover Caddyfile (`bin/tunnel/cover-*.caddyfile`) relays to 31000 after the next reconcile, and a renewal right away still works (bridge 29380 -> 31000).
+
+Not covered: with Masking on, nothing listens on :80 (the cover moves to loopback), so the socat path is used. UFW default-deny may still block :80 from outside. `setup_ssl_certificate` in `install.sh` has no caller and was left alone.
+
+---
+
 ## lucx.297 - masking no longer leaves hidden ports open in UFW (2026-10-14)
 
 Malderin (v3.10.0-lucx.295): applying masking with hide-panel produced `ufw status` listing every port as allow, including the panel port; re-applying changed nothing. Root cause: the UFW allow/close lists knew only the "selected" maskable rows. Protocols hidden **inside the site** (`req.Inside`) and **hidden naive** (`req.HideNaive`) are not in `selected`, so GatewayUFWAllow kept (and re-added on every apply) their public ports, and GatewayUFWClose never closed them. The ufw `--force delete allow <spec>` syntax itself is valid (canonical ufw 0.36 parser strips `--force` before command parsing — checked the upstream source).

@@ -61,3 +61,6 @@ curl -sfLRo geoip_ROSCOM.dat https://github.com/hydraponique/roscomvpn-geoip/rel
 curl -sfLRo geosite_ROSCOM.dat https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
 # END LUCX-HOOK
 cd ../../
+# LUCX-HOOK: bin/lucx-acme.sh (ACME on loopback, :80 forwarded)
+cp bin/lucx-acme.sh build/bin/
+# END LUCX-HOOK
