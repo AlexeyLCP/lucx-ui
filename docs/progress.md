@@ -1,5 +1,24 @@
 # LucX-UI — Прогресс
 
+## lucx.299 - upstream v3.10.2 overlay: kernel-AWG is a tunnel again for client sync (2026-10-14)
+
+Follow-up to the v3.10.2 merge (same release): CI went red on four LucX client tests. Upstream's new `syncInboundClients` knows two tunnels — `WireGuard`/`AmneziaWG` — and our kernel-AWG (`model.AWG = "awg"`) was not on the list, so upstream's new `keepLinkOwnedFields` treated an `awg` inbound as non-tunnel: the lower-rank restore wiped the attach mint from the record (inbound settings kept the key, the record — the subscription's key source — went empty, the other inbound's handshake died silently). `TestAttach/BulkAttach_TwoTunnelInboundsShareOneKeypair`, `TestCreateClient_KeylessAttachKeepsIdentityPSK`, `TestSyncInbound_StaleSettingsSnapshotKeepsIdentityPreSharedKey` failed.
+
+Fix (two commits, 49b53624 + 3968270c): `model.AWG` joins `isTunnel` and `clientsOnLowerTunnel`'s protocol list; in the outranked restore a **blank `before` field is not an ownership claim** — a peer field minted on an upper tunnel's attach (identity PSK, fresh AllowedIPs, keypair) survives, a claimed (non-empty) field is restored as before. Upstream's own tests untouched; new table test `TestKeepLinkOwnedFields_BlankBeforeIsNotOwnership`.
+
+Logical-conflict sweep of the whole range (post-merge review, all clean):
+- `release.yml` windows job — go-winres + `3x-ui.exe` rename self-consistent; our release artifacts stay the linux tarballs; winres files merged.
+- mtproto `pendingHandshakesMaxPerIp` — parse → fingerprint → `[defense.pending-handshakes]` render → settings → form + i18n keys are all merged; our 0600 hook intact.
+- node traffic merge tests — upstream's write-count tests appended; our share-only/auto-tag assertions kept.
+- vmess link fm/mKCP/XHTTP-inline (upstream `internal/util/link` + frontend parser) — our `internal/lucx` parsers do not parse vmess links; no overlap.
+- sponsor feed `sponsors/3X/sponsors.json` uses only the `page` slot — compatible with the upstream slot set (`dashboard/page/login`, sidebar dropped); our fork URLs hook restored on their raw.githubusercontent move of panel/sponsor.go.
+- Incy isolation (#6810) over our RoscomVPN routing hook: profile rules are wiped for INCY (falls to the shared JSON profile, upstream intent), a RoscomVPN **source** still rules every client panel-wide — deliberate.
+- i18n dead-key sweep removed 8 upstream keys whose code did not arrive in this range (dev-channel UI, user picker) — same policy as lucx.179.
+
+Gates: local gofumpt/vet/build + unit (no-CGO) green; CI (go-test, race, golangci, codegen, govulncheck, frontend, node-e2e, fuzz-smoke, postgres-durable-first) green on 3968270c.
+
+---
+
 ## merge: origin/main v3.10.2 → lucx.299 (2026-10-14)
 
 Upstream sync v3.10.0 → v3.10.2: 14 commits, 56 files. Snapshot: `backup/v3.10.0-lucx.299`. Hook audit: `git grep -c LUCX-HOOK` = 153 files before and after the merge — **zero drops**. LucX base version file reads `3.10.2`.

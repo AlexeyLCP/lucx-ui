@@ -23,6 +23,8 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 
 | Where | Must keep |
 |---|---|
+| `internal/web/service/client_link.go` (+ upstream helpers) | tunnel sets (`isTunnel`, `clientsOnLowerTunnel`) include **`model.AWG` (kernel "awg")**, not only upstream's `WireGuard`/`AmneziaWG`; `keepLinkOwnedFields` restore: a **blank `before` field is not ownership** — upper-tunnel attach mints survive (lucx.299, v3.10.2) |
+|---|---|
 | `internal/sub/service.go` `getInboundsBySubId` | lucx protocols in the SQL `IN` list |
 | `internal/sub/service.go` `ResolveRequest` | never use `X-Real-IP` as share host |
 | `internal/sub/service.go` `amneziaWGConfigText` | always emit `S3`/`S4` (zero is real); drop unportable I-fields |
