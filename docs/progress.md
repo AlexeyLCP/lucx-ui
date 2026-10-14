@@ -12,6 +12,8 @@ Tests: `bash -n` on both scripts; CI lint. No Go code changed.
 
 Healing: `x-ui update`, restart, then Masking Apply again. Issued client configs are not rewritten.
 
+**Release:** `v3.10.0-lucx.295` - https://github.com/AlexeyLCP/lucx-ui/releases/tag/v3.10.0-lucx.295
+
 ---
 
 ## lucx.294 - UFW masking never touches SSH rules (2026-10-14)
