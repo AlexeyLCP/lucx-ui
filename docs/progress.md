@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.295 - UFW also writes /etc/default/ufw under the sandbox (2026-10-14)
+
+Malderin: hiding a panel under masking now reaches the UFW step but fails: `Gateway applied, ufw: ERROR: '/etc/default/ufw' is not writable: exit status 1`. lucx.293 whitelisted `/etc/ufw`, but ufw's startup check also wants the sibling file `/etc/default/ufw` writable, and `ProtectSystem=full` keeps it read-only. The debian/arch/rhel units and the install/update drop-in generators add `-/etc/default/ufw` (missing-ok, so ufw-less hosts are unaffected).
+
+**lucxVersion:** lucx.295
+
+Files: `x-ui.service.{debian,arch,rhel}`, `install.sh`, `update.sh`.
+
+Tests: `bash -n` on both scripts; CI lint. No Go code changed.
+
+Healing: `x-ui update`, restart, then Masking Apply again. Issued client configs are not rewritten.
+
+---
+
 ## lucx.294 - UFW masking never touches SSH rules (2026-10-14)
 
 On some hosts `ufw --force delete allow 22/udp` also removes the `22/tcp` rule, and a masked inbound that had lived on port 22 put both specs in the close list - masking deleted SSH out of the firewall. `GatewayUFWAllow` likewise listed a masked inbound's `22/tcp`/`22/udp` next to the real SSH allow. Now: SSH (22 and the custom `sshd_config` port) is skipped in the allow list when it collides, `GatewayUFWClose` and `ApplyUFW` never delete SSH specs, `GatewayUFWRestore` skips reopening 22 (it is always allowed), and every allow goes through `ufwAllowSpec` which drops SSH ports except the single `22/tcp` rule.

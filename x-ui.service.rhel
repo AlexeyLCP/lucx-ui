@@ -48,9 +48,9 @@ ProtectSystem=full
 # grant /usr or /etc to accommodate it.
 # ReadWritePaths= requires systemd >= 231; ReadWriteDirectories= is the deprecated
 # alias for older systemd, needed so ProtectSystem=full keeps /etc/x-ui writable.
-# LUCX-HOOK: /etc/amnezia is AWG confs. /etc/ufw is masking's allow/delete.
-ReadWritePaths=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia -/etc/ufw
-ReadWriteDirectories=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia -/etc/ufw
+# LUCX-HOOK: /etc/amnezia is AWG confs. /etc/ufw and /etc/default/ufw are masking's allow/delete.
+ReadWritePaths=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia -/etc/ufw -/etc/default/ufw
+ReadWriteDirectories=-/etc/x-ui -/usr/local/x-ui -/var/log/x-ui -/etc/amnezia -/etc/ufw -/etc/default/ufw
 # END LUCX-HOOK
 # A kernel-TUN WireGuard outbound zeroes net.ipv{4,6}.conf.*.rp_filter as Xray starts
 # (#6796). Reopen only /proc/sys/net: kernel.* (core_pattern among them) stays read-only.

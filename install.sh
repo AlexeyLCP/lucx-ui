@@ -1835,10 +1835,11 @@ _xui_service_write_paths_dropin() {
     if [[ "$bin_folder" != /* ]]; then
         bin_folder="${main_folder%/}/${bin_folder#./}"
     fi
-    # LUCX-HOOK: AWG confs under /etc/amnezia. Masking writes UFW rules under /etc/ufw.
+    # LUCX-HOOK: AWG confs under /etc/amnezia. Masking writes UFW rules under /etc/ufw and /etc/default/ufw.
     local awg_config_dir="/etc/amnezia"
     local ufw_config_dir="/etc/ufw"
-    for path in "$db_folder" "$log_folder" "$bin_folder" "$main_folder" "$awg_config_dir" "$ufw_config_dir"; do
+    local ufw_default_dir="/etc/default/ufw"
+    for path in "$db_folder" "$log_folder" "$bin_folder" "$main_folder" "$awg_config_dir" "$ufw_config_dir" "$ufw_default_dir"; do
     # END LUCX-HOOK
         [[ "$path" == /* ]] || continue
         # ReadWritePaths= is a whitespace-separated list, and a folder whose
