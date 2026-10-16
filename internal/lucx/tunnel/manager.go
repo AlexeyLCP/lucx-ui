@@ -786,6 +786,18 @@ func writeFileIfChanged(path, content string) error {
 	return os.WriteFile(path, []byte(content), 0o600)
 }
 
+// ensureExecutable adds the exec bits when the binary has none. chmod(2) on a
+// file the caller does not own needs CAP_FOWNER, which the sandbox bounding
+// set (install.sh drop-in) does not grant, and the release tarball unpacks
+// sidecars owned by the CI runner uid. An executable binary needs no chmod,
+// so a foreign-owned one must still start.
+func ensureExecutable(bin string, info os.FileInfo, chmod func(string, os.FileMode) error) error {
+	if info.Mode().Perm()&0o111 != 0 {
+		return nil
+	}
+	return chmod(bin, 0o755)
+}
+
 func (m *Manager) start(inst Instance, mc *managed) error {
 	bin := inst.Core.BinaryPath()
 	info, err := os.Stat(bin)
@@ -793,7 +805,7 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 		return fmt.Errorf("tunnel: %s binary not found at %s", inst.Core.DisplayName(), bin)
 	}
 	if runtime.GOOS != "windows" {
-		if err := os.Chmod(bin, 0o755); err != nil {
+		if err := ensureExecutable(bin, info, os.Chmod); err != nil {
 			return fmt.Errorf("tunnel: make %s executable: %w", bin, err)
 		}
 	}

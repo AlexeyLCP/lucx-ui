@@ -2229,6 +2229,14 @@ install_x-ui() {
     fi
     trap - EXIT INT TERM
 
+    # LUCX-HOOK: normalize ownership of the fresh tree. The release tarball
+    # stores the CI runner's uid (GitHub packs it as user "runner", and tar
+    # extraction as root keeps --same-owner), while the sandboxed panel has no
+    # CAP_FOWNER and cannot chmod a foreign-owned sidecar binary -- every
+    # reconcile then fails with "chmod ... operation not permitted". Runs
+    # after the cp -a restore above, which also preserves ownership.
+    chown -R root:root . 2> /dev/null
+
     rm -f bin/tuic-server bin/tuic-server-* > /dev/null 2>&1 || true
     rm -rf bin/tuic > /dev/null 2>&1 || true
 

@@ -4,6 +4,15 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1az: reconcile floods `chmod ... operation not permitted` on every tick — FIXED (lucx.300)
+
+- **Symptom (Chingiz, 15.10.2026):** every ~10 s the panel log warns `tunnel: reconcile cover-2: tunnel: make bin/caddy-naive-linux-amd64 executable: chmod bin/caddy-naive-linux-amd64: operation not permitted`; the cover/naive sidecar never starts. Reinstalling over the top once stopped the flood.
+- **Cause:** two defects stacked. (1) The GitHub release tarball is packed by Actions as user `runner`, so `tar zxvf x-ui-linux-*.tar.gz` as root keeps GNU `--same-owner` and every `bin/*` lands owned by the foreign runner uid — `install.sh` never normalized it (update.sh did: its "Changing owner" `chown -R root:root ${xui_folder}`, which is exactly why a reinstall healed the host). (2) lucx.293 narrowed the unit bounding set to `DAC_OVERRIDE NET_ADMIN NET_BIND_SERVICE NET_RAW SETUID SETGID` — no `CAP_FOWNER` — and chmod(2) needs owner-match or CAP_FOWNER specifically; CAP_DAC_OVERRIDE does not cover mode changes. `Manager.start` chmod'ed the binary unconditionally before every start, treated EPERM as fatal, and the 10 s tunnel_job cron retried forever: flood + sidecar down.
+- **Fix (lucx.300):** (a) `Manager.start` chmods only when the binary has no exec bit at all (`Perm()&0o111`); an already-executable foreign-owned binary starts without any chmod (test `TestEnsureExecutable`); (b) `install.sh` chowns the extracted tree root (`chown -R root:root .` after the bin restore, before first start). update.sh already had the equivalent, so updates self-heal.
+- **Healing an already-hit host without update:** `chown root:root /usr/local/x-ui/bin/*` — or just update: with (a) the already-executable binaries start once the new panel is live, no chown needed.
+- **Not this:** chmod on files the panel itself created (owner = panel uid — fine); `chattr +i`/append-only binaries, which EPERM even full-cap root — check `lsattr`. A foreign :80 owner or a missing binary produce different messages.
+- **Lesson:** the sandbox subtracts capabilities the panel still uses transitively. Any runtime chmod must be skippable, and anything the shell extracts must be root-owned before the sandboxed unit touches it — ownership is part of the install contract now.
+
 ### Pattern 1ay: acme.sh `tcp port 80 is already used` with Cover on — FIXED (lucx.298)
 
 - **Symptom:** `x-ui` SSL issue or acme.sh cron renew fails with `tcp port 80 is already used by caddy-naive-lin`, or a cert issued before Cover was enabled stops renewing.

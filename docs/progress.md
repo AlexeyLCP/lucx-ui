@@ -1,5 +1,33 @@
 # LucX-UI — Прогресс
 
+## lucx.300 - cover/naive reconcile floods "chmod: operation not permitted"; sidecar never starts (2026-10-16)
+
+Chingiz, 15.10.2026: every ~10 s the log warns `tunnel: reconcile cover-2: tunnel: make bin/caddy-naive-linux-amd64 executable: chmod bin/caddy-naive-linux-amd64: operation not permitted` (lucx.293 build, fresh install; reinstalling over the top once stopped the flood).
+
+Root cause (two stacked defects, confirmed against the live dev-latest tarball — assets are `runner runner`):
+1. The GitHub release tarball is packed by the Actions runner user; root extraction (`tar zxvf`, install.sh:2160) keeps GNU `--same-owner`, so every `bin/*` sidecar lands owned by the foreign runner uid. install.sh had no ownership normalization (update.sh did — its upstream "Changing owner" `chown -R root:root ${xui_folder}` — which is exactly why Chingiz's reinstall healed the host).
+2. lucx.293 narrowed the unit's `CapabilityBoundingSet` to `DAC_OVERRIDE NET_ADMIN NET_BIND_SERVICE NET_RAW SETUID SETGID` — no `CAP_FOWNER`. chmod(2) requires owner-match or CAP_FOWNER specifically (DAC_OVERRIDE does not cover mode changes), so the sandboxed root panel could not chmod any foreign-owned binary. `Manager.start` chmod'ed the binary unconditionally before `proc.Start`, treated EPERM as fatal, and the 10 s tunnel_job cron retried forever: flood + the cover sidecar stayed down.
+
+Fix (lucx.300):
+- `internal/lucx/tunnel/manager.go`: `ensureExecutable` — chmod only when the binary has no exec bit at all (`Perm()&0o111 == 0`); an already-executable foreign-owned binary starts without any chmod. A chmod that is actually needed and fails remains fatal (real state, real error).
+- `install.sh`: LUCX-HOOK `chown -R root:root .` right after the tar extraction + bin restore (after the `cp -a` custom-bin restore, which also preserves ownership), so a fresh install delivers root-owned files.
+- update.sh untouched: the existing upstream chown already normalizes on every update.
+
+**lucxVersion:** lucx.300
+
+Files: `internal/lucx/tunnel/manager.go`, `internal/lucx/tunnel/manager_exec_test.go`, `install.sh`, `internal/config/config.go`.
+
+Tests: `TestEnsureExecutable` — exec-flagged binaries (0755 / 0744) skip chmod even when chmod would fail (the flood regression), 0644 gets chmoded, a failing needed-chmod stays an error. `go test ./internal/lucx/... -count=1` green, `go build`/`go vet`/`gofmt -l` clean, `bash -n` on install.sh/update.sh green. Verified the ownership claim on the real dev-latest release tarball (`tar -tzvf`: `runner runner`, `-rwxr-xr-x`).
+
+Healing an already-hit host: update the panel (already-executable binaries start with fix (a) without any chown), or `chown root:root /usr/local/x-ui/bin/*` on an old build.
+
+Manual test plan (fresh host, GitHub tarball):
+1. Install the release tarball → `ls -la /usr/local/x-ui/bin/*.linux-*`: owner root.
+2. Enable a Cover/Naive inbound: no `chmod ... operation not permitted` in the log, sidecar `ps` entry appears on the first reconcile tick.
+3. On a host still carrying foreign-owned binaries: no flood either — chmod is skipped because the exec bits are already present.
+
+---
+
 ## lucx.299 - upstream v3.10.2 overlay: kernel-AWG is a tunnel again for client sync (2026-10-14)
 
 Follow-up to the v3.10.2 merge (same release): CI went red on four LucX client tests. Upstream's new `syncInboundClients` knows two tunnels — `WireGuard`/`AmneziaWG` — and our kernel-AWG (`model.AWG = "awg"`) was not on the list, so upstream's new `keepLinkOwnedFields` treated an `awg` inbound as non-tunnel: the lower-rank restore wiped the attach mint from the record (inbound settings kept the key, the record — the subscription's key source — went empty, the other inbound's handshake died silently). `TestAttach/BulkAttach_TwoTunnelInboundsShareOneKeypair`, `TestCreateClient_KeylessAttachKeepsIdentityPSK`, `TestSyncInbound_StaleSettingsSnapshotKeepsIdentityPreSharedKey` failed.
