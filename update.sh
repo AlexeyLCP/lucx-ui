@@ -430,7 +430,9 @@ ReadWritePaths=${line}
 ReadWriteDirectories=${line}
 # Repeat the full set: a drop-in CapabilityBoundingSet replaces the unit list.
 # CAP_SETUID/CAP_SETGID: mtproxy setgroups()+setuid() to lucx-mtproxy.
-CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETUID CAP_SETGID
+# CAP_CHOWN: the routed anytls child runs under that uid and reads its
+# cert/key copies and data dir, so the panel chowns them.
+CapabilityBoundingSet=CAP_DAC_OVERRIDE CAP_NET_ADMIN CAP_NET_BIND_SERVICE CAP_NET_RAW CAP_SETUID CAP_SETGID CAP_CHOWN
 EOF
     if [[ "$(_xui_systemd_major_version)" -ge 239 ]]; then
         cat >> "$temp_file" << 'EOF'

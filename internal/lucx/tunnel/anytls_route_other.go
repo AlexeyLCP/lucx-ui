@@ -8,6 +8,15 @@
 
 package tunnel
 
+import "errors"
+
+// No bridge on this platform: the routed anytls keeps default credentials and
+// direct egress (the builder sees redirectOwnerUID() == 0 and never sets a
+// RunUid, so nothing should call prepareRunAssets here).
+func prepareRunAssets(paths []string, uid int) (int, error) {
+	return 0, errors.New("tunnel: run-as-uid assets are linux-only")
+}
+
 func EnsureAnytlsXraySocks(socksPort int) {}
 
 func ClearAnytlsXraySocks() {}

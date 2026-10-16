@@ -141,6 +141,11 @@ func (c AnytlsConfig) EnsurePassword() (AnytlsConfig, error) {
 	return c, nil
 }
 
+// redirectOwnerUID resolves the uid the routed anytls child shares with the
+// REDIRECT egress bridge (lucx-mtproxy user, lucx.273); zero = no bridge user
+// on this host — egress stays direct. The Linux build wires the real lookup.
+var redirectOwnerUID = func() int { return 0 }
+
 // ClientLink renders the anytls:// share URI (anytls-go URI scheme).
 // A trusted cert is required, so the query is sni= (no insecure=1).
 func (c AnytlsConfig) ClientLink(host, remark string) string {

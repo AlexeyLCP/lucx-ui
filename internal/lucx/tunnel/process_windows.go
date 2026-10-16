@@ -53,7 +53,7 @@ func ensureKillOnExitJob() (windows.Handle, error) {
 	return killOnExitJob, killOnExitJobErr
 }
 
-func prepareCmd(_ *exec.Cmd) {}
+func prepareCmd(_ *exec.Cmd, _, _ int) {}
 
 func signalGroup(_ int, _ syscall.Signal) error { return nil }
 

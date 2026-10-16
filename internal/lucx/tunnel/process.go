@@ -140,8 +140,20 @@ type Proc struct {
 	log   *procLogWriter
 	lines *ring
 
+	// runUid/runGid launch credentials. Zero (default) inherits the panel's
+	// own user; SetRunUid before Start for a uid-scoped sidecar (routed
+	// anytls shares the lucx-mtproxy bridge uid).
+	runUid, runGid int
+
 	exitErr         error
 	intentionalStop atomic.Bool
+}
+
+// SetRunUid fixes the credentials the next Start launches the child under.
+func (p *Proc) SetRunUid(uid, gid int) {
+	p.mu.Lock()
+	p.runUid, p.runGid = uid, gid
+	p.mu.Unlock()
 }
 
 // NewProc returns an idle supervised process for the given log label.
@@ -210,9 +222,10 @@ func (p *Proc) Start(bin string, args []string, env []string) error {
 	p.cmd = cmd
 	p.done = done
 	p.exitErr = nil
+	uid, gid := p.runUid, p.runGid
 	p.mu.Unlock()
 	p.intentionalStop.Store(false)
-	prepareCmd(cmd)
+	prepareCmd(cmd, uid, gid)
 	if err := cmd.Start(); err != nil {
 		close(done)
 		p.mu.Lock()

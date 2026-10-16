@@ -4,7 +4,17 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1ba: anytls "Route through Xray" silently does nothing — FIXED (lucx.301)
+
+- **Symptom (VladufQa, 16.10.2026):** anytls inbound has `routeThroughXray: true` + `routeXrayPort`, the process runs, TLS through the nginx SNI-front works, but egress never goes via Xray — it exits directly from the host IP. No error anywhere.
+- **Cause:** the shared bridge REDIRECT matches `--uid-owner lucx-mtproxy` (999), while the anytls child runs with the panel's own (root) credentials — the rule never matches any of its egress. Broken since the feature shipped (lucx.273); invisible while direct egress still works for the client's purpose.
+- **Healing an already-hit host on the old unit (no CAP_CHOWN):** the panel warns once and keeps running as root — direct egress. Update the panel (or re-run update.sh) so the unit/drop-in gains CAP_CHOWN, then wait a reconcile tick or save the inbound.
+- **Fix (lucx.301):** routed anytls runs under the bridge uid: `Instance.RunUid` (fingerprint member) + `Proc.SetRunUid` + `syscall.Credential`; cert/key are passed as `anytls-N-cert.pem/-key.pem` ExtraFiles copies the panel chowns (CAP_CHOWN in the bounding set); the password goes on the argv instead of the file the uid could not read. Remove stops the copies. Fallback chain: no bridge user or chown failure → root + direct egress + warn-once (no per-tick flood — the lucx.300 lesson).
+- **Not this:** qWDTT routeThroughXray (a kernel-TUN policy route, different mechanism and it works); `routeXrayPort` listener missing → check Xray regenerated with the hidden socks inbound.
+- **Lesson:** a uid-scoped firewall bridge only works if the routed process actually runs under that uid — audit the process credentials together with the rule, not just the rule.
+
 ### Pattern 1az: reconcile floods `chmod ... operation not permitted` on every tick — FIXED (lucx.300)
+
 
 - **Symptom (Chingiz, 15.10.2026):** every ~10 s the panel log warns `tunnel: reconcile cover-2: tunnel: make bin/caddy-naive-linux-amd64 executable: chmod bin/caddy-naive-linux-amd64: operation not permitted`; the cover/naive sidecar never starts. Reinstalling over the top once stopped the flood.
 - **Cause:** two defects stacked. (1) The GitHub release tarball is packed by Actions as user `runner`, so `tar zxvf x-ui-linux-*.tar.gz` as root keeps GNU `--same-owner` and every `bin/*` lands owned by the foreign runner uid — `install.sh` never normalized it (update.sh did: its "Changing owner" `chown -R root:root ${xui_folder}`, which is exactly why a reinstall healed the host). (2) lucx.293 narrowed the unit bounding set to `DAC_OVERRIDE NET_ADMIN NET_BIND_SERVICE NET_RAW SETUID SETGID` — no `CAP_FOWNER` — and chmod(2) needs owner-match or CAP_FOWNER specifically; CAP_DAC_OVERRIDE does not cover mode changes. `Manager.start` chmod'ed the binary unconditionally before every start, treated EPERM as fatal, and the 10 s tunnel_job cron retried forever: flood + sidecar down.

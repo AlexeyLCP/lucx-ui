@@ -12,8 +12,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
 // AnytlsKey is the manager key of one AnyTls inbound instance.
@@ -64,6 +66,34 @@ func AnytlsInstanceFromInbound(ib *model.Inbound, panelCert, panelKey string) (I
 	if err := validatePEMCert("anytls", certFile, keyFile, cfg.SNI); err != nil {
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
 	}
+	// Routed egress: the process runs under the shared bridge uid so the
+	// uid-REDIRECT (lucx.273) can catch its outbound TCP. The uid cannot read
+	// the panel-side cert paths (root-only letsencrypt), so the certs are
+	// carried as ExtraFiles copies — writeConfigFile writes them into the
+	// tunnel dir, keyed uniquely per instance, and the fingerprint restarts
+	// on any renewal because the content rides the fingerprint.
+	runUid := 0
+	var extraFiles map[string]string
+	routed := cfg.RouteThroughXray && cfg.RouteXrayPort > 0
+	if routed {
+		if uid := redirectOwnerUID(); uid > 0 {
+			certPEM, certErr := os.ReadFile(certFile)
+			keyPEM, keyErr := os.ReadFile(keyFile)
+			if certErr != nil || keyErr != nil {
+				logAnytlsDegradedOnce(key + ": cert copy for the bridge uid failed, egress stays direct")
+			} else {
+				extraFiles = map[string]string{
+					key + "-cert.pem": string(certPEM),
+					key + "-key.pem":  string(keyPEM),
+				}
+				certFile = filepath.Join(workDir(), key+"-cert.pem")
+				keyFile = filepath.Join(workDir(), key+"-key.pem")
+				runUid = uid
+			}
+		} else {
+			logAnytlsDegradedOnce(key + ": lucx-mtproxy user missing, routeThroughXray stays a no-op (direct egress) — save the inbound after provisioning the user")
+		}
+	}
 	pwFile := filepath.Join(dataDirFor(key, Anytls), "password")
 	if err := os.MkdirAll(filepath.Dir(pwFile), 0o700); err != nil {
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
@@ -71,16 +101,25 @@ func AnytlsInstanceFromInbound(ib *model.Inbound, panelCert, panelKey string) (I
 	if err := os.WriteFile(pwFile, []byte(strings.TrimSpace(cfg.Password)+"\n"), 0o600); err != nil {
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
 	}
+	// Routed uid cannot read the root-owned password file: pass -p inline,
+	// like the pre-password-file builds did.
 	pwArg := ""
-	if anytlsSupportsPasswordFile() {
+	if !routed && anytlsSupportsPasswordFile() {
 		pwArg = pwFile
+	}
+	fpExtra := CertFileHash(certFile)
+	if runUid > 0 {
+		// The copy content rides the fingerprint via ExtraFiles.
+		fpExtra = ""
 	}
 	return Instance{
 		Core:             Anytls,
 		Key:              key,
 		Enabled:          true,
 		Args:             cfg.BuildArgs(certFile, keyFile, pwArg),
-		FingerprintExtra: CertFileHash(certFile),
+		ExtraFiles:       extraFiles,
+		FingerprintExtra: fpExtra,
+		RunUid:           runUid,
 		ProbePort:        cfg.Port,
 	}, true
 }
@@ -91,4 +130,22 @@ func AnytlsPrimaryPort(cfg AnytlsConfig) int {
 		return cfg.Port
 	}
 	return 8443
+}
+
+// anytlsWarnOnce logs a degraded-state reason once per manager life, so the
+// 10 s reconcile does not flood the log with the same warning (the lucx.300
+// lesson: repeated start failures already flooded once).
+var (
+	anytlsWarnOnceMu sync.Mutex
+	anytlsWarnOnce   = map[string]struct{}{}
+)
+
+func logAnytlsDegradedOnce(reason string) {
+	anytlsWarnOnceMu.Lock()
+	_, seen := anytlsWarnOnce[reason]
+	anytlsWarnOnce[reason] = struct{}{}
+	anytlsWarnOnceMu.Unlock()
+	if !seen {
+		logger.Warning(reason)
+	}
 }

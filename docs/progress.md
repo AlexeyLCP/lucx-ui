@@ -1,5 +1,34 @@
 # LucX-UI — Прогресс
 
+## lucx.301 - anytls routeThroughXray действительно работает: child под uid моста (2026-10-16)
+
+VladufQa (прод 80.66.65.87): anytls `routeThroughXray: true`, процесс жив, TLS через его nginx SNI-фронт проходит, но egress уходит напрямую с хоста, мимо Xray — и нигде ни единой ошибки. Живой anytls-клиент (sing-box) через 443→nginx→127.0.0.1:8443 подтвердил: трафик ходит, но прямой, а не через Xray.
+
+Корень: мост `lucx.273` — REDIRECT под `--uid-owner lucx-mtproxy` (999), а процесс anytls запускался с кредами панели (root): правило никогда не матчится. Молчаливый no-op с самого рождения фичи.
+
+Fix (lucx.301):
+- routed anytls запускается **под общим uid моста**: `Instance.RunUid` (участник Fingerprint → переключение галки рестартует процесс) + `Proc.SetRunUid` + `prepareCmd` (linux `syscall.Credential{NoSetGroups}`, windows игнорирует).
+- uid не может читать панельные пути сертов (root-only) → серт/ключ едут как ExtraFiles-копии `anytls-N-cert.pem`/`anytls-N-key.pem` в tunnel-каталоге (fingerprint накрывает контент, продление серта рестартует), пароль — инлайн `-p` (файл под root — читать нечем).
+- панель chown'ит копии + data dir на uid/гид при старте: `prepareRunAssets` (linux), для этого в bounding set юнита и drop-in-генераторах добавлен **CAP_CHOWN** (`x-ui.service.{debian,arch,rhel}` + install.sh:1912 + update.sh:433).
+- удаление инбаунда чистит копии (removeManagedFiles; sweep добивает по префиксу `anytls-`).
+- деградация честная: нет юзера/сертификатов или chown не удался (юнит без CAP_CHOWN — старый хост) → процесс под root, egress прямой, **warn-once** (не флуд — урок lucx.300).
+
+**lucxVersion:** lucx.301
+
+Files: `internal/lucx/tunnel/{instance-поле manager.go, anytls_inbound.go, anytls.go, anytls_route_linux.go, anytls_route_other.go, process.go, process_other.go, process_windows.go}`, `x-ui.service.{debian,arch,rhel}`, `install.sh`, `update.sh`, `internal/config/config.go`.
+
+Tests (Windows-хост): `TestAnytlsRoutedRunUid` (no bridge user → RunUid 0 + исходные пути сертов; bridge uid → копии в ExtraFiles + `-p` инлайн + fpExtra пуст; fingerprint реагирует на uid), `go test ./internal/lucx/... -count=1` green, `go vet`/`gofmt` clean; кросс-сборка `GOOS=linux CGO_ENABLED=0 go build ./internal/lucx/... ./internal/config/...` + vet green (linux-плечи компилируются). Linux CGO-пейдж (chown-ветка start()) — CI после пуша.
+
+Healing: `x-ui update` (юнит+drop-in обновятся, CAP_CHOWN появится; на хостах с живым anytls-инбаундом ничего клиентского не меняется) — Владу больше ничего не нужно: его nginx-фронт и loopback-bind остаются, egress пройдёт через Xray.
+
+Manual test plan (прод Влада):
+1. Обновить панель до lucx.301, сохранить/дождаться reconcile anytls-9: `ps -o user,cmd -p $(pgrep -f 'anytls-linux-amd64')` → юзер lucx-mtproxy, `-l 127.0.0.1:8443 ... -cert .../anytls-9-cert.pem`.
+2. `iptables -t nat -S OUTPUT | grep lucx-tproxy-xray` → REDIRECT uid 999 → 23990.
+3. Клиент (sing-box) через суб: curl через anytls → egress по правилам Xray (не 80.66.65.87, если выведен через другой outbound).
+4. Выключить галку routeThroughXray → процесс снова root, egress прямой.
+
+---
+
 ## lucx.300 - cover/naive reconcile floods "chmod: operation not permitted"; sidecar never starts (2026-10-16)
 
 Chingiz, 15.10.2026: every ~10 s the log warns `tunnel: reconcile cover-2: tunnel: make bin/caddy-naive-linux-amd64 executable: chmod bin/caddy-naive-linux-amd64: operation not permitted` (lucx.293 build, fresh install; reinstalling over the top once stopped the flood).

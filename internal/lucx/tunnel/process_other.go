@@ -13,11 +13,15 @@ import (
 	"syscall"
 )
 
-func prepareCmd(cmd *exec.Cmd) {
+func prepareCmd(cmd *exec.Cmd, uid, gid int) {
 	if cmd == nil {
 		return
 	}
-	cmd.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
+	attr := &syscall.SysProcAttr{Setpgid: true}
+	if uid > 0 {
+		attr.Credential = &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid), NoSetGroups: true}
+	}
+	cmd.SysProcAttr = attr
 }
 
 func signalGroup(pid int, sig syscall.Signal) error {
