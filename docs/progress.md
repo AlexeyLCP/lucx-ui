@@ -1,5 +1,26 @@
 # LucX-UI — Прогресс
 
+## lucx.302 - два routed anytls на одном хосте валили весь Xray (2026-10-16)
+
+VladufQa после lucx.301: включил «Route through Xray» на втором anytls-инбаунде → `xray config refused: inbounds "in-8444-tcp" and "in-8443-tcp" both bind 127.0.0.1:32779` → **весь Xray refused**, панель целиком без интернета; плюс `anytls-17 process exited: exit status 1` каждые 10с.
+
+Корень (класс, не экземпляр): `mtproto.FreeLocalPort()` выдаёт **свежеосвобождённые ephemeral-порты** — два сайдкара, сохранённых подряд, часто получают ОДИН И ТОТ ЖЕ порт; никаких исключений по уже занятым bridge-портам у нормалайзеров не было. А `injectSocksEgress` (любой сайдкар: anytls/naive/mtproto/mieru/trusttunnel/qwdtt/olcrtc) проверял только дубль ТЕГА, не порт — два hidden socks на одном bind → Xray refusing весь конфиг. (tproxy-инжектор — единственный, у кого проверка порта была.)
+
+Fix (lucx.302):
+- **`injectSocksEgress`**: защита от коллизии bind (protocol socks && тот же порт) → второй скрытый инбаунд пропускается с warn `re-save the inbound to re-allocate its egress port` — Xray остаётся живым в любом дуп-состоянии. Выживает первый отрендеренный (= меньший id).
+- **Аллокация с эксклюзивом**: `takenXrayEgressPorts` (порты routeXrayPort всех других сайдкаров) + `allocateXrayEgressPort` (до 16 попыток) в `normalizeSidecarXrayPort` и в mtproto-нормалайзере (LUCX-HOOK). Уже занятый STORED порт **пере-аллоцируется**: порт = бекенд-пломбинг, не клиентские данные (Rule 0 не тронут); лечит уже побитые строки при пересохранении.
+- **Детерминированный мост** (`reconcileAnytlsInbounds`): dial-цель uid-REDIRECT = routed anytls с **меньшим id**; egress остальных уезжает через его скрытый инбаунд (outboundTag второго игнорируется — текущее ограничение общего моста, задокументировано).
+
+**lucxVersion:** lucx.302
+
+Files: `internal/web/service/{xray.go, inbound.go, inbound_lucx.go, tunnel.go, xray_config_inject_test.go}`, `internal/config/config.go`.
+
+Tests: `TestInjectSocksEgress_PortCollisionSkips` (второй hidden socks на том же порту — не добавлен, тега нет), локально `go build` не-CGO-пакетов чистый; сервис-тесты (CGO/Linux) — CI. Живо-проверить: пересохранить оба anytls инбаунда → в `bin/config.json` у двух hidden socks разные порты; Xray стартует.
+
+Healing Влада (без обновления): выключить «Route через Xray» у одного из двух anytls → Xray поднимется. С обновлением: пересохранить оба — порты разъедутся, оба остаются routed (один мост).
+
+---
+
 ## lucx.301 - anytls routeThroughXray действительно работает: child под uid моста (2026-10-16)
 
 VladufQa (прод 80.66.65.87): anytls `routeThroughXray: true`, процесс жив, TLS через его nginx SNI-фронт проходит, но egress уходит напрямую с хоста, мимо Xray — и нигде ни единой ошибки. Живой anytls-клиент (sing-box) через 443→nginx→127.0.0.1:8443 подтвердил: трафик ходит, но прямой, а не через Xray.

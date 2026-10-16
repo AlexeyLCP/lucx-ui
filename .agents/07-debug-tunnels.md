@@ -4,6 +4,15 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1bb: two routed anytls inbounds refuse the whole Xray config ("both bind") — FIXED (lucx.302)
+
+- **Symptom (VladufQa, 16.10.2026, after lucx.301):** `xray config refused: inbounds "in-8444-tcp" and "in-8443-tcp" both bind 127.0.0.1:32779 (tcp)` on every restart — the whole Xray down, every protocol offline; the second anytls crashes `exit status 1` each tick.
+- **Cause:** `mtproto.FreeLocalPort()` returns freshly freed ephemeral ports; two sidecars saved back to back often get THE SAME egress port, and no normalizer excluded the already-taken ones. `injectSocksEgress` guarded tags only (the tproxy injector had the port check; the shared one did not) → two hidden socks inbounds on one bind → Xray refuses the entire config. The `exit status 1` crash is usually the sidecar's own bind/log error on that box — read the `anytls-N |` log line.
+- **Fix (lucx.302):** (a) `injectSocksEgress` skips the second hidden socks with a warn when the bind is taken — Xray always boots; (b) both normalizers (`normalizeSidecarXrayPort` + `normalizeMtprotoXrayPort`) exclude other sidecars' `routeXrayPort` and re-allocate a stored collision (backend plumbing — Rule 0 untouched); (c) the uid-bridge dial target is the lowest-id routed anytls, deterministic.
+- **Healing without update:** disable «Route through Xray» on one of the two anytls inbounds — Xray comes back. With the update: re-save both; the ports diverge and both stay routed (one shared bridge).
+- **Not this:** `anytls process exited: exit status 1` with a single routed anytls — that is the sidecar's own startup fatal (bind busy by a foreign listener, cert load) — read its log line, not the Xray refactor.
+- **Lesson:** allocation functions that probe-and-release ephemeral ports must exclude the pool of ports the same program hands out elsewhere; probe-free allocations collide the second time they run in a row.
+
 ### Pattern 1ba: anytls "Route through Xray" silently does nothing — FIXED (lucx.301)
 
 - **Symptom (VladufQa, 16.10.2026):** anytls inbound has `routeThroughXray: true` + `routeXrayPort`, the process runs, TLS through the nginx SNI-front works, but egress never goes via Xray — it exits directly from the host IP. No error anywhere.

@@ -918,6 +918,15 @@ func injectSocksEgress(cfg *xray.Config, tag string, port int, outboundTag, logP
 			logger.Warning(logPrefix, ": inbound tag [", tag, "] already present in generated config, skipping bridge")
 			return
 		}
+		// The bind-collision guard keeps Xray up when two routed sidecars
+		// still hold the same egress port (stale rows before a re-save):
+		// two hidden socks inbounds on one bind = "config refused" and the
+		// whole Xray down. The surviving one is whoever rendered first —
+		// inbounds render in id order, so the lower-id sidecar wins.
+		if cfg.InboundConfigs[i].Protocol == "socks" && cfg.InboundConfigs[i].Port == port {
+			logger.Warning(logPrefix, ": hidden socks bind 127.0.0.1:", port, " is already taken, skipping bridge for [", tag, "] — re-save the inbound to re-allocate its egress port")
+			return
+		}
 	}
 	if outboundTag != "" {
 		routing := map[string]any{}

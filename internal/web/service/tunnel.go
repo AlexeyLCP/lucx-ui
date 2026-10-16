@@ -634,6 +634,7 @@ func (s *TunnelService) reconcileAnytlsInbounds() {
 	}
 	var want []tunnel.Instance
 	routedPort := 0
+	routedWinnerId := 0
 	for _, ib := range inbounds {
 		if ib == nil || ib.Protocol != model.Anytls || ib.NodeID != nil {
 			continue
@@ -645,7 +646,13 @@ func (s *TunnelService) reconcileAnytlsInbounds() {
 		want = append(want, inst)
 		if ib.Enable {
 			if cfg, cfgOK := tunnel.AnytlsConfigFromInbound(ib); cfgOK && cfg.RouteThroughXray && cfg.RouteXrayPort > 0 {
-				routedPort = cfg.RouteXrayPort
+				// One uid REDIRECT + one bridge listener serve every routed
+				// AnyTLS; dial target must be deterministic, so the lowest id
+				// wins and the others' egress rides its hidden inbound.
+				if routedWinnerId == 0 || ib.Id < routedWinnerId {
+					routedWinnerId = ib.Id
+					routedPort = cfg.RouteXrayPort
+				}
 			}
 		}
 	}

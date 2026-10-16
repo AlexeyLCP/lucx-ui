@@ -1239,8 +1239,16 @@ func (s *InboundService) normalizeMtprotoXrayPort(inbound *model.Inbound, oldSet
 	if port <= 0 {
 		port = settingsRouteXrayPort(parsed)
 	}
+	// LUCX-HOOK: exclude bridge ports other sidecars already hold. A freshly
+	// freed ephemeral port is often handed out again, and two hidden socks
+	// bridges on one bind refuse the whole Xray config ("both bind
+	// 127.0.0.1:<port>"); the stored port loses to a live collision.
+	taken := s.takenXrayEgressPorts(inbound.Id)
+	if portTaken(taken, port) {
+		port = 0
+	}
 	if port <= 0 {
-		allocated, err := mtproto.FreeLocalPort()
+		allocated, err := allocateXrayEgressPort(taken)
 		if err != nil {
 			return common.NewError("mtproto: could not allocate an Xray egress port:", err)
 		}
