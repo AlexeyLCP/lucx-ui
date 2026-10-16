@@ -1,5 +1,31 @@
 # LucX-UI — Прогресс
 
+## lucx.303 - routed anytls: SOCKS-auth мисматч моста + CAP_KILL панели (2026-10-16)
+
+VladufQa (прод, lucx.302): «без xray маршрутизации подключается, с xray нет». Живой тест с машины агента (sing-box): рукопожатие с сайдкаром проходит, egress через мост умирает сразу — curl rc=35 (SSL error) на обоих http/https. На боксе при этом вся цепочка на месте: child под uid 999 (`-cert .../anytls-9-cert.pem`, копии ✓), REDIRECT `uid 999 → 23990`, бридж слушает, hidden socks `in-8443-tcp` на 40349 жив, xray слушает.
+
+Корень — два дефекта:
+1. **Auth-мисматч (родился с lucx.273, выстрелил только сейчас):** мост `serveTproxySocksBridge` дiaлит скрытый socks **без кредов** (`proxy.SOCKS5(..., nil, ...)`, tproxy-паттерн = noauth), а `injectAnytlsEgress` ставил hidden socks с `auth: "password"` (наследие lucx.190) — socks отвергал noauth-рукопожатие моста, все routed-клиенты замирали. Фикс: `auth=false` для anytls hidden socks (lucx.303; naive left с auth — его диалер умеет передавать креды; тест пиннит noauth).
+2. **`CAP_KILL` нет в bounding set:** панель не могла стопнуть/рестартануть сайдкар под чужим uid — `stop before restart failed: operation not permitted`, затем `start: process is already running` на каждом тике; конфиги не применялись, пока сервис целиком не перезапускался. Фикс: **CAP_KILL** в `CapabilityBoundingSet` (3 юнита + drop-in-генераторы install.sh:1915 / update.sh:436).
+
+Бонус-наблюдение с бокса: `bind: address already in use` при обновлении 300→301→302 — старый (root) anytls переживал старт нового; на рестарте сервиса systemd чистит всю cgroup, так что цикл был разовым; с CAP_KILL панель сама зачистит.
+
+**lucxVersion:** lucx.303
+
+Files: `internal/web/service/xray.go`, `internal/web/service/xray_config_inject_test.go`, `x-ui.service.{debian,arch,rhel}`, `install.sh`, `update.sh`, `internal/config/config.go`.
+
+Tests: `TestInjectAnytlsEgress` дополнен пинном noauth (настройки без password); локально lucx-пакеты + vet + gofmt зелёные; CGO-пакеты — CI.
+
+Healing: `x-ui update` (юнит обновится → CAP_KILL; config.json перегенерится → hidden socks noauth) — Владу больше ничего; проверить: клиенты с «Маршрут через Xray» получают интернет через его цепочку (egress = VLESSNL), а не напрямую.
+
+Manual test plan (бокс Влада):
+1. Update → подождать reconcile: `ps -o user,cmd -p $(pgrep -f anytls-linux)` → `lucx-mtproxy`, `-p` инлайн.
+2. `runuser -u lucx-mtproxy -- curl https://api.ipify.org` → адрес VLESSNL-выхoда (не сервера).
+3. Клиент: с включённой маршрутизацией трафик идёт (мой sing-box-тест тоже).
+4. Пересохранение anytls: `config changed, restarting` + рестарт проходит без `operation not permitted`.
+
+---
+
 ## lucx.302 - два routed anytls на одном хосте валили весь Xray (2026-10-16)
 
 VladufQa после lucx.301: включил «Route through Xray» на втором anytls-инбаунде → `xray config refused: inbounds "in-8444-tcp" and "in-8443-tcp" both bind 127.0.0.1:32779` → **весь Xray refused**, панель целиком без интернета; плюс `anytls-17 process exited: exit status 1` каждые 10с.

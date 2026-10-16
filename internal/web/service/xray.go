@@ -889,7 +889,10 @@ func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {
 // loopback SOCKS bridge tagged with the inbound's own tag (tproxy pattern).
 // anytls-go has no SOCKS dialer, so the sidecar's own outbound TCP is redirected
 // by uid (lucx-mtproxy, same engine user) into the hidden Xray inbound below;
-// the bridge listen itself is the tproxy uid REDIRECT listener on 23990.
+// the bridge listen itself is the tproxy uid REDIRECT listener on 23990, which
+// dials the hidden inbound WITHOUT credentials (lucx.303: auth=true here made
+// the socks reject the bridge's noauth handshake and the tunnel died with an
+// SSL error on every routed dial).
 func injectAnytlsEgress(cfg *xray.Config, inbound *model.Inbound) {
 	var parsed struct {
 		RouteThroughXray bool   `json:"routeThroughXray"`
@@ -902,7 +905,7 @@ func injectAnytlsEgress(cfg *xray.Config, inbound *model.Inbound) {
 	if !parsed.RouteThroughXray || parsed.RouteXrayPort <= 0 || inbound.Tag == "" {
 		return
 	}
-	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "anytls egress", true)
+	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "anytls egress", false)
 }
 
 func injectTunnelEgress(cfg *xray.Config, naive tunnel.NaiveConfig) {

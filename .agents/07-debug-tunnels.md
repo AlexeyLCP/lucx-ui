@@ -4,6 +4,16 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1bc: routed anytls connects but the tunnel dies mid-TLS (curl rc=35) — FIXED (lucx.303)
+
+- **Symptom (VladufQa, 16.10.2026, lucx.302):** clients connect "без xray", dead "с xray". End-to-end curl through the chain gave `SSL_CONNECT_ERROR` (35) instantly, TCP reached xray (the hidden socks on 40349 was up and listening, the bridge relay was alive).
+- **Cause:** the tproxy pattern's bridge (`serveTproxySocksBridge` on 23990) dials the hidden socks with **noauth** (`proxy.SOCKS5(..., nil, ...)`), while `injectAnytlsEgress` generated the hidden inbound with `auth: "password"` (a lucx.190 inherited flag) — the socks rejected every bridge handshake and the forwarded stream died silently. Plus the sandbox boundary set had **no CAP_KILL**: a root panel could not stop/signal a sidecar running under the bridge uid (`stop before restart failed: operation not permitted`, then `start: already running` each tick, config changes never applied until a full service restart).
+- **Fix (lucx.303):** (a) anytls hidden socks is generated noauth — the bridge is its only dialer (naive keeps auth: its dialer passes credentials); the inject test pins the noauth settings; (b) `CAP_KILL` in the `CapabilityBoundingSet` of the three unit files and both drop-in generators, so the panel can stop/signals/sweep foreign-uid sidecars.
+- **Diagnosing a mid-chain death:** `runuser -u lucx-mtproxy -- curl -sm8 https://api.ipify.org` — rc=35 (TLS died) = the socks/handshake layer; a timeout = the outbound chain; an empty reply = the bridge/handshake. Compare with the same curl as root (direct egress).
+- **Healing without update:** none for the auth mismatch (the hidden socks needs regeneration) — wait for the update; the CAP_KILL part heals on panel update alone.
+- **Not this:** `bind: address already in use` right after a panel update — the old (foreign-uid) sidecar survived the panel restart in the same second; systemd clears the whole cgroup on service restart, so that loop is one-shot.
+- **Lesson:** two components that share a private listener must agree on the listener's authentication mode — audit both sides of every loopback bridge, not just the firewall rule.
+
 ### Pattern 1bb: two routed anytls inbounds refuse the whole Xray config ("both bind") — FIXED (lucx.302)
 
 - **Symptom (VladufQa, 16.10.2026, after lucx.301):** `xray config refused: inbounds "in-8444-tcp" and "in-8443-tcp" both bind 127.0.0.1:32779 (tcp)` on every restart — the whole Xray down, every protocol offline; the second anytls crashes `exit status 1` each tick.

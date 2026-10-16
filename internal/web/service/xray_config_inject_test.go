@@ -1336,6 +1336,12 @@ func TestInjectAnytlsEgress(t *testing.T) {
 		if got.Protocol != "socks" || got.Port != 39160 {
 			t.Fatalf("target=%q got proto=%s port=%d", target, got.Protocol, got.Port)
 		}
+		if strings.Contains(string(got.Settings), `"password"`) || strings.Contains(string(got.Settings), "password") {
+			// lucx.303: the tproxy bridge dials the hidden socks without
+			// credentials; an auth-required socks here rejects that handshake
+			// and every routed client stalls.
+			t.Fatalf("anytls hidden socks must be noauth, got %s", got.Settings)
+		}
 		var routing egressRouting
 		if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
 			t.Fatal(err)
