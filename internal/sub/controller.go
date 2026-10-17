@@ -532,6 +532,10 @@ func (a *SUBController) subs(c *gin.Context) {
 	scheme, host, hostWithPort, _ := a.subService.ResolveRequest(c)
 	subReq := a.subService.ForRequest(host)
 	subReq.subscriptionBody = true
+	// LUCX-HOOK: INCY cannot import the legacy amneziawg:// query format — it
+	// wants amneziawg://<base64url conf>#name. Set per request, never on the
+	// shared service (docs.incy.cc/subscription-format).
+	subReq.incyAwgExport = IsIncyClient(userAgent)
 	subs, _, _, traffic, err := subReq.getSubs(subId)
 	if err != nil || subs == nil {
 		writeSubError(c, err)

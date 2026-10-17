@@ -47,6 +47,11 @@ type SubService struct {
 	// other context — the sub info page, the panel's link/QR displays — renders
 	// the name-only template, like Remnawave.
 	subscriptionBody bool
+	// LUCX-HOOK: INCY mixed-sub export — emit each AWG host as
+	// amneziawg://<base64url conf>#name (docs.incy.cc/subscription-format)
+	// instead of the legacy query-param amneziawg:// + vpn:// pair, which INCY
+	// does not import. Request-scoped: set only on the ForRequest copy.
+	incyAwgExport bool
 	// usageShown emits info once per subscription identity, including twins.
 	// PrepareForRequest resets this per-request state.
 	usageShown                 map[string]bool
@@ -3477,7 +3482,20 @@ func (s *SubService) genAwgLink(inbound *model.Inbound, email string) string {
 		out := buildLinkWithParams(link, params, remark)
 		if conf, err := service.BuildAwgClientConf(inbound, client, dest); err == nil {
 			conf = stampAwgShare(conf, dest, port, remark)
-			if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
+			if s.incyAwgExport {
+				// LUCX-HOOK: INCY sub format — the whole stamped .conf as
+				// url-safe base64 in the URI body, name in the # fragment
+				// (docs.incy.cc/subscription-format). The legacy amneziawg://
+				// query pair and vpn:// are never imported by INCY, so they
+				// are not emitted in this mode. Falls back to the legacy line
+				// when the conf cannot be built.
+				if encoded := base64.RawURLEncoding.EncodeToString([]byte(conf)); encoded != "" {
+					out = "amneziawg://" + encoded
+					if remark != "" {
+						out += "#" + escapeLinkFragment(remark, encodeURIComponent)
+					}
+				}
+			} else if uri, err := vpnuri.EncodeConf(conf); err == nil && uri != "" {
 				out += "\n" + uri
 			}
 		}

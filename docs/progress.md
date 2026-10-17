@@ -1,5 +1,23 @@
 # LucX-UI — Прогресс
 
+## lucx.304 — INCY mixed-sub: AWG export as amneziawg://base64url (2026-10-17)
+
+Tester report (lucx.300): plain-text Base64 SUB with VLESS + AWG + INCY routing — VLESS imports into INCY (iOS, AmneziaWG 3.1), both AWG entries silently missing. Panel's direct AWG config imports fine. Remote stand adapter proof: converting `amneziawg://query` + `vpn://` pairs into one `amneziawg://<base64url .conf>#<name>` per host makes both AWG appear in the same subscription.
+
+Cause: after the same `amneziawg://` scheme LucX (private key as userinfo, endpoint in authority, obfuscation in query) and INCY (docs.incy.cc/subscription-format: the whole stamped .conf as url-safe base64 in the URI body, name in `#`) mean different payloads. `vpn://` next to it does not import either — client incompatibility, not a LucX format bug.
+
+Fix (`internal/sub`):
+- Request-scoped `SubService.incyAwgExport`, set in the plain-SUB handler on the `ForRequest` copy via the existing `IsIncyClient(userAgent)` — the shared service never mutates, parallel INCY/other-client fetches stay independent.
+- In `genAwgLink` render: INCY mode emits per Host one `amneziawg://` + `base64.RawURLEncoding` of the full `BuildAwgClientConf` + `stampAwgShare` conf (Address, DNS, MTU, keys, PSK, AllowedIPs, Endpoint, J/S/H/I, HPK, AWG 3.1 ride inside the conf verbatim) + URL-encoded name; legacy `amneziawg://` query line and `vpn://` are not emitted in this mode; conf-build failure falls back to the legacy line. Non-INCY export unchanged.
+
+Files: `internal/sub/service.go`, `internal/sub/controller.go`, `internal/sub/service_awg_test.go`, `internal/config/config.go`.
+
+Tests: `TestGenAwgLink_IncyExport_Base64UrlConf` (single amneziawg:// line, decodes with RawURLEncoding, carries keys/PSK/Jc/S3/Endpoint, named fragment), `TestGenAwgLink_IncyExport_PerHostEntries` (two hosts → two entries, own Endpoint/name/remark; legacy + vpn:// absent), `TestIncyAwgExport_StaysOnRequestCopy` (flag never leaks into the shared service; non-INCY keeps amneziawg:// + vpn://). `internal/sub` green + gofumpt/vet clean; full-CGO verdict from CI.
+
+Retest plan: mixed SUB (2 VLESS + 2 AWG + routing) in INCY — both AWG, own Endpoint/name per Host; decoded conf equals the panel generator output; plain-text and outer-Base64 wrappers both import; VLESS/routing untouched.
+
+---
+
 ## lucx.303 - routed anytls: SOCKS-auth мисматч моста + CAP_KILL панели (2026-10-16)
 
 VladufQa (прод, lucx.302): «без xray маршрутизации подключается, с xray нет». Живой тест с машины агента (sing-box): рукопожатие с сайдкаром проходит, egress через мост умирает сразу — curl rc=35 (SSL error) на обоих http/https. На боксе при этом вся цепочка на месте: child под uid 999 (`-cert .../anytls-9-cert.pem`, копии ✓), REDIRECT `uid 999 → 23990`, бридж слушает, hidden socks `in-8443-tcp` на 40349 жив, xray слушает.

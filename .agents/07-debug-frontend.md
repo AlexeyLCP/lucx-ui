@@ -4,6 +4,12 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 19: INCY imports VLESS from mixed SUB but AWG silently missing — FIXED (lucx.304)
+- **Symptom (lucx.300):** plain-text Base64 SUB holds 2× `vless://`, 2× `amneziawg://` (LucX query format), 2× `vpn://`, 1× `incy://routing`. INCY (iOS, AmneziaWG 3.1) imports VLESS; both AWG vanish. Panel's direct AWG config imports fine.
+- **Cause:** same scheme `amneziawg://`, different payload. LucX: `amneziawg://<privkey>@<host>:<port>?<params>#<name>`. INCY docs (docs.incy.cc/subscription-format): `amneziawg://<base64url of the whole stamped .conf>#<URL-encoded name>`; the neighboring `vpn://` does not import either. Client incompatibility — the LucX format stays valid for other clients.
+- **Fix:** request-scoped `SubService.incyAwgExport` set in the plain-SUB handler on the `ForRequest` copy via `IsIncyClient`; `genAwgLink` render in that mode emits per Host one `amneziawg://` + `base64.RawURLEncoding(BuildAwgClientConf + stampAwgShare)` + `#name`, without the legacy query line and without `vpn://`. All conf fields ride inside the base64 (nothing reconstructed from query params).
+- **Lesson:** for format-specific clients key off the UA per request on a `ForRequest` copy — never flip a flag on the shared `SubService` (parallel INCY/other-client fetches). When the client wants full configs, encode the full config, not a query-param subset.
+
 ### Pattern 18: Client Info has no AWG .conf download, only QR — FIXED (lucx.240)
 - **Symptom (Art, 16.09.2026):** Amnezia .conf used to be in Client Info; after v3.8 only QR has download.
 - **Cause:** merge rebuilt ClientInfoModal from origin and dropped the kernel AWG LUCX-HOOK ConfigBlock. Userspace `amneziawg` block stayed; LucX `awg` did not.

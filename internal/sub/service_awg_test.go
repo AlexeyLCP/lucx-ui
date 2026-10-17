@@ -1,6 +1,7 @@
 package sub
 
 import (
+	"encoding/base64"
 	"net/url"
 	"strings"
 	"testing"
@@ -333,5 +334,103 @@ func TestGenAwgLink_UnportableIFieldIsDroppedAlone(t *testing.T) {
 		if got := q.Get(key); got != want {
 			t.Errorf("%s = %q, want %q, in:\n%s", key, got, want, lines[0])
 		}
+	}
+}
+
+// incyAwgLink splits one INCY-mode line into its base64url conf payload and
+// the percent-encoded name after '#', decoding the payload into a .conf.
+func incyAwgLine(t *testing.T, line string) (conf, name string) {
+	t.Helper()
+	if !strings.HasPrefix(line, "amneziawg://") {
+		t.Fatalf("INCY AWG line must be amneziawg://<base64url-conf>#name, got:\n%s", line)
+	}
+	if strings.Contains(line, "vpn://") || strings.Contains(line, "?") || strings.Contains(line, "@") {
+		t.Fatalf("INCY AWG line must not carry legacy query/vpn:// markers, got:\n%s", line)
+	}
+	body := strings.TrimPrefix(line, "amneziawg://")
+	payload, frag, _ := strings.Cut(body, "#")
+	raw, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		t.Fatalf("INCY AWG payload must be url-safe base64 without padding: %v, got:\n%s", err, payload)
+	}
+	name, err = url.QueryUnescape(frag)
+	if err != nil {
+		t.Fatalf("INCY AWG name must be URL-encoded: %v, got:\n%s", err, frag)
+	}
+	return string(raw), name
+}
+
+// INCY cannot import the LucX amneziawg:// query format (VLESS import fine,
+// AWG silently dropped — tester report lucx.300). Its mixed-subscription spec
+// takes the whole stamped .conf as url-safe base64 in the URI body. In that
+// mode the legacy amneziawg:// pair and vpn:// must not appear.
+func TestGenAwgLink_IncyExport_Base64UrlConf(t *testing.T) {
+	s := &SubService{}
+	s.incyAwgExport = true
+	lines := splitLinkLines(s.genAwgLink(awgLinkInbound(awgLinkClientSettings), "user"))
+	if len(lines) != 1 {
+		t.Fatalf("INCY AWG export must emit a single line, got %d:\n%s", len(lines), strings.Join(lines, "\n"))
+	}
+	conf, name := incyAwgLine(t, lines[0])
+	for _, want := range []string{
+		"[Interface]", "[Peer]",
+		"PrivateKey = peerPriv", "PresharedKey = peerPsk",
+		"Jc = 8", "S3 = 20", "Endpoint = 203.0.113.1:51820",
+	} {
+		if !strings.Contains(conf, want) {
+			t.Errorf("decoded INCY conf missing %q, got:\n%s", want, conf)
+		}
+	}
+	if name == "" {
+		t.Errorf("INCY AWG line must carry the # name, got:\n%s", lines[0])
+	}
+}
+
+// Every Host becomes its own INCY entry, keeping that host's Endpoint and
+// name — the whole .conf is per host, not one shared payload.
+func TestGenAwgLink_IncyExport_PerHostEntries(t *testing.T) {
+	ib := awgLinkInbound(awgLinkClientSettings)
+	ib.StreamSettings = `{"externalProxy":[` +
+		`{"dest":"test.com","port":443,"remark":"cdn","isHost":true,"remarkFinal":true},` +
+		`{"dest":"direct.test.net","port":51820,"remark":"direct","isHost":true,"remarkFinal":true}]}`
+	s := &SubService{}
+	s.incyAwgExport = true
+	lines := splitLinkLines(s.genAwgLink(ib, "user"))
+	if len(lines) != 2 {
+		t.Fatalf("two hosts must yield two INCY AWG entries, got %d:\n%s", len(lines), strings.Join(lines, "\n"))
+	}
+	want := []struct{ name, endpoint, remark string }{
+		{"cdn", "Endpoint = test.com:443", "# cdn"},
+		{"direct", "Endpoint = direct.test.net:51820", "# direct"},
+	}
+	for i, line := range lines {
+		conf, name := incyAwgLine(t, line)
+		if name != want[i].name {
+			t.Errorf("entry %d name = %q, want %q", i, name, want[i].name)
+		}
+		if !strings.Contains(conf, want[i].endpoint) {
+			t.Errorf("entry %d conf missing %q, got:\n%s", i, want[i].endpoint, conf)
+		}
+		if !strings.Contains(conf, want[i].remark) {
+			t.Errorf("entry %d conf must be stamped with its host remark, got:\n%s", i, conf)
+		}
+	}
+}
+
+// The export mode must ride the per-request copy only: the shared base
+// service keeps the legacy amneziawg:// + vpn:// export untouched.
+func TestIncyAwgExport_StaysOnRequestCopy(t *testing.T) {
+	seedSubDB(t) // PrepareForRequest loads nodes/remark settings from the DB
+	base := &SubService{}
+	req := base.ForRequest("req.example.com")
+	req.incyAwgExport = true
+	if base.incyAwgExport {
+		t.Fatal("ForRequest copy must not leak incyAwgExport into the shared service")
+	}
+	if other := (&SubService{}).ForRequest("other.example.com"); other.incyAwgExport {
+		t.Fatal("a fresh request copy must start non-INCY")
+	}
+	if lines := splitLinkLines(base.genAwgLink(awgLinkInbound(awgLinkClientSettings), "user")); len(lines) != 2 {
+		t.Fatalf("non-INCY export must keep amneziawg:// + vpn://, got %d lines", len(lines))
 	}
 }
