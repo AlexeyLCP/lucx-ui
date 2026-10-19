@@ -26,6 +26,7 @@ import (
 	// NaiveProxy tunnel SOCKS egress (injectTunnelEgress) + geodata sanitize.
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
+
 	// END LUCX-HOOK
 
 	"go.uber.org/atomic"
