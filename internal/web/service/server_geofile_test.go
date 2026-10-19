@@ -166,7 +166,7 @@ func restartStub(t *testing.T, called *bool) {
 func TestUpdateGeofileInstallsVerifiedFile(t *testing.T) {
 	srv, _ := geofileServer(t, []fakeUpstream{{repo: "a", assets: map[string]string{"geoip.dat": "good geoip payload"}}})
 	binFolder := geofileTestEnv(t, map[string]geofileEntry{
-		"geoip.dat": {srv.URL + "/a", "geoip.dat", "geoip.dat"},
+		"geoip.dat": {srv.URL + "/a", "geoip.dat", "geoip.dat", ""},
 	})
 
 	var restarted bool
@@ -195,7 +195,7 @@ func TestUpdateGeofileRejectsDigestMismatch(t *testing.T) {
 		corrupt: map[string]bool{"geoip.dat": true},
 	}})
 	binFolder := geofileTestEnv(t, map[string]geofileEntry{
-		"geoip.dat": {srv.URL + "/a", "geoip.dat", "geoip.dat"},
+		"geoip.dat": {srv.URL + "/a", "geoip.dat", "geoip.dat", ""},
 	})
 
 	var restarted bool
@@ -226,8 +226,8 @@ func TestUpdateGeofileInstallsNeitherFileOfAFailedUpstream(t *testing.T) {
 		corrupt: map[string]bool{"geosite.dat": true},
 	}})
 	binFolder := geofileTestEnv(t, map[string]geofileEntry{
-		"geoip.dat":   {srv.URL + "/a", "geoip.dat", "geoip.dat"},
-		"geosite.dat": {srv.URL + "/a", "geosite.dat", "geosite.dat"},
+		"geoip.dat":   {srv.URL + "/a", "geoip.dat", "geoip.dat", ""},
+		"geosite.dat": {srv.URL + "/a", "geosite.dat", "geosite.dat", ""},
 	})
 
 	var restarted bool
@@ -261,8 +261,8 @@ func TestUpdateGeofileKeepsGoodUpstreamWhenAnotherFails(t *testing.T) {
 		},
 	})
 	binFolder := geofileTestEnv(t, map[string]geofileEntry{
-		"geoip.dat":    {srv.URL + "/aaa", "geoip.dat", "geoip.dat"},
-		"geoip_RU.dat": {srv.URL + "/zzz", "geoip.dat", "geoip_RU.dat"},
+		"geoip.dat":    {srv.URL + "/aaa", "geoip.dat", "geoip.dat", ""},
+		"geoip_RU.dat": {srv.URL + "/zzz", "geoip.dat", "geoip_RU.dat", ""},
 	})
 
 	var restarted bool
@@ -317,7 +317,7 @@ func TestUpdateGeofileSurvivesReleaseRotation(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	binFolder := geofileTestEnv(t, map[string]geofileEntry{
-		"geoip.dat": {srv.URL + "/a", "geoip.dat", "geoip.dat"},
+		"geoip.dat": {srv.URL + "/a", "geoip.dat", "geoip.dat", ""},
 	})
 
 	var restarted bool
@@ -349,7 +349,7 @@ func TestUpdateGeofileSkipsRestartWhenNotModified(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	binFolder := geofileTestEnv(t, map[string]geofileEntry{
-		"geoip.dat": {srv.URL + "/a", "geoip.dat", "geoip.dat"},
+		"geoip.dat": {srv.URL + "/a", "geoip.dat", "geoip.dat", ""},
 	})
 
 	existing := filepath.Join(binFolder, "geoip.dat")
@@ -378,7 +378,7 @@ func TestUpdateGeofileSkipsRestartWhenNotModified(t *testing.T) {
 
 func TestUpdateGeofileRejectsNameOutsideAllowlist(t *testing.T) {
 	geofileTestEnv(t, map[string]geofileEntry{
-		"geoip.dat": {"https://example.invalid", "geoip.dat", "geoip.dat"},
+		"geoip.dat": {"https://example.invalid", "geoip.dat", "geoip.dat", ""},
 	})
 
 	err := (&ServerService{}).UpdateGeofile("../../etc/passwd")
@@ -390,13 +390,85 @@ func TestUpdateGeofileRejectsNameOutsideAllowlist(t *testing.T) {
 	}
 }
 
+// A direct (no-release) upstream serves the bytes from its own URL with no
+// redirect, no tag and no .sha256sum sidecar — the install must work as-is.
+func TestUpdateGeofileInstallsDirectSource(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/main/geodat/geoip_GA.dat", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("GA geoip payload"))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	binFolder := geofileTestEnv(t, map[string]geofileEntry{
+		"geoip_GA.dat": {"", "", "geoip_GA.dat", srv.URL + "/main/geodat/geoip_GA.dat"},
+	})
+
+	var restarted bool
+	restartStub(t, &restarted)
+
+	if err := (&ServerService{}).UpdateGeofile("geoip_GA.dat"); err != nil {
+		t.Fatalf("UpdateGeofile: %v", err)
+	}
+
+	got, err := os.ReadFile(filepath.Join(binFolder, "geoip_GA.dat"))
+	if err != nil {
+		t.Fatalf("read installed geofile: %v", err)
+	}
+	if string(got) != "GA geoip payload" {
+		t.Fatalf("installed content = %q, want %q", got, "GA geoip payload")
+	}
+	if !restarted {
+		t.Fatal("a file was installed, so xray should have been restarted")
+	}
+}
+
+// The direct upstream has no Last-Modified (no 304 path): an unchanged body
+// must not stage, install or restart the core.
+func TestUpdateGeofileDirectSourceSkipsIdenticalContent(t *testing.T) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/main/geodat/geoip_GA.dat", func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("GA geoip payload"))
+	})
+	srv := httptest.NewServer(mux)
+	t.Cleanup(srv.Close)
+
+	binFolder := geofileTestEnv(t, map[string]geofileEntry{
+		"geoip_GA.dat": {"", "", "geoip_GA.dat", srv.URL + "/main/geodat/geoip_GA.dat"},
+	})
+	existing := filepath.Join(binFolder, "geoip_GA.dat")
+	if err := os.WriteFile(existing, []byte("GA geoip payload"), 0o644); err != nil {
+		t.Fatalf("seed existing geofile: %v", err)
+	}
+
+	var restarted bool
+	restartStub(t, &restarted)
+
+	if err := (&ServerService{}).UpdateGeofile("geoip_GA.dat"); err != nil {
+		t.Fatalf("UpdateGeofile: %v", err)
+	}
+
+	if restarted {
+		t.Fatal("identical content must not restart xray and drop client connections")
+	}
+	got, err := os.ReadFile(existing)
+	if err != nil {
+		t.Fatalf("read existing geofile: %v", err)
+	}
+	if string(got) != "GA geoip payload" {
+		t.Fatalf("existing content = %q, want it left alone", got)
+	}
+}
+
 func TestStandardGeodataSources(t *testing.T) {
 	want := []GeodataSource{
 		{URL: "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geoip.dat", File: "geoip.dat"},
+		{URL: "https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geoip_GA.dat", File: "geoip_GA.dat"},
 		{URL: "https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geoip.dat", File: "geoip_IR.dat"},
 		{URL: "https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat", File: "geoip_ROSCOM.dat"},
 		{URL: "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat", File: "geoip_RU.dat"},
 		{URL: "https://github.com/Loyalsoldier/v2ray-rules-dat/releases/latest/download/geosite.dat", File: "geosite.dat"},
+		{URL: "https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geosite_GA.dat", File: "geosite_GA.dat"},
 		{URL: "https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat", File: "geosite_IR.dat"},
 		{URL: "https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat", File: "geosite_ROSCOM.dat"},
 		{URL: "https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat", File: "geosite_RU.dat"},

@@ -2273,22 +2273,31 @@ func (s *ServerService) IsValidGeofileName(filename string) bool {
 
 // Repo is the upstream release base and Asset the name it publishes under; all
 // three publish "geoip.dat", so only FileName tells the local copies apart.
+// URL overrides that flow for upstreams with no GitHub releases (Geo-Aggregator
+// commits the files straight to main): the entry's URL is downloaded as-is and
+// there is nothing published to verify it against, so integrity rests on TLS
+// exactly like Xray's own geodata.assets fetches.
 type geofileEntry struct {
 	Repo     string
 	Asset    string
 	FileName string
+	URL      string
 }
 
 var geofileAllowlist = map[string]geofileEntry{
-	"geoip.dat":      {"https://github.com/Loyalsoldier/v2ray-rules-dat", "geoip.dat", "geoip.dat"},
-	"geosite.dat":    {"https://github.com/Loyalsoldier/v2ray-rules-dat", "geosite.dat", "geosite.dat"},
-	"geoip_IR.dat":   {"https://github.com/chocolate4u/Iran-v2ray-rules", "geoip.dat", "geoip_IR.dat"},
-	"geosite_IR.dat": {"https://github.com/chocolate4u/Iran-v2ray-rules", "geosite.dat", "geosite_IR.dat"},
-	"geoip_RU.dat":   {"https://github.com/runetfreedom/russia-v2ray-rules-dat", "geoip.dat", "geoip_RU.dat"},
-	"geosite_RU.dat": {"https://github.com/runetfreedom/russia-v2ray-rules-dat", "geosite.dat", "geosite_RU.dat"},
+	"geoip.dat":      {"https://github.com/Loyalsoldier/v2ray-rules-dat", "geoip.dat", "geoip.dat", ""},
+	"geosite.dat":    {"https://github.com/Loyalsoldier/v2ray-rules-dat", "geosite.dat", "geosite.dat", ""},
+	"geoip_IR.dat":   {"https://github.com/chocolate4u/Iran-v2ray-rules", "geoip.dat", "geoip_IR.dat", ""},
+	"geosite_IR.dat": {"https://github.com/chocolate4u/Iran-v2ray-rules", "geosite.dat", "geosite_IR.dat", ""},
+	"geoip_RU.dat":   {"https://github.com/runetfreedom/russia-v2ray-rules-dat", "geoip.dat", "geoip_RU.dat", ""},
+	"geosite_RU.dat": {"https://github.com/runetfreedom/russia-v2ray-rules-dat", "geosite.dat", "geosite_RU.dat", ""},
 	// LUCX-HOOK: RoscomVPN custom geo (RKN geoblock lists)
-	"geoip_ROSCOM.dat":   {"https://github.com/hydraponique/roscomvpn-geoip", "geoip.dat", "geoip_ROSCOM.dat"},
-	"geosite_ROSCOM.dat": {"https://github.com/hydraponique/roscomvpn-geosite", "geosite.dat", "geosite_ROSCOM.dat"},
+	"geoip_ROSCOM.dat":   {"https://github.com/hydraponique/roscomvpn-geoip", "geoip.dat", "geoip_ROSCOM.dat", ""},
+	"geosite_ROSCOM.dat": {"https://github.com/hydraponique/roscomvpn-geosite", "geosite.dat", "geosite_ROSCOM.dat", ""},
+	// END LUCX-HOOK
+	// LUCX-HOOK: Geo-Aggregator (Ground-Zerro) — RU blocklist aggregate, no releases, files on main
+	"geoip_GA.dat":   {"", "", "geoip_GA.dat", "https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geoip_GA.dat"},
+	"geosite_GA.dat": {"", "", "geosite_GA.dat", "https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geosite_GA.dat"},
 	// END LUCX-HOOK
 }
 
@@ -2302,7 +2311,7 @@ type GeodataSource struct {
 func StandardGeodataSources() []GeodataSource {
 	sources := make([]GeodataSource, 0, len(geofileAllowlist))
 	for _, entry := range geofileAllowlist {
-		sources = append(sources, GeodataSource{URL: entry.latestURL(), File: entry.FileName})
+		sources = append(sources, GeodataSource{URL: entry.sourceURL(), File: entry.FileName})
 	}
 	slices.SortFunc(sources, func(a, b GeodataSource) int { return strings.Compare(a.File, b.File) })
 	return sources
@@ -2314,6 +2323,24 @@ func (entry geofileEntry) latestURL() string {
 
 func (entry geofileEntry) taggedURL(tag string) string {
 	return entry.Repo + "/releases/download/" + tag + "/" + entry.Asset
+}
+
+// assetURL is the URL bytes are downloaded from for a pinned release tag, or
+// the entry's own URL for a direct (no-release) upstream.
+func (entry geofileEntry) assetURL(tag string) string {
+	if entry.URL != "" {
+		return entry.URL
+	}
+	return entry.taggedURL(tag)
+}
+
+// sourceURL is the preset URL shown to the panel operator: a direct source
+// uses its own URL, release-based upstreams the `latest` download.
+func (entry geofileEntry) sourceURL() string {
+	if entry.URL != "" {
+		return entry.URL
+	}
+	return entry.latestURL()
 }
 
 // stagedGeofile is a verified download waiting to be moved into the asset folder.
@@ -2392,13 +2419,18 @@ func (s *ServerService) UpdateGeofile(fileName string) error {
 }
 
 // stageGeofileRelease downloads one upstream's databases and verifies each
-// against a digest from the same release, staging all of them or none.
+// against a digest from the same release, staging all of them or none. A
+// direct (no-release) upstream has no tag to pin, so tag stays empty.
 func (s *ServerService) stageGeofileRelease(client *http.Client, entries []geofileEntry, binFolder, stageDir string) ([]stagedGeofile, error) {
 	// Resolve "latest" once. These upstreams publish several times a day, and a
 	// release landing mid-batch would check one release's digest against another's bytes.
-	tag, err := resolveGeofileTag(client, entries[0].latestURL())
-	if err != nil {
-		return nil, common.NewErrorf("Error resolving Geofile release from %s: %v", entries[0].Repo, err)
+	tag := ""
+	if entries[0].URL == "" {
+		var err error
+		tag, err = resolveGeofileTag(client, entries[0].latestURL())
+		if err != nil {
+			return nil, common.NewErrorf("Error resolving Geofile release from %s: %v", entries[0].Repo, err)
+		}
 	}
 
 	var staged []stagedGeofile
@@ -2458,7 +2490,7 @@ func geofileTagFromLocation(location string) (string, error) {
 // stageGeofile downloads one database into stagePath and checks it against the
 // SHA-256 its upstream publishes. It reports false on 304, staging nothing.
 func (s *ServerService) stageGeofile(client *http.Client, entry geofileEntry, tag, destPath, stagePath string) (bool, error) {
-	assetURL := entry.taggedURL(tag)
+	assetURL := entry.assetURL(tag)
 	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, assetURL, nil)
 	if err != nil {
 		return false, common.NewErrorf("Failed to create HTTP request for %s: %v", assetURL, err)
@@ -2521,16 +2553,46 @@ func (s *ServerService) stageGeofile(client *http.Client, entry geofileEntry, ta
 
 	// TLS protects the transport, not the artifact. Xray parses these databases
 	// when it builds its routing matchers, so a bad one takes the core down.
-	want, err := s.fetchGeofileDigest(client, assetURL+".sha256sum", entry.Asset)
-	if err != nil {
-		return false, err
-	}
-	if got := hex.EncodeToString(hasher.Sum(nil)); !strings.EqualFold(got, want) {
-		return false, common.NewErrorf("does not match the published SHA-256 checksum, so the download is corrupted or has been tampered with (expected %s, got %s)", want, got)
+	// Release upstreams prove the bytes with their published .sha256sum; a
+	// direct source publishes nothing of the sort, and its server has no
+	// Last-Modified either (no 304), so the staged bytes are instead compared
+	// with what already sits in the asset folder — identical content must not
+	// trigger a core restart that drops every live connection.
+	if entry.URL == "" {
+		want, err := s.fetchGeofileDigest(client, assetURL+".sha256sum", entry.Asset)
+		if err != nil {
+			return false, err
+		}
+		if got := hex.EncodeToString(hasher.Sum(nil)); !strings.EqualFold(got, want) {
+			return false, common.NewErrorf("does not match the published SHA-256 checksum, so the download is corrupted or has been tampered with (expected %s, got %s)", want, got)
+		}
+	} else if want, err := fileSHA256(destPath); err == nil {
+		if got := hex.EncodeToString(hasher.Sum(nil)); strings.EqualFold(got, want) {
+			_ = os.Remove(stagePath)
+			setModTime(destPath)
+			return false, nil
+		}
 	}
 
 	setModTime(stagePath)
 	return true, nil
+}
+
+// fileSHA256 returns the hex digest of a file, or "" when it does not exist.
+func fileSHA256(path string) (string, error) {
+	f, err := os.Open(path)
+	if os.IsNotExist(err) {
+		return "", nil
+	}
+	if err != nil {
+		return "", err
+	}
+	defer f.Close()
+	h := sha256.New()
+	if _, err := io.Copy(h, f); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(h.Sum(nil)), nil
 }
 
 // fetchGeofileDigest downloads the .sha256sum sidecar published beside a geo

@@ -87,7 +87,7 @@ New functionality lives ONLY in:
 - **Go:** `internal/awg/` — AWG sidecar (manager, process, instance, traffic, orphans)
 - **Go:** `internal/lucx/` — subdirectories: `parser/`, `nodetype/`, `outbound_link/` (Smart Cluster), `tunnel/` (tunnel sidecars: NaiveProxy, olcRTC, qWDTT, CSQTT, mieru, TrustTunnel)
 - **Go:** `internal/database/migrate_awg.go` — legacy DB migration
-- **Go:** `internal/database/migrate_geodata.go` — Xray geodata.assets stock list (Loyalsoldier + IR + RU + ROSCOM)
+- **Go:** `internal/database/migrate_geodata.go` — Xray geodata.assets stock list (Loyalsoldier + IR + RU + ROSCOM + GA)
 - **Go:** `internal/web/service/tunnel.go`, `internal/web/controller/tunnel.go`, `internal/web/job/tunnel_job.go` — tunnel sidecar web layer
 - **Go:** `internal/web/service/sidecar_outbound.go`, `internal/web/controller/sidecar_outbound.go` — naive/mieru/TrustTunnel client outbounds
 - **Frontend:** `frontend/src/schemas/protocols/inbound/awg.ts` — Zod schema

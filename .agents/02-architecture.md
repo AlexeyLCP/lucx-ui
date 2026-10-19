@@ -101,7 +101,7 @@ internal/database/
 ├── migrate_awg_outbound.go        outbound-side migration (stripHiddenKeys for awg_outbounds)
 ├── migrate_awg_hpk.go             pruneAwgHeaderProtectionKey — clears non-empty HPK (regression from lucx.47; see Known Issue #5)
 ├── migrate_awg_keepalive.go       Postgres: clients.wg_keep_alive INTEGER/bigint → text before AutoMigrate (SQLite no-op; Scan handles int64)
-├── migrate_geodata.go             Xray geodata.assets stock list (empty → 8, Loyalsoldier pair → append IR/RU/ROSCOM)
+├── migrate_geodata.go             Xray geodata.assets stock list (empty → 10, Loyalsoldier pair → append IR/RU/ROSCOM/GA)
 └── migrate_awg*_test.go           unit tests
 
 internal/web/

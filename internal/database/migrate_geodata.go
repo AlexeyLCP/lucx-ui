@@ -33,6 +33,6 @@ func migrateLucxGeodataAssets() error {
 	if !changed {
 		return nil
 	}
-	log.Printf("[LUCX] geodata assets: seeded IR/RU/ROSCOM into xrayTemplateConfig")
+	log.Printf("[LUCX] geodata assets: seeded IR/RU/ROSCOM/GA into xrayTemplateConfig")
 	return db.Model(&model.Setting{}).Where("key = ?", "xrayTemplateConfig").Update("value", updated).Error
 }

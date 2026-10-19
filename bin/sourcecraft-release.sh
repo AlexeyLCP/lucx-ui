@@ -118,6 +118,8 @@ geoip_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/lat
 geosite_RU.dat|https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat
 geoip_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat
 geosite_ROSCOM.dat|https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat
+geoip_GA.dat|https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geoip_GA.dat
+geosite_GA.dat|https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geosite_GA.dat
 GEO
     tar -czf "${dest}" -C "${tmp}" .
     rm -rf "${tmp}"

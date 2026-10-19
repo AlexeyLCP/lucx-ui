@@ -194,7 +194,7 @@ x-ui-linux-{amd64,arm64}.tar.gz → x-ui/
             amd64 unpacks third_party gz; arm64 from bin/pack-sidecars.sh + tproxy in release.yml.
 ```
 
-Geo is not in the GitHub panel tarball. `install.sh` / `update.sh` fetch Loyalsoldier + IR/RU/ROSCOM **before** panel start if the file is missing (never fatal). SourceCraft unpacks `x-ui-geo.tar.gz` for missing names only. Xray `geodata.assets` cron (`0 4 * * *`) refreshes all 8 on a live panel.
+Geo is not in the GitHub panel tarball. `install.sh` / `update.sh` fetch Loyalsoldier + IR/RU/ROSCOM/GA **before** panel start if the file is missing (never fatal). SourceCraft unpacks `x-ui-geo.tar.gz` for missing names only. Xray `geodata.assets` cron (`0 4 * * *`) refreshes all 10 on a live panel.
 
 Tunnel sidecars (gzipped) live in `third_party/sidecars/linux-amd64/`. GitHub tarball includes unpacked binaries + `bin/lucx-pins.txt`. SourceCraft stays SLIM amd64 (100 MB cap) and adds `x-ui-sidecars-amd64.tar.gz` (split to `sidecars/*.gz` if over 100 MB).
 

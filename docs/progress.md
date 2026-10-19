@@ -1,5 +1,25 @@
 # LucX-UI — Прогресс
 
+## lucx.305 — Geo-Aggregator (Ground-Zerro) added to the stock geo list (2026-10-18)
+
+Tester request (pegakmop): add `geoip_GA.dat` + `geosite_GA.dat` from Ground-Zerro/Geo-Aggregator next to the existing third-party geobases. GA aggregates Loyalsoldier + v2fly + runetfreedom + itdoginfo + antifilter + b4geoip into RU-blocked domain/IP sets, refreshed daily by their GitHub Actions.
+
+Key constraint: **GA publishes no GitHub releases and no `.dat` checksums** — the files live on `main` as raw.githubusercontent.com URLs. The panel geofile flow (`geofileAllowlist` in `internal/web/service/server.go`) therefore gained a direct-source mode: `geofileEntry.URL` marks a no-release upstream — tag resolution is skipped, the URL is downloaded as-is, the `.sha256sum` verification is not applicable. Because raw.githubusercontent serves no `Last-Modified` (no 304 path), unchanged content is detected by comparing the staged bytes' SHA-256 with the installed file — identical content stages nothing and never restarts Xray (drops live connections). Release-based upstreams keep the pinned-tag + digest flow unchanged.
+
+Stock list goes 8 → 10 (`internal/lucx/geodata.go` `GeodataAssets`; verified the dat contents contain the documented tags, e.g. `itDog-russia-inside`, `category-ru`). Fresh installs get all 10 via `ApplyGeodata` seeding (`setting.go` init + `migrateLucxGeodataAssets` for vanilla-pair panels); **existing LucX panels are not re-seeded** (the `loyalsoldierPairOnly` gate), they get `_GA` via the panel's "use standard sources" button — same rollout as ROSCOM.
+
+Files: `internal/lucx/geodata.go`, `internal/lucx/geodata_test.go`, `internal/database/migrate_geodata.go` (log line), `internal/web/service/server.go` (geofileEntry.URL + direct flow + GA entries), `internal/web/service/server_geofile_test.go`, `internal/web/service/setting.go` (hook comment), `install.sh` (GEO table), `x-ui.sh` (GA dataset as `file:URL`, menu option 5, All → 6), `DockerInit.sh`, `bin/sourcecraft-release.sh` (geo tarball), `frontend/src/pages/index/VersionModal.tsx` (GEOFILES list), `internal/config/config.go` (lucxVersion).
+
+Tests: `TestApplyGeodata` (10 assets, GA present, idempotence kept), `TestStandardGeodataSources` (10 presets, GA raw URLs), new `TestUpdateGeofileInstallsDirectSource` (plain URL installs, no sidecar) and `TestUpdateGeofileDirectSourceSkipsIdenticalContent` (identical bytes → no staging, no Xray restart). `internal/lucx` + geofile tests green locally with CGO; full `internal/web/service` suite is flaky on Windows (TempDir races, different failures on pristine baseline — pre-existing).
+
+**lucxVersion:** lucx.305
+
+Notes: GA routing presets were deliberately not added to `frontend/src/pages/xray/basics/constants.ts` (312 tags — curation left for demand; tokens `ext:geosite_GA.dat:<tag>` work out of the box, the geo browser lists GA categories once the file lands in `bin/`). Existing panels with customized asset lists must click "use standard sources" to pick up GA (Rule 0: no silent config rewrites).
+
+Retest plan: fresh install → 10 geo files present; Version → Geofiles lists 10, per-file and "Update all" work (GA installs without checksum error); `x-ui` menu → option 5 updates GA; on a panel with custom geodata.assets — "use standard sources" re-adds the 10; a second "Update all" run right after does not restart Xray.
+
+---
+
 ## lucx.304 — INCY mixed-sub: AWG export as amneziawg://base64url (2026-10-17)
 
 Tester report (lucx.300): plain-text Base64 SUB with VLESS + AWG + INCY routing — VLESS imports into INCY (iOS, AmneziaWG 3.1), both AWG entries silently missing. Panel's direct AWG config imports fine. Remote stand adapter proof: converting `amneziawg://query` + `vpn://` pairs into one `amneziawg://<base64url .conf>#<name>` per host makes both AWG appear in the same subscription.

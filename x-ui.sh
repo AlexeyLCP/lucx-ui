@@ -1291,8 +1291,9 @@ update_all_geofiles() {
     update_geofiles "main" || failed=1
     update_geofiles "IR" || failed=1
     update_geofiles "RU" || failed=1
-    # LUCX-HOOK: RoscomVPN custom geo
+    # LUCX-HOOK: RoscomVPN + Geo-Aggregator custom geo
     update_geofiles "ROSCOM" || failed=1
+    update_geofiles "GA" || failed=1
     # END LUCX-HOOK
     return $failed
 }
@@ -1320,6 +1321,15 @@ update_geofiles() {
             dat_source=""
             ;;
         # END LUCX-HOOK
+        # LUCX-HOOK: Geo-Aggregator — dat files live on main (no releases, encoded as file:URL)
+        "GA")
+            dat_files=(
+                "geoip_GA:https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geoip_GA.dat"
+                "geosite_GA:https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geosite_GA.dat"
+            )
+            dat_source=""
+            ;;
+        # END LUCX-HOOK
         *)
             echo -e "${red}update_geofiles: unknown dataset '${1}'${plain}"
             return 1
@@ -1341,10 +1351,16 @@ update_geofiles() {
         local dest="${xui_folder}/bin/${dat}.dat"
         local temp_file="${dest}.tmp.$$"
         rm -f "$temp_file"
+        # LUCX-HOOK: source is either a GitHub repo (releases) or a full URL (GA, raw main branch)
+        if [[ "$src" == https://* ]]; then
+            geo_source_url="$src"
+        else
+            geo_source_url="https://github.com/${src}/releases/latest/download/${remote_file}.dat"
+        fi
         # -z (against the live file, not the temp file) skips the download
         # (server answers 304) when the local copy is already current.
-        http_code=$(curl -sSfLRo "$temp_file" -z "$dest" -w '%{http_code}' \
-            https://github.com/${src}/releases/latest/download/${remote_file}.dat)
+        http_code=$(curl -sSfLRo "$temp_file" -z "$dest" -w '%{http_code}' "$geo_source_url")
+        # END LUCX-HOOK
         if [[ $? -ne 0 ]]; then
             echo -e "${red}${dat}.dat: download failed${plain}"
             rm -f "$temp_file"
@@ -1390,9 +1406,10 @@ update_geo() {
     echo -e "${green}\t1.${plain} Loyalsoldier (geoip.dat, geosite.dat)"
     echo -e "${green}\t2.${plain} chocolate4u (geoip_IR.dat, geosite_IR.dat)"
     echo -e "${green}\t3.${plain} runetfreedom (geoip_RU.dat, geosite_RU.dat)"
-    # LUCX-HOOK: RoscomVPN custom geo menu entry
+    # LUCX-HOOK: RoscomVPN + Geo-Aggregator menu entries; All shifted to 6
     echo -e "${green}\t4.${plain} RoscomVPN (geoip_ROSCOM.dat, geosite_ROSCOM.dat)"
-    echo -e "${green}\t5.${plain} All"
+    echo -e "${green}\t5.${plain} Geo-Aggregator (geoip_GA.dat, geosite_GA.dat)"
+    echo -e "${green}\t6.${plain} All"
     # END LUCX-HOOK
     echo -e "${green}\t0.${plain} Back to Main Menu"
     read -rp "Choose an option: " choice
@@ -1410,11 +1427,14 @@ update_geo() {
         3)
             run_geo_update "runetfreedom datasets" update_geofiles "RU"
             ;;
-        # LUCX-HOOK: RoscomVPN option + All shifted to 5
+        # LUCX-HOOK: RoscomVPN/Geo-Aggregator options; All shifted to 6
         4)
             run_geo_update "RoscomVPN datasets" update_geofiles "ROSCOM"
             ;;
         5)
+            run_geo_update "Geo-Aggregator datasets" update_geofiles "GA"
+            ;;
+        6)
             run_geo_update "geo files" update_all_geofiles
             ;;
         # END LUCX-HOOK

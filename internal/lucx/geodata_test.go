@@ -20,8 +20,9 @@ func TestApplyGeodata(t *testing.T) {
 	if err != nil || !changed {
 		t.Fatalf("empty geodata: changed=%v err=%v", changed, err)
 	}
-	assertAssetCount(t, patched, 8)
+	assertAssetCount(t, patched, 10)
 	assertHasFile(t, patched, "geoip_ROSCOM.dat")
+	assertHasFile(t, patched, "geosite_GA.dat")
 	assertCron(t, patched, GeodataCron)
 
 	again, changed, err := ApplyGeodata(patched)
@@ -45,9 +46,9 @@ func TestApplyGeodata(t *testing.T) {
 	if err != nil || !changed {
 		t.Fatalf("loyalsoldier pair: changed=%v err=%v", changed, err)
 	}
-	assertAssetCount(t, patched, 8)
+	assertAssetCount(t, patched, 10)
 	assertHasFile(t, patched, "geosite_IR.dat")
-	assertHasFile(t, patched, "geoip_RU.dat")
+	assertHasFile(t, patched, "geoip_GA.dat")
 	assertCron(t, patched, "0 5 * * *")
 
 	custom := `{

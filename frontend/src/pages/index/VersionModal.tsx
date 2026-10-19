@@ -28,9 +28,11 @@ const GEOFILES = [
   'geoip_IR.dat',
   'geosite_RU.dat',
   'geoip_RU.dat',
-  // LUCX-HOOK: RoscomVPN custom geo (RKN geoblock)
+  // LUCX-HOOK: RoscomVPN + Geo-Aggregator custom geo
   'geosite_ROSCOM.dat',
   'geoip_ROSCOM.dat',
+  'geosite_GA.dat',
+  'geoip_GA.dat',
   // END LUCX-HOOK
 ];
 

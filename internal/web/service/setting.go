@@ -48,7 +48,7 @@ const (
 )
 
 func init() {
-	// LUCX-HOOK: stock Xray geodata auto-update (Loyalsoldier + IR + RU + ROSCOM)
+	// LUCX-HOOK: stock Xray geodata auto-update (Loyalsoldier + IR + RU + ROSCOM + GA)
 	if patched, changed, err := lucx.ApplyGeodata(xrayTemplateConfig); err == nil && changed {
 		xrayTemplateConfig = patched
 		defaultValueMap["xrayTemplateConfig"] = patched

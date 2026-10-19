@@ -25,8 +25,12 @@ var GeodataAssets = []GeodataAsset{
 	{"https://github.com/chocolate4u/Iran-v2ray-rules/releases/latest/download/geosite.dat", "geosite_IR.dat"},
 	{"https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geoip.dat", "geoip_RU.dat"},
 	{"https://github.com/runetfreedom/russia-v2ray-rules-dat/releases/latest/download/geosite.dat", "geosite_RU.dat"},
+	// RoscomVPN custom geo (RKN geoblock lists)
 	{"https://github.com/hydraponique/roscomvpn-geoip/releases/latest/download/geoip.dat", "geoip_ROSCOM.dat"},
 	{"https://github.com/hydraponique/roscomvpn-geosite/releases/latest/download/geosite.dat", "geosite_ROSCOM.dat"},
+	// Geo-Aggregator (Ground-Zerro) — RU blocklist aggregate, published on main
+	{"https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geoip_GA.dat", "geoip_GA.dat"},
+	{"https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geosite_GA.dat", "geosite_GA.dat"},
 }
 
 func geodataAssetMaps() []map[string]any {
