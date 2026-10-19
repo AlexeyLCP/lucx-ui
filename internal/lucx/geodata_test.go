@@ -8,6 +8,8 @@ package lucx
 
 import (
 	"encoding/json"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 )
@@ -64,6 +66,51 @@ func TestApplyGeodata(t *testing.T) {
 	}
 	if out != custom {
 		t.Fatal("custom list must stay")
+	}
+}
+
+func TestSanitizeGeodataAssets(t *testing.T) {
+	t.Parallel()
+
+	bin := t.TempDir()
+	if err := os.WriteFile(filepath.Join(bin, "geoip_GA.dat"), []byte("x"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	raw := []byte(`{
+  "cron": "0 4 * * *",
+  "assets": [
+    {"url": "https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geoip_GA.dat", "file": "geoip_GA.dat"},
+    {"url": "https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geosite_GA.dat", "file": "geosite_GA.dat"}
+  ]
+}`)
+	out := SanitizeGeodataAssets(raw, bin)
+	var geo map[string]any
+	if err := json.Unmarshal(out, &geo); err != nil {
+		t.Fatalf("sanitized json: %v", err)
+	}
+	assets := geo["assets"].([]any)
+	if len(assets) != 1 {
+		t.Fatalf("assets=%d want 1 (only the present file survives)", len(assets))
+	}
+	file := assets[0].(map[string]any)["file"]
+	if file != "geoip_GA.dat" {
+		t.Fatalf("kept %v, want geoip_GA.dat", file)
+	}
+
+	same := SanitizeGeodataAssets(out, bin)
+	if string(same) != string(out) {
+		t.Fatal("idempotent rewrite")
+	}
+
+	if passthrough := SanitizeGeodataAssets([]byte(`{"log":{}}`), bin); string(passthrough) != `{"log":{}}"` && string(passthrough) != `{"log":{}}` {
+		t.Fatalf("no-assets block must pass through, got %q", passthrough)
+	}
+	if bad := SanitizeGeodataAssets([]byte(`{not json`), bin); string(bad) != `{not json` {
+		t.Fatalf("invalid json must pass through, got %q", bad)
+	}
+	if empty := SanitizeGeodataAssets(nil, bin); len(empty) != 0 {
+		t.Fatalf("nil must pass through, got %q", empty)
 	}
 }
 

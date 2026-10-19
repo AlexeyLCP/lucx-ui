@@ -1,5 +1,23 @@
 # LucX-UI — Прогресс
 
+## lucx.306 — missing geodata asset no longer keeps the core down (2026-10-19)
+
+Tester report (Игорь): after `x-ui update` to lucx.305 the core fell into a restart loop — `infra/conf: invalid geodata asset file: geoip_GA.dat > stat .../geoip_GA.dat: no such file or directory`. The seeded `geodata.assets` list reached the generated config while the 35 MB `geoip_GA.dat` never made it to `bin/` (raw.githubusercontent fetch can fail on a slow/blocked host — install fetch is never fatal by design), and the Xray core validates asset presence while building its config, exiting on the first missing file. Every watchdog retry rebuilt the same config → clients offline. Violated the spirit of Rule 0 (an update broke a working panel).
+
+Root fix (shared path): `XrayService.GetXrayConfig` now runs `lucx.SanitizeGeodataAssets` — the config handed to the core keeps only assets whose file exists in the panel's `bin/` folder. The saved `xrayTemplateConfig` template is never touched (Rule 0-safe, operator's GeodataSection intact): as soon as the file is provisioned — install fetch, panel Version → Geofiles button (`UpdateGeofile` restarts the core), `x-ui` menu — the next config build restores the asset automatically. Applies to ALL stock and custom assets, not only GA. install.sh geo fetch `--max-time` raised 180→600 s so the 35 MB GA geoip survives slow links.
+
+Files: `internal/lucx/geodata.go` (`SanitizeGeodataAssets`), `internal/lucx/geodata_test.go`, `internal/web/service/xray.go` (LUCX-HOOK call in `GetXrayConfig`), `install.sh` (fetch timeout), `internal/config/config.go`.
+
+Tests: new `TestSanitizeGeodataAssets` (missing file dropped, present file kept, idempotent, no-assets/invalid-json/nil pass through untouched).
+
+**lucxVersion:** lucx.306
+
+Immediate workaround for a panel stuck on lucx.305 (before lucx.306): fetch the missing file — `curl -fLRo /usr/local/x-ui/bin/geoip_GA.dat https://raw.githubusercontent.com/Ground-Zerro/Geo-Aggregator/main/geodat/geoip_GA.dat` — or panel Version → Geofiles → refresh GA; the core then starts.
+
+Retest plan: panel whose `bin/geoip_GA.dat` is absent starts the core cleanly (asset dropped from the running config only); after `x-ui update-all-geofiles`/Geofiles button the asset returns on the next config rebuild; geodata cron continues refreshing existing files.
+
+---
+
 ## lucx.305 — Geo-Aggregator (Ground-Zerro) added to the stock geo list (2026-10-18)
 
 Tester request (pegakmop): add `geoip_GA.dat` + `geosite_GA.dat` from Ground-Zerro/Geo-Aggregator next to the existing third-party geobases. GA aggregates Loyalsoldier + v2fly + runetfreedom + itdoginfo + antifilter + b4geoip into RU-blocked domain/IP sets, refreshed daily by their GitHub Actions.

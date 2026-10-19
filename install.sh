@@ -167,7 +167,7 @@ lucx_fetch_geofiles() {
             echo -e "${green}Downloading geodata...${plain}"
         fi
         fetched=1
-        if ! curl -fLRo "${dest}/${name}" --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 180 "$url"; then
+        if ! curl -fLRo "${dest}/${name}" --retry 5 --retry-delay 3 --connect-timeout 15 --max-time 600 "$url"; then
             echo -e "${yellow}${name}: download failed${plain}"
             rm -f "${dest}/${name}"
             case "$name" in

@@ -23,7 +23,8 @@ import (
 
 	// LUCX-HOOK: AWG — restore policy routing synchronously after Xray restarts.
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
-	// NaiveProxy tunnel SOCKS egress (injectTunnelEgress).
+	// NaiveProxy tunnel SOCKS egress (injectTunnelEgress) + geodata sanitize.
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	// END LUCX-HOOK
 
@@ -186,6 +187,10 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 	xrayConfig.API = ensureAPIServices(xrayConfig.API)
 	xrayConfig.Policy = ensureStatsPolicy(xrayConfig.Policy)
 	xrayConfig.RouterConfig = stripDisabledRules(xrayConfig.RouterConfig)
+	// LUCX-HOOK: the core exits when a geodata asset file is missing on disk; a
+	// stock entry whose fetch failed must not take the whole core down.
+	xrayConfig.Geodata = lucx.SanitizeGeodataAssets(xrayConfig.Geodata, config.GetBinFolderPath())
+	// END LUCX-HOOK
 	// A pasted or restored template can carry pre-#6258 XHTTP keys, a pre-26.10.10 xdns mask or a
 	// pre-26.9.9 quicParams.udpHop, which the core ignores, or a udphop not last, which it cannot dial.
 	xrayConfig.OutboundConfigs = healOutboundStreams(xrayConfig.OutboundConfigs,
