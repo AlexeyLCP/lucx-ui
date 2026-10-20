@@ -35,15 +35,15 @@ import { useStatusQuery } from '@/api/queries/useStatusQuery';
 import { maskSubnet, subnetsOverlap } from '@/lib/awg/subnet';
 import { useAwgInboundId } from '../awg-inbound-id-context';
 
-// LUCX-HOOK: AWG — map the panel obfLevel (1/2/3/4) and mimicryProfile to the
+// LUCX-HOOK: AWG — map the panel obfLevel (1/2/3/4/5) and mimicryProfile to the
 // backend cps package's profile enums. The backend owns the invariant-
 // enforcing RNG (Jmin<Jmax, |S1+56-S2|>=10, H1-H4 in disjoint quadrants) and
-// the CPS packet generators (TLS/DNS/SIP/QUIC), so the form calls the API
-// instead of a local Math.random stub.
-const OBF_PROFILE: Record<number, string> = { 1: 'lite', 2: 'standard', 3: 'pro', 4: 'premium' };
+// the CPS packet generators (TLS/DNS/SIP/QUIC/RakNet), so the form calls the
+// API instead of a local Math.random stub.
+const OBF_PROFILE: Record<number, string> = { 1: 'lite', 2: 'standard', 3: 'pro', 4: 'premium', 5: 'minecraft' };
 
 function levelToFullI1I5(level: number): boolean {
-  return level === 3;
+  return level === 3 || level === 5;
 }
 
 // generateAwgObfuscationFromBackend calls /panel/api/inbounds/awg/generateObfuscation
@@ -72,6 +72,9 @@ async function generateAwgObfuscationFromBackend(
       fullI1I5,
       awgVersion,
       nodeId,
+      // The minecraft (Bedrock/RakNet) preset embeds this UDP port as the
+      // endpoint of its I3 decoy; other profiles ignore it.
+      serverPort: Number(getValue('port')) || undefined,
     },
     { headers: { 'Content-Type': 'application/json' } },
   );
@@ -195,7 +198,7 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
         setValue(`settings.${k}`, v, { shouldDirty: true });
       }
       const level = (watch('settings.obfLevel') as number) ?? 2;
-      if (level !== 3) {
+      if (level !== 3 && level !== 5) {
         for (const k of ['i2', 'i3', 'i4', 'i5'] as const) {
           setValue(`settings.${k}`, '', { shouldDirty: true });
         }
@@ -373,6 +376,7 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
             { value: 2, label: t('pages.inbounds.form.awgObfStandard') },
             { value: 3, label: t('pages.inbounds.form.awgObfPro') },
             { value: 4, label: t('pages.inbounds.form.awgObfPremium') },
+            { value: 5, label: t('pages.inbounds.form.awgObfMinecraft') },
           ]}
         />
       </FormField>
@@ -655,7 +659,7 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
           <Input placeholder={t('pages.inbounds.form.awgCpsHex')} />
         </FormField>
       )}
-      {obfLevel === 3 && (
+      {(obfLevel === 3 || obfLevel === 5) && (
         <>
           <FormField name={['settings', 'i2']} label="I2">
             <Input placeholder={t('pages.inbounds.form.awgCpsHex')} />

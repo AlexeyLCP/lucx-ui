@@ -20,14 +20,17 @@ import (
 
 // awgGenerateObfuscationRequest is the body the AWG inbound form posts to
 // /panel/api/inbounds/awg/generateObfuscation. obfProfile selects the
-// junk/transport strength (lite/standard/pro/premium); mimicryProfile picks the CPS
-// packet shape (tls/dns/sip/quic); region selects the front-domain pool
+// junk/transport strength (lite/standard/pro/premium/minecraft); mimicryProfile
+// picks the CPS packet shape (tls/dns/sip/quic; ignored for minecraft, which
+// always renders the RakNet set); region selects the front-domain pool
 // (ru/world); domain is an optional explicit front host (empty = random from
-// the pool); fullI1I5 reports whether I1-I5 are all emitted (Pro) or just I1
-// (Lite/Standard). awgVersion targets the AmneziaWG protocol version
+// the pool); fullI1I5 reports whether I1-I5 are all emitted (Pro/Minecraft) or
+// just I1 (Lite/Standard). awgVersion targets the AmneziaWG protocol version
 // ("1.5"/"2"/"3"); when "3", the response carries a freshly generated
 // HeaderProtectionKey (the AWG3 kernel/tools now parse it). nodeId names the
 // host the inbound will run on — null, absent or <= 0 means this master.
+// serverPort (optional) is the inbound's UDP port, embedded by the minecraft
+// profile's I3 decoy as the Bedrock endpoint port (default 19132).
 type awgGenerateObfuscationRequest struct {
 	ObfProfile     string `json:"obfProfile"`
 	MimicryProfile string `json:"mimicryProfile"`
@@ -37,6 +40,7 @@ type awgGenerateObfuscationRequest struct {
 	FullI1I5       bool   `json:"fullI1I5"`
 	AwgVersion     string `json:"awgVersion"`
 	NodeID         *int   `json:"nodeId"`
+	ServerPort     int    `json:"serverPort"`
 }
 
 // awgCPSBudget is the one number the generator and the save-time guard
@@ -83,14 +87,21 @@ func (a *InboundController) awgGenerateObfuscation(c *gin.Context) {
 	// A header-protection key takes netlink bytes the I-fields then cannot have,
 	// so the budget the generator aims at has to know one is coming.
 	withHPK := awgWithHPK(req.AwgVersion, req.NodeID)
-	cpsResult, err := cps.GenerateCPS(
-		cps.MimicryProfile(req.MimicryProfile),
-		cps.Region(req.Region),
-		req.Domain,
-		cps.BrowserProfile(req.BrowserProfile),
-		!req.FullI1I5, // GenerateCPS's onlyI1 is the inverse of "full I1-I5"
-		awgCPSBudget(withHPK),
-	)
+	// The minecraft preset always renders the RakNet set — the tls/dns/sip/quic
+	// pools are meaningless for it, so GenerateCPS is bypassed entirely.
+	var cpsResult cps.CPSResult
+	if req.ObfProfile == string(cps.ObfMinecraft) {
+		cpsResult, err = cps.GenerateMinecraftCPS("", req.ServerPort, !req.FullI1I5, awgCPSBudget(withHPK))
+	} else {
+		cpsResult, err = cps.GenerateCPS(
+			cps.MimicryProfile(req.MimicryProfile),
+			cps.Region(req.Region),
+			req.Domain,
+			cps.BrowserProfile(req.BrowserProfile),
+			!req.FullI1I5, // GenerateCPS's onlyI1 is the inverse of "full I1-I5"
+			awgCPSBudget(withHPK),
+		)
+	}
 	if err != nil {
 		jsonMsg(c, "awg obfuscation: CPS generation failed", err)
 		return

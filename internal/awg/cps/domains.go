@@ -47,14 +47,17 @@ const (
 
 // ObfProfile is the obfuscation strength preset. Lite = light junk + DNS I1;
 // Standard = medium junk + TLS I1; Pro = heavy junk + full I1-I5;
-// Premium = TLS 1.3 handshake sizes (S1/S2/S3) + H=1-4 under HPK + I1.
+// Premium = TLS 1.3 handshake sizes (S1/S2/S3) + H=1-4 under HPK + I1;
+// Minecraft = Minecraft Bedrock (RakNet) packet sizes + RakNet IDs + full
+// RakNet I1-I5 (ported from phenomenonrt.github.io, balanced mode).
 type ObfProfile string
 
 const (
-	ObfLite     ObfProfile = "lite"
-	ObfStandard ObfProfile = "standard"
-	ObfPro      ObfProfile = "pro"
-	ObfPremium  ObfProfile = "premium"
+	ObfLite      ObfProfile = "lite"
+	ObfStandard  ObfProfile = "standard"
+	ObfPro       ObfProfile = "pro"
+	ObfPremium   ObfProfile = "premium"
+	ObfMinecraft ObfProfile = "minecraft"
 )
 
 // Domain pools. Ported from pumbaX/awg-multi-script (awg2.sh). These are

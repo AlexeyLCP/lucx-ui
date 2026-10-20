@@ -1,5 +1,27 @@
 # LucX-UI — Прогресс
 
+## lucx.307 — Minecraft Bedrock (RakNet) obfuscation preset (2026-10-19)
+
+Operator request: add a Minecraft Bedrock preset to the AWG obfuscation generator the same way as the Amnezia Premium preset, following phenomenonrt.github.io ("Mimicry Generator — AmneziaWG × Minecraft"). The site generates AWG param sets whose junk/transport byte shapes imitate Minecraft Bedrock RakNet packets; we ported its **balanced** profile as a fifth `obfProfile` value `minecraft` (select option 5).
+
+Generator (`internal/awg/cps/params.go` `generateMinecraftParams`): junk band Jc 4-7, Jmin 48-96, Jmax jmin+32..800 (the site's Bedrock game-packet size range); v2 headers reuse the real RakNet IDs `5`, `7`, `28`, `132-143` (open-connection requests, unconnected pong, game packets 0x84-0x8f); v3/3.1 uses the standard compat `1,2,3,4` because header protection encrypts the header (same choice as Premium); 1.5 keeps single values with no range. S band 40-88/40-88/16-44/8-24 (v3: one shared base 16-28 for all four, per the site's equal-padding scheme), always >= MinSForHPK, with nudges for the two attainable total-size collisions (S2==S1+56, S3==S2+28) so `Validate()` holds on every draw.
+
+CPS set (`internal/awg/cps/session_bedrock.go`, new): I1 unconnected ping (0x01, timestamp + 16-byte RakNet offline magic + GUID), I2 open-connection request 1 (0x05, magic, protocol 11, 28 zero MTU-probe bytes), I3 open-connection request 2 (0x07, magic, AF_INET + endpoint IPv4 + port + MTU 1400 + GUID), I4/I5 game packets (0x84, 3-byte sequence, payload 128-192 / 288-416 bytes drawn per send). The endpoint port comes from the form (`serverPort` request field, new); an unusable endpoint falls back to TEST-NET-1 192.0.2.1 and port 19132 exactly like the source generator. The redraw-vs-budget contract is shared with the other profiles via a small `generateWithBudget` refactor (`cps.go`). RandomTrailers/DisableCookies stay off by default (panel law: auto-on breaks current GUI clients), so of the site's AWG 3.1 extras only the HPK and timer ranges apply.
+
+Controller `awgGenerateObfuscationRequest` gained `serverPort`; `obfProfile=minecraft` bypasses the domain-pool `GenerateCPS` path. Frontend: obfLevel schema max 5, new select option, level 5 shows I2-I5 and sends `fullI1I5`; i18n `awgObfMinecraft` in all 13 locales (hint updated in en/ru); api-docs updated; `openapi.json` regenerated.
+
+Files: `internal/awg/cps/{domains,params,cps}.go`, `internal/awg/cps/session_bedrock.go` + tests, `internal/web/controller/awg.go`, `frontend/src/pages/inbounds/form/protocols/awg.tsx`, `frontend/src/schemas/protocols/inbound/awg.ts`, `frontend/src/pages/api-docs/endpoints.ts`, `frontend/public/openapi.json`, all 13 `internal/web/translation/*.json`, `internal/config/config.go`. Credits: the source generator is phenomenonRT's site phenomenonrt.github.io — credited in code comments, this entry, the README inspiration tables (RU + EN) and the linked-projects line in all 5 further locale READMEs (the site has no public source repo or license; the profile is re-implemented from its output, not copied).
+
+Tests: `TestGenerateAWGParams_Minecraft` (200 draws per version: panel invariants, RakNet H sets, >= MinSForHPK, HPK accepted), `TestGenerateMinecraftCPS_Content` (RakNet literals incl. endpoint/port/MTU encoding, onlyI1, budget refusal), `TestSanitizeBedrockEndpoint`, and the full RakNet set imported through a live amneziawg-go `IpcSet` (client parser accepts every descriptor tag it uses). `internal/awg/...`, `internal/lucx/...` green; frontend typecheck/lint/unit (1573) green, build green.
+
+**lucxVersion:** lucx.307
+
+Notes: the preset imitates Bedrock/RakNet byte shape and sizes, like Premium imitates TLS — it is not a transport-compatible RakNet handshake replay. The I3 decoy embeds TEST-NET-1 as endpoint IP (the panel does not know the export host at inbound-form time); endpoint port is the inbound's real UDP port. The site's Java (TCP) profile was deliberately not ported.
+
+Retest plan: create an AWG inbound, pick "Minecraft Bedrock", click Regenerate — form fills Jc/Jmin/Jmax/S1-S4/H5-7-28-132-143 (or 1-4 with HPK on AWG3) and RakNet I1-I5; save, download client .conf — handshakes on AWG 2 and AWG 3 hosts; switching back to another profile regenerates TLS-shaped signatures.
+
+---
+
 ## lucx.306 — missing geodata asset no longer keeps the core down (2026-10-19)
 
 Tester report (Игорь): after `x-ui update` to lucx.305 the core fell into a restart loop — `infra/conf: invalid geodata asset file: geoip_GA.dat > stat .../geoip_GA.dat: no such file or directory`. The seeded `geodata.assets` list reached the generated config while the 35 MB `geoip_GA.dat` never made it to `bin/` (raw.githubusercontent fetch can fail on a slow/blocked host — install fetch is never fatal by design), and the Xray core validates asset presence while building its config, exiting on the first missing file. Every watchdog retry rebuilt the same config → clients offline. Violated the spirit of Rule 0 (an update broke a working panel).

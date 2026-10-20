@@ -387,14 +387,21 @@ export const sections: readonly Section[] = [
             in: 'body',
             type: 'string',
             optional: true,
-            desc: 'Obfuscation preset: "lite", "standard", "pro", or "premium". Defaults to "standard".',
+            desc: 'Obfuscation preset: "lite", "standard", "pro", "premium", or "minecraft" (Minecraft Bedrock/RakNet; renders its own I1-I5 and ignores mimicryProfile). Defaults to "standard".',
           },
           {
             name: 'mimicryProfile',
             in: 'body',
             type: 'string',
             optional: true,
-            desc: 'CPS mimicry type: "tls", "dns", "sip", or "quic". Defaults to "tls".',
+            desc: 'CPS mimicry type: "tls", "dns", "sip", or "quic". Defaults to "tls". Ignored for "minecraft".',
+          },
+          {
+            name: 'serverPort',
+            in: 'body',
+            type: 'number',
+            optional: true,
+            desc: 'The inbound\'s UDP port, embedded by the "minecraft" preset in I3 as the Bedrock endpoint port. Defaults to 19132.',
           },
           {
             name: 'browserProfile',

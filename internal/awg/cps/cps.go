@@ -46,11 +46,20 @@ func (r CPSResult) IBytes() int {
 // target interface). It refuses rather than shedding fields: a set the operator
 // cannot save beats one that silently carries fewer packets than it asked for.
 func GenerateCPS(profile MimicryProfile, region Region, domain string, browser BrowserProfile, onlyI1 bool, maxIBytes int) (CPSResult, error) {
+	return generateWithBudget(onlyI1, maxIBytes, func(onlyI1 bool) (CPSResult, error) {
+		return generateCPSOnce(profile, region, domain, browser, onlyI1)
+	})
+}
+
+// generateWithBudget holds the redraw-vs-netlink-budget loop every generator
+// shares: draw a rendered set, keep the smallest draw so far, and refuse
+// (ErrCPSBudgetExceeded) when nothing fits in generateAttempts rolls.
+func generateWithBudget(onlyI1 bool, maxIBytes int, build func(onlyI1 bool) (CPSResult, error)) (CPSResult, error) {
 	smallest := 0
 	for try := 0; try < generateAttempts; try++ {
-		r, err := generateCPSOnce(profile, region, domain, browser, onlyI1)
+		r, err := build(onlyI1)
 		if err != nil {
-			return r, err
+			return CPSResult{}, err
 		}
 		got := r.IBytes()
 		if got <= maxIBytes {

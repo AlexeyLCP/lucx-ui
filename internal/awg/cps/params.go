@@ -224,6 +224,9 @@ func GenerateAWGParams(profile ObfProfile, awgVersion string) (AWGParams, error)
 	if profile == ObfPremium {
 		return generatePremiumParams(awgVersion), nil
 	}
+	if profile == ObfMinecraft {
+		return generateMinecraftParams(awgVersion), nil
+	}
 	r, err := rangesFor(profile)
 	if err != nil {
 		return AWGParams{}, err
@@ -280,6 +283,51 @@ func generatePremiumParams(awgVersion string) AWGParams {
 		p.H1, p.H2, p.H3, p.H4 = "1", "2", "3", "4"
 	default:
 		p.H1, p.H2, p.H3, p.H4 = genHRange(0), genHRange(1), genHRange(2), genHRange(3)
+	}
+	return p
+}
+
+// generateMinecraftParams renders the Minecraft Bedrock (RakNet) obfuscation
+// set, ported from phenomenonrt.github.io's "balanced" profile. Junk sizes sit
+// in the range of real Bedrock game packets (Jmin 48-96, Jmax 300-800); v2
+// headers reuse the actual RakNet IDs (open-connection requests, unconnected
+// pong, game packets 0x84-0x8f), v3 header protection encrypts the header so
+// the standard compat values 1-4 are used (same choice as ObfPremium). S
+// values follow the profile's balanced band but stay >= MinSForHPK and keep
+// the panel's pairwise-distinct packet totals (Validate).
+func generateMinecraftParams(awgVersion string) AWGParams {
+	jc := randInt(4, 7)
+	jmin := randInt(48, 96)
+	jmax := randInt(jmin+32, 800)
+	var s1, s2, s3, s4 int
+	if awgVersion == "3" || awgVersion == "3.1" {
+		s1 = randInt(16, 28)
+		s4 = s1
+		s2 = s1
+		s3 = s1
+	} else {
+		s1 = randInt(40, 88)
+		s2 = randInt(40, 88)
+		s3 = randInt(16, 44)
+		s4 = enforceSMin(randInt(8, 24))
+		// The two collisions Validate can hit on these bands: init (148+S1) vs
+		// response (92+S2) at S2 == S1+56, and response vs cookie (64+S3) at
+		// S3 == S2+28. Nudge past them like the source generator does.
+		if s2 == s1+56 {
+			s2++
+		}
+		if s3 == s2+28 {
+			s3++
+		}
+	}
+	p := AWGParams{Jc: jc, Jmin: jmin, Jmax: jmax, S1: s1, S2: s2, S3: s3, S4: s4}
+	switch awgVersion {
+	case "1.5":
+		p.H1, p.H2, p.H3, p.H4 = "5", "7", "28", "132"
+	case "3", "3.1":
+		p.H1, p.H2, p.H3, p.H4 = "1", "2", "3", "4"
+	default:
+		p.H1, p.H2, p.H3, p.H4 = "5", "7", "28", "132-143"
 	}
 	return p
 }

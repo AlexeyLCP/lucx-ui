@@ -6189,11 +6189,15 @@
                 "properties": {
                   "obfProfile": {
                     "type": "string",
-                    "description": "Obfuscation preset: \"lite\", \"standard\", \"pro\", or \"premium\". Defaults to \"standard\"."
+                    "description": "Obfuscation preset: \"lite\", \"standard\", \"pro\", \"premium\", or \"minecraft\" (Minecraft Bedrock/RakNet; renders its own I1-I5 and ignores mimicryProfile). Defaults to \"standard\"."
                   },
                   "mimicryProfile": {
                     "type": "string",
-                    "description": "CPS mimicry type: \"tls\", \"dns\", \"sip\", or \"quic\". Defaults to \"tls\"."
+                    "description": "CPS mimicry type: \"tls\", \"dns\", \"sip\", or \"quic\". Defaults to \"tls\". Ignored for \"minecraft\"."
+                  },
+                  "serverPort": {
+                    "type": "integer",
+                    "description": "The inbound's UDP port, embedded by the \"minecraft\" preset in I3 as the Bedrock endpoint port. Defaults to 19132."
                   },
                   "browserProfile": {
                     "type": "string",
