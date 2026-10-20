@@ -40,7 +40,13 @@ import { useAwgInboundId } from '../awg-inbound-id-context';
 // enforcing RNG (Jmin<Jmax, |S1+56-S2|>=10, H1-H4 in disjoint quadrants) and
 // the CPS packet generators (TLS/DNS/SIP/QUIC/RakNet), so the form calls the
 // API instead of a local Math.random stub.
-const OBF_PROFILE: Record<number, string> = { 1: 'lite', 2: 'standard', 3: 'pro', 4: 'premium', 5: 'minecraft' };
+const OBF_PROFILE: Record<number, string> = {
+  1: 'lite',
+  2: 'standard',
+  3: 'pro',
+  4: 'premium',
+  5: 'minecraft',
+};
 
 function levelToFullI1I5(level: number): boolean {
   return level === 3 || level === 5;
