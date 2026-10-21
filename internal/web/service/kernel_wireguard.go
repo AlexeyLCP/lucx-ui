@@ -14,6 +14,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
@@ -118,3 +119,22 @@ func kernelWireguardBridgeChanged(old, new *model.Inbound) bool {
 }
 
 func isKernelWireguardInbound(ib *model.Inbound) bool { return kernelwg.IsKernel(ib) }
+
+func (s *InboundService) applyLocalKernelWireguard(id int) {
+	ib, err := s.GetInbound(id)
+	if err != nil || !kernelwg.IsKernel(ib) || ib.NodeID != nil {
+		return
+	}
+	if !ib.Enable {
+		err = kernelwg.GetManager().Remove(id)
+	} else {
+		var inst kernelwg.Instance
+		inst, err = kernelwg.Parse(ib)
+		if err == nil {
+			err = kernelwg.GetManager().Ensure(inst)
+		}
+	}
+	if err != nil {
+		logger.Warningf("kernel WireGuard inbound %d client apply: %v", id, err)
+	}
+}

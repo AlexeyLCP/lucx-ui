@@ -117,3 +117,17 @@ func TestKernelWireguardAutoTagChangeRestartsBridge(t *testing.T) {
 		t.Fatalf("auto-tag bridge not refreshed: tag=%s restart=%v", saved.Tag, restart)
 	}
 }
+
+func TestKernelWireguardClientMutationRejectsUnsupportedAddress(t *testing.T) {
+	setupEnablePortTest(t)
+	ib := kernelWireguardTestInbound(t)
+	if err := database.GetDB().Create(ib).Error; err != nil {
+		t.Fatal(err)
+	}
+	peer := model.Client{Email: "invalid-kernel-peer", Enable: true, PublicKey: base64.StdEncoding.EncodeToString([]byte(strings.Repeat("b", 32))), AllowedIPs: []string{"fd00::2/128"}}
+	settings, _ := json.Marshal(map[string]any{"clients": []model.Client{peer}})
+	_, err := (&ClientService{}).AddInboundClient(&InboundService{}, &model.Inbound{Id: ib.Id, Settings: string(settings)})
+	if err == nil {
+		t.Fatal("kernel client accepted an IPv6 peer and invalidated its inbound")
+	}
+}
