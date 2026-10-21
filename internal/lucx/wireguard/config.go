@@ -42,12 +42,12 @@ func RenderFirewall(i Instance) string {
  }
  chain forward {
   type filter hook forward priority filter; policy accept;
-  iifname "%s" counter drop
+  iifname "%s" counter drop comment "%s"
  }
  chain input {
   type filter hook input priority filter; policy accept;
   iifname "%s" meta nfproto ipv6 counter drop
  }
 }
-`, i.FirewallTable(), owner, i.Name(), prefix.Masked(), i.Name(), i.TproxyPort, i.Mark(), i.Name(), i.Name(), i.Name())
+`, i.FirewallTable(), owner, i.Name(), prefix.Masked(), i.Name(), i.TproxyPort, i.Mark(), i.Name(), i.Name(), owner, i.Name())
 }

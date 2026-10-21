@@ -197,7 +197,7 @@ func TestKernelWireguardNetNSWorker(t *testing.T) {
 	probe("udp", false)
 	before := strings.TrimSpace(run("wg", "show", inst.Name(), "latest-handshakes"))
 	if err = manager.Ensure(inst); err != nil {
-		t.Fatal(err)
+		t.Fatalf("%v; nft JSON: %s", err, run("nft", "-j", "list", "table", "inet", inst.FirewallTable()))
 	}
 	after := strings.TrimSpace(run("wg", "show", inst.Name(), "latest-handshakes"))
 	if before != after {

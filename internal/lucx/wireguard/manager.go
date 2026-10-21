@@ -150,27 +150,35 @@ func (m *Manager) configure(i Instance, operation string) error {
 	return err
 }
 
+func ownedFirewall(data []byte, i Instance) bool {
+	var parsed struct {
+		Entries []struct {
+			Table struct {
+				Comment string `json:"comment"`
+			} `json:"table"`
+			Rule struct {
+				Family  string `json:"family"`
+				Table   string `json:"table"`
+				Comment string `json:"comment"`
+			} `json:"rule"`
+		} `json:"nftables"`
+	}
+	if json.Unmarshal(data, &parsed) != nil {
+		return false
+	}
+	for _, entry := range parsed.Entries {
+		if entry.Table.Comment == owner || entry.Rule.Family == "inet" && entry.Rule.Table == i.FirewallTable() && entry.Rule.Comment == owner {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *Manager) firewall(i Instance) error {
 	prefix := ""
 	out, err := m.run("nft", "-j", "list", "table", "inet", i.FirewallTable())
 	if err == nil {
-		var data struct {
-			Rules []struct {
-				Table struct {
-					Comment string `json:"comment"`
-				} `json:"table"`
-			} `json:"nftables"`
-		}
-		if json.Unmarshal(out, &data) != nil {
-			return fmt.Errorf("invalid nft table ownership")
-		}
-		ours := false
-		for _, r := range data.Rules {
-			if r.Table.Comment == owner {
-				ours = true
-			}
-		}
-		if !ours {
+		if !ownedFirewall(out, i) {
 			return fmt.Errorf("refusing unowned nft table %s", i.FirewallTable())
 		}
 		prefix = "delete table inet " + i.FirewallTable() + "\n"
@@ -374,7 +382,7 @@ func (m *Manager) remove(id int) error {
 	}
 	data, err := m.run("nft", "-j", "list", "table", "inet", i.FirewallTable())
 	if err == nil {
-		if !strings.Contains(string(data), `"`+owner+`"`) {
+		if !ownedFirewall(data, i) {
 			return fmt.Errorf("refusing to remove unowned nft table")
 		}
 		if _, err = m.run("nft", "delete", "table", "inet", i.FirewallTable()); err != nil {

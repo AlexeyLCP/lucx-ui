@@ -297,3 +297,15 @@ func TestFailedCleanupIsRetriedWithoutAnInterface(t *testing.T) {
 		t.Fatal("cleanup did not retry the orphan route")
 	}
 }
+
+func TestFirewallOwnershipWorksWithoutTableComments(t *testing.T) {
+	i := Instance{ID: 7}
+	oldNFT := []byte(`{"nftables":[{"table":{"family":"inet","name":"lxwg_7"}},{"rule":{"family":"inet","table":"lxwg_7","chain":"forward","comment":"lucx-kernel-wireguard"}}]}`)
+	if !ownedFirewall(oldNFT, i) {
+		t.Fatal("rule ownership marker was ignored")
+	}
+	foreign := []byte(`{"nftables":[{"table":{"family":"inet","name":"lxwg_7"}},{"rule":{"family":"inet","table":"foreign","comment":"lucx-kernel-wireguard"}}]}`)
+	if ownedFirewall(foreign, i) {
+		t.Fatal("foreign table accepted")
+	}
+}
