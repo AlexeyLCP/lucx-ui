@@ -25,6 +25,7 @@ type kernelWireguardStore interface {
 type kernelWireguardManager interface {
 	ReconcilePreserving([]kernelwg.Instance, []int) []error
 	CollectTraffic() []kernelwg.Usage
+	RevokeDisallowed(*model.Inbound) error
 }
 type KernelWireguardJob struct {
 	store    kernelWireguardStore
@@ -52,7 +53,10 @@ func (j *KernelWireguardJob) Run() {
 		}
 		inst, err := kernelwg.Parse(ib)
 		if err != nil {
-			logger.Warningf("kernel WireGuard inbound %d retained without changes: %v", ib.Id, err)
+			logger.Warningf("kernel WireGuard inbound %d device settings retained: %v", ib.Id, err)
+			if revokeErr := j.manager.RevokeDisallowed(ib); revokeErr != nil {
+				logger.Warningf("kernel WireGuard inbound %d revoke: %v", ib.Id, revokeErr)
+			}
 			preserve = append(preserve, ib.Id)
 			continue
 		}

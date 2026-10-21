@@ -136,6 +136,8 @@ func (s *InboundService) applyLocalKernelWireguard(id int) {
 		inst, err = kernelwg.Parse(ib)
 		if err == nil {
 			err = kernelwg.GetManager().Ensure(inst)
+		} else {
+			err = kernelwg.GetManager().RevokeDisallowed(ib)
 		}
 	}
 	if err != nil {

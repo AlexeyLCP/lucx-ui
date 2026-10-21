@@ -43,10 +43,16 @@ func (s *kernelJobStore) RefreshLocalOnlineClients(e, t []string) { s.emails = e
 type kernelJobManager struct {
 	usage     []kernelwg.Usage
 	preserved []int
+	revoked   []int
 }
 
 func (m *kernelJobManager) ReconcilePreserving(_ []kernelwg.Instance, p []int) []error {
 	m.preserved = p
+	return nil
+}
+
+func (m *kernelJobManager) RevokeDisallowed(ib *model.Inbound) error {
+	m.revoked = append(m.revoked, ib.Id)
 	return nil
 }
 func (m *kernelJobManager) CollectTraffic() []kernelwg.Usage { return m.usage }
@@ -83,6 +89,9 @@ func TestKernelWireguardJobPreservesMalformedInbound(t *testing.T) {
 	manager := &kernelJobManager{}
 	j := &KernelWireguardJob{store: store, manager: manager, now: time.Now}
 	j.Run()
+	if len(manager.revoked) != 1 || manager.revoked[0] != 7 {
+		t.Fatal("invalid inbound skipped revocation")
+	}
 	if len(manager.preserved) != 1 || manager.preserved[0] != 7 {
 		t.Fatal("invalid inbound was not preserved")
 	}

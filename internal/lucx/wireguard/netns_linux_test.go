@@ -20,6 +20,7 @@ import (
 	"syscall"
 	"testing"
 	"time"
+	"unicode/utf8"
 
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 	"golang.org/x/sys/unix"
@@ -206,6 +207,17 @@ func TestKernelWireguardNetNSWorker(t *testing.T) {
 	if before != after {
 		t.Fatal("no-op reconcile discarded handshake")
 	}
+	inst.FwMark = 1234
+	if err = manager.Ensure(inst); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(run("wg", "show", inst.Name(), "fwmark")) != "0x4d2" {
+		t.Fatal("transport mark was not applied")
+	}
+	if strings.TrimSpace(run("wg", "show", inst.Name(), "latest-handshakes")) != after {
+		t.Fatal("transport mark change reset the handshake")
+	}
+	probe("udp", false)
 	run("nft", "delete", "table", "inet", inst.FirewallTable())
 	if err = manager.Ensure(inst); err != nil {
 		t.Fatal(err)
@@ -220,6 +232,20 @@ func TestKernelWireguardNetNSWorker(t *testing.T) {
 	if up == 0 || down == 0 {
 		t.Fatal("kernel traffic was not accounted")
 	}
+	invalid := testInbound(t)
+	invalid.Settings = strings.Replace(invalid.Settings, testKey(1), "invalid", 1)
+	if err = manager.RevokeDisallowed(invalid); err != nil {
+		t.Fatal(err)
+	}
+	if strings.TrimSpace(run("wg", "show", inst.Name(), "peers")) != "" {
+		t.Fatal("deleted peer retained access under invalid device settings")
+	}
+	if err = manager.Ensure(inst); err != nil {
+		t.Fatal(err)
+	}
+	run("ip", "netns", "exec", ns, "wg", "set", "wgclient", "peer", serverPublic, "remove")
+	run("ip", "netns", "exec", ns, "wg", "setconf", "wgclient", client)
+	probe("udp", false)
 	udp.Close()
 	reply.Close()
 	tcp.Close()
@@ -241,5 +267,12 @@ func TestSystemCommandReportsBoundedRedactedStderr(t *testing.T) {
 	_, err := systemCommand("", "sh", "-c", "printf '%s' '"+secret+" "+strings.Repeat("x", 800)+"' >&2; exit 7")
 	if err == nil || !strings.Contains(err.Error(), "exit 7") || !strings.Contains(err.Error(), "[redacted-key]") || strings.Contains(err.Error(), secret) || len(err.Error()) > 650 {
 		t.Fatalf("unsafe or missing command diagnostics: %v", err)
+	}
+}
+
+func TestSystemCommandDiagnosticTruncationPreservesUTF8(t *testing.T) {
+	_, err := systemCommand("", "sh", "-c", "printf '%s' '"+"x"+strings.Repeat("я", 400)+"' >&2; exit 7")
+	if err == nil || !utf8.ValidString(err.Error()) || len(err.Error()) > 650 {
+		t.Fatalf("invalid or unbounded UTF-8 diagnostic: %v", err)
 	}
 }

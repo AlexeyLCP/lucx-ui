@@ -20,6 +20,10 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 )
@@ -40,13 +44,16 @@ type managed struct {
 	cleanup     bool
 }
 type Manager struct {
-	mu       sync.Mutex
-	dir      string
-	command  Command
-	current  map[int]managed
-	counters *Counters
-	pending  []Usage
+	mu           sync.Mutex
+	dir          string
+	command      Command
+	current      map[int]managed
+	counters     *Counters
+	pending      []Usage
+	inputWarning bool
 }
+
+var diagnosticKeys = regexp.MustCompile(`[A-Za-z0-9+/]{32,}=?`)
 
 var singleton struct {
 	sync.Once
@@ -75,7 +82,7 @@ func (b *diagnosticBuffer) Write(p []byte) (int, error) {
 	return n, nil
 }
 
-func (b *diagnosticBuffer) String() string { return string(b.data) }
+func (b *diagnosticBuffer) String() string { return strings.ToValidUTF8(string(b.data), "�") }
 
 func missingInputRule(err error) bool {
 	var exit *exec.ExitError
@@ -99,13 +106,17 @@ func systemCommand(input string, args ...string) ([]byte, error) {
 		if errors.As(err, &exit) {
 			code = exit.ExitCode()
 		}
-		detail := regexp.MustCompile(`[A-Za-z0-9+/]{32,}=?`).ReplaceAllString(stderr.String(), "[redacted-key]")
+		detail := diagnosticKeys.ReplaceAllString(stderr.String(), "[redacted-key]")
 		detail = strings.Join(strings.Fields(detail), " ")
 		if detail == "" {
 			detail = err.Error()
 		}
 		if len(detail) > 512 {
-			detail = detail[:512] + "…"
+			detail = detail[:512]
+			for !utf8.ValidString(detail) {
+				detail = detail[:len(detail)-1]
+			}
+			detail += "…"
 		}
 		return nil, fmt.Errorf("kernel WireGuard %s operation failed (exit %d): %s: %w", args[0], code, detail, err)
 	}
@@ -231,6 +242,12 @@ func inputRuleArgs(i Instance, operation string) []string {
 
 func (m *Manager) ensureInput(i Instance) error {
 	if _, err := m.run(inputRuleArgs(i, "-C")...); err == nil {
+		return nil
+	} else if errors.Is(err, exec.ErrNotFound) {
+		if !m.inputWarning {
+			logger.Warning("kernel WireGuard: iptables unavailable; allow marked tunnel input in the host nftables firewall")
+			m.inputWarning = true
+		}
 		return nil
 	} else if !missingInputRule(err) {
 		return err
@@ -359,6 +376,11 @@ func (m *Manager) ensure(i Instance) error {
 		}
 		return e
 	}
+	if exists && (!known || current.inst.FwMark != i.FwMark) {
+		if _, err = m.run("wg", "set", i.Name(), "fwmark", strconv.FormatUint(uint64(i.FwMark), 10)); err != nil {
+			return err
+		}
+	}
 	if !exists || !known || current.peers != peerFP {
 		op := "syncconf"
 		if !exists {
@@ -392,6 +414,79 @@ func (m *Manager) ensure(i Instance) error {
 	m.current[i.ID] = managed{inst: i, fingerprint: i.DeviceFingerprint(), peers: peerFP}
 	return nil
 }
+
+// RevokeDisallowed only removes access; invalid device settings must never grant peers.
+func (m *Manager) RevokeDisallowed(ib *model.Inbound) error {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if ib.Id < 1 || ib.Id > 65535 {
+		return fmt.Errorf("invalid kernel WireGuard ID")
+	}
+	i := Instance{ID: ib.Id}
+	exists, err := m.owned(i)
+	if err != nil || !exists {
+		return err
+	}
+	type accessPeer struct {
+		PublicKey string `json:"publicKey"`
+		Email     string `json:"email"`
+		Enable    *bool  `json:"enable"`
+	}
+	var access struct {
+		Clients []accessPeer `json:"clients"`
+		Peers   []accessPeer `json:"peers"`
+	}
+	decodeErr := json.Unmarshal([]byte(ib.Settings), &access)
+	allowed := map[string]bool{}
+	disabled := map[string]bool{}
+	for _, ct := range ib.ClientStats {
+		if !ct.Enable || ct.ExpiryTime > 0 && ct.ExpiryTime <= time.Now().UnixMilli() || ct.Total > 0 && ct.Up+ct.Down >= ct.Total {
+			disabled[ct.Email] = true
+		}
+	}
+	if decodeErr == nil && !(len(access.Clients) > 0 && len(access.Peers) > 0) {
+		for _, p := range append(access.Clients, access.Peers...) {
+			if validKey(p.PublicKey) && (p.Enable == nil || *p.Enable) && !disabled[p.Email] {
+				allowed[p.PublicKey] = true
+			}
+		}
+	}
+	current, known := m.current[i.ID]
+	if known {
+		m.sample(current.inst)
+	}
+	out, err := m.run("wg", "show", i.Name(), "peers")
+	if err != nil {
+		return err
+	}
+	for _, key := range strings.Fields(string(out)) {
+		if !validKey(key) {
+			return fmt.Errorf("invalid live WireGuard peer key")
+		}
+		if allowed[key] {
+			continue
+		}
+		if _, err = m.run("wg", "set", i.Name(), "peer", key, "remove"); err != nil {
+			return err
+		}
+		if known {
+			var peers []Peer
+			for _, p := range current.inst.Peers {
+				if p.PublicKey != key {
+					peers = append(peers, p)
+				}
+			}
+			current.inst.Peers = peers
+			current.peers = ""
+			m.current[i.ID] = current
+		}
+	}
+	if decodeErr != nil {
+		return fmt.Errorf("unreadable kernel WireGuard access list; all live peers revoked")
+	}
+	return nil
+}
+
 func (m *Manager) Remove(id int) error { m.mu.Lock(); defer m.mu.Unlock(); return m.remove(id) }
 func (m *Manager) remove(id int) error {
 	current, ok := m.current[id]
@@ -456,7 +551,7 @@ func (m *Manager) remove(id int) error {
 		if _, e = m.run(inputRuleArgs(i, "-D")...); e != nil {
 			return e
 		}
-	} else if !missingInputRule(e) {
+	} else if !missingInputRule(e) && !errors.Is(e, exec.ErrNotFound) {
 		return e
 	}
 	path := m.path(i)

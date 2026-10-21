@@ -7,10 +7,15 @@
 package wireguard
 
 import (
+	"errors"
 	"fmt"
 	"io"
+	"os/exec"
 	"strings"
 	"testing"
+	"unicode/utf8"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
 
 func TestManagerPeerEditSyncsWithoutRecreatingDevice(t *testing.T) {
@@ -357,5 +362,119 @@ func TestDiagnosticBufferCapsReaderCopy(t *testing.T) {
 	_, err := io.Copy(&buffer, io.LimitReader(strings.NewReader(strings.Repeat("x", 65536)), 65536))
 	if err != nil || len(buffer.String()) > 4096 {
 		t.Fatalf("stderr buffer bypassed its limit: bytes=%d err=%v", len(buffer.String()), err)
+	}
+}
+
+func TestInvalidInboundRevokesPeersWithoutGrantingAccess(t *testing.T) {
+	ib := testInbound(t)
+	ib.Settings = strings.Replace(ib.Settings, testKey(1), "invalid", 1)
+	ib.Settings = strings.Replace(ib.Settings, `"clients":[`, `"clients":[{"email":"active","publicKey":"`+testKey(6)+`","allowedIPs":false},{"email":"expired","publicKey":"`+testKey(8)+`"},`, 1)
+	ib.ClientStats = []xray.ClientTraffic{{Email: "alice", Enable: true, Total: 10, Up: 10}, {Email: "expired", Enable: true, ExpiryTime: 1}}
+	var removed []string
+	m := NewManager(t.TempDir(), func(_ string, args ...string) ([]byte, error) {
+		cmd := strings.Join(args, " ")
+		switch {
+		case strings.HasPrefix(cmd, "ip -j -d link show"):
+			return []byte(`[{"ifalias":"lucx-kernel-wireguard","linkinfo":{"info_kind":"wireguard"}}]`), nil
+		case cmd == "wg show lxwg7 peers":
+			return []byte(testKey(2) + "\n" + testKey(4) + "\n" + testKey(5) + "\n" + testKey(6) + "\n" + testKey(8) + "\n"), nil
+		case strings.HasPrefix(cmd, "wg set lxwg7 peer "):
+			if args[len(args)-1] != "remove" {
+				t.Fatal("revocation attempted a grant")
+			}
+			removed = append(removed, args[4])
+			return nil, nil
+		default:
+			return nil, fmt.Errorf("unexpected command %s", cmd)
+		}
+	})
+	if err := m.RevokeDisallowed(ib); err != nil {
+		t.Fatal(err)
+	}
+	for _, key := range removed {
+		if key == testKey(6) {
+			t.Fatal("active peer was revoked")
+		}
+	}
+	if len(removed) != 4 {
+		t.Fatalf("quota, disabled or deleted peer retained: %v", removed)
+	}
+}
+
+func TestMissingIptablesDoesNotPreventKernelEnsure(t *testing.T) {
+	m := NewManager(t.TempDir(), func(_ string, args ...string) ([]byte, error) {
+		cmd := strings.Join(args, " ")
+		if args[0] == "iptables" {
+			return nil, &exec.Error{Name: "iptables", Err: exec.ErrNotFound}
+		}
+		if strings.HasPrefix(cmd, "ip -j -d link show") || strings.HasPrefix(cmd, "nft -j list table ") {
+			return nil, errors.New("absent")
+		}
+		if strings.HasPrefix(cmd, "ip -j") {
+			return []byte(`[]`), nil
+		}
+		return nil, nil
+	})
+	inst, err := Parse(testInbound(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Ensure(inst); err != nil {
+		t.Fatal(err)
+	}
+	if err = m.Remove(inst.ID); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDiagnosticBufferPreservesUTF8(t *testing.T) {
+	var b diagnosticBuffer
+	b.Write([]byte("x" + strings.Repeat("я", 3000)))
+	if !utf8.ValidString(b.String()) {
+		t.Fatal("stderr capture split UTF-8")
+	}
+}
+
+func TestManagerTransportMarkChangesWithoutRecreatingDevice(t *testing.T) {
+	var calls []string
+	exists := false
+	command := func(input string, args ...string) ([]byte, error) {
+		cmd := strings.Join(args, " ")
+		calls = append(calls, cmd)
+		switch {
+		case strings.HasPrefix(cmd, "ip -j -d link show"):
+			if exists {
+				return []byte(`[{"ifalias":"lucx-kernel-wireguard","linkinfo":{"info_kind":"wireguard"}}]`), nil
+			}
+			return nil, fmt.Errorf("absent")
+		case strings.HasPrefix(cmd, "ip link add"):
+			exists = true
+		case strings.HasPrefix(cmd, "ip -j rule"):
+			return []byte(`[]`), nil
+		case strings.HasPrefix(cmd, "ip -j route"):
+			return []byte(`[]`), nil
+		case strings.HasPrefix(cmd, "nft -j list table "):
+			return nil, fmt.Errorf("absent")
+		case strings.HasPrefix(cmd, "wg show"):
+			return []byte("private public 51820 off\n"), nil
+		}
+		return nil, nil
+	}
+	m := NewManager(t.TempDir(), command)
+	inst, err := Parse(testInbound(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := m.Ensure(inst); err != nil {
+		t.Fatal(err)
+	}
+	calls = nil
+	inst.FwMark = 1234
+	if err := m.Ensure(inst); err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(calls, "\n")
+	if !strings.Contains(text, "wg set lxwg7 fwmark 1234") || strings.Contains(text, "ip link add") || strings.Contains(text, "ip link delete") {
+		t.Fatalf("transport mark update recreated interface: %s", text)
 	}
 }

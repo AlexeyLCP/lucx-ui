@@ -47,6 +47,7 @@ func (i Instance) Mark() string          { return fmt.Sprintf("0x%x", 0x50000000
 func (i Instance) FirewallTable() string { return fmt.Sprintf("lxwg_%d", i.ID) }
 func (i Instance) DeviceFingerprint() string {
 	i.Peers = nil
+	i.FwMark = 0
 	b, _ := json.Marshal(i)
 	return fmt.Sprintf("%x", sha256.Sum256(b))
 }
@@ -166,6 +167,9 @@ func Parse(ib *model.Inbound) (Instance, error) {
 		mark, e := strconv.ParseUint(s.FwMark, base, 32)
 		if e != nil {
 			return Instance{}, fmt.Errorf("kernel WireGuard FwMark requires a 32-bit decimal or hexadecimal value")
+		}
+		if mark >= 0x50000001 && mark <= 0x5000ffff {
+			return Instance{}, fmt.Errorf("kernel WireGuard transport FwMark conflicts with the managed TPROXY mark range")
 		}
 		inst.FwMark = uint32(mark)
 	}

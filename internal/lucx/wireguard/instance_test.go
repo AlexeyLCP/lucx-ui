@@ -156,3 +156,17 @@ func TestParseKernelWireguardFiltersQuotaAndExpiry(t *testing.T) {
 		}
 	}
 }
+
+func TestTransportMarkCannotUseManagedTproxyRange(t *testing.T) {
+	for _, mark := range []string{"0x50000007", "0x50000008"} {
+		ib := testInbound(t)
+		var s map[string]any
+		json.Unmarshal([]byte(ib.Settings), &s)
+		s["fwMark"] = mark
+		b, _ := json.Marshal(s)
+		ib.Settings = string(b)
+		if _, err := Parse(ib); err == nil {
+			t.Fatalf("reserved transport mark accepted: %s", mark)
+		}
+	}
+}

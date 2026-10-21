@@ -2,9 +2,9 @@
 
 ## Development — optional kernel WireGuard (2026-10-21)
 
-Adds an explicit Linux kernel backend for ordinary WireGuard, an Xray TPROXY bridge, owned-resource reconciliation, per-peer accounting and safe disabled import preview. Existing Xray WireGuard and kernel AWG remain unchanged by default. Peer-only updates avoid Xray restarts. Follow-up integration tests cover in-place runtime dispatch; bridge comparison runs after automatic tag resolution. New peer counters start at zero without resetting existing peers. Initial scope is IPv4 TCP/UDP; imported public-only peers cannot export private keys.
+Adds an opt-in Linux kernel backend for standard WireGuard with panel-managed peers, client profiles, traffic accounting and Xray TCP/UDP TPROXY routing. Peer edits and transport FwMark changes preserve the interface; existing inbounds retain their backend. Server-config import produces a disabled draft without executing hooks. The initial scope is local IPv4 peers.
 
-Review follow-up: bridge sniffing stays enabled for disabled form defaults; malformed inbounds no longer abort unrelated configuration or get swept by reconciliation; owned INPUT rules support iptables-compatible DROP policies; transport FwMark import and command diagnostics are explicit. Accounting retries do not inflate fresh online/speed snapshots. Stderr capture remains bounded through io.Copy without promoting an unbounded ReaderFrom method. The upstream workflow contains only the privileged namespace job. User/API documentation and overlay/license/module registries are synchronized. Deployment evidence lives in PR #147 and the operator KB. The implementation plan uses public project terminology; tunnel-subnet access remains subject to host INPUT policy.
+Malformed device settings preserve the previous bridge and interface while a separate removal-only pass enforces peer revocation, expiry and quotas. Missing iptables is supported with a warning and requires explicit host INPUT policy. The WireGuard guide documents routing setup, firewall requirements, lifecycle behavior and traffic limits. A privileged namespace test exercises real kernel traffic and revocation.
 
 ## lucx.307 — Minecraft Bedrock (RakNet) obfuscation preset (2026-10-19)
 
