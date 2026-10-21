@@ -43,17 +43,6 @@ _openapi:
         Used by the panel’s "Export all inbound links" action.
       url: '#return-every-protocol-url-vless-vmess-trojan-ss-hysteria-mtproto-across-all-inbounds-and-all-of-their-clients-links-are-rendered-through-the-subscription-engine-so-the-configured-remark-template-name-only-display-part-is-applied-per-client--the-same-output-the-client-infoqr-pages-use-protocols-without-a-url-form-socks-http-mixed-wireguard-dokodemo-tunnel-contribute-nothing-used-by-the-panels-export-all-inbound-links-action'
     - depth: 2
-      title: 'Return the share links of a single inbound, rendered through the
-        subscription engine. For Naive inbounds this is the only source of
-        truth: per-client credentials are HMAC-derived from the panel secret
-        server-side, so the response carries the service-level naive+https link
-        (authUser/authPass, same as the legacy Tunnels-page clientUrl) followed
-        by one personal link per enabled attached client. Protocols whose links
-        the panel renders client-side contribute their sub-engine links as well.
-        Used by the Inbounds page "Export links" action when the frontend
-        generator yields nothing (Naive).'
-      url: '#return-the-share-links-of-a-single-inbound-rendered-through-the-subscription-engine-for-naive-inbounds-this-is-the-only-source-of-truth-per-client-credentials-are-hmac-derived-from-the-panel-secret-server-side-so-the-response-carries-the-service-level-naivehttps-link-authuserauthpass-same-as-the-legacy-tunnels-page-clienturl-followed-by-one-personal-link-per-enabled-attached-client-protocols-whose-links-the-panel-renders-client-side-contribute-their-sub-engine-links-as-well-used-by-the-inbounds-page-export-links-action-when-the-frontend-generator-yields-nothing-naive'
-    - depth: 2
       title: Fetch a single inbound by numeric ID.
       url: '#fetch-a-single-inbound-by-numeric-id'
     - depth: 2
@@ -99,66 +88,6 @@ _openapi:
         accounting history is lost.
       url: '#reset-upload--download-counters-on-every-inbound-destructive--accounting-history-is-lost'
     - depth: 2
-      title: Preview a standard WireGuard server configuration as a disabled kernel
-        inbound. Does not execute hooks or change interfaces.
-      url: '#preview-a-standard-wireguard-server-configuration-as-a-disabled-kernel-inbound-does-not-execute-hooks-or-change-interfaces'
-    - depth: 2
-      title: Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and
-        optionally CPS packets (I1-I5) for a given profile, region, and mimicry
-        type. For awgVersion "3"/"3.1" on an AWG3-capable host also returns
-        HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges.
-        RandomTrailers is never auto-enabled. LucX-UI only.
-      url: '#generate-amneziawg-obfuscation-parameters-jcjminjmaxs1-s4h1-h4-and-optionally-cps-packets-i1-i5-for-a-given-profile-region-and-mimicry-type-for-awgversion-331-on-an-awg3-capable-host-also-returns-headerprotectionkey-and-the-six-awg-30-device-timerpadding-ranges-randomtrailers-is-never-auto-enabled-lucx-ui-only'
-    - depth: 2
-      title: Capture real QUIC Initial packets from a remote host and extract I1-I5
-        CPS values for AmneziaWG mimicry. LucX-UI only.
-      url: '#capture-real-quic-initial-packets-from-a-remote-host-and-extract-i1-i5-cps-values-for-amneziawg-mimicry-lucx-ui-only'
-    - depth: 2
-      title: Probe the live kernel state of an AWG inbound (interface, ip_forward,
-        peers/handshakes, plus MASQUERADE/FORWARD rules in kernel-nat mode or
-        tunN/policy-rule/route-table chain in routeThroughXray mode). Read-only.
-        LucX-UI only.
-      url: '#probe-the-live-kernel-state-of-an-awg-inbound-interface-ip_forward-peershandshakes-plus-masqueradeforward-rules-in-kernel-nat-mode-or-tunnpolicy-ruleroute-table-chain-in-routethroughxray-mode-read-only-lucx-ui-only'
-    - depth: 2
-      title: List unmanaged AmneziaWG interfaces on this host (awg-multi / toolza3 /
-        Docker) for optional import. LucX-UI only.
-      url: '#list-unmanaged-amneziawg-interfaces-on-this-host-awg-multi--toolza3--docker-for-optional-import-lucx-ui-only'
-    - depth: 2
-      title: Hide the existing-AWG import banner. LucX-UI only.
-      url: '#hide-the-existing-awg-import-banner-lucx-ui-only'
-    - depth: 2
-      title: Import selected unmanaged AWG interfaces as inbounds and clients without
-        rotating keys or IPs. LucX-UI only.
-      url: '#import-selected-unmanaged-awg-interfaces-as-inbounds-and-clients-without-rotating-keys-or-ips-lucx-ui-only'
-    - depth: 2
-      title: Stop and remove selected unmanaged AWG or tproxy installs from this host.
-        Does not create or delete panel inbounds. LucX-UI only.
-      url: '#stop-and-remove-selected-unmanaged-awg-or-tproxy-installs-from-this-host-does-not-create-or-delete-panel-inbounds-lucx-ui-only'
-    - depth: 2
-      title: Binary-search the server's own outbound path MTU with DF (don't-fragment)
-        pings against a fixed public anchor, and report whether the inbound's
-        configured MTU fits under it with WireGuard/AWG overhead headroom.
-        Ceiling check on the server uplink only — cannot see the client<->server
-        path. Read-only. LucX-UI only.
-      url: '#binary-search-the-servers-own-outbound-path-mtu-with-df-dont-fragment-pings-against-a-fixed-public-anchor-and-report-whether-the-inbounds-configured-mtu-fits-under-it-with-wireguardawg-overhead-headroom-ceiling-check-on-the-server-uplink-only--cannot-see-the-client-server-path-read-only-lucx-ui-only'
-    - depth: 2
-      title: Create the SNI gateway inbound (port 443, disabled) if none exists.
-        Idempotent. LucX-UI only.
-      url: '#create-the-sni-gateway-inbound-port-443-disabled-if-none-exists-idempotent-lucx-ui-only'
-    - depth: 2
-      title: Preview which inbounds an SNI gateway would move to loopback
-        (listen/port/Hosts). Does not mutate. LucX-UI only.
-      url: '#preview-which-inbounds-an-sni-gateway-would-move-to-loopback-listenporthosts-does-not-mutate-lucx-ui-only'
-    - depth: 2
-      title: 'Apply selected preview rows: listen 127.0.0.1 off public 443, Hosts
-        publicHost:443, Caddy L4 on NIC IPv4:443. Does not rewrite REALITY dest
-        or serverNames. LucX-UI only.'
-      url: '#apply-selected-preview-rows-listen-127001-off-public-443-hosts-publichost443-caddy-l4-on-nic-ipv4443-does-not-rewrite-reality-dest-or-servernames-lucx-ui-only'
-    - depth: 2
-      title: Stop the SNI mux and restore listen/port/Hosts from the Apply snapshot.
-        LucX-UI only.
-      url: '#stop-the-sni-mux-and-restore-listenporthosts-from-the-apply-snapshot-lucx-ui-only'
-    - depth: 2
       title: Bulk-import an inbound from a JSON blob (e.g. one exported via the UI).
         The body uses form encoding with a single "data" field.
       url: '#bulk-import-an-inbound-from-a-json-blob-eg-one-exported-via-the-ui-the-body-uses-form-encoding-with-a-single-data-field'
@@ -179,6 +108,10 @@ _openapi:
       title: Replace the entire fallback list for a master inbound. Body is JSON.
         Triggers an Xray restart.
       url: '#replace-the-entire-fallback-list-for-a-master-inbound-body-is-json-triggers-an-xray-restart'
+    - depth: 2
+      title: Preview a standard WireGuard server configuration as a disabled kernel
+        inbound. Does not execute hooks or change interfaces.
+      url: '#preview-a-standard-wireguard-server-configuration-as-a-disabled-kernel-inbound-does-not-execute-hooks-or-change-interfaces'
   structuredData:
     headings:
       - content: List every inbound owned by the authenticated user, including each
@@ -210,16 +143,6 @@ _openapi:
           (socks, http, mixed, wireguard, dokodemo, tunnel) contribute nothing.
           Used by the panel’s "Export all inbound links" action.
         id: return-every-protocol-url-vless-vmess-trojan-ss-hysteria-mtproto-across-all-inbounds-and-all-of-their-clients-links-are-rendered-through-the-subscription-engine-so-the-configured-remark-template-name-only-display-part-is-applied-per-client--the-same-output-the-client-infoqr-pages-use-protocols-without-a-url-form-socks-http-mixed-wireguard-dokodemo-tunnel-contribute-nothing-used-by-the-panels-export-all-inbound-links-action
-      - content: 'Return the share links of a single inbound, rendered through the
-          subscription engine. For Naive inbounds this is the only source of
-          truth: per-client credentials are HMAC-derived from the panel secret
-          server-side, so the response carries the service-level naive+https
-          link (authUser/authPass, same as the legacy Tunnels-page clientUrl)
-          followed by one personal link per enabled attached client. Protocols
-          whose links the panel renders client-side contribute their sub-engine
-          links as well. Used by the Inbounds page "Export links" action when
-          the frontend generator yields nothing (Naive).'
-        id: return-the-share-links-of-a-single-inbound-rendered-through-the-subscription-engine-for-naive-inbounds-this-is-the-only-source-of-truth-per-client-credentials-are-hmac-derived-from-the-panel-secret-server-side-so-the-response-carries-the-service-level-naivehttps-link-authuserauthpass-same-as-the-legacy-tunnels-page-clienturl-followed-by-one-personal-link-per-enabled-attached-client-protocols-whose-links-the-panel-renders-client-side-contribute-their-sub-engine-links-as-well-used-by-the-inbounds-page-export-links-action-when-the-frontend-generator-yields-nothing-naive
       - content: Fetch a single inbound by numeric ID.
         id: fetch-a-single-inbound-by-numeric-id
       - content: Create a new inbound. Send the full inbound payload (protocol, port,
@@ -255,53 +178,6 @@ _openapi:
       - content: Reset upload + download counters on every inbound. Destructive —
           accounting history is lost.
         id: reset-upload--download-counters-on-every-inbound-destructive--accounting-history-is-lost
-      - content: Preview a standard WireGuard server configuration as a disabled kernel
-          inbound. Does not execute hooks or change interfaces.
-        id: preview-a-standard-wireguard-server-configuration-as-a-disabled-kernel-inbound-does-not-execute-hooks-or-change-interfaces
-      - content: Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4)
-          and optionally CPS packets (I1-I5) for a given profile, region, and
-          mimicry type. For awgVersion "3"/"3.1" on an AWG3-capable host also
-          returns HeaderProtectionKey and the six AWG 3.0 device timer/padding
-          ranges. RandomTrailers is never auto-enabled. LucX-UI only.
-        id: generate-amneziawg-obfuscation-parameters-jcjminjmaxs1-s4h1-h4-and-optionally-cps-packets-i1-i5-for-a-given-profile-region-and-mimicry-type-for-awgversion-331-on-an-awg3-capable-host-also-returns-headerprotectionkey-and-the-six-awg-30-device-timerpadding-ranges-randomtrailers-is-never-auto-enabled-lucx-ui-only
-      - content: Capture real QUIC Initial packets from a remote host and extract I1-I5
-          CPS values for AmneziaWG mimicry. LucX-UI only.
-        id: capture-real-quic-initial-packets-from-a-remote-host-and-extract-i1-i5-cps-values-for-amneziawg-mimicry-lucx-ui-only
-      - content: Probe the live kernel state of an AWG inbound (interface, ip_forward,
-          peers/handshakes, plus MASQUERADE/FORWARD rules in kernel-nat mode or
-          tunN/policy-rule/route-table chain in routeThroughXray mode).
-          Read-only. LucX-UI only.
-        id: probe-the-live-kernel-state-of-an-awg-inbound-interface-ip_forward-peershandshakes-plus-masqueradeforward-rules-in-kernel-nat-mode-or-tunnpolicy-ruleroute-table-chain-in-routethroughxray-mode-read-only-lucx-ui-only
-      - content: List unmanaged AmneziaWG interfaces on this host (awg-multi / toolza3 /
-          Docker) for optional import. LucX-UI only.
-        id: list-unmanaged-amneziawg-interfaces-on-this-host-awg-multi--toolza3--docker-for-optional-import-lucx-ui-only
-      - content: Hide the existing-AWG import banner. LucX-UI only.
-        id: hide-the-existing-awg-import-banner-lucx-ui-only
-      - content: Import selected unmanaged AWG interfaces as inbounds and clients
-          without rotating keys or IPs. LucX-UI only.
-        id: import-selected-unmanaged-awg-interfaces-as-inbounds-and-clients-without-rotating-keys-or-ips-lucx-ui-only
-      - content: Stop and remove selected unmanaged AWG or tproxy installs from this
-          host. Does not create or delete panel inbounds. LucX-UI only.
-        id: stop-and-remove-selected-unmanaged-awg-or-tproxy-installs-from-this-host-does-not-create-or-delete-panel-inbounds-lucx-ui-only
-      - content: Binary-search the server's own outbound path MTU with DF
-          (don't-fragment) pings against a fixed public anchor, and report
-          whether the inbound's configured MTU fits under it with WireGuard/AWG
-          overhead headroom. Ceiling check on the server uplink only — cannot
-          see the client<->server path. Read-only. LucX-UI only.
-        id: binary-search-the-servers-own-outbound-path-mtu-with-df-dont-fragment-pings-against-a-fixed-public-anchor-and-report-whether-the-inbounds-configured-mtu-fits-under-it-with-wireguardawg-overhead-headroom-ceiling-check-on-the-server-uplink-only--cannot-see-the-client-server-path-read-only-lucx-ui-only
-      - content: Create the SNI gateway inbound (port 443, disabled) if none exists.
-          Idempotent. LucX-UI only.
-        id: create-the-sni-gateway-inbound-port-443-disabled-if-none-exists-idempotent-lucx-ui-only
-      - content: Preview which inbounds an SNI gateway would move to loopback
-          (listen/port/Hosts). Does not mutate. LucX-UI only.
-        id: preview-which-inbounds-an-sni-gateway-would-move-to-loopback-listenporthosts-does-not-mutate-lucx-ui-only
-      - content: 'Apply selected preview rows: listen 127.0.0.1 off public 443, Hosts
-          publicHost:443, Caddy L4 on NIC IPv4:443. Does not rewrite REALITY
-          dest or serverNames. LucX-UI only.'
-        id: apply-selected-preview-rows-listen-127001-off-public-443-hosts-publichost443-caddy-l4-on-nic-ipv4443-does-not-rewrite-reality-dest-or-servernames-lucx-ui-only
-      - content: Stop the SNI mux and restore listen/port/Hosts from the Apply snapshot.
-          LucX-UI only.
-        id: stop-the-sni-mux-and-restore-listenporthosts-from-the-apply-snapshot-lucx-ui-only
       - content: Bulk-import an inbound from a JSON blob (e.g. one exported via the UI).
           The body uses form encoding with a single "data" field.
         id: bulk-import-an-inbound-from-a-json-blob-eg-one-exported-via-the-ui-the-body-uses-form-encoding-with-a-single-data-field
@@ -319,17 +195,22 @@ _openapi:
       - content: Replace the entire fallback list for a master inbound. Body is JSON.
           Triggers an Xray restart.
         id: replace-the-entire-fallback-list-for-a-master-inbound-body-is-json-triggers-an-xray-restart
+      - content: Preview a standard WireGuard server configuration as a disabled kernel
+          inbound. Does not execute hooks or change interfaces.
+        id: preview-a-standard-wireguard-server-configuration-as-a-disabled-kernel-inbound-does-not-execute-hooks-or-change-interfaces
     contents: []
 ---
 
 {/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}
 
 export default function Layout(props) {
-  const { OpenAPIPage } = props.components ?? {};
+  const { APIPage, OpenAPIPage } = props.components ?? {};
+  // "APIPage" is the old name from v10, this allows both for backward compatibility
+  const Comp = OpenAPIPage ?? APIPage;
   return (
     <>
       {props.children}
-      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/inbounds/list","method":"get"},{"path":"/panel/api/inbounds/list/slim","method":"get"},{"path":"/panel/api/inbounds/options","method":"get"},{"path":"/panel/api/inbounds/allLinks","method":"get"},{"path":"/panel/api/inbounds/{id}/links","method":"get"},{"path":"/panel/api/inbounds/get/{id}","method":"get"},{"path":"/panel/api/inbounds/add","method":"post"},{"path":"/panel/api/inbounds/del/{id}","method":"post"},{"path":"/panel/api/inbounds/bulkDel","method":"post"},{"path":"/panel/api/inbounds/update/{id}","method":"post"},{"path":"/panel/api/inbounds/setEnable/{id}","method":"post"},{"path":"/panel/api/inbounds/{id}/subSortIndex","method":"post"},{"path":"/panel/api/inbounds/{id}/resetTraffic","method":"post"},{"path":"/panel/api/inbounds/{id}/delAllClients","method":"post"},{"path":"/panel/api/inbounds/resetAllTraffics","method":"post"},{"path":"/panel/api/inbounds/wireguard/importPreview","method":"post"},{"path":"/panel/api/inbounds/awg/generateObfuscation","method":"post"},{"path":"/panel/api/inbounds/awg/captureHost","method":"post"},{"path":"/panel/api/inbounds/{id}/awgDiagnostics","method":"get"},{"path":"/panel/api/inbounds/awg/import/preview","method":"get"},{"path":"/panel/api/inbounds/awg/import/dismiss","method":"post"},{"path":"/panel/api/inbounds/awg/import/commit","method":"post"},{"path":"/panel/api/inbounds/awg/import/delete","method":"post"},{"path":"/panel/api/inbounds/{id}/awgTestMtu","method":"get"},{"path":"/panel/api/inbounds/gatewayEnsure","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayPreview","method":"get"},{"path":"/panel/api/inbounds/{id}/gatewayApply","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayRevert","method":"post"},{"path":"/panel/api/inbounds/import","method":"post"},{"path":"/panel/api/inbounds/pushClientTraffics","method":"post"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"get"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"post"}]} showTitle />
+      <Comp document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/inbounds/list","method":"get"},{"path":"/panel/api/inbounds/list/slim","method":"get"},{"path":"/panel/api/inbounds/options","method":"get"},{"path":"/panel/api/inbounds/allLinks","method":"get"},{"path":"/panel/api/inbounds/get/{id}","method":"get"},{"path":"/panel/api/inbounds/add","method":"post"},{"path":"/panel/api/inbounds/del/{id}","method":"post"},{"path":"/panel/api/inbounds/bulkDel","method":"post"},{"path":"/panel/api/inbounds/update/{id}","method":"post"},{"path":"/panel/api/inbounds/setEnable/{id}","method":"post"},{"path":"/panel/api/inbounds/{id}/subSortIndex","method":"post"},{"path":"/panel/api/inbounds/{id}/resetTraffic","method":"post"},{"path":"/panel/api/inbounds/{id}/delAllClients","method":"post"},{"path":"/panel/api/inbounds/resetAllTraffics","method":"post"},{"path":"/panel/api/inbounds/import","method":"post"},{"path":"/panel/api/inbounds/pushClientTraffics","method":"post"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"get"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"post"},{"path":"/panel/api/inbounds/wireguard/importPreview","method":"post"}]} showTitle />
     </>
   );
 }

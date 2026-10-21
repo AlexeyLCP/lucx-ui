@@ -36,10 +36,6 @@ Server configs cannot recover client private keys. Public-only peers keep workin
 - Invalid kernel settings are logged without aborting unrelated Xray inbounds. The previous working bridge is retained in process memory, and reconciliation leaves invalid inbound resources untouched. A fresh process cannot reconstruct an unavailable previous bridge; repair the invalid record before expecting that tunnel to work.
 - Default route and system DNS are not changed. Cleanup retries failures and refuses foreign interfaces/tables.
 
-## Form preview
-
-The form exposes the kernel selector, server address, transport FwMark and TPROXY port.
-
 ## Tests
 
 Ordinary Go/frontend tests cover validation, runtime dispatch, import/export and accounting. On disposable privileged Linux, integration tests use real WireGuard TCP/UDP TPROXY with mark restoration and INPUT DROP, repair firewall state, verify missing-listener drops, and preserve an unrelated interface:
