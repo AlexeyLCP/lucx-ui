@@ -48,6 +48,17 @@ func (c *Counters) Observe(id int, peers []PeerCounter, now time.Time) []Delta {
 	return out
 }
 
+func (c *Counters) SeedNew(id int, peers []Peer) {
+	if c.last[id] == nil {
+		c.last[id] = map[string]PeerCounter{}
+	}
+	for _, peer := range peers {
+		if _, known := c.last[id][peer.PublicKey]; !known {
+			c.last[id][peer.PublicKey] = PeerCounter{PublicKey: peer.PublicKey}
+		}
+	}
+}
+
 func ParseDump(text string) ([]PeerCounter, error) {
 	lines := strings.Split(strings.TrimSpace(text), "\n")
 	if len(lines) == 0 || len(strings.Fields(lines[0])) < 4 {

@@ -42,3 +42,14 @@ func TestParseWireGuardDumpDoesNotExposeDeviceSecrets(t *testing.T) {
 		t.Fatal("malformed peer dump accepted")
 	}
 }
+
+func TestNewPeerCountsFromZeroWithoutResettingExistingPeer(t *testing.T) {
+	c := NewCounters()
+	now := time.Now()
+	c.Observe(7, []PeerCounter{{PublicKey: "old", Received: 100}}, now)
+	c.SeedNew(7, []Peer{{PublicKey: "old"}, {PublicKey: "new"}})
+	got := c.Observe(7, []PeerCounter{{PublicKey: "old", Received: 150}, {PublicKey: "new", Received: 80}}, now)
+	if got[0].Up != 50 || got[1].Up != 80 {
+		t.Fatalf("lost or duplicated traffic: %+v", got)
+	}
+}

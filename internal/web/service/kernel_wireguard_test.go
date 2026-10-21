@@ -78,3 +78,42 @@ func TestKernelWireguardMetadataEditDoesNotRestartXray(t *testing.T) {
 		t.Fatal("metadata-only kernel WireGuard edit requested an Xray restart")
 	}
 }
+
+func TestKernelWireguardUpdateUsesInPlaceRuntime(t *testing.T) {
+	setupConflictDB(t)
+	fake := &fakeNodeRuntime{}
+	mgr := useTestRuntimeManager(t)
+	mgr.SetLocalRuntimeOverride(fake)
+	ib := kernelWireguardTestInbound(t)
+	if err := database.GetDB().Create(ib).Error; err != nil {
+		t.Fatal(err)
+	}
+	edited := *ib
+	edited.Settings = strings.Replace(ib.Settings, `"clients":[]`, `"clients":[],"mtu":1300`, 1)
+	_, _, err := (&InboundService{}).UpdateInbound(&edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fake.updateInbound.Load() != 1 || fake.delInbound.Load() != 0 || fake.addInbound.Load() != 0 {
+		t.Fatalf("kernel update bypassed in-place runtime: update=%d del=%d add=%d", fake.updateInbound.Load(), fake.delInbound.Load(), fake.addInbound.Load())
+	}
+}
+
+func TestKernelWireguardAutoTagChangeRestartsBridge(t *testing.T) {
+	setupEnablePortTest(t)
+	ib := kernelWireguardTestInbound(t)
+	ib.Tag = "in-51820-udp"
+	ib.StreamSettings = `{"network":"udp"}`
+	if err := database.GetDB().Create(ib).Error; err != nil {
+		t.Fatal(err)
+	}
+	edited := *ib
+	edited.Port = 51821
+	saved, restart, err := (&InboundService{}).UpdateInbound(&edited)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if saved.Tag == ib.Tag || !restart {
+		t.Fatalf("auto-tag bridge not refreshed: tag=%s restart=%v", saved.Tag, restart)
+	}
+}

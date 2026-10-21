@@ -8,6 +8,7 @@ package wireguard
 
 import (
 	"bufio"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"strconv"
@@ -84,6 +85,8 @@ func ImportConfig(text string, tproxyPort int) (*model.Inbound, error) {
 			switch key {
 			case "PublicKey":
 				peer["publicKey"] = value
+				sum := sha256.Sum256([]byte(value))
+				peer["email"] = fmt.Sprintf("wg-%x", sum[:8])
 			case "PresharedKey":
 				peer["preSharedKey"] = value
 			case "AllowedIPs":

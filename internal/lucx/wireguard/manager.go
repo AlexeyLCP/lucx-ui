@@ -30,6 +30,7 @@ type (
 		Email string
 	}
 )
+
 type managed struct {
 	inst        Instance
 	fingerprint string
@@ -77,7 +78,7 @@ func systemCommand(input string, args ...string) ([]byte, error) {
 	return out, nil
 }
 func (m *Manager) run(args ...string) ([]byte, error) { return m.command("", args...) }
-func (m *Manager) path(i Instance) string { return filepath.Join(m.dir, i.Name()+".conf") }
+func (m *Manager) path(i Instance) string             { return filepath.Join(m.dir, i.Name()+".conf") }
 
 func (m *Manager) owned(i Instance) (bool, error) {
 	out, err := m.run("ip", "-j", "-d", "link", "show", "dev", i.Name())
@@ -304,13 +305,10 @@ func (m *Manager) ensure(i Instance) error {
 			return fail(err)
 		}
 	}
-	if !exists {
-		var initial []PeerCounter
-		for _, peer := range i.Peers {
-			initial = append(initial, PeerCounter{PublicKey: peer.PublicKey})
-		}
-		m.counters.Observe(i.ID, initial, time.Now())
+	if !exists || known {
+		m.counters.SeedNew(i.ID, i.Peers)
 	}
+
 	for _, cmd := range [][]string{{"ip", "address", "replace", i.Address, "dev", i.Name()}, {"sysctl", "-qw", "net.ipv4.conf." + i.Name() + ".rp_filter=2"}, {"ip", "link", "set", "dev", i.Name(), "mtu", strconv.Itoa(i.MTU), "up"}} {
 		if _, err = m.run(cmd...); err != nil {
 			return fail(err)

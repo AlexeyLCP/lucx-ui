@@ -2054,8 +2054,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	oldRoutedMtproto := mtprotoRoutesThroughXray(oldInbound)
 	oldRoutedLucx := lucxRoutesThroughXray(oldInbound)
 	// LUCX-HOOK: kernel peer changes do not alter the transparent Xray bridge.
-	kernelBridgeChange := kernelWireguardBridgeChanged(oldInbound, inbound)
-	kernelPeerOnly := isKernelWireguardInbound(oldInbound) && isKernelWireguardInbound(inbound) && !kernelBridgeChange
+	kernelPeerOnly := false
 	// END LUCX-HOOK
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
@@ -2217,6 +2216,9 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		}
 		oldInbound.Tag = resolvedTag
 		inbound.Tag = oldInbound.Tag
+		// LUCX-HOOK: compare against the running bridge after auto-tag resolution.
+		kernelPeerOnly = isKernelWireguardInbound(&running) && isKernelWireguardInbound(oldInbound) && !kernelWireguardBridgeChanged(&running, oldInbound)
+		// END LUCX-HOOK
 
 		if oldInbound.NodeID == nil {
 			rt, push, _, perr := s.nodePushPlan(oldInbound)
@@ -2225,7 +2227,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 			}
 			if !push {
 				needRestart = true
-			} else if servedOutsideXray(oldProtocol) || servedOutsideXray(oldInbound.Protocol) || lucxRuntimeSidecar(oldProtocol) || lucxRuntimeSidecar(oldInbound.Protocol) {
+			} else if servedOutsideXray(oldProtocol) || servedOutsideXray(oldInbound.Protocol) || lucxRuntimeSidecar(oldProtocol) || lucxRuntimeSidecar(oldInbound.Protocol) || isKernelWireguardInbound(&running) || isKernelWireguardInbound(oldInbound) {
 				oldSnapshot := *oldInbound
 				oldSnapshot.Tag = tag
 				oldSnapshot.Protocol = oldProtocol
@@ -2239,7 +2241,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 						pushable = false
 					}
 				}
-				newProtocolIsSidecar := servedOutsideXray(oldInbound.Protocol) || lucxRuntimeSidecar(oldInbound.Protocol)
+				newProtocolIsSidecar := servedOutsideXray(oldInbound.Protocol) || lucxRuntimeSidecar(oldInbound.Protocol) || isKernelWireguardInbound(oldInbound)
 				if pushable {
 					postCommitApply = func() {
 						if err2 := rt.UpdateInbound(context.Background(), &oldSnapshot, payload); err2 == nil {
