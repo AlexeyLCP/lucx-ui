@@ -26,7 +26,9 @@ func commitInboundClientSettings(tx *gorm.DB, ib *model.Inbound, base string) er
 	}
 	// LUCX-HOOK: unsupported peers must not invalidate a running kernel inbound.
 	if kernelwg.IsKernel(ib) {
-		if _, err := kernelwg.Parse(ib); err != nil {
+		structural := *ib
+		structural.ClientStats = nil
+		if _, err := kernelwg.Parse(&structural); err != nil {
 			return err
 		}
 	}

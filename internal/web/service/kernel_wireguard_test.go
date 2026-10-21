@@ -14,6 +14,8 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/xray"
+	"gorm.io/gorm"
 )
 
 func kernelWireguardTestInbound(t *testing.T) *model.Inbound {
@@ -129,5 +131,24 @@ func TestKernelWireguardClientMutationRejectsUnsupportedAddress(t *testing.T) {
 	_, err := (&ClientService{}).AddInboundClient(&InboundService{}, &model.Inbound{Id: ib.Id, Settings: string(settings)})
 	if err == nil {
 		t.Fatal("kernel client accepted an IPv6 peer and invalidated its inbound")
+	}
+}
+
+func TestKernelWireguardCommitDoesNotUseStaleDisabledStats(t *testing.T) {
+	setupEnablePortTest(t)
+	ib := kernelWireguardTestInbound(t)
+	if err := database.GetDB().Create(ib).Error; err != nil {
+		t.Fatal(err)
+	}
+	base := ib.Settings
+	var settings map[string]any
+	_ = json.Unmarshal([]byte(ib.Settings), &settings)
+	settings["clients"] = []model.Client{{Email: "was-disabled", Enable: true, PublicKey: base64.StdEncoding.EncodeToString([]byte(strings.Repeat("b", 32))), AllowedIPs: []string{"fd00::2/128"}}}
+	raw, _ := json.Marshal(settings)
+	ib.Settings = string(raw)
+	ib.ClientStats = []xray.ClientTraffic{{Email: "was-disabled", Enable: false}}
+	err := database.GetDB().Transaction(func(tx *gorm.DB) error { return commitInboundClientSettings(tx, ib, base) })
+	if err == nil {
+		t.Fatal("stale disabled stats bypassed structural validation")
 	}
 }
