@@ -1,0 +1,59 @@
+name: Kernel WireGuard
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['codex/kernel-wireguard']
+  pull_request:
+    paths:
+      - 'internal/lucx/wireguard/**'
+      - 'internal/web/**'
+      - 'frontend/**'
+      - '.github/workflows/kernel-wireguard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - uses: actions/setup-node@v6
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install kernel test dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y wireguard-tools nftables iproute2
+      - name: Prepare embedded frontend
+        run: mkdir -p internal/web/dist && touch internal/web/dist/.gitkeep
+      - name: Go regression tests
+        run: go test -shuffle=on -count=1 ./...
+      - name: Kernel and TPROXY namespace test
+        run: sudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" LUCX_WG_NETNS_TEST=1 go test -v -count=1 ./internal/lucx/wireguard -run '^TestKernelWireguardNetNS$'
+      - name: Frontend checks and build
+        working-directory: frontend
+        run: |
+          npm ci --ignore-scripts
+          npm run typecheck
+          npm run lint
+          npm run test -- --project=unit
+          npm run build
+      - name: Build validation artifact
+        if: github.event_name != 'pull_request'
+        run: |
+          mkdir -p artifact
+          go build -trimpath -ldflags="-s -w -X github.com/mhsanaei/3x-ui/v3/internal/config.buildCommit=$GITHUB_SHA" -o artifact/x-ui .
+          sha256sum artifact/x-ui > artifact/x-ui.sha256
+          printf '%s\n' "$GITHUB_SHA" > artifact/commit.txt
+      - uses: actions/upload-artifact@v7
+        if: github.event_name != 'pull_request'
+        with:
+          name: kernel-wireguard-linux-amd64
+          path: artifact/

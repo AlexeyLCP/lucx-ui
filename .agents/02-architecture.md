@@ -153,3 +153,7 @@ LICENSE-PolyForm-Noncommercial.txt Canonical PolyForm NC 1.0.0 text
 ```
 
 ---
+
+## Optional kernel WireGuard
+
+`internal/lucx/wireguard` owns `lxwg<ID>` interfaces, marked nftables tables and policy routes. Explicit `kernel: true` on a WireGuard inbound selects this manager; existing WireGuard inbounds remain on Xray. `internal/web/service/kernel_wireguard.go` injects the loopback TPROXY bridge while preserving routing tags and sniffing. The runtime applies peers with `wg syncconf`; the ten-second job reconciles state and persists per-peer counter deltas. Configurations live under `XUI_DB_FOLDER/wireguard`; only resources bearing the manager ownership marker are removed. Import preview is authenticated, read-only and creates a disabled draft. See `docs/kernel-wireguard.md` for limits and verification.

@@ -22,7 +22,8 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/eventbus"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
-	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel" // LUCX-HOOK: tunnel sidecars (NaiveProxy)
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"             // LUCX-HOOK: tunnel sidecars (NaiveProxy)
+	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard" // LUCX-HOOK: standard kernel WireGuard
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
@@ -352,6 +353,9 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	awgJob := job.NewAwgJob()
 	_, _ = s.cron.AddJob(cadenceAwg, awgJob)
 	go awgJob.Run()
+	kernelWGJob := job.NewKernelWireguardJob()
+	_, _ = s.cron.AddJob(cadenceAwg, kernelWGJob)
+	go kernelWGJob.Run()
 	// END LUCX-HOOK
 	// LUCX-HOOK: Reconcile tunnel sidecars (NaiveProxy caddy) and revive crashes
 	tunnelJob := job.NewTunnelJob()
@@ -807,6 +811,7 @@ func (s *Server) stop(stopXray bool, stopTgBot bool) error {
 		amneziawgnet.GetOutboundManager().StopAll()
 		// LUCX-HOOK: inbound awgN Start refuses a device that already exists.
 		awg.GetManager().StopAll()
+		kernelwg.GetManager().StopAll()
 		tunnel.GetManager().StopAll()
 		// END LUCX-HOOK
 	}

@@ -2053,6 +2053,10 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 	oldProtocol := oldInbound.Protocol
 	oldRoutedMtproto := mtprotoRoutesThroughXray(oldInbound)
 	oldRoutedLucx := lucxRoutesThroughXray(oldInbound)
+	// LUCX-HOOK: kernel peer changes do not alter the transparent Xray bridge.
+	kernelBridgeChange := kernelWireguardBridgeChanged(oldInbound, inbound)
+	kernelPeerOnly := isKernelWireguardInbound(oldInbound) && isKernelWireguardInbound(inbound) && !kernelBridgeChange
+	// END LUCX-HOOK
 	if err := s.normalizeMtprotoXrayPort(inbound, oldInbound.Settings); err != nil {
 		return inbound, false, err
 	}
@@ -2309,9 +2313,11 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// (Re)generate the Xray config whenever routing was or is now enabled, so
 		// the egress SOCKS bridge is added, moved, or dropped to match the new
 		// settings.
-		if mtprotoRoutesThroughXray(inbound) || lucxRoutesThroughXray(inbound) || oldRoutedMtproto || oldRoutedLucx {
+		// LUCX-HOOK: exclude opt-in kernel WG edits that leave the bridge intact.
+		if mtprotoRoutesThroughXray(inbound) || oldRoutedMtproto || (!kernelPeerOnly && (lucxRoutesThroughXray(inbound) || oldRoutedLucx)) {
 			needRestart = true
 		}
+		// END LUCX-HOOK
 		return nil
 	})
 	if txErr != nil {

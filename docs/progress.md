@@ -1,5 +1,11 @@
 # LucX-UI — Прогресс
 
+## Development — optional kernel WireGuard (2026-10-21)
+
+Adds an explicit Linux kernel backend for ordinary WireGuard, an Xray TPROXY bridge, owned-resource reconciliation, per-peer accounting and safe disabled import preview. Existing Xray WireGuard and kernel AWG remain unchanged by default. Peer-only updates avoid Xray restarts. Initial scope is IPv4 TCP/UDP; imported public-only peers cannot export private keys.
+
+Validation so far: new Go runtime/service/manager tests pass locally; frontend full suite passes (214 files, 2069 tests), typecheck, lint and build pass. Linux namespace validation and deployment are pending. See `kernel-wireguard.md` and the implementation plan for operational details.
+
 ## lucx.307 — Minecraft Bedrock (RakNet) obfuscation preset (2026-10-19)
 
 Operator request: add a Minecraft Bedrock preset to the AWG obfuscation generator the same way as the Amnezia Premium preset, following phenomenonrt.github.io ("Mimicry Generator — AmneziaWG × Minecraft"). The site generates AWG param sets whose junk/transport byte shapes imitate Minecraft Bedrock RakNet packets; we ported its **balanced** profile as a fifth `obfProfile` value `minecraft` (select option 5).
@@ -6021,3 +6027,6 @@ Form: same "via Xray" switch as TrustTunnel + outbound picker.
 Tests: TestTproxyConfigRouteThroughXray, TestInjectTproxyEgress_DokodemoFollowRedirect.
 
 lucxVersion: lucx.205
+## Planned: opt-in Linux kernel WireGuard
+
+Version remains the upstream version; implementation branch adds an explicit kernel backend to existing WireGuard inbounds. Design and implementation plan live under docs/superpowers. Existing Xray WireGuard and kernel AWG remain unchanged by default. Builder review clarified fail-closed ordering, UDP mark restoration, resource ownership, traffic baselines and public-key-only import behavior. No runtime implementation or deployment yet.

@@ -675,6 +675,12 @@ function ClientQrModalContent({
       onCancel={() => onOpenChange(false)}
     >
       <Spin spinning={loading}>
+        {client &&
+          wgInbounds.length > 0 &&
+          !client.privateKey &&
+          !/^[A-Za-z0-9+/]{43}=$/.test(client.password || '') && (
+            <Alert type="info" showIcon title={t('pages.xray.wireguard.kernelPrivateKeyMissing')} />
+          )}
         {!client?.subId && !loading && (
           <div style={{ padding: 24, textAlign: 'center', opacity: 0.6 }}>
             {t('pages.clients.noSubId')}

@@ -117,6 +117,7 @@ func (j *XrayTrafficJob) Run() {
 	if awgTraffics, awgClients, ok := takeAwgSpeedSnapshot(); ok {
 		traffics, clientTraffics = mergeAwgSpeedRows(traffics, clientTraffics, awgTraffics, awgClients)
 	}
+	traffics, clientTraffics = mergeAwgSpeedRows(traffics, clientTraffics, nil, takeKernelWireguardSpeed())
 	// END LUCX-HOOK
 
 	// Derive the local online set from this poll's per-email deltas rather

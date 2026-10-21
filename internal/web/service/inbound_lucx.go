@@ -21,6 +21,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/nodetype"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
+	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 )
@@ -537,7 +538,7 @@ func lucxRuntimeSidecar(p model.Protocol) bool {
 
 // LUCX-HOOK: any LucX sidecar whose egress bridge lives only in generated Xray JSON.
 func lucxRoutesThroughXray(inbound *model.Inbound) bool {
-	return awgRoutesThroughXray(inbound) ||
+	return kernelwg.IsKernel(inbound) || awgRoutesThroughXray(inbound) ||
 		naiveRoutesThroughXray(inbound) ||
 		qwdttRoutesThroughXray(inbound) ||
 		csqttRoutesThroughXray(inbound) ||
@@ -1365,6 +1366,9 @@ func (s *InboundService) checkAwgTproxyPort(inbound *model.Inbound) error {
 }
 
 func (s *InboundService) normalizeLucxSidecarsOnCreate(inbound *model.Inbound) error {
+	if err := s.validateKernelWireguard(inbound); err != nil {
+		return err
+	}
 	if err := s.checkAwgTproxyPort(inbound); err != nil {
 		return err
 	}
@@ -1462,6 +1466,9 @@ func (s *InboundService) normalizeLucxSidecarsOnCreate(inbound *model.Inbound) e
 }
 
 func (s *InboundService) normalizeLucxSidecarsOnUpdate(inbound, oldInbound *model.Inbound) error {
+	if err := s.validateKernelWireguard(inbound); err != nil {
+		return err
+	}
 	if err := s.checkAwgTproxyPort(inbound); err != nil {
 		return err
 	}

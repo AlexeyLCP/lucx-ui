@@ -972,7 +972,9 @@ export interface GenWireguardLinkInput {
 export function genWireguardLink(input: GenWireguardLinkInput): string {
   const { settings, address, port, remark = '', peerIndex } = input;
   const peer = settings.peers[peerIndex];
-  if (!peer) return '';
+  // LUCX-HOOK: public-only imports cannot produce usable client credentials.
+  if (!peer?.privateKey) return '';
+  // END LUCX-HOOK
 
   const url = new URL(`wireguard://${formatUrlHost(address)}:${port}`);
   url.username = peer.privateKey ?? '';
@@ -1000,7 +1002,9 @@ export function genWireguardLink(input: GenWireguardLinkInput): string {
 export function genWireguardConfig(input: GenWireguardLinkInput): string {
   const { settings, address, port, remark = '', peerIndex } = input;
   const peer = settings.peers[peerIndex];
-  if (!peer) return '';
+  // LUCX-HOOK: public-only imports cannot produce usable client credentials.
+  if (!peer?.privateKey) return '';
+  // END LUCX-HOOK
 
   const pubKey =
     settings.secretKey.length > 0 ? Wireguard.generateKeypair(settings.secretKey).publicKey : '';
