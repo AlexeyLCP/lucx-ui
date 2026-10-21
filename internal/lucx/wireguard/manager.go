@@ -7,7 +7,6 @@
 package wireguard
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -66,15 +65,17 @@ func NewManager(dir string, command Command) *Manager {
 	return &Manager{dir: dir, command: command, current: map[int]managed{}, counters: NewCounters()}
 }
 
-type diagnosticBuffer struct{ bytes.Buffer }
+type diagnosticBuffer struct{ data []byte }
 
 func (b *diagnosticBuffer) Write(p []byte) (int, error) {
 	n := len(p)
-	if remaining := 4096 - b.Len(); remaining > 0 {
-		b.Buffer.Write(p[:min(remaining, len(p))])
+	if remaining := 4096 - len(b.data); remaining > 0 {
+		b.data = append(b.data, p[:min(remaining, len(p))]...)
 	}
 	return n, nil
 }
+
+func (b *diagnosticBuffer) String() string { return string(b.data) }
 
 func missingInputRule(err error) bool {
 	var exit *exec.ExitError

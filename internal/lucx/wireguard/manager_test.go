@@ -8,6 +8,7 @@ package wireguard
 
 import (
 	"fmt"
+	"io"
 	"strings"
 	"testing"
 )
@@ -348,5 +349,13 @@ func TestCleanupRetriesUnknownInputCheckFailure(t *testing.T) {
 	}
 	if _, ok := m.current[7]; ok {
 		t.Fatal("successful retry retained cleanup state")
+	}
+}
+
+func TestDiagnosticBufferCapsReaderCopy(t *testing.T) {
+	var buffer diagnosticBuffer
+	_, err := io.Copy(&buffer, io.LimitReader(strings.NewReader(strings.Repeat("x", 65536)), 65536))
+	if err != nil || len(buffer.String()) > 4096 {
+		t.Fatalf("stderr buffer bypassed its limit: bytes=%d err=%v", len(buffer.String()), err)
 	}
 }
