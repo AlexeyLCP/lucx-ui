@@ -27,3 +27,11 @@ For deployment, back up the database and binary, retain a tested rollback, and f
 The Linux kernel selector and explicit import action, rendered locally with empty key fields:
 
 ![Kernel WireGuard backend fields](images/kernel-wireguard.png)
+
+## Deployment validation (2026-10-21)
+
+The artifact for `34c586e` from [the fork CI run](https://github.com/keonji/lucx-ui/actions/runs/39591865240) was installed on a Linux gateway with backup and scheduled rollback. A separate temporary inbound used independent local and external synthetic peers. Each passed 11 DNS/HTTPS samples over five minutes; the local client also reached a Russian HTTPS destination. Handshake timestamps advanced through two rekeys while the managed interface index and Xray PID stayed unchanged. Individual peer revocation blocked traffic; enabling it and making a fresh client handshake restored access. Traffic counters grew in the panel.
+
+Existing routing rules enumerate inbound tags. The synthetic tag was temporarily added to the existing WG routing policy and then removed; the feature itself does not silently add an egress rule. Original routing/outbounds, client profiles and peer sets matched their pre-deployment hashes after cleanup. The temporary inbound, both client identities, namespaces, files, nftables table, route/rule and API token were removed.
+
+The existing externally managed WG interface was preserved. Transferring its ownership from wg-quick and another provisioning service requires a separate operator cutover; installing this feature does not perform that transfer. These checks establish functional behavior on the tested gateway and Linux CI runner, not long-term performance or resistance to provider filtering.
