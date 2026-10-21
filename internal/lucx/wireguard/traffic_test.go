@@ -33,7 +33,7 @@ func TestTrafficBaselineResetAndRemoval(t *testing.T) {
 	}
 }
 
-func TestParseWireGuardDumpDoesNotExposeDeviceSecrets(t *testing.T) {
+func TestParseWireGuardDumpReadsOnlyPeerCounterFields(t *testing.T) {
 	rows, err := ParseDump("PRIVATE PUBLIC 51820 off\npeer PSK endpoint 10.90.0.2/32 990 123 456 25\n")
 	if err != nil || len(rows) != 1 || rows[0].PublicKey != "peer" || rows[0].Received != 123 || rows[0].Sent != 456 || rows[0].Handshake != 990 {
 		t.Fatalf("bad parsed counters: %+v err=%v", rows, err)

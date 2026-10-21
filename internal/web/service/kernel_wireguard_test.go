@@ -152,3 +152,35 @@ func TestKernelWireguardCommitDoesNotUseStaleDisabledStats(t *testing.T) {
 		t.Fatal("stale disabled stats bypassed structural validation")
 	}
 }
+
+func TestKernelWireguardDisabledSniffingKeepsBridgeDefaults(t *testing.T) {
+	cfg := egressTestConfig()
+	ib := kernelWireguardTestInbound(t)
+	ib.Sniffing = `{"enabled":false}`
+	if err := injectKernelWireguard(cfg, ib); err != nil {
+		t.Fatal(err)
+	}
+	var sniff map[string]any
+	_ = json.Unmarshal(cfg.InboundConfigs[len(cfg.InboundConfigs)-1].Sniffing, &sniff)
+	if sniff["enabled"] != true || sniff["routeOnly"] != true {
+		t.Fatal("disabled form defaults overrode kernel sniffing")
+	}
+}
+
+func TestKernelWireguardBadRowRetainsLastBridge(t *testing.T) {
+	ib := kernelWireguardTestInbound(t)
+	cfg := egressTestConfig()
+	injectKernelWireguardSafely(cfg, ib)
+	ib.Settings = `{"kernel":true,"secretKey":"invalid"}`
+	next := egressTestConfig()
+	injectKernelWireguardSafely(next, ib)
+	count := 0
+	for _, b := range next.InboundConfigs {
+		if b.Tag == ib.Tag && b.Port == 32101 {
+			count++
+		}
+	}
+	if count != 1 {
+		t.Fatal("last working bridge was not retained")
+	}
+}

@@ -309,3 +309,44 @@ func TestFirewallOwnershipWorksWithoutTableComments(t *testing.T) {
 		t.Fatal("foreign table accepted")
 	}
 }
+
+func TestReconcilePreservesInvalidInbound(t *testing.T) {
+	m := NewManager(t.TempDir(), func(_ string, args ...string) ([]byte, error) { return []byte(`[]`), nil })
+	i := Instance{ID: 7}
+	m.current[7] = managed{inst: i}
+	m.ReconcilePreserving(nil, []int{7})
+	if _, ok := m.current[7]; !ok {
+		t.Fatal("invalid inbound was removed during reconciliation")
+	}
+}
+
+func TestCleanupRetriesUnknownInputCheckFailure(t *testing.T) {
+	fail := true
+	m := NewManager(t.TempDir(), func(_ string, args ...string) ([]byte, error) {
+		c := strings.Join(args, " ")
+		if strings.HasPrefix(c, "ip -j -d link show") || strings.HasPrefix(c, "nft -j list table ") {
+			return nil, fmt.Errorf("absent")
+		}
+		if strings.HasPrefix(c, "iptables") && strings.Contains(c, "-C") && fail {
+			return nil, fmt.Errorf("xtables lock busy")
+		}
+		if strings.HasPrefix(c, "ip -j") || strings.HasPrefix(c, "nft -j list tables") {
+			return []byte(`[]`), nil
+		}
+		return nil, nil
+	})
+	m.current[7] = managed{inst: Instance{ID: 7}}
+	if err := m.Remove(7); err == nil {
+		t.Fatal("unknown INPUT check failure was ignored")
+	}
+	if _, ok := m.current[7]; !ok {
+		t.Fatal("cleanup state was discarded")
+	}
+	fail = false
+	if err := m.Remove(7); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := m.current[7]; ok {
+		t.Fatal("successful retry retained cleanup state")
+	}
+}

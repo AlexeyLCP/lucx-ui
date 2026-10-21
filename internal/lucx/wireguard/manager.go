@@ -7,12 +7,15 @@
 package wireguard
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -63,6 +66,21 @@ func NewManager(dir string, command Command) *Manager {
 	return &Manager{dir: dir, command: command, current: map[int]managed{}, counters: NewCounters()}
 }
 
+type diagnosticBuffer struct{ bytes.Buffer }
+
+func (b *diagnosticBuffer) Write(p []byte) (int, error) {
+	n := len(p)
+	if remaining := 4096 - b.Len(); remaining > 0 {
+		b.Buffer.Write(p[:min(remaining, len(p))])
+	}
+	return n, nil
+}
+
+func missingInputRule(err error) bool {
+	var exit *exec.ExitError
+	return errors.As(err, &exit) && exit.ExitCode() == 1
+}
+
 func systemCommand(input string, args ...string) ([]byte, error) {
 	if runtime.GOOS != "linux" {
 		return nil, fmt.Errorf("kernel WireGuard requires Linux")
@@ -71,9 +89,24 @@ func systemCommand(input string, args ...string) ([]byte, error) {
 	defer cancel()
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	cmd.Stdin = strings.NewReader(input)
+	var stderr diagnosticBuffer
+	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("kernel WireGuard %s operation failed", args[0])
+		code := -1
+		var exit *exec.ExitError
+		if errors.As(err, &exit) {
+			code = exit.ExitCode()
+		}
+		detail := regexp.MustCompile(`[A-Za-z0-9+/]{32,}=?`).ReplaceAllString(stderr.String(), "[redacted-key]")
+		detail = strings.Join(strings.Fields(detail), " ")
+		if detail == "" {
+			detail = err.Error()
+		}
+		if len(detail) > 512 {
+			detail = detail[:512] + "…"
+		}
+		return nil, fmt.Errorf("kernel WireGuard %s operation failed (exit %d): %s: %w", args[0], code, detail, err)
 	}
 	return out, nil
 }
@@ -187,6 +220,24 @@ func (m *Manager) firewall(i Instance) error {
 	return err
 }
 
+func inputRuleArgs(i Instance, operation string) []string {
+	args := []string{"iptables", "-w", "5", operation, "INPUT"}
+	if operation == "-I" {
+		args = append(args, "1")
+	}
+	return append(args, "-i", i.Name(), "-m", "mark", "--mark", i.Mark(), "-m", "comment", "--comment", owner, "-j", "ACCEPT")
+}
+
+func (m *Manager) ensureInput(i Instance) error {
+	if _, err := m.run(inputRuleArgs(i, "-C")...); err == nil {
+		return nil
+	} else if !missingInputRule(err) {
+		return err
+	}
+	_, err := m.run(inputRuleArgs(i, "-I")...)
+	return err
+}
+
 func (m *Manager) sample(i Instance) {
 	out, err := m.run("wg", "show", i.Name(), "dump")
 	if err != nil {
@@ -281,6 +332,9 @@ func (m *Manager) ensure(i Instance) error {
 		}
 	}
 	if err := writePrivate(m.path(i), conf); err != nil {
+		return err
+	}
+	if err := m.ensureInput(i); err != nil {
 		return err
 	}
 	if err := m.firewall(i); err != nil {
@@ -397,6 +451,13 @@ func (m *Manager) remove(id int) error {
 			return fmt.Errorf("unable to confirm nft table ownership")
 		}
 	}
+	if _, e := m.run(inputRuleArgs(i, "-C")...); e == nil {
+		if _, e = m.run(inputRuleArgs(i, "-D")...); e != nil {
+			return e
+		}
+	} else if !missingInputRule(e) {
+		return e
+	}
 	path := m.path(i)
 	text, readErr := os.ReadFile(path)
 	if readErr != nil && !os.IsNotExist(readErr) {
@@ -419,10 +480,15 @@ func (m *Manager) remove(id int) error {
 	return nil
 }
 
-func (m *Manager) Reconcile(desired []Instance) []error {
+func (m *Manager) Reconcile(desired []Instance) []error { return m.ReconcilePreserving(desired, nil) }
+
+func (m *Manager) ReconcilePreserving(desired []Instance, preserve []int) []error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	want := map[int]bool{}
+	for _, id := range preserve {
+		want[id] = true
+	}
 	var errors []error
 	for _, i := range desired {
 		want[i.ID] = true

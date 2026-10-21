@@ -34,6 +34,7 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 
 Tunnel sidecars are external tunnel servers that the panel supervises **alongside** Xray (not Xray protocols). Cores: **NaiveProxy** (Caddy + `forward_proxy` klzgrad, HTTP/2 padding; optional routeThroughXray), **olcRTC** (TCP-over-WebRTC via Jitsi/Telemost/WB Stream meet rooms), **qWDTT** (WG over VK TURN), **CSQTT** (TURN/RTP). Shared skeleton:
 
+- **`internal/lucx/wireguard/`** (PolyForm): optional ordinary kernel WG; owned interfaces/configs, INPUT/TPROXY rules, syncconf, counters and safe import. Web integration: `service/kernel_wireguard.go`, `job/kernel_wireguard_job.go`, `controller/kernel_wireguard.go`; operator guide `docs/kernel-wireguard.md`.
 - **`internal/lucx/tunnel/`** (PolyForm): `Name` core registry; `NaiveConfig` + Caddyfile render; `Proc` (exec, SIGTERM→kill, ring log); `Manager` (singleton, fingerprint restart on config change, `Ensure`/`Stop`/`StopAll`, three-level status process→TCP-probe→TLS-probe).
 - **Caddyfile footguns** (learned from elector1337/3x-ui-naive + E2E lucx.91, baked into the renderer): `admin off` (else instances fight over :2019); wildcard-listen → bare `:port` (explicit `0.0.0.0:port` is treated by Caddy as a host-matcher), concrete IP → `bind`; per-instance `XDG_DATA_HOME` (ACME stores don’t collide); quote+escape all user values. **Three E2E footguns:** (1) forward_proxy has NO `padding` subdirective — padding turns on by itself from the client `Padding` header; (2) a domain in the site address MUST carry a non-standard port (`domain:8443`), else a bare domain opens a second :443 listener; (3) manual TLS requires `auto_https off` + `skip_install_trust` in the global block, else Caddy starts an ACME :80 listener and installs a local root cert into the system trust store.
 - **Storage:** settings table, key `lucxTunnel_naive` (JSON blob). Web layer: `service/tunnel.go` (validations, port cross-check vs TCP inbounds — UDP protocols don’t conflict; binary download via temp file), `controller/tunnel.go` (`/panel/api/tunnel/naive/*`: status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary), `job/tunnel_job.go` (cron 10s: reconcile + sidecar traffic/online; node-hosted inbounds scrape on the node, master pulls `onlinesByGuid`; stamp works with Xray down). **lucx.115:** settings blobs are LEGACY-only: migrations set the `migratedToInbound` marker (and backfill it if an inbound already exists), reconcile-fallback under the marker forces `Enabled=false` + sweeps orphan `{core}-{id}` even when want is empty, and legacy Start/Restart/Save refuse (“manage on the Inbounds page”) if the blob is migrated or a protocol inbound exists; Stop is always allowed (zombie kill). See Pattern 1m.
@@ -85,6 +86,7 @@ internal/lucx/                     Smart Cluster + tunnel sidecars
 ├── parser/                        SSH output → NodeCreds
 ├── nodetype/                      LucX vs vanilla detection (GET /panel/api/lucx/hello + features gate)
 ├── outbound_link/                 Inbound → outbound config generator
+├── wireguard/                     Standard kernel WireGuard, INPUT/TPROXY, syncconf and counters
 └── tunnel/                        Tunnel sidecars (Naive, olcRTC, qWDTT, CSQTT, mieru, TrustTunnel)
     ├── tunnel.go                  Name registry + binary/config/data paths
     ├── mieru.go / mieru_inbound.go / mieru_traffic.go / mieru_pattern.go (trafficPattern + link proto encoder)
@@ -153,7 +155,3 @@ LICENSE-PolyForm-Noncommercial.txt Canonical PolyForm NC 1.0.0 text
 ```
 
 ---
-
-## Optional kernel WireGuard
-
-`internal/lucx/wireguard` owns `lxwg<ID>` interfaces, marked nftables tables and policy routes. Explicit `kernel: true` on a WireGuard inbound selects this manager; existing WireGuard inbounds remain on Xray. `internal/web/service/kernel_wireguard.go` injects the loopback TPROXY bridge while preserving routing tags and sniffing. The runtime applies peers with `wg syncconf`; the ten-second job reconciles state and persists per-peer counter deltas. Configurations live under `XUI_DB_FOLDER/wireguard`; only resources bearing the manager ownership marker are removed. Import preview is authenticated, read-only and creates a disabled draft. See `docs/kernel-wireguard.md` for limits and verification.

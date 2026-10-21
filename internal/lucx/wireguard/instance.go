@@ -36,6 +36,7 @@ type Instance struct {
 	Address    string
 	MTU        int
 	TproxyPort int
+	FwMark     uint32
 	PrivateKey string
 	Peers      []Peer
 }
@@ -75,6 +76,7 @@ func Parse(ib *model.Inbound) (Instance, error) {
 		Address    string `json:"address"`
 		MTU        int    `json:"mtu"`
 		TproxyPort int    `json:"tproxyPort"`
+		FwMark     string `json:"fwMark"`
 		Clients    []Peer `json:"clients"`
 		Peers      []Peer `json:"peers"`
 	}
@@ -156,5 +158,16 @@ func Parse(ib *model.Inbound) (Instance, error) {
 	inst.MTU = s.MTU
 	inst.TproxyPort = s.TproxyPort
 	inst.PrivateKey = s.SecretKey
+	if s.FwMark != "" && s.FwMark != "off" {
+		base := 10
+		if strings.HasPrefix(strings.ToLower(s.FwMark), "0x") {
+			base = 0
+		}
+		mark, e := strconv.ParseUint(s.FwMark, base, 32)
+		if e != nil {
+			return Instance{}, fmt.Errorf("kernel WireGuard FwMark requires a 32-bit decimal or hexadecimal value")
+		}
+		inst.FwMark = uint32(mark)
+	}
 	return inst, nil
 }

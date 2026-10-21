@@ -95,6 +95,7 @@ func TestKernelWireguardNetNSWorker(t *testing.T) {
 		t.Fatal(err)
 	}
 	inst.Peers[0].PublicKey = public
+	inst.FwMark = 0xca6c
 	manager := NewManager(t.TempDir(), nil)
 	defer manager.StopAll()
 	if err = manager.Ensure(inst); err != nil {
@@ -193,6 +194,8 @@ func TestKernelWireguardNetNSWorker(t *testing.T) {
 			t.Fatalf("%s probe failed: %v\n%s", mode, e, out)
 		}
 	}
+	run("iptables", "-P", "INPUT", "DROP")
+	run("iptables", "-A", "INPUT", "-i", "lo", "-j", "ACCEPT")
 	probe("tcp", false)
 	probe("udp", false)
 	before := strings.TrimSpace(run("wg", "show", inst.Name(), "latest-handshakes"))
@@ -230,5 +233,13 @@ func TestKernelWireguardNetNSWorker(t *testing.T) {
 	run("ip", "link", "show", "wg0")
 	if out, err := exec.Command("ip", "link", "show", inst.Name()).CombinedOutput(); err == nil {
 		t.Fatalf("managed device survived deletion: %s", out)
+	}
+}
+
+func TestSystemCommandReportsBoundedRedactedStderr(t *testing.T) {
+	secret := strings.Repeat("A", 43) + "="
+	_, err := systemCommand("", "sh", "-c", "printf '%s' '"+secret+" "+strings.Repeat("x", 800)+"' >&2; exit 7")
+	if err == nil || !strings.Contains(err.Error(), "exit 7") || !strings.Contains(err.Error(), "[redacted-key]") || strings.Contains(err.Error(), secret) || len(err.Error()) > 650 {
+		t.Fatalf("unsafe or missing command diagnostics: %v", err)
 	}
 }

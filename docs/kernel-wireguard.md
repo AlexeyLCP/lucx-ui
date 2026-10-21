@@ -1,37 +1,46 @@
 # Kernel WireGuard
 
-WireGuard inbounds can opt into the Linux kernel backend with `settings.kernel: true`. Existing inbounds continue using Xray until explicitly changed. This backend is ordinary, unobfuscated WireGuard.
+Enable **Linux kernel backend** on a WireGuard inbound to use the standard Linux module. Existing inbounds keep Xray until explicitly changed. This backend is unobfuscated WireGuard and supports official WireGuard clients.
 
-Requirements: Linux WireGuard support, `ip`, `wg`, `ss`, `nft`, `sysctl`, and the network administration privileges already required by the kernel AWG manager. The panel stores private configuration files in `XUI_DB_FOLDER/wireguard` with restricted permissions.
+## Requirements
 
-Create a WireGuard inbound, select Linux kernel, set the server IPv4 CIDR and an unused loopback TPROXY port, then add clients normally. The first version accepts IPv4 client /32 addresses in the server subnet. It sends TCP and UDP through the inbound's Xray TPROXY bridge and existing routing rules. It does not change the host default route or DNS. IPv6 is blocked on the managed interface. Unsupported traffic is dropped rather than forwarded around Xray.
+Linux WireGuard support, `ip`, `wg`, `ss`, `nft`, `iptables`, `sysctl` and network administration privileges are required. Private configurations live in `XUI_DB_FOLDER/wireguard`, default `/etc/x-ui/wireguard`, with restricted permissions.
 
-Peer changes use `wg syncconf` and preserve other peer sessions. Changing server/device settings may recreate the interface. Disabling or deleting an inbound removes only its owned interface, routing rule, route, nftables table and configuration. Reconciliation retries failed configuration and cleanup operations.
+The manager installs a scoped iptables INPUT ACCEPT rule for packets arriving on its interface with its TPROXY mark, including on iptables-compatible UFW hosts with INPUT DROP. An ACCEPT in one nftables base chain cannot override a DROP in another. Native firewalld/custom nftables policies must allow the managed marked input in their own chains. Allow the public UDP listener port in host/cloud firewalls. The manager does not disable the firewall or change its default policy.
 
-The import preview accepts a standard server configuration, rejects shell hooks and AWG parameters, and returns a disabled draft for review. Save explicitly to create the inbound. Imported public keys do not recover client private keys; exports remain unavailable for those peers until the operator supplies their original private key. Existing external interfaces are not adopted automatically.
+## Configure an inbound
 
-## Validation
+1. Create a WireGuard inbound and enable **Linux kernel backend**.
+2. Choose a wildcard listen address, public UDP port, server IPv4 address/prefix and unused loopback TPROXY port. Add IPv4 /32 client addresses inside that subnet.
+3. If another VPN controls host policy routing, set **Transport FwMark**, in decimal or hexadecimal (for example `0xca6c`), so encrypted WireGuard transport uses the intended outer route. It is separate from the decrypted-traffic TPROXY mark.
+4. **Add the inbound tag to the intended Xray routing rules.** Without a matching rule Xray uses its first outbound, often `direct`. Put destination-specific direct rules before an inbound-tag catch-all when appropriate.
+5. Save and enable. Verify a handshake, UDP DNS, HTTPS and the expected external IP from a client.
 
-Run the ordinary Go tests and frontend checks. On a disposable privileged Linux runner, install wireguard-tools, nftables and iproute2, then run:
+The bridge enables HTTP/TLS/QUIC sniffing with `routeOnly: true` even when new-form defaults contain `enabled: false`. Explicit enabled sniffing settings are retained. This permits domain routing without changing the destination address.
+
+## Import existing profiles
+
+**Import wg-quick server config** previews a disabled draft without runtime effects. Save explicitly, then enable after reviewing settings and port/route ownership. Server/peer keys, PSKs, addresses, listen port, MTU and FwMark are preserved. `Table = off` and `SaveConfig = false` are accepted. Other Table modes, `SaveConfig = true`, shell hooks and AWG fields require explicit correction; imported hooks are never executed.
+
+Server configs cannot recover client private keys. Public-only peers keep working with their original profiles; full client export requires supplying the original private key. External interfaces are not adopted automatically.
+
+## Traffic and lifecycle limits
+
+- The first version supports local Linux IPv4 peers and TCP/UDP TPROXY. IPv6, ICMP/ping and forwarded peer-to-peer traffic are dropped.
+- There is no general `fib daddr type local` bypass. Addresses inside the tunnel subnet bypass interception and follow host INPUT policy; other server-local destinations may be routed through Xray. Design panel/SSH access explicitly in host and Xray policies.
+- Peer edits use `wg syncconf`, preserving unrelated sessions. A revoked peer needs a fresh handshake after re-enabling. Server/device changes may recreate the interface.
+- A panel stop/restart removes managed interfaces and interrupts sessions. After a crash the manager can adopt owned surviving devices; an intentional StopAll performs cleanup. Without a working Xray listener, intercepted traffic is dropped.
+- Invalid kernel settings are logged without aborting unrelated Xray inbounds. The previous working bridge is retained in process memory, and reconciliation leaves invalid inbound resources untouched. A fresh process cannot reconstruct an unavailable previous bridge; repair the invalid record before expecting that tunnel to work.
+- Default route and system DNS are not changed. Cleanup retries failures and refuses foreign interfaces/tables.
+
+## Form preview
+
+![Kernel WireGuard backend fields](images/kernel-wireguard.png)
+
+## Tests
+
+Ordinary Go/frontend tests cover validation, runtime dispatch, import/export and accounting. On disposable privileged Linux, integration tests use real WireGuard TCP/UDP TPROXY with mark restoration and INPUT DROP, repair firewall state, verify missing-listener drops, and preserve an unrelated interface:
 
 ```sh
 sudo env PATH="$PATH" LUCX_WG_NETNS_TEST=1 go test -v -count=1 ./internal/lucx/wireguard -run '^TestKernelWireguardNetNS$'
 ```
-
-The namespace test verifies real kernel handshakes, TCP/UDP TPROXY, compatibility with a connection-mark restore chain, reconciliation, closed forwarding when the listener is absent, and preservation of an unrelated WireGuard interface. `.github/workflows/kernel-wireguard.yml` runs this test and builds a Linux validation artifact.
-
-For deployment, back up the database and binary, retain a tested rollback, and first validate a separate synthetic inbound. Verify DNS, HTTPS, routing, peer revocation, traffic accounting and existing tunnels before transferring externally managed interfaces.
-
-## Form preview
-
-The Linux kernel selector and explicit import action, rendered locally with empty key fields:
-
-![Kernel WireGuard backend fields](images/kernel-wireguard.png)
-
-## Deployment validation (2026-10-21)
-
-The artifact for `34c586e` from [the fork CI run](https://github.com/keonji/lucx-ui/actions/runs/39591865240) was installed on a Linux gateway with backup and scheduled rollback. A separate temporary inbound used independent local and external synthetic peers. Each passed 11 DNS/HTTPS samples over five minutes; the local client also reached a Russian HTTPS destination. Handshake timestamps advanced through two rekeys while the managed interface index and Xray PID stayed unchanged. Individual peer revocation blocked traffic; enabling it and making a fresh client handshake restored access. Traffic counters grew in the panel.
-
-Existing routing rules enumerate inbound tags. The synthetic tag was temporarily added to the existing WG routing policy and then removed; the feature itself does not silently add an egress rule. Original routing/outbounds, client profiles and peer sets matched their pre-deployment hashes after cleanup. The temporary inbound, both client identities, namespaces, files, nftables table, route/rule and API token were removed.
-
-The existing externally managed WG interface was preserved. Transferring its ownership from wg-quick and another provisioning service requires a separate operator cutover; installing this feature does not perform that transfer. These checks establish functional behavior on the tested gateway and Linux CI runner, not long-term performance or resistance to provider filtering.

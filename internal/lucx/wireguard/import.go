@@ -74,6 +74,12 @@ func ImportConfig(text string, tproxyPort int) (*model.Inbound, error) {
 				settings["mtu"] = n
 			case "DNS":
 				settings["dns"] = value
+			case "FwMark":
+				settings["fwMark"] = value
+			case "SaveConfig":
+				if value != "false" {
+					return nil, fmt.Errorf("SaveConfig must be false: LucX owns the generated configuration and does not write back to the imported file")
+				}
 			case "Table":
 				if value != "off" {
 					return nil, fmt.Errorf("review and remove imported Table routing before kernel WireGuard import")

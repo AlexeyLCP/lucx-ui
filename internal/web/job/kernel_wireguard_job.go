@@ -10,87 +10,114 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
 
+type kernelWireguardStore interface {
+	GetAllInbounds() ([]*model.Inbound, error)
+	AddTraffic([]*xray.Traffic, []*xray.ClientTraffic) (bool, bool, error)
+	RefreshLocalOnlineClients([]string, []string)
+}
+type kernelWireguardManager interface {
+	ReconcilePreserving([]kernelwg.Instance, []int) []error
+	CollectTraffic() []kernelwg.Usage
+}
 type KernelWireguardJob struct {
-	inboundService service.InboundService
-	lastTick       time.Time
-	pending        []*xray.ClientTraffic
+	store    kernelWireguardStore
+	manager  kernelWireguardManager
+	now      func() time.Time
+	lastTick time.Time
+	pending  []*xray.ClientTraffic
 }
 
-func NewKernelWireguardJob() *KernelWireguardJob { return new(KernelWireguardJob) }
+func NewKernelWireguardJob() *KernelWireguardJob {
+	return &KernelWireguardJob{store: &service.InboundService{}, manager: kernelwg.GetManager(), now: time.Now}
+}
+
 func (j *KernelWireguardJob) Run() {
-	rows, err := j.inboundService.GetAllInbounds()
+	rows, err := j.store.GetAllInbounds()
 	if err != nil {
 		logger.Warning("kernel WireGuard: cannot read inbounds")
 		return
 	}
 	var desired []kernelwg.Instance
-	var tags []string
+	var preserve []int
 	for _, ib := range rows {
 		if !kernelwg.IsKernel(ib) || !ib.Enable || ib.NodeID != nil {
 			continue
 		}
 		inst, err := kernelwg.Parse(ib)
 		if err != nil {
-			logger.Warningf("kernel WireGuard inbound %d: %v", ib.Id, err)
+			logger.Warningf("kernel WireGuard inbound %d retained without changes: %v", ib.Id, err)
+			preserve = append(preserve, ib.Id)
 			continue
 		}
 		desired = append(desired, inst)
-		tags = append(tags, ib.Tag)
 	}
-	manager := kernelwg.GetManager()
-	for _, err := range manager.Reconcile(desired) {
+	for _, err := range j.manager.ReconcilePreserving(desired, preserve) {
 		logger.Warning("kernel WireGuard reconcile: ", err)
 	}
 	online := map[string]bool{}
-	byEmail := map[string]*xray.ClientTraffic{}
-	for _, old := range j.pending {
-		byEmail[old.Email] = old
-	}
-	for _, usage := range manager.CollectTraffic() {
-		if usage.Email == "" {
+	onlineTags := map[string]bool{}
+	fresh := map[string]*xray.ClientTraffic{}
+	for _, u := range j.manager.CollectTraffic() {
+		if u.Email == "" {
 			continue
 		}
-		if usage.Online {
-			online[usage.Email] = true
+		if u.Online {
+			online[u.Email] = true
+			onlineTags[u.Tag] = true
 		}
-		traffic := byEmail[usage.Email]
-		if traffic == nil {
-			traffic = &xray.ClientTraffic{Email: usage.Email}
-			byEmail[usage.Email] = traffic
+		if fresh[u.Email] == nil {
+			fresh[u.Email] = &xray.ClientTraffic{Email: u.Email}
 		}
-		traffic.Up += usage.Up
-		traffic.Down += usage.Down
+		fresh[u.Email].Up += u.Up
+		fresh[u.Email].Down += u.Down
+	}
+	total := map[string]*xray.ClientTraffic{}
+	for _, old := range j.pending {
+		copy := *old
+		total[old.Email] = &copy
+	}
+	var deltas []*xray.ClientTraffic
+	for _, delta := range fresh {
+		deltas = append(deltas, delta)
+		if total[delta.Email] == nil {
+			total[delta.Email] = &xray.ClientTraffic{Email: delta.Email}
+		}
+		total[delta.Email].Up += delta.Up
+		total[delta.Email].Down += delta.Down
 	}
 	var clients []*xray.ClientTraffic
-	for _, row := range byEmail {
+	for _, row := range total {
 		clients = append(clients, row)
 	}
+	j.pending = nil
 	if len(clients) > 0 {
-		if _, _, err := j.inboundService.AddTraffic(nil, clients); err != nil {
+		if _, _, err := j.store.AddTraffic(nil, clients); err != nil {
 			j.pending = clients
 			logger.Warning("kernel WireGuard: traffic persistence failed")
-			return
 		}
 	}
-	j.pending = nil
-	var emails []string
+	var emails, tags []string
 	for email := range online {
 		emails = append(emails, email)
 	}
-	j.inboundService.RefreshLocalOnlineClients(emails, tags)
-	now := time.Now()
+	for tag := range onlineTags {
+		tags = append(tags, tag)
+	}
+	j.store.RefreshLocalOnlineClients(emails, tags)
+	now := j.now()
 	elapsed := now.Sub(j.lastTick)
 	if j.lastTick.IsZero() {
 		elapsed = 10 * time.Second
 	}
 	j.lastTick = now
-	_, normalized := normalizeAwgDeltas(nil, clients, elapsed)
+	_, normalized := normalizeAwgDeltas(nil, deltas, elapsed)
 	kernelWGSpeed.Lock()
 	kernelWGSpeed.snapshot = awgSpeedSnapshot{clients: normalized, at: now}
 	kernelWGSpeed.Unlock()

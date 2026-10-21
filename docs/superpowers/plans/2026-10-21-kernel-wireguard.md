@@ -14,7 +14,7 @@
 - No issued client keys/addresses/settings change without explicit operator action.
 - Existing wireguard inbounds default to the existing Xray implementation.
 - Runtime is Linux-only; IPv4 TPROXY only in the first version, explicit errors otherwise.
-- No imported shell hooks, secrets in logs, production builds or unrelated rewrites.
+- No imported shell hooks, secrets in logs, builds on production hosts or unrelated rewrites.
 - LUCX-HOOK upstream integration; new LucX files preserve repository licensing conventions.
 
 ## Review Focus
@@ -25,7 +25,7 @@
 - Fresh and legacy databases retain existing settings, keys and subscription output.
 
 ### Task 1: Kernel state, validation and rendering
-Files: internal/lucx/wireguard/{instance,config,manager,platform_linux,platform_other}.go and matching tests.
+Files: internal/lucx/wireguard/{instance,config,manager,traffic,import}.go and matching tests.
 Interfaces: IsKernel(*model.Inbound) bool; Parse(*model.Inbound) (Instance,error); Manager.Ensure/Remove/Reconcile/CollectTraffic/StopAll.
 - [x] Write failing tests for opt-in parsing, invalid keys/subnets/IPv6, disabled peers, standard-only config, peer-independent fingerprint, counters and cleanup ownership.
 - [x] Run the new tests and record expected failures.
@@ -53,8 +53,8 @@ Files: deployment runbook/test scripts and docs; dedicated fork build workflow o
 - [x] Inspect upstream open PRs/issues for conflicts; push only the personal feature branch, build Linux CI artifacts.
 - [x] Back up live installation and schedule rollback; deploy artifact, synthetic WG inbound smoke test and multiple rekeys.
 - [x] Assess existing wg0 ownership before transfer; preserve external ownership when the separate provisioning service still owns it. Verify WG/AWG/transit/accounting, remove test resources, and cancel rollback only after passing.
-- [x] Record limits and evidence; submit upstream PR, attach it to this chat and report final status.
+- [x] Record limits and evidence; submit upstream PR, record its URL and report final status.
 
-## Result
+## Status
 
-Runtime commit `34c586e` passed [Linux CI](https://github.com/keonji/lucx-ui/actions/runs/39591865240) and is deployed. Synthetic local/external tunnel tests passed 11/11 samples each over five minutes and multiple rekeys; peer revocation, accounting, cleanup and original-state preservation passed. Existing wg0 remains externally managed under the specification's safe-ownership fallback. Upstream submission is the remaining publication step.
+Proposed in [PR #147](https://github.com/AlexeyLCP/lucx-ui/pull/147). Runtime validation evidence is kept in that PR and the operator KB. External wg0 provisioning ownership was deliberately preserved.

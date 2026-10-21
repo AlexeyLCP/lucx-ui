@@ -24,6 +24,11 @@ _openapi:
         Fail2ban being installed.
       url: '#reports-whether-per-client-ip-limits-can-be-enforced-on-this-host-the-panel-uses-it-to-gate-the-ip-limit-field-since-enforcement-depends-on-fail2ban-being-installed'
     - depth: 2
+      title: Reports whether TCP BBR congestion control (paired with fq/cake) is
+        active. AWG/WireGuard itself is UDP and unaffected, but TCP flows the
+        panel proxies benefit on higher-latency or lossy paths.
+      url: '#reports-whether-tcp-bbr-congestion-control-paired-with-fqcake-is-active-awgwireguard-itself-is-udp-and-unaffected-but-tcp-flows-the-panel-proxies-benefit-on-higher-latency-or-lossy-paths'
+    - depth: 2
       title: 'Legacy: aggregated CPU history. Use /history/cpu/:bucket instead — same
         data with a uniform {t, v} shape.'
       url: '#legacy-aggregated-cpu-history-use-historycpubucket-instead--same-data-with-a-uniform-t-v-shape'
@@ -55,6 +60,10 @@ _openapi:
     - depth: 2
       title: Check whether a newer 3x-ui release is available on GitHub.
       url: '#check-whether-a-newer-3x-ui-release-is-available-on-github'
+    - depth: 2
+      title: Paged changelog of stable GitHub releases newer than the running panel
+        (skipped versions). LucX-UI only.
+      url: '#paged-changelog-of-stable-github-releases-newer-than-the-running-panel-skipped-versions-lucx-ui-only'
     - depth: 2
       title: Report the outcome of the most recently launched panel self-update (see
         POST updatePanel). Compare the returned runId against the one
@@ -112,6 +121,26 @@ _openapi:
       title: Download and install the specified Xray version. Pass "latest" for the
         newest release.
       url: '#download-and-install-the-specified-xray-version-pass-latest-for-the-newest-release'
+    - depth: 2
+      title: Stop and re-up managed AWG kernel interfaces (inbounds + outbounds).
+      url: '#stop-and-re-up-managed-awg-kernel-interfaces-inbounds--outbounds'
+    - depth: 2
+      title: Install or rebuild the amneziawg DKMS module from upstream master
+        (async). Runs bin/install-awg-module.sh --force-rebuild
+        --no-kernel-upgrade.
+      url: '#install-or-rebuild-the-amneziawg-dkms-module-from-upstream-master-async-runs-bininstall-awg-modulesh---force-rebuild---no-kernel-upgrade'
+    - depth: 2
+      title: Remove the amneziawg DKMS module and awg/awg-quick tools. Inbound .conf
+        files are kept.
+      url: '#remove-the-amneziawg-dkms-module-and-awgawg-quick-tools-inbound-conf-files-are-kept'
+    - depth: 2
+      title: Enable TCP BBR + fq (writes /etc/sysctl.d/99-bbr-x-ui.conf and applies it
+        live). Linux only.
+      url: '#enable-tcp-bbr--fq-writes-etcsysctld99-bbr-x-uiconf-and-applies-it-live-linux-only'
+    - depth: 2
+      title: Restore the congestion control / qdisc that were active before enableBbr
+        ran, and remove the drop-in file. Linux only.
+      url: '#restore-the-congestion-control--qdisc-that-were-active-before-enablebbr-ran-and-remove-the-drop-in-file-linux-only'
     - depth: 2
       title: Self-update the panel to the latest version. The server restarts on
         success.
@@ -195,6 +224,10 @@ _openapi:
           panel uses it to gate the "IP Limit" field, since enforcement depends
           on Fail2ban being installed.
         id: reports-whether-per-client-ip-limits-can-be-enforced-on-this-host-the-panel-uses-it-to-gate-the-ip-limit-field-since-enforcement-depends-on-fail2ban-being-installed
+      - content: Reports whether TCP BBR congestion control (paired with fq/cake) is
+          active. AWG/WireGuard itself is UDP and unaffected, but TCP flows the
+          panel proxies benefit on higher-latency or lossy paths.
+        id: reports-whether-tcp-bbr-congestion-control-paired-with-fqcake-is-active-awgwireguard-itself-is-udp-and-unaffected-but-tcp-flows-the-panel-proxies-benefit-on-higher-latency-or-lossy-paths
       - content: 'Legacy: aggregated CPU history. Use /history/cpu/:bucket instead —
           same data with a uniform {t, v} shape.'
         id: legacy-aggregated-cpu-history-use-historycpubucket-instead--same-data-with-a-uniform-t-v-shape
@@ -219,6 +252,9 @@ _openapi:
         id: list-xray-binary-versions-available-for-install-on-this-host
       - content: Check whether a newer 3x-ui release is available on GitHub.
         id: check-whether-a-newer-3x-ui-release-is-available-on-github
+      - content: Paged changelog of stable GitHub releases newer than the running panel
+          (skipped versions). LucX-UI only.
+        id: paged-changelog-of-stable-github-releases-newer-than-the-running-panel-skipped-versions-lucx-ui-only
       - content: Report the outcome of the most recently launched panel self-update (see
           POST updatePanel). Compare the returned runId against the one
           updatePanel returned to tell this run apart from a stale result.
@@ -262,6 +298,21 @@ _openapi:
       - content: Download and install the specified Xray version. Pass "latest" for the
           newest release.
         id: download-and-install-the-specified-xray-version-pass-latest-for-the-newest-release
+      - content: Stop and re-up managed AWG kernel interfaces (inbounds + outbounds).
+        id: stop-and-re-up-managed-awg-kernel-interfaces-inbounds--outbounds
+      - content: Install or rebuild the amneziawg DKMS module from upstream master
+          (async). Runs bin/install-awg-module.sh --force-rebuild
+          --no-kernel-upgrade.
+        id: install-or-rebuild-the-amneziawg-dkms-module-from-upstream-master-async-runs-bininstall-awg-modulesh---force-rebuild---no-kernel-upgrade
+      - content: Remove the amneziawg DKMS module and awg/awg-quick tools. Inbound .conf
+          files are kept.
+        id: remove-the-amneziawg-dkms-module-and-awgawg-quick-tools-inbound-conf-files-are-kept
+      - content: Enable TCP BBR + fq (writes /etc/sysctl.d/99-bbr-x-ui.conf and applies
+          it live). Linux only.
+        id: enable-tcp-bbr--fq-writes-etcsysctld99-bbr-x-uiconf-and-applies-it-live-linux-only
+      - content: Restore the congestion control / qdisc that were active before
+          enableBbr ran, and remove the drop-in file. Linux only.
+        id: restore-the-congestion-control--qdisc-that-were-active-before-enablebbr-ran-and-remove-the-drop-in-file-linux-only
       - content: Self-update the panel to the latest version. The server restarts on
           success.
         id: self-update-the-panel-to-the-latest-version-the-server-restarts-on-success
@@ -321,13 +372,11 @@ _openapi:
 {/* This file was generated by Fumadocs. Do not edit this file directly. Any changes should be made by running the generation command again. */}
 
 export default function Layout(props) {
-  const { APIPage, OpenAPIPage } = props.components ?? {};
-  // "APIPage" is the old name from v10, this allows both for backward compatibility
-  const Comp = OpenAPIPage ?? APIPage;
+  const { OpenAPIPage } = props.components ?? {};
   return (
     <>
       {props.children}
-      <Comp document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/openapi.json","method":"get"},{"path":"/panel/api/server/status","method":"get"},{"path":"/panel/api/server/fail2banStatus","method":"get"},{"path":"/panel/api/server/cpuHistory/{bucket}","method":"get"},{"path":"/panel/api/server/history/{metric}/{bucket}","method":"get"},{"path":"/panel/api/server/xrayMetricsState","method":"get"},{"path":"/panel/api/server/xrayMetricsHistory/{metric}/{bucket}","method":"get"},{"path":"/panel/api/server/xrayObservatory","method":"get"},{"path":"/panel/api/server/xrayObservatoryHistory/{tag}/{bucket}","method":"get"},{"path":"/panel/api/server/getXrayVersion","method":"get"},{"path":"/panel/api/server/getPanelUpdateInfo","method":"get"},{"path":"/panel/api/server/getUpdateStatus","method":"get"},{"path":"/panel/api/server/getConfigJson","method":"get"},{"path":"/panel/api/server/getDb","method":"get"},{"path":"/panel/api/server/getMigration","method":"get"},{"path":"/panel/api/server/getNewUUID","method":"get"},{"path":"/panel/api/server/getWebCertFiles","method":"get"},{"path":"/panel/api/server/descendants","method":"get"},{"path":"/panel/api/server/getNewX25519Cert","method":"get"},{"path":"/panel/api/server/getNewmldsa65","method":"get"},{"path":"/panel/api/server/getNewmlkem768","method":"get"},{"path":"/panel/api/server/getNewVlessEnc","method":"get"},{"path":"/panel/api/server/stopXrayService","method":"post"},{"path":"/panel/api/server/restartXrayService","method":"post"},{"path":"/panel/api/server/installXray/{version}","method":"post"},{"path":"/panel/api/server/updatePanel","method":"post"},{"path":"/panel/api/server/setUpdateChannel","method":"post"},{"path":"/panel/api/server/updateGeofile","method":"post"},{"path":"/panel/api/server/updateGeofile/{fileName}","method":"post"},{"path":"/panel/api/server/logs/{count}","method":"post"},{"path":"/panel/api/server/xraylogs/{count}","method":"post"},{"path":"/panel/api/server/amneziawglogs/{count}","method":"post"},{"path":"/panel/api/server/importDB","method":"post"},{"path":"/panel/api/server/getNewEchCert","method":"post"},{"path":"/panel/api/server/getCertHash","method":"post"},{"path":"/panel/api/server/getRemoteCertHash","method":"post"},{"path":"/panel/api/server/scanRealityTarget","method":"post"},{"path":"/panel/api/server/scanRealityTargets","method":"post"},{"path":"/panel/api/server/clientIps","method":"get"},{"path":"/panel/api/server/clientIps","method":"post"}]} showTitle />
+      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/openapi.json","method":"get"},{"path":"/panel/api/server/status","method":"get"},{"path":"/panel/api/server/fail2banStatus","method":"get"},{"path":"/panel/api/server/bbrStatus","method":"get"},{"path":"/panel/api/server/cpuHistory/{bucket}","method":"get"},{"path":"/panel/api/server/history/{metric}/{bucket}","method":"get"},{"path":"/panel/api/server/xrayMetricsState","method":"get"},{"path":"/panel/api/server/xrayMetricsHistory/{metric}/{bucket}","method":"get"},{"path":"/panel/api/server/xrayObservatory","method":"get"},{"path":"/panel/api/server/xrayObservatoryHistory/{tag}/{bucket}","method":"get"},{"path":"/panel/api/server/getXrayVersion","method":"get"},{"path":"/panel/api/server/getPanelUpdateInfo","method":"get"},{"path":"/panel/api/server/getPanelReleaseNotes","method":"get"},{"path":"/panel/api/server/getUpdateStatus","method":"get"},{"path":"/panel/api/server/getConfigJson","method":"get"},{"path":"/panel/api/server/getDb","method":"get"},{"path":"/panel/api/server/getMigration","method":"get"},{"path":"/panel/api/server/getNewUUID","method":"get"},{"path":"/panel/api/server/getWebCertFiles","method":"get"},{"path":"/panel/api/server/descendants","method":"get"},{"path":"/panel/api/server/getNewX25519Cert","method":"get"},{"path":"/panel/api/server/getNewmldsa65","method":"get"},{"path":"/panel/api/server/getNewmlkem768","method":"get"},{"path":"/panel/api/server/getNewVlessEnc","method":"get"},{"path":"/panel/api/server/stopXrayService","method":"post"},{"path":"/panel/api/server/restartXrayService","method":"post"},{"path":"/panel/api/server/installXray/{version}","method":"post"},{"path":"/panel/api/server/restartAwg","method":"post"},{"path":"/panel/api/server/rebuildAwgModule","method":"post"},{"path":"/panel/api/server/uninstallAwgModule","method":"post"},{"path":"/panel/api/server/enableBbr","method":"post"},{"path":"/panel/api/server/disableBbr","method":"post"},{"path":"/panel/api/server/updatePanel","method":"post"},{"path":"/panel/api/server/setUpdateChannel","method":"post"},{"path":"/panel/api/server/updateGeofile","method":"post"},{"path":"/panel/api/server/updateGeofile/{fileName}","method":"post"},{"path":"/panel/api/server/logs/{count}","method":"post"},{"path":"/panel/api/server/xraylogs/{count}","method":"post"},{"path":"/panel/api/server/amneziawglogs/{count}","method":"post"},{"path":"/panel/api/server/importDB","method":"post"},{"path":"/panel/api/server/getNewEchCert","method":"post"},{"path":"/panel/api/server/getCertHash","method":"post"},{"path":"/panel/api/server/getRemoteCertHash","method":"post"},{"path":"/panel/api/server/scanRealityTarget","method":"post"},{"path":"/panel/api/server/scanRealityTargets","method":"post"},{"path":"/panel/api/server/clientIps","method":"get"},{"path":"/panel/api/server/clientIps","method":"post"}]} showTitle />
     </>
   );
 }

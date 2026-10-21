@@ -17,6 +17,9 @@ const owner = "lucx-kernel-wireguard"
 func RenderConfig(i Instance) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "# %s\n[Interface]\nPrivateKey = %s\nListenPort = %d\nAddress = %s\nMTU = %d\nTable = off\n", owner, i.PrivateKey, i.Port, i.Address, i.MTU)
+	if i.FwMark != 0 {
+		fmt.Fprintf(&b, "FwMark = 0x%x\n", i.FwMark)
+	}
 	for _, p := range i.Peers {
 		fmt.Fprintf(&b, "\n[Peer]\nPublicKey = %s\n", p.PublicKey)
 		if p.PSK != "" {

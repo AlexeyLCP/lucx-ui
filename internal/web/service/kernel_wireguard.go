@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
+	"sync"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -34,7 +35,10 @@ func injectKernelWireguard(cfg *xray.Config, ib *model.Inbound) error {
 		}
 	}
 	bridge := awg.TproxyInbound(ib.Tag, inst.TproxyPort)
-	if len(ib.Sniffing) > 0 {
+	var sniff struct {
+		Enabled bool `json:"enabled"`
+	}
+	if json.Unmarshal([]byte(ib.Sniffing), &sniff) == nil && sniff.Enabled {
 		bridge.Sniffing = json_util.RawMessage(ib.Sniffing)
 	}
 	cfg.InboundConfigs = append(cfg.InboundConfigs, bridge)
@@ -136,5 +140,26 @@ func (s *InboundService) applyLocalKernelWireguard(id int) {
 	}
 	if err != nil {
 		logger.Warningf("kernel WireGuard inbound %d client apply: %v", id, err)
+	}
+}
+
+var kernelWireguardBridges sync.Map
+
+func injectKernelWireguardSafely(cfg *xray.Config, ib *model.Inbound) {
+	if err := injectKernelWireguard(cfg, ib); err == nil {
+		kernelWireguardBridges.Store(ib.Id, cfg.InboundConfigs[len(cfg.InboundConfigs)-1])
+		return
+	} else {
+		logger.Warningf("kernel WireGuard inbound %d bridge skipped: %v", ib.Id, err)
+	}
+	if last, ok := kernelWireguardBridges.Load(ib.Id); ok {
+		previous := last.(xray.InboundConfig)
+		for _, existing := range cfg.InboundConfigs {
+			if existing.Tag == previous.Tag || existing.Port == previous.Port {
+				logger.Warningf("kernel WireGuard inbound %d previous bridge conflicts with another listener", ib.Id)
+				return
+			}
+		}
+		cfg.InboundConfigs = append(cfg.InboundConfigs, previous)
 	}
 }

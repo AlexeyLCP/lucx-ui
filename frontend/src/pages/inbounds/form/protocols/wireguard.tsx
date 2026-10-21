@@ -78,6 +78,9 @@ export default function WireguardFields({ wgPubKey, regenInboundWg }: WireguardF
           <FormField name={['settings', 'tproxyPort']} label={t('pages.xray.wireguard.kernelPort')}>
             <InputNumber min={1024} max={65535} style={{ width: '100%' }} />
           </FormField>
+          <FormField name={['settings', 'fwMark']} label={t('pages.xray.wireguard.kernelFwMark')}>
+            <Input placeholder="0xca6c" />
+          </FormField>
           <Button onClick={() => setImportOpen(true)}>
             {t('pages.xray.wireguard.kernelImport')}
           </Button>

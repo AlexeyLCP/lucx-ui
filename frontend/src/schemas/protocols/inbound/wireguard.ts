@@ -71,6 +71,13 @@ export const WireguardInboundSettingsSchema = z
   .object({
     // LUCX-HOOK: kernel backend is opt-in; existing settings stay on Xray.
     kernel: z.boolean().optional(),
+    fwMark: z.preprocess(
+      (v) => (v === '' ? undefined : v),
+      z
+        .string()
+        .regex(/^(?:off|0[xX][0-9a-fA-F]{1,8}|[0-9]{1,10})$/)
+        .optional(),
+    ),
     address: z.string().optional(),
     tproxyPort: optionalClearedInt(z.number().int().min(1024).max(65535)),
     // END LUCX-HOOK

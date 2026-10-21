@@ -37,3 +37,23 @@ func TestImportStandardWireGuardConfigPreservesPeers(t *testing.T) {
 		}
 	}
 }
+
+func TestKernelFwMarkImportRoundTrip(t *testing.T) {
+	i, err := Parse(testInbound(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	i.FwMark = 0xca6c
+	imported, err := ImportConfig(RenderConfig(i)+"\n", 32101)
+	if err != nil {
+		t.Fatal(err)
+	}
+	imported.Id = 7
+	next, err := Parse(imported)
+	if err != nil || next.FwMark != i.FwMark {
+		t.Fatalf("transport mark was lost: mark=%x err=%v", next.FwMark, err)
+	}
+	if _, err := ImportConfig(RenderConfig(i)+"\n[Interface]\nSaveConfig = true\n", 32101); err == nil {
+		t.Fatal("duplicate interface accepted")
+	}
+}

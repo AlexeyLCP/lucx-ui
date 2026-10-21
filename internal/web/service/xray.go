@@ -462,9 +462,7 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		if !inbound.Enable || inbound.NodeID != nil || !kernelwg.IsKernel(inbound) {
 			continue
 		}
-		if err := injectKernelWireguard(xrayConfig, inbound); err != nil {
-			return nil, err
-		}
+		injectKernelWireguardSafely(xrayConfig, inbound)
 	}
 	// END LUCX-HOOK
 	// Route opted-in local mtproto inbounds through the core's router. Each one

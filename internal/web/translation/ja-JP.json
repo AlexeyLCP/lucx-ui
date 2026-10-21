@@ -2502,6 +2502,7 @@
         "reservedPrefix": "プレフィックス _bl_ はバランサーの内部ループバックオブジェクト用に予約されています"
       },
       "wireguard": {
+        "kernelFwMark": "Transport FwMark (optional)",
         "kernelBackend": "Linux kernel backend",
         "kernelHint": "Uses the standard Linux WireGuard module and Xray TPROXY. IPv4 peers only. Use a wildcard listen address and a dedicated transparent port.",
         "kernelAddress": "Server IPv4 address / prefix",
@@ -2512,7 +2513,6 @@
         "kernelImportHint": "Preview only: the inbound will be disabled until you save and enable it. Existing interfaces are untouched. Remove shell hooks first. Client private keys cannot be recovered from a server config.",
         "kernelImportFailed": "Unable to preview this WireGuard configuration.",
         "kernelPrivateKeyMissing": "The client private key is unavailable. Existing profiles remain valid; configuration export requires the original client private key.",
-
         "secretKey": "シークレットキー",
         "publicKey": "公開鍵",
         "subnetIp": "サブネット",

@@ -4,11 +4,7 @@
 
 Adds an explicit Linux kernel backend for ordinary WireGuard, an Xray TPROXY bridge, owned-resource reconciliation, per-peer accounting and safe disabled import preview. Existing Xray WireGuard and kernel AWG remain unchanged by default. Peer-only updates avoid Xray restarts. Follow-up integration tests cover in-place runtime dispatch; bridge comparison runs after automatic tag resolution. New peer counters start at zero without resetting existing peers. Initial scope is IPv4 TCP/UDP; imported public-only peers cannot export private keys.
 
-Validation: [Linux CI for runtime commit 34c586e](https://github.com/keonji/lucx-ui/actions/runs/39591865240) passes the complete Go suite, real kernel/TPROXY namespace integration, frontend lint/typecheck, 187 unit/component files (1973 tests), and the Linux production build. Local full frontend suite before the added import regression passed 214 files / 2069 tests; the additional import regression passes too. Local Go build and selected vet pass. Independent review findings are covered by regressions, including failed sync retries, ownership/cleanup, in-place dispatch and stale disabled traffic snapshots.
-
-The checksum-verified CI artifact was installed on an operator gateway with backup and scheduled rollback. A temporary inbound and two independent clients passed 11/11 DNS+HTTPS samples each over five minutes, including an external server-to-server UDP path and two session rekeys. Peer revocation/re-enable and accounting passed; interface index and Xray PID remained stable during the soak. Original profiles, Xray routing/outbounds and the existing WG/AWG peer sets were preserved. Test resources and credentials were removed; rollback timer was canceled after final health checks. Existing externally managed wg0 remains under its original ownership. This smoke test does not establish long-term client/provider reliability.
-
-Scope and operational limits: see `kernel-wireguard.md` and the implementation plan.
+Review follow-up: bridge sniffing stays enabled for disabled form defaults; malformed inbounds no longer abort unrelated configuration or get swept by reconciliation; owned INPUT rules support iptables-compatible DROP policies; transport FwMark import and command diagnostics are explicit. Accounting retries do not inflate fresh online/speed snapshots. The upstream workflow contains only the privileged namespace job. User/API documentation and overlay/license/module registries are synchronized. Deployment evidence lives in PR #147 and the operator KB.
 
 ## lucx.307 — Minecraft Bedrock (RakNet) obfuscation preset (2026-10-19)
 
@@ -6031,6 +6027,3 @@ Form: same "via Xray" switch as TrustTunnel + outbound picker.
 Tests: TestTproxyConfigRouteThroughXray, TestInjectTproxyEgress_DokodemoFollowRedirect.
 
 lucxVersion: lucx.205
-## Planned: opt-in Linux kernel WireGuard
-
-Version remains the upstream version; implementation branch adds an explicit kernel backend to existing WireGuard inbounds. Design and implementation plan live under docs/superpowers. Existing Xray WireGuard and kernel AWG remain unchanged by default. Builder review clarified fail-closed ordering, UDP mark restoration, resource ownership, traffic baselines and public-key-only import behavior. No runtime implementation or deployment yet.
