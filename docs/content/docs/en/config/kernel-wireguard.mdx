@@ -29,7 +29,7 @@ Server configs cannot recover client private keys. Public-only peers keep workin
 
 ## Traffic and lifecycle limits
 
-- The first version supports local Linux IPv4 peers and TCP/UDP TPROXY. IPv6, ICMP/ping and forwarded peer-to-peer traffic are dropped.
+- The first version supports local Linux IPv4 peers and TCP/UDP TPROXY. IPv6, forwarded ICMP/ping and forwarded peer-to-peer traffic are dropped.
 - There is no general `fib daddr type local` bypass. Addresses inside the tunnel subnet bypass interception and follow host INPUT policy; other server-local destinations may be routed through Xray. Design panel/SSH access explicitly in host and Xray policies.
 - Peer edits use `wg syncconf`, preserving unrelated sessions. A revoked peer needs a fresh handshake after re-enabling. Server/device changes may recreate the interface.
 - A panel stop/restart removes managed interfaces and interrupts sessions. After a crash the manager can adopt owned surviving devices; an intentional StopAll performs cleanup. Without a working Xray listener, intercepted traffic is dropped.

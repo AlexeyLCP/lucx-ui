@@ -1,6 +1,5 @@
 # Kernel WireGuard Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Manage standard Linux kernel WireGuard peers through LucX with Xray TPROXY, validate on the operator's gateway, and submit an upstream PR.
 
