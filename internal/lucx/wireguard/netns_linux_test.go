@@ -119,7 +119,13 @@ func TestKernelWireguardNetNSWorker(t *testing.T) {
 	run("ip", "-n", ns, "link", "set", "lo", "up")
 	run("ip", "-n", ns, "link", "set", "wgclient", "mtu", "1280", "up")
 	run("ip", "-n", ns, "route", "add", "default", "dev", "wgclient")
-	restore := `table ip wg_test_restore {chain prerouting {type filter hook prerouting priority mangle; policy accept; meta l4proto udp meta mark set ct mark;}}`
+	restore := `table ip wg_test_restore {
+ chain prerouting {
+  type filter hook prerouting priority mangle; policy accept;
+  meta l4proto udp meta mark set ct mark;
+ }
+}
+`
 	if _, err = systemCommand(restore, "nft", "-f", "-"); err != nil {
 		t.Fatal(err)
 	}

@@ -36,7 +36,7 @@ jobs:
       - name: Go regression tests
         run: go test -shuffle=on -count=1 ./...
       - name: Kernel and TPROXY namespace test
-        run: sudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" LUCX_WG_NETNS_TEST=1 go test -v -count=1 ./internal/lucx/wireguard -run '^TestKernelWireguardNetNS$'
+        run: sudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go env GOCACHE)" LUCX_WG_NETNS_TEST=1 go test -v -count=1 ./internal/lucx/wireguard -run '^TestKernelWireguardNetNS$'
       - name: Frontend checks and build
         working-directory: frontend
         run: |
