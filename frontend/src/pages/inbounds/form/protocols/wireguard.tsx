@@ -36,9 +36,15 @@ export default function WireguardFields({ wgPubKey, regenInboundWg }: WireguardF
       );
       if (!response?.success) return;
       const preview = z
-        .object({ port: z.number(), settings: z.string(), enable: z.literal(false) })
+        .object({
+          port: z.number(),
+          settings: z.union([z.string(), WireguardInboundSettingsSchema]),
+          enable: z.literal(false),
+        })
         .parse(response.obj);
-      const settings = WireguardInboundSettingsSchema.parse(JSON.parse(preview.settings));
+      const settings = WireguardInboundSettingsSchema.parse(
+        typeof preview.settings === 'string' ? JSON.parse(preview.settings) : preview.settings,
+      );
       form.setValue('settings', settings, { shouldDirty: true, shouldValidate: true });
       form.setValue('port', preview.port, { shouldDirty: true });
       form.setValue('listen', '', { shouldDirty: true });
@@ -108,12 +114,16 @@ export default function WireguardFields({ wgPubKey, regenInboundWg }: WireguardF
       <Form.Item label={t('pages.xray.wireguard.publicKey')}>
         <Input value={wgPubKey} disabled />
       </Form.Item>
-      <FormField name={['settings', 'subnetIp']} label={t('pages.xray.wireguard.subnetIp')}>
-        <Input placeholder="10.0.0.0" />
-      </FormField>
-      <FormField name={['settings', 'subnetCidr']} label={t('pages.xray.wireguard.subnetCidr')}>
-        <InputNumber min={1} max={32} style={{ width: '100%' }} />
-      </FormField>
+      {!kernel && (
+        <>
+          <FormField name={['settings', 'subnetIp']} label={t('pages.xray.wireguard.subnetIp')}>
+            <Input placeholder="10.0.0.0" />
+          </FormField>
+          <FormField name={['settings', 'subnetCidr']} label={t('pages.xray.wireguard.subnetCidr')}>
+            <InputNumber min={1} max={32} style={{ width: '100%' }} />
+          </FormField>
+        </>
+      )}
       <FormField name={['settings', 'mtu']} label="MTU">
         <InputNumber />
       </FormField>

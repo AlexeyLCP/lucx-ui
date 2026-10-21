@@ -21,3 +21,9 @@ sudo env PATH="$PATH" LUCX_WG_NETNS_TEST=1 go test -v -count=1 ./internal/lucx/w
 The namespace test verifies real kernel handshakes, TCP/UDP TPROXY, compatibility with a connection-mark restore chain, reconciliation, closed forwarding when the listener is absent, and preservation of an unrelated WireGuard interface. `.github/workflows/kernel-wireguard.yml` runs this test and builds a Linux validation artifact.
 
 For deployment, back up the database and binary, retain a tested rollback, and first validate a separate synthetic inbound. Verify DNS, HTTPS, routing, peer revocation, traffic accounting and existing tunnels before transferring externally managed interfaces.
+
+## Form preview
+
+The Linux kernel selector and explicit import action, rendered locally with empty key fields:
+
+![Kernel WireGuard backend fields](images/kernel-wireguard.png)

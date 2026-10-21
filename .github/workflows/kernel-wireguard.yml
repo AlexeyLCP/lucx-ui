@@ -43,7 +43,7 @@ jobs:
           npm ci --ignore-scripts
           npm run typecheck
           npm run lint
-          npm run test -- --project=unit
+          npm run test -- --project=unit --project=components
           npm run build
       - name: Build validation artifact
         if: github.event_name != 'pull_request'
