@@ -363,7 +363,7 @@ func (m *Manager) ensure(i Instance) error {
 			return err
 		}
 		if _, err = m.run("ip", "link", "set", "dev", i.Name(), "alias", owner); err != nil {
-			m.run("ip", "link", "delete", "dev", i.Name())
+			_, _ = m.run("ip", "link", "delete", "dev", i.Name())
 			return err
 		}
 	}
@@ -444,7 +444,7 @@ func (m *Manager) RevokeDisallowed(ib *model.Inbound) error {
 			disabled[ct.Email] = true
 		}
 	}
-	if decodeErr == nil && !(len(access.Clients) > 0 && len(access.Peers) > 0) {
+	if decodeErr == nil && (len(access.Clients) == 0 || len(access.Peers) == 0) {
 		for _, p := range append(access.Clients, access.Peers...) {
 			if validKey(p.PublicKey) && (p.Enable == nil || *p.Enable) && !disabled[p.Email] {
 				allowed[p.PublicKey] = true
