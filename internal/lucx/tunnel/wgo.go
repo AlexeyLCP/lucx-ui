@@ -262,3 +262,6 @@ func escapeURIComponent(s string) string {
 
 // WgoKey is the manager key of the engine process for one kernel WG inbound.
 func WgoKey(inboundID int) string { return "wgo-" + strconv.Itoa(inboundID) }
+
+// WgosocksKey is the manager key of one wgosocks SOCKS5-exit inbound.
+func WgosocksKey(inboundID int) string { return "wgosocks-" + strconv.Itoa(inboundID) }

@@ -713,6 +713,17 @@ func (m *Manager) ReconcileGateway(want []Instance) {
 	m.ReconcileWanted(Gateway, "gateway-", string(Gateway), want)
 }
 
+// ReconcileWgo drives the WG-transport obfuscation processes of kernel
+// WireGuard inbounds (keys wgo-<id>).
+func (m *Manager) ReconcileWgo(want []Instance) {
+	m.ReconcileWanted(Wgo, "wgo-", string(Wgo), want)
+}
+
+// ReconcileWgosocks drives every desired wgosocks SOCKS5-exit inbound.
+func (m *Manager) ReconcileWgosocks(want []Instance) {
+	m.ReconcileWanted(Wgosocks, "wgosocks-", string(Wgosocks), want)
+}
+
 // ReconcileWanted Ensures each wanted instance of core and Removes orphan
 // keys that match prefix or legacyKey but are not in want.
 func (m *Manager) ReconcileWanted(core Name, prefix, legacyKey string, want []Instance) {
@@ -876,6 +887,9 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 		// trusttunnel_endpoint <vpn.toml> <hosts.toml>; companion files
 		// (credentials/rules) are referenced from within vpn.toml.
 		args = []string{cfgPath, filepath.Join(workDir(), trustTunnelHostsFileName(key))}
+	case inst.Core == Wgo, inst.Core == Wgosocks:
+		// wgobfs takes an INI config path (Phobos fork of wg-obfuscator).
+		args = []string{"-c", cfgPath}
 	default:
 		return fmt.Errorf("tunnel: no start args for core %q", inst.Core)
 	}

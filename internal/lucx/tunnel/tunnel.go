@@ -78,6 +78,17 @@ const Anytls Name = "anytls"
 // + Caddy TLS reverse_proxy). Share: https://t.me/webproxy?server=&secret=.
 // Mtproxy / TproxyCaddy are the companion processes of one tproxy inbound.
 
+// Wgo is the wgobfs engine serving WireGuard transport obfuscation presets
+// on a kernel WireGuard inbound (mode=wireguard sections). Wgosocks is the
+// same binary as a SOCKS5-exit inbound (mode=socks5, role=server). Engine:
+// Ground-Zerro/Phobos src/phobos-obfuscator (GPL-3.0 external process,
+// derived from ClusterM/wg-obfuscator) — the qWDTT/MTProxy precedent. Both
+// cores share one binary (wgobfs-os-arch), the caddy-naive precedent.
+const (
+	Wgo      Name = "wgo"
+	Wgosocks Name = "wgosocks"
+)
+
 // Client-mode cores (outbound sidecars). Distinct Name values so BinaryName
 // never collides with inbound servers (caddy-naive / mita / trusttunnel_endpoint)
 // and ReconcileWanted prefixes (naive- / mieru- / trusttunnel-) never sweep
@@ -90,7 +101,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Openflux}
+	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Openflux, Wgosocks}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -101,7 +112,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Csqtt, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Csqtt, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Wgo, Wgosocks, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -142,6 +153,10 @@ func (n Name) DisplayName() string {
 		return "mieru client"
 	case TrustTunnelClient:
 		return "TrustTunnel client"
+	case Wgo:
+		return "WG obfuscator"
+	case Wgosocks:
+		return "WG obfuscator SOCKS5"
 	default:
 		return string(n)
 	}
@@ -163,6 +178,9 @@ func (n Name) BinaryName() string {
 		name = fmt.Sprintf("mieru-client-%s-%s", runtime.GOOS, runtime.GOARCH)
 	case TrustTunnelClient:
 		name = fmt.Sprintf("trusttunnel-client-%s-%s", runtime.GOOS, runtime.GOARCH)
+	case Wgo, Wgosocks:
+		// One wgobfs binary serves both cores (Phobos fork of wg-obfuscator).
+		name = fmt.Sprintf("wgobfs-%s-%s", runtime.GOOS, runtime.GOARCH)
 	default:
 		name = fmt.Sprintf("%s-%s-%s", string(n), runtime.GOOS, runtime.GOARCH)
 	}

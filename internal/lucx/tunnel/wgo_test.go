@@ -195,3 +195,30 @@ func TestWgoKey(t *testing.T) {
 		t.Fatalf("WgoKey = %q", WgoKey(7))
 	}
 }
+
+func TestWgoCoreRegistration(t *testing.T) {
+	if !Wgo.Valid() || !Wgosocks.Valid() {
+		t.Fatal("wgo/wgosocks must be valid cores")
+	}
+	if Wgo.DisplayName() != "WG obfuscator" || Wgosocks.DisplayName() != "WG obfuscator SOCKS5" {
+		t.Fatalf("display names: %q / %q", Wgo.DisplayName(), Wgosocks.DisplayName())
+	}
+	if Wgo.BinaryName() != Wgosocks.BinaryName() {
+		t.Fatalf("cores must share one binary: %q vs %q", Wgo.BinaryName(), Wgosocks.BinaryName())
+	}
+	if !strings.Contains(Wgo.BinaryName(), "wgobfs-") {
+		t.Fatalf("binary name = %q", Wgo.BinaryName())
+	}
+	found := false
+	for _, n := range All() {
+		if n == Wgosocks {
+			found = true
+		}
+	}
+	if !found {
+		t.Fatal("Wgosocks missing from All()")
+	}
+	if WgoKey(3) != "wgo-3" || WgosocksKey(9) != "wgosocks-9" {
+		t.Fatal("manager keys wrong")
+	}
+}
