@@ -5,7 +5,12 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 import { describe, expect, it } from 'vitest';
 import { WireguardInboundSettingsSchema } from '@/schemas/protocols/inbound/wireguard';
-import { buildWireguardClientConfig } from '@/pages/clients/wireguardConfig';
+import {
+  buildObfuscatedWireguardConfig,
+  buildWgosocksClientLink,
+  buildWireguardClientConfig,
+  wireguardObfuscation,
+} from '@/pages/clients/wireguardConfig';
 
 describe('kernel WireGuard backend', () => {
   it('keeps existing settings on the Xray backend', () => {
@@ -111,5 +116,87 @@ describe('wireguard obfuscation schema', () => {
       subnetIp: '',
     });
     expect(parsed.success).toBe(false);
+  });
+});
+
+// LUCX-HOOK: wgobfs — obfuscated export builders.
+describe('wgobfs client exports', () => {
+  const obfsInbound = {
+    id: 7,
+    protocol: 'wireguard',
+    port: 51820,
+    tag: 'in-51820',
+    remark: 'wg',
+    wgPublicKey: 'PUB',
+    wgMtu: 1420,
+    wgObfuscation: JSON.stringify({
+      enabled: true,
+      blockDirectPort: false,
+      presets: [
+        {
+          id: 'p1',
+          name: 'phobos-ru',
+          extPort: 51822,
+          key: 'k1',
+          masking: 'STUN',
+          mediaSsrc: '',
+          mediaPt: 0,
+          mediaClock: 0,
+          maxDummy: 4,
+          idleTimeout: 300,
+          clientWgLocalPort: 13255,
+          isDefault: true,
+        },
+      ],
+    }),
+  };
+
+  it('wireguardObfuscation parses the backend hint', () => {
+    expect(wireguardObfuscation(obfsInbound)?.presets[0].extPort).toBe(51822);
+    expect(wireguardObfuscation({ id: 1, protocol: 'wireguard' })).toBeNull();
+  });
+
+  it('buildObfuscatedWireguardConfig rewrites the endpoint and appends [instance]', () => {
+    const client = {
+      email: 'u1',
+      privateKey: 'PRIV',
+      allowedIPs: '10.8.0.2/32',
+      inboundIds: [7],
+    };
+    const conf = buildObfuscatedWireguardConfig(
+      client,
+      obfsInbound as never,
+      wireguardObfuscation(obfsInbound)!.presets[0],
+      'vpn.example.com',
+    );
+    expect(conf).toContain('Endpoint = 127.0.0.1:13255');
+    expect(conf).toContain('[instance]');
+    expect(conf).toContain('target = vpn.example.com:51822');
+    expect(conf).not.toContain('vpn.example.com:51820');
+  });
+
+  it('buildWgosocksClientLink resolves credentials by email', () => {
+    const ib = {
+      id: 9,
+      protocol: 'wgosocks',
+      port: 51862,
+      wgosocksConfig: JSON.stringify({
+        key: 'sk',
+        masking: 'MEDIA',
+        mediaSsrc: '305419896',
+        clients: [
+          { email: 'other@x', login: 'bob', password: 'pw2' },
+          { email: 'u1@x', login: 'alice', password: 'pw1' },
+        ],
+      }),
+    };
+    const link = buildWgosocksClientLink('u1@x', ib as never, 'vpn.example.com');
+    expect(link.startsWith('phobos://')).toBe(true);
+    const conf = atob(
+      link.slice('phobos://'.length, link.indexOf('#')).replace(/-/g, '+').replace(/_/g, '/'),
+    );
+    expect(conf).toContain('login = alice');
+    expect(conf).toContain('target = vpn.example.com:51862');
+    expect(buildWgosocksClientLink('missing@x', ib as never, 'vpn.example.com')).toBe('');
   });
 });

@@ -15,6 +15,8 @@ import {
 } from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
+import { WgoObfuscationSchema } from '@/schemas/protocols/inbound/wgo'; // LUCX-HOOK: wgobfs
+import { instanceSection, obfuscatedEndpoint, wgosocksPhobosLink } from '@/lib/wgo/link'; // LUCX-HOOK: wgobfs
 
 function persistentKeepaliveLine(keepAlive: unknown): string | null {
   const s = normalizeAwgTimer(keepAlive);
@@ -202,5 +204,88 @@ export function buildAwgClientConfig(
   const ka = collapseKeepaliveForVersion(client.keepAlive, awgVersionAtLeast(target, '3'));
   if (ka) lines.push(`PersistentKeepalive = ${ka}`);
   return lines.join('\n');
+}
+// END LUCX-HOOK
+
+// LUCX-HOOK: wgobfs — obfuscated WG exports and wgosocks client links.
+// Preset binding lives in the export UI (default preset unless picked); the
+// phobos:// payload carries everything the client helper needs.
+
+export function wireguardObfuscation(
+  inbound: InboundOption | undefined,
+): import('@/schemas/protocols/inbound/wgo').WgoObfuscation | null {
+  const raw = (inbound as { wgObfuscation?: string } | undefined)?.wgObfuscation;
+  if (!raw) return null;
+  try {
+    const parsed = WgoObfuscationSchema.safeParse(JSON.parse(raw));
+    return parsed.success && parsed.data.enabled && parsed.data.presets.length > 0
+      ? parsed.data
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+export function buildObfuscatedWireguardConfig(
+  client: ClientRecord,
+  inbound: InboundOption | undefined,
+  preset: import('@/schemas/protocols/inbound/wgo').WgoPreset,
+  host = window.location.hostname,
+  publicHost = '',
+  addressOverride = '',
+): string {
+  const base = buildWireguardClientConfig(client, inbound, host, publicHost, addressOverride);
+  if (!base) return '';
+  const endpointHost = resolveShareHost(
+    inbound ?? {},
+    inbound?.nodeAddress ?? '',
+    preferPublicHost(host, publicHost),
+  );
+  const conf = base.replace(/Endpoint = .*/, `Endpoint = ${obfuscatedEndpoint(preset)}`);
+  return `${conf}\n${instanceSection(preset, endpointHost)}`;
+}
+
+export interface WgosocksInboundConfig {
+  key: string;
+  masking: string;
+  mediaSsrc?: string;
+  clients: { email: string; login: string; password: string; enable?: boolean }[];
+}
+
+export function parseWgosocksInboundConfig(
+  inbound: InboundOption | undefined,
+): WgosocksInboundConfig | null {
+  const raw = (inbound as { wgosocksConfig?: string } | undefined)?.wgosocksConfig;
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as WgosocksInboundConfig;
+    return parsed && parsed.key && parsed.masking ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+export function buildWgosocksClientLink(
+  clientEmail: string,
+  inbound: InboundOption | undefined,
+  host = window.location.hostname,
+  publicHost = '',
+): string {
+  const cfg = parseWgosocksInboundConfig(inbound);
+  if (!cfg || !inbound?.port) return '';
+  const cred = (cfg.clients || []).find(
+    (c) => c.email === clientEmail && c.enable !== false && c.login && c.password,
+  );
+  if (!cred) return '';
+  const endpointHost = resolveShareHost(
+    inbound ?? {},
+    inbound?.nodeAddress ?? '',
+    preferPublicHost(host, publicHost),
+  );
+  return wgosocksPhobosLink(clientEmail, endpointHost, inbound.port, cred.login, cred.password, {
+    key: cfg.key,
+    masking: cfg.masking,
+    mediaSsrc: cfg.mediaSsrc,
+  });
 }
 // END LUCX-HOOK

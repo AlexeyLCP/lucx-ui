@@ -20,6 +20,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/maskcompat"
@@ -347,7 +348,13 @@ type InboundOption struct {
 	WgPublicKey    string `json:"wgPublicKey,omitempty"`
 	WgMtu          int    `json:"wgMtu,omitempty"`
 	WgDns          string `json:"wgDns,omitempty"`
-	MtprotoDomain  string `json:"mtprotoDomain,omitempty"`
+	// LUCX-HOOK: wgobfs — kernel-WG obfuscation presets (JSON of the
+	// settings.obfuscation block) and the raw wgosocks inbound settings, so
+	// the clients page renders [instance]/phobos:// exports without a second
+	// round trip (awgObfuscation precedent).
+	WgObfuscation   string `json:"wgObfuscation,omitempty"`
+	WgosocksConfig  string `json:"wgosocksConfig,omitempty"`
+	MtprotoDomain   string `json:"mtprotoDomain,omitempty"`
 	// AwgServer carries the full AmneziaWG server block (keys, subnet,
 	// obfuscation params) so the clients page can render a downloadable
 	// per-client .conf without a second round trip.
@@ -416,6 +423,17 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			awgAddr, awgObf, awgVer = inboundAwgHints(r.Settings, r.NodeId == nil)
 			awgPeers = InboundAwgPeerAddresses(r.Settings)
 		}
+		// LUCX-HOOK: wgobfs — presets for kernel-WG obfuscated exports and
+		// the wgosocks settings for phobos:// SOCKS5 links.
+		wgObf, wgoSocksCfg := "", ""
+		if o, ok := tunnel.ParseObfuscation(&model.Inbound{Protocol: model.Protocol(r.Protocol), Port: r.Port, Settings: r.Settings}); ok && o.Enabled && len(o.Presets) > 0 {
+			if b, mErr := json.Marshal(o); mErr == nil {
+				wgObf = string(b)
+			}
+		}
+		if r.Protocol == string(model.Wgosocks) {
+			wgoSocksCfg = r.Settings
+		}
 		// END LUCX-HOOK
 		netHint, secHint := inboundStreamHints(r.Protocol, r.StreamSettings, r.Settings)
 		shareAddrStrategy := r.ShareAddrStrategy
@@ -436,6 +454,8 @@ func (s *InboundService) GetInboundOptions(userId int) ([]InboundOption, error) 
 			WgPublicKey:       wgPublicKey,
 			WgMtu:             wgMtu,
 			WgDns:             wgDns,
+			WgObfuscation:     wgObf,
+			WgosocksConfig:    wgoSocksCfg,
 			MtprotoDomain:     inboundMtprotoDomain(r.Protocol, r.Settings),
 			AwgServer:         inboundAmneziaWGServer(r.Protocol, r.Settings),
 			TuicServer:        inboundTuicServer(r.Protocol, r.Settings),

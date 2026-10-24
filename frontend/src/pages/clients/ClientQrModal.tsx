@@ -23,6 +23,12 @@ import type { AwgVersion } from '@/lib/xray/inbound-link';
 import { formatInboundLabel } from '@/lib/inbounds/label';
 import { LinkTags, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
 import { QrPanel } from '@/pages/inbounds/qr';
+import {
+  buildObfuscatedWireguardConfig,
+  buildWgosocksClientLink,
+  wireguardObfuscation,
+} from '@/pages/clients/wireguardConfig'; // LUCX-HOOK: wgobfs
+import { clustermIni, phobosLink } from '@/lib/wgo/link'; // LUCX-HOOK: wgobfs
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 import { formatTunnelConfigMeta } from '@/lib/inbounds/label';
 import {
@@ -347,11 +353,60 @@ function ClientQrModalContent({
     () => findWireguardInbounds(client, inboundsById),
     [client, inboundsById],
   );
-  const wgConfigs = useMemo(() => {
+  // LUCX-HOOK: wgobfs — obfuscated inbounds render phobos:// panels instead
+  // of plain endpoint .conf panels (the plain conf cannot connect without the
+  // local obfuscator helper).
+  const plainWgInbounds = useMemo(
+    () => wgInbounds.filter((ib) => !wireguardObfuscation(ib)),
+    [wgInbounds],
+  );
+  const wgoObfsConfigs = useMemo(() => {
     if (!client || !isWireguardClient(client)) return [];
     const host = window.location.hostname;
     const publicHost = subSettings.publicHost ?? '';
     return wgInbounds
+      .filter((ib) => wireguardObfuscation(ib))
+      .flatMap((ib) =>
+        (wireguardObfuscation(ib)?.presets || []).map((preset) => {
+          const conf = buildObfuscatedWireguardConfig(
+            client,
+            ib,
+            preset,
+            host,
+            publicHost,
+            tunnelAllowedIPs?.[ib.id] ?? '',
+          );
+          return {
+            inbound: ib,
+            preset,
+            conf,
+            link: conf ? phobosLink(conf, client.email) : '',
+            ini: conf ? clustermIni(preset, host) : '',
+          };
+        }),
+      )
+      .filter((c) => !!c.conf);
+  }, [client, wgInbounds, tunnelAllowedIPs, subSettings.publicHost]);
+
+  const wgosocksLinks = useMemo(() => {
+    if (!client) return [];
+    const host = window.location.hostname;
+    const publicHost = subSettings.publicHost ?? '';
+    return (client.inboundIds || [])
+      .map((id) => inboundsById?.[id])
+      .filter((ib): ib is NonNullable<typeof ib> => ib?.protocol === 'wgosocks')
+      .map((ib) => ({
+        inbound: ib,
+        link: buildWgosocksClientLink(client.email, ib, host, publicHost),
+      }))
+      .filter((r) => !!r.link);
+  }, [client, inboundsById, subSettings.publicHost]);
+
+  const wgConfigs = useMemo(() => {
+    if (!client || !isWireguardClient(client)) return [];
+    const host = window.location.hostname;
+    const publicHost = subSettings.publicHost ?? '';
+    return plainWgInbounds
       .flatMap((ib) => {
         const address = tunnelAllowedIPs?.[ib.id] ?? '';
         return tunnelConfigEndpoints(ib, hosts, host, publicHost).map((ep) => ({
@@ -361,7 +416,7 @@ function ClientQrModalContent({
         }));
       })
       .filter((c) => !!c.text);
-  }, [client, wgInbounds, tunnelAllowedIPs, subSettings.publicHost, hosts]);
+  }, [client, plainWgInbounds, tunnelAllowedIPs, subSettings.publicHost, hosts]);
 
   const awgInbounds = useMemo(
     () => findAmneziaWGInbounds(client, inboundsById),
@@ -524,6 +579,68 @@ function ClientQrModalContent({
         ),
       });
     });
+    // LUCX-HOOK: wgobfs — one phobos:// panel per preset of an obfuscated kernel-WG inbound.
+    wgoObfsConfigs.forEach(({ inbound, preset, conf, link, ini }) => {
+      const label = (
+        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+          <Tag color="geekblue" style={{ margin: 0 }}>
+            wgobfs · {preset.masking}
+          </Tag>
+          <span style={{ opacity: 0.85, fontSize: 12 }}>
+            {formatInboundLabel(inbound.tag, inbound.remark)} — {preset.name || preset.id}
+          </span>
+        </span>
+      );
+      out.push({
+        key: `wgo-${inbound.id}-${preset.id}`,
+        label,
+        children: (
+          <>
+            <Alert
+              type="warning"
+              showIcon
+              style={{ marginBottom: 12 }}
+              message={t('pages.clients.wgoHelperWarning')}
+            />
+            <QrPanel
+              value={link}
+              remark={`${client?.email || ''} — phobos ${preset.name || preset.id}`}
+            />
+            <QrPanel
+              value={conf}
+              showQr={false}
+              remark={`${client?.email || ''} — ${preset.name || preset.id}.conf`}
+              downloadName={`${client?.email || 'client'}-${preset.name || preset.id}.conf`}
+            />
+            {(preset.masking === 'NONE' || preset.masking === 'STUN') && (
+              <QrPanel
+                value={ini}
+                showQr={false}
+                remark={`${client?.email || ''} — ${preset.name || preset.id} (ClusterM INI)`}
+                downloadName={`${client?.email || 'client'}-${preset.name || preset.id}.ini`}
+              />
+            )}
+          </>
+        ),
+      });
+    });
+    // LUCX-HOOK: wgosocks — one phobos:// panel per attached SOCKS5-exit inbound.
+    wgosocksLinks.forEach(({ inbound, link }) => {
+      out.push({
+        key: `wgosocks-${inbound.id}`,
+        label: (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+            <Tag color="volcano" style={{ margin: 0 }}>
+              wgobfs SOCKS5
+            </Tag>
+            <span style={{ opacity: 0.85, fontSize: 12 }}>
+              {formatInboundLabel(inbound.tag, inbound.remark)}
+            </span>
+          </span>
+        ),
+        children: <QrPanel value={link} remark={`${client?.email || ''} — phobos socks5`} />,
+      });
+    });
     wgConfigs.forEach(({ inbound, endpoint, text }) => {
       const meta = formatTunnelConfigMeta(inbound, client?.email, wgConfigs.length, endpoint);
       const label = (
@@ -654,6 +771,8 @@ function ClientQrModalContent({
     regenerateHappLink,
     openHappSettings,
     tuicConfigs,
+    wgoObfsConfigs,
+    wgosocksLinks,
     t,
   ]);
 

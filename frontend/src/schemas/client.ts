@@ -137,6 +137,10 @@ export const InboundOptionSchema = z
     wgPublicKey: z.string().optional(),
     wgMtu: z.number().optional(),
     wgDns: z.string().optional(),
+    // LUCX-HOOK: wgobfs — kernel-WG obfuscation presets (JSON) and wgosocks
+    // inbound settings (JSON) for phobos:// exports.
+    wgObfuscation: z.string().optional(),
+    wgosocksConfig: z.string().optional(),
     awgServer: AwgServerOptionSchema.nullable().optional(),
     tuicServer: TuicServerOptionSchema.nullable().optional(),
     // LUCX-HOOK: AWG — server public key is reused via wgPublicKey (Curve25519);
