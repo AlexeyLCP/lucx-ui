@@ -43,6 +43,7 @@ type CoreKind =
   | 'mieru'
   | 'trusttunnel'
   | 'anytls'
+  | 'wgo'
   | 'tproxy'
   | 'mtproxy';
 
@@ -123,6 +124,14 @@ const CORE_API: Record<
     upload: tunnelsApi.trustTunnelUpload,
     download: tunnelsApi.trustTunnelDownload,
     deleteBinary: tunnelsApi.trustTunnelDeleteBinary,
+  },
+  wgo: {
+    key: keys.tunnels.wgoStatus,
+    status: tunnelsApi.wgoStatus,
+    logs: tunnelsApi.wgoLogs,
+    upload: tunnelsApi.wgoUpload,
+    download: tunnelsApi.wgoDownload,
+    deleteBinary: tunnelsApi.wgoDeleteBinary,
   },
   anytls: {
     key: keys.tunnels.anytlsStatus,
@@ -558,6 +567,7 @@ export default function CoresTab() {
       <BinaryCard kind="mieru" title="mieru" />
       <BinaryCard kind="trusttunnel" title="TrustTunnel" />
       <BinaryCard kind="anytls" title="AnyTLS" />
+      <BinaryCard kind="wgo" title="WG obfuscator (wgobfs)" />
       <BinaryCard kind="tproxy" title="Telegram WEB proxy" />
       <BinaryCard kind="mtproxy" title="MTProxy" />
       <Divider />

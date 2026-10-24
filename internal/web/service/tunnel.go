@@ -1778,6 +1778,48 @@ func (s *TunnelService) AnytlsLogs(lines int) []string {
 }
 
 // DeleteAnytlsBinary stops every anytls instance and removes the binary.
+// WgoStatus is the wgobfs card state for Settings → Cores: one binary serves
+// both the kernel-WG wgo proxies and the wgosocks exits.
+func (s *TunnelService) WgoStatus() (AnytlsStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Wgo.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return AnytlsStatus{
+		Core:         string(tunnel.Wgo),
+		DisplayName:  tunnel.Wgo.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        tunnel.Status{Running: mgr.AnyRunning("wgo-") || mgr.AnyRunning("wgosocks-")},
+		LastLog:      mgr.LastLogPrefixed("wgosocks-"),
+	}, nil
+}
+
+// WgoLogs tails the newest wgo/wgosocks process ring log.
+func (s *TunnelService) WgoLogs(lines int) []string {
+	mgr := tunnel.GetManager()
+	if logs := mgr.LogsPrefixed("wgosocks-", lines); len(logs) > 0 {
+		return logs
+	}
+	return mgr.LogsPrefixed("wgo-", lines)
+}
+
+// DeleteWgoBinary stops every wgobfs process and removes the shared binary.
+func (s *TunnelService) DeleteWgoBinary() error {
+	mgr := tunnel.GetManager()
+	mgr.StopPrefixed("wgo-")
+	mgr.StopPrefixed("wgosocks-")
+	if err := os.Remove(tunnel.Wgo.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+// DownloadWgoBinary fetches the wgobfs binary from URL (optionally checking
+// sha256) into the shared binary path.
+func (s *TunnelService) DownloadWgoBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Wgo.BinaryPath(), downloadURL, wantSHA256)
+}
+
 func (s *TunnelService) DeleteAnytlsBinary() error {
 	tunnel.GetManager().StopPrefixed("anytls-")
 	if err := os.Remove(tunnel.Anytls.BinaryPath()); err != nil && !os.IsNotExist(err) {

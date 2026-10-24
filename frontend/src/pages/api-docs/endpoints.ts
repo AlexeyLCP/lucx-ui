@@ -1377,6 +1377,65 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/tunnel/wgo/status',
+        summary:
+          'wgobfs core status for the Cores page: one binary serves the kernel-WG obfuscation proxies (wgo-{id}) and the SOCKS5-exit inbounds (wgosocks-{id}). LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/wgo/logs',
+        summary: 'Recent log lines of wgobfs processes (ring buffer, default 200). LucX-UI only.',
+        params: [
+          {
+            name: 'lines',
+            in: 'query',
+            type: 'number',
+            desc: 'Max lines to return (default 200).',
+            optional: true,
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/wgo/upload',
+        summary:
+          'Replace the wgobfs binary on disk (multipart field "file"). Body-limit exempt. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/wgo/download',
+        summary:
+          'Fetch the wgobfs binary from a URL into place (same guards as anytls: https only, bounded redirects, 200 MB cap, optional sha256 check). LucX-UI only.',
+        body: '{\n  "url": "https://example.com/wgobfs-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/wgo/deleteBinary',
+        summary: 'Stop every wgobfs process and remove the binary from disk. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/inbounds/:id/wgoStatus',
+        summary:
+          'Per-inbound wgobfs engine status: the wgo proxy of a kernel WireGuard inbound (UDP presets) or a wgosocks SOCKS5-exit inbound (TCP probe on the listen port). Read-only. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/inbounds/:id/wgoLogs',
+        summary:
+          'Ring-log tail of the wgobfs engine of one inbound (default 200 lines). LucX-UI only.',
+        params: [
+          {
+            name: 'lines',
+            in: 'query',
+            type: 'number',
+            desc: 'Max lines to return (default 200).',
+            optional: true,
+          },
+        ],
+      },
+      {
+        method: 'GET',
         path: '/panel/api/tunnel/tproxy/status',
         summary:
           'Telegram WEB proxy core status for the Cores page: tproxy-server binary and process state. LucX-UI only.',

@@ -92,6 +92,7 @@ import {
   MieruFields, // LUCX-HOOK: mieru
   TrustTunnelFields, // LUCX-HOOK: TrustTunnel
   AnytlsFields, // LUCX-HOOK: AnyTLS
+  WgosocksFields, // LUCX-HOOK: wgobfs SOCKS5-exit
   TproxyFields, // LUCX-HOOK: Telegram WEB proxy
   CoverFields, // LUCX-HOOK: cover site
   GatewayFields, // LUCX-HOOK: nginx SNI mux
@@ -1034,6 +1035,7 @@ export default function InboundFormModal({
       {protocol === Protocols.MIERU && <MieruFields />}
       {protocol === Protocols.TRUSTTUNNEL && <TrustTunnelFields />}
       {protocol === Protocols.ANYTLS && <AnytlsFields />}
+      {protocol === Protocols.Wgosocks && <WgosocksFields />}
       {protocol === Protocols.TPROXY && <TproxyFields />}
       {protocol === Protocols.COVER && <CoverFields />}
       {protocol === Protocols.GATEWAY && <GatewayFields />}

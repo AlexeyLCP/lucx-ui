@@ -23,6 +23,7 @@ export const ProtocolSchema = z.enum([
   'mieru', // LUCX-HOOK: mieru sidecar
   'trusttunnel', // LUCX-HOOK: TrustTunnel sidecar
   'anytls', // LUCX-HOOK: AnyTLS sidecar
+  'wgosocks', // LUCX-HOOK: wgobfs SOCKS5-exit sidecar
   'tproxy', // LUCX-HOOK: Telegram WEB proxy
   'cover', // LUCX-HOOK: camouflage site on :80/:443
   'gateway', // LUCX-HOOK: nginx SNI mux,
@@ -59,6 +60,7 @@ export const Protocols = Object.freeze({
   MIERU: 'mieru', // LUCX-HOOK: mieru
   TRUSTTUNNEL: 'trusttunnel', // LUCX-HOOK: TrustTunnel
   ANYTLS: 'anytls', // LUCX-HOOK: AnyTLS
+  Wgosocks: 'wgosocks', // LUCX-HOOK: wgobfs SOCKS5-exit
   TPROXY: 'tproxy', // LUCX-HOOK: Telegram WEB proxy
   COVER: 'cover', // LUCX-HOOK: camouflage site
   GATEWAY: 'gateway', // LUCX-HOOK: nginx SNI mux,

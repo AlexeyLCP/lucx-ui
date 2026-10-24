@@ -15,6 +15,7 @@ export { default as OpenfluxFields } from './openflux'; // LUCX-HOOK: OpenFlux
 export { default as MieruFields } from './mieru'; // LUCX-HOOK: mieru
 export { default as TrustTunnelFields } from './trusttunnel'; // LUCX-HOOK: TrustTunnel
 export { default as AnytlsFields } from './anytls'; // LUCX-HOOK: AnyTLS
+export { default as WgosocksFields } from './wgosocks'; // LUCX-HOOK: wgobfs SOCKS5-exit
 export { default as TproxyFields } from './tproxy'; // LUCX-HOOK: Telegram WEB proxy
 export { default as CoverFields } from './cover'; // LUCX-HOOK: cover site
 export { default as GatewayFields } from './gateway'; // LUCX-HOOK: nginx SNI mux

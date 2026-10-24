@@ -59,6 +59,7 @@ const OPENFLUX = '/panel/api/tunnel/openflux';
 const MIERU = '/panel/api/tunnel/mieru';
 const TRUSTTUNNEL = '/panel/api/tunnel/trusttunnel';
 const ANYTLS = '/panel/api/tunnel/anytls';
+const WGO = '/panel/api/tunnel/wgo'; // LUCX-HOOK: wgobfs
 const TPROXY = '/panel/api/tunnel/tproxy';
 const MTPROXY = '/panel/api/tunnel/mtproxy';
 
@@ -236,6 +237,22 @@ export const tunnelsApi = {
   },
   anytlsDeleteBinary: (): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${ANYTLS}/deleteBinary`, {}, JSON_HEADERS),
+
+  wgoStatus: async (): Promise<Msg<AnytlsStatus>> => {
+    const raw = await HttpUtil.get<AnytlsStatus>(`${WGO}/status`, undefined, { silent: true });
+    return parseMsg(raw, AnytlsStatusSchema, 'tunnel/wgoStatus');
+  },
+  wgoLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${WGO}/logs?lines=${lines}`),
+  wgoDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${WGO}/download`, { url, sha256 }, JSON_HEADERS),
+  wgoUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${WGO}/upload`, fd);
+  },
+  wgoDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${WGO}/deleteBinary`, {}, JSON_HEADERS),
 
   tproxyStatus: async (): Promise<Msg<TproxyStatus>> => {
     const raw = await HttpUtil.get<TproxyStatus>(`${TPROXY}/status`, undefined, { silent: true });

@@ -15,6 +15,7 @@ import { OpenfluxInboundSettingsSchema } from './openflux'; // LUCX-HOOK: OpenFl
 import { MieruInboundSettingsSchema } from './mieru'; // LUCX-HOOK: mieru
 import { TrustTunnelInboundSettingsSchema } from './trusttunnel'; // LUCX-HOOK: TrustTunnel
 import { AnytlsInboundSettingsSchema } from './anytls'; // LUCX-HOOK: AnyTLS
+import { WgosocksInboundSettingsSchema } from './wgosocks'; // LUCX-HOOK: wgobfs SOCKS5-exit
 import { TproxyInboundSettingsSchema } from './tproxy'; // LUCX-HOOK: Telegram WEB proxy
 import { CoverInboundSettingsSchema } from './cover'; // LUCX-HOOK: cover site
 import { GatewayInboundSettingsSchema } from './gateway'; // LUCX-HOOK: nginx SNI mux
@@ -42,6 +43,7 @@ export * from './openflux'; // LUCX-HOOK: OpenFlux
 export * from './mieru'; // LUCX-HOOK: mieru
 export * from './trusttunnel'; // LUCX-HOOK: TrustTunnel
 export * from './anytls'; // LUCX-HOOK: AnyTLS
+export * from './wgosocks'; // LUCX-HOOK: wgobfs SOCKS5-exit
 export * from './tproxy'; // LUCX-HOOK: Telegram WEB proxy
 export * from './cover'; // LUCX-HOOK: cover site
 export * from './gateway'; // LUCX-HOOK: nginx SNI mux
@@ -82,6 +84,7 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('mieru'), settings: MieruInboundSettingsSchema }), // LUCX-HOOK: mieru
   z.object({ protocol: z.literal('trusttunnel'), settings: TrustTunnelInboundSettingsSchema }), // LUCX-HOOK: TrustTunnel
   z.object({ protocol: z.literal('anytls'), settings: AnytlsInboundSettingsSchema }), // LUCX-HOOK: AnyTLS
+  z.object({ protocol: z.literal('wgosocks'), settings: WgosocksInboundSettingsSchema }), // LUCX-HOOK: wgobfs SOCKS5-exit
   z.object({ protocol: z.literal('tproxy'), settings: TproxyInboundSettingsSchema }), // LUCX-HOOK: Telegram WEB proxy
   z.object({ protocol: z.literal('cover'), settings: CoverInboundSettingsSchema }), // LUCX-HOOK: cover site
   z.object({ protocol: z.literal('gateway'), settings: GatewayInboundSettingsSchema }), // LUCX-HOOK: nginx SNI mux,

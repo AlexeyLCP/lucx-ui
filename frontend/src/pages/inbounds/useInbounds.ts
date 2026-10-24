@@ -79,6 +79,7 @@ const TRACKED_PROTOCOLS: readonly string[] = [
   Protocols.MIERU,
   Protocols.TRUSTTUNNEL,
   Protocols.ANYTLS,
+  Protocols.Wgosocks,
   Protocols.TPROXY,
   // END LUCX-HOOK
   Protocols.MASQUE,

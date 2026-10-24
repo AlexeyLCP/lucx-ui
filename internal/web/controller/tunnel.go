@@ -185,6 +185,15 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	anytls.POST("/download", a.anytlsDownloadBinary)
 	anytls.POST("/deleteBinary", a.anytlsDeleteBinary)
 
+	// wgobfs serves both the kernel-WG wgo proxies and wgosocks exits with
+	// one binary: status, logs and binary management for Settings → Cores.
+	wgo := g.Group("/wgo")
+	wgo.GET("/status", a.wgoCoreStatus)
+	wgo.GET("/logs", a.wgoCoreLogs)
+	wgo.POST("/upload", a.wgoUploadBinary)
+	wgo.POST("/download", a.wgoDownloadBinary)
+	wgo.POST("/deleteBinary", a.wgoDeleteBinary)
+
 	tproxy := g.Group("/tproxy")
 	tproxy.GET("/status", a.tproxyStatus)
 	tproxy.GET("/logs", a.tproxyLogs)
@@ -801,6 +810,58 @@ func (a *TunnelController) anytlsDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.anytls.toasts.deleted"), nil)
+}
+
+// LUCX-HOOK: wgobfs core-level (Cores tab) handlers — one binary for both
+// the kernel-WG wgo proxies and the wgosocks exits.
+func (a *TunnelController) wgoCoreStatus(c *gin.Context) {
+	st, err := a.svc.WgoStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: wgo status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) wgoCoreLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.WgoLogs(lines), nil)
+}
+
+func (a *TunnelController) wgoUploadBinary(c *gin.Context) {
+	dst := tunnel.Wgo.BinaryPath()
+	if err := saveCoreUpload(c, dst); err != nil {
+		logger.Warning("tunnel: save uploaded wgobfs binary failed:", err)
+		jsonMsg(c, "tunnel: wgo upload failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.wgo.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) wgoDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid wgo download body", err)
+		return
+	}
+	if err := a.svc.DownloadWgoBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: wgo download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.wgo.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) wgoDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteWgoBinary(); err != nil {
+		jsonMsg(c, "tunnel: wgo binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.wgo.toasts.deleted"), nil)
 }
 
 func (a *TunnelController) tproxyStatus(c *gin.Context) {

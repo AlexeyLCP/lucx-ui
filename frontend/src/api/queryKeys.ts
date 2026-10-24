@@ -63,6 +63,7 @@ export const keys = {
     mieruStatus: () => ['tunnels', 'mieruStatus'] as const,
     trustTunnelStatus: () => ['tunnels', 'trustTunnelStatus'] as const,
     anytlsStatus: () => ['tunnels', 'anytlsStatus'] as const,
+    wgoStatus: () => ['tunnels', 'wgoStatus'] as const, // LUCX-HOOK: wgobfs
     tproxyStatus: () => ['tunnels', 'tproxyStatus'] as const,
     mtproxyStatus: () => ['tunnels', 'mtproxyStatus'] as const,
   },

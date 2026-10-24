@@ -48,6 +48,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'openflux',
   'olcrtc',
   'anytls',
+  'wgosocks',
   'tproxy',
   'cover',
   'gateway',
