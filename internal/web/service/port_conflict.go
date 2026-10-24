@@ -18,6 +18,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
+	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard" // LUCX-HOOK: reserve kernel WG transparent listeners
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 
@@ -319,9 +320,10 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 		return nil, nil
 	}
 	newBits := inboundTransports(inbound.Protocol, inbound.StreamSettings, inbound.Settings)
+	// LUCX-HOOK: reserve transparent listeners for kernel VPN inbounds.
 	if inbound.NodeID == nil && listenOverlaps(loopbackBind, inboundBindAddr(inbound)) {
 		var bridges []*model.Inbound
-		if err := db.Where("protocol = ? AND node_id IS NULL AND id != ?", model.AWG, ignoreId).Find(&bridges).Error; err != nil {
+		if err := db.Where("protocol IN ? AND node_id IS NULL AND id != ?", []model.Protocol{model.AWG, model.WireGuard}, ignoreId).Find(&bridges).Error; err != nil {
 			return nil, err
 		}
 		for _, bridge := range bridges {
@@ -330,7 +332,7 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 				XrayRoutingMode  string `json:"xrayRoutingMode"`
 				TproxyPort       int    `json:"tproxyPort"`
 			}
-			if json.Unmarshal([]byte(bridge.Settings), &route) == nil && route.RouteThroughXray && route.XrayRoutingMode == "tproxy" && route.TproxyPort == inbound.Port {
+			if json.Unmarshal([]byte(bridge.Settings), &route) == nil && ((route.RouteThroughXray && route.XrayRoutingMode == "tproxy") || kernelwg.IsKernel(bridge)) && route.TproxyPort == inbound.Port {
 				return &portConflictDetail{
 					InboundID: bridge.Id, Remark: bridge.Remark, Tag: bridge.Tag,
 					Listen: "127.0.0.1", Port: inbound.Port, Relay: true, Transports: newBits,
@@ -339,6 +341,7 @@ func checkPortConflictTx(db *gorm.DB, inbound *model.Inbound, ignoreId int) (*po
 		}
 	}
 
+	// END LUCX-HOOK
 	// The internal Xray API inbound (tag "api", loopback TCP) isn't a DB row,
 	// so a local user inbound reusing its port would leave Xray binding the
 	// port twice (#5304). Nodes run their own Xray, so this only applies to

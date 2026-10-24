@@ -1,0 +1,36 @@
+name: Kernel WireGuard integration
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'internal/lucx/wireguard/**'
+      - 'internal/web/service/kernel_wireguard*'
+      - 'internal/web/job/kernel_wireguard*'
+      - 'internal/web/runtime/local.go'
+      - '.github/workflows/kernel-wireguard.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'internal/lucx/wireguard/**'
+      - '.github/workflows/kernel-wireguard.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  kernel-netns:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Install namespace test dependencies
+        run: sudo apt-get update -qq && sudo apt-get install -y wireguard-tools nftables iproute2 iptables
+      - name: Prepare embedded frontend
+        run: mkdir -p internal/web/dist && touch internal/web/dist/.gitkeep
+      - name: Real kernel TCP/UDP TPROXY with INPUT DROP
+        run: sudo env PATH="$PATH" GOMODCACHE="$(go env GOMODCACHE)" GOCACHE="$(go env GOCACHE)" LUCX_WG_NETNS_TEST=1 go test -v -count=1 ./internal/lucx/wireguard -run '^TestKernelWireguardNetNS$'

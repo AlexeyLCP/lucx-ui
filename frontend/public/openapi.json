@@ -6173,6 +6173,60 @@
         }
       }
     },
+    "/panel/api/inbounds/wireguard/importPreview": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Preview a standard WireGuard server configuration as a disabled kernel inbound. Does not execute hooks or change interfaces.",
+        "operationId": "post_panel_api_inbounds_wireguard_importPreview",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "config": {
+                    "type": "string",
+                    "description": "wg-quick server configuration; shell hooks are rejected."
+                  },
+                  "tproxyPort": {
+                    "type": "integer",
+                    "description": "Dedicated loopback TCP/UDP transparent listener port."
+                  }
+                },
+                "required": [
+                  "config",
+                  "tproxyPort"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/awg/generateObfuscation": {
       "post": {
         "tags": [

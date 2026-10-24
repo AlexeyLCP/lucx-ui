@@ -33,6 +33,17 @@ type wireguardSubnetSettings struct {
 // case, so an inbound saved before this field existed (or one that simply
 // never set it) keeps behaving exactly as it always has.
 func explicitWireguardSubnetBase(settingsJSON string) string {
+	// LUCX-HOOK: kernel peers must stay in the configured interface subnet.
+	var kernel struct {
+		Kernel  bool   `json:"kernel"`
+		Address string `json:"address"`
+	}
+	if json.Unmarshal([]byte(settingsJSON), &kernel) == nil && kernel.Kernel {
+		if prefix, err := netip.ParsePrefix(kernel.Address); err == nil && prefix.Addr().Is4() {
+			return prefix.Masked().String()
+		}
+	}
+	// END LUCX-HOOK
 	var parsed wireguardSubnetSettings
 	if err := json.Unmarshal([]byte(settingsJSON), &parsed); err != nil {
 		return ""
@@ -235,6 +246,18 @@ func wireguardAllowedIPsOverlap(entries, used []string) (entry, taken string) {
 // before this field existed.
 func defaultWireguardClients(settingsJSON string, existing, clients []model.Client, interfaceClients []any, crossInboundUsed map[string]string) error {
 	used := make([]string, 0)
+	// LUCX-HOOK: reserve the kernel server address and prevent pool widening.
+	var kernel struct {
+		Kernel  bool   `json:"kernel"`
+		Address string `json:"address"`
+	}
+	_ = json.Unmarshal([]byte(settingsJSON), &kernel)
+	if kernel.Kernel && kernel.Address != "" {
+		if prefix, err := netip.ParsePrefix(kernel.Address); err == nil {
+			used = append(used, prefix.Addr().String()+"/32")
+		}
+	}
+	// END LUCX-HOOK
 	for i := range existing {
 		used = append(used, existing[i].AllowedIPs...)
 	}
@@ -262,7 +285,9 @@ func defaultWireguardClients(settingsJSON string, existing, clients []model.Clie
 			c.PublicKey = pub
 		}
 		if len(c.AllowedIPs) == 0 {
-			addr, err := allocateWireguardAddress(used, base, true)
+			// LUCX-HOOK: kernel interfaces have an explicit finite subnet.
+			addr, err := allocateWireguardAddress(used, base, !kernel.Kernel)
+			// END LUCX-HOOK
 			if err != nil {
 				return err
 			}

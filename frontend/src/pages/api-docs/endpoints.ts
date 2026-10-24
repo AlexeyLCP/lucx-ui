@@ -378,6 +378,26 @@ export const sections: readonly Section[] = [
       // LUCX-HOOK: AWG obfuscation generator + host capture endpoint documentation.
       {
         method: 'POST',
+        path: '/panel/api/inbounds/wireguard/importPreview',
+        summary:
+          'Preview a standard WireGuard server configuration as a disabled kernel inbound. Does not execute hooks or change interfaces.',
+        params: [
+          {
+            name: 'config',
+            in: 'body',
+            type: 'string',
+            desc: 'wg-quick server configuration; shell hooks are rejected.',
+          },
+          {
+            name: 'tproxyPort',
+            in: 'body',
+            type: 'integer',
+            desc: 'Dedicated loopback TCP/UDP transparent listener port.',
+          },
+        ],
+      },
+      {
+        method: 'POST',
         path: '/panel/api/inbounds/awg/generateObfuscation',
         summary:
           'Generate AmneziaWG obfuscation parameters (Jc/Jmin/Jmax/S1-S4/H1-H4) and optionally CPS packets (I1-I5) for a given profile, region, and mimicry type. For awgVersion "3"/"3.1" on an AWG3-capable host also returns HeaderProtectionKey and the six AWG 3.0 device timer/padding ranges. RandomTrailers is never auto-enabled. LucX-UI only.',

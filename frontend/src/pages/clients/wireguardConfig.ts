@@ -57,6 +57,7 @@ export function buildWireguardClientConfig(
   addressOverride = '',
   hostEndpoint?: HostEndpoint,
 ): string {
+  if (!client.privateKey && !/^[A-Za-z0-9+/]{43}=$/.test(client.password || '')) return '';
   const endpointHost =
     hostEndpoint?.dest ||
     resolveShareHost(inbound ?? {}, inbound?.nodeAddress ?? '', preferPublicHost(host, publicHost));

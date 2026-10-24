@@ -51,6 +51,11 @@ Notes: links issued BEFORE this update (plaintext) still import on the pinned 2.
 Retest plan: CSQTT inbound on 2.5.0 core → share modal shows `csqtt://<base64>`; import into APK 2.5+ imports; Tunnels page Client URI matches; `--device-id` removed means an inbound with a stale stored DeviceID starts cleanly.
 
 ---
+## Development — optional kernel WireGuard (2026-10-21)
+
+Adds an opt-in Linux kernel backend for standard WireGuard with panel-managed peers, client profiles, traffic accounting and Xray TCP/UDP TPROXY routing. Peer edits and transport FwMark changes preserve the interface; existing inbounds retain their backend. Server-config import produces a disabled draft without executing hooks. The initial scope is local IPv4 peers.
+
+Malformed device settings preserve the previous bridge and interface while a separate removal-only pass enforces peer revocation, expiry and quotas. Missing iptables is supported with a warning and requires explicit host INPUT policy. The WireGuard guide documents routing setup, firewall requirements, lifecycle behavior and traffic limits. A privileged namespace test exercises real kernel traffic and revocation.
 
 ## lucx.307 — Minecraft Bedrock (RakNet) obfuscation preset (2026-10-19)
 

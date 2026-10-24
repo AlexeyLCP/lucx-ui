@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Alert,
   Button,
   Divider,
   Modal,
@@ -868,6 +869,16 @@ export default function ClientInfoModal({
               </>
             )}
 
+            {client &&
+              wgInbounds.length > 0 &&
+              !client.privateKey &&
+              !/^[A-Za-z0-9+/]{43}=$/.test(client.password || '') && (
+                <Alert
+                  type="info"
+                  showIcon
+                  title={t('pages.xray.wireguard.kernelPrivateKeyMissing')}
+                />
+              )}
             {wgConfigs.length > 0 && client && (
               <>
                 <Divider>{t('pages.clients.wireguardConfig')}</Divider>

@@ -2500,6 +2500,17 @@
         "reservedPrefix": "_bl_ 前綴保留給內部負載均衡器迴圈物件"
       },
       "wireguard": {
+        "kernelFwMark": "Transport FwMark (optional)",
+        "kernelBackend": "Linux kernel backend",
+        "kernelHint": "Uses the standard Linux WireGuard module and Xray TPROXY. IPv4 peers only. Use a wildcard listen address and a dedicated transparent port.",
+        "kernelAddress": "Server IPv4 address / prefix",
+        "kernelPort": "TPROXY port (TCP and UDP)",
+        "kernelAddressRequired": "Enter a server IPv4 address with a /8 to /30 prefix.",
+        "kernelPortRequired": "Choose a dedicated TPROXY port.",
+        "kernelImport": "Import wg-quick server config",
+        "kernelImportHint": "Preview only: the inbound will be disabled until you save and enable it. Existing interfaces are untouched. Remove shell hooks first. Client private keys cannot be recovered from a server config.",
+        "kernelImportFailed": "Unable to preview this WireGuard configuration.",
+        "kernelPrivateKeyMissing": "The client private key is unavailable. Existing profiles remain valid; configuration export requires the original client private key.",
         "secretKey": "金鑰",
         "publicKey": "公鑰",
         "subnetIp": "子網路",

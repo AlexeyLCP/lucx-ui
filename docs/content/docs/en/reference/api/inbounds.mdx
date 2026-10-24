@@ -108,6 +108,10 @@ _openapi:
       title: Replace the entire fallback list for a master inbound. Body is JSON.
         Triggers an Xray restart.
       url: '#replace-the-entire-fallback-list-for-a-master-inbound-body-is-json-triggers-an-xray-restart'
+    - depth: 2
+      title: Preview a standard WireGuard server configuration as a disabled kernel
+        inbound. Does not execute hooks or change interfaces.
+      url: '#preview-a-standard-wireguard-server-configuration-as-a-disabled-kernel-inbound-does-not-execute-hooks-or-change-interfaces'
   structuredData:
     headings:
       - content: List every inbound owned by the authenticated user, including each
@@ -191,6 +195,9 @@ _openapi:
       - content: Replace the entire fallback list for a master inbound. Body is JSON.
           Triggers an Xray restart.
         id: replace-the-entire-fallback-list-for-a-master-inbound-body-is-json-triggers-an-xray-restart
+      - content: Preview a standard WireGuard server configuration as a disabled kernel
+          inbound. Does not execute hooks or change interfaces.
+        id: preview-a-standard-wireguard-server-configuration-as-a-disabled-kernel-inbound-does-not-execute-hooks-or-change-interfaces
     contents: []
 ---
 
@@ -203,7 +210,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <Comp document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/inbounds/list","method":"get"},{"path":"/panel/api/inbounds/list/slim","method":"get"},{"path":"/panel/api/inbounds/options","method":"get"},{"path":"/panel/api/inbounds/allLinks","method":"get"},{"path":"/panel/api/inbounds/get/{id}","method":"get"},{"path":"/panel/api/inbounds/add","method":"post"},{"path":"/panel/api/inbounds/del/{id}","method":"post"},{"path":"/panel/api/inbounds/bulkDel","method":"post"},{"path":"/panel/api/inbounds/update/{id}","method":"post"},{"path":"/panel/api/inbounds/setEnable/{id}","method":"post"},{"path":"/panel/api/inbounds/{id}/subSortIndex","method":"post"},{"path":"/panel/api/inbounds/{id}/resetTraffic","method":"post"},{"path":"/panel/api/inbounds/{id}/delAllClients","method":"post"},{"path":"/panel/api/inbounds/resetAllTraffics","method":"post"},{"path":"/panel/api/inbounds/import","method":"post"},{"path":"/panel/api/inbounds/pushClientTraffics","method":"post"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"get"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"post"}]} showTitle />
+      <Comp document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/inbounds/list","method":"get"},{"path":"/panel/api/inbounds/list/slim","method":"get"},{"path":"/panel/api/inbounds/options","method":"get"},{"path":"/panel/api/inbounds/allLinks","method":"get"},{"path":"/panel/api/inbounds/get/{id}","method":"get"},{"path":"/panel/api/inbounds/add","method":"post"},{"path":"/panel/api/inbounds/del/{id}","method":"post"},{"path":"/panel/api/inbounds/bulkDel","method":"post"},{"path":"/panel/api/inbounds/update/{id}","method":"post"},{"path":"/panel/api/inbounds/setEnable/{id}","method":"post"},{"path":"/panel/api/inbounds/{id}/subSortIndex","method":"post"},{"path":"/panel/api/inbounds/{id}/resetTraffic","method":"post"},{"path":"/panel/api/inbounds/{id}/delAllClients","method":"post"},{"path":"/panel/api/inbounds/resetAllTraffics","method":"post"},{"path":"/panel/api/inbounds/import","method":"post"},{"path":"/panel/api/inbounds/pushClientTraffics","method":"post"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"get"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"post"},{"path":"/panel/api/inbounds/wireguard/importPreview","method":"post"}]} showTitle />
     </>
   );
 }

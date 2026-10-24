@@ -611,6 +611,10 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 			inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
 		} else if oldInbound.Protocol == model.Naive {
 			inboundSvc.applyLocalNaive(oldInbound.Id)
+		} else if isKernelWireguardInbound(oldInbound) {
+			// LUCX-HOOK: peer revocation applies immediately without restarting Xray.
+			inboundSvc.applyLocalKernelWireguard(oldInbound.Id)
+			// END LUCX-HOOK
 		} else if oldInbound.Protocol == model.AWG {
 			inboundSvc.applyLocalAwg(oldInbound.Id)
 		} else if oldInbound.Protocol == model.TUIC {
@@ -1080,6 +1084,10 @@ func (s *ClientService) UpdateInboundClient(inboundSvc *InboundService, data *mo
 				inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
 			} else if oldInbound.Protocol == model.Naive {
 				inboundSvc.applyLocalNaive(oldInbound.Id)
+			} else if isKernelWireguardInbound(oldInbound) {
+				// LUCX-HOOK: peer revocation applies immediately without restarting Xray.
+				inboundSvc.applyLocalKernelWireguard(oldInbound.Id)
+				// END LUCX-HOOK
 			} else if oldInbound.Protocol == model.AWG {
 				inboundSvc.applyLocalAwg(oldInbound.Id)
 			} else if oldInbound.Protocol == model.TUIC {
@@ -1280,6 +1288,10 @@ func (s *ClientService) DelInboundClientByEmail(inboundSvc *InboundService, inbo
 				inboundSvc.applyLocalAmneziaWG(oldInbound.Id)
 			} else if oldInbound.Protocol == model.Naive {
 				inboundSvc.applyLocalNaive(oldInbound.Id)
+			} else if isKernelWireguardInbound(oldInbound) {
+				// LUCX-HOOK: peer revocation applies immediately without restarting Xray.
+				inboundSvc.applyLocalKernelWireguard(oldInbound.Id)
+				// END LUCX-HOOK
 			} else if oldInbound.Protocol == model.AWG {
 				inboundSvc.applyLocalAwg(oldInbound.Id)
 			} else if oldInbound.Protocol == model.TUIC {

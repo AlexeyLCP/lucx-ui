@@ -13,7 +13,8 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/awg" // LUCX-HOOK: AWG sidecar
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
-	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel" // LUCX-HOOK: Naive inbound sidecar
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"             // LUCX-HOOK: Naive inbound sidecar
+	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard" // LUCX-HOOK: kernel WireGuard
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
@@ -52,6 +53,15 @@ func (l *Local) withAPI(fn func(api *xray.XrayAPI) error) error {
 }
 
 func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
+	// LUCX-HOOK: opt-in standard kernel WireGuard.
+	if kernelwg.IsKernel(ib) {
+		inst, err := kernelwg.Parse(ib)
+		if err != nil {
+			return err
+		}
+		return kernelwg.GetManager().Ensure(inst)
+	}
+	// END LUCX-HOOK
 	if ib.Protocol == model.MTProto {
 		inst, ok := mtproto.InstanceFromInbound(ib)
 		if !ok {
@@ -152,6 +162,11 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 }
 
 func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
+	// LUCX-HOOK: kernel WireGuard owns its interface rather than an Xray listener.
+	if kernelwg.IsKernel(ib) {
+		return kernelwg.GetManager().Remove(ib.Id)
+	}
+	// END LUCX-HOOK
 	if ib.Protocol == model.MTProto {
 		mtproto.GetManager().Remove(ib.Id)
 		return nil
@@ -236,6 +251,27 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 }
 
 func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) error {
+	// LUCX-HOOK: peer-only edits retain kernel WireGuard sessions.
+	if kernelwg.IsKernel(oldIb) || kernelwg.IsKernel(newIb) {
+		if !kernelwg.IsKernel(newIb) || !newIb.Enable {
+			if kernelwg.IsKernel(oldIb) {
+				if err := kernelwg.GetManager().Remove(oldIb.Id); err != nil {
+					return err
+				}
+			}
+			if !newIb.Enable {
+				return nil
+			}
+			return l.AddInbound(ctx, newIb)
+		}
+		if !kernelwg.IsKernel(oldIb) {
+			if err := l.DelInbound(ctx, oldIb); err != nil {
+				return err
+			}
+		}
+		return l.AddInbound(ctx, newIb)
+	}
+	// END LUCX-HOOK
 	if oldIb.Protocol == model.MTProto || newIb.Protocol == model.MTProto {
 		return l.updateMtprotoInbound(ctx, oldIb, newIb)
 	}
@@ -637,7 +673,7 @@ func (l *Local) AddUser(_ context.Context, ib *model.Inbound, userMap map[string
 	}
 	// LUCX-HOOK: AWG — peer reconciliation is driven by the periodic awg job,
 	// which reads the desired peer set from the DB. No live API call here.
-	if ib.Protocol == model.AWG {
+	if ib.Protocol == model.AWG || kernelwg.IsKernel(ib) {
 		return nil
 	}
 	// LUCX-HOOK: tunnel inbounds — no Xray users.
@@ -655,7 +691,7 @@ func (l *Local) RemoveUser(_ context.Context, ib *model.Inbound, email string) e
 		return nil
 	}
 	// LUCX-HOOK: AWG — peer removal is picked up by the next Reconcile tick.
-	if ib.Protocol == model.AWG {
+	if ib.Protocol == model.AWG || kernelwg.IsKernel(ib) {
 		return nil
 	}
 	// LUCX-HOOK: tunnel inbounds — no Xray users.

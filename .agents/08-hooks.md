@@ -29,6 +29,8 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/sub/service.go` `ResolveRequest` | never use `X-Real-IP` as share host |
 | `internal/sub/service.go` `amneziaWGConfigText` | always emit `S3`/`S4` (zero is real); drop unportable I-fields |
 | `internal/web/service/inbound.go` UpdateInbound | sidecar in-place `Update`, snapshot **old** protocol on del |
+| `internal/web/service/inbound_settings_commit.go` | kernel peer structural validation after rebase |
+| `frontend/src/pages/inbounds/form/protocols/wireguard.tsx` | kernel selector, import and transport mark |
 | `internal/web/service/client_inbound_apply.go` | share-only: no `clients[]`, no `MarshalIndent` of settings |
 | `internal/web/service/client_crud.go` Update | do not broadcast keys/AllowedIPs across tunnel inbounds |
 | `internal/web/service/inbound_node.go` | auto-tag port change → same row + new tag |
@@ -201,14 +203,14 @@ Keep the directory. Origin will not have these.
 |---|---|
 | `internal/awg/` | kernel AWG sidecar |
 | `internal/awg/peer_routes{,_linux,_other,_test}.go` | peer LAN routes (issue #126) |
-| `internal/lucx/` | tunnel sidecars, geodata, parser |
+| `internal/lucx/` | tunnel sidecars, kernel WireGuard, geodata, parser |
 | `internal/database/migrate_awg*.go` `migrate_geodata.go` `migrate_naive_inbound.go` `migrate_tunnel_*.go` `repair_tunnel_fields.go` | LucX migrations |
 | `internal/database/model/awg_outbound.go` `sidecar_outbound.go` | LucX tables |
 | `internal/sub/awg_*.go` `roscomvpn.go` `service_{awg,naive,qwdtt,trusttunnel}_test.go` `clash_awg_test.go` | LucX sub |
-| `internal/web/controller/awg.go` `awg_outbound.go` `lucx.go` `tunnel.go` `sidecar_outbound.go` | LucX API |
-| `internal/web/job/awg_job.go` `awg_speed_buffer.go` `tunnel_job.go` `log_retention_job.go` | LucX jobs |
+| `internal/web/controller/awg.go` `awg_outbound.go` `lucx.go` `tunnel.go` `sidecar_outbound.go` `kernel_wireguard.go` | LucX API |
+| `internal/web/job/awg_job.go` `awg_speed_buffer.go` `tunnel_job.go` `log_retention_job.go` `kernel_wireguard_job.go` | LucX jobs |
 | `internal/web/favicon/` | panel tab icon |
-| `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` | LucX service |
+| `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` | LucX service |
 | `frontend/src/pages/tunnels/` | Tunnels page |
 | `frontend/src/pages/inbounds/form/protocols/{awg,naive,olcrtc,qwdtt,csqtt,mieru,trusttunnel,anytls,tproxy,cover}.tsx` | lucx forms |
 | `frontend/src/pages/xray/awg-outbounds/` `sidecar-outbounds/` | lucx outbound UI |
