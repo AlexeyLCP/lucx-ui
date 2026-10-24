@@ -79,7 +79,7 @@ if ! have "openflux-linux-${ARCH}"; then
     rm -rf /tmp/openflux
 fi
 
-# CSQTT rust-server (amurcanov/csqtt). PIN ace21228 — not unpinned master.
+# CSQTT rust-server (amurcanov/csqtt). PIN v2.5.0 (fd936ef0) — not unpinned master.
 # Needs rustc 1.97.1 + zig + cargo-zigbuild (release.yml installs them).
 if ! have "csqtt-linux-${ARCH}"; then
     case "$ARCH" in
@@ -93,7 +93,7 @@ if ! have "csqtt-linux-${ARCH}"; then
     cargo zigbuild --help >/dev/null
     git init -q /tmp/csqtt
     git -C /tmp/csqtt remote add origin https://github.com/amurcanov/csqtt.git
-    git -C /tmp/csqtt fetch -q --depth 1 origin ace21228f46f056e4a2ba734f2ecb67361d401ad
+    git -C /tmp/csqtt fetch -q --depth 1 origin fd936ef087c34cc46f26111dc2361f43b8b03c07
     git -C /tmp/csqtt checkout -q FETCH_HEAD
     (
         cd /tmp/csqtt/rust-server

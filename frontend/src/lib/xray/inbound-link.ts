@@ -15,12 +15,16 @@ import type { FinalMaskStreamSettings } from '@/schemas/protocols/stream/finalma
 import type { XHttpStreamSettings } from '@/schemas/protocols/stream/xhttp';
 
 import { collapseKeepaliveForVersion } from '@/lib/awg/timer';
-import { bytesFromBase64Url, isQCompress, vpnUriFromConf } from '@/lib/awg/vpnuri'; // LUCX-HOOK
+import { bytesFromBase64Url, isQCompress, toBase64Url, vpnUriFromConf } from '@/lib/awg/vpnuri'; // LUCX-HOOK
 import { awgIBytes, awgWorstCaseIBytesBudget } from './awg-budget'; // LUCX-HOOK
 import { awgPortableIField } from './awg-descriptor'; // LUCX-HOOK
 import { parseGeckoPacketSize } from '@/lib/xray/forms/transport/FinalMaskForm';
 import { getHeaderValue } from './headers';
 import { encodeOpenfluxLink } from './openflux-link';
+import { gcm } from '@noble/ciphers/aes.js'; // LUCX-HOOK: csqtt link cipher
+import { concatBytes, utf8ToBytes } from '@noble/ciphers/utils.js'; // LUCX-HOOK
+import { sha256 } from '@noble/hashes/sha2.js'; // LUCX-HOOK
+import { hmac } from '@noble/hashes/hmac.js'; // LUCX-HOOK
 import { canEnableTlsFlow } from './protocol-capabilities';
 import { deriveSpiderX } from './spider-x';
 import { vlessEncryptionAuthKind } from './vless-encryption';
@@ -1754,6 +1758,18 @@ export interface GenCsqttLinkInput {
   address?: string;
 }
 
+// amurcanov/csqtt v2.5.0 encrypts every share link: key = SHA256(seed),
+// IV = HMAC-SHA256(key, payload)[:12] (deterministic), AES-256-GCM,
+// output = csqtt:// + base64url(IV || ciphertext || tag) — web_panel.rs.
+const CSQTT_CIPHER_SEED = 'csqtt-chiper-key';
+const csqttCipherKey = sha256(utf8ToBytes(CSQTT_CIPHER_SEED));
+
+function encryptCsqttLink(payload: string): string {
+  const iv = hmac(sha256, csqttCipherKey, utf8ToBytes(payload)).slice(0, 12);
+  const sealed = gcm(csqttCipherKey, iv).encrypt(utf8ToBytes(payload));
+  return `csqtt://${toBase64Url(concatBytes(iv, sealed))}`;
+}
+
 export function genCsqttLink(input: GenCsqttLinkInput): string {
   if (input.inbound.protocol !== 'csqtt') return '';
   const s = input.inbound.settings as {
@@ -1778,19 +1794,16 @@ export function genCsqttLink(input: GenCsqttLinkInput): string {
     const p = Number(la.slice(la.lastIndexOf(':') + 1));
     if (Number.isFinite(p) && p > 0) port = p;
   }
+  let payload = `connect?v=2&host=${encodeURIComponent(host)}&peer=${port}&password=${encodeURIComponent(pass)}`;
   const hashes = (s.vkHashes ?? '')
     .split(/[,+\s]+/)
     .map((h) => h.trim())
     .filter(Boolean)
     .slice(0, 6);
-  const q = new URLSearchParams();
-  q.set('v', '2');
-  q.set('host', host);
-  q.set('peer', String(port));
-  q.set('password', pass);
-  const base = `csqtt://connect?${q.toString()}`;
-  if (!hashes.length) return base;
-  return `${base}&hashes=${hashes.map((h) => encodeURIComponent(h)).join('+')}`;
+  if (hashes.length) {
+    payload += `&hashes=${hashes.map((h) => encodeURIComponent(h)).join('+')}`;
+  }
+  return encryptCsqttLink(payload);
 }
 
 export function genQwdttLink(input: GenQwdttLinkInput): string {

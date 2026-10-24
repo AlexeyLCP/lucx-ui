@@ -7,6 +7,11 @@
 package tunnel
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"net"
@@ -149,9 +154,7 @@ func (c CsqttConfig) BuildArgs() []string {
 	if p := strings.TrimSpace(c.Password); p != "" {
 		args = append(args, "--password", p)
 	}
-	if d := strings.TrimSpace(c.DeviceID); d != "" {
-		args = append(args, "--device-id", d)
-	}
+	// upstream v2.5.0 removed the --device-id flag; device binding is server-side now.
 	if w := strings.TrimSpace(c.WebPass); w != "" {
 		args = append(args, "--web-pass", w)
 	}
@@ -214,10 +217,45 @@ func csqttHashList(raw string) []string {
 	return out
 }
 
+// csqttCipherSeed is upstream amurcanov/csqtt v2.5.0's fixed link cipher seed.
+const csqttCipherSeed = "csqtt-chiper-key"
+
+func csqttQEscape(s string) string {
+	// Upstream URL-encodes each value byte-wise keeping -_.~; a space must be
+	// %20 because the client decodes a raw + as a literal plus.
+	return strings.ReplaceAll(url.QueryEscape(s), "+", "%20")
+}
+
+// csqttEncryptLink seals the share payload like upstream v2.5.0
+// (web_panel.rs encrypt_csqtt_link): key = SHA256(seed),
+// IV = HMAC-SHA256(key, payload)[:12] — deterministic, AES-256-GCM,
+// output = csqtt:// + base64url(IV || ciphertext || tag). On crypto failure it
+// falls back to the plaintext base64 form the client can still decrypt-then-reject.
+func csqttEncryptLink(payload string) string {
+	b64url := base64.RawURLEncoding
+	keyHash := sha256.Sum256([]byte(csqttCipherSeed))
+	block, err := aes.NewCipher(keyHash[:])
+	if err != nil {
+		return "csqtt://" + b64url.EncodeToString([]byte(payload))
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return "csqtt://" + b64url.EncodeToString([]byte(payload))
+	}
+	mac := hmac.New(sha256.New, keyHash[:])
+	mac.Write([]byte(payload))
+	iv := mac.Sum(nil)[:gcm.NonceSize()]
+	sealed := gcm.Seal(nil, iv, []byte(payload), nil)
+	out := make([]byte, 0, len(iv)+len(sealed))
+	out = append(out, iv...)
+	out = append(out, sealed...)
+	return "csqtt://" + b64url.EncodeToString(out)
+}
+
 func csqttHashesParam(hashes []string) string {
 	parts := make([]string, len(hashes))
 	for i, h := range hashes {
-		parts[i] = strings.ReplaceAll(url.QueryEscape(h), "+", "%20")
+		parts[i] = csqttQEscape(h)
 	}
 	return strings.Join(parts, "+")
 }
@@ -228,16 +266,13 @@ func (c CsqttConfig) ClientURI() string {
 	if host == "" || pass == "" {
 		return ""
 	}
-	q := url.Values{}
-	q.Set("v", "2")
-	q.Set("host", host)
-	q.Set("peer", strconv.Itoa(c.publicPort()))
-	q.Set("password", pass)
-	uri := "csqtt://connect?" + q.Encode()
+	payload := "connect?v=2&host=" + csqttQEscape(host) +
+		"&peer=" + strconv.Itoa(c.publicPort()) +
+		"&password=" + csqttQEscape(pass)
 	if hashes := csqttHashList(c.VkHashes); len(hashes) > 0 {
-		uri += "&hashes=" + csqttHashesParam(hashes)
+		payload += "&hashes=" + csqttHashesParam(hashes)
 	}
-	return uri
+	return csqttEncryptLink(payload)
 }
 
 func CsqttListenPort(cfg CsqttConfig) int {

@@ -7,6 +7,10 @@
 package tunnel
 
 import (
+	"crypto/aes"
+	"crypto/cipher"
+	"crypto/sha256"
+	"encoding/base64"
 	"os"
 	"path/filepath"
 	"strings"
@@ -15,29 +19,69 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
+// csqttDecryptPayloadBytes opens the sealed payload of a v2.5.0-style link.
+func csqttDecryptPayloadBytes(t *testing.T, raw []byte) []byte {
+	t.Helper()
+	keyHash := sha256.Sum256([]byte(csqttCipherSeed))
+	block, err := aes.NewCipher(keyHash[:])
+	if err != nil {
+		t.Fatalf("cipher: %v", err)
+	}
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		t.Fatalf("gcm: %v", err)
+	}
+	out, err := gcm.Open(nil, raw[:12], raw[12:], nil)
+	if err != nil {
+		t.Fatalf("open: %v", err)
+	}
+	return out
+}
+
+// csqttDecryptTest helper: reverses csqttEncryptLink (upstream v2.5.0 format).
+func csqttDecryptLinkForTest(t *testing.T, link string) string {
+	t.Helper()
+	payload := strings.TrimPrefix(link, "csqtt://")
+	raw, err := base64.RawURLEncoding.DecodeString(payload)
+	if err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if len(raw) < 28 {
+		t.Fatalf("too short: %d bytes", len(raw))
+	}
+	got := csqttDecryptPayloadBytes(t, raw)
+	return string(got)
+}
+
+// The golden vector was produced by an independent node.js implementation of
+// the upstream encrypt_csqtt_link spec (SHA256 seed key, HMAC-derived IV, AES-256-GCM).
 func TestCsqttClientURI(t *testing.T) {
 	cfg := DefaultCsqttConfig()
 	cfg.Password = "pass"
 	cfg.SubHost = "1.2.3.4"
 	cfg.VkHashes = "abcdefghijklmnop1,abcdefghijklmnop2"
 	got := cfg.ClientURI()
-	if !strings.HasPrefix(got, "csqtt://connect?") {
-		t.Fatalf("URI = %q", got)
+	wantLink := "csqtt://Er5brAAfeA7zKVa8qs39cEkpjq_eYWTbT75L5ZjeMrubgGMvtxToWsrWeTILHkXC8QoPDSIaUgTJpWsRqUk_kY6Hgiy0tmtD0MS_YhsQ1RyQ8X1gdjex6B-pPcVhQHbmCZH09IQm8TOfAKYczBrPh980FQFhjL_F"
+	if got != wantLink {
+		t.Fatalf("URI mismatch with upstream v2.5.0 vector:\n got %q\nwant %q", got, wantLink)
 	}
-	for _, want := range []string{"v=2", "host=1.2.3.4", "peer=46000", "password=pass", "hashes=abcdefghijklmnop1+abcdefghijklmnop2"} {
-		if !strings.Contains(got, want) {
-			t.Errorf("URI missing %q: %s", want, got)
-		}
+	decrypted := csqttDecryptLinkForTest(t, got)
+	wantPayload := "connect?v=2&host=1.2.3.4&peer=46000&password=pass&hashes=abcdefghijklmnop1+abcdefghijklmnop2"
+	if decrypted != wantPayload {
+		t.Fatalf("payload = %q, want %q", decrypted, wantPayload)
 	}
-	if strings.Contains(got, "%2B") {
-		t.Fatalf("hash separator must be a raw +, got %q", got)
+	if again := cfg.ClientURI(); again != got {
+		t.Fatalf("ClientURI must be deterministic (HMAC IV), got %q then %q", got, again)
+	}
+	if strings.Contains(got, "connect?connect") || strings.ContainsAny(got, "\r\n") ||
+		strings.Contains(got, "qwdtt://") || strings.Contains(got, "%2B") {
+		t.Fatalf("ClientURI must be a single encrypted csqtt:// line, got %q", got)
 	}
 	cfg.VkHashes = "abcdefghijklmnop1\nabcdefghijklmnop2"
-	if !strings.Contains(cfg.ClientURI(), "hashes=abcdefghijklmnop1+abcdefghijklmnop2") {
-		t.Fatalf("newline-separated hashes must split, got %q", cfg.ClientURI())
-	}
-	if strings.ContainsAny(got, "\r\n") || strings.Contains(got, "qwdtt://") {
-		t.Fatalf("ClientURI must be a single csqtt:// line, got %q", got)
+	cfg.SubHost = "5.6.7.8"
+	cfg.Password = "p2"
+	if d := csqttDecryptLinkForTest(t, cfg.ClientURI()); !strings.Contains(d, "hashes=abcdefghijklmnop1+abcdefghijklmnop2") {
+		t.Fatalf("newline-separated hashes must split, decrypted %q", d)
 	}
 	cfg.SubHost = ""
 	if cfg.ClientURI() != "" {
@@ -56,7 +100,6 @@ func TestCsqttBuildArgs(t *testing.T) {
 		"--listen 0.0.0.0:46000",
 		"--web-port 46002",
 		"--password s3cret",
-		"--device-id phone-1",
 		"--web-user lucx",
 		"--web-pass web",
 		"--dns 77.88.8.8,77.88.8.1",
@@ -64,6 +107,10 @@ func TestCsqttBuildArgs(t *testing.T) {
 		if !strings.Contains(joined, want) {
 			t.Errorf("args missing %q: %v", want, args)
 		}
+	}
+	if strings.Contains(joined, "--device-id") {
+		// upstream v2.5.0 CLI rejects unknown flags: the core would not start.
+		t.Errorf("must not pass removed --device-id flag: %v", args)
 	}
 	if strings.Contains(joined, " start") || strings.Contains(joined, "--start") {
 		t.Errorf("must not pass systemctl subcommand: %v", args)

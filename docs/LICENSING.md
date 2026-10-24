@@ -59,7 +59,7 @@ The panel **supervises external processes** and ships optional geo datasets. Not
 | [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) | Protocol / client reference | **BSD-3-Clause** |
 | `bin/olcrtc-linux-*` — [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | olcRTC WebRTC tunnel core | **WTFPL** |
 | `bin/qwdtt-linux-*` — [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) server | qWDTT (WG over VK TURN) | **GPL-3.0** |
-| `bin/csqtt-linux-*` — [amurcanov/csqtt](https://github.com/amurcanov/csqtt) rust-server (GitHub tarball; pin `ace21228`) | CSQTT (TURN/RTP) | **PolyForm Noncommercial 1.0.0** (amurcanov; LucX commercial grant does not cover it) |
+| `bin/csqtt-linux-*` — [amurcanov/csqtt](https://github.com/amurcanov/csqtt) rust-server (GitHub tarball; pin `fd936ef0`, v2.5.0) | CSQTT (TURN/RTP) | **PolyForm Noncommercial 1.0.0** (amurcanov; LucX commercial grant does not cover it) |
 | `bin/mieru-linux-*` — [enfein/mieru](https://github.com/enfein/mieru) `mita` | mieru server | **GPL-3.0** |
 | `bin/trusttunnel-linux-*` — [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) `trusttunnel_endpoint` | TrustTunnel endpoint | **Apache-2.0** |
 | [amnezia-vpn](https://github.com/amnezia-vpn) kernel module & tools | AmneziaWG / AWG3 (installed by host scripts, not the panel binary) | **GPL-2.0** (kernel module) |

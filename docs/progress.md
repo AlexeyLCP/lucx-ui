@@ -1,5 +1,30 @@
 # LucX-UI — Прогресс
 
+## lucx.308 — CSQTT core 2.5.0: pin bump + encrypted share links (2026-10-24)
+
+Upstream amurcanov/csqtt released **v2.5.0** (tag commit `fd936ef0`). Two breaking operator-visible changes:
+
+1. The share link format is now **AES-256-GCM encrypted**. The official Android APK (v2.5.x) rejects the old plaintext `csqtt://connect?...` links — upstream's `parseCsqttLink` decrypts only. Format (web_panel.rs `encrypt_csqtt_link`): payload stays the old body (`connect?v=2&host=…&peer=…&password=…&hashes=…`, hashes joined by a raw `+`), key = SHA256 of the fixed seed `csqtt-chiper-key`, IV = HMAC-SHA256(key, payload)[:12] (deterministic — the same payload always yields the same link), output = `csqtt://` + base64url(IV ‖ ciphertext ‖ tag). New optional `token=` param (VK access token) exists in upstream; LucX does not emit it. `hashes=` may not be combined with `token=` per the client parser.
+2. The CLI flag `--device-id` is **removed** from the 2.5.0 server (clap would fail on it). Device binding is client-minted/server-side now.
+
+Pin: `bin/pack-sidecars.sh` fetches `fd936ef087c34cc46f26111dc2361f43b8b03c07` (was `ace21228`, v2.1.9-era). Crypto dependency set essentially unchanged (aws-lc-rs was already in the pinned build), so the zigbuild-musl path keeps working; new deps are pure Rust (`hmac`, `sha1`, `flate2`, `tower-service`).
+
+Generators: Go `internal/lucx/tunnel/csqtt.go` (`ClientURI`, plus `csqttQEscape` mirroring upstream's byte-wise URL encoder — space must be `%20`, the client decodes a raw `+` as a literal plus) and frontend `genCsqttLink` (`inbound-link.ts`) both emit the encrypted form; TS uses the already-present `@noble/hashes` (sha256/hmac) and the new small `@noble/ciphers` dep (`gcm`, sync seal — the share modal chain is synchronous, WebCrypto is async-only). Backend surfaces (TunnelsPage status, subscription `genCsqttLink`) get the encrypted link for free via `ClientURI`. Import-side parsers (`internal/util/link/outbound.go`, link-label) treat `csqtt://` as opaque — no changes needed; labels degrade to protocol-only on encrypted bodies.
+
+Removed the Device ID form field + the `--device-id` emission from `BuildArgs` (kept the `DeviceID` settings field for round-tripping old rows). Device IDs have never been part of client configs — Rule 0 untouched; password/hash params are re-encoded, not changed, so old imports keep working and new shares import into APK 2.5+.
+
+Files: `bin/pack-sidecars.sh`, `internal/lucx/tunnel/csqtt.go`, `internal/lucx/tunnel/csqtt_test.go`, `frontend/src/lib/xray/inbound-link.ts`, `frontend/src/lib/awg/vpnuri.ts` (publicized `toBase64Url`), `frontend/src/test/csqtt-link.test.ts`, `frontend/src/pages/inbounds/form/protocols/csqtt.tsx`, all 13 `internal/web/translation/*.json` (csqttDeviceId keys removed), `frontend/package.json` (+`@noble/ciphers`), `internal/config/config.go`, `docs/LICENSING.md`, both README share-format lines.
+
+Tests: golden-vector equivalence — a node.js one-off implementing the upstream spec produced the ciphertexts hardcoded in `TestCsqttClientURI` and the TS `genCsqttLink` test, so Go/noble/node agree byte-for-byte; both suites also round-trip through an AES-GCM open and assert determinism (HMAC IV). `TestCsqttBuildArgs` asserts `--device-id` is never passed. `internal/lucx/tunnel`, `internal/util/link` green; frontend typecheck/lint/unit (1575)/build green.
+
+**lucxVersion:** lucx.308
+
+Notes: links issued BEFORE this update (plaintext) still import on the pinned 2.1.9-era core and on iOS legacy mode, but NOT on the official APK 2.5.x — operators should re-share after the core update. The upstream seed is a hardcoded constant of the client protocol (not a secret): anyone can decrypt any csqtt link; the encryption hides the password from shoulder-surfing/QR-adjacent logs, it is not key exchange.
+
+Retest plan: CSQTT inbound on 2.5.0 core → share modal shows `csqtt://<base64>`; import into APK 2.5+ imports; Tunnels page Client URI matches; `--device-id` removed means an inbound with a stale stored DeviceID starts cleanly.
+
+---
+
 ## lucx.307 — Minecraft Bedrock (RakNet) obfuscation preset (2026-10-19)
 
 Operator request: add a Minecraft Bedrock preset to the AWG obfuscation generator the same way as the Amnezia Premium preset, following phenomenonrt.github.io ("Mimicry Generator — AmneziaWG × Minecraft"). The site generates AWG param sets whose junk/transport byte shapes imitate Minecraft Bedrock RakNet packets; we ported its **balanced** profile as a fifth `obfProfile` value `minecraft` (select option 5).
