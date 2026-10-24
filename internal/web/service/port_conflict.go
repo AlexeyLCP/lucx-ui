@@ -40,7 +40,7 @@ func inboundTransports(protocol model.Protocol, streamSettings, settings string)
 	case model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Openflux:
 		return transportTCP
 	// LUCX-HOOK: AnyTls is a single TCP listener (anytls-server)
-	case model.Anytls, model.Tproxy, model.Cover, model.Gateway:
+	case model.Anytls, model.Tproxy, model.Cover, model.Gateway, model.Wgosocks:
 		return transportTCP
 	// END LUCX-HOOK
 	case model.TrustTunnel:

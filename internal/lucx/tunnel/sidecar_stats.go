@@ -204,3 +204,9 @@ func (m *Manager) CollectQwdttTraffic(tag string) SidecarTraffic {
 	}
 	return d
 }
+
+// CollectWgosocksTraffic meters one wgosocks inbound via /proc/<pid>/io
+// deltas (same relay shortcut as olcRTC/tproxy).
+func (m *Manager) CollectWgosocksTraffic(key, tag string) SidecarTraffic {
+	return m.collectProcIO(key, tag)
+}

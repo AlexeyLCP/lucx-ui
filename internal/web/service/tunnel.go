@@ -357,6 +357,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileTproxyInbounds()
 	s.reconcileCoverInbounds()
 	s.reconcileGatewayInbounds()
+	s.reconcileWgosocksInbounds()
 }
 
 // tunnelBlobMigrated reports whether the legacy settings blob carries the
@@ -757,6 +758,29 @@ func (s *TunnelService) reconcileGatewayInbounds() {
 		want = append(want, inst)
 	}
 	tunnel.GetManager().ReconcileGateway(want)
+}
+
+// reconcileWgosocksInbounds Ensures every wgosocks SOCKS5-exit inbound and
+// stops orphans. Inbound-only like mieru: zero inbounds sweeps every
+// wgosocks-* key.
+func (s *TunnelService) reconcileWgosocksInbounds() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: wgosocks inbound list failed:", err)
+		return
+	}
+	var want []tunnel.Instance
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Wgosocks || ib.NodeID != nil {
+			continue
+		}
+		inst, ok := tunnel.WgosocksInstanceFromInbound(ib)
+		if !ok {
+			continue
+		}
+		want = append(want, inst)
+	}
+	tunnel.GetManager().ReconcileWgosocks(want)
 }
 
 // panelCertFiles reads the panel ACME certificate paths from settings (the

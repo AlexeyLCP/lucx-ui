@@ -47,6 +47,7 @@ func (j *TunnelJob) Run() {
 	j.collectOlcrtcTraffic()
 	j.collectQwdttTraffic()
 	j.collectTproxyTraffic()
+	j.collectWgosocksTraffic()
 }
 
 func (j *TunnelJob) collectNaiveTraffic() {
@@ -689,4 +690,30 @@ func normalizeNaiveOnline(online []string, deltas []tunnel.NaiveClientTraffic, _
 		out = append(out, e)
 	}
 	return out
+}
+
+// collectWgosocksTraffic meters wgosocks inbounds via /proc/<pid>/io deltas
+// (tproxy pattern). Per-client traffic is not separable in the engine: the
+// sole enabled client gets the totals, multi-client inbounds roll up to the
+// inbound only (commitSidecarScrape + TrustTunnelSoleClient).
+func (j *TunnelJob) collectWgosocksTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var snaps []tunnel.SidecarTraffic
+	emailsByTag := map[string][]string{}
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Wgosocks || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		emailsByTag[tag] = anytlsEmailsForInbound(ib)
+		snaps = append(snaps, tunnel.GetManager().CollectWgosocksTraffic(tunnel.WgosocksKey(ib.Id), tag))
+	}
+	j.commitSidecarScrape("wgosocks", snaps, emailsByTag, nil)
 }

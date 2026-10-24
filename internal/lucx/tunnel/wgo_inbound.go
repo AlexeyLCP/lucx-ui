@@ -7,8 +7,10 @@
 package tunnel
 
 import (
+	cryptorand "crypto/rand"
 	"encoding/json"
 	"fmt"
+	"math/big"
 	"sort"
 	"strings"
 
@@ -208,4 +210,21 @@ func WgosocksClientConf(s WgosocksSettings, port int, host string, c WgosocksCli
 	fmt.Fprintf(&b, "login = %s\n", c.Login)
 	fmt.Fprintf(&b, "password = %s\n", c.Password)
 	return b.String()
+}
+
+const wgosocksSecretAlphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+
+// MintWgosocksSecret returns n random base62 chars for the inbound key and
+// client login/password pairs (plain values — the engine config needs them),
+// or "" when the system entropy source fails (callers keep the old value).
+func MintWgosocksSecret(n int) string {
+	b := make([]byte, n)
+	for i := range b {
+		v, err := cryptorand.Int(cryptorand.Reader, big.NewInt(int64(len(wgosocksSecretAlphabet))))
+		if err != nil {
+			return ""
+		}
+		b[i] = wgosocksSecretAlphabet[v.Int64()]
+	}
+	return string(b)
 }
