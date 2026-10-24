@@ -16,6 +16,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
@@ -104,6 +105,25 @@ func (s *InboundService) validateKernelWireguard(ib *model.Inbound) error {
 		}
 		udp.Close()
 	}
+	// wgobfs obfuscation presets: validate against the same port registry the
+	// rest of the panel uses; a preset port must not collide with the WG port,
+	// the TPROXY bridge, the panel or any other inbound's UDP listener.
+	if o, ok := tunnel.ParseObfuscation(ib); ok {
+		reserved := func(port int, proto string) bool {
+			if port == inst.TproxyPort || port == panelPort {
+				return true
+			}
+			probe := *ib
+			probe.Protocol = model.Tunnel
+			probe.Listen = ""
+			probe.Port = port
+			conflict, e := s.checkPortConflict(&probe, ib.Id)
+			return e == nil && conflict != nil
+		}
+		if err := tunnel.ValidateObfuscation(o, ib.Port, reserved); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
@@ -142,6 +162,16 @@ func (s *InboundService) applyLocalKernelWireguard(id int) {
 	}
 	if err != nil {
 		logger.Warningf("kernel WireGuard inbound %d client apply: %v", id, err)
+	}
+	// wgobfs obfuscation process + direct-port rule apply with the interface,
+	// not on the next job tick. A disabled block/inbound stops the process.
+	if wgoInst, fw, ok := kernelwg.ObfuscationTargets(ib); ok {
+		if err := tunnel.GetManager().Ensure(wgoInst); err != nil {
+			logger.Warningf("kernel WireGuard inbound %d obfuscation apply: %v", id, err)
+		}
+		if err := kernelwg.EnsureWgoFirewall(fw); err != nil {
+			logger.Warningf("kernel WireGuard inbound %d obfuscation firewall: %v", id, err)
+		}
 	}
 }
 

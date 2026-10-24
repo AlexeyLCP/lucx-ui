@@ -8,6 +8,7 @@ package job
 
 import (
 	"errors"
+	"strings"
 	"testing"
 	"time"
 
@@ -15,6 +16,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
@@ -95,5 +97,57 @@ func TestKernelWireguardJobPreservesMalformedInbound(t *testing.T) {
 	}
 	if len(manager.preserved) != 1 || manager.preserved[0] != 7 {
 		t.Fatal("invalid inbound was not preserved")
+	}
+}
+
+type kernelJobWgo struct{ reconciled []tunnel.Instance }
+
+func (w *kernelJobWgo) ReconcileWgo(want []tunnel.Instance) { w.reconciled = want }
+
+func obfsKernelInbound(id int) *model.Inbound {
+	return &model.Inbound{Id: id, Port: 51820, Protocol: model.WireGuard, Enable: true, Settings: `{"kernel":true,"secretKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","address":"10.8.0.1/24","tproxyPort":40000,"mtu":1420,
+"obfuscation":{"enabled":true,"blockDirectPort":false,"presets":[
+ {"id":"p1","name":"phobos-ru","extPort":51822,"key":"k1","masking":"STUN",
+  "maxDummy":4,"idleTimeout":300,"clientWgLocalPort":13255,"isDefault":true}
+]}}`}
+}
+
+func TestKernelWireguardJobReconcilesWgo(t *testing.T) {
+	store := &kernelJobStore{rows: []*model.Inbound{obfsKernelInbound(3)}}
+	manager := &kernelJobManager{}
+	wgo := &kernelJobWgo{}
+	var fwStates []kernelwg.WgoFirewallState
+	restore := syncWgoFirewall
+	syncWgoFirewall = func(s []kernelwg.WgoFirewallState) { fwStates = s }
+	defer func() { syncWgoFirewall = restore }()
+
+	j := &KernelWireguardJob{store: store, manager: manager, wgo: wgo, now: time.Now}
+	j.Run()
+
+	if len(wgo.reconciled) != 1 || wgo.reconciled[0].Key != "wgo-3" || !wgo.reconciled[0].Enabled {
+		t.Fatalf("wgo reconcile = %+v", wgo.reconciled)
+	}
+	if len(fwStates) != 1 || fwStates[0].ID != 3 || fwStates[0].WGPort != 51820 {
+		t.Fatalf("fw states = %+v", fwStates)
+	}
+
+	// plain kernel inbound → no wgo instance at all
+	plain := obfsKernelInbound(4)
+	plain.Settings = `{"kernel":true,"secretKey":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","address":"10.8.0.1/24","tproxyPort":40001,"mtu":1420}`
+	store.rows = []*model.Inbound{plain}
+	wgo.reconciled = nil
+	j.Run()
+	if len(wgo.reconciled) != 0 {
+		t.Fatalf("plain inbound must not produce wgo: %+v", wgo.reconciled)
+	}
+
+	// disabled obfuscation block → instance present but disabled (stops the process)
+	off := obfsKernelInbound(5)
+	off.Settings = strings.Replace(off.Settings, `"enabled":true`, `"enabled":false`, 1)
+	store.rows = []*model.Inbound{off}
+	wgo.reconciled = nil
+	j.Run()
+	if len(wgo.reconciled) != 1 || wgo.reconciled[0].Enabled {
+		t.Fatalf("disabled block must yield stopped instance: %+v", wgo.reconciled)
 	}
 }
