@@ -213,6 +213,30 @@ jobs:
       - name: Pack tunnel sidecars
         run: bash bin/pack-sidecars.sh ${{ matrix.platform }} "$PWD/x-ui/bin"
 
+      # LUCX-HOOK: wgobfs — Phobos fork of ClusterM wg-obfuscator (GPL-3.0, C).
+      # PIN 22aedefd (reactive bump policy, lucx.309): the fork adds mode=socks5,
+      # MEDIA/TLS masking and socks5-users on top of upstream STUN/AUTO/NONE.
+      # zig (already set up for CSQTT) cross-compiles the musl static build.
+      - name: Build wgobfs (Phobos fork)
+        run: |
+          set -euo pipefail
+          P="${{ matrix.platform }}"
+          case "$P" in
+            amd64) ZT=x86_64-linux-musl ;;
+            arm64) ZT=aarch64-linux-musl ;;
+            *) echo "no wgobfs for $P" >&2; exit 1 ;;
+          esac
+          WGOBFS_PIN=22aedefda053062dc58c036072d2da6e216d5a34
+          rm -rf /tmp/phobos && git init -q /tmp/phobos
+          git -C /tmp/phobos remote add origin https://github.com/Ground-Zerro/Phobos.git
+          git -C /tmp/phobos fetch -q --depth 1 origin "$WGOBFS_PIN"
+          git -C /tmp/phobos checkout -q FETCH_HEAD
+          make -C /tmp/phobos/src/phobos-obfuscator -j"$(nproc)" CC="zig cc -target ${ZT}" STATIC=1
+          cp /tmp/phobos/src/phobos-obfuscator/wg-obfuscator "$PWD/x-ui/bin/wgobfs-linux-${P}"
+          chmod +x "$PWD/x-ui/bin/wgobfs-linux-${P}"
+          rm -rf /tmp/phobos
+      # END LUCX-HOOK
+
       - name: Build Telegram WEB proxy sidecars
         run: |
           set -euo pipefail
@@ -251,7 +275,7 @@ jobs:
           set -euo pipefail
           P="${{ matrix.platform }}"
           : > x-ui/bin/lucx-pins.txt
-          for c in caddy-naive naive-client olcrtc qwdtt csqtt openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4; do
+          for c in caddy-naive naive-client olcrtc qwdtt csqtt openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4 wgobfs; do
             f="x-ui/bin/${c}-linux-${P}"
             [ -x "$f" ] || continue
             echo "${c}-linux-${P} $(sha256sum "$f" | awk '{print $1}')" >> x-ui/bin/lucx-pins.txt

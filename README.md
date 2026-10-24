@@ -314,6 +314,8 @@ LucX-UI построен на множестве open-source проектов и
 | [klzgrad/naiveproxy](https://github.com/klzgrad/naiveproxy) | Протокол / клиент-референс NaiveProxy | BSD-3-Clause |
 | [klzgrad/forwardproxy](https://github.com/klzgrad/forwardproxy) + Caddy | Бинарник сайдкара NaiveProxy | MIT + Apache-2.0 |
 | [openlibrecommunity/olcrtc](https://github.com/openlibrecommunity/olcrtc) | Ядро olcRTC | WTFPL |
+| [ClusterM/wg-obfuscator](https://github.com/ClusterM/wg-obfuscator) | Ядро обфускации WireGuard (STUN/AUTO/NONE) | GPL-3.0 |
+| [Ground-Zerro/Phobos](https://github.com/Ground-Zerro/Phobos) — `src/phobos-obfuscator` | Форк ядра wg-obfuscator (mode=socks5, MEDIA/TLS-маскировка, socks5-users), модель пресетов и формат `phobos://` | GPL-3.0 (ядро), AGPL-3.0 (их панель — не используется) |
 | [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) | Сервер qWDTT | GPL-3.0 |
 | [amurcanov/csqtt](https://github.com/amurcanov/csqtt) | Сервер CSQTT | PolyForm NC |
 | [anton48/vk-turn-proxy-ios](https://github.com/anton48/vk-turn-proxy-ios) | iOS-клиент CSQTT | GPL-3.0 |

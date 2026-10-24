@@ -1,0 +1,96 @@
+# WireGuard Obfuscation (wgobfs: Phobos / ClusterM)
+
+LucX-UI ships **one obfuscation engine** — `wgobfs` — that serves both things
+users usually call "wg-obfuscator (ClusterM)" and "wg-obfuscator (Phobos)":
+[Ground-Zerro/Phobos](https://github.com/Ground-Zerro/Phobos) vendors the
+[ClusterM/wg-obfuscator](https://github.com/ClusterM/wg-obfuscator) core in
+`src/phobos-obfuscator/` and extends it. LucX builds that fork (GPL-3.0,
+external process — the qWDTT/MTProxy precedent; pin `22aedefd`, reactive
+bump policy) and re-implements the preset model and the `phobos://` client
+link format from the public docs. No Phobos panel (AGPL) code is used.
+
+Two surfaces:
+
+1. **Obfuscation presets on a kernel WireGuard inbound** — wgobfs proxies sit
+   in front of the WG endpoint (`mode=wireguard`).
+2. **`wgosocks` inbound** — a standalone SOCKS5-exit (`mode=socks5`,
+   `role=server`), no WireGuard involved.
+
+## Presets on a kernel WG inbound
+
+Enable **Settings → obfuscation (wgobfs)** in a kernel WireGuard inbound and
+add presets. Each preset is one public UDP port with its own XOR key and
+masking mode:
+
+| Masking | On the wire | Client build |
+|---|---|---|
+| `NONE` | XOR key only (random-looking bytes) | any (upstream ClusterM ok) |
+| `STUN` | STUN protocol emulation | any (upstream ClusterM ok) |
+| `MEDIA` | RTP framing — looks like a media/video stream | **Phobos fork clients only** |
+| `AUTO` | server follows the client's first packet | any |
+
+`TLS` masking exists only in the SOCKS5 mode. Media parameters (`media-ssrc`,
+`media-pt`, `media-clock`) refine the RTP mimicry; a fixed SSRC makes MEDIA
+detection more reliable.
+
+- **Block direct WG port** (off by default): drops external UDP to the plain
+  WireGuard port so only the obfuscated path stays public. Existing plain
+  clients keep working while it is off.
+- Traffic accounting is unchanged: counters stay on the WG interface, per
+  client as usual.
+
+## wgosocks inbound (SOCKS5-exit)
+
+A standalone inbound type. Clients are panel clients; each gets a
+login/password pair (RFC 1929) validated by the engine (`socks5-users`).
+The client runs a local obfuscator that exposes
+`socks5://login:password@127.0.0.1:1080` — point any SOCKS5-capable app at
+it. Traffic is metered at the inbound level via `/proc` IO counters; the
+sole enabled client is credited, multi-client inbounds cannot split
+per-user traffic (engine limitation).
+
+## Client exports
+
+Open a client's QR modal. Obfuscated inbounds render `phobos://` panels per
+preset: a QR/link wrapping the full client config with an `[instance]`
+section (loopback endpoint + preset parameters), plus a downloadable
+`.conf`. For `NONE`/`STUN` presets there is also a standalone **ClusterM
+INI** for upstream wg-obfuscator builds.
+
+**Important:** the exported config points at `127.0.0.1:<client local
+port>` — the local obfuscator helper. A plain WireGuard app without the
+helper will not connect. Which helper to install:
+
+- **Phobos client package** (Keenetic/Netcraze, OpenWrt/ImmortalWrt,
+  Debian/Ubuntu, PhobosWG Android APK, Windows client) — required for
+  MEDIA/TLS/SOCKS5, works for everything;
+- **upstream ClusterM wg-obfuscator builds** (Windows/macOS CLI, Linux,
+  OpenWrt/LuCI, MikroTik containers, Android port) — fine for NONE/STUN
+  via the INI export.
+
+## Binary management
+
+The engine ships as `bin/wgobfs-linux-<arch>` in the release tarball
+(sha256 pinned in `bin/lucx-pins.txt`). On SourceCraft installs, upload it
+via **Settings → Cores → WG obfuscator (wgobfs)**. Status and logs:
+
+- per inbound: `GET /panel/api/inbounds/:id/wgoStatus`, `:id/wgoLogs`;
+- core level: `GET /panel/api/tunnel/wgo/status|logs` (Cores card).
+
+## Troubleshooting
+
+- Engine down in the form's status line → check
+  `Settings → Cores → WG obfuscator` (binary present?) and the log tail.
+- Client connects but no traffic → key/masking mismatch between the preset
+  and the client helper config; re-copy the `phobos://` link.
+- MEDIA preset with an upstream ClusterM client → not supported; switch the
+  preset to STUN/NONE or install a Phobos client.
+
+## Credits
+
+- **ClusterM** — [wg-obfuscator](https://github.com/ClusterM/wg-obfuscator)
+  (GPL-3.0): the obfuscation core, STUN masking, cross-platform client
+  builds.
+- **Ground-Zerro** — [Phobos](https://github.com/Ground-Zerro/Phobos): the
+  fork core used here (`src/phobos-obfuscator`, GPL-3.0), the preset model,
+  the `phobos://` link format and the client installer ecosystem.

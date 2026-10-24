@@ -170,6 +170,21 @@ if ! have "trusttunnel-client-linux-${ARCH}"; then
     rm -rf /tmp/ttclient "/tmp/${ttc_tgz}"
 fi
 
+# wgobfs — Phobos fork of ClusterM wg-obfuscator (GPL-3.0, C). PIN 22aedefd
+# (reactive bump policy). Local packing uses the host cc (or WGOBFS_CC); the
+# release workflow cross-builds the musl static via zig — see release.yml.
+if ! have "wgobfs-linux-${ARCH}"; then
+    WGOBFS_PIN=22aedefda053062dc58c036072d2da6e216d5a34
+    git init -q /tmp/phobos
+    git -C /tmp/phobos remote add origin https://github.com/Ground-Zerro/Phobos.git
+    git -C /tmp/phobos fetch -q --depth 1 origin "${WGOBFS_PIN}"
+    git -C /tmp/phobos checkout -q FETCH_HEAD
+    make -C /tmp/phobos/src/phobos-obfuscator -j"$(nproc)" CC="${WGOBFS_CC:-cc}" STATIC=1
+    cp /tmp/phobos/src/phobos-obfuscator/wg-obfuscator "${DEST}/wgobfs-linux-${ARCH}"
+    chmod +x "${DEST}/wgobfs-linux-${ARCH}"
+    rm -rf /tmp/phobos
+fi
+
 if ! have "anytls-linux-${ARCH}"; then
     overlay="${ROOT}/third_party/patches/anytls-server-main.go.overlay"
     git init -q /tmp/anytls

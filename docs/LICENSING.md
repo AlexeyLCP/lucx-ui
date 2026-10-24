@@ -64,6 +64,7 @@ The panel **supervises external processes** and ships optional geo datasets. Not
 | `bin/csqtt-linux-*` — [amurcanov/csqtt](https://github.com/amurcanov/csqtt) rust-server (GitHub tarball; pin `fd936ef0`, v2.5.0) | CSQTT (TURN/RTP) | **PolyForm Noncommercial 1.0.0** (amurcanov; LucX commercial grant does not cover it) |
 | `bin/mieru-linux-*` — [enfein/mieru](https://github.com/enfein/mieru) `mita` | mieru server | **GPL-3.0** |
 | `bin/trusttunnel-linux-*` — [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) `trusttunnel_endpoint` | TrustTunnel endpoint | **Apache-2.0** |
+| `bin/wgobfs-linux-*` — [Ground-Zerro/Phobos](https://github.com/Ground-Zerro/Phobos) `src/phobos-obfuscator` (pin `22aedefd`; derived from [ClusterM/wg-obfuscator](https://github.com/ClusterM/wg-obfuscator)) | WireGuard obfuscation presets + SOCKS5-exit (wgobfs) | **GPL-3.0** |
 | [amnezia-vpn](https://github.com/amnezia-vpn) kernel module & tools | AmneziaWG / AWG3 (installed by host scripts, not the panel binary) | **GPL-2.0** (kernel module) |
 | `bin/geoip.dat` / `geosite.dat` — [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat) | Stock geodata | Upstream (see repo) |
 | `bin/geoip_IR.dat` / `geosite_IR.dat` — [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules) | IR geodata | Upstream (see repo) |
@@ -75,6 +76,7 @@ The panel **supervises external processes** and ships optional geo datasets. Not
 
 - Tunnel binaries are **child processes**. LucX code under `internal/lucx/tunnel/` (PolyForm) only writes configs, spawns/kills, and probes health.
 - qWDTT is GPL-3.0 **as an external program**. Shipping the binary does not relicense LucX PolyForm sources; operators who redistribute qWDTT must still honour GPL-3.0 for that binary and its sources.
+- wgobfs is GPL-3.0 **as an external program** (the qWDTT/MTProxy precedent). Only the binary and the documented config/link formats are used; the Phobos TypeScript panel (AGPL-3.0) is neither copied nor linked — LucX re-implements the preset rendering and the `phobos://` format from the public docs.
 - CSQTT is amurcanov PolyForm NC **as an external program**. Redistribute with **their** LICENSE/Required Notice. LucX commercial permission does not sublicense CSQTT.
 - Geo `.dat` files are data packs refreshed from upstream releases; their license/terms follow the linked repositories.
 - Design references (not shipped as code): [elector1337/3x-ui-naive](https://github.com/elector1337/3x-ui-naive), [Bebrik2283555/Ex3-ui](https://github.com/Bebrik2283555/Ex3-ui), geodata browser port of [MHSanaei/3x-ui#6165](https://github.com/MHSanaei/3x-ui/pull/6165) (STRENCH0).
