@@ -22,8 +22,9 @@ import (
 	"time"
 	"unicode/utf8"
 
-	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 	"golang.org/x/sys/unix"
+
+	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 )
 
 func TestKernelWireguardNetNS(t *testing.T) {

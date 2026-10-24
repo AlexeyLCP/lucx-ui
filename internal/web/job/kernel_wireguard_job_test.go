@@ -11,11 +11,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/op/go-logging"
+
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/xray"
-	"github.com/op/go-logging"
 )
 
 type kernelJobStore struct {
