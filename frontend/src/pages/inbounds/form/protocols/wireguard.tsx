@@ -8,6 +8,7 @@ import { ReloadOutlined } from '@ant-design/icons';
 import { FormField } from '@/components/form/rhf';
 import { HttpUtil } from '@/utils'; // LUCX-HOOK: authenticated config preview
 import { WireguardInboundSettingsSchema } from '@/schemas/protocols/inbound/wireguard'; // LUCX-HOOK
+import WgoObfuscationFields from './wgo-obfuscation'; // LUCX-HOOK: wgobfs presets
 
 interface WireguardFieldsProps {
   wgPubKey: string;
@@ -81,6 +82,8 @@ export default function WireguardFields({ wgPubKey, regenInboundWg }: WireguardF
           <FormField name={['settings', 'fwMark']} label={t('pages.xray.wireguard.kernelFwMark')}>
             <Input placeholder="0xca6c" />
           </FormField>
+          {/* LUCX-HOOK: wgobfs obfuscation presets (kernel WG only). */}
+          <WgoObfuscationFields />
           <Button onClick={() => setImportOpen(true)}>
             {t('pages.xray.wireguard.kernelImport')}
           </Button>

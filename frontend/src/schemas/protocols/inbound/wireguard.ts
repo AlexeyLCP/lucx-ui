@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { maskSubnet } from '@/lib/awg/subnet'; // LUCX-HOOK: kernel IPv4 validation
+import { WgoObfuscationSchema } from './wgo'; // LUCX-HOOK: wgobfs presets
 
 // AntD InputNumber emits null (not undefined) when the user clears it, and
 // the form store hands that null straight to safeParse on submit — a bare
@@ -94,6 +95,9 @@ export const WireguardInboundSettingsSchema = z
     // fall back to 10.0.0.0/24 server-side).
     subnetIp: z.string().default(''),
     subnetCidr: optionalClearedInt(z.number().int().min(1).max(32)),
+    // LUCX-HOOK: wgobfs obfuscation (optional — absent on pre-feature and
+    // vanilla inbounds, the feature stays hidden).
+    obfuscation: WgoObfuscationSchema.optional(),
   })
   // LUCX-HOOK: the kernel IPv4 bridge requires explicit server routing resources.
   .superRefine((settings, ctx) => {
@@ -111,6 +115,13 @@ export const WireguardInboundSettingsSchema = z
         code: 'custom',
         path: ['tproxyPort'],
         message: 'pages.xray.wireguard.kernelPortRequired',
+      });
+    }
+    if (settings.obfuscation?.enabled && (settings.obfuscation.presets?.length ?? 0) === 0) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['obfuscation', 'presets'],
+        message: 'pages.inbounds.form.wgoPresetRequired',
       });
     }
   });

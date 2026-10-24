@@ -46,3 +46,70 @@ describe('kernel WireGuard backend', () => {
     ).toBe('');
   });
 });
+
+// LUCX-HOOK: wgobfs — obfuscation block parses only when present; enabling
+// without presets is a validation error (vanilla overlay stays untouched).
+describe('wireguard obfuscation schema', () => {
+  it('keeps vanilla settings parsing without the obfuscation key', () => {
+    const parsed = WireguardInboundSettingsSchema.safeParse({
+      secretKey: 'k',
+      mtu: 1420,
+      clients: [],
+      peers: [],
+      noKernelTun: false,
+      subnetIp: '',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) expect(parsed.data.obfuscation).toBeUndefined();
+  });
+
+  it('parses a preset round-trip', () => {
+    const parsed = WireguardInboundSettingsSchema.safeParse({
+      kernel: true,
+      secretKey: 'k',
+      address: '10.8.0.1/24',
+      tproxyPort: 40000,
+      obfuscation: {
+        enabled: true,
+        blockDirectPort: false,
+        presets: [
+          {
+            id: 'p1',
+            name: 'phobos-ru',
+            extPort: 51822,
+            key: 'k1',
+            masking: 'STUN',
+            maxDummy: 4,
+            idleTimeout: 300,
+            clientWgLocalPort: 13255,
+            isDefault: true,
+          },
+        ],
+      },
+      clients: [],
+      peers: [],
+      noKernelTun: false,
+      subnetIp: '',
+    });
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.obfuscation?.presets[0].mediaClock).toBe(0);
+      expect(parsed.data.obfuscation?.presets[0].isDefault).toBe(true);
+    }
+  });
+
+  it('rejects enabled obfuscation without presets (kernel only)', () => {
+    const parsed = WireguardInboundSettingsSchema.safeParse({
+      kernel: true,
+      secretKey: 'k',
+      address: '10.8.0.1/24',
+      tproxyPort: 40000,
+      obfuscation: { enabled: true, blockDirectPort: false, presets: [] },
+      clients: [],
+      peers: [],
+      noKernelTun: false,
+      subnetIp: '',
+    });
+    expect(parsed.success).toBe(false);
+  });
+});
