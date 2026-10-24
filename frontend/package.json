@@ -74,7 +74,7 @@
     "jsdom": "^30.1.2",
     "lint-staged": "^17.6.0",
     "msw": "^3.0.3",
-    "oxfmt": "0.72.0",
+    "oxfmt": "0.74.0",
     "oxlint": "1.88.0",
     "oxlint-tsgolint": "^7.0.2004",
     "playwright": "^1.64.0",
