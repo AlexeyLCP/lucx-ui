@@ -147,6 +147,10 @@ const (
 	Cover Protocol = "cover"
 	// Gateway — Caddy L4 SNI mux on TCP 443 (optional mask).
 	Gateway Protocol = "gateway"
+	// Wgosocks — SOCKS5-exit inbound on the wgobfs engine (Phobos fork of
+	// ClusterM wg-obfuscator, GPL-3.0 external process): multi-client
+	// login/password (RFC 1929), masking MEDIA/TLS/AUTO/NONE over TCP.
+	Wgosocks Protocol = "wgosocks"
 	// END LUCX-HOOK
 	MASQUE Protocol = "masque"
 )
@@ -179,7 +183,7 @@ type Inbound struct {
 	// Xray configuration fields
 	Listen            string   `json:"listen" form:"listen"`
 	Port              int      `json:"port" form:"port" validate:"gte=0,lte=65535" example:"443"`
-	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto amneziawg tuic masque awg naive olcrtc qwdtt csqtt openflux mieru trusttunnel anytls tproxy cover gateway" example:"vless"`
+	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto amneziawg tuic masque awg naive olcrtc qwdtt csqtt openflux mieru trusttunnel anytls tproxy cover gateway wgosocks" example:"vless"`
 	Settings          string   `json:"settings" form:"settings"`
 	StreamSettings    string   `json:"streamSettings" form:"streamSettings"`
 	Tag               string   `json:"tag" form:"tag" gorm:"unique" example:"in-443-tcp"`
