@@ -1,5 +1,32 @@
 # LucX-UI — Прогресс
 
+## lucx.309 — sidecar pin sweep: naive security, TrustTunnel 1.3, caddy 2.11.7 stack (2026-10-24)
+
+Bumped cores (`bin/pack-sidecars.sh` + amd64 gz in `third_party/sidecars/linux-amd64/` + `release.yml`):
+
+- **caddy-naive `v2.11.2-naive` → `v2.11.7-naive2`** (caddy 2.11.7 + forwardproxy `e747854e`). naive2 carries "do not break authenticated stream after read_body_idle" — required under Caddy 2.11.6+'s default 1-minute idle read/write timeouts; -4+ clients also recommend the server update.
+- **naive-client `v154.0.8037.49-2` → `-5`.** Security: blocks compromised eMudhra intermediates; upstream marks all older versions MitM-unsafe ("ALL USERS MUST UPGRADE"). Server and client move as a pair.
+- **caddy-layer4:** caddy `v2.11.4` → `v2.11.7`, caddy-l4 `42db5690` (v0.1.2) → `4ad6aec1`, forwardproxy `d62c80d3` → `e747854e`. l4 post-v0.1.2: UDP session goroutine release on shutdown, hijacked-conn prefetch buffer out of the pool, proxy_protocol policy pass-through, `half_close_timeout`, TLS `handshake_timeout`, FIN after close_notify. l4 main requires caddy 2.11.7 (#476), so the trio moves together. `caddylucx/go.mod` bumped to match (caddy v2.11.7 + caddy-l4 pseudo `4ad6aec1`, go 1.26) — build/vet/test green locally.
+- **mieru + mieru-client `v3.38.0` → `v3.39.0`** (via 3.38.1: QUIC-dialer infinite-retry fix, socks5 auth / private-IP fixes; 3.39.0: opt-in `advancedSettings.tcpIdleTimeout` + outbound memory optimization). Config surface unchanged; our mita JSON untouched. `tcpIdleTimeout` is an exposure candidate for the form.
+- **TrustTunnel `v1.1.0` → `v1.3.0-beta.2`, trusttunnel-client `v1.1.7` → `v1.3.0-rc.2`.** Testers' Throne clients auto-updated to the 1.3 line, so the server follows (operator decision). vpn.toml/rules.toml schema unchanged from v1.1.0 (checked against beta.2 CONFIGURATION.md); client TOML gains are additive (`tls_profile`, `client_random_auth_key`, not exposed yet). For the future: 1.3 `gen_client_config` hard-fails on a `--client-random-prefix` without an allow rule (we never call that CLI); `client_random_auth_key` is an alternative to our `clientRandomPrefix` — exposure candidate when 1.3 goes stable.
+- **tproxy-server `acc252ec` → `c8adb8b7`** (release.yml `TPROXY_SHA`): secret-scan CPU-ddos fix, token-MAC rollback recognition, MTProxy permissions under umask 077 (complements the lucx.204 asset fixes). CLI untouched — changes are internal/server + internal/session only.
+
+amd64 gz regenerated (CI unpacks them before `pack-sidecars.sh` runs, and `install.sh` raw-fetches them on pin mismatch, so they must match the pins): caddy-naive / naive-client / trusttunnel / trusttunnel-client taken from upstream release assets, mieru ×2 built locally with the exact pack-sidecars flags (`CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -trimpath -ldflags="-s -w"`); all six verified as static ELF x86-64 before gzip -9. SourceCraft Cores are uploaded separately and stay on the old set until the next Cores upload.
+
+Pins intentionally NOT bumped (audited the same session): csqtt `fd936ef0` (v2.5.0 is the latest tag; the two newer master commits are a deleted changelog + domains.txt), olcrtc `54bd269b` (4 newer commits are docs/podman-install only), qwdtt `v1.4.4` == upstream HEAD, MTProxy `f36d8af7` == HEAD, anytls `v0.0.13` == latest, openflux `ba31d0fc` — v0.13.0 (103 commits) rewrites carrier defaults (cups.online 8 rooms, Avito 8 pairs, new RTO/CoDel/pacing) and removes session bonding; carrier behavior on live inbounds needs a deliberate tester pass, so the bump policy is now recorded in `.agents/02-architecture.md` (reactive: bump when a carrier breaks upstream).
+
+Field audit (no code changes needed): every flag/key our renderers emit was checked against the pinned upstream sources — csqtt (all 7 flags alive on 2.5.0), qwdtt (7 flags; admin-API/Telegram-bot flags unexposed, off by default), olcrtc (no deprecated fields emitted — `link`/`ffmpeg`/`video.bitrate`/`video.hw` are in upstream's one-cycle deprecation window; `liveness`/`lifecycle`/`traffic` knobs unexposed), TrustTunnel (all vpn.toml/rules.toml keys valid on 1.1.0 and 1.3-beta.2), anytls (overlay matches v0.0.13; `-padding-scheme` unexposed), mieru (all JSON keys valid on 3.38/3.39), openflux (all .conf keys consumed at pin), tproxy (`-config`/`-profiles-file`; new `-check` unused). No lost or silently ignored fields anywhere; csqtt `--device-id` (lucx.308) remains the only historical case.
+
+Files: `bin/pack-sidecars.sh`, `.github/workflows/release.yml`, `caddylucx/go.mod` + `go.sum`, `third_party/sidecars/linux-amd64/{caddy-naive,naive-client,mieru,mieru-client,trusttunnel,trusttunnel-client}-linux-amd64.gz` + `README.md`, `.agents/02-architecture.md` (gateway/tproxy pin strings, openflux bump policy), `internal/config/config.go`.
+
+Tests: caddylucx `go build`/`go vet`/`go test` green on the new stack; `go test ./internal/lucx/... ./internal/awg/... -count=1` green (no-cgo set); `bash -n bin/pack-sidecars.sh`. Authoritative full build + pack-sidecars (arm64 xcaddy, naive tarballs, csqtt zigbuild) runs in GitHub Actions on push — watch the run before tagging.
+
+Retest plan (stand): naive round-trip client -5 ↔ server naive2 incl. a >1-minute quiet stream; gateway L4 Apply/Revert + Masking; TrustTunnel share/import from a 1.3 Throne client; mieru traffic counters; tproxy WEB proxy restart.
+
+**lucxVersion:** lucx.309
+
+---
+
 ## lucx.308 — CSQTT core 2.5.0: pin bump + encrypted share links (2026-10-24)
 
 Upstream amurcanov/csqtt released **v2.5.0** (tag commit `fd936ef0`). Two breaking operator-visible changes:
