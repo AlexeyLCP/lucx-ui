@@ -29,9 +29,14 @@ if ! have "caddy-naive-linux-${ARCH}"; then
         mv /tmp/caddy-forwardproxy-naive/caddy "${DEST}/caddy-naive-linux-amd64"
         rm -rf /tmp/caddy-forwardproxy-naive /tmp/caddy-naive.tar.xz
     else
+        # xcaddy path builds against the caddy v2.11.7 TAG; forwardproxy
+        # e747854e (naive2) calls caddyhttp.IdleTimeoutsFromContext which
+        # exists only on caddy main (post-2.11.7), so xcaddy builds use the
+        # v2.11.7-naive commit. The amd64 prebuilt tarball above is naive2.
+        # Revisit when caddy tags a release carrying that symbol.
         go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.7
         CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" "$(go env GOPATH)/bin/xcaddy" build v2.11.7 \
-            --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@e747854e78743dba85c039b38ed185fb11d93667 \
+            --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@c096d6a00cb28e019cc1995b04bdc6a9311d8024 \
             --output "${DEST}/caddy-naive-linux-${ARCH}"
     fi
     chmod +x "${DEST}/caddy-naive-linux-${ARCH}"
@@ -185,11 +190,13 @@ fi
 # PIN: caddy v2.11.7 (caddy-l4 4ad6aec1 requires it; #476). l4 post-v0.1.2
 # fixes: UDP session goroutine leak on shutdown, hijacked-conn prefetch pool,
 # proxy_protocol policy pass-through, half_close_timeout, TLS handshake_timeout.
+# forwardproxy stays on c096d6a0 (v2.11.7-naive): e747854e needs the caddy-main
+# symbol caddyhttp.IdleTimeoutsFromContext, absent from the v2.11.7 tag.
 if ! have "caddy-layer4-linux-${ARCH}"; then
     go install github.com/caddyserver/xcaddy/cmd/xcaddy@v0.4.7
     CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" "$(go env GOPATH)/bin/xcaddy" build v2.11.7 \
         --with github.com/mholt/caddy-l4@4ad6aec1ccc6711df47ca444d9b5364b79ea3170 \
-        --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@e747854e78743dba85c039b38ed185fb11d93667 \
+        --with github.com/caddyserver/forwardproxy=github.com/klzgrad/forwardproxy@c096d6a00cb28e019cc1995b04bdc6a9311d8024 \
         --with "github.com/lucx-ui/caddylucx=${ROOT}/caddylucx" \
         --output "${DEST}/caddy-layer4-linux-${ARCH}"
     chmod +x "${DEST}/caddy-layer4-linux-${ARCH}"
