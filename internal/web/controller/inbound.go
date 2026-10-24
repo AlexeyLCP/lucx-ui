@@ -132,6 +132,9 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/:id/gatewayPreview", a.gatewayPreview)
 	g.POST("/:id/gatewayApply", a.gatewayApply)
 	g.POST("/:id/gatewayRevert", a.gatewayRevert)
+	// LUCX-HOOK: wgobfs — per-inbound engine status/logs (kernel-WG wgo + wgosocks).
+	g.GET("/:id/wgoStatus", a.wgoStatus)
+	g.GET("/:id/wgoLogs", a.wgoLogs)
 	// END LUCX-HOOK
 }
 
