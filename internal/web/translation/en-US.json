@@ -903,6 +903,7 @@
         "wgoClientLocalPortHint": "Loopback UDP port of the client-side obfuscator (goes into the [instance] section).",
         "wgoPresetDefault": "Default preset",
         "wgoAddPreset": "Add preset",
+      "wgoAdvanced": "Advanced",
         "wgoBlockDirect": "Block direct WG port from outside",
         "wgoBlockDirectHint": "Drops external UDP to the plain WireGuard port (loopback stays open for the engine). Off by default — existing plain clients keep working.",
         "wgoPresetRequired": "Enable at least one preset",

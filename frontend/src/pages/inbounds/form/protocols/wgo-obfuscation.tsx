@@ -8,7 +8,7 @@
 // One engine process (wgo-<id>) renders one INI section per preset; clients
 // bound to a preset get a [instance]-carrying .conf / phobos:// export.
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Input, InputNumber, Select, Space, Switch } from 'antd';
+import { Alert, Button, Collapse, Input, InputNumber, Select, Space, Switch } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { DeleteOutlined, PlusOutlined, ReloadOutlined } from '@ant-design/icons';
 import { useFieldArray, useFormContext, useWatch } from 'react-hook-form';
@@ -17,30 +17,7 @@ import { FormField } from '@/components/form/rhf';
 import { HttpUtil } from '@/utils';
 import { useAwgInboundId } from '@/pages/inbounds/form/awg-inbound-id-context';
 import { WgoPresetMaskings, type WgoPreset } from '@/schemas/protocols/inbound/wgo';
-
-function randomKey(len = 16): string {
-  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-  const bytes = new Uint8Array(len);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
-}
-
-function newPreset(isDefault: boolean): WgoPreset {
-  return {
-    id: randomKey(4).toLowerCase(),
-    name: '',
-    extPort: 51822,
-    key: randomKey(),
-    masking: 'STUN',
-    mediaSsrc: '',
-    mediaPt: 0,
-    mediaClock: 30,
-    maxDummy: 4,
-    idleTimeout: 300,
-    clientWgLocalPort: 13255,
-    isDefault,
-  };
-}
+import { nextPreset, randomKey } from '@/lib/wgo/preset';
 
 interface WgoEngineStatus {
   running?: boolean;
@@ -84,6 +61,7 @@ export default function WgoObfuscationFields() {
   const { t } = useTranslation();
   const form = useFormContext();
   const inboundId = useAwgInboundId();
+  const wgPort = Number(useWatch({ name: 'port' })) || undefined;
   const enabled = useWatch({ name: 'settings.obfuscation.enabled' }) as boolean | undefined;
   const { fields, append, remove } = useFieldArray({ name: 'settings.obfuscation.presets' });
   const presets = (useWatch({ name: 'settings.obfuscation.presets' }) || []) as WgoPreset[];
@@ -169,47 +147,68 @@ export default function WgoObfuscationFields() {
                 >
                   <Select options={WgoPresetMaskings.map((m) => ({ value: m, label: m }))} />
                 </FormField>
-                {masking === 'MEDIA' && (
-                  <>
-                    <FormField
-                      name={['settings', 'obfuscation', 'presets', index, 'mediaSsrc']}
-                      label={t('pages.inbounds.form.wgoMediaSsrc')}
-                    >
-                      <Input placeholder="305419896" />
-                    </FormField>
-                    <FormField
-                      name={['settings', 'obfuscation', 'presets', index, 'mediaPt']}
-                      label={t('pages.inbounds.form.wgoMediaPt')}
-                    >
-                      <InputNumber min={0} max={127} style={{ width: '100%' }} />
-                    </FormField>
-                    <FormField
-                      name={['settings', 'obfuscation', 'presets', index, 'mediaClock']}
-                      label={t('pages.inbounds.form.wgoMediaClock')}
-                    >
-                      <InputNumber min={0} max={90000} style={{ width: '100%' }} />
-                    </FormField>
-                  </>
-                )}
-                <FormField
-                  name={['settings', 'obfuscation', 'presets', index, 'maxDummy']}
-                  label={t('pages.inbounds.form.wgoMaxDummy')}
-                >
-                  <InputNumber min={0} max={1024} style={{ width: '100%' }} />
-                </FormField>
-                <FormField
-                  name={['settings', 'obfuscation', 'presets', index, 'idleTimeout']}
-                  label={t('pages.inbounds.form.wgoIdleTimeout')}
-                >
-                  <InputNumber min={5} max={86400} style={{ width: '100%' }} />
-                </FormField>
-                <FormField
-                  name={['settings', 'obfuscation', 'presets', index, 'clientWgLocalPort']}
-                  label={t('pages.inbounds.form.wgoClientLocalPort')}
-                  tooltip={t('pages.inbounds.form.wgoClientLocalPortHint')}
-                >
-                  <InputNumber min={1} max={65535} style={{ width: '100%' }} />
-                </FormField>
+                <Collapse
+                  ghost
+                  size="small"
+                  style={{ margin: 0 }}
+                  items={[
+                    {
+                      key: 'advanced',
+                      children: (
+                        <>
+                          {masking === 'MEDIA' && (
+                            <>
+                              <FormField
+                                name={['settings', 'obfuscation', 'presets', index, 'mediaSsrc']}
+                                label={t('pages.inbounds.form.wgoMediaSsrc')}
+                              >
+                                <Input placeholder="305419896" />
+                              </FormField>
+                              <FormField
+                                name={['settings', 'obfuscation', 'presets', index, 'mediaPt']}
+                                label={t('pages.inbounds.form.wgoMediaPt')}
+                              >
+                                <InputNumber min={0} max={127} style={{ width: '100%' }} />
+                              </FormField>
+                              <FormField
+                                name={['settings', 'obfuscation', 'presets', index, 'mediaClock']}
+                                label={t('pages.inbounds.form.wgoMediaClock')}
+                              >
+                                <InputNumber min={0} max={90000} style={{ width: '100%' }} />
+                              </FormField>
+                            </>
+                          )}
+                          <FormField
+                            name={['settings', 'obfuscation', 'presets', index, 'maxDummy']}
+                            label={t('pages.inbounds.form.wgoMaxDummy')}
+                          >
+                            <InputNumber min={0} max={1024} style={{ width: '100%' }} />
+                          </FormField>
+                          <FormField
+                            name={['settings', 'obfuscation', 'presets', index, 'idleTimeout']}
+                            label={t('pages.inbounds.form.wgoIdleTimeout')}
+                          >
+                            <InputNumber min={5} max={86400} style={{ width: '100%' }} />
+                          </FormField>
+                          <FormField
+                            name={[
+                              'settings',
+                              'obfuscation',
+                              'presets',
+                              index,
+                              'clientWgLocalPort',
+                            ]}
+                            label={t('pages.inbounds.form.wgoClientLocalPort')}
+                            tooltip={t('pages.inbounds.form.wgoClientLocalPortHint')}
+                          >
+                            <InputNumber min={1} max={65535} style={{ width: '100%' }} />
+                          </FormField>
+                        </>
+                      ),
+                      label: t('pages.inbounds.form.wgoAdvanced'),
+                    },
+                  ]}
+                />
                 <FormField
                   name={['settings', 'obfuscation', 'presets', index, 'isDefault']}
                   label={t('pages.inbounds.form.wgoPresetDefault')}
@@ -223,11 +222,7 @@ export default function WgoObfuscationFields() {
               </Space>
             );
           })}
-          <Button
-            block
-            icon={<PlusOutlined />}
-            onClick={() => append(newPreset(presets.length === 0))}
-          >
+          <Button block icon={<PlusOutlined />} onClick={() => append(nextPreset(presets, wgPort))}>
             {t('pages.inbounds.form.wgoAddPreset')}
           </Button>
           <FormField

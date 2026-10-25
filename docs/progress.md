@@ -1,5 +1,41 @@
 # LucX-UI — Прогресс
 
+## lucx.312 — wgobfs "Add preset" is one click: auto-filled preset, tuning fields collapsed (2026-10-25)
+
+Tester E2E (Igor) hit "no connect" with a `phobos://` export pasted into AWG
+Manager (Keenetic) while the server engine ran clean. Two outcomes:
+
+- **Interop verdict (on record for future reports):** the export format is
+  correct. AWG Manager's phobos:// import (`internal/obfuscator/instance.go` /
+  `conf.go` upstream) understands everything our client `[instance]` writes
+  (`target/key/masking/max-dummy/idle-timeout`; it ignores `media-ssrc`, and
+  `source-if/source-lport/verbose` are self-managed there). MEDIA with empty
+  `media-ssrc` is valid: Phobos `masking_media.c` uses a random per-connection
+  SSRC that is self-describing in the packet header, so client and server need
+  no agreed value. The usual real causes of "engine up, no handshake, silent
+  logs": (1) the server firewall does not pass the preset's public UDP port —
+  the panel never opens preset ports automatically (only the optional
+  `blockDirectPort` DROP); (2) the router relay is down ("обфускатор не
+  запущен" on their Обфускатор tab — its binary downloads from a mirror on
+  first start), and ClusterM-kind relays cannot do MEDIA at all, so the link
+  must be imported through their Phobos tab; (3) `Endpoint=127.0.0.1:...` in
+  the conf is by design — the WG client on the router dials its local relay.
+- **UX change (this release):** `nextPreset`
+  (`frontend/src/lib/wgo/preset.ts`, mirrors the Phobos panel "Add preset"):
+  the button auto-fills name `phobos-<port>`, the next free UDP port (Phobos
+  window 51822+, skipping other presets' ports and the inbound's WG port; a
+  port taken by another inbound is still caught by backend validation on
+  save), a fresh XOR key, and a unique client loopback port (13255+). Tuning
+  fields (media Ssrc/Pt/Clock for MEDIA, maxDummy, idleTimeout,
+  clientWgLocalPort) moved into a collapsed "Дополнительно"/Advanced block in
+  `wgo-obfuscation.tsx`; visible stays: name, public port, key, masking,
+  default-switch. New i18n key `pages.inbounds.form.wgoAdvanced` ×13 locales
+  (en+ru translated, byte-stable insert after `wgoAddPreset`).
+
+Tests: `frontend/src/test/wgo-preset.test.ts` (4 — first preset base
+ports + isDefault, port skipping incl. the WG port, local-port uniqueness).
+`typecheck` / `lint` / vitest unit / `build` green.
+
 ## lucx.311 — WireGuard obfuscators: wgobfs engine (Phobos fork of ClusterM wg-obfuscator) — kernel-WG presets + wgosocks SOCKS5-exit inbound (2026-10-25)
 
 Users kept asking for "wg-obfuscator (Phobos)" and "wg-obfuscator (ClusterM)".

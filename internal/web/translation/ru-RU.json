@@ -903,6 +903,7 @@
         "wgoClientLocalPortHint": "Loopback UDP-порт клиентского обфускатора (уходит в секцию [instance]).",
         "wgoPresetDefault": "Пресет по умолчанию",
         "wgoAddPreset": "Добавить пресет",
+      "wgoAdvanced": "Дополнительно",
         "wgoBlockDirect": "Блокировать прямой WG-порт извне",
         "wgoBlockDirectHint": "Drop внешнего UDP на открытый WireGuard-порт (loopback для движка остаётся). По умолчанию выключено — существующие plain-клиенты продолжают работать.",
         "wgoPresetRequired": "Добавьте хотя бы один пресет",
