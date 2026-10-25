@@ -3203,7 +3203,8 @@ export const SCHEMAS: Record<string, unknown> = {
           "anytls",
           "tproxy",
           "cover",
-          "gateway"
+          "gateway",
+          "wgosocks"
         ],
         "example": "vless",
         "type": "string"
@@ -3454,7 +3455,14 @@ export const SCHEMAS: Record<string, unknown> = {
       "wgMtu": {
         "type": "integer"
       },
+      "wgObfuscation": {
+        "description": "LUCX-HOOK: wgobfs — kernel-WG obfuscation presets (JSON of the\nsettings.obfuscation block) and the raw wgosocks inbound settings, so\nthe clients page renders [instance]/phobos:// exports without a second\nround trip (awgObfuscation precedent).",
+        "type": "string"
+      },
       "wgPublicKey": {
+        "type": "string"
+      },
+      "wgosocksConfig": {
         "type": "string"
       }
     },

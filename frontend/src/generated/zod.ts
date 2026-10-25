@@ -785,7 +785,7 @@ export const InboundSchema = z.object({
   nodeId: z.number().int().nullable().optional(),
   originNodeGuid: z.string().optional(),
   port: z.number().int().min(0).max(65535),
-  protocol: z.enum(['vmess', 'vless', 'trojan', 'shadowsocks', 'wireguard', 'hysteria', 'http', 'mixed', 'tunnel', 'tun', 'mtproto', 'amneziawg', 'tuic', 'masque', 'awg', 'naive', 'olcrtc', 'qwdtt', 'csqtt', 'openflux', 'mieru', 'trusttunnel', 'anytls', 'tproxy', 'cover', 'gateway']),
+  protocol: z.enum(['vmess', 'vless', 'trojan', 'shadowsocks', 'wireguard', 'hysteria', 'http', 'mixed', 'tunnel', 'tun', 'mtproto', 'amneziawg', 'tuic', 'masque', 'awg', 'naive', 'olcrtc', 'qwdtt', 'csqtt', 'openflux', 'mieru', 'trusttunnel', 'anytls', 'tproxy', 'cover', 'gateway', 'wgosocks']),
   remark: z.string(),
   settings: z.unknown(),
   shareAddr: z.string(),
@@ -846,7 +846,9 @@ export const InboundOptionSchema = z.object({
   tuicServer: z.lazy(() => TuicServerSettingsSchema).nullable().optional(),
   wgDns: z.string().optional(),
   wgMtu: z.number().int().optional(),
+  wgObfuscation: z.string().optional(),
   wgPublicKey: z.string().optional(),
+  wgosocksConfig: z.string().optional(),
 });
 export type InboundOption = z.infer<typeof InboundOptionSchema>;
 

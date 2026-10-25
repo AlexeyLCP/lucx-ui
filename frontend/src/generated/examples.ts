@@ -882,7 +882,9 @@ export const EXAMPLES: Record<string, unknown> = {
     "tuicServer": null,
     "wgDns": "",
     "wgMtu": 0,
-    "wgPublicKey": ""
+    "wgObfuscation": "",
+    "wgPublicKey": "",
+    "wgosocksConfig": ""
   },
   "InboundTrafficSummary": {
     "down": 2097152,

@@ -795,7 +795,9 @@ export interface InboundOption {
   tuicServer?: TuicServerSettings | null;
   wgDns?: string;
   wgMtu?: number;
+  wgObfuscation?: string;
   wgPublicKey?: string;
+  wgosocksConfig?: string;
 }
 
 export interface InboundTrafficSummary {
