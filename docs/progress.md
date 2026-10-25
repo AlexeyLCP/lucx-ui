@@ -1,5 +1,90 @@
 # LucX-UI — Прогресс
 
+## lucx.311 — WireGuard obfuscators: wgobfs engine (Phobos fork of ClusterM wg-obfuscator) — kernel-WG presets + wgosocks SOCKS5-exit inbound (2026-10-25)
+
+Users kept asking for "wg-obfuscator (Phobos)" and "wg-obfuscator (ClusterM)".
+Research result: **one engine, not two** — Ground-Zerro/Phobos is a wg-easy-fork
+panel (AGPL, not used) that VENDORS the ClusterM wg-obfuscator core in
+`src/phobos-obfuscator/` (GPL-3.0 C) and extends it (`mode=socks5`,
+`role=relay|client|server`, masking `MEDIA` (RTP framing) and `TLS`
+(socks5-only), `socks5-users` RFC 1929 multi-user auth, the preset model and
+the `phobos://` client link format). LucX ships that fork core as ONE binary
+`wgobfs-linux-{amd64,arm64}` (pin `22aedefd`, reactive bump policy) — the
+qWDTT/MTProxy GPL-external-process precedent. No Phobos panel code is copied;
+preset rendering and `phobos://` are re-implemented from the public docs.
+Design: `docs/superpowers/specs/2026-10-24-wg-obfuscator-design.md`, plan:
+`docs/superpowers/plans/2026-10-24-wg-obfuscator.md`.
+
+Two surfaces:
+
+- **Kernel-WG obfuscation presets** (maintainer decision: a section ON the
+  kernel WireGuard inbound, not a separate entity): optional
+  `settings.obfuscation` (overlay-safe — absent on vanilla DBs → hidden).
+  One engine process `wgo-{id}` per inbound, INI section per preset
+  (`mode=wireguard`, `source-lport=<extPort>`, `target=127.0.0.1:<wgPort>`,
+  `key`, masking STUN/MEDIA/AUTO/NONE, media params, dummy/idle). Lifecycle:
+  `kernel_wireguard_job` (`ObfuscationTargets` → `ReconcileWgo`) +
+  `applyLocalKernelWireguard` (immediate on save). `blockDirectPort`
+  (default OFF — Rule 0: existing plain clients keep working) adds an
+  owner-marked iptables DROP (`lucx-wgo-<id>`) on the direct WG port;
+  swept when the inbound disappears. UDP preset ports validated against the
+  panel's port registry (tproxy/panel/inbound conflicts).
+- **`wgosocks` inbound** (SOCKS5-exit, anytls shape, both features in one
+  release per maintainer decision): `mode=socks5 role=server`, TCP listen =
+  `inbound.Port`, panel clients minted login/password (plaintext in the 0600
+  engine conf — the engine needs plain pairs), `socks5-users` rendered from
+  enabled clients. Reconcile in `TunnelService.reconcileWgosocksInbounds`,
+  traffic `/proc/PID/io` + sole-client attribution (tproxy lucx.190 pattern;
+  engine cannot split per-user), not in JSON/Clash subs, local/master only.
+
+Client exports (`frontend/src/lib/wgo/link.ts`, goldens mirror the Go
+renderers in `internal/lucx/tunnel/wgo.go` — byte-identical): `.conf` with
+loopback Endpoint + `[instance]` (Phobos format), `phobos://<base64url>#name`
+QR/link panels per preset in ClientQrModal, standalone ClusterM INI download
+for NONE/STUN presets (upstream client builds), wgosocks `phobos://` with the
+separate `[socks5]` credentials section. Helper warning everywhere: a plain
+WG app cannot use the obfuscated conf without the local obfuscator
+(Phobos client installers / PhobosWG Android / upstream ClusterM builds for
+NONE-STUN). **Deviation from spec §3.2:** per-client preset binding is
+export-time only in v1 (default preset; no persisted `presetId` on the peer)
+— follow-up if testers need per-client isolation.
+
+Surface details: model oneof `wgosocks`; Cores card "WG obfuscator (wgobfs)"
+(`/panel/api/tunnel/wgo/*` upload/download/delete/status/logs — SourceCraft
+delivery); per-inbound `/panel/api/inbounds/:id/wgoStatus|wgoLogs` (form
+status line via `useAwgInboundId` context); InboundOption hints
+`wgObfuscation`/`wgosocksConfig` (awgObfuscation precedent, OpenAPI
+regenerated); i18n +53 keys ×13 locales (en+ru translated, byte-stable
+insert); `api-docs/endpoints.ts` registry.
+
+Build: `release.yml` new step "Build wgobfs (Phobos fork)" — `make STATIC=1`
+with `zig cc -target {x86_64,aarch64}-linux-musl` (zig already set up for
+CSQTT); `pack-sidecars.sh` got the same block for local packing (host cc /
+`WGOBFS_CC`); pins list += `wgobfs`. Docs: operator guide
+`docs/content/docs/en/config/wg-obfuscator.mdx`, `docs/LICENSING.md` (GPL
+external binary + AGPL-not-used note), README credits (ClusterM +
+Ground-Zerro), `.agents/02-architecture.md` engine entry, `08-hooks.md`,
+Rule 10 file list.
+
+Tests: Go — `tunnel/wgo_test.go` + `wgo_inbound_test.go` (golden confs,
+validation incl. reserved/TLS-in-WG/caps), `wireguard/obfuscator_test.go` +
+linux firewall args/sweep, job fakes for `ReconcileWgo`/firewall sync,
+`kernel_wgosocks_test.go` (normalize: mint once, never rotate — Rule 0).
+Frontend — `wgo-link.test.ts` (goldens mirror Go), kernel-wireguard schema
+tests (vanilla passthrough, preset round-trip, empty-presets reject),
+obfuscated export builders. Gates green: `go test ./internal/lucx/... ./internal/web/{job,service}/...`,
+typecheck/lint/vitest 1593 (one pre-existing ordering flake in
+`TestAddInbound_NodeMtprotoLeavesTheEgressPortToTheNode`, passes isolated
+and on full re-run), gofumpt clean, i18n dead-keys ×13.
+
+**Remaining for testers (not verifiable on the dev box):** live wgobfs run
+(binary builds in CI), Phobos-client interop per masking mode (esp. MEDIA
+framing vs their bundled builds across pin bumps), `MAX_SOCKS5_USERS` actual
+value (panel caps at 512), `verbose`/`idle-timeout` unit forms in real
+`[instance]` parsing (spec §10.1–10.2).
+
+lucxVersion: lucx.311
+
 ## lucx.309 — sidecar pin sweep: naive security, TrustTunnel 1.3, caddy 2.11.7 stack (2026-10-24)
 
 Bumped cores (`bin/pack-sidecars.sh` + amd64 gz in `third_party/sidecars/linux-amd64/` + `release.yml`):
