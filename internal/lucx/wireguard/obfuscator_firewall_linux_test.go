@@ -64,24 +64,20 @@ func TestParseWgoRules(t *testing.T) {
 
 func TestSyncWgoFirewallSweepsStale(t *testing.T) {
 	var calls [][]string
-	current := map[string]string{ // command string → reply
-		"iptables -w 5 -C INPUT -p udp": "ok",
-		"iptables -w 5 -S INPUT": `-A INPUT -p udp --dport 51820 ! -i lo -m comment --comment lucx-wgo-3 -j DROP
--A INPUT -p udp --dport 51821 ! -i lo -m comment --comment lucx-wgo-9 -j DROP
-`,
-	}
 	restore := wgoIptables
 	wgoIptables = func(args ...string) ([]byte, error) {
 		joined := strings.Join(args, " ")
 		calls = append(calls, args)
-		if reply, ok := current[joined]; ok {
-			if reply == "ok" {
+		if strings.HasPrefix(joined, "iptables -w 5 -S INPUT") {
+			return []byte("-A INPUT -p udp --dport 51820 ! -i lo -m comment --comment lucx-wgo-3 -j DROP\n" +
+				"-A INPUT -p udp --dport 51821 ! -i lo -m comment --comment lucx-wgo-9 -j DROP\n"), nil
+		}
+		// The rule of active inbound 3 already exists: its -C succeeds, every
+		// other -C fails (rule absent).
+		if strings.HasPrefix(joined, "iptables -w 5 -C") {
+			if strings.Contains(joined, "lucx-wgo-3") {
 				return nil, nil
 			}
-			return []byte(reply), nil
-		}
-		// -C for an absent rule fails; everything else succeeds
-		if strings.HasPrefix(joined, "iptables -w 5 -C") {
 			return nil, errProbe
 		}
 		return nil, nil
@@ -92,17 +88,15 @@ func TestSyncWgoFirewallSweepsStale(t *testing.T) {
 
 	sawDelete := false
 	for _, c := range calls {
-		if c[3] == "-D" && strings.Contains(strings.Join(c, " "), "lucx-wgo-9") {
+		joined := strings.Join(c, " ")
+		if c[3] == "-D" && strings.Contains(joined, "lucx-wgo-9") {
 			sawDelete = true
+		}
+		if c[3] == "-I" && strings.Contains(joined, "lucx-wgo-3") {
+			t.Fatal("existing rule must not be re-inserted")
 		}
 	}
 	if !sawDelete {
 		t.Fatalf("stale rule of inbound 9 not swept: %v", calls)
-	}
-	// rule of active inbound 3 present (-C ok) → no -I insert for it
-	for _, c := range calls {
-		if c[3] == "-I" && strings.Contains(strings.Join(c, " "), "lucx-wgo-3") {
-			t.Fatal("existing rule must not be re-inserted")
-		}
 	}
 }

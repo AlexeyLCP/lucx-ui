@@ -90,7 +90,8 @@ func EnsureWgoFirewall(st WgoFirewallState) error {
 		_, err := wgoIptables(wgoDropArgs(st, "-I")...)
 		return err
 	}
-	wgoIptables(wgoDropArgs(st, "-D")...)
+	// Removing an absent rule is success — ignore the error either way.
+	_, _ = wgoIptables(wgoDropArgs(st, "-D")...)
 	return nil
 }
 

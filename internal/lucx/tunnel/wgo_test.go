@@ -110,7 +110,7 @@ func TestSectionName(t *testing.T) {
 		"  x  ":       "x",
 	}
 	for in, want := range cases {
-		if got := sectionName(WgoPreset{Name: in}, 0); got != want && !(want == "preset1" && got == "preset1") {
+		if got := sectionName(WgoPreset{Name: in}, 0); got != want {
 			t.Fatalf("sectionName(%q) = %q, want %q", in, got, want)
 		}
 	}
