@@ -186,7 +186,7 @@ start() {
     if [[ $(check_status) == "running" ]]; then
         logmsg "Already running."; return 0
     fi
-    nohup nice -n -19 "$DIR_PROJECT/$NAME_APP" run >> "$DIR_LOGFILE" 2>&1 &
+    "$DIR_PROJECT/$NAME_APP" run >> "$DIR_LOGFILE" 2>&1 & disown
     sleep 2
     if [[ $(check_status) == "running" ]]; then
         logmsg "Panel started."

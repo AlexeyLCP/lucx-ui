@@ -1,5 +1,34 @@
 # LucX-UI — Прогресс
 
+## lucx.317 - Keenetic wrapper: foreground bash job instead of nohup (2026-10-25)
+
+First real Keenetic run (tester Igor, arm64): deps + tarball + checksum +
+settings all OK, then `nohup: command not found` in `start()` — Entware /
+KeeneticOS busybox has no `nohup`, so the panel never started. The
+x-ui-keenetic original never used nohup: it backgrounds with plain `&` +
+`disown`. Replaced `nohup nice -n -19 ... &` with
+`... run >> log 2>&1 & disown` (no external deps; `nice` dropped —
+scheduling priority buys nothing here). No tag: the wrapper is fetched from
+raw main; panel tarballs unchanged (stable stays v3.10.2-lucx.316).
+lucxVersion: lucx.317
+
+## 2026-10-25 - security reporting channel for the fork
+
+Private vulnerability reporting enabled on `AlexeyLCP/lucx-ui` (Security tab).
+`SECURITY.md` rewritten: LucX-specific code (`internal/awg/`, `internal/lucx/`,
+LUCX-HOOK blocks, LucX `bin/` scripts) → private channel on this repo;
+vanilla 3x-ui code → upstream policy (ho3ein.sanaei@gmail.com). Prompted by a
+reporter outside the repo who found the fork's SECURITY.md pointed only at the
+upstream contact. File edited locally, not yet committed/pushed.
+
+New rule (push + release gates for private reports): `.agents/06-workflow.md`
+step 11.5 + release step 0b + `bin/pre-push` hook now also check repo private
+advisories via `gh api repos/AlexeyLCP/lucx-ui/security-advisories` (non-
+`published` state). Push: warn only (the advisory fix must be pushable); tag:
+hard gate — release ships only with the fix or reporter-approved postponement.
+Hook copied to `.git/hooks/pre-push` on the dev machine. Reporter (XaksFlaX)
+also opened public issue #158 (node inbounds validated against master host).
+
 ## lucx.316 - Keenetic (Entware) install target (2026-10-25)
 
 Adapted own-open-source/x-ui-keenetic (GPL-3.0 Entware wrapper for upstream
