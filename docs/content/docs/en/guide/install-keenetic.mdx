@@ -1,0 +1,109 @@
+---
+title: Install on Keenetic (Entware)
+description: Install LucX-UI on a Keenetic / Netcraze router via Entware — no kernel module build, AWG on the userspace stack, wgobfs (Phobos) on stock kernel WireGuard.
+icon: Wifi
+---
+
+LucX-UI can run directly on a **Keenetic / Netcraze router** with
+[Entware](https://help.keenetic.com/hc/en-us/articles/360021888979-Entware) —
+as a full panel: Xray inbounds, tunnel sidecars, subscriptions, and AWG.
+
+<Callout type="warn">
+  Supported hardware: routers with **Entware on aarch64 (KN-… 64-bit models)**
+  or a rare x86_64 host. LucX-UI releases ship `amd64` and `arm64` binaries
+  only — **mips / armv7 Keenetic models are not supported** (this includes
+  most older devices). The router needs root SSH access with Entware.
+</Callout>
+
+## Requirements
+
+1. Entware installed (standard [Keenetic repository](https://help.keenetic.com/hc/en-us/articles/360021888979-Entware)).
+2. SSH into the router and install bash:
+
+```bash
+opkg update && opkg install curl bash
+```
+
+## Install LucX-UI
+
+```bash
+curl -O https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/bin/lucx-keenetic.sh
+bash lucx-keenetic.sh install
+```
+
+The script:
+
+- installs Entware dependencies (`curl tar wget-ssl ca-bundle sqlite3-cli jq
+  openssl-util ip-full wireguard-tools iptables`);
+- downloads the LucX-UI tarball for your architecture from
+  [GitHub releases](https://github.com/AlexeyLCP/lucx-ui/releases) and verifies
+  its checksum;
+- unpacks to `/opt/etc/x-ui` (SQLite DB at `/opt/etc/x-ui/db/x-ui.db`),
+- fetches Xray geodata (`geoip.dat` / `geosite.dat`),
+- asks for the panel port, base path, listen IP, and admin credentials,
+- enables autostart via Entware `/opt/etc/init.d/S99xui` and starts the panel.
+
+Re-run `bash lucx-keenetic.sh` at any time for the interactive menu
+(`start/stop/restart/status/update/uninstall`).
+
+To pin a specific release instead of the latest:
+
+```bash
+LUCX_KEENETIC_TAG=v3.10.2-lucx.314 bash lucx-keenetic.sh install
+```
+
+<Callout type="info">
+  Do **not** run the panel's own `x-ui update` / `x-ui install-awg` commands on
+  a Keenetic — they expect a normal Linux server (systemd, DKMS). Use the
+  wrapper's `update` instead: it reinstalls the latest release and preserves
+  the database.
+</Callout>
+
+## AmneziaWG without a kernel module
+
+The AmneziaWG kernel module cannot be built on Keenetic: the firmware is
+closed, there are no kernel headers, no DKMS, and no compiler toolchain —
+and the wrapper never attempts the module build. Nothing is compiled.
+
+AWG protocol inbounds still work: as soon as the panel detects no kernel
+support, it runs them on the **embedded userspace AmneziaWG stack**
+(`amneziawgnet`, gVisor netstack + SOCKS into Xray). Expect CPU usage closer
+to a userspace VPN than to kernel throughput — size expectations to the
+router's CPU.
+
+## Phobos / wgobfs on the router
+
+The Phobos-fork obfuscator engine (`bin/wgobfs-linux-arm64`) ships in the
+release tarball, so the router can serve obfuscated clients too. Two points
+that stop being confusing when separated:
+
+- **The obfuscator does not need the AWG kernel module.** It is a userspace
+  UDP proxy sitting in front of a **standard kernel WireGuard** interface —
+  the `wireguard` module, a different thing from `amneziawg`. KeeneticOS
+  ships its own kernel WireGuard (the "WireGuard VPN" firmware feature,
+  KeeneticOS 4.1+). The wrapper installs `ip-full` + `wireguard-tools` so the
+  panel's kernel-WireGuard sidecar can manage interfaces from Entware.
+- **`wgosocks` inbounds** (obfuscated SOCKS5-exit) need no kernel support at
+  all — pure userspace, safest choice on a router.
+
+Both are configured in the panel: a kernel WireGuard inbound with
+[obfuscation presets](/docs/config/wg-obfuscator) (the `MEDIA` masking mode
+requires Phobos-fork clients), or a standalone `wgosocks` inbound. Client
+exports use the `phobos://` link format.
+
+## Limits on routers
+
+- No systemd — autostart goes through Entware `init.d`;
+- no fail2ban — IP-limit feature has no ban backend here;
+- no ACME automation (`acme.sh` is not installed) — use manual/uploaded TLS
+  certificates or plain HTTP on the LAN;
+- geodata beyond the two Loyalsoldier `.dat` files is refreshed by the
+  panel's scheduled geodata job.
+
+## Credits
+
+- [own-open-source/x-ui-keenetic](https://gitlab.com/own-open-source/x-ui-keenetic)
+  — the Entware wrapper this installer is adapted from (GPL-3.0).
+- [Ground-Zerro/Phobos](https://github.com/Ground-Zerro/Phobos) — the
+  obfuscator fork and the `phobos://` client ecosystem, which already supports
+  Keenetic as a **client** platform via its install-links.

@@ -1,5 +1,32 @@
 # LucX-UI — Прогресс
 
+## lucx.316 - Keenetic (Entware) install target (2026-10-25)
+
+Adapted own-open-source/x-ui-keenetic (GPL-3.0 Entware wrapper for upstream
+3x-ui) into `bin/lucx-keenetic.sh` + a docs page
+(`docs/content/docs/en/guide/install-keenetic.mdx`, linked from the
+installation guide; sidebar `meta.json` updated). The wrapper installs the
+GitHub arm64 tarball (`/opt/etc/x-ui`, SQLite, geodata, Entware
+`init.d/S99xui` autostart, port/path/admin prompts) and **never** runs
+`bin/install-awg-module.sh` — Keenetic firmware is closed (no headers/DKMS),
+so the amneziawg kernel module cannot be built there at all.
+
+Runtime notes gathered while scoping:
+- LucX releases ship amd64/arm64 only → mips/armv7 Keenetics are
+  explicitly rejected by the arch check.
+- No kernel module needed: `KernelAvailable() == false` makes awg inbounds
+  run on the embedded userspace `amneziawgnet` stack (gVisor + SOCKS).
+- Phobos/wgobfs needs a **standard** kernel `wireguard` netdev (separate
+  from amneziawg; KeeneticOS 4.1+ ships it as the firmware "WireGuard VPN"
+  feature) plus userspace tools — the wrapper installs Entware
+  `ip-full` + `wireguard-tools`. `wgosocks` inbounds are pure userspace.
+- NOT verified on real hardware yet (no aarch64 router available); marked
+  experimental. Phobos's own client install-links already support Keenetic
+  as a client platform, so router-as-client needs nothing from LucX.
+- `bin/lucx-keenetic.sh` is GPL-3.0 (derived), noted in `docs/LICENSING.md`.
+
+lucxVersion: lucx.316
+
 ## lucx.315 — routed Mieru/TrustTunnel bridge accepts SOCKS5 UDP ASSOCIATE (2026-10-25)
 
 Field report (mita, tested on lucx.312 by patching the compiled binary): with

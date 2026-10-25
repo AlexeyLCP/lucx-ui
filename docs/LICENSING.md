@@ -6,6 +6,8 @@ LucX-UI is a fork of [3x-ui](https://github.com/MHSanaei/3x-ui) and uses **two l
 
 All original 3x-ui code remains under the **GNU General Public License v3.0** (see [LICENSE](../LICENSE)), as required by the upstream project. This includes every file not listed below, and every upstream file that carries inline `LUCX-HOOK` integration blocks (the surrounding file stays GPL; the hook blocks themselves are small integration glue).
 
+GPL-3.0 also applies, by derivation, to LucX-owned files adapted from GPL sources — notably `bin/lucx-keenetic.sh`, adapted from [own-open-source/x-ui-keenetic](https://gitlab.com/own-open-source/x-ui-keenetic).
+
 ## 2. LucX-specific components — PolyForm Noncommercial 1.0.0
 
 The components **authored by the LucX-UI project** are licensed under the **PolyForm Noncommercial License 1.0.0** (see [LICENSE-PolyForm-Noncommercial.txt](../LICENSE-PolyForm-Noncommercial.txt)):

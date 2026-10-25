@@ -245,6 +245,20 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 
 ---
 
+## 🧿 Установка на Keenetic (Entware)
+
+Панель можно поставить прямо на **Keenetic / Netcraze** с Entware — работает Xray, туннельные сайдкары, подписки и AWG. Ядро AWG при этом **не собирается** (прошивка Keenetic закрыта, заголовков ядра нет): LucX-инбаунды `awg` поднимаются на встроенном amneziawg-go. Phobos/wgobfs-пресеты работают поверх штатного kernel-WireGuard прошивки (KeeneticOS 4.1+), `wgosocks` — совсем без ядра. Только **aarch64 / 64-битные модели** (mips и armv7 не поддерживаются — релизы LucX собираются для amd64/arm64).
+
+```bash
+opkg update && opkg install curl bash
+curl -O https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/bin/lucx-keenetic.sh
+bash lucx-keenetic.sh install
+```
+
+Обёртка адаптирована из скрипта [x-ui-keenetic](https://gitlab.com/own-open-source/x-ui-keenetic) (автор [tommilevs](https://gitlab.com/tommilevs), GPL-3.0) — спасибо ему. Детали и ограничения — в [мануале](docs/content/docs/en/guide/install-keenetic.mdx). Не запускайте на роутере `x-ui update` / `x-ui install-awg` из панели — они рассчитаны на обычный Linux-сервер (systemd/DKMS); обновляйтесь через `bash lucx-keenetic.sh update`.
+
+---
+
 ## 📜 Лицензия и условия
 
 Проект публикуется под **двумя лицензиями** на собственный код, а third-party бинарники/данные распространяются по условиям их апстрима (полная матрица — в [LICENSING.md](docs/LICENSING.md)):
@@ -327,6 +341,7 @@ LucX-UI построен на множестве open-source проектов и
 | [hydraponique/3x-ui](https://github.com/hydraponique/3x-ui), [roscomvpn-geoip](https://github.com/hydraponique/roscomvpn-geoip), [roscomvpn-geosite](https://github.com/hydraponique/roscomvpn-geosite), [roscomvpn-routing](https://github.com/hydraponique/roscomvpn-routing) | Пакет RoscomVPN geo + профили Happ | Upstream |
 | [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat), [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules), [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) | Готовые geoip/geosite | Upstream |
 | [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | Вдохновение по AWG ops | — |
+| [own-open-source/x-ui-keenetic](https://gitlab.com/own-open-source/x-ui-keenetic) ([tommilevs](https://gitlab.com/tommilevs)) | Entware-обёртка — основа `bin/lucx-keenetic.sh` (Keenetic) | GPL-3.0 |
 | [phenomenonRT](https://github.com/phenomenonRT), [генератор мимикрии phenomenonrt.github.io](https://phenomenonrt.github.io) | Пресет AWG под Minecraft Bedrock (RakNet): профили `minecraft` cps | — |
 | [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | Референсы TLS-отпечатков для CPS | — |
 

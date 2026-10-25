@@ -20,5 +20,6 @@ Extracted from AGENTS.md. This file is project law.
 
 - **144.31.157.106 (lucx-test2)** — reinstalled by owner 2026-08-05, SSH unstable (drops on kex); **no longer used** — stand moved to 144.31.224.212 per Alexey (“forget other test boxes”).
 - **Testers:** VladufQa, Kirill Rudenko — update themselves via `x-ui update` or reinstall; do not touch their panels without asking.
+- **Keenetic (experimental, since 2026-10-25 / lucx.316):** router install via `bin/lucx-keenetic.sh` (Entware wrapper, adapted from own-open-source/x-ui-keenetic, GPL-3.0) + `docs/content/docs/en/guide/install-keenetic.mdx`. aarch64/amd64 only (no mips/armv7 releases). No DKMS — AWG runs on userspace amneziawgnet; wgobfs fronts stock KeeneticOS kernel WireGuard (needs `ip-full` + `wireguard-tools`). Not yet verified on real hardware.
 
 ---
