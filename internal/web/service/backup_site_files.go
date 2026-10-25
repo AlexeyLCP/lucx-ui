@@ -203,7 +203,9 @@ func restoreBackupSiteFiles() error {
 		return err
 	}
 	if len(rows) == 0 {
-		db.Migrator().DropTable(backupSiteFilesTable)
+		if err := db.Migrator().DropTable(backupSiteFilesTable); err != nil {
+			logger.Warningf("Import: drop %s: %v", backupSiteFilesTable, err)
+		}
 		return nil
 	}
 	// Only dirs whose inbound the restored database actually carries are
