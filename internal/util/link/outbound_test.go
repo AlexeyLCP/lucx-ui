@@ -488,6 +488,23 @@ func TestParseLink_QwdttAndWdtt(t *testing.T) {
 	}
 }
 
+// openflux links come through external subscriptions; an unparseable scheme
+// used to drop them from the JSON subscription.
+func TestParseLink_Openflux(t *testing.T) {
+	raw := "openflux://v1/Eg0IAxgCIAAoATgBQABKAQQBTAJAAQ"
+	res, err := ParseLink(raw)
+	if err != nil {
+		t.Fatalf("ParseLink(%q): %v", raw, err)
+	}
+	if res.Outbound["protocol"] != "openflux" {
+		t.Fatalf("bad protocol: %v", res.Outbound["protocol"])
+	}
+	settings, _ := res.Outbound["settings"].(map[string]any)
+	if settings == nil || settings["link"] != raw {
+		t.Fatalf("link lost: %v", res.Outbound)
+	}
+}
+
 // A panel older than the 26.9.9 core shares its hop range as quicParams.udpHop inside fm=,
 // which the core ignores; imported verbatim, the outbound would never hop.
 func TestParseLink_UpgradesLegacyUDPHopFinalMask(t *testing.T) {

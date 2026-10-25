@@ -25,7 +25,7 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 |---|---|
 | `internal/web/service/client_link.go` (+ upstream helpers) | tunnel sets (`isTunnel`, `clientsOnLowerTunnel`) include **`model.AWG` (kernel "awg")**, not only upstream's `WireGuard`/`AmneziaWG`; `keepLinkOwnedFields` restore: a **blank `before` field is not ownership** — upper-tunnel attach mints survive (lucx.299, v3.10.2) |
 |---|---|
-| `internal/sub/service.go` `getInboundsBySubId` | lucx protocols in the SQL `IN` list |
+| `internal/sub/service.go` `getInboundsBySubId` | lucx protocols in the SQL `IN` list (now inside a LUCX-HOOK marker; `openflux` included, lucx.313) |
 | `internal/sub/service.go` `ResolveRequest` | never use `X-Real-IP` as share host |
 | `internal/sub/service.go` `amneziaWGConfigText` | always emit `S3`/`S4` (zero is real); drop unportable I-fields |
 | `internal/web/service/inbound.go` UpdateInbound | sidecar in-place `Update`, snapshot **old** protocol on del |
@@ -68,6 +68,8 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/mtproto/manager.go` | lucx touch |
 | `internal/sub/service.go` | GetLink/GetSubs lucx protocols, AWG conf, host, I-fields |
 | `internal/sub/controller.go` | `/awg/` routes, Happ |
+| `internal/util/link/outbound.go` `ParseLink` | `openflux://` opaque like qwdtt/olcrtc (lucx.313) |
+| `internal/web/web.go` | AWG/tunnel cadence, stop, upload limit |
 | `internal/sub/clash_service.go` | kernel AWG clash proxy |
 | `internal/sub/sub.go` | AWG sub URL |
 | `internal/web/web.go` | AWG/tunnel cadence, stop, upload limit |
@@ -93,7 +95,7 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/web/service/client_lookup.go` | lucx lookup |
 | `internal/web/service/xray.go` + `xray_config_inject_test.go` | inject AWG TUN/outbounds |
 | `internal/web/service/setting.go` | lucx settings keys |
-| `internal/web/service/server.go` | lucx server |
+| `internal/web/service/server.go` `backupSQLite` / `ImportDB` | embed + restore the masking-site files (backup_site_files.go, lucx.313) |
 | `internal/web/service/node.go` + `node_contract.go` | lucx node |
 | `internal/web/service/port_conflict.go` | lucx transports |
 | `internal/web/service/panel/panel.go` + `panel_test.go` | release notes / version |
@@ -210,7 +212,7 @@ Keep the directory. Origin will not have these.
 | `internal/web/controller/awg.go` `awg_outbound.go` `lucx.go` `tunnel.go` `sidecar_outbound.go` `kernel_wireguard.go` `wgo.go` | LucX API |
 | `internal/web/job/awg_job.go` `awg_speed_buffer.go` `tunnel_job.go` `log_retention_job.go` `kernel_wireguard_job.go` | LucX jobs (wgo reconcile lives in kernel_wireguard_job + tunnel_job) |
 | `internal/web/favicon/` | panel tab icon |
-| `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` `kernel_wgosocks_test.go` | LucX service |
+| `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` `kernel_wgosocks_test.go` `backup_site_files{,_test}.go` | LucX service |
 | `frontend/src/pages/tunnels/` | Tunnels page |
 | `frontend/src/pages/inbounds/form/protocols/{awg,naive,olcrtc,qwdtt,csqtt,mieru,trusttunnel,anytls,tproxy,cover}.tsx` | lucx forms |
 | `frontend/src/pages/xray/awg-outbounds/` `sidecar-outbounds/` | lucx outbound UI |

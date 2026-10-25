@@ -52,6 +52,8 @@ EXTRA_FILES=(
     internal/web/service/sidecar_outbound_inject_test.go
     internal/web/service/lucx_online.go
     internal/web/service/lucx_online_test.go
+    internal/web/service/backup_site_files.go
+    internal/web/service/backup_site_files_test.go
     internal/web/controller/sidecar_outbound.go
 )
 

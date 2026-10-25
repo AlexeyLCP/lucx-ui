@@ -24,6 +24,7 @@ The components **authored by the LucX-UI project** are licensed under the **Poly
 - `internal/web/service/awg_import.go` — import existing host AWG
 - `frontend/src/api/awg-import.ts`, `frontend/src/schemas/awg-import.ts`, `frontend/src/pages/inbounds/AwgImportBanner.tsx`
 - `internal/web/service/tunnel.go` — tunnel sidecar service
+- `internal/web/service/backup_site_files.go` and its test — masking-site files in the panel backup
 - `frontend/src/schemas/protocols/inbound/awg.ts` — AWG Zod schema
 - `frontend/src/schemas/tunnel.ts` — tunnel sidecar Zod schemas
 - `frontend/src/api/tunnels.ts` — tunnel sidecar API client

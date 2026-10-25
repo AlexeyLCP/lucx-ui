@@ -138,6 +138,10 @@ func ParseLink(link string) (*ParseResult, error) {
 		return opaqueShareLink(link, "csqtt")
 	case strings.HasPrefix(link, "olcrtc://"):
 		return opaqueShareLink(link, "olcrtc")
+	// LUCX-HOOK: openflux was unparseable, so external-subscription openflux
+	// links were dropped from the JSON subscription.
+	case strings.HasPrefix(link, "openflux://"):
+		return opaqueShareLink(link, "openflux")
 	default:
 		return nil, fmt.Errorf("unsupported link scheme")
 	}

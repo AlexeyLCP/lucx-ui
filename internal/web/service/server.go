@@ -1589,6 +1589,13 @@ func (s *ServerService) backupSQLite() (string, func(), error) {
 		cleanup()
 		return "", nil, err
 	}
+	// LUCX-HOOK: embed the uploaded cover/tproxy masking sites into the backup
+	// copy so restoring it brings the sites back (see backup_site_files.go).
+	// Failures keep the DB-only backup — a backup must always happen.
+	if err := embedBackupSiteFiles(backupPath); err != nil {
+		logger.Warningf("backup: embed site files: %v", err)
+	}
+	// END LUCX-HOOK
 	return backupPath, cleanup, nil
 }
 
@@ -1903,6 +1910,13 @@ func (s *ServerService) ImportDB(file multipart.File, keepHostSettings bool) err
 	restoreHostBoundSettings(keptSettings)
 
 	s.inboundService.MigrateDB()
+
+	// LUCX-HOOK: write back the masking sites embedded in the backup
+	// (backup_site_files.go). DB-only backups restore unchanged.
+	if err := restoreBackupSiteFiles(); err != nil {
+		logger.Warningf("Import: restore site files: %v", err)
+	}
+	// END LUCX-HOOK
 
 	xrayStopped = false
 	if err = s.RestartXrayService(); err != nil {

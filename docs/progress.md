@@ -1,5 +1,48 @@
 # LucX-UI — Прогресс
 
+## lucx.313 — openflux subscriptions + backups carry the masking sites (2026-10-25)
+
+Tester report (chat): external subscriptions pulled qwdtt/csqtt/olcrtc links
+but not the openflux ones. Two gaps:
+
+- `getInboundsBySubId` (`internal/sub/service.go`) protocol whitelist had no
+  `openflux`, so an openflux inbound never reached any subscription. Added —
+  the whitelist now also carries a LUCX-HOOK marker so the next upstream merge
+  cannot silently lose it.
+- `link.ParseLink` had no `openflux://` case, so a fetched openflux link was
+  "unsupported" and got dropped from the JSON subscription (`GetJson` skips
+  unparseable externals). Added as an opaque link like qwdtt/olcrtc (raw
+  payload, client parses it). Clash still cannot represent the tunnel family
+  — unchanged, gated by design.
+
+Second tester report: restoring a panel backup did not restore the uploaded
+cover sites nor the tproxy (Telegram web proxy) sites. `GetDb` is a bare
+SQLite file; the sites live only in `bin/tunnel/*-site`. New behavior
+(`internal/web/service/backup_site_files.go`, call sites in `backupSQLite` +
+`ImportDB` under LUCX-HOOK):
+
+- On SQLite backup the site files of every cover/tproxy inbound are embedded
+  into the backup copy in table `lucx_backup_site_files` (dir base name,
+  relative path, blob). Caps: 20 MB per file (zip-upload parity), 64 MB total,
+  symlinks skipped, missing dirs skipped. Embed failure keeps a DB-only
+  backup (logged) — a backup must always happen.
+- On import the table's files are written back: only dirs whose inbound the
+  restored DB actually carries (cover/tproxy match), path validation before
+  the wipe (`..`, leading `/`, backslash rejected — `Clean("/../x") == "/x"`
+  hides traversal), table dropped from the live DB on success. A pre-feature
+  backup (no table) restores unchanged. PostgreSQL paths untouched — the
+  table never exists in a live DB and MigrateData copies only known models.
+
+Tests: `internal/util/link` (openflux opaque parse), `internal/web/service`
+(backup_site_files_test.go — embed count/data/nested paths, restore incl.
+foreign-dir and traversal rejection, no-table restore). `go build ./...`,
+`go vet` on the three touched packages, `internal/sub` + `internal/util/link`
++ `internal/web/service` all green on `-count=1`. Windows note: the suite has
+a pre-existing flake class — `testing.go:1619 TempDir RemoveAll cleanup:
+unlinkat ... The directory is not empty` races on random tests, plus
+salamander "warns once" counter tests fail under `go test -count=2`; both
+reproduce on the stashed baseline and are unrelated to this change.
+
 ## lucx.312 — wgobfs "Add preset" is one click: auto-filled preset, tuning fields collapsed (2026-10-25)
 
 Tester E2E (Igor) hit "no connect" with a `phobos://` export pasted into AWG
