@@ -36,7 +36,8 @@ type MieruConfig struct {
 
 	// RouteThroughXray dials egress through the panel-injected loopback SOCKS
 	// bridge (mita native egress.proxies SOCKS5). Default false — direct
-	// egress is the camouflage baseline; SOCKS also loses UDP associate.
+	// egress is the camouflage baseline; the routed bridge accepts UDP
+	// ASSOCIATE too (mita 3.39+ hands it to the selected outbound).
 	RouteThroughXray bool   `json:"routeThroughXray"`
 	OutboundTag      string `json:"outboundTag"`
 	// RouteXrayPort is the backend-owned loopback SOCKS port (0 when not routed).

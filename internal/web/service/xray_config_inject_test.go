@@ -1394,11 +1394,14 @@ func TestInjectTproxyEgress_SocksNoSniffing(t *testing.T) {
 
 func TestInjectSocksEgress_SniffingRouteOnly(t *testing.T) {
 	cfg := egressTestConfig()
-	injectSocksEgress(cfg, "in-mieru-9", 39111, "", "mieru egress", false)
+	injectSocksEgress(cfg, "in-mieru-9", 39111, "", "mieru egress", false, true)
 	if len(cfg.InboundConfigs) < 2 {
 		t.Fatal("expected SOCKS bridge")
 	}
 	got := cfg.InboundConfigs[len(cfg.InboundConfigs)-1]
+	if !strings.Contains(string(got.Settings), `"udp":true`) {
+		t.Fatalf("mieru bridge must accept SOCKS5 UDP ASSOCIATE, got %s", got.Settings)
+	}
 	var sniffing struct {
 		Enabled      bool     `json:"enabled"`
 		DestOverride []string `json:"destOverride"`
@@ -1417,6 +1420,53 @@ func TestInjectSocksEgress_SniffingRouteOnly(t *testing.T) {
 	for i, w := range want {
 		if sniffing.DestOverride[i] != w {
 			t.Fatalf("destOverride = %v, want %v", sniffing.DestOverride, want)
+		}
+	}
+}
+
+func TestInjectSocksEgress_UDPOnlyWhereTransportCarriesIt(t *testing.T) {
+	cases := []struct {
+		proto   model.Protocol
+		tag     string
+		udp     bool
+		prefix  string
+		port    int
+		wantUDP bool
+	}{
+		{proto: model.Mieru, tag: "in-mieru-9", prefix: "mieru egress", port: 39111, wantUDP: true},
+		{proto: model.TrustTunnel, tag: "in-443-tcp", prefix: "trusttunnel egress", port: 39112, wantUDP: true},
+		{proto: model.Anytls, tag: "in-8443-tcp", prefix: "anytls egress", port: 39113, wantUDP: false},
+		{proto: model.Olcrtc, tag: "in-olcrtc-9", prefix: "olcrtc egress", port: 39114, wantUDP: false},
+		{proto: model.Tproxy, tag: "in-tproxy-18", prefix: "tproxy egress", port: 39115, wantUDP: false},
+	}
+	for _, tc := range cases {
+		cfg := egressTestConfig()
+		ib := &model.Inbound{
+			Id: 9, Tag: tc.tag, Protocol: tc.proto, Enable: true,
+			Settings: fmt.Sprintf(`{"routeThroughXray":true,"routeXrayPort":%d}`, tc.port),
+		}
+		switch tc.proto {
+		case model.Mieru:
+			injectMieruEgress(cfg, ib)
+		case model.TrustTunnel:
+			injectTrustTunnelEgress(cfg, ib)
+		case model.Anytls:
+			injectAnytlsEgress(cfg, ib)
+		case model.Olcrtc:
+			injectOlcrtcEgress(cfg, ib)
+		case model.Tproxy:
+			injectTproxyEgress(cfg, ib)
+		}
+		if len(cfg.InboundConfigs) < 2 {
+			t.Fatalf("%s: expected SOCKS bridge", tc.proto)
+		}
+		got := cfg.InboundConfigs[len(cfg.InboundConfigs)-1]
+		udpLine := `"udp":false`
+		if tc.wantUDP {
+			udpLine = `"udp":true`
+		}
+		if !strings.Contains(string(got.Settings), udpLine) {
+			t.Fatalf("%s bridge settings must carry %s, got %s", tc.proto, udpLine, got.Settings)
 		}
 	}
 }

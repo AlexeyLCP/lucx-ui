@@ -1,5 +1,31 @@
 # LucX-UI — Прогресс
 
+## lucx.315 — routed Mieru/TrustTunnel bridge accepts SOCKS5 UDP ASSOCIATE (2026-10-25)
+
+Field report (mita, tested on lucx.312 by patching the compiled binary): with
+routeThroughXray on, TCP worked through the hidden loopback SOCKS bridge but
+UDP (calls, QUIC/HTTP3, UDP DNS) was silently dropped — Mieru and TrustTunnel
+carry UDP, while their bridge inbound was rendered with `{"auth":"noauth",
+"udp":false}` (mita 3.39+ forwards SOCKS5 UDP ASSOCIATE into the egress
+outbound; the bridge was the only blocker).
+
+- `internal/web/service/xray.go`: new const `udpEgressSocksSettings`
+  (`{"auth":"noauth","udp":true}`); `injectSocksEgress(..., udp bool)` picks it
+  when enabled. UDP on **only** for Mieru + TrustTunnel bridges; MTProxy/
+  tproxy/Naive/olcRTC/AnyTLS bridges stay `udp:false` (reporter's suggestion —
+  the shared noauth constant would otherwise have flipped six protocols at
+  once). Bridge stays on 127.0.0.1 — Xray's UDP relay opens nowhere.
+- `internal/lucx/tunnel/mieru.go`: the outdated "SOCKS also loses UDP
+  associate" comment replaced with the actual state.
+- Tests: `TestInjectSocksEgress_UDPOnlyWhereTransportCarriesIt` (each sidecar
+  protocol through its own inject fn, asserts the udp line), sniffing test
+  extended with the udp assertion.
+- Separate report, NOT this fix: routed AnyTLS on the reporter's host showed a
+  0-packet uid REDIRECT while clients kept working — the anytls child runs as
+  root (fallback chain, reason logged once in the journal: cert-copy/chown
+  failure or a pre-CAP_CHOWN unit). Awaiting the reporter's journal/ps output
+  before changing anything.
+
 ## lucx.314 — vanilla kernel-WireGuard runs on wg-less hosts (`awg` fallback), reconcile flood silenced (2026-10-25)
 
 Second tester E2E (Igor, same day as lucx.312): the panel sprayed
