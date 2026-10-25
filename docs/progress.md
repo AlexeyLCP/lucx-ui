@@ -1,5 +1,39 @@
 # LucX-UI — Прогресс
 
+## lucx.314 — vanilla kernel-WireGuard runs on wg-less hosts (`awg` fallback), reconcile flood silenced (2026-10-25)
+
+Second tester E2E (Igor, same day as lucx.312): the panel sprayed
+`kernel WireGuard reconcile: kernel WireGuard inbound 14: wg operation failed
+(exit -1): exec: "wg": executable file not found in $PATH` every 10 s, and the
+PhobosWG app on the router never connected through the wgobfs preset on that
+inbound — the WG netdev was never created, so the engine forwarded decoded
+packets to a loopback port nobody listened on.
+
+- **Root cause:** the vanilla kernel-WireGuard manager hardcoded `wg`
+  (wireguard-tools); LucX provisions only amneziawg-tools (`awg`/`awg-quick`).
+  The two binaries are NOT interchangeable per-device: awg resolves the genl
+  family `amneziawg` (amneziawg-tools `src/uapi/linux/linux/wireguard.h`:
+  `#define WG_GENL_NAME "amneziawg"`), a vanilla kernel netdev speaks the `WG`
+  family — each binary only manages its own interface type.
+- **Fix (`internal/lucx/wireguard/manager.go`):** `wgTools()` resolves once
+  per process — `wg` → iface type `wireguard`, else `awg` → type
+  `amneziawg`, else one clear error ("install wireguard-tools or
+  amneziawg-tools"). All five call sites (setconf/syncconf, show dump, peers
+  list, fwmark set, peer remove) and `ip link add` use the resolved pair.
+  `owned()` accepts both kinds; a live device carrying the other kind is
+  deleted and rebuilt instead of reconfigured by the wrong binary; the
+  resolved kind rides the device fingerprint, so a resolution change triggers
+  a clean rebuild; the orphan scan walks both types.
+- **Flood:** `internal/web/job/kernel_wireguard_job.go` warns each distinct
+  reconcile error once per process (dedupe by message; cleared on a clean
+  tick, so a recurring error re-warns after a fix-and-regress).
+- **Tests:** `TestManagerAwgToolsFallback` (awg setconf + `type
+  amneziawg`), `TestManagerKindSwitchRebuildsInterface`,
+  `TestKernelWireguardJobDedupesRepeatingReconcileError`. `go vet`, awg/lucx
+  suites green. Note: amneziawg `awg show dump` carries a long extra column
+  set on the device line but the peer line stays 8 columns — `ParseDump`
+  stays compatible as-is.
+
 ## lucx.313 — openflux subscriptions + backups carry the masking sites (2026-10-25)
 
 Tester report (chat): external subscriptions pulled qwdtt/csqtt/olcrtc links

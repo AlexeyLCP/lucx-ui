@@ -80,7 +80,90 @@ func TestManagerRefusesForeignInterface(t *testing.T) {
 		t.Fatal("foreign interface accepted")
 	}
 	if mutated {
-		t.Fatal("foreign interface was modified")
+		t.Fatal("foreign interface was mutated")
+	}
+}
+
+func TestManagerAwgToolsFallback(t *testing.T) {
+	var calls []string
+	command := func(input string, args ...string) ([]byte, error) {
+		cmd := strings.Join(args, " ")
+		calls = append(calls, cmd)
+		switch {
+		case strings.HasPrefix(cmd, "ip -j -d link show dev"):
+			return nil, fmt.Errorf("absent")
+		case strings.HasPrefix(cmd, "ip -j route"), strings.HasPrefix(cmd, "ip -j rule"):
+			return []byte(`[]`), nil
+		case strings.HasPrefix(cmd, "awg show"):
+			return []byte("private public 51820 off\npeer psk endpoint 10.90.0.2/32 0 99 100 25\n"), nil
+		case strings.HasPrefix(cmd, "nft -j list table "):
+			return nil, fmt.Errorf("absent")
+		}
+		return nil, nil
+	}
+	inst, err := Parse(testInbound(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(t.TempDir(), command)
+	m.wgBin, m.wgKind, m.wgResolved = "awg", "amneziawg", true
+	if err := m.Ensure(inst); err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(calls, "\n")
+	if !strings.Contains(text, "awg setconf lxwg7") || !strings.Contains(text, "ip link add dev lxwg7 type amneziawg") {
+		t.Fatalf("amneziawg dialect not used: %s", text)
+	}
+}
+
+func TestManagerKindSwitchRebuildsInterface(t *testing.T) {
+	created := 0
+	linkKind := ""
+	var calls []string
+	command := func(input string, args ...string) ([]byte, error) {
+		cmd := strings.Join(args, " ")
+		calls = append(calls, cmd)
+		switch {
+		case strings.HasPrefix(cmd, "ip -j -d link show dev"):
+			if linkKind == "" {
+				return nil, fmt.Errorf("absent")
+			}
+			return []byte(`[{"ifalias":"lucx-kernel-wireguard","linkinfo":{"info_kind":"` + linkKind + `"}}]`), nil
+		case strings.HasPrefix(cmd, "ip -j route"), strings.HasPrefix(cmd, "ip -j rule"):
+			return []byte(`[]`), nil
+		case strings.HasPrefix(cmd, "ip link delete dev"):
+			linkKind = ""
+		case strings.HasPrefix(cmd, "ip link add"):
+			for j, a := range args {
+				if a == "type" {
+					linkKind = args[j+1]
+				}
+			}
+			created++
+		case strings.HasPrefix(cmd, "nft -j list table "):
+			return nil, fmt.Errorf("absent")
+		}
+		return nil, nil
+	}
+	inst, err := Parse(testInbound(t))
+	if err != nil {
+		t.Fatal(err)
+	}
+	m := NewManager(t.TempDir(), command)
+	if err := m.Ensure(inst); err != nil {
+		t.Fatal(err)
+	}
+	if created != 1 {
+		t.Fatalf("created %d devices on first ensure", created)
+	}
+	m.wgBin, m.wgKind = "awg", "amneziawg"
+	calls = nil
+	if err := m.Ensure(inst); err != nil {
+		t.Fatal(err)
+	}
+	text := strings.Join(calls, "\n")
+	if !strings.Contains(text, "ip link delete dev lxwg7") || !strings.Contains(text, "ip link add dev lxwg7 type amneziawg") {
+		t.Fatalf("kind switch did not rebuild: %s", text)
 	}
 }
 

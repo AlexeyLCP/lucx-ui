@@ -151,3 +151,28 @@ func TestKernelWireguardJobReconcilesWgo(t *testing.T) {
 		t.Fatalf("disabled block must yield stopped instance: %+v", wgo.reconciled)
 	}
 }
+
+func TestKernelWireguardJobDedupesRepeatingReconcileError(t *testing.T) {
+	logger.InitLogger(logging.ERROR)
+	j := &KernelWireguardJob{now: time.Now}
+	same := errors.New("kernel WireGuard inbound 14: wg missing")
+	if n := j.warnReconcile([]error{same}); n != 1 {
+		t.Fatalf("first occurrence logged %d lines", n)
+	}
+	if n := j.warnReconcile([]error{same}); n != 0 {
+		t.Fatalf("identical repeat logged %d more lines", n)
+	}
+	other := errors.New("kernel WireGuard inbound 15: port busy")
+	if n := j.warnReconcile([]error{same, other}); n != 1 {
+		t.Fatalf("new message logged %d lines", n)
+	}
+	if n := j.warnReconcile(nil); n != 0 {
+		t.Fatalf("clean tick logged %d lines", n)
+	}
+	if j.reconcileWarned != nil {
+		t.Fatal("clean tick did not clear dedupe state")
+	}
+	if n := j.warnReconcile([]error{same}); n != 1 {
+		t.Fatalf("post-clean repeat logged %d lines", n)
+	}
+}

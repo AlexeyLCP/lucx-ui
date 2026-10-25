@@ -41,6 +41,7 @@ type managed struct {
 	inst        Instance
 	fingerprint string
 	peers       string
+	kind        string
 	cleanup     bool
 }
 type Manager struct {
@@ -51,6 +52,11 @@ type Manager struct {
 	counters     *Counters
 	pending      []Usage
 	inputWarning bool
+	wgBin        string
+	wgKind       string
+	wgResolved   bool
+	wgErr        error
+	system       bool
 }
 
 var diagnosticKeys = regexp.MustCompile(`[A-Za-z0-9+/]{32,}=?`)
@@ -66,10 +72,40 @@ func GetManager() *Manager {
 }
 
 func NewManager(dir string, command Command) *Manager {
-	if command == nil {
+	system := command == nil
+	if system {
 		command = systemCommand
 	}
-	return &Manager{dir: dir, command: command, current: map[int]managed{}, counters: NewCounters()}
+	return &Manager{dir: dir, command: command, current: map[int]managed{}, counters: NewCounters(), wgBin: "wg", wgKind: "wireguard", system: system}
+}
+
+// wgTools resolves once which wg-class binary manages the netdevs: the awg
+// binary speaks the "amneziawg" genl family and cannot touch a vanilla
+// wireguard netdev (and vice versa), so the binary and interface type must
+// change together. Test mode (command != systemCommand) pins wg defaults.
+func (m *Manager) wgTools() (bin, kind string, err error) {
+	if m.wgResolved {
+		return m.wgBin, m.wgKind, m.wgErr
+	}
+	if !m.system {
+		m.wgErr = nil
+	} else if bin, e := lookPath("wg"); e == nil {
+		m.wgBin, m.wgKind, m.wgErr = bin, "wireguard", nil
+	} else if bin, e = lookPath("awg"); e == nil {
+		m.wgBin, m.wgKind, m.wgErr = bin, "amneziawg", nil
+	} else {
+		m.wgErr = fmt.Errorf(`neither "wg" nor "awg" binary found in PATH; install wireguard-tools or amneziawg-tools`)
+	}
+	m.wgResolved = true
+	return m.wgBin, m.wgKind, m.wgErr
+}
+
+func (m *Manager) wgRun(args ...string) ([]byte, error) {
+	bin, _, err := m.wgTools()
+	if err != nil {
+		return nil, err
+	}
+	return m.run(append([]string{bin}, args...)...)
 }
 
 type diagnosticBuffer struct{ data []byte }
@@ -88,6 +124,8 @@ func missingInputRule(err error) bool {
 	var exit *exec.ExitError
 	return errors.As(err, &exit) && exit.ExitCode() == 1
 }
+
+var lookPath = exec.LookPath
 
 func systemCommand(input string, args ...string) ([]byte, error) {
 	if runtime.GOOS != "linux" {
@@ -125,10 +163,10 @@ func systemCommand(input string, args ...string) ([]byte, error) {
 func (m *Manager) run(args ...string) ([]byte, error) { return m.command("", args...) }
 func (m *Manager) path(i Instance) string             { return filepath.Join(m.dir, i.Name()+".conf") }
 
-func (m *Manager) owned(i Instance) (bool, error) {
+func (m *Manager) owned(i Instance) (bool, string, error) {
 	out, err := m.run("ip", "-j", "-d", "link", "show", "dev", i.Name())
 	if err != nil {
-		return false, nil
+		return false, "", nil
 	}
 	var rows []struct {
 		Alias string `json:"ifalias"`
@@ -136,10 +174,14 @@ func (m *Manager) owned(i Instance) (bool, error) {
 			Kind string `json:"info_kind"`
 		} `json:"linkinfo"`
 	}
-	if json.Unmarshal(out, &rows) != nil || len(rows) != 1 || rows[0].Alias != owner || rows[0].Info.Kind != "wireguard" {
-		return true, fmt.Errorf("refusing unowned interface %s", i.Name())
+	if json.Unmarshal(out, &rows) != nil || len(rows) != 1 ||
+		(rows[0].Info.Kind != "wireguard" && rows[0].Info.Kind != "amneziawg") {
+		return true, "", fmt.Errorf("refusing unowned interface %s", i.Name())
 	}
-	return true, nil
+	if rows[0].Alias != owner {
+		return true, rows[0].Info.Kind, fmt.Errorf("refusing unowned interface %s", i.Name())
+	}
+	return true, rows[0].Info.Kind, nil
 }
 
 func writePrivate(path, text string) error {
@@ -191,7 +233,11 @@ func (m *Manager) configure(i Instance, operation string) error {
 	if err = f.Close(); err != nil {
 		return err
 	}
-	_, err = m.run("wg", operation, i.Name(), f.Name())
+	bin, _, err := m.wgTools()
+	if err != nil {
+		return err
+	}
+	_, err = m.run(bin, operation, i.Name(), f.Name())
 	return err
 }
 
@@ -257,7 +303,7 @@ func (m *Manager) ensureInput(i Instance) error {
 }
 
 func (m *Manager) sample(i Instance) {
-	out, err := m.run("wg", "show", i.Name(), "dump")
+	out, err := m.wgRun("show", i.Name(), "dump")
 	if err != nil {
 		return
 	}
@@ -280,7 +326,11 @@ func (m *Manager) ensure(i Instance) error {
 			return err
 		}
 	}
-	exists, err := m.owned(i)
+	bin, kind, err := m.wgTools()
+	if err != nil {
+		return err
+	}
+	exists, liveKind, err := m.owned(i)
 	if err != nil {
 		return err
 	}
@@ -307,6 +357,7 @@ func (m *Manager) ensure(i Instance) error {
 	if len(peers) == 2 {
 		peerFP = peers[1]
 	}
+	fingerprint := i.DeviceFingerprint() + "\n" + kind
 	current, known := m.current[i.ID]
 	if exists {
 		if known {
@@ -316,12 +367,18 @@ func (m *Manager) ensure(i Instance) error {
 			m.sample(i)
 		}
 	}
-	if known && current.fingerprint != i.DeviceFingerprint() {
+	if known && (current.fingerprint != fingerprint || current.kind != kind) {
 		if err := m.remove(i.ID); err != nil {
 			return err
 		}
 		exists = false
 		known = false
+	}
+	if exists && !known && liveKind != "" && liveKind != kind {
+		if _, err = m.run("ip", "link", "delete", "dev", i.Name()); err != nil {
+			return err
+		}
+		exists = false
 	}
 	if !exists {
 		routes, _ := m.run("ip", "-j", "route", "show", "table", strconv.Itoa(i.Table()))
@@ -359,7 +416,7 @@ func (m *Manager) ensure(i Instance) error {
 		return err
 	}
 	if !exists {
-		if _, err = m.run("ip", "link", "add", "dev", i.Name(), "type", "wireguard"); err != nil {
+		if _, err = m.run("ip", "link", "add", "dev", i.Name(), "type", kind); err != nil {
 			return err
 		}
 		if _, err = m.run("ip", "link", "set", "dev", i.Name(), "alias", owner); err != nil {
@@ -368,7 +425,7 @@ func (m *Manager) ensure(i Instance) error {
 		}
 	}
 	if !exists {
-		m.current[i.ID] = managed{inst: i}
+		m.current[i.ID] = managed{inst: i, kind: kind}
 	}
 	fail := func(e error) error {
 		if !exists {
@@ -377,7 +434,7 @@ func (m *Manager) ensure(i Instance) error {
 		return e
 	}
 	if exists && (!known || current.inst.FwMark != i.FwMark) {
-		if _, err = m.run("wg", "set", i.Name(), "fwmark", strconv.FormatUint(uint64(i.FwMark), 10)); err != nil {
+		if _, err = m.run(bin, "set", i.Name(), "fwmark", strconv.FormatUint(uint64(i.FwMark), 10)); err != nil {
 			return err
 		}
 	}
@@ -411,7 +468,7 @@ func (m *Manager) ensure(i Instance) error {
 			return fail(err)
 		}
 	}
-	m.current[i.ID] = managed{inst: i, fingerprint: i.DeviceFingerprint(), peers: peerFP}
+	m.current[i.ID] = managed{inst: i, fingerprint: fingerprint, peers: peerFP, kind: kind}
 	return nil
 }
 
@@ -423,7 +480,7 @@ func (m *Manager) RevokeDisallowed(ib *model.Inbound) error {
 		return fmt.Errorf("invalid kernel WireGuard ID")
 	}
 	i := Instance{ID: ib.Id}
-	exists, err := m.owned(i)
+	exists, _, err := m.owned(i)
 	if err != nil || !exists {
 		return err
 	}
@@ -455,7 +512,7 @@ func (m *Manager) RevokeDisallowed(ib *model.Inbound) error {
 	if known {
 		m.sample(current.inst)
 	}
-	out, err := m.run("wg", "show", i.Name(), "peers")
+	out, err := m.wgRun("show", i.Name(), "peers")
 	if err != nil {
 		return err
 	}
@@ -466,7 +523,7 @@ func (m *Manager) RevokeDisallowed(ib *model.Inbound) error {
 		if allowed[key] {
 			continue
 		}
-		if _, err = m.run("wg", "set", i.Name(), "peer", key, "remove"); err != nil {
+		if _, err = m.wgRun("set", i.Name(), "peer", key, "remove"); err != nil {
 			return err
 		}
 		if known {
@@ -496,7 +553,7 @@ func (m *Manager) remove(id int) error {
 	i := current.inst
 	current.cleanup = true
 	m.current[id] = current
-	exists, err := m.owned(i)
+	exists, _, err := m.owned(i)
 	if err != nil {
 		return err
 	}
@@ -592,25 +649,34 @@ func (m *Manager) ReconcilePreserving(desired []Instance, preserve []int) []erro
 			errors = append(errors, fmt.Errorf("kernel WireGuard inbound %d: %w", i.ID, err))
 		}
 	}
-	links, scanErr := m.run("ip", "-j", "-d", "link", "show", "type", "wireguard")
-	if scanErr == nil {
-		var rows []struct {
+	links := make([]struct {
+		Name  string `json:"ifname"`
+		Alias string `json:"ifalias"`
+	}, 0, 2)
+	for _, scannedKind := range []string{"wireguard", "amneziawg"} {
+		rows, scanErr := m.run("ip", "-j", "-d", "link", "show", "type", scannedKind)
+		if scanErr != nil {
+			continue
+		}
+		var found []struct {
 			Name  string `json:"ifname"`
 			Alias string `json:"ifalias"`
 		}
-		if json.Unmarshal(links, &rows) == nil {
-			for _, row := range rows {
-				if row.Alias != owner || !strings.HasPrefix(row.Name, "lxwg") {
-					continue
-				}
-				id, e := strconv.Atoi(strings.TrimPrefix(row.Name, "lxwg"))
-				if e != nil || id < 1 || id > 65535 || want[id] {
-					continue
-				}
-				if _, known := m.current[id]; !known {
-					m.current[id] = managed{inst: Instance{ID: id}}
-				}
-			}
+		if json.Unmarshal(rows, &found) != nil {
+			continue
+		}
+		links = append(links, found...)
+	}
+	for _, row := range links {
+		if row.Alias != owner || !strings.HasPrefix(row.Name, "lxwg") {
+			continue
+		}
+		id, e := strconv.Atoi(strings.TrimPrefix(row.Name, "lxwg"))
+		if e != nil || id < 1 || id > 65535 || want[id] {
+			continue
+		}
+		if _, known := m.current[id]; !known {
+			m.current[id] = managed{inst: Instance{ID: id}}
 		}
 	}
 	if files, e := os.ReadDir(m.dir); e == nil {
