@@ -179,7 +179,7 @@ if ! have "wgobfs-linux-${ARCH}"; then
     git -C /tmp/phobos remote add origin https://github.com/Ground-Zerro/Phobos.git
     git -C /tmp/phobos fetch -q --depth 1 origin "${WGOBFS_PIN}"
     git -C /tmp/phobos checkout -q FETCH_HEAD
-    make -C /tmp/phobos/src/phobos-obfuscator -j"$(nproc)" CC="${WGOBFS_CC:-cc}" STATIC=1
+    make -C /tmp/phobos/src/phobos-obfuscator -j"$(nproc)" CC="${WGOBFS_CC:-cc}" STATIC=1 ARCH=lucx-neutral
     cp /tmp/phobos/src/phobos-obfuscator/wg-obfuscator "${DEST}/wgobfs-linux-${ARCH}"
     chmod +x "${DEST}/wgobfs-linux-${ARCH}"
     rm -rf /tmp/phobos

@@ -231,7 +231,7 @@ jobs:
           git -C /tmp/phobos remote add origin https://github.com/Ground-Zerro/Phobos.git
           git -C /tmp/phobos fetch -q --depth 1 origin "$WGOBFS_PIN"
           git -C /tmp/phobos checkout -q FETCH_HEAD
-          make -C /tmp/phobos/src/phobos-obfuscator -j"$(nproc)" CC="zig cc -target ${ZT}" STATIC=1
+          make -C /tmp/phobos/src/phobos-obfuscator -j"$(nproc)" CC="zig cc -target ${ZT}" STATIC=1 ARCH=zig-neutral
           cp /tmp/phobos/src/phobos-obfuscator/wg-obfuscator "$PWD/x-ui/bin/wgobfs-linux-${P}"
           chmod +x "$PWD/x-ui/bin/wgobfs-linux-${P}"
           rm -rf /tmp/phobos
