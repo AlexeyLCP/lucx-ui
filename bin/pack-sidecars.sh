@@ -179,6 +179,9 @@ if ! have "wgobfs-linux-${ARCH}"; then
     git -C /tmp/phobos remote add origin https://github.com/Ground-Zerro/Phobos.git
     git -C /tmp/phobos fetch -q --depth 1 origin "${WGOBFS_PIN}"
     git -C /tmp/phobos checkout -q FETCH_HEAD
+    if [[ "${WGOBFS_CC:-cc}" == *zig* ]]; then
+        sed -i 's/target("avx512f")/target("avx512f,evex512")/' /tmp/phobos/src/phobos-obfuscator/obfuscation.h
+    fi
     make -C /tmp/phobos/src/phobos-obfuscator -j"$(nproc)" CC="${WGOBFS_CC:-cc}" STATIC=1 ARCH=lucx-neutral
     cp /tmp/phobos/src/phobos-obfuscator/wg-obfuscator "${DEST}/wgobfs-linux-${ARCH}"
     chmod +x "${DEST}/wgobfs-linux-${ARCH}"

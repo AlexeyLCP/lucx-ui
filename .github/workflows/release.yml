@@ -231,6 +231,10 @@ jobs:
           git -C /tmp/phobos remote add origin https://github.com/Ground-Zerro/Phobos.git
           git -C /tmp/phobos fetch -q --depth 1 origin "$WGOBFS_PIN"
           git -C /tmp/phobos checkout -q FETCH_HEAD
+          # clang >=17 (zig) split 512-bit EVEX out of avx512f: widen the
+          # runtime-dispatch attribute so xor_apply_mask_avx512 compiles; the
+          # cpuid dispatch stays intact. GCC builds don't take this path.
+          sed -i 's/target("avx512f")/target("avx512f,evex512")/' /tmp/phobos/src/phobos-obfuscator/obfuscation.h
           make -C /tmp/phobos/src/phobos-obfuscator -j"$(nproc)" CC="zig cc -target ${ZT}" STATIC=1 ARCH=zig-neutral
           cp /tmp/phobos/src/phobos-obfuscator/wg-obfuscator "$PWD/x-ui/bin/wgobfs-linux-${P}"
           chmod +x "$PWD/x-ui/bin/wgobfs-linux-${P}"
