@@ -352,9 +352,9 @@ type InboundOption struct {
 	// settings.obfuscation block) and the raw wgosocks inbound settings, so
 	// the clients page renders [instance]/phobos:// exports without a second
 	// round trip (awgObfuscation precedent).
-	WgObfuscation   string `json:"wgObfuscation,omitempty"`
-	WgosocksConfig  string `json:"wgosocksConfig,omitempty"`
-	MtprotoDomain   string `json:"mtprotoDomain,omitempty"`
+	WgObfuscation  string `json:"wgObfuscation,omitempty"`
+	WgosocksConfig string `json:"wgosocksConfig,omitempty"`
+	MtprotoDomain  string `json:"mtprotoDomain,omitempty"`
 	// AwgServer carries the full AmneziaWG server block (keys, subnet,
 	// obfuscation params) so the clients page can render a downloadable
 	// per-client .conf without a second round trip.
