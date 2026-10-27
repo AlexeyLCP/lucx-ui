@@ -10,11 +10,13 @@ import (
 	"io"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
@@ -97,6 +99,49 @@ func NewTunnelController(g *gin.RouterGroup) *TunnelController {
 // restartXrayIfNeeded regenerates Xray config when the tunnel SOCKS bridge
 // must be added/moved/dropped. Force-restart (not the deferred flag) so the
 // bridge is live before the caller returns.
+func clipHostMsg(s string) string {
+	s = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == 0x7f {
+			return ' '
+		}
+		return r
+	}, s)
+	s = strings.TrimSpace(s)
+	if len(s) > 300 {
+		s = s[:300]
+	}
+	return s
+}
+
+func (a *TunnelController) hostCheck(c *gin.Context) {
+	var req struct {
+		Protocol string `json:"protocol"`
+		Port     int    `json:"port"`
+		Listen   string `json:"listen"`
+		Tag      string `json:"tag"`
+		Settings string `json:"settings"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		jsonObj(c, gin.H{"status": "refused", "msg": "invalid host check"}, nil)
+		return
+	}
+	err := (&service.InboundService{}).CheckLucxHostLocal(&model.Inbound{
+		Protocol: model.Protocol(req.Protocol),
+		Port:     req.Port,
+		Listen:   req.Listen,
+		Tag:      req.Tag,
+		Settings: req.Settings,
+	})
+	if err != nil {
+		jsonObj(c, gin.H{"status": "refused", "msg": clipHostMsg(err.Error())}, nil)
+		return
+	}
+	jsonObj(c, gin.H{"status": "ok"}, nil)
+}
+
+// restartXrayIfNeeded regenerates Xray config when the tunnel SOCKS bridge
+// must be added/moved/dropped. Force-restart (not the deferred flag) so the
+// bridge is live before the caller returns.
 func (a *TunnelController) restartXrayIfNeeded(need bool) {
 	if !need {
 		return
@@ -107,6 +152,8 @@ func (a *TunnelController) restartXrayIfNeeded(need bool) {
 }
 
 func (a *TunnelController) initRouter(g *gin.RouterGroup) {
+	g.POST("/hostCheck", a.hostCheck)
+
 	naive := g.Group("/naive")
 	naive.GET("/status", a.status)
 	naive.GET("/config", a.getConfig)

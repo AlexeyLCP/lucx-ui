@@ -1435,6 +1435,14 @@ export const sections: readonly Section[] = [
         ],
       },
       {
+        method: 'POST',
+        path: '/panel/api/tunnel/hostCheck',
+        summary:
+          'Read-only check that a tproxy, cover, anytls, or trusttunnel inbound can run on this host (certificate, site directory, ports). The master calls it on a node instead of opening those paths locally. Returns status ok or refused; never file contents. LucX-UI only.',
+        body: '{\n  "protocol": "tproxy",\n  "port": 8443,\n  "listen": "",\n  "tag": "tg-1",\n  "settings": "{\\"hostname\\":\\"node.example.com\\",\\"siteSource\\":\\"upstream\\",\\"siteUpstream\\":\\"http://127.0.0.1:8080\\",\\"carrierMode\\":\\"https\\",\\"secret\\":\\"00112233445566778899aabbccddeeff\\"}"\n}',
+        response: '{\n  "success": true,\n  "obj": {\n    "status": "ok"\n  }\n}',
+      },
+      {
         method: 'GET',
         path: '/panel/api/tunnel/tproxy/status',
         summary:

@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -251,12 +250,12 @@ func validatePEMCert(label, certFile, keyFile, hostname string) error {
 	if certFile == "" || keyFile == "" {
 		return fmt.Errorf("%s: no TLS certificate — issue a domain certificate (x-ui console menu → SSL) or provide cert/key paths", label)
 	}
-	certPEM, err := os.ReadFile(certFile)
+	certPEM, err := readRegularFile(certFile, maxCertFileBytes)
 	if err != nil {
-		return fmt.Errorf("%s: read certificate %s: %w", label, certFile, err)
+		return fmt.Errorf("%s: read certificate: %w", label, err)
 	}
-	if _, err := os.Stat(keyFile); err != nil {
-		return fmt.Errorf("%s: read key %s: %w", label, keyFile, err)
+	if _, err := readRegularFile(keyFile, maxCertFileBytes); err != nil {
+		return fmt.Errorf("%s: read key: %w", label, err)
 	}
 	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
 		return fmt.Errorf("%s: certificate/key pair invalid: %w", label, err)
@@ -286,7 +285,7 @@ func validatePEMCert(label, certFile, keyFile, hostname string) error {
 // CertFileHash returns sha256 of the cert file content (fingerprint material
 // so ACME renewal restarts the endpoint), or "" when unreadable.
 func CertFileHash(certFile string) string {
-	b, err := os.ReadFile(certFile)
+	b, err := readRegularFile(certFile, maxCertFileBytes)
 	if err != nil {
 		return ""
 	}

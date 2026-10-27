@@ -1,5 +1,25 @@
 # LucX-UI — Прогресс
 
+## lucx.318 - node host check for sidecar certs (#158) (2026-10-27)
+
+Master no longer opens cert, key, or site paths for a node-assigned tproxy,
+cover, anytls, or trusttunnel inbound. It asks the node via
+`POST /panel/api/tunnel/hostCheck` (node-sync allowlist). Refusal blocks the
+save with the node name. Old node, offline, or timeout: save proceeds with a
+log warning, not a check against the master's files. Master pushes
+(`FromNodeSync`) skip cert/site reads; TrustTunnel port conflicts skip node
+inbounds on the master. Explicit cert and site paths must be absolute, with
+no `..` or control characters, and cert reads are capped at 1 MiB regular
+files. Tag `v3.10.2-lucx.318` also carries untagged lucx.317 (Keenetic start
+without nohup). lucxVersion: lucx.318.
+
+Files: `internal/lucx/tunnel/certpath.go`, `trusttunnel.go`, `tproxy_site.go`,
+`internal/web/service/inbound_lucx.go`, `internal/web/controller/tunnel.go`,
+`api.go`, `runtime/remote.go`, `node_contract_test.go`, `endpoints.ts`,
+`frontend/public/openapi.json`, `internal/config/config.go`.
+Tests: `go test ./internal/lucx/tunnel/`, host-check service tests,
+`TestMasterNodeContract`, `TestRouteRegistryContract`.
+
 ## lucx.317 - Keenetic wrapper: foreground bash job instead of nohup (2026-10-25)
 
 First real Keenetic run (tester Igor, arm64): deps + tarball + checksum +

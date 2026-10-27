@@ -23,7 +23,14 @@ func RequireIndexHTML(dir string) error {
 	if dir == "" {
 		return errors.New("tproxy: site directory is empty")
 	}
-	st, err := os.Stat(filepath.Join(dir, "index.html"))
+	if err := rejectLocalPath(dir); err != nil {
+		return errors.New("tproxy: site directory must be an absolute path without ..")
+	}
+	index := filepath.Join(dir, "index.html")
+	if !strings.HasPrefix(filepath.Clean(index), filepath.Clean(dir)+string(os.PathSeparator)) {
+		return errors.New("tproxy: site directory must be an absolute path without ..")
+	}
+	st, err := os.Stat(index)
 	if err != nil || st.IsDir() {
 		return errors.New("tproxy: site needs index.html")
 	}

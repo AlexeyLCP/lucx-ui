@@ -1005,3 +1005,52 @@ func (r *Remote) FetchClientIpsByGuid(ctx context.Context) (map[string]map[strin
 	}
 	return out, nil
 }
+
+// LUCX-HOOK: ask the node to check cert, site, and port for a node-assigned inbound.
+// The master must not open those paths itself.
+
+// HostCheckStatus is the node's read-only answer. Refused blocks the save.
+// A transport error means the node could not be asked (old build, offline).
+type HostCheckStatus struct {
+	Refused bool
+	Msg     string
+}
+
+func (r *Remote) HostCheck(ctx context.Context, ib *model.Inbound) (HostCheckStatus, error) {
+	if ib == nil {
+		return HostCheckStatus{}, errors.New("host check: nil inbound")
+	}
+	tag := ib.Tag
+	if r.node != nil {
+		tag = stripNodeInboundTagPrefix(r.node.Id, tag)
+	}
+	env, err := r.do(ctx, http.MethodPost, "panel/api/tunnel/hostCheck", map[string]any{
+		"protocol": string(ib.Protocol),
+		"port":     ib.Port,
+		"listen":   ib.Listen,
+		"tag":      tag,
+		"settings": ib.Settings,
+	})
+	if err != nil {
+		return HostCheckStatus{}, err
+	}
+	var st struct {
+		Status string `json:"status"`
+		Msg    string `json:"msg"`
+	}
+	if len(env.Obj) > 0 {
+		if err := json.Unmarshal(env.Obj, &st); err != nil {
+			return HostCheckStatus{}, fmt.Errorf("decode host check: %w", err)
+		}
+	}
+	switch st.Status {
+	case "ok":
+		return HostCheckStatus{}, nil
+	case "refused":
+		return HostCheckStatus{Refused: true, Msg: st.Msg}, nil
+	default:
+		return HostCheckStatus{}, fmt.Errorf("host check status %q", st.Status)
+	}
+}
+
+// END LUCX-HOOK

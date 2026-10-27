@@ -14,6 +14,7 @@ import (
 	"net"
 	"net/netip"
 	"strings"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
@@ -24,6 +25,7 @@ import (
 	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/runtime"
 )
 
 // inboundAwgHints returns the AWG obfuscation block as it should appear in a
@@ -726,6 +728,92 @@ func (s *InboundService) normalizeAnytlsXrayPort(inbound *model.Inbound, oldSett
 	return s.normalizeSidecarXrayPort(inbound, oldSettings, model.Anytls, "anytls")
 }
 
+func lucxHostChecked(p model.Protocol) bool {
+	switch p {
+	case model.Tproxy, model.Cover, model.Anytls, model.TrustTunnel:
+		return true
+	}
+	return false
+}
+
+// skipLucxHostFiles is true when this process must not open cert, key, or site
+// paths. A node inbound's paths belong to the node; a master push was already
+// checked there (or the node is too old to ask).
+func (s *InboundService) skipLucxHostFiles(inbound *model.Inbound) bool {
+	if s != nil && s.FromNodeSync {
+		return true
+	}
+	return inbound != nil && inbound.NodeID != nil
+}
+
+func (s *InboundService) checkLucxHostOnNode(inbound *model.Inbound) error {
+	if s == nil || s.FromNodeSync || inbound == nil || inbound.NodeID == nil || !lucxHostChecked(inbound.Protocol) {
+		return nil
+	}
+	id := *inbound.NodeID
+	name := fmt.Sprintf("node %d", id)
+	n, err := (&NodeService{}).GetById(id)
+	if err == nil && n != nil && strings.TrimSpace(n.Name) != "" {
+		name = n.Name
+	}
+	if err != nil || n == nil || !n.Enable {
+		logger.Warningf("lucx: %s host check skipped (node unavailable): %v", name, err)
+		return nil
+	}
+	mgr := runtime.GetManager()
+	if mgr == nil {
+		logger.Warningf("lucx: %s host check skipped (runtime manager unavailable)", name)
+		return nil
+	}
+	remote, err := mgr.RemoteFor(n)
+	if err != nil {
+		logger.Warningf("lucx: %s host check skipped: %v", name, err)
+		return nil
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	st, err := remote.HostCheck(ctx, inbound)
+	if err != nil {
+		// Old node, offline, or timeout. Do not fall back to this host's files.
+		logger.Warningf("lucx: %s host check unavailable, saving without host verification: %v", name, err)
+		return nil
+	}
+	if st.Refused {
+		msg := st.Msg
+		if msg == "" {
+			msg = "host check refused"
+		}
+		return common.NewErrorf("%s: %s", name, msg)
+	}
+	return nil
+}
+
+// CheckLucxHostLocal runs the host-dependent checks on this machine. The node
+// exposes it through POST /panel/api/tunnel/hostCheck; the master must not call
+// it for a node-assigned inbound.
+func (s *InboundService) CheckLucxHostLocal(inbound *model.Inbound) error {
+	if inbound == nil {
+		return nil
+	}
+	switch inbound.Protocol {
+	case model.TrustTunnel:
+		if err := s.checkTrustTunnelPortConflict(inbound, inbound.Id); err != nil {
+			return err
+		}
+		return s.validateTrustTunnelCert(inbound)
+	case model.Anytls:
+		return s.validateAnytlsCert(inbound)
+	case model.Tproxy:
+		return s.validateTproxySettings(inbound)
+	case model.Cover:
+		if err := s.validateCoverSettings(inbound); err != nil {
+			return err
+		}
+		return s.checkSingleCover(inbound, inbound.Id)
+	}
+	return nil
+}
+
 func (s *InboundService) validateAnytlsCert(inbound *model.Inbound) error {
 	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
 	if !ok {
@@ -733,6 +821,9 @@ func (s *InboundService) validateAnytlsCert(inbound *model.Inbound) error {
 	}
 	if err := cfg.Validate(); err != nil {
 		return err
+	}
+	if s.skipLucxHostFiles(inbound) {
+		return nil
 	}
 	panelCert, panelKey := panelCertFiles()
 	return cfg.ValidateCert(panelCert, panelKey)
@@ -829,6 +920,9 @@ func (s *InboundService) validateCoverSettings(inbound *model.Inbound) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	if s.skipLucxHostFiles(inbound) {
+		return nil
+	}
 	if cfg.SiteSource == "dir" {
 		if err := tunnel.RequireIndexHTML(strings.TrimSpace(cfg.SiteDir)); err != nil {
 			return err
@@ -851,6 +945,9 @@ func (s *InboundService) checkSingleCover(inbound *model.Inbound, ignoreId int) 
 	}
 	for _, o := range inbounds {
 		if o == nil || o.Protocol != model.Cover || o.NodeID != nil || o.Id == ignoreId {
+			continue
+		}
+		if inbound.Tag != "" && o.Tag == inbound.Tag {
 			continue
 		}
 		return common.NewError("cover: only one cover inbound per host (:80 and :443)")
@@ -898,6 +995,9 @@ func (s *InboundService) validateTproxySettings(inbound *model.Inbound) error {
 	}
 	if err := cfg.Validate(); err != nil {
 		return err
+	}
+	if s.skipLucxHostFiles(inbound) {
+		return nil
 	}
 	if cfg.SiteSource == "dir" {
 		if err := tunnel.RequireIndexHTML(strings.TrimSpace(cfg.SiteDir)); err != nil {
@@ -1058,6 +1158,9 @@ func (s *InboundService) validateTrustTunnelCert(inbound *model.Inbound) error {
 	if err := cfg.Validate(); err != nil {
 		return err
 	}
+	if s.skipLucxHostFiles(inbound) {
+		return nil
+	}
 	panelCert, panelKey := panelCertFiles()
 	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
 	return tunnel.ValidateCertFiles(certFile, keyFile, cfg.Hostname)
@@ -1101,6 +1204,9 @@ func (s *InboundService) normalizeTrustTunnelMetricsPort(inbound *model.Inbound,
 // local inbound (TrustTunnel listens TCP+UDP/QUIC on one port, so both
 // directions collide) and the panel's own HTTPS port.
 func (s *InboundService) checkTrustTunnelPortConflict(inbound *model.Inbound, ignoreId int) error {
+	if inbound == nil || inbound.NodeID != nil {
+		return nil
+	}
 	cfg, ok := tunnel.TrustTunnelConfigFromInbound(inbound)
 	if !ok {
 		return nil
@@ -1118,6 +1224,9 @@ func (s *InboundService) checkTrustTunnelPortConflict(inbound *model.Inbound, ig
 	}
 	for _, other := range inbounds {
 		if other == nil || other.Id == ignoreId || other.Id == inbound.Id || other.NodeID != nil {
+			continue
+		}
+		if inbound.Tag != "" && other.Tag == inbound.Tag {
 			continue
 		}
 		for _, r := range inboundListenRanges(other) {
@@ -1530,6 +1639,9 @@ func (s *InboundService) normalizeLucxSidecarsOnCreate(inbound *model.Inbound) e
 			}
 		}
 	}
+	if err := s.checkLucxHostOnNode(inbound); err != nil {
+		return err
+	}
 	s.ensureNodeAuthSeed(inbound)
 	return nil
 }
@@ -1637,6 +1749,9 @@ func (s *InboundService) normalizeLucxSidecarsOnUpdate(inbound, oldInbound *mode
 	}
 	inbound.Settings = tunnel.PreserveAuthSeed(oldInbound.Settings, inbound.Settings)
 	inbound.Settings = tunnel.PreserveOmittedClients(oldInbound.Settings, inbound.Settings)
+	if err := s.checkLucxHostOnNode(inbound); err != nil {
+		return err
+	}
 	s.ensureNodeAuthSeed(inbound)
 	return nil
 }

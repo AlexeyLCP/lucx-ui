@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -322,6 +323,27 @@ func TestMasterNodeContract(t *testing.T) {
 						t.Fatalf("node clients = %v, want c2 gone", got)
 					}
 				}},
+				// LUCX-HOOK: host check contract (admin and node-sync, ok and refusal)
+				{"host check ok and refusal", []string{"HostCheck"}, func() error {
+					okIB := &model.Inbound{
+						Protocol: model.Tproxy, Port: 8443,
+						Settings: `{"hostname":"n.example.com","port":8443,"secret":"00112233445566778899aabbccddeeff","siteSource":"upstream","siteUpstream":"http://127.0.0.1:9","carrierMode":"https"}`,
+					}
+					st, err := master.HostCheck(ctx, okIB)
+					if err != nil || st.Refused {
+						return fmt.Errorf("ok host check: status=%+v err=%v", st, err)
+					}
+					bad := &model.Inbound{
+						Protocol: model.Tproxy, Port: 8443,
+						Settings: `{"hostname":"n.example.com","port":8443,"secret":"00112233445566778899aabbccddeeff","siteSource":"dir","siteDir":"/var/lucx/../../etc","carrierMode":"https"}`,
+					}
+					st, err = master.HostCheck(ctx, bad)
+					if err != nil || !st.Refused || st.Msg == "" {
+						return fmt.Errorf("refused host check: status=%+v err=%v", st, err)
+					}
+					return nil
+				}, nil},
+				// END LUCX-HOOK
 				{"DelInbound removes the inbound", []string{"DelInbound"}, func() error {
 					return master.DelInbound(ctx, masterInbound("updated", false))
 				}, func(t *testing.T) {
