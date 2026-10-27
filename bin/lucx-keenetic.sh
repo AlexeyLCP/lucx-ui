@@ -65,7 +65,7 @@ check_architecture() {
 install_base() {
     check_architecture
     logmsg "Installing Entware dependencies..."
-    opkg update && opkg install curl tar wget-ssl ca-bundle ca-certificates \
+    opkg update && opkg install bash curl tar wget-ssl ca-bundle ca-certificates \
         sqlite3-cli jq openssl-util libopenssl ip-full wireguard-tools iptables
     mkdir -p "$DIR_DB" "$DIR_CONFIG" "$DIR_CERT" "$DIR_ENTWARE/tmp/tar" \
         "$XUI_LOG_FOLDER" "$DIR_ENTWARE/var/log"
@@ -152,12 +152,12 @@ install() {
     mv "$DIR_TMP/tar/x-ui/x-ui" "$DIR_TMP/tar/x-ui/$NAME_APP"
     chmod 755 "$DIR_TMP/tar/x-ui/$NAME_APP"
     mkdir -p "$DIR_PROJECT"
-    # Persist this wrapper itself so bin/x-ui + init.d symlinks survive.
-    if [[ -f "$0" && "$(readlink -f "$0")" != "$DIR_PROJECT_SHELL_SCRIPTS" ]]; then
-        cp -f "$0" "$DIR_PROJECT_SHELL_SCRIPTS"
-    fi
+    # The tarball ships upstream x-ui.sh (#!/bin/bash, systemd). Copying it
+    # over the wrapper is why /opt/bin/x-ui and init.d/S99x-ui did nothing.
+    rm -f "$DIR_TMP/tar/x-ui/x-ui.sh" "$DIR_TMP/tar/x-ui"/x-ui.service*
     cp -rf "$DIR_TMP/tar/x-ui/"* "$DIR_PROJECT/"
     rm -rf "$DIR_TMP/tar" "$DIR_TMP/x-ui-lucx.tar.gz" "$DIR_TMP/x-ui-lucx.tar.gz.sha256"
+    install_wrapper || { logmsg "ERR: could not install the control script."; return 1; }
     if [[ ! -d "$XUI_BIN_FOLDER" ]]; then
         logmsg "ERR: $XUI_BIN_FOLDER not found after unpack."; return 1
     fi
@@ -169,16 +169,59 @@ install() {
         migration
         [[ -f "$DIR_PROJECT/.geo" ]] && install_geodata
     fi
-    chmod 755 "$DIR_PROJECT_SHELL_SCRIPTS"
     if [[ -f "$DB" ]]; then chmod 600 "$DB"; fi
     enable
     start
-    logmsg "Install finished. Control: x-ui"
+    logmsg "Install finished. Control: /opt/bin/x-ui"
+    storage
     view_panel
 }
 
+# install_wrapper is the Entware control script. The release tarball's
+# x-ui.sh is the Linux installer and must not stay at this path.
+install_wrapper() {
+    mkdir -p "$DIR_PROJECT" "$DIR_TMP"
+    local tmp="$DIR_TMP/lucx-keenetic.sh.new"
+    local url="https://raw.githubusercontent.com/${LUCX_REPO}/main/bin/lucx-keenetic.sh"
+    if ! curl -fsL --retry 2 -o "$tmp" "$url"; then
+        local src="${BASH_SOURCE[0]:-$0}"
+        tr -d '\r' < "$src" > "$tmp" || return 1
+    else
+        tr -d '\r' < "$tmp" > "$tmp.lf" && mv -f "$tmp.lf" "$tmp"
+    fi
+    chmod 755 "$tmp"
+    mv -f "$tmp" "$DIR_PROJECT_SHELL_SCRIPTS"
+}
+
+# kill_install_procs stops the panel and every child still mapped from the
+# install dir. busybox killall matches comm (15 chars), not a path, and
+# Entware has no pkill — a path pkill left xui/xray in RAM after uninstall.
+kill_install_procs() {
+    local sig=${1:-TERM}
+    killall -"$sig" xui 2>/dev/null || true
+    local d pid exe
+    for d in /proc/[0-9]*; do
+        pid=${d#/proc/}
+        exe=$(readlink "$d/exe" 2>/dev/null) || continue
+        case "$exe" in
+            "$DIR_PROJECT"/*|"$DIR_PROJECT"/*" (deleted)")
+                kill -"$sig" "$pid" 2>/dev/null || true
+                ;;
+        esac
+    done
+}
+
+storage() {
+    echo "Firmware overlay (/) — not the Entware disk:"
+    df -h / 2>/dev/null | tail -1
+    echo "Entware volume (/opt):"
+    df -h /opt 2>/dev/null | tail -1
+}
+
 stop() {
-    pkill -f "$DIR_PROJECT/$NAME_APP" 2>/dev/null && sleep 1
+    kill_install_procs TERM
+    sleep 1
+    kill_install_procs KILL
     logmsg "Panel stopped."
 }
 
@@ -208,7 +251,10 @@ check_status() {
     fi
 }
 
-status() { echo "Panel: $(check_status)"; }
+status() {
+    echo "Panel: $(check_status)"
+    storage
+}
 
 view_panel() {
     local server_ip existing_port existing_path
@@ -249,7 +295,12 @@ uninstall() {
     disable
     rm -f "$DIR_INSTALL_LNK"
     rm -rf "$DIR_PROJECT"
+    # Files are gone; anything still mapped shows as "(deleted)" and stays in RAM.
+    kill_install_procs TERM
+    sleep 1
+    kill_install_procs KILL
     logmsg "Uninstalled."
+    logmsg "If a process is still in RAM: killall xui; for d in /proc/[0-9]*; do exe=\$(readlink \$d/exe); case \$exe in ${DIR_PROJECT}/*) kill \${d#/proc/};; esac; done"
 }
 
 awg_note() {

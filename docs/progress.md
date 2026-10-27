@@ -1,5 +1,29 @@
 # LucX-UI — Прогресс
 
+## lucx.319 - Minecraft preset + Keenetic wrapper repairs (2026-10-27)
+
+Minecraft Bedrock preset follows generatorM (balanced): RakNet I2 is an
+MTU-1280 probe, I3 stores the server IPv4 bitwise-NOT and the same client
+GUID as I1, I4/I5 are frame-sets, v2 headers are 5/6/28/128-141 (H2 is the
+server OCR1 Reply, not the client's OCR2). v3 timings are the published
+balanced ranges. RandomTrailers stays off (current GUI clients drop it);
+S1-S4 stay equal so turning that switch on does not break type detection.
+Existing inbounds are not rewritten — only a new generate.
+
+Keenetic: the release tarball's Linux `x-ui.sh` was copied over the Entware
+wrapper, so `/opt/bin/x-ui`, `S99x-ui` and `/opt/etc/x-ui/x-ui.sh` were the
+systemd script (`#!/bin/bash`, missing on the router). Unpack now drops that
+script and the unit files, then installs the wrapper. `stop`/`uninstall`
+kill every process still mapped from `/opt/etc/x-ui`, including `(deleted)`
+leftovers in RAM (busybox `killall` does not take a path, and Entware has no
+`pkill`). Dashboard disk on Entware reads the OPKG volume (NDMS RCI, else
+`/opt`), not the firmware overlay at `/`.
+
+Files: `internal/awg/cps/session_bedrock.go`, `params.go`, tests,
+`internal/lucx/keenetic/disk.go`, `internal/web/service/server.go`,
+`bin/lucx-keenetic.sh`, install-keenetic docs, `internal/config/config.go`.
+Tests: `go test ./internal/awg/cps/ ./internal/lucx/keenetic/`.
+
 ## lucx.318 - node host check for sidecar certs (#158) (2026-10-27)
 
 Master no longer opens cert, key, or site paths for a node-assigned tproxy,
@@ -40,7 +64,7 @@ Private vulnerability reporting enabled on `AlexeyLCP/lucx-ui` (Security tab).
 LUCX-HOOK blocks, LucX `bin/` scripts) → private channel on this repo;
 vanilla 3x-ui code → upstream policy (ho3ein.sanaei@gmail.com). Prompted by a
 reporter outside the repo who found the fork's SECURITY.md pointed only at the
-upstream contact. File edited locally, not yet committed/pushed.
+upstream contact. Ships with lucx.319 (was local-only).
 
 New rule (push + release gates for private reports): `.agents/06-workflow.md`
 step 11.5 + release step 0b + `bin/pre-push` hook now also check repo private

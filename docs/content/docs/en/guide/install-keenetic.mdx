@@ -41,10 +41,20 @@ The script:
 - unpacks to `/opt/etc/x-ui` (SQLite DB at `/opt/etc/x-ui/db/x-ui.db`),
 - fetches Xray geodata (`geoip.dat` / `geosite.dat`),
 - asks for the panel port, base path, listen IP, and admin credentials,
-- enables autostart via Entware `/opt/etc/init.d/S99xui` and starts the panel.
+- enables autostart via Entware `/opt/etc/init.d/S99x-ui` and starts the panel.
+  The control command is `/opt/bin/x-ui` (same script). Keenetic SSH often
+  does not have `/opt/bin` on `PATH` — use the full path.
 
 Re-run `bash lucx-keenetic.sh` at any time for the interactive menu
-(`start/stop/restart/status/update/uninstall`).
+(`start/stop/restart/status/update/uninstall`). `status` prints both the
+firmware overlay (`/`, a small RAM disk) and the Entware volume (`/opt`).
+The panel dashboard follows `/opt` (or the router's OPKG disk figure) from
+lucx.319; older builds showed `/` and looked like a wrong ROM size.
+
+If `/opt/etc/x-ui/x-ui.sh` or `/opt/etc/init.d/S99x-ui` fails immediately,
+the Linux `x-ui.sh` from the release tarball overwrote the wrapper. Download
+this script again and run `install` — it puts the wrapper back and removes
+the systemd unit files.
 
 To pin a specific release instead of the latest:
 
@@ -93,7 +103,9 @@ exports use the `phobos://` link format.
 
 ## Limits on routers
 
-- No systemd — autostart goes through Entware `init.d`;
+- No systemd — autostart goes through Entware `init.d`. `uninstall` kills
+  the panel and every process still mapped from `/opt/etc/x-ui`, including
+  ones left in RAM after the files are deleted.
 - no fail2ban — IP-limit feature has no ban backend here;
 - no ACME automation (`acme.sh` is not installed) — use manual/uploaded TLS
   certificates or plain HTTP on the LAN;

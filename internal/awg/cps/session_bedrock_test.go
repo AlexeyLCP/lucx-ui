@@ -40,11 +40,11 @@ func TestGenerateAWGParams_Minecraft(t *testing.T) {
 			var want string
 			switch version {
 			case "1.5":
-				want = "5,7,28,132"
+				want = "5,6,28,128"
 			case "3", "3.1":
 				want = "1,2,3,4"
 			default:
-				want = "5,7,28,132-143"
+				want = "5,6,28,128-141"
 			}
 			got := strings.Join([]string{p.H1, p.H2, p.H3, p.H4}, ",")
 			if got != want {
@@ -61,29 +61,34 @@ func TestGenerateAWGParams_Minecraft(t *testing.T) {
 	}
 }
 
-// TestGenerateMinecraftCPS_Content checks the RakNet literals: the offline
-// magic in I1/I2, the endpoint/port/MTU encoding in I3, and the game-packet
-// shape of I4/I5 (ID 0x84, 3-byte sequence, payload span).
+// TestGenerateMinecraftCPS_Content checks the RakNet literals from generatorM:
+// shared client GUID, bitwise-NOT IPv4 in I3, MTU-sized I2, frame-set I4/I5.
 func TestGenerateMinecraftCPS_Content(t *testing.T) {
 	SetRand(crand.New(crand.NewSource(11)))
 	r, err := GenerateMinecraftCPS("127.0.0.1", 19133, false, kernelBudget())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(r.I1, "<b 0x01><r 8><b 0x"+bedrockMagicHex+"><r 8>") {
+	if !strings.HasPrefix(r.I1, "<b 0x01><r 8><b 0x"+bedrockMagicHex+"><b 0x") {
 		t.Fatalf("I1 not a RakNet unconnected ping: %q", r.I1)
 	}
-	if !strings.HasPrefix(r.I2, "<b 0x05><b 0x"+bedrockMagicHex+"><b 0x0b><b 0x"+strings.Repeat("00", 28)+">") {
-		t.Fatalf("I2 not an open-connection request 1: %q", r.I2)
+	guid := strings.TrimSuffix(strings.TrimPrefix(r.I1, "<b 0x01><r 8><b 0x"+bedrockMagicHex+"><b 0x"), ">")
+	if len(guid) != 16 {
+		t.Fatalf("I1 GUID = %q, want 8 bytes", guid)
 	}
-	// 127.0.0.1:19133, AF_INET 04, MTU 1400 (0x0578).
-	if !strings.HasPrefix(r.I3, "<b 0x07><b 0x"+bedrockMagicHex+"><b 0x047f0000014abd0578><r 8>") {
-		t.Fatalf("I3 endpoint not encoded: %q", r.I3)
+	if !strings.HasPrefix(r.I2, "<b 0x05><b 0x"+bedrockMagicHex+"><b 0x0b><b 0x"+strings.Repeat("00", 64)) {
+		t.Fatalf("I2 not an MTU-probe open-connection request 1: %q", r.I2)
 	}
-	for _, k := range []string{r.I4, r.I5} {
-		if !strings.HasPrefix(k, "<b 0x84><r 3><r ") {
-			t.Fatalf("game packet shape wrong: %q", k)
-		}
+	// ~127.0.0.1 = 80fffffe, port 19133 = 4abd, decoy MTU 1280 = 0500.
+	wantI3 := "<b 0x07><b 0x" + bedrockMagicHex + "><b 0x04><b 0x80fffffe><b 0x4abd><b 0x0500><b 0x" + guid + ">"
+	if r.I3 != wantI3 {
+		t.Fatalf("I3 = %q, want %q", r.I3, wantI3)
+	}
+	if !strings.HasPrefix(r.I4, "<b 0x84><b 0x000000><b 0x00><b 0x") || !strings.Contains(r.I4, "><r ") {
+		t.Fatalf("I4 frame-set shape wrong: %q", r.I4)
+	}
+	if !strings.HasPrefix(r.I5, "<b 0x84><b 0x010000><b 0x00><b 0x") {
+		t.Fatalf("I5 frame-set shape wrong: %q", r.I5)
 	}
 	if r.IBytes() > kernelBudget() {
 		t.Fatalf("I1-I5 exceed the netlink budget: %d > %d", r.IBytes(), kernelBudget())
@@ -115,6 +120,15 @@ func TestSanitizeBedrockEndpoint(t *testing.T) {
 	}
 	if _, port := sanitizeBedrockEndpoint("1.2.3.4", 70000); port != 19132 {
 		t.Fatalf("out-of-range port must fall back to 19132, got %d", port)
+	}
+}
+
+func TestGenerateAwg3DeviceTimings_MinecraftBalanced(t *testing.T) {
+	d := GenerateAwg3DeviceTimings(ObfMinecraft)
+	if d.ContentPaddingAddition != "16-128" || d.RekeyAfterTime != "120-150" ||
+		d.RekeyTimeout != "5-8" || d.RejectAfterTime != "190-240" ||
+		d.KeepaliveTimeout != "10-20" || d.MaxHandshakeAttempts != "8-12" {
+		t.Fatalf("minecraft timings = %+v, want generatorM balanced", d)
 	}
 }
 

@@ -16,6 +16,9 @@
 #   3. Открытые PR и issues на AlexeyLCP/lucx-ui (AGENTS.md шаг 11.5):
 #      чужой необработанный PR — БЛОКИРУЕТ пуш (можно затереть чужую работу),
 #      issues — только предупреждение.
+#   4. Приватные advisory (GitHub PVR, шаг 11.5 + "REQUIRED before tagging
+#      0b" в 06-workflow): предупреждение — фикс для advisory приоритетнее
+#      фич; ЖЁСТКИЙ гейт — перед тегом релиза (см. 06-workflow).
 #
 # Обойти в крайнем случае: git push --no-verify
 # =============================================================================
@@ -60,6 +63,12 @@ if command -v gh >/dev/null 2>&1; then
     fi
     if [ "$NPRS" -eq 0 ] && [ "$NISSUES" -eq 0 ]; then
         echo -e "${GREEN}[pre-push] PR/issues чисто${NC}"
+    fi
+    ADV=$(gh api "repos/$REPO/security-advisories" --jq '[.[] | select(.state != "published")]' 2>/dev/null || echo "[]")
+    NADV=$(echo "$ADV" | grep -c '"ghsa_id"' || true)
+    if [ "$NADV" -gt 0 ]; then
+        echo -e "${YELLOW}[pre-push] открыты приватные advisory ($NADV) — фикс приоритетнее фич: (шаг 11.5, тег — только с фиксом!):${NC}"
+        echo "$ADV" | grep -oE '"ghsa_id":"[^"]*"|"state":"[^"]*"|"summary":"[^"]*"' | sed 's/"ghsa_id":/  /; s/"state":/  /; s/"summary"://; s/"//g'
     fi
 else
     echo -e "${YELLOW}[pre-push] gh CLI не найден — проверка PR/issues пропущена${NC}"

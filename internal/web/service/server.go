@@ -38,6 +38,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/keenetic" // LUCX-HOOK: Entware OPKG volume, not the firmware overlay
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/netsafe"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/sys"
@@ -607,13 +608,18 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 	}
 
 	// Disk stats
-	diskInfo, err := disk.Usage("/")
-	if err != nil {
+	// LUCX-HOOK: Keenetic Entware — statfs("/") is the firmware RAM overlay,
+	// not the OPKG volume (USB or internal ROM).
+	if used, total, ok := keenetic.OPKGUsage(); ok {
+		status.Disk.Current = used
+		status.Disk.Total = total
+	} else if diskInfo, err := disk.Usage("/"); err != nil {
 		logger.Warning("get disk usage failed:", err)
 	} else {
 		status.Disk.Current = diskInfo.Used
 		status.Disk.Total = diskInfo.Total
 	}
+	// END LUCX-HOOK
 
 	diskIOStats, err := disk.IOCounters()
 	if err != nil {

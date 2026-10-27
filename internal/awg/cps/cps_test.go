@@ -516,7 +516,7 @@ func parseAwg3Range(t *testing.T, s string) (int, int) {
 // KeepaliveTimeout+RekeyTimeout, RekeyAfterTime below RejectAfterTime,
 // MaxHandshakeAttempts >= 1).
 func TestGenerateAwg3DeviceTimings_FormatAndInvariants(t *testing.T) {
-	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro, ObfPremium} {
+	for _, prof := range []ObfProfile{ObfLite, ObfStandard, ObfPro, ObfPremium, ObfMinecraft} {
 		prof := prof
 		t.Run(string(prof), func(t *testing.T) {
 			SetRand(crand.New(crand.NewSource(42)))

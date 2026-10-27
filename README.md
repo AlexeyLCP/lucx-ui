@@ -255,7 +255,7 @@ curl -O https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/bin/lucx-keenet
 bash lucx-keenetic.sh install
 ```
 
-Обёртка адаптирована из скрипта [x-ui-keenetic](https://gitlab.com/own-open-source/x-ui-keenetic) (автор [tommilevs](https://gitlab.com/tommilevs), GPL-3.0) — спасибо ему. Детали и ограничения — в [мануале](docs/content/docs/en/guide/install-keenetic.mdx). Не запускайте на роутере `x-ui update` / `x-ui install-awg` из панели — они рассчитаны на обычный Linux-сервер (systemd/DKMS); обновляйтесь через `bash lucx-keenetic.sh update`.
+Обёртка адаптирована из скрипта [x-ui-keenetic](https://gitlab.com/own-open-source/x-ui-keenetic) (автор [tommilevs](https://gitlab.com/tommilevs), GPL-3.0) — спасибо ему. Управление: `/opt/bin/x-ui` (не Linux-скрипт из архива). Детали — в [мануале](docs/content/docs/en/guide/install-keenetic.mdx). Не запускайте на роутере `install-awg` и не подменяйте обёртку апстримным `x-ui.sh`; обновляйтесь через `bash lucx-keenetic.sh update`.
 
 ---
 
@@ -342,7 +342,7 @@ LucX-UI построен на множестве open-source проектов и
 | [Loyalsoldier/v2ray-rules-dat](https://github.com/Loyalsoldier/v2ray-rules-dat), [chocolate4u/Iran-v2ray-rules](https://github.com/chocolate4u/Iran-v2ray-rules), [runetfreedom/russia-v2ray-rules-dat](https://github.com/runetfreedom/russia-v2ray-rules-dat) | Готовые geoip/geosite | Upstream |
 | [pumbaX/awg-multi-script](https://github.com/pumbaX/awg-multi-script), [hoaxisr/awg-manager](https://github.com/hoaxisr/awg-manager) | Вдохновение по AWG ops | — |
 | [own-open-source/x-ui-keenetic](https://gitlab.com/own-open-source/x-ui-keenetic) ([tommilevs](https://gitlab.com/tommilevs)) | Entware-обёртка — основа `bin/lucx-keenetic.sh` (Keenetic) | GPL-3.0 |
-| [phenomenonRT](https://github.com/phenomenonRT), [генератор мимикрии phenomenonrt.github.io](https://phenomenonrt.github.io) | Пресет AWG под Minecraft Bedrock (RakNet): профили `minecraft` cps | — |
+| [phenomenonRT](https://github.com/phenomenonRT), [генератор мимикрии phenomenonrt.github.io/generatorM](https://phenomenonrt.github.io/generatorM/) | Пресет AWG под Minecraft Bedrock (RakNet): профили `minecraft` cps | — |
 | [bogdanfinn/tls-client](https://github.com/bogdanfinn/tls-client), [refraction-networking/utls](https://github.com/refraction-networking/utls) | Референсы TLS-отпечатков для CPS | — |
 
 </details>
