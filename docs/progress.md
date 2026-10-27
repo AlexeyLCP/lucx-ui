@@ -18,7 +18,8 @@ Files: `internal/lucx/tunnel/certpath.go`, `trusttunnel.go`, `tproxy_site.go`,
 `api.go`, `runtime/remote.go`, `node_contract_test.go`, `endpoints.ts`,
 `frontend/public/openapi.json`, `internal/config/config.go`.
 Tests: `go test ./internal/lucx/tunnel/`, host-check service tests,
-`TestMasterNodeContract`, `TestRouteRegistryContract`.
+`TestMasterNodeContract`, `TestRouteRegistryContract`. Follow-up: contract
+cell returns the node error as-is so errorlint stays quiet.
 
 ## lucx.317 - Keenetic wrapper: foreground bash job instead of nohup (2026-10-25)
 

@@ -2,7 +2,7 @@ package web
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -330,16 +330,22 @@ func TestMasterNodeContract(t *testing.T) {
 						Settings: `{"hostname":"n.example.com","port":8443,"secret":"00112233445566778899aabbccddeeff","siteSource":"upstream","siteUpstream":"http://127.0.0.1:9","carrierMode":"https"}`,
 					}
 					st, err := master.HostCheck(ctx, okIB)
-					if err != nil || st.Refused {
-						return fmt.Errorf("ok host check: status=%+v err=%v", st, err)
+					if err != nil {
+						return err
+					}
+					if st.Refused {
+						return errors.New("ok host check was refused")
 					}
 					bad := &model.Inbound{
 						Protocol: model.Tproxy, Port: 8443,
 						Settings: `{"hostname":"n.example.com","port":8443,"secret":"00112233445566778899aabbccddeeff","siteSource":"dir","siteDir":"/var/lucx/../../etc","carrierMode":"https"}`,
 					}
 					st, err = master.HostCheck(ctx, bad)
-					if err != nil || !st.Refused || st.Msg == "" {
-						return fmt.Errorf("refused host check: status=%+v err=%v", st, err)
+					if err != nil {
+						return err
+					}
+					if !st.Refused || st.Msg == "" {
+						return errors.New("host check did not refuse an unsafe site path")
 					}
 					return nil
 				}, nil},
