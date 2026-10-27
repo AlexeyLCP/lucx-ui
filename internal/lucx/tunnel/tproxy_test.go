@@ -232,6 +232,46 @@ func TestRenderTproxyCaddyfile(t *testing.T) {
 	}
 }
 
+// Regression (lucx.318): the stock XUI_BIN_FOLDER fallback is the relative
+// "bin" (install.sh resolves it against the unit's WorkingDirectory), and the
+// rejectLocalPath gate in RequireIndexHTML then refused every LucX-managed
+// site dir — zip upload died with "zip needs index.html" and reconcile
+// disabled tproxy/cover. Managed dirs must resolve to absolute paths.
+func TestManagedSiteDirsAbsoluteWithRelativeBinFolder(t *testing.T) {
+	t.Setenv("XUI_BIN_FOLDER", "bin")
+	t.Chdir(t.TempDir())
+	if filepath.IsAbs(workDir()) {
+		t.Fatalf("precondition: workDir %q must be relative", workDir())
+	}
+
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create("index.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = w.Write([]byte("<html>ok</html>"))
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	site := TproxySiteDir(85)
+	if !filepath.IsAbs(site) {
+		t.Fatalf("TproxySiteDir %q must be absolute when XUI_BIN_FOLDER is relative", site)
+	}
+	if err := ExtractTproxySiteZip(site, buf.Bytes()); err != nil {
+		t.Fatal(err)
+	}
+	if err := RequireIndexHTML(site); err != nil {
+		t.Fatal(err)
+	}
+
+	cover := CoverSiteDir(85)
+	if !filepath.IsAbs(cover) {
+		t.Fatalf("CoverSiteDir %q must be absolute when XUI_BIN_FOLDER is relative", cover)
+	}
+}
+
 func TestExtractTproxySiteZip(t *testing.T) {
 	dir := t.TempDir()
 	dest := filepath.Join(dir, "site")

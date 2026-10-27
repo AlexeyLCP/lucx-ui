@@ -207,6 +207,17 @@ func workDir() string {
 	return tunnelDir()
 }
 
+// absWorkDir resolves workDir() against the process working directory. The
+// default XUI_BIN_FOLDER is the relative "bin" (install.sh resolves it the
+// same way), so LucX-managed dirs must be absolutized before any
+// rejectLocalPath check such as RequireIndexHTML.
+func absWorkDir() string {
+	if abs, err := filepath.Abs(workDir()); err == nil {
+		return abs
+	}
+	return workDir()
+}
+
 // configPath returns the rendered config file path of one core (legacy single-
 // instance layout used by olcRTC / qWDTT and the pre-inbound global Naive).
 func configPath(n Name) string {

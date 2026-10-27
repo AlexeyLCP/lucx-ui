@@ -26,7 +26,7 @@ func MtproxyKey(id int) string     { return "mtproxy-" + strconv.Itoa(id) }
 func TproxyCaddyKey(id int) string { return "tproxycaddy-" + strconv.Itoa(id) }
 
 func TproxySiteDir(id int) string {
-	return filepath.Join(workDir(), TproxyKey(id)+"-site")
+	return filepath.Join(absWorkDir(), TproxyKey(id)+"-site")
 }
 
 func RemoveTproxySite(id int) {

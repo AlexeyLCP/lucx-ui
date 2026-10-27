@@ -31,7 +31,7 @@ func gatewayPanelRoutes(others []*model.Inbound) []CoverRoute {
 }
 
 func CoverSiteDir(id int) string {
-	return filepath.Join(workDir(), CoverKey(id)+"-site")
+	return filepath.Join(absWorkDir(), CoverKey(id)+"-site")
 }
 
 // defaultDecoyHTML is the nginx welcome page the tester's decoy serves.

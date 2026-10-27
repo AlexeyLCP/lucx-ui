@@ -1,5 +1,24 @@
 # LucX-UI — Прогресс
 
+## lucx.320 - tproxy/cover zip site upload and reconcile broken by relative default bin folder (2026-10-27)
+
+Regression from lucx.318: `rejectLocalPath` in `RequireIndexHTML` requires an
+absolute path, but the stock `XUI_BIN_FOLDER` fallback is the relative `bin`
+(install.sh resolves it against the unit's WorkingDirectory). On servers
+without an absolute env var every LucX-managed site dir
+(`bin/tunnel/tproxy-N-site`) was refused — zip upload failed with
+"tproxy: zip needs index.html" and reconcile logged "site directory must be
+an absolute path without ..", disabling tproxy-85 and cover inbounds.
+
+Fix: managed dirs are absolutized at the source — `absWorkDir()` resolves
+`workDir()` against the process cwd, `TproxySiteDir`/`CoverSiteDir` use it.
+Operator-supplied `siteDir`/`certFile` stay strictly absolute (lucx.318
+intent unchanged).
+
+Files: `internal/lucx/tunnel/tunnel.go`, `tproxy_inbound.go`,
+`cover_inbound.go`, `tproxy_test.go` (regression test with the relative
+`XUI_BIN_FOLDER=bin` fallback).
+
 ## lucx.319 - Minecraft preset + Keenetic wrapper repairs (2026-10-27)
 
 Minecraft Bedrock preset follows generatorM (balanced): RakNet I2 is an
