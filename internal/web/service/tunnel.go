@@ -1986,6 +1986,9 @@ func (s *TunnelService) UploadTproxySite(inboundID int, zipBytes []byte) error {
 	if ib == nil || (ib.Protocol != model.Tproxy && ib.Protocol != model.Cover) {
 		return common.NewError("inbound is not tproxy or cover")
 	}
+	if ib.NodeID != nil {
+		return common.NewError("ZIP site upload for node inbounds is not supported")
+	}
 	dir := tunnel.TproxySiteDir(inboundID)
 	if ib.Protocol == model.Cover {
 		dir = tunnel.CoverSiteDir(inboundID)
@@ -2005,6 +2008,9 @@ func (s *TunnelService) TproxySiteFiles(inboundID int) ([]string, error) {
 	}
 	if ib == nil || (ib.Protocol != model.Tproxy && ib.Protocol != model.Cover) {
 		return nil, common.NewError("inbound is not tproxy or cover")
+	}
+	if ib.NodeID != nil {
+		return nil, common.NewError("ZIP site files for node inbounds are not available on the master")
 	}
 	if ib.Protocol == model.Cover {
 		return tunnel.ListCoverSite(inboundID), nil

@@ -44,6 +44,31 @@ func seedTunnelBlob(t *testing.T, key, value string) {
 	}
 }
 
+func TestNodeTunnelSiteIsNotStoredOnMaster(t *testing.T) {
+	setupTunnelReconcileDB(t)
+	nodeID := 123
+	s := &TunnelService{}
+	for _, protocol := range []model.Protocol{model.Tproxy, model.Cover} {
+		ib := model.Inbound{Protocol: protocol, NodeID: &nodeID, Tag: string(protocol)}
+		if err := database.GetDB().Create(&ib).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := s.UploadTproxySite(ib.Id, []byte("not a zip")); err == nil || !strings.Contains(err.Error(), "node inbounds") {
+			t.Errorf("%s upload: expected node rejection, got %v", protocol, err)
+		}
+		if _, err := s.TproxySiteFiles(ib.Id); err == nil || !strings.Contains(err.Error(), "node inbounds") {
+			t.Errorf("%s listing: expected node rejection, got %v", protocol, err)
+		}
+		local := model.Inbound{Protocol: protocol, Tag: "local-" + string(protocol)}
+		if err := database.GetDB().Create(&local).Error; err != nil {
+			t.Fatal(err)
+		}
+		if err := s.UploadTproxySite(local.Id, []byte("not a zip")); err == nil || strings.Contains(err.Error(), "node inbounds") {
+			t.Errorf("%s local upload: expected ZIP validation, got %v", protocol, err)
+		}
+	}
+}
+
 func TestTunnelBlobMigrated(t *testing.T) {
 	setupTunnelReconcileDB(t)
 	s := &TunnelService{}

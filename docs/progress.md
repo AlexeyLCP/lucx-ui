@@ -1,5 +1,12 @@
 # LucX-UI — Прогресс
 
+## Unreleased - reject node ZIP site uploads (#160)
+
+Cover and tproxy ZIP uploads and site listings now reject node-assigned
+inbounds instead of operating on the master's disk. Local uploads remain
+available. Verified by `TestNodeTunnelSiteIsNotStoredOnMaster` for both
+protocols and local ZIP validation.
+
 ## lucx.330 - upstream v3.11.0 merge (#159) (2026-10-28)
 
 Full merge of `origin/main` (v3.11.0) per AGENTS.md rule 8 - 68 upstream
