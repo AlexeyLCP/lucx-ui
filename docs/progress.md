@@ -1,5 +1,48 @@
 # LucX-UI — Прогресс
 
+## lucx.329 - sidecar certificate-path hardening (2026-10-28)
+
+Operator-supplied cert/key/site paths for anytls, trusttunnel, tproxy and
+cover are hardened (the details of the private report stay sealed until
+GitHub publishes the advisory):
+
+1. Windows-only lexical local-path rule: a drive-letter form only — UNC,
+   device (`\\.\pipe`) and volume paths, NTFS streams and reserved device
+   names are refused, so an `os.Stat` never reaches the network or a pipe
+   server. The shape check is a pure helper (`isWindowsLocalAbs`), testable
+   on any OS.
+2. TOCTOU: type and size are re-checked on the OPENED handle, not on a
+   pre-open `os.Stat`; the Linux open carries O_NONBLOCK so a FIFO cannot
+   hang the panel thread (`certpath_open_linux.go` / `certpath_open_other.go`).
+3. The keypair parses from the already-read bytes (`tls.X509KeyPair`) — no
+   second read racing a file swap. anytls routeThroughXray copies those same
+   validated bytes into the bridge-uid ExtraFiles (no `os.ReadFile` retry).
+4. anytls and trusttunnel instance builders log why they disabled an inbound
+   (validation or certificate reasons) instead of failing silently.
+
+Tests mirror the reporter's naming (TestLocalPath,
+TestReadRegularFileReadsTheValidatedPath, TestOpenCertFileDoesNotBlockOnFIFO,
+TestRejectsNonLocalPathsOnWindows with GOOS=windows, the lexical
+TestIsWindowsLocalAbs anywhere).
+
+Files: `internal/lucx/tunnel/certpath.go`, `certpath_open_linux.go`,
+`certpath_open_other.go`, `trusttunnel.go`, `anytls_inbound.go`,
+`trusttunnel_inbound.go`, certpath test files.
+lucxVersion: lucx.329.
+
+## lucx.328 - masterdns work-dir mkdir fix (2026-10-28)
+
+syncMasterdnsFiles wrote the rendered TOML/secret straight into bin/tunnel —
+on a fresh host the directory does not exist yet, the Instance came back
+disabled and the Linux CI go-test job failed
+(TestMasterdnsInstanceFromInbound). The work dir is now created before the
+writes; the unit test redirects `tunnelDir` into a temp dir instead of the
+real bin path.
+
+Files: `internal/lucx/tunnel/masterdns.go`, `masterdns_test.go`.
+Tests: TestMasterdns* green locally and on CI (run 40685801710).
+lucxVersion: lucx.328.
+
 ## lucx.327 - MasterDNSVPN DNS-tunnel sidecar (#127, part 1) (2026-10-28)
 
 New inbound protocol `masterdns` — the MasterDNSVPN Go server

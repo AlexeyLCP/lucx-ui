@@ -32,7 +32,7 @@ func TestRejectLocalPath(t *testing.T) {
 
 func TestValidateCertFilesRejectsUnsafePath(t *testing.T) {
 	err := ValidateCertFiles("rel.pem", filepath.Join(t.TempDir(), "k.pem"), "vpn.example.com")
-	if err == nil || !strings.Contains(err.Error(), "absolute") {
+	if err == nil || !strings.Contains(err.Error(), "path must be") {
 		t.Fatalf("relative cert path: %v", err)
 	}
 	raw := filepath.Join(t.TempDir(), "sub") + string(os.PathSeparator) + ".." + string(os.PathSeparator) + "x.pem"

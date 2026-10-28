@@ -247,39 +247,48 @@ func ValidateCertFiles(certFile, keyFile, hostname string) error {
 }
 
 func validatePEMCert(label, certFile, keyFile, hostname string) error {
+	_, _, err := validatePEMCertBytes(label, certFile, keyFile, hostname)
+	return err
+}
+
+// validatePEMCertBytes reads cert AND key once through readRegularFile (TOCTOU
+// and FIFO-safe), parses the pair from those bytes — no second read via
+// tls.LoadX509KeyPair racing a file swap — and checks the cert covers hostname.
+func validatePEMCertBytes(label, certFile, keyFile, hostname string) ([]byte, []byte, error) {
 	if certFile == "" || keyFile == "" {
-		return fmt.Errorf("%s: no TLS certificate — issue a domain certificate (x-ui console menu → SSL) or provide cert/key paths", label)
+		return nil, nil, fmt.Errorf("%s: no TLS certificate — issue a domain certificate (x-ui console menu → SSL) or provide cert/key paths", label)
 	}
 	certPEM, err := readRegularFile(certFile, maxCertFileBytes)
 	if err != nil {
-		return fmt.Errorf("%s: read certificate: %w", label, err)
+		return nil, nil, fmt.Errorf("%s: read certificate: %w", label, err)
 	}
-	if _, err := readRegularFile(keyFile, maxCertFileBytes); err != nil {
-		return fmt.Errorf("%s: read key: %w", label, err)
+	keyPEM, err := readRegularFile(keyFile, maxCertFileBytes)
+	if err != nil {
+		return nil, nil, fmt.Errorf("%s: read key: %w", label, err)
 	}
-	if _, err := tls.LoadX509KeyPair(certFile, keyFile); err != nil {
-		return fmt.Errorf("%s: certificate/key pair invalid: %w", label, err)
+	if _, err := tls.X509KeyPair(certPEM, keyPEM); err != nil {
+		return nil, nil, fmt.Errorf("%s: certificate/key pair invalid: %w", label, err)
 	}
 	block, _ := pem.Decode(certPEM)
 	if block == nil {
-		return fmt.Errorf("%s: certificate %s has no PEM block", label, certFile)
+		return nil, nil, fmt.Errorf("%s: certificate %s has no PEM block", label, certFile)
 	}
 	x, err := x509.ParseCertificate(block.Bytes)
 	if err != nil {
-		return fmt.Errorf("%s: parse certificate: %w", label, err)
+		return nil, nil, fmt.Errorf("%s: parse certificate: %w", label, err)
 	}
 	now := time.Now()
 	if now.After(x.NotAfter) {
-		return fmt.Errorf("%s: certificate expired %s — renew it (x-ui console menu → SSL)", label, x.NotAfter.Format(time.RFC3339))
+		return nil, nil, fmt.Errorf("%s: certificate expired %s — renew it (x-ui console menu → SSL)", label, x.NotAfter.Format(time.RFC3339))
 	}
 	if now.Before(x.NotBefore) {
-		return fmt.Errorf("%s: certificate not valid until %s", label, x.NotBefore.Format(time.RFC3339))
+		return nil, nil, fmt.Errorf("%s: certificate not valid until %s", label, x.NotBefore.Format(time.RFC3339))
 	}
 	host := strings.TrimSpace(hostname)
 	if !certCoversHost(x, host) {
-		return fmt.Errorf("%s: certificate does not cover domain %q (SAN: %s)", label, host, strings.Join(x.DNSNames, ", "))
+		return nil, nil, fmt.Errorf("%s: certificate does not cover domain %q (SAN: %s)", label, host, strings.Join(x.DNSNames, ", "))
 	}
-	return nil
+	return certPEM, keyPEM, nil
 }
 
 // CertFileHash returns sha256 of the cert file content (fingerprint material

@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
 // TrustTunnelKey returns the manager key for a TrustTunnel inbound id.
@@ -104,11 +105,13 @@ func TrustTunnelInstanceFromInbound(ib *model.Inbound, secret []byte, panelCert,
 		return Instance{Core: TrustTunnel, Key: key, Enabled: false}, true
 	}
 	if err := cfg.Validate(); err != nil {
+		logger.Warning("tunnel: ", key, " disabled: ", err)
 		return Instance{Core: TrustTunnel, Key: key, Enabled: false}, true
 	}
 
 	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
 	if err := ValidateCertFiles(certFile, keyFile, cfg.Hostname); err != nil {
+		logger.Warning("tunnel: ", key, " disabled: ", err)
 		return Instance{Core: TrustTunnel, Key: key, Enabled: false}, true
 	}
 

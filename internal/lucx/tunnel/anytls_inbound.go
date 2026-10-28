@@ -60,10 +60,15 @@ func AnytlsInstanceFromInbound(ib *model.Inbound, panelCert, panelKey string) (I
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
 	}
 	if err := cfg.Validate(); err != nil {
+		logger.Warning("tunnel: ", key, " disabled: ", err)
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
 	}
 	certFile, keyFile := cfg.ResolveCertPaths(panelCert, panelKey)
-	if err := validatePEMCert("anytls", certFile, keyFile, cfg.SNI); err != nil {
+	// Read+validate once; the copies below reuse the SAME validated bytes
+	// instead of re-reading paths that may have been swapped in between.
+	certPEM, keyPEM, certErr := validatePEMCertBytes("anytls", certFile, keyFile, cfg.SNI)
+	if certErr != nil {
+		logger.Warning("tunnel: ", key, " disabled: ", certErr)
 		return Instance{Core: Anytls, Key: key, Enabled: false}, true
 	}
 	// Routed egress: the process runs under the shared bridge uid so the
@@ -77,19 +82,13 @@ func AnytlsInstanceFromInbound(ib *model.Inbound, panelCert, panelKey string) (I
 	routed := cfg.RouteThroughXray && cfg.RouteXrayPort > 0
 	if routed {
 		if uid := redirectOwnerUID(); uid > 0 {
-			certPEM, certErr := os.ReadFile(certFile)
-			keyPEM, keyErr := os.ReadFile(keyFile)
-			if certErr != nil || keyErr != nil {
-				logAnytlsDegradedOnce(key + ": cert copy for the bridge uid failed, egress stays direct")
-			} else {
-				extraFiles = map[string]string{
-					key + "-cert.pem": string(certPEM),
-					key + "-key.pem":  string(keyPEM),
-				}
-				certFile = filepath.Join(workDir(), key+"-cert.pem")
-				keyFile = filepath.Join(workDir(), key+"-key.pem")
-				runUid = uid
+			extraFiles = map[string]string{
+				key + "-cert.pem": string(certPEM),
+				key + "-key.pem":  string(keyPEM),
 			}
+			certFile = filepath.Join(workDir(), key+"-cert.pem")
+			keyFile = filepath.Join(workDir(), key+"-key.pem")
+			runUid = uid
 		} else {
 			logAnytlsDegradedOnce(key + ": lucx-mtproxy user missing, routeThroughXray stays a no-op (direct egress) — save the inbound after provisioning the user")
 		}
