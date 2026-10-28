@@ -111,7 +111,7 @@ func TestIsWindowsLocalAbsLexical(t *testing.T) {
 	// Runs on every OS: the check is lexical, the runtime gate lives in
 	// rejectLocalPath. A test built with GOOS=windows additionally asserts the
 	// real path (TestRejectsNonLocalPathsOnWindows).
-	accept := []string{`C:\etc\x-ui\cert.pem`, `C:/etc/x-ui/cert.pem`, `c:\x-ui\NAMED.pem`}
+	accept := []string{`C:\etc\x-ui\cert.pem`, `C:/etc/x-ui/cert.pem`, `c:\x-ui\NAMED.pem`, `C:\etc\COM10.pem`}
 	for _, p := range accept {
 		// NUL.pem-like device names are refused even though the drive shape
 		// is right; strip device names first to assert the shape logic only.
@@ -129,8 +129,15 @@ func TestIsWindowsLocalAbsLexical(t *testing.T) {
 		`C:\etc\cert.pem:stream`,  // NTFS stream
 		`C:\etc\NUL.pem`,          // reserved device name
 		`C:\etc\com1\cert.pem`,    // reserved name as a directory
-		`C:relative.pem`,          // drive-relative
-		`/home/x-ui/cert.pem`,     // POSIX form, not windows-local
+		`C:\etc\nul .pem`,         // Win32 drops the space before the dot
+		`C:\etc\COM0.pem`,         // 0 and superscript digits are reserved too
+		`C:\etc\LPT0.pem`,
+		`C:\etc\COM¹.pem`,
+		`C:\etc\LPT³.pem`,
+		`C:\etc\CONIN$.pem`, // console devices
+		`C:\etc\CONOUT$.pem`,
+		`C:relative.pem`,      // drive-relative
+		`/home/x-ui/cert.pem`, // POSIX form, not windows-local
 	}
 	for _, p := range refuse {
 		if isWindowsLocalAbs(p) {
@@ -167,5 +174,40 @@ func TestRejectsNonLocalPathsOnWindows(t *testing.T) {
 		if _, err := readRegularFile(p, maxCertFileBytes); err == nil {
 			t.Errorf("non-local path %q accepted", p)
 		}
+	}
+}
+
+// The check trims the path, so the open must use the trimmed path too: " /abs/c.pem"
+// would otherwise pass the check and open a cwd-relative file.
+func TestReadRegularFileOpensTheCheckedPath(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "c.pem")
+	if err := os.WriteFile(p, []byte("pem"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b, err := readRegularFile(" "+p+" ", maxCertFileBytes)
+	if err != nil || string(b) != "pem" {
+		t.Fatalf("readRegularFile(padded) = %q, %v; want \"pem\", nil", b, err)
+	}
+}
+
+// No certificate or key is empty, while a read of a zero-size /proc file can wait forever.
+func TestEmptyFileRefused(t *testing.T) {
+	p := filepath.Join(t.TempDir(), "c.pem")
+	if err := os.WriteFile(p, nil, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := readRegularFile(p, maxCertFileBytes); err == nil || err.Error() != "file is empty" {
+		t.Fatalf("readRegularFile(empty) = %v, want \"file is empty\"", err)
+	}
+}
+
+// The site check must name the real reason: a relative dir is not a ".." problem.
+func TestRequireIndexHTMLNamesTheReason(t *testing.T) {
+	want := "tproxy: site directory: path must be absolute"
+	if runtime.GOOS == "windows" {
+		want = "tproxy: site directory: path must be an absolute local drive-letter path"
+	}
+	if err := RequireIndexHTML("site"); err == nil || err.Error() != want {
+		t.Fatalf("RequireIndexHTML(\"site\") = %v, want %q", err, want)
 	}
 }

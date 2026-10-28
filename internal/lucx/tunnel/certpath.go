@@ -10,6 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -35,21 +36,28 @@ func isWindowsLocalAbs(path string) bool {
 		return false
 	}
 	for _, part := range strings.FieldsFunc(path, func(r rune) bool { return r == '/' || r == '\\' }) {
-		if part == "" {
-			continue
-		}
-		base := strings.ToUpper(part)
-		if i := strings.IndexByte(base, '.'); i > 0 {
-			base = base[:i]
-		}
-		switch base {
-		case "CON", "PRN", "AUX", "NUL",
-			"COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
-			"LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9":
+		if isWindowsDeviceName(part) {
 			return false
 		}
 	}
 	return true
+}
+
+// isWindowsDeviceName matches a Win32 device name whatever its extension; Win32 also
+// drops spaces before the dot ("nul .pem") and reserves COM0/LPT0 and COM¹-COM³.
+func isWindowsDeviceName(part string) bool {
+	base, _, _ := strings.Cut(part, ".")
+	base = strings.ToUpper(strings.TrimRight(base, " "))
+	switch base {
+	case "CON", "PRN", "AUX", "NUL", "CONIN$", "CONOUT$":
+		return true
+	}
+	for _, prefix := range []string{"COM", "LPT"} {
+		if n, ok := strings.CutPrefix(base, prefix); ok && len([]rune(n)) == 1 && strings.ContainsAny(n, "0123456789¹²³") {
+			return true
+		}
+	}
+	return false
 }
 
 // rejectLocalPath refuses operator-supplied cert and site paths that are not a
@@ -64,7 +72,7 @@ func rejectLocalPath(path string) error {
 		return errors.New("path contains a control character")
 	}
 	if runtime.GOOS == "windows" && !isWindowsLocalAbs(path) {
-		return errors.New("path must be a local drive-letter path")
+		return errors.New("path must be an absolute local drive-letter path")
 	}
 	if !filepath.IsAbs(path) {
 		return errors.New("path must be absolute")
@@ -78,25 +86,29 @@ func rejectLocalPath(path string) error {
 }
 
 func readRegularFile(path string, limit int64) ([]byte, error) {
+	path = strings.TrimSpace(path)
 	if err := rejectLocalPath(path); err != nil {
 		return nil, err
 	}
-	// Open first, then re-check type and size on the OPENED handle: the file
-	// may be swapped between a Stat and the read (TOCTOU).
+	// Stat first so a device or FIFO is refused unopened, then re-check the OPENED
+	// handle: the file may be swapped between the Stat and the open (TOCTOU).
+	st, err := os.Stat(path)
+	if err != nil {
+		return nil, err
+	}
+	if err := checkRegularFile(st, limit); err != nil {
+		return nil, err
+	}
 	f, err := openRegularFileNonBlock(path)
 	if err != nil {
 		return nil, fmt.Errorf("open: %w", err)
 	}
 	defer f.Close()
-	st, err := f.Stat()
-	if err != nil {
+	if st, err = f.Stat(); err != nil {
 		return nil, err
 	}
-	if !st.Mode().IsRegular() {
-		return nil, errors.New("not a regular file")
-	}
-	if st.Size() > limit {
-		return nil, fmt.Errorf("file exceeds %d bytes", limit)
+	if err := checkRegularFile(st, limit); err != nil {
+		return nil, err
 	}
 	b, err := io.ReadAll(io.LimitReader(f, limit+1))
 	if err != nil {
@@ -106,4 +118,19 @@ func readRegularFile(path string, limit int64) ([]byte, error) {
 		return nil, fmt.Errorf("file exceeds %d bytes", limit)
 	}
 	return b, nil
+}
+
+// checkRegularFile also refuses an empty file: no certificate or key is empty, and a
+// zero-size /proc file is pollable, so its read could wait forever.
+func checkRegularFile(st os.FileInfo, limit int64) error {
+	if !st.Mode().IsRegular() {
+		return errors.New("not a regular file")
+	}
+	if st.Size() == 0 {
+		return errors.New("file is empty")
+	}
+	if st.Size() > limit {
+		return fmt.Errorf("file exceeds %d bytes", limit)
+	}
+	return nil
 }

@@ -10,6 +10,7 @@ import (
 	"archive/zip"
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
@@ -24,7 +25,7 @@ func RequireIndexHTML(dir string) error {
 		return errors.New("tproxy: site directory is empty")
 	}
 	if err := rejectLocalPath(dir); err != nil {
-		return errors.New("tproxy: site directory must be an absolute path without ..")
+		return fmt.Errorf("tproxy: site directory: %w", err)
 	}
 	index := filepath.Join(dir, "index.html")
 	if !strings.HasPrefix(filepath.Clean(index), filepath.Clean(dir)+string(os.PathSeparator)) {

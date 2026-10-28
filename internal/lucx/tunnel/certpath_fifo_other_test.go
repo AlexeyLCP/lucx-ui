@@ -4,12 +4,12 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-//go:build !windows
+//go:build !unix
 
 package tunnel
 
-import "syscall"
+import "errors"
 
 func makeFIFO(path string) error {
-	return syscall.Mkfifo(path, 0o600)
+	return errors.New("FIFOs unavailable on this platform")
 }
