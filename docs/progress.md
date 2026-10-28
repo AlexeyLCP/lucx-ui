@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.322 - rebrand kernel AWG labels to "AmneziaWG (LucX)" (2026-10-28)
+
+Upstream starts supporting kernel AmneziaWG, so our kernel-sidecar inbound
+would collide with upstream's naming. Every user-visible
+"AmneziaWG (kernel)" label (incl. ru "AmneziaWG (ядро)") is now
+"AmneziaWG (LucX)": 4 i18n keys ×13 locales (awgStatus, protocolNames.awg,
+awgTitle, sectionTitle) and the share-link tag label/color key in
+`frontend/src/lib/xray/link-label.tsx`. Technical hints that legitimately
+say "kernel module / kernel state" are untouched. No keys renamed — the
+i18n dead-key set test stays green; client configs are not affected.
+
+Files: `internal/web/translation/*.json` (13),
+`frontend/src/lib/xray/link-label.tsx`, `internal/config/config.go`.
+
 ## lucx.321 - dashboard shows every public IP bound to host interfaces (2026-10-28)
 
 Community patch adapted (lucx-ui-multi-ip). External lookup services return

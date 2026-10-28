@@ -293,7 +293,7 @@
       "releaseNotes": "What's new",
       "releaseNotesMore": "Show more",
       "releaseNotesLoadMore": "Load older releases",
-      "awgStatus": "AmneziaWG (kernel)",
+      "awgStatus": "AmneziaWG (LucX)",
       "awgStatusRunning": "Running",
       "awgStatusStop": "Stopped",
       "awgStatusError": "Error",
@@ -1106,7 +1106,7 @@
         "deleted": "Removed {count}."
       },
       "protocolNames": {
-        "awg": "AmneziaWG (kernel)",
+        "awg": "AmneziaWG (LucX)",
         "amneziawg": "amneziawg",
         "anytls": "AnyTLS",
         "wgosocks": "wgobfs SOCKS5",
@@ -2158,7 +2158,7 @@
         "banner": "Cores & modules",
         "bannerDesc": "Manage the AmneziaWG kernel module and tunnel sidecar binaries. Advanced tunnel process config is on a separate page.",
         "openTunnelConfigs": "Open tunnel configs",
-        "awgTitle": "AmneziaWG (kernel)",
+        "awgTitle": "AmneziaWG (LucX)",
         "awgDesc": "Install or rebuild the amneziawg DKMS module from upstream. Restart only re-ups managed awg/awgo interfaces. Uninstall removes the module and tools; inbound configs stay.",
         "awgModuleLoaded": "Module loaded",
         "awgModuleMissing": "Module not loaded",
@@ -2754,7 +2754,7 @@
         "test": "اختبار",
         "testOk": "النفق يعمل",
         "deleteConfirm": "حذف هذا AWG outbound؟",
-        "sectionTitle": "AmneziaWG (kernel)"
+        "sectionTitle": "AmneziaWG (LucX)"
       },
       "sidecarOutbound": {
         "add": "Add sidecar outbound",

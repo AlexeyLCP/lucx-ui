@@ -293,7 +293,7 @@
       "releaseNotes": "Что нового",
       "releaseNotesMore": "Показать ещё",
       "releaseNotesLoadMore": "Предыдущие релизы",
-      "awgStatus": "AmneziaWG (ядро)",
+      "awgStatus": "AmneziaWG (LucX)",
       "awgStatusRunning": "Запущен",
       "awgStatusStop": "Остановлен",
       "awgStatusError": "Ошибка",
@@ -1106,7 +1106,7 @@
         "deleted": "Удалено: {count}."
       },
       "protocolNames": {
-        "awg": "AmneziaWG (kernel)",
+        "awg": "AmneziaWG (LucX)",
         "amneziawg": "amneziawg",
         "anytls": "AnyTLS",
         "wgosocks": "wgobfs SOCKS5",
@@ -2158,7 +2158,7 @@
         "banner": "Ядра и модули",
         "bannerDesc": "Управление модулем AmneziaWG и бинарниками туннельных сайдкаров. Расширенные настройки процессов — на отдельной странице.",
         "openTunnelConfigs": "Открыть конфиги туннелей",
-        "awgTitle": "AmneziaWG (ядро)",
+        "awgTitle": "AmneziaWG (LucX)",
         "awgDesc": "Установка или пересборка DKMS-модуля amneziawg из upstream. Restart только переподнимает awg/awgo. Удаление снимает модуль и утилиты; конфиги инбаундов остаются.",
         "awgModuleLoaded": "Модуль загружен",
         "awgModuleMissing": "Модуль не загружен",
@@ -2754,7 +2754,7 @@
         "test": "Тест",
         "testOk": "Туннель жив",
         "deleteConfirm": "Удалить этот AWG outbound?",
-        "sectionTitle": "AmneziaWG (kernel)"
+        "sectionTitle": "AmneziaWG (LucX)"
       },
       "sidecarOutbound": {
         "add": "Добавить sidecar outbound",

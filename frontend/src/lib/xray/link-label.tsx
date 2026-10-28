@@ -31,7 +31,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   tg: 'MTProto',
   vpn: 'AmneziaWG',
   amneziawg: 'AmneziaWG',
-  awg: 'AmneziaWG (kernel)',
+  awg: 'AmneziaWG (LucX)',
   tuic: 'TUIC',
   // LUCX-HOOK: tunnel / AWG share schemes
   naive: 'Naive',
@@ -57,7 +57,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
   WireGuard: 'cyan',
   MTProto: 'blue',
   AmneziaWG: 'yellow',
-  'AmneziaWG (kernel)': 'yellow',
+  'AmneziaWG (LucX)': 'yellow',
   TUIC: 'orange',
   Naive: 'orange',
   olcRTC: 'cyan',
