@@ -72,4 +72,24 @@ Not to re-add: tun2socks (replaced by TUN inbound), DNS in the server .conf (bre
 
 **Important for diagnosing “/awg/ doesn’t work”:** sub endpoints (`/sub/`, `/json/`, `/clash/`, `/awg/`) listen on the sub service on a **separate port** (default 2096), not the panel port — reverse proxy must forward them to the sub port.
 
+### 7. systemd sandbox denies `open(/dev/net/tun)` → Xray TUN inbounds die `operation not permitted` (found 2026-10-28, fix pending in units)
+
+**Symptom (ŹȺҚ™, 28.10.2026, after updating to lucx.329):** Xray restart loop, `exit status 255` / `app/proxyman/inbound: failed to start proxy > operation not permitted` every 2 s, ALL inbounds down. Rollback / xray core swap / install.sh re-run / reboot do NOT help (the hardened unit stays).
+
+**Root cause (reproduced on the host without the panel):** xray 26.10.21 TUN inbounds (routed AWG/qWDTT bridges, `injectAwgEgress`/`injectQwdttEgress` — this host: two kernel-AWG inbounds, ports 443+27373, both `routeThroughXray`) open `/dev/net/tun` at inbound start. The shipped hardened units (`x-ui.service.{debian,rhel,arch}`, b42a1c0b 05.10.2026) under **systemd 249 (Ubuntu 22.04)** deny that open with EPERM — the interplay is `RestrictAddressFamilies="AF_INET AF_INET6 AF_UNIX AF_NETLINK"` × `ProtectClock=yes` (each alone is fine; strace shows `openat("/dev/net/tun", O_RDWR) = EPERM`; `SystemCallFilter=@system-service` also coexists fine and `DevicePolicy=closed` alone reproduces it — a restrictive DEVICE policy is the mechanism, ProtectClock tightens it on 249). Hosts with other systemd releases / older cores are unaffected — explains why it hit one box.
+
+**Healing for an already-hit host (no panel change needed; survives install/update):**
+```
+mkdir -p /etc/systemd/system/x-ui.service.d
+printf '[Service]\nDeviceAllow=/dev/net/tun\n' > /etc/systemd/system/x-ui.service.d/20-lucx-device.conf
+systemctl daemon-reload && systemctl restart x-ui
+```
+Verified live: with the drop-in, the FULL unit replica (all hardening + `SystemCallFilter=@system-service`) starts xray and tun1/tun2 come up; sourcecraft/install generators never touch `20-*` files. Applied on this host 18:42 (xray running, tun1/tun2 created).
+
+**Release fix:** `DeviceAllow=/dev/net/tun` is included in the three shipped units. Existing affected hosts need the drop-in above; include it in release notes (RU+EN). The seccomp whitelist remains unchanged.
+
+**Diagnostic check (added after the diagnosis):** the AWG diagnostics modal's xray-tun chain runs a `tun device` line first (`tunSandboxDeviceCheck`, `internal/awg/diagnostics.go`) — it opens `/dev/net/tun` through the prober (`sh -c "exec 3<>/dev/net/tun"`, fd lives only for the shell's lifetime) under the panel's own unit, so it sees the same sandbox as the Xray child and fails with the heal path in the detail when the host is affected.
+
+**Not this:** `bind: address already in use` on the metrics/api/tun listeners when testing the config out of band while the live xray holds them (rename ports/devices in the test copy); tproxy-mode AWG inbounds (dokodemo EPERM on containers) — same message, different inbound; that mode is opt-in and this host does not use it.
+
 ---

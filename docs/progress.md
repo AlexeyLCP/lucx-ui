@@ -1,5 +1,11 @@
 # LucX-UI — Прогресс
 
+## Unreleased - allow Xray TUN in systemd units
+
+Allow `/dev/net/tun` in all three service units so the systemd device sandbox
+does not prevent Xray TUN inbounds from starting on affected hosts. Existing
+affected installations may need the drop-in documented in `.agents/04-current-state.md`.
+
 ## Unreleased - AWG client configuration hardening
 
 Hardened client configuration generation and added regression coverage.

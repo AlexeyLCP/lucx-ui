@@ -61,6 +61,9 @@ ProtectKernelTunables=yes
 ProtectKernelModules=yes
 ProtectKernelLogs=yes
 ProtectClock=yes
+# LUCX-HOOK: allow Xray TUN devices under systemd's device sandbox
+DeviceAllow=/dev/net/tun
+# END LUCX-HOOK
 ProtectHostname=yes
 # read-only rather than yes: installs keep TLS certs under /root/cert, and the
 # panel must still be able to read them.
