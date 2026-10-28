@@ -176,3 +176,48 @@ func TestClashProxyFromExternalTrojanReality(t *testing.T) {
 		t.Fatalf("expected reality→tls true, got %v", proxy["tls"])
 	}
 }
+
+// LUCX-HOOK (issue #136): $name macro inside stored sidecar URIs.
+func TestExpandEntryAppliesNameMacro(t *testing.T) {
+	got := expandEntry(externalLinkEntry{
+		Kind:   model.ExternalLinkKindLink,
+		Value:  "olcrtc://peer?cred@https://meet.jit.si/room-$name#KEY",
+		Remark: "My Server",
+	})
+	if len(got) != 1 {
+		t.Fatalf("expandEntry = %#v", got)
+	}
+	want := "olcrtc://peer?cred@https://meet.jit.si/room-My%20Server#KEY"
+	if got[0].Link != want {
+		t.Fatalf("macro link = %q, want %q", got[0].Link, want)
+	}
+	// olcRTC fragment is the crypto key — the remark must never rewrite it.
+	if out := applyRemarkToLink(got[0].Link, got[0].Name); out != want {
+		t.Fatalf("applyRemarkToLink corrupted olcrtc link: %q", out)
+	}
+}
+
+func TestExpandEntrySidecarRemarkNeverRewritesLink(t *testing.T) {
+	link := "csqtt://AAABAAEAAQABAAEAAQABAAEAAQABAAEA"
+	got := expandEntry(externalLinkEntry{Kind: model.ExternalLinkKindLink, Value: link, Remark: "Node A"})
+	if got[0].Link != link {
+		t.Fatalf("csqtt link corrupted: %q", got[0].Link)
+	}
+	if out := applyRemarkToLink(link, "Node A"); out != link {
+		t.Fatalf("applyRemarkToLink corrupted csqtt link: %q", out)
+	}
+}
+
+func TestSidecarSubNameMacro(t *testing.T) {
+	in := &model.Inbound{Protocol: model.Qwdtt, Remark: "S 1"}
+	if got := sidecarSubNameMacro("qwdtt://config?peer=$name", in); got != "qwdtt://config?peer=S%201" {
+		t.Fatalf("got %q", got)
+	}
+	if got := sidecarSubNameMacro("qwdtt://config?peer=$name", &model.Inbound{Protocol: model.Qwdtt, Remark: ""}); got != "qwdtt://config?peer=$name" {
+		t.Fatalf("empty remark kept literal: %q", got)
+	}
+	vless := &model.Inbound{Protocol: model.VLESS, Remark: "S 1"}
+	if got := sidecarSubNameMacro("vless://u@h:1#x", vless); got != "vless://u@h:1#x" {
+		t.Fatalf("vless must be untouched: %q", got)
+	}
+}

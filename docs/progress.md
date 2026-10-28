@@ -1,5 +1,26 @@
 # LucX-UI — Прогресс
 
+## lucx.324 - `$name` macro for sidecar URIs + safe renaming guard (#136) (2026-10-28)
+
+CSQTT/QWDTT/olcRTC sub lines showed raw meet URLs or protocol names because
+their URIs cannot carry a display name: olcRTC's `#fragment` is the crypto
+key, CSQTT/qWDTT/OpenFlux bodies are the core's encrypted config. Two fixes:
+
+1. `$name` macro: a stored link may contain `$name`; at export it renders as
+   the display name (external-link remark, else own fragment) or, on inbound
+   lines (olcrtc/qwdtt/csqtt/openflux), as the inbound remark. Spaces become
+   %20; an empty name keeps `$name` literal. For olcRTC the operator appends
+   `$name` to the free-form meet URL.
+2. Rename guard: `applyRemarkToLink` no longer rewrites `#fragment` of
+   schemes whose payload is mandatory/encrypted (olcrtc, csqtt, qwdtt, wdtt,
+   openflux, tproxy) — setting a remark used to corrupt the link.
+
+Files: `internal/sub/external_config.go`, `internal/sub/service.go`,
+`internal/sub/external_config_test.go`.
+Tests: `TestExpandEntryAppliesNameMacro`,
+`TestExpandEntrySidecarRemarkNeverRewritesLink`, `TestSidecarSubNameMacro`,
+existing remark/expand suites.
+
 ## lucx.323 - accept any scheme for client external links (#145) (2026-10-28)
 
 `normalizeExternalLinks` validated a "link" row through `link.ParseLink`, so

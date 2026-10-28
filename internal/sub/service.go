@@ -509,6 +509,9 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 			} else {
 				link = s.GetLink(inbound, client.Email)
 			}
+			// LUCX-HOOK (issue #136): sidecar URIs honor an operator-placed
+			// `$name` placeholder — replaced with the inbound remark.
+			link = sidecarSubNameMacro(link, inbound)
 			result = append(result, link)
 			emails = append(emails, client.Email)
 			seenEmails[client.Email] = struct{}{}
@@ -553,6 +556,20 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	return result, emails, lastOnline, traffic, nil
 }
 
+// LUCX-HOOK (issue #136): `$name` inside a sidecar URI renders as the inbound
+// remark (spaces → %20). Non-sidecar protocols are never touched.
+func sidecarSubNameMacro(link string, inbound *model.Inbound) string {
+	switch inbound.Protocol {
+	case model.Olcrtc, model.Qwdtt, model.Csqtt, model.Openflux:
+	default:
+		return link
+	}
+	if link == "" || !strings.Contains(link, "$name") {
+		return link
+	}
+	return applySubNameMacro(link, inbound.Remark)
+}
+
 // inboundLinks builds the share links for every distinct client of one inbound
 // the same way getSubs does — managed Host endpoints win over the plain link so
 // {{HOST}} and per-host variants render — but across all clients rather than a
@@ -564,7 +581,7 @@ func (s *SubService) inboundLinks(inbound *model.Inbound) []string {
 	// LUCX-HOOK: AnyTls added to the single-credential set.
 	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Csqtt || inbound.Protocol == model.Openflux || inbound.Protocol == model.Anytls) {
 		if link := s.GetLink(inbound, ""); link != "" {
-			return splitLinkLines(link)
+			return splitLinkLines(sidecarSubNameMacro(link, inbound))
 		}
 		return nil
 	}

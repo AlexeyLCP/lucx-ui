@@ -98,7 +98,45 @@ func expandEntry(e externalLinkEntry) []expandedLink {
 	if name == "" {
 		name = linkDisplayName(e.Value)
 	}
-	return []expandedLink{{Link: e.Value, Name: name}}
+	// LUCX-HOOK (issue #136): a stored link may carry a `$name` placeholder —
+	// replaced with the row's display name so sidecar URIs (olcRTC meet URL,
+	// CSQTT/qWDTT notes) show the server name instead of raw URLs.
+	return []expandedLink{{Link: applySubNameMacro(e.Value, name), Name: name}}
+}
+
+// LUCX-HOOK (issue #136): $name macro — operator-placed server name inside the
+// URI; spaces are encoded like the info-node remark. Empty name keeps the
+// literal `$name` untouched so a pending rename never mangles the link.
+func encodeSubName(name string) string {
+	return strings.ReplaceAll(strings.TrimSpace(name), " ", "%20")
+}
+
+func applySubNameMacro(link, name string) string {
+	if link == "" || !strings.Contains(link, "$name") {
+		return link
+	}
+	name = encodeSubName(name)
+	if name == "" {
+		return link
+	}
+	return strings.ReplaceAll(link, "$name", name)
+}
+
+// LUCX-HOOK (issue #136): schemes whose URI carries a mandatory or encrypted
+// payload in the fragment/body — rewriting the #fragment with a remark
+// corrupts the link, so renaming is skipped for them.
+func linkRenameable(rawLink string) bool {
+	switch {
+	case strings.HasPrefix(rawLink, "olcrtc://"): // fragment = crypto key
+		return false
+	case strings.HasPrefix(rawLink, "csqtt://"), strings.HasPrefix(rawLink, "qwdtt://"),
+		strings.HasPrefix(rawLink, "wdtt://"), strings.HasPrefix(rawLink, "openflux://"):
+		return false // body/query are the core's encrypted config
+	case strings.HasPrefix(rawLink, "tproxy://"):
+		return false
+	default:
+		return true
+	}
 }
 
 // linkDisplayName extracts the human-readable name already carried by a share
@@ -155,6 +193,11 @@ func prefixedLinkName(displayName, prefix, fallback string) string {
 func applyRemarkToLink(rawLink, remark string) string {
 	rawLink = strings.TrimSpace(rawLink)
 	if remark == "" {
+		return rawLink
+	}
+	// LUCX-HOOK (issue #136): sidecar URIs must not be renamed — the remark
+	// would overwrite the mandatory crypto/config payload.
+	if !linkRenameable(rawLink) {
 		return rawLink
 	}
 	if strings.HasPrefix(rawLink, "vmess://") {
