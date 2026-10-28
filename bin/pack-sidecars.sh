@@ -60,10 +60,16 @@ if ! have "naive-client-linux-${ARCH}"; then
     rm -rf /tmp/naiveclient "/tmp/${naive_xz}"
 fi
 
+# olcRTC core = ghostlane-project/olcrtc v0.12.1 (d15b37ec), the actively
+# maintained fork of archived openlibrecommunity/olcrtc (#157). Wire format
+# (OLC2 records, OLVC5 frames), the srv YAML schema (mode/auth/room/crypto/
+# net/vp8/sei/video/socks.proxy_*/liveness/debug) and the olcrtc:// URI
+# grammar are unchanged from the archived engine, so the panel's
+# RenderYAML/ClientURI need no edits. go 1.26.3 via GOTOOLCHAIN=auto.
 if ! have "olcrtc-linux-${ARCH}"; then
     git init -q /tmp/olcrtc
-    git -C /tmp/olcrtc remote add origin https://github.com/openlibrecommunity/olcrtc.git
-    git -C /tmp/olcrtc fetch -q --depth 1 origin 54bd269bbc8c1c97c966307e0bca733366694a09
+    git -C /tmp/olcrtc remote add origin https://github.com/ghostlane-project/olcrtc.git
+    git -C /tmp/olcrtc fetch -q --depth 1 origin d15b37ec5076a69ac43ba2538c42156881f592f3
     git -C /tmp/olcrtc checkout -q FETCH_HEAD
     (
         cd /tmp/olcrtc

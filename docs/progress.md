@@ -1,5 +1,25 @@
 # LucX-UI — Прогресс
 
+## lucx.325 - olcRTC core source moved to the ghostlane fork (#157) (2026-10-28)
+
+`bin/pack-sidecars.sh` pinned `openlibrecommunity/olcrtc@54bd269`, archived and
+frozen. Release core is now `ghostlane-project/olcrtc v0.12.1` (`d15b37ec`,
+the maintained Fork). Verified before the bump: the fork is 364 commits ahead
+but wire-compatible with the pinned engine — 54bd269 already speaks OLC2
+records and OLVC5 frames, and v0.11/v0.12 releases state "nothing a peer sees
+changed"; the srv YAML schema still accepts every field the panel's
+`RenderYAML` emits (strict loader satisfied, field-for-field checked against
+`docs/examples/server/server.jitsi.videochannel.yaml`), and
+`socks.proxy_addr/proxy_port/proxy_user/proxy_pass` keep the same meaning.
+`./cmd/olcrtc` builds with `GOTOOLCHAIN=auto` (go 1.26.3), smoke-built
+linux/amd64 locally. Client URIs and configs untouched (Rule 0: no client-side
+change). Existing live inbounds must be re-tested against the new core on the
+stand before the release tag.
+
+Files: `bin/pack-sidecars.sh`.
+Tests: cross-compile smoke build (this repo has no olcrtc unit surface;
+`internal/lucx/tunnel` olcrtc tests unaffected).
+
 ## lucx.324 - `$name` macro for sidecar URIs + safe renaming guard (#136) (2026-10-28)
 
 CSQTT/QWDTT/olcRTC sub lines showed raw meet URLs or protocol names because
