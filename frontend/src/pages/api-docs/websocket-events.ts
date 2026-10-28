@@ -108,7 +108,13 @@ const statusPayloadSchema = {
     publicIP: {
       type: 'object',
       required: ['ipv4', 'ipv6'],
-      properties: { ipv4: { type: 'string' }, ipv6: { type: 'string' } },
+      properties: {
+        ipv4: { type: 'string' },
+        ipv6: { type: 'string' },
+        // LUCX-HOOK: other public IPs bound to the host interfaces
+        extra: { type: 'array', items: { type: 'string' } },
+        // END LUCX-HOOK
+      },
     },
     appStats: {
       type: 'object',
@@ -217,7 +223,9 @@ export function buildWebSocketEvents(
           udpCount: 8,
           netIO: { up: 1048576, down: 2097152, pktUp: 100, pktDown: 200 },
           netTraffic: { sent: 4096, recv: 8192, pktSent: 10, pktRecv: 20 },
-          publicIP: { ipv4: '192.0.2.1', ipv6: '2001:db8::1' },
+          // LUCX-HOOK: example includes extra interface IPs
+          publicIP: { ipv4: '192.0.2.1', ipv6: '2001:db8::1', extra: ['192.0.2.2'] },
+          // END LUCX-HOOK
           appStats: { threads: 16, mem: 67108864, uptime: 3600 },
         },
         time: timestamp,

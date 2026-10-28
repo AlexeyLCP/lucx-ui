@@ -18,6 +18,9 @@ export const NetTrafficSchema = z.object({
 export const PublicIPSchema = z.object({
   ipv4: z.union([z.string(), z.number()]),
   ipv6: z.union([z.string(), z.number()]),
+  // LUCX-HOOK: other public IPs bound to the host interfaces (dashboard)
+  extra: z.array(z.string()).nullish(),
+  // END LUCX-HOOK
 });
 
 export const AppStatsSchema = z.object({

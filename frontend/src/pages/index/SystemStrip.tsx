@@ -91,6 +91,13 @@ export default function SystemStrip({ status, showIp, onToggleIp }: SystemStripP
           <div className={`ov-ip${showIp ? '' : ' ip-hidden'}`}>
             <div className="ov-mono">{status.publicIP.ipv4}</div>
             <div className="ov-mono ov-ip-v6">{status.publicIP.ipv6}</div>
+            {/* LUCX-HOOK: other public IPs bound to the host interfaces */}
+            {status.publicIP.extra?.map((ip) => (
+              <div key={ip} className="ov-mono ov-ip-v6">
+                {ip}
+              </div>
+            ))}
+            {/* END LUCX-HOOK */}
           </div>
         </div>
       </div>

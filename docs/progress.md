@@ -1,5 +1,25 @@
 # LucX-UI — Прогресс
 
+## lucx.321 - dashboard shows every public IP bound to host interfaces (2026-10-28)
+
+Community patch adapted (lucx-ui-multi-ip). External lookup services return
+only the egress address, so a VPS with several public IPs on one interface
+showed just one. `GetStatus` now also fills `publicIP.extra`:
+`interfacePublicIPs()` lists global-unicast addresses on up interfaces,
+skipping loopback/link-local, RFC1918/ULA, CGNAT 100.64.0.0/10 and the IPs
+already found by the lookup. Filtering extracted into the testable
+`publicIPString()`; CGNAT checked by byte range (no IPNet mask). Frontend
+renders each extra IP on its own line under ipv4/ipv6, same eye toggle and
+`ov-ip-v6` styling; `PublicIPSchema`/model accept `null`.
+
+Files: `internal/web/service/server.go`,
+`internal/web/service/public_ip_interfaces_test.go`,
+`frontend/src/models/status.ts`, `frontend/src/schemas/status.ts`,
+`frontend/src/pages/index/SystemStrip.tsx`,
+`frontend/src/pages/api-docs/websocket-events.ts`.
+Tests: `TestPublicIPString`, `TestPublicIPStringCgnatBoundaries` (`go test
+./internal/web/service/`), frontend typecheck + lint.
+
 ## lucx.320 - tproxy/cover zip site upload and reconcile broken by relative default bin folder (2026-10-27)
 
 Regression from lucx.318: `rejectLocalPath` in `RequireIndexHTML` requires an

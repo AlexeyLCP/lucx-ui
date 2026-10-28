@@ -46,6 +46,9 @@ export interface NetTraffic {
 export interface PublicIP {
   ipv4: string | number;
   ipv6: string | number;
+  // LUCX-HOOK: other public IPs bound to the host interfaces (dashboard)
+  extra?: string[] | null;
+  // END LUCX-HOOK
 }
 
 export interface AppStats {

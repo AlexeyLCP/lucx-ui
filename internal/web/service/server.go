@@ -139,6 +139,10 @@ type Status struct {
 	PublicIP struct {
 		IPv4 string `json:"ipv4"`
 		IPv6 string `json:"ipv6"`
+		// LUCX-HOOK: Extra holds the other public addresses bound to this
+		// host's interfaces; the lookup services above only see the egress one.
+		Extra []string `json:"extra"`
+		// END LUCX-HOOK
 	} `json:"publicIP"`
 	AppStats struct {
 		Threads uint32 `json:"threads"`
@@ -529,6 +533,61 @@ func (s *ServerService) resolvePublicIPsInBackground() {
 	}()
 }
 
+// LUCX-HOOK: interfacePublicIPs lists the globally routable addresses bound to
+// up interfaces, skipping loopback, link-local, private and CGNAT ranges and
+// any address in skip, so the dashboard shows every public IP of the host —
+// the lookup services only return the egress one.
+func interfacePublicIPs(skip ...string) []string {
+	ifaces, err := stdnet.Interfaces()
+	if err != nil {
+		return nil
+	}
+	var v4, v6 []string
+	for _, iface := range ifaces {
+		if iface.Flags&stdnet.FlagUp == 0 || iface.Flags&stdnet.FlagLoopback != 0 {
+			continue
+		}
+		addrs, err := iface.Addrs()
+		if err != nil {
+			continue
+		}
+		for _, addr := range addrs {
+			ipNet, ok := addr.(*stdnet.IPNet)
+			if !ok {
+				continue
+			}
+			str, ok := publicIPString(ipNet.IP)
+			if !ok || slices.Contains(skip, str) || slices.Contains(v4, str) || slices.Contains(v6, str) {
+				continue
+			}
+			if ipNet.IP.To4() != nil {
+				v4 = append(v4, str)
+			} else {
+				v6 = append(v6, str)
+			}
+		}
+	}
+	return append(v4, v6...)
+}
+
+// publicIPString classifies one interface address for the extra-IP dashboard
+// list: it returns ok=false for loopback, multicast, link-local, RFC1918/ULA
+// private and CGNAT (100.64.0.0/10) addresses.
+func publicIPString(ip stdnet.IP) (string, bool) {
+	if !ip.IsGlobalUnicast() || ip.IsPrivate() {
+		return "", false
+	}
+	if ip4 := ip.To4(); ip4 != nil {
+		if ip4[0] == 100 && ip4[1] >= 64 && ip4[1] < 128 {
+			return "", false
+		}
+		return ip4.String(), true
+	}
+	return ip.String(), true
+}
+
+// END LUCX-HOOK
+
 func (s *ServerService) publicIPs() (ipv4 string, ipv6 string) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -703,6 +762,9 @@ func (s *ServerService) GetStatus(lastStatus *Status) *Status {
 
 	s.resolvePublicIPsInBackground()
 	status.PublicIP.IPv4, status.PublicIP.IPv6 = s.publicIPs()
+	// LUCX-HOOK: dashboard lists every public IP bound to the host interfaces.
+	status.PublicIP.Extra = interfacePublicIPs(status.PublicIP.IPv4, status.PublicIP.IPv6)
+	// END LUCX-HOOK
 
 	// Xray status
 	if s.xrayService.IsXrayRunning() {
