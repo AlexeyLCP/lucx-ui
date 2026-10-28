@@ -226,7 +226,7 @@ func TestGetXrayConfigWireGuardUsesInboundLocalTunnelFields(t *testing.T) {
 }
 
 func TestGetXrayConfigWireGuardOmitsKeepAliveAbsentFromSettings(t *testing.T) {
-	email := 	seedDualTunnelClient(t, true, nil)
+	email := seedDualTunnelClient(t, true, nil)
 
 	var shared model.ClientRecord
 	if err := database.GetDB().Where("email = ?", email).First(&shared).Error; err != nil {

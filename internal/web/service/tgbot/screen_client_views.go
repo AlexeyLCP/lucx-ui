@@ -166,7 +166,7 @@ func (t *Tgbot) screenClientLinks(chatID int64, email string) {
 	rows := [][]telego.InlineKeyboardButton{
 		tu.InlineKeyboardRow(t.btn("tgbot.buttons.individualLinks", t.encodeQuery("client_individual_links "+email))),
 		// LUCX-HOOK: label covers AWG .conf download + classic QR for other protos
-		tu.InlineKeyboardRow(tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.qrCode")+" / .conf").WithCallbackData(t.encodeQuery("client_qr_links "+email))),
+		tu.InlineKeyboardRow(tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.qrCode") + " / .conf").WithCallbackData(t.encodeQuery("client_qr_links " + email))),
 	}
 	// A client looking at its own subscription has nothing behind the admin's
 	// card: it only repeats the usage already on its home screen.
