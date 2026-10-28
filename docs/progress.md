@@ -1,5 +1,10 @@
 # LucX-UI — Прогресс
 
+## Unreleased - AWG client configuration hardening
+
+Hardened client configuration generation and added regression coverage.
+Verified targeted AWG configuration tests and the subscription package.
+
 ## Unreleased - reject node ZIP site uploads (#160)
 
 Cover and tproxy ZIP uploads and site listings now reject node-assigned

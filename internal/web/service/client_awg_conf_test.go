@@ -166,3 +166,33 @@ func TestBuildAwgClientConf_ErrsWhenClientHasNoPrivateKey(t *testing.T) {
 		t.Fatal("imported docker peers have no private key; must not emit a fake .conf")
 	}
 }
+
+func TestBuildAwgClientConfRejectsControlCharacters(t *testing.T) {
+	bad := "value\nPostUp = injected"
+	for _, field := range []string{"privateKey", "preSharedKey", "endpoint", "address", "publicKey", "dns", "h1", "headerProtectionKey", "rekeyTimeout"} {
+		t.Run(field, func(t *testing.T) {
+			settings := map[string]any{"publicKey": "server-key"}
+			client := awgConfClient("client-key")
+			host := "example.com"
+			switch field {
+			case "privateKey":
+				client.PrivateKey = bad
+			case "preSharedKey":
+				client.PreSharedKey = bad
+			case "endpoint":
+				host = bad
+			case "address":
+				client.AllowedIPs = []string{bad}
+			default:
+				settings[field] = bad
+			}
+			raw, err := json.Marshal(settings)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if conf, err := BuildAwgClientConf(awgConfInbound(string(raw)), client, host); err == nil || conf != "" {
+				t.Fatalf("expected rejection without config, got %q, %v", conf, err)
+			}
+		})
+	}
+}
