@@ -261,8 +261,12 @@ func (c MasterdnsConfig) RenderClientResolvers() string {
 }
 
 // syncMasterdnsFiles writes the server TOML and the secret key file when
-// either changed (stamp compare, like syncCsqttPasswordStamp).
+// either changed (stamp compare, like syncCsqttPasswordStamp). The work dir
+// is created first — on a fresh panel it does not exist yet.
 func syncMasterdnsFiles(cfg MasterdnsConfig, key string, port int) error {
+	if err := os.MkdirAll(workDir(), 0o755); err != nil {
+		return err
+	}
 	conf := cfg.confPath(key)
 	if err := os.WriteFile(conf, []byte(cfg.RenderServerConf(key, port)), 0o600); err != nil {
 		return err

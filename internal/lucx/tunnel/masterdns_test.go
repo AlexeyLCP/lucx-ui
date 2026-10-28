@@ -84,6 +84,12 @@ func TestMasterdnsClientTOMLAgreesWithServer(t *testing.T) {
 }
 
 func TestMasterdnsInstanceFromInbound(t *testing.T) {
+	// Redirect the work dir: the instance call renders the TOML + secret to
+	// disk and must never touch the real bin folder from a unit test.
+	dir := t.TempDir()
+	prev := tunnelDir
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
 	enable := true
 	ib := &model.Inbound{
 		Protocol: model.Masterdns,
