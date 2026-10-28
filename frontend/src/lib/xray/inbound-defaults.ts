@@ -320,6 +320,10 @@ export function createDefaultOpenfluxInboundSettings(): OpenfluxInboundSettings 
     yandexUrl: '',
     mailruUrl: '',
     cupsUrl: '',
+    vyandexUrl: '',
+    boardsUrl: '',
+    telemostUrl: '',
+    avitoUrl: '',
   };
 }
 

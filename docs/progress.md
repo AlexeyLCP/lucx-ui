@@ -1,5 +1,38 @@
 # LucX-UI — Прогресс
 
+## lucx.326 - OpenFlux core to v0.13.0 + new shareable carriers (#148) (2026-10-28)
+
+Catch-up of `p1neappleXpress/OpenFlux` from ba31d0fc (103 commits behind) to
+the v0.13.0 tag (`4f9c786`). Verified before the bump: the `.conf` contract
+(Role/Mode/Codec/EncryptionKeyFile/CookieStore/URL, `[Transport]` Type/
+Priority/URL/Listen) is unchanged — v0.13.0 reads every field the panel
+renders (only Bonding was removed upstream; the panel never emitted it), and
+the `openflux://v1` envelope struct is byte-identical. `go build` linux/amd64
+smoke-built locally.
+
+New shareable carriers wired end-to-end: vyandex (Yandex volga doc),
+boards (whiteboard), telemost (conference), avito (room list). Backed by the
+same link shapes the upstream exit-node wizard validates (provision/
+transports.go regexes, mirrored). In the panel's direct-first priority scheme
+they slot as vyandex 52 > yandex 50 > mailru 40 > telemost 35 > boards 32 >
+avito 31 > cupsonline 30 — the three original carriers keep byte-stable
+priorities (Rule 0: no issued link changes flavor unless the operator fills
+a new field). Form, Zod schema, defaults, link generator, and 5 i18n keys in
+all 13 locales updated; bitrix24/oneme stay unexposed (not in upstream's
+shareable knownTypes).
+
+Files: `internal/lucx/tunnel/openflux.go`, `openflux_test.go`,
+`frontend/src/lib/xray/openflux-link.ts`, `frontend/src/test/openflux-link.test.ts`,
+`frontend/src/lib/xray/inbound-link.ts`, `inbound-defaults.ts`,
+`frontend/src/schemas/protocols/inbound/openflux.ts`,
+`frontend/src/pages/inbounds/form/protocols/openflux.tsx`,
+`internal/web/translation/*.json`, `bin/pack-sidecars.sh`.
+Tests: `TestOpenfluxNewCarriersConfAndLink`,
+`TestOpenfluxNewCarriersRejectedShapes`, openflux-link vitest (5 passed),
+i18n key-set parity, frontend typecheck + lint, `go test ./internal/lucx/
+tunnel/ ./internal/sub/`. Stand test of a live exit with a real carrier
+before the release tag.
+
 ## lucx.325 - olcRTC core source moved to the ghostlane fork (#157) (2026-10-28)
 
 `bin/pack-sidecars.sh` pinned `openlibrecommunity/olcrtc@54bd269`, archived and

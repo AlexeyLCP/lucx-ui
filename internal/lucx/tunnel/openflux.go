@@ -18,6 +18,7 @@ import (
 	"net"
 	"net/url"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -34,11 +35,15 @@ const (
 // inbound port. Document URLs are optional extra carriers. The exit serves
 // one active client; the link is the credential.
 type OpenfluxConfig struct {
-	Secret    string `json:"secret"`
-	ShareHost string `json:"shareHost"`
-	YandexURL string `json:"yandexUrl"`
-	MailruURL string `json:"mailruUrl"`
-	CupsURL   string `json:"cupsUrl"`
+	Secret      string `json:"secret"`
+	ShareHost   string `json:"shareHost"`
+	YandexURL   string `json:"yandexUrl"`
+	MailruURL   string `json:"mailruUrl"`
+	CupsURL     string `json:"cupsUrl"`
+	VyandexURL  string `json:"vyandexUrl"`
+	BoardsURL   string `json:"boardsUrl"`
+	TelemostURL string `json:"telemostUrl"`
+	AvitoURL    string `json:"avitoUrl"`
 }
 
 func DefaultOpenfluxConfig() OpenfluxConfig {
@@ -51,6 +56,10 @@ func (c OpenfluxConfig) Merge() OpenfluxConfig {
 	c.YandexURL = strings.TrimSpace(c.YandexURL)
 	c.MailruURL = strings.TrimSpace(c.MailruURL)
 	c.CupsURL = strings.TrimSpace(c.CupsURL)
+	c.VyandexURL = strings.TrimSpace(c.VyandexURL)
+	c.BoardsURL = strings.TrimSpace(c.BoardsURL)
+	c.TelemostURL = strings.TrimSpace(c.TelemostURL)
+	c.AvitoURL = strings.TrimSpace(c.AvitoURL)
 	return c
 }
 
@@ -81,11 +90,19 @@ func (c OpenfluxConfig) Validate(port int) error {
 			return err
 		}
 	}
+	// LUCX-HOOK (issue #148): carriers the core allows in share links since
+	// v0.13.0 — validated against the same link shapes the upstream node
+	// wizard accepts (docs/boards/telemost URLs, avito room list).
+	for _, raw := range []string{c.VyandexURL, c.BoardsURL, c.TelemostURL, c.AvitoURL} {
+		if err := openfluxShareURL(raw); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
 func (c OpenfluxConfig) contextURL() string {
-	for _, u := range []string{c.YandexURL, c.MailruURL, c.CupsURL} {
+	for _, u := range []string{c.YandexURL, c.MailruURL, c.CupsURL, c.VyandexURL, c.BoardsURL, c.TelemostURL, c.AvitoURL} {
 		if u != "" {
 			return u
 		}
@@ -123,8 +140,16 @@ func (c OpenfluxConfig) RenderConf(key string, port int) string {
 		}
 		fmt.Fprintf(&b, "\n[Transport \"%s\"]\nType = %s\nPriority = %d\nURL = %s\n", name, name, prio, raw)
 	}
+	// LUCX-HOOK (issue #148): descending priority following the upstream
+	// node wizard's relative carrier order (vyandex > yandex > mailru >
+	// telemost > boards > avito > cupsonline) mapped under the direct-first
+	// scheme the panel already ships. Existing three keep their priorities.
+	writeDoc("vyandex", 52, c.VyandexURL)
 	writeDoc("yandex", 50, c.YandexURL)
 	writeDoc("mailru", 40, c.MailruURL)
+	writeDoc("telemost", 35, c.TelemostURL)
+	writeDoc("boards", 32, c.BoardsURL)
+	writeDoc("avito", 31, c.AvitoURL)
 	writeDoc("cupsonline", 30, c.CupsURL)
 	return b.String()
 }
@@ -177,8 +202,12 @@ func (c OpenfluxConfig) shareTransports(dial string) []openfluxShareTransport {
 		}
 		out = append(out, openfluxShareTransport{Type: kind, Priority: prio, URL: raw})
 	}
+	add("vyandex", 52, c.VyandexURL)
 	add("yandex", 50, c.YandexURL)
 	add("mailru", 40, c.MailruURL)
+	add("telemost", 35, c.TelemostURL)
+	add("boards", 32, c.BoardsURL)
+	add("avito", 31, c.AvitoURL)
 	add("cupsonline", 30, c.CupsURL)
 	return out
 }
@@ -224,4 +253,34 @@ func openfluxDocURL(raw string) error {
 		return errors.New("openflux: document URL must be http(s)")
 	}
 	return nil
+}
+
+// LUCX-HOOK (issue #148): link shapes mirrored from the upstream exit-node
+// wizard (provision/transports.go) — same hosts and paths so an operator
+// pastes the same link either tool accepts.
+var (
+	openfluxVolgaDocRe = regexp.MustCompile(`^https://(docs|disk)\.yandex\.(ru|com|by|kz|uz)/edit/d/[A-Za-z0-9_-]{16,200}$`)
+	openfluxBoardsRe   = regexp.MustCompile(`^https://boards\.yandex\.ru/whiteboard/\?hash=[0-9a-f]{32}$`)
+	openfluxTelemostRe = regexp.MustCompile(`^https://telemost\.yandex\.ru/j/[0-9]{6,32}$`)
+	openfluxRoomListRe = regexp.MustCompile(`^[A-Za-z0-9_-]{8,}$`)
+)
+
+// openfluxShareURL validates the v0.13.0 shareable carriers: vyandex (Yandex
+// volga doc), boards (whiteboard link), telemost (conference) and avito
+// (packed room list, same shape as cupsonline).
+func openfluxShareURL(raw string) error {
+	if raw == "" {
+		return nil
+	}
+	switch {
+	case openfluxVolgaDocRe.MatchString(raw):
+		return nil
+	case openfluxBoardsRe.MatchString(raw):
+		return nil
+	case openfluxTelemostRe.MatchString(raw):
+		return nil
+	case openfluxRoomListRe.MatchString(raw) && len(raw) <= 4096:
+		return nil
+	}
+	return errors.New("openflux: unsupported carrier URL — need a Yandex docs link, a whiteboard link, a Telemost j/… conference, or a room list token")
 }

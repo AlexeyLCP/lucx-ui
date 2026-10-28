@@ -12,5 +12,11 @@ export const OpenfluxInboundSettingsSchema = z.object({
   yandexUrl: z.string().default(''),
   mailruUrl: z.string().default(''),
   cupsUrl: z.string().default(''),
+  // LUCX-HOOK: shareable carriers since core v0.13.0 (#148); absent on
+  // legacy inbound rows, defaults keep them empty.
+  vyandexUrl: z.string().default(''),
+  boardsUrl: z.string().default(''),
+  telemostUrl: z.string().default(''),
+  avitoUrl: z.string().default(''),
 });
 export type OpenfluxInboundSettings = z.infer<typeof OpenfluxInboundSettingsSchema>;

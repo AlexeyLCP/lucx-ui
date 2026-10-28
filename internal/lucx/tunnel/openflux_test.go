@@ -102,3 +102,77 @@ func TestOpenfluxRejectsHashInURL(t *testing.T) {
 		t.Fatal("hash in URL must be rejected (conf parser cuts at #)")
 	}
 }
+
+// LUCX-HOOK (issue #148): carriers shareable since core v0.13.0. The accepted
+// link shapes mirror the upstream exit-node wizard; the panel's direct-first
+// priority mapping (direct > vyandex > yandex > mailru > telemost > boards >
+// avito > cupsonline) must be byte-stable for the three original carriers.
+func TestOpenfluxNewCarriersConfAndLink(t *testing.T) {
+	cfg := OpenfluxConfig{
+		Secret:      "0123456789abcdef",
+		VyandexURL:  "https://docs.yandex.ru/edit/d/abcdefghijklmnop",
+		TelemostURL: "https://telemost.yandex.ru/j/123456",
+		BoardsURL:   "https://boards.yandex.ru/whiteboard/?hash=0123456789abcdef0123456789abcdef",
+		AvitoURL:    "abcdefghij",
+	}
+	if err := cfg.Validate(18445); err != nil {
+		t.Fatal(err)
+	}
+	conf := cfg.RenderConf("openflux-5", 18445)
+	for _, want := range []string{
+		"[Transport \"vyandex\"]\nType = vyandex\nPriority = 52\nURL = " + cfg.VyandexURL,
+		"Type = telemost\nPriority = 35",
+		"Type = boards\nPriority = 32",
+		"Type = avito\nPriority = 31",
+	} {
+		if !strings.Contains(conf, want) {
+			t.Fatalf("conf missing %q:\n%s", want, conf)
+		}
+	}
+	if strings.Contains(conf, "cupsonline") {
+		t.Fatalf("empty cups URL must render no section:\n%s", conf)
+	}
+	link, err := cfg.ClientURI("exit", "203.0.113.5", 18445)
+	if err != nil || !strings.HasPrefix(link, openfluxLinkPrefix) {
+		t.Fatalf("link %q err %v", link, err)
+	}
+	body, err := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(link, openfluxLinkPrefix))
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got openfluxShare
+	raw, err := io.ReadAll(flate.NewReader(bytes.NewReader(body)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal(raw, &got); err != nil {
+		t.Fatal(err)
+	}
+	if got.Context != cfg.VyandexURL {
+		t.Fatalf("context %q, want first non-empty carrier URL", got.Context)
+	}
+	var kinds []string
+	for _, tr := range got.Transports {
+		kinds = append(kinds, tr.Type)
+	}
+	want := "direct,vyandex,telemost,boards,avito"
+	if strings.Join(kinds, ",") != want {
+		t.Fatalf("carrier order %q, want %q", strings.Join(kinds, ","), want)
+	}
+}
+
+func TestOpenfluxNewCarriersRejectedShapes(t *testing.T) {
+	cases := map[string]string{
+		"telemost wrong host": "https://telemost.example.com/j/123456",
+		"telemost too short":  "https://telemost.yandex.ru/j/12",
+		"boards no hash":      "https://boards.yandex.ru/whiteboard/",
+		"vyandex non-doc":     "https://docs.yandex.ru/view/id/xyz",
+		"avito with slash":    "https://example.com/abcdefghij",
+	}
+	for name, url := range cases {
+		cfg := OpenfluxConfig{Secret: "0123456789abcdef", TelemostURL: url, BoardsURL: url, VyandexURL: url, AvitoURL: url}
+		if err := cfg.Validate(18445); err == nil {
+			t.Errorf("%s must be rejected", name)
+		}
+	}
+}

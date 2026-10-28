@@ -14,6 +14,10 @@ export interface OpenfluxLinkInput {
   yandexUrl?: string;
   mailruUrl?: string;
   cupsUrl?: string;
+  vyandexUrl?: string;
+  boardsUrl?: string;
+  telemostUrl?: string;
+  avitoUrl?: string;
 }
 
 function storedDeflate(data: Uint8Array): Uint8Array {
@@ -37,7 +41,18 @@ function b64url(bytes: Uint8Array): string {
 }
 
 export function openfluxContext(input: OpenfluxLinkInput): string {
-  return input.yandexUrl || input.mailruUrl || input.cupsUrl || 'http://openflux';
+  return (
+    input.yandexUrl ||
+    input.mailruUrl ||
+    input.cupsUrl ||
+    // LUCX-HOOK: carriers shareable since core v0.13.0 (#148), after the
+    // original three so existing inbounds keep their context.
+    input.vyandexUrl ||
+    input.boardsUrl ||
+    input.telemostUrl ||
+    input.avitoUrl ||
+    'http://openflux'
+  );
 }
 
 export function encodeOpenfluxLink(input: OpenfluxLinkInput): string {
@@ -47,8 +62,15 @@ export function encodeOpenfluxLink(input: OpenfluxLinkInput): string {
   const transports: { type: string; priority: number; dial?: string; url?: string }[] = [
     { type: 'direct', priority: 100, dial: `${host}:${input.port}` },
   ];
+  // LUCX-HOOK (#148): same priority order as the Go side — descending
+  // upstream carrier order under the direct-first scheme.
+  if (input.vyandexUrl) transports.push({ type: 'vyandex', priority: 52, url: input.vyandexUrl });
   if (input.yandexUrl) transports.push({ type: 'yandex', priority: 50, url: input.yandexUrl });
   if (input.mailruUrl) transports.push({ type: 'mailru', priority: 40, url: input.mailruUrl });
+  if (input.telemostUrl)
+    transports.push({ type: 'telemost', priority: 35, url: input.telemostUrl });
+  if (input.boardsUrl) transports.push({ type: 'boards', priority: 32, url: input.boardsUrl });
+  if (input.avitoUrl) transports.push({ type: 'avito', priority: 31, url: input.avitoUrl });
   if (input.cupsUrl) transports.push({ type: 'cupsonline', priority: 30, url: input.cupsUrl });
   const payload = {
     name: input.remark?.trim() || undefined,

@@ -47,6 +47,36 @@ export default function OpenfluxFields() {
       >
         <Input placeholder="https://interview.cups.online/live-coding/?room=" />
       </FormField>
+      {/* LUCX-HOOK: carriers shareable since core v0.13.0 (#148) */}
+      <FormField
+        name={['settings', 'vyandexUrl']}
+        label={t('pages.inbounds.form.openfluxVyandexUrl')}
+        tooltip={t('pages.inbounds.form.openfluxNewUrlHint')}
+      >
+        <Input placeholder="https://docs.yandex.ru/edit/d/..." />
+      </FormField>
+      <FormField
+        name={['settings', 'telemostUrl']}
+        label={t('pages.inbounds.form.openfluxTelemostUrl')}
+        tooltip={t('pages.inbounds.form.openfluxNewUrlHint')}
+      >
+        <Input placeholder="https://telemost.yandex.ru/j/123456" />
+      </FormField>
+      <FormField
+        name={['settings', 'boardsUrl']}
+        label={t('pages.inbounds.form.openfluxBoardsUrl')}
+        tooltip={t('pages.inbounds.form.openfluxNewUrlHint')}
+      >
+        <Input placeholder="https://boards.yandex.ru/whiteboard/?hash=..." />
+      </FormField>
+      <FormField
+        name={['settings', 'avitoUrl']}
+        label={t('pages.inbounds.form.openfluxAvitoUrl')}
+        tooltip={t('pages.inbounds.form.openfluxNewUrlHint')}
+      >
+        <Input placeholder="Avito room list, e.g. abcdefgh" />
+      </FormField>
+      {/* END LUCX-HOOK */}
       <FormField
         name={['settings', 'secret']}
         label={t('pages.inbounds.form.openfluxSecret')}

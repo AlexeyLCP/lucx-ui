@@ -79,11 +79,16 @@ if ! have "olcrtc-linux-${ARCH}"; then
     rm -rf /tmp/olcrtc
 fi
 
-# OpenFlux exit (p1neappleXpress/OpenFlux). PIN ba31d0fc — not unpinned main.
+# OpenFlux exit (p1neappleXpress/OpenFlux). PIN v0.13.0 (4f9c786) — not
+# unpinned main (#148). The .conf contract (Role/Mode/Codec/EncryptionKeyFile/
+# CookieStore/URL + [Transport] Type/Priority/URL/Listen) and the openflux://v1
+# envelope (name/negotiate/codec/secret/context/transports) are unchanged
+# against the previous ba31d0fc pin; v0.13.0 adds shareable carriers
+# (vyandex, boards, telemost, avito) the panel form exposes.
 if ! have "openflux-linux-${ARCH}"; then
     git init -q /tmp/openflux
     git -C /tmp/openflux remote add origin https://github.com/p1neappleXpress/OpenFlux.git
-    git -C /tmp/openflux fetch -q --depth 1 origin ba31d0fc38b9b227231056a5ef845f7eae08f42c
+    git -C /tmp/openflux fetch -q --depth 1 origin 4f9c786cdd1d9fcd0c133e2e0fec0c5a12522610
     git -C /tmp/openflux checkout -q FETCH_HEAD
     (
         cd /tmp/openflux

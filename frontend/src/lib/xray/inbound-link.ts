@@ -1744,6 +1744,10 @@ export function genOpenfluxLink(input: {
     yandexUrl?: string;
     mailruUrl?: string;
     cupsUrl?: string;
+    vyandexUrl?: string;
+    boardsUrl?: string;
+    telemostUrl?: string;
+    avitoUrl?: string;
   };
   const host = (s.shareHost || input.address || '').trim();
   return encodeOpenfluxLink({
@@ -1754,6 +1758,11 @@ export function genOpenfluxLink(input: {
     yandexUrl: (s.yandexUrl || '').trim(),
     mailruUrl: (s.mailruUrl || '').trim(),
     cupsUrl: (s.cupsUrl || '').trim(),
+    // LUCX-HOOK (#148): carriers shareable since core v0.13.0.
+    vyandexUrl: (s.vyandexUrl || '').trim(),
+    boardsUrl: (s.boardsUrl || '').trim(),
+    telemostUrl: (s.telemostUrl || '').trim(),
+    avitoUrl: (s.avitoUrl || '').trim(),
   });
 }
 
