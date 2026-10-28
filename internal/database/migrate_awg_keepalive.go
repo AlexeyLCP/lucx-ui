@@ -81,11 +81,6 @@ func isNumericKeepAlive(value string) bool {
 	return err == nil && strconv.Itoa(n) == value
 }
 
-// migrateClientKeepAliveColumnType is retired by the v3.11.0 scheme: the
-// legacy text widening would break the int-column storage. Kept as a no-op
-// for its old call sites.
-func migrateClientKeepAliveColumnType() error { return nil }
-
 func logAndReturn(msg string) error {
 	log.Printf("[LUCX-AWG] migration: %s", msg)
 	return nil
