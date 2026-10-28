@@ -108,6 +108,7 @@ export function showQrCodeMenu(dbInbound: DBInboundRecord): boolean {
   return (
     dbInbound.protocol === 'qwdtt' ||
     dbInbound.protocol === 'csqtt' ||
+    dbInbound.protocol === 'masterdns' ||
     dbInbound.protocol === 'openflux' ||
     dbInbound.protocol === 'olcrtc'
   );

@@ -19,6 +19,7 @@ export const ProtocolSchema = z.enum([
   'olcrtc', // LUCX-HOOK: olcRTC sidecar
   'qwdtt', // LUCX-HOOK: qWDTT sidecar
   'csqtt', // LUCX-HOOK: CSQTT sidecar
+  'masterdns', // LUCX-HOOK: MasterDNSVPN DNS-tunnel sidecar
   'openflux', // LUCX-HOOK: OpenFlux sidecar
   'mieru', // LUCX-HOOK: mieru sidecar
   'trusttunnel', // LUCX-HOOK: TrustTunnel sidecar
@@ -56,6 +57,7 @@ export const Protocols = Object.freeze({
   OLCRTC: 'olcrtc', // LUCX-HOOK: olcRTC
   QWDTT: 'qwdtt', // LUCX-HOOK: qWDTT
   CSQTT: 'csqtt', // LUCX-HOOK: CSQTT
+  MASTERDNS: 'masterdns', // LUCX-HOOK: MasterDNSVPN
   OPENFLUX: 'openflux', // LUCX-HOOK: OpenFlux
   MIERU: 'mieru', // LUCX-HOOK: mieru
   TRUSTTUNNEL: 'trusttunnel', // LUCX-HOOK: TrustTunnel

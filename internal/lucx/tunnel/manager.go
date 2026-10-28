@@ -340,10 +340,21 @@ func (m *Manager) Remove(key string) {
 // No-op for legacy single-core keys (naive / olcrtc / qwdtt without suffix).
 // CSQTT is the exception: csqtt.db.main_device_id survives a delete otherwise.
 func removeManagedFiles(key string) {
-	if key == CsqttKey {
-		p := dataDirFor(CsqttKey, Csqtt)
+	if key == CsqttKey || key == MasterdnsKey {
+		name := Csqtt
+		if key == MasterdnsKey {
+			name = Masterdns
+		}
+		p := dataDirFor(key, name)
 		if err := os.RemoveAll(p); err != nil && !os.IsNotExist(err) {
 			logger.Warningf("tunnel: remove %s: %v", p, err)
+		}
+		// Rendered server TOML + secret live in the work dir (not the data
+		// dir); single-credential keys keep them until the inbound is gone.
+		for _, extra := range workDirFilesForSingleInstanceKey(key) {
+			if err := os.Remove(extra); err != nil && !os.IsNotExist(err) {
+				logger.Warningf("tunnel: remove %s: %v", extra, err)
+			}
 		}
 		return
 	}
@@ -407,6 +418,15 @@ func removeManagedFiles(key string) {
 			logger.Warningf("tunnel: remove %s: %v", p, err)
 		}
 	}
+}
+
+// workDirFilesForSingleInstanceKey returns rendered working files of the
+// single-credential sidecars that live in the shared work dir.
+func workDirFilesForSingleInstanceKey(key string) []string {
+	if strings.HasPrefix(key, "masterdns") {
+		return []string{key + ".toml", key + "-secret.txt"}
+	}
+	return nil
 }
 
 func isMultiInstanceKey(key string) bool {

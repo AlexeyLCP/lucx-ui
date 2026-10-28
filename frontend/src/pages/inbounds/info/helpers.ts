@@ -16,6 +16,7 @@ const LINK_PROTOCOLS: ReadonlySet<string> = new Set([
   Protocols.TUIC,
   Protocols.QWDTT, // LUCX-HOOK: single-credential qwdtt://
   Protocols.CSQTT, // LUCX-HOOK: single-credential csqtt://
+  Protocols.MASTERDNS, // LUCX-HOOK: single masterdns:// (client-config wrapper)
   Protocols.OPENFLUX, // LUCX-HOOK: single openflux://
   Protocols.OLCRTC, // LUCX-HOOK: single-credential olcrtc://
 ]);
@@ -29,6 +30,7 @@ export function isSingleCredTunnel(protocol: string): boolean {
   return (
     protocol === Protocols.QWDTT ||
     protocol === Protocols.CSQTT ||
+    protocol === Protocols.MASTERDNS ||
     protocol === Protocols.OPENFLUX ||
     protocol === Protocols.OLCRTC
   );

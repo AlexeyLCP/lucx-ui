@@ -3197,6 +3197,7 @@ export const SCHEMAS: Record<string, unknown> = {
           "olcrtc",
           "qwdtt",
           "csqtt",
+          "masterdns",
           "openflux",
           "mieru",
           "trusttunnel",

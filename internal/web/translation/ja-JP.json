@@ -1025,7 +1025,20 @@
         "csqttSubHostHint": "Advertised IP or hostname, e.g. 1.2.3.4",
         "csqttVkHashes": "VK call hashes",
         "csqttVkHashesHint": "Comma-separated live VK TURN hashes (up to 6)",
-        "csqttRouteThroughXray": "Route through Xray",
+      "masterdnsSingleNote": "MasterDnsVPN DNS tunnel. Needs a delegated tunnel domain: the domain NS record must point at this host, DNS queries carry the traffic. The QR/subscription link carries the client TOML (base64) — unpack it per the MasterDnsVPN client guide.",
+      "masterdnsDomains": "Tunnel domain(s)",
+      "masterdnsDomainsHint": "Delegated domain whose NS record points at this host. Comma-separated list.",
+      "masterdnsSecret": "Shared secret key",
+      "masterdnsSecretHint": "Hex key shared with the client (client_config.toml ENCRYPTION_KEY). Auto-generated on save.",
+      "masterdnsEncryption": "Payload encryption",
+      "masterdnsEncryptionHint": "Must match the client. 2 = ChaCha20 recommended; 1 = XOR is faster but weaker.",
+      "masterdnsResolvers": "Client resolvers",
+      "masterdnsResolversHint": "Resolver IPs the client sends tunnel queries to. Public resolvers recurse into the delegated domain; add your ISP resolvers for lower latency.",
+      "masterdnsRouteThroughXray": "Via Xray",
+      "masterdnsRouteThroughXrayHint": "The decoded egress goes into Xray's router via the loopback SOCKS bridge, so the exit follows routing rules.",
+      "masterdnsRouteOutbound": "Outbound",
+      "masterdnsRouteOutboundHint": "Optional target outbound tag for the routed egress.",
+      "masterdnsRouteOutboundPlaceholder": "Default outbound",        "csqttRouteThroughXray": "Route through Xray",
         "csqttRouteThroughXrayHint": "Off by default (host NAT). On sends csqtt1 into an Xray TUN so egress follows routing rules.",
         "csqttRouteOutbound": "Outbound",
         "csqttRouteOutboundHint": "Optional. Force CSQTT traffic out through this outbound (or balancer). Leave empty to let your Xray routing rules decide.",
@@ -3267,6 +3280,13 @@
           "sha256Placeholder": "SHA-256 チェックサム（任意）",
           "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
           "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
+        }
+      },
+      "masterdns": {
+        "toasts": {
+          "uploaded": "MasterDnsVPN binary uploaded",
+          "downloaded": "MasterDnsVPN binary downloaded",
+          "deleted": "MasterDnsVPN binary deleted"
         }
       },
       "csqtt": {

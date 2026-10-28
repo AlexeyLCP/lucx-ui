@@ -79,6 +79,22 @@ if ! have "olcrtc-linux-${ARCH}"; then
     rm -rf /tmp/olcrtc
 fi
 
+# MasterDNSVPN server (masterking32/MasterDnsVPN, Go). PIN main@5f83ee9 —
+# not unpinned (#127). Panel renders the server TOML + secret; the binary is
+# Go std-lib only (no CGO), plain `go build ./cmd/server`.
+if ! have "masterdns-linux-${ARCH}"; then
+    git init -q /tmp/masterdns
+    git -C /tmp/masterdns remote add origin https://github.com/masterking32/MasterDnsVPN.git
+    git -C /tmp/masterdns fetch -q --depth 1 origin 5f83ee9a1690a968f9edf495d3a7e00a2043b0bd
+    git -C /tmp/masterdns checkout -q FETCH_HEAD
+    (
+        cd /tmp/masterdns
+        GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "${DEST}/masterdns-linux-${ARCH}" ./cmd/server
+    )
+    chmod +x "${DEST}/masterdns-linux-${ARCH}"
+    rm -rf /tmp/masterdns
+fi
+
 # OpenFlux exit (p1neappleXpress/OpenFlux). PIN v0.13.0 (4f9c786) — not
 # unpinned main (#148). The .conf contract (Role/Mode/Codec/EncryptionKeyFile/
 # CookieStore/URL + [Transport] Type/Priority/URL/Listen) and the openflux://v1

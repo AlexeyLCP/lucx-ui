@@ -88,6 +88,7 @@ import {
   OlcrtcFields, // LUCX-HOOK: olcRTC
   QwdttFields, // LUCX-HOOK: qWDTT
   CsqttFields, // LUCX-HOOK: CSQTT
+  MasterdnsFields, // LUCX-HOOK: MasterDNSVPN
   OpenfluxFields, // LUCX-HOOK: OpenFlux
   MieruFields, // LUCX-HOOK: mieru
   TrustTunnelFields, // LUCX-HOOK: TrustTunnel
@@ -1031,6 +1032,7 @@ export default function InboundFormModal({
       {protocol === Protocols.OLCRTC && <OlcrtcFields />}
       {protocol === Protocols.QWDTT && <QwdttFields />}
       {protocol === Protocols.CSQTT && <CsqttFields />}
+      {protocol === Protocols.MASTERDNS && <MasterdnsFields />}
       {protocol === Protocols.OPENFLUX && <OpenfluxFields />}
       {protocol === Protocols.MIERU && <MieruFields />}
       {protocol === Protocols.TRUSTTUNNEL && <TrustTunnelFields />}

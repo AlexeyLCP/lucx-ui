@@ -200,6 +200,13 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	csqtt.POST("/download", a.csqttDownloadBinary)
 	csqtt.POST("/deleteBinary", a.csqttDeleteBinary)
 
+	masterdns := g.Group("/masterdns")
+	masterdns.GET("/status", a.masterdnsStatus)
+	masterdns.GET("/logs", a.masterdnsLogs)
+	masterdns.POST("/upload", a.masterdnsUploadBinary)
+	masterdns.POST("/download", a.masterdnsDownloadBinary)
+	masterdns.POST("/deleteBinary", a.masterdnsDeleteBinary)
+
 	openflux := g.Group("/openflux")
 	openflux.GET("/status", a.openfluxStatus)
 	openflux.GET("/logs", a.openfluxLogs)
@@ -652,6 +659,56 @@ func (a *TunnelController) csqttDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.csqtt.toasts.deleted"), nil)
+}
+
+func (a *TunnelController) masterdnsStatus(c *gin.Context) {
+	st, err := a.svc.MasterdnsStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: masterdns status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) masterdnsLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.MasterdnsLogs(lines), nil)
+}
+
+func (a *TunnelController) masterdnsUploadBinary(c *gin.Context) {
+	dst := tunnel.Masterdns.BinaryPath()
+	if err := saveCoreUpload(c, dst); err != nil {
+		logger.Warning("tunnel: save uploaded masterdns binary failed:", err)
+		jsonMsg(c, "tunnel: masterdns upload failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.masterdns.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) masterdnsDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid masterdns download body", err)
+		return
+	}
+	if err := a.svc.DownloadMasterdnsBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: masterdns download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.masterdns.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) masterdnsDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteMasterdnsBinary(); err != nil {
+		jsonMsg(c, "tunnel: masterdns binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.masterdns.toasts.deleted"), nil)
 }
 
 func (a *TunnelController) openfluxStatus(c *gin.Context) {

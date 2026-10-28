@@ -867,7 +867,20 @@
         "csqttSubHostHint": "IP или hostname, например 1.2.3.4",
         "csqttVkHashes": "VK call hashes",
         "csqttVkHashesHint": "Хеши VK TURN через запятую (до 6)",
-        "csqttRouteThroughXray": "Через Xray",
+      "masterdnsSingleNote": "MasterDnsVPN DNS tunnel. Needs a delegated tunnel domain: the domain NS record must point at this host, DNS queries carry the traffic. The QR/subscription link carries the client TOML (base64) — unpack it per the MasterDnsVPN client guide.",
+      "masterdnsDomains": "Tunnel domain(s)",
+      "masterdnsDomainsHint": "Delegated domain whose NS record points at this host. Comma-separated list.",
+      "masterdnsSecret": "Shared secret key",
+      "masterdnsSecretHint": "Hex key shared with the client (client_config.toml ENCRYPTION_KEY). Auto-generated on save.",
+      "masterdnsEncryption": "Payload encryption",
+      "masterdnsEncryptionHint": "Must match the client. 2 = ChaCha20 recommended; 1 = XOR is faster but weaker.",
+      "masterdnsResolvers": "Client resolvers",
+      "masterdnsResolversHint": "Resolver IPs the client sends tunnel queries to. Public resolvers recurse into the delegated domain; add your ISP resolvers for lower latency.",
+      "masterdnsRouteThroughXray": "Via Xray",
+      "masterdnsRouteThroughXrayHint": "The decoded egress goes into Xray's router via the loopback SOCKS bridge, so the exit follows routing rules.",
+      "masterdnsRouteOutbound": "Outbound",
+      "masterdnsRouteOutboundHint": "Optional target outbound tag for the routed egress.",
+      "masterdnsRouteOutboundPlaceholder": "Default outbound",        "csqttRouteThroughXray": "Через Xray",
         "csqttRouteThroughXrayHint": "По умолчанию выкл (прямой NAT). Вкл — пакеты с csqtt1 идут в TUN Xray, исходящий по routing rules.",
         "csqttRouteOutbound": "Outbound",
         "csqttRouteOutboundHint": "Необязательно. Принудительно направить трафик CSQTT через этот outbound (или balancer). Пусто = решают правила маршрутизации Xray.",
@@ -3267,6 +3280,13 @@
           "sha256Placeholder": "Контрольная сумма SHA-256 (необязательно)",
           "sha256Hint": "Пусто — будет установлено то, что вернёт ссылка. Если указать, загрузка с другим хешем отбрасывается, текущий бинарник остаётся на месте.",
           "sha256Invalid": "Контрольная сумма SHA-256 — это 64 шестнадцатеричных символа."
+        }
+      },
+      "masterdns": {
+        "toasts": {
+          "uploaded": "Бинарь MasterDnsVPN загружен",
+          "downloaded": "Бинарь MasterDnsVPN загружен по URL",
+          "deleted": "Бинарь MasterDnsVPN удалён"
         }
       },
       "csqtt": {

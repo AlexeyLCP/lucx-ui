@@ -174,5 +174,8 @@ export type TproxyStatus = AnytlsStatus;
 export const CsqttStatusSchema = AnytlsStatusSchema;
 export type CsqttStatus = AnytlsStatus;
 
+export const MasterdnsStatusSchema = AnytlsStatusSchema; // LUCX-HOOK: MasterDNSVPN
+export type MasterdnsStatus = AnytlsStatus;
+
 export const OpenfluxStatusSchema = AnytlsStatusSchema;
 export type OpenfluxStatus = AnytlsStatus;

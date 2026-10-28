@@ -38,6 +38,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   olcrtc: 'olcRTC',
   qwdtt: 'qWDTT',
   csqtt: 'CSQTT',
+  masterdns: 'MasterDnsVPN', // LUCX-HOOK: masterdns:// client-config wrapper
   openflux: 'OpenFlux',
   wdtt: 'qWDTT',
   mieru: 'mieru',
@@ -62,6 +63,7 @@ const PROTOCOL_COLORS: Record<string, string> = {
   Naive: 'orange',
   olcRTC: 'cyan',
   qWDTT: 'gold',
+  MasterDnsVPN: 'green', // LUCX-HOOK: masterdns://
   mieru: 'geekblue',
   TrustTunnel: 'purple',
   AnyTLS: 'gold',

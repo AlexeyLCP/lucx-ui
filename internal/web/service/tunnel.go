@@ -350,6 +350,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileOlcrtcInbounds()
 	s.reconcileQwdttInbound()
 	s.reconcileCsqttInbound()
+	s.reconcileMasterdnsInbound()
 	s.reconcileOpenfluxInbounds()
 	s.reconcileMieruInbounds()
 	s.reconcileTrustTunnelInbounds()
@@ -597,6 +598,37 @@ func (s *TunnelService) reconcileCsqttInbound() {
 		return
 	}
 	tunnel.EnsureCsqttDirect()
+}
+
+// reconcileMasterdnsInbound drives the single-credential MasterDNSVPN
+// instance from its local inbound (csqtt pattern; no OS-level routing — the
+// core's egress is its own SOCKS upstream).
+func (s *TunnelService) reconcileMasterdnsInbound() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: masterdns inbound list failed:", err)
+		return
+	}
+	var one *model.Inbound
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Masterdns || ib.NodeID != nil {
+			continue
+		}
+		if one == nil || (ib.Enable && !one.Enable) {
+			one = ib
+		}
+	}
+	if one == nil {
+		_ = tunnel.GetManager().Stop(tunnel.Masterdns)
+		return
+	}
+	inst, ok := tunnel.MasterdnsInstanceFromInbound(one)
+	if !ok {
+		return
+	}
+	if err := tunnel.GetManager().Ensure(inst); err != nil {
+		logger.Warning("tunnel: masterdns inbound reconcile failed:", err)
+	}
 }
 
 // reconcileMieruInbounds Ensures every mieru inbound sidecar and stops
@@ -1607,6 +1639,43 @@ func (s *TunnelService) DeleteCsqttBinary() error {
 
 func (s *TunnelService) DownloadCsqttBinary(downloadURL, wantSHA256 string) error {
 	return s.downloadBinaryTo(tunnel.Csqtt.BinaryPath(), downloadURL, wantSHA256)
+}
+
+// --- MasterDNSVPN core (inbound-only) ---------------------------------------
+
+func (s *TunnelService) MasterdnsStatus() (MieruStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Masterdns.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return MieruStatus{
+		Core:         string(tunnel.Masterdns),
+		DisplayName:  tunnel.Masterdns.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        mgr.StatusOf(tunnel.Instance{Core: tunnel.Masterdns, Key: tunnel.MasterdnsKey}),
+		LastLog:      mgr.LastLog(tunnel.Masterdns),
+	}, nil
+}
+
+func (s *TunnelService) MasterdnsLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().Logs(tunnel.Masterdns, lines)
+}
+
+func (s *TunnelService) DeleteMasterdnsBinary() error {
+	if err := tunnel.GetManager().Stop(tunnel.Masterdns); err != nil {
+		logger.Warning("tunnel: stop before masterdns binary delete failed:", err)
+	}
+	if err := os.Remove(tunnel.Masterdns.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *TunnelService) DownloadMasterdnsBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Masterdns.BinaryPath(), downloadURL, wantSHA256)
 }
 
 func (s *TunnelService) OpenfluxStatus() (MieruStatus, error) {

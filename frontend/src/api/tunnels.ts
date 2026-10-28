@@ -18,6 +18,7 @@ import {
   AnytlsStatusSchema,
   TproxyStatusSchema,
   CsqttStatusSchema,
+  MasterdnsStatusSchema,
   OpenfluxStatusSchema,
   type NaiveConfig,
   type NaiveStatus,
@@ -30,6 +31,7 @@ import {
   type AnytlsStatus,
   type TproxyStatus,
   type CsqttStatus,
+  type MasterdnsStatus,
   type OpenfluxStatus,
 } from '@/schemas/tunnel';
 
@@ -45,6 +47,7 @@ export type {
   AnytlsStatus,
   TproxyStatus,
   CsqttStatus,
+  MasterdnsStatus,
   OpenfluxStatus,
 };
 
@@ -55,6 +58,7 @@ const NAIVE = '/panel/api/tunnel/naive';
 const OLCRTC = '/panel/api/tunnel/olcrtc';
 const QWDTT = '/panel/api/tunnel/qwdtt';
 const CSQTT = '/panel/api/tunnel/csqtt';
+const MASTERDNS = '/panel/api/tunnel/masterdns';
 const OPENFLUX = '/panel/api/tunnel/openflux';
 const MIERU = '/panel/api/tunnel/mieru';
 const TRUSTTUNNEL = '/panel/api/tunnel/trusttunnel';
@@ -169,6 +173,24 @@ export const tunnelsApi = {
   },
   csqttDeleteBinary: (): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${CSQTT}/deleteBinary`, {}, JSON_HEADERS),
+
+  masterdnsStatus: async (): Promise<Msg<MasterdnsStatus>> => {
+    const raw = await HttpUtil.get<MasterdnsStatus>(`${MASTERDNS}/status`, undefined, {
+      silent: true,
+    });
+    return parseMsg(raw, MasterdnsStatusSchema, 'tunnel/masterdnsStatus');
+  },
+  masterdnsLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${MASTERDNS}/logs?lines=${lines}`),
+  masterdnsDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${MASTERDNS}/download`, { url, sha256 }, JSON_HEADERS),
+  masterdnsUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.set('file', file);
+    return HttpUtil.post<null>(`${MASTERDNS}/upload`, fd);
+  },
+  masterdnsDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${MASTERDNS}/deleteBinary`, {}, JSON_HEADERS),
 
   openfluxStatus: async (): Promise<Msg<OpenfluxStatus>> => {
     const raw = await HttpUtil.get<OpenfluxStatus>(`${OPENFLUX}/status`, undefined, {

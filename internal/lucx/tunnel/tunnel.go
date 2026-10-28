@@ -52,6 +52,13 @@ const Qwdtt Name = "qwdtt"
 // Binary is an external process — not linked into the panel.
 const Csqtt Name = "csqtt"
 
+// Masterdns is the MasterDNSVPN DNS-tunnel server (masterking32/MasterDnsVPN,
+// MIT-family license). UDP authoritative-DNS sidecar: the tunnel domain's NS
+// record delegates to the panel host, queries carry the encrypted egress. The
+// decoded SOCKS egress goes through the Xray loopback bridge (routed) or out
+// of the host directly. Binary name masterdns-os-arch.
+const Masterdns Name = "masterdns"
+
 // Openflux is the OpenFlux exit (p1neappleXpress/OpenFlux, GPL-3.0).
 // External process, not linked. l4 only — no kernel RST drop. One active
 // client per process. Binary name openflux-os-arch.
@@ -101,7 +108,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Openflux, Wgosocks}
+	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Openflux, Wgosocks}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -112,7 +119,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Csqtt, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Wgo, Wgosocks, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Wgo, Wgosocks, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -129,6 +136,8 @@ func (n Name) DisplayName() string {
 		return "qWDTT"
 	case Csqtt:
 		return "CSQTT"
+	case Masterdns:
+		return "MasterDnsVPN"
 	case Openflux:
 		return "OpenFlux"
 	case Mieru:

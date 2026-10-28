@@ -61,6 +61,7 @@ export function buildRowActionsMenu({
     if (
       record.protocol === 'qwdtt' ||
       record.protocol === 'csqtt' ||
+      record.protocol === 'masterdns' ||
       record.protocol === 'openflux' ||
       record.protocol === 'olcrtc'
     ) {

@@ -540,6 +540,15 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 		}
 		injectTproxyEgress(xrayConfig, inbound)
 	}
+	// masterdns routeThroughXray: the core dials SOCKS upstream
+	// (USE_EXTERNAL_SOCKS5) → loopback socks bridge, same shape as tproxy.
+	for i := range inbounds {
+		inbound := inbounds[i]
+		if inbound.Protocol != model.Masterdns || !inbound.Enable || inbound.NodeID != nil {
+			continue
+		}
+		injectMasterdnsEgress(xrayConfig, inbound)
+	}
 	// NaiveProxy: prefer inbound rows (mtproto pattern — tag = inbound.Tag).
 	// Fall back to legacy global lucxTunnel_naive settings until migrated.
 	naiveInboundSeen := false
@@ -839,6 +848,66 @@ func injectNaiveInboundEgress(cfg *xray.Config, inbound *model.Inbound) {
 		return
 	}
 	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "naive egress", true, false)
+}
+
+// injectMasterdnsEgress wires a routed MasterDNSVPN inbound into Xray as a
+// loopback SOCKS bridge tagged with the inbound's own tag (tproxy pattern —
+// no TUN: the core dials the SOCKS5 upstream itself via USE_EXTERNAL_SOCKS5).
+func injectMasterdnsEgress(cfg *xray.Config, inbound *model.Inbound) {
+	cfgM, ok := tunnel.MasterdnsConfigFromInbound(inbound)
+	if !ok || !cfgM.RouteThroughXray || cfgM.RouteXrayPort <= 0 || inbound.Tag == "" {
+		return
+	}
+	for i := range cfg.InboundConfigs {
+		if cfg.InboundConfigs[i].Tag == inbound.Tag {
+			logger.Warning("masterdns egress: inbound tag [", inbound.Tag, "] already present, skipping bridge")
+			return
+		}
+		if cfg.InboundConfigs[i].Protocol == "socks" && cfg.InboundConfigs[i].Port == cfgM.RouteXrayPort {
+			return
+		}
+	}
+	tag := inbound.Tag
+	if cfgM.OutboundTag != "" {
+		routing := map[string]any{}
+		parseOK := true
+		if len(cfg.RouterConfig) > 0 {
+			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+				logger.Warning("masterdns egress: routing unparsable, skipping rule:", err)
+				parseOK = false
+			}
+		}
+		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, cfgM.OutboundTag) {
+			logger.Warning("masterdns egress: target tag [", cfgM.OutboundTag, "] not found, injecting SOCKS without force-route")
+			parseOK = false
+		}
+		if parseOK {
+			rules, _ := routing["rules"].([]any)
+			rule := map[string]any{
+				"type":       "field",
+				"inboundTag": []any{tag},
+			}
+			if routingTagIsBalancer(routing, cfgM.OutboundTag) {
+				rule["balancerTag"] = cfgM.OutboundTag
+			} else {
+				rule["outboundTag"] = cfgM.OutboundTag
+			}
+			routing["rules"] = append([]any{rule}, rules...)
+			newRouting, err := json.Marshal(routing)
+			if err != nil {
+				logger.Warning("masterdns egress: failed to rebuild routing section, skipping rule:", err)
+			} else {
+				cfg.RouterConfig = json_util.RawMessage(newRouting)
+			}
+		}
+	}
+	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
+		Listen:   json_util.RawMessage(`"127.0.0.1"`),
+		Port:     cfgM.RouteXrayPort,
+		Protocol: "socks",
+		Settings: json_util.RawMessage(mtprotoEgressSocksSettings),
+		Tag:      tag,
+	})
 }
 
 func injectTproxyEgress(cfg *xray.Config, inbound *model.Inbound) {

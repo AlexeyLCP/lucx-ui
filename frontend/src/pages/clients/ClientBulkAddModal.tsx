@@ -45,6 +45,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'trusttunnel',
   'qwdtt',
   'csqtt',
+  'masterdns',
   'openflux',
   'olcrtc',
   'anytls',

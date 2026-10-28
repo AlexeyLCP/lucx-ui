@@ -15,6 +15,7 @@ import type { NaiveInboundSettings } from '@/schemas/protocols/inbound/naive'; /
 import type { OlcrtcInboundSettings } from '@/schemas/protocols/inbound/olcrtc';
 import type { QwdttInboundSettings } from '@/schemas/protocols/inbound/qwdtt';
 import type { CsqttInboundSettings } from '@/schemas/protocols/inbound/csqtt';
+import type { MasterdnsInboundSettings } from '@/schemas/protocols/inbound/masterdns';
 import type { OpenfluxInboundSettings } from '@/schemas/protocols/inbound/openflux';
 import type { MieruInboundSettings } from '@/schemas/protocols/inbound/mieru';
 import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/trusttunnel';
@@ -324,6 +325,17 @@ export function createDefaultOpenfluxInboundSettings(): OpenfluxInboundSettings 
     boardsUrl: '',
     telemostUrl: '',
     avitoUrl: '',
+  };
+}
+
+export function createDefaultMasterdnsInboundSettings(): MasterdnsInboundSettings {
+  return {
+    domains: '',
+    secret: '',
+    encryption: 2,
+    resolvers: '',
+    routeThroughXray: false,
+    outboundTag: '',
   };
 }
 
@@ -652,6 +664,7 @@ export type AnyInboundSettings =
   | OlcrtcInboundSettings
   | QwdttInboundSettings
   | CsqttInboundSettings
+  | MasterdnsInboundSettings
   | OpenfluxInboundSettings
   | MieruInboundSettings
   | TrustTunnelInboundSettings
@@ -700,6 +713,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultQwdttInboundSettings();
     case 'csqtt':
       return createDefaultCsqttInboundSettings();
+    case 'masterdns':
+      return createDefaultMasterdnsInboundSettings();
     case 'openflux':
       return createDefaultOpenfluxInboundSettings();
     case 'mieru':

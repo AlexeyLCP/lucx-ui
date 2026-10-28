@@ -1,5 +1,50 @@
 # LucX-UI — Прогресс
 
+## lucx.327 - MasterDNSVPN DNS-tunnel sidecar (#127, part 1) (2026-10-28)
+
+New inbound protocol `masterdns` — the MasterDNSVPN Go server
+(masterking32/MasterDnsVPN) as a single-credential sidecar (csqtt pattern:
+one inbound per host, key `masterdns`). The operator supplies a **delegated
+tunnel domain** (its NS record must point at the panel host); the panel
+renders the server TOML (`masterdns-<...>.toml` + hex secret file, both
+0600, rendered at Ensure time) and the client package (client TOML + a
+resolver list — operator-provided or the public 8.8.8.8/1.1.1.1/9.9.9.9
+defaults), plus a `masterdns://v1/` base64url wrapper of the client TOML for
+QR/subscription (upstream client never parses the scheme — it imports the
+TOML; the wrapper is a transport, like the AWG .conf download).
+
+Egress: `PROTOCOL_TYPE=SOCKS5` — routed mode sets `USE_EXTERNAL_SOCKS5` into
+the backend-owned loopback bridge injected by `injectMasterdnsEgress` (tproxy
+pattern; port via `normalizeMasterdnsXrayPort`, collision-safe), direct mode
+lets the core dial destinations itself. Encryption defaults to ChaCha20 (2).
+Rule 0 respected: the shared secret and domains are operator data, minted
+only when empty; the bridge port is backend plumbing.
+
+The core ships on the Cores page (upload/download/delete + status/logs via
+the new `/panel/api/tunnel/masterdns/*` endpoints); `bin/pack-sidecars.sh`
+pins main@5f83ee9 and cross-builds `./cmd/server` (Go std-lib, no CGO).
+Snolc (#137) is blocked upstream — its carrier modules live in the private
+`owenewans/snolc-modules` repo (commented on the issue). Slipstream (the
+other #127 candidate) is skipped: upstream deprecation notice + C-FFI build
+(picoquic/OpenSSL).
+
+Files: `internal/lucx/tunnel/masterdns.go`, `masterdns_inbound.go`,
+`masterdns_test.go`, manager.go, tunnel.go, gateway_apply.go,
+`internal/database/model/model.go`,
+`internal/web/runtime/local.go`, `internal/web/service/tunnel.go`,
+`inbound_lucx.go`, `xray.go`, `client_inbound_apply.go`, `lucx_online.go`,
+`internal/web/controller/tunnel.go`, `internal/web/web.go`,
+`internal/sub/service.go`, `json_service.go`,
+`internal/lucx/nodetype` (untouched — host-only like csqtt),
+frontend: protocol primitive, inbound schema/index, form, defaults,
+inbound-link, `masterdns-link.ts`, link-label, capabilities, list helpers,
+RowActions, client modals, CoresTab, api/tunnels, queryKeys, api-docs
+endpoints, 5 form keys + toast group ×13 locales.
+Tests: `TestMasterdnsValidate`, `TestMasterdnsRenderServerConf`,
+`TestMasterdnsClientTOMLAgreesWithServer`, `TestMasterdnsInstanceFromInbound`,
+name-registry counts 14→15; vitest masterdns-link (3 passed), i18n key parity,
+frontend typecheck + lint; `go build ./...`, cross-build of the upstream core.
+
 ## lucx.326 - OpenFlux core to v0.13.0 + new shareable carriers (#148) (2026-10-28)
 
 Catch-up of `p1neappleXpress/OpenFlux` from ba31d0fc (103 commits behind) to

@@ -138,7 +138,7 @@ func InboundUsesTCP(ib *model.Inbound) bool {
 	}
 	switch ib.Protocol {
 	case model.WireGuard, model.AmneziaWG, model.AWG, model.Hysteria, model.TUIC,
-		model.Olcrtc, model.Qwdtt, model.Csqtt, model.Protocol("tun"):
+		model.Olcrtc, model.Qwdtt, model.Csqtt, model.Masterdns, model.Protocol("tun"):
 		return false
 	}
 	netw, _ := parseStream(ib.StreamSettings)
@@ -195,7 +195,7 @@ func ClassifyInbound(ib *model.Inbound) Classified {
 	case model.Openflux:
 		return Classified{Note: "own TCP port — not an SNI backend"}
 	case model.AWG, model.AmneziaWG, model.WireGuard, model.Hysteria, model.TUIC,
-		model.Olcrtc, model.Qwdtt, model.Csqtt:
+		model.Olcrtc, model.Qwdtt, model.Csqtt, model.Masterdns:
 		return Classified{Note: "UDP — not behind the site"}
 	case model.Gateway, model.Mieru, model.MTProto, model.Tunnel:
 		return Classified{}
