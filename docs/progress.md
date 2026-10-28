@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.323 - accept any scheme for client external links (#145) (2026-10-28)
+
+`normalizeExternalLinks` validated a "link" row through `link.ParseLink`, so
+operator-pasted URIs of protocols the panel cannot parse (openflux, snolc,
+...) were rejected with "unsupported or invalid share link" — the exact case
+of #145. Validation is now `isShareURI` (`scheme:` + a non-blank payload,
+RFC 3986 scheme chars); unknown schemes pass. Downstream degrades safely:
+unknown links render as-is in the sub and are skipped by Clash/JSON outbound
+builders (`parsedExternalOutbound` returns nil). Subscriptions stay strict
+http(s); garbage without a scheme is still a hard error.
+
+Files: `internal/web/service/client_external_link.go`,
+`internal/web/service/client_external_link_scheme_test.go`.
+Tests: `TestNormalizeExternalLinksAcceptsUnknownSchemes`,
+`TestNormalizeExternalLinksStillRejectsGarbage`.
+
 ## lucx.322 - rebrand kernel AWG labels to "AmneziaWG (LucX)" (2026-10-28)
 
 Upstream starts supporting kernel AmneziaWG, so our kernel-sidecar inbound

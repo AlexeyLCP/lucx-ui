@@ -7,7 +7,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
-	"github.com/mhsanaei/3x-ui/v3/internal/util/link"
 
 	"gorm.io/gorm"
 )
@@ -52,8 +51,8 @@ func normalizeExternalLinks(inputs []ExternalLinkInput) ([]model.ClientExternalL
 			}
 		case model.ExternalLinkKindLink, "":
 			kind = model.ExternalLinkKindLink
-			if _, err := link.ParseLink(value); err != nil {
-				return nil, common.NewError("unsupported or invalid share link: " + value)
+			if !isShareURI(value) {
+				return nil, common.NewError("external link must be a URI with a scheme (scheme://value): " + value)
 			}
 		default:
 			return nil, common.NewError("unknown external link kind: " + kind)
@@ -81,6 +80,32 @@ func normalizeExternalLinks(inputs []ExternalLinkInput) ([]model.ClientExternalL
 func isHTTPURL(s string) bool {
 	u, err := url.Parse(s)
 	return err == nil && (u.Scheme == "http" || u.Scheme == "https") && u.Host != ""
+}
+
+// LUCX-HOOK: any scheme is accepted for external client links (issue #145),
+// not only the schemes the panel can parse — client apps know protocols
+// LucX does not (openflux, snolc, ...). Validation stays at "has a scheme
+// and a non-blank payload"; unparsable values degrade gracefully downstream.
+func isShareURI(value string) bool {
+	colon := strings.IndexByte(value, ':')
+	if colon < 1 || !validScheme(value[:colon]) {
+		return false
+	}
+	rest := strings.TrimLeft(value[colon+1:], "/")
+	return strings.TrimSpace(rest) != ""
+}
+
+func validScheme(scheme string) bool {
+	for i := 0; i < len(scheme); i++ {
+		c := scheme[i]
+		switch {
+		case c >= 'a' && c <= 'z', c >= 'A' && c <= 'Z':
+		case i > 0 && (c >= '0' && c <= '9' || c == '+' || c == '-' || c == '.'):
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // SetExternalLinksForRecord replaces a client's entire external-link set.
