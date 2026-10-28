@@ -14,7 +14,7 @@ func TestKeepAliveValue_JSONRoundTrip(t *testing.T) {
 		{`"25"`, "25"},
 		{`"15-25"`, "15-25"},
 		{`0`, "0"},
-				{`null`, ""},
+		{`null`, ""},
 	}
 	for _, tc := range cases {
 		var k KeepAliveValue

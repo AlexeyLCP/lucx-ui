@@ -139,15 +139,15 @@ type AllSetting struct {
 	SubAwgPath   string `json:"subAwgPath" form:"subAwgPath"`
 	SubAwgURI    string `json:"subAwgURI" form:"subAwgURI"`
 	// END LUCX-HOOK
-	SubClashRemoteDNS           bool   `json:"subClashRemoteDNS" form:"subClashRemoteDNS"`
-	SubJsonMux                  string `json:"subJsonMux" form:"subJsonMux"`
-	SubJsonRules                string `json:"subJsonRules" form:"subJsonRules"`
-	SubJsonRoutingRules         string `json:"subJsonRoutingRules" form:"subJsonRoutingRules"`
-	SubJsonDns                  string `json:"subJsonDns" form:"subJsonDns"`
-	SubJsonFinalMask            string `json:"subJsonFinalMask" form:"subJsonFinalMask"`
-	SubJsonObservatory          string `json:"subJsonObservatory" form:"subJsonObservatory"`
-	SubThemeDir                 string `json:"subThemeDir" form:"subThemeDir"`
-	SubHideSettings             bool   `json:"subHideSettings" form:"subHideSettings"`
+	SubClashRemoteDNS   bool   `json:"subClashRemoteDNS" form:"subClashRemoteDNS"`
+	SubJsonMux          string `json:"subJsonMux" form:"subJsonMux"`
+	SubJsonRules        string `json:"subJsonRules" form:"subJsonRules"`
+	SubJsonRoutingRules string `json:"subJsonRoutingRules" form:"subJsonRoutingRules"`
+	SubJsonDns          string `json:"subJsonDns" form:"subJsonDns"`
+	SubJsonFinalMask    string `json:"subJsonFinalMask" form:"subJsonFinalMask"`
+	SubJsonObservatory  string `json:"subJsonObservatory" form:"subJsonObservatory"`
+	SubThemeDir         string `json:"subThemeDir" form:"subThemeDir"`
+	SubHideSettings     bool   `json:"subHideSettings" form:"subHideSettings"`
 
 	// Happ client customization settings (app-management / routing / UX).
 	SubHappAutoDetect          bool   `json:"subHappAutoDetect" form:"subHappAutoDetect"`
