@@ -22,11 +22,9 @@ const maxCertFileBytes = 1 << 20
 // device (\\.\pipe\...) and volume-GUID (\\?\...) paths all pass it, and an
 // os.Stat then reaches the network or a named-pipe server. NTFS streams
 // (a second colon) and reserved device names (NUL, CON, COM1, ...) are
-// rejected as well. Purely lexical so tests can run on any OS.
+// rejected as well. The check is purely shape-based (no filepath.IsAbs —
+// that call is OS-dependent) so tests can run on any OS.
 func isWindowsLocalAbs(path string) bool {
-	if !filepath.IsAbs(path) {
-		return false
-	}
 	if strings.HasPrefix(path, `\\`) || strings.HasPrefix(path, `//`) {
 		return false
 	}

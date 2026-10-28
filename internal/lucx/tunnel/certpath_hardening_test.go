@@ -13,8 +13,6 @@ package tunnel
 // disabled themselves.
 
 import (
-	"runtime"
-
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
@@ -24,6 +22,7 @@ import (
 	"math/big"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
