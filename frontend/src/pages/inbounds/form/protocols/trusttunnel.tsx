@@ -167,7 +167,7 @@ export default function TrustTunnelFields() {
                   <Input readOnly placeholder="aabbccdd/ffffffff" />
                 </FormField>
                 <Button
-                  icon={<ReloadOutlined />}
+                  icon={<ReloadOutlined aria-hidden />}
                   onClick={regeneratePrefix}
                   style={{ marginTop: 30 }}
                   title={t('pages.inbounds.form.trustTunnelClientRandomPrefixRegen')}

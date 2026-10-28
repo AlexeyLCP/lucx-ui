@@ -1,6 +1,5 @@
 import { z } from 'zod';
-
-import { normalizeAwgTimer } from '@/lib/awg/timer';
+import { OptionalClientKeepAliveSchema } from '@/schemas/primitives/keepalive';
 
 const nullableStringArray = z
   .array(z.string())
@@ -33,6 +32,8 @@ export const ClientRecordSchema = z
     auth: z.string().optional(),
     flow: z.string().optional(),
     security: z.string().optional(),
+    // Host rules the client is bound to; null/omitted preserves, empty clears.
+    clientHostRuleIds: z.array(z.number().int()).nullable().optional(),
     totalGB: z.number().optional(),
     expiryTime: z.number().optional(),
     limitIp: z.number().optional(),
@@ -54,8 +55,7 @@ export const ClientRecordSchema = z
     publicKey: z.string().optional(),
     allowedIPs: z.string().optional(),
     preSharedKey: z.string().optional(),
-    // LUCX-HOOK: number or AWG3 range string ("25" / "15-25"); '0' = off
-    keepAlive: z.preprocess(normalizeAwgTimer, z.string()).optional(),
+    keepAlive: OptionalClientKeepAliveSchema,
     forwardedPorts: z.string().optional(),
     secret: z.string().optional(),
     adTag: z.string().optional(),
@@ -340,6 +340,8 @@ export const ClientFormSchema = z.object({
   auth: z.string(),
   flow: z.string(),
   security: z.string(),
+  // Host rules the client is bound to; null/omitted preserves, empty clears.
+  clientHostRuleIds: z.array(z.number().int()).nullable().optional(),
   reverseTag: z.string(),
   totalGB: z.number().min(0),
   delayedStart: z.boolean(),

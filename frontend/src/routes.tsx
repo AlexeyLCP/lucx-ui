@@ -1,24 +1,10 @@
-import { lazy, Suspense } from 'react';
+import { Suspense } from 'react';
 import { createBrowserRouter, useRouteError, type RouteObject } from 'react-router';
 import { Spin } from 'antd';
 
 import PanelLayout from '@/layouts/PanelLayout';
-import { reloadOnceOnStaleChunk } from '@/lib/stale-chunk';
-
-const IndexPage = lazy(() => import('@/pages/index/IndexPage'));
-const InboundsPage = lazy(() => import('@/pages/inbounds/InboundsPage'));
-const ClientsPage = lazy(() => import('@/pages/clients/ClientsPage'));
-const GroupsPage = lazy(() => import('@/pages/groups/GroupsPage'));
-const NodesPage = lazy(() => import('@/pages/nodes/NodesPage'));
-const HostsPage = lazy(() => import('@/pages/hosts/HostsPage'));
-const SettingsPage = lazy(() => import('@/pages/settings/SettingsPage'));
-const XrayPage = lazy(() => import('@/pages/xray/XrayPage'));
-const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
-const SponsorsPage = lazy(() => import('@/pages/sponsors/SponsorsPage'));
-// LUCX-HOOK: tunnel sidecars (NaiveProxy) page
-const TunnelsPage = lazy(() => import('@/pages/tunnels/TunnelsPage'));
-const MaskingPage = lazy(() => import('@/pages/masking/MaskingPage'));
-// END LUCX-HOOK
+import { reloadOnceOnStaleChunk } from '@/lib/stale-chunk'; // LUCX-HOOK: stale chunk reload
+import { PANEL_ROUTES } from '@/routes/panelRoutes';
 
 function withSuspense(node: React.ReactNode) {
   return (
@@ -41,6 +27,9 @@ function withSuspense(node: React.ReactNode) {
   );
 }
 
+// LUCX-HOOK: a deploy replaces the hashed chunks; an already-open tab that
+// lazy-loads a page afterwards gets a chunk fetch failure. Reload once, then
+// surface the error.
 function StaleAssetReload() {
   const error = useRouteError();
   if (reloadOnceOnStaleChunk(error)) return null;
@@ -50,29 +39,15 @@ function StaleAssetReload() {
   );
 }
 
-const routes: RouteObject[] = [
+export const routes: RouteObject[] = [
   {
     path: '/',
     element: <PanelLayout />,
     errorElement: <StaleAssetReload />,
-    children: [
-      { index: true, element: withSuspense(<IndexPage />) },
-      { path: 'inbounds', element: withSuspense(<InboundsPage />) },
-      { path: 'clients', element: withSuspense(<ClientsPage />) },
-      { path: 'groups', element: withSuspense(<GroupsPage />) },
-      { path: 'nodes', element: withSuspense(<NodesPage />) },
-      { path: 'hosts', element: withSuspense(<HostsPage />) },
-      /* LUCX-HOOK: tunnel sidecars (NaiveProxy) */
-      { path: 'tunnels', element: withSuspense(<TunnelsPage />) },
-      { path: 'masking', element: withSuspense(<MaskingPage />) },
-      /* END LUCX-HOOK */
-      { path: 'settings', element: withSuspense(<SettingsPage />) },
-      { path: 'xray', element: withSuspense(<XrayPage />) },
-      { path: 'outbound', element: withSuspense(<XrayPage />) },
-      { path: 'routing', element: withSuspense(<XrayPage />) },
-      { path: 'api-docs', element: withSuspense(<ApiDocsPage />) },
-      { path: 'sponsors', element: withSuspense(<SponsorsPage />) },
-    ],
+    children: PANEL_ROUTES.map((route) => {
+      const element = withSuspense(<route.component />);
+      return route.path === '/' ? { index: true, element } : { path: route.path.slice(1), element };
+    }),
   },
 ];
 

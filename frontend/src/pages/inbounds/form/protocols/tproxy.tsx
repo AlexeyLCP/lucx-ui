@@ -107,7 +107,7 @@ export default function TproxyFields() {
       {siteSource === 'zip' && (
         <FormItemLike>
           <Upload beforeUpload={uploadZip} maxCount={1} accept=".zip" disabled={busy}>
-            <Button icon={<UploadOutlined />} loading={busy}>
+            <Button icon={<UploadOutlined aria-hidden />} loading={busy}>
               {t('pages.inbounds.form.tproxySiteZip')}
             </Button>
           </Upload>

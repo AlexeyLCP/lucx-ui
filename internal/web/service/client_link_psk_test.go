@@ -1,6 +1,7 @@
 package service
 
 import (
+	"reflect"
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -83,7 +84,7 @@ func TestKeepLinkOwnedFields_BlankBeforeIsNotOwnership(t *testing.T) {
 	// A fully claimed record keeps every field, Flow included.
 	row := mint
 	keepLinkOwnedFields(&row, &stored, false)
-	if row != stored {
+	if !reflect.DeepEqual(row, stored) {
 		t.Fatalf("claimed field was overwritten: %+v", row)
 	}
 
@@ -101,7 +102,7 @@ func TestKeepLinkOwnedFields_BlankBeforeIsNotOwnership(t *testing.T) {
 	// A blank record synced against a blank before stays all blank.
 	blank := model.ClientRecord{}
 	keepLinkOwnedFields(&blank, &model.ClientRecord{}, false)
-	if blank != (model.ClientRecord{}) {
+	if !reflect.DeepEqual(blank, model.ClientRecord{}) {
 		t.Fatalf("blank-before restore rewrote fields: %+v", blank)
 	}
 }

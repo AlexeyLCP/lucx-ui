@@ -1,5 +1,33 @@
 # LucX-UI — Прогресс
 
+## lucx.330 - upstream v3.11.0 merge (#159) (2026-10-28)
+
+Full merge of `origin/main` (v3.11.0) per AGENTS.md rule 8 - 68 upstream
+commits. Hook counts recorded before/after; the drops are accounted:
+
+- `internal/database/model/` - upstream moved PersistentKeepalive to a
+  3-column scheme (`wg_keep_alive` int legacy + `wg_keep_alive_range` text +
+  computed `KeepAlive`); our `migrate_awg_keepalive.go` gained
+  `migrateClientKeepAliveRangeSplit()` which relocates pre-3.29 range values
+  ("15-25") out of `wg_keep_alive` (values preserved, Rule 0) and narrows the
+  Postgres column back to integer. `*model.KeepAliveValue` pointer semantics:
+  omission preserves the stored value.
+- tgbot/ - upstream's screen/router rewrite; our AWG ".conf / QR" labels live
+  in `screen_client_views.go`/`screen_views.go` now.
+- Frontend: PANEL_ROUTES is the single source for the router/sidebar/palette
+  (our /tunnels + /masking ride it, incl. palette keywords and menu.tunnels
+  key in all 14 locales - sk-SK joined upstream); stale-chunk reload kept via
+  errorElement; fork URLs keep pointing at AlexeyLCP/lucx-ui in the sidebar.
+- RuleFormModal keeps the client-picker, match-all preset and empty-rule
+  guard; wireguard/amneziawg .conf emitters emit zero S3/S4 ("do not pad")
+  and AWG3 keepalive ranges.
+- The 15-marker count drop on model.go and the tgbot drops are upstream-side
+  replacements of our code, not lost features (verified by the feature list
+  above).
+
+lucxVersion: lucx.330. Tests: go build/tests green (database keeps legacy
+integer reads), frontend typecheck + lint + vitest green; the storybook
+Traffic-Transform interaction flake reproduces on the clean origin file too.
 ## lucx.329 - sidecar certificate-path hardening (2026-10-28)
 
 Operator-supplied cert/key/site paths for anytls, trusttunnel, tproxy and

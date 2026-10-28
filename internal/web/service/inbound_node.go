@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/mhsanaei/3x-ui/v3/internal/amneziawgkern"
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -226,7 +227,7 @@ func (s *InboundService) upsertNodeBaseline(tx *gorm.DB, nodeID int, email strin
 
 // mergeNodeClientTraffic folds one node-reported client into its central row.
 // While frozen (a push pending or just landed) only the counters may move.
-func (s *InboundService) mergeNodeClientTraffic(tx *gorm.DB, cs xray.ClientTraffic, frozen bool, deltaUp, deltaDown, now int64) error {
+func (s *InboundService) mergeNodeClientTraffic(tx *gorm.DB, cs xray.ClientTraffic, canon nodeTrafficCounter, frozen bool, deltaUp, deltaDown, now int64) error {
 	if frozen {
 		return tx.Exec(
 			fmt.Sprintf(
@@ -254,7 +255,7 @@ func (s *InboundService) mergeNodeClientTraffic(tx *gorm.DB, cs xray.ClientTraff
 			database.GreatestExpr("last_online", "?"),
 		),
 		deltaUp, deltaDown,
-		cs.Enable, cs.ExpiryTime, cs.Total, now, deltaUp, deltaDown,
+		cs.Enable, now, deltaUp, deltaDown, canon.Up, canon.Down,
 		cs.Total,
 		cs.ExpiryTime, cs.Reset, cs.ResetDay, cs.ResetWeekday,
 		cs.LastOnline, cs.Email,
@@ -285,15 +286,14 @@ func masterLimitsAllowClient(master *xray.ClientTraffic, now, deltaUp, deltaDown
 	return true
 }
 
-// nodeDisableIsStale reports an enable=false the node decided against limits the
-// master has since changed, so it must not latch back (#6228 / #4917).
-func nodeDisableIsStale(master *xray.ClientTraffic, node xray.ClientTraffic, now, deltaUp, deltaDown int64) bool {
+// nodeDisableIsStale reports a node-reported enable=false the master's limits no
+// longer justify, so it must not latch back (#6228 / #4917 / #6870).
+func nodeDisableIsStale(master *xray.ClientTraffic, nodeUsed, now, deltaUp, deltaDown int64) bool {
 	if master == nil {
 		return false
 	}
-	// Matching limits mean the node judged the client on the master's own terms:
-	// that verdict is genuine and still latches, as #4917 requires.
-	if node.ExpiryTime == master.ExpiryTime && node.Total == master.Total {
+	// A master seeded at zero on adoption undercounts; the node's own usage still binds (#4917).
+	if master.Total > 0 && nodeUsed >= master.Total {
 		return false
 	}
 	return masterLimitsAllowClient(master, now, deltaUp, deltaDown)
@@ -1141,7 +1141,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 				// Only a real latch to disabled is structural; one-way merge never
 				// re-enables from the node.
 				enableChanged := !clientFrozen && existing.Enable && !cs.Enable &&
-					!nodeDisableIsStale(existing, cs, now, deltaUp, deltaDown)
+					!nodeDisableIsStale(existing, canon.Up+canon.Down, now, deltaUp, deltaDown)
 				metaChanged := !clientFrozen && (existing.Total != cs.Total || existing.Reset != cs.Reset || existing.ResetWeekday != cs.ResetWeekday)
 				if enableChanged || metaChanged || expiryChanged {
 					structuralChange = true
@@ -1199,7 +1199,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 				next.Down = clampTrafficCounter(row.Down + deltaDown)
 				next.LastOnline = max(row.LastOnline, cs.LastOnline)
 				if !clientFrozen {
-					if !cs.Enable && !nodeDisableIsStale(row, cs, now, deltaUp, deltaDown) {
+					if !cs.Enable && !nodeDisableIsStale(row, canon.Up+canon.Down, now, deltaUp, deltaDown) {
 						next.Enable = false
 					}
 					next.ExpiryTime = mergeActivationExpiry(row.ExpiryTime, cs.ExpiryTime)
@@ -1209,7 +1209,7 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 				// A multi-attached client is reported once per inbound and an idle one
 				// every tick: rewriting an unchanged row only holds its lock longer.
 				if next != *row {
-					if err := s.mergeNodeClientTraffic(tx, cs, clientFrozen, deltaUp, deltaDown, now); err != nil {
+					if err := s.mergeNodeClientTraffic(tx, cs, canon, clientFrozen, deltaUp, deltaDown, now); err != nil {
 						return false, err
 					}
 					*row = next
@@ -1291,6 +1291,9 @@ func (s *InboundService) setRemoteTrafficLocked(nodeID int, snap *runtime.Traffi
 				return false, err
 			}
 			structuralChange = true
+			// Adopted wire settings feed subscription bodies; drop snapshots
+			// so the adopted rows are served this tick, not after the TTL.
+			InvalidateSubData()
 		}
 		// The fingerprint stamps the un-lifted wire blob on purpose: a lift must
 		// leave reconcile a mismatch to re-push against.
@@ -1565,11 +1568,29 @@ func (s *InboundService) restartRemoteNodesOnDisable(nodeIDs []int) {
 }
 
 func (s *InboundService) GetOnlineClients() []string {
-	process := onlineProcess()
+	// Kernel-mode AmneziaWG peers are invisible to Xray's online-users set;
+	// their handshakes are the equivalent signal, unioned in once here.
+	kernelOnline := amneziawgkern.GetCollector().OnlineEmails(time.Now())
+
+	process := currentXrayProcess()
 	if process == nil {
-		return []string{}
+		return kernelOnline
 	}
-	return process.GetOnlineClients()
+	xrayOnline := process.GetOnlineClients()
+	if len(kernelOnline) == 0 {
+		return xrayOnline
+	}
+
+	seen := make(map[string]struct{}, len(xrayOnline)+len(kernelOnline))
+	out := make([]string, 0, len(xrayOnline)+len(kernelOnline))
+	for _, email := range append(append([]string{}, xrayOnline...), kernelOnline...) {
+		if _, dup := seen[email]; dup {
+			continue
+		}
+		seen[email] = struct{}{}
+		out = append(out, email)
+	}
+	return out
 }
 
 // GetOnlineClientsByGuid returns online emails keyed by the panelGuid of the

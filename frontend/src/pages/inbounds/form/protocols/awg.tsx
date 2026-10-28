@@ -367,7 +367,7 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
               style={{ width: 'calc(50% - 32px)' }}
             />
           </FormField>
-          <Button icon={<ReloadOutlined />} onClick={regenerateKeys} />
+          <Button icon={<ReloadOutlined aria-hidden />} onClick={regenerateKeys} />
         </Space.Compact>
       </Form.Item>
 
@@ -527,7 +527,11 @@ export default function AwgFields({ otherAwgSubnets = [], nodeId }: AwgFieldsPro
       </FormField>
 
       <Form.Item label={t('pages.inbounds.form.awgObfuscation')}>
-        <Button icon={<ReloadOutlined />} onClick={regenerateObfuscation} loading={generating}>
+        <Button
+          icon={<ReloadOutlined aria-hidden />}
+          onClick={regenerateObfuscation}
+          loading={generating}
+        >
           {t('pages.inbounds.form.awgRegenerate')}
         </Button>
       </Form.Item>

@@ -3,6 +3,9 @@ import { z } from 'zod';
 export const AwgTimerSchema = z.string();
 export type AwgTimer = z.infer<typeof AwgTimerSchema>;
 
+export const BlockerCodeSchema = z.string();
+export type BlockerCode = z.infer<typeof BlockerCodeSchema>;
+
 export const GeoKindSchema = z.string();
 export type GeoKind = z.infer<typeof GeoKindSchema>;
 
@@ -70,6 +73,7 @@ export const AllSettingSchema = z.object({
   ldapUserFilter: z.string(),
   ldapVlessField: z.string(),
   logRetentionDays: z.number().int().min(0).max(3650),
+  nodeDownThreshold: z.number().int().min(1).max(100),
   outboundDownThreshold: z.number().int().min(1).max(100),
   pageSize: z.number().int().min(0).max(1000),
   panelOutbound: z.string(),
@@ -99,6 +103,7 @@ export const AllSettingSchema = z.object({
   subClashEnable: z.boolean(),
   subClashEnableRouting: z.boolean(),
   subClashPath: z.string(),
+  subClashRemoteDNS: z.boolean(),
   subClashRules: z.string(),
   subClashURI: z.string(),
   subClashUserAgentRegex: z.string(),
@@ -132,6 +137,7 @@ export const AllSettingSchema = z.object({
   subHappTunMode: z.string(),
   subHappTunType: z.string(),
   subHideSettings: z.boolean(),
+  subHostSortMode: z.string(),
   subIncyAnnounceUrl: z.string(),
   subIncyAppAutoDetect: z.boolean(),
   subIncyBannerBgColor: z.string(),
@@ -265,6 +271,7 @@ export const AllSettingViewSchema = z.object({
   ldapUserFilter: z.string(),
   ldapVlessField: z.string(),
   logRetentionDays: z.number().int().min(0).max(3650),
+  nodeDownThreshold: z.number().int().min(1).max(100),
   outboundDownThreshold: z.number().int().min(1).max(100),
   pageSize: z.number().int().min(0).max(1000),
   panelOutbound: z.string(),
@@ -294,6 +301,7 @@ export const AllSettingViewSchema = z.object({
   subClashEnable: z.boolean(),
   subClashEnableRouting: z.boolean(),
   subClashPath: z.string(),
+  subClashRemoteDNS: z.boolean(),
   subClashRules: z.string(),
   subClashURI: z.string(),
   subClashUserAgentRegex: z.string(),
@@ -327,6 +335,7 @@ export const AllSettingViewSchema = z.object({
   subHappTunMode: z.string(),
   subHappTunType: z.string(),
   subHideSettings: z.boolean(),
+  subHostSortMode: z.string(),
   subIncyAnnounceUrl: z.string(),
   subIncyAppAutoDetect: z.boolean(),
   subIncyBannerBgColor: z.string(),
@@ -441,11 +450,18 @@ export const ApiTokenViewSchema = z.object({
 });
 export type ApiTokenView = z.infer<typeof ApiTokenViewSchema>;
 
+export const BlockerSchema = z.object({
+  code: z.lazy(() => BlockerCodeSchema),
+  detail: z.string().optional(),
+});
+export type Blocker = z.infer<typeof BlockerSchema>;
+
 export const ClientSchema = z.object({
   adTag: z.string().optional(),
   allowedIPs: z.array(z.string()).optional(),
   allowedIPsByInbound: z.record(z.number().int(), z.array(z.string())).optional(),
   auth: z.string().optional(),
+  clientHostRuleIds: z.array(z.number().int()).optional(),
   comment: z.string(),
   created_at: z.number().int().optional(),
   email: z.string(),
@@ -455,7 +471,7 @@ export const ClientSchema = z.object({
   forwardedPorts: z.string().optional(),
   group: z.string().optional(),
   id: z.string().optional(),
-  keepAlive: z.lazy(() => KeepAliveValueSchema).optional(),
+  keepAlive: z.union([z.number().int(), z.string()]).optional(),
   limitIp: z.number().int(),
   password: z.string().optional(),
   preSharedKey: z.string().optional(),
@@ -500,6 +516,7 @@ export const ClientRecordSchema = z.object({
   adTag: z.string(),
   allowedIPs: z.string(),
   auth: z.string(),
+  clientHostRuleIds: z.array(z.number().int()).optional(),
   comment: z.string(),
   createdAt: z.number().int(),
   email: z.string(),
@@ -509,7 +526,7 @@ export const ClientRecordSchema = z.object({
   forwardedPorts: z.string(),
   group: z.string(),
   id: z.number().int(),
-  keepAlive: z.lazy(() => KeepAliveValueSchema),
+  keepAlive: z.union([z.number().int(), z.string()]),
   limitHwid: z.number().int(),
   limitIp: z.number().int(),
   password: z.string(),
@@ -702,11 +719,14 @@ export const HostSchema = z.object({
   path: z.string(),
   pinnedPeerCertSha256: z.array(z.string()),
   port: z.number().int().min(0).max(65535),
+  randomCount: z.number().int(),
   remark: z.string().max(256),
   security: z.enum(['same', 'tls', 'none', 'reality']),
   serverDescription: z.string().max(64),
   shuffleHost: z.boolean(),
   sni: z.string(),
+  sniSharedRandom: z.boolean(),
+  snis: z.array(z.string()).optional(),
   sockoptParams: z.unknown(),
   sortOrder: z.number().int(),
   tags: z.array(z.string()),
@@ -739,11 +759,14 @@ export const HostGroupSchema = z.object({
   path: z.string(),
   pinnedPeerCertSha256: z.array(z.string()),
   port: z.number().int().min(0).max(65535),
+  randomCount: z.number().int().min(1).max(100),
   remark: z.string().max(256),
   security: z.enum(['same', 'tls', 'none', 'reality']),
   serverDescription: z.string().max(64),
   shuffleHost: z.boolean(),
   sni: z.string(),
+  sniSharedRandom: z.boolean(),
+  snis: z.array(z.string()),
   sockoptParams: z.string(),
   sortOrder: z.number().int(),
   tags: z.array(z.string()),
@@ -932,6 +955,7 @@ export const NodeSchema = z.object({
   status: z.string(),
   tlsVerifyMode: z.enum(['verify', 'skip', 'pin', 'mtls']),
   transitive: z.boolean().optional(),
+  unavailableMetrics: z.array(z.string()).optional(),
   updatedAt: z.number().int(),
   uptimeSecs: z.number().int(),
   xrayError: z.string(),
@@ -999,6 +1023,7 @@ export const NodeViewSchema = z.object({
   status: z.string(),
   tlsVerifyMode: z.string(),
   transitive: z.boolean().optional(),
+  unavailableMetrics: z.array(z.string()).optional(),
   updatedAt: z.number().int(),
   uptimeSecs: z.number().int(),
   xrayError: z.string(),
@@ -1059,12 +1084,20 @@ export const ProbeResultUISchema = z.object({
   memPct: z.number(),
   panelVersion: z.string(),
   status: z.string(),
+  unavailableMetrics: z.array(z.string()).optional(),
   uptimeSecs: z.number().int(),
   xrayError: z.string(),
   xrayState: z.string(),
   xrayVersion: z.string(),
 });
 export type ProbeResultUI = z.infer<typeof ProbeResultUISchema>;
+
+export const ReadinessSchema = z.object({
+  blockers: z.array(z.lazy(() => BlockerSchema)),
+  installCommand: z.string(),
+  ready: z.boolean(),
+});
+export type Readiness = z.infer<typeof ReadinessSchema>;
 
 export const RealityScanResultSchema = z.object({
   alpn: z.string(),
@@ -1112,6 +1145,7 @@ export const ServerSettingsSchema = z.object({
   jmax: z.number().int(),
   jmin: z.number().int(),
   keepaliveTimeout: z.string().optional(),
+  kernelMode: z.boolean().optional(),
   maxHandshakeAttempts: z.string().optional(),
   mtu: z.number().int().optional(),
   primaryDns: z.string(),
@@ -1171,6 +1205,14 @@ export const SubBalancerSchema = z.object({
   updatedAt: z.number().int(),
 });
 export type SubBalancer = z.infer<typeof SubBalancerSchema>;
+
+export const TgBotCapabilitiesSchema = z.object({
+  groupPrivacy: z.boolean(),
+  inlineEnabled: z.boolean(),
+  running: z.boolean(),
+  username: z.string(),
+});
+export type TgBotCapabilities = z.infer<typeof TgBotCapabilitiesSchema>;
 
 export const TrafficSchema = z.object({
   Down: z.number().int(),

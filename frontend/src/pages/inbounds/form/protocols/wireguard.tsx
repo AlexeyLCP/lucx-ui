@@ -114,7 +114,11 @@ export default function WireguardFields({ wgPubKey, regenInboundWg }: WireguardF
           <FormField name={['settings', 'secretKey']} noStyle>
             <Input style={{ width: 'calc(100% - 32px)' }} />
           </FormField>
-          <Button aria-label={t('regenerate')} icon={<ReloadOutlined />} onClick={regenInboundWg} />
+          <Button
+            aria-label={t('regenerate')}
+            icon={<ReloadOutlined aria-hidden />}
+            onClick={regenInboundWg}
+          />
         </Space.Compact>
       </Form.Item>
       <Form.Item label={t('pages.xray.wireguard.publicKey')}>

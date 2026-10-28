@@ -7,6 +7,8 @@ import (
 	"testing"
 )
 
+func kaVal(v string) *KeepAliveValue { p := KeepAliveValue(v); return &p }
+
 func TestClientToRecordRoundTripWireGuard(t *testing.T) {
 	c := &Client{
 		Email:        "alice@example.test",
@@ -15,7 +17,7 @@ func TestClientToRecordRoundTripWireGuard(t *testing.T) {
 		PublicKey:    "cGVlci1wdWJsaWMta2V5LWJhc2U2NC0zMmJ5dGVzISE=",
 		AllowedIPs:   []string{"10.0.0.2/32", "fd00::2/128"},
 		PreSharedKey: "cHNrLWJhc2U2NC0zMmJ5dGVzLXBsYWNlaG9sZGVyISE=",
-		KeepAlive:    "25",
+		KeepAlive:    kaVal("25"),
 	}
 
 	rec := c.ToRecord()
@@ -47,8 +49,8 @@ func TestClientToRecordRoundTripWireGuard(t *testing.T) {
 func TestClientToClientOmitsUnsetKeepAlive(t *testing.T) {
 	rec := &ClientRecord{Email: "vless@example.test", UUID: "11111111-2222-3333-4444-555555555555", Enable: true}
 
-	if got := rec.ToClient().KeepAlive; !got.IsZero() {
-		t.Fatalf("KeepAlive for a record that never set one = %q, want empty", got)
+	if got := rec.ToClient().KeepAlive; got != nil {
+		t.Fatalf("KeepAlive for a record that never set one = %s, want nil", *got)
 	}
 	blob, err := json.Marshal(map[string][]Client{"clients": {*rec.ToClient()}})
 	if err != nil {

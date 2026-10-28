@@ -177,13 +177,13 @@ export function QwdttCard() {
           {t('pages.tunnels.qwdtt.actions.stop')}
         </Button>
         <Button
-          icon={<ReloadOutlined />}
+          icon={<ReloadOutlined aria-hidden />}
           disabled={busy}
           onClick={() => runAction(() => tunnelsApi.qwdttRestart())}
         >
           {t('pages.tunnels.qwdtt.actions.restart')}
         </Button>
-        <Button icon={<FileSearchOutlined />} onClick={() => void onShowLogs()}>
+        <Button icon={<FileSearchOutlined aria-hidden />} onClick={() => void onShowLogs()}>
           {t('pages.tunnels.qwdtt.logs')}
         </Button>
       </Space>
@@ -215,11 +215,14 @@ export function QwdttCard() {
                 return false;
               }}
             >
-              <Button icon={<UploadOutlined />} disabled={busy}>
+              <Button icon={<UploadOutlined aria-hidden />} disabled={busy}>
                 {t('pages.tunnels.qwdtt.binary.upload')}
               </Button>
             </Upload>
-            <Button icon={<CloudDownloadOutlined />} onClick={() => setDownloadOpen(true)}>
+            <Button
+              icon={<CloudDownloadOutlined aria-hidden />}
+              onClick={() => setDownloadOpen(true)}
+            >
               {t('pages.tunnels.qwdtt.binary.download')}
             </Button>
             <Popconfirm
@@ -228,7 +231,7 @@ export function QwdttCard() {
               cancelText={t('cancel')}
               onConfirm={() => runAction(() => tunnelsApi.qwdttDeleteBinary())}
             >
-              <Button icon={<DeleteOutlined />} danger disabled={busy}>
+              <Button icon={<DeleteOutlined aria-hidden />} danger disabled={busy}>
                 {t('pages.tunnels.qwdtt.binary.delete')}
               </Button>
             </Popconfirm>

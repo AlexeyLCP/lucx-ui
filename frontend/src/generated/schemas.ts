@@ -132,6 +132,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "minimum": 0,
         "type": "integer"
       },
+      "nodeDownThreshold": {
+        "maximum": 100,
+        "minimum": 1,
+        "type": "integer"
+      },
       "outboundDownThreshold": {
         "maximum": 100,
         "minimum": 1,
@@ -233,6 +238,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "subClashPath": {
         "type": "string"
       },
+      "subClashRemoteDNS": {
+        "description": "END LUCX-HOOK",
+        "type": "boolean"
+      },
       "subClashRules": {
         "type": "string"
       },
@@ -332,6 +341,10 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "subHideSettings": {
         "type": "boolean"
+      },
+      "subHostSortMode": {
+        "example": "inbound-first",
+        "type": "string"
       },
       "subIncyAnnounceUrl": {
         "type": "string"
@@ -444,7 +457,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subJsonMux": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "subJsonObservatory": {
@@ -638,6 +650,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "ldapUserFilter",
       "ldapVlessField",
       "logRetentionDays",
+      "nodeDownThreshold",
       "outboundDownThreshold",
       "pageSize",
       "panelOutbound",
@@ -667,6 +680,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subClashEnable",
       "subClashEnableRouting",
       "subClashPath",
+      "subClashRemoteDNS",
       "subClashRules",
       "subClashURI",
       "subClashUserAgentRegex",
@@ -700,6 +714,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subHappTunMode",
       "subHappTunType",
       "subHideSettings",
+      "subHostSortMode",
       "subIncyAnnounceUrl",
       "subIncyAppAutoDetect",
       "subIncyBannerBgColor",
@@ -941,6 +956,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "minimum": 0,
         "type": "integer"
       },
+      "nodeDownThreshold": {
+        "maximum": 100,
+        "minimum": 1,
+        "type": "integer"
+      },
       "outboundDownThreshold": {
         "maximum": 100,
         "minimum": 1,
@@ -1042,6 +1062,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "subClashPath": {
         "type": "string"
       },
+      "subClashRemoteDNS": {
+        "description": "END LUCX-HOOK",
+        "type": "boolean"
+      },
       "subClashRules": {
         "type": "string"
       },
@@ -1141,6 +1165,10 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "subHideSettings": {
         "type": "boolean"
+      },
+      "subHostSortMode": {
+        "example": "inbound-first",
+        "type": "string"
       },
       "subIncyAnnounceUrl": {
         "type": "string"
@@ -1253,7 +1281,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "subJsonMux": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "subJsonObservatory": {
@@ -1455,6 +1482,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "ldapUserFilter",
       "ldapVlessField",
       "logRetentionDays",
+      "nodeDownThreshold",
       "outboundDownThreshold",
       "pageSize",
       "panelOutbound",
@@ -1484,6 +1512,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subClashEnable",
       "subClashEnableRouting",
       "subClashPath",
+      "subClashRemoteDNS",
       "subClashRules",
       "subClashURI",
       "subClashUserAgentRegex",
@@ -1517,6 +1546,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subHappTunMode",
       "subHappTunType",
       "subHideSettings",
+      "subHostSortMode",
       "subIncyAnnounceUrl",
       "subIncyAppAutoDetect",
       "subIncyBannerBgColor",
@@ -1713,6 +1743,23 @@ export const SCHEMAS: Record<string, unknown> = {
     ],
     "type": "object"
   },
+  "Blocker": {
+    "description": "Blocker is one unmet requirement.",
+    "properties": {
+      "code": {
+        "example": "tools",
+        "type": "string"
+      },
+      "detail": {
+        "example": "awg",
+        "type": "string"
+      }
+    },
+    "required": [
+      "code"
+    ],
+    "type": "object"
+  },
   "Client": {
     "description": "Client represents a client configuration for Xray inbounds with traffic limits and settings.",
     "properties": {
@@ -1739,6 +1786,17 @@ export const SCHEMAS: Record<string, unknown> = {
       "auth": {
         "description": "Auth password (Hysteria)",
         "type": "string"
+      },
+      "clientHostRuleIds": {
+        "description": "ClientHostRuleIds binds the client to these host rules, one link each; nil preserves, empty\nclears, and bindings with no usable host leave that inbound out of the subscription.",
+        "example": [
+          1,
+          2
+        ],
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
       },
       "comment": {
         "description": "Client comment",
@@ -1767,7 +1825,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "forwardedPorts": {
-        "description": "END LUCX-HOOK\nAmneziaWG per-client port-forwarding spec, e.g. \"80,443,8000-8100\"",
+        "description": "AmneziaWG per-client port-forwarding spec, e.g. \"80,443,8000-8100\"",
         "type": "string"
       },
       "group": {
@@ -1779,8 +1837,15 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "keepAlive": {
-        "description": "LUCX-HOOK: KeepAliveValue (number or AWG3 range string). Not *int:\na vanilla INTEGER column still Scans, and \"15-25\" must round-trip.",
-        "type": "string"
+        "description": "Numeric values or AmneziaWG ranges; 0 disables, omission preserves.",
+        "oneOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          }
+        ]
       },
       "limitIp": {
         "description": "IP limit for this client",
@@ -1970,6 +2035,16 @@ export const SCHEMAS: Record<string, unknown> = {
       "auth": {
         "type": "string"
       },
+      "clientHostRuleIds": {
+        "example": [
+          1,
+          2
+        ],
+        "items": {
+          "type": "integer"
+        },
+        "type": "array"
+      },
       "comment": {
         "type": "string"
       },
@@ -1991,7 +2066,6 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "string"
       },
       "forwardedPorts": {
-        "description": "END LUCX-HOOK",
         "type": "string"
       },
       "group": {
@@ -2001,8 +2075,15 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "integer"
       },
       "keepAlive": {
-        "description": "LUCX-HOOK: string column so AWG3 ranges (\"15-25\") round-trip; legacy ints coerce via SQLite/PG text",
-        "type": "string"
+        "description": "Numeric values or AmneziaWG ranges.",
+        "oneOf": [
+          {
+            "type": "integer"
+          },
+          {
+            "type": "string"
+          }
+        ]
       },
       "limitHwid": {
         "type": "integer"
@@ -2779,6 +2860,10 @@ export const SCHEMAS: Record<string, unknown> = {
         "minimum": 0,
         "type": "integer"
       },
+      "randomCount": {
+        "example": 1,
+        "type": "integer"
+      },
       "remark": {
         "example": "cdn-front",
         "maxLength": 256,
@@ -2803,6 +2888,15 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "sni": {
         "type": "string"
+      },
+      "sniSharedRandom": {
+        "type": "boolean"
+      },
+      "snis": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
       },
       "sockoptParams": {},
       "sortOrder": {
@@ -2851,11 +2945,13 @@ export const SCHEMAS: Record<string, unknown> = {
       "path",
       "pinnedPeerCertSha256",
       "port",
+      "randomCount",
       "remark",
       "security",
       "serverDescription",
       "shuffleHost",
       "sni",
+      "sniSharedRandom",
       "sockoptParams",
       "sortOrder",
       "tags",
@@ -2960,6 +3056,11 @@ export const SCHEMAS: Record<string, unknown> = {
         "minimum": 0,
         "type": "integer"
       },
+      "randomCount": {
+        "maximum": 100,
+        "minimum": 1,
+        "type": "integer"
+      },
       "remark": {
         "maxLength": 256,
         "type": "string"
@@ -2982,6 +3083,15 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "sni": {
         "type": "string"
+      },
+      "sniSharedRandom": {
+        "type": "boolean"
+      },
+      "snis": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
       },
       "sockoptParams": {
         "type": "string"
@@ -3025,11 +3135,14 @@ export const SCHEMAS: Record<string, unknown> = {
       "path",
       "pinnedPeerCertSha256",
       "port",
+      "randomCount",
       "remark",
       "security",
       "serverDescription",
       "shuffleHost",
       "sni",
+      "sniSharedRandom",
+      "snis",
       "sockoptParams",
       "sortOrder",
       "tags",
@@ -3778,6 +3891,13 @@ export const SCHEMAS: Record<string, unknown> = {
       "transitive": {
         "type": "boolean"
       },
+      "unavailableMetrics": {
+        "description": "Nil on legacy rows and responses: zero remains a valid measured value.",
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
       "updatedAt": {
         "example": 1700000000,
         "format": "int64",
@@ -4102,6 +4222,12 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": false,
         "type": "boolean"
       },
+      "unavailableMetrics": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
       "updatedAt": {
         "example": 1700003600,
         "format": "int64",
@@ -4362,6 +4488,12 @@ export const SCHEMAS: Record<string, unknown> = {
         "example": "online",
         "type": "string"
       },
+      "unavailableMetrics": {
+        "items": {
+          "type": "string"
+        },
+        "type": "array"
+      },
       "uptimeSecs": {
         "example": 86400,
         "format": "int64",
@@ -4390,6 +4522,37 @@ export const SCHEMAS: Record<string, unknown> = {
       "xrayError",
       "xrayState",
       "xrayVersion"
+    ],
+    "type": "object"
+  },
+  "Readiness": {
+    "description": "Readiness is the host's ability to run any kernel-mode inbound at all.",
+    "properties": {
+      "blockers": {
+        "example": [
+          {
+            "code": "tools",
+            "detail": "awg"
+          }
+        ],
+        "items": {
+          "$ref": "#/components/schemas/Blocker"
+        },
+        "type": "array"
+      },
+      "installCommand": {
+        "example": "sudo /usr/local/x-ui/x-ui install-awg-kernel",
+        "type": "string"
+      },
+      "ready": {
+        "example": false,
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "blockers",
+      "installCommand",
+      "ready"
     ],
     "type": "object"
   },
@@ -4574,6 +4737,10 @@ export const SCHEMAS: Record<string, unknown> = {
       },
       "keepaliveTimeout": {
         "type": "string"
+      },
+      "kernelMode": {
+        "description": "KernelMode runs this inbound on the AmneziaWG kernel module (internal/amneziawgkern)\ninstead of the embedded amneziawg-go + gVisor stack.",
+        "type": "boolean"
       },
       "maxHandshakeAttempts": {
         "type": "string"
@@ -4826,6 +4993,35 @@ export const SCHEMAS: Record<string, unknown> = {
       "sortOrder",
       "strategy",
       "updatedAt"
+    ],
+    "type": "object"
+  },
+  "TgBotCapabilities": {
+    "description": "TgBotCapabilities is the browser-safe shape of the bot's own capabilities.",
+    "properties": {
+      "groupPrivacy": {
+        "description": "GroupPrivacy off means the bot reads every group message; when it is on,\na bare /start in a group is invisible to the bot.",
+        "example": false,
+        "type": "boolean"
+      },
+      "inlineEnabled": {
+        "example": true,
+        "type": "boolean"
+      },
+      "running": {
+        "example": true,
+        "type": "boolean"
+      },
+      "username": {
+        "example": "xui_bot",
+        "type": "string"
+      }
+    },
+    "required": [
+      "groupPrivacy",
+      "inlineEnabled",
+      "running",
+      "username"
     ],
     "type": "object"
   },

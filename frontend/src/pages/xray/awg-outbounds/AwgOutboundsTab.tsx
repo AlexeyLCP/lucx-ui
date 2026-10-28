@@ -133,7 +133,7 @@ export function AwgOutboundsTab() {
       <div style={{ marginBottom: 16 }}>
         <Button
           type="primary"
-          icon={<PlusOutlined />}
+          icon={<PlusOutlined aria-hidden />}
           onClick={() => {
             setEditing(null);
             setModalOpen(true);

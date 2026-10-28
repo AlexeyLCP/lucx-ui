@@ -22,6 +22,7 @@ import {
 } from '@/lib/xray/inbound-link';
 import { type DbInboundLike, inboundFromDb } from '@/lib/xray/inbound-from-db';
 import { InboundSchema } from '@/schemas/api/inbound';
+import { Base64 } from '@/utils';
 import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
 import type { WireguardInboundSettings } from '@/schemas/protocols/inbound/wireguard';
 import { vpnConfFromLink } from '@/lib/awg/vpnuri';
@@ -589,6 +590,22 @@ describe('genVlessLink TCP fragment finalmask compatibility', () => {
     const exported = finalmaskFrom(linkFor(finalmask));
 
     expect(exported).toEqual(finalmask);
+  });
+
+  // xray-core 26.10.21's filter screens the listener's own source IPs; a client core older than
+  // it refuses the unknown type, and the lists would hand clients the server's IP policy.
+  it('leaves the inbound-only filter mask out of the link', () => {
+    const exported = finalmaskFrom(
+      linkFor({
+        tcp: [{ type: 'filter', settings: { allowedSourceIPs: ['10.0.0.0/8'] } }],
+        udp: [
+          { type: 'filter', settings: { blockedSourceIPs: ['geoip:cn'] } },
+          { type: 'salamander', settings: { password: 'p' } },
+        ],
+      }),
+    );
+
+    expect(exported).toEqual({ udp: [{ type: 'salamander', settings: { password: 'p' } }] });
   });
 
   it('exports a stored UDP-only finalmask whose empty tcp list was dropped on save', () => {
@@ -1781,5 +1798,105 @@ describe('isPostQuantumLink', () => {
       ib.streamSettings.realitySettings.settings.mldsa65Verify = 'B'.repeat(2603);
     });
     expect(isPostQuantumLink(link)).toBe(true);
+  });
+
+  it('exports cipherSuites as cs query parameter on VLESS TLS links', () => {
+    const [, rawFixture] = fixturesForProtocol('vless')[0];
+    const stream = rawFixture.streamSettings as Record<string, unknown> | undefined;
+    const tls = stream?.tlsSettings as Record<string, unknown> | undefined;
+    const typed = InboundSchema.parse({
+      ...rawFixture,
+      streamSettings: {
+        ...stream,
+        security: 'tls',
+        tlsSettings: {
+          ...tls,
+          cipherSuites: 'TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256',
+        },
+      },
+    });
+
+    const link = genVlessLink({
+      inbound: typed,
+      address: 'example.test',
+      port: 443,
+      clientId: '11111111-2222-3333-4444-555555555555',
+    });
+    expect(new URL(link).searchParams.get('cs')).toBe(
+      'TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256',
+    );
+  });
+
+  // Xray reads an empty fingerprint as chrome, whose uTLS hello drops cipherSuites,
+  // so a link carrying cs with no fingerprint must ask for unsafe.
+  describe('cipherSuites pin fp=unsafe when no fingerprint is set', () => {
+    function tlsInbound(
+      protocol: 'vless' | 'vmess' | 'trojan',
+      fingerprint: string,
+      cipherSuites = 'TLS_AES_128_GCM_SHA256',
+    ) {
+      const [, rawFixture] = fixturesForProtocol(protocol)[0];
+      const stream = rawFixture.streamSettings as Record<string, unknown> | undefined;
+      const tls = (stream?.tlsSettings ?? {}) as Record<string, unknown>;
+      return InboundSchema.parse({
+        ...rawFixture,
+        streamSettings: {
+          ...stream,
+          security: 'tls',
+          tlsSettings: {
+            ...tls,
+            cipherSuites,
+            settings: { ...(tls.settings as Record<string, unknown>), fingerprint },
+          },
+        },
+      });
+    }
+
+    it('VLESS link gets fp=unsafe', () => {
+      const link = genVlessLink({
+        inbound: tlsInbound('vless', ''),
+        address: 'example.test',
+        clientId: '11111111-2222-3333-4444-555555555555',
+      });
+      expect(new URL(link).searchParams.get('fp')).toBe('unsafe');
+    });
+
+    it('VLESS link keeps an explicit fingerprint', () => {
+      const link = genVlessLink({
+        inbound: tlsInbound('vless', 'firefox'),
+        address: 'example.test',
+        clientId: '11111111-2222-3333-4444-555555555555',
+      });
+      expect(new URL(link).searchParams.get('fp')).toBe('firefox');
+    });
+
+    it('VMess link gets fp=unsafe', () => {
+      const link = genVmessLink({
+        inbound: tlsInbound('vmess', ''),
+        address: 'example.test',
+        clientId: '11111111-2222-3333-4444-555555555555',
+      });
+      const obj = JSON.parse(Base64.decode(link.slice('vmess://'.length))) as Record<
+        string,
+        unknown
+      >;
+      expect(obj.fp).toBe('unsafe');
+    });
+
+    it('Trojan link gets fp=unsafe from an external proxy cipherSuites', () => {
+      const link = genTrojanLink({
+        inbound: tlsInbound('trojan', '', ''),
+        address: 'example.test',
+        clientPassword: 'pw',
+        externalProxy: {
+          forceTls: 'same',
+          dest: 'cdn.example.test',
+          port: 443,
+          remark: '',
+          cipherSuites: 'TLS_AES_256_GCM_SHA384',
+        },
+      });
+      expect(new URL(link).searchParams.get('fp')).toBe('unsafe');
+    });
   });
 });

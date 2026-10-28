@@ -50,7 +50,7 @@ func TestBuildAwgProxy_AmneziaOption(t *testing.T) {
 		AllowedIPs:   []string{"10.200.0.2/32"},
 		PreSharedKey: "PSKAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",
 	}
-	svc := NewSubClashService(false, "", &SubService{})
+	svc := NewSubClashService(false, "", false, &SubService{})
 	proxy := svc.buildAwgProxy(svc.SubService, ib, client, map[string]any{})
 	if proxy == nil {
 		t.Fatal("buildAwgProxy returned nil")
@@ -103,7 +103,7 @@ func TestBuildAwgProxy_PrefersInboundPeerAddress(t *testing.T) {
 		PrivateKey: "CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=",
 		AllowedIPs: []string{"10.201.0.2/32"},
 	}
-	svc := NewSubClashService(false, "", &SubService{})
+	svc := NewSubClashService(false, "", false, &SubService{})
 	proxy := svc.buildAwgProxy(svc.SubService, ib, client, nil)
 	if proxy["ip"] != "10.8.0.3" {
 		t.Fatalf("ip = %v, want inbound 10.8.0.3", proxy["ip"])
@@ -123,7 +123,7 @@ func TestBuildAwgProxy_V15DropsS3I(t *testing.T) {
 	})
 	ib := &model.Inbound{Protocol: model.AWG, Port: 1, Listen: "1.1.1.1", Settings: string(settings)}
 	client := model.Client{Email: "a", PrivateKey: "CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=", AllowedIPs: []string{"10.0.0.2/32"}}
-	svc := NewSubClashService(false, "", &SubService{})
+	svc := NewSubClashService(false, "", false, &SubService{})
 	proxy := svc.buildAwgProxy(svc.SubService, ib, client, nil)
 	opt := proxy["amnezia-wg-option"].(map[string]any)
 	if opt["version"] != 1 {
@@ -161,7 +161,7 @@ func TestGetProxies_AwgWithoutOwnAddressUsesSubscriptionHost(t *testing.T) {
 	}
 
 	subReq := (&SubService{}).ForRequest("sub.example.net")
-	svc := NewSubClashService(false, "", subReq)
+	svc := NewSubClashService(false, "", false, subReq)
 	proxies := svc.getProxies(subReq, ib, client, "sub.example.net")
 
 	if len(proxies) != 1 {
@@ -180,7 +180,7 @@ func TestBuildProxy_DispatchesAwg(t *testing.T) {
 	})
 	ib := &model.Inbound{Protocol: model.AWG, Port: 9, Listen: "9.9.9.9", Settings: string(settings)}
 	client := model.Client{Email: "b", PrivateKey: "CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=", AllowedIPs: []string{"10.0.0.3/32"}}
-	svc := NewSubClashService(false, "", &SubService{})
+	svc := NewSubClashService(false, "", false, &SubService{})
 	proxy := svc.buildProxy(svc.SubService, ib, client, map[string]any{}, map[string]any{})
 	if proxy == nil {
 		t.Fatal("buildProxy must dispatch AWG")
@@ -201,7 +201,7 @@ func TestBuildAwgProxy_UnportableIFieldIsDroppedAlone(t *testing.T) {
 	})
 	ib := &model.Inbound{Protocol: model.AWG, Port: 1, Listen: "1.1.1.1", Settings: string(settings)}
 	client := model.Client{Email: "a", PrivateKey: "CKLAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEE=", AllowedIPs: []string{"10.0.0.2/32"}}
-	svc := NewSubClashService(false, "", &SubService{})
+	svc := NewSubClashService(false, "", false, &SubService{})
 	opt := svc.buildAwgProxy(svc.SubService, ib, client, nil)["amnezia-wg-option"].(map[string]any)
 	if _, ok := opt["i3"]; ok {
 		t.Errorf("<c> must not reach the proxy, got i3 = %v", opt["i3"])

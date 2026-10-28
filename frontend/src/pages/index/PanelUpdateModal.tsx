@@ -294,7 +294,7 @@ export default function PanelUpdateModal({ open, info, onClose, onBusy }: PanelU
             type="primary"
             disabled={!info.updateAvailable}
             onClick={updatePanel}
-            icon={<CloudDownloadOutlined />}
+            icon={<CloudDownloadOutlined aria-hidden />}
           >
             {t('pages.index.updatePanel')}
           </Button>

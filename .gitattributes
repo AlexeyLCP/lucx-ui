@@ -1,5 +1,5 @@
-# LF in every checkout, Windows included: format-check, the msw worker check and
-# tests that parse repo files compare bytes, so a CRLF working copy fails them.
+# LF in every checkout, Windows included: format-check and tests that parse repo
+# files compare bytes, so a CRLF working copy fails them.
 * text=auto eol=lf
 
 # Explicit for the paths that used to churn the most.

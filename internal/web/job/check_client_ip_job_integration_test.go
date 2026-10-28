@@ -15,16 +15,14 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database/dbtest"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	xuilogger "github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/xray"
 )
 
 // 3x-ui logger must be initialised once before any code path that can
 // log a warning. otherwise log.Warningf panics on a nil logger.
 var loggerInitOnce sync.Once
 
-// setupIntegrationDB wires a temp sqlite db and log folder so
-// updateInboundClientIps can run end to end. closes the db before
-// TempDir cleanup so windows doesn't complain about the file being in
-// use.
+// setupIntegrationDB closes its temporary SQLite database before directory cleanup.
 
 func setupIntegrationDB(t *testing.T) {
 	t.Helper()
@@ -37,6 +35,8 @@ func setupIntegrationDB(t *testing.T) {
 	logDir := t.TempDir()
 
 	t.Setenv("XUI_DB_FOLDER", dbDir)
+	t.Setenv("XUI_DB_TYPE", "sqlite")
+	t.Setenv("XUI_DB_DSN", "")
 	t.Setenv("XUI_LOG_FOLDER", logDir)
 
 	// updateInboundClientIps calls log.SetOutput on the package global,
@@ -53,7 +53,7 @@ func setupIntegrationDB(t *testing.T) {
 
 // enforceIpLimitForTest runs the same two steps processObserved does: select
 // inside the transaction, publish only once it would have committed.
-func (j *CheckClientIpJob) enforceIpLimitForTest(t *testing.T, row *model.InboundClientIps, inbound *model.Inbound, email string, limit int, live []IPWithTimestamp, observedAreLive bool) (banned bool, published []IPWithTimestamp) {
+func (j *CheckClientIpJob) enforceIpLimitForTest(t *testing.T, row *model.InboundClientIps, inbound *model.Inbound, email string, limit int, live []model.ClientIpEntry, observedAreLive bool) (banned bool, published []model.ClientIpEntry) {
 	t.Helper()
 	candidates, keptLive := j.updateInboundClientIps(database.GetDB(), row, inbound, email, limit, live, true, observedAreLive)
 	actionable := j.selectAdvancedSinceLastBan(email, candidates)
@@ -114,15 +114,15 @@ func seedLinkedInboundWithClient(t *testing.T, tag, email string, limitIp int) *
 }
 
 // seed an InboundClientIps row with the given blob.
-func seedClientIps(t *testing.T, email string, ips []IPWithTimestamp) *model.InboundClientIps {
+func seedClientIps(t *testing.T, email string, ips []model.ClientIpEntry) *model.InboundClientIps {
 	t.Helper()
-	blob, err := json.Marshal(ips)
+	blob, err := model.MarshalClientIpEntries(ips)
 	if err != nil {
 		t.Fatalf("marshal ips: %v", err)
 	}
 	row := &model.InboundClientIps{
 		ClientEmail: email,
-		Ips:         string(blob),
+		Ips:         blob,
 	}
 	if err := database.GetDB().Create(row).Error; err != nil {
 		t.Fatalf("seed InboundClientIps: %v", err)
@@ -131,7 +131,7 @@ func seedClientIps(t *testing.T, email string, ips []IPWithTimestamp) *model.Inb
 }
 
 // read the persisted blob and parse it back.
-func readClientIps(t *testing.T, email string) []IPWithTimestamp {
+func readClientIps(t *testing.T, email string) []model.ClientIpEntry {
 	t.Helper()
 	row := &model.InboundClientIps{}
 	if err := database.GetDB().Where("client_email = ?", email).First(row).Error; err != nil {
@@ -140,7 +140,7 @@ func readClientIps(t *testing.T, email string) []IPWithTimestamp {
 	if row.Ips == "" {
 		return nil
 	}
-	var out []IPWithTimestamp
+	var out []model.ClientIpEntry
 	if err := json.Unmarshal([]byte(row.Ips), &out); err != nil {
 		t.Fatalf("unmarshal Ips blob %q: %v", row.Ips, err)
 	}
@@ -148,7 +148,7 @@ func readClientIps(t *testing.T, email string) []IPWithTimestamp {
 }
 
 // make a lookup map so asserts don't depend on slice order.
-func ipSet(entries []IPWithTimestamp) map[string]int64 {
+func ipSet(entries []model.ClientIpEntry) map[string]int64 {
 	out := make(map[string]int64, len(entries))
 	for _, e := range entries {
 		out[e.IP] = e.Timestamp
@@ -197,7 +197,7 @@ func TestUpdateInboundClientIps_LiveIpNotBannedByStillFreshHistoricals(t *testin
 
 	now := time.Now().Unix()
 	// idle but still within the 30min staleness window.
-	row := seedClientIps(t, email, []IPWithTimestamp{
+	row := seedClientIps(t, email, []model.ClientIpEntry{
 		{IP: "10.0.0.1", Timestamp: now - 20*60},
 		{IP: "10.0.0.2", Timestamp: now - 15*60},
 		{IP: "10.0.0.3", Timestamp: now - 10*60},
@@ -205,7 +205,7 @@ func TestUpdateInboundClientIps_LiveIpNotBannedByStillFreshHistoricals(t *testin
 
 	j := NewCheckClientIpJob()
 	// the one that's actually connecting (user's 128.71.x.x).
-	live := []IPWithTimestamp{
+	live := []model.ClientIpEntry{
 		{IP: "128.71.1.1", Timestamp: now},
 	}
 
@@ -249,7 +249,7 @@ func TestUpdateInboundClientIps_ExcessLiveIpIsStillBanned(t *testing.T) {
 	seedInboundWithClient(t, "inbound-pr4091-abuse", email, 1)
 
 	now := time.Now().Unix()
-	row := seedClientIps(t, email, []IPWithTimestamp{
+	row := seedClientIps(t, email, []model.ClientIpEntry{
 		{IP: "10.1.0.1", Timestamp: now - 60}, // original connection
 	})
 
@@ -257,7 +257,7 @@ func TestUpdateInboundClientIps_ExcessLiveIpIsStillBanned(t *testing.T) {
 	// both live, limit=1. use distinct timestamps so sort-by-timestamp
 	// is deterministic: 10.1.0.1 is the original (older) and must get
 	// banned; 192.0.2.9 joined later and keeps the slot (last IP wins).
-	live := []IPWithTimestamp{
+	live := []model.ClientIpEntry{
 		{IP: "10.1.0.1", Timestamp: now - 5},
 		{IP: "192.0.2.9", Timestamp: now},
 	}
@@ -320,6 +320,67 @@ func TestProcessObserved_CollectsIpsWithoutLimit(t *testing.T) {
 	}
 }
 
+// #6722: collection-only runs keep the enforcing run's 30-minute window; the
+// old branch overwrote the blob, dropping IPs seen minutes earlier.
+func TestProcessObserved_CollectionOnlyKeepsRecentWindow(t *testing.T) {
+	setupIntegrationDB(t)
+
+	const email = "window-user"
+	seedInboundWithClient(t, "inbound-window", email, 0)
+	fiveMinAgo := time.Now().Unix() - 5*60
+	seedClientIps(t, email, []model.ClientIpEntry{{IP: "198.51.100.1", Timestamp: fiveMinAgo}})
+
+	observed := map[string]map[string]int64{
+		email: {"203.0.113.30": time.Now().Unix()},
+	}
+	NewCheckClientIpJob().processObserved(observed, false, true)
+
+	got := ipSet(readClientIps(t, email))
+	if _, ok := got["198.51.100.1"]; !ok {
+		t.Fatalf("collection-only run dropped the recent IP 198.51.100.1, got %v", got)
+	}
+	if _, ok := got["203.0.113.30"]; !ok {
+		t.Fatalf("collection-only run missed the observed IP 203.0.113.30, got %v", got)
+	}
+}
+
+// staticOnlineUsers pins the job's online-stats source so Run can be driven
+// end to end without a live xray core.
+type staticOnlineUsers []xray.OnlineUser
+
+func (s staticOnlineUsers) GetOnlineUsers() ([]xray.OnlineUser, bool, error) {
+	return s, true, nil
+}
+
+// #6722: fail2ban disabled — an over-limit client is recorded but never banned;
+// the setup can ban (limit 1, two IPs, fake fail2ban), so the flag stops it.
+func TestRun_RecordsIpsWhenFail2banDisabled(t *testing.T) {
+	setupIntegrationDB(t)
+	t.Setenv("XUI_ENABLE_FAIL2BAN", "false")
+	fakeFail2BanClient(t)
+
+	const email = "track-only-user"
+	seedLinkedInboundWithClient(t, "inbound-track-only", email, 1)
+
+	j := NewCheckClientIpJob()
+	j.onlineUsers = staticOnlineUsers{{Email: email, IPs: []xray.OnlineIP{
+		{IP: "203.0.113.20"}, {IP: "203.0.113.21"},
+	}}}
+	// Bans need a stored row (the first scan only records), so run twice: the
+	// second scan is where enforcement would fire if the flag allowed it.
+	j.Run()
+	j.Run()
+
+	got := ipSet(readClientIps(t, email))
+	if len(got) != 2 {
+		t.Fatalf("expected both observed IPs recorded with fail2ban disabled, got %v", got)
+	}
+	if info, err := os.Stat(readIpLimitLogPath()); err == nil && info.Size() > 0 {
+		body, _ := os.ReadFile(readIpLimitLogPath())
+		t.Fatalf("3xipl.log must stay empty with fail2ban disabled, got:\n%s", body)
+	}
+}
+
 // #4963: an observed IP for a renamed/deleted client (its email no longer maps
 // to any inbound) must not create or resurrect an inbound_client_ips row, and
 // must drop any orphan left behind — instead of erroring every run.
@@ -329,7 +390,7 @@ func TestProcessObserved_StaleEmailIsSkippedAndOrphanDropped(t *testing.T) {
 	const staleEmail = "renamed-away"
 	// No inbound references staleEmail. Pre-seed an orphan tracking row to
 	// confirm the job removes it rather than leaving it to error forever.
-	seedClientIps(t, staleEmail, []IPWithTimestamp{{IP: "203.0.113.5", Timestamp: time.Now().Unix()}})
+	seedClientIps(t, staleEmail, []model.ClientIpEntry{{IP: "203.0.113.5", Timestamp: time.Now().Unix()}})
 
 	observed := map[string]map[string]int64{
 		staleEmail: {"203.0.113.5": time.Now().Unix()},
@@ -431,14 +492,14 @@ func TestUpdateInboundClientIps_AllowlistedIpIsNeitherCountedNorBanned(t *testin
 	seedInboundWithClient(t, "inbound-issue5378", email, 1)
 
 	now := time.Now().Unix()
-	row := seedClientIps(t, email, []IPWithTimestamp{
+	row := seedClientIps(t, email, []model.ClientIpEntry{
 		{IP: "203.0.113.10", Timestamp: now - 60},
 	})
 
 	j := NewCheckClientIpJob()
 	j.allowlist = parseIpLimitAllowlist("203.0.113.0/24")
 
-	live := []IPWithTimestamp{
+	live := []model.ClientIpEntry{
 		{IP: "203.0.113.10", Timestamp: now - 5},
 		{IP: "192.0.2.9", Timestamp: now},
 	}

@@ -14,14 +14,18 @@ import {
   resolveShareHost,
 } from '@/lib/xray/inbound-link';
 import type { AwgVersion } from '@/lib/xray/inbound-link';
+import { joinConfLines } from '@/lib/xray/conf-lines';
 import type { ClientRecord, InboundOption } from '@/hooks/useClients';
 import { WgoObfuscationSchema } from '@/schemas/protocols/inbound/wgo'; // LUCX-HOOK: wgobfs
 import { instanceSection, obfuscatedEndpoint, wgosocksPhobosLink } from '@/lib/wgo/link'; // LUCX-HOOK: wgobfs
 
 function persistentKeepaliveLine(keepAlive: unknown): string | null {
+  // LUCX-HOOK: an AWG3 range never belongs in a plain WireGuard profile.
+  if (typeof keepAlive === 'string' && keepAlive.includes('-')) return null;
   const s = normalizeAwgTimer(keepAlive);
   if (s === '0') return null;
-  return `PersistentKeepalive = ${s}`;
+  if (typeof keepAlive === 'string' && /^[0-9]+$/.test(s)) return `PersistentKeepalive = ${s}`;
+  return null;
 }
 
 export function isWireguardClient(client: ClientRecord | null | undefined): boolean {
@@ -31,7 +35,9 @@ export function isWireguardClient(client: ClientRecord | null | undefined): bool
     client.publicKey ||
     client.allowedIPs ||
     client.preSharedKey ||
-    client.keepAlive
+    // LUCX-HOOK: a numeric keepalive is WireGuard-family evidence; an AWG3
+    // range string is not (it belongs to the AmneziaWG profile only).
+    (typeof client.keepAlive === 'string' ? !client.keepAlive.includes('-') : !!client.keepAlive)
   );
 }
 
@@ -83,7 +89,8 @@ export function buildWireguardClientConfig(
   lines.push('AllowedIPs = 0.0.0.0/0, ::/0', `Endpoint = ${endpoint}`);
   const ka = persistentKeepaliveLine(client.keepAlive);
   if (ka) lines.push(ka);
-  return lines.join('\n');
+  // joinConfLines refuses values that carry line breaks (injection guard).
+  return joinConfLines(lines);
 }
 
 // LUCX-HOOK: AWG — client .conf builder for AmneziaWG, mirroring buildWireguardClientConfig

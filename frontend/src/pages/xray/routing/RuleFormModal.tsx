@@ -446,7 +446,7 @@ export default function RuleFormModal({
                 <Button
                   size="small"
                   type="dashed"
-                  icon={<PlusOutlined />}
+                  icon={<PlusOutlined aria-hidden />}
                   onClick={applyMatchAllPreset}
                 >
                   {t('pages.xray.ruleForm.matchAllPreset')}
@@ -457,11 +457,8 @@ export default function RuleFormModal({
 
             <FormField
               name="sourceIP"
-              label={
-                <Tooltip title={t('pages.xray.rules.useComma')}>
-                  {t('pages.xray.ruleForm.sourceIps')} <QuestionCircleOutlined aria-hidden="true" />
-                </Tooltip>
-              }
+              label={t('pages.xray.ruleForm.sourceIps')}
+              tooltip={t('pages.xray.rules.useComma')}
             >
               <GeoTokenInput kind="ip" placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
             </FormField>
@@ -502,7 +499,7 @@ export default function RuleFormModal({
               <Button
                 size="small"
                 aria-label={t('add')}
-                icon={<PlusOutlined />}
+                icon={<PlusOutlined aria-hidden />}
                 onClick={() => methods.setValue('attrs', [...attrs, ['', ''] as [string, string]])}
               />
             </Form.Item>
@@ -534,7 +531,7 @@ export default function RuleFormModal({
                   />
                   <Button
                     aria-label={t('remove')}
-                    icon={<MinusOutlined />}
+                    icon={<MinusOutlined aria-hidden />}
                     onClick={() =>
                       methods.setValue(
                         'attrs',
@@ -546,14 +543,7 @@ export default function RuleFormModal({
               ))}
             </Form.Item>
 
-            <FormField
-              name="ip"
-              label={
-                <Tooltip title={t('pages.xray.rules.useComma')}>
-                  IP <QuestionCircleOutlined aria-hidden="true" />
-                </Tooltip>
-              }
-            >
+            <FormField name="ip" label="IP" tooltip={t('pages.xray.rules.useComma')}>
               <GeoTokenInput kind="ip" placeholder="0.0.0.0/8, fc00::/7, geoip:ir" />
             </FormField>
 
@@ -569,6 +559,7 @@ export default function RuleFormModal({
             </FormField>
 
             <Form.Item
+              htmlFor="clientPick"
               label={
                 <Tooltip title={t('pages.xray.ruleForm.clientPickHint')}>
                   {t('pages.xray.ruleForm.user')} <QuestionCircleOutlined aria-hidden="true" />
@@ -602,7 +593,7 @@ export default function RuleFormModal({
             />
             {/* Keep RHF fields in sync for submit (picker writes user + sourceIP). */}
             <FormField name="user" noStyle>
-              <Input type="hidden" />
+              <Input type="hidden" aria-label="user" />
             </FormField>
 
             <FormField

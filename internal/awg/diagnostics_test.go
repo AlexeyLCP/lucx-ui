@@ -162,6 +162,71 @@ func TestDiagnose_XrayTunHealthy(t *testing.T) {
 	}
 }
 
+func TestDiagnose_XrayTunSandboxAllowed(t *testing.T) {
+	inst := natInstance()
+	inst.RouteThroughXray = true
+	p := fakeProber{
+		outputs: map[string]string{
+			"ip link show awg1":               "3: awg1: <UP,LOWER_UP> mtu 1320 state UP",
+			"sysctl -n net.ipv4.ip_forward":   "1\n",
+			"awg show awg1 peers":             "pubkeyA\n",
+			"awg show awg1 latest-handshakes": "pubkeyA\t1799999999\n",
+			"ip link show tun1":               "7: tun1: <UP,LOWER_UP> mtu 9000 state UNKNOWN",
+			"ip rule show iif awg1":           "32000: from all iif awg1 lookup 1001\n",
+			"ip route show table 1001":        "default dev tun1 scope link\n",
+		},
+		failing: map[string]bool{},
+	}
+	d := diagnose(inst, p, fixedNow)
+	idx := -1
+	for i, c := range d.Checks {
+		if c.Name == "tun device" {
+			idx = i
+		}
+	}
+	if idx < 0 || d.Checks[idx+1].Name != "xray tun tun1" {
+		t.Fatalf("tun device check must precede the xray tun probe, got %+v", d.Checks)
+	}
+	if !d.Checks[idx].OK {
+		t.Errorf("healthy host must pass the tun open, got %+v", d.Checks[idx])
+	}
+}
+
+func TestDiagnose_XrayTunSandboxDenied(t *testing.T) {
+	inst := natInstance()
+	inst.RouteThroughXray = true
+	p := fakeProber{
+		outputs: map[string]string{
+			"ip link show awg1":          "3: awg1: <UP,LOWER_UP> mtu 1320 state UP",
+			"sh -c exec 3<>/dev/net/tun": "sh: 1: cannot open /dev/net/tun: Permission denied\n",
+			"ip link show tun1":          "",
+			"ip rule show iif awg1":      "",
+			"ip route show table 1001":   "",
+		},
+		failing: map[string]bool{"sh -c exec 3<>/dev/net/tun": true},
+	}
+	d := diagnose(inst, p, fixedNow)
+	var tun DiagCheck
+	for _, c := range d.Checks {
+		if c.Name == "tun device" {
+			tun = c
+		}
+	}
+	if tun.Name == "" {
+		t.Fatal("tun device check missing from the xray-tun chain")
+	}
+	if tun.OK || !strings.Contains(tun.Detail, "Permission denied") {
+		t.Errorf("denied open must fail with the errno in detail, got %+v", tun)
+	}
+	if !strings.Contains(tun.Detail, "DeviceAllow=/dev/net/tun") ||
+		!strings.Contains(tun.Detail, "daemon-reload") {
+		t.Errorf("denied detail must carry the heal path, got %+v", tun)
+	}
+	if d.Healthy() {
+		t.Error("sandboxed-away tun device cannot be healthy")
+	}
+}
+
 func TestDiagnose_XrayTunRouteLost(t *testing.T) {
 	inst := natInstance()
 	inst.RouteThroughXray = true

@@ -2,6 +2,7 @@ package service
 
 import (
 	"errors"
+	"reflect"
 	"path/filepath"
 	"strings"
 	"testing"
@@ -496,7 +497,7 @@ func TestMigrateDB_TunnelKeysUnchangedOnSecondRun(t *testing.T) {
 
 	// Every run restamps updated_at in the settings JSON by design; nothing else may move.
 	first.UpdatedAt = second.UpdatedAt
-	if first != second {
+	if !reflect.DeepEqual(first, second) {
 		t.Fatalf("second MigrateDB changed the client record:\n first  = %+v\n second = %+v", first, second)
 	}
 }

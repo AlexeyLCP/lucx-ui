@@ -4,13 +4,16 @@ package main
 
 import (
 	"context"
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
 	"os"
+	"os/exec"
 	"os/signal"
+	"runtime"
 	"strings"
 	"syscall"
 	_ "unsafe"
@@ -21,7 +24,6 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/sub"
 	"github.com/mhsanaei/3x-ui/v3/internal/tunnelmonitor"
-	"github.com/mhsanaei/3x-ui/v3/internal/util/crypto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/sys"
 	"github.com/mhsanaei/3x-ui/v3/internal/web"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/global"
@@ -112,8 +114,17 @@ func runWebServer() {
 	if err != nil {
 		log.Fatalf("Error initializing database: %v", err)
 	}
+	// Created here, not in InitDB: a CLI call's output is often piped away, and
+	// this log is the one place an operator reads the first login from.
+	username, password, err := database.EnsureFirstUser()
+	if err != nil {
+		log.Fatalf("Error creating the first panel user: %v", err)
+	}
+	if password != "" {
+		log.Printf("No panel user existed, so one was generated. Username: %s  Password: %s  (shown once; change it in Panel Settings)", username, password)
+	}
 
-	server := web.NewServer()
+	server := web.NewServer(sub.NewLinkProvider())
 	global.SetWebServer(server)
 	err = server.Start()
 	if err != nil {
@@ -121,7 +132,6 @@ func runWebServer() {
 	}
 
 	sub.SetDistFS(web.EmbeddedDist())
-	service.RegisterSubLinkProvider(sub.NewLinkProvider())
 	subServer := sub.NewServer()
 	global.SetSubServer(subServer)
 	err = subServer.Start()
@@ -175,7 +185,7 @@ func runWebServer() {
 				logger.Debug("Error stopping sub server:", err)
 			}
 
-			server = web.NewServer()
+			server = web.NewServer(sub.NewLinkProvider())
 			global.SetWebServer(server)
 			err = server.StartPanelOnly()
 			if err != nil {
@@ -260,13 +270,9 @@ func showSetting(show bool) {
 		}
 
 		userService := panel.UserService{}
-		userModel, err := userService.GetFirstUser()
+		hasDefaultCredential, err := userService.HasDefaultCredential()
 		if err != nil {
 			fmt.Println("get current user info failed, error info:", err)
-		}
-
-		if userModel.Username == "" || userModel.Password == "" {
-			fmt.Println("current username or password is empty")
 		}
 
 		fmt.Println("current panel settings as follows:")
@@ -275,10 +281,6 @@ func showSetting(show bool) {
 		} else {
 			fmt.Println("Panel is secure with SSL")
 		}
-
-		hasDefaultCredential := func() bool {
-			return userModel.Username == "admin" && crypto.CheckPasswordHash(userModel.Password, "admin")
-		}()
 
 		fmt.Println("hasDefaultCredential:", hasDefaultCredential)
 		fmt.Println("port:", port)
@@ -665,6 +667,8 @@ func main() {
 			return
 		}
 		runWebServer()
+	case "install-awg-kernel":
+		installAmneziaWGKernelModule()
 	case "migrate":
 		migrateDb()
 	case "encrypt-tokens":
@@ -772,5 +776,51 @@ Commands:
     migrate-db     SQLite <-> .dump (--dump/--restore) or copy into PostgreSQL (--dsn)
     encrypt-tokens encrypt node bearer tokens with the configured active key
     setting        set settings
+    install-awg-kernel
+                   build and install the AmneziaWG kernel module (required for
+                   an AmneziaWG inbound's kernel mode)
 `
+}
+
+//go:embed scripts/install-amneziawg-kernel.sh
+var installAwgKernelScript []byte
+
+// installAmneziaWGKernelModule runs the bundled module installer.
+// It needs a terminal for its apt and DKMS build output.
+func installAmneziaWGKernelModule() {
+	if runtime.GOOS != "linux" {
+		fmt.Println("the AmneziaWG kernel module is Linux-only")
+		return
+	}
+	if os.Geteuid() != 0 {
+		exe, err := os.Executable()
+		if err != nil || exe == "" {
+			exe = "/usr/local/x-ui/x-ui"
+		}
+		fmt.Println("run as root: sudo " + exe + " install-awg-kernel")
+		return
+	}
+
+	f, err := os.CreateTemp("", "install-amneziawg-kernel-*.sh")
+	if err != nil {
+		fmt.Println("could not stage the installer:", err)
+		return
+	}
+	defer os.Remove(f.Name())
+	if _, err := f.Write(installAwgKernelScript); err != nil {
+		f.Close()
+		fmt.Println("could not write the installer:", err)
+		return
+	}
+	f.Close()
+
+	// No timeout: an apt+dkms build legitimately runs for minutes.
+	cmd := exec.CommandContext(context.Background(), "bash", f.Name())
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	if err := cmd.Run(); err != nil {
+		fmt.Println("install failed:", err)
+		os.Exit(1)
+	}
 }

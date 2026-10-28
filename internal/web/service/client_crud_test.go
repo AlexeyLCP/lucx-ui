@@ -52,7 +52,7 @@ func updateEnableLikeUI(t *testing.T, svc *ClientService, inboundSvc *InboundSer
 	c.PublicKey = ""
 	c.PreSharedKey = ""
 	c.AllowedIPs = nil
-	c.KeepAlive = ""
+	c.KeepAlive = nil
 	if _, err := svc.Update(inboundSvc, id, *c, 0); err != nil {
 		t.Fatalf("Update enable=%v: %v", enable, err)
 	}

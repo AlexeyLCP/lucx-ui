@@ -284,12 +284,12 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
           showUploadList={false}
           beforeUpload={upload}
         >
-          <Button icon={<UploadOutlined />} disabled={busy}>
+          <Button icon={<UploadOutlined aria-hidden />} disabled={busy}>
             {t(`${i18nBase}.upload`)}
           </Button>
         </Upload>
         <Button
-          icon={<CloudDownloadOutlined />}
+          icon={<CloudDownloadOutlined aria-hidden />}
           onClick={() => setDownloadOpen(true)}
           disabled={busy}
         >
@@ -301,11 +301,11 @@ function BinaryCard({ kind, title }: { kind: CoreKind; title: string }) {
           cancelText={t('cancel')}
           onConfirm={() => run(() => api.deleteBinary() as Promise<{ success?: boolean }>)}
         >
-          <Button icon={<DeleteOutlined />} danger disabled={busy}>
+          <Button icon={<DeleteOutlined aria-hidden />} danger disabled={busy}>
             {t(`${i18nBase}.delete`)}
           </Button>
         </Popconfirm>
-        <Button icon={<FileSearchOutlined />} onClick={() => void showLogs()}>
+        <Button icon={<FileSearchOutlined aria-hidden />} onClick={() => void showLogs()}>
           {t('pages.tunnels.naive.logs')}
         </Button>
       </Space>
@@ -444,7 +444,7 @@ function AwgCard() {
       </Typography.Paragraph>
       <Space wrap>
         <Button
-          icon={<ReloadOutlined />}
+          icon={<ReloadOutlined aria-hidden />}
           disabled={busy || rebuilding || !loaded}
           onClick={() => void restartIfaces()}
         >
@@ -634,7 +634,7 @@ function ClientBinaryCard({ protocol, titleKey }: { protocol: SidecarProtocol; t
           showUploadList={false}
           beforeUpload={upload}
         >
-          <Button icon={<UploadOutlined />} disabled={busy}>
+          <Button icon={<UploadOutlined aria-hidden />} disabled={busy}>
             {t('pages.tunnels.naive.binary.upload')}
           </Button>
         </Upload>
@@ -654,7 +654,7 @@ function ClientBinaryCard({ protocol, titleKey }: { protocol: SidecarProtocol; t
             })();
           }}
         >
-          <Button icon={<DeleteOutlined />} danger disabled={busy}>
+          <Button icon={<DeleteOutlined aria-hidden />} danger disabled={busy}>
             {t('pages.tunnels.naive.binary.delete')}
           </Button>
         </Popconfirm>

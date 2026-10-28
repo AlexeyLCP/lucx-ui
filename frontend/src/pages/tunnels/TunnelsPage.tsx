@@ -235,13 +235,13 @@ export default function TunnelsPage() {
             {t('pages.tunnels.naive.actions.stop')}
           </Button>
           <Button
-            icon={<ReloadOutlined />}
+            icon={<ReloadOutlined aria-hidden />}
             disabled={busy}
             onClick={() => runAction(() => tunnelsApi.restart())}
           >
             {t('pages.tunnels.naive.actions.restart')}
           </Button>
-          <Button icon={<FileSearchOutlined />} onClick={() => void onShowLogs()}>
+          <Button icon={<FileSearchOutlined aria-hidden />} onClick={() => void onShowLogs()}>
             {t('pages.tunnels.naive.logs')}
           </Button>
         </Space>
@@ -273,11 +273,14 @@ export default function TunnelsPage() {
                   return false;
                 }}
               >
-                <Button icon={<UploadOutlined />} disabled={busy}>
+                <Button icon={<UploadOutlined aria-hidden />} disabled={busy}>
                   {t('pages.tunnels.naive.binary.upload')}
                 </Button>
               </Upload>
-              <Button icon={<CloudDownloadOutlined />} onClick={() => setDownloadOpen(true)}>
+              <Button
+                icon={<CloudDownloadOutlined aria-hidden />}
+                onClick={() => setDownloadOpen(true)}
+              >
                 {t('pages.tunnels.naive.binary.download')}
               </Button>
               <Popconfirm
@@ -286,7 +289,7 @@ export default function TunnelsPage() {
                 cancelText={t('cancel')}
                 onConfirm={() => runAction(() => tunnelsApi.deleteBinary())}
               >
-                <Button icon={<DeleteOutlined />} danger disabled={busy}>
+                <Button icon={<DeleteOutlined aria-hidden />} danger disabled={busy}>
                   {t('pages.tunnels.naive.binary.delete')}
                 </Button>
               </Popconfirm>

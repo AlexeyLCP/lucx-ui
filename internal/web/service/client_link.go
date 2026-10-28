@@ -2,6 +2,7 @@ package service
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/google/uuid"
@@ -42,6 +43,10 @@ func applyClientRecordMerge(row *model.ClientRecord, incoming *model.ClientRecor
 	if incoming.Security != "" {
 		row.Security = incoming.Security
 	}
+	// nil preserves the stored binding, empty clears it via Update's write.
+	if ids := model.NormalizeClientHostRuleIds(incoming.ClientHostRuleIds); ids != nil {
+		row.ClientHostRuleIds = ids
+	}
 	if incoming.Reverse != "" {
 		row.Reverse = incoming.Reverse
 	}
@@ -60,7 +65,9 @@ func applyClientRecordMerge(row *model.ClientRecord, incoming *model.ClientRecor
 		row.PreSharedKey = incoming.PreSharedKey
 	}
 	// END LUCX-HOOK
-	row.KeepAlive = incoming.KeepAlive
+	if incoming.KeepAlive != "" {
+		row.KeepAlive = incoming.KeepAlive
+	}
 	row.SubID = incoming.SubID
 	row.LimitIP = incoming.LimitIP
 	row.TotalGB = incoming.TotalGB
@@ -172,6 +179,7 @@ func (s *ClientService) syncInboundClients(tx *gorm.DB, inboundId int, clients [
 		// ToRecord copies the raw email; store the trimmed key this function
 		// looks up by, or a padded email is inserted and never found again.
 		incoming.Email = email
+		incoming.ClientHostRuleIds = model.NormalizeClientHostRuleIds(incoming.ClientHostRuleIds)
 		row, ok := existing[email]
 		if !ok {
 			if _, dup := pending[email]; !dup {
@@ -190,7 +198,9 @@ func (s *ClientService) syncInboundClients(tx *gorm.DB, inboundId int, clients [
 
 		idByEmail[email] = row.Id
 
-		if *row == before {
+		// DeepEqual: ClientRecord now carries a slice (ClientHostRuleIds)
+		// and is no longer ==-comparable.
+		if reflect.DeepEqual(*row, before) {
 			continue
 		}
 		if err := tx.Save(row).Error; err != nil {
@@ -213,6 +223,9 @@ func (s *ClientService) syncInboundClients(tx *gorm.DB, inboundId int, clients [
 		if err := tx.CreateInBatches(toCreate, 200).Error; err != nil {
 			return err
 		}
+		// Whichever API re-created the client, a delete tombstone left standing makes
+		// the next node merge prune it and ReapSyncOrphans delete it.
+		liftTombstonesOnCommit(tx, toCreate)
 		disabledIDs := make([]int, 0)
 		for i, rec := range toCreate {
 			idByEmail[rec.Email] = rec.Id
@@ -474,6 +487,42 @@ func (s *ClientService) DetachInbound(tx *gorm.DB, inboundId int) error {
 		tx = database.GetDB()
 	}
 	return tx.Where("inbound_id = ?", inboundId).Delete(&model.ClientInbound{}).Error
+}
+
+type clientStatsIdentity struct {
+	UUID  string
+	Email string
+	SubID string
+}
+
+func (s *ClientService) listStatsIdentitiesForInbounds(tx *gorm.DB, inboundIDs []int) (map[int][]clientStatsIdentity, error) {
+	if tx == nil {
+		tx = database.GetDB()
+	}
+	out := make(map[int][]clientStatsIdentity)
+	for _, batch := range chunkInts(uniqueInts(inboundIDs), sqlInChunk) {
+		var rows []struct {
+			InboundID int    `gorm:"column:inbound_id"`
+			UUID      string `gorm:"column:uuid"`
+			Email     string `gorm:"column:email"`
+			SubID     string `gorm:"column:sub_id"`
+		}
+		err := tx.Table("clients").
+			Select("client_inbounds.inbound_id, clients.uuid, clients.email, clients.sub_id").
+			Joins("JOIN client_inbounds ON client_inbounds.client_id = clients.id").
+			Where("client_inbounds.inbound_id IN ?", batch).
+			Order("client_inbounds.inbound_id ASC, clients.id ASC").
+			Find(&rows).Error
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			out[row.InboundID] = append(out[row.InboundID], clientStatsIdentity{
+				UUID: row.UUID, Email: row.Email, SubID: row.SubID,
+			})
+		}
+	}
+	return out, nil
 }
 
 func (s *ClientService) ListForInbound(tx *gorm.DB, inboundId int) ([]model.Client, error) {

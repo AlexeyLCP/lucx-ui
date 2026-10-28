@@ -59,11 +59,35 @@ func explicitWireguardSubnetBase(settingsJSON string) string {
 	return base
 }
 
-func keepAliveStr(v model.KeepAliveValue) string {
-	if v.IsZero() {
+// keepAliveOf dereferences an optional keepalive ("" when nil).
+func keepAliveOf(v *model.KeepAliveValue) model.KeepAliveValue {
+	if v == nil {
 		return ""
 	}
-	return v.String()
+	return *v
+}
+
+// keepAliveOfPtr wraps a plain keepalive value into the optional pointer.
+func keepAliveOfPtr(v model.KeepAliveValue) *model.KeepAliveValue {
+	p := v
+	return &p
+}
+
+// keepAlivePtrOf is keepAliveOfPtr spelled for the xray call sites.
+func keepAlivePtrOf(v model.KeepAliveValue) *model.KeepAliveValue {
+	return keepAliveOfPtr(v)
+}
+
+func keepAliveStr(v *model.KeepAliveValue) string {
+	value := model.KeepAliveValue("")
+	if v != nil {
+		value = *v
+	}
+	value = model.KeepAliveValue(strings.TrimSpace(value.String()))
+	if value == "" || value == "0" || value == "0-0" {
+		return ""
+	}
+	return value.String()
 }
 
 func wireguardHostAddr(s string) netip.Addr {
@@ -309,8 +333,8 @@ func defaultWireguardClients(settingsJSON string, existing, clients []model.Clie
 			c.AllowedIPs = normalized
 		}
 		used = append(used, c.AllowedIPs...)
-		if c.KeepAlive.IsZero() {
-			c.KeepAlive = "25"
+		if keepAliveOf(c.KeepAlive) == "" {
+			c.KeepAlive = keepAliveOfPtr("25")
 		}
 
 		if i < len(interfaceClients) {

@@ -98,7 +98,7 @@ export function SidecarOutboundsTab() {
                 return false;
               }}
             >
-              <Button size="small" icon={<UploadOutlined />}>
+              <Button size="small" icon={<UploadOutlined aria-hidden />}>
                 {t('pages.xray.sidecarOutbound.uploadNaive')}
               </Button>
             </Upload>
@@ -153,7 +153,7 @@ export function SidecarOutboundsTab() {
       <div style={{ marginBottom: 16 }}>
         <Button
           type="primary"
-          icon={<PlusOutlined />}
+          icon={<PlusOutlined aria-hidden />}
           onClick={() => {
             setEditing(null);
             setModalOpen(true);

@@ -286,7 +286,7 @@ export default function MieruFields() {
           </Col>
           <Col>
             <Button
-              icon={<DeleteOutlined />}
+              icon={<DeleteOutlined aria-hidden />}
               danger
               onClick={() => remove(i)}
               disabled={fields.length <= 1}
@@ -295,7 +295,7 @@ export default function MieruFields() {
         </Row>
       ))}
       <Button
-        icon={<PlusOutlined />}
+        icon={<PlusOutlined aria-hidden />}
         onClick={() => append({ port: 20101, protocol: 'TCP' })}
         style={{ marginBottom: 16 }}
       >

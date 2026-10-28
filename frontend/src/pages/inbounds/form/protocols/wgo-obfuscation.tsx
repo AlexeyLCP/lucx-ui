@@ -44,7 +44,11 @@ function EngineStatusLine({ inboundId }: { inboundId: number | null }) {
   const status = statusQuery.data;
   return (
     <Space style={{ marginBottom: 12 }}>
-      <Button size="small" icon={<ReloadOutlined />} onClick={() => void statusQuery.refetch()}>
+      <Button
+        size="small"
+        icon={<ReloadOutlined aria-hidden />}
+        onClick={() => void statusQuery.refetch()}
+      >
         {t('pages.inbounds.form.wgoStatusRefresh')}
       </Button>
       <span>
@@ -110,7 +114,7 @@ export default function WgoObfuscationFields() {
                   </FormField>
                   <Button
                     aria-label={t('delete')}
-                    icon={<DeleteOutlined />}
+                    icon={<DeleteOutlined aria-hidden />}
                     onClick={() => remove(index)}
                     style={{ marginTop: 30 }}
                   />
@@ -131,7 +135,7 @@ export default function WgoObfuscationFields() {
                       <Button
                         type="text"
                         size="small"
-                        icon={<ReloadOutlined />}
+                        icon={<ReloadOutlined aria-hidden />}
                         onClick={() =>
                           form.setValue(`settings.obfuscation.presets.${index}.key`, randomKey(), {
                             shouldDirty: true,
@@ -222,7 +226,11 @@ export default function WgoObfuscationFields() {
               </Space>
             );
           })}
-          <Button block icon={<PlusOutlined />} onClick={() => append(nextPreset(presets, wgPort))}>
+          <Button
+            block
+            icon={<PlusOutlined aria-hidden />}
+            onClick={() => append(nextPreset(presets, wgPort))}
+          >
             {t('pages.inbounds.form.wgoAddPreset')}
           </Button>
           <FormField

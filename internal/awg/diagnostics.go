@@ -184,12 +184,39 @@ func diagnoseP2P(inst Instance, p prober) DiagCheck {
 	return DiagCheck{"p2p", true, "hairpin allowed on " + inst.Ifname}
 }
 
+// tunSandboxDeviceCheck answers whether a process under the panel's systemd
+// unit can open /dev/net/tun — the very first open Xray's TUN inbounds
+// (routed AWG/qWDTT) perform. The probe runs through the prober, i.e. as a
+// child of the panel that shares the unit's capability/device/seccomp view
+// with the Xray child, so a "denied" here predicts exactly xray's `failed to
+// start proxy > operation not permitted` restart loop (Known Issue 7: the
+// lucx.329-era hardened unit on systemd 249 denies the open). The `exec 3<>`
+// form never commands anything: the fd is only opened for the shell's lifetime.
+func tunSandboxDeviceCheck(p prober) DiagCheck {
+	out, err := p.Run("sh", "-c", "exec 3<>/dev/net/tun")
+	if err == nil {
+		return DiagCheck{"tun device", true, "/dev/net/tun opens under the service sandbox"}
+	}
+	msg := oneLine(out)
+	if msg == "" {
+		msg = err.Error()
+	}
+	return DiagCheck{
+		"tun device", false,
+		"open denied: " + msg +
+			" — Xray tun inbounds then die with 'operation not permitted' (xray exit 255 loop). " +
+			"Heal on the host: DeviceAllow=/dev/net/tun in a x-ui.service.d drop-in, systemctl daemon-reload, systemctl restart x-ui",
+	}
+}
+
 // diagnoseXrayTun probes the routeThroughXray chain: Xray-owned tunN device,
 // iif policy rule into the per-inbound table, and the table's default route.
 func diagnoseXrayTun(inst Instance, p prober) []DiagCheck {
 	var checks []DiagCheck
 	tunName := tunNameFor(inst.Id)
 	table := awgRouteTable(inst.Id)
+
+	checks = append(checks, tunSandboxDeviceCheck(p))
 
 	out, err := p.Run("ip", "link", "show", tunName)
 	if err != nil {

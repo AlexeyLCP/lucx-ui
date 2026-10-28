@@ -3,11 +3,14 @@ package nodee2e
 import (
 	"encoding/json"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
 // TestNodeSync walks one master/node pair per enrollment scope through every
@@ -89,6 +92,35 @@ func hasAll(have []string, want ...string) bool {
 		}
 	}
 	return true
+}
+
+func clientIpSnapshot(t *testing.T, p *panel, email string) (string, map[string]int64) {
+	t.Helper()
+	var rows []struct {
+		ClientEmail string          `json:"clientEmail"`
+		Ips         json.RawMessage `json:"ips"`
+	}
+	if err := json.Unmarshal(p.call(http.MethodGet, "/panel/api/server/clientIps", nil), &rows); err != nil {
+		t.Fatalf("decode %s client IP rows: %v", p.name, err)
+	}
+	for _, row := range rows {
+		if row.ClientEmail != email {
+			continue
+		}
+		var entries []model.ClientIpEntry
+		if err := json.Unmarshal(row.Ips, &entries); err != nil {
+			t.Fatalf("decode %s IP array: %v (%s)", p.name, err, row.Ips)
+		}
+		got := make(map[string]int64, len(entries))
+		for _, entry := range entries {
+			if _, duplicate := got[entry.IP]; duplicate {
+				t.Fatalf("%s contains duplicate IP %s: %s", p.name, entry.IP, row.Ips)
+			}
+			got[entry.IP] = entry.Timestamp
+		}
+		return string(row.Ips), got
+	}
+	return "", nil
 }
 
 func runNodeSyncScenarios(t *testing.T, bin, scope string) {
@@ -243,6 +275,86 @@ func runNodeSyncScenarios(t *testing.T, bin, scope string) {
 		}
 	})
 
+	t.Run("client IP union keeps maximum timestamps stable across sync and an offline node", func(t *testing.T) {
+		now := time.Now().Unix()
+		post := func(p *panel, ips any) {
+			p.call(http.MethodPost, "/panel/api/server/clientIps", []map[string]any{{"clientEmail": "p5", "ips": ips}})
+		}
+		post(master, []model.ClientIpEntry{
+			{IP: "198.51.100.11", Timestamp: now - 30},
+			{IP: "198.51.100.12", Timestamp: now - 20},
+		})
+		post(node, fmt.Sprintf(`[{"ip":"198.51.100.13","timestamp":%d},{"ip":"198.51.100.12","timestamp":%d}]`, now-10, now-5))
+		want := map[string]int64{"198.51.100.11": now - 30, "198.51.100.12": now - 5, "198.51.100.13": now - 10}
+		waitUnion := func() {
+			t.Helper()
+			eventually(t, settleTimeout, "both panels retain the exact IP union and maximum timestamps", func() (bool, string) {
+				masterRaw, masterIPs := clientIpSnapshot(t, master, "p5")
+				nodeRaw, nodeIPs := clientIpSnapshot(t, node, "p5")
+				return maps.Equal(masterIPs, want) && maps.Equal(nodeIPs, want) && masterRaw == nodeRaw,
+					fmt.Sprintf("master=%s node=%s want=%v", masterRaw, nodeRaw, want)
+			})
+		}
+		waitUnion()
+		stableRaw, _ := clientIpSnapshot(t, master, "p5")
+		time.Sleep(12 * time.Second)
+		for _, p := range []*panel{master, node} {
+			raw, got := clientIpSnapshot(t, p, "p5")
+			if raw != stableRaw || !maps.Equal(got, want) {
+				t.Fatalf("%s IPs drifted after another sync cycle: %s, want %s", p.name, raw, stableRaw)
+			}
+		}
+		node.stop()
+		post(master, []model.ClientIpEntry{{IP: "198.51.100.14", Timestamp: now - 1}})
+		node.start()
+		want["198.51.100.14"] = now - 1
+		waitUnion()
+	})
+
+	t.Run("stopped database observations retain separate GUID attribution buckets", func(t *testing.T) {
+		now := time.Now().Unix()
+		master.stop()
+		node.stop()
+		masterIPs := fmt.Sprintf(`[{"ip":"203.0.113.21","timestamp":%d}]`, now-20)
+		nodeIPs := fmt.Sprintf(`[{"ip":"203.0.113.22","timestamp":%d}]`, now-10)
+		masterGuid := master.seedClientIpAttribution("p5", masterIPs)
+		nodeGuid := node.seedClientIpAttribution("p5", nodeIPs)
+		if masterGuid == nodeGuid {
+			t.Fatalf("independent panels share GUID %q", masterGuid)
+		}
+		master.start()
+		node.start()
+		want := map[string]map[string][]model.ClientIpEntry{
+			masterGuid: {"p5": {{IP: "203.0.113.21", Timestamp: now - 20}}},
+			nodeGuid:   {"p5": {{IP: "203.0.113.22", Timestamp: now - 10}}},
+		}
+		eventually(t, settleTimeout, "master retains the exact independent GUID observation buckets", func() (bool, string) {
+			var got map[string]map[string][]model.ClientIpEntry
+			raw := master.call(http.MethodPost, "/panel/api/clients/clientIpsByGuid", nil)
+			if err := json.Unmarshal(raw, &got); err != nil {
+				t.Fatalf("decode attribution: %v", err)
+			}
+			expected, err := json.Marshal(want)
+			if err != nil {
+				t.Fatal(err)
+			}
+			actual, err := json.Marshal(got)
+			if err != nil {
+				t.Fatal(err)
+			}
+			return string(actual) == string(expected), fmt.Sprintf("attribution=%s want=%s", actual, expected)
+		})
+		var nodeTree map[string]map[string][]model.ClientIpEntry
+		raw := node.call(http.MethodPost, "/panel/api/clients/clientIpsByGuid", nil)
+		if err := json.Unmarshal(raw, &nodeTree); err != nil {
+			t.Fatalf("decode node attribution: %v", err)
+		}
+		if len(nodeTree) != 1 || len(nodeTree[nodeGuid]) != 1 ||
+			!slices.Equal(nodeTree[nodeGuid]["p5"], want[nodeGuid]["p5"]) {
+			t.Fatalf("node attribution mixed parent observations into its own bucket: %s", raw)
+		}
+	})
+
 	t.Run("an inbound deleted on the node is removed from the master too", func(t *testing.T) {
 		pr.t = t
 		master.call(http.MethodPost, "/panel/api/inbounds/add", vlessInbound("deleted-on-node", lostPort, &pr.nodeID, vlessClient("l1")))
@@ -341,4 +453,120 @@ func runNodeSyncScenarios(t *testing.T, bin, scope string) {
 			t.Fatal("reconcile swept or rewrote an unselected node inbound")
 		}
 	})
+}
+
+func panelTraffic(t *testing.T, p *panel, email string) (int64, int64) {
+	t.Helper()
+	var tr struct{ Up, Down int64 }
+	if err := json.Unmarshal(p.call(http.MethodGet, "/panel/api/clients/traffic/"+email, nil), &tr); err != nil {
+		t.Fatal(err)
+	}
+	return tr.Up, tr.Down
+}
+
+func enrollTrafficNode(t *testing.T, master, node *panel) {
+	t.Helper()
+	token := node.mintToken("traffic-upstream", "node-sync")
+	master.call(http.MethodPost, "/panel/api/nodes/add", map[string]any{
+		"name": node.name, "scheme": "http", "address": "127.0.0.1", "port": node.port, "basePath": "/",
+		"apiToken": token, "enable": true, "allowPrivateAddress": true,
+	})
+}
+
+func TestNodeGlobalTrafficHeartbeatChain(t *testing.T) {
+	bin := panelBinary(t)
+	root := newPanel(t, bin, "traffic-root")
+	middle := newPanel(t, bin, "traffic-middle")
+	leaf := newPanel(t, bin, "traffic-leaf")
+	const email = "chain-usage"
+	localIDs := make(map[*panel]int)
+	makeClient := func() map[string]any {
+		client := vlessClient(email)
+		client["subId"] = "chain-sub"
+		return client
+	}
+	for _, p := range []*panel{root, middle, leaf} {
+		p.start()
+		var ib inboundView
+		obj := p.call(http.MethodPost, "/panel/api/inbounds/add", vlessInbound(p.name, freePort(t), nil, makeClient()))
+		if err := json.Unmarshal(obj, &ib); err != nil || ib.Id == 0 {
+			t.Fatalf("%s local inbound=%s err=%v", p.name, obj, err)
+		}
+		localIDs[p] = ib.Id
+	}
+	enrollTrafficNode(t, middle, leaf)
+	enrollTrafficNode(t, root, middle)
+	eventually(t, 90*time.Second, "chain adopts all zero-traffic baselines", func() (bool, string) {
+		rootCount, middleCount := len(root.inbounds()), len(middle.inbounds())
+		return rootCount == 3 && middleCount == 2, fmt.Sprintf("root inbounds=%d middle inbounds=%d", rootCount, middleCount)
+	})
+	waitUsage := func(p *panel, up, down int64) {
+		t.Helper()
+		eventually(t, 90*time.Second, p.name+" converges global traffic", func() (bool, string) {
+			gotUp, gotDown := panelTraffic(t, p, email)
+			return gotUp == up && gotDown == down, fmt.Sprintf("%s usage=%d/%d want %d/%d", p.name, gotUp, gotDown, up, down)
+		})
+	}
+	root.call(http.MethodPost, "/panel/api/clients/updateTraffic/"+email, map[string]any{"upload": 100, "download": 200})
+	middle.call(http.MethodPost, "/panel/api/clients/updateTraffic/"+email, map[string]any{"upload": 10, "download": 20})
+	leaf.call(http.MethodPost, "/panel/api/clients/updateTraffic/"+email, map[string]any{"upload": 1, "download": 2})
+	for _, p := range []*panel{root, middle, leaf} {
+		waitUsage(p, 111, 222)
+	}
+	pushRoot := func(up, down int64) {
+		root.call(http.MethodPost, "/panel/api/inbounds/pushClientTraffics", map[string]any{
+			"masterGuid": "synthetic-upstream", "traffics": []map[string]any{{"email": email, "up": up, "down": down}},
+		})
+	}
+	pushRoot(900, 800)
+	waitUsage(middle, 900, 800)
+	waitUsage(leaf, 900, 800)
+	pushRoot(500, 400)
+	waitUsage(middle, 500, 400)
+	waitUsage(leaf, 500, 400)
+	// Each panel independently produced local usage; resetting an overlay cannot erase it.
+	// Reset those producers through their real API before testing forwarded zero counters.
+	for _, p := range []*panel{leaf, middle, root} {
+		p.call(http.MethodPost, "/panel/api/clients/resetTraffic/"+email, nil)
+	}
+	pushRoot(0, 0)
+	for _, p := range []*panel{root, middle, leaf} {
+		waitUsage(p, 0, 0)
+	}
+	leaf.stop()
+	pushRoot(77, 88)
+	waitUsage(middle, 77, 88)
+	leaf.start()
+	waitUsage(leaf, 77, 88)
+	for _, p := range []*panel{leaf, middle, root} {
+		p.call(http.MethodPost, "/panel/api/clients/del/"+email, nil)
+	}
+	for _, p := range []*panel{root, middle, leaf} {
+		eventually(t, 90*time.Second, p.name+" deletes chain client", func() (bool, string) {
+			for _, ib := range p.inbounds() {
+				if ib.client(email) != nil {
+					return false, fmt.Sprintf("%s retains %s", p.name, email)
+				}
+			}
+			return true, ""
+		})
+	}
+	for _, p := range []*panel{leaf, middle, root} {
+		p.call(http.MethodPost, "/panel/api/clients/add", map[string]any{
+			"client": makeClient(), "inboundIds": []int{localIDs[p]},
+		})
+	}
+	for _, p := range []*panel{root, middle, leaf} {
+		eventually(t, 90*time.Second, p.name+" recreates chain client", func() (bool, string) {
+			for _, ib := range p.inbounds() {
+				if ib.client(email) != nil {
+					return true, ""
+				}
+			}
+			return false, "missing recreated client"
+		})
+	}
+	pushRoot(9, 8)
+	waitUsage(middle, 9, 8)
+	waitUsage(leaf, 9, 8)
 }

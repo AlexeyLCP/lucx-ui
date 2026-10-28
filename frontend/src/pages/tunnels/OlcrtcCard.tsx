@@ -229,13 +229,13 @@ export function OlcrtcCard() {
           {t('pages.tunnels.olcrtc.actions.stop')}
         </Button>
         <Button
-          icon={<ReloadOutlined />}
+          icon={<ReloadOutlined aria-hidden />}
           disabled={busy}
           onClick={() => runAction(() => tunnelsApi.olcrtcRestart())}
         >
           {t('pages.tunnels.olcrtc.actions.restart')}
         </Button>
-        <Button icon={<FileSearchOutlined />} onClick={() => void onShowLogs()}>
+        <Button icon={<FileSearchOutlined aria-hidden />} onClick={() => void onShowLogs()}>
           {t('pages.tunnels.olcrtc.logs')}
         </Button>
       </Space>
@@ -267,11 +267,14 @@ export function OlcrtcCard() {
                 return false;
               }}
             >
-              <Button icon={<UploadOutlined />} disabled={busy}>
+              <Button icon={<UploadOutlined aria-hidden />} disabled={busy}>
                 {t('pages.tunnels.olcrtc.binary.upload')}
               </Button>
             </Upload>
-            <Button icon={<CloudDownloadOutlined />} onClick={() => setDownloadOpen(true)}>
+            <Button
+              icon={<CloudDownloadOutlined aria-hidden />}
+              onClick={() => setDownloadOpen(true)}
+            >
               {t('pages.tunnels.olcrtc.binary.download')}
             </Button>
             <Popconfirm
@@ -280,7 +283,7 @@ export function OlcrtcCard() {
               cancelText={t('cancel')}
               onConfirm={() => runAction(() => tunnelsApi.olcrtcDeleteBinary())}
             >
-              <Button icon={<DeleteOutlined />} danger disabled={busy}>
+              <Button icon={<DeleteOutlined aria-hidden />} danger disabled={busy}>
                 {t('pages.tunnels.olcrtc.binary.delete')}
               </Button>
             </Popconfirm>

@@ -536,7 +536,7 @@ func defaultAwgClients(existing, clients []model.Client, interfaceClients []any,
 // clients (lucx.127, reporter: tester Malderin "allowedIPs entry already used
 // by another client" on a plain metadata edit).
 func fillAwgClients(existing, clients []model.Client, interfaceClients []any, base string, extraUsed []string, keepDefault model.KeepAliveValue) error {
-	if keepDefault.IsZero() {
+	if keepDefault == "" || keepDefault == "0" || keepDefault == "0-0" {
 		keepDefault = "25"
 	}
 	used := make([]string, 0, len(extraUsed)+len(existing))
@@ -613,8 +613,8 @@ func fillAwgClients(existing, clients []model.Client, interfaceClients []any, ba
 			c.AllowedIPs = normalized
 		}
 		used = append(used, c.AllowedIPs...)
-		if c.KeepAlive.IsZero() {
-			c.KeepAlive = keepDefault
+		if keepAliveOf(c.KeepAlive) == "" {
+			c.KeepAlive = keepAliveOfPtr(keepDefault)
 		}
 
 		if i < len(interfaceClients) {
@@ -887,7 +887,7 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 	}
 	b.WriteString("AllowedIPs = 0.0.0.0/0, ::/0\n")
 	fmt.Fprintf(&b, "Endpoint = %s:%d\n", host, inbound.Port)
-	if ka := awg.CollapseTimerForVersion(client.KeepAlive.String(), awgSettingsVersion(inbound.Settings)); ka != "" {
+	if ka := awg.CollapseTimerForVersion(client.KeepAliveText(), awgSettingsVersion(inbound.Settings)); ka != "" {
 		fmt.Fprintf(&b, "PersistentKeepalive = %s\n", ka)
 	}
 	return b.String(), nil

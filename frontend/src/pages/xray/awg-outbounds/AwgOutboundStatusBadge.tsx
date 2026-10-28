@@ -45,7 +45,7 @@ export function AwgOutboundStatusBadge({ status }: { status: AwgOutboundStatusIn
       `handshake ${status.handshakeAge ?? ''} ago; rx ${status.rx ?? 0} tx ${status.tx ?? 0}`.trim();
     return (
       <Tooltip title={tip}>
-        <Tag icon={<CheckCircleOutlined />} color="success">
+        <Tag icon={<CheckCircleOutlined aria-hidden />} color="success">
           Up
         </Tag>
       </Tooltip>
