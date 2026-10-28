@@ -828,8 +828,10 @@ func BuildAwgClientConf(inbound *model.Inbound, client *model.Client, endpointHo
 		return "", common.NewError("awg: inbound is not AWG")
 	}
 	for _, value := range []struct{ field, text string }{
-		{"privateKey", client.PrivateKey}, {"preSharedKey", client.PreSharedKey},
-		{"endpoint", endpointHost}, {"keepAlive", client.KeepAliveText()},
+		{"privateKey", client.PrivateKey},
+		{"preSharedKey", client.PreSharedKey},
+		{"endpoint", endpointHost},
+		{"keepAlive", client.KeepAliveText()},
 	} {
 		if err := amneziawg.ValidateConfigValue(value.field, value.text); err != nil {
 			return "", err
