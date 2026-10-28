@@ -1,51 +1,24 @@
 # LucX-UI — Прогресс
 
-## Unreleased - allow Xray TUN in systemd units
+## lucx.330 - upstream v3.11.0 merge and follow-up fixes (#159, #160) (2026-10-28)
 
-Allow `/dev/net/tun` in all three service units so the systemd device sandbox
-does not prevent Xray TUN inbounds from starting on affected hosts. Existing
-affected installations may need the drop-in documented in `.agents/04-current-state.md`.
+- Merged upstream v3.11.0 (68 upstream commits). The keepalive storage now
+  follows upstream's 3-column schema; the migration preserves legacy values.
+- Kept LucX frontend routes, tunnel/masking pages, client picker, localization,
+  and AWG config-export behavior through the upstream rewrites.
+- AWG client `.conf` generation rejects control characters in values written
+  into config lines; regression tests cover all affected fields.
+- Cover/tproxy ZIP uploads and site listings reject node-assigned inbounds
+  rather than falsely operating on the master's disk (#160).
+- The three systemd units allow `/dev/net/tun` for Xray TUN inbounds. An
+  already-affected host may need the healing drop-in in `.agents/04-current-state.md`.
+- The certificate-path hardening follow-up from the private report is included;
+  report details remain unpublished.
 
-## Unreleased - AWG client configuration hardening
+Verification: CI passed, including Go tests, race, node E2E, frontend, codegen,
+golangci-lint, and release builds for amd64, arm64, and Windows amd64. Targeted
+certificate-path and AWG client-config tests passed locally.
 
-Hardened client configuration generation and added regression coverage.
-Verified targeted AWG configuration tests and the subscription package.
-
-## Unreleased - reject node ZIP site uploads (#160)
-
-Cover and tproxy ZIP uploads and site listings now reject node-assigned
-inbounds instead of operating on the master's disk. Local uploads remain
-available. Verified by `TestNodeTunnelSiteIsNotStoredOnMaster` for both
-protocols and local ZIP validation.
-
-## lucx.330 - upstream v3.11.0 merge (#159) (2026-10-28)
-
-Full merge of `origin/main` (v3.11.0) per AGENTS.md rule 8 - 68 upstream
-commits. Hook counts recorded before/after; the drops are accounted:
-
-- `internal/database/model/` - upstream moved PersistentKeepalive to a
-  3-column scheme (`wg_keep_alive` int legacy + `wg_keep_alive_range` text +
-  computed `KeepAlive`); our `migrate_awg_keepalive.go` gained
-  `migrateClientKeepAliveRangeSplit()` which relocates pre-3.29 range values
-  ("15-25") out of `wg_keep_alive` (values preserved, Rule 0) and narrows the
-  Postgres column back to integer. `*model.KeepAliveValue` pointer semantics:
-  omission preserves the stored value.
-- tgbot/ - upstream's screen/router rewrite; our AWG ".conf / QR" labels live
-  in `screen_client_views.go`/`screen_views.go` now.
-- Frontend: PANEL_ROUTES is the single source for the router/sidebar/palette
-  (our /tunnels + /masking ride it, incl. palette keywords and menu.tunnels
-  key in all 14 locales - sk-SK joined upstream); stale-chunk reload kept via
-  errorElement; fork URLs keep pointing at AlexeyLCP/lucx-ui in the sidebar.
-- RuleFormModal keeps the client-picker, match-all preset and empty-rule
-  guard; wireguard/amneziawg .conf emitters emit zero S3/S4 ("do not pad")
-  and AWG3 keepalive ranges.
-- The 15-marker count drop on model.go and the tgbot drops are upstream-side
-  replacements of our code, not lost features (verified by the feature list
-  above).
-
-lucxVersion: lucx.330. Tests: go build/tests green (database keeps legacy
-integer reads), frontend typecheck + lint + vitest green; the storybook
-Traffic-Transform interaction flake reproduces on the clean origin file too.
 ## lucx.329 - sidecar certificate-path hardening (2026-10-28)
 
 Operator-supplied cert/key/site paths for anytls, trusttunnel, tproxy and
