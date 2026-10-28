@@ -296,6 +296,26 @@ _openapi:
         generation provider, and the result is not stored or reused.'
       url: '#generate-a-fresh-happ-crypt5-link-locally-from-the-current-client-subscription-url-when-happ-link-generation-is-enabled-the-panel-applies-a-resource-limit-of-8192-utf-8-bytes-to-the-source-url-this-is-not-a-happ-client-maximum-longer-sources-return-success-false-with-msg-happ_source_too_long-and-obj-null-the-source-url-is-not-sent-to-a-generation-provider-and-the-result-is-not-stored-or-reused'
     - depth: 2
+      title: LUCX-UI only. Same-origin Amnezia subscription body for panel Copy/QR
+        (avoids CORS on the public /awg/ port). format=vpn → vpn:// lines;
+        format=conf → awg-quick .conf. JSON envelope obj.body.
+      url: '#lucx-ui-only-same-origin-amnezia-subscription-body-for-panel-copyqr-avoids-cors-on-the-public-awg-port-formatvpn--vpn-lines-formatconf--awg-quick-conf-json-envelope-objbody'
+    - depth: 2
+      title: LUCX-UI only. Same-origin body of any public subscription URL (base64
+        sub, JSON, Clash YAML, Amnezia .conf / vpn://) for panel Download/Copy —
+        the sub server has no CORS headers, so browsers cannot fetch it
+        cross-origin. Only path+query of the submitted url are used; the request
+        goes to the local sub server, byte-identical to what VPN apps receive.
+        JSON envelope obj.body.
+      url: '#lucx-ui-only-same-origin-body-of-any-public-subscription-url-base64-sub-json-clash-yaml-amnezia-conf--vpn-for-panel-downloadcopy--the-sub-server-has-no-cors-headers-so-browsers-cannot-fetch-it-cross-origin-only-pathquery-of-the-submitted-url-are-used-the-request-goes-to-the-local-sub-server-byte-identical-to-what-vpn-apps-receive-json-envelope-objbody'
+    - depth: 2
+      title: LUCX-UI only. Username/password a NaiveProxy, mieru or TrustTunnel client
+        has to type in. The pair is HMAC-derived from the panel secret and
+        stored nowhere, so this is the only way to read it back. Errors for any
+        other protocol, for a client not attached to the inbound, and for a
+        disabled client (the sidecar drops its credentials line).
+      url: '#lucx-ui-only-usernamepassword-a-naiveproxy-mieru-or-trusttunnel-client-has-to-type-in-the-pair-is-hmac-derived-from-the-panel-secret-and-stored-nowhere-so-this-is-the-only-way-to-read-it-back-errors-for-any-other-protocol-for-a-client-not-attached-to-the-inbound-and-for-a-disabled-client-the-sidecar-drops-its-credentials-line'
+    - depth: 2
       title: 'Return every URL for one client across all attached inbounds, one per
         advertised endpoint: the managed hosts of the inbound, else its
         streamSettings.externalProxy entries, else its own address. Supported
@@ -552,6 +572,23 @@ _openapi:
           sent to a generation provider, and the result is not stored or
           reused.'
         id: generate-a-fresh-happ-crypt5-link-locally-from-the-current-client-subscription-url-when-happ-link-generation-is-enabled-the-panel-applies-a-resource-limit-of-8192-utf-8-bytes-to-the-source-url-this-is-not-a-happ-client-maximum-longer-sources-return-success-false-with-msg-happ_source_too_long-and-obj-null-the-source-url-is-not-sent-to-a-generation-provider-and-the-result-is-not-stored-or-reused
+      - content: LUCX-UI only. Same-origin Amnezia subscription body for panel Copy/QR
+          (avoids CORS on the public /awg/ port). format=vpn → vpn:// lines;
+          format=conf → awg-quick .conf. JSON envelope obj.body.
+        id: lucx-ui-only-same-origin-amnezia-subscription-body-for-panel-copyqr-avoids-cors-on-the-public-awg-port-formatvpn--vpn-lines-formatconf--awg-quick-conf-json-envelope-objbody
+      - content: LUCX-UI only. Same-origin body of any public subscription URL (base64
+          sub, JSON, Clash YAML, Amnezia .conf / vpn://) for panel Download/Copy
+          — the sub server has no CORS headers, so browsers cannot fetch it
+          cross-origin. Only path+query of the submitted url are used; the
+          request goes to the local sub server, byte-identical to what VPN apps
+          receive. JSON envelope obj.body.
+        id: lucx-ui-only-same-origin-body-of-any-public-subscription-url-base64-sub-json-clash-yaml-amnezia-conf--vpn-for-panel-downloadcopy--the-sub-server-has-no-cors-headers-so-browsers-cannot-fetch-it-cross-origin-only-pathquery-of-the-submitted-url-are-used-the-request-goes-to-the-local-sub-server-byte-identical-to-what-vpn-apps-receive-json-envelope-objbody
+      - content: LUCX-UI only. Username/password a NaiveProxy, mieru or TrustTunnel
+          client has to type in. The pair is HMAC-derived from the panel secret
+          and stored nowhere, so this is the only way to read it back. Errors
+          for any other protocol, for a client not attached to the inbound, and
+          for a disabled client (the sidecar drops its credentials line).
+        id: lucx-ui-only-usernamepassword-a-naiveproxy-mieru-or-trusttunnel-client-has-to-type-in-the-pair-is-hmac-derived-from-the-panel-secret-and-stored-nowhere-so-this-is-the-only-way-to-read-it-back-errors-for-any-other-protocol-for-a-client-not-attached-to-the-inbound-and-for-a-disabled-client-the-sidecar-drops-its-credentials-line
       - content: 'Return every URL for one client across all attached inbounds, one per
           advertised endpoint: the managed hosts of the inbound, else its
           streamSettings.externalProxy entries, else its own address. Supported
@@ -679,7 +716,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/clients/list","method":"get"},{"path":"/panel/api/clients/list/paged","method":"get"},{"path":"/panel/api/clients/get/{email}","method":"get"},{"path":"/panel/api/clients/get/subId/{subId}","method":"get"},{"path":"/panel/api/clients/get/tgId/{tgId}","method":"get"},{"path":"/panel/api/clients/add","method":"post"},{"path":"/panel/api/clients/renewalPreview","method":"post"},{"path":"/panel/api/clients/update/{email}","method":"post"},{"path":"/panel/api/clients/del/{email}","method":"post"},{"path":"/panel/api/clients/{email}/attach","method":"post"},{"path":"/panel/api/clients/{email}/detach","method":"post"},{"path":"/panel/api/clients/{email}/externalLinks","method":"post"},{"path":"/panel/api/clients/resetAllTraffics","method":"post"},{"path":"/panel/api/clients/delDepleted","method":"post"},{"path":"/panel/api/clients/delOrphans","method":"post"},{"path":"/panel/api/clients/export","method":"get"},{"path":"/panel/api/clients/import","method":"post"},{"path":"/panel/api/clients/bulkAdjust","method":"post"},{"path":"/panel/api/clients/bulkEnable","method":"post"},{"path":"/panel/api/clients/bulkDisable","method":"post"},{"path":"/panel/api/clients/bulkDel","method":"post"},{"path":"/panel/api/clients/bulkCreate","method":"post"},{"path":"/panel/api/clients/groups/bulkAdd","method":"post"},{"path":"/panel/api/clients/groups/bulkRemove","method":"post"},{"path":"/panel/api/clients/bulkAttach","method":"post"},{"path":"/panel/api/clients/bulkDetach","method":"post"},{"path":"/panel/api/clients/bulkResetTraffic","method":"post"},{"path":"/panel/api/clients/groups","method":"get"},{"path":"/panel/api/clients/groups/{name}/emails","method":"get"},{"path":"/panel/api/clients/groups/create","method":"post"},{"path":"/panel/api/clients/groups/rename","method":"post"},{"path":"/panel/api/clients/groups/delete","method":"post"},{"path":"/panel/api/clients/groups/resetTraffic","method":"post"},{"path":"/panel/api/clients/resetTraffic/{email}","method":"post"},{"path":"/panel/api/clients/updateTraffic/{email}","method":"post"},{"path":"/panel/api/clients/ips/{email}","method":"post"},{"path":"/panel/api/clients/clearIps/{email}","method":"post"},{"path":"/panel/api/clients/hwids/{email}","method":"post"},{"path":"/panel/api/clients/hwids/{email}","method":"delete"},{"path":"/panel/api/clients/hwids/{email}/{id}","method":"delete"},{"path":"/panel/api/clients/onlines","method":"post"},{"path":"/panel/api/clients/onlinesByGuid","method":"post"},{"path":"/panel/api/clients/clientIpsByGuid","method":"post"},{"path":"/panel/api/clients/activeInbounds","method":"post"},{"path":"/panel/api/clients/lastOnline","method":"post"},{"path":"/panel/api/clients/traffic/{email}","method":"get"},{"path":"/panel/api/clients/subLinks/{subId}","method":"get"},{"path":"/panel/api/clients/happLink/{id}","method":"post"},{"path":"/panel/api/clients/links/{email}","method":"get"}]} showTitle />
+      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/clients/list","method":"get"},{"path":"/panel/api/clients/list/paged","method":"get"},{"path":"/panel/api/clients/get/{email}","method":"get"},{"path":"/panel/api/clients/get/subId/{subId}","method":"get"},{"path":"/panel/api/clients/get/tgId/{tgId}","method":"get"},{"path":"/panel/api/clients/add","method":"post"},{"path":"/panel/api/clients/renewalPreview","method":"post"},{"path":"/panel/api/clients/update/{email}","method":"post"},{"path":"/panel/api/clients/del/{email}","method":"post"},{"path":"/panel/api/clients/{email}/attach","method":"post"},{"path":"/panel/api/clients/{email}/detach","method":"post"},{"path":"/panel/api/clients/{email}/externalLinks","method":"post"},{"path":"/panel/api/clients/resetAllTraffics","method":"post"},{"path":"/panel/api/clients/delDepleted","method":"post"},{"path":"/panel/api/clients/delOrphans","method":"post"},{"path":"/panel/api/clients/export","method":"get"},{"path":"/panel/api/clients/import","method":"post"},{"path":"/panel/api/clients/bulkAdjust","method":"post"},{"path":"/panel/api/clients/bulkEnable","method":"post"},{"path":"/panel/api/clients/bulkDisable","method":"post"},{"path":"/panel/api/clients/bulkDel","method":"post"},{"path":"/panel/api/clients/bulkCreate","method":"post"},{"path":"/panel/api/clients/groups/bulkAdd","method":"post"},{"path":"/panel/api/clients/groups/bulkRemove","method":"post"},{"path":"/panel/api/clients/bulkAttach","method":"post"},{"path":"/panel/api/clients/bulkDetach","method":"post"},{"path":"/panel/api/clients/bulkResetTraffic","method":"post"},{"path":"/panel/api/clients/groups","method":"get"},{"path":"/panel/api/clients/groups/{name}/emails","method":"get"},{"path":"/panel/api/clients/groups/create","method":"post"},{"path":"/panel/api/clients/groups/rename","method":"post"},{"path":"/panel/api/clients/groups/delete","method":"post"},{"path":"/panel/api/clients/groups/resetTraffic","method":"post"},{"path":"/panel/api/clients/resetTraffic/{email}","method":"post"},{"path":"/panel/api/clients/updateTraffic/{email}","method":"post"},{"path":"/panel/api/clients/ips/{email}","method":"post"},{"path":"/panel/api/clients/clearIps/{email}","method":"post"},{"path":"/panel/api/clients/hwids/{email}","method":"post"},{"path":"/panel/api/clients/hwids/{email}","method":"delete"},{"path":"/panel/api/clients/hwids/{email}/{id}","method":"delete"},{"path":"/panel/api/clients/onlines","method":"post"},{"path":"/panel/api/clients/onlinesByGuid","method":"post"},{"path":"/panel/api/clients/clientIpsByGuid","method":"post"},{"path":"/panel/api/clients/activeInbounds","method":"post"},{"path":"/panel/api/clients/lastOnline","method":"post"},{"path":"/panel/api/clients/traffic/{email}","method":"get"},{"path":"/panel/api/clients/subLinks/{subId}","method":"get"},{"path":"/panel/api/clients/happLink/{id}","method":"post"},{"path":"/panel/api/clients/awgBody/{subId}","method":"get"},{"path":"/panel/api/clients/subBody","method":"get"},{"path":"/panel/api/clients/tunnelCreds/{inboundId}/{email}","method":"get"},{"path":"/panel/api/clients/links/{email}","method":"get"}]} showTitle />
     </>
   );
 }
