@@ -14,11 +14,12 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+
 	"gorm.io/gorm"
 )
 
 func dropLegacyShareOnlyTriggers(db *gorm.DB) error {
-	if db.Dialector.Name() != "sqlite" {
+	if db.Name() != "sqlite" {
 		return nil
 	}
 	for _, trigger := range []string{"lucx_shareonly_clients_ins", "lucx_shareonly_clients_del"} {
@@ -83,7 +84,7 @@ func migrateClientKeepAliveRangeSplit(db *gorm.DB) error {
 	}
 	// Postgres: the old widen made the column text; upstream v3.11 wants int
 	// back. Numeric-only content is guaranteed by the split above.
-	if db.Dialector.Name() == "postgres" {
+	if db.Name() == "postgres" {
 		var dataType string
 		if err := db.Raw(
 			`SELECT data_type FROM information_schema.columns WHERE table_name = 'clients' AND column_name = 'wg_keep_alive'`,

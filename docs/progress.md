@@ -8,6 +8,7 @@
   LucX release sources when selecting an older version from the console menu.
 - Verified Windows CGO Go tests for AWG, LucX and database packages; shell syntax
   checked locally. PostgreSQL and live Linux upgrades remain untested.
+- CI follow-up: fix goimports grouping and staticcheck selectors.
 
 ## lucx.331 — audit follow-up and subscription fixes (2026-10-29)
 
