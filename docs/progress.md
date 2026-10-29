@@ -1,5 +1,14 @@
 # LucX-UI — Прогресс
 
+## lucx.332 — legacy database recovery (2026-10-29)
+
+- Normalize empty legacy client keepalive values before reading clients, and
+  preserve existing ranges during startup and SQLite backup import.
+- Remove obsolete share-only SQLite triggers before schema migration and use
+  LucX release sources when selecting an older version from the console menu.
+- Verified Windows CGO Go tests for AWG, LucX and database packages; shell syntax
+  checked locally. PostgreSQL and live Linux upgrades remain untested.
+
 ## lucx.331 — audit follow-up and subscription fixes (2026-10-29)
 
 - Stop automatically rewriting issued tunnel credentials during database startup.

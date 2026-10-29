@@ -7,12 +7,27 @@
 package database
 
 import (
+	"database/sql"
+	"fmt"
 	"log"
 	"strconv"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"gorm.io/gorm"
 )
+
+func dropLegacyShareOnlyTriggers(db *gorm.DB) error {
+	if db.Dialector.Name() != "sqlite" {
+		return nil
+	}
+	for _, trigger := range []string{"lucx_shareonly_clients_ins", "lucx_shareonly_clients_del"} {
+		if err := db.Exec("DROP TRIGGER IF EXISTS " + trigger).Error; err != nil {
+			return fmt.Errorf("drop legacy trigger %s: %w", trigger, err)
+		}
+	}
+	return nil
+}
 
 // migrateClientKeepAliveRangeSplit adapts pre-lucx.329 LucX databases to the
 // upstream v3.11.0 storage scheme. Those rows once stored AWG ranges
@@ -26,7 +41,7 @@ import (
 //
 // Idempotent: numeric/range/empty inputs are classified, only non-numeric
 // values move.
-func migrateClientKeepAliveRangeSplit() error {
+func migrateClientKeepAliveRangeSplit(db *gorm.DB) error {
 	migrator := db.Migrator()
 	if !migrator.HasTable(&model.ClientRecord{}) || !migrator.HasColumn(&model.ClientRecord{}, "wg_keep_alive") {
 		return nil
@@ -35,15 +50,30 @@ func migrateClientKeepAliveRangeSplit() error {
 		return logAndReturn("wg_keep_alive_range column missing before the range split")
 	}
 	var rows []struct {
-		Id     int64  `gorm:"column:id"`
-		Column string `gorm:"column:v"`
+		Id     int64          `gorm:"column:id"`
+		Column sql.NullString `gorm:"column:v"`
 	}
 	if err := db.Raw(`SELECT id, wg_keep_alive AS v FROM clients`).Scan(&rows).Error; err != nil {
 		return err
 	}
 	for _, r := range rows {
-		value := strings.TrimSpace(r.Column)
-		if value == "" || isNumericKeepAlive(value) {
+		if !r.Column.Valid {
+			continue
+		}
+		value := strings.TrimSpace(r.Column.String)
+		if value == "" {
+			if err := db.Exec(`UPDATE clients SET wg_keep_alive = 0 WHERE id = ?`, r.Id).Error; err != nil {
+				return err
+			}
+			continue
+		}
+		if isNumericKeepAlive(value) && value == r.Column.String {
+			continue
+		}
+		if isNumericKeepAlive(value) {
+			if err := db.Exec(`UPDATE clients SET wg_keep_alive = ? WHERE id = ?`, value, r.Id).Error; err != nil {
+				return err
+			}
 			continue
 		}
 		if err := db.Exec(`UPDATE clients SET wg_keep_alive = '0', wg_keep_alive_range = ? WHERE id = ?`, value, r.Id).Error; err != nil {
@@ -53,7 +83,7 @@ func migrateClientKeepAliveRangeSplit() error {
 	}
 	// Postgres: the old widen made the column text; upstream v3.11 wants int
 	// back. Numeric-only content is guaranteed by the split above.
-	if IsPostgres() {
+	if db.Dialector.Name() == "postgres" {
 		var dataType string
 		if err := db.Raw(
 			`SELECT data_type FROM information_schema.columns WHERE table_name = 'clients' AND column_name = 'wg_keep_alive'`,

@@ -37,12 +37,13 @@ lucx_script_base() {
 # codeload download), used on yandex hosts. $1 = script name.
 lucx_run_from_dist() {
     local script="$1"
+    shift
     local tmp
     tmp=$(mktemp -d)
     if curl -fLR --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 600 \
         "https://codeload.sourcecraft.tech/alexeylcp/lucx-ui/tarball/refs/heads/dist" \
         | tar -xz --strip-components=1 -C "$tmp" && [[ -s "${tmp}/${script}" ]]; then
-        bash "${tmp}/${script}"
+        bash "${tmp}/${script}" "$@"
         local rc=$?
         rm -rf "$tmp"
         return $rc
@@ -285,11 +286,15 @@ legacy_version() {
         echo "Panel version cannot be empty. Exiting."
         exit 1
     fi
-    # Use the entered panel version in the download link
-    install_command="bash <(curl -Ls "https://raw.githubusercontent.com/mhsanaei/3x-ui/v$tag_version/install.sh") v$tag_version"
-
+    # LUCX-HOOK: Install a LucX release rather than an upstream 3x-ui release.
+    tag_version="${tag_version#v}"
     echo "Downloading and installing panel version $tag_version..."
-    eval $install_command
+    if [[ "$(lucx_install_source)" == "yandex" ]]; then
+        lucx_run_from_dist install.sh --yandex "v$tag_version"
+    else
+        bash <(curl -fLs "$(lucx_script_base)/install.sh") "v$tag_version"
+    fi
+    # END LUCX-HOOK
 }
 
 # Function to handle the deletion of the script file

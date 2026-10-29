@@ -341,6 +341,21 @@ func PrepareSQLiteForMigration(dbPath string) error {
 			return fmt.Errorf("not a 3x-ui panel database: required table %q is missing", table)
 		}
 	}
+	// LUCX-HOOK: Legacy share-only triggers reference clients during SQLite table rebuilds.
+	if err := dropLegacyShareOnlyTriggers(gdb); err != nil {
+		return err
+	}
+	if gdb.Migrator().HasTable(&model.ClientRecord{}) && gdb.Migrator().HasColumn(&model.ClientRecord{}, "wg_keep_alive") {
+		if !gdb.Migrator().HasColumn(&model.ClientRecord{}, "wg_keep_alive_range") {
+			if err := gdb.Migrator().AddColumn(&model.ClientRecord{}, "KeepAliveRange"); err != nil {
+				return err
+			}
+		}
+		if err := migrateClientKeepAliveRangeSplit(gdb); err != nil {
+			return err
+		}
+	}
+	// END LUCX-HOOK
 	for _, m := range migrationModels() {
 		if err := gdb.AutoMigrate(m); err != nil && !isIgnorableDuplicateColumnErr(gdb, err, m) {
 			return fmt.Errorf("upgrade panel schema for %T: %w", m, err)

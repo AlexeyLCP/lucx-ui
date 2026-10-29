@@ -123,13 +123,18 @@ func migrateClientKeepAliveRangeColumn() error {
 }
 
 func initModels() error {
+	// LUCX-HOOK: Remove obsolete triggers before SQLite rebuilds referenced tables.
+	if err := dropLegacyShareOnlyTriggers(db); err != nil {
+		return err
+	}
+	// END LUCX-HOOK
 	if err := migrateClientKeepAliveRangeColumn(); err != nil {
 		return err
 	}
 	// LUCX-HOOK: pre-lucx.329 LucX DBs store AWG ranges inside wg_keep_alive
 	// (text); move them into wg_keep_alive_range before the v3.11 int column
 	// reads them — values preserved, only the column changes.
-	if err := migrateClientKeepAliveRangeSplit(); err != nil {
+	if err := migrateClientKeepAliveRangeSplit(db); err != nil {
 		return err
 	}
 	// END LUCX-HOOK

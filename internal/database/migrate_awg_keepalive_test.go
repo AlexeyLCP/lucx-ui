@@ -35,13 +35,15 @@ func TestMigrateClientKeepAliveRangeSplit(t *testing.T) {
 		`INSERT INTO clients (id, email, wg_keep_alive, wg_keep_alive_range) VALUES
 			(1, 'range@example.com', '15-25', ''),
 			(2, 'int@example.com', '25', ''),
-			(3, 'zero@example.com', '0', '')`,
+			(3, 'zero@example.com', '0', ''),
+			(4, 'empty@example.com', '', '15-25'),
+			(5, 'spaces@example.com', '  ', '')`,
 	).Error; err != nil {
 		t.Fatalf("seed rows: %v", err)
 	}
 	_ = GetDB().Exec(`DELETE FROM client_inbounds WHERE client_id IN (1,2,3)`)
 
-	if err := migrateClientKeepAliveRangeSplit(); err != nil {
+	if err := migrateClientKeepAliveRangeSplit(GetDB()); err != nil {
 		t.Fatalf("split migration: %v", err)
 	}
 
@@ -63,9 +65,16 @@ func TestMigrateClientKeepAliveRangeSplit(t *testing.T) {
 	if intRow.KeepAliveLegacy != 25 || intRow.KeepAliveRange != "" {
 		t.Fatalf("numeric row changed: legacy=%d range=%q", intRow.KeepAliveLegacy, intRow.KeepAliveRange)
 	}
+	var clients []model.ClientRecord
+	if err := GetDB().Find(&clients).Error; err != nil || len(clients) != 5 {
+		t.Fatalf("load clients after migration: count=%d err=%v", len(clients), err)
+	}
+	if clients[3].KeepAliveRange != "15-25" {
+		t.Fatalf("existing range lost: %q", clients[3].KeepAliveRange)
+	}
 
 	// Idempotent second run: nothing breaks.
-	if err := migrateClientKeepAliveRangeSplit(); err != nil {
+	if err := migrateClientKeepAliveRangeSplit(GetDB()); err != nil {
 		t.Fatalf("second split run: %v", err)
 	}
 }
@@ -144,7 +153,7 @@ func TestMigrateClientKeepAliveRangeSplit_Postgres(t *testing.T) {
 	}
 	t.Cleanup(func() { GetDB().Exec(`DELETE FROM clients WHERE email = 'legacy-pg@example.com'`) })
 
-	if err := migrateClientKeepAliveRangeSplit(); err != nil {
+	if err := migrateClientKeepAliveRangeSplit(GetDB()); err != nil {
 		t.Fatalf("split on postgres: %v", err)
 	}
 	var dataType string

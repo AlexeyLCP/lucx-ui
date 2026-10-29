@@ -63,4 +63,42 @@ func TestPrepareSQLiteForMigration(t *testing.T) {
 			}
 		}
 	})
+
+	t.Run("upgrades legacy clients with triggers and keepalive values", func(t *testing.T) {
+		dbPath := filepath.Join(t.TempDir(), "legacy.db")
+		gdb, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{Logger: logger.Discard})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if err := gdb.AutoMigrate(&model.User{}, &model.Setting{}, &model.Inbound{}); err != nil {
+			t.Fatal(err)
+		}
+		for _, query := range []string{
+			`CREATE TABLE clients (id integer primary key, email text, wg_keep_alive text)`,
+			`INSERT INTO clients VALUES (1, 'empty', ''), (2, 'range', '15-25')`,
+			`CREATE TABLE client_inbounds (id integer primary key, client_id integer, inbound_id integer)`,
+			`CREATE TRIGGER lucx_shareonly_clients_ins AFTER INSERT ON client_inbounds BEGIN UPDATE clients SET email = email WHERE id = NEW.client_id; END`,
+			`CREATE TRIGGER lucx_shareonly_clients_del AFTER DELETE ON client_inbounds BEGIN UPDATE clients SET email = email WHERE id = OLD.client_id; END`,
+		} {
+			if err := gdb.Exec(query).Error; err != nil {
+				t.Fatal(err)
+			}
+		}
+		closeGorm(gdb)
+		if err := PrepareSQLiteForMigration(dbPath); err != nil {
+			t.Fatal(err)
+		}
+		check, err := gorm.Open(sqlite.Open(dbPath), &gorm.Config{Logger: logger.Discard})
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer closeGorm(check)
+		var clients []model.ClientRecord
+		if err := check.Order("id").Find(&clients).Error; err != nil {
+			t.Fatal(err)
+		}
+		if len(clients) != 2 || clients[0].KeepAliveLegacy != 0 || clients[1].KeepAliveRange != "15-25" {
+			t.Fatalf("unexpected clients: %+v", clients)
+		}
+	})
 }
