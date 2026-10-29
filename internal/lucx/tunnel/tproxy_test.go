@@ -77,6 +77,35 @@ func TestExtractTproxySiteZipReplaces(t *testing.T) {
 	}
 }
 
+func TestExtractTproxySiteZipPreservesSiteOnInvalidArchive(t *testing.T) {
+	dest := filepath.Join(t.TempDir(), "site")
+	if err := os.MkdirAll(dest, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dest, "index.html"), []byte("original"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	w, err := zw.Create("other.txt")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := w.Write([]byte("replacement")); err != nil {
+		t.Fatal(err)
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if err := ExtractTproxySiteZip(dest, buf.Bytes()); err == nil {
+		t.Fatal("archive without index accepted")
+	}
+	data, err := os.ReadFile(filepath.Join(dest, "index.html"))
+	if err != nil || string(data) != "original" {
+		t.Fatalf("original site lost: %q %v", data, err)
+	}
+}
+
 func TestEnsureTproxyTokenKeyPersistent(t *testing.T) {
 	prev := tunnelDir
 	dir := t.TempDir()

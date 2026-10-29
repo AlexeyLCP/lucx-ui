@@ -304,7 +304,7 @@ func TestRepairClobberedTunnelFields_RunsInOrderFromInitDB(t *testing.T) {
 	}
 	closed = false
 
-	if got := reloadRecord(t, email); got.PublicKey != liveTunnelPub {
-		t.Fatalf("startup left the record broken: %q — the drain ran before the repair", got.PublicKey)
+	if got := reloadRecord(t, email); got.PublicKey != copyTunnelPub || got.AllowedIPs != copyTunnelAddr {
+		t.Fatalf("startup changed issued tunnel fields: %+v", got)
 	}
 }

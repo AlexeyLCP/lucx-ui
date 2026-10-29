@@ -49,10 +49,22 @@ func ExtractTproxySiteZip(dest string, zipBytes []byte) error {
 	if err != nil {
 		return err
 	}
-	_ = os.RemoveAll(dest)
-	if err := os.MkdirAll(dest, 0o755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
 		return err
 	}
+	stage, err := os.MkdirTemp(filepath.Dir(dest), ".site-stage-")
+	if err != nil {
+		return err
+	}
+	defer os.RemoveAll(stage)
+	if err := extractSiteZip(stage, r); err != nil {
+		return err
+	}
+	return ReplaceSiteDir(dest, stage)
+}
+
+func extractSiteZip(dest string, r *zip.Reader) error {
+	var total int64
 	for _, f := range r.File {
 		if f.FileInfo().Mode()&os.ModeSymlink != 0 {
 			continue
@@ -83,6 +95,10 @@ func ExtractTproxySiteZip(dest string, zipBytes []byte) error {
 		if err != nil {
 			return err
 		}
+		total += int64(len(data))
+		if total > tproxySiteZipMax {
+			return errors.New("tproxy: extracted site exceeds 20 MB")
+		}
 		if err := os.WriteFile(out, data, 0o644); err != nil {
 			return err
 		}
@@ -107,6 +123,34 @@ func ExtractTproxySiteZip(dest string, zipBytes []byte) error {
 		}
 	}
 	return errors.New("tproxy: zip needs index.html")
+}
+
+func ReplaceSiteDir(dest, stage string) error {
+	backup, err := os.MkdirTemp(filepath.Dir(dest), ".site-previous-")
+	if err != nil {
+		return err
+	}
+	if err := os.Remove(backup); err != nil {
+		return err
+	}
+	hadOld := false
+	if err := os.Rename(dest, backup); err == nil {
+		hadOld = true
+	} else if !os.IsNotExist(err) {
+		return err
+	}
+	if err := os.Rename(stage, dest); err != nil {
+		if hadOld {
+			if restoreErr := os.Rename(backup, dest); restoreErr != nil {
+				return fmt.Errorf("replace site: %v; previous site remains at %s: %w", err, backup, restoreErr)
+			}
+		}
+		return err
+	}
+	if hadOld {
+		return os.RemoveAll(backup)
+	}
+	return nil
 }
 
 func ListTproxySite(id int) []string {

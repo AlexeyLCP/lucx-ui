@@ -150,8 +150,9 @@ type managed struct {
 // it is a map lookup or a field read, never process I/O. Per-key lifecycle
 // work runs under managed.opMu, taken after mu has been released.
 type Manager struct {
-	mu    sync.Mutex
-	swept bool
+	mu       sync.Mutex
+	swept    bool
+	keyLocks sync.Map
 	// sweepEnabled is set only on the shared instance built by GetManager.
 	// The orphan sweep SIGKILLs every process named like one of our cores,
 	// which is right for the running panel and very wrong for `go test` on a
@@ -163,6 +164,13 @@ type Manager struct {
 	trustTunnelTraffic map[string]*trustTunnelCursor
 	anytlsTraffic      map[string]*anytlsCursor
 	sidecarDelta       map[string]*deltaCursor
+}
+
+func (m *Manager) lockKey(key string) func() {
+	value, _ := m.keyLocks.LoadOrStore(key, &sync.Mutex{})
+	lock := value.(*sync.Mutex)
+	lock.Lock()
+	return lock.Unlock
 }
 
 func newManager() *Manager {
@@ -247,6 +255,8 @@ func (m *Manager) Ensure(inst Instance) error {
 	}
 	m.sweepOrphans()
 	key := inst.ManageKey()
+	unlock := m.lockKey(key)
+	defer unlock()
 	mc := m.acquire(key)
 	mc.opMu.Lock()
 	defer mc.opMu.Unlock()
@@ -315,6 +325,8 @@ func (m *Manager) Remove(key string) {
 	if key == "" {
 		return
 	}
+	unlock := m.lockKey(key)
+	defer unlock()
 	m.mu.Lock()
 	mc, ok := m.cores[key]
 	delete(m.cores, key)
@@ -500,6 +512,8 @@ func (m *Manager) Stop(core Name) error {
 
 // StopKey terminates one managed key if running.
 func (m *Manager) StopKey(key string) error {
+	unlock := m.lockKey(key)
+	defer unlock()
 	mc := m.acquire(key)
 	mc.opMu.Lock()
 	defer mc.opMu.Unlock()
@@ -524,6 +538,14 @@ func (m *Manager) StopAll() {
 		wg.Add(1)
 		go func(key string, mc *managed) {
 			defer wg.Done()
+			unlock := m.lockKey(key)
+			defer unlock()
+			m.mu.Lock()
+			current := m.cores[key] == mc
+			m.mu.Unlock()
+			if !current {
+				return
+			}
 			mc.opMu.Lock()
 			defer mc.opMu.Unlock()
 			if mc.proc != nil && mc.proc.IsRunning() {

@@ -139,12 +139,10 @@ func TestMigrateClientKeepAliveRangeSplit_Postgres(t *testing.T) {
 	// Recreate a pre-lucx.329 text column: ranges inline.
 	GetDB().Exec(`ALTER TABLE clients ALTER COLUMN wg_keep_alive TYPE text USING COALESCE(split_part(wg_keep_alive::text, '-', 1), '0')`)
 
-	row := &model.ClientRecord{Email: "legacy-pg@example.com", KeepAliveRange: "15-25"}
-	if err := GetDB().Create(row).Error; err != nil {
+	if err := GetDB().Exec(`INSERT INTO clients (email, wg_keep_alive, wg_keep_alive_range) VALUES (?, '15-25', '')`, "legacy-pg@example.com").Error; err != nil {
 		t.Fatalf("create client with range keepalive: %v", err)
 	}
 	t.Cleanup(func() { GetDB().Exec(`DELETE FROM clients WHERE email = 'legacy-pg@example.com'`) })
-	GetDB().Exec(`UPDATE clients SET wg_keep_alive = '15-25' WHERE email = 'legacy-pg@example.com'`)
 
 	if err := migrateClientKeepAliveRangeSplit(); err != nil {
 		t.Fatalf("split on postgres: %v", err)
@@ -159,7 +157,7 @@ func TestMigrateClientKeepAliveRangeSplit_Postgres(t *testing.T) {
 		t.Fatalf("data_type = %q, want integer (column narrowed back)", dataType)
 	}
 	var loaded model.ClientRecord
-	if err := GetDB().First(&loaded, row.Id).Error; err != nil {
+	if err := GetDB().Where("email = ?", "legacy-pg@example.com").First(&loaded).Error; err != nil {
 		t.Fatalf("load client: %v", err)
 	}
 	if loaded.KeepAlive != "15-25" {

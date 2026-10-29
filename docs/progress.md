@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.331 — audit follow-up and subscription fixes (2026-10-29)
+
+- Stop automatically rewriting issued tunnel credentials during database startup.
+- Preserve existing AWG startup behavior; ownership collision protection remains
+  pending a compatible solution for older unmarked configurations.
+- Stage site uploads and restores before replacing the current site. Reject
+  oversized or unreadable site files instead of silently producing an incomplete
+  SQLite backup; report restore failures to the operator.
+- Serialize sidecar removal and lifecycle operations for the same key, including
+  shutdown snapshots, while allowing unrelated keys to proceed independently.
+- Preserve per-inbound AWG addresses in cached subscriptions (#162). Fix the
+  PostgreSQL text-column keepalive range migration (#161); PostgreSQL runtime
+  validation remains pending.
+- Windows Go package tests, targeted backup tests, race tests for AWG and tunnel,
+  and `go build ./...` passed. Linux runtime and PostgreSQL were not tested.
+
 ## lucx.330 - upstream v3.11.0 merge and follow-up fixes (#159, #160) (2026-10-28)
 
 - Merged upstream v3.11.0 (68 upstream commits). The keepalive storage now

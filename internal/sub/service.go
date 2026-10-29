@@ -815,9 +815,11 @@ func (s *SubService) subscriptionSettings(inbound *model.Inbound) (string, error
 		err := database.GetDB().Model(&model.Inbound{}).Select("settings").Where("id = ?", inbound.Id).Row().Scan(&settings)
 		return settings, err
 	}
-	if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG {
+	// LUCX-HOOK: kernel AWG also needs the inbound-specific client addresses.
+	if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG {
 		return load()
 	}
+	// END LUCX-HOOK
 	return s.settingsCache.settingsFor(inbound.Id, load)
 }
 

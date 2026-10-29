@@ -1776,15 +1776,8 @@ func runSeeders(isUsersEmpty bool) error {
 		return err
 	}
 
-	// Self-gated on the "RepairClobberedTunnelFields" row. Must run after every
-	// seeder that writes client records, so it repairs the settled table — and
-	// before the drain below, which removes the evidence it recognises.
-	if err := repairClobberedTunnelFields(); err != nil {
-		return err
-	}
-	if err := stripTunnelFieldsFromKeylessInbounds(); err != nil {
-		return err
-	}
+	// LUCX-HOOK: preserve issued tunnel credentials and the evidence needed for an explicit repair.
+	// END LUCX-HOOK
 
 	// Idempotent, not seeder-gated: bad values can re-enter via a restored
 	// backup, so re-check on every start.

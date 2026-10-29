@@ -130,6 +130,26 @@ func TestEmbedBackupSiteFiles(t *testing.T) {
 	}
 }
 
+func TestBackupRejectsOversizedSiteFile(t *testing.T) {
+	initBackupSiteTestDB(t)
+	ib := seedSiteInbound(t, model.Cover)
+	dir := tunnel.CoverSiteDir(ib.Id)
+	writeSiteFile(t, dir, "index.html", "site")
+	f, err := os.Create(filepath.Join(dir, "large.bin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Truncate(backupSiteFileMax + 1); err != nil {
+		t.Fatal(err)
+	}
+	if err := f.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := (&ServerService{}).GetDb(); err == nil {
+		t.Fatal("incomplete backup reported success")
+	}
+}
+
 func TestRestoreBackupSiteFiles(t *testing.T) {
 	initBackupSiteTestDB(t)
 	coverInbound := seedSiteInbound(t, model.Cover)

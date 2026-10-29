@@ -2,14 +2,59 @@ package sub
 
 import (
 	"encoding/base64"
+	"fmt"
 	"net/url"
 	"strings"
 	"testing"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg/vpnuri"
+	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
+
+func TestCachedSubscriptionKeepsEachAwgPeerAddress(t *testing.T) {
+	initSubDB(t)
+	serverPriv, serverPub := mustWireguardKeypair(t)
+	clientPriv, _ := mustWireguardKeypair(t)
+	const email, subID = "multi@awg", "multi-awg"
+	settings := func(address string) string {
+		return fmt.Sprintf(`{"privateKey":%q,"publicKey":%q,"address":"10.80.0.1/24","awgVersion":"2","clients":[{"email":%q,"privateKey":%q,"allowedIPs":[%q],"enable":true}]}`, serverPriv, serverPub, email, clientPriv, address)
+	}
+	first := seedTunnelSubInbound(t, model.AWG, "awg-first", subID, email, settings("10.80.0.2/32"), 51840)
+	second := &model.Inbound{UserId: 1, Tag: "awg-second", Enable: true, Listen: "203.0.113.5", Port: 51841, Protocol: model.AWG, Settings: settings("10.90.0.2/32")}
+	db := database.GetDB()
+	if err := db.Create(second).Error; err != nil {
+		t.Fatal(err)
+	}
+	var rec model.ClientRecord
+	if err := db.Where("email = ?", email).First(&rec).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ClientInbound{ClientId: rec.Id, InboundId: second.Id}).Error; err != nil {
+		t.Fatal(err)
+	}
+	s := NewSubService("")
+	t.Cleanup(s.enableSettingsCache())
+	for range 2 {
+		req := s.ForRequest("sub.example.com")
+		req.subscriptionBody = true
+		inbounds, err := req.getInboundsBySubId(subID)
+		if err != nil || len(inbounds) != 2 {
+			t.Fatalf("inbounds: %v %v", inbounds, err)
+		}
+		for _, ib := range inbounds {
+			want := "10.90.0.2"
+			if ib.Id == first.Id {
+				want = "10.80.0.2"
+			}
+			req.primeLinkClients(ib.Id, []model.Client{{Email: email, PrivateKey: clientPriv, AllowedIPs: []string{"10.80.0.2/32"}}}, true)
+			if link := req.genAwgLink(ib, email); !strings.Contains(link, "address="+want) {
+				t.Fatalf("inbound %d: %s", ib.Id, link)
+			}
+		}
+	}
+}
 
 // awgLinkInbound builds an AWG inbound with one client and the given settings
 // JSON, mirroring shareLinkInbound in service_sharelink_test.go.

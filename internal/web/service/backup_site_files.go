@@ -137,7 +137,11 @@ func collectSiteFileRows() ([]backupSiteFile, error) {
 			continue
 		}
 		seen[dir] = true
-		rows, total = walkOneSiteDir(dir, rows, total)
+		var walkErr error
+		rows, total, walkErr = walkOneSiteDir(dir, rows, total)
+		if walkErr != nil {
+			return nil, walkErr
+		}
 	}
 	if total > backupSiteFilesTotalMax {
 		return nil, fmt.Errorf("site files total %d bytes, backup ceiling is %d", total, backupSiteFilesTotalMax)
@@ -145,7 +149,7 @@ func collectSiteFileRows() ([]backupSiteFile, error) {
 	return rows, nil
 }
 
-func walkOneSiteDir(dir string, rows []backupSiteFile, total int) ([]backupSiteFile, int) {
+func walkOneSiteDir(dir string, rows []backupSiteFile, total int) ([]backupSiteFile, int, error) {
 	err := filepath.WalkDir(dir, func(p string, d fs.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			if os.IsNotExist(walkErr) {
@@ -161,8 +165,7 @@ func walkOneSiteDir(dir string, rows []backupSiteFile, total int) ([]backupSiteF
 			return err
 		}
 		if info.Size() > backupSiteFileMax {
-			total += int(info.Size())
-			return nil
+			return fmt.Errorf("site file %s exceeds backup limit", p)
 		}
 		data, err := os.ReadFile(p)
 		if err != nil {
@@ -180,10 +183,7 @@ func walkOneSiteDir(dir string, rows []backupSiteFile, total int) ([]backupSiteF
 		})
 		return nil
 	})
-	if err != nil && !os.IsNotExist(err) {
-		logger.Warningf("backup: site files of %s: %v", dir, err)
-	}
-	return rows, total
+	return rows, total, err
 }
 
 var errBackupSitePath = errors.New("site file path escapes its directory")
@@ -255,20 +255,25 @@ func writeSiteFiles(target string, group []backupSiteFile) error {
 			return err
 		}
 	}
-	if err := os.RemoveAll(target); err != nil {
+	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return err
 	}
-	if err := os.MkdirAll(target, 0o755); err != nil {
+	stage, err := os.MkdirTemp(filepath.Dir(target), ".site-restore-")
+	if err != nil {
 		return err
 	}
+	defer os.RemoveAll(stage)
 	for _, f := range group {
-		out := filepath.Join(target, filepath.FromSlash(f.Path))
+		out := filepath.Join(stage, filepath.FromSlash(f.Path))
 		if err := os.MkdirAll(filepath.Dir(out), 0o755); err != nil {
 			return err
 		}
 		if err := os.WriteFile(out, f.Data, 0o644); err != nil {
 			return err
 		}
+	}
+	if err := tunnel.ReplaceSiteDir(target, stage); err != nil {
+		return err
 	}
 	logger.Infof("backup: restored %d site file(s) into %s", len(group), target)
 	return nil

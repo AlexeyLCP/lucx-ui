@@ -46,7 +46,7 @@ func migrateClientKeepAliveRangeSplit() error {
 		if value == "" || isNumericKeepAlive(value) {
 			continue
 		}
-		if err := db.Exec(`UPDATE clients SET wg_keep_alive = ?, wg_keep_alive_range = ? WHERE id = ?`, 0, value, r.Id).Error; err != nil {
+		if err := db.Exec(`UPDATE clients SET wg_keep_alive = '0', wg_keep_alive_range = ? WHERE id = ?`, value, r.Id).Error; err != nil {
 			return err
 		}
 		log.Printf("[LUCX-AWG] migration: client %d keepAlive %q moved to wg_keep_alive_range", r.Id, value)

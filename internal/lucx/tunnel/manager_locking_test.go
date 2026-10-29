@@ -9,7 +9,51 @@ package tunnel
 import (
 	"sync"
 	"testing"
+	"time"
 )
+
+func TestRemoveSerializesNewLifecycleForSameKey(t *testing.T) {
+	m := newManager()
+	key := "naive-77"
+	mc := m.acquire(key)
+	mc.opMu.Lock()
+	removed := make(chan struct{})
+	go func() { m.Remove(key); close(removed) }()
+	deadline := time.Now().Add(time.Second)
+	for {
+		m.mu.Lock()
+		_, exists := m.cores[key]
+		m.mu.Unlock()
+		if !exists {
+			break
+		}
+		if time.Now().After(deadline) {
+			mc.opMu.Unlock()
+			t.Fatal("remove did not reach cleanup")
+		}
+		time.Sleep(time.Millisecond)
+	}
+	started := make(chan struct{})
+	go func() {
+		_ = m.Ensure(Instance{Core: Naive, Key: key, Enabled: false})
+		close(started)
+	}()
+	select {
+	case <-started:
+		mc.opMu.Unlock()
+		t.Fatal("ensure passed while old removal still held the key")
+	case <-time.After(30 * time.Millisecond):
+	}
+	mc.opMu.Unlock()
+	<-removed
+	<-started
+	m.mu.Lock()
+	_, exists := m.cores[key]
+	m.mu.Unlock()
+	if !exists {
+		t.Fatal("new lifecycle was lost")
+	}
+}
 
 // acquire must hand back the same record for a key, or two callers would
 // serialise on different mutexes and both drive the same process.
