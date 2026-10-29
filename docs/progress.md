@@ -15,6 +15,7 @@
   validation remains pending.
 - Windows Go package tests, targeted backup tests, race tests for AWG and tunnel,
   and `go build ./...` passed. Linux runtime and PostgreSQL were not tested.
+- Follow-up: retain both filesystem errors when reporting a failed site rollback.
 
 ## lucx.330 - upstream v3.11.0 merge and follow-up fixes (#159, #160) (2026-10-28)
 

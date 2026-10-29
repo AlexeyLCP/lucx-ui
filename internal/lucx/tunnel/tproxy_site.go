@@ -142,7 +142,7 @@ func ReplaceSiteDir(dest, stage string) error {
 	if err := os.Rename(stage, dest); err != nil {
 		if hadOld {
 			if restoreErr := os.Rename(backup, dest); restoreErr != nil {
-				return fmt.Errorf("replace site: %v; previous site remains at %s: %w", err, backup, restoreErr)
+				return fmt.Errorf("replace site: %w; previous site remains at %s: %w", err, backup, restoreErr)
 			}
 		}
 		return err
