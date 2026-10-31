@@ -79,6 +79,50 @@ if ! have "olcrtc-linux-${ARCH}"; then
     rm -rf /tmp/olcrtc
 fi
 
+# Telemt (telemt/telemt). Pin a release commit before publishing binaries;
+# the panel keeps it separate from the upstream mtproto/mtg backend.
+if ! have "telemt-linux-${ARCH}"; then
+    case "$ARCH" in
+        amd64) telemt_tgt="x86_64-unknown-linux-musl" ;;
+        arm64) telemt_tgt="aarch64-unknown-linux-musl" ;;
+        *) echo "no telemt for ${ARCH}" >&2; exit 1 ;;
+    esac
+    TELEMT_REF="61afd6c7024b9c4b48497b53109f3eebb899320a"
+    git init -q /tmp/telemt
+    git -C /tmp/telemt remote add origin https://github.com/telemt/telemt.git
+    git -C /tmp/telemt fetch -q --depth 1 origin "$TELEMT_REF"
+    git -C /tmp/telemt checkout -q FETCH_HEAD
+    (
+        cd /tmp/telemt
+        cargo zigbuild --release --target "$telemt_tgt"
+        cp "target/${telemt_tgt}/release/telemt" "${DEST}/telemt-linux-${ARCH}"
+    )
+    chmod +x "${DEST}/telemt-linux-${ARCH}"
+    rm -rf /tmp/telemt
+fi
+
+# mtproto.zig WEB backend. Pinned release source; legacy tproxy remains the
+# default until an operator selects backend=mtproto-zig.
+if ! have "mtproto-zig-linux-${ARCH}"; then
+    case "$ARCH" in
+        amd64) zig_tgt="x86_64-linux" ;;
+        arm64) zig_tgt="aarch64-linux" ;;
+        *) echo "no mtproto-zig for ${ARCH}" >&2; exit 1 ;;
+    esac
+    ZIG_REF="v1.15.4"
+    git init -q /tmp/mtproto-zig
+    git -C /tmp/mtproto-zig remote add origin https://github.com/sleep3r/mtproto.zig.git
+    git -C /tmp/mtproto-zig fetch -q --depth 1 origin "$ZIG_REF"
+    git -C /tmp/mtproto-zig checkout -q FETCH_HEAD
+    (
+        cd /tmp/mtproto-zig
+        zig build -Doptimize=ReleaseFast -Dtarget="$zig_tgt"
+        cp zig-out/bin/mtproto-proxy "${DEST}/mtproto-zig-linux-${ARCH}"
+    )
+    chmod +x "${DEST}/mtproto-zig-linux-${ARCH}"
+    rm -rf /tmp/mtproto-zig
+fi
+
 # MasterDNSVPN server (masterking32/MasterDnsVPN, Go). PIN main@5f83ee9 —
 # not unpinned (#127). Panel renders the server TOML + secret; the binary is
 # Go std-lib only (no CGO), plain `go build ./cmd/server`.

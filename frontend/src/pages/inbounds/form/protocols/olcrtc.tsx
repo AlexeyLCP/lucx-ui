@@ -23,7 +23,7 @@ export default function OlcrtcFields() {
   const { data: outboundTags } = useOutboundTags();
 
   const transportOptions =
-    provider === 'telemost'
+    provider === 'telemost' || provider === 'vkcalls' || provider === 'mtslink'
       ? [
           { value: 'vp8channel', label: 'vp8channel' },
           { value: 'videochannel', label: 'videochannel' },
@@ -43,7 +43,7 @@ export default function OlcrtcFields() {
 
   useEffect(() => {
     const allowed =
-      provider === 'telemost'
+      provider === 'telemost' || provider === 'vkcalls' || provider === 'mtslink'
         ? ['vp8channel', 'videochannel']
         : provider === 'wbstream'
           ? ['vp8channel', 'seichannel', 'videochannel']
@@ -106,6 +106,8 @@ export default function OlcrtcFields() {
             { value: 'jitsi', label: 'Jitsi' },
             { value: 'telemost', label: 'Yandex Telemost' },
             { value: 'wbstream', label: 'WB Stream' },
+            { value: 'vkcalls', label: 'VK Calls' },
+            { value: 'mtslink', label: 'MTS Link' },
           ]}
         />
       </FormField>

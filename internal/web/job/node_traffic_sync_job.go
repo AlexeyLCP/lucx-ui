@@ -408,9 +408,21 @@ func (j *NodeTrafficSyncJob) syncOne(mgr *runtime.Manager, n *model.Node, doIpSy
 	service.FilterNodeSnapshot(n, snap)
 	_, _, dirty, _, _ := j.nodeService.NodeSyncState(n.Id)
 	if !dirty {
-		if pending, checkErr := j.inboundService.SnapshotHasUnadoptedInbounds(n.Id, snap); checkErr != nil {
+		pending, checkErr := j.inboundService.SnapshotHasUnadoptedInbounds(n.Id, snap)
+		if checkErr != nil {
 			logger.Warningf("node traffic sync: unadopted-inbound check for %s failed: %v", n.Name, checkErr)
-		} else if pending {
+		}
+		if !pending && syncCanAdopt {
+			// Masking Apply/Revert moves an adopted inbound's listen/port and
+			// creates a gateway host row only in the node's DB (#166).
+			moved, moveErr := j.inboundService.SnapshotHasMovedInbounds(n.Id, snap)
+			if moveErr != nil {
+				logger.Warningf("node traffic sync: moved-inbound check for %s failed: %v", n.Name, moveErr)
+			} else {
+				pending = moved
+			}
+		}
+		if pending {
 			hostCtx, hostCancel := context.WithTimeout(context.Background(), nodeTrafficSyncRequestTimeout)
 			groups, hgErr := rt.FetchHostGroups(hostCtx)
 			hostCancel()

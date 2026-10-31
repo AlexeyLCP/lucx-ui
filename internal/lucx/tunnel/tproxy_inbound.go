@@ -73,6 +73,13 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string, o
 		{Core: Tproxy, Key: TproxyKey(id), Enabled: false},
 		{Core: TproxyCaddy, Key: TproxyCaddyKey(id), Enabled: false},
 	}
+	if cfg.Backend == "mtproto-zig" {
+		zig, ok := MtprotoZigConfigFromTproxy(ib.Id, cfg)
+		if !ok {
+			return disabled, true
+		}
+		return []Instance{zig}, true
+	}
 	// LUCX note: every non-enable failure below logs WHY the whole stack is
 	// being torn down — reconcile stops all three processes and without this
 	// line the operator sees "connected but dead" with zero log output.
@@ -147,18 +154,20 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string, o
 	caddyPath := configPathFor(TproxyCaddyKey(id), TproxyCaddy)
 	caddyOn := !cfg.BehindCover
 
-	mtArgs := mtproxyArgs(mtStats, mtH, cfg.Secret)
+	mtSecretName := MtproxyKey(id) + "-secret"
+	mtArgs := mtproxyArgs(mtStats, mtH, filepath.Join(workDir(), mtSecretName))
 	if len(mtArgs) == 0 {
 		return disabledWhy(errors.New("mtproxy assets or secret missing")), true
 	}
 
 	return []Instance{
 		{
-			Core:      Mtproxy,
-			Key:       MtproxyKey(id),
-			Enabled:   true,
-			Args:      mtArgs,
-			ProbePort: mtH,
+			Core:       Mtproxy,
+			Key:        MtproxyKey(id),
+			Enabled:    true,
+			Args:       mtArgs,
+			ExtraFiles: map[string]string{mtSecretName: cfg.Secret},
+			ProbePort:  mtH,
 		},
 		{
 			Core:       Tproxy,

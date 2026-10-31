@@ -90,6 +90,32 @@ func TestGetInboundsBySubIdIncludesMasque(t *testing.T) {
 	}
 }
 
+func TestSubscriptionOmitsTproxyInbound(t *testing.T) {
+	initSubDB(t)
+	db := database.GetDB()
+	in := &model.Inbound{Port: 8444, Protocol: model.Tproxy, Enable: true, Tag: "tproxy-sub", Settings: `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f"}`}
+	if err := db.Create(in).Error; err != nil {
+		t.Fatal(err)
+	}
+	rec := &model.ClientRecord{Email: "tproxy@example.test", SubID: "tproxy-sub", Enable: true}
+	if err := db.Create(rec).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ClientInbound{ClientId: rec.Id, InboundId: in.Id}).Error; err != nil {
+		t.Fatal(err)
+	}
+	inbounds, err := (&SubService{}).getInboundsBySubId(rec.SubID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(inbounds) != 0 {
+		t.Fatalf("WEB proxy must not appear in subscription: %+v", inbounds)
+	}
+	if link := (&SubService{}).GetLink(in, rec.Email); link == "" {
+		t.Fatal("direct WEB proxy link should remain available")
+	}
+}
+
 // An inbound keeps its hop range in quicParams.udpHop (udphop refuses to run on a server),
 // but the client config must carry the udphop mask: the core ignores the old key since 26.9.9.
 func TestSubJsonServiceTurnsInboundHopIntoClientUDPHopMask(t *testing.T) {

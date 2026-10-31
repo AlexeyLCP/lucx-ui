@@ -92,8 +92,10 @@ const Anytls Name = "anytls"
 // derived from ClusterM/wg-obfuscator) — the qWDTT/MTProxy precedent. Both
 // cores share one binary (wgobfs-os-arch), the caddy-naive precedent.
 const (
-	Wgo      Name = "wgo"
-	Wgosocks Name = "wgosocks"
+	Wgo        Name = "wgo"
+	Wgosocks   Name = "wgosocks"
+	Telemt     Name = "telemt"
+	MtprotoZig Name = "mtprotozig"
 )
 
 // Client-mode cores (outbound sidecars). Distinct Name values so BinaryName
@@ -108,7 +110,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Openflux, Wgosocks}
+	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, Telemt, MtprotoZig, TproxyCaddy, Cover, Gateway, Openflux, Wgosocks}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -119,7 +121,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, TproxyCaddy, Cover, Gateway, Wgo, Wgosocks, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, Telemt, MtprotoZig, TproxyCaddy, Cover, Gateway, Wgo, Wgosocks, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -150,6 +152,10 @@ func (n Name) DisplayName() string {
 		return "Telegram WEB proxy"
 	case Mtproxy:
 		return "MTProxy"
+	case Telemt:
+		return "Telemt (LucX)"
+	case MtprotoZig:
+		return "MTProto Zig WEB"
 	case TproxyCaddy:
 		return "Caddy (tproxy)"
 	case Cover:
@@ -190,6 +196,10 @@ func (n Name) BinaryName() string {
 	case Wgo, Wgosocks:
 		// One wgobfs binary serves both cores (Phobos fork of wg-obfuscator).
 		name = fmt.Sprintf("wgobfs-%s-%s", runtime.GOOS, runtime.GOARCH)
+	case Telemt:
+		name = fmt.Sprintf("telemt-%s-%s", runtime.GOOS, runtime.GOARCH)
+	case MtprotoZig:
+		name = fmt.Sprintf("mtproto-zig-%s-%s", runtime.GOOS, runtime.GOARCH)
 	default:
 		name = fmt.Sprintf("%s-%s-%s", string(n), runtime.GOOS, runtime.GOARCH)
 	}

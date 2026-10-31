@@ -5,6 +5,7 @@ import (
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/entity"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/runtime"
 )
 
@@ -153,5 +154,90 @@ func TestSetRemoteTraffic_PortChangeAutoTagNoDuplicate(t *testing.T) {
 	}
 	if rows[0].Tag != "n1-in-51821-udp" {
 		t.Fatalf("tag = %q, want n1-in-51821-udp", rows[0].Tag)
+	}
+}
+
+func TestSetRemoteTraffic_MaskingRevertPreservesInboundAndHost(t *testing.T) {
+	setupConflictDB(t)
+	db := database.GetDB()
+	const nodeID = 1
+	if err := db.Create(&model.Node{Id: nodeID, Name: "node", Address: "10.0.0.2", Port: 2053, ApiToken: "t", Guid: "node-guid"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	id := nodeID
+	central := &model.Inbound{UserId: 1, NodeID: &id, OriginNodeGuid: "node-guid", Tag: "n1-in-1443-tcp", Listen: "127.0.0.1", Enable: true, Port: 1443, Protocol: model.VLESS, Settings: `{"clients":[]}`}
+	if err := db.Create(central).Error; err != nil {
+		t.Fatal(err)
+	}
+	host := &model.Host{InboundId: central.Id, Remark: "gateway", Address: "node.example.com", Port: 443, Security: "same"}
+	if err := db.Create(host).Error; err != nil {
+		t.Fatal(err)
+	}
+	snap := &runtime.TrafficSnapshot{Inbounds: []*model.Inbound{{Tag: "in-443-tcp", Enable: true, Port: 443, Protocol: model.VLESS, Settings: `{"clients":[]}`}}}
+	if _, err := (&InboundService{}).setRemoteTrafficLocked(nodeID, snap, false, false); err != nil {
+		t.Fatal(err)
+	}
+	var got model.Inbound
+	if err := db.First(&got, central.Id).Error; err != nil {
+		t.Fatalf("original inbound lost after revert: %v", err)
+	}
+	var kept model.Host
+	if err := db.First(&kept, host.Id).Error; err != nil || kept.InboundId != central.Id {
+		t.Fatalf("host lost or detached: %+v, %v", kept, err)
+	}
+	if got.Port != 443 || got.Listen != "" {
+		t.Fatalf("inbound not reverted: %+v", got)
+	}
+}
+
+// Masking Apply on a node moves the inbound to 127.0.0.1:<port> and writes the
+// gateway host row only into the node's DB. The master must adopt that host so
+// its subscription keeps the public address instead of the loopback port (#166).
+func TestSetRemoteTraffic_MaskingApplyAdoptsGatewayHost(t *testing.T) {
+	setupConflictDB(t)
+	db := database.GetDB()
+	const nodeID = 1
+	if err := db.Create(&model.Node{Id: nodeID, Name: "node", Address: "10.0.0.2", Port: 2053, ApiToken: "t", Guid: "node-guid"}).Error; err != nil {
+		t.Fatal(err)
+	}
+	id := nodeID
+	central := &model.Inbound{UserId: 1, NodeID: &id, OriginNodeGuid: "node-guid", Tag: "n1-in-443-tcp", Enable: true, Port: 443, Protocol: model.VLESS, Settings: `{"clients":[]}`}
+	if err := db.Create(central).Error; err != nil {
+		t.Fatal(err)
+	}
+
+	moved, err := (&InboundService{}).SnapshotHasMovedInbounds(nodeID, &runtime.TrafficSnapshot{Inbounds: []*model.Inbound{{Tag: "in-1443-tcp", Listen: "127.0.0.1", Port: 1443, Protocol: model.VLESS, Settings: `{}`}}})
+	if err != nil || !moved {
+		t.Fatalf("SnapshotHasMovedInbounds = %v, %v; want true", moved, err)
+	}
+
+	snap := &runtime.TrafficSnapshot{
+		Inbounds: []*model.Inbound{{Id: 9, Tag: "in-1443-tcp", Listen: "127.0.0.1", Enable: true, Port: 1443, Protocol: model.VLESS, Settings: `{"clients":[]}`}},
+		HostGroups: []*entity.HostGroup{{
+			GroupId:    "gw-node",
+			InboundIds: []int{9},
+			Hosts:      []string{"node.example.com"},
+			Remark:     "gateway",
+			Port:       443,
+			Security:   "same",
+		}},
+	}
+	if _, err := (&InboundService{}).setRemoteTrafficLocked(nodeID, snap, false, false); err != nil {
+		t.Fatal(err)
+	}
+
+	var got model.Inbound
+	if err := db.First(&got, central.Id).Error; err != nil {
+		t.Fatalf("inbound lost after masking apply: %v", err)
+	}
+	if got.Port != 1443 || got.Listen != "127.0.0.1" {
+		t.Fatalf("inbound not moved: %+v", got)
+	}
+	var hosts []model.Host
+	if err := db.Where("inbound_id = ?", central.Id).Find(&hosts).Error; err != nil {
+		t.Fatal(err)
+	}
+	if len(hosts) != 1 || hosts[0].Address != "node.example.com" || hosts[0].Port != 443 {
+		t.Fatalf("gateway host not adopted: %+v", hosts)
 	}
 }

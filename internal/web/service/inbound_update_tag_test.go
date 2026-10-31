@@ -68,6 +68,21 @@ func TestUpdateInbound_NodeTagKeepsPrefixWhenNodeIdOmitted(t *testing.T) {
 	}
 }
 
+func TestUpdateInbound_AdoptedPlainNodeTagRetargetsOnPortChange(t *testing.T) {
+	setupConflictDB(t)
+	seedInboundConflictNode(t, "in-443-tcp", "0.0.0.0", 443, model.VLESS, `{"network":"tcp"}`, `{"clients":[]}`, new(1))
+	var existing model.Inbound
+	if err := database.GetDB().Where("tag = ?", "in-443-tcp").First(&existing).Error; err != nil {
+		t.Fatal(err)
+	}
+	update := existing
+	update.Port = 8443
+	got, _, _ := (&InboundService{}).UpdateInbound(&update)
+	if got.Tag != "n1-in-8443-tcp" {
+		t.Fatalf("adopted auto tag = %q, want n1-in-8443-tcp", got.Tag)
+	}
+}
+
 // A node inbound sharing a port with a local inbound must stay editable: the
 // port-conflict check is scoped to the inbound's stored NodeID, not the body's.
 func TestUpdateInbound_NodeInboundNotBlockedByLocalSamePort(t *testing.T) {

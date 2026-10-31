@@ -10,8 +10,15 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
 )
+
+func TestLocalHelloAdvertisesTproxy(t *testing.T) {
+	if !slices.Contains(LocalHello().Features, "tproxy") || !IsLucXOnlyProtocol("tproxy") {
+		t.Fatal("tproxy must be advertised as a LucX-only protocol")
+	}
+}
 
 func TestDetectNodeType_LucX(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

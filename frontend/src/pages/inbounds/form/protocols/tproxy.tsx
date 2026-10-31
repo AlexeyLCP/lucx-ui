@@ -78,6 +78,18 @@ export default function TproxyFields() {
         <Input placeholder="proxy.example.com" />
       </FormField>
       <FormField
+        name={['settings', 'backend']}
+        label={t('pages.inbounds.form.tproxyBackend')}
+        tooltip={t('pages.inbounds.form.tproxyBackendHint')}
+      >
+        <Radio.Group>
+          <Radio.Button value="legacy">{t('pages.inbounds.form.tproxyBackendLegacy')}</Radio.Button>
+          <Radio.Button value="mtproto-zig">
+            {t('pages.inbounds.form.tproxyBackendZig')}
+          </Radio.Button>
+        </Radio.Group>
+      </FormField>
+      <FormField
         name={['settings', 'behindCover']}
         label={t('pages.inbounds.form.behindCover')}
         tooltip={t('pages.inbounds.form.behindCoverHint')}

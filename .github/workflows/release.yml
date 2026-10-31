@@ -265,6 +265,7 @@ jobs:
           rm -rf /tmp/MTProxy
           mkdir /tmp/MTProxy
           tar -C /tmp/MTProxy --strip-components=1 -xzf /tmp/MTProxy.tar.gz
+          patch -d /tmp/MTProxy -p1 < third_party/patches/mtproxy-secret-file.patch
           docker run --rm --user 0 -v /tmp/MTProxy:/src -w /src ubuntu:22.04 bash -lc \
             'apt-get update -qq && apt-get install -y -qq --no-install-recommends gcc make libssl-dev zlib1g-dev >/dev/null && make -j"$(nproc)"'
           cp /tmp/MTProxy/objs/bin/mtproto-proxy "$DEST/mtproxy-linux-${P}"
@@ -279,7 +280,7 @@ jobs:
           set -euo pipefail
           P="${{ matrix.platform }}"
           : > x-ui/bin/lucx-pins.txt
-          for c in caddy-naive naive-client olcrtc qwdtt csqtt openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4 wgobfs; do
+          for c in caddy-naive naive-client olcrtc telemt mtproto-zig qwdtt csqtt openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4 wgobfs; do
             f="x-ui/bin/${c}-linux-${P}"
             [ -x "$f" ] || continue
             echo "${c}-linux-${P} $(sha256sum "$f" | awk '{print $1}')" >> x-ui/bin/lucx-pins.txt
@@ -302,7 +303,7 @@ jobs:
           for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" x-ui/bin/install-awg-module.sh x-ui/bin/lucx-acme.sh x-ui/bin/lucx-pins.txt; do
             grep -Fxq "$f" /tmp/list || { echo "missing $f"; exit 1; }
           done
-          for c in caddy-naive naive-client olcrtc qwdtt csqtt openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4; do
+          for c in caddy-naive naive-client olcrtc qwdtt csqtt openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4 telemt mtproto-zig wgobfs; do
             grep -Fxq "x-ui/bin/${c}-linux-${P}" /tmp/list || { echo "missing ${c}-linux-${P}"; exit 1; }
           done
           if [ "$P" = amd64 ]; then

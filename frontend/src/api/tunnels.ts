@@ -66,6 +66,8 @@ const ANYTLS = '/panel/api/tunnel/anytls';
 const WGO = '/panel/api/tunnel/wgo'; // LUCX-HOOK: wgobfs
 const TPROXY = '/panel/api/tunnel/tproxy';
 const MTPROXY = '/panel/api/tunnel/mtproxy';
+const TELEMT = '/panel/api/tunnel/telemt';
+const MTPROTO_ZIG = '/panel/api/tunnel/mtproto-zig';
 
 export const tunnelsApi = {
   status: async (): Promise<Msg<NaiveStatus>> => {
@@ -314,4 +316,36 @@ export const tunnelsApi = {
   },
   mtproxyDeleteBinary: (): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${MTPROXY}/deleteBinary`, {}, JSON_HEADERS),
+  telemtStatus: async (): Promise<Msg<TproxyStatus>> => {
+    const raw = await HttpUtil.get<TproxyStatus>(`${TELEMT}/status`, undefined, { silent: true });
+    return parseMsg(raw, TproxyStatusSchema, 'tunnel/telemtStatus');
+  },
+  telemtLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${TELEMT}/logs?lines=${lines}`),
+  telemtDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${TELEMT}/download`, { url, sha256 }, JSON_HEADERS),
+  telemtUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${TELEMT}/upload`, fd);
+  },
+  telemtDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${TELEMT}/deleteBinary`, {}, JSON_HEADERS),
+  mtprotoZigStatus: async (): Promise<Msg<TproxyStatus>> => {
+    const raw = await HttpUtil.get<TproxyStatus>(`${MTPROTO_ZIG}/status`, undefined, {
+      silent: true,
+    });
+    return parseMsg(raw, TproxyStatusSchema, 'tunnel/mtprotoZigStatus');
+  },
+  mtprotoZigLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${MTPROTO_ZIG}/logs?lines=${lines}`),
+  mtprotoZigDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${MTPROTO_ZIG}/download`, { url, sha256 }, JSON_HEADERS),
+  mtprotoZigUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${MTPROTO_ZIG}/upload`, fd);
+  },
+  mtprotoZigDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${MTPROTO_ZIG}/deleteBinary`, {}, JSON_HEADERS),
 };

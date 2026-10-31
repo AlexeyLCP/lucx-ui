@@ -795,6 +795,7 @@ export const HwidSlotStatusSchema = z.object({
 export type HwidSlotStatus = z.infer<typeof HwidSlotStatusSchema>;
 
 export const InboundSchema = z.object({
+  balancerOnly: z.boolean(),
   clientStats: z.array(z.lazy(() => ClientTrafficSchema)),
   disableFlow: z.boolean(),
   down: z.number().int(),
@@ -808,7 +809,7 @@ export const InboundSchema = z.object({
   nodeId: z.number().int().nullable().optional(),
   originNodeGuid: z.string().optional(),
   port: z.number().int().min(0).max(65535),
-  protocol: z.enum(['vmess', 'vless', 'trojan', 'shadowsocks', 'wireguard', 'hysteria', 'http', 'mixed', 'tunnel', 'tun', 'mtproto', 'amneziawg', 'tuic', 'masque', 'awg', 'naive', 'olcrtc', 'qwdtt', 'csqtt', 'masterdns', 'openflux', 'mieru', 'trusttunnel', 'anytls', 'tproxy', 'cover', 'gateway', 'wgosocks']),
+  protocol: z.enum(['vmess', 'vless', 'trojan', 'shadowsocks', 'wireguard', 'hysteria', 'http', 'mixed', 'tunnel', 'tun', 'mtproto', 'telemt', 'amneziawg', 'tuic', 'masque', 'awg', 'naive', 'olcrtc', 'qwdtt', 'csqtt', 'masterdns', 'openflux', 'mieru', 'trusttunnel', 'anytls', 'tproxy', 'cover', 'gateway', 'wgosocks']),
   remark: z.string(),
   settings: z.unknown(),
   shareAddr: z.string(),

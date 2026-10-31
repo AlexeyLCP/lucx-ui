@@ -6,6 +6,7 @@ import { HysteriaInboundSettingsSchema } from './hysteria';
 import { MasqueInboundSettingsSchema } from './masque';
 import { MixedInboundSettingsSchema } from './mixed';
 import { MtprotoInboundSettingsSchema } from './mtproto';
+import { TelemtInboundSettingsSchema } from './telemt'; // LUCX-HOOK: Telemt
 import { AwgInboundSettingsSchema } from './awg'; // LUCX-HOOK: AWG protocol
 import { NaiveInboundSettingsSchema } from './naive'; // LUCX-HOOK: NaiveProxy
 import { OlcrtcInboundSettingsSchema } from './olcrtc'; // LUCX-HOOK: olcRTC
@@ -35,6 +36,7 @@ export * from './hysteria';
 export * from './masque';
 export * from './mixed';
 export * from './mtproto';
+export * from './telemt'; // LUCX-HOOK: Telemt
 export * from './awg'; // LUCX-HOOK: AWG protocol
 export * from './naive'; // LUCX-HOOK: NaiveProxy
 export * from './olcrtc'; // LUCX-HOOK: olcRTC
@@ -75,6 +77,7 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('tunnel'), settings: TunnelInboundSettingsSchema }),
   z.object({ protocol: z.literal('tun'), settings: TunInboundSettingsSchema }),
   z.object({ protocol: z.literal('mtproto'), settings: MtprotoInboundSettingsSchema }),
+  z.object({ protocol: z.literal('telemt'), settings: TelemtInboundSettingsSchema }), // LUCX-HOOK: Telemt
   z.object({ protocol: z.literal('amneziawg'), settings: AmneziawgInboundSettingsSchema }),
   z.object({ protocol: z.literal('tuic'), settings: TuicInboundSettingsSchema }),
   z.object({ protocol: z.literal('awg'), settings: AwgInboundSettingsSchema }), // LUCX-HOOK: AWG

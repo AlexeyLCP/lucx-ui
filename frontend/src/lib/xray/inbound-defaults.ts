@@ -428,6 +428,7 @@ export function createDefaultTproxyInboundSettings(): TproxyInboundSettings {
     port: 443,
     hostname: '',
     secret: '',
+    backend: 'legacy',
     siteSource: 'zip',
     siteDir: '',
     siteUpstream: '',

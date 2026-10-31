@@ -822,6 +822,7 @@ export const EXAMPLES: Record<string, unknown> = {
     "remaining": 1
   },
   "Inbound": {
+    "balancerOnly": false,
     "clientStats": [
       {
         "down": 2097152,

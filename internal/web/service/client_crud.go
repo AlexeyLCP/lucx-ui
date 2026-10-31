@@ -692,6 +692,7 @@ func applyShadowsocksClientMethod(clients []any, settings map[string]any) {
 }
 
 func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model.Client, limitHwid int, inboundFilter ...int) (bool, error) {
+	defer TriggerCsqttMemberSync()
 	existing, err := s.GetByID(id)
 	if err != nil {
 		return false, err
@@ -1023,6 +1024,7 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 }
 
 func (s *ClientService) Delete(inboundSvc *InboundService, id int, keepTraffic bool) (bool, error) {
+	defer TriggerCsqttMemberSync()
 	existing, err := s.GetByID(id)
 	if err != nil {
 		return false, err
@@ -1293,6 +1295,7 @@ func (s *ClientService) DetachByEmailMany(inboundSvc *InboundService, email stri
 }
 
 func (s *ClientService) DeleteByEmail(inboundSvc *InboundService, email string, keepTraffic bool) (bool, error) {
+	defer TriggerCsqttMemberSync()
 	if email == "" {
 		return false, common.NewError("client email is required")
 	}
@@ -1343,6 +1346,7 @@ func (s *ClientService) DeleteByEmail(inboundSvc *InboundService, email string, 
 }
 
 func (s *ClientService) UpdateByEmail(inboundSvc *InboundService, email string, updated model.Client, limitHwid int, inboundFilter ...int) (bool, error) {
+	defer TriggerCsqttMemberSync()
 	if email == "" {
 		return false, common.NewError("client email is required")
 	}

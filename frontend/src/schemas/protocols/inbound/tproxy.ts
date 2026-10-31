@@ -18,6 +18,7 @@ export const TproxyInboundSettingsSchema = z.object({
   keyFile: z.string().default(''),
   externalTLS: z.boolean().optional().default(false),
   behindCover: z.boolean().default(false),
+  backend: z.enum(['legacy', 'mtproto-zig']).default('legacy'),
   routeThroughXray: z.boolean().default(false),
   outboundTag: z.string().default(''),
   routeXrayPort: z.number().int().min(0).max(65535).optional(),

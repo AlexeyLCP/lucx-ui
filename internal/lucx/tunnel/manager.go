@@ -391,6 +391,10 @@ func removeManagedFiles(key string) {
 		core = Tproxy
 	case strings.HasPrefix(key, "mtproxy-"):
 		core = Mtproxy
+	case strings.HasPrefix(key, "telemt-"):
+		core = Telemt
+	case strings.HasPrefix(key, "mtproto-zig-"):
+		core = MtprotoZig
 	case strings.HasPrefix(key, "naiveout-"):
 		core = NaiveClient
 	case strings.HasPrefix(key, "naive-"):
@@ -420,6 +424,9 @@ func removeManagedFiles(key string) {
 	}
 	if core == Tproxy {
 		paths = append(paths, filepath.Join(workDir(), key+"-profiles.json"))
+	}
+	if core == Mtproxy {
+		paths = append(paths, filepath.Join(workDir(), key+"-secret"))
 	}
 	if core == Openflux {
 		paths = append(paths, filepath.Join(workDir(), key+"-secret.txt"))
@@ -932,6 +939,10 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 	case inst.Core == Wgo, inst.Core == Wgosocks:
 		// wgobfs takes an INI config path (Phobos fork of wg-obfuscator).
 		args = []string{"-c", cfgPath}
+	case inst.Core == Telemt:
+		args = []string{cfgPath}
+	case inst.Core == MtprotoZig:
+		args = []string{cfgPath}
 	default:
 		return fmt.Errorf("tunnel: no start args for core %q", inst.Core)
 	}

@@ -744,6 +744,7 @@ export interface HwidSlotStatus {
 }
 
 export interface Inbound {
+  balancerOnly: boolean;
   clientStats: ClientTraffic[];
   disableFlow: boolean;
   down: number;

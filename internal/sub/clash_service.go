@@ -242,6 +242,9 @@ func (s *SubClashService) getClash(subId string, host string, legacy bool) (stri
 			}
 			continue
 		}
+		if inbound.BalancerOnly {
+			continue
+		}
 		subReq.projectThroughFallbackMaster(inbound)
 		var baseEps []map[string]any
 		baseStream := inbound.StreamSettings

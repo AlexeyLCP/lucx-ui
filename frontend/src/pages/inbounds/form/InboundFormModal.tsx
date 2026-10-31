@@ -71,6 +71,7 @@ import {
   MasqueStreamFields,
   MixedFields,
   MtprotoFields,
+  TelemtFields, // LUCX-HOOK: Telemt
   AwgFields, // LUCX-HOOK: AWG
   NaiveFields, // LUCX-HOOK: Naive
   OlcrtcFields, // LUCX-HOOK: olcRTC
@@ -880,6 +881,15 @@ export default function InboundFormModal({
         <Switch />
       </FormField>
 
+      <FormField
+        name="balancerOnly"
+        valueProp="checked"
+        label={t('pages.inbounds.form.balancerOnly')}
+        tooltip={t('pages.inbounds.form.balancerOnlyHelp')}
+      >
+        <Switch />
+      </FormField>
+
       {protocol === Protocols.VLESS && (
         <FormField
           name="disableFlow"
@@ -995,6 +1005,7 @@ export default function InboundFormModal({
       {protocol === Protocols.MIXED && <MixedFields mixedUdpOn={mixedUdpOn} />}
 
       {protocol === Protocols.MTPROTO && <MtprotoFields />}
+      {protocol === Protocols.TELEMT && <TelemtFields />}
       {/* LUCX-HOOK: AWG protocol form */}
       {protocol === Protocols.AWG && (
         <AwgFields

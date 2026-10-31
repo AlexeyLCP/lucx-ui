@@ -515,6 +515,9 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 			}
 			continue
 		}
+		if inbound.BalancerOnly {
+			continue
+		}
 		s.projectThroughFallbackMaster(inbound)
 		// Host overrides apply AFTER fallback projection so a host's
 		// address/TLS wins over the projected master stream.
@@ -784,7 +787,7 @@ func (s *SubService) loadInboundsBySubId(subId string) ([]*model.Inbound, error)
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic','masque','awg','naive','olcrtc','qwdtt','csqtt','masterdns','openflux','mieru','trusttunnel','anytls','tproxy')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic','masque','awg','naive','olcrtc','qwdtt','csqtt','masterdns','openflux','mieru','trusttunnel','anytls')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC")
 	if cached {
@@ -963,6 +966,8 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genHysteriaLink(inbound, email)
 	case "mtproto":
 		return s.genMtprotoLink(inbound, email)
+	case "telemt":
+		return s.genTelemtLink(inbound, email)
 	case "wireguard":
 		return s.genWireguardLink(inbound, email)
 	case "awg": // LUCX-HOOK: AWG share link
@@ -978,6 +983,11 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 	case "qwdtt": // LUCX-HOOK: single-credential qWDTT URI (ignore email)
 		return s.genQwdttLink(inbound)
 	case "csqtt": // LUCX-HOOK: single-credential CSQTT URI (ignore email)
+		if email != "" {
+			if link, ok := service.GetCsqttMemberService().Link(inbound.Id, email); ok {
+				return link
+			}
+		}
 		return s.genCsqttLink(inbound)
 	case "openflux": // LUCX-HOOK: single openflux:// link (one active client)
 		return s.genOpenfluxLink(inbound)
@@ -991,6 +1001,27 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return s.genTuicLink(inbound, email)
 	}
 	return ""
+}
+
+func (s *SubService) genTelemtLink(inbound *model.Inbound, email string) string {
+	if inbound == nil || inbound.Protocol != model.Telemt || !inbound.Enable {
+		return ""
+	}
+	resolved, ok := s.clientForLink(inbound, email)
+	if !ok || !resolved.Enable || strings.TrimSpace(resolved.Secret) == "" {
+		return ""
+	}
+	cfg, ok := tunnel.TelemtConfigFromInbound(inbound)
+	if !ok || cfg.TlsDomain == "" {
+		return ""
+	}
+	host := s.resolveInboundAddress(inbound)
+	if host == "" {
+		return ""
+	}
+	port := cfg.Port
+	secret := strings.TrimSpace(resolved.Secret)
+	return "tg://proxy?server=" + url.QueryEscape(host) + "&port=" + strconv.Itoa(port) + "&secret=" + url.QueryEscape(secret) + "&tls_domain=" + url.QueryEscape(cfg.TlsDomain) + "#" + url.QueryEscape(s.genRemark(inbound, email, "", ""))
 }
 
 func (s *SubService) genTuicLink(inbound *model.Inbound, email string) string {

@@ -42,6 +42,9 @@ func (s *SubAwgService) GetAwg(subId, host, format string, inboundId int) (body,
 		if inbound.Protocol != model.AWG || !awgInboundWanted(inbound.Id, inboundId) {
 			continue
 		}
+		if inbound.BalancerOnly {
+			continue
+		}
 		clients := subReq.matchingClients(inbound, subId)
 		if len(clients) == 0 {
 			continue

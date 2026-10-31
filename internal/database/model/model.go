@@ -35,6 +35,7 @@ const (
 	WireGuard   Protocol = "wireguard"
 	Hysteria    Protocol = "hysteria"
 	MTProto     Protocol = "mtproto"
+	Telemt      Protocol = "telemt"
 	AmneziaWG   Protocol = "amneziawg"
 	TUIC        Protocol = "tuic"
 	// LUCX-HOOK: AmneziaWG protocol — managed as a kernel-interface sidecar,
@@ -94,6 +95,7 @@ type Inbound struct {
 	Remark               string               `json:"remark" form:"remark" example:"VLESS-443"`                                                                                                                     // Human-readable remark
 	SubSortIndex         int                  `json:"subSortIndex" form:"subSortIndex" gorm:"default:1" validate:"omitempty" example:"1"`                                                                           // Sort order of this inbound's links in subscription output only (lower first; negatives allowed; 0/omitted → 1; ties by id)
 	ExcludeFromSub       bool                 `json:"excludeFromSub" form:"excludeFromSub" gorm:"column:exclude_from_sub;default:false" example:"false"`                                                            // Whether to omit this inbound from subscription output while keeping it operational
+	BalancerOnly         bool                 `json:"balancerOnly" form:"balancerOnly" gorm:"column:balancer_only;default:false" example:"false"`                                                                   // Whether to expose this inbound only as a subscription-balancer member
 	Enable               bool                 `json:"enable" form:"enable" gorm:"index:idx_enable_traffic_reset,priority:1" example:"true"`                                                                         // Whether the inbound is enabled
 	ExpiryTime           int64                `json:"expiryTime" form:"expiryTime"`                                                                                                                                 // Expiration timestamp
 	TrafficReset         string               `json:"trafficReset" form:"trafficReset" gorm:"default:never;index:idx_enable_traffic_reset,priority:2" validate:"omitempty,oneof=never hourly daily weekly monthly"` // Traffic reset schedule
@@ -104,7 +106,7 @@ type Inbound struct {
 	// Xray configuration fields
 	Listen            string   `json:"listen" form:"listen"`
 	Port              int      `json:"port" form:"port" validate:"gte=0,lte=65535" example:"443"`
-	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto amneziawg tuic masque awg naive olcrtc qwdtt csqtt masterdns openflux mieru trusttunnel anytls tproxy cover gateway wgosocks" example:"vless"`
+	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto telemt amneziawg tuic masque awg naive olcrtc qwdtt csqtt masterdns openflux mieru trusttunnel anytls tproxy cover gateway wgosocks" example:"vless"`
 	Settings          string   `json:"settings" form:"settings"`
 	StreamSettings    string   `json:"streamSettings" form:"streamSettings"`
 	Tag               string   `json:"tag" form:"tag" gorm:"unique" example:"in-443-tcp"`
@@ -1524,6 +1526,18 @@ type SubBalancer struct {
 	Enabled   bool  `json:"enabled" form:"enabled" example:"true"`
 	CreatedAt int64 `json:"createdAt" gorm:"autoCreateTime:milli" example:"1710000000000"`
 	UpdatedAt int64 `json:"updatedAt" gorm:"autoUpdateTime:milli" example:"1710000000000"`
+}
+
+// CsqttMember stores a CSQTT server member created by LucX for one panel
+// client. Hand-written CSQTT members are never represented here or modified.
+type CsqttMember struct {
+	Id          int    `json:"id" gorm:"primaryKey;autoIncrement"`
+	InboundId   int    `json:"inboundId" gorm:"uniqueIndex:idx_csqtt_member_client"`
+	ClientEmail string `json:"clientEmail" gorm:"uniqueIndex:idx_csqtt_member_client"`
+	Password    string `json:"-"`
+	Link        string `json:"-" gorm:"type:text"`
+	CreatedAt   int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+	UpdatedAt   int64  `json:"updatedAt" gorm:"autoUpdateTime:milli"`
 }
 
 func MergeClientRecord(existing *ClientRecord, incoming *ClientRecord) []ClientMergeConflict {

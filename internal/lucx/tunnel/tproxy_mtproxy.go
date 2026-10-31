@@ -117,7 +117,7 @@ func fetchIfMissing(path, src string) error {
 	return os.WriteFile(path, body, 0o600)
 }
 
-func mtproxyArgs(statsPort, clientPort int, secret string) []string {
+func mtproxyArgs(statsPort, clientPort int, secretFilePath string) []string {
 	dir := mtproxyAssetsDir()
 	secretFile := filepath.Join(dir, "proxy-secret")
 	confFile := filepath.Join(dir, "proxy-multi.conf")
@@ -127,15 +127,14 @@ func mtproxyArgs(statsPort, clientPort int, secret string) []string {
 	if st, err := os.Stat(confFile); err != nil || st.Size() == 0 {
 		return nil
 	}
-	secret = strings.ToLower(strings.TrimSpace(secret))
-	if secret == "" {
+	if strings.TrimSpace(secretFilePath) == "" {
 		return nil
 	}
 	return []string{
 		"-u", mtproxyRunUser(),
 		"-p", strconv.Itoa(statsPort),
 		"-H", strconv.Itoa(clientPort),
-		"-S", secret,
+		"-S", "@" + absPath(secretFilePath),
 		"--aes-pwd", absPath(secretFile),
 		absPath(confFile),
 		"-M", "1",

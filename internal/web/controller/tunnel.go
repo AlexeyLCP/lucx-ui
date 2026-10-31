@@ -263,6 +263,18 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	mtproxy.POST("/upload", a.mtproxyUploadBinary)
 	mtproxy.POST("/download", a.mtproxyDownloadBinary)
 	mtproxy.POST("/deleteBinary", a.mtproxyDeleteBinary)
+	telemt := g.Group("/telemt")
+	telemt.GET("/status", a.telemtStatus)
+	telemt.GET("/logs", a.telemtLogs)
+	telemt.POST("/upload", a.telemtUploadBinary)
+	telemt.POST("/download", a.telemtDownloadBinary)
+	telemt.POST("/deleteBinary", a.telemtDeleteBinary)
+	zig := g.Group("/mtproto-zig")
+	zig.GET("/status", a.mtprotoZigStatus)
+	zig.GET("/logs", a.mtprotoZigLogs)
+	zig.POST("/upload", a.mtprotoZigUploadBinary)
+	zig.POST("/download", a.mtprotoZigDownloadBinary)
+	zig.POST("/deleteBinary", a.mtprotoZigDeleteBinary)
 }
 
 func (a *TunnelController) status(c *gin.Context) {
@@ -1097,6 +1109,82 @@ func (a *TunnelController) mtproxyDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.mtproxy.toasts.deleted"), nil)
+}
+
+func (a *TunnelController) telemtStatus(c *gin.Context) {
+	st, err := a.svc.TelemtStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: telemt status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+func (a *TunnelController) telemtLogs(c *gin.Context) {
+	jsonObj(c, a.svc.TelemtLogs(tproxyLogLines(c)), nil)
+}
+func (a *TunnelController) telemtUploadBinary(c *gin.Context) {
+	if err := saveCoreUpload(c, tunnel.Telemt.BinaryPath()); err != nil {
+		jsonMsg(c, "tunnel: telemt upload failed", err)
+		return
+	}
+	jsonMsg(c, "telemt uploaded", nil)
+}
+func (a *TunnelController) telemtDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid telemt download body", err)
+		return
+	}
+	if err := a.svc.DownloadTelemtBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: telemt download failed", err)
+		return
+	}
+	jsonMsg(c, "telemt downloaded", nil)
+}
+func (a *TunnelController) telemtDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteTelemtBinary(); err != nil {
+		jsonMsg(c, "tunnel: telemt binary delete failed", err)
+		return
+	}
+	jsonMsg(c, "telemt deleted", nil)
+}
+
+func (a *TunnelController) mtprotoZigStatus(c *gin.Context) {
+	st, err := a.svc.MtprotoZigStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: mtproto-zig status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+func (a *TunnelController) mtprotoZigLogs(c *gin.Context) {
+	jsonObj(c, a.svc.MtprotoZigLogs(tproxyLogLines(c)), nil)
+}
+func (a *TunnelController) mtprotoZigUploadBinary(c *gin.Context) {
+	if err := saveCoreUpload(c, tunnel.MtprotoZig.BinaryPath()); err != nil {
+		jsonMsg(c, "tunnel: mtproto-zig upload failed", err)
+		return
+	}
+	jsonMsg(c, "mtproto-zig uploaded", nil)
+}
+func (a *TunnelController) mtprotoZigDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid mtproto-zig download body", err)
+		return
+	}
+	if err := a.svc.DownloadMtprotoZigBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: mtproto-zig download failed", err)
+		return
+	}
+	jsonMsg(c, "mtproto-zig downloaded", nil)
+}
+func (a *TunnelController) mtprotoZigDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteMtprotoZigBinary(); err != nil {
+		jsonMsg(c, "tunnel: mtproto-zig binary delete failed", err)
+		return
+	}
+	jsonMsg(c, "mtproto-zig deleted", nil)
 }
 
 func tproxyLogLines(c *gin.Context) int {

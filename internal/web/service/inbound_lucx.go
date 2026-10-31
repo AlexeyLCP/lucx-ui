@@ -199,7 +199,7 @@ func InboundAwgPeerAddresses(settings string) map[string]string {
 // LUCX-HOOK: protocols whose datapath is a sidecar, not an Xray inbound.
 func inboundHasSidecar(p model.Protocol) bool {
 	switch p {
-	case model.AWG, model.MTProto, model.Naive, model.Olcrtc, model.Qwdtt, model.Csqtt, model.Masterdns, model.Openflux, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover, model.Gateway, model.Wgosocks:
+	case model.AWG, model.MTProto, model.Telemt, model.Naive, model.Olcrtc, model.Qwdtt, model.Csqtt, model.Masterdns, model.Openflux, model.Mieru, model.TrustTunnel, model.Anytls, model.Tproxy, model.Cover, model.Gateway, model.Wgosocks:
 		return true
 	default:
 		return false

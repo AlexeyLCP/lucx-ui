@@ -1978,6 +1978,58 @@ func (s *TunnelService) DownloadMtproxyBinary(downloadURL, wantSHA256 string) er
 	return s.downloadBinaryTo(tunnel.Mtproxy.BinaryPath(), downloadURL, wantSHA256)
 }
 
+func (s *TunnelService) TelemtStatus() (TproxyStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Telemt.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return TproxyStatus{Core: string(tunnel.Telemt), DisplayName: tunnel.Telemt.DisplayName(), BinaryExists: statErr == nil && !info.IsDir(), BinaryPath: bin, Probe: tunnel.Status{Running: mgr.AnyRunning("telemt-")}, LastLog: mgr.LastLogPrefixed("telemt-")}, nil
+}
+
+func (s *TunnelService) TelemtLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().LogsPrefixed("telemt-", lines)
+}
+
+func (s *TunnelService) DeleteTelemtBinary() error {
+	tunnel.GetManager().StopPrefixed("telemt-")
+	if err := os.Remove(tunnel.Telemt.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *TunnelService) DownloadTelemtBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Telemt.BinaryPath(), downloadURL, wantSHA256)
+}
+
+func (s *TunnelService) MtprotoZigStatus() (TproxyStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.MtprotoZig.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return TproxyStatus{Core: string(tunnel.MtprotoZig), DisplayName: tunnel.MtprotoZig.DisplayName(), BinaryExists: statErr == nil && !info.IsDir(), BinaryPath: bin, Probe: tunnel.Status{Running: mgr.AnyRunning("mtproto-zig-")}, LastLog: mgr.LastLogPrefixed("mtproto-zig-")}, nil
+}
+
+func (s *TunnelService) MtprotoZigLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().LogsPrefixed("mtproto-zig-", lines)
+}
+
+func (s *TunnelService) DeleteMtprotoZigBinary() error {
+	tunnel.GetManager().StopPrefixed("mtproto-zig-")
+	if err := os.Remove(tunnel.MtprotoZig.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *TunnelService) DownloadMtprotoZigBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.MtprotoZig.BinaryPath(), downloadURL, wantSHA256)
+}
+
 func (s *TunnelService) UploadTproxySite(inboundID int, zipBytes []byte) error {
 	ib, err := s.inboundService.GetInbound(inboundID)
 	if err != nil {

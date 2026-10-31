@@ -58,6 +58,7 @@ type TproxyConfig struct {
 	OutboundTag      string `json:"outboundTag"`
 	ExternalTLS      bool   `json:"externalTLS"`
 	BehindCover      bool   `json:"behindCover"`
+	Backend          string `json:"backend"` // legacy | mtproto-zig
 }
 
 func DefaultTproxyConfig() TproxyConfig {
@@ -77,6 +78,9 @@ func (c TproxyConfig) Merge() TproxyConfig {
 	c.Hostname = strings.ToLower(strings.TrimSpace(c.Hostname))
 	c.Secret = strings.ToLower(strings.TrimSpace(c.Secret))
 	c.CarrierMode = strings.ToLower(strings.TrimSpace(c.CarrierMode))
+	if c.Backend == "" {
+		c.Backend = "legacy"
+	}
 	return c
 }
 

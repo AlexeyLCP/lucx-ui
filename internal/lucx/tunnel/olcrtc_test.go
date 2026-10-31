@@ -150,6 +150,8 @@ func TestOlcrtcTransportMatrix(t *testing.T) {
 	ok("jitsi", "seichannel")
 	ok("jitsi", "videochannel")
 	ok("telemost", "videochannel")
+	ok("vkcalls", "vp8channel")
+	ok("mtslink", "vp8channel")
 	ok("wbstream", "seichannel")
 	ok("wbstream", "videochannel")
 	ok("wbstream", "vp8channel")

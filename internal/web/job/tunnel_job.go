@@ -48,6 +48,15 @@ func (j *TunnelJob) Run() {
 	j.collectQwdttTraffic()
 	j.collectTproxyTraffic()
 	j.collectWgosocksTraffic()
+	if inbounds, err := j.inboundService.GetAllInbounds(); err == nil {
+		telemt := make([]tunnel.Instance, 0)
+		for _, ib := range inbounds {
+			if insts, ok := tunnel.TelemtInstancesFromInbound(ib); ok {
+				telemt = append(telemt, insts...)
+			}
+		}
+		tunnel.GetManager().ReconcileWanted(tunnel.Telemt, "telemt-", "telemt", telemt)
+	}
 }
 
 func (j *TunnelJob) collectNaiveTraffic() {
@@ -60,7 +69,6 @@ func (j *TunnelJob) collectNaiveTraffic() {
 		logger.Warning("tunnel job: get inbounds failed:", err)
 		return
 	}
-
 	var targets []tunnel.NaiveScrapeTarget
 	routedTags := make(map[string]bool)
 	emailsByTag := map[string][]string{}

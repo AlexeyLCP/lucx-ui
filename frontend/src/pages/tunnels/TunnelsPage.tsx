@@ -27,6 +27,8 @@ import {
   Typography,
   Upload,
   message,
+  ConfigProvider,
+  Layout,
 } from 'antd';
 import {
   CaretRightOutlined,
@@ -48,6 +50,8 @@ import { QrPanel } from '@/pages/inbounds/qr';
 import { NaiveConfigSchema, type NaiveConfig, type NaiveStatus } from '@/schemas/tunnel';
 import { OlcrtcCard } from '@/pages/tunnels/OlcrtcCard';
 import { QwdttCard } from '@/pages/tunnels/QwdttCard';
+import AppSidebar from '@/layouts/AppSidebar';
+import { useTheme } from '@/hooks/useTheme';
 
 // generateNaivePassword returns 18 random bytes as 24 chars of URL-safe
 // base64 — strong enough for a basic_auth secret, safe in share links.
@@ -82,6 +86,7 @@ const PROBE_BADGE: Record<
 
 export default function TunnelsPage() {
   const { t } = useTranslation();
+  const { antdThemeConfig } = useTheme();
   const queryClient = useQueryClient();
   const [messageApi, messageContextHolder] = message.useMessage();
 
@@ -193,422 +198,454 @@ export default function TunnelsPage() {
   const badge = useMemo(() => PROBE_BADGE[state], [state]);
 
   return (
-    <div>
-      {messageContextHolder}
-      <Typography.Title level={3}>{t('pages.tunnels.title')}</Typography.Title>
-      <Typography.Paragraph type="secondary">{t('pages.tunnels.subtitle')}</Typography.Paragraph>
+    <ConfigProvider theme={antdThemeConfig}>
+      <Layout className="page-shell">
+        <AppSidebar />
+        <Layout className="content-shell">
+          <Layout.Content id="content-layout" className="content-area">
+            <div>
+              {messageContextHolder}
+              <Typography.Title level={3}>{t('pages.tunnels.title')}</Typography.Title>
+              <Typography.Paragraph type="secondary">
+                {t('pages.tunnels.subtitle')}
+              </Typography.Paragraph>
 
-      <Alert
-        type="info"
-        showIcon
-        message={t('pages.tunnels.inboundMovedTitle')}
-        description={t('pages.tunnels.inboundMovedDesc')}
-        style={{ marginBottom: 16 }}
-      />
+              <Alert
+                type="info"
+                showIcon
+                message={t('pages.tunnels.inboundMovedTitle')}
+                description={t('pages.tunnels.inboundMovedDesc')}
+                style={{ marginBottom: 16 }}
+              />
 
-      <Card
-        title={t('pages.tunnels.naive.title')}
-        extra={
-          <Space>
-            <Badge status={badge.status} text={t(badge.key)} />
-            <Tag color={status?.binaryExists ? 'green' : 'red'}>
-              {status?.binaryExists
-                ? t('pages.tunnels.naive.binary.exists')
-                : t('pages.tunnels.naive.binary.missing')}
-            </Tag>
-          </Space>
-        }
-      >
-        <Space wrap>
-          <Button
-            icon={<CaretRightOutlined />}
-            disabled={busy}
-            onClick={() => runAction(() => tunnelsApi.start())}
-          >
-            {t('pages.tunnels.naive.actions.start')}
-          </Button>
-          <Button
-            icon={<PauseOutlined />}
-            disabled={busy}
-            onClick={() => runAction(() => tunnelsApi.stop())}
-          >
-            {t('pages.tunnels.naive.actions.stop')}
-          </Button>
-          <Button
-            icon={<ReloadOutlined aria-hidden />}
-            disabled={busy}
-            onClick={() => runAction(() => tunnelsApi.restart())}
-          >
-            {t('pages.tunnels.naive.actions.restart')}
-          </Button>
-          <Button icon={<FileSearchOutlined aria-hidden />} onClick={() => void onShowLogs()}>
-            {t('pages.tunnels.naive.logs')}
-          </Button>
-        </Space>
-
-        <Divider />
-
-        <Row gutter={16}>
-          <Col xs={24} md={8}>
-            <Typography.Title level={5}>{t('pages.tunnels.naive.binary.title')}</Typography.Title>
-            <Typography.Paragraph type="secondary">
-              <Typography.Text code>{status?.binaryPath}</Typography.Text>
-            </Typography.Paragraph>
-            <Space wrap>
-              <Upload
-                accept="application/octet-stream,.exe"
-                maxCount={1}
-                showUploadList={false}
-                beforeUpload={(file) => {
-                  void (async () => {
-                    setBusy(true);
-                    try {
-                      const res = await tunnelsApi.upload(file);
-                      if (!res.success && res.msg) messageApi.error(res.msg);
-                      invalidate();
-                    } finally {
-                      setBusy(false);
-                    }
-                  })();
-                  return false;
-                }}
+              <Card
+                title={t('pages.tunnels.naive.title')}
+                extra={
+                  <Space>
+                    <Badge status={badge.status} text={t(badge.key)} />
+                    <Tag color={status?.binaryExists ? 'green' : 'red'}>
+                      {status?.binaryExists
+                        ? t('pages.tunnels.naive.binary.exists')
+                        : t('pages.tunnels.naive.binary.missing')}
+                    </Tag>
+                  </Space>
+                }
               >
-                <Button icon={<UploadOutlined aria-hidden />} disabled={busy}>
-                  {t('pages.tunnels.naive.binary.upload')}
-                </Button>
-              </Upload>
-              <Button
-                icon={<CloudDownloadOutlined aria-hidden />}
-                onClick={() => setDownloadOpen(true)}
-              >
-                {t('pages.tunnels.naive.binary.download')}
-              </Button>
-              <Popconfirm
-                title={t('pages.tunnels.naive.binary.deleteConfirm')}
-                okText={t('delete')}
-                cancelText={t('cancel')}
-                onConfirm={() => runAction(() => tunnelsApi.deleteBinary())}
-              >
-                <Button icon={<DeleteOutlined aria-hidden />} danger disabled={busy}>
-                  {t('pages.tunnels.naive.binary.delete')}
-                </Button>
-              </Popconfirm>
-            </Space>
-
-            {clientUrl !== '' && (
-              <>
-                <Divider />
-                <Typography.Title level={5}>{t('pages.tunnels.naive.clientUrl')}</Typography.Title>
-                <Typography.Paragraph copyable={{ text: clientUrl }}>
-                  <Typography.Text code>{clientUrl}</Typography.Text>
-                </Typography.Paragraph>
-                <Button size="small" onClick={() => setQrOpen(true)}>
-                  {t('qrCode')}
-                </Button>
-              </>
-            )}
-          </Col>
-
-          <Col xs={24} md={16}>
-            <FormProvider {...form}>
-              <Form layout="vertical" onFinish={() => void onSave()}>
-                <Row gutter={16}>
-                  <Col xs={24} sm={12}>
-                    <FormField
-                      name="remark"
-                      control={form.control}
-                      label={t('pages.tunnels.naive.form.remark')}
-                    >
-                      <Input />
-                    </FormField>
-                  </Col>
-                  <Col xs={24} sm={12}>
-                    <FormField
-                      name="useRawConfig"
-                      control={form.control}
-                      label={t('pages.tunnels.naive.form.useRawConfig')}
-                      valueProp="checked"
-                    >
-                      <Switch />
-                    </FormField>
-                  </Col>
-                </Row>
-
-                {useRaw ? (
-                  <>
-                    <FormField
-                      name="rawConfig"
-                      control={form.control}
-                      label={t('pages.tunnels.naive.form.rawConfig')}
-                    >
-                      <Input.TextArea rows={14} spellCheck={false} />
-                    </FormField>
-                    <Button onClick={() => void onValidateRaw()}>
-                      {t('pages.tunnels.naive.form.validate')}
-                    </Button>
-                  </>
-                ) : (
-                  <>
-                    <Row gutter={16}>
-                      <Col xs={24} sm={8}>
-                        <FormField
-                          name="listen"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.listen')}
-                          tooltip={t('pages.tunnels.naive.form.listenTip')}
-                        >
-                          <Input placeholder="0.0.0.0" />
-                        </FormField>
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <FormField name="port" control={form.control} label={t('port')} required>
-                          <InputNumber min={1} max={65535} style={{ width: '100%' }} />
-                        </FormField>
-                      </Col>
-                      <Col xs={24} sm={8}>
-                        <FormField
-                          name="domain"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.domain')}
-                          required
-                        >
-                          <Input placeholder="vpn.example.com" />
-                        </FormField>
-                      </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col xs={24} sm={8}>
-                        <FormField
-                          name="useAcme"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.useAcme')}
-                          valueProp="checked"
-                        >
-                          <Switch />
-                        </FormField>
-                      </Col>
-                      {useAcme ? (
-                        <Col xs={24} sm={16}>
-                          <FormField
-                            name="acmeEmail"
-                            control={form.control}
-                            label={t('pages.tunnels.naive.form.acmeEmail')}
-                          >
-                            <Input placeholder="admin@example.com" />
-                          </FormField>
-                        </Col>
-                      ) : (
-                        <>
-                          <Col xs={24} sm={8}>
-                            <FormField
-                              name="certFile"
-                              control={form.control}
-                              label={t('pages.tunnels.naive.form.certFile')}
-                              required
-                            >
-                              <Input placeholder="/etc/ssl/cert.pem" />
-                            </FormField>
-                          </Col>
-                          <Col xs={24} sm={8}>
-                            <FormField
-                              name="keyFile"
-                              control={form.control}
-                              label={t('pages.tunnels.naive.form.keyFile')}
-                              required
-                            >
-                              <Input placeholder="/etc/ssl/key.pem" />
-                            </FormField>
-                          </Col>
-                        </>
-                      )}
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col xs={24} sm={12}>
-                        <FormField
-                          name="authUser"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.authUser')}
-                          required
-                        >
-                          <Input autoComplete="off" />
-                        </FormField>
-                      </Col>
-                      <Col xs={24} sm={12}>
-                        <FormField
-                          name="authPass"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.authPass')}
-                          required
-                          extra={
-                            <Button
-                              size="small"
-                              type="link"
-                              style={{ paddingLeft: 0 }}
-                              onClick={() =>
-                                form.setValue('authPass', generateNaivePassword(), {
-                                  shouldDirty: true,
-                                })
-                              }
-                            >
-                              {t('pages.tunnels.naive.form.genPass')}
-                            </Button>
-                          }
-                        >
-                          <Input.Password autoComplete="new-password" />
-                        </FormField>
-                      </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col xs={12} sm={8}>
-                        <FormField
-                          name="enableH3"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.enableH3')}
-                          valueProp="checked"
-                        >
-                          <Switch />
-                        </FormField>
-                      </Col>
-                      <Col xs={12} sm={8}>
-                        <FormField
-                          name="probeResistance"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.probeResistance')}
-                          valueProp="checked"
-                        >
-                          <Switch />
-                        </FormField>
-                      </Col>
-                      <Col xs={12} sm={8}>
-                        <FormField
-                          name="logLevel"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.logLevel')}
-                        >
-                          <Select
-                            options={['DEBUG', 'INFO', 'WARN', 'ERROR'].map((v) => ({
-                              value: v,
-                              label: v,
-                            }))}
-                          />
-                        </FormField>
-                      </Col>
-                    </Row>
-
-                    <Row gutter={16}>
-                      <Col xs={24} sm={12}>
-                        <FormField
-                          name="routeThroughXray"
-                          control={form.control}
-                          label={t('pages.tunnels.naive.form.routeThroughXray')}
-                          tooltip={t('pages.tunnels.naive.form.routeThroughXrayTip')}
-                          valueProp="checked"
-                        >
-                          <Switch />
-                        </FormField>
-                      </Col>
-                      {routeThroughXray ? (
-                        <Col xs={24} sm={12}>
-                          <FormField
-                            name="outboundTag"
-                            control={form.control}
-                            label={t('pages.tunnels.naive.form.outboundTag')}
-                            tooltip={t('pages.tunnels.naive.form.outboundTagTip')}
-                          >
-                            <Select
-                              allowClear
-                              showSearch
-                              placeholder={t('pages.tunnels.naive.form.outboundTagPlaceholder')}
-                              options={(outboundTags ?? []).map((tag) => ({
-                                value: tag,
-                                label: tag,
-                              }))}
-                            />
-                          </FormField>
-                        </Col>
-                      ) : null}
-                    </Row>
-
-                    <FormField
-                      name="extraArgs"
-                      control={form.control}
-                      label={t('pages.tunnels.naive.form.extraArgs')}
-                    >
-                      <Input placeholder="--debug" />
-                    </FormField>
-                  </>
-                )}
-
-                <Space>
-                  <Button type="primary" htmlType="submit" icon={<SaveOutlined />} loading={busy}>
-                    {t('pages.tunnels.naive.form.save')}
+                <Space wrap>
+                  <Button
+                    icon={<CaretRightOutlined />}
+                    disabled={busy}
+                    onClick={() => runAction(() => tunnelsApi.start())}
+                  >
+                    {t('pages.tunnels.naive.actions.start')}
                   </Button>
-                  <Button onClick={() => void onPreview()}>
-                    {t('pages.tunnels.naive.form.preview')}
+                  <Button
+                    icon={<PauseOutlined />}
+                    disabled={busy}
+                    onClick={() => runAction(() => tunnelsApi.stop())}
+                  >
+                    {t('pages.tunnels.naive.actions.stop')}
+                  </Button>
+                  <Button
+                    icon={<ReloadOutlined aria-hidden />}
+                    disabled={busy}
+                    onClick={() => runAction(() => tunnelsApi.restart())}
+                  >
+                    {t('pages.tunnels.naive.actions.restart')}
+                  </Button>
+                  <Button
+                    icon={<FileSearchOutlined aria-hidden />}
+                    onClick={() => void onShowLogs()}
+                  >
+                    {t('pages.tunnels.naive.logs')}
                   </Button>
                 </Space>
-              </Form>
-            </FormProvider>
-          </Col>
-        </Row>
-      </Card>
 
-      <Modal
-        title={t('pages.tunnels.naive.logsTitle')}
-        open={logsOpen}
-        footer={null}
-        width={720}
-        onCancel={() => setLogsOpen(false)}
-      >
-        <Typography.Paragraph>
-          <pre style={{ maxHeight: 420, overflow: 'auto', fontSize: 12 }}>
-            {logsText || t('pages.tunnels.naive.logsEmpty')}
-          </pre>
-        </Typography.Paragraph>
-      </Modal>
+                <Divider />
 
-      <Modal
-        title={t('pages.tunnels.naive.form.preview')}
-        open={previewOpen}
-        footer={null}
-        width={720}
-        onCancel={() => setPreviewOpen(false)}
-      >
-        <Typography.Paragraph>
-          <pre style={{ maxHeight: 420, overflow: 'auto', fontSize: 12 }}>{previewText}</pre>
-        </Typography.Paragraph>
-      </Modal>
+                <Row gutter={16}>
+                  <Col xs={24} md={8}>
+                    <Typography.Title level={5}>
+                      {t('pages.tunnels.naive.binary.title')}
+                    </Typography.Title>
+                    <Typography.Paragraph type="secondary">
+                      <Typography.Text code>{status?.binaryPath}</Typography.Text>
+                    </Typography.Paragraph>
+                    <Space wrap>
+                      <Upload
+                        accept="application/octet-stream,.exe"
+                        maxCount={1}
+                        showUploadList={false}
+                        beforeUpload={(file) => {
+                          void (async () => {
+                            setBusy(true);
+                            try {
+                              const res = await tunnelsApi.upload(file);
+                              if (!res.success && res.msg) messageApi.error(res.msg);
+                              invalidate();
+                            } finally {
+                              setBusy(false);
+                            }
+                          })();
+                          return false;
+                        }}
+                      >
+                        <Button icon={<UploadOutlined aria-hidden />} disabled={busy}>
+                          {t('pages.tunnels.naive.binary.upload')}
+                        </Button>
+                      </Upload>
+                      <Button
+                        icon={<CloudDownloadOutlined aria-hidden />}
+                        onClick={() => setDownloadOpen(true)}
+                      >
+                        {t('pages.tunnels.naive.binary.download')}
+                      </Button>
+                      <Popconfirm
+                        title={t('pages.tunnels.naive.binary.deleteConfirm')}
+                        okText={t('delete')}
+                        cancelText={t('cancel')}
+                        onConfirm={() => runAction(() => tunnelsApi.deleteBinary())}
+                      >
+                        <Button icon={<DeleteOutlined aria-hidden />} danger disabled={busy}>
+                          {t('pages.tunnels.naive.binary.delete')}
+                        </Button>
+                      </Popconfirm>
+                    </Space>
 
-      <Modal
-        title={t('pages.tunnels.naive.binary.download')}
-        open={downloadOpen}
-        okText={t('pages.tunnels.naive.binary.download')}
-        cancelText={t('cancel')}
-        confirmLoading={busy}
-        onOk={() => void onDownload()}
-        onCancel={() => setDownloadOpen(false)}
-      >
-        <Input
-          value={downloadUrl}
-          onChange={(e) => setDownloadUrl(e.target.value)}
-          placeholder="https://example.com/caddy-naive-linux-amd64"
-        />
-      </Modal>
+                    {clientUrl !== '' && (
+                      <>
+                        <Divider />
+                        <Typography.Title level={5}>
+                          {t('pages.tunnels.naive.clientUrl')}
+                        </Typography.Title>
+                        <Typography.Paragraph copyable={{ text: clientUrl }}>
+                          <Typography.Text code>{clientUrl}</Typography.Text>
+                        </Typography.Paragraph>
+                        <Button size="small" onClick={() => setQrOpen(true)}>
+                          {t('qrCode')}
+                        </Button>
+                      </>
+                    )}
+                  </Col>
 
-      <Modal
-        title={`${t('qrCode')} — ${t('pages.tunnels.naive.clientUrl')}`}
-        open={qrOpen}
-        footer={null}
-        onCancel={() => setQrOpen(false)}
-      >
-        {clientUrl !== '' && <QrPanel value={clientUrl} downloadName="naive-proxy" />}
-      </Modal>
+                  <Col xs={24} md={16}>
+                    <FormProvider {...form}>
+                      <Form layout="vertical" onFinish={() => void onSave()}>
+                        <Row gutter={16}>
+                          <Col xs={24} sm={12}>
+                            <FormField
+                              name="remark"
+                              control={form.control}
+                              label={t('pages.tunnels.naive.form.remark')}
+                            >
+                              <Input />
+                            </FormField>
+                          </Col>
+                          <Col xs={24} sm={12}>
+                            <FormField
+                              name="useRawConfig"
+                              control={form.control}
+                              label={t('pages.tunnels.naive.form.useRawConfig')}
+                              valueProp="checked"
+                            >
+                              <Switch />
+                            </FormField>
+                          </Col>
+                        </Row>
 
-      <OlcrtcCard />
-      <QwdttCard />
-    </div>
+                        {useRaw ? (
+                          <>
+                            <FormField
+                              name="rawConfig"
+                              control={form.control}
+                              label={t('pages.tunnels.naive.form.rawConfig')}
+                            >
+                              <Input.TextArea rows={14} spellCheck={false} />
+                            </FormField>
+                            <Button onClick={() => void onValidateRaw()}>
+                              {t('pages.tunnels.naive.form.validate')}
+                            </Button>
+                          </>
+                        ) : (
+                          <>
+                            <Row gutter={16}>
+                              <Col xs={24} sm={8}>
+                                <FormField
+                                  name="listen"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.listen')}
+                                  tooltip={t('pages.tunnels.naive.form.listenTip')}
+                                >
+                                  <Input placeholder="0.0.0.0" />
+                                </FormField>
+                              </Col>
+                              <Col xs={24} sm={8}>
+                                <FormField
+                                  name="port"
+                                  control={form.control}
+                                  label={t('port')}
+                                  required
+                                >
+                                  <InputNumber min={1} max={65535} style={{ width: '100%' }} />
+                                </FormField>
+                              </Col>
+                              <Col xs={24} sm={8}>
+                                <FormField
+                                  name="domain"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.domain')}
+                                  required
+                                >
+                                  <Input placeholder="vpn.example.com" />
+                                </FormField>
+                              </Col>
+                            </Row>
+
+                            <Row gutter={16}>
+                              <Col xs={24} sm={8}>
+                                <FormField
+                                  name="useAcme"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.useAcme')}
+                                  valueProp="checked"
+                                >
+                                  <Switch />
+                                </FormField>
+                              </Col>
+                              {useAcme ? (
+                                <Col xs={24} sm={16}>
+                                  <FormField
+                                    name="acmeEmail"
+                                    control={form.control}
+                                    label={t('pages.tunnels.naive.form.acmeEmail')}
+                                  >
+                                    <Input placeholder="admin@example.com" />
+                                  </FormField>
+                                </Col>
+                              ) : (
+                                <>
+                                  <Col xs={24} sm={8}>
+                                    <FormField
+                                      name="certFile"
+                                      control={form.control}
+                                      label={t('pages.tunnels.naive.form.certFile')}
+                                      required
+                                    >
+                                      <Input placeholder="/etc/ssl/cert.pem" />
+                                    </FormField>
+                                  </Col>
+                                  <Col xs={24} sm={8}>
+                                    <FormField
+                                      name="keyFile"
+                                      control={form.control}
+                                      label={t('pages.tunnels.naive.form.keyFile')}
+                                      required
+                                    >
+                                      <Input placeholder="/etc/ssl/key.pem" />
+                                    </FormField>
+                                  </Col>
+                                </>
+                              )}
+                            </Row>
+
+                            <Row gutter={16}>
+                              <Col xs={24} sm={12}>
+                                <FormField
+                                  name="authUser"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.authUser')}
+                                  required
+                                >
+                                  <Input autoComplete="off" />
+                                </FormField>
+                              </Col>
+                              <Col xs={24} sm={12}>
+                                <FormField
+                                  name="authPass"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.authPass')}
+                                  required
+                                  extra={
+                                    <Button
+                                      size="small"
+                                      type="link"
+                                      style={{ paddingLeft: 0 }}
+                                      onClick={() =>
+                                        form.setValue('authPass', generateNaivePassword(), {
+                                          shouldDirty: true,
+                                        })
+                                      }
+                                    >
+                                      {t('pages.tunnels.naive.form.genPass')}
+                                    </Button>
+                                  }
+                                >
+                                  <Input.Password autoComplete="new-password" />
+                                </FormField>
+                              </Col>
+                            </Row>
+
+                            <Row gutter={16}>
+                              <Col xs={12} sm={8}>
+                                <FormField
+                                  name="enableH3"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.enableH3')}
+                                  valueProp="checked"
+                                >
+                                  <Switch />
+                                </FormField>
+                              </Col>
+                              <Col xs={12} sm={8}>
+                                <FormField
+                                  name="probeResistance"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.probeResistance')}
+                                  valueProp="checked"
+                                >
+                                  <Switch />
+                                </FormField>
+                              </Col>
+                              <Col xs={12} sm={8}>
+                                <FormField
+                                  name="logLevel"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.logLevel')}
+                                >
+                                  <Select
+                                    options={['DEBUG', 'INFO', 'WARN', 'ERROR'].map((v) => ({
+                                      value: v,
+                                      label: v,
+                                    }))}
+                                  />
+                                </FormField>
+                              </Col>
+                            </Row>
+
+                            <Row gutter={16}>
+                              <Col xs={24} sm={12}>
+                                <FormField
+                                  name="routeThroughXray"
+                                  control={form.control}
+                                  label={t('pages.tunnels.naive.form.routeThroughXray')}
+                                  tooltip={t('pages.tunnels.naive.form.routeThroughXrayTip')}
+                                  valueProp="checked"
+                                >
+                                  <Switch />
+                                </FormField>
+                              </Col>
+                              {routeThroughXray ? (
+                                <Col xs={24} sm={12}>
+                                  <FormField
+                                    name="outboundTag"
+                                    control={form.control}
+                                    label={t('pages.tunnels.naive.form.outboundTag')}
+                                    tooltip={t('pages.tunnels.naive.form.outboundTagTip')}
+                                  >
+                                    <Select
+                                      allowClear
+                                      showSearch
+                                      placeholder={t(
+                                        'pages.tunnels.naive.form.outboundTagPlaceholder',
+                                      )}
+                                      options={(outboundTags ?? []).map((tag) => ({
+                                        value: tag,
+                                        label: tag,
+                                      }))}
+                                    />
+                                  </FormField>
+                                </Col>
+                              ) : null}
+                            </Row>
+
+                            <FormField
+                              name="extraArgs"
+                              control={form.control}
+                              label={t('pages.tunnels.naive.form.extraArgs')}
+                            >
+                              <Input placeholder="--debug" />
+                            </FormField>
+                          </>
+                        )}
+
+                        <Space>
+                          <Button
+                            type="primary"
+                            htmlType="submit"
+                            icon={<SaveOutlined />}
+                            loading={busy}
+                          >
+                            {t('pages.tunnels.naive.form.save')}
+                          </Button>
+                          <Button onClick={() => void onPreview()}>
+                            {t('pages.tunnels.naive.form.preview')}
+                          </Button>
+                        </Space>
+                      </Form>
+                    </FormProvider>
+                  </Col>
+                </Row>
+              </Card>
+
+              <Modal
+                title={t('pages.tunnels.naive.logsTitle')}
+                open={logsOpen}
+                footer={null}
+                width={720}
+                onCancel={() => setLogsOpen(false)}
+              >
+                <Typography.Paragraph>
+                  <pre style={{ maxHeight: 420, overflow: 'auto', fontSize: 12 }}>
+                    {logsText || t('pages.tunnels.naive.logsEmpty')}
+                  </pre>
+                </Typography.Paragraph>
+              </Modal>
+
+              <Modal
+                title={t('pages.tunnels.naive.form.preview')}
+                open={previewOpen}
+                footer={null}
+                width={720}
+                onCancel={() => setPreviewOpen(false)}
+              >
+                <Typography.Paragraph>
+                  <pre style={{ maxHeight: 420, overflow: 'auto', fontSize: 12 }}>
+                    {previewText}
+                  </pre>
+                </Typography.Paragraph>
+              </Modal>
+
+              <Modal
+                title={t('pages.tunnels.naive.binary.download')}
+                open={downloadOpen}
+                okText={t('pages.tunnels.naive.binary.download')}
+                cancelText={t('cancel')}
+                confirmLoading={busy}
+                onOk={() => void onDownload()}
+                onCancel={() => setDownloadOpen(false)}
+              >
+                <Input
+                  value={downloadUrl}
+                  onChange={(e) => setDownloadUrl(e.target.value)}
+                  placeholder="https://example.com/caddy-naive-linux-amd64"
+                />
+              </Modal>
+
+              <Modal
+                title={`${t('qrCode')} — ${t('pages.tunnels.naive.clientUrl')}`}
+                open={qrOpen}
+                footer={null}
+                onCancel={() => setQrOpen(false)}
+              >
+                {clientUrl !== '' && <QrPanel value={clientUrl} downloadName="naive-proxy" />}
+              </Modal>
+
+              <OlcrtcCard />
+              <QwdttCard />
+            </div>
+          </Layout.Content>
+        </Layout>
+      </Layout>
+    </ConfigProvider>
   );
 }

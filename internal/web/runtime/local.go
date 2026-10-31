@@ -85,6 +85,18 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 		}
 		return mtproto.GetManager().Ensure(inst)
 	}
+	if ib.Protocol == model.Telemt {
+		insts, ok := tunnel.TelemtInstancesFromInbound(ib)
+		if !ok {
+			return nil
+		}
+		for _, inst := range insts {
+			if err := tunnel.GetManager().Ensure(inst); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
 	// LUCX-HOOK: AWG — delegate to the kernel-interface sidecar manager.
 	if ib.Protocol == model.AWG {
 		inst, ok := awg.InstanceFromInbound(ib)
@@ -324,7 +336,7 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func isTunnelInboundProto(p model.Protocol) bool {
-	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Csqtt || p == model.Masterdns || p == model.Openflux || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover || p == model.Gateway
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Csqtt || p == model.Masterdns || p == model.Openflux || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover || p == model.Gateway || p == model.Telemt
 }
 
 // tunnelUpdateDropsRunning reports whether an update must stop the old sidecar

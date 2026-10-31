@@ -69,6 +69,8 @@ export const keys = {
     wgoStatus: () => ['tunnels', 'wgoStatus'] as const, // LUCX-HOOK: wgobfs
     tproxyStatus: () => ['tunnels', 'tproxyStatus'] as const,
     mtproxyStatus: () => ['tunnels', 'mtproxyStatus'] as const,
+    telemtStatus: () => ['tunnels', 'telemtStatus'] as const,
+    mtprotoZigStatus: () => ['tunnels', 'mtprotoZigStatus'] as const,
   },
   // END LUCX-HOOK
 } as const;

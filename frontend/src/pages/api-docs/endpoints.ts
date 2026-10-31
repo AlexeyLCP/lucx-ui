@@ -316,6 +316,24 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'POST',
+        path: '/panel/api/inbounds/:id/appleRelayDDM',
+        summary:
+          'Download an Apple Network Relay declarative-management JSON document for a MASQUE inbound. This is DDM JSON only, not a standalone .mobileconfig; submit it through a compatible MDM/DDM service and verify Apple device behavior.',
+        params: [{ name: 'id', in: 'path', type: 'number', desc: 'MASQUE inbound ID.' }],
+        body: '{\n  "name": "LucX MASQUE Relay",\n  "http2RelayUrl": "https://relay.example.com:8443/.well-known/masque/ip/*/*/",\n  "http3RelayUrl": "https://relay.example.com:8443/.well-known/masque/ip/*/*/",\n  "matchDomains": ["example.com"],\n  "excludedDomains": [],\n  "matchFQDNs": [],\n  "excludedFQDNs": [],\n  "publicKeyAssets": [],\n  "allowDNSFailover": false,\n  "uiEnabled": false\n}',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/plugins/list',
+        summary: 'List installed sidecar plugins and their process status.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/plugins/install',
+        summary: 'Install a sidecar plugin ZIP containing a validated apiVersion 1 manifest.',
+      },
+      {
+        method: 'POST',
         path: '/panel/api/inbounds/add',
         summary:
           'Create a new inbound. Send the full inbound payload (protocol, port, settings, streamSettings, sniffing, remark, expiryTime, total, enable). settings, streamSettings, and sniffing may be sent as nested JSON objects (preferred) or as JSON-encoded strings (legacy).',

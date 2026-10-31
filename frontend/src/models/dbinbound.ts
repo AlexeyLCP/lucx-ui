@@ -45,6 +45,7 @@ export type DBInboundInit = Partial<{
   shareAddr: string;
   subSortIndex: number;
   excludeFromSub: boolean;
+  balancerOnly: boolean;
   disableFlow: boolean;
   originNodeGuid: string;
   fallbackParent: FallbackParentRef | null;
@@ -95,6 +96,7 @@ export class DBInbound {
   shareAddr: string;
   subSortIndex: number;
   excludeFromSub: boolean;
+  balancerOnly: boolean;
   disableFlow: boolean;
   originNodeGuid: string;
   fallbackParent: FallbackParentRef | null;
@@ -127,6 +129,7 @@ export class DBInbound {
     this.shareAddr = '';
     this.subSortIndex = 1;
     this.excludeFromSub = false;
+    this.balancerOnly = false;
     this.disableFlow = false;
     this.originNodeGuid = '';
     this.fallbackParent = null;

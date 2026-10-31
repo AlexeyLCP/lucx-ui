@@ -154,6 +154,7 @@ func (s *SubJsonService) GetJson(subId string, host string, alwaysReturnArray bo
 			}
 			continue
 		}
+		balancerOnly := inbound.BalancerOnly
 		subReq.projectThroughFallbackMaster(inbound)
 		var baseEps []map[string]any
 		baseStream := inbound.StreamSettings
@@ -178,7 +179,7 @@ func (s *SubJsonService) GetJson(subId string, host string, alwaysReturnArray bo
 				for _, variant := range variants {
 					render := func() subConfigEntry {
 						configs := s.getConfig(subReq, variant.inbound(subReq, inbound), client, host)
-						return subConfigEntry{sortIndex: inbound.SubSortIndex, id: inbound.Id, configs: configs, hostOrder: variant.order}
+						return subConfigEntry{sortIndex: inbound.SubSortIndex, id: inbound.Id, hidden: inbound.BalancerOnly, configs: configs, hostOrder: variant.order}
 					}
 					ordered = append(ordered, orderedSubEntry[func() subConfigEntry]{variant.order, render})
 				}
@@ -201,6 +202,7 @@ func (s *SubJsonService) GetJson(subId string, host string, alwaysReturnArray bo
 			entries = append(entries, subConfigEntry{
 				sortIndex: inbound.SubSortIndex,
 				id:        inbound.Id,
+				hidden:    balancerOnly,
 				configs:   inboundConfigs,
 			})
 		}
@@ -245,6 +247,9 @@ func (s *SubJsonService) GetJson(subId string, host string, alwaysReturnArray bo
 		}
 	}
 	for _, entry := range entries {
+		if entry.hidden {
+			continue
+		}
 		configArray = append(configArray, entry.configs...)
 	}
 	for _, ext := range externalLinks {
@@ -321,6 +326,7 @@ type subConfigEntry struct {
 	kind      int
 	id        int
 	configs   []json_util.RawMessage
+	hidden    bool
 }
 
 const (

@@ -25,7 +25,7 @@ type OlcrtcConfig struct {
 	Remark  string `json:"remark"`
 	Enabled bool   `json:"enabled"`
 
-	// Provider is the meet auth backend: jitsi | telemost | wbstream.
+	// Provider is the meet auth backend: jitsi | telemost | wbstream | vkcalls | mtslink.
 	Provider string `json:"provider"`
 	// RoomID is the full room URL (jitsi) or room identifier (telemost/wb).
 	RoomID string `json:"roomId"`
@@ -132,7 +132,7 @@ func olcrtcTransportOK(provider, transport string) bool {
 	case "datachannel":
 		return provider == "jitsi"
 	case "vp8channel", "videochannel":
-		return provider == "jitsi" || provider == "telemost" || provider == "wbstream"
+		return provider == "jitsi" || provider == "telemost" || provider == "wbstream" || provider == "vkcalls" || provider == "mtslink"
 	case "seichannel":
 		return provider == "jitsi" || provider == "wbstream"
 	default:
@@ -155,9 +155,9 @@ func (c OlcrtcConfig) Validate() error {
 		return errors.New("olcrtc: room id is required")
 	}
 	switch c.Provider {
-	case "jitsi", "telemost", "wbstream":
+	case "jitsi", "telemost", "wbstream", "vkcalls", "mtslink":
 	default:
-		return errors.New("olcrtc: provider must be jitsi | telemost | wbstream")
+		return errors.New("olcrtc: provider must be jitsi | telemost | wbstream | vkcalls | mtslink")
 	}
 	switch c.Transport {
 	case "datachannel", "vp8channel", "seichannel", "videochannel":

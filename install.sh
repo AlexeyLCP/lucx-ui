@@ -1243,6 +1243,7 @@ prompt_and_setup_ssl() {
             else
                 echo -e "${red}SSL certificate setup failed for domain mode.${plain}"
                 SSL_HOST="${server_ip}"
+                SSL_SCHEME="http"
             fi
             ;;
         2)
@@ -1286,6 +1287,7 @@ prompt_and_setup_ssl() {
             else
                 echo -e "${red}✗ IP certificate setup failed. Please check port 80 is open.${plain}"
                 SSL_HOST="${server_ip}"
+                SSL_SCHEME="http"
             fi
             ;;
         3)

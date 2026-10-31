@@ -354,7 +354,10 @@ func TestMtproxyArgsAlwaysDropUser(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(mtproxyAssetsDir(), "proxy-multi.conf"), []byte("c"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	args := mtproxyArgs(24001, 24000, "000102030405060708090a0b0c0d0e0f")
+	args := mtproxyArgs(24001, 24000, filepath.Join(dir, "mtproxy-1-secret"))
+	if strings.Contains(strings.Join(args, " "), "000102030405060708090a0b0c0d0e0f") {
+		t.Fatal("secret must not appear in process arguments")
+	}
 	for i, a := range args {
 		if a == "-u" && i+1 < len(args) && strings.TrimSpace(args[i+1]) != "" {
 			return

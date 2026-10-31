@@ -6,6 +6,7 @@ export { default as HysteriaFields } from './hysteria';
 export { default as HttpFields } from './http';
 export { default as MixedFields } from './mixed';
 export { default as MtprotoFields } from './mtproto';
+export { default as TelemtFields } from './telemt'; // LUCX-HOOK: Telemt
 export { default as AwgFields } from './awg'; // LUCX-HOOK: AWG protocol form
 export { default as NaiveFields } from './naive'; // LUCX-HOOK: NaiveProxy
 export { default as OlcrtcFields } from './olcrtc'; // LUCX-HOOK: olcRTC

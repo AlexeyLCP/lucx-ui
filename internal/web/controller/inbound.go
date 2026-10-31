@@ -101,6 +101,7 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/allLinks", a.getAllInboundLinks)
 	// LUCX-HOOK: Naive — per-inbound share links (HMAC creds are backend-only).
 	g.GET("/:id/links", a.getInboundLinks)
+	g.POST("/:id/appleRelayDDM", a.exportAppleRelayDDM)
 	// END LUCX-HOOK
 	g.GET("/get/:id", a.getInbound)
 	g.GET("/:id/fallbacks", a.getFallbacks)
@@ -139,6 +140,39 @@ func (a *InboundController) initRouter(g *gin.RouterGroup) {
 	g.GET("/:id/wgoStatus", a.wgoStatus)
 	g.GET("/:id/wgoLogs", a.wgoLogs)
 	// END LUCX-HOOK
+}
+
+func (a *InboundController) exportAppleRelayDDM(c *gin.Context) {
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		jsonMsg(c, "invalid inbound id", err)
+		return
+	}
+	inbound, err := a.inboundService.GetInboundDetail(id)
+	if err != nil {
+		jsonMsg(c, I18nWeb(c, "pages.inbounds.toasts.obtain"), err)
+		return
+	}
+	var req service.AppleRelayExportRequest
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil {
+			jsonMsg(c, "invalid Apple Network Relay export request", err)
+			return
+		}
+	}
+	doc, err := service.BuildAppleRelayDDM(inbound, resolveHost(c), req)
+	if err != nil {
+		jsonMsg(c, "Apple Network Relay export failed", err)
+		return
+	}
+	body, err := json.MarshalIndent(doc, "", "  ")
+	if err != nil {
+		jsonMsg(c, "Apple Network Relay export failed", err)
+		return
+	}
+	c.Header("Content-Type", "application/json; charset=utf-8")
+	c.Header("Content-Disposition", `attachment; filename="lucx-apple-network-relay.json"`)
+	c.Data(200, "application/json; charset=utf-8", body)
 }
 
 // getInbounds retrieves the list of inbounds for the logged-in user.

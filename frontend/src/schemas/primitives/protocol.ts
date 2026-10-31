@@ -12,6 +12,7 @@ export const ProtocolSchema = z.enum([
   'tunnel',
   'tun',
   'mtproto',
+  'telemt', // LUCX-HOOK: Telemt sidecar
   'amneziawg',
   'tuic',
   'awg', // LUCX-HOOK: AmneziaWG sidecar protocol
@@ -50,6 +51,7 @@ export const Protocols = Object.freeze({
   TUNNEL: 'tunnel',
   TUN: 'tun',
   MTPROTO: 'mtproto',
+  TELEMT: 'telemt', // LUCX-HOOK: Telemt sidecar
   AMNEZIAWG: 'amneziawg',
   TUIC: 'tuic',
   AWG: 'awg', // LUCX-HOOK: AmneziaWG

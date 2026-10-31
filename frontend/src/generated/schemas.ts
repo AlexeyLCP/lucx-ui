@@ -3221,6 +3221,11 @@ export const SCHEMAS: Record<string, unknown> = {
   "Inbound": {
     "description": "Inbound represents an Xray inbound configuration with traffic statistics and settings.",
     "properties": {
+      "balancerOnly": {
+        "description": "Whether to expose this inbound only as a subscription-balancer member",
+        "example": false,
+        "type": "boolean"
+      },
       "clientStats": {
         "description": "Client traffic statistics",
         "items": {
@@ -3302,6 +3307,7 @@ export const SCHEMAS: Record<string, unknown> = {
           "tunnel",
           "tun",
           "mtproto",
+          "telemt",
           "amneziawg",
           "tuic",
           "masque",
@@ -3381,6 +3387,7 @@ export const SCHEMAS: Record<string, unknown> = {
       }
     },
     "required": [
+      "balancerOnly",
       "clientStats",
       "disableFlow",
       "down",

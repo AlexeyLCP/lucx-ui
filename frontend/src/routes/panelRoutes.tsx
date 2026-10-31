@@ -1,7 +1,6 @@
 import { lazy } from 'react';
 import type { ComponentType } from 'react';
 import {
-  ApiOutlined,
   CloudServerOutlined,
   ClusterOutlined,
   CrownOutlined,
@@ -10,6 +9,7 @@ import {
   EyeOutlined,
   GlobalOutlined,
   ImportOutlined,
+  ApiOutlined,
   SettingOutlined,
   SwapOutlined,
   TagsOutlined,
@@ -29,6 +29,7 @@ const ApiDocsPage = lazy(() => import('@/pages/api-docs/ApiDocsPage'));
 const SponsorsPage = lazy(() => import('@/pages/sponsors/SponsorsPage'));
 // LUCX-HOOK: LucX pages
 const TunnelsPage = lazy(() => import('@/pages/tunnels/TunnelsPage'));
+const PluginManagerPage = lazy(() => import('@/pages/plugins/PluginManagerPage'));
 const MaskingPage = lazy(() => import('@/pages/masking/MaskingPage'));
 // END LUCX-HOOK
 
@@ -55,6 +56,7 @@ export const PANEL_ROUTES: PanelRoute[] = [
   { path: '/api-docs', titleKey: 'menu.apiDocs', icon: ApiOutlined, component: ApiDocsPage },
   { path: '/sponsors', titleKey: 'menu.sponsors', icon: CrownOutlined, component: SponsorsPage },
   // LUCX-HOOK: LucX pages (tunnel sidecars management, tproxy masking)
+  { path: '/plugins', titleKey: 'menu.plugins', icon: ApiOutlined, component: PluginManagerPage },
   { path: '/tunnels', titleKey: 'menu.tunnels', icon: CloudServerOutlined, component: TunnelsPage },
   { path: '/masking', titleKey: 'menu.masking', icon: EyeOutlined, component: MaskingPage },
   // END LUCX-HOOK
