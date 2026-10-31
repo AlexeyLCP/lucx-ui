@@ -1119,9 +1119,11 @@ func (a *TunnelController) telemtStatus(c *gin.Context) {
 	}
 	jsonObj(c, st, nil)
 }
+
 func (a *TunnelController) telemtLogs(c *gin.Context) {
 	jsonObj(c, a.svc.TelemtLogs(tproxyLogLines(c)), nil)
 }
+
 func (a *TunnelController) telemtUploadBinary(c *gin.Context) {
 	if err := saveCoreUpload(c, tunnel.Telemt.BinaryPath()); err != nil {
 		jsonMsg(c, "tunnel: telemt upload failed", err)
@@ -1129,6 +1131,7 @@ func (a *TunnelController) telemtUploadBinary(c *gin.Context) {
 	}
 	jsonMsg(c, "telemt uploaded", nil)
 }
+
 func (a *TunnelController) telemtDownloadBinary(c *gin.Context) {
 	var body tunnelDownloadRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -1141,6 +1144,7 @@ func (a *TunnelController) telemtDownloadBinary(c *gin.Context) {
 	}
 	jsonMsg(c, "telemt downloaded", nil)
 }
+
 func (a *TunnelController) telemtDeleteBinary(c *gin.Context) {
 	if err := a.svc.DeleteTelemtBinary(); err != nil {
 		jsonMsg(c, "tunnel: telemt binary delete failed", err)
@@ -1157,9 +1161,11 @@ func (a *TunnelController) mtprotoZigStatus(c *gin.Context) {
 	}
 	jsonObj(c, st, nil)
 }
+
 func (a *TunnelController) mtprotoZigLogs(c *gin.Context) {
 	jsonObj(c, a.svc.MtprotoZigLogs(tproxyLogLines(c)), nil)
 }
+
 func (a *TunnelController) mtprotoZigUploadBinary(c *gin.Context) {
 	if err := saveCoreUpload(c, tunnel.MtprotoZig.BinaryPath()); err != nil {
 		jsonMsg(c, "tunnel: mtproto-zig upload failed", err)
@@ -1167,6 +1173,7 @@ func (a *TunnelController) mtprotoZigUploadBinary(c *gin.Context) {
 	}
 	jsonMsg(c, "mtproto-zig uploaded", nil)
 }
+
 func (a *TunnelController) mtprotoZigDownloadBinary(c *gin.Context) {
 	var body tunnelDownloadRequest
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -1179,6 +1186,7 @@ func (a *TunnelController) mtprotoZigDownloadBinary(c *gin.Context) {
 	}
 	jsonMsg(c, "mtproto-zig downloaded", nil)
 }
+
 func (a *TunnelController) mtprotoZigDeleteBinary(c *gin.Context) {
 	if err := a.svc.DeleteMtprotoZigBinary(); err != nil {
 		jsonMsg(c, "tunnel: mtproto-zig binary delete failed", err)

@@ -5,9 +5,10 @@
 package controller
 
 import (
+	"strconv"
+
 	"github.com/gin-gonic/gin"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/plugin"
-	"strconv"
 )
 
 func RegisterPluginRoutes(g *gin.RouterGroup) {
@@ -29,6 +30,7 @@ func pluginList(c *gin.Context) {
 	}
 	jsonObj(c, v, nil)
 }
+
 func pluginStatus(c *gin.Context) {
 	v, err := plugin.Get(c.Param("id"))
 	if err != nil {
@@ -37,6 +39,7 @@ func pluginStatus(c *gin.Context) {
 	}
 	jsonObj(c, v, nil)
 }
+
 func pluginLogs(c *gin.Context) {
 	lines := 200
 	if n, err := strconv.Atoi(c.Query("lines")); err == nil && n > 0 {
@@ -49,6 +52,7 @@ func pluginLogs(c *gin.Context) {
 	}
 	jsonObj(c, v, nil)
 }
+
 func pluginInstall(c *gin.Context) {
 	f, err := c.FormFile("file")
 	if err != nil {
@@ -68,6 +72,7 @@ func pluginInstall(c *gin.Context) {
 	}
 	jsonObj(c, m, nil)
 }
+
 func pluginStart(c *gin.Context) {
 	if err := plugin.Start(c.Param("id")); err != nil {
 		jsonMsg(c, "plugin start failed", err)
@@ -75,6 +80,7 @@ func pluginStart(c *gin.Context) {
 	}
 	jsonMsg(c, "plugin started", nil)
 }
+
 func pluginStop(c *gin.Context) {
 	if err := plugin.Stop(c.Param("id")); err != nil {
 		jsonMsg(c, "plugin stop failed", err)
@@ -82,6 +88,7 @@ func pluginStop(c *gin.Context) {
 	}
 	jsonMsg(c, "plugin stopped", nil)
 }
+
 func pluginRestart(c *gin.Context) {
 	if err := plugin.Restart(c.Param("id")); err != nil {
 		jsonMsg(c, "plugin restart failed", err)
@@ -89,6 +96,7 @@ func pluginRestart(c *gin.Context) {
 	}
 	jsonMsg(c, "plugin restarted", nil)
 }
+
 func pluginDelete(c *gin.Context) {
 	if err := plugin.Remove(c.Param("id")); err != nil {
 		jsonMsg(c, "plugin delete failed", err)

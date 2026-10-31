@@ -7,6 +7,7 @@ package plugin
 import (
 	"archive/zip"
 	"bufio"
+	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -167,7 +168,9 @@ func InstallPackage(r io.Reader, size int64) (Manifest, error) {
 			return m, errors.New("plugin archive contains an unsafe path")
 		}
 		if f.FileInfo().IsDir() {
-			os.MkdirAll(target, 0o700)
+			if err := os.MkdirAll(target, 0o700); err != nil {
+				return m, err
+			}
 			continue
 		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
@@ -216,6 +219,7 @@ func List() ([]Status, error) {
 	}
 	return out, nil
 }
+
 func Get(id string) (Status, error) {
 	m, err := Load(id)
 	if err != nil {
@@ -265,7 +269,7 @@ func Start(id string) error {
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(bin)
+	cmd := exec.CommandContext(context.Background(), bin)
 	cmd.Dir = dir(id)
 	cmd.Env = append(os.Environ(), "LUCX_PLUGIN_ID="+m.ID, "LUCX_PLUGIN_VERSION="+m.Version, "LUCX_PLUGIN_DATA="+dataPath(id))
 	cmd.Stdout = log
@@ -295,6 +299,7 @@ func Start(id string) error {
 	}()
 	return nil
 }
+
 func Stop(id string) error {
 	if err := validateID(id); err != nil {
 		return err
@@ -324,12 +329,14 @@ func Stop(id string) error {
 	}
 	return nil
 }
+
 func Restart(id string) error {
 	if err := Stop(id); err != nil {
 		return err
 	}
 	return Start(id)
 }
+
 func Remove(id string) error {
 	if err := validateID(id); err != nil {
 		return err
@@ -339,6 +346,7 @@ func Remove(id string) error {
 	}
 	return os.RemoveAll(dir(id))
 }
+
 func Logs(id string, lines int) ([]string, error) {
 	if err := validateID(id); err != nil {
 		return nil, err
@@ -361,6 +369,7 @@ func Logs(id string, lines int) ([]string, error) {
 	}
 	return out, s.Err()
 }
+
 func SHA256(path string) (string, error) {
 	f, err := os.Open(path)
 	if err != nil {
