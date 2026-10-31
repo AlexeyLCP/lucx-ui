@@ -357,6 +357,36 @@ _openapi:
     - depth: 2
       title: Stop MTProxy instances and remove the binary. LucX-UI only.
       url: '#stop-mtproxy-instances-and-remove-the-binary-lucx-ui-only'
+    - depth: 2
+      title: Telemt sidecar binary status. LucX-UI only.
+      url: '#telemt-sidecar-binary-status-lucx-ui-only'
+    - depth: 2
+      title: Recent Telemt sidecar log lines. LucX-UI only.
+      url: '#recent-telemt-sidecar-log-lines-lucx-ui-only'
+    - depth: 2
+      title: Replace the Telemt sidecar binary. LucX-UI only.
+      url: '#replace-the-telemt-sidecar-binary-lucx-ui-only'
+    - depth: 2
+      title: Fetch the Telemt sidecar binary from a URL. LucX-UI only.
+      url: '#fetch-the-telemt-sidecar-binary-from-a-url-lucx-ui-only'
+    - depth: 2
+      title: Remove the Telemt sidecar binary. LucX-UI only.
+      url: '#remove-the-telemt-sidecar-binary-lucx-ui-only'
+    - depth: 2
+      title: MTProto Zig WEB sidecar binary status. LucX-UI only.
+      url: '#mtproto-zig-web-sidecar-binary-status-lucx-ui-only'
+    - depth: 2
+      title: Recent MTProto Zig WEB sidecar log lines. LucX-UI only.
+      url: '#recent-mtproto-zig-web-sidecar-log-lines-lucx-ui-only'
+    - depth: 2
+      title: Replace the MTProto Zig WEB sidecar binary. LucX-UI only.
+      url: '#replace-the-mtproto-zig-web-sidecar-binary-lucx-ui-only'
+    - depth: 2
+      title: Fetch the MTProto Zig WEB sidecar binary from a URL. LucX-UI only.
+      url: '#fetch-the-mtproto-zig-web-sidecar-binary-from-a-url-lucx-ui-only'
+    - depth: 2
+      title: Remove the MTProto Zig WEB sidecar binary. LucX-UI only.
+      url: '#remove-the-mtproto-zig-web-sidecar-binary-lucx-ui-only'
   structuredData:
     headings:
       - content: 'Full status of the NaiveProxy core: the live three-level probe
@@ -625,6 +655,26 @@ _openapi:
         id: fetch-official-mtproxy-from-a-url-lucx-ui-only
       - content: Stop MTProxy instances and remove the binary. LucX-UI only.
         id: stop-mtproxy-instances-and-remove-the-binary-lucx-ui-only
+      - content: Telemt sidecar binary status. LucX-UI only.
+        id: telemt-sidecar-binary-status-lucx-ui-only
+      - content: Recent Telemt sidecar log lines. LucX-UI only.
+        id: recent-telemt-sidecar-log-lines-lucx-ui-only
+      - content: Replace the Telemt sidecar binary. LucX-UI only.
+        id: replace-the-telemt-sidecar-binary-lucx-ui-only
+      - content: Fetch the Telemt sidecar binary from a URL. LucX-UI only.
+        id: fetch-the-telemt-sidecar-binary-from-a-url-lucx-ui-only
+      - content: Remove the Telemt sidecar binary. LucX-UI only.
+        id: remove-the-telemt-sidecar-binary-lucx-ui-only
+      - content: MTProto Zig WEB sidecar binary status. LucX-UI only.
+        id: mtproto-zig-web-sidecar-binary-status-lucx-ui-only
+      - content: Recent MTProto Zig WEB sidecar log lines. LucX-UI only.
+        id: recent-mtproto-zig-web-sidecar-log-lines-lucx-ui-only
+      - content: Replace the MTProto Zig WEB sidecar binary. LucX-UI only.
+        id: replace-the-mtproto-zig-web-sidecar-binary-lucx-ui-only
+      - content: Fetch the MTProto Zig WEB sidecar binary from a URL. LucX-UI only.
+        id: fetch-the-mtproto-zig-web-sidecar-binary-from-a-url-lucx-ui-only
+      - content: Remove the MTProto Zig WEB sidecar binary. LucX-UI only.
+        id: remove-the-mtproto-zig-web-sidecar-binary-lucx-ui-only
     contents: []
 ---
 
@@ -635,7 +685,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/tunnel/naive/status","method":"get"},{"path":"/panel/api/tunnel/naive/config","method":"get"},{"path":"/panel/api/tunnel/naive/config","method":"post"},{"path":"/panel/api/tunnel/naive/start","method":"post"},{"path":"/panel/api/tunnel/naive/stop","method":"post"},{"path":"/panel/api/tunnel/naive/restart","method":"post"},{"path":"/panel/api/tunnel/naive/logs","method":"get"},{"path":"/panel/api/tunnel/naive/preview","method":"post"},{"path":"/panel/api/tunnel/naive/validate","method":"post"},{"path":"/panel/api/tunnel/naive/upload","method":"post"},{"path":"/panel/api/tunnel/naive/download","method":"post"},{"path":"/panel/api/tunnel/naive/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/olcrtc/status","method":"get"},{"path":"/panel/api/tunnel/olcrtc/config","method":"get"},{"path":"/panel/api/tunnel/olcrtc/config","method":"post"},{"path":"/panel/api/tunnel/olcrtc/start","method":"post"},{"path":"/panel/api/tunnel/olcrtc/stop","method":"post"},{"path":"/panel/api/tunnel/olcrtc/restart","method":"post"},{"path":"/panel/api/tunnel/olcrtc/logs","method":"get"},{"path":"/panel/api/tunnel/olcrtc/preview","method":"post"},{"path":"/panel/api/tunnel/olcrtc/upload","method":"post"},{"path":"/panel/api/tunnel/olcrtc/download","method":"post"},{"path":"/panel/api/tunnel/olcrtc/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/qwdtt/status","method":"get"},{"path":"/panel/api/tunnel/qwdtt/config","method":"get"},{"path":"/panel/api/tunnel/qwdtt/config","method":"post"},{"path":"/panel/api/tunnel/qwdtt/start","method":"post"},{"path":"/panel/api/tunnel/qwdtt/stop","method":"post"},{"path":"/panel/api/tunnel/qwdtt/restart","method":"post"},{"path":"/panel/api/tunnel/qwdtt/logs","method":"get"},{"path":"/panel/api/tunnel/qwdtt/upload","method":"post"},{"path":"/panel/api/tunnel/qwdtt/download","method":"post"},{"path":"/panel/api/tunnel/qwdtt/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/csqtt/status","method":"get"},{"path":"/panel/api/tunnel/csqtt/logs","method":"get"},{"path":"/panel/api/tunnel/csqtt/upload","method":"post"},{"path":"/panel/api/tunnel/csqtt/download","method":"post"},{"path":"/panel/api/tunnel/csqtt/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/masterdns/status","method":"get"},{"path":"/panel/api/tunnel/masterdns/logs","method":"get"},{"path":"/panel/api/tunnel/masterdns/upload","method":"post"},{"path":"/panel/api/tunnel/masterdns/download","method":"post"},{"path":"/panel/api/tunnel/masterdns/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/openflux/status","method":"get"},{"path":"/panel/api/tunnel/openflux/logs","method":"get"},{"path":"/panel/api/tunnel/openflux/upload","method":"post"},{"path":"/panel/api/tunnel/openflux/download","method":"post"},{"path":"/panel/api/tunnel/openflux/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/mieru/status","method":"get"},{"path":"/panel/api/tunnel/mieru/logs","method":"get"},{"path":"/panel/api/tunnel/mieru/upload","method":"post"},{"path":"/panel/api/tunnel/mieru/download","method":"post"},{"path":"/panel/api/tunnel/mieru/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/trusttunnel/status","method":"get"},{"path":"/panel/api/tunnel/trusttunnel/logs","method":"get"},{"path":"/panel/api/tunnel/trusttunnel/upload","method":"post"},{"path":"/panel/api/tunnel/trusttunnel/download","method":"post"},{"path":"/panel/api/tunnel/trusttunnel/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/anytls/status","method":"get"},{"path":"/panel/api/tunnel/anytls/logs","method":"get"},{"path":"/panel/api/tunnel/anytls/upload","method":"post"},{"path":"/panel/api/tunnel/anytls/download","method":"post"},{"path":"/panel/api/tunnel/anytls/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/wgo/status","method":"get"},{"path":"/panel/api/tunnel/wgo/logs","method":"get"},{"path":"/panel/api/tunnel/wgo/upload","method":"post"},{"path":"/panel/api/tunnel/wgo/download","method":"post"},{"path":"/panel/api/tunnel/wgo/deleteBinary","method":"post"},{"path":"/panel/api/inbounds/{id}/wgoStatus","method":"get"},{"path":"/panel/api/inbounds/{id}/wgoLogs","method":"get"},{"path":"/panel/api/tunnel/hostCheck","method":"post"},{"path":"/panel/api/tunnel/tproxy/status","method":"get"},{"path":"/panel/api/tunnel/tproxy/logs","method":"get"},{"path":"/panel/api/tunnel/tproxy/upload","method":"post"},{"path":"/panel/api/tunnel/tproxy/download","method":"post"},{"path":"/panel/api/tunnel/tproxy/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/tproxy/uploadSite","method":"post"},{"path":"/panel/api/tunnel/tproxy/site","method":"get"},{"path":"/panel/api/tunnel/mtproxy/status","method":"get"},{"path":"/panel/api/tunnel/mtproxy/logs","method":"get"},{"path":"/panel/api/tunnel/mtproxy/upload","method":"post"},{"path":"/panel/api/tunnel/mtproxy/download","method":"post"},{"path":"/panel/api/tunnel/mtproxy/deleteBinary","method":"post"}]} showTitle />
+      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/tunnel/naive/status","method":"get"},{"path":"/panel/api/tunnel/naive/config","method":"get"},{"path":"/panel/api/tunnel/naive/config","method":"post"},{"path":"/panel/api/tunnel/naive/start","method":"post"},{"path":"/panel/api/tunnel/naive/stop","method":"post"},{"path":"/panel/api/tunnel/naive/restart","method":"post"},{"path":"/panel/api/tunnel/naive/logs","method":"get"},{"path":"/panel/api/tunnel/naive/preview","method":"post"},{"path":"/panel/api/tunnel/naive/validate","method":"post"},{"path":"/panel/api/tunnel/naive/upload","method":"post"},{"path":"/panel/api/tunnel/naive/download","method":"post"},{"path":"/panel/api/tunnel/naive/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/olcrtc/status","method":"get"},{"path":"/panel/api/tunnel/olcrtc/config","method":"get"},{"path":"/panel/api/tunnel/olcrtc/config","method":"post"},{"path":"/panel/api/tunnel/olcrtc/start","method":"post"},{"path":"/panel/api/tunnel/olcrtc/stop","method":"post"},{"path":"/panel/api/tunnel/olcrtc/restart","method":"post"},{"path":"/panel/api/tunnel/olcrtc/logs","method":"get"},{"path":"/panel/api/tunnel/olcrtc/preview","method":"post"},{"path":"/panel/api/tunnel/olcrtc/upload","method":"post"},{"path":"/panel/api/tunnel/olcrtc/download","method":"post"},{"path":"/panel/api/tunnel/olcrtc/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/qwdtt/status","method":"get"},{"path":"/panel/api/tunnel/qwdtt/config","method":"get"},{"path":"/panel/api/tunnel/qwdtt/config","method":"post"},{"path":"/panel/api/tunnel/qwdtt/start","method":"post"},{"path":"/panel/api/tunnel/qwdtt/stop","method":"post"},{"path":"/panel/api/tunnel/qwdtt/restart","method":"post"},{"path":"/panel/api/tunnel/qwdtt/logs","method":"get"},{"path":"/panel/api/tunnel/qwdtt/upload","method":"post"},{"path":"/panel/api/tunnel/qwdtt/download","method":"post"},{"path":"/panel/api/tunnel/qwdtt/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/csqtt/status","method":"get"},{"path":"/panel/api/tunnel/csqtt/logs","method":"get"},{"path":"/panel/api/tunnel/csqtt/upload","method":"post"},{"path":"/panel/api/tunnel/csqtt/download","method":"post"},{"path":"/panel/api/tunnel/csqtt/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/masterdns/status","method":"get"},{"path":"/panel/api/tunnel/masterdns/logs","method":"get"},{"path":"/panel/api/tunnel/masterdns/upload","method":"post"},{"path":"/panel/api/tunnel/masterdns/download","method":"post"},{"path":"/panel/api/tunnel/masterdns/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/openflux/status","method":"get"},{"path":"/panel/api/tunnel/openflux/logs","method":"get"},{"path":"/panel/api/tunnel/openflux/upload","method":"post"},{"path":"/panel/api/tunnel/openflux/download","method":"post"},{"path":"/panel/api/tunnel/openflux/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/mieru/status","method":"get"},{"path":"/panel/api/tunnel/mieru/logs","method":"get"},{"path":"/panel/api/tunnel/mieru/upload","method":"post"},{"path":"/panel/api/tunnel/mieru/download","method":"post"},{"path":"/panel/api/tunnel/mieru/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/trusttunnel/status","method":"get"},{"path":"/panel/api/tunnel/trusttunnel/logs","method":"get"},{"path":"/panel/api/tunnel/trusttunnel/upload","method":"post"},{"path":"/panel/api/tunnel/trusttunnel/download","method":"post"},{"path":"/panel/api/tunnel/trusttunnel/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/anytls/status","method":"get"},{"path":"/panel/api/tunnel/anytls/logs","method":"get"},{"path":"/panel/api/tunnel/anytls/upload","method":"post"},{"path":"/panel/api/tunnel/anytls/download","method":"post"},{"path":"/panel/api/tunnel/anytls/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/wgo/status","method":"get"},{"path":"/panel/api/tunnel/wgo/logs","method":"get"},{"path":"/panel/api/tunnel/wgo/upload","method":"post"},{"path":"/panel/api/tunnel/wgo/download","method":"post"},{"path":"/panel/api/tunnel/wgo/deleteBinary","method":"post"},{"path":"/panel/api/inbounds/{id}/wgoStatus","method":"get"},{"path":"/panel/api/inbounds/{id}/wgoLogs","method":"get"},{"path":"/panel/api/tunnel/hostCheck","method":"post"},{"path":"/panel/api/tunnel/tproxy/status","method":"get"},{"path":"/panel/api/tunnel/tproxy/logs","method":"get"},{"path":"/panel/api/tunnel/tproxy/upload","method":"post"},{"path":"/panel/api/tunnel/tproxy/download","method":"post"},{"path":"/panel/api/tunnel/tproxy/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/tproxy/uploadSite","method":"post"},{"path":"/panel/api/tunnel/tproxy/site","method":"get"},{"path":"/panel/api/tunnel/mtproxy/status","method":"get"},{"path":"/panel/api/tunnel/mtproxy/logs","method":"get"},{"path":"/panel/api/tunnel/mtproxy/upload","method":"post"},{"path":"/panel/api/tunnel/mtproxy/download","method":"post"},{"path":"/panel/api/tunnel/mtproxy/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/telemt/status","method":"get"},{"path":"/panel/api/tunnel/telemt/logs","method":"get"},{"path":"/panel/api/tunnel/telemt/upload","method":"post"},{"path":"/panel/api/tunnel/telemt/download","method":"post"},{"path":"/panel/api/tunnel/telemt/deleteBinary","method":"post"},{"path":"/panel/api/tunnel/mtproto-zig/status","method":"get"},{"path":"/panel/api/tunnel/mtproto-zig/logs","method":"get"},{"path":"/panel/api/tunnel/mtproto-zig/upload","method":"post"},{"path":"/panel/api/tunnel/mtproto-zig/download","method":"post"},{"path":"/panel/api/tunnel/mtproto-zig/deleteBinary","method":"post"}]} showTitle />
     </>
   );
 }

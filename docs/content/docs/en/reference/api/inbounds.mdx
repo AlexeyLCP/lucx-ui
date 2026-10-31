@@ -64,6 +64,38 @@ _openapi:
       title: Fetch a single inbound by numeric ID.
       url: '#fetch-a-single-inbound-by-numeric-id'
     - depth: 2
+      title: Download an Apple Network Relay declarative-management JSON document for
+        a MASQUE inbound. This is DDM JSON only, not a standalone .mobileconfig;
+        submit it through a compatible MDM/DDM service and verify Apple device
+        behavior.
+      url: '#download-an-apple-network-relay-declarative-management-json-document-for-a-masque-inbound-this-is-ddm-json-only-not-a-standalone-mobileconfig-submit-it-through-a-compatible-mdmddm-service-and-verify-apple-device-behavior'
+    - depth: 2
+      title: List installed sidecar plugins and their process status.
+      url: '#list-installed-sidecar-plugins-and-their-process-status'
+    - depth: 2
+      title: Install a sidecar plugin ZIP containing a validated apiVersion 1
+        manifest.
+      url: '#install-a-sidecar-plugin-zip-containing-a-validated-apiversion-1-manifest'
+    - depth: 2
+      title: 'Status of one installed plugin: manifest, binary/data/log paths, running
+        flag and PID.'
+      url: '#status-of-one-installed-plugin-manifest-binarydatalog-paths-running-flag-and-pid'
+    - depth: 2
+      title: Recent plugin log lines. LucX-UI only.
+      url: '#recent-plugin-log-lines-lucx-ui-only'
+    - depth: 2
+      title: Start the plugin sidecar process. LucX-UI only.
+      url: '#start-the-plugin-sidecar-process-lucx-ui-only'
+    - depth: 2
+      title: Stop the running plugin sidecar process. LucX-UI only.
+      url: '#stop-the-running-plugin-sidecar-process-lucx-ui-only'
+    - depth: 2
+      title: Restart the plugin sidecar process. LucX-UI only.
+      url: '#restart-the-plugin-sidecar-process-lucx-ui-only'
+    - depth: 2
+      title: Remove the installed plugin and its data directory. LucX-UI only.
+      url: '#remove-the-installed-plugin-and-its-data-directory-lucx-ui-only'
+    - depth: 2
       title: Create a new inbound. Send the full inbound payload (protocol, port,
         settings, streamSettings, sniffing, remark, expiryTime, total, enable).
         settings, streamSettings, and sniffing may be sent as nested JSON
@@ -235,6 +267,29 @@ _openapi:
         id: return-the-share-links-of-a-single-inbound-rendered-through-the-subscription-engine-for-naive-inbounds-this-is-the-only-source-of-truth-per-client-credentials-are-hmac-derived-from-the-panel-secret-server-side-so-the-response-carries-the-service-level-naivehttps-link-authuserauthpass-same-as-the-legacy-tunnels-page-clienturl-followed-by-one-personal-link-per-enabled-attached-client-protocols-whose-links-the-panel-renders-client-side-contribute-their-sub-engine-links-as-well-used-by-the-inbounds-page-export-links-action-when-the-frontend-generator-yields-nothing-naive
       - content: Fetch a single inbound by numeric ID.
         id: fetch-a-single-inbound-by-numeric-id
+      - content: Download an Apple Network Relay declarative-management JSON document
+          for a MASQUE inbound. This is DDM JSON only, not a standalone
+          .mobileconfig; submit it through a compatible MDM/DDM service and
+          verify Apple device behavior.
+        id: download-an-apple-network-relay-declarative-management-json-document-for-a-masque-inbound-this-is-ddm-json-only-not-a-standalone-mobileconfig-submit-it-through-a-compatible-mdmddm-service-and-verify-apple-device-behavior
+      - content: List installed sidecar plugins and their process status.
+        id: list-installed-sidecar-plugins-and-their-process-status
+      - content: Install a sidecar plugin ZIP containing a validated apiVersion 1
+          manifest.
+        id: install-a-sidecar-plugin-zip-containing-a-validated-apiversion-1-manifest
+      - content: 'Status of one installed plugin: manifest, binary/data/log paths,
+          running flag and PID.'
+        id: status-of-one-installed-plugin-manifest-binarydatalog-paths-running-flag-and-pid
+      - content: Recent plugin log lines. LucX-UI only.
+        id: recent-plugin-log-lines-lucx-ui-only
+      - content: Start the plugin sidecar process. LucX-UI only.
+        id: start-the-plugin-sidecar-process-lucx-ui-only
+      - content: Stop the running plugin sidecar process. LucX-UI only.
+        id: stop-the-running-plugin-sidecar-process-lucx-ui-only
+      - content: Restart the plugin sidecar process. LucX-UI only.
+        id: restart-the-plugin-sidecar-process-lucx-ui-only
+      - content: Remove the installed plugin and its data directory. LucX-UI only.
+        id: remove-the-installed-plugin-and-its-data-directory-lucx-ui-only
       - content: Create a new inbound. Send the full inbound payload (protocol, port,
           settings, streamSettings, sniffing, remark, expiryTime, total,
           enable). settings, streamSettings, and sniffing may be sent as nested
@@ -342,7 +397,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/inbounds/list","method":"get"},{"path":"/panel/api/inbounds/list/slim","method":"get"},{"path":"/panel/api/inbounds/options","method":"get"},{"path":"/panel/api/inbounds/amneziawgKernelReadiness","method":"get"},{"path":"/panel/api/inbounds/allLinks","method":"get"},{"path":"/panel/api/inbounds/{id}/links","method":"get"},{"path":"/panel/api/inbounds/get/{id}","method":"get"},{"path":"/panel/api/inbounds/add","method":"post"},{"path":"/panel/api/inbounds/del/{id}","method":"post"},{"path":"/panel/api/inbounds/bulkDel","method":"post"},{"path":"/panel/api/inbounds/update/{id}","method":"post"},{"path":"/panel/api/inbounds/setEnable/{id}","method":"post"},{"path":"/panel/api/inbounds/{id}/subSortIndex","method":"post"},{"path":"/panel/api/inbounds/{id}/resetTraffic","method":"post"},{"path":"/panel/api/inbounds/{id}/delAllClients","method":"post"},{"path":"/panel/api/inbounds/resetAllTraffics","method":"post"},{"path":"/panel/api/inbounds/wireguard/importPreview","method":"post"},{"path":"/panel/api/inbounds/awg/generateObfuscation","method":"post"},{"path":"/panel/api/inbounds/awg/captureHost","method":"post"},{"path":"/panel/api/inbounds/{id}/awgDiagnostics","method":"get"},{"path":"/panel/api/inbounds/awg/import/preview","method":"get"},{"path":"/panel/api/inbounds/awg/import/dismiss","method":"post"},{"path":"/panel/api/inbounds/awg/import/commit","method":"post"},{"path":"/panel/api/inbounds/awg/import/delete","method":"post"},{"path":"/panel/api/inbounds/{id}/awgTestMtu","method":"get"},{"path":"/panel/api/inbounds/gatewayEnsure","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayPreview","method":"get"},{"path":"/panel/api/inbounds/{id}/gatewayApply","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayRevert","method":"post"},{"path":"/panel/api/inbounds/import","method":"post"},{"path":"/panel/api/inbounds/pushClientTraffics","method":"post"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"get"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"post"}]} showTitle />
+      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/inbounds/list","method":"get"},{"path":"/panel/api/inbounds/list/slim","method":"get"},{"path":"/panel/api/inbounds/options","method":"get"},{"path":"/panel/api/inbounds/amneziawgKernelReadiness","method":"get"},{"path":"/panel/api/inbounds/allLinks","method":"get"},{"path":"/panel/api/inbounds/{id}/links","method":"get"},{"path":"/panel/api/inbounds/get/{id}","method":"get"},{"path":"/panel/api/inbounds/{id}/appleRelayDDM","method":"post"},{"path":"/panel/api/plugins/list","method":"get"},{"path":"/panel/api/plugins/install","method":"post"},{"path":"/panel/api/plugins/{id}/status","method":"get"},{"path":"/panel/api/plugins/{id}/logs","method":"get"},{"path":"/panel/api/plugins/{id}/start","method":"post"},{"path":"/panel/api/plugins/{id}/stop","method":"post"},{"path":"/panel/api/plugins/{id}/restart","method":"post"},{"path":"/panel/api/plugins/{id}/delete","method":"post"},{"path":"/panel/api/inbounds/add","method":"post"},{"path":"/panel/api/inbounds/del/{id}","method":"post"},{"path":"/panel/api/inbounds/bulkDel","method":"post"},{"path":"/panel/api/inbounds/update/{id}","method":"post"},{"path":"/panel/api/inbounds/setEnable/{id}","method":"post"},{"path":"/panel/api/inbounds/{id}/subSortIndex","method":"post"},{"path":"/panel/api/inbounds/{id}/resetTraffic","method":"post"},{"path":"/panel/api/inbounds/{id}/delAllClients","method":"post"},{"path":"/panel/api/inbounds/resetAllTraffics","method":"post"},{"path":"/panel/api/inbounds/wireguard/importPreview","method":"post"},{"path":"/panel/api/inbounds/awg/generateObfuscation","method":"post"},{"path":"/panel/api/inbounds/awg/captureHost","method":"post"},{"path":"/panel/api/inbounds/{id}/awgDiagnostics","method":"get"},{"path":"/panel/api/inbounds/awg/import/preview","method":"get"},{"path":"/panel/api/inbounds/awg/import/dismiss","method":"post"},{"path":"/panel/api/inbounds/awg/import/commit","method":"post"},{"path":"/panel/api/inbounds/awg/import/delete","method":"post"},{"path":"/panel/api/inbounds/{id}/awgTestMtu","method":"get"},{"path":"/panel/api/inbounds/gatewayEnsure","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayPreview","method":"get"},{"path":"/panel/api/inbounds/{id}/gatewayApply","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayRevert","method":"post"},{"path":"/panel/api/inbounds/import","method":"post"},{"path":"/panel/api/inbounds/pushClientTraffics","method":"post"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"get"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"post"}]} showTitle />
     </>
   );
 }
