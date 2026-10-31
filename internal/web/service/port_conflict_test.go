@@ -2,11 +2,13 @@ package service
 
 import (
 	"net"
+	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/op/go-logging"
 
@@ -32,6 +34,20 @@ func setupConflictDB(t *testing.T) {
 	dbDir := t.TempDir()
 	t.Setenv("XUI_DB_FOLDER", dbDir)
 	dbtest.InitDB(t, filepath.Join(dbDir, "x-ui.db"))
+	// Runs before t.TempDir removal (LIFO): straggler goroutines from earlier
+	// tests can recreate a WAL/journal file while RemoveAll is already
+	// deleting, which fails the TempDir cleanup as "directory not empty" and
+	// fails the test. Close the pool again and clear the dir with a bounded
+	// retry so the framework's removal sees it empty.
+	t.Cleanup(func() {
+		_ = database.CloseDB()
+		for i := 0; i < 20; i++ {
+			if err := os.RemoveAll(dbDir); err == nil {
+				return
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+	})
 }
 
 func seedInboundConflict(t *testing.T, tag, listen string, port int, protocol model.Protocol, streamSettings, settings string) {
