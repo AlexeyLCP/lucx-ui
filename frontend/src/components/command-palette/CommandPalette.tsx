@@ -81,6 +81,7 @@ export const PALETTE_KEYWORDS: Record<string, string[]> = {
   '/outbound': ['outbounds', 'freedom', 'blackhole', 'socks', 'http', 'warp', 'nord', 'pia'],
   '/routing': ['routing', 'rules', 'geoip', 'geosite', 'direct', 'block'],
   // LUCX-HOOK: lucx pages
+  '/plugins': ['plugins', 'plugin manager', 'sidecar plugins', 'extension'],
   '/tunnels': [
     'tunnels',
     'sidecars',

@@ -1,5 +1,16 @@
 # LucX-UI — Прогресс
 
+## lucx.333 follow-up — sidebar Cores restored (2026-10-31)
+
+- The v3.11.0 sidebar rewrite lost two HOOK decisions: the `/settings#cores` item
+  under Panel Settings (the tunnel-binary management tab was unreachable) and the
+  removal of `/tunnels` from the top-level menu (it should only stay as a deep
+  link from the Cores tab). Restored both in `AppSidebar.tsx`.
+- Added the `/plugins` command-palette keywords lucx.333 forgot (navigation
+  contract test was red) and fixed the stale `cores-binary-download` fixture
+  that crashed `PluginCard`.
+- Verified: typecheck, oxlint, navigation-contract / app-sidebar / cores tests.
+
 ## lucx.333 — plugin manager, Apple Relay export, and node-sync fixes (2026-10-31)
 
 - Added the first sidecar Plugin Manager MVP: ZIP manifest validation, architecture checks, isolated plugin data/log paths, process lifecycle controls, REST API, internal panel page, and sidebar entry above Tunnels.

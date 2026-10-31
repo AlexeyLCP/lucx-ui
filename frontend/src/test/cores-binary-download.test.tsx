@@ -47,16 +47,20 @@ async function openFirstDownloadDialog() {
 }
 
 beforeEach(() => {
-  vi.spyOn(HttpUtil, 'get').mockImplementation(
-    async () =>
-      new Msg(true, '', {
-        core: 'naive',
-        displayName: 'NaiveProxy',
-        binaryExists: false,
-        binaryPath: 'bin/caddy-naive-linux-amd64',
-        probe: { running: false },
-      }),
-  );
+  // The fixture below is one sidecar status shape reused for every binary kind;
+  // /plugins/list must stay an array or PluginCard crashes the whole tab.
+  vi.spyOn(HttpUtil, 'get').mockImplementation(async (url: string) => {
+    if (String(url).includes('/plugins/list')) {
+      return new Msg(true, '', []);
+    }
+    return new Msg(true, '', {
+      core: 'naive',
+      displayName: 'NaiveProxy',
+      binaryExists: false,
+      binaryPath: 'bin/caddy-naive-linux-amd64',
+      probe: { running: false },
+    });
+  });
 });
 
 afterEach(() => {

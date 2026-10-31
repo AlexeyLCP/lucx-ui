@@ -50,6 +50,9 @@ const REPO_URL = 'https://github.com/AlexeyLCP/lucx-ui';
 const TG_URL = 'https://t.me/Lucx_soft';
 // END LUCX-HOOK
 const LOGOUT_KEY = '__logout__';
+// LUCX-HOOK: tunnels moved to Settings -> Cores (binaries + AWG module).
+// /tunnels stays in PANEL_ROUTES for the "Open tunnel configs" deep-link and direct URLs.
+const HIDDEN_ROUTES = ['/tunnels'];
 const RAIL_WIDTH = 72;
 const SIDER_WIDTH = 220;
 const SIDEBAR_PINNED_KEY = 'sidebar-pinned';
@@ -220,7 +223,13 @@ export default function AppSidebar() {
     [t],
   );
 
-  const navItems = useMemo(() => tabs.filter((tab) => tab.key !== LOGOUT_KEY), [tabs]);
+  const navItems = useMemo(
+    () =>
+      tabs
+        .filter((tab) => tab.key !== LOGOUT_KEY)
+        .filter((tab) => !HIDDEN_ROUTES.includes(tab.key)),
+    [tabs],
+  );
   const utilItems = useMemo(() => tabs.filter((tab) => tab.key === LOGOUT_KEY), [tabs]);
 
   const settingsChildren = useMemo<NonNullable<MenuProps['items']>>(() => {
@@ -255,6 +264,13 @@ export default function AppSidebar() {
         icon: <CloudServerOutlined aria-hidden />,
         label: t('pages.settings.subSettings'),
       },
+      // LUCX-HOOK: AWG module + tunnel binaries (advanced tunnel process config stays on /tunnels)
+      {
+        key: '/settings#cores',
+        icon: <CloudServerOutlined aria-hidden />,
+        label: t('pages.settings.cores.menu'),
+      },
+      // END LUCX-HOOK
     ];
     if (showSubFormats) {
       children.push({
