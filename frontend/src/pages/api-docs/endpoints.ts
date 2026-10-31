@@ -333,6 +333,43 @@ export const sections: readonly Section[] = [
         summary: 'Install a sidecar plugin ZIP containing a validated apiVersion 1 manifest.',
       },
       {
+        method: 'GET',
+        path: '/panel/api/plugins/:id/status',
+        summary:
+          'Status of one installed plugin: manifest, binary/data/log paths, running flag and PID.',
+        params: [{ name: 'id', in: 'path', type: 'string', desc: 'Plugin ID.' }],
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/plugins/:id/logs',
+        summary: 'Recent plugin log lines. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'string', desc: 'Plugin ID.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/plugins/:id/start',
+        summary: 'Start the plugin sidecar process. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'string', desc: 'Plugin ID.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/plugins/:id/stop',
+        summary: 'Stop the running plugin sidecar process. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'string', desc: 'Plugin ID.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/plugins/:id/restart',
+        summary: 'Restart the plugin sidecar process. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'string', desc: 'Plugin ID.' }],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/plugins/:id/delete',
+        summary: 'Remove the installed plugin and its data directory. LucX-UI only.',
+        params: [{ name: 'id', in: 'path', type: 'string', desc: 'Plugin ID.' }],
+      },
+      {
         method: 'POST',
         path: '/panel/api/inbounds/add',
         summary:
@@ -1570,6 +1607,58 @@ export const sections: readonly Section[] = [
         method: 'POST',
         path: '/panel/api/tunnel/mtproxy/deleteBinary',
         summary: 'Stop MTProxy instances and remove the binary. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/telemt/status',
+        summary: 'Telemt sidecar binary status. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/telemt/logs',
+        summary: 'Recent Telemt sidecar log lines. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/telemt/upload',
+        summary: 'Replace the Telemt sidecar binary. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/telemt/download',
+        summary: 'Fetch the Telemt sidecar binary from a URL. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/telemt-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/telemt/deleteBinary',
+        summary: 'Remove the Telemt sidecar binary. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/mtproto-zig/status',
+        summary: 'MTProto Zig WEB sidecar binary status. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/mtproto-zig/logs',
+        summary: 'Recent MTProto Zig WEB sidecar log lines. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mtproto-zig/upload',
+        summary: 'Replace the MTProto Zig WEB sidecar binary. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mtproto-zig/download',
+        summary: 'Fetch the MTProto Zig WEB sidecar binary from a URL. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/mtproto-zig-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/mtproto-zig/deleteBinary',
+        summary: 'Remove the MTProto Zig WEB sidecar binary. LucX-UI only.',
       },
     ],
   },

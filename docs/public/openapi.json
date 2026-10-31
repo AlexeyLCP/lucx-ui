@@ -6051,6 +6051,252 @@
         }
       }
     },
+    "/panel/api/plugins/{id}/status": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Status of one installed plugin: manifest, binary/data/log paths, running flag and PID.",
+        "operationId": "get_panel_api_plugins_id_status",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plugin ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/plugins/{id}/logs": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Recent plugin log lines. LucX-UI only.",
+        "operationId": "get_panel_api_plugins_id_logs",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plugin ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/plugins/{id}/start": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Start the plugin sidecar process. LucX-UI only.",
+        "operationId": "post_panel_api_plugins_id_start",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plugin ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/plugins/{id}/stop": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Stop the running plugin sidecar process. LucX-UI only.",
+        "operationId": "post_panel_api_plugins_id_stop",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plugin ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/plugins/{id}/restart": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Restart the plugin sidecar process. LucX-UI only.",
+        "operationId": "post_panel_api_plugins_id_restart",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plugin ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/plugins/{id}/delete": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Remove the installed plugin and its data directory. LucX-UI only.",
+        "operationId": "post_panel_api_plugins_id_delete",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "Plugin ID.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/inbounds/add": {
       "post": {
         "tags": [
@@ -11533,6 +11779,334 @@
         ],
         "summary": "Stop MTProxy instances and remove the binary. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_mtproxy_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/telemt/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Telemt sidecar binary status. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_telemt_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/telemt/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent Telemt sidecar log lines. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_telemt_logs",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/telemt/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the Telemt sidecar binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_telemt_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/telemt/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the Telemt sidecar binary from a URL. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_telemt_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/telemt-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/telemt/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Remove the Telemt sidecar binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_telemt_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproto-zig/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "MTProto Zig WEB sidecar binary status. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_mtproto_zig_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproto-zig/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent MTProto Zig WEB sidecar log lines. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_mtproto_zig_logs",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproto-zig/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the MTProto Zig WEB sidecar binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproto_zig_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproto-zig/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the MTProto Zig WEB sidecar binary from a URL. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproto_zig_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/mtproto-zig-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/mtproto-zig/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Remove the MTProto Zig WEB sidecar binary. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_mtproto_zig_deleteBinary",
         "responses": {
           "200": {
             "description": "Successful response",
