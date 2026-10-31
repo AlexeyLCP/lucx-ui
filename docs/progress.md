@@ -8,6 +8,7 @@
 - Fixed Telegram WEB proxy subscription pollution, node `tproxy` capability advertisement, SSL installer reporting after certificate failure, adopted-node auto-tag retargeting, and Masking host/ID preservation across master/node sync.
 - Added olcRTC VK Calls and MTS-Link providers using `vp8channel`, plus localized operator guidance.
 - Verification: focused Go tests, node-sync tests, frontend generation/typecheck/lint, i18n tests, `go build ./internal/web/...`, `go vet`, `bash -n install.sh`, and `git diff --check` passed. Full Windows packages retain known TempDir cleanup and reserved-port flakes.
+- Release follow-up: build mtproto-zig with a local Zig 0.16.0. The CSQTT toolchain stays on Zig 0.14.1.
 
 ## lucx.332 — legacy database recovery (2026-10-29)
 
