@@ -3247,6 +3247,11 @@
       "Inbound": {
         "description": "Inbound represents an Xray inbound configuration with traffic statistics and settings.",
         "properties": {
+          "balancerOnly": {
+            "description": "Whether to expose this inbound only as a subscription-balancer member",
+            "example": false,
+            "type": "boolean"
+          },
           "clientStats": {
             "description": "Client traffic statistics",
             "items": {
@@ -3328,6 +3333,7 @@
               "tunnel",
               "tun",
               "mtproto",
+              "telemt",
               "amneziawg",
               "tuic",
               "masque",
@@ -3407,6 +3413,7 @@
           }
         },
         "required": [
+          "balancerOnly",
           "clientStats",
           "disableFlow",
           "down",
@@ -5568,6 +5575,7 @@
                   "success": true,
                   "obj": [
                     {
+                      "balancerOnly": false,
                       "clientStats": [
                         {
                           "down": 2097152,
@@ -5895,6 +5903,131 @@
             }
           }
         ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/inbounds/{id}/appleRelayDDM": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Download an Apple Network Relay declarative-management JSON document for a MASQUE inbound. This is DDM JSON only, not a standalone .mobileconfig; submit it through a compatible MDM/DDM service and verify Apple device behavior.",
+        "operationId": "post_panel_api_inbounds_id_appleRelayDDM",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "MASQUE inbound ID.",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "name": "LucX MASQUE Relay",
+                "http2RelayUrl": "https://relay.example.com:8443/.well-known/masque/ip/*/*/",
+                "http3RelayUrl": "https://relay.example.com:8443/.well-known/masque/ip/*/*/",
+                "matchDomains": [
+                  "example.com"
+                ],
+                "excludedDomains": [],
+                "matchFQDNs": [],
+                "excludedFQDNs": [],
+                "publicKeyAssets": [],
+                "allowDNSFailover": false,
+                "uiEnabled": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/plugins/list": {
+      "get": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "List installed sidecar plugins and their process status.",
+        "operationId": "get_panel_api_plugins_list",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/plugins/install": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Install a sidecar plugin ZIP containing a validated apiVersion 1 manifest.",
+        "operationId": "post_panel_api_plugins_install",
         "responses": {
           "200": {
             "description": "Successful response",
@@ -22221,6 +22354,7 @@
               "type": "inbounds",
               "payload": [
                 {
+                  "balancerOnly": false,
                   "clientStats": [
                     {
                       "down": 2097152,
