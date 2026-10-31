@@ -109,6 +109,12 @@ if ! have "mtproto-zig-linux-${ARCH}"; then
         arm64) zig_tgt="aarch64-linux" ;;
         *) echo "no mtproto-zig for ${ARCH}" >&2; exit 1 ;;
     esac
+    # v1.15.4 needs Zig 0.16.0 (build.zig uses the 0.16 Run API). Both matrix
+    # jobs run on ubuntu-latest (x86_64) and cross-compile; 0.14.1 stays on PATH.
+    ZIG16_DIR="/tmp/zig-0.16.0-mtproto"
+    rm -rf "$ZIG16_DIR" && mkdir -p "$ZIG16_DIR"
+    fetch -O /tmp/zig16.tar.xz "https://ziglang.org/download/0.16.0/zig-x86_64-linux-0.16.0.tar.xz"
+    tar -xJf /tmp/zig16.tar.xz -C "$ZIG16_DIR" --strip-components=1
     ZIG_REF="v1.15.4"
     git init -q /tmp/mtproto-zig
     git -C /tmp/mtproto-zig remote add origin https://github.com/sleep3r/mtproto.zig.git
@@ -116,11 +122,11 @@ if ! have "mtproto-zig-linux-${ARCH}"; then
     git -C /tmp/mtproto-zig checkout -q FETCH_HEAD
     (
         cd /tmp/mtproto-zig
-        zig build -Doptimize=ReleaseFast -Dtarget="$zig_tgt"
+        "${ZIG16_DIR}/zig" build -Doptimize=ReleaseFast -Dtarget="$zig_tgt"
         cp zig-out/bin/mtproto-proxy "${DEST}/mtproto-zig-linux-${ARCH}"
     )
     chmod +x "${DEST}/mtproto-zig-linux-${ARCH}"
-    rm -rf /tmp/mtproto-zig
+    rm -rf /tmp/mtproto-zig "$ZIG16_DIR" /tmp/zig16.tar.xz
 fi
 
 # MasterDNSVPN server (masterking32/MasterDnsVPN, Go). PIN main@5f83ee9 —
