@@ -127,12 +127,25 @@
     "unpinSidebar": "Lepas sematan bilah sisi",
     "subFormats": "Sub Formats",
     "masking": "Masking",
-      "tunnels": "Tunnels",
-      "plugins": "Plugin Manager",
+    "tunnels": "Tunnels",
+    "plugins": "Plugin Manager",
     "palette": "Palet warna"
   },
   "pages": {
-    "plugins": {"title":"Plugin Manager","mvpNote":"Install trusted sidecar plugins. This MVP does not grant panel API, database, subscription, or bot access.","upload":"Upload plugin ZIP","refresh":"Refresh","empty":"No plugins installed.","running":"Running","stopped":"Stopped","start":"Start","stop":"Stop","restart":"Restart","delete":"Delete","deleteConfirm":"Delete this plugin?","operationFailed":"Plugin operation failed."},
+    "plugins": {
+      "title": "Plugin Manager",
+      "upload": "Upload plugin ZIP",
+      "refresh": "Refresh",
+      "empty": "No plugins installed.",
+      "running": "Running",
+      "stopped": "Stopped",
+      "start": "Start",
+      "stop": "Stop",
+      "restart": "Restart",
+      "delete": "Delete",
+      "deleteConfirm": "Delete this plugin?",
+      "operationFailed": "Plugin operation failed."
+    },
     "login": {
       "hello": "Halo",
       "title": "Selamat Datang",
