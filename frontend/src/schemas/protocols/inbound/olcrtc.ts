@@ -7,7 +7,7 @@
 import { z } from 'zod';
 
 export const OlcrtcInboundSettingsSchema = z.object({
-  provider: z.enum(['jitsi', 'telemost', 'wbstream']).default('jitsi'),
+  provider: z.enum(['jitsi', 'telemost', 'wbstream', 'vkcalls', 'mtslink']).default('jitsi'),
   roomId: z.string().default(''),
   cryptoKey: z.string().default(''),
   transport: z

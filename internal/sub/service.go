@@ -3911,6 +3911,9 @@ func (s *SubService) genNaiveLink(inbound *model.Inbound, email string) string {
 	}
 	cfg.Domain = fallbackHost
 	cfg.Port = inbound.Port
+	if cfg.HideOn443 {
+		cfg.Port = 443
+	}
 	return cfg.ClientURLFor(pair, s.genRemark(inbound, email, "", ""))
 }
 

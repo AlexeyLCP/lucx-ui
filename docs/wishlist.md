@@ -64,6 +64,18 @@ can require new WEB links and must be tested with the target Telegram Desktop
 client and a real TLS/WEB relay topology; the panel's process status alone is
 not an end-to-end WEB compatibility test.
 
+For legacy WEB proxy, MTProxy must reach Telegram's middle proxies. If they are
+unreachable it may retry aggressively and exhaust NAT sessions; check outbound
+connectivity and stop the inbound until it is restored. Routed setups need the
+same connectivity through their selected Xray outbound.
+
+For REALITY with the site's own SNI, a manually configured alternative to
+Masking is REALITY on public port 443 with the site hostname in serverNames and
+its target set to a Telegram WEB proxy on a loopback port, using the same site
+hostname and its certificate. REALITY forwards non-client TLS traffic to that
+site. Verify the certificate and both client and browser access on the host;
+Masking's duplicate-SNI validation does not currently build this topology.
+
 Implementation started as a native LucX integration: persistent members in
 `csqtt_members`, a 30-second sync job, per-client links in `GetLink`, and the
 existing shared link as fallback. The standalone plugin runtime is not needed

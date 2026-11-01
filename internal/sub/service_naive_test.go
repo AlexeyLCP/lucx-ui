@@ -64,6 +64,13 @@ func TestGetSubs_Naive_RemarkAndHostPort(t *testing.T) {
 	if !strings.Contains(got, "#naive-in-"+email) {
 		t.Errorf("remark must be inbound-email, got %q", got)
 	}
+	if err := db.Model(ib).Update("settings", `{"domain":"n.example.org","hideOn443":true,"behindCover":true}`).Error; err != nil {
+		t.Fatal(err)
+	}
+	links, _, _, _, err = s.GetSubs(subId, "sub.example.com")
+	if err != nil || !strings.Contains(strings.Join(links, "\n"), "@n.example.org:443") {
+		t.Fatalf("masked Naive subscription = %v, err = %v", links, err)
+	}
 
 	if err := db.Create(&model.Host{
 		InboundId: ib.Id,

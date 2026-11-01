@@ -62,7 +62,7 @@ export type NaiveStatus = z.infer<typeof NaiveStatusSchema>;
 export const OlcrtcConfigSchema = z.object({
   remark: z.string().default(''),
   enabled: z.boolean().default(false),
-  provider: z.enum(['jitsi', 'telemost', 'wbstream']).default('jitsi'),
+  provider: z.enum(['jitsi', 'telemost', 'wbstream', 'vkcalls', 'mtslink']).default('jitsi'),
   roomId: z.string().default(''),
   cryptoKey: z.string().default(''),
   transport: z

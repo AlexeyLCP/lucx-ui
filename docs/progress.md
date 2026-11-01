@@ -1,5 +1,14 @@
 # LucX-UI — Прогресс
 
+## Unreleased — issue follow-up
+
+- Accept VK Calls and MTS-Link in both olcRTC frontend schemas (#173).
+- Export the public port for Naive hidden on the Masking site (#174).
+- Document the manual REALITY self-SNI topology and legacy MTProxy connectivity
+  risk (#171, #170); automatic gateway changes and reachability checks remain open.
+- Verified `go test ./internal/sub -count=1`, frontend typecheck, lint and the
+  provider schema test.
+
 ## Unreleased — Telegram subscription and settings navigation
 
 - Restored Telegram WEB proxy links for legacy and MTProto Zig in raw subscriptions,

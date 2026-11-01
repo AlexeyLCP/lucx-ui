@@ -3,6 +3,15 @@ import { describe, it, expect } from 'vitest';
 import { parseLinkParts, linkMetaText, displaySubLinks } from '@/lib/xray/link-label';
 import { genAmneziaWGLink } from '@/lib/xray/inbound-link';
 import type { AmneziawgInboundSettings } from '@/schemas/protocols/inbound/amneziawg';
+import { OlcrtcInboundSettingsSchema } from '@/schemas/protocols/inbound/olcrtc';
+import { OlcrtcConfigSchema } from '@/schemas/tunnel';
+
+it('accepts both new olcRTC providers in inbound and tunnel settings', () => {
+  for (const provider of ['vkcalls', 'mtslink']) {
+    expect(OlcrtcInboundSettingsSchema.parse({ provider }).provider).toBe(provider);
+    expect(OlcrtcConfigSchema.parse({ provider }).provider).toBe(provider);
+  }
+});
 
 // The panel shows the subscription's remark verbatim. Per-client traffic/expiry
 // info is rendered only into the body a client app imports (backend, first link
