@@ -787,7 +787,7 @@ func (s *SubService) loadInboundsBySubId(subId string) ([]*model.Inbound, error)
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','tuic','masque','awg','naive','olcrtc','qwdtt','csqtt','masterdns','openflux','mieru','trusttunnel','anytls')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','telemt','tuic','masque','awg','naive','olcrtc','qwdtt','csqtt','masterdns','openflux','mieru','trusttunnel','anytls','tproxy')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC")
 	if cached {

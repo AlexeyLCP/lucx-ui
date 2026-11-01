@@ -176,3 +176,23 @@ func TestGetInboundsBySubIdIncludesMtproto(t *testing.T) {
 		t.Fatalf("subscription link is not a tg://proxy carrying the client secret: %q", links[0])
 	}
 }
+
+func TestSubscriptionIncludesTelemt(t *testing.T) {
+	initSubDB(t)
+	db := database.GetDB()
+	in := &model.Inbound{Port: 8443, Protocol: model.Telemt, Enable: true, Tag: "telemt-sub", Listen: "203.0.113.5", Settings: `{"tlsDomain":"example.com"}`}
+	if err := db.Create(in).Error; err != nil {
+		t.Fatal(err)
+	}
+	rec := &model.ClientRecord{Email: "telemt@example.test", SubID: "telemt-sub", Enable: true, Secret: mtprotoTestSecret}
+	if err := db.Create(rec).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ClientInbound{ClientId: rec.Id, InboundId: in.Id}).Error; err != nil {
+		t.Fatal(err)
+	}
+	links, _, _, _, err := NewSubService("").GetSubs(rec.SubID, "sub.example.com")
+	if err != nil || len(links) != 1 || !strings.HasPrefix(links[0], "tg://proxy?") {
+		t.Fatalf("Telemt subscription links = %v, err = %v", links, err)
+	}
+}

@@ -29,6 +29,12 @@ describe('link-label parseLinkParts', () => {
     expect(parseLinkParts('not-a-link')).toBeNull();
   });
 
+  it('labels Telegram WEB proxy links', () => {
+    expect(parseLinkParts('https://t.me/webproxy?server=example.com&secret=abc')?.protocol).toBe(
+      'Telegram WEB',
+    );
+  });
+
   // MTProto share links are tg://proxy deep links whose port rides in a query
   // param, not the URL authority; they carry no transport and use FakeTLS.
   it('labels an mtproto tg://proxy link with its query-param port and FakeTLS', () => {

@@ -143,6 +143,7 @@ export function parseLinkParts(link: string): LinkParts | null {
 
   const baseScheme = scheme.includes('+') ? scheme.split('+')[0] : scheme;
   const protocol =
+    (/^https:\/\/t\.me\/webproxy\?/i.test(trimmed) ? PROTOCOL_LABELS.webproxy : undefined) ??
     PROTOCOL_LABELS[baseScheme] ??
     PROTOCOL_LABELS[scheme] ??
     scheme.charAt(0).toUpperCase() + scheme.slice(1);

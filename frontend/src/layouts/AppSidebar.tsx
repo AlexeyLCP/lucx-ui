@@ -52,7 +52,7 @@ const TG_URL = 'https://t.me/Lucx_soft';
 const LOGOUT_KEY = '__logout__';
 // LUCX-HOOK: tunnels moved to Settings -> Cores (binaries + AWG module).
 // /tunnels stays in PANEL_ROUTES for the "Open tunnel configs" deep-link and direct URLs.
-const HIDDEN_ROUTES = ['/tunnels'];
+const HIDDEN_ROUTES = ['/tunnels', '/plugins', '/masking'];
 const RAIL_WIDTH = 72;
 const SIDER_WIDTH = 220;
 const SIDEBAR_PINNED_KEY = 'sidebar-pinned';
@@ -270,6 +270,13 @@ export default function AppSidebar() {
         icon: <CloudServerOutlined aria-hidden />,
         label: t('pages.settings.cores.menu'),
       },
+      ...PANEL_ROUTES.filter((route) => ['/plugins', '/masking'].includes(route.path)).map(
+        (route) => ({
+          key: route.path,
+          icon: <route.icon aria-hidden />,
+          label: t(route.titleKey),
+        }),
+      ),
       // END LUCX-HOOK
     ];
     if (showSubFormats) {
@@ -320,15 +327,17 @@ export default function AppSidebar() {
     [t],
   );
 
-  const settingsActive = pathname === '/settings';
+  const settingsActive =
+    pathname === '/settings' || pathname === '/plugins' || pathname === '/masking';
   const xrayActive = pathname === '/xray';
-  const selectedKey = settingsActive
-    ? `/settings${hash || '#general'}`
-    : xrayActive
-      ? `/xray${hash || '#basic'}`
-      : pathname === ''
-        ? '/'
-        : pathname;
+  const selectedKey =
+    pathname === '/settings'
+      ? `/settings${hash || '#general'}`
+      : xrayActive
+        ? `/xray${hash || '#basic'}`
+        : pathname === ''
+          ? '/'
+          : pathname;
 
   const openSubmenu = settingsActive ? '/settings' : xrayActive ? '/xray' : null;
   const [openKeys, setOpenKeys] = useState<string[]>(() => (openSubmenu ? [openSubmenu] : []));

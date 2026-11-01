@@ -74,3 +74,12 @@ test('labels the palette shortcut with the modifier the platform actually uses',
   const chip = view.container.querySelector('.sidebar-command-kbd');
   expect(chip?.textContent).toBe('CtrlK');
 });
+
+test('groups plugin manager and masking under panel settings', async () => {
+  localStorage.setItem('sidebar-pinned', 'true');
+  await renderSidebar();
+  fireEvent.click(screen.getByRole('menuitem', { name: /panel settings/i }));
+  const settings = screen.getByRole('menuitem', { name: /panel settings/i }).closest('li');
+  expect(settings?.textContent).toContain('Plugin Manager');
+  expect(settings?.textContent).toContain('Masking');
+});

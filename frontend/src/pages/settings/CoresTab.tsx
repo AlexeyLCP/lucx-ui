@@ -629,9 +629,9 @@ function PluginCard() {
   };
   const { t } = useTranslation();
   return (
-    <Card size="small" style={{ marginBottom: 12 }} title={t('pages.settings.cores.pluginsTitle')}>
+    <Card size="small" style={{ marginBottom: 12 }} title={t('pages.inbounds.form.pluginsTitle')}>
       <Typography.Paragraph type="secondary">
-        {t('pages.settings.cores.pluginsDesc')}
+        {t('pages.inbounds.form.pluginsDesc')}
       </Typography.Paragraph>
       <Upload
         accept=".zip"

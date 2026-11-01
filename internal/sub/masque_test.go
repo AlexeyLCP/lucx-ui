@@ -7,6 +7,7 @@ import (
 	"net"
 	"reflect"
 	"strconv"
+	"strings"
 	"testing"
 
 	xnet "github.com/xtls/xray-core/common/net"
@@ -90,7 +91,7 @@ func TestGetInboundsBySubIdIncludesMasque(t *testing.T) {
 	}
 }
 
-func TestSubscriptionOmitsTproxyInbound(t *testing.T) {
+func TestSubscriptionIncludesTproxyInbound(t *testing.T) {
 	initSubDB(t)
 	db := database.GetDB()
 	in := &model.Inbound{Port: 8444, Protocol: model.Tproxy, Enable: true, Tag: "tproxy-sub", Settings: `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f"}`}
@@ -108,11 +109,20 @@ func TestSubscriptionOmitsTproxyInbound(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if len(inbounds) != 0 {
-		t.Fatalf("WEB proxy must not appear in subscription: %+v", inbounds)
+	if len(inbounds) != 1 || inbounds[0].Id != in.Id {
+		t.Fatalf("WEB proxy inbound missing from subscription: %+v", inbounds)
 	}
-	if link := (&SubService{}).GetLink(in, rec.Email); link == "" {
-		t.Fatal("direct WEB proxy link should remain available")
+	links, _, _, _, err := (&SubService{}).GetSubs(rec.SubID, "sub.example.com")
+	if err != nil || len(links) != 1 || !strings.Contains(links[0], "https://t.me/webproxy?") {
+		t.Fatalf("WEB proxy subscription links = %v, err = %v", links, err)
+	}
+	in.Settings = `{"hostname":"proxy.example.com","secret":"000102030405060708090a0b0c0d0e0f","backend":"mtproto-zig"}`
+	if err := db.Model(in).Update("settings", in.Settings).Error; err != nil {
+		t.Fatal(err)
+	}
+	links, _, _, _, err = (&SubService{}).GetSubs(rec.SubID, "sub.example.com")
+	if err != nil || len(links) != 1 || !strings.Contains(links[0], "https://t.me/webproxy?") {
+		t.Fatalf("Zig WEB proxy subscription links = %v, err = %v", links, err)
 	}
 }
 

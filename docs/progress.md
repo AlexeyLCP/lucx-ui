@@ -1,5 +1,14 @@
 # LucX-UI — Прогресс
 
+## Unreleased — Telegram subscription and settings navigation
+
+- Restored Telegram WEB proxy links for legacy and MTProto Zig in raw subscriptions,
+  and included Telemt clients. JSON subscriptions continue to exclude these sidecars.
+- Fixed the plugin card translation keys, grouped Plugin Manager and Masking under
+  Panel Settings, and labeled Telegram WEB links correctly on subscription pages.
+- Verified subscription, AWG, LucX and database Go tests; frontend typecheck, lint,
+  build, navigation, sidebar, link-label and translation tests.
+
 ## lucx.334 — tag v3.11.0-lucx.334, sidebar fix + full CI recovery (2026-10-31)
 
 - Released as tag `v3.11.0-lucx.334` from `7ce2626a`. Assets: amd64/arm64
