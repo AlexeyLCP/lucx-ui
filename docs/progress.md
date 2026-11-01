@@ -1,6 +1,6 @@
 # LucX-UI — Прогресс
 
-## Unreleased — install plugin by GitHub link (credit: AllIsA1)
+## lucx.337 — install plugin by GitHub link (credit: AllIsA1)
 
 - Plugins page second install path: **Install from link**
   (`https://github.com/<owner>/<repo>`, optionally `/tree/<branch|tag|commit>`,
