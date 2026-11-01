@@ -28,7 +28,7 @@ func TestParseRepoLink(t *testing.T) {
 	if _, _, _, err := parseRepoLink("https://www.github.com/owner/repo"); err != nil {
 		t.Fatalf("www link rejected: %v", err)
 	}
-	owner, _, ref, err = parseRepoLink("https://github.com/owner/repo/tree/v1.2.1")
+	_, _, ref, err = parseRepoLink("https://github.com/owner/repo/tree/v1.2.1")
 	if err != nil || ref != "v1.2.1" {
 		t.Fatalf("pinned tag: %v %v", ref, err)
 	}
