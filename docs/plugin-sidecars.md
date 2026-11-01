@@ -166,14 +166,14 @@ before plugins can replace bots or read panel data.
 
 ## REST API (session-authenticated, `/panel/api/plugins`)
 
-| Method | Path                                        | Purpose                                   |
-| ------ | ------------------------------------------- | ----------------------------------------- |
-| GET    | `/list`                                     | all installed plugins with status         |
+| Method | Path                                        | Purpose                                                        |
+| ------ | ------------------------------------------- | -------------------------------------------------------------- |
+| GET    | `/list`                                     | all installed plugins with status                              |
 | GET    | `/:id/status`                               | manifest, running, pid, paths, last error, enforcement, health |
-| GET    | `/:id/logs?lines=200`                       | tail of `plugin.log`                      |
-| POST   | `/install`                                  | multipart field `file` = ZIP              |
-| POST   | `/:id/start` / `/:id/stop` / `/:id/restart` | lifecycle                                 |
-| POST   | `/:id/delete`                               | stop + remove directory                   |
+| GET    | `/:id/logs?lines=200`                       | tail of `plugin.log`                                           |
+| POST   | `/install`                                  | multipart field `file` = ZIP                                   |
+| POST   | `/:id/start` / `/:id/stop` / `/:id/restart` | lifecycle                                                      |
+| POST   | `/:id/delete`                               | stop + remove directory                                        |
 
 ## Pre-upload checklist
 
