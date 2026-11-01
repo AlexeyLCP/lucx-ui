@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strconv"
 	"strings"
+	"sync" // LUCX-HOOK: background database lifecycle
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
@@ -3279,6 +3280,10 @@ func isTableEmpty(tableName string) (bool, error) {
 }
 
 func InitDB(dbPath string) error {
+	// LUCX-HOOK: serialize replacement with background database jobs.
+	backgroundDB.Lock()
+	defer backgroundDB.Unlock()
+	// END LUCX-HOOK
 	var gormLogger logger.Interface
 	if config.IsDebug() {
 		gormLogger = logger.New(
@@ -3296,7 +3301,7 @@ func InitDB(dbPath string) error {
 	c := &gorm.Config{Logger: gormLogger, DisableForeignKeyConstraintWhenMigrating: true}
 
 	// Reopening replaces the process pool; the replaced one would keep its file open.
-	if err := CloseDB(); err != nil {
+	if err := closeDB(); err != nil { // LUCX-HOOK: lifecycle lock is held by InitDB
 		log.Printf("close the replaced database pool: %v", err)
 	}
 
@@ -3501,7 +3506,26 @@ func envInt(key string, def int) int {
 	return n
 }
 
+// LUCX-HOOK: background jobs must finish before the database pool is replaced.
+var backgroundDB sync.RWMutex
+
+func BeginBackgroundDB() func() {
+	backgroundDB.RLock()
+	return backgroundDB.RUnlock
+}
+
+// END LUCX-HOOK
+
 func CloseDB() error {
+	// LUCX-HOOK: drain background database jobs before closing the pool.
+	backgroundDB.Lock()
+	defer backgroundDB.Unlock()
+	// END LUCX-HOOK
+	return closeDB()
+}
+
+// LUCX-HOOK: caller holds the database lifecycle lock.
+func closeDB() error {
 	if db != nil {
 		sqlDB, err := db.DB()
 		if err != nil {

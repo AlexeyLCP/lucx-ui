@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## Unreleased — CSQTT background database lifecycle
+
+- Drain immediate CSQTT member synchronization before closing or replacing the
+  database pool, preventing background jobs from racing test database teardown.
+- Verified full database and service suites with shuffle, both normally and
+  with the race detector, under Linux WSL. Full Windows service runs hit the
+  unrelated gopsutil/synctest deadlock.
+
 ## Unreleased — WEB proxy selection and sidecar subscriptions
 
 - Show the legacy and Zig WEB proxy backends as separate inbound choices while

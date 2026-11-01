@@ -58,7 +58,9 @@ func GetCsqttMemberService() *CsqttMemberService { return &csqttMemberSync }
 // TriggerCsqttMemberSync refreshes members after a committed panel mutation.
 // The periodic job remains the recovery path when the CSQTT API is unavailable.
 func TriggerCsqttMemberSync() {
+	done := database.BeginBackgroundDB()
 	common.GoRecover("csqtt-member-sync", func() {
+		defer done()
 		ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 		defer cancel()
 		if err := GetCsqttMemberService().SyncAll(ctx); err != nil {
