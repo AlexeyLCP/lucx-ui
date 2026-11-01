@@ -29,12 +29,10 @@ func prepareCmd(cmd *exec.Cmd, m Manifest) error {
 		cmd.Args = append([]string{"/bin/sh", "-c", wrapper}, cmd.Args...)
 	}
 	if denyNetwork(m) {
-		attr, ok := cmd.SysProcAttr.(*syscall.SysProcAttr)
-		if !ok {
-			attr = &syscall.SysProcAttr{}
+		if cmd.SysProcAttr == nil {
+			cmd.SysProcAttr = &syscall.SysProcAttr{}
 		}
-		attr.Cloneflags |= syscall.CLONE_NEWNET
-		cmd.SysProcAttr = attr
+		cmd.SysProcAttr.Cloneflags |= syscall.CLONE_NEWNET
 	}
 	return nil
 }

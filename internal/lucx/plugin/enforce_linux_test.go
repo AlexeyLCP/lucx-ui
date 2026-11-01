@@ -7,11 +7,13 @@
 package plugin
 
 import (
+	"archive/zip"
 	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"os/exec"
 	"syscall"
 	"testing"
 	"time"
@@ -27,10 +29,7 @@ func TestPrepareCmdBuildsEnforcement(t *testing.T) {
 	if got := cmd.Args[0]; got != "/bin/sh" {
 		t.Fatalf("memory wrapper not prepended, args: %v", cmd.Args)
 	}
-	attr, ok := cmd.SysProcAttr.(*syscall.SysProcAttr)
-	if !ok {
-		t.Fatal("SysProcAttr was not set")
-	}
+	attr := cmd.SysProcAttr
 	if attr.Cloneflags&syscall.CLONE_NEWNET == 0 {
 		t.Fatal("network isolation flag missing")
 	}
