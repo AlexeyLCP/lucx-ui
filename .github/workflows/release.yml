@@ -290,6 +290,43 @@ jobs:
           fi
           test -s x-ui/bin/lucx-pins.txt
 
+      # GitHub issue #183: a stale vendored core can silently mask the pin
+      # build (pack-sidecars.sh rebuilds only when the file is absent), so the
+      # shipped binary must prove it understands every provider the UI accepts.
+      - name: Smoke-test olcRTC providers
+        run: |
+          set -euo pipefail
+          P="${{ matrix.platform }}"
+          BIN="x-ui/bin/olcrtc-linux-${P}"
+          test -x "$BIN"
+          for provider in jitsi telemost wbstream vkcalls mtslink; do
+            cat > /tmp/olcrtc-smoke.yaml <<EOF
+          mode: srv
+          auth:
+            provider: ${provider}
+          room:
+            id: https://example.com/call/smoke
+          crypto:
+            key: 0000000000000000000000000000000000000000000000000000000000000000
+          net:
+            transport: vp8channel
+          vp8:
+            fps: 30
+            batch_size: 16
+          liveness:
+            interval: 10s
+            timeout: 15s
+            failures: 4
+          debug: false
+          EOF
+            timeout 8 "$BIN" /tmp/olcrtc-smoke.yaml > /tmp/olcrtc-smoke.log 2>&1 || true
+            if grep -q "unsupported provider" /tmp/olcrtc-smoke.log; then
+              echo "::error::olcrtc-linux-${P} rejects provider ${provider} (stale vendored core?)" >&2
+              cat /tmp/olcrtc-smoke.log >&2
+              exit 1
+            fi
+          done
+
       - name: Package
         run: |
           tar -zcvf x-ui-linux-${{ matrix.platform }}.tar.gz x-ui

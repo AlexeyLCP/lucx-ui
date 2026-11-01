@@ -1,5 +1,26 @@
 # LucX-UI — Прогресс
 
+## Unreleased — fix lucx.335 stale vendored olcRTC core (#183)
+
+- `third_party/sidecars/linux-amd64/olcrtc-linux-amd64.gz` (2026-09-06, sha
+  `3330c8aa`) predated the vkcalls/mtslink providers → lucx.335 amd64 tarballs
+  accepted the inbounds in the panel (saving works) but the shipped core
+  exited `validate config: unsupported provider`. arm64 was always built from
+  the pin and unaffected.
+- Replaced the vendored gz with a build of the pinned Ghostlane olcRTC
+  v0.12.1 (`d15b37ec`) — the pin already contains vkcalls/mtslink; new gz sha
+  `418ea131…`, decompressed binary sha `c92b759e…` (`rg -a` confirms the
+  provider names and the validation path).
+- Release workflow: new `Smoke-test olcRTC providers` step (both platforms)
+  before packaging — runs the shipped core against minimal srv YAML for
+  jitsi/telemost/wbstream/vkcalls/mtslink and fails the build on
+  `unsupported provider`, so a stale vendored core can never silently ship
+  again (the pin build is skipped when the unpacked file exists — that skip
+  masked this once).
+- Update path stays fine: release pin list (`lucx-pins.txt`) regenerates from
+  the actual packed binaries, so `x-ui update` sees the sha mismatch and
+  refreshes the core.
+
 ## Unreleased — plugin manager Stage 2 (safety, fail-closed)
 
 - `internal/lucx/plugin`: manifest Stage 2 — `permissions` validated (only
