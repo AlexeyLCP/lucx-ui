@@ -6,6 +6,7 @@ package plugin
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"fmt"
 	"os"
@@ -123,7 +124,7 @@ func startUnit(p *managed, m Manifest, bin string) error {
 		"--replace", "--quiet",
 	}
 	args = append(args, props...)
-	cmd := exec.Command(systemdRunBin, append(args, bin)...)
+	cmd := exec.CommandContext(context.Background(), systemdRunBin, append(args, bin)...)
 	out, err := commandOutput(cmd)
 	if err != nil {
 		detail := strings.TrimSpace(string(out))
@@ -155,7 +156,7 @@ type unitStatus struct {
 probe after a panel restart: the unit may outlive the panel process.
 */
 func unitState(name string) unitStatus {
-	out, err := commandOutput(exec.Command(systemctlBin,
+	out, err := commandOutput(exec.CommandContext(context.Background(), systemctlBin,
 		"show", name, "-p", "ActiveState", "-p", "MainPID", "-p", "Result", "-p", "ExecMainStatus"))
 	if err != nil {
 		return unitStatus{running: false, detail: "systemd unit probe failed"}
@@ -188,7 +189,7 @@ func unitState(name string) unitStatus {
 }
 
 func stopUnit(name string) error {
-	if err := runCommand(exec.Command(systemctlBin, "stop", name)); err != nil {
+	if err := runCommand(exec.CommandContext(context.Background(), systemctlBin, "stop", name)); err != nil {
 		return err
 	}
 	return nil
@@ -207,7 +208,7 @@ func waitUnit(name string) {
 		}
 		time.Sleep(200 * time.Millisecond)
 	}
-	_ = runCommand(exec.Command(systemctlBin, "kill", "--signal=SIGKILL", name))
+	_ = runCommand(exec.CommandContext(context.Background(), systemctlBin, "kill", "--signal=SIGKILL", name))
 }
 
 /* selectRunner picks the start mode via the package var above (seam for
