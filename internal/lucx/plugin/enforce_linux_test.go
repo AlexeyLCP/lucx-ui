@@ -17,11 +17,15 @@ import (
 	"time"
 )
 
-func TestApplySysProcAttrBuildsLimits(t *testing.T) {
-	cmd := &exec.Cmd{}
+func TestPrepareCmdBuildsEnforcement(t *testing.T) {
+	cmd := exec.Command("/bin/olcrtc-linux-amd64")
+	cmd.Args = []string{"/bin/olcrtc-linux-amd64"}
 	m := Manifest{Permissions: map[string][]string{"network": {networkNone}}, Resources: &Resources{MaxMemoryMB: 64}}
-	if err := applySysProcAttr(cmd, m); err != nil {
+	if err := prepareCmd(cmd, m); err != nil {
 		t.Fatalf("enforcement preparation failed: %v", err)
+	}
+	if got := cmd.Args[0]; got != "/bin/sh" {
+		t.Fatalf("memory wrapper not prepended, args: %v", cmd.Args)
 	}
 	attr, ok := cmd.SysProcAttr.(*syscall.SysProcAttr)
 	if !ok {
@@ -30,11 +34,8 @@ func TestApplySysProcAttrBuildsLimits(t *testing.T) {
 	if attr.Cloneflags&syscall.CLONE_NEWNET == 0 {
 		t.Fatal("network isolation flag missing")
 	}
-	if len(attr.Rlimit) != 1 || attr.Rlimit[0].Type != syscall.RLIMIT_AS || attr.Rlimit[0].Cur != 64<<20 {
-		t.Fatalf("memory limit missing: %+v", attr.Rlimit)
-	}
-	plain := &exec.Cmd{}
-	if err := applySysProcAttr(plain, Manifest{}); err != nil || plain.SysProcAttr != nil {
+	plain := exec.Command("/bin/olcrtc-linux-amd64")
+	if err := prepareCmd(plain, Manifest{}); err != nil || plain.SysProcAttr != nil || len(plain.Args) != 1 {
 		t.Fatal("an unisolated manifest must not restrict the child")
 	}
 }

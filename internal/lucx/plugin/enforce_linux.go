@@ -8,26 +8,33 @@ package plugin
 
 import (
 	"os/exec"
+	"strconv"
 	"syscall"
 )
 
 const enforcementSupported = true
 
-// applySysProcAttr prepares the plugin child process per the fail-closed
-// Stage 2 contract: permissions.network ["none"] puts the child into its own
-// network namespace; resources.maxMemoryMB becomes RLIMIT_AS on the child only.
-func applySysProcAttr(cmd *exec.Cmd, m Manifest) error {
+// prepareCmd applies the fail-closed Stage 2 contract to the plugin child:
+// permissions.network ["none"] puts it into its own network namespace, and
+// resources.maxMemoryMB becomes RLIMIT_AS via a /bin/sh ulimit wrapper that
+// execs the entrypoint (env, dir, stdio and signal delivery are preserved;
+// RLIMIT_AS caps virtual memory, so Go plugins that reserve big arenas may
+// not survive their own limit — only declare it if the process fits).
+func prepareCmd(cmd *exec.Cmd, m Manifest) error {
 	if !needsEnforcement(m) {
 		return nil
 	}
-	attr := &syscall.SysProcAttr{}
-	if denyNetwork(m) {
-		attr.Cloneflags |= syscall.CLONE_NEWNET
-	}
 	if mb := memLimit(m); mb > 0 {
-		limit := uint64(mb) << 20
-		attr.Rlimit = append(attr.Rlimit, syscall.Rlimit{Type: syscall.RLIMIT_AS, Cur: limit, Max: limit})
+		wrapper := "ulimit -v " + strconv.Itoa(mb*1024) + " && exec \"$0\""
+		cmd.Args = append([]string{"/bin/sh", "-c", wrapper}, cmd.Args...)
 	}
-	cmd.SysProcAttr = attr
+	if denyNetwork(m) {
+		attr, ok := cmd.SysProcAttr.(*syscall.SysProcAttr)
+		if !ok {
+			attr = &syscall.SysProcAttr{}
+		}
+		attr.Cloneflags |= syscall.CLONE_NEWNET
+		cmd.SysProcAttr = attr
+	}
 	return nil
 }

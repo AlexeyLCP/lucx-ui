@@ -13,9 +13,9 @@ import (
 
 const enforcementSupported = false
 
-// applySysProcAttr refuses enforcement on unsupported platforms: a manifest
-// that asks for isolation or limits must not start silently unsandboxed.
-func applySysProcAttr(_ *exec.Cmd, m Manifest) error {
+// prepareCmd refuses enforcement on unsupported platforms: a manifest that
+// asks for isolation or limits must not start silently unsandboxed.
+func prepareCmd(_ *exec.Cmd, m Manifest) error {
 	if needsEnforcement(m) {
 		return errors.New("plugin network isolation and resource limits require Linux")
 	}

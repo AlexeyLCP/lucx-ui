@@ -433,7 +433,7 @@ func Start(id string) error {
 		return err
 	}
 	cmd := exec.CommandContext(context.Background(), bin)
-	if err := applySysProcAttr(cmd, m); err != nil {
+	if err := prepareCmd(cmd, m); err != nil {
 		log.Close()
 		p.lastError = err.Error()
 		return err
