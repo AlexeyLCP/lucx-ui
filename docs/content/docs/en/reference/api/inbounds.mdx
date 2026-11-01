@@ -77,6 +77,18 @@ _openapi:
         manifest.
       url: '#install-a-sidecar-plugin-zip-containing-a-validated-apiversion-1-manifest'
     - depth: 2
+      title: Validate the manifest of a public GitHub repository link (optionally
+        /tree/<ref> for a pinned ref) without installing anything. Returns the
+        parsed apiVersion 1 manifest so the panel can show what the operator is
+        about to approve.
+      url: '#validate-the-manifest-of-a-public-github-repository-link-optionally-treeref-for-a-pinned-ref-without-installing-anything-returns-the-parsed-apiversion-1-manifest-so-the-panel-can-show-what-the-operator-is-about-to-approve'
+    - depth: 2
+      title: Download the linked public GitHub repository and install it through the
+        same apiVersion 1 contract as the ZIP install (dir overwrite, data/
+        preserved, plugin not activated). The manifest must match the one the
+        preview returned.
+      url: '#download-the-linked-public-github-repository-and-install-it-through-the-same-apiversion-1-contract-as-the-zip-install-dir-overwrite-data-preserved-plugin-not-activated-the-manifest-must-match-the-one-the-preview-returned'
+    - depth: 2
       title: 'Status of one installed plugin: manifest, binary/data/log paths, running
         flag and PID.'
       url: '#status-of-one-installed-plugin-manifest-binarydatalog-paths-running-flag-and-pid'
@@ -277,6 +289,16 @@ _openapi:
       - content: Install a sidecar plugin ZIP containing a validated apiVersion 1
           manifest.
         id: install-a-sidecar-plugin-zip-containing-a-validated-apiversion-1-manifest
+      - content: Validate the manifest of a public GitHub repository link (optionally
+          /tree/<ref> for a pinned ref) without installing anything. Returns the
+          parsed apiVersion 1 manifest so the panel can show what the operator
+          is about to approve.
+        id: validate-the-manifest-of-a-public-github-repository-link-optionally-treeref-for-a-pinned-ref-without-installing-anything-returns-the-parsed-apiversion-1-manifest-so-the-panel-can-show-what-the-operator-is-about-to-approve
+      - content: Download the linked public GitHub repository and install it through the
+          same apiVersion 1 contract as the ZIP install (dir overwrite, data/
+          preserved, plugin not activated). The manifest must match the one the
+          preview returned.
+        id: download-the-linked-public-github-repository-and-install-it-through-the-same-apiversion-1-contract-as-the-zip-install-dir-overwrite-data-preserved-plugin-not-activated-the-manifest-must-match-the-one-the-preview-returned
       - content: 'Status of one installed plugin: manifest, binary/data/log paths,
           running flag and PID.'
         id: status-of-one-installed-plugin-manifest-binarydatalog-paths-running-flag-and-pid
@@ -397,7 +419,7 @@ export default function Layout(props) {
   return (
     <>
       {props.children}
-      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/inbounds/list","method":"get"},{"path":"/panel/api/inbounds/list/slim","method":"get"},{"path":"/panel/api/inbounds/options","method":"get"},{"path":"/panel/api/inbounds/amneziawgKernelReadiness","method":"get"},{"path":"/panel/api/inbounds/allLinks","method":"get"},{"path":"/panel/api/inbounds/{id}/links","method":"get"},{"path":"/panel/api/inbounds/get/{id}","method":"get"},{"path":"/panel/api/inbounds/{id}/appleRelayDDM","method":"post"},{"path":"/panel/api/plugins/list","method":"get"},{"path":"/panel/api/plugins/install","method":"post"},{"path":"/panel/api/plugins/{id}/status","method":"get"},{"path":"/panel/api/plugins/{id}/logs","method":"get"},{"path":"/panel/api/plugins/{id}/start","method":"post"},{"path":"/panel/api/plugins/{id}/stop","method":"post"},{"path":"/panel/api/plugins/{id}/restart","method":"post"},{"path":"/panel/api/plugins/{id}/delete","method":"post"},{"path":"/panel/api/inbounds/add","method":"post"},{"path":"/panel/api/inbounds/del/{id}","method":"post"},{"path":"/panel/api/inbounds/bulkDel","method":"post"},{"path":"/panel/api/inbounds/update/{id}","method":"post"},{"path":"/panel/api/inbounds/setEnable/{id}","method":"post"},{"path":"/panel/api/inbounds/{id}/subSortIndex","method":"post"},{"path":"/panel/api/inbounds/{id}/resetTraffic","method":"post"},{"path":"/panel/api/inbounds/{id}/delAllClients","method":"post"},{"path":"/panel/api/inbounds/resetAllTraffics","method":"post"},{"path":"/panel/api/inbounds/wireguard/importPreview","method":"post"},{"path":"/panel/api/inbounds/awg/generateObfuscation","method":"post"},{"path":"/panel/api/inbounds/awg/captureHost","method":"post"},{"path":"/panel/api/inbounds/{id}/awgDiagnostics","method":"get"},{"path":"/panel/api/inbounds/awg/import/preview","method":"get"},{"path":"/panel/api/inbounds/awg/import/dismiss","method":"post"},{"path":"/panel/api/inbounds/awg/import/commit","method":"post"},{"path":"/panel/api/inbounds/awg/import/delete","method":"post"},{"path":"/panel/api/inbounds/{id}/awgTestMtu","method":"get"},{"path":"/panel/api/inbounds/gatewayEnsure","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayPreview","method":"get"},{"path":"/panel/api/inbounds/{id}/gatewayApply","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayRevert","method":"post"},{"path":"/panel/api/inbounds/import","method":"post"},{"path":"/panel/api/inbounds/pushClientTraffics","method":"post"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"get"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"post"}]} showTitle />
+      <OpenAPIPage document="./public/openapi.json" webhooks={[]} operations={[{"path":"/panel/api/inbounds/list","method":"get"},{"path":"/panel/api/inbounds/list/slim","method":"get"},{"path":"/panel/api/inbounds/options","method":"get"},{"path":"/panel/api/inbounds/amneziawgKernelReadiness","method":"get"},{"path":"/panel/api/inbounds/allLinks","method":"get"},{"path":"/panel/api/inbounds/{id}/links","method":"get"},{"path":"/panel/api/inbounds/get/{id}","method":"get"},{"path":"/panel/api/inbounds/{id}/appleRelayDDM","method":"post"},{"path":"/panel/api/plugins/list","method":"get"},{"path":"/panel/api/plugins/install","method":"post"},{"path":"/panel/api/plugins/install/url/preview","method":"post"},{"path":"/panel/api/plugins/install/url","method":"post"},{"path":"/panel/api/plugins/{id}/status","method":"get"},{"path":"/panel/api/plugins/{id}/logs","method":"get"},{"path":"/panel/api/plugins/{id}/start","method":"post"},{"path":"/panel/api/plugins/{id}/stop","method":"post"},{"path":"/panel/api/plugins/{id}/restart","method":"post"},{"path":"/panel/api/plugins/{id}/delete","method":"post"},{"path":"/panel/api/inbounds/add","method":"post"},{"path":"/panel/api/inbounds/del/{id}","method":"post"},{"path":"/panel/api/inbounds/bulkDel","method":"post"},{"path":"/panel/api/inbounds/update/{id}","method":"post"},{"path":"/panel/api/inbounds/setEnable/{id}","method":"post"},{"path":"/panel/api/inbounds/{id}/subSortIndex","method":"post"},{"path":"/panel/api/inbounds/{id}/resetTraffic","method":"post"},{"path":"/panel/api/inbounds/{id}/delAllClients","method":"post"},{"path":"/panel/api/inbounds/resetAllTraffics","method":"post"},{"path":"/panel/api/inbounds/wireguard/importPreview","method":"post"},{"path":"/panel/api/inbounds/awg/generateObfuscation","method":"post"},{"path":"/panel/api/inbounds/awg/captureHost","method":"post"},{"path":"/panel/api/inbounds/{id}/awgDiagnostics","method":"get"},{"path":"/panel/api/inbounds/awg/import/preview","method":"get"},{"path":"/panel/api/inbounds/awg/import/dismiss","method":"post"},{"path":"/panel/api/inbounds/awg/import/commit","method":"post"},{"path":"/panel/api/inbounds/awg/import/delete","method":"post"},{"path":"/panel/api/inbounds/{id}/awgTestMtu","method":"get"},{"path":"/panel/api/inbounds/gatewayEnsure","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayPreview","method":"get"},{"path":"/panel/api/inbounds/{id}/gatewayApply","method":"post"},{"path":"/panel/api/inbounds/{id}/gatewayRevert","method":"post"},{"path":"/panel/api/inbounds/import","method":"post"},{"path":"/panel/api/inbounds/pushClientTraffics","method":"post"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"get"},{"path":"/panel/api/inbounds/{id}/fallbacks","method":"post"}]} showTitle />
     </>
   );
 }
