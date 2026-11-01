@@ -67,7 +67,7 @@ argv only).
 Back-compat: plugins installed before Stage 2 (no enforcement requested)
 start exactly as before; manifests declaring only empty permission arrays stay valid.
 
-## Stage 3 — panel seams (planned; unlocks bots)
+## Stage 3 — execution + seams (planned; unlocks bots)
 
 What plugins may **not** do today (no panel API, no DB, no bot tokens, no subscription seams) becomes possible through **authenticated seams**:
 
@@ -76,7 +76,22 @@ What plugins may **not** do today (no panel API, no DB, no bot tokens, no subscr
 - **subscription seams** — read/export and `sub/after` hooks (injected links after client entries);
 - DB access: **no direct DB** is the working decision — plugins go through the panel API seam; revisit only if the API seam proves insufficient.
 
-This is the stage that "lets plugins replace bots or read panel data" (plugin-sidecars.md), i.e. scenarios 2–3 of the goal.
+Seams need the plugin to serve requests on a unix socket — that contract and the event
+delivery over it are Stage 3b/3c. Stage 3 ships in increments:
+
+| Inc | Content                                                                                                        | Why this order                                                                                                    |
+| --- | -------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| 3a  | **Unit runner**: plugins start as `systemd-run` transient units (PrivateNetwork, ProtectSystem/caps, MemoryMax, CPUQuota) with the in-process child runner as fallback | Resolves open question 8 live-verified under the hardened panel unit (netns EPERM); unit namespace/protect properties are kernel-enforced regardless of uid |
+| 3b  | **Socket contract + events**: opt-in plugin listens on `$LUCX_SOCKET`, panel POSTs eventbus events (client.\*, inbound.\*, xray.crash, cpu/memory.high…) to `/_lucx/events`, best-effort 5 s, no-retry, per-plugin queue + counters | Socket gets a real consumer (events) before seams lean on it                                                        |
+| 3c  | **API seam + bot token seam**: scoped panel credential delivered at start (env), permission matrix `api:<resource>:read/write` checked against resolved routes | Smallest seam that unblocks "bots that read panel data"                                                            |
+| 3d  | **Subscription seams**: read/export and `sub/after` (link injection after client entries)                       | Rule 0/0b: never mutates issued client configs                                                                     |
+
+Runner semantics (3a decision, refines the borrowed AllIsA1 design to run in-panel instead of a separate host service):
+
+- A plugin that requests enforcement (`network: ["none"]`, `maxMemoryMB`, `maxCPUPercent`) is started as a **transient systemd unit** (`lucx-plugin-<id>`, `systemd-run`): `PrivateNetwork=yes` for netns, `MemoryMax`/`LimitAS` for the memory cap, `CPUQuota` for the CPU cap, empty `CapabilityBoundingSet`, `ProtectSystem=strict`, `ProtectHome=yes`, `PrivateTmp=yes`, `PrivateDevices=yes`, `RestrictNamespaces=yes`, `NoNewPrivileges`, `KillSignal=SIGINT` + `TimeoutStopSec=3` (Stop law preserved), `StandardOutput/StandardError=append:` to `plugin.log`, `WorkingDirectory` = plugin dir.
+- The unit runs **as the panel's user** (no DynamicUser in 3a: plugin code and data stay under the panel's ownership; data-path contract unchanged). Confinement is reported honestly as *unit (partial)* — namespaces, mounts, capabilities and limits are kernel-enforced; the filesystem stays readable, unlike AllIsA1's strong "own user" level. DynamicUser/state-directory ownership is reconsidered with the socket stage.
+- A plugin that requests nothing may still start as a unit when available, or fall back to the child process (today's behavior). A plugin that requests enforcement and a host where the panel cannot create units → **refused at start, fail closed** (no silent downgrade).
+- The panel supervises state via `systemctl show` (ActiveState/MainPID); stop/restart goes through the unit; plugin units outlive a panel restart by design (documented behavior change), delete/uninstall stops the unit first.
 
 ## Stage 5 — UI seams (planned; goal scenario 4)
 
@@ -139,7 +154,7 @@ A plugin `type` per group is the working rule: `sidecar` (process), `preset` (da
 5. UI page auth: how a plugin iframe authenticates to the panel API seam (scoped token injected into the iframe; expiry and revocation), and CSP/sandbox policy for it.
 6. Theme scope: stock panel themes as a settings feature first, plugin-provided themes after — or themes skip the plugin system entirely?
 7. Data plugin type (`preset`): validation depth (full Zod mirror of form choices?), merge priority vs. stock presets, and whether packs are versioned with `apiVersion`.
-8. Network isolation ops: under the hardened panel unit the netns clone is denied (verified live 2026-11-01) — Stage 3 must decide the spawner (a dedicated `lucx-plugins.service` runner, or a documented netns exemption in the unit) before `network: ["none"]` becomes usable; until then it stays fail-closed.
+8. Network isolation ops: **decided (lucx.338, stage 3a)** — the spawner is the `systemd-run` transient unit with `PrivateNetwork=yes`; the panel's own hardened unit only needs permission to talk to systemd once per start, so it no longer needs the netns clone. Until the runner lands, `network: ["none"]` stays fail-closed.
 9. Install-by-link trust model: same-session confirm is enough, or should a second install from a NEW link always re-confirm; and does an update-by-link show the permission diff before applying (see AllIsA1's update UX).
 
 ## External prior art — AllIsA1/lucx-plugins

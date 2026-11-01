@@ -85,14 +85,29 @@ and works out of the box regardless of how the ZIP was built.
   "host:port", "intervalSeconds": 5..3600 (default 30), "timeoutSeconds":
   1..60 (default 5) }`. Probes never restart the plugin. A probe is rejected
   together with network isolation (an isolated plugin is unreachable).
+- `resources.maxCPUPercent` (1..100, or absent) — CPU cgroup cap
+  (systemd `CPUQuota`) for the plugin. Available **only** on the unit runner;
+  a manifest that declares it is refused at start when the unit runner is
+  unavailable, so the cap is never silently skipped.
+- **Runner** (from lucx.338 / stage 3a): plugins that ask for enforcement
+  start as transient systemd units (`lucx-plugin-<id>`, started with
+  `systemd-run`: `PrivateNetwork=yes` for `network: ["none"]`, `MemoryMax`
+  and `LimitAS` for the memory cap, `CPUQuota` for the CPU cap, empty
+  `CapabilityBoundingSet`, `ProtectSystem=strict`, `ProtectHome=yes`,
+  `PrivateTmp=yes`, `RestrictNamespaces=yes`, `NoNewPrivileges`;
+  `KillSignal=SIGINT` and `TimeoutStopSec=3` preserve the Stop contract).
+  The status reports the runner (`"unit"` or `"process"`) and which caps are
+  actually enforced. When the host prevents the panel from starting units
+  (no system systemd manager, or the panel unit blocks it), a plugin that
+  asks **only** for netns/memory cap falls back to the child process runner
+  (which enforces or refuses fail-closed as before), while a plugin that
+  asks for a CPU cap is refused: units are the only way to cap CPU. Plugin
+  units **outlive a panel restart** (documented behavior change since
+  lucx.338: a started plugin keeps running when the panel restarts; delete
+  and uninstall stop the unit first).
 - Fail closed: on a host without enforcement (non-Linux, or no privileges on
   Linux) a manifest that asks for isolation or limits is refused at start —
-  the panel refuses to run it unsandboxed silently. Live stand note
-  (2026-11-01): the panel's hardened systemd unit (`SystemCallFilter` drop-in)
-  denies the `CLONE_NEWNET` clone for plugin children — on such hosts
-  `network: ["none"]` is refused at start with that message; making netns
-  isolation available under the hardened unit needs a dedicated plugin runner
-  unit (Stage 3 decision).
+  the panel refuses to run it unsandboxed silently.
 
 ## Runtime contract
 
@@ -218,6 +233,8 @@ before plugins can replace bots or read panel data.
 - [ ] `permissions`: `panelApi`/`bot` empty; `network` is `["none"]` only if
       the plugin truly needs no network (Linux-only isolation);
 - [ ] `resources.maxMemoryMB` set to a realistic cap, if any (Linux-only);
+  `resources.maxCPUPercent` (1..100) when the plugin must share the host
+  politely (needs the systemd unit runner);
 - [ ] `health` probe target reachable from the panel and NOT combined with
       `network: ["none"]`;
 - [ ] package ≤ 200 MB.

@@ -53,7 +53,8 @@ type HealthCheck struct {
 }
 
 type Resources struct {
-	MaxMemoryMB int `json:"maxMemoryMB,omitempty"`
+	MaxMemoryMB   int `json:"maxMemoryMB,omitempty"`
+	MaxCPUPercent int `json:"maxCPUPercent,omitempty"`
 }
 
 // Equal compares resources blocks for the preview-vs-installed check.
@@ -76,6 +77,8 @@ type EnforcementInfo struct {
 	NetworkIsolated bool `json:"networkIsolated"`
 	MemoryLimitMB   int  `json:"memoryLimitMB,omitempty"`
 	Enforceable     bool `json:"enforceable"`
+	CPULimitPercent int  `json:"cpuLimitPercent,omitempty"`
+	CPUEnforced     bool `json:"cpuEnforced,omitempty"`
 }
 
 type HealthStatus struct {
@@ -102,6 +105,7 @@ type Status struct {
 	Installed   bool            `json:"installed"`
 	Running     bool            `json:"running"`
 	PID         int             `json:"pid,omitempty"`
+	Runner      string          `json:"runner,omitempty"`
 	BinaryPath  string          `json:"binaryPath"`
 	DataPath    string          `json:"dataPath"`
 	LogPath     string          `json:"logPath"`
@@ -115,6 +119,8 @@ type managed struct {
 	cmd             *exec.Cmd
 	done            chan struct{}
 	log             *os.File
+	mode            string
+	unit            string
 	lastError       string
 	healthStatus    string
 	healthDetail    string
@@ -151,10 +157,17 @@ func memLimit(m Manifest) int {
 	return m.Resources.MaxMemoryMB
 }
 
+func cpuLimit(m Manifest) int {
+	if m.Resources == nil {
+		return 0
+	}
+	return m.Resources.MaxCPUPercent
+}
+
 // needsEnforcement reports whether the manifest asks for enforcement the
 // platform must apply at process start.
 func needsEnforcement(m Manifest) bool {
-	return denyNetwork(m) || memLimit(m) > 0
+	return denyNetwork(m) || memLimit(m) > 0 || cpuRequiresUnit(m)
 }
 
 func validatePermissions(p map[string][]string) error {
@@ -257,6 +270,9 @@ func validateManifest(m Manifest) error {
 	}
 	if m.Resources != nil && m.Resources.MaxMemoryMB != 0 && (m.Resources.MaxMemoryMB < 16 || m.Resources.MaxMemoryMB > 131072) {
 		return errors.New("plugin resources.maxMemoryMB must be between 16 and 131072, or 0/absent")
+	}
+	if m.Resources != nil && m.Resources.MaxCPUPercent != 0 && (m.Resources.MaxCPUPercent < 1 || m.Resources.MaxCPUPercent > 100) {
+		return errors.New("plugin resources.maxCPUPercent must be between 1 and 100, or 0/absent")
 	}
 	return validateHealth(m.Health, denyNetwork(m))
 }
@@ -399,6 +415,9 @@ func Get(id string) (Status, error) {
 	manager.Unlock()
 	s := Status{Manifest: m, Installed: true, BinaryPath: filepath.Join(dir(id), m.Entrypoint), DataPath: dataPath(id), LogPath: logPath(id)}
 	s.Enforcement = EnforcementInfo{NetworkIsolated: denyNetwork(m), MemoryLimitMB: memLimit(m), Enforceable: enforcementSupported}
+	if cpu := cpuLimit(m); cpu > 0 {
+		s.Enforcement.CPULimitPercent = cpu
+	}
 	if m.Health != nil {
 		health := &HealthStatus{Status: "unknown"}
 		if p != nil {
@@ -412,13 +431,40 @@ func Get(id string) (Status, error) {
 		}
 		s.Health = health
 	}
+	if p == nil && runtime.GOOS == "linux" && lookPathUnit() {
+		st := unitState(unitName(id))
+		if st.running {
+			s.Running, s.Runner = true, runnerUnit
+			if st.pid > 0 {
+				s.PID = st.pid
+			}
+			if st.detail != "" {
+				s.LastError = st.detail
+			}
+			s.Enforcement.CPUEnforced = cpuLimit(m) > 0
+		}
+	}
 	if p != nil {
 		p.mu.Lock()
-		s.Running = p.cmd != nil && p.cmd.Process != nil
-		if s.Running {
-			s.PID = p.cmd.Process.Pid
+		s.Runner = p.mode
+		switch p.mode {
+		case runnerUnit:
+			st := unitState(p.unit)
+			s.Running = st.running
+			if st.running && st.pid > 0 {
+				s.PID = st.pid
+				s.Enforcement.CPUEnforced = cpuLimit(m) > 0
+			}
+			if st.detail != "" {
+				s.LastError = st.detail
+			}
+		default:
+			s.Running = p.cmd != nil && p.cmd.Process != nil
+			if s.Running {
+				s.PID = p.cmd.Process.Pid
+			}
+			s.LastError = p.lastError
 		}
-		s.LastError = p.lastError
 		p.mu.Unlock()
 	}
 	return s, nil
@@ -455,33 +501,66 @@ func Start(id string) error {
 	manager.Unlock()
 	p.mu.Lock()
 	defer p.mu.Unlock()
+	if p.mode == runnerUnit && unitState(unitName(id)).running {
+		return nil
+	}
 	if p.cmd != nil {
 		return nil
 	}
-	log, err := os.OpenFile(logPath(id), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if binAbs, err := filepath.Abs(bin); err == nil {
+		bin = binAbs
+	}
+	mode := selectRunner(m)
+	if cpuRequiresUnit(m) && mode != runnerUnit {
+		p.lastError = "plugin CPU capping requires the systemd unit runner"
+		return errors.New(p.lastError)
+	}
+	if mode == runnerUnit {
+		if err := startUnit(p, m, bin); err != nil {
+			p.lastError = err.Error()
+		} else {
+			p.lastError = ""
+			return nil
+		}
+	}
+	/* The unit runner refused: fall through to the process runner. It applies
+	its own enforcement (netns clone, RLIMIT_AS) and refuses fail-closed on
+	hosts where that is impossible, so an enforcement manifest can never start
+	silently unsandboxed (verified Stage 2 behavior). */
+	if err := startChild(p, m, bin); err != nil {
+		p.lastError = err.Error()
+		return errors.New(p.lastError)
+	}
+	p.mode = runnerProcess
+	p.lastError = ""
+	return nil
+}
+
+/*
+	startChild is the classic Stage 1-2 supervised child process: panel-owned
+
+stdio, health goroutine and exit watcher included.
+*/
+func startChild(p *managed, m Manifest, bin string) error {
+	log, err := os.OpenFile(logPath(m.ID), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
 	}
 	// cmd.Dir makes the kernel resolve a relative argv0 against the plugin
 	// directory (Go chdirs the child before execve), so the exec path must be
 	// absolute or it doubles into dir/bin/plugins/<id>/entrypoint.
-	if binAbs, err := filepath.Abs(bin); err == nil {
-		bin = binAbs
-	}
 	cmd := exec.CommandContext(context.Background(), bin)
 	if err := prepareCmd(cmd, m); err != nil {
 		log.Close()
-		p.lastError = err.Error()
 		return err
 	}
-	cmd.Dir = dir(id)
-	cmd.Env = append(os.Environ(), "LUCX_PLUGIN_ID="+m.ID, "LUCX_PLUGIN_VERSION="+m.Version, "LUCX_PLUGIN_DATA="+dataPath(id))
+	cmd.Dir = dir(m.ID)
+	cmd.Env = append(os.Environ(), "LUCX_PLUGIN_ID="+m.ID, "LUCX_PLUGIN_VERSION="+m.Version, "LUCX_PLUGIN_DATA="+dataPath(m.ID))
 	cmd.Stdout = log
 	cmd.Stderr = log
 	if err := cmd.Start(); err != nil {
 		log.Close()
-		p.lastError = startFailure(err, m)
-		return errors.New(p.lastError)
+		return errors.New(startFailure(err, m))
 	}
 	done := make(chan struct{})
 	p.cmd = cmd
@@ -501,6 +580,7 @@ func Start(id string) error {
 			p.cmd = nil
 			p.done = nil
 		}
+		p.mode = ""
 		p.mu.Unlock()
 		close(done)
 	}()
@@ -515,9 +595,27 @@ func Stop(id string) error {
 	p := manager.procs[id]
 	manager.Unlock()
 	if p == nil {
+		/* The panel may have restarted while the unit kept running; stop by
+		name when it does. A missing unit (already collected) makes stop fail
+		harmlessly, so only the still-running case is stopped. */
+		if runtime.GOOS == "linux" && lookPathUnit() && unitState(unitName(id)).running {
+			_ = stopUnit(unitName(id))
+			waitUnit(unitName(id))
+		}
 		return nil
 	}
 	p.mu.Lock()
+	if p.mode == runnerUnit {
+		name := p.unit
+		if unitState(name).running {
+			_ = stopUnit(name)
+			waitUnit(name)
+		}
+		p.mode = ""
+		p.unit = ""
+		p.mu.Unlock()
+		return nil
+	}
 	if p.cmd == nil || p.cmd.Process == nil {
 		p.mu.Unlock()
 		return nil

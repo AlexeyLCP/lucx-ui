@@ -198,7 +198,10 @@ export default function PluginManagerPage() {
                 )}
                 {plugins.map((plugin) => {
                   const { enforcement } = plugin;
-                  const asked = enforcement.networkIsolated || (enforcement.memoryLimitMB ?? 0) > 0;
+                  const asked =
+                    enforcement.networkIsolated ||
+                    (enforcement.memoryLimitMB ?? 0) > 0 ||
+                    (enforcement.cpuLimitPercent ?? 0) > 0;
                   return (
                     <Card
                       key={plugin.manifest.id}
@@ -241,6 +244,18 @@ export default function PluginManagerPage() {
                           {(enforcement.memoryLimitMB ?? 0) > 0 && (
                             <Tag color="geekblue">
                               {t('pages.plugins.memoryLimit', { count: enforcement.memoryLimitMB })}
+                            </Tag>
+                          )}
+                          {(enforcement.cpuLimitPercent ?? 0) > 0 && (
+                            <Tag color={enforcement.cpuEnforced ? 'geekblue' : 'orange'}>
+                              {t('pages.plugins.cpuLimit', { count: enforcement.cpuLimitPercent })}
+                            </Tag>
+                          )}
+                          {plugin.runner && (
+                            <Tag color={plugin.runner === 'unit' ? 'geekblue' : 'default'}>
+                              {plugin.runner === 'unit'
+                                ? t('pages.plugins.runnerUnit')
+                                : t('pages.plugins.runnerProcess')}
                             </Tag>
                           )}
                           {asked && !enforcement.enforceable && (

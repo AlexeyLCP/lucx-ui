@@ -7,7 +7,7 @@ export type PluginManifest = {
   type: string;
   entrypoint?: string;
   permissions?: Record<string, string[]>;
-  resources?: { maxMemoryMB?: number };
+  resources?: { maxMemoryMB?: number; maxCPUPercent?: number };
   health?: { type: string; target: string; intervalSeconds?: number; timeoutSeconds?: number };
 };
 
@@ -16,6 +16,7 @@ export type PluginStatus = {
   installed: boolean;
   running: boolean;
   pid?: number;
+  runner?: 'unit' | 'process';
   binaryPath: string;
   dataPath: string;
   logPath: string;
@@ -24,6 +25,8 @@ export type PluginStatus = {
     networkIsolated: boolean;
     memoryLimitMB?: number;
     enforceable: boolean;
+    cpuLimitPercent?: number;
+    cpuEnforced?: boolean;
   };
   health?: { status: 'pass' | 'fail' | 'unknown'; detail?: string; checkedAt?: number };
 };

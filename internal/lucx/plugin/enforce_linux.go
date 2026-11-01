@@ -7,6 +7,7 @@
 package plugin
 
 import (
+	"errors"
 	"os/exec"
 	"strconv"
 	"syscall"
@@ -23,6 +24,9 @@ const enforcementSupported = true
 func prepareCmd(cmd *exec.Cmd, m Manifest) error {
 	if !needsEnforcement(m) {
 		return nil
+	}
+	if cpuRequiresUnit(m) {
+		return errors.New("plugin CPU capping requires the systemd unit runner")
 	}
 	if mb := memLimit(m); mb > 0 {
 		// Go executes cmd.Path and passes cmd.Args as argv only, so the

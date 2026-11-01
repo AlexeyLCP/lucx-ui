@@ -1,5 +1,40 @@
 # LucX-UI — Прогресс
 
+## Unreleased — stage 3a: unit runner for enforcement (AllIsA1 prior-art, in-panel integration)
+
+- Second runner mode on Linux: plugins start as **transient systemd units**
+  (`lucx-plugin-<id>` via `systemd-run`), kernel-enforced `PrivateNetwork=yes`
+  for `network: ["none"]` — resolves the verified netns-EPERM under the
+  panel's hardened unit (open question 8 in `docs/plugin-manager.md`,
+  decided), `MemoryMax`+`LimitAS` for `maxMemoryMB`(=64MB LimitAS parity),
+  `CPUQuota` for the new `resources.maxCPUPercent` (1..100), empty
+  `CapabilityBoundingSet`, `ProtectSystem=strict`, `ProtectHome`,
+  `PrivateTmp`, `PrivateDevices`, `RestrictNamespaces`, `NoNewPrivileges`,
+  `KillSignal=SIGINT`+`TimeoutStopSec=3` (Stop law), logs via
+  `StandardOutput/StandardError=append:` to the same `plugin.log`,
+  `WorkingDirectory`=plugin dir. Units run as the panel's user (no
+  DynamicUser yet — data-path contract unchanged); honest "unit (partial)"
+  disclosure: namespaces/mounts/limits enforced, filesystem readable.
+- Fallback: unit runner unavailable → child process runner (Stage 1-2 path,
+  unchanged, still fail-closed on netns EPERM; CPU-only manifests refused —
+  `prepareCmd` refuses on Linux and non-Linux). Enforcement manifests never
+  start silently unsandboxed. Unit state supervised by `systemctl show`
+  (ActiveState/MainPID/Result); units survive a panel restart (documented
+  behavior change), stop/restart/delete go through the panel first.
+- Status payload: `runner` ("unit"|"process"), `enforcement.cpuLimitPercent`,
+  `enforcement.cpuEnforced`; outlived-panel case detected on `Get` by unit
+  name. Validation: `maxCPUPercent` 1..100; `needsEnforcement` includes CPU.
+- Frontend card: runner tag (unit/process) + CPU cap tag (orange when not
+  enforced); 3 new i18n keys (`cpuLimit`, `runnerUnit`, `runnerProcess`) in
+  all 14 locales. Stage 2 card test extended (unit runner fixture asserts
+  both new tags).
+- Tests: `runner_test.go` — unit property table (`-p` pairs exact incl. Stop
+  law), parse of `systemctl show` output (active/failed/pid), failed-start
+  result surfacing without taking supervision, no-unit-runner CPU refusal,
+  validation bounds; fake seams for systemd binaries keep the suite
+  OS-neutral. `go test ./internal/lucx/plugin/ -count=1` green (Windows),
+  full Go suite green, frontend unit+components+lint+tsc green.
+
 ## lucx.337 — install plugin by GitHub link (credit: AllIsA1)
 
 - Plugins page second install path: **Install from link**

@@ -54,6 +54,7 @@ func TestStartStopsPlugin(t *testing.T) {
 	orig := binFolder
 	binFolder = func() string { return td }
 	defer func() { binFolder = orig }()
+	forceRunner(t, runnerProcess)
 
 	var b bytes.Buffer
 	zw := zip.NewWriter(&b)
@@ -112,6 +113,7 @@ func TestStartAppliesNetNs(t *testing.T) {
 	orig := binFolder
 	binFolder = func() string { return td }
 	defer func() { binFolder = orig }()
+	forceRunner(t, runnerProcess)
 
 	var b bytes.Buffer
 	zw := zip.NewWriter(&b)

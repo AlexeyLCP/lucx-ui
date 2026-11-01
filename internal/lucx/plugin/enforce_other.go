@@ -17,6 +17,9 @@ const enforcementSupported = false
 // asks for isolation or limits must not start silently unsandboxed.
 func prepareCmd(_ *exec.Cmd, m Manifest) error {
 	if needsEnforcement(m) {
+		if cpuRequiresUnit(m) {
+			return errors.New("plugin CPU capping requires the systemd unit runner, which needs Linux with systemd")
+		}
 		return errors.New("plugin network isolation and resource limits require Linux")
 	}
 	return nil

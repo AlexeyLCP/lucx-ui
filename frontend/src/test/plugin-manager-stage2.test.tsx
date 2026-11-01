@@ -19,15 +19,22 @@ const plugins: PluginStatus[] = [
       version: '1.0.0',
       type: 'sidecar',
       permissions: { network: ['none'], panelApi: [], bot: [] },
-      resources: { maxMemoryMB: 64 },
+      resources: { maxMemoryMB: 64, maxCPUPercent: 25 },
       health: { type: 'http', target: 'http://127.0.0.1:8080/healthz' },
     },
     installed: true,
     running: true,
+    runner: 'unit',
     binaryPath: 'bin/plugins/demo/run.sh',
     dataPath: 'bin/plugins/demo/data',
     logPath: 'bin/plugins/demo/plugin.log',
-    enforcement: { networkIsolated: true, memoryLimitMB: 64, enforceable: true },
+    enforcement: {
+      networkIsolated: true,
+      memoryLimitMB: 64,
+      enforceable: true,
+      cpuLimitPercent: 25,
+      cpuEnforced: true,
+    },
     health: { status: 'fail', detail: 'connect refused', checkedAt: 1 },
   },
   {
@@ -90,6 +97,8 @@ describe('PluginManagerPage', () => {
     await within(card).findByText('Unhealthy');
     expect(within(card).getByText('Network isolated')).toBeTruthy();
     expect(within(card).getByText('Memory limit: 64 MB')).toBeTruthy();
+    expect(within(card).getByText('CPU limit: 25%')).toBeTruthy();
+    expect(within(card).getByText('systemd unit')).toBeTruthy();
     const askedCard = cardWithText('bin/plugins/asked/run.sh');
     expect(within(askedCard).getByText('Not enforced on this host')).toBeTruthy();
     expect(screen.getAllByText('Stopped').length).toBeGreaterThan(0);
