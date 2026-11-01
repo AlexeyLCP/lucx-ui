@@ -25,8 +25,11 @@ func prepareCmd(cmd *exec.Cmd, m Manifest) error {
 		return nil
 	}
 	if mb := memLimit(m); mb > 0 {
+		// Go executes cmd.Path and passes cmd.Args as argv only, so the
+		// ulimit wrapper must replace Path, not prepend to Args.
 		wrapper := "ulimit -v " + strconv.Itoa(mb*1024) + " && exec \"$0\""
-		cmd.Args = append([]string{"/bin/sh", "-c", wrapper}, cmd.Args...)
+		cmd.Args = []string{"/bin/sh", "-c", wrapper, cmd.Path}
+		cmd.Path = "/bin/sh"
 	}
 	if denyNetwork(m) {
 		if cmd.SysProcAttr == nil {

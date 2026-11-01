@@ -14,6 +14,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"os/exec"
+	"strings"
 	"syscall"
 	"testing"
 	"time"
@@ -26,8 +27,11 @@ func TestPrepareCmdBuildsEnforcement(t *testing.T) {
 	if err := prepareCmd(cmd, m); err != nil {
 		t.Fatalf("enforcement preparation failed: %v", err)
 	}
-	if got := cmd.Args[0]; got != "/bin/sh" {
-		t.Fatalf("memory wrapper not prepended, args: %v", cmd.Args)
+	if got := cmd.Path; got != "/bin/sh" {
+		t.Fatalf("wrapper did not replace the exec path: %v", cmd.Path)
+	}
+	if len(cmd.Args) != 4 || cmd.Args[3] != "/bin/olcrtc-linux-amd64" || !strings.Contains(cmd.Args[2], "ulimit -v 65536") {
+		t.Fatalf("wrapper argv malformed: %v", cmd.Args)
 	}
 	attr := cmd.SysProcAttr
 	if attr.Cloneflags&syscall.CLONE_NEWNET == 0 {
