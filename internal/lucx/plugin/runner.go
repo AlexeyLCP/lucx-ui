@@ -119,9 +119,11 @@ error.
 func startUnit(p *managed, m Manifest, bin string) error {
 	plugDir := dir(m.ID)
 	props := unitProps(m, plugDir, logPath(m.ID))
+	_ = runCommand(exec.CommandContext(context.Background(), systemctlBin,
+		"reset-failed", unitName(m.ID)))
 	args := []string{
 		"--unit=" + unitName(m.ID), "--collect", "--no-ask-password",
-		"--replace", "--quiet",
+		"--quiet",
 	}
 	args = append(args, props...)
 	cmd := exec.CommandContext(context.Background(), systemdRunBin, append(args, bin)...)
@@ -134,6 +136,7 @@ func startUnit(p *managed, m Manifest, bin string) error {
 		return fmt.Errorf("systemd unit runner: %w", err)
 	}
 	if state := unitState(unitName(m.ID)); !state.running && state.detail != "" {
+		_, _ = appendPluginLog(m.ID, state.detail)
 		return errors.New(state.detail)
 	}
 	p.mode = runnerUnit
@@ -142,6 +145,15 @@ func startUnit(p *managed, m Manifest, bin string) error {
 		p.done = make(chan struct{})
 	}
 	return nil
+}
+
+func appendPluginLog(id, text string) (int, error) {
+	f, err := os.OpenFile(logPath(id), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
+	if err != nil {
+		return 0, err
+	}
+	defer f.Close()
+	return f.WriteString(text + "\n")
 }
 
 type unitStatus struct {
