@@ -1,6 +1,6 @@
 # LucX-UI — Прогресс
 
-## Unreleased — fix lucx.335 stale vendored olcRTC core (#183)
+## lucx.336 — fix lucx.335 stale vendored olcRTC core (#183)
 
 - `third_party/sidecars/linux-amd64/olcrtc-linux-amd64.gz` (2026-09-06, sha
   `3330c8aa`) predated the vkcalls/mtslink providers → lucx.335 amd64 tarballs
@@ -21,7 +21,7 @@
   the actual packed binaries, so `x-ui update` sees the sha mismatch and
   refreshes the core.
 
-## Unreleased — plugin manager Stage 2 (safety, fail-closed)
+## lucx.336 — plugin manager Stage 2 (safety, fail-closed)
 
 - `internal/lucx/plugin`: manifest Stage 2 — `permissions` validated (only
   network/panelApi/bot keys; `panelApi`/`bot` must stay empty in apiVersion 1;
