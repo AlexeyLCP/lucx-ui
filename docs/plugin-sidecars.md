@@ -233,8 +233,8 @@ before plugins can replace bots or read panel data.
 - [ ] `permissions`: `panelApi`/`bot` empty; `network` is `["none"]` only if
       the plugin truly needs no network (Linux-only isolation);
 - [ ] `resources.maxMemoryMB` set to a realistic cap, if any (Linux-only);
-  `resources.maxCPUPercent` (1..100) when the plugin must share the host
-  politely (needs the systemd unit runner);
+      `resources.maxCPUPercent` (1..100) when the plugin must share the host
+      politely (needs the systemd unit runner);
 - [ ] `health` probe target reachable from the panel and NOT combined with
       `network: ["none"]`;
 - [ ] package ≤ 200 MB.
