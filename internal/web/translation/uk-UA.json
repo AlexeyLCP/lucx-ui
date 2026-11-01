@@ -144,7 +144,13 @@
       "restart": "Restart",
       "delete": "Delete",
       "deleteConfirm": "Delete this plugin?",
-      "operationFailed": "Plugin operation failed."
+      "operationFailed": "Plugin operation failed.",
+      "networkIsolated": "Ізоляція мережі",
+      "memoryLimit": "Ліміт памʼяті: {count} МБ",
+      "notEnforcedHere": "Не діє на цьому хості",
+      "healthPass": "Здоровий",
+      "healthFail": "Нездоровий",
+      "healthUnknown": "Без перевірки"
     },
     "login": {
       "hello": "Привіт",

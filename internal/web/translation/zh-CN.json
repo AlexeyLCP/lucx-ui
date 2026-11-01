@@ -144,7 +144,13 @@
       "restart": "Restart",
       "delete": "Delete",
       "deleteConfirm": "Delete this plugin?",
-      "operationFailed": "Plugin operation failed."
+      "operationFailed": "Plugin operation failed.",
+      "networkIsolated": "网络隔离",
+      "memoryLimit": "内存限制：{count} MB",
+      "notEnforcedHere": "此主机上未强制",
+      "healthPass": "正常",
+      "healthFail": "异常",
+      "healthUnknown": "未探测"
     },
     "login": {
       "hello": "你好",

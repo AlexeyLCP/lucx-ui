@@ -144,7 +144,13 @@
       "restart": "Restart",
       "delete": "Delete",
       "deleteConfirm": "Delete this plugin?",
-      "operationFailed": "Plugin operation failed."
+      "operationFailed": "Plugin operation failed.",
+      "networkIsolated": "Red aislada",
+      "memoryLimit": "Límite de memoria: {count} MB",
+      "notEnforcedHere": "No se aplica en este host",
+      "healthPass": "Saludable",
+      "healthFail": "Con problemas",
+      "healthUnknown": "Sin sondeo"
     },
     "login": {
       "hello": "Hola",

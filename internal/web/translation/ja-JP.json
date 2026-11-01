@@ -144,7 +144,13 @@
       "restart": "Restart",
       "delete": "Delete",
       "deleteConfirm": "Delete this plugin?",
-      "operationFailed": "Plugin operation failed."
+      "operationFailed": "Plugin operation failed.",
+      "networkIsolated": "ネットワーク分離",
+      "memoryLimit": "メモリ上限: {count} MB",
+      "notEnforcedHere": "このホストでは未適用",
+      "healthPass": "正常",
+      "healthFail": "異常",
+      "healthUnknown": "未診断"
     },
     "login": {
       "hello": "こんにちは",

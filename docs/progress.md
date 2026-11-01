@@ -1,5 +1,27 @@
 # LucX-UI — Прогресс
 
+## Unreleased — plugin manager Stage 2 (safety, fail-closed)
+
+- `internal/lucx/plugin`: manifest Stage 2 — `permissions` validated (only
+  network/panelApi/bot keys; `panelApi`/`bot` must stay empty in apiVersion 1;
+  `network` accepts only `["none"]`), `resources.maxMemoryMB` (16..131072),
+  `health` probe ({http|tcp, target, interval, timeout}; defaults 30 s/5 s;
+  rejected together with network isolation). Start applies enforcement:
+  `network: ["none"]` → child in its own netns, `maxMemoryMB` → RLIMIT_AS
+  (`enforce_linux.go` / `enforce_other.go`); a manifest asking for enforcement
+  on a host without it is refused at start and the refusal shows in the
+  plugin status. Status gains `enforcement` + `health` (pass/fail, detail,
+  timestamp); probes report only, no auto-restart (contract unchanged).
+- Windows install fix: the entrypoint executable-bit check ran on a mode that
+  NTFS cannot express → refused any plugin; now Unix-only.
+- Frontend: plugin card shows isolation/memory/unenforced tags and probe
+  status; `PluginStatus` type extended; six i18n keys added to all 14 locales.
+- Verified: `go test ./internal/lucx/plugin/ -count=1` (incl. netns/rlimit
+  linux tests and the windows-refusal contract test), frontend typecheck,
+  lint, i18n dead-keys, new components test (plugin card Stage 2).
+- Plan/contract: `docs/plugin-manager.md`, `docs/plugin-sidecars.md` updated
+  (Stage 2 sections, prompts, pre-upload checklist).
+
 ## lucx.335 — subscription links, WEB proxy selection and CI
 
 - Restore Telegram WEB and Telemt subscription links; add MasterDNS and

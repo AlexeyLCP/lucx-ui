@@ -144,7 +144,13 @@
       "restart": "Restart",
       "delete": "Delete",
       "deleteConfirm": "Delete this plugin?",
-      "operationFailed": "Plugin operation failed."
+      "operationFailed": "Plugin operation failed.",
+      "networkIsolated": "Cách ly mạng",
+      "memoryLimit": "Giới hạn bộ nhớ: {count} MB",
+      "notEnforcedHere": "Không áp dụng trên máy này",
+      "healthPass": "Hoạt động tốt",
+      "healthFail": "Có vấn đề",
+      "healthUnknown": "Chưa kiểm tra"
     },
     "login": {
       "hello": "Xin chào",

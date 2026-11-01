@@ -83,59 +83,95 @@ export default function PluginManagerPage() {
                     <Typography.Text type="secondary">{t('pages.plugins.empty')}</Typography.Text>
                   </Card>
                 )}
-                {plugins.map((plugin) => (
-                  <Card
-                    key={plugin.manifest.id}
-                    size="small"
-                    title={
-                      <Space>
-                        {plugin.manifest.name}
-                        <Tag>{plugin.manifest.version}</Tag>
-                        <Tag color={plugin.running ? 'green' : 'default'}>
-                          {plugin.running ? t('pages.plugins.running') : t('pages.plugins.stopped')}
-                        </Tag>
-                      </Space>
-                    }
-                  >
-                    <Typography.Paragraph type="secondary">
-                      {plugin.manifest.id} · {plugin.manifest.type}
-                    </Typography.Paragraph>
-                    <Typography.Paragraph
-                      copyable={{ text: plugin.binaryPath }}
-                      ellipsis={{ rows: 1 }}
+                {plugins.map((plugin) => {
+                  const { enforcement } = plugin;
+                  const asked = enforcement.networkIsolated || (enforcement.memoryLimitMB ?? 0) > 0;
+                  return (
+                    <Card
+                      key={plugin.manifest.id}
+                      size="small"
+                      title={
+                        <Space>
+                          {plugin.manifest.name}
+                          <Tag>{plugin.manifest.version}</Tag>
+                          <Tag color={plugin.running ? 'green' : 'default'}>
+                            {plugin.running
+                              ? t('pages.plugins.running')
+                              : t('pages.plugins.stopped')}
+                          </Tag>
+                          {plugin.manifest.health && (
+                            <Tag
+                              color={
+                                plugin.health?.status === 'pass'
+                                  ? 'green'
+                                  : plugin.health?.status === 'fail'
+                                    ? 'red'
+                                    : 'default'
+                              }
+                            >
+                              {t(
+                                `pages.plugins.health${plugin.health?.status === 'pass' ? 'Pass' : plugin.health?.status === 'fail' ? 'Fail' : 'Unknown'}`,
+                              )}
+                            </Tag>
+                          )}
+                        </Space>
+                      }
                     >
-                      {plugin.binaryPath}
-                    </Typography.Paragraph>
-                    <Space wrap>
-                      <Button
-                        disabled={busy}
-                        onClick={() =>
-                          void run(() =>
-                            plugin.running
-                              ? pluginsApi.stop(plugin.manifest.id)
-                              : pluginsApi.start(plugin.manifest.id),
-                          )
-                        }
+                      <Typography.Paragraph type="secondary">
+                        {plugin.manifest.id} · {plugin.manifest.type}
+                      </Typography.Paragraph>
+                      {asked && (
+                        <Space wrap style={{ marginBottom: 8 }}>
+                          {enforcement.networkIsolated && (
+                            <Tag color="geekblue">{t('pages.plugins.networkIsolated')}</Tag>
+                          )}
+                          {(enforcement.memoryLimitMB ?? 0) > 0 && (
+                            <Tag color="geekblue">
+                              {t('pages.plugins.memoryLimit', { count: enforcement.memoryLimitMB })}
+                            </Tag>
+                          )}
+                          {asked && !enforcement.enforceable && (
+                            <Tag color="orange">{t('pages.plugins.notEnforcedHere')}</Tag>
+                          )}
+                        </Space>
+                      )}
+                      <Typography.Paragraph
+                        copyable={{ text: plugin.binaryPath }}
+                        ellipsis={{ rows: 1 }}
                       >
-                        {plugin.running ? t('pages.plugins.stop') : t('pages.plugins.start')}
-                      </Button>
-                      <Button
-                        disabled={busy}
-                        onClick={() => void run(() => pluginsApi.restart(plugin.manifest.id))}
-                      >
-                        {t('pages.plugins.restart')}
-                      </Button>
-                      <Popconfirm
-                        title={t('pages.plugins.deleteConfirm')}
-                        onConfirm={() => void run(() => pluginsApi.remove(plugin.manifest.id))}
-                      >
-                        <Button danger icon={<DeleteOutlined aria-hidden />} disabled={busy}>
-                          {t('pages.plugins.delete')}
+                        {plugin.binaryPath}
+                      </Typography.Paragraph>
+                      <Space wrap>
+                        <Button
+                          disabled={busy}
+                          onClick={() =>
+                            void run(() =>
+                              plugin.running
+                                ? pluginsApi.stop(plugin.manifest.id)
+                                : pluginsApi.start(plugin.manifest.id),
+                            )
+                          }
+                        >
+                          {plugin.running ? t('pages.plugins.stop') : t('pages.plugins.start')}
                         </Button>
-                      </Popconfirm>
-                    </Space>
-                  </Card>
-                ))}
+                        <Button
+                          disabled={busy}
+                          onClick={() => void run(() => pluginsApi.restart(plugin.manifest.id))}
+                        >
+                          {t('pages.plugins.restart')}
+                        </Button>
+                        <Popconfirm
+                          title={t('pages.plugins.deleteConfirm')}
+                          onConfirm={() => void run(() => pluginsApi.remove(plugin.manifest.id))}
+                        >
+                          <Button danger icon={<DeleteOutlined aria-hidden />} disabled={busy}>
+                            {t('pages.plugins.delete')}
+                          </Button>
+                        </Popconfirm>
+                      </Space>
+                    </Card>
+                  );
+                })}
               </Space>
             </Spin>
           </Layout.Content>

@@ -14,11 +14,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -30,11 +33,38 @@ const maxPackageSize = 200 << 20
 
 var pluginID = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]{0,63}$`)
 
+// networkNone requests network isolation for the plugin process (Stage 2).
+// It is the only enforceable permission token in apiVersion 1.
+const networkNone = "none"
+
 func validateID(id string) error {
 	if !pluginID.MatchString(id) {
 		return errors.New("invalid plugin ID")
 	}
 	return nil
+}
+
+type HealthCheck struct {
+	Type            string `json:"type"` // "http" | "tcp"
+	Target          string `json:"target"`
+	IntervalSeconds int    `json:"intervalSeconds,omitempty"`
+	TimeoutSeconds  int    `json:"timeoutSeconds,omitempty"`
+}
+
+type Resources struct {
+	MaxMemoryMB int `json:"maxMemoryMB,omitempty"`
+}
+
+type EnforcementInfo struct {
+	NetworkIsolated bool `json:"networkIsolated"`
+	MemoryLimitMB   int  `json:"memoryLimitMB,omitempty"`
+	Enforceable     bool `json:"enforceable"`
+}
+
+type HealthStatus struct {
+	Status    string `json:"status"` // "pass" | "fail" | "unknown"
+	Detail    string `json:"detail,omitempty"`
+	CheckedAt int64  `json:"checkedAt,omitempty"`
 }
 
 type Manifest struct {
@@ -46,25 +76,32 @@ type Manifest struct {
 	Entrypoint    string              `json:"entrypoint"`
 	Architectures []string            `json:"architectures"`
 	Permissions   map[string][]string `json:"permissions,omitempty"`
+	Resources     *Resources          `json:"resources,omitempty"`
+	Health        *HealthCheck        `json:"health,omitempty"`
 }
 
 type Status struct {
-	Manifest   Manifest `json:"manifest"`
-	Installed  bool     `json:"installed"`
-	Running    bool     `json:"running"`
-	PID        int      `json:"pid,omitempty"`
-	BinaryPath string   `json:"binaryPath"`
-	DataPath   string   `json:"dataPath"`
-	LogPath    string   `json:"logPath"`
-	LastError  string   `json:"lastError,omitempty"`
+	Manifest    Manifest        `json:"manifest"`
+	Installed   bool            `json:"installed"`
+	Running     bool            `json:"running"`
+	PID         int             `json:"pid,omitempty"`
+	BinaryPath  string          `json:"binaryPath"`
+	DataPath    string          `json:"dataPath"`
+	LogPath     string          `json:"logPath"`
+	LastError   string          `json:"lastError,omitempty"`
+	Enforcement EnforcementInfo `json:"enforcement"`
+	Health      *HealthStatus   `json:"health,omitempty"`
 }
 
 type managed struct {
-	mu        sync.Mutex
-	cmd       *exec.Cmd
-	done      chan struct{}
-	log       *os.File
-	lastError string
+	mu              sync.Mutex
+	cmd             *exec.Cmd
+	done            chan struct{}
+	log             *os.File
+	lastError       string
+	healthStatus    string
+	healthDetail    string
+	healthCheckedAt int64
 }
 
 var manager = struct {
@@ -72,11 +109,112 @@ var manager = struct {
 	procs map[string]*managed
 }{procs: map[string]*managed{}}
 
-func root() string                  { return filepath.Join(config.GetBinFolderPath(), "plugins") }
+// binFolder is the test seam for the plugin storage root.
+var binFolder = config.GetBinFolderPath
+
+func root() string                  { return filepath.Join(binFolder(), "plugins") }
 func dir(id string) string          { return filepath.Join(root(), id) }
 func manifestPath(id string) string { return filepath.Join(dir(id), "manifest.json") }
 func dataPath(id string) string     { return filepath.Join(dir(id), "data") }
 func logPath(id string) string      { return filepath.Join(dir(id), "plugin.log") }
+
+func denyNetwork(m Manifest) bool {
+	for _, rule := range m.Permissions["network"] {
+		if rule == networkNone {
+			return true
+		}
+	}
+	return false
+}
+
+func memLimit(m Manifest) int {
+	if m.Resources == nil {
+		return 0
+	}
+	return m.Resources.MaxMemoryMB
+}
+
+// needsEnforcement reports whether the manifest asks for enforcement the
+// platform must apply at process start.
+func needsEnforcement(m Manifest) bool {
+	return denyNetwork(m) || memLimit(m) > 0
+}
+
+func validatePermissions(p map[string][]string) error {
+	for kind, rules := range p {
+		if kind != "network" && kind != "panelApi" && kind != "bot" {
+			return fmt.Errorf("unknown plugin permission %q (allowed: network, panelApi, bot)", kind)
+		}
+		if len(rules) > 16 {
+			return fmt.Errorf("plugin permission %q has too many entries", kind)
+		}
+		for _, rule := range rules {
+			if rule == "" || len(rule) > 128 {
+				return fmt.Errorf("plugin permission %q has an invalid entry", kind)
+			}
+		}
+	}
+	if len(p["panelApi"]) > 0 || len(p["bot"]) > 0 {
+		return errors.New("apiVersion 1 grants no panelApi or bot access: these permissions must stay empty")
+	}
+	for _, rule := range p["network"] {
+		if rule != networkNone {
+			return fmt.Errorf("unsupported network rule %q in apiVersion 1; only %q is enforced", rule, networkNone)
+		}
+	}
+	return nil
+}
+
+func validateTCP(hostPort string) error {
+	host, port, err := net.SplitHostPort(hostPort)
+	if err != nil {
+		return errors.New("plugin health tcp target must be host:port")
+	}
+	if host == "" {
+		return errors.New("plugin health tcp target requires a host")
+	}
+	portNum, err := strconv.Atoi(port)
+	if err != nil || portNum < 1 || portNum > 65535 {
+		return errors.New("plugin health tcp target requires a valid port")
+	}
+	return nil
+}
+
+func validateHealth(h *HealthCheck, isolated bool) error {
+	if h == nil {
+		return nil
+	}
+	if h.Type != "http" && h.Type != "tcp" {
+		return errors.New("plugin health type must be http or tcp")
+	}
+	if h.Target == "" {
+		return errors.New("plugin health requires a target")
+	}
+	if h.Type == "http" {
+		u, err := url.Parse(h.Target)
+		if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
+			return errors.New("plugin health http target must be an http(s) URL")
+		}
+	} else if err := validateTCP(h.Target); err != nil {
+		return err
+	}
+	if h.IntervalSeconds == 0 {
+		h.IntervalSeconds = 30
+	}
+	if h.IntervalSeconds < 5 || h.IntervalSeconds > 3600 {
+		return errors.New("plugin health intervalSeconds must be between 5 and 3600")
+	}
+	if h.TimeoutSeconds == 0 {
+		h.TimeoutSeconds = 5
+	}
+	if h.TimeoutSeconds < 1 || h.TimeoutSeconds > 60 || h.TimeoutSeconds > h.IntervalSeconds {
+		return errors.New("plugin health timeoutSeconds must be 1..60 and not exceed intervalSeconds")
+	}
+	if isolated {
+		return errors.New("health probes cannot reach a network-isolated plugin")
+	}
+	return nil
+}
 
 func validateManifest(m Manifest) error {
 	if err := validateID(m.ID); err != nil {
@@ -97,7 +235,13 @@ func validateManifest(m Manifest) error {
 	if len(m.Architectures) > 0 && !okArch {
 		return fmt.Errorf("plugin does not support %s", runtime.GOARCH)
 	}
-	return nil
+	if err := validatePermissions(m.Permissions); err != nil {
+		return err
+	}
+	if m.Resources != nil && m.Resources.MaxMemoryMB != 0 && (m.Resources.MaxMemoryMB < 16 || m.Resources.MaxMemoryMB > 131072) {
+		return errors.New("plugin resources.maxMemoryMB must be between 16 and 131072, or 0/absent")
+	}
+	return validateHealth(m.Health, denyNetwork(m))
 }
 
 func Load(id string) (Manifest, error) {
@@ -194,7 +338,12 @@ func InstallPackage(r io.Reader, size int64) (Manifest, error) {
 	if err != nil || info.IsDir() {
 		return m, errors.New("plugin entrypoint is missing")
 	}
-	if info.Mode().Perm()&0o111 == 0 {
+	if info.Mode().IsDir() {
+		return m, errors.New("plugin entrypoint is a directory")
+	}
+	// NTFS carries no exec bit: the 0700 guarantee is Unix-only, so the
+	// entrypoint check applies where the bits are real.
+	if runtime.GOOS != "windows" && info.Mode().Perm()&0o111 == 0 {
 		return m, errors.New("plugin entrypoint is not executable")
 	}
 	return m, nil
@@ -229,6 +378,20 @@ func Get(id string) (Status, error) {
 	p := manager.procs[id]
 	manager.Unlock()
 	s := Status{Manifest: m, Installed: true, BinaryPath: filepath.Join(dir(id), m.Entrypoint), DataPath: dataPath(id), LogPath: logPath(id)}
+	s.Enforcement = EnforcementInfo{NetworkIsolated: denyNetwork(m), MemoryLimitMB: memLimit(m), Enforceable: enforcementSupported}
+	if m.Health != nil {
+		health := &HealthStatus{Status: "unknown"}
+		if p != nil {
+			p.mu.Lock()
+			if p.healthStatus != "" {
+				health.Status = p.healthStatus
+				health.Detail = p.healthDetail
+				health.CheckedAt = p.healthCheckedAt
+			}
+			p.mu.Unlock()
+		}
+		s.Health = health
+	}
 	if p != nil {
 		p.mu.Lock()
 		s.Running = p.cmd != nil && p.cmd.Process != nil
@@ -270,6 +433,11 @@ func Start(id string) error {
 		return err
 	}
 	cmd := exec.CommandContext(context.Background(), bin)
+	if err := applySysProcAttr(cmd, m); err != nil {
+		log.Close()
+		p.lastError = err.Error()
+		return err
+	}
 	cmd.Dir = dir(id)
 	cmd.Env = append(os.Environ(), "LUCX_PLUGIN_ID="+m.ID, "LUCX_PLUGIN_VERSION="+m.Version, "LUCX_PLUGIN_DATA="+dataPath(id))
 	cmd.Stdout = log
@@ -283,6 +451,9 @@ func Start(id string) error {
 	p.cmd = cmd
 	p.done = done
 	p.log = log
+	if m.Health != nil {
+		go runHealth(p, done, *m.Health)
+	}
 	go func() {
 		err := cmd.Wait()
 		log.Close()

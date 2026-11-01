@@ -1,5 +1,7 @@
 # Sidecar plugins (MVP)
 
+Project plan / roadmap: [plugin-manager.md](plugin-manager.md).
+
 LucX-UI can install and supervise user-supplied sidecar plugins. This first
 release intentionally exposes only process management. Plugins do not receive
 panel API access, database access, Telegram bot tokens, or subscription seams.
@@ -43,6 +45,26 @@ Manifest rules exactly as the panel validates them:
 Executable bits from the ZIP are not preserved: every extracted file gets
 `0700` (owner rwx), so a script entrypoint needs a proper `#!/bin/sh` shebang
 and works out of the box regardless of how the ZIP was built.
+
+### Stage 2 enforcement (apiVersion 1)
+
+- `permissions` may contain only `network`, `panelApi`, `bot`, up to 16 short
+  entries each. `panelApi`/`bot` must stay **empty** — apiVersion 1 grants no
+  panel API or bot seams; a non-empty list is refused at install and at start.
+- `network` accepts only the value `"none"`: the plugin starts inside its own
+  network namespace with **no network access** (Linux, the panel's privileges
+  — typically root). An empty `network` list or an absent `permissions` keeps
+  today's behavior: the plugin may use the network. Any other value is refused.
+- `resources.maxMemoryMB` (16..131072, or absent) — RLIMIT_AS for the plugin
+  process (Linux only).
+- `health` — optional process probe, reported in the status:
+  `{ "type": "http" | "tcp", "target": "http://127.0.0.1:8080/healthz" or
+  "host:port", "intervalSeconds": 5..3600 (default 30), "timeoutSeconds":
+  1..60 (default 5) }`. Probes never restart the plugin. A probe is rejected
+  together with network isolation (an isolated plugin is unreachable).
+- Fail closed: on a host without enforcement (non-Linux, or no privileges on
+  Linux) a manifest that asks for isolation or limits is refused at start —
+  the panel refuses to run it unsandboxed silently.
 
 ## Runtime contract
 
@@ -118,30 +140,36 @@ May (works today):
   responsible for firewall rules and port conflicts;
 - store files under its own installation directory.
 
-May not (not granted in this MVP):
+May not (enforced in Stage 2):
 
-- call the panel API or database — no credentials are passed;
+- call the panel API or database — no credentials are passed, and a manifest
+  declaring `panelApi`/`bot` permissions is refused at install/start;
+- use the network while `permissions.network` is `["none"]` (own network
+  namespace, Linux);
+- exceed `resources.maxMemoryMB` (RLIMIT_AS, Linux);
 - read another plugin's directory or data;
 - get Telegram bot tokens or inject into subscriptions / client exports;
-- exceed any resource limits — none are enforced;
 - survive panel restarts automatically — starting a plugin remains a manual
   panel action.
 
-`manifest.permissions` (`network`, `panelApi`, `bot`) is declared only — the
-MVP does not enforce it yet; it exists so today's plugins declare intent for
-later versions.
+`manifest.permissions` is declared at package time and enforced on start:
+apiVersion 1 understands only the empty set and `network: ["none"]`; anything
+else is refused, so future versions can extend the vocabulary without a
+back-compat break.
 
-This MVP does not sandbox arbitrary native code. Install only packages you
-trust. The next plugin iteration will add explicit permission enforcement,
-health checks, resource limits, and authenticated panel seams before plugins
-can replace bots or read panel data.
+This plugin system does not sandbox arbitrary native code beyond the Stage 2
+process-level enforcement (network namespace + memory limit on Linux). Install
+only packages you trust; the process-level contract is described above and the
+status API reports what is enforced and what probes say. The next plugin
+iteration adds the authenticated panel seams (API, tokens, subscriptions)
+before plugins can replace bots or read panel data.
 
 ## REST API (session-authenticated, `/panel/api/plugins`)
 
 | Method | Path                                        | Purpose                                   |
 | ------ | ------------------------------------------- | ----------------------------------------- |
 | GET    | `/list`                                     | all installed plugins with status         |
-| GET    | `/:id/status`                               | manifest, running, pid, paths, last error |
+| GET    | `/:id/status`                               | manifest, running, pid, paths, last error, enforcement, health |
 | GET    | `/:id/logs?lines=200`                       | tail of `plugin.log`                      |
 | POST   | `/install`                                  | multipart field `file` = ZIP              |
 | POST   | `/:id/start` / `/:id/stop` / `/:id/restart` | lifecycle                                 |
@@ -157,6 +185,11 @@ can replace bots or read panel data.
 - [ ] the entrypoint starts and stays up when run manually with
       `LUCX_PLUGIN_ID`, `LUCX_PLUGIN_VERSION`, `LUCX_PLUGIN_DATA` set;
 - [ ] the process writes enough to stdout for post-mortem via Logs;
+- [ ] `permissions`: `panelApi`/`bot` empty; `network` is `["none"]` only if
+      the plugin truly needs no network (Linux-only isolation);
+- [ ] `resources.maxMemoryMB` set to a realistic cap, if any (Linux-only);
+- [ ] `health` probe target reachable from the panel and NOT combined with
+      `network: ["none"]`;
 - [ ] package ≤ 200 MB.
 
 ## AI prompts for plugin development
@@ -184,6 +217,11 @@ a plugin. Prompt 1 generates from scratch, prompt 2 reviews existing code.
   SIGINT/SIGTERM и завершайся чисто.
 - Авто-рестарта нет: процесс должен сам жить (цикл/сервис), при падении
   остаётся выключенным.
+- Stage 2: панель enforce'ит манифест. panelApi/bot оставь пустыми — в
+  apiVersion 1 они не выдаются, манифест с непустыми будет отклонён. Если
+  плагину сеть не нужна — поставь network: ["none"] (изоляция в netns, Linux).
+  Опционально: health {type: "http"|"tcp", target, intervalSeconds,
+  timeoutSeconds} и resources {maxMemoryMB} для лимита памяти.
 Моя задача: <ОПИШИ ЗАДАЧУ ПЛАГИНА: что слушает/делает, какие порты, что
 хранит>.
 Выдай: (1) manifest.json, (2) код плагина (shell-скрипт со shebang ИЛИ
@@ -213,6 +251,11 @@ Hard rules:
   SIGINT/SIGTERM and exit cleanly.
 - No auto-restart: the process must stay alive by itself (loop/service); if
   it crashes it stays down until started manually.
+- Stage 2: the panel enforces the manifest. Keep panelApi/bot empty — they are
+  not granted in apiVersion 1 and a non-empty list is refused. If the plugin
+  needs no network, set network: ["none"] (network-namespace isolation,
+  Linux). Optional: health {type: "http"|"tcp", target, intervalSeconds,
+  timeoutSeconds} and resources {maxMemoryMB} for a memory cap.
 My goal: <DESCRIBE THE PLUGIN TASK: what it serves/does, which ports, what
 it stores>.
 Deliver: (1) manifest.json, (2) plugin code (a shell script with shebang OR a

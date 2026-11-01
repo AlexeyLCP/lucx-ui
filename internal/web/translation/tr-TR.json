@@ -144,7 +144,13 @@
       "restart": "Restart",
       "delete": "Delete",
       "deleteConfirm": "Delete this plugin?",
-      "operationFailed": "Plugin operation failed."
+      "operationFailed": "Plugin operation failed.",
+      "networkIsolated": "Ağ izole",
+      "memoryLimit": "Bellek sınırı: {count} MB",
+      "notEnforcedHere": "Bu ana bilgisayarda uygulanmaz",
+      "healthPass": "Sağlıklı",
+      "healthFail": "Sorunlu",
+      "healthUnknown": "Denetlenmedi"
     },
     "login": {
       "hello": "Merhaba",

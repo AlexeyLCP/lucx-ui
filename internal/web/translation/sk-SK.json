@@ -144,7 +144,13 @@
       "restart": "Restart",
       "delete": "Delete",
       "deleteConfirm": "Delete this plugin?",
-      "operationFailed": "Plugin operation failed."
+      "operationFailed": "Plugin operation failed.",
+      "networkIsolated": "Sieť izolovaná",
+      "memoryLimit": "Limit pamäte: {count} MB",
+      "notEnforcedHere": "Neplatí na tomto hostiteľovi",
+      "healthPass": "Funkčný",
+      "healthFail": "Nefunkčný",
+      "healthUnknown": "Bez kontroly"
     },
     "login": {
       "hello": "Dobrý deň",

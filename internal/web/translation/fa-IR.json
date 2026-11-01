@@ -144,7 +144,13 @@
       "restart": "Restart",
       "delete": "Delete",
       "deleteConfirm": "Delete this plugin?",
-      "operationFailed": "Plugin operation failed."
+      "operationFailed": "Plugin operation failed.",
+      "networkIsolated": "شبکه ایزوله",
+      "memoryLimit": "محدودیت حافظه: {count} مگابایت",
+      "notEnforcedHere": "روی این میزبان اعمال نمی‌شود",
+      "healthPass": "سالم",
+      "healthFail": "ناسالم",
+      "healthUnknown": "بدون بررسی"
     },
     "login": {
       "hello": "سلام",
