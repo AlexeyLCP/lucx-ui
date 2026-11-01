@@ -32,6 +32,19 @@ Code: `internal/lucx/plugin/plugin.go` (+ `plugin_test.go`), controller wired in
 
 ## Stage 2 — safety (implemented; unreleased)
 
+Live verification on the test stand (2026-11-01, `144.31.224.212`, KVM,
+Debian 12, dev build of b6f9fc9a): install/start/status/delete via the real
+API with a Bearer token; refusal of `panelApi` manifests at install; health
+probe pass (tcp → sshd) and fail (tcp → closed port with the dial error as
+detail); plain plugin keeps the host netns and PING works; `maxMemoryMB: 64`
+lands as `ulimit -v 65536` (RLIMIT_AS verified inside the process); the
+netns-isolated plugin is refused with a fail-closed message because the
+panel's hardened unit denies the `CLONE_NEWNET` clone. Two product bugs found
+by that run and fixed: relative-entrypoint exec doubled its path under
+`cmd.Dir` (fix: absolute path), and the ulimit wrapper must replace
+`cmd.Path` rather than prepend to `cmd.Args` (Go executes `Path`; `Args` is
+argv only).
+
 - **Permission enforcement** (fail-closed): `panelApi`/`bot` must stay empty in
   apiVersion 1 — a non-empty list is refused at install and start; `network`
   understands only `["none"]` (own network namespace, Linux); unknown rules are
@@ -125,7 +138,7 @@ A plugin `type` per group is the working rule: `sidecar` (process), `preset` (da
 5. UI page auth: how a plugin iframe authenticates to the panel API seam (scoped token injected into the iframe; expiry and revocation), and CSP/sandbox policy for it.
 6. Theme scope: stock panel themes as a settings feature first, plugin-provided themes after — or themes skip the plugin system entirely?
 7. Data plugin type (`preset`): validation depth (full Zod mirror of form choices?), merge priority vs. stock presets, and whether packs are versioned with `apiVersion`.
-8. Network isolation ops: an isolated plugin's loopback is its own namespace — how such plugins expose ports to the host (forwarding policy) if they ever need to listen.
+8. Network isolation ops: under the hardened panel unit the netns clone is denied (verified live 2026-11-01) — Stage 3 must decide the spawner (a dedicated `lucx-plugins.service` runner, or a documented netns exemption in the unit) before `network: ["none"]` becomes usable; until then it stays fail-closed.
 
 ## Constraints (project law)
 

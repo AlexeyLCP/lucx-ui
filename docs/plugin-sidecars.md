@@ -56,7 +56,10 @@ and works out of the box regardless of how the ZIP was built.
   — typically root). An empty `network` list or an absent `permissions` keeps
   today's behavior: the plugin may use the network. Any other value is refused.
 - `resources.maxMemoryMB` (16..131072, or absent) — RLIMIT_AS for the plugin
-  process (Linux only).
+  process (Linux only): the panel execs the entrypoint through a
+  `/bin/sh -c 'ulimit -v N && exec "$0"'` wrapper, so the cap is virtual
+  memory in KB = MB×1024. Go binaries reserve large virtual arenas — declare
+  the cap only if the process survives it.
 - `health` — optional process probe, reported in the status:
   `{ "type": "http" | "tcp", "target": "http://127.0.0.1:8080/healthz" or
   "host:port", "intervalSeconds": 5..3600 (default 30), "timeoutSeconds":
@@ -64,7 +67,12 @@ and works out of the box regardless of how the ZIP was built.
   together with network isolation (an isolated plugin is unreachable).
 - Fail closed: on a host without enforcement (non-Linux, or no privileges on
   Linux) a manifest that asks for isolation or limits is refused at start —
-  the panel refuses to run it unsandboxed silently.
+  the panel refuses to run it unsandboxed silently. Live stand note
+  (2026-11-01): the panel's hardened systemd unit (`SystemCallFilter` drop-in)
+  denies the `CLONE_NEWNET` clone for plugin children — on such hosts
+  `network: ["none"]` is refused at start with that message; making netns
+  isolation available under the hardened unit needs a dedicated plugin runner
+  unit (Stage 3 decision).
 
 ## Runtime contract
 
