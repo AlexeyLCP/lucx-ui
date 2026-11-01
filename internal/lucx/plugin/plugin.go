@@ -24,6 +24,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
@@ -404,6 +405,16 @@ func Get(id string) (Status, error) {
 	return s, nil
 }
 
+// startFailure turns raw start errors into operator-facing messages; the
+// EPERM mapping covers sandboxed hosts (hardened systemd units, containers)
+// where the netns clone for permissions.network ["none"] is denied.
+func startFailure(err error, m Manifest) string {
+	if needsEnforcement(m) && errors.Is(err, syscall.EPERM) {
+		return "network isolation is not permitted in this host's sandbox (the panel's systemd unit blocks it); plugin not started (fail closed)"
+	}
+	return err.Error()
+}
+
 func Start(id string) error {
 	m, err := Load(id)
 	if err != nil {
@@ -432,6 +443,12 @@ func Start(id string) error {
 	if err != nil {
 		return err
 	}
+	// cmd.Dir makes the kernel resolve a relative argv0 against the plugin
+	// directory (Go chdirs the child before execve), so the exec path must be
+	// absolute or it doubles into dir/bin/plugins/<id>/entrypoint.
+	if binAbs, err := filepath.Abs(bin); err == nil {
+		bin = binAbs
+	}
 	cmd := exec.CommandContext(context.Background(), bin)
 	if err := prepareCmd(cmd, m); err != nil {
 		log.Close()
@@ -444,8 +461,8 @@ func Start(id string) error {
 	cmd.Stderr = log
 	if err := cmd.Start(); err != nil {
 		log.Close()
-		p.lastError = err.Error()
-		return err
+		p.lastError = startFailure(err, m)
+		return errors.New(p.lastError)
 	}
 	done := make(chan struct{})
 	p.cmd = cmd

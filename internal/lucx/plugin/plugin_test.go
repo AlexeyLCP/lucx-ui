@@ -4,6 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"encoding/json"
+	"io/fs"
+	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -79,6 +82,19 @@ func TestValidateHealth(t *testing.T) {
 	slow := &HealthCheck{Type: "tcp", Target: "127.0.0.1:80", IntervalSeconds: 10, TimeoutSeconds: 30}
 	if err := validateHealth(slow, false); err == nil {
 		t.Fatal("accepted probe timeout above interval")
+	}
+}
+
+func TestStartFailureMapsEPERM(t *testing.T) {
+	m := Manifest{Permissions: map[string][]string{"network": {networkNone}}}
+	err := &fs.PathError{Op: "fork/exec", Path: "/bin/sh", Err: syscall.EPERM}
+	got := startFailure(err, m)
+	if !strings.Contains(got, "sandbox") || !strings.Contains(got, "fail closed") {
+		t.Fatalf("EPERM not mapped for an isolation request: %v", got)
+	}
+	plain := startFailure(err, Manifest{})
+	if plain != err.Error() {
+		t.Fatalf("plain host must keep the raw error: %v", plain)
 	}
 }
 
