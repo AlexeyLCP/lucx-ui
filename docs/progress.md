@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.335 — subscription links, WEB proxy selection and CI
+
+- Restore Telegram WEB and Telemt subscription links; add MasterDNS and
+  per-client wgobfs SOCKS exports, and expose both WEB proxy backends.
+- Fix plugin translations and settings navigation, olcRTC provider validation,
+  and the masked Naive subscription port. Document the REALITY self-SNI setup
+  and legacy MTProxy connectivity risk.
+- Drain CSQTT background sync before database replacement. CI on the preceding
+  commit passed, including race, PostgreSQL, frontend and node end-to-end tests.
+
 ## Unreleased — CSQTT background database lifecycle
 
 - Drain immediate CSQTT member synchronization before closing or replacing the
