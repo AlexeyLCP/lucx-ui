@@ -1,5 +1,39 @@
 # LucX-UI — Прогресс
 
+## lucx.334 — tag v3.11.0-lucx.334, sidebar fix + full CI recovery (2026-10-31)
+
+- Released as tag `v3.11.0-lucx.334` from `7ce2626a`. Assets: amd64/arm64
+  tarballs (+sha256) and Windows amd64 zip; docker images rebuilt; notes
+  filled (RU+EN). `releases/latest` points at the tag.
+- Contains the lucx.333-follow-up sidebar fix (Cores tab back in Panel
+  Settings submenu, `/tunnels` out of the top-level menu, palette keywords)
+  plus the CI reds left behind by lucx.333:
+  - dead i18n key `pages.plugins.mvpNote` removed from all 14 locales
+    (i18n-dead-keys red on CI; docs said 13 locales — there are 14 now).
+  - `CsqttMember` added to `migrationModels()` — cross-db SQLite→Postgres
+    migration silently dropped its rows since lucx.333.
+  - `TestNameRegistry` updated to the actual 17-name registry (telemt,
+    mtprotozig landed in lucx.333 without updating the test).
+  - lint: `os.MkdirAll` errcheck, `exec.Command`→`CommandContext`, gofumpt
+    blanks, goimports local-prefix group split in plugin.go / masque_apple.go
+    (house style: stdlib | externals | `github.com/mhsanaei/3x-ui/v3`).
+  - 16 API routes documented in `endpoints.ts` (plugins, Telemt, MTProto
+    Zig); `npm run gen` re-run; docs spec and generated API reference synced.
+  - npm audit HIGH resolved: `follow-redirects` → 1.16.2
+    (GHSA-mrwp-f3q8-3g9p); remaining 5 are low/moderate via
+    swagger-ui-react and below the audit gate.
+  - `setupConflictDB` cleanup now closes the pool and retries `RemoveAll` of
+    the temp dir (straggler WAL files broke `t.TempDir` cleanup as
+    "directory not empty" on the race job).
+  - Docs CI: `oxfmt` run over plugin docs; API reference regenerated
+    (`pnpm gen:api`).
+- Verified locally: full frontend vitest (216 files / 2173 tests) green,
+  go test + race on database/lucx/service, gofumpt clean, `npm run build`,
+  docs lint/format/tests; CI green on main for every affected workflow.
+- Lesson: CI's push path-filter does not include `internal/web/translation/**`
+  — translation-only commits trigger NO CI run; verify those suites locally
+  before tagging.
+
 ## lucx.333 follow-up — sidebar Cores restored (2026-10-31)
 
 - The v3.11.0 sidebar rewrite lost two HOOK decisions: the `/settings#cores` item
