@@ -280,6 +280,9 @@ export default function InboundFormModal({
   }, [mode, dbInbound, dbInbounds]);
 
   const protocol = (useWatch({ control, name: 'protocol' }) ?? '') as string;
+  // LUCX-HOOK: both WEB implementations share the persisted tproxy protocol.
+  const tproxyBackend = useWatch({ control, name: 'settings.backend' }) as string | undefined;
+  // END LUCX-HOOK
   const wNodeId = useWatch({ control, name: 'nodeId' }) ?? null;
   // LUCX-HOOK: AWG subnet-collision feed — masked prefixes of OTHER AWG
   // inbounds on the SAME host (local or selected node). Different nodes are
@@ -805,13 +808,40 @@ export default function InboundFormModal({
         </FormField>
       )}
 
-      <FormField name="protocol" label={t('pages.inbounds.protocol')}>
-        <Select
-          id="protocol"
-          disabled={mode === 'edit'}
-          options={PROTOCOL_OPTIONS.map((p) => ({ ...p, label: protocolLabel(p.value, t) }))}
-        />
-      </FormField>
+      {/* LUCX-HOOK: expose WEB backends as adjacent choices without changing stored protocol IDs. */}
+      <Controller
+        control={control}
+        name="protocol"
+        render={({ field }) => (
+          <Form.Item label={t('pages.inbounds.protocol')} htmlFor="protocol">
+            <Select
+              id="protocol"
+              virtual={false}
+              disabled={mode === 'edit'}
+              value={
+                field.value === 'tproxy' && tproxyBackend === 'mtproto-zig'
+                  ? 'tproxy-zig'
+                  : field.value
+              }
+              onChange={(value) => {
+                field.onChange(value === 'tproxy-zig' ? 'tproxy' : value);
+                if (value === 'tproxy' || value === 'tproxy-zig') {
+                  setV('settings.backend', value === 'tproxy-zig' ? 'mtproto-zig' : 'legacy');
+                }
+              }}
+              options={PROTOCOL_OPTIONS.flatMap((p) =>
+                p.value === 'tproxy'
+                  ? [
+                      { value: 'tproxy', label: 'Telegram WEB proxy Legacy' },
+                      { value: 'tproxy-zig', label: 'Telegram WEB proxy MTProto Zig' },
+                    ]
+                  : [{ ...p, label: protocolLabel(p.value, t) }],
+              )}
+            />
+          </Form.Item>
+        )}
+      />
+      {/* END LUCX-HOOK */}
 
       {maskedByGateway ? (
         <Alert
@@ -1383,6 +1413,7 @@ export default function InboundFormModal({
                       Protocols.TUN,
                       Protocols.WIREGUARD,
                       Protocols.MTPROTO,
+                      Protocols.TELEMT,
                       Protocols.AMNEZIAWG,
                       Protocols.TUIC,
                       Protocols.MASQUE,
@@ -1391,10 +1422,12 @@ export default function InboundFormModal({
                       Protocols.OLCRTC,
                       Protocols.QWDTT,
                       Protocols.CSQTT,
+                      Protocols.MASTERDNS,
                       Protocols.OPENFLUX,
                       Protocols.MIERU,
                       Protocols.TRUSTTUNNEL,
                       Protocols.ANYTLS,
+                      Protocols.Wgosocks,
                       Protocols.TPROXY,
                       Protocols.COVER,
                       Protocols.GATEWAY,

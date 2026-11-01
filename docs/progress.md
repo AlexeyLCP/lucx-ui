@@ -1,5 +1,14 @@
 # LucX-UI — Прогресс
 
+## Unreleased — WEB proxy selection and sidecar subscriptions
+
+- Show the legacy and Zig WEB proxy backends as separate inbound choices while
+  retaining the existing stored protocol and backend settings.
+- Restore the Telemt, MasterDNS and wgobfs SOCKS protocol tabs; add MasterDNS
+  and per-client wgobfs SOCKS links to raw subscriptions.
+- Verified subscription and tunnel Go tests, frontend typecheck, lint, and the
+  inbound form test suite, including the Zig creation payload.
+
 ## Unreleased — issue follow-up
 
 - Accept VK Calls and MTS-Link in both olcRTC frontend schemas (#173).

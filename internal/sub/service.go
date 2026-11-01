@@ -787,7 +787,7 @@ func (s *SubService) loadInboundsBySubId(subId string) ([]*model.Inbound, error)
 		JOIN client_inbounds ON client_inbounds.inbound_id = inbounds.id
 		JOIN clients ON clients.id = client_inbounds.client_id
 		WHERE
-			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','telemt','tuic','masque','awg','naive','olcrtc','qwdtt','csqtt','masterdns','openflux','mieru','trusttunnel','anytls','tproxy')
+			inbounds.protocol in ('vmess','vless','trojan','shadowsocks','hysteria','wireguard','amneziawg','mtproto','telemt','tuic','masque','awg','naive','olcrtc','qwdtt','csqtt','masterdns','openflux','mieru','trusttunnel','anytls','tproxy','wgosocks')
 			AND clients.sub_id = ? AND inbounds.enable = ?
 	)`, subId, true).Order("sub_sort_index ASC").Order("id ASC")
 	if cached {
@@ -819,7 +819,7 @@ func (s *SubService) subscriptionSettings(inbound *model.Inbound) (string, error
 		return settings, err
 	}
 	// LUCX-HOOK: kernel AWG also needs the inbound-specific client addresses.
-	if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG {
+	if inbound.Protocol == model.WireGuard || inbound.Protocol == model.AmneziaWG || inbound.Protocol == model.AWG || inbound.Protocol == model.Wgosocks {
 		return load()
 	}
 	// END LUCX-HOOK
@@ -989,6 +989,38 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 			}
 		}
 		return s.genCsqttLink(inbound)
+	case "masterdns": // LUCX-HOOK: MasterDNSVPN client config wrapper
+		cfg, ok := tunnel.MasterdnsConfigFromInbound(inbound)
+		if !ok || !inbound.Enable || cfg.Validate(inbound.Port) != nil {
+			return ""
+		}
+		return "masterdns://v1/" + base64.RawURLEncoding.EncodeToString([]byte(strings.TrimSuffix(cfg.Merge().RenderClientTOML(), "\n")))
+	case "wgosocks": // LUCX-HOOK: per-client Phobos configuration
+		cfg, ok := tunnel.WgosocksConfigFromInbound(inbound)
+		if !ok || !inbound.Enable || cfg.Key == "" {
+			return ""
+		}
+		client, ok := s.clientForLink(inbound, email)
+		if !ok || !client.Enable {
+			return ""
+		}
+		for _, c := range cfg.Clients {
+			if strings.EqualFold(c.Email, email) && (c.Enable == nil || *c.Enable) && c.Login != "" && c.Password != "" {
+				render := func(host string, port int, _ string) string {
+					conf := tunnel.WgosocksClientConf(cfg, port, host, c)
+					return "phobos://" + base64.RawURLEncoding.EncodeToString([]byte(conf)) + "#" + url.PathEscape(email)
+				}
+				if links := s.sidecarHostLinks(inbound, email, render); links != "" {
+					return links
+				}
+				host := s.resolveInboundAddress(inbound)
+				if host == "" {
+					return ""
+				}
+				return render(host, inbound.Port, "")
+			}
+		}
+		return ""
 	case "openflux": // LUCX-HOOK: single openflux:// link (one active client)
 		return s.genOpenfluxLink(inbound)
 	case "anytls": // LUCX-HOOK: single-credential AnyTLS URI (ignore email)

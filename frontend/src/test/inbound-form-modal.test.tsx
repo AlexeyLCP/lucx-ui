@@ -46,7 +46,9 @@ function chooseVirtualizedProtocol(optionText: string) {
   const input = document.getElementById('protocol') as HTMLElement;
   const select = input.closest('.ant-select') as HTMLElement;
   const current = (select.textContent ?? '').trim();
-  const order = Object.values(Protocols) as string[];
+  const order = (Object.values(Protocols) as string[]).flatMap((p) =>
+    p === 'tproxy' ? ['tproxy', 'tproxy-zig'] : [p],
+  );
   const steps = order.indexOf(optionText) - order.indexOf(current);
   if (order.indexOf(optionText) < 0 || order.indexOf(current) < 0 || steps < 0) {
     throw new Error(`cannot step from '${current}' to '${optionText}'`);
@@ -114,6 +116,38 @@ function renderCloneLikeEdit(dbInbound: DBInbound) {
 }
 
 describe('InboundFormModal', () => {
+  it('selects both Telegram WEB backends as one stored protocol', async () => {
+    renderModal();
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 0));
+    });
+    fireEvent.mouseDown(document.getElementById('protocol')!.closest('.ant-select')!);
+    fireEvent.click(await screen.findByText('Telegram WEB proxy Legacy'));
+    expect(document.getElementById('protocol')!.closest('.ant-select')?.textContent).toContain(
+      'Telegram WEB proxy Legacy',
+    );
+    fireEvent.click(await screen.findByText('Telegram WEB proxy MTProto Zig'));
+    expect(document.getElementById('protocol')!.closest('.ant-select')?.textContent).toContain(
+      'Telegram WEB proxy MTProto Zig',
+    );
+    fireEvent.click(screen.getByRole('tab', { name: 'Protocol' }));
+    await waitFor(() =>
+      expect(
+        screen.getByRole('radio', { name: 'MTProto Zig (new WEB relay)' }).closest('label')
+          ?.className,
+      ).toContain('checked'),
+    );
+    fireEvent.change(screen.getByPlaceholderText('proxy.example.com'), {
+      target: { value: 'proxy.example.com' },
+    });
+    const post = vi.mocked(HttpUtil.post);
+    post.mockClear();
+    fireEvent.click(primaryButton());
+    await waitFor(() => expect(post).toHaveBeenCalled());
+    const [, payload] = post.mock.calls.find(([path]) => path === '/panel/api/inbounds/add')!;
+    expect((payload as { protocol: string }).protocol).toBe('tproxy');
+    expect(JSON.parse((payload as { settings: string }).settings).backend).toBe('mtproto-zig');
+  });
   it('renders add mode without crashing', () => {
     renderModal();
     expect(document.querySelector('.ant-modal')).toBeTruthy();
