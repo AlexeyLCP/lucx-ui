@@ -150,7 +150,14 @@
       "notEnforcedHere": "Não aplicado neste host",
       "healthPass": "Saudável",
       "healthFail": "Instável",
-      "healthUnknown": "Sem verificação"
+      "healthUnknown": "Sem verificação",
+      "installByLink": "Instalar por link",
+      "linkPlaceholder": "https://github.com/owner/repo (ou /tree/tag)",
+      "linkPreview": "Verificar",
+      "linkInstall": "Instalar",
+      "linkWarning": "Isso instala código de terceiros de um repositório externo com os privilégios do painel. Revise o manifesto antes de instalar.",
+      "linkPreviewFailed": "Não foi possível validar o manifesto do repositório.",
+      "cancel": "Cancelar"
     },
     "login": {
       "hello": "Olá",

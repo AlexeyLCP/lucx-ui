@@ -150,7 +150,14 @@
       "notEnforcedHere": "Не діє на цьому хості",
       "healthPass": "Здоровий",
       "healthFail": "Нездоровий",
-      "healthUnknown": "Без перевірки"
+      "healthUnknown": "Без перевірки",
+      "installByLink": "Встановити за посиланням",
+      "linkPlaceholder": "https://github.com/owner/repo (або /tree/тег)",
+      "linkPreview": "Перевірити",
+      "linkInstall": "Встановити",
+      "linkWarning": "Це встановить сторонній код із зовнішнього репозиторію з правами панелі. Перед встановленням перевірте маніфест нижче.",
+      "linkPreviewFailed": "Не вдалося перевірити маніфест репозиторію.",
+      "cancel": "Скасувати"
     },
     "login": {
       "hello": "Привіт",

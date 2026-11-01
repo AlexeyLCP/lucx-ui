@@ -150,7 +150,14 @@
       "notEnforcedHere": "Không áp dụng trên máy này",
       "healthPass": "Hoạt động tốt",
       "healthFail": "Có vấn đề",
-      "healthUnknown": "Chưa kiểm tra"
+      "healthUnknown": "Chưa kiểm tra",
+      "installByLink": "Cài đặt từ liên kết",
+      "linkPlaceholder": "https://github.com/owner/repo (hoặc /tree/tag)",
+      "linkPreview": "Kiểm tra",
+      "linkInstall": "Cài đặt",
+      "linkWarning": "Thao tác này cài đặt mã của bên thứ ba từ một kho lưu trữ bên ngoài với đặc quyền của bảng điều khiển. Hãy xem lại tệp kê khai bên dưới trước khi cài đặt.",
+      "linkPreviewFailed": "Không thể kiểm tra tính hợp lệ của tệp kê khai kho lưu trữ.",
+      "cancel": "Hủy"
     },
     "login": {
       "hello": "Xin chào",

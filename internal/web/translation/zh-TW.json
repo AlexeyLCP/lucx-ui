@@ -150,7 +150,14 @@
       "notEnforcedHere": "此主機上未強制",
       "healthPass": "正常",
       "healthFail": "異常",
-      "healthUnknown": "未探測"
+      "healthUnknown": "未探測",
+      "installByLink": "從連結安裝",
+      "linkPlaceholder": "https://github.com/owner/repo（或 /tree/標籤）",
+      "linkPreview": "檢查",
+      "linkInstall": "安裝",
+      "linkWarning": "這會以面板權限安裝來自外部存放庫的第三方程式碼。安裝前請檢查下面的清單。",
+      "linkPreviewFailed": "無法校驗存放庫清單。",
+      "cancel": "取消"
     },
     "login": {
       "hello": "你好",

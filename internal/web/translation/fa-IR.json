@@ -150,7 +150,14 @@
       "notEnforcedHere": "روی این میزبان اعمال نمی‌شود",
       "healthPass": "سالم",
       "healthFail": "ناسالم",
-      "healthUnknown": "بدون بررسی"
+      "healthUnknown": "بدون بررسی",
+      "installByLink": "نصب از لینک",
+      "linkPlaceholder": "https://github.com/owner/repo (یا /tree/برچسب)",
+      "linkPreview": "بررسی",
+      "linkInstall": "نصب",
+      "linkWarning": "این کار کد شخص ثالث را از یک مخزن بیرونی با دسترسی‌های پنل نصب می‌کند. پیش از نصب، مانیفست زیر را بازبینی کنید.",
+      "linkPreviewFailed": "اعتبارسنجی مانیفست مخزن ممکن نشد.",
+      "cancel": "انصراف"
     },
     "login": {
       "hello": "سلام",

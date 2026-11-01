@@ -6,7 +6,10 @@ import {
   Button,
   Card,
   ConfigProvider,
+  Descriptions,
+  Input,
   Layout,
+  Modal,
   Popconfirm,
   Space,
   Spin,
@@ -15,9 +18,9 @@ import {
   Upload,
   message,
 } from 'antd';
-import { DeleteOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
+import { DeleteOutlined, LinkOutlined, ReloadOutlined, UploadOutlined } from '@ant-design/icons';
 
-import { pluginsApi } from '@/api/plugins';
+import { pluginsApi, type PluginManifest } from '@/api/plugins';
 import AppSidebar from '@/layouts/AppSidebar';
 import { useTheme } from '@/hooks/useTheme';
 
@@ -26,6 +29,10 @@ export default function PluginManagerPage() {
   const { antdThemeConfig } = useTheme();
   const [busy, setBusy] = useState(false);
   const [messageApi, messageContextHolder] = message.useMessage();
+  const [linkOpen, setLinkOpen] = useState(false);
+  const [linkUrl, setLinkUrl] = useState('');
+  const [preview, setPreview] = useState<PluginManifest | null>(null);
+  const [checking, setChecking] = useState(false);
   const { data, isLoading, refetch } = useQuery({
     queryKey: ['plugins'],
     queryFn: pluginsApi.list,
@@ -46,6 +53,38 @@ export default function PluginManagerPage() {
   const upload = (file: File) => {
     void run(() => pluginsApi.install(file));
     return false;
+  };
+  const openLinkDialog = () => {
+    setLinkUrl('');
+    setPreview(null);
+    setLinkOpen(true);
+  };
+  const checkLink = async () => {
+    setChecking(true);
+    try {
+      const res = await pluginsApi.previewFromLink(linkUrl.trim());
+      setPreview(res.success ? (res.obj ?? null) : null);
+      if (!res.success) {
+        void messageApi.error(res.msg || t('pages.plugins.linkPreviewFailed'));
+      }
+    } catch {
+      void messageApi.error(t('pages.plugins.linkPreviewFailed'));
+    } finally {
+      setChecking(false);
+    }
+  };
+  const installLink = async () => {
+    if (!preview) return;
+    setBusy(true);
+    try {
+      await pluginsApi.installFromLink(linkUrl.trim());
+      await refetch();
+      setLinkOpen(false);
+    } catch {
+      void messageApi.error(t('pages.plugins.operationFailed'));
+    } finally {
+      setBusy(false);
+    }
   };
 
   return (
@@ -68,6 +107,9 @@ export default function PluginManagerPage() {
                   {t('pages.plugins.upload')}
                 </Button>
               </Upload>
+              <Button icon={<LinkOutlined aria-hidden />} href="#" onClick={openLinkDialog}>
+                {t('pages.plugins.installByLink')}
+              </Button>
               <Button
                 icon={<ReloadOutlined aria-hidden />}
                 onClick={() => void refetch()}
@@ -76,6 +118,77 @@ export default function PluginManagerPage() {
                 {t('pages.plugins.refresh')}
               </Button>
             </Space>
+            <Modal
+              open={linkOpen}
+              title={t('pages.plugins.installByLink')}
+              onCancel={() => setLinkOpen(false)}
+              footer={
+                <Space>
+                  <Button onClick={() => setLinkOpen(false)}>{t('pages.plugins.cancel')}</Button>
+                  <Button
+                    type="primary"
+                    danger={!!preview}
+                    disabled={!preview || busy}
+                    onClick={() => void installLink()}
+                  >
+                    {t('pages.plugins.linkInstall')}
+                  </Button>
+                </Space>
+              }
+            >
+              <Space.Compact style={{ width: '100%', marginBottom: 12 }}>
+                <Input
+                  aria-label={t('pages.plugins.installByLink')}
+                  placeholder={t('pages.plugins.linkPlaceholder')}
+                  value={linkUrl}
+                  onChange={(e) => setLinkUrl(e.target.value)}
+                  allowClear
+                />
+                <Button
+                  loading={checking}
+                  disabled={!linkUrl.trim()}
+                  onClick={() => void checkLink()}
+                >
+                  {t('pages.plugins.linkPreview')}
+                </Button>
+              </Space.Compact>
+              {preview && (
+                <>
+                  <Alert
+                    type="warning"
+                    showIcon
+                    message={t('pages.plugins.linkWarning')}
+                    style={{ marginBottom: 12 }}
+                  />
+                  <Descriptions
+                    size="small"
+                    column={1}
+                    items={[
+                      { key: 'id', label: 'id', children: preview.id },
+                      { key: 'name', label: 'name', children: preview.name },
+                      { key: 'version', label: 'version', children: preview.version },
+                      { key: 'type', label: 'type', children: preview.type },
+                      { key: 'entry', label: 'entrypoint', children: preview.entrypoint },
+                      {
+                        key: 'perm',
+                        label: 'permissions',
+                        children: preview.permissions ? JSON.stringify(preview.permissions) : '—',
+                      },
+                      {
+                        key: 'res',
+                        label: 'resources',
+                        children: preview.resources ? JSON.stringify(preview.resources) : '—',
+                      },
+                      {
+                        key: 'health',
+                        label: 'health',
+                        children: preview.health ? JSON.stringify(preview.health) : '—',
+                      },
+                    ]}
+                  />
+                </>
+              )}
+            </Modal>
             <Spin spinning={isLoading}>
               <Space direction="vertical" style={{ width: '100%' }} size={12}>
                 {plugins.length === 0 && (

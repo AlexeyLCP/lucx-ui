@@ -150,7 +150,14 @@
       "notEnforcedHere": "Не действует на этом хосте",
       "healthPass": "Здоров",
       "healthFail": "Нездоров",
-      "healthUnknown": "Без проверки"
+      "healthUnknown": "Без проверки",
+      "installByLink": "Установить по ссылке",
+      "linkPlaceholder": "https://github.com/owner/repo (или /tree/тег)",
+      "linkPreview": "Проверить",
+      "linkInstall": "Установить",
+      "linkWarning": "Это установит сторонний код из внешнего репозитория с правами панели. Проверьте манифест ниже перед установкой.",
+      "linkPreviewFailed": "Не удалось проверить манифест репозитория.",
+      "cancel": "Отмена"
     },
     "login": {
       "hello": "Привет!",

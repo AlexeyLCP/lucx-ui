@@ -150,7 +150,14 @@
       "notEnforcedHere": "Not enforced on this host",
       "healthPass": "Healthy",
       "healthFail": "Unhealthy",
-      "healthUnknown": "No probe yet"
+      "healthUnknown": "No probe yet",
+      "installByLink": "Install from link",
+      "linkPlaceholder": "https://github.com/owner/repo (or /tree/tag)",
+      "linkPreview": "Check",
+      "linkInstall": "Install",
+      "linkWarning": "This installs third-party code from a remote repository with the panel privileges. Review the manifest below before installing.",
+      "linkPreviewFailed": "Could not validate the repository manifest.",
+      "cancel": "Cancel"
     },
     "login": {
       "hello": "Hello",

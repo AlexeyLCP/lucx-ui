@@ -150,7 +150,14 @@
       "notEnforcedHere": "此主机上未强制",
       "healthPass": "正常",
       "healthFail": "异常",
-      "healthUnknown": "未探测"
+      "healthUnknown": "未探测",
+      "installByLink": "从链接安装",
+      "linkPlaceholder": "https://github.com/owner/repo（或 /tree/标签）",
+      "linkPreview": "检查",
+      "linkInstall": "安装",
+      "linkWarning": "这会以面板权限安装来自外部仓库的第三方代码。安装前请检查下面的清单。",
+      "linkPreviewFailed": "无法校验仓库清单。",
+      "cancel": "取消"
     },
     "login": {
       "hello": "你好",

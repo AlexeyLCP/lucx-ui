@@ -17,6 +17,8 @@ func RegisterPluginRoutes(g *gin.RouterGroup) {
 	g.GET("/:id/status", pluginStatus)
 	g.GET("/:id/logs", pluginLogs)
 	g.POST("/install", pluginInstall)
+	g.POST("/install/url/preview", pluginPreviewFromLink)
+	g.POST("/install/url", pluginInstallFromLink)
 	g.POST("/:id/start", pluginStart)
 	g.POST("/:id/stop", pluginStop)
 	g.POST("/:id/restart", pluginRestart)
@@ -69,6 +71,38 @@ func pluginInstall(c *gin.Context) {
 	m, err := plugin.InstallPackage(src, f.Size)
 	if err != nil {
 		jsonMsg(c, "plugin install failed", err)
+		return
+	}
+	jsonObj(c, m, nil)
+}
+
+type pluginLinkForm struct {
+	URL string `json:"url"`
+}
+
+func pluginPreviewFromLink(c *gin.Context) {
+	form := &pluginLinkForm{}
+	if err := c.ShouldBindJSON(form); err != nil {
+		jsonMsg(c, "plugin link required", err)
+		return
+	}
+	m, err := plugin.PreviewFromLink(form.URL)
+	if err != nil {
+		jsonMsg(c, "plugin link preview failed", err)
+		return
+	}
+	jsonObj(c, m, nil)
+}
+
+func pluginInstallFromLink(c *gin.Context) {
+	form := &pluginLinkForm{}
+	if err := c.ShouldBindJSON(form); err != nil {
+		jsonMsg(c, "plugin link required", err)
+		return
+	}
+	m, err := plugin.InstallFromLink(form.URL)
+	if err != nil {
+		jsonMsg(c, "plugin link install failed", err)
 		return
 	}
 	jsonObj(c, m, nil)

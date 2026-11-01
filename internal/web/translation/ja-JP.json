@@ -150,7 +150,14 @@
       "notEnforcedHere": "このホストでは未適用",
       "healthPass": "正常",
       "healthFail": "異常",
-      "healthUnknown": "未診断"
+      "healthUnknown": "未診断",
+      "installByLink": "リンクからインストール",
+      "linkPlaceholder": "https://github.com/owner/repo （または /tree/タグ）",
+      "linkPreview": "確認",
+      "linkInstall": "インストール",
+      "linkWarning": "外部リポジトリのサードパーティコードをパネルの権限でインストールします。インストール前に下のマニフェストを確認してください。",
+      "linkPreviewFailed": "リポジトリのマニフェストを検証できません",
+      "cancel": "キャンセル"
     },
     "login": {
       "hello": "こんにちは",

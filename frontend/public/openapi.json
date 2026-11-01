@@ -6051,6 +6051,92 @@
         }
       }
     },
+    "/panel/api/plugins/install/url/preview": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Validate the manifest of a public GitHub repository link (optionally /tree/<ref> for a pinned ref) without installing anything. Returns the parsed apiVersion 1 manifest so the panel can show what the operator is about to approve.",
+        "operationId": "post_panel_api_plugins_install_url_preview",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://github.com/owner/repo"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/plugins/install/url": {
+      "post": {
+        "tags": [
+          "Inbounds"
+        ],
+        "summary": "Download the linked public GitHub repository and install it through the same apiVersion 1 contract as the ZIP install (dir overwrite, data/ preserved, plugin not activated). The manifest must match the one the preview returned.",
+        "operationId": "post_panel_api_plugins_install_url",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://github.com/owner/repo/tree/v1.2.0"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/plugins/{id}/status": {
       "get": {
         "tags": [

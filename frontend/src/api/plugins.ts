@@ -5,6 +5,7 @@ export type PluginManifest = {
   name: string;
   version: string;
   type: string;
+  entrypoint?: string;
   permissions?: Record<string, string[]>;
   resources?: { maxMemoryMB?: number };
   health?: { type: string; target: string; intervalSeconds?: number; timeoutSeconds?: number };
@@ -36,6 +37,10 @@ export const pluginsApi = {
     fd.append('file', file);
     return HttpUtil.post('/panel/api/plugins/install', fd);
   },
+  previewFromLink: (url: string): Promise<Msg<PluginManifest>> =>
+    HttpUtil.post('/panel/api/plugins/install/url/preview', { url }),
+  installFromLink: (url: string): Promise<Msg<PluginManifest>> =>
+    HttpUtil.post('/panel/api/plugins/install/url', { url }),
   start: (id: string) => HttpUtil.post(`/panel/api/plugins/${encodeURIComponent(id)}/start`, {}),
   stop: (id: string) => HttpUtil.post(`/panel/api/plugins/${encodeURIComponent(id)}/stop`, {}),
   restart: (id: string) =>

@@ -1,5 +1,27 @@
 # LucX-UI — Прогресс
 
+## Unreleased — install plugin by GitHub link (credit: AllIsA1)
+
+- Plugins page second install path: **Install from link**
+  (`https://github.com/<owner>/<repo>`, optionally `/tree/<branch|tag|commit>`,
+  public GitHub only). Two-step UX per the community plugin system by AllIsA1
+  (<https://github.com/AllIsA1/lucx-plugins>): `GET preview` validates the
+  repository `manifest.json` via raw.githubusercontent.com (same apiVersion 1
+  rules; ≤ 1 MiB), the panel shows the manifest + trust warning, install runs
+  on the confirm click: `POST /install/url` downloads the repo archive
+  (≤ 200 MB, 120 s) and unpacks it through the ZIP contract — 0700 layout,
+  `data/` preserved (both install paths now skip `data/` on extraction), no
+  symlink/hardlink entries, manifest must match preview (TOCTOU guard) or the
+  install aborts and cleans up. No GitHub API calls — no token, no rate limit;
+  a bare link re-reads HEAD every time (advise pinned refs).
+- New routes: `POST /panel/api/plugins/install/url/preview`,
+  `POST /panel/api/plugins/install/url`; endpoints.ts + `npm run gen` synced;
+  eight i18n keys in all 14 locales; frontend dialog with manifest preview
+  (Descriptions) and cancel/install footer.
+- Tests: link parsing (hosts/refs/traversal), preview rejection, full flow on a
+  fake GitHub server (httptest seams for raw+archive URLs), sameManifest guard,
+  data preservation, non-file entries refused.
+
 ## lucx.336 — fix lucx.335 stale vendored olcRTC core (#183)
 
 - `third_party/sidecars/linux-amd64/olcrtc-linux-amd64.gz` (2026-09-06, sha

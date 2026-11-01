@@ -333,6 +333,20 @@ export const sections: readonly Section[] = [
         summary: 'Install a sidecar plugin ZIP containing a validated apiVersion 1 manifest.',
       },
       {
+        method: 'POST',
+        path: '/panel/api/plugins/install/url/preview',
+        summary:
+          'Validate the manifest of a public GitHub repository link (optionally /tree/<ref> for a pinned ref) without installing anything. Returns the parsed apiVersion 1 manifest so the panel can show what the operator is about to approve.',
+        body: '{\n  "url": "https://github.com/owner/repo"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/plugins/install/url',
+        summary:
+          'Download the linked public GitHub repository and install it through the same apiVersion 1 contract as the ZIP install (dir overwrite, data/ preserved, plugin not activated). The manifest must match the one the preview returned.',
+        body: '{\n  "url": "https://github.com/owner/repo/tree/v1.2.0"\n}',
+      },
+      {
         method: 'GET',
         path: '/panel/api/plugins/:id/status',
         summary:

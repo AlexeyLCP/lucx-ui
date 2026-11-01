@@ -11,6 +11,26 @@ panel API access, database access, Telegram bot tokens, or subscription seams.
 Upload a ZIP from **Settings → Cores → Sidecar plugins**. The archive must have
 a `manifest.json` at its root:
 
+## Install from a GitHub link
+
+Next to the ZIP upload, **Plugins → Install from link** takes a public GitHub
+repository URL: `https://github.com/<owner>/<repo>`, optionally
+`/tree/<branch|tag|commit>` to pin a ref. Two steps:
+
+1. the panel validates the repository `manifest.json` (raw.githubusercontent.com
+   fetch, the same rules as below) and shows the operator id/name/version/
+   entrypoint/permissions plus a trust warning;
+2. install happens only after the confirm click: the repository archive
+   (≤ 200 MB) goes through the same apiVersion 1 contract as the ZIP install —
+   same checks, same 0700 layout, `data/` preserved, plugin not activated.
+
+A bare link re-reads the repository HEAD every time; pin a ref for
+reproducible installs, and the install aborts when the manifest changed between
+preview and download. Design follows the community plugin system by AllIsA1
+(<https://github.com/AllIsA1/lucx-plugins>).
+
+For the ZIP upload the archive must have a `manifest.json` at its root:
+
 ```json
 {
   "id": "example-sidecar",
@@ -180,6 +200,8 @@ before plugins can replace bots or read panel data.
 | GET    | `/:id/status`                               | manifest, running, pid, paths, last error, enforcement, health |
 | GET    | `/:id/logs?lines=200`                       | tail of `plugin.log`                                           |
 | POST   | `/install`                                  | multipart field `file` = ZIP                                   |
+| POST   | `/install/url/preview`                      | JSON `{url}` — validate the linked repo, install nothing       |
+| POST   | `/install/url`                              | JSON `{url}` — download that repo and install (same contract)  |
 | POST   | `/:id/start` / `/:id/stop` / `/:id/restart` | lifecycle                                                      |
 | POST   | `/:id/delete`                               | stop + remove directory                                        |
 

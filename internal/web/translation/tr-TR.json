@@ -150,7 +150,14 @@
       "notEnforcedHere": "Bu ana bilgisayarda uygulanmaz",
       "healthPass": "Sağlıklı",
       "healthFail": "Sorunlu",
-      "healthUnknown": "Denetlenmedi"
+      "healthUnknown": "Denetlenmedi",
+      "installByLink": "Bağlantıdan kur",
+      "linkPlaceholder": "https://github.com/owner/repo (veya /tree/etiket)",
+      "linkPreview": "Kontrol et",
+      "linkInstall": "Kur",
+      "linkWarning": "Bu, üçüncü taraf kodu harici bir depodan panel yetkileriyle kurar. Kurmadan önce aşağıdaki manifestı gözden geçirin.",
+      "linkPreviewFailed": "Depo manifestı doğrulanamadı.",
+      "cancel": "İptal"
     },
     "login": {
       "hello": "Merhaba",

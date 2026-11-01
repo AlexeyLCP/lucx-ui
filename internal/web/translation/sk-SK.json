@@ -150,7 +150,14 @@
       "notEnforcedHere": "Neplatí na tomto hostiteľovi",
       "healthPass": "Funkčný",
       "healthFail": "Nefunkčný",
-      "healthUnknown": "Bez kontroly"
+      "healthUnknown": "Bez kontroly",
+      "installByLink": "Inštalovať z odkazu",
+      "linkPlaceholder": "https://github.com/owner/repo (alebo /tree/tag)",
+      "linkPreview": "Skontrolovať",
+      "linkInstall": "Inštalovať",
+      "linkWarning": "Tým sa nainštaluje kód tretej strany z externého repozitára s oprávneniami panelu. Pred inštaláciou skontrolujte manifest.",
+      "linkPreviewFailed": "Manifest repozitára sa nepodarilo overiť.",
+      "cancel": "Zrušiť"
     },
     "login": {
       "hello": "Dobrý deň",

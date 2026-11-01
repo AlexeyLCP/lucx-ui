@@ -150,7 +150,14 @@
       "notEnforcedHere": "Tidak diterapkan di host ini",
       "healthPass": "Sehat",
       "healthFail": "Tidak sehat",
-      "healthUnknown": "Belum diperiksa"
+      "healthUnknown": "Belum diperiksa",
+      "installByLink": "Pasang dari tautan",
+      "linkPlaceholder": "https://github.com/owner/repo (atau /tree/tag)",
+      "linkPreview": "Periksa",
+      "linkInstall": "Pasang",
+      "linkWarning": "Ini memasang kode pihak ketiga dari repositori eksternal dengan privilég panel. Tinjau manifest di bawah sebelum memasang.",
+      "linkPreviewFailed": "Gagal memvalidasi manifest repositori.",
+      "cancel": "Batal"
     },
     "login": {
       "hello": "Halo",

@@ -150,7 +150,14 @@
       "notEnforcedHere": "غير مفروض على هذا المضيف",
       "healthPass": "سليم",
       "healthFail": "غير سليم",
-      "healthUnknown": "بدون فحص"
+      "healthUnknown": "بدون فحص",
+      "installByLink": "تثبيت من رابط",
+      "linkPlaceholder": "https://github.com/owner/repo (أو /tree/نشان)",
+      "linkPreview": "فحص",
+      "linkInstall": "تثبيت",
+      "linkWarning": "سيُثبت هذا كوداً طرف ثالث من مستودع خارجي بصلاحيات اللوحة. راجع المانيفست أدناه قبل التثبيت.",
+      "linkPreviewFailed": "تعذر التحقق من مانيفست المستودع.",
+      "cancel": "إلغاء"
     },
     "login": {
       "hello": "أهلا",

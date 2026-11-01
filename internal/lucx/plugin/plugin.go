@@ -56,6 +56,22 @@ type Resources struct {
 	MaxMemoryMB int `json:"maxMemoryMB,omitempty"`
 }
 
+// Equal compares resources blocks for the preview-vs-installed check.
+func (r *Resources) Equal(b *Resources) bool {
+	if r == nil || b == nil {
+		return r == b
+	}
+	return *r == *b
+}
+
+// Equal compares health blocks for the preview-vs-installed check.
+func (h *HealthCheck) Equal(b *HealthCheck) bool {
+	if h == nil || b == nil {
+		return h == b
+	}
+	return *h == *b
+}
+
 type EnforcementInfo struct {
 	NetworkIsolated bool `json:"networkIsolated"`
 	MemoryLimitMB   int  `json:"memoryLimitMB,omitempty"`
@@ -311,6 +327,9 @@ func InstallPackage(r io.Reader, size int64) (Manifest, error) {
 		rel, _ := filepath.Rel(dir(m.ID), target)
 		if rel == ".." || strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
 			return m, errors.New("plugin archive contains an unsafe path")
+		}
+		if rel == "data" || strings.HasPrefix(rel, "data"+string(os.PathSeparator)) {
+			continue
 		}
 		if f.FileInfo().IsDir() {
 			if err := os.MkdirAll(target, 0o700); err != nil {
