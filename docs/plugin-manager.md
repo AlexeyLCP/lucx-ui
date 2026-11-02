@@ -1,8 +1,11 @@
 # Plugin Manager — project doc
 
-Status: **stage 2 (safety) implemented, unreleased — see its section below;
-stage 1 (process-management MVP) shipped in `v3.11.0-lucx.333` (2026-10-31),
-in alpha**; follow-up fixes in lucx.334 (i18n keys, sidebar, `CsqttMember`
+Status: **the plugin manager's Stage 1–3 are implemented and released —
+Stage 1 (process-management MVP) shipped in `v3.11.0-lucx.333` (2026-10-31, alpha),
+Stage 2 (fail-closed safety and enforcement) and the whole Stage 3
+(execution + events + panel/subscription seams) shipped in
+`v3.11.0-lucx.338` (2026-11-02)**, each increment live-verified on the test
+stand. Follow-up fixes in lucx.334 (i18n keys, sidebar, `CsqttMember`
 migration) and lucx.335 (translations, settings navigation).
 
 - Today's plugin contract (what a plugin may/may not do, manifest format, API): [plugin-sidecars.md](plugin-sidecars.md)
@@ -30,7 +33,7 @@ Code: `internal/lucx/plugin/plugin.go` (+ `plugin_test.go`), controller wired in
 - REST API (session-auth): `/panel/api/plugins` — list, status, logs, install, start/stop/restart, delete.
 - `manifest.permissions` (`network`, `panelApi`, `bot`) is **declared only — not enforced, not validated**.
 
-## Stage 2 — safety (implemented; unreleased)
+## Stage 2 — safety (implemented, released in lucx.338)
 
 Live verification on the test stand (2026-11-01, `144.31.224.212`, KVM,
 Debian 12, dev build of b6f9fc9a): install/start/status/delete via the real
@@ -67,13 +70,16 @@ argv only).
 Back-compat: plugins installed before Stage 2 (no enforcement requested)
 start exactly as before; manifests declaring only empty permission arrays stay valid.
 
-## Stage 3 — execution + seams (planned; unlocks bots)
+## Stage 3 — execution + seams (implemented and live-verified; shipped in lucx.338)
 
-What plugins may **not** do today (no panel API, no DB, no bot tokens, no subscription seams) becomes possible through **authenticated seams**:
+What plugins could **not** do before Stage 3 (no panel API, no DB, no bot tokens,
+no subscription seams) is now unlocked through **authenticated seams**, shipped
+incrementally (3a unit runner → 3b events → 3c panel API + bot tokens → 3d
+sub/after), every increment live-verified on the test stand:
 
-- authenticated **panel API** seam (plugin calls panel endpoints with a scoped credential, not operator login);
-- **bot token** seam (panel delivers a stored token to a trusted, permission-granted plugin; token stays in panel settings);
-- **subscription seams** — read/export and `sub/after` hooks (injected links after client entries);
+- authenticated **panel API** seam (plugin calls panel endpoints with a scoped credential, not operator login) — **3c, done**;
+- **bot token** seam (panel delivers a stored token to a trusted, permission-granted plugin; token stays in panel settings) — **3c, done**;
+- **subscription seams** — read/export (via `panelApi: ["clients:read"]`) and the `sub/after` hook (injected links after client entries) — **3d, done**;
 - DB access: **no direct DB** is the working decision — plugins go through the panel API seam; revisit only if the API seam proves insufficient.
 
 Seams need the plugin to serve requests on a unix socket — that contract and the event
@@ -122,14 +128,14 @@ Then: install `better-csqtt`, verify per-client links, member creation/deletion,
 
 ## Scenarios → requirements
 
-| Goal scenario                                              | Needs                                           | Status                   |
-| ---------------------------------------------------------- | ----------------------------------------------- | ------------------------ |
-| Any new sidecar                                            | Stage 1                                         | Works in alpha           |
-| Fix/rework Telegram bot                                    | Stage 2 + panel API & bot-token seams (Stage 3) | Not started              |
-| Bot for another messenger                                  | Stage 3 seams + multi-bot coexistence rules     | Not started              |
-| Own color schemes                                          | Stage 5 tier A                                  | Not started              |
-| Menu changes / plugin pages                                | Stage 5 tier B + Stage 3 API seam               | Not started              |
-| Hardened sidecars (deny-network, memory cap, health probe) | Stage 2                                         | Implemented (unreleased) |
+| Goal scenario                                              | Needs                                           | Status            |
+| ---------------------------------------------------------- | ----------------------------------------------- | ----------------- |
+| Any new sidecar                                            | Stage 1                                         | Works in alpha    |
+| Fix/rework Telegram bot                                    | Stage 2 + panel API & bot-token seams (Stage 3) | Seams ready (338) |
+| Bot for another messenger                                  | Stage 3 seams + multi-bot coexistence rules     | Seams ready (338) |
+| Own color schemes                                          | Stage 5 tier A                                  | Not started       |
+| Menu changes / plugin pages                                | Stage 5 tier B + Stage 3 API seam               | Not started       |
+| Hardened sidecars (deny-network, memory cap, health probe) | Stage 2                                         | Implemented (338) |
 
 ## Ideas backlog (what else plugins could enable)
 
@@ -149,7 +155,7 @@ A plugin `type` per group is the working rule: `sidecar` (process), `preset` (da
 
 ## Open questions
 
-1. Token delivery: env at process start vs. a credentials endpoint; rotation while plugin runs?
+1. Token delivery: **decided (lucx.338, stage 3c/3d)** — env at process start (`LUCX_PANEL_TOKEN`, `LUCX_PANEL_URL`, `LUCX_TELEGRAM_BOT_TOKEN`, `LUCX_DISCORD_BOT_TOKEN`); credentials survive panel restarts; rotation = restart the plugin (a re-start regrants). A credentials endpoint stays a v2 idea.
 2. Coexistence with built-in bots (Telegram, Discord): replace the built-in one, or both run with conflict rules (settings ownership, chat routing)?
 3. Subscription permission granularity: **decided (lucx.338, stage 3d)** — read/export needs no dedicated grant (`panelApi: ["clients:read"]` covers the export and per-client/per-subId link routes); link injection is the `sub: ["after"]` permission, granted separately, additive-only over the raw /sub body.
 4. Health-check shape: HTTP/TCP probes ship in Stage 2 (report-only, no auto-restart); an in-plugin exec probe and auto-restart policies stay open.
@@ -171,16 +177,16 @@ iframes) precisely to avoid that class of breakage.
 
 What is worth adopting, and where it slots into the roadmap:
 
-| Their feature                                                                                                                                                                         | Our road                                   | Notes                                                                                                                                                 |
-| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Install by GitHub link (public only, ref pin, permission preview before confirm)                                                                                                      | Backlog "Now"                              | Design above; their two-step check→review→install flow is the UX to match                                                                             |
-| Plugins as own systemd transient units (dynamic user, no capabilities, no network unless granted, memory/CPU caps)                                                                    | Stage 3 spawner decision (open question 8) | Directly solves our verified netns-EPERM under the panel unit; stronger than in-process Cloneflags                                                    |
-| Events: POST to the plugin socket (`client.*`, `inbound.*`, `xray.crash`, `node.*`, `cpu.high`…)                                                                                      | Stage 3 (eventbus seam)                    | Their event vocabulary + best-effort ordered delivery + counters are a working reference                                                              |
-| `pipeline:xray.config` — JSON Patch (add/remove/replace/test) of the generated Xray config, protected sections (api/stats/api-inbound/existing inbounds), 30 s cache, skip-on-failure | Stage 3 seam design                        | The concrete contract for blocklist/routing preset plugins (their WARP-over-AWG and ad-block plugins build on it)                                     |
-| Seams: before/replace/after on API + sub routes, never-reachable route list, failure counting/backoff                                                                                 | Stage 3                                    | Same architecture as planned; reconcile their limits (300 ms call, 1/8 MiB bodies, no `/_lucx/`, no settings/tokens plugins routes) into the contract |
-| UI pages in sandboxed iframes without `allow-same-origin`, CSP `connect-src 'none'`, time-limited token frame, postMessage bridge + `lucx.applyTheme()` SDK                           | Stage 5 tier B                             | Safer than the earlier iframe sketch; adopt frame-token + bridge-v1 ideas into the Stage 5 spec                                                       |
-| Plugins on nodes (owner opt-in; master pushes pinned commit + manifest hash; update-on-node)                                                                                          | Stage 4+ / Smart Cluster                   | Scope: `master`/`node`/`both`                                                                                                                         |
-| Signed catalog with sequence-only-grows + manifest-hash pinning                                                                                                                       | After Stage 3                              | v1 stays link-based; catalog is a trust layer on top                                                                                                  |
+| Their feature                                                                                                                                                                         | Our road                                   | Notes                                                                                                                                                                     |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install by GitHub link (public only, ref pin, permission preview before confirm)                                                                                                      | Backlog "Now"                              | Design above; their two-step check→review→install flow is the UX to match                                                                                                 |
+| Plugins as own systemd transient units (dynamic user, no capabilities, no network unless granted, memory/CPU caps)                                                                    | Stage 3 spawner decision (open question 8) | Directly solves our verified netns-EPERM under the panel unit; stronger than in-process Cloneflags                                                                        |
+| Events: POST to the plugin socket (`client.*`, `inbound.*`, `xray.crash`, `node.*`, `cpu.high`…)                                                                                      | Stage 3 (eventbus seam)                    | Their event vocabulary + best-effort ordered delivery + counters are a working reference                                                                                  |
+| `pipeline:xray.config` — JSON Patch (add/remove/replace/test) of the generated Xray config, protected sections (api/stats/api-inbound/existing inbounds), 30 s cache, skip-on-failure | Stage 3 seam design                        | The concrete contract for blocklist/routing preset plugins (their WARP-over-AWG and ad-block plugins build on it)                                                         |
+| Seams: before/replace/after on API + sub routes, never-reachable route list, failure counting/backoff                                                                                 | Stage 3                                    | Adopted in stages 3b–3d (events, panel API with never-reachable list, sub/after with their call budgets and caps); before/replace on API routes and backoff stay v2 ideas |
+| UI pages in sandboxed iframes without `allow-same-origin`, CSP `connect-src 'none'`, time-limited token frame, postMessage bridge + `lucx.applyTheme()` SDK                           | Stage 5 tier B                             | Safer than the earlier iframe sketch; adopt frame-token + bridge-v1 ideas into the Stage 5 spec                                                                           |
+| Plugins on nodes (owner opt-in; master pushes pinned commit + manifest hash; update-on-node)                                                                                          | Stage 4+ / Smart Cluster                   | Scope: `master`/`node`/`both`                                                                                                                                             |
+| Signed catalog with sequence-only-grows + manifest-hash pinning                                                                                                                       | After Stage 3                              | v1 stays link-based; catalog is a trust layer on top                                                                                                                      |
 
 License note: their examples are MIT and ideas are free to take; the service code is an overlay
 build, not a drop-in for our tree — port concepts (contracts, limits, threat model), not code,
