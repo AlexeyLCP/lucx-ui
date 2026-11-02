@@ -9,7 +9,7 @@ stand. Follow-up fixes in lucx.334 (i18n keys, sidebar, `CsqttMember`
 migration) and lucx.335 (translations, settings navigation).
 
 - Today's plugin contract (what a plugin may/may not do, manifest format, API): [plugin-sidecars.md](plugin-sidecars.md)
-- Prompt to write/review a plugin: [plugin-prompt.md](plugin-prompt.md), see also the AI prompts in [plugin-sidecars.md](plugin-sidecars.md)
+- Prompt to write/review a plugin: [plugin-prompt.md](plugin-prompt.md)
 - Plugin UX requirements + `better-csqtt` notes: [wishlist.md](wishlist.md)
 
 ## Goal

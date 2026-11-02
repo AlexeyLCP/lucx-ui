@@ -354,92 +354,9 @@ before plugins can replace bots or read panel data.
 
 ## AI prompts for plugin development
 
-Copy-paste these when using an AI assistant (ChatGPT, Devin, ...) to generate
-a plugin. Prompt 1 generates from scratch, prompt 2 reviews existing code.
-
-**Prompt 1 — generate a plugin (RU):**
-
-```text
-Ты пишешь плагин для панели LucX-UI (это форк 3x-ui) в формате sidecar.
-Жёсткие правила плагина:
-- ZIP с manifest.json в корне: поля id (regex ^[a-z0-9][a-z0-9_-]{0,63}$),
-  name, version, apiVersion: 1, type: "sidecar", entrypoint (относительный
-  путь, без "..", не абсолютный), architectures: [] для скриптов или список
-  GOARCH ("amd64","arm64") для бинарников, permissions: {"network":[],"panelApi":[],"bot":[]}.
-- Плагин — отдельный процесс. Панель даёт лишь три переменные окружения:
-  LUCX_PLUGIN_ID, LUCX_PLUGIN_VERSION и LUCX_PLUGIN_DATA (приватная папка
-  для записи состояния — всё mutable state только там).
-- Доступа к API панели, базе данных, токенам бота и подпискам НЕТ — не
-  используй их, не пытайся читать файлы панели.
-- Логи — обычный stdout/stderr, они падают в plugin.log: пиши осмысленные
-  строки с таймстампами.
-- По Stop панель присылает SIGINT и через 3 секунды SIGKILL: обработай
-  SIGINT/SIGTERM и завершайся чисто.
-- Авто-рестарта нет: процесс должен сам жить (цикл/сервис), при падении
-  остаётся выключенным.
-- Stage 2: панель enforce'ит манифест. panelApi/bot оставь пустыми — в
-  apiVersion 1 они не выдаются, манифест с непустыми будет отклонён. Если
-  плагину сеть не нужна — поставь network: ["none"] (изоляция в netns, Linux).
-  Опционально: health {type: "http"|"tcp", target, intervalSeconds,
-  timeoutSeconds} и resources {maxMemoryMB} для лимита памяти.
-Моя задача: <ОПИШИ ЗАДАЧУ ПЛАГИНА: что слушает/делает, какие порты, что
-хранит>.
-Выдай: (1) manifest.json, (2) код плагина (shell-скрипт со shebang ИЛИ
-статичный Go-бинарник + команды сборки CGO_ENABLED=0 GOOS=linux,
-goos по arch), (3) скрипт сборки ZIP (zip -r plugin.zip manifest.json ...),
-(4) как проверить локально: запустить с выставленными LUCX_PLUGIN_* и
-убедиться, что в лог пишется startup-строка, а SIGINT завершает чисто.
-```
-
-**Prompt 1 — generate a plugin (EN):**
-
-```text
-You are writing a sidecar plugin for the LucX-UI panel (a 3x-ui fork).
-Hard rules:
-- ZIP with manifest.json at the root: id (regex ^[a-z0-9][a-z0-9_-]{0,63}$),
-  name, version, apiVersion: 1, type: "sidecar", entrypoint (relative path,
-  no "..", not absolute), architectures: [] for scripts or a GOARCH list
-  ("amd64","arm64") for binaries, permissions: {"network":[],"panelApi":[],"bot":[]}.
-- The plugin is a separate process. The panel provides only three env vars:
-  LUCX_PLUGIN_ID, LUCX_PLUGIN_VERSION, and LUCX_PLUGIN_DATA (a private
-  writable data directory — all mutable state goes there and only there).
-- There is NO access to the panel API, database, bot tokens or subscriptions —
-  do not use them, do not try to read panel files.
-- Logging = plain stdout/stderr, it lands in plugin.log: write meaningful
-  timestamped lines.
-- On Stop the panel sends SIGINT and after 3 seconds SIGKILL: handle
-  SIGINT/SIGTERM and exit cleanly.
-- No auto-restart: the process must stay alive by itself (loop/service); if
-  it crashes it stays down until started manually.
-- Stage 2: the panel enforces the manifest. Keep panelApi/bot empty — they are
-  not granted in apiVersion 1 and a non-empty list is refused. If the plugin
-  needs no network, set network: ["none"] (network-namespace isolation,
-  Linux). Optional: health {type: "http"|"tcp", target, intervalSeconds,
-  timeoutSeconds} and resources {maxMemoryMB} for a memory cap.
-My goal: <DESCRIBE THE PLUGIN TASK: what it serves/does, which ports, what
-it stores>.
-Deliver: (1) manifest.json, (2) plugin code (a shell script with shebang OR a
-static Go binary + build commands with CGO_ENABLED=0 GOOS=linux, per-arch
-build), (3) a ZIP packaging script (zip -r plugin.zip manifest.json ...),
-(4) local verification steps: run with LUCX_PLUGIN_* set, confirm a startup
-line appears in the log and SIGINT exits cleanly.
-```
-
-**Prompt 2 — review an existing plugin (EN, works for RU code too):**
-
-```text
-Review this plugin against the LucX-UI sidecar contract and list violations
-or risks:
-1. manifest.json validity: id regex, apiVersion=1, type=sidecar, entrypoint
-   relative + no "..", architectures vs the binary build targets;
-2. runtime contract: only LUCX_PLUGIN_DATA is writable; no panel API/DB use;
-   SIGINT/SIGTERM handled; endless-crash loops absent; stdout logging present;
-3. safety: no hardcoded secrets left in code, no writes outside its own
-   directory, no listening port collisions with the panel/Xray ports;
-4. packaging: ZIP layout (manifest.json at root), package size ≤ 200 MB.
-Return a short verdict: shippable / needs fixes, with the exact fixes.
-Plugin sources: <attach code or ZIP listing>
-```
+Copy-paste prompts to generate and review a plugin with an AI assistant live
+in [plugin-prompt.md](plugin-prompt.md) — they track the current
+apiVersion 1 contract (Stage 2 enforcement + Stage 3 seams).
 
 ## Feedback
 
