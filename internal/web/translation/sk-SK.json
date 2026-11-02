@@ -148,6 +148,7 @@
       "networkIsolated": "Sieť izolovaná",
       "cpuLimit": "Limit CPU: {count}%",
       "runnerUnit": "systemd jednotka",
+      "eventsCount": "Odoberanie udalostí: {count}",
       "runnerProcess": "podriadený proces panela",
       "memoryLimit": "Limit pamäte: {count} MB",
       "notEnforcedHere": "Neplatí na tomto hostiteľovi",

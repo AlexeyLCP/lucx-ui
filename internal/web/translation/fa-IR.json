@@ -148,6 +148,7 @@
       "networkIsolated": "شبکه ایزوله",
       "cpuLimit": "سقف CPU: {count}%",
       "runnerUnit": "واحد systemd",
+      "eventsCount": "اشتراک رویدادها: {count}",
       "runnerProcess": "فرزند پردازش پنل",
       "memoryLimit": "محدودیت حافظه: {count} مگابایت",
       "notEnforcedHere": "روی این میزبان اعمال نمی‌شود",

@@ -148,6 +148,7 @@
       "networkIsolated": "شبكة معزولة",
       "cpuLimit": "حد CPU: {count}%",
       "runnerUnit": "وحدة systemd",
+      "eventsCount": "الاشتراك في الأحداث: {count}",
       "runnerProcess": "عملية تابعة للوحة",
       "memoryLimit": "حد الذاكرة: {count} ميجابايت",
       "notEnforcedHere": "غير مفروض على هذا المضيف",

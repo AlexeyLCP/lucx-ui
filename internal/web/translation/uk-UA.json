@@ -148,6 +148,7 @@
       "networkIsolated": "Ізоляція мережі",
       "cpuLimit": "Ліміт CPU: {count}%",
       "runnerUnit": "systemd-юніт",
+      "eventsCount": "Підписка на події: {count}",
       "runnerProcess": "дочірній процесс панелі",
       "memoryLimit": "Ліміт памʼяті: {count} МБ",
       "notEnforcedHere": "Не діє на цьому хості",

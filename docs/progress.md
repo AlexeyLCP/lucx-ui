@@ -1,5 +1,35 @@
 # LucX-UI — Прогресс
 
+## Unreleased — stage 3b: events over unix socket (AllIsA1 contract, bus-native delivery)
+
+- Manifest `events` list (≤16, vocabulary-only: `outbound.down`/`up`,
+  `xray.crash`, `node.down`/`up`, `cpu.high`, `memory.high`, `login.attempt`;
+  unknown/duplicates refused at install). Declaring events makes the panel
+  provide `LUCX_PLUGIN_SOCKET`: `/run/x-ui-plug-<id>/<id>.sock` under the
+  unit runner (systemd `RuntimeDirectory=x-ui-plug-<id>`,
+  `RuntimeDirectoryMode=0700`), `<plugdir>/plugin.sock` under the child
+  runner; plugin unlinks/binds/chmods 0600 itself.
+- Delivery: one `internal/eventbus` subscriber per plugin — the bus's own
+  per-plugin 64-event queue + serial worker give ordered best-effort
+  delivery for free; envelope `{id, type, source, time, data}` POSTed to
+  `/_lucx/events`, 5 s timeout, no retry, counters `delivered`/`failed`
+  (atomics; bus-side drops visible in panel log). Subscriber re-arms from
+  the next status poll after a panel restart (unit keeps running;
+  `ensureEventSubscriber` is idempotent; events work for both runners).
+- `client.*`/`inbound.*` names deliberately NOT in the vocabulary yet (no
+  publishers), `client.traffic.exhausted` etc. wait for stage 3c publish
+  points.
+- Status payload: `events {delivered, failed, socket}`; frontend card tag
+  `Events subscribed: N` + i18n key `eventsCount` in all 14 locales.
+- Example plugin `docs/examples/plugins/event-logger/`: static-buildable Go
+  reference implementing the socket contract (bind, serve `/_lucx/events`,
+  log payloads) + manifest + README with the payload-shape table.
+- Tests: `events_test.go` — vocabulary validation, per-runner socket paths,
+  envelope POST over a real unix socket (`delivered`), non-2xx and missing
+  socket counted as `failed`, filtered types not counted, bus-level
+  subscribe→deliver→unsubscribe idempotence with a real eventbus.
+  Full `internal/lucx` + frontend suites green.
+
 ## Unreleased — stage 3a: unit runner for enforcement (AllIsA1 prior-art, in-panel integration)
 
 - Second runner mode on Linux: plugins start as **transient systemd units**

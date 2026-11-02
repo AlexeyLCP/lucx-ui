@@ -23,6 +23,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/eventbus"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/plugin"             // LUCX-HOOK: sidecar plugins
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"             // LUCX-HOOK: tunnel sidecars (NaiveProxy)
 	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard" // LUCX-HOOK: standard kernel WireGuard
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
@@ -679,6 +680,10 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 	service.SetEventBus(s.bus)
 	job.EventBus = s.bus
 	tgbot.EventBus = s.bus
+
+	// LUCX-HOOK: plugins declare `events` in apiVersion 1 and receive bus
+	// events over their unix socket (stage 3b).
+	plugin.SetEventBus(s.bus)
 
 	// Wire xray crash callback BEFORE startTask so it's ready
 	xray.OnCrash = func(err error) {

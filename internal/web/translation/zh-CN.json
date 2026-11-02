@@ -148,6 +148,7 @@
       "networkIsolated": "网络隔离",
       "cpuLimit": "CPU限制: {count}%",
       "runnerUnit": "systemd单元",
+      "eventsCount": "订阅事件: {count}",
       "runnerProcess": "面板子进程",
       "memoryLimit": "内存限制：{count} MB",
       "notEnforcedHere": "此主机上未强制",

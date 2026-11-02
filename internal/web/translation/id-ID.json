@@ -148,6 +148,7 @@
       "networkIsolated": "Jaringan terisolasi",
       "cpuLimit": "Batas CPU: {count}%",
       "runnerUnit": "unit systemd",
+      "eventsCount": "Langganan kejadian: {count}",
       "runnerProcess": "proses child panel",
       "memoryLimit": "Batas memori: {count} MB",
       "notEnforcedHere": "Tidak diterapkan di host ini",

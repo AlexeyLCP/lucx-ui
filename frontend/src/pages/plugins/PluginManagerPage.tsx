@@ -230,6 +230,13 @@ export default function PluginManagerPage() {
                               )}
                             </Tag>
                           )}
+                          {(plugin.manifest.events?.length ?? 0) > 0 && (
+                            <Tag color="cyan">
+                              {t('pages.plugins.eventsCount', {
+                                count: plugin.manifest.events?.length,
+                              })}
+                            </Tag>
+                          )}
                         </Space>
                       }
                     >

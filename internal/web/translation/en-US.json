@@ -149,6 +149,7 @@
       "memoryLimit": "Memory limit: {count} MB",
       "cpuLimit": "CPU limit: {count}%",
       "runnerUnit": "systemd unit",
+      "eventsCount": "Events subscribed: {count}",
       "runnerProcess": "panel child process",
       "notEnforcedHere": "Not enforced on this host",
       "healthPass": "Healthy",

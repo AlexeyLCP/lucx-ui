@@ -109,6 +109,39 @@ and works out of the box regardless of how the ZIP was built.
   Linux) a manifest that asks for isolation or limits is refused at start —
   the panel refuses to run it unsandboxed silently.
 
+## Events (stage 3b, apiVersion 1)
+
+A manifest may declare `events` — up to 16 names from the panel's event
+vocabulary, e.g. `"events": ["cpu.high", "xray.crash"]`. Only names with a
+real publisher are valid today: `outbound.down`, `outbound.up`, `xray.crash`,
+`node.down`, `node.up`, `cpu.high`, `memory.high`, `login.attempt`
+(`client.*` and `inbound.*` arrive with later stages, when panel publishers
+exist). Unknown or duplicated names are refused at install.
+
+Plugins that declare events receive:
+
+- the unix socket path in `LUCX_PLUGIN_SOCKET` (bind rules above);
+- a `POST` to `/_lucx/events` with a JSON body
+  `{ "id", "type", "source", "time", "data" }` for every matching event,
+  serialized one at a time (publication order per plugin). Answer any 2xx
+  quickly; the panel waits 5 s and does **not retry** — delivery is best
+  effort, and a stopped or hung plugin simply loses events and counts
+  `failed`.
+- `node.*` events only fire when node monitoring is in use; `events`
+  requiring the socket work under both runners.
+
+Payload `data` is the raw event payload with Go field names: a string for
+`xray.crash`, `{"Percent","Threshold"}` for `cpu.high`/`memory.high`,
+`{"Username","IP","Time","Status","Reason"}` for `login.attempt`,
+`{"Delay","Error"}` for outbound events and `{"NodeId","LatencyMs",
+"CpuPct","MemPct","XrayState","XrayError"}` for `node.*`. Payloads carry
+identifiers, never keys or passwords.
+
+The status reports `events: {delivered, failed, socket}` while the plugin
+runs (counters reset on panel restart; the subscription re-arms on the next
+status poll after a restart). A working example lives in
+[docs/examples/plugins/event-logger](examples/plugins/event-logger).
+
 ## Runtime contract
 
 The plugin runs as a separate process with its working directory set to its
@@ -117,7 +150,12 @@ installation directory (`bin/plugins/<id>/`). LucX-UI provides:
 - `LUCX_PLUGIN_ID`;
 - `LUCX_PLUGIN_VERSION`;
 - `LUCX_PLUGIN_DATA`, a private writable data directory
-  (`bin/plugins/<id>/data`) — keep all mutable state here.
+  (`bin/plugins/<id>/data`) — keep all mutable state here;
+- `LUCX_PLUGIN_SOCKET` — set only when the manifest declares `events` (see
+  below): the unix socket the plugin must `unlink`, `bind` and `chmod 0600`
+  itself. Under the unit runner it lives in the systemd runtime directory
+  `/run/x-ui-plug-<id>/` (created and cleaned by systemd for the unit);
+  under the child process runner it is `<id>/plugin.sock`.
 
 Everything the process writes to stdout/stderr goes to
 `bin/plugins/<id>/plugin.log` (append mode, one log for all runs).

@@ -148,6 +148,7 @@
       "networkIsolated": "Rede isolada",
       "cpuLimit": "Limite de CPU: {count}%",
       "runnerUnit": "unidade systemd",
+      "eventsCount": "Assinatura de eventos: {count}",
       "runnerProcess": "processo filho do painel",
       "memoryLimit": "Limite de memória: {count} MB",
       "notEnforcedHere": "Não aplicado neste host",

@@ -148,6 +148,7 @@
       "networkIsolated": "ネットワーク分離",
       "cpuLimit": "CPU制限: {count}%",
       "runnerUnit": "systemdユニット",
+      "eventsCount": "イベント購読: {count}",
       "runnerProcess": "パネルの子プロセス",
       "memoryLimit": "メモリ上限: {count} MB",
       "notEnforcedHere": "このホストでは未適用",

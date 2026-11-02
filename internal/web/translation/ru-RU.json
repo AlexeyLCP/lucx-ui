@@ -148,6 +148,7 @@
       "networkIsolated": "Изоляция сети",
       "cpuLimit": "Лимит CPU: {count}%",
       "runnerUnit": "systemd-юнит",
+      "eventsCount": "Подписка на события: {count}",
       "runnerProcess": "дочерний процесс панели",
       "memoryLimit": "Лимит памяти: {count} МБ",
       "notEnforcedHere": "Не действует на этом хосте",

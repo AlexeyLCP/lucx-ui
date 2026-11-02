@@ -148,6 +148,7 @@
       "networkIsolated": "Cách ly mạng",
       "cpuLimit": "Giới hạn CPU: {count}%",
       "runnerUnit": "unit systemd",
+      "eventsCount": "Đăng ký sự kiện: {count}",
       "runnerProcess": "tiến trình con của panel",
       "memoryLimit": "Giới hạn bộ nhớ: {count} MB",
       "notEnforcedHere": "Không áp dụng trên máy này",

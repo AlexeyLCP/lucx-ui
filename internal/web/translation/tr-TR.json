@@ -148,6 +148,7 @@
       "networkIsolated": "Ağ izole",
       "cpuLimit": "CPU sınırı: {count}%",
       "runnerUnit": "systemd unit",
+      "eventsCount": "Olay aboneliği: {count}",
       "runnerProcess": "panelin child süreci",
       "memoryLimit": "Bellek sınırı: {count} MB",
       "notEnforcedHere": "Bu ana bilgisayarda uygulanmaz",

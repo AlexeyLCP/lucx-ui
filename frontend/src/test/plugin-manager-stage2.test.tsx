@@ -20,6 +20,7 @@ const plugins: PluginStatus[] = [
       type: 'sidecar',
       permissions: { network: ['none'], panelApi: [], bot: [] },
       resources: { maxMemoryMB: 64, maxCPUPercent: 25 },
+      events: ['cpu.high', 'xray.crash'],
       health: { type: 'http', target: 'http://127.0.0.1:8080/healthz' },
     },
     installed: true,
@@ -99,6 +100,7 @@ describe('PluginManagerPage', () => {
     expect(within(card).getByText('Memory limit: 64 MB')).toBeTruthy();
     expect(within(card).getByText('CPU limit: 25%')).toBeTruthy();
     expect(within(card).getByText('systemd unit')).toBeTruthy();
+    expect(within(card).getByText('Events subscribed: 2')).toBeTruthy();
     const askedCard = cardWithText('bin/plugins/asked/run.sh');
     expect(within(askedCard).getByText('Not enforced on this host')).toBeTruthy();
     expect(screen.getAllByText('Stopped').length).toBeGreaterThan(0);

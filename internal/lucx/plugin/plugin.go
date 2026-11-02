@@ -98,6 +98,7 @@ type Manifest struct {
 	Permissions   map[string][]string `json:"permissions,omitempty"`
 	Resources     *Resources          `json:"resources,omitempty"`
 	Health        *HealthCheck        `json:"health,omitempty"`
+	Events        []string            `json:"events,omitempty"`
 }
 
 type Status struct {
@@ -111,6 +112,7 @@ type Status struct {
 	LogPath     string          `json:"logPath"`
 	LastError   string          `json:"lastError,omitempty"`
 	Enforcement EnforcementInfo `json:"enforcement"`
+	Events      *EventsStatus   `json:"events,omitempty"`
 	Health      *HealthStatus   `json:"health,omitempty"`
 }
 
@@ -273,6 +275,9 @@ func validateManifest(m Manifest) error {
 	}
 	if m.Resources != nil && m.Resources.MaxCPUPercent != 0 && (m.Resources.MaxCPUPercent < 1 || m.Resources.MaxCPUPercent > 100) {
 		return errors.New("plugin resources.maxCPUPercent must be between 1 and 100, or 0/absent")
+	}
+	if err := validateEvents(m.Events); err != nil {
+		return err
 	}
 	return validateHealth(m.Health, denyNetwork(m))
 }
@@ -467,6 +472,12 @@ func Get(id string) (Status, error) {
 		}
 		p.mu.Unlock()
 	}
+	if len(m.Events) > 0 {
+		if s.Running {
+			ensureEventSubscriber(m, s.Runner)
+		}
+		s.Events = eventsStatus(id)
+	}
 	return s, nil
 }
 
@@ -519,13 +530,22 @@ func Start(id string) error {
 		if err := startUnit(p, m, bin); err != nil {
 			p.lastError = err.Error()
 		} else {
+			if len(m.Events) > 0 {
+				registerSocket(id, socketPath(m, runnerUnit))
+				ensureEventSubscriber(m, runnerUnit)
+			}
 			p.lastError = ""
 			return nil
 		}
 	}
-	if err := startChild(p, m, bin); err != nil {
+	sock := socketPath(m, runnerProcess)
+	if err := startChild(p, m, bin, sock); err != nil {
 		p.lastError = err.Error()
 		return errors.New(p.lastError)
+	}
+	if len(m.Events) > 0 {
+		registerSocket(id, sock)
+		ensureEventSubscriber(m, runnerProcess)
 	}
 	/* The unit runner refused: the process runner applies its own enforcement
 	(netns clone, RLIMIT_AS) and refuses fail-closed on hosts where that is
@@ -539,9 +559,10 @@ func Start(id string) error {
 /*
 	startChild is the classic Stage 1-2 supervised child process: panel-owned
 
-stdio, health goroutine and exit watcher included.
+stdio, health goroutine and exit watcher included. sock is the unix socket
+path a plugin listing `events` must bind (empty otherwise).
 */
-func startChild(p *managed, m Manifest, bin string) error {
+func startChild(p *managed, m Manifest, bin, sock string) error {
 	log, err := os.OpenFile(logPath(m.ID), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
 	if err != nil {
 		return err
@@ -556,6 +577,9 @@ func startChild(p *managed, m Manifest, bin string) error {
 	}
 	cmd.Dir = dir(m.ID)
 	cmd.Env = append(os.Environ(), "LUCX_PLUGIN_ID="+m.ID, "LUCX_PLUGIN_VERSION="+m.Version, "LUCX_PLUGIN_DATA="+dataPath(m.ID))
+	if sock != "" && len(m.Events) > 0 {
+		cmd.Env = append(cmd.Env, "LUCX_PLUGIN_SOCKET="+sock)
+	}
 	cmd.Stdout = log
 	cmd.Stderr = log
 	if err := cmd.Start(); err != nil {
@@ -582,6 +606,7 @@ func startChild(p *managed, m Manifest, bin string) error {
 		}
 		p.mode = ""
 		p.mu.Unlock()
+		removeEventSubscriber(m.ID)
 		close(done)
 	}()
 	return nil
@@ -614,10 +639,12 @@ func Stop(id string) error {
 		p.mode = ""
 		p.unit = ""
 		p.mu.Unlock()
+		removeEventSubscriber(id)
 		return nil
 	}
 	if p.cmd == nil || p.cmd.Process == nil {
 		p.mu.Unlock()
+		removeEventSubscriber(id)
 		return nil
 	}
 	cmd, done, log := p.cmd, p.done, p.log
@@ -629,6 +656,7 @@ func Stop(id string) error {
 		_ = cmd.Process.Kill()
 		<-done
 	}
+	removeEventSubscriber(id)
 	if log != nil {
 		_ = log.Close()
 	}

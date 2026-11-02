@@ -9,6 +9,7 @@ export type PluginManifest = {
   permissions?: Record<string, string[]>;
   resources?: { maxMemoryMB?: number; maxCPUPercent?: number };
   health?: { type: string; target: string; intervalSeconds?: number; timeoutSeconds?: number };
+  events?: string[];
 };
 
 export type PluginStatus = {
@@ -28,6 +29,7 @@ export type PluginStatus = {
     cpuLimitPercent?: number;
     cpuEnforced?: boolean;
   };
+  events?: { delivered: number; failed: number; socket?: string };
   health?: { status: 'pass' | 'fail' | 'unknown'; detail?: string; checkedAt?: number };
 };
 

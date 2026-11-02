@@ -148,6 +148,7 @@
       "networkIsolated": "網路隔離",
       "cpuLimit": "CPU限制: {count}%",
       "runnerUnit": "systemd單元",
+      "eventsCount": "訂閱事件: {count}",
       "runnerProcess": "面板子進程",
       "memoryLimit": "記憶體限制：{count} MB",
       "notEnforcedHere": "此主機上未強制",

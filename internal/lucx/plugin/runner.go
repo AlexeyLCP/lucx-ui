@@ -100,6 +100,15 @@ func unitProps(m Manifest, plugDir, dataDir, log string) []string {
 	if m.Resources != nil && m.Resources.MaxCPUPercent > 0 {
 		props = append(props, "CPUQuota="+strconv.Itoa(m.Resources.MaxCPUPercent)+"%")
 	}
+	if len(m.Events) > 0 {
+		/* The events socket lives in a dedicated runtime directory: systemd
+		creates and owns it for the unit, removes it on stop, and its socket
+		is unreachable for other users. */
+		props = append(props,
+			"RuntimeDirectory=x-ui-plug-"+m.ID,
+			"RuntimeDirectoryMode=0700",
+			"Environment=LUCX_PLUGIN_SOCKET="+socketPath(m, runnerUnit))
+	}
 	out := make([]string, 0, len(props)*2)
 	for _, p := range props {
 		out = append(out, "-p", p)
