@@ -25,6 +25,15 @@
   14 локалях; тест карточки обновлён.
 - Тесты: `subafter_test.go` (грамматика, netns-конфликт, вызов с нагрузкой,
   трим/капы, пропуск неgranted/упавших, эвристика пути сокета).
+- LIVE stand verification (2026-11-02, dev build d08966cd): sub-extender
+  (unit runner, `sub: ["after"]`) — raw `/sub/:subId` body shows the client
+  entry, then `socks://127.0.0.1:1080#sub-extender-extra` appended after it;
+  plugin.log shows the context line `SUB/AFTER subId=testsub1 host=localhost
+  count=1 emails=1`; with the plugin stopped the injected line disappears
+  while the client entry stays untouched; a panel restart keeps the unit
+  running and the injection flowing (socket re-arm heuristic, no status
+  poll); `sub` + `network:["none"]` and a bogus sub rule are refused at
+  install; test client/daemon deleted, no units left.
 
 ## Unreleased — stage 3c: panel API seam + bot token seam (AllIsA1 contract)
 
