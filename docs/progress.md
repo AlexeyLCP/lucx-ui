@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.339 — AWG kmod pin to upstream head (2026-11-02)
+
+Caught the AmneziaWG kernel-module pin up with upstream master.
+
+- `bin/install-awg-module.sh` `AWG_KMOD_PIN` `3c38e168` (`v3.1.20260828`) → `4569c4c67f3a` (`v3.1.20260906`). Upstream diff is exactly one commit: "do not append random trailers to I1-I5 and dummy junk packets" (`src/send.c` / `socket.c` / `socket.h` only) — RandomTrailers no longer corrupts initiation/junk framing; relevant to our 3.1 RandomTrailers feature (cf. amneziawg-go#183 note in `internal/awg/params.go`).
+- No UAPI/netlink change on that path → panel tools pin stays `v3.1.20260812` (still upstream head); `compat/compat.h` untouched → the in-script DKMS compat patchers (udp_tunnel, timer_delete, chacha, blake2s) apply unchanged.
+- Already at head, no change: `go.mod` amneziawg-go `v3.1.20260828` (upstream master == tag), `scripts/install-amneziawg-kernel.sh` (`v3.1.20260906` module + `v3.1.20260812` tools, upstream #6877).
+- Next `x-ui update` on hosts: marker SHA no longer matches pin → one DKMS rebuild (`--no-kernel-upgrade` default behavior unchanged, `.awg-reboot-needed` flow intact).
+- Owed: live DKMS rebuild on the stand (`Cores → Rebuild`) before release.
+
+**lucxVersion:** lucx.339
+
+---
+
 ## lucx.338 — stage 3d: подписочный шов sub/after
 
 - Новый permission `sub: ["after"]` (закрытый словарь, дубликаты и
