@@ -93,6 +93,8 @@ Runner semantics (3a decision, refines the borrowed AllIsA1 design to run in-pan
 - A plugin that requests nothing may still start as a unit when available, or fall back to the child process (today's behavior). A plugin that requests enforcement and a host where the panel cannot create units → **refused at start, fail closed** (no silent downgrade).
 - The panel supervises state via `systemctl show` (ActiveState/MainPID); stop/restart goes through the unit; plugin units outlive a panel restart by design (documented behavior change), delete/uninstall stops the unit first.
 
+Live verification (2026-11-02, test stand, dev build): `network: ["none"]` started as a unit under the hardened panel unit — distinct `ns/net` inode from the panel, only `lo` inside, `PING-BLOCKED-AS-EXPECTED`; `maxCPUPercent: 30` landed as `CPUQuotaPerSecUSec=300ms`, `maxMemoryMB: 64` as `MemoryMax=67108864`; all three test plugins reported `runner: unit`; units survived a panel restart (status stays `running` via `systemctl show` with the same MainPID); stop/delete leave no units behind. Two runner lessons baked into the code: systemd ≤ 252 has no `systemd-run --replace` (a pre-clearing `systemctl reset-failed` is used instead), and **systemd 252 rejects relative `-p` paths silently (exit 1, no stderr)** — all unit properties must be absolute, cwd-resolved paths.
+
 ## Stage 5 — UI seams (planned; goal scenario 4)
 
 Feasibility assessment (2026-11-01). The frontend is React 19 + AntD 6, built at

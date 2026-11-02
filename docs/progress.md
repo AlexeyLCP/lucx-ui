@@ -6,21 +6,21 @@
   (`lucx-plugin-<id>` via `systemd-run`), kernel-enforced `PrivateNetwork=yes`
   for `network: ["none"]` — resolves the verified netns-EPERM under the
   panel's hardened unit (open question 8 in `docs/plugin-manager.md`,
-  decided), `MemoryMax`+`LimitAS` for `maxMemoryMB`(=64MB LimitAS parity),
-  `CPUQuota` for the new `resources.maxCPUPercent` (1..100), empty
-  `CapabilityBoundingSet`, `ProtectSystem=strict`, `ProtectHome`,
-  `PrivateTmp`, `PrivateDevices`, `RestrictNamespaces`, `NoNewPrivileges`,
-  `KillSignal=SIGINT`+`TimeoutStopSec=3` (Stop law), logs via
-  `StandardOutput/StandardError=append:` to the same `plugin.log`,
-  `WorkingDirectory`=plugin dir. Units run as the panel's user (no
-  DynamicUser yet — data-path contract unchanged); honest "unit (partial)"
-  disclosure: namespaces/mounts/limits enforced, filesystem readable.
+  decided), `MemoryMax`+`LimitAS` for `maxMemoryMB`, `CPUQuota` for the new
+  `resources.maxCPUPercent` (1..100), empty `CapabilityBoundingSet`,
+  `ProtectSystem=strict`, `ProtectHome`, `PrivateTmp`, `PrivateDevices`,
+  `RestrictNamespaces`, `NoNewPrivileges`, `KillSignal=SIGINT`+
+  `TimeoutStopSec=3` (Stop law), logs via `StandardOutput/StandardError=
+  append:` to the same `plugin.log`, `WorkingDirectory`=plugin dir. Units
+  run as the panel's user (no DynamicUser yet — data-path contract
+  unchanged); honest "unit (partial)" disclosure: namespaces/mounts/limits
+  enforced, filesystem readable.
 - Fallback: unit runner unavailable → child process runner (Stage 1-2 path,
   unchanged, still fail-closed on netns EPERM; CPU-only manifests refused —
   `prepareCmd` refuses on Linux and non-Linux). Enforcement manifests never
   start silently unsandboxed. Unit state supervised by `systemctl show`
-  (ActiveState/MainPID/Result); units survive a panel restart (documented
-  behavior change), stop/restart/delete go through the panel first.
+  (ActiveState/MainPID/Result); units survive a panel restart, stop/restart/
+  delete go through the panel first.
 - Status payload: `runner` ("unit"|"process"), `enforcement.cpuLimitPercent`,
   `enforcement.cpuEnforced`; outlived-panel case detected on `Get` by unit
   name. Validation: `maxCPUPercent` 1..100; `needsEnforcement` includes CPU.
@@ -32,8 +32,20 @@
   law), parse of `systemctl show` output (active/failed/pid), failed-start
   result surfacing without taking supervision, no-unit-runner CPU refusal,
   validation bounds; fake seams for systemd binaries keep the suite
-  OS-neutral. `go test ./internal/lucx/plugin/ -count=1` green (Windows),
-  full Go suite green, frontend unit+components+lint+tsc green.
+  OS-neutral.
+- LIVE stand verification (2026-11-02, dev build): netns plugin started as
+  unit under the hardened panel unit — different `ns/net` inode from the
+  panel, only `lo` inside, `PING-BLOCKED-AS-EXPECTED`; CPUQuota=300ms/MemoryMax
+  =64MB confirmed on the unit; all three plugins `runner: unit`; units
+  survived panel restart (status `running`, same MainPID); stop/delete clean.
+- Runner lessons (each fixed and verified live): (1) systemd ≤252 has no
+  `systemd-run --replace` → pre-clear failed unit with `systemctl
+  reset-failed` (errors ignored); (2) systemd 252 rejects **relative** `-p`
+  paths silently (exit 1, no stderr — found by strace) → all unit props are
+  absolute, cwd-resolved; (3) unit-er execution errors are appended to
+  `plugin.log` (startUnit logs its failure before the fallback).
+- Token note: panels with >1 API token require `-tokenName` for
+  `-getApiToken` (the stand flow now uses `-tokenName cli-fallback`).
 
 ## lucx.337 — install plugin by GitHub link (credit: AllIsA1)
 
