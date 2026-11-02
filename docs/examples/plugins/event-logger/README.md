@@ -26,8 +26,11 @@ event-logger
 
 Install through **Settings → Plugin Manager** (ZIP upload). The manifest
 subscribes to `cpu.high`, `memory.high`, `xray.crash`, `outbound.down`,
-`outbound.up` and `login.attempt`; `cpu.high` arrives about once a minute,
-so the log fills quickly and the events counters on the plugin card move.
+`outbound.up` and `login.attempt`. Note the publish sources: the panel only
+runs the minute-cadence CPU/memory samplers when a notifier (Telegram or
+email) subscribes to those alarms; login attempts fire on every login form
+submission; `xray.crash` fires when the Xray process dies — kill it on the
+host to see an event land immediately in the log.
 
 ## The contract, in one page
 

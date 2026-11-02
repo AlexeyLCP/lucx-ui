@@ -29,6 +29,20 @@
   socket counted as `failed`, filtered types not counted, bus-level
   subscribe→deliver→unsubscribe idempotence with a real eventbus.
   Full `internal/lucx` + frontend suites green.
+- LIVE stand verification (2026-11-02, dev build): event-logger (Go example,
+  static linux amd64, packed as ZIP) started as a unit with
+  `RuntimeDirectory=x-ui-plug-event-logger` (dir 0700, socket 0600 inside);
+  killing the Xray process published `xray.crash` through the eventbus to
+  `/_lucx/events` — plugin logged `EVENT xray.crash data="signal: killed"`
+  and the status bumped `delivered: 1`; after a panel restart the status
+  poll re-armed the subscription (socket path re-registered, counters run
+  their own lifetime), a second kill delivered again; stop/delete removed
+  the unit and the runtime dir with it. Notes: cpu/memory.high samplers are
+  only scheduled when a notifier subscribes to those alarms
+  (`cpuAlarmWanted()`), so on a notifier-less host xray.crash/login.attempt
+  are the observable events; docs reflect that. Convention test
+  (production HTTP wrappers) now skips `docs/examples` (plugin-author
+  sample code, not panel servers).
 
 ## Unreleased — stage 3a: unit runner for enforcement (AllIsA1 prior-art, in-panel integration)
 
