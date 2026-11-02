@@ -101,6 +101,12 @@ func NewSubService(remarkTemplate string) *SubService {
 	}
 }
 
+// LUCX-HOOK (stage 3d): sub/after seam. The panel installs this hook from
+// the plugin manager at boot; plugins granted "sub": ["after"] may append
+// links after the client entries of the raw /sub body. nil == no plugin
+// opted in. Additive only (rules 0/0b).
+var SubAfterHook func(subId, host string, count int, emails []string) []string
+
 // enableSettingsCache gives the subscription server's service its inbound settings cache, purged
 // on every panel mutation; release unhooks it when the server stops.
 func (s *SubService) enableSettingsCache() (release func()) {
@@ -599,7 +605,17 @@ func (s *SubService) getSubs(subId string) ([]string, []string, int64, xray.Clie
 	traffic, lastOnline := s.AggregateTrafficByEmails(uniqueEmails)
 	traffic.Enable = hasEnabledClient
 
-	if mode, remark := s.resolveInfoNodeRemark(subId, uniqueEmails, traffic, len(result) > 0); mode != infoNodeNone {
+	mode, remark := s.resolveInfoNodeRemark(subId, uniqueEmails, traffic, len(result) > 0)
+	// LUCX-HOOK (stage 3d, rules 0/0b): sub/after seam — plugins granted
+	// "sub": ["after"] append links after the client entries of the raw /
+	// sub body (subscriptionBody). Additive only; expired/depleted
+	// info-node responses stay pure.
+	if mode != infoNodeExpired && mode != infoNodeDepleted && s.subscriptionBody && SubAfterHook != nil && len(result) > 0 {
+		if extra := SubAfterHook(subId, s.address, len(result), uniqueEmails); len(extra) > 0 {
+			result = append(result, extra...)
+		}
+	}
+	if mode != infoNodeNone {
 		dummyLink := fmt.Sprintf("socks://127.0.0.1:1080#%s", strings.ReplaceAll(url.QueryEscape(remark), "+", "%20"))
 		if mode == infoNodeExpired || mode == infoNodeDepleted {
 			return []string{dummyLink}, emails, lastOnline, traffic, nil

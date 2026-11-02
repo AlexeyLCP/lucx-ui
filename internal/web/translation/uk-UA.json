@@ -149,6 +149,7 @@
       "cpuLimit": "Ліміт CPU: {count}%",
       "runnerUnit": "systemd-юніт",
       "eventsCount": "Підписка на події: {count}",
+      "subAfter": "Додає посилання у підписку (sub/after)",
       "runnerProcess": "дочірній процесс панелі",
       "memoryLimit": "Ліміт памʼяті: {count} МБ",
       "notEnforcedHere": "Не діє на цьому хості",

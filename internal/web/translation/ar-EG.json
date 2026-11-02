@@ -149,6 +149,7 @@
       "cpuLimit": "حد CPU: {count}%",
       "runnerUnit": "وحدة systemd",
       "eventsCount": "الاشتراك في الأحداث: {count}",
+      "subAfter": "يضيف روابط إلى الاشتراك (sub/after)",
       "runnerProcess": "عملية تابعة للوحة",
       "memoryLimit": "حد الذاكرة: {count} ميجابايت",
       "notEnforcedHere": "غير مفروض على هذا المضيف",

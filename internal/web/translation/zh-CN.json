@@ -149,6 +149,7 @@
       "cpuLimit": "CPU限制: {count}%",
       "runnerUnit": "systemd单元",
       "eventsCount": "订阅事件: {count}",
+      "subAfter": "\u5411\u8ba2\u9605\u6ce8\u5165\u94fe\u63a5 (sub/after)",
       "runnerProcess": "面板子进程",
       "memoryLimit": "内存限制：{count} MB",
       "notEnforcedHere": "此主机上未强制",

@@ -150,6 +150,7 @@
       "cpuLimit": "CPU limit: {count}%",
       "runnerUnit": "systemd unit",
       "eventsCount": "Events subscribed: {count}",
+      "subAfter": "Injects sub links (sub/after)",
       "runnerProcess": "panel child process",
       "notEnforcedHere": "Not enforced on this host",
       "healthPass": "Healthy",

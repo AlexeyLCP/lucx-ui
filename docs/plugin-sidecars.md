@@ -158,6 +158,32 @@ settings is simply not delivered. Rotation: change the token in panel
 settings and restart the plugin. A bot plugin needs real network access
 (never combine with `network: ["none"]`).
 
+## Sub/after seam (stage 3d, apiVersion 1)
+
+`permissions.sub: ["after"]` registers the plugin as a subscription
+post-processor. For every raw `/sub/:subId` body the panel POSTs the
+subscription context to `/_lucx/sub/after` on the plugin socket with
+
+```json
+{"subId": "...", "host": "...", "count": 3, "emails": ["user@example.com"]}
+```
+
+and the plugin answers `{"links": ["vless://...#extra", ...]}`. Contract:
+
+- links are appended **after** every client entry — existing entries are
+  never rewritten (rules 0/0b);
+- expired/depleted info-node responses stay pure, and the injections never
+  reach the sub info page, the json/clash/awg bodies or the panel link
+  displays — the raw links body only;
+- the panel allows 300 ms per call, drops empty or > 2 KiB lines, and caps
+  at 32 links per plugin and 64 links per body; any plugin error means its
+  links are simply absent (fail-open, one line in `plugin.log` on the first
+  failure);
+- `sub` cannot be combined with `network: ["none"]` (the panel would lose
+  the route to the plugin socket) — refused at install.
+
+Reference plugin: `docs/examples/plugins/sub-extender/`.
+
 ## Events (stage 3b, apiVersion 1)
 
 A manifest may declare `events` — up to 16 names from the panel's event

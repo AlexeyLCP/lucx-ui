@@ -149,6 +149,7 @@
       "cpuLimit": "CPU制限: {count}%",
       "runnerUnit": "systemdユニット",
       "eventsCount": "イベント購読: {count}",
+      "subAfter": "\u30b5\u30d6\u30ea\u30f3\u30af\u3092\u6ce8\u5165\u3057\u307e\u3059 (sub/after)",
       "runnerProcess": "パネルの子プロセス",
       "memoryLimit": "メモリ上限: {count} MB",
       "notEnforcedHere": "このホストでは未適用",

@@ -149,6 +149,7 @@
       "cpuLimit": "CPU sınırı: {count}%",
       "runnerUnit": "systemd unit",
       "eventsCount": "Olay aboneliği: {count}",
+      "subAfter": "Aboneli\u011fe ba\u011flant\u0131 ekler (sub/after)",
       "runnerProcess": "panelin child süreci",
       "memoryLimit": "Bellek sınırı: {count} MB",
       "notEnforcedHere": "Bu ana bilgisayarda uygulanmaz",

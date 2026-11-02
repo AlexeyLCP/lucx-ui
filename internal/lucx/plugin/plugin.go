@@ -174,8 +174,8 @@ func needsEnforcement(m Manifest) bool {
 
 func validatePermissions(p map[string][]string) error {
 	for kind, rules := range p {
-		if kind != "network" && kind != "panelApi" && kind != "bot" {
-			return fmt.Errorf("unknown plugin permission %q (allowed: network, panelApi, bot)", kind)
+		if kind != "network" && kind != "panelApi" && kind != "bot" && kind != "sub" {
+			return fmt.Errorf("unknown plugin permission %q (allowed: network, panelApi, bot, sub)", kind)
 		}
 		if len(rules) > 16 {
 			return fmt.Errorf("plugin permission %q has too many entries", kind)
@@ -190,6 +190,9 @@ func validatePermissions(p map[string][]string) error {
 		return err
 	}
 	if err := validateBotPermissions(p["bot"]); err != nil {
+		return err
+	}
+	if err := validateSubPermissions(p["sub"]); err != nil {
 		return err
 	}
 	for _, rule := range p["network"] {
@@ -281,6 +284,11 @@ func validateManifest(m Manifest) error {
 	}
 	if err := validateEvents(m.Events); err != nil {
 		return err
+	}
+	if len(m.Permissions["sub"]) > 0 && denyNetwork(m) {
+		// LUCX-HOOK: a sub/after socket plugin cannot be kernel-isolated —
+		// a fresh netns would strand the panel's socket POSTs.
+		return errors.New("a plugin with the sub permission cannot also declare network:[\"none\"] - the panel could not reach its socket")
 	}
 	if panelDeniedByNetwork(m) {
 		return errors.New("a plugin with panelApi or bot permissions cannot also declare network:[\"none\"] - it would not be able to reach the panel")
@@ -544,8 +552,10 @@ func Start(id string) error {
 		if err := startUnit(p, m, bin); err != nil {
 			p.lastError = err.Error()
 		} else {
-			if len(m.Events) > 0 {
+			if needsSocket(m) {
 				registerSocket(id, socketPath(m, runnerUnit))
+			}
+			if len(m.Events) > 0 {
 				ensureEventSubscriber(m, runnerUnit)
 			}
 			p.lastError = ""
@@ -560,8 +570,10 @@ func Start(id string) error {
 	/* The unit runner refused: the process runner applies its own enforcement
 	(netns clone, RLIMIT_AS) and refuses fail-closed on hosts where that is
 	impossible, so an enforcement manifest never starts unsandboxed silently. */
-	if len(m.Events) > 0 {
+	if needsSocket(m) {
 		registerSocket(id, sock)
+	}
+	if len(m.Events) > 0 {
 		ensureEventSubscriber(m, runnerProcess)
 	}
 	p.mode = runnerProcess
@@ -572,8 +584,10 @@ func Start(id string) error {
 /*
 	startChild is the classic Stage 1-2 supervised child process: panel-owned
 
-stdio, health goroutine and exit watcher included. sock is the unix socket
-path a plugin listing `events` must bind (empty otherwise).
+	stdio, health goroutine and exit watcher included. sock is the unix socket
+
+path a plugin listing `events` or granted the `sub` seam must bind (empty
+otherwise).
 */
 func startChild(p *managed, m Manifest, bin, sock string) error {
 	log, err := os.OpenFile(logPath(m.ID), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o600)
@@ -590,7 +604,7 @@ func startChild(p *managed, m Manifest, bin, sock string) error {
 	}
 	cmd.Dir = dir(m.ID)
 	cmd.Env = append(os.Environ(), "LUCX_PLUGIN_ID="+m.ID, "LUCX_PLUGIN_VERSION="+m.Version, "LUCX_PLUGIN_DATA="+dataPath(m.ID))
-	if sock != "" && len(m.Events) > 0 {
+	if sock != "" && needsSocket(m) {
 		cmd.Env = append(cmd.Env, "LUCX_PLUGIN_SOCKET="+sock)
 	}
 	cmd.Env = append(cmd.Env, pluginEnv(m)...)

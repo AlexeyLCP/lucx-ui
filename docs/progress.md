@@ -1,5 +1,31 @@
 # LucX-UI — Прогресс
 
+## Unreleased — stage 3d: подписочный шов sub/after
+
+- Новый permission `sub: ["after"]` (закрытый словарь, дубликаты и
+  неизвестные значения отклоняются на установке; `sub` + `network:["none"]`
+  запрещены — панели не добраться до сокета плагина из изолированного
+  netns). Read/export отдельного шва не получил: `panelApi: ["clients:read"]`
+  уже покрывает `/clients/export`, `/clients/subLinks/:subId`,
+  `/clients/links/:email` (open question 3 решён).
+- Шов: для каждого raw-тела `/sub/:subId` панель POST-ит контекст
+  `{subId, host, count, emails}` на `/_lucx/sub/after` сокета плагина и
+  ДОБАВЛЯЕТ пришедшие ссылки после клиентских записей. Аддитивно (rules
+  0/0b): существующие записи не переписываются; expired/depleted-ответы узла
+  информации, страница подписки, json/clash/awg-тела и линк-дисплеи панели —
+  без инъекций. Лимиты: 300 мс на вызов, строки ≤2 KiB, ≤32 ссылок от
+  плагина, ≤64 на тело; любая ошибка плагина — fail-open (первая ошибка
+  пишется в plugin.log, счётчики delivered/failed в runState).
+- Сокетная инфраструктура расширена: `needsSocket()` (events ИЛИ sub) —
+  RuntimeDirectory, env `LUCX_PLUGIN_SOCKET` и регистрация сокета живут и
+  для sub-after-плагинов; после рестарта панели сокет восстанавливается по
+  эвристике `/run/x-ui-plug-<id>` (без exec).
+- Пример: `docs/examples/plugins/sub-extender/` (логирует контекст, отдаёт
+  одну статическую ссылку). UI: тег «Injects sub links» + `subAfter` во всех
+  14 локалях; тест карточки обновлён.
+- Тесты: `subafter_test.go` (грамматика, netns-конфликт, вызов с нагрузкой,
+  трим/капы, пропуск неgranted/упавших, эвристика пути сокета).
+
 ## Unreleased — stage 3c: panel API seam + bot token seam (AllIsA1 contract)
 
 - `permissions.panelApi` becomes grantable: entries `<resource>:<kind>`

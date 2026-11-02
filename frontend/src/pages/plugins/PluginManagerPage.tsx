@@ -237,6 +237,9 @@ export default function PluginManagerPage() {
                               })}
                             </Tag>
                           )}
+                          {(plugin.manifest.permissions?.sub?.length ?? 0) > 0 && (
+                            <Tag color="cyan">{t('pages.plugins.subAfter')}</Tag>
+                          )}
                         </Space>
                       }
                     >

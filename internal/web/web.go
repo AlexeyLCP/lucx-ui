@@ -27,6 +27,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"             // LUCX-HOOK: tunnel sidecars (NaiveProxy)
 	kernelwg "github.com/mhsanaei/3x-ui/v3/internal/lucx/wireguard" // LUCX-HOOK: standard kernel WireGuard
 	"github.com/mhsanaei/3x-ui/v3/internal/mtproto"
+	"github.com/mhsanaei/3x-ui/v3/internal/sub" // LUCX-HOOK: stage 3d subscription seam
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/cronspec"
@@ -705,6 +706,9 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 		}
 		plugin.SetPanelURL(fmt.Sprintf("%s://127.0.0.1:%d%s", scheme, port, bp))
 	}
+	// LUCX-HOOK: stage 3d subscription seam — plugins granted "sub":
+	// ["after"] append links after the client entries of the raw /sub body.
+	sub.SubAfterHook = plugin.SubAfterInject
 
 	// Wire xray crash callback BEFORE startTask so it's ready
 	xray.OnCrash = func(err error) {

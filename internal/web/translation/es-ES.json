@@ -149,6 +149,7 @@
       "cpuLimit": "Límite de CPU: {count}%",
       "runnerUnit": "unidad systemd",
       "eventsCount": "Suscrito a eventos: {count}",
+      "subAfter": "A\u00f1ade enlaces a la suscripci\u00f3n (sub/after)",
       "runnerProcess": "proceso hijo del panel",
       "memoryLimit": "Límite de memoria: {count} MB",
       "notEnforcedHere": "No se aplica en este host",

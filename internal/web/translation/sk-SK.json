@@ -149,6 +149,7 @@
       "cpuLimit": "Limit CPU: {count}%",
       "runnerUnit": "systemd jednotka",
       "eventsCount": "Odoberanie udalostí: {count}",
+      "subAfter": "Vklad\u00e1 odkazy do predplatn\u00e9ho (sub/after)",
       "runnerProcess": "podriadený proces panela",
       "memoryLimit": "Limit pamäte: {count} MB",
       "notEnforcedHere": "Neplatí na tomto hostiteľovi",

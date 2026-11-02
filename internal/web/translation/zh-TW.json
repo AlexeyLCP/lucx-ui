@@ -149,6 +149,7 @@
       "cpuLimit": "CPU限制: {count}%",
       "runnerUnit": "systemd單元",
       "eventsCount": "訂閱事件: {count}",
+      "subAfter": "\u5411\u8a02\u95b1\u6ce8\u5165\u9023\u7d50 (sub/after)",
       "runnerProcess": "面板子進程",
       "memoryLimit": "記憶體限制：{count} MB",
       "notEnforcedHere": "此主機上未強制",
