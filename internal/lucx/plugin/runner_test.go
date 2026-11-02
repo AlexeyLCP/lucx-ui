@@ -65,13 +65,18 @@ func cpuManifest(id string, cpu int) Manifest {
 }
 
 func TestUnitPropsMatchManifest(t *testing.T) {
+	plugDir, err := filepath.Abs(dir("demo"))
+	if err != nil {
+		t.Fatal(err)
+	}
 	base := Manifest{ID: "demo", Name: "Demo", Version: "1.0.0", APIVersion: 1, Type: "sidecar", Entrypoint: "run.sh"}
-	props := unitProps(base, dir("demo"), logPath("demo"))
+	props := unitProps(base, plugDir, filepath.Join(plugDir, "data"), filepath.Join(plugDir, "plugin.log"))
 	joined := strings.Join(props, " ")
 	must := []string{
 		"NoNewPrivileges=true", "ProtectSystem=strict", "PrivateTmp=true",
 		"KillSignal=SIGINT", "TimeoutStopSec=3", "Restart=no",
-		"WorkingDirectory=" + dir("demo"), "StandardOutput=append:", "Environment=LUCX_PLUGIN_ID=demo",
+		"WorkingDirectory=" + plugDir, "StandardOutput=append:", "Environment=LUCX_PLUGIN_ID=demo",
+		"Environment=LUCX_PLUGIN_DATA=" + filepath.Join(plugDir, "data"),
 	}
 	for _, want := range must {
 		if !strings.Contains(joined, want) {
@@ -86,7 +91,7 @@ func TestUnitPropsMatchManifest(t *testing.T) {
 	iso := base
 	iso.Permissions = map[string][]string{"network": {networkNone}, "panelApi": {}, "bot": {}}
 	iso.Resources = &Resources{MaxMemoryMB: 64, MaxCPUPercent: 30}
-	props = unitProps(iso, dir("demo"), logPath("demo"))
+	props = unitProps(iso, plugDir, filepath.Join(plugDir, "data"), filepath.Join(plugDir, "plugin.log"))
 	joined = strings.Join(props, " ")
 	for _, want := range []string{"PrivateNetwork=yes", "MemoryMax=64M", "LimitAS=64M", "CPUQuota=30%"} {
 		if !strings.Contains(joined, want) {

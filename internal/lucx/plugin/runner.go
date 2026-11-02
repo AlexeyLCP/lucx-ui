@@ -64,7 +64,7 @@ network isolates from the host; the plugin's own directory stays writable
 through ReadWritePaths under ProtectSystem=strict; logs land in the same
 plugin.log as the child runner.
 */
-func unitProps(m Manifest, plugDir, log string) []string {
+func unitProps(m Manifest, plugDir, dataDir, log string) []string {
 	props := []string{
 		"NoNewPrivileges=true",
 		"ProtectSystem=strict",
@@ -106,7 +106,7 @@ func unitProps(m Manifest, plugDir, log string) []string {
 	return append(out,
 		"-p", "Environment=LUCX_PLUGIN_ID="+m.ID,
 		"-p", "Environment=LUCX_PLUGIN_VERSION="+m.Version,
-		"-p", "Environment=LUCX_PLUGIN_DATA="+dataPath(m.ID))
+		"-p", "Environment=LUCX_PLUGIN_DATA="+dataDir)
 }
 
 /*
@@ -117,8 +117,14 @@ start really happened; a failed unit surfaces its Result as the start
 error.
 */
 func startUnit(p *managed, m Manifest, bin string) error {
-	plugDir := dir(m.ID)
-	props := unitProps(m, plugDir, logPath(m.ID))
+	/* systemd 252 rejects relative -p paths silently (exit 1), so the unit
+	runner must hand PID1 absolute, cwd-resolved paths — the child runner
+	resolves the same layout against the panel cwd. */
+	plugDir, err := filepath.Abs(dir(m.ID))
+	if err != nil {
+		return err
+	}
+	props := unitProps(m, plugDir, filepath.Join(plugDir, "data"), filepath.Join(plugDir, "plugin.log"))
 	_ = runCommand(exec.CommandContext(context.Background(), systemctlBin,
 		"reset-failed", unitName(m.ID)))
 	args := []string{
