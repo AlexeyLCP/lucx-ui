@@ -98,7 +98,23 @@ export default function PluginManagerPage() {
             <Alert
               type="warning"
               showIcon
-              message="Plugins are not sandboxed. They run with the panel's privileges and may access its environment, database and secrets. Install only trusted plugins."
+              message={t('pages.plugins.sandboxWarning')}
+              description={
+                <Space split>
+                  <Typography.Link
+                    href="https://github.com/AlexeyLCP/lucx-ui/blob/main/docs/plugin-manager.md"
+                    target="_blank"
+                  >
+                    {t('pages.plugins.docsLink')}
+                  </Typography.Link>
+                  <Typography.Link
+                    href="https://github.com/AlexeyLCP/lucx-ui/blob/main/docs/plugin-prompt.md"
+                    target="_blank"
+                  >
+                    {t('pages.plugins.promptLink')}
+                  </Typography.Link>
+                </Space>
+              }
               style={{ marginBottom: 16 }}
             />
             <Space wrap style={{ marginBottom: 16 }}>
