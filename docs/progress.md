@@ -35,6 +35,12 @@
   `api_plugin_auth_test.go` (production auth path: granted read 200,
   never-reachable 403, ungranted 403, bad token 401), linux
   `TestStartDeliversPanelEnv` (env delivery + token echo matches grant).
+- LIVE stand verification (2026-11-02, dev build): panel-reader (Go example,
+  panelApi `inbounds:read` + `bot: telegram`) started as a unit, called the
+  panel API with the granted token `inbounds/list -> HTTP 200`; the same
+  token by hand: `GET /server/status` 403, `GET /plugins/list` 403,
+  `POST /server/updatePanel` 403, `GET /inbounds/list` 200 — the matrix and
+  the never-reachable list enforced exactly; stop/delete left no units.
 
 ## Unreleased — stage 3b: events over unix socket (AllIsA1 contract, bus-native delivery)
 
