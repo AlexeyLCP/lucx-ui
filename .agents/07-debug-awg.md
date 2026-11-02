@@ -10,6 +10,13 @@ Extracted from AGENTS.md. This file is project law.
 - **Fix:** drop-in and unit `ReadWritePaths` include `/etc/amnezia`. Masked kallsyms trusts sysfs only at 3.x; a `1.0.0` stamp scans `/var/lib/dkms/amneziawg/<ver>/<kernel>/*/module/amneziawg.ko` (also `.ko.xz`). Update replaces only `10-xui-sandbox.conf`.
 - **Healing:** update to lucx.292 and restart. Reconcile rewrites the conf. Clients keep their old profiles.
 
+### Pattern 1ai: dashboard pill and Cores always show AWG 3.1.20260812 no matter what we build — FIXED (lucx.340)
+- **Symptom (tester report, tg Lucx_soft 02.11.2026):** after `x-ui update` to the 339 kmod pin (`4569c4c` / `v3.1.20260906`) and a reboot, dashboard + Cores still say `AWG 3.1.20260812`. Host cannot tell whether the upstream fix is actually in the loaded module.
+- **Cause:** upstream freezes `src/version.h` (`#define WIREGUARD_VERSION "3.1.20260812"`) on every tag since 0812 — including `v3.1.20260828` and `v3.1.20260906`. Kbuild emits the `-D` only when the make variable is set, which never happens for a DKMS build (`make -C $kernelsrc M=$tree modules` never routes through src/Makefile), so the static header wins and sysfs (`/sys/module/amneziawg/version`, the dashboard pill, `modinfo -F version`) reports the frozen number for every pin we build. Make-path builds from `src/` stamp the Makefile default `1.0.0` instead (see Pattern 1d). The same `3.1.20260812` is also the genuinely current **tools** version (`awg --version`) — the number alone proves nothing about either side.
+- **Truth sources on pre-lucx.340 hosts:** `cat /etc/x-ui/.awg-module-version` (marker = pin SHA the module was built from) and `dkms status` (tree name = `PACKAGE_VERSION`, sed'ed to `MOD_VER` by the installer).
+- **Fix (lucx.340):** `bin/install-awg-module.sh` sed'ed `version.h` to `AWG_KMOD_TAG` (`v3.1.20260906`, `#v`-stripped) before staging + DKMS build, so the pill and `modinfo` show the real release. The stamp must stay parseable `X.Y` — never a bare SHA: `moduleVersionAtLeast` and the masked-kallsyms fallback (Pattern 1ah) trust a 3.x sysfs value, and an unparseable stamp would disable that fallback and drop HPK/timers from rendered configs.
+- **Lesson:** upstream version strings are hand-maintained release cosmetics and lag behind; never treat sysfs as build identity without a marker/dkms cross-check.
+
 ### Pattern 1ag: P2P on, clients still cannot ping each other (lucx.224)
 - **Symptom:** inbound `p2p` is on, `.conf` already `AllowedIPs = 0.0.0.0/0`, but `.2` cannot reach `.3`.
 - **Cause:** `routeThroughXray` policy rule `iif awgN lookup 1000+N` still steals dest=subnet into tunN, or leftover `FORWARD -i awgN -o awgN DROP`. Userspace/no-module: not supported.

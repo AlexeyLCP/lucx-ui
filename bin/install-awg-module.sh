@@ -60,6 +60,9 @@ done
 # cannot discriminate builds.
 AWG_MODULE_MARKER="/etc/x-ui/.awg-module-version"
 AWG_KMOD_PIN="4569c4c67f3a57414969260cafbbd04694fbaae0"
+# Tag of the same commit, stamped into src/version.h before the DKMS build —
+# see the stamp comment in the build block.
+AWG_KMOD_TAG="v3.1.20260906"
 AWG_TOOLS_PIN="ee0f0a9aa34ff0a0da4b3433b9512781cfe02843"
 
 # Prefer a GitHub tarball over `git fetch`. git-smart-HTTP 401 prompts
@@ -670,6 +673,16 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
         echo -e "${YELLOW}Патч chacha library не применился — ядра < 5.5 могут не собраться.${NC}"
     apply_blake2s_zinc_compat compat/compat.h || \
         echo -e "${YELLOW}Патч blake2s zinc не применился — Ubuntu 20.04 5.4 может не собраться.${NC}"
+
+    # Upstream froze WIREGUARD_VERSION "3.1.20260812" in src/version.h on every
+    # tag since 0812: Kbuild -D's the version only when the make variable is set
+    # and DKMS's plain build never sets it, so /sys/module/amneziawg/version
+    # (dashboard pill) and modinfo would keep reporting the frozen number for
+    # every pin we build. Stamp our tag instead. Parseable X.Y only — the Go
+    # side (moduleVersionAtLeast / ModuleSupportsAwg3*) trusts a 3.x sysfs
+    # value; a bare SHA would disable the masked-kallsyms fallback and drop
+    # HPK/timers from rendered configs.
+    sed -i "s|#define WIREGUARD_VERSION .*|#define WIREGUARD_VERSION \"${AWG_KMOD_TAG#v}\"|" version.h
 
     # Stage the sources under the real version and compile for the booted kernel.
     sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"${MOD_VER}\"/" dkms.conf

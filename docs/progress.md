@@ -1,5 +1,18 @@
 # LucX-UI — Прогресс
 
+## lucx.340 — truthful AWG module stamp (2026-11-02)
+
+Follow-up on the lucx.339 release. A tester report (tg Lucx_soft) showed the dashboard/Core pill stuck on `3.1.20260812` after the 339 update + reboot, and it was unclear whether the 0906 module was actually running.
+
+- Upstream freezes `src/version.h` (`#define WIREGUARD_VERSION "3.1.20260812"`) on every tag since 0812 — including `v3.1.20260828` and `v3.1.20260906`. A DKMS build never sets the `WIREGUARD_VERSION` make variable (`make -C $kernelsrc M=$tree modules` bypasses `src/Makefile`), so the static header wins: sysfs / dashboard pill / `modinfo` reported `3.1.20260812` for every module we built since the DKMS path appeared (see Pattern 1ai, `.agents/07-debug-awg.md`).
+- `bin/install-awg-module.sh` now adds `AWG_KMOD_TAG="v3.1.20260906"` and sed'ed `version.h` to the tag (no `v`) before staging + DKMS build → the pill and `modinfo -F version` show the release actually built. The stamp stays parseable `X.Y` on purpose: `moduleVersionAtLeast` / masked-kallsyms fallback (Pattern 1ah) trust a 3.x sysfs value; a bare SHA would drop HPK/timers on sandboxed hosts. Verified by sed on the exact upstream `version.h`.
+- Tools pin unchanged — and intentionally: upstream `amneziawg-tools` master == latest tag `v3.1.20260812` (`ee0f0a9aa`), so `3.1.20260812` in Cores IS current; the version just reads "old" next to the module tag `20260906` because upstream has not cut a tools release since.
+- Marker (`/etc/x-ui/.awg-module-version`) stays the rebuild gate; the sed makes the readable stamp agree with it.
+
+**lucxVersion:** lucx.340
+
+---
+
 ## lucx.339 — AWG kmod pin to upstream head (2026-11-02)
 
 Caught the AmneziaWG kernel-module pin up with upstream master.
