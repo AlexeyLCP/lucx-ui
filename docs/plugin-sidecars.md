@@ -165,7 +165,7 @@ post-processor. For every raw `/sub/:subId` body the panel POSTs the
 subscription context to `/_lucx/sub/after` on the plugin socket with
 
 ```json
-{"subId": "...", "host": "...", "count": 3, "emails": ["user@example.com"]}
+{ "subId": "...", "host": "...", "count": 3, "emails": ["user@example.com"] }
 ```
 
 and the plugin answers `{"links": ["vless://...#extra", ...]}`. Contract:

@@ -1,1 +1,10 @@
-{"id":"sub-extender","name":"Sub extender","version":"0.1.0","apiVersion":1,"type":"sidecar","entrypoint":"sub-extender","architectures":["amd64"],"permissions":{"sub":["after"]}}
+{
+  "id": "sub-extender",
+  "name": "Sub extender",
+  "version": "0.1.0",
+  "apiVersion": 1,
+  "type": "sidecar",
+  "entrypoint": "sub-extender",
+  "architectures": ["amd64"],
+  "permissions": { "sub": ["after"] }
+}
