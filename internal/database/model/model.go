@@ -206,6 +206,10 @@ const (
 	ApiScopeMonitor   = "monitor"
 	ApiScopeNodeSync  = "node-sync"
 	ApiScopeNodeAdmin = "node-admin"
+	// LUCX-HOOK: plugin-scope API credentials (stage 3c) are not stored as
+	// ApiToken rows; the panel API middleware validates them against the
+	// plugin's manifest permission matrix instead.
+	ApiScopePlugin = "plugin"
 )
 
 func IsKnownApiScope(s string) bool {

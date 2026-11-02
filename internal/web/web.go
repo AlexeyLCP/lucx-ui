@@ -684,6 +684,27 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 	// LUCX-HOOK: plugins declare `events` in apiVersion 1 and receive bus
 	// events over their unix socket (stage 3b).
 	plugin.SetEventBus(s.bus)
+	// LUCX-HOOK: stage 3c panel API seam — arm the token matcher, hand the
+	// plugins the loopback panel URL and the configured bot credentials.
+	plugin.LoadPanelTokens()
+	botCreds := map[string]string{}
+	if tgToken, err := s.settingService.GetTgBotToken(); err == nil && tgToken != "" {
+		botCreds["telegram"] = tgToken
+	}
+	if dcToken, err := s.settingService.GetDiscordBotToken(); err == nil && dcToken != "" {
+		botCreds["discord"] = dcToken
+	}
+	plugin.SetBotTokens(botCreds)
+	if bp, err := s.settingService.GetBasePath(); err == nil {
+		scheme := "http"
+		if certFile != "" && keyFile != "" {
+			/* The panel listener is TLS with the operator's cert (usually
+			self-signed); plugins dial the loopback back to the panel with
+			verification off for that one connection. */
+			scheme = "https"
+		}
+		plugin.SetPanelURL(fmt.Sprintf("%s://127.0.0.1:%d%s", scheme, port, bp))
+	}
 
 	// Wire xray crash callback BEFORE startTask so it's ready
 	xray.OnCrash = func(err error) {

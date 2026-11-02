@@ -109,6 +109,9 @@ func unitProps(m Manifest, plugDir, dataDir, log string) []string {
 			"RuntimeDirectoryMode=0700",
 			"Environment=LUCX_PLUGIN_SOCKET="+socketPath(m, runnerUnit))
 	}
+	for _, kv := range pluginEnv(m) {
+		props = append(props, "Environment="+kv)
+	}
 	out := make([]string, 0, len(props)*2)
 	for _, p := range props {
 		out = append(out, "-p", p)

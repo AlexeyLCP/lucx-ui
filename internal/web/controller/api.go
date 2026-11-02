@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/plugin" // LUCX-HOOK: stage 3c panel API seam
 	"github.com/mhsanaei/3x-ui/v3/internal/web/middleware"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/panel"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service/tgbot"
@@ -46,9 +47,15 @@ func (a *APIController) checkAPIAuth(c *gin.Context) {
 		c.Set("api_token_scope", scope)
 	}
 	matchedScope := ""
+	pluginID := ""
 	if after, ok := strings.CutPrefix(c.GetHeader("Authorization"), "Bearer "); ok {
 		if row, matched := a.apiTokenService.MatchToken(after); matched {
 			matchedScope = row.Scope
+		} else if id, pluginMatched := plugin.MatchPanelToken(after); pluginMatched {
+			// LUCX-HOOK: stage 3c panel API seam — a plugin's scoped
+			// credential authenticates the call to its own permission matrix.
+			pluginID = id
+			matchedScope = model.ApiScopePlugin
 		}
 	}
 	// Verified mTLS keeps its historical node-sync identity. Only an explicit
@@ -64,6 +71,11 @@ func (a *APIController) checkAPIAuth(c *gin.Context) {
 	}
 	if matchedScope != "" {
 		setAuthenticated(matchedScope)
+		if pluginID != "" {
+			// END LUCX-HOOK: the enforcement middleware resolves the plugin's
+			// manifest matrix by id; api_authed alone must not grant it.
+			c.Set("plugin_id", pluginID)
+		}
 		c.Next()
 		return
 	}
@@ -176,6 +188,13 @@ func (a *APIController) enforceTokenScope(c *gin.Context) {
 		}
 	case model.ApiScopeNodeAdmin:
 		if scopeAllows(nodeSyncScopeAllow, rel, c.Request.Method) || scopeAllows(nodeAdminScopeAllow, rel, c.Request.Method) {
+			c.Next()
+			return
+		}
+	// LUCX-HOOK: stage 3c panel API seam — plugin tokens resolve against the
+	// plugin's own manifest matrix and the never-reachable route list.
+	case model.ApiScopePlugin:
+		if plugin.PluginPanelAllowed(c.GetString("plugin_id"), rel, c.Request.Method) {
 			c.Next()
 			return
 		}

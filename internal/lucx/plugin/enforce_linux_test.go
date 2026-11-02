@@ -140,3 +140,66 @@ func TestStartAppliesNetNs(t *testing.T) {
 		t.Fatalf("enforcement not reported: %+v", s.Enforcement)
 	}
 }
+
+// TestStartDeliversPanelEnv pins the stage 3c env delivery: a plugin granted
+// panelApi/bot tokens receives LUCX_PANEL_TOKEN/URL and the bot token, and
+// the granted token matches back through MatchPanelToken.
+func TestStartDeliversPanelEnv(t *testing.T) {
+	forceRunner(t, runnerProcess)
+	td := t.TempDir()
+	orig := binFolder
+	binFolder = func() string { return td }
+	defer func() { binFolder = orig }()
+	SetBotTokens(map[string]string{"telegram": "tg-token-123"})
+	SetPanelURL("http://127.0.0.1:2053/e2etestpath/")
+	defer SetBotTokens(map[string]string{})
+
+	var b bytes.Buffer
+	zw := zip.NewWriter(&b)
+	manifest, _ := zw.Create("manifest.json")
+	_ = json.NewEncoder(manifest).Encode(Manifest{ID: "env-demo", Name: "Env", Version: "1.0.0", APIVersion: 1, Type: "sidecar", Entrypoint: "run.sh", Permissions: map[string][]string{"panelApi": {"inbounds:read"}, "bot": {"telegram"}, "network": {}}})
+	entry, _ := zw.Create("run.sh")
+	_, _ = entry.Write([]byte("#!/bin/sh\necho TOKEN=$LUCX_PANEL_TOKEN\necho URL=$LUCX_PANEL_URL\necho TGTOKEN=$LUCX_TELEGRAM_BOT_TOKEN\n"))
+	_ = zw.Close()
+	if _, err := InstallPackage(bytes.NewReader(b.Bytes()), int64(b.Len())); err != nil {
+		t.Fatalf("install failed: %v", err)
+	}
+	if err := Start("env-demo"); err != nil {
+		t.Fatalf("start failed: %v", err)
+	}
+	defer func() { _ = Stop("env-demo") }()
+	deadline := time.Now().Add(5 * time.Second)
+	var logText string
+	for {
+		raw, err := os.ReadFile(logPath("env-demo"))
+		if err == nil {
+			logText = string(raw)
+			if strings.Contains(logText, "TOKEN=") && strings.Contains(logText, "TGTOKEN=") {
+				break
+			}
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("env echo not captured in log: %q", logText)
+		}
+		time.Sleep(50 * time.Millisecond)
+	}
+	var tokenLine string
+	for _, line := range strings.Split(strings.TrimSpace(logText), "\n") {
+		if strings.HasPrefix(line, "TOKEN=") {
+			tokenLine = line
+		}
+	}
+	tok := strings.TrimPrefix(tokenLine, "TOKEN=")
+	if len(tok) != 64 {
+		t.Fatalf("unexpected panel token echoed: %q", tok)
+	}
+	if id, ok := MatchPanelToken(tok); !ok || id != "env-demo" {
+		t.Fatalf("echoed token does not match the grant: %q %v", id, ok)
+	}
+	if !strings.Contains(logText, "URL=http://127.0.0.1:2053/e2etestpath/") {
+		t.Fatalf("panel URL missing: %q", logText)
+	}
+	if !strings.Contains(logText, "TGTOKEN=tg-token-123") {
+		t.Fatalf("telegram token missing: %q", logText)
+	}
+}

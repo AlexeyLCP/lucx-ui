@@ -1,5 +1,41 @@
 # LucX-UI — Прогресс
 
+## Unreleased — stage 3c: panel API seam + bot token seam (AllIsA1 contract)
+
+- `permissions.panelApi` becomes grantable: entries `<resource>:<kind>`
+  (kind read/write/*; closed resource vocabulary: clients, inbounds, hosts,
+  server, awg-outbounds, sidecar-outbounds, tunnel; GET/HEAD=read else
+  write; unknown resource/kind/duplicates refused at install). Stage 2's
+  "must stay empty" rule is replaced by the grammar; empty lists keep the
+  old no-access behavior.
+- Panel grants the plugin a scoped bearer credential at start: persisted at
+  `bin/plugins/<id>/.panel-token` (0600), survives panel restarts
+  (`LoadPanelTokens` re-arms the matcher; `GrantPanelToken` idempotent;
+  `Remove` drops it). Env delivery: `LUCX_PANEL_TOKEN` + `LUCX_PANEL_URL`
+  (loopback base, https when the panel listener is TLS — the loopback dial
+  is documented as verification-off for this one connection; also delivered
+  to the unit runner via `-p Environment=`).
+- Enforcement lives in the production auth path: `checkAPIAuth` resolves a
+  plugin bearer to `plugin_id` + `ApiScopePlugin` (new constant, not a DB
+  scope), then `enforceTokenScope` case allows a call iff
+  `plugin.PluginPanelAllowed(id, rel, method)` — never-reachable list wins
+  (`/plugins/**`, `/setting/**`, `/xray/**`, `/nodes/**`, `/backuptotgbot`,
+  importDB/getDb/updatePanel/getMigration/restartPanel/getNew*/
+  downloadXray/restartXray*/stopXrayService/installPanel/updateConfig/
+  logs/:type/checkPanelLoginSecurity).
+- `permissions.bot` (telegram, discord) delivers the panel-stored tokens as
+  `LUCX_TELEGRAM_BOT_TOKEN` / `LUCX_DISCORD_BOT_TOKEN` at start (rotation =
+  restart; unconfigured bots are not delivered). New law: a manifest with
+  `panelApi` or `bot` must NOT declare `network: ["none"]` (refused) — a
+  kernel-isolated netns has no route to the panel or the bot APIs.
+- Examples: `docs/examples/plugins/panel-reader/` (Go, GET
+  inbounds/list with the granted token, logs HTTP status).
+- Tests: `panelapi_test.go` (grammar, netns conflict, match/grant/load
+  roundtrip, matrix incl. never-reachable), controller
+  `api_plugin_auth_test.go` (production auth path: granted read 200,
+  never-reachable 403, ungranted 403, bad token 401), linux
+  `TestStartDeliversPanelEnv` (env delivery + token echo matches grant).
+
 ## Unreleased — stage 3b: events over unix socket (AllIsA1 contract, bus-native delivery)
 
 - Manifest `events` list (≤16, vocabulary-only: `outbound.down`/`up`,

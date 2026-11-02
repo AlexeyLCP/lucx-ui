@@ -109,6 +109,55 @@ and works out of the box regardless of how the ZIP was built.
   Linux) a manifest that asks for isolation or limits is refused at start —
   the panel refuses to run it unsandboxed silently.
 
+## Panel API seam (stage 3c, apiVersion 1)
+
+A manifest may declare `panelApi` as a list of grants, each
+`<resource>:<kind>` with kind `read`, `write` or `*`:
+
+```json
+"permissions": {"panelApi": ["inbounds:read", "clients:write", "server:*"]}
+```
+
+Resources mirror the panel API route groups and are closed vocabulary:
+`clients`, `inbounds`, `hosts`, `server`, `awg-outbounds`, `sidecar-outbounds`
+and `tunnel`. GET/HEAD calls are `read`; everything else is `write`. Unknown
+resources, kinds or duplicates are refused at install.
+
+When the plugin is started the panel grants it a scoped bearer credential
+(persisted per plugin, survives panel restarts and reinstall-free re-starts)
+and hands over two env vars:
+
+- `LUCX_PANEL_TOKEN` — the plugin's bearer credential;
+- `LUCX_PANEL_URL` — the loopback base URL of the panel API
+  (`https://127.0.0.1:2053/e2etestpath/`; when the panel speaks TLS the URL
+  is https and the plugin must dial that one loopback connection with
+  certificate verification off — the operator's cert is typically
+  self-signed).
+
+The plugin calls `LUCX_PANEL_URL` + `panel/api/...` with
+`Authorization: Bearer $LUCX_PANEL_TOKEN`. The panel enforces the matrix on
+every call: a call passes only if the resolved route's resource and verb
+kind are granted. **Never reachable, whatever the permission**: everything
+under `/plugins/` (the plugin system itself), `/setting/`, `/xray/`,
+`/nodes/`, `/backuptotgbot`, and these server routes: `importDB`, `getDb`,
+`updatePanel`, `getMigration`, `restartPanel`, `getNewXray`,
+`getNewXrayGeodata`, `getNewXrayCert`, `getNewEchCert`, `getNewPanelCert`,
+`getNewMrzCert`, `downloadXray`, `restartXrayService`, `restartXray`,
+`stopXrayService`, `installPanel`, `updateConfig`, `logs/:type`,
+`checkPanelLoginSecurity`. A plugin with `panelApi` must not also declare
+`network: ["none"]` — an isolated namespace has no route to the panel; such
+manifests are refused.
+
+## Bot token seam (stage 3c, apiVersion 1)
+
+`permissions.bot` names the bots whose panel-stored credentials the plugin
+may receive: `telegram` or `discord` (closed vocabulary). The tokens are
+delivered as env vars at start — `LUCX_TELEGRAM_BOT_TOKEN` /
+`LUCX_DISCORD_BOT_TOKEN`; a bot that is not configured in the panel
+settings is simply not delivered. Rotation: change the token in panel
+settings and restart the plugin. A bot plugin needs real network access
+(never combine with `network: ["none"]`).
+
 ## Events (stage 3b, apiVersion 1)
 
 A manifest may declare `events` — up to 16 names from the panel's event

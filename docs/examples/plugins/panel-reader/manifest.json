@@ -1,0 +1,1 @@
+{"id":"panel-reader","name":"Panel reader","version":"0.1.0","apiVersion":1,"type":"sidecar","entrypoint":"panel-reader","architectures":["amd64"],"permissions":{"panelApi":["inbounds:read"],"bot":["telegram"],"network":[]}}

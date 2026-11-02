@@ -186,8 +186,11 @@ func validatePermissions(p map[string][]string) error {
 			}
 		}
 	}
-	if len(p["panelApi"]) > 0 || len(p["bot"]) > 0 {
-		return errors.New("apiVersion 1 grants no panelApi or bot access: these permissions must stay empty")
+	if err := validatePanelPermissions(p["panelApi"]); err != nil {
+		return err
+	}
+	if err := validateBotPermissions(p["bot"]); err != nil {
+		return err
 	}
 	for _, rule := range p["network"] {
 		if rule != networkNone {
@@ -278,6 +281,9 @@ func validateManifest(m Manifest) error {
 	}
 	if err := validateEvents(m.Events); err != nil {
 		return err
+	}
+	if panelDeniedByNetwork(m) {
+		return errors.New("a plugin with panelApi or bot permissions cannot also declare network:[\"none\"] - it would not be able to reach the panel")
 	}
 	return validateHealth(m.Health, denyNetwork(m))
 }
@@ -524,6 +530,11 @@ func Start(id string) error {
 	if binAbs, err := filepath.Abs(bin); err == nil {
 		bin = binAbs
 	}
+	if len(m.Permissions["panelApi"]) > 0 {
+		if _, err := GrantPanelToken(id); err != nil {
+			return err
+		}
+	}
 	mode := selectRunner(m)
 	if cpuRequiresUnit(m) && mode != runnerUnit {
 		p.lastError = "plugin CPU capping requires the systemd unit runner"
@@ -546,14 +557,13 @@ func Start(id string) error {
 		p.lastError = err.Error()
 		return errors.New(p.lastError)
 	}
+	/* The unit runner refused: the process runner applies its own enforcement
+	(netns clone, RLIMIT_AS) and refuses fail-closed on hosts where that is
+	impossible, so an enforcement manifest never starts unsandboxed silently. */
 	if len(m.Events) > 0 {
 		registerSocket(id, sock)
 		ensureEventSubscriber(m, runnerProcess)
 	}
-	/* The unit runner refused: the process runner applies its own enforcement
-	(netns clone, RLIMIT_AS) and refuses fail-closed on hosts where that is
-	impossible, so an enforcement manifest never starts unsandboxed silently.
-	*/
 	p.mode = runnerProcess
 	p.lastError = ""
 	return nil
@@ -583,6 +593,7 @@ func startChild(p *managed, m Manifest, bin, sock string) error {
 	if sock != "" && len(m.Events) > 0 {
 		cmd.Env = append(cmd.Env, "LUCX_PLUGIN_SOCKET="+sock)
 	}
+	cmd.Env = append(cmd.Env, pluginEnv(m)...)
 	cmd.Stdout = log
 	cmd.Stderr = log
 	if err := cmd.Start(); err != nil {
@@ -680,6 +691,7 @@ func Remove(id string) error {
 	if err := Stop(id); err != nil {
 		return err
 	}
+	forgetPanelToken(id)
 	return os.RemoveAll(dir(id))
 }
 
