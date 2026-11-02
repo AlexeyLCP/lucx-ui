@@ -10,6 +10,7 @@
 package main
 
 import (
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -39,7 +40,8 @@ func main() {
 	count := 0
 	for {
 		count++
-		req, err := http.NewRequest(http.MethodGet, url+"panel/api/inbounds/list", nil)
+		req, err := http.NewRequestWithContext(context.Background(), http.MethodGet,
+			url+"panel/api/inbounds/list", nil)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, "build request:", err)
 			os.Exit(1)
@@ -54,7 +56,7 @@ func main() {
 			_ = json.NewDecoder(resp.Body).Decode(&body)
 			resp.Body.Close()
 			fmt.Printf("inbounds/list -> HTTP %d success=%v (call %d)\n", resp.StatusCode, body.Success, count)
-			if resp.StatusCode == 200 {
+			if resp.StatusCode == http.StatusOK {
 				return
 			}
 		} else {
