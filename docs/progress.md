@@ -1,6 +1,6 @@
 # LucX-UI — Прогресс
 
-## Unreleased — stage 3d: подписочный шов sub/after
+## lucx.338 — stage 3d: подписочный шов sub/after
 
 - Новый permission `sub: ["after"]` (закрытый словарь, дубликаты и
   неизвестные значения отклоняются на установке; `sub` + `network:["none"]`
@@ -35,7 +35,7 @@
   poll); `sub` + `network:["none"]` and a bogus sub rule are refused at
   install; test client/daemon deleted, no units left.
 
-## Unreleased — stage 3c: panel API seam + bot token seam (AllIsA1 contract)
+## lucx.338 — stage 3c: panel API seam + bot token seam (AllIsA1 contract)
 
 - `permissions.panelApi` becomes grantable: entries `<resource>:<kind>`
   (kind read/write/*; closed resource vocabulary: clients, inbounds, hosts,
@@ -77,7 +77,7 @@
   `POST /server/updatePanel` 403, `GET /inbounds/list` 200 — the matrix and
   the never-reachable list enforced exactly; stop/delete left no units.
 
-## Unreleased — stage 3b: events over unix socket (AllIsA1 contract, bus-native delivery)
+## lucx.338 — stage 3b: events over unix socket (AllIsA1 contract, bus-native delivery)
 
 - Manifest `events` list (≤16, vocabulary-only: `outbound.down`/`up`,
   `xray.crash`, `node.down`/`up`, `cpu.high`, `memory.high`, `login.attempt`;
@@ -121,7 +121,7 @@
   (production HTTP wrappers) now skips `docs/examples` (plugin-author
   sample code, not panel servers).
 
-## Unreleased — stage 3a: unit runner for enforcement (AllIsA1 prior-art, in-panel integration)
+## lucx.338 — stage 3a: unit runner for enforcement (AllIsA1 prior-art, in-panel integration)
 
 - Second runner mode on Linux: plugins start as **transient systemd units**
   (`lucx-plugin-<id>` via `systemd-run`), kernel-enforced `PrivateNetwork=yes`
