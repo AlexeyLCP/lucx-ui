@@ -475,6 +475,9 @@ func Get(id string) (Status, error) {
 	if len(m.Events) > 0 {
 		if s.Running {
 			ensureEventSubscriber(m, s.Runner)
+			if eventsStatus(id) == nil {
+				registerSocket(id, socketPath(m, s.Runner))
+			}
 		}
 		s.Events = eventsStatus(id)
 	}
