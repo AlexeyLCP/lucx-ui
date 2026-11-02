@@ -152,14 +152,6 @@ func forgetSocket(id string) {
 	delete(runs, id)
 }
 
-func registeredSocket(id string) string {
-	rs := runStateOf(id)
-	if rs == nil {
-		return ""
-	}
-	return rs.socket
-}
-
 func eventsStatus(id string) *EventsStatus {
 	rs := runStateOf(id)
 	if rs == nil {

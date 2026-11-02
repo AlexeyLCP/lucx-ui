@@ -58,12 +58,14 @@ func TestProductionHTTPServersUseServeHTTPWrapper(t *testing.T) {
 	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(currentFile), "../../.."))
 	fset := token.NewFileSet()
 
+	// LUCX-HOOK: docs/examples holds plugin-author sample code (processes,
+	// not panel servers) — the wrapper rule does not apply to it.
 	err := filepath.WalkDir(repoRoot, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
 		}
 		if entry.IsDir() {
-			if entry.Name() == ".git" || entry.Name() == "vendor" || entry.Name() == "node_modules" || entry.Name() == "third_party" {
+			if entry.Name() == ".git" || entry.Name() == "vendor" || entry.Name() == "node_modules" || entry.Name() == "third_party" || entry.Name() == "examples" {
 				return filepath.SkipDir
 			}
 			return nil

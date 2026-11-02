@@ -10,6 +10,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -41,7 +42,8 @@ func main() {
 		os.Exit(1)
 	}
 	_ = os.Remove(sock)
-	ln, err := net.Listen("unix", sock)
+	var lc net.ListenConfig
+	ln, err := lc.Listen(context.Background(), "unix", sock)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "bind", sock, err)
 		os.Exit(1)
