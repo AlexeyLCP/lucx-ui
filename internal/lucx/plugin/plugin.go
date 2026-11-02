@@ -523,14 +523,14 @@ func Start(id string) error {
 			return nil
 		}
 	}
-	/* The unit runner refused: fall through to the process runner. It applies
-	its own enforcement (netns clone, RLIMIT_AS) and refuses fail-closed on
-	hosts where that is impossible, so an enforcement manifest can never start
-	silently unsandboxed (verified Stage 2 behavior). */
 	if err := startChild(p, m, bin); err != nil {
 		p.lastError = err.Error()
 		return errors.New(p.lastError)
 	}
+	/* The unit runner refused: the process runner applies its own enforcement
+	(netns clone, RLIMIT_AS) and refuses fail-closed on hosts where that is
+	impossible, so an enforcement manifest never starts unsandboxed silently.
+	*/
 	p.mode = runnerProcess
 	p.lastError = ""
 	return nil

@@ -130,10 +130,12 @@ func startUnit(p *managed, m Manifest, bin string) error {
 	out, err := commandOutput(cmd)
 	if err != nil {
 		detail := strings.TrimSpace(string(out))
+		msg := fmt.Errorf("systemd unit runner: %w", err)
 		if detail != "" {
-			return fmt.Errorf("systemd unit runner: %w: %s", err, detail)
+			msg = fmt.Errorf("systemd unit runner: %w: %s", err, detail)
 		}
-		return fmt.Errorf("systemd unit runner: %w", err)
+		_, _ = appendPluginLog(m.ID, msg.Error())
+		return msg
 	}
 	if state := unitState(unitName(m.ID)); !state.running && state.detail != "" {
 		_, _ = appendPluginLog(m.ID, state.detail)
