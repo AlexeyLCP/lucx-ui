@@ -44,6 +44,12 @@ const DEFAULT_BLOCK_RULES: SubJsonRule[] = [
 ];
 const BLOCK_IP_RULE: SubJsonRule = { type: 'field', outboundTag: 'block', ip: [] };
 
+// Mirrors clientwarp.DefaultConfig on the backend.
+const DEFAULT_CLIENT_WARP = {
+  domains: ['geosite:youtube'],
+  endpoints: ['162.159.192.1:4500', '8.39.214.9:4177'],
+};
+
 const directIPsOptions = [
   { label: 'Private IP', value: 'geoip:private' },
   { label: '🇮🇷 Iran', value: 'geoip:ir' },
@@ -257,6 +263,33 @@ export default function SubscriptionFormatsTab({
                       autoSize={{ minRows: 2, maxRows: 6 }}
                     />
                   </SettingListItem>
+                  <SettingListItem
+                    paddings="small"
+                    title={t('pages.settings.subJsonClientWarp')}
+                    description={t('pages.settings.subJsonClientWarpDesc')}
+                  >
+                    <Switch
+                      checked={allSetting.subJsonClientWarp !== ''}
+                      onChange={(v) =>
+                        updateSetting({
+                          subJsonClientWarp: v ? JSON.stringify(DEFAULT_CLIENT_WARP) : '',
+                        })
+                      }
+                    />
+                  </SettingListItem>
+                  {allSetting.subJsonClientWarp !== '' && (
+                    <SettingListItem
+                      paddings="small"
+                      title={t('pages.settings.subJsonClientWarpConfig')}
+                      description={t('pages.settings.subJsonClientWarpConfigDesc')}
+                    >
+                      <Input.TextArea
+                        value={allSetting.subJsonClientWarp}
+                        onChange={(e) => updateSetting({ subJsonClientWarp: e.target.value })}
+                        autoSize={{ minRows: 2, maxRows: 8 }}
+                      />
+                    </SettingListItem>
+                  )}
                 </Card>
               )}
               {allSetting.subClashEnable && (

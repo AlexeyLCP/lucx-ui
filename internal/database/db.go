@@ -89,6 +89,7 @@ func allModels() []any {
 		&model.SubBalancer{},
 		&model.CsqttMember{},
 		&model.TuicTrafficReceipt{},
+		&model.ClientWarpAccount{},
 	}
 }
 

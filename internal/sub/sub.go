@@ -184,6 +184,11 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 		SubJsonObservatory = ""
 	}
 
+	SubJsonClientWarp, err := s.settingService.GetSubJsonClientWarp()
+	if err != nil {
+		SubJsonClientWarp = ""
+	}
+
 	SubClashEnableRouting, err := s.settingService.GetSubClashEnableRouting()
 	if err != nil {
 		SubClashEnableRouting = false
@@ -387,6 +392,7 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 		WithSUBJsonDns(SubJsonDns),
 		WithSUBJsonFinalMask(SubJsonFinalMask),
 		WithSUBJsonObservatory(SubJsonObservatory),
+		WithSUBJsonClientWarp(SubJsonClientWarp),
 		WithSUBClashEnableRouting(SubClashEnableRouting),
 		WithSUBClashRules(SubClashRules),
 		WithSUBClashRemoteDNS(SubClashRemoteDNS),

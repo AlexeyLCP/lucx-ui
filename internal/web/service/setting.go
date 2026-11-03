@@ -23,6 +23,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx"
 	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/clientwarp"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/netproxy"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
@@ -213,6 +214,7 @@ var defaultValueMap = map[string]string{
 	"subJsonDns":                  "",
 	"subJsonFinalMask":            "",
 	"subJsonObservatory":          "",
+	"subJsonClientWarp":           "",
 	"subThemeDir":                 "",
 	"datepicker":                  "gregorian",
 	"warp":                        "",
@@ -1339,6 +1341,10 @@ func (s *SettingService) GetSubJsonObservatory() (string, error) {
 	return s.getString("subJsonObservatory")
 }
 
+func (s *SettingService) GetSubJsonClientWarp() (string, error) {
+	return s.getString("subJsonClientWarp")
+}
+
 func (s *SettingService) GetSubThemeDir() (string, error) {
 	return s.getString("subThemeDir")
 }
@@ -1754,6 +1760,9 @@ func (s *SettingService) UpdateAllSetting(allSetting *entity.AllSetting, clears 
 	if err := validateSubJsonDnsSetting(allSetting); err != nil {
 		return err
 	}
+	if err := validateSubJsonClientWarpSetting(allSetting); err != nil {
+		return err
+	}
 	if err := validateFinalMaskJSONSalamander(allSetting.SubJsonFinalMask); err != nil {
 		return err
 	}
@@ -1947,6 +1956,16 @@ func validateSubJsonDnsSetting(allSetting *entity.AllSetting) error {
 		}
 	}
 	allSetting.SubJsonDns = value
+	return nil
+}
+
+// Same parser as the sub server, so a saved value is never dropped at request time.
+func validateSubJsonClientWarpSetting(allSetting *entity.AllSetting) error {
+	value := strings.TrimSpace(allSetting.SubJsonClientWarp)
+	if _, err := clientwarp.Parse(value); err != nil {
+		return common.NewError("JSON subscription client WARP is invalid:", err.Error())
+	}
+	allSetting.SubJsonClientWarp = value
 	return nil
 }
 

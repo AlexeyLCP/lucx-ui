@@ -447,6 +447,9 @@ export const SCHEMAS: Record<string, unknown> = {
       "subJsonAutoDetect": {
         "type": "boolean"
       },
+      "subJsonClientWarp": {
+        "type": "string"
+      },
       "subJsonDns": {
         "type": "string"
       },
@@ -748,6 +751,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subInfoNodeEnable",
       "subJsonAlwaysArray",
       "subJsonAutoDetect",
+      "subJsonClientWarp",
       "subJsonDns",
       "subJsonEnable",
       "subJsonFinalMask",
@@ -1271,6 +1275,9 @@ export const SCHEMAS: Record<string, unknown> = {
       "subJsonAutoDetect": {
         "type": "boolean"
       },
+      "subJsonClientWarp": {
+        "type": "string"
+      },
       "subJsonDns": {
         "type": "string"
       },
@@ -1580,6 +1587,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "subInfoNodeEnable",
       "subJsonAlwaysArray",
       "subJsonAutoDetect",
+      "subJsonClientWarp",
       "subJsonDns",
       "subJsonEnable",
       "subJsonFinalMask",
