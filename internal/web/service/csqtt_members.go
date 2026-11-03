@@ -34,12 +34,32 @@ type csqttMemberServerClient struct {
 	Name     string `json:"name"`
 	Active   bool   `json:"active"`
 	Link     string `json:"link"`
+	VkHashes string `json:"vk_hashes"`
+	VkToken  bool   `json:"vk_token"`
+	GroupID  string `json:"group_id"`
 }
 
 type csqttMemberClientRequest struct {
+	Name    string `json:"name"`
+	Days    int    `json:"days"`
+	Hash    string `json:"hash"`
+	VkToken bool   `json:"vk_token"`
+	GroupID string `json:"group_id,omitempty"`
+}
+
+type csqttMemberVkRequest struct {
+	VkHashes string `json:"vk_hashes"`
+	VkToken  bool   `json:"vk_token"`
+}
+
+type csqttMemberGroupRequest struct {
+	Passwords []string `json:"passwords"`
+	GroupID   string   `json:"group_id"`
+}
+
+type csqttMemberGroup struct {
+	ID   string `json:"id"`
 	Name string `json:"name"`
-	Days int    `json:"days"`
-	Hash string `json:"hash"`
 }
 
 type csqttMemberCreated struct {
@@ -120,6 +140,17 @@ func (s *CsqttMemberService) syncInbound(ctx context.Context, inbound *model.Inb
 	for _, client := range serverClients {
 		byName[client.Name] = client
 	}
+	groupID, err := api.resolveGroup(ctx, cfg.MemberGroup)
+	if err != nil {
+		return err
+	}
+	// VK settings of managed members follow the inbound only once the inbound
+	// configures some (hashes or the token switch); with neither set, members
+	// keep whatever an operator chose for them in the CSQTT panel.
+	vkHashes, vkToken := cfg.MemberVkHashes(), cfg.MemberVkToken()
+	enforceVk := vkHashes != "" || vkToken
+	var regroup []string
+	linksStale := false
 	desired := make(map[string]struct{}, len(clients))
 	for _, client := range clients {
 		if strings.TrimSpace(client.Email) == "" {
@@ -135,7 +166,12 @@ func (s *CsqttMemberService) syncInbound(ctx context.Context, inbound *model.Inb
 		member, managed := s.managedMember(inbound.Id, client.Email)
 		server, exists := byName[client.Email]
 		if !exists {
-			server, err = api.create(ctx, client.Email, cfg.VkHashes)
+			server, err = api.create(ctx, csqttMemberClientRequest{
+				Name:    client.Email,
+				Hash:    vkHashes,
+				VkToken: vkToken,
+				GroupID: groupID,
+			})
 			if err != nil {
 				return err
 			}
@@ -159,8 +195,29 @@ func (s *CsqttMemberService) syncInbound(ctx context.Context, inbound *model.Inb
 			}
 			server.Active = wantActive
 		}
+		if enforceVk && (server.VkHashes != vkHashes || server.VkToken != vkToken) {
+			if err := api.setVk(ctx, server.Password, vkHashes, vkToken); err != nil {
+				return err
+			}
+			linksStale = true
+		}
+		if groupID != "" && server.GroupID != groupID {
+			regroup = append(regroup, server.Password)
+		}
 		row := &model.CsqttMember{InboundId: inbound.Id, ClientEmail: client.Email, Password: server.Password, Link: server.Link}
 		if err := database.GetDB().Where("inbound_id = ? AND client_email = ?", inbound.Id, client.Email).Assign(row).FirstOrCreate(row).Error; err != nil {
+			return err
+		}
+	}
+	if len(regroup) > 0 {
+		if err := api.setGroup(ctx, regroup, groupID); err != nil {
+			return err
+		}
+		// A group may carry its own VK token, which changes the member links.
+		linksStale = true
+	}
+	if linksStale {
+		if err := s.refreshLinks(ctx, api, inbound.Id); err != nil {
 			return err
 		}
 	}
@@ -178,6 +235,33 @@ func (s *CsqttMemberService) syncInbound(ctx context.Context, inbound *model.Inb
 			}
 		}
 		if err := database.GetDB().Delete(&model.CsqttMember{}, member.Id).Error; err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// refreshLinks re-reads member links after a change that CSQTT bakes into
+// them (VK hashes/token, group), so subscriptions hand out the current link.
+func (s *CsqttMemberService) refreshLinks(ctx context.Context, api *csqttMemberAPI, inboundID int) error {
+	serverClients, err := api.list(ctx)
+	if err != nil {
+		return err
+	}
+	links := make(map[string]string, len(serverClients))
+	for _, client := range serverClients {
+		links[client.Password] = client.Link
+	}
+	var managed []model.CsqttMember
+	if err := database.GetDB().Where("inbound_id = ?", inboundID).Find(&managed).Error; err != nil {
+		return err
+	}
+	for _, member := range managed {
+		link, ok := links[member.Password]
+		if !ok || link == member.Link {
+			continue
+		}
+		if err := database.GetDB().Model(&model.CsqttMember{}).Where("id = ?", member.Id).Update("link", link).Error; err != nil {
 			return err
 		}
 	}
@@ -264,10 +348,50 @@ func (a *csqttMemberAPI) list(ctx context.Context) ([]csqttMemberServerClient, e
 	return out, err
 }
 
-func (a *csqttMemberAPI) create(ctx context.Context, name, hashes string) (csqttMemberServerClient, error) {
+func (a *csqttMemberAPI) create(ctx context.Context, request csqttMemberClientRequest) (csqttMemberServerClient, error) {
 	var out csqttMemberCreated
-	err := a.do(ctx, http.MethodPost, "/api/clients", csqttMemberClientRequest{Name: name, Days: 0, Hash: hashes}, &out)
-	return csqttMemberServerClient{Password: out.Password, Name: name, Active: true, Link: out.Link}, err
+	err := a.do(ctx, http.MethodPost, "/api/clients", request, &out)
+	return csqttMemberServerClient{
+		Password: out.Password,
+		Name:     request.Name,
+		Active:   true,
+		Link:     out.Link,
+		VkHashes: request.Hash,
+		VkToken:  request.VkToken,
+		GroupID:  request.GroupID,
+	}, err
+}
+
+func (a *csqttMemberAPI) setVk(ctx context.Context, password, hashes string, token bool) error {
+	return a.do(ctx, http.MethodPut, "/api/clients/"+url.PathEscape(password)+"/vk", csqttMemberVkRequest{VkHashes: hashes, VkToken: token}, nil)
+}
+
+func (a *csqttMemberAPI) setGroup(ctx context.Context, passwords []string, groupID string) error {
+	return a.do(ctx, http.MethodPost, "/api/clients/batch-group", csqttMemberGroupRequest{Passwords: passwords, GroupID: groupID}, nil)
+}
+
+// resolveGroup maps the operator-supplied group name (or id) to the CSQTT
+// group id. An empty reference resolves to "" (no group management).
+func (a *csqttMemberAPI) resolveGroup(ctx context.Context, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if ref == "" {
+		return "", nil
+	}
+	var groups []csqttMemberGroup
+	if err := a.do(ctx, http.MethodGet, "/api/groups", nil, &groups); err != nil {
+		return "", err
+	}
+	for _, group := range groups {
+		if group.ID == ref {
+			return group.ID, nil
+		}
+	}
+	for _, group := range groups {
+		if strings.EqualFold(strings.TrimSpace(group.Name), ref) {
+			return group.ID, nil
+		}
+	}
+	return "", fmt.Errorf("CSQTT group %q not found", ref)
 }
 
 func (a *csqttMemberAPI) toggle(ctx context.Context, password string) error {

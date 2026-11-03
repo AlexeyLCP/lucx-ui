@@ -72,7 +72,7 @@ func TestCsqttMemberAPIUsesAPIKeyAndExpectedEndpoints(t *testing.T) {
 	if err != nil || len(clients) != 1 || clients[0].Link != "csqtt://member" {
 		t.Fatalf("list = %+v, err=%v", clients, err)
 	}
-	created, err := api.create(context.Background(), "bob", "hash-a,hash-b")
+	created, err := api.create(context.Background(), csqttMemberClientRequest{Name: "bob", Hash: "hash-a,hash-b"})
 	if err != nil || created.Password != "new-pass" {
 		t.Fatalf("create = %+v, err=%v", created, err)
 	}
@@ -97,6 +97,63 @@ func TestCsqttMemberAPIUsesAPIKeyAndExpectedEndpoints(t *testing.T) {
 		if !strings.Contains(got, want) {
 			t.Errorf("calls %q missing %q", got, want)
 		}
+	}
+}
+
+func TestCsqttMemberAPISendsVkTokenAndGroup(t *testing.T) {
+	var created csqttMemberClientRequest
+	var vk csqttMemberVkRequest
+	var regroup csqttMemberGroupRequest
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.Method + " " + r.URL.Path {
+		case http.MethodGet + " /api/groups":
+			_ = json.NewEncoder(w).Encode([]csqttMemberGroup{{ID: "g-1", Name: "Other"}, {ID: "g-2", Name: "LucX"}})
+		case http.MethodPost + " /api/clients":
+			if err := json.NewDecoder(r.Body).Decode(&created); err != nil {
+				t.Fatalf("decode create: %v", err)
+			}
+			_ = json.NewEncoder(w).Encode(csqttMemberCreated{Password: "p", Link: "csqtt://p"})
+		case http.MethodPut + " /api/clients/p/vk":
+			if err := json.NewDecoder(r.Body).Decode(&vk); err != nil {
+				t.Fatalf("decode vk: %v", err)
+			}
+		case http.MethodPost + " /api/clients/batch-group":
+			if err := json.NewDecoder(r.Body).Decode(&regroup); err != nil {
+				t.Fatalf("decode batch-group: %v", err)
+			}
+		default:
+			t.Fatalf("unexpected call %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+	api := &csqttMemberAPI{base: server.URL, key: "k", client: server.Client()}
+	ctx := context.Background()
+
+	for ref, want := range map[string]string{"": "", "lucx": "g-2", "g-1": "g-1"} {
+		got, err := api.resolveGroup(ctx, ref)
+		if err != nil || got != want {
+			t.Fatalf("resolveGroup(%q) = %q, %v; want %q", ref, got, err, want)
+		}
+	}
+	if _, err := api.resolveGroup(ctx, "missing"); err == nil {
+		t.Fatal("resolveGroup accepted an unknown group")
+	}
+
+	member, err := api.create(ctx, csqttMemberClientRequest{Name: "bob", VkToken: true, GroupID: "g-2"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !created.VkToken || created.GroupID != "g-2" || created.Hash != "" {
+		t.Fatalf("create request = %+v", created)
+	}
+	if !member.VkToken || member.GroupID != "g-2" {
+		t.Fatalf("created member does not reflect the request: %+v", member)
+	}
+	if err := api.setVk(ctx, "p", "", true); err != nil || !vk.VkToken || vk.VkHashes != "" {
+		t.Fatalf("setVk request = %+v, err=%v", vk, err)
+	}
+	if err := api.setGroup(ctx, []string{"p"}, "g-2"); err != nil || regroup.GroupID != "g-2" || len(regroup.Passwords) != 1 {
+		t.Fatalf("setGroup request = %+v, err=%v", regroup, err)
 	}
 }
 

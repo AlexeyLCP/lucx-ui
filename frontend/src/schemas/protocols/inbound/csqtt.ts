@@ -12,6 +12,8 @@ export const CsqttInboundSettingsSchema = z.object({
   deviceId: z.string().default(''),
   subHost: z.string().default(''),
   vkHashes: z.string().default(''),
+  vkTokenInLink: z.boolean().default(false),
+  memberGroup: z.string().default(''),
   routeThroughXray: z.boolean().default(false),
   outboundTag: z.string().default(''),
 });
