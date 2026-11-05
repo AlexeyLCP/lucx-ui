@@ -10,6 +10,8 @@ Live (n9): the module was rebuilt from pin `4569c4c` but `/lib/modules` kept the
 
 Fix in `bin/install-awg-module.sh`: the gate compares the installed artifact's stamp (`modinfo -F version` of the booted kernel) against `AWG_KMOD_TAG` and rebuilds on mismatch (one honest rebuild per host, sed'ed); a same-version build clears `/var/lib/dkms/amneziawg/$MOD_VER` before `dkms add`; `install_built_ko` cmp's the built `.ko` against `/lib/modules` and copies + `depmod`s on mismatch; after install the booted-kernel artifact must carry the `${AWG_KMOD_TAG#v}` stamp or the script exits non-zero before writing the marker. Validated end-to-end on n9 (Debian 13, three kernels). Release debt closed: `docs/` API reference regenerated (`docs/pnpm gen:api`, `clients.mdx` HWID devices description was stale since lucx.342 — Docs CI red on main since). lucxVersion bump (`config.go`) — no panel code touched.
 
+**Release shipped:** main CI green on the fix commit (golangci/go-test/frontend + CodeQL), tag `v3.11.0-lucx.343` (80bc4411): Release run green (amd64/arm64 tarballs + windows zip, sha256), Docker on the tag, RU+EN notes filled (installer fix + the already-live Mr. Zaic nickname).
+
 **lucxVersion:** lucx.343
 
 ---
