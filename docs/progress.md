@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.343 — install-awg-module: honest rebuild gate + dkms install fallback (2026-11-05)
+
+Live (n9): the module was rebuilt from pin `4569c4c` but `/lib/modules` kept the pre-lucx.340 artifact stamped `3.1.20260812` — the dashboard pill showed the frozen upstream number while `/var/lib/dkms` held a correct `3.1.20260906` build. Three failures stacked:
+
+- **Gate:** the marker (`4569c4c`) matched the pin, so the gate skipped forever while the `.ko` predated the lucx.340 `version.h` sed.
+- **Rebuild:** `rm -rf /usr/src/amneziawg-$MOD_VER` leaves `/var/lib/dkms/amneziawg/$MOD_VER` — dkms reports "already built/installed" and skips.
+- **Copy:** even a genuine rebuild loses the copy step: `dkms install` skips on an existing same-vermagic artifact, the fresh `.ko.xz` stays in `/var/lib/dkms`; DKMS 3.x's "specify --force" hint mis-parses `--force` as a kernel name.
+
+Fix in `bin/install-awg-module.sh`: the gate compares the installed artifact's stamp (`modinfo -F version` of the booted kernel) against `AWG_KMOD_TAG` and rebuilds on mismatch (one honest rebuild per host, sed'ed); a same-version build clears `/var/lib/dkms/amneziawg/$MOD_VER` before `dkms add`; `install_built_ko` cmp's the built `.ko` against `/lib/modules` and copies + `depmod`s on mismatch; after install the booted-kernel artifact must carry the `${AWG_KMOD_TAG#v}` stamp or the script exits non-zero before writing the marker. Validated end-to-end on n9 (Debian 13, three kernels). lucxVersion bump only (`config.go`) — no panel code touched.
+
+**lucxVersion:** lucx.343
+
+---
+
 ## Sponsors: Pong-tier patron now shown by nickname (2026-11-05)
 
 A patron asked to stop displaying their real name. The Pong-tier Boosty entry now shows the nickname "Mr. Zaic": `sponsors/3X/sponsors.json` (id renamed to `boosty-mr-zaic`, name + title ru/en) and the README financial-supporters block in all 7 locales. JSON validated; no code references to the old id.

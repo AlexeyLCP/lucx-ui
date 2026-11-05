@@ -447,6 +447,17 @@ if [[ $FORCE_REBUILD -eq 0 ]]; then
     if [[ -n "$INSTALLED_AWG_SHA" && "$INSTALLED_AWG_SHA" == "$AWG_KMOD_PIN" ]]; then
         AWG_NEED_MODULE=0
     fi
+    # lucx.343: a matching marker proves the pin, not the artifact — hosts whose
+    # last build predates the version.h sed below keep the frozen upstream
+    # stamp (live: marker 4569c4c with an 0812 .ko) and would skip forever.
+    if [[ $AWG_NEED_MODULE -eq 0 ]]; then
+        KO=$(find "/lib/modules/$(uname -r)/updates/dkms" -name 'amneziawg.ko.*' 2>/dev/null | head -1)
+        STAMP=$(modinfo -F version "$KO" 2>/dev/null | head -1)
+        if [[ -n "$KO" && "$STAMP" != "${AWG_KMOD_TAG#v}" ]]; then
+            echo -e "${YELLOW}Артефакт /lib/modules помечен '${STAMP:-?}' вместо ${AWG_KMOD_TAG#v} — пересборка.${NC}"
+            AWG_NEED_MODULE=1
+        fi
+    fi
     if [[ $AWG_NEED_MODULE -eq 0 ]] && ! awg_tools_stale; then
         echo -e "${GREEN}Модуль amneziawg уже целевой (${INSTALLED_AWG_SHA:0:12}) — пропуск.${NC}"
         modprobe amneziawg 2>/dev/null || true
@@ -685,8 +696,12 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
     sed -i "s|#define WIREGUARD_VERSION .*|#define WIREGUARD_VERSION \"${AWG_KMOD_TAG#v}\"|" version.h
 
     # Stage the sources under the real version and compile for the booted kernel.
+    # lucx.343: the same-version dkms state (/var/lib/dkms) survives the source
+    # re-stage — left in place, dkms build/install report "already built/installed"
+    # and skip, so a rebuild after a failed/stale stamp never recompiles.
     sed -i "s/^PACKAGE_VERSION=.*/PACKAGE_VERSION=\"${MOD_VER}\"/" dkms.conf
     rm -rf "/usr/src/amneziawg-${MOD_VER}"
+    rm -rf "/var/lib/dkms/amneziawg/${MOD_VER}"
     make dkms-install WIREGUARD_VERSION="${MOD_VER}" 2>/dev/null || true
     dkms add -m amneziawg -v "${MOD_VER}" 2>/dev/null || true
     dkms build -m amneziawg -v "${MOD_VER}" -k "${BUILD_K}" || {
@@ -737,6 +752,25 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
         cd /tmp; rm -rf "$KERNEL_MOD_DIR"
         exit 1
     }
+    # lucx.343: dkms install may pass while /lib/modules keeps the older
+    # same-version artifact ("already installed", identical vermagic) — the
+    # fresh .ko.xz then stays in /var/lib/dkms and the booted kernel keeps the
+    # old stamp (live: rebuilt 4569c4c, pill kept 3.1.20260812). DKMS's own
+    # "specify --force" hint mis-parses --force as a kernel name.
+    install_built_ko() { # $1=kernel — put the freshly built .ko into /lib/modules
+        local K=$1 src dir dst
+        src=$(find "/var/lib/dkms/amneziawg/${MOD_VER}/${K}/x86_64/module" -name 'amneziawg.ko.*' 2>/dev/null | head -1)
+        [[ -n "$src" ]] || return 0
+        dir="/lib/modules/${K}/updates/dkms"
+        dst="${dir}/$(basename "$src")"
+        if ! cmp -s "$src" "$dst"; then
+            mkdir -p "$dir"
+            cp "$src" "$dst"
+            depmod -a "$K" 2>/dev/null || true
+            echo -e "${YELLOW}dkms install оставил старый артефакт для $K — скопирован свежий .ko.${NC}"
+        fi
+    }
+    install_built_ko "${BUILD_K}"
     # Compile for every other installed kernel that has headers, so a reboot
     # into a freshly upgraded kernel boots straight onto the new module.
     for KERN in $(ls -1 /lib/modules 2>/dev/null); do
@@ -745,7 +779,17 @@ if [[ $AWG_NEED_MODULE -eq 1 ]]; then
         dkms build -m amneziawg -v "${MOD_VER}" -k "$KERN" 2>/dev/null && \
             dkms install -m amneziawg -v "${MOD_VER}" -k "$KERN" 2>/dev/null || \
             echo -e "${YELLOW}Модуль для ядра $KERN не собран — соберётся при следующем dkms autoinstall${NC}"
+        install_built_ko "$KERN"
     done
+    # lucx.343: the artifact on disk must carry the tag stamp — it is what the
+    # next boot loads and what the Go side reads from sysfs (moduleVersionAtLeast).
+    KO=$(find "/lib/modules/${BUILD_K}/updates/dkms" -name 'amneziawg.ko.*' 2>/dev/null | head -1)
+    STAMP=$(modinfo -F version "$KO" 2>/dev/null | head -1)
+    if [[ -z "$KO" || "$STAMP" != "${AWG_KMOD_TAG#v}" ]]; then
+        echo -e "${RED}/lib/modules/${BUILD_K} помечен '${STAMP:-нет}', ожидался ${AWG_KMOD_TAG#v} — после ребута вернётся старая версия.${NC}"
+        cd /tmp; rm -rf "$KERNEL_MOD_DIR"
+        exit 1
+    fi
 
     cd /tmp; rm -rf "$KERNEL_MOD_DIR"
     # Write the commit SHA marker so update.sh's rebuild gate compares like
