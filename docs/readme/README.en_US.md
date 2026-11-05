@@ -288,7 +288,7 @@ LucX-UI stands on the shoulders of many open-source projects and people. Thank y
 The same list is shown on the panel's Sponsors page (`/panel/sponsors`).
 
 - **Handshake**: **VladufQa**, **пётр смолин** (Pyotr Smolin)
-- **Pong**: **Сила Растений** (Sila Rasteniy), **Виталий Зайцев** (Vitaly Zaytsev)
+- **Pong**: **Сила Растений** (Sila Rasteniy), **Mr. Zaic**
 - **Ping**: **Камслат Глорихо** (Kamslat Glorixo), **Михаил Ляшенко** (Mikhail Lyashenko)
 - Subscribers: **Игорь** (Igor), **Aleksandr S.**
 

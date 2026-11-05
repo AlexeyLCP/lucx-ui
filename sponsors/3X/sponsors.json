@@ -37,11 +37,11 @@
       "link": "https://boosty.to/alexeylcp"
     },
     {
-      "id": "boosty-vitaly-zaytsev",
-      "name": "Виталий Зайцев",
+      "id": "boosty-mr-zaic",
+      "name": "Mr. Zaic",
       "slots": ["page"],
       "until": "2099-01-01T00:00:00Z",
-      "title": { "ru": "Виталий Зайцев", "en": "Vitaly Zaytsev" },
+      "title": { "ru": "Mr. Zaic", "en": "Mr. Zaic" },
       "text": {
         "ru": "Подписчик Boosty (уровень Pong). Спасибо за поддержку LucX-UI!",
         "en": "Boosty subscriber (Pong tier). Thank you for supporting LucX-UI!"

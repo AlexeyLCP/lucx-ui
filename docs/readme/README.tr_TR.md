@@ -257,7 +257,7 @@ Tüm açık kaynak projelere ve insanlara teşekkürler.
 Aynı liste panelin Sponsorlar sayfasında da görünür (/panel/sponsors\).
 
 - **Handshake**: **VladufQa**, **пётр смолин**
-- **Pong**: **Сила Растений**, **Виталий Зайцев**
+- **Pong**: **Сила Растений**, **Mr. Zaic**
 - **Ping**: **Камслат Глорихо**, **Михаил Ляшенко**
 - Подписчики: **Игорь**, **Aleksandr S.**
 

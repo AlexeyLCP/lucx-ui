@@ -257,7 +257,7 @@ bash <(curl -fL https://raw.githubusercontent.com/AlexeyLCP/lucx-ui/main/install
 همین لیست در صفحه حامیان پنل (/panel/sponsors\) نمایش داده می‌شود.
 
 - **Handshake**: **VladufQa**, **пётр смолин**
-- **Pong**: **Сила Растений**, **Виталий Зайцев**
+- **Pong**: **Сила Растений**, **Mr. Zaic**
 - **Ping**: **Камслат Глорихо**, **Михаил Ляшенко**
 - Подписчики: **Игорь**, **Aleksandr S.**
 

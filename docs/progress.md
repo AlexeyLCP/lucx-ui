@@ -1,5 +1,13 @@
 # LucX-UI — Прогресс
 
+## Sponsors: Pong-tier patron now shown by nickname (2026-11-05)
+
+A patron asked to stop displaying their real name. The Pong-tier Boosty entry now shows the nickname "Mr. Zaic": `sponsors/3X/sponsors.json` (id renamed to `boosty-mr-zaic`, name + title ru/en) and the README financial-supporters block in all 7 locales. JSON validated; no code references to the old id.
+
+**lucxVersion:** lucx.342 (no bump, docs only)
+
+---
+
 ## lucx.342 — tester patch: multi-IP masking fixes, client devices/IP privacy, probe resistance (2026-11-05)
 
 Accepted the tester's full patch (target `v3.11.0-lucx.339`, 126 files, +5878/−213; it applies cleanly on our lucx.341 main because none of its hunks overlap 340/341). Parts:
