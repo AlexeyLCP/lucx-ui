@@ -121,7 +121,7 @@ type subControllerConfig struct {
 	subJsonDns            string
 	subJsonFinalMask      string
 	subJsonObservatory    string
-	subJsonClientWarp     string
+	subJsonClientWarp     string // LUCX-HOOK (lucx.342)
 	subClashEnableRouting bool
 	subClashRules         string
 	subClashRemoteDNS     bool
@@ -332,7 +332,9 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 	subJsonSvc := NewSubJsonService(config.subJsonMux, config.subJsonRules, config.subJsonFinalMask, config.subJsonRoutingRules, sub)
 	subJsonSvc.SetObservatoryConfig(config.subJsonObservatory)
 	subJsonSvc.SetDnsConfig(config.subJsonDns)
+	// LUCX-HOOK: client-side WARP wiring (lucx.342)
 	subJsonSvc.SetClientWarpConfig(config.subJsonClientWarp)
+	// END LUCX-HOOK
 	a := &SUBController{
 		subTitle:            config.subTitle,
 		subSupportUrl:       config.subSupportURL,

@@ -448,6 +448,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "boolean"
       },
       "subJsonClientWarp": {
+        "description": "LUCX-HOOK (lucx.342)",
         "type": "string"
       },
       "subJsonDns": {
@@ -1276,6 +1277,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "boolean"
       },
       "subJsonClientWarp": {
+        "description": "LUCX-HOOK (lucx.342)",
         "type": "string"
       },
       "subJsonDns": {
@@ -2350,6 +2352,7 @@ export const SCHEMAS: Record<string, unknown> = {
         "type": "integer"
       },
       "neverLogIps": {
+        "description": "LUCX-HOOK (lucx.342)",
         "example": false,
         "type": "boolean"
       },

@@ -42,9 +42,11 @@ type SubJsonService struct {
 	// dnsBlock is the panel DNS override, fixed for the service's lifetime.
 	dnsBlock map[string]any
 
+	// LUCX-HOOK: client-side WARP state (lucx.342)
 	// clientWarp is the subJsonClientWarp setting; nil disables it.
 	clientWarp         *clientwarp.Config
 	clientWarpAccounts *clientWarpAccounts
+	// END LUCX-HOOK
 
 	SubService *SubService
 }
@@ -287,8 +289,10 @@ func (s *SubJsonService) GetJson(subId string, host string, alwaysReturnArray bo
 		}
 	}
 
+	// LUCX-HOOK: inject client-side WARP outbounds (lucx.342)
 	// Before the info node is prepended: the dummy document has nothing to route.
 	configArray = s.applyClientWarp(subId, configArray)
+	// END LUCX-HOOK
 
 	if len(configArray) == 0 && !hasInactiveExternal && !hasBoundClosed {
 		return "", "", nil

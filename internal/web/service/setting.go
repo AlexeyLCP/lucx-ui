@@ -216,7 +216,7 @@ var defaultValueMap = map[string]string{
 	"subJsonDns":                  "",
 	"subJsonFinalMask":            "",
 	"subJsonObservatory":          "",
-	"subJsonClientWarp":           "",
+	"subJsonClientWarp":           "", // LUCX-HOOK: client-side WARP in the JSON sub (lucx.342)
 	"subThemeDir":                 "",
 	"datepicker":                  "gregorian",
 	"warp":                        "",
@@ -1358,6 +1358,7 @@ func (s *SettingService) GetSubJsonObservatory() (string, error) {
 	return s.getString("subJsonObservatory")
 }
 
+// LUCX-HOOK: subJsonClientWarp getter + save-time validation (lucx.342)
 func (s *SettingService) GetSubJsonClientWarp() (string, error) {
 	return s.getString("subJsonClientWarp")
 }

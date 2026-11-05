@@ -1,3 +1,9 @@
+// Copyright (c) 2026 LucX-UI Project.
+// Licensed under the PolyForm Noncommercial License 1.0.0.
+// LucX-UI Component. Free for personal and educational use.
+// Commercial use (including VPN resale) requires explicit written permission from the author.
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+
 package sub
 
 import (
@@ -175,8 +181,10 @@ func fakeWarpAPI(t *testing.T, status int) *atomic.Int32 {
 	return &regs
 }
 
-const clientWarpRules = `[{"type":"field","domain":["geosite:youtube"],"outboundTag":"proxy"}]`
-const clientWarpSetting = `{"domains":["geosite:youtube"],"endpoints":["162.159.192.1:4500"]}`
+const (
+	clientWarpRules   = `[{"type":"field","domain":["geosite:youtube"],"outboundTag":"proxy"}]`
+	clientWarpSetting = `{"domains":["geosite:youtube"],"endpoints":["162.159.192.1:4500"]}`
+)
 
 func TestSubJsonClientWarp_RegistersOncePerSubscription(t *testing.T) {
 	seedSubDB(t)

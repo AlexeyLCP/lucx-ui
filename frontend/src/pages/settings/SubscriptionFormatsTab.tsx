@@ -44,6 +44,7 @@ const DEFAULT_BLOCK_RULES: SubJsonRule[] = [
 ];
 const BLOCK_IP_RULE: SubJsonRule = { type: 'field', outboundTag: 'block', ip: [] };
 
+// LUCX-HOOK: client-side WARP switch mirrors the backend default config (lucx.342)
 // Mirrors clientwarp.DefaultConfig on the backend.
 const DEFAULT_CLIENT_WARP = {
   domains: ['geosite:youtube'],
@@ -263,6 +264,7 @@ export default function SubscriptionFormatsTab({
                       autoSize={{ minRows: 2, maxRows: 6 }}
                     />
                   </SettingListItem>
+                  {/* LUCX-HOOK: client-side WARP (lucx.342) */}
                   <SettingListItem
                     paddings="small"
                     title={t('pages.settings.subJsonClientWarp')}
@@ -290,6 +292,7 @@ export default function SubscriptionFormatsTab({
                       />
                     </SettingListItem>
                   )}
+                  {/* END LUCX-HOOK */}
                 </Card>
               )}
               {allSetting.subClashEnable && (

@@ -226,6 +226,7 @@ Keep the directory. Origin will not have these.
 | `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` `kernel_wgosocks_test.go` `backup_site_files{,_test}.go` | LucX service |
 | `internal/web/service/ip_privacy.go` `ip_provider.go` `live_inbounds.go` + their `_test.go` | IP privacy / provider / live inbounds (lucx.342) |
 | `internal/sub/sub_site_test.go` `service_anytls_test.go` | lucx sub tests (lucx.342) |
+| `internal/sub/json_client_warp.go` + `_test.go`, `internal/util/clientwarp/` | PR #185: client-side WARP in the JSON sub (lucx.342) |
 | `internal/web/job/anytls_stats_test.go` `trusttunnel_peruser_test.go` | lucx job tests (lucx.342) |
 | `frontend/src/pages/tunnels/` | Tunnels page |
 | `frontend/src/components/clients/ClientDevicesCell.tsx` `hooks/useCoarsePointer.ts` `useBodyScrollLock.ts` `styles/touch.css` | Devices column + touch UX (lucx.342) |

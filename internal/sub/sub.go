@@ -198,10 +198,12 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 		SubJsonObservatory = ""
 	}
 
+	// LUCX-HOOK: client-side WARP option (lucx.342)
 	SubJsonClientWarp, err := s.settingService.GetSubJsonClientWarp()
 	if err != nil {
 		SubJsonClientWarp = ""
 	}
+	// END LUCX-HOOK
 
 	SubClashEnableRouting, err := s.settingService.GetSubClashEnableRouting()
 	if err != nil {

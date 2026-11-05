@@ -146,7 +146,7 @@ type AllSetting struct {
 	SubJsonDns          string `json:"subJsonDns" form:"subJsonDns"`
 	SubJsonFinalMask    string `json:"subJsonFinalMask" form:"subJsonFinalMask"`
 	SubJsonObservatory  string `json:"subJsonObservatory" form:"subJsonObservatory"`
-	SubJsonClientWarp   string `json:"subJsonClientWarp" form:"subJsonClientWarp"`
+	SubJsonClientWarp   string `json:"subJsonClientWarp" form:"subJsonClientWarp"` // LUCX-HOOK (lucx.342)
 	SubThemeDir         string `json:"subThemeDir" form:"subThemeDir"`
 	SubHideSettings     bool   `json:"subHideSettings" form:"subHideSettings"`
 
