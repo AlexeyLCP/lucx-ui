@@ -43,8 +43,31 @@ type CsqttConfig struct {
 	VkHashes   string `json:"vkHashes"`
 	ConfigDir  string `json:"configDir"`
 
+	// VkTokenInLink makes every panel-managed member link carry the VK access
+	// token stored in the CSQTT server, so the client app creates its own VK
+	// calls. VkHashes take precedence (CSQTT accepts only one of the two per
+	// member), see MemberVkToken.
+	VkTokenInLink bool `json:"vkTokenInLink"`
+	// MemberGroup is the name (or id) of a CSQTT client group that every
+	// panel-managed member is placed in; the group's routing rule, worker count
+	// and VK token override then apply to those members. Empty leaves the
+	// members' group untouched.
+	MemberGroup string `json:"memberGroup"`
+
 	RouteThroughXray bool   `json:"routeThroughXray"`
 	OutboundTag      string `json:"outboundTag"`
+}
+
+// MemberVkHashes is VkHashes normalised to the comma-separated form the CSQTT
+// web API accepts for a member (no whitespace, at most six hashes).
+func (c CsqttConfig) MemberVkHashes() string {
+	return strings.Join(csqttHashList(c.VkHashes), ",")
+}
+
+// MemberVkToken reports whether member links carry the VK token: requested
+// and not overridden by explicit VK call hashes.
+func (c CsqttConfig) MemberVkToken() bool {
+	return c.VkTokenInLink && c.MemberVkHashes() == ""
 }
 
 func DefaultCsqttConfig() CsqttConfig {

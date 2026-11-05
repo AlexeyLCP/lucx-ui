@@ -346,6 +346,8 @@ export function createDefaultCsqttInboundSettings(): CsqttInboundSettings {
     deviceId: '',
     subHost: '',
     vkHashes: '',
+    vkTokenInLink: false,
+    memberGroup: '',
     routeThroughXray: false,
     outboundTag: '',
   };
