@@ -45,7 +45,7 @@ func TestSubDomainOrSite(t *testing.T) {
 	front := httptest.NewServer(engine)
 	defer front.Close()
 	for _, c := range cases {
-		req, _ := http.NewRequest("GET", front.URL+c.path, nil)
+		req, _ := http.NewRequest(http.MethodGet, front.URL+c.path, nil)
 		req.Host = c.host
 		resp, err := http.DefaultClient.Do(req)
 		if err != nil {

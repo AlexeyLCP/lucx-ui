@@ -8,6 +8,7 @@ package sub
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -141,7 +142,7 @@ func registerClientWarp() (*model.ClientWarpAccount, error) {
 		"serial_number": "",
 		"locale":        "en_US",
 	})
-	req, err := http.NewRequest(http.MethodPost, clientWarpRegURL, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodPost, clientWarpRegURL, bytes.NewReader(body))
 	if err != nil {
 		return nil, err
 	}
@@ -172,7 +173,7 @@ func registerClientWarp() (*model.ClientWarpAccount, error) {
 		return nil, errors.New("registration response has no account id or address")
 	}
 	if reg.Token != "" {
-		patch, err := http.NewRequest(http.MethodPatch, clientWarpRegURL+"/"+reg.ID, strings.NewReader(`{"warp_enabled":true}`))
+		patch, err := http.NewRequestWithContext(context.Background(), http.MethodPatch, clientWarpRegURL+"/"+reg.ID, strings.NewReader(`{"warp_enabled":true}`))
 		if err == nil {
 			setClientWarpHeaders(patch)
 			patch.Header.Set("Authorization", "Bearer "+reg.Token)

@@ -38,7 +38,7 @@ func TestDisableGatewayMask_NodeInboundIsSkipped(t *testing.T) {
 		t.Fatalf("create node gateway inbound: %v", err)
 	}
 
-	reverted, err := svc.DisableGatewayMask(int(ib.Id))
+	reverted, err := svc.DisableGatewayMask(ib.Id)
 	if err != nil {
 		t.Fatalf("DisableGatewayMask on node gateway: %v", err)
 	}

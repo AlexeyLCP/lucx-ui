@@ -474,6 +474,7 @@
             "type": "boolean"
           },
           "subJsonClientWarp": {
+            "description": "LUCX-HOOK (lucx.342)",
             "type": "string"
           },
           "subJsonDns": {
@@ -1302,6 +1303,7 @@
             "type": "boolean"
           },
           "subJsonClientWarp": {
+            "description": "LUCX-HOOK (lucx.342)",
             "type": "string"
           },
           "subJsonDns": {
@@ -1885,6 +1887,10 @@
             "description": "IP limit for this client",
             "type": "integer"
           },
+          "neverLogIps": {
+            "description": "NeverLogIPs keeps this client's addresses out of the panel: no live IP\nlist, no device last-IP, no IP-limit log. The IP limit can't apply to it.",
+            "type": "boolean"
+          },
           "password": {
             "description": "Client password",
             "type": "string"
@@ -2125,6 +2131,9 @@
           "limitIp": {
             "type": "integer"
           },
+          "neverLogIps": {
+            "type": "boolean"
+          },
           "password": {
             "type": "string"
           },
@@ -2197,6 +2206,7 @@
           "keepAlive",
           "limitHwid",
           "limitIp",
+          "neverLogIps",
           "password",
           "preSharedKey",
           "privateKey",
@@ -2366,6 +2376,11 @@
           "limitIp": {
             "example": 0,
             "type": "integer"
+          },
+          "neverLogIps": {
+            "description": "LUCX-HOOK (lucx.342)",
+            "example": false,
+            "type": "boolean"
           },
           "reset": {
             "example": 0,
@@ -14709,6 +14724,7 @@
                         ],
                         "limitHwid": 0,
                         "limitIp": 0,
+                        "neverLogIps": false,
                         "reset": 0,
                         "resetDay": 0,
                         "resetMax": 0,
@@ -14920,7 +14936,7 @@
                 "properties": {
                   "client": {
                     "type": "object",
-                    "description": "Client fields: email, subId, id (uuid), password, auth, flow, totalGB, expiryTime, limitIp, limitHwid, tgId (numeric Telegram user ID, 0 = none), comment, enable. Protocol-specific: secret and adTag (mtproto), privateKey, publicKey, preSharedKey, allowedIPs and keepAlive (WireGuard)."
+                    "description": "Client fields: email, subId, id (uuid), password, auth, flow, totalGB, expiryTime, limitIp, limitHwid, neverLogIps (true = the panel never records or shows the client IP addresses, so limitIp does not apply), tgId (numeric Telegram user ID, 0 = none), comment, enable. Protocol-specific: secret and adTag (mtproto), privateKey, publicKey, preSharedKey, allowedIPs and keepAlive (WireGuard)."
                   },
                   "inboundIds": {
                     "type": "array",
@@ -15102,6 +15118,7 @@
                 "totalGB": 107374182400,
                 "expiryTime": 1767225600000,
                 "limitHwid": 2,
+                "neverLogIps": false,
                 "tgId": 123456789,
                 "enable": true
               }
@@ -16748,6 +16765,7 @@
         ],
         "summary": "List registered HWID devices for a client with a short fingerprint. Full hashes are not exposed.",
         "operationId": "post_panel_api_clients_hwids_email",
+        "description": "`lastIp` is the address of the device's last subscription fetch, labelled from local IP databases on the server (`GeoLite2-*.mmdb` placed in the database or bin folder, else the free DB-IP Lite files the panel downloads monthly into the database folder; no lookup service is called). `source` names the database used (`maxmind`, `dbip`). The Xray log **Mask Address** option applies: `quarter` and `half` mask the address and drop `city`; `full` leaves `lastIp` and the labels out. A client with `neverLogIps` has no `lastIp`.",
         "parameters": [
           {
             "name": "email",
@@ -16787,7 +16805,16 @@
                       "deviceOs": "android",
                       "osVersion": "15",
                       "deviceModel": "Pixel 9",
-                      "fingerprint": "6ad17c93e821"
+                      "fingerprint": "6ad17c93e821",
+                      "lastIp": "203.0.113.24",
+                      "asn": 64500,
+                      "org": "Example Telecom",
+                      "country": "DE",
+                      "countryNames": {
+                        "en": "Germany"
+                      },
+                      "city": "Berlin",
+                      "source": "dbip"
                     }
                   ]
                 }

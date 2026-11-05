@@ -8,6 +8,7 @@ package service
 
 import (
 	"compress/gzip"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -243,7 +244,11 @@ func (d *ipDatabase) refreshLocked(dir, name string) {
 // replaces dst, so a bad download never removes a working file.
 func fetchGzipTo(url, dst string) error {
 	client := &http.Client{Timeout: 10 * time.Minute}
-	resp, err := client.Get(url)
+	req, err := http.NewRequestWithContext(context.Background(), http.MethodGet, url, nil)
+	if err != nil {
+		return err
+	}
+	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
