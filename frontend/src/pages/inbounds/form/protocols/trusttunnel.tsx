@@ -131,6 +131,29 @@ export default function TrustTunnelFields() {
       >
         <Input placeholder="1.1.1.1, tls://8.8.8.8" />
       </FormField>
+      {/* LUCX-HOOK: site for browsers + auth failure status (lucx.342) */}
+      <FormField
+        name={['settings', 'siteUpstream']}
+        label={t('pages.inbounds.form.trustTunnelSiteUpstream')}
+        tooltip={t('pages.inbounds.form.trustTunnelSiteUpstreamHint')}
+      >
+        <Input placeholder="127.0.0.1:8081" />
+      </FormField>
+      <FormField
+        name={['settings', 'authFailureStatus']}
+        label={t('pages.inbounds.form.trustTunnelAuthFailure')}
+        tooltip={t('pages.inbounds.form.trustTunnelAuthFailureHint')}
+      >
+        <Select
+          options={[
+            { value: 0, label: '407 Proxy Authentication Required' },
+            { value: 405, label: '405 Method Not Allowed' },
+            { value: 404, label: '404 Not Found' },
+            { value: 403, label: '403 Forbidden' },
+          ]}
+        />
+      </FormField>
+      {/* END LUCX-HOOK */}
       <FormField
         name={['settings', 'ipv6']}
         label={t('pages.inbounds.form.trustTunnelIpv6')}

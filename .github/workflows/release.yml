@@ -213,6 +213,37 @@ jobs:
       - name: Pack tunnel sidecars
         run: bash bin/pack-sidecars.sh ${{ matrix.platform }} "$PWD/x-ui/bin"
 
+      # LUCX-HOOK: pack-sidecars.sh builds anytls only when the file is absent,
+      # so a stale copy would ship without the -fallback overlay (probes on the
+      # AnyTLS domain then get a dropped TLS connection). Text check: works for
+      # the arm64 binary on the amd64 runner too.
+      - name: Check AnyTLS fallback overlay
+        run: |
+          set -euo pipefail
+          BIN="x-ui/bin/anytls-linux-${{ matrix.platform }}"
+          test -s "$BIN"
+          grep -aq 'hand the connection to this plain-TCP address' "$BIN" || {
+            echo "::error::$BIN was built without third_party/patches/anytls-server-inbound_tcp.go.overlay (-fallback)"
+            exit 1
+          }
+          grep -aq 'per-user passwords, one name:password per line' "$BIN" || {
+            echo "::error::$BIN was built without third_party/patches/anytls-server-users.go.overlay (-users-file)"
+            exit 1
+          }
+      # LUCX-HOOK: TrustTunnel behind the SNI gateway needs the PROXY v1 patch
+      # (third_party/patches/trusttunnel-proxy-protocol.patch, bin/build-trusttunnel.sh);
+      # the stock release would hide every client IP. The vendored binary wins
+      # over the download, so a stale copy would ship silently.
+      - name: Check TrustTunnel PROXY patch
+        run: |
+          set -euo pipefail
+          BIN="x-ui/bin/trusttunnel-linux-${{ matrix.platform }}"
+          test -s "$BIN"
+          grep -aq '+lucx.proxy' "$BIN" || {
+            echo "::error::$BIN is the stock TrustTunnel; rebuild it with bin/build-trusttunnel.sh and refresh third_party/sidecars/linux-${{ matrix.platform }}/trusttunnel-linux-${{ matrix.platform }}.gz"
+            exit 1
+          }
+
       # LUCX-HOOK: wgobfs — Phobos fork of ClusterM wg-obfuscator (GPL-3.0, C).
       # PIN 22aedefd (reactive bump policy, lucx.309): the fork adds mode=socks5,
       # MEDIA/TLS masking and socks5-users on top of upstream STUN/AUTO/NONE.

@@ -217,19 +217,11 @@ if ! have "mieru-linux-${ARCH}" || ! have "mieru-client-linux-${ARCH}"; then
     rm -rf /tmp/mieru
 fi
 
+# LUCX: built from source with the PROXY v1 patch (the stock release can't
+# see client IPs behind the SNI gateway). A vendored copy wins, so refresh
+# third_party/sidecars/linux-<arch>/trusttunnel-linux-<arch>.gz after a rebuild.
 if ! have "trusttunnel-linux-${ARCH}"; then
-    case "$ARCH" in
-        amd64) tt_tgz="trusttunnel-v1.3.0-beta.2-linux-x86_64.tar.gz" ;;
-        arm64) tt_tgz="trusttunnel-v1.3.0-beta.2-linux-aarch64.tar.gz" ;;
-        *) echo "no trusttunnel for ${ARCH}" >&2; exit 1 ;;
-    esac
-    fetch -O "/tmp/${tt_tgz}" "https://github.com/TrustTunnel/TrustTunnel/releases/download/v1.3.0-beta.2/${tt_tgz}"
-    mkdir -p /tmp/trusttunnel
-    tar -xzf "/tmp/${tt_tgz}" -C /tmp/trusttunnel
-    tt_bin=$(find /tmp/trusttunnel -type f -name trusttunnel_endpoint | head -n1)
-    mv "$tt_bin" "${DEST}/trusttunnel-linux-${ARCH}"
-    chmod +x "${DEST}/trusttunnel-linux-${ARCH}"
-    rm -rf /tmp/trusttunnel "/tmp/${tt_tgz}"
+    bash "${ROOT}/bin/build-trusttunnel.sh" "${ARCH}" "${DEST}"
 fi
 
 if ! have "trusttunnel-client-linux-${ARCH}"; then
@@ -272,6 +264,8 @@ if ! have "anytls-linux-${ARCH}"; then
     git -C /tmp/anytls fetch -q --depth 1 origin v0.0.13
     git -C /tmp/anytls checkout -q FETCH_HEAD
     cp "$overlay" /tmp/anytls/cmd/server/main.go
+    cp "${ROOT}/third_party/patches/anytls-server-inbound_tcp.go.overlay" /tmp/anytls/cmd/server/inbound_tcp.go
+    cp "${ROOT}/third_party/patches/anytls-server-users.go.overlay" /tmp/anytls/cmd/server/users.go
     (
         cd /tmp/anytls
         GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "${DEST}/anytls-linux-${ARCH}" ./cmd/server

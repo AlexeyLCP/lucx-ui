@@ -427,6 +427,12 @@ func (s *XrayService) GetXrayConfig() (*xray.Config, error) {
 			}
 		}
 
+		// LUCX-HOOK: a loopback HTTP-transport inbound sits behind a Cover
+		// site or the SNI gateway; trust its X-Forwarded-For (real client IP).
+		if stream, ok := tunnel.TrustCoverForwardedFor(inbound.Listen, inbound.StreamSettings); ok {
+			inbound.StreamSettings = stream
+		}
+		// END LUCX-HOOK
 		inboundConfig := inbound.GenXrayInboundConfig()
 		xrayConfig.InboundConfigs = append(xrayConfig.InboundConfigs, *inboundConfig)
 	}

@@ -70,6 +70,8 @@ import type {
 } from '@/hooks/useClients';
 import ClientTrafficCell from '@/components/clients/ClientTrafficCell';
 import ClientSpeedTag, { isActiveSpeed } from '@/components/clients/ClientSpeedTag';
+// LUCX-HOOK: clients page — devices column + disable confirmation (lucx.342)
+import ClientDevicesCell from '@/components/clients/ClientDevicesCell';
 import ClientCardComment from '@/components/clients/ClientCardComment';
 import AppSidebar from '@/layouts/AppSidebar';
 import { IntlUtil, SizeFormatter } from '@/utils';
@@ -368,6 +370,10 @@ export default function ClientsPage() {
     importClients,
     setEnable,
     clientSpeed,
+    // LUCX-HOOK: per-client devices data (lucx.342)
+    clientInbounds,
+    clientDevices,
+    // END LUCX-HOOK
     applyTrafficEvent,
     applyClientStatsEvent,
     refresh,
@@ -671,7 +677,7 @@ export default function ClientsPage() {
     return 'green';
   }
 
-  async function onToggleEnable(row: ClientRecord, next: boolean) {
+  async function applyEnable(row: ClientRecord, next: boolean) {
     setTogglingEmail(row.email);
     try {
       const msg = await setEnable(row, next);
@@ -682,6 +688,25 @@ export default function ClientsPage() {
       setTogglingEmail(null);
     }
   }
+
+  // LUCX-HOOK: disabling cuts the client off, and on phones the switch sits
+  // next to the info and menu buttons: ask first (lucx.342). Enabling stays
+  // a single tap.
+  function onToggleEnable(row: ClientRecord, next: boolean) {
+    if (next) {
+      void applyEnable(row, true);
+      return;
+    }
+    modal.confirm({
+      title: t('pages.clients.disableConfirmTitle', { email: row.email }),
+      content: t('pages.clients.disableConfirmContent'),
+      okText: t('disable'),
+      okType: 'danger',
+      cancelText: t('cancel'),
+      onOk: () => applyEnable(row, false),
+    });
+  }
+  // END LUCX-HOOK
 
   function onAdd() {
     setFormMode('add');
@@ -1207,6 +1232,21 @@ export default function ClientsPage() {
           return <ClientSpeedTag speed={speed} tableCell />;
         },
       },
+      // LUCX-HOOK: devices column (lucx.342)
+      {
+        title: t('pages.clients.devices'),
+        key: 'devices',
+        width: 130,
+        align: 'center',
+        render: (_v, record) => (
+          <ClientDevicesCell
+            email={record.email}
+            devices={clientDevices[record.email]}
+            inbounds={clientInbounds[record.email]}
+          />
+        ),
+      },
+      // END LUCX-HOOK
       {
         title: t('pages.clients.remaining'),
         key: 'remaining',
@@ -1238,6 +1278,8 @@ export default function ClientsPage() {
       datepicker,
       trafficDiff,
       clientSpeed,
+      clientInbounds,
+      clientDevices,
     ],
   );
 
@@ -1892,11 +1934,17 @@ export default function ClientsPage() {
                                   />
                                   {(() => {
                                     const speed = clientSpeed[row.email];
-                                    if (!isActiveSpeed(speed)) return null;
                                     return (
+                                      // LUCX-HOOK: devices cell on the mobile card (lucx.342)
                                       <div className="client-card-speed">
-                                        <ClientSpeedTag speed={speed} />
+                                        {isActiveSpeed(speed) && <ClientSpeedTag speed={speed} />}
+                                        <ClientDevicesCell
+                                          email={row.email}
+                                          devices={clientDevices[row.email]}
+                                          inbounds={clientInbounds[row.email]}
+                                        />
                                       </div>
+                                      // END LUCX-HOOK
                                     );
                                   })()}
                                 </div>

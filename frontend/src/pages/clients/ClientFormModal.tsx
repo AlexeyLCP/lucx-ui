@@ -36,6 +36,7 @@ import { generateMtprotoSecret } from '@/lib/xray/inbound-defaults';
 import { normalizeClientIps, type ClientIpInfo } from '@/lib/clients/ip-log';
 import { resolveExternalLinkExpiry } from '@/lib/clients/external-link';
 import { useDatepicker } from '@/hooks/useDatepicker';
+import { useCoarsePointer } from '@/hooks/useCoarsePointer';
 import { useClientHwids } from '@/hooks/useClientHwids';
 import { useRawHostsQuery } from '@/api/queries/useRawHostsQuery';
 import { DateTimePicker, SelectAllClearButtons } from '@/components/form';
@@ -186,6 +187,7 @@ const EMPTY: Values = {
   trafficResetDay: 1,
   limitIp: 0,
   limitHwid: 0,
+  neverLogIps: false, // LUCX-HOOK: "Never log IPs" (lucx.342)
   tgId: 0,
   group: '',
   comment: '',
@@ -301,6 +303,9 @@ export default function ClientFormModal({
   const auth = useWatch({ control: methods.control, name: 'auth' });
   const wgPrivateKey = useWatch({ control: methods.control, name: 'wgPrivateKey' });
   const limitIp = useWatch({ control: methods.control, name: 'limitIp' });
+  // LUCX-HOOK: "Never log IPs" warning visibility (lucx.342)
+  const neverLogIps = useWatch({ control: methods.control, name: 'neverLogIps' });
+  // END LUCX-HOOK
   const {
     fields: externalLinkFields,
     append: appendExternalLink,
@@ -324,6 +329,7 @@ export default function ClientFormModal({
   } = useClientHwids(client?.email);
   const [hwidsModalOpen, setHwidsModalOpen] = useState(false);
   const { datepicker } = useDatepicker();
+  const touch = useCoarsePointer(); // LUCX-HOOK: touch screens (lucx.342)
   const hwidDateLabel = (ts: number) =>
     !ts || ts <= 0 ? '-' : IntlUtil.formatDate(ts, datepicker);
   const fail2ban = useFail2banStatusQuery();
@@ -405,6 +411,7 @@ export default function ClientFormModal({
         trafficResetDay: Number(client.trafficResetDay) || 1,
         limitIp: client.limitIp || 0,
         limitHwid: client.limitHwid || 0,
+        neverLogIps: !!client.neverLogIps, // LUCX-HOOK (lucx.342)
         tgId: Number(client.tgId) || 0,
         group: client.group || '',
         comment: client.comment || '',
@@ -805,6 +812,7 @@ export default function ClientFormModal({
       trafficResetDay: values.trafficResetDay,
       limitIp: values.limitIp,
       limitHwid: values.limitHwid,
+      neverLogIps: !!values.neverLogIps, // LUCX-HOOK (lucx.342)
       tgId: values.tgId,
       group: values.group,
       comment: values.comment,
@@ -843,6 +851,7 @@ export default function ClientFormModal({
       trafficResetDay: Number(values.trafficResetDay) || 1,
       limitIp: Number(values.limitIp) || 0,
       limitHwid: Number(values.limitHwid) || 0,
+      neverLogIps: !!values.neverLogIps, // LUCX-HOOK (lucx.342)
       tgId: Number(values.tgId) || 0,
       group: values.group,
       comment: values.comment,
@@ -956,7 +965,12 @@ export default function ClientFormModal({
         zIndex={CLIENT_FORM_MODAL_Z_INDEX}
         style={{ top: 20 }}
         styles={{
-          body: { maxHeight: 'calc(100vh - 160px)', overflowY: 'auto', overflowX: 'hidden' },
+          // LUCX-HOOK: dvh — the visible height, so Safari's toolbars can't hide the footer (lucx.342)
+          body: {
+            maxHeight: 'min(calc(100vh - 160px), calc(100dvh - 160px))',
+            overflowY: 'auto',
+            overflowX: 'hidden',
+          },
         }}
         onCancel={close}
         footer={
@@ -1110,6 +1124,22 @@ export default function ClientFormModal({
                             </span>
                           </Form.Item>
                         </Col>
+                        {/* LUCX-HOOK: "Never log IPs" (lucx.342) */}
+                        <Col xs={24} md={12}>
+                          <Form.Item
+                            htmlFor={`${uid}-never-log-ips`}
+                            label={t('pages.clients.neverLogIps')}
+                            tooltip={t('pages.clients.neverLogIpsDesc')}
+                            extra={neverLogIps ? t('pages.clients.neverLogIpsWarn') : undefined}
+                          >
+                            <Switch
+                              id={`${uid}-never-log-ips`}
+                              checked={!!neverLogIps}
+                              onChange={(v) => methods.setValue('neverLogIps', v)}
+                            />
+                          </Form.Item>
+                        </Col>
+                        {/* END LUCX-HOOK */}
                       </Row>
 
                       <Row gutter={16}>
@@ -1229,12 +1259,17 @@ export default function ClientFormModal({
                               placement="topLeft"
                               listHeight={220}
                               allowClear
-                              showSearch={{
-                                filterOption: (input, option) =>
-                                  ((option?.label as string) || '')
-                                    .toLowerCase()
-                                    .includes(input.toLowerCase()),
-                              }}
+                              // LUCX-HOOK: touch screens — the keyboard would resize the page and hide the list (lucx.342)
+                              showSearch={
+                                touch
+                                  ? false
+                                  : {
+                                      filterOption: (input, option) =>
+                                        ((option?.label as string) || '')
+                                          .toLowerCase()
+                                          .includes(input.toLowerCase()),
+                                    }
+                              }
                             />
                           </Form.Item>
                         </Col>
@@ -1286,12 +1321,17 @@ export default function ClientFormModal({
                           maxTagCount="responsive"
                           placement="topLeft"
                           listHeight={220}
-                          showSearch={{
-                            filterOption: (input, option) =>
-                              ((option?.label as string) || '')
-                                .toLowerCase()
-                                .includes(input.toLowerCase()),
-                          }}
+                          // LUCX-HOOK: touch screens — the keyboard would resize the page and hide the list (lucx.342)
+                          showSearch={
+                            touch
+                              ? false
+                              : {
+                                  filterOption: (input, option) =>
+                                    ((option?.label as string) || '')
+                                      .toLowerCase()
+                                      .includes(input.toLowerCase()),
+                                }
+                          }
                         />
                       </Form.Item>
 

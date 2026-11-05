@@ -5,6 +5,7 @@ import { HttpUtil, Msg } from '@/utils';
 import { parseMsg } from '@/utils/zodValidate';
 import { keys } from '@/api/queryKeys';
 import { markLocalInvalidate } from '@/api/invalidationTracker';
+import type { ClientDevices, LiveInbound } from '@/components/clients/ClientDevicesCell';
 import {
   ClientHydrateSchema,
   ClientPageResponseSchema,
@@ -307,6 +308,12 @@ export function useClients(options: UseClientsOptions = {}) {
   // settings request still lets the page fall back and render.
   const settingsReady = defaultsQuery.isFetched;
 
+  // LUCX-HOOK: devices + inbounds state (lucx.342)
+  // Inbounds each client is using right now (server-attributed), keyed by email.
+  const [clientInbounds, setClientInbounds] = useState<Record<string, LiveInbound[]>>({});
+  // Registered devices vs limit and live IPs per client, keyed by email.
+  const [clientDevices, setClientDevices] = useState<Record<string, ClientDevices>>({});
+  // END LUCX-HOOK
   const [clientSpeedBySource, setClientSpeedBySource] = useState<
     Partial<Record<ClientSpeedSource, Record<string, ClientSpeedEntry>>>
   >({});
@@ -759,7 +766,17 @@ export function useClients(options: UseClientsOptions = {}) {
         clientTraffics?: { email: string; up: number; down: number }[];
         clientTrafficSource?: 'xray' | 'tuic';
         clientTrafficIntervalMs?: number;
+        clientInbounds?: Record<string, LiveInbound[]>;
+        clientDevices?: Record<string, ClientDevices>;
       };
+      // LUCX-HOOK: carry clientInbounds/clientDevices from the traffic event (lucx.342)
+      if (p.clientInbounds && typeof p.clientInbounds === 'object') {
+        setClientInbounds(p.clientInbounds);
+      }
+      if (p.clientDevices && typeof p.clientDevices === 'object') {
+        setClientDevices(p.clientDevices);
+      }
+      // END LUCX-HOOK
       if (Array.isArray(p.onlineClients)) {
         queryClient.setQueryData(keys.clients.onlines(), p.onlineClients);
       }
@@ -899,6 +916,8 @@ export function useClients(options: UseClientsOptions = {}) {
     importClients,
     setEnable,
     clientSpeed,
+    clientInbounds,
+    clientDevices,
     applyTrafficEvent,
     applyClientStatsEvent,
   };

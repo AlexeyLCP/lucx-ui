@@ -10,6 +10,7 @@
   --bg-page: #e6e8ec;
   --bg-card: #ffffff;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-page);
 }
 
@@ -90,12 +91,14 @@
 
 .loading-spacer {
   min-height: calc(100vh - 120px);
+  min-height: calc(100dvh - 120px);
 }
 
 /* Tall action menus (e.g. the inbound/client context menus) must stay inside
    the viewport even when antd flips them upward near the screen edge. */
 .ant-dropdown .ant-dropdown-menu {
   max-height: calc(100vh - 32px);
+  max-height: calc(100dvh - 32px);
   overflow-y: auto;
 }
 
@@ -196,6 +199,7 @@ body.dark .ant-dropdown-menu-item-divider {
   --bg-page: #e6e8ec;
   --bg-card: #ffffff;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-page);
 }
 
@@ -235,6 +239,7 @@ body.dark .ant-dropdown-menu-item-divider {
   --bg-page: #e6e8ec;
   --bg-card: #ffffff;
   min-height: 100vh;
+  min-height: 100dvh;
   background: var(--bg-page);
 }
 

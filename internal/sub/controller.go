@@ -768,6 +768,10 @@ func (a *SUBController) enforceHwid(c *gin.Context) bool {
 		DeviceOS:    c.GetHeader("X-Device-OS"),
 		OsVersion:   c.GetHeader("X-Ver-OS"),
 		DeviceModel: c.GetHeader("X-Device-Model"),
+		// LUCX-HOOK: the socket peer, not X-Forwarded-For: the sub server is
+		// reached directly, and a header would let a client pick its own address.
+		IP: c.RemoteIP(),
+		// END LUCX-HOOK
 	})
 	if err != nil {
 		writeSubError(c, err)

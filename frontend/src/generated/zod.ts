@@ -24,6 +24,9 @@ export type Protocol = z.infer<typeof ProtocolSchema>;
 export const addrFamilySchema = z.number().int();
 export type addrFamily = z.infer<typeof addrFamilySchema>;
 
+export const endpointMapSchema = z.record(z.string(), z.string());
+export type endpointMap = z.infer<typeof endpointMapSchema>;
+
 export const staticEgressResolverSchema = z.string();
 export type staticEgressResolver = z.infer<typeof staticEgressResolverSchema>;
 
@@ -473,6 +476,7 @@ export const ClientSchema = z.object({
   id: z.string().optional(),
   keepAlive: z.union([z.number().int(), z.string()]).optional(),
   limitIp: z.number().int(),
+  neverLogIps: z.boolean().optional(),
   password: z.string().optional(),
   preSharedKey: z.string().optional(),
   privateKey: z.string().optional(),
@@ -529,6 +533,7 @@ export const ClientRecordSchema = z.object({
   keepAlive: z.union([z.number().int(), z.string()]),
   limitHwid: z.number().int(),
   limitIp: z.number().int(),
+  neverLogIps: z.boolean(),
   password: z.string(),
   preSharedKey: z.string(),
   privateKey: z.string(),
@@ -588,6 +593,7 @@ export const ClientSlimSchema = z.object({
   inboundIds: z.array(z.number().int()),
   limitHwid: z.number().int(),
   limitIp: z.number().int(),
+  neverLogIps: z.boolean().optional(),
   reset: z.number().int(),
   resetDay: z.number().int(),
   resetMax: z.number().int(),

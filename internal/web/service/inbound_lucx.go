@@ -992,6 +992,12 @@ func (s *InboundService) checkSingleCover(inbound *model.Inbound, ignoreId int) 
 		if inbound.Tag != "" && o.Tag == inbound.Tag {
 			continue
 		}
+		// LUCX-HOOK: covers pinned to different IPs (or loopback) don't share
+		// a listener, so a multi-IP host can run one site per IP.
+		if !coverListensOverlap(inbound.Listen, o.Listen) {
+			continue
+		}
+		// END LUCX-HOOK
 		return common.NewError("cover: only one cover inbound per host (:80 and :443)")
 	}
 	return nil
@@ -1260,6 +1266,10 @@ func (s *InboundService) checkTrustTunnelPortConflict(inbound *model.Inbound, ig
 	if webPort, err := (&SettingService{}).GetPort(); err == nil && webPort == port {
 		return common.NewErrorf("trusttunnel: port %d is used by the panel itself", port)
 	}
+	trustHost, _, _ := net.SplitHostPort(strings.TrimSpace(cfg.Listen))
+	if strings.TrimSpace(trustHost) == "" {
+		trustHost = inbound.Listen
+	}
 	inbounds, err := s.GetAllInbounds()
 	if err != nil {
 		return err
@@ -1271,6 +1281,13 @@ func (s *InboundService) checkTrustTunnelPortConflict(inbound *model.Inbound, ig
 		if inbound.Tag != "" && other.Tag == inbound.Tag {
 			continue
 		}
+		// LUCX-HOOK: on a multi-IP host, inbounds pinned to other IPs don't
+		// share TrustTunnel's TCP or UDP socket. The SNI gateway row is no
+		// listener of its own (Apply checks its binds), so it never collides.
+		if other.Protocol == model.Gateway || !listenOverlaps(bindAddr{listen: trustHost}, inboundBindAddr(other)) {
+			continue
+		}
+		// END LUCX-HOOK
 		for _, r := range inboundListenRanges(other) {
 			if port >= r[0] && port <= r[1] {
 				return common.NewErrorf("trusttunnel: port %d collides with inbound %q", port, other.Remark)
@@ -1878,4 +1895,17 @@ func (s *InboundService) migrateAwgSettingsOnUpdate(inbound, oldInbound *model.I
 		}
 	}
 	return nil
+}
+
+// coverListensOverlap: two covers collide unless each is on loopback or both
+// are pinned to different specific IPs.
+func coverListensOverlap(a, b string) bool {
+	if tunnel.IsLoopbackListen(a) || tunnel.IsLoopbackListen(b) {
+		return false
+	}
+	ipA, ipB := net.ParseIP(strings.TrimSpace(a)), net.ParseIP(strings.TrimSpace(b))
+	if ipA == nil || ipB == nil || ipA.IsUnspecified() || ipB.IsUnspecified() {
+		return true
+	}
+	return ipA.Equal(ipB)
 }

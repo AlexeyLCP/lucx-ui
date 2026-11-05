@@ -9,6 +9,17 @@ export type ClientHwidInfo = {
   osVersion: string;
   deviceModel: string;
   fingerprint: string;
+  // LUCX-HOOK: last subscription IP + local geo label (lucx.342)
+  // Address of the device's last subscription fetch and its provider, from
+  // the server's local IP database (masked per the Xray log "Mask Address").
+  lastIp?: string;
+  asn?: number;
+  org?: string;
+  country?: string;
+  countryNames?: Record<string, string>;
+  city?: string;
+  source?: string;
+  // END LUCX-HOOK
 };
 
 // normalizeClientHwids accepts the API payload and returns typed entries,

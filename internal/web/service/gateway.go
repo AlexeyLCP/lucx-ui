@@ -9,8 +9,11 @@ package service
 import (
 	"encoding/json"
 	"fmt"
+	"net"
+	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -56,21 +59,21 @@ func (s *InboundService) GatewayPreview(gatewayID int, publicHost string) (*Gate
 	if publicHost == "" {
 		publicHost = tunnel.ResolveGatewayPublicHost("", cfg.PublicHost, panelPublicHost(), others)
 	}
-	bindIP := cfg.BindIP
-	if bindIP == "" {
-		bindIP = tunnel.LocalIPv4()
+	binds := cfg.Binds()
+	if len(binds) == 0 {
+		binds = tunnel.CleanBinds([]string{tunnel.LocalIPv4()})
 	}
 	var masked []int
 	for _, s := range cfg.Snapshot {
 		masked = append(masked, s.InboundID)
 	}
-	rows := tunnel.BuildPreview(gw.Port, publicHost, others, bindIP)
+	rows := tunnel.BuildPreview(gw.Port, publicHost, others, binds...)
 	web, sub := gatewayExtraPorts()
 	cert, _ := (&SettingService{}).GetCertFile()
 	return &GatewayPreviewResult{
 		Applied:    cfg.Applied(),
 		PublicHost: publicHost,
-		BindIP:     bindIP,
+		BindIP:     strings.Join(binds, ", "),
 		Rows:       rows,
 		MaskedIds:  masked,
 		UFW:        cfg.UFW,
@@ -95,7 +98,6 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		byID[o.Id] = o
 	}
 	host := tunnel.ResolveGatewayPublicHost(req.PublicHost, cfg.PublicHost, panelPublicHost(), others)
-	bindIP := tunnel.LocalIPv4()
 	selected := map[int]bool{}
 	for _, id := range req.Selected {
 		selected[id] = true
@@ -112,6 +114,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	if len(selected) == 0 && len(inside) == 0 && len(req.HideNaive) == 0 {
 		return common.NewError("gateway: nothing selected")
 	}
+	binds := gatewayBindIPs(byID, selected, inside, tunnel.LocalIPv4())
 	db := database.GetDB()
 	// Snapshot originals before any SNI edit. REALITY serverNames are never
 	// written (SetInboundSNI ignores them); other SNI edits must still revert.
@@ -144,7 +147,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	if err := applyNaiveMoves(byID, tunnel.PlanNaivePublic(gw.Port, others)); err != nil {
 		return err
 	}
-	rows := tunnel.BuildPreview(gw.Port, host, others, bindIP)
+	rows := tunnel.BuildPreview(gw.Port, host, others, binds...)
 	if len(inside) > 0 {
 		if _, cover := selectedSiteHost(rows, selected); !cover {
 			return common.NewError("gateway: pick Cover to hide a protocol inside the site")
@@ -164,12 +167,17 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	}
 	for _, o := range others {
 		// Anything left public on TCP :443 wins the bind race with the
-		// gateway — one of them then fails to listen.
+		// gateway — one of them then fails to listen. An inbound pinned to
+		// an IP the gateway doesn't bind never collides with it.
 		if o == nil || !o.Enable || selected[o.Id] || inside[o.Id] || o.Port != gw.Port ||
-			tunnel.IsLoopbackListen(o.Listen) || !tunnel.InboundUsesTCP(o) {
+			tunnel.IsLoopbackListen(o.Listen) || !tunnel.InboundUsesTCP(o) ||
+			!bindsOverlap(inboundBindAddr(o), binds) {
 			continue
 		}
 		return common.NewErrorf("gateway: inbound %q still occupies TCP :%d — select it or move it off", inboundLabel(o), o.Port)
+	}
+	if err := panelOccupiesGateway(gw.Port, binds); err != nil {
+		return err
 	}
 	cert, key := gatewayPanelCertPair()
 	for _, row := range rows {
@@ -274,6 +282,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 			return err
 		}
 		sr.DisabledHostIDs = disabled
+		sr.AppliedSettings, sr.AppliedStreamSettings = ib.Settings, ib.StreamSettings
 		if (row.HostAddress != "" || inside[row.InboundID]) && (move || hideNaiveID(req.HideNaive, row.InboundID)) {
 			h := gatewayHost(ib.Id, row, inside[row.InboundID], siteHost, insidePath[row.InboundID])
 			if err := db.Create(&h).Error; err != nil {
@@ -284,7 +293,12 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		snapRows = append(snapRows, *sr)
 	}
 	cfg.PublicHost = host
-	cfg.BindIP = bindIP
+	cfg.BindIPs = binds
+	cfg.HTTPBinds = panelHTTPBinds(binds)
+	cfg.BindIP = ""
+	if len(binds) > 0 {
+		cfg.BindIP = binds[0]
+	}
 	cfg.Snapshot = snapRows
 	cfg.Routes = tunnel.RoutesFromPreview(rows, routeSelected)
 	cfg.Fallback = tunnel.CoverFallback(rows, selected)
@@ -300,7 +314,7 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	}
 	gw.Settings = string(body)
 	gw.Enable = true
-	gw.Listen = bindIP
+	gw.Listen = cfg.BindIP
 	if gw.Port <= 0 {
 		gw.Port = 443
 	}
@@ -362,7 +376,7 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 		if ib == nil {
 			continue
 		}
-		if err := db.Model(&model.Inbound{}).Where("id = ?", ib.Id).Updates(tunnel.RevertUpdates(sr)).Error; err != nil {
+		if err := db.Model(&model.Inbound{}).Where("id = ?", ib.Id).Updates(tunnel.RevertUpdates(sr, ib)).Error; err != nil {
 			return err
 		}
 		if len(sr.DisabledHostIDs) > 0 {
@@ -374,6 +388,8 @@ func (s *InboundService) GatewayRevert(gatewayID int) error {
 	cfg.Fallback = ""
 	cfg.Unified = false
 	cfg.BindIP = ""
+	cfg.BindIPs = nil
+	cfg.HTTPBinds = nil
 	cfg.UFW = false
 	cfg.UFWWasActive = false
 	cfg.HidePanel = false
@@ -476,6 +492,102 @@ func panelPublicHost() string {
 	}
 	d, _ := st.GetWebDomain()
 	return d
+}
+
+// gatewayBindIPs keeps the gateway on the IPs the masked inbounds already
+// listened on, so DNS and client links stay valid on multi-IP hosts: one
+// listen per distinct specific IP. An inbound on all interfaces (or none
+// left public) falls back to the default-route IP as before.
+func gatewayBindIPs(byID map[int]*model.Inbound, selected, inside map[int]bool, fallback string) []string {
+	var own []string
+	for _, set := range []map[int]bool{selected, inside} {
+		for id, on := range set {
+			ib := byID[id]
+			if !on || ib == nil || tunnel.IsLoopbackListen(ib.Listen) {
+				continue
+			}
+			ip := net.ParseIP(strings.TrimSpace(ib.Listen))
+			if ip == nil || ip.IsUnspecified() {
+				return tunnel.CleanBinds([]string{fallback})
+			}
+			own = append(own, ip.String())
+		}
+	}
+	if len(own) == 0 {
+		return tunnel.CleanBinds([]string{fallback})
+	}
+	sort.Strings(own)
+	return tunnel.CleanBinds(own)
+}
+
+// bindsOverlap: a listen collides with any of the gateway binds (no binds =
+// the gateway takes every interface).
+func bindsOverlap(a bindAddr, binds []string) bool {
+	if len(binds) == 0 {
+		return listenOverlaps(a, bindAddr{})
+	}
+	for _, b := range binds {
+		if listenOverlaps(a, bindAddr{listen: b}) {
+			return true
+		}
+	}
+	return false
+}
+
+// panelOccupiesGateway: the panel's own web/subscription server already
+// holds one of the gateway's IP:port — Caddy would fail to bind there.
+func panelOccupiesGateway(port int, binds []string) error {
+	st := SettingService{}
+	check := func(what, listen string, p int) error {
+		if p != port || tunnel.IsLoopbackListen(listen) || !bindsOverlap(bindAddr{listen: strings.TrimSpace(listen)}, binds) {
+			return nil
+		}
+		if strings.TrimSpace(listen) == "" {
+			listen = "0.0.0.0"
+		}
+		return common.NewErrorf("gateway: panel %s listens on %s:%d — give the masked inbound its own IP/domain or move the %s off :%d", what, listen, p, what, p)
+	}
+	webListen, _ := st.GetListen()
+	webPort, _ := st.GetPort()
+	if err := check("web", webListen, webPort); err != nil {
+		return err
+	}
+	if on, err := st.GetSubEnable(); err == nil && on {
+		subListen, _ := st.GetSubListen()
+		subPort, _ := st.GetSubPort()
+		if err := check("subscription", subListen, subPort); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// panelHTTPBinds: the panel's own specific IPs (web, subscription) that the
+// gateway doesn't bind. The gateway takes only their :80, so HTTP redirects
+// and ACME HTTP-01 renewals of the panel's certificate keep working there.
+func panelHTTPBinds(binds []string) []string {
+	if len(binds) == 0 {
+		return nil
+	}
+	st := SettingService{}
+	listens := []string{}
+	if l, err := st.GetListen(); err == nil {
+		listens = append(listens, l)
+	}
+	if on, err := st.GetSubEnable(); err == nil && on {
+		if l, err := st.GetSubListen(); err == nil {
+			listens = append(listens, l)
+		}
+	}
+	var out []string
+	for _, l := range listens {
+		ip := net.ParseIP(strings.TrimSpace(l))
+		if ip == nil || ip.IsUnspecified() || ip.IsLoopback() || bindsOverlap(bindAddr{listen: ip.String()}, binds) {
+			continue
+		}
+		out = append(out, ip.String())
+	}
+	return tunnel.CleanBinds(out)
 }
 
 func inboundLabel(ib *model.Inbound) string {
@@ -727,18 +839,51 @@ func indexInbounds(all []*model.Inbound) map[int]*model.Inbound {
 	return byID
 }
 
+// gatewayHostSweepGrace protects Host rows that GatewayApply has just created
+// but not yet referenced from the saved snapshot: Apply writes the rows first
+// and the snapshot last, outside one transaction, and Reconcile runs the sweep
+// on its own tick.
+const gatewayHostSweepGrace = 5 * time.Minute
+
+// sweepOrphanGatewayHosts deletes "gateway" Host rows that no applied gateway
+// snapshot references. It used to delete every such row whenever no gateway
+// looked applied, which also wiped the rows of an Apply still in progress.
 func (s *InboundService) sweepOrphanGatewayHosts() {
 	all, err := s.GetAllInbounds()
 	if err != nil {
 		return
 	}
+	referenced := map[int]bool{}
 	for _, ib := range all {
-		cfg, ok := tunnel.GatewayConfigFromInbound(ib)
-		if ok && cfg.Applied() {
-			return
+		if cfg, ok := tunnel.GatewayConfigFromInbound(ib); ok {
+			for _, sr := range cfg.Snapshot {
+				if sr.HostID > 0 {
+					referenced[sr.HostID] = true
+				}
+			}
 		}
 	}
-	_ = database.GetDB().Where("remark = ?", gatewayHostRemark).Delete(&model.Host{}).Error
+	db := database.GetDB()
+	var hosts []model.Host
+	if err := db.Select("id", "created_at").Where("remark = ?", gatewayHostRemark).Find(&hosts).Error; err != nil {
+		return
+	}
+	ids := orphanGatewayHostIDs(hosts, referenced, time.Now().Add(-gatewayHostSweepGrace).UnixMilli())
+	if len(ids) > 0 {
+		_ = db.Where("id IN ?", ids).Delete(&model.Host{}).Error
+	}
+}
+
+// orphanGatewayHostIDs picks the gateway Host rows that are unreferenced and
+// older than cutoff (ms).
+func orphanGatewayHostIDs(hosts []model.Host, referenced map[int]bool, cutoff int64) []int {
+	var ids []int
+	for _, h := range hosts {
+		if !referenced[h.Id] && h.CreatedAt < cutoff {
+			ids = append(ids, h.Id)
+		}
+	}
+	return ids
 }
 
 func (s *InboundService) EnsureGatewayInbound(userId int) (*model.Inbound, error) {

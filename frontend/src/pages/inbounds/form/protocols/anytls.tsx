@@ -45,6 +45,15 @@ export default function AnytlsFields() {
       >
         <Input placeholder="" />
       </FormField>
+      {/* LUCX-HOOK: fallback site (lucx.342) */}
+      <FormField
+        name={['settings', 'fallback']}
+        label={t('pages.inbounds.form.anytlsFallback')}
+        tooltip={t('pages.inbounds.form.anytlsFallbackHint')}
+      >
+        <Input placeholder="127.0.0.1:8081" />
+      </FormField>
+      {/* END LUCX-HOOK */}
       <FormField
         name={['settings', 'password']}
         label={t('pages.inbounds.form.anytlsPassword')}

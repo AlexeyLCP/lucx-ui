@@ -883,7 +883,7 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 		}
 	}
 	key := inst.ManageKey()
-	if err := os.MkdirAll(dataDirFor(key, inst.Core), 0o700); err != nil {
+	if err := mkdirPrivate(dataDirFor(key, inst.Core)); err != nil {
 		return fmt.Errorf("tunnel: create data dir: %w", err)
 	}
 	// Routed instance: chown its assets (extra files like the cert copies and
@@ -891,6 +891,9 @@ func (m *Manager) start(inst Instance, mc *managed) error {
 	// Chown failure = the sandbox lacks CAP_CHOWN (old unit): fall back to
 	// running as root — egress stays direct until the unit is refreshed.
 	if inst.RunUid > 0 {
+		if err := ensureWorkDirTraversable(); err != nil {
+			logger.Warningf("tunnel: %s: %s not reachable for the run-as uid: %v", key, workDir(), err)
+		}
 		paths := make([]string, 0, len(inst.ExtraFiles)+1)
 		for name := range inst.ExtraFiles {
 			paths = append(paths, filepath.Join(workDir(), name))

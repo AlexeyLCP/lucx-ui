@@ -1,0 +1,140 @@
+// LucX overlay on anytls-go v0.0.13 cmd/server/inbound_tcp.go.
+// Implements fallback(): the protocol spec lets a server hand failed logins
+// to a legitimate L7 service, but upstream left it as a stub that just
+// closes — so a browser or an active probe on the AnyTLS domain got a TLS
+// handshake and then nothing, a tell-tale proxy sign. It also tells users
+// apart by password and counts their traffic (anytls-server-users.go.overlay).
+
+package main
+
+import (
+	"anytls/proxy/padding"
+	"anytls/proxy/session"
+	"context"
+	"crypto/tls"
+	"encoding/binary"
+	"io"
+	"net"
+	"runtime/debug"
+	"strings"
+	"time"
+
+	"github.com/sagernet/sing/common/buf"
+	"github.com/sagernet/sing/common/bufio"
+	M "github.com/sagernet/sing/common/metadata"
+	"github.com/sirupsen/logrus"
+)
+
+func handleTcpConnection(ctx context.Context, c net.Conn, s *myServer) {
+	defer func() {
+		if r := recover(); r != nil {
+			logrus.Errorln("[BUG]", r, string(debug.Stack()))
+		}
+	}()
+
+	defer c.Close()
+	client := c.RemoteAddr()
+	if acceptProxyProtocol {
+		var err error
+		if c, client, err = readProxyHeader(c); err != nil {
+			logrus.Debugln("PROXY header:", err)
+			return
+		}
+	}
+
+	c = tls.Server(c, s.tlsConfig)
+	defer c.Close()
+
+	b := buf.NewPacket()
+	defer b.Release()
+
+	n, err := b.ReadOnceFrom(c)
+	if err != nil {
+		logrus.Debugln("ReadOnceFrom:", err)
+		return
+	}
+	c = bufio.NewCachedConn(c, b)
+
+	by, err := b.ReadBytes(32)
+	var u *userStats
+	if err == nil {
+		u = lookupUser(by)
+	}
+	if u == nil {
+		b.Resize(0, n)
+		fallback(ctx, c)
+		return
+	}
+	by, err = b.ReadBytes(2)
+	if err != nil {
+		b.Resize(0, n)
+		fallback(ctx, c)
+		return
+	}
+	paddingLen := binary.BigEndian.Uint16(by)
+	if paddingLen > 0 {
+		_, err = b.ReadBytes(int(paddingLen))
+		if err != nil {
+			b.Resize(0, n)
+			fallback(ctx, c)
+			return
+		}
+	}
+
+	ip := clientIP(client)
+	u.open(ip)
+	defer u.close(ip)
+	c = &countingConn{Conn: c, u: u}
+
+	session := session.NewServerSession(c, func(stream *session.Stream) {
+		defer func() {
+			if r := recover(); r != nil {
+				logrus.Errorln("[BUG]", r, string(debug.Stack()))
+			}
+		}()
+		defer stream.Close()
+
+		destination, err := M.SocksaddrSerializer.ReadAddrPort(stream)
+		if err != nil {
+			logrus.Debugln("ReadAddrPort:", err)
+			return
+		}
+
+		if strings.Contains(destination.String(), "udp-over-tcp.arpa") {
+			proxyOutboundUoT(ctx, stream, destination)
+		} else {
+			proxyOutboundTCP(ctx, stream, destination)
+		}
+	}, &padding.DefaultPaddingFactory)
+	session.Run()
+	session.Close()
+}
+
+// fallbackDest is set by -fallback; empty keeps upstream's close.
+var fallbackDest string
+
+// fallback relays a connection that failed AnyTLS authentication to
+// fallbackDest. c is the decrypted TLS stream whose cache was rewound by the
+// caller, so the fallback receives every byte the client sent (e.g. the
+// browser's whole HTTP request), not just what follows it.
+func fallback(ctx context.Context, c net.Conn) {
+	if fallbackDest == "" {
+		logrus.Debugln("fallback:", c.RemoteAddr())
+		return
+	}
+	up, err := net.DialTimeout("tcp", fallbackDest, 5*time.Second)
+	if err != nil {
+		logrus.Debugln("fallback dial:", err)
+		return
+	}
+	defer up.Close()
+	go func() {
+		_, _ = io.Copy(up, c)
+		if tc, ok := up.(*net.TCPConn); ok {
+			_ = tc.CloseWrite()
+		}
+	}()
+	// Returns when the site ends its reply or the client goes away; the
+	// caller's deferred Close then shuts the client side.
+	_, _ = io.Copy(c, up)
+}

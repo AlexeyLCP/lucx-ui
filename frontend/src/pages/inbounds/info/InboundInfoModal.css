@@ -199,3 +199,38 @@
   background: color-mix(in srgb, var(--ant-color-primary) 12%, transparent);
   text-decoration-color: var(--ant-color-primary);
 }
+
+/* Phones: the table used to size to its content, and the no-wrap value tags
+   (UUIDs, dates, traffic) pushed the value column past the dialog edge. A
+   fixed layout keeps it inside; long values wrap within their cell. */
+@media (max-width: 600px) {
+  .info-table {
+    table-layout: fixed;
+  }
+  .info-table td:first-child,
+  .info-table th:first-child {
+    width: 34%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+  .info-table td:last-child {
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  .info-table .ant-tag,
+  .info-large-tag {
+    white-space: normal;
+    word-break: break-all;
+    height: auto;
+    max-width: 100%;
+  }
+  .info-table .hint {
+    display: block;
+    margin-left: 0;
+    margin-top: 2px;
+    white-space: normal;
+  }
+  .info-table .chips-stack {
+    max-width: 100%;
+  }
+}

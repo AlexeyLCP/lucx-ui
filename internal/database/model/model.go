@@ -1006,19 +1006,22 @@ type Client struct {
 	ForwardedPorts      string           `json:"forwardedPorts,omitempty"` // AmneziaWG per-client port-forwarding spec, e.g. "80,443,8000-8100"
 	Secret              string           `json:"secret,omitempty" example:"ee1234567890abcdef1234567890abcd7777772e636c6f7564666c6172652e636f6d"`
 	AdTag               string           `json:"adTag,omitempty" example:"0123456789abcdef0123456789abcdef"`
-	Email               string           `json:"email"`                            // Client email identifier
-	LimitIP             int              `json:"limitIp"`                          // IP limit for this client
-	TotalGB             int64            `json:"totalGB" form:"totalGB"`           // Total traffic limit in GB
-	ExpiryTime          int64            `json:"expiryTime" form:"expiryTime"`     // Expiration timestamp
-	Enable              bool             `json:"enable" form:"enable"`             // Whether the client is enabled
-	TgID                int64            `json:"tgId" form:"tgId"`                 // Telegram user ID for notifications
-	SubID               string           `json:"subId" form:"subId"`               // Subscription identifier
-	Group               string           `json:"group,omitempty" form:"group"`     // Logical grouping label
-	Comment             string           `json:"comment" form:"comment"`           // Client comment
-	Reset               int              `json:"reset" form:"reset"`               // Reset period in days
-	ResetDay            int              `json:"resetDay" form:"resetDay"`         // Calendar renewal day 1-31, 0 disables monthly renewal
-	ResetWeekday        int              `json:"resetWeekday" form:"resetWeekday"` // Calendar weekday 1-7 (Mon-Sun), 0 disables weekly renewal
-	ResetMax            int              `json:"resetMax" form:"resetMax"`         // Max auto-renew count, 0 = unlimited
+	Email               string           `json:"email"`   // Client email identifier
+	LimitIP             int              `json:"limitIp"` // IP limit for this client
+	// NeverLogIPs keeps this client's addresses out of the panel: no live IP
+	// list, no device last-IP, no IP-limit log. The IP limit can't apply to it.
+	NeverLogIPs  bool   `json:"neverLogIps,omitempty" form:"neverLogIps"`
+	TotalGB      int64  `json:"totalGB" form:"totalGB"`           // Total traffic limit in GB
+	ExpiryTime   int64  `json:"expiryTime" form:"expiryTime"`     // Expiration timestamp
+	Enable       bool   `json:"enable" form:"enable"`             // Whether the client is enabled
+	TgID         int64  `json:"tgId" form:"tgId"`                 // Telegram user ID for notifications
+	SubID        string `json:"subId" form:"subId"`               // Subscription identifier
+	Group        string `json:"group,omitempty" form:"group"`     // Logical grouping label
+	Comment      string `json:"comment" form:"comment"`           // Client comment
+	Reset        int    `json:"reset" form:"reset"`               // Reset period in days
+	ResetDay     int    `json:"resetDay" form:"resetDay"`         // Calendar renewal day 1-31, 0 disables monthly renewal
+	ResetWeekday int    `json:"resetWeekday" form:"resetWeekday"` // Calendar weekday 1-7 (Mon-Sun), 0 disables weekly renewal
+	ResetMax     int    `json:"resetMax" form:"resetMax"`         // Max auto-renew count, 0 = unlimited
 	// Per-client traffic reset cycle, independent of the inbound's own (#5497).
 	TrafficReset    string `json:"trafficReset,omitempty" form:"trafficReset" validate:"omitempty,oneof=never hourly daily weekly monthly"`
 	TrafficResetDay int    `json:"trafficResetDay,omitempty" form:"trafficResetDay" validate:"omitempty,gte=1,lte=31"`
@@ -1049,6 +1052,7 @@ type ClientRecord struct {
 	AdTag             string         `json:"adTag" gorm:"column:ad_tag;default:''"`
 	LimitIP           int            `json:"limitIp" gorm:"column:limit_ip"`
 	LimitHwid         int            `json:"limitHwid" gorm:"column:limit_hwid;default:0"`
+	NeverLogIPs       bool           `json:"neverLogIps" gorm:"column:never_log_ips;default:false"`
 	TotalGB           int64          `json:"totalGB" gorm:"column:total_gb"`
 	ExpiryTime        int64          `json:"expiryTime" gorm:"column:expiry_time"`
 	Enable            bool           `json:"enable" gorm:"default:true"`
@@ -1172,6 +1176,8 @@ type ClientHwid struct {
 	DeviceOS    string `json:"deviceOs" gorm:"column:device_os"`
 	OsVersion   string `json:"osVersion" gorm:"column:os_version"`
 	DeviceModel string `json:"deviceModel" gorm:"column:device_model"`
+	// LastIP is the address the device last fetched its subscription from.
+	LastIP string `json:"lastIp" gorm:"column:last_ip"`
 }
 
 func (ClientHwid) TableName() string { return "client_hwids" }
@@ -1229,23 +1235,23 @@ type Host struct {
 	ServerDescription string   `json:"serverDescription" form:"serverDescription" gorm:"column:server_description" validate:"omitempty,max=64"`
 	IsDisabled        bool     `json:"isDisabled" form:"isDisabled" gorm:"default:false;column:is_disabled"`
 	IsHidden          bool     `json:"isHidden" form:"isHidden" gorm:"default:false;column:is_hidden"`
-	Tags              []string `json:"tags" form:"tags" gorm:"serializer:json"`
+	Tags              []string `json:"tags" form:"tags" gorm:"serializer:jsonlenient"`
 
 	Address string `json:"address" form:"address" example:"cdn.example.com"`
 	Port    int    `json:"port" form:"port" gorm:"default:0" validate:"gte=0,lte=65535" example:"8443"`
 
 	Security               string   `json:"security" form:"security" gorm:"default:same" validate:"omitempty,oneof=same tls none reality" example:"same"`
 	Sni                    string   `json:"sni" form:"sni"`
-	Snis                   []string `json:"snis,omitempty" form:"snis" gorm:"serializer:json;column:snis"`
+	Snis                   []string `json:"snis,omitempty" form:"snis" gorm:"serializer:jsonlenient;column:snis"`
 	SniSharedRandom        bool     `json:"sniSharedRandom" form:"sniSharedRandom" gorm:"column:sni_shared_random"`
 	HostHeader             string   `json:"hostHeader" form:"hostHeader" gorm:"column:host_header"`
 	Path                   string   `json:"path" form:"path"`
-	Alpn                   []string `json:"alpn" form:"alpn" gorm:"serializer:json"`
+	Alpn                   []string `json:"alpn" form:"alpn" gorm:"serializer:jsonlenient"`
 	Fingerprint            string   `json:"fingerprint" form:"fingerprint"`
 	CipherSuites           string   `json:"cipherSuites" form:"cipherSuites" gorm:"column:cipher_suites"`
 	OverrideSniFromAddress bool     `json:"overrideSniFromAddress" form:"overrideSniFromAddress" gorm:"column:override_sni_from_address"`
 	KeepSniBlank           bool     `json:"keepSniBlank" form:"keepSniBlank" gorm:"column:keep_sni_blank"`
-	PinnedPeerCertSha256   []string `json:"pinnedPeerCertSha256" form:"pinnedPeerCertSha256" gorm:"serializer:json;column:pinned_peer_cert_sha256"`
+	PinnedPeerCertSha256   []string `json:"pinnedPeerCertSha256" form:"pinnedPeerCertSha256" gorm:"serializer:jsonlenient;column:pinned_peer_cert_sha256"`
 	VerifyPeerCertByName   string   `json:"verifyPeerCertByName" form:"verifyPeerCertByName" gorm:"column:verify_peer_cert_by_name"`
 	AllowInsecure          bool     `json:"allowInsecure" form:"allowInsecure" gorm:"column:allow_insecure"`
 	EchConfigList          string   `json:"echConfigList" form:"echConfigList" gorm:"column:ech_config_list"`
@@ -1260,14 +1266,14 @@ type Host struct {
 	// group (bytes 6-7), which xray reads via net.PortFromBytes(id[6:8]). Empty = none.
 	VlessRoute string `json:"vlessRoute" form:"vlessRoute" gorm:"column:vless_route" example:"443"`
 
-	ExcludeFromSubTypes []string `json:"excludeFromSubTypes" form:"excludeFromSubTypes" gorm:"serializer:json;column:exclude_from_sub_types"`
+	ExcludeFromSubTypes []string `json:"excludeFromSubTypes" form:"excludeFromSubTypes" gorm:"serializer:jsonlenient;column:exclude_from_sub_types"`
 
 	MihomoIpVersion string `json:"mihomoIpVersion" form:"mihomoIpVersion" gorm:"column:mihomo_ip_version" validate:"omitempty,oneof=dual ipv4 ipv6 ipv4-prefer ipv6-prefer"`
 	MihomoX25519    bool   `json:"mihomoX25519" form:"mihomoX25519" gorm:"column:mihomo_x25519"`
 	ShuffleHost     bool   `json:"shuffleHost" form:"shuffleHost" gorm:"column:shuffle_host"`
 	RandomCount     int    `json:"randomCount" form:"randomCount" gorm:"default:1;column:random_count" example:"1"`
 
-	NodeGuids []string `json:"nodeGuids,omitempty" form:"nodeGuids" gorm:"serializer:json;column:node_guids"`
+	NodeGuids []string `json:"nodeGuids,omitempty" form:"nodeGuids" gorm:"serializer:jsonlenient;column:node_guids"`
 
 	CreatedAt int64 `json:"createdAt" gorm:"autoCreateTime:milli"`
 	UpdatedAt int64 `json:"updatedAt" gorm:"autoUpdateTime:milli"`
@@ -1353,6 +1359,7 @@ func (c *Client) ToRecord() *ClientRecord {
 		ForwardedPorts: c.ForwardedPorts,
 		Secret:         c.Secret,
 		AdTag:          c.AdTag,
+		NeverLogIPs:    c.NeverLogIPs,
 	}
 	if c.Reverse != nil {
 		if b, err := json.Marshal(c.Reverse); err == nil {
@@ -1413,6 +1420,7 @@ func (r *ClientRecord) ToClient() *Client {
 		ForwardedPorts: r.ForwardedPorts,
 		Secret:         r.Secret,
 		AdTag:          r.AdTag,
+		NeverLogIPs:    r.NeverLogIPs,
 	}
 	if r.Reverse != "" {
 		var rev ClientReverse

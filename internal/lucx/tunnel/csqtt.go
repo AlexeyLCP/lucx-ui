@@ -166,7 +166,7 @@ func syncCsqttPasswordStamp(dir, password string) {
 	if dir == "" || password == "" {
 		return
 	}
-	if err := os.MkdirAll(dir, 0o700); err != nil {
+	if err := mkdirPrivate(dir); err != nil {
 		return
 	}
 	stamp := filepath.Join(dir, "lucx-password")

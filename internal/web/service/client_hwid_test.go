@@ -297,3 +297,24 @@ func TestClientHwidSlotStatus(t *testing.T) {
 		t.Fatalf("disabled subId = (%+v, %v, %v), want zero status and found=false", status, found, err)
 	}
 }
+
+func TestClientHwidRecordsLastIP(t *testing.T) {
+	for _, limit := range []int{0, 3} {
+		initClientHwidTestDB(t)
+		svc := &ClientService{}
+		rec := seedHwidClient(t, limit)
+		if _, err := svc.EnforceHwidForSubID(rec.SubID, HwidRequest{Hwid: "device-ip-one", IP: "::ffff:5.6.7.8"}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.EnforceHwidForSubID(rec.SubID, HwidRequest{Hwid: "device-ip-one", IP: "9.9.9.9"}); err != nil {
+			t.Fatal(err)
+		}
+		var row model.ClientHwid
+		if err := database.GetDB().Where("sub_id = ?", rec.SubID).First(&row).Error; err != nil {
+			t.Fatal(err)
+		}
+		if row.LastIP != "9.9.9.9" {
+			t.Errorf("limit %d: last_ip = %q, want the latest address 9.9.9.9", limit, row.LastIP)
+		}
+	}
+}

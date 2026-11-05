@@ -648,8 +648,10 @@ func sidecarSubNameMacro(link string, inbound *model.Inbound) string {
 // keep per-inbound tunnel identity from settings. Dedups by email (#5134).
 // Backs the panel's "Export all inbound links" and matches client/QR pages.
 func (s *SubService) inboundLinks(inbound *model.Inbound) []string {
-	// LUCX-HOOK: AnyTls added to the single-credential set.
-	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Csqtt || inbound.Protocol == model.Openflux || inbound.Protocol == model.Anytls) {
+	// LUCX-HOOK: AnyTls is single-credential unless its server takes one
+	// password per client.
+	anytlsShared := inbound != nil && inbound.Protocol == model.Anytls && (inbound.NodeID != nil || !tunnel.AnytlsSupportsUsers())
+	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Csqtt || inbound.Protocol == model.Openflux || anytlsShared) {
 		if link := s.GetLink(inbound, ""); link != "" {
 			return splitLinkLines(sidecarSubNameMacro(link, inbound))
 		}
@@ -1039,8 +1041,8 @@ func (s *SubService) GetLink(inbound *model.Inbound, email string) string {
 		return ""
 	case "openflux": // LUCX-HOOK: single openflux:// link (one active client)
 		return s.genOpenfluxLink(inbound)
-	case "anytls": // LUCX-HOOK: single-credential AnyTLS URI (ignore email)
-		return s.genAnytlsLink(inbound)
+	case "anytls": // LUCX-HOOK: AnyTLS URI with the client's own password
+		return s.genAnytlsLink(inbound, email)
 	case "tproxy": // LUCX-HOOK: Telegram WEB proxy t.me/webproxy link
 		return s.genTproxyLink(inbound)
 	case "amneziawg":
@@ -3851,12 +3853,11 @@ func (s *SubService) genCsqttLink(inbound *model.Inbound) string {
 	return cfg.ClientURI()
 }
 
-// genAnytlsLink returns the single anytls://password@host:port/?sni= URI for
-// an AnyTls inbound (one shared password — every subscriber gets the same line).
-
-// genAnytlsLink returns the single anytls://password@host:port/?sni= URI for
-// an AnyTls inbound (one shared password — every subscriber gets the same line).
-func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
+// genAnytlsLink returns the anytls://password@host:port/?sni= URI for an
+// AnyTls inbound. With the LucX overlay every attached client gets its own
+// derived password (so the server can tell users apart); otherwise, or for a
+// node inbound whose binary the panel can't check, the shared password.
+func (s *SubService) genAnytlsLink(inbound *model.Inbound, email string) string {
 	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
 	if !ok || !inbound.Enable {
 		return ""
@@ -3864,6 +3865,9 @@ func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
 	cfg = cfg.Merge()
 	if strings.TrimSpace(cfg.Password) == "" {
 		return ""
+	}
+	if pass := s.anytlsClientPassword(inbound, email); pass != "" {
+		cfg.Password = pass
 	}
 	if joined := s.sidecarHostLinks(inbound, "", func(dest string, port int, remark string) string {
 		one := cfg
@@ -3880,6 +3884,28 @@ func (s *SubService) genAnytlsLink(inbound *model.Inbound) string {
 		return ""
 	}
 	return cfg.ClientLink(host, inbound.Remark)
+}
+
+// anytlsClientPassword is email's own AnyTLS password on inbound, or "" when
+// the shared one applies.
+func (s *SubService) anytlsClientPassword(inbound *model.Inbound, email string) string {
+	if strings.TrimSpace(email) == "" || inbound.NodeID != nil || !tunnel.AnytlsSupportsUsers() {
+		return ""
+	}
+	// Same rule as tunnel.AnytlsUsers, which writes the server's users file;
+	// subscription bodies carry the inbound without its clients array, so
+	// membership comes from clientForLink.
+	if strings.ContainsAny(email, ":\r\n") {
+		return ""
+	}
+	if c, ok := s.clientForLink(inbound, email); !ok || !c.Enable {
+		return ""
+	}
+	secret, err := s.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return ""
+	}
+	return tunnel.InboundAuthPair(secret, inbound, email).Pass
 }
 
 func (s *SubService) genTproxyLink(inbound *model.Inbound) string {

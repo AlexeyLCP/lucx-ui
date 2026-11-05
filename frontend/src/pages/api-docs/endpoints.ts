@@ -2493,7 +2493,7 @@ export const sections: readonly Section[] = [
             name: 'client',
             in: 'body (json)',
             type: 'object',
-            desc: 'Client fields: email, subId, id (uuid), password, auth, flow, totalGB, expiryTime, limitIp, limitHwid, tgId (numeric Telegram user ID, 0 = none), comment, enable. Protocol-specific: secret and adTag (mtproto), privateKey, publicKey, preSharedKey, allowedIPs and keepAlive (WireGuard).',
+            desc: 'Client fields: email, subId, id (uuid), password, auth, flow, totalGB, expiryTime, limitIp, limitHwid, neverLogIps (true = the panel never records or shows the client IP addresses, so limitIp does not apply), tgId (numeric Telegram user ID, 0 = none), comment, enable. Protocol-specific: secret and adTag (mtproto), privateKey, publicKey, preSharedKey, allowedIPs and keepAlive (WireGuard).',
           },
           {
             name: 'inboundIds',
@@ -2566,7 +2566,7 @@ export const sections: readonly Section[] = [
             desc: 'Current client email (unique identifier).',
           },
         ],
-        body: '{\n  "email": "alice@example.com",\n  "totalGB": 107374182400,\n  "expiryTime": 1767225600000,\n  "limitHwid": 2,\n  "tgId": 123456789,\n  "enable": true\n}',
+        body: '{\n  "email": "alice@example.com",\n  "totalGB": 107374182400,\n  "expiryTime": 1767225600000,\n  "limitHwid": 2,\n  "neverLogIps": false,\n  "tgId": 123456789,\n  "enable": true\n}',
         response: '{\n  "success": true,\n  "msg": "Client updated"\n}',
       },
       {
@@ -2874,9 +2874,11 @@ export const sections: readonly Section[] = [
         path: '/panel/api/clients/hwids/:email',
         summary:
           'List registered HWID devices for a client with a short fingerprint. Full hashes are not exposed.',
+        description:
+          "`lastIp` is the address of the device's last subscription fetch, labelled from local IP databases on the server (`GeoLite2-*.mmdb` placed in the database or bin folder, else the free DB-IP Lite files the panel downloads monthly into the database folder; no lookup service is called). `source` names the database used (`maxmind`, `dbip`). The Xray log **Mask Address** option applies: `quarter` and `half` mask the address and drop `city`; `full` leaves `lastIp` and the labels out. A client with `neverLogIps` has no `lastIp`.",
         params: [{ name: 'email', in: 'path', type: 'string', desc: 'Client email.' }],
         response:
-          '{\n  "success": true,\n  "obj": [\n    {\n      "id": 1,\n      "firstSeen": 1735000000000,\n      "lastSeen": 1735100000000,\n      "userAgent": "Happ/1.0",\n      "deviceOs": "android",\n      "osVersion": "15",\n      "deviceModel": "Pixel 9",\n      "fingerprint": "6ad17c93e821"\n    }\n  ]\n}',
+          '{\n  "success": true,\n  "obj": [\n    {\n      "id": 1,\n      "firstSeen": 1735000000000,\n      "lastSeen": 1735100000000,\n      "userAgent": "Happ/1.0",\n      "deviceOs": "android",\n      "osVersion": "15",\n      "deviceModel": "Pixel 9",\n      "fingerprint": "6ad17c93e821",\n      "lastIp": "203.0.113.24",\n      "asn": 64500,\n      "org": "Example Telecom",\n      "country": "DE",\n      "countryNames": { "en": "Germany" },\n      "city": "Berlin",\n      "source": "dbip"\n    }\n  ]\n}',
       },
       {
         method: 'DELETE',

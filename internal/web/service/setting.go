@@ -188,6 +188,8 @@ var defaultValueMap = map[string]string{
 	"subPort":                    "2096",
 	"subPath":                    "/sub/",
 	"subDomain":                  "",
+	"subSiteUpstream":            "", // LUCX-HOOK: decoy site of the subscription server (lucx.342)
+	"webSiteUpstream":            "", // LUCX-HOOK: decoy page of the panel (lucx.342)
 	"subCertFile":                "",
 	"subKeyFile":                 "",
 	"externalSubUserAgent":       DefaultExternalSubUserAgent,
@@ -1227,6 +1229,21 @@ func (s *SettingService) GetSubJsonPath() (string, error) {
 
 func (s *SettingService) GetSubDomain() (string, error) {
 	return s.getString("subDomain")
+}
+
+// LUCX-HOOK: decoy upstream settings (lucx.342)
+// GetWebSiteUpstream is a plain-HTTP decoy (host:port) the panel serves for
+// every URL outside its base path instead of a bare 404, so a scanner that
+// finds the panel port sees an ordinary page. Empty = stock behaviour.
+func (s *SettingService) GetWebSiteUpstream() (string, error) {
+	return s.getString("webSiteUpstream")
+}
+
+// GetSubSiteUpstream is a plain-HTTP site (host:port) the subscription server
+// shows for every request that is not a subscription (wrong host, unknown
+// path) instead of a bare 403/404. Empty = stock behaviour.
+func (s *SettingService) GetSubSiteUpstream() (string, error) {
+	return s.getString("subSiteUpstream")
 }
 
 func (s *SettingService) SetSubCertFile(subCertFile string) error {

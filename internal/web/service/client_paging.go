@@ -26,6 +26,7 @@ type ClientSlim struct {
 	ExpiryTime   int64               `json:"expiryTime" example:"1735689600000"`
 	LimitIP      int                 `json:"limitIp" example:"0"`
 	LimitHwid    int                 `json:"limitHwid" example:"0"`
+	NeverLogIPs  bool                `json:"neverLogIps,omitempty" example:"false"` // LUCX-HOOK (lucx.342)
 	Reset        int                 `json:"reset" example:"0"`
 	ResetDay     int                 `json:"resetDay" example:"0"`
 	ResetWeekday int                 `json:"resetWeekday" example:"0"`
@@ -642,6 +643,7 @@ func toClientSlim(c ClientWithAttachments) ClientSlim {
 		ExpiryTime:   c.ExpiryTime,
 		LimitIP:      c.LimitIP,
 		LimitHwid:    c.LimitHwid,
+		NeverLogIPs:  c.NeverLogIPs, // LUCX-HOOK (lucx.342)
 		Reset:        c.Reset,
 		ResetDay:     c.ResetDay,
 		ResetWeekday: c.ResetWeekday,

@@ -425,7 +425,7 @@ func (l *Local) ensureTrustTunnelInbound(ib *model.Inbound) error {
 
 func (l *Local) ensureAnytlsInbound(ib *model.Inbound) error {
 	cert, key := panelCertFilesForRuntime()
-	inst, ok := tunnel.AnytlsInstanceFromInbound(ib, cert, key)
+	inst, ok := tunnel.AnytlsInstanceFromInbound(ib, panelSecretBytes(), cert, key)
 	if !ok {
 		return nil
 	}

@@ -11,9 +11,9 @@ Not packed into `x-ui-linux-amd64.tar.gz` (SourceCraft 100 MB release cap).
 | `qwdtt-linux-amd64.gz` | SpaceNeuroX/proxy-turn-vk-android `v1.4.4` (`a296c57e`) `./server` + LucX `qwdtt-subnet.patch` (`10.68.66.1/16`) |
 | `mieru-linux-amd64.gz` | enfein/mieru `v3.39.0` mita |
 | `mieru-client-linux-amd64.gz` | enfein/mieru `v3.39.0` mieru |
-| `trusttunnel-linux-amd64.gz` | TrustTunnel/TrustTunnel `v1.3.0-beta.2` |
+| `trusttunnel-linux-amd64.gz` | TrustTunnel/TrustTunnel `v1.3.0-beta.2` + LucX `trusttunnel-proxy-protocol.patch` (PROXY v1 from loopback peers; `--version` ends in `+lucx.proxy`), built by `bin/build-trusttunnel.sh` |
 | `trusttunnel-client-linux-amd64.gz` | TrustTunnel/TrustTunnelClient `v1.3.0-rc.2` |
-| `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` + LucX `-cert/-key` overlay |
+| `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` + LucX overlays: `-cert/-key` (`main.go`), `-fallback` (`inbound_tcp.go`) and `-users-file`/`-proxy-protocol`/`-stats` (`users.go`: per-user passwords, real client IP behind the SNI gateway, per-user traffic) |
 | `tproxy-linux-amd64` / `mtproxy-linux-amd64` | telegramdesktop/tproxy-server `c8adb8b7` + TelegramMessenger/MTProxy `f36d8af7` — packed by `.github/workflows/release.yml` into the GitHub amd64 tarball (not stored as gz here) |
 | `nginx-linux-*` | nginx.org `1.30.5` stream+ssl_preread — built by `bin/pack-sidecars.sh` into the GitHub tarball |
 

@@ -1,6 +1,8 @@
 // LucX overlay on anytls-go v0.0.13 cmd/server/main.go.
 // Adds -cert/-key so the panel can pass its ACME pair instead of the
-// process-local self-signed certificate GenerateKeyPair always minted.
+// process-local self-signed certificate GenerateKeyPair always minted, and
+// -fallback (see anytls-server-inbound_tcp.go.overlay), and -users-file,
+// -proxy-protocol and -stats (see anytls-server-users.go.overlay).
 
 package main
 
@@ -8,7 +10,6 @@ import (
 	"anytls/proxy/padding"
 	"anytls/util"
 	"context"
-	"crypto/sha256"
 	"crypto/tls"
 	"flag"
 	"io"
@@ -20,8 +21,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-var passwordSha256 []byte
-
 func main() {
 	listen := flag.String("l", "0.0.0.0:8443", "server listen port")
 	password := flag.String("p", "", "password")
@@ -29,7 +28,13 @@ func main() {
 	paddingScheme := flag.String("padding-scheme", "", "padding-scheme")
 	certFile := flag.String("cert", "", "tls certificate pem")
 	keyFile := flag.String("key", "", "tls private key pem")
+	fallbackAddr := flag.String("fallback", "", "on a failed login, hand the connection to this plain-TCP address (e.g. a local web site 127.0.0.1:8081), so probes see that site")
+	usersFile := flag.String("users-file", "", "per-user passwords, one name:password per line (0600); re-read when it changes")
+	proxyProto := flag.Bool("proxy-protocol", false, "accept a PROXY v1 header from loopback peers (an SNI gateway) and use its client address")
+	statsFile := flag.String("stats", "", "write per-user traffic and client IPs to this JSON file every few seconds")
 	flag.Parse()
+	fallbackDest = strings.TrimSpace(*fallbackAddr)
+	acceptProxyProtocol = *proxyProto
 
 	if *passwordFile != "" {
 		b, err := os.ReadFile(*passwordFile)
@@ -41,7 +46,7 @@ func main() {
 	if *password == "" {
 		*password = strings.TrimSpace(os.Getenv("ANYTLS_PASSWORD"))
 	}
-	if *password == "" {
+	if *password == "" && *usersFile == "" {
 		logrus.Fatalln("please set password")
 	}
 	if *paddingScheme != "" {
@@ -67,11 +72,21 @@ func main() {
 	}
 	logrus.SetLevel(logLevel)
 
-	var sum = sha256.Sum256([]byte(*password))
-	passwordSha256 = sum[:]
+	if err := loadUsers(*password, *usersFile); err != nil {
+		logrus.Fatalln("users-file:", err)
+	}
+	if *usersFile != "" {
+		go watchUsers(*password, *usersFile)
+	}
+	if *statsFile != "" {
+		go writeStatsLoop(*statsFile)
+	}
 
 	logrus.Infoln("[Server]", util.ProgramVersionName)
 	logrus.Infoln("[Server] Listening TCP", *listen)
+	if fallbackDest != "" {
+		logrus.Infoln("[Server] Fallback", fallbackDest)
+	}
 
 	listener, err := net.Listen("tcp", *listen)
 	if err != nil {

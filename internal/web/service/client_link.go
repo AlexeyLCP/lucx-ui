@@ -74,6 +74,7 @@ func applyClientRecordMerge(row *model.ClientRecord, incoming *model.ClientRecor
 	row.ExpiryTime = incoming.ExpiryTime
 	row.Enable = incoming.Enable
 	row.TgID = incoming.TgID
+	row.NeverLogIPs = incoming.NeverLogIPs // LUCX-HOOK (lucx.342)
 	if incoming.Group != "" {
 		row.Group = incoming.Group
 	}

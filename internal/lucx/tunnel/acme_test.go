@@ -128,13 +128,17 @@ func TestNoAcmeRelayWithoutPort80Site(t *testing.T) {
 	cases := map[string]string{
 		"naive manual tls": manual.RenderCaddyfile(nil, ""),
 		"tproxy":           RenderTproxyCaddyfile("proxy.example.com", 443, "/c.pem", "/k.pem", 24002, false, nil),
-		"unified gateway": RenderUnifiedGatewayCaddyfile(443, []GatewayRoute{{SNI: "shop.example.com", Chan: "cover-1"}}, "cover-1", "",
-			[]string{RenderCoverSite("shop.example.com", "/c.pem", "/k.pem", coverAttach{bind: "l4chan/cover-1"}), manual.RenderSite("naive-2", nil, "")}),
 	}
 	for name, got := range cases {
 		if strings.Contains(got, "acme-challenge") || strings.Contains(got, "http://") {
 			t.Errorf("%s: no :80 listener today, so no acme relay expected:\n%s", name, got)
 		}
+	}
+	// The unified gateway with sites owns :80 (TestUnifiedGatewayOwnsPort80OnItsIPs).
+	gw := RenderUnifiedGatewayCaddyfile(443, []GatewayRoute{{SNI: "shop.example.com", Chan: "cover-1"}}, "cover-1", nil,
+		[]string{RenderCoverSite("shop.example.com", "/c.pem", "/k.pem", coverAttach{bind: "l4chan/cover-1"})})
+	if !strings.Contains(gw, "acme-challenge") || strings.Contains(gw, "\tbind \n") {
+		t.Errorf("unified gateway: want the :80 relay on all interfaces without an empty bind:\n%s", gw)
 	}
 }
 

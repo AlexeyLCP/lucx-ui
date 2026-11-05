@@ -145,6 +145,9 @@ func (j *XrayTrafficJob) Run() {
 		if err := j.inboundService.BumpClientsLastOnline(idleOnline); err != nil {
 			logger.Warning("bump last online for connected clients failed:", err)
 		}
+		// LUCX-HOOK: live inbound/IP tracker (lucx.342)
+		j.inboundService.RecordXrayLiveInbounds(onlineUsers)
+		// END LUCX-HOOK
 	}
 	// Pair the email signal with the inbound tags that moved bytes this poll.
 	// Xray's user>>>email counter aggregates across every inbound a client is
@@ -213,6 +216,10 @@ func (j *XrayTrafficJob) Run() {
 		"onlineByGuid":   j.inboundService.GetOnlineClientsByGuid(),
 		"activeInbounds": j.inboundService.GetActiveInboundsByGuid(),
 		"lastOnlineMap":  lastOnlineMap,
+		// LUCX-HOOK: devices column data (lucx.342)
+		"clientInbounds": j.inboundService.LiveInboundsByEmail(),
+		"clientDevices":  j.inboundService.ClientDevicesByEmail(),
+		// END LUCX-HOOK
 	})
 
 	clientStatsPayload := map[string]any{"snapshot": snapshot}

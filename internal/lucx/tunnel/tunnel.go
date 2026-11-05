@@ -21,6 +21,7 @@ package tunnel
 
 import (
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -224,6 +225,31 @@ var tunnelDir = func() string {
 // workDir returns the directory holding the rendered config files.
 func workDir() string {
 	return tunnelDir()
+}
+
+// mkdirPrivate creates a sidecar's private (0700) dir under workDir. The
+// shared workDir is created first with 0755: MkdirAll would otherwise give a
+// missing workDir the same 0700, and a sidecar running under another uid
+// (routed AnyTLS, lucx-mtproxy) could no longer reach its files in it. Seen
+// on fresh installs, where an AnyTLS data dir is the first thing created.
+func mkdirPrivate(dir string) error {
+	if err := os.MkdirAll(workDir(), 0o755); err != nil {
+		return err
+	}
+	return os.MkdirAll(dir, 0o700)
+}
+
+// ensureWorkDirTraversable lets another uid enter workDir (execute bit for
+// group and others, no listing) when an earlier build created it 0700.
+func ensureWorkDirTraversable() error {
+	st, err := os.Stat(workDir())
+	if err != nil {
+		return err
+	}
+	if m := st.Mode().Perm(); m&0o011 != 0o011 {
+		return os.Chmod(workDir(), m|0o011)
+	}
+	return nil
 }
 
 // absWorkDir resolves workDir() against the process working directory. The

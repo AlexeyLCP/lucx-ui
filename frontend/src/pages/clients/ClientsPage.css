@@ -332,3 +332,20 @@
   text-align: center;
   color: var(--ant-color-text-secondary);
 }
+
+/* Phones and tablets: the info icon, the enable switch and the menu sat 10px
+   apart, so a tap meant for one hit the next. Wider gaps and finger-sized
+   targets for the two icon buttons. */
+@media (pointer: coarse), (max-width: 768px) {
+  .card-actions {
+    gap: 22px;
+  }
+  .card-actions .row-action-trigger {
+    padding: 8px;
+    margin: -8px 0;
+    font-size: 20px;
+  }
+  .card-actions > :last-child {
+    margin-inline-start: 4px;
+  }
+}

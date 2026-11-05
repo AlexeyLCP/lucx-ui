@@ -1,0 +1,187 @@
+diff --git a/endpoint/src/main.rs b/endpoint/src/main.rs
+index 321424f..870190c 100644
+--- a/endpoint/src/main.rs
++++ b/endpoint/src/main.rs
+@@ -210,7 +210,8 @@ fn main() {
+     if args.contains_id(VERSION_PARAM_NAME)
+         && Some(true) == args.get_one::<bool>(VERSION_PARAM_NAME).copied()
+     {
+-        println!("{}", VERSION_STRING);
++        // LucX: the suffix tells the panel this build reads PROXY v1.
++        println!("{}+lucx.proxy", VERSION_STRING);
+         return;
+     }
+ 
+diff --git a/lib/src/core.rs b/lib/src/core.rs
+index 523cf63..8ce9a3e 100644
+--- a/lib/src/core.rs
++++ b/lib/src/core.rs
+@@ -304,7 +304,7 @@ impl Core {
+                 self.context.next_client_id.fetch_add(1, Ordering::Relaxed),
+             ));
+             log_id!(trace, client_id, "Accepting TCP connection");
+-            let (stream, client_addr) = match tcp_listener.accept().await.and_then(|(s, a)| {
++            let (mut stream, client_addr) = match tcp_listener.accept().await.and_then(|(s, a)| {
+                 s.set_nodelay(true)?;
+ 
+                 // Enable TCP keepalive to detect broken connections.
+@@ -330,8 +330,22 @@ impl Core {
+                 let context = self.context.clone();
+                 let tls_listener = tls_listener.clone();
+                 async move {
+-                    log_id!(trace, client_id, "Starting TLS handshake");
+                     let handshake_timeout = context.settings.tls_handshake_timeout;
++                    // LucX: real client address from a local gateway's PROXY v1 line.
++                    let client_addr = match tokio::time::timeout(
++                        handshake_timeout,
++                        crate::proxy_protocol::read_header(&mut stream, client_addr),
++                    )
++                    .await
++                    .unwrap_or_else(|_| Err(io::Error::from(ErrorKind::TimedOut)))
++                    {
++                        Ok(addr) => addr,
++                        Err(e) => {
++                            log_id!(debug, client_id, "PROXY header: {}", e);
++                            return;
++                        }
++                    };
++                    log_id!(trace, client_id, "Starting TLS handshake");
+                     match tokio::time::timeout(handshake_timeout, tls_listener.listen(stream))
+                         .await
+                         .unwrap_or_else(|_| Err(io::Error::from(ErrorKind::TimedOut)))
+diff --git a/lib/src/lib.rs b/lib/src/lib.rs
+index 58ec8d7..fab6157 100644
+--- a/lib/src/lib.rs
++++ b/lib/src/lib.rs
+@@ -38,6 +38,7 @@ mod icmp_forwarder;
+ mod icmp_utils;
+ mod metrics;
+ mod pipe;
++mod proxy_protocol;
+ mod quic_multiplexer;
+ mod reverse_proxy;
+ mod socks5_client;
+diff --git a/lib/src/proxy_protocol.rs b/lib/src/proxy_protocol.rs
+new file mode 100644
+index 0000000..18afd21
+--- /dev/null
++++ b/lib/src/proxy_protocol.rs
+@@ -0,0 +1,118 @@
++//! LucX: PROXY protocol v1 from a local SNI gateway.
++//!
++//! Behind a TCP gateway every connection comes from 127.0.0.1, so per-user
++//! metrics, logs and connection rules lose the client address. A loopback
++//! peer may prefix the stream with a PROXY v1 line; its source address then
++//! replaces the peer address. Non-loopback peers are never trusted, and a
++//! loopback connection without the line is handled as before.
++
++use std::io;
++use std::net::{IpAddr, SocketAddr};
++use tokio::io::AsyncReadExt;
++use tokio::net::TcpStream;
++
++/// "PROXY TCP6 <src> <dst> <sport> <dport>\r\n" is at most 107 bytes.
++const MAX_LINE: usize = 107;
++
++/// Strips a PROXY v1 header sent by a loopback peer and returns the client
++/// address it names (or `peer` when there is none).
++pub(crate) async fn read_header(stream: &mut TcpStream, peer: SocketAddr) -> io::Result<SocketAddr> {
++    if !peer.ip().to_canonical().is_loopback() {
++        return Ok(peer);
++    }
++    let mut head = [0u8; 6];
++    let mut got = 0;
++    // peek may return a partial prefix; wait until 6 bytes or a mismatch.
++    loop {
++        let n = stream.peek(&mut head).await?;
++        if n == 0 {
++            return Err(io::Error::from(io::ErrorKind::UnexpectedEof));
++        }
++        if !b"PROXY ".starts_with(&head[..n.min(6)]) {
++            return Ok(peer);
++        }
++        if n >= 6 {
++            break;
++        }
++        if n == got {
++            tokio::time::sleep(std::time::Duration::from_millis(5)).await;
++        }
++        got = n;
++    }
++    // Read the line byte by byte so nothing after it is consumed.
++    let mut line = Vec::with_capacity(MAX_LINE);
++    loop {
++        let b = stream.read_u8().await?;
++        line.push(b);
++        if b == b'\n' {
++            break;
++        }
++        if line.len() >= MAX_LINE {
++            return Err(io::Error::new(io::ErrorKind::InvalidData, "PROXY header too long"));
++        }
++    }
++    Ok(parse_line(&line).unwrap_or(peer))
++}
++
++fn parse_line(line: &[u8]) -> Option<SocketAddr> {
++    let s = std::str::from_utf8(line).ok()?.trim_end();
++    let f: Vec<&str> = s.split(' ').collect();
++    // "PROXY UNKNOWN" (health checks) keeps the peer address.
++    if f.len() != 6 || f[0] != "PROXY" || (f[1] != "TCP4" && f[1] != "TCP6") {
++        return None;
++    }
++    let ip: IpAddr = f[2].parse().ok()?;
++    let port: u16 = f[4].parse().ok()?;
++    Some(SocketAddr::new(ip, port))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++    use tokio::io::AsyncWriteExt;
++    use tokio::net::TcpListener;
++
++    #[test]
++    fn parses_v1_lines() {
++        assert_eq!(
++            parse_line(b"PROXY TCP4 203.0.113.7 127.0.0.1 5555 443\r\n"),
++            Some("203.0.113.7:5555".parse().unwrap())
++        );
++        assert_eq!(
++            parse_line(b"PROXY TCP6 2001:db8::1 ::1 6000 443\r\n"),
++            Some("[2001:db8::1]:6000".parse().unwrap())
++        );
++        assert_eq!(parse_line(b"PROXY UNKNOWN\r\n"), None);
++        assert_eq!(parse_line(b"PROXY TCP4 nope 127.0.0.1 1 2\r\n"), None);
++    }
++
++    async fn roundtrip(send: &'static [u8]) -> (SocketAddr, SocketAddr, Vec<u8>) {
++        let l = TcpListener::bind("127.0.0.1:0").await.unwrap();
++        let addr = l.local_addr().unwrap();
++        let client = tokio::spawn(async move {
++            let mut c = TcpStream::connect(addr).await.unwrap();
++            c.write_all(send).await.unwrap();
++            c.shutdown().await.unwrap();
++        });
++        let (mut s, peer) = l.accept().await.unwrap();
++        let got = read_header(&mut s, peer).await.unwrap();
++        let mut rest = Vec::new();
++        s.read_to_end(&mut rest).await.unwrap();
++        client.await.unwrap();
++        (peer, got, rest)
++    }
++
++    #[tokio::test]
++    async fn strips_header_and_keeps_the_tls_bytes() {
++        let (_, got, rest) = roundtrip(b"PROXY TCP4 203.0.113.7 127.0.0.1 5555 443\r\n\x16\x03\x01hello").await;
++        assert_eq!(got, "203.0.113.7:5555".parse::<SocketAddr>().unwrap());
++        assert_eq!(rest, b"\x16\x03\x01hello");
++    }
++
++    #[tokio::test]
++    async fn no_header_keeps_peer_and_bytes() {
++        let (peer, got, rest) = roundtrip(b"\x16\x03\x01hello world").await;
++        assert_eq!(got, peer);
++        assert_eq!(rest, b"\x16\x03\x01hello world");
++    }
++}

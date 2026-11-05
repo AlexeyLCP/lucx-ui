@@ -5,6 +5,8 @@ import 'antd/dist/reset.css';
 import '@/styles/utils.css';
 import '@/styles/page-shell.css';
 import '@/styles/page-cards.css';
+// LUCX-HOOK: touch-screen styles, all entries (lucx.342)
+import '@/styles/touch.css';
 
 import { setupHttp } from '@/api/http-init';
 import { reloadOnceOnStaleChunk } from '@/lib/stale-chunk';

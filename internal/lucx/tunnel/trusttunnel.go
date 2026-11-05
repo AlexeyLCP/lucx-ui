@@ -7,6 +7,7 @@
 package tunnel
 
 import (
+	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/tls"
@@ -18,8 +19,10 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
@@ -36,6 +39,17 @@ type TrustTunnelConfig struct {
 	CertFile  string `json:"certFile"`
 	KeyFile   string `json:"keyFile"`
 	ClientDNS string `json:"clientDns"`
+
+	// SiteUpstream is a plain-HTTP site (host:port). Requests that are not
+	// a tunnel (a browser or prober asking for a page) are reverse-proxied
+	// there instead of answering 407. Empty = stock 407 behaviour.
+	SiteUpstream string `json:"siteUpstream"`
+
+	// AuthFailureStatus is TrustTunnel's auth_failure_status_code: the answer
+	// to a proxy request with a wrong or missing login. 0 = stock 407, which
+	// tells a prober "proxy here"; 405 is what a plain web server answers to
+	// CONNECT. TrustTunnel apps send the login up front, so they don't need 407.
+	AuthFailureStatus int `json:"authFailureStatus,omitempty"`
 
 	// UpstreamProtocol is advertised in the client deep link: http2 | http3.
 	UpstreamProtocol string `json:"upstreamProtocol"`
@@ -210,6 +224,16 @@ func (c TrustTunnelConfig) Validate() error {
 	default:
 		return fmt.Errorf("trusttunnel: listen preset must be stock | fast")
 	}
+	if site := strings.TrimSpace(c.SiteUpstream); site != "" {
+		if _, _, err := net.SplitHostPort(site); err != nil {
+			return fmt.Errorf("trusttunnel: site upstream must be host:port")
+		}
+	}
+	switch c.AuthFailureStatus {
+	case 0, 403, 404, 405, 407:
+	default:
+		return fmt.Errorf("trusttunnel: auth failure status must be 407, 405, 404 or 403")
+	}
 	if p := strings.TrimSpace(c.ClientRandomPrefix); p != "" && !ValidClientRandomPrefix(p) {
 		return fmt.Errorf("trusttunnel: client random prefix must be hex or hex/mask")
 	}
@@ -331,6 +355,9 @@ func (c TrustTunnelConfig) RenderVpnToml(credsPath, rulesPath, socksAddr, metric
 	b.WriteString("allow_private_network_connections = false\n")
 	b.WriteString("credentials_file = " + tomlString(credsPath) + "\n")
 	b.WriteString("rules_file = " + tomlString(rulesPath) + "\n")
+	if s := c.AuthFailureStatus; s != 0 && s != 407 {
+		b.WriteString("auth_failure_status_code = " + strconv.Itoa(s) + "\n")
+	}
 	tune := listenTuneFor(c.ListenPreset)
 	b.WriteString("\n[listen_protocols.http1]\n")
 	b.WriteString("upload_buffer_size = " + strconv.Itoa(tune.uploadBuffer) + "\n")
@@ -352,10 +379,18 @@ func (c TrustTunnelConfig) RenderVpnToml(credsPath, rulesPath, socksAddr, metric
 	} else {
 		b.WriteString("direct = {}\n")
 	}
+	if site := strings.TrimSpace(c.SiteUpstream); site != "" {
+		b.WriteString("\n[reverse_proxy]\n")
+		b.WriteString("server_address = " + tomlString(site) + "\n")
+		b.WriteString("path_mask = \"/\"\n")
+	}
 	if metricsAddr != "" {
 		b.WriteString("\n[metrics]\n")
 		b.WriteString("address = " + tomlString(metricsAddr) + "\n")
 		b.WriteString("request_timeout_secs = 3\n")
+		// Per-user sessions, bytes and IP on /clients (the listener is
+		// loopback-only, so the usernames it exposes stay on the host).
+		b.WriteString("per_client_metrics = true\n")
 	}
 	return b.String()
 }
@@ -535,4 +570,33 @@ func (c TrustTunnelConfig) ListenPort() int {
 		}
 	}
 	return 0
+}
+
+// The LucX build of the endpoint (third_party/patches/trusttunnel-proxy-protocol.patch)
+// reads a PROXY v1 line from loopback peers and reports "+lucx.proxy" in
+// --version; the stock release does neither.
+var (
+	trustTunnelProbeOnce sync.Once
+	trustTunnelProxyOK   bool
+)
+
+// TrustTunnelSupportsProxyProtocol: the endpoint binary takes the SNI
+// gateway's PROXY v1 header, so it sees the real client IP.
+func TrustTunnelSupportsProxyProtocol() bool {
+	trustTunnelProbeOnce.Do(func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+		defer cancel()
+		out, _ := exec.CommandContext(ctx, TrustTunnel.BinaryPath(), "--version").Output()
+		trustTunnelProxyOK = strings.Contains(string(out), "+lucx.proxy")
+	})
+	return trustTunnelProxyOK
+}
+
+// SetTrustTunnelProxyForTest pretends the endpoint does (or doesn't) read
+// PROXY v1; restore undoes it. Tests only.
+func SetTrustTunnelProxyForTest(ok bool) (restore func()) {
+	TrustTunnelSupportsProxyProtocol()
+	prev := trustTunnelProxyOK
+	trustTunnelProxyOK = ok
+	return func() { trustTunnelProxyOK = prev }
 }

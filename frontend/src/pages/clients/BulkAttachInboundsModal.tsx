@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCoarsePointer } from '@/hooks/useCoarsePointer';
 import { Alert, Modal, Select, Typography, message } from 'antd';
 
 import { SelectAllClearButtons } from '@/components/form';
@@ -36,6 +37,8 @@ export default function BulkAttachInboundsModal({
   onSubmit,
 }: BulkAttachInboundsModalProps) {
   const { t } = useTranslation();
+  // LUCX-HOOK: touch screens — no search box, so the keyboard can't cover the list (lucx.342)
+  const touch = useCoarsePointer();
   const [messageApi, messageContextHolder] = message.useMessage();
   const [targetIds, setTargetIds] = useState<number[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -112,7 +115,7 @@ export default function BulkAttachInboundsModal({
               options={targetOptions}
               placeholder={t('pages.clients.attachToInboundsTargets')}
               aria-label={t('pages.clients.attachToInboundsTargets')}
-              showSearch={{ optionFilterProp: 'label' }}
+              showSearch={touch ? false : { optionFilterProp: 'label' }}
               autoFocus
             />
           </>

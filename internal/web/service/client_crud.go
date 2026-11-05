@@ -985,6 +985,19 @@ func (s *ClientService) Update(inboundSvc *InboundService, id int, updated model
 		return needRestart, err
 	}
 
+	// LUCX-HOOK: written here too so switching it off always lands; switching
+	// it on also drops the addresses already stored for the client.
+	if err := database.GetDB().Model(&model.ClientRecord{}).
+		Where("id = ?", id).
+		UpdateColumn("never_log_ips", updated.NeverLogIPs).Error; err != nil {
+		return needRestart, err
+	}
+	resetIPPrivacyCache()
+	if updated.NeverLogIPs {
+		ForgetClientIPs(updated.Email)
+	}
+	// END LUCX-HOOK
+
 	// LUCX-HOOK: the editor always sends forwardedPorts. Sync from inbound
 	// JSON can miss it (kernel AWG used to skip the settings write), so the
 	// clients page reopened with an empty field. Empty still means omit.

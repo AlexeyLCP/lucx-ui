@@ -21,7 +21,9 @@ import (
 // AnytlsConfig is one anytls-server instance (anytls/anytls-go reference
 // implementation plus LucX -cert/-key overlay): a TLS proxy over the AnyTLS
 // protocol (splits the outer TLS handshake to dodge TLS-in-TLS fingerprints)
-// with a single shared password per server port. Clients: sing-box, mihomo,
+// with a shared password per server port, plus (overlay -users-file) one
+// derived password per attached client so traffic, online state and client
+// IPs are per user. Clients: sing-box, mihomo,
 // Shadowrocket, Stash, Loon. URI scheme: anytls://password@host:port/?sni=.
 type AnytlsConfig struct {
 	Remark   string `json:"remark"`
@@ -31,7 +33,15 @@ type AnytlsConfig struct {
 	SNI      string `json:"sni"`
 	CertFile string `json:"certFile"`
 	KeyFile  string `json:"keyFile"`
+	// Fallback is a loopback host:port (e.g. a Cover's local site) that gets
+	// every connection failing AnyTLS authentication — browsers and probes see
+	// that site instead of a dropped TLS connection. Needs the LucX overlay.
+	Fallback string `json:"fallback,omitempty"`
 	Bind     string `json:"-"`
+	// usersFile / statsFile are the overlay's -users-file and -stats paths,
+	// set by AnytlsInstanceFromInbound when the binary supports them.
+	usersFile string
+	statsFile string
 
 	// RouteThroughXray redirects the sidecar's own outbound TCP (uid-scoped,
 	// lucx-mtproxy pattern, lucx.273) into a hidden Xray SOCKS inbound so
@@ -68,6 +78,12 @@ func (c AnytlsConfig) Validate() error {
 	if strings.TrimSpace(c.SNI) == "" {
 		return errors.New("anytls: sni/domain is required")
 	}
+	if fb := strings.TrimSpace(c.Fallback); fb != "" {
+		host, port, err := net.SplitHostPort(fb)
+		if err != nil || port == "" || (host != "127.0.0.1" && host != "::1") {
+			return errors.New("anytls: fallback must be 127.0.0.1:port")
+		}
+	}
 	return nil
 }
 
@@ -103,16 +119,56 @@ func (c AnytlsConfig) ValidateCert(panelCert, panelKey string) error {
 var (
 	anytlsPWFileOnce sync.Once
 	anytlsPWFileOK   bool
+	anytlsFallbackOK bool
+	anytlsUsersOK    bool
+	anytlsProxyOK    bool
 )
 
-func anytlsSupportsPasswordFile() bool {
+func anytlsProbeHelp() {
 	anytlsPWFileOnce.Do(func() {
 		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
 		defer cancel()
-		out, _ := exec.CommandContext(ctx, Anytls.BinaryPath(), "-h").CombinedOutput()
-		anytlsPWFileOK = strings.Contains(string(out), "password-file")
+		b, _ := exec.CommandContext(ctx, Anytls.BinaryPath(), "-h").CombinedOutput()
+		out := string(b)
+		anytlsPWFileOK = strings.Contains(out, "password-file")
+		anytlsFallbackOK = strings.Contains(out, "-fallback")
+		anytlsUsersOK = strings.Contains(out, "-users-file") && strings.Contains(out, "-stats")
+		anytlsProxyOK = strings.Contains(out, "-proxy-protocol")
 	})
+}
+
+func anytlsSupportsPasswordFile() bool {
+	anytlsProbeHelp()
 	return anytlsPWFileOK
+}
+
+// anytlsSupportsFallback: the binary is the LucX overlay with -fallback.
+func anytlsSupportsFallback() bool {
+	anytlsProbeHelp()
+	return anytlsFallbackOK
+}
+
+// AnytlsSupportsUsers: the binary is the LucX overlay with -users-file and
+// -stats, so every client gets its own password.
+func AnytlsSupportsUsers() bool {
+	anytlsProbeHelp()
+	return anytlsUsersOK
+}
+
+// AnytlsSupportsProxyProtocol: the binary reads the SNI gateway's PROXY v1
+// header (from loopback peers only), so it sees the real client IP.
+func AnytlsSupportsProxyProtocol() bool {
+	anytlsProbeHelp()
+	return anytlsProxyOK
+}
+
+// SetAnytlsCapsForTest pretends the AnyTLS binary does (or doesn't) support
+// per-user passwords and PROXY v1; restore undoes it. Tests only.
+func SetAnytlsCapsForTest(users, proxy bool) (restore func()) {
+	anytlsProbeHelp()
+	u, p := anytlsUsersOK, anytlsProxyOK
+	anytlsUsersOK, anytlsProxyOK = users, proxy
+	return func() { anytlsUsersOK, anytlsProxyOK = u, p }
 }
 
 func (c AnytlsConfig) BuildArgs(cert, key, passwordFile string) []string {
@@ -124,6 +180,15 @@ func (c AnytlsConfig) BuildArgs(cert, key, passwordFile string) []string {
 	}
 	if strings.TrimSpace(cert) != "" && strings.TrimSpace(key) != "" {
 		args = append(args, "-cert", cert, "-key", key)
+	}
+	if fb := strings.TrimSpace(c.Fallback); fb != "" && anytlsSupportsFallback() {
+		args = append(args, "-fallback", fb)
+	}
+	if c.usersFile != "" && c.statsFile != "" {
+		args = append(args, "-users-file", c.usersFile, "-stats", c.statsFile)
+	}
+	if AnytlsSupportsProxyProtocol() {
+		args = append(args, "-proxy-protocol")
 	}
 	return args
 }

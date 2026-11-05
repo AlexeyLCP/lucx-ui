@@ -192,6 +192,44 @@ GEO
     return "$failed"
 }
 
+# LUCX-HOOK: DB-IP Lite IP databases for the Devices column (provider / country
+# / city). Free, CC BY 4.0, plain HTTPS — no account or key. Saved to the panel's
+# database folder, which updates keep and Docker persists. Skipped when already
+# present; the panel refreshes them itself every month, and `x-ui update-ipdb`
+# (or menu 27 → 7) updates them on demand. Never fatal: without them the panel
+# just shows IPs without labels and downloads them later.
+lucx_fetch_ipdb() {
+    local dir="${XUI_DB_FOLDER:-/etc/x-ui}" name dest tmp month got
+    local this_month last_month
+    mkdir -p "$dir" || return 0
+    this_month=$(date -u +%Y-%m)
+    last_month=$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m 2> /dev/null)
+    for name in dbip-asn-lite dbip-city-lite; do
+        dest="${dir}/${name}.mmdb"
+        [[ -s "$dest" ]] && continue
+        echo -e "${green}Downloading IP database ${name}...${plain}"
+        tmp="${dest}.tmp.$$"
+        got=""
+        for month in "$this_month" $last_month; do
+            rm -f "$tmp"
+            if curl -sSfL --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 900 \
+                "https://download.db-ip.com/free/${name}-${month}.mmdb.gz" 2> /dev/null | gzip -dc > "$tmp" 2> /dev/null &&
+                [[ -s "$tmp" ]] && tail -c 131072 "$tmp" | grep -aq 'MaxMind.com'; then
+                got="$month"
+                break
+            fi
+        done
+        if [[ -n "$got" ]] && chmod 644 "$tmp" && mv -f "$tmp" "$dest"; then
+            echo -e "${green}${name}.mmdb: ${got}${plain}"
+        else
+            rm -f "$tmp"
+            echo -e "${yellow}${name}.mmdb: download failed — the panel will retry by itself${plain}"
+        fi
+    done
+    return 0
+}
+# END LUCX-HOOK
+
 lucx_fetch_sidecars() {
     local dest="${1:-bin}"
     local a
@@ -2183,6 +2221,7 @@ install_x-ui() {
     chmod +x x-ui.sh
     # LUCX-HOOK: geo before panel start. Slim tarball left first start without .dat.
     lucx_fetch_geofiles bin || echo -e "${yellow}geodata incomplete — update later via x-ui menu${plain}"
+    lucx_fetch_ipdb
     # END LUCX-HOOK
 
     # Check the system's architecture and rename the file accordingly.

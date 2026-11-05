@@ -450,10 +450,11 @@ outbound_tcp_sockets 12
 	if !ok {
 		t.Fatal("parse must succeed")
 	}
-	if up != 3345 {
+	// inbound_traffic_bytes is what clients download (see the parser).
+	if up != 7654321 {
 		t.Fatalf("up = %d", up)
 	}
-	if down != 7654321 {
+	if down != 3345 {
 		t.Fatalf("down = %d", down)
 	}
 	if sessions != 5 {

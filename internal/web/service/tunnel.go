@@ -660,6 +660,7 @@ func (s *TunnelService) reconcileMieruInbounds() {
 // orphans. Inbound-only like mieru: zero inbounds sweeps every anytls-* key.
 func (s *TunnelService) reconcileAnytlsInbounds() {
 	panelCert, panelKey := panelCertFiles()
+	secret, _ := s.settingService.GetSecret()
 	inbounds, err := s.inboundService.GetAllInbounds()
 	if err != nil {
 		logger.Warning("tunnel: anytls inbound list failed:", err)
@@ -672,7 +673,7 @@ func (s *TunnelService) reconcileAnytlsInbounds() {
 		if ib == nil || ib.Protocol != model.Anytls || ib.NodeID != nil {
 			continue
 		}
-		inst, ok := tunnel.AnytlsInstanceFromInbound(ib, panelCert, panelKey)
+		inst, ok := tunnel.AnytlsInstanceFromInbound(ib, secret, panelCert, panelKey)
 		if !ok {
 			continue
 		}

@@ -38,6 +38,9 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `frontend/.../qr/QrPanel.tsx` | Happ QR cutoff **2953**, not 2000 (no HOOK) |
 | `frontend/.../clients/ClientInfoModal.tsx` | kernel AWG ConfigBlock (download .conf), not only ClientQrModal |
 | `install.sh` / `update.sh` after fail2ban | `bash bin/install-awg-module.sh` (lost in v3.8 overlay, lucx.248) |
+| `internal/database/model/model.go` | unmarked LucX fields (`NeverLogIPs`, `ClientHwid.LastIP`) + `serializer:jsonlenient` on six Host list columns (lucx.342) — re-apply tags on merge |
+| `frontend/src/pages/api-docs/endpoints.ts` | `neverLogIps` / `lastIp` doc strings edited in place (lucx.342) |
+| `frontend/src/styles/page-shell.css` `AppSidebar.css` | `100dvh` fallbacks added after `100vh` (lucx.342, unmarked) |
 | `x-ui.sh` / `install.sh` acme `--issue` | `LUCX_ACME_LISTEN_PORT=` prefix + `"${LUCX_ACME_ARGS[@]}"` after `--httpport`; upstream port prompt stays as the `else` branch |
 
 ---
@@ -75,7 +78,7 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/web/web.go` | AWG/tunnel cadence, stop, upload limit |
 | `internal/web/entity/entity.go` | favicon, log days, Happ ROSCOM, AWG sub URI |
 | `internal/web/runtime/local.go` | AWG/sidecar Add/Del/Update |
-| `internal/web/job/xray_traffic_job.go` | AWG speed into broadcast |
+| `internal/web/job/xray_traffic_job.go` | AWG speed into broadcast; devices broadcast (lucx.342) |
 | `internal/web/controller/api.go` | lucx API routes |
 | `internal/web/controller/inbound.go` | AWG/sidecar save, I-field warn |
 | `internal/web/controller/client.go` | awgBody / subBody |
@@ -93,6 +96,8 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/web/service/client_bulk.go` | tunnel field strip |
 | `internal/web/service/client_link.go` | lucx link export |
 | `internal/web/service/client_lookup.go` | lucx lookup |
+| `internal/web/service/client_hwid.go` | HWID request IP + device last IP (lucx.342) |
+| `internal/web/service/client_paging.go` | neverLogIps in the slim list (lucx.342) |
 | `internal/web/service/xray.go` + `xray_config_inject_test.go` | inject AWG TUN/outbounds |
 | `internal/web/service/setting.go` | lucx settings keys |
 | `internal/web/service/server.go` `backupSQLite` / `ImportDB` | embed + restore the masking-site files (backup_site_files.go, lucx.313) |
@@ -181,6 +186,11 @@ Tests on origin twins (no HOOK): `internal/sub/forwarded_trust_test.go`, `servic
 | `frontend/src/lib/xray/inbound-form-adapter.ts` | lucx protocol form |
 | `frontend/src/models/dbinbound.ts` `setting.ts` | lucx model fields |
 | `frontend/src/pages/clients/amneziawgConfig.ts` | lucx userspace conf |
+| `frontend/src/pages/clients/BulkAttachInboundsModal.tsx` `BulkDetachInboundsModal.tsx` | touch-screen pickers (lucx.342) |
+| `frontend/src/pages/hosts/HostFormModal.tsx` | modal body height in dvh (lucx.342) |
+| `frontend/src/pages/clients/ClientsPage.css` `ClientInfoModal.css` | touch targets, table wrap (lucx.342) |
+| `frontend/src/pages/inbounds/info/InboundInfoModal.css` | table wrap on phones (lucx.342) |
+| `frontend/src/entries/login.tsx` `entries/subpage.tsx` | touch.css import (lucx.342) |
 | `frontend/src/pages/clients/ClientBulkAddModal.tsx` `FilterDrawer.tsx` `SubLinksModal.tsx` | lucx client UI |
 | `frontend/src/pages/inbounds/list/InboundStatsModal.tsx` `types.ts` `useInboundColumns.tsx` | lucx columns |
 | `frontend/src/pages/index/IndexPage.tsx` `OverviewActionBar.tsx` `PanelUpdateModal.tsx` `PanelUpdateModal.css` | lucx update UI |
@@ -207,13 +217,18 @@ Keep the directory. Origin will not have these.
 | `internal/awg/peer_routes{,_linux,_other,_test}.go` | peer LAN routes (issue #126) |
 | `internal/lucx/` | tunnel sidecars, kernel WireGuard, geodata, parser |
 | `internal/database/migrate_awg*.go` `migrate_geodata.go` `migrate_naive_inbound.go` `migrate_tunnel_*.go` `repair_tunnel_fields.go` | LucX migrations |
-| `internal/database/model/awg_outbound.go` `sidecar_outbound.go` | LucX tables |
+| `internal/database/model/awg_outbound.go` `sidecar_outbound.go` `lenient_json.go` `lenient_json_test.go` | LucX tables + lenient JSON serializer (lucx.342) |
+| `internal/util/crypto/nosni.go` + `_test.go` | no-SNI throwaway certificate (lucx.342) |
 | `internal/sub/awg_*.go` `roscomvpn.go` `service_{awg,naive,qwdtt,trusttunnel}_test.go` `clash_awg_test.go` | LucX sub |
 | `internal/web/controller/awg.go` `awg_outbound.go` `lucx.go` `tunnel.go` `sidecar_outbound.go` `kernel_wireguard.go` `wgo.go` | LucX API |
 | `internal/web/job/awg_job.go` `awg_speed_buffer.go` `tunnel_job.go` `log_retention_job.go` `kernel_wireguard_job.go` | LucX jobs (wgo reconcile lives in kernel_wireguard_job + tunnel_job) |
 | `internal/web/favicon/` | panel tab icon |
 | `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` `kernel_wgosocks_test.go` `backup_site_files{,_test}.go` | LucX service |
+| `internal/web/service/ip_privacy.go` `ip_provider.go` `live_inbounds.go` + their `_test.go` | IP privacy / provider / live inbounds (lucx.342) |
+| `internal/sub/sub_site_test.go` `service_anytls_test.go` | lucx sub tests (lucx.342) |
+| `internal/web/job/anytls_stats_test.go` `trusttunnel_peruser_test.go` | lucx job tests (lucx.342) |
 | `frontend/src/pages/tunnels/` | Tunnels page |
+| `frontend/src/components/clients/ClientDevicesCell.tsx` `hooks/useCoarsePointer.ts` `useBodyScrollLock.ts` `styles/touch.css` | Devices column + touch UX (lucx.342) |
 | `frontend/src/pages/inbounds/form/protocols/{awg,naive,olcrtc,qwdtt,csqtt,mieru,trusttunnel,anytls,tproxy,cover}.tsx` | lucx forms |
 | `frontend/src/pages/xray/awg-outbounds/` `sidecar-outbounds/` | lucx outbound UI |
 | `frontend/src/pages/settings/CoresTab.tsx` | sidecar binaries |

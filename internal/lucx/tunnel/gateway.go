@@ -8,11 +8,15 @@ package tunnel
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net"
+	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 )
 
 const Gateway Name = "gateway"
@@ -51,31 +55,94 @@ type GatewaySnapshotRow struct {
 	Settings        string `json:"settings,omitempty"`
 	HostID          int    `json:"hostId,omitempty"`
 	DisabledHostIDs []int  `json:"disabledHostIds,omitempty"`
+	// AppliedSettings / AppliedStreamSettings are the inbound's JSON as Apply
+	// left it. Revert restores only what Apply changed and keeps edits made
+	// while masked (see MergeRevertJSON); empty on older snapshots.
+	AppliedSettings       string `json:"appliedSettings,omitempty"`
+	AppliedStreamSettings string `json:"appliedStreamSettings,omitempty"`
 }
 
 // RevertUpdates is the column map Apply's undo must write. A struct Updates
 // drops the empty listen and leaves the inbound on 127.0.0.1 after Revert.
-func RevertUpdates(sr GatewaySnapshotRow) map[string]any {
+// cur is the inbound as it is now (nil = plain snapshot restore): keys the
+// operator changed while the gateway was applied survive the revert.
+func RevertUpdates(sr GatewaySnapshotRow, cur ...*model.Inbound) map[string]any {
+	stream, settings := sr.StreamSettings, sr.Settings
+	if len(cur) > 0 && cur[0] != nil {
+		if sr.AppliedStreamSettings != "" {
+			stream = MergeRevertJSON(sr.StreamSettings, sr.AppliedStreamSettings, cur[0].StreamSettings)
+		}
+		if sr.Settings != "" && sr.AppliedSettings != "" {
+			settings = MergeRevertJSON(sr.Settings, sr.AppliedSettings, cur[0].Settings)
+		}
+	}
 	u := map[string]any{
 		"listen":          sr.Listen,
 		"port":            sr.Port,
-		"stream_settings": sr.StreamSettings,
+		"stream_settings": stream,
 	}
-	if sr.Settings != "" {
-		u["settings"] = sr.Settings
+	if settings != "" {
+		u["settings"] = settings
 	}
 	return u
 }
 
+// MergeRevertJSON undoes Apply's changes without losing later edits: it
+// starts from the pre-Apply JSON (orig) and takes from cur every key the
+// operator changed after Apply (cur differs from applied), recursing into
+// objects; keys removed since Apply are removed. Anything that isn't a JSON
+// object falls back to orig, the old behaviour.
+func MergeRevertJSON(orig, applied, cur string) string {
+	var o, a, c map[string]any
+	if json.Unmarshal([]byte(orig), &o) != nil || json.Unmarshal([]byte(applied), &a) != nil ||
+		json.Unmarshal([]byte(cur), &c) != nil || o == nil || a == nil || c == nil {
+		return orig
+	}
+	b, err := json.Marshal(mergeRevert(o, a, c))
+	if err != nil {
+		return orig
+	}
+	return string(b)
+}
+
+func mergeRevert(o, a, c map[string]any) map[string]any {
+	for k, cv := range c {
+		av, inApplied := a[k]
+		if inApplied && reflect.DeepEqual(av, cv) {
+			continue // untouched since Apply: keep the pre-Apply value
+		}
+		om, oIsMap := o[k].(map[string]any)
+		am, aIsMap := av.(map[string]any)
+		cm, cIsMap := cv.(map[string]any)
+		if oIsMap && aIsMap && cIsMap {
+			o[k] = mergeRevert(om, am, cm)
+			continue
+		}
+		o[k] = cv
+	}
+	for k := range a {
+		if _, still := c[k]; !still {
+			delete(o, k)
+		}
+	}
+	return o
+}
+
 // GatewayConfig lives in inbound settings. Snapshot empty = mask not applied.
 type GatewayConfig struct {
-	Remark     string               `json:"remark"`
-	Enabled    bool                 `json:"enabled"`
-	PublicHost string               `json:"publicHost"`
-	BindIP     string               `json:"bindIP,omitempty"`
-	Routes     []GatewayRoute       `json:"routes"`
-	Snapshot   []GatewaySnapshotRow `json:"snapshot"`
-	Fallback   string               `json:"fallback,omitempty"`
+	Remark     string `json:"remark"`
+	Enabled    bool   `json:"enabled"`
+	PublicHost string `json:"publicHost"`
+	BindIP     string `json:"bindIP,omitempty"`
+	// BindIPs: every IP the gateway listens on (multi-IP hosts keep each
+	// masked inbound on its own IP). BindIP stays the first for old readers.
+	BindIPs []string `json:"bindIPs,omitempty"`
+	// HTTPBinds are extra IPs that get only the gateway's :80 block (HTTPS
+	// redirect + ACME relay) — the panel's own IP, whose :443 the panel keeps.
+	HTTPBinds []string             `json:"httpBinds,omitempty"`
+	Routes    []GatewayRoute       `json:"routes"`
+	Snapshot  []GatewaySnapshotRow `json:"snapshot"`
+	Fallback  string               `json:"fallback,omitempty"`
 	// Unified: caddy-class routes terminate inside this gateway's Caddy
 	// process (site blocks + l4chan) instead of loopback sidecars. Set on
 	// new applies only; old configs keep the per-process layout.
@@ -84,6 +151,43 @@ type GatewayConfig struct {
 	UFWWasActive bool         `json:"ufwWasActive,omitempty"`
 	HidePanel    bool         `json:"hidePanel,omitempty"`
 	PanelRoutes  []CoverRoute `json:"panelRoutes,omitempty"`
+}
+
+// Binds returns the gateway's listen IPs; empty = all interfaces.
+func (c GatewayConfig) Binds() []string {
+	if len(c.BindIPs) > 0 {
+		return CleanBinds(c.BindIPs)
+	}
+	return CleanBinds([]string{c.BindIP})
+}
+
+// CleanBinds trims, drops empties and duplicates, keeps order.
+func CleanBinds(ips []string) []string {
+	var out []string
+	seen := map[string]bool{}
+	for _, ip := range ips {
+		ip = strings.TrimSpace(ip)
+		if ip == "" || seen[ip] {
+			continue
+		}
+		seen[ip] = true
+		out = append(out, ip)
+	}
+	return out
+}
+
+// gatewayListen renders the layer4 server addresses: one IP:port per bind,
+// or :port on all interfaces when there is none.
+func gatewayListen(port int, bindIPs []string) string {
+	binds := CleanBinds(bindIPs)
+	if len(binds) == 0 {
+		return ":" + strconv.Itoa(port)
+	}
+	addrs := make([]string, len(binds))
+	for i, ip := range binds {
+		addrs[i] = net.JoinHostPort(ip, strconv.Itoa(port))
+	}
+	return strings.Join(addrs, " ")
 }
 
 func DefaultGatewayConfig() GatewayConfig {
@@ -132,8 +236,8 @@ func LocalIPv4() string {
 }
 
 // RenderGatewayCaddyfile is Caddy L4 TLS SNI mux. Empty fallback = drop.
-// bindIP set → listen IP:port so loopback:port stays free for backends.
-func RenderGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallback, bindIP string) string {
+// bindIPs set → listen IP:port on each so loopback:port stays free for backends.
+func RenderGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallback string, bindIPs ...string) string {
 	if listenPort <= 0 {
 		listenPort = gatewayDefaultPort
 	}
@@ -141,10 +245,7 @@ func RenderGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallback, bin
 	if fallback == "" {
 		fallback = gatewayDropBackend
 	}
-	listen := ":" + strconv.Itoa(listenPort)
-	if ip := strings.TrimSpace(bindIP); ip != "" {
-		listen = ip + ":" + strconv.Itoa(listenPort)
-	}
+	listen := gatewayListen(listenPort, bindIPs)
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tlayer4 {\n\t\t")
 	b.WriteString(listen)
@@ -165,24 +266,38 @@ func RenderGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallback, bin
 // caddy-class services as site blocks in one Caddyfile: Chan routes hand the
 // conn to a named in-process listener via `l4http` (caddylucx module in the
 // merged binary), so TLS terminates in the HTTP app with the real client IP.
-func RenderUnifiedGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallbackChan, bindIP string, sites []string) string {
+func RenderUnifiedGatewayCaddyfile(listenPort int, routes []GatewayRoute, fallbackChan string, bindIPs, sites []string, globals ...string) string {
+	return renderUnifiedGateway(listenPort, routes, fallbackChan, bindIPs, bindIPs, sites, globals...)
+}
+
+// renderUnifiedGateway is RenderUnifiedGatewayCaddyfile with its own set of
+// :80 binds (the gateway IPs plus HTTPBinds).
+func renderUnifiedGateway(listenPort int, routes []GatewayRoute, fallbackChan string, bindIPs, httpBinds, sites []string, globals ...string) string {
 	if listenPort <= 0 {
 		listenPort = gatewayDefaultPort
 	}
-	listen := ":" + strconv.Itoa(listenPort)
-	if ip := strings.TrimSpace(bindIP); ip != "" {
-		listen = ip + ":" + strconv.Itoa(listenPort)
-	}
+	listen := gatewayListen(listenPort, bindIPs)
 	var b strings.Builder
-	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tgrace_period 1s\n\tlog {\n\t\tlevel WARN\n\t}\n\tservers {\n\t\tprotocols h1 h2\n\t}\n\tlayer4 {\n\t\t")
+	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tgrace_period 1s\n\tlog {\n\t\tlevel WARN\n\t}\n\tservers {\n\t\tprotocols h1 h2\n\t}\n")
+	for _, g := range globals {
+		b.WriteString(g)
+	}
+	b.WriteString("\tlayer4 {\n\t\t")
 	b.WriteString(listen)
 	b.WriteString(" {\n")
 	writeL4Mux(&b, routes, GatewayRoute{Chan: fallbackChan})
 	b.WriteString("\t\t}\n\t}\n}\n")
+	hasSite := false
 	for _, s := range sites {
 		if s = strings.TrimSpace(s); s != "" {
 			b.WriteString(s + "\n")
+			hasSite = true
 		}
+	}
+	// The sites own :80 on the same IPs: redirect to HTTPS and relay ACME
+	// HTTP-01 to acme.sh, so certificates keep renewing behind the gateway.
+	if hasSite && listenPort == gatewayDefaultPort {
+		writeHTTPRedirectSite(&b, "http://", strings.Join(httpBinds, " "))
 	}
 	return b.String()
 }

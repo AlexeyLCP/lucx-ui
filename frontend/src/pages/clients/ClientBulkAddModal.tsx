@@ -1,5 +1,6 @@
 import { useEffect, useId, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { useCoarsePointer } from '@/hooks/useCoarsePointer';
 import {
   AutoComplete,
   Button,
@@ -96,6 +97,8 @@ export default function ClientBulkAddModal({
   onSaved,
 }: ClientBulkAddModalProps) {
   const { t } = useTranslation();
+  // LUCX-HOOK: touch screens — no search box, so the keyboard can't cover the list (lucx.342)
+  const touch = useCoarsePointer();
   const uid = useId();
   const [messageApi, messageContextHolder] = message.useMessage();
   const { bulkCreate } = useClients({ list: false });
@@ -286,10 +289,16 @@ export default function ClientBulkAddModal({
                 onChange={(v) => methods.setValue('inboundIds', v)}
                 options={inboundOptions}
                 placeholder={t('pages.clients.selectInbound')}
-                showSearch={{
-                  filterOption: (input, option) =>
-                    ((option?.label as string) || '').toLowerCase().includes(input.toLowerCase()),
-                }}
+                showSearch={
+                  touch
+                    ? false
+                    : {
+                        filterOption: (input, option) =>
+                          ((option?.label as string) || '')
+                            .toLowerCase()
+                            .includes(input.toLowerCase()),
+                      }
+                }
               />
             </Form.Item>
 

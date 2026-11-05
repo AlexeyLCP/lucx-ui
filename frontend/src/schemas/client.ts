@@ -38,6 +38,7 @@ export const ClientRecordSchema = z
     expiryTime: z.number().optional(),
     limitIp: z.number().optional(),
     limitHwid: z.number().optional(),
+    neverLogIps: z.boolean().optional(), // LUCX-HOOK (lucx.342)
     tgId: z.union([z.number(), z.string()]).optional(),
     group: z.string().optional(),
     comment: z.string().optional(),
@@ -354,6 +355,7 @@ export const ClientFormSchema = z.object({
   trafficResetDay: z.number().int().min(1).max(31),
   limitIp: z.number().int().min(0),
   limitHwid: z.number().int().min(0),
+  neverLogIps: z.boolean(), // LUCX-HOOK (lucx.342)
   tgId: z.number().int().min(0),
   group: z.string(),
   comment: z.string(),

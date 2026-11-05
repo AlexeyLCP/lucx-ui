@@ -214,17 +214,11 @@ mv "/tmp/mieru-client-linux-${ARCH}" "mieru-client-linux-${ARCH}"
 chmod +x "mieru-linux-${ARCH}" "mieru-client-linux-${ARCH}"
 rm -rf /tmp/mieru
 
-TT_VER="v1.1.0"
 TT_CLIENT_VER="v1.1.5"
-TT_TGZ="trusttunnel-${TT_VER}-linux-x86_64.tar.gz"
 TT_CLIENT_TGZ="trusttunnel_client-${TT_CLIENT_VER}-linux-x86_64.tar.gz"
-fetch -O "${TT_TGZ}" "https://github.com/TrustTunnel/TrustTunnel/releases/download/${TT_VER}/${TT_TGZ}"
-mkdir -p /tmp/trusttunnel
-tar -xzf "${TT_TGZ}" -C /tmp/trusttunnel
-TT_BIN=$(find /tmp/trusttunnel -type f -name trusttunnel_endpoint | head -n1)
-mv "$TT_BIN" "trusttunnel-linux-${ARCH}"
-chmod +x "trusttunnel-linux-${ARCH}"
-rm -rf /tmp/trusttunnel "${TT_TGZ}"
+# LUCX: the endpoint is built with the PROXY v1 patch (same version as the
+# GitHub release), so client IPs survive the SNI gateway.
+bash "$(cd ../.. && pwd)/bin/build-trusttunnel.sh" "${ARCH}" "$PWD"
 fetch -O "${TT_CLIENT_TGZ}" "https://github.com/TrustTunnel/TrustTunnelClient/releases/download/${TT_CLIENT_VER}/${TT_CLIENT_TGZ}"
 mkdir -p /tmp/ttclient
 tar -xzf "${TT_CLIENT_TGZ}" -C /tmp/ttclient
@@ -240,6 +234,8 @@ git -C /tmp/anytls remote add origin https://github.com/anytls/anytls-go.git
 git -C /tmp/anytls fetch -q --depth 1 origin "${ANYTLS_REF}"
 git -C /tmp/anytls checkout -q FETCH_HEAD
 cp "${ANYTLS_OVERLAY}" /tmp/anytls/cmd/server/main.go
+cp "$(cd ../.. && pwd)/third_party/patches/anytls-server-inbound_tcp.go.overlay" /tmp/anytls/cmd/server/inbound_tcp.go
+cp "$(cd ../.. && pwd)/third_party/patches/anytls-server-users.go.overlay" /tmp/anytls/cmd/server/users.go
 (
     cd /tmp/anytls
     GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "/tmp/anytls-linux-${ARCH}" ./cmd/server

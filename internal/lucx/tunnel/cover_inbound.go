@@ -9,6 +9,7 @@ package tunnel
 import (
 	"encoding/json"
 	"errors"
+	"net"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -170,7 +171,13 @@ func coverAttachFor(ib *model.Inbound, cfg CoverConfig, others []*model.Inbound,
 			httpsPort = ib.Port
 		}
 	}
-	att := coverAttach{routes: cfg.Routes, publicDir: publicDir, publicUpstream: publicUpstream, httpsPort: httpsPort, skipHTTP: skipHTTP}
+	att := coverAttach{
+		routes: cfg.Routes, publicDir: publicDir, publicUpstream: publicUpstream, httpsPort: httpsPort, skipHTTP: skipHTTP,
+		localPort: cfg.LocalPort, loginPage: cfg.LoginPage,
+	}
+	if ip := net.ParseIP(strings.TrimSpace(ib.Listen)); ip != nil && !ip.IsUnspecified() && !ip.IsLoopback() {
+		att.listenIP = ip.String()
+	}
 	for _, o := range others {
 		if o == nil || !o.Enable || o.NodeID != nil {
 			continue
@@ -207,7 +214,34 @@ func coverAttachFor(ib *model.Inbound, cfg CoverConfig, others []*model.Inbound,
 		}
 	}
 	att.routes = append(att.routes, gatewayPanelRoutes(others)...)
+	att.routes = markH2CRoutes(att.routes, others)
 	return att, certFile, keyFile, true
+}
+
+// markH2CRoutes flags routes whose dest is a loopback Xray inbound using
+// XHTTP/SplitHTTP/gRPC; the cover must reach those over h2c, not HTTP/1.1.
+func markH2CRoutes(routes []CoverRoute, others []*model.Inbound) []CoverRoute {
+	h2c := map[string]bool{}
+	for _, o := range others {
+		if o == nil || !o.Enable || !IsLoopbackListen(o.Listen) || o.Port <= 0 {
+			continue
+		}
+		switch netw, _ := parseStream(o.StreamSettings); netw {
+		case "xhttp", "splithttp", "grpc":
+			h2c[strconv.Itoa(o.Port)] = true
+		}
+	}
+	if len(h2c) == 0 {
+		return routes
+	}
+	out := make([]CoverRoute, len(routes))
+	for i, r := range routes {
+		if _, port, err := net.SplitHostPort(strings.TrimSpace(r.Dest)); err == nil && h2c[port] {
+			r.H2C = true
+		}
+		out[i] = r
+	}
+	return out
 }
 
 // naiveClientAuth derives the enabled per-client basic_auth pairs of one

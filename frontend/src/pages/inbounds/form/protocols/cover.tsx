@@ -6,7 +6,7 @@
 
 import { useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Input, Radio, Upload, message } from 'antd';
+import { Alert, Button, Input, InputNumber, Radio, Switch, Upload, message } from 'antd';
 import { UploadOutlined } from '@ant-design/icons';
 import { useQuery } from '@tanstack/react-query';
 import { useFormContext, useWatch } from 'react-hook-form';
@@ -151,6 +151,25 @@ export default function CoverFields() {
           {t('pages.inbounds.form.coverRoutesHint')}
         </div>
       </FormItemLike>
+      {/* LUCX-HOOK: local site port + sign-in page (lucx.342) */}
+      <FormField
+        name={['settings', 'localPort']}
+        label={t('pages.inbounds.form.coverLocalPort')}
+        tooltip={t('pages.inbounds.form.coverLocalPortHint')}
+      >
+        <InputNumber min={0} max={65534} placeholder="8081" style={{ width: '100%' }} />
+      </FormField>
+      {siteSource !== 'upstream' && (
+        <FormField
+          name={['settings', 'loginPage']}
+          label={t('pages.inbounds.form.coverLoginPage')}
+          tooltip={t('pages.inbounds.form.coverLoginPageHint')}
+          valueProp="checked"
+        >
+          <Switch />
+        </FormField>
+      )}
+      {/* END LUCX-HOOK */}
       <FormField
         name={['settings', 'certFile']}
         label={t('pages.inbounds.form.trustTunnelCertFile')}

@@ -37,6 +37,20 @@ type PreviewRow struct {
 	SNILocked   bool     `json:"sniLocked,omitempty"`
 }
 
+// ownIPListen: listen is a specific IP that the gateway binds itself.
+func ownIPListen(listen string, bindIPs []string) bool {
+	ip := net.ParseIP(strings.TrimSpace(listen))
+	if ip == nil || ip.IsUnspecified() {
+		return false
+	}
+	for _, b := range bindIPs {
+		if ip.Equal(net.ParseIP(strings.TrimSpace(b))) {
+			return true
+		}
+	}
+	return false
+}
+
 func publicListen(listen string) string {
 	s := strings.TrimSpace(listen)
 	if s == "" || s == "0.0.0.0" || s == "::" || s == "0.0.0.0/0" {
@@ -179,6 +193,9 @@ func ClassifyInbound(ib *model.Inbound) Classified {
 		if !ok {
 			return Classified{}
 		}
+		if AnytlsSupportsProxyProtocol() {
+			return Classified{Class: ClassPassthrough, SNI: cfg.SNI}
+		}
 		return Classified{
 			Class: ClassPassthrough, SNI: cfg.SNI, NoProxy: true,
 			Note: "backend can't parse PROXY — client IP hidden",
@@ -187,6 +204,9 @@ func ClassifyInbound(ib *model.Inbound) Classified {
 		cfg, ok := TrustTunnelConfigFromInbound(ib)
 		if !ok {
 			return Classified{}
+		}
+		if TrustTunnelSupportsProxyProtocol() {
+			return Classified{Class: ClassPassthrough, SNI: cfg.Hostname}
 		}
 		return Classified{
 			Class: ClassPassthrough, SNI: cfg.Hostname, NoProxy: true,
@@ -809,16 +829,30 @@ func portsInUse(others []*model.Inbound, gatewayPort int) map[int]bool {
 
 // BuildPreview lists inbounds the mask may move behind 443.
 // bindIP set → keep port 443 on loopback (Cover first if it is on 443).
-func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, bindIP string) []PreviewRow {
+func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, bindIPs ...string) []PreviewRow {
 	if gatewayPort <= 0 {
 		gatewayPort = gatewayDefaultPort
 	}
 	publicHost = strings.ToLower(strings.TrimSpace(publicHost))
-	keep443 := strings.TrimSpace(bindIP) != ""
+	binds := CleanBinds(bindIPs)
+	keep443 := len(binds) > 0
 	used := map[int]bool{}
 	if !keep443 {
 		used[gatewayPort] = true
 	}
+	// LUCX-HOOK: a masked inbound moves to 127.0.0.1:<free port>, so ports
+	// already held on loopback (or on every interface) by inbounds that stay
+	// where they are must not be handed out again — e.g. a VLESS-WS behind a
+	// Cover on 127.0.0.1:1443 would collide with the first passthrough slot.
+	for _, ib := range others {
+		if ib == nil || !ib.Enable || ib.Port <= 0 || ib.Protocol == model.Gateway {
+			continue
+		}
+		if IsLoopbackListen(ib.Listen) || publicListen(ib.Listen) == "0.0.0.0" {
+			used[ib.Port] = true
+		}
+	}
+	// END LUCX-HOOK
 	cover443 := false
 	if keep443 {
 		for _, ib := range others {
@@ -899,6 +933,11 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 		if hostAddr == "" {
 			hostAddr = sni
 		}
+		if class != ClassCaddy && ownIPListen(oldListen, binds) {
+			// The gateway now holds this inbound's own IP:443, so the link
+			// the client already has stays valid — keep its address.
+			hostAddr = oldListen
+		}
 		row := PreviewRow{
 			InboundID:   ib.Id,
 			Remark:      ib.Remark,
@@ -950,7 +989,7 @@ func BuildPreview(gatewayPort int, publicHost string, others []*model.Inbound, b
 			continue
 		}
 		ib := byID[row.InboundID]
-		if ib == nil || !RealitySelfDest(ib.StreamSettings, publicHost, bindIP) {
+		if ib == nil || !RealitySelfDest(ib.StreamSettings, publicHost, binds...) {
 			continue
 		}
 		row.StealDest = gatewayLoopbackDest(coverPort)
@@ -975,7 +1014,7 @@ func markInside(row *PreviewRow, ib *model.Inbound) {
 // failed handshake — so a self-referencing dest turns each scanner probe into
 // a Caddy→Xray→Caddy relay chain that multiplies sockets with no clients
 // attached (tester lucx.275: 35k open sockets, zero clients).
-func RealitySelfDest(stream, publicHost, bindIP string) bool {
+func RealitySelfDest(stream, publicHost string, bindIPs ...string) bool {
 	dest := RealityDest(stream)
 	if dest == "" {
 		return false
@@ -988,7 +1027,11 @@ func RealitySelfDest(stream, publicHost, bindIP string) bool {
 		return false
 	}
 	host = strings.Trim(host, "[]")
-	for _, self := range []string{"127.0.0.1", "::1", "localhost", publicHost, strings.ToLower(bindIP)} {
+	selves := []string{"127.0.0.1", "::1", "localhost", publicHost}
+	for _, b := range bindIPs {
+		selves = append(selves, strings.ToLower(strings.TrimSpace(b)))
+	}
+	for _, self := range selves {
 		if self != "" && host == self {
 			return true
 		}

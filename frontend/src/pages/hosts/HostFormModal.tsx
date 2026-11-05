@@ -246,7 +246,7 @@ export default function HostFormModal({
       cancelText={t('cancel')}
       destroyOnHidden
       width={isMobile ? '95vw' : 760}
-      styles={{ body: { maxHeight: '70vh', overflowY: 'auto', overflowX: 'hidden' } }}
+      styles={{ body: { maxHeight: 'min(70vh, 70dvh)', overflowY: 'auto', overflowX: 'hidden' } }}
     >
       {messageContextHolder}
       <FormProvider {...methods}>

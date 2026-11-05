@@ -1300,8 +1300,64 @@ update_all_geofiles() {
     update_geofiles "ROSCOM" || failed=1
     update_geofiles "GA" || failed=1
     # END LUCX-HOOK
+    # LUCX-HOOK: IP databases for the Devices column (no Xray restart needed)
+    update_ipdb || failed=1
+    # END LUCX-HOOK
     return $failed
 }
+
+# LUCX-HOOK: DB-IP Lite IP databases (provider / country / city of client IPs
+# in the panel's Devices column). The panel also refreshes them by itself once
+# a month; this updates them now, together with the geo files. Free files,
+# CC BY 4.0, plain HTTPS download — no account, key or client data. They go to
+# the panel's database folder, which install/update keep and Docker persists.
+# The panel reloads replaced files on its own, so no restart is needed.
+xui_db_folder() {
+    local folder="${XUI_DB_FOLDER:-}" envfile
+    envfile="$(xui_env_file_path)"
+    if [[ -z "$folder" && -r "$envfile" ]]; then
+        folder=$(sed -n 's/^[[:space:]]*XUI_DB_FOLDER=//p' "$envfile" | tail -n 1 | tr -d "\"'")
+    fi
+    echo "${folder:-/etc/x-ui}"
+}
+
+update_ipdb() {
+    local dir name dest tmp month this_month last_month got failed=0
+    dir="$(xui_db_folder)"
+    mkdir -p "$dir" || return 1
+    this_month=$(date -u +%Y-%m)
+    last_month=$(date -u -d "$(date -u +%Y-%m-01) -1 month" +%Y-%m 2> /dev/null)
+    for name in dbip-asn-lite dbip-city-lite; do
+        dest="${dir}/${name}.mmdb"
+        if [[ -s "$dest" && "$(date -u -r "$dest" +%Y-%m 2> /dev/null)" == "$this_month" && "${1}" != "force" ]]; then
+            echo -e "${name}.mmdb: already up to date"
+            continue
+        fi
+        tmp="${dest}.tmp.$$"
+        got=""
+        # The new month's file is published during its first days.
+        for month in "$this_month" $last_month; do
+            rm -f "$tmp"
+            if curl -sSfL --retry 3 --retry-delay 3 --connect-timeout 15 --max-time 900 \
+                "https://download.db-ip.com/free/${name}-${month}.mmdb.gz" 2> /dev/null | gzip -dc > "$tmp" 2> /dev/null &&
+                [[ -s "$tmp" ]] && tail -c 131072 "$tmp" | grep -aq 'MaxMind.com'; then
+                got="$month"
+                break
+            fi
+        done
+        if [[ -n "$got" ]] && chmod 644 "$tmp" && mv -f "$tmp" "$dest"; then
+            echo -e "${green}${name}.mmdb: updated (${got})${plain}"
+            # Older releases kept it in bin/; the database folder copy wins now.
+            rm -f "${xui_folder}/bin/${name}.mmdb"
+        else
+            rm -f "$tmp"
+            echo -e "${red}${name}.mmdb: download failed (download.db-ip.com unreachable?)${plain}"
+            failed=1
+        fi
+    done
+    return $failed
+}
+# END LUCX-HOOK
 
 update_geofiles() {
     case "${1}" in
@@ -1414,7 +1470,8 @@ update_geo() {
     # LUCX-HOOK: RoscomVPN + Geo-Aggregator menu entries; All shifted to 6
     echo -e "${green}\t4.${plain} RoscomVPN (geoip_ROSCOM.dat, geosite_ROSCOM.dat)"
     echo -e "${green}\t5.${plain} Geo-Aggregator (geoip_GA.dat, geosite_GA.dat)"
-    echo -e "${green}\t6.${plain} All"
+    echo -e "${green}\t6.${plain} All (geo files + IP databases)"
+    echo -e "${green}\t7.${plain} IP databases (DB-IP Lite: provider/country/city in the Devices column)"
     # END LUCX-HOOK
     echo -e "${green}\t0.${plain} Back to Main Menu"
     read -rp "Choose an option: " choice
@@ -1441,6 +1498,13 @@ update_geo() {
             ;;
         6)
             run_geo_update "geo files" update_all_geofiles
+            ;;
+        7)
+            if update_ipdb; then
+                echo -e "${green}IP databases are up to date; the panel picks them up without a restart.${plain}"
+            else
+                echo -e "${red}Some IP databases could not be updated. Check the errors above.${plain}"
+            fi
             ;;
         # END LUCX-HOOK
         *)
@@ -3644,6 +3708,7 @@ show_usage() {
 │  ${blue}x-ui update${plain}                - Update                           │
 │  ${blue}x-ui update-dev${plain}            - Update to Dev channel (latest)   │
 │  ${blue}x-ui update-all-geofiles${plain}   - Update all geo files             │
+│  ${blue}x-ui update-ipdb${plain}           - Update IP databases (Devices)    │
 │  ${blue}x-ui migrateDB [file]${plain}      - Convert .db <-> .dump (SQLite)   │
 │  ${blue}x-ui pgclient [ver]${plain}        - Upgrade pg_dump/pg_restore tools │
 │  ${blue}x-ui legacy${plain}                - Legacy version                   │
@@ -3693,7 +3758,7 @@ show_menu() {
 │  ${green}25.${plain} PostgreSQL Management                    │
 │────────────────────────────────────────────────│
 │  ${green}26.${plain} Enable BBR                               │
-│  ${green}27.${plain} Update Geo Files                         │
+│  ${green}27.${plain} Update Geo Files & IP DBs                │
 │  ${green}28.${plain} Speedtest by Ookla                       │
 │────────────────────────────────────────────────│
 │  ${green}29.${plain} Install AWG module                       │
@@ -3865,6 +3930,11 @@ if [[ $# -gt 0 ]]; then
                 [[ $geo_updated -eq 0 ]] || restart 0
             fi
             ;;
+        # LUCX-HOOK: IP databases only; "force" re-downloads this month's files
+        "update-ipdb")
+            check_install 0 && update_ipdb "$2"
+            ;;
+        # END LUCX-HOOK
         "migrateDB")
             migrate_db "$2" "$3"
             ;;

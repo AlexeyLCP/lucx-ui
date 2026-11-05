@@ -33,6 +33,7 @@ type trustTunnelInboundSettings struct {
 	CertFile           string `json:"certFile"`
 	KeyFile            string `json:"keyFile"`
 	ClientDNS          string `json:"clientDns"`
+	SiteUpstream       string `json:"siteUpstream"`
 	UpstreamProtocol   string `json:"upstreamProtocol"`
 	RouteThroughXray   bool   `json:"routeThroughXray"`
 	RouteXrayPort      int    `json:"routeXrayPort"`
@@ -40,6 +41,7 @@ type trustTunnelInboundSettings struct {
 	MetricsPort        int    `json:"metricsPort"`
 	ListenPreset       string `json:"listenPreset"`
 	ClientRandomPrefix string `json:"clientRandomPrefix"`
+	AuthFailureStatus  int    `json:"authFailureStatus"`
 	Clients            []struct {
 		Email  string `json:"email"`
 		Enable bool   `json:"enable"`
@@ -64,6 +66,7 @@ func TrustTunnelConfigFromInbound(ib *model.Inbound) (TrustTunnelConfig, bool) {
 		CertFile:           s.CertFile,
 		KeyFile:            s.KeyFile,
 		ClientDNS:          s.ClientDNS,
+		SiteUpstream:       s.SiteUpstream,
 		UpstreamProtocol:   s.UpstreamProtocol,
 		RouteThroughXray:   s.RouteThroughXray,
 		RouteXrayPort:      s.RouteXrayPort,
@@ -71,6 +74,7 @@ func TrustTunnelConfigFromInbound(ib *model.Inbound) (TrustTunnelConfig, bool) {
 		MetricsPort:        s.MetricsPort,
 		ListenPreset:       s.ListenPreset,
 		ClientRandomPrefix: s.ClientRandomPrefix,
+		AuthFailureStatus:  s.AuthFailureStatus,
 	}.Merge()
 	if ib.Port > 0 {
 		host := "0.0.0.0"

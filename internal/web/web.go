@@ -12,6 +12,8 @@ import (
 	"io/fs"
 	"net"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -31,6 +33,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/common"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/cronspec"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/crypto"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/sys"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/controller"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/job"
@@ -291,10 +294,21 @@ func (s *Server) initRouter() (*gin.Engine, error) {
 
 	// Let unknown panel document routes fall back to the SPA shell, while every
 	// non-SPA miss still returns a hard 404.
+	// LUCX-HOOK: optional decoy site (lucx.342): every non-SPA miss outside the
+	// base path is proxied to the configured plain-HTTP site instead of a 404.
+	decoy := decoyProxy(s.settingService)
+	// END LUCX-HOOK
 	engine.NoRoute(func(c *gin.Context) {
 		if s.panel.HandleNoRoutePanelSPA(c) {
 			return
 		}
+		// LUCX-HOOK: serve the decoy site (lucx.342)
+		if decoy != nil && !strings.HasPrefix(c.Request.URL.Path, basePath) {
+			decoy.ServeHTTP(c.Writer, c.Request)
+			c.Abort()
+			return
+		}
+		// END LUCX-HOOK
 		c.AbortWithStatus(http.StatusNotFound)
 	})
 
@@ -640,6 +654,11 @@ func (s *Server) start(restartXray bool, startTgBot bool) (err error) {
 			c := &tls.Config{
 				Certificates: []tls.Certificate{cert},
 			}
+			// LUCX-HOOK: a visit by bare IP must not reveal the panel domain.
+			if err := crypto.HideCertWithoutSNI(c); err != nil {
+				logger.Warning("web: generic no-SNI certificate:", err)
+			}
+			// END LUCX-HOOK
 			// Opt-in node mTLS: when a trust CA is configured, request and verify
 			// client certs (VerifyClientCertIfGiven keeps browsers working). With
 			// no CA the listener is unchanged.
@@ -939,4 +958,19 @@ func scheduleSettingJob(c *cron.Cron, name, spec, fallback string, j cron.Job) c
 	}
 	logger.Infof("%s scheduled, run at %s", name, spec)
 	return c.Schedule(schedule, j)
+}
+
+// decoyProxy returns a reverse proxy to the configured decoy page, or nil.
+// LUCX-HOOK: panel decoy upstream (lucx.342)
+func decoyProxy(settings service.SettingService) *httputil.ReverseProxy {
+	upstream, err := settings.GetWebSiteUpstream()
+	upstream = strings.TrimSpace(upstream)
+	if err != nil || upstream == "" {
+		return nil
+	}
+	if _, _, err := net.SplitHostPort(upstream); err != nil {
+		logger.Warning("web: webSiteUpstream must be host:port:", upstream)
+		return nil
+	}
+	return httputil.NewSingleHostReverseProxy(&url.URL{Scheme: "http", Host: upstream})
 }

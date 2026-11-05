@@ -21,6 +21,10 @@ type HwidRequest struct {
 	DeviceOS    string
 	OsVersion   string
 	DeviceModel string
+	// LUCX-HOOK: client IP of the subscription request (lucx.342)
+	// IP is the address the subscription request came from.
+	IP string
+	// END LUCX-HOOK
 }
 
 type HwidGateResult struct {
@@ -59,6 +63,12 @@ type ClientHwidInfo struct {
 	OsVersion   string `json:"osVersion"`
 	DeviceModel string `json:"deviceModel"`
 	Fingerprint string `json:"fingerprint"`
+	// LUCX-HOOK: last subscription IP + local geo label (lucx.342)
+	// LastIP is where the device last fetched its subscription, labelled from
+	// the local provider database (no external lookup).
+	LastIP string `json:"lastIp,omitempty"`
+	IPProvider
+	// END LUCX-HOOK
 }
 
 func hashHwid(raw string) string {
@@ -89,6 +99,7 @@ func normalizeHwidRequest(req HwidRequest) HwidRequest {
 		DeviceOS:    trimHwidMeta(req.DeviceOS),
 		OsVersion:   trimHwidMeta(req.OsVersion),
 		DeviceModel: trimHwidMeta(req.DeviceModel),
+		IP:          normalizeIP(req.IP), // LUCX-HOOK: keep the request IP (lucx.342)
 	}
 }
 
@@ -115,6 +126,11 @@ func (s *ClientService) EnforceHwidForSubID(subID string, req HwidRequest) (Hwid
 		return res, err
 	}
 	req = normalizeHwidRequest(req)
+	// LUCX-HOOK: "Never log IPs" drops the address (lucx.342)
+	if req.IP != "" && subNeverLogsIPs(subID) {
+		req.IP = "" // "Never log IPs"
+	}
+	// END LUCX-HOOK
 	if limit <= 0 {
 		res.Allowed = true
 		if len(req.Hwid) >= minHwidLength {
@@ -148,6 +164,7 @@ func (s *ClientService) EnforceHwidForSubID(subID string, req HwidRequest) (Hwid
 		if err == nil {
 			if err := tx.Model(&model.ClientHwid{}).Where("id = ?", existing.Id).Updates(map[string]any{
 				"last_seen": now, "user_agent": req.UserAgent, "device_os": req.DeviceOS, "os_version": req.OsVersion, "device_model": req.DeviceModel,
+				"last_ip": req.IP, // LUCX-HOOK (lucx.342)
 			}).Error; err != nil {
 				return err
 			}
@@ -173,7 +190,8 @@ func (s *ClientService) EnforceHwidForSubID(subID string, req HwidRequest) (Hwid
 			res.LimitReached = true
 			return nil
 		}
-		if err := tx.Create(&model.ClientHwid{SubID: subID, HwidHash: hwidHash, FirstSeen: now, LastSeen: now, UserAgent: req.UserAgent, DeviceOS: req.DeviceOS, OsVersion: req.OsVersion, DeviceModel: req.DeviceModel}).Error; err != nil {
+		// LUCX-HOOK: store the request IP of a new device (lucx.342)
+		if err := tx.Create(&model.ClientHwid{SubID: subID, HwidHash: hwidHash, FirstSeen: now, LastSeen: now, UserAgent: req.UserAgent, DeviceOS: req.DeviceOS, OsVersion: req.OsVersion, DeviceModel: req.DeviceModel, LastIP: req.IP}).Error; err != nil {
 			return err
 		}
 		res.Allowed = true
@@ -189,9 +207,10 @@ func (s *ClientService) EnforceHwidForSubID(subID string, req HwidRequest) (Hwid
 func trackUnlimitedHwid(db *gorm.DB, subID string, req HwidRequest) {
 	now := time.Now().UnixMilli()
 	err := db.Clauses(clause.OnConflict{
-		Columns:   []clause.Column{{Name: "sub_id"}, {Name: "hwid_hash"}},
-		DoUpdates: clause.AssignmentColumns([]string{"last_seen", "user_agent", "device_os", "os_version", "device_model"}),
-	}).Create(&model.ClientHwid{SubID: subID, HwidHash: hashHwid(req.Hwid), FirstSeen: now, LastSeen: now, UserAgent: req.UserAgent, DeviceOS: req.DeviceOS, OsVersion: req.OsVersion, DeviceModel: req.DeviceModel}).Error
+		Columns: []clause.Column{{Name: "sub_id"}, {Name: "hwid_hash"}},
+		// LUCX-HOOK: keep the request IP on the unlimited-tracking path (lucx.342)
+		DoUpdates: clause.AssignmentColumns([]string{"last_seen", "user_agent", "device_os", "os_version", "device_model", "last_ip"}),
+	}).Create(&model.ClientHwid{SubID: subID, HwidHash: hashHwid(req.Hwid), FirstSeen: now, LastSeen: now, UserAgent: req.UserAgent, DeviceOS: req.DeviceOS, OsVersion: req.OsVersion, DeviceModel: req.DeviceModel, LastIP: req.IP}).Error
 	if err != nil {
 		logger.Warning("track HWID for unlimited subscription failed:", err)
 	}
@@ -265,6 +284,7 @@ func (s *ClientService) ListClientHwids(email string) ([]ClientHwidInfo, error) 
 			DeviceModel: r.DeviceModel,
 			Fingerprint: shortHwidFingerprint(r.HwidHash),
 		})
+		out[len(out)-1].LastIP, out[len(out)-1].IPProvider = LabelClientIP(r.LastIP) // LUCX-HOOK (lucx.342)
 	}
 	return out, nil
 }

@@ -9,6 +9,7 @@ package tunnel
 import (
 	"encoding/json"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
@@ -60,6 +61,11 @@ func MieruConfigFromInbound(ib *model.Inbound) (MieruConfig, bool) {
 		HandshakeMode:    s.HandshakeMode,
 		TrafficPattern:   s.TrafficPattern,
 	}.Merge()
+	// mita listens on every interface unless listenIPAddress is set; pass a
+	// specific Listen IP through so multi-IP hosts expose it on one address.
+	if ip := net.ParseIP(strings.TrimSpace(ib.Listen)); ip != nil && !ip.IsUnspecified() {
+		cfg.ListenIP = ip.String()
+	}
 	return cfg, true
 }
 

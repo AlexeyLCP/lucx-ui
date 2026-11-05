@@ -7,6 +7,7 @@ export type OnlineAPISupport = number;
 export type ProcessState = string;
 export type Protocol = string;
 export type addrFamily = number;
+export type endpointMap = Record<string, string>;
 export type staticEgressResolver = string;
 export type trafficLocalApplyAction = number;
 export type transportBits = number;
@@ -445,6 +446,7 @@ export interface Client {
   id?: string;
   keepAlive?: number | string;
   limitIp: number;
+  neverLogIps?: boolean;
   password?: string;
   preSharedKey?: string;
   privateKey?: string;
@@ -498,6 +500,7 @@ export interface ClientRecord {
   keepAlive: number | string;
   limitHwid: number;
   limitIp: number;
+  neverLogIps: boolean;
   password: string;
   preSharedKey: string;
   privateKey: string;
@@ -553,6 +556,7 @@ export interface ClientSlim {
   inboundIds: number[];
   limitHwid: number;
   limitIp: number;
+  neverLogIps?: boolean;
   reset: number;
   resetDay: number;
   resetMax: number;

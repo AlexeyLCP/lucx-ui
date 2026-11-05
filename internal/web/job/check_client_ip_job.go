@@ -74,6 +74,15 @@ func (j *CheckClientIpJob) Run() {
 			}
 		}
 	}
+	// LUCX-HOOK: clients with "Never log IPs" are not tracked, so the IP
+	// limit can't apply to them; any row they still have is dropped.
+	for email := range service.NeverLogIPEmails() {
+		if _, seen := observed[email]; seen {
+			delete(observed, email)
+			service.ForgetClientIPs(email)
+		}
+	}
+	// END LUCX-HOOK
 	if !apiMode && len(kernelIPs) == 0 {
 		// xray is down or predates the online-stats API. There is no access-log
 		// fallback anymore, so there is nothing to do this run.

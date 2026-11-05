@@ -1,0 +1,283 @@
+// LucX overlay added to anytls-go v0.0.13 as cmd/server/users.go.
+// Upstream takes one shared password, so a panel cannot tell its users apart:
+// no per-user traffic, online state or client IPs. This file adds:
+//   - -users-file: one "name:password" line per user, re-read when it changes;
+//     the -p / -password-file password stays valid as the unnamed user;
+//   - -proxy-protocol: a PROXY v1 header from a loopback peer (the SNI
+//     gateway) gives the real client address; other peers are never trusted;
+//   - -stats: a JSON file with each user's bytes and client IPs, rewritten
+//     every few seconds for the panel to read.
+
+package main
+
+import (
+	"bufio"
+	"bytes"
+	"crypto/sha256"
+	"encoding/json"
+	"errors"
+	"net"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"time"
+
+	"github.com/sirupsen/logrus"
+)
+
+// userStats is one user's counters. Up is client → server, Down the reverse;
+// both count since the process started.
+type userStats struct {
+	name     string
+	up, down atomic.Int64
+	mu       sync.Mutex
+	ips      map[string]*ipStats
+}
+
+type ipStats struct {
+	active int
+	last   int64
+}
+
+func (u *userStats) open(ip string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	e := u.ips[ip]
+	if e == nil {
+		e = &ipStats{}
+		u.ips[ip] = e
+	}
+	e.active++
+	e.last = time.Now().Unix()
+}
+
+func (u *userStats) close(ip string) {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	if e := u.ips[ip]; e != nil {
+		e.active--
+		e.last = time.Now().Unix()
+	}
+}
+
+var (
+	usersMu sync.RWMutex
+	users   = map[[32]byte]*userStats{}
+	// byName keeps a user's counters across users-file reloads.
+	byName = map[string]*userStats{}
+)
+
+func lookupUser(sum []byte) *userStats {
+	var k [32]byte
+	copy(k[:], sum)
+	usersMu.RLock()
+	defer usersMu.RUnlock()
+	return users[k]
+}
+
+// loadUsers builds the password table from the shared password (user "")
+// and the users file.
+func loadUsers(shared, file string) error {
+	next := map[[32]byte]*userStats{}
+	local := map[string]*userStats{}
+	add := func(name, pass string) {
+		u := local[name]
+		if u == nil {
+			usersMu.RLock()
+			u = byName[name]
+			usersMu.RUnlock()
+		}
+		if u == nil {
+			u = &userStats{name: name, ips: map[string]*ipStats{}}
+		}
+		local[name] = u
+		next[sha256.Sum256([]byte(pass))] = u
+	}
+	if shared != "" {
+		add("", shared)
+	}
+	if file != "" {
+		b, err := os.ReadFile(file)
+		if err != nil {
+			return err
+		}
+		for _, line := range strings.Split(string(b), "\n") {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			// The name never holds ':'; the password may.
+			name, pass, ok := strings.Cut(line, ":")
+			if !ok || strings.TrimSpace(name) == "" || pass == "" {
+				continue
+			}
+			add(strings.TrimSpace(name), pass)
+		}
+	}
+	if len(next) == 0 {
+		return errors.New("no password and no users")
+	}
+	usersMu.Lock()
+	users = next
+	byName = local
+	usersMu.Unlock()
+	logrus.Infoln("[Server] users:", len(next))
+	return nil
+}
+
+// watchUsers reloads the users file when its modification time changes. A
+// bad reload keeps the previous table.
+func watchUsers(shared, file string) {
+	var last time.Time
+	if st, err := os.Stat(file); err == nil {
+		last = st.ModTime()
+	}
+	for range time.Tick(2 * time.Second) {
+		st, err := os.Stat(file)
+		if err != nil || st.ModTime().Equal(last) {
+			continue
+		}
+		last = st.ModTime()
+		if err := loadUsers(shared, file); err != nil {
+			logrus.Errorln("users-file reload:", err)
+		}
+	}
+}
+
+// countingConn adds a session's bytes to its user.
+type countingConn struct {
+	net.Conn
+	u *userStats
+}
+
+func (c *countingConn) Read(p []byte) (int, error) {
+	n, err := c.Conn.Read(p)
+	c.u.up.Add(int64(n))
+	return n, err
+}
+
+func (c *countingConn) Write(p []byte) (int, error) {
+	n, err := c.Conn.Write(p)
+	c.u.down.Add(int64(n))
+	return n, err
+}
+
+var acceptProxyProtocol bool
+
+// proxyConn replays the bytes buffered while looking for a PROXY header.
+type proxyConn struct {
+	net.Conn
+	r *bufio.Reader
+}
+
+func (c *proxyConn) Read(p []byte) (int, error) { return c.r.Read(p) }
+
+// readProxyHeader strips a PROXY v1 header sent by a loopback peer and
+// returns the client address it names. A connection without one, or from a
+// non-loopback peer, is returned unchanged with its own address.
+func readProxyHeader(c net.Conn) (net.Conn, net.Addr, error) {
+	tcp, ok := c.RemoteAddr().(*net.TCPAddr)
+	if !ok || !tcp.IP.IsLoopback() {
+		return c, c.RemoteAddr(), nil
+	}
+	_ = c.SetReadDeadline(time.Now().Add(10 * time.Second))
+	defer c.SetReadDeadline(time.Time{})
+	r := bufio.NewReaderSize(c, 256)
+	pc := &proxyConn{Conn: c, r: r}
+	head, err := r.Peek(6)
+	if err != nil {
+		return nil, nil, err
+	}
+	if !bytes.Equal(head, []byte("PROXY ")) {
+		return pc, c.RemoteAddr(), nil
+	}
+	// "PROXY TCP4 src dst sport dport\r\n" is at most 107 bytes.
+	line, err := r.ReadSlice('\n')
+	if err != nil {
+		return nil, nil, err
+	}
+	f := strings.Fields(string(line))
+	if len(f) >= 6 && (f[1] == "TCP4" || f[1] == "TCP6") {
+		ip := net.ParseIP(f[2])
+		port, _ := strconv.Atoi(f[4])
+		if ip != nil {
+			return pc, &net.TCPAddr{IP: ip, Port: port}, nil
+		}
+	}
+	// "PROXY UNKNOWN" (health checks) keeps the peer address.
+	return pc, c.RemoteAddr(), nil
+}
+
+func clientIP(a net.Addr) string {
+	if t, ok := a.(*net.TCPAddr); ok {
+		return t.IP.String()
+	}
+	host, _, err := net.SplitHostPort(a.String())
+	if err != nil {
+		return a.String()
+	}
+	return host
+}
+
+// statsFile is the -stats JSON. Users are keyed by name ("" = shared password).
+type statsFile struct {
+	Started int64                `json:"started"`
+	Updated int64                `json:"updated"`
+	Users   map[string]statsUser `json:"users"`
+}
+
+type statsUser struct {
+	Up   int64              `json:"up"`
+	Down int64              `json:"down"`
+	IPs  map[string]statsIP `json:"ips,omitempty"`
+}
+
+type statsIP struct {
+	Active int   `json:"active"`
+	Last   int64 `json:"last"`
+}
+
+// ipKeep is how long a disconnected IP stays in the stats file.
+const ipKeep = 10 * time.Minute
+
+func writeStatsLoop(path string) {
+	started := time.Now().Unix()
+	for range time.Tick(3 * time.Second) {
+		out := statsFile{Started: started, Updated: time.Now().Unix(), Users: map[string]statsUser{}}
+		usersMu.RLock()
+		list := make([]*userStats, 0, len(byName))
+		for _, u := range byName {
+			list = append(list, u)
+		}
+		usersMu.RUnlock()
+		for _, u := range list {
+			su := statsUser{Up: u.up.Load(), Down: u.down.Load()}
+			u.mu.Lock()
+			for ip, e := range u.ips {
+				if e.active <= 0 && time.Since(time.Unix(e.last, 0)) > ipKeep {
+					delete(u.ips, ip)
+					continue
+				}
+				if su.IPs == nil {
+					su.IPs = map[string]statsIP{}
+				}
+				su.IPs[ip] = statsIP{Active: e.active, Last: e.last}
+			}
+			u.mu.Unlock()
+			out.Users[u.name] = su
+		}
+		b, err := json.Marshal(out)
+		if err != nil {
+			continue
+		}
+		tmp := path + ".tmp"
+		if err := os.WriteFile(tmp, b, 0o600); err != nil {
+			logrus.Debugln("stats:", err)
+			continue
+		}
+		_ = os.Rename(tmp, filepath.Clean(path))
+	}
+}

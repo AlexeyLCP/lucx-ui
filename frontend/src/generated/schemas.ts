@@ -1851,6 +1851,10 @@ export const SCHEMAS: Record<string, unknown> = {
         "description": "IP limit for this client",
         "type": "integer"
       },
+      "neverLogIps": {
+        "description": "NeverLogIPs keeps this client's addresses out of the panel: no live IP\nlist, no device last-IP, no IP-limit log. The IP limit can't apply to it.",
+        "type": "boolean"
+      },
       "password": {
         "description": "Client password",
         "type": "string"
@@ -2091,6 +2095,9 @@ export const SCHEMAS: Record<string, unknown> = {
       "limitIp": {
         "type": "integer"
       },
+      "neverLogIps": {
+        "type": "boolean"
+      },
       "password": {
         "type": "string"
       },
@@ -2163,6 +2170,7 @@ export const SCHEMAS: Record<string, unknown> = {
       "keepAlive",
       "limitHwid",
       "limitIp",
+      "neverLogIps",
       "password",
       "preSharedKey",
       "privateKey",
@@ -2332,6 +2340,10 @@ export const SCHEMAS: Record<string, unknown> = {
       "limitIp": {
         "example": 0,
         "type": "integer"
+      },
+      "neverLogIps": {
+        "example": false,
+        "type": "boolean"
       },
       "reset": {
         "example": 0,

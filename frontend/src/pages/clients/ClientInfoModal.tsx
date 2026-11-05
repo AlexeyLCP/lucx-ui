@@ -525,6 +525,16 @@ export default function ClientInfoModal({
                   <td>{t('pages.clients.ipLimit')}</td>
                   <td>{!client.limitIp ? <Tag>∞</Tag> : <Tag>{client.limitIp}</Tag>}</td>
                 </tr>
+                {/* LUCX-HOOK: "Never log IPs" (lucx.342) */}
+                {client.neverLogIps && (
+                  <tr>
+                    <td>{t('pages.clients.neverLogIps')}</td>
+                    <td>
+                      <Tag color="purple">{t('enabled')}</Tag>
+                    </td>
+                  </tr>
+                )}
+                {/* END LUCX-HOOK */}
                 <tr>
                   <td>{t('pages.inbounds.IPLimitlog')}</td>
                   <td>

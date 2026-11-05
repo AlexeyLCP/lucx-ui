@@ -1,0 +1,57 @@
+/*
+ * Touch screens (phones, tablets).
+ *
+ * iOS Safari zooms the whole page in when a focused field's text is smaller
+ * than 16px, which makes dialogs wider than the screen and forces sideways
+ * panning. 16px stops that zoom without disabling pinch-zoom.
+ */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+@media (pointer: coarse) {
+  input,
+  textarea,
+  select,
+  .ant-input,
+  .ant-input-affix-wrapper > input,
+  .ant-input-number-input,
+  .ant-select-selection-search-input,
+  .ant-select-input,
+  .ant-picker-input > input {
+    font-size: 16px !important;
+  }
+
+  /* Close buttons get a finger-sized (44px) target. */
+  .ant-modal-close,
+  .ant-drawer-close {
+    width: 44px !important;
+    height: 44px !important;
+    min-width: 44px;
+    display: inline-flex !important;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px !important;
+  }
+  .ant-modal-close {
+    top: 8px !important;
+    inset-inline-end: 8px !important;
+  }
+  .ant-modal-close .anticon,
+  .ant-drawer-close .anticon {
+    font-size: 20px;
+  }
+
+  /* Scrolling inside a sheet or dialog must not scroll the page behind it. */
+  .ant-drawer-body,
+  .ant-modal-body,
+  .ant-select-dropdown .rc-virtual-list-holder {
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+  .ant-drawer-mask,
+  .ant-modal-mask {
+    touch-action: none;
+  }
+}

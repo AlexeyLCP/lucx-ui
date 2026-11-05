@@ -534,7 +534,7 @@ func TestRenderUnifiedGatewayCaddyfile(t *testing.T) {
 		{SNI: "naive.example.com", Dest: "127.0.0.1:8443", Chan: "naive-1"},
 		{SNI: "vless.example.com", Dest: "127.0.0.1:1443"},
 		{SNI: "any.example.com", Dest: "127.0.0.1:1444", NoProxy: true},
-	}, "cover-2", "203.0.113.5", sites)
+	}, "cover-2", []string{"203.0.113.5"}, sites)
 	for _, need := range []string{
 		"auto_https off",
 		"grace_period 1s",
@@ -558,7 +558,7 @@ func TestRenderUnifiedGatewayCaddyfile(t *testing.T) {
 func TestRenderUnifiedGatewayCaddyfile_NoFallbackDrops(t *testing.T) {
 	got := RenderUnifiedGatewayCaddyfile(443, []GatewayRoute{
 		{SNI: "a.example.com", Dest: "127.0.0.1:8443", Chan: "naive-1"},
-	}, "", "", nil)
+	}, "", nil, nil)
 	if strings.Contains(got, "proxy 127.0.0.1:1\n") || strings.Contains(got, "proxy 127.0.0.1:1 {") {
 		t.Fatalf("empty fallback dials a dead port and caddy logs every hit:\n%s", got)
 	}

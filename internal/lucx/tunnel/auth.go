@@ -48,6 +48,12 @@ func TrustTunnelClientAuth(secret []byte, inboundId int, email string) AuthPair 
 	return scopedClientAuth(secret, "trusttunnel", inboundId, email)
 }
 
+// AnytlsClientAuth derives the AnyTLS password of one panel client for one
+// AnyTLS inbound (Pass only; AnyTLS has no user name on the wire).
+func AnytlsClientAuth(secret []byte, inboundId int, email string) AuthPair {
+	return scopedClientAuth(secret, "anytls", inboundId, email)
+}
+
 // UsesDerivedAuth is naive / mieru / TrustTunnel: HMAC pairs, not stored passwords.
 func UsesDerivedAuth(p model.Protocol) bool {
 	return p == model.Naive || p == model.Mieru || p == model.TrustTunnel
@@ -147,6 +153,8 @@ func InboundAuthPair(secret []byte, ib *model.Inbound, email string) AuthPair {
 		return MieruClientAuth(key, id, email)
 	case model.TrustTunnel:
 		return TrustTunnelClientAuth(key, id, email)
+	case model.Anytls:
+		return AnytlsClientAuth(key, id, email)
 	}
 	return AuthPair{}
 }

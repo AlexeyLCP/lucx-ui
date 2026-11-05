@@ -69,6 +69,8 @@ func tunnelProtocolDerivesCredentials(protocol model.Protocol) bool {
 	switch protocol {
 	case model.Naive, model.Mieru, model.TrustTunnel:
 		return true
+	case model.Anytls:
+		return tunnel.AnytlsSupportsUsers()
 	}
 	return false
 }

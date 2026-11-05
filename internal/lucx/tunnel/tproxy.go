@@ -248,9 +248,8 @@ func writeTproxySite(b *strings.Builder, hostname string, port int, cert, key st
 		b.WriteString(caddyToken(key))
 		b.WriteString("\n")
 	}
-	b.WriteString("\tencode zstd gzip\n")
-	b.WriteString("\theader -Via\n")
-	b.WriteString("\theader Server nginx\n")
+	writeSiteEncode(b, panel, "\t")
+	writeSiteHeaders(b, "\t")
 	writeHTTPPanelRoutes(b, panel, "\t")
 	if naive != nil {
 		b.WriteString("\troute {\n")

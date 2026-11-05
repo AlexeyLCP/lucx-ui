@@ -85,7 +85,7 @@ func TestRenderCoverCaddyfile_TproxyWins(t *testing.T) {
 		routes:         []CoverRoute{{Path: "/p", Dest: "https://127.0.0.1:2053"}},
 		publicUpstream: "http://127.0.0.1:3000",
 	})
-	for _, need := range []string{"reverse_proxy 127.0.0.1:24002", "header_down -Via", "header_down Server \"nginx\"", "protocols h1 h2", "encode zstd gzip", "handle /p*", "https://127.0.0.1:2053", "header_up Host {http.request.host}"} {
+	for _, need := range []string{"reverse_proxy 127.0.0.1:24002", "header_down -Via", "header_down -Server", "protocols h1 h2", "encode @site_pages zstd gzip", "handle /p*", "https://127.0.0.1:2053", "header_up Host {http.request.host}"} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("tproxy caddy missing %q:\n%s", need, got)
 		}
@@ -131,7 +131,7 @@ func TestRenderCoverCaddyfile_NaiveAndPath(t *testing.T) {
 	for _, need := range []string{
 		`:443, "shop.example.com"`, "forward_proxy", "basic_auth",
 		"handle /ws*", "reverse_proxy 127.0.0.1:10000",
-		"file_server", `root * "/site"`, "encode zstd gzip",
+		"file_server", `root * "/site"`, "encode @site_pages zstd gzip",
 	} {
 		if !strings.Contains(got, need) {
 			t.Fatalf("missing %q in:\n%s", need, got)

@@ -156,7 +156,7 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		Remark:   "anytls-home",
 		Settings: `{"port": 9443, "password": "shared", "sni": "vpn.example.com"}`,
 	}
-	inst, ok := AnytlsInstanceFromInbound(ib, cert, key)
+	inst, ok := AnytlsInstanceFromInbound(ib, nil, cert, key)
 	if !ok {
 		t.Fatal("expected ok")
 	}
@@ -187,13 +187,13 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 
 	disabled := *ib
 	disabled.Enable = false
-	inst, ok = AnytlsInstanceFromInbound(&disabled, cert, key)
+	inst, ok = AnytlsInstanceFromInbound(&disabled, nil, cert, key)
 	if !ok || inst.Enabled {
 		t.Fatalf("disabled inbound must yield Enabled:false, got %+v", inst)
 	}
 
 	other := &model.Inbound{Id: 1, Protocol: model.VLESS}
-	if _, ok := AnytlsInstanceFromInbound(other, cert, key); ok {
+	if _, ok := AnytlsInstanceFromInbound(other, nil, cert, key); ok {
 		t.Fatal("non-anytls inbound must not map")
 	}
 
@@ -203,7 +203,7 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		Enable:   true,
 		Settings: `{"port": 8443, "sni": "vpn.example.com"}`,
 	}
-	inst, ok = AnytlsInstanceFromInbound(passwordless, cert, key)
+	inst, ok = AnytlsInstanceFromInbound(passwordless, nil, cert, key)
 	if !ok || inst.Enabled {
 		t.Fatalf("passwordless inbound must stay down until save mints a password: %+v", inst)
 	}
@@ -214,7 +214,7 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		Enable:   true,
 		Settings: `{"port": 8443, "password": "x", "sni": "vpn.example.com"}`,
 	}
-	inst, ok = AnytlsInstanceFromInbound(nocert, "", "")
+	inst, ok = AnytlsInstanceFromInbound(nocert, nil, "", "")
 	if !ok || inst.Enabled {
 		t.Fatalf("no cert must stay down: %+v", inst)
 	}
@@ -226,7 +226,7 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		Port:     9444,
 		Settings: `{"port": 8443, "password": "x", "sni": "vpn.example.com"}`,
 	}
-	inst, ok = AnytlsInstanceFromInbound(ported, cert, key)
+	inst, ok = AnytlsInstanceFromInbound(ported, nil, cert, key)
 	if !ok || inst.ProbePort != 9444 {
 		t.Fatalf("inbound.Port must win over settings.port: %+v", inst)
 	}
@@ -250,5 +250,28 @@ func TestAnytlsConfigRouteThroughXray(t *testing.T) {
 	cfg, ok = AnytlsConfigFromInbound(&plain)
 	if !ok || cfg.RouteThroughXray || cfg.RouteXrayPort != 0 {
 		t.Fatal("absent routeThroughXray must stay false")
+	}
+}
+
+func TestAnytlsFallbackArgAndValidation(t *testing.T) {
+	anytlsPWFileOnce.Do(func() {}) // keep the real binary out of the test
+	anytlsFallbackOK = true
+	defer func() { anytlsFallbackOK = false }()
+	c := AnytlsConfig{Port: 443, Password: "p", SNI: "a.example.com", Fallback: "127.0.0.1:18087"}
+	if err := c.Validate(); err != nil {
+		t.Fatal(err)
+	}
+	args := strings.Join(c.BuildArgs("/c.pem", "/k.pem", ""), " ")
+	if !strings.Contains(args, "-fallback 127.0.0.1:18087") {
+		t.Errorf("missing -fallback in %q", args)
+	}
+	c.Fallback = "203.0.113.9:80"
+	if c.Validate() == nil {
+		t.Error("a non-loopback fallback must be rejected")
+	}
+	anytlsFallbackOK = false
+	c.Fallback = "127.0.0.1:18087"
+	if strings.Contains(strings.Join(c.BuildArgs("", "", ""), " "), "-fallback") {
+		t.Error("a binary without -fallback must not get the flag")
 	}
 }

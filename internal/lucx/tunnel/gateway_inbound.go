@@ -52,8 +52,8 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 	if port <= 0 {
 		port = gatewayDefaultPort
 	}
-	bindIP := strings.TrimSpace(cfg.BindIP)
-	rows := BuildPreview(port, cfg.PublicHost, others, bindIP)
+	binds := cfg.Binds()
+	rows := BuildPreview(port, cfg.PublicHost, others, binds...)
 	selected := map[int]bool{}
 	for _, s := range cfg.Snapshot {
 		selected[s.InboundID] = true
@@ -61,6 +61,8 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 	routes := cfg.Routes
 	if len(routes) == 0 {
 		routes = RoutesFromPreview(rows, selected)
+	} else {
+		routes = sidecarRoutesWithProxy(routes, others, selected)
 	}
 	if len(routes) == 0 {
 		logger.Warningf("tunnel: gateway-%d disabled: no SNI routes", ib.Id)
@@ -68,7 +70,7 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 	}
 	confPath := configPathFor(key, Gateway)
 	probe := port
-	if bindIP != "" {
+	if len(binds) > 0 {
 		probe = 0
 	}
 	conf := ""
@@ -76,6 +78,7 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 	if cfg.Unified && GatewaySupportsChan() {
 		var sites []string
 		var certs []string
+		var globals []string
 		byID := map[int]*model.Inbound{}
 		for _, o := range others {
 			if o != nil {
@@ -91,6 +94,9 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 				continue
 			}
 			site, certFile := gatewaySiteBlock(o, others, secret, panelCert, panelKey)
+			if site != "" && o.Protocol == model.Cover {
+				globals = append(globals, gatewayCoverGlobals(o, others, secret, panelCert, panelKey))
+			}
 			chanName := GatewayChanKey(o)
 			if site != "" {
 				sites = append(sites, site)
@@ -120,13 +126,17 @@ func GatewayInstanceFromInbound(ib *model.Inbound, others []*model.Inbound, secr
 		for _, c := range certs {
 			fpExtra += CertFileHash(c)
 		}
-		conf = RenderUnifiedGatewayCaddyfile(port, routes, fallbackChan, bindIP, sites)
+		httpBinds := binds
+		if len(binds) > 0 && len(cfg.HTTPBinds) > 0 {
+			httpBinds = CleanBinds(append(append([]string{}, binds...), cfg.HTTPBinds...))
+		}
+		conf = renderUnifiedGateway(port, routes, fallbackChan, binds, httpBinds, sites, globals...)
 	} else {
 		fallback := cfg.Fallback
 		if fallback == "" {
 			fallback = CoverFallback(rows, selected)
 		}
-		conf = RenderGatewayCaddyfile(port, routes, fallback, bindIP)
+		conf = RenderGatewayCaddyfile(port, routes, fallback, binds...)
 	}
 	return Instance{
 		Core:             Gateway,
@@ -211,6 +221,20 @@ func gatewaySiteBlock(o *model.Inbound, others []*model.Inbound, secret []byte, 
 	return "", ""
 }
 
+// gatewayCoverGlobals is the cover's global-options part (its local site
+// listeners) for the unified gateway Caddyfile.
+func gatewayCoverGlobals(o *model.Inbound, others []*model.Inbound, secret []byte, panelCert, panelKey string) string {
+	ccfg, ok := CoverConfigFromInbound(o)
+	if !ok {
+		return ""
+	}
+	att, _, _, ok := coverAttachFor(o, ccfg, others, secret, panelCert, panelKey)
+	if !ok {
+		return ""
+	}
+	return coverLocalServers(att)
+}
+
 // GatewayAbsorbed reports whether an applied unified gateway already serves
 // this inbound inside its own process — its standalone sidecar stays off.
 func GatewayAbsorbed(ib *model.Inbound, all []*model.Inbound) bool {
@@ -272,4 +296,37 @@ func probeGatewayChan() bool {
 		logger.Warningf("tunnel: %s lacks layer4.handlers.l4http — unified gateway falls back to proxy layout", bin)
 	}
 	return gatewayChanCap.ok
+}
+
+// sidecarRoutesWithProxy turns on PROXY v1 for the stored routes of AnyTLS
+// and TrustTunnel inbounds once their binary reads it. Routes are saved at
+// Apply, so a gateway applied before the sidecar upgrade would otherwise keep
+// hiding the client IP until it is applied again. Only these two are touched:
+// their LucX builds take the header optionally, other backends would break on
+// an unexpected one.
+func sidecarRoutesWithProxy(routes []GatewayRoute, others []*model.Inbound, selected map[int]bool) []GatewayRoute {
+	anytls, trust := AnytlsSupportsProxyProtocol(), TrustTunnelSupportsProxyProtocol()
+	if !anytls && !trust {
+		return routes
+	}
+	dests := map[string]bool{}
+	for _, o := range others {
+		if o == nil || !selected[o.Id] || !IsLoopbackListen(o.Listen) || o.Port <= 0 {
+			continue
+		}
+		if (o.Protocol == model.Anytls && anytls) || (o.Protocol == model.TrustTunnel && trust) {
+			dests[gatewayLoopbackDest(o.Port)] = true
+		}
+	}
+	if len(dests) == 0 {
+		return routes
+	}
+	out := make([]GatewayRoute, len(routes))
+	copy(out, routes)
+	for i := range out {
+		if out[i].NoProxy && out[i].Chan == "" && dests[strings.TrimSpace(out[i].Dest)] {
+			out[i].NoProxy = false
+		}
+	}
+	return out
 }
