@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## Fix: node-hosted SNI gateway mirror blocked disable/delete and node deletion (lucx.341)
+
+Tester report: toggling off (or deleting) a node-hosted SNI gateway inbound failed with "gateway inbound not found", and deleting that node then failed with "1 inbound(s) still attached" — a deadlock. Root cause: `setRemoteTraffic` mirrors every inbound a node panel reports, including the node's own SNI gateway with its masking snapshot in settings; the disable/delete hooks (`SetInboundEnable`, `UpdateInbound`, `delInbound`) then asked the master to revert a mask it never applied, and `gatewayAndOthers` (panel-local by design, `NodeID != nil` skipped) refused. A master-side revert would also be destructive: snapshot rows name the NODE panel's inbound ids, while master mirror row ids are unrelated.
+
+Fix: `DisableGatewayMask` returns "nothing to revert" for a node-hosted gateway inbound; the pushed disable/delete makes the node panel revert its own mask on the right host. The masking page never could select a node-hosted gateway (`nodeId == null` filter), so apply/preview/revert are unchanged.
+
+**lucxVersion:** lucx.341
+
+---
+
 ## lucx.340 — truthful AWG module stamp (2026-11-02)
 
 Follow-up on the lucx.339 release. A tester report (tg Lucx_soft) showed the dashboard/Core pill stuck on `3.1.20260812` after the 339 update + reboot, and it was unclear whether the 0906 module was actually running.

@@ -773,6 +773,14 @@ func (s *InboundService) DisableGatewayMask(id int) (bool, error) {
 	if gw.Protocol != model.Gateway {
 		return false, nil
 	}
+	// The master's gateway caddy only ever masks panel-local inbounds. On a
+	// node-hosted one the mask (snapshot, UFW, ports) lives on that node's
+	// panel; a master-side revert would rewrite master mirror rows by the
+	// node's inbound ids. Skip it — the node reverts its own mask on the
+	// pushed update, and an adopted stale snapshot dies with the node.
+	if gw.NodeID != nil {
+		return false, nil
+	}
 	cfg, ok := tunnel.GatewayConfigFromInbound(gw)
 	if !ok || !cfg.Applied() {
 		return false, nil
