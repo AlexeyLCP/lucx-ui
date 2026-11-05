@@ -62,6 +62,7 @@ func migrationModels() []any {
 		&model.SubBalancer{},
 		&model.CsqttMember{},
 		&model.TuicTrafficReceipt{},
+		&model.ClientWarpAccount{},
 	}
 }
 

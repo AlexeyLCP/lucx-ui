@@ -92,6 +92,7 @@ export class AllSetting {
   subJsonDns = '';
   subJsonFinalMask = '';
   subJsonObservatory = '';
+  subJsonClientWarp = '';
   subThemeDir = '';
   subHideSettings = false;
   subHappAutoDetect = false;

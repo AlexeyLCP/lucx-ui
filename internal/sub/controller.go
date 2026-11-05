@@ -121,6 +121,7 @@ type subControllerConfig struct {
 	subJsonDns            string
 	subJsonFinalMask      string
 	subJsonObservatory    string
+	subJsonClientWarp     string
 	subClashEnableRouting bool
 	subClashRules         string
 	subClashRemoteDNS     bool
@@ -230,6 +231,10 @@ func WithSUBJsonObservatory(value string) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subJsonObservatory = value }
 }
 
+func WithSUBJsonClientWarp(value string) SUBControllerOption {
+	return func(config *subControllerConfig) { config.subJsonClientWarp = value }
+}
+
 func WithSUBClashEnableRouting(value bool) SUBControllerOption {
 	return func(config *subControllerConfig) { config.subClashEnableRouting = value }
 }
@@ -327,6 +332,7 @@ func NewSUBController(g *gin.RouterGroup, options ...SUBControllerOption) *SUBCo
 	subJsonSvc := NewSubJsonService(config.subJsonMux, config.subJsonRules, config.subJsonFinalMask, config.subJsonRoutingRules, sub)
 	subJsonSvc.SetObservatoryConfig(config.subJsonObservatory)
 	subJsonSvc.SetDnsConfig(config.subJsonDns)
+	subJsonSvc.SetClientWarpConfig(config.subJsonClientWarp)
 	a := &SUBController{
 		subTitle:            config.subTitle,
 		subSupportUrl:       config.subSupportURL,

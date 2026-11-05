@@ -1552,6 +1552,19 @@ type CsqttMember struct {
 	UpdatedAt   int64  `json:"updatedAt" gorm:"autoUpdateTime:milli"`
 }
 
+// ClientWarpAccount is the Cloudflare WARP account registered for one
+// subscription (subJsonClientWarp). It is created on the first JSON
+// subscription request and reused afterwards, so every subscriber keeps one
+// stable WARP identity instead of sharing a key.
+type ClientWarpAccount struct {
+	SubId      string `json:"subId" gorm:"primaryKey;column:sub_id"`
+	PrivateKey string `json:"-" gorm:"column:private_key"`
+	AddressV4  string `json:"addressV4" gorm:"column:address_v4"`
+	AccountId  string `json:"-" gorm:"column:account_id"`
+	Token      string `json:"-" gorm:"column:token"`
+	CreatedAt  int64  `json:"createdAt" gorm:"autoCreateTime:milli"`
+}
+
 func MergeClientRecord(existing *ClientRecord, incoming *ClientRecord) []ClientMergeConflict {
 	var conflicts []ClientMergeConflict
 	keep := func(field string, oldV, newV, kept any) {

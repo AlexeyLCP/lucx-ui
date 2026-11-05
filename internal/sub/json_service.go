@@ -15,6 +15,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/database"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/util/clientwarp"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/json_util"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/maskcompat"
 	"github.com/mhsanaei/3x-ui/v3/internal/util/random"
@@ -40,6 +41,10 @@ type SubJsonService struct {
 
 	// dnsBlock is the panel DNS override, fixed for the service's lifetime.
 	dnsBlock map[string]any
+
+	// clientWarp is the subJsonClientWarp setting; nil disables it.
+	clientWarp         *clientwarp.Config
+	clientWarpAccounts *clientWarpAccounts
 
 	SubService *SubService
 }
@@ -281,6 +286,9 @@ func (s *SubJsonService) GetJson(subId string, host string, alwaysReturnArray bo
 			configArray = append(configArray, newConfig)
 		}
 	}
+
+	// Before the info node is prepended: the dummy document has nothing to route.
+	configArray = s.applyClientWarp(subId, configArray)
 
 	if len(configArray) == 0 && !hasInactiveExternal && !hasBoundClosed {
 		return "", "", nil

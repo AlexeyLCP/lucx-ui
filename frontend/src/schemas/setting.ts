@@ -97,6 +97,7 @@ export const AllSettingSchema = z
     subJsonDns: z.string().optional(),
     subJsonFinalMask: z.string().optional(),
     subJsonObservatory: z.string().optional(),
+    subJsonClientWarp: z.string().optional(),
     subHideSettings: z.boolean().optional(),
     subHappAutoDetect: z.boolean().optional(),
     subHappProviderId: z.string().optional(),
