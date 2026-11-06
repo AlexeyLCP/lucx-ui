@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.344 — sub: HWID device IP behind a reverse proxy uses trustedProxyCIDRs (2026-11-06)
+
+Reported by a tester (Orca): behind nginx (`location ^~ /sub/ → https://192.168.11.10:2096`, headers per our own reverse-proxy generator: `proxy_set_header X-Real-IP $remote_addr; X-Forwarded-For $proxy_add_x_forwarded_for`) the HWID Devices / Clients "Devices" column showed the **nginx host's LAN address** next to a correct HWID. Cause: `enforceHwid` (LUCX-HOOK, `internal/sub/controller.go`) recorded `c.RemoteIP()` unconditionally — the socket peer, which is the nginx box whenever the panel is proxied. lucx.342's deliberate "socket peer, headers forbidden" choice was correct only for the direct-reachable panel.
+
+Fix (new `internal/sub/client_ip.go`): `subscriptionClientIP(c)` mirrors the login limiter's trusted-proxy resolution (`controller/util.go getRemoteIp`, which the sub package cannot import — cycle via `controller → sub`). Socket peer stays the answer unless that peer is inside **`trustedProxyCIDRs`** (the existing panel setting; the sub package's own `remoteAddrInCIDRs` reused). A trusted proxy's `X-Real-IP` / `X-Forwarded-For` (walked from the proxy end, spoof-proof by construction, strict bare-IP parse) then names the visitor; mismatched `X-Real-IP` vs XFF falls back to the peer. Never-log-IPs masking (lucx.342) applies as before. `trustedProxyCIDRs` untouched for panel links — X-Real-IP is still never a host to connect to (#6589, lucx.125).
+
+**Operator action for the reported topology (nginx not on the panel host):** panel → Settings → the `trustedProxyCIDRs` field must include the nginx address, e.g. `127.0.0.1/32,::1/128,192.168.11.0/24`. Shipped default (loopback only) keeps recording the socket peer for non-loopback proxies, and a direct request still cannot name its own IP.
+
+Tests: `internal/sub/client_ip_test.go` — spoof from untrusted peer ignored; nginx-LAN X-Real-IP recorded; loopback default; XFF chain walked from the proxy end; client-sent XFF entry dropped; mismatched headers → peer; non-IP header values → peer. Green: `go build ./...`, `go vet ./internal/...`, `go test ./internal/sub/`, HWID service tests. lucxVersion bump (`config.go`).
+
+**lucxVersion:** lucx.344
+
+---
+
 ## lucx.343 — install-awg-module: honest rebuild gate + dkms install fallback (2026-11-05)
 
 Live (n9): the module was rebuilt from pin `4569c4c` but `/lib/modules` kept the pre-lucx.340 artifact stamped `3.1.20260812` — the dashboard pill showed the frozen upstream number while `/var/lib/dkms` held a correct `3.1.20260906` build. Three failures stacked:

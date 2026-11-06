@@ -27,6 +27,7 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 |---|---|
 | `internal/sub/service.go` `getInboundsBySubId` | lucx protocols in the SQL `IN` list (now inside a LUCX-HOOK marker; `openflux` included, lucx.313) |
 | `internal/sub/service.go` `ResolveRequest` | never use `X-Real-IP` as share host |
+| `internal/sub/controller.go` `enforceHwid` | device IP = `subscriptionClientIP` (peer + forwarded only from a trustedProxyCIDRs peer, lucx.344); X-Real-IP stays forbidden as a host |
 | `internal/sub/service.go` `amneziaWGConfigText` | always emit `S3`/`S4` (zero is real); drop unportable I-fields |
 | `internal/web/service/inbound.go` UpdateInbound | sidecar in-place `Update`, snapshot **old** protocol on del |
 | `internal/web/service/inbound_settings_commit.go` | kernel peer structural validation after rebase |
@@ -219,7 +220,7 @@ Keep the directory. Origin will not have these.
 | `internal/database/migrate_awg*.go` `migrate_geodata.go` `migrate_naive_inbound.go` `migrate_tunnel_*.go` `repair_tunnel_fields.go` | LucX migrations |
 | `internal/database/model/awg_outbound.go` `sidecar_outbound.go` `lenient_json.go` `lenient_json_test.go` | LucX tables + lenient JSON serializer (lucx.342) |
 | `internal/util/crypto/nosni.go` + `_test.go` | no-SNI throwaway certificate (lucx.342) |
-| `internal/sub/awg_*.go` `roscomvpn.go` `service_{awg,naive,qwdtt,trusttunnel}_test.go` `clash_awg_test.go` | LucX sub |
+| `internal/sub/awg_*.go` `roscomvpn.go` `client_ip.go` `service_{awg,naive,qwdtt,trusttunnel}_test.go` `clash_awg_test.go` | LucX sub (`client_ip.go`: HWID device IP behind trustedProxyCIDRs, lucx.344) |
 | `internal/web/controller/awg.go` `awg_outbound.go` `lucx.go` `tunnel.go` `sidecar_outbound.go` `kernel_wireguard.go` `wgo.go` | LucX API |
 | `internal/web/job/awg_job.go` `awg_speed_buffer.go` `tunnel_job.go` `log_retention_job.go` `kernel_wireguard_job.go` | LucX jobs (wgo reconcile lives in kernel_wireguard_job + tunnel_job) |
 | `internal/web/favicon/` | panel tab icon |

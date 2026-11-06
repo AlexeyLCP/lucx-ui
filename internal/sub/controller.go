@@ -776,9 +776,10 @@ func (a *SUBController) enforceHwid(c *gin.Context) bool {
 		DeviceOS:    c.GetHeader("X-Device-OS"),
 		OsVersion:   c.GetHeader("X-Ver-OS"),
 		DeviceModel: c.GetHeader("X-Device-Model"),
-		// LUCX-HOOK: the socket peer, not X-Forwarded-For: the sub server is
-		// reached directly, and a header would let a client pick its own address.
-		IP: c.RemoteIP(),
+		// LUCX-HOOK (lucx.344): behind a trusted proxy (trustedProxyCIDRs) the
+		// visitor's address rides X-Real-IP / X-Forwarded-For; anyone else keeps
+		// the socket peer, so a client can never pick its own address.
+		IP: subscriptionClientIP(c),
 		// END LUCX-HOOK
 	})
 	if err != nil {
