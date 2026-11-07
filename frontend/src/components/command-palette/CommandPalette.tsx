@@ -90,6 +90,7 @@ export const PALETTE_KEYWORDS: Record<string, string[]> = {
     'csqtt',
     'qwdtt',
     'masterdns',
+    'aivpn',
     'openflux',
     'trusttunnel',
   ],

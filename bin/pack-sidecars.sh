@@ -145,6 +145,20 @@ if ! have "masterdns-linux-${ARCH}"; then
     rm -rf /tmp/masterdns
 fi
 
+# AIVPN server (infosave2007/aivpn, MIT, rust). PIN v1.2.0 (80deb78) — the
+# InitialV2 breaking release; servers and clients must move together. Ships
+# prebuilt: aivpn-server-linux-x86_64 (any glibc x86_64) and
+# aivpn-server-linux-aarch64-musl (static).
+if ! have "aivpn-linux-${ARCH}"; then
+    case "$ARCH" in
+        amd64) aivpn_url="https://github.com/infosave2007/aivpn/releases/download/v1.2.0/aivpn-server-linux-x86_64" ;;
+        arm64) aivpn_url="https://github.com/infosave2007/aivpn/releases/download/v1.2.0/aivpn-server-linux-aarch64-musl" ;;
+        *) echo "no aivpn for ${ARCH}" >&2; exit 1 ;;
+    esac
+    fetch -O "${DEST}/aivpn-linux-${ARCH}" "${aivpn_url}"
+    chmod +x "${DEST}/aivpn-linux-${ARCH}"
+fi
+
 # OpenFlux exit (p1neappleXpress/OpenFlux). PIN v0.13.0 (4f9c786) — not
 # unpinned main (#148). The .conf contract (Role/Mode/Codec/EncryptionKeyFile/
 # CookieStore/URL + [Transport] Type/Priority/URL/Listen) and the openflux://v1

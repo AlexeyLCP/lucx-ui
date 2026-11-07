@@ -3366,6 +3366,7 @@
               "qwdtt",
               "csqtt",
               "masterdns",
+              "aivpn",
               "openflux",
               "mieru",
               "trusttunnel",
@@ -10514,6 +10515,355 @@
         ],
         "summary": "Stop the MasterDnsVPN core and remove its binary from disk. LucX-UI only.",
         "operationId": "post_panel_api_tunnel_masterdns_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/status": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "AIVPN core status for the Cores page: binary presence and process state. Inbound-only. LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_aivpn_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/logs": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Recent log lines of the AIVPN process (ring buffer, default 200). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_aivpn_logs",
+        "parameters": [
+          {
+            "name": "lines",
+            "in": "query",
+            "required": false,
+            "description": "Max lines to return (default 200).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/upload": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Replace the aivpn binary on disk (multipart field \"file\"). Body-limit exempt. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_aivpn_upload",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/download": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Fetch the aivpn-server binary from a URL into place. https only, to a public host. 200 MB cap. Optional sha256. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_aivpn_download",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "url": "https://example.com/aivpn-linux-amd64",
+                "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/deleteBinary": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Stop the AIVPN core and remove its binary from disk. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_aivpn_deleteBinary",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/clients": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "List AIVPN clients of the one local enabled inbound (relays the core management API). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_aivpn_clients",
+        "parameters": [
+          {
+            "name": "inboundId",
+            "in": "query",
+            "required": false,
+            "description": "Inbound id anchor (0 = any single local aivpn inbound).",
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/clients/add": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Create an AIVPN client server-side; the connection key is minted by the core. LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_aivpn_clients_add",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "inboundId": 12,
+                "name": "Alice Phone"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/clients/enable": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Enable or disable one AIVPN client (core API). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_aivpn_clients_enable",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "inboundId": 12,
+                "clientId": "7",
+                "enabled": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/tunnel/aivpn/clients/delete": {
+      "post": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Remove one AIVPN client (core API). LucX-UI only.",
+        "operationId": "post_panel_api_tunnel_aivpn_clients_delete",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "inboundId": 12,
+                "clientId": "7"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful response",

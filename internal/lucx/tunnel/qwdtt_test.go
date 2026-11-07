@@ -174,7 +174,7 @@ func TestQwdttNameRegistry(t *testing.T) {
 		t.Fatalf("BinaryName = %q", got)
 	}
 	all := All()
-	if len(all) != 17 || all[2] != Qwdtt || all[3] != Csqtt || all[4] != Masterdns || all[5] != Mieru || all[6] != TrustTunnel || all[7] != Anytls || all[8] != Tproxy || all[11] != MtprotoZig || all[12] != TproxyCaddy || all[13] != Cover || all[14] != Gateway || all[15] != Openflux || all[16] != Wgosocks {
+	if len(all) != 18 || all[2] != Qwdtt || all[3] != Csqtt || all[4] != Masterdns || all[5] != Aivpn || all[6] != Mieru || all[7] != TrustTunnel || all[8] != Anytls || all[9] != Tproxy || all[12] != MtprotoZig || all[13] != TproxyCaddy || all[14] != Cover || all[15] != Gateway || all[16] != Openflux || all[17] != Wgosocks {
 		t.Fatalf("All() = %v", all)
 	}
 }

@@ -154,7 +154,7 @@
       "promptLink": "编写插件的 AI 提示词",
       "runnerUnit": "systemd单元",
       "eventsCount": "订阅事件: {count}",
-      "subAfter": "\u5411\u8ba2\u9605\u6ce8\u5165\u94fe\u63a5 (sub/after)",
+      "subAfter": "向订阅注入链接 (sub/after)",
       "runnerProcess": "面板子进程",
       "memoryLimit": "内存限制：{count} MB",
       "notEnforcedHere": "此主机上未强制",
@@ -771,7 +771,7 @@
         "excludeFromSubHelp": "从订阅输出中隐藏此入站的链接，同时保持入站启用并继续工作。",
         "tproxyBackend": "WEB 代理后端",
         "tproxyBackendHint": "Legacy 保留当前 tproxy-server + MTProxy。MTProto Zig 使用新的 HTTPS/WebSocket relay，可能需要新的 WEB 链接；切换可回退。",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy（当前）",
         "tproxyBackendZig": "MTProto Zig（新 WEB relay）",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "当某个 IP 的未完成握手达到此数量时，关闭其新连接。共享 IP（运营商 NAT）后的客户端共用此上限。0 表示禁用。",
         "maxVersion": "最高版本",
         "headerName": "标头名称",
-        "headerValue": "标头值"
+        "headerValue": "标头值",
+        "aivpnSingleNote": "每台主机一个 AIVPN 入站——抗 DPI 的 UDP VPN（infosave2007/aivpn，MIT）。需要 aivpn-server 二进制（设置 → 内核）和 root 权限（内核自行创建 TUN 与 NAT）。客户端密钥由服务端签发，保存后可在下方添加客户端。aivpn:// 密钥仅适用于 AIVPN 官方客户端。",
+        "aivpnListen": "UDP 监听主机",
+        "aivpnSubnet": "隧道网段",
+        "aivpnSubnetHint": "服务器 VPN IP + 前缀（CIDR），例 10.200.0.1/24。留空 = 由入站 id 推导；之后不会默默变更。",
+        "aivpnServerIp": "公网地址（客户端密钥用）",
+        "aivpnServerIpHint": "写入新 aivpn:// 密钥的 IP 或 hostname:port。留空 = 本机出口 IP。",
+        "aivpnMtu": "内部 MTU",
+        "aivpnMtuHint": "0 = 默认（1280）。链路质量好可调大。",
+        "aivpnIpv6": "隧道内 IPv6",
+        "aivpnIpv6Hint": "客户端 NAT66；默认关闭。",
+        "aivpnClients": "AIVPN 客户端（由内核管理）",
+        "aivpnClientName": "设备名",
+        "aivpnClientEnabled": "启用",
+        "aivpnClientDownload": "下载",
+        "aivpnClientUpload": "上传",
+        "aivpnClientSeen": "最近上线",
+        "aivpnClientNever": "从未",
+        "aivpnClientDeleteConfirm": "从 AIVPN 内核删除该客户端？其密钥将失效。",
+        "aivpnSaveFirst": "请先保存入站——AIVPN 客户端管理需要入站 id。",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "AIVPN 客户端已添加——密钥见下方行",
+            "clientEnabled": "AIVPN 客户端已更新",
+            "clientDeleted": "AIVPN 客户端已删除"
+          }
+        }
       },
       "info": {
         "mode": "模式",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "SHA-256 校验和（可选）",
           "sha256Hint": "留空则安装该链接返回的任何内容。填写后，摘要不符的下载将被丢弃，保留当前二进制文件。",
           "sha256Invalid": "SHA-256 校验和为 64 位十六进制字符。"
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "AIVPN 二进制已上传",
+          "downloaded": "AIVPN 二进制已下载",
+          "deleted": "AIVPN 二进制已删除"
         }
       }
     }

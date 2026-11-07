@@ -19,6 +19,7 @@ import {
   TproxyStatusSchema,
   CsqttStatusSchema,
   MasterdnsStatusSchema,
+  AivpnStatusSchema,
   OpenfluxStatusSchema,
   type NaiveConfig,
   type NaiveStatus,
@@ -32,8 +33,10 @@ import {
   type TproxyStatus,
   type CsqttStatus,
   type MasterdnsStatus,
+  type AivpnStatus,
   type OpenfluxStatus,
 } from '@/schemas/tunnel';
+import type { AivpnClient } from '@/schemas/protocols/inbound/aivpn';
 
 export type {
   NaiveConfig,
@@ -48,8 +51,12 @@ export type {
   TproxyStatus,
   CsqttStatus,
   MasterdnsStatus,
+  AivpnStatus,
   OpenfluxStatus,
 };
+
+// AIVPN client row mirrors the Go tunnel.AivpnClient payload.
+export type AivpnClientPayload = AivpnClient;
 
 // JSON_HEADERS is load-bearing on every POST (lucx.69 lesson).
 const JSON_HEADERS = { headers: { 'Content-Type': 'application/json' } };
@@ -59,6 +66,7 @@ const OLCRTC = '/panel/api/tunnel/olcrtc';
 const QWDTT = '/panel/api/tunnel/qwdtt';
 const CSQTT = '/panel/api/tunnel/csqtt';
 const MASTERDNS = '/panel/api/tunnel/masterdns';
+const AIVPN = '/panel/api/tunnel/aivpn';
 const OPENFLUX = '/panel/api/tunnel/openflux';
 const MIERU = '/panel/api/tunnel/mieru';
 const TRUSTTUNNEL = '/panel/api/tunnel/trusttunnel';
@@ -193,6 +201,32 @@ export const tunnelsApi = {
   },
   masterdnsDeleteBinary: (): Promise<Msg<null>> =>
     HttpUtil.post<null>(`${MASTERDNS}/deleteBinary`, {}, JSON_HEADERS),
+
+  aivpnStatus: async (): Promise<Msg<AivpnStatus>> => {
+    const raw = await HttpUtil.get<AivpnStatus>(`${AIVPN}/status`, undefined, { silent: true });
+    return parseMsg(raw, AivpnStatusSchema, 'tunnel/aivpnStatus');
+  },
+  aivpnLogs: (lines = 200): Promise<Msg<string[]>> =>
+    HttpUtil.get<string[]>(`${AIVPN}/logs?lines=${lines}`),
+  aivpnDownload: (url: string, sha256?: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${AIVPN}/download`, { url, sha256 }, JSON_HEADERS),
+  aivpnUpload: (file: File): Promise<Msg<null>> => {
+    const fd = new FormData();
+    fd.append('file', file);
+    return HttpUtil.post<null>(`${AIVPN}/upload`, fd);
+  },
+  aivpnDeleteBinary: (): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${AIVPN}/deleteBinary`, {}, JSON_HEADERS),
+  // AIVPN clients live in the core DB; the panel relays through its
+  // management API. List/enable/delete take the inbound id as the anchor.
+  aivpnClients: (inboundId: number): Promise<Msg<AivpnClient[]>> =>
+    HttpUtil.get<AivpnClient[]>(`${AIVPN}/clients?inboundId=${inboundId}`),
+  aivpnAddClient: (inboundId: number, name: string): Promise<Msg<AivpnClient>> =>
+    HttpUtil.post<AivpnClient>(`${AIVPN}/clients/add`, { inboundId, name }, JSON_HEADERS),
+  aivpnEnableClient: (inboundId: number, clientId: string, enabled: boolean): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${AIVPN}/clients/enable`, { inboundId, clientId, enabled }, JSON_HEADERS),
+  aivpnDeleteClient: (inboundId: number, clientId: string): Promise<Msg<null>> =>
+    HttpUtil.post<null>(`${AIVPN}/clients/delete`, { inboundId, clientId }, JSON_HEADERS),
 
   openfluxStatus: async (): Promise<Msg<OpenfluxStatus>> => {
     const raw = await HttpUtil.get<OpenfluxStatus>(`${OPENFLUX}/status`, undefined, {

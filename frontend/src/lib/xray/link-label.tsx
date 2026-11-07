@@ -39,6 +39,7 @@ const PROTOCOL_LABELS: Record<string, string> = {
   qwdtt: 'qWDTT',
   csqtt: 'CSQTT',
   masterdns: 'MasterDnsVPN', // LUCX-HOOK: masterdns:// client-config wrapper
+  aivpn: 'AIVPN', // LUCX-HOOK: aivpn:// connection key
   openflux: 'OpenFlux',
   wdtt: 'qWDTT',
   mieru: 'mieru',

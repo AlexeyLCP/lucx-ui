@@ -154,7 +154,7 @@
       "promptLink": "Prompt de IA para escribir plugins",
       "runnerUnit": "unidad systemd",
       "eventsCount": "Suscrito a eventos: {count}",
-      "subAfter": "A\u00f1ade enlaces a la suscripci\u00f3n (sub/after)",
+      "subAfter": "Añade enlaces a la suscripción (sub/after)",
       "runnerProcess": "proceso hijo del panel",
       "memoryLimit": "Límite de memoria: {count} MB",
       "notEnforcedHere": "No se aplica en este host",
@@ -772,7 +772,7 @@
         "excludeFromSubHelp": "Oculta los enlaces de esta entrada en la salida de suscripción manteniendo la entrada habilitada y operativa.",
         "tproxyBackend": "Backend del proxy WEB",
         "tproxyBackendHint": "Legacy mantiene el sistema actual. MTProto Zig usa un relay HTTPS/WebSocket nuevo y puede requerir enlaces WEB nuevos; el cambio es reversible.",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (actual)",
         "tproxyBackendZig": "MTProto Zig (relay WEB nuevo)",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "Cierra las conexiones nuevas de una IP que ya tiene esta cantidad de handshakes sin completar. Los clientes detrás de una IP compartida (NAT del operador) comparten el límite. 0 lo desactiva.",
         "maxVersion": "Versión máxima",
         "headerName": "Nombre de cabecera",
-        "headerValue": "Valor de cabecera"
+        "headerValue": "Valor de cabecera",
+        "aivpnSingleNote": "Un solo inbound AIVPN por host — VPN UDP anti-DPI (infosave2007/aivpn, MIT). Necesita el binario aivpn-server (Ajustes → Núcleos) y root (el núcleo crea su TUN y NAT). Las claves de los clientes las emite el servidor; añade clientes aquí tras guardar. La clave aivpn:// solo funciona en las apps oficiales de AIVPN.",
+        "aivpnListen": "Host de escucha UDP",
+        "aivpnSubnet": "Subred del túnel",
+        "aivpnSubnetHint": "IP VPN del servidor + prefijo en CIDR, p. ej. 10.200.0.1/24. Vacío = derivado del id del inbound; no cambia silenciosamente después.",
+        "aivpnServerIp": "Host público (para claves)",
+        "aivpnServerIpHint": "IP o hostname:port incrustado en las nuevas claves aivpn://. Vacío = la IP de salida de este servidor.",
+        "aivpnMtu": "MTU interno",
+        "aivpnMtuHint": "0 = valor por defecto (1280). Súbelo en enlaces rápidos y limpios.",
+        "aivpnIpv6": "IPv6 por el túnel",
+        "aivpnIpv6Hint": "NAT66 para clientes; desactivado por defecto.",
+        "aivpnClients": "Clientes AIVPN (gestionados por el núcleo)",
+        "aivpnClientName": "Nombre del dispositivo",
+        "aivpnClientEnabled": "Habilitado",
+        "aivpnClientDownload": "Descarga",
+        "aivpnClientUpload": "Subida",
+        "aivpnClientSeen": "Últ. conexión",
+        "aivpnClientNever": "nunca",
+        "aivpnClientDeleteConfirm": "¿Eliminar el cliente del núcleo AIVPN? Su clave dejará de funcionar.",
+        "aivpnSaveFirst": "Guarda primero el inbound — el panel de clientes AIVPN necesita el id.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "Cliente AIVPN añadido — la clave está en la fila inferior",
+            "clientEnabled": "Cliente AIVPN actualizado",
+            "clientDeleted": "Cliente AIVPN eliminado"
+          }
+        }
       },
       "info": {
         "mode": "Modo",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "Suma de comprobación SHA-256 (opcional)",
           "sha256Hint": "Déjalo vacío para instalar lo que devuelva la URL. Si lo indicas, se descarta la descarga cuyo resumen no coincida y se conserva el binario actual.",
           "sha256Invalid": "Una suma SHA-256 tiene 64 caracteres hexadecimales."
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "Binario AIVPN subido",
+          "downloaded": "Binario AIVPN descargado",
+          "deleted": "Binario AIVPN eliminado"
         }
       }
     }

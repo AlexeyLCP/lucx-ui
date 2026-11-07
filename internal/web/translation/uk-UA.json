@@ -721,7 +721,7 @@
         "excludeFromSubHelp": "Приховує посилання цього inbound у виводі підписки, залишаючи inbound увімкненим і робочим.",
         "tproxyBackend": "Backend WEB-проксі",
         "tproxyBackendHint": "Legacy залишає поточний стек. MTProto Zig використовує новий HTTPS/WebSocket relay і може вимагати нових WEB-посилань; перемикання оборотне.",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (поточний)",
         "tproxyBackendZig": "MTProto Zig (новий WEB relay)",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "Нові з'єднання з IP, що вже має стільки незавершених рукостискань, закриваються. Клієнти за спільним IP (NAT оператора) ділять цей ліміт. 0 — вимкнено.",
         "maxVersion": "Максимальна версія",
         "headerName": "Назва заголовка",
-        "headerValue": "Значення заголовка"
+        "headerValue": "Значення заголовка",
+        "aivpnSingleNote": "Один AIVPN-інбаунд на хост — UDP-VPN з анти-DPI масками (infosave2007/aivpn, MIT). Потрібен бінар aivpn-server (Налаштування → Ядра) і root (ядро саме створює TUN і NAT). Ключі клієнтів мінтить ядро: клієнтів додавайте нижче після збереження. Ключ aivpn:// працює лише в офіційних застосунках AIVPN.",
+        "aivpnListen": "UDP-хост прослуховування",
+        "aivpnSubnet": "Підмережа тунелю",
+        "aivpnSubnetHint": "VPN-IP сервера + префікс у CIDR, напр. 10.200.0.1/24. Порожньо = з id інбаунда; далі мовчки не змінюється.",
+        "aivpnServerIp": "Публічний хост (для ключів клієнтів)",
+        "aivpnServerIpHint": "IP або hostname:port у нових ключах aivpn://. Порожньо = зовнішній IP цього сервера.",
+        "aivpnMtu": "Внутрішній MTU",
+        "aivpnMtuHint": "0 = типовий (1280). Більший — для швидких чистих каналів.",
+        "aivpnIpv6": "IPv6 у тунелі",
+        "aivpnIpv6Hint": "NAT66 для клієнтів; типово вимкнено.",
+        "aivpnClients": "Клієнти AIVPN (керування ядром)",
+        "aivpnClientName": "Ім'я пристрою",
+        "aivpnClientEnabled": "Увімкнено",
+        "aivpnClientDownload": "Завантажено",
+        "aivpnClientUpload": "Віддано",
+        "aivpnClientSeen": "Був на звʼязку",
+        "aivpnClientNever": "ніколи",
+        "aivpnClientDeleteConfirm": "Видалити клієнта з ядра AIVPN? Його ключ перестане працювати.",
+        "aivpnSaveFirst": "Спочатку збережіть інбаунд — панель клієнтів AIVPN вимагає id інбаунда.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "Клієнт AIVPN додано — ключ у рядку нижче",
+            "clientEnabled": "Клієнта AIVPN оновлено",
+            "clientDeleted": "Клієнта AIVPN видалено"
+          }
+        }
       },
       "info": {
         "mode": "Режим",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "Контрольна сума SHA-256 (необов'язково)",
           "sha256Hint": "Порожньо — буде встановлено те, що поверне посилання. Якщо вказати, завантаження з іншим хешем відхиляється, поточний бінарник лишається.",
           "sha256Invalid": "Контрольна сума SHA-256 — це 64 шістнадцяткові символи."
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "Бінар AIVPN завантажено",
+          "downloaded": "Бінар AIVPN скачано",
+          "deleted": "Бінар AIVPN видалено"
         }
       }
     }

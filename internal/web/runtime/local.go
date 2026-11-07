@@ -121,6 +121,9 @@ func (l *Local) AddInbound(_ context.Context, ib *model.Inbound) error {
 	if ib.Protocol == model.Masterdns {
 		return l.ensureMasterdnsInbound(ib)
 	}
+	if ib.Protocol == model.Aivpn {
+		return l.ensureAivpnInbound(ib)
+	}
 	if ib.Protocol == model.Openflux {
 		return l.ensureOpenfluxInbound(ib)
 	}
@@ -214,6 +217,10 @@ func (l *Local) DelInbound(_ context.Context, ib *model.Inbound) error {
 	}
 	if ib.Protocol == model.Masterdns {
 		tunnel.GetManager().Remove(tunnel.MasterdnsKey)
+		return nil
+	}
+	if ib.Protocol == model.Aivpn {
+		tunnel.GetManager().Remove(tunnel.AivpnKey)
 		return nil
 	}
 	if ib.Protocol == model.Openflux {
@@ -336,7 +343,7 @@ func (l *Local) UpdateInbound(ctx context.Context, oldIb, newIb *model.Inbound) 
 }
 
 func isTunnelInboundProto(p model.Protocol) bool {
-	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Csqtt || p == model.Masterdns || p == model.Openflux || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover || p == model.Gateway || p == model.Telemt
+	return p == model.Naive || p == model.Olcrtc || p == model.Qwdtt || p == model.Csqtt || p == model.Masterdns || p == model.Aivpn || p == model.Openflux || p == model.Mieru || p == model.TrustTunnel || p == model.Anytls || p == model.Tproxy || p == model.Cover || p == model.Gateway || p == model.Telemt
 }
 
 // tunnelUpdateDropsRunning reports whether an update must stop the old sidecar
@@ -392,6 +399,14 @@ func (l *Local) ensureCsqttInbound(ib *model.Inbound) error {
 
 func (l *Local) ensureMasterdnsInbound(ib *model.Inbound) error {
 	inst, ok := tunnel.MasterdnsInstanceFromInbound(ib)
+	if !ok {
+		return nil
+	}
+	return tunnel.GetManager().Ensure(inst)
+}
+
+func (l *Local) ensureAivpnInbound(ib *model.Inbound) error {
+	inst, ok := tunnel.AivpnInstanceFromInbound(ib)
 	if !ok {
 		return nil
 	}

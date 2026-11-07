@@ -13,6 +13,7 @@ import { OlcrtcInboundSettingsSchema } from './olcrtc'; // LUCX-HOOK: olcRTC
 import { QwdttInboundSettingsSchema } from './qwdtt'; // LUCX-HOOK: qWDTT
 import { CsqttInboundSettingsSchema } from './csqtt'; // LUCX-HOOK: CSQTT
 import { MasterdnsInboundSettingsSchema } from './masterdns'; // LUCX-HOOK: MasterDNSVPN
+import { AivpnInboundSettingsSchema } from './aivpn'; // LUCX-HOOK: AIVPN
 import { OpenfluxInboundSettingsSchema } from './openflux'; // LUCX-HOOK: OpenFlux
 import { MieruInboundSettingsSchema } from './mieru'; // LUCX-HOOK: mieru
 import { TrustTunnelInboundSettingsSchema } from './trusttunnel'; // LUCX-HOOK: TrustTunnel
@@ -43,6 +44,7 @@ export * from './olcrtc'; // LUCX-HOOK: olcRTC
 export * from './qwdtt'; // LUCX-HOOK: qWDTT
 export * from './csqtt'; // LUCX-HOOK: CSQTT
 export * from './masterdns'; // LUCX-HOOK: MasterDNSVPN
+export * from './aivpn'; // LUCX-HOOK: AIVPN
 export * from './openflux'; // LUCX-HOOK: OpenFlux
 export * from './mieru'; // LUCX-HOOK: mieru
 export * from './trusttunnel'; // LUCX-HOOK: TrustTunnel
@@ -86,6 +88,7 @@ export const InboundSettingsSchema = z.discriminatedUnion('protocol', [
   z.object({ protocol: z.literal('qwdtt'), settings: QwdttInboundSettingsSchema }), // LUCX-HOOK: qWDTT
   z.object({ protocol: z.literal('csqtt'), settings: CsqttInboundSettingsSchema }), // LUCX-HOOK: CSQTT
   z.object({ protocol: z.literal('masterdns'), settings: MasterdnsInboundSettingsSchema }), // LUCX-HOOK: MasterDNSVPN
+  z.object({ protocol: z.literal('aivpn'), settings: AivpnInboundSettingsSchema }), // LUCX-HOOK: AIVPN
   z.object({ protocol: z.literal('openflux'), settings: OpenfluxInboundSettingsSchema }), // LUCX-HOOK: OpenFlux
   z.object({ protocol: z.literal('mieru'), settings: MieruInboundSettingsSchema }), // LUCX-HOOK: mieru
   z.object({ protocol: z.literal('trusttunnel'), settings: TrustTunnelInboundSettingsSchema }), // LUCX-HOOK: TrustTunnel

@@ -1021,7 +1021,7 @@
         "masqueAppleRelayExportFailed": "Не удалось экспортировать Apple Network Relay.",
         "tproxyBackend": "Backend WEB-прокси",
         "tproxyBackendHint": "Legacy оставляет текущий стек tproxy-server + MTProxy. MTProto Zig использует новый HTTPS/WebSocket relay и может потребовать новые WEB-ссылки; переключение обратимо.",
-    "tproxyDcTip": "Движок MTProxy без ограничения частоты подключается к датацентрам и middle-proxy Telegram напрямую. Исходящий трафик хоста должен напрямую доходить до DC Telegram (TCP 443/8888) — если ни один не отвечает, панель не запускает прокси и пишет причину в лог (защита от штурма NAT на хостах за NAT).",
+        "tproxyDcTip": "Движок MTProxy без ограничения частоты подключается к датацентрам и middle-proxy Telegram напрямую. Исходящий трафик хоста должен напрямую доходить до DC Telegram (TCP 443/8888) — если ни один не отвечает, панель не запускает прокси и пишет причину в лог (защита от штурма NAT на хостах за NAT).",
         "tproxyBackendLegacy": "Legacy (текущий)",
         "tproxyBackendZig": "MTProto Zig (новый WEB relay)",
         "pluginsTitle": "Плагины-сайдкары",
@@ -1199,7 +1199,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "Новые подключения с IP, у которого уже столько незавершённых рукопожатий, закрываются. Клиенты за общим IP (NAT оператора) делят этот лимит. 0 — отключено.",
         "maxVersion": "Максимальная версия",
         "headerName": "Имя заголовка",
-        "headerValue": "Значение заголовка"
+        "headerValue": "Значение заголовка",
+        "aivpnSingleNote": "Один AIVPN-инбаунд на хост — UDP-VPN с анти-DPI масками (infosave2007/aivpn, MIT). Нужен бинарь aivpn-server (Настройки → Ядра) и root (ядро само создаёт TUN и NAT). Ключи клиентов минтит ядро: клиентов добавляйте ниже после сохранения. Ключ aivpn:// работает только в официальных приложениях AIVPN.",
+        "aivpnListen": "UDP-хост прослушивания",
+        "aivpnSubnet": "Подсеть туннеля",
+        "aivpnSubnetHint": "VPN-IP сервера + префикс в CIDR, напр. 10.200.0.1/24. Пусто = выводится из id инбаунда; дальше молча не меняется.",
+        "aivpnServerIp": "Публичный хост (для ключей клиентов)",
+        "aivpnServerIpHint": "IP или hostname:port, зашиваемый в новые ключи aivpn://. Пусто = внешний IP этого сервера.",
+        "aivpnMtu": "Внутренний MTU",
+        "aivpnMtuHint": "0 = апстрим-дефолт (1280). Больше — для быстрых чистых линков.",
+        "aivpnIpv6": "IPv6 внутри туннеля",
+        "aivpnIpv6Hint": "NAT66 для клиентов; по умолчанию выкл.",
+        "aivpnClients": "Клиенты AIVPN (управляет ядро)",
+        "aivpnClientName": "Имя устройства",
+        "aivpnClientEnabled": "Включён",
+        "aivpnClientDownload": "Загружено",
+        "aivpnClientUpload": "Отдано",
+        "aivpnClientSeen": "Был на связи",
+        "aivpnClientNever": "никогда",
+        "aivpnClientDeleteConfirm": "Удалить клиента из ядра AIVPN? Его ключ перестанет работать.",
+        "aivpnSaveFirst": "Сначала сохраните инбаунд — панель клиентов AIVPN требует id инбаунда.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "Клиент AIVPN добавлен — ключ в строке ниже",
+            "clientEnabled": "Клиент AIVPN обновлён",
+            "clientDeleted": "Клиент AIVPN удалён"
+          }
+        }
       },
       "info": {
         "mode": "Режим",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "Контрольная сумма SHA-256 (необязательно)",
           "sha256Hint": "Пусто — будет установлено то, что вернёт ссылка. Если указать, загрузка с другим хешем отбрасывается, текущий бинарник остаётся на месте.",
           "sha256Invalid": "Контрольная сумма SHA-256 — это 64 шестнадцатеричных символа."
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "Бинарь AIVPN загружен",
+          "downloaded": "Бинарь AIVPN скачан",
+          "deleted": "Бинарь AIVPN удалён"
         }
       }
     }

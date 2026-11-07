@@ -177,5 +177,8 @@ export type CsqttStatus = AnytlsStatus;
 export const MasterdnsStatusSchema = AnytlsStatusSchema; // LUCX-HOOK: MasterDNSVPN
 export type MasterdnsStatus = AnytlsStatus;
 
+export const AivpnStatusSchema = AnytlsStatusSchema; // LUCX-HOOK: AIVPN
+export type AivpnStatus = AnytlsStatus;
+
 export const OpenfluxStatusSchema = AnytlsStatusSchema;
 export type OpenfluxStatus = AnytlsStatus;

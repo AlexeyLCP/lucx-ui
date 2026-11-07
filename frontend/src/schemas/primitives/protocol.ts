@@ -21,6 +21,7 @@ export const ProtocolSchema = z.enum([
   'qwdtt', // LUCX-HOOK: qWDTT sidecar
   'csqtt', // LUCX-HOOK: CSQTT sidecar
   'masterdns', // LUCX-HOOK: MasterDNSVPN DNS-tunnel sidecar
+  'aivpn', // LUCX-HOOK: AIVPN anti-DPI UDP VPN sidecar
   'openflux', // LUCX-HOOK: OpenFlux sidecar
   'mieru', // LUCX-HOOK: mieru sidecar
   'trusttunnel', // LUCX-HOOK: TrustTunnel sidecar
@@ -60,6 +61,7 @@ export const Protocols = Object.freeze({
   QWDTT: 'qwdtt', // LUCX-HOOK: qWDTT
   CSQTT: 'csqtt', // LUCX-HOOK: CSQTT
   MASTERDNS: 'masterdns', // LUCX-HOOK: MasterDNSVPN
+  AIVPN: 'aivpn', // LUCX-HOOK: AIVPN
   OPENFLUX: 'openflux', // LUCX-HOOK: OpenFlux
   MIERU: 'mieru', // LUCX-HOOK: mieru
   TRUSTTUNNEL: 'trusttunnel', // LUCX-HOOK: TrustTunnel

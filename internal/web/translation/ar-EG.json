@@ -721,7 +721,7 @@
         "excludeFromSubHelp": "إخفاء روابط هذا الإدخال من مخرجات الاشتراك مع الإبقاء على الإدخال مفعّلاً ويعمل.",
         "tproxyBackend": "واجهة Telegram WEB",
         "tproxyBackendHint": "Legacy يستخدم المكدس الحالي. MTProto Zig يستخدم مرحّل HTTPS/WebSocket جديداً وقد يتطلب روابط WEB جديدة؛ التبديل قابل للعكس.",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (الحالي)",
         "tproxyBackendZig": "MTProto Zig (مرحّل WEB جديد)",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "تُغلق الاتصالات الجديدة من عنوان IP لديه هذا العدد من المصافحات غير المكتملة. يتشارك المستخدمون خلف عنوان IP مشترك (NAT لدى المشغّل) هذا الحد. القيمة 0 تعطّله.",
         "maxVersion": "الحد الأقصى للإصدار",
         "headerName": "اسم الترويسة",
-        "headerValue": "قيمة الترويسة"
+        "headerValue": "قيمة الترويسة",
+        "aivpnSingleNote": "إدخال AIVPN واحد لكل مضيف — UDP VPN مضاد للفحص العميق (infosave2007/aivpn، MIT). يحتاج ملف aivpn-server (الإعدادات ← النوى) وصلاحية الجذر (النواة تنشئ TUN وNAT بنفسها). مفاتيح العملاء تُصدر من الخادم؛ أضف العملاء أدناه بعد الحفظ. مفتاح aivpn:// يعمل في تطبيقات AIVPN الرسمية فقط.",
+        "aivpnListen": "مضيف UDP",
+        "aivpnSubnet": "شبكة النفق",
+        "aivpnSubnetHint": "IP الخادم + البادئة بصيغة CIDR، مثال 10.200.0.1/24. فارغ = مشتق من معرّف الإدخال؛ لا يتغيّر صامتًا بعد ذلك.",
+        "aivpnServerIp": "المضيف العام (لمفاتيح العملاء)",
+        "aivpnServerIpHint": "IP أو hostname:port يُطبَع في مفاتيح aivpn:// الجديدة. فارغ = IP الخارجي لهذا الخادم.",
+        "aivpnMtu": "MTU الداخلي",
+        "aivpnMtuHint": "0 = الافتراضي (1280). ارفعه للروابط النظيفة السريعة.",
+        "aivpnIpv6": "IPv6 داخل النفق",
+        "aivpnIpv6Hint": "NAT66 للعملاء؛ معطّل افتراضيًا.",
+        "aivpnClients": "عملاء AIVPN (تديرهم النواة)",
+        "aivpnClientName": "اسم الجهاز",
+        "aivpnClientEnabled": "ممكّن",
+        "aivpnClientDownload": "تنزيل",
+        "aivpnClientUpload": "رفع",
+        "aivpnClientSeen": "آخر اتصال",
+        "aivpnClientNever": "أبدًا",
+        "aivpnClientDeleteConfirm": "إزالة العميل من نواة AIVPN؟ مفتاحه سيتوقف عن العمل.",
+        "aivpnSaveFirst": "احفظ الإدخال أولًا — لوحة عملاء AIVPN تحتاج معرّف الإدخال.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "أُضيف عميل AIVPN — المفتاح في الصف أدناه",
+            "clientEnabled": "حُدّث عميل AIVPN",
+            "clientDeleted": "أُزيل عميل AIVPN"
+          }
+        }
       },
       "info": {
         "mode": "الوضع",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "المجموع الاختباري SHA-256 (اختياري)",
           "sha256Hint": "اتركه فارغًا ليُثبَّت ما يعيده الرابط. عند تعيينه، يُهمَل أي تنزيل يختلف بصمته ويبقى الملف التنفيذي الحالي.",
           "sha256Invalid": "المجموع الاختباري SHA-256 يتكون من 64 خانة ست عشرية."
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "رُفع ملف AIVPN التنفيذي",
+          "downloaded": "نُزّل ملف AIVPN التنفيذي",
+          "deleted": "حُذف ملف AIVPN التنفيذي"
         }
       }
     }

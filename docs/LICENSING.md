@@ -66,6 +66,8 @@ The panel **supervises external processes** and ships optional geo datasets. Not
 | `bin/qwdtt-linux-*` — [SpaceNeuroX/proxy-turn-vk-android](https://github.com/SpaceNeuroX/proxy-turn-vk-android) server | qWDTT (WG over VK TURN) | **GPL-3.0** |
 | `bin/csqtt-linux-*` — [amurcanov/csqtt](https://github.com/amurcanov/csqtt) rust-server (GitHub tarball; pin `fd936ef0`, v2.5.0) | CSQTT (TURN/RTP) | **PolyForm Noncommercial 1.0.0** (amurcanov; LucX commercial grant does not cover it) |
 | `bin/mieru-linux-*` — [enfein/mieru](https://github.com/enfein/mieru) `mita` | mieru server | **GPL-3.0** |
+| `bin/masterdns-linux-*` — [masterking32/MasterDnsVPN](https://github.com/masterking32/MasterDnsVPN) server (pin `5f83ee9`) | MasterDNSVPN DNS-tunnel core | Upstream MIT-family (see repo) |
+| `bin/aivpn-linux-*` — [infosave2007/aivpn](https://github.com/infosave2007/aivpn) `aivpn-server` (pin `v1.2.0` / `80deb78`) | AIVPN anti-DPI UDP VPN gateway | **MIT** |
 | `bin/trusttunnel-linux-*` — [TrustTunnel/TrustTunnel](https://github.com/TrustTunnel/TrustTunnel) `trusttunnel_endpoint` | TrustTunnel endpoint | **Apache-2.0** |
 | `bin/wgobfs-linux-*` — [Ground-Zerro/Phobos](https://github.com/Ground-Zerro/Phobos) `src/phobos-obfuscator` (pin `22aedefd`; derived from [ClusterM/wg-obfuscator](https://github.com/ClusterM/wg-obfuscator)) | WireGuard obfuscation presets + SOCKS5-exit (wgobfs) | **GPL-3.0** |
 | [amnezia-vpn](https://github.com/amnezia-vpn) kernel module & tools | AmneziaWG / AWG3 (installed by host scripts, not the panel binary) | **GPL-2.0** (kernel module) |
@@ -78,6 +80,7 @@ The panel **supervises external processes** and ships optional geo datasets. Not
 **Notes**
 
 - Tunnel binaries are **child processes**. LucX code under `internal/lucx/tunnel/` (PolyForm) only writes configs, spawns/kills, and probes health.
+- AIVPN is **MIT as an external program** — its binaries and mask profiles may be used/redistributed freely under that MIT term; the panel never carries AIVPN crypto code or mask data in-tree.
 - qWDTT is GPL-3.0 **as an external program**. Shipping the binary does not relicense LucX PolyForm sources; operators who redistribute qWDTT must still honour GPL-3.0 for that binary and its sources.
 - wgobfs is GPL-3.0 **as an external program** (the qWDTT/MTProxy precedent). Only the binary and the documented config/link formats are used; the Phobos TypeScript panel (AGPL-3.0) is neither copied nor linked — LucX re-implements the preset rendering and the `phobos://` format from the public docs.
 - CSQTT is amurcanov PolyForm NC **as an external program**. Redistribute with **their** LICENSE/Required Notice. LucX commercial permission does not sublicense CSQTT.

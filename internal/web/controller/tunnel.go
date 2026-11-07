@@ -207,6 +207,20 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	masterdns.POST("/download", a.masterdnsDownloadBinary)
 	masterdns.POST("/deleteBinary", a.masterdnsDeleteBinary)
 
+	// aivpn: binary management for Settings → Cores plus the client surface
+	// of the one local inbound (the core owns clients.json; the panel drives
+	// its management unix-socket API).
+	aivpn := g.Group("/aivpn")
+	aivpn.GET("/status", a.aivpnStatus)
+	aivpn.GET("/logs", a.aivpnLogs)
+	aivpn.POST("/upload", a.aivpnUploadBinary)
+	aivpn.POST("/download", a.aivpnDownloadBinary)
+	aivpn.POST("/deleteBinary", a.aivpnDeleteBinary)
+	aivpn.GET("/clients", a.aivpnClients)
+	aivpn.POST("/clients/add", a.aivpnAddClient)
+	aivpn.POST("/clients/enable", a.aivpnEnableClient)
+	aivpn.POST("/clients/delete", a.aivpnDeleteClient)
+
 	openflux := g.Group("/openflux")
 	openflux.GET("/status", a.openfluxStatus)
 	openflux.GET("/logs", a.openfluxLogs)
@@ -721,6 +735,117 @@ func (a *TunnelController) masterdnsDeleteBinary(c *gin.Context) {
 		return
 	}
 	jsonMsg(c, I18nWeb(c, "pages.tunnels.masterdns.toasts.deleted"), nil)
+}
+
+func (a *TunnelController) aivpnStatus(c *gin.Context) {
+	st, err := a.svc.AivpnStatus()
+	if err != nil {
+		jsonMsg(c, "tunnel: aivpn status failed", err)
+		return
+	}
+	jsonObj(c, st, nil)
+}
+
+func (a *TunnelController) aivpnLogs(c *gin.Context) {
+	lines := 200
+	if n := c.Query("lines"); n != "" {
+		if parsed, err := strconv.Atoi(n); err == nil && parsed > 0 {
+			lines = parsed
+		}
+	}
+	jsonObj(c, a.svc.AivpnLogs(lines), nil)
+}
+
+func (a *TunnelController) aivpnUploadBinary(c *gin.Context) {
+	dst := tunnel.Aivpn.BinaryPath()
+	if err := saveCoreUpload(c, dst); err != nil {
+		logger.Warning("tunnel: save uploaded aivpn binary failed:", err)
+		jsonMsg(c, "tunnel: aivpn upload failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.aivpn.toasts.uploaded"), nil)
+}
+
+func (a *TunnelController) aivpnDownloadBinary(c *gin.Context) {
+	var body tunnelDownloadRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid aivpn download body", err)
+		return
+	}
+	if err := a.svc.DownloadAivpnBinary(body.URL, body.SHA256); err != nil {
+		jsonMsg(c, "tunnel: aivpn download failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.aivpn.toasts.downloaded"), nil)
+}
+
+func (a *TunnelController) aivpnDeleteBinary(c *gin.Context) {
+	if err := a.svc.DeleteAivpnBinary(); err != nil {
+		jsonMsg(c, "tunnel: aivpn binary delete failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.tunnels.aivpn.toasts.deleted"), nil)
+}
+
+type aivpnClientRequest struct {
+	InboundId int    `json:"inboundId"`
+	Name      string `json:"name"`
+	ClientId  string `json:"clientId"`
+	Enabled   bool   `json:"enabled"`
+}
+
+func (a *TunnelController) aivpnClients(c *gin.Context) {
+	id, _ := strconv.Atoi(c.Query("inboundId"))
+	if inbound := (&service.TunnelService{}).AivpnInbound(id); inbound == nil {
+		jsonMsg(c, "tunnel: aivpn inbound not found or disabled", nil)
+		return
+	}
+	rows, err := (&service.AivpnService{}).Clients(id)
+	if err != nil {
+		jsonMsg(c, "tunnel: aivpn clients failed", err)
+		return
+	}
+	jsonObj(c, rows, nil)
+}
+
+func (a *TunnelController) aivpnAddClient(c *gin.Context) {
+	var body aivpnClientRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid aivpn client body", err)
+		return
+	}
+	client, err := (&service.AivpnService{}).Add(body.InboundId, body.Name)
+	if err != nil {
+		jsonMsg(c, "tunnel: aivpn add client failed", err)
+		return
+	}
+	jsonObj(c, client, nil)
+}
+
+func (a *TunnelController) aivpnEnableClient(c *gin.Context) {
+	var body aivpnClientRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid aivpn client body", err)
+		return
+	}
+	if err := (&service.AivpnService{}).SetEnabled(body.InboundId, body.ClientId, body.Enabled); err != nil {
+		jsonMsg(c, "tunnel: aivpn enable client failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.inbounds.form.aivpn.toasts.clientEnabled"), nil)
+}
+
+func (a *TunnelController) aivpnDeleteClient(c *gin.Context) {
+	var body aivpnClientRequest
+	if err := c.ShouldBindJSON(&body); err != nil {
+		jsonMsg(c, "tunnel: invalid aivpn client body", err)
+		return
+	}
+	if err := (&service.AivpnService{}).Remove(body.InboundId, body.ClientId); err != nil {
+		jsonMsg(c, "tunnel: aivpn delete client failed", err)
+		return
+	}
+	jsonMsg(c, I18nWeb(c, "pages.inbounds.form.aivpn.toasts.clientDeleted"), nil)
 }
 
 func (a *TunnelController) openfluxStatus(c *gin.Context) {

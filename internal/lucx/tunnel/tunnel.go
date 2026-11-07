@@ -12,6 +12,7 @@
 //   - qWDTT — SpaceNeuroX wdtt-server (WireGuard over VK TURN)
 //   - CSQTT — amurcanov/csqtt rust-server (TURN/RTP; not qWDTT)
 //   - OpenFlux — p1neappleXpress/OpenFlux exit (l4 gVisor; GPL-3.0 external process)
+//   - AIVPN — infosave2007/aivpn anti-DPI UDP VPN gateway (MIT; external process)
 //
 // Each core is one supervised process with a panel-rendered config file (or
 // CLI args), an isolated data directory and a health probe (process alive;
@@ -52,6 +53,13 @@ const Qwdtt Name = "qwdtt"
 // PolyForm NC). Not wire-compatible with qWDTT. Needs root (TUN csqtt1).
 // Binary is an external process — not linked into the panel.
 const Csqtt Name = "csqtt"
+
+// Aivpn is the AIVPN core: infosave2007/aivpn aivpn-server (MIT) — an
+// anti-DPI UDP VPN gateway whose packets are masked as STUN / QUIC / ICE
+// media flows. Multi-client, clients are managed through the core's
+// management unix-socket HTTP API. Needs root (TUN + NAT, installed by the
+// core itself). Binary is an external process — not linked into the panel.
+const Aivpn Name = "aivpn"
 
 // Masterdns is the MasterDNSVPN DNS-tunnel server (masterking32/MasterDnsVPN,
 // MIT-family license). UDP authoritative-DNS sidecar: the tunnel domain's NS
@@ -111,7 +119,7 @@ const (
 
 // All returns the supported INBOUND core names in display order.
 func All() []Name {
-	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, Telemt, MtprotoZig, TproxyCaddy, Cover, Gateway, Openflux, Wgosocks}
+	return []Name{Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Aivpn, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, Telemt, MtprotoZig, TproxyCaddy, Cover, Gateway, Openflux, Wgosocks}
 }
 
 // ClientCores returns outbound-client binary names (orphan sweep + Cores UI).
@@ -122,7 +130,7 @@ func ClientCores() []Name {
 // Valid reports whether n is one of the supported core names.
 func (n Name) Valid() bool {
 	switch n {
-	case Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, Telemt, MtprotoZig, TproxyCaddy, Cover, Gateway, Wgo, Wgosocks, NaiveClient, MieruClient, TrustTunnelClient:
+	case Naive, Olcrtc, Qwdtt, Csqtt, Masterdns, Aivpn, Openflux, Mieru, TrustTunnel, Anytls, Tproxy, Mtproxy, Telemt, MtprotoZig, TproxyCaddy, Cover, Gateway, Wgo, Wgosocks, NaiveClient, MieruClient, TrustTunnelClient:
 		return true
 	}
 	return false
@@ -141,6 +149,8 @@ func (n Name) DisplayName() string {
 		return "CSQTT"
 	case Masterdns:
 		return "MasterDnsVPN"
+	case Aivpn:
+		return "AIVPN"
 	case Openflux:
 		return "OpenFlux"
 	case Mieru:
@@ -271,6 +281,8 @@ func configPath(n Name) string {
 		return filepath.Join(workDir(), "naive.caddyfile")
 	case Olcrtc:
 		return filepath.Join(workDir(), "olcrtc.yaml")
+	case Aivpn:
+		return filepath.Join(workDir(), "aivpn.json")
 	default:
 		return filepath.Join(workDir(), string(n)+".conf")
 	}

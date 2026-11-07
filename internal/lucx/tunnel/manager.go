@@ -352,16 +352,19 @@ func (m *Manager) Remove(key string) {
 // No-op for legacy single-core keys (naive / olcrtc / qwdtt without suffix).
 // CSQTT is the exception: csqtt.db.main_device_id survives a delete otherwise.
 func removeManagedFiles(key string) {
-	if key == CsqttKey || key == MasterdnsKey {
+	if key == CsqttKey || key == MasterdnsKey || key == AivpnKey {
 		name := Csqtt
-		if key == MasterdnsKey {
+		switch key {
+		case MasterdnsKey:
 			name = Masterdns
+		case AivpnKey:
+			name = Aivpn
 		}
 		p := dataDirFor(key, name)
 		if err := os.RemoveAll(p); err != nil && !os.IsNotExist(err) {
 			logger.Warningf("tunnel: remove %s: %v", p, err)
 		}
-		// Rendered server TOML + secret live in the work dir (not the data
+		// Rendered server TOML/JSON + secret live in the work dir (not the data
 		// dir); single-credential keys keep them until the inbound is gone.
 		for _, extra := range workDirFilesForSingleInstanceKey(key) {
 			if err := os.Remove(extra); err != nil && !os.IsNotExist(err) {
@@ -444,6 +447,9 @@ func removeManagedFiles(key string) {
 func workDirFilesForSingleInstanceKey(key string) []string {
 	if strings.HasPrefix(key, "masterdns") {
 		return []string{key + ".toml", key + "-secret.txt"}
+	}
+	if strings.HasPrefix(key, "aivpn") {
+		return []string{key + ".json"}
 	}
 	return nil
 }

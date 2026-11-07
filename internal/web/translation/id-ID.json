@@ -721,7 +721,7 @@
         "excludeFromSubHelp": "Sembunyikan tautan inbound ini dari keluaran langganan sambil tetap menjaga inbound tetap aktif dan beroperasi.",
         "tproxyBackend": "Backend proxy WEB",
         "tproxyBackendHint": "Legacy mempertahankan stack saat ini. MTProto Zig memakai relay HTTPS/WebSocket baru dan mungkin memerlukan tautan WEB baru; perubahan dapat dibatalkan.",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (saat ini)",
         "tproxyBackendZig": "MTProto Zig (relay WEB baru)",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "Tutup koneksi baru dari IP yang sudah memiliki handshake belum selesai sebanyak ini. Klien di balik IP bersama (NAT operator) berbagi batas ini. 0 menonaktifkan.",
         "maxVersion": "Versi maksimum",
         "headerName": "Nama header",
-        "headerValue": "Nilai header"
+        "headerValue": "Nilai header",
+        "aivpnSingleNote": "Satu inbound AIVPN per host — VPN UDP anti-DPI (infosave2007/aivpn, MIT). Butuh binari aivpn-server (Pengaturan → Cores) dan root (core membuat TUN & NAT sendiri). Kunci klien dibuat oleh server; tambahkan klien di bawah setelah menyimpan. Kunci aivpn:// hanya berfungsi di aplikasi resmi AIVPN.",
+        "aivpnListen": "Host UDP",
+        "aivpnSubnet": "Subnet terowongan",
+        "aivpnSubnetHint": "IP VPN server + prefiks CIDR, mis. 10.200.0.1/24. Kosong = diturunkan dari id inbound; tidak berubah diam-diam setelahnya.",
+        "aivpnServerIp": "Host publik (untuk kunci)",
+        "aivpnServerIpHint": "IP atau hostname:port yang disematkan pada kunci aivpn:// baru. Kosong = IP keluar server ini.",
+        "aivpnMtu": "MTU dalam",
+        "aivpnMtuHint": "0 = bawaan (1280). Naikkan untuk tautan cepat yang bersih.",
+        "aivpnIpv6": "IPv6 lewat terowongan",
+        "aivpnIpv6Hint": "NAT66 untuk klien; mati secara bawaan.",
+        "aivpnClients": "Klien AIVPN (dikelola core)",
+        "aivpnClientName": "Nama perangkat",
+        "aivpnClientEnabled": "Aktif",
+        "aivpnClientDownload": "Unduh",
+        "aivpnClientUpload": "Unggah",
+        "aivpnClientSeen": "Masuk terakhir",
+        "aivpnClientNever": "tidak pernah",
+        "aivpnClientDeleteConfirm": "Hapus klien dari core AIVPN? Kuncinya berhenti bekerja.",
+        "aivpnSaveFirst": "Simpan inbound dulu — panel klien AIVPN butuh id inbound.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "Klien AIVPN ditambahkan — kuncinya di baris di bawah",
+            "clientEnabled": "Klien AIVPN diperbarui",
+            "clientDeleted": "Klien AIVPN dihapus"
+          }
+        }
       },
       "info": {
         "mode": "Mode",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "Checksum SHA-256 (opsional)",
           "sha256Hint": "Biarkan kosong untuk memasang apa pun yang dikembalikan URL. Jika diisi, unduhan dengan digest berbeda dibuang dan biner saat ini dipertahankan.",
           "sha256Invalid": "Checksum SHA-256 terdiri dari 64 karakter heksadesimal."
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "Binari AIVPN diunggah",
+          "downloaded": "Binari AIVPN diunduh",
+          "deleted": "Binari AIVPN dihapus"
         }
       }
     }

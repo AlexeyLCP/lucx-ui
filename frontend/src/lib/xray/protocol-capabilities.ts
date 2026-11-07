@@ -101,6 +101,7 @@ export function canEnableSniffing(values: { protocol: string }): boolean {
     values.protocol !== 'qwdtt' &&
     values.protocol !== 'csqtt' &&
     values.protocol !== 'masterdns' &&
+    values.protocol !== 'aivpn' &&
     values.protocol !== 'openflux' &&
     values.protocol !== 'mieru' &&
     values.protocol !== 'trusttunnel' &&

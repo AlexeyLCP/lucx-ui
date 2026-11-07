@@ -41,6 +41,7 @@ type CoreKind =
   | 'qwdtt'
   | 'csqtt'
   | 'masterdns'
+  | 'aivpn'
   | 'openflux'
   | 'mieru'
   | 'trusttunnel'
@@ -112,6 +113,14 @@ const CORE_API: Record<
     upload: tunnelsApi.masterdnsUpload,
     download: tunnelsApi.masterdnsDownload,
     deleteBinary: tunnelsApi.masterdnsDeleteBinary,
+  },
+  aivpn: {
+    key: keys.tunnels.aivpnStatus,
+    status: tunnelsApi.aivpnStatus,
+    logs: tunnelsApi.aivpnLogs,
+    upload: tunnelsApi.aivpnUpload,
+    download: tunnelsApi.aivpnDownload,
+    deleteBinary: tunnelsApi.aivpnDeleteBinary,
   },
   openflux: {
     key: keys.tunnels.openfluxStatus,
@@ -593,6 +602,7 @@ export default function CoresTab() {
       <BinaryCard kind="qwdtt" title="qWDTT" />
       <BinaryCard kind="csqtt" title="CSQTT" />
       <BinaryCard kind="masterdns" title="MasterDnsVPN" />
+      <BinaryCard kind="aivpn" title="AIVPN" />
       <BinaryCard kind="openflux" title="OpenFlux" />
       <BinaryCard kind="mieru" title="mieru" />
       <BinaryCard kind="trusttunnel" title="TrustTunnel" />

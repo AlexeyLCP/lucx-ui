@@ -154,7 +154,7 @@
       "promptLink": "Prompt AI để viết plugin",
       "runnerUnit": "unit systemd",
       "eventsCount": "Đăng ký sự kiện: {count}",
-      "subAfter": "Ch\u00e8n li\u00ean k\u1ebft v\u00e0o \u0111\u0103ng k\u00fd (sub/after)",
+      "subAfter": "Chèn liên kết vào đăng ký (sub/after)",
       "runnerProcess": "tiến trình con của panel",
       "memoryLimit": "Giới hạn bộ nhớ: {count} MB",
       "notEnforcedHere": "Không áp dụng trên máy này",
@@ -772,7 +772,7 @@
         "excludeFromSubHelp": "Ẩn liên kết inbound này khỏi đầu ra subscription nhưng vẫn giữ inbound được bật và hoạt động.",
         "tproxyBackend": "Backend proxy WEB",
         "tproxyBackendHint": "Legacy giữ nguyên stack hiện tại. MTProto Zig dùng relay HTTPS/WebSocket mới và có thể cần link WEB mới; có thể chuyển ngược.",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (hiện tại)",
         "tproxyBackendZig": "MTProto Zig (relay WEB mới)",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "Đóng kết nối mới từ IP đang có số bắt tay chưa hoàn tất bằng mức này. Các máy khách dùng chung IP (NAT nhà mạng) chia sẻ giới hạn. 0 để tắt.",
         "maxVersion": "Phiên bản tối đa",
         "headerName": "Tên header",
-        "headerValue": "Giá trị header"
+        "headerValue": "Giá trị header",
+        "aivpnSingleNote": "Một inbound AIVPN mỗi máy — VPN UDP chống DPI (infosave2007/aivpn, MIT). Cần nhị phân aivpn-server (Cài đặt → Cores) và root (nhân tự tạo TUN và NAT). Khóa máy khách do server cấp; thêm máy khách bên dưới sau khi lưu. Khóa aivpn:// chỉ hoạt động trên ứng dụng AIVPN chính thức.",
+        "aivpnListen": "Host UDP",
+        "aivpnSubnet": "Subnet đường hầm",
+        "aivpnSubnetHint": "IP VPN máy chủ + tiền tố CIDR, vd. 10.200.0.1/24. Trống = suy từ id inbound; không đổi âm thầm sau đó.",
+        "aivpnServerIp": "Host công khai (cho khóa)",
+        "aivpnServerIpHint": "IP hoặc hostname:port ghi vào khóa aivpn:// mới. Trống = IP ra của máy chủ.",
+        "aivpnMtu": "MTU trong",
+        "aivpnMtuHint": "0 = mặc định (1280). Tăng cho đường truyền nhanh, sạch.",
+        "aivpnIpv6": "IPv6 trong hầm",
+        "aivpnIpv6Hint": "NAT66 cho máy khách; mặc định tắt.",
+        "aivpnClients": "Máy khách AIVPN (nhân quản lý)",
+        "aivpnClientName": "Tên thiết bị",
+        "aivpnClientEnabled": "Bật",
+        "aivpnClientDownload": "Tải xuống",
+        "aivpnClientUpload": "Tải lên",
+        "aivpnClientSeen": "Kết nối gần nhất",
+        "aivpnClientNever": "chưa từng",
+        "aivpnClientDeleteConfirm": "Xóa máy khách khỏi nhân AIVPN? Khóa của họ sẽ ngưng hoạt động.",
+        "aivpnSaveFirst": "Hãy lưu inbound trước — bảng máy khách AIVPN cần id inbound.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "Đã thêm máy khách AIVPN — khóa nằm ở dòng dưới",
+            "clientEnabled": "Đã cập nhật máy khách AIVPN",
+            "clientDeleted": "Đã xóa máy khách AIVPN"
+          }
+        }
       },
       "info": {
         "mode": "Chế độ",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "Tổng kiểm tra SHA-256 (tùy chọn)",
           "sha256Hint": "Để trống để cài đặt bất cứ thứ gì URL trả về. Nếu điền, bản tải có digest khác sẽ bị loại bỏ và giữ nguyên tệp nhị phân hiện tại.",
           "sha256Invalid": "Tổng kiểm tra SHA-256 gồm 64 ký tự thập lục phân."
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "Đã tải lên nhị phân AIVPN",
+          "downloaded": "Đã tải xuống nhị phân AIVPN",
+          "deleted": "Đã xóa nhị phân AIVPN"
         }
       }
     }

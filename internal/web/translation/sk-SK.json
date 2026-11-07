@@ -154,7 +154,7 @@
       "promptLink": "AI prompt na písanie pluginov",
       "runnerUnit": "systemd jednotka",
       "eventsCount": "Odoberanie udalostí: {count}",
-      "subAfter": "Vklad\u00e1 odkazy do predplatn\u00e9ho (sub/after)",
+      "subAfter": "Vkladá odkazy do predplatného (sub/after)",
       "runnerProcess": "podriadený proces panela",
       "memoryLimit": "Limit pamäte: {count} MB",
       "notEnforcedHere": "Neplatí na tomto hostiteľovi",
@@ -776,7 +776,7 @@
         "excludeFromSubHelp": "Skryť odkazy tohto vstupu v odbere konfigurácií. Vstup zostane zapnutý a funkčný.",
         "tproxyBackend": "Backend WEB proxy",
         "tproxyBackendHint": "Legacy ponechá aktuálny zásobník. MTProto Zig používa nový HTTPS/WebSocket relay a môže vyžadovať nové WEB odkazy; prepnutie je vratné.",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (aktuálny)",
         "tproxyBackendZig": "MTProto Zig (nový WEB relay)",
         "pluginsTitle": "Sidecar plugins",
@@ -1199,7 +1199,33 @@
         "trustTunnelAdvanced": "Advanced",
         "trustTunnelClientRandomPrefix": "Client random prefix",
         "trustTunnelClientRandomPrefixHint": "TLS Client Random filter (hex/mask). Written to rules.toml and the client tt:// link. Clients must re-download the link after Regenerate.",
-        "trustTunnelClientRandomPrefixRegen": "Regenerate"
+        "trustTunnelClientRandomPrefixRegen": "Regenerate",
+        "aivpnSingleNote": "Jeden AIVPN inbound na host — UDP VPN s anti-DPI maskami (infosave2007/aivpn, MIT). Vyžaduje binárku aivpn-server (Nastavenia → Jadrá) a root (jadro vytvorí TUN a NAT samo). Kľúče klientov generuje server; klientov pridávajte nižšie po uložení. Kľúč aivpn:// funguje iba v oficiálnych aplikáciách AIVPN.",
+        "aivpnListen": "UDP host",
+        "aivpnSubnet": "Subnet tunela",
+        "aivpnSubnetHint": "VPN IP servera + prefix v CIDR, napr. 10.200.0.1/24. Prázdne = odvodené z id inboundu; potom sa nezmení.",
+        "aivpnServerIp": "Verejný host (pre kľúče)",
+        "aivpnServerIpHint": "IP alebo hostname:port do nových kľúčov aivpn://. Prázdne = odchádzajúca IP tohto servera.",
+        "aivpnMtu": "Vnútorný MTU",
+        "aivpnMtuHint": "0 = predvolené (1280). Zvýšte na rýchlých čistých linkách.",
+        "aivpnIpv6": "IPv6 v tuneli",
+        "aivpnIpv6Hint": "NAT66 pre klientov; predvolene vypnuté.",
+        "aivpnClients": "Klienti AIVPN (spravuje jadro)",
+        "aivpnClientName": "Názov zariadenia",
+        "aivpnClientEnabled": "Zapnutý",
+        "aivpnClientDownload": "Prevzaté",
+        "aivpnClientUpload": "Odoslané",
+        "aivpnClientSeen": "Naposledy videný",
+        "aivpnClientNever": "nikdy",
+        "aivpnClientDeleteConfirm": "Odstrániť klienta z jadra AIVPN? Jeho kľúč prestane fungovať.",
+        "aivpnSaveFirst": "Najprv uložte inbound — panel klientov AIVPN potrebuje id.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "Klient AIVPN pridaný — kľúč je v riadku nižšie",
+            "clientEnabled": "Klient AIVPN aktualizovaný",
+            "clientDeleted": "Klient AIVPN odstránený"
+          }
+        }
       },
       "info": {
         "mode": "Režim",
@@ -3534,7 +3560,14 @@
         }
       },
       "inboundMovedTitle": "Configuration is in Inbounds",
-      "inboundMovedDesc": "Add and edit NaiveProxy, olcRTC and qWDTT as Inbounds. This page is only for binaries, process logs and rare advanced ops."
+      "inboundMovedDesc": "Add and edit NaiveProxy, olcRTC and qWDTT as Inbounds. This page is only for binaries, process logs and rare advanced ops.",
+      "aivpn": {
+        "toasts": {
+          "uploaded": "Binárka AIVPN nahraná",
+          "downloaded": "Binárka AIVPN stiahnutá",
+          "deleted": "Binárka AIVPN odstránená"
+        }
+      }
     }
   },
   "tgbot": {

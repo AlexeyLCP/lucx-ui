@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.350 - aivpn: anti-DPI UDP VPN sidecar (infosave2007/aivpn) (2026-11-07)
+
+New tunnel sidecar core `aivpn` (protocol `aivpn`, one inbound per host): [infosave2007/aivpn](https://github.com/infosave2007/aivpn) `aivpn-server` (MIT, rust) - a UDP VPN gateway whose traffic is masked as STUN / QUIC v1 (HTTP/3 CONNECT-UDP) / ICE media flows; PFS ratchet built in. Needs root (the core installs its own TUN + NAT, nftables-to-iptables fallback incl. the DOCKER-USER fix). No routeThroughXray: it is a raw UDP VPN, not a TCP/SOCKS proxy.
+
+**Core** (`internal/lucx/tunnel/aivpn.go`, `aivpn_inbound.go`): the panel renders `bin/tunnel/aivpn.json` (`--config` argv, ConfigText fingerprint like naive) with per-instance paths inside `aivpn-data/` (server key, clients.json, audit.log, management unix socket `mgmt.sock`); `server_ip` auto-fills from the outbound IP or the operator field. **Rule 0**: the server key is minted once (`EnsureAivpnKeyFile` never rewrites) and connection keys (`aivpn://base64url(json)`) are minted by the core; the panel only relays the management API. The subnet is id-derived (`10.(200+id%54).0.1/24`, stable per inbound, away from CSQTT 10.66 / qWDTT 10.68 / AWG 10.254) or stored when the operator sets it. **Client surface (model B - no LucX-client mapping):** `internal/web/service/aivpn_clients.go` + controller routes `/panel/api/tunnel/aivpn/{status,logs,upload,download,deleteBinary,clients,clients/add,clients/enable,clients/delete}` relaying the core management API (`GET/POST/PATCH/DELETE /api/v1/clients*`) over the socket (tolerant JSON parsing - shapes verified at the first E2E). Rows carry name / enabled toggle / bytes in+out / last connected / issued key with QR in the inbound form (`protocols/aivpn.tsx`, uses the AWG inbound-id context). No subscription/JSON-Clash entry - no share link format.
+
+Wiring: registry + `configPath` json + workdir/data-dir cleanup files (manager), `model.Aivpn` + oneof, `lucxRuntimeSidecar` / `isTunnelInboundProto` / runtime Add/DelInbound delegation, reconcile in `TunnelService.Reconcile`, protocol gated in capabilities/defaults/schemas/form tabs/command palette/Cores/endpoints registry, i18n keys in all 14 locales. Packaging: `bin/pack-sidecars.sh` pins upstream release v1.2.0 (`80deb78`, InitialV2 - servers and clients move together; reactive bump policy like OpenFlux), `aivpn-linux-{amd64,arm64}` from upstream `aivpn-server-linux-x86_64` / `-aarch64-musl`; pins loop + `install.sh` list extended (masterdns was missing from both - added). Attribution: README mention + license tables, `docs/LICENSING.md` (MIT component), API reference regenerated via the docs-site `gen:api`.
+
+Tests: `aivpn_test.go` - id-stable subnet derivation (collision band), config render (paths/listen/CIDR parse, IPv6 gate), key file written exactly once, instance disabled/must-not-spawn, fingerprint changes with the port. Green: `go test ./internal/lucx/... ./internal/database/...`, gofumpt, typecheck/lint, vitest unit (1663), build, docs openapi cmp-gate.
+
+**E2E gate (before ship):** verify upstream field names live (`management_socket` JSON key, client create/patch shapes, socket dir permissions) on a Linux stand - DeepWiki-derived shapes are tolerant but unproven; root stand + official APK 1.2.0.
+
+**lucxVersion:** lucx.350
+
 ## lucx.349 — masking: REALITY self-SNI pair (issue #171) (2026-11-07)
 
 Requested by XaksFlaX: VLESS REALITY with the node's own name as SNI next to the WEB-proxy site on the same :443. Manual layout (REALITY `target=127.0.0.1:<site-port>`, site hostname == REALITY serverName) works without Masking and is proven on production nodes; Masking refused it — `SNIClash` returned "duplicate SNI" for the shared name, and the Cover hint said REALITY must keep a foreign SNI.

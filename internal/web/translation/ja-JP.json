@@ -154,7 +154,7 @@
       "promptLink": "プラグイン作成用 AI プロンプト",
       "runnerUnit": "systemdユニット",
       "eventsCount": "イベント購読: {count}",
-      "subAfter": "\u30b5\u30d6\u30ea\u30f3\u30af\u3092\u6ce8\u5165\u3057\u307e\u3059 (sub/after)",
+      "subAfter": "サブリンクを注入します (sub/after)",
       "runnerProcess": "パネルの子プロセス",
       "memoryLimit": "メモリ上限: {count} MB",
       "notEnforcedHere": "このホストでは未適用",
@@ -772,7 +772,7 @@
         "excludeFromSubHelp": "このインバウンドを有効なまま運用しつつ、サブスクリプション出力からリンクを隠します。",
         "tproxyBackend": "WEBプロキシバックエンド",
         "tproxyBackendHint": "Legacyは現在の構成を維持します。MTProto Zigは新しいHTTPS/WebSocketリレーを使い、新しいWEBリンクが必要になる場合があります。切り替えは戻せます。",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy（現在）",
         "tproxyBackendZig": "MTProto Zig（新WEBリレー）",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "未完了のハンドシェイクをこの数だけ保持している IP からの新規接続を閉じます。共有 IP（キャリア NAT）配下のクライアントはこの上限を共有します。0 で無効。",
         "maxVersion": "最大バージョン",
         "headerName": "ヘッダー名",
-        "headerValue": "ヘッダー値"
+        "headerValue": "ヘッダー値",
+        "aivpnSingleNote": "AIVPN は1ホスト1インバウンドの DPI 対策 UDP VPN（infosave2007/aivpn、MIT）。aivpn-server バイナリ（設定 → コア）と root 権限が必要です。クライアント鍵はサーバー側で発行され、保存後に下で追加します。aivpn:// 鍵は公式 AIVPN アプリでのみ動作します。",
+        "aivpnListen": "UDP 待ち受けホスト",
+        "aivpnSubnet": "トンネルサブネット",
+        "aivpnSubnetHint": "サーバー VPN IP + プレフィックスの CIDR 例 10.200.0.1/24。空欄はインバウンド ID 由来で、以後暗黙に変わりません。",
+        "aivpnServerIp": "公開ホスト（クライアント鍵用）",
+        "aivpnServerIpHint": "新しい aivpn:// 鍵に埋め込む IP または hostname:port。空欄 = 本サーバーの送信元 IP。",
+        "aivpnMtu": "内部 MTU",
+        "aivpnMtuHint": "0 = 既定 (1280)。高速な回線では大きくします。",
+        "aivpnIpv6": "トンネル内 IPv6",
+        "aivpnIpv6Hint": "クライアントへ NAT66。既定はオフ。",
+        "aivpnClients": "AIVPN クライアント（コア管理）",
+        "aivpnClientName": "デバイス名",
+        "aivpnClientEnabled": "有効",
+        "aivpnClientDownload": "ダウンロード",
+        "aivpnClientUpload": "アップロード",
+        "aivpnClientSeen": "最終接続",
+        "aivpnClientNever": "未接続",
+        "aivpnClientDeleteConfirm": "AIVPN コアからクライアントを削除しますか？鍵は無効になります。",
+        "aivpnSaveFirst": "先にインバウンドを保存してください — クライアント操作には ID が必要です。",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "AIVPN クライアントを追加しました — 鍵は下の行です",
+            "clientEnabled": "AIVPN クライアントを更新しました",
+            "clientDeleted": "AIVPN クライアントを削除しました"
+          }
+        }
       },
       "info": {
         "mode": "モード",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "SHA-256 チェックサム（任意）",
           "sha256Hint": "空欄の場合は URL が返したものをそのまま導入します。指定するとダイジェストが一致しないダウンロードは破棄され、現在のバイナリが保持されます。",
           "sha256Invalid": "SHA-256 チェックサムは 64 桁の 16 進数です。"
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "AIVPN バイナリをアップロードしました",
+          "downloaded": "AIVPN バイナリをダウンロードしました",
+          "deleted": "AIVPN バイナリを削除しました"
         }
       }
     }

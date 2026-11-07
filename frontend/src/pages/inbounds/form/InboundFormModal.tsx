@@ -78,6 +78,7 @@ import {
   QwdttFields, // LUCX-HOOK: qWDTT
   CsqttFields, // LUCX-HOOK: CSQTT
   MasterdnsFields, // LUCX-HOOK: MasterDNSVPN
+  AivpnFields, // LUCX-HOOK: AIVPN
   OpenfluxFields, // LUCX-HOOK: OpenFlux
   MieruFields, // LUCX-HOOK: mieru
   TrustTunnelFields, // LUCX-HOOK: TrustTunnel
@@ -1050,6 +1051,7 @@ export default function InboundFormModal({
       {protocol === Protocols.QWDTT && <QwdttFields />}
       {protocol === Protocols.CSQTT && <CsqttFields />}
       {protocol === Protocols.MASTERDNS && <MasterdnsFields />}
+      {protocol === Protocols.AIVPN && <AivpnFields />}
       {protocol === Protocols.OPENFLUX && <OpenfluxFields />}
       {protocol === Protocols.MIERU && <MieruFields />}
       {protocol === Protocols.TRUSTTUNNEL && <TrustTunnelFields />}
@@ -1423,6 +1425,7 @@ export default function InboundFormModal({
                       Protocols.QWDTT,
                       Protocols.CSQTT,
                       Protocols.MASTERDNS,
+                      Protocols.AIVPN,
                       Protocols.OPENFLUX,
                       Protocols.MIERU,
                       Protocols.TRUSTTUNNEL,

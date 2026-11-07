@@ -16,6 +16,7 @@ import type { OlcrtcInboundSettings } from '@/schemas/protocols/inbound/olcrtc';
 import type { QwdttInboundSettings } from '@/schemas/protocols/inbound/qwdtt';
 import type { CsqttInboundSettings } from '@/schemas/protocols/inbound/csqtt';
 import type { MasterdnsInboundSettings } from '@/schemas/protocols/inbound/masterdns';
+import type { AivpnInboundSettings } from '@/schemas/protocols/inbound/aivpn'; // LUCX-HOOK: AIVPN (settings type)
 import type { OpenfluxInboundSettings } from '@/schemas/protocols/inbound/openflux';
 import type { MieruInboundSettings } from '@/schemas/protocols/inbound/mieru';
 import type { TrustTunnelInboundSettings } from '@/schemas/protocols/inbound/trusttunnel';
@@ -336,6 +337,20 @@ export function createDefaultMasterdnsInboundSettings(): MasterdnsInboundSetting
     resolvers: '',
     routeThroughXray: false,
     outboundTag: '',
+  };
+}
+
+// LUCX-HOOK: AIVPN — subnet/paths default on the backend (id-derived).
+export function createDefaultAivpnInboundSettings(): AivpnInboundSettings {
+  return {
+    listenHost: '0.0.0.0',
+    subnet: '',
+    serverIp: '',
+    tunName: '',
+    mtu: 0,
+    ipv6: false,
+    ipv6Prefix: '',
+    extraArgs: '',
   };
 }
 
@@ -669,6 +684,7 @@ export type AnyInboundSettings =
   | QwdttInboundSettings
   | CsqttInboundSettings
   | MasterdnsInboundSettings
+  | AivpnInboundSettings // LUCX-HOOK: AIVPN
   | OpenfluxInboundSettings
   | MieruInboundSettings
   | TrustTunnelInboundSettings
@@ -719,6 +735,8 @@ export function createDefaultInboundSettings(protocol: string): AnyInboundSettin
       return createDefaultCsqttInboundSettings();
     case 'masterdns':
       return createDefaultMasterdnsInboundSettings();
+    case 'aivpn': // LUCX-HOOK: AIVPN
+      return createDefaultAivpnInboundSettings();
     case 'openflux':
       return createDefaultOpenfluxInboundSettings();
     case 'mieru':

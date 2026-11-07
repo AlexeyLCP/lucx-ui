@@ -351,6 +351,7 @@ func (s *TunnelService) Reconcile() {
 	s.reconcileQwdttInbound()
 	s.reconcileCsqttInbound()
 	s.reconcileMasterdnsInbound()
+	s.reconcileAivpnInbound()
 	s.reconcileOpenfluxInbounds()
 	s.reconcileMieruInbounds()
 	s.reconcileTrustTunnelInbounds()
@@ -598,6 +599,94 @@ func (s *TunnelService) reconcileCsqttInbound() {
 		return
 	}
 	tunnel.EnsureCsqttDirect()
+}
+
+// reconcileAivpnInbound drives the single AIVPN instance from its local
+// inbound (csqtt pattern; no OS-level routing — the core installs its own
+// TUN + NAT). Exactly one enabled inbound wins the process.
+func (s *TunnelService) reconcileAivpnInbound() {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel: aivpn inbound list failed:", err)
+		return
+	}
+	var one *model.Inbound
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Aivpn || ib.NodeID != nil {
+			continue
+		}
+		if one == nil || (ib.Enable && !one.Enable) {
+			one = ib
+		}
+	}
+	if one == nil {
+		_ = tunnel.GetManager().Stop(tunnel.Aivpn)
+		return
+	}
+	inst, ok := tunnel.AivpnInstanceFromInbound(one)
+	if !ok {
+		return
+	}
+	if err := tunnel.GetManager().Ensure(inst); err != nil {
+		logger.Warning("tunnel: aivpn inbound reconcile failed:", err)
+	}
+}
+
+// AivpnInbound returns the local (host) AIVPN inbound for the management
+// surface, or nil.
+func (s *TunnelService) AivpnInbound(id int) *model.Inbound {
+	inbounds, err := s.inboundService.GetAllInbounds()
+	if err != nil {
+		return nil
+	}
+	for _, ib := range inbounds {
+		if ib != nil && ib.Protocol == model.Aivpn && ib.NodeID == nil && (id <= 0 || ib.Id == id) && ib.Enable {
+			return ib
+		}
+	}
+	return nil
+}
+
+// --- AIVPN core (inbound-only) ----------------------------------------------
+
+// AivpnRunning reports whether the single AIVPN instance process is alive.
+func (s *TunnelService) AivpnRunning() bool {
+	return tunnel.GetManager().IsRunning(tunnel.Aivpn)
+}
+
+func (s *TunnelService) AivpnStatus() (MieruStatus, error) {
+	mgr := tunnel.GetManager()
+	bin := tunnel.Aivpn.BinaryPath()
+	info, statErr := os.Stat(bin)
+	return MieruStatus{
+		Core:         string(tunnel.Aivpn),
+		DisplayName:  tunnel.Aivpn.DisplayName(),
+		BinaryExists: statErr == nil && !info.IsDir(),
+		BinaryPath:   bin,
+		Probe:        mgr.StatusOf(tunnel.Instance{Core: tunnel.Aivpn, Key: tunnel.AivpnKey}),
+		LastLog:      mgr.LastLog(tunnel.Aivpn),
+	}, nil
+}
+
+func (s *TunnelService) AivpnLogs(lines int) []string {
+	if lines <= 0 {
+		lines = 200
+	}
+	return tunnel.GetManager().Logs(tunnel.Aivpn, lines)
+}
+
+func (s *TunnelService) DeleteAivpnBinary() error {
+	if err := tunnel.GetManager().Stop(tunnel.Aivpn); err != nil {
+		logger.Warning("tunnel: stop before aivpn binary delete failed:", err)
+	}
+	if err := os.Remove(tunnel.Aivpn.BinaryPath()); err != nil && !os.IsNotExist(err) {
+		return err
+	}
+	return nil
+}
+
+func (s *TunnelService) DownloadAivpnBinary(downloadURL, wantSHA256 string) error {
+	return s.downloadBinaryTo(tunnel.Aivpn.BinaryPath(), downloadURL, wantSHA256)
 }
 
 // reconcileMasterdnsInbound drives the single-credential MasterDNSVPN

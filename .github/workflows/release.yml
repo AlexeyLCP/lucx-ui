@@ -311,7 +311,7 @@ jobs:
           set -euo pipefail
           P="${{ matrix.platform }}"
           : > x-ui/bin/lucx-pins.txt
-          for c in caddy-naive naive-client olcrtc telemt mtproto-zig qwdtt csqtt openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4 wgobfs; do
+          for c in caddy-naive naive-client olcrtc telemt mtproto-zig qwdtt csqtt masterdns aivpn openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4 wgobfs; do
             f="x-ui/bin/${c}-linux-${P}"
             [ -x "$f" ] || continue
             echo "${c}-linux-${P} $(sha256sum "$f" | awk '{print $1}')" >> x-ui/bin/lucx-pins.txt

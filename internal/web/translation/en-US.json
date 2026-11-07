@@ -959,6 +959,32 @@
         "masterdnsRouteOutbound": "Outbound",
         "masterdnsRouteOutboundHint": "Optional target outbound tag for the routed egress.",
         "masterdnsRouteOutboundPlaceholder": "Default outbound",
+        "aivpnSingleNote": "One AIVPN inbound per host — an anti-DPI UDP VPN (infosave2007/aivpn, MIT). Needs the aivpn-server binary (Settings → Cores) and root (the core creates its TUN and NAT itself). Client keys are minted server-side; add clients below after saving. The aivpn:// key works in the official AIVPN apps only.",
+        "aivpnListen": "UDP listen host",
+        "aivpnSubnet": "Tunnel subnet",
+        "aivpnSubnetHint": "Server VPN IP + prefix as CIDR, e.g. 10.200.0.1/24. Empty = derived from the inbound id; never changes silently afterwards.",
+        "aivpnServerIp": "Public host (for client keys)",
+        "aivpnServerIpHint": "IP or hostname:port stamped into new aivpn:// keys. Empty = this server's outgoing IP.",
+        "aivpnMtu": " Inner MTU",
+        "aivpnMtuHint": "0 = upstream default (1280). Raise for fast clean links.",
+        "aivpnIpv6": "IPv6 over tunnel",
+        "aivpnIpv6Hint": "NAT66 for clients; off by default.",
+        "aivpnClients": "AIVPN clients (core-managed)",
+        "aivpnClientName": "Device name",
+        "aivpnClientEnabled": "Enabled",
+        "aivpnClientDownload": "Download",
+        "aivpnClientUpload": "Upload",
+        "aivpnClientSeen": "Last connected",
+        "aivpnClientNever": "never",
+        "aivpnClientDeleteConfirm": "Remove the client from the AIVPN core? Its key stops working.",
+        "aivpnSaveFirst": "Save the inbound first — the AIVPN client panel needs the inbound id.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "AIVPN client added — the key is in the row below",
+            "clientEnabled": "AIVPN client updated",
+            "clientDeleted": "AIVPN client removed"
+          }
+        },
         "csqttRouteThroughXray": "Route through Xray",
         "csqttRouteThroughXrayHint": "Off by default (host NAT). On sends csqtt1 into an Xray TUN so egress follows routing rules.",
         "csqttRouteOutbound": "Outbound",
@@ -3403,6 +3429,13 @@
           "uploaded": "MasterDnsVPN binary uploaded",
           "downloaded": "MasterDnsVPN binary downloaded",
           "deleted": "MasterDnsVPN binary deleted"
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "AIVPN binary uploaded",
+          "downloaded": "AIVPN binary downloaded",
+          "deleted": "AIVPN binary deleted"
         }
       },
       "csqtt": {

@@ -79,6 +79,7 @@ const MULTI_CLIENT_PROTOCOLS = new Set([
   'qwdtt',
   'csqtt',
   'masterdns',
+  'aivpn',
   'openflux',
   'olcrtc',
   'anytls',

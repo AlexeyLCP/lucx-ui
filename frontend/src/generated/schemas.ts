@@ -3340,6 +3340,7 @@ export const SCHEMAS: Record<string, unknown> = {
           "qwdtt",
           "csqtt",
           "masterdns",
+          "aivpn",
           "openflux",
           "mieru",
           "trusttunnel",

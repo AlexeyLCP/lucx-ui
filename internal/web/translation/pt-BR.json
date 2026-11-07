@@ -772,7 +772,7 @@
         "excludeFromSubHelp": "Oculta os links deste inbound na saída de assinatura, mantendo o inbound habilitado e operacional.",
         "tproxyBackend": "Backend do proxy WEB",
         "tproxyBackendHint": "Legacy mantém a pilha atual. MTProto Zig usa um novo relay HTTPS/WebSocket e pode exigir novos links WEB; a troca é reversível.",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (atual)",
         "tproxyBackendZig": "MTProto Zig (novo relay WEB)",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "Fecha novas conexões de um IP que já tem esta quantidade de handshakes não concluídos. Clientes atrás de um IP compartilhado (NAT da operadora) dividem o limite. 0 desativa.",
         "maxVersion": "Versão máxima",
         "headerName": "Nome do cabeçalho",
-        "headerValue": "Valor do cabeçalho"
+        "headerValue": "Valor do cabeçalho",
+        "aivpnSingleNote": "Um inbound AIVPN por host — VPN UDP anti-DPI (infosave2007/aivpn, MIT). Requer o binário aivpn-server (Ajustes → Núcleos) e root (o núcleo cria o próprio TUN e NAT). As chaves dos clientes são geradas pelo servidor; adicione clientes abaixo após salvar. A chave aivpn:// só funciona nos apps oficiais do AIVPN.",
+        "aivpnListen": "Host UDP",
+        "aivpnSubnet": "Sub-rede do túnel",
+        "aivpnSubnetHint": "IP VPN do servidor + prefixo em CIDR, ex. 10.200.0.1/24. Vazio = derivado do id do inbound; não muda silenciosamente depois.",
+        "aivpnServerIp": "Host público (para chaves)",
+        "aivpnServerIpHint": "IP ou hostname:port embutido nas novas chaves aivpn://. Vazio = IP de saída deste servidor.",
+        "aivpnMtu": "MTU interno",
+        "aivpnMtuHint": "0 = padrão (1280). Aumente em enlaces rápidos e limpos.",
+        "aivpnIpv6": "IPv6 no túnel",
+        "aivpnIpv6Hint": "NAT66 para clientes; desativado por padrão.",
+        "aivpnClients": "Clientes AIVPN (gerenciados pelo núcleo)",
+        "aivpnClientName": "Nome do dispositivo",
+        "aivpnClientEnabled": "Ativado",
+        "aivpnClientDownload": "Download",
+        "aivpnClientUpload": "Upload",
+        "aivpnClientSeen": "Última conexão",
+        "aivpnClientNever": "nunca",
+        "aivpnClientDeleteConfirm": "Remover o cliente do núcleo AIVPN? A chave dele para de funcionar.",
+        "aivpnSaveFirst": "Salve o inbound primeiro — o painel de clientes AIVPN precisa do id.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "Cliente AIVPN adicionado — a chave está na linha abaixo",
+            "clientEnabled": "Cliente AIVPN atualizado",
+            "clientDeleted": "Cliente AIVPN removido"
+          }
+        }
       },
       "info": {
         "mode": "Modo",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "Soma de verificação SHA-256 (opcional)",
           "sha256Hint": "Deixe vazio para instalar o que a URL retornar. Se preenchido, um download com resumo diferente é descartado e o binário atual é mantido.",
           "sha256Invalid": "Uma soma SHA-256 tem 64 caracteres hexadecimais."
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "Binário AIVPN enviado",
+          "downloaded": "Binário AIVPN baixado",
+          "deleted": "Binário AIVPN removido"
         }
       }
     }

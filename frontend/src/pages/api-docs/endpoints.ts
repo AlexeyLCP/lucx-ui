@@ -1350,6 +1350,78 @@ export const sections: readonly Section[] = [
       },
       {
         method: 'GET',
+        path: '/panel/api/tunnel/aivpn/status',
+        summary:
+          'AIVPN core status for the Cores page: binary presence and process state. Inbound-only. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/aivpn/logs',
+        summary: 'Recent log lines of the AIVPN process (ring buffer, default 200). LucX-UI only.',
+        params: [
+          {
+            name: 'lines',
+            in: 'query',
+            type: 'number',
+            desc: 'Max lines to return (default 200).',
+            optional: true,
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/aivpn/upload',
+        summary:
+          'Replace the aivpn binary on disk (multipart field "file"). Body-limit exempt. LucX-UI only.',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/aivpn/download',
+        summary:
+          'Fetch the aivpn-server binary from a URL into place. https only, to a public host. 200 MB cap. Optional sha256. LucX-UI only.',
+        body: '{\n  "url": "https://example.com/aivpn-linux-amd64",\n  "sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/aivpn/deleteBinary',
+        summary: 'Stop the AIVPN core and remove its binary from disk. LucX-UI only.',
+      },
+      {
+        method: 'GET',
+        path: '/panel/api/tunnel/aivpn/clients',
+        summary:
+          'List AIVPN clients of the one local enabled inbound (relays the core management API). LucX-UI only.',
+        params: [
+          {
+            name: 'inboundId',
+            in: 'query',
+            type: 'number',
+            desc: 'Inbound id anchor (0 = any single local aivpn inbound).',
+            optional: true,
+          },
+        ],
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/aivpn/clients/add',
+        summary:
+          'Create an AIVPN client server-side; the connection key is minted by the core. LucX-UI only.',
+        body: '{\n  "inboundId": 12,\n  "name": "Alice Phone"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/aivpn/clients/enable',
+        summary: 'Enable or disable one AIVPN client (core API). LucX-UI only.',
+        body: '{\n  "inboundId": 12,\n  "clientId": "7",\n  "enabled": false\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/tunnel/aivpn/clients/delete',
+        summary: 'Remove one AIVPN client (core API). LucX-UI only.',
+        body: '{\n  "inboundId": 12,\n  "clientId": "7"\n}',
+      },
+      {
+        method: 'GET',
         path: '/panel/api/tunnel/openflux/status',
         summary: 'OpenFlux core status for the Cores page. Inbound-only. LucX-UI only.',
       },

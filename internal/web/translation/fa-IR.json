@@ -772,7 +772,7 @@
         "excludeFromSubHelp": "لینک‌های این ورودی را از خروجی اشتراک پنهان می‌کند، در حالی که ورودی همچنان فعال و عملیاتی می‌ماند.",
         "tproxyBackend": "بک‌اند پروکسی WEB",
         "tproxyBackendHint": "Legacy پشته فعلی را نگه می‌دارد. MTProto Zig از relay جدید HTTPS/WebSocket استفاده می‌کند و ممکن است لینک‌های WEB جدید بخواهد؛ تغییر قابل بازگشت است.",
-    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
+        "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (فعلی)",
         "tproxyBackendZig": "MTProto Zig (relay جدید WEB)",
         "pluginsTitle": "Sidecar plugins",
@@ -1198,7 +1198,33 @@
         "mtgPendingHandshakesMaxPerIpHint": "اتصال‌های جدید از IPای که این تعداد handshake ناتمام دارد بسته می‌شوند. کاربرانی که پشت یک IP مشترک (NAT اپراتور) هستند این سقف را با هم شریک‌اند. مقدار ۰ غیرفعال است.",
         "maxVersion": "حداکثر نسخه",
         "headerName": "نام هدر",
-        "headerValue": "مقدار هدر"
+        "headerValue": "مقدار هدر",
+        "aivpnSingleNote": "برای هر میزبان فقط یک ورودی AIVPN — VPN ضد DPI (infosave2007/aivpn، MIT). به باینری aivpn-server (تنظیمات ← هسته‌ها) و دسترسی root نیاز دارد. کلیدهای کاربران را سرور صادر می‌کند؛ پس از ذخیره، کاربران را در این بخش اضافه کنید. کلید aivpn:// فقط در اپ‌های رسمی AIVPN کار می‌کند.",
+        "aivpnListen": "میزبان UDP",
+        "aivpnSubnet": "زیرشبکه تونل",
+        "aivpnSubnetHint": "IP سرور + پیشوند CIDR، مثل 10.200.0.1/24. خالی = از شناسه ورودی؛ پس از آن بدون اطلاع تغییر نمی‌کند.",
+        "aivpnServerIp": "میزبان عمومی (برای کلیدها)",
+        "aivpnServerIpHint": "IP یا hostname:port درون کلیدهای جدید aivpn://. خالی = IP خروجی همین سرور.",
+        "aivpnMtu": "MTU درونی",
+        "aivpnMtuHint": "0 = پیش‌فرض (1280). برای لینک‌های سریع بیشتر کنید.",
+        "aivpnIpv6": "IPv6 در تونل",
+        "aivpnIpv6Hint": "NAT66 برای کاربران؛ پیش‌فرض خاموش.",
+        "aivpnClients": "کاربران AIVPN (مدیریت هسته)",
+        "aivpnClientName": "نام دستگاه",
+        "aivpnClientEnabled": "فعال",
+        "aivpnClientDownload": "دریافت",
+        "aivpnClientUpload": "ارسال",
+        "aivpnClientSeen": "آخرین اتصال",
+        "aivpnClientNever": "هرگز",
+        "aivpnClientDeleteConfirm": "حذف کاربر از هسته AIVPN؟ کلید او بی‌اثر می‌شود.",
+        "aivpnSaveFirst": "ابتدا ورودی را ذخیره کنید — پنل کاربران AIVPN به شناسه ورودی نیاز دارد.",
+        "aivpn": {
+          "toasts": {
+            "clientAdded": "کاربر AIVPN اضافه شد — کلید در سطر زیر است",
+            "clientEnabled": "کاربر AIVPN به‌روزرسانی شد",
+            "clientDeleted": "کاربر AIVPN حذف شد"
+          }
+        }
       },
       "info": {
         "mode": "حالت",
@@ -3533,6 +3559,13 @@
           "sha256Placeholder": "جمع کنترلی SHA-256 (اختیاری)",
           "sha256Hint": "خالی بگذارید تا هر چه نشانی برمی‌گرداند نصب شود. در صورت تعیین، دانلودی که چکیده‌اش متفاوت باشد دور ریخته می‌شود و فایل اجرایی فعلی حفظ می‌گردد.",
           "sha256Invalid": "جمع کنترلی SHA-256 شامل ۶۴ نویسه شانزده‌شانزدهی است."
+        }
+      },
+      "aivpn": {
+        "toasts": {
+          "uploaded": "باینری AIVPN آپلود شد",
+          "downloaded": "باینری AIVPN دانلود شد",
+          "deleted": "باینری AIVPN حذف شد"
         }
       }
     }

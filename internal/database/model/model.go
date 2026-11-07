@@ -53,6 +53,9 @@ const (
 	// MasterDNSVPN — DNS-tunnel server sidecar, single-credential, single
 	// inbound; needs a delegated tunnel domain (UDP).
 	Masterdns Protocol = "masterdns"
+	// AIVPN — infosave2007/aivpn anti-DPI UDP VPN gateway (MIT). One
+	// inbound per host; clients live in the core DB (management API).
+	Aivpn Protocol = "aivpn"
 	// OpenFlux — exit sidecar (l4). One link, one active client. Not Xray.
 	Openflux Protocol = "openflux"
 	// mieru — mita server (enfein/mieru), multi-client, multi-inbound.
@@ -106,7 +109,7 @@ type Inbound struct {
 	// Xray configuration fields
 	Listen            string   `json:"listen" form:"listen"`
 	Port              int      `json:"port" form:"port" validate:"gte=0,lte=65535" example:"443"`
-	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto telemt amneziawg tuic masque awg naive olcrtc qwdtt csqtt masterdns openflux mieru trusttunnel anytls tproxy cover gateway wgosocks" example:"vless"`
+	Protocol          Protocol `json:"protocol" form:"protocol" validate:"required,oneof=vmess vless trojan shadowsocks wireguard hysteria http mixed tunnel tun mtproto telemt amneziawg tuic masque awg naive olcrtc qwdtt csqtt masterdns aivpn openflux mieru trusttunnel anytls tproxy cover gateway wgosocks" example:"vless"`
 	Settings          string   `json:"settings" form:"settings"`
 	StreamSettings    string   `json:"streamSettings" form:"streamSettings"`
 	Tag               string   `json:"tag" form:"tag" gorm:"unique" example:"in-443-tcp"`
