@@ -322,3 +322,11 @@ Extracted from AGENTS.md. This file is project law.
 - **Fix (lucx.192):** accounting must not terminate INPUT. lucx.192 first jumped to empty `LUCX_ANYTLS_ACCT` (UFW works, but iptables-nft often leaves jump counters at 0 → panel traffic/online stay empty). Now `-j MARK --set-xmark 0x0/0x0` (non-terminating, counters increment). Sweep leftover `-j RETURN` and `-j LUCX_ANYTLS_ACCT`.
 - **Healing without lucx.192:** `iptables -I INPUT 1 -p tcp --dport 8555 -j ACCEPT` (and 8443 if those RETURN rules exist). Deleting RETURN is pointless — scrape re-inserts until the update. Or leave UFW off.
 - **Lesson:** accounting rules must not change filter policy. `-j RETURN` on a builtin chain is not a no-op when policy is DROP. Jump-to-empty-chain is also not a counter: use a non-terminating target (`MARK 0/0`).
+
+### Pattern 1ag: qWDTT floods the panel log with INFO lines — FIXED (lucx.345)
+
+- **Symptom (Orly, 06.11.2026):** every qWDTT session spams the panel log/journald with `tunnel: qwdtt | [Stats]…`, `[RAW]…`, one line per connection; real `[ERR]` lines drown. Operator asked to keep only errors.
+- **Cause:** the core has no log-level flag (verified SpaceNeuroX v1.4.4 `a296c57e` and master: flags are only `-listen/-wg-port/-config-dir/-password/-dns/-listen-raw/-listen-direct`); the panel echoed every sidecar line at Info from `procLogWriter`.
+- **Fix:** per-core echo filter in `procLogWriter` (`procEchoFilter` in `process.go`): the manager key `qwdtt` echoes only lines containing `[ERR]` or `panic:`; every other core echoes everything as before. The ring (Logs viewer, `GET /panel/api/tunnel/qwdtt/logs`) and the `3xui.log` file backend (always DEBUG) keep all lines. Panel lifecycle lines (`started/stopped/config changed/exited`) are separate logger calls and stay.
+- **Edge:** `log.Fatalf` startup lines carry no `[ERR]` tag, but the process exit is always logged at Error level; error-ish lines without the tag (`[RAW] Ошибка записи в TUN`) land in the ring only. If a future qwdtt release renames the `[ERR]` tag, errors go quiet in journald — check the Logs viewer first.
+- **Lesson:** filter at the panel echo, not in the core — third-party cores log however they log and the panel is the only choke point.

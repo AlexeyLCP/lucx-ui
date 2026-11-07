@@ -7109,3 +7109,24 @@ Form: same "via Xray" switch as TrustTunnel + outbound picker.
 Tests: TestTproxyConfigRouteThroughXray, TestInjectTproxyEgress_DokodemoFollowRedirect.
 
 lucxVersion: lucx.205
+
+## Fix: qWDTT INFO spam in the panel log — errors-only echo (lucx.345)
+
+Tester Orly (06.11.2026): "отключить отладочное логгирование qWDTT, оставить
+только ошибки" - journald/panel log drowned in `tunnel: qwdtt | [Stats]…`,
+`[RAW]…` and per-connection INFO lines. The core binary has no log-level
+flag (verified SpaceNeuroX v1.4.4 a296c57e and master), so the panel is the
+only choke point. Fix: `procEchoFilter` in internal/lucx/tunnel/process.go -
+the manager key `qwdtt` echoes to the panel log only lines containing
+`[ERR]` or `panic:`; every other core echoes everything as before. The ring
+buffer (Tunnels -> Logs, GET /panel/api/tunnel/qwdtt/logs) and the
+3xui.log file backend (always DEBUG) keep the full output. Panel lifecycle
+lines (started/stopped/exited) unchanged. If a future qwdtt release renames
+the [ERR] tag, errors go quiet in journald - check the Logs viewer first
+(Pattern 1ag in .agents/07-debug-tunnels.md).
+
+Tests: TestProcEchoFilterQwdttForwardsOnlyErrors,
+TestProcLogWriterQwdttRingKeepsAllEchoKeepsErrors (go test
+./internal/lucx/... green; parser pkg blocked by local AV flake, no deps).
+
+lucxVersion: lucx.345

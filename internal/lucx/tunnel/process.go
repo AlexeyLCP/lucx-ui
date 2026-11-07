@@ -78,10 +78,14 @@ func (r *ring) all(max int) []string {
 // matching the mtproto/AWG sidecar convention) so startup failures are
 // visible in journald and the panel log viewer.
 type procLogWriter struct {
-	mu    sync.Mutex
+	mu sync.Mutex
+	// label is the manager key the writer echoes under.
 	label string
-	buf   strings.Builder
-	ring  *ring
+	// echoFilter gates the panel-log echo per line; the ring buffer and the
+	// Logs viewer always get everything. nil = echo every line.
+	echoFilter func(string) bool
+	buf        strings.Builder
+	ring       *ring
 }
 
 func (w *procLogWriter) Write(p []byte) (int, error) {
@@ -127,6 +131,9 @@ func (w *procLogWriter) emitLocked(line string) {
 		return
 	}
 	w.ring.push(trimmed)
+	if w.echoFilter != nil && !w.echoFilter(trimmed) {
+		return
+	}
 	logger.Infof("tunnel: %s | %s", w.label, trimmed)
 }
 
@@ -161,8 +168,23 @@ func NewProc(label string) *Proc {
 	lines := &ring{}
 	return &Proc{
 		label: label,
-		log:   &procLogWriter{label: label, ring: lines},
+		log:   &procLogWriter{label: label, ring: lines, echoFilter: procEchoFilter(label)},
 		lines: lines,
+	}
+}
+
+// procEchoFilter keeps chatty cores out of the panel log without hiding
+// diagnostics: the qwdtt core logs an INFO stats line every few seconds plus
+// one line per connection event, so the echo forwards only its tagged error
+// lines ([ERR], panic) — the full output stays in the ring (Logs viewer and
+// GET /panel/api/tunnel/qwdtt/logs). Fatal-at-startup lines leave no [ERR]
+// tag, but the process exit itself is always logged at Error level.
+func procEchoFilter(label string) func(string) bool {
+	if label != QwdttKey {
+		return nil
+	}
+	return func(line string) bool {
+		return strings.Contains(line, "[ERR]") || strings.Contains(line, "panic:")
 	}
 }
 

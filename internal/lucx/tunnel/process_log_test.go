@@ -11,6 +11,9 @@ import (
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/op/go-logging"
 )
 
 func newTestLogWriter() (*procLogWriter, *ring) {
@@ -161,5 +164,64 @@ func TestProcLogWriterConcurrentWrites(t *testing.T) {
 	wg.Wait()
 	if len(lines.all(0)) == 0 {
 		t.Fatal("no lines captured from concurrent writers")
+	}
+}
+
+func TestProcEchoFilterQwdttForwardsOnlyErrors(t *testing.T) {
+	f := procEchoFilter(QwdttKey)
+	if f == nil {
+		t.Fatal("qwdtt writer must filter its console echo")
+	}
+	cases := map[string]bool{
+		"[Stats] Active: 3 | Total: 12 | NAT: prs | 0.00 Mb/s | 0.00 Mb/s": false,
+		"[RAW] device abc unregistered (ip=10.66.0.2, getConf=true)":       false,
+		"[API] Starting HTTP API at 0.0.0.0:56000 (TCP)...":                false,
+		"[CFG] password: hunter2":                                          false,
+		"[ERR] WireGuard is not running, skipping SIGHUP":                  true,
+		"[API] [ERR] HTTP API startup error: listen 443: address in use":   true,
+		"panic: runtime error: index out of range":                         true,
+	}
+	for line, want := range cases {
+		if got := f(line); got != want {
+			t.Errorf("filter(%q) = %v, want %v", line, got, want)
+		}
+	}
+	if procEchoFilter("caddy-1") != nil {
+		t.Error("non-qwdtt labels must echo every line (nil filter)")
+	}
+}
+
+// The qwdtt echo policy end-to-end: the ring keeps every line for the Logs
+// viewer, but only error-tagged lines reach the panel log (journald).
+func TestProcLogWriterQwdttRingKeepsAllEchoKeepsErrors(t *testing.T) {
+	logger.InitLogger(logging.ERROR)
+	lines := &ring{}
+	w := &procLogWriter{label: QwdttKey, ring: lines, echoFilter: procEchoFilter(QwdttKey)}
+	for _, line := range []string{
+		"[Stats] Active: 1 | Total: 1 | NAT: prs | 0.00 Mb/s | 0.00 Mb/s",
+		"[ERR] Handshake failed from 10.66.0.2:44321: timeout",
+	} {
+		if _, err := w.Write([]byte(line + "\n")); err != nil {
+			t.Fatalf("Write = %v", err)
+		}
+	}
+	if got := lines.all(0); len(got) != 2 {
+		t.Fatalf("ring holds %v, want both lines for the Logs viewer", got)
+	}
+	logs := logger.GetLogs(50, "debug")
+	var echoedStats, echoedErr bool
+	for _, line := range logs {
+		if strings.Contains(line, "tunnel: "+QwdttKey+" | [Stats] Active: 1") {
+			echoedStats = true
+		}
+		if strings.Contains(line, "tunnel: "+QwdttKey+" | [ERR] Handshake failed") {
+			echoedErr = true
+		}
+	}
+	if echoedStats {
+		t.Errorf("INFO line was echoed to the panel log:\n%s", strings.Join(logs, "\n"))
+	}
+	if !echoedErr {
+		t.Errorf("error line was not echoed to the panel log:\n%s", strings.Join(logs, "\n"))
 	}
 }
