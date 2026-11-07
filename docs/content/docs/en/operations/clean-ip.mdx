@@ -1,0 +1,33 @@
+---
+title: Clean IP
+description: Probe random Cloudflare edge addresses for reachability and latency, straight from the panel.
+icon: Compass
+---
+
+In filtered networks some Cloudflare edge IPs respond far better than others.
+**Clean IP** (`/cleanip`) probes random addresses from the published
+Cloudflare IPv4 ranges on the port you choose and ranks the healthy ones —
+TLS-verified addresses first (handshake against your SNI), then by latency.
+
+## How the scan works
+
+- The panel samples `Sample` random addresses (default 256), probes them
+  concurrently (32 workers, `Timeout` per probe), and keeps at most `Top
+  results` (default 30).
+- With **Verify TLS handshake** on, an address is dropped when the handshake
+  against `SNI` (default `www.cloudflare.com`) fails — such addresses are
+  useless as edges.
+- The scan is synchronous: the response arrives when the batch is done
+  (worst case ~10 s at the defaults).
+
+## Use the result
+
+The scan is **read-only** — the panel never changes client configs or
+outbound settings by itself. Copy a healthy address and use it as the
+client-side `address` for your VLESS share link (keep your domain in
+SNI/Host), or paste it into the outbound target of your choice. See
+[VLESS through CDN](/docs/operations/vless-cdn) for the full recipe.
+
+Scanning from the panel host only shows edges as seen *from that host* —
+healthy-for-the-server does not always mean healthy-for-the-client, so test
+the winner from the client side too.

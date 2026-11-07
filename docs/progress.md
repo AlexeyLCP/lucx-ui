@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.348 — tproxy: Telegram DC reachability gate before MTProxy start (issue #170) (2026-11-07)
+
+Reported by XaksFlaX: the official MTProxy has no outbound rate limit (`outbound-connections-ps` is commented out in `mtproto-proxy.c`), so on a host that cannot reach Telegram (outbound traffic through NAT) the engine reconnects to every DC/middle-proxy address nonstop — ~60 new TCP connections per second, ~7000 NAT sessions from one VM, until the home router stops opening new connections for every device. LucX started it with `-M 1 -C 4096` and no reachability check.
+
+Gate in `internal/lucx/tunnel/` (issue reporter's preferred option 1): `tproxy_mtproxy.go` gains `tgProxyAddresses` (extracts distinct IPv4:port entries from the engine's own `proxy-multi.conf`, regardless of the key they ride on; dedupe; up to 6 spread across the file) and `tgProxiesReachable` (TCP probes, 750 ms each, stop at the first success; cached in-process — reachable verdict 10 min, failed verdict 5 min, so a NAT-blocked host probes ~6 addresses a few times per TTL instead of on every 10s reconcile tick). `TproxyInstancesFromInbound` runs the gate right after `ensureTelegramMtproxyFiles` and returns `disabledWhy` when nothing answers — the whole stack stays down with a clear panel-log reason, exactly like the arm64 mtproxy precedent. A config without parseable addresses never gates the start. Windows/arm64 dev unaffected (no conf → no gate).
+
+Frontend: warning Alert in the WEB-proxy inbound form (legacy backend only — mtproto-zig dials differently) naming the requirement: outbound traffic must reach Telegram DCs directly (TCP 443/8888); reason visible in the panel log. Key `pages.inbounds.form.tproxyDcTip` in all 14 locales.
+
+Tests: `tproxy_dc_test.go` — extraction/dedupe/even-spread limit, stop-at-first-success, cache suppresses re-dial until TTL expiry, no-address conf never gates, no dialing without addresses. Existing `TproxyInstancesFromInbound` tests keep passing (dummy conf has no addresses). Green: `go test ./internal/lucx/tunnel/...`, gofumpt, typecheck/lint, i18n dead-keys.
+
+**lucxVersion:** lucx.348
+
+---
+
 ## lucx.347 — Clean IP scanner + VLESS-through-CDN recipe (2026-11-07)
 
 Second chat request from the same session (Tuna): find "clean" Cloudflare edge IPs without a separate desktop tool. Scope decision (Rule 0 + chat consensus): **scan-only** — the panel probes but never auto-replaces endpoints or runs timers; the operator copies a healthy address into the client/outbound config. Auto-replace of a raw Xray outbound JSON is out of scope.
@@ -29,6 +43,16 @@ Frontend: `pages/scanguard/ScanguardPage.tsx` (status card: badge, blocked-subne
 Tests: `scanguard_test.go` (platform-neutral: strict parse/dedupe/safety filter/whitelist coverage, source-failure aborts) + `firewall_linux_test.go` (Linux: faked `sgCmd`/`sgIpsetRestore` — set swap content, both-family rule insertion, owner-only sweep keeps foreign rules, status probe). Green: `go build ./internal/...`, `go vet`, `go test ./internal/lucx/...`, gofumpt, `npm run typecheck` / `lint` / `vitest run --project=unit` (111 files / 1663 tests) / navigation contract. Requirements: `ipset` + `iptables` on the host (op installs the package; the UI shows a hint when `ipset` is missing). Real-firewall validation on a tester VPS before release.
 
 **lucxVersion:** lucx.346
+
+---
+
+## lucx.345 — tunnel: qwdtt writes only errors to the shared log, full output in the Logs viewer
+
+Debt repaid 2026-11-07 (the commit landed on main without its progress entry):
+
+`fix(tunnel)` from commit `31766af2`: the qWDTT engine writes its full output only to the per-core Logs viewer now; the shared overview log receives **errors only**, so one noisy qWDTT process cannot flood the panel-level log. Behavior of the engine itself unchanged.
+
+**lucxVersion:** lucx.345
 
 ---
 

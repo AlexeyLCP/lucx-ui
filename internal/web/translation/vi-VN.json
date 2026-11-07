@@ -772,6 +772,7 @@
         "excludeFromSubHelp": "Ẩn liên kết inbound này khỏi đầu ra subscription nhưng vẫn giữ inbound được bật và hoạt động.",
         "tproxyBackend": "Backend proxy WEB",
         "tproxyBackendHint": "Legacy giữ nguyên stack hiện tại. MTProto Zig dùng relay HTTPS/WebSocket mới và có thể cần link WEB mới; có thể chuyển ngược.",
+    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (hiện tại)",
         "tproxyBackendZig": "MTProto Zig (relay WEB mới)",
         "pluginsTitle": "Sidecar plugins",

@@ -1,0 +1,44 @@
+---
+title: Scanner Guard
+description: Block incoming connections from known RKN/government scanner subnets with ipset + firewall rules, fed and refreshed by the panel.
+icon: Radar
+---
+
+The panel can ban the subnets that probe VPN panels and inbounds — the RKN and
+government/scanner ranges the community lists track (the same model as
+`rkn-guard` or remnanode's RKN mode, but list-based only: your clients are
+never at risk of a false ban).
+
+## Requirements
+
+- Linux host with `iptables` and `ipset` (`apt install ipset` / the
+  distribution equivalent — the page shows a hint when `ipset` is missing).
+- The panel process needs rights to manage netfilter (root or the shipped
+  systemd unit's capabilities).
+
+## Use it
+
+1. Open **Scanner Guard** (`/scanguard`), review the default list source
+   (shadow-netlab `government_networks.list`) and press **Save & apply** with
+   the toggle on.
+2. The panel fetches every source, parses `one CIDR or IP per line`, drops
+   subnets that are too broad or private, subtracts your whitelist and
+   **atomically swaps** the `lucx-sg4` / `lucx-sg6` ipset sets.
+3. One owner-marked INPUT rule per family (`--comment lucx-scanguard`) drops
+   **new** connections from those subnets. Established sessions are not
+   touched, so a live SSH from a listed subnet survives a list refresh.
+4. The reconcile job re-applies rules lost to reboot or an iptables flush
+   (fail2ban/docker) and re-fetches the lists at most once per 6 hours.
+
+## Safety properties
+
+- A broken or unreachable source aborts the refresh and keeps the previous
+  blocklist protection is never silently dropped.
+- Subnets wider than /8 (v4) or /32 (v6), plus private/loopback/link-local
+  ranges, are filtered out before install.
+- Your own subnet: put it into **Whitelist** — exact or contained CIDRs are
+  excluded. SSH is never port-blocked by design.
+- Docker bridge (FORWARD) traffic is not covered — published container ports
+  need a container-side firewall.
+- Disabling sweeps only the `lucx-scanguard`-marked rules and destroys the
+  panel's own sets; no other rule is ever touched.

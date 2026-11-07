@@ -114,6 +114,12 @@ func TproxyInstancesFromInbound(ib *model.Inbound, panelCert, panelKey string, o
 	if err := ensureTelegramMtproxyFiles(); err != nil {
 		return disabledWhy(err), true
 	}
+	// The engine dials Telegram DC/middle proxies without any rate limit;
+	// keep the whole stack down when the host cannot reach any of them
+	// (issue #170) instead of letting it storm the NAT table.
+	if !tgProxiesReachable(filepath.Join(mtproxyAssetsDir(), "proxy-multi.conf")) {
+		return disabledWhy(errors.New("telegram DC/middle proxies unreachable from this host — MTProxy kept down to avoid a connect storm (hint: outbound traffic must reach Telegram DCs directly)")), true
+	}
 	publicDir, publicUpstream, err := tproxyPublicSource(id, cfg)
 	if err != nil {
 		return disabledWhy(err), true

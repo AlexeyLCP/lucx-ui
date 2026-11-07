@@ -1021,6 +1021,7 @@
         "masqueAppleRelayExportFailed": "Apple Network Relay export failed.",
         "tproxyBackend": "WEB proxy backend",
         "tproxyBackendHint": "Legacy keeps the current tproxy-server + MTProxy stack. MTProto Zig uses the new HTTPS/WebSocket relay and may require new WEB links; switching is reversible.",
+    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy (current)",
         "tproxyBackendZig": "MTProto Zig (new WEB relay)",
         "pluginsTitle": "Sidecar plugins",

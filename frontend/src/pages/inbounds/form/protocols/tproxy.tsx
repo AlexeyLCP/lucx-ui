@@ -25,6 +25,7 @@ export default function TproxyFields() {
   const inboundId = useAwgInboundId();
   const siteSource = useWatch({ name: 'settings.siteSource' }) as string | undefined;
   const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
+  const backend = useWatch({ name: 'settings.backend' }) as string | undefined;
   const { data: outboundTags } = useOutboundTags();
   const [busy, setBusy] = useState(false);
   const siteQuery = useQuery({
@@ -69,6 +70,14 @@ export default function TproxyFields() {
         style={{ marginBottom: 12 }}
         message={t('pages.inbounds.form.tproxyNote')}
       />
+      {(backend ?? 'legacy') === 'legacy' && (
+        <Alert
+          type="warning"
+          showIcon
+          style={{ marginBottom: 12 }}
+          message={t('pages.inbounds.form.tproxyDcTip')}
+        />
+      )}
       <FormField
         name={['settings', 'hostname']}
         label={t('pages.inbounds.form.tproxyHostname')}

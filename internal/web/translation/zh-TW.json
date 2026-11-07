@@ -772,6 +772,7 @@
         "excludeFromSubHelp": "從訂閱輸出中隱藏此入站的連結，同時保持入站啟用並繼續運作。",
         "tproxyBackend": "WEB 代理後端",
         "tproxyBackendHint": "Legacy 保留目前的 tproxy-server + MTProxy。MTProto Zig 使用新的 HTTPS/WebSocket relay，可能需要新的 WEB 連結；切換可回復。",
+    "tproxyDcTip": "The MTProxy engine connects to Telegram data centers and middle proxies directly, with no outbound rate limit. The host must reach Telegram DCs directly (TCP 443/8888) — if none answer, the panel keeps the proxy down and logs the reason (issue #170 behaviour: prevents a connect storm on NAT-bound hosts).",
         "tproxyBackendLegacy": "Legacy（目前）",
         "tproxyBackendZig": "MTProto Zig（新 WEB relay）",
         "pluginsTitle": "Sidecar plugins",

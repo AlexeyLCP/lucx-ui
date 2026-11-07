@@ -10,13 +10,16 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"os/exec"
 	"os/user"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
@@ -140,4 +143,99 @@ func mtproxyArgs(statsPort, clientPort int, secretFilePath string) []string {
 		"-M", "1",
 		"-C", "4096",
 	}
+}
+
+// The official MTProxy has no outbound rate limit (`outbound-connections-ps`
+// is commented out in mtproto-proxy.c): on a host that cannot reach Telegram
+// it reconnects to every DC/middle-proxy address nonstop — XaksFlaX measured
+// ~60 new TCP connections per second (~7000 NAT sessions) from one VM. The
+// panel therefore verifies reachability before starting the engine and keeps
+// it down when nothing answers (issue #170).
+
+// tgProxyAddrRe matches the IPv4:port entries of proxy-multi.conf regardless
+// of the key they ride on (proxy_for_medium, proxy_dc_*, statics...).
+var tgProxyAddrRe = regexp.MustCompile(`(\d{1,3}(?:\.\d{1,3}){3}):(\d{1,5})`)
+
+// dcProbeDial is a var so tests fake the network.
+var dcProbeDial = func(hostPort string, timeout time.Duration) error {
+	conn, err := net.DialTimeout("tcp", hostPort, timeout)
+	if err != nil {
+		return err
+	}
+	_ = conn.Close()
+	return nil
+}
+
+const (
+	tgProbePerAttempt = 750 * time.Millisecond
+	tgProbeLimit      = 6
+	tgReachOkTTL      = 10 * time.Minute
+	tgReachFailTTL    = 5 * time.Minute
+)
+
+type tgReachState struct {
+	mu    sync.Mutex
+	until time.Time
+	ok    bool
+}
+
+// tgReach caches the probe result so a NAT-blocked host probes a handful of
+// addresses a few times per TTL instead of on every 10s reconcile tick.
+var tgReach tgReachState
+
+// tgProxyAddresses extracts up to limit evenly spread distinct IPv4:port
+// entries from the engine's own proxy-multi.conf.
+func tgProxyAddresses(confPath string, limit int) []string {
+	body, err := os.ReadFile(confPath)
+	if err != nil {
+		return nil
+	}
+	seen := map[string]struct{}{}
+	var all []string
+	for _, m := range tgProxyAddrRe.FindAllSubmatch(body, -1) {
+		addr := string(m[1]) + ":" + string(m[2])
+		if _, dup := seen[addr]; dup {
+			continue
+		}
+		seen[addr] = struct{}{}
+		all = append(all, addr)
+	}
+	if len(all) <= limit {
+		return all
+	}
+	step := len(all) / limit
+	out := make([]string, 0, limit)
+	for i := 0; i < limit; i++ {
+		out = append(out, all[i*step])
+	}
+	return out
+}
+
+// tgProxiesReachable reports whether at least one Telegram DC/middle-proxy
+// address from the engine config accepts a TCP connection. A config without
+// parseable addresses never gates the start (the engine owns that reality).
+func tgProxiesReachable(confPath string) bool {
+	tgReach.mu.Lock()
+	defer tgReach.mu.Unlock()
+	now := time.Now()
+	if now.Before(tgReach.until) {
+		return tgReach.ok
+	}
+	ok := true
+	if addrs := tgProxyAddresses(confPath, tgProbeLimit); len(addrs) > 0 {
+		ok = false
+		for _, addr := range addrs {
+			if dcProbeDial(addr, tgProbePerAttempt) == nil {
+				ok = true
+				break
+			}
+		}
+	}
+	tgReach.ok = ok
+	if ok {
+		tgReach.until = now.Add(tgReachOkTTL)
+	} else {
+		tgReach.until = now.Add(tgReachFailTTL)
+	}
+	return ok
 }
