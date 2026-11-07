@@ -55,7 +55,7 @@ var detectBackend = func() string {
 var sgCmd = func(name string, args ...string) ([]byte, error) {
 	out, err := exec.Command(name, args...).CombinedOutput()
 	if err != nil && len(out) > 0 {
-		err = fmt.Errorf("%v: %s", err, firstErrorLine(out))
+		err = fmt.Errorf("%w: %s", err, firstErrorLine(out))
 	}
 	return out, err
 }
@@ -65,7 +65,7 @@ var sgIpsetRestore = func(input []byte) error {
 	cmd.Stdin = strings.NewReader(string(input))
 	out, err := cmd.CombinedOutput()
 	if err != nil && len(out) > 0 {
-		err = fmt.Errorf("%v: %s", err, firstErrorLine(out))
+		err = fmt.Errorf("%w: %s", err, firstErrorLine(out))
 	}
 	return err
 }
@@ -75,7 +75,7 @@ var sgNftRestore = func(input []byte) error {
 	cmd.Stdin = strings.NewReader(string(input))
 	out, err := cmd.CombinedOutput()
 	if err != nil && len(out) > 0 {
-		err = fmt.Errorf("%v: %s", err, firstErrorLine(out))
+		err = fmt.Errorf("%w: %s", err, firstErrorLine(out))
 	}
 	return err
 }

@@ -104,7 +104,7 @@ func TestNftSetCounts(t *testing.T) {
 	if v4, v6 := nftSetCounts([]byte(`{"nftables":[{"set":{"name":"lucx-sg4"}}]}`)); v4 != 0 || v6 != 0 {
 		t.Fatalf("missing elem must count zero, got v4:%d v6:%d", v4, v6)
 	}
-	if _, _ = nftSetCounts([]byte("garbage")); true {
-		// garbage must not panic — result irrelevant
+	if v4, v6 := nftSetCounts([]byte("garbage")); v4 != 0 || v6 != 0 {
+		t.Fatalf("garbage must count zero without panicking, got v4:%d v6:%d", v4, v6)
 	}
 }
