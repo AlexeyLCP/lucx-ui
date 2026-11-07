@@ -246,6 +246,14 @@ func (a *APIController) initRouter(g *gin.RouterGroup) {
 	// Masters call GET /panel/api/lucx/hello on remotes to learn nodeType/features.
 	_ = NewLucxController(api.Group("/lucx"))
 	// END LUCX-HOOK
+	// LUCX-HOOK: Scanner guard — ipset banning of RKN scanner subnets.
+	// Routes live under /panel/api/scanguard/*.
+	_ = NewScanguardController(api.Group("/scanguard"))
+	// END LUCX-HOOK
+	// LUCX-HOOK: Clean IP — on-demand Cloudflare edge reachability scanner.
+	// Routes live under /panel/api/cleanip/*.
+	_ = NewCleanIpController(api.Group("/cleanip"))
+	// END LUCX-HOOK
 
 	clients := api.Group("/clients")
 	NewClientController(clients)

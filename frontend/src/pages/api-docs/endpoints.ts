@@ -1676,6 +1676,58 @@ export const sections: readonly Section[] = [
       },
     ],
   },
+  // LUCX-HOOK: scanner guard (ipset banning of RKN scanner subnets) API docs.
+  {
+    id: 'scanguard',
+    title: 'Scanner Guard',
+    description:
+      'Blocks incoming connections from known RKN/government scanner subnets. CIDR lists are fetched from operator-configured HTTPS sources and installed as ipset hash:net sets (lucx-sg4 / lucx-sg6); owner-marked iptables/ip6tables rules (comment lucx-scanguard, conntrack NEW only) in INPUT drop traffic from those subnets. The reconcile job (every 30m) re-ensures rules after reboot/iptables flush and re-fetches lists at most once per 6h; a broken source aborts the refresh and keeps the previous blocklist. Whitelisted subnets are excluded before install. Linux only. All endpoints live under /panel/api/scanguard and require a logged-in session or Bearer token. LucX-UI only.',
+    endpoints: [
+      {
+        method: 'GET',
+        path: '/panel/api/scanguard/status',
+        summary:
+          'Stored config (enabled, sources, whitelist) merged with the live firewall probe: ipset availability, rule presence per family and the number of installed subnets, plus the last list update time and the last refresh error, if any. LucX-UI only.',
+        response:
+          '{\n  "success": true,\n  "obj": {\n    "enabled": true,\n    "sources": ["https://raw.githubusercontent.com/…/government_networks.list"],\n    "whitelist": ["203.0.113.0/24"],\n    "lastUpdated": "2026-11-07T12:00:00Z",\n    "lastError": "",\n    "firewall": { "ipsetAvailable": true, "rulesV4": true, "rulesV6": true, "v4Entries": 5312, "v6Entries": 408, "skipped": 0 }\n  }\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/scanguard/config',
+        summary:
+          'Validate, persist and apply the scanner guard config. Enabling fetches every source, subtracts the whitelist and atomically swaps the ipset sets, then installs the INPUT rules; disabling sweeps the owner-marked rules and destroys the sets. Returns the fresh status. LucX-UI only.',
+        body: '{\n  "enabled": true,\n  "sources": [\n    "https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list"\n  ],\n  "whitelist": ["203.0.113.0/24"]\n}',
+        errorResponse:
+          '{\n  "success": false,\n  "msg": "scanguard: save failed (ipset not found — install the ipset package first)"\n}',
+      },
+      {
+        method: 'POST',
+        path: '/panel/api/scanguard/refresh',
+        summary:
+          'Re-fetch every source and reinstall the blocklists now (operator button). Fails with ErrDisabled when the guard is off; a source failure keeps the previous sets and is reported in status.lastError. LucX-UI only.',
+        errorResponse:
+          '{\n  "success": false,\n  "msg": "scanguard: refresh failed (scanner guard is disabled)"\n}',
+      },
+    ],
+  },
+  // LUCX-HOOK: clean-ip (on-demand Cloudflare edge scanner) API docs.
+  {
+    id: 'cleanip',
+    title: 'Clean IP',
+    description:
+      'Probes random addresses from the published Cloudflare IPv4 ranges for TCP reachability and latency so an operator can pick a healthy client-side edge address. Optional TLS handshake verification against a chosen SNI drops edges whose handshake fails. Read-only and synchronous: results are returned in the response and nothing is ever applied to configs automatically (Rule 0). Live under /panel/api/cleanip and require a logged-in session or Bearer token. LucX-UI only.',
+    endpoints: [
+      {
+        method: 'POST',
+        path: '/panel/api/cleanip/scan',
+        summary:
+          'Run one scan batch: sample random Cloudflare addresses (default 256), TCP-probe them concurrently (32 workers), optionally verify a TLS handshake against the SNI, then return at most Count (default 30) healthy edges — TLS-verified first, then by latency. All fields optional: port 443, timeoutMs 1500 per probe, count ≤ 100, sample ≤ 4096. LucX-UI only.',
+        body: '{\n  "port": 443,\n  "count": 30,\n  "sample": 256,\n  "timeoutMs": 1500,\n  "tlsCheck": true,\n  "sni": "www.cloudflare.com"\n}',
+        response:
+          '{\n  "success": true,\n  "obj": [\n    { "address": "104.16.3.77", "port": 443, "latencyMs": 38, "tlsOk": true },\n    { "address": "172.70.112.9", "port": 443, "latencyMs": 41, "tlsOk": true }\n  ]\n}',
+      },
+    ],
+  },
   // END LUCX-HOOK
 
   {

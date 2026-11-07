@@ -1,5 +1,37 @@
 # LucX-UI — Прогресс
 
+## lucx.347 — Clean IP scanner + VLESS-through-CDN recipe (2026-11-07)
+
+Second chat request from the same session (Tuna): find "clean" Cloudflare edge IPs without a separate desktop tool. Scope decision (Rule 0 + chat consensus): **scan-only** — the panel probes but never auto-replaces endpoints or runs timers; the operator copies a healthy address into the client/outbound config. Auto-replace of a raw Xray outbound JSON is out of scope.
+
+New package `internal/lucx/cleanip/` (PolyForm): the 15 published Cloudflare IPv4 ranges, random sampling (`math/rand/v2`), TCP probe pool (32 workers, per-probe timeout), optional TLS handshake verification against an operator SNI (default `www.cloudflare.com`) with failed-TLS addresses dropped, results sorted TLS-verified first then by latency and truncated to `count`. Dialers/sampler are package vars — tests inject a fixed batch and fake TCP/TLS (drop unreachable, drop TLS-fail, rank, bounds validation). Web layer: `service/cleanip.go` (clamp: port 443, count 30/≤100, sample 256/≤4096, timeout 1500ms/≤10s; empty SNI + tlsCheck → default SNI), `controller/cleanip.go` — `POST /panel/api/cleanip/scan` (synchronous; nothing persisted). LUCX-HOOK in `controller/api.go`.
+
+Frontend: `pages/cleanip/CleanIpPage.tsx` (RHF/Zod params form: port / top-N / sample / timeout / TLS-check switch + SNI; Scan button → AntD table with copyable addresses, latency, TLS tag), `api/cleanip.ts`, `schemas/cleanip.ts`, `/cleanip` route + `menu.cleanip` + palette keywords, api-docs section `cleanip`. `pages.cleanip` keys in all 14 locales.
+
+Docs: new operator guide `docs/content/docs/en/operations/vless-cdn.mdx` (+ meta.json) — Cloudflare-proxied and self-hosted nginx/Caddy variants for VLESS-WS-behind-CDN, gotchas (no UDP on free CF, gRPC toggle, panel stays unproxied), and the Clean IP scanner as the edge-IP picker the recipe references. `docs/public/openapi.json` re-synced from the frontend and the API reference regenerated — new pages `reference/api/scanner-guard.mdx` and `clean-ip.mdx`.
+
+Tests: `go test ./internal/lucx/...` green, `go build ./internal/...` / `go vet` clean, `npm run typecheck` / `lint` / navigation contract / i18n dead-keys green. Real scans should be validated on a tester VPS (Windows dev box has no route to probe meaningfully).
+
+**lucxVersion:** lucx.347
+
+---
+
+## lucx.346 — Scanner Guard: ipset banning of RKN scanner subnets (2026-11-07)
+
+Chat request (theradiotimes + others): block the scanner/bot subnets probing panels and inbounds — the same protection the community tools (rkn-guard, remnanode-antiscan RKN mode) provide, implemented natively. Research verdict: those tools do **list-based** ipset blocking, not log analysis — this implementation follows that model (no false bans of real clients, no dependency on the Xray access log).
+
+New LucX package `internal/lucx/scanguard/` (PolyForm): fetch CIDR sources over HTTPS (30 s timeout, 20 MiB cap, strict one-CIDR-per-line parse — a single bogus line or an unreachable source aborts the refresh), safety filter (skip subnets wider than /8 v4 · /32 v6 + private/loopback/link-local/multicast), whitelist subtraction (exact or contained CIDR only), then an **atomic ipset swap**: temp `hash:net` set is filled via one `ipset restore -exist` batch per family → `swap` → `destroy` (lucx-sg4/lucx-sg6, traffic between refreshes keeps hitting the previous set).INPUT rules are owner-marked (`--comment lucx-scanguard`), drop only `-m conntrack --ctstate NEW -m set --match-set … src` — established sessions (e.g. a live SSH from a listed subnet) survive list updates; rules are re-parsed from `iptables -S INPUT` and swept on disable, same technique as the wgo firewall (`obfuscator_firewall_linux.go`). One rule + one set per family — no per-IP rules (Slava's explicit requirement). Non-Linux builds keep no-op stubs.
+
+Web layer (all new files, PolyForm + SPDX): `service/scanguard.go` — settings keys `scanguardEnabled` / `scanguardSources` / `scanguardWhitelist` (+ `scanguardLastUpdated` / `scanguardLastError`, no schema/DB changes, vanilla-overlay safe), default source = `shadow-netlab/traffic-guard-lists` `government_networks.list`; `job/scanguard_job.go` on `@every 30m` (+ boot run like tunnelJob): sweeps rules when disabled, re-applies as soon as rules or sets are missing (reboot, iptables flush by fail2ban/docker — same hazard AWG `ensureNatRules` guards), and re-fetches lists at most once per 6 h; `controller/scanguard.go` — `/panel/api/scanguard/{status,config,refresh}` (LUCX-HOOK in `controller/api.go`; cadence const in `web.go`). SSH is never port-blocked by design — whitelist the operator's subnet instead. Docker bridge (FORWARD) traffic is out of scope, documented.
+
+Frontend: `pages/scanguard/ScanguardPage.tsx` (status card: badge, blocked-subnet count, firewall rules state, last update, last-error alert, ipset-missing hint) + RHF/Zod form (enable switch, sources textarea, whitelist textarea, Save & apply, Refresh now), `api/scanguard.ts`, `schemas/scanguard.ts`, query key `keys.scanguard()`, `/scanguard` route + `menu.scanguard` in `panelRoutes.tsx`, command-palette keywords, API-docs section `scanguard` in `endpoints.ts` + `npm run gen` (openapi.json regenerated), `pages.scanguard` keys in **all 14** translation files (dead-keys contract holds).
+
+Tests: `scanguard_test.go` (platform-neutral: strict parse/dedupe/safety filter/whitelist coverage, source-failure aborts) + `firewall_linux_test.go` (Linux: faked `sgCmd`/`sgIpsetRestore` — set swap content, both-family rule insertion, owner-only sweep keeps foreign rules, status probe). Green: `go build ./internal/...`, `go vet`, `go test ./internal/lucx/...`, gofumpt, `npm run typecheck` / `lint` / `vitest run --project=unit` (111 files / 1663 tests) / navigation contract. Requirements: `ipset` + `iptables` on the host (op installs the package; the UI shows a hint when `ipset` is missing). Real-firewall validation on a tester VPS before release.
+
+**lucxVersion:** lucx.346
+
+---
+
 ## lucx.344 — sub: HWID device IP behind a reverse proxy uses trustedProxyCIDRs (2026-11-06)
 
 Reported by a tester (Orca): behind nginx (`location ^~ /sub/ → https://192.168.11.10:2096`, headers per our own reverse-proxy generator: `proxy_set_header X-Real-IP $remote_addr; X-Forwarded-For $proxy_add_x_forwarded_for`) the HWID Devices / Clients "Devices" column showed the **nginx host's LAN address** next to a correct HWID. Cause: `enforceHwid` (LUCX-HOOK, `internal/sub/controller.go`) recorded `c.RemoteIP()` unconditionally — the socket peer, which is the nginx box whenever the panel is proxied. lucx.342's deliberate "socket peer, headers forbidden" choice was correct only for the direct-reachable panel.

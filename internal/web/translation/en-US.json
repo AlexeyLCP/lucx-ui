@@ -127,6 +127,8 @@
     "unpinSidebar": "Unpin sidebar",
     "subFormats": "Sub Formats",
     "masking": "Masking",
+    "cleanip": "Clean IP",
+    "scanguard": "Scanner Guard",
     "tunnels": "Tunnels",
     "plugins": "Plugin Manager",
     "palette": "Color palette"
@@ -3134,6 +3136,61 @@
       "reverted": "Mask reverted",
       "insideSite": "Inside the site",
       "insideHint": "WS / HTTPUpgrade share the Cover hostname. A browser on / sees the site. Refresh the subscription after Apply."
+    },
+    "cleanip": {
+      "title": "Clean IP",
+      "subtitle": "Probes random Cloudflare edge addresses for reachability and latency. Copy a healthy address into your client (the address field), keeping your domain in SNI/Host. The scan runs only when you press the button — nothing is changed automatically.",
+      "form": {
+        "title": "Scan settings",
+        "port": "Port",
+        "count": "Top results",
+        "sample": "Sample size",
+        "timeout": "Timeout per probe (ms)",
+        "tlsCheck": "Verify TLS handshake",
+        "sni": "SNI",
+        "scan": "Scan now"
+      },
+      "results": {
+        "title": "Healthy edges",
+        "address": "Address",
+        "latency": "Latency",
+        "tls": "TLS",
+        "empty": "No healthy edges found — increase the sample size or the timeout, or turn off TLS check."
+      }
+    },
+    "scanguard": {
+      "title": "Scanner Guard",
+      "subtitle": "Blocks incoming connections from known RKN/government scanner subnets via ipset + iptables (one DROP rule per address family). Lists refresh automatically; your clients are never affected.",
+      "status": {
+        "title": "Status",
+        "state": "State",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "entries": "Blocked subnets",
+        "rules": "Firewall rules",
+        "rulesOk": "installed",
+        "rulesMissing": "not installed — re-applied automatically",
+        "lastUpdated": "Last list update",
+        "never": "never",
+        "ipsetMissing": "ipset is not available on this host — install the \"ipset\" package to use the scanner guard."
+      },
+      "form": {
+        "title": "Configuration",
+        "enabled": "Enable scanner guard",
+        "sources": "List sources (one URL per line)",
+        "sourcesTip": "HTTPS text files with one CIDR or IP per line; # comments allowed. A single broken line or an unreachable source aborts the refresh and keeps the previous blocklist.",
+        "whitelist": "Whitelist (one CIDR or IP per line)",
+        "whitelistTip": "Subnets that must never be blocked — your home IP, the hoster's admin ranges. Exact or contained CIDRs are excluded before install.",
+        "save": "Save & apply",
+        "refresh": "Refresh lists now"
+      },
+      "toasts": {
+        "saved": "Scanner guard config applied",
+        "refreshed": "Scanner guard lists refreshed"
+      },
+      "validation": {
+        "httpUrl": "Every non-empty line must be an http(s):// URL"
+      }
     },
     "tunnels": {
       "title": "Tunnel tools",

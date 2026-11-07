@@ -328,6 +328,7 @@ const (
 	cadenceMtproto       = "@every 10s"
 	cadenceAwg           = "@every 10s" // LUCX-HOOK: AWG sidecar reconcile + traffic
 	cadenceTunnel        = "@every 10s" // LUCX-HOOK: tunnel sidecars reconcile + Naive traffic/online
+	cadenceScanguard     = "@every 30m" // LUCX-HOOK: scanner guard list refresh + INPUT rule re-ensure
 	cadenceAmneziaWG     = "@every 10s"
 	cadenceTuic          = "@every 10s"
 	cadenceClientIPScan  = "@every 10s"
@@ -383,6 +384,12 @@ func (s *Server) startTask(restartXray bool, loc *time.Location) {
 	tunnelJob := job.NewTunnelJob()
 	_, _ = s.cron.AddJob(cadenceTunnel, tunnelJob)
 	go tunnelJob.Run()
+	// END LUCX-HOOK
+	// LUCX-HOOK: Scanner guard — re-ensure ipset INPUT rules (they die with
+	// iptables flush / reboot) and refresh the blocklists on cadence.
+	scanguardJob := job.NewScanguardJob()
+	_, _ = s.cron.AddJob(cadenceScanguard, scanguardJob)
+	go scanguardJob.Run()
 	// END LUCX-HOOK
 
 	// Reconcile embedded AmneziaWG interfaces; traffic rides Xray's own stats

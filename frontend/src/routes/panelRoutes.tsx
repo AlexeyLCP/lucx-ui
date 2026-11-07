@@ -11,7 +11,9 @@ import {
   ImportOutlined,
   ApiOutlined,
   SettingOutlined,
+  SafetyOutlined,
   SwapOutlined,
+  CompassOutlined,
   TagsOutlined,
   TeamOutlined,
   ToolOutlined,
@@ -31,6 +33,8 @@ const SponsorsPage = lazy(() => import('@/pages/sponsors/SponsorsPage'));
 const TunnelsPage = lazy(() => import('@/pages/tunnels/TunnelsPage'));
 const PluginManagerPage = lazy(() => import('@/pages/plugins/PluginManagerPage'));
 const MaskingPage = lazy(() => import('@/pages/masking/MaskingPage'));
+const ScanguardPage = lazy(() => import('@/pages/scanguard/ScanguardPage'));
+const CleanIpPage = lazy(() => import('@/pages/cleanip/CleanIpPage'));
 // END LUCX-HOOK
 
 export interface PanelRoute {
@@ -59,6 +63,13 @@ export const PANEL_ROUTES: PanelRoute[] = [
   { path: '/plugins', titleKey: 'menu.plugins', icon: ApiOutlined, component: PluginManagerPage },
   { path: '/tunnels', titleKey: 'menu.tunnels', icon: CloudServerOutlined, component: TunnelsPage },
   { path: '/masking', titleKey: 'menu.masking', icon: EyeOutlined, component: MaskingPage },
+  {
+    path: '/scanguard',
+    titleKey: 'menu.scanguard',
+    icon: SafetyOutlined,
+    component: ScanguardPage,
+  },
+  { path: '/cleanip', titleKey: 'menu.cleanip', icon: CompassOutlined, component: CleanIpPage },
   // END LUCX-HOOK
 ];
 

@@ -15,7 +15,7 @@ git grep -c LUCX-HOOK > /tmp/hooks-after
 # drop = lost pile 1. Then walk pile 2: git diff origin/main -- <file>
 ```
 
-i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. Dead-keys CI requires the same key set as en-US.
+i18n: extra keys in all 14 `internal/web/translation/*.json` have **no** HOOK. Dead-keys CI requires the same key set as en-US.
 
 `frontend/src/generated/*` — `npm run gen`, never hand-merge.
 
@@ -73,14 +73,14 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/sub/service.go` | GetLink/GetSubs lucx protocols, AWG conf, host, I-fields |
 | `internal/sub/controller.go` | `/awg/` routes, Happ |
 | `internal/util/link/outbound.go` `ParseLink` | `openflux://` opaque like qwdtt/olcrtc (lucx.313) |
-| `internal/web/web.go` | AWG/tunnel cadence, stop, upload limit |
+| `internal/web/web.go` | AWG/tunnel/scanguard cadence, stop, upload limit (scanguard hook, lucx.346) |
 | `internal/sub/clash_service.go` | kernel AWG clash proxy |
 | `internal/sub/sub.go` | AWG sub URL |
-| `internal/web/web.go` | AWG/tunnel cadence, stop, upload limit |
+| `internal/web/web.go` | AWG/tunnel/scanguard cadence, stop, upload limit (scanguard hook, lucx.346) |
 | `internal/web/entity/entity.go` | favicon, log days, Happ ROSCOM, AWG sub URI |
 | `internal/web/runtime/local.go` | AWG/sidecar Add/Del/Update |
 | `internal/web/job/xray_traffic_job.go` | AWG speed into broadcast; devices broadcast (lucx.342) |
-| `internal/web/controller/api.go` | lucx API routes |
+| `internal/web/controller/api.go` | lucx API routes (+ scanguard/cleanip groups, lucx.346/347) |
 | `internal/web/controller/inbound.go` | AWG/sidecar save, I-field warn |
 | `internal/web/controller/client.go` | awgBody / subBody |
 | `internal/web/controller/server.go` | version / geo / cores |
@@ -133,7 +133,8 @@ i18n: extra keys in all 13 `internal/web/translation/*.json` have **no** HOOK. D
 | `frontend/src/pages/login/LoginPage.tsx` `LoginPage.css` | lucx login |
 | `frontend/src/layouts/AppSidebar.tsx` | Tunnels menu |
 | `frontend/src/routes.tsx` | `/panel/tunnels` |
-| `frontend/src/api/queryKeys.ts` `queries/useOutboundTags.ts` | lucx keys |
+| `frontend/src/routes/panelRoutes.tsx` | LucX pages list (+ `/scanguard`, `/cleanip`, lucx.346/347) |
+| `frontend/src/api/queryKeys.ts` `queries/useOutboundTags.ts` | lucx keys (+ `keys.scanguard()`, `keys.cleanIp()`, lucx.346/347) |
 | `frontend/src/hooks/useTheme.tsx` `useXraySetting.ts` | Sand/Graphite |
 | `frontend/src/hooks/usePageTitle.ts` | masking title |
 | `frontend/src/models/status.ts` | lucx status |
@@ -198,7 +199,7 @@ Tests on origin twins (no HOOK): `internal/sub/forwarded_trust_test.go`, `servic
 | `frontend/src/pages/nodes/NodesPage.tsx` | lucx node capability |
 | `frontend/src/layouts/PanelLayout.tsx` `AppSidebar.css` | lucx chrome |
 | `frontend/src/main.tsx` | lucx boot |
-| `frontend/src/components/command-palette/CommandPalette.tsx` | lucx palette entries |
+| `frontend/src/components/command-palette/CommandPalette.tsx` | lucx palette entries (scanner-guard + clean-ip entries are HOOK blocks, lucx.346/347) |
 | `frontend/src/schemas/status.ts` | lucx status |
 | `frontend/package.json` `vitest.config.ts` `.oxlintrc.json` `.storybook/preview.tsx` | lucx scripts/tests |
 
@@ -216,28 +217,30 @@ Keep the directory. Origin will not have these.
 |---|---|
 | `internal/awg/` | kernel AWG sidecar |
 | `internal/awg/peer_routes{,_linux,_other,_test}.go` | peer LAN routes (issue #126) |
-| `internal/lucx/` | tunnel sidecars, kernel WireGuard, geodata, parser |
+| `internal/lucx/` | tunnel sidecars, kernel WireGuard, geodata, parser, scanner guard (`internal/lucx/scanguard/` — lucx.346) |
 | `internal/database/migrate_awg*.go` `migrate_geodata.go` `migrate_naive_inbound.go` `migrate_tunnel_*.go` `repair_tunnel_fields.go` | LucX migrations |
 | `internal/database/model/awg_outbound.go` `sidecar_outbound.go` `lenient_json.go` `lenient_json_test.go` | LucX tables + lenient JSON serializer (lucx.342) |
 | `internal/util/crypto/nosni.go` + `_test.go` | no-SNI throwaway certificate (lucx.342) |
 | `internal/sub/awg_*.go` `roscomvpn.go` `client_ip.go` `service_{awg,naive,qwdtt,trusttunnel}_test.go` `clash_awg_test.go` | LucX sub (`client_ip.go`: HWID device IP behind trustedProxyCIDRs, lucx.344) |
-| `internal/web/controller/awg.go` `awg_outbound.go` `lucx.go` `tunnel.go` `sidecar_outbound.go` `kernel_wireguard.go` `wgo.go` | LucX API |
-| `internal/web/job/awg_job.go` `awg_speed_buffer.go` `tunnel_job.go` `log_retention_job.go` `kernel_wireguard_job.go` | LucX jobs (wgo reconcile lives in kernel_wireguard_job + tunnel_job) |
+| `internal/web/controller/awg.go` `awg_outbound.go` `lucx.go` `tunnel.go` `sidecar_outbound.go` `kernel_wireguard.go` `wgo.go` `scanguard.go` `cleanip.go` | LucX API |
+| `internal/web/job/awg_job.go` `awg_speed_buffer.go` `tunnel_job.go` `log_retention_job.go` `kernel_wireguard_job.go` `scanguard_job.go` | LucX jobs (wgo reconcile lives in kernel_wireguard_job + tunnel_job) |
 | `internal/web/favicon/` | panel tab icon |
-| `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` `kernel_wgosocks_test.go` `backup_site_files{,_test}.go` | LucX service |
+| `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` `kernel_wgosocks_test.go` `backup_site_files{,_test}.go` `scanguard.go` `cleanip.go` | LucX service |
 | `internal/web/service/ip_privacy.go` `ip_provider.go` `live_inbounds.go` + their `_test.go` | IP privacy / provider / live inbounds (lucx.342) |
 | `internal/sub/sub_site_test.go` `service_anytls_test.go` | lucx sub tests (lucx.342) |
 | `internal/sub/json_client_warp.go` + `_test.go`, `internal/util/clientwarp/` | PR #185: client-side WARP in the JSON sub (lucx.342) |
 | `internal/web/job/anytls_stats_test.go` `trusttunnel_peruser_test.go` | lucx job tests (lucx.342) |
 | `frontend/src/pages/tunnels/` | Tunnels page |
+| `frontend/src/pages/scanguard/` | Scanner Guard page (lucx.346) |
+| `frontend/src/pages/cleanip/` | Clean IP scanner page (lucx.347) |
 | `frontend/src/components/clients/ClientDevicesCell.tsx` `hooks/useCoarsePointer.ts` `useBodyScrollLock.ts` `styles/touch.css` | Devices column + touch UX (lucx.342) |
 | `frontend/src/pages/inbounds/form/protocols/{awg,naive,olcrtc,qwdtt,csqtt,mieru,trusttunnel,anytls,tproxy,cover}.tsx` | lucx forms |
 | `frontend/src/pages/xray/awg-outbounds/` `sidecar-outbounds/` | lucx outbound UI |
 | `frontend/src/pages/settings/CoresTab.tsx` | sidecar binaries |
 | `frontend/src/pages/inbounds/AwgImportBanner.tsx` | AWG import |
 | `frontend/src/lib/awg/` `lib/mieru/` `lib/sub/` `lib/xray/awg-*.ts` | lucx libs |
-| `frontend/src/api/{awg-import,awg-outbounds,sidecar-outbounds,tunnels}.ts` | lucx API |
-| `frontend/src/schemas/{awg-*,tunnel,sidecar-outbound}.ts` `protocols/inbound/{awg,naive,wgo,wgosocks,wireguard,…}.ts` `frontend/src/lib/wgo/link.ts` | lucx zod/lib |
+| `frontend/src/api/{awg-import,awg-outbounds,sidecar-outbounds,tunnels,scanguard,cleanip}.ts` | lucx API |
+| `frontend/src/schemas/{awg-*,tunnel,sidecar-outbound,scanguard,cleanip}.ts` `protocols/inbound/{awg,naive,wgo,wgosocks,wireguard,…}.ts` `frontend/src/lib/wgo/link.ts` | lucx zod/lib |
 | `frontend/src/test/awg-*.ts*` `qwdtt-*.ts` `csqtt-*.ts` `vpnuri.test.ts` `sub-*.ts` `cores-*.tsx` | lucx tests |
 | `bin/` | install-awg, check-lucx, pack-sidecars, sourcecraft, lucx-acme (ACME on loopback, :80 forwarded) |
 | `third_party/sidecars/` `third_party/patches/` | sidecar blobs |

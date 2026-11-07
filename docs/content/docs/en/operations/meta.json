@@ -3,6 +3,7 @@
   "icon": "ServerCog",
   "pages": [
     "reverse-proxy",
+    "vless-cdn",
     "multi-node",
     "outbounds-routing",
     "backup-restore",

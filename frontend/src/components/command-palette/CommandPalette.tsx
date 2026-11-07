@@ -94,6 +94,11 @@ export const PALETTE_KEYWORDS: Record<string, string[]> = {
     'trusttunnel',
   ],
   '/masking': ['masking', 'tproxy', 'cover', 'webproxy', 'sni'],
+  // LUCX-HOOK: scanner guard palette entry
+  '/scanguard': ['scanner', 'guard', 'scanguard', 'ipset', 'rkn', 'blocklist'],
+  // LUCX-HOOK: clean-ip palette entry
+  '/cleanip': ['clean ip', 'cleanip', 'cloudflare', 'edge', 'cf', 'latency'],
+  // END LUCX-HOOK
   '/settings': ['settings', 'config', 'port', 'password', 'ssl', 'telegram'],
   '/xray': ['xray', 'templates', 'balancer', 'dns'],
   '/api-docs': ['api', 'api docs', 'swagger', 'rest api', 'endpoints'],

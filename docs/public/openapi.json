@@ -5276,6 +5276,14 @@
       "description": "Manage external tunnel-server sidecars that run next to the Xray core. Cores: (1) NaiveProxy — Caddy with forward_proxy (klzgrad, HTTP/2 padding), optional routeThroughXray SOCKS bridge; (2) olcRTC — TCP-over-WebRTC via meet rooms (Jitsi/Telemost/WB Stream), YAML config, olcrtc:// connect URI; (3) qWDTT — WireGuard over VK TURN (SpaceNeuroX wdtt-server), CLI flags, qwdtt:// URI + subscription JSON. Each core is supervised (start/stop/restart, ring logs, binary upload/download); the reconcile job (every 10s) revives a crashed core. All endpoints live under /panel/api/tunnel and require a logged-in session or Bearer token. LucX-UI only."
     },
     {
+      "name": "Scanner Guard",
+      "description": "Blocks incoming connections from known RKN/government scanner subnets. CIDR lists are fetched from operator-configured HTTPS sources and installed as ipset hash:net sets (lucx-sg4 / lucx-sg6); owner-marked iptables/ip6tables rules (comment lucx-scanguard, conntrack NEW only) in INPUT drop traffic from those subnets. The reconcile job (every 30m) re-ensures rules after reboot/iptables flush and re-fetches lists at most once per 6h; a broken source aborts the refresh and keeps the previous blocklist. Whitelisted subnets are excluded before install. Linux only. All endpoints live under /panel/api/scanguard and require a logged-in session or Bearer token. LucX-UI only."
+    },
+    {
+      "name": "Clean IP",
+      "description": "Probes random addresses from the published Cloudflare IPv4 ranges for TCP reachability and latency so an operator can pick a healthy client-side edge address. Optional TLS handshake verification against a chosen SNI drops edges whose handshake fails. Read-only and synchronous: results are returned in the response and nothing is ever applied to configs automatically (Rule 0). Live under /panel/api/cleanip and require a logged-in session or Bearer token. LucX-UI only."
+    },
+    {
       "name": "Server",
       "description": "System status, log retrieval, certificate generators, Xray binary management, and backup/restore. All under /panel/api/server."
     },
@@ -12232,6 +12240,246 @@
                     },
                     "obj": {}
                   }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/scanguard/status": {
+      "get": {
+        "tags": [
+          "Scanner Guard"
+        ],
+        "summary": "Stored config (enabled, sources, whitelist) merged with the live firewall probe: ipset availability, rule presence per family and the number of installed subnets, plus the last list update time and the last refresh error, if any. LucX-UI only.",
+        "operationId": "get_panel_api_scanguard_status",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": {
+                    "enabled": true,
+                    "sources": [
+                      "https://raw.githubusercontent.com/…/government_networks.list"
+                    ],
+                    "whitelist": [
+                      "203.0.113.0/24"
+                    ],
+                    "lastUpdated": "2026-11-07T12:00:00Z",
+                    "lastError": "",
+                    "firewall": {
+                      "ipsetAvailable": true,
+                      "rulesV4": true,
+                      "rulesV6": true,
+                      "v4Entries": 5312,
+                      "v6Entries": 408,
+                      "skipped": 0
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/scanguard/config": {
+      "post": {
+        "tags": [
+          "Scanner Guard"
+        ],
+        "summary": "Validate, persist and apply the scanner guard config. Enabling fetches every source, subtracts the whitelist and atomically swaps the ipset sets, then installs the INPUT rules; disabling sweeps the owner-marked rules and destroys the sets. Returns the fresh status. LucX-UI only.",
+        "operationId": "post_panel_api_scanguard_config",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "enabled": true,
+                "sources": [
+                  "https://raw.githubusercontent.com/shadow-netlab/traffic-guard-lists/refs/heads/main/public/government_networks.list"
+                ],
+                "whitelist": [
+                  "203.0.113.0/24"
+                ]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "scanguard: save failed (ipset not found — install the ipset package first)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/scanguard/refresh": {
+      "post": {
+        "tags": [
+          "Scanner Guard"
+        ],
+        "summary": "Re-fetch every source and reinstall the blocklists now (operator button). Fails with ErrDisabled when the guard is off; a source failure keeps the previous sets and is reported in status.lastError. LucX-UI only.",
+        "operationId": "post_panel_api_scanguard_refresh",
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Error response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "example": {
+                  "success": false,
+                  "msg": "scanguard: refresh failed (scanner guard is disabled)"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/panel/api/cleanip/scan": {
+      "post": {
+        "tags": [
+          "Clean IP"
+        ],
+        "summary": "Run one scan batch: sample random Cloudflare addresses (default 256), TCP-probe them concurrently (32 workers), optionally verify a TLS handshake against the SNI, then return at most Count (default 30) healthy edges — TLS-verified first, then by latency. All fields optional: port 443, timeoutMs 1500 per probe, count ≤ 100, sample ≤ 4096. LucX-UI only.",
+        "operationId": "post_panel_api_cleanip_scan",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object"
+              },
+              "example": {
+                "port": 443,
+                "count": 30,
+                "sample": 256,
+                "timeoutMs": 1500,
+                "tlsCheck": true,
+                "sni": "www.cloudflare.com"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                },
+                "example": {
+                  "success": true,
+                  "obj": [
+                    {
+                      "address": "104.16.3.77",
+                      "port": 443,
+                      "latencyMs": 38,
+                      "tlsOk": true
+                    },
+                    {
+                      "address": "172.70.112.9",
+                      "port": 443,
+                      "latencyMs": 41,
+                      "tlsOk": true
+                    }
+                  ]
                 }
               }
             }

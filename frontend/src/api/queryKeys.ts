@@ -72,5 +72,8 @@ export const keys = {
     telemtStatus: () => ['tunnels', 'telemtStatus'] as const,
     mtprotoZigStatus: () => ['tunnels', 'mtprotoZigStatus'] as const,
   },
+  // LUCX-HOOK: scanner guard (ipset banning of RKN scanner subnets) + clean-ip tool
+  scanguard: () => ['scanguard'] as const,
+  cleanIp: () => ['cleanip'] as const,
   // END LUCX-HOOK
 } as const;

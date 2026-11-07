@@ -1,0 +1,82 @@
+---
+title: VLESS through CDN
+description: Put a VLESS inbound behind Cloudflare or a self-hosted reverse proxy so clients talk to the CDN edge instead of your VPS.
+icon: Cloud
+---
+
+VLESS does not need to be exposed on your VPS IP directly. With a WebSocket
+(or gRPC / HTTPUpgrade) transport you can put a reverse proxy or a CDN in
+front, so clients connect to the **CDN edge IP** while your VPS IP stays out
+of the picture. This is what community bundles like HYDRA-ULTIMATE or
+Chimera-Project configure with their installers — for a single inbound it is a
+few minutes of manual work, no extra project needed.
+
+## What you need
+
+- A domain (Cloudflare-managed is easiest) and a VLESS inbound with a
+  WebSocket, gRPC or HTTPUpgrade transport. TCP/REALITY inbounds cannot sit
+  behind a CDN.
+- TLS: either terminate it at the CDN edge (Cloudflare "Full (strict)" + an
+  origin certificate) or with the panel's own ACME certificate.
+
+## Option 1 — Cloudflare proxy
+
+1. Create an `A` record for the inbound host pointing at your VPS and enable
+   the orange cloud (proxied).
+2. In the inbound form pick **WebSocket**, set a path, and TLS: use the panel
+   ACME certificate (HTTP-01 works through Cloudflare's default passthrough)
+   or a Cloudflare origin certificate.
+3. Client shares links keep the same domain — the client resolves it to a
+   Cloudflare edge, not to your VPS. In the share host field use the domain,
+   not an IP.
+
+Gotchas on the free plan: UDP/QUIC is not proxied (so no H3 for WebSocket),
+gRPC needs to be enabled explicitly in the dashboard, and the panel itself
+should stay on a hostname that is **not** proxied.
+
+## Option 2 — Own nginx / Caddy in front
+
+On the VPS itself: 443 terminates TLS (panel cert works as is) and forwards to
+the loopback WS port of the inbound.
+
+```nginx
+server {
+    listen 443 ssl http2;
+    server_name vpn.example.com;
+
+    ssl_certificate     /path/fullchain.pem;
+    ssl_certificate_key /path/privkey.pem;
+
+    location /ws-path {
+        proxy_pass http://127.0.0.1:2083;   # inbound listen port
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+    }
+}
+```
+
+Caddy equivalent:
+
+```
+vpn.example.com {
+    tls /path/fullchain.pem /path/privkey.pem
+    reverse_proxy /ws-path/* h2c://127.0.0.1:2083
+}
+```
+
+When you terminate TLS yourself in nginx/Caddy, the inbound should be plain
+WebSocket (`security: none`, listen on loopback only) — TLS happens at the
+front. Keep the panel port and subscription port unproxied or on a separate
+hostname.
+
+## Picking a working edge IP
+
+In filtered networks some Cloudflare edge IPs respond better than others.
+The panel ships a **Clean IP scanner** (menu *Clean IP*): it probes random
+addresses from the published Cloudflare ranges on the configured port, ranks
+them by latency and, optionally, by a TLS handshake against your chosen SNI.
+Copy a healthy address and use it as the client-side `address` (the share
+host), keeping your domain in SNI/Host. The scan runs only on demand — the
+panel never rewrites client configs by itself.

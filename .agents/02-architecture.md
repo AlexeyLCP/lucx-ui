@@ -34,6 +34,10 @@ AWG runs as a kernel-interface sidecar managed by `internal/awg.Manager`, exactl
 
 - **`internal/lucx/wireguard/`** (PolyForm): optional ordinary kernel WG; owned interfaces/configs, INPUT/TPROXY rules, syncconf, counters and safe import. Web integration: `service/kernel_wireguard.go`, `job/kernel_wireguard_job.go`, `controller/kernel_wireguard.go`; operator guide `docs/content/docs/en/config/kernel-wireguard.mdx`.
 
+### Scanner Guard (lucx.346)
+
+List-based ipset banning of RKN/government scanner subnets (the rkn-guard / remnanode-antiscan model — not log analysis, so real clients are never at risk). `internal/lucx/scanguard/` (PolyForm): HTTPS fetch of CIDR sources (30 s timeout, 20 MiB cap, strict parse — one bad line or one dead source aborts the refresh and keeps the previous sets), safety filter (skip subnets wider than /8 v4 · /32 v6 + private/loopback/link-local/multicast), whitelist subtraction (exact or contained CIDR), atomic ipset swap (`lucx-sg4`/`lucx-sg6` hash:net via one `ipset restore -exist` batch per family → swap → destroy), owner-marked INPUT rules (`--comment lucx-scanguard`, `NEW + set match → DROP`; established sessions survive updates; sweep via `iptables -S INPUT` re-parse like the wgo firewall). Non-Linux = no-op stubs. Web layer: `service/scanguard.go` (settings keys `scanguard*`, Status merge, SaveAndApply/ForceRefresh/Reconcile, 6 h re-fetch), `job/scanguard_job.go` (`@every 30m` + boot run; re-ensures rules lost to reboot/iptables flush), `controller/scanguard.go` (`/panel/api/scanguard/{status,config,refresh}`; HOOK in `controller/api.go`, cadence const in `web.go`). Frontend `pages/scanguard/ScanguardPage.tsx` (`/scanguard`, `menu.scanguard` in all 14 locales, palette keywords, api-docs section). Host needs the `ipset` package (UI hint when missing); SSH is never port-blocked — operators whitelist their own subnet; Docker bridge FORWARD is out of scope.
+
 ### 3b. Tunnel Sidecars Architecture (lucx.91+)
 
 Tunnel sidecars are external tunnel servers that the panel supervises **alongside** Xray (not Xray protocols). Cores: **NaiveProxy** (Caddy + `forward_proxy` klzgrad, HTTP/2 padding; optional routeThroughXray), **olcRTC** (TCP-over-WebRTC via Jitsi/Telemost/WB Stream meet rooms), **qWDTT** (WG over VK TURN), **CSQTT** (TURN/RTP). Shared skeleton:
@@ -61,6 +65,10 @@ Tunnel sidecars are external tunnel servers that the panel supervises **alongsid
 - **AWG 3.1 (lucx.117):** ceiling `"3.1"` + `RandomTrailers`/`DisableCookies` (omit when false; emit only for 3.1 && tools≥3.1). HPK/timers — `IsAwg3Plus` (`3` and `3.1`). Live v3 are not bumped. Tools gate in `install-awg-module.sh`: `< v3.1`. **lucx.136 / lucx.145:** (a) early-exit in `install-awg-module.sh` when marker SHA == upstream master AND tools are current (else fallthrough rebuilds tools only); `rmmod` busy → `.awg-reboot-needed`; (b) `RebuildAwgModule` first `StopAll()`+`StopAllClients()` (new method), `AwgJob` skips reconcile while `AwgRebuildRunning()`; (c) visibility — `ModuleAwg31` in `HostStatus`/hello/`Status.Awg`(`moduleAwg31`,`rebootNeeded`) + AWG3.1 / “AWG3.1 OK” tag + `awg31CapabilityCheck` info line in diagnostics.
 - **Obfuscation presets (lucx.136, Amnezia canon; H — lucx.139):** `GenerateAWGParams` recalibrated to `AwgInstaller::generateAwgParameters` (amnezia-client): Lite/Standard/Pro around Jc=4..6, Jmin=10, Jmax=50, S1/S2=12..149, S3=12..63, **S4=12 fixed**. **Premium** (Amnesia Premium, AWG 3.1): fixed TLS 1.3 handshake sizes S1=164/S2=528/S3=389/S4=12, Jc=5/Jmin=10/Jmax=80, H=1/2/3/4 under HPK (v2 still uses ranges), I1 only, timings ContentPadding=10-100 / RekeyAfter=100-120 / KeepaliveTimeout=7-13. Full invariant (`isPacketSizeEqual`): 148+S1, 92+S2, 64+S3, 32+S4 pairwise distinct. H1–H4 by version: `"1.5"` → singles in narrow bands; `"2"`/`"3"`/`"3.1"` → narrow ranges width ≤100000 (`hBand`) except Premium on `"3"`/`"3.1"`. lucx.136 put `"3"`/`"3.1"` as `"1/2/3/4"` (HPK encrypts the header) — testers read that as a broken generator; lucx.139 restored ranges for Lite/Standard/Pro. Default `mimicryProfile` = `tls`. **lucx.137:** `quicInitialPacket` pads to 1200 with random bytes, not `0x00` (DPI marker “sheet of zeros” in I1).
 
+### Clean IP (lucx.347)
+
+On-demand Cloudflare edge scanner, scan-only (Rule 0: nothing auto-applied). `internal/lucx/cleanip/` (PolyForm): 15 published CF IPv4 ranges + `math/rand/v2` sampling, TCP probe pool (32 workers), optional TLS-handshake verify vs SNI (failed-TLS dropped), results sorted TLS-first then latency, truncated to count. Dialer/sampler vars → tests inject fixed batches. Web layer: `service/cleanip.go` (clamps: port 443, count ≤100, sample ≤4096, timeout ≤10s), `controller/cleanip.go` `POST /panel/api/cleanip/scan` (synchronous, stateless; HOOK in `controller/api.go`). Frontend `pages/cleanip/CleanIpPage.tsx` (`/cleanip`, RHF form + results table). Operator recipe: `docs/content/docs/en/operations/vless-cdn.mdx`.
+
 ## Architecture Map
 
 ```
@@ -86,7 +94,7 @@ internal/awg/signature/            QUIC host capture (hoaxisr port)
 ├── capture.go                     Capture(domain) — sends QUIC Initial, reads replies → I1-I5
 └── capture_test.go                normalizeDomain/fillPackets/varint/HKDF/ClientHello+Initial structure tests
 
-internal/lucx/                     Smart Cluster + kernel WireGuard + tunnel sidecars
+internal/lucx/                     Smart Cluster + kernel WireGuard + tunnel sidecars + scanner guard + cleanip
 ├── parser/                        SSH output → NodeCreds
 ├── nodetype/                      LucX vs vanilla detection (GET /panel/api/lucx/hello + features gate)
 ├── outbound_link/                 Inbound → outbound config generator
@@ -125,6 +133,11 @@ internal/web/
 ├── service/tunnel.go              TunnelService — naive config persist (settings key lucxTunnel_naive), validations, TCP port cross-check vs inbounds, caddy adapt, binary download via temp file
 ├── controller/tunnel.go           /panel/api/tunnel/naive/* — status/config/start/stop/restart/logs/preview/validate/upload/download/deleteBinary
 ├── job/tunnel_job.go              TunnelJob cron @every 10s — reconcile + sidecar traffic/online
+├── job/scanguard_job.go           Scanner-guard job @every 30m — rule re-ensure + list refresh
+├── service/scanguard.go           ScanguardService — config/status/apply (settings keys scanguard*)
+├── controller/scanguard.go        /panel/api/scanguard/{status,config,refresh}
+├── service/cleanip.go             CleanIpService — clamps + runs the CF edge scan
+├── controller/cleanip.go          POST /panel/api/cleanip/scan
 ├── web.go                         cadenceAwg + cadenceTunnel + StopAll wiring + upload body-limit exempt (LUCX-HOOK)
 
 internal/database/model/model.go   AWG Protocol const + validate oneof (LUCX-HOOK)
