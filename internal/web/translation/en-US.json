@@ -3187,7 +3187,7 @@
     },
     "scanguard": {
       "title": "Scanner Guard",
-      "subtitle": "Blocks incoming connections from known RKN/government scanner subnets via ipset + iptables (one DROP rule per address family). Lists refresh automatically; your clients are never affected.",
+      "subtitle": "Blocks incoming connections from known RKN/government scanner subnets via ipset + iptables or native nftables (one DROP rule per address family). Lists refresh automatically; your clients are never affected.",
       "status": {
         "title": "Status",
         "state": "State",
@@ -3197,6 +3197,7 @@
         "rules": "Firewall rules",
         "rulesOk": "installed",
         "rulesMissing": "not installed — re-applied automatically",
+        "backend": "Firewall backend",
         "lastUpdated": "Last list update",
         "never": "never",
         "ipsetMissing": "ipset is not available on this host — install the \"ipset\" package to use the scanner guard."

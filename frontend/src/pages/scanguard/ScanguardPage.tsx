@@ -150,6 +150,9 @@ export default function ScanguardPage() {
                   ? t('pages.scanguard.status.rulesOk')
                   : t('pages.scanguard.status.rulesMissing')}
               </Descriptions.Item>
+              <Descriptions.Item label={t('pages.scanguard.status.backend')}>
+                {firewall?.backend || '—'}
+              </Descriptions.Item>
               <Descriptions.Item label={t('pages.scanguard.status.lastUpdated')}>
                 {status?.lastUpdated || t('pages.scanguard.status.never')}
               </Descriptions.Item>

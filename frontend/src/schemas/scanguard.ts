@@ -14,6 +14,7 @@ export const ScanguardConfigSchema = z.object({
 export type ScanguardConfig = z.infer<typeof ScanguardConfigSchema>;
 
 export const ScanguardFirewallSchema = z.object({
+  backend: z.string().optional(),
   ipsetAvailable: z.boolean(),
   rulesV4: z.boolean(),
   rulesV6: z.boolean(),

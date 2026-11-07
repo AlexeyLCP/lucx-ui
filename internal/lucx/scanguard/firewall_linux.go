@@ -21,35 +21,112 @@ import (
 )
 
 const (
-	firewallOwner = "lucx-scanguard"
-	setName4      = "lucx-sg4"
-	setName6      = "lucx-sg6"
-	tmpSuffix     = "-tmp"
-	setMaxelem    = 65536
+	tmpSuffix  = "-tmp"
+	setMaxelem = 65536
+
+	beIptables = "iptables"
+	beNft      = "nft"
 )
 
+// detectBackend picks the firewall plumbing by binary presence: the
+// battle-tested ipset+iptables path first (it also covers the iptables-nft
+// compat layer), native nftables when the compat tooling is absent — the nft
+// path needs neither ipset nor iptables. Empty = nothing usable on the host.
+// A var so tests can force the backend.
+var detectBackend = func() string {
+	hasBin := func(b string) bool {
+		_, err := exec.LookPath(b)
+		return err == nil
+	}
+	switch {
+	case hasBin("iptables") && hasBin("ip6tables"):
+		return beIptables
+	case hasBin("nft"):
+		return beNft
+	case hasBin("iptables"):
+		return beIptables
+	}
+	return ""
+}
+
 // sgCmd and sgIpsetRestore are vars so tests can fake the exec layer.
+// Failures carry the tool's first stderr line — a bare "exit status 2" is
+// undiagnosable in the panel toast.
 var sgCmd = func(name string, args ...string) ([]byte, error) {
-	return exec.Command(name, args...).CombinedOutput()
+	out, err := exec.Command(name, args...).CombinedOutput()
+	if err != nil && len(out) > 0 {
+		err = fmt.Errorf("%v: %s", err, firstErrorLine(out))
+	}
+	return out, err
 }
 
 var sgIpsetRestore = func(input []byte) error {
 	cmd := exec.Command("ipset", "restore", "-exist")
 	cmd.Stdin = strings.NewReader(string(input))
-	_, err := cmd.CombinedOutput()
+	out, err := cmd.CombinedOutput()
+	if err != nil && len(out) > 0 {
+		err = fmt.Errorf("%v: %s", err, firstErrorLine(out))
+	}
 	return err
 }
 
+var sgNftRestore = func(input []byte) error {
+	cmd := exec.Command("nft", "-f", "-")
+	cmd.Stdin = strings.NewReader(string(input))
+	out, err := cmd.CombinedOutput()
+	if err != nil && len(out) > 0 {
+		err = fmt.Errorf("%v: %s", err, firstErrorLine(out))
+	}
+	return err
+}
+
+// nftApply installs the whole guard (sets + hooked chain) in one atomic nft
+// transaction.
+func nftApply(v4, v6 []netip.Prefix) error {
+	if err := sgNftRestore(nftBuildBatch(v4, v6)); err != nil {
+		return fmt.Errorf("nftables apply failed: %w", err)
+	}
+	return nil
+}
+
+func nftProbe(st *ProbedStatus) {
+	st.Backend = beNft
+	st.IpsetAvailable = true // the nft path does not use ipset at all
+	if out, err := sgCmd("nft", "-j", "list", "table", "inet", nftTable); err == nil {
+		st.V4Entries, st.V6Entries = nftSetCounts(out)
+	}
+	if out, err := sgCmd("nft", "list", "chain", "inet", nftTable, nftChain); err == nil {
+		text := string(out)
+		st.RulesV4 = strings.Contains(text, "@"+setName4)
+		st.RulesV6 = strings.Contains(text, "@"+setName6)
+	}
+}
+
+// firstErrorLine keeps the message (drops the "Try iptables -h" hints).
+func firstErrorLine(out []byte) string {
+	for _, line := range strings.Split(string(out), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			return line
+		}
+	}
+	return ""
+}
+
 // applyToFirewall swaps the sets atomically (build temp set, swap, destroy)
-// so traffic between refreshes keeps hitting the previous set.
+// so traffic between refreshes keeps hitting the previous set; the nft
+// backend replaces the whole owned table atomically instead.
 func applyToFirewall(v4, v6 []netip.Prefix) error {
+	if len(v4) > setMaxelem || len(v6) > setMaxelem {
+		return fmt.Errorf("list exceeds %d entries per family", setMaxelem)
+	}
+	if detectBackend() == beNft {
+		return nftApply(v4, v6)
+	}
 	if _, err := sgCmd("ipset", "list", setName4); err != nil {
 		if _, lookErr := exec.LookPath("ipset"); lookErr != nil {
 			return errors.New("ipset not found — install the ipset package first")
 		}
-	}
-	if len(v4) > setMaxelem || len(v6) > setMaxelem {
-		return fmt.Errorf("list exceeds %d entries per family", setMaxelem)
 	}
 	if err := sgIpsetRestore(restoreInput("inet", setName4, listBody(v4))); err != nil {
 		return fmt.Errorf("ipset v4 restore failed: %w", err)
@@ -87,8 +164,12 @@ func listBody(list []netip.Prefix) []netip.Prefix {
 	return out
 }
 
-// ensureRules installs the owner-tagged NEW+set DROP rules for both families.
+// ensureRules installs the owner-tagged NEW+set DROP rules for both families;
+// the nft backend already got them with the apply transaction.
 func ensureRules() error {
+	if detectBackend() == beNft {
+		return nil
+	}
 	if err := ensureRule("iptables", setName4); err != nil {
 		return fmt.Errorf("iptables rule: %w", err)
 	}
@@ -98,8 +179,11 @@ func ensureRules() error {
 	return nil
 }
 
-func ruleArgs(bin, op, set string) []string {
-	args := []string{bin, "-w", "5", op, "INPUT"}
+// ruleArgs builds the iptables argv WITHOUT the binary itself — sgCmd
+// receives that separately. (Bug legacy note: prepending the binary here ran
+// `iptables iptables -w 5 ...` → "Bad argument" exit 2 on every rule op.)
+func ruleArgs(op, set string) []string {
+	args := []string{"-w", "5", op, "INPUT"}
 	if op == "-I" {
 		args = append(args, "1")
 	}
@@ -111,16 +195,21 @@ func ruleArgs(bin, op, set string) []string {
 }
 
 func ensureRule(bin, set string) error {
-	if _, err := sgCmd(bin, ruleArgs(bin, "-C", set)...); err == nil {
+	if _, err := sgCmd(bin, ruleArgs("-C", set)...); err == nil {
 		return nil
 	}
-	_, err := sgCmd(bin, ruleArgs(bin, "-I", set)...)
+	_, err := sgCmd(bin, ruleArgs("-I", set)...)
 	return err
 }
 
-// removeFirewall sweeps every owner-tagged rule and destroys the sets.
-// Removing absent rules/sets is success.
+// removeFirewall sweeps every owner-tagged rule and destroys the sets
+// (nft backend: deletes the owned table). Removing absent rules/sets is a
+// success.
 func removeFirewall() error {
+	if detectBackend() == beNft {
+		_, _ = sgCmd("nft", "delete", "table", "inet", nftTable)
+		return nil
+	}
 	var firstErr error
 	for _, bin := range []string{"iptables", "ip6tables"} {
 		out, err := sgCmd(bin, "-w", "5", "-S", "INPUT")
@@ -128,7 +217,11 @@ func removeFirewall() error {
 			continue
 		}
 		for _, spec := range ownerRules(string(out)) {
-			if _, err := sgCmd(bin, "-w", "5", "-D", "INPUT", spec); err != nil && firstErr == nil {
+			// The spec must arrive as one argv token per match/option — a
+			// single combined token makes iptables read it as one match name
+			// ("Invalid match name … 28 chars max").
+			argv := append([]string{"-w", "5", "-D", "INPUT"}, strings.Fields(spec)...)
+			if _, err := sgCmd(bin, argv...); err != nil && firstErr == nil {
 				firstErr = err
 			}
 		}
@@ -164,19 +257,22 @@ func ownerRules(dump string) []string {
 
 func probeStatus() ProbedStatus {
 	st := ProbedStatus{}
-	if out, err := sgCmd("ipset", "list", setName4); err == nil {
+	if detectBackend() == beNft {
+		nftProbe(&st)
+		return st
+	}
+	st.Backend = detectBackend()
+	if _, err := sgCmd("ipset", "version"); err == nil {
 		st.IpsetAvailable = true
+	}
+	if out, err := sgCmd("ipset", "list", setName4); err == nil {
 		st.V4Entries = parseIpsetEntries(string(out))
 	}
 	if out, err := sgCmd("ipset", "list", setName6); err == nil {
 		st.V6Entries = parseIpsetEntries(string(out))
-		if st.IpsetAvailable {
-			st.RulesV6 = rulePresent("ip6tables", setName6)
-		}
 	}
-	if st.IpsetAvailable {
-		st.RulesV4 = rulePresent("iptables", setName4)
-	}
+	st.RulesV4 = rulePresent("iptables", setName4)
+	st.RulesV6 = rulePresent("ip6tables", setName6)
 	return st
 }
 
@@ -191,6 +287,6 @@ func parseIpsetEntries(out string) int {
 }
 
 func rulePresent(bin, set string) bool {
-	_, err := sgCmd(bin, ruleArgs(bin, "-C", set)...)
+	_, err := sgCmd(bin, ruleArgs("-C", set)...)
 	return err == nil
 }

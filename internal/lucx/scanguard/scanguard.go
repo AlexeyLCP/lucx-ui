@@ -32,6 +32,15 @@ const (
 	fetchTimeout = 30 * time.Second
 )
 
+// Shared across both firewall backends: the owner comment tag and the
+// ipset/nft set names (the nft table is namespaced on its own, so the same
+// names are safe there).
+const (
+	firewallOwner = "lucx-scanguard"
+	setName4      = "lucx-sg4"
+	setName6      = "lucx-sg6"
+)
+
 // Config is the operator-owned state of the feature.
 type Config struct {
 	Enabled   bool     `json:"enabled"`
@@ -51,13 +60,17 @@ type ApplyResult struct {
 	Skipped int `json:"skipped"`
 }
 
-// ProbedStatus is the live OS-level state (no config involved).
+// ProbedStatus is the live OS-level state (no config involved). Backend
+// names the firewall plumbing the probes/apply use: "iptables" (binary
+// compat layer), "nft" (native nftables — needs neither ipset nor iptables)
+// or "" when neither exists.
 type ProbedStatus struct {
-	IpsetAvailable bool `json:"ipsetAvailable"`
-	RulesV4        bool `json:"rulesV4"`
-	RulesV6        bool `json:"rulesV6"`
-	V4Entries      int  `json:"v4Entries"`
-	V6Entries      int  `json:"v6Entries"`
+	Backend        string `json:"backend,omitempty"`
+	IpsetAvailable bool   `json:"ipsetAvailable"`
+	RulesV4        bool   `json:"rulesV4"`
+	RulesV6        bool   `json:"rulesV6"`
+	V4Entries      int    `json:"v4Entries"`
+	V6Entries      int    `json:"v6Entries"`
 }
 
 // ErrUnsupported is returned off Linux; apply is a no-op there.

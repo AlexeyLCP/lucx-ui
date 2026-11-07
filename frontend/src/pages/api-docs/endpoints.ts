@@ -1753,15 +1753,15 @@ export const sections: readonly Section[] = [
     id: 'scanguard',
     title: 'Scanner Guard',
     description:
-      'Blocks incoming connections from known RKN/government scanner subnets. CIDR lists are fetched from operator-configured HTTPS sources and installed as ipset hash:net sets (lucx-sg4 / lucx-sg6); owner-marked iptables/ip6tables rules (comment lucx-scanguard, conntrack NEW only) in INPUT drop traffic from those subnets. The reconcile job (every 30m) re-ensures rules after reboot/iptables flush and re-fetches lists at most once per 6h; a broken source aborts the refresh and keeps the previous blocklist. Whitelisted subnets are excluded before install. Linux only. All endpoints live under /panel/api/scanguard and require a logged-in session or Bearer token. LucX-UI only.',
+      'Blocks incoming connections from known RKN/government scanner subnets. CIDR lists are fetched from operator-configured HTTPS sources and installed as ipset hash:net sets (lucx-sg4 / lucx-sg6) with owner-marked iptables/ip6tables INPUT rules (comment lucx-scanguard, conntrack NEW only); on hosts without the ipset/iptables tooling the guard uses native nftables instead — one owned table (lucx_scanguard) with sets lucx-sg4/lucx-sg6 and a hooked input chain, replaced atomically per refresh. The reconcile job (every 30m) re-ensures rules after reboot/iptables flush and re-fetches lists at most once per 6h; a broken source aborts the refresh and keeps the previous blocklist. Whitelisted subnets are excluded before install. Linux only. All endpoints live under /panel/api/scanguard and require a logged-in session or Bearer token. LucX-UI only.',
     endpoints: [
       {
         method: 'GET',
         path: '/panel/api/scanguard/status',
         summary:
-          'Stored config (enabled, sources, whitelist) merged with the live firewall probe: ipset availability, rule presence per family and the number of installed subnets, plus the last list update time and the last refresh error, if any. LucX-UI only.',
+          'Stored config (enabled, sources, whitelist) merged with the live firewall probe: which backend is active, ipset availability, rule presence per family and the number of installed subnets, plus the last list update time and the last refresh error, if any. LucX-UI only.',
         response:
-          '{\n  "success": true,\n  "obj": {\n    "enabled": true,\n    "sources": ["https://raw.githubusercontent.com/…/government_networks.list"],\n    "whitelist": ["203.0.113.0/24"],\n    "lastUpdated": "2026-11-07T12:00:00Z",\n    "lastError": "",\n    "firewall": { "ipsetAvailable": true, "rulesV4": true, "rulesV6": true, "v4Entries": 5312, "v6Entries": 408, "skipped": 0 }\n  }\n}',
+          '{\n  "success": true,\n  "obj": {\n    "enabled": true,\n    "sources": ["https://raw.githubusercontent.com/…/government_networks.list"],\n    "whitelist": ["203.0.113.0/24"],\n    "lastUpdated": "2026-11-07T12:00:00Z",\n    "lastError": "",\n    "firewall": { "backend": "iptables", "ipsetAvailable": true, "rulesV4": true, "rulesV6": true, "v4Entries": 5312, "v6Entries": 408, "skipped": 0 }\n  }\n}',
       },
       {
         method: 'POST',
