@@ -35,7 +35,9 @@ func installFakeSG(t *testing.T, listBody string, rulePresent bool) *fakeSG {
 				return nil, errors.New("set does not exist")
 			}
 			return []byte(f.listBody), nil
-		case strings.Contains(joined, "-C INPUT"):
+		case strings.Contains(joined, " -S "):
+			return []byte(f.listBody), nil
+		case strings.Contains(joined, " -C INPUT"):
 			if rulePresent {
 				return []byte("ok"), nil
 			}
@@ -107,7 +109,7 @@ func TestDisableSweepsOwnerRules(t *testing.T) {
 		joined := name + " " + strings.Join(args, " ")
 		f.calls = append(f.calls, joined)
 		switch {
-		case args[0] == "-S":
+		case strings.Contains(joined, " -S "):
 			if name == "iptables" {
 				return []byte(v4Dump), nil
 			}

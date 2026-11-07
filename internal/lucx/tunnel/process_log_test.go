@@ -12,8 +12,9 @@ import (
 	"sync"
 	"testing"
 
-	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 	"github.com/op/go-logging"
+
+	"github.com/mhsanaei/3x-ui/v3/internal/logger"
 )
 
 func newTestLogWriter() (*procLogWriter, *ring) {
