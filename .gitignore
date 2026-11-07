@@ -39,6 +39,9 @@ main
 .DS_Store
 Thumbs.db
 
+# Ignore runtime test artifacts (rendered kernel-AWG spec confs)
+internal/web/runtime/amneziawg/
+
 # Ignore Go build files
 *.exe
 *.syso

@@ -40,9 +40,19 @@ func newTestLocal() *Local {
 	return NewLocal(LocalDeps{APIPort: func() int { return 0 }, SetNeedRestart: func() {}})
 }
 
+// isolateDataDir keeps the kernel datapath's rendered spec confs out of the
+// working tree: GetDBFolderPath() falls back to a repo-relative base on
+// Windows, and a leaked xui-awg*.conf once got committed by a blanket
+// `git add -A`.
+func isolateDataDir(t *testing.T) {
+	t.Helper()
+	t.Setenv("XUI_DB_FOLDER", t.TempDir())
+}
+
 // Both datapaths bind the inbound's own UDP port, so an embedded device raised
 // here collides with the kernel interface the reconcile tick brings up.
 func TestAddInboundKeepsKernelModeOffTheEmbeddedDatapath(t *testing.T) {
+	isolateDataDir(t)
 	ib := datapathInbound(t, 4181, 58731, true)
 	t.Cleanup(func() { amneziawgnet.GetManager().Remove(ib.Id) })
 
@@ -58,6 +68,7 @@ func TestAddInboundKeepsKernelModeOffTheEmbeddedDatapath(t *testing.T) {
 // The other half: without the toggle the dispatch must still reach
 // amneziawgnet, or it would be a blanket opt-out rather than a routing choice.
 func TestAddInboundStillUsesTheEmbeddedDatapath(t *testing.T) {
+	isolateDataDir(t)
 	ib := datapathInbound(t, 4182, 58732, false)
 	t.Cleanup(func() { amneziawgnet.GetManager().Remove(ib.Id) })
 
