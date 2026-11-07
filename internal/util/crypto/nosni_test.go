@@ -33,6 +33,20 @@ func domainCert(t *testing.T, name string) tls.Certificate {
 	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
 }
 
+func ipCert(t *testing.T, ips []net.IP, cn string) tls.Certificate {
+	t.Helper()
+	key, _ := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	tmpl := &x509.Certificate{
+		SerialNumber: big.NewInt(7), Subject: pkix.Name{CommonName: cn}, IPAddresses: ips,
+		NotBefore: time.Now().Add(-time.Hour), NotAfter: time.Now().Add(time.Hour), ExtKeyUsage: []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+	}
+	der, err := x509.CreateCertificate(rand.Reader, tmpl, tmpl, key.Public(), key)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return tls.Certificate{Certificate: [][]byte{der}, PrivateKey: key}
+}
+
 // handshakeCN does a real TLS handshake and returns the certificate's CN.
 func handshakeCN(t *testing.T, cfg *tls.Config, sni string) string {
 	t.Helper()
@@ -70,6 +84,65 @@ func TestHideCertWithoutSNI(t *testing.T) {
 		"other.example":   "sub.example.com", // unknown name: the real one, as before
 	} {
 		if got := handshakeCN(t, cfg, sni); got != want {
+			t.Errorf("SNI %q: certificate %q, want %q", sni, got, want)
+		}
+	}
+}
+
+// A certificate carrying the visited IP in SAN (a Let's Encrypt cert issued
+// to the IP) must survive the no-SNI hide: the visit is by that very IP, the
+// operator configured the cert for it. Tester's report lucx.352: .350/.351
+// served the self-signed localhost pair on every bare-IP visit of the panel.
+func TestHideCertWithoutSNIKeepsIPCert(t *testing.T) {
+	cfg := &tls.Config{Certificates: []tls.Certificate{
+		ipCert(t, []net.IP{net.ParseIP("127.0.0.1")}, "127.0.0.1"),
+	}}
+	if err := HideCertWithoutSNI(cfg); err != nil {
+		t.Fatal(err)
+	}
+	for sni, want := range map[string]string{
+		"":        "127.0.0.1", // no SNI, the visit is by the covered IP
+		"1.2.3.4": "127.0.0.1", // IP-literal SNI to an uncovered IP: hidden
+	} {
+		if got := handshakeCN(t, cfg, sni); got != want {
+			t.Errorf("SNI %q: certificate %q, want %q", sni, got, want)
+		}
+	}
+}
+
+// A cert whose SAN names IPs but not the visiting one stays hidden; a hello
+// carrying a covered IP literal picks the real cert. stdlib clients drop the
+// SNI extension for IP literals, so the IP-name case is exercised on the
+// closure directly (a hello with no Conn, like probes that send SNI=IP).
+func TestHideCertWithoutSNIMismatchedIP(t *testing.T) {
+	cfg := &tls.Config{Certificates: []tls.Certificate{
+		ipCert(t, []net.IP{net.ParseIP("1.2.3.4"), net.ParseIP("203.0.113.5")}, "mixed"),
+	}}
+	if err := HideCertWithoutSNI(cfg); err != nil {
+		t.Fatal(err)
+	}
+	// Real handshakes: every dial lands on 127.0.0.1, which the cert does
+	// not cover — always hidden.
+	for sni := range map[string]string{"": "", "1.2.3.4": "", "9.9.9.9": ""} {
+		if got := handshakeCN(t, cfg, sni); got != "localhost" {
+			t.Errorf("SNI %q: certificate %q, want localhost", sni, got)
+		}
+	}
+	for sni, want := range map[string]string{
+		"203.0.113.5": "mixed",     // covered IP
+		"1.2.3.4":     "mixed",     // covered IP
+		"8.8.8.8":     "localhost", // uncovered IP
+		"":            "localhost", // no name and no conn — nothing to match
+	} {
+		c, err := cfg.GetCertificate(&tls.ClientHelloInfo{ServerName: sni})
+		if err != nil {
+			t.Fatalf("SNI %q: %v", sni, err)
+		}
+		leaf, perr := x509.ParseCertificate(c.Certificate[0])
+		if perr != nil {
+			t.Fatal(perr)
+		}
+		if got := leaf.Subject.CommonName; got != want {
 			t.Errorf("SNI %q: certificate %q, want %q", sni, got, want)
 		}
 	}

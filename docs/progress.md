@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.352 — fix: визит панели по IP не обслуживается LE-сертификатом (HideCertWithoutSNI) (2026-11-07)
+
+Tester report: on .350/.351 opening the panel by bare IP served the self-signed `CN=localhost` pair instead of the operator's Let's Encrypt certificate that carries the IP in SAN (`openssl s_client … -noservername` → `CN=localhost`; domain-SNI visits kept the correct LE cert). Rollback to .339 (the HideCertWithoutSNI predates it) worked with the same settings.
+
+**Cause:** `crypto.HideCertWithoutSNI` (`internal/util/crypto/nosni.go`) unconditionally answered a no-SNI (or IP-literal-SNI) hello with the throwaway localhost certificate — the logic never looked at whether the operator's own certificate is VALID for that visit. A browser addressing a server by IP sends no SNI by definition, so every bare-IP visit got masked, and browsers/Kaspersky saw an untrusted name on a cert the operator had issued exactly for that IP.
+
+**Fix (same file + tests):** for a no-SNI/IP-literal hello the hide now applies ONLY when the visiting IP is not covered: `visitingIP(hello)` resolves the visit IP — the SNI IP literal when present, else `hello.Conn.LocalAddr()` (the listener's own address, which is how a real tls.Server sees a bare-IP visit); the wrap-time snapshot of each `Certificates[].SAN` IP keeps the per-handshake check free of DER parsing. A covered visit goes through the normal selection path (`pickReal`, identical ordering with `inner`/`certs`/first-cert fallback as before); an uncovered one keeps the localhost mask (the anti-scan property is preserved — `TestHideCertWithoutSNI` unchanged). A mixed cert (domains + IP) hides on visits to a DIFFERENT IP and passes only the exact match — documented in `TestHideCertWithoutSNIMismatchedIP` (stdlib clients drop SNI for IP literals, so the name-set case is exercised by direct closure calls, the real-dial cases by `handshakeCN`).
+
+Both call sites (`web.go` panel listener, `sub.go` subscription listener) pass statically loaded `Certificates`, no `GetCertificate` loader — no changes needed there. Verified: `go test ./internal/util/crypto/ ./internal/sub/... -count=1` green (the single sub Windows TempDir failure is the documented pre-existing cleanup-race flake), vet + gofumpt clean.
+
+**lucxVersion:** lucx.352
+
 ## lucx.351 — scanguard: broken exec argv + probe lie + нативный nftables (2026-11-07)
 
 Tester VPS (ipset 7.19 / iptables 1.8.10 nf_tables): the panel said "install the ipset package" while ipset worked over SSH, and Save&apply died with `iptables rule: exit status 2`. Confirmed from the strace the tester captured: `execve("/usr/sbin/iptables", ["iptables", "iptables", "-w", "5", "-C", "INPUT", …])`. The sets themselves were fine (2784 v4 / 27 v6 entries), so the bug isolated to the rule layer.
