@@ -429,6 +429,46 @@ func TestRoutesFromPreview_AllRealitySNIs(t *testing.T) {
 	}
 }
 
+// Issue #171: one selected REALITY row + one selected site front sharing the
+// operator's own name clash unless the REALITY side steals from the site;
+// the route for that name then goes to Xray, not to the site front.
+func TestSelfSniRealityPair(t *testing.T) {
+	rows := []PreviewRow{
+		{InboundID: 1, SNI: "node.example.com", SNILocked: true, NewPort: 1443},
+		{InboundID: 2, Class: ClassCaddy, SNI: "node.example.com", NewPort: 8443},
+	}
+	sel := map[int]bool{1: true, 2: true}
+
+	if got := SNIClash(rows, sel); got != "node.example.com" {
+		t.Fatalf("no opt-in — must clash, got %q", got)
+	}
+	if got := SelfSniRealitySNI(rows, sel, nil); got != "" {
+		t.Fatalf("no steal, no allowance: %q", got)
+	}
+
+	rows[0].StealDest = "127.0.0.1:8443"
+	if got := SelfSniRealitySNI(rows, sel, nil); got != "node.example.com" {
+		t.Fatalf("pre-marked steal (dest points back here) must allow the pair: %q", got)
+	}
+	if got := SNIClashAllow(rows, sel, SelfSniRealitySNI(rows, sel, nil)); got != "" {
+		t.Fatalf("allowed pair must not clash: %q", got)
+	}
+	routes := RoutesFromPreview(rows, sel)
+	if len(routes) != 1 || routes[0].Dest != gatewayLoopbackDest(1443) {
+		t.Fatalf("REALITY row must win the shared SNI route: %+v", routes)
+	}
+
+	rows2 := append(append([]PreviewRow(nil), rows...), PreviewRow{InboundID: 3, SNI: "node.example.com", SNILocked: true, NewPort: 2443})
+	if got := SelfSniRealitySNI(rows2, map[int]bool{1: true, 2: true, 3: true}, nil); got != "" {
+		t.Fatalf("two REALITY rows on one name stay ambiguous: %q", got)
+	}
+
+	rows[0].StealDest = ""
+	if got := SelfSniRealitySNI(rows, sel, map[int]bool{1: true}); got != "node.example.com" {
+		t.Fatalf("explicit req.Steal must allow the pair: %q", got)
+	}
+}
+
 func TestGatewayInstance_DisabledUntilSnapshot(t *testing.T) {
 	ib := &model.Inbound{Id: 9, Protocol: model.Gateway, Enable: true, Port: 443, Settings: `{}`}
 	inst, ok := GatewayInstanceFromInbound(ib, nil, nil, "", "")

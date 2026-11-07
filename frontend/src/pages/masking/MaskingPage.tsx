@@ -77,14 +77,26 @@ function classKey(cls: string): string {
   return '';
 }
 
-function sniClash(rows: PreviewRow[], chosen: number[]): string {
-  const seen = new Set<string>();
+function sniClash(rows: PreviewRow[], chosen: number[], steal: number[], coverOn: boolean): string {
+  const bySni = new Map<string, PreviewRow[]>();
   for (const r of rows) {
     if (!chosen.includes(r.inboundId) || r.class === 'skip') continue;
     const sni = r.sni.trim().toLowerCase();
     if (!sni) continue;
-    if (seen.has(sni)) return sni;
-    seen.add(sni);
+    const held = bySni.get(sni) ?? [];
+    held.push(r);
+    bySni.set(sni, held);
+  }
+  for (const [sni, held] of bySni) {
+    if (held.length < 2) continue;
+    // Issue #171: one REALITY row + one site-front row sharing the node's own
+    // name is a legal layout when the REALITY row steals from the site — the
+    // mux routes the name to Xray and failed handshakes fall back to the site.
+    const selfSni =
+      held.length === 2 &&
+      held.some((r) => r.sniLocked && (steal.includes(r.inboundId) || (r.stealDest && coverOn))) &&
+      held.some((r) => r.class === 'caddy');
+    if (!selfSni) return sni;
   }
   return '';
 }
@@ -175,10 +187,10 @@ export default function MaskingPage() {
     ...r,
     sni: sniEdits[r.inboundId] ?? r.sni,
   }));
-  const clash = sniClash(shown, chosen);
   const coverOn = behind.some(
     (r) => (r.protocol === 'cover' || r.protocol === 'tproxy') && chosen.includes(r.inboundId),
   );
+  const clash = sniClash(shown, chosen, steal, coverOn);
   const httpFront = behind.some(
     (r) => (r.protocol === 'cover' || r.protocol === 'tproxy') && chosen.includes(r.inboundId),
   );

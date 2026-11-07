@@ -534,7 +534,16 @@ func MoveListen(ib *model.Inbound, listen string, port int) {
 	ib.Port = port
 }
 
+// SNIClash returns the duplicated SNI of selected rows, if any.
 func SNIClash(rows []PreviewRow, selected map[int]bool) string {
+	return SNIClashAllow(rows, selected, "")
+}
+
+// SNIClashAllow is SNIClash with one exempted name (issue #171): the shared
+// own-name of a REALITY+site pair is legal when the REALITY side steals from
+// the site. Everything else still clashes.
+func SNIClashAllow(rows []PreviewRow, selected map[int]bool, allow string) string {
+	allowKey := sniMapKey(allow)
 	seen := map[string]bool{}
 	for _, r := range rows {
 		if selected != nil && !selected[r.InboundID] {
@@ -547,12 +556,64 @@ func SNIClash(rows []PreviewRow, selected map[int]bool) string {
 		if k == "" {
 			continue
 		}
-		if seen[k] {
+		if seen[k] && k != allowKey {
 			return k
 		}
 		seen[k] = true
 	}
 	return ""
+}
+
+// SelfSniRealitySNI returns the shared SNI of a legal self-SNI masking pair
+// (issue #171): exactly one selected SNI-locked (REALITY) row and exactly one
+// selected site-front row carry the same name, and the REALITY side opts into
+// stealing failed handshakes from the site (req.Steal, or its dest already
+// points back at this server). Anything more ambiguous keeps the clash.
+func SelfSniRealitySNI(rows []PreviewRow, selected map[int]bool, steal map[int]bool) string {
+	picked := func(r PreviewRow) bool { return selected == nil || selected[r.InboundID] }
+	siteKey := ""
+	for _, r := range rows {
+		if !picked(r) || r.Class != ClassCaddy {
+			continue
+		}
+		if k := sniMapKey(r.SNI); k != "" {
+			siteKey = k
+			break
+		}
+	}
+	if siteKey == "" {
+		return ""
+	}
+	locked, fronts := 0, 0
+	steals := false
+	for _, r := range rows {
+		if !picked(r) {
+			continue
+		}
+		names := previewRouteNames(r)
+		matches := false
+		for _, n := range names {
+			if sniMapKey(n) == siteKey {
+				matches = true
+				break
+			}
+		}
+		if !matches {
+			continue
+		}
+		if r.SNILocked {
+			locked++
+			if (steal != nil && steal[r.InboundID]) || r.StealDest != "" {
+				steals = true
+			}
+		} else if r.Class == ClassCaddy {
+			fronts++
+		}
+	}
+	if locked != 1 || fronts != 1 || !steals {
+		return ""
+	}
+	return siteKey
 }
 
 func xrayTransportSettingsKey(network string) string {
@@ -1098,12 +1159,12 @@ func previewRouteNames(r PreviewRow) []string {
 	return nil
 }
 
-func appendPreviewRoutes(out []GatewayRoute, seen map[string]bool, rows []PreviewRow, selected map[int]bool, caddy bool) []GatewayRoute {
+func appendPreviewRoutes(out []GatewayRoute, seen map[string]bool, rows []PreviewRow, selected map[int]bool, pred func(PreviewRow) bool) []GatewayRoute {
 	for _, r := range rows {
 		if selected != nil && !selected[r.InboundID] {
 			continue
 		}
-		if caddy != (r.Class == ClassCaddy) {
+		if !pred(r) {
 			continue
 		}
 		dest := gatewayLoopbackDest(r.NewPort)
@@ -1119,8 +1180,21 @@ func appendPreviewRoutes(out []GatewayRoute, seen map[string]bool, rows []Previe
 	return out
 }
 
+// RoutesFromPreview builds the L4 routes. SNI-locked (REALITY) rows come
+// before the site front so a shared own-name goes to Xray and the site keeps
+// serving through the REALITY fallback dest (issue #171 self-SNI masking).
+// Pass order is a no-op for layouts without that (previously refused) overlap.
 func RoutesFromPreview(rows []PreviewRow, selected map[int]bool) []GatewayRoute {
+	predicates := []func(PreviewRow) bool{
+		func(r PreviewRow) bool { return r.SNILocked && r.Class != ClassCaddy },
+		func(r PreviewRow) bool { return !r.SNILocked && r.Class == ClassCaddy },
+		func(r PreviewRow) bool { return !r.SNILocked && r.Class != ClassCaddy },
+		func(r PreviewRow) bool { return r.SNILocked && r.Class == ClassCaddy },
+	}
 	seen := map[string]bool{}
-	out := appendPreviewRoutes(nil, seen, rows, selected, true)
-	return appendPreviewRoutes(out, seen, rows, selected, false)
+	out := []GatewayRoute{}
+	for _, pred := range predicates {
+		out = appendPreviewRoutes(out, seen, rows, selected, pred)
+	}
+	return out
 }

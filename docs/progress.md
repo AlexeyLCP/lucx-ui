@@ -1,5 +1,19 @@
 # LucX-UI — Прогресс
 
+## lucx.349 — masking: REALITY self-SNI pair (issue #171) (2026-11-07)
+
+Requested by XaksFlaX: VLESS REALITY with the node's own name as SNI next to the WEB-proxy site on the same :443. Manual layout (REALITY `target=127.0.0.1:<site-port>`, site hostname == REALITY serverName) works without Masking and is proven on production nodes; Masking refused it — `SNIClash` returned "duplicate SNI" for the shared name, and the Cover hint said REALITY must keep a foreign SNI.
+
+Implemented in Masking, opt-in by design (the lucx.269 lesson about never silently rewriting REALITY dest limits how far this goes): a **self-SNI pair** — exactly one selected SNI-locked (REALITY) row and exactly one selected site-front row sharing a name — is allowed **only when the stealing actually applies in this Apply**: the REALITY row is pre-marked (dest already points back at this server, auto-steal) or explicitly in `req.Steal`, AND a Cover row is selected (its loopback port is the steal target). `tunnel.SelfSniRealitySNI` returns the shared name (any other overlap — two REALITY rows, non-stealing pairs — keeps clashing), `SNIClashAllow` exempt exactly that name in the Apply check, and `RoutesFromPreview` routes SNI-locked rows **before** the site front so the L4 mux sends the shared name to Xray; failed handshakes fall back to the site through the rewritten `dest: 127.0.0.1:<cover-loopback>` (existing steal loop). Pass-order refactor is a no-op for every layout without that overlap. `gateway_inbound.go` keeps using persisted `cfg.Routes`, fallback preview path gains the same order.
+
+Frontend: the wizard's client-side `sniClash` allows the same pair under the same condition (`sniLocked && (steal list || stealDest) && coverOn`), and the Cover note now names both REALITY modes — foreign dest SNI, or shared own name with the steal toggle. coverNote text updated in all 14 locales.
+
+Tests: `TestSelfSniRealityPair` — clash without opt-in; allowance via pre-marked StealDest or explicit `req.Steal`; two REALITY rows on one name stay ambiguous; route table hands the shared SNI to the REALITY backend. Existing gateway tests (route order for non-overlapping layouts) unchanged and green.
+
+**lucxVersion:** lucx.349
+
+---
+
 ## lucx.348 — tproxy: Telegram DC reachability gate before MTProxy start (issue #170) (2026-11-07)
 
 Reported by XaksFlaX: the official MTProxy has no outbound rate limit (`outbound-connections-ps` is commented out in `mtproto-proxy.c`), so on a host that cannot reach Telegram (outbound traffic through NAT) the engine reconnects to every DC/middle-proxy address nonstop — ~60 new TCP connections per second, ~7000 NAT sessions from one VM, until the home router stops opening new connections for every device. LucX started it with `-M 1 -C 4096` and no reachability check.
@@ -7186,3 +7200,4 @@ TestProcLogWriterQwdttRingKeepsAllEchoKeepsErrors (go test
 ./internal/lucx/... green; parser pkg blocked by local AV flake, no deps).
 
 lucxVersion: lucx.345
+

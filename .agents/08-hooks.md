@@ -225,7 +225,7 @@ Keep the directory. Origin will not have these.
 | `internal/web/controller/awg.go` `awg_outbound.go` `lucx.go` `tunnel.go` `sidecar_outbound.go` `kernel_wireguard.go` `wgo.go` `scanguard.go` `cleanip.go` | LucX API |
 | `internal/web/job/awg_job.go` `awg_speed_buffer.go` `tunnel_job.go` `log_retention_job.go` `kernel_wireguard_job.go` `scanguard_job.go` | LucX jobs (wgo reconcile lives in kernel_wireguard_job + tunnel_job) |
 | `internal/web/favicon/` | panel tab icon |
-| `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` `kernel_wgosocks_test.go` `backup_site_files{,_test}.go` `scanguard.go` `cleanip.go` | LucX service |
+| `internal/web/service/inbound_lucx.go` `client_awg.go` `awg_*.go` `tunnel.go` `gateway.go` `sidecar_outbound.go` `lucx_online.go` `network_tuning.go` `client_tunnel_creds.go` `kernel_wireguard.go` `kernel_wgosocks_test.go` `backup_site_files{,_test}.go` `scanguard.go` `cleanip.go` | LucX service |
 | `internal/web/service/ip_privacy.go` `ip_provider.go` `live_inbounds.go` + their `_test.go` | IP privacy / provider / live inbounds (lucx.342) |
 | `internal/sub/sub_site_test.go` `service_anytls_test.go` | lucx sub tests (lucx.342) |
 | `internal/sub/json_client_warp.go` + `_test.go`, `internal/util/clientwarp/` | PR #185: client-side WARP in the JSON sub (lucx.342) |
@@ -233,6 +233,7 @@ Keep the directory. Origin will not have these.
 | `frontend/src/pages/tunnels/` | Tunnels page |
 | `frontend/src/pages/scanguard/` | Scanner Guard page (lucx.346) |
 | `frontend/src/pages/cleanip/` | Clean IP scanner page (lucx.347) |
+| `frontend/src/pages/masking/` | Masking/gateway wizard (self-SNI pair allowed via steal, lucx.349) |
 | `frontend/src/components/clients/ClientDevicesCell.tsx` `hooks/useCoarsePointer.ts` `useBodyScrollLock.ts` `styles/touch.css` | Devices column + touch UX (lucx.342) |
 | `frontend/src/pages/inbounds/form/protocols/{awg,naive,olcrtc,qwdtt,csqtt,mieru,trusttunnel,anytls,tproxy,cover}.tsx` | lucx forms |
 | `frontend/src/pages/xray/awg-outbounds/` `sidecar-outbounds/` | lucx outbound UI |

@@ -1095,7 +1095,7 @@
         "tproxyCarrier": "Carrier",
         "tproxyRouteThroughXray": "Route through Xray",
         "tproxyRouteThroughXrayHint": "MTProxy DC TCP (uid lucx-mtproxy) is redirected into an Xray SOCKS bridge. Off = direct to Telegram DCs. On = through Xray outbounds. Other inbounds are not hijacked.",
-        "coverNote": "Camouflage website on :80 and :443. Naive and Telegram WEB proxy sit behind it (Behind cover). Path routes → loopback VLESS-WS. The Cover hostname owns that SNI: VLESS+TCP TLS with the same SNI never reaches Xray. REALITY keeps dest SNI (e.g. microsoft.com). Not for AnyTLS/TrustTunnel/AWG. Panel cert. Port 80 taken (HTTP-01 ACME fails).",
+        "coverNote": "Camouflage website on :80 and :443. Naive and Telegram WEB proxy sit behind it (Behind cover). Path routes → loopback VLESS-WS. The Cover hostname owns that SNI: VLESS+TCP TLS with the same SNI never reaches Xray. REALITY keeps a foreign dest SNI (e.g. microsoft.com) — or shares the site's own name with the steal toggle on: the mux sends that name to Xray and failed handshakes fall back to the site (issue #171). Not for AnyTLS/TrustTunnel/AWG. Panel cert. Port 80 taken (HTTP-01 ACME fails).",
         "gatewayNote": "Optional SNI mux on TCP 443. Disabled until you Apply on the Masking page. Does not change existing inbounds on install or update.",
         "coverHostname": "Hostname",
         "coverHostnameHint": "Bare DNS name. Must match the TLS certificate. Naive/tproxy Behind cover must use this same name.",

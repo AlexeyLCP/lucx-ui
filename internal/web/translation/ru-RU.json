@@ -1056,7 +1056,7 @@
         "tproxyCarrier": "Carrier",
         "tproxyRouteThroughXray": "Через Xray",
         "tproxyRouteThroughXrayHint": "TCP MTProxy к ДЦ (uid lucx-mtproxy) уходит в SOCKS-мост Xray. Выкл = напрямую в ДЦ. Вкл = через outbound Xray. Остальные inbound не трогает.",
-        "coverNote": "Сайт-камуфляж на :80 и :443. Naive и Telegram WEB proxy — Behind cover. Path routes → VLESS-WS на loopback. Хост Cover забирает этот SNI: VLESS+TCP TLS с тем же доменом до Xray не дойдёт. REALITY — чужой SNI (microsoft.com). Не для AnyTLS/TrustTunnel/AWG. Серт панели. :80 занят (HTTP-01 ACME нет).",
+        "coverNote": "Сайт-камуфляж на :80 и :443. Naive и Telegram WEB proxy — Behind cover. Path routes → VLESS-WS на loopback. Хост Cover забирает этот SNI: VLESS+TCP TLS с тем же доменом до Xray не дойдёт. REALITY — либо чужой dest SNI (microsoft.com), либо общее с сайтом имя при включённом Steal: mux направит имя в Xray, а неуспешные хендшейки отдадут сайт (issue #171). Не для AnyTLS/TrustTunnel/AWG. Серт панели. :80 занят (HTTP-01 ACME нет).",
         "gatewayNote": "Optional SNI mux on TCP 443. Disabled until you Apply on the Masking page. Does not change existing inbounds on install or update.",
         "coverHostname": "Hostname",
         "coverHostnameHint": "Голое DNS-имя. Должно совпадать с TLS-сертификатом. Naive/tproxy Behind cover — то же имя.",

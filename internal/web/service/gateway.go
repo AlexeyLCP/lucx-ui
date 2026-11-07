@@ -162,7 +162,25 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 			routeSelected[id] = true
 		}
 	}
-	if c := tunnel.SNIClash(rows, routeSelected); c != "" {
+	selectedSteal := map[int]bool{}
+	for _, id := range req.Steal {
+		selectedSteal[id] = true
+	}
+	coverPort := 0
+	for _, row := range rows {
+		if row.Class == tunnel.ClassCaddy && selected[row.InboundID] {
+			coverPort = row.NewPort
+			break
+		}
+	}
+	// Issue #171: a REALITY row and the site sharing the operator's own name
+	// is a legal layout when that stealing actually applies here — the mux
+	// routes the name to Xray and failed handshakes fall back to the site.
+	allow := ""
+	if coverPort > 0 {
+		allow = tunnel.SelfSniRealitySNI(rows, routeSelected, selectedSteal)
+	}
+	if c := tunnel.SNIClashAllow(rows, routeSelected, allow); c != "" {
 		return common.NewError("gateway: duplicate SNI", c)
 	}
 	for _, o := range others {
@@ -230,18 +248,8 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 	// are forced to the cover loopback — Xray dials dest on every failed
 	// handshake, so a self-referencing dest recurses Caddy↔Xray and
 	// multiplies sockets with zero clients. req.Steal opts healthy reality
-	// rows in; a cover row must exist.
-	coverPort := 0
-	for _, row := range rows {
-		if row.Class == tunnel.ClassCaddy && selected[row.InboundID] {
-			coverPort = row.NewPort
-			break
-		}
-	}
-	selectedSteal := map[int]bool{}
-	for _, id := range req.Steal {
-		selectedSteal[id] = true
-	}
+	// rows in; a cover row must exist. (coverPort is detected above, before
+	// the duplicate-SNI check — the self-SNI pair needs it.)
 	for _, row := range rows {
 		loop := row.StealDest != ""
 		if !row.SNILocked || coverPort <= 0 || !selected[row.InboundID] || (!loop && !selectedSteal[row.InboundID]) {
