@@ -33,8 +33,6 @@ const (
 	// aivpnDefaultListen mirrors the upstream default port family; the
 	// inbound row carries the actual UDP port.
 	aivpnDefaultHost = "0.0.0.0"
-	// aivpnDefaultMTU is the upstream built-in inner MTU.
-	aivpnDefaultMTU = 1280
 	// aivpnDefaultIPv6Prefix is the upstream sample ULA prefix.
 	aivpnDefaultIPv6Prefix = "fd10:aivpn::/48"
 )
@@ -217,7 +215,8 @@ func aivpnPathID(id string) string {
 		return "0"
 	}
 	for _, r := range id {
-		if !(r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z' || r == '-' || r == '_') {
+		isAlnum := r >= '0' && r <= '9' || r >= 'a' && r <= 'z' || r >= 'A' && r <= 'Z'
+		if !isAlnum && r != '-' && r != '_' {
 			return "0"
 		}
 	}
@@ -284,8 +283,8 @@ func aivpnClientFromMap(m map[string]any) AivpnClient {
 		key = ""
 	}
 	last := aivpnInt(m, "last_connected", "lastConnected", "last_seen", "lastConnectedAt")
-	if last > int64(1)<<62 {
-		last = int64(last / 1000)
+	if last > 1<<62 {
+		last /= 1000
 	}
 	disabled := aivpnBool(m, "disabled")
 	return AivpnClient{
@@ -351,7 +350,7 @@ func (c AivpnConfig) serverVPNSuffix() (string, int, error) {
 	s := c.Subnet
 	host, prefix, err := net.ParseCIDR(s)
 	if err != nil {
-		return "", 0, fmt.Errorf("aivpn: subnet must be CIDR (e.g. 10.21.0.1/24): %v", err)
+		return "", 0, fmt.Errorf("aivpn: subnet must be CIDR (e.g. 10.21.0.1/24): %w", err)
 	}
 	ones, _ := prefix.Mask.Size()
 	if ones == 0 {
