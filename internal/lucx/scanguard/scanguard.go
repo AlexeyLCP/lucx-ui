@@ -50,7 +50,7 @@ type Config struct {
 
 // DefaultConfig returns a config with the stock source and no whitelist.
 func DefaultConfig() Config {
-	return Config{Sources: []string{DefaultSource}}
+	return Config{Sources: []string{DefaultSource}, Whitelist: []string{}}
 }
 
 // ApplyResult reports the last successful apply.
