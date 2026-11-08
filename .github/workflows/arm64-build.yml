@@ -1,0 +1,123 @@
+name: Build LucX-UI Linux ARM64 artifact
+
+on:
+  push:
+    branches:
+      - fix/scanguard-whitelist-array
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-arm64:
+    name: Build Linux ARM64
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v7
+
+      - name: Setup Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          check-latest: true
+          cache: true
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+
+      - name: Run Scanner Guard regression test
+        run: |
+          go test ./internal/web/service \
+            -run '^TestScanguardLoadConfigWhitelistIsAlwaysArray$' \
+            -count=1
+
+      - name: Install ARM64 musl toolchain
+        run: |
+          set -euo pipefail
+
+          ARCH="aarch64"
+          BASE=$(printf "%s:%s" "https" "//toolchains.bootlin.com/downloads/releases/toolchains/${ARCH}/tarballs/")
+
+          TARBALL=$(curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 "$BASE" \
+            | grep -oE "${ARCH}--musl--stable-[A-Za-z0-9._-]+\.tar\.xz" \
+            | sort -V | tail -n 1)
+
+          if [ -z "$TARBALL" ]; then
+            echo "Could not find Bootlin ARM64 musl toolchain"
+            exit 1
+          fi
+
+          cd /tmp
+          curl -fL --retry 5 --retry-all-errors --retry-delay 3 \
+            -o "$TARBALL" "${BASE}${TARBALL}"
+
+          tar -xf "$TARBALL"
+
+          TOOLCHAIN_DIR=$(find /tmp -maxdepth 1 -type d \
+            -name "${ARCH}--musl--stable-*" | sort -V | tail -n 1)
+
+          if [ -z "$TOOLCHAIN_DIR" ]; then
+            echo "Toolchain extraction failed"
+            exit 1
+          fi
+
+          GCC=$(find "$TOOLCHAIN_DIR/bin" \
+            -name '*-gcc.br_real' -type f -executable | head -n 1)
+
+          if [ -z "$GCC" ]; then
+            echo "ARM64 GCC not found"
+            exit 1
+          fi
+
+          echo "TOOLCHAIN_BIN=$TOOLCHAIN_DIR/bin" >> "$GITHUB_ENV"
+          echo "ARM64_CC=$GCC" >> "$GITHUB_ENV"
+
+      - name: Build LucX-UI ARM64
+        run: |
+          set -euo pipefail
+
+          export CGO_ENABLED=1
+          export GOOS=linux
+          export GOARCH=arm64
+          export PATH="$TOOLCHAIN_BIN:$PATH"
+          export CC="$ARM64_CC"
+
+          LDFLAGS="-w -s -linkmode external -extldflags '-static'"
+          LDFLAGS="$LDFLAGS -X github.com/mhsanaei/3x-ui/v3/internal/config.buildCommit=${GITHUB_SHA::8}"
+          LDFLAGS="$LDFLAGS -X github.com/mhsanaei/3x-ui/v3/internal/config.buildDate=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+          go build -buildvcs=true -ldflags "$LDFLAGS" -o x-ui -v .
+
+          file x-ui
+          sha256sum x-ui
+
+          readelf -h x-ui
+          readelf -h x-ui | grep -q 'Machine:.*AArch64' || { echo 'ERROR: binary is not ARM64'; exit 1; }
+          if readelf -l x-ui | grep -q 'INTERP'; then
+            echo 'ERROR: dynamic ELF interpreter found; expected static binary'
+            exit 1
+          else
+            echo 'Static ARM64 ELF confirmed'
+          fi
+
+      - name: Upload ARM64 binary
+        uses: actions/upload-artifact@v7
+        with:
+          name: lucx-ui-linux-arm64-scanguard-fix
+          path: |
+            x-ui
+          if-no-files-found: error
+          retention-days: 7
