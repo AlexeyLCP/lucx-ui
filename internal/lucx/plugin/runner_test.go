@@ -74,6 +74,7 @@ func TestUnitPropsMatchManifest(t *testing.T) {
 	joined := strings.Join(props, " ")
 	must := []string{
 		"NoNewPrivileges=true", "ProtectSystem=strict", "PrivateTmp=true",
+		"ReadWritePaths=" + filepath.Join(plugDir, "data"),
 		"KillSignal=SIGINT", "TimeoutStopSec=3", "Restart=no",
 		"WorkingDirectory=" + plugDir, "StandardOutput=append:", "Environment=LUCX_PLUGIN_ID=demo",
 		"Environment=LUCX_PLUGIN_DATA=" + filepath.Join(plugDir, "data"),

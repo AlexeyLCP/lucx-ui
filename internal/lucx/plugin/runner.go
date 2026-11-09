@@ -69,6 +69,7 @@ func unitProps(m Manifest, plugDir, dataDir, log string) []string {
 	props := []string{
 		"NoNewPrivileges=true",
 		"ProtectSystem=strict",
+		"ReadWritePaths=" + dataDir,
 		"ProtectHome=true",
 		"PrivateTmp=true",
 		"PrivateDevices=true",
