@@ -862,7 +862,18 @@ func (s *InboundService) sweepOrphanGatewayHosts() {
 		return
 	}
 	referenced := map[int]bool{}
+	// LUCX-HOOK: Hosts adopted from remote nodes live on node-mirrored
+	// inbounds, but their gateway snapshot exists only on the node, so the
+	// master must never classify them as orphans (#195).
+	nodeInbound := map[int]bool{}
 	for _, ib := range all {
+		if ib == nil {
+			continue
+		}
+		if ib.NodeID != nil {
+			nodeInbound[ib.Id] = true
+			continue
+		}
 		if cfg, ok := tunnel.GatewayConfigFromInbound(ib); ok {
 			for _, sr := range cfg.Snapshot {
 				if sr.HostID > 0 {
@@ -873,20 +884,26 @@ func (s *InboundService) sweepOrphanGatewayHosts() {
 	}
 	db := database.GetDB()
 	var hosts []model.Host
-	if err := db.Select("id", "created_at").Where("remark = ?", gatewayHostRemark).Find(&hosts).Error; err != nil {
+	if err := db.Select("id", "created_at", "inbound_id").Where("remark = ?", gatewayHostRemark).Find(&hosts).Error; err != nil {
 		return
 	}
-	ids := orphanGatewayHostIDs(hosts, referenced, time.Now().Add(-gatewayHostSweepGrace).UnixMilli())
+	ids := orphanGatewayHostIDs(hosts, referenced, nodeInbound, time.Now().Add(-gatewayHostSweepGrace).UnixMilli())
 	if len(ids) > 0 {
-		_ = db.Where("id IN ?", ids).Delete(&model.Host{}).Error
+		if _, err := database.DeleteHosts(db, "id IN ?", ids); err != nil {
+			return
+		}
 	}
 }
 
 // orphanGatewayHostIDs picks the gateway Host rows that are unreferenced and
-// older than cutoff (ms).
-func orphanGatewayHostIDs(hosts []model.Host, referenced map[int]bool, cutoff int64) []int {
+// older than cutoff (ms). Hosts of node-mirrored inbounds are never swept:
+// their gateway snapshot lives on the node, not on the master (#195).
+func orphanGatewayHostIDs(hosts []model.Host, referenced map[int]bool, nodeInbound map[int]bool, cutoff int64) []int {
 	var ids []int
 	for _, h := range hosts {
+		if nodeInbound[h.InboundId] {
+			continue
+		}
 		if !referenced[h.Id] && h.CreatedAt < cutoff {
 			ids = append(ids, h.Id)
 		}

@@ -127,6 +127,13 @@ func (t *Tgbot) searchClientScreen(chatID int64, email string) {
 func (t *Tgbot) clientRows(email string) [][]telego.InlineKeyboardButton {
 	return [][]telego.InlineKeyboardButton{
 		tu.InlineKeyboardRow(t.btn("tgbot.buttons.refresh", t.encodeQuery("client_refresh "+email))),
+		// LUCX-HOOK: subscription/individual links and QR; the QR label also
+		// covers the AWG .conf download (#198).
+		tu.InlineKeyboardRow(
+			t.btn("tgbot.buttons.links", t.encodeQuery("client_sub_links "+email)),
+			tu.InlineKeyboardButton(t.I18nBot("tgbot.buttons.qrCode")+" / .conf").WithCallbackData(t.encodeQuery("client_qr_links "+email)),
+		),
+		// END LUCX-HOOK
 		tu.InlineKeyboardRow(
 			t.btn("tgbot.buttons.resetTraffic", t.encodeQuery("reset_traffic "+email)),
 			t.btn("tgbot.buttons.limitTraffic", t.encodeQuery("limit_traffic "+email)),

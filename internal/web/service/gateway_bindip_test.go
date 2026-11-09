@@ -52,12 +52,14 @@ func TestBindsOverlap(t *testing.T) {
 }
 
 func TestOrphanGatewayHostIDs(t *testing.T) {
+	nodeIb := 7
 	hosts := []model.Host{
-		{Id: 1, CreatedAt: 1000},  // old, referenced by a snapshot: keep
-		{Id: 2, CreatedAt: 1000},  // old, unreferenced: orphan
-		{Id: 3, CreatedAt: 99000}, // fresh, unreferenced (Apply in progress): keep
+		{Id: 1, CreatedAt: 1000},                    // old, referenced by a snapshot: keep
+		{Id: 2, CreatedAt: 1000},                    // old, unreferenced: orphan
+		{Id: 3, CreatedAt: 99000},                   // fresh, unreferenced (Apply in progress): keep
+		{Id: 4, InboundId: nodeIb, CreatedAt: 1000}, // old, node-mirrored inbound: keep (#195)
 	}
-	got := orphanGatewayHostIDs(hosts, map[int]bool{1: true}, 50000)
+	got := orphanGatewayHostIDs(hosts, map[int]bool{1: true}, map[int]bool{nodeIb: true}, 50000)
 	if !reflect.DeepEqual(got, []int{2}) {
 		t.Errorf("orphans = %v, want [2]", got)
 	}

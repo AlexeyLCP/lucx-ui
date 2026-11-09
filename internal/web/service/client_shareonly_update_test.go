@@ -45,6 +45,58 @@ func TestUpdateAfterShareOnlyAttach(t *testing.T) {
 	}
 }
 
+// TestUpdateShareOnlyInboundKeepsMembers: a plain settings edit via
+// UpdateInbound must not detach share-only members (#196) — their membership
+// lives in client_inbounds, settings never carries a clients array.
+func TestUpdateShareOnlyInboundKeepsMembers(t *testing.T) {
+	cases := []struct {
+		proto    model.Protocol
+		port     int
+		settings string
+	}{
+		{model.Qwdtt, 56011, `{"remark":"qwdtt"}`},
+		{model.Csqtt, 56012, `{"remark":"csqtt"}`},
+		{model.Olcrtc, 56013, `{"remark":"olcrtc"}`},
+		{model.Tproxy, 56014, `{"hostname":"x.example","secret":"000102030405060708090a0b0c0d0e0f","siteSource":"upstream","siteUpstream":"http://127.0.0.1:60141"}`},
+	}
+	for _, tc := range cases {
+		t.Run(string(tc.proto), func(t *testing.T) {
+			setupBulkDB(t)
+			svc := &ClientService{}
+			inboundSvc := &InboundService{}
+
+			source := []model.Client{{Email: "fox", SubID: "sub-fox", Enable: true}}
+			vless := mkInbound(t, 22111, model.VLESS, clientsSettings(t, source))
+			if err := svc.SyncInbound(nil, vless.Id, source); err != nil {
+				t.Fatalf("seed vless: %v", err)
+			}
+			share := mkInbound(t, tc.port, tc.proto, tc.settings)
+			rec := lookupClientRecord(t, "fox")
+			if _, err := svc.Attach(inboundSvc, rec.Id, []int{share.Id}); err != nil {
+				t.Fatalf("Attach %s: %v", tc.proto, err)
+			}
+
+			loaded, err := inboundSvc.GetInbound(share.Id)
+			if err != nil {
+				t.Fatalf("GetInbound: %v", err)
+			}
+			update := *loaded
+			update.Remark = "edited"
+			if _, _, err := inboundSvc.UpdateInbound(&update); err != nil {
+				t.Fatalf("UpdateInbound(%s): %v", tc.proto, err)
+			}
+
+			got, err := svc.ListForInbound(nil, share.Id)
+			if err != nil {
+				t.Fatalf("ListForInbound: %v", err)
+			}
+			if len(got) != 1 || got[0].Email != "fox" {
+				t.Fatalf("%s: UpdateInbound detached members: %+v", tc.proto, got)
+			}
+		})
+	}
+}
+
 func TestUpdateShareOnlyOnlyClient(t *testing.T) {
 	setupBulkDB(t)
 	svc := &ClientService{}
