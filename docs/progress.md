@@ -1,5 +1,15 @@
 # LucX-UI — Прогресс
 
+## lucx.354 — PRs: scanguard whitelist-as-array + 6 dep bumps, oxlint bump reverted (2026-11-09)
+
+Merged all 8 open forks PRs onto main (ad7173d4 base): **#194** (r-miheev, fix(scanguard) whitelist serialized as `[]` — nil-slices marshalled as JSON `null` and the frontend called `.join()`; default `DefaultConfig().Whitelist = []string{}` + nil-guard in `LoadConfig` + regression test `TestScanguardLoadConfigWhitelistIsAlwaysArray` on missing setting and stored `null`) plus dependabot bumps **#186** goccy/go-json 0.11.2→0.12.0, **#187** gin-contrib/sessions 1.1.2→1.1.3, **#188** react-i18next 17.1.9→17.1.12, **#189** gin-contrib/gzip 1.2.8→1.2.9, **#190** gopsutil/v4 4.26.9→4.26.10, **#192** validator/v10 10.30.5→10.30.6. **#191** (oxlint 1.89.0→1.91.0) merged then **reverted**: oxlint 1.91 promotes the React Compiler rules (`react/immutability`, `react/set-state-in-effect`) and the existing upstream frontend violates them in 10 places (`useInbounds.ts`, `Sparkline.tsx`, `XrayLogModal.tsx`, `NodeHistoryPanel.tsx`, `useOverviewHistory.ts`, `VersionModal.tsx`, `SecurityTab.tsx`, `AmneziaWGLogModal.tsx`, `LogModal.tsx`, `GeodataSection.tsx`) — red `npm run lint` = red CI. Revisit as a deliberate react-compiler migration, then un-revert; dependabot will re-bump.
+
+Conflict resolution (Rule 8, terminal-only): go.mod/go.sum union hunks on #189/#192 (adjacent version lines after earlier bumps) — hand-unions kept both newer versions, `go mod tidy` re-derived go.sum. **PR #194's `.github/workflows/arm64-build.yml` (contributor's one-off ARM64 artifact build, trigger = their PR branch) was dropped in the merge commit** — dead branch trigger + duplicate of release.yml logic; the fix and tests itself are fully in.
+
+**Gates:** LUCX-HOOK marker counts before vs after merges — identical (no lost hooks); gofumpt -l whole repo clean; `go vet ./...` clean; go tests green (`./internal/awg ./internal/lucx ./internal/database ./internal/web/service` — Windows-only TempDir `unlinkat` cleanup races in `TestBulkCreateWithdrawsTombstoneWhenHwidTrimFails`/`TestKernelAWGClientFeatureChecksPreserveSupportedPaths` and one parser `fork/exec` Access-denied pass on retry, documented pre-existing flakes); frontend `npm run typecheck` + `npm run lint` (0 errors on oxlint 1.89) + `vitest run --project=unit` (111 files / 1663 tests) + `npm run build` green.
+
+**lucxVersion:** lucx.354
+
 ## lucx.353 — tunnel: online status for csqtt / masterdns / openflux / aivpn (2026-11-09)
 
 Tester report: a CSQTT client showed "offline" in the panel while the tunnel connection was up. Root cause: CSQTT was scoped "No online/traffic" at lucx.233 — nothing in `TunnelJob` ever fed `RefreshLocalOnlineClients` for it, so no one stamped the client email or the inbound tag, and the UI kept the row offline.
