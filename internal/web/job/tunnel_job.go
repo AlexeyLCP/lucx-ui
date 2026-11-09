@@ -49,6 +49,10 @@ func (j *TunnelJob) Run() {
 	j.collectQwdttTraffic()
 	j.collectTproxyTraffic()
 	j.collectWgosocksTraffic()
+	j.collectCsqttTraffic()
+	j.collectMasterdnsTraffic()
+	j.collectOpenfluxTraffic()
+	j.collectAivpnTraffic()
 	if inbounds, err := j.inboundService.GetAllInbounds(); err == nil {
 		telemt := make([]tunnel.Instance, 0)
 		for _, ib := range inbounds {
@@ -853,6 +857,111 @@ func (j *TunnelJob) collectWgosocksTraffic() {
 		snaps = append(snaps, tunnel.GetManager().CollectWgosocksTraffic(tunnel.WgosocksKey(ib.Id), tag))
 	}
 	j.commitSidecarScrape("wgosocks", snaps, emailsByTag, nil)
+}
+
+// collectCsqttTraffic meters the singleton csqtt core via /proc/<pid>/io
+// deltas (tproxy/olcRTC pattern). The core carries one shared device
+// password, so per-client attribution follows the sole-client rule; routed
+// inbounds are already metered inbound>>>tag by the policy-route bridge.
+func (j *TunnelJob) collectCsqttTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var snaps []tunnel.SidecarTraffic
+	routedTags := map[string]bool{}
+	emailsByTag := map[string][]string{}
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Csqtt || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		if cfg, ok := tunnel.CsqttConfigFromInbound(ib); ok && cfg.RouteThroughXray {
+			// Routed inbounds are already metered inbound>>>tag via the
+			// policy-route bridge; the /proc io scrape carries the same bytes.
+			routedTags[tag] = true
+		}
+		emailsByTag[tag] = anytlsEmailsForInbound(ib)
+		snaps = append(snaps, tunnel.GetManager().CollectCsqttTraffic(tag))
+	}
+	j.commitSidecarScrape("csqtt", snaps, emailsByTag, routedTags)
+}
+
+// collectMasterdnsTraffic meters the singleton masterdns core via
+// /proc/<pid>/io deltas (no routed egress — direct core).
+func (j *TunnelJob) collectMasterdnsTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var snaps []tunnel.SidecarTraffic
+	emailsByTag := map[string][]string{}
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Masterdns || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		emailsByTag[tag] = anytlsEmailsForInbound(ib)
+		snaps = append(snaps, tunnel.GetManager().CollectMasterdnsTraffic(tag))
+	}
+	j.commitSidecarScrape("masterdns", snaps, emailsByTag, nil)
+}
+
+// collectOpenfluxTraffic meters openflux exits via /proc/<pid>/io deltas
+// (no routed egress — direct core).
+func (j *TunnelJob) collectOpenfluxTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var snaps []tunnel.SidecarTraffic
+	emailsByTag := map[string][]string{}
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Openflux || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		emailsByTag[tag] = anytlsEmailsForInbound(ib)
+		snaps = append(snaps, tunnel.GetManager().CollectOpenfluxTraffic(tunnel.OpenfluxKey(ib.Id), tag))
+	}
+	j.commitSidecarScrape("openflux", snaps, emailsByTag, nil)
+}
+
+// collectAivpnTraffic meters the singleton aivpn core via /proc/<pid>/io
+// deltas. AIVPN clients live in the core DB, so no per-client emails attach:
+// only the inbound tag goes live for the Inbounds gate.
+func (j *TunnelJob) collectAivpnTraffic() {
+	inbounds, err := j.inboundService.GetAllInbounds()
+	if err != nil {
+		logger.Warning("tunnel job: get inbounds failed:", err)
+		return
+	}
+	var snaps []tunnel.SidecarTraffic
+	emailsByTag := map[string][]string{}
+	for _, ib := range inbounds {
+		if ib == nil || ib.Protocol != model.Aivpn || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		tag := strings.TrimSpace(ib.Tag)
+		if tag == "" {
+			continue
+		}
+		emailsByTag[tag] = anytlsEmailsForInbound(ib)
+		snaps = append(snaps, tunnel.GetManager().CollectAivpnTraffic(tag))
+	}
+	j.commitSidecarScrape("aivpn", snaps, emailsByTag, nil)
 }
 
 // recordSidecarLive marks each online email as using the sidecar inbounds it

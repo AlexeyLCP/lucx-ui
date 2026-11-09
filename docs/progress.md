@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## lucx.353 — tunnel: online status for csqtt / masterdns / openflux / aivpn (2026-11-09)
+
+Tester report: a CSQTT client showed "offline" in the panel while the tunnel connection was up. Root cause: CSQTT was scoped "No online/traffic" at lucx.233 — nothing in `TunnelJob` ever fed `RefreshLocalOnlineClients` for it, so no one stamped the client email or the inbound tag, and the UI kept the row offline.
+
+**Audit:** naive, mieru, trusttunnel, anytls, olcrtc, qwdtt, tproxy, wgosocks already report online every 10 s; the gaps were **csqtt, masterdns, openflux and aivpn**. All four are plain manager-spawned processes, so the existing generic `/proc/PID/io` relay reader (olcRTC/tproxy pattern — one file read per 10 s tick, no scraping) covers them; the io deltas also carry traffic for free, which is kept (routed csqtt inbounds are excluded via the existing routedTags guard so the policy-route bridge does not double-count).
+
+**Fix:** `Manager.CollectCsqttTraffic/CollectMasterdnsTraffic/CollectAivpnTraffic/CollectOpenfluxTraffic` one-line wrappers over `collectProcIO` in `sidecar_stats.go`, and four `collectXxxTraffic` collectors in `tunnel_job.go` (Run order after wgosocks) reusing `commitSidecarScrape` with `anytlsEmailsForInbound` emails. Attribution follows the proven sole-client rule: exactly one enabled client attached → that client goes green; 2+/0 → no email, only the inbound tag goes live for the Inbounds gate. AIVPN has no panel-client mapping (clients live in the core DB) → tag live only. Idle cores age out via the 120 s `SidecarOnlineGrace` window like every other sidecar.
+
+Verified: `go build` + `go vet` for `internal/lucx/tunnel` and `internal/web/job`, `go test ./internal/lucx/tunnel/ ./internal/web/job/ -count=1` green, gofumpt clean. Docs: `.agents/02-architecture.md` (csqtt/openflux/aivpn bullets).
+
+**lucxVersion:** lucx.353
+
 ## lucx.352 — fix: визит панели по IP не обслуживается LE-сертификатом (HideCertWithoutSNI) (2026-11-07)
 
 Tester report: on .350/.351 opening the panel by bare IP served the self-signed `CN=localhost` pair instead of the operator's Let's Encrypt certificate that carries the IP in SAN (`openssl s_client … -noservername` → `CN=localhost`; domain-SNI visits kept the correct LE cert). Rollback to .339 (the HideCertWithoutSNI predates it) worked with the same settings.

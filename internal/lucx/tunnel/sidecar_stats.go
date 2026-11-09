@@ -210,3 +210,24 @@ func (m *Manager) CollectQwdttTraffic(tag string) SidecarTraffic {
 func (m *Manager) CollectWgosocksTraffic(key, tag string) SidecarTraffic {
 	return m.collectProcIO(key, tag)
 }
+
+// CollectCsqttTraffic meters the singleton csqtt core via /proc/<pid>/io
+// deltas (same relay shortcut as olcRTC/tproxy).
+func (m *Manager) CollectCsqttTraffic(tag string) SidecarTraffic {
+	return m.collectProcIO(CsqttKey, tag)
+}
+
+// CollectMasterdnsTraffic meters the singleton masterdns core (same shortcut).
+func (m *Manager) CollectMasterdnsTraffic(tag string) SidecarTraffic {
+	return m.collectProcIO(MasterdnsKey, tag)
+}
+
+// CollectAivpnTraffic meters the singleton aivpn core (same shortcut).
+func (m *Manager) CollectAivpnTraffic(tag string) SidecarTraffic {
+	return m.collectProcIO(AivpnKey, tag)
+}
+
+// CollectOpenfluxTraffic meters one openflux inbound (per-inbound key).
+func (m *Manager) CollectOpenfluxTraffic(key, tag string) SidecarTraffic {
+	return m.collectProcIO(key, tag)
+}
