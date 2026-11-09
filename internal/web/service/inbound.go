@@ -2426,7 +2426,7 @@ func (s *InboundService) UpdateInbound(inbound *model.Inbound) (*model.Inbound, 
 		// only and their settings never carry a clients array, so an empty
 		// GetClients here means "no membership data in this save", not
 		// "detach everybody" (#196).
-		if !(shareOnlySidecar(oldProtocol) && len(newClients) == 0) {
+		if !shareOnlySidecar(oldProtocol) || len(newClients) > 0 {
 			if err := s.clientService.SyncInbound(tx, oldInbound.Id, newClients); err != nil {
 				return err
 			}
