@@ -67,6 +67,9 @@ func (s *ScanguardService) LoadConfig() scanguard.Config {
 			cfg.Whitelist = wl
 		}
 	}
+	if cfg.Whitelist == nil {
+		cfg.Whitelist = []string{}
+	}
 	return cfg
 }
 
