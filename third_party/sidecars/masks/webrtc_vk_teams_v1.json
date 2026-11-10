@@ -1,0 +1,266 @@
+{
+  "mask_id": "webrtc_vk_teams_v1",
+  "version": 5,
+  "created_at": 0,
+  "expires_at": 18446744073709551615,
+  "spoof_protocol": "WebRTC_STUN",
+  "header_template": [
+    0,
+    17,
+    0,
+    1,
+    33,
+    18,
+    164,
+    66,
+    203,
+    14,
+    167,
+    92,
+    38,
+    185,
+    71,
+    124,
+    49,
+    217,
+    86,
+    15,
+    192,
+    114,
+    0,
+    0
+  ],
+  "eph_pub_offset": 24,
+  "eph_pub_length": 32,
+  "size_distribution": {
+    "dist_type": "Histogram",
+    "bins": [
+      [
+        64,
+        128,
+        0.15
+      ],
+      [
+        256,
+        512,
+        0.5
+      ],
+      [
+        768,
+        1024,
+        0.25
+      ],
+      [
+        1024,
+        1400,
+        0.1
+      ]
+    ],
+    "parametric_type": null,
+    "parametric_params": null
+  },
+  "iat_distribution": {
+    "dist_type": "LogNormal",
+    "params": [
+      2.8,
+      0.35
+    ],
+    "jitter_range_ms": [
+      5,
+      25
+    ]
+  },
+  "size_iat_joint": null,
+  "padding_strategy": "MatchDistribution",
+  "fsm_states": [
+    {
+      "state_id": 0,
+      "transitions": []
+    }
+  ],
+  "fsm_initial_state": 0,
+  "signature_vector": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "reverse_profile": null,
+  "signature": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "header_spec": {
+    "type": "Structured",
+    "fields": [
+      {
+        "kind": "Fixed",
+        "bytes": [
+          0,
+          17
+        ]
+      },
+      {
+        "kind": "Length",
+        "len": 2,
+        "endian": "Big"
+      },
+      {
+        "kind": "Fixed",
+        "bytes": [
+          33,
+          18,
+          164,
+          66
+        ]
+      },
+      {
+        "kind": "Id",
+        "len": 8,
+        "mode": "Random"
+      },
+      {
+        "kind": "Id",
+        "len": 4,
+        "mode": "Random"
+      },
+      {
+        "kind": "Fixed",
+        "bytes": [
+          192,
+          114
+        ]
+      },
+      {
+        "kind": "Length",
+        "len": 2,
+        "endian": "Big"
+      }
+    ]
+  },
+  "perturbation_bounds": null,
+  "tag_offset": 8,
+  "generated": false
+}

@@ -1,0 +1,261 @@
+{
+  "mask_id": "sber_salute_v1",
+  "version": 3,
+  "created_at": 0,
+  "expires_at": 18446744073709551615,
+  "spoof_protocol": "WebRTC_STUN",
+  "header_template": [
+    0,
+    17,
+    0,
+    32,
+    33,
+    18,
+    164,
+    66,
+    91,
+    134,
+    77,
+    22,
+    188,
+    44,
+    103,
+    67,
+    215,
+    38,
+    11,
+    9,
+    192,
+    114,
+    0,
+    0
+  ],
+  "eph_pub_offset": 24,
+  "eph_pub_length": 32,
+  "size_distribution": {
+    "dist_type": "Histogram",
+    "bins": [
+      [
+        80,
+        160,
+        0.65
+      ],
+      [
+        160,
+        280,
+        0.28
+      ],
+      [
+        280,
+        512,
+        0.07
+      ]
+    ],
+    "parametric_type": null,
+    "parametric_params": null
+  },
+  "iat_distribution": {
+    "dist_type": "LogNormal",
+    "params": [
+      2.97,
+      0.15
+    ],
+    "jitter_range_ms": [
+      1,
+      5
+    ]
+  },
+  "size_iat_joint": null,
+  "padding_strategy": "MatchDistribution",
+  "fsm_states": [
+    {
+      "state_id": 0,
+      "transitions": []
+    }
+  ],
+  "fsm_initial_state": 0,
+  "signature_vector": [
+    0.28,
+    0.45,
+    0.61,
+    0.74,
+    0.82,
+    0.77,
+    0.65,
+    0.52,
+    0.36,
+    0.21,
+    0.08,
+    -0.15,
+    -0.27,
+    0.31,
+    0.43,
+    0.55,
+    0.67,
+    0.73,
+    0.81,
+    0.76,
+    0.68,
+    0.57,
+    0.44,
+    0.32,
+    0.19,
+    0.07,
+    -0.11,
+    -0.23,
+    -0.35,
+    0.41,
+    0.52,
+    0.64,
+    -0.52,
+    -0.44,
+    -0.33,
+    -0.21,
+    0.09,
+    0.23,
+    0.37,
+    0.49,
+    0.58,
+    0.47,
+    0.36,
+    0.24,
+    0.13,
+    -0.07,
+    -0.19,
+    0.28,
+    0.39,
+    0.51,
+    0.62,
+    0.71,
+    0.79,
+    0.84,
+    0.76,
+    0.65,
+    0.53,
+    0.41,
+    0.28,
+    0.17,
+    0.06,
+    -0.14,
+    -0.26,
+    0.37
+  ],
+  "reverse_profile": null,
+  "signature": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "header_spec": {
+    "type": "Structured",
+    "fields": [
+      {
+        "kind": "Fixed",
+        "bytes": [
+          0,
+          17
+        ]
+      },
+      {
+        "kind": "Length",
+        "len": 2,
+        "endian": "Big"
+      },
+      {
+        "kind": "Fixed",
+        "bytes": [
+          33,
+          18,
+          164,
+          66
+        ]
+      },
+      {
+        "kind": "Id",
+        "len": 8,
+        "mode": "Random"
+      },
+      {
+        "kind": "Id",
+        "len": 4,
+        "mode": "Random"
+      },
+      {
+        "kind": "Fixed",
+        "bytes": [
+          192,
+          114
+        ]
+      },
+      {
+        "kind": "Length",
+        "len": 2,
+        "endian": "Big"
+      }
+    ]
+  },
+  "perturbation_bounds": null,
+  "tag_offset": 8,
+  "generated": false
+}

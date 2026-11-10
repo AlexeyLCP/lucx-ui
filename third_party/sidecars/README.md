@@ -16,6 +16,7 @@ Not packed into `x-ui-linux-amd64.tar.gz` (SourceCraft 100 MB release cap).
 | `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` + LucX overlays: `-cert/-key` (`main.go`), `-fallback` (`inbound_tcp.go`) and `-users-file`/`-proxy-protocol`/`-stats` (`users.go`: per-user passwords, real client IP behind the SNI gateway, per-user traffic) |
 | `tproxy-linux-amd64` / `mtproxy-linux-amd64` | telegramdesktop/tproxy-server `c8adb8b7` + TelegramMessenger/MTProxy `f36d8af7` — packed by `.github/workflows/release.yml` into the GitHub amd64 tarball (not stored as gz here) |
 | `nginx-linux-*` | nginx.org `1.30.5` stream+ssl_preread — built by `bin/pack-sidecars.sh` into the GitHub tarball |
+| `masks/*.json` | infosave2007/aivpn `v1.2.0` `masks.tar.gz` (arch-independent MaskProfile JSONs) — the release packs them into every panel tarball at `bin/tunnel/aivpn-masks/`; `aivpn-server` exits without at least one |
 
 Licenses stay with those projects. Refresh from a LucX release tarball:
 

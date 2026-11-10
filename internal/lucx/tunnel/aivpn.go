@@ -177,9 +177,19 @@ func (a *AivpnAPI) AddClient(ctx context.Context, name string) (AivpnClient, err
 }
 
 // ClientKey re-reads the issued connection key of one client (reprint path).
+// v1.2.0 (InitialV2) mint-strips every list/single payload and serves the key
+// from a dedicated endpoint; pre-v1.2.0 cores rode it inside the client
+// payload — that stays the fallback.
 func (a *AivpnAPI) ClientKey(ctx context.Context, id string) (string, error) {
+	path := "/api/v1/clients/" + aivpnPathID(id)
+	var wrapper map[string]any
+	if err := a.do(ctx, http.MethodGet, path+"/connection-key", nil, &wrapper); err == nil {
+		if key := strings.TrimSpace(aivpnStr(wrapper, "connection_key", "connectionKey", "key")); strings.HasPrefix(key, "aivpn://") {
+			return key, nil
+		}
+	}
 	var raw map[string]any
-	if err := a.do(ctx, http.MethodGet, "/api/v1/clients/"+aivpnPathID(id), nil, &raw); err != nil {
+	if err := a.do(ctx, http.MethodGet, path, nil, &raw); err != nil {
 		return "", err
 	}
 	client := aivpnClientFromMap(raw)
@@ -383,6 +393,21 @@ func (c AivpnConfig) ResolveSubnet(id int) (string, error) {
 	return s, nil
 }
 
+// aivpnMasksPath is the shared MaskProfile store the release packs at
+// bin/tunnel/aivpn-masks (vendored JSONs from the pinned aivpn release,
+// third_party/sidecars/masks). aivpn-server fails to boot without at least
+// one mask profile and hands the profiles to clients itself, so nothing is
+// copied per client.
+func aivpnMasksPath() string {
+	return absPath(filepath.Join(workDir(), "aivpn-masks"))
+}
+
+// aivpnMasksMissing reports whether the mask store has no .json profile.
+func aivpnMasksMissing() bool {
+	matches, _ := filepath.Glob(filepath.Join(aivpnMasksPath(), "*.json"))
+	return len(matches) == 0
+}
+
 // KeyPath is the server X25519 private key file. Minted once; never
 // rewritten — the whole client fleet hangs on it (Rule 0).
 func aivpnKeyPath(key string) string {
@@ -429,6 +454,7 @@ func (c AivpnConfig) RenderConfig(key string, port int, subnet string) string {
 		"key_file":          aivpnKeyPath(key),
 		"clients_db":        aivpnClientsDBPath(key),
 		"audit_log":         aivpnAuditPath(key),
+		"mask_dir":          aivpnMasksPath(),
 		"log_level":         "info",
 		"enable_nat":        true,
 		"management_socket": AivpnSocketPath(key),

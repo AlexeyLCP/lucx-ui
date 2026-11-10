@@ -159,6 +159,13 @@ if ! have "aivpn-linux-${ARCH}"; then
     chmod +x "${DEST}/aivpn-linux-${ARCH}"
 fi
 
+# AIVPN masks (MaskProfile JSONs) — the server exits without at least one.
+# Vendored from the pinned v1.2.0 release's masks.tar.gz (arch-independent):
+# refresh = fetch the pinned release's masks.tar.gz and overwrite
+# third_party/sidecars/masks/. They ship in every panel tarball.
+mkdir -p "${DEST}/tunnel/aivpn-masks"
+cp -f "${ROOT}/third_party/sidecars/masks/"*.json "${DEST}/tunnel/aivpn-masks/"
+
 # OpenFlux exit (p1neappleXpress/OpenFlux). PIN v0.13.0 (4f9c786) — not
 # unpinned main (#148). The .conf contract (Role/Mode/Codec/EncryptionKeyFile/
 # CookieStore/URL + [Transport] Type/Priority/URL/Listen) and the openflux://v1

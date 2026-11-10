@@ -63,6 +63,11 @@ func AivpnInstanceFromInbound(ib *model.Inbound) (Instance, bool) {
 	if serverIP != "" {
 		cfg.ServerIP = serverIP
 	}
+	if aivpnMasksMissing() {
+		logger.Warning("aivpn: no mask profiles in ", aivpnMasksPath(),
+			" — update the panel so the release ships them, or place mask JSON files there")
+		return Instance{Core: Aivpn, Key: AivpnKey, Enabled: false}, true
+	}
 	if err := EnsureAivpnKeyFile(AivpnKey); err != nil {
 		logger.Warning("aivpn: ensure server key failed: ", err)
 		return Instance{Core: Aivpn, Key: AivpnKey, Enabled: false}, true

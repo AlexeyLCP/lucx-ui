@@ -221,6 +221,10 @@ export const tunnelsApi = {
   // management API. List/enable/delete take the inbound id as the anchor.
   aivpnClients: (inboundId: number): Promise<Msg<AivpnClient[]>> =>
     HttpUtil.get<AivpnClient[]>(`${AIVPN}/clients?inboundId=${inboundId}`),
+  aivpnClientKey: (inboundId: number, clientId: string): Promise<Msg<string>> =>
+    HttpUtil.get<string>(
+      `${AIVPN}/clientKey?inboundId=${inboundId}&clientId=${encodeURIComponent(clientId)}`,
+    ),
   aivpnAddClient: (inboundId: number, name: string): Promise<Msg<AivpnClient>> =>
     HttpUtil.post<AivpnClient>(`${AIVPN}/clients/add`, { inboundId, name }, JSON_HEADERS),
   aivpnEnableClient: (inboundId: number, clientId: string, enabled: boolean): Promise<Msg<null>> =>

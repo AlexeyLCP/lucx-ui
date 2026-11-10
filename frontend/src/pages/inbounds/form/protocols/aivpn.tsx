@@ -88,7 +88,7 @@ function AivpnClients({ inboundId }: { inboundId: number | null }) {
   const messageApi = message.useMessage()[0];
   const queryClient = useQueryClient();
   const [name, setName] = useState('');
-  const [qr, setQr] = useState<AivpnClient | null>(null);
+  const [qr, setQr] = useState<{ client: AivpnClient; key: string } | null>(null);
 
   const invalidate = () => {
     if (inboundId) {
@@ -110,6 +110,19 @@ function AivpnClients({ inboundId }: { inboundId: number | null }) {
         setName('');
         messageApi.success(t('pages.inbounds.form.aivpn.toasts.clientAdded'));
         invalidate();
+      } else if (res.msg) {
+        messageApi.error(res.msg);
+      }
+    },
+  });
+  const fetchKey = useMutation({
+    // v1.2.0 strips the key from every payload; the modal pulls it on an
+    // explicit operator click (the core re-derives it, Rule 0 reprint only).
+    mutationFn: (row: AivpnClient) =>
+      tunnelsApi.aivpnClientKey(inboundId ?? 0, row.id).then((res) => ({ row, res })),
+    onSuccess: ({ row, res }) => {
+      if (res.success && res.obj) {
+        setQr({ client: row, key: res.obj });
       } else if (res.msg) {
         messageApi.error(res.msg);
       }
@@ -204,7 +217,11 @@ function AivpnClients({ inboundId }: { inboundId: number | null }) {
             width: 180,
             render: (_: unknown, row: AivpnClient) => (
               <Space>
-                <Button size="small" disabled={!row.key} onClick={() => setQr(row)}>
+                <Button
+                  size="small"
+                  loading={fetchKey.isPending && fetchKey.variables?.id === row.id}
+                  onClick={() => fetchKey.mutate(row)}
+                >
                   {t('qrCode')}
                 </Button>
                 <Popconfirm
@@ -229,7 +246,7 @@ function AivpnClients({ inboundId }: { inboundId: number | null }) {
         width={420}
         onCancel={() => setQr(null)}
       >
-        {qr?.key && <QrPanel value={qr.key} downloadName="aivpn" />}
+        {qr?.key && <QrPanel value={qr.key} remark={qr.client.name} downloadName="aivpn" />}
       </Modal>
     </div>
   );

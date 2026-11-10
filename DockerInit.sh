@@ -82,3 +82,8 @@ cd ../../
 # LUCX-HOOK: bin/lucx-acme.sh (ACME on loopback, :80 forwarded)
 cp bin/lucx-acme.sh build/bin/
 # END LUCX-HOOK
+# LUCX-HOOK: aivpn masks (vendored MaskProfile JSONs; the server exits
+# without at least one) — same mask_dir the panel renders.
+mkdir -p build/bin/tunnel/aivpn-masks
+cp ../../third_party/sidecars/masks/*.json build/bin/tunnel/aivpn-masks/
+# END LUCX-HOOK

@@ -1,0 +1,341 @@
+{
+  "mask_id": "vk_video_v1",
+  "version": 2,
+  "created_at": 0,
+  "expires_at": 18446744073709551615,
+  "spoof_protocol": "QUIC",
+  "header_template": [
+    192,
+    0,
+    0,
+    0,
+    1,
+    8,
+    122,
+    34,
+    209,
+    87,
+    164,
+    31,
+    200,
+    76
+  ],
+  "eph_pub_offset": 14,
+  "eph_pub_length": 32,
+  "size_distribution": {
+    "dist_type": "Histogram",
+    "bins": [
+      [
+        64,
+        256,
+        0.1
+      ],
+      [
+        256,
+        600,
+        0.18
+      ],
+      [
+        800,
+        1200,
+        0.72
+      ]
+    ],
+    "parametric_type": null,
+    "parametric_params": null
+  },
+  "iat_distribution": {
+    "dist_type": "LogNormal",
+    "params": [
+      2.8,
+      0.5
+    ],
+    "jitter_range_ms": [
+      2.0,
+      20.0
+    ]
+  },
+  "size_iat_joint": null,
+  "padding_strategy": "MatchDistribution",
+  "fsm_states": [
+    {
+      "state_id": 0,
+      "transitions": [
+        {
+          "condition": {
+            "Random": 1.0
+          },
+          "next_state": 3,
+          "size_override": {
+            "dist_type": "Parametric",
+            "bins": [],
+            "parametric_type": "Gmm",
+            "parametric_params": [
+              1.0,
+              1.0,
+              1228.00000000005,
+              1.4907119849999109
+            ]
+          },
+          "iat_override": {
+            "dist_type": "Gmm",
+            "params": [
+              1.0,
+              1.0,
+              4.983718035714295,
+              0.2261689861974222
+            ],
+            "jitter_range_ms": [
+              0.0,
+              0.0
+            ]
+          },
+          "padding_override": null
+        }
+      ]
+    },
+    {
+      "state_id": 1,
+      "transitions": []
+    },
+    {
+      "state_id": 2,
+      "transitions": []
+    },
+    {
+      "state_id": 3,
+      "transitions": [
+        {
+          "condition": {
+            "Random": 0.2
+          },
+          "next_state": 0,
+          "size_override": {
+            "dist_type": "Parametric",
+            "bins": [],
+            "parametric_type": "Gmm",
+            "parametric_params": [
+              1.0,
+              1.0,
+              828.0,
+              1.4907119849999109
+            ]
+          },
+          "iat_override": {
+            "dist_type": "Gmm",
+            "params": [
+              1.0,
+              1.0,
+              0.07752500000000023,
+              0.0611106819339187
+            ],
+            "jitter_range_ms": [
+              0.0,
+              0.0
+            ]
+          },
+          "padding_override": null
+        },
+        {
+          "condition": {
+            "Random": 0.8
+          },
+          "next_state": 3,
+          "size_override": {
+            "dist_type": "Parametric",
+            "bins": [],
+            "parametric_type": "Gmm",
+            "parametric_params": [
+              1.0,
+              1.0,
+              1228.00000000005,
+              1.4907119849999109
+            ]
+          },
+          "iat_override": {
+            "dist_type": "Gmm",
+            "params": [
+              1.0,
+              1.0,
+              4.983718035714295,
+              0.2261689861974222
+            ],
+            "jitter_range_ms": [
+              0.0,
+              0.0
+            ]
+          },
+          "padding_override": null
+        }
+      ]
+    }
+  ],
+  "fsm_initial_state": 3,
+  "signature_vector": [
+    0.85,
+    0.78,
+    0.62,
+    0.43,
+    0.21,
+    -0.08,
+    -0.25,
+    0.31,
+    0.67,
+    0.58,
+    0.44,
+    0.33,
+    0.19,
+    -0.12,
+    -0.28,
+    0.37,
+    0.74,
+    0.69,
+    0.51,
+    0.38,
+    0.24,
+    0.11,
+    -0.15,
+    0.42,
+    0.55,
+    0.46,
+    0.38,
+    0.27,
+    0.14,
+    -0.19,
+    -0.32,
+    0.48,
+    -0.37,
+    -0.29,
+    -0.18,
+    0.08,
+    0.22,
+    0.45,
+    0.53,
+    0.61,
+    0.68,
+    0.56,
+    0.43,
+    0.29,
+    0.12,
+    -0.16,
+    -0.27,
+    0.34,
+    0.47,
+    0.59,
+    0.64,
+    0.72,
+    0.81,
+    0.75,
+    0.67,
+    0.51,
+    0.34,
+    0.18,
+    -0.07,
+    -0.21,
+    -0.33,
+    0.44,
+    0.53,
+    0.62
+  ],
+  "reverse_profile": null,
+  "signature": [
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "header_spec": {
+    "type": "Structured",
+    "fields": [
+      {
+        "kind": "Fixed",
+        "bytes": [
+          192
+        ]
+      },
+      {
+        "kind": "Fixed",
+        "bytes": [
+          0,
+          0,
+          0,
+          1
+        ]
+      },
+      {
+        "kind": "Fixed",
+        "bytes": [
+          8
+        ]
+      },
+      {
+        "kind": "Id",
+        "len": 8,
+        "mode": "Random"
+      }
+    ]
+  },
+  "perturbation_bounds": null,
+  "tag_offset": 6,
+  "generated": false
+}

@@ -87,6 +87,19 @@ func (s *AivpnService) Add(inboundID int, name string) (tunnel.AivpnClient, erro
 	return api.AddClient(ctx, name)
 }
 
+// Key returns the connection key of one client. The core re-derives it on
+// every call — this is the reprint path only (Rule 0: the core owns the
+// minting, the panel never generates or stores key material).
+func (s *AivpnService) Key(inboundID int, id string) (string, error) {
+	api, err := s.apiFor(inboundID)
+	if err != nil {
+		return "", err
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+	return api.ClientKey(ctx, id)
+}
+
 func (s *AivpnService) SetEnabled(inboundID int, id string, enabled bool) error {
 	api, err := s.apiFor(inboundID)
 	if err != nil {

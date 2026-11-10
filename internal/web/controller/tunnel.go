@@ -217,6 +217,7 @@ func (a *TunnelController) initRouter(g *gin.RouterGroup) {
 	aivpn.POST("/download", a.aivpnDownloadBinary)
 	aivpn.POST("/deleteBinary", a.aivpnDeleteBinary)
 	aivpn.GET("/clients", a.aivpnClients)
+	aivpn.GET("/clientKey", a.aivpnClientKey)
 	aivpn.POST("/clients/add", a.aivpnAddClient)
 	aivpn.POST("/clients/enable", a.aivpnEnableClient)
 	aivpn.POST("/clients/delete", a.aivpnDeleteClient)
@@ -806,6 +807,25 @@ func (a *TunnelController) aivpnClients(c *gin.Context) {
 		return
 	}
 	jsonObj(c, rows, nil)
+}
+
+func (a *TunnelController) aivpnClientKey(c *gin.Context) {
+	id := strings.TrimSpace(c.Query("clientId"))
+	if id == "" {
+		jsonMsg(c, "tunnel: aivpn client id is required", nil)
+		return
+	}
+	inboundId, _ := strconv.Atoi(c.Query("inboundId"))
+	if inbound := (&service.TunnelService{}).AivpnInbound(inboundId); inbound == nil {
+		jsonMsg(c, "tunnel: aivpn inbound not found or disabled", nil)
+		return
+	}
+	key, err := (&service.AivpnService{}).Key(inboundId, id)
+	if err != nil {
+		jsonMsg(c, "tunnel: aivpn client key failed", err)
+		return
+	}
+	jsonObj(c, key, nil)
 }
 
 func (a *TunnelController) aivpnAddClient(c *gin.Context) {

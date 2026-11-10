@@ -1402,6 +1402,27 @@ export const sections: readonly Section[] = [
         ],
       },
       {
+        method: 'GET',
+        path: '/panel/api/tunnel/aivpn/clientKey',
+        summary:
+          'Re-print the aivpn:// connection key of one AIVPN client (core re-derives it; nothing is stored panel-side). LucX-UI only.',
+        params: [
+          {
+            name: 'inboundId',
+            in: 'query',
+            type: 'number',
+            desc: 'Inbound id anchor (0 = any single local aivpn inbound).',
+            optional: true,
+          },
+          {
+            name: 'clientId',
+            in: 'query',
+            type: 'string',
+            desc: 'AIVPN client id.',
+          },
+        ],
+      },
+      {
         method: 'POST',
         path: '/panel/api/tunnel/aivpn/clients/add',
         summary:

@@ -7,7 +7,11 @@
 package tunnel
 
 import (
+	"context"
 	"encoding/json"
+	"net"
+	"net/http"
+	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"strings"
@@ -37,6 +41,11 @@ func TestAivpnDefaultSubnetStable(t *testing.T) {
 }
 
 func TestAivpnRenderConfig(t *testing.T) {
+	dir := t.TempDir()
+	prev := tunnelDir
+	tunnelDir = func() string { return dir }
+	defer func() { tunnelDir = prev }()
+
 	cfg := AivpnConfig{
 		ListenHost: "0.0.0.0",
 		Subnet:     "10.21.0.1/24",
@@ -63,11 +72,14 @@ func TestAivpnRenderConfig(t *testing.T) {
 	if network["prefix_len"] != float64(24) {
 		t.Fatalf("prefix_len = %v", network["prefix_len"])
 	}
-	paths := []string{"key_file", "clients_db", "audit_log", "management_socket"}
+	paths := []string{"key_file", "clients_db", "audit_log", "management_socket", "mask_dir"}
 	for _, p := range paths {
 		if s, ok := parsed[p].(string); !ok || s == "" {
 			t.Fatalf("%s missing/empty: %v", p, parsed[p])
 		}
+	}
+	if parsed["mask_dir"] != filepath.Join(dir, "aivpn-masks") {
+		t.Fatalf("mask_dir = %v, want %v", parsed["mask_dir"], filepath.Join(dir, "aivpn-masks"))
 	}
 	// IPv6 disabled by default: no ipv6_prefix key, ipv6_enabled false.
 	if network["ipv6_enabled"] != false {
@@ -108,21 +120,40 @@ func TestAivpnKeyFileWrittenOnce(t *testing.T) {
 	}
 }
 
+func writeAivpnTestMask(dir string) error {
+	masks := filepath.Join(dir, "aivpn-masks")
+	if err := os.MkdirAll(masks, 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(masks, "quic_https_v2.json"),
+		[]byte(`{"mask_id":"quic_https_v2"}`), 0o600)
+}
+
 func TestAivpnInstanceFromInbound(t *testing.T) {
+	dir := t.TempDir()
+	prev := tunnelDir
+	tunnelDir = func() string { return dir }
+	defer func() { tunnelDir = prev }()
+
 	ib := &model.Inbound{
 		Remark:   "aivpn test",
 		Port:     45001,
 		Protocol: model.Aivpn,
 		Enable:   false,
 	}
-	inst, ok := AivpnInstanceFromInbound(ib)
-	if !ok {
+	if _, ok := AivpnInstanceFromInbound(ib); !ok {
 		t.Fatalf("expected an instance")
 	}
-	if inst.Enabled {
-		t.Fatalf("disabled inbound must not spawn")
-	}
 	ib.Enable = true
+	// An enabled inbound without mask profiles must not spawn a
+	// crash-looping server — it stays down until the masks arrive.
+	inst, ok := AivpnInstanceFromInbound(ib)
+	if !ok || inst.Enabled {
+		t.Fatalf("enabled inbound without masks must not spawn")
+	}
+	if err := writeAivpnTestMask(dir); err != nil {
+		t.Fatalf("mask fixture: %v", err)
+	}
 	inst, ok = AivpnInstanceFromInbound(ib)
 	if !ok || !inst.Enabled {
 		t.Fatalf("expected an enabled instance")
@@ -133,6 +164,9 @@ func TestAivpnInstanceFromInbound(t *testing.T) {
 	}
 	if cfg["listen_addr"] != "0.0.0.0:45001" {
 		t.Fatalf("listen_addr = %v", cfg["listen_addr"])
+	}
+	if cfg["mask_dir"] != filepath.Join(dir, "aivpn-masks") {
+		t.Fatalf("mask_dir = %v, want %v", cfg["mask_dir"], filepath.Join(dir, "aivpn-masks"))
 	}
 	// Args must point the core at the rendered config file.
 	if len(inst.Args) != 2 || inst.Args[0] != "--config" {
@@ -148,4 +182,64 @@ func TestAivpnInstanceFromInbound(t *testing.T) {
 	if otherInst.Fingerprint() == inst.Fingerprint() {
 		t.Fatalf("fingerprint must change with the port")
 	}
+}
+
+// aivpnTestAPI returns an API client whose "unix" dialer lands on the test
+// server — the same Transport shape the real client uses.
+func aivpnTestAPI(t *testing.T, srv *httptest.Server) *AivpnAPI {
+	t.Helper()
+	return &AivpnAPI{hc: &http.Client{
+		Transport: &http.Transport{
+			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+				var d net.Dialer
+				return d.DialContext(ctx, "tcp", srv.Listener.Addr().String())
+			},
+		},
+	}}
+}
+
+func TestAivpnClientKeyEndpoint(t *testing.T) {
+	scheme := "aivpn://c3R1Yi1ib2R5"
+	const pskStripped = `{"id":"abc","name":"x","vpn_ip":"10.201.0.2","enabled":true}`
+
+	t.Run("v1.2.0 serves the key from the connection-key endpoint", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path != "/api/v1/clients/abc/connection-key" {
+				t.Errorf("path = %s", r.URL.Path)
+			}
+			_, _ = w.Write([]byte(`{"connection_key":"` + scheme + `"}`))
+		}))
+		defer srv.Close()
+		key, err := aivpnTestAPI(t, srv).ClientKey(context.Background(), "abc")
+		if err != nil || key != scheme {
+			t.Fatalf("key = %q err = %v", key, err)
+		}
+	})
+	t.Run("legacy payload fallback", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if r.URL.Path == "/api/v1/clients/abc" {
+				_, _ = w.Write([]byte(`{"id":"abc","name":"x","connection_key":"` + scheme + `"}`))
+				return
+			}
+			w.WriteHeader(http.StatusNotFound)
+		}))
+		defer srv.Close()
+		key, err := aivpnTestAPI(t, srv).ClientKey(context.Background(), "abc")
+		if err != nil || key != scheme {
+			t.Fatalf("key = %q err = %v", key, err)
+		}
+	})
+	t.Run("no key anywhere is an error", func(t *testing.T) {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasSuffix(r.URL.Path, "/connection-key") {
+				w.WriteHeader(http.StatusNotFound)
+				return
+			}
+			_, _ = w.Write([]byte(pskStripped))
+		}))
+		defer srv.Close()
+		if _, err := aivpnTestAPI(t, srv).ClientKey(context.Background(), "abc"); err == nil {
+			t.Fatalf("expected an error for a stripped payload")
+		}
+	})
 }

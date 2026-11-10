@@ -10754,6 +10754,56 @@
         }
       }
     },
+    "/panel/api/tunnel/aivpn/clientKey": {
+      "get": {
+        "tags": [
+          "Tunnel tools"
+        ],
+        "summary": "Re-print the aivpn:// connection key of one AIVPN client (core re-derives it; nothing is stored panel-side). LucX-UI only.",
+        "operationId": "get_panel_api_tunnel_aivpn_clientKey",
+        "parameters": [
+          {
+            "name": "inboundId",
+            "in": "query",
+            "required": false,
+            "description": "Inbound id anchor (0 = any single local aivpn inbound).",
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "clientId",
+            "in": "query",
+            "required": true,
+            "description": "AIVPN client id.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": {
+                      "type": "boolean"
+                    },
+                    "msg": {
+                      "type": "string"
+                    },
+                    "obj": {}
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/panel/api/tunnel/aivpn/clients/add": {
       "post": {
         "tags": [

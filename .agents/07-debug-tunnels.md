@@ -4,6 +4,28 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1be: aivpn server runs, clients added, QR button dead — FIXED (lucx.357)
+
+- **Symptom (Hastelo, 10.11.2026):** after the masks fix (Pattern 1bd) the server is up and clients add, but the `QR code` button in the inbound client table is disabled — no `aivpn://` key in any row; the reprint path logs "connection key not present in client payload".
+- **Cause:** the pinned v1.2.0 (`InitialV2`) management API returns the PSK-stripped `ClientView` for list / single-GET / add — `id, name, vpn_ip, enabled, stats…`, **no** `connection_key`. The minted key lives behind `GET /api/v1/clients/:id/connection-key` → `{"connection_key": "aivpn://<b64urljson>"}` (`mgmt_service/client_ops.rs::connection_key` — `{s,k,p,i,n` + `sk`/`mop` parity fields). The panel read only the client payload.
+- **Fix (lucx.357):** `AivpnAPI.ClientKey` calls the endpoint first, legacypayload scan stays the fallback; panel relays `GET /panel/api/tunnel/aivpn/clientKey?inboundId=…&clientId=…` (`AivpnService.Key`); the inbound-form QR button fetches on click and opens the modal — no pre-gating on `row.key` (list rows stay key-less forever in v1.2.0).
+- **Healing without update:** none in the panel — grab the key by hand: `curl -so /dev/null --unix-socket /usr/local/x-ui/bin/tunnel/aivpn-data/mgmt.sock http://aivpn/api/v1/clients/<id>/connection-key | head -c400` (jq `.connection_key`).
+- **Not this:** a key fetch that fails with `public_endpoint_not_configured` — server.json has no `server_ip` and the core has no public endpoint to stamp into the key; set the inbound's "Public host" field. A modal that opens but shows "qrTooLarge" — keys are ~400-600 chars, inside the 2953 limit; that would mean a corrupted upstream response.
+- **Lesson:** a breaking core release that "strips secrets from views" moves the print path to a dedicated endpoint — audit every panel consumer of that view after a pin bump, not just the wire format (same lesson as the OLC2 bump, Pattern 1o).
+
+---
+
+### Pattern 1bd: aivpn `No masks found in /var/lib/aivpn/masks`, exit 1 loop — FIXED (lucx.356)
+
+- **Symptom (live log, 10.11.2026):** `tunnel: aivpn | ERROR aivpn_server::bootstrap: Failed to create server: Session error: No masks found in "/var/lib/aivpn/masks" — place mask JSON files there before starting the server`; the sidecar warns first (`server will not accept connections until masks are recorded`) then exits 1 on every reconcile tick.
+- **Cause:** aivpn-server (pinned v1.2.0) refuses to boot without at least one `MaskProfile` JSON in its `mask_dir` (default `/var/lib/aivpn/masks`; also `--mask-dir` / `AIVPN_MASK_DIR`). The masks are the anti-DPI traffic-shaping profiles (QUIC, WebRTC, VK, WhatsApp…); the server signs, rotates and hands them to clients itself — clients never need their own. Upstream's `install-server.sh` copies `assets/masks/` or downloads `masks.tar.gz` from the release; LucX packed the *binary* but never shipped the *masks*.
+- **Fix (lucx.356):** upstream masks vendored at `third_party/sidecars/masks/*.json` (from the pinned v1.2.0 release's `masks.tar.gz`); every panel tarball packs them at `bin/tunnel/aivpn-masks/` (`bin/pack-sidecars.sh` + `bin/sourcecraft-release.sh` + `DockerInit.sh`). The panel renders `mask_dir` → `bin/tunnel/aivpn-masks` in `server.json`; with no mask present `AivpnInstanceFromInbound` gates the instance DOWN with a warning (no crash-loop; re-enables on the next tick once masks appear).
+- **Healing an already-hit host without update:** `mkdir -p /var/lib/aivpn/masks && curl -L <pinned-release>/masks.tar.gz | tar zx -C /var/lib/aivpn/masks` then wait one tick. With the update: nothing — the tarball carries the masks and the instance comes up on its own.
+- **Not this:** `bind: address already in use` on the UDP port (port busy, different line); "Registered clients: 0" before the warn is normal for a fresh core.
+- **Lesson:** a sidecar pin bump that requires bundled data files is a release-packing change, not "the operator should mkdir" (same lesson as Pattern 1aa). Refresh rule: bumping the aivpn pin → overwrite `third_party/sidecars/masks/` with the new release's `masks.tar.gz`.
+
+---
+
 ### Pattern 1bc: routed anytls connects but the tunnel dies mid-TLS (curl rc=35) — FIXED (lucx.303)
 
 - **Symptom (VladufQa, 16.10.2026, lucx.302):** clients connect "без xray", dead "с xray". End-to-end curl through the chain gave `SSL_CONNECT_ERROR` (35) instantly, TCP reached xray (the hidden socks on 40349 was up and listening, the bridge relay was alive).

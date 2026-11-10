@@ -1,5 +1,57 @@
 # LucX-UI — Прогресс
 
+## lucx.357 — fix: aivpn QR/keys — the core v1.2.0 strips keys from every payload, modal pulls the key on click (2026-11-10)
+
+Hastelo: after the masks fix (lucx.356) the aivpn server starts and clients add, but the
+`QR code` button in the inbound client table is dead (disabled) — no `aivpn://` key anywhere.
+Cause (upstream `mgmt_service/mod.rs` of the pinned 80deb78): `ClientView` — the shape the
+v1.2.0 management API returns for list/single/add — is **PSK-stripped**: `id, name, vpn_ip,
+enabled, stats…` and no `connection_key`. The minted key lives behind a dedicated endpoint
+`GET /api/v1/clients/:id/connection-key` → `{"connection_key": "aivpn://<b64>"}`, which nobody
+called; the panel's `ClientKey` (reprint) parsed only the client payload and failed with
+"connection key not present in client payload", and list rows never had a key, so the QR
+button gate `disabled={!row.key}` never opened.
+
+**Fix:** reprint goes through the endpoint first (`aivpnAPI.ClientKey` — endpoint, then the
+legacy payload scan as fallback); the panel relays it as
+`GET /panel/api/tunnel/aivpn/clientKey?inboundId=…&clientId=…`
+(`AivpnService.Key` — Rule 0: the core re-derives the key, the panel stores/mints nothing).
+The inbound form's QR button does not pre-gate on row.key anymore: click → fetch → modal
+(`QrPanel`, copy/download/name remark). No new i18n keys (backend msg is surfaced verbatim).
+
+Tests: `TestAivpnClientKeyEndpoint` (v1.2.0 endpoint / legacy fallback / stripped payload is
+an error) — `go test ./internal/lucx/... -count=1` green, vet + gofumpt clean. Frontend:
+typecheck + lint + `vitest run --project=unit` (1663/1663) + build green; `npm run gen`
+refreshed openapi.json (347 paths). Pattern 1be in `.agents/07-debug-tunnels.md`.
+
+lucxVersion: lucx.357
+
+## lucx.356 — fix: aivpn will not boot without masks; masks vendored and shipped in every tarball (2026-11-10)
+
+Live log: `tunnel: aivpn | ERROR aivpn_server::bootstrap: Failed to create server: Session
+error: No masks found in /var/lib/aivpn/masks` — exit 1 on every reconcile tick. Cause: the
+pinned aivpn-server v1.2.0 refuses to start without at least one MaskProfile JSON in its
+`mask_dir` (default `/var/lib/aivpn/masks`); the masks are the anti-DPI traffic-shaping
+profiles (QUIC, WebRTC calls, VK, WhatsApp…) — the server signs, rotates and hands them to
+clients itself, clients never need their own. Upstream `install-server.sh` copies
+`assets/masks/` or downloads `masks.tar.gz` from the release; LucX shipped only the binary.
+
+**Fix:** masks vendored at `third_party/sidecars/masks/*.json` (10 profiles from the pinned
+v1.2.0 release's `masks.tar.gz`, arch-independent); every panel tarball packs them at
+`bin/tunnel/aivpn-masks/` (`bin/pack-sidecars.sh`, `bin/sourcecraft-release.sh`,
+`DockerInit.sh`). The panel renders `mask_dir` → `bin/tunnel/aivpn-masks` in server.json;
+with an empty mask store `AivpnInstanceFromInbound` keeps the instance DOWN with a warning
+(no crash-loop) and re-enables on the next tick once the masks appear. Bumping the aivpn
+pin → overwrite `third_party/sidecars/masks/` with the new release's `masks.tar.gz`.
+Rule 0: masks are server assets — no change to issued client configs.
+
+Tests: TestAivpnRenderConfig (mask_dir), TestAivpnInstanceFromInbound
+(no-masks gate → disabled, with masks → enabled) — `go test ./internal/lucx/... -count=1`
+green, gofumpt/vet clean. Pattern 1bd in `.agents/07-debug-tunnels.md`, AIVPN bullet in
+`.agents/02-architecture.md`, `third_party/sidecars/README.md`.
+
+lucxVersion: lucx.356
+
 ## lucx.355 — fix: client-attach loss on share-only save, gateway hosts swept, tgbot card buttons (2026-11-09)
 
 Three open GitHub issues, all with tester-traced root causes, all reproducing in code walk-through:
