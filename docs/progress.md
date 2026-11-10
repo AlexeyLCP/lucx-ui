@@ -24,6 +24,12 @@ an error) — `go test ./internal/lucx/... -count=1` green, vet + gofumpt clean.
 typecheck + lint + `vitest run --project=unit` (1663/1663) + build green; `npm run gen`
 refreshed openapi.json (347 paths). Pattern 1be in `.agents/07-debug-tunnels.md`.
 
+**Release tail (same tag):** docs `openapi.json` copy synced (codegen gate, aa9c1b70);
+`DockerInit.sh` masks path was one level above the build context (docker tag build red →
+fixed + tag recreated, 778092f7); docs API reference regenerated via `docs npm run gen:api`
+(2240a1f8 — the second codegen gate, on the docs layout operations list). Tag
+`v3.11.0-lucx.357` = 778092f7; release notes filled RU+EN.
+
 lucxVersion: lucx.357
 
 ## lucx.356 — fix: aivpn will not boot without masks; masks vendored and shipped in every tarball (2026-11-10)
