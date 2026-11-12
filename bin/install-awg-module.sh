@@ -523,16 +523,20 @@ if ! command -v dkms >/dev/null 2>&1 || ! command -v make >/dev/null 2>&1 || ! c
     exit 1
 fi
 
-# openresolv — awg-quick вызывает resolvconf при наличии DNS= в .conf.
-# Без него awg-quick up падает с "resolvconf: command not found".
-apt-get install -y -q openresolv 2>/dev/null || echo -e "${YELLOW}openresolv не установлен — awg-quick может падать на DNS=${NC}"
+# openresolv НЕ ставим. Наш рендерер не пишет DNS= в .conf (client_conf.go /
+# manager.go), значит awg-quick не зовёт resolvconf вообще. При этом на
+# Debian 12+ openresolv конфликтует с systemd-resolved: apt удаляет resolved
+# и libnss-resolve, /etc/resolv.conf остаётся висячей ссылкой на
+# /run/systemd/resolve/resolv.conf → системный DNS полностью падает
+# (воспроизведено тестером на чистом Debian 13). Не ре-анимировать эту
+# установку без отдельного разговора.
 
 # systemd-resolved — на Debian 13+ resolvconf symlink указывает на
 # systemd-resolved backend, но сам сервис может быть не enabled. Тогда
 # awg-quick up с DNS= падает с "Failed to set DNS configuration: Unit
 # dbus-org.freedesktop.resolve1.service not found" → интерфейс откатывается
 # → reconcile failed every 10s (поймано тестером VladufQa на awgo-3).
-# Enable сервис если он установлен; если нет — openresolv выше уже покрыл.
+# Enable сервис если он установлен; openresolv выше намеренно НЕ ставится.
 if systemctl list-unit-files 2>/dev/null | grep -q systemd-resolved; then
     systemctl enable --now systemd-resolved 2>/dev/null && \
         echo -e "${GREEN}systemd-resolved enabled (resolvconf backend)${NC}" || true
@@ -861,7 +865,7 @@ else
 fi
 command -v awg &>/dev/null && echo -e "${GREEN}✓ awg установлен ($(awg version 2>&1 | head -1))${NC}"
 command -v awg-quick &>/dev/null && echo -e "${GREEN}✓ awg-quick установлен${NC}"
-command -v resolvconf &>/dev/null && echo -e "${GREEN}✓ resolvconf (openresolv) установлен${NC}"
+command -v resolvconf &>/dev/null && echo -e "${GREEN}✓ resolvconf backend (openresolv/systemd-resolved) установлен${NC}"
 # Fallback marker write: if the build block was skipped (module already loaded
 # from a prior install) the marker may still be absent on pre-lucx.51 systems.
 # Backfill it from modinfo so update.sh's version gate works next time.

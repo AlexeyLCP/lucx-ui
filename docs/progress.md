@@ -1,5 +1,76 @@
 # LucX-UI — Прогресс
 
+## lucx.359 — fix: installer no longer installs openresolv (it killed DNS on Debian 12+)
+
+Report via tg (tester on a clean Debian 13/Trixie): `bin/install-awg-module.sh`
+ran `apt-get install -y -q openresolv`, and on Debian 12+ openresolv and
+systemd-resolved conflict over the `resolvconf` provider — apt removed
+systemd-resolved + libnss-resolve while `/etc/resolv.conf` kept pointing at
+`/run/systemd/resolve/resolv.conf`. Dangling symlink → no system DNS at all on
+the panel host.
+
+**Root-cause reasoning:** openresolv was added (lucx.~50s) because awg-quick
+up failed with `resolvconf: command not found` — but that only happens for
+conf files that carry `DNS=`. Since lucx.~60s our renderers deliberately never
+write `DNS=` to server or client confs (`internal/awg/client_conf.go`,
+`internal/awg/manager.go`; enforced by
+`TestRenderClientConfNeverWritesDNS` / `TestSettingsDNSNeverWritten`), so
+awg-quick never calls resolvconf for our configs at all. The package was dead
+weight — and actively destructive on resolved hosts.
+
+**Fix:** removed the `apt-get install openresolv` line from
+`bin/install-awg-module.sh` (dependency block 1), replaced with a why-not
+comment so nobody re-adds it casually. The `systemctl enable --now
+systemd-resolved` block (VladufQa's resolve1 case) stays — it is a no-op on
+clean Trixie and only activates an already-installed service. The verify
+echo at the bottom now reads `resolvconf backend (openresolv/systemd-resolved)`.
+No Go/frontend/DB changes; Rule 0/0b untouched. `bash -n` green.
+
+**Already-broken hosts** (openresolv applied before this fix): one-liner —
+`apt-get install -y systemd-resolved && systemctl enable --now systemd-resolved`;
+the resolv.conf symlink re-resolves once the service runs (no manual ln needed).
+
+## lucx.358 — fix: scanguard exempts the panel's own tunnel ports — csqtt/qwdtt died under the blocklist (2026-11-11)
+
+Report (Slava in the tg chat): after enabling the scanner guard on hosts where a
+source list carries the VK turn-relay networks (90.156.232.0/21 — e.g. the C24Be
+AS_Network_List blacklist), csqtt/qwdtt went dead. Root cause is structural: the
+guard's INPUT drop rules (`conntrack NEW + set match`) cut inbound traffic from
+ANY blocked subnet on ALL ports, and csqtt (TURN/RTP over the VK turn relays) and
+qwdtt (DTLS/WG entry) receive their traffic INBOUND from exactly those networks.
+The default source (shadow-netlab government_networks.list) does not contain
+90.156.* — hosts hit this only after adding such lists as sources — but the
+breakage is list-agnostic: any list intersecting the tunnel relay ranges does it.
+
+**Fix (port exemption, not whitelist):** `ScanguardService.keepPorts()` derives
+the listening ports of enabled non-node csqtt/qwdtt inbounds (csqtt public port
+via `CsqttListenPort`; qwdtt via `QwdttDTLSPort` + WGPort) and `Apply` now
+carries a keep list: both backends install owner-marked ACCEPT rules
+(`--comment lucx-scanguard-keep`, conntrack NEW, tcp+udp per port) ABOVE the
+DROPs — iptables path via `ensureFamilyRules` convergence (stale port swept,
+missing inserted at position 1, anything found below the DROP re-inserted), nft
+path via the same accepts inside the atomic table-replacement batch. Status
+gains `keepOk`; Reconcile re-applies when the installed keeps drift from the
+wanted port set (tunnel port changed, tunnel disabled, pre-358 upgrade), so the
+list self-heals without operator action. Disable sweeps keeps together with
+drops. No frontend change (hand-written schema ignores the additive field), no
+new routes, no i18n keys, no DB changes — Rule 0 clean.
+
+Tests: `TestApplyInsertsKeepPorts` (2 ports → 8 accepts, both transports, above
+drops, dup collapse), `TestKeepRulesConverge` (misplaced re-insert at 1, stale
+sweep — and the `iptables -S` quote quirk: comment values arrive quoted, so the
+dump parser matches on quote-stripped specs), `TestKeepDumpParsing`,
+`TestNftBuildBatchKeepPorts`, `TestNftProbe`/`TestProbeStatus` keepOk cases,
+`TestScanguardKeepPortsFromInbounds` (enabled feeds ports, disabled/node rows
+ignored). Green: `go build ./...`, vet + gofumpt, `go test ./internal/lucx/...`
+and `TestScanguard*` on Linux (WSL; the Linux-only firewall tests can't run on
+the dev box). Note: `go test ./internal/web/service/` as a WHOLE package
+interferes (random unrelated failures per run, e.g. share-only/autorenew tests,
+all passing with `-run`) — pre-existing, not touched by this change, and the
+service package is not part of the Rule 7 gate.
+
+lucxVersion: lucx.358
+
 ## lucx.357 — fix: aivpn QR/keys — the core v1.2.0 strips keys from every payload, modal pulls the key on click (2026-11-10)
 
 Hastelo: after the masks fix (lucx.356) the aivpn server starts and clients add, but the
