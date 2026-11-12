@@ -1,5 +1,25 @@
 # LucX-UI — Прогресс
 
+## lucx.360 — fix: Go toolchain 1.27.4 — GO-2026-6859 (net/http MaxBytesReader header race)
+
+The `govulncheck` CI job went red on a fresh advisory, not on a code change:
+GO-2026-6859, an HTTP/1 server crash (MaxBytesReader header race) in the Go
+standard library, flagged on **every** `http` call site across the repo
+(net/http found in `go1.27.3`, fixed in `go1.27.4`). First failing run 43178026213
+(2026-11-12); the previous red (`42805268520`, codegen) was a different, already
+closed issue — govulncheck itself was green a day earlier.
+
+**Fix:** `go.mod` `go 1.27.3` → `go 1.27.4`. That is the single pin: every
+workflow installs Go via `go-version-file: go.mod` (ci, release, docker,
+mutation, kernel-wireguard, claude-pr-review), and `GOTOOLCHAIN=local` jobs use
+whatever that step installed — so the release and docker builds compile the
+fixed stdlib into shipped binaries automatically. `caddylucx/go.mod` keeps
+`go 1.26.0` (language directive only; its builds on the same runners still link
+the 1.27.4 stdlib). No code changes, no frontend changes.
+
+Effect on release v3.11.0-lucx.360: the shipped tarballs land with the patched
+net/http. The advisory is a server-crash (DoS) class, not RCE.
+
 ## lucx.359 — fix: installer no longer installs openresolv (it killed DNS on Debian 12+)
 
 Report via tg (tester on a clean Debian 13/Trixie): `bin/install-awg-module.sh`
