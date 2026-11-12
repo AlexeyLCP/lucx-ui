@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"net/netip"
 	"sort"
+	"strconv"
 	"strings"
 )
 
@@ -27,8 +28,10 @@ const (
 // nftBuildBatch renders the atomic replacement idiom (nftables wiki):
 // `add table` guarantees the `delete table` never fails, then the table is
 // re-declared fresh — all inside one transaction, so a failed apply leaves
-// the previous table untouched.
-func nftBuildBatch(v4, v6 []netip.Prefix) []byte {
+// the previous table untouched. keepPorts become accept rules placed above
+// the drops (tunnel sidecar ports survive a blocklist covering their own
+// upstream relay subnets).
+func nftBuildBatch(v4, v6 []netip.Prefix, keep []int) []byte {
 	v4, v6 = minimizeList(v4), minimizeList(v6)
 	var b strings.Builder
 	fmt.Fprintf(&b, "add table inet %s\n", nftTable)
@@ -46,6 +49,11 @@ func nftBuildBatch(v4, v6 []netip.Prefix) []byte {
 	fmt.Fprintf(&b, "\t}\n")
 	fmt.Fprintf(&b, "\tchain %s {\n", nftChain)
 	fmt.Fprintf(&b, "\t\ttype filter hook input priority 0; policy accept;\n")
+	for _, proto := range keepProtos {
+		for _, port := range uniquePorts(keep) {
+			fmt.Fprintf(&b, "\t\tct state new %s dport %d accept\n", proto, port)
+		}
+	}
 	if len(v4) > 0 {
 		fmt.Fprintf(&b, "\t\tct state new ip saddr @%s drop\n", setName4)
 	}
@@ -62,6 +70,117 @@ func joinNftElements(list []netip.Prefix) string {
 		items = append(items, p.String())
 	}
 	return strings.Join(items, ", ")
+}
+
+// nftChainKeepOk mirrors the iptables keep check for the native backend:
+// the chain text must carry exactly the wanted tunnel-port accepts, above
+// the drop rules. `nft list chain` renders rules in order, counters after
+// the match expression.
+func nftChainKeepOk(text string, want []int) bool {
+	dropIdx := -1
+	var refs []keepRef
+	for i, line := range strings.Split(text, "\n") {
+		line = strings.TrimSpace(line)
+		if dropIdx < 0 && strings.HasSuffix(line, "drop") &&
+			(strings.Contains(line, "@"+setName4) || strings.Contains(line, "@"+setName6)) {
+			dropIdx = i
+		}
+		if ref, ok := nftKeepRefOf(line); ok {
+			ref.idx = i
+			refs = append(refs, ref)
+		}
+	}
+	return keepRefsOk(refs, dropIdx, want)
+}
+
+// nftKeepRefOf parses one chain rule line like `ct state new udp dport 46000
+// counter packets 0 bytes 0 accept`.
+func nftKeepRefOf(line string) (keepRef, bool) {
+	if !strings.Contains(line, " accept") || strings.Contains(line, "drop") {
+		return keepRef{}, false
+	}
+	fields := strings.Fields(line)
+	for i := 1; i < len(fields); i++ {
+		if fields[i] != "dport" {
+			continue
+		}
+		proto := fields[i-1]
+		if i+1 >= len(fields) {
+			return keepRef{}, false
+		}
+		port, err := strconv.Atoi(fields[i+1])
+		if err != nil {
+			return keepRef{}, false
+		}
+		if proto == "udp" || proto == "tcp" {
+			return keepRef{proto: proto, port: port}, true
+		}
+		return keepRef{}, false
+	}
+	return keepRef{}, false
+}
+
+// tunnel-port keep infrastructure — shared by both firewall backends
+// (platform-neutral so nft.go and the guarded helpers compile everywhere).
+
+// keepProtos are the transports exempted per keep port (a TURN/RTP sidecar
+// answers on both).
+var keepProtos = []string{"udp", "tcp"}
+
+// keepRef is one tunnel-port ACCEPT rule identified by (proto, port); idx
+// is its position in the dump the ref was parsed from (order checks).
+type keepRef struct {
+	proto string
+	port  int
+	idx   int
+}
+
+// uniquePorts dedups and range-checks the wanted keep ports.
+func uniquePorts(keep []int) []int {
+	seen := map[int]struct{}{}
+	out := make([]int, 0, len(keep))
+	for _, p := range keep {
+		if p <= 0 || p > 65535 {
+			continue
+		}
+		if _, ok := seen[p]; ok {
+			continue
+		}
+		seen[p] = struct{}{}
+		out = append(out, p)
+	}
+	sort.Ints(out)
+	return out
+}
+
+// keepRefsOk is the shared (proto, port) set/order comparison for both
+// backends: exact coverage of `want`, no extras/duplicates, every keep rule
+// above the DROP.
+func keepRefsOk(refs []keepRef, dropIdx int, want []int) bool {
+	wanted := map[keepRef]struct{}{}
+	for _, p := range uniquePorts(want) {
+		for _, proto := range keepProtos {
+			wanted[keepRef{proto: proto, port: p}] = struct{}{}
+		}
+	}
+	seen := map[keepRef]int{}
+	for _, ref := range refs {
+		seen[keepRef{proto: ref.proto, port: ref.port}]++
+	}
+	if len(seen) != len(wanted) {
+		return false
+	}
+	for ref, n := range seen {
+		if _, ok := wanted[ref]; !ok || n != 1 {
+			return false
+		}
+	}
+	for _, ref := range refs {
+		if dropIdx >= 0 && ref.idx > dropIdx {
+			return false
+		}
+	}
+	return true
 }
 
 // minimizeList drops every prefix contained in another listed prefix. nft

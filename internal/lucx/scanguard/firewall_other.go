@@ -13,10 +13,10 @@ import "net/netip"
 // No-op firewall stubs: the scanner guard only manipulates netfilter on
 // Linux hosts; dev boxes and Windows builds keep the same API surface.
 
-func applyToFirewall([]netip.Prefix, []netip.Prefix) error { return ErrUnsupported }
+func applyToFirewall([]netip.Prefix, []netip.Prefix, []int) error { return ErrUnsupported }
 
-func ensureRules() error { return ErrUnsupported }
+func ensureRules([]int) error { return ErrUnsupported }
 
 func removeFirewall() error { return ErrUnsupported }
 
-func probeStatus() ProbedStatus { return ProbedStatus{} }
+func probeStatus([]int) ProbedStatus { return ProbedStatus{} }

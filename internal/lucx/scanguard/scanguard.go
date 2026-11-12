@@ -37,8 +37,11 @@ const (
 // names are safe there).
 const (
 	firewallOwner = "lucx-scanguard"
-	setName4      = "lucx-sg4"
-	setName6      = "lucx-sg6"
+	// keepOwner marks the tunnel-port ACCEPT rules that sit above the DROPs
+	// (see Apply) and are swept by Disable together with the drop rules.
+	keepOwner = "lucx-scanguard-keep"
+	setName4  = "lucx-sg4"
+	setName6  = "lucx-sg6"
 )
 
 // Config is the operator-owned state of the feature.
@@ -63,7 +66,8 @@ type ApplyResult struct {
 // ProbedStatus is the live OS-level state (no config involved). Backend
 // names the firewall plumbing the probes/apply use: "iptables" (binary
 // compat layer), "nft" (native nftables — needs neither ipset nor iptables)
-// or "" when neither exists.
+// or "" when neither exists. KeepOk reports whether every wanted tunnel-port
+// exemption is installed and ordered above the DROP rules.
 type ProbedStatus struct {
 	Backend        string `json:"backend,omitempty"`
 	IpsetAvailable bool   `json:"ipsetAvailable"`
@@ -71,6 +75,7 @@ type ProbedStatus struct {
 	RulesV6        bool   `json:"rulesV6"`
 	V4Entries      int    `json:"v4Entries"`
 	V6Entries      int    `json:"v6Entries"`
+	KeepOk         bool   `json:"keepOk"`
 }
 
 // ErrUnsupported is returned off Linux; apply is a no-op there.
@@ -165,8 +170,11 @@ func Collect(cfg Config) (v4, v6 []netip.Prefix, skipped int, err error) {
 }
 
 // Apply runs Collect, atomically swaps the ipset sets and ensures the INPUT
-// rules match cfg.Enabled.
-func Apply(cfg Config) (ApplyResult, error) {
+// rules match cfg.Enabled. keepPorts are the local listening ports (panel-
+// owned tunnel sidecars) exempted from the drop — they land ABOVE the drop
+// rules as owner-tagged ACCEPTs so a blocklist that covers a tunnel's own
+// upstream relay subnets cannot cut the panel's sidecars (lucx.358).
+func Apply(cfg Config, keepPorts []int) (ApplyResult, error) {
 	var res ApplyResult
 	v4, v6, skipped, err := Collect(cfg)
 	if err != nil {
@@ -176,23 +184,25 @@ func Apply(cfg Config) (ApplyResult, error) {
 	res.V4 = len(v4)
 	res.V6 = len(v6)
 
-	if err := applyToFirewall(v4, v6); err != nil {
+	if err := applyToFirewall(v4, v6, keepPorts); err != nil {
 		return res, err
 	}
-	if err := ensureRules(); err != nil {
+	if err := ensureRules(keepPorts); err != nil {
 		return res, err
 	}
 	return res, nil
 }
 
-// Disable removes the owner-marked rules and destroys the ipset sets.
+// Disable removes the owner-marked rules (drops AND tunnel-port accepts)
+// and destroys the ipset sets.
 func Disable() error {
 	return removeFirewall()
 }
 
-// Status probes the live OS state without touching the firewall.
-func Status() ProbedStatus {
-	return probeStatus()
+// Status probes the live OS state without touching the firewall. want is
+// the list of ports the keep rules must currently cover.
+func Status(want []int) ProbedStatus {
+	return probeStatus(want)
 }
 
 // parsePrefixList parses one list body. A single bogus line fails the whole

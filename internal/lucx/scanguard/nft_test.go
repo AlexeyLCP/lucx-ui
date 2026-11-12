@@ -55,7 +55,7 @@ func TestNftBuildBatch(t *testing.T) {
 	t.Parallel()
 	v4 := []netip.Prefix{netip.MustParsePrefix("203.0.113.0/24"), netip.MustParsePrefix("203.0.114.0/24")}
 	v6 := []netip.Prefix{netip.MustParsePrefix("2001:db8::/32")}
-	batch := string(nftBuildBatch(v4, v6))
+	batch := string(nftBuildBatch(v4, v6, nil))
 
 	// The atomic-replacement idiom must come in exact order inside one
 	// transaction: declare, delete, then the fresh table.
@@ -74,13 +74,34 @@ func TestNftBuildBatch(t *testing.T) {
 		!strings.Contains(batch, "ct state new ip6 saddr @lucx-sg6 drop") {
 		t.Fatalf("chain malformed:\n%s", batch)
 	}
+	if strings.Contains(batch, "ct state new") && strings.Contains(batch, "dport") {
+		t.Fatalf("empty keep list must not add accept rules:\n%s", batch)
+	}
+}
+
+// Tunnel-port keeps become accept rules placed before the drop rules, both
+// transports per port, deduped and sorted.
+func TestNftBuildBatchKeepPorts(t *testing.T) {
+	t.Parallel()
+	v4 := []netip.Prefix{netip.MustParsePrefix("203.0.113.0/24")}
+	batch := string(nftBuildBatch(v4, nil, []int{56000, 46000, 46000}))
+	udp := strings.Index(batch, "ct state new udp dport 46000 accept")
+	tcp := strings.Index(batch, "ct state new tcp dport 46000 accept")
+	drop := strings.Index(batch, "ct state new ip saddr @lucx-sg4 drop")
+	if udp < 0 || tcp < 0 || drop < 0 || udp > drop || tcp > drop {
+		t.Fatalf("keep accepts must exist and sit above the drop:\n%s", batch)
+	}
+	if !strings.Contains(batch, "ct state new udp dport 56000 accept") ||
+		!strings.Contains(batch, "ct state new tcp dport 56000 accept") {
+		t.Fatalf("both transports per port required:\n%s", batch)
+	}
 }
 
 // An empty family keeps the set declared but adds neither elements nor a
 // drop rule — an empty set can never block traffic.
 func TestNftBuildBatchEmptyV6(t *testing.T) {
 	t.Parallel()
-	batch := string(nftBuildBatch([]netip.Prefix{netip.MustParsePrefix("203.0.113.0/24")}, nil))
+	batch := string(nftBuildBatch([]netip.Prefix{netip.MustParsePrefix("203.0.113.0/24")}, nil, nil))
 	if strings.Contains(batch, "elements = { }") {
 		t.Fatalf("empty v6 elements line must be absent:\n%s", batch)
 	}
