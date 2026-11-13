@@ -44,6 +44,13 @@ lucx.361. The classic backend needing a stub site in the site dir is expected
 
 Tests: `TestRenderTproxyCaddyfile` (public site pins h1/h2 and never h3).
 
+**Live check (stand 144.31.224.212, 2026-11-13):** a standalone tproxy site
+renders `servers { protocols h1 h2 }`, Caddy logs
+`"server running","protocols":["h1","h2"]`, and **no UDP port is opened** —
+the same binary with the old rendering (no `servers` block) logs
+`"protocols":["h1","h2","h3"]` and binds UDP 8444 (QUIC). Idle CPU of the new
+instance: 0 ticks over 20 s.
+
 ## lucx.362 — fix: mieru reaches Clash-family clients (Clash YAML entry + port in the share link) (issue #202)
 
 Report (issue #202): "Clash, NekoBox, Koala do not accept the mieru links and
@@ -92,6 +99,23 @@ Tests: `TestBuildMieruProxy_MihomoEntry`,
 (updated for the authority port). `go test ./internal/sub/ ./internal/lucx/...`
 green; `go build ./...`, `go vet`, gofumpt clean.
 
+**Live check (stand 144.31.224.212, 2026-11-13):** a mieru inbound with one
+client puts a `type: mieru` proxy into the Clash profile:
+
+```yaml
+- name: e2e-mieru-mieru-e2e@test
+  password: z5CqNU_4oPD_m9LUjPzxzq0QXoN
+  port: 20101
+  server: localhost
+  transport: TCP
+  type: mieru
+  udp: true
+  username: mi89f8e9c8b5
+```
+
+The raw subscription line carries the port in the authority as well:
+`mierus://mi89f8e9c8b5:z5Cq…@localhost:20101?profile=…&mtu=1400&port=20101&protocol=TCP#…`
+
 ## lucx.361 — fix: MTProto-Zig WEB backend is restored after a panel restart (issue #201)
 
 Report (issue #201, v3.11.0-lucx.360): after restarting the panel the Telegram
@@ -135,6 +159,14 @@ reconcile must render the zig config of a zig-backend inbound — fails without
 the fix), `TestReconcileMtprotoZigKeepsSiblingCores` (the zig sweep must not
 touch the classic mtproxy stack). `go test ./internal/lucx/... ./internal/awg/...
 ./internal/database/...` green; `go build ./...`, `go vet`, gofumpt clean.
+
+**Live check (stand 144.31.224.212, 2026-11-13):** a tproxy inbound with
+`backend: mtproto-zig` (port 52888) on the old build (lucx.342) produced no
+zig process, no listener and not a single log line — the instance was dropped
+silently. On the dev build (lucx.363) the same inbound comes up by itself
+after `systemctl restart x-ui`: `tunnel: mtproto-zig-30 started`,
+`Listening on [::]:52888 (epoll)`, the port is LISTEN in `ss`. The classic
+stack (mtproxy + relay) kept running next to it.
 
 ## lucx.360 — fix: Go toolchain 1.27.4 — GO-2026-6859 (net/http MaxBytesReader header race)
 
