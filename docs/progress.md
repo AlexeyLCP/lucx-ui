@@ -1,5 +1,48 @@
 # LucX-UI — Прогресс
 
+## lucx.361 — fix: MTProto-Zig WEB backend is restored after a panel restart (issue #201)
+
+Report (issue #201, v3.11.0-lucx.360): after restarting the panel the Telegram
+WEB proxy stayed dead — the MTProto-Zig backend was not listening on its port
+anymore, while the web relay and nginx were. Opening the inbound and pressing
+"Save" (without changing anything) brought the backend back instantly.
+
+**Root cause:** the tproxy stack has two mutually exclusive backends — the
+classic one (mtproxy + tproxy-server + caddy) and the standalone `mtproto.zig`
+WEB backend. `TproxyInstancesFromInbound` returns the zig instance alone for
+the zig backend, and `reconcileTproxyInbounds` (internal/web/service/tunnel.go)
+bucketed only `Tproxy` / `Mtproxy` / `TproxyCaddy` — the zig instance fell
+through the core switch and was dropped from every want list. The panel's
+reconcile (boot + the 10s tunnel job) therefore never started it. The manual
+save worked because it goes through the runtime apply path
+(internal/web/runtime/local.go → `ensureTproxyInbound`), which Ensures every
+instance the inbound returns, zig included.
+
+**Fix:**
+- `Manager.ReconcileMtprotoZig` (internal/lucx/tunnel/manager.go) — the zig
+  instances are reconciled like every other core: wanted keys are Ensured,
+  unwanted `mtproto-zig-<id>` keys are swept. The sweep prefix
+  (`mtproto-zig-`) does not overlap the classic stack (`mtproxy-<id>`), which
+  the manager already knew how to tear down.
+- `reconcileTproxyInbounds` collects the zig instances into their own list and
+  calls `mgr.ReconcileMtprotoZig(zigs)`.
+
+The sweep also closes the orphan side of the same gap: a zig backend that is
+no longer wanted (backend switched back to the classic stack, inbound deleted)
+is now stopped and its config file removed on the next tunnel job tick.
+
+**Left as reported (not changed here):** the panel gives a sidecar 5s to stop
+after SIGTERM (`gracefulStopTimeout` in internal/lucx/tunnel/process.go) while
+mtproto.zig wants 15s to drain its active connections — active sessions are
+cut on a panel restart. That is a separate timing decision affecting every
+core, not part of the autostart bug.
+
+Tests: `TestReconcileTproxyInboundsRestoresMtprotoZig` (service level: the
+reconcile must render the zig config of a zig-backend inbound — fails without
+the fix), `TestReconcileMtprotoZigKeepsSiblingCores` (the zig sweep must not
+touch the classic mtproxy stack). `go test ./internal/lucx/... ./internal/awg/...
+./internal/database/...` green; `go build ./...`, `go vet`, gofumpt clean.
+
 ## lucx.360 — fix: Go toolchain 1.27.4 — GO-2026-6859 (net/http MaxBytesReader header race)
 
 The `govulncheck` CI job went red on a fresh advisory, not on a code change:

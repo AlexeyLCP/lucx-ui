@@ -795,7 +795,7 @@ func (s *TunnelService) reconcileTproxyInbounds() {
 		logger.Warning("tunnel: tproxy inbound list failed:", err)
 		return
 	}
-	var relays, mtps, caddies []tunnel.Instance
+	var relays, mtps, caddies, zigs []tunnel.Instance
 	routedPort := 0
 	for _, ib := range inbounds {
 		if ib == nil || ib.Protocol != model.Tproxy || ib.NodeID != nil {
@@ -816,6 +816,8 @@ func (s *TunnelService) reconcileTproxyInbounds() {
 					inst.Enabled = false
 				}
 				caddies = append(caddies, inst)
+			case tunnel.MtprotoZig:
+				zigs = append(zigs, inst)
 			}
 		}
 		if ib.Enable {
@@ -836,6 +838,7 @@ func (s *TunnelService) reconcileTproxyInbounds() {
 	mgr.ReconcileMtproxy(mtps)
 	mgr.ReconcileTproxy(relays)
 	mgr.ReconcileTproxyCaddy(caddies)
+	mgr.ReconcileMtprotoZig(zigs)
 }
 
 func (s *TunnelService) reconcileCoverInbounds() {

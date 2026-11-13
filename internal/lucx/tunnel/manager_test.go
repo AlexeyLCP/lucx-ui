@@ -249,6 +249,25 @@ func TestReconcileWantedKeepsWantedKeys(t *testing.T) {
 	}
 }
 
+// TestReconcileMtprotoZigKeepsSiblingCores guards the zig sweep prefix: the
+// mtproto-zig-<id> keys must not touch the classic mtproxy-<id> stack.
+func TestReconcileMtprotoZigKeepsSiblingCores(t *testing.T) {
+	m := newManager()
+	m.cores["mtproto-zig-3"] = &managed{fp: "stale"}
+	m.cores["mtproxy-3"] = &managed{fp: "stale"}
+
+	m.ReconcileMtprotoZig([]Instance{
+		{Core: MtprotoZig, Key: "mtproto-zig-3", Enabled: false},
+	})
+
+	if _, ok := m.cores["mtproto-zig-3"]; !ok {
+		t.Error("wanted zig key must be kept")
+	}
+	if _, ok := m.cores["mtproxy-3"]; !ok {
+		t.Error("the classic mtproxy stack must not be swept by the zig reconcile")
+	}
+}
+
 func TestStopAllIdle(t *testing.T) {
 	m := newManager()
 	m.StopAll()

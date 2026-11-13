@@ -756,6 +756,12 @@ func (m *Manager) ReconcileMtproxy(want []Instance) {
 	m.ReconcileWanted(Mtproxy, "mtproxy-", string(Mtproxy), want)
 }
 
+// ReconcileMtprotoZig drives every desired MTProto-Zig WEB backend instance
+// (keys mtproto-zig-<id>). No legacy single-instance key exists for this core.
+func (m *Manager) ReconcileMtprotoZig(want []Instance) {
+	m.ReconcileWanted(MtprotoZig, "mtproto-zig-", "", want)
+}
+
 func (m *Manager) ReconcileTproxyCaddy(want []Instance) {
 	m.ReconcileWanted(TproxyCaddy, "tproxycaddy-", string(TproxyCaddy), want)
 }
