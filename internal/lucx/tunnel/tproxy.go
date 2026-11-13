@@ -214,7 +214,11 @@ func mtproxyXrayRedirectArgs(uid string, port int) []string {
 func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int, loopback bool, panel []CoverRoute) string {
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tgrace_period 1s\n")
-	writeCaddyServers(&b, false, loopback)
+	// h1+h2 only: the relay speaks HTTP/1 and the WEB proxy client uses
+	// HTTPS-over-TCP, so QUIC buys nothing but a UDP listener on a public
+	// port (scanner handshakes, 0-RTT timers). The loopback site and the
+	// cover-hosted relay already pin h1/h2.
+	writeCaddyServers(&b, true, loopback)
 	b.WriteString("}\n")
 	writeTproxySite(&b, hostname, port, cert, key, relayPort, loopbackBind(loopback), panel, nil, nil)
 	return b.String()

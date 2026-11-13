@@ -1,5 +1,49 @@
 # LucX-UI — Прогресс
 
+## lucx.363 — fix: the public Telegram WEB proxy site no longer serves HTTP/3 (idle Caddy CPU) (issue #200)
+
+Report (issue #200): on a fresh install the Telegram WEB proxy on 443 keeps a
+**constant 30–40 % CPU** in `caddy-naive` (btop), while an older box with the
+same site does not. The panel part of the report was checked first:
+
+**The panel is not the cause.** Between `v3.11.0-lucx.352` and
+`v3.11.0-lucx.355` the tproxy code path did not change at all, and the
+sidecar binaries are byte-identical (same `TPROXY_SHA` / `MTPROXY_SHA` /
+sidecar pins in both release.yml files). Nothing in the panel polls or
+restarts Caddy: the traffic scrape reads the *relay's* `/proc/<pid>/io`, the
+reconcile renders a deterministic Caddyfile (the fingerprint is stable, so
+Caddy is not restarted in a loop), and a crashed sidecar is only revived on
+the 10 s tunnel-job tick. So the difference between the two boxes is
+environment/usage, not the panel.
+
+**What the code did get wrong:** the standalone (public) Telegram WEB proxy
+site rendered its Caddyfile without a `servers` block, so Caddy fell back to
+its default `protocols h1 h2 h3` — the site also answered **HTTP/3 (QUIC) on
+UDP 443**. The relay behind it speaks HTTP/1 and the WEB proxy client uses
+HTTPS-over-TCP, so QUIC buys nothing: it is a UDP listener on a public port
+(scanner handshakes, 0-RTT timers, per-connection crypto) on a fake site.
+The loopback variant of the same site and the cover-hosted relay already
+pinned `protocols h1 h2` — the public one was the outlier.
+
+**Fix:** `RenderTproxyCaddyfile` now pins `protocols h1 h2` like the other two
+variants (one-word change in `writeCaddyServers`). Existing inbounds pick it
+up on the next reconcile (the Caddyfile fingerprint changes → the sidecar
+restarts once; no client config changes — Rule 0 untouched).
+
+**Still open:** this is a mitigation for idle CPU on a public 443, not a
+proven root cause of the reporter's 30–40 % — the panel side is ruled out, but
+the actual burner on their host still needs a look. Asked the reporter for
+`top -H -p $(pgrep caddy-naive)`, `ss -tanp | grep caddy`, the panel log
+(`journalctl -u x-ui | grep -E "tproxycaddy|config changed"`) and the traffic
+volume on both boxes.
+
+The second half of the report — "tg web zig does not work at all" — is
+issue #201 (the zig backend was not restored after a panel restart), fixed in
+lucx.361. The classic backend needing a stub site in the site dir is expected
+(the relay serves the site from there).
+
+Tests: `TestRenderTproxyCaddyfile` (public site pins h1/h2 and never h3).
+
 ## lucx.362 — fix: mieru reaches Clash-family clients (Clash YAML entry + port in the share link) (issue #202)
 
 Report (issue #202): "Clash, NekoBox, Koala do not accept the mieru links and
