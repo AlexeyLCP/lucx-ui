@@ -16,6 +16,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/amneziawg"
 	"github.com/mhsanaei/3x-ui/v3/internal/awg"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
+	"github.com/mhsanaei/3x-ui/v3/internal/lucx/tunnel"
 	"github.com/mhsanaei/3x-ui/v3/internal/tuic"
 	wgutil "github.com/mhsanaei/3x-ui/v3/internal/util/wireguard"
 	"github.com/mhsanaei/3x-ui/v3/internal/web/service"
@@ -191,6 +192,82 @@ func putAwgTimerOpt(opt map[string]any, key, raw string) {
 		return
 	}
 	opt[key] = v
+}
+
+// END LUCX-HOOK
+
+// LUCX-HOOK: mieru — mihomo Clash entry (type: mieru). mihomo has no mieru://
+// link parser, it only knows the YAML proxy type, so the Clash subscription is
+// the only way a Clash-family client (Verge / Meta / FlClash) gets the node.
+func (s *SubClashService) buildMieruProxy(subReq *SubService, inbound *model.Inbound, client model.Client, ep map[string]any) map[string]any {
+	cfg, ok := tunnel.MieruConfigFromInbound(inbound)
+	if !ok || !cfg.Enabled {
+		return nil
+	}
+	secret, err := subReq.settingService.GetSecret()
+	if err != nil || len(secret) == 0 {
+		return nil
+	}
+	pair := tunnel.InboundAuthPair(secret, inbound, client.Email)
+	if pair.User == "" || pair.Pass == "" {
+		return nil
+	}
+	binding, ok := mieruClashBinding(cfg)
+	if !ok {
+		return nil
+	}
+	server := inbound.Listen
+	if server == "" || server == "0.0.0.0" || server == "::" {
+		server = subReq.resolveInboundAddress(inbound)
+	}
+	if server == "" {
+		return nil
+	}
+	proxy := map[string]any{
+		"name":      subReq.endpointRemark(inbound, client.Email, ep, "mieru"),
+		"type":      "mieru",
+		"server":    server,
+		"username":  pair.User,
+		"password":  pair.Pass,
+		"transport": binding.Protocol,
+		"udp":       true,
+	}
+	if binding.PortRange != "" {
+		proxy["port-range"] = binding.PortRange
+	} else {
+		proxy["port"] = binding.Port
+	}
+	if m := strings.TrimSpace(cfg.Multiplexing); m != "" {
+		proxy["multiplexing"] = m
+	}
+	if h := strings.TrimSpace(cfg.HandshakeMode); h != "" {
+		proxy["handshake-mode"] = h
+	}
+	if tp := cfg.TrafficPattern.LinkParam(); tp != "" {
+		proxy["traffic-pattern"] = tp
+	}
+	return proxy
+}
+
+// mieruClashBinding picks the binding a mihomo entry can carry: one port xor
+// one range and one transport per proxy. TCP wins — it is the transport every
+// mieru server binds.
+func mieruClashBinding(cfg tunnel.MieruConfig) (tunnel.MieruPortBinding, bool) {
+	for _, b := range cfg.PortBindings {
+		if strings.EqualFold(strings.TrimSpace(b.Protocol), "TCP") {
+			return mieruClashBindingNormalized(b), true
+		}
+	}
+	if len(cfg.PortBindings) > 0 {
+		return mieruClashBindingNormalized(cfg.PortBindings[0]), true
+	}
+	return tunnel.MieruPortBinding{}, false
+}
+
+func mieruClashBindingNormalized(b tunnel.MieruPortBinding) tunnel.MieruPortBinding {
+	b.Protocol = strings.ToUpper(strings.TrimSpace(b.Protocol))
+	b.PortRange = strings.TrimSpace(b.PortRange)
+	return b
 }
 
 // END LUCX-HOOK
@@ -635,6 +712,11 @@ func (s *SubClashService) buildProxy(subReq *SubService, inbound *model.Inbound,
 	// LUCX-HOOK: kernel AWG
 	if inbound.Protocol == model.AWG {
 		return s.buildAwgProxy(subReq, inbound, client, ep)
+	}
+	// END LUCX-HOOK
+	// LUCX-HOOK: mieru (mihomo YAML proxy type)
+	if inbound.Protocol == model.Mieru {
+		return s.buildMieruProxy(subReq, inbound, client, ep)
 	}
 	// END LUCX-HOOK
 

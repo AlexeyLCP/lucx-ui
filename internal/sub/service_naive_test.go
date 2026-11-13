@@ -182,7 +182,7 @@ func TestGetSubs_Mieru_HostPort(t *testing.T) {
 		t.Fatalf("GetSubs: %v", err)
 	}
 	got := strings.Join(links, "\n")
-	if !strings.Contains(got, "mierus://") || !strings.Contains(got, "@cdn.example.com?") {
+	if !strings.Contains(got, "mierus://") || !strings.Contains(got, "@cdn.example.com:443?") {
 		t.Errorf("host dest must win, got %q", got)
 	}
 	if !strings.Contains(got, "port=443") {

@@ -1,5 +1,53 @@
 # LucX-UI — Прогресс
 
+## lucx.362 — fix: mieru reaches Clash-family clients (Clash YAML entry + port in the share link) (issue #202)
+
+Report (issue #202): "Clash, NekoBox, Koala do not accept the mieru links and
+subscriptions from the panel. Entered by hand it works. The QR codes do not
+work either."
+
+**Root cause — two separate gaps, not one broken link:**
+
+1. The `mierus://` link the panel emits follows the upstream mieru "simple
+   link" spec (enfein/mieru `pkg/appctl/url.go`, `ClientProfileToMultiURLs`):
+   `mierus://user:pass@host?profile=…&mtu=…&port=…&protocol=…`. The official
+   mieru clients and Throne parse exactly that. **mihomo does not**: it has a
+   mieru *outbound* (`adapter/outbound/mieru.go`, type `mieru`) but no
+   `mierus://` link parser — mihomo-family clients (Clash Verge Rev, Clash
+   Meta, FlClash, NekoBox for PC) only understand the Clash YAML proxy type.
+   And our Clash subscription did not contain mieru at all, so those clients
+   got no node from the subscription either. Hence "manually it works" (the
+   operator writes `type: mieru` into the YAML by hand) and "the link is
+   rejected".
+2. The link carried the port in the query only. Parsers that read the port
+   from the authority (Husi-style) fell back to their default port and dialled
+   the wrong one.
+
+**Fix:**
+- `buildMieruProxy` (internal/sub/clash_service.go, LUCX-HOOK block) — a
+  mihomo Clash entry for a mieru inbound: `type: mieru`, `server`, `port` xor
+  `port-range`, `transport` (TCP | UDP), `username`, `password`, plus the
+  optional `multiplexing`, `handshake-mode` and `traffic-pattern` (the same
+  base64 protobuf the link uses). mihomo models one port binding per proxy,
+  so the TCP binding wins; the credentials are the HMAC pair, same as in the
+  link.
+- `MieruConfig.ClientLink` (internal/lucx/tunnel/mieru.go) — the primary port
+  now rides in the authority as well as in the query. The upstream dialect
+  (port in the query) is unchanged, so the official clients keep working, and
+  authority-port parsers now dial the right port.
+
+**Client matrix for mieru (as of this commit):** official mieru apps
+(Android/iOS/desktop) — link OK; Throne / ThroneForAndroid / Husi — link OK;
+mihomo family (Clash Verge Rev, Clash Meta, FlClash, NekoBox for PC) — Clash
+YAML only; NekoBox for Android (upstream Matsuri) and sing-box — no mieru
+support at all, nothing a panel can export.
+
+Tests: `TestBuildMieruProxy_MihomoEntry`,
+`TestBuildMieruProxy_SkipsDisabledAndCarriesRange`,
+`TestBuildProxy_DispatchesMieru` (internal/sub), `TestMieruClientLink`
+(updated for the authority port). `go test ./internal/sub/ ./internal/lucx/...`
+green; `go build ./...`, `go vet`, gofumpt clean.
+
 ## lucx.361 — fix: MTProto-Zig WEB backend is restored after a panel restart (issue #201)
 
 Report (issue #201, v3.11.0-lucx.360): after restarting the panel the Telegram

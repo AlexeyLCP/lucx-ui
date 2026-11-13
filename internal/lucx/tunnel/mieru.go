@@ -299,13 +299,19 @@ func (c MieruConfig) ClientLink(host string, pair AuthPair, remark string) strin
 	if tp := c.TrafficPattern.LinkParam(); tp != "" {
 		q = append(q, "traffic-pattern="+tp)
 	}
-	if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
-		host = "[" + host + "]"
+	// The upstream "simple" link keeps the port in the query only; parsers that
+	// read the authority port (Husi-style clients) then miss it, so the primary
+	// port rides in both places.
+	authority := strings.TrimPrefix(strings.TrimSuffix(host, "]"), "[")
+	if port := MieruPrimaryPort(c); port > 0 {
+		authority = net.JoinHostPort(authority, strconv.Itoa(port))
+	} else if ip := net.ParseIP(host); ip != nil && ip.To4() == nil {
+		authority = "[" + host + "]"
 	}
 	u := url.URL{
 		Scheme:   "mierus",
 		User:     url.UserPassword(pair.User, pair.Pass),
-		Host:     host,
+		Host:     authority,
 		RawQuery: strings.Join(q, "&"),
 		Fragment: strings.TrimSpace(remark),
 	}

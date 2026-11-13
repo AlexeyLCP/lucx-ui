@@ -74,7 +74,7 @@ i18n: extra keys in all 14 `internal/web/translation/*.json` have **no** HOOK. D
 | `internal/sub/controller.go` | `/awg/` routes, Happ |
 | `internal/util/link/outbound.go` `ParseLink` | `openflux://` opaque like qwdtt/olcrtc (lucx.313) |
 | `internal/web/web.go` | AWG/tunnel/scanguard cadence, stop, upload limit (scanguard hook, lucx.346) |
-| `internal/sub/clash_service.go` | kernel AWG clash proxy |
+| `internal/sub/clash_service.go` | kernel AWG clash proxy, mieru clash proxy (`type: mieru`, lucx.362) |
 | `internal/sub/sub.go` | AWG sub URL |
 | `internal/web/web.go` | AWG/tunnel/scanguard cadence, stop, upload limit (scanguard hook, lucx.346) |
 | `internal/web/entity/entity.go` | favicon, log days, Happ ROSCOM, AWG sub URI |

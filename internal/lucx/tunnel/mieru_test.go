@@ -98,7 +98,7 @@ func TestMieruClientLink(t *testing.T) {
 		{PortRange: "9998-9999", Protocol: "UDP"},
 	}
 	link := cfg.ClientLink("1.2.3.4", AuthPair{User: "miuser", Pass: "mipass"}, "client@mail")
-	if !strings.HasPrefix(link, "mierus://miuser:mipass@1.2.3.4?") {
+	if !strings.HasPrefix(link, "mierus://miuser:mipass@1.2.3.4:6666?") {
 		t.Fatalf("link prefix wrong: %s", link)
 	}
 	for _, want := range []string{"profile=client%40mail", "mtu=1400", "port=6666", "protocol=TCP", "port=9998-9999", "protocol=UDP"} {
