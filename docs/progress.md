@@ -79,11 +79,12 @@ The sweep also closes the orphan side of the same gap: a zig backend that is
 no longer wanted (backend switched back to the classic stack, inbound deleted)
 is now stopped and its config file removed on the next tunnel job tick.
 
-**Left as reported (not changed here):** the panel gives a sidecar 5s to stop
-after SIGTERM (`gracefulStopTimeout` in internal/lucx/tunnel/process.go) while
-mtproto.zig wants 15s to drain its active connections — active sessions are
-cut on a panel restart. That is a separate timing decision affecting every
-core, not part of the autostart bug.
+**Left as reported (not changed here, owner decision 2026-11-13):** the panel
+gives a sidecar 5s to stop after SIGTERM (`gracefulStopTimeout` in
+internal/lucx/tunnel/process.go) while mtproto.zig wants 15s to drain its
+active connections — active sessions are cut on a panel restart. The grace
+period is shared by all cores, so it stays as it is (see .agents/04-current-state.md
+#8).
 
 Tests: `TestReconcileTproxyInboundsRestoresMtprotoZig` (service level: the
 reconcile must render the zig config of a zig-backend inbound — fails without

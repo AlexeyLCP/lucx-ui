@@ -92,4 +92,21 @@ Verified live: with the drop-in, the FULL unit replica (all hardening + `SystemC
 
 **Not this:** `bind: address already in use` on the metrics/api/tun listeners when testing the config out of band while the live xray holds them (rename ports/devices in the test copy); tproxy-mode AWG inbounds (dokodemo EPERM on containers) — same message, different inbound; that mode is opt-in and this host does not use it.
 
+### 8. Sidecar SIGTERM grace = 5 s — do NOT "fix" it to 15 s (decision 2026-11-13)
+
+The panel gives every tunnel sidecar 5 s to exit after SIGTERM
+(`gracefulStopTimeout`, `internal/lucx/tunnel/process.go`), then kills the
+process group. mtproto.zig asks for 15 s to drain its active sessions, so a
+panel restart/update cuts those connections (reported in issue #201).
+
+**Decision: leave it at 5 s.** The grace period is shared by all cores; making
+it per-core (or 15 s for everyone) trades panel-restart latency for a drain
+window that only one core asks for. Not worth the extra machinery — the
+cut sessions reconnect on their own.
+
+**Do not** raise the timeout, add a per-core knob, or "fix" this in a future
+issue. If a future release really needs it, it is a deliberate change, not a
+bug fix.
+
 ---
+
