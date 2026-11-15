@@ -170,6 +170,15 @@ export default function RouteTester({ inboundTags, isMobile }: RouteTesterProps)
       </Row>
       {/* END LUCX-HOOK */}
 
+      {/* LUCX-HOOK: both identities at once is a synthetic shape — the core
+          ANDs sourceIP with user, and no real connection carries both (a
+          tunnel leg has no user, a proxied leg does not dial from the
+          tunnel IP). */}
+      {sourceIP.trim() && email.trim() && (
+        <Alert type="warning" showIcon title={t('pages.xray.routeTesterAndNote')} />
+      )}
+      {/* END LUCX-HOOK */}
+
       {result &&
         (result.matched ? (
           <Alert

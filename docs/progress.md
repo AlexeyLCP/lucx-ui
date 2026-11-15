@@ -1,5 +1,54 @@
 # LucX-UI — Прогресс
 
+## lucx.365 — fix: the combined "AWG by source IP + VLESS by user" rule explained and guarded
+
+Follow-up to lucx.364. The tester updated to `v3.11.0-lucx.364` and came back
+with the exact shape: "the panel even says the route did not apply — only when
+I enter BOTH the IP and the email in the checker it shows it should work, but
+traffic still goes through warp"; "if I keep the route only for VLESS (or only
+for AWG of the same client), it works"; "combining AWG and VLESS of the same
+client in one rule (or several) — broken"; "routes for a qWDTT client don't
+work (for a long time)".
+
+**Root cause — the core ANDs all matchers of one rule**
+(`ConditionChan.Apply` returns false on the first non-match):
+- a tunnel leg has the tunnel IP but **no user** — the TUN inbound builds a
+  `session.Inbound` with `User: &protocol.MemoryUser{Level: …}` and no email;
+- a proxied leg has the user but dials from its own real source address, not
+  from the tunnel IP.
+
+So one rule with `sourceIP: [<tunnel IP>]` **plus** `user: [<email>]` can never
+match any real traffic — while the Route Tester's synthetic context carries
+both identities at once and reports a match. That is precisely "checker says it
+works, traffic still goes to warp". The rule editor's client picker produced
+this shape willingly: picking the AWG and the VLESS attachment of one client
+writes both the `src:` and the `user:` token into the same rule.
+
+**qWDTT is a different, unfixed gap:** a qWDTT inbound settings carry no
+client/tunnel address at all (sole-client; the sidecar manages `wg-keys.dat`
+itself), so the panel cannot tell the operator the source address qWDTT traffic
+arrives with — `ip addr show wdtt0` on the host is the only place it is
+visible. A `sourceIP` rule for qWDTT cannot be built from the panel today;
+exposing the sidecar's internal WG subnet is a feature, not a routing bug.
+
+**Fix (lucx.365):**
+- `frontend/src/pages/xray/routing/RuleFormModal.tsx` — saving a rule with both
+  `sourceIP` and `user` now warns: these are AND-ed, route each protocol with
+  its own rule.
+- `frontend/src/pages/xray/routing/RouteTester.tsx` — entering both the source
+  IP and the user shows the same warning (the synthetic match is not a real
+  shape).
+- i18n: `ruleForm.sourceAndUserWarning` / `routeTesterAndNote` in all 14
+  locales.
+
+**Tests:** `route-tester-per-client.test.tsx` gained a case: the warning shows
+with both fields and hides when one is cleared. `TestRoutingRule_SourceIPMatchesOneAwgClient`
+still locks the single-identity matching.
+
+**Operator answer for the tester:** keep two rules — one `sourceIP` for the
+AWG leg, one `user` for the VLESS leg, same `outboundTag`; do not combine the
+identities in one rule.
+
 ## lucx.364 — fix: per-client routing rules can be checked again (AWG by source IP, VLESS by user)
 
 Tester report (Telegram, 14.11.2026): after updating to `v3.11.0-lucx.360`

@@ -51,4 +51,21 @@ describe('route tester', () => {
       }),
     );
   });
+
+  it('warns that source IP and user are AND-ed', () => {
+    renderWithProviders(<RouteTester inboundTags={[]} isMobile={false} />);
+    fireEvent.change(screen.getByLabelText('Domain or IP'), {
+      target: { value: 'example.com' },
+    });
+    fireEvent.change(screen.getByLabelText('Source IP'), {
+      target: { value: '10.200.0.5' },
+    });
+    fireEvent.change(screen.getByLabelText('User (email)'), {
+      target: { value: 'client@example.com' },
+    });
+    expect(screen.getByText(/AND-ed by the core/)).toBeTruthy();
+
+    fireEvent.change(screen.getByLabelText('User (email)'), { target: { value: '' } });
+    expect(screen.queryByText(/AND-ed by the core/)).toBeNull();
+  });
 });

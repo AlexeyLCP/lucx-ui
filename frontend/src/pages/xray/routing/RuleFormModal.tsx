@@ -394,6 +394,13 @@ export default function RuleFormModal({
     if (!out.outboundTag && !out.balancerTag) {
       messageApi.warning(t('pages.xray.ruleForm.noTargetWarning'));
     }
+    // LUCX-HOOK: sourceIP and user are AND-ed by the core — one connection
+    // carries only one of them (a tunnel leg has no user, a proxied leg does
+    // not dial from the tunnel IP), so this shape can never match traffic.
+    if (csv(v.sourceIP).length > 0 && csv(v.user).length > 0) {
+      messageApi.warning(t('pages.xray.ruleForm.sourceAndUserWarning'));
+    }
+    // END LUCX-HOOK
     onConfirm(out);
   }
 
