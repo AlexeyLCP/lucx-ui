@@ -364,6 +364,11 @@ type RouteTestRequest struct {
 	Network    string // "tcp" (default) or "udp"
 	Protocol   string // optional sniffed protocol: http, tls, bittorrent, ...
 	Email      string // optional user attribution for user-based rules
+	// LUCX-HOOK: source addresses of the simulated connection — the tunnel IP
+	// of an AWG client. A rule with sourceIP matches on them, so without them
+	// a per-client rule can never be tested.
+	SourceIPs []string
+	// END LUCX-HOOK
 }
 
 // RouteTestResult is the routing decision the core reported.
@@ -400,16 +405,22 @@ func (x *XrayAPI) TestRoute(req RouteTestRequest) (*RouteTestResult, error) {
 		User:         req.Email,
 	}
 	if req.IP != "" {
-		parsed := net.ParseIP(req.IP)
-		if parsed == nil {
-			return nil, common.NewErrorf("invalid IP address: %s", req.IP)
+		targets, err := routeTestIPBytes([]string{req.IP})
+		if err != nil {
+			return nil, err
 		}
-		if v4 := parsed.To4(); v4 != nil {
-			rc.TargetIPs = [][]byte{v4}
-		} else {
-			rc.TargetIPs = [][]byte{parsed.To16()}
-		}
+		rc.TargetIPs = targets
 	}
+	// LUCX-HOOK: the source IPs of the simulated connection, so a per-client
+	// rule (sourceIP) can be tested the way the AWG bridge delivers it.
+	if len(req.SourceIPs) > 0 {
+		sources, err := routeTestIPBytes(req.SourceIPs)
+		if err != nil {
+			return nil, err
+		}
+		rc.SourceIPs = sources
+	}
+	// END LUCX-HOOK
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -433,6 +444,26 @@ func (x *XrayAPI) TestRoute(req RouteTestRequest) (*RouteTestResult, error) {
 		GroupTags:   resp.GetOutboundGroupTags(),
 	}, nil
 }
+
+// LUCX-HOOK: routeTestIPBytes converts IP strings into the byte form the
+// core's RoutingContext carries: 4 bytes for IPv4, 16 for IPv6.
+func routeTestIPBytes(list []string) ([][]byte, error) {
+	out := make([][]byte, 0, len(list))
+	for _, raw := range list {
+		parsed := net.ParseIP(strings.TrimSpace(raw))
+		if parsed == nil {
+			return nil, common.NewErrorf("invalid IP address: %s", raw)
+		}
+		if v4 := parsed.To4(); v4 != nil {
+			out = append(out, v4)
+		} else {
+			out = append(out, parsed.To16())
+		}
+	}
+	return out, nil
+}
+
+// END LUCX-HOOK
 
 // IsMissingHandlerErr reports whether err is xray's response to removing a
 // handler (inbound/outbound) that does not exist — e.g. it was already

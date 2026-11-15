@@ -2444,6 +2444,8 @@
       "routeTesterPort": "Порт",
       "routeTesterInbound": "Вхідний",
       "routeTesterProtocol": "Виявлений протокол",
+      "routeTesterSourceIP": "IP джерела",
+      "routeTesterUser": "Користувач (email)",
       "routeTesterTest": "Тест маршруту",
       "routeTesterMatchedOutbound": "Відповідний вихідний",
       "routeTesterViaBalancer": "через балансувальник",

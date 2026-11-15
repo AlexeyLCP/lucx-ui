@@ -2444,6 +2444,8 @@
       "routeTesterPort": "پورت",
       "routeTesterInbound": "ورودی",
       "routeTesterProtocol": "پروتکل تشخیصی",
+      "routeTesterSourceIP": "IP مبدأ",
+      "routeTesterUser": "کاربر (ایمیل)",
       "routeTesterTest": "آزمایش مسیر",
       "routeTesterMatchedOutbound": "خروجی منطبق",
       "routeTesterViaBalancer": "از طریق بالانسر",

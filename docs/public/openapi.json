@@ -21577,6 +21577,10 @@
                       "email": {
                         "type": "string",
                         "description": "User attribution for user-based rules (optional)."
+                      },
+                      "sourceIP": {
+                        "type": "string",
+                        "description": "Source address of the simulated connection — the tunnel IP of an AWG client. Comma-separated; rules with sourceIP match on it (optional)."
                       }
                     },
                     "required": [
@@ -21614,6 +21618,10 @@
                       "email": {
                         "type": "string",
                         "description": "User attribution for user-based rules (optional)."
+                      },
+                      "sourceIP": {
+                        "type": "string",
+                        "description": "Source address of the simulated connection — the tunnel IP of an AWG client. Comma-separated; rules with sourceIP match on it (optional)."
                       }
                     },
                     "required": [

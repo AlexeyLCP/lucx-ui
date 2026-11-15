@@ -2452,6 +2452,8 @@
       "routeTesterPort": "Cổng",
       "routeTesterInbound": "Inbound",
       "routeTesterProtocol": "Giao thức nhận diện",
+      "routeTesterSourceIP": "IP nguồn",
+      "routeTesterUser": "Người dùng (email)",
       "routeTesterTest": "Kiểm tra tuyến",
       "routeTesterMatchedOutbound": "Outbound phù hợp",
       "routeTesterViaBalancer": "qua bộ cân bằng tải",

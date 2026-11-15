@@ -2452,6 +2452,8 @@
       "routeTesterPort": "埠號",
       "routeTesterInbound": "入站",
       "routeTesterProtocol": "嗅探協議",
+      "routeTesterSourceIP": "來源 IP",
+      "routeTesterUser": "使用者（電子郵件）",
       "routeTesterTest": "測試路由",
       "routeTesterMatchedOutbound": "匹配出站",
       "routeTesterViaBalancer": "經由負載均衡器",

@@ -441,6 +441,10 @@ func (a *XraySettingController) routeTest(c *gin.Context) {
 		Network:    c.PostForm("network"),
 		Protocol:   c.PostForm("protocol"),
 		Email:      c.PostForm("email"),
+		// LUCX-HOOK: source IPs of the simulated connection — the tunnel IP of
+		// an AWG client, so a per-client rule (sourceIP) can be tested.
+		SourceIPs: splitFormList(c.PostForm("sourceIP")),
+		// END LUCX-HOOK
 	}
 	if req.Domain == "" && req.IP == "" {
 		jsonMsg(c, I18nWeb(c, "somethingWentWrong"), common.NewError("domain or ip is required"))
@@ -453,6 +457,20 @@ func (a *XraySettingController) routeTest(c *gin.Context) {
 	}
 	jsonObj(c, result, nil)
 }
+
+// LUCX-HOOK: splitFormList splits a comma-separated form field into its
+// non-empty parts.
+func splitFormList(raw string) []string {
+	var out []string
+	for part := range strings.SplitSeq(raw, ",") {
+		if part = strings.TrimSpace(part); part != "" {
+			out = append(out, part)
+		}
+	}
+	return out
+}
+
+// END LUCX-HOOK
 
 // maxGeodataTokens bounds one validation request; a routing rule listing more
 // categories than this is not something the panel needs to answer for.

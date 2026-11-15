@@ -3963,6 +3963,16 @@ export const sections: readonly Section[] = [
             desc: 'User attribution for user-based rules (optional).',
             optional: true,
           },
+          // LUCX-HOOK: source address of the simulated connection — the tunnel
+          // IP of an AWG client, so a per-client rule can be tested.
+          {
+            name: 'sourceIP',
+            in: 'body (form)',
+            type: 'string',
+            desc: 'Source address of the simulated connection — the tunnel IP of an AWG client. Comma-separated; rules with sourceIP match on it (optional).',
+            optional: true,
+          },
+          // END LUCX-HOOK
         ],
         body: 'domain=example.com&port=443&network=tcp',
       },

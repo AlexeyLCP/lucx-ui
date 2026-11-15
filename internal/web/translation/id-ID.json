@@ -2452,6 +2452,8 @@
       "routeTesterPort": "Port",
       "routeTesterInbound": "Inbound",
       "routeTesterProtocol": "Protokol yang terdeteksi",
+      "routeTesterSourceIP": "IP sumber",
+      "routeTesterUser": "Pengguna (email)",
       "routeTesterTest": "Uji Rute",
       "routeTesterMatchedOutbound": "Outbound yang cocok",
       "routeTesterViaBalancer": "melalui penyeimbang",

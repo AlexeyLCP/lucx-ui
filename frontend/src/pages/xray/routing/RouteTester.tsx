@@ -30,6 +30,12 @@ export default function RouteTester({ inboundTags, isMobile }: RouteTesterProps)
   const [network, setNetwork] = useState('tcp');
   const [inboundTag, setInboundTag] = useState<string | undefined>(undefined);
   const [protocol, setProtocol] = useState<string | undefined>(undefined);
+  // LUCX-HOOK: the two per-client identities — the source address of the
+  // connection (an AWG client's tunnel IP) and the user email. Without them a
+  // per-client rule can never be tested.
+  const [sourceIP, setSourceIP] = useState('');
+  const [email, setEmail] = useState('');
+  // END LUCX-HOOK
   const [testing, setTesting] = useState(false);
   const [result, setResult] = useState<RouteTestResult | null>(null);
 
@@ -49,6 +55,11 @@ export default function RouteTester({ inboundTags, isMobile }: RouteTesterProps)
         network,
         inboundTag: inboundTag || '',
         protocol: protocol || '',
+        // LUCX-HOOK: per-client identities — source address (AWG tunnel IP)
+        // and user email.
+        sourceIP: sourceIP.trim(),
+        email: email.trim(),
+        // END LUCX-HOOK
       });
       if (msg?.success && msg.obj && typeof msg.obj === 'object') {
         setResult(msg.obj as RouteTestResult);
@@ -134,6 +145,30 @@ export default function RouteTester({ inboundTags, isMobile }: RouteTesterProps)
           </Button>
         </Col>
       </Row>
+      {/* LUCX-HOOK: source address + user, so a per-client rule can be tested. */}
+      <Row gutter={[8, 8]} align="bottom">
+        <Col xs={12} sm={6}>
+          <Input
+            aria-label={t('pages.xray.routeTesterSourceIP')}
+            placeholder={t('pages.xray.routeTesterSourceIP')}
+            value={sourceIP}
+            onChange={(e) => setSourceIP(e.target.value)}
+            onPressEnter={run}
+            allowClear
+          />
+        </Col>
+        <Col xs={12} sm={6}>
+          <Input
+            aria-label={t('pages.xray.routeTesterUser')}
+            placeholder={t('pages.xray.routeTesterUser')}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            onPressEnter={run}
+            allowClear
+          />
+        </Col>
+      </Row>
+      {/* END LUCX-HOOK */}
 
       {result &&
         (result.matched ? (

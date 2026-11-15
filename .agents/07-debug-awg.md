@@ -144,6 +144,12 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** Routing rule without `outboundTag`/`balancerTag`/`domain`/`ip` — only `type` and `inboundTag`.
   **Fix:** Check routing template config in the panel. `injectAwgEgress` doesn’t create a rule with empty `outboundTag` (Xray catch-all). If the rule comes from the template — remove the empty rule.
 
+### Pattern 5b: "routing by source IP for one AWG client does not work" (lucx.364)
+- **The rule works** — the AWG bridge hands the decrypted packet to Xray with the client’s tunnel IP intact, so `sourceIP` matches (verified on the stand with the panel’s own core in the AWG topology, and locked in by `TestRoutingRule_SourceIPMatchesOneAwgClient`).
+- **Cause of the report:** the Route Tester could not express a source address or a user, so a per-client rule always answered "no rule matched" — the panel looked broken while the routing was fine. Since lucx.364 the tester takes a source IP and a user email.
+- **Fix / check:** Route Tester → source IP = the client’s tunnel IP (from its AllowedIPs /32), user = the client’s email. Still not matching? Look at the rule ORDER (first match wins) and at the AWG inbound’s "Route outbound" (`outboundTag`): a set value injects a catch-all rule at the top of the list and shadows every rule of that inbound — leave it empty to let the routing rules decide.
+- **Also check:** the `geoip:private → blocked` rule of the default template sits above the operator’s rules — traffic to a private target (a NAS, an SMB share) is blocked before a per-client rule can send it elsewhere.
+
 ### Pattern 6: AWG client won’t connect — server version vs client version (lucx.50+)
 - **Cause:** The real compatibility boundary is the **server** config, not client-config length. AmneziaWG fields split into:
   - **must-match** (server↔client must match): `S1`–`S4`, `H1`–`H4`, `HeaderProtectionKey`. If server is v3 (with HPK) and client is v2 — handshake fails on must-match fields.

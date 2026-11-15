@@ -2452,6 +2452,8 @@
       "routeTesterPort": "Port",
       "routeTesterInbound": "Gelen",
       "routeTesterProtocol": "Algılanan protokol",
+      "routeTesterSourceIP": "Kaynak IP",
+      "routeTesterUser": "Kullanıcı (e-posta)",
       "routeTesterTest": "Rotayı Test Et",
       "routeTesterMatchedOutbound": "Eşleşen giden",
       "routeTesterViaBalancer": "dengeleyici aracılığıyla",

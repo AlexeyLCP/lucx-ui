@@ -2565,6 +2565,8 @@
       "routeTesterPort": "Port",
       "routeTesterInbound": "Inbound",
       "routeTesterProtocol": "Sniffed protocol",
+      "routeTesterSourceIP": "Source IP",
+      "routeTesterUser": "User (email)",
       "routeTesterTest": "Test Route",
       "routeTesterMatchedOutbound": "Matched outbound",
       "routeTesterViaBalancer": "via balancer",

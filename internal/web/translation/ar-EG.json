@@ -2452,6 +2452,8 @@
       "routeTesterPort": "المنفذ",
       "routeTesterInbound": "الوارد",
       "routeTesterProtocol": "البروتوكول المكتشف",
+      "routeTesterSourceIP": "IP المصدر",
+      "routeTesterUser": "المستخدم (البريد الإلكتروني)",
       "routeTesterTest": "اختبر المسار",
       "routeTesterMatchedOutbound": "الصادر المطابق",
       "routeTesterViaBalancer": "عبر موازن التحميل",

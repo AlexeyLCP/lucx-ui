@@ -2565,6 +2565,8 @@
       "routeTesterPort": "Port",
       "routeTesterInbound": "Vstup",
       "routeTesterProtocol": "Rozpoznaný protokol",
+      "routeTesterSourceIP": "IP zdroja",
+      "routeTesterUser": "Používateľ (e-mail)",
       "routeTesterTest": "Otestovať trasu",
       "routeTesterMatchedOutbound": "Vybraný výstup",
       "routeTesterViaBalancer": "cez vyvažovanie",

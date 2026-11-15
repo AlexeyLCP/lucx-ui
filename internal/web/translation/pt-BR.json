@@ -2452,6 +2452,8 @@
       "routeTesterPort": "Porta",
       "routeTesterInbound": "Entrada",
       "routeTesterProtocol": "Protocolo detectado",
+      "routeTesterSourceIP": "IP de origem",
+      "routeTesterUser": "Usuário (e-mail)",
       "routeTesterTest": "Testar rota",
       "routeTesterMatchedOutbound": "Saída correspondente",
       "routeTesterViaBalancer": "via balanceador",

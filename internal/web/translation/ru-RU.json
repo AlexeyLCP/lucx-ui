@@ -2452,6 +2452,8 @@
       "routeTesterPort": "Порт",
       "routeTesterInbound": "Входящий",
       "routeTesterProtocol": "Обнаруженный протокол",
+      "routeTesterSourceIP": "IP источника",
+      "routeTesterUser": "Пользователь (email)",
       "routeTesterTest": "Тест маршрута",
       "routeTesterMatchedOutbound": "Совпавший исходящий",
       "routeTesterViaBalancer": "через балансировщик",

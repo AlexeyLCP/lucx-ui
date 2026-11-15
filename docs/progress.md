@@ -1,5 +1,66 @@
 # LucX-UI — Прогресс
 
+## lucx.364 — fix: per-client routing rules can be checked again (AWG by source IP, VLESS by user)
+
+Tester report (Telegram, 14.11.2026): after updating to `v3.11.0-lucx.360`
+"routes for specific AWG clients by source IP do not work", and "probably also
+for VLESS". The same tester had lost SSH to a Ubuntu 24.04 host after the
+update and found the trigger: a mounted SMB folder of one AWG client (CIFS over
+the tunnel) — a host-level hang, restored by a reboot through the host's VNC.
+
+**The routing itself is fine — it was verified, not assumed.** The panel's
+AWG → Xray path (`injectAwgEgress` + `ip rule iif awgN lookup 1000+N` +
+`default dev tunN table 1000+N`, `internal/awg/manager.go`) is byte-identical
+since `v3.10.2-lucx.329`, so the update did not touch it. On the stand
+(144.31.224.212) the panel's own core (xray 26.10.21) was run in the exact
+AWG topology — the client IP on a separate interface, the kernel forwarding it
+into the TUN through the policy route — with one rule
+`{"sourceIP":["10.200.0.5/32"],"outboundTag":"direct"}`:
+
+```
+from tcp:10.200.0.5:43099 accepted tcp:198.51.100.7:1234 [tuntest -> direct]
+from tcp:10.254.7.1:37016 accepted tcp:198.51.100.7:1234 [tuntest >> blocked]
+```
+
+The rule matched the AWG client's tunnel IP and not the other connection: the
+decrypted packet reaches Xray with the client's tunnel address intact, so
+`sourceIP` is a working way to route one AWG client apart from the others.
+
+**What was actually broken: the panel could not show it.** The Route Tester
+(new in 3.11.0) can express destination, port, network, inbound and protocol —
+but neither the **source address** nor the **user**. A rule that selects one
+client (AWG → `sourceIP`, VLESS → `user`) therefore always answers "no routing
+rule matched — traffic goes to the default outbound", no matter how the rule
+is written. The tester checked both cases, got the same wrong answer twice,
+and reported the routes as broken. The core has supported source IPs all along
+(`RoutingContext.SourceIPs`); the panel's request struct only carried the
+target IP, and its `email` field was never filled by the UI.
+
+**Fix:**
+- `internal/xray/api.go` — `RouteTestRequest.SourceIPs`, sent to the core as
+  `RoutingContext.SourceIPs`; the target IP now goes through the same parser.
+- `internal/web/controller/xray_setting.go` — `sourceIP` form field
+  (comma-separated).
+- `frontend/src/pages/xray/routing/RouteTester.tsx` — two more fields: source
+  IP and user email.
+- i18n: `routeTesterSourceIP` / `routeTesterUser` in all 14 locales.
+- API reference: the new form field in `endpoints.ts` + regenerated OpenAPI.
+
+**Tests:** `TestRoutingRule_SourceIPMatchesOneAwgClient` (a `sourceIP` rule
+matches one AWG client's tunnel IP and no other — the panel's own routing
+builder against the core's condition), `TestRouteTestIPBytes_RejectsGarbage`,
+`frontend/src/test/route-tester-per-client.test.tsx` (the tester sends the
+source IP and the user).
+
+**Not fixed here:** the SMB-over-AWG hang of that Ubuntu 24.04 host. It is a
+kernel/CIFS-level stall under a heavy tunnel mount, not a routing decision —
+the panel has no knob for it, and the reporter's reboot restored the host.
+
+**Operator note:** an AWG inbound with a "Route outbound" (`outboundTag`) set
+injects a catch-all rule at the top of the routing list — every rule of that
+inbound, per-client ones included, is shadowed by it. Leave the field empty
+to let the routing rules decide.
+
 ## lucx.363 — fix: the public Telegram WEB proxy site no longer serves HTTP/3 (idle Caddy CPU) (issue #200)
 
 Report (issue #200): on a fresh install the Telegram WEB proxy on 443 keeps a

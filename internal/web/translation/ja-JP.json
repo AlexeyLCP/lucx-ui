@@ -2452,6 +2452,8 @@
       "routeTesterPort": "ポート",
       "routeTesterInbound": "インバウンド",
       "routeTesterProtocol": "検出されたプロトコル",
+      "routeTesterSourceIP": "送信元 IP",
+      "routeTesterUser": "ユーザー (メールアドレス)",
       "routeTesterTest": "ルートをテスト",
       "routeTesterMatchedOutbound": "マッチしたアウトバウンド",
       "routeTesterViaBalancer": "バランサー経由",
