@@ -7,7 +7,9 @@
 package tunnel
 
 import (
+	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
@@ -134,6 +136,11 @@ func AnytlsInstanceFromInbound(ib *model.Inbound, secret []byte, panelCert, pane
 		// The copy content rides the fingerprint via ExtraFiles.
 		fpExtra = ""
 	}
+	// A non-routed server reads the shared password from -password-file,
+	// whose content the fingerprint cannot see: feed a hash in so an
+	// operator rotation restarts the process (the routed -p rides Args and
+	// restarts anyway).
+	fpExtra += "\x00" + fmt.Sprintf("%x", sha256.Sum256([]byte(strings.TrimSpace(cfg.Password))))
 	return Instance{
 		Core:             Anytls,
 		Key:              key,

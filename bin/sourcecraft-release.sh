@@ -242,6 +242,11 @@ git -C /tmp/anytls checkout -q FETCH_HEAD
 cp "${ANYTLS_OVERLAY}" /tmp/anytls/cmd/server/main.go
 cp "$(cd ../.. && pwd)/third_party/patches/anytls-server-inbound_tcp.go.overlay" /tmp/anytls/cmd/server/inbound_tcp.go
 cp "$(cd ../.. && pwd)/third_party/patches/anytls-server-users.go.overlay" /tmp/anytls/cmd/server/users.go
+cp "$(cd ../.. && pwd)/third_party/patches/anytls-server-users_test.go.overlay" /tmp/anytls/cmd/server/users_test.go
+(
+    cd /tmp/anytls
+    CGO_ENABLED=0 go test ./cmd/server/
+)
 (
     cd /tmp/anytls
     GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "/tmp/anytls-linux-${ARCH}" ./cmd/server

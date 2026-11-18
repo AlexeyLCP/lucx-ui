@@ -1,0 +1,127 @@
+// LucX overlay test for anytls-go v0.0.13 cmd/server/users_test.go.
+// Covers the live-session registry: a users-file reload must close every
+// connection authenticated with a password the new table no longer holds
+// (a deleted panel client otherwise keeps its long-lived tunneled session),
+// while survivors and the shared password stay untouched.
+
+package main
+
+import (
+	"crypto/sha256"
+	"os"
+	"path/filepath"
+	"testing"
+)
+
+func writeUsersFile(t *testing.T, lines ...string) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "users")
+	b := ""
+	for _, l := range lines {
+		b += l + "\n"
+	}
+	if err := os.WriteFile(path, []byte(b), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	return path
+}
+
+func mustLoadUsers(t *testing.T, file string) {
+	t.Helper()
+	if err := loadUsers("", file); err != nil {
+		t.Fatalf("loadUsers: %v", err)
+	}
+}
+
+func testCloseCounter() (closer func(), hit func() int) {
+	n := 0
+	return func() { n++ }, func() int { return n }
+}
+
+func TestRemovedUserSessionIsClosedOnReload(t *testing.T) {
+	alice := writeUsersFile(t, "alice:X", "bob:Y")
+	mustLoadUsers(t, alice)
+
+	sumX := sha256.Sum256([]byte("X"))
+	sumY := sha256.Sum256([]byte("Y"))
+	var gone [32]byte
+	gone[7] = 1 // a hash no table ever holds
+
+	closeA, hitsA := testCloseCounter()
+	closeB, hitsB := testCloseCounter()
+	closeG, hitsG := testCloseCounter()
+
+	unregisterA := registerLiveSession(sumX, closeA)
+	unregisterB := registerLiveSession(sumY, closeB)
+	// A foreign hash normally cannot authenticate, but a session may still
+	// race the table swap (registered between lookupUser and the reload).
+	registerLiveSession(gone, closeG)
+	if !userStillValid(sumX) || !userStillValid(sumY) {
+		t.Fatal("freshly loaded users must validate")
+	}
+	if userStillValid(gone) {
+		t.Fatal("unknown hash must not validate")
+	}
+	unregisterB()
+	// bob left before any reload; the revoked sweep still runs over the rest.
+	onlyAlice := writeUsersFile(t, "alice:X")
+	mustLoadUsers(t, onlyAlice)
+
+	if hitsA() != 0 {
+		t.Fatal("surviving user's session must stay open")
+	}
+	if hitsG() != 1 {
+		t.Fatalf("unknown-hash session must be closed once, got %d", hitsG())
+	}
+	if hitsB() != 0 {
+		t.Fatalf("unregistered session must not be touched, got %d close calls", hitsB())
+	}
+	if userStillValid(sumY) {
+		t.Fatal("bob must be gone after the reload")
+	}
+
+	// bob reconnects: authentication is gone (lookupUser misses), and the
+	// late-registration race (reload between lookup and register) must also
+	// see him as invalid.
+	registerLiveSession(sumY, closeB)
+	if userStillValid(sumY) {
+		t.Fatal("late registration of a removed user must validate false")
+	}
+	unregisterA()
+	unregisterB()
+}
+
+func TestUserStatsSurviveReload(t *testing.T) {
+	alice := writeUsersFile(t, "alice:X")
+	mustLoadUsers(t, alice)
+	sumX := sha256.Sum256([]byte("X"))
+	u := lookupUser(sumX[:])
+	if u == nil {
+		t.Fatal("alice missing after first load")
+	}
+	u.up.Add(4242)
+	mustLoadUsers(t, writeUsersFile(t, "alice:X", "carol:Z"))
+	u2 := lookupUser(sumX[:])
+	if u2 == nil {
+		t.Fatal("alice missing after reload")
+	}
+	if u2 != u {
+		t.Fatal("reload must keep a user's counters instance (byName)")
+	}
+	if u.up.Load() != 4242 {
+		t.Fatalf("up = %d, want 4242", u.up.Load())
+	}
+	sumZ := sha256.Sum256([]byte("Z"))
+	if lookupUser(sumZ[:]) == nil {
+		t.Fatal("carol missing after reload")
+	}
+}
+
+func TestLoadUsersRejectsEmpty(t *testing.T) {
+	if err := loadUsers("", writeUsersFile(t)); err == nil {
+		t.Fatal("empty table must fail")
+	}
+	if err := loadUsers("", filepath.Join(t.TempDir(), "absent")); err == nil {
+		t.Fatal("absent users file must fail")
+	}
+}

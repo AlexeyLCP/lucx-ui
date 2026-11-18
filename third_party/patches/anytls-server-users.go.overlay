@@ -3,6 +3,7 @@
 // no per-user traffic, online state or client IPs. This file adds:
 //   - -users-file: one "name:password" line per user, re-read when it changes;
 //     the -p / -password-file password stays valid as the unnamed user;
+//     removing a line closes that user's live connections (see below);
 //   - -proxy-protocol: a PROXY v1 header from a loopback peer (the SNI
 //     gateway) gives the real client address; other peers are never trusted;
 //   - -stats: a JSON file with each user's bytes and client IPs, rewritten
@@ -124,8 +125,76 @@ func loadUsers(shared, file string) error {
 	users = next
 	byName = local
 	usersMu.Unlock()
+	dropRevokedSessions(next)
 	logrus.Infoln("[Server] users:", len(next))
 	return nil
+}
+
+// liveSessions tracks each authenticated connection by password hash. A
+// client multiplexes every tunneled stream over one long-lived authenticated
+// connection, so without this a reload that drops a user would leave its
+// already established session (and all its traffic) running until the app
+// closes it — a deleted panel client kept full access for days.
+var (
+	liveMu     sync.Mutex
+	liveNext   int64
+	liveByHash = map[[32]byte]map[int64]func(){}
+)
+
+func registerLiveSession(sum [32]byte, close func()) (unregister func()) {
+	liveMu.Lock()
+	id := liveNext
+	liveNext++
+	m := liveByHash[sum]
+	if m == nil {
+		m = map[int64]func(){}
+		liveByHash[sum] = m
+	}
+	m[id] = close
+	liveMu.Unlock()
+	return func() {
+		liveMu.Lock()
+		if m := liveByHash[sum]; m != nil {
+			delete(m, id)
+			if len(m) == 0 {
+				delete(liveByHash, sum)
+			}
+		}
+		liveMu.Unlock()
+	}
+}
+
+// dropRevokedSessions closes every live session whose password hash the new
+// table no longer holds. Closers run without the lock.
+func dropRevokedSessions(valid map[[32]byte]*userStats) {
+	liveMu.Lock()
+	var closers []func()
+	for sum, m := range liveByHash {
+		if valid[sum] != nil {
+			continue
+		}
+		for _, c := range m {
+			closers = append(closers, c)
+		}
+		delete(liveByHash, sum)
+	}
+	liveMu.Unlock()
+	if len(closers) == 0 {
+		return
+	}
+	logrus.Infoln("users-file reload: closed", len(closers), "connection(s) of removed users")
+	for _, c := range closers {
+		c()
+	}
+}
+
+// userStillValid re-checks a hash against the current table: a reload may
+// have removed the user between lookupUser and registerLiveSession.
+func userStillValid(sum [32]byte) bool {
+	usersMu.RLock()
+	defer usersMu.RUnlock()
+	_, ok := users[sum]
+	return ok
 }
 
 // watchUsers reloads the users file when its modification time changes. A

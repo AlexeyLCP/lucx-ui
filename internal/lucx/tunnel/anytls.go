@@ -171,6 +171,15 @@ func SetAnytlsCapsForTest(users, proxy bool) (restore func()) {
 	return func() { anytlsUsersOK, anytlsProxyOK = u, p }
 }
 
+// setAnytlsPWFileForTest forces (or clears) the -password-file capability so
+// fingerprint tests cover the path where the password never rides Args.
+func setAnytlsPWFileForTest(ok bool) (restore func()) {
+	anytlsProbeHelp()
+	prev := anytlsPWFileOK
+	anytlsPWFileOK = ok
+	return func() { anytlsPWFileOK = prev }
+}
+
 func (c AnytlsConfig) BuildArgs(cert, key, passwordFile string) []string {
 	args := []string{"-l", c.ListenAddr()}
 	if strings.TrimSpace(passwordFile) != "" {

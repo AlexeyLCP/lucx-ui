@@ -287,6 +287,13 @@ if ! have "anytls-linux-${ARCH}"; then
     cp "$overlay" /tmp/anytls/cmd/server/main.go
     cp "${ROOT}/third_party/patches/anytls-server-inbound_tcp.go.overlay" /tmp/anytls/cmd/server/inbound_tcp.go
     cp "${ROOT}/third_party/patches/anytls-server-users.go.overlay" /tmp/anytls/cmd/server/users.go
+    cp "${ROOT}/third_party/patches/anytls-server-users_test.go.overlay" /tmp/anytls/cmd/server/users_test.go
+    (
+        cd /tmp/anytls
+        # The users-file session registry is sidecar logic the panel never
+        # links: run its overlay tests while the patched tree is on disk.
+        CGO_ENABLED=0 go test ./cmd/server/
+    )
     (
         cd /tmp/anytls
         GOTOOLCHAIN=auto CGO_ENABLED=0 GOOS=linux GOARCH="${ARCH}" go build -trimpath -ldflags="-s -w" -o "${DEST}/anytls-linux-${ARCH}" ./cmd/server

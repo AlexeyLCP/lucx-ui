@@ -1,5 +1,39 @@
 # LucX-UI — Прогресс
 
+## lucx.366 — fix: deleting a client now also kills his live AnyTLS session (report Андрей / Boosty «Сила Растений»)
+
+Report (18.11.2026, lucx.360): after deleting a client from the panel his VLESS
+connections time out as expected, but every AnyTLS connection through Prizrak
+Box keeps working — a removed user could ride the tunnel indefinitely.
+
+Two root causes: (1) AnyTLS multiplexes all streams over one long-lived
+authenticated TLS connection; the lucx.342 users-file reload removed the
+derived password and rejected NEW handshakes, but never touched already
+authenticated sessions; (2) links issued before lucx.342 (and hand-issued
+`anytls://` links) carry the shared inbound password, which stays valid by
+design — and rotating it on a non-routed inbound never reached the running
+process (the new password rides `-password-file`, invisible to the
+fingerprint, so no restart happened).
+
+Fix: (a) the anytls overlay tracks every authenticated connection by password
+hash (registration in `anytls-server-inbound_tcp.go.overlay` right after
+auth) and the users-file reload closes every session whose hash the new table
+dropped (`dropRevokedSessions` in `anytls-server-users.go.overlay`, log
+`users-file reload: closed N connection(s) of removed users`) — client
+deletion/disabling now also kills the live sidecar session within the
+reconcile tick (10 s) + file watch (2 s), matching the VLESS behavior;
+(b) `AnytlsInstanceFromInbound` feeds a hash of the shared password into
+`FingerprintExtra`, so a rotation restarts the non-routed process too (routed
+`-p` rode Args already). New overlay unit test
+`anytls-server-users_test.go.overlay` runs inside both build scripts
+(`bin/pack-sidecars.sh`, `bin/sourcecraft-release.sh`); vendored
+`third_party/sidecars/linux-amd64/anytls-linux-amd64.gz` rebuilt from the
+patched tree (sha256 57fd5cc8…). Rule 0: per-user passwords derive from
+secret+id+email and are untouched; the one-time anytls process restart the
+new fingerprint material triggers is the same restart any cert renewal does.
+
+**lucxVersion:** lucx.366
+
 ## lucx.365 — fix: the combined "AWG by source IP + VLESS by user" rule explained and guarded
 
 Follow-up to lucx.364. The tester updated to `v3.11.0-lucx.364` and came back

@@ -4,6 +4,19 @@ Extracted from AGENTS.md. This file is project law.
 
 ---
 
+### Pattern 1bf: a deleted client keeps full AnyTLS access — FIXED (lucx.366)
+
+- **Symptom (Андрей / Сила Растений, Boosty, 18.11.2026, lucx.360):** deleting a client from the panel kills his VLESS connections (timeouts, as expected) but every AnyTLS connection of the same user stays alive and working through Prizrak Box.
+- **Cause (two layers):**
+  1. AnyTLS multiplexes every tunneled stream over ONE long-lived authenticated TLS connection. The users-file reload (lucx.342) correctly removed the deleted client's derived password line and rejected NEW handshakes — but just swapped the password table: already authenticated sessions were never touched, so the client kept pumping traffic through the established session indefinitely.
+  2. The shared inbound password stays valid forever by design («older links keep working», Rule 0). Links issued before lucx.342 — or hand-issued `anytls://` links — carry the shared password, so client deletion revokes nothing for them. And rotating the shared password on a non-routed inbound did not reach the running process at all: the new password rides `-password-file`, whose content is invisible to the fingerprint → no restart, old shared password stayed live until the next panel restart.
+- **Fix (lucx.366):** (a) the overlay tracks every authenticated connection by password hash (`registerLiveSession` in `anytls-server-users.go.overlay`, registration in `anytls-server-inbound_tcp.go.overlay` right after auth); a users-file reload closes every session whose hash the new table dropped (`dropRevokedSessions`, log line `users-file reload: closed N connection(s) of removed users`) — deletion/disabling a client now also kills its live sidecar session within the reconcile tick (10 s) + file watch (2 s), matching the VLESS behavior. Overlay unit tests ride `anytls-server-users_test.go.overlay` and run in both build scripts (`pack-sidecars.sh`, `sourcecraft-release.sh`); (b) the panel feeds a hash of the shared password into `FingerprintExtra` (`AnytlsInstanceFromInbound`) so a rotation restarts the non-routed process too (the routed `-p` was already in Args).
+- **Healing without update:** on the AnyTLS inbound change the password and save, then `x-ui restart`. The restart drops every live sidecar session; on a routed inbound the rotation also applies from the save alone (`-p` rides the fingerprint), on a non-routed one the old build only reads the new password file at process start — hence the restart. The new shared password makes old shared-password links fail; per-user links (lucx.342+) are HMAC-derived and survive the swap. Deleted-client configs then die on the next handshake.
+- **Not this:** deleted client still working for the first ~12 s after deletion (reconcile tick + file watch — normal); a client that reconnects AFTER deletion with a per-user password and gets the fallback site (that is `-fallback` doing its job on a failed login); «anytls stays up» for clients that are still in the client list.
+- **Lesson:** revoking a credential in a table is not revoking the sessions that credential authenticated — any sidecar with long-lived multiplexed sessions needs a kill-on-reload path, exactly what VLESS gets for free from Xray's config restart.
+
+---
+
 ### Pattern 1be: aivpn server runs, clients added, QR button dead — FIXED (lucx.357)
 
 - **Symptom (Hastelo, 10.11.2026):** after the masks fix (Pattern 1bd) the server is up and clients add, but the `QR code` button in the inbound client table is disabled — no `aivpn://` key in any row; the reprint path logs "connection key not present in client payload".

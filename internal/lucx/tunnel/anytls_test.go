@@ -185,6 +185,35 @@ func TestAnytlsInstanceFromInbound(t *testing.T) {
 		t.Fatal("FingerprintExtra must hash the cert so ACME renewal restarts")
 	}
 
+	// The non-routed server reads the password from -password-file, content
+	// the fingerprint cannot see: rotation must still restart it.
+	restorePwFile := setAnytlsPWFileForTest(true)
+	defer restorePwFile()
+	base := *ib
+	baseInst, ok := AnytlsInstanceFromInbound(&base, nil, cert, key)
+	if !ok {
+		t.Fatal("expected ok for base")
+	}
+	rotated := *ib
+	rotated.Settings = `{"port": 9443, "password": "shared2", "sni": "vpn.example.com"}`
+	rotatedInst, ok := AnytlsInstanceFromInbound(&rotated, nil, cert, key)
+	if !ok {
+		t.Fatal("expected ok for rotated")
+	}
+	baseFp := baseInst.Fingerprint()
+	rotFp := rotatedInst.Fingerprint()
+	if !strings.Contains(strings.Join(baseInst.Args, " "), "-password-file ") {
+		t.Fatal("test precondition: password must ride -password-file, not -p")
+	}
+	if baseFp == rotFp {
+		t.Fatal("password rotation must move the fingerprint")
+	}
+	rotated.Settings = `{"port": 9443, "password": "shared", "sni": "vpn.example.com"}`
+	sameInst, ok := AnytlsInstanceFromInbound(&rotated, nil, cert, key)
+	if !ok || sameInst.Fingerprint() != baseFp {
+		t.Fatal("identical passwords must keep the fingerprint")
+	}
+
 	disabled := *ib
 	disabled.Enable = false
 	inst, ok = AnytlsInstanceFromInbound(&disabled, nil, cert, key)

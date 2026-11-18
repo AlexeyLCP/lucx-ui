@@ -13,7 +13,7 @@ Not packed into `x-ui-linux-amd64.tar.gz` (SourceCraft 100 MB release cap).
 | `mieru-client-linux-amd64.gz` | enfein/mieru `v3.39.0` mieru |
 | `trusttunnel-linux-amd64.gz` | TrustTunnel/TrustTunnel `v1.3.0-beta.2` + LucX `trusttunnel-proxy-protocol.patch` (PROXY v1 from loopback peers; `--version` ends in `+lucx.proxy`), built by `bin/build-trusttunnel.sh` |
 | `trusttunnel-client-linux-amd64.gz` | TrustTunnel/TrustTunnelClient `v1.3.0-rc.2` |
-| `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` + LucX overlays: `-cert/-key` (`main.go`), `-fallback` (`inbound_tcp.go`) and `-users-file`/`-proxy-protocol`/`-stats` (`users.go`: per-user passwords, real client IP behind the SNI gateway, per-user traffic) |
+| `anytls-linux-amd64.gz` | anytls/anytls-go `v0.0.13` `anytls-server` + LucX overlays: `-cert/-key` (`main.go`), `-fallback` (`inbound_tcp.go`) and `-users-file`/`-proxy-protocol`/`-stats` (`users.go`: per-user passwords, real client IP behind the SNI gateway, per-user traffic; a users-file reload closes connections of removed users) |
 | `tproxy-linux-amd64` / `mtproxy-linux-amd64` | telegramdesktop/tproxy-server `c8adb8b7` + TelegramMessenger/MTProxy `f36d8af7` — packed by `.github/workflows/release.yml` into the GitHub amd64 tarball (not stored as gz here) |
 | `nginx-linux-*` | nginx.org `1.30.5` stream+ssl_preread — built by `bin/pack-sidecars.sh` into the GitHub tarball |
 | `masks/*.json` | infosave2007/aivpn `v1.2.0` `masks.tar.gz` (arch-independent MaskProfile JSONs) — the release packs them into every panel tarball at `bin/tunnel/aivpn-masks/`; `aivpn-server` exits without at least one |

@@ -57,7 +57,9 @@ func handleTcpConnection(ctx context.Context, c net.Conn, s *myServer) {
 
 	by, err := b.ReadBytes(32)
 	var u *userStats
-	if err == nil {
+	var sum [32]byte
+	if err == nil && len(by) == 32 {
+		copy(sum[:], by)
 		u = lookupUser(by)
 	}
 	if u == nil {
@@ -85,6 +87,16 @@ func handleTcpConnection(ctx context.Context, c net.Conn, s *myServer) {
 	u.open(ip)
 	defer u.close(ip)
 	c = &countingConn{Conn: c, u: u}
+
+	// Authentication happened against the users table at lookupUser time;
+	// register the connection by password hash so a users-file reload closes
+	// it when that user is removed (a deleted panel client otherwise keeps
+	// every tunneled stream of this long-lived session).
+	unregisterLive := registerLiveSession(sum, func() { _ = c.Close() })
+	defer unregisterLive()
+	if !userStillValid(sum) {
+		return
+	}
 
 	session := session.NewServerSession(c, func(stream *session.Stream) {
 		defer func() {
