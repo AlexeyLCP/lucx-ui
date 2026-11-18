@@ -192,6 +192,29 @@ func TestProcEchoFilterQwdttForwardsOnlyErrors(t *testing.T) {
 	}
 }
 
+// The csqtt core echoes scanner probes and per-packet drops (singletons
+// logged live, tester Andrew K., 18.11.2026); same policy as qwdtt's: only
+// tagged error lines reach the panel log.
+func TestProcEchoFilterCsqttForwardsOnlyErrors(t *testing.T) {
+	f := procEchoFilter(CsqttKey)
+	if f == nil {
+		t.Fatal("csqtt writer must filter its console echo")
+	}
+	cases := map[string]bool{
+		"[CSQTT] UDP setup from 95.163.34.128:54983 rejected (1 bytes): no active credential could decrypt or accept GETCONF": false,
+		"[CSQTT] dropped uplink IPv4 packet from 95.163.34.128:33670: source address is not the session tunnel IP (total 17)": false,
+		"[INFO] GETCONF 91.231.135.188:49086 pass=eacc897c gen=1793730039 worker=10/10 -> TUNCONF":                            false,
+		"[ERROR] peer write failed: connection reset":                                                                         true,
+		"[ERR] listener closed":                    true,
+		"panic: runtime error: index out of range": true,
+	}
+	for line, want := range cases {
+		if got := f(line); got != want {
+			t.Errorf("filter(%q) = %v, want %v", line, got, want)
+		}
+	}
+}
+
 // The qwdtt echo policy end-to-end: the ring keeps every line for the Logs
 // viewer, but only error-tagged lines reach the panel log (journald).
 func TestProcLogWriterQwdttRingKeepsAllEchoKeepsErrors(t *testing.T) {

@@ -174,17 +174,19 @@ func NewProc(label string) *Proc {
 }
 
 // procEchoFilter keeps chatty cores out of the panel log without hiding
-// diagnostics: the qwdtt core logs an INFO stats line every few seconds plus
-// one line per connection event, so the echo forwards only its tagged error
-// lines ([ERR], panic) — the full output stays in the ring (Logs viewer and
-// GET /panel/api/tunnel/qwdtt/logs). Fatal-at-startup lines leave no [ERR]
+// diagnostics: the qwdtt and csqtt cores log a line per connection event
+// (stats, GETCONF INFO, scanner probes bounced off the port, per-packet
+// drops), so the echo forwards only tagged error lines — [ERR] matches
+// qwdtt's own tag, the looser [ERR* also spans a [ERROR] tag from the
+// third-party csqtt core — the full output stays in the ring (Logs viewer
+// and GET /panel/api/tunnel/<key>/logs). Fatal-at-startup lines leave no
 // tag, but the process exit itself is always logged at Error level.
 func procEchoFilter(label string) func(string) bool {
-	if label != QwdttKey {
+	if label != QwdttKey && label != CsqttKey {
 		return nil
 	}
 	return func(line string) bool {
-		return strings.Contains(line, "[ERR]") || strings.Contains(line, "panic:")
+		return strings.Contains(line, "[ERR") || strings.Contains(line, "panic:")
 	}
 }
 

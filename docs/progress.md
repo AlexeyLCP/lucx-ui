@@ -1,5 +1,69 @@
 # LucX-UI — Прогресс
 
+## lucx.368 — fix: TrustTunnel save silently dropped site + auth-failure settings (/// fragile)
+
+Report (17.11.2026): operator set the cover site (host:port) and the 405
+auth-failure answer on TrustTunnel, saved; the endpoint kept answering stock
+`407 Proxy Authentication Required` with no `[reverse_proxy]` — port probed
+as a proxy, the IP got banned. Re-saving repeated it, tunnel kept working.
+
+Root cause in the frontend, one file: the inbound form save passes the RHF
+values through Zod and posts `parsed.data` (`InboundFormModal.tsx` saveValues
+→ `formValuesToWirePayload`), and `TrustTunnelInboundSettingsSchema`
+(schemas/protocols/inbound/trusttunnel.ts) never declared
+`siteUpstream` / `authFailureStatus` — Zod strips undeclared keys on every
+parse, on submit AND on editor load (`inbound-from-db.ts`
+`fillProtocolSettingsDefaults`). lucx.342 wired the form fields, the Go
+struct and the vpn.toml renderer but missed the TS schema; every save since
+silently round-tripped the two values into the void.
+
+Fix: declare both keys in the schema (`siteUpstream` default '',
+`authFailureStatus` union 0|403|404|405|407 default 0) and seed them in
+`createDefaultTrustTunnelInboundSettings`; round-trip vitest added
+(`src/test/protocols.test.ts`). Healing for a hit panel: update, re-enter
+405 + site, Save — the vpn.toml fingerprint changes, reconcile restarts the
+endpoint with `auth_failure_status_code` + `[reverse_proxy]`. Pattern 12 in
+.agents/07-debug-frontend.md.
+
+Same report, share side: in HTTP/3 mode `ShareLines` always emitted two
+profiles with an identical remark — in the client they are indistinguishable
+(/// fragile, 18.11.2026: "TT на HTTP/2 и HTTP/3 в клиенте не отличимы").
+Fix: while both profiles go out, remarks carry a " TCP" / " QUIC" suffix
+(`profileRemark`); a single-profile share keeps the bare remark. The extra
+TCP profile is now opt-out: `shareTcpWithQuic` (`*bool`, nil/true = both
+profiles — stored settings predating the flag omit the key and must keep
+today's behavior; false = QUIC only). Form toggle shows only in HTTP/3; i18n
+EN/RU + 12 EN-fallback locales. Links are sub-time artifacts — no endpoint
+restart, no fingerprint change. Tests: `TestTrustTunnelShareLines` extended
+(suffix + opt-out cases, `tlvcRemark` helper).
+
+**lucxVersion:** lucx.368
+
+## lucx.367 — fix: CSQTT core flood in the panel log — same errors-only echo as qWDTT
+
+Internal chat (03.11 + 18.11, tester Andrew K.): the panel log drowned in
+`tunnel: csqtt | [CSQTT] UDP setup ... rejected (1 bytes): no active
+credential...`, `dropped uplink IPv4 packet ...` and per-connect
+`[INFO] GETCONF ... -> TUNCONF` lines while the tunnel itself works. The
+rejects are scanner probes bounced off the port, the GETCONF INFO lines are
+per-connection chatter — the amurcanov rust-core has no log-level flag, so
+the panel echo is the choke point (the qWDTT precedent).
+
+Fix: `procEchoFilter` (internal/lucx/tunnel/process.go) now covers the
+`csqtt` manager key next to `qwdtt` and forwards only tagged error lines;
+the matcher is `[ERR` (spans qWDTT's own `[ERR]` tag and a rust-tracing
+`[ERROR]` tag from the third-party core). Full output stays in the ring
+(Tunnels → Logs, GET /panel/api/tunnel/csqtt/logs) and the 3xui.log DEBUG
+backend. Panel lifecycle lines unchanged. If a future csqtt release uses an
+error tag without the `ERR` prefix, journald goes quiet while the ring keeps
+everything — check the Logs viewer first (Pattern 1ag in
+.agents/07-debug-tunnels.md).
+
+Tests: TestProcEchoFilterCsqttForwardsOnlyErrors (real tester log lines as
+noise), TestProcEchoFilterQwdttForwardsOnlyErrors unchanged and green.
+
+**lucxVersion:** lucx.367
+
 ## lucx.366 — fix: deleting a client now also kills his live AnyTLS session (report Андрей / Boosty «Сила Растений»)
 
 Report (18.11.2026, lucx.360): after deleting a client from the panel his VLESS

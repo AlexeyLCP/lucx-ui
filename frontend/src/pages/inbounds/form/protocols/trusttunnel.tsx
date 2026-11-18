@@ -51,6 +51,7 @@ export default function TrustTunnelFields() {
   const { t } = useTranslation();
   const { setValue } = useFormContext();
   const routeThroughXray = useWatch({ name: 'settings.routeThroughXray' }) as boolean | undefined;
+  const upstreamProtocol = useWatch({ name: 'settings.upstreamProtocol' }) as string | undefined;
   const { data: outboundTags } = useOutboundTags();
 
   const regeneratePrefix = () => {
@@ -124,6 +125,16 @@ export default function TrustTunnelFields() {
           ]}
         />
       </FormField>
+      {upstreamProtocol === 'http3' && (
+        <FormField
+          name={['settings', 'shareTcpWithQuic']}
+          label={t('pages.inbounds.form.trustTunnelShareTcpWithQuic')}
+          tooltip={t('pages.inbounds.form.trustTunnelShareTcpWithQuicHint')}
+          valueProp="checked"
+        >
+          <Switch />
+        </FormField>
+      )}
       <FormField
         name={['settings', 'clientDns']}
         label={t('pages.inbounds.form.trustTunnelClientDns')}

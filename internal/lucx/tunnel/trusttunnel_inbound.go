@@ -42,6 +42,7 @@ type trustTunnelInboundSettings struct {
 	ListenPreset       string `json:"listenPreset"`
 	ClientRandomPrefix string `json:"clientRandomPrefix"`
 	AuthFailureStatus  int    `json:"authFailureStatus"`
+	ShareTcpWithQuic   *bool  `json:"shareTcpWithQuic"`
 	Clients            []struct {
 		Email  string `json:"email"`
 		Enable bool   `json:"enable"`
@@ -75,6 +76,7 @@ func TrustTunnelConfigFromInbound(ib *model.Inbound) (TrustTunnelConfig, bool) {
 		ListenPreset:       s.ListenPreset,
 		ClientRandomPrefix: s.ClientRandomPrefix,
 		AuthFailureStatus:  s.AuthFailureStatus,
+		ShareTcpWithQuic:   s.ShareTcpWithQuic,
 	}.Merge()
 	if ib.Port > 0 {
 		host := "0.0.0.0"

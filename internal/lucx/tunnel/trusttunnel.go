@@ -45,6 +45,13 @@ type TrustTunnelConfig struct {
 	// there instead of answering 407. Empty = stock 407 behaviour.
 	SiteUpstream string `json:"siteUpstream"`
 
+	// ShareTcpWithQuic keeps the extra HTTPS (TCP) profile next to HTTP/3 in
+	// the share: both lines, remarks suffixed " TCP" / " QUIC" so the client
+	// can tell them apart. nil/true preserve the pre-flag behavior (stored
+	// settings predating the flag omit the key and must keep both lines).
+	// false drops the TCP profile from the share.
+	ShareTcpWithQuic *bool `json:"shareTcpWithQuic,omitempty"`
+
 	// AuthFailureStatus is TrustTunnel's auth_failure_status_code: the answer
 	// to a proxy request with a wrong or missing login. 0 = stock 407, which
 	// tells a prober "proxy here"; 405 is what a plain web server answers to
@@ -143,6 +150,10 @@ func (c TrustTunnelConfig) Merge() TrustTunnelConfig {
 	}
 	if p := strings.TrimSpace(c.ClientRandomPrefix); p != "" {
 		c.ClientRandomPrefix = p
+	}
+	if c.ShareTcpWithQuic == nil {
+		t := true
+		c.ShareTcpWithQuic = &t
 	}
 	return c
 }
@@ -454,25 +465,43 @@ func (c TrustTunnelConfig) shareProto() int {
 	return ttProtoHTTP2
 }
 
+// profileRemark labels a share line so a client can tell the QUIC and TCP
+// profiles apart; a single-profile share keeps the base remark untouched.
+func profileRemark(remark, tag string) string {
+	base := strings.TrimSpace(remark)
+	if base == "" {
+		return tag
+	}
+	return base + " " + tag
+}
+
 // ShareLines is the subscription set for one client.
 // Only spec TLV deep links go out: every current client (official app,
 // Exclave, husi, Throne) parses tt://?TLV, while the Throne authority URI is
 // parsed only by Throne and throws inside the sing-based Android parsers
 // (they base64url-decode the whole body after tt://). HTTP/2: one HTTPS
-// listener, one link. HTTP/3: TCP accepts HTTPS plus QUIC — two links.
+// listener, one link. HTTP/3: TCP accepts HTTPS plus QUIC — the TCP profile
+// is opt-out (ShareTcpWithQuic), and while both go out the remarks carry a
+// " TCP" / " QUIC" suffix so the client can tell the profiles apart.
 func (c TrustTunnelConfig) ShareLines(address string, pair AuthPair, remark string) []string {
 	var lines []string
-	add := func(proto string) {
+	add := func(proto string, label string) {
 		cp := c
 		cp.UpstreamProtocol = proto
-		if dl := cp.ClientDeepLink(address, pair, remark); dl != "" {
+		if dl := cp.ClientDeepLink(address, pair, label); dl != "" {
 			lines = append(lines, dl)
 		}
 	}
-	add("http2")
-	if c.quicEnabled() {
-		add("http3")
+	if !c.quicEnabled() {
+		add("http2", strings.TrimSpace(remark))
+		return lines
 	}
+	// HTTP/3 shares HTTPS over TCP too; default keeps the pre-flag set (both
+	// profiles), distinct remarks tell them apart in the client.
+	if c.ShareTcpWithQuic == nil || *c.ShareTcpWithQuic {
+		add("http2", profileRemark(remark, "TCP"))
+	}
+	add("http3", profileRemark(remark, "QUIC"))
 	return lines
 }
 

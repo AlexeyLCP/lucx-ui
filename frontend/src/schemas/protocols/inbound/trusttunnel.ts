@@ -22,6 +22,16 @@ export const TrustTunnelInboundSettingsSchema = z.object({
   metricsPort: z.number().int().min(0).max(65535).optional(),
   listenPreset: z.enum(['stock', 'fast']).default('fast'),
   clientRandomPrefix: z.string().default(''),
+  // lucx.342: site reverse-proxy target and the auth-failure answer must
+  // survive the zod round-trip — absent here they are silently stripped on
+  // both editor load and submit (tester report /// fragile, 17.11.2026).
+  siteUpstream: z.string().default(''),
+  authFailureStatus: z
+    .union([z.literal(0), z.literal(403), z.literal(404), z.literal(405), z.literal(407)])
+    .default(0),
+  // nil on the Go side resolves to true (stored settings predating the flag
+  // omit the key and must keep both profiles, see ShareLines).
+  shareTcpWithQuic: z.boolean().default(true),
   authSeed: z.string().optional(),
   clients: z.array(NaiveClientSchema).default([]),
 });

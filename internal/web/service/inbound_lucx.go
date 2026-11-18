@@ -1182,6 +1182,11 @@ func (s *InboundService) normalizeTrustTunnelSettings(inbound *model.Inbound) {
 	settings["metricsPort"] = cfg.MetricsPort
 	settings["listenPreset"] = cfg.ListenPreset
 	settings["clientRandomPrefix"] = cfg.ClientRandomPrefix
+	shareTcp := true
+	if cfg.ShareTcpWithQuic != nil {
+		shareTcp = *cfg.ShareTcpWithQuic
+	}
+	settings["shareTcpWithQuic"] = shareTcp
 	if strings.TrimSpace(cfg.Remark) != "" {
 		settings["remark"] = cfg.Remark
 	}

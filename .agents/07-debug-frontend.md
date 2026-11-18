@@ -91,3 +91,11 @@ Extracted from AGENTS.md. This file is project law.
 - **Cause:** the button sat inside `awgConfigs.map` but copied `linksBuilt.amneziaVpn` (`/awg/{subId}?format=vpn`). That endpoint returns every attached inbound. `.conf` already used `cfg.text` per inbound.
 - **Fix:** `GetAwg` / `awgBody` / public `/awg/` take `inboundId`. The button appends it. Omit the param → all profiles, as before.
 - **Seen on:** Kirill, 2026-08-22.
+
+### Pattern 12: TrustTunnel save silently drops siteUpstream / authFailureStatus - FIXED (lucx.368)
+
+- **Report (/// fragile, 17.11.2026):** entered 405 + cover-site host:port on TrustTunnel, saved; the endpoint kept answering stock 407 with no reverse_proxy (port probed as a proxy, IP burned). Re-saving with the same values repeated it. Tunnel itself worked.
+- **Cause:** the form save pipeline passes the RHF values through Zod and posts `parsed.data` (`InboundFormModal.tsx` saveValues -> `formValuesToWirePayload`), while `TrustTunnelInboundSettingsSchema` (schemas/protocols/inbound/trusttunnel.ts) did not declare `siteUpstream` / `authFailureStatus` - Zod strips undeclared keys on every parse. The same strip ran on editor load (`inbound-from-db.ts` fillProtocolSettingsDefaults), so a previously stored value would also vanish from the form. Backend `trustTunnelInboundSettings` was fine all along; lucx.342 wired the form fields and renderer but missed the TS schema.
+- **Fix:** declare both keys in the schema (`siteUpstream` default '', `authFailureStatus` union 0|403|404|405|407 default 0) + the two keys in `createDefaultTrustTunnelInboundSettings`; vitest round-trip asserts in `src/test/protocols.test.ts`.
+- **Healing:** update, re-enter 405 + site, Save - reconcile restarts the endpoint with `auth_failure_status_code` + `[reverse_proxy]` (vpn.toml fingerprint changes with both).
+- **Lesson:** a form field is real only if the protocol settings schema knows it - every save/load passes through Zod and silently drops the rest. When adding fields to a sidecar form, add them to the schema + defaults in the same commit (frontend protocol checklist: form.tsx, schema, defaults, backend struct, i18n keys).
