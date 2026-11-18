@@ -472,6 +472,9 @@ export function createDefaultTrustTunnelInboundSettings(): TrustTunnelInboundSet
     outboundTag: '',
     listenPreset: 'fast',
     clientRandomPrefix: '',
+    siteUpstream: '',
+    authFailureStatus: 0,
+    shareTcpWithQuic: true,
     clients: [],
   };
 }

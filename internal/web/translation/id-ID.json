@@ -1099,6 +1099,8 @@
         "trustTunnelClientDnsHint": "Upstream DNS dipisah koma, diumumkan di tautan tt:// klien, mis. 1.1.1.1, tls://8.8.8.8. Kosong = default klien.",
         "trustTunnelSiteUpstream": "Site for browsers (host:port)",
         "trustTunnelSiteUpstreamHint": "Plain-HTTP site, e.g. 127.0.0.1:8081. Requests that are not a tunnel (a browser or scanner) get this site instead of 407. Empty = 407.",
+        "trustTunnelShareTcpWithQuic": "Keep the extra TCP profile with QUIC",
+        "trustTunnelShareTcpWithQuicHint": "HTTP/3 mode keeps the HTTPS (TCP) profile in the share; the client names the two ... TCP and ... QUIC. Off = QUIC profile only.",
         "trustTunnelAuthFailure": "Answer to a wrong login",
         "trustTunnelAuthFailureHint": "Status sent when a proxy request has a wrong or missing login. 407 (stock) tells probers a proxy is here; 405 is what an ordinary web server answers. TrustTunnel apps send their login up front and work with any value.",
         "trustTunnelIpv6": "IPv6 tersedia",

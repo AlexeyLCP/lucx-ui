@@ -366,6 +366,75 @@ func TestTrustTunnelShareLines(t *testing.T) {
 	if h2 != 1 || h3 != 1 {
 		t.Fatalf("http3 must advertise one https and one quic TLV, h2=%d h3=%d", h2, h3)
 	}
+	// The two profiles must be distinguishable in the client: remarks carry
+	// the " TCP" / " QUIC" suffixes (tester /// fragile, 17.11.2026).
+	var sawTcp, sawQuic bool
+	for _, line := range lines {
+		payload, _ := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(line, "tt://?"))
+		remark, err := tlvcRemark(payload)
+		if err != nil {
+			t.Fatalf("remark TLV: %v (%s)", err, line)
+		}
+		switch remark {
+		case "r TCP":
+			sawTcp = true
+		case "r QUIC":
+			sawQuic = true
+		default:
+			t.Fatalf("http3 share remark must be suffixed, got %q", remark)
+		}
+	}
+	if !sawTcp || !sawQuic {
+		t.Fatalf("http3 share must label both profiles, sawTcp=%v sawQuic=%v", sawTcp, sawQuic)
+	}
+	// The flag turns the extra TCP profile off; the lone QUIC line keeps the
+	// suffixed remark.
+	off := false
+	cfg.ShareTcpWithQuic = &off
+	lines = cfg.ShareLines("vpn.example.com:443", pair, "r")
+	if len(lines) != 1 {
+		t.Fatalf("http3 with TCP shares off lines = %d, want one quic TLV: %q", len(lines), lines)
+	}
+	payload, _ := base64.RawURLEncoding.DecodeString(strings.TrimPrefix(lines[0], "tt://?"))
+	if proto, _ := tlvcUpstreamProto(payload); proto != ttProtoHTTP3 {
+		t.Fatalf("lone profile must be quic, got %d", proto)
+	}
+	if remark, _ := tlvcRemark(payload); remark != "r QUIC" {
+		t.Fatalf("lone quic line remark = %q, want \"r QUIC\"", remark)
+	}
+	// A single-profile share (plain http2) must not grow a suffix.
+	cfg.UpstreamProtocol = "http2"
+	cfg.ShareTcpWithQuic = nil
+	lines = cfg.ShareLines("vpn.example.com:443", pair, "r")
+	payload, _ = base64.RawURLEncoding.DecodeString(strings.TrimPrefix(lines[0], "tt://?"))
+	if remark, _ := tlvcRemark(payload); remark != "r" {
+		t.Fatalf("http2 share remark = %q, want the bare operator remark", remark)
+	}
+}
+
+// tlvcRemark walks the TLV stream and returns tag 0x0C's value.
+func tlvcRemark(payload []byte) (string, error) {
+	i := 0
+	for i < len(payload) {
+		tag, n := tlsVarintDecode(payload[i:])
+		if n == 0 {
+			return "", io.ErrUnexpectedEOF
+		}
+		i += n
+		l, n := tlsVarintDecode(payload[i:])
+		if n == 0 {
+			return "", io.ErrUnexpectedEOF
+		}
+		i += n
+		if int(l) > len(payload)-i {
+			return "", io.ErrUnexpectedEOF
+		}
+		if tag == 0x0C {
+			return string(payload[i : i+int(l)]), nil
+		}
+		i += int(l)
+	}
+	return "", io.ErrUnexpectedEOF
 }
 
 // tlvcUpstreamProto walks the TLV stream and returns tag 0x09's varint value.

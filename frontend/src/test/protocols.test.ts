@@ -62,4 +62,31 @@ describe('InboundSettingsSchema coercions', () => {
     expect(parsed.settings.decryption).toBe('none');
     expect(parsed.settings.encryption).toBe('none');
   });
+
+  // lucx.342 fields must survive the zod round-trip the form save does
+  // (InboundFormModal: safeParse -> formValuesToWirePayload). Missing from the
+  // schema once, they were stripped and TrustTunnel kept answering 407.
+  it('trusttunnel: keeps siteUpstream and authFailureStatus past parse', () => {
+    const parsed = InboundSettingsSchema.parse({
+      protocol: 'trusttunnel',
+      settings: {
+        hostname: 'vpn.example.com',
+        siteUpstream: '127.0.0.1:8081',
+        authFailureStatus: 405,
+      },
+    });
+    if (parsed.protocol !== 'trusttunnel') throw new Error('wrong protocol');
+    expect(parsed.settings.siteUpstream).toBe('127.0.0.1:8081');
+    expect(parsed.settings.authFailureStatus).toBe(405);
+  });
+
+  it('trusttunnel: defaults siteUpstream to empty and authFailureStatus to 0 (407)', () => {
+    const parsed = InboundSettingsSchema.parse({
+      protocol: 'trusttunnel',
+      settings: { hostname: 'vpn.example.com' },
+    });
+    if (parsed.protocol !== 'trusttunnel') throw new Error('wrong protocol');
+    expect(parsed.settings.siteUpstream).toBe('');
+    expect(parsed.settings.authFailureStatus).toBe(0);
+  });
 });
