@@ -136,15 +136,15 @@ func TestGetSubs_Anytls_NodePanelVersionGate(t *testing.T) {
 
 func TestParseLucxRelease(t *testing.T) {
 	cases := map[string]int{
-		"v3.11.0-lucx.368":            368,
+		"v3.11.0-lucx.368":             368,
 		"3.11.0-lucx.368+dev+1d1128cf": 368,
-		"V3.11.0-Lucx.342":            342,
-		"v3.10.2-lucx.341":            341,
-		"lucx.1":                      1,
-		"v3.8.5":                      0,
-		"lucx.x":                      0,
-		"lucx.":                       0,
-		"":                            0,
+		"V3.11.0-Lucx.342":             342,
+		"v3.10.2-lucx.341":             341,
+		"lucx.1":                       1,
+		"v3.8.5":                       0,
+		"lucx.x":                       0,
+		"lucx.":                        0,
+		"":                             0,
 	}
 	for version, want := range cases {
 		if got := parseLucxRelease(version); got != want {
