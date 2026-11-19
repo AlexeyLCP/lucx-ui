@@ -33,6 +33,13 @@ run still flakes on the pre-existing Windows TempDir cleanup
 (`TestSubscriptionHwidStatusCountsRegisteredDevices`, green in isolation —
 lucx.354 pattern). **lucxVersion:** lucx.369
 
+**Release shipped:** main CI green on the lint follow-up (`dbdb3bda`, gofumpt
+alignment in the new test — check-lucx does not scan internal/sub, caught by
+CI golangci), advisory gate empty (4 published GHSAs), tag
+`v3.11.0-lucx.369` on `977cfce7`: Release run green (amd64/arm64 tarballs +
+sha256, windows zip, AnyTLS overlay checks), Docker on the tag green,
+RU+EN notes filled.
+
 ## lucx.368 — fix: TrustTunnel save silently dropped site + auth-failure settings (/// fragile)
 
 Report (17.11.2026): operator set the cover site (host:port) and the 405
