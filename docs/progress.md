@@ -1,5 +1,38 @@
 # LucX-UI — Прогресс
 
+## lucx.369 — fix: node-hosted AnyTLS inbounds get per-user passwords (deletion revokes them) — follow-up to the Андрей report
+
+Follow-up report (Андрей, 18.11.2026 evening, after updating every server to
+368): the 366 session-kill worked on the master (HH1) only. Root cause: the
+subscription link builders guarded per-user AnyTLS passwords behind
+`inbound.NodeID != nil` («the panel can't check the node's binary») — so every
+client link for a node-hosted anytls inbound carried the SHARED password,
+which nothing revokes. Deletion updated the node's users file, but the client
+never used a per-user line.
+
+Fix (`internal/sub/service.go`): the gate is now `anytlsTakesUserPasswords` —
+a local inbound is probed directly (`tunnel.AnytlsSupportsUsers`), a node
+inbound is gated on the node's learned `panelVersion` (heartbeat column;
+`parseLucxRelease("v3.11.0-lucx.368") → 368 >= anytlsUsersSeedRelease=342`,
+the release that shipped the users-file overlay both panel- and binary-side).
+Unknown/older/vanilla node versions keep the shared password (pre-342 node
+binaries only accept it). Covers `anytlsClientPassword` (sub links) and
+`inboundLinks` (export-all / QR views). Derivation itself is unchanged —
+`settings.authSeed` pushed by the master makes the node's users file hold the
+same per-user lines (the naive/mieru pattern), so as soon as an app re-fetches
+its sub on a 342+ node, the 366 session-kill + users-file rewrite revoke it
+within ~10–15 s.
+
+Old shared-password links already issued to (or cached by) devices stay valid
+by design (Rule 0) — rotating the inbound's shared password remains the
+operator lever for those; it does not touch per-user links.
+
+Tests: `TestGetSubs_Anytls_NodePanelVersionGate` (node 368 → derived; 341 /
+vanilla / unknown → shared), `TestParseLucxRelease`. Full `./internal/sub`
+run still flakes on the pre-existing Windows TempDir cleanup
+(`TestSubscriptionHwidStatusCountsRegisteredDevices`, green in isolation —
+lucx.354 pattern). **lucxVersion:** lucx.369
+
 ## lucx.368 — fix: TrustTunnel save silently dropped site + auth-failure settings (/// fragile)
 
 Report (17.11.2026): operator set the cover site (host:port) and the 405

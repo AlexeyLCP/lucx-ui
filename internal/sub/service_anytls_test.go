@@ -73,3 +73,82 @@ func TestGetSubs_Anytls_PerUserPassword(t *testing.T) {
 		t.Fatalf("link lost its sni: %s", l1)
 	}
 }
+
+// A node-hosted AnyTLS inbound gets per-user links too — but only when the
+// node's learned panelVersion proves its sidecar takes a users file (lucx.342
+// and later). Older or unknown node versions stay on the shared password,
+// which such an older binary accepts and nothing else.
+func TestGetSubs_Anytls_NodePanelVersionGate(t *testing.T) {
+	initSubDB(t)
+	db := database.GetDB()
+	node := &model.Node{Name: "de-fra-1", Address: "node1.example.com", Port: 2053, PanelVersion: "v3.11.0-lucx.368"}
+	if err := db.Create(node).Error; err != nil {
+		t.Fatal(err)
+	}
+	seed := "0123456789abcdef0123456789abcdef"
+	ib := &model.Inbound{
+		UserId: 1, Tag: "anytls-node-in", Enable: true, Port: 9443, Remark: "Anytls node", Protocol: model.Anytls,
+		NodeID: &node.Id,
+		Settings: `{"password":"shared-pass","sni":"a.example.com","authSeed":"` + seed + `",` +
+			`"clients":[{"email":"nu1@x","enable":true}]}`,
+	}
+	if err := db.Create(ib).Error; err != nil {
+		t.Fatal(err)
+	}
+	rec := &model.ClientRecord{Email: "nu1@x", SubID: "sn1", Enable: true}
+	if err := db.Create(rec).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ClientInbound{ClientId: rec.Id, InboundId: ib.Id}).Error; err != nil {
+		t.Fatal(err)
+	}
+	link := func() string {
+		links, _, _, _, err := NewSubService("").GetSubs("sn1", "sub.example.com")
+		if err != nil {
+			t.Fatal(err)
+		}
+		return strings.Join(links, "\n")
+	}
+
+	defer tunnel.SetAnytlsCapsForTest(true, true)()
+	secret, err := (&service.SettingService{}).GetSecret()
+	if err != nil || len(secret) == 0 {
+		t.Fatalf("secret: %v", err)
+	}
+	users := tunnel.AnytlsUsers(secret, ib)
+	if len(users) != 1 {
+		t.Fatalf("server users = %+v", users)
+	}
+
+	if got := link(); !strings.HasPrefix(got, "anytls://"+users[0].Password+"@") {
+		t.Fatalf("node %q: want the derived password, got %q", node.PanelVersion, got)
+	}
+
+	for _, stale := range []string{"v3.10.2-lucx.341", "v3.x.x", ""} {
+		if err := db.Model(&model.Node{}).Where("id = ?", node.Id).Update("panel_version", stale).Error; err != nil {
+			t.Fatal(err)
+		}
+		if got := link(); !strings.HasPrefix(got, "anytls://shared-pass@") {
+			t.Fatalf("node panelVersion %q: want the shared password, got %q", stale, got)
+		}
+	}
+}
+
+func TestParseLucxRelease(t *testing.T) {
+	cases := map[string]int{
+		"v3.11.0-lucx.368":            368,
+		"3.11.0-lucx.368+dev+1d1128cf": 368,
+		"V3.11.0-Lucx.342":            342,
+		"v3.10.2-lucx.341":            341,
+		"lucx.1":                      1,
+		"v3.8.5":                      0,
+		"lucx.x":                      0,
+		"lucx.":                       0,
+		"":                            0,
+	}
+	for version, want := range cases {
+		if got := parseLucxRelease(version); got != want {
+			t.Fatalf("parseLucxRelease(%q) = %d, want %d", version, got, want)
+		}
+	}
+}

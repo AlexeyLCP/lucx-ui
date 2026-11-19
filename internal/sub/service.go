@@ -649,9 +649,10 @@ func sidecarSubNameMacro(link string, inbound *model.Inbound) string {
 // Backs the panel's "Export all inbound links" and matches client/QR pages.
 func (s *SubService) inboundLinks(inbound *model.Inbound) []string {
 	// LUCX-HOOK: AnyTls is single-credential unless its server takes one
-	// password per client.
-	anytlsShared := inbound != nil && inbound.Protocol == model.Anytls && (inbound.NodeID != nil || !tunnel.AnytlsSupportsUsers())
-	if inbound != nil && (inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Csqtt || inbound.Protocol == model.Openflux || anytlsShared) {
+	// password per client — local inbounds are probed directly, node inbounds
+	// on the learned node panelVersion (>= lucx.342 users-file).
+	anytlsShared := inbound != nil && inbound.Protocol == model.Anytls && !s.anytlsTakesUserPasswords(inbound)
+	if inbound != nil && (anytlsShared || inbound.Protocol == model.Olcrtc || inbound.Protocol == model.Qwdtt || inbound.Protocol == model.Csqtt || inbound.Protocol == model.Openflux) {
 		if link := s.GetLink(inbound, ""); link != "" {
 			return splitLinkLines(sidecarSubNameMacro(link, inbound))
 		}
@@ -3855,8 +3856,9 @@ func (s *SubService) genCsqttLink(inbound *model.Inbound) string {
 
 // genAnytlsLink returns the anytls://password@host:port/?sni= URI for an
 // AnyTls inbound. With the LucX overlay every attached client gets its own
-// derived password (so the server can tell users apart); otherwise, or for a
-// node inbound whose binary the panel can't check, the shared password.
+// derived password (so the server can tell users apart) — on a local inbound
+// via the binary probe, on a node inbound via the node's learned panelVersion
+// (anytlsTakesUserPasswords); otherwise the shared password.
 func (s *SubService) genAnytlsLink(inbound *model.Inbound, email string) string {
 	cfg, ok := tunnel.AnytlsConfigFromInbound(inbound)
 	if !ok || !inbound.Enable {
@@ -3886,10 +3888,57 @@ func (s *SubService) genAnytlsLink(inbound *model.Inbound, email string) string 
 	return cfg.ClientLink(host, inbound.Remark)
 }
 
+// anytlsUsersSeedRelease is the lucx release that shipped the users-file
+// overlay (panel + sidecar binaries together). Node heartbeats report the
+// node's panel version as "lucx.N", so a local (master) inbound is probed
+// directly while a node inbound is gated on the version line — with an older
+// node binary its anytls server only takes the shared password.
+const anytlsUsersSeedRelease = 342
+
+// parseLucxRelease extracts the release number from a panel version string:
+// "v3.11.0-lucx.368" / "3.11.0-lucx.368+dev+1d1128cf" → 368; no marker → 0.
+func parseLucxRelease(version string) int {
+	version = strings.ToLower(version)
+	i := strings.Index(version, "lucx.")
+	if i < 0 {
+		return 0
+	}
+	rest := version[i+len("lucx."):]
+	pos, n := 0, 0
+	for pos < len(rest) && rest[pos] >= '0' && rest[pos] <= '9' {
+		n = n*10 + int(rest[pos]-'0')
+		pos++
+	}
+	if n <= 0 {
+		return 0
+	}
+	return n
+}
+
+// anytlsTakesUserPasswords reports whether the inbound's anytls server accepts
+// per-client passwords: a local inbound is probed directly, a node inbound is
+// gated on the node's learned panel version.
+func (s *SubService) anytlsTakesUserPasswords(inbound *model.Inbound) bool {
+	if inbound == nil || inbound.Protocol != model.Anytls {
+		return false
+	}
+	if !tunnel.AnytlsSupportsUsers() {
+		return false
+	}
+	if inbound.NodeID == nil {
+		return true
+	}
+	if s.nodesByID == nil {
+		return false
+	}
+	n, ok := s.nodesByID[*inbound.NodeID]
+	return ok && parseLucxRelease(n.PanelVersion) >= anytlsUsersSeedRelease
+}
+
 // anytlsClientPassword is email's own AnyTLS password on inbound, or "" when
 // the shared one applies.
 func (s *SubService) anytlsClientPassword(inbound *model.Inbound, email string) string {
-	if strings.TrimSpace(email) == "" || inbound.NodeID != nil || !tunnel.AnytlsSupportsUsers() {
+	if strings.TrimSpace(email) == "" || !s.anytlsTakesUserPasswords(inbound) {
 		return ""
 	}
 	// Same rule as tunnel.AnytlsUsers, which writes the server's users file;

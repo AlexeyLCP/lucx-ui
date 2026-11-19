@@ -15,6 +15,8 @@ Extracted from AGENTS.md. This file is project law.
 - **Not this:** deleted client still working for the first ~12 s after deletion (reconcile tick + file watch — normal); a client that reconnects AFTER deletion with a per-user password and gets the fallback site (that is `-fallback` doing its job on a failed login); «anytls stays up» for clients that are still in the client list.
 - **Lesson:** revoking a credential in a table is not revoking the sessions that credential authenticated — any sidecar with long-lived multiplexed sessions needs a kill-on-reload path, exactly what VLESS gets for free from Xray's config restart.
 
+- **Follow-up (lucx.369) — revocation only worked on the master:** Андрей updated every server to 368; the deleted client stopped working via HH1 (master) but kept riding AnyTLS on the servers that were LucX nodes. Cause: sub links for node-hosted anytls inbounds were hardcoded to the shared password (`inbound.NodeID != nil` → «the panel can't check the node's binary»), and the shared password is never revoked. Fix: `SubService.anytlsTakesUserPasswords` — local = binary probe, node = gate on the learned `panelVersion` (`>= lucx.342`, the users-file release; `parseLucxRelease` parses "…-lucx.N"). The node's users file already holds per-user lines (authSeed sync), so deletion now revokes node clients the same as master ones. Cached old shared links stay valid (Rule 0) — rotate the inbound password to kill those.
+
 ---
 
 ### Pattern 1be: aivpn server runs, clients added, QR button dead — FIXED (lucx.357)
