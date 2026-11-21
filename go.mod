@@ -3,7 +3,7 @@ module github.com/mhsanaei/3x-ui/v3
 go 1.27.4
 
 require (
-	github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260828
+	github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20261116
 	github.com/apernet/quic-go v0.61.1-0.20260806010916-184d081eef3e
 	github.com/gin-contrib/gzip v1.2.9
 	github.com/gin-contrib/sessions v1.1.3
