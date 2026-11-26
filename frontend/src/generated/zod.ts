@@ -477,6 +477,7 @@ export const ClientSchema = z.object({
   group: z.string().optional(),
   id: z.string().optional(),
   keepAlive: z.union([z.number().int(), z.string()]).optional(),
+  limitHwid: z.number().int().optional(),
   limitIp: z.number().int(),
   neverLogIps: z.boolean().optional(),
   password: z.string().optional(),

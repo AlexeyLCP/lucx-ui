@@ -447,6 +447,7 @@ export interface Client {
   group?: string;
   id?: string;
   keepAlive?: number | string;
+  limitHwid?: number;
   limitIp: number;
   neverLogIps?: boolean;
   password?: string;

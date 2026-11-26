@@ -1857,6 +1857,10 @@ export const SCHEMAS: Record<string, unknown> = {
           }
         ]
       },
+      "limitHwid": {
+        "description": "LUCX-HOOK: HWID limit rides the wire so a limit set on the master\nreaches nodes — it lived only in the clients table row, so every node\nenforced unlimited (B4). ToRecord/ToClient copies must stay symmetrical.\nUnique-device (HWID) limit; 0 = unlimited",
+        "type": "integer"
+      },
       "limitIp": {
         "description": "IP limit for this client",
         "type": "integer"
