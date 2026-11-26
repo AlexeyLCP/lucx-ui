@@ -7,7 +7,9 @@
 package scanguard
 
 import (
+	"context"
 	"errors"
+	"net"
 	"net/netip"
 	"strings"
 	"testing"
@@ -142,4 +144,31 @@ func TestCollect(t *testing.T) {
 			t.Fatal("empty sources must fail")
 		}
 	})
+}
+
+func TestPublicOnlyDialContextRefuses(t *testing.T) {
+	refused := []string{
+		"127.0.0.1:8080",     // loopback
+		"10.0.0.1:80",        // private v4
+		"192.168.1.1:80",     // private v4
+		"169.254.169.254:80", // link-local metadata service
+		"100.100.100.100:80", // carrier-grade NAT
+		"[fc00::1]:80",       // unique-local v6
+		"[fe80::1]:80",       // link-local v6
+	}
+	for _, addr := range refused {
+		c, err := publicOnlyDialContext(context.Background(), "tcp", addr)
+		if err == nil {
+			c.Close()
+			t.Fatalf("%s must be refused, got a connection", addr)
+		}
+	}
+	// "localhost" resolves to loopback — refused without dialing.
+	if c, err := publicOnlyDialContext(context.Background(), "tcp", "localhost:80"); err == nil {
+		c.Close()
+		t.Fatal("localhost must be refused")
+	}
+	if !isPublicUnicast(net.ParseIP("8.8.8.8")) || !isPublicUnicast(net.ParseIP("2606:4700::1111")) {
+		t.Fatal("public unicast addresses must pass the guard")
+	}
 }

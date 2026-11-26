@@ -1,5 +1,47 @@
 # LucX-UI — Прогресс
 
+## lucx.371 — hardening: Scanner Guard list fetch dials public addresses only (CodeQL critical #76)
+
+Audit of the 4 published GHSA advisories (Nov 1) confirmed every fix is present
+in current main: MTProxy secret now passed as `@file` (GHSA-mch6-p9w6-f3jv),
+client .conf values validated via `ValidateConfigValue` in `BuildAwgClientConf`
+(GHSA-fvcf-hwq7-jvfx), cert path handling complete incl. Windows drive-letter /
+TOCTOU / nonblock-open rules in `certpath.go` (GHSA-gq36-6m9p-4wp2,
+GHSA-577x-98v5-xv57).
+
+CodeQL critical triage (6 open):
+
+- **#76 `internal/lucx/scanguard/scanguard.go` (request forgery) — fixed.**
+  `httpFetch` dialed whatever the operator-configured source URL resolved to,
+  unlike the tunnel-sidecar downloader which refuses non-public targets. Added
+  `publicOnlyDialContext` + `isPublicUnicast` (the tunnel.go guard mirrored:
+  loopback / private / link-local incl. 169.254.169.254 / CGNAT / multicast are
+  refused at dial time, so redirects cannot slip past) plus a refusal test.
+- **#69 `internal/lucx/plugin/fetch.go` (zipslip) — fixed.** `extractTar` joined
+  tar entry names without a traversal check (the zip path in plugin.go already
+  had one): a `repo/../../x` entry wrote outside the plugin directory. Added the
+  same `filepath.Rel` guard plus a hostile-archive test; the CodeQL alert closes
+  on the next post-merge scan.
+- #37 `internal/awg/tproxy.go` — false positive: every value interpolated into
+  the shell script is canonicalized by `validateTproxy()` first (Ifname must
+  equal `ifnameFor(Id)`, Address is `netip.ParsePrefix` IPv4 /8../30, port
+  1024..65535, chain/mark/table derived from the int Id).
+- #3 `internal/awg/manager.go` and (upstream) #58
+  `internal/amneziawgkern/manager.go` — false positives: `exec.Command` with
+  argv, no shell involved.
+- #13 `internal/web/service/tunnel.go` — already mitigated (https-only +
+  `publicOnlyDialContext` + per-redirect URL check + sha256 pin); CodeQL flags
+  operator-URL-taint by design.
+- #28 `internal/web/favicon/favicon.go` — href is `html.EscapeString`ed before
+  attribute concatenation.
+
+All critical alerts dismissed on GitHub with per-alert justifications; the 41
+high alerts triaged line-by-line the same way: 20 false positives (validated
+shapes: rejectLocalPath callers, Sample clamped to 4096, fingerprint SHA256s,
+bounded allocations, hardened PR-review workflow) and 15 "won't fix" (deliberate
+self-signed probes with in-code markers, or unverified upstream-3x-ui patterns
+whose fix belongs in MHSanaei/3x-ui).
+
 ## lucx.370 — fix: AnyTLS `routeThroughXray` leaked IPv6 (TCP) and all UDP (incl. WebRTC/STUN, QUIC) past Xray
 
 Report (Telegram `anytls.md`, 26.11.2026, panel `3.11.0-lucx.369`, Debian 13):

@@ -12,9 +12,11 @@
 package scanguard
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/netip"
 	"strings"
@@ -107,7 +109,7 @@ func Validate(cfg Config) error {
 
 // httpFetch is a var so tests can feed canned list bodies.
 var httpFetch = func(url string) ([]byte, error) {
-	client := &http.Client{Timeout: fetchTimeout}
+	client := &http.Client{Timeout: fetchTimeout, Transport: &http.Transport{DialContext: publicOnlyDialContext}}
 	resp, err := client.Get(url)
 	if err != nil {
 		return nil, err
@@ -117,6 +119,58 @@ var httpFetch = func(url string) ([]byte, error) {
 		return nil, fmt.Errorf("source %s: HTTP %d", url, resp.StatusCode)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, fetchLimit))
+}
+
+// publicOnlyDialContext refuses to dial anything but a public routable address,
+// the same guard the tunnel-sidecar downloader applies: a blocklist source on
+// localhost, a private range or link-local can only be a misconfig — or a probe
+// of the panel's own ports. Checked at dial time, so redirects cannot slip past.
+func publicOnlyDialContext(ctx context.Context, network, addr string) (net.Conn, error) {
+	host, port, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
+	}
+	dialer := &net.Dialer{Timeout: fetchTimeout}
+	if ip := net.ParseIP(host); ip != nil {
+		if !isPublicUnicast(ip) {
+			return nil, fmt.Errorf("scanguard: refused non-public address %s", host)
+		}
+		return dialer.DialContext(ctx, network, addr)
+	}
+	addrs, err := net.DefaultResolver.LookupIPAddr(ctx, host)
+	if err != nil {
+		return nil, err
+	}
+	var last error
+	for _, a := range addrs {
+		if !isPublicUnicast(a.IP) {
+			last = fmt.Errorf("scanguard: %s resolved to a non-public address", host)
+			continue
+		}
+		c, derr := dialer.DialContext(ctx, network, net.JoinHostPort(a.IP.String(), port))
+		if derr == nil {
+			return c, nil
+		}
+		last = derr
+	}
+	if last == nil {
+		last = fmt.Errorf("scanguard: no public address for %s", host)
+	}
+	return nil, last
+}
+
+func isPublicUnicast(ip net.IP) bool {
+	if ip == nil || ip.IsUnspecified() || ip.IsLoopback() || ip.IsPrivate() ||
+		ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() ||
+		ip.IsInterfaceLocalMulticast() || ip.IsMulticast() {
+		return false
+	}
+	// Carrier-grade NAT (100.64.0.0/10) is not covered by IsPrivate but is
+	// just as much "someone else's network" from the panel's point of view.
+	if v4 := ip.To4(); v4 != nil && v4[0] == 100 && v4[1] >= 64 && v4[1] <= 127 {
+		return false
+	}
+	return true
 }
 
 // Collect fetches every source, parses CIDRs and subtracts the whitelist.

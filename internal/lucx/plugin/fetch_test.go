@@ -83,6 +83,28 @@ func TestPreviewFromLinkRejectsBadManifest(t *testing.T) {
 	}
 }
 
+func TestExtractTarRejectsUnsafePath(t *testing.T) {
+	manifest := `{"id":"hello","name":"Hi","version":"1.0.0","apiVersion":1,"type":"sidecar","entrypoint":"run.sh","architectures":[]}`
+	var buf bytes.Buffer
+	gz := gzip.NewWriter(&buf)
+	tw := tar.NewWriter(gz)
+	entry := func(name, body string) {
+		_ = tw.WriteHeader(&tar.Header{Name: name, Mode: int64(0o700), Size: int64(len(body)), Typeflag: tar.TypeReg})
+		_, _ = tw.Write([]byte(body))
+	}
+	entry("repo-ref/manifest.json", manifest)
+	entry("repo-ref/../../lucx-evil.txt", "stays inside")
+	_ = tw.Close()
+	_ = gz.Close()
+	var m Manifest
+	if err := json.Unmarshal([]byte(manifest), &m); err != nil {
+		t.Fatal(err)
+	}
+	if err := extractTar(buf.Bytes(), m); err == nil || !strings.Contains(err.Error(), "unsafe path") {
+		t.Fatalf("tar entry escaping the plugin dir must be refused, got %v", err)
+	}
+}
+
 // buildTestRepoTars returns the archive bytes of a fake repository tree.
 func buildTestRepoTars(t *testing.T, manifest string) []byte {
 	t.Helper()

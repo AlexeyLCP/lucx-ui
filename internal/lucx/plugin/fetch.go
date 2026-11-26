@@ -215,6 +215,12 @@ func extractTar(body []byte, m Manifest) error {
 			continue
 		}
 		target := filepath.Join(dir(m.ID), filepath.FromSlash(rest))
+		// Same InstallPackage guarantee as the zip path in plugin.go: a "../"
+		// or absolute entry name must not leave the plugin directory.
+		if rel, relErr := filepath.Rel(dir(m.ID), target); relErr != nil || rel == ".." ||
+			strings.HasPrefix(rel, ".."+string(os.PathSeparator)) || filepath.IsAbs(rel) {
+			return errors.New("repository archive contains an unsafe path")
+		}
 		if err := os.MkdirAll(filepath.Dir(target), 0o700); err != nil {
 			return err
 		}
