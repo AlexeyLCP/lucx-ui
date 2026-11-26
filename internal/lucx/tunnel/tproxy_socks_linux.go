@@ -26,7 +26,6 @@ import (
 var (
 	tproxySocksMu     sync.Mutex
 	tproxySocksLn     net.Listener
-	tproxySocksLn6    net.Listener
 	tproxySocksTarget string
 )
 
@@ -56,7 +55,6 @@ func startTproxySocksBridge(redirPort, socksPort int) {
 		logger.Warningf("tunnel: tproxy socks bridge listen v6: %v", err)
 		return
 	}
-	tproxySocksLn6 = ln6
 	go serveTproxySocksBridge(ln6)
 }
 
