@@ -26,6 +26,7 @@ import (
 var (
 	tproxySocksMu     sync.Mutex
 	tproxySocksLn     net.Listener
+	tproxySocksLn6    net.Listener
 	tproxySocksTarget string
 )
 
@@ -47,6 +48,16 @@ func startTproxySocksBridge(redirPort, socksPort int) {
 	}
 	tproxySocksLn = ln
 	go serveTproxySocksBridge(ln)
+	// IPv6 twin: the v6 REDIRECT lands on [::1], so the bridge must listen
+	// there too; a v6-less host just leaves this listener down and the v6
+	// REDIRECT (if any was added) fails closed.
+	ln6, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", net.JoinHostPort("::1", strconv.Itoa(redirPort)))
+	if err != nil {
+		logger.Warningf("tunnel: tproxy socks bridge listen v6: %v", err)
+		return
+	}
+	tproxySocksLn6 = ln6
+	go serveTproxySocksBridge(ln6)
 }
 
 func serveTproxySocksBridge(ln net.Listener) {
@@ -89,6 +100,12 @@ func originalTCPDest(c net.Conn) (string, error) {
 	if !ok {
 		return "", syscall.EINVAL
 	}
+	// The peer's source family is the socket family of the redirected
+	// connection, so it tells which SO_ORIGINAL_DST shape to read (and a
+	// dial to a v6 target is always made from an AF_INET6 socket).
+	if ra, ok := c.RemoteAddr().(*net.TCPAddr); ok && ra.IP.To4() == nil {
+		return originalTCPDest6(tc)
+	}
 	rc, err := tc.SyscallConn()
 	if err != nil {
 		return "", err
@@ -116,4 +133,33 @@ func originalTCPDest(c net.Conn) (string, error) {
 	port := binary.BigEndian.Uint16((*[2]byte)(unsafe.Pointer(&ip.Port))[:])
 	host := net.IPv4(ip.Addr[0], ip.Addr[1], ip.Addr[2], ip.Addr[3]).String()
 	return net.JoinHostPort(host, strconv.Itoa(int(port))), nil
+}
+
+func originalTCPDest6(tc *net.TCPConn) (string, error) {
+	rc, err := tc.SyscallConn()
+	if err != nil {
+		return "", err
+	}
+	var ip syscall.RawSockaddrInet6
+	var errno syscall.Errno
+	err = rc.Control(func(fd uintptr) {
+		var n uint32 = syscall.SizeofSockaddrInet6
+		_, _, errno = syscall.Syscall6(
+			syscall.SYS_GETSOCKOPT,
+			fd,
+			syscall.IPPROTO_IP,
+			80,
+			uintptr(unsafe.Pointer(&ip)),
+			uintptr(unsafe.Pointer(&n)),
+			0,
+		)
+	})
+	if err != nil {
+		return "", err
+	}
+	if errno != 0 {
+		return "", errno
+	}
+	port := binary.BigEndian.Uint16((*[2]byte)(unsafe.Pointer(&ip.Port))[:])
+	return net.JoinHostPort(net.IP(ip.Addr[:]).String(), strconv.Itoa(int(port))), nil
 }

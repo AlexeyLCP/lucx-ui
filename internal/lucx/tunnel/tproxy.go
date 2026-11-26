@@ -211,6 +211,62 @@ func mtproxyXrayRedirectArgs(uid string, port int) []string {
 	}
 }
 
+// mtproxyXrayRedirectArgs6 is the IPv6 half of the same bridge: without it the
+// routed sidecar's v6 TCP dials bypassed Xray and exited straight from the
+// ingress IP (tester report, anytls IPv6 leak).
+func mtproxyXrayRedirectArgs6(uid string, port int) []string {
+	return []string{
+		"-t", "nat", "-I", "OUTPUT",
+		"-m", "owner", "--uid-owner", uid,
+		"-p", "tcp", "!", "-d", "::1/128",
+		"-m", "comment", "--comment", tproxyXrayComment(),
+		"-j", "REDIRECT", "--to-ports", strconv.Itoa(port),
+	}
+}
+
+// mtproxyKillSwitchArgs is the fail-closed filter OUTPUT for the shared
+// routed-sidecar uid, both families: nat REDIRECT cannot catch UDP (nor a
+// flushed/miswired OUTPUT rule), so the sidecar's DNS-over-UDP (tunnel target
+// names are resolved on the host), WebRTC/QUIC relays and any other fresh
+// non-loopback flow used to leak the ingress IP. DNS (udp 53) stays allowed —
+// the only path nat REDIRECT structurally cannot carry; drops are scoped to
+// NEW (+INVALID datagrams) so accepted inbound sessions keep flowing.
+func mtproxyKillSwitchArgs(uid string) (v4, v6 [][]string) {
+	acceptDns := func() []string {
+		return []string{
+			"-t", "filter", "-I", "OUTPUT", "1",
+			"-p", "udp", "-m", "udp", "--dport", "53",
+			"-m", "owner", "--uid-owner", uid,
+			"-m", "comment", "--comment", tproxyXrayComment(),
+			"-j", "ACCEPT",
+		}
+	}
+	dropTcpNew := func(notDst string) []string {
+		return []string{
+			"-t", "filter", "-I", "OUTPUT", "2",
+			"-p", "tcp", "-m", "tcp",
+			"!", "-d", notDst,
+			"-m", "owner", "--uid-owner", uid,
+			"-m", "conntrack", "--ctstate", "NEW",
+			"-m", "comment", "--comment", tproxyXrayComment(),
+			"-j", "DROP",
+		}
+	}
+	dropUdp := func(notDst string) []string {
+		return []string{
+			"-t", "filter", "-I", "OUTPUT", "3",
+			"-p", "udp", "-m", "udp",
+			"!", "-d", notDst,
+			"-m", "owner", "--uid-owner", uid,
+			"-m", "conntrack", "--ctstate", "NEW,INVALID",
+			"-m", "comment", "--comment", tproxyXrayComment(),
+			"-j", "DROP",
+		}
+	}
+	return [][]string{acceptDns(), dropTcpNew("127.0.0.0/8"), dropUdp("127.0.0.0/8")},
+		[][]string{acceptDns(), dropTcpNew("::1/128"), dropUdp("::1/128")}
+}
+
 func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int, loopback bool, panel []CoverRoute) string {
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tgrace_period 1s\n")

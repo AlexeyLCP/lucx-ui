@@ -1,5 +1,51 @@
 # LucX-UI — Прогресс
 
+## lucx.370 — fix: AnyTLS `routeThroughXray` leaked IPv6 (TCP) and all UDP (incl. WebRTC/STUN, QUIC) past Xray
+
+Report (Telegram `anytls.md`, 26.11.2026, panel `3.11.0-lucx.369`, Debian 13):
+on a dual-stack ingress, a routed AnyTLS sidecar exited IPv4 TCP only — IPv6
+TCP, IPv6 UDP and IPv4 UDP (WebRTC/STUN and QUIC relays of UoT clients) went
+straight out of the ingress IP. Leak-test sites showed both ingress addresses.
+
+Cause: the shared uid bridge had exactly one nat OUTPUT REDIRECT rule —
+`-p tcp ! -d 127.0.0.0/8` (IPv4 only, TCP only). nat REDIRECT structurally
+cannot catch UDP, there were no ip6tables rules at all, and the 23990 bridge
+listener was IPv4-only. The hidden Xray socks inbound was already TCP-only
+(`udp:false`) — the bridge never speaks SOCKS UDP ASSOCIATE, so enabling it
+would be dead code; left as is.
+
+Fix (`internal/lucx/tunnel/`, tproxy.go + tproxy_firewall_linux.go +
+tproxy_socks_linux.go):
+
+1. **IPv6 TCP now routes through Xray**: new `ip6tables -t nat OUTPUT` REDIRECT
+   for the shared `lucx-mtproxy` uid (`! -d ::1/128`, comment
+   `lucx-tproxy-xray`) into the same 23990 listener, which now also binds
+   `[::1]:23990`; `originalTCPDest` reads `SO_ORIGINAL_DST` in the inet6 shape
+   when the redirected peer is v6 (source family = dial family).
+2. **Kill-switch (fail closed)**: filter OUTPUT rules for the shared uid, both
+   families: udp/53 ACCEPT (anytls resolves tunnel target names on the host;
+   DNS resolver visible — accepted residual), tcp `NEW ! -d loopback` DROP and
+   udp `NEW,INVALID ! -d loopback` DROP. The sidecar's own v6 TCP dials fail
+   closed when no REDIRECT fires; UDP relays are blocked outright (that was
+   the WebRTC/QUIC leak). Drops are `NEW`(+INVALID for datagrams) so accepted
+   inbound sessions keep flowing.
+3. Rules are comment-scoped (`lucx-tproxy-xray`) and swept/re-added on every
+   `EnsureMtproxyXraySocksRule` reconcile (survives firewall flushes), removed
+   by `ClearMtproxyXraySocksRule` when the last routed owner clears. Applies
+   to every routed owner of the shared uid: AnyTLS AND routed
+   tproxy/mtproxy inbounds (same shared rule semantics as before; a
+   non-routed mtproxy alongside a routed inbound was already hijacked by the
+   shared uid REDIRECT before this change).
+
+Skipped (upgrade path): full TPROXY (mangle fwmark + policy routing +
+dokodemo-door `tcp,udp`) would also route the sidecar's UDP through Xray —
+a much larger surface; the kill-switch ships the safe half. SOCKS-inbound
+`udp:true` for AnyTLS is dead code until the bridge speaks UDP ASSOCIATE.
+
+Tests: `TestMtproxyXrayRedirectArgs6`, `TestMtproxyKillSwitchArgs` (go test
+./internal/lucx/... green; GOOS=linux build of the tunnel package verified on
+windows dev host). **lucxVersion:** lucx.370
+
 ## lucx.369 — fix: node-hosted AnyTLS inbounds get per-user passwords (deletion revokes them) — follow-up to the Андрей report
 
 Follow-up report (Андрей, 18.11.2026 evening, after updating every server to

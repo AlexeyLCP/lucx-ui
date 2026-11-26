@@ -186,6 +186,53 @@ func TestMtproxyXrayRedirectArgs_OwnerNotCatchAll(t *testing.T) {
 	}
 }
 
+func TestMtproxyXrayRedirectArgs6(t *testing.T) {
+	args := mtproxyXrayRedirectArgs6("123", tproxySocksRedirectPort)
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "--uid-owner 123") || !strings.Contains(joined, "REDIRECT") {
+		t.Fatalf("v6 redirect must pin the uid and REDIRECT, got %s", joined)
+	}
+	if strings.Contains(joined, "127.0.0.0/8") || strings.Contains(joined, "--uid-owner 0") {
+		t.Fatalf("v6 rule must not carry the v4 dst or root uid, got %s", joined)
+	}
+}
+
+func TestMtproxyKillSwitchArgs(t *testing.T) {
+	v4, v6 := mtproxyKillSwitchArgs("123")
+	if len(v4) != 3 || len(v6) != 3 {
+		t.Fatalf("expected 3 rules per family, got %d/%d", len(v4), len(v6))
+	}
+	for _, f := range []struct {
+		name   string
+		rules  [][]string
+		notDst string
+	}{
+		{"v4", v4, "127.0.0.0/8"},
+		{"v6", v6, "::1/128"},
+	} {
+		all := ""
+		for _, r := range f.rules {
+			all += strings.Join(r, " ") + " ; "
+		}
+		if !strings.Contains(all, "--dport 53") || !strings.Contains(all, "-j ACCEPT") {
+			t.Fatalf("%s: DNS udp/53 must stay allowed, got %s", f.name, all)
+		}
+		drops := ""
+		for _, r := range f.rules[1:3] {
+			drops += strings.Join(r, " ") + " ; "
+		}
+		if !strings.Contains(drops, "-j DROP") || !strings.Contains(drops, "--ctstate NEW") || !strings.Contains(drops, "--ctstate NEW,INVALID") {
+			t.Fatalf("%s: expected NEW(+INVALID udp) drops, got %s", f.name, drops)
+		}
+		if !strings.Contains(drops, "! -d "+f.notDst) {
+			t.Fatalf("%s: drops must exempt loopback, got %s", f.name, drops)
+		}
+		if !strings.Contains(drops, "--uid-owner 123") || strings.Contains(drops, "--uid-owner 0") {
+			t.Fatalf("%s: drops must pin the shared uid, got %s", f.name, drops)
+		}
+	}
+}
+
 func TestTproxyClientLink(t *testing.T) {
 	cfg := TproxyConfig{Hostname: "proxy.example.com", Secret: "000102030405060708090a0b0c0d0e0f"}
 	got := cfg.ClientLink()

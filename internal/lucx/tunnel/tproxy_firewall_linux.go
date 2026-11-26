@@ -102,21 +102,46 @@ func EnsureMtproxyXraySocksRule(socksPort int) {
 	}
 	startTproxySocksBridge(tproxySocksRedirectPort, socksPort)
 	_ = clearIptablesNatOutput(tproxyXrayComment())
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := exec.CommandContext(ctx, "iptables", mtproxyXrayRedirectArgs(u.Uid, tproxySocksRedirectPort)...).Run(); err != nil {
+	clearKillswitchRules()
+	if err := runIptables("iptables", mtproxyXrayRedirectArgs(u.Uid, tproxySocksRedirectPort)); err != nil {
 		logger.Warningf("tunnel: tproxy xray socks iptables: %v", err)
 	}
+	if err := runIptables("ip6tables", mtproxyXrayRedirectArgs6(u.Uid, tproxySocksRedirectPort)); err != nil {
+		logger.Warningf("tunnel: tproxy xray socks ip6tables: %v", err)
+	}
+	v4Rules, v6Rules := mtproxyKillSwitchArgs(u.Uid)
+	for _, args := range v4Rules {
+		if err := runIptables("iptables", args); err != nil {
+			logger.Warningf("tunnel: tproxy kill-switch iptables: %v", err)
+		}
+	}
+	for _, args := range v6Rules {
+		if err := runIptables("ip6tables", args); err != nil {
+			logger.Warningf("tunnel: tproxy kill-switch ip6tables: %v", err)
+		}
+	}
+}
+
+func runIptables(bin string, args []string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return exec.CommandContext(ctx, bin, args...).Run()
+}
+
+func clearKillswitchRules() {
+	_ = clearIptablesTableChain("iptables", tproxyXrayComment(), "filter", "OUTPUT")
+	_ = clearIptablesTableChain("ip6tables", tproxyXrayComment(), "filter", "OUTPUT")
 }
 
 func ClearMtproxyXraySocksRule() {
 	_ = clearIptablesNatOutput(tproxyXrayComment())
+	clearKillswitchRules()
 	clearTproxyTunLeftovers()
 }
 
 func clearTproxyTunLeftovers() {
 	_ = clearIptablesMangleOutput(tproxyXrayComment())
-	_ = clearIptablesTableChain(tproxyXrayComment(), "nat", "POSTROUTING")
+	_ = clearIptablesTableChain("iptables", tproxyXrayComment(), "nat", "POSTROUTING")
 	_ = exec.CommandContext(context.Background(), "ip", "rule", "del", "fwmark", "29120", "lookup", "1800").Run()
 	_ = exec.CommandContext(context.Background(), "ip", "route", "flush", "table", "1800").Run()
 }
@@ -141,17 +166,17 @@ func clearMtproxyIptables(comment string) error {
 }
 
 func clearIptablesNatOutput(comment string) error {
-	return clearIptablesTableChain(comment, "nat", "OUTPUT")
+	return clearIptablesTableChain("iptables", comment, "nat", "OUTPUT")
 }
 
 func clearIptablesMangleOutput(comment string) error {
-	return clearIptablesTableChain(comment, "mangle", "OUTPUT")
+	return clearIptablesTableChain("iptables", comment, "mangle", "OUTPUT")
 }
 
-func clearIptablesTableChain(comment, table, chain string) error {
+func clearIptablesTableChain(bin, comment, table, chain string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	out, err := exec.CommandContext(ctx, "iptables-save", "-t", table).Output()
+	out, err := exec.CommandContext(ctx, bin+"-save", "-t", table).Output()
 	if err != nil {
 		return err
 	}
@@ -162,7 +187,7 @@ func clearIptablesTableChain(comment, table, chain string) error {
 		}
 		args := append([]string{"-t", table, "-D", chain}, strings.Fields(strings.TrimPrefix(line, prefix))...)
 		c2, cancel2 := context.WithTimeout(context.Background(), 5*time.Second)
-		_ = exec.CommandContext(c2, "iptables", args...).Run()
+		_ = exec.CommandContext(c2, bin, args...).Run()
 		cancel2()
 	}
 	return nil
