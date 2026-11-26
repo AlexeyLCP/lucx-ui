@@ -119,10 +119,6 @@ func (s *ServerService) RestartAwg() error {
 var (
 	awgRebuildMu      sync.Mutex
 	awgRebuildRunning bool
-	// awgRebuildFirstError keeps the first error line of the last failed
-	// module install so a button click that ends in log-only failure still
-	// reaches the operator (Telegram report: the install button was silent).
-	awgRebuildFirstError string
 )
 
 // awgRebuildTailBytes is how much of a failed rebuild's output is kept for the
@@ -224,9 +220,6 @@ func (s *ServerService) RebuildAwgModule() error {
 		if err := cmd.Run(); err != nil {
 			first := firstNonEmptyLogLine(tail.String())
 			logger.Warningf("awg: module rebuild failed: %v\n%s", err, tail.String())
-			awgRebuildMu.Lock()
-			awgRebuildFirstError = first
-			awgRebuildMu.Unlock()
 			websocket.BroadcastNotification(
 				"AWG module install failed",
 				"AWG module install failed: "+first,
@@ -234,9 +227,6 @@ func (s *ServerService) RebuildAwgModule() error {
 			)
 			return
 		}
-		awgRebuildMu.Lock()
-		awgRebuildFirstError = ""
-		awgRebuildMu.Unlock()
 		logger.Info("awg: module rebuild finished OK")
 		awg.SetRebuildPause(false)
 		time.Sleep(2 * time.Second)
