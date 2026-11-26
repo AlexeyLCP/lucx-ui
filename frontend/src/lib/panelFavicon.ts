@@ -35,17 +35,22 @@ export function panelFaviconHref(raw: string): string {
 
 export function applyPanelFavicon(raw: string): void {
   const href = panelFaviconHref(raw);
-  let link = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
+  // The default <link> from index.html must survive operator-side clearing,
+  // so a custom favicon lives in its own marked link.
+  const managed = document.querySelector<HTMLLinkElement>('link[rel="icon"][data-panel-favicon]');
   if (!href) {
-    link?.remove();
+    managed?.remove();
     return;
   }
-  if (!link) {
-    link = document.createElement('link');
-    link.rel = 'icon';
-    document.head.appendChild(link);
+  if (managed) {
+    managed.href = href;
+    return;
   }
-  link.href = href;
+  const created = document.createElement('link');
+  created.rel = 'icon';
+  created.dataset.panelFavicon = '1';
+  created.href = href;
+  document.head.appendChild(created);
 }
 
 function escapeXml(value: string): string {

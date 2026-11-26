@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LucX-UI">
+  <defs>
+    <linearGradient id="fx" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#818cf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="#0e1621"/>
+  <line x1="112" y1="420" x2="400" y2="96" stroke="url(#fx)" stroke-width="14" opacity="0.5" stroke-linecap="round"/>
+  <g fill="#e6f4ff" font-family="Segoe UI, Inter, Arial, sans-serif" font-weight="700" font-size="230">
+    <text x="96" y="330">lu</text>
+  </g>
+  <g stroke="url(#fx)" stroke-linecap="round" stroke-width="38">
+    <line x1="312" y1="118" x2="404" y2="318"/>
+    <line x1="404" y1="118" x2="312" y2="318"/>
+  </g>
+  <g fill="#e6f4ff" opacity="0.85" font-family="Segoe UI, Inter, Arial, sans-serif" font-weight="600" font-size="66" letter-spacing="6">
+    <text x="98" y="414">UI</text>
+  </g>
+</svg>
