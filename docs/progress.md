@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.377 — H6 LucX branding: default favicon + PWA manifest, B4 pin
+
+- **Default favicon/PWA rebrand (H6, variant-2 chosen)** — `icons/lucx.svg`
+  (the wordmark's laser-X emblem, square, no rasterization pipeline needed),
+  static `<link rel="icon">` in index/login/subpage heads, manifest renamed to
+  `LucX-UI` with the single SVG icon entry (`sizes any`), the six 3x-ui PNGs
+  removed. `applyPanelFavicon` semantics fixed accordingly: a custom operator
+  favicon lives in its own `data-panel-favicon` link and clearing it now
+  keeps the LucX default instead of removing every icon link (previously an
+  empty settings value stripped the favicon entirely). Tests:
+  `panel-favicon.test.ts` (jsdom) covers keep-default / custom-in-own-link /
+  in-place edits. `docs/pwa-installability-verification.md` updated to the
+  new icon list. Not done: raster PNG fallback for old Safari/iOS
+  apple-touch-icon (no SVG rasterizer in the tree; a follow-up if a PWA-on-iOS
+  complaint arrives).
+
 ## lucx.376 — issue #215 host auto-tuning + SaluteJazz tips in every locale
 
 - **B4 HWID limit propagation (`model.go`, upstream bug carried over)** —
