@@ -37,6 +37,7 @@ Edit the `export XUI_*` lines inside the `write_files` block of
 | `XUI_DOMAIN` | — | Required when `XUI_SSL_MODE=domain` |
 | `XUI_ACME_EMAIL` | — | Let's Encrypt account email (domain mode) |
 | `XUI_DB_TYPE` / `XUI_DB_DSN` | `sqlite` | Set `postgres` + DSN to use PostgreSQL |
+| `LUCX_BIND_IP` | — | Multi-IP VPS: force the public IPv4 the install flows through (cert confirm, `SSL_HOST`, access URL) |
 
 > **TLS note:** `none` serves the panel over plain HTTP on a random high port —
 > fine behind a reverse proxy or an SSH tunnel, but put TLS in front of it before

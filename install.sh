@@ -17,6 +17,7 @@ LUCX_SOURCE="${LUCX_SOURCE:-github}"
 LUCX_SC_ORG="${LUCX_SC_ORG:-alexeylcp}"
 LUCX_SC_REPO="${LUCX_SC_REPO:-lucx-ui}"
 LUCX_SC_TOKEN="${LUCX_SC_TOKEN:-}"
+LUCX_BIND_IP="${LUCX_BIND_IP:-}"
 LUCX_INSTALL_SOURCE_FILE="/etc/x-ui/install-source"
 LUCX_VERSION_ARG=""
 
@@ -315,13 +316,23 @@ lucx_parse_args() {
                 LUCX_SC_TOKEN="${1#--token=}"
                 shift
                 ;;
+            --ip)
+                LUCX_BIND_IP="$2"
+                shift 2
+                ;;
+            --ip=*)
+                LUCX_BIND_IP="${1#--ip=}"
+                shift
+                ;;
             -h | --help)
-                echo "Usage: install.sh [--yandex|--github] [--token PAT] [version]"
+                echo "Usage: install.sh [--yandex|--github] [--token PAT] [--ip ADDR] [version]"
                 echo "  --yandex   install from SourceCraft (Yandex)"
                 echo "  --github   install from GitHub (default)"
                 echo "  --token    SourceCraft PAT (private repo / API)"
+                echo "  --ip       public IPv4 the panel should use (multi-IP VPS: pick"
+                echo "             the IP your domain/cert points at, not the default one)"
                 echo "  version    tag, e.g. v3.7.0-lucx.172 or dev-latest"
-                echo "Env: LUCX_SOURCE LUCX_SC_TOKEN LUCX_SC_ORG LUCX_SC_REPO"
+                echo "Env: LUCX_SOURCE LUCX_SC_TOKEN LUCX_SC_ORG LUCX_SC_REPO LUCX_BIND_IP"
                 exit 0
                 ;;
             -*)
@@ -391,6 +402,13 @@ is_ipv6() {
 is_ip() {
     is_ipv4 "$1" || is_ipv6 "$1"
 }
+# LUCX-HOOK: --ip / LUCX_BIND_IP picks the public IP the whole install flows
+# through (cert confirm, SSL_HOST, access URL) on multi-IP VPSes; fail fast on
+# garbage right after the helpers exist.
+if [[ -n "$LUCX_BIND_IP" ]] && ! is_ipv4 "$LUCX_BIND_IP"; then
+    echo "Invalid --ip / LUCX_BIND_IP value: $LUCX_BIND_IP" >&2
+    exit 1
+fi
 is_domain() {
     [[ "$1" =~ ^([A-Za-z0-9](-*[A-Za-z0-9])*\.)+(xn--[a-z0-9]{2,}|[A-Za-z]{2,})$ ]] && return 0 || return 1
 }
@@ -1290,7 +1308,9 @@ prompt_and_setup_ssl() {
 
             # Confirm the auto-detected IP before issuing for it: with asymmetric
             # routing / multi-WAN the echo services can return a transit address.
-            if [[ "$NONINTERACTIVE" != "1" ]]; then
+            if [[ -n "$LUCX_BIND_IP" ]]; then
+                echo -e "${green}Using requested IP ${server_ip} from --ip / LUCX_BIND_IP — confirmation skipped.${plain}"
+            elif [[ "$NONINTERACTIVE" != "1" ]]; then
                 local ip_confirm=""
                 read -rp "Is ${server_ip} the correct incoming public IPv4 address for this server? [Default y]: " ip_confirm
                 if [[ -n "$ip_confirm" && "$ip_confirm" != "y" && "$ip_confirm" != "Y" ]]; then
@@ -1450,15 +1470,22 @@ config_after_install() {
         "https://check-host.net/ip"
     )
     local server_ip=""
-    for ip_address in "${URL_lists[@]}"; do
-        local response=$(curl -s -w "\n%{http_code}" --max-time 3 "${ip_address}" 2> /dev/null)
-        local http_code=$(echo "$response" | tail -n1)
-        local ip_result=$(echo "$response" | head -n-1 | tr -d '[:space:]"')
-        if [[ "${http_code}" == "200" && "${ip_result}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            server_ip="${ip_result}"
-            break
-        fi
-    done
+    if [[ -n "$LUCX_BIND_IP" ]]; then
+        # Caller picked the IP (--ip / LUCX_BIND_IP): multi-IP VPS where the
+        # default-route egress IP is not the one the domain or cert points at.
+        server_ip="${LUCX_BIND_IP}"
+        echo -e "${green}Using requested IP ${server_ip} (--ip / LUCX_BIND_IP).${plain}"
+    else
+        for ip_address in "${URL_lists[@]}"; do
+            local response=$(curl -s -w "\n%{http_code}" --max-time 3 "${ip_address}" 2> /dev/null)
+            local http_code=$(echo "$response" | tail -n1)
+            local ip_result=$(echo "$response" | head -n-1 | tr -d '[:space:]"')
+            if [[ "${http_code}" == "200" && "${ip_result}" =~ ^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                server_ip="${ip_result}"
+                break
+            fi
+        done
+    fi
 
     if [[ -z "$server_ip" ]]; then
         if [[ "$NONINTERACTIVE" == "1" ]]; then
