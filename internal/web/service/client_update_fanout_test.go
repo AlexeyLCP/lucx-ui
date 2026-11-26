@@ -181,3 +181,38 @@ func TestDetachAcrossNodesPushesConcurrently(t *testing.T) {
 			got, inboundFanoutConcurrency, bar.expired.Load())
 	}
 }
+
+// B4: the HWID limit the operator set on the master must ride to the node the
+// same as the limitIp does — the node enforces from its OWN clients row, and
+// the field used to be dropped because the wire struct lacked it entirely.
+// The barrier is idle here; a single-node fake captures what got pushed.
+func TestUpdateCarriesLimitHwidToNodeClient(t *testing.T) {
+	setupBulkDB(t)
+	startSerializedWriter(t)
+	mgr := useTestRuntimeManager(t)
+	fake := &fakeNodeRuntime{}
+	ids := fanoutNodeInbounds(t, mgr, fake, 1, 45307)
+
+	const uuid = "cccccccc-1111-2222-3333-444444444444"
+	if _, err := (&ClientService{}).Create(&InboundService{}, &ClientCreatePayload{
+		Client:     model.Client{Email: "hwidfan@x", ID: uuid, SubID: "sub-hwidfan@x", Enable: true},
+		InboundIds: ids,
+	}); err != nil {
+		t.Fatalf("Create on node inbound: %v", err)
+	}
+	recID := lookupClientRecord(t, "hwidfan@x").Id
+
+	if _, err := (&ClientService{}).Update(&InboundService{}, recID, model.Client{
+		Email: "hwidfan@x", ID: uuid, SubID: "sub-hwidfan@x", Enable: true, LimitHwid: 2,
+	}, 0); err != nil {
+		t.Fatalf("Update: %v", err)
+	}
+
+	got := fake.lastClient.Load()
+	if got == nil {
+		t.Fatal("node never received the updated client")
+	}
+	if got.LimitHwid != 2 {
+		t.Fatalf("node client LimitHwid = %d, want 2 (limit lost on the wire)", got.LimitHwid)
+	}
+}

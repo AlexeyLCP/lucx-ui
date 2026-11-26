@@ -26,6 +26,9 @@ type fakeNodeRuntime struct {
 	updateInbound atomic.Int32
 	updateSubSort atomic.Int32
 	updateUser    atomic.Int32
+	// lastClient captures the client the node received on UpdateUser/AddClient
+	// so tests can pin what actually rides the wire (e.g. limitHwid, B4).
+	lastClient atomic.Pointer[model.Client]
 }
 
 func (f *fakeNodeRuntime) Name() string { return "fake-node" }
@@ -54,8 +57,10 @@ func (f *fakeNodeRuntime) AddUser(context.Context, *model.Inbound, map[string]an
 
 func (f *fakeNodeRuntime) RemoveUser(context.Context, *model.Inbound, string) error { return nil }
 
-func (f *fakeNodeRuntime) UpdateUser(context.Context, *model.Inbound, string, model.Client) error {
+func (f *fakeNodeRuntime) UpdateUser(_ context.Context, _ *model.Inbound, _ string, c model.Client) error {
 	f.updateUser.Add(1)
+	cc := c
+	f.lastClient.Store(&cc)
 	return nil
 }
 
