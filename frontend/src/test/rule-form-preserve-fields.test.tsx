@@ -133,6 +133,45 @@ describe('RuleFormModal edit preserves unsurfaced fields', () => {
   });
   // END LUCX-HOOK
 
+  it('erases the user chip and saves inbound-only (routing user re-add report)', async () => {
+    vi.spyOn(HttpUtil, 'get').mockResolvedValue(
+      new Msg(true, '', [{ id: 1, email: 'removed@example.com' }]),
+    );
+    const onConfirm = vi.fn();
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+
+    renderWithProviders(
+      <RuleFormModal
+        open
+        rule={{
+          type: 'field',
+          user: ['removed@example.com'],
+          inboundTag: ['in-1'],
+          outboundTag: 'direct',
+        }}
+        inboundTags={['in-1']}
+        outboundTags={['direct']}
+        balancerTags={[]}
+        onClose={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+      { queryClient },
+    );
+
+    await waitFor(() => expect(screen.getByText('user:removed@example.com')).toBeTruthy());
+    await waitFor(() =>
+      expect(queryClient.getQueryData(['routing', 'clientPickList'])).toHaveLength(1),
+    );
+    // Deselect the user token (choosing a picked option removes it in tags mode).
+    chooseSelectOption('clientPick', 'removed@example.com · xray');
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.not.objectContaining({ user: expect.anything() }),
+    );
+    expect(onConfirm).toHaveBeenCalledWith(expect.objectContaining({ inboundTag: ['in-1'] }));
+  });
+
   it('preserves a saved user that is no longer in the client list', async () => {
     vi.spyOn(HttpUtil, 'get').mockResolvedValue(
       new Msg(true, '', [{ id: 1, email: 'alice@example.com' }]),
