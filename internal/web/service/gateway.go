@@ -730,6 +730,11 @@ func hideNaiveOnSite(byID map[int]*model.Inbound, rows []tunnel.PreviewRow, sele
 	if host == "" {
 		return common.NewError("gateway: pick Cover or WEB proxy to hide Naive behind 443")
 	}
+	if cover {
+		if err := guardOneNaivePerCover(byID, host, ids); err != nil {
+			return err
+		}
+	}
 	db := database.GetDB()
 	for _, id := range ids {
 		ib := byID[id]
@@ -742,6 +747,50 @@ func hideNaiveOnSite(byID map[int]*model.Inbound, rows []tunnel.PreviewRow, sele
 		}
 	}
 	return nil
+}
+
+// guardOneNaivePerCover refuses a Cover that ends up fronting two or more
+// Naive inbounds: the cover forward_proxy carries one basic_auth set and one
+// upstream relay, so every naive past the first silently loses its users and
+// egress (issue #217).
+func guardOneNaivePerCover(byID map[int]*model.Inbound, host string, ids []int) error {
+	order := []int{}
+	names := map[int]string{}
+	seen := map[int]bool{}
+	add := func(ib *model.Inbound) {
+		if ib == nil || ib.Protocol != model.Naive || seen[ib.Id] {
+			return
+		}
+		ncfg, ok := tunnel.ConfigFromInbound(ib)
+		if !ok {
+			return
+		}
+		seen[ib.Id] = true
+		names[ib.Id] = fmt.Sprintf("%s (#%d)", ncfg.Remark, ib.Id)
+		order = append(order, ib.Id)
+	}
+	for _, ib := range byID {
+		ncfg, ok := tunnel.ConfigFromInbound(ib)
+		if !ok || !ncfg.BehindCover || ncfg.UseRawConfig {
+			continue
+		}
+		d := strings.ToLower(strings.TrimSpace(ncfg.Domain))
+		h := strings.ToLower(strings.TrimSpace(host))
+		if d == "" || d == h {
+			add(ib)
+		}
+	}
+	for _, id := range ids {
+		add(byID[id])
+	}
+	if len(order) < 2 {
+		return nil
+	}
+	parts := make([]string, 0, len(order))
+	for _, id := range order {
+		parts = append(parts, names[id])
+	}
+	return common.NewErrorf("gateway: one Cover can front only one Naive — %s; give each routed Naive its own Cover (or IP), or switch Route through Xray off", strings.Join(parts, ", "))
 }
 
 func selectedSiteHost(rows []tunnel.PreviewRow, selected map[int]bool) (host string, cover bool) {

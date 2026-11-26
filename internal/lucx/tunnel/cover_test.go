@@ -199,6 +199,49 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 	}
 }
 
+func TestCoverInstanceKeepsFirstNaiveBehindCover(t *testing.T) {
+	prev := tunnelDir
+	dir := t.TempDir()
+	tunnelDir = func() string { return dir }
+	t.Cleanup(func() { tunnelDir = prev })
+
+	site := CoverSiteDir(11)
+	if err := os.MkdirAll(site, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html/>"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "site.example.com")
+
+	cover := &model.Inbound{
+		Id: 11, Protocol: model.Cover, Enable: true, Port: 443,
+		Settings: `{"hostname":"site.example.com","siteSource":"zip"}`,
+	}
+	first := &model.Inbound{
+		Id: 12, Protocol: model.Naive, Enable: true, Port: 443,
+		Settings: `{"remark":"NaiveFI","domain":"site.example.com","behindCover":true,"routeThroughXray":true,"routeXrayPort":34401,"clients":[{"email":"first@x","enable":true}]}`,
+	}
+	second := &model.Inbound{
+		Id: 13, Protocol: model.Naive, Enable: true, Port: 443,
+		Settings: `{"remark":"NaiveNLv","domain":"site.example.com","behindCover":true,"routeThroughXray":true,"routeXrayPort":34402,"clients":[{"email":"second@x","enable":true}]}`,
+	}
+
+	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{first, second}, nil, cert, key)
+	if !ok || !cInst.Enabled {
+		t.Fatalf("cover instance: enabled=%v ok=%v", cInst.Enabled, ok)
+	}
+	if strings.Count(cInst.ConfigText, "upstream socks5") != 1 {
+		t.Fatalf("forward_proxy must carry exactly one upstream relay:\n%s", cInst.ConfigText)
+	}
+	if !strings.Contains(cInst.ConfigText, "34401") {
+		t.Fatalf("the first naive's relay must render:\n%s", cInst.ConfigText)
+	}
+	if strings.Contains(cInst.ConfigText, "34402") || strings.Contains(cInst.ConfigText, "second@x") {
+		t.Fatalf("the second naive must not contribute users or relay (issue #217):\n%s", cInst.ConfigText)
+	}
+}
+
 func TestCoverTproxyWinsWhenStackReady(t *testing.T) {
 	prev := tunnelDir
 	dir := t.TempDir()

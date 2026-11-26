@@ -202,11 +202,23 @@ func coverAttachFor(ib *model.Inbound, cfg CoverConfig, others []*model.Inbound,
 				continue
 			}
 			ncfg, ok := ConfigFromInbound(o)
-			if !ok || !naiveMatchesCover(ncfg, cfg.Hostname) {
+			if !ok {
+				continue
+			}
+			if !naiveMatchesCover(ncfg, cfg.Hostname) {
+				// Silent before (#217): the naive's SNI gets no certificate
+				// on 443 and its users see PR_END_OF_FILE_ERROR.
+				logger.Warningf("tunnel: cover-%d: naive-%d (%s) is never served: domain %q does not match cover hostname %q", ib.Id, o.Id, ncfg.Remark, ncfg.Domain, cfg.Hostname)
 				continue
 			}
 			if ncfg.UseRawConfig {
 				logger.Warningf("tunnel: cover-%d skip naive-%d: raw Caddyfile", ib.Id, o.Id)
+				continue
+			}
+			if att.naive != nil {
+				// forward_proxy carries one upstream relay, so only the first
+				// naive's users and egress survive a second one (issue #217).
+				logger.Warningf("tunnel: cover-%d: naive-%d (%s) ignored — cover already fronts naive %q", ib.Id, o.Id, ncfg.Remark, att.naive.Remark)
 				continue
 			}
 			att.naive = &ncfg
