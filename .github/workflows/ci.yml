@@ -21,6 +21,7 @@ on:
       - ".nvmrc"
       - "Makefile"
       - ".github/workflows/**"
+  workflow_dispatch:
 
 permissions:
   contents: read
