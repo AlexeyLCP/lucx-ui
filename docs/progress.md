@@ -1,5 +1,58 @@
 # LucX-UI — Прогресс
 
+## lucx.374 — installer/AWG ops batch: B3 Secure Boot, H1 --ip, H2 sourceIP, H4 outbound stats
+
+Four wanted-fixture fixes from the chat triage, one per commit:
+
+1. **B3 Secure Boot (`bin/install-awg-module.sh`, `awg_host.go`)** — the
+   module install script printed a yellow box and **exited 0** when Secure
+   Boot rejected the unsigned module (modprobe stderr discarded,
+   `.awg-reboot-needed` + loaded-marker written anyway). Now: `awg_sb_enabled`
+   probe (mokutil → efivars fallback), the failure box with the actual reason
+   (`awg_sb_error`), `exit 1` before the reboot-flag/marker writes on both the
+   step-5 modprobe and the step-8 lsmod gate, misleading "нужен ребут"
+   messages corrected to distinguish SB vs kernel-version mismatch. Service
+   side: `RebuildAwgModule` goroutine no longer swallows script failure —
+   first meaningful script line (ANSI-stripped) lands in a websocket error
+   notification and a package-level last-failure holder. Tests:
+   `TestFirstNonEmptyLogLineSkipsAnsiAndBlank`,
+   `TestInstallAwgModuleScriptHasSecureBootGate` (static gate pin).
+2. **H1 `--ip` (`install.sh`, deploy docs)** — `install.sh --ip ADDR` /
+   `LUCX_BIND_IP`: the discovery block skips the echo-service probes and uses
+   the requested IP everywhere downstream (IP-cert confirm is auto-answered,
+   SSL_HOST and the access URL inherit it). Parse-time fail-fast on a bad
+   value; the echo-probe path is untouched for everyone else. Documents:
+   deploy/README.md + cloud-init README knob tables. #215 (host auto-tuning)
+   stays its own feature — named hook-in slot recorded in the exploration.
+3. **H2 AWG outbound sourceIP (`internal/awg`, web service, FE form)** —
+   new `ClientSettings.SourceIP` (empty ⇒ byte-identical .conf, Rule 0):
+   renderer emits `PostUp = ip [-4|-6] route replace <endpoint-IP>/<32|128> dev %i src <src>`
+   only when BOTH operands parse as netip addresses on a literal-IP endpoint —
+   no shell-metacharacter path exists (paste payloads included). Save-side
+   `checkOutboundSourceIP` (Add + Update): valid IP, family must match the
+   endpoint's, hostname endpoints rejected with a clear message (a DNS
+   endpoint would pin the up-time resolution and go stale). Conf is the
+   fingerprint, so setting the field restarts the sidecar; pasting a LucX
+   conf carries the JSON field through. Tests: renderer (v4/v6/empty/hostile/
+   hostname), fingerprint unchanged-by-default stays covered,
+   `TestCheckOutboundSourceIP`. FE: schema field, form input + tooltip, 2 new
+   keys in all 14 locales (en text everywhere, ru translated).
+4. **H4 AWG outbound stats (`AwgOutboundsTab.tsx`, controller test)** — the
+   durable traffic for `awgo-*` rows already lived in `outbound_traffics`
+   (Xray counts the injected freedom outbound; websocket `outbounds` event
+   feeds it every 5 s) — the tab now has a Traffic column joining it by tag
+   (`↑/↓` via SizeFormatter, header reuses `pages.inbounds.traffic`), and the
+   outbound-test latency became a persistent `N ms` next to the status badge
+   instead of a transient toast. Kernel counters deliberately not accumulated
+   (they reset on every conf fingerprint restart). Added
+   `TestParsePingLatency` (v4/v6/no-summary) for the until-now untested
+   parser.
+
+Note: en-US.json and most locale files were briefly corrupted by a broken
+PowerShell array-splice while adding the H2 keys — caught by the commit diff
+(41 k deletions), restored from git, re-applied line-wise and validated by the
+i18n dead-keys test before committing.
+
 ## lucx.373 — olcRTC core v0.15.1 + salutejazz provider
 
 - **Vendored core bump** (`bin/pack-sidecars.sh`, `bin/sourcecraft-release.sh`,
