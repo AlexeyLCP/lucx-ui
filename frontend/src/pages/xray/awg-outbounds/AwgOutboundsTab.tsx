@@ -4,16 +4,18 @@
 // Commercial use (including VPN resale) requires explicit written permission from the author.
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Button, Popconfirm, Space, Table, Typography, message } from 'antd';
 import type { ColumnsType } from 'antd/es/table';
 import { PlusOutlined, ThunderboltOutlined } from '@ant-design/icons';
 
 import { keys } from '@/api/queryKeys';
 import { awgOutboundsApi } from '@/api/awg-outbounds';
+import { fetchOutboundsTraffic } from '@/hooks/useXraySetting';
 import type { AwgOutbound, AwgOutboundRow } from '@/schemas/awg-outbound';
+import { SizeFormatter } from '@/utils';
 import { AwgOutboundStatusBadge, parseAwgOutboundStatus } from './AwgOutboundStatusBadge';
 import { AwgOutboundFormModal } from './AwgOutboundFormModal';
 
@@ -25,6 +27,21 @@ export function AwgOutboundsTab() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editing, setEditing] = useState<AwgOutbound | null>(null);
   const [messageApi, messageContextHolder] = message.useMessage();
+  // Last outbound-test result per row: the toast is transient, the operator
+  // asked for a persistent latency reading (Telegram, Slava 24.11).
+  const [lastTest, setLastTest] = useState<Record<number, { ms: number }>>({});
+
+  const trafficQuery = useQuery({
+    queryKey: keys.xray.outboundsTraffic(),
+    queryFn: fetchOutboundsTraffic,
+    staleTime: Infinity,
+    refetchInterval: 5000,
+  });
+  const trafficByTag = useMemo(() => {
+    const m = new Map<string, { up: number; down: number }>();
+    for (const r of trafficQuery.data ?? []) m.set(r.tag, r);
+    return m;
+  }, [trafficQuery.data]);
 
   async function reload() {
     setLoading(true);
@@ -49,7 +66,8 @@ export function AwgOutboundsTab() {
     try {
       const res = await awgOutboundsApi.test(row.id);
       if (res.success && res.obj?.ok) {
-        messageApi.success(`${t('pages.xray.awgOutbound.testOk')} (${res.obj.latency_ms} ms)`);
+        setLastTest((m) => ({ ...m, [row.id]: { ms: res.obj?.latency_ms ?? 0 } }));
+        messageApi.success(`${t('pages.xray.awgOutbound.testOk')} (${res.obj?.latency_ms} ms)`);
       } else {
         messageApi.error(res.obj?.raw || res.msg || t('pages.xray.awgOutbound.test'));
       }
@@ -89,7 +107,30 @@ export function AwgOutboundsTab() {
       title: t('pages.xray.awgOutbound.status'),
       dataIndex: 'status',
       key: 'status',
-      render: (s: string) => <AwgOutboundStatusBadge status={parseAwgOutboundStatus(s)} />,
+      render: (s: string, row: AwgOutboundRow) => (
+        <Space size={4}>
+          <AwgOutboundStatusBadge status={parseAwgOutboundStatus(s)} />
+          {lastTest[row.id] != null && (
+            <Typography.Text type="secondary">{lastTest[row.id].ms} ms</Typography.Text>
+          )}
+        </Space>
+      ),
+    },
+    {
+      title: t('pages.inbounds.traffic'),
+      key: 'traffic',
+      // Durable counters come from the Xray stats pipe through the freedom
+      // outbound this row dials with (sockopt.interface=awgo-N); the kernel
+      // counters reset on every conf restart.
+      render: (_: unknown, row: AwgOutboundRow) => {
+        const tr = trafficByTag.get(row.tag);
+        if (!tr) return <Typography.Text type="secondary">—</Typography.Text>;
+        return (
+          <Typography.Text>
+            ↑{SizeFormatter.sizeFormat(tr.up)} ↓{SizeFormatter.sizeFormat(tr.down)}
+          </Typography.Text>
+        );
+      },
     },
     {
       title: t('pages.xray.awgOutbound.actions'),

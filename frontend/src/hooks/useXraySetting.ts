@@ -129,7 +129,9 @@ export async function fetchXrayConfig(): Promise<XrayConfigPayload> {
   return result.data;
 }
 
-async function fetchOutboundsTraffic(): Promise<OutboundTrafficRow[]> {
+// Exported for tabs that consume the websocket-fed traffic cache directly
+// (e.g. the AWG outbounds Traffic column).
+export async function fetchOutboundsTraffic(): Promise<OutboundTrafficRow[]> {
   const msg = await HttpUtil.get('/panel/api/xray/getOutboundsTraffic', undefined, {
     silent: true,
   });
