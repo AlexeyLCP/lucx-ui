@@ -251,6 +251,9 @@ func mtproxyTproxyUdpMarkArgs(uid, notDst string) []string {
 // mtproxyTproxyPreroutingArgs TPROXYes the marked return path (locally marked
 // packets re-enter PREROUTING off lo) into the hidden udp dokodeme; on-IP
 // selects the family: 127.0.0.1 for iptables, ::1 for ip6tables.
+// ponytail: one shared on-port (last Ensure wins) — two routed inbounds with
+// different routeXrayPorts flap the udp target like the socks bridge; split
+// per-owner listeners if that combination shows up in the field.
 func mtproxyTproxyPreroutingArgs(onIp string, port int) []string {
 	return []string{
 		"-t", "mangle", "-I", "PREROUTING",
