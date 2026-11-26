@@ -130,6 +130,12 @@ func TestRenderTrustTunnelClientTOML(t *testing.T) {
 	if !strings.Contains(got, "killswitch_enabled = false") {
 		t.Fatal("killswitch must be off for SOCKS mode")
 	}
+	if !strings.Contains(got, `vpn_mode = "general"`) {
+		t.Fatalf("vpn_mode must be general so all SOCKS traffic tunnels: %s", got)
+	}
+	if strings.Contains(got, `vpn_mode = "selective"`) || strings.Contains(got, "selective") {
+		t.Fatalf("selective with empty exclusions routes nothing (issue #219): %s", got)
+	}
 }
 
 func TestClientBinaryNamesDoNotCollide(t *testing.T) {

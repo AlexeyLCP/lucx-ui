@@ -367,7 +367,9 @@ func renderTrustTunnelClientTOML(s SidecarSettings) (string, error) {
 	}
 	var b strings.Builder
 	b.WriteString("loglevel = \"info\"\n")
-	b.WriteString("vpn_mode = \"selective\"\n")
+	// "general" = route all SOCKS traffic through the endpoint; "selective"
+	// with empty exclusions routes nothing (issue #219: silent direct egress).
+	b.WriteString("vpn_mode = \"general\"\n")
 	b.WriteString("killswitch_enabled = false\n")
 	b.WriteString("post_quantum_group_enabled = true\n")
 	b.WriteString("exclusions = []\n\n")
