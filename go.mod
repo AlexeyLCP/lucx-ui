@@ -3,9 +3,9 @@ module github.com/mhsanaei/3x-ui/v3
 go 1.27.4
 
 require (
-	github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20260828
+	github.com/amnezia-vpn/amneziawg-go/v3 v3.1.20261116
 	github.com/apernet/quic-go v0.61.1-0.20260806010916-184d081eef3e
-	github.com/gin-contrib/gzip v1.2.9
+	github.com/gin-contrib/gzip v1.2.10
 	github.com/gin-contrib/sessions v1.1.3
 	github.com/gin-gonic/gin v1.12.0
 	github.com/go-ldap/ldap/v3 v3.4.15
@@ -17,24 +17,24 @@ require (
 	github.com/jackc/pgx/v5 v5.11.0
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.20.3
-	github.com/mattn/go-sqlite3 v1.14.52
-	github.com/mymmrac/telego v1.12.1
+	github.com/mattn/go-sqlite3 v1.14.53
+	github.com/mymmrac/telego v1.13.0
 	github.com/nicksnyder/go-i18n/v2 v2.6.1
 	github.com/op/go-logging v0.0.0-20160315200505-970db520ece7
-	github.com/oschwald/maxminddb-golang/v2 v2.1.1
+	github.com/oschwald/maxminddb-golang/v2 v2.9.1
 	github.com/quic-go/quic-go v0.64.1
 	github.com/refraction-networking/utls v1.8.3-0.20260301010127-aa6edf4b11af
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/shirou/gopsutil/v4 v4.26.10
 	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
-	github.com/valyala/fasthttp v1.76.0
+	github.com/valyala/fasthttp v1.78.0
 	github.com/xlzd/gotp v0.1.0
 	github.com/xtls/xray-core v1.260327.1-0.20261021115930-1b1647cd9ddf
 	go.uber.org/atomic v1.12.0
 	golang.org/x/crypto v0.58.0
-	golang.org/x/net v0.61.0
+	golang.org/x/net v0.62.0
 	golang.org/x/sync v0.24.0
-	golang.org/x/sys v0.49.0
+	golang.org/x/sys v0.50.0
 	golang.org/x/text v0.43.0
 	google.golang.org/grpc v1.86.0-dev
 	google.golang.org/protobuf v1.36.12
@@ -50,7 +50,7 @@ require (
 	github.com/Azure/go-ntlmssp v0.1.1 // indirect
 	github.com/andybalholm/brotli v1.2.7 // indirect
 	github.com/bytedance/gopkg v0.1.4 // indirect
-	github.com/bytedance/sonic v1.15.4 // indirect
+	github.com/bytedance/sonic v1.15.5 // indirect
 	github.com/bytedance/sonic/loader v0.5.3 // indirect
 	github.com/cloudwego/base64x v0.1.7 // indirect
 	github.com/ebitengine/purego v0.11.2 // indirect
@@ -84,7 +84,7 @@ require (
 	github.com/miekg/dns v1.1.73 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
-	github.com/molecule-man/go-brrr v1.3.0 // indirect
+	github.com/molecule-man/go-brrr v1.3.1 // indirect
 	github.com/pelletier/go-toml/v2 v2.4.3 // indirect
 	github.com/pion/dtls/v3 v3.1.15 // indirect
 	github.com/pion/logging v0.2.4 // indirect
