@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
@@ -23,6 +24,7 @@ import (
 	"github.com/mhsanaei/3x-ui/v3/internal/config"
 	"github.com/mhsanaei/3x-ui/v3/internal/database/model"
 	"github.com/mhsanaei/3x-ui/v3/internal/logger"
+	"github.com/mhsanaei/3x-ui/v3/internal/web/websocket"
 )
 
 func fillAwgHostStatus(status *Status) {
@@ -117,11 +119,18 @@ func (s *ServerService) RestartAwg() error {
 var (
 	awgRebuildMu      sync.Mutex
 	awgRebuildRunning bool
+	// awgRebuildFirstError keeps the first error line of the last failed
+	// module install so a button click that ends in log-only failure still
+	// reaches the operator (Telegram report: the install button was silent).
+	awgRebuildFirstError string
 )
 
 // awgRebuildTailBytes is how much of a failed rebuild's output is kept for the
 // error log. The interesting part of a DKMS failure is always the end.
 const awgRebuildTailBytes = 64 << 10
+
+// ansiRe strips the script's color escapes so the toast stays readable.
+var ansiRe = regexp.MustCompile("\x1b\\[[0-9;]*m")
 
 // boundedTail is an io.Writer that streams whole lines to the panel log and
 // retains only the last limit bytes, so a long-running build cannot pin an
@@ -213,9 +222,21 @@ func (s *ServerService) RebuildAwgModule() error {
 		cmd.Stdout = tail
 		cmd.Stderr = tail
 		if err := cmd.Run(); err != nil {
+			first := firstNonEmptyLogLine(tail.String())
 			logger.Warningf("awg: module rebuild failed: %v\n%s", err, tail.String())
+			awgRebuildMu.Lock()
+			awgRebuildFirstError = first
+			awgRebuildMu.Unlock()
+			websocket.BroadcastNotification(
+				"AWG module install failed",
+				"AWG module install failed: "+first,
+				"error",
+			)
 			return
 		}
+		awgRebuildMu.Lock()
+		awgRebuildFirstError = ""
+		awgRebuildMu.Unlock()
 		logger.Info("awg: module rebuild finished OK")
 		awg.SetRebuildPause(false)
 		time.Sleep(2 * time.Second)
@@ -301,4 +322,21 @@ func AwgRebuildRunning() bool {
 func awgRebootNeeded() bool {
 	_, err := os.Stat("/etc/x-ui/.awg-reboot-needed")
 	return err == nil
+}
+
+// firstNonEmptyLogLine returns the first meaningful line of a failed module
+// install — the Secure Boot / DKMS verdict the operator needs on the toast.
+func firstNonEmptyLogLine(s string) string {
+	for _, line := range strings.Split(s, "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+		line = ansiRe.ReplaceAllString(line, "")
+		if len(line) > 160 {
+			line = line[:160]
+		}
+		return line
+	}
+	return "script exited non-zero"
 }

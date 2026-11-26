@@ -827,10 +827,40 @@ if ! command -v awg-quick &>/dev/null; then
     echo -e "${RED}Дособрать вручную: apt install build-essential curl && bash /usr/local/x-ui/bin/install-awg-module.sh${NC}"
 fi
 
+# Secure Boot state: mokutil is not an apt dependency of this script, so fall
+# back to the EFI variable (last byte = 1 when enabled). Empty/legacy boot = 0.
+awg_sb_enabled() {
+    if command -v mokutil &>/dev/null; then
+        mokutil --sb-state 2>/dev/null | grep -q "SecureBoot enabled" && return 0
+        return 1
+    fi
+    local sb="/sys/firmware/efi/efivars/SecureBoot-8be4df61-93ca-11d0-9db0-00c04fd41ecb"
+    [[ -f "$sb" ]] && [[ "$(tail -c 1 "$sb" 2>/dev/null | tr -d '\0')" == "1" ]] && return 0
+    return 1
+}
+
+awg_sb_error() {
+    echo -e "${RED}┌──────────────────────────────────────────────────────┐${NC}"
+    echo -e "${RED}│ Модуль amneziawg не загружен: SECURE BOOT включён.   │${NC}"
+    echo -e "${RED}│ Ядро отклонило неподписанный модуль                  │${NC}"
+    echo -e "${RED}│ (Key was rejected by service).                       │${NC}"
+    echo -e "${RED}│ Варианты: отключить Secure Boot в BIOS/UEFI хостера  │${NC}"
+    echo -e "${RED}│ или подписать модуль (sbsign + MOK enrollment).      │${NC}"
+    echo -e "${RED}└──────────────────────────────────────────────────────┘${NC}"
+}
+
+if awg_sb_enabled; then
+    echo -e "${YELLOW}=== Найден активный Secure Boot: неподписанный модуль может не загрузиться ===${NC}"
+fi
+
 # 5. Load module and enable autostart (only if the running kernel has the module)
 modprobe amneziawg 2>/dev/null || {
     if [[ -f "$AWG_REBOOT_FLAG" ]]; then
         echo -e "${YELLOW}Модуль собран для нового ядра — загрузится после reboot (в конце install/update).${NC}"
+    elif awg_sb_enabled; then
+        awg_sb_error
+        echo -e "${RED}ERROR: Secure Boot заблокировал загрузку модуля. AWG-инбаунды не поднимутся.${NC}"
+        exit 1
     else
         echo -e "${YELLOW}Не удалось загрузить модуль. Возможно, нужен ребут.${NC}"
         mkdir -p "$(dirname "$AWG_REBOOT_FLAG")"
