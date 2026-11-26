@@ -130,7 +130,9 @@ func (c OlcrtcConfig) Merge() OlcrtcConfig {
 func olcrtcTransportOK(provider, transport string) bool {
 	switch transport {
 	case "datachannel":
-		return provider == "jitsi"
+		// salutejazz carries data on the room's data channels only — its
+		// compatibility matrix refuses the three video transports.
+		return provider == "jitsi" || provider == "salutejazz"
 	case "vp8channel", "videochannel":
 		return provider == "jitsi" || provider == "telemost" || provider == "wbstream" || provider == "vkcalls" || provider == "mtslink"
 	case "seichannel":
@@ -155,9 +157,9 @@ func (c OlcrtcConfig) Validate() error {
 		return errors.New("olcrtc: room id is required")
 	}
 	switch c.Provider {
-	case "jitsi", "telemost", "wbstream", "vkcalls", "mtslink":
+	case "jitsi", "telemost", "wbstream", "salutejazz", "vkcalls", "mtslink":
 	default:
-		return errors.New("olcrtc: provider must be jitsi | telemost | wbstream | vkcalls | mtslink")
+		return errors.New("olcrtc: provider must be jitsi | telemost | wbstream | salutejazz | vkcalls | mtslink")
 	}
 	switch c.Transport {
 	case "datachannel", "vp8channel", "seichannel", "videochannel":

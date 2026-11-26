@@ -7,7 +7,7 @@ import { OlcrtcInboundSettingsSchema } from '@/schemas/protocols/inbound/olcrtc'
 import { OlcrtcConfigSchema } from '@/schemas/tunnel';
 
 it('accepts both new olcRTC providers in inbound and tunnel settings', () => {
-  for (const provider of ['vkcalls', 'mtslink']) {
+  for (const provider of ['vkcalls', 'mtslink', 'salutejazz']) {
     expect(OlcrtcInboundSettingsSchema.parse({ provider }).provider).toBe(provider);
     expect(OlcrtcConfigSchema.parse({ provider }).provider).toBe(provider);
   }

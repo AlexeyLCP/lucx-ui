@@ -183,7 +183,7 @@ mv "$NAIVE_CLIENT_BIN" "naive-client-linux-${ARCH}"
 chmod +x "naive-client-linux-${ARCH}"
 rm -rf /tmp/naiveclient "${NAIVE_CLIENT_XZ}"
 
-OLCRTC_REF="54bd269bbc8c1c97c966307e0bca733366694a09"
+OLCRTC_REF="42dd44d28883bd42d31dbed9fee5313599a23406"
 git init -q /tmp/olcrtc
 git -C /tmp/olcrtc remote add origin https://github.com/openlibrecommunity/olcrtc.git
 git -C /tmp/olcrtc fetch -q --depth 1 origin "${OLCRTC_REF}"

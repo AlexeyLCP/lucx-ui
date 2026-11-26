@@ -330,7 +330,7 @@ jobs:
           P="${{ matrix.platform }}"
           BIN="x-ui/bin/olcrtc-linux-${P}"
           test -x "$BIN"
-          for provider in jitsi telemost wbstream vkcalls mtslink; do
+          for provider in jitsi telemost wbstream salutejazz vkcalls mtslink; do
             cat > /tmp/olcrtc-smoke.yaml <<EOF
           mode: srv
           auth:

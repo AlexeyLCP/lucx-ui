@@ -85,6 +85,25 @@ describe('genOlcrtcLink', () => {
     expect(link).toBe(`olcrtc://jitsi?datachannel@https://meet.jit.si/r#${'a'.repeat(64)}`);
   });
 
+  it('builds olcrtc:// for salutejazz', () => {
+    const ib = {
+      protocol: 'olcrtc',
+      port: 0,
+      listen: '',
+      settings: {
+        provider: 'salutejazz',
+        roomId: 'https://salutejazz.ru/r',
+        cryptoKey: 'a'.repeat(64),
+        transport: 'datachannel',
+      },
+      streamSettings: {},
+      sniffing: {},
+    } as unknown as Inbound;
+    expect(genOlcrtcLink({ inbound: ib })).toBe(
+      `olcrtc://salutejazz?datachannel@https://salutejazz.ru/r#${'a'.repeat(64)}`,
+    );
+  });
+
   it('builds seichannel and videochannel payloads', () => {
     const key = 'a'.repeat(64);
     const base = {

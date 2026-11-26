@@ -41,6 +41,8 @@ func TestOlcrtcValidate(t *testing.T) {
 		{"telemost+datachannel", func(c *OlcrtcConfig) { c.Provider = "telemost"; c.Transport = "datachannel" }},
 		{"telemost+seichannel", func(c *OlcrtcConfig) { c.Provider = "telemost"; c.Transport = "seichannel" }},
 		{"wbstream+datachannel", func(c *OlcrtcConfig) { c.Provider = "wbstream"; c.Transport = "datachannel" }},
+		{"salutejazz+vp8channel", func(c *OlcrtcConfig) { c.Provider = "salutejazz"; c.Transport = "vp8channel" }},
+		{"salutejazz+videochannel", func(c *OlcrtcConfig) { c.Provider = "salutejazz"; c.Transport = "videochannel" }},
 		{"dns bare ip", func(c *OlcrtcConfig) { c.DNS = "8.8.8.8" }},
 		{"bad key", func(c *OlcrtcConfig) { c.CryptoKey = "short" }},
 	}
@@ -155,6 +157,7 @@ func TestOlcrtcTransportMatrix(t *testing.T) {
 	ok("wbstream", "seichannel")
 	ok("wbstream", "videochannel")
 	ok("wbstream", "vp8channel")
+	ok("salutejazz", "datachannel")
 }
 
 func TestOlcrtcClientURI(t *testing.T) {
@@ -165,6 +168,11 @@ func TestOlcrtcClientURI(t *testing.T) {
 	want := "olcrtc://jitsi?datachannel@https://meet.example.org/r#" + cfg.CryptoKey
 	if got != want {
 		t.Fatalf("URI = %q, want %q", got, want)
+	}
+	sj := cfg
+	sj.Provider, sj.Transport = "salutejazz", "datachannel"
+	if sjg := sj.ClientURI(); sjg != "olcrtc://salutejazz?datachannel@https://meet.example.org/r#"+cfg.CryptoKey {
+		t.Fatalf("salutejazz URI = %q", sjg)
 	}
 
 	cfg.Transport = "vp8channel"

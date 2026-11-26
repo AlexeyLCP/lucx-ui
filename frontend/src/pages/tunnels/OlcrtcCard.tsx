@@ -86,13 +86,17 @@ export function OlcrtcCard() {
 
   useEffect(() => {
     const allowed =
-      provider === 'telemost'
-        ? ['vp8channel', 'videochannel']
-        : provider === 'wbstream'
-          ? ['vp8channel', 'seichannel', 'videochannel']
-          : ['datachannel', 'vp8channel', 'seichannel', 'videochannel'];
+      provider === 'salutejazz'
+        ? ['datachannel']
+        : provider === 'telemost' || provider === 'vkcalls' || provider === 'mtslink'
+          ? ['vp8channel', 'videochannel']
+          : provider === 'wbstream'
+            ? ['vp8channel', 'seichannel', 'videochannel']
+            : ['datachannel', 'vp8channel', 'seichannel', 'videochannel'];
     if (!transport || allowed.includes(transport)) return;
-    form.setValue('transport', 'vp8channel', { shouldDirty: true });
+    form.setValue('transport', allowed.includes('vp8channel') ? 'vp8channel' : 'datachannel', {
+      shouldDirty: true,
+    });
   }, [provider, transport, form]);
 
   const [logsOpen, setLogsOpen] = useState(false);
@@ -175,23 +179,25 @@ export function OlcrtcCard() {
   );
 
   const transportOptions =
-    provider === 'telemost'
-      ? [
-          { value: 'vp8channel', label: 'vp8channel' },
-          { value: 'videochannel', label: 'videochannel' },
-        ]
-      : provider === 'wbstream'
+    provider === 'salutejazz'
+      ? [{ value: 'datachannel', label: 'datachannel' }]
+      : provider === 'telemost' || provider === 'vkcalls' || provider === 'mtslink'
         ? [
             { value: 'vp8channel', label: 'vp8channel' },
-            { value: 'seichannel', label: 'seichannel' },
             { value: 'videochannel', label: 'videochannel' },
           ]
-        : [
-            { value: 'datachannel', label: 'datachannel' },
-            { value: 'vp8channel', label: 'vp8channel' },
-            { value: 'seichannel', label: 'seichannel' },
-            { value: 'videochannel', label: 'videochannel' },
-          ];
+        : provider === 'wbstream'
+          ? [
+              { value: 'vp8channel', label: 'vp8channel' },
+              { value: 'seichannel', label: 'seichannel' },
+              { value: 'videochannel', label: 'videochannel' },
+            ]
+          : [
+              { value: 'datachannel', label: 'datachannel' },
+              { value: 'vp8channel', label: 'vp8channel' },
+              { value: 'seichannel', label: 'seichannel' },
+              { value: 'videochannel', label: 'videochannel' },
+            ];
 
   return (
     <Card
@@ -328,6 +334,9 @@ export function OlcrtcCard() {
                         { value: 'jitsi', label: 'Jitsi' },
                         { value: 'telemost', label: 'Yandex Telemost' },
                         { value: 'wbstream', label: 'WB Stream' },
+                        { value: 'salutejazz', label: 'Sber SaluteJazz' },
+                        { value: 'vkcalls', label: 'VK Calls' },
+                        { value: 'mtslink', label: 'MTS Link' },
                       ]}
                     />
                   </FormField>
