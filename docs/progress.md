@@ -1,5 +1,56 @@
 # LucX-UI — Прогресс
 
+## lucx.373 — olcRTC core v0.15.1 + salutejazz provider
+
+- **Vendored core bump** (`bin/pack-sidecars.sh`, `bin/sourcecraft-release.sh`,
+  `third_party/sidecars/`): ghostlane olcrtc v0.12.1 (d15b37ec) →
+  **v0.15.1** (42dd44d2) — vkcalls signaling socket silent for 30 s is ended so
+  the session rejoins. Vendored amd64 gz rebuilt (~11.89 MB); new shas: raw
+  `750706e9…`, gz `c6c5159c…` (arm64 is always built from the pin in CI).
+  `third_party/sidecars/README.md` row updated (was stale since lucx.325).
+  `lucxVersion` → lucx.373.
+- **salutejazz provider** (the ghostlane kernel's list minus one):
+  `OlcrtcConfig.Validate()` accepts `salutejazz`; transport matrix —
+  datachannel only (the kernel's video transports refuse it);
+  `olcrtcTransportOK` enforces it (salutejazz+datachannel OK,
+  salutejazz+vp8/video rejected; coercion in the forms targets the first
+  allowed transport so saves land valid). Frontend: two zod enums, both olcRTC
+  forms (inbound form + legacy Tunnels card) list «Sber SaluteJazz»; the legacy
+  card also gained the previously missing vkcalls/mtslink options. Share URIs
+  pass providers through verbatim, so no link/subscription code changes.
+  CI: the release smoke-test provider loop lists all 6 providers against the
+  shipped binary. Tests: `TestOlcrtcValidate` negative cases
+  salutejazz+vp8/video; `TestOlcrtcTransportMatrix` (+datachannel);
+  `TestOlcrtcClientURI` salutejazz URI; `link-label.test.ts`; a
+  `olcrtc://salutejazz` fixture in `qwdtt-link.test.ts`.
+
+## lucx.373b — fix(frontend): stable eye toggles (hover no longer flaps the tooltip)
+
+Telegram report: hovering the IP eyes made the interface jump. The reveal is
+blur-based (masking via `filter`, zero reflow), so the jump was the AntD
+Tooltip oscillating: the conditionally-rendered icon inside the Tooltip child
+changes the trigger element identity, and rc-trigger re-anchors/faps when the
+popup lands under the pointer — fed by edge-anchored triggers and the 2 s
+dashboard status re-render churn. Fix: new shared `IpVisibilityToggle`
+(`components/ui`) whose Tooltip child is one stable wrapper span swapping the
+glyphs inside it, `placement="top"`, `mouseLeaveDelay 0.2`; all five eyes
+(dashboard strip, nodes header + stats modal, outbounds header + card) switched
+to it; `.ip-toggle-icon` gained an opacity transition (hover blink → fade);
+the dashboard kicker's auto-margin moved to the wrapper. Blur-based click
+reveal provably causes no layout shift, so click toggling needed no change.
+
+## lucx.373c — test(routing): erase-user→save keeps inbound tags (pinning test)
+
+Telegram report (Дима): deleting users from a routing rule re-substituted them
+on SAVE. Four independent traces + git history found NO re-substitution site:
+the picker writes what the operator left, empty arrays are dropped at save, the
+backend stores the template verbatim. Likely cause: a stale embedded frontend
+bundle (dist older than the picker model) or the picker's `in:` seeded chips
+being mistaken for users. Added `rule-form-preserve-fields.test.tsx` regression:
+edit rule with user+inboundTag → remove the user chip → save → payload carries
+`inboundTag: ['in-1']` and no `user`. If a panel still re-adds users, capture
+`GET /panel/api/xray/` after save and compare against this test.
+
 ## lucx.372 — issue-triage batch: #219 sidecar vpn_mode, #217 one-Naive-per-Cover guard, #214 async Xray restart, #218 mieru clone remap
 
 Four issue fixes from the open-issues triage, one commit each:
