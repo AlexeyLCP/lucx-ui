@@ -3326,7 +3326,7 @@
         "form": {
           "remark": "Заметка",
           "provider": "Провайдер meet",
-          "providerTip": "Jitsi работает с datachannel (рекомендуется). Телемост поддерживает только vp8channel.",
+          "providerTip": "Jitsi работает с datachannel (рекомендуется). Телемост поддерживает только vp8channel. Сбер SaluteJazz работает только с datachannel.",
           "roomId": "URL / ID комнаты",
           "roomIdTip": "Полный URL Jitsi (https://meet…/room) или ID комнаты Телемост/WB.",
           "cryptoKey": "Крипто-ключ",

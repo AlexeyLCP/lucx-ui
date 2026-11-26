@@ -133,6 +133,37 @@ describe('RuleFormModal edit preserves unsurfaced fields', () => {
   });
   // END LUCX-HOOK
 
+  it('does not seed inbound tags into the picker and never rewrites them (separate field)', async () => {
+    vi.spyOn(HttpUtil, 'get').mockResolvedValue(new Msg(true, '', []));
+    const onConfirm = vi.fn();
+
+    renderWithProviders(
+      <RuleFormModal
+        open
+        rule={{
+          type: 'field',
+          user: ['kept@example.com'],
+          inboundTag: ['nv-tag'],
+          outboundTag: 'direct',
+        }}
+        inboundTags={['nv-tag']}
+        outboundTags={['direct']}
+        balancerTags={[]}
+        onClose={vi.fn()}
+        onConfirm={onConfirm}
+      />,
+    );
+
+    // The rule's outbound tag lives in the inboundTag Select, not in the picker.
+    await waitFor(() => expect(screen.getByText('user:kept@example.com')).toBeTruthy());
+    expect(screen.queryByText('in:nv-tag')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Save Changes' }));
+    expect(onConfirm).toHaveBeenCalledWith(
+      expect.objectContaining({ user: ['kept@example.com'], inboundTag: ['nv-tag'] }),
+    );
+  });
+
   it('erases the user chip and saves inbound-only (routing user re-add report)', async () => {
     vi.spyOn(HttpUtil, 'get').mockResolvedValue(
       new Msg(true, '', [{ id: 1, email: 'removed@example.com' }]),

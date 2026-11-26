@@ -261,9 +261,9 @@ export default function RuleFormModal({
       for (const ip of csv(sourceIP)) {
         pick.push(ip.includes('/') || ip.includes(':') ? `src:${ip}` : `src:${ip}/32`);
       }
-      for (const tag of rule.inboundTag || []) {
-        if (tag) pick.push(`in:${tag}`);
-      }
+      // inboundTag is NOT seeded here: tags live only in the inboundTag
+      // Select below, so erasing picker chips can never rewrite them.
+      // Naive-client picks still merge into inboundTag via applyClientPick.
       setClientPick(pick);
     } else {
       methods.reset(initialForm());
@@ -302,14 +302,11 @@ export default function RuleFormModal({
     }
     methods.setValue('user', users.join(','), { shouldDirty: true });
     methods.setValue('sourceIP', sources.join(','), { shouldDirty: true });
-    // Merge Naive inbound tags from the client picker with any tags the
-    // operator already chose in the inboundTag Select (do not wipe them).
-    const clientInboundTokens = new Set(
-      clientOptions.filter((o) => o.kind === 'inbound').map((o) => o.token),
-    );
+    // Picker inbound tags merge additively: the inboundTag Select stays the
+    // single writer for removals, so a picker edit can never wipe operator
+    // tags (the old kept-filter dropped Naive-tagged ones on any edit).
     const existing = (methods.getValues('inboundTag') as string[] | undefined) || [];
-    const kept = existing.filter((t) => t && !clientInboundTokens.has(t));
-    const merged = [...new Set([...kept, ...inboundFromPick.filter(Boolean)])];
+    const merged = [...new Set([...existing, ...inboundFromPick.filter(Boolean)])];
     methods.setValue('inboundTag', merged, { shouldDirty: true });
   }
 
