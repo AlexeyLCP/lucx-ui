@@ -1329,8 +1329,9 @@ func TestInjectAnytlsEgress(t *testing.T) {
 			Settings: `{"routeThroughXray":true,"routeXrayPort":39160,"outboundTag":"` + target + `"}`,
 		}
 		injectAnytlsEgress(cfg, ib)
-		if len(cfg.InboundConfigs) != 2 {
-			t.Fatalf("bridge not injected (target=%q)", target)
+		// api + hidden socks + hidden udp dokodeme pair (lucx.378)
+		if len(cfg.InboundConfigs) != 4 {
+			t.Fatalf("bridge not injected (target=%q): %d inbounds", target, len(cfg.InboundConfigs))
 		}
 		got := cfg.InboundConfigs[1]
 		if got.Protocol != "socks" || got.Port != 39160 {
@@ -1342,18 +1343,59 @@ func TestInjectAnytlsEgress(t *testing.T) {
 			// and every routed client stalls.
 			t.Fatalf("anytls hidden socks must be noauth, got %s", got.Settings)
 		}
+		// lucx.378: the UDP half is a hidden dokodeme pair (routeXrayPort+1,
+		// 127.0.0.1 + ::1) fed by the uid TPROXY rules.
+		udp := cfg.InboundConfigs[2]
+		udp6 := cfg.InboundConfigs[3]
+		for _, d := range []struct {
+			ib     xray.InboundConfig
+			tag    string
+			listen string
+		}{{udp, "in-anytls-21-udp", `"127.0.0.1"`}, {udp6, "in-anytls-21-udp6", `"::1"`}} {
+			if d.ib.Protocol != "dokodemo-door" || d.ib.Port != 39161 {
+				t.Fatalf("udp bridge got proto=%s port=%d", d.ib.Protocol, d.ib.Port)
+			}
+			if d.ib.Tag != d.tag || string(d.ib.Listen) != d.listen {
+				t.Fatalf("udp bridge tag/listen = %q / %s, want %s / %s", d.ib.Tag, d.ib.Listen, d.tag, d.listen)
+			}
+			if !strings.Contains(string(d.ib.Settings), `"followRedirect":true`) || !strings.Contains(string(d.ib.Settings), `"network":"udp"`) {
+				t.Fatalf("udp bridge settings must be followRedirect udp, got %s", d.ib.Settings)
+			}
+			if !strings.Contains(string(d.ib.StreamSettings), `"tproxy":"tproxy"`) {
+				t.Fatalf("udp bridge must be a tproxy listener, got %s", d.ib.StreamSettings)
+			}
+		}
 		var routing egressRouting
 		if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
 			t.Fatal(err)
 		}
-		matched := len(routing.Rules) > 0 && len(routing.Rules[0].InboundTag) == 1 && routing.Rules[0].InboundTag[0] == "in-anytls-21"
 		if target == "warp" {
-			if !matched || routing.Rules[0].OutboundTag != "warp" {
-				t.Fatalf("expected warp rule, got %+v", routing)
+			if len(routing.Rules) < 2 {
+				t.Fatalf("expected udp+socks warp rules, got %+v", routing)
+			}
+			// injectUdpTproxyEgress prepends after the socks rule: [udp-pair, socks]
+			udpRule, socksRule := routing.Rules[0], routing.Rules[1]
+			if len(udpRule.InboundTag) != 2 || udpRule.InboundTag[0] != "in-anytls-21-udp" || udpRule.InboundTag[1] != "in-anytls-21-udp6" || udpRule.OutboundTag != "warp" {
+				t.Fatalf("expected udp pair rule to warp, got %+v", udpRule)
+			}
+			if len(socksRule.InboundTag) != 1 || socksRule.InboundTag[0] != "in-anytls-21" || socksRule.OutboundTag != "warp" {
+				t.Fatalf("expected socks rule to warp, got %+v", socksRule)
 			}
 		} else if string(cfg.RouterConfig) != before {
 			t.Fatal("no target must not change routing")
 		}
+	}
+}
+
+func TestInjectUdpTproxyEgress_PortTaken(t *testing.T) {
+	cfg := egressTestConfig()
+	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
+		Tag: "awg-tp", Port: 39161, Protocol: "dokodemo-door", Listen: json_util.RawMessage(`"127.0.0.1"`),
+	})
+	before := len(cfg.InboundConfigs)
+	injectUdpTproxyEgress(cfg, "in-anytls-21", 39161, "")
+	if len(cfg.InboundConfigs) != before {
+		t.Fatal("taken dokodeme port must skip the udp bridge (kill-switch keeps it blocked, not leaking)")
 	}
 }
 
@@ -1460,7 +1502,14 @@ func TestInjectSocksEgress_UDPOnlyWhereTransportCarriesIt(t *testing.T) {
 		if len(cfg.InboundConfigs) < 2 {
 			t.Fatalf("%s: expected SOCKS bridge", tc.proto)
 		}
+		// anytls (lucx.378) appends udp dokodemes after the socks bridge:
+		// scope the check to the last socks inbound.
 		got := cfg.InboundConfigs[len(cfg.InboundConfigs)-1]
+		for _, ib := range cfg.InboundConfigs {
+			if ib.Protocol == "socks" {
+				got = ib
+			}
+		}
 		udpLine := `"udp":false`
 		if tc.wantUDP {
 			udpLine = `"udp":true`

@@ -1008,6 +1008,80 @@ func injectAnytlsEgress(cfg *xray.Config, inbound *model.Inbound) {
 		return
 	}
 	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "anytls egress", false, false)
+	injectUdpTproxyEgress(cfg, inbound.Tag, parsed.RouteXrayPort+1, parsed.OutboundTag)
+}
+
+// LUCX-HOOK: injectUdpTproxyEgress is the UDP half of the routed-tunnel
+// egress. nat REDIRECT cannot carry UDP and the sidecar binaries have no
+// SOCKS-UDP upstream, so the relayed STUN/QUIC/DNS datagrams leaked the
+// ingress IP (tester, 26.11.2026). The firewall half marks the uid's
+// non-loopback udp in mangle OUTPUT and TPROXYes the return path off lo; this
+// side provides the sink: two hidden dokodeme-door inbounds (127.0.0.1 and
+// ::1, network udp, followRedirect, tproxy sockopt — awg tproxy pattern,
+// lucx.271). The shared tproxy firewall ensures the mark/prerouting rules on
+// every reconcile (EnsureMtproxyXraySocksRule). If the udp port is taken the
+// bridge is skipped and the kill-switch keeps the traffic blocked instead of
+// leaking.
+func injectUdpTproxyEgress(cfg *xray.Config, tag string, udpPort int, outboundTag string) {
+	const logPrefix = "anytls udp egress"
+	if udpPort <= 0 || udpPort > 65535 {
+		logger.Warning(logPrefix, ": invalid udp tproxy port, skipping bridge")
+		return
+	}
+	tag4, tag6 := tag+"-udp", tag+"-udp6"
+	for i := range cfg.InboundConfigs {
+		if cfg.InboundConfigs[i].Port == udpPort && cfg.InboundConfigs[i].Protocol == "dokodemo-door" {
+			logger.Warning(logPrefix, ": hidden dokodemo udp ", udpPort, " is already taken, skipping bridge — routed udp stays kill-switched, not leaking")
+			return
+		}
+	}
+	if outboundTag != "" {
+		routing := map[string]any{}
+		parseOK := true
+		if len(cfg.RouterConfig) > 0 {
+			if err := json.Unmarshal(cfg.RouterConfig, &routing); err != nil {
+				logger.Warning(logPrefix, ": routing section is unparsable, skipping rule:", err)
+				parseOK = false
+			}
+		}
+		if parseOK && !routingTargetExists(routing, cfg.OutboundConfigs, outboundTag) {
+			logger.Warning(logPrefix, ": target tag [", outboundTag, "] not found, injecting bridge without force-route")
+			parseOK = false
+		}
+		if parseOK {
+			rules, _ := routing["rules"].([]any)
+			rule := map[string]any{
+				"type":       "field",
+				"inboundTag": []any{tag4, tag6},
+			}
+			if routingTagIsBalancer(routing, outboundTag) {
+				rule["balancerTag"] = outboundTag
+			} else {
+				rule["outboundTag"] = outboundTag
+			}
+			routing["rules"] = append([]any{rule}, rules...)
+			newRouting, err := json.Marshal(routing)
+			if err != nil {
+				logger.Warning(logPrefix, ": failed to rebuild routing section, skipping rule:", err)
+			} else {
+				cfg.RouterConfig = json_util.RawMessage(newRouting)
+			}
+		}
+	}
+	for _, bind := range []struct{ listenTag, tag string }{
+		{"127.0.0.1", tag4},
+		{"::1", tag6},
+	} {
+		cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
+			Listen:         json_util.RawMessage(`"` + bind.listenTag + `"`),
+			Port:           udpPort,
+			Protocol:       "dokodemo-door",
+			Settings:       json_util.RawMessage(`{"network":"udp","allowedNetwork":"udp","followRedirect":true}`),
+			StreamSettings: json_util.RawMessage(`{"sockopt":{"tproxy":"tproxy"}}`),
+			Sniffing:       json_util.RawMessage(awgEgressTunSniffing),
+			Tag:            bind.tag,
+		})
+	}
 }
 
 func injectTunnelEgress(cfg *xray.Config, naive tunnel.NaiveConfig) {

@@ -1,5 +1,52 @@
 # LucX-UI — Прогресс
 
+## lucx.378 — feat: routed AnyTLS tunnels its UDP too — mangle-OUTPUT mark + TPROXY into a hidden UDP dokodeme (tester report)
+
+Follow-up to lucx.370 (Telegram chat, 26.11.2026, after testers re-ran leak
+tests on `v3.11.0-lucx.376`): "через UDP в общем все утекает, бинарник не
+умеет в носок юдп... Надо пропихивать". The tester's own diagnosis is exact:
+anytls has no SOCKS-UDP upstream, so UoT-relayed STUN/QUIC/DNS datagrams left
+the ingress. lucx.370 shipped only the fail-closed half (kill-switch); this
+change ships the pass-through half, mirroring the AWG tproxy pattern
+(lucx.271).
+
+1. **Firewall (`internal/lucx/tunnel/tproxy*.go`)**: for the shared
+   `lucx-mtproxy` uid, `iptables/ip6tables -t mangle OUTPUT` now MARKs every
+   non-loopback udp flow (mark `0x71c2`); the policy route (`ip rule fwmark
+   0x71c2 lookup 1802 pref 1802` + `local default dev lo table 1802 proto
+   242`, both families) sends it back to PREROUTING where it is TPROXYed into
+   the sink (`--on-ip 127.0.0.1/--on-ip ::1 --on-port <routeXrayPort+1>`).
+   Rules are comment-scoped (`lucx-tproxy-xray`) and re-ensured on every
+   reconcile (comment sweep + del-then-add rule + route replace), so firewall
+   flushes self-heal within one 10 s tick. TCP side unchanged: NAT OUTPUT
+   REDIRECT + the :23990 SOCKS bridge keep carrying TCP (lucx.273).
+2. **Kill-switch change**: the udp/53 ACCEPT from lucx.370 is gone — DNS now
+   rides the tunnel (the leak-test "first hop" was most likely exactly that
+   direct-DNS hop). The udp drop gains `! -m mark` so TPROXY-bound packets
+   pass; when the TPROXY plumbing is missing, UDP/DNS fail closed again
+   instead of leaking. TCP drop unchanged.
+3. **Xray (`injectUdpTproxyEgress`)**: two hidden `dokodemo-door` inbounds
+   (tags `<tag>-udp` / `<tag>-udp6`, bind `127.0.0.1`/`::1`, port
+   `routeXrayPort+1`, `network udp` + `allowedNetwork udp` + `followRedirect`
+   + `tproxy` sockopt, AWG sniffing incl. quic) force a full Xray restart via
+   the existing hot-diff TPROXY rule. Taken udp port → bridge skipped with a
+   warning; the kill-switch keeps UDP blocked, not leaking. Force-route
+   (`outboundTag`) prepends one rule matching both dokodeme tags.
+
+Known limits: TCP is not moved to TPROXY (the socks bridge works and is
+field-proven); v6 TPROXY UDP is untested in this repo (fails closed — blocked
+rather than leaked); if the policy rule is externally flushed between
+reconciles, marked UDP routes directly for up to one reconcile tick. Applies
+to every routed owner of the shared uid (AnyTLS; routed tproxy/mtproxy have no
+UDP of their own).
+
+Tests: `TestMtproxyTproxyUdpArgs` (new), `TestMtproxyKillSwitchArgs` (2
+rules/family, mark exemption, no ACCEPT), `TestInjectAnytlsEgress` (socks +
+udp dokodeme pair + rule pair), `TestInjectUdpTproxyEgress_PortTaken` (taken
+port skips the bridge). ./internal/lucx/... + Inject tests green; GOOS=linux
+build of internal/lucx verified on the windows dev host; **e2e on the stand
+pending** (update-dev + uid probes).
+
 ## lucx.377 — H6 LucX branding: default favicon + PWA manifest, B4 pin
 
 - **Default favicon/PWA rebrand (H6, variant-2 chosen)** — `icons/lucx.svg`

@@ -199,8 +199,8 @@ func TestMtproxyXrayRedirectArgs6(t *testing.T) {
 
 func TestMtproxyKillSwitchArgs(t *testing.T) {
 	v4, v6 := mtproxyKillSwitchArgs("123")
-	if len(v4) != 3 || len(v6) != 3 {
-		t.Fatalf("expected 3 rules per family, got %d/%d", len(v4), len(v6))
+	if len(v4) != 2 || len(v6) != 2 {
+		t.Fatalf("expected 2 rules per family (tcp+udp, no udp/53 accept since lucx.378), got %d/%d", len(v4), len(v6))
 	}
 	for _, f := range []struct {
 		name   string
@@ -214,11 +214,11 @@ func TestMtproxyKillSwitchArgs(t *testing.T) {
 		for _, r := range f.rules {
 			all += strings.Join(r, " ") + " ; "
 		}
-		if !strings.Contains(all, "--dport 53") || !strings.Contains(all, "-j ACCEPT") {
-			t.Fatalf("%s: DNS udp/53 must stay allowed, got %s", f.name, all)
+		if strings.Contains(all, "-j ACCEPT") || strings.Contains(all, "--dport 53") {
+			t.Fatalf("%s: DNS must ride the udp TPROXY now, no accept, got %s", f.name, all)
 		}
 		drops := ""
-		for _, r := range f.rules[1:3] {
+		for _, r := range f.rules[0:2] {
 			drops += strings.Join(r, " ") + " ; "
 		}
 		if !strings.Contains(drops, "-j DROP") || !strings.Contains(drops, "--ctstate NEW") || !strings.Contains(drops, "--ctstate NEW,INVALID") {
@@ -229,6 +229,28 @@ func TestMtproxyKillSwitchArgs(t *testing.T) {
 		}
 		if !strings.Contains(drops, "--uid-owner 123") || strings.Contains(drops, "--uid-owner 0") {
 			t.Fatalf("%s: drops must pin the shared uid, got %s", f.name, drops)
+		}
+		if !strings.Contains(drops, "-m mark ! --mark "+tproxyUdpMark) {
+			t.Fatalf("%s: udp drop must exempt TPROXY-marked packets, got %s", f.name, drops)
+		}
+	}
+}
+
+func TestMtproxyTproxyUdpArgs(t *testing.T) {
+	v4 := mtproxyTproxyUdpMarkArgs("99", "127.0.0.0/8")
+	v6 := mtproxyTproxyUdpMarkArgs("99", "::1/128")
+	joined := strings.Join(v4, " ") + " ; " + strings.Join(v6, " ")
+	for _, want := range []string{"-t mangle", "-j MARK", "--set-xmark " + tproxyUdpMark, "--uid-owner 99", "! -d 127.0.0.0/8", "! -d ::1/128"} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("udp mark rules missing %q: %s", want, joined)
+		}
+	}
+	pr4 := mtproxyTproxyPreroutingArgs("127.0.0.1", 23990)
+	pr6 := mtproxyTproxyPreroutingArgs("::1", 23990)
+	joined = strings.Join(pr4, " ") + " ; " + strings.Join(pr6, " ")
+	for _, want := range []string{"-j TPROXY", "--on-port 23990", "--on-ip 127.0.0.1", "--on-ip ::1", "--tproxy-mark " + tproxyUdpMark, "-i lo", "--mark " + tproxyUdpMark} {
+		if !strings.Contains(joined, want) {
+			t.Fatalf("prerouting rules missing %q: %s", want, joined)
 		}
 	}
 }

@@ -102,6 +102,7 @@ func EnsureMtproxyXraySocksRule(socksPort int) {
 	}
 	startTproxySocksBridge(tproxySocksRedirectPort, socksPort)
 	_ = clearIptablesNatOutput(tproxyXrayComment())
+	clearTproxyUdpRules()
 	clearKillswitchRules()
 	if err := runIptables("iptables", mtproxyXrayRedirectArgs(u.Uid, tproxySocksRedirectPort)); err != nil {
 		logger.Warningf("tunnel: tproxy xray socks iptables: %v", err)
@@ -109,6 +110,7 @@ func EnsureMtproxyXraySocksRule(socksPort int) {
 	if err := runIptables("ip6tables", mtproxyXrayRedirectArgs6(u.Uid, tproxySocksRedirectPort)); err != nil {
 		logger.Warningf("tunnel: tproxy xray socks ip6tables: %v", err)
 	}
+	ensureTproxyUdpRules(u.Uid, tproxySocksRedirectPort)
 	v4Rules, v6Rules := mtproxyKillSwitchArgs(u.Uid)
 	for _, args := range v4Rules {
 		if err := runIptables("iptables", args); err != nil {
@@ -119,6 +121,48 @@ func EnsureMtproxyXraySocksRule(socksPort int) {
 		if err := runIptables("ip6tables", args); err != nil {
 			logger.Warningf("tunnel: tproxy kill-switch ip6tables: %v", err)
 		}
+	}
+}
+
+// ensureTproxyUdpRules installs the UDP TPROXY half: mark the uid's
+// non-loopback udp in mangle OUTPUT, keep the policy route alive
+// (flushes lose it), and TPROXY the return path off lo into the hidden
+// dokodeme. Runs on every reconcile (idempotent: comment-scoped clears +
+// del-then-add rule, replace route).
+func ensureTproxyUdpRules(uid string, onPort int) {
+	ensureTproxyPolicyRoutes()
+	if err := runIptables("iptables", mtproxyTproxyUdpMarkArgs(uid, "127.0.0.0/8")); err != nil {
+		logger.Warningf("tunnel: tproxy udp mark iptables: %v", err)
+	}
+	if err := runIptables("ip6tables", mtproxyTproxyUdpMarkArgs(uid, "::1/128")); err != nil {
+		logger.Warningf("tunnel: tproxy udp mark ip6tables: %v", err)
+	}
+	if err := runIptables("iptables", mtproxyTproxyPreroutingArgs("127.0.0.1", onPort)); err != nil {
+		logger.Warningf("tunnel: tproxy udp tproxy iptables: %v", err)
+	}
+	if err := runIptables("ip6tables", mtproxyTproxyPreroutingArgs("::1", onPort)); err != nil {
+		logger.Warningf("tunnel: tproxy udp tproxy ip6tables: %v", err)
+	}
+}
+
+func runIp(args ...string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return exec.CommandContext(ctx, "ip", args...).Run()
+}
+
+func ensureTproxyPolicyRoutes() {
+	for _, family := range [][]string{nil, {"-6"}} {
+		del := append(append([]string{}, family...), "rule", "del", "fwmark", tproxyUdpMark, "lookup", tproxyUdpTable)
+		add := append(append([]string{}, family...), "rule", "add", "fwmark", tproxyUdpMark, "lookup", tproxyUdpTable, "pref", "1802")
+		route := append(append([]string{}, family...), "route", "replace", "local", "default", "dev", "lo", "table", tproxyUdpTable, "proto", "242")
+		for dup := 0; dup < 3; dup++ {
+			if err := runIp(del...); err != nil {
+				break
+			}
+		}
+		_ = runIp(add...)
+		_ = runIp(route...)
 	}
 }
 
@@ -135,8 +179,29 @@ func clearKillswitchRules() {
 
 func ClearMtproxyXraySocksRule() {
 	_ = clearIptablesNatOutput(tproxyXrayComment())
+	clearTproxyUdpRules()
 	clearKillswitchRules()
 	clearTproxyTunLeftovers()
+}
+
+// clearTproxyUdpRules removes the comment-scoped mangle rules (both families,
+// OUTPUT and PREROUTING) and the policy rule/route for the UDP TPROXY.
+// Route flushes lose the policy rule, so this also runs before every
+// re-ensure.
+func clearTproxyUdpRules() {
+	for _, bin := range []string{"iptables", "ip6tables"} {
+		_ = clearIptablesTableChain(bin, tproxyXrayComment(), "mangle", "OUTPUT")
+		_ = clearIptablesTableChain(bin, tproxyXrayComment(), "mangle", "PREROUTING")
+	}
+	for _, family := range [][]string{nil, {"-6"}} {
+		del := append(append([]string{}, family...), "rule", "del", "fwmark", tproxyUdpMark, "lookup", tproxyUdpTable)
+		for dup := 0; dup < 3; dup++ {
+			if err := runIp(del...); err != nil {
+				break
+			}
+		}
+		_ = runIp(append(append([]string{}, family...), "route", "del", "local", "default", "dev", "lo", "table", tproxyUdpTable)...)
+	}
 }
 
 func clearTproxyTunLeftovers() {

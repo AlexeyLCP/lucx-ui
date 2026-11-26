@@ -224,26 +224,56 @@ func mtproxyXrayRedirectArgs6(uid string, port int) []string {
 	}
 }
 
-// mtproxyKillSwitchArgs is the fail-closed filter OUTPUT for the shared
-// routed-sidecar uid, both families: nat REDIRECT cannot catch UDP (nor a
-// flushed/miswired OUTPUT rule), so the sidecar's DNS-over-UDP (tunnel target
-// names are resolved on the host), WebRTC/QUIC relays and any other fresh
-// non-loopback flow used to leak the ingress IP. DNS (udp 53) stays allowed —
-// the only path nat REDIRECT structurally cannot carry; drops are scoped to
-// NEW (+INVALID datagrams) so accepted inbound sessions keep flowing.
-func mtproxyKillSwitchArgs(uid string) (v4, v6 [][]string) {
-	acceptDns := func() []string {
-		return []string{
-			"-t", "filter", "-I", "OUTPUT", "1",
-			"-p", "udp", "-m", "udp", "--dport", "53",
-			"-m", "owner", "--uid-owner", uid,
-			"-m", "comment", "--comment", tproxyXrayComment(),
-			"-j", "ACCEPT",
-		}
+// tproxyUdpMark / tproxyUdpTable is the tunnel's own UDP TPROXY plumbing —
+// distinct from the per-inbound AWG marks (0x40000000+N, tables 40000+N) and
+// from the lucx.208-211 leftovers (29120/1800) that clearTproxyTunLeftovers
+// still removes.
+const (
+	tproxyUdpMark  = "0x71c2"
+	tproxyUdpTable = "1802"
+)
+
+// mtproxyTproxyUdpMarkArgs marks the sidecar's non-loopback UDP egress for the
+// shared uid: the policy rule sends it back into PREROUTING, where it is
+// TPROXYed into the hidden udp dokodeme-door. nat REDIRECT cannot carry UDP
+// and the sidecar binaries have no SOCKS-UDP upstream (tester 26.11.2026: the
+// relayed STUN/QUIC leaked the ingress IP), so this is the pass-through.
+func mtproxyTproxyUdpMarkArgs(uid, notDst string) []string {
+	return []string{
+		"-t", "mangle", "-I", "OUTPUT", "1",
+		"-p", "udp", "-m", "udp", "!", "-d", notDst,
+		"-m", "owner", "--uid-owner", uid,
+		"-m", "comment", "--comment", tproxyXrayComment(),
+		"-j", "MARK", "--set-xmark", tproxyUdpMark + "/0xffffffff",
 	}
+}
+
+// mtproxyTproxyPreroutingArgs TPROXYes the marked return path (locally marked
+// packets re-enter PREROUTING off lo) into the hidden udp dokodeme; on-IP
+// selects the family: 127.0.0.1 for iptables, ::1 for ip6tables.
+func mtproxyTproxyPreroutingArgs(onIp string, port int) []string {
+	return []string{
+		"-t", "mangle", "-I", "PREROUTING",
+		"-i", "lo", "-p", "udp",
+		"-m", "mark", "--mark", tproxyUdpMark + "/0xffffffff",
+		"-m", "comment", "--comment", tproxyXrayComment(),
+		"-j", "TPROXY", "--on-ip", onIp, "--on-port", strconv.Itoa(port),
+		"--tproxy-mark", tproxyUdpMark + "/0xffffffff",
+	}
+}
+
+// mtproxyKillSwitchArgs is the fail-closed filter OUTPUT for the shared
+// routed-sidecar uid, both families: nat REDIRECT cannot catch TCP that
+// escapes it and anything fresh and unmarked that is not loopback is dropped
+// instead of leaking the ingress IP. UDP 53 is no longer accepted directly
+// (lucx.370 half-measure): with the UDP TPROXY in place DNS rides the tunnel,
+// and when the TPROXY plumbing is missing the udp drop still fails closed.
+// Drops are scoped to NEW (+INVALID datagrams) so accepted inbound sessions
+// keep flowing; marked (TPROXY-bound) udp bypasses the udp drop.
+func mtproxyKillSwitchArgs(uid string) (v4, v6 [][]string) {
 	dropTcpNew := func(notDst string) []string {
 		return []string{
-			"-t", "filter", "-I", "OUTPUT", "2",
+			"-t", "filter", "-I", "OUTPUT", "1",
 			"-p", "tcp", "-m", "tcp",
 			"!", "-d", notDst,
 			"-m", "owner", "--uid-owner", uid,
@@ -254,17 +284,18 @@ func mtproxyKillSwitchArgs(uid string) (v4, v6 [][]string) {
 	}
 	dropUdp := func(notDst string) []string {
 		return []string{
-			"-t", "filter", "-I", "OUTPUT", "3",
+			"-t", "filter", "-I", "OUTPUT", "2",
 			"-p", "udp", "-m", "udp",
 			"!", "-d", notDst,
+			"-m", "mark", "!", "--mark", tproxyUdpMark + "/0xffffffff",
 			"-m", "owner", "--uid-owner", uid,
 			"-m", "conntrack", "--ctstate", "NEW,INVALID",
 			"-m", "comment", "--comment", tproxyXrayComment(),
 			"-j", "DROP",
 		}
 	}
-	return [][]string{acceptDns(), dropTcpNew("127.0.0.0/8"), dropUdp("127.0.0.0/8")},
-		[][]string{acceptDns(), dropTcpNew("::1/128"), dropUdp("::1/128")}
+	return [][]string{dropTcpNew("127.0.0.0/8"), dropUdp("127.0.0.0/8")},
+		[][]string{dropTcpNew("::1/128"), dropUdp("::1/128")}
 }
 
 func RenderTproxyCaddyfile(hostname string, port int, cert, key string, relayPort int, loopback bool, panel []CoverRoute) string {
