@@ -1549,6 +1549,13 @@ func (s *SubClashService) applySecurity(proxy map[string]any, security string, s
 		}
 		if serverName, ok := realitySettings["serverName"].(string); ok && serverName != "" {
 			proxy["servername"] = serverName
+			// mirror the tls branch: mihomo reads sni for trojan and ignores
+			// the xray-style servername key (tester VladufQa 26.11.2026 —
+			// every trojan-reality node from the clash sub came up dead).
+			switch proxy["type"] {
+			case "trojan":
+				proxy["sni"] = serverName
+			}
 		}
 		realityOpts := map[string]any{}
 		if publicKey, ok := realitySettings["publicKey"].(string); ok && publicKey != "" {

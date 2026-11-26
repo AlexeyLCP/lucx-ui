@@ -168,6 +168,28 @@ func TestBuildProxy_VLESSRealityFieldsForClash(t *testing.T) {
 	}
 }
 
+// TestBuildProxy_TrojanRealityCarriesSni: mihomo ignores the xray-style
+// servername key on trojan and reads sni (tester VladufQa, 26.11.2026) — a
+// trojan-reality node without sni came up dead from the clash subscription.
+func TestBuildProxy_TrojanRealityCarriesSni(t *testing.T) {
+	svc := &SubClashService{SubService: &SubService{}}
+	inbound := &model.Inbound{Listen: "203.0.113.1", Port: 443, Protocol: model.Trojan, Remark: "tr", Settings: `{"clients":[]}`}
+	client := model.Client{Password: "trojanpw"}
+	stream := map[string]any{
+		"network":         "tcp",
+		"security":        "reality",
+		"tcpSettings":     map[string]any{"header": map[string]any{"type": "none"}},
+		"realitySettings": map[string]any{"serverName": "reality.example.com", "publicKey": "PBKvalue", "shortId": "ab12", "fingerprint": "chrome"},
+	}
+	proxy := svc.buildProxy(svc.SubService, inbound, client, stream, nil)
+	if proxy == nil {
+		t.Fatal("buildProxy returned nil for trojan reality")
+	}
+	if proxy["servername"] != "reality.example.com" || proxy["sni"] != "reality.example.com" {
+		t.Fatalf("trojan reality must carry both servername and sni, got sni=%v servername=%v", proxy["sni"], proxy["servername"])
+	}
+}
+
 func TestClashRealityMLKEMAcrossSources(t *testing.T) {
 	svc := NewSubClashService(false, "", false, &SubService{})
 	for _, security := range []string{"reality", "tls", "none"} {

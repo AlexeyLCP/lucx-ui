@@ -1,5 +1,27 @@
 # LucX-UI — Прогресс
 
+## lucx.379 — fix: clash sub gave trojan-reality nodes `servername` without `sni` — mihomo read nothing and every trojan-reality node from the sub was dead
+
+Report (VladufQa, 26.11.2026 21:2x): the panel's Clash subscription rendered
+trojan nodes with `servername: <sni-host>` only; mihomo ignores the xray-style
+`servername` key on trojan and reads `sni` — so with the tester's
+mihomo-providers + trojan-reality setup every trojan-reality node came up
+dead until he papered over it with an override-expr
+(`(select(.type == "trojan" and has("servername")) | .sni) = .servername`).
+
+Root cause: `SubClashService.applySecurity` (`internal/sub/clash_service.go`)
+already wrote `proxy["sni"]` for trojan in the **tls** branch, but the
+**reality** branch wrote only `servername`. Fix: the reality branch mirrors
+the tls branch — `sni` rides alongside `servername` for trojan
+(`switch proxy["type"] { case "trojan" }`, same shape as the tls branch).
+Both the inbound-stream and the hosts-override flows go through the same
+applySecurity, so both sources get the fix. `servername` stays in the output
+(other cores/readers may consume it; the generated sub only grows by one key
+for trojan-reality).
+
+Tests: `TestBuildProxy_TrojanRealityCarriesSni` (go test ./internal/sub green;
+gofumpt clean). **lucxVersion:** lucx.379
+
 ## lucx.378 — feat: routed AnyTLS tunnels its UDP too — mangle-OUTPUT mark + TPROXY into a hidden UDP dokodeme (tester report)
 
 Follow-up to lucx.370 (Telegram chat, 26.11.2026, after testers re-ran leak
