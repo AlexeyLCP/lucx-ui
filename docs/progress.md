@@ -1,5 +1,31 @@
 # LucX-UI — Прогресс
 
+## lucx.380 — fix: a plain inbound-drawer save wiped the gateway's applied state — masking died and the panel fronted by the gateway kicked the operator
+
+Report (VladufQa, 26.11.2026 21:5x, screenshot of the inbound drawer): toggling
+"Balancer-only inbound" on the "SNI gateway" inbound **immediately deactivated
+the masking and dropped the panel session** — the operator had to log back in
+via the direct panel port.
+
+Root cause: the applied state of an SNI gateway (snapshot, appliedSettings,
+hidePanel/UFW, panel routes) lives in the SAME settings blob as the editable
+`publicHost`, but the frontend gateway schema round-trips only `{publicHost}`
+— so ANY save through the generic inbound drawer replaced the settings with a
+bare `{publicHost}` and `GatewayConfig.Applied()` went false. The balancer
+toggle was just what the tester clicked; every drawer save did it.
+
+Fix (`normalizeGatewaySettings`, `internal/web/service/inbound_lucx.go`):
+when an update arrives for an already-applied gateway and the payload carries
+no snapshot (drawer round-trip), the applied state is carried forward from the
+stored row — only PublicHost (the edited field) and Enabled are taken from the
+payload. A payload that already carries a snapshot (GatewayApply) passes
+untouched; new rows (no stored state) are unaffected. GatewayRevert remains
+the only legitimate un-apply path.
+
+Tests: `TestNormalizeGatewaySettings_PreservesAppliedStateOnDrawerEdit`
+(drawer wipe fixed + apply payload not second-guessed; go test
+./internal/web/service green, gofumpt clean). **lucxVersion:** lucx.380
+
 ## lucx.379 — fix: clash sub gave trojan-reality nodes `servername` without `sni` — mihomo read nothing and every trojan-reality node from the sub was dead
 
 Report (VladufQa, 26.11.2026 21:2x): the panel's Clash subscription rendered

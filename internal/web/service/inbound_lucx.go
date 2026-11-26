@@ -1008,6 +1008,19 @@ func (s *InboundService) normalizeGatewaySettings(inbound *model.Inbound) {
 	if !ok {
 		return
 	}
+	// The inbound drawer round-trips only {publicHost} (frontend gateway
+	// schema), while the applied state — snapshot, applied settings,
+	// hidePanel/UFW, panel routes — lives in the same settings blob and is
+	// owned by the Masking page. Without this a single drawer save (VladufQa
+	// saw it on the balancer-only toggle) wiped the applied state: masking
+	// died and the panel fronted by the gateway dropped its session.
+	if old, err := s.GetInbound(inbound.Id); err == nil && old.Id != 0 {
+		if oldCfg, oldOK := tunnel.GatewayConfigFromInbound(old); oldOK && oldCfg.Applied() && !cfg.Applied() {
+			oldCfg.PublicHost = cfg.PublicHost
+			oldCfg.Enabled = cfg.Enabled
+			cfg = oldCfg
+		}
+	}
 	cfg = cfg.Merge()
 	if inbound.Port <= 0 {
 		inbound.Port = 443
