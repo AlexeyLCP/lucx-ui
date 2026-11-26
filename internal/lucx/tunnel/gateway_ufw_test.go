@@ -364,42 +364,27 @@ func TestAllowUFW_Port22StaysTCPOnly(t *testing.T) {
 	}
 }
 
-func TestApplyUFW_InstallsWhenMissing(t *testing.T) {
-	oldLinux, oldPath, oldRun, oldInstall := ufwOSLinux, ufwLookPath, ufwRun, ufwInstall
-	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun, ufwInstall = oldLinux, oldPath, oldRun, oldInstall })
+func TestApplyUFW_MissingUFWDoesNotInstall(t *testing.T) {
+	oldLinux, oldPath, oldRun := ufwOSLinux, ufwLookPath, ufwRun
+	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwRun = oldLinux, oldPath, oldRun })
 	ufwOSLinux = true
 	ufwLookPath = func(name string) (string, error) {
-		if name == "apt-get" {
-			return "/usr/bin/apt-get", nil
-		}
+		// No ufw on the host — and nothing may be installed from the panel.
 		return "", exec.ErrNotFound
 	}
-	installed := false
-	ufwInstall = func() error { installed = true; return nil }
-	var got []string
+	ran := false
 	ufwRun = func(args ...string) error {
-		got = append(got, strings.Join(args, " "))
+		ran = true
 		return nil
 	}
-	if err := ApplyUFW([]string{"22/tcp"}, nil); err != nil {
-		t.Fatal(err)
+	err := ApplyUFW([]string{"22/tcp"}, nil)
+	if err == nil {
+		t.Fatal("expected error without ufw")
 	}
-	if !installed {
-		t.Fatal("ufw was not installed on apply")
+	if !strings.Contains(err.Error(), "install it manually") {
+		t.Fatalf("error must tell the operator to install ufw, got %q", err)
 	}
-	want := "allow 22/tcp;default deny incoming;--force enable"
-	if strings.Join(got, ";") != want {
-		t.Fatalf("%q", got)
-	}
-}
-
-func TestApplyUFW_MissingUFWAndApt(t *testing.T) {
-	oldLinux, oldPath, oldInstall := ufwOSLinux, ufwLookPath, ufwInstall
-	t.Cleanup(func() { ufwOSLinux, ufwLookPath, ufwInstall = oldLinux, oldPath, oldInstall })
-	ufwOSLinux = true
-	ufwLookPath = func(string) (string, error) { return "", exec.ErrNotFound }
-	ufwInstall = func() error { t.Fatal("install must not run without apt-get"); return nil }
-	if err := ApplyUFW([]string{"22/tcp"}, nil); err == nil {
-		t.Fatal("expected error without ufw and apt-get")
+	if ran {
+		t.Fatal("no ufw commands may run without ufw installed")
 	}
 }
