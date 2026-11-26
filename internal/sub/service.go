@@ -3917,7 +3917,11 @@ func parseLucxRelease(version string) int {
 
 // anytlsTakesUserPasswords reports whether the inbound's anytls server accepts
 // per-client passwords: a local inbound is probed directly, a node inbound is
-// gated on the node's learned panel version.
+// gated on the node's learned panel version AND the authSeed the per-user
+// derivation needs. Derivation uses the master's HMAC inputs; without the
+// settings-carried seed the derived password cannot match the node's users
+// file (369 report: master served an unusable derived password for seedless
+// node inbounds — the shared one stays valid there, per users-file mode).
 func (s *SubService) anytlsTakesUserPasswords(inbound *model.Inbound) bool {
 	if inbound == nil || inbound.Protocol != model.Anytls {
 		return false
@@ -3932,7 +3936,8 @@ func (s *SubService) anytlsTakesUserPasswords(inbound *model.Inbound) bool {
 		return false
 	}
 	n, ok := s.nodesByID[*inbound.NodeID]
-	return ok && parseLucxRelease(n.PanelVersion) >= anytlsUsersSeedRelease
+	return ok && parseLucxRelease(n.PanelVersion) >= anytlsUsersSeedRelease &&
+		tunnel.AuthSeed(inbound.Settings) != ""
 }
 
 // anytlsClientPassword is email's own AnyTLS password on inbound, or "" when

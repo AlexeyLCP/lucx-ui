@@ -76,3 +76,31 @@ func TestNodePushKeepsDisabledClientsLocalPushStripsThem(t *testing.T) {
 		}
 	})
 }
+
+// The push path must carry settings VERBATIM: per-user credentials are
+// derived by each panel from its own secret, and the node's users file can
+// only contain credentials minted by the node. Minting a seed or rewriting a
+// password here would diverge the master's subscription from what the node
+// actually serves (369 report: master handed out per-user passwords derived
+// from master-side HMAC inputs the seedless node inbound never had). The same
+// minting was once silently re-added by the v3.6.0 merge (298899e6 → lost in
+// ddd92d06) — this test is the merge tripwire.
+func TestNodePushCarriesSettingsVerbatim(t *testing.T) {
+	setupBulkDB(t)
+	svc := &InboundService{}
+	db := database.GetDB()
+
+	settings := `{"password":"keep-shared-pass","clients":[{"email":"n@x","enable":true}]}`
+	ib := mkInbound(t, 30302, model.Anytls, settings)
+
+	built, err := svc.buildInboundForNodePush(db, ib)
+	if err != nil {
+		t.Fatalf("buildInboundForNodePush: %v", err)
+	}
+	if built.Settings != settings {
+		t.Fatalf("push rewrote settings:\ngot:  %s\nwant: %s", built.Settings, settings)
+	}
+	if built.Settings == "" {
+		t.Fatal("push produced empty settings")
+	}
+}

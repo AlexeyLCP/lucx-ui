@@ -134,6 +134,51 @@ func TestGetSubs_Anytls_NodePanelVersionGate(t *testing.T) {
 	}
 }
 
+// 369 regression (Андрей): a fresh node inbound is ADOPTED SEEDLESS — AnyTLS
+// never gets an authSeed written, and per-user derivation on the master uses
+// master-side HMAC inputs the node's users file cannot contain. A modern
+// node version alone must NOT switch the link to per-user passwords: the
+// shared password (always present in the node's -password-file) is served.
+func TestGetSubs_Anytls_NodePanelVersionGateRequiresSeed(t *testing.T) {
+	initSubDB(t)
+	db := database.GetDB()
+	node := &model.Node{Name: "de-fra-2", Address: "node2.example.com", Port: 2053, PanelVersion: "v3.11.0-lucx.369"}
+	if err := db.Create(node).Error; err != nil {
+		t.Fatal(err)
+	}
+	ib := &model.Inbound{
+		UserId: 1, Tag: "anytls-node-seedless", Enable: true, Port: 9444, Remark: "Anytls node seedless", Protocol: model.Anytls,
+		NodeID: &node.Id,
+		Settings: `{"password":"node-shared-pass","sni":"a.example.com",` +
+			`"clients":[{"email":"su1@x","enable":true}]}`,
+	}
+	if err := db.Create(ib).Error; err != nil {
+		t.Fatal(err)
+	}
+	rec := &model.ClientRecord{Email: "su1@x", SubID: "ssn1", Enable: true}
+	if err := db.Create(rec).Error; err != nil {
+		t.Fatal(err)
+	}
+	if err := db.Create(&model.ClientInbound{ClientId: rec.Id, InboundId: ib.Id}).Error; err != nil {
+		t.Fatal(err)
+	}
+	defer tunnel.SetAnytlsCapsForTest(true, true)()
+
+	links, _, _, _, err := NewSubService("").GetSubs("ssn1", "sub.example.com")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := strings.Join(links, "\n")
+	if !strings.HasPrefix(got, "anytls://node-shared-pass@") {
+		t.Fatalf("seedless node anytls must keep the shared password, got %q", got)
+	}
+	// And it must not be a derived value: anything else than the shared
+	// password would be unusable on the node.
+	if strings.Contains(got, "anytls://shared-pass@") {
+		t.Fatalf("link leaked another inbound's shared password: %s", got)
+	}
+}
+
 func TestParseLucxRelease(t *testing.T) {
 	cases := map[string]int{
 		"v3.11.0-lucx.368":             368,
