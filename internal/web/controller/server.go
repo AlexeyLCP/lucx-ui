@@ -334,19 +334,30 @@ func (a *ServerController) stopXrayService(c *gin.Context) {
 
 // restartXrayService restarts the Xray service.
 func (a *ServerController) restartXrayService(c *gin.Context) {
-	err := a.serverService.RestartXrayService()
-	if err != nil {
-		jsonMsg(c, I18nWeb(c, "pages.xray.restartError"), err)
-		websocket.BroadcastXrayState("error", err.Error())
-		return
-	}
-	jsonMsg(c, I18nWeb(c, "pages.xray.restartSuccess"), err)
-	websocket.BroadcastXrayState("running", "")
-	websocket.BroadcastNotification(
-		I18nWeb(c, "pages.xray.restartSuccess"),
-		"Xray service has been restarted successfully",
-		"success",
-	)
+	successMsg := I18nWeb(c, "pages.xray.restartSuccess")
+	errorMsg := I18nWeb(c, "pages.xray.restartError")
+	// Respond before the restart runs: a synchronous restart holds the TCP
+	// connection past the masking caddy chain (grace_period 1s) where it dies
+	// as "Failed to fetch" mid-flight, and the dashboard never refreshes
+	// (issue #214). Real result lands via the Xray-state websocket below.
+	jsonMsg(c, successMsg, nil)
+	go func() {
+		if err := a.serverService.RestartXrayService(); err != nil {
+			websocket.BroadcastXrayState("error", err.Error())
+			websocket.BroadcastNotification(
+				errorMsg,
+				"Xray restart failed: "+err.Error(),
+				"warning",
+			)
+			return
+		}
+		websocket.BroadcastXrayState("running", "")
+		websocket.BroadcastNotification(
+			successMsg,
+			"Xray service has been restarted successfully",
+			"success",
+		)
+	}()
 }
 
 // LUCX-HOOK: restartAwg stops and re-ups managed AWG interfaces.
