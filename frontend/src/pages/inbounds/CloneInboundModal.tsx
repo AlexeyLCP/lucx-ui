@@ -87,6 +87,7 @@ export default function CloneInboundModal({
             dbInbound,
             pickClonePort(portsInUse.get(target)),
             target === LOCAL_PANEL ? null : target,
+            portsInUse.get(target),
           ),
           { silent: true },
         );

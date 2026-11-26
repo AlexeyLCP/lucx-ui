@@ -87,3 +87,72 @@ describe('pickClonePort', () => {
     expect(port).toBeLessThanOrEqual(60000);
   });
 });
+
+describe('buildClonePayload — mieru binding remap (issue #218)', () => {
+  function mieruSource(settings: unknown) {
+    return new DBInbound({
+      id: 21,
+      port: 32893,
+      listen: '0.0.0.0',
+      protocol: 'mieru',
+      remark: 'Mieru1NLv',
+      enable: true,
+      settings: JSON.stringify(settings),
+      nodeId: 0,
+      shareAddrStrategy: 'node',
+      shareAddr: '',
+    });
+  }
+
+  it('shifts a single binding off the source port when a used set is given', () => {
+    const src = mieruSource({ portBindings: [{ port: 32893, protocol: 'TCP' }] });
+    const used = new Set<number>([32893, 32894, 40000]);
+    const payload = buildClonePayload(src, 23456, null, used);
+    const settings = JSON.parse(payload.settings);
+    expect(settings.portBindings[0].port).toBe(32895);
+    expect(settings.portBindings[0].protocol).toBe('TCP');
+  });
+
+  it('keeps the span of a remapped port range and preserves a UDP entry', () => {
+    const src = mieruSource({
+      portBindings: [
+        { portRange: '32893-32902', protocol: 'TCP' },
+        { port: 33000, protocol: 'UDP' },
+      ],
+    });
+    const used = new Set([32902, 32903]);
+    const payload = buildClonePayload(src, 23456, null, used);
+    const settings = JSON.parse(payload.settings);
+    const [tcp, udp] = settings.portBindings;
+    const [, end] = tcp.portRange.split('-').map(Number);
+    expect(end - Number(tcp.portRange.split('-')[0]) + 1).toBe(10);
+    expect(tcp.protocol).toBe('TCP');
+    expect(udp.port).toBeGreaterThan(33000);
+    expect(udp.protocol).toBe('UDP');
+  });
+
+  it('never lands a remapped binding on the source bindings', () => {
+    const src = mieruSource({
+      portBindings: [
+        { port: 32893, protocol: 'TCP' },
+        { port: 32894, protocol: 'TCP' },
+      ],
+    });
+    // Target bound ports do not know the source's second binding (the
+    // pre-check set is row-port only): the remap must block both originals.
+    const used = new Set<number>([32893]);
+    const payload = buildClonePayload(src, 23456, null, used);
+    const settings = JSON.parse(payload.settings);
+    const ports = settings.portBindings.map((b: { port: number }) => b.port);
+    expect(ports).not.toContain(32893);
+    expect(ports).not.toContain(32894);
+    expect(new Set(ports).size).toBe(2);
+  });
+
+  it('leaves settings verbatim without a used set (legacy callers)', () => {
+    const src = mieruSource({ portBindings: [{ port: 32893, protocol: 'TCP' }] });
+    const payload = buildClonePayload(src, 23456, null);
+    const settings = JSON.parse(payload.settings);
+    expect(settings.portBindings[0].port).toBe(32893);
+  });
+});

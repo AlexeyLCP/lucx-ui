@@ -506,13 +506,16 @@ func (s *ClientService) AddInboundClient(inboundSvc *InboundService, data *model
 		return false, err
 	}
 
+	// LUCX-HOOK: forwarded-ports guard context loads for both AWG flavors —
+	// the kernel protocol (AWG) was previously left with a zero context.
 	var portCtx portConflictContext
-	if oldInbound.Protocol == model.AmneziaWG {
+	if oldInbound.Protocol == model.AmneziaWG || oldInbound.Protocol == model.AWG {
 		portCtx, err = inboundSvc.loadPortConflictContext(database.GetDB(), oldInbound.NodeID)
 		if err != nil {
 			return false, err
 		}
 	}
+	// END LUCX-HOOK
 	for _, client := range clients {
 		if strings.TrimSpace(client.Email) == "" {
 			return false, common.NewError("client email is required")

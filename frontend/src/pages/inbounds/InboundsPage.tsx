@@ -23,7 +23,7 @@ import {
 } from '@ant-design/icons';
 
 import { HttpUtil, SizeFormatter, RandomUtil } from '@/utils';
-import { buildClonePayload } from '@/lib/xray/inbound-clone';
+import { buildClonePayload, mieruBindingPorts } from '@/lib/xray/inbound-clone';
 // LUCX-HOOK: include LucX sidecar protocols (awg/naive/…), not just upstream.
 import { isProtocolNodeEligible } from '@/lib/xray/node-protocol';
 import {
@@ -154,6 +154,9 @@ export default function InboundsPage() {
       const key = ib.nodeId ?? 0;
       const ports = map.get(key) ?? new Set<number>();
       ports.add(ib.port);
+      // Mieru listeners live in settings.portBindings, not in the row's port;
+      // without them the clone pre-check cannot see the real occupancy.
+      for (const p of mieruBindingPorts(ib)) ports.add(p);
       map.set(key, ports);
     }
     return map;
@@ -644,13 +647,18 @@ export default function InboundsPage() {
         onOk: async () => {
           const msg = await HttpUtil.post(
             '/panel/api/inbounds/add',
-            buildClonePayload(dbInbound, RandomUtil.randomInteger(10000, 60000), null),
+            buildClonePayload(
+              dbInbound,
+              RandomUtil.randomInteger(10000, 60000),
+              null,
+              clonePortsInUse.get(0),
+            ),
           );
           if (msg?.success) await refresh();
         },
       });
     },
-    [modal, nodesList, refresh, t],
+    [modal, nodesList, refresh, t, clonePortsInUse],
   );
 
   const onGeneralAction = useCallback(
