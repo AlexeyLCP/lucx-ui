@@ -2440,6 +2440,15 @@ install_x-ui() {
     # works out of the box (no-op when XUI_ENABLE_FAIL2BAN=false). Never fatal.
     setup_fail2ban
 
+    # LUCX-HOOK: best-effort host tuning (issue #215): QUIC/UDP sysctl buffers
+    # + x-ui LimitNOFILE drop-in. Idempotent, never fatal; opt-out with
+    # LUCX_HOST_TUNE=0.
+    if [[ "${LUCX_HOST_TUNE:-1}" != "0" && -f "${xui_folder}/bin/lucx-host-tune.sh" ]]; then
+        echo "Host tuning (sysctl buffers, file limits)..."
+        bash "${xui_folder}/bin/lucx-host-tune.sh" || echo -e "${yellow}Host tuning skipped - run it later: bash ${xui_folder}/bin/lucx-host-tune.sh${plain}"
+    fi
+    # END LUCX-HOOK
+
     # LUCX-HOOK: existing :80 standalone certs move to the forwarded ACME scheme
     [[ -f "${xui_folder}/bin/lucx-acme.sh" ]] && bash "${xui_folder}/bin/lucx-acme.sh" migrate
     # END LUCX-HOOK

@@ -82,6 +82,7 @@ chmod +x x-ui/x-ui
 cp x-ui.service.debian x-ui.service.arch x-ui.service.rhel x-ui.sh x-ui/
 cp bin/install-awg-module.sh x-ui/bin/
 cp bin/lucx-acme.sh x-ui/bin/
+cp bin/lucx-host-tune.sh x-ui/bin/
 # LUCX: aivpn-server refuses to start without mask profiles; the vendored
 # upstream JSONs (third_party/sidecars/masks, pinned aivpn release) ship in
 # every panel tarball at bin/tunnel/aivpn-masks — the mask_dir the panel

@@ -123,6 +123,8 @@ jobs:
           cp bin/install-awg-module.sh x-ui/bin/ || true
           # LUCX-HOOK: bin/lucx-acme.sh (ACME on loopback, :80 forwarded)
           cp bin/lucx-acme.sh x-ui/bin/
+          # LUCX-HOOK: bin/lucx-host-tune.sh (issue #215 host auto-setup)
+          cp bin/lucx-host-tune.sh x-ui/bin/
           # END LUCX-HOOK
           cd x-ui/bin
 
@@ -368,7 +370,7 @@ jobs:
           set -euo pipefail
           P="${{ matrix.platform }}"
           tar -tzf "x-ui-linux-${P}.tar.gz" | tee /tmp/list
-          for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" x-ui/bin/install-awg-module.sh x-ui/bin/lucx-acme.sh x-ui/bin/lucx-pins.txt; do
+          for f in x-ui/x-ui x-ui/x-ui.sh "x-ui/bin/xray-linux-${P}" "x-ui/bin/mtg-linux-${P}" x-ui/bin/install-awg-module.sh x-ui/bin/lucx-acme.sh x-ui/bin/lucx-host-tune.sh x-ui/bin/lucx-pins.txt; do
             grep -Fxq "$f" /tmp/list || { echo "missing $f"; exit 1; }
           done
           for c in caddy-naive naive-client olcrtc qwdtt csqtt openflux mieru mieru-client trusttunnel trusttunnel-client anytls tproxy caddy-layer4 telemt mtproto-zig wgobfs; do

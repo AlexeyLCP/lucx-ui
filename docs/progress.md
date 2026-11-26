@@ -1,5 +1,22 @@
 # LucX-UI — Прогресс
 
+## lucx.376 — issue #215 host auto-tuning + SaluteJazz tips in every locale
+
+- **`bin/lucx-host-tune.sh` + installer hook (`install.sh`, release tarball)**
+  — the 3X-UI_KIT-inspired "auto host setup" ask, kept to the LucX-consistent
+  minimal surface: QUIC/UDP sysctl buffers (`rmem/wmem 32M`, `udp_min 16K`,
+  `tcp_fastopen=3` — below ~7 MiB quic-go throttles loudly, seen as a warning
+  in our own CI logs), an `x-ui` `LimitNOFILE=65535` systemd drop-in, both
+  idempotent, never fatal (no `set -e`), opt-out `LUCX_HOST_TUNE=0`. BBR stays
+  owned by x-ui.sh's `99-bbr-x-ui.conf` — a separate file, no fight. Shipped in
+  the release tarball next to `lucx-acme.sh` (`release.yml` copy + layout
+  guard, SourceCraft too). Static pin `TestInstallScriptWiresHostTune`. Not
+  done deliberately: the KIT's full feature set (protocol menus, backups,
+  site-picking) — those are panel features, not installer tuning.
+- **SaluteJazz provider tip** — `providerTip` in all 14 locales now mentions
+  datachannel-only Sber SaluteJazz (en/ru done earlier, 12 mechanical
+  translations appended; en/ru sentence rewritten to lead with the constraint).
+
 ## lucx.375 — Андреев батч: anytls fallback lost on save, anytls master-sub wrong password, ufw auto-install reverted
 
 Three fixes from the 26.11 Telegram report (Андрей, 3.11.0-lucx.369):

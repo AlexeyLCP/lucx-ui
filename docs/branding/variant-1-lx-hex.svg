@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LucX-UI logo variant 1 — LX monogram in a hexagon">
+  <defs>
+    <linearGradient id="beam" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#0ea5e9"/>
+    </linearGradient>
+  </defs>
+  <!-- hexagonal badge -->
+  <path d="M256 36 446 146v220L256 476 66 366V146Z" fill="#0e1621" stroke="url(#beam)" stroke-width="14"/>
+  <path d="M256 72 414 164v184L256 440 98 348V164Z" fill="#12203a" opacity="0.65"/>
+  <!-- LX monogram: vertical beam for L, crossing beams for X -->
+  <g stroke-linecap="round">
+    <line x1="188" y1="150" x2="188" y2="362" stroke="#e6f4ff" stroke-width="30"/>
+    <line x1="188" y1="362" x2="286" y2="150" stroke="#e6f4ff" stroke-width="30" opacity="0.92"/>
+  </g>
+  <!-- the X: two crossing light beams -->
+  <g stroke="url(#beam)" stroke-linecap="round">
+    <line x1="330" y1="150" x2="430" y2="362" stroke-width="30"/>
+    <line x1="430" y1="150" x2="330" y2="362" stroke-width="30"/>
+  </g>
+</svg>

@@ -28,6 +28,8 @@ secure random / default):
 `XUI_SERVER_IP` (fallback IP for the displayed access URL when auto-detection fails),
 `LUCX_BIND_IP` (multi-IP VPS: force the public IPv4 the whole install flows
 through — cert confirm, `SSL_HOST`, access URL; equivalent to `install.sh --ip ADDR`),
+`LUCX_HOST_TUNE` (`0` skips the best-effort host tuning — QUIC/UDP sysctl
+buffers and a `x-ui` `LimitNOFILE` systemd drop-in; default: enabled, never fatal),
 `XUI_DB_TYPE` (`sqlite`|`postgres`), `XUI_DB_DSN`.
 
 The resulting credentials are written to `/etc/x-ui/install-result.env` (mode 600).

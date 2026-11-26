@@ -3328,7 +3328,7 @@
         "form": {
           "remark": "Remark",
           "provider": "Meet provider",
-          "providerTip": "Jitsi works with datachannel (recommended). Telemost only supports vp8channel.",
+          "providerTip": "Jitsi works with datachannel (recommended). Telemost only supports vp8channelSber SaluteJazz فقط با datachannel کار می‌کند.",
           "roomId": "Room URL / ID",
           "roomIdTip": "Full Jitsi URL (https://meet…/room) or Telemost/WB room identifier.",
           "cryptoKey": "Crypto key",

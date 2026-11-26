@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 240" role="img" aria-label="LucX-UI logo variant 2 — lucx wordmark with laser X">
+  <defs>
+    <linearGradient id="beam2" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#22d3ee"/>
+      <stop offset="1" stop-color="#818cf8"/>
+    </linearGradient>
+  </defs>
+  <rect width="960" height="240" fill="#0e1621"/>
+  <g fill="#e6f4ff" font-family="Segoe UI, Inter, Arial, sans-serif" font-weight="700" font-size="150">
+    <text x="90" y="168">luc</text>
+  </g>
+  <!-- x as two crossing beams -->
+  <g stroke="url(#beam2)" stroke-linecap="round" stroke-width="26">
+    <line x1="392" y1="92" x2="472" y2="172"/>
+    <line x1="472" y1="92" x2="392" y2="172"/>
+  </g>
+  <g fill="#e6f4ff" opacity="0.85" font-family="Segoe UI, Inter, Arial, sans-serif" font-weight="600" font-size="64">
+    <text x="510" y="168" letter-spacing="10">UI</text>
+  </g>
+  <!-- the ray passing under the wordmark -->
+  <line x1="60" y1="196" x2="900" y2="60" stroke="url(#beam2)" stroke-width="6" opacity="0.55" stroke-linecap="round"/>
+</svg>
