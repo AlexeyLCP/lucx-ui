@@ -2,6 +2,26 @@
 
 ## lucx.376 — issue #215 host auto-tuning + SaluteJazz tips in every locale
 
+- **B4 HWID limit propagation (`model.go`, upstream bug carried over)** —
+  verdict from the trace: NOT a LucX regression and not a design decision —
+  upstream (MHSanaei 3x-ui, per-client HWID limits #5802) stores the limit in
+  the `clients.limit_hwid` row column while `model.Client` — the wire struct
+  inside settings.clients[] and the per-client node push payload — has no
+  such field, and the per-local-DB enforcer (`EnforceHwidForSubID`) reads
+  only the row. Result: the master's limit never reaches the nodes, every
+  node enforces unlimited, and the node's client card shows 0. Upstream's own
+  `MergeClientRecord` keep-max branch for `limitHwid` proves the wire copy
+  was intended and never implemented (identical gap in upstream main).
+  Fix: `Client.LimitHwid int json:"limitHwid,omitempty"` (LUCX-HOOK, next to
+  LimitIP) + symmetric copies in `ToRecord()`/`ToClient()`; the existing
+  keep-max merge branch becomes live. Rule 0: the field is operator-set and
+  explicitly saved on the master — propagation is exactly what the operator
+  asked for; limit-less clients stay byte-identical (`omitempty`).
+  **Propagation timing**: existing limits reach the nodes on the client's
+  next master-side save (settings blob carries the field); no backfill by
+  design (Rule 0 forbids silent mass rewrites). Test:
+  `TestClientLimitHwidRoundTrip` (both legs + wire key + omitempty).
+
 - **`bin/lucx-host-tune.sh` + installer hook (`install.sh`, release tarball)**
   — the 3X-UI_KIT-inspired "auto host setup" ask, kept to the LucX-consistent
   minimal surface: QUIC/UDP sysctl buffers (`rmem/wmem 32M`, `udp_min 16K`,

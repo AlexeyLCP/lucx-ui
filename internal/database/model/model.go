@@ -1011,6 +1011,10 @@ type Client struct {
 	AdTag               string           `json:"adTag,omitempty" example:"0123456789abcdef0123456789abcdef"`
 	Email               string           `json:"email"`   // Client email identifier
 	LimitIP             int              `json:"limitIp"` // IP limit for this client
+	// LUCX-HOOK: HWID limit rides the wire so a limit set on the master
+	// reaches nodes — it lived only in the clients table row, so every node
+	// enforced unlimited (B4). ToRecord/ToClient copies must stay symmetrical.
+	LimitHwid int `json:"limitHwid,omitempty"` // Unique-device (HWID) limit; 0 = unlimited
 	// NeverLogIPs keeps this client's addresses out of the panel: no live IP
 	// list, no device last-IP, no IP-limit log. The IP limit can't apply to it.
 	NeverLogIPs  bool   `json:"neverLogIps,omitempty" form:"neverLogIps"`
@@ -1339,6 +1343,7 @@ func (c *Client) ToRecord() *ClientRecord {
 		Security:          c.Security,
 		ClientHostRuleIds: CloneClientHostRuleIds(c.ClientHostRuleIds),
 		LimitIP:           c.LimitIP,
+		LimitHwid:         c.LimitHwid,
 		TotalGB:           c.TotalGB,
 		ExpiryTime:        c.ExpiryTime,
 		Enable:            c.Enable,
@@ -1400,6 +1405,7 @@ func (r *ClientRecord) ToClient() *Client {
 		Security:          r.Security,
 		ClientHostRuleIds: CloneClientHostRuleIds(r.ClientHostRuleIds),
 		LimitIP:           r.LimitIP,
+		LimitHwid:         r.LimitHwid,
 		TotalGB:           r.TotalGB,
 		ExpiryTime:        r.ExpiryTime,
 		Enable:            r.Enable,
