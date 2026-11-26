@@ -1,5 +1,51 @@
 # LucX-UI — Прогресс
 
+## lucx.375 — Андреев батч: anytls fallback lost on save, anytls master-sub wrong password, ufw auto-install reverted
+
+Three fixes from the 26.11 Telegram report (Андрей, 3.11.0-lucx.369):
+
+1. **AnyTLS fallback field stripped by zod (`anytls.ts`, `inbound-defaults.ts`)**
+   — "Сайт для неавторизованных" reopened empty after save: `fallback` existed
+   in Go config/validation (`-fallback`, `anytlsSupportsFallback`) but was
+   missing from `AnytlsInboundSettingsSchema`, so zod stripped it on editor
+   load AND submit (the exact failure class lucx.368 fixed for trusttunnel —
+   this time only the FE half was broken; BE normalize passes unknown keys
+   through). Added to schema + defaults + two round-trip pins in
+   `protocols.test.ts`. Note: the overlay anytls binary must support
+   `-fallback` (`anytlsSupportsFallback` gate) — otherwise the field now
+   saves but the core ignores it.
+2. **Master subscription handed out WRONG PASSWORDS for node anytls
+   inbounds (`sub/service.go`, regression of lucx.369 per-user passwords)** —
+   no writer ever touches credentials on node attach (settings travel
+   verbatim; verified end-to-end), but lucx.369's `anytlsTakesUserPasswords`
+   gated node links ONLY on the node's panel version, while per-user
+   derivation needs the `authSeed` — which anytls never gets written (the
+   gate exists for naive/mieru/TT via UsesDerivedAuth, and the push-path seed
+   mint from 298899e6 was dropped in the v3.6.0 merge ddd92d06). The master
+   derived per-user passwords from MASTER-side HMAC inputs; the node's users
+   file (`HMAC(node secret, node id)`) holds neither → every client link
+   through the master carried an unusable password while the node's own sub
+   served the shared one and worked (exactly the report). Fix: the node
+   branch additionally requires `tunnel.AuthSeed(settings) != ""` — seedless
+   rows fall back to the shared password the node core always accepts; seeded
+   rows keep revocation semantics. Tests:
+   `TestGetSubs_Anytls_NodePanelVersionGateRequiresSeed` (369 node + no seed ⇒
+   shared) and `TestNodePushCarriesSettingsVerbatim` (the merge tripwire for
+   the lost seed-mint). Follow-up deliberately NOT done: extending
+   `ensureNodeAuthSeed` to anytls + re-adding push mint rotates per-user
+   credentials node-wide on first push — an operator-visible change for a
+   separate release-notes-framed decision.
+3. **Panel no longer apt-get installs ufw (`gateway_ufw.go`)** — on a host
+   with broken dpkg state / read-only /etc the mask-apply ran
+   `apt-get install -y ufw` for up to 5 minutes and returned a dpkg dump
+   ("Read-only file system"). Masking itself was already applied and persisted
+   before the ufw step (the response said "gateway applied, ufw: …"), so the
+   fix only changes the firewall step: `UFWAvailable() == false` ⇒ hard stop
+   with a precise operator instruction (install ufw manually, re-apply or
+   revert); `RevertUFW` already no-ops without ufw. Matches the fail2ban
+   convention: the panel never installs system packages as a side effect.
+   Test: `TestApplyUFW_MissingUFWDoesNotInstall`.
+
 ## lucx.374 — installer/AWG ops batch: B3 Secure Boot, H1 --ip, H2 sourceIP, H4 outbound stats
 
 Four wanted-fixture fixes from the chat triage, one per commit:
