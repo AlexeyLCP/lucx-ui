@@ -1032,7 +1032,7 @@
         "anytlsPassword": "Password",
         "anytlsPasswordHint": "Empty = auto-generate on save",
         "anytlsFallback": "Fallback site",
-        "anytlsFallbackHint": "Loopback address of a plain-HTTP site (e.g. a Cover's local site port). Browsers and probes that don't log in to AnyTLS get this site instead of a dropped connection. Empty = close, as before.",
+        "anytlsFallbackHint": "Loopback address of a plain-HTTP site — NOT a TLS port. With a Cover: enable its Local site port (Cover inbound settings) and enter 127.0.0.1:<that port>. Browsers and probes that don't log in to AnyTLS get this site instead of a dropped connection. Empty = close, as before.",
         "anytlsSni": "SNI / domain",
         "anytlsSniHint": "Must be covered by the panel TLS certificate (x-ui SSL). Empty cert paths use Settings → Panel SSL.",
         "anytlsRouteThroughXray": "Route through Xray",
