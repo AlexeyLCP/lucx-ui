@@ -15,28 +15,35 @@ change ships the pass-through half, mirroring the AWG tproxy pattern
    non-loopback udp flow (mark `0x71c2`); the policy route (`ip rule fwmark
    0x71c2 lookup 1802 pref 1802` + `local default dev lo table 1802 proto
    242`, both families) sends it back to PREROUTING where it is TPROXYed into
-   the sink (`--on-ip 127.0.0.1/--on-ip ::1 --on-port <routeXrayPort+1>`).
-   Rules are comment-scoped (`lucx-tproxy-xray`) and re-ensured on every
-   reconcile (comment sweep + del-then-add rule + route replace), so firewall
-   flushes self-heal within one 10 s tick. TCP side unchanged: NAT OUTPUT
-   REDIRECT + the :23990 SOCKS bridge keep carrying TCP (lucx.273).
+   the sink (`--on-ip 127.0.0.1/--on-ip ::1 --on-port 23990`). Rules are
+   comment-scoped (`lucx-tproxy-xray`) and re-ensured on every reconcile
+   (comment sweep + del-then-add rule + route replace), so firewall flushes
+   self-heal within one 10 s tick. TCP side unchanged: NAT OUTPUT REDIRECT +
+   the :23990 SOCKS bridge keep carrying TCP (lucx.273). **lucx.370 bugfix
+   folded in**: `clearIptablesNatOutput` now also sweeps `ip6tables -t nat
+   OUTPUT` — the v6 REDIRECT rule kept multiplying on every reconcile (first
+   leak test showed ×6 after a few minutes; they also survived cleanup).
 2. **Kill-switch change**: the udp/53 ACCEPT from lucx.370 is gone — DNS now
    rides the tunnel (the leak-test "first hop" was most likely exactly that
    direct-DNS hop). The udp drop gains `! -m mark` so TPROXY-bound packets
    pass; when the TPROXY plumbing is missing, UDP/DNS fail closed again
    instead of leaking. TCP drop unchanged.
 3. **Xray (`injectUdpTproxyEgress`)**: two hidden `dokodemo-door` inbounds
-   (tags `<tag>-udp` / `<tag>-udp6`, bind `127.0.0.1`/`::1`, port
-   `routeXrayPort+1`, `network udp` + `allowedNetwork udp` + `followRedirect`
-   + `tproxy` sockopt, AWG sniffing incl. quic) force a full Xray restart via
-   the existing hot-diff TPROXY rule. Taken udp port → bridge skipped with a
-   warning; the kill-switch keeps UDP blocked, not leaking. Force-route
-   (`outboundTag`) prepends one rule matching both dokodeme tags.
+   (tags `<tag>-udp` / `<tag>-udp6`, bind `127.0.0.1`/`::1`, port **23990 —
+   the shared bridge port**; xray's udp dokodeme never collides with the
+   panel's TCP bridge listener there, different transport; `network udp` +
+   `allowedNetwork udp` + `followRedirect` + `tproxy` sockopt, AWG sniffing
+   incl. quic) force a full Xray restart via the existing hot-diff TPROXY
+   rule. Taken port (another dokodeme won the 23990) → bridge skipped with a
+   warning; the kill-switch keeps that inbound's UDP blocked, not leaking.
+   Force-route (`outboundTag`) prepends one rule matching both dokodeme tags.
 
 Known limits: TCP is not moved to TPROXY (the socks bridge works and is
 field-proven); v6 TPROXY UDP is untested in this repo (fails closed — blocked
 rather than leaked); if the policy rule is externally flushed between
-reconciles, marked UDP routes directly for up to one reconcile tick. Applies
+reconciles, marked UDP routes directly for up to one reconcile tick; one
+shared udp sink (23990) — with several routed inbounds the first one wins the
+port, the rest keep their UDP kill-switched. Applies
 to every routed owner of the shared uid (AnyTLS; routed tproxy/mtproxy have no
 UDP of their own).
 

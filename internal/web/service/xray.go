@@ -1008,26 +1008,29 @@ func injectAnytlsEgress(cfg *xray.Config, inbound *model.Inbound) {
 		return
 	}
 	injectSocksEgress(cfg, inbound.Tag, parsed.RouteXrayPort, parsed.OutboundTag, "anytls egress", false, false)
-	injectUdpTproxyEgress(cfg, inbound.Tag, parsed.RouteXrayPort+1, parsed.OutboundTag)
+	injectUdpTproxyEgress(cfg, inbound.Tag, parsed.OutboundTag)
 }
 
 // LUCX-HOOK: injectUdpTproxyEgress is the UDP half of the routed-tunnel
 // egress. nat REDIRECT cannot carry UDP and the sidecar binaries have no
 // SOCKS-UDP upstream, so the relayed STUN/QUIC/DNS datagrams leaked the
 // ingress IP (tester, 26.11.2026). The firewall half marks the uid's
-// non-loopback udp in mangle OUTPUT and TPROXYes the return path off lo; this
-// side provides the sink: two hidden dokodeme-door inbounds (127.0.0.1 and
-// ::1, network udp, followRedirect, tproxy sockopt — awg tproxy pattern,
-// lucx.271). The shared tproxy firewall ensures the mark/prerouting rules on
-// every reconcile (EnsureMtproxyXraySocksRule). If the udp port is taken the
-// bridge is skipped and the kill-switch keeps the traffic blocked instead of
-// leaking.
-func injectUdpTproxyEgress(cfg *xray.Config, tag string, udpPort int, outboundTag string) {
+// non-loopback udp in mangle OUTPUT and TPROXYes the return path off lo into
+// --on-port 23990; this side provides the sink: two hidden dokodeme-door
+// inbounds (127.0.0.1 and ::1, network udp, followRedirect, tproxy sockopt —
+// awg tproxy pattern, lucx.271) bound to the SAME shared port. Xray's udp
+// dokodeme never collides with the panel's own TCP bridge listener on 23990
+// (different transport). The firewall ensure (EnsureMtproxyXraySocksRule)
+// installs/keeps the mark/prerouting rules on every reconcile. If the udp
+// port is already taken by another dokodeme the bridge is skipped and the
+// kill-switch keeps the traffic blocked instead of leaking.
+//
+// ponytail: one shared udp sink (first inbound wins the port, later routed
+// inbounds skip) — their marked udp lands in the winner's dokodeme and rides
+// the winner's routing rule, mirroring the shared socks-bridge limitation.
+func injectUdpTproxyEgress(cfg *xray.Config, tag string, outboundTag string) {
 	const logPrefix = "anytls udp egress"
-	if udpPort <= 0 || udpPort > 65535 {
-		logger.Warning(logPrefix, ": invalid udp tproxy port, skipping bridge")
-		return
-	}
+	udpPort := tunnel.TproxySocksRedirectPort()
 	tag4, tag6 := tag+"-udp", tag+"-udp6"
 	for i := range cfg.InboundConfigs {
 		if cfg.InboundConfigs[i].Port == udpPort && cfg.InboundConfigs[i].Protocol == "dokodemo-door" {

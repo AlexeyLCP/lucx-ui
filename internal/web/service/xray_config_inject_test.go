@@ -1352,7 +1352,7 @@ func TestInjectAnytlsEgress(t *testing.T) {
 			tag    string
 			listen string
 		}{{udp, "in-anytls-21-udp", `"127.0.0.1"`}, {udp6, "in-anytls-21-udp6", `"::1"`}} {
-			if d.ib.Protocol != "dokodemo-door" || d.ib.Port != 39161 {
+			if d.ib.Protocol != "dokodemo-door" || d.ib.Port != tunnel.TproxySocksRedirectPort() {
 				t.Fatalf("udp bridge got proto=%s port=%d", d.ib.Protocol, d.ib.Port)
 			}
 			if d.ib.Tag != d.tag || string(d.ib.Listen) != d.listen {
@@ -1390,10 +1390,10 @@ func TestInjectAnytlsEgress(t *testing.T) {
 func TestInjectUdpTproxyEgress_PortTaken(t *testing.T) {
 	cfg := egressTestConfig()
 	cfg.InboundConfigs = append(cfg.InboundConfigs, xray.InboundConfig{
-		Tag: "awg-tp", Port: 39161, Protocol: "dokodemo-door", Listen: json_util.RawMessage(`"127.0.0.1"`),
+		Tag: "awg-tp", Port: tunnel.TproxySocksRedirectPort(), Protocol: "dokodemo-door", Listen: json_util.RawMessage(`"127.0.0.1"`),
 	})
 	before := len(cfg.InboundConfigs)
-	injectUdpTproxyEgress(cfg, "in-anytls-21", 39161, "")
+	injectUdpTproxyEgress(cfg, "in-anytls-21", "")
 	if len(cfg.InboundConfigs) != before {
 		t.Fatal("taken dokodeme port must skip the udp bridge (kill-switch keeps it blocked, not leaking)")
 	}

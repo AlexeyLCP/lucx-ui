@@ -231,7 +231,12 @@ func clearMtproxyIptables(comment string) error {
 }
 
 func clearIptablesNatOutput(comment string) error {
-	return clearIptablesTableChain("iptables", comment, "nat", "OUTPUT")
+	// both families — without the ip6tables sweep the v6 REDIRECT rule
+	// (lucx.370) multiplied on every reconcile (tester leak test, lucx.378).
+	if err := clearIptablesTableChain("iptables", comment, "nat", "OUTPUT"); err != nil {
+		return err
+	}
+	return clearIptablesTableChain("ip6tables", comment, "nat", "OUTPUT")
 }
 
 func clearIptablesMangleOutput(comment string) error {
