@@ -1,5 +1,60 @@
 # LucX-UI — Прогресс
 
+## lucx.372 — issue-triage batch: #219 sidecar vpn_mode, #217 one-Naive-per-Cover guard, #214 async Xray restart, #218 mieru clone remap
+
+Four issue fixes from the open-issues triage, one commit each:
+
+1. **#219 (`internal/lucx/tunnel/client_outbound.go`)** — the TrustTunnel
+   sidecar-outbound client TOML hardcoded `vpn_mode = "selective"` with empty
+   exclusions: per the client docs, selective routes ONLY the exclusions
+   through the endpoint, so with an empty list the SOCKS listener passed all
+   user traffic direct from the host while the control connection still showed
+   "up" — a silent leak (cascade reported as ingress IP instead of exit IP).
+   Fixed to `vpn_mode = "general"` (route everything); exclusions stay empty.
+   Existing deployments heal via the fingerprint-driven reconcile (ConfigText
+   changed → TOML rewritten + `ttout-N` restarted). Test:
+   `TestRenderTrustTunnelClientTOML` now asserts `general` and bans `selective`.
+2. **#217 (`cover_inbound.go` + `web/service/gateway.go`)** — hiding several
+   Naive inbounds behind one Cover silently kept only the LAST one: the cover
+   renderer carries a single `forward_proxy` with one `upstream` relay
+   (naiveproxy cannot route two naives to separate relays), and a
+   domain-mismatched naive was skipped with no trace (its users then hit
+   `PR_END_OF_FILE_ERROR` — no certificate for their SNI on 443). The renderer
+   can't honestly support N routed naives behind one cover, so the fix is loud
+   rejection: `guardOneNaivePerCover` in `hideNaiveOnSite` refuses a Cover that
+   ends up fronting >= 2 naives, naming them; `coverAttachFor` logs warnings for
+   the ignored second naive and the domain mismatch instead of skipping
+   silently. Multi-auth merge was considered and rejected: it would keep users
+   logging in while silently misrouting their egress onto one shared relay.
+   Tests: `TestGuardOneNaivePerCover` (web), `TestCoverInstanceKeepsFirstNaiveBehindCover` (tunnel).
+3. **#214 (`web/controller/server.go`)** — `POST /server/restartXrayService`
+   responded only after the full synchronous Xray restart; behind masking the
+   request crosses the caddy chain (`grace_period 1s`, 40s relay fallback) and
+   died mid-flight as "Failed to fetch", dashboard never refreshed. The handler
+   now returns immediately and restarts in a goroutine; real result lands via
+   the existing `BroadcastXrayState` + notification (translated i18n strings are
+   captured before the goroutine — no context reuse).
+4. **#218 (frontend clone flow + #228 guard context)** — cloning a Mieru
+   inbound copied `settings.portBindings` verbatim (the clone dialog's fresh
+   port only touches the row's `port`, which the backend overwrites from the
+   primary binding), so create died on
+   `checkMieruPortConflict` against the source. `buildClonePayload` now accepts
+   the target's used-port set and remaps every mieru binding (single port →
+   next free, `portRange` → same-size free block, protocol preserved, source
+   own bindings blocked, no room → left verbatim for the backend's clear error).
+   `clonePortsInUse` also collects mieru binding ports now. TrustTunnel not
+   affected: `normalizeTrustTunnelSettings` rebuilds the listen from the row's
+   port. Plus `client_inbound_apply.go` loads the port-conflict context for the
+   kernel `AWG` protocol too (the forwarded-ports guard ran against a zero
+   context there). Tests: 4 new mieru remap cases in `inbound-clone.test.ts`.
+
+Not done on purpose: sing-box subscription output for ZeroBlock (#213) —
+that is a new subscription format feature, not a bug; answered in the issue with
+the mapped fields (type/server/server_ports/transport/username/password/
+multiplexing/traffic_pattern). #228 stays open until the reporter supplies the
+exact error text (ranked hypothesis: the create-modal picker only offers
+enabled inbounds).
+
 ## lucx.371 — hardening: Scanner Guard list fetch dials public addresses only (CodeQL critical #76)
 
 Audit of the 4 published GHSA advisories (Nov 1) confirmed every fix is present
