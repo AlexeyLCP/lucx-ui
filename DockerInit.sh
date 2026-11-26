@@ -45,7 +45,7 @@ case $PLATFORM in
         MTG_BIN="mtg-linux-${PLATFORM}"
         ;;
 esac
-MTG_MULTI_VER=$(curl -sfL "https://api.github.com/repos/mhsanaei/mtg-multi/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
+MTG_MULTI_VER=$(curl -sfL --retry 4 --retry-all-errors --retry-delay 5 "https://api.github.com/repos/mhsanaei/mtg-multi/releases/latest" | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' | head -n 1)
 if [ -z "$MTG_MULTI_VER" ]; then
     echo "DockerInit: could not resolve the latest mtg-multi release tag" >&2
     exit 1
