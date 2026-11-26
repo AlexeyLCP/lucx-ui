@@ -10,12 +10,10 @@ import {
   ThunderboltOutlined,
   LoadingOutlined,
   ExportOutlined,
-  EyeInvisibleOutlined,
-  EyeOutlined,
 } from '@ant-design/icons';
 
+import { IpVisibilityToggle } from '@/components/ui';
 import { SizeFormatter } from '@/utils';
-import { activateOnKey } from '@/utils/a11y';
 import { OutboundProtocols as Protocols } from '@/schemas/primitives';
 import type {
   OutboundTestMode,
@@ -86,27 +84,10 @@ export default function OutboundCardList({
       <div className="card-egress">
         <div className="card-egress-row">
           <span>{t('pages.xray.outbound.egress')}:</span>
-          <Tooltip title={t('pages.index.toggleIpVisibility')}>
-            {isEgressVisible ? (
-              <EyeOutlined
-                className="ip-toggle-icon"
-                role="button"
-                tabIndex={0}
-                aria-label={t('pages.index.toggleIpVisibility')}
-                onClick={() => setCardEgressVisible(rowKey, false)}
-                onKeyDown={activateOnKey(() => setCardEgressVisible(rowKey, false))}
-              />
-            ) : (
-              <EyeInvisibleOutlined
-                className="ip-toggle-icon"
-                role="button"
-                tabIndex={0}
-                aria-label={t('pages.index.toggleIpVisibility')}
-                onClick={() => setCardEgressVisible(rowKey, true)}
-                onKeyDown={activateOnKey(() => setCardEgressVisible(rowKey, true))}
-              />
-            )}
-          </Tooltip>
+          <IpVisibilityToggle
+            visible={isEgressVisible}
+            onToggle={() => setCardEgressVisible(rowKey, !isEgressVisible)}
+          />
           {egress.country && (
             <CountryPill flag={flag} name={name || egress.country} warp={egress.warp} />
           )}

@@ -10,8 +10,6 @@ import {
   DeleteOutlined,
   EditOutlined,
   ExclamationCircleOutlined,
-  EyeInvisibleOutlined,
-  EyeOutlined,
   InfoCircleOutlined,
   MoreOutlined,
   PlusOutlined,
@@ -23,6 +21,7 @@ import {
 
 import NodeHistoryPanel from './NodeHistoryPanel';
 import type { NodeRecord } from '@/api/queries/useNodesQuery';
+import { IpVisibilityToggle } from '@/components/ui';
 import { isPanelUpdateAvailable } from '@/lib/panel-version';
 import { activateOnKey } from '@/utils/a11y';
 import './NodeList.css';
@@ -346,27 +345,10 @@ export default function NodeList({
         title: (
           <span className="address-header">
             {t('pages.nodes.address')}
-            <Tooltip title={t('pages.index.toggleIpVisibility')}>
-              {showAddress ? (
-                <EyeOutlined
-                  className="ip-toggle-icon"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t('pages.index.toggleIpVisibility')}
-                  onClick={() => setShowAddress(false)}
-                  onKeyDown={activateOnKey(() => setShowAddress(false))}
-                />
-              ) : (
-                <EyeInvisibleOutlined
-                  className="ip-toggle-icon"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t('pages.index.toggleIpVisibility')}
-                  onClick={() => setShowAddress(true)}
-                  onKeyDown={activateOnKey(() => setShowAddress(true))}
-                />
-              )}
-            </Tooltip>
+            <IpVisibilityToggle
+              visible={showAddress}
+              onToggle={() => setShowAddress(!showAddress)}
+            />
           </span>
         ),
         dataIndex: 'url',
@@ -759,27 +741,10 @@ export default function NodeList({
                   >
                     {statsNode.url}
                   </a>
-                  <Tooltip title={t('pages.index.toggleIpVisibility')}>
-                    {showAddress ? (
-                      <EyeOutlined
-                        className="ip-toggle-icon"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={t('pages.index.toggleIpVisibility')}
-                        onClick={() => setShowAddress(false)}
-                        onKeyDown={activateOnKey(() => setShowAddress(false))}
-                      />
-                    ) : (
-                      <EyeInvisibleOutlined
-                        className="ip-toggle-icon"
-                        role="button"
-                        tabIndex={0}
-                        aria-label={t('pages.index.toggleIpVisibility')}
-                        onClick={() => setShowAddress(true)}
-                        onKeyDown={activateOnKey(() => setShowAddress(true))}
-                      />
-                    )}
-                  </Tooltip>
+                  <IpVisibilityToggle
+                    visible={showAddress}
+                    onToggle={() => setShowAddress(!showAddress)}
+                  />
                 </div>
                 <div className="stat-row">
                   <span className="stat-label">{t('pages.nodes.status')}</span>

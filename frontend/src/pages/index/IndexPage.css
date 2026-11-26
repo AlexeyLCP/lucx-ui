@@ -479,6 +479,12 @@
 .index-page .ip-toggle-icon {
   cursor: pointer;
   font-size: 15px;
+  transition: opacity 0.15s ease;
+}
+
+/* The Tooltip child is the wrapper; the row-pinning auto margin rides with
+   it so the reveal still ends the kicker row. */
+.index-page .ip-toggle-wrap {
   margin-inline-start: auto;
 }
 

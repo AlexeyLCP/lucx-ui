@@ -11,13 +11,11 @@ import {
   LoadingOutlined,
   ArrowUpOutlined,
   ArrowDownOutlined,
-  EyeInvisibleOutlined,
-  EyeOutlined,
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 
+import { IpVisibilityToggle } from '@/components/ui';
 import { SizeFormatter } from '@/utils';
-import { activateOnKey } from '@/utils/a11y';
 import { isOutboundProtocol, OutboundProtocols as Protocols } from '@/schemas/primitives';
 import type {
   OutboundTestMode,
@@ -209,27 +207,10 @@ export function useOutboundColumns({
         title: (
           <span className="egress-header">
             {t('pages.xray.outbound.egress')}
-            <Tooltip title={t('pages.index.toggleIpVisibility')}>
-              {showEgressIp ? (
-                <EyeOutlined
-                  className="ip-toggle-icon"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t('pages.index.toggleIpVisibility')}
-                  onClick={() => setShowEgressIp(false)}
-                  onKeyDown={activateOnKey(() => setShowEgressIp(false))}
-                />
-              ) : (
-                <EyeInvisibleOutlined
-                  className="ip-toggle-icon"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t('pages.index.toggleIpVisibility')}
-                  onClick={() => setShowEgressIp(true)}
-                  onKeyDown={activateOnKey(() => setShowEgressIp(true))}
-                />
-              )}
-            </Tooltip>
+            <IpVisibilityToggle
+              visible={showEgressIp}
+              onToggle={() => setShowEgressIp(!showEgressIp)}
+            />
           </span>
         ),
         key: 'egress',

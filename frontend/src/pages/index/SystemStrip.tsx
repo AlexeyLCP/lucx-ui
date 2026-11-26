@@ -1,15 +1,10 @@
 import { useTranslation } from 'react-i18next';
-import { Card, Tooltip } from 'antd';
-import {
-  ClockCircleOutlined,
-  DatabaseOutlined,
-  EyeInvisibleOutlined,
-  EyeOutlined,
-  GlobalOutlined,
-} from '@ant-design/icons';
+import { Card } from 'antd';
+import { ClockCircleOutlined, DatabaseOutlined, GlobalOutlined } from '@ant-design/icons';
+
+import { IpVisibilityToggle } from '@/components/ui';
 
 import { SizeFormatter, TimeFormatter } from '@/utils';
-import { activateOnKey } from '@/utils/a11y';
 import type { Status } from '@/models/status';
 
 interface SystemStripProps {
@@ -70,27 +65,7 @@ export default function SystemStrip({ status, showIp, onToggleIp }: SystemStripP
           <div className="ov-kicker ov-kicker-icon">
             <GlobalOutlined aria-hidden />
             {t('pages.index.ipAddresses')}
-            <Tooltip title={t('pages.index.toggleIpVisibility')}>
-              {showIp ? (
-                <EyeOutlined
-                  className="ip-toggle-icon"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t('pages.index.toggleIpVisibility')}
-                  onClick={onToggleIp}
-                  onKeyDown={activateOnKey(onToggleIp)}
-                />
-              ) : (
-                <EyeInvisibleOutlined
-                  className="ip-toggle-icon"
-                  role="button"
-                  tabIndex={0}
-                  aria-label={t('pages.index.toggleIpVisibility')}
-                  onClick={onToggleIp}
-                  onKeyDown={activateOnKey(onToggleIp)}
-                />
-              )}
-            </Tooltip>
+            <IpVisibilityToggle visible={showIp} onToggle={onToggleIp} />
           </div>
           <div className={`ov-ip${showIp ? '' : ' ip-hidden'}`}>
             <div className="ov-mono">{status.publicIP.ipv4}</div>
