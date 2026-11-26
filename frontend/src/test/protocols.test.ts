@@ -89,4 +89,25 @@ describe('InboundSettingsSchema coercions', () => {
     expect(parsed.settings.siteUpstream).toBe('');
     expect(parsed.settings.authFailureStatus).toBe(0);
   });
+
+  // lucx.369 report (Андрей): the anytls «Сайт для неавторизованных» field
+  // reopened empty after save — fallback was missing from this schema and got
+  // stripped in both directions.
+  it('anytls: keeps fallback past parse', () => {
+    const parsed = InboundSettingsSchema.parse({
+      protocol: 'anytls',
+      settings: { port: 8443, fallback: '127.0.0.1:443' },
+    });
+    if (parsed.protocol !== 'anytls') throw new Error('wrong protocol');
+    expect(parsed.settings.fallback).toBe('127.0.0.1:443');
+  });
+
+  it('anytls: defaults fallback to empty', () => {
+    const parsed = InboundSettingsSchema.parse({
+      protocol: 'anytls',
+      settings: { port: 8443 },
+    });
+    if (parsed.protocol !== 'anytls') throw new Error('wrong protocol');
+    expect(parsed.settings.fallback).toBe('');
+  });
 });

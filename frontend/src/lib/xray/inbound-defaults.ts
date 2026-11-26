@@ -407,6 +407,7 @@ export function createDefaultAnytlsInboundSettings(): AnytlsInboundSettings {
     routeThroughXray: false,
     outboundTag: '',
     clients: [],
+    fallback: '',
   };
 }
 

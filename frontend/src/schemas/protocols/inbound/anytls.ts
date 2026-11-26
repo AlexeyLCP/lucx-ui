@@ -20,5 +20,9 @@ export const AnytlsInboundSettingsSchema = z.object({
   // Clients are edited in the client modal, not this form. Without the field
   // Zod strips them and a no-op save detaches every client.
   clients: z.array(z.record(z.string(), z.unknown())).default([]),
+  // lucx.342: unauthorized-site fallback (127.0.0.1:port) must survive the
+  // zod round-trip — absent from the schema it was stripped on editor load
+  // and submit, so the field reopened empty and fallback never fired (369).
+  fallback: z.string().default(''),
 });
 export type AnytlsInboundSettings = z.infer<typeof AnytlsInboundSettingsSchema>;
