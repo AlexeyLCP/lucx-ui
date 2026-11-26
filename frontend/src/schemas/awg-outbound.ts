@@ -59,6 +59,9 @@ export const AwgOutboundSettingsSchema = z.object({
   // AWG protocol version: '1.5' (legacy), '2' (S3/S4 + I1-I5), '3' (HPK),
   // or '3.1' (RandomTrailers / DisableCookies). Auto-detected by ParseConf.
   awgVersion: z.enum(['1.5', '2', '3', '3.1']).default('2'),
+  // Outer-leg source pin for multi-IP hosts: rendered as a `ip route … src`
+  // PostUp hook when the endpoint is a literal IP; empty = kernel default.
+  sourceIP: z.string().default(''),
 });
 
 export const AwgOutboundSchema = z.object({

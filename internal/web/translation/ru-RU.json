@@ -2953,6 +2953,8 @@
         "endpoint": "Endpoint",
         "address": "Tunnel IP",
         "addressHint": "Tunnel IP, выданный upstream (например 10.9.0.5/32). Обязательно.",
+        "sourceIP": "Исходный IP",
+        "sourceIPHint": "С какого из IP-адресов этого сервера исходить соединение с endpoint (несколько IP на хосте). Endpoint должен быть IP-литералом; пусто — системный маршрут по умолчанию.",
         "privateKey": "Приватный ключ",
         "publicKey": "Публичный ключ upstream",
         "psk": "Preshared key",

@@ -2953,6 +2953,8 @@
         "endpoint": "Endpoint",
         "address": "Tunnel IP",
         "addressHint": "Tunnel IP yang diberikan oleh upstream (mis. 10.9.0.5/32). Wajib.",
+        "sourceIP": "Source IP",
+        "sourceIPHint": "Which of this host's IP addresses the outbound dials the endpoint from (multi-IP hosts). Literal-IP endpoint required; empty = OS default route source.",
         "privateKey": "Kunci privat",
         "publicKey": "Kunci publik upstream",
         "psk": "Preshared key",

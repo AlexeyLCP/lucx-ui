@@ -69,6 +69,7 @@ interface AwgOutboundFormValues {
   i5: string;
   headerProtectionKey: string;
   awgVersion: AwgVersion;
+  sourceIP: string;
   contentPaddingAddition: string;
   rekeyAfterTime: string;
   rekeyTimeout: string;
@@ -107,6 +108,7 @@ const DEFAULT_SETTINGS: AwgOutboundSettings = {
   i5: '',
   headerProtectionKey: '',
   awgVersion: '2',
+  sourceIP: '',
   contentPaddingAddition: '0',
   rekeyAfterTime: '0',
   rekeyTimeout: '0',
@@ -170,6 +172,7 @@ function settingsToFormValues(initial: AwgOutbound): AwgOutboundFormValues {
     i5: parsed.i5 ?? DEFAULT_SETTINGS.i5,
     headerProtectionKey: parsed.headerProtectionKey ?? DEFAULT_SETTINGS.headerProtectionKey,
     awgVersion: parsed.awgVersion ?? DEFAULT_SETTINGS.awgVersion,
+    sourceIP: parsed.sourceIP ?? DEFAULT_SETTINGS.sourceIP,
     contentPaddingAddition:
       parsed.contentPaddingAddition ?? DEFAULT_SETTINGS.contentPaddingAddition,
     rekeyAfterTime: parsed.rekeyAfterTime ?? DEFAULT_SETTINGS.rekeyAfterTime,
@@ -214,6 +217,7 @@ function formValuesToSettings(v: AwgOutboundFormValues): AwgOutboundSettings {
     i5: v.i5,
     headerProtectionKey: v.headerProtectionKey,
     awgVersion: v.awgVersion,
+    sourceIP: v.sourceIP,
     contentPaddingAddition: v.contentPaddingAddition,
     rekeyAfterTime: v.rekeyAfterTime,
     rekeyTimeout: v.rekeyTimeout,
@@ -379,6 +383,15 @@ export function AwgOutboundFormModal({ open, onClose, onSaved, initial }: Props)
                   rules={{ required: t('pages.xray.outboundForm.addressRequired') }}
                 >
                   <Input placeholder="up.example.com:51820" />
+                </FormField>
+                {/* LUCX-HOOK: AWG outbound — outer-leg source pin for
+                    multi-IP hosts; empty = kernel default route source. */}
+                <FormField
+                  label={t('pages.xray.awgOutbound.sourceIP')}
+                  name="sourceIP"
+                  tooltip={t('pages.xray.awgOutbound.sourceIPHint')}
+                >
+                  <Input placeholder="198.51.100.9" />
                 </FormField>
               </Col>
               <Col span={12}>

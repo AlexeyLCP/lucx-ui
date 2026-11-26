@@ -10,6 +10,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"net/netip"
 	"strconv"
 	"strings"
@@ -173,6 +174,39 @@ func checkOutboundHeaderProtectionKey(o *model.AwgOutbound) error {
 	return validateAwgHeaderProtectionKey(s.HeaderProtectionKey)
 }
 
+// checkOutboundSourceIP validates the outer-leg source pin before it can reach
+// the PostUp hook line: a real address, matched to the endpoint's address
+// family, and only on a literal-IP endpoint (a DNS endpoint would pin the
+// resolution of up-time and rotate stale; operators who need it give the IP).
+func checkOutboundSourceIP(o *model.AwgOutbound) error {
+	var s struct {
+		Endpoint string `json:"endpoint"`
+		SourceIP string `json:"sourceIP"`
+	}
+	if json.Unmarshal([]byte(o.Settings), &s) != nil {
+		return nil
+	}
+	src, err := netip.ParseAddr(strings.TrimSpace(s.SourceIP))
+	if err != nil {
+		if strings.TrimSpace(s.SourceIP) == "" {
+			return nil
+		}
+		return common.NewErrorf("awg outbound sourceIP: invalid IP %q", s.SourceIP)
+	}
+	host, _, herr := net.SplitHostPort(strings.TrimSpace(s.Endpoint))
+	if herr != nil {
+		host = strings.TrimSpace(s.Endpoint)
+	}
+	dst, derr := netip.ParseAddr(host)
+	if derr != nil {
+		return common.NewErrorf("awg outbound sourceIP requires a literal IP endpoint (got %q), or clear sourceIP", s.Endpoint)
+	}
+	if src.Is4() != dst.Is4() {
+		return common.NewErrorf("awg outbound sourceIP %s does not match endpoint address family %s", src, dst)
+	}
+	return nil
+}
+
 // AddOutbound persists a new AWG outbound row. If Settings is empty, fills in
 // a default keypair via defaultAwgOutboundSettings. Tag uniqueness is enforced.
 // When the operator supplied a non-empty Tag it is kept; otherwise the Tag is
@@ -198,6 +232,9 @@ func (s *AwgOutboundService) AddOutbound(o *model.AwgOutbound) (*model.AwgOutbou
 		return nil, err
 	}
 	if err := checkOutboundHeaderProtectionKey(o); err != nil {
+		return nil, err
+	}
+	if err := checkOutboundSourceIP(o); err != nil {
 		return nil, err
 	}
 	if err := s.checkSubnetConflict(o); err != nil {
@@ -235,6 +272,9 @@ func (s *AwgOutboundService) UpdateOutbound(o *model.AwgOutbound) error {
 		return err
 	}
 	if err := checkOutboundHeaderProtectionKey(o); err != nil {
+		return err
+	}
+	if err := checkOutboundSourceIP(o); err != nil {
 		return err
 	}
 	if err := s.checkSubnetConflict(o); err != nil {

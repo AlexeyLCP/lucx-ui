@@ -2953,6 +2953,8 @@
         "endpoint": "Endpoint",
         "address": "Tunnel IP",
         "addressHint": "由 upstream 分配的 Tunnel IP（例如 10.9.0.5/32）。必填。",
+        "sourceIP": "Source IP",
+        "sourceIPHint": "Which of this host's IP addresses the outbound dials the endpoint from (multi-IP hosts). Literal-IP endpoint required; empty = OS default route source.",
         "privateKey": "私钥",
         "publicKey": "upstream 公钥",
         "psk": "Preshared key",

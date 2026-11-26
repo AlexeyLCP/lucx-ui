@@ -2953,6 +2953,8 @@
         "endpoint": "Endpoint",
         "address": "Tunnel IP",
         "addressHint": "upstream tarafından atanan Tunnel IP (örn. 10.9.0.5/32). Zorunludur.",
+        "sourceIP": "Source IP",
+        "sourceIPHint": "Which of this host's IP addresses the outbound dials the endpoint from (multi-IP hosts). Literal-IP endpoint required; empty = OS default route source.",
         "privateKey": "Özel anahtar",
         "publicKey": "upstream genel anahtarı",
         "psk": "Preshared key",

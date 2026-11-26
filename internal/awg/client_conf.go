@@ -8,6 +8,8 @@ package awg
 
 import (
 	"fmt"
+	"net"
+	"net/netip"
 	"strings"
 )
 
@@ -105,6 +107,24 @@ func renderClientConf(ci ClientInstance) string {
 		}
 		if s.DisableCookies {
 			b.WriteString("DisableCookies = on\n")
+		}
+	}
+	// Outer-leg source pin (multi-IP hosts): the encrypted UDP to the endpoint
+	// otherwise follows the main-table default-route source, which on a second
+	// whitelist IP is the wrong one. Both operands are netip-validated here and
+	// at save, so no shell metacharacters can reach the hook line. Literal-IP
+	// endpoints only — a DNS endpoint would pin the resolution of up-time.
+	if src, serr := netip.ParseAddr(strings.TrimSpace(s.SourceIP)); serr == nil {
+		if host, _, herr := net.SplitHostPort(strings.TrimSpace(s.Endpoint)); herr == nil {
+			if dst, derr := netip.ParseAddr(host); derr == nil {
+				fam := "-4"
+				plen := "/32"
+				if dst.Is6() {
+					fam = "-6"
+					plen = "/128"
+				}
+				fmt.Fprintf(&b, "PostUp = ip %s route replace %s%s dev %%i src %s\n", fam, dst, plen, src)
+			}
 		}
 	}
 	// In the .conf so the FIRST handshake carries CPS mimicry — a post-up `awg

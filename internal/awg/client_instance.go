@@ -79,6 +79,11 @@ type ClientSettings struct {
 	// ("1.5"/"2"/"3"/"3.1"; "" → "2" via normalize). The .conf renderer emits
 	// HeaderProtectionKey for IsAwg3Plus and 3.1 flags only for "3.1".
 	AwgVersion string `json:"awgVersion"`
+	// SourceIP pins the outer-leg (encrypted to Endpoint) source address when
+	// the panel host has several public IPv4/IPv6 addresses. Empty = kernel
+	// default route source, byte-identical .conf (Rule 0). Rendered as
+	// PostUp/PreDown `ip route … src` pairs in renderClientConf.
+	SourceIP string `json:"sourceIP"`
 }
 
 // ClientInstanceFromOutbound parses an AwgOutbound row into a ClientInstance.
@@ -95,6 +100,7 @@ func ClientInstanceFromOutbound(o *model.AwgOutbound) (ClientInstance, bool) {
 	s.Address = strings.TrimSpace(s.Address)
 	s.PublicKey = strings.TrimSpace(s.PublicKey)
 	s.Endpoint = strings.TrimSpace(s.Endpoint)
+	s.SourceIP = strings.TrimSpace(s.SourceIP)
 	if s.Address == "" || s.PublicKey == "" || s.Endpoint == "" {
 		return ClientInstance{}, false
 	}
