@@ -1,5 +1,17 @@
 # LucX-UI — Прогресс
 
+## unreleased — several routed Naive inbounds behind one Cover (#237)
+
+Not a lucxVersion bump. The eight files from the #237 patch are unchanged
+since 730409f (lucx.374) through lucx.382, so the patch applied with a gofmt
+field alignment and a comment trim. `coverAttach.naives` renders one
+`forward_proxy` per attached Naive (matcher `@naiveConnect` only when there
+are two or more). Apply, create, edit and enable reject duplicate
+credentials, a shared Xray SOCKS port, a missing bridge, and mixed
+probe-resistance. One Naive still renders a single `forward_proxy` block.
+A rejected group keeps the Cover site and publishes no proxy handlers.
+Tests: `go test ./internal/lucx/tunnel/ ./internal/web/service/`.
+
 ## lucx.382 - fix: tproxy bridge originalTCPDest6 used the IPv4 sockopt level - every IPv6 connection EOF'd (tester HTML report)
 
 AnyTLS `routeThroughXray` to IPv6 destinations died with EOF while IPv4 to the

@@ -144,6 +144,11 @@ func (s *InboundService) GatewayApply(gatewayID int, req GatewayApplyRequest) er
 		}
 		tunnel.SetInboundSNI(byID[id], sni)
 	}
+	// Check the proposed group before applyNaiveMoves writes to the database.
+	preflightRows := tunnel.BuildPreview(gw.Port, host, others, binds...)
+	if err := validateNaiveOnSite(byID, preflightRows, selected, req.HideNaive); err != nil {
+		return err
+	}
 	if err := applyNaiveMoves(byID, tunnel.PlanNaivePublic(gw.Port, others)); err != nil {
 		return err
 	}
@@ -730,11 +735,6 @@ func hideNaiveOnSite(byID map[int]*model.Inbound, rows []tunnel.PreviewRow, sele
 	if host == "" {
 		return common.NewError("gateway: pick Cover or WEB proxy to hide Naive behind 443")
 	}
-	if cover {
-		if err := guardOneNaivePerCover(byID, host, ids); err != nil {
-			return err
-		}
-	}
 	db := database.GetDB()
 	for _, id := range ids {
 		ib := byID[id]
@@ -749,48 +749,88 @@ func hideNaiveOnSite(byID map[int]*model.Inbound, rows []tunnel.PreviewRow, sele
 	return nil
 }
 
-// guardOneNaivePerCover refuses a Cover that ends up fronting two or more
-// Naive inbounds: the cover forward_proxy carries one basic_auth set and one
-// upstream relay, so every naive past the first silently loses its users and
-// egress (issue #217).
-func guardOneNaivePerCover(byID map[int]*model.Inbound, host string, ids []int) error {
-	order := []int{}
-	names := map[int]string{}
-	seen := map[int]bool{}
-	add := func(ib *model.Inbound) {
-		if ib == nil || ib.Protocol != model.Naive || seen[ib.Id] {
-			return
-		}
-		ncfg, ok := tunnel.ConfigFromInbound(ib)
-		if !ok {
-			return
-		}
-		seen[ib.Id] = true
-		names[ib.Id] = fmt.Sprintf("%s (#%d)", ncfg.Remark, ib.Id)
-		order = append(order, ib.Id)
-	}
-	for _, ib := range byID {
-		ncfg, ok := tunnel.ConfigFromInbound(ib)
-		if !ok || !ncfg.BehindCover || ncfg.UseRawConfig {
-			continue
-		}
-		d := strings.ToLower(strings.TrimSpace(ncfg.Domain))
-		h := strings.ToLower(strings.TrimSpace(host))
-		if d == "" || d == h {
-			add(ib)
-		}
-	}
-	for _, id := range ids {
-		add(byID[id])
-	}
-	if len(order) < 2 {
+func validateNaiveOnSite(byID map[int]*model.Inbound, rows []tunnel.PreviewRow, selected map[int]bool, ids []int) error {
+	if len(ids) == 0 {
 		return nil
 	}
-	parts := make([]string, 0, len(order))
-	for _, id := range order {
-		parts = append(parts, names[id])
+	host, cover := selectedSiteHost(rows, selected)
+	if host == "" {
+		return common.NewError("gateway: pick Cover or WEB proxy to hide Naive behind 443")
 	}
-	return common.NewErrorf("gateway: one Cover can front only one Naive — %s; give each routed Naive its own Cover (or IP), or switch Route through Xray off", strings.Join(parts, ", "))
+	if !cover {
+		return nil
+	}
+	secret, err := (&SettingService{}).GetSecret()
+	if err != nil {
+		return err
+	}
+	return guardCoverNaives(byID, host, ids, secret)
+}
+
+// Validate prospective settings without modifying the live rows.
+func guardCoverNaives(byID map[int]*model.Inbound, host string, ids []int, secret []byte) error {
+	requested := make(map[int]bool, len(ids))
+	for _, id := range ids {
+		ib := byID[id]
+		if ib == nil || ib.Protocol != model.Naive {
+			continue
+		}
+		cfg, ok := tunnel.ConfigFromInbound(ib)
+		if !ok || cfg.UseRawConfig {
+			return common.NewErrorf("gateway: invalid Naive #%d for Cover", id)
+		}
+		requested[id] = true
+	}
+	candidates := make([]*model.Inbound, 0, len(byID))
+	for id, ib := range byID {
+		if ib == nil {
+			continue
+		}
+		if requested[id] {
+			clone := *ib
+			tunnel.HideNaiveOnSite(&clone, host, true)
+			candidates = append(candidates, &clone)
+		} else {
+			candidates = append(candidates, ib)
+		}
+	}
+	return tunnel.ValidateCoverNaives(host, candidates, secret)
+}
+
+// Fetch the secret before entering the write transaction.
+func naiveCoverSecret(ib *model.Inbound) ([]byte, error) {
+	cfg, ok := tunnel.ConfigFromInbound(ib)
+	if !ok || ib.NodeID != nil || !cfg.BehindCover || cfg.UseRawConfig {
+		return nil, nil
+	}
+	return (&SettingService{}).GetSecret()
+}
+
+// Validate an addition, edit or enable against the transaction's other rows.
+func validateNaiveCoverChange(tx *gorm.DB, ib *model.Inbound, secret []byte) error {
+	cfg, ok := tunnel.ConfigFromInbound(ib)
+	if !ok || !ib.Enable || ib.NodeID != nil || !cfg.BehindCover || cfg.UseRawConfig {
+		return nil
+	}
+	var candidates []*model.Inbound
+	if err := tx.Where("node_id IS NULL AND id <> ? AND protocol IN ?", ib.Id,
+		[]model.Protocol{model.Naive, model.Cover}).Find(&candidates).Error; err != nil {
+		return err
+	}
+	candidates = append(candidates, ib)
+	if host := strings.TrimSpace(cfg.Domain); host != "" {
+		return tunnel.ValidateCoverNaives(host, candidates, secret)
+	}
+	// Legacy empty domain attaches to a Cover by its current hostname.
+	for _, row := range candidates {
+		cover, ok := tunnel.CoverConfigFromInbound(row)
+		if ok && cover.Enabled {
+			if err := tunnel.ValidateCoverNaives(cover.Hostname, candidates, secret); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }
 
 func selectedSiteHost(rows []tunnel.PreviewRow, selected map[int]bool) (host string, cover bool) {

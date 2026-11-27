@@ -742,6 +742,42 @@ func TestGatewayInstance_UnifiedSites(t *testing.T) {
 	}
 }
 
+func TestGatewayInstance_UnifiedCoverWithMultipleNaives(t *testing.T) {
+	stubGatewayChan(t, true)
+	cert, key := writeTestCert(t, t.TempDir(), time.Now().Add(24*time.Hour), "cov.example.com")
+	cover := &model.Inbound{
+		Id: 2, Protocol: model.Cover, Port: 8443, Enable: true, Listen: "127.0.0.1",
+		Settings: `{"hostname":"cov.example.com","siteSource":"upstream","siteUpstream":"http://127.0.0.1:8080"}`,
+	}
+	first := &model.Inbound{
+		Id: 3, Protocol: model.Naive, Port: 3443, Enable: true, Tag: "naive-first",
+		Settings: `{"domain":"cov.example.com","behindCover":true,"hideOn443":true,"authUser":"u1","authPass":"p1","probeResistance":true,"routeThroughXray":true,"routeXrayPort":34501}`,
+	}
+	second := &model.Inbound{
+		Id: 4, Protocol: model.Naive, Port: 4443, Enable: true, Tag: "naive-second",
+		Settings: `{"domain":"cov.example.com","behindCover":true,"hideOn443":true,"authUser":"u2","authPass":"p2","probeResistance":true,"routeThroughXray":true,"routeXrayPort":34502}`,
+	}
+	gw := &model.Inbound{
+		Id: 9, Protocol: model.Gateway, Port: 443, Enable: true,
+		Settings: `{"enabled":true,"publicHost":"cov.example.com","unified":true,"routes":[{"sni":"cov.example.com","dest":"127.0.0.1:8443","chan":"cover-2"}],"snapshot":[{"inboundId":2}]}`,
+	}
+	inst, ok := GatewayInstanceFromInbound(gw, []*model.Inbound{cover, first, second}, []byte("secret"), cert, key)
+	if !ok || !inst.Enabled {
+		t.Fatal("gateway is not enabled")
+	}
+	if strings.Count(inst.ConfigText, "forward_proxy @naiveConnect {") != 2 {
+		t.Fatal("expected two independent handlers in the gateway")
+	}
+	for _, port := range []string{"34501", "34502"} {
+		if !strings.Contains(inst.ConfigText, "@127.0.0.1:"+port) {
+			t.Fatalf("missing Xray bridge %s", port)
+		}
+	}
+	if !strings.Contains(inst.ConfigText, "l4http cover-2") {
+		t.Fatal("missing shared Cover listener")
+	}
+}
+
 func TestGatewayInstance_UnifiedCoverServesStealDest(t *testing.T) {
 	stubGatewayChan(t, true)
 	dir := t.TempDir()

@@ -135,10 +135,16 @@ func (c CoverConfig) ValidateCert(panelCert, panelKey string) error {
 	return validatePEMCert("cover", cert, key, strings.TrimSpace(c.Hostname))
 }
 
+type coverNaiveAttachment struct {
+	id     int
+	tag    string
+	config NaiveConfig
+	auth   []AuthPair
+}
+
 type coverAttach struct {
 	tproxyRelay    int
-	naive          *NaiveConfig
-	naiveAuth      []AuthPair
+	naives         []coverNaiveAttachment
 	routes         []CoverRoute
 	publicDir      string
 	publicUpstream string
@@ -177,7 +183,10 @@ func writeCaddyServers(b *strings.Builder, h1h2, proxyProtocol bool) {
 func RenderCoverCaddyfile(hostname, cert, key string, a coverAttach) string {
 	var b strings.Builder
 	b.WriteString("{\n\tadmin off\n\tauto_https off\n\tgrace_period 1s\n\tskip_install_trust\n")
-	h1h2 := a.tproxyRelay > 0 || (a.naive != nil && !a.naive.EnableH3)
+	h1h2 := a.tproxyRelay > 0
+	for _, n := range a.naives {
+		h1h2 = h1h2 || !n.config.EnableH3
+	}
 	writeCaddyServers(&b, h1h2, a.skipHTTP)
 	b.WriteString(coverLocalServers(a))
 	b.WriteString("}\n")
@@ -223,7 +232,7 @@ func writeCoverSite(b *strings.Builder, hostname, cert, key string, a coverAttac
 		// Hostname carries the port: bare, it would add a :443 listener that
 		// takes loopback conns away from the gateway when the cover is on 8443.
 		b.WriteString(":" + strconv.Itoa(httpsPort) + ", " + caddyToken(hostname+":"+strconv.Itoa(httpsPort)) + " {\n")
-	case a.naive != nil:
+	case len(a.naives) > 0:
 		b.WriteString(":" + strconv.Itoa(httpsPort) + ", " + caddyToken(hostname) + " {\n")
 	default:
 		b.WriteString(hostname + ":" + strconv.Itoa(httpsPort) + " {\n")
@@ -253,7 +262,12 @@ func writeCoverSite(b *strings.Builder, hostname, cert, key string, a coverAttac
 	if a.publicDir != "" {
 		b.WriteString("\troot * " + caddyToken(a.publicDir) + "\n")
 	}
-	needRoute := a.naive != nil || len(a.routes) > 0
+	matcher := ""
+	if len(a.naives) > 1 {
+		matcher = "@naiveConnect"
+		b.WriteString("\t" + matcher + " method CONNECT\n")
+	}
+	needRoute := len(a.naives) > 0 || len(a.routes) > 0
 	if needRoute {
 		b.WriteString("\troute {\n")
 		for _, r := range a.routes {
@@ -265,8 +279,8 @@ func writeCoverSite(b *strings.Builder, hostname, cert, key string, a coverAttac
 			writeCoverReverseProxy(b, r, "\t\t\t")
 			b.WriteString("\t\t}\n")
 		}
-		if a.naive != nil {
-			a.naive.appendForwardProxy(b, a.naiveAuth, "\t\t")
+		for _, n := range a.naives {
+			n.config.appendForwardProxyMatched(b, n.auth, "\t\t", matcher)
 		}
 		b.WriteString("\t}\n")
 	}

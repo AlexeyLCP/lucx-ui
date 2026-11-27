@@ -80,7 +80,7 @@ func TestRenderCoverCaddyfile_TproxyWins(t *testing.T) {
 	naive.AuthPass = "p"
 	got := RenderCoverCaddyfile("shop.example.com", "/c.pem", "/k.pem", coverAttach{
 		tproxyRelay:    24002,
-		naive:          &naive,
+		naives:         []coverNaiveAttachment{{config: naive}},
 		publicDir:      "/var/www/site",
 		routes:         []CoverRoute{{Path: "/p", Dest: "https://127.0.0.1:2053"}},
 		publicUpstream: "http://127.0.0.1:3000",
@@ -124,7 +124,7 @@ func TestRenderCoverCaddyfile_NaiveAndPath(t *testing.T) {
 	naive.AuthPass = "p"
 	naive.ProbeResistance = true
 	got := RenderCoverCaddyfile("shop.example.com", "/c.pem", "/k.pem", coverAttach{
-		naive:     &naive,
+		naives:    []coverNaiveAttachment{{config: naive}},
 		publicDir: "/site",
 		routes:    []CoverRoute{{Path: "/ws", Dest: "127.0.0.1:10000"}},
 	})
@@ -173,7 +173,7 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 		Settings: `{"hostname":"shop.example.com","secret":"000102030405060708090a0b0c0d0e0f","behindCover":true,"siteSource":"zip"}`,
 	}
 
-	if !NaiveFrontedByCover(naive, []*model.Inbound{cover, naive, tproxy}, nil, cert, key) {
+	if !NaiveFrontedByCover(naive, []*model.Inbound{cover, naive, tproxy}, []byte("secret"), cert, key) {
 		t.Fatal("dead tproxy must not steal naive from cover")
 	}
 
@@ -187,7 +187,7 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 		}
 	}
 
-	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{naive, tproxy}, nil, cert, key)
+	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{naive, tproxy}, []byte("secret"), cert, key)
 	if !ok || !cInst.Enabled {
 		t.Fatalf("cover instance: enabled=%v ok=%v", cInst.Enabled, ok)
 	}
@@ -199,46 +199,102 @@ func TestCoverInstanceBehindCoverSkipsOwnCaddy(t *testing.T) {
 	}
 }
 
-func TestCoverInstanceKeepsFirstNaiveBehindCover(t *testing.T) {
-	prev := tunnelDir
+func TestCoverInstanceKeepsAllNaivesBehindCover(t *testing.T) {
 	dir := t.TempDir()
-	tunnelDir = func() string { return dir }
-	t.Cleanup(func() { tunnelDir = prev })
-
-	site := CoverSiteDir(11)
-	if err := os.MkdirAll(site, 0o755); err != nil {
-		t.Fatal(err)
-	}
-	if err := os.WriteFile(filepath.Join(site, "index.html"), []byte("<html/>"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), "site.example.com")
-
+	const host = "site.example.com"
+	cert, key := writeTestCert(t, dir, time.Now().Add(24*time.Hour), host)
 	cover := &model.Inbound{
 		Id: 11, Protocol: model.Cover, Enable: true, Port: 443,
-		Settings: `{"hostname":"site.example.com","siteSource":"zip"}`,
+		Settings: `{"hostname":"site.example.com","siteSource":"upstream","siteUpstream":"http://127.0.0.1:8080"}`,
 	}
-	first := &model.Inbound{
-		Id: 12, Protocol: model.Naive, Enable: true, Port: 443,
-		Settings: `{"remark":"NaiveFI","domain":"site.example.com","behindCover":true,"routeThroughXray":true,"routeXrayPort":34401,"clients":[{"email":"first@x","enable":true}]}`,
+	secret := []byte("test-secret")
+	var all []*model.Inbound
+	for i := 0; i < 3; i++ {
+		id, bridge := 12+i, 34401+i
+		ib := &model.Inbound{
+			Id: id, Protocol: model.Naive, Enable: true, Port: 443,
+			Tag:      "naive-" + strconv.Itoa(id),
+			Settings: `{"domain":"site.example.com","behindCover":true,"probeResistance":true,"routeThroughXray":true,"routeXrayPort":` + strconv.Itoa(bridge) + `,"clients":[{"email":"same@x","enable":true}]}`,
+		}
+		all = append(all, ib)
 	}
-	second := &model.Inbound{
-		Id: 13, Protocol: model.Naive, Enable: true, Port: 443,
-		Settings: `{"remark":"NaiveNLv","domain":"site.example.com","behindCover":true,"routeThroughXray":true,"routeXrayPort":34402,"clients":[{"email":"second@x","enable":true}]}`,
+	// Supply the rows in reverse order to check stable render ordering.
+	others := []*model.Inbound{all[2], all[1], all[0], cover}
+	inst, ok := CoverInstanceFromInbound(cover, others, secret, cert, key)
+	if !ok || !inst.Enabled {
+		t.Fatal("cover is not enabled")
 	}
+	blocks := strings.Split(inst.ConfigText, "forward_proxy @naiveConnect {")
+	if len(blocks) != 4 {
+		t.Fatalf("expected three handlers, got %d", len(blocks)-1)
+	}
+	for i, ib := range all {
+		pair := InboundAuthPair(secret, ib, "same@x")
+		if !strings.Contains(blocks[i+1], "basic_auth "+caddyToken(pair.User)+" "+caddyToken(pair.Pass)) ||
+			!strings.Contains(blocks[i+1], "@127.0.0.1:"+strconv.Itoa(34401+i)) {
+			t.Fatalf("wrong credentials or bridge in handler %d", i)
+		}
+		if !NaiveFrontedByCover(ib, others, secret, cert, key) {
+			t.Fatalf("inbound #%d not attached", ib.Id)
+		}
+	}
+	if !strings.Contains(inst.ConfigText, "reverse_proxy 127.0.0.1:8080") {
+		t.Fatal("ordinary Cover site was lost")
+	}
+	all[1].Enable = false
+	inst, ok = CoverInstanceFromInbound(cover, others, secret, cert, key)
+	if !ok || !inst.Enabled || strings.Count(inst.ConfigText, "forward_proxy @naiveConnect {") != 2 {
+		t.Fatal("disabling one inbound must keep the other two")
+	}
+	if NaiveFrontedByCover(all[1], others, secret, cert, key) {
+		t.Fatal("disabled inbound is still attached")
+	}
+	all[2].Settings = strings.ReplaceAll(all[2].Settings, `"enable":true`, `"enable":false`)
+	inst, ok = CoverInstanceFromInbound(cover, others, secret, cert, key)
+	if !ok || !inst.Enabled || strings.Count(inst.ConfigText, "forward_proxy {") != 1 {
+		t.Fatal("revoking the last client must remove its handler")
+	}
+	if NaiveFrontedByCover(all[2], others, secret, cert, key) {
+		t.Fatal("inbound without credentials is still attached")
+	}
+}
 
-	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{first, second}, nil, cert, key)
-	if !ok || !cInst.Enabled {
-		t.Fatalf("cover instance: enabled=%v ok=%v", cInst.Enabled, ok)
+func TestValidateCoverNaives(t *testing.T) {
+	const host = "site.example.com"
+	makeInbound := func(id int, settings string) *model.Inbound {
+		return &model.Inbound{
+			Id: id, Protocol: model.Naive, Enable: true, Port: 443,
+			Tag: "naive-" + strconv.Itoa(id), Settings: settings,
+		}
 	}
-	if strings.Count(cInst.ConfigText, "upstream socks5") != 1 {
-		t.Fatalf("forward_proxy must carry exactly one upstream relay:\n%s", cInst.ConfigText)
+	first := makeInbound(1, `{"domain":"site.example.com","behindCover":true,"authUser":"u1","authPass":"p1","probeResistance":true,"routeThroughXray":true,"routeXrayPort":34401}`)
+	second := makeInbound(2, `{"domain":"site.example.com","behindCover":true,"authUser":"u2","authPass":"p2","probeResistance":true,"routeThroughXray":true,"routeXrayPort":34402}`)
+	base := second.Settings
+	for _, tt := range []struct {
+		name, settings, want string
+	}{
+		{"valid", base, ""},
+		{"duplicate credentials", strings.ReplaceAll(strings.ReplaceAll(base, "u2", "u1"), "p2", "p1"), "duplicate credentials"},
+		{"duplicate port", strings.ReplaceAll(base, "34402", "34401"), "duplicate Xray bridge port"},
+		{"missing bridge", strings.ReplaceAll(base, "34402", "0"), "missing Xray bridge"},
+		{"authorization fallback", strings.ReplaceAll(base, `"probeResistance":true`, `"probeResistance":false`), "incompatible authorization"},
+		{"incomplete credentials", strings.ReplaceAll(base, `"p2"`, `""`), "incomplete credentials"},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			second.Settings = tt.settings
+			err := ValidateCoverNaives(host, []*model.Inbound{first, second}, []byte("test-secret"))
+			if tt.want == "" {
+				if err != nil {
+					t.Fatal(err)
+				}
+			} else if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Fatalf("expected %q, got %v", tt.want, err)
+			}
+		})
 	}
-	if !strings.Contains(cInst.ConfigText, "34401") {
-		t.Fatalf("the first naive's relay must render:\n%s", cInst.ConfigText)
-	}
-	if strings.Contains(cInst.ConfigText, "34402") || strings.Contains(cInst.ConfigText, "second@x") {
-		t.Fatalf("the second naive must not contribute users or relay (issue #217):\n%s", cInst.ConfigText)
+	second.Settings = `{"domain":"site.example.com","behindCover":true,"clients":[{"email":"x","enable":false}]}`
+	if got := coverNaivesFor(host, []*model.Inbound{first, second}, []byte("test-secret")); len(got) != 1 {
+		t.Fatal("an inbound without credentials must not render a handler")
 	}
 }
 
@@ -317,7 +373,7 @@ func TestCoverAttachesNaiveEmptyDomain(t *testing.T) {
 		Id: 4, Protocol: model.Naive, Enable: true, Port: 443,
 		Settings: `{"behindCover":true,"clients":[{"email":"a@x","enable":true}]}`,
 	}
-	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{naive}, nil, cert, key)
+	cInst, ok := CoverInstanceFromInbound(cover, []*model.Inbound{naive}, []byte("secret"), cert, key)
 	if !ok || !cInst.Enabled {
 		t.Fatalf("cover: %+v ok=%v", cInst, ok)
 	}
