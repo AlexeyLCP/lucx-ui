@@ -1,6 +1,20 @@
 # LucX-UI — Прогресс
 
-## lucx.380 — fix: a plain inbound-drawer save wiped the gateway's applied state — masking died and the panel fronted by the gateway kicked the operator
+## lucx.381 - fix: Cover LocalPort/LoginPage survive the zod round-trip
+
+Third instance of the lucx.368 zod-stripping class (369 tester report, Андрей):
+`localPort` and `loginPage` existed only in `CoverConfig` (Go), the cover form
+rendered both, but `CoverInboundSettingsSchema` did not carry them — zod
+stripped on editor load AND submit, so the cover's local HTTP site (the target
+of the anytls `-fallback` "unauthorized site") and the sign-in mode never
+persisted. Added both fields with defaults + round-trip pins in
+`protocols.test.ts`; the anytls form hint now names the target explicitly
+(the Cover's LocalPort, not a TLS port — a `127.0.0.1:443` fallback
+TLS-in-TLS loops into the gateway and shows Go's "Client sent an HTTP request
+to an HTTPS server" page, exactly what the tester hit). A form-vs-schema
+field audit across all LUCX protocols found no other gaps.
+
+## lucx.380 - fix: a plain inbound-drawer save wiped the gateway's applied state - masking died and the panel fronted by the gateway kicked the operator
 
 Report (VladufQa, 26.11.2026 21:5x, screenshot of the inbound drawer): toggling
 "Balancer-only inbound" on the "SNI gateway" inbound **immediately deactivated
