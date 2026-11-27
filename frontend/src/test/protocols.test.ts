@@ -110,4 +110,27 @@ describe('InboundSettingsSchema coercions', () => {
     if (parsed.protocol !== 'anytls') throw new Error('wrong protocol');
     expect(parsed.settings.fallback).toBe('');
   });
+
+  // lucx.369 report (Андрей): cover LocalPort / LoginPage existed only in Go
+  // and were stripped on save — the local HTTP site (anytls fallback target)
+  // and sign-in mode never persisted.
+  it('cover: keeps localPort and loginPage past parse', () => {
+    const parsed = InboundSettingsSchema.parse({
+      protocol: 'cover',
+      settings: { hostname: 'vpn.example.com', localPort: 3443, loginPage: true },
+    });
+    if (parsed.protocol !== 'cover') throw new Error('wrong protocol');
+    expect(parsed.settings.localPort).toBe(3443);
+    expect(parsed.settings.loginPage).toBe(true);
+  });
+
+  it('cover: defaults localPort to 0 and loginPage to false', () => {
+    const parsed = InboundSettingsSchema.parse({
+      protocol: 'cover',
+      settings: { hostname: 'vpn.example.com' },
+    });
+    if (parsed.protocol !== 'cover') throw new Error('wrong protocol');
+    expect(parsed.settings.localPort).toBe(0);
+    expect(parsed.settings.loginPage).toBe(false);
+  });
 });

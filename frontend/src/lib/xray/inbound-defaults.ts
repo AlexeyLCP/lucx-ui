@@ -438,6 +438,8 @@ export function createDefaultCoverInboundSettings(): CoverInboundSettings {
     certFile: '',
     keyFile: '',
     routes: [],
+    localPort: 0,
+    loginPage: false,
   };
 }
 
