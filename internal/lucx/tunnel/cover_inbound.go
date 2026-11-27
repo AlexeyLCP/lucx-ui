@@ -9,9 +9,11 @@ package tunnel
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net"
 	"os"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -192,42 +194,93 @@ func coverAttachFor(ib *model.Inbound, cfg CoverConfig, others []*model.Inbound,
 				continue
 			}
 			att.tproxyRelay = tproxyLoopback(o.Id, 2)
-			att.naive = nil
-			att.naiveAuth = nil
 			att.routes = nil
 			att.publicDir = ""
 			att.publicUpstream = ""
 		case model.Naive:
-			if att.tproxyRelay > 0 {
-				continue
-			}
 			ncfg, ok := ConfigFromInbound(o)
-			if !ok {
-				continue
+			if ok && ncfg.BehindCover && !naiveMatchesCover(ncfg, cfg.Hostname) {
+				logger.Warningf("tunnel: cover-%d: naive-%d (%s) is not served by hostname %q", ib.Id, o.Id, ncfg.Remark, cfg.Hostname)
 			}
-			if !naiveMatchesCover(ncfg, cfg.Hostname) {
-				// Silent before (#217): the naive's SNI gets no certificate
-				// on 443 and its users see PR_END_OF_FILE_ERROR.
-				logger.Warningf("tunnel: cover-%d: naive-%d (%s) is never served: domain %q does not match cover hostname %q", ib.Id, o.Id, ncfg.Remark, ncfg.Domain, cfg.Hostname)
-				continue
-			}
-			if ncfg.UseRawConfig {
-				logger.Warningf("tunnel: cover-%d skip naive-%d: raw Caddyfile", ib.Id, o.Id)
-				continue
-			}
-			if att.naive != nil {
-				// forward_proxy carries one upstream relay, so only the first
-				// naive's users and egress survive a second one (issue #217).
-				logger.Warningf("tunnel: cover-%d: naive-%d (%s) ignored — cover already fronts naive %q", ib.Id, o.Id, ncfg.Remark, att.naive.Remark)
-				continue
-			}
-			att.naive = &ncfg
-			att.naiveAuth = naiveClientAuth(secret, o)
+		}
+	}
+	if att.tproxyRelay == 0 {
+		naives := coverNaivesFor(cfg.Hostname, others, secret)
+		if err := validateCoverNaiveAttachments(naives); err != nil {
+			// Refuse an ambiguous proxy group, including after an import or edit.
+			// Keep serving the ordinary Cover site.
+			logger.Warningf("tunnel: cover-%d: %v", ib.Id, err)
+		} else {
+			att.naives = naives
 		}
 	}
 	att.routes = append(att.routes, gatewayPanelRoutes(others)...)
 	att.routes = markH2CRoutes(att.routes, others)
 	return att, certFile, keyFile, true
+}
+
+// coverNaivesFor selects enabled Naive inbounds that have credentials.
+// No service account and no enabled client means no forward_proxy handler.
+func coverNaivesFor(hostname string, others []*model.Inbound, secret []byte) []coverNaiveAttachment {
+	var out []coverNaiveAttachment
+	for _, ib := range others {
+		if ib == nil || !ib.Enable || ib.NodeID != nil {
+			continue
+		}
+		cfg, ok := ConfigFromInbound(ib)
+		if !ok || !naiveMatchesCover(cfg, hostname) {
+			continue
+		}
+		auth := naiveClientAuth(secret, ib)
+		if len(cfg.forwardProxyAuth(auth)) == 0 {
+			continue
+		}
+		out = append(out, coverNaiveAttachment{
+			id: ib.Id, tag: ib.Tag, config: cfg, auth: auth,
+		})
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].id < out[j].id })
+	return out
+}
+
+// ValidateCoverNaives validates the same effective group used by the renderer.
+func ValidateCoverNaives(hostname string, inbounds []*model.Inbound, secret []byte) error {
+	return validateCoverNaiveAttachments(coverNaivesFor(hostname, inbounds, secret))
+}
+
+func validateCoverNaiveAttachments(naives []coverNaiveAttachment) error {
+	credentials := make(map[AuthPair]int)
+	ports := make(map[int]int)
+	for _, n := range naives {
+		c := n.config
+		// The ordered chain requires a handler to pass unmatched
+		// credentials onward. Preserve the setting of a single handler.
+		if len(naives) > 1 && !c.ProbeResistance {
+			return fmt.Errorf("cover: incompatible authorization fallback on Naive #%d", n.id)
+		}
+		for _, pair := range c.forwardProxyAuth(n.auth) {
+			if strings.TrimSpace(pair.User) == "" || pair.Pass == "" {
+				return fmt.Errorf("cover: incomplete credentials on Naive #%d", n.id)
+			}
+			if strings.ContainsAny(pair.User, ":\r\n") || strings.ContainsAny(pair.Pass, "\r\n") {
+				return fmt.Errorf("cover: invalid Basic credentials on Naive #%d", n.id)
+			}
+			if owner, ok := credentials[pair]; ok && owner != n.id {
+				return fmt.Errorf("cover: duplicate credentials on Naive #%d and #%d", owner, n.id)
+			}
+			credentials[pair] = n.id
+		}
+		if c.RouteThroughXray {
+			if c.RouteXrayPort < 1 || c.RouteXrayPort > 65535 || strings.TrimSpace(n.tag) == "" {
+				return fmt.Errorf("cover: missing Xray bridge configuration on Naive #%d", n.id)
+			}
+			if owner, ok := ports[c.RouteXrayPort]; ok && owner != n.id {
+				return fmt.Errorf("cover: duplicate Xray bridge port on Naive #%d and #%d", owner, n.id)
+			}
+			ports[c.RouteXrayPort] = n.id
+		}
+	}
+	return nil
 }
 
 // markH2CRoutes flags routes whose dest is a loopback Xray inbound using
@@ -313,17 +366,22 @@ func naiveMatchesCover(n NaiveConfig, hostname string) bool {
 // naive's forward_proxy. Only then should naive's own Caddy stay down.
 func NaiveFrontedByCover(ib *model.Inbound, all []*model.Inbound, secret []byte, panelCert, panelKey string) bool {
 	ncfg, ok := ConfigFromInbound(ib)
-	if !ok || !ncfg.BehindCover {
+	if !ok || !ib.Enable || ib.NodeID != nil || !ncfg.BehindCover {
 		return false
 	}
 	for _, o := range all {
-		inst, ok := CoverInstanceFromInbound(o, all, secret, panelCert, panelKey)
-		if !ok || !inst.Enabled {
+		cfg, ok := CoverConfigFromInbound(o)
+		if !ok || o.NodeID != nil || !cfg.Enabled || !naiveMatchesCover(ncfg, cfg.Hostname) {
 			continue
 		}
-		cfg, ok := CoverConfigFromInbound(o)
-		if ok && naiveMatchesCover(ncfg, cfg.Hostname) && strings.Contains(inst.ConfigText, "forward_proxy") {
-			return true
+		att, _, _, ok := coverAttachFor(o, cfg, all, secret, panelCert, panelKey)
+		if !ok {
+			continue
+		}
+		for _, n := range att.naives {
+			if n.id == ib.Id {
+				return true
+			}
 		}
 	}
 	return false

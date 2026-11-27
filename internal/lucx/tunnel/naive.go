@@ -360,18 +360,32 @@ func (c NaiveConfig) writeSite(b *strings.Builder, bind string, extraAuth []Auth
 	b.WriteString("}\n")
 }
 
-func (c NaiveConfig) appendForwardProxy(b *strings.Builder, extra []AuthPair, indent string) {
-	b.WriteString(indent + "forward_proxy {\n")
-	in := indent + "\t"
+// forwardProxyAuth returns the credential pairs emitted by the renderer.
+func (c NaiveConfig) forwardProxyAuth(extra []AuthPair) []AuthPair {
+	pairs := make([]AuthPair, 0, len(extra)+1)
 	if u := strings.TrimSpace(c.AuthUser); u != "" {
-		b.WriteString(in + "basic_auth " +
-			caddyToken(u) + " " +
-			caddyToken(strings.TrimSpace(c.AuthPass)) + "\n")
+		pairs = append(pairs, AuthPair{User: u, Pass: strings.TrimSpace(c.AuthPass)})
 	}
 	for _, pair := range extra {
-		if strings.TrimSpace(pair.User) == "" {
-			continue
+		if strings.TrimSpace(pair.User) != "" {
+			pairs = append(pairs, pair)
 		}
+	}
+	return pairs
+}
+
+func (c NaiveConfig) appendForwardProxy(b *strings.Builder, extra []AuthPair, indent string) {
+	c.appendForwardProxyMatched(b, extra, indent, "")
+}
+
+func (c NaiveConfig) appendForwardProxyMatched(b *strings.Builder, extra []AuthPair, indent, matcher string) {
+	b.WriteString(indent + "forward_proxy")
+	if matcher != "" {
+		b.WriteString(" " + matcher)
+	}
+	b.WriteString(" {\n")
+	in := indent + "\t"
+	for _, pair := range c.forwardProxyAuth(extra) {
 		b.WriteString(in + "basic_auth " + caddyToken(pair.User) + " " + caddyToken(pair.Pass) + "\n")
 	}
 	b.WriteString(in + "hide_ip\n")
