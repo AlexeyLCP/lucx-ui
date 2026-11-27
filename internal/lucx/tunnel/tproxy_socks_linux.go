@@ -15,7 +15,9 @@ import (
 	"net"
 	"strconv"
 	"sync"
+	"sync/atomic"
 	"syscall"
+	"time"
 	"unsafe"
 
 	"golang.org/x/net/proxy"
@@ -68,10 +70,38 @@ func serveTproxySocksBridge(ln net.Listener) {
 	}
 }
 
+var (
+	lastOrigDestLog atomic.Int64
+	origDestLogGate = 10 * time.Second
+)
+
+// logOriginalDestFailure warns at most once per 10 s per process: plain
+// (non-redirected) conns or a broken REDIRECT must not spam the panel log.
+func logOriginalDestFailure(c net.Conn, err error) {
+	now := time.Now().UnixNano()
+	for {
+		last := lastOrigDestLog.Load()
+		if now-last < int64(origDestLogGate) && !lastOrigDestLog.CompareAndSwap(last, now) {
+			return
+		}
+		if lastOrigDestLog.CompareAndSwap(last, now) {
+			break
+		}
+	}
+	fam := "ipv4"
+	if ta, ok := c.LocalAddr().(*net.TCPAddr); ok && ta.IP.To4() == nil {
+		fam = "ipv6"
+	}
+	logger.Warningf("awg: tproxy socks bridge (%s): original destination extraction failed: %v — connection closed; check REDIRECT rules", fam, err)
+}
+
 func handleTproxySocksConn(c net.Conn) {
 	defer c.Close()
 	dst, err := originalTCPDest(c)
 	if err != nil || dst == "" {
+		// Silent before (tester report: IPv6 EOF with no trace) — now a
+		// throttled warning so a broken REDIRECT/sockopt path is visible.
+		logOriginalDestFailure(c, err)
 		return
 	}
 	tproxySocksMu.Lock()
@@ -145,8 +175,8 @@ func originalTCPDest6(tc *net.TCPConn) (string, error) {
 		_, _, errno = syscall.Syscall6(
 			syscall.SYS_GETSOCKOPT,
 			fd,
-			syscall.IPPROTO_IP,
-			80,
+			syscall.IPPROTO_IPV6, // IPv6 sockets keep SO_ORIGINAL_DST under IP6T level; the IPv4 level returns ENOENT here (tester report, lucx.380-era)
+			80,                   // IP6T_SO_ORIGINAL_DST — same numeric option as the IPv4 one
 			uintptr(unsafe.Pointer(&ip)),
 			uintptr(unsafe.Pointer(&n)),
 			0,

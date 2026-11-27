@@ -1,5 +1,21 @@
 # LucX-UI — Прогресс
 
+## lucx.382 - fix: tproxy bridge originalTCPDest6 used the IPv4 sockopt level - every IPv6 connection EOF'd (tester HTML report)
+
+AnyTLS `routeThroughXray` to IPv6 destinations died with EOF while IPv4 to the
+same host worked (tester HTML report, lucx.380 stand, Debian 13; repro:
+`curl --proxy socks5h://… --resolve host:443:<AAAA>`). Diagnosis in the
+report matched the source: `originalTCPDest6()` queried
+SO_ORIGINAL_DST (opt 80) with `IPPROTO_IP` — ENOENT on an AF_INET6 socket
+(verified by the tester: IPPROTO_IPV6 returns the real address/port); the
+socks-bridge handler then returned silently. Fix: `IPPROTO_IPV6` in
+`originalTCPDest6` only (opt number stays 80 = IP6T_SO_ORIGINAL_DST), the
+IPv4 branch untouched; the silent handler close now logs a throttled warning
+(once / 10 s) naming family, peer and errno. Pin:
+`TestOriginalDestSockoptLevels` (linux) keeps exactly one IPv4-level and one
+IPv6-level call in the source; the live REDIRECT end-to-end check belongs to
+the tester's stand checklist (CAP_NET_ADMIN + nf_nat_ipv6).
+
 ## lucx.381 - fix: Cover LocalPort/LoginPage survive the zod round-trip
 
 Third instance of the lucx.368 zod-stripping class (369 tester report, Андрей):
