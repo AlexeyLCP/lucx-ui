@@ -1,5 +1,22 @@
 # LucX-UI — Прогресс
 
+## lucx.382.1 - fix: HidePanel больше не прячет ПОДПИСКУ, если её роут не применён за gateway
+
+382 report follow-up (Андрей): панель на случайном порту, подписка на
+2096 — ссылки подписки вдруг отдаются как `https://host/...` (порт исчез).
+Причина: `BuildSubURIBase` подменял порт по `gatewayHidesPanel()` — а
+lucx.380 («сохранение инбаунда больше не сносит applied-стейт маскировки»)
+сделало застрявший `hidePanel+snapshot` видимым навсегда: у Андрея шлюз
+применён ДО включения подписки, его применённые `PanelRoutes` не несут
+sub-роута — «sub за 443» было ложью, ссылки мёртвые, `sub:2096` живой.
+Фикс: новый точный `gatewayHidesSub()` — шлюз применён + HidePanel + sub-путь
+есть в применённых `PanelRoutes`; `BuildSubURIBase` использует его
+(`gatewayHidesPanel` удалён). Тесты:
+`TestBuildSubURIBase_HidesSubOnlyWhenActuallyRouted`,
+`TestGatewayHidesSub_TruthTable`. Оператор с застрявшим стейном: либо
+пере-применить маскировку (тогда sub-роут попадёт в PanelRoutes), либо
+прописать `subURI` вручную в настройках подписки.
+
 ## lucx.382 - fix: tproxy bridge originalTCPDest6 used the IPv4 sockopt level - every IPv6 connection EOF'd (tester HTML report)
 
 AnyTLS `routeThroughXray` to IPv6 destinations died with EOF while IPv4 to the

@@ -2014,7 +2014,13 @@ func isLoopbackHost(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func gatewayHidesPanel() bool {
+// gatewayHidesSub reports whether the subscription is actually reachable
+// behind an applied gateway: an applied, panel-hiding gateway whose applied
+// PanelRoutes carry the sub path. HidePanel alone is NOT enough — a gateway
+// applied before the sub was enabled (or without its route) leaves the sub
+// server on its own port while gatewayHidesPanel() would claim 443 and hand
+// out dead links (Андрей, 382 report: sub port 2096 vanished).
+func gatewayHidesSub() bool {
 	db := database.GetDB()
 	if db == nil {
 		return false
@@ -2023,10 +2029,21 @@ func gatewayHidesPanel() bool {
 	if err := db.Where("protocol = ?", model.Gateway).Find(&rows).Error; err != nil {
 		return false
 	}
+	st := SettingService{}
+	subPath, _ := st.GetSubPath()
+	subPath = strings.TrimSuffix(strings.TrimSpace(subPath), "/")
+	if subPath == "" {
+		return false
+	}
 	for i := range rows {
 		cfg, ok := tunnel.GatewayConfigFromInbound(&rows[i])
-		if ok && cfg.Applied() && cfg.HidePanel {
-			return true
+		if !ok || !cfg.Applied() || !cfg.HidePanel {
+			continue
+		}
+		for _, r := range cfg.PanelRoutes {
+			if strings.TrimSuffix(strings.TrimSpace(r.Path), "/") == subPath {
+				return true
+			}
 		}
 	}
 	return false
@@ -2071,7 +2088,7 @@ func (s *SettingService) BuildSubURIBase(host string) string {
 			}
 		}
 	}
-	if gatewayHidesPanel() {
+	if gatewayHidesSub() {
 		subPort = 443
 		subTLS = true
 	}
